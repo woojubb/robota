@@ -56,57 +56,114 @@ export async function generateMetadata({
   };
 }
 
+const QUICK_LINKS = [
+  {
+    title: 'Getting Started',
+    href: '/getting-started',
+    desc: 'CLI quick start — first agent in 5 lines',
+    tag: '01',
+  },
+  {
+    title: 'Guide',
+    href: '/guide',
+    desc: 'Architecture, SDK, CLI, plugins, and more',
+    tag: '02',
+  },
+  {
+    title: 'Examples',
+    href: '/examples',
+    desc: 'Real-world code examples for common use cases',
+    tag: '03',
+  },
+  {
+    title: 'Packages',
+    href: '/packages',
+    desc: 'API reference for every SDK package',
+    tag: '04',
+  },
+  {
+    title: 'Changelog',
+    href: '/changelog',
+    desc: 'Release notes and version history',
+    tag: '05',
+  },
+  {
+    title: 'Development',
+    href: '/development',
+    desc: 'Contributing guide and development setup',
+    tag: '06',
+  },
+];
+
 // Custom home page — rendered for the root slug ([])
 function HomePage() {
   return (
     <div>
+      {/* Hero */}
       <div
         style={{
           marginBottom: '3rem',
-          paddingBottom: '2rem',
+          paddingBottom: '2.5rem',
           borderBottom: '1px solid var(--border)',
         }}
       >
+        {/* Badge */}
         <div
           style={{
-            display: 'inline-block',
-            padding: '0.25rem 0.75rem',
-            background: 'var(--accent-dim)',
-            border: '1px solid rgba(167,139,250,0.25)',
-            borderRadius: '9999px',
-            fontSize: '0.8rem',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.375rem',
+            padding: '0.2rem 0.625rem',
+            background: 'var(--primary-dim)',
+            border: '1px solid rgba(0,255,136,0.2)',
+            borderRadius: '0.25rem',
+            fontSize: '0.72rem',
+            fontFamily: 'var(--font-code)',
             color: 'var(--primary)',
-            marginBottom: '1.25rem',
-            fontWeight: 500,
+            marginBottom: '1.5rem',
+            letterSpacing: '0.06em',
           }}
         >
-          Open Source · MIT Licensed
+          <span style={{ opacity: 0.6 }}>$</span> open-source · MIT licensed
         </div>
+
         <h1
           style={{
-            fontSize: '2.5rem',
-            fontWeight: 800,
-            lineHeight: 1.15,
-            marginBottom: '1rem',
-            color: 'var(--foreground)',
+            fontFamily: 'var(--font-display)',
+            fontSize: '2.25rem',
+            fontWeight: 700,
+            lineHeight: 1.12,
+            marginBottom: '1.125rem',
+            color: 'var(--foreground-hi)',
+            letterSpacing: '-0.025em',
           }}
         >
           Robota SDK
           <br />
-          <span style={{ color: 'var(--primary)' }}>Documentation</span>
+          <span
+            style={{
+              color: 'var(--primary)',
+              textShadow: '0 0 32px rgba(0,255,136,0.25)',
+            }}
+          >
+            Documentation
+          </span>
         </h1>
+
         <p
           style={{
-            fontSize: '1.125rem',
+            fontSize: '1rem',
+            fontFamily: 'var(--font-body)',
             color: 'var(--muted-foreground)',
-            lineHeight: 1.7,
-            maxWidth: '56ch',
-            marginBottom: '1.5rem',
+            lineHeight: 1.75,
+            maxWidth: '52ch',
+            marginBottom: '1.75rem',
           }}
         >
           Multi-provider AI agent SDK and CLI — TypeScript-native, self-hostable. Supports
           Anthropic, OpenAI, DeepSeek, Gemini, and local models.
         </p>
+
         <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
           <a
             href="/getting-started"
@@ -114,14 +171,17 @@ function HomePage() {
               display: 'inline-flex',
               alignItems: 'center',
               gap: '0.375rem',
-              padding: '0.6rem 1.25rem',
+              padding: '0.55rem 1.25rem',
               background: 'var(--primary)',
               color: 'var(--primary-foreground)',
-              borderRadius: '0.5rem',
+              borderRadius: '0.25rem',
               fontWeight: 600,
-              fontSize: '0.9rem',
+              fontSize: '0.85rem',
+              fontFamily: 'var(--font-display)',
               textDecoration: 'none',
-              transition: 'opacity 0.15s',
+              letterSpacing: '0.02em',
+              boxShadow: '0 0 24px rgba(0,255,136,0.2)',
+              transition: 'box-shadow 0.2s',
             }}
           >
             Get Started →
@@ -132,14 +192,16 @@ function HomePage() {
               display: 'inline-flex',
               alignItems: 'center',
               gap: '0.375rem',
-              padding: '0.6rem 1.25rem',
-              background: 'var(--muted)',
+              padding: '0.55rem 1.25rem',
+              background: 'transparent',
               color: 'var(--foreground)',
-              border: '1px solid var(--border)',
-              borderRadius: '0.5rem',
+              border: '1px solid var(--border-strong)',
+              borderRadius: '0.25rem',
               fontWeight: 500,
-              fontSize: '0.9rem',
+              fontSize: '0.85rem',
+              fontFamily: 'var(--font-display)',
               textDecoration: 'none',
+              letterSpacing: '0.02em',
               transition: 'border-color 0.15s',
             }}
           >
@@ -152,74 +214,61 @@ function HomePage() {
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
-          gap: '1rem',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))',
+          gap: '0.75rem',
           marginBottom: '3rem',
         }}
       >
-        {[
-          {
-            title: 'Getting Started',
-            href: '/getting-started',
-            desc: 'CLI quick start and first agent in 5 lines',
-            icon: '🚀',
-          },
-          {
-            title: 'Guide',
-            href: '/guide',
-            desc: 'Architecture, SDK, CLI, plugins, and more',
-            icon: '📖',
-          },
-          {
-            title: 'Examples',
-            href: '/examples',
-            desc: 'Real-world code examples for common use cases',
-            icon: '💡',
-          },
-          {
-            title: 'Packages',
-            href: '/packages',
-            desc: 'API reference for every SDK package',
-            icon: '📦',
-          },
-          {
-            title: 'Changelog',
-            href: '/changelog',
-            desc: 'Release notes and version history',
-            icon: '📋',
-          },
-          {
-            title: 'Development',
-            href: '/development',
-            desc: 'Contributing guide and development setup',
-            icon: '🛠',
-          },
-        ].map((card) => (
+        {QUICK_LINKS.map((card) => (
           <a
             key={card.href}
             href={card.href}
             style={{
               display: 'block',
-              padding: '1.25rem',
+              padding: '1.125rem',
               background: 'var(--card)',
               border: '1px solid var(--border)',
-              borderRadius: '0.625rem',
+              borderRadius: '0.375rem',
               textDecoration: 'none',
-              transition: 'border-color 0.15s, background 0.15s',
+              transition: 'border-color 0.2s, background 0.2s',
+              position: 'relative',
+              overflow: 'hidden',
             }}
           >
-            <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>{card.icon}</div>
+            <span
+              style={{
+                position: 'absolute',
+                top: '0.75rem',
+                right: '0.875rem',
+                fontFamily: 'var(--font-code)',
+                fontSize: '0.65rem',
+                color: 'rgba(0,255,136,0.25)',
+                letterSpacing: '0.04em',
+                userSelect: 'none',
+              }}
+            >
+              {card.tag}
+            </span>
             <div
               style={{
+                fontFamily: 'var(--font-display)',
                 fontWeight: 600,
-                fontSize: '0.95rem',
-                color: 'var(--foreground)',
-                marginBottom: '0.35rem',
+                fontSize: '0.875rem',
+                color: 'var(--foreground-hi)',
+                marginBottom: '0.375rem',
+                letterSpacing: '-0.01em',
               }}
             >
               {card.title}
             </div>
-            <div style={{ fontSize: '0.82rem', color: 'var(--muted-foreground)', lineHeight: 1.5 }}>
+            <div
+              style={{
+                fontSize: '0.775rem',
+                fontFamily: 'var(--font-body)',
+                color: 'var(--muted-foreground)',
+                lineHeight: 1.55,
+              }}
+            >
               {card.desc}
             </div>
           </a>
@@ -228,37 +277,43 @@ function HomePage() {
 
       {/* Quick install */}
       <div>
-        <h2
+        <p
           style={{
-            fontSize: '1.2rem',
+            fontFamily: 'var(--font-display)',
+            fontSize: '0.7rem',
             fontWeight: 600,
+            letterSpacing: '0.1em',
+            textTransform: 'uppercase',
+            color: 'var(--muted-foreground)',
             marginBottom: '0.75rem',
-            color: 'var(--foreground)',
           }}
         >
           Quick Install
-        </h2>
+        </p>
         <pre
           style={{
-            background: '#0d1117',
-            border: '1px solid var(--border)',
-            borderRadius: '0.5rem',
-            padding: '1rem 1.25rem',
-            fontSize: '0.875rem',
-            fontFamily: 'ui-monospace, "Cascadia Code", Menlo, Consolas, monospace',
-            color: '#e8e6f0',
+            background: '#020207',
+            border: '1px solid var(--border-strong)',
+            borderTop: '1px solid var(--primary)',
+            borderRadius: '0.375rem',
+            padding: '1.125rem 1.375rem',
+            fontSize: '0.825rem',
+            fontFamily: 'var(--font-code)',
+            color: '#d4d4d8',
             overflowX: 'auto',
+            lineHeight: 1.65,
           }}
         >
           <code>
-            <span style={{ color: '#7b7a95' }}># Install the CLI globally</span>
+            <span style={{ color: '#52525b' }}># Install the CLI globally</span>
             {'\n'}
-            <span style={{ color: '#a78bfa' }}>pnpm</span> add -g @robota-sdk/agent-cli
+            <span style={{ color: 'var(--primary)', opacity: 0.85 }}>pnpm</span>
+            {' add -g @robota-sdk/agent-cli'}
             {'\n\n'}
-            <span style={{ color: '#7b7a95' }}># Or install SDK packages for your app</span>
+            <span style={{ color: '#52525b' }}># Or install SDK packages for your app</span>
             {'\n'}
-            <span style={{ color: '#a78bfa' }}>pnpm</span> add @robota-sdk/agent-core
-            @robota-sdk/agent-provider
+            <span style={{ color: 'var(--primary)', opacity: 0.85 }}>pnpm</span>
+            {' add @robota-sdk/agent-core @robota-sdk/agent-provider'}
           </code>
         </pre>
       </div>
