@@ -12,6 +12,7 @@ export const enConfig = {
       { text: 'Showcase', link: '/showcase/' },
       { text: 'Roadmap', link: '/roadmap' },
       { text: 'Enterprise', link: '/enterprise/' },
+      { text: 'Cost Calculator', link: '/tools/cost-calculator' },
       { text: 'Development', link: '/development/' },
       { text: 'Playground', link: 'https://play.robota.io', target: '_blank' },
     ],
