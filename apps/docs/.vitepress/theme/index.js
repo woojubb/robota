@@ -2,6 +2,7 @@ import DefaultTheme from 'vitepress/theme';
 import './style.css';
 import { onMounted, watch, nextTick } from 'vue';
 import { useRoute } from 'vitepress';
+import CostCalculator from './CostCalculator.vue';
 
 function processMermaid() {
   if (typeof window === 'undefined') return;
@@ -41,6 +42,9 @@ function processMermaid() {
 
 export default {
   extends: DefaultTheme,
+  enhanceApp({ app }) {
+    app.component('CostCalculator', CostCalculator);
+  },
   setup() {
     const route = useRoute();
     onMounted(() => nextTick(processMermaid));
