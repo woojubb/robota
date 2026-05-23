@@ -1,6 +1,6 @@
 ---
 title: 'UX-018: ? 키 인라인 단축키 오버레이 — TUI 내 도움말 즉시 접근'
-status: todo
+status: done
 created: 2026-05-23
 priority: medium
 urgency: later
