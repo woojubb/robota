@@ -148,29 +148,30 @@ Type `/` to trigger the autocomplete popup. Arrow keys to navigate, Tab to inser
 
 The available command list is built from the consolidated `@robota-sdk/agent-command` package, which bundles all 20 command modules. The CLI renders this list but does not own the command definitions.
 
-| Command                   | Description                             |
-| ------------------------- | --------------------------------------- |
-| `/help`                   | Show available commands                 |
-| `/clear`                  | Clear conversation history              |
-| `/model [model]`          | Show or change AI model                 |
-| `/compact [instructions]` | Compress context window                 |
-| `/cost`                   | Show session info                       |
-| `/context`                | Context window details                  |
-| `/permissions [mode]`     | Show permission rules or change mode    |
-| `/memory`                 | Inspect and manage project memory       |
-| `/rewind`                 | List and restore edit checkpoints       |
-| `/provider`               | Manage provider profiles                |
-| `/resume`                 | Resume a previous session               |
-| `/background`             | List and control background tasks       |
-| `/agent`                  | Run and manage background subagent jobs |
-| `/rename`                 | Rename the current session              |
-| `/validate-session`       | Validate replay-grade session log data  |
-| `/exit`                   | Exit CLI                                |
-| `/plugin`                 | Plugin management                       |
-| `/reload-plugins`         | Reload all plugin resources             |
-| `/language [lang]`        | Show or change UI language              |
-| `/statusline`             | Show, hide, or reset status line fields |
-| `/reset`                  | Delete settings and exit                |
+| Command                   | Description                                         |
+| ------------------------- | --------------------------------------------------- |
+| `/help`                   | Show available commands                             |
+| `/clear`                  | Clear conversation history                          |
+| `/model [model]`          | Show or change AI model                             |
+| `/compact [instructions]` | Compress context window                             |
+| `/cost`                   | Show session info                                   |
+| `/context`                | Context window details                              |
+| `/permissions [mode]`     | Show permission rules or change mode                |
+| `/memory`                 | Inspect and manage project memory                   |
+| `/rewind`                 | List and restore edit checkpoints                   |
+| `/provider`               | Manage provider profiles                            |
+| `/resume`                 | Resume a previous session                           |
+| `/background`             | List and control background tasks                   |
+| `/agent`                  | Run and manage background subagent jobs             |
+| `/rename`                 | Rename the current session                          |
+| `/validate-session`       | Validate replay-grade session log data              |
+| `/exit`                   | Exit CLI                                            |
+| `/plugin`                 | Plugin management                                   |
+| `/reload-plugins`         | Reload all plugin resources                         |
+| `/language [lang]`        | Show or change UI language                          |
+| `/settings`               | Open transport settings (enable/disable transports) |
+| `/statusline`             | Show, hide, or reset status line fields             |
+| `/reset`                  | Delete settings and exit                            |
 
 `/permissions` and `/model` show nested submenus for selection.
 

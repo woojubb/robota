@@ -47,11 +47,13 @@ robota -p "List all files"    # Print mode (one-shot, exit after response)
 
 ### Environment Variables
 
-| Variable            | Description                                    | Required       |
-| ------------------- | ---------------------------------------------- | -------------- |
-| `ANTHROPIC_API_KEY` | Anthropic API key for the `anthropic` provider | Anthropic only |
-| `DEEPSEEK_API_KEY`  | DeepSeek API key for the `deepseek` provider   | DeepSeek only  |
-| `DASHSCOPE_API_KEY` | Alibaba Cloud Model Studio key for `qwen`      | Qwen only      |
+| Variable            | Description                    | Provider  |
+| ------------------- | ------------------------------ | --------- |
+| `ANTHROPIC_API_KEY` | Anthropic API key              | Anthropic |
+| `OPENAI_API_KEY`    | OpenAI API key                 | OpenAI    |
+| `GEMINI_API_KEY`    | Google Gemini API key          | Gemini    |
+| `DEEPSEEK_API_KEY`  | DeepSeek API key               | DeepSeek  |
+| `DASHSCOPE_API_KEY` | Alibaba Cloud Model Studio key | Qwen      |
 
 Set your key before running:
 
