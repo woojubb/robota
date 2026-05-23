@@ -38,7 +38,8 @@ export function createDeepSeekProviderDefinition(): IProviderDefinition {
   return {
     type: 'deepseek',
     displayName: 'DeepSeek',
-    description: 'DeepSeek OpenAI-compatible endpoint',
+    description: 'High performance at low cost. API key required.',
+    category: 'cloud-paid',
     defaults: {
       model: DEFAULT_DEEPSEEK_PROVIDER_MODEL,
       apiKey: DEFAULT_DEEPSEEK_PROVIDER_API_KEY_REFERENCE,

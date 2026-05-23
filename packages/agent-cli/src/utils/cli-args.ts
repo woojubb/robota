@@ -48,6 +48,7 @@ export interface IParsedCliArgs {
   settingsScope: string | undefined;
   checkUpdate: boolean;
   disableUpdateCheck: boolean;
+  dryRun: boolean;
 }
 
 /** Return CLI usage help text. */
@@ -71,14 +72,20 @@ Options:
   --fork-session             Fork the current session
   --configure                Run interactive provider configuration
   --configure-provider <n>   Configure a specific provider
+  --dry-run <prompt>         Plan-only run: show what the agent would do without modifying files
   --check-update             Check for CLI updates
   --version                  Show version number
   -h, --help                 Show this help message
 
+Commands:
+  robota init                      Initialize AGENTS.md and .robota/settings.json
+
 Examples:
   robota                           Start interactive TUI session
+  robota init                      Initialize project files
   robota -p "Hello"                Print mode: send prompt and exit
   robota -p "Hello" --output-format json
+  robota --dry-run "Refactor the auth module"      Show plan without modifying files
   robota --continue                Resume the last session
 `;
 }
@@ -148,6 +155,7 @@ const PARSE_ARGS_CONFIG = {
     'settings-scope': { type: 'string' },
     'check-update': { type: 'boolean', default: false },
     'disable-update-check': { type: 'boolean', default: false },
+    'dry-run': { type: 'boolean', default: false },
   },
 } as const;
 
@@ -191,6 +199,7 @@ function mapParsedValues(
     settingsScope: values['settings-scope'],
     checkUpdate: values['check-update'] ?? false,
     disableUpdateCheck: values['disable-update-check'] ?? false,
+    dryRun: values['dry-run'] ?? false,
   };
 }
 

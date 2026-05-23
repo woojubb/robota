@@ -13,8 +13,9 @@ export type { ISpinner, ITerminalOutput };
  * - true: allow this invocation
  * - false: deny this invocation
  * - 'allow-session': allow this invocation and auto-approve this tool for the rest of the session
+ * - 'allow-project': allow this invocation and persist the approval to .robota/settings.local.json
  */
-export type TPermissionResult = boolean | 'allow-session';
+export type TPermissionResult = boolean | 'allow-session' | 'allow-project';
 
 /**
  * Custom permission handler — called when a tool needs user approval.
@@ -54,6 +55,8 @@ export interface IPermissionEnforcerOptions {
   hookTypeExecutors?: IHookTypeExecutor[];
   /** Absolute path to session transcript file — passed to PreToolUse hook inputs as transcript_path */
   transcriptPath?: string;
+  /** Called when the user selects "allow for project" — persists the tool pattern to project settings. */
+  onProjectAllowTool?: (toolName: string) => void;
 }
 
 /** Returned when the user denies a permission prompt. success:true prevents ToolExecutionError. */

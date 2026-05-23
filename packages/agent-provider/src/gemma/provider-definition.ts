@@ -38,8 +38,9 @@ const GEMMA_MODEL_CATALOG: NonNullable<IProviderDefinition['modelCatalog']> = {
 export function createGemmaProviderDefinition(): IProviderDefinition {
   return {
     type: 'gemma',
-    displayName: 'Gemma',
-    description: 'Gemma-family local models through an OpenAI-compatible endpoint',
+    displayName: 'Gemma / LM Studio',
+    description: 'Local models via LM Studio or Ollama. No API key needed.',
+    category: 'local-free',
     defaults: {
       model: DEFAULT_GEMMA_PROVIDER_MODEL,
       apiKey: DEFAULT_GEMMA_PROVIDER_API_KEY,

@@ -48,6 +48,7 @@ export class PermissionEnforcer {
   private readonly hookTypeExecutors?: IPermissionEnforcerOptions['hookTypeExecutors'];
   private readonly transcriptPath?: string;
   private readonly sessionAllowedTools = new Set<string>();
+  private readonly onProjectAllowTool?: (toolName: string) => void;
 
   constructor(options: IPermissionEnforcerOptions) {
     this.sessionId = options.sessionId;
@@ -61,6 +62,7 @@ export class PermissionEnforcer {
     this.onToolExecution = options.onToolExecution;
     this.hookTypeExecutors = options.hookTypeExecutors;
     this.transcriptPath = options.transcriptPath;
+    this.onProjectAllowTool = options.onProjectAllowTool;
   }
 
   /** Wrap all tools with permission checking */
@@ -207,6 +209,11 @@ export class PermissionEnforcer {
       const result = await this.permissionHandler(toolName, toolArgs);
       if (result === 'allow-session') {
         this.sessionAllowedTools.add(toolName);
+        return true;
+      }
+      if (result === 'allow-project') {
+        this.sessionAllowedTools.add(toolName);
+        this.onProjectAllowTool?.(toolName);
         return true;
       }
       return result;

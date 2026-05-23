@@ -65,6 +65,8 @@ export interface ISessionOptions {
   sessionId?: string;
   /** Custom permission handler (overrides terminal-based prompts, used by Ink UI) */
   permissionHandler?: TPermissionHandler;
+  /** Called when the user selects "allow for project" — persists the tool pattern to project settings. */
+  onProjectAllowTool?: (toolName: string) => void;
   /** Callback for text deltas — enables streaming text to the UI in real-time */
   onTextDelta?: (delta: string) => void;
   /** Callback when context window usage is refreshed */

@@ -58,6 +58,21 @@ describe('permission prompt flow', () => {
     expect(result.effect).toEqual({ type: 'resolve', decision: 'allow-session' });
   });
 
+  it('Given p or 3 shortcut When applied Then allow-project decision is emitted', () => {
+    expect(
+      applyPermissionPromptInput(
+        createSelectionFlowState(),
+        getPermissionPromptInputAction('p', {})!,
+      ).effect,
+    ).toEqual({ type: 'resolve', decision: 'allow-project' });
+    expect(
+      applyPermissionPromptInput(
+        createSelectionFlowState(),
+        getPermissionPromptInputAction('3', {})!,
+      ).effect,
+    ).toEqual({ type: 'resolve', decision: 'allow-project' });
+  });
+
   it('Given deny shortcuts When applied Then false decision is emitted', () => {
     expect(
       applyPermissionPromptInput(
@@ -68,7 +83,7 @@ describe('permission prompt flow', () => {
     expect(
       applyPermissionPromptInput(
         createSelectionFlowState(),
-        getPermissionPromptInputAction('3', {})!,
+        getPermissionPromptInputAction('4', {})!,
       ).effect,
     ).toEqual({ type: 'resolve', decision: false });
   });

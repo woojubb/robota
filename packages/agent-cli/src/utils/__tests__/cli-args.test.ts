@@ -207,6 +207,18 @@ describe('new non-interactive flags', () => {
     expect(parseCliArgs().allowedTools).toBe('Bash,Read,Write');
   });
 
+  it('parses --dry-run flag', () => {
+    process.argv = ['node', 'cli', '--dry-run', 'Refactor auth'];
+    const args = parseCliArgs();
+    expect(args.dryRun).toBe(true);
+    expect(args.positional).toContain('Refactor auth');
+  });
+
+  it('defaults dryRun to false', () => {
+    process.argv = ['node', 'cli'];
+    expect(parseCliArgs().dryRun).toBe(false);
+  });
+
   it('defaults allowedTools to undefined', () => {
     process.argv = ['node', 'cli'];
     expect(parseCliArgs().allowedTools).toBeUndefined();

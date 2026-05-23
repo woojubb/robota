@@ -173,7 +173,7 @@ describe('provider startup', () => {
     const home = join(TMP_BASE, 'home-openai');
     process.env.HOME = home;
     process.env.OPENAI_API_KEY = 'sk-openai-from-env';
-    const answers = ['openai', 'gpt-4o', '', 'ko'];
+    const answers = ['1', 'openai', 'gpt-4o', '', 'ko'];
     const promptInput = async (): Promise<string> => answers.shift() ?? '';
 
     await runInteractiveProviderSetup(
@@ -200,7 +200,7 @@ describe('provider startup', () => {
     const home = join(TMP_BASE, 'home-qwen');
     process.env.HOME = home;
     process.env.DASHSCOPE_API_KEY = 'dashscope-key';
-    const answers = ['3', '', '', '', 'ko'];
+    const answers = ['1', '3', '', '', '', 'ko'];
     const prompts: string[] = [];
     const promptInput = async (label: string): Promise<string> => {
       prompts.push(label);
@@ -217,8 +217,8 @@ describe('provider startup', () => {
 
     const settings = readUserSettings(home);
     const providers = settings.providers as Record<string, Record<string, unknown>>;
-    expect(prompts[0]).toContain('Select provider');
-    expect(prompts[0]).toContain('Qwen (qwen)');
+    expect(prompts[1]).toContain('Select provider');
+    expect(prompts[1]).toContain('Qwen (qwen)');
     expect(settings.currentProvider).toBe('qwen');
     expect(settings.language).toBe('ko');
     expect(providers['qwen']).toMatchObject({
@@ -233,7 +233,7 @@ describe('provider startup', () => {
     const home = join(TMP_BASE, 'home-deepseek');
     process.env.HOME = home;
     process.env.DEEPSEEK_API_KEY = 'deepseek-key';
-    const answers = ['4', '', '', '', 'ko'];
+    const answers = ['1', '4', '', '', '', 'ko'];
     const prompts: string[] = [];
     const promptInput = async (label: string): Promise<string> => {
       prompts.push(label);
@@ -250,7 +250,7 @@ describe('provider startup', () => {
 
     const settings = readUserSettings(home);
     const providers = settings.providers as Record<string, Record<string, unknown>>;
-    expect(prompts[0]).toContain('DeepSeek (deepseek)');
+    expect(prompts[1]).toContain('DeepSeek (deepseek)');
     expect(settings.currentProvider).toBe('deepseek');
     expect(settings.language).toBe('ko');
     expect(providers['deepseek']).toMatchObject({
@@ -343,7 +343,7 @@ describe('provider startup', () => {
         },
       },
     });
-    const answers = ['1', 'sk-ant-project', '', 'ko'];
+    const answers = ['1', '1', 'sk-ant-project', '', 'ko'];
     const promptInput = async (): Promise<string> => answers.shift() ?? '';
 
     await ensureConfig(project, baseArgs(), promptInput, NOOP_TERMINAL, providerDefinitions, true);

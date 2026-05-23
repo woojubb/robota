@@ -27,31 +27,31 @@ Do not promote entries to `.agents/rules/common-mistakes.md` without human revie
 
 ## same-file-edited-3-times
 
-- Frequency: 76815 events in the last 7 days
+- Frequency: 85626 events in the last 7 days
 - Sources: reverts
 - Example paths: `/Users/jungyoun/.claude/projects/-Users-jungyoun-Documents-dev-robota/memory/MEMORY.md`, `/Users/jungyoun/.claude/projects/-Users-jungyoun-Documents-dev-robota/memory/feedback_otp_immediate.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-002-p10-cli-ts-extract-startup-modules.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-002-p22-subagent-worker-to-framework.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-002-p23-plugin-adapter-to-framework.md`
 - First seen: 2026-05-16T05:22:57.000Z
-- Last seen: 2026-05-22T00:40:37.000Z
+- Last seen: 2026-05-22T17:39:14.000Z
 - Status: candidate; human review is required before promotion.
 <!-- auto-lesson:repeated-tool-errors -->
 
 ## repeated-tool-errors
 
-- Frequency: 228 events in the last 7 days
+- Frequency: 246 events in the last 7 days
 - Sources: reverts
 - Example paths: (none)
 - First seen: 2026-05-16T05:22:57.000Z
-- Last seen: 2026-05-22T00:40:37.000Z
+- Last seen: 2026-05-22T17:39:14.000Z
 - Status: candidate; human review is required before promotion.
 <!-- auto-lesson:try-catch-fallback -->
 
 ## try-catch-fallback
 
-- Frequency: 51 events in the last 7 days
+- Frequency: 53 events in the last 7 days
 - Sources: blocks
 - Example paths: `packages/agent-cli/src/cli.ts`, `packages/agent-cli/src/startup/append-system-prompt.ts`, `packages/agent-cli/src/startup/version.ts`, `packages/agent-command/src/plugins/default-plugin-command-adapter.ts`, `packages/agent-framework/src/checkpoints/edit-checkpoint-store.ts`
 - First seen: 2026-05-16T05:06:20.000Z
-- Last seen: 2026-05-19T13:46:50.000Z
+- Last seen: 2026-05-22T17:28:10.000Z
 - Status: candidate; human review is required before promotion.
 <!-- auto-lesson:console-usage -->
 
