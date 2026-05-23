@@ -69,10 +69,12 @@ Options:
   -c, --continue             Continue the most recent session
   -r, --resume <id>          Resume a session by ID or name
   -n, --name <name>          Name for the new session
-  --fork-session             Fork the current session
+  --fork-session             Fork the current session into a new independent session
+  --task-file <path>         Read a task prompt from file and append it to the system prompt
+  --bare                     Print mode: output raw text only, no formatting wrapper
   --configure                Run interactive provider configuration
   --configure-provider <n>   Configure a specific provider
-  --dry-run <prompt>         Plan-only run: show what the agent would do without modifying files
+  --dry-run                  Plan-only run: show what the agent would do without modifying files
   --check-update             Check for CLI updates
   --version                  Show version number
   -h, --help                 Show this help message
@@ -85,6 +87,8 @@ Examples:
   robota init                      Initialize project files
   robota -p "Hello"                Print mode: send prompt and exit
   robota -p "Hello" --output-format json
+  robota -p "Review this diff" --bare    Raw output for shell pipelines
+  robota --task-file task.md       Run task from file (appended to system prompt)
   robota --dry-run "Refactor the auth module"      Show plan without modifying files
   robota --continue                Resume the last session
 `;
