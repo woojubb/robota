@@ -11,6 +11,7 @@ export const enConfig = {
       { text: 'Changelog', link: '/changelog/' },
       { text: 'Showcase', link: '/showcase/' },
       { text: 'Roadmap', link: '/roadmap' },
+      { text: 'Enterprise', link: '/enterprise/' },
       { text: 'Development', link: '/development/' },
       { text: 'Playground', link: 'https://play.robota.io', target: '_blank' },
     ],
