@@ -1036,6 +1036,116 @@ importers:
         specifier: ^1.6.1
         version: 1.6.1(@types/node@20.19.9)
 
+  packages/plugin-github:
+    dependencies:
+      '@robota-sdk/agent-core':
+        specifier: workspace:*
+        version: link:../agent-core
+    devDependencies:
+      '@types/node':
+        specifier: ^22.14.0
+        version: 22.16.5
+      rimraf:
+        specifier: ^6.0.1
+        version: 6.1.3
+      tsdown:
+        specifier: ^0.22.0
+        version: 0.22.0(tsx@4.21.0)(typescript@5.8.3)
+      typescript:
+        specifier: ^5.8.3
+        version: 5.8.3
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@22.16.5)
+
+  packages/plugin-jira:
+    dependencies:
+      '@robota-sdk/agent-core':
+        specifier: workspace:*
+        version: link:../agent-core
+    devDependencies:
+      '@types/node':
+        specifier: ^22.14.0
+        version: 22.16.5
+      rimraf:
+        specifier: ^6.0.1
+        version: 6.1.3
+      tsdown:
+        specifier: ^0.22.0
+        version: 0.22.0(tsx@4.21.0)(typescript@5.8.3)
+      typescript:
+        specifier: ^5.8.3
+        version: 5.8.3
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@22.16.5)
+
+  packages/plugin-linear:
+    dependencies:
+      '@robota-sdk/agent-core':
+        specifier: workspace:*
+        version: link:../agent-core
+    devDependencies:
+      '@types/node':
+        specifier: ^22.14.0
+        version: 22.16.5
+      rimraf:
+        specifier: ^6.0.1
+        version: 6.1.3
+      tsdown:
+        specifier: ^0.22.0
+        version: 0.22.0(tsx@4.21.0)(typescript@5.8.3)
+      typescript:
+        specifier: ^5.8.3
+        version: 5.8.3
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@22.16.5)
+
+  packages/plugin-notion:
+    dependencies:
+      '@robota-sdk/agent-core':
+        specifier: workspace:*
+        version: link:../agent-core
+    devDependencies:
+      '@types/node':
+        specifier: ^22.14.0
+        version: 22.16.5
+      rimraf:
+        specifier: ^6.0.1
+        version: 6.1.3
+      tsdown:
+        specifier: ^0.22.0
+        version: 0.22.0(tsx@4.21.0)(typescript@5.8.3)
+      typescript:
+        specifier: ^5.8.3
+        version: 5.8.3
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@22.16.5)
+
+  packages/plugin-slack:
+    dependencies:
+      '@robota-sdk/agent-core':
+        specifier: workspace:*
+        version: link:../agent-core
+    devDependencies:
+      '@types/node':
+        specifier: ^22.14.0
+        version: 22.16.5
+      rimraf:
+        specifier: ^6.0.1
+        version: 6.1.3
+      tsdown:
+        specifier: ^0.22.0
+        version: 0.22.0(tsx@4.21.0)(typescript@5.8.3)
+      typescript:
+        specifier: ^5.8.3
+        version: 5.8.3
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@22.16.5)
+
 packages:
   /@adobe/css-tools@4.4.3:
     resolution:

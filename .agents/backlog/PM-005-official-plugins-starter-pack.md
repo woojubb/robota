@@ -1,6 +1,6 @@
 ---
 title: 'PM-005: 공식 플러그인 스타터 팩 5종 개발'
-status: todo
+status: done
 created: 2026-05-23
 priority: high
 urgency: later
