@@ -19,12 +19,14 @@ export function Header() {
             >
               Why Robota
             </Link>
+            {/* Cost Calculator — 요금 페이지 미준비, 준비 후 주석 해제
             <Link
               href="/tools/cost-calculator"
               className="rounded-md px-3 py-1.5 text-sm text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
             >
               Cost Calculator
             </Link>
+            */}
             <Link
               href="/showcase"
               className="rounded-md px-3 py-1.5 text-sm text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
