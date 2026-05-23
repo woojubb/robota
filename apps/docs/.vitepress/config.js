@@ -143,9 +143,9 @@ export default defineConfig({
           'The open-source alternative to Claude Code. Multi-provider AI agent SDK and CLI — TypeScript-native, self-hostable. Supports Anthropic, OpenAI, DeepSeek, Gemini, and local models.',
       },
     ],
-    ['meta', { property: 'og:url', content: 'https://robota.io/' }],
+    ['meta', { property: 'og:url', content: 'https://docs.robota.io/' }],
     ['meta', { property: 'og:site_name', content: 'Robota SDK' }],
-    ['meta', { property: 'og:image', content: 'https://robota.io/og-image.png' }],
+    ['meta', { property: 'og:image', content: 'https://docs.robota.io/og-image.png' }],
     ['meta', { property: 'og:image:width', content: '1200' }],
     ['meta', { property: 'og:image:height', content: '630' }],
     ['meta', { property: 'og:image:alt', content: 'Robota SDK - Build AI Agents with TypeScript' }],
@@ -162,7 +162,7 @@ export default defineConfig({
           'The open-source alternative to Claude Code. Multi-provider AI agent SDK and CLI — TypeScript-native, self-hostable. Supports Anthropic, OpenAI, DeepSeek, Gemini, and local models.',
       },
     ],
-    ['meta', { name: 'twitter:image', content: 'https://robota.io/og-image.png' }],
+    ['meta', { name: 'twitter:image', content: 'https://docs.robota.io/og-image.png' }],
     [
       'meta',
       { name: 'twitter:image:alt', content: 'Robota SDK - Build AI Agents with TypeScript' },
@@ -171,7 +171,7 @@ export default defineConfig({
     // Additional SEO tags
     ['meta', { name: 'theme-color', content: '#646cff' }],
     ['meta', { name: 'msapplication-TileColor', content: '#646cff' }],
-    ['link', { rel: 'canonical', href: 'https://robota.io/' }],
+    ['link', { rel: 'canonical', href: 'https://docs.robota.io/' }],
 
     // Favicons
     ['link', { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' }],
@@ -192,7 +192,7 @@ export default defineConfig({
         name: 'Robota SDK',
         description:
           'The open-source alternative to Claude Code. Multi-provider AI agent SDK and CLI — TypeScript-native, self-hostable. Supports Anthropic, OpenAI, DeepSeek, Gemini, and local models.',
-        url: 'https://robota.io/',
+        url: 'https://docs.robota.io/',
         applicationCategory: 'DeveloperApplication',
         operatingSystem: 'Cross-platform',
         programmingLanguage: ['TypeScript', 'JavaScript'],
@@ -261,6 +261,6 @@ export default defineConfig({
 
   // Sitemap generation
   sitemap: {
-    hostname: 'https://robota.io/',
+    hostname: 'https://docs.robota.io/',
   },
 });
