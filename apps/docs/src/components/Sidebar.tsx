@@ -26,9 +26,10 @@ function SidebarSection({ item, depth }: SectionProps) {
 
   const hasChildren = item.children && item.children.length > 0;
 
-  return (
-    <div>
-      {hasChildren ? (
+  if (depth === 0 && hasChildren) {
+    return (
+      <div style={{ marginBottom: '0.125rem' }}>
+        {/* Section header — clickable toggle */}
         <button
           onClick={() => setOpen((o) => !o)}
           style={{
@@ -36,19 +37,20 @@ function SidebarSection({ item, depth }: SectionProps) {
             alignItems: 'center',
             justifyContent: 'space-between',
             width: '100%',
-            padding: depth === 0 ? '0.4rem 0.75rem' : '0.3rem 0.75rem 0.3rem 1.25rem',
+            padding: '0.3rem 0.75rem',
             background: 'transparent',
             border: 'none',
-            borderRadius: '0.375rem',
-            color: isActive || isChildActive ? 'var(--primary)' : 'var(--foreground)',
-            fontWeight: depth === 0 ? 600 : 400,
-            fontSize: depth === 0 ? '0.8rem' : '0.825rem',
+            borderRadius: '0.25rem',
+            color: isChildActive || isActive ? 'var(--primary)' : 'var(--muted-foreground)',
+            fontFamily: 'var(--font-display)',
+            fontWeight: 600,
+            fontSize: '0.7rem',
             cursor: 'pointer',
             textAlign: 'left',
-            opacity: depth === 0 ? 1 : 0.85,
-            transition: 'color 0.15s, background 0.15s',
-            letterSpacing: depth === 0 ? '0.06em' : undefined,
-            textTransform: depth === 0 ? 'uppercase' : undefined,
+            letterSpacing: '0.1em',
+            textTransform: 'uppercase',
+            transition: 'color 0.15s',
+            marginTop: '1rem',
           }}
         >
           <Link
@@ -60,7 +62,7 @@ function SidebarSection({ item, depth }: SectionProps) {
           </Link>
           <span
             style={{
-              fontSize: '0.65rem',
+              fontSize: '0.6rem',
               transition: 'transform 0.2s',
               transform: open ? 'rotate(90deg)' : 'rotate(0deg)',
               opacity: 0.5,
@@ -70,55 +72,139 @@ function SidebarSection({ item, depth }: SectionProps) {
             ▶
           </span>
         </button>
-      ) : (
-        <Link
-          href={item.href}
-          style={{
-            display: 'block',
-            padding: depth === 0 ? '0.4rem 0.75rem' : '0.3rem 0.75rem 0.3rem 1.25rem',
-            borderRadius: '0.375rem',
-            color: isActive ? 'var(--primary)' : 'var(--muted-foreground)',
-            background: isActive ? 'var(--accent-dim)' : 'transparent',
-            fontWeight: isActive ? 500 : 400,
-            fontSize: depth === 0 ? '0.8rem' : '0.825rem',
-            textDecoration: 'none',
-            transition: 'color 0.15s, background 0.15s',
-            letterSpacing: depth === 0 ? '0.06em' : undefined,
-            textTransform: depth === 0 ? 'uppercase' : undefined,
-          }}
-        >
-          {item.title}
-        </Link>
-      )}
 
-      {hasChildren && open && (
-        <div style={{ marginLeft: depth === 0 ? '0.25rem' : '0.75rem' }}>
-          {item.children!.map((child) => (
-            <SidebarSection key={child.href} item={child} depth={depth + 1} />
-          ))}
-        </div>
-      )}
-    </div>
+        {open && (
+          <div style={{ marginTop: '0.125rem' }}>
+            {item.children!.map((child) => (
+              <SidebarSection key={child.href} item={child} depth={1} />
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if (depth === 0 && !hasChildren) {
+    return (
+      <Link
+        href={item.href}
+        style={{
+          display: 'block',
+          padding: '0.3rem 0.75rem',
+          borderRadius: '0.25rem',
+          color: isActive ? 'var(--primary)' : 'var(--muted-foreground)',
+          background: isActive ? 'var(--primary-dim)' : 'transparent',
+          borderLeft: isActive ? '2px solid var(--primary)' : '2px solid transparent',
+          fontFamily: 'var(--font-display)',
+          fontWeight: 600,
+          fontSize: '0.7rem',
+          textDecoration: 'none',
+          letterSpacing: '0.1em',
+          textTransform: 'uppercase',
+          marginTop: '1rem',
+          transition: 'color 0.15s, background 0.15s',
+        }}
+        className="sidebar-item-link"
+      >
+        {item.title}
+      </Link>
+    );
+  }
+
+  /* depth >= 1 — leaf items */
+  const hasNestedChildren = hasChildren;
+  if (hasNestedChildren) {
+    return (
+      <div>
+        <button
+          onClick={() => setOpen((o) => !o)}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            width: '100%',
+            padding: '0.275rem 0.75rem 0.275rem 1.25rem',
+            background: isActive ? 'var(--primary-dim)' : 'transparent',
+            border: 'none',
+            borderLeft: isActive ? '2px solid var(--primary)' : '2px solid transparent',
+            borderRadius: '0 0.25rem 0.25rem 0',
+            color: isActive || isChildActive ? 'var(--foreground-hi)' : 'var(--muted-foreground)',
+            fontFamily: 'var(--font-body)',
+            fontWeight: isActive ? 500 : 400,
+            fontSize: '0.825rem',
+            cursor: 'pointer',
+            textAlign: 'left',
+            transition: 'color 0.15s, background 0.15s',
+          }}
+          className="sidebar-item-link"
+        >
+          <Link
+            href={item.href}
+            onClick={(e) => e.stopPropagation()}
+            style={{ color: 'inherit', textDecoration: 'none', flex: 1 }}
+          >
+            {item.title}
+          </Link>
+          <span
+            style={{
+              fontSize: '0.6rem',
+              transition: 'transform 0.2s',
+              transform: open ? 'rotate(90deg)' : 'rotate(0deg)',
+              opacity: 0.4,
+            }}
+          >
+            ▶
+          </span>
+        </button>
+        {open && (
+          <div style={{ marginLeft: '0.5rem' }}>
+            {item.children!.map((child) => (
+              <SidebarSection key={child.href} item={child} depth={depth + 1} />
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <Link
+      href={item.href}
+      style={{
+        display: 'block',
+        padding: '0.275rem 0.75rem 0.275rem 1.25rem',
+        borderRadius: '0 0.25rem 0.25rem 0',
+        borderLeft: isActive ? '2px solid var(--primary)' : '2px solid transparent',
+        color: isActive ? 'var(--foreground-hi)' : 'var(--muted-foreground)',
+        background: isActive ? 'var(--primary-dim)' : 'transparent',
+        fontFamily: 'var(--font-body)',
+        fontWeight: isActive ? 500 : 400,
+        fontSize: '0.825rem',
+        textDecoration: 'none',
+        transition: 'color 0.15s, background 0.15s',
+      }}
+      className="sidebar-item-link"
+    >
+      {item.title}
+    </Link>
   );
 }
 
 export function Sidebar({ items, mobileOpen, onClose }: SidebarProps) {
   return (
     <>
-      {/* Mobile overlay */}
       {mobileOpen && (
         <div
           onClick={onClose}
           style={{
             position: 'fixed',
             inset: 0,
-            background: 'rgba(0,0,0,0.5)',
+            background: 'rgba(0,0,0,0.6)',
             zIndex: 39,
           }}
         />
       )}
 
-      {/* Sidebar panel */}
       <aside
         style={{
           position: 'fixed',
@@ -130,12 +216,11 @@ export function Sidebar({ items, mobileOpen, onClose }: SidebarProps) {
           overflowX: 'hidden',
           background: 'var(--background)',
           borderRight: '1px solid var(--border)',
-          padding: '1rem 0.5rem',
+          padding: '0.5rem 0.5rem 2rem',
           zIndex: 40,
           transform: mobileOpen ? 'translateX(0)' : undefined,
           display: 'flex',
           flexDirection: 'column',
-          gap: '0.125rem',
         }}
         className="docs-sidebar"
       >
