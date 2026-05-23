@@ -1,5 +1,8 @@
 **Language:** [English](README.md) | [한국어](docs/README-KO.md)
 
+> **Beta software** — currently `3.0.0-beta`. APIs and behavior may change before stable release.
+> Please [report issues](https://github.com/woojubb/robota/issues) to help us improve.
+
 # @robota-sdk/agent-cli
 
 AI coding assistant CLI built on Robota SDK. Loads AGENTS.md/CLAUDE.md for project context and provides a tool-calling REPL with Claude Code-compatible permission modes.
