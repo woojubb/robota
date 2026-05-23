@@ -1,5 +1,8 @@
 # Getting Started
 
+> **Beta software** — Robota CLI is currently in `3.0.0-beta`. Core features are stable but APIs may
+> change before the stable release. [Report issues](https://github.com/woojubb/robota/issues).
+
 ## Which path is right for you?
 
 **"I want a coding assistant in my terminal right now"**
