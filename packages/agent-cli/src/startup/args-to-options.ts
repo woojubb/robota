@@ -33,6 +33,7 @@ export interface ISessionRunOptions {
   appendSystemPrompt?: string;
   taskFile?: string;
   jsonSchema?: string;
+  dryRun: boolean;
 }
 
 export interface IUserLocalCommandOptions {
@@ -59,7 +60,7 @@ export function toConfigPhaseOptions(args: IParsedCliArgs): IConfigPhaseOptions 
     apiKeyEnv: args.apiKeyEnv,
     baseURL: args.baseURL,
     setCurrent: args.setCurrent,
-    printMode: args.printMode,
+    printMode: args.printMode || args.dryRun,
     positional: args.positional,
   };
 }
@@ -68,7 +69,7 @@ export function toSessionRunOptions(args: IParsedCliArgs): ISessionRunOptions {
   return {
     positional: args.positional,
     language: args.language,
-    permissionMode: args.permissionMode,
+    permissionMode: args.dryRun ? 'plan' : args.permissionMode,
     maxTurns: args.maxTurns,
     sessionName: args.sessionName,
     noSessionPersistence: args.noSessionPersistence,
@@ -82,6 +83,7 @@ export function toSessionRunOptions(args: IParsedCliArgs): ISessionRunOptions {
     appendSystemPrompt: args.appendSystemPrompt,
     taskFile: args.taskFile,
     jsonSchema: args.jsonSchema,
+    dryRun: args.dryRun,
   };
 }
 

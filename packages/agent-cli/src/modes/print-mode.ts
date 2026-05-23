@@ -26,12 +26,25 @@ async function resolvePrompt(opts: ISessionRunOptions): Promise<string> {
   return prompt;
 }
 
+const DRY_RUN_SYSTEM_PROMPT =
+  'You are in dry-run (plan) mode. Analyze the request and describe step by step what you would do, without executing any write or edit operations. Format your response as a numbered action plan.';
+
 export async function runPrintMode(
   opts: ISessionRunOptions,
   runtime: IAgentRuntime,
 ): Promise<void> {
   const prompt = await resolvePrompt(opts);
-  const appendSystemPrompt = buildAppendSystemPrompt(runtime.cwd, opts);
+
+  if (opts.dryRun) {
+    process.stdout.write('DRY RUN — plan mode enabled. No files will be modified.\n\n');
+  }
+
+  const appendSystemPromptParts: string[] = [];
+  if (opts.dryRun) appendSystemPromptParts.push(DRY_RUN_SYSTEM_PROMPT);
+  const baseAppend = buildAppendSystemPrompt(runtime.cwd, opts);
+  if (baseAppend) appendSystemPromptParts.push(baseAppend);
+  const appendSystemPrompt =
+    appendSystemPromptParts.length > 0 ? appendSystemPromptParts.join('\n\n') : undefined;
   const shellExec = createShellExec();
 
   const session = runtime.createSession({
