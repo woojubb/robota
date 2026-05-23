@@ -1,6 +1,6 @@
 ---
 title: 'SITE-003: docs.robota.io 서브도메인 설정 + VitePress 라이브러리 전용 정리'
-status: todo
+status: done
 created: 2026-05-23
 priority: high
 urgency: soon
