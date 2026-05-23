@@ -1,6 +1,6 @@
 ---
 title: 'CLI-012: --dry-run 플래그 — plan 모드 기반 작업 계획 미리보기'
-status: todo
+status: done
 created: 2026-05-23
 priority: medium
 urgency: later
