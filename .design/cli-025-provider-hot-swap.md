@@ -1,8 +1,10 @@
 # CLI-025: 프로바이더 핫 스왑 설계
 
+> **결정 사항:** `/model` 커맨드는 삭제. 프로바이더/모델 전환은 `/provider switch <profile-name>` 단일 경로로 통일한다.
+
 ## 배경
 
-현재 `/model` 또는 `/provider switch` 커맨드는 CLI를 재시작한다. 재시작 시 세션 히스토리가 보존되지 않아 장기 세션에서 모델 전환이 불편하다.
+현재 `/provider switch` 커맨드는 CLI를 재시작한다. 재시작 시 세션 히스토리가 보존되지 않아 장기 세션에서 프로바이더 전환이 불편하다.
 
 ## 현재 구조
 
@@ -56,30 +58,35 @@ swapProvider(newProvider: IAIProvider): void {
 
 ## `/provider switch` UX
 
-현재 `/provider` 커맨드는 TUI 메뉴를 연다. 헤드리스 경로에서는 목록을 출력한다.
-
-변경: `/provider switch <profile-name>` 서브커맨드 추가.
+`/provider switch <profile-name>` 서브커맨드로 프로바이더와 모델을 동시에 전환한다.
+프로파일은 `settings.json`에 정의된 named provider profile이다 (type + model + apiKey 포함).
 
 ```
 /provider switch openai
 → "Switched to openai (gpt-4o). History preserved. (Turn 12)"
+
+/provider switch anthropic-opus
+→ "Switched to anthropic-opus (claude-opus-4-7). History preserved. (Turn 12)"
 ```
 
-기존 `/model` 커맨드의 재시작 동작은 유지하되, `/provider switch`는 재시작 없이 동작한다.
+TUI에서는 `/provider` 메뉴 → "Switch" 항목에서 선택, 헤드리스에서는 직접 서브커맨드로 호출 가능.
+
+**`/model` 커맨드는 삭제한다.** 모델 선택은 프로파일 관리(`/provider add/edit`)를 통해 처리한다.
 
 ## 영향 범위
 
-| 파일                                                              | 변경 내용                                      |
-| ----------------------------------------------------------------- | ---------------------------------------------- |
-| `packages/agent-core/src/session.ts`                              | `swapProvider()` 메서드 추가                   |
-| `packages/agent-framework/src/interactive/interactive-session.ts` | `swapProvider()` 메서드 추가                   |
-| `packages/agent-command/src/provider/provider-switch-command.ts`  | `/provider switch` 서브커맨드 신규             |
-| `packages/agent-framework/src/runtime/agent-runtime.ts`           | `IAgentRuntime`에 optional `swapProvider` 노출 |
+| 파일                                                              | 변경 내용                                   |
+| ----------------------------------------------------------------- | ------------------------------------------- |
+| `packages/agent-core/src/session.ts`                              | `swapProvider()` 메서드 추가, SPEC.md 수정  |
+| `packages/agent-framework/src/interactive/interactive-session.ts` | `swapProvider()` 메서드 추가                |
+| `packages/agent-command/src/provider/provider-switch-command.ts`  | `/provider switch` 서브커맨드 신규          |
+| `packages/agent-command/src/model/`                               | `/model` 커맨드 **삭제**                    |
+| `packages/agent-cli/src/utils/cli-args.ts`                        | `--model` 플래그 및 관련 help 텍스트 삭제   |
+| `content/guide/cli.md`                                            | `/model` 제거, `/provider switch` 추가 설명 |
 
 ## 리스크
 
 - `agent-core/Session`은 현재 provider를 불변으로 설계됨 — setter 추가 시 SPEC.md 수정 필요
-- `/model` 커맨드와 `/provider switch`의 동작 차이를 사용자가 혼동할 수 있음 (문서화 필요)
 - 히스토리 포맷 호환성: vision parts를 가진 메시지를 vision 미지원 provider로 전환 시 parts가 조용히 drop됨 — 경고 메시지 추가 권장
 
 ## 구현 순서
