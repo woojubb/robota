@@ -11,6 +11,7 @@ import { loadSessionRecord } from './interactive-session-restore.js';
 import { SessionSkillRouter } from './interactive-session-skill-router.js';
 import { retrieveSessionBackgroundTaskManager } from '../background-tasks/session-background-store.js';
 import { EditCheckpointStore } from '../checkpoints/edit-checkpoint-store.js';
+import { formatOrgPolicyViolationMessage } from '../command-api/org-policy/org-policy-loader.js';
 import {
   createProviderFromSettings,
   readProviderSettings,
@@ -72,6 +73,8 @@ export class InteractiveSession
   private claudeFileEntries: IContextFileEntry[] = [];
   private rebuildSystemMessage: ICreatedInteractiveSession['rebuildSystemMessage'] | null = null;
   private providerDefinitions: readonly IProviderDefinition[] = [];
+  private orgPolicy: import('../command-api/org-policy/org-policy-types.js').IOrgPolicy | null =
+    null;
   protected readonly bgTracker: SessionBackgroundTaskTracker;
   protected readonly histTracker: SessionHistoryTracker;
   protected readonly skillRouter: SessionSkillRouter;
@@ -156,6 +159,9 @@ export class InteractiveSession
     if ('providerDefinitions' in options) {
       this.providerDefinitions =
         (options as IInteractiveSessionStandardOptions).providerDefinitions ?? [];
+    }
+    if ('orgPolicy' in options) {
+      this.orgPolicy = (options as IInteractiveSessionStandardOptions).orgPolicy ?? null;
     }
 
     const hasInjectedSession = this.configureInjectedSession(options);
@@ -441,6 +447,15 @@ export class InteractiveSession
     name: string,
     args: string,
   ): Promise<import('../commands/index.js').ICommandResult | null> {
+    if (this.orgPolicy?.blockedCommands?.includes(name)) {
+      return {
+        message: formatOrgPolicyViolationMessage(
+          `Command /${name} is blocked by your organization policy.`,
+          this.orgPolicy.adminContact,
+        ),
+        success: false,
+      };
+    }
     const result = await super.executeCommand(name, args);
     if (result === null) return null;
     const hotSwapEffect = result.effects?.find(
@@ -448,6 +463,19 @@ export class InteractiveSession
         e.type === 'provider-hot-swap-requested',
     );
     if (hotSwapEffect) {
+      const { orgPolicy } = this;
+      if (
+        orgPolicy?.allowedProviders &&
+        !orgPolicy.allowedProviders.includes(hotSwapEffect.profileName)
+      ) {
+        return {
+          message: formatOrgPolicyViolationMessage(
+            `Provider "${hotSwapEffect.profileName}" is not allowed by your organization policy. Allowed: ${orgPolicy.allowedProviders.join(', ')}.`,
+            orgPolicy.adminContact,
+          ),
+          success: false,
+        };
+      }
       await this.switchProvider(hotSwapEffect.profileName);
       return {
         ...result,

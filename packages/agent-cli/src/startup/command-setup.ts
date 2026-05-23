@@ -1,6 +1,7 @@
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import {
   getUserSettingsPath,
+  loadOrgPolicy,
   readMergedProviderSettings,
   readSettings,
   resolveProviderSettingsWriteTargetPath,
@@ -9,6 +10,7 @@ import {
 import type {
   ICommandHostAdapters,
   ICommandModule,
+  IOrgPolicy,
   TProviderSettingsDocument,
 } from '@robota-sdk/agent-framework';
 import type { CommandRegistry } from '@robota-sdk/agent-framework';
@@ -29,6 +31,7 @@ export interface ICommandSetup {
   providerDefinitions: readonly IProviderDefinition[];
   commandModules: readonly ICommandModule[];
   reloadPluginCommandSource: (registry: CommandRegistry) => void;
+  orgPolicy: IOrgPolicy | null;
 }
 
 export function createCommandSetup(cwd: string, options: IStartCliOptions = {}): ICommandSetup {
@@ -47,9 +50,21 @@ export function createCommandSetup(cwd: string, options: IStartCliOptions = {}):
     writeTargetSettings: (settings: TProviderSettingsDocument) =>
       writeSettings(resolveProviderSettingsWriteTargetPath(cwd), settings),
   };
+  const orgPolicy = loadOrgPolicy();
   const commandModules: readonly ICommandModule[] = [
-    ...createDefaultCommandModules({ cwd, providerDefinitions, providerSettingsAdapter }),
+    ...createDefaultCommandModules({
+      cwd,
+      providerDefinitions,
+      providerSettingsAdapter,
+      orgPolicy: orgPolicy ?? undefined,
+    }),
     ...(options.commandModules ?? []),
   ];
-  return { commandHostAdapters, providerDefinitions, commandModules, reloadPluginCommandSource };
+  return {
+    commandHostAdapters,
+    providerDefinitions,
+    commandModules,
+    reloadPluginCommandSource,
+    orgPolicy,
+  };
 }

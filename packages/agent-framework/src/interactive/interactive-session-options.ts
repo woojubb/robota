@@ -12,6 +12,7 @@ import type { ICreateSessionOptions } from '../assembly/index.js';
 import type { IBackgroundTaskRunner } from '../background-tasks/index.js';
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
 import type { IEditCheckpointRecorder } from '../checkpoints/edit-checkpoint-types.js';
+import type { IOrgPolicy } from '../command-api/org-policy/org-policy-types.js';
 import type { ICommandHostAdapters, ICommandModule, ICommandResult } from '../commands/index.js';
 import type { IResolvedConfig } from '../config/config-types.js';
 import type { IReversibleExecutionOptions } from '../reversible-execution/index.js';
@@ -75,6 +76,8 @@ export interface IInteractiveSessionStandardOptions {
   sandboxSnapshotId?: string;
   /** Name reported to the underlying Robota agent config. Defaults to 'agent'. */
   agentName?: string;
+  /** Organization policy for enforcing provider restrictions, command blocks, and API key rules. */
+  orgPolicy?: IOrgPolicy;
 }
 
 /** Test/advanced construction: inject pre-built session directly. */

@@ -103,7 +103,7 @@ describe('createProviderCommandModule', () => {
 
     expect(module.name).toBe('agent-command-provider');
     expect(commands.map((command) => command.name)).toEqual(['provider']);
-    expect(commands[0]?.subcommands?.map((command) => command.name)).toContain('use');
+    expect(commands[0]?.subcommands?.map((command) => command.name)).toContain('switch');
     expect(module.systemCommands?.map((command) => command.name)).toEqual(['provider']);
   });
 
