@@ -217,6 +217,8 @@ agent-core             ← Foundation: Robota engine, abstractions, plugins
 - [Getting Started](./getting-started/) — Installation and first steps
 - [Guide](./guide/) — Architecture, building agents, SDK, CLI
 - [Changelog](./changelog/) — What's new in each release
+- [Showcase](./showcase/) — Projects built with Robota SDK
+- [Roadmap](./roadmap.md) — What's coming next
 - [Examples](./examples/) — Working code samples
 - [Development](./development/) — Contributing and monorepo setup
 

@@ -1,6 +1,6 @@
 ---
 title: 'PM-017: 분기별 공개 로드맵 페이지 (robota.io/roadmap)'
-status: todo
+status: done
 created: 2026-05-23
 priority: medium
 urgency: later
