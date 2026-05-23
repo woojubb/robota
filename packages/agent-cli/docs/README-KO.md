@@ -22,11 +22,11 @@ nvm use 22
 ## 설치
 
 ```bash
-# 전역 설치
-npm install -g @robota-sdk/agent-cli
-
-# 또는 npx로 직접 실행
+# 바로 실행 — 설치 불필요
 npx @robota-sdk/agent-cli
+
+# 영구 사용을 위한 전역 설치
+npm install -g @robota-sdk/agent-cli
 ```
 
 > **macOS Terminal.app 사용자**: 한국어/중국어/일본어 입력 시 크래시가 발생할 수 있습니다. **[iTerm2](https://iterm2.com/)** 사용을 권장합니다. 이는 Ink + Terminal.app의 알려진 문제로 Claude Code와 동일합니다.

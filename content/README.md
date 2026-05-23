@@ -31,15 +31,37 @@ The CLI is built on top of the Assembly Layer. The Assembly Layer is assembled f
 
 ## Robota vs Alternatives
 
-|                                | **Robota**   | Claude Code       | LangChain JS      | OpenAI Agents SDK |
-| ------------------------------ | ------------ | ----------------- | ----------------- | ----------------- |
-| Multi-provider (one API)       | ✅           | ❌ Anthropic only | ✅ complex        | ❌ OpenAI only    |
-| TypeScript-first, strict types | ✅           | ✅                | ⚠️ Python primary | ✅                |
-| Ready-to-use CLI included      | ✅           | ✅                | ❌                | ❌                |
-| Self-hostable / open source    | ✅ MIT       | ❌ proprietary    | ✅                | ✅                |
-| Local model support            | ✅ LM Studio | ❌                | ✅                | ❌                |
-| Embeddable SDK (HTTP/WS/MCP)   | ✅           | ❌                | ⚠️ limited        | ⚠️ limited        |
-| Zero `any` in production code  | ✅           | n/a               | ❌                | ❌                |
+|                                        | **Robota** |    Claude Code    |     Cursor      | Aider | Cline |
+| -------------------------------------- | :--------: | :---------------: | :-------------: | :---: | :---: |
+| Multi-provider (one config)            |     ✅     | ❌ Anthropic only |   ❌ limited    |  ✅   |  ✅   |
+| BYOK — no subscription required        |     ✅     |        ✅         | ❌ subscription |  ✅   |  ✅   |
+| Local model support (Ollama/LM Studio) |     ✅     |        ❌         |       ❌        |  ✅   |  ✅   |
+| Embeddable SDK (use in your own app)   |     ✅     |        ❌         |       ❌        |  ❌   |  ❌   |
+| Open source (MIT)                      |     ✅     |  ❌ proprietary   | ❌ proprietary  |  ✅   |  ✅   |
+| Terminal CLI                           |     ✅     |        ✅         |   ❌ IDE only   |  ✅   |  ✅   |
+| Session persistence & resume           |     ✅     |        ✅         |       ✅        |  ❌   |  ❌   |
+
+**[→ Full comparison: features, cost, and when to choose each tool](/compare/)**
+
+## No API Key Needed — Run Local Models
+
+Robota works offline with [Ollama](https://ollama.com) or [LM Studio](https://lmstudio.ai). Your code and prompts never leave your machine.
+
+```bash
+# 1. Start Ollama
+ollama pull llama3.2 && ollama serve
+
+# 2. Configure Robota to use it
+robota --configure
+# Select "Gemma / LM Studio", set URL: http://localhost:11434/v1
+
+# 3. Run with no API key
+robota
+```
+
+**→ [Full local LLM setup guide](/guide/local-llm)**
+
+---
 
 ## Claude Code Users: Drop-in Compatible
 
@@ -194,7 +216,9 @@ agent-core             ← Foundation: Robota engine, abstractions, plugins
 
 - [Getting Started](./getting-started/) — Installation and first steps
 - [Guide](./guide/) — Architecture, building agents, SDK, CLI
-- [Release Notes: 2026-05-02](./guide/release-2026-05-02.md) — Beta.59 snapshot, CI/deploy build reuse, and npm dist-tag status
+- [Changelog](./changelog/) — What's new in each release
+- [Showcase](./showcase/) — Projects built with Robota SDK
+- [Roadmap](./roadmap.md) — What's coming next
 - [Examples](./examples/) — Working code samples
 - [Development](./development/) — Contributing and monorepo setup
 

@@ -82,8 +82,8 @@ describe('provider setup flow', () => {
     expect(formatProviderSetupSelectionPrompt(providerDefinitions)).toBe(
       [
         '  Select provider:',
-        '    1. OpenAI (openai) - Use OpenAI Responses API',
-        '    2. Anthropic (anthropic) - Use Claude models through Anthropic',
+        '    1. OpenAI (openai) — Use OpenAI Responses API',
+        '    2. Anthropic (anthropic) — Use Claude models through Anthropic',
         '  Provider [1-2] (default: 1): ',
       ].join('\n'),
     );

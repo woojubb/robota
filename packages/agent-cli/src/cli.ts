@@ -40,10 +40,10 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   const version = readVersion();
   const terminal = new PrintTerminal();
 
-  // Layer 0: pre-flight — single point for all early-exit commands
-  if ((await handlePreflightCommands(args, { version, terminal })).handled) return;
-
   const cwd = process.cwd();
+
+  // Layer 0: pre-flight — single point for all early-exit commands
+  if ((await handlePreflightCommands(args, { version, terminal, cwd })).handled) return;
 
   // Layer 1: IParsedCliArgs → typed option objects (boundary)
   const configPhaseOpts = toConfigPhaseOptions(args);

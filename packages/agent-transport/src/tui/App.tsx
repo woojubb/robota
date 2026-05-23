@@ -5,6 +5,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 
 import BackgroundTaskPanel from './BackgroundTaskPanel.js';
 import ConfirmPrompt from './ConfirmPrompt.js';
+import { ContextWarningBanner } from './ContextWarningBanner.js';
 import {
   countActiveBackgroundWorkspaceEntries,
   getDefaultBackgroundWorkspaceEntries,
@@ -18,6 +19,7 @@ import { useSideEffects } from './hooks/useSideEffects.js';
 import { useStatusLineSettings } from './hooks/useStatusLineSettings.js';
 import InputArea from './InputArea.js';
 import InteractivePrompt from './InteractivePrompt.js';
+import KeyboardShortcutOverlay from './KeyboardShortcutOverlay.js';
 import MessageList from './MessageList.js';
 import PermissionPrompt from './PermissionPrompt.js';
 import PluginTUI from './PluginTUI.js';
@@ -97,6 +99,7 @@ function AppInner(
   props: IProps & { onSessionSwitch: (sessionId: string) => void },
 ): React.ReactElement {
   const cwd = props.cwd;
+  const [sessionName, setSessionName] = useState<string | undefined>(props.sessionName);
 
   const {
     interactiveSession,
@@ -129,6 +132,7 @@ function AppInner(
     resumeSessionId: props.resumeSessionId,
     forkSession: props.forkSession,
     sessionName: props.sessionName,
+    onAutoNamed: setSessionName,
     backgroundTaskRunners: props.backgroundTaskRunners,
     subagentRunnerFactory: props.subagentRunnerFactory,
     commandModules: props.commandModules,
@@ -143,7 +147,6 @@ function AppInner(
   const fallbackPluginCallbacks = usePluginCallbacks(cwd);
   const pluginCallbacks = props.commandHostAdapters?.plugin ?? fallbackPluginCallbacks;
   const { exit } = useApp();
-  const [sessionName, setSessionName] = useState<string | undefined>(props.sessionName);
   const [updateNotice, setUpdateNotice] = useState<string | undefined>();
   const [showExecutionWorkspaceSwitcher, setShowExecutionWorkspaceSwitcher] = useState(false);
   const [executionDetailPage, setExecutionDetailPage] = useState<IExecutionDetailPage | null>(null);
@@ -151,6 +154,7 @@ function AppInner(
   const [isExecutionDetailLoading, setIsExecutionDetailLoading] = useState(false);
   const [statusLineSettings, setStatusLineSettings] = useStatusLineSettings();
   const [gitRefreshToken, setGitRefreshToken] = useState(0);
+  const [showShortcutOverlay, setShowShortcutOverlay] = useState(false);
   const backgroundWorkspaceEntries = useMemo(
     () => getDefaultBackgroundWorkspaceEntries(executionWorkspaceSnapshot),
     [executionWorkspaceSnapshot],
@@ -314,6 +318,23 @@ function AppInner(
     void handleShutdown('prompt_input_exit').finally(() => exit());
   });
 
+  // ? key toggles the keyboard shortcut overlay
+  useInput((input: string) => {
+    if (input !== '?') return;
+    if (
+      permissionRequest ||
+      showPluginTUI ||
+      showTransportTUI ||
+      showSessionPicker ||
+      showExecutionWorkspaceSwitcher ||
+      isThinking ||
+      isShuttingDown
+    ) {
+      return;
+    }
+    setShowShortcutOverlay((v) => !v);
+  });
+
   useEffect(() => {
     const onSigterm = (): void => {
       if (isShuttingDown) return;
@@ -456,6 +477,10 @@ function AppInner(
           }}
         />
       )}
+      {showShortcutOverlay && (
+        <KeyboardShortcutOverlay onClose={() => setShowShortcutOverlay(false)} />
+      )}
+      <ContextWarningBanner percentage={contextState.percentage} />
       <SessionStatusBar
         cwd={cwd}
         permissionMode={permissionMode}
@@ -481,6 +506,7 @@ function AppInner(
           showTransportTUI ||
           showSessionPicker ||
           showExecutionWorkspaceSwitcher ||
+          showShortcutOverlay ||
           isShuttingDown ||
           pendingInteractionPrompt !== null ||
           (isThinking && !!pendingPrompt) ||

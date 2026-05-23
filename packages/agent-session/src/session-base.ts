@@ -99,6 +99,24 @@ export abstract class SessionBase {
     return this.robota.getFullHistory();
   }
 
+  getSessionTokenUsage(): { inputTokens: number; outputTokens: number } | undefined {
+    let inputTokens = 0;
+    let outputTokens = 0;
+    let found = false;
+    for (const entry of this.getFullHistory()) {
+      if (entry.category !== 'event' || entry.type !== 'usage-summary') continue;
+      const snap = entry.data as { promptTokens?: number; completionTokens?: number } | undefined;
+      inputTokens += snap?.promptTokens ?? 0;
+      outputTokens += snap?.completionTokens ?? 0;
+      found = true;
+    }
+    return found ? { inputTokens, outputTokens } : undefined;
+  }
+
+  getModelId(): string {
+    return this.model;
+  }
+
   /** Add an event entry to history (not a chat message) */
   addHistoryEntry(entry: IHistoryEntry): void {
     this.robota.addHistoryEntry(entry);

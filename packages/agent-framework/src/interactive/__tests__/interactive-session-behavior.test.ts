@@ -263,7 +263,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     expect(errorReceived!.message).toBe('API rate limit exceeded');
     const messages = session.getMessages();
     const errorMsg = messages.find(
-      (m) => m.role === 'system' && m.content?.includes('API rate limit'),
+      (m) => m.role === 'system' && m.content?.includes('Rate limit reached'),
     );
     expect(errorMsg).toBeDefined();
   });

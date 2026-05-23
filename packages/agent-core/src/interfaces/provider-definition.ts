@@ -94,11 +94,15 @@ export interface IProviderSetupStepDefinition {
   masked?: boolean;
 }
 
+export type TProviderCategory = 'cloud-paid' | 'cloud-free' | 'local-free';
+
 export interface IProviderDefinition {
   type: string;
   aliases?: readonly string[];
   displayName?: string;
   description?: string;
+  /** Billing/hosting category shown as a badge in provider selection UI. */
+  category?: TProviderCategory;
   defaults?: IProviderProfileDefaults;
   modelCatalog?: IProviderModelCatalog;
   refreshModelCatalog?: TProviderModelCatalogRefresh;
