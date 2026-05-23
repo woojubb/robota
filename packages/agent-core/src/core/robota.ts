@@ -31,6 +31,7 @@ import type { AbstractTool, IToolWithEventService } from '../abstracts/abstract-
 import type { TUniversalMessage, IAgentConfig, IRunOptions, IAgent } from '../interfaces/agent';
 import type { IEventService, IAgentEventData } from '../interfaces/event-service';
 import type { IHistoryEntry } from '../interfaces/messages';
+import type { IAIProvider } from '../interfaces/provider';
 import type { EventEmitterPlugin } from '../plugins/event-emitter-plugin';
 import type { ExecutionService } from '../services/execution-service';
 
@@ -192,6 +193,11 @@ export class Robota
   }
   getConfig(): IAgentConfig {
     return { ...this.config };
+  }
+
+  swapDefaultProvider(newProvider: IAIProvider, model: string): void {
+    this.aiProviders.addProvider(newProvider.name, newProvider);
+    this.configManager.setModel({ provider: newProvider.name, model });
   }
 
   getStats(): ReturnType<typeof buildAgentStats> {

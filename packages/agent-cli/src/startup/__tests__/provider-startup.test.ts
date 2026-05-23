@@ -132,7 +132,6 @@ function baseArgs(): IConfigPhaseOptions {
     settingsScope: undefined,
     configureProvider: undefined,
     providerType: undefined,
-    model: undefined,
     apiKey: undefined,
     apiKeyEnv: undefined,
     baseURL: undefined,
@@ -416,7 +415,7 @@ describe('provider startup', () => {
 
     expect(message).toContain('Supported providers: anthropic, openai, qwen');
     expect(message).toContain(
-      'robota --configure-provider qwen --type qwen --base-url <url> --model <model> --api-key-env <ENV_NAME> --set-current',
+      'robota --configure-provider qwen --type qwen --base-url <url> --api-key-env <ENV_NAME> --set-current',
     );
     expect(message).not.toContain('supergemma4-26b-uncensored-v2');
   });

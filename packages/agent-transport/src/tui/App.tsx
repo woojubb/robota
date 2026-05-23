@@ -12,7 +12,6 @@ import {
 } from './execution-workspace-view-model.js';
 import ExecutionWorkspaceDetailPane from './ExecutionWorkspaceDetailPane.js';
 import ExecutionWorkspaceSwitcher from './ExecutionWorkspaceSwitcher.js';
-import { formatModelChangeConfirmationMessage } from './hooks/model-change-side-effect.js';
 import { useInteractiveSession } from './hooks/useInteractiveSession.js';
 import { usePluginCallbacks } from './hooks/usePluginCallbacks.js';
 import { useSideEffects } from './hooks/useSideEffects.js';
@@ -170,7 +169,6 @@ function AppInner(
 
   const {
     handleSubmit,
-    pendingModelId,
     pendingInteractionPrompt,
     showPluginTUI,
     showSessionPicker,
@@ -178,7 +176,6 @@ function AppInner(
     setShowPluginTUI,
     setShowSessionPicker,
     setShowTransportTUI,
-    handleModelConfirm,
     handleInteractionSubmit,
     handleInteractionCancel,
   } = useSideEffects({
@@ -438,12 +435,6 @@ function AppInner(
         />
       )}
       {permissionRequest && <PermissionPrompt request={permissionRequest} />}
-      {pendingModelId && (
-        <ConfirmPrompt
-          message={formatModelChangeConfirmationMessage(pendingModelId)}
-          onSelect={handleModelConfirm}
-        />
-      )}
       {pendingInteractionPrompt && (
         <InteractivePrompt
           prompt={pendingInteractionPrompt}

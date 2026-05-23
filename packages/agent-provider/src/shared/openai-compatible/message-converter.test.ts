@@ -80,6 +80,91 @@ describe('OpenAI-compatible message converter', () => {
     );
   });
 
+  it('converts user message with inline image part to image_url content block', () => {
+    const messages: TUniversalMessage[] = [
+      {
+        id: 'user-img',
+        role: 'user',
+        content: '',
+        state: 'complete',
+        timestamp,
+        parts: [
+          { type: 'text', text: 'Describe this image' },
+          { type: 'image_inline', mimeType: 'image/png', data: 'abc123==' },
+        ],
+      },
+    ];
+
+    expect(convertToOpenAICompatibleMessages(messages)).toEqual([
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'Describe this image' },
+          { type: 'image_url', image_url: { url: 'data:image/png;base64,abc123==' } },
+        ],
+      },
+    ]);
+  });
+
+  it('converts user message with URI image part to image_url content block', () => {
+    const messages: TUniversalMessage[] = [
+      {
+        id: 'user-uri',
+        role: 'user',
+        content: '',
+        state: 'complete',
+        timestamp,
+        parts: [
+          { type: 'text', text: 'What is this?' },
+          { type: 'image_uri', uri: 'https://example.com/image.png' },
+        ],
+      },
+    ];
+
+    expect(convertToOpenAICompatibleMessages(messages)).toEqual([
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'What is this?' },
+          { type: 'image_url', image_url: { url: 'https://example.com/image.png' } },
+        ],
+      },
+    ]);
+  });
+
+  it('falls back to string content when parts contain only text', () => {
+    const messages: TUniversalMessage[] = [
+      {
+        id: 'user-text-parts',
+        role: 'user',
+        content: 'hello',
+        state: 'complete',
+        timestamp,
+        parts: [{ type: 'text', text: 'hello' }],
+      },
+    ];
+
+    const result = convertToOpenAICompatibleMessages(messages);
+    expect(result[0]).toEqual({ role: 'user', content: 'hello' });
+  });
+
+  it('falls back to string content when parts is empty', () => {
+    const messages: TUniversalMessage[] = [
+      {
+        id: 'user-empty-parts',
+        role: 'user',
+        content: 'fallback',
+        state: 'complete',
+        timestamp,
+        parts: [],
+      },
+    ];
+
+    expect(convertToOpenAICompatibleMessages(messages)).toEqual([
+      { role: 'user', content: 'fallback' },
+    ]);
+  });
+
   it('converts universal tool schemas to OpenAI-compatible function tools', () => {
     const tools: IToolSchema[] = [
       {

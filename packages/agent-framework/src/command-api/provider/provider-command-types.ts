@@ -1,4 +1,5 @@
 import type { TProviderSettingsDocument } from './provider-settings.js';
+import type { IOrgPolicy } from '../org-policy/org-policy-types.js';
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 
 export interface IProviderCommandSettingsAdapter {
@@ -10,4 +11,5 @@ export interface IProviderCommandSettingsAdapter {
 export interface IProviderCommandModuleOptions {
   providerDefinitions: readonly IProviderDefinition[];
   settings: IProviderCommandSettingsAdapter;
+  orgPolicy?: IOrgPolicy;
 }
