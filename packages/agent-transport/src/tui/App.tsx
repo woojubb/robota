@@ -99,6 +99,7 @@ function AppInner(
   props: IProps & { onSessionSwitch: (sessionId: string) => void },
 ): React.ReactElement {
   const cwd = props.cwd;
+  const [sessionName, setSessionName] = useState<string | undefined>(props.sessionName);
 
   const {
     interactiveSession,
@@ -131,6 +132,7 @@ function AppInner(
     resumeSessionId: props.resumeSessionId,
     forkSession: props.forkSession,
     sessionName: props.sessionName,
+    onAutoNamed: setSessionName,
     backgroundTaskRunners: props.backgroundTaskRunners,
     subagentRunnerFactory: props.subagentRunnerFactory,
     commandModules: props.commandModules,
@@ -145,7 +147,6 @@ function AppInner(
   const fallbackPluginCallbacks = usePluginCallbacks(cwd);
   const pluginCallbacks = props.commandHostAdapters?.plugin ?? fallbackPluginCallbacks;
   const { exit } = useApp();
-  const [sessionName, setSessionName] = useState<string | undefined>(props.sessionName);
   const [updateNotice, setUpdateNotice] = useState<string | undefined>();
   const [showExecutionWorkspaceSwitcher, setShowExecutionWorkspaceSwitcher] = useState(false);
   const [executionDetailPage, setExecutionDetailPage] = useState<IExecutionDetailPage | null>(null);

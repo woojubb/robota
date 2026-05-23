@@ -1,10 +1,11 @@
 import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 
 import { CommandEffectQueue, type ICommandEffectQueue } from './command-effect-queue.js';
 import { initializeSession, type IInitState } from './use-interactive-session-init.js';
 import { usePermissionQueue } from './usePermissionQueue.js';
 import { useSlashRouting } from './useSlashRouting.js';
+import { generateSessionName } from '../session-naming.js';
 
 import type { TuiStateManager } from '../tui-state-manager.js';
 import type { IPermissionRequest } from '../types.js';
@@ -41,6 +42,7 @@ export interface IInteractiveSessionProps {
   resumeSessionId?: string;
   forkSession?: boolean;
   sessionName?: string;
+  onAutoNamed?: (name: string) => void;
   backgroundTaskRunners?: IBackgroundTaskRunner[];
   subagentRunnerFactory?: TSubagentRunnerFactory;
   commandModules?: readonly ICommandModule[];
@@ -118,6 +120,7 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
   const [, forceRender] = useState(0);
   const [isShuttingDown, setIsShuttingDown] = useState(false);
   const { permissionHandler, permissionRequest } = usePermissionQueue();
+  const autoNameTriggeredRef = useRef(false);
 
   // Initialize once — useState lazy initializer runs exactly once per mount, safe for Concurrent Mode
   const [initState] = useState<IInitState>(() => initializeSession(props, permissionHandler));
@@ -148,9 +151,24 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
     const onCompact = (): void => applyCompactEventToManager(interactiveSession, manager);
     const onSkillActivation = (): void =>
       applySkillActivationEventToManager(interactiveSession, manager);
+
+    const onUserMessage = (content: string): void => {
+      if (autoNameTriggeredRef.current) return;
+      if (props.sessionName || interactiveSession.getName()) return;
+      autoNameTriggeredRef.current = true;
+      generateSessionName(props.provider, content)
+        .then((name) => {
+          interactiveSession.setName(name);
+          props.onAutoNamed?.(name);
+        })
+        .catch(() => {
+          autoNameTriggeredRef.current = false;
+        });
+    };
     const onExecutionWorkspaceEvent = (event: IExecutionWorkspaceEvent): void =>
       manager.syncExecutionWorkspaceSnapshot(event.snapshot);
 
+    interactiveSession.on('user_message', onUserMessage);
     interactiveSession.on('text_delta', manager.onTextDelta);
     interactiveSession.on('tool_start', manager.onToolStart);
     interactiveSession.on('tool_end', manager.onToolEnd);
@@ -186,6 +204,7 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
 
     return () => {
       clearInterval(initCheck);
+      interactiveSession.off('user_message', onUserMessage);
       interactiveSession.off('text_delta', manager.onTextDelta);
       interactiveSession.off('tool_start', manager.onToolStart);
       interactiveSession.off('tool_end', manager.onToolEnd);
