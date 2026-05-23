@@ -38,7 +38,6 @@ const modules = [
 | `/language`    | Language switching                             |
 | `/memory`      | Memory read/write                              |
 | `/mode`        | Interaction mode switching                     |
-| `/model`       | AI model selection                             |
 | `/permissions` | Permission management                          |
 | `/plugin`      | Plugin enable/disable                          |
 | `/provider`    | AI provider configuration                      |

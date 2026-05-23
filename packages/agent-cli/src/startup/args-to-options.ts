@@ -7,7 +7,6 @@ export interface IConfigPhaseOptions {
   settingsScope?: string;
   configureProvider?: string;
   providerType?: string;
-  model?: string;
   apiKey?: string;
   apiKeyEnv?: string;
   baseURL?: string;
@@ -55,7 +54,6 @@ export function toConfigPhaseOptions(args: IParsedCliArgs): IConfigPhaseOptions 
     settingsScope: args.settingsScope,
     configureProvider: args.configureProvider,
     providerType: args.providerType,
-    model: args.model,
     apiKey: args.apiKey,
     apiKeyEnv: args.apiKeyEnv,
     baseURL: args.baseURL,

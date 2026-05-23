@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { createDefaultCommandModules } from '@robota-sdk/agent-command';
 import { InteractiveSession } from '@robota-sdk/agent-framework';
 import { createHeadlessTransport } from '@robota-sdk/agent-transport/headless';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
 
 import type {
   IAIProvider,
@@ -195,13 +195,14 @@ describe('print-mode output format integration', () => {
 
 describe('runPrintMode dry-run and exit code', () => {
   let cwd: string;
-  let exitSpy: ReturnType<typeof vi.spyOn>;
+  let exitSpy: MockInstance<Parameters<typeof process.exit>, ReturnType<typeof process.exit>>;
 
   beforeEach(() => {
     cwd = mkdtempSync(join(tmpdir(), 'robota-dry-run-'));
-    exitSpy = vi.spyOn(process, 'exit').mockImplementation((_code?: number) => {
-      throw Object.assign(new Error(`process.exit(${_code ?? 0})`), { code: _code ?? 0 });
-    });
+    exitSpy = vi.spyOn(process, 'exit').mockImplementation(((_code?: string | number | null) => {
+      const code = typeof _code === 'number' ? _code : 0;
+      throw Object.assign(new Error(`process.exit(${code})`), { code });
+    }) as (code?: string | number | null) => never);
   });
 
   afterEach(async () => {
@@ -234,7 +235,9 @@ describe('runPrintMode dry-run and exit code', () => {
             permissionMode: 'bypassPermissions',
             noSessionPersistence: true,
             bare: true,
-          } as Parameters<typeof runPrintMode>[0],
+            continueMode: false,
+            forkSession: false,
+          } as unknown as Parameters<typeof runPrintMode>[0],
           runtime,
         );
       } catch {
@@ -271,7 +274,9 @@ describe('runPrintMode dry-run and exit code', () => {
             permissionMode: 'bypassPermissions',
             noSessionPersistence: true,
             bare: true,
-          } as Parameters<typeof runPrintMode>[0],
+            continueMode: false,
+            forkSession: false,
+          } as unknown as Parameters<typeof runPrintMode>[0],
           runtime,
         );
       } catch (err: unknown) {

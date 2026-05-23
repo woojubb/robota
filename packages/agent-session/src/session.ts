@@ -63,7 +63,7 @@ export class Session extends SessionBase {
   protected readonly contextTracker: ContextWindowTracker;
   protected permissionMode: TPermissionMode;
   protected readonly sessionId: string;
-  protected readonly aiProvider: IAIProvider;
+  protected aiProvider: IAIProvider;
   protected readonly toolSchemas: IToolSchema[];
   protected readonly model: string;
   protected systemMessage: string;
@@ -207,6 +207,18 @@ export class Session extends SessionBase {
       );
     })();
     return this.shutdownPromise;
+  }
+
+  swapProvider(newProvider: IAIProvider, model: string): void {
+    this.robota.swapDefaultProvider(newProvider, model);
+    newProvider.configureNativeWebTools?.({ webSearch: true });
+    if ('onServerToolUse' in newProvider) {
+      (
+        newProvider as { onServerToolUse?: (name: string, input: Record<string, string>) => void }
+      ).onServerToolUse = (name: string, input: Record<string, string>) =>
+        this.log('server_tool', { tool: name, ...input });
+    }
+    this.aiProvider = newProvider;
   }
 
   async compact(instructions?: string, trigger: TCompactTrigger = 'manual'): Promise<void> {

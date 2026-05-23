@@ -50,7 +50,6 @@ All 20 command modules are re-exported from the root `src/index.ts`.
 | language    | `./language/index.js`    | Language switching            |
 | memory      | `./memory/index.js`      | Memory read/write commands    |
 | mode        | `./mode/index.js`        | Interaction mode switching    |
-| model       | `./model/index.js`       | AI model selection            |
 | permissions | `./permissions/index.js` | Permission management         |
 | plugin      | `./plugin/index.js`      | Plugin enable/disable         |
 | provider    | `./provider/index.js`    | AI provider configuration     |
@@ -97,11 +96,10 @@ And update imports:
 
 ```typescript
 // Before
-import { X } from '@robota-sdk/agent-command-model';
 import { Y } from '@robota-sdk/agent-command-provider';
 
 // After
-import { X, Y } from '@robota-sdk/agent-command';
+import { Y } from '@robota-sdk/agent-command';
 ```
 
 ## 8. Testing
