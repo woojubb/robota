@@ -12,7 +12,8 @@ export const CLEAR_COMMAND_DESCRIPTION = 'Clear conversation history';
 export const RENAME_COMMAND_DESCRIPTION = 'Rename the current session';
 export const RENAME_COMMAND_USAGE = 'Usage: rename <name>';
 export const RESUME_COMMAND_DESCRIPTION = 'Resume a previous session';
-export const COST_COMMAND_DESCRIPTION = 'Show session info';
+export const COST_COMMAND_DESCRIPTION =
+  'Show session token usage and estimated cost. /cost budget <amount> sets a monthly budget.';
 export const VALIDATE_SESSION_COMMAND_DESCRIPTION = 'Validate current session replay log';
 export const EXIT_COMMAND_DESCRIPTION = 'Exit CLI';
 
