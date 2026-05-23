@@ -1,6 +1,6 @@
 ---
 title: 'SITE-002: 마케팅 콘텐츠 docs → www 이전 및 Cost Calculator React 재작성'
-status: todo
+status: done
 created: 2026-05-23
 priority: high
 urgency: soon
