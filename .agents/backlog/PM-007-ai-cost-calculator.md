@@ -1,6 +1,6 @@
 ---
 title: 'PM-007: AI 비용 계산기 웹 도구 — 공급자별 월간 비용 비교'
-status: todo
+status: done
 created: 2026-05-23
 priority: medium
 urgency: later
