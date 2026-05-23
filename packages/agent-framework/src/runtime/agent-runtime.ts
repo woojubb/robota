@@ -7,6 +7,7 @@ import { getUserSettingsPath, readSettings, writeSettings } from '../config/sett
 import { InteractiveSession } from '../interactive/interactive-session.js';
 import { createProjectSessionStore } from '../interactive/session-persistence.js';
 
+import type { IOrgPolicy } from '../command-api/org-policy/org-policy-types.js';
 import type { ICommandHostAdapters, ICommandModule } from '../commands/index.js';
 import type { CommandRegistry } from '../commands/index.js';
 import type { IInteractiveSession, IInteractiveSessionStore } from '../interactive/index.js';
@@ -25,6 +26,7 @@ export interface IAgentRuntimeConfig {
   sessionStore?: IInteractiveSessionStore;
   transportRegistry?: ITransportRegistryView<IInteractiveSession>;
   reloadPluginCommandSource?: (registry: CommandRegistry) => void;
+  orgPolicy?: IOrgPolicy;
 }
 
 /** Session-specific options for IAgentRuntime.createSession(). Runtime fields (cwd, provider, etc.) are inherited automatically. */
@@ -99,6 +101,7 @@ export function createAgentRuntime(config: IAgentRuntimeConfig): IAgentRuntime {
         systemPrompt: opts.systemPrompt,
         shellExec: opts.shellExec,
         agentName: opts.agentName,
+        orgPolicy: config.orgPolicy,
       });
     },
   };

@@ -1,3 +1,9 @@
+export type { IOrgPolicy } from './org-policy/index.js';
+export {
+  loadOrgPolicy,
+  formatOrgPolicyViolationMessage,
+  isApiKeyPlaintext,
+} from './org-policy/index.js';
 export type { ICommand, ICommandSource } from './types.js';
 export type { ICommandModule, TCommandModuleSessionRequirement } from './command-module.js';
 export type { ISystemCommand, TSystemCommandLifecycle } from './contracts.js';

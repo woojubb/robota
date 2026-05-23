@@ -76,6 +76,16 @@ All 20 command modules are re-exported from the root `src/index.ts`.
 3. The `src/index.ts` must re-export every command module; no command may be left out.
 4. Tests live within each command subdirectory (`src/<command>/__tests__/`).
 
+### Org-policy enforcement in `provider`
+
+`createProviderCommandModule` accepts `orgPolicy?: IOrgPolicy` (from `@robota-sdk/agent-framework`). When present:
+
+- **`allowedProviders`**: `buildProviderSwitch` rejects `/provider switch <name>` if the target profile name is not in the list, returning a `{ success: false }` result with a violation message before writing settings.
+- **`requireApiKeyFromEnv`**: `completeProviderEdit` rejects a completed provider setup if `input.apiKey` is a plaintext value (does not start with `$ENV:`). The check runs before `buildProviderSetupPatch` is called.
+- **`adminContact`**: appended to every violation message when set.
+
+`InteractiveSession` (in `agent-framework`) handles `blockedCommands` and the `provider-hot-swap-requested` effect for `allowedProviders` checks at the session layer.
+
 ## 7. Migration
 
 Consolidated from 20 individual packages (v3.0.0-beta.63):

@@ -67,6 +67,21 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   const providerSetup = createProviderSetup(cwd, configPhaseOpts, commandSetup);
   const sessionSetup = createSessionSetup(cwd, sessionOpts);
 
+  const { orgPolicy } = commandSetup;
+  if (
+    orgPolicy?.allowedProviders &&
+    providerSetup.activeProfileName &&
+    !orgPolicy.allowedProviders.includes(providerSetup.activeProfileName)
+  ) {
+    const contact = orgPolicy.adminContact
+      ? `\nContact your administrator: ${orgPolicy.adminContact}`
+      : '';
+    terminal.writeError(
+      `Provider "${providerSetup.activeProfileName}" is not allowed by your organization policy. Allowed: ${orgPolicy.allowedProviders.join(', ')}.${contact}`,
+    );
+    process.exit(1);
+  }
+
   // Layer 3: runtime assembly
   const runtime = createAgentRuntime({
     cwd,
@@ -77,6 +92,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     subagentRunnerFactory: providerSetup.subagentRunnerFactory,
     sessionStore: sessionSetup.sessionStore,
     transportRegistry: createDefaultTransportRegistry(),
+    orgPolicy: orgPolicy ?? undefined,
   });
 
   // Layer 4: mode / transport
