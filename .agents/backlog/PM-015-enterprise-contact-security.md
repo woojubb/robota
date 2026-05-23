@@ -1,6 +1,6 @@
 ---
 title: 'PM-015: Enterprise 문의 채널 + 보안 정책 문서'
-status: todo
+status: done
 created: 2026-05-23
 priority: medium
 urgency: later
