@@ -298,6 +298,7 @@ export class InteractiveSession
       await this.captureSandboxSnapshot();
       this.persistCurrentSession();
       await session?.shutdown({ reason: options.reason ?? 'other' });
+      this.listeners.clear();
     })();
     return this.shutdownPromise;
   }
