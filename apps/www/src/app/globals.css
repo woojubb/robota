@@ -1,0 +1,47 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-accent: var(--accent);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+}
+
+:root {
+  --radius: 0.5rem;
+  --background: #0a0a0f;
+  --foreground: #e8e6f0;
+  --card: #131320;
+  --card-foreground: #e8e6f0;
+  --primary: #a78bfa;
+  --primary-foreground: #0a0a0f;
+  --muted: #1a1a2e;
+  --muted-foreground: #7b7a95;
+  --border: #252540;
+  --accent: #a78bfa;
+  --accent-dim: rgba(167, 139, 250, 0.12);
+}
+
+@layer base {
+  * {
+    @apply border-[var(--border)];
+  }
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+}
