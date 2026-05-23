@@ -220,58 +220,6 @@
 }
 
 /* ========================================
-   Studio Surface & Glow Utilities
-   ======================================== */
-.studio-surface {
-  background: var(--studio-bg-elevated);
-  border: 1px solid var(--studio-border);
-  border-radius: 8px;
-}
-
-.studio-surface-raised {
-  background: var(--studio-bg-surface);
-  border: 1px solid var(--studio-border);
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-}
-
-.studio-glow-violet {
-  box-shadow:
-    0 0 0 1px var(--studio-accent-violet),
-    0 0 20px rgba(167, 139, 250, 0.2);
-}
-
-.studio-glow-emerald {
-  box-shadow:
-    0 0 0 1px var(--studio-accent-emerald),
-    0 0 20px rgba(52, 211, 153, 0.2);
-}
-
-.studio-glow-amber {
-  box-shadow:
-    0 0 0 1px var(--studio-accent-amber),
-    0 0 20px rgba(251, 191, 36, 0.2);
-}
-
-.studio-glow-rose {
-  box-shadow:
-    0 0 0 1px var(--studio-accent-rose),
-    0 0 20px rgba(251, 113, 133, 0.2);
-}
-
-.studio-glow-cyan {
-  box-shadow:
-    0 0 0 1px var(--studio-accent-cyan),
-    0 0 20px rgba(34, 211, 238, 0.2);
-}
-
-/* Subtle dot grid background */
-.studio-grid-bg {
-  background-image: radial-gradient(circle, var(--studio-border-subtle) 1px, transparent 1px);
-  background-size: 24px 24px;
-}
-
-/* ========================================
    React Flow Node Styles — Studio Theme
    ======================================== */
 
