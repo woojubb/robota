@@ -26,29 +26,20 @@ Tailwind CSS utility classes only. This rule is shared with [naming-style.md](na
 
 ## App Inventory and Approved Stack
 
-| App / Package           | Framework    | Why                                       |
-| ----------------------- | ------------ | ----------------------------------------- |
-| `apps/agent-web`        | Next.js 15   | Primary web app — App Router + React 19   |
-| `packages/agent-web-ui` | React + Vite | Browser component library                 |
-| `apps/blog`             | Astro        | Content site — Astro components only      |
-| `apps/docs`             | VitePress    | **Exception** — see VitePress rules below |
-
-## VitePress Exception (`apps/docs`)
-
-`apps/docs` is a **VitePress** site. VitePress is a Vue-based documentation framework. This is the sole place where Vue components are acceptable — not by choice, but because VitePress requires it.
-
-Rules inside `apps/docs`:
-
-- Components embedded in docs pages **must** be Vue 3 single-file components (`.vue`).
-- Tailwind is not available in VitePress. VitePress CSS custom properties (`--vp-c-*`, `--vp-font-*`) must be used for theming. `<style scoped>` is permitted **only inside VitePress `.vue` components** as the sole exception to the no-CSS-block rule.
-- Do not use this exception as justification for Vue anywhere else.
+| App / Package           | Framework    | Why                                     |
+| ----------------------- | ------------ | --------------------------------------- |
+| `apps/agent-web`        | Next.js 15   | Primary web app — App Router + React 19 |
+| `apps/docs`             | Next.js 15   | Docs site — App Router + MDX + pagefind |
+| `apps/www`              | Next.js 15   | Marketing site — static export          |
+| `packages/agent-web-ui` | React + Vite | Browser component library               |
+| `apps/blog`             | Astro        | Content site — Astro components only    |
 
 ## Interactive Tools — Placement Decision
 
 If a new interactive tool or page needs:
 
-- Complex state, routing, or API calls → build it in `apps/agent-web` (Next.js), not in `apps/docs` (VitePress).
-- Simple read-only display or calculator embeddable in docs → a VitePress Vue component is acceptable.
+- Complex state, routing, or API calls → build it in `apps/agent-web` (Next.js).
+- Simple read-only display or calculator embeddable in docs → a React client component in `apps/docs`.
 
 ## Acceptable Exceptions to the Styling Rule
 
@@ -62,10 +53,10 @@ These are the only cases where non-Tailwind styling is permitted:
 
 ## Common Mistakes
 
-| Wrong                                              | Correct                                                        |
-| -------------------------------------------------- | -------------------------------------------------------------- |
-| "I'll use Vue because the docs site uses Vue"      | Docs use Vue because VitePress forces it. New features → React |
-| Building a full app as a VitePress Vue component   | Move complex UI to `apps/agent-web` (Next.js)                  |
-| Adding `<style>` to a React component              | Use Tailwind utility classes only                              |
-| Using `styled-components` or `emotion`             | Use Tailwind utility classes only                              |
-| Defining custom CSS utility classes in globals.css | Use Tailwind utilities directly in JSX className               |
+| Wrong                                              | Correct                                          |
+| -------------------------------------------------- | ------------------------------------------------ |
+| "I'll use Vue for a new component"                 | Vue is not approved. Use React.                  |
+| Building a full app as a Vue component             | Move complex UI to `apps/agent-web` (Next.js)    |
+| Adding `<style>` to a React component              | Use Tailwind utility classes only                |
+| Using `styled-components` or `emotion`             | Use Tailwind utility classes only                |
+| Defining custom CSS utility classes in globals.css | Use Tailwind utilities directly in JSX className |
