@@ -1,0 +1,5 @@
+name = "robota-www"
+pages_build_output_dir = "out"
+
+[env.production]
+routes = [{ pattern = "www.robota.io", custom_domain = true }]
