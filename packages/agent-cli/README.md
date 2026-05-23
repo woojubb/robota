@@ -1,22 +1,28 @@
 **Language:** [English](README.md) | [한국어](docs/README-KO.md)
 
+> **Beta software** — currently `3.0.0-beta`. APIs and behavior may change before stable release.
+> Please [report issues](https://github.com/woojubb/robota/issues) to help us improve.
+
 # @robota-sdk/agent-cli
 
 AI coding assistant CLI built on Robota SDK. Loads AGENTS.md/CLAUDE.md for project context and provides a tool-calling REPL with Claude Code-compatible permission modes.
 
 ## Prerequisites
 
-Node.js **22 or higher** is required.
+Node.js **22 or higher** is required. The TUI renderer ([ink 7.x](https://github.com/vadimdemedes/ink)) requires Node.js 22+.
 
 ```bash
 node --version  # Must output v22.x.x or higher
 ```
 
-If your version is below 22, upgrade using [nvm](https://github.com/nvm-sh/nvm):
+If your version is below 22, upgrade using one of:
 
 ```bash
-nvm install 22
-nvm use 22
+# nvm
+nvm install 22 && nvm use 22
+
+# Volta
+volta install node@22
 ```
 
 ## Installation
@@ -41,11 +47,13 @@ robota -p "List all files"    # Print mode (one-shot, exit after response)
 
 ### Environment Variables
 
-| Variable            | Description                                    | Required       |
-| ------------------- | ---------------------------------------------- | -------------- |
-| `ANTHROPIC_API_KEY` | Anthropic API key for the `anthropic` provider | Anthropic only |
-| `DEEPSEEK_API_KEY`  | DeepSeek API key for the `deepseek` provider   | DeepSeek only  |
-| `DASHSCOPE_API_KEY` | Alibaba Cloud Model Studio key for `qwen`      | Qwen only      |
+| Variable            | Description                    | Provider  |
+| ------------------- | ------------------------------ | --------- |
+| `ANTHROPIC_API_KEY` | Anthropic API key              | Anthropic |
+| `OPENAI_API_KEY`    | OpenAI API key                 | OpenAI    |
+| `GEMINI_API_KEY`    | Google Gemini API key          | Gemini    |
+| `DEEPSEEK_API_KEY`  | DeepSeek API key               | DeepSeek  |
+| `DASHSCOPE_API_KEY` | Alibaba Cloud Model Studio key | Qwen      |
 
 Set your key before running:
 
@@ -294,7 +302,6 @@ When a session has a name, it appears in three places:
 | ------------------------- | ---------------------------------------------------------------------- |
 | `/help`                   | Show available commands                                                |
 | `/clear`                  | Clear conversation history                                             |
-| `/model [model]`          | Select AI model (confirmation prompt, CLI restarts)                    |
 | `/language [lang]`        | Set response language (ko, en, ja, zh), saves and restarts             |
 | `/compact [instructions]` | Compress context window                                                |
 | `/cost`                   | Show session info                                                      |
@@ -306,7 +313,7 @@ When a session has a name, it appears in three places:
 | `/rename <name>`          | Rename the current session                                             |
 | `/exit`                   | Exit CLI                                                               |
 
-Typing `/` triggers an autocomplete popup with arrow-key navigation and Esc to dismiss. Tab inserts the highlighted command into the input field without executing — continue typing args or press Enter to execute. Enter selects and executes immediately. Commands with subcommands (e.g., `/permissions`, `/model`) show a nested submenu. Skill commands discovered from `.agents/skills/` and `.claude/commands/` appear alongside built-in commands.
+Typing `/` triggers an autocomplete popup with arrow-key navigation and Esc to dismiss. Tab inserts the highlighted command into the input field without executing — continue typing args or press Enter to execute. Enter selects and executes immediately. Commands with subcommands (e.g., `/permissions`) show a nested submenu. Skill commands discovered from `.agents/skills/` and `.claude/commands/` appear alongside built-in commands.
 
 ## Plugin Management
 

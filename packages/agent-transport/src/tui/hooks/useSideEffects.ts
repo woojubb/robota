@@ -4,10 +4,6 @@ import { useState, useRef, useCallback } from 'react';
 
 import { applyCommandEffects } from './command-effect-handler.js';
 import { useTuiCliAdapter } from '../tui-cli-adapter-context.js';
-import {
-  addModelChangeCancelledMessage,
-  applyConfirmedModelChange,
-} from './model-change-side-effect.js';
 
 import type { IUseSideEffectsOptions, IUseSideEffectsResult } from './side-effects-types.js';
 import type { TInteractivePrompt } from './side-effects-types.js';
@@ -30,8 +26,6 @@ export function useSideEffects({
 }: IUseSideEffectsOptions): IUseSideEffectsResult {
   const { exit } = useApp();
   const cliAdapter = useTuiCliAdapter();
-  const [pendingModelId, setPendingModelId] = useState<string | null>(null);
-  const pendingModelChangeRef = useRef<string | null>(null);
   const [pendingInteractionPrompt, setPendingInteractionPrompt] =
     useState<TInteractivePrompt | null>(null);
   const commandInteractionRef = useRef<ICommandInteraction | null>(null);
@@ -54,10 +48,6 @@ export function useSideEffects({
       applyCommandEffects(effects, {
         addEntry,
         requestShutdown,
-        requestModelChange: (modelId) => {
-          pendingModelChangeRef.current = modelId;
-          setPendingModelId(modelId);
-        },
         openPluginTUI: () => setShowPluginTUI(true),
         openSessionPicker: () => setShowSessionPicker(true),
         openTransportTUI: () => setShowTransportTUI(true),
@@ -125,30 +115,6 @@ export function useSideEffects({
     [baseHandleSubmit, applyQueuedCommandState],
   );
 
-  const handleModelConfirm = useCallback(
-    (index: number) => {
-      const modelId = pendingModelChangeRef.current;
-      setPendingModelId(null);
-      pendingModelChangeRef.current = null;
-      if (index === 0 && modelId) {
-        applyConfirmedModelChange({
-          cwd,
-          modelId,
-          providerOverride,
-          addEntry,
-          requestShutdown,
-          applyModelChange: (c, m, opts) => {
-            cliAdapter.applyActiveModelChange(c, m, opts);
-            return { applied: true };
-          },
-        });
-      } else {
-        addModelChangeCancelledMessage(addEntry);
-      }
-    },
-    [cwd, providerOverride, addEntry, cliAdapter, requestShutdown],
-  );
-
   const handleInteractionSubmit = useCallback(
     async (value: string): Promise<void> => {
       const interaction = commandInteractionRef.current;
@@ -196,16 +162,13 @@ export function useSideEffects({
 
   return {
     handleSubmit,
-    pendingModelId,
     pendingInteractionPrompt,
     showPluginTUI,
     showSessionPicker,
     showTransportTUI,
-    setPendingModelId,
     setShowPluginTUI,
     setShowSessionPicker,
     setShowTransportTUI,
-    handleModelConfirm,
     handleInteractionSubmit,
     handleInteractionCancel,
   };

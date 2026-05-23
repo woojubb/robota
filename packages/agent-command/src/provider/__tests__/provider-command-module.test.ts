@@ -103,7 +103,7 @@ describe('createProviderCommandModule', () => {
 
     expect(module.name).toBe('agent-command-provider');
     expect(commands.map((command) => command.name)).toEqual(['provider']);
-    expect(commands[0]?.subcommands?.map((command) => command.name)).toContain('use');
+    expect(commands[0]?.subcommands?.map((command) => command.name)).toContain('switch');
     expect(module.systemCommands?.map((command) => command.name)).toEqual(['provider']);
   });
 
@@ -146,7 +146,7 @@ describe('createProviderCommandModule', () => {
     });
   });
 
-  it('confirms provider switch through a generic command interaction', async () => {
+  it('switches provider immediately via /provider switch without confirmation dialog', async () => {
     const { adapter, readTarget } = createSettingsAdapter(
       {
         currentProvider: 'anthropic',
@@ -158,24 +158,19 @@ describe('createProviderCommandModule', () => {
       {},
     );
 
-    const result = await createExecutor(adapter).execute('provider', session, 'use openai');
-    const submitted = await result?.interaction?.submit('yes');
+    const result = await createExecutor(adapter).execute('provider', session, 'switch openai');
 
-    expect(result?.interaction?.prompt).toMatchObject({
-      kind: 'choice',
-      title: 'Change provider to openai? This will restart the session.',
-    });
+    expect(result?.interaction).toBeUndefined();
+    expect(result?.message).toBe(
+      'Switched to openai (supergemma4-26b-uncensored-v2). History preserved.',
+    );
     expect(readTarget().currentProvider).toBe('openai');
-    expect(submitted?.effects).toEqual([
-      {
-        type: 'session-restart-requested',
-        reason: 'other',
-        message: 'Provider change restart',
-      },
+    expect(result?.effects).toEqual([
+      { type: 'provider-hot-swap-requested', profileName: 'openai' },
     ]);
   });
 
-  it('switches from the provider profile action menu through the same restart interaction', async () => {
+  it('switches from the provider profile action menu immediately without confirmation', async () => {
     const { adapter, readTarget } = createSettingsAdapter(
       {
         currentProvider: 'anthropic',
@@ -190,16 +185,14 @@ describe('createProviderCommandModule', () => {
     const listed = await createExecutor(adapter).execute('provider', session, 'list');
     const selected = await listed?.interaction?.submit('openai');
     const switchRequested = await selected?.interaction?.submit('switch');
-    const submitted = await switchRequested?.interaction?.submit('yes');
 
-    expect(switchRequested?.message).toBe('Provider change requested: openai');
+    expect(switchRequested?.message).toBe(
+      'Switched to openai (supergemma4-26b-uncensored-v2). History preserved.',
+    );
+    expect(switchRequested?.interaction).toBeUndefined();
     expect(readTarget().currentProvider).toBe('openai');
-    expect(submitted?.effects).toEqual([
-      {
-        type: 'session-restart-requested',
-        reason: 'other',
-        message: 'Provider change restart',
-      },
+    expect(switchRequested?.effects).toEqual([
+      { type: 'provider-hot-swap-requested', profileName: 'openai' },
     ]);
   });
 
@@ -241,13 +234,9 @@ describe('createProviderCommandModule', () => {
         },
       },
     });
-    expect(completed?.message).toBe('Provider anthropic updated. Restarting...');
+    expect(completed?.message).toBe('Provider anthropic updated. Switching...');
     expect(completed?.effects).toEqual([
-      {
-        type: 'session-restart-requested',
-        reason: 'other',
-        message: 'Provider edit restart',
-      },
+      { type: 'provider-hot-swap-requested', profileName: 'anthropic' },
     ]);
   });
 

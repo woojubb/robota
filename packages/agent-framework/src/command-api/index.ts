@@ -1,3 +1,9 @@
+export type { IOrgPolicy } from './org-policy/index.js';
+export {
+  loadOrgPolicy,
+  formatOrgPolicyViolationMessage,
+  isApiKeyPlaintext,
+} from './org-policy/index.js';
 export type { ICommand, ICommandSource } from './types.js';
 export type { ICommandModule, TCommandModuleSessionRequirement } from './command-module.js';
 export type { ISystemCommand, TSystemCommandLifecycle } from './contracts.js';
@@ -134,22 +140,6 @@ export type {
   IBackgroundTaskLogPage,
   IBackgroundTaskState,
 } from '../background-tasks/index.js';
-export {
-  buildModelCommandSubcommands,
-  formatModelCommandUsageMessageAsync,
-  formatModelCommandUsageMessage,
-  MODEL_COMMAND_ARGUMENT_HINT,
-  MODEL_COMMAND_DESCRIPTION,
-  resolveActiveProviderModelCatalog,
-  resolveActiveProviderModelCatalogState,
-} from './model/model-command-api.js';
-export type {
-  IActiveProviderModelCatalogState,
-  IBuildModelCommandSubcommandsOptions,
-  IModelCommandModuleOptions,
-  IModelCommandSettingsAdapter,
-  IResolveActiveProviderModelCatalogStateOptions,
-} from './model/model-command-api.js';
 export type { TRecommendedResponseLanguage } from './language/language-command-api.js';
 export type { IPermissionsCommandState } from './permissions/permission-mode-command-api.js';
 export type {

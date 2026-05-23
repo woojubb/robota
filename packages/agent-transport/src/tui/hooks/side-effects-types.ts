@@ -23,16 +23,13 @@ export interface IUseSideEffectsOptions {
 
 export interface IUseSideEffectsResult {
   handleSubmit: (input: string) => Promise<void>;
-  pendingModelId: string | null;
   pendingInteractionPrompt: TInteractivePrompt | null;
   showPluginTUI: boolean;
   showSessionPicker: boolean;
   showTransportTUI: boolean;
-  setPendingModelId: (id: string | null) => void;
   setShowPluginTUI: (show: boolean) => void;
   setShowSessionPicker: (show: boolean) => void;
   setShowTransportTUI: (show: boolean) => void;
-  handleModelConfirm: (index: number) => void;
   handleInteractionSubmit: (value: string) => Promise<void>;
   handleInteractionCancel: () => void;
 }

@@ -7,59 +7,59 @@ Do not promote entries to `.agents/rules/common-mistakes.md` without human revie
 
 ## fix-or-revert-commit
 
-- Frequency: 45 events in the last 7 days
+- Frequency: 30 events in the last 7 days
 - Sources: reverts
 - Example paths: (none)
-- First seen: 2026-05-16T15:43:35.000Z
+- First seen: 2026-05-17T11:50:24.000Z
 - Last seen: 2026-05-18T14:43:45.000Z
 - Status: candidate; human review is required before promotion.
 <!-- auto-lesson:user-correction -->
 
 ## user-correction
 
-- Frequency: 33 events in the last 7 days
+- Frequency: 32 events in the last 7 days
 - Sources: corrections
 - Example paths: (none)
-- First seen: 2026-05-16T17:03:00.000Z
-- Last seen: 2026-05-21T18:06:22.000Z
+- First seen: 2026-05-17T02:42:17.000Z
+- Last seen: 2026-05-23T10:20:40.000Z
 - Status: candidate; human review is required before promotion.
 <!-- auto-lesson:same-file-edited-3-times -->
 
 ## same-file-edited-3-times
 
-- Frequency: 85626 events in the last 7 days
+- Frequency: 92816 events in the last 7 days
 - Sources: reverts
 - Example paths: `/Users/jungyoun/.claude/projects/-Users-jungyoun-Documents-dev-robota/memory/MEMORY.md`, `/Users/jungyoun/.claude/projects/-Users-jungyoun-Documents-dev-robota/memory/feedback_otp_immediate.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-002-p10-cli-ts-extract-startup-modules.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-002-p22-subagent-worker-to-framework.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-002-p23-plugin-adapter-to-framework.md`
-- First seen: 2026-05-16T05:22:57.000Z
-- Last seen: 2026-05-22T17:39:14.000Z
+- First seen: 2026-05-17T02:42:57.000Z
+- Last seen: 2026-05-23T14:16:03.000Z
 - Status: candidate; human review is required before promotion.
 <!-- auto-lesson:repeated-tool-errors -->
 
 ## repeated-tool-errors
 
-- Frequency: 246 events in the last 7 days
+- Frequency: 226 events in the last 7 days
 - Sources: reverts
 - Example paths: (none)
-- First seen: 2026-05-16T05:22:57.000Z
-- Last seen: 2026-05-22T17:39:14.000Z
+- First seen: 2026-05-17T02:42:57.000Z
+- Last seen: 2026-05-23T14:16:03.000Z
 - Status: candidate; human review is required before promotion.
 <!-- auto-lesson:try-catch-fallback -->
 
 ## try-catch-fallback
 
-- Frequency: 53 events in the last 7 days
+- Frequency: 49 events in the last 7 days
 - Sources: blocks
-- Example paths: `packages/agent-cli/src/cli.ts`, `packages/agent-cli/src/startup/append-system-prompt.ts`, `packages/agent-cli/src/startup/version.ts`, `packages/agent-command/src/plugins/default-plugin-command-adapter.ts`, `packages/agent-framework/src/checkpoints/edit-checkpoint-store.ts`
-- First seen: 2026-05-16T05:06:20.000Z
-- Last seen: 2026-05-22T17:28:10.000Z
+- Example paths: `packages/agent-cli/src/cli.ts`, `packages/agent-cli/src/init/init-command.ts`, `packages/agent-cli/src/startup/append-system-prompt.ts`, `packages/agent-cli/src/startup/version.ts`, `packages/agent-command/src/plugins/default-plugin-command-adapter.ts`
+- First seen: 2026-05-17T03:39:52.000Z
+- Last seen: 2026-05-23T14:01:11.000Z
 - Status: candidate; human review is required before promotion.
 <!-- auto-lesson:console-usage -->
 
 ## console-usage
 
-- Frequency: 5 events in the last 7 days
+- Frequency: 7 events in the last 7 days
 - Sources: blocks
-- Example paths: `packages/agent-playground/src/lib/code-generator/assembly-serializer.ts`, `packages/agent-playground/src/lib/playground/robota-executor/playground-executor.ts`
+- Example paths: `packages/agent-cli/src/utils/cli-args.ts`, `packages/agent-framework/src/command-api/provider/provider-settings.ts`, `packages/agent-playground/src/lib/code-generator/assembly-serializer.ts`, `packages/agent-playground/src/lib/playground/robota-executor/playground-executor.ts`
 - First seen: 2026-05-18T17:16:01.000Z
-- Last seen: 2026-05-19T15:54:38.000Z
+- Last seen: 2026-05-23T11:48:11.000Z
 - Status: candidate; human review is required before promotion.

@@ -22,7 +22,6 @@ robota "initial prompt"             # TUI with initial message
 robota -p "prompt"                  # Print mode (one-shot, exits after response)
 robota -c                           # Continue last session
 robota -r <session-id>              # Resume specific session
-robota --model claude-opus-4-6      # Model override
 robota --permission-mode plan       # Permission mode override
 robota --max-turns 10               # Limit agentic turns
 robota --output-format json         # Output format (text/json/stream-json)
@@ -104,6 +103,94 @@ robota -p "query" --json-schema '{"type":"object"}'
 | 0    | Success |
 | 1    | Error   |
 
+## CI/CD Integration
+
+`robota -p` headless mode is designed for unattended script and pipeline use.
+No TUI is rendered; stdout carries only the response (or structured JSON), making it safe to capture.
+
+### GitHub Actions
+
+```yaml
+# .github/workflows/ai-review.yml
+name: AI Code Review
+
+on:
+  pull_request:
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Robota CLI
+        run: npm install -g @robota-sdk/agent-cli
+
+      - name: AI Diff Review
+        run: |
+          git diff HEAD~1 | robota -p "Review this diff and list any issues" \
+            --permission-mode bypassPermissions \
+            --no-session-persistence \
+            --output-format json
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+```
+
+### Piping Input
+
+Feed context from any command directly into Robota:
+
+```bash
+# Review a git diff
+git diff HEAD~1 | robota -p "Review this diff"
+
+# Summarise test output
+pnpm test 2>&1 | robota -p "Summarise failures and suggest fixes"
+
+# Analyse a file
+cat src/index.ts | robota -p "Find security issues"
+```
+
+### CI-Specific Flags
+
+| Flag                                  | Purpose                                                      |
+| ------------------------------------- | ------------------------------------------------------------ |
+| `--permission-mode bypassPermissions` | Skip all confirmation prompts — required for unattended runs |
+| `--no-session-persistence`            | Do not write session files to disk                           |
+| `--output-format json`                | Machine-readable output; parse with `jq`                     |
+| `--output-format stream-json`         | Newline-delimited JSON for streaming pipelines               |
+| `--max-turns <n>`                     | Limit agentic loops to prevent runaway costs                 |
+
+### Parsing JSON Output
+
+```bash
+# Extract just the text result
+robota -p "Summarise the project" --output-format json | jq -r '.result'
+
+# Check success
+result=$(robota -p "Run checks" --output-format json)
+if [ "$(echo "$result" | jq -r '.subtype')" = "success" ]; then
+  echo "AI review passed"
+fi
+```
+
+### Environment Variables in CI
+
+Store provider API keys as encrypted secrets and inject them as environment variables.
+Robota reads them using the same names as in local development:
+
+```bash
+ANTHROPIC_API_KEY=...   # Claude (default)
+OPENAI_API_KEY=...      # OpenAI
+GEMINI_API_KEY=...      # Gemini
+```
+
 ## Interactive TUI
 
 The TUI (built with React + Ink) provides:
@@ -148,33 +235,33 @@ Type `/` to trigger the autocomplete popup. Arrow keys to navigate, Tab to inser
 
 The available command list is built from the consolidated `@robota-sdk/agent-command` package, which bundles all 20 command modules. The CLI renders this list but does not own the command definitions.
 
-| Command                   | Description                             |
-| ------------------------- | --------------------------------------- |
-| `/help`                   | Show available commands                 |
-| `/clear`                  | Clear conversation history              |
-| `/model [model]`          | Show or change AI model                 |
-| `/compact [instructions]` | Compress context window                 |
-| `/cost`                   | Show session info                       |
-| `/context`                | Context window details                  |
-| `/permissions [mode]`     | Show permission rules or change mode    |
-| `/memory`                 | Inspect and manage project memory       |
-| `/rewind`                 | List and restore edit checkpoints       |
-| `/provider`               | Manage provider profiles                |
-| `/resume`                 | Resume a previous session               |
-| `/background`             | List and control background tasks       |
-| `/agent`                  | Run and manage background subagent jobs |
-| `/rename`                 | Rename the current session              |
-| `/validate-session`       | Validate replay-grade session log data  |
-| `/exit`                   | Exit CLI                                |
-| `/plugin`                 | Plugin management                       |
-| `/reload-plugins`         | Reload all plugin resources             |
-| `/language [lang]`        | Show or change UI language              |
-| `/statusline`             | Show, hide, or reset status line fields |
-| `/reset`                  | Delete settings and exit                |
+| Command                   | Description                                         |
+| ------------------------- | --------------------------------------------------- |
+| `/help`                   | Show available commands                             |
+| `/clear`                  | Clear conversation history                          |
+| `/compact [instructions]` | Compress context window                             |
+| `/cost`                   | Show session info                                   |
+| `/context`                | Context window details                              |
+| `/permissions [mode]`     | Show permission rules or change mode                |
+| `/memory`                 | Inspect and manage project memory                   |
+| `/rewind`                 | List and restore edit checkpoints                   |
+| `/provider`               | Manage provider profiles                            |
+| `/resume`                 | Resume a previous session                           |
+| `/background`             | List and control background tasks                   |
+| `/agent`                  | Run and manage background subagent jobs             |
+| `/rename`                 | Rename the current session                          |
+| `/validate-session`       | Validate replay-grade session log data              |
+| `/exit`                   | Exit CLI                                            |
+| `/plugin`                 | Plugin management                                   |
+| `/reload-plugins`         | Reload all plugin resources                         |
+| `/language [lang]`        | Show or change UI language                          |
+| `/settings`               | Open transport settings (enable/disable transports) |
+| `/statusline`             | Show, hide, or reset status line fields             |
+| `/reset`                  | Delete settings and exit                            |
 
-`/permissions` and `/model` show nested submenus for selection.
+`/permissions` shows a nested submenu for permission mode selection.
 
-`/provider` and `/provider list` show configured provider profiles. In the interactive TUI, selecting a profile opens provider actions for switch, edit, test, duplicate, delete, and cancel. In print/headless mode, provider commands keep deterministic text output and do not wait for interactive prompts.
+`/provider` and `/provider list` show configured provider profiles. In the interactive TUI, selecting a profile opens provider actions for switch, edit, test, duplicate, delete, and cancel. `/provider switch <profile>` hot-swaps the provider immediately without restarting — conversation history is preserved. In print/headless mode, provider commands keep deterministic text output and do not wait for interactive prompts.
 
 ### Plugin Management
 
@@ -213,11 +300,55 @@ Navigate with arrow keys, Enter to select, Esc to go back.
 
 Use `/reload-plugins` to reload plugin resources and refresh plugin-provided slash commands without restarting the CLI.
 
-### Model Change (`/model`)
+### Official Plugins
 
-Select a model from the submenu (e.g., `Claude Opus 4.6 (1M)`). A confirmation prompt appears warning that the CLI will restart. If confirmed, the new model is saved to `~/.robota/settings.json` and the CLI exits.
+The Robota SDK ships five first-party plugins for common integrations.
+Each plugin extends `AbstractPlugin` and registers its tools automatically when added to an agent.
 
-Model definitions come from the `CLAUDE_MODELS` registry in `@robota-sdk/agent-core`, which is the single source of truth for model IDs, names, and context window sizes.
+| Package                     | Plugin class   | Env variable      | Description                      |
+| --------------------------- | -------------- | ----------------- | -------------------------------- |
+| `@robota-sdk/plugin-github` | `GitHubPlugin` | `GITHUB_TOKEN`    | GitHub issues and pull requests  |
+| `@robota-sdk/plugin-slack`  | `SlackPlugin`  | `SLACK_BOT_TOKEN` | Post messages and read history   |
+| `@robota-sdk/plugin-jira`   | `JiraPlugin`   | `JIRA_API_TOKEN`  | Jira issues and project queries  |
+| `@robota-sdk/plugin-linear` | `LinearPlugin` | `LINEAR_API_KEY`  | Linear issues and team queries   |
+| `@robota-sdk/plugin-notion` | `NotionPlugin` | `NOTION_TOKEN`    | Notion pages and database search |
+
+**Quick setup:**
+
+```bash
+npm install @robota-sdk/plugin-github @robota-sdk/plugin-slack \
+            @robota-sdk/plugin-jira   @robota-sdk/plugin-linear \
+            @robota-sdk/plugin-notion
+```
+
+```typescript
+import { GitHubPlugin } from '@robota-sdk/plugin-github';
+import { SlackPlugin } from '@robota-sdk/plugin-slack';
+import { JiraPlugin } from '@robota-sdk/plugin-jira';
+import { LinearPlugin } from '@robota-sdk/plugin-linear';
+import { NotionPlugin } from '@robota-sdk/plugin-notion';
+
+agent
+  .use(new GitHubPlugin({ token: process.env.GITHUB_TOKEN! }))
+  .use(new SlackPlugin({ token: process.env.SLACK_BOT_TOKEN!, defaultChannel: '#alerts' }))
+  .use(
+    new JiraPlugin({
+      baseUrl: process.env.JIRA_URL!,
+      email: process.env.JIRA_EMAIL!,
+      apiToken: process.env.JIRA_API_TOKEN!,
+    }),
+  )
+  .use(new LinearPlugin({ apiKey: process.env.LINEAR_API_KEY! }))
+  .use(new NotionPlugin({ token: process.env.NOTION_TOKEN! }));
+```
+
+See each package's `README.md` for the full API reference.
+
+### Provider Switch (`/provider switch`)
+
+`/provider switch <profile>` hot-swaps the active provider without restarting the session. The provider is replaced in-place and conversation history is preserved. The profile name must already exist in settings (configured via `--configure-provider` or `/provider add`).
+
+From the interactive TUI, selecting a provider profile from `/provider list` and choosing **switch** performs the same hot-swap.
 
 ### Skill Commands
 

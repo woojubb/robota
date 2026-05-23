@@ -18,7 +18,6 @@ export interface IParsedCliArgs {
   printMode: boolean;
   continueMode: boolean;
   resumeId: string | undefined;
-  model: string | undefined;
   language: string | undefined;
   permissionMode: TPermissionMode | undefined;
   maxTurns: number | undefined;
@@ -63,16 +62,17 @@ Options:
   --append-system-prompt <t> Append text to the system prompt
   --language <lang>          Language preference (e.g. ko, en)
   --no-session-persistence   Disable session persistence for this run
-  --model <model>            Override model for this session
   --permission-mode <mode>   Permission mode: plan | default | acceptEdits | bypassPermissions
   --max-turns <n>            Maximum agent turns before stopping
   -c, --continue             Continue the most recent session
   -r, --resume <id>          Resume a session by ID or name
   -n, --name <name>          Name for the new session
-  --fork-session             Fork the current session
+  --fork-session             Fork the current session into a new independent session
+  --task-file <path>         Read a task prompt from file and append it to the system prompt
+  --bare                     Print mode: output raw text only, no formatting wrapper
   --configure                Run interactive provider configuration
   --configure-provider <n>   Configure a specific provider
-  --dry-run <prompt>         Plan-only run: show what the agent would do without modifying files
+  --dry-run                  Plan-only run: show what the agent would do without modifying files
   --check-update             Check for CLI updates
   --version                  Show version number
   -h, --help                 Show this help message
@@ -85,6 +85,8 @@ Examples:
   robota init                      Initialize project files
   robota -p "Hello"                Print mode: send prompt and exit
   robota -p "Hello" --output-format json
+  robota -p "Review this diff" --bare    Raw output for shell pipelines
+  robota --task-file task.md       Run task from file (appended to system prompt)
   robota --dry-run "Refactor the auth module"      Show plan without modifying files
   robota --continue                Resume the last session
 `;
@@ -125,7 +127,6 @@ const PARSE_ARGS_CONFIG = {
     p: { type: 'boolean', short: 'p', default: false },
     continue: { type: 'boolean', short: 'c', default: false },
     resume: { type: 'string', short: 'r' },
-    model: { type: 'string' },
     language: { type: 'string' },
     'permission-mode': { type: 'string' },
     'max-turns': { type: 'string' },
@@ -169,7 +170,6 @@ function mapParsedValues(
     printMode: values['p'] ?? false,
     continueMode: values['continue'] ?? false,
     resumeId: values['resume'],
-    model: values['model'],
     language: values['language'],
     permissionMode: parsePermissionMode(values['permission-mode']),
     maxTurns: parseMaxTurns(values['max-turns']),

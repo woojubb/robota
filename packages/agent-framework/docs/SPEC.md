@@ -65,8 +65,6 @@ SDK is provider-neutral. The consumer (CLI, server, etc.) creates the provider a
 
 SDK command code is split between generic infrastructure and command-facing common APIs. The SDK responsibility is the command contract layer: command contracts, registries/executors, lifecycle metadata, effects/interactions, reusable command-facing common APIs, and skill discovery/activation services consumed by command modules. User-visible internal commands, including `/skills`, must be implemented as command modules selected by composition roots.
 
-Model command common APIs are provider-aware but provider-neutral. They resolve the effective active provider profile from the provider settings document, read model catalog fallback metadata from injected `IProviderDefinition` records, can explicitly invoke provider-owned catalog refresh hooks, and produce command descriptors without hardcoding CLI/TUI provider branches. If a live refresh fails or a provider does not expose catalog metadata, `/model` remains manually invocable and the command result must surface stale/unavailable catalog state rather than showing another provider's models.
-
 ### Client–SDK–Session Relationship
 
 ```
@@ -308,8 +306,8 @@ agent-cli (Ink TUI — CLI-specific)
   - `TCommandEffect` — typed host-applied effects such as model/language change, restart, exit, session picker, plugin UI, plugin registry reload, rename, and statusline patch.
   - `ICommandInteraction` / `TCommandInteractionPrompt` — generic command-owned follow-up prompts rendered by host UIs. Prompt descriptors may include a provider-neutral `description` string for host-rendered help text.
 - **Provider common APIs**: `agent-framework/command-api/provider/` owns provider settings document types, provider profile merge/validation/delete helpers, environment reference helpers, setup-flow primitives including fixed-profile edit defaults, provider-owned setup help link projection, provider profile name suggestion helpers, provider command settings adapter contracts, and provider probe defaults. `provider` command behavior lives in `@robota-sdk/agent-command-provider` and consumes these APIs as an external command module.
+- **Org-policy common APIs**: `agent-framework/command-api/org-policy/` owns `IOrgPolicy` (allowedProviders, blockedCommands, requireApiKeyFromEnv, adminContact), `loadOrgPolicy()` (reads `~/.robota/org-policy.json`), `formatOrgPolicyViolationMessage()`, and `isApiKeyPlaintext()`. Enforcement is split: `InteractiveSession.executeCommand()` blocks `blockedCommands` before dispatch and blocks `allowedProviders` violations after a `provider-hot-swap-requested` effect is observed. `IProviderCommandModuleOptions.orgPolicy` passes the policy to provider command module so `buildProviderSwitch` and `completeProviderEdit` can enforce `allowedProviders` and `requireApiKeyFromEnv` within command boundaries. `IAgentRuntimeConfig.orgPolicy` carries the policy through runtime construction to session creation.
 - **Context/compact common APIs**: `agent-framework/command-api/context/` owns command-facing context-state reads, automatic compact policy reads, active-session policy updates, settings-adapter persistence helpers, and manual compact host-facade helpers. `context` and `compact` command behavior lives in `@robota-sdk/agent-command-context` and `@robota-sdk/agent-command-compact`; both consume these APIs as external command modules.
-- **Model common APIs**: `agent-framework/command-api/model/` owns model-command metadata constants and subcommand projection helpers. `model` command behavior lives in `@robota-sdk/agent-command-model` and consumes these APIs as an external command module.
 - **Language common APIs**: `agent-framework/command-api/language/` owns language-command metadata constants, recommended subcommands, argument parsing, and usage formatting. `language` command behavior lives in `@robota-sdk/agent-command-language` and consumes these APIs as an external command module.
 - **Memory common APIs**: `agent-framework/command-api/memory/` owns memory-command metadata constants, subcommand projection helpers, project/pending memory store facades, sensitive-content checks, used-memory reference reads, and memory-event recording helpers. `memory` command behavior lives in `@robota-sdk/agent-command-memory` and consumes these APIs as an external command module.
 - **Background common APIs**: `agent-framework/command-api/background/` owns background-command metadata constants, subcommand projection helpers, task-list/log formatting helpers, and list/read/cancel/close facades over `ICommandHostContext`. `background` command behavior lives in `@robota-sdk/agent-command-background` and consumes these APIs as an external command module.
@@ -423,7 +421,6 @@ reusing broad context-loading internals for repository interpretation.
 - **Product-specific built-in commands**: User-visible internal commands outside SDK-owned discovery are provided by product-composed command modules.
 - **Product-composed built-in command modules**: `skills` is provided by `@robota-sdk/agent-command-skills`. It is user- and model-invocable, lists registered skill metadata, and activates a skill through `ICommandHostContext.executeSkillCommandByName()`. Model-side activation uses the projected `robota_command_skills` tool with skill arguments in `args`.
 - **Product-composed built-in command modules**: `help` is provided by `@robota-sdk/agent-command-help` and renders the composed command list through SDK help common APIs.
-- **Product-composed built-in command modules**: `model` is provided by `@robota-sdk/agent-command-model`, reuses SDK model-command common APIs for subcommand metadata, and emits `model-change-requested` effects for host application.
 - **Product-composed built-in command modules**: `permissions` is provided by `@robota-sdk/agent-command-permissions`, reuses SDK permission common APIs for validation/subcommand metadata, state reads/formatting, and permission-mode updates through the command host adapter facade, and stays user-invocable only.
 - **Optional legacy command modules**: `mode` is provided by `@robota-sdk/agent-command-mode` only when an application explicitly composes that module. Product CLIs should prefer the canonical `permissions` command for permission-mode changes.
 - **Product-composed built-in command modules**: `language` is provided by `@robota-sdk/agent-command-language`, reuses SDK language command common APIs for usage/subcommand metadata, and emits `language-change-requested` effects for host application.
@@ -1057,17 +1054,20 @@ interface ICommandResult {
 }
 
 type TCommandEffect =
-  | { type: 'model-change-requested'; modelId: string }
+  | { type: 'provider-hot-swap-requested'; profileName: string }
   | { type: 'language-change-requested'; language: string }
   | { type: 'settings-reset-requested' }
   | { type: 'session-exit-requested'; reason?: TSessionEndReason; message?: string }
   | { type: 'session-restart-requested'; reason: TSessionEndReason; message: string }
   | { type: 'plugin-tui-requested' }
   | { type: 'plugin-registry-reload-requested' }
+  | { type: 'settings-tui-requested' }
   | { type: 'session-picker-requested' }
   | { type: 'session-renamed'; name: string }
   | { type: 'conversation-history-cleared' }
-  | { type: 'statusline-settings-patch'; patch: TStatusLineCommandSettingsPatch };
+  | { type: 'session-execution-started' }
+  | { type: 'statusline-settings-patch'; patch: TStatusLineCommandSettingsPatch }
+  | { type: 'agent-switcher-requested' };
 
 interface ICommandInteraction {
   prompt: ICommandInteractionPrompt;
