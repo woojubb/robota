@@ -9,6 +9,8 @@ export const enConfig = {
       { text: 'Examples', link: '/examples/' },
       { text: 'Packages', link: '/packages/' },
       { text: 'Changelog', link: '/changelog/' },
+      { text: 'Showcase', link: '/showcase/' },
+      { text: 'Roadmap', link: '/roadmap' },
       { text: 'Development', link: '/development/' },
       { text: 'Playground', link: 'https://play.robota.io', target: '_blank' },
     ],

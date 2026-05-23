@@ -1,6 +1,6 @@
 ---
 title: 'PM-021: "Build with robota" 쇼케이스 페이지'
-status: todo
+status: done
 created: 2026-05-23
 priority: low
 urgency: later
