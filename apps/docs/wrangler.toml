@@ -1,5 +1,2 @@
 name = "robota-docs"
-pages_build_output_dir = ".vitepress/dist"
-
-[env.production]
-routes = [{ pattern = "docs.robota.io", custom_domain = true }]
+pages_build_output_dir = "out"
