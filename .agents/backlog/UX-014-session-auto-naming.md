@@ -1,6 +1,6 @@
 ---
 title: 'UX-014: 세션 자동 이름 생성 — 첫 메시지 기반 AI 요약'
-status: todo
+status: done
 created: 2026-05-23
 priority: medium
 urgency: soon
