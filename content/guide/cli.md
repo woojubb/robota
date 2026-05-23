@@ -104,6 +104,94 @@ robota -p "query" --json-schema '{"type":"object"}'
 | 0    | Success |
 | 1    | Error   |
 
+## CI/CD Integration
+
+`robota -p` headless mode is designed for unattended script and pipeline use.
+No TUI is rendered; stdout carries only the response (or structured JSON), making it safe to capture.
+
+### GitHub Actions
+
+```yaml
+# .github/workflows/ai-review.yml
+name: AI Code Review
+
+on:
+  pull_request:
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Robota CLI
+        run: npm install -g @robota-sdk/agent-cli
+
+      - name: AI Diff Review
+        run: |
+          git diff HEAD~1 | robota -p "Review this diff and list any issues" \
+            --permission-mode bypassPermissions \
+            --no-session-persistence \
+            --output-format json
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+```
+
+### Piping Input
+
+Feed context from any command directly into Robota:
+
+```bash
+# Review a git diff
+git diff HEAD~1 | robota -p "Review this diff"
+
+# Summarise test output
+pnpm test 2>&1 | robota -p "Summarise failures and suggest fixes"
+
+# Analyse a file
+cat src/index.ts | robota -p "Find security issues"
+```
+
+### CI-Specific Flags
+
+| Flag                                  | Purpose                                                      |
+| ------------------------------------- | ------------------------------------------------------------ |
+| `--permission-mode bypassPermissions` | Skip all confirmation prompts — required for unattended runs |
+| `--no-session-persistence`            | Do not write session files to disk                           |
+| `--output-format json`                | Machine-readable output; parse with `jq`                     |
+| `--output-format stream-json`         | Newline-delimited JSON for streaming pipelines               |
+| `--max-turns <n>`                     | Limit agentic loops to prevent runaway costs                 |
+
+### Parsing JSON Output
+
+```bash
+# Extract just the text result
+robota -p "Summarise the project" --output-format json | jq -r '.result'
+
+# Check success
+result=$(robota -p "Run checks" --output-format json)
+if [ "$(echo "$result" | jq -r '.subtype')" = "success" ]; then
+  echo "AI review passed"
+fi
+```
+
+### Environment Variables in CI
+
+Store provider API keys as encrypted secrets and inject them as environment variables.
+Robota reads them using the same names as in local development:
+
+```bash
+ANTHROPIC_API_KEY=...   # Claude (default)
+OPENAI_API_KEY=...      # OpenAI
+GEMINI_API_KEY=...      # Gemini
+```
+
 ## Interactive TUI
 
 The TUI (built with React + Ink) provides:
