@@ -1,6 +1,6 @@
 ---
 title: 'SITE-005: VitePress → Next.js docs 마이그레이션'
-status: todo
+status: done
 created: 2026-05-23
 priority: medium
 urgency: later
