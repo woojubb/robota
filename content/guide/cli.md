@@ -214,6 +214,50 @@ Navigate with arrow keys, Enter to select, Esc to go back.
 
 Use `/reload-plugins` to reload plugin resources and refresh plugin-provided slash commands without restarting the CLI.
 
+### Official Plugins
+
+The Robota SDK ships five first-party plugins for common integrations.
+Each plugin extends `AbstractPlugin` and registers its tools automatically when added to an agent.
+
+| Package                     | Plugin class   | Env variable      | Description                      |
+| --------------------------- | -------------- | ----------------- | -------------------------------- |
+| `@robota-sdk/plugin-github` | `GitHubPlugin` | `GITHUB_TOKEN`    | GitHub issues and pull requests  |
+| `@robota-sdk/plugin-slack`  | `SlackPlugin`  | `SLACK_BOT_TOKEN` | Post messages and read history   |
+| `@robota-sdk/plugin-jira`   | `JiraPlugin`   | `JIRA_API_TOKEN`  | Jira issues and project queries  |
+| `@robota-sdk/plugin-linear` | `LinearPlugin` | `LINEAR_API_KEY`  | Linear issues and team queries   |
+| `@robota-sdk/plugin-notion` | `NotionPlugin` | `NOTION_TOKEN`    | Notion pages and database search |
+
+**Quick setup:**
+
+```bash
+npm install @robota-sdk/plugin-github @robota-sdk/plugin-slack \
+            @robota-sdk/plugin-jira   @robota-sdk/plugin-linear \
+            @robota-sdk/plugin-notion
+```
+
+```typescript
+import { GitHubPlugin } from '@robota-sdk/plugin-github';
+import { SlackPlugin } from '@robota-sdk/plugin-slack';
+import { JiraPlugin } from '@robota-sdk/plugin-jira';
+import { LinearPlugin } from '@robota-sdk/plugin-linear';
+import { NotionPlugin } from '@robota-sdk/plugin-notion';
+
+agent
+  .use(new GitHubPlugin({ token: process.env.GITHUB_TOKEN! }))
+  .use(new SlackPlugin({ token: process.env.SLACK_BOT_TOKEN!, defaultChannel: '#alerts' }))
+  .use(
+    new JiraPlugin({
+      baseUrl: process.env.JIRA_URL!,
+      email: process.env.JIRA_EMAIL!,
+      apiToken: process.env.JIRA_API_TOKEN!,
+    }),
+  )
+  .use(new LinearPlugin({ apiKey: process.env.LINEAR_API_KEY! }))
+  .use(new NotionPlugin({ token: process.env.NOTION_TOKEN! }));
+```
+
+See each package's `README.md` for the full API reference.
+
 ### Model Change (`/model`)
 
 Select a model from the submenu (e.g., `Claude Opus 4.6 (1M)`). A confirmation prompt appears warning that the CLI will restart. If confirmed, the new model is saved to `~/.robota/settings.json` and the CLI exits.
