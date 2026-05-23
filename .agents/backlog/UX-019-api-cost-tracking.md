@@ -1,6 +1,6 @@
 ---
 title: 'UX-019: /cost 개선 — 실시간 비용 추적 및 예산 알림 설정'
-status: todo
+status: done
 created: 2026-05-23
 priority: medium
 urgency: later

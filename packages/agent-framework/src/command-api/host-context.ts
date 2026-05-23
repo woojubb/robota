@@ -65,6 +65,8 @@ export interface ICommandSessionRuntime {
   getSessionAllowedTools(): readonly string[];
   getAutoCompactThreshold(): number | false;
   setAutoCompactThreshold?(threshold: TAutoCompactThreshold): void;
+  getSessionTokenUsage?(): { inputTokens: number; outputTokens: number } | undefined;
+  getModelId?(): string | undefined;
 }
 
 export interface ICommandSessionReplayValidationReport {
