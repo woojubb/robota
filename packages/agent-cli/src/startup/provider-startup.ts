@@ -94,7 +94,6 @@ function buildSetupInputFromOptions(opts: IConfigPhaseOptions): IProviderSetupIn
   return {
     profile: opts.configureProvider,
     type,
-    ...(opts.model !== undefined && { model: opts.model }),
     ...(opts.apiKey !== undefined && { apiKey: opts.apiKey }),
     ...(opts.apiKeyEnv !== undefined && { apiKeyEnv: opts.apiKeyEnv }),
     ...(opts.baseURL !== undefined && { baseURL: opts.baseURL }),
@@ -118,7 +117,6 @@ function formatConfigureProviderExample(definition: IProviderDefinition): string
     `robota --configure-provider ${definition.type}`,
     `--type ${definition.type}`,
     ...(definition.defaults?.baseURL !== undefined ? ['--base-url <url>'] : []),
-    '--model <model>',
     ...(definition.requiresApiKey === true ? ['--api-key-env <ENV_NAME>'] : []),
     '--set-current',
   ];

@@ -220,15 +220,15 @@ Environment-variable API key references use the `$ENV:NAME` form. If a required 
 
 Provider slash commands are command-module interactions rendered through generic TUI prompts. The default CLI composes `@robota-sdk/agent-command-provider`, which consumes SDK provider common APIs the same way a third-party command module would. The CLI must not implement provider-profile action rules; it only renders `choice` and `text` prompts returned by the command module and applies typed restart effects.
 
-| Command                    | Behavior                                                                                                                                             |
-| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/provider`                | Show merged provider profiles and open a profile picker in interactive TUI mode                                                                      |
-| `/provider current`        | Show active profile, type, model, and baseURL                                                                                                        |
-| `/provider list`           | Show provider profiles from merged settings; interactive TUI mode can select a profile from the list                                                 |
-| `/provider use <profile>`  | The provider command module confirms, persists `currentProvider` through its injected effective-scope settings adapter, and returns a restart effect |
-| `/provider add`            | The provider command module starts setup without a selected type and returns a generic choice interaction generated from injected definitions        |
-| `/provider add <type>`     | Start setup for the selected provider type and create a model-derived profile key with numeric suffixes for duplicates                               |
-| `/provider test [profile]` | Validate fields and optionally probe the endpoint                                                                                                    |
+| Command                      | Behavior                                                                                                                                                                                                                                                      |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/provider`                  | Show merged provider profiles and open a profile picker in interactive TUI mode                                                                                                                                                                               |
+| `/provider current`          | Show active profile, type, model, and baseURL                                                                                                                                                                                                                 |
+| `/provider list`             | Show provider profiles from merged settings; interactive TUI mode can select a profile from the list                                                                                                                                                          |
+| `/provider switch <profile>` | The provider command module persists `currentProvider` through its injected effective-scope settings adapter and returns a `provider-hot-swap-requested` effect — the provider is swapped in-place without session restart, conversation history is preserved |
+| `/provider add`              | The provider command module starts setup without a selected type and returns a generic choice interaction generated from injected definitions                                                                                                                 |
+| `/provider add <type>`       | Start setup for the selected provider type and create a model-derived profile key with numeric suffixes for duplicates                                                                                                                                        |
+| `/provider test [profile]`   | Validate fields and optionally probe the endpoint                                                                                                                                                                                                             |
 
 Selecting a profile opens a provider-command-owned action menu with switch, edit, test, duplicate, delete, and cancel. Edit uses provider setup metadata with masked current values hidden from the prompt display. Delete confirms the action, blocks the last profile, and requires a replacement before deleting the active profile. Non-interactive/headless slash execution never blocks on these interactions; it prints the deterministic command message and exits.
 
@@ -262,7 +262,6 @@ Flow ownership:
 ```
 bin.ts → cli.ts (arg parsing + provider definition composition)
               ├── createAgentCommandModule()      (from @robota-sdk/agent-command-agent)
-              ├── createModelCommandModule()      (from @robota-sdk/agent-command-model)
               ├── createLanguageCommandModule()   (from @robota-sdk/agent-command-language)
               ├── createCompactCommandModule()    (from @robota-sdk/agent-command-compact)
               ├── createContextCommandModule()    (from @robota-sdk/agent-command-context)
@@ -562,7 +561,6 @@ Tool: [5 tools]
 | ------------------------- | -------------------------------------------------------------------------- |
 | `/help`                   | Show available commands                                                    |
 | `/clear`                  | Clear conversation history through the session module                      |
-| `/model [model]`          | Select AI model through the injected model command module                  |
 | `/language [lang]`        | Set response language (ko, en, ja, zh), saves and restarts                 |
 | `/compact [instructions]` | Compress context window                                                    |
 | `/cost`                   | Show session info through the session command module                       |
@@ -591,7 +589,7 @@ Typing `/` as the first character in the input triggers an autocomplete popup. T
 
 **Subcommand Navigation:**
 
-Commands with subcommands (e.g., `/permissions`, `/model`) show a nested submenu when selected:
+Commands with subcommands (e.g., `/permissions`) show a nested submenu when selected:
 
 ```
 > /permissions
@@ -607,9 +605,11 @@ Commands with subcommands (e.g., `/permissions`, `/model`) show a nested submenu
 
 Commands are grouped by source with separators: built-in commands appear first, followed by discovered skill commands.
 
-### `/model` — Model Change Flow
+### `/provider switch` — Provider Hot-Swap Flow
 
-The `/model` command is provided by the `@robota-sdk/agent-command-model` module that the Robota binary composes into `InteractiveSession`. The command lists available models for the effective active provider when provider-owned catalog metadata is available. Model definitions come through the SDK model command common API and injected provider definitions; the CLI/TUI must not show Claude-only subcommands while another provider is active.
+The `/provider switch <profile>` command is provided by the `@robota-sdk/agent-command` provider module. It writes `currentProvider` through the injected effective-scope settings adapter and returns a `provider-hot-swap-requested` effect. `InteractiveSession.executeCommand()` intercepts this effect and calls `Session.swapProvider()` before the result reaches the TUI. Conversation history is preserved; no session restart occurs.
+
+From the TUI's `/provider list` menu, selecting a profile and choosing the **switch** action triggers the same hot-swap path.
 
 The `/permissions` command is provided by the `@robota-sdk/agent-command-permissions` module that the Robota binary composes into `InteractiveSession`. The CLI slash router does not inspect or mutate permission state directly; it routes `/permissions [mode]` into the generic command execution path, and the command module uses SDK permission common APIs. The default Robota CLI does not compose `/mode`; permission-mode changes belong under `/permissions`.
 
@@ -633,25 +633,6 @@ The `/plugin` command is provided by `@robota-sdk/agent-command-plugin`. The com
 
 The `/rewind` command is provided by `@robota-sdk/agent-command-rewind`. The CLI slash router only routes it into `session.executeCommand()` and renders the returned command result; checkpoint storage, restore, rollback ordering, and command output formatting live outside the CLI.
 
-**Subcommand display:**
-
-```
-> /model
-+-------------------------------------+
-|   Claude Opus 4.6 (1M)             |
-|   Claude Sonnet 4.6 (1M)           |
-|   Claude Haiku 4.5 (200K)          |
-+-------------------------------------+
-```
-
-**Model change flow:**
-
-1. User selects a model from the subcommand list
-2. The command returns a typed `model-change-requested` effect.
-3. The CLI renders a `ConfirmPrompt` from the generic command-effect path.
-4. If confirmed (Yes / `y`): settings are written to `~/.robota/settings.json` and the CLI exits so the next session uses the selected model
-5. If cancelled (No / `n`): returns to normal input
-
 ### ListPicker Component
 
 A generic list picker overlay (`ListPicker.tsx`) for selecting an item from a list. Used by the session resume flow to display saved sessions.
@@ -669,7 +650,7 @@ A generic list picker overlay (`ListPicker.tsx`) for selecting an item from a li
 
 ### ConfirmPrompt Component
 
-A reusable confirmation prompt with arrow-key selection (`ConfirmPrompt.tsx`). Used by host-applied command effects such as `/model` change and available for other yes/no confirmations.
+A reusable confirmation prompt with arrow-key selection (`ConfirmPrompt.tsx`). Used for yes/no confirmations triggered by host-applied command effects.
 
 **Props:**
 
@@ -1164,7 +1145,7 @@ System: Interrupted by user.   ← MessageList (abort only)
 
 Ink render uses `exitOnCtrlC: false`. The first Ctrl+C is handled by `App.tsx`, renders `Shutting down...`, and calls `useInteractiveSession.handleShutdown('prompt_input_exit')`. That delegates to `InteractiveSession.shutdown()`, so foreground abort, managed background task cancellation, session persistence, and `SessionEnd` hooks run in the SDK-owned lifecycle before the TUI exits.
 
-Slash-command restarts and exits (`/exit`, provider/model/language restart, reset) also call `InteractiveSession.shutdown()` before `useApp().exit()`. The CLI owns only signal/UI wiring; it must not enumerate or kill SDK-managed background work directly.
+Slash-command restarts and exits (`/exit`, language restart, reset) also call `InteractiveSession.shutdown()` before `useApp().exit()`. The CLI owns only signal/UI wiring; it must not enumerate or kill SDK-managed background work directly.
 
 ### ESC — Abort Execution
 
@@ -1526,7 +1507,6 @@ Tool messages use the `isToolMessage(msg)` type guard for safe access to `msg.na
 | `@robota-sdk/agent-command-exit`        | Default `/exit` command module composed by the Robota binary                                                                                      |
 | `@robota-sdk/agent-command-help`        | Default `/help` command module composed by the Robota binary                                                                                      |
 | `@robota-sdk/agent-command-language`    | Default `/language` command module composed by the Robota binary                                                                                  |
-| `@robota-sdk/agent-command-model`       | Default `/model` command module composed by the Robota binary                                                                                     |
 | `@robota-sdk/agent-command-permissions` | Default `/permissions [mode]` command module composed by the Robota binary                                                                        |
 | `@robota-sdk/agent-command-provider`    | Default `/provider` command module composed by the Robota binary                                                                                  |
 | `@robota-sdk/agent-command-rewind`      | Default `/rewind` command module composed by the Robota binary                                                                                    |

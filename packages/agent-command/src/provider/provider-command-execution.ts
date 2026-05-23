@@ -33,7 +33,7 @@ export async function executeProviderCommand(
       success: true,
     };
   }
-  if (subcommand === 'use') {
+  if (subcommand === 'switch') {
     return buildProviderSwitch(settings.providers, profileArg, options);
   }
   if (subcommand === 'test') {
@@ -49,7 +49,7 @@ export async function executeProviderCommand(
   }
 
   return {
-    message: 'Usage: provider [current|list|use <profile>|add <type>|test [profile]]',
+    message: 'Usage: provider [current|list|switch <profile>|add <type>|test [profile]]',
     success: false,
   };
 }

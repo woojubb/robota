@@ -55,6 +55,8 @@ export interface IInteractiveSessionStandardOptions {
   shellExec?: TShellExecFn;
   /** Model-visible command descriptors derived from the composed command executor. */
   commandDescriptors?: readonly ICapabilityDescriptor[];
+  /** Provider definitions for hot-swap via /provider switch. */
+  providerDefinitions?: readonly import('@robota-sdk/agent-core').IProviderDefinition[];
   /** Model command execution bridge. */
   modelCommandExecutor?: (command: string, args: string) => Promise<ICommandResult | null>;
   /** Predicate for commands allowed through the model command execution bridge. */

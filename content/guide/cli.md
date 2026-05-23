@@ -22,7 +22,6 @@ robota "initial prompt"             # TUI with initial message
 robota -p "prompt"                  # Print mode (one-shot, exits after response)
 robota -c                           # Continue last session
 robota -r <session-id>              # Resume specific session
-robota --model claude-opus-4-6      # Model override
 robota --permission-mode plan       # Permission mode override
 robota --max-turns 10               # Limit agentic turns
 robota --output-format json         # Output format (text/json/stream-json)
@@ -240,7 +239,6 @@ The available command list is built from the consolidated `@robota-sdk/agent-com
 | ------------------------- | --------------------------------------------------- |
 | `/help`                   | Show available commands                             |
 | `/clear`                  | Clear conversation history                          |
-| `/model [model]`          | Show or change AI model                             |
 | `/compact [instructions]` | Compress context window                             |
 | `/cost`                   | Show session info                                   |
 | `/context`                | Context window details                              |
@@ -261,9 +259,9 @@ The available command list is built from the consolidated `@robota-sdk/agent-com
 | `/statusline`             | Show, hide, or reset status line fields             |
 | `/reset`                  | Delete settings and exit                            |
 
-`/permissions` and `/model` show nested submenus for selection.
+`/permissions` shows a nested submenu for permission mode selection.
 
-`/provider` and `/provider list` show configured provider profiles. In the interactive TUI, selecting a profile opens provider actions for switch, edit, test, duplicate, delete, and cancel. In print/headless mode, provider commands keep deterministic text output and do not wait for interactive prompts.
+`/provider` and `/provider list` show configured provider profiles. In the interactive TUI, selecting a profile opens provider actions for switch, edit, test, duplicate, delete, and cancel. `/provider switch <profile>` hot-swaps the provider immediately without restarting — conversation history is preserved. In print/headless mode, provider commands keep deterministic text output and do not wait for interactive prompts.
 
 ### Plugin Management
 
@@ -346,11 +344,11 @@ agent
 
 See each package's `README.md` for the full API reference.
 
-### Model Change (`/model`)
+### Provider Switch (`/provider switch`)
 
-Select a model from the submenu (e.g., `Claude Opus 4.6 (1M)`). A confirmation prompt appears warning that the CLI will restart. If confirmed, the new model is saved to `~/.robota/settings.json` and the CLI exits.
+`/provider switch <profile>` hot-swaps the active provider without restarting the session. The provider is replaced in-place and conversation history is preserved. The profile name must already exist in settings (configured via `--configure-provider` or `/provider add`).
 
-Model definitions come from the `CLAUDE_MODELS` registry in `@robota-sdk/agent-core`, which is the single source of truth for model IDs, names, and context window sizes.
+From the interactive TUI, selecting a provider profile from `/provider list` and choosing **switch** performs the same hot-swap.
 
 ### Skill Commands
 

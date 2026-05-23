@@ -28,8 +28,8 @@ export function createProviderSetup(
     : { providerDefinitions: commandSetup.providerDefinitions };
 
   const providerSettings = readProviderSettings(cwd, providerOptions);
-  const modelId = opts.model ?? providerSettings.model;
-  const provider = createProviderFromSettings(cwd, opts.model, providerOptions);
+  const modelId = providerSettings.model;
+  const provider = createProviderFromSettings(cwd, undefined, providerOptions);
   const activeProfileName = opts.provider ?? readMergedProviderSettings(cwd).currentProvider;
 
   const { subagentRunnerFactory } = createSubagentSetup({

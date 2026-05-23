@@ -8,7 +8,6 @@ import type { TCommandEffect, TStatusLineCommandSettingsPatch } from '@robota-sd
 export interface ICommandEffectHandlerDeps {
   addEntry: (entry: IHistoryEntry) => void;
   requestShutdown: (reason: TSessionEndReason, message: string) => void;
-  requestModelChange: (modelId: string) => void;
   openPluginTUI: () => void;
   openSessionPicker: () => void;
   openTransportTUI: () => void;
@@ -23,10 +22,6 @@ export function applyCommandEffects(
   deps: ICommandEffectHandlerDeps,
 ): boolean {
   for (const effect of effects) {
-    if (effect.type === 'model-change-requested') {
-      deps.requestModelChange(effect.modelId);
-      return true;
-    }
     if (effect.type === 'language-change-requested') {
       applyLanguageEffect(effect.language, deps);
       return true;
