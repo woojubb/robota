@@ -45,13 +45,19 @@ Phase 2 전환 전 반드시 확인:
 
 ## 작업 항목
 
-1. Vercel `robota.io` 프로젝트 redirect 규칙 수정
-   - Phase 1: `robota.io` → `docs.robota.io`
-   - Phase 2: `robota.io` → `www.robota.io`
-2. `www.robota.io` 에서 `docs.robota.io` 진입점 헤더에 명확히 노출
-   - 헤더 nav: `Docs` → `docs.robota.io`
-3. Google Search Console에 sitemap 재제출
-4. 기존 `www.robota.io → robota.io` redirect 제거 (역할이 반전되므로)
+### ✅ 코드 작업 완료 (SITE-001~003)
+
+- `apps/www` 헤더/푸터의 `Docs` 링크 → `https://docs.robota.io` ✅
+- `apps/docs/public/CNAME` → `docs.robota.io` ✅
+- `apps/docs/vercel.json` 마이그레이션 경로 301 redirect ✅
+
+### ⏳ 수동 인프라 작업 (Vercel Dashboard + DNS)
+
+1. **DNS**: `docs` CNAME → `cname.vercel-dns.com` 추가
+2. **Vercel**: docs 프로젝트에 `docs.robota.io` 커스텀 도메인 추가
+3. **Vercel**: `robota.io` 프로젝트에 Phase 1 redirect 설정 (`robota.io` → `docs.robota.io`)
+4. **2주 안정 운영 확인 후** Phase 2: `robota.io` → `www.robota.io` 로 redirect 변경
+5. **Google Search Console**: sitemap 재제출
 
 ## 주의 사항
 
