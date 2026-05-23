@@ -19,18 +19,24 @@ import { createStatusLineCommandModule } from '../statusline/index.js';
 import { createUserLocalCommandModule } from '../user-local/index.js';
 
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
-import type { ICommandModule, IProviderCommandSettingsAdapter } from '@robota-sdk/agent-framework';
+import type {
+  ICommandModule,
+  IOrgPolicy,
+  IProviderCommandSettingsAdapter,
+} from '@robota-sdk/agent-framework';
 
 export interface IDefaultCommandModulesOptions {
   cwd: string;
   providerDefinitions: readonly IProviderDefinition[];
   providerSettingsAdapter: IProviderCommandSettingsAdapter;
+  orgPolicy?: IOrgPolicy;
 }
 
 export function createDefaultCommandModules({
   cwd,
   providerDefinitions,
   providerSettingsAdapter,
+  orgPolicy,
 }: IDefaultCommandModulesOptions): readonly ICommandModule[] {
   return [
     createSkillsCommandModule({ cwd }),
@@ -54,6 +60,7 @@ export function createDefaultCommandModules({
     createProviderCommandModule({
       providerDefinitions,
       settings: providerSettingsAdapter,
+      orgPolicy,
     }),
   ];
 }

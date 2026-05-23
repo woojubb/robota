@@ -53,6 +53,12 @@ export type {
   TCapabilityKind,
   TCapabilitySafety,
 } from './capabilities/types.js';
+export type { IOrgPolicy } from './command-api/org-policy/index.js';
+export {
+  loadOrgPolicy,
+  formatOrgPolicyViolationMessage,
+  isApiKeyPlaintext,
+} from './command-api/org-policy/index.js';
 export type {
   IAgentJobHostContext,
   ICommand,

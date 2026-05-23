@@ -1,5 +1,7 @@
 import {
   buildProviderSetupPatch,
+  formatOrgPolicyViolationMessage,
+  isApiKeyPlaintext,
   setCurrentProvider,
   upsertProviderProfile,
 } from '@robota-sdk/agent-framework';
@@ -38,6 +40,16 @@ export function buildProviderSwitch(
   }
   if (!providers?.[profileName]) {
     return { message: `Provider profile "${profileName}" was not found.`, success: false };
+  }
+  const { orgPolicy } = options;
+  if (orgPolicy?.allowedProviders && !orgPolicy.allowedProviders.includes(profileName)) {
+    return {
+      message: formatOrgPolicyViolationMessage(
+        `Provider "${profileName}" is not allowed by your organization policy. Allowed: ${orgPolicy.allowedProviders.join(', ')}.`,
+        orgPolicy.adminContact,
+      ),
+      success: false,
+    };
   }
   if (options.settings.readMergedSettings().currentProvider === profileName) {
     return { message: `Already using provider "${profileName}".`, success: true };
@@ -143,6 +155,16 @@ function completeProviderEdit(
   const currentProfile = merged.providers?.[profileName];
   if (!currentProfile) {
     return { message: `Provider profile "${profileName}" was not found.`, success: false };
+  }
+  const { orgPolicy } = options;
+  if (orgPolicy?.requireApiKeyFromEnv && isApiKeyPlaintext(input.apiKey)) {
+    return {
+      message: formatOrgPolicyViolationMessage(
+        'Your organization policy requires API keys to be stored as environment variable references ($ENV:VAR_NAME), not as plaintext.',
+        orgPolicy.adminContact,
+      ),
+      success: false,
+    };
   }
   const target = options.settings.readTargetSettings();
   const patch = buildProviderSetupPatch(input, {
