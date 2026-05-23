@@ -13,11 +13,15 @@ if (nodeMajor < REQUIRED_NODE_MAJOR) {
       ' or higher.\n' +
       '  Current version: ' +
       process.versions.node +
-      '\n\n' +
+      '\n' +
+      '  (Reason: the TUI renderer ink 7.x requires Node.js 22+)\n\n' +
       '  Upgrade options:\n' +
       '    nvm: nvm install ' +
       REQUIRED_NODE_MAJOR +
       ' && nvm use ' +
+      REQUIRED_NODE_MAJOR +
+      '\n' +
+      '    Volta: volta install node@' +
       REQUIRED_NODE_MAJOR +
       '\n' +
       '    Download: https://nodejs.org/en/download\n\n',
