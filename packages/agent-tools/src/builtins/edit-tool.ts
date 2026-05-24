@@ -10,6 +10,7 @@ import { readFile } from 'node:fs/promises';
 import { z } from 'zod';
 
 import { atomicWriteUtf8File } from './atomic-file-write.js';
+import { checkPathWithinCwd } from './path-guard.js';
 import { createZodFunctionTool } from '../implementations/function-tool';
 
 import type { FunctionTool } from '../implementations/function-tool';
@@ -35,12 +36,18 @@ type TEditArgs = z.infer<typeof EditSchema>;
 async function editFileTool(args: TEditArgs, options: ISandboxToolOptions = {}): Promise<string> {
   const { filePath, oldString, newString, replaceAll = false } = args;
 
+  if (!options.sandboxClient) {
+    const pathError = checkPathWithinCwd(filePath, options.cwd);
+    if (pathError !== undefined) return pathError;
+  }
+
   let content: string;
   try {
     content = options.sandboxClient
       ? await options.sandboxClient.readFile(filePath)
       : await readFile(filePath, 'utf8');
   } catch (err) {
+    // allow-fallback: read failure before edit → TToolResult error (file not found)
     const result: TToolResult = {
       success: false,
       output: '',
@@ -88,6 +95,7 @@ async function editFileTool(args: TEditArgs, options: ISandboxToolOptions = {}):
       await atomicWriteUtf8File(filePath, updated);
     }
   } catch (err) {
+    // allow-fallback: write failure after edit → TToolResult error
     const result: TToolResult = {
       success: false,
       output: '',
