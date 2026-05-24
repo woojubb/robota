@@ -1,7 +1,8 @@
 ---
 title: 'SPEC-MIGRATION-001: Live Spec 정책 전환 — 전 패키지 SPEC.md 마이그레이션'
-status: todo
+status: done
 created: 2026-05-25
+completed: 2026-05-25
 priority: high
 urgency: soon
 area: packages/*, apps/*
