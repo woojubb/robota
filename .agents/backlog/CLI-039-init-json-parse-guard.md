@@ -1,6 +1,6 @@
 ---
 title: 'CLI-039: init-command.ts Claude Code 설정 파일 JSON 파싱 보호'
-status: todo
+status: done
 created: 2026-05-24
 priority: medium
 category: bug

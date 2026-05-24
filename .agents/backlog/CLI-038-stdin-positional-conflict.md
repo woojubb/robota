@@ -1,6 +1,6 @@
 ---
 title: 'CLI-038: print 모드에서 stdin pipe + positional 동시 지원'
-status: todo
+status: done
 created: 2026-05-24
 priority: high
 category: bug

@@ -1,6 +1,6 @@
 ---
 title: 'PM-037: README에 "왜 Robota인가?" 섹션 + SDK 임베딩 예제 추가'
-status: todo
+status: done
 created: 2026-05-24
 priority: high
 category: marketing
