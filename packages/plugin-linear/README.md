@@ -58,3 +58,7 @@ await linear.createIssue({
 ```bash
 export LINEAR_API_KEY=lin_api_...
 ```
+
+## Specification
+
+See [`docs/SPEC.md`](docs/SPEC.md) for architecture, type ownership, public API surface, and contract details.

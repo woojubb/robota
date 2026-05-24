@@ -828,96 +828,98 @@ used is not treated as skill activation unless a `skill_activation` event exists
 
 ## Type Ownership
 
-| Type               | Location                           | Purpose                                                        |
-| ------------------ | ---------------------------------- | -------------------------------------------------------------- |
-| ITerminalOutput    | `src/types.ts`                     | Terminal I/O DI interface (duplicate — SSOT is agent-sessions) |
-| ISpinner           | `src/types.ts`                     | Spinner handle (duplicate — SSOT is agent-sessions)            |
-| IPermissionRequest | `agent-transport-tui/src/types.ts` | Permission prompt React state (owned by agent-transport-tui)   |
-| ICommand           | `@robota-sdk/agent-framework`      | SDK-owned command palette and slash command entry              |
-| ICommandSource     | `@robota-sdk/agent-framework`      | SDK-owned command source contract                              |
+| Type                | Location                           | Purpose                                                                    |
+| ------------------- | ---------------------------------- | -------------------------------------------------------------------------- |
+| ITerminalOutput     | `@robota-sdk/agent-core`           | Terminal I/O DI interface — SSOT is `@robota-sdk/agent-core` (domain port) |
+| ISpinner            | `@robota-sdk/agent-core`           | Spinner handle — SSOT is `@robota-sdk/agent-core` (domain port)            |
+| IPermissionRequest  | `agent-transport-tui/src/types.ts` | Permission prompt React state (owned by agent-transport-tui)               |
+| ICommand            | `@robota-sdk/agent-framework`      | SDK-owned command palette and slash command entry                          |
+| ICommandSource      | `@robota-sdk/agent-framework`      | SDK-owned command source contract                                          |
+| IParsedCliArgs      | `src/utils/cli-args.ts`            | Parsed CLI argument structure returned by `parseCliArgs()`                 |
+| IStartCliOptions    | `src/startup/command-setup.ts`     | Options for the `startCli()` public entry point                            |
+| IConfigPhaseOptions | `src/startup/args-to-options.ts`   | Typed options for the provider configuration phase                         |
+| ISessionRunOptions  | `src/startup/args-to-options.ts`   | Typed session runtime options derived from parsed CLI args                 |
+| ICommandSetup       | `src/startup/command-setup.ts`     | Assembled command modules, adapters, provider definitions, and org policy  |
+| IPreflightContext   | `src/startup/preflight.ts`         | Context passed to `handlePreflightCommands()`                              |
+| IInitCommandOptions | `src/init/init-command.ts`         | Options for the `runInitCommand()` function                                |
 
 ## Public API Surface
 
-| Export          | Kind     | Description               |
-| --------------- | -------- | ------------------------- |
-| startCli        | function | CLI entry point           |
-| ITerminalOutput | type     | Terminal I/O DI interface |
-| ISpinner        | type     | Spinner handle            |
+| Export           | Kind     | Description                                                                          |
+| ---------------- | -------- | ------------------------------------------------------------------------------------ |
+| startCli         | function | CLI entry point — parses args, assembles runtime, starts TUI or print mode           |
+| IStartCliOptions | type     | Options accepted by `startCli()` (injected command modules and provider definitions) |
 
-Note: `createSession()` is internal to `agent-sdk` and is NOT re-exported. The CLI uses `InteractiveSession` directly. `index.ts` does not re-export SDK types; consumers should import those directly from `@robota-sdk/agent-framework`.
+Note: `createSession()` is internal to `agent-sdk` and is NOT re-exported. The CLI uses `InteractiveSession` directly. `index.ts` does not re-export SDK types; consumers should import those directly from `@robota-sdk/agent-framework`. `ITerminalOutput` and `ISpinner` are no longer re-exported from `agent-cli`; import them directly from `@robota-sdk/agent-core`.
 
 ## File Structure
 
 ```
 src/
-├── bin.ts                                        ← Binary entry point
-├── cli.ts                                        ← Lifecycle owner: arg parsing, assembly, TuiTransport startup
-├── index.ts                                      ← Public CLI entry exports
-├── print-terminal.ts                             ← ITerminalOutput for print mode (-p)
-├── types.ts                                      ← ITerminalOutput, ISpinner
+├── bin.ts                                        ← Binary entry point; top-level uncaughtException handler for IME errors
+├── cli.ts                                        ← Lifecycle owner: arg parsing, layered assembly, mode dispatch
+├── constants.ts                                  ← AGENT_CLI_NAME ('robota-cli') and AGENT_CLI_BIN ('robota')
+├── index.ts                                      ← Public CLI entry exports (startCli only)
 ├── user-local-direct-command.ts                  ← Direct user-local command handler (no provider)
-├── plugins/
-│   ├── plugin-command-adapter.ts                 ← CLI implementation of ICommandPluginAdapter
-│   └── plugin-command-source-loader.ts           ← Plugin command source discovery and loading
-├── transports/
-│   └── transport-registry.ts                     ← Settings-backed IConfigurableTransport registry
-├── background/
-│   └── managed-shell-process-runner.ts           ← Node spawn-based background task runner
-├── subagents/
-│   ├── child-process-subagent-runner.ts          ← Child-process subagent spawner
-│   ├── child-process-subagent-runner-result.ts   ← Result orchestration and timeout cleanup
-│   ├── child-process-subagent-transport.ts       ← IPC send/cancel mechanics
-│   ├── child-process-subagent-ipc.ts             ← Serializable worker IPC protocol
-│   ├── child-process-subagent-worker.ts          ← Child-process SDK session reconstruction
-│   ├── git-worktree-isolation-adapter.ts         ← Git worktree isolation for subagents
-│   └── index.ts                                  ← Subagents barrel export
-└── utils/
-    ├── cli-args.ts                               ← CLI argument parsing and validation
-    ├── settings-io.ts                            ← Settings file read/write/update/delete
-    ├── settings-check.ts                         ← Settings validation helpers
-    ├── statusline-settings.ts                    ← Statusline settings read/apply
-    ├── provider-factory.ts                       ← AI provider resolution from injected definitions
-    ├── provider-settings.ts                      ← Provider settings read/write helpers
-    ├── provider-configuration.ts                 ← Provider configuration utilities
-    ├── provider-definition.ts                    ← IProviderDefinition helpers
-    ├── provider-default-definitions.ts           ← Default provider definitions registry
-    ├── provider-setup.ts                         ← Provider setup flow entry helpers
-    ├── provider-setup-flow.ts                    ← Step-by-step provider setup state machine
-    ├── interactive-prompt.ts                     ← Re-export shim for SDK command interaction types
-    ├── git-branch.ts                             ← Git branch resolution for status bar
-    ├── env-ref.ts                                ← Environment variable reference utilities
-    ├── semver-compare.ts                         ← Semver comparison for update check
-    └── update-check.ts                           ← CLI version update check and cache
+├── init/
+│   └── init-command.ts                           ← `robota init` — creates AGENTS.md + .robota/settings.json
+├── modes/
+│   ├── print-mode.ts                             ← Headless/print mode runner (-p flag)
+│   ├── shell-exec.ts                             ← createShellExec() — Node child_process.execSync wrapper
+│   └── tui-mode.ts                               ← TUI mode runner; wires TuiTransport with allowedTools/deniedTools
+└── startup/
+    ├── append-system-prompt.ts                   ← Builds appendSystemPrompt string from session options
+    ├── args-to-options.ts                        ← IParsedCliArgs → typed option objects boundary
+    ├── command-setup.ts                           ← Assembles command modules, adapters, provider definitions
+    ├── config-phase.ts                            ← Handles --configure / --configure-provider flow
+    ├── diagnose-command.ts                        ← `robota diagnose` — checks setup and prints diagnostics
+    ├── first-run.ts                               ← isFirstRun() / markOnboarded() via userPaths().onboarded
+    ├── preflight.ts                               ← handlePreflightCommands(): init, diagnose, help, version, check-update, reset
+    ├── provider-setup.ts                          ← createProviderSetup() — resolves provider from settings
+    ├── provider-startup.ts                        ← runInteractiveProviderSetup() — interactive provider config
+    ├── reset-config.ts                            ← Deletes user settings file on --reset
+    ├── session-setup.ts                           ← createSessionSetup() — session store and resume resolution
+    ├── subagent-setup.ts                          ← createSubagentSetup() — child-process subagent runner factory
+    ├── terminal-check.ts                          ← Terminal capability checks (TTY detection)
+    ├── update-notice.ts                           ← resolveStartupUpdateNotice() — rate-limited npm version check
+    └── version.ts                                 ← readVersion() — reads package.json version
 ```
 
-**Note:** All Ink TUI components, hooks, flows, `TuiStateManager`, and TUI-specific utilities are owned by
+**Note:** `print-terminal.ts` and `types.ts` have been removed from `src/`. `ITerminalOutput` and
+`ISpinner` are owned by `@robota-sdk/agent-core`; import them directly from that package. All Ink
+TUI components, hooks, flows, `TuiStateManager`, and TUI-specific utilities are owned by
 `@robota-sdk/agent-transport-tui`. The CLI's `src/` contains only the lifecycle assembly, local host
 adapters, and settings/provider utilities.
 
-**Note:** `CommandRegistry`, `BuiltinCommandSource`, `SkillCommandSource`, `PluginCommandSource`, `SystemCommandExecutor`, `ICommand`, `ICommandSource`, and `executeSkill()` are owned by `@robota-sdk/agent-framework`. The CLI does not use `SystemCommandExecutor` directly; slash command execution goes through `session.executeCommand(name, args)`. The CLI has no `src/commands/` compatibility surface. Plugin command discovery uses the SDK-owned `PluginCommandSource`; plugin command execution lives in `@robota-sdk/agent-command-plugin`; `src/plugins/plugin-command-adapter.ts` is the CLI's local adapter implementation. The CLI's `src/index.ts` exports only `startCli` and local CLI types.
+**Note:** `CommandRegistry`, `BuiltinCommandSource`, `SkillCommandSource`, `PluginCommandSource`, `SystemCommandExecutor`, `ICommand`, `ICommandSource`, and `executeSkill()` are owned by `@robota-sdk/agent-framework`. The CLI does not use `SystemCommandExecutor` directly; slash command execution goes through `session.executeCommand(name, args)`. The CLI has no `src/commands/` compatibility surface. Plugin command discovery uses the SDK-owned `PluginCommandSource`; plugin command execution lives in `@robota-sdk/agent-command-plugin`. The CLI's `src/index.ts` exports only `startCli`.
 
 ## CLI Usage
 
 ```bash
-robota                              # Interactive TUI
-robota -p "prompt"                  # Print mode (one-shot)
-robota -c                           # Continue last session (most recent by cwd)
-robota --continue                   # Same as -c
-robota -r <id>                      # Resume session by ID or name
-robota --resume [id]                # Resume session (shows picker if no ID given)
+robota                               # Interactive TUI
+robota init                          # Initialize project (AGENTS.md + .robota/settings.json)
+robota diagnose                      # Check setup and print diagnostics
+robota -p "prompt"                   # Print mode (one-shot)
+robota -c                            # Continue last session (most recent by cwd)
+robota --continue                    # Same as -c
+robota -r <id>                       # Resume session by ID or name
+robota --resume [id]                 # Resume session (shows picker if no ID given)
 robota -c --fork-session             # Fork from last session (new ID, restored context)
-robota --name <name>                # Set session name on startup
-robota --reset                      # Delete user settings and exit
-robota --model <model>              # Model override
-robota --language <lang>            # Response language (ko, en, ja, zh)
-robota --permission-mode <mode>     # plan | default | acceptEdits | bypassPermissions
-robota --max-turns <n>              # Limit turns
-robota --output-format <fmt>        # text | json | stream-json (print mode only)
-robota --system-prompt <text>       # Replace system prompt (print mode only)
+robota --name <name>                 # Set session name on startup
+robota --reset                       # Delete user settings and exit
+robota --model <model>               # Model override
+robota --language <lang>             # Response language (ko, en, ja, zh)
+robota --permission-mode <mode>      # plan | default | acceptEdits | bypassPermissions
+robota --max-turns <n>               # Limit turns
+robota --allowed-tools <list>        # Comma-separated tool allowlist (passed to session)
+robota --denied-tools <list>         # Comma-separated tool denylist (passed to session)
+robota --dry-run                     # Plan-only mode: describe actions without executing writes
+robota --output-format <fmt>         # text | json | stream-json (print mode only)
+robota --system-prompt <text>        # Replace system prompt (print mode only)
 robota --append-system-prompt <text> # Append to system prompt (print mode only)
-robota --check-update               # Check npm for the latest CLI version and exit
+robota --check-update                # Check npm for the latest CLI version and exit
 robota --disable-update-check        # Skip interactive startup update check for this invocation
-robota --version                    # Version
+robota --version                     # Version
 ```
 
 ### Print Mode and Headless Transport
@@ -1002,14 +1004,39 @@ The CLI asks `@robota-sdk/agent-framework` for a project-local session persisten
 
 ## First-Run Setup
 
-When no settings file exists (`~/.robota/settings.json`, `.robota/settings.json`, or `.robota/settings.local.json`), the CLI prompts for initial setup:
+First-run detection uses an onboarded marker file at `userPaths().onboarded` (resolved by
+`@robota-sdk/agent-framework`). `isFirstRun()` returns `true` when the marker file does not exist.
 
-1. **Anthropic API key** (input masked with asterisks)
-2. **Response language** (ko/en/ja/zh, default: en)
+On the first TUI invocation:
 
-Creates `~/.robota/settings.json` with provider config and language setting. The language is injected into the system prompt as `"Always respond in {language}."` and persists across compaction.
+1. `printFirstRunWelcome()` writes a welcome banner to stderr showing example prompts and key slash
+   commands (`/help`, `/cost`, `/clear`) plus the `robota diagnose` tip.
+2. `markOnboarded()` creates the marker file so the welcome is shown exactly once.
 
-Use `robota --reset` to delete the user settings file and return to the first-run state.
+No provider API key or language is prompted at first run. Provider setup is done separately via
+`robota --configure` or `robota init`. First-run welcome is suppressed in print/headless mode.
+
+Use `robota --reset` to delete the user settings file and return to the unconfigured state (the
+onboarded marker is not cleared by `--reset`; the welcome banner will not reappear).
+
+### `robota init`
+
+`robota init` initializes a project for use with Robota. It is handled as a preflight command before
+any provider setup. Behavior:
+
+1. Creates `AGENTS.md` from a built-in template in `cwd` (if not already present).
+2. Creates `.robota/settings.json` from a built-in permissions template (if not already present).
+3. If `.claude/` exists, offers to migrate `settings.json` permission rules from `.claude/` to
+   `.robota/`.
+4. After initialization, optionally offers interactive provider setup (via `onProviderSetup`
+   callback) unless `--yes` flag or `CI=true` environment is detected.
+
+The settings path is resolved through `projectPaths(cwd).settings` from `@robota-sdk/agent-framework`.
+
+### `robota diagnose`
+
+`robota diagnose` checks the current environment and prints a diagnostics report. It is handled as a
+preflight command and exits without starting a session.
 
 ## Session Logging
 
@@ -1524,3 +1551,91 @@ Tool messages use the `isToolMessage(msg)` type guard for safe access to `msg.na
 | `marked`, `marked-terminal`             | Markdown parsing and terminal rendering                                                                                                           |
 | `cli-highlight`                         | Syntax highlighting for code blocks                                                                                                               |
 | `string-width`                          | Unicode-aware string width calculation                                                                                                            |
+
+## Extension Points
+
+The CLI is designed to accept injected dependencies at `startCli()`. All extension is done by
+passing values into the public entry point rather than by subclassing or monkey-patching.
+
+| Extension              | Mechanism                                                                | Where injected              |
+| ---------------------- | ------------------------------------------------------------------------ | --------------------------- |
+| Custom command modules | `IStartCliOptions.commandModules`                                        | `startCli(options)`         |
+| Custom provider defs   | `IStartCliOptions.providerDefinitions`                                   | `startCli(options)`         |
+| Provider composition   | `IProviderDefinition[]` passed to `createCommandSetup()`                 | `cli.ts` assembly layer     |
+| Transport registry     | `createDefaultTransportRegistry()` wired into `createAgentRuntime`       | `cli.ts` layer 3            |
+| Subagent runner        | `createChildProcessSubagentRunnerFactory()` from `agent-subagent-runner` | `startup/provider-setup.ts` |
+| Command host adapters  | `ICommandHostAdapters` (settings read/write, plugin adapter)             | `createCommandSetup()`      |
+| Shell exec             | `createShellExec()` — passed to `TuiTransport` and print mode            | `modes/*.ts`                |
+
+The CLI does not expose plugin hooks at the binary level. Plugin lifecycle is owned by
+`@robota-sdk/agent-framework` through the plugin command adapter.
+
+## Error Taxonomy
+
+| Error class           | Trigger                                              | Handling                                                         | Exit code |
+| --------------------- | ---------------------------------------------------- | ---------------------------------------------------------------- | --------- |
+| Argument parse error  | Invalid CLI flag or value in `parseCliArgs()`        | Written to stderr; `process.exit(1)` via `parseArgsOrExit()`     | 1         |
+| Provider config error | Missing/unusable provider profile at session start   | Written to stderr; `process.exit(3)` from print mode transport   | 3         |
+| Provider API error    | Network or auth failure during model call            | Written to stderr; `process.exit(1)` from print mode transport   | 1         |
+| User-local cmd error  | Exception thrown by user-local command handler       | Written to stderr via `terminal.writeError()`; `process.exit(1)` | 1         |
+| Org policy violation  | Provider not in `orgPolicy.allowedProviders`         | Written to stderr; `process.exit(1)` in `cli.ts`                 | 1         |
+| IME / CJK crash       | `uncaughtException` with string-width/cursor signals | Diagnostic written to stderr; process continues (IME-only)       | —         |
+| Unhandled exception   | Non-IME `uncaughtException` in `bin.ts`              | Re-thrown; Node prints stack trace and exits with code 1         | 1         |
+| Init cancel           | User declines overwrite in `robota init`             | Prints "Init cancelled." and returns normally (no exit code)     | 0         |
+
+Print mode transport exit codes:
+
+- `0` — success or user-interrupted execution
+- `1` — general execution error
+- `3` — provider configuration error (missing API key or no valid provider)
+
+TUI mode always exits with `process.exit(0)` after `runTuiMode()` returns. Unhandled errors in
+TUI startup propagate to the top-level `startCli().catch()` handler which writes to stderr and
+calls `process.exit(1)`.
+
+## Test Strategy
+
+Tests live in `src/__tests__/` and `src/startup/__tests__/`. All tests use Vitest.
+
+| Layer               | Test file(s)                                 | Strategy                                                                 |
+| ------------------- | -------------------------------------------- | ------------------------------------------------------------------------ |
+| CLI arg parsing     | `cli-args.test.ts`                           | Unit tests for `parseCliArgs()` — valid flags, invalid flags, edge cases |
+| Update check        | `cli-update-check.test.ts`                   | Unit tests for version comparison and cache TTL logic                    |
+| Diagnose command    | `diagnose-command.test.ts`                   | Unit tests for diagnostics output and error paths                        |
+| Init command        | `init-command.test.ts`                       | Unit tests for file creation, migration, and yes-flag bypass             |
+| Provider factory    | `provider-factory-integration.test.ts`       | Integration: resolves provider definitions against settings              |
+| Provider startup    | `startup/__tests__/provider-startup.test.ts` | Unit: interactive provider setup state machine                           |
+| Print mode          | `print-mode-integration.test.ts`             | Integration: headless transport output and exit code for given prompts   |
+| Headless e2e        | `headless-e2e.test.ts`                       | End-to-end: full CLI invocation in print mode against a mock provider    |
+| Command composition | `cli-command-composition.test.ts`            | Integration: command modules are registered and command list is correct  |
+
+Testing rules:
+
+- `ITerminalOutput` is always injected (never global `console`); tests supply a `PrintTerminal` or mock.
+- Provider is always injected via `IProviderDefinition[]`; tests must not call real AI endpoints.
+- File I/O in startup modules is tested with temp directories; no cross-test side effects.
+- Telemetry has been removed; there must be no telemetry-related test files or stubs.
+
+## Class Contract Registry
+
+All behavioral contracts in this package are expressed through interfaces and factory functions, not
+classes. The following table lists the primary runtime constructs with their contracts.
+
+| Construct                              | Kind     | Owner file                      | Contract summary                                                                                   |
+| -------------------------------------- | -------- | ------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `startCli(options?)`                   | function | `src/cli.ts`                    | Parse args → assemble layers → dispatch to print or TUI mode; never throws (catches and exits)     |
+| `createCommandSetup(cwd, options?)`    | factory  | `src/startup/command-setup.ts`  | Returns `ICommandSetup` with command modules, adapters, provider defs, and org policy              |
+| `createProviderSetup(cwd, opts, cmd)`  | factory  | `src/startup/provider-setup.ts` | Resolves active provider profile and creates provider instance from injected definitions           |
+| `createSessionSetup(cwd, opts)`        | factory  | `src/startup/session-setup.ts`  | Returns session store and resume session id based on `--continue` / `--resume` flags               |
+| `handlePreflightCommands(args, ctx)`   | function | `src/startup/preflight.ts`      | Dispatches `init`, `diagnose`, `help`, `version`, `--check-update`, `--reset`; returns `{handled}` |
+| `handleConfigPhase(cwd, opts, ...)`    | function | `src/startup/config-phase.ts`   | Runs `--configure` / `--configure-provider` flows; returns `{handled}` if consumed                 |
+| `runPrintMode(opts, runtime)`          | function | `src/modes/print-mode.ts`       | Creates session, attaches headless transport, awaits completion, exits with transport exit code    |
+| `runTuiMode(opts)`                     | function | `src/modes/tui-mode.ts`         | Creates `TuiTransport` with `allowedTools`/`deniedTools`, calls `tuiTransport.start()`             |
+| `runInitCommand(cwd, terminal, opts?)` | function | `src/init/init-command.ts`      | Creates AGENTS.md and `.robota/settings.json`; optionally migrates `.claude/` settings             |
+| `isFirstRun()`                         | function | `src/startup/first-run.ts`      | Returns `true` when `userPaths().onboarded` marker file is absent                                  |
+| `markOnboarded()`                      | function | `src/startup/first-run.ts`      | Creates the onboarded marker file; idempotent                                                      |
+| `printFirstRunWelcome()`               | function | `src/startup/first-run.ts`      | Writes welcome banner to stderr using `AGENT_CLI_BIN` constant                                     |
+| `createShellExec()`                    | factory  | `src/modes/shell-exec.ts`       | Returns a synchronous shell executor with 5 s timeout; used by skill `!` substitution              |
+| `parseCliArgs()`                       | function | `src/utils/cli-args.ts`         | Parses `process.argv` into `IParsedCliArgs`; throws `Error` on invalid input                       |
+| `AGENT_CLI_NAME`                       | constant | `src/constants.ts`              | `'robota-cli'` — internal package name used as `agentName` in session construction                 |
+| `AGENT_CLI_BIN`                        | constant | `src/constants.ts`              | `'robota'` — binary name used in user-facing messages and welcome banner                           |
