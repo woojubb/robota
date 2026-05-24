@@ -1,59 +1,38 @@
-import type { Metadata } from 'next';
+import { getTranslations, setRequestLocale } from 'next-intl/server';
 
-export const metadata: Metadata = {
-  title: 'Enterprise',
-  description:
-    'Robota for engineering teams — security practices, self-hosted deployment, and enterprise support.',
-};
+export default async function EnterprisePage({ params }: { params: Promise<{ locale: string }> }) {
+  const { locale } = await params;
+  setRequestLocale(locale);
+  const t = await getTranslations('enterprise');
 
-const DATA_HANDLING = [
-  ['Prompts and responses', 'Sent only to the AI provider you configure'],
-  ['API keys', 'Stored in your local environment variables or secrets manager'],
-  ['Session history', 'Written to your local filesystem (~/.robota/sessions/)'],
-  ['Tool outputs (files, shell)', 'Stay on your machine'],
-];
+  const dataHandlingRows = t.raw('security.dataHandling.rows') as string[][];
+  const onPremisesItems = t.raw('security.onPremises.items') as Array<{
+    name: string;
+    body: string;
+  }>;
+  const securityHighlights = t.raw('security.highlights') as Array<{
+    title: string;
+    body: string;
+  }>;
+  const faqItems = t.raw('faq.items') as Array<{ q: string; a: string }>;
 
-const FAQ = [
-  {
-    q: 'Does Robota store my code in the cloud?',
-    a: 'No. All file reads and writes happen on your local machine. The only data that leaves your machine is the prompt you send to your configured AI provider.',
-  },
-  {
-    q: 'Can we use Robota behind a corporate proxy?',
-    a: "Yes. Set the standard HTTPS_PROXY environment variable and the SDK's HTTP client will route through it.",
-  },
-  {
-    q: 'Can Robota be installed in a restricted network with no internet access?',
-    a: 'Yes — use a local LLM (Ollama, LM Studio) and install npm packages from an internal registry mirror.',
-  },
-  {
-    q: 'Is there a commercial license option?',
-    a: 'Robota is MIT-licensed and free to use commercially without restriction. Enterprise support contracts (SLA, dedicated channels, custom integrations) are available — contact us for details.',
-  },
-];
-
-export default function EnterprisePage() {
   return (
     <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-16 sm:py-20">
       <div className="mb-12">
-        <h1 className="text-3xl font-extrabold text-[var(--foreground)] sm:text-4xl">Enterprise</h1>
-        <p className="mt-4 text-[var(--muted-foreground)]">
-          Robota is used by engineering teams that need a controllable, self-hostable AI coding
-          assistant. This page covers security practices, deployment options, and how to get in
-          touch.
-        </p>
+        <h1 className="text-3xl font-extrabold text-[var(--foreground)] sm:text-4xl">
+          {t('title')}
+        </h1>
+        <p className="mt-4 text-[var(--muted-foreground)]">{t('description')}</p>
       </div>
 
       {/* Contact */}
       <section className="mb-12 rounded-xl border border-[var(--primary)]/30 bg-[var(--accent-dim)] p-6">
-        <h2 className="text-xl font-bold text-[var(--foreground)] mb-2">Contact Us</h2>
-        <p className="text-sm text-[var(--muted-foreground)] mb-4">
-          To discuss team licensing, on-premises deployment, priority support, or custom
-          integrations, open a GitHub Discussion or email us directly.
-        </p>
+        <h2 className="text-xl font-bold text-[var(--foreground)] mb-2">{t('contact.title')}</h2>
+        <p className="text-sm text-[var(--muted-foreground)] mb-4">{t('contact.description')}</p>
         <p className="text-sm text-[var(--muted-foreground)] mb-5">
-          We respond to all enterprise inquiries within{' '}
-          <strong className="text-[var(--foreground)]">30 business days</strong>.
+          {t('contact.responseTime')}{' '}
+          <strong className="text-[var(--foreground)]">{t('contact.responseTimeHighlight')}</strong>
+          {'.'}
         </p>
         <div className="flex flex-wrap gap-3">
           <a
@@ -62,44 +41,45 @@ export default function EnterprisePage() {
             rel="noopener noreferrer"
             className="rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-[var(--primary-foreground)] hover:opacity-90 transition-opacity"
           >
-            GitHub Discussions (enterprise tag) ↗
+            {t('contact.githubDiscussions')}
           </a>
           <a
             href="mailto:enterprise@robota.io"
             className="rounded-lg border border-[var(--border)] bg-[var(--card)] px-4 py-2 text-sm font-semibold text-[var(--foreground)] hover:bg-[var(--muted)] transition-colors"
           >
-            enterprise@robota.io
+            {t('contact.email')}
           </a>
         </div>
       </section>
 
       {/* Security policy */}
       <section className="mb-12">
-        <h2 className="text-xl font-bold text-[var(--foreground)] mb-4">Security Policy</h2>
+        <h2 className="text-xl font-bold text-[var(--foreground)] mb-4">{t('security.title')}</h2>
 
-        <h3 className="text-base font-semibold text-[var(--foreground)] mb-3">Data Handling</h3>
+        <h3 className="text-base font-semibold text-[var(--foreground)] mb-3">
+          {t('security.dataHandling.title')}
+        </h3>
         <p className="text-sm text-[var(--muted-foreground)] mb-4">
-          Robota operates as a local CLI or self-hosted server.{' '}
+          {t('security.dataHandling.description')}{' '}
           <strong className="text-[var(--foreground)]">
-            No conversation data is stored or transmitted to Robota servers
+            {t('security.dataHandling.highlight')}
           </strong>{' '}
-          — the SDK calls the AI provider of your choice directly from your machine or
-          infrastructure.
+          {t('security.dataHandling.descriptionSuffix')}
         </p>
         <div className="rounded-xl border border-[var(--border)] overflow-hidden mb-6">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-[var(--border)] bg-[var(--card)]">
                 <th className="px-4 py-3 text-left font-semibold text-[var(--muted-foreground)]">
-                  Data type
+                  {(t.raw('security.dataHandling.tableHeaders') as string[])[0]}
                 </th>
                 <th className="px-4 py-3 text-left font-semibold text-[var(--muted-foreground)]">
-                  Where it goes
+                  {(t.raw('security.dataHandling.tableHeaders') as string[])[1]}
                 </th>
               </tr>
             </thead>
             <tbody>
-              {DATA_HANDLING.map(([type, dest], i) => (
+              {dataHandlingRows.map(([type, dest], i) => (
                 <tr
                   key={type}
                   className={`border-b border-[var(--border)] ${i % 2 === 0 ? 'bg-[var(--background)]' : 'bg-[var(--card)]/50'}`}
@@ -113,27 +93,18 @@ export default function EnterprisePage() {
         </div>
 
         <h3 className="text-base font-semibold text-[var(--foreground)] mb-3">
-          On-Premises Deployment
+          {t('security.onPremises.title')}
         </h3>
         <p className="text-sm text-[var(--muted-foreground)] mb-3">
-          Robota supports fully air-gapped deployments using local LLMs:
+          {t('security.onPremises.description')}
         </p>
         <ul className="space-y-2 text-sm text-[var(--muted-foreground)] mb-4">
-          <li className="flex gap-2">
-            <span className="text-[var(--primary)]">•</span>{' '}
-            <strong className="text-[var(--foreground)]">Ollama</strong> — run models locally with
-            zero external network calls
-          </li>
-          <li className="flex gap-2">
-            <span className="text-[var(--primary)]">•</span>{' '}
-            <strong className="text-[var(--foreground)]">LM Studio</strong> — OpenAI-compatible
-            local server
-          </li>
-          <li className="flex gap-2">
-            <span className="text-[var(--primary)]">•</span>{' '}
-            <strong className="text-[var(--foreground)]">Any OpenAI-compatible endpoint</strong> —
-            point baseURL to your internal gateway
-          </li>
+          {onPremisesItems.map((item) => (
+            <li key={item.name} className="flex gap-2">
+              <span className="text-[var(--primary)]">•</span>{' '}
+              <strong className="text-[var(--foreground)]">{item.name}</strong> — {item.body}
+            </li>
+          ))}
         </ul>
         <div className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-4 font-mono text-sm text-[var(--muted-foreground)]">
           <p>
@@ -161,21 +132,7 @@ export default function EnterprisePage() {
         </div>
 
         <div className="mt-6 grid gap-3 sm:grid-cols-2">
-          {[
-            {
-              title: 'MIT License',
-              body: 'Full source code available for audit at github.com/woojubb/robota',
-            },
-            { title: 'No telemetry', body: 'No analytics, no phone-home in the SDK or CLI' },
-            {
-              title: 'Append-only session logs',
-              body: 'You control retention and deletion of all local session files',
-            },
-            {
-              title: 'SOC 2 / ISO 27001 compatible',
-              body: 'When combined with a compliant AI provider',
-            },
-          ].map((item) => (
+          {securityHighlights.map((item) => (
             <div
               key={item.title}
               className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4"
@@ -189,9 +146,9 @@ export default function EnterprisePage() {
 
       {/* FAQ */}
       <section className="mb-12">
-        <h2 className="text-xl font-bold text-[var(--foreground)] mb-5">FAQ</h2>
+        <h2 className="text-xl font-bold text-[var(--foreground)] mb-5">{t('faq.title')}</h2>
         <div className="space-y-4">
-          {FAQ.map((item) => (
+          {faqItems.map((item) => (
             <div
               key={item.q}
               className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-5"
@@ -206,16 +163,18 @@ export default function EnterprisePage() {
       {/* Vulnerability disclosure */}
       <section className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
         <h2 className="text-lg font-bold text-[var(--foreground)] mb-2">
-          Vulnerability Disclosure
+          {t('vulnerabilityDisclosure.title')}
         </h2>
         <p className="text-sm text-[var(--muted-foreground)]">
-          To report a security vulnerability, email{' '}
+          {t('vulnerabilityDisclosure.description')}{' '}
           <a href="mailto:security@robota.io" className="text-[var(--primary)] hover:underline">
             security@robota.io
           </a>{' '}
-          with a description and reproduction steps. We follow responsible disclosure and aim to
-          issue a patch within <strong className="text-[var(--foreground)]">14 days</strong> of
-          confirmation.
+          {t('vulnerabilityDisclosure.descriptionSuffix')}{' '}
+          <strong className="text-[var(--foreground)]">
+            {t('vulnerabilityDisclosure.patchDays')}
+          </strong>{' '}
+          {t('vulnerabilityDisclosure.patchDaysSuffix')}
         </p>
       </section>
     </div>
