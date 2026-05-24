@@ -8,7 +8,15 @@ async function run(): Promise<void> {
   const output = core.getInput('output') || 'text';
   const maxTurns = core.getInput('max-turns');
 
-  const args: string[] = ['robota', '-p', task, '--output-format', output];
+  const args: string[] = [
+    'npx',
+    '--yes',
+    '@robota-sdk/agent-cli',
+    '-p',
+    task,
+    '--output-format',
+    output,
+  ];
   if (model) args.push('--model', model);
   if (maxTurns) args.push('--max-turns', maxTurns);
 

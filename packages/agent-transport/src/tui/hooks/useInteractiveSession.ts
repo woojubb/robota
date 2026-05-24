@@ -54,6 +54,8 @@ export interface IInteractiveSessionProps {
   agentName?: string;
   systemPrompt?: string;
   appendSystemPrompt?: string;
+  allowedTools?: string[];
+  deniedTools?: string[];
 }
 
 export interface IInteractiveSessionState {
