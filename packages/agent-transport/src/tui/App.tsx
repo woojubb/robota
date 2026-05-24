@@ -71,6 +71,8 @@ interface IProps {
   agentName?: string;
   systemPrompt?: string;
   appendSystemPrompt?: string;
+  allowedTools?: string[];
+  deniedTools?: string[];
 }
 
 export default function App(props: IProps): React.ReactElement {
@@ -144,6 +146,8 @@ function AppInner(
     agentName: props.agentName,
     systemPrompt: props.systemPrompt,
     appendSystemPrompt: props.appendSystemPrompt,
+    allowedTools: props.allowedTools,
+    deniedTools: props.deniedTools,
   });
 
   const fallbackPluginCallbacks = usePluginCallbacks(cwd);

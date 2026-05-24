@@ -388,10 +388,10 @@ importers:
   apps/starter-nextjs:
     dependencies:
       '@robota-sdk/agent-framework':
-        specifier: 3.0.0-beta.67
+        specifier: workspace:*
         version: link:../../packages/agent-framework
       '@robota-sdk/agent-provider':
-        specifier: 3.0.0-beta.67
+        specifier: workspace:*
         version: link:../../packages/agent-provider
       next:
         specifier: ^15.5.15

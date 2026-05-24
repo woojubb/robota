@@ -59,6 +59,18 @@ export async function runTuiMode(opts: ITuiModeOptions): Promise<void> {
     agentName: AGENT_CLI_NAME,
     systemPrompt: sessionOpts.systemPrompt,
     appendSystemPrompt,
+    allowedTools: sessionOpts.allowedTools
+      ? sessionOpts.allowedTools
+          .split(',')
+          .map((t) => t.trim())
+          .filter((t) => t.length > 0)
+      : undefined,
+    deniedTools: sessionOpts.deniedTools
+      ? sessionOpts.deniedTools
+          .split(',')
+          .map((t) => t.trim())
+          .filter((t) => t.length > 0)
+      : undefined,
   });
 
   await tuiTransport.start();
