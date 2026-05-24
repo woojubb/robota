@@ -57,3 +57,8 @@ const history = await slack.getHistory('#general', 20);
 ```bash
 export SLACK_BOT_TOKEN=xoxb-...
 ```
+
+## Package Specification
+
+Full architecture, type ownership, public API surface, and class contracts are documented in
+[docs/SPEC.md](docs/SPEC.md).
