@@ -1,6 +1,6 @@
 ---
 title: 'SITE-007: docs 사이트 i18n — en/ko 이중 언어 지원 (next-intl + content/ko/)'
-status: todo
+status: done
 created: 2026-05-24
 priority: medium
 urgency: soon
