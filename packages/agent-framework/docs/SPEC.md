@@ -198,7 +198,10 @@ agent-cli (Ink TUI — CLI-specific)
 - **Implementation**: 3-step evaluation — deny list → allow list → mode policy
 - **Modes**: `plan` (read-only), `default` (write requires approval), `acceptEdits` (write auto-approved), `bypassPermissions` (all auto-approved)
 - **Pattern syntax**: `Bash(pnpm *)`, `Read(/src/**)`, `Write(*)` etc. with glob matching
-- **Terminal prompt**: `agent-framework/src/permissions/permission-prompt.ts` is the SSOT implementation of the terminal approval prompt. Used by both `InteractiveSession`/`createQuery()` and `agent-cli` (which imports from `@robota-sdk/agent-framework`).
+- **Terminal prompt**: `agent-framework/src/permissions/permission-prompt.ts` is the SSOT implementation of the terminal approval prompt. Used by both `InteractiveSession`/`createQuery()` and `agent-cli` (which imports from `@robota-sdk/agent-framework`). Presents 3 options: **Allow once** (returns `true`), **Allow for this session** (returns `'allow-session'`), **Deny** (returns `false`).
+- **Session-level allow**: `PermissionEnforcer` maintains an in-memory `sessionAllowedTools` set. When a permission handler or `promptForApprovalFn` returns `'allow-session'`, the tool name is added to this set and all future calls for that tool in the same session are auto-approved without prompting. The set is cleared by `clearSessionAllowedTools()` and discarded on session end (never persisted).
+- **Project-level allow**: When a handler returns `'allow-project'`, `PermissionEnforcer` adds the tool to `sessionAllowedTools` (same-session convenience) and calls `onProjectAllowTool(toolName)`. The `createSession()` factory wires `onProjectAllowTool` to append `ToolName(*)` to `.robota/settings.local.json` permissions.allow.
+- **TUI permission prompt**: `PermissionPrompt.tsx` in `agent-transport` presents 4 options: **Allow** (once), **Allow always (this session)** (`a` shortcut), **Allow always (this project)** (`p` shortcut), **Deny** (`n`/`d` shortcut). The TUI uses `permissionHandler` (React async queue) rather than `promptForApprovalFn`.
 - **Default allow patterns**: `createSession()` automatically adds allow patterns for config folder access: `Read(.agents/**)`, `Read(.claude/**)`, `Read(.robota/**)`, `Glob(.agents/**)`, `Glob(.claude/**)`, `Glob(.robota/**)`. These are merged with user-configured permissions.
 
 ### Hooks System
