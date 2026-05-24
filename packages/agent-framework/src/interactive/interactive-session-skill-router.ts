@@ -97,11 +97,17 @@ export class SessionSkillRouter {
     return this.commandHostAdapters ?? {};
   }
 
-  listCommands(): Array<{ name: string; displayName?: string; description: string }> {
+  listCommands(): Array<{
+    name: string;
+    displayName?: string;
+    description: string;
+    example?: string;
+  }> {
     return this.commandExecutor.listCommands().map((cmd) => ({
       name: cmd.name,
       ...(cmd.displayName !== undefined ? { displayName: cmd.displayName } : {}),
       description: cmd.description,
+      ...(cmd.example !== undefined ? { example: cmd.example } : {}),
     }));
   }
 

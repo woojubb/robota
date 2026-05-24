@@ -38,6 +38,10 @@ export interface IInteractiveSessionStandardOptions {
   bare?: boolean;
   /** Pre-approved tool names passed to createSession. */
   allowedTools?: string[];
+  /** Denied tool names — added to permissions.deny. denied > allowed. */
+  deniedTools?: string[];
+  /** Override the model from config. When set, takes precedence over config.provider.model. */
+  model?: string;
   /** Text to append to the system prompt. */
   appendSystemPrompt?: string;
   /** Replace the entire system prompt with this string. Takes precedence over the default builder. */
@@ -127,6 +131,10 @@ export interface IInitOptions {
   bare?: boolean;
   /** Pre-approved tool names passed to createSession. */
   allowedTools?: string[];
+  /** Denied tool names — added to permissions.deny. denied > allowed. */
+  deniedTools?: string[];
+  /** Override the model from config. When set, takes precedence over config.provider.model. */
+  model?: string;
   /** Text to append to the system prompt. */
   appendSystemPrompt?: string;
   /** Replace the entire system prompt with this string. Takes precedence over the default builder. */

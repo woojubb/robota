@@ -1,6 +1,6 @@
 import { createAgentRuntime } from '@robota-sdk/agent-framework';
 import { createDefaultTransportRegistry } from '@robota-sdk/agent-transport';
-import { PrintTerminal } from '@robota-sdk/agent-transport/headless';
+import { PrintTerminal, promptInput } from '@robota-sdk/agent-transport/headless';
 
 import { runPrintMode } from './modes/print-mode.js';
 import { runTuiMode } from './modes/tui-mode.js';
@@ -13,6 +13,7 @@ import {
 import { createCommandSetup } from './startup/command-setup.js';
 import { handleConfigPhase } from './startup/config-phase.js';
 import { handlePreflightCommands } from './startup/preflight.js';
+import { runInteractiveProviderSetup } from './startup/provider-startup.js';
 import { createProviderSetup } from './startup/provider-setup.js';
 import { createSessionSetup } from './startup/session-setup.js';
 import { resolveStartupUpdateNotice } from './startup/update-notice.js';
@@ -43,32 +44,51 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
 
   const cwd = process.cwd();
 
+  // Pre-preflight: create commandSetup early so init can offer inline provider setup
+  const commandSetup = createCommandSetup(cwd, options);
+  const configPhaseOpts = toConfigPhaseOptions(args);
+
   // Layer 0: pre-flight — single point for all early-exit commands
-  if ((await handlePreflightCommands(args, { version, terminal, cwd })).handled) return;
+  if (
+    (
+      await handlePreflightCommands(args, {
+        version,
+        terminal,
+        cwd,
+        onProviderSetup: () =>
+          runInteractiveProviderSetup(
+            cwd,
+            configPhaseOpts,
+            promptInput,
+            terminal,
+            commandSetup.providerDefinitions,
+          ),
+      })
+    ).handled
+  )
+    return;
 
   if (args.apiKey) {
     process.stderr.write(
       '\n⚠  Warning: --api-key value may appear in your shell history.\n' +
-        '   Use the ANTHROPIC_API_KEY environment variable instead.\n\n',
+        '   Prefer: export ANTHROPIC_API_KEY=<key>, or use --api-key-env ANTHROPIC_API_KEY\n\n',
     );
   }
 
   // Layer 1: IParsedCliArgs → typed option objects (boundary)
-  const configPhaseOpts = toConfigPhaseOptions(args);
   const sessionOpts = toSessionRunOptions(args);
 
   try {
     if (await runUserLocalDirectCommandIfRequested(toUserLocalCommandOptions(args), cwd, terminal))
       return;
   } catch (error) {
-    // allow-fallback: user-local command failure is terminal — exit is the correct response
+    // allow-fallback: user-local command failure is terminal
     terminal.writeError(error instanceof Error ? error.message : String(error));
     process.exit(1);
   }
 
   // Layer 2: sub-layer assembly (same-level grouping)
   const isTTY = process.stdin.isTTY === true && process.stdout.isTTY === true;
-  const commandSetup = createCommandSetup(cwd, options);
   const configPhase = await handleConfigPhase(cwd, configPhaseOpts, commandSetup, terminal, isTTY);
   if (configPhase.handled) return;
 

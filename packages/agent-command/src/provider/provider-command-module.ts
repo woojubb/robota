@@ -29,6 +29,7 @@ export function createProviderCommandEntry(): ICommand {
     modelInvocable: false,
     argumentHint: 'current | list | switch <profile> | add [type] | test [profile]',
     subcommands: buildProviderSubcommands(),
+    example: '/provider switch production',
   };
 }
 
@@ -46,6 +47,7 @@ function createProviderSystemCommand(options: IProviderCommandModuleOptions): TS
     name: entry.name,
     displayName: entry.displayName,
     description: entry.description,
+    example: entry.example,
     requiresPermission: false,
     userInvocable: true,
     modelInvocable: false,

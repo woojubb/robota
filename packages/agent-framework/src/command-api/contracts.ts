@@ -11,6 +11,8 @@ export interface ISystemCommand {
   /** User-friendly display label (e.g., "Interaction Mode"). Falls back to `name` if not set. */
   displayName?: string;
   description: string;
+  /** Optional usage example shown in /help output (e.g., "/compact Summarize the context"). */
+  example?: string;
   modelInvocable?: boolean;
   userInvocable?: boolean;
   argumentHint?: string;

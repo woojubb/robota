@@ -34,6 +34,8 @@ export interface IParsedCliArgs {
   reset: boolean;
   bare: boolean;
   allowedTools: string | undefined;
+  deniedTools: string | undefined;
+  model: string | undefined;
   noSessionPersistence: boolean;
   jsonSchema: string | undefined;
   configure: boolean;
@@ -48,6 +50,7 @@ export interface IParsedCliArgs {
   checkUpdate: boolean;
   disableUpdateCheck: boolean;
   dryRun: boolean;
+  yes: boolean;
 }
 
 /** Return CLI usage help text. */
@@ -143,6 +146,8 @@ const PARSE_ARGS_CONFIG = {
     reset: { type: 'boolean', default: false },
     bare: { type: 'boolean', default: false },
     'allowed-tools': { type: 'string' },
+    'denied-tools': { type: 'string' },
+    model: { type: 'string' },
     'no-session-persistence': { type: 'boolean', default: false },
     'json-schema': { type: 'string' },
     configure: { type: 'boolean', default: false },
@@ -157,6 +162,7 @@ const PARSE_ARGS_CONFIG = {
     'check-update': { type: 'boolean', default: false },
     'disable-update-check': { type: 'boolean', default: false },
     'dry-run': { type: 'boolean', default: false },
+    yes: { type: 'boolean', short: 'y', default: false },
   },
 } as const;
 
@@ -186,6 +192,8 @@ function mapParsedValues(
     reset: values['reset'] ?? false,
     bare: values['bare'] ?? false,
     allowedTools: values['allowed-tools'],
+    deniedTools: values['denied-tools'],
+    model: values['model'],
     noSessionPersistence: values['no-session-persistence'] ?? false,
     jsonSchema: values['json-schema'],
     configure: values['configure'] ?? false,
@@ -200,6 +208,7 @@ function mapParsedValues(
     checkUpdate: values['check-update'] ?? false,
     disableUpdateCheck: values['disable-update-check'] ?? false,
     dryRun: values['dry-run'] ?? false,
+    yes: values['yes'] ?? false,
   };
 }
 
