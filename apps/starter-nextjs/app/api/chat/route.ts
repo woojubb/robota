@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAgentRuntime } from '@robota-sdk/agent-framework';
-import { createAnthropicProvider } from '@robota-sdk/agent-provider';
+import { AnthropicProvider } from '@robota-sdk/agent-provider';
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -15,7 +15,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   const runtime = createAgentRuntime({
-    provider: createAnthropicProvider({ apiKey }),
+    cwd: process.cwd(),
+    provider: new AnthropicProvider({ apiKey }),
   });
 
   const session = runtime.createSession({ permissionMode: 'bypassPermissions' });

@@ -181,9 +181,10 @@ export function createSession(options: ICreateSessionOptions): ICreateSessionRes
     'Glob(.robota/**)',
   ];
   const allowedToolPatterns = (options.allowedTools ?? []).map((name) => `${name}(*)`);
+  const deniedToolPatterns = (options.deniedTools ?? []).map((name) => `${name}(*)`);
   const mergedPermissions = {
     allow: [...defaultAllow, ...(options.config.permissions.allow ?? []), ...allowedToolPatterns],
-    deny: options.config.permissions.deny ?? [],
+    deny: [...(options.config.permissions.deny ?? []), ...deniedToolPatterns],
   };
 
   const projectSettingsPath = join(cwd, '.robota', 'settings.local.json');
@@ -216,7 +217,7 @@ export function createSession(options: ICreateSessionOptions): ICreateSessionRes
     hooks: options.config.hooks,
     permissionMode: options.permissionMode,
     defaultTrustLevel: options.config.defaultTrustLevel,
-    model: options.config.provider.model,
+    model: options.model ?? options.config.provider.model,
     providerTimeout: options.config.provider.timeout ?? DEFAULT_PROVIDER_IDLE_TIMEOUT_MS,
     maxTurns: options.maxTurns,
     sessionStore: options.sessionStore,

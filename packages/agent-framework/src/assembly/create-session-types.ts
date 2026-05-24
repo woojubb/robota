@@ -112,6 +112,10 @@ export interface ICreateSessionOptions {
   sessionId?: string;
   /** Pre-approved tool names — added to permissions.allow as ToolName(*) patterns. */
   allowedTools?: string[];
+  /** Denied tool names — added to permissions.deny as ToolName(*) patterns. denied > allowed. */
+  deniedTools?: string[];
+  /** Override the model from config. When set, takes precedence over config.provider.model. */
+  model?: string;
   /** Text to append to the generated system prompt. */
   appendSystemPrompt?: string;
   /** Model command execution bridge. */
