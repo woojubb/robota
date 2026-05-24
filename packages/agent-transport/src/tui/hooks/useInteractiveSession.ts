@@ -52,6 +52,8 @@ export interface IInteractiveSessionProps {
   language?: string;
   reloadPluginCommandSource?: (registry: CommandRegistry) => void;
   agentName?: string;
+  systemPrompt?: string;
+  appendSystemPrompt?: string;
 }
 
 export interface IInteractiveSessionState {
