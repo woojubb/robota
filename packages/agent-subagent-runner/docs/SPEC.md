@@ -19,28 +19,42 @@ Applications that do not use subagents should not carry this dependency.
 - Owns the IPC wire protocol between parent runner and child worker.
 - Owns the worker entry point (`child-process-subagent-worker.ts`) and the worker path resolver.
 - Does NOT own subagent lifecycle state machines — those live in `agent-executor`.
-- Does NOT own provider creation contracts — provider config is received as a serialized profile from
-  the parent and reconstructed in the worker via `agent-provider`.
+- Does NOT own provider creation contracts — `ISerializableProviderProfile` is owned by
+  `agent-executor`; provider config is received as a serialized profile from the parent and
+  reconstructed in the worker via `agent-provider`.
+- `ISubagentRunner`, `ISubagentJobStart`, `ISubagentJobHandle`, `ISubagentJobResult`,
+  `ISerializableProviderProfile`, `ISubagentSpawnRequest`, `ISubagentWorktreeAdapter`,
+  `createWorktreeSubagentRunner`, `createProviderFromProfile`, and `BackgroundTaskError` are all
+  consumed from `@robota-sdk/agent-executor`.
+- `IAgentDefinition`, `IInProcessSubagentRunnerDeps`, `TSubagentRunnerFactory`,
+  `getBuiltInAgent`, `createSubagentSession`, `createSubagentLogger`, `createDefaultTools` are
+  consumed from `@robota-sdk/agent-framework`.
 
 ## Architecture Overview
 
 ```
 agent-cli / composition root
-  └── createChildProcessSubagentRunnerFactory()
-        └── ChildProcessSubagentRunner (ISubagentRunner)
-              ├── fork() → child-process-subagent-worker.ts
-              │     ├── ISubagentWorkerStartMessage  (parent → child)
-              │     ├── ISubagentWorkerSendMessage   (parent → child)
-              │     ├── ISubagentWorkerCancelMessage (parent → child)
-              │     ├── ISubagentWorkerReadyMessage  (child → parent)
-              │     ├── ISubagentWorkerTextDeltaMessage (child → parent)
-              │     ├── ISubagentWorkerToolStartMessage (child → parent)
-              │     ├── ISubagentWorkerToolEndMessage   (child → parent)
-              │     ├── ISubagentWorkerResultMessage    (child → parent)
-              │     ├── ISubagentWorkerErrorMessage     (child → parent)
-              │     └── ISubagentWorkerCancelledMessage (child → parent)
-              ├── ChildProcessSubagentResultController  (lifecycle + result promise)
-              └── child-process-subagent-transport.ts   (IPC send/receive helpers)
+  └── createChildProcessSubagentRunnerFactory(options)
+        │   (when worktreeIsolation !== false)
+        ├── createWorktreeSubagentRunner(runner, worktreeAdapter, …)
+        │     └── ChildProcessSubagentRunner (ISubagentRunner)  ← inner runner
+        │           ├── fork() → child-process-subagent-worker.ts
+        │           │     ├── ISubagentWorkerStartMessage  (parent → child)
+        │           │     ├── ISubagentWorkerSendMessage   (parent → child)
+        │           │     ├── ISubagentWorkerCancelMessage (parent → child)
+        │           │     ├── ISubagentWorkerReadyMessage  (child → parent)
+        │           │     ├── ISubagentWorkerTextDeltaMessage (child → parent)
+        │           │     ├── ISubagentWorkerToolStartMessage (child → parent)
+        │           │     ├── ISubagentWorkerToolEndMessage   (child → parent)
+        │           │     ├── ISubagentWorkerResultMessage    (child → parent)
+        │           │     ├── ISubagentWorkerErrorMessage     (child → parent)
+        │           │     └── ISubagentWorkerCancelledMessage (child → parent)
+        │           ├── createChildProcessSubagentResult()
+        │           │     └── ChildProcessSubagentResultController (lifecycle + result promise)
+        │           └── child-process-subagent-transport.ts (IChildProcessRuntime, IPC helpers)
+        │                  sendWorkerMessage / handleWorkerMessage / cancelChildProcess
+        │   (when worktreeIsolation === false)
+        └── ChildProcessSubagentRunner (ISubagentRunner)  ← returned directly
 
 worker-path-resolver.ts → getDefaultSubagentWorkerPath()
   Returns path to compiled worker: {dirname}/child-process-subagent-worker.js
@@ -51,19 +65,32 @@ worker-path-resolver.ts → getDefaultSubagentWorkerPath()
 and passes the factory to `createAgentRuntime()`. The `agent-framework` runtime accepts the factory
 as an optional port (`TSubagentRunnerFactory`); no default is injected.
 
+**Worktree wrapping**: `createChildProcessSubagentRunnerFactory` wraps `ChildProcessSubagentRunner`
+in `createWorktreeSubagentRunner` (from `agent-executor`) by default. Pass
+`worktreeIsolation: false` to skip the wrapper and use the runner directly.
+
 ## Type Ownership
 
 | Type / Interface                          | Kind              | Owner           | Description                                                                                                                             |
 | ----------------------------------------- | ----------------- | --------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `IChildProcessSubagentRunnerOptions`      | interface (local) | this pkg        | Constructor options: workerPath, providerConfig, execArgv, killGraceMs, env, worktreeIsolation, logsDir                                 |
+| `IChildProcessSubagentRunnerOptions`      | interface (local) | this pkg        | Constructor options: workerPath, providerConfig, execArgv, killGraceMs, env, worktreeIsolation, worktreeAdapter, logsDir                |
 | `ISubagentWorkerStartPayload`             | interface (local) | this pkg        | IPC payload for `start` message: jobId, request, agentDefinition, parentConfig, parentContext, providerProfile, permissionMode, logsDir |
+| `IChildProcessRuntime`                    | interface (local) | this pkg        | Internal runtime context passed between transport helpers: job, child, killGraceMs, killTimer                                           |
+| `ICancellationResult`                     | interface (local) | this pkg        | Cancellable promise wrapper: promise + reject(reason?)                                                                                  |
+| `IChildProcessSubagentResultOptions`      | interface (local) | this pkg        | Options passed to `createChildProcessSubagentResult`: runtime, payload, resolveTranscriptPath                                           |
 | `TSubagentWorkerParentMessage`            | type alias        | this pkg        | Union of all parent → child IPC message types                                                                                           |
 | `TSubagentWorkerChildMessage`             | type alias        | this pkg        | Union of all child → parent IPC message types                                                                                           |
-| `TSubagentWorkerWireValue`                | type alias        | this pkg        | Union of all IPC messages for wire-level validation                                                                                     |
+| `TSubagentWorkerWireValue`                | type alias        | this pkg        | Serializable value type for IPC wire-level validation                                                                                   |
 | `ISubagentRunner` (consumed)              | interface         | agent-executor  | Port implemented by `ChildProcessSubagentRunner`                                                                                        |
 | `ISubagentJobStart` (consumed)            | interface         | agent-executor  | Input to `runner.start()`                                                                                                               |
 | `ISubagentJobHandle` (consumed)           | interface         | agent-executor  | Return value of `runner.start()`                                                                                                        |
-| `ISerializableProviderProfile` (consumed) | interface         | agent-framework | Serialized provider profile sent to worker                                                                                              |
+| `ISubagentJobResult` (consumed)           | interface         | agent-executor  | Result shape resolved by `ISubagentJobHandle.result`                                                                                    |
+| `ISubagentSpawnRequest` (consumed)        | interface         | agent-executor  | Spawn request embedded in `ISubagentWorkerStartPayload.request`                                                                         |
+| `ISerializableProviderProfile` (consumed) | interface         | agent-executor  | Serialized provider profile sent to worker (NOT agent-framework)                                                                        |
+| `ISubagentWorktreeAdapter` (consumed)     | interface         | agent-executor  | Worktree isolation adapter injected via `worktreeAdapter` option                                                                        |
+| `IAgentDefinition` (consumed)             | interface         | agent-framework | Agent definition resolved from registry or built-in catalog                                                                             |
+| `IInProcessSubagentRunnerDeps` (consumed) | interface         | agent-framework | Dependency bag injected into runner constructor by factory                                                                              |
+| `TSubagentRunnerFactory` (consumed)       | type alias        | agent-framework | Factory type returned by `createChildProcessSubagentRunnerFactory`                                                                      |
 
 ## Public API Surface
 
@@ -95,14 +122,16 @@ as an optional port (`TSubagentRunnerFactory`); no default is injected.
 
 ## Error Taxonomy
 
-| Error scenario                    | Behavior                                                                                         |
-| --------------------------------- | ------------------------------------------------------------------------------------------------ |
-| Worker process exits unexpectedly | `ISubagentJobHandle.result` rejects with exit code and any captured stderr                       |
-| Worker sends `error` message      | `result` rejects with the worker error message string                                            |
-| Worker sends `cancelled` message  | `result` rejects with a cancellation result; handle emits a cancellation event                   |
-| IPC message fails validation      | `isSubagentWorkerChildMessage` / `isSubagentWorkerParentMessage` return `false`; message dropped |
-| Timeout                           | If a timeout is configured in `ISubagentJobStart`, the runner cancels the child and rejects      |
-| Fork failure                      | `ChildProcessSubagentRunner.start()` throws synchronously if `child_process.fork()` fails        |
+| Error scenario                         | Behavior                                                                                                                                                                                     |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Worker process exits unexpectedly      | `ISubagentJobHandle.result` rejects with `BackgroundTaskError('crash', …)` describing the exit code or signal (`stdio` is fully ignored — no stderr is captured)                             |
+| Worker sends `error` message           | `result` rejects with `BackgroundTaskError('runner', message)` using the worker error message string                                                                                         |
+| Worker sends `cancelled` message       | `result` rejects with `BackgroundTaskError('runner', reason)`; parent-side cancellation promise also rejects                                                                                 |
+| IPC child message fails validation     | `ChildProcessSubagentResultController` rejects with `BackgroundTaskError('runner', 'Received malformed subagent worker message')` — the message is NOT silently dropped                      |
+| IPC parent message fails validation    | Worker sends back `{ type: 'error', message: 'Malformed subagent worker parent message' }` and the parent result rejects                                                                     |
+| Timeout (`timeoutMs` on spawn request) | `ChildProcessSubagentResultController` fires `cancelChildProcess` then rejects with `BackgroundTaskError('timeout', 'Subagent worker timed out')` after `ISubagentSpawnRequest.timeoutMs` ms |
+| Fork failure                           | `child_process.fork()` throws synchronously; `ChildProcessSubagentRunner.start()` propagates the error to the caller                                                                         |
+| IPC channel closed before send         | `sendWorkerMessage` rejects with `BackgroundTaskError('crash', 'Subagent worker IPC channel is closed')` when `child.connected` is false                                                     |
 
 ## Test Strategy
 
@@ -128,13 +157,27 @@ as an optional port (`TSubagentRunnerFactory`); no default is injected.
 | `ChildProcessSubagentRunner`           | `src/child-process-subagent-runner.ts`        | `ISubagentRunner` | Main runner; uses `fork()` and IPC                |
 | `ChildProcessSubagentResultController` | `src/child-process-subagent-runner-result.ts` | (internal)        | Wraps child process lifecycle into result promise |
 
+### Module-Level Factory Functions
+
+| Function                           | Defined In                                    | Visibility   | Description                                                                       |
+| ---------------------------------- | --------------------------------------------- | ------------ | --------------------------------------------------------------------------------- |
+| `createChildProcessSubagentResult` | `src/child-process-subagent-runner-result.ts` | pkg-internal | Constructs the result promise via `ChildProcessSubagentResultController`          |
+| `createCancellationResult`         | `src/child-process-subagent-runner-result.ts` | pkg-internal | Returns `ICancellationResult` — a rejectable promise for parent-side cancellation |
+
 ### Cross-Package Port Consumers
 
-| Port (Owner)                                     | Consumer                                  | Notes                                                       |
-| ------------------------------------------------ | ----------------------------------------- | ----------------------------------------------------------- |
-| `ISubagentRunner` (agent-executor)               | `ChildProcessSubagentRunner`              | Interface implemented by this package                       |
-| `ISubagentJobStart` (agent-executor)             | `runner.start()`                          | Input job descriptor                                        |
-| `ISubagentJobHandle` (agent-executor)            | return of `runner.start()`                | Lifecycle handle returned to caller                         |
-| `TSubagentRunnerFactory` (agent-framework)       | `createChildProcessSubagentRunnerFactory` | Factory type accepted by `createAgentRuntime()`             |
-| `ISerializableProviderProfile` (agent-framework) | `ISubagentWorkerStartPayload`             | Provider profile serialized into IPC start payload          |
-| `GitWorktreeIsolationAdapter` (agent-executor)   | default worktree adapter                  | Optional isolation; skipped when `worktreeIsolation: false` |
+| Port (Owner)                                     | Consumer                                  | Notes                                                                      |
+| ------------------------------------------------ | ----------------------------------------- | -------------------------------------------------------------------------- |
+| `ISubagentRunner` (agent-executor)               | `ChildProcessSubagentRunner`              | Interface implemented by this package                                      |
+| `ISubagentJobStart` (agent-executor)             | `runner.start()`                          | Input job descriptor                                                       |
+| `ISubagentJobHandle` (agent-executor)            | return of `runner.start()`                | Lifecycle handle returned to caller                                        |
+| `ISubagentJobResult` (agent-executor)            | `createChildProcessSubagentResult`        | Resolved value of the result promise                                       |
+| `ISubagentSpawnRequest` (agent-executor)         | `ISubagentWorkerStartPayload.request`     | Spawn request embedded in IPC start payload                                |
+| `ISerializableProviderProfile` (agent-executor)  | `ISubagentWorkerStartPayload`             | Provider profile serialized into IPC start payload                         |
+| `ISubagentWorktreeAdapter` (agent-executor)      | `options.worktreeAdapter`                 | Injected adapter; defaults to `createGitWorktreeIsolationAdapter()` output |
+| `createWorktreeSubagentRunner` (agent-executor)  | `createChildProcessSubagentRunnerFactory` | Wraps runner with worktree isolation when `worktreeIsolation !== false`    |
+| `createProviderFromProfile` (agent-executor)     | `child-process-subagent-worker.ts`        | Reconstructs provider in worker from serialized profile                    |
+| `BackgroundTaskError` (agent-executor)           | transport, result, worker                 | Error class used throughout for typed rejection                            |
+| `TSubagentRunnerFactory` (agent-framework)       | `createChildProcessSubagentRunnerFactory` | Factory type accepted by `createAgentRuntime()`                            |
+| `IInProcessSubagentRunnerDeps` (agent-framework) | `ChildProcessSubagentRunner` constructor  | Dependency bag provided by runtime at factory invocation                   |
+| `IAgentDefinition` (agent-framework)             | `ISubagentWorkerStartPayload`             | Agent definition resolved from registry and sent to worker                 |

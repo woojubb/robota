@@ -45,7 +45,7 @@ Robota (Facade)
   │     ├── hook-runner.ts          — runHooks(): pluggable hook execution engine (strategy pattern)
   │     ├── command-executor.ts     — CommandExecutor: shell command hook execution
   │     ├── http-executor.ts        — HttpExecutor: HTTP request hook execution
-  │     └── types.ts                — THookEvent (9 events), IHookDefinition (discriminated union), IHookTypeExecutor
+  │     └── types.ts                — THookEvent (13 events), THookDefinition (discriminated union), IHookTypeExecutor
   └── Plugin Layer (1 built-in + 8 external @robota-sdk/agent-plugin-* packages)
         ├── EventEmitterPlugin           (built-in — event coordination)
         └── External plugins (per @robota-sdk/agent-plugin-*):
@@ -116,18 +116,24 @@ This package is the single source of truth (SSOT) for the following types:
 | `TToolArgs`                           | `permissions/permission-gate.ts`    | Tool arguments record for permission matching                                                                                                                                                                                                                                                                              |
 | `IPermissionLists`                    | `permissions/permission-gate.ts`    | Allow/deny pattern lists for permission config                                                                                                                                                                                                                                                                             |
 | `TKnownToolName`                      | `permissions/permission-mode.ts`    | Known tool names in the permission system                                                                                                                                                                                                                                                                                  |
-| `THookEvent`                          | `hooks/types.ts`                    | Hook lifecycle events (9 events): PreToolUse, PostToolUse, PreCompact, PostCompact, SessionStart, Stop, UserPromptSubmit, WorktreeCreate, WorktreeRemove                                                                                                                                                                   |
+| `THookEvent`                          | `hooks/types.ts`                    | Hook lifecycle events (13 events): PreToolUse, PostToolUse, PreCompact, PostCompact, SessionStart, SessionEnd, Stop, StopFailure, UserPromptSubmit, SubagentStart, SubagentStop, WorktreeCreate, WorktreeRemove                                                                                                            |
+| `TSessionEndReason`                   | `hooks/types.ts`                    | Claude Code compatible session end reason union: clear, resume, logout, prompt_input_exit, bypass_permissions_disabled, other                                                                                                                                                                                              |
 | `THooksConfig`                        | `hooks/types.ts`                    | Complete hooks configuration: event to hook groups                                                                                                                                                                                                                                                                         |
 | `IHookGroup`                          | `hooks/types.ts`                    | Hook group: matcher pattern + hook definitions                                                                                                                                                                                                                                                                             |
-| `IHookDefinition`                     | `hooks/types.ts`                    | Discriminated union hook definition (type: command, http, prompt, agent)                                                                                                                                                                                                                                                   |
+| `THookDefinition`                     | `hooks/types.ts`                    | Discriminated union hook definition (type: command, http, prompt, agent)                                                                                                                                                                                                                                                   |
+| `ICommandHookDefinition`              | `hooks/types.ts`                    | Shell command hook: `type: 'command'`, `command: string`, optional `timeout`                                                                                                                                                                                                                                               |
+| `IHttpHookDefinition`                 | `hooks/types.ts`                    | HTTP request hook: `type: 'http'`, `url: string`, optional `headers`, optional `timeout`                                                                                                                                                                                                                                   |
+| `IPromptHookDefinition`               | `hooks/types.ts`                    | LLM prompt hook: `type: 'prompt'`, `prompt: string`, optional `model`                                                                                                                                                                                                                                                      |
+| `IAgentHookDefinition`                | `hooks/types.ts`                    | Sub-agent hook: `type: 'agent'`, `agent: string`, optional `maxTurns`, optional `timeout`                                                                                                                                                                                                                                  |
 | `IHookTypeExecutor`                   | `hooks/types.ts`                    | Strategy interface for hook type execution                                                                                                                                                                                                                                                                                 |
 | `IHookInput`                          | `hooks/types.ts`                    | Input passed to hook commands via stdin                                                                                                                                                                                                                                                                                    |
 | `IHookResult`                         | `hooks/types.ts`                    | Hook execution result (exitCode, stdout, stderr)                                                                                                                                                                                                                                                                           |
 | `IContextTokenUsage`                  | `context/types.ts`                  | Token usage from a single API call (input, output, cache tokens)                                                                                                                                                                                                                                                           |
 | `IContextWindowState`                 | `context/types.ts`                  | Context window state snapshot (maxTokens, usedTokens, percentage)                                                                                                                                                                                                                                                          |
 | `IContextTokenEstimate`               | `context/estimation.ts`             | Effective context token estimate used by status display, session compaction policy, and execution safety guards                                                                                                                                                                                                            |
+| `IContextTokenEstimateOptions`        | `context/estimation.ts`             | Options for `estimateContextTokensFromMessages()`: optional `providerUsage` floor and `callerFloor`                                                                                                                                                                                                                        |
 | `IMessageTokenUsage`                  | `context/token-usage.ts`            | Normalized token usage read from message metadata or provider usage payloads                                                                                                                                                                                                                                               |
-| `IHistoryEntry`                       | `interfaces/history.ts`             | Rich history entry that wraps a message with category, type, and structured data fields. Fields: `id` (string), `timestamp` (Date), `category` ('chat' \| 'event'), `type` (string), `data` (varies by category/type)                                                                                                      |
+| `IHistoryEntry`                       | `interfaces/messages.ts`            | Rich history entry that wraps a message with category, type, and structured data fields. Fields: `id` (string), `timestamp` (Date), `category` ('chat' \| 'event'), `type` (string), `data` (varies by category/type)                                                                                                      |
 
 Provider packages import these types. They must not re-declare them.
 
@@ -214,18 +220,23 @@ canonical location for env-ref logic; all higher layers import from here.
 
 ### Hooks
 
-| Export              | Kind      | Description                                                                                                                      |
-| ------------------- | --------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `runHooks`          | function  | Execute hooks for lifecycle events using pluggable type executors                                                                |
-| `THookEvent`        | type      | 9 events: PreToolUse, PostToolUse, SessionStart, Stop, PreCompact, PostCompact, UserPromptSubmit, WorktreeCreate, WorktreeRemove |
-| `THooksConfig`      | type      | Event to hook group array mapping                                                                                                |
-| `IHookGroup`        | type      | Matcher pattern + hook definitions                                                                                               |
-| `IHookDefinition`   | type      | Discriminated union: command, http, prompt, agent hook types                                                                     |
-| `IHookTypeExecutor` | interface | Strategy interface for executing a specific hook type                                                                            |
-| `CommandExecutor`   | class     | Built-in executor for `command` type hooks (shell execution)                                                                     |
-| `HttpExecutor`      | class     | Built-in executor for `http` type hooks (HTTP request)                                                                           |
-| `IHookInput`        | type      | JSON input passed to hooks via stdin                                                                                             |
-| `IHookResult`       | type      | Hook result: exitCode (0=allow, 2=block), stdout, stderr                                                                         |
+| Export                   | Kind      | Description                                                                                                                                                                             |
+| ------------------------ | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `runHooks`               | function  | Execute hooks for lifecycle events using pluggable type executors; returns `IRunHooksResult`                                                                                            |
+| `THookEvent`             | type      | 13 events: PreToolUse, PostToolUse, SessionStart, SessionEnd, Stop, StopFailure, PreCompact, PostCompact, UserPromptSubmit, SubagentStart, SubagentStop, WorktreeCreate, WorktreeRemove |
+| `TSessionEndReason`      | type      | Session end reason union: clear, resume, logout, prompt_input_exit, bypass_permissions_disabled, other                                                                                  |
+| `THooksConfig`           | type      | Event to hook group array mapping                                                                                                                                                       |
+| `IHookGroup`             | type      | Matcher pattern + hook definitions array; optional `env` for child-process environment injection                                                                                        |
+| `THookDefinition`        | type      | Discriminated union of all hook definition types: command, http, prompt, agent                                                                                                          |
+| `ICommandHookDefinition` | interface | `type: 'command'` hook — shell command execution via stdin/exit code                                                                                                                    |
+| `IHttpHookDefinition`    | interface | `type: 'http'` hook — HTTP request to external endpoint                                                                                                                                 |
+| `IPromptHookDefinition`  | interface | `type: 'prompt'` hook — LLM prompt injection                                                                                                                                            |
+| `IAgentHookDefinition`   | interface | `type: 'agent'` hook — sub-agent delegation                                                                                                                                             |
+| `IHookTypeExecutor`      | interface | Strategy interface for executing a specific hook type                                                                                                                                   |
+| `IHookInput`             | type      | JSON input passed to hooks via stdin                                                                                                                                                    |
+| `IHookResult`            | type      | Hook result: exitCode (0=allow, 2=block), stdout, stderr                                                                                                                                |
+
+NOTE: `CommandExecutor` and `HttpExecutor` are exported from `hooks/index.ts` but are **not** re-exported from `src/index.ts`. They are available to packages that import directly from the hooks sub-path; consumers that only import from `@robota-sdk/agent-core` must supply custom executors via the `executors` parameter of `runHooks`. `IRunHooksResult` follows the same export boundary.
 
 ### Streaming
 
@@ -399,10 +410,16 @@ The hook module (`src/hooks/`) provides a pluggable lifecycle hook mechanism. Ho
 | `PreToolUse`       | Before tool execution     | Validation, blocking, transformation             |
 | `PostToolUse`      | After tool execution      | Logging, auditing, notification                  |
 | `SessionStart`     | Session initialization    | Setup, environment checks                        |
-| `Stop`             | Session termination       | Cleanup, reporting                               |
+| `SessionEnd`       | Session completion        | Final cleanup, summary logging                   |
+| `Stop`             | Session stop (success)    | Cleanup, reporting                               |
+| `StopFailure`      | Session stop (failure)    | Error reporting, rollback                        |
 | `PreCompact`       | Before context compaction | Validation, logging (trigger: auto/manual)       |
 | `PostCompact`      | After context compaction  | Logging, notification (includes compact_summary) |
 | `UserPromptSubmit` | After user submits prompt | Pre-processing, validation, prompt rewriting     |
+| `SubagentStart`    | Before subagent launch    | Resource allocation, permission checks           |
+| `SubagentStop`     | After subagent completion | Resource cleanup, result aggregation             |
+| `WorktreeCreate`   | After worktree creation   | Workspace setup, environment initialization      |
+| `WorktreeRemove`   | After worktree removal    | Workspace cleanup, resource release              |
 
 ### Hook Definition Types (Discriminated Union)
 
