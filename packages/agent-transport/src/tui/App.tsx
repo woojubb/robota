@@ -18,7 +18,6 @@ import { useSideEffects } from './hooks/useSideEffects.js';
 import { useStatusLineSettings } from './hooks/useStatusLineSettings.js';
 import InputArea from './InputArea.js';
 import InteractivePrompt from './InteractivePrompt.js';
-import KeyboardShortcutOverlay from './KeyboardShortcutOverlay.js';
 import MessageList from './MessageList.js';
 import PermissionPrompt from './PermissionPrompt.js';
 import PluginTUI from './PluginTUI.js';
@@ -72,6 +71,8 @@ interface IProps {
   agentName?: string;
   systemPrompt?: string;
   appendSystemPrompt?: string;
+  allowedTools?: string[];
+  deniedTools?: string[];
 }
 
 export default function App(props: IProps): React.ReactElement {
@@ -145,6 +146,8 @@ function AppInner(
     agentName: props.agentName,
     systemPrompt: props.systemPrompt,
     appendSystemPrompt: props.appendSystemPrompt,
+    allowedTools: props.allowedTools,
+    deniedTools: props.deniedTools,
   });
 
   const fallbackPluginCallbacks = usePluginCallbacks(cwd);
@@ -157,7 +160,6 @@ function AppInner(
   const [isExecutionDetailLoading, setIsExecutionDetailLoading] = useState(false);
   const [statusLineSettings, setStatusLineSettings] = useStatusLineSettings();
   const [gitRefreshToken, setGitRefreshToken] = useState(0);
-  const [showShortcutOverlay, setShowShortcutOverlay] = useState(false);
   const backgroundWorkspaceEntries = useMemo(
     () => getDefaultBackgroundWorkspaceEntries(executionWorkspaceSnapshot),
     [executionWorkspaceSnapshot],
@@ -319,23 +321,6 @@ function AppInner(
     void handleShutdown('prompt_input_exit').finally(() => exit());
   });
 
-  // ? key toggles the keyboard shortcut overlay
-  useInput((input: string) => {
-    if (input !== '?') return;
-    if (
-      permissionRequest ||
-      showPluginTUI ||
-      showTransportTUI ||
-      showSessionPicker ||
-      showExecutionWorkspaceSwitcher ||
-      isThinking ||
-      isShuttingDown
-    ) {
-      return;
-    }
-    setShowShortcutOverlay((v) => !v);
-  });
-
   useEffect(() => {
     const onSigterm = (): void => {
       if (isShuttingDown) return;
@@ -472,9 +457,6 @@ function AppInner(
           }}
         />
       )}
-      {showShortcutOverlay && (
-        <KeyboardShortcutOverlay onClose={() => setShowShortcutOverlay(false)} />
-      )}
       <ContextWarningBanner percentage={contextState.percentage} />
       <SessionStatusBar
         cwd={cwd}
@@ -501,7 +483,6 @@ function AppInner(
           showTransportTUI ||
           showSessionPicker ||
           showExecutionWorkspaceSwitcher ||
-          showShortcutOverlay ||
           isShuttingDown ||
           pendingInteractionPrompt !== null ||
           (isThinking && !!pendingPrompt) ||
