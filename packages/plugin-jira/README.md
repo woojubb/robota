@@ -63,3 +63,7 @@ await jira.createIssue({
 ```bash
 export JIRA_API_TOKEN=...
 ```
+
+## Specification
+
+See [`docs/SPEC.md`](docs/SPEC.md) for architecture, type ownership, public API surface, and contract details.
