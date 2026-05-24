@@ -1,6 +1,6 @@
 ---
 title: 'CLI-029: macOS Terminal.app CJK 입력 크래시 — 근본 해결 여부 재검증'
-status: todo
+status: done
 created: 2026-05-24
 priority: high
 urgency: now

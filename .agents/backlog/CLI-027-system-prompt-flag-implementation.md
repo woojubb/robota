@@ -1,6 +1,6 @@
 ---
 title: 'CLI-027: --system-prompt / --append-system-prompt 플래그 실제 구현'
-status: todo
+status: done
 created: 2026-05-24
 priority: high
 urgency: now

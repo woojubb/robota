@@ -1,6 +1,6 @@
 ---
 title: 'CLI-033: Headless E2E 통합 테스트 수트 확장'
-status: todo
+status: done
 created: 2026-05-24
 priority: medium
 urgency: soon

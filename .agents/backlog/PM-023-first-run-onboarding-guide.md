@@ -1,6 +1,6 @@
 ---
 title: 'PM-023: 첫 실행 온보딩 가이드 — "무엇을 먼저 물어볼까" 안내'
-status: todo
+status: done
 created: 2026-05-24
 priority: high
 urgency: now
