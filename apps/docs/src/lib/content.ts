@@ -8,7 +8,7 @@ const MONOREPO_ROOT = path.join(process.cwd(), '..', '..');
 const CONTENT_DIR = path.join(MONOREPO_ROOT, 'content');
 const PACKAGES_DIR = path.join(MONOREPO_ROOT, 'packages');
 
-const EXCLUDED_DIRS = new Set(['v2.0.0', 'api-reference', 'images']);
+const EXCLUDED_DIRS = new Set(['v2.0.0', 'api-reference', 'images', 'ko']);
 
 /** Recursively collect all .md files under a directory, returning paths relative to that dir. */
 function collectMarkdownFiles(dir: string, base: string = ''): string[] {
@@ -83,26 +83,29 @@ export function getAllSlugs(): string[][] {
 }
 
 /**
- * Resolve a slug array to an absolute file path, or null if not found.
+ * Resolve a slug array to an absolute file path, locale-aware.
+ * For locale='ko': tries content/ko/{slug} first, falls back to content/{slug}.
+ * For locale='en' or default: uses content/{slug}.
  */
-export function getFilePath(slug: string[]): string | null {
+export function getFilePath(slug: string[], locale: string = 'en'): string | null {
   if (slug.length === 0) {
-    // Root: content/README.md
+    if (locale === 'ko') {
+      const p = path.join(CONTENT_DIR, 'ko', 'README.md');
+      if (fs.existsSync(p)) return p;
+    }
     const p = path.join(CONTENT_DIR, 'README.md');
     return fs.existsSync(p) ? p : null;
   }
 
-  // packages/* route
+  // packages/* route — no locale support for now (always English)
   if (slug[0] === 'packages') {
     const pkgName = slug[1];
     if (!pkgName) return null;
     const docsDir = path.join(PACKAGES_DIR, pkgName, 'docs');
     if (slug.length === 2) {
-      // packages/<pkg> → packages/<pkg>/docs/README.md
       const p = path.join(docsDir, 'README.md');
       return fs.existsSync(p) ? p : null;
     }
-    // packages/<pkg>/<file>
     const rest = slug.slice(2);
     const direct = path.join(docsDir, ...rest) + '.md';
     if (fs.existsSync(direct)) return direct;
@@ -111,12 +114,19 @@ export function getFilePath(slug: string[]): string | null {
     return null;
   }
 
-  // content/* route
-  // Try: content/<slug...>.md
+  // content/* route — locale-aware
+  if (locale === 'ko') {
+    const koDir = path.join(CONTENT_DIR, 'ko');
+    const koDirect = path.join(koDir, ...slug) + '.md';
+    if (fs.existsSync(koDirect)) return koDirect;
+    const koReadme = path.join(koDir, ...slug, 'README.md');
+    if (fs.existsSync(koReadme)) return koReadme;
+  }
+
+  // English fallback (or en locale)
   const directPath = path.join(CONTENT_DIR, ...slug) + '.md';
   if (fs.existsSync(directPath)) return directPath;
 
-  // Try: content/<slug...>/README.md
   const readmePath = path.join(CONTENT_DIR, ...slug, 'README.md');
   if (fs.existsSync(readmePath)) return readmePath;
 
@@ -130,8 +140,11 @@ export interface PageContent {
 }
 
 /** Read and parse a page by slug, returning stripped markdown source + frontmatter. */
-export async function getPageContent(slug: string[]): Promise<PageContent | null> {
-  const filePath = getFilePath(slug);
+export async function getPageContent(
+  slug: string[],
+  locale: string = 'en',
+): Promise<PageContent | null> {
+  const filePath = getFilePath(slug, locale);
   if (!filePath) return null;
 
   const raw = fs.readFileSync(filePath, 'utf8');

@@ -5,6 +5,7 @@ import remarkGfm from 'remark-gfm';
 import rehypePrettyCode from 'rehype-pretty-code';
 import rehypeSlug from 'rehype-slug';
 import rehypeAutolinkHeadings from 'rehype-autolink-headings';
+import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { getAllSlugs, getPageContent, extractTitle } from '@/lib/content';
 import { buildSidebar } from '@/lib/sidebar';
@@ -17,9 +18,7 @@ import { MermaidDiagram } from '@/components/mdx/MermaidDiagram';
 import { Callout } from '@/components/mdx/Callout';
 import { PackageManagerTabs } from '@/components/mdx/PackageManagerTabs';
 
-// MDX component map
 const components = {
-  // Wrap <pre> with copy button
   pre: ({ children, ...props }: React.HTMLAttributes<HTMLPreElement>) => (
     <CodeBlock {...props}>{children}</CodeBlock>
   ),
@@ -29,12 +28,20 @@ const components = {
 };
 
 interface PageParams {
+  locale: string;
   slug?: string[];
 }
 
 export async function generateStaticParams(): Promise<PageParams[]> {
   const slugs = getAllSlugs();
-  return slugs.map((slug) => ({ slug: slug.length === 0 ? undefined : slug }));
+  const locales = ['en', 'ko'];
+  const result: PageParams[] = [];
+  for (const locale of locales) {
+    for (const slug of slugs) {
+      result.push({ locale, slug: slug.length === 0 ? undefined : slug });
+    }
+  }
+  return result;
 }
 
 export async function generateMetadata({
@@ -42,9 +49,9 @@ export async function generateMetadata({
 }: {
   params: Promise<PageParams>;
 }): Promise<Metadata> {
-  const { slug } = await params;
+  const { slug, locale } = await params;
   const resolvedSlug = slug ?? [];
-  const page = await getPageContent(resolvedSlug);
+  const page = await getPageContent(resolvedSlug, locale);
   if (!page) return { title: 'Not Found' };
 
   const title = extractTitle(page.source, page.frontmatter);
@@ -52,53 +59,48 @@ export async function generateMetadata({
     (page.frontmatter.description as string | undefined) ??
     page.source.replace(/^#.*$/m, '').trim().slice(0, 160).replace(/\s+/g, ' ');
 
-  return {
-    title,
-    description,
-  };
+  return { title, description };
 }
 
-const QUICK_LINKS = [
-  {
-    title: 'Getting Started',
-    href: '/getting-started',
-    desc: 'CLI quick start — first agent in 5 lines',
-    tag: '01',
-  },
-  {
-    title: 'Guide',
-    href: '/guide',
-    desc: 'Architecture, SDK, CLI, plugins, and more',
-    tag: '02',
-  },
-  {
-    title: 'Examples',
-    href: '/examples',
-    desc: 'Real-world code examples for common use cases',
-    tag: '03',
-  },
-  {
-    title: 'Packages',
-    href: '/packages',
-    desc: 'API reference for every SDK package',
-    tag: '04',
-  },
-  {
-    title: 'Changelog',
-    href: '/changelog',
-    desc: 'Release notes and version history',
-    tag: '05',
-  },
-  {
-    title: 'Development',
-    href: '/development',
-    desc: 'Contributing guide and development setup',
-    tag: '06',
-  },
-];
+const QUICK_LINK_DESCS: Record<string, string> = {
+  'getting-started': 'CLI quick start — first agent in 5 lines',
+  guide: 'Architecture, SDK, CLI, plugins, and more',
+  examples: 'Real-world code examples for common use cases',
+  packages: 'API reference for every SDK package',
+  changelog: 'Release notes and version history',
+  development: 'Contributing guide and development setup',
+};
 
-// Custom home page — rendered for the root slug ([])
-function HomePage() {
+interface HomePageProps {
+  badge: string;
+  title: string;
+  titleHighlight: string;
+  description: string;
+  getStarted: string;
+  readGuide: string;
+  quickInstall: string;
+  navLabels: Record<string, string>;
+}
+
+function HomePage({
+  badge,
+  title,
+  titleHighlight,
+  description,
+  getStarted,
+  readGuide,
+  quickInstall,
+  navLabels,
+}: HomePageProps) {
+  const QUICK_LINKS = [
+    { key: 'gettingStarted', href: 'getting-started', tag: '01' },
+    { key: 'guide', href: 'guide', tag: '02' },
+    { key: 'examples', href: 'examples', tag: '03' },
+    { key: 'packages', href: 'packages', tag: '04' },
+    { key: 'changelog', href: 'changelog', tag: '05' },
+    { key: 'development', href: 'development', tag: '06' },
+  ];
+
   return (
     <div>
       {/* Hero */}
@@ -109,7 +111,6 @@ function HomePage() {
           borderBottom: '1px solid var(--border)',
         }}
       >
-        {/* Badge */}
         <div
           style={{
             display: 'inline-flex',
@@ -126,7 +127,7 @@ function HomePage() {
             letterSpacing: '0.06em',
           }}
         >
-          <span style={{ opacity: 0.6 }}>$</span> open-source · MIT licensed
+          <span style={{ opacity: 0.6 }}>$</span> {badge}
         </div>
 
         <h1
@@ -140,15 +141,10 @@ function HomePage() {
             letterSpacing: '-0.025em',
           }}
         >
-          Robota SDK
+          {title}
           <br />
-          <span
-            style={{
-              color: 'var(--primary)',
-              textShadow: '0 0 32px rgba(0,255,136,0.25)',
-            }}
-          >
-            Documentation
+          <span style={{ color: 'var(--primary)', textShadow: '0 0 32px rgba(0,255,136,0.25)' }}>
+            {titleHighlight}
           </span>
         </h1>
 
@@ -162,13 +158,12 @@ function HomePage() {
             marginBottom: '1.75rem',
           }}
         >
-          Multi-provider AI agent SDK and CLI — TypeScript-native, self-hostable. Supports
-          Anthropic, OpenAI, DeepSeek, Gemini, and local models.
+          {description}
         </p>
 
         <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
           <a
-            href="/getting-started"
+            href="getting-started"
             style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -186,10 +181,10 @@ function HomePage() {
               transition: 'box-shadow 0.2s',
             }}
           >
-            Get Started →
+            {getStarted}
           </a>
           <a
-            href="/guide"
+            href="guide"
             style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -207,7 +202,7 @@ function HomePage() {
               transition: 'border-color 0.15s',
             }}
           >
-            Read the Guide
+            {readGuide}
           </a>
         </div>
       </div>
@@ -261,7 +256,7 @@ function HomePage() {
                 letterSpacing: '-0.01em',
               }}
             >
-              {card.title}
+              {navLabels[card.key] ?? card.href}
             </div>
             <div
               style={{
@@ -271,7 +266,7 @@ function HomePage() {
                 lineHeight: 1.55,
               }}
             >
-              {card.desc}
+              {QUICK_LINK_DESCS[card.href]}
             </div>
           </a>
         ))}
@@ -290,7 +285,7 @@ function HomePage() {
             marginBottom: '0.75rem',
           }}
         >
-          Quick Install
+          {quickInstall}
         </p>
         <pre
           style={{
@@ -324,23 +319,39 @@ function HomePage() {
 }
 
 export default async function DocsPage({ params }: { params: Promise<PageParams> }) {
-  const { slug } = await params;
+  const { slug, locale } = await params;
+  setRequestLocale(locale);
   const resolvedSlug = slug ?? [];
 
-  // Build sidebar (server-side, cached between pages in the same build)
-  const sidebar = buildSidebar();
+  const [tHome, tNav] = await Promise.all([getTranslations('home'), getTranslations('nav')]);
 
-  // Home page — render custom landing
+  const sidebar = buildSidebar(locale);
+
   if (resolvedSlug.length === 0) {
     return (
       <DocsLayout sidebar={sidebar} toc={[]}>
-        <HomePage />
+        <HomePage
+          badge={tHome('badge')}
+          title={tHome('title')}
+          titleHighlight={tHome('titleHighlight')}
+          description={tHome('description')}
+          getStarted={tHome('getStarted')}
+          readGuide={tHome('readGuide')}
+          quickInstall={tHome('quickInstall')}
+          navLabels={{
+            gettingStarted: tNav('gettingStarted'),
+            guide: tNav('guide'),
+            examples: tNav('examples'),
+            packages: tNav('packages'),
+            changelog: tNav('changelog'),
+            development: tNav('development'),
+          }}
+        />
       </DocsLayout>
     );
   }
 
-  // Regular doc page
-  const page = await getPageContent(resolvedSlug);
+  const page = await getPageContent(resolvedSlug, locale);
   if (!page) notFound();
 
   const toc = extractToc(page.source);
