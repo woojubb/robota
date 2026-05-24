@@ -37,6 +37,10 @@ export interface IHeadlessSessionOptions {
   sessionName?: string;
   bare?: boolean;
   allowedTools?: string[];
+  /** Denied tool names — added to permissions.deny. denied > allowed. */
+  deniedTools?: string[];
+  /** Override the model from config. When set, takes precedence over config.provider.model. */
+  model?: string;
   appendSystemPrompt?: string;
   /** Replace the entire system prompt. Takes precedence over the default builder. */
   systemPrompt?: string;
@@ -97,6 +101,8 @@ export function createAgentRuntime(config: IAgentRuntimeConfig): IAgentRuntime {
         sessionName: opts.sessionName,
         bare: opts.bare,
         allowedTools: opts.allowedTools,
+        deniedTools: opts.deniedTools,
+        model: opts.model,
         appendSystemPrompt: opts.appendSystemPrompt,
         systemPrompt: opts.systemPrompt,
         shellExec: opts.shellExec,

@@ -8,6 +8,8 @@ export interface ICommand {
   displayName?: string;
   /** Short description shown in autocomplete */
   description: string;
+  /** Optional usage example shown in /help output (e.g., "/compact Summarize the context"). */
+  example?: string;
   /** Source identifier (e.g., "builtin", "skill") */
   source: string;
   /** Subcommands for hierarchical menus */

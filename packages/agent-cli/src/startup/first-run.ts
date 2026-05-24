@@ -1,6 +1,10 @@
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { homedir } from 'node:os';
+import { join } from 'node:path';
+
+import { promptInput } from '@robota-sdk/agent-transport/headless';
+
+import { sendTelemetryEvent, setTelemetryEnabled } from './telemetry.js';
 
 const ONBOARDED_MARKER = join(homedir(), '.robota', 'onboarded');
 
@@ -35,4 +39,24 @@ const WELCOME_MESSAGE = `
 
 export function printFirstRunWelcome(): void {
   process.stderr.write(WELCOME_MESSAGE + '\n');
+}
+
+const TELEMETRY_PROMPT = `Help improve Robota by sharing anonymous usage data?
+No file contents, paths, or personal data are ever collected.
+You can change this anytime with: robota config set telemetry false
+
+Enable anonymous telemetry? [y/N] `;
+
+/**
+ * Show a telemetry opt-in prompt during first run.
+ * Saves the user's choice to ~/.robota/settings.json.
+ * Fires session_start event if the user opts in.
+ */
+export async function promptTelemetryOptIn(): Promise<void> {
+  const answer = await promptInput(TELEMETRY_PROMPT);
+  const enabled = answer.trim().toLowerCase() === 'y';
+  setTelemetryEnabled(enabled);
+  if (enabled) {
+    sendTelemetryEvent('session_start');
+  }
 }

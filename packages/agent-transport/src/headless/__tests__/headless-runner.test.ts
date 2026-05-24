@@ -210,6 +210,7 @@ describe('createHeadlessRunner (json format)', () => {
       result: '',
       session_id: 'test-session-id',
       subtype: 'error',
+      error_code: 'api_error',
     });
   });
 
@@ -344,6 +345,7 @@ describe('createHeadlessRunner (stream-json format)', () => {
       result: '',
       session_id: 'stream-session',
       subtype: 'error',
+      error_code: 'api_error',
     });
   });
 

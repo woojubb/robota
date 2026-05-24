@@ -82,7 +82,12 @@ export function writeStreamJsonEvent(
 export function subscribeStreamJsonEvents(
   session: IInteractiveSession,
   getSessionId: (s: IInteractiveSession) => string,
-  writeJsonResult: (sessionId: string, result: string, subtype: 'success' | 'error') => void,
+  writeJsonResult: (
+    sessionId: string,
+    result: string,
+    subtype: 'success' | 'error',
+    error?: Error,
+  ) => void,
   resolve: (exitCode: number) => void,
 ): () => void {
   const emit = (event: TStreamJsonEvent): void =>
@@ -115,9 +120,9 @@ export function subscribeStreamJsonEvents(
     writeJsonResult(getSessionId(session), result.response, 'success');
     resolve(0);
   };
-  const onError = (_error: Error): void => {
+  const onError = (error: Error): void => {
     cleanup();
-    writeJsonResult(getSessionId(session), '', 'error');
+    writeJsonResult(getSessionId(session), '', 'error', error);
     resolve(1);
   };
 
