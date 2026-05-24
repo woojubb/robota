@@ -32,18 +32,6 @@ process.on('uncaughtException', (err) => {
   throw err;
 });
 
-// Warn on macOS Terminal.app before starting (only in interactive/TUI mode)
-if (
-  process.platform === 'darwin' &&
-  process.env.TERM_PROGRAM === 'Apple_Terminal' &&
-  process.stdin.isTTY
-) {
-  process.stderr.write(
-    '\n⚠  macOS Terminal.app: CJK/IME input may be unstable in interactive mode.\n' +
-      '   Recommendation: use iTerm2 (https://iterm2.com) or headless mode (-p flag).\n\n',
-  );
-}
-
 startCli().catch((err) => {
   const message = err instanceof Error ? err.message : String(err);
   process.stderr.write(message + '\n');

@@ -9,6 +9,7 @@ import { stat } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
 import fg from 'fast-glob';
+import pLimit from 'p-limit';
 import { z } from 'zod';
 
 import { createZodFunctionTool } from '../implementations/function-tool';
@@ -63,17 +64,21 @@ async function globFileTool(args: TGlobArgs): Promise<string> {
     return JSON.stringify(result);
   }
 
-  // Sort by mtime (most recent first)
+  // Sort by mtime (most recent first); cap concurrent stat calls to avoid I/O explosion
+  const limit = pLimit(100);
   const withMtime: IFileWithMtime[] = await Promise.all(
-    matches.map(async (p) => {
-      const absPath = resolve(cwd, p);
-      try {
-        const s = await stat(absPath);
-        return { path: p, mtime: s.mtimeMs };
-      } catch {
-        return { path: p, mtime: 0 };
-      }
-    }),
+    matches.map((p) =>
+      limit(async () => {
+        const absPath = resolve(cwd, p);
+        try {
+          const s = await stat(absPath);
+          return { path: p, mtime: s.mtimeMs };
+        } catch {
+          // allow-fallback: stat failure on a matched path returns mtime=0 (sort-last), not a logic fallback
+          return { path: p, mtime: 0 };
+        }
+      }),
+    ),
   );
 
   withMtime.sort((a, b) => b.mtime - a.mtime);

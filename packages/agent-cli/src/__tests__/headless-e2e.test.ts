@@ -260,3 +260,219 @@ describe('CLI-033: Node.js version check', () => {
     expect(major).toBeGreaterThanOrEqual(22);
   });
 });
+
+/**
+ * CLI-038: stdin + positional combined prompt tests
+ *
+ * TC-04 (E2E spawn) is marked manual because it requires the CLI binary to be
+ * built and a real provider key to be present in the environment. The behaviour
+ * is fully covered by TC-01/TC-02/TC-03 unit tests in this describe block via
+ * the runPrintMode integration harness.
+ */
+describe('CLI-038: stdin + positional combined prompt', () => {
+  let cwd: string;
+  let exitSpy: MockInstance<Parameters<typeof process.exit>, ReturnType<typeof process.exit>>;
+  let originalIsTTY: boolean | undefined;
+
+  beforeEach(() => {
+    cwd = mkdtempSync(join(tmpdir(), 'robota-cli038-'));
+    exitSpy = vi.spyOn(process, 'exit').mockImplementation(((_code?: string | number | null) => {
+      const code = typeof _code === 'number' ? _code : 0;
+      throw Object.assign(new Error(`process.exit(${code})`), { code });
+    }) as (code?: string | number | null) => never);
+    originalIsTTY = process.stdin.isTTY;
+  });
+
+  afterEach(() => {
+    exitSpy.mockRestore();
+    Object.defineProperty(process.stdin, 'isTTY', { value: originalIsTTY, configurable: true });
+    rmSync(cwd, { recursive: true, force: true });
+  });
+
+  /** Replace process.stdin with a readable async iterable that yields the given string. */
+  function mockStdinWith(content: string): void {
+    Object.defineProperty(process.stdin, 'isTTY', { value: false, configurable: true });
+    const buf = Buffer.from(content, 'utf-8');
+    let done = false;
+    const asyncIterable = {
+      [Symbol.asyncIterator]() {
+        return {
+          next(): Promise<IteratorResult<Buffer>> {
+            if (!done) {
+              done = true;
+              return Promise.resolve({ value: buf, done: false });
+            }
+            return Promise.resolve({ value: undefined as unknown as Buffer, done: true });
+          },
+        };
+      },
+    };
+    Object.assign(process.stdin, asyncIterable);
+  }
+
+  async function runWithStdin(
+    opts: Record<string, unknown>,
+    provider: IAIProvider = createEchoProvider(),
+  ): Promise<{ output: string; exitCode: number }> {
+    const { runPrintMode } = await import('../modes/print-mode.js');
+    const { createAgentRuntime } = await import('@robota-sdk/agent-framework');
+    const { createDefaultCommandModules } = await import('@robota-sdk/agent-command');
+
+    const runtime = createAgentRuntime({
+      cwd,
+      provider,
+      commandModules: createDefaultCommandModules({
+        cwd,
+        providerDefinitions: [],
+        providerSettingsAdapter: noopProviderSettingsAdapter,
+      }),
+    });
+
+    let exitCode = 0;
+    const output = await captureStdout(async () => {
+      try {
+        await runPrintMode(
+          {
+            positional: [],
+            dryRun: false,
+            outputFormat: 'text',
+            permissionMode: 'bypassPermissions',
+            noSessionPersistence: true,
+            bare: true,
+            continueMode: false,
+            forkSession: false,
+            ...opts,
+          } as Parameters<typeof runPrintMode>[0],
+          runtime,
+        );
+      } catch (err: unknown) {
+        if (err instanceof Error && err.message.startsWith('process.exit(')) {
+          exitCode = (err as Error & { code: number }).code;
+        }
+      }
+    });
+    return { output, exitCode };
+  }
+
+  // TC-01: positional + stdin → both delivered together
+  it('TC-01: combines positional and piped stdin into a single prompt with <stdin> tag', async () => {
+    /** Provider that captures the prompt sent to it and echoes it back */
+    function createPromptCaptureProvider(): IAIProvider & { capturedPrompt: string } {
+      const p = {
+        capturedPrompt: '',
+        name: 'capture',
+        version: 'test',
+        async chat(messages: TUniversalMessage[]): Promise<TUniversalMessage> {
+          const user = messages.find((m) => m.role === 'user');
+          p.capturedPrompt = typeof user?.content === 'string' ? user.content : '';
+          return {
+            id: 'c-1',
+            role: 'assistant',
+            content: 'ok',
+            timestamp: new Date(),
+            state: 'complete',
+          };
+        },
+        async generateResponse(): Promise<IRawProviderResponse> {
+          return { content: 'ok' };
+        },
+        supportsTools: () => false,
+        validateConfig: () => true,
+      };
+      return p;
+    }
+
+    const provider = createPromptCaptureProvider();
+    mockStdinWith('console.log("hello")');
+
+    const { exitCode } = await runWithStdin({ positional: ['Review'] }, provider);
+    expect(exitCode).toBe(0);
+    expect(provider.capturedPrompt).toContain('Review');
+    expect(provider.capturedPrompt).toContain('<stdin>');
+    expect(provider.capturedPrompt).toContain('console.log("hello")');
+    expect(provider.capturedPrompt).toContain('</stdin>');
+  });
+
+  // TC-02: stdin only (empty positional) → stdin used as prompt
+  it('TC-02: uses stdin as prompt when positional is empty', async () => {
+    function createPromptCaptureProvider(): IAIProvider & { capturedPrompt: string } {
+      const p = {
+        capturedPrompt: '',
+        name: 'capture2',
+        version: 'test',
+        async chat(messages: TUniversalMessage[]): Promise<TUniversalMessage> {
+          const user = messages.find((m) => m.role === 'user');
+          p.capturedPrompt = typeof user?.content === 'string' ? user.content : '';
+          return {
+            id: 'c-2',
+            role: 'assistant',
+            content: 'ok',
+            timestamp: new Date(),
+            state: 'complete',
+          };
+        },
+        async generateResponse(): Promise<IRawProviderResponse> {
+          return { content: 'ok' };
+        },
+        supportsTools: () => false,
+        validateConfig: () => true,
+      };
+      return p;
+    }
+
+    const provider = createPromptCaptureProvider();
+    mockStdinWith('What is 2+2?');
+
+    const { exitCode } = await runWithStdin({ positional: [] }, provider);
+    expect(exitCode).toBe(0);
+    expect(provider.capturedPrompt).toBe('What is 2+2?');
+  });
+
+  // TC-03: positional only (isTTY=true) → stdin not read, positional used as-is
+  it('TC-03: uses only positional when stdin is a TTY (no pipe)', async () => {
+    // Restore TTY mode so stdin is NOT read
+    Object.defineProperty(process.stdin, 'isTTY', { value: true, configurable: true });
+
+    function createPromptCaptureProvider(): IAIProvider & { capturedPrompt: string } {
+      const p = {
+        capturedPrompt: '',
+        name: 'capture3',
+        version: 'test',
+        async chat(messages: TUniversalMessage[]): Promise<TUniversalMessage> {
+          const user = messages.find((m) => m.role === 'user');
+          p.capturedPrompt = typeof user?.content === 'string' ? user.content : '';
+          return {
+            id: 'c-3',
+            role: 'assistant',
+            content: 'ok',
+            timestamp: new Date(),
+            state: 'complete',
+          };
+        },
+        async generateResponse(): Promise<IRawProviderResponse> {
+          return { content: 'ok' };
+        },
+        supportsTools: () => false,
+        validateConfig: () => true,
+      };
+      return p;
+    }
+
+    const provider = createPromptCaptureProvider();
+
+    const { exitCode } = await runWithStdin({ positional: ['Summarize this'] }, provider);
+    expect(exitCode).toBe(0);
+    expect(provider.capturedPrompt).toBe('Summarize this');
+    expect(provider.capturedPrompt).not.toContain('<stdin>');
+  });
+
+  // TC-04: E2E spawn test — manual / skipped (requires built CLI binary + provider key)
+  it.skip('TC-04 (manual): E2E spawn with piped stdin — skipped: requires built CLI binary and a real provider key in the environment', () => {
+    /**
+     * To verify manually:
+     *   pnpm build
+     *   echo "console.log('hello')" | node dist/bin.js -p "Review this code"
+     * Expected: output references stdin content wrapped in <stdin>…</stdin>.
+     */
+  });
+});

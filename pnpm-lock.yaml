@@ -105,6 +105,22 @@ importers:
         specifier: ^1.6.1
         version: 1.6.1(@types/node@20.19.9)
 
+  apps/action:
+    dependencies:
+      '@actions/core':
+        specifier: ^1.10.1
+        version: 1.11.1
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.16.5
+      typescript:
+        specifier: ^5.3.3
+        version: 5.8.3
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@22.16.5)
+
   apps/agent-server:
     dependencies:
       '@robota-sdk/agent-command':
@@ -367,6 +383,37 @@ importers:
         version: 1.3.5
       typescript:
         specifier: ^5
+        version: 5.8.3
+
+  apps/starter-nextjs:
+    dependencies:
+      '@robota-sdk/agent-framework':
+        specifier: 3.0.0-beta.67
+        version: link:../../packages/agent-framework
+      '@robota-sdk/agent-provider':
+        specifier: 3.0.0-beta.67
+        version: link:../../packages/agent-provider
+      next:
+        specifier: ^15.5.15
+        version: 15.5.15(@babel/core@7.28.0)(react-dom@19.1.0)(react@19.1.0)
+      react:
+        specifier: 19.1.0
+        version: 19.1.0
+      react-dom:
+        specifier: 19.1.0
+        version: 19.1.0(react@19.1.0)
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.16.5
+      '@types/react':
+        specifier: ^19.0.0
+        version: 19.2.14
+      '@types/react-dom':
+        specifier: ^19.0.0
+        version: 19.1.6(@types/react@19.2.14)
+      typescript:
+        specifier: ^5.5.0
         version: 5.8.3
 
   apps/www:
@@ -967,6 +1014,9 @@ importers:
       fast-glob:
         specifier: ^3.3.0
         version: 3.3.3
+      p-limit:
+        specifier: ^7.3.0
+        version: 7.3.0
       zod:
         specifier: ^3.24.0
         version: 3.25.76
@@ -1235,6 +1285,42 @@ importers:
         version: 1.6.1(@types/node@22.16.5)
 
 packages:
+  /@actions/core@1.11.1:
+    resolution:
+      {
+        integrity: sha512-hXJCSrkwfA46Vd9Z3q4cpEpHB1rL5NG04+/rbqW9d3+CSvtB1tYe8UTpAlixa1vj0m/ULglfEK2UKxMGxCxv5A==,
+      }
+    dependencies:
+      '@actions/exec': 1.1.1
+      '@actions/http-client': 2.2.3
+    dev: false
+
+  /@actions/exec@1.1.1:
+    resolution:
+      {
+        integrity: sha512-+sCcHHbVdk93a0XT19ECtO/gIXoxvdsgQLzb2fE2/5sIZmWQuluYyjPQtrtTHdU1YzTZ7bAPN4sITq2xi1679w==,
+      }
+    dependencies:
+      '@actions/io': 1.1.3
+    dev: false
+
+  /@actions/http-client@2.2.3:
+    resolution:
+      {
+        integrity: sha512-mx8hyJi/hjFvbPokCg4uRd4ZX78t+YyRPtnKWwIl+RzNaVuFpQHfmlGVfsKEJN8LwTCvL+DfVgAM04XaHkm6bA==,
+      }
+    dependencies:
+      tunnel: 0.0.6
+      undici: 5.29.0
+    dev: false
+
+  /@actions/io@1.1.3:
+    resolution:
+      {
+        integrity: sha512-wi9JjgKLYS7U/z8PPbco+PvTb/nRWjeoFlJ1Qer83k/3C5PHQi28hiVdeE2kHXmIL99mQFawx8qt/JPjZilJ8Q==,
+      }
+    dev: false
+
   /@adobe/css-tools@4.4.3:
     resolution:
       {
@@ -3383,6 +3469,14 @@ packages:
       '@eslint/core': 0.15.1
       levn: 0.4.1
     dev: true
+
+  /@fastify/busboy@2.1.1:
+    resolution:
+      {
+        integrity: sha512-vBZP4NlzfOlerQTnba4aqZoMhE/a9HY7HRqoOPaETQcSQuWEIyZMHGfVu6w9wGtGK5fED5qRs2DteVCjOH60sA==,
+      }
+    engines: { node: '>=14' }
+    dev: false
 
   /@fastify/busboy@3.1.1:
     resolution:
@@ -23022,6 +23116,14 @@ packages:
       safe-buffer: 5.2.1
     dev: true
 
+  /tunnel@0.0.6:
+    resolution:
+      {
+        integrity: sha512-1h/Lnq9yajKY2PEbBadPXj3VxsDDu844OnaAo52UVmIzIvwwtBPIuNvkjuzBlTWpfJyUbG3ez0KSBibQkj4ojg==,
+      }
+    engines: { node: '>=0.6.11 <=0.7.0 || >=0.7.3' }
+    dev: false
+
   /tw-animate-css@1.3.5:
     resolution:
       {
@@ -23293,6 +23395,16 @@ packages:
       {
         integrity: sha512-Zz+aZWSj8LE6zoxD+xrjh4VfkIG8Ya6LvYkZqtUQGJPZjYl53ypCaUwWqo7eI0x66KBGeRo+mlBEkMSeSZ38Nw==,
       }
+    dev: false
+
+  /undici@5.29.0:
+    resolution:
+      {
+        integrity: sha512-raqeBD6NQK4SkWhQzeYKd1KmIG6dllBOTt55Rmkt4HtI9mwdWtJljnrXjAFUBLTSN67HWrOIZ3EPF4kjUw80Bg==,
+      }
+    engines: { node: '>=14.0' }
+    dependencies:
+      '@fastify/busboy': 2.1.1
     dev: false
 
   /unicode-emoji-modifier-base@1.0.0:

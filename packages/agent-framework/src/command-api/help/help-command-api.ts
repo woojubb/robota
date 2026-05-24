@@ -11,11 +11,15 @@ export function formatCommandHelpMessage(context: ICommandHostContext): string {
   const commands = readCommandList(context);
   return [
     'Available commands:',
-    ...commands.map((command) => {
+    ...commands.flatMap((command) => {
       const displayLabel = command.displayName ?? command.name;
       const invocation = `/${command.name}`;
       const label = command.displayName ? `${displayLabel} (${invocation})` : invocation;
-      return `  ${label.padEnd(HELP_COMMAND_NAME_COLUMN_WIDTH * 2)} — ${command.description}`;
+      const mainLine = `  ${label.padEnd(HELP_COMMAND_NAME_COLUMN_WIDTH * 2)} — ${command.description}`;
+      if (command.example) {
+        return [mainLine, `    Example: ${command.example}`];
+      }
+      return [mainLine];
     }),
   ].join('\n');
 }

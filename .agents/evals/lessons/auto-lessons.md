@@ -27,31 +27,31 @@ Do not promote entries to `.agents/rules/common-mistakes.md` without human revie
 
 ## same-file-edited-3-times
 
-- Frequency: 75644 events in the last 7 days
+- Frequency: 79751 events in the last 7 days
 - Sources: reverts
 - Example paths: `/Users/jungyoun/.claude/projects/-Users-jungyoun-Documents-dev-robota/memory/MEMORY.md`, `/Users/jungyoun/.claude/projects/-Users-jungyoun-Documents-dev-robota/memory/feedback_otp_immediate.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-002-p10-cli-ts-extract-startup-modules.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-002-p22-subagent-worker-to-framework.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-002-p23-plugin-adapter-to-framework.md`
 - First seen: 2026-05-18T00:52:52.000Z
-- Last seen: 2026-05-24T13:01:08.000Z
+- Last seen: 2026-05-24T16:28:23.000Z
 - Status: candidate; human review is required before promotion.
 <!-- auto-lesson:repeated-tool-errors -->
 
 ## repeated-tool-errors
 
-- Frequency: 160 events in the last 7 days
+- Frequency: 167 events in the last 7 days
 - Sources: reverts
 - Example paths: (none)
 - First seen: 2026-05-18T00:52:52.000Z
-- Last seen: 2026-05-24T13:01:08.000Z
+- Last seen: 2026-05-24T16:28:23.000Z
 - Status: candidate; human review is required before promotion.
 <!-- auto-lesson:try-catch-fallback -->
 
 ## try-catch-fallback
 
-- Frequency: 29 events in the last 7 days
+- Frequency: 35 events in the last 7 days
 - Sources: blocks
-- Example paths: `packages/agent-cli/src/init/init-command.ts`, `packages/agent-cli/src/startup/diagnose-command.ts`, `packages/agent-command/src/session/session-command.ts`, `packages/agent-framework/src/command-api/org-policy/org-policy-loader.ts`, `packages/agent-framework/src/interactive/interactive-session-execution-controller.ts`
+- Example paths: `packages/agent-cli/src/cli.ts`, `packages/agent-cli/src/init/init-command.ts`, `packages/agent-cli/src/modes/print-mode.ts`, `packages/agent-cli/src/startup/diagnose-command.ts`, `packages/agent-cli/src/startup/telemetry.ts`
 - First seen: 2026-05-18T14:32:10.000Z
-- Last seen: 2026-05-24T12:55:16.000Z
+- Last seen: 2026-05-24T16:16:46.000Z
 - Status: candidate; human review is required before promotion.
 <!-- auto-lesson:console-usage -->
 
