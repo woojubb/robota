@@ -1,6 +1,6 @@
 ---
 title: 'PM-025: /cost 정확도 개선 — provider 가격표 내장 + 실시간 계산'
-status: todo
+status: done
 created: 2026-05-24
 priority: medium
 urgency: soon

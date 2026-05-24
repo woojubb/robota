@@ -1,6 +1,6 @@
 ---
 title: 'PM-024: robota --diagnose 자가 진단 커맨드'
-status: todo
+status: done
 created: 2026-05-24
 priority: high
 urgency: soon

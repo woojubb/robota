@@ -1,6 +1,6 @@
 ---
 title: 'CLI-031: 도구 출력 30,000자 truncation — 사용자 알림 및 UX 개선'
-status: todo
+status: done
 created: 2026-05-24
 priority: medium
 urgency: soon

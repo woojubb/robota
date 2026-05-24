@@ -1,6 +1,6 @@
 ---
 title: 'CLI-028: Node.js 버전 체크 강화 — 명확한 오류 메시지 + 업그레이드 안내'
-status: todo
+status: done
 created: 2026-05-24
 priority: high
 urgency: now
