@@ -6,7 +6,7 @@ const MONOREPO_ROOT = path.join(process.cwd(), '..', '..');
 const CONTENT_DIR = path.join(MONOREPO_ROOT, 'content');
 const PACKAGES_DIR = path.join(MONOREPO_ROOT, 'packages');
 
-const EXCLUDED_DIRS = new Set(['v2.0.0', 'api-reference', 'images']);
+const EXCLUDED_DIRS = new Set(['v2.0.0', 'api-reference', 'images', 'ko']);
 
 export interface SidebarItem {
   title: string;
@@ -40,6 +40,22 @@ function readTitle(filePath: string, fallback: string): string {
   return fallback;
 }
 
+/**
+ * Read title with locale fallback: try ko/ first, then en.
+ */
+function readTitleLocaleAware(
+  contentPath: string,
+  locale: string,
+  fallback: string,
+  subPath: string,
+): string {
+  if (locale === 'ko') {
+    const koPath = path.join(CONTENT_DIR, 'ko', subPath);
+    if (fs.existsSync(koPath)) return readTitle(koPath, fallback);
+  }
+  return readTitle(contentPath, fallback);
+}
+
 /** List markdown files in a directory (non-recursive, returns stems). */
 function listMarkdownStems(dir: string): string[] {
   if (!fs.existsSync(dir)) return [];
@@ -50,12 +66,16 @@ function listMarkdownStems(dir: string): string[] {
 }
 
 /** Build items for a flat section directory. README.md becomes the section index. */
-function buildSectionItems(dir: string, prefix: string, order?: string[]): SidebarItem[] {
+function buildSectionItems(
+  dir: string,
+  prefix: string,
+  locale: string,
+  order?: string[],
+): SidebarItem[] {
   const stems = listMarkdownStems(dir);
 
   let sorted: string[];
   if (order) {
-    // Items in GUIDE_ORDER first, remainder alphabetically
     const ordered = order.filter((s) => stems.includes(s));
     const rest = stems.filter((s) => !order.includes(s)).sort();
     sorted = [...ordered, ...rest];
@@ -65,9 +85,10 @@ function buildSectionItems(dir: string, prefix: string, order?: string[]): Sideb
 
   const items: SidebarItem[] = [];
   for (const stem of sorted) {
-    if (stem === 'README') continue; // index page, represented by section header
+    if (stem === 'README') continue;
     const filePath = path.join(dir, stem + '.md');
-    const title = readTitle(filePath, stem);
+    const sectionName = path.basename(dir);
+    const title = readTitleLocaleAware(filePath, locale, stem, `${sectionName}/${stem}.md`);
     items.push({ title, href: `${prefix}/${stem}` });
   }
   return items;
@@ -78,12 +99,13 @@ function buildSection(
   name: string,
   title: string,
   hrefPrefix: string,
+  locale: string,
   order?: string[],
 ): SidebarItem {
   const dir = path.join(CONTENT_DIR, name);
   const readmePath = path.join(dir, 'README.md');
-  const sectionTitle = readTitle(readmePath, title);
-  const children = buildSectionItems(dir, hrefPrefix, order);
+  const sectionTitle = readTitleLocaleAware(readmePath, locale, title, `${name}/README.md`);
+  const children = buildSectionItems(dir, hrefPrefix, locale, order);
   return {
     title: sectionTitle,
     href: hrefPrefix,
@@ -113,7 +135,6 @@ function buildPackagesSection(): SidebarItem {
     const title = readTitle(readmePath, pkg);
     const pkgHref = `/packages/${pkg}`;
 
-    // Collect non-README md files as sub-items
     const stems = listMarkdownStems(docsDir)
       .filter((s) => s !== 'README')
       .sort();
@@ -133,15 +154,15 @@ function buildPackagesSection(): SidebarItem {
   return { title: 'Packages', href: '/packages', children };
 }
 
-/** Build the full sidebar tree. */
-export function buildSidebar(): SidebarItem[] {
+/** Build the full sidebar tree, locale-aware. */
+export function buildSidebar(locale: string = 'en'): SidebarItem[] {
   return [
-    buildSection('getting-started', 'Getting Started', '/getting-started'),
-    buildSection('guide', 'Guide', '/guide', GUIDE_ORDER),
-    buildSection('examples', 'Examples', '/examples'),
+    buildSection('getting-started', 'Getting Started', '/getting-started', locale),
+    buildSection('guide', 'Guide', '/guide', locale, GUIDE_ORDER),
+    buildSection('examples', 'Examples', '/examples', locale),
     buildPackagesSection(),
-    buildSection('changelog', 'Changelog', '/changelog'),
-    buildSection('development', 'Development', '/development'),
-    buildSection('plugins', 'Plugins', '/plugins'),
+    buildSection('changelog', 'Changelog', '/changelog', locale),
+    buildSection('development', 'Development', '/development', locale),
+    buildSection('plugins', 'Plugins', '/plugins', locale),
   ];
 }
