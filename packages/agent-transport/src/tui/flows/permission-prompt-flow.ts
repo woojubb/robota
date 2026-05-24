@@ -7,10 +7,10 @@ import {
 } from './selection-flow.js';
 
 export const PERMISSION_PROMPT_OPTIONS = [
-  'Allow',
-  'Allow always (this session)',
-  'Allow always (this project)',
-  'Deny',
+  'Allow [y]',
+  'Allow always (this session) [s]',
+  'Allow always (this project) [p]',
+  'Deny [n]',
 ] as const;
 
 export type TPermissionPromptDecision = true | 'allow-session' | 'allow-project' | false;
@@ -33,7 +33,7 @@ export function getPermissionPromptInputAction(
   if (input === 'y' || input === '1') {
     return { type: 'shortcut', index: 0 };
   }
-  if (input === 'a' || input === '2') {
+  if (input === 's' || input === 'a' || input === '2') {
     return { type: 'shortcut', index: 1 };
   }
   if (input === 'p' || input === '3') {

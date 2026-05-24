@@ -967,6 +967,9 @@ importers:
       fast-glob:
         specifier: ^3.3.0
         version: 3.3.3
+      p-limit:
+        specifier: ^7.3.0
+        version: 7.3.0
       zod:
         specifier: ^3.24.0
         version: 3.25.76
