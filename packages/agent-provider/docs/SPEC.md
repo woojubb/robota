@@ -16,7 +16,11 @@ Users who need a provider not included here can implement `IAIProvider` from `@r
 
 ### Root export (`@robota-sdk/agent-provider`)
 
-Re-exports all provider classes and factory functions for convenience.
+Re-exports all provider classes, factory functions, and types from all providers (except `google/`, which is omitted as a deprecated compatibility alias). Also exports `createDefaultProviderDefinitions()`.
+
+| Symbol                             | Kind     | Description                                                         |
+| ---------------------------------- | -------- | ------------------------------------------------------------------- |
+| `createDefaultProviderDefinitions` | function | Returns `readonly IProviderDefinition[]` for all built-in providers |
 
 ### Sub-path exports
 
@@ -31,6 +35,19 @@ Re-exports all provider classes and factory functions for convenience.
 | `./gemma`          | `src/gemma/index.ts`          | Gemma / local-model provider                    |
 | `./bytedance`      | `src/bytedance/index.ts`      | Bytedance provider (internal)                   |
 | `./qwen`           | `src/qwen/index.ts`           | Qwen provider                                   |
+
+### Anthropic sub-path (`@robota-sdk/agent-provider/anthropic`)
+
+| Symbol                              | Kind      | Description                                                                 |
+| ----------------------------------- | --------- | --------------------------------------------------------------------------- |
+| `AnthropicProvider`                 | class     | Extends `AbstractAIProvider`; implements `IAIProvider`                      |
+| `createAnthropicProvider`           | function  | `(options: IAnthropicProviderOptions) => IAIProvider` — convenience factory |
+| `createAnthropicProviderDefinition` | function  | Returns `IProviderDefinition` for use with provider registries              |
+| `refreshAnthropicModelCatalog`      | function  | Fetches live model list from Anthropic API; returns `IProviderModelCatalog` |
+| `IAnthropicProviderOptions`         | interface | Options: `apiKey?`, `timeout?`, `baseURL?`, `client?`, `executor?`          |
+| `TAnthropicProviderOptionValue`     | type      | Union of valid option value types                                           |
+
+`createAnthropicProvider` returns `IAIProvider` (typed as `AnthropicProvider` at runtime). This is the recommended way to instantiate the provider when a concrete class reference is not required.
 
 ### Internal (not exported)
 
@@ -99,8 +116,7 @@ dist/
 │   ├── bytedance/index.js …
 │   └── qwen/index.js …
 ├── loggers/
-│   ├── file.js / file.cjs / file.d.ts
-│   └── console.js / console.cjs / console.d.ts
+│   └── index.js / index.cjs / index.d.ts       # ./openai/loggers sub-path
 └── browser/
     └── index.js / index.d.ts                 # ESM-only, browser platform
 ```

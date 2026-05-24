@@ -52,3 +52,8 @@ const issues = await github.listOpenIssues('owner', 'repo', 5);
 ```bash
 export GITHUB_TOKEN=ghp_...
 ```
+
+## Package Specification
+
+Full architecture, type ownership, public API surface, and class contracts are documented in
+[docs/SPEC.md](docs/SPEC.md).

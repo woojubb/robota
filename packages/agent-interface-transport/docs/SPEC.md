@@ -110,6 +110,24 @@ export interface ITransportRegistryView<TSession = unknown> {
 }
 ```
 
+## Extension Points
+
+This package defines contracts that consumers implement or extend:
+
+| Extension Point          | Kind      | Implementor                                                | Description                                                          |
+| ------------------------ | --------- | ---------------------------------------------------------- | -------------------------------------------------------------------- |
+| `ITransportAdapter`      | Interface | `agent-transport/tui`, `/ws`, `/http`, `/mcp`, `/headless` | Implement to create a transport with attach/start/stop lifecycle     |
+| `IConfigurableTransport` | Interface | `agent-transport/tui`, `/ws`, `/http`, `/mcp`, `/headless` | Extend `ITransportAdapter` to support enable/disable and options     |
+| `ITransportRegistryView` | Interface | `agent-framework` (`TransportRegistry`)                    | Implement to provide registry management for configurable transports |
+
+No abstract classes or base classes are exported — all extension is through interface implementation.
+
+## Error Taxonomy
+
+This package defines no error types. It contains only interface and type declarations.
+Errors arising from transport lifecycle (e.g., failed `start()` or `stop()`) are thrown by
+implementing packages (`agent-transport/*`) and are not part of this package's contract.
+
 ## Constraints
 
 - This package MUST NOT contain classes, runtime functions, or any executable logic.
@@ -120,4 +138,19 @@ export interface ITransportRegistryView<TSession = unknown> {
 ## Test Strategy
 
 No tests required. This package contains only interface declarations; correctness is verified by
-the TypeScript compiler in consumers.
+the TypeScript compiler in consumers. The `package.json` configures `vitest run --passWithNoTests`
+so the test script succeeds with zero test files.
+
+## Class Contract Registry
+
+This package contains no classes. The following interfaces are the extension contracts that
+implementors must satisfy:
+
+| Interface                | Implemented By                                            | Package             |
+| ------------------------ | --------------------------------------------------------- | ------------------- |
+| `ITransportAdapter`      | concrete transport classes (via `IConfigurableTransport`) | `agent-transport/*` |
+| `IConfigurableTransport` | `TuiTransport`, `WsTransport`, `HeadlessTransport`, etc.  | `agent-transport/*` |
+| `ITransportRegistryView` | `TransportRegistry`                                       | `agent-framework`   |
+
+No `extends` chains exist within this package — `IConfigurableTransport` extends `ITransportAdapter`
+and is the only intra-package inheritance.
