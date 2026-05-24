@@ -10,9 +10,19 @@ Parent: [AGENTS.md](../../AGENTS.md) | Index: [rules/index.md](index.md)
 - Never create, use, or reference a git worktree for any task.
 - Never propose worktrees as a solution to any problem.
 - Do all work directly on a normal feature branch in the main clone.
-- If the Claude Code Agent tool or another agent requests a worktree, refuse.
+- If the Claude Code `Agent` tool or any sub-agent requests a worktree, refuse. This includes
+  the `isolation: "worktree"` parameter on the `Agent` tool — never pass it.
+- If a leftover worktree is found (`git worktree list` shows more than the main clone), remove it
+  immediately: `git worktree remove -f -f <path>`.
 
-**Why:** Worktrees share the same `packages/` paths but have separate working trees. This has caused: (1) edits leaking from the worktree onto `develop`'s working tree, breaking typecheck; (2) pre-push hooks running in the wrong directory context; (3) symlink issues requiring manual workaround every session. The isolation they provide is not worth these failure modes.
+**Automated enforcement:** `scripts/harness/pre-push.mjs` calls `assertNoActiveWorktrees()` at
+startup. Any push with an active non-main worktree is blocked with exit code 1.
+
+**Why:** Worktrees share the same `packages/` paths but have separate working trees. This has
+caused: (1) edits leaking from the worktree onto `develop`'s working tree, breaking typecheck;
+(2) pre-push hooks running in the wrong directory context; (3) symlink issues requiring manual
+workaround every session; (4) locked worktrees left behind after Claude Code agent sessions.
+The isolation they provide is not worth these failure modes.
 
 ### Git Operations
 
