@@ -1,0 +1,351 @@
+{
+  "common": {
+    "nav": {
+      "whyRobota": "Why Robota",
+      "showcase": "Showcase",
+      "roadmap": "Roadmap",
+      "docs": "Docs",
+      "github": "GitHub"
+    },
+    "footer": {
+      "tagline": "Open-source AI agent SDK and CLI. MIT licensed.",
+      "product": "Product",
+      "developers": "Developers",
+      "company": "Company",
+      "links": {
+        "whyRobota": "Why Robota",
+        "showcase": "Showcase",
+        "roadmap": "Roadmap",
+        "documentation": "Documentation",
+        "gettingStarted": "Getting Started",
+        "github": "GitHub",
+        "npm": "npm",
+        "enterprise": "Enterprise",
+        "githubDiscussions": "GitHub Discussions",
+        "issues": "Issues",
+        "playground": "Playground"
+      },
+      "copyright": "© 2026 Robota. MIT License."
+    },
+    "lang": {
+      "en": "EN",
+      "ko": "KO"
+    }
+  },
+  "home": {
+    "hero": {
+      "badge": "Public Beta · v3.0.0-beta",
+      "title": "The open-source AI agent SDK",
+      "titleHighlight": "that you actually own",
+      "description": "Multi-provider BYOK CLI and embeddable SDK. Switch between",
+      "descriptionSuffix": "with one config change. MIT licensed.",
+      "getStarted": "Get Started",
+      "github": "GitHub",
+      "compareTo": "Compare Tools",
+      "installSnippet": "$ npx @robota-sdk/agent-cli"
+    },
+    "featuresTitle": "Everything you need. Nothing you don't.",
+    "features": [
+      {
+        "icon": "🔑",
+        "title": "BYOK — No Subscription",
+        "description": "Bring your own API key. Pay only for tokens you use. No $20/month plans, no seat limits imposed by Robota."
+      },
+      {
+        "icon": "🔄",
+        "title": "Any Provider, One Config",
+        "description": "Switch between Anthropic, OpenAI, DeepSeek, Gemini, or a local Ollama model by changing one line in your config."
+      },
+      {
+        "icon": "📦",
+        "title": "Embeddable SDK",
+        "description": "Import @robota-sdk/agent-framework into your app and ship the same agent runtime your users already know."
+      },
+      {
+        "icon": "🏠",
+        "title": "Fully Self-Hostable",
+        "description": "Run entirely on-premises with local LLMs. No data leaves your machine except to the AI provider you choose."
+      },
+      {
+        "icon": "🔓",
+        "title": "MIT Licensed",
+        "description": "Every line is publicly auditable and free to fork, modify, and use in commercial products — no CLA required."
+      },
+      {
+        "icon": "⚡",
+        "title": "TypeScript-First",
+        "description": "Strict types end-to-end. No any, no implicit casts, no runtime surprises. Designed for real TypeScript codebases."
+      }
+    ],
+    "cta": {
+      "title": "Start in 30 seconds",
+      "description": "No account. No subscription. Just a terminal and an API key.",
+      "commentInstall": "# Install globally",
+      "commentApiKey": "# Set your API key",
+      "commentLaunch": "# Launch",
+      "readGuide": "Read the full Getting Started guide →"
+    }
+  },
+  "compare": {
+    "title": "Why Robota?",
+    "description": "The only AI coding CLI that lets you bring your own key for any provider, run offline with a local model, and embed the same engine into your own app — all under the MIT license.",
+    "featureComparison": "Feature Comparison",
+    "features": [
+      "Multi-provider (one config)",
+      "BYOK — no subscription required",
+      "Local model support (Ollama/LM Studio)",
+      "Embeddable SDK",
+      "Open source (MIT)",
+      "TypeScript-first, strict types",
+      "Terminal CLI",
+      "Session persistence & resume",
+      "Background agents",
+      "Self-hostable"
+    ],
+    "differentiators": {
+      "title": "What Makes Robota Different",
+      "items": [
+        {
+          "title": "1. Any Provider — One Config",
+          "body": "Switch between Anthropic, OpenAI, DeepSeek, Gemini, or Ollama by changing one line in ~/.robota/settings.json. No code changes, no new subscriptions."
+        },
+        {
+          "title": "2. Embeddable SDK",
+          "body": "Ship the same agent runtime to your users via @robota-sdk/agent-framework. No other AI coding assistant exposes this — Claude Code, Cursor, and Cline are closed products."
+        },
+        {
+          "title": "3. Fully Open Source (MIT)",
+          "body": "Every line is publicly auditable. Fork it, modify it, self-host it, build commercial products — no CLA required."
+        },
+        {
+          "title": "4. Local Model First-Class",
+          "body": "Point any Ollama or LM Studio model as your provider. Your code and prompts never leave your machine."
+        }
+      ]
+    },
+    "whenElse": {
+      "title": "When to Choose Something Else",
+      "items": [
+        {
+          "label": "Choose Claude Code",
+          "body": "if you want the tightest Claude integration and are happy with Anthropic-only."
+        },
+        {
+          "label": "Choose Cursor",
+          "body": "if you want an IDE-first experience with inline diff editing and tab completion."
+        },
+        {
+          "label": "Choose Aider",
+          "body": "if you prefer a Python ecosystem and work primarily with git-based batch commits."
+        },
+        {
+          "label": "Choose Cline",
+          "body": "if you want a VSCode sidebar agent and don't need embedding or SDK usage."
+        }
+      ]
+    },
+    "tryButton": "Try Robota now →"
+  },
+  "enterprise": {
+    "title": "Enterprise",
+    "description": "Robota is used by engineering teams that need a controllable, self-hostable AI coding assistant. This page covers security practices, deployment options, and how to get in touch.",
+    "contact": {
+      "title": "Contact Us",
+      "description": "To discuss team licensing, on-premises deployment, priority support, or custom integrations, open a GitHub Discussion or email us directly.",
+      "responseTime": "We respond to all enterprise inquiries within",
+      "responseTimeHighlight": "30 business days",
+      "githubDiscussions": "GitHub Discussions (enterprise tag) ↗",
+      "email": "enterprise@robota.io"
+    },
+    "security": {
+      "title": "Security Policy",
+      "dataHandling": {
+        "title": "Data Handling",
+        "description": "Robota operates as a local CLI or self-hosted server.",
+        "highlight": "No conversation data is stored or transmitted to Robota servers",
+        "descriptionSuffix": "— the SDK calls the AI provider of your choice directly from your machine or infrastructure.",
+        "tableHeaders": ["Data type", "Where it goes"],
+        "rows": [
+          ["Prompts and responses", "Sent only to the AI provider you configure"],
+          ["API keys", "Stored in your local environment variables or secrets manager"],
+          ["Session history", "Written to your local filesystem (~/.robota/sessions/)"],
+          ["Tool outputs (files, shell)", "Stay on your machine"]
+        ]
+      },
+      "onPremises": {
+        "title": "On-Premises Deployment",
+        "description": "Robota supports fully air-gapped deployments using local LLMs:",
+        "items": [
+          {
+            "name": "Ollama",
+            "body": "run models locally with zero external network calls"
+          },
+          {
+            "name": "LM Studio",
+            "body": "OpenAI-compatible local server"
+          },
+          {
+            "name": "Any OpenAI-compatible endpoint",
+            "body": "point baseURL to your internal gateway"
+          }
+        ]
+      },
+      "highlights": [
+        {
+          "title": "MIT License",
+          "body": "Full source code available for audit at github.com/woojubb/robota"
+        },
+        {
+          "title": "No telemetry",
+          "body": "No analytics, no phone-home in the SDK or CLI"
+        },
+        {
+          "title": "Append-only session logs",
+          "body": "You control retention and deletion of all local session files"
+        },
+        {
+          "title": "SOC 2 / ISO 27001 compatible",
+          "body": "When combined with a compliant AI provider"
+        }
+      ]
+    },
+    "faq": {
+      "title": "FAQ",
+      "items": [
+        {
+          "q": "Does Robota store my code in the cloud?",
+          "a": "No. All file reads and writes happen on your local machine. The only data that leaves your machine is the prompt you send to your configured AI provider."
+        },
+        {
+          "q": "Can we use Robota behind a corporate proxy?",
+          "a": "Yes. Set the standard HTTPS_PROXY environment variable and the SDK's HTTP client will route through it."
+        },
+        {
+          "q": "Can Robota be installed in a restricted network with no internet access?",
+          "a": "Yes — use a local LLM (Ollama, LM Studio) and install npm packages from an internal registry mirror."
+        },
+        {
+          "q": "Is there a commercial license option?",
+          "a": "Robota is MIT-licensed and free to use commercially without restriction. Enterprise support contracts (SLA, dedicated channels, custom integrations) are available — contact us for details."
+        }
+      ]
+    },
+    "vulnerabilityDisclosure": {
+      "title": "Vulnerability Disclosure",
+      "description": "To report a security vulnerability, email",
+      "descriptionSuffix": "with a description and reproduction steps. We follow responsible disclosure and aim to issue a patch within",
+      "patchDays": "14 days",
+      "patchDaysSuffix": "of confirmation."
+    }
+  },
+  "roadmap": {
+    "title": "Roadmap",
+    "description": "Robota SDK is currently in",
+    "descriptionHighlight": "public beta (v3.0.0-beta)",
+    "descriptionSuffix": ". This page is updated quarterly.",
+    "lastUpdated": "Last updated: 2026-05-23 ·",
+    "githubIssues": "GitHub Issues ↗",
+    "now": {
+      "title": "Now — Beta Polish",
+      "subtitle": "Q2 2026 · Active development window",
+      "tableHeaders": ["Feature", "Status", "Release"],
+      "statusDone": "Done",
+      "statusPlanned": "Planned",
+      "items": [
+        { "feature": "Context warning banner (70% / 90%)", "status": "done", "release": "beta.67" },
+        { "feature": "/compact result summary", "status": "done", "release": "beta.67" },
+        {
+          "feature": "3-level permission memory (session / project)",
+          "status": "done",
+          "release": "beta.67"
+        },
+        { "feature": "robota init project setup command", "status": "done", "release": "beta.67" },
+        {
+          "feature": "Plugin development guide + directory",
+          "status": "done",
+          "release": "beta.67"
+        },
+        { "feature": "Changelog page", "status": "done", "release": "beta.67" },
+        { "feature": "? key keyboard shortcut overlay", "status": "done", "release": "beta.67" },
+        { "feature": "--dry-run flag (plan-only preview)", "status": "done", "release": "beta.67" },
+        {
+          "feature": "Session auto-naming from first message",
+          "status": "planned",
+          "release": "beta.68"
+        },
+        {
+          "feature": "/cost improvements — per-session cost tracking",
+          "status": "planned",
+          "release": "beta.68"
+        }
+      ]
+    },
+    "next": {
+      "title": "Next — Q3 2026",
+      "subtitle": "Planned for the next quarter",
+      "items": [
+        "v1.0.0 release candidate — declared when all P0 bugs are resolved and core user journeys verified end-to-end",
+        "GitHub Actions official action (robota-sdk/action@v1) — run Robota as a CI bot in any workflow",
+        "Official plugins starter pack — 5 community plugin templates: logging, Slack alerts, cost tracking, Linear integration, Datadog metrics",
+        "SDK embedding examples — Next.js, Express, and CLI script reference implementations",
+        "Robota Cloud beta — hosted sessions, team sharing, usage dashboard (BYOK free tier)"
+      ]
+    },
+    "later": {
+      "title": "Later — Exploration",
+      "subtitle": "Ideas under consideration. No commitment on timing.",
+      "items": [
+        "Session share links (share a conversation URL)",
+        "Multi-agent visual canvas in the terminal",
+        "Native VS Code extension (beyond the current CLI)",
+        "Enterprise SSO and audit logs"
+      ]
+    },
+    "vote": {
+      "title": "Vote and Suggest",
+      "description": "The most-upvoted issues influence priority in next-quarter planning.",
+      "githubDiscussions": "GitHub Discussions ↗",
+      "openIssues": "Open Issues ↗"
+    }
+  },
+  "showcase": {
+    "title": "Build with Robota",
+    "description": "Real projects built with Robota SDK — from terminal coding assistants to embedded AI in custom applications.",
+    "featuredTitle": "Featured Projects",
+    "communityTitle": "Community Projects",
+    "communityEmpty": "No community projects listed yet. Be the first to submit yours.",
+    "submitTitle": "Submit Your Project",
+    "submitDescription": "To add your project to this page, open a PR adding an entry to the Community Projects section of",
+    "submitRequirements": [
+      "Must use at least one @robota-sdk/* package",
+      "Public source code or live demo required",
+      "Must be working as of the PR date"
+    ],
+    "submitButton": "Open a Pull Request ↗",
+    "sourceLink": "Source ↗",
+    "liveLink": "Live demo ↗",
+    "projects": [
+      {
+        "name": "Robota CLI",
+        "description": "The reference implementation. A full AI coding assistant built entirely on top of @robota-sdk/agent-framework and the TUI transport.",
+        "highlights": [
+          "Multi-provider switching",
+          "Session persistence",
+          "Permission system",
+          "Plugin lifecycle",
+          "Streaming TUI"
+        ]
+      },
+      {
+        "name": "Visual Agent Builder Playground",
+        "description": "A drag-and-drop canvas for assembling agents and exporting working TypeScript code. Runs entirely in the browser with BYOK.",
+        "highlights": [
+          "Browser-based SDK usage",
+          "SSE streaming",
+          "Multi-provider BYOK",
+          "Code export"
+        ]
+      }
+    ]
+  }
+}

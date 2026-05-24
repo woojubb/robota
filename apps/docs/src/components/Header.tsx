@@ -1,18 +1,34 @@
+'use client';
+
 import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
+import { useLocale } from 'next-intl';
 import { ThemeToggle } from './ThemeToggle';
 import { SearchButton } from './SearchButton';
 
 const NAV_LINKS = [
-  { label: 'Getting Started', href: '/getting-started' },
-  { label: 'Guide', href: '/guide' },
-  { label: 'Examples', href: '/examples' },
-  { label: 'Packages', href: '/packages' },
-  { label: 'Changelog', href: '/changelog' },
-  { label: 'Development', href: '/development' },
-  { label: 'Playground', href: 'https://playground.robota.io', external: true },
+  { labelKey: 'Getting Started', href: 'getting-started' },
+  { labelKey: 'Guide', href: 'guide' },
+  { labelKey: 'Examples', href: 'examples' },
+  { labelKey: 'Packages', href: 'packages' },
+  { labelKey: 'Changelog', href: 'changelog' },
+  { labelKey: 'Development', href: 'development' },
+  { labelKey: 'Playground', href: 'https://playground.robota.io', external: true },
 ];
 
 export function Header() {
+  const locale = useLocale();
+  const pathname = usePathname();
+  const router = useRouter();
+
+  function switchLocale(next: string) {
+    const segments = pathname.split('/');
+    segments[1] = next;
+    router.push(segments.join('/') || '/');
+  }
+
+  const otherLocale = locale === 'en' ? 'ko' : 'en';
+
   return (
     <header
       style={{
@@ -35,7 +51,7 @@ export function Header() {
 
       {/* Logo */}
       <Link
-        href="/"
+        href={`/${locale}`}
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -102,13 +118,13 @@ export function Header() {
               }}
               className="nav-link"
             >
-              {link.label}
+              {link.labelKey}
               <span style={{ fontSize: '0.65rem', marginLeft: '0.2rem', opacity: 0.5 }}>↗</span>
             </a>
           ) : (
             <Link
               key={link.href}
-              href={link.href}
+              href={`/${locale}/${link.href}`}
               style={{
                 padding: '0.25rem 0.625rem',
                 fontSize: '0.8rem',
@@ -121,7 +137,7 @@ export function Header() {
               }}
               className="nav-link"
             >
-              {link.label}
+              {link.labelKey}
             </Link>
           ),
         )}
@@ -131,6 +147,32 @@ export function Header() {
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
         <SearchButton />
         <ThemeToggle />
+
+        {/* Language toggle */}
+        <button
+          onClick={() => switchLocale(otherLocale)}
+          aria-label={`Switch to ${otherLocale}`}
+          style={{
+            width: 30,
+            height: 30,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontFamily: 'var(--font-code)',
+            fontSize: '0.65rem',
+            fontWeight: 600,
+            color: 'var(--muted-foreground)',
+            border: '1px solid var(--border-strong)',
+            borderRadius: '0.25rem',
+            background: 'transparent',
+            cursor: 'pointer',
+            letterSpacing: '0.04em',
+            transition: 'color 0.15s, border-color 0.15s',
+          }}
+          className="nav-link"
+        >
+          {otherLocale.toUpperCase()}
+        </button>
 
         {/* GitHub */}
         <a
