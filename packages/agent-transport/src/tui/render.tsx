@@ -30,6 +30,8 @@ export interface ITuiRenderOptions {
   startupUpdateNotice?: Promise<string | undefined>;
   cliAdapter: ITuiCliAdapter;
   agentName?: string;
+  systemPrompt?: string;
+  appendSystemPrompt?: string;
 }
 
 export async function renderApp(options: ITuiRenderOptions): Promise<void> {

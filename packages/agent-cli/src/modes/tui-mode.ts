@@ -1,12 +1,14 @@
 import { TuiTransport, createDefaultTuiCliAdapter } from '@robota-sdk/agent-transport/tui';
 
+import { buildAppendSystemPrompt } from '../startup/append-system-prompt.js';
+import { AGENT_CLI_NAME } from '../constants.js';
+import { createShellExec } from './shell-exec.js';
+
 import type { ISessionRunOptions } from '../startup/args-to-options.js';
 import type { ICommandSetup } from '../startup/command-setup.js';
 import type { IProviderSetup } from '../startup/provider-setup.js';
 import type { ISessionSetup } from '../startup/session-setup.js';
 import type { IAgentRuntime } from '@robota-sdk/agent-framework';
-import { AGENT_CLI_NAME } from '../constants.js';
-import { createShellExec } from './shell-exec.js';
 
 export interface ITuiModeOptions {
   runtime: IAgentRuntime;
@@ -29,6 +31,12 @@ export async function runTuiMode(opts: ITuiModeOptions): Promise<void> {
     startupUpdateNotice,
   } = opts;
 
+  const appendSystemPromptParts: string[] = [];
+  const baseAppend = buildAppendSystemPrompt(runtime.cwd, sessionOpts);
+  if (baseAppend) appendSystemPromptParts.push(baseAppend);
+  const appendSystemPrompt =
+    appendSystemPromptParts.length > 0 ? appendSystemPromptParts.join('\n\n') : undefined;
+
   const tuiTransport = new TuiTransport({
     runtime,
     providerOverride: providerSetup.activeProfileName,
@@ -49,6 +57,8 @@ export async function runTuiMode(opts: ITuiModeOptions): Promise<void> {
       reloadPluginCommandSource: commandSetup.reloadPluginCommandSource,
     }),
     agentName: AGENT_CLI_NAME,
+    systemPrompt: sessionOpts.systemPrompt,
+    appendSystemPrompt,
   });
 
   await tuiTransport.start();
