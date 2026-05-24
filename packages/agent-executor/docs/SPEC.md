@@ -1,25 +1,27 @@
-# Agent Runtime Specification
+# Agent Executor Specification
 
 ## Scope
 
-Owns reusable runtime primitives for long-running Robota work:
+`@robota-sdk/agent-executor` owns reusable runtime primitives for long-running Robota work:
 
 - background task lifecycle, queueing, cancellation, events, and state snapshots
 - subagent job compatibility facade over the generic background task layer
 - subagent runner ports and worktree isolation runner decoration
+- provider factory helpers that construct `IAIProvider` instances from serializable config or profiles
 
 This package is a composable material layer. It provides stateful runtime services and ports that higher packages assemble with providers, sessions, processes, transports, and UI.
 
 ## Boundaries
 
-- Does not create providers, sessions, tools, prompts, child processes, Git worktrees, transports, or TUI state.
+- Does not create sessions, tools, prompts, child processes (except via `createManagedShellProcessRunner`), Git worktrees, transports, or TUI state.
 - Does not read config files or project context.
 - Does not import `agent-sdk`, `agent-sessions`, `agent-tools`, provider packages, or `agent-cli`.
+- Provider factory helpers (`src/providers/`) depend only on `@robota-sdk/agent-core` provider definitions; they do not import provider-specific packages.
 - Concrete I/O belongs in adapters owned by runtime shells or dedicated adapter packages.
 - SDK assembly may re-export this package for compatibility, but this package remains the SSOT for runtime lifecycle contracts.
-- **Layer position — below agent-sessions.** `agent-sessions` may consume agent-runtime services;
-  agent-runtime must never depend on agent-sessions. Dependency direction is strictly upward:
-  `agent-core` ← `agent-runtime` ← `agent-sessions` ← `agent-sdk`.
+- **Layer position — below agent-sessions.** `agent-sessions` may consume agent-executor services;
+  agent-executor must never depend on agent-sessions. Dependency direction is strictly upward:
+  `agent-core` ← `agent-executor` ← `agent-sessions` ← `agent-sdk`.
 - **Contract stability.** Public API shapes are stable runtime lifecycle contracts. Higher-layer
   packages (`agent-sessions`, `agent-sdk`) depend on these contracts. Breaking changes to the
   public API surface require coordinating all consumers before merging.
@@ -27,16 +29,25 @@ This package is a composable material layer. It provides stateful runtime servic
 ## Architecture Overview
 
 ```text
-agent-runtime
+agent-executor
   ├── background-tasks/
-  │   ├── state-machine.ts                 -- pure lifecycle transitions
-  │   ├── background-task-manager.ts       -- registry, queue, wait/cancel/close/send/read
-  │   ├── log-pages.ts                     -- output capture and cursor-based log page helpers
-  │   └── types.ts                         -- task requests, state, result, runner ports
+  │   ├── state-machine.ts                      -- pure lifecycle transitions
+  │   ├── background-task-manager.ts            -- registry, queue, wait/cancel/close/send/read
+  │   ├── background-task-manager-helpers.ts    -- internal state helpers and deferred primitives
+  │   ├── background-task-manager-state.ts      -- internal state mutation helpers
+  │   ├── background-task-watchdogs.ts          -- idle/max-runtime/output watchdog controller
+  │   ├── log-pages.ts                          -- output capture and cursor-based log page helpers
+  │   ├── runners/
+  │   │   ├── managed-shell-process-runner.ts   -- child_process.spawn-based runner
+  │   │   └── scheduled-task-runner.ts          -- croner-based scheduled runner
+  │   └── types.ts                              -- task requests, state, result, runner ports
+  ├── providers/
+  │   └── provider-factory.ts                   -- normalizeProviderConfig, createProviderFromConfig/Profile
   └── subagents/
-      ├── types.ts                         -- subagent job contracts and runner port
-      ├── subagent-manager.ts              -- compatibility facade over BackgroundTaskManager
-      └── worktree-subagent-runner.ts      -- runner decorator using injected worktree adapter
+      ├── types.ts                              -- subagent job contracts and runner port
+      ├── subagent-manager.ts                   -- compatibility facade over BackgroundTaskManager
+      ├── git-worktree-isolation-adapter.ts     -- concrete ISubagentWorktreeAdapter using Git CLI
+      └── worktree-subagent-runner.ts           -- runner decorator using injected worktree adapter
 ```
 
 Design rules:
@@ -49,24 +60,70 @@ Design rules:
 
 ## Type Ownership
 
-| Type                           | Location                                    | Purpose                                                                                                       |
-| ------------------------------ | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `IBackgroundTaskManager`       | `src/background-tasks/types.ts`             | Generic background task registry API                                                                          |
-| `IBackgroundTaskRunner`        | `src/background-tasks/types.ts`             | Port for executing one task kind                                                                              |
-| `IBackgroundTaskState`         | `src/background-tasks/types.ts`             | Immutable task state snapshot shape                                                                           |
-| `IBackgroundTaskRequest`       | `src/background-tasks/types.ts`             | Agent/process task request union                                                                              |
-| `IBackgroundTaskResult`        | `src/background-tasks/types.ts`             | Completed task output and metadata                                                                            |
-| `TBackgroundTaskEvent`         | `src/background-tasks/types.ts`             | Lifecycle/progress event union                                                                                |
-| `TBackgroundTaskTimeoutReason` | `src/background-tasks/types.ts`             | Watchdog terminal reason union                                                                                |
-| `ILimitedOutputCapture`        | `src/background-tasks/log-pages.ts`         | UTF-8-safe bounded output capture used by process-like adapters                                               |
-| `ISerializableProviderProfile` | `src/background-tasks/types.ts`             | Provider profile handoff for background workers, including credential references and provider-owned `options` |
-| `ISubagentManager`             | `src/subagents/types.ts`                    | Subagent job compatibility facade                                                                             |
-| `ISubagentRunner`              | `src/subagents/types.ts`                    | Port for executing one subagent job                                                                           |
-| `ISubagentSpawnRequest`        | `src/subagents/types.ts`                    | Subagent spawn request                                                                                        |
-| `ISubagentJobState`            | `src/subagents/types.ts`                    | Subagent job state projection                                                                                 |
-| `ISubagentJobResult`           | `src/subagents/types.ts`                    | Subagent completion output and metadata                                                                       |
-| `ISubagentWorktreeAdapter`     | `src/subagents/worktree-subagent-runner.ts` | Port for concrete worktree I/O                                                                                |
-| `IPreparedSubagentWorktree`    | `src/subagents/worktree-subagent-runner.ts` | Prepared worktree handoff data                                                                                |
+### Background Task Primitive Types
+
+| Type                             | Location                                | Purpose                                                                                                 |
+| -------------------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `TBackgroundTaskKind`            | `src/background-tasks/types.ts`         | `'agent' \| 'process' \| 'scheduled'`                                                                   |
+| `TBackgroundTaskMode`            | `src/background-tasks/types.ts`         | `'foreground' \| 'background'`                                                                          |
+| `TBackgroundTaskIsolation`       | `src/background-tasks/types.ts`         | `'none' \| 'worktree'`                                                                                  |
+| `TBackgroundTaskStatus`          | `src/background-tasks/types.ts`         | `'queued' \| 'running' \| 'waiting_permission' \| 'sleeping' \| 'completed' \| 'failed' \| 'cancelled'` |
+| `TBackgroundPermissionPolicy`    | `src/background-tasks/types.ts`         | `'inherit-allowlist' \| 'preapproved' \| 'prompt' \| 'deny'`                                            |
+| `TBackgroundTaskTimeoutReason`   | `src/background-tasks/types.ts`         | Watchdog terminal reason union                                                                          |
+| `TBackgroundTaskErrorCategory`   | `src/background-tasks/types.ts`         | Error category union used by `BackgroundTaskError`                                                      |
+| `TBackgroundPrimitive`           | `src/background-tasks/types.ts`         | `string \| number \| boolean` — opaque metadata value type                                              |
+| `TBackgroundTaskEvent`           | `src/background-tasks/types.ts`         | Lifecycle/progress event union emitted by `BackgroundTaskManager`                                       |
+| `TBackgroundTaskEventListener`   | `src/background-tasks/types.ts`         | Listener callback type for `TBackgroundTaskEvent`                                                       |
+| `TBackgroundTaskRunnerEvent`     | `src/background-tasks/types.ts`         | Events reported by runners to the manager during execution                                              |
+| `TBackgroundTaskIdFactory`       | `src/background-tasks/types.ts`         | Function type for custom task ID generation                                                             |
+| `TBackgroundTaskTransitionEvent` | `src/background-tasks/state-machine.ts` | State machine input events (e.g. `START`, `SLEEP`, `WAKE`, `CANCEL`)                                    |
+
+### Background Task Interface Types
+
+| Type                                 | Location                                                       | Purpose                                                                                                       |
+| ------------------------------------ | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `IBackgroundTaskError`               | `src/background-tasks/types.ts`                                | Structured error shape with category and recoverability                                                       |
+| `ISerializableProviderProfile`       | `src/background-tasks/types.ts`                                | Provider profile handoff for background workers, including credential references and provider-owned `options` |
+| `IBaseBackgroundTaskRequest`         | `src/background-tasks/types.ts`                                | Common fields for all task request variants                                                                   |
+| `IAgentBackgroundTaskRequest`        | `src/background-tasks/types.ts`                                | Agent task request (`kind: 'agent'`)                                                                          |
+| `IProcessBackgroundTaskRequest`      | `src/background-tasks/types.ts`                                | Shell process task request (`kind: 'process'`)                                                                |
+| `IScheduledBackgroundTaskRequest`    | `src/background-tasks/types.ts`                                | Cron-scheduled task request (`kind: 'scheduled'`)                                                             |
+| `TBackgroundTaskRequest`             | `src/background-tasks/types.ts`                                | Union of all three task request variants                                                                      |
+| `IBackgroundTaskResult`              | `src/background-tasks/types.ts`                                | Completed task output and metadata                                                                            |
+| `IBackgroundTaskState`               | `src/background-tasks/types.ts`                                | Immutable task state snapshot shape                                                                           |
+| `IBackgroundTaskInput`               | `src/background-tasks/types.ts`                                | Input sent to a running task via `send()`                                                                     |
+| `IBackgroundTaskLogCursor`           | `src/background-tasks/types.ts`                                | Cursor for paginated log reads                                                                                |
+| `IBackgroundTaskLogPage`             | `src/background-tasks/types.ts`                                | Paginated log page result                                                                                     |
+| `IBackgroundTaskListFilter`          | `src/background-tasks/types.ts`                                | Filter shape for `list()` queries                                                                             |
+| `IBackgroundTaskStart`               | `src/background-tasks/types.ts`                                | Argument passed from manager to runner `start()` call                                                         |
+| `IBackgroundTaskHandle`              | `src/background-tasks/types.ts`                                | Cancellable handle returned by `IBackgroundTaskRunner.start()`                                                |
+| `IBackgroundTaskRunner`              | `src/background-tasks/types.ts`                                | Port for executing one task kind                                                                              |
+| `IBackgroundTaskManager`             | `src/background-tasks/types.ts`                                | Generic background task registry API                                                                          |
+| `IBackgroundTaskManagerOptions`      | `src/background-tasks/types.ts`                                | Constructor options for `BackgroundTaskManager`                                                               |
+| `IManagedShellProcessRunnerOptions`  | `src/background-tasks/runners/managed-shell-process-runner.ts` | Options for the shell process runner factory                                                                  |
+| `IScheduledTaskRunnerOptions`        | `src/background-tasks/runners/scheduled-task-runner.ts`        | Options for the scheduled task runner factory                                                                 |
+| `ILimitedOutputCapture`              | `src/background-tasks/log-pages.ts`                            | UTF-8-safe bounded output capture used by process-like adapters                                               |
+| `ICreateLimitedOutputCaptureOptions` | `src/background-tasks/log-pages.ts`                            | Options for `createLimitedOutputCapture()`                                                                    |
+
+### Subagent Types
+
+| Type                                  | Location                                          | Purpose                                                     |
+| ------------------------------------- | ------------------------------------------------- | ----------------------------------------------------------- |
+| `TSubagentJobStatus`                  | `src/subagents/types.ts`                          | Subagent job status union (mirrors `TBackgroundTaskStatus`) |
+| `TSubagentJobMode`                    | `src/subagents/types.ts`                          | `'foreground' \| 'background'`                              |
+| `ISubagentSpawnRequest`               | `src/subagents/types.ts`                          | Subagent spawn request                                      |
+| `ISubagentJobState`                   | `src/subagents/types.ts`                          | Subagent job state projection                               |
+| `ISubagentJobResult`                  | `src/subagents/types.ts`                          | Subagent completion output and metadata                     |
+| `ISubagentJobStart`                   | `src/subagents/types.ts`                          | Argument passed from manager to runner `start()` call       |
+| `ISubagentJobHandle`                  | `src/subagents/types.ts`                          | Cancellable handle returned by `ISubagentRunner.start()`    |
+| `ISubagentRunner`                     | `src/subagents/types.ts`                          | Port for executing one subagent job                         |
+| `ISubagentManager`                    | `src/subagents/types.ts`                          | Subagent job compatibility facade                           |
+| `ISubagentManagerOptions`             | `src/subagents/types.ts`                          | Constructor options for `SubagentManager`                   |
+| `ISubagentWorktreeAdapter`            | `src/subagents/worktree-subagent-runner.ts`       | Port for concrete worktree I/O                              |
+| `ISubagentWorktreePrepareRequest`     | `src/subagents/worktree-subagent-runner.ts`       | Request passed to `ISubagentWorktreeAdapter.prepare()`      |
+| `IPreparedSubagentWorktree`           | `src/subagents/worktree-subagent-runner.ts`       | Prepared worktree handoff data                              |
+| `IWorktreeSubagentRunnerOptions`      | `src/subagents/worktree-subagent-runner.ts`       | Constructor options for `WorktreeSubagentRunner`            |
+| `IGitWorktreeIsolationAdapterOptions` | `src/subagents/git-worktree-isolation-adapter.ts` | Options for `createGitWorktreeIsolationAdapter()`           |
 
 Hook event types and hook execution are owned by `agent-core`.
 
@@ -74,16 +131,17 @@ Hook event types and hook execution are owned by `agent-core`.
 
 ### Background Tasks
 
-| Export                           | Kind     | Description                                          |
-| -------------------------------- | -------- | ---------------------------------------------------- |
-| `BackgroundTaskManager`          | class    | In-memory task registry and scheduler                |
-| `BackgroundTaskError`            | class    | Typed runtime error with category and recoverability |
-| `transitionBackgroundTaskStatus` | function | Pure state transition function                       |
-| `isTerminalBackgroundTaskStatus` | function | Terminal-state predicate                             |
-| `getBackgroundTaskTransitions`   | function | Transition table snapshot for tests/audits           |
-| `createLimitedOutputCapture`     | function | UTF-8-safe bounded output capture helper             |
-| `appendPrefixedLogLines`         | function | Append source-prefixed non-empty log lines           |
-| `createBackgroundTaskLogPage`    | function | Cursor-based log pagination helper                   |
+| Export                                  | Kind     | Description                                          |
+| --------------------------------------- | -------- | ---------------------------------------------------- |
+| `BackgroundTaskManager`                 | class    | In-memory task registry and scheduler                |
+| `BackgroundTaskError`                   | class    | Typed runtime error with category and recoverability |
+| `transitionBackgroundTaskStatus`        | function | Pure state transition function                       |
+| `isTerminalBackgroundTaskStatus`        | function | Terminal-state predicate                             |
+| `getBackgroundTaskTransitions`          | function | Transition table snapshot for tests/audits           |
+| `createLimitedOutputCapture`            | function | UTF-8-safe bounded output capture helper             |
+| `appendPrefixedLogLines`                | function | Append source-prefixed non-empty log lines           |
+| `createBackgroundTaskLogPage`           | function | Cursor-based log pagination helper                   |
+| `DEFAULT_BACKGROUND_TASK_LOG_PAGE_SIZE` | constant | Default page size (200 lines) for log pagination     |
 
 ### Background Task Runners (Concrete — default implementations)
 
@@ -111,11 +169,22 @@ bindings and is safe for any Node.js runtime target.
 | `createGitWorktreeIsolationAdapter` | function | Factory for `GitWorktreeIsolationAdapter`                          |
 
 **Note on `GitWorktreeIsolationAdapter`**: This is a concrete CLI adapter (calls
-`execFileSync`, performs Git operations) that lives in `agent-runtime` for historical
+`execFileSync`, performs Git operations) that lives in `agent-executor` for historical
 reasons. CLI-AUDIT-006 classified it as a CLI adapter; it should eventually move to
 `agent-cli/src/subagents/` when ARCH-FIX-024 is executed.
 
 The package entrypoint exports these symbols explicitly from `src/index.ts`. SDK compatibility barrels may re-export the same symbols, but they must not redefine the contracts.
+
+### Provider Factory
+
+Functions in `src/providers/` resolve serializable provider config or profiles into live `IAIProvider` instances. They depend only on `@robota-sdk/agent-core` provider definitions and are provider-package-agnostic.
+
+| Export                      | Kind     | Description                                                                                    |
+| --------------------------- | -------- | ---------------------------------------------------------------------------------------------- |
+| `normalizeProviderConfig`   | function | Merges explicit settings with definition defaults; resolves `$ENV:` references in `apiKey`     |
+| `resolveProfileApiKey`      | function | Resolves `apiKey` (direct or `$ENV:`) or `apiKeyEnv` from an `ISerializableProviderProfile`    |
+| `createProviderFromConfig`  | function | Creates an `IAIProvider` from a resolved `IProviderConfig` using injected provider definitions |
+| `createProviderFromProfile` | function | Convenience: normalizes a profile and delegates to `createProviderFromConfig`                  |
 
 ## Extension Points
 
@@ -142,11 +211,11 @@ transitions, queueing, cancellation, and runner behavior must not depend on thos
 
 The cross-cutting transparent workflow contract is defined in
 [../../../.agents/specs/transparent-workflow.md](../../../.agents/specs/transparent-workflow.md).
-`agent-runtime` owns the mechanical background task lifecycle state machine and transition
+`agent-executor` owns the mechanical background task lifecycle state machine and transition
 validation for agent/process work. It does not own command authorization provenance, user-local
 preference semantics, memory inspection, or TUI disclosure policy.
 
-Current runtime statuses are `queued`, `running`, `waiting_permission`, `completed`, `failed`, and
+Current runtime statuses are `queued`, `running`, `waiting_permission`, `sleeping`, `completed`, `failed`, and
 `cancelled`. The transparent workflow user-facing vocabulary displays `waiting_permission` as
 `waiting-for-input`; a future API change may alias or rename this status only with compatibility
 tests. `archived` is a visibility/retention projection over terminal records, not a state that
@@ -156,7 +225,7 @@ restarts execution. Runtime `close()` remains the mechanical terminal-record dis
 
 Baseline workflow storage policy is defined in
 [../../../.agents/specs/user-local-storage.md](../../../.agents/specs/user-local-storage.md).
-`agent-runtime` does not resolve storage roots, validate repository boundaries, or persist baseline
+`agent-executor` does not resolve storage roots, validate repository boundaries, or persist baseline
 workflow state. It may expose session-local task ids, metadata, events, and state snapshots; SDK
 storage contracts decide whether and how higher layers persist those associations.
 
@@ -164,7 +233,7 @@ storage contracts decide whether and how higher layers persist those association
 
 Inspectable user-local memory behavior is specified in
 [../../../.agents/specs/user-local-memory.md](../../../.agents/specs/user-local-memory.md).
-`agent-runtime` may expose task ids, group ids, lifecycle state, and metadata that SDK projections
+`agent-executor` may expose task ids, group ids, lifecycle state, and metadata that SDK projections
 use for user-local associations. Runtime must not read or write user-local memory, project memory,
 or command-history preferences, and remembered values must not influence runtime command execution.
 
@@ -172,7 +241,7 @@ or command-history preferences, and remembered values must not influence runtime
 
 Transparent process execution is specified in
 [../../../.agents/specs/process-execution.md](../../../.agents/specs/process-execution.md).
-`agent-runtime` owns generic process task lifecycle, stdout/stderr log paging contracts, timeout,
+`agent-executor` owns generic process task lifecycle, stdout/stderr log paging contracts, timeout,
 cancellation, send/read controls, exit code, signal code, and state transitions. Runtime does not
 own command selection, command meaning, environment-summary presentation, action provenance, or
 correctness interpretation.
@@ -181,7 +250,7 @@ correctness interpretation.
 
 Switchable background work state is specified in
 [../../../.agents/specs/background-work-state.md](../../../.agents/specs/background-work-state.md).
-`agent-runtime` owns mechanical task lifecycle, events, cancellation, wait, send, close, and log
+`agent-executor` owns mechanical task lifecycle, events, cancellation, wait, send, close, and log
 read operations. It does not own selected workspace entry state, filled/empty UI indicators,
 presentation grouping, archive visibility, or TUI detail rendering.
 
@@ -256,21 +325,25 @@ For non-worktree requests it delegates unchanged. For `isolation: 'worktree'` it
 
 Unit tests cover:
 
-- background state-machine transitions
+- background state-machine transitions (including `sleeping`/`SLEEP`/`WAKE` paths)
 - background task manager lifecycle, queueing, cancellation, progress, metadata projection, watchdogs, and shutdown
 - bounded output capture and cursor-based log pagination helpers
+- managed shell process runner and scheduled task runner (unit-level with mock child process)
 - subagent manager lifecycle facade behavior
 - worktree runner clean/dirty/failure/delegation/hook behavior with fake adapters
+- provider factory: `normalizeProviderConfig`, `resolveProfileApiKey`, `createProviderFromConfig`, `createProviderFromProfile`
 
 Adapter packages or shells must add integration tests for concrete side effects such as local Git or child processes.
 
 ## Class Contract Registry
 
-| Class                    | Implements               | Depends on                                                                       |
-| ------------------------ | ------------------------ | -------------------------------------------------------------------------------- |
-| `BackgroundTaskManager`  | `IBackgroundTaskManager` | `IBackgroundTaskRunner`, `TBackgroundTaskEventListener`, pure transition helpers |
-| `SubagentManager`        | `ISubagentManager`       | `IBackgroundTaskManager`, `IBackgroundTaskRunner`, `ISubagentRunner`             |
-| `WorktreeSubagentRunner` | `ISubagentRunner`        | inner `ISubagentRunner`, `ISubagentWorktreeAdapter`, agent-core hook runner      |
+| Class                         | Implements                 | Depends on                                                                                      |
+| ----------------------------- | -------------------------- | ----------------------------------------------------------------------------------------------- |
+| `BackgroundTaskManager`       | `IBackgroundTaskManager`   | `IBackgroundTaskRunner`, `TBackgroundTaskEventListener`, pure transition helpers, watchdog ctrl |
+| `BackgroundTaskError`         | `IBackgroundTaskError`     | none (plain Error subclass)                                                                     |
+| `SubagentManager`             | `ISubagentManager`         | `IBackgroundTaskManager`, `IBackgroundTaskRunner`, `ISubagentRunner`                            |
+| `WorktreeSubagentRunner`      | `ISubagentRunner`          | inner `ISubagentRunner`, `ISubagentWorktreeAdapter`, agent-core hook runner                     |
+| `GitWorktreeIsolationAdapter` | `ISubagentWorktreeAdapter` | `node:child_process.execFileSync`, Git CLI (concrete adapter — see note in Public API Surface)  |
 
 Pure helper contracts:
 
@@ -278,6 +351,9 @@ Pure helper contracts:
   provider-neutral output string.
 - `appendPrefixedLogLines()` owns source-prefixed log line projection.
 - `createBackgroundTaskLogPage()` owns cursor pagination for append-only task logs.
+- `createDefaultBackgroundTaskRunners()` returns `[createManagedShellProcessRunner(), createScheduledTaskRunner()]` as the default runner set for CLI/SDK assembly.
+
+Provider factory functions (`normalizeProviderConfig`, `resolveProfileApiKey`, `createProviderFromConfig`, `createProviderFromProfile`) are pure utilities that depend only on `@robota-sdk/agent-core` provider definition types and produce `IAIProvider` instances.
 
 Cross-package port consumers:
 
@@ -289,8 +365,9 @@ Cross-package port consumers:
 
 Production dependencies:
 
-| Package                  | Reason                                                      |
-| ------------------------ | ----------------------------------------------------------- |
-| `@robota-sdk/agent-core` | Hook types and hook runner used by `WorktreeSubagentRunner` |
+| Package                  | Reason                                                                                        |
+| ------------------------ | --------------------------------------------------------------------------------------------- |
+| `@robota-sdk/agent-core` | Hook types, hook runner (`WorktreeSubagentRunner`), and provider definition types (factories) |
+| `croner`                 | Cron expression parsing and scheduling for `createScheduledTaskRunner`                        |
 
-This package must not depend on SDK, sessions, tool, provider, transport, or CLI packages.
+This package must not depend on SDK, sessions, tool, concrete-provider, transport, or CLI packages.
