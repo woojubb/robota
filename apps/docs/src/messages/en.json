@@ -1,0 +1,25 @@
+{
+  "nav": {
+    "gettingStarted": "Getting Started",
+    "guide": "Guide",
+    "examples": "Examples",
+    "packages": "Packages",
+    "changelog": "Changelog",
+    "development": "Development",
+    "playground": "Playground",
+    "backToSite": "← robota.io"
+  },
+  "home": {
+    "badge": "open-source · MIT licensed",
+    "title": "Robota SDK",
+    "titleHighlight": "Documentation",
+    "description": "Multi-provider AI agent SDK and CLI — TypeScript-native, self-hostable. Supports Anthropic, OpenAI, DeepSeek, Gemini, and local models.",
+    "getStarted": "Get Started →",
+    "readGuide": "Read the Guide",
+    "quickInstall": "Quick Install"
+  },
+  "lang": {
+    "en": "EN",
+    "ko": "KO"
+  }
+}
