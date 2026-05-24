@@ -47,6 +47,30 @@ function assertNoActiveWorktrees() {
   }
 }
 
+function assertCleanWorkingTree() {
+  const result = spawnSync('git', ['status', '--porcelain'], {
+    cwd: WORKSPACE_ROOT,
+    encoding: 'utf8',
+  });
+  const lines = (result.stdout ?? '')
+    .split('\n')
+    .map((l) => l.trimEnd())
+    .filter(Boolean);
+  // XY status codes: first char = staged, second char = unstaged.
+  // '??' = untracked. We block on any modified/staged file but not on
+  // untracked files (those are handled by .gitignore discipline).
+  const dirty = lines.filter((l) => l.slice(0, 2) !== '??');
+  if (dirty.length > 0) {
+    process.stderr.write(
+      '\n[BLOCKED] Uncommitted changes detected — push blocked.\n' +
+        'Commit or discard all modified/staged files before pushing:\n\n' +
+        dirty.map((l) => `  ${l}`).join('\n') +
+        '\n\nSee .agents/rules/git-branch.md "Clean Working Tree" rule.\n\n',
+    );
+    process.exit(1);
+  }
+}
+
 function hasWorkingTreeChanges() {
   const result = spawnSync('git', ['status', '--porcelain', '--untracked-files=all'], {
     cwd: WORKSPACE_ROOT,
@@ -79,6 +103,7 @@ function resolvePrePushMode(value) {
 }
 
 assertNoActiveWorktrees();
+assertCleanWorkingTree();
 
 const baseRef = resolveGitBaseRef(process.env.HARNESS_BASE_REF ?? null);
 const baseArgs = baseRef ? ['--base-ref', baseRef] : [];

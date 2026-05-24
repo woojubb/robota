@@ -64,6 +64,29 @@ intent, the agent may proceed with that recommendation. If the recommendation is
 with rules, changes ownership boundaries, introduces new dependency direction, or requires product
 judgment, stop and ask the user for a decision.
 
+## One-Backlog-At-A-Time Rule (mandatory, zero exceptions)
+
+**Finish one backlog completely before starting the next.**
+
+The sequence is:
+
+1. Complete all implementation, tests, and verification for the current backlog.
+2. Commit every changed file — the working tree must be clean (`git status` shows no modified or
+   staged files) before creating the PR.
+3. Open the PR, merge it into `develop` (or the initiative base branch).
+4. Only after the PR is merged may the next backlog begin.
+
+**Violations:**
+
+- Starting a new backlog while the current backlog's PR is open or unmerged → stop, merge first.
+- Leaving uncommitted files (modified, staged, or newly tracked) after declaring a backlog done →
+  stop, commit or discard them before opening the PR.
+- Combining work from two separate backlogs in one PR → not allowed unless the backlogs were
+  explicitly split into a single named work unit before implementation began.
+
+**Automated enforcement:** `scripts/harness/pre-push.mjs` calls `assertCleanWorkingTree()` at
+startup. Any push with modified or staged uncommitted files is blocked with exit code 1.
+
 ## PR Unit Rule
 
 - Treat one backlog as one PR by default.
