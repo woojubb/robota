@@ -46,6 +46,13 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   // Layer 0: pre-flight — single point for all early-exit commands
   if ((await handlePreflightCommands(args, { version, terminal, cwd })).handled) return;
 
+  if (args.apiKey) {
+    process.stderr.write(
+      '\n⚠  Warning: --api-key value may appear in your shell history.\n' +
+        '   Use the ANTHROPIC_API_KEY environment variable instead.\n\n',
+    );
+  }
+
   // Layer 1: IParsedCliArgs → typed option objects (boundary)
   const configPhaseOpts = toConfigPhaseOptions(args);
   const sessionOpts = toSessionRunOptions(args);

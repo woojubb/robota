@@ -4,6 +4,14 @@ import { join } from 'node:path';
 
 import type { IPreflightContext } from './preflight.js';
 
+const PROVIDER_ENDPOINTS: Record<string, { host: string; port: number }> = {
+  anthropic: { host: 'api.anthropic.com', port: 443 },
+  openai: { host: 'api.openai.com', port: 443 },
+  gemini: { host: 'generativelanguage.googleapis.com', port: 443 },
+  deepseek: { host: 'api.deepseek.com', port: 443 },
+  qwen: { host: 'dashscope.aliyuncs.com', port: 443 },
+};
+
 interface IDiagnosticCheck {
   label: string;
   status: 'ok' | 'warn' | 'fail';
@@ -32,6 +40,7 @@ function checkApiKey(): IDiagnosticCheck {
     { env: 'OPENAI_API_KEY', label: 'OpenAI' },
     { env: 'GEMINI_API_KEY', label: 'Gemini' },
     { env: 'DEEPSEEK_API_KEY', label: 'DeepSeek' },
+    { env: 'DASHSCOPE_API_KEY', label: 'Qwen (DashScope)' },
   ];
   const found = keys.filter((k) => process.env[k.env]);
   if (found.length > 0) {
@@ -41,24 +50,74 @@ function checkApiKey(): IDiagnosticCheck {
     label: 'API key',
     status: 'fail',
     message:
-      'No API key found\n  Set ANTHROPIC_API_KEY or run: robota configure\n  Get key: https://console.anthropic.com/settings/keys',
+      'No API key found\n  Set ANTHROPIC_API_KEY or run: robota --configure\n  Get key: https://console.anthropic.com/settings/keys',
   };
+}
+
+function validateJsonFile(filePath: string): 'ok' | 'corrupt' {
+  try {
+    JSON.parse(readFileSync(filePath, 'utf-8'));
+    return 'ok';
+  } catch {
+    // allow-fallback: corrupt JSON → report as diagnostic warning, not a crash
+    return 'corrupt';
+  }
 }
 
 function checkSettingsFile(cwd: string): IDiagnosticCheck {
   const settingsPath = join(cwd, '.robota', 'settings.json');
   const homeSettings = join(process.env.HOME ?? '', '.robota', 'settings.json');
   if (existsSync(settingsPath)) {
+    if (validateJsonFile(settingsPath) === 'corrupt') {
+      return {
+        label: 'Settings file',
+        status: 'fail',
+        message: `${settingsPath} — invalid JSON\n  Delete and re-run: robota --configure`,
+      };
+    }
     return { label: 'Settings file', status: 'ok', message: settingsPath };
   }
   if (existsSync(homeSettings)) {
+    if (validateJsonFile(homeSettings) === 'corrupt') {
+      return {
+        label: 'Settings file',
+        status: 'fail',
+        message: `${homeSettings} — invalid JSON\n  Delete and re-run: robota --configure`,
+      };
+    }
     return { label: 'Settings file', status: 'ok', message: `${homeSettings} (global)` };
   }
   return {
     label: 'Settings file',
     status: 'warn',
-    message: 'Not found — run: robota configure',
+    message: 'Not found — run: robota --configure',
   };
+}
+
+function tryReadCurrentProvider(settingsPath: string): string | undefined {
+  try {
+    const doc = JSON.parse(readFileSync(settingsPath, 'utf-8')) as { currentProvider?: string };
+    return typeof doc.currentProvider === 'string' ? doc.currentProvider : undefined;
+  } catch {
+    // allow-fallback: unreadable settings for network check → caller uses default
+    return undefined;
+  }
+}
+
+function resolveNetworkEndpoint(cwd: string): { host: string; port: number } {
+  const settingsPath = join(cwd, '.robota', 'settings.json');
+  const homeSettings = join(process.env.HOME ?? '', '.robota', 'settings.json');
+  const activePath = existsSync(settingsPath)
+    ? settingsPath
+    : existsSync(homeSettings)
+      ? homeSettings
+      : undefined;
+  if (activePath !== undefined) {
+    const providerKey = (tryReadCurrentProvider(activePath) ?? '').toLowerCase();
+    const match = Object.entries(PROVIDER_ENDPOINTS).find(([key]) => providerKey.startsWith(key));
+    if (match) return match[1];
+  }
+  return PROVIDER_ENDPOINTS['anthropic']!;
 }
 
 function checkTerminal(): IDiagnosticCheck {
@@ -73,27 +132,24 @@ function checkTerminal(): IDiagnosticCheck {
   return { label: 'Terminal', status: 'ok', message: term };
 }
 
-async function checkNetwork(): Promise<IDiagnosticCheck> {
+async function checkNetwork(endpoint: { host: string; port: number }): Promise<IDiagnosticCheck> {
+  const label = `Network (${endpoint.host})`;
   return new Promise((resolve) => {
     const start = Date.now();
-    const socket = createConnection({ host: 'api.anthropic.com', port: 443 });
+    const socket = createConnection({ host: endpoint.host, port: endpoint.port });
     const timeout = setTimeout(() => {
       socket.destroy();
-      resolve({ label: 'Network (api.anthropic.com)', status: 'fail', message: 'timeout (3s)' });
+      resolve({ label, status: 'fail', message: 'timeout (3s)' });
     }, 3000);
     socket.on('connect', () => {
       clearTimeout(timeout);
       socket.destroy();
-      resolve({
-        label: 'Network (api.anthropic.com)',
-        status: 'ok',
-        message: `reachable (${Date.now() - start}ms)`,
-      });
+      resolve({ label, status: 'ok', message: `reachable (${Date.now() - start}ms)` });
     });
     socket.on('error', (err) => {
       clearTimeout(timeout);
       resolve({
-        label: 'Network (api.anthropic.com)',
+        label,
         status: 'warn',
         message: `${err.message}\n  Check proxy settings or firewall`,
       });
@@ -118,13 +174,15 @@ export async function runDiagnoseCommand(ctx: IPreflightContext): Promise<void> 
   const versionDisplay = ctx.version === 'unknown' ? readCliVersionFromPackageJson() : ctx.version;
   ctx.terminal.writeLine('\nrobota --diagnose\n');
 
+  const networkEndpoint = resolveNetworkEndpoint(ctx.cwd);
+
   const checks: IDiagnosticCheck[] = [
     checkNodeVersion(),
     checkCliVersion(versionDisplay),
     checkApiKey(),
     checkSettingsFile(ctx.cwd),
     checkTerminal(),
-    await checkNetwork(),
+    await checkNetwork(networkEndpoint),
   ];
 
   let failCount = 0;
