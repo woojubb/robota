@@ -35,6 +35,7 @@ This file contains only domain-free rules and routing. It does not contain packa
 | [.agents/project-structure.md](.agents/project-structure.md)             | Package listing and dependency rules                                                                              |
 | [.agents/skills/index.md](.agents/skills/index.md)                       | All procedural workflow skills                                                                                    |
 | [.agents/backlog/README.md](.agents/backlog/README.md)                   | Future work items and backlog process                                                                             |
+| `.agents/spec-docs/`                                                     | Gate-pipeline spec documents — draft/backlog/todo/active/done/rejected lifecycle                                  |
 | [.agents/templates/spec-template.md](.agents/templates/spec-template.md) | SPEC.md authoring template                                                                                        |
 | [.agents/specs/README.md](.agents/specs/README.md)                       | Cross-cutting specs that span multiple packages                                                                   |
 | [.agents/evals/README.md](.agents/evals/README.md)                       | Agent quality evaluation datasets and metrics                                                                     |

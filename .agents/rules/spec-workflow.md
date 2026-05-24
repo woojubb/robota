@@ -13,18 +13,24 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 - Every spec change MUST include a verification test plan.
 - Implementation code that does not conform to its governing spec is a bug.
 - See [`spec-first-development`](../skills/spec-first-development/SKILL.md) skill for the procedural workflow.
+- For any new gap, fix, or improvement: write a spec document to `.agents/spec-docs/draft/` first using [`backlog-writer`](../skills/backlog-writer/SKILL.md), then run [`backlog-pipeline`](../skills/backlog-pipeline/SKILL.md).
 
-### Feature Gap / Behavior Change Process
+### HARD GATE: No Immediate Implementation
 
-When a feature gap, missing behavior, or spec-vs-implementation mismatch is discovered during development:
+Any gap, improvement, or fix discovered during development MUST follow this sequence before writing a single line of code:
 
-1. **Stop coding.** Do not implement a fix or new behavior before the spec is updated.
-2. **Ask the user:** "This requires a spec change. Should I add it to the backlog, or proceed now?"
-3. **If proceeding:** Update the spec document first to describe the intended final state.
-4. **Then implement** the code to match the updated spec.
-5. **Verify conformance** between updated spec and implementation.
+1. **Architecture review** — analyse the problem and affected scope.
+2. **Spec document** — write to `.agents/spec-docs/draft/` using [`backlog-writer`](../skills/backlog-writer/SKILL.md). All required sections and frontmatter must be present.
+3. **Gate pipeline** — run [`backlog-pipeline`](../skills/backlog-pipeline/SKILL.md) to advance through GATE-WRITE → GATE-APPROVAL before any implementation.
+4. **User approval** — GATE-APPROVAL requires an explicit user sign-off quoted in the Evidence Log.
+5. **Implement** — code only after GATE-APPROVAL passes. Use [`backlog-gate-guard`](../skills/backlog-gate-guard/SKILL.md) for GATE-IMPLEMENT, GATE-VERIFY, and GATE-COMPLETE.
 
-Skipping step 1–3 (coding before spec) is a process violation. This applies even to "obvious" fixes — if the fix changes observable behavior, the spec must reflect it first.
+No exceptions. One-line fixes, evaluation findings, and "obvious" improvements all require this gate.
+A spec update is also required for any change touching a contract boundary (see Spec-First Development).
+
+**Status levels (frontmatter `status:` field):** `draft → review-ready → approved → in-progress → verifying → done`
+**Lifecycle folders:** `spec-docs/draft/` → `spec-docs/backlog/` → `spec-docs/todo/` → `spec-docs/active/` → `spec-docs/done/`
+Each status transition is a gate. Every gate must leave an Evidence Log entry (PASS / FAIL / NON-COMPLIANCE).
 
 ### Spec-Code Conformance Verification
 
