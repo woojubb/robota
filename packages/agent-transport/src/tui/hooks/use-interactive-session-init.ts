@@ -37,6 +37,8 @@ export function initializeSession(
     agentName: props.agentName,
     systemPrompt: props.systemPrompt,
     appendSystemPrompt: props.appendSystemPrompt,
+    allowedTools: props.allowedTools,
+    deniedTools: props.deniedTools,
   });
 
   const registry = new CommandRegistry();

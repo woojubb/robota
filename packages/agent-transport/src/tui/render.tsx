@@ -32,6 +32,8 @@ export interface ITuiRenderOptions {
   agentName?: string;
   systemPrompt?: string;
   appendSystemPrompt?: string;
+  allowedTools?: string[];
+  deniedTools?: string[];
 }
 
 export async function renderApp(options: ITuiRenderOptions): Promise<void> {

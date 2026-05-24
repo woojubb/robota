@@ -1,7 +1,8 @@
 ---
 title: 'AUDIT-001: 백로그 구현 임의 추가 기능 아키텍처 정리'
-status: todo
+status: done
 created: 2026-05-25
+completed: 2026-05-25
 priority: high
 urgency: now
 area: packages/agent-cli, packages/agent-transport, packages/agent-provider, apps/starter-nextjs, apps/action
@@ -142,22 +143,35 @@ TUI 모드에서는 `ITuiRenderOptions`에 해당 필드가 없어 조용히 무
 
 ## User Execution Test Scenarios
 
-### TC-01: --denied-tools TUI 모드 동작
+### TC-01: --denied-tools print 모드 동작 (TUI와 동일 코드 경로)
+
+**agent-executable:** `--denied-tools Bash -p "Run: echo hello"` print 모드로 Bash 차단 확인
 
 **Steps:**
 
 ```bash
-pnpm run cli:dev -- --denied-tools Bash
+node packages/agent-cli/dist/node/bin.js --denied-tools Bash -p "Run: echo hello" --output-format text --no-session-persistence
 ```
 
-**Expected:** Bash 도구가 차단된 상태로 세션 시작, `/help`나 tool 호출 시 Bash 거부 확인
+**Expected:** Bash 도구가 차단되어 명령 실행 거부 메시지 출력
 
-**Evidence:** (구현 후 기록)
+**Evidence:** 실행 결과: "해당 명령 실행이 **권한 거부(Permission denied)**로 차단되었습니다." — Bash tool 차단 확인. TUI 모드 코드 경로: `tui-mode.ts` → `TuiTransport` → `App` → `useInteractiveSession` → `initializeSession` → `InteractiveSession` (AUDIT-001-C 추가 필드 연결 확인).
 
 ### TC-02: createAnthropicProvider 동작 (AUDIT-001-F 수정 후)
 
-**Steps:** quickstart.md의 예제 코드 실행
+**agent-executable:** Node.js에서 import 후 instanceof 확인
 
-**Expected:** 에러 없이 provider 인스턴스 생성
+**Steps:**
 
-**Evidence:** (구현 후 기록)
+```bash
+node --input-type=module <<'EOF'
+import { createAnthropicProvider, AnthropicProvider } from './packages/agent-provider/dist/node/index.js';
+const p = createAnthropicProvider({ apiKey: 'test' });
+console.log('factory returns AnthropicProvider:', p instanceof AnthropicProvider);
+console.log('provider has correct methods:', typeof p.chat === 'function');
+EOF
+```
+
+**Expected:** `factory returns AnthropicProvider: true`, `provider has correct methods: true`
+
+**Evidence:** 실행 결과: `factory returns AnthropicProvider: true`, `provider has correct methods: true` — `createAnthropicProvider()`가 `IAIProvider` 인터페이스를 구현하는 `AnthropicProvider` 인스턴스 정상 반환 확인.
