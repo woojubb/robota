@@ -70,6 +70,8 @@ interface IProps {
   cliAdapter: ITuiCliAdapter;
   reloadPluginCommandSource?: (registry: CommandRegistry) => void;
   agentName?: string;
+  systemPrompt?: string;
+  appendSystemPrompt?: string;
 }
 
 export default function App(props: IProps): React.ReactElement {
@@ -141,6 +143,8 @@ function AppInner(
     language: props.language,
     reloadPluginCommandSource: props.reloadPluginCommandSource,
     agentName: props.agentName,
+    systemPrompt: props.systemPrompt,
+    appendSystemPrompt: props.appendSystemPrompt,
   });
 
   const fallbackPluginCallbacks = usePluginCallbacks(cwd);

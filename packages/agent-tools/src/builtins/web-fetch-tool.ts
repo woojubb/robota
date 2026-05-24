@@ -37,7 +37,7 @@ function htmlToText(html: string): string {
     .trim();
 }
 
-function classifyFetchError(err: unknown): string {
+export function classifyFetchError(err: unknown): string {
   if (!(err instanceof Error)) return String(err);
 
   if (err.name === 'AbortError') {

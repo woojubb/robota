@@ -34,6 +34,7 @@ export const DEFAULT_TOOL_DESCRIPTIONS = [
  */
 export interface ICreateDefaultToolsOptions {
   sandboxClient?: ISandboxClient;
+  cwd?: string;
 }
 
 export function createDefaultTools(

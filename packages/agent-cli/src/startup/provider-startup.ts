@@ -3,6 +3,7 @@ import type { IConfigPhaseOptions } from './args-to-options.js';
 import {
   applyProviderConfiguration,
   applyProviderSwitch,
+  checkSettingsDocument,
   readMergedProviderSettings,
   resolveProviderSettingsWriteTargetPath,
   resolveSettingsPathForScope,
@@ -15,6 +16,24 @@ import {
   type TPromptInput,
 } from '@robota-sdk/agent-command';
 import type { ITerminalOutput } from '@robota-sdk/agent-core';
+
+interface IEnvProviderCandidate {
+  env: string;
+  type: string;
+  model: string;
+}
+
+const ENV_PROVIDER_CANDIDATES: IEnvProviderCandidate[] = [
+  { env: 'ANTHROPIC_API_KEY', type: 'anthropic', model: 'claude-sonnet-4-6' },
+  { env: 'OPENAI_API_KEY', type: 'openai', model: 'gpt-4o' },
+  { env: 'GEMINI_API_KEY', type: 'gemini', model: 'gemini-3-flash-preview' },
+  { env: 'DEEPSEEK_API_KEY', type: 'deepseek', model: 'deepseek-v4-flash' },
+  { env: 'DASHSCOPE_API_KEY', type: 'qwen', model: 'qwen-plus' },
+];
+
+function detectEnvProvider(): IEnvProviderCandidate | undefined {
+  return ENV_PROVIDER_CANDIDATES.find((c) => process.env[c.env] !== undefined);
+}
 
 function validateSettingsScope(scope: string | undefined): TSettingsScope | undefined {
   if (scope === undefined || scope === 'user' || scope === 'project-local') {
@@ -57,6 +76,34 @@ export async function ensureConfig(
   providerDefinitions: readonly IProviderDefinition[],
   isInteractive: boolean,
 ): Promise<void> {
+  const merged = readMergedProviderSettings(cwd);
+  const selectedSettings =
+    opts.provider !== undefined ? { ...merged, currentProvider: opts.provider } : merged;
+
+  if (checkSettingsDocument(selectedSettings, providerDefinitions) === 'valid') {
+    return;
+  }
+
+  const envCandidate = detectEnvProvider();
+  if (envCandidate !== undefined) {
+    const settingsPath = resolveSettingsPathForScope(cwd, 'user');
+    applyProviderConfiguration(
+      settingsPath,
+      {
+        profile: envCandidate.model,
+        type: envCandidate.type,
+        model: envCandidate.model,
+        apiKeyEnv: envCandidate.env,
+        setCurrent: true,
+      },
+      { providerDefinitions },
+    );
+    terminal.writeLine(
+      `  Auto-configured provider: ${envCandidate.type} (via ${envCandidate.env})`,
+    );
+    return;
+  }
+
   await ensureProviderConfig(
     cwd,
     { provider: opts.provider, settingsScope: validateSettingsScope(opts.settingsScope) },

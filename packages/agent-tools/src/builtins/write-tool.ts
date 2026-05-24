@@ -5,6 +5,7 @@
 import { z } from 'zod';
 
 import { atomicWriteUtf8File } from './atomic-file-write.js';
+import { checkPathWithinCwd } from './path-guard.js';
 import { createZodFunctionTool } from '../implementations/function-tool';
 
 import type { FunctionTool } from '../implementations/function-tool';
@@ -21,6 +22,11 @@ type TWriteArgs = z.infer<typeof WriteSchema>;
 async function writeFileTool(args: TWriteArgs, options: ISandboxToolOptions = {}): Promise<string> {
   const { filePath, content } = args;
 
+  if (!options.sandboxClient) {
+    const pathError = checkPathWithinCwd(filePath, options.cwd);
+    if (pathError !== undefined) return pathError;
+  }
+
   try {
     if (options.sandboxClient) {
       await options.sandboxClient.writeFile(filePath, content);
@@ -34,6 +40,7 @@ async function writeFileTool(args: TWriteArgs, options: ISandboxToolOptions = {}
     };
     return JSON.stringify(result);
   } catch (err) {
+    // allow-fallback: write failure → TToolResult error (disk full, permissions)
     const result: TToolResult = {
       success: false,
       output: '',

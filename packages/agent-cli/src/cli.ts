@@ -18,6 +18,7 @@ import { createSessionSetup } from './startup/session-setup.js';
 import { resolveStartupUpdateNotice } from './startup/update-notice.js';
 import { readVersion } from './startup/version.js';
 import { runUserLocalDirectCommandIfRequested } from './user-local-direct-command.js';
+import { isFirstRun, markOnboarded, printFirstRunWelcome } from './startup/first-run.js';
 import { parseCliArgs } from './utils/cli-args.js';
 
 import type { IStartCliOptions } from './startup/command-setup.js';
@@ -44,6 +45,13 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
 
   // Layer 0: pre-flight — single point for all early-exit commands
   if ((await handlePreflightCommands(args, { version, terminal, cwd })).handled) return;
+
+  if (args.apiKey) {
+    process.stderr.write(
+      '\n⚠  Warning: --api-key value may appear in your shell history.\n' +
+        '   Use the ANTHROPIC_API_KEY environment variable instead.\n\n',
+    );
+  }
 
   // Layer 1: IParsedCliArgs → typed option objects (boundary)
   const configPhaseOpts = toConfigPhaseOptions(args);
@@ -99,6 +107,11 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   if (configPhaseOpts.printMode) {
     await runPrintMode(sessionOpts, runtime);
     return;
+  }
+
+  if (isFirstRun()) {
+    printFirstRunWelcome();
+    markOnboarded();
   }
 
   await runTuiMode({

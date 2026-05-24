@@ -146,8 +146,14 @@ export class PermissionEnforcer {
 
         const result = await originalExecute(parameters, context as IToolExecutionContext);
 
-        // Truncate oversized tool output (Claude Code uses 30K char limit)
+        // Truncate oversized tool output (matches 30K char limit)
         const truncatedResult = truncateToolResult(result);
+
+        if (truncatedResult !== result && typeof result.data === 'string') {
+          enforcer.terminal.writeLine(
+            `  ⚠  Output truncated: ${result.data.length.toLocaleString()} chars total — model sees first and last 15,000 chars`,
+          );
+        }
 
         enforcer.onToolExecution?.({
           type: 'end',
@@ -219,7 +225,17 @@ export class PermissionEnforcer {
       return result;
     }
     if (this.promptForApprovalFn) {
-      return this.promptForApprovalFn(this.terminal, toolName, toolArgs);
+      const result = await this.promptForApprovalFn(this.terminal, toolName, toolArgs);
+      if (result === 'allow-session') {
+        this.sessionAllowedTools.add(toolName);
+        return true;
+      }
+      if (result === 'allow-project') {
+        this.sessionAllowedTools.add(toolName);
+        this.onProjectAllowTool?.(toolName);
+        return true;
+      }
+      return result;
     }
     // No approval mechanism available — deny by default
     return false;

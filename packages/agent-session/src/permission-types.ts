@@ -40,7 +40,7 @@ export interface IPermissionEnforcerOptions {
     terminal: ITerminalOutput,
     toolName: string,
     toolArgs: TToolArgs,
-  ) => Promise<boolean>;
+  ) => Promise<TPermissionResult>;
   sessionLogger?: ISessionLogger;
   onToolExecution?: (event: {
     type: 'start' | 'end';

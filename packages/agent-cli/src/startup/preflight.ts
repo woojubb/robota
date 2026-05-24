@@ -4,6 +4,7 @@ import type { IParsedCliArgs } from '../utils/cli-args.js';
 import { printHelp } from '../utils/cli-args.js';
 import { runInitCommand } from '../init/init-command.js';
 import { runResetConfig } from './reset-config.js';
+import { runDiagnoseCommand } from './diagnose-command.js';
 
 export type TPreflightResult = { handled: true } | { handled: false };
 
@@ -19,6 +20,10 @@ export async function handlePreflightCommands(
 ): Promise<TPreflightResult> {
   if (args.positional[0] === 'init') {
     await runInitCommand(ctx.cwd, ctx.terminal);
+    return { handled: true };
+  }
+  if (args.positional[0] === 'diagnose') {
+    await runDiagnoseCommand(ctx);
     return { handled: true };
   }
   if (args.help) {

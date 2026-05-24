@@ -35,6 +35,8 @@ export function initializeSession(
     shellExec: props.shellExec,
     language: props.language,
     agentName: props.agentName,
+    systemPrompt: props.systemPrompt,
+    appendSystemPrompt: props.appendSystemPrompt,
   });
 
   const registry = new CommandRegistry();
