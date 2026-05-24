@@ -55,3 +55,7 @@ await notion.createPage('parent-page-id', 'Meeting Notes 2026-05-23', '## Summar
 ```bash
 export NOTION_TOKEN=secret_...
 ```
+
+## Specification
+
+See [`docs/SPEC.md`](docs/SPEC.md) for architecture, type ownership, public API surface, and contract details.
