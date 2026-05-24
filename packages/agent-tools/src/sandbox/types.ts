@@ -119,4 +119,6 @@ export interface ISandboxClient {
 
 export interface ISandboxToolOptions {
   sandboxClient?: ISandboxClient;
+  /** When set, Read/Write/Edit operations on the host (non-sandbox) are restricted to this directory. */
+  cwd?: string;
 }
