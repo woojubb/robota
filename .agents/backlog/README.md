@@ -476,40 +476,67 @@ Epic: [PLG-008](PLG-008-visual-agent-builder-playground.md)
 ### agent-cli Validation — 시니어 Dev + PM 검증 보고서 (2026-05-24)
 
 시니어 개발자 에이전트 + PM 에이전트 병렬 검증 + 종합 보고서에서 도출된 개선 항목.  
-보고서: [.design/validation/synthesis-report.md](../../.design/validation/synthesis-report.md)
+보고서 v1: [.design/validation/synthesis-report.md](../../.design/validation/synthesis-report.md)  
+보고서 v2 (2026-05-24): [.design/validation/synthesis-report-v2.md](../../.design/validation/synthesis-report-v2.md)
 
-#### P0 — Blockers
+#### ✅ 완료된 항목 (2026-05-24)
 
-| ID                                                      | 제목                                                          | 우선순위 |
-| ------------------------------------------------------- | ------------------------------------------------------------- | -------- |
-| [CLI-027](CLI-027-system-prompt-flag-implementation.md) | --system-prompt / --append-system-prompt 플래그 실제 구현     | high     |
-| [CLI-028](CLI-028-nodejs-version-gate.md)               | Node.js 버전 체크 강화 — 명확한 오류 메시지 + 업그레이드 안내 | high     |
-| [CLI-029](CLI-029-macos-cjk-crash-recheck.md)           | macOS Terminal.app CJK 입력 크래시 — 근본 해결 여부 재검증    | high     |
+| ID                                                      | 제목                                              | 상태 |
+| ------------------------------------------------------- | ------------------------------------------------- | ---- |
+| [CLI-027](CLI-027-system-prompt-flag-implementation.md) | --system-prompt / --append-system-prompt TUI 연결 | done |
+| [CLI-028](CLI-028-nodejs-version-gate.md)               | Node.js 22 빌드 배너 (bin entry 진입 전 체크)     | done |
+| [CLI-029](CLI-029-macos-cjk-crash-recheck.md)           | macOS Terminal.app CJK 경고 + IME 핸들러 개선     | done |
+| [CLI-030](CLI-030-bash-session-allow.md)                | "이 세션에서 허용" 권한 옵션 (allow-session)      | done |
+| [CLI-031](CLI-031-tool-output-truncation-notice.md)     | 도구 출력 truncation 시 ⚠ 터미널 경고            | done |
+| [CLI-033](CLI-033-headless-e2e-tests.md)                | Headless E2E 테스트 10개                          | done |
+| [PM-023](PM-023-first-run-onboarding-guide.md)          | 첫 실행 온보딩 웰컴 배너                          | done |
+| [PM-024](PM-024-diagnose-command.md)                    | robota diagnose 자가 진단 커맨드 (6개 체크)       | done |
+| [PM-025](PM-025-cost-accuracy.md)                       | /cost — 이미 올바르게 구현됨 확인                 | done |
 
-#### P1 — Core Experience
+#### P0 — 출시 블로커 (보안·버그)
 
-| ID                                                  | 제목                                                         | 우선순위 |
-| --------------------------------------------------- | ------------------------------------------------------------ | -------- |
-| [CLI-030](CLI-030-bash-session-allow.md)            | Bash 권한 피로 해소 — 세션-레벨 "이 세션에서 항상 허용" 옵션 | high     |
-| [CLI-031](CLI-031-tool-output-truncation-notice.md) | 도구 출력 30,000자 truncation — 사용자 알림 및 UX 개선       | medium   |
-| [PM-023](PM-023-first-run-onboarding-guide.md)      | 첫 실행 온보딩 가이드 — "무엇을 먼저 물어볼까" 안내          | high     |
-| [PM-024](PM-024-diagnose-command.md)                | robota --diagnose 자가 진단 커맨드                           | high     |
-| [PM-025](PM-025-cost-accuracy.md)                   | /cost 정확도 개선 — provider 가격표 내장 + 실시간 계산       | medium   |
+| ID                                              | 제목                                                       | 우선순위 |
+| ----------------------------------------------- | ---------------------------------------------------------- | -------- |
+| [CLI-035](CLI-035-path-traversal-protection.md) | Read/Write/Edit 도구 경로 순회(Path Traversal) 보호 없음   | critical |
+| [CLI-038](CLI-038-stdin-positional-conflict.md) | `cat file \| robota -p "..."` 패턴 동작 안 함 (stdin 무시) | high     |
+| [CLI-040](CLI-040-tui-mode-tests.md)            | TUI 모드 테스트 0개 — 주 사용 경로 미검증                  | high     |
+| [CLI-045](CLI-045-model-flag-docs-mismatch.md)  | README의 `--model` 플래그가 구현에 없음                    | high     |
 
-#### P2 — Growth
+#### P1 — 안정화 필수
 
-| ID                                             | 제목                                                         | 우선순위 |
-| ---------------------------------------------- | ------------------------------------------------------------ | -------- |
-| [CLI-032](CLI-032-git-first-class-commands.md) | Git 통합 first-class 슬래시 커맨드 — /commit, /status, /diff | medium   |
-| [CLI-033](CLI-033-headless-e2e-tests.md)       | Headless E2E 통합 테스트 수트 확장                           | medium   |
-| [PM-026](PM-026-github-action-official.md)     | 공식 GitHub Action — robota-sdk/action@v1                    | medium   |
-| [PM-027](PM-027-korean-marketing-content.md)   | 한국어 마케팅 콘텐츠 — GeekNews, okky, velog 타겟            | medium   |
-| [PM-028](PM-028-beta-invite-program.md)        | 외부 베타 초대 프로그램 — early adopter 확보                 | medium   |
+| ID                                                | 제목                                                           | 우선순위 |
+| ------------------------------------------------- | -------------------------------------------------------------- | -------- |
+| [CLI-036](CLI-036-bash-timeout-cap.md)            | Bash 타임아웃 캡 미적용 (Math.min 누락)                        | medium   |
+| [CLI-037](CLI-037-api-key-flag-security.md)       | `--api-key` 플래그 셸 히스토리 평문 노출 경고 없음             | medium   |
+| [CLI-039](CLI-039-init-json-parse-guard.md)       | `init-command.ts` Claude Code 설정 파일 JSON 파싱 예외 미처리  | medium   |
+| [CLI-041](CLI-041-missing-test-coverage.md)       | diagnose / init / web-fetch / web-search 테스트 없음           | medium   |
+| [PM-031](PM-031-readme-demo-gif.md)               | README 데모 GIF/스크린샷 없음                                  | high     |
+| [PM-032](PM-032-env-var-bypass-setup.md)          | ENV 변수(ANTHROPIC_API_KEY)로 settings.json 없이 즉시 실행     | high     |
+| [PM-033](PM-033-init-inline-provider-setup.md)    | `robota init` 완료 후 프로바이더 설정 인라인 연결              | medium   |
+| [PM-035](PM-035-diagnose-improvements.md)         | diagnose 3가지 약점 (DASHSCOPE 누락, 네트워크 체크, JSON 검증) | medium   |
+| [PM-036](PM-036-readme-slash-commands-sync.md)    | README 슬래시 커맨드 목록 — 10개 미문서화                      | medium   |
+| [PM-037](PM-037-readme-why-robota-sdk-example.md) | README "왜 Robota인가?" + SDK 임베딩 예제 없음                 | high     |
 
-#### P3 — Ecosystem
+#### P2 — 완성도 향상
+
+| ID                                             | 제목                                                     | 우선순위 |
+| ---------------------------------------------- | -------------------------------------------------------- | -------- |
+| [CLI-032](CLI-032-git-first-class-commands.md) | Git 통합 — /commit, /status, /diff                       | medium   |
+| [CLI-042](CLI-042-grep-tool-parallel.md)       | grep-tool 순차 파일 읽기 → 병렬화                        | low      |
+| [CLI-043](CLI-043-glob-stat-n-plus-one.md)     | glob-tool mtime 조회 N+1 I/O 폭발                        | low      |
+| [CLI-044](CLI-044-process-exit-cleanup.md)     | cli.ts TUI 종료 후 process.exit 비동기 리소스 미정리     | low      |
+| [CLI-046](CLI-046-denied-tools-flag.md)        | `--denied-tools` 플래그 — 특정 도구 블랙리스트           | low      |
+| [CLI-047](CLI-047-structured-exit-codes.md)    | print 모드 구조화 exit code (API 에러 vs 도구 실패 구분) | low      |
+| [CLI-048](CLI-048-websearch-fallback.md)       | WebSearch BRAVE_API_KEY 없을 때 폴백 및 문서화           | low      |
+| [PM-034](PM-034-help-command-examples.md)      | /help 커맨드에 각 커맨드 사용 예시 추가                  | low      |
+
+#### P3 — 장기 과제
 
 | ID                                                | 제목                                              | 우선순위 |
 | ------------------------------------------------- | ------------------------------------------------- | -------- |
 | [CLI-034](CLI-034-plugin-publish-one-official.md) | 공식 플러그인 1개 npm 게시 — ecosystem kickstart  | low      |
+| [PM-026](PM-026-github-action-official.md)        | 공식 GitHub Action — robota-sdk/action@v1         | medium   |
+| [PM-027](PM-027-korean-marketing-content.md)      | 한국어 마케팅 콘텐츠 — GeekNews, okky, velog 타겟 | medium   |
+| [PM-028](PM-028-beta-invite-program.md)           | 외부 베타 초대 프로그램 — early adopter 확보      | medium   |
 | [PM-029](PM-029-sdk-starter-kit.md)               | SDK Starter Kit — Next.js + Express 템플릿 저장소 | low      |
 | [PM-030](PM-030-opt-in-telemetry.md)              | opt-in 익명 텔레메트리 — 실제 사용 패턴 수집      | low      |
