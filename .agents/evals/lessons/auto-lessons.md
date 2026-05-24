@@ -7,50 +7,50 @@ Do not promote entries to `.agents/rules/common-mistakes.md` without human revie
 
 ## fix-or-revert-commit
 
-- Frequency: 30 events in the last 7 days
+- Frequency: 21 events in the last 7 days
 - Sources: reverts
 - Example paths: (none)
-- First seen: 2026-05-17T11:50:24.000Z
+- First seen: 2026-05-18T12:58:56.000Z
 - Last seen: 2026-05-18T14:43:45.000Z
 - Status: candidate; human review is required before promotion.
 <!-- auto-lesson:user-correction -->
 
 ## user-correction
 
-- Frequency: 32 events in the last 7 days
+- Frequency: 23 events in the last 7 days
 - Sources: corrections
 - Example paths: (none)
-- First seen: 2026-05-17T02:42:17.000Z
+- First seen: 2026-05-18T10:17:49.000Z
 - Last seen: 2026-05-23T10:20:40.000Z
 - Status: candidate; human review is required before promotion.
 <!-- auto-lesson:same-file-edited-3-times -->
 
 ## same-file-edited-3-times
 
-- Frequency: 92816 events in the last 7 days
+- Frequency: 67048 events in the last 7 days
 - Sources: reverts
 - Example paths: `/Users/jungyoun/.claude/projects/-Users-jungyoun-Documents-dev-robota/memory/MEMORY.md`, `/Users/jungyoun/.claude/projects/-Users-jungyoun-Documents-dev-robota/memory/feedback_otp_immediate.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-002-p10-cli-ts-extract-startup-modules.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-002-p22-subagent-worker-to-framework.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-002-p23-plugin-adapter-to-framework.md`
-- First seen: 2026-05-17T02:42:57.000Z
-- Last seen: 2026-05-23T14:16:03.000Z
+- First seen: 2026-05-18T00:52:52.000Z
+- Last seen: 2026-05-24T08:16:32.000Z
 - Status: candidate; human review is required before promotion.
 <!-- auto-lesson:repeated-tool-errors -->
 
 ## repeated-tool-errors
 
-- Frequency: 226 events in the last 7 days
+- Frequency: 145 events in the last 7 days
 - Sources: reverts
 - Example paths: (none)
-- First seen: 2026-05-17T02:42:57.000Z
-- Last seen: 2026-05-23T14:16:03.000Z
+- First seen: 2026-05-18T00:52:52.000Z
+- Last seen: 2026-05-24T08:16:32.000Z
 - Status: candidate; human review is required before promotion.
 <!-- auto-lesson:try-catch-fallback -->
 
 ## try-catch-fallback
 
-- Frequency: 49 events in the last 7 days
+- Frequency: 24 events in the last 7 days
 - Sources: blocks
-- Example paths: `packages/agent-cli/src/cli.ts`, `packages/agent-cli/src/init/init-command.ts`, `packages/agent-cli/src/startup/append-system-prompt.ts`, `packages/agent-cli/src/startup/version.ts`, `packages/agent-command/src/plugins/default-plugin-command-adapter.ts`
-- First seen: 2026-05-17T03:39:52.000Z
+- Example paths: `packages/agent-cli/src/init/init-command.ts`, `packages/agent-command/src/session/session-command.ts`, `packages/agent-framework/src/command-api/org-policy/org-policy-loader.ts`, `packages/agent-framework/src/interactive/interactive-session-execution-controller.ts`, `packages/agent-playground/src/components/playground/code-export/code-export-panel.tsx`
+- First seen: 2026-05-18T14:32:10.000Z
 - Last seen: 2026-05-23T14:01:11.000Z
 - Status: candidate; human review is required before promotion.
 <!-- auto-lesson:console-usage -->

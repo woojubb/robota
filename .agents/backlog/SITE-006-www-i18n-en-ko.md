@@ -1,6 +1,6 @@
 ---
 title: 'SITE-006: www 사이트 i18n — en/ko 이중 언어 지원 (next-intl)'
-status: todo
+status: done
 created: 2026-05-24
 priority: medium
 urgency: soon
