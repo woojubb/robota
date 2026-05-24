@@ -5,8 +5,6 @@ import { printHelp } from '../utils/cli-args.js';
 import { runInitCommand } from '../init/init-command.js';
 import { runResetConfig } from './reset-config.js';
 import { runDiagnoseCommand } from './diagnose-command.js';
-import { setTelemetryEnabled } from './telemetry.js';
-
 export type TPreflightResult = { handled: true } | { handled: false };
 
 export interface IPreflightContext {
@@ -21,20 +19,6 @@ export async function handlePreflightCommands(
   args: IParsedCliArgs,
   ctx: IPreflightContext,
 ): Promise<TPreflightResult> {
-  // robota config set <key> <value>
-  if (args.positional[0] === 'config' && args.positional[1] === 'set') {
-    const key = args.positional[2];
-    const value = args.positional[3];
-    if (key === 'telemetry') {
-      const enabled = value === 'true' || value === '1' || value === 'yes';
-      setTelemetryEnabled(enabled);
-      ctx.terminal.writeLine(`Telemetry ${enabled ? 'enabled' : 'disabled'}.`);
-      return { handled: true };
-    }
-    ctx.terminal.writeError(`Unknown config key: "${key}". Supported keys: telemetry`);
-    process.exit(1);
-  }
-
   if (args.positional[0] === 'init') {
     await runInitCommand(ctx.cwd, ctx.terminal, {
       yes: args.yes,

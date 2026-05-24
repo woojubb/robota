@@ -3,6 +3,45 @@
 Mandatory rules for executing backlog-driven work through recommendation gates and focused PRs.
 Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 
+## Agent Decision Authority
+
+When a decision must be made during backlog work, the agent must first determine whether it falls
+within agent authority or requires user judgment.
+
+**Agent authority — decide and proceed:**
+
+The agent must form a recommendation with explicit reasoning and may act on it without asking the
+user when ALL of the following hold:
+
+- The decision follows clearly from existing project rules, architecture constraints, or repository
+  conventions.
+- A knowledgeable senior engineer reviewing the reasoning would reach the same conclusion.
+- The decision does not change public API contracts, package ownership, dependency direction, or
+  module boundaries in a way that requires cross-team coordination.
+- The decision is reversible or has a low blast radius (e.g., internal cleanup, dead code removal,
+  path constant extraction, naming fix).
+
+When acting on agent authority, the agent must document the reasoning inline — in the backlog item,
+PR description, or commit message — so the user can review and override if needed.
+
+**User judgment required — stop and ask:**
+
+The agent must stop and present options to the user when ANY of the following hold:
+
+- The decision involves product direction, feature scope, or user-facing behavior that is not
+  dictated by existing rules (e.g., "should this feature exist at all?").
+- Multiple architecturally valid approaches exist and the choice has long-term structural impact.
+- The decision changes a published or externally visible contract.
+- The decision requires business, legal, or strategic judgment (e.g., telemetry opt-in consent,
+  third-party service selection).
+
+**Never write "사용자 결정 필요" without first presenting a concrete recommendation.** Every
+open decision in a backlog item must include the agent's recommendation and the reasoning behind it.
+If the recommendation is sound, the agent may proceed. If genuinely uncertain, the agent presents
+two to three options with trade-offs and asks the user to choose.
+
+---
+
 ## Recommendation Gate
 
 Before starting each backlog or meaningful work unit inside a backlog, present a recommendation with
@@ -17,7 +56,8 @@ The recommendation must include:
 - the expected test and verification plan;
 - the expected user execution test scenario plan when the backlog changes runnable user-facing
   behavior, or the not-applicable reason when it does not;
-- any decisions that require the user instead of agent autonomy.
+- open decisions within agent authority (with the agent's recommendation and reasoning) or, if
+  genuinely outside agent authority, a clearly stated question with two to three concrete options.
 
 If the recommendation is coherent with repository rules, layering, architecture, and the backlog
 intent, the agent may proceed with that recommendation. If the recommendation is weak, conflicts

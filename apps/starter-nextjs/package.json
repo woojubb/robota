@@ -1,5 +1,5 @@
 {
-  "name": "robota-starter-nextjs",
+  "name": "@robota-sdk/starter-nextjs",
   "version": "0.0.1",
   "private": true,
   "description": "Robota SDK — Next.js AI Chat starter template",
@@ -11,8 +11,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@robota-sdk/agent-framework": "3.0.0-beta.67",
-    "@robota-sdk/agent-provider": "3.0.0-beta.67",
+    "@robota-sdk/agent-framework": "workspace:*",
+    "@robota-sdk/agent-provider": "workspace:*",
     "next": "15.4.1",
     "react": "19.1.0",
     "react-dom": "19.1.0"

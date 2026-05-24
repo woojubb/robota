@@ -1,74 +1,91 @@
 ---
 name: spec-first-development
-description: Use before implementing any change that touches a contract boundary (package imports, class dependencies, service connections, cross-package types). Ensures the governing spec is updated before code is written and a verification test plan exists.
+description: Use before implementing any change that adds, removes, or modifies package behavior, public API, types, or contracts. Ensures the governing spec is updated before code is written and a verification test plan exists.
 ---
 
 ## Rule Anchor
 
-- "Spec-First Development" in `.agents/rules/process.md`
+- "Live Spec Policy" in `.agents/rules/spec-workflow.md`
+- "Spec-First Development" in `.agents/rules/spec-workflow.md`
 
 ## When to Use
 
-Trigger this skill when a change affects any of these:
-- Package public API surface (exports, types, interfaces)
-- HTTP/WebSocket API endpoints (request/response shapes)
-- Class-to-class dependencies across module boundaries
-- Cross-package type definitions or contracts
+Trigger this skill for **any** of the following — not only contract-boundary changes:
+
+- Adding a new feature or behavior to a package
+- Changing existing behavior, semantics, or configuration
+- Adding or removing a public export (class, function, type, constant)
+- Adding or changing an error type, code, or recoverability
+- Adding or changing a lifecycle event or state transition
+- Adding or changing an HTTP/WebSocket endpoint (request/response shapes)
+- Adding or changing a class-to-class dependency across module boundaries
+- Removing a feature or deprecating an export
+
+If the change only touches internal implementation details with no observable behavioral difference
+and no public API change, the spec update is not required — but if in doubt, update the spec.
 
 ## Workflow
 
-### Step 1: Identify contract boundaries
+### Step 1: Identify the affected package and spec
 
-List all package/service/class connections affected by the change.
-For each boundary, answer:
-- What is the current spec? (SPEC.md, OpenAPI, contract definition, or none)
-- What part of the spec changes?
+Name the package that owns the changed behavior. Locate its governing spec:
 
-### Step 2: Check existing specs
+- Package behavior / public surface → `packages/<name>/docs/SPEC.md`
+- HTTP API → OpenAPI or API spec document
+- Cross-package contract → `.agents/specs/` cross-cutting spec
 
-For each identified boundary:
-- Package surface → check `packages/<name>/docs/SPEC.md`
-- HTTP API → check OpenAPI or API spec document
-- Class contract → check contract definition in owning package
+If no spec exists for the package, create one using
+[`spec-writing-standard`](../spec-writing-standard/SKILL.md) Mode A (Initial Creation) before
+continuing.
 
-If no spec exists, one must be created before proceeding.
+### Step 2: Determine which SPEC sections change
 
-### Step 3: Update or create spec
+Use the lookup table in [`spec-writing-standard`](../spec-writing-standard/SKILL.md) Mode B
+(Incremental Update, Step 1) to list the sections that must be updated. Write the list down before
+touching any code.
 
-- **Package SPEC.md** → use [`spec-writing-standard`](../spec-writing-standard/SKILL.md)
-- **API specification** → use [`api-spec-management`](../api-spec-management/SKILL.md)
-- **Class contract** → document in the owning package's `docs/SPEC.md` or dedicated contract file
+### Step 3: Update the spec incrementally
 
-The spec change must be reviewed and approved before implementation begins.
+Apply the targeted spec update using
+[`spec-writing-standard`](../spec-writing-standard/SKILL.md) Mode B (Incremental Update). Only
+the sections identified in Step 2 are changed.
 
-### Step 4: Define verification test plan
+For API specs, use [`api-spec-management`](../api-spec-management/SKILL.md).
 
-For each spec change, define:
-- **What to test:** which contract assertions validate the change
-- **How to test:** unit / integration / contract test
-- **Commands to run:** exact verification commands
+The spec update must be committed **before** or **in the same commit as** the implementation code.
+It must never be deferred to after the PR.
+
+### Step 4: Define a verification test plan
+
+For each spec section updated, state:
+
+- **What to verify**: which contract assertions validate the change
+- **How to verify**: unit / integration / contract test
+- **Commands to run**: exact verification commands
 
 Use [`contract-audit`](../contract-audit/SKILL.md) for contract consistency checks.
 
 ### Step 5: Implement to spec
 
-- Write code that conforms to the updated spec
+- Write code that conforms to the updated spec — the spec is now the design artifact
 - Follow TDD cycle (see [`tdd-red-green-refactor`](../tdd-red-green-refactor/SKILL.md))
 - Build and verify (see [`repo-change-loop`](../repo-change-loop/SKILL.md))
 
 ### Step 6: Verify conformance
 
-- After implementation, run the full conformance verification loop
-- See [`spec-code-conformance`](../spec-code-conformance/SKILL.md)
-- This step is mandatory — implementation is not complete until conformance is verified with zero gaps and regression tests pass
+Run the full conformance verification loop after implementation:
+
+- See [`spec-code-conformance`](../skills/spec-code-conformance/SKILL.md)
+- Implementation is not complete until conformance is verified with zero gaps and regression tests
+  pass
 
 ## Orchestrated Skills
 
-| Skill | Role in this workflow |
-|-------|----------------------|
-| `spec-writing-standard` | SPEC.md structure and quality gates |
-| `api-spec-management` | API spec format and update workflow |
-| `contract-audit` | Contract consistency verification |
-| `tdd-red-green-refactor` | Implementation cycle |
-| `repo-change-loop` | Build and verify loop |
-| `spec-code-conformance` | Post-implementation conformance verification loop |
+| Skill                    | Role in this workflow                        |
+| ------------------------ | -------------------------------------------- |
+| `spec-writing-standard`  | SPEC.md incremental update and quality gates |
+| `api-spec-management`    | API spec format and update workflow          |
+| `contract-audit`         | Contract consistency verification            |
+| `tdd-red-green-refactor` | Implementation cycle                         |
+| `repo-change-loop`       | Build and verify loop                        |
+| `spec-code-conformance`  | Post-implementation conformance verification |
