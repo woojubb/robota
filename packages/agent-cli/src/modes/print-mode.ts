@@ -8,14 +8,22 @@ import type { ISessionRunOptions } from '../startup/args-to-options.js';
 import type { IAgentRuntime } from '@robota-sdk/agent-framework';
 
 async function resolvePrompt(opts: ISessionRunOptions): Promise<string> {
-  let prompt = opts.positional.join(' ').trim();
+  const positional = opts.positional.join(' ').trim();
 
-  if (!prompt && !process.stdin.isTTY) {
+  let stdinContent = '';
+  if (!process.stdin.isTTY) {
     const chunks: Buffer[] = [];
     for await (const chunk of process.stdin) {
       chunks.push(chunk as Buffer);
     }
-    prompt = Buffer.concat(chunks).toString('utf-8').trim();
+    stdinContent = Buffer.concat(chunks).toString('utf-8').trim();
+  }
+
+  let prompt: string;
+  if (positional && stdinContent) {
+    prompt = `${positional}\n\n<stdin>\n${stdinContent}\n</stdin>`;
+  } else {
+    prompt = positional || stdinContent;
   }
 
   if (!prompt) {

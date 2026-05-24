@@ -48,7 +48,12 @@ function readClaudeSettings(claudeDir: string): Record<string, unknown> {
   const settingsPath = join(claudeDir, 'settings.json');
   if (!existsSync(settingsPath)) return {};
   const raw = readFileSync(settingsPath, 'utf8');
-  return JSON.parse(raw) as Record<string, unknown>;
+  try {
+    return JSON.parse(raw) as Record<string, unknown>;
+  } catch {
+    // allow-fallback: malformed settings.json is non-fatal — init proceeds with defaults
+    return {};
+  }
 }
 
 async function askYesNo(question: string): Promise<boolean> {
