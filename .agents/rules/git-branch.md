@@ -24,6 +24,27 @@ caused: (1) edits leaking from the worktree onto `develop`'s working tree, break
 workaround every session; (4) locked worktrees left behind after Claude Code agent sessions.
 The isolation they provide is not worth these failure modes.
 
+### Clean Working Tree Before Every Commit and Push
+
+**Before creating a commit, verify the working tree is fully accounted for:**
+
+```bash
+git status --short
+```
+
+- Every modified file must be either staged for the commit or explicitly discarded.
+- Every new file must be either staged, added to `.gitignore`, or explicitly discarded.
+- A commit that leaves behind modified or untracked files that belong to the same change is
+  incomplete. Do not create the commit until all related files are staged.
+
+**Before pushing, the working tree must be clean** (no modified, staged, or untracked files that
+belong to the branch). `scripts/harness/pre-push.mjs` calls `assertCleanWorkingTree()` — any push
+with uncommitted modifications or staged changes is blocked with exit code 1.
+
+**Why:** Selective commits that leave related files behind create invisible half-states: the code is
+pushed but dependent files (SPEC.md, README, tests, backlog) are not, causing future sessions to
+start from an inconsistent baseline.
+
 ### Git Operations
 
 - No `git commit` or `git push` without explicit user approval.
