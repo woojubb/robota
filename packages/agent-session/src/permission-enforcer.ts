@@ -219,7 +219,17 @@ export class PermissionEnforcer {
       return result;
     }
     if (this.promptForApprovalFn) {
-      return this.promptForApprovalFn(this.terminal, toolName, toolArgs);
+      const result = await this.promptForApprovalFn(this.terminal, toolName, toolArgs);
+      if (result === 'allow-session') {
+        this.sessionAllowedTools.add(toolName);
+        return true;
+      }
+      if (result === 'allow-project') {
+        this.sessionAllowedTools.add(toolName);
+        this.onProjectAllowTool?.(toolName);
+        return true;
+      }
+      return result;
     }
     // No approval mechanism available — deny by default
     return false;

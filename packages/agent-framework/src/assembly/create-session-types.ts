@@ -25,6 +25,7 @@ import type {
   ITerminalOutput,
   ICompactEvent,
   TPermissionHandler,
+  TPermissionResult,
   ISessionLogger,
 } from '@robota-sdk/agent-session';
 import type { ISandboxClient } from '@robota-sdk/agent-tools';
@@ -68,7 +69,7 @@ export interface ICreateSessionOptions {
     terminal: ITerminalOutput,
     toolName: string,
     toolArgs: TToolArgs,
-  ) => Promise<boolean>;
+  ) => Promise<TPermissionResult>;
   /** Additional tools to register beyond the defaults (e.g. agent-tool) */
   additionalTools?: IToolWithEventService[];
   /** Additional background task runners composed by the runtime shell. */

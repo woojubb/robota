@@ -76,7 +76,7 @@ export interface ISessionOptions {
     terminal: ITerminalOutput,
     toolName: string,
     toolArgs: TToolArgs,
-  ) => Promise<boolean>;
+  ) => Promise<TPermissionResult>;
   /** Callback when a tool starts or finishes execution — enables real-time tool display in UI */
   onToolExecution?: (event: {
     type: 'start' | 'end';
