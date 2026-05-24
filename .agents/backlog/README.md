@@ -472,3 +472,44 @@ Epic: [PLG-008](PLG-008-visual-agent-builder-playground.md)
 | [PLG-012](PLG-012-code-generator-engine.md)         | Code Generator 엔진 — 캔버스 상태 → TypeScript 코드          | high     |
 | [PLG-013](PLG-013-code-export-ui.md)                | Code Export UI — 미리보기 + syntax highlight + Copy 버튼     | high     |
 | [PLG-014](PLG-014-skills-support.md)                | Skills Support — Skills 패널 + skill 노드 + Code Export 반영 | medium   |
+
+### agent-cli Validation — 시니어 Dev + PM 검증 보고서 (2026-05-24)
+
+시니어 개발자 에이전트 + PM 에이전트 병렬 검증 + 종합 보고서에서 도출된 개선 항목.  
+보고서: [.design/validation/synthesis-report.md](../../.design/validation/synthesis-report.md)
+
+#### P0 — Blockers
+
+| ID                                                      | 제목                                                          | 우선순위 |
+| ------------------------------------------------------- | ------------------------------------------------------------- | -------- |
+| [CLI-027](CLI-027-system-prompt-flag-implementation.md) | --system-prompt / --append-system-prompt 플래그 실제 구현     | high     |
+| [CLI-028](CLI-028-nodejs-version-gate.md)               | Node.js 버전 체크 강화 — 명확한 오류 메시지 + 업그레이드 안내 | high     |
+| [CLI-029](CLI-029-macos-cjk-crash-recheck.md)           | macOS Terminal.app CJK 입력 크래시 — 근본 해결 여부 재검증    | high     |
+
+#### P1 — Core Experience
+
+| ID                                                  | 제목                                                         | 우선순위 |
+| --------------------------------------------------- | ------------------------------------------------------------ | -------- |
+| [CLI-030](CLI-030-bash-session-allow.md)            | Bash 권한 피로 해소 — 세션-레벨 "이 세션에서 항상 허용" 옵션 | high     |
+| [CLI-031](CLI-031-tool-output-truncation-notice.md) | 도구 출력 30,000자 truncation — 사용자 알림 및 UX 개선       | medium   |
+| [PM-023](PM-023-first-run-onboarding-guide.md)      | 첫 실행 온보딩 가이드 — "무엇을 먼저 물어볼까" 안내          | high     |
+| [PM-024](PM-024-diagnose-command.md)                | robota --diagnose 자가 진단 커맨드                           | high     |
+| [PM-025](PM-025-cost-accuracy.md)                   | /cost 정확도 개선 — provider 가격표 내장 + 실시간 계산       | medium   |
+
+#### P2 — Growth
+
+| ID                                             | 제목                                                         | 우선순위 |
+| ---------------------------------------------- | ------------------------------------------------------------ | -------- |
+| [CLI-032](CLI-032-git-first-class-commands.md) | Git 통합 first-class 슬래시 커맨드 — /commit, /status, /diff | medium   |
+| [CLI-033](CLI-033-headless-e2e-tests.md)       | Headless E2E 통합 테스트 수트 확장                           | medium   |
+| [PM-026](PM-026-github-action-official.md)     | 공식 GitHub Action — robota-sdk/action@v1                    | medium   |
+| [PM-027](PM-027-korean-marketing-content.md)   | 한국어 마케팅 콘텐츠 — GeekNews, okky, velog 타겟            | medium   |
+| [PM-028](PM-028-beta-invite-program.md)        | 외부 베타 초대 프로그램 — early adopter 확보                 | medium   |
+
+#### P3 — Ecosystem
+
+| ID                                                | 제목                                              | 우선순위 |
+| ------------------------------------------------- | ------------------------------------------------- | -------- |
+| [CLI-034](CLI-034-plugin-publish-one-official.md) | 공식 플러그인 1개 npm 게시 — ecosystem kickstart  | low      |
+| [PM-029](PM-029-sdk-starter-kit.md)               | SDK Starter Kit — Next.js + Express 템플릿 저장소 | low      |
+| [PM-030](PM-030-opt-in-telemetry.md)              | opt-in 익명 텔레메트리 — 실제 사용 패턴 수집      | low      |
