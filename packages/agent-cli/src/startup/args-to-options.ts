@@ -28,6 +28,8 @@ export interface ISessionRunOptions {
   outputFormat?: TOutputFormat;
   bare: boolean;
   allowedTools?: string;
+  deniedTools?: string;
+  model?: string;
   systemPrompt?: string;
   appendSystemPrompt?: string;
   taskFile?: string;
@@ -77,6 +79,8 @@ export function toSessionRunOptions(args: IParsedCliArgs): ISessionRunOptions {
     outputFormat: args.outputFormat,
     bare: args.bare,
     allowedTools: args.allowedTools,
+    deniedTools: args.deniedTools,
+    model: args.model,
     systemPrompt: args.systemPrompt,
     appendSystemPrompt: args.appendSystemPrompt,
     taskFile: args.taskFile,

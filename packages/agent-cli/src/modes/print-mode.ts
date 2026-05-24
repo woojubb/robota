@@ -67,6 +67,13 @@ export async function runPrintMode(
           .map((t) => t.trim())
           .filter((t) => t.length > 0)
       : undefined,
+    deniedTools: opts.deniedTools
+      ? opts.deniedTools
+          .split(',')
+          .map((t) => t.trim())
+          .filter((t) => t.length > 0)
+      : undefined,
+    model: opts.model,
     appendSystemPrompt,
     systemPrompt: opts.systemPrompt,
     shellExec,
@@ -78,7 +85,16 @@ export async function runPrintMode(
     prompt,
   });
   session.attachTransport(transport);
-  await transport.start();
+  try {
+    await transport.start();
+  } catch (err) {
+    // allow-fallback: transport failure is terminal — exits with structured code, not a silent fallback
+    const msg = err instanceof Error ? err.message.toLowerCase() : String(err).toLowerCase();
+    const isConfigError =
+      msg.includes('api key') || msg.includes('no provider') || msg.includes('provider');
+    process.stderr.write(`${err instanceof Error ? err.message : String(err)}\n`);
+    process.exit(isConfigError ? 3 : 1);
+  }
   await session.shutdown({ reason: 'prompt_input_exit', message: 'Headless transport complete' });
   process.exit(transport.getExitCode());
 }

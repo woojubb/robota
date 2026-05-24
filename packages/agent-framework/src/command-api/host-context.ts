@@ -31,6 +31,8 @@ export interface ICommandListEntry {
   /** User-friendly display label. Falls back to `name` if not set. */
   displayName?: string;
   description: string;
+  /** Optional usage example shown in /help output (e.g., "/compact Summarize the context"). */
+  example?: string;
 }
 
 export interface ICommandSkillListEntry {

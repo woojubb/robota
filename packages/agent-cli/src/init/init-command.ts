@@ -44,15 +44,15 @@ const SETTINGS_TEMPLATE = {
   },
 };
 
-function readClaudeSettings(claudeDir: string): Record<string, unknown> {
+function readClaudeSettings(claudeDir: string): Record<string, unknown> | null {
   const settingsPath = join(claudeDir, 'settings.json');
   if (!existsSync(settingsPath)) return {};
   const raw = readFileSync(settingsPath, 'utf8');
   try {
     return JSON.parse(raw) as Record<string, unknown>;
   } catch {
-    // allow-fallback: malformed settings.json is non-fatal — init proceeds with defaults
-    return {};
+    // allow-fallback: malformed settings.json is non-fatal — null signals caller to show warning and skip migration
+    return null;
   }
 }
 
@@ -61,7 +61,18 @@ async function askYesNo(question: string): Promise<boolean> {
   return answer.toLowerCase() === 'y' || answer.toLowerCase() === 'yes';
 }
 
-export async function runInitCommand(cwd: string, terminal: ITerminalOutput): Promise<void> {
+export interface IInitCommandOptions {
+  /** Skip all Y/n prompts and use defaults (non-interactive mode). */
+  yes?: boolean;
+  /** Called after init completes when the user accepts the provider setup prompt. */
+  onProviderSetup?: () => Promise<void>;
+}
+
+export async function runInitCommand(
+  cwd: string,
+  terminal: ITerminalOutput,
+  options: IInitCommandOptions = {},
+): Promise<void> {
   terminal.writeLine('');
   terminal.writeLine('Robota project initialization');
   terminal.writeLine('─'.repeat(40));
@@ -93,20 +104,27 @@ export async function runInitCommand(cwd: string, terminal: ITerminalOutput): Pr
     const migrate = await askYesNo('Migrate Claude Code settings to .robota/?');
     if (migrate) {
       const claudeSettings = readClaudeSettings(claudeDir);
-      const claudePerms = claudeSettings.permissions as
-        | { allow?: string[]; deny?: string[] }
-        | undefined;
-      settingsData = {
-        ...claudeSettings,
-        permissions: {
-          ...(typeof claudeSettings.permissions === 'object' && claudeSettings.permissions !== null
-            ? (claudeSettings.permissions as Record<string, unknown>)
-            : {}),
-          allow: [...SETTINGS_TEMPLATE.permissions.allow, ...(claudePerms?.allow ?? [])],
-          deny: claudePerms?.deny ?? [],
-        },
-      };
-      terminal.writeLine('Settings imported from .claude/settings.json.');
+      if (claudeSettings === null) {
+        terminal.writeLine(
+          'Warning: .claude/settings.json could not be parsed — skipping migration.',
+        );
+      } else {
+        const claudePerms = claudeSettings.permissions as
+          | { allow?: string[]; deny?: string[] }
+          | undefined;
+        settingsData = {
+          ...claudeSettings,
+          permissions: {
+            ...(typeof claudeSettings.permissions === 'object' &&
+            claudeSettings.permissions !== null
+              ? (claudeSettings.permissions as Record<string, unknown>)
+              : {}),
+            allow: [...SETTINGS_TEMPLATE.permissions.allow, ...(claudePerms?.allow ?? [])],
+            deny: claudePerms?.deny ?? [],
+          },
+        };
+        terminal.writeLine('Settings imported from .claude/settings.json.');
+      }
     }
   }
 
@@ -126,4 +144,12 @@ export async function runInitCommand(cwd: string, terminal: ITerminalOutput): Pr
   terminal.writeLine('  2. Run `robota --configure` to set up your AI provider');
   terminal.writeLine('  3. Run `robota` to start the assistant');
   terminal.writeLine('');
+
+  const isCI = process.env['CI'] === 'true';
+  if (!isCI && !options.yes && options.onProviderSetup !== undefined) {
+    const setupNow = await askYesNo('Would you like to set up a provider now?');
+    if (setupNow) {
+      await options.onProviderSetup();
+    }
+  }
 }

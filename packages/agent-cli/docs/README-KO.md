@@ -1,5 +1,54 @@
 **Language:** [English](README.md) | [한국어](README.ko.md)
 
+## 왜 Robota인가?
+
+|                                                    | Robota | Claude Code | Aider | Cline |
+| -------------------------------------------------- | :----: | :---------: | :---: | :---: |
+| 멀티 프로바이더 (Anthropic, OpenAI, Gemini, Qwen…) |   ✅   |     ❌      |  ✅   |  ✅   |
+| 내 앱에 SDK로 임베드 가능                          |   ✅   |     ❌      |  ❌   |  ❌   |
+| 로컬 모델 (LM Studio, Ollama — OpenAI 호환 API)    |   ✅   |     ❌      |  ✅   |  ✅   |
+| 오픈소스 (MIT)                                     |   ✅   |  부분공개   |  ✅   |  ✅   |
+| Claude Code 설정 호환 (CLAUDE.md, 권한 모드)       |   ✅   |      —      |  ❌   |  ❌   |
+| 한국 팀이 개발 · 유지보수                          |   ✅   |     ❌      |  ❌   |  ❌   |
+
+Claude Code의 핵심 워크플로우를 그대로 쓰면서, 멀티 프로바이더 지원과 SDK 임베딩 기능을 더하고 싶다면 Robota가 정답입니다.
+
+---
+
+<!--
+## GeekNews / okky / velog 커뮤니티 포스트 템플릿
+
+제목: [오픈소스] 한국 팀이 만든 AI 코딩 어시스턴트 CLI — Robota (Claude Code 대안, 멀티 프로바이더)
+
+본문:
+
+안녕하세요. 한국 팀에서 만든 오픈소스 AI 코딩 어시스턴트 CLI, **Robota**를 소개합니다.
+
+**Robota란?**
+- Claude Code와 동일한 CLAUDE.md/AGENTS.md 기반 컨텍스트 로딩
+- Claude Code 호환 권한 모드 (plan / default / acceptEdits / bypassPermissions)
+- **멀티 프로바이더**: Anthropic, OpenAI, Gemini, DeepSeek, Qwen, LM Studio 등
+- **SDK 임베딩**: `@robota-sdk/core`를 import해서 내 서비스에 AI 에이전트 내장 가능
+- MIT 라이선스
+
+**Claude Code와 차이점**
+1. Claude Code는 Anthropic 전용 / Robota는 어떤 LLM이든 교체 가능
+2. Claude Code는 CLI 전용 / Robota는 SDK로 자체 앱에 임베딩 가능
+3. LM Studio, Ollama 같은 로컬 모델도 OpenAI 호환 API로 연결 가능
+
+**설치**
+```bash
+npx @robota-sdk/agent-cli   # 바로 실행
+# 또는
+npm install -g @robota-sdk/agent-cli
+```
+
+**GitHub**: https://github.com/woojubb/robota
+**문서**: https://robota.io
+
+피드백과 star 환영합니다!
+-->
+
 # @robota-sdk/agent-cli
 
 Robota SDK 기반의 AI 코딩 어시스턴트 CLI. AGENTS.md/CLAUDE.md를 로드하여 프로젝트 컨텍스트를 파악하고, Claude Code 호환 권한 모드를 갖춘 도구 호출 REPL을 제공합니다.

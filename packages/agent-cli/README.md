@@ -48,6 +48,13 @@ nvm install 22 && nvm use 22
 volta install node@22
 ```
 
+## Demo
+
+<!-- TODO: Add demo GIF here -->
+<!-- Run `pnpm demo:record` to capture a demo recording — see docs/demo-script.md for instructions -->
+
+![Demo](./docs/demo.gif)
+
 ## Installation
 
 ```bash
@@ -70,13 +77,14 @@ robota -p "List all files"    # Print mode (one-shot, exit after response)
 
 ### Environment Variables
 
-| Variable            | Description                    | Provider  |
-| ------------------- | ------------------------------ | --------- |
-| `ANTHROPIC_API_KEY` | Anthropic API key              | Anthropic |
-| `OPENAI_API_KEY`    | OpenAI API key                 | OpenAI    |
-| `GEMINI_API_KEY`    | Google Gemini API key          | Gemini    |
-| `DEEPSEEK_API_KEY`  | DeepSeek API key               | DeepSeek  |
-| `DASHSCOPE_API_KEY` | Alibaba Cloud Model Studio key | Qwen      |
+| Variable            | Description                                              | Provider  |
+| ------------------- | -------------------------------------------------------- | --------- |
+| `ANTHROPIC_API_KEY` | Anthropic API key                                        | Anthropic |
+| `OPENAI_API_KEY`    | OpenAI API key                                           | OpenAI    |
+| `GEMINI_API_KEY`    | Google Gemini API key                                    | Gemini    |
+| `DEEPSEEK_API_KEY`  | DeepSeek API key                                         | DeepSeek  |
+| `DASHSCOPE_API_KEY` | Alibaba Cloud Model Studio key                           | Qwen      |
+| `BRAVE_API_KEY`     | Brave Search API key (optional — enables WebSearch tool) | WebSearch |
 
 Set your key before running:
 
@@ -124,6 +132,9 @@ robota --max-turns <n>              # Limit agentic turns per interaction
 robota --output-format <fmt>        # text | json | stream-json (print mode)
 robota --system-prompt <text>       # Replace system prompt (print mode)
 robota --append-system-prompt <text> # Append to system prompt (print mode)
+robota --model claude-opus-4-7       # Override provider model for this session
+robota --allowed-tools "Bash,Read"  # Whitelist specific tools
+robota --denied-tools "Bash,Write"  # Blacklist specific tools (denied > allowed)
 robota --reset                      # Delete user settings and exit
 robota --check-update               # Check npm for a newer CLI version and exit
 robota --disable-update-check        # Skip interactive startup update check for this run
@@ -155,6 +166,17 @@ Print mode (`-p`) supports three output formats via `--output-format`:
 | `text`        | Plain text response to stdout (default)                            |
 | `json`        | Single JSON object: `{ type, result, session_id, subtype }`        |
 | `stream-json` | Newline-delimited JSON with `content_block_delta` streaming events |
+
+### Exit Codes (print mode)
+
+| Code | Meaning                                        |
+| ---- | ---------------------------------------------- |
+| 0    | Success                                        |
+| 1    | General error                                  |
+| 2    | Argument error                                 |
+| 3    | Configuration error (missing provider/API key) |
+| 4    | API error                                      |
+| 5    | Tool execution error                           |
 
 ### Stdin Pipe
 
@@ -191,16 +213,18 @@ Non-interactive/headless mode never prompts. Configure a provider ahead of time 
 
 The AI agent can invoke 8 local tools:
 
-| Tool        | Description                          | Primary Argument |
-| ----------- | ------------------------------------ | ---------------- |
-| `Bash`      | Execute shell commands               | `command`        |
-| `Read`      | Read file contents with line numbers | `filePath`       |
-| `Write`     | Write content to a file              | `filePath`       |
-| `Edit`      | Replace a string in a file           | `filePath`       |
-| `Glob`      | Find files matching a pattern        | `pattern`        |
-| `Grep`      | Search file contents with regex      | `pattern`        |
-| `WebFetch`  | Fetch URL content as text            | `url`            |
-| `WebSearch` | Search the internet                  | `query`          |
+| Tool        | Description                                    | Primary Argument |
+| ----------- | ---------------------------------------------- | ---------------- |
+| `Bash`      | Execute shell commands                         | `command`        |
+| `Read`      | Read file contents with line numbers           | `filePath`       |
+| `Write`     | Write content to a file                        | `filePath`       |
+| `Edit`      | Replace a string in a file                     | `filePath`       |
+| `Glob`      | Find files matching a pattern                  | `pattern`        |
+| `Grep`      | Search file contents with regex                | `pattern`        |
+| `WebFetch`  | Fetch URL content as text                      | `url`            |
+| `WebSearch` | Search the internet (requires `BRAVE_API_KEY`) | `query`          |
+
+> **WebSearch** requires a `BRAVE_API_KEY` environment variable. Without it, the tool returns a setup message instead of results. Get a free key at [brave.com/search/api](https://brave.com/search/api/) (2,000 queries/month free tier).
 
 ## Recent TUI Capabilities
 
