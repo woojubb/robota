@@ -1,7 +1,10 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import { promptInput } from '@robota-sdk/agent-transport/headless';
+import { projectPaths } from '@robota-sdk/agent-framework';
+
+import { AGENT_CLI_BIN } from '../constants.js';
 
 import type { ITerminalOutput } from '@robota-sdk/agent-core';
 
@@ -74,11 +77,11 @@ export async function runInitCommand(
   options: IInitCommandOptions = {},
 ): Promise<void> {
   terminal.writeLine('');
-  terminal.writeLine('Robota project initialization');
+  terminal.writeLine(`${AGENT_CLI_BIN} project initialization`);
   terminal.writeLine('─'.repeat(40));
 
-  const robotaDir = join(cwd, '.robota');
-  const settingsPath = join(robotaDir, 'settings.json');
+  const settingsPath = projectPaths(cwd).settings;
+  const robotaDir = dirname(settingsPath);
   const agentsMdPath = join(cwd, 'AGENTS.md');
   const claudeDir = join(cwd, '.claude');
   const hasClaudeDir = existsSync(claudeDir);
@@ -141,8 +144,8 @@ export async function runInitCommand(
   terminal.writeLine('');
   terminal.writeLine('Next steps:');
   terminal.writeLine('  1. Edit AGENTS.md to describe your project conventions');
-  terminal.writeLine('  2. Run `robota --configure` to set up your AI provider');
-  terminal.writeLine('  3. Run `robota` to start the assistant');
+  terminal.writeLine(`  2. Run \`${AGENT_CLI_BIN} --configure\` to set up your AI provider`);
+  terminal.writeLine(`  3. Run \`${AGENT_CLI_BIN}\` to start the assistant`);
   terminal.writeLine('');
 
   const isCI = process.env['CI'] === 'true';
