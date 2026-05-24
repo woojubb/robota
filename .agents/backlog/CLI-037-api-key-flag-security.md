@@ -1,6 +1,6 @@
 ---
 title: 'CLI-037: --api-key 플래그 셸 히스토리 노출 경고'
-status: todo
+status: done
 created: 2026-05-24
 priority: medium
 category: security

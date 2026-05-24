@@ -1,6 +1,6 @@
 ---
 title: 'CLI-035: Read/Write/Edit 도구 경로 순회(Path Traversal) 보호'
-status: todo
+status: done
 created: 2026-05-24
 priority: critical
 category: security

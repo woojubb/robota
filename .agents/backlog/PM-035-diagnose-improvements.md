@@ -1,6 +1,6 @@
 ---
 title: 'PM-035: diagnose 커맨드 3가지 개선'
-status: todo
+status: done
 created: 2026-05-24
 priority: medium
 category: ux

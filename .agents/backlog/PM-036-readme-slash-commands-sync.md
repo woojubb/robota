@@ -1,6 +1,6 @@
 ---
 title: 'PM-036: README 슬래시 커맨드 목록 실제 구현과 동기화'
-status: todo
+status: done
 created: 2026-05-24
 priority: medium
 category: documentation

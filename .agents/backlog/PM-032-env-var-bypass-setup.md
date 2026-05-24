@@ -1,6 +1,6 @@
 ---
 title: 'PM-032: 환경변수(ANTHROPIC_API_KEY 등) 있을 때 설정 화면 건너뛰기'
-status: todo
+status: done
 created: 2026-05-24
 priority: high
 category: ux

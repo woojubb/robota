@@ -1,6 +1,6 @@
 ---
 title: 'CLI-036: Bash 타임아웃 캡 실제 적용'
-status: todo
+status: done
 created: 2026-05-24
 priority: medium
 category: security

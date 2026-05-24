@@ -1,6 +1,6 @@
 ---
 title: 'CLI-045: README의 --model 플래그 문서와 구현 불일치 해소'
-status: todo
+status: done
 created: 2026-05-24
 priority: high
 category: bug
