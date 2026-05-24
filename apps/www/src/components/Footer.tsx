@@ -1,59 +1,75 @@
+'use client';
+
 import Link from 'next/link';
+import { useLocale, useTranslations } from 'next-intl';
 
 export function Footer() {
+  const t = useTranslations('common');
+  const locale = useLocale();
+
   return (
     <footer className="border-t border-[var(--border)] bg-[var(--background)]">
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-10">
         <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
           <div className="col-span-2 md:col-span-1">
             <p className="text-lg font-bold text-[var(--foreground)]">robota</p>
-            <p className="mt-2 text-sm text-[var(--muted-foreground)]">
-              Open-source AI agent SDK and CLI. MIT licensed.
-            </p>
+            <p className="mt-2 text-sm text-[var(--muted-foreground)]">{t('footer.tagline')}</p>
           </div>
 
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
-              Product
+              {t('footer.product')}
             </p>
             <ul className="mt-3 space-y-2">
-              {[
-                { label: 'Why Robota', href: '/compare' },
-                // { label: 'Cost Calculator', href: '/tools/cost-calculator' }, // 요금 페이지 미준비
-                { label: 'Showcase', href: '/showcase' },
-                { label: 'Roadmap', href: '/roadmap' },
-              ].map(({ label, href }) => (
-                <li key={href}>
-                  <Link
-                    href={href}
-                    className="text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
-                  >
-                    {label}
-                  </Link>
-                </li>
-              ))}
+              <li>
+                <Link
+                  href={`/${locale}/compare`}
+                  className="text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
+                >
+                  {t('footer.links.whyRobota')}
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href={`/${locale}/showcase`}
+                  className="text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
+                >
+                  {t('footer.links.showcase')}
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href={`/${locale}/roadmap`}
+                  className="text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
+                >
+                  {t('footer.links.roadmap')}
+                </Link>
+              </li>
             </ul>
           </div>
 
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
-              Developers
+              {t('footer.developers')}
             </p>
             <ul className="mt-3 space-y-2">
               {[
-                { label: 'Documentation', href: 'https://docs.robota.io' },
-                { label: 'Getting Started', href: 'https://docs.robota.io/getting-started/' },
-                { label: 'GitHub', href: 'https://github.com/woojubb/robota' },
-                { label: 'npm', href: 'https://www.npmjs.com/package/@robota-sdk/agent-framework' },
-              ].map(({ label, href }) => (
-                <li key={href}>
+                { key: 'documentation', href: 'https://docs.robota.io' },
+                { key: 'gettingStarted', href: 'https://docs.robota.io/getting-started/' },
+                { key: 'github', href: 'https://github.com/woojubb/robota' },
+                {
+                  key: 'npm',
+                  href: 'https://www.npmjs.com/package/@robota-sdk/agent-framework',
+                },
+              ].map(({ key, href }) => (
+                <li key={key}>
                   <a
                     href={href}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
                   >
-                    {label}
+                    {t(`footer.links.${key}` as Parameters<typeof t>[0])}
                   </a>
                 </li>
               ))}
@@ -62,35 +78,33 @@ export function Footer() {
 
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
-              Company
+              {t('footer.company')}
             </p>
             <ul className="mt-3 space-y-2">
+              <li>
+                <Link
+                  href={`/${locale}/enterprise`}
+                  className="text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
+                >
+                  {t('footer.links.enterprise')}
+                </Link>
+              </li>
               {[
-                { label: 'Enterprise', href: '/enterprise' },
                 {
-                  label: 'GitHub Discussions',
+                  key: 'githubDiscussions',
                   href: 'https://github.com/woojubb/robota/discussions',
                 },
-                { label: 'Issues', href: 'https://github.com/woojubb/robota/issues' },
-              ].map(({ label, href }) => (
-                <li key={href}>
-                  {href.startsWith('http') ? (
-                    <a
-                      href={href}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
-                    >
-                      {label}
-                    </a>
-                  ) : (
-                    <Link
-                      href={href}
-                      className="text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
-                    >
-                      {label}
-                    </Link>
-                  )}
+                { key: 'issues', href: 'https://github.com/woojubb/robota/issues' },
+              ].map(({ key, href }) => (
+                <li key={key}>
+                  <a
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
+                  >
+                    {t(`footer.links.${key}` as Parameters<typeof t>[0])}
+                  </a>
                 </li>
               ))}
             </ul>
@@ -98,14 +112,14 @@ export function Footer() {
         </div>
 
         <div className="mt-8 border-t border-[var(--border)] pt-6 flex flex-col sm:flex-row justify-between gap-3">
-          <p className="text-xs text-[var(--muted-foreground)]">© 2026 Robota. MIT License.</p>
+          <p className="text-xs text-[var(--muted-foreground)]">{t('footer.copyright')}</p>
           <a
             href="https://play.robota.io"
             target="_blank"
             rel="noopener noreferrer"
             className="text-xs text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
           >
-            Playground ↗
+            {t('footer.links.playground')} ↗
           </a>
         </div>
       </div>
