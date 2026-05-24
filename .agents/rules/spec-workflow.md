@@ -3,6 +3,41 @@
 Rules governing spec-first development, conformance verification, and spec maintenance.
 Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 
+### Live Spec Policy
+
+A `docs/SPEC.md` is a **living document**. It is never "done" — it grows with every change to its
+package. The spec is the canonical description of what the package is _right now_, not what it was
+when it was first written.
+
+**Universal update mandate.** Every PR that introduces any of the following MUST update the
+governing `docs/SPEC.md` in the same PR:
+
+| What changed                                   | SPEC section to update                  |
+| ---------------------------------------------- | --------------------------------------- |
+| New or removed public export                   | Public API Surface                      |
+| New or changed type or interface               | Type Ownership                          |
+| New class or `implements`/`extends` relation   | Class Contract Registry                 |
+| New or changed error type or code              | Error Taxonomy                          |
+| New or changed lifecycle event                 | State Lifecycle / Event Architecture    |
+| New or changed behavior or semantics           | Architecture Overview, relevant section |
+| New extension point (abstract class, callback) | Extension Points                        |
+
+A PR that changes package behavior without updating the SPEC is an **incomplete change** — treated
+the same as a missing test or a build failure.
+
+**Incremental evolution.** Only the sections affected by a change need to be updated. Never
+rewrite the whole document for a localized change. Add, edit, or remove only the rows, paragraphs,
+or tables that describe the changed behavior.
+
+**Spec-first invariant.** Write the new SPEC section(s) before writing implementation code. The
+spec is the design artifact. Implementation fills in what the spec already describes. Back-filling
+the spec after implementation is a process violation — the spec must come first.
+
+**Spec drift is a process violation.** If `docs/SPEC.md` no longer accurately describes the
+current state of its package, every subsequent PR on that package is incomplete. When drift is
+detected, schedule a SPEC catch-up as a dedicated backlog item before continuing normal work. See
+[`spec-code-conformance`](../skills/spec-code-conformance/SKILL.md) for the drift resolution loop.
+
 ### Spec-First Development
 
 - Any change touching a contract boundary (package imports, class dependencies, service connections, cross-package types) MUST update or create the governing spec BEFORE writing implementation code.
