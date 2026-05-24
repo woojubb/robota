@@ -7,6 +7,29 @@
 
 AI coding assistant CLI built on Robota SDK. Loads AGENTS.md/CLAUDE.md for project context and provides a tool-calling REPL with Claude Code-compatible permission modes.
 
+## Why Robota?
+
+|                                                   | Robota | Claude Code | Aider |
+| ------------------------------------------------- | :----: | :---------: | :---: |
+| Multi-provider (Anthropic, OpenAI, Gemini, Qwen…) |   ✅   |     ❌      |  ✅   |
+| Embed SDK in your own app                         |   ✅   |     ❌      |  ❌   |
+| Local models (LM Studio, Ollama via OpenAI API)   |   ✅   |     ❌      |  ✅   |
+| Open source (MIT)                                 |   ✅   |   partial   |  ✅   |
+| Claude Code config compatible (CLAUDE.md, modes)  |   ✅   |      —      |  ❌   |
+
+## Embed in Your App
+
+```typescript
+import { createAgentRuntime } from '@robota-sdk/agent-framework';
+import { createAnthropicProvider } from '@robota-sdk/agent-provider';
+
+const runtime = createAgentRuntime({
+  provider: createAnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY }),
+});
+const session = runtime.createSession({ permissionMode: 'bypassPermissions' });
+const response = await session.submit('Explain this codebase');
+```
+
 ## Prerequisites
 
 Node.js **22 or higher** is required. The TUI renderer ([ink 7.x](https://github.com/vadimdemedes/ink)) requires Node.js 22+.
@@ -95,7 +118,6 @@ robota "prompt"                     # REPL with initial prompt
 robota -p "prompt"                  # Print mode (one-shot, exit after response)
 robota -c                           # Continue last session
 robota -r <session-id>              # Resume session by ID
-robota --model <model>              # Model override (e.g., claude-sonnet-4-6)
 robota --language <lang>            # Response language (ko, en, ja, zh)
 robota --permission-mode <mode>     # plan | default | acceptEdits | bypassPermissions
 robota --max-turns <n>              # Limit agentic turns per interaction
@@ -136,7 +158,7 @@ Print mode (`-p`) supports three output formats via `--output-format`:
 
 ### Stdin Pipe
 
-When `-p` is used without a positional argument and stdin is piped, the CLI reads from stdin:
+When stdin is piped, the CLI reads it automatically. If a positional prompt is also given, the piped content is appended inside `<stdin>` tags:
 
 ```bash
 echo "Explain this error" | robota -p
@@ -298,22 +320,50 @@ When a session has a name, it appears in three places:
 
 ## Slash Commands
 
+Typing `/` in the TUI opens an autocomplete popup. Arrow keys navigate, Tab inserts without executing, Enter executes. Subcommands (e.g., `/provider list`) show a nested submenu.
+
+### Session & Context
+
 | Command                   | Description                                                            |
 | ------------------------- | ---------------------------------------------------------------------- |
-| `/help`                   | Show available commands                                                |
 | `/clear`                  | Clear conversation history                                             |
-| `/language [lang]`        | Set response language (ko, en, ja, zh), saves and restarts             |
 | `/compact [instructions]` | Compress context window                                                |
-| `/cost`                   | Show session info                                                      |
 | `/context`                | Context window details, reference inventory, and auto-compact controls |
-| `/agent`                  | Run and manage background subagent jobs                                |
-| `/permissions [mode]`     | Show permission rules or change permission mode                        |
-| `/plugin [subcommand]`    | Plugin management                                                      |
+| `/cost`                   | Show session token usage and cost                                      |
 | `/resume`                 | List recent sessions and resume one                                    |
 | `/rename <name>`          | Rename the current session                                             |
-| `/exit`                   | Exit CLI                                                               |
+| `/rewind`                 | List, inspect, restore, or rollback edit checkpoints                   |
 
-Typing `/` triggers an autocomplete popup with arrow-key navigation and Esc to dismiss. Tab inserts the highlighted command into the input field without executing — continue typing args or press Enter to execute. Enter selects and executes immediately. Commands with subcommands (e.g., `/permissions`) show a nested submenu. Skill commands discovered from `.agents/skills/` and `.claude/commands/` appear alongside built-in commands.
+### Providers & Settings
+
+| Command                  | Description                                                          |
+| ------------------------ | -------------------------------------------------------------------- | ------- | -------------------------------------------------- |
+| `/provider [subcommand]` | Manage provider profiles: `list`, `switch`, `add`, `test`, `current` |
+| `/mode [mode]`           | Show or switch permission mode                                       |
+| `/permissions [mode]`    | Show permission rules or change permission mode                      |
+| `/settings`              | Open transport settings (enable/disable transports)                  |
+| `/language [lang]`       | Set response language (ko, en, ja, zh), saves and restarts           |
+| `/statusline [on         | off                                                                  | reset]` | Configure status-line fields (model, context, git) |
+
+### Tools & Memory
+
+| Command                | Description                                    |
+| ---------------------- | ---------------------------------------------- |
+| `/memory [subcommand]` | Inspect, add, or review project memory entries |
+| `/background`          | List and control background tasks              |
+| `/agent`               | Run and manage background subagent jobs        |
+| `/skills [name]`       | List registered skills or activate one by name |
+| `/plugin [subcommand]` | Plugin management                              |
+
+### Utility
+
+| Command  | Description                                        |
+| -------- | -------------------------------------------------- |
+| `/help`  | Show available commands                            |
+| `/reset` | Delete user settings and return to first-run state |
+| `/exit`  | Exit CLI                                           |
+
+Skill commands discovered from `.agents/skills/` and `.claude/commands/` appear alongside built-in commands.
 
 ## Plugin Management
 

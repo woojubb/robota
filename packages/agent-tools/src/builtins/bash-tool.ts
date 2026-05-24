@@ -37,7 +37,8 @@ type TBashArgs = z.infer<typeof BashSchema>;
  * Resolves with the TToolResult JSON string.
  */
 async function runBash(args: TBashArgs, options: ISandboxToolOptions = {}): Promise<string> {
-  const { command, timeout = DEFAULT_TIMEOUT_MS, workingDirectory } = args;
+  const { command, timeout: rawTimeout = DEFAULT_TIMEOUT_MS, workingDirectory } = args;
+  const timeout = Math.min(rawTimeout, 600_000);
   if (options.sandboxClient) {
     try {
       const sandboxResult = await options.sandboxClient.run(command, {
