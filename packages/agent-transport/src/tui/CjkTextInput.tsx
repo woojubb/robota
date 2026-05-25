@@ -65,8 +65,6 @@ export default function CjkTextInput({
   const stateRef = useRef<ICjkTextInputFlowState>(createCjkTextInputFlowState(value));
   const [, forceRender] = useState(0);
 
-  // useCursor removed — see comment below about Terminal.app SIGSEGV
-
   // Sync ref when value changes from parent (e.g., setValue(''), tab completion, paste)
   stateRef.current = syncCjkTextInputFlowState(stateRef.current, value, cursorHint);
 
@@ -149,7 +147,7 @@ function applyCjkFlowSafely(
       options.forceRender,
     );
   } catch {
-    // Korean IME in raw mode can produce unexpected byte sequences.
+    // allow-fallback: Korean IME in raw mode can produce unexpected byte sequences
   }
 }
 
