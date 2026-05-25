@@ -106,7 +106,7 @@ export async function POST(request: Request): Promise<Response> {
 
 ### Custom tools with streaming
 
-After CORE-002, `additionalTools` is available on `createSession`:
+`additionalTools` is available on `createSession`:
 
 ```typescript
 const session = runtime.createSession({

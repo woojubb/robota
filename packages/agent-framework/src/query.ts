@@ -30,6 +30,9 @@ export interface ICreateQueryOptions {
   responseFormat?: { type: 'text' | 'json_object' };
 }
 
+/** Type of the function returned by createQuery(). */
+export type TQueryFunction = (prompt: string) => Promise<string>;
+
 /**
  * Create a prompt-only query function bound to a provider.
  *
