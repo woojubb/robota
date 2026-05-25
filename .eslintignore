@@ -35,6 +35,7 @@ apps/docs/
 # Examples
 apps/examples/
 packages/*/examples/
+examples/
 
 # Other
 .next/
