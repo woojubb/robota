@@ -9,8 +9,7 @@
 import { InteractiveSession } from './interactive/interactive-session.js';
 
 import type { IExecutionResult, TInteractivePermissionHandler } from './interactive/types.js';
-import type { IAIProvider } from '@robota-sdk/agent-core';
-import type { TPermissionMode } from '@robota-sdk/agent-core';
+import type { IAIProvider, IToolWithEventService, TPermissionMode } from '@robota-sdk/agent-core';
 
 export interface ICreateQueryOptions {
   /** AI provider instance (required). */
@@ -25,6 +24,8 @@ export interface ICreateQueryOptions {
   permissionHandler?: TInteractivePermissionHandler;
   /** Streaming text callback. */
   onTextDelta?: (delta: string) => void;
+  /** Additional tools registered alongside the default CLI tools. */
+  additionalTools?: IToolWithEventService[];
 }
 
 /**
@@ -45,6 +46,7 @@ export function createQuery(options: ICreateQueryOptions): (prompt: string) => P
     permissionMode: options.permissionMode ?? 'bypassPermissions',
     maxTurns: options.maxTurns,
     permissionHandler: options.permissionHandler,
+    additionalTools: options.additionalTools,
   });
 
   if (options.onTextDelta) {
