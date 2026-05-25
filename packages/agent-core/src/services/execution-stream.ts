@@ -118,6 +118,9 @@ export async function* executeStream(
     const chatOptions: IChatOptions = {
       model: config.defaultModel.model,
       ...(config.tools && config.tools.length > 0 && { tools: tools.getTools() }),
+      ...(config.responseFormat?.type
+        ? { responseFormat: { type: config.responseFormat.type } }
+        : {}),
     };
 
     logger.debug('[EXECUTION-SERVICE] Final chatOptions has tools:', {
