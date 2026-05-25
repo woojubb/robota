@@ -55,13 +55,13 @@ npm install -g @robota-sdk/agent-cli
 ### I want to build a custom AI agent
 
 ```bash
-npm install @robota-sdk/agent-core @robota-sdk/agent-provider/anthropic @anthropic-ai/sdk
+npm install @robota-sdk/agent-core @robota-sdk/agent-provider
 ```
 
 ### I want tool calling (function tools)
 
 ```bash
-npm install @robota-sdk/agent-core @robota-sdk/agent-tools @robota-sdk/agent-provider/anthropic @anthropic-ai/sdk
+npm install @robota-sdk/agent-core @robota-sdk/agent-tools @robota-sdk/agent-provider
 ```
 
 ## Quick Start — CLI (Robota Coding Assistant)
@@ -231,6 +231,9 @@ robota --model claude-opus-4-6
 - [Using the SDK](../guide/sdk.md) — InteractiveSession, transports, sessions, createQuery()
 - [CLI Reference](../guide/cli.md) — Full CLI usage guide
 - [Architecture](../guide/architecture.md) — Package layers and design
+- [Providers Reference](../guide/providers.md) — All providers, config options, and model names
+- [Error Handling](../guide/error-handling.md) — Error types, retry patterns, best practices
+- [Migration Guide](../guide/migration.md) — Upgrading from v2.x to 3.0.0
 
 ## Troubleshooting
 

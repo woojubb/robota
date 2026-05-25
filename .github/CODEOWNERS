@@ -2,15 +2,26 @@
 * @woojubb
 
 # Core SDK packages
-packages/agents/ @woojubb
-packages/core/ @woojubb
+packages/agent-core/ @woojubb
+packages/agent-framework/ @woojubb
+packages/agent-session/ @woojubb
+packages/agent-provider/ @woojubb
+packages/agent-tools/ @woojubb
+packages/agent-cli/ @woojubb
+packages/agent-command/ @woojubb
+packages/agent-transport/ @woojubb
+packages/agent-executor/ @woojubb
+packages/agent-plugin/ @woojubb
+packages/agent-subagent-runner/ @woojubb
 
 # Apps
-apps/web/ @woojubb
-apps/api-server/ @woojubb
+apps/docs/ @woojubb
+apps/www/ @woojubb
+apps/agent-web/ @woojubb
+apps/starter-nextjs/ @woojubb
 
 # Harness and CI
-scripts/harness/ @woojubb
+scripts/ @woojubb
 .github/ @woojubb
 AGENTS.md @woojubb
 .agents/ @woojubb

@@ -21,9 +21,13 @@ const GUIDE_ORDER = [
   'sdk',
   'cli',
   'local-llm',
+  'providers',
+  'embedding',
   'permissions-and-hooks',
   'context-management',
+  'error-handling',
   'plugins',
+  'migration',
 ];
 
 /** Read the title from a markdown file (frontmatter > first H1 > filename). */
