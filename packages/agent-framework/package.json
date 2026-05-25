@@ -55,6 +55,23 @@
     "typescript": "^5.3.3",
     "vitest": "^1.6.1"
   },
+  "keywords": [
+    "ai",
+    "agent",
+    "sdk",
+    "llm",
+    "anthropic",
+    "openai",
+    "gemini",
+    "typescript",
+    "agent-framework",
+    "ai-agent",
+    "tool-use",
+    "multi-provider",
+    "embedded-agent",
+    "interactive-session",
+    "robota"
+  ],
   "license": "MIT",
   "publishConfig": {
     "access": "public"

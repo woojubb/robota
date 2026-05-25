@@ -2,7 +2,7 @@
 
 Programmatic SDK for building AI agents with Robota. Provides `InteractiveSession` as the central client-facing API, `createQuery()` for one-shot use, session management, SDK-owned command/common APIs, permissions, hooks, streaming, context loading, bounded prompt file references, and context reference inventory.
 
-This is the **assembly layer** of the Robota ecosystem — it composes lower-level packages (`agent-core`, `agent-tools`, `agent-sessions`, `agent-provider-anthropic`) into a cohesive SDK.
+This is the **assembly layer** of the Robota ecosystem — it composes lower-level packages (`agent-core`, `agent-tools`, `agent-session`, `agent-provider`) into a cohesive SDK.
 
 ## Installation
 
@@ -66,9 +66,9 @@ const detailedResponse = await queryWithOptions('Analyze the code');
 ## Architecture
 
 ```
-agent-sdk (assembly layer)
+agent-framework (assembly layer)
   ├── InteractiveSession  ← central client-facing API (event-driven)
-  │     └── Session       ← generic session (agent-sessions)
+  │     └── Session       ← generic session (agent-session)
   ├── SystemCommandExecutor ← SDK-level command execution
   ├── CommandRegistry / BuiltinCommandSource / SkillCommandSource
   ├── Agent runtime dependencies and background orchestration
@@ -76,13 +76,13 @@ agent-sdk (assembly layer)
   ├── createQuery()       ← one-shot entry point factory
   ├── createSession()     ← internal assembly factory
   └── deps:
-        agent-sessions  (Session, SessionStore)
+        agent-session   (Session, SessionStore)
         agent-tools     (tool infrastructure + 8 built-in tools)
-        agent-provider-anthropic (Anthropic LLM provider)
+        agent-provider  (consolidated AI providers: /anthropic, /openai, /gemini, …)
         agent-core      (Robota engine, providers, permissions, hooks)
 
 agent-cli (TUI layer — bridges InteractiveSession events to React/Ink state)
-  → agent-sdk
+  → agent-framework
 ```
 
 The SDK is **pure TypeScript with no React dependency**. The CLI is a thin TUI-only layer that consumes `InteractiveSession` events and maps them to React state. Any other client (web app, API server, worker) can do the same.
