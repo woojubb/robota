@@ -28,7 +28,6 @@ Packages marked **publish** are published to npm under `@robota-sdk/` scope. All
 | agent-command-\* (18 pkgs)       | yes     | beta    | Default CLI command modules         |
 | agent-remote                     | no      | —       | private: true                       |
 | agent-remote-server-core         | no      | —       | private: true                       |
-| agent-team                       | no      | —       | private: true                       |
 | agent-playground                 | no      | —       | private: true                       |
 | agent-tool-mcp                   | no      | —       | private: true                       |
 
