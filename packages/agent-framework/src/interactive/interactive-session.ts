@@ -235,6 +235,10 @@ export class InteractiveSession
     this.claudeFileEntries = result.claudeFileEntries;
     this.rebuildSystemMessage = result.rebuildSystemMessage;
     this.autoCompactThresholdSource = result.autoCompactThresholdSource;
+    this.histTracker.recordSystemContextFiles([
+      ...result.agentsFileEntries,
+      ...result.claudeFileEntries,
+    ]);
     this.pendingRestoreMessages = null;
     this.initialized = true;
     this.bgTracker.subscribe(this.session);
@@ -296,6 +300,7 @@ export class InteractiveSession
       (agents, claude) => {
         this.agentsFileEntries = agents;
         this.claudeFileEntries = claude;
+        this.histTracker.recordSystemContextFiles([...agents, ...claude]);
       },
       (p, d, r) => this.submit(p, d, r),
     );

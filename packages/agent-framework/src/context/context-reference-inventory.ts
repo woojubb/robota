@@ -1,6 +1,9 @@
-import type { IPromptFileReferenceRecord } from './prompt-file-reference-types.js';
+import type {
+  IPromptFileReferenceRecord,
+  TPromptFileReferenceReason,
+} from './prompt-file-reference-types.js';
 
-export type TContextReferenceLoadType = 'manual' | 'prompt-reference';
+export type TContextReferenceLoadType = 'manual' | 'prompt-reference' | 'system';
 export type TContextReferenceStatus = 'active' | 'observed';
 
 export interface IContextReferenceItem {
@@ -103,14 +106,16 @@ export function listActiveContextReferences(
 export function toContextReferenceRecords(
   references: readonly IContextReferenceItem[],
 ): IPromptFileReferenceRecord[] {
-  return references.map((reference) => ({
-    originalReference: reference.originalReference,
-    sourcePath: reference.sourcePath,
-    relativePath: reference.relativePath,
-    reason: reference.loadType,
-    depth: 0,
-    byteLength: reference.byteLength,
-  }));
+  return references
+    .filter((reference) => reference.loadType !== 'system')
+    .map((reference) => ({
+      originalReference: reference.originalReference,
+      sourcePath: reference.sourcePath,
+      relativePath: reference.relativePath,
+      reason: reference.loadType as TPromptFileReferenceReason,
+      depth: 0,
+      byteLength: reference.byteLength,
+    }));
 }
 
 function mergeContextReference(

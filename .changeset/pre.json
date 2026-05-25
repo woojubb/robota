@@ -91,6 +91,7 @@
     "every-aliens-pump",
     "fix-cli-diff-context-hunks",
     "fix-context-capacity-guard",
+    "fix-context-list-system-files",
     "fix-edit-diff-summary",
     "ink-7-cjk-tui-followups",
     "memory-command-driven-orchestration",
