@@ -105,6 +105,7 @@ describe('createCompactCommandModule', () => {
         modelInvocable: true,
         argumentHint: '[instructions]',
         safety: 'write',
+        requiresPermission: false,
       },
     ]);
   });

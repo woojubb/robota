@@ -180,10 +180,23 @@ export function createSession(options: ICreateSessionOptions): ICreateSessionRes
     'Glob(.claude/**)',
     'Glob(.robota/**)',
   ];
+
+  // Commands with requiresPermission: false are auto-approved — no prompt needed.
+  const commandAutoAllow = modelCommandToolProjection
+    ? modelCommandToolProjection.commandTools
+        .filter((t) => !t.requiresPermission)
+        .map((t) => t.toolName)
+    : [];
+
   const allowedToolPatterns = (options.allowedTools ?? []).map((name) => `${name}(*)`);
   const deniedToolPatterns = (options.deniedTools ?? []).map((name) => `${name}(*)`);
   const mergedPermissions = {
-    allow: [...defaultAllow, ...(options.config.permissions.allow ?? []), ...allowedToolPatterns],
+    allow: [
+      ...defaultAllow,
+      ...commandAutoAllow,
+      ...(options.config.permissions.allow ?? []),
+      ...allowedToolPatterns,
+    ],
     deny: [...(options.config.permissions.deny ?? []), ...deniedToolPatterns],
   };
 

@@ -1,147 +1,191 @@
-import { createAgentRuntime } from '@robota-sdk/agent-framework';
-import { createDefaultTransportRegistry } from '@robota-sdk/agent-transport';
+/**
+ * CLI entry point — pure composition root.
+ * Parses arguments and delegates to startup modules, mode runners, and transports.
+ */
+
+import { execSync } from 'node:child_process';
 import { PrintTerminal, promptInput } from '@robota-sdk/agent-transport/headless';
-
-import { runPrintMode } from './modes/print-mode.js';
-import { runTuiMode } from './modes/tui-mode.js';
 import {
-  toConfigPhaseOptions,
-  toSessionRunOptions,
-  toUserLocalCommandOptions,
-  toStartupUpdatePolicyOptions,
-} from './startup/args-to-options.js';
-import { createCommandSetup } from './startup/command-setup.js';
-import { handleConfigPhase } from './startup/config-phase.js';
-import { handlePreflightCommands } from './startup/preflight.js';
-import { runInteractiveProviderSetup } from './startup/provider-startup.js';
-import { createProviderSetup } from './startup/provider-setup.js';
-import { createSessionSetup } from './startup/session-setup.js';
-import { resolveStartupUpdateNotice } from './startup/update-notice.js';
-import { readVersion } from './startup/version.js';
-import { runUserLocalDirectCommandIfRequested } from './user-local-direct-command.js';
-import { isFirstRun, markOnboarded, printFirstRunWelcome } from './startup/first-run.js';
-import { parseCliArgs } from './utils/cli-args.js';
-
-import type { IStartCliOptions } from './startup/command-setup.js';
+  createProjectSessionStore,
+  projectPaths,
+  resolveLatestSessionId,
+  resolveSessionIdByIdOrName,
+  readMergedProviderSettings,
+  readProviderSettings,
+  createProviderFromSettings,
+  checkForCliUpdate,
+  formatCliUpdateCheckMessage,
+  formatCliUpdateNotice,
+} from '@robota-sdk/agent-framework';
+import { parseCliArgs, printHelp } from './utils/cli-args.js';
 import type { IParsedCliArgs } from './utils/cli-args.js';
+import {
+  ensureConfig,
+  handleProviderConfigurationArgs,
+  runInteractiveProviderSetup,
+} from './startup/provider-startup.js';
+import { TuiTransport, createDefaultTuiCliAdapter } from '@robota-sdk/agent-transport/tui';
+import { createDefaultTransportRegistry } from '@robota-sdk/agent-transport';
+import { createDefaultBackgroundTaskRunners } from '@robota-sdk/agent-executor';
+import {
+  createChildProcessSubagentRunnerFactory,
+  getDefaultSubagentWorkerPath,
+} from '@robota-sdk/agent-subagent-runner';
+import { reloadPluginCommandSource } from '@robota-sdk/agent-command';
+import { runUserLocalDirectCommandIfRequested } from './user-local-direct-command.js';
+import { readVersion } from './startup/version.js';
+import { runResetConfig } from './startup/reset-config.js';
+import type { IStartCliOptions } from './startup/command-setup.js';
+import { buildCommandSetup } from './startup/command-setup.js';
+import { runPrintMode } from './modes/print-mode.js';
 
 export type { IStartCliOptions };
 
-function parseArgsOrExit(): IParsedCliArgs {
+export async function startCli(options: IStartCliOptions = {}): Promise<void> {
+  let args: IParsedCliArgs;
   try {
-    return parseCliArgs();
+    args = parseCliArgs();
   } catch (error) {
     // allow-fallback: argument validation errors are terminal — exit is the correct response
     process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
     process.exit(1);
   }
-}
-
-export async function startCli(options: IStartCliOptions = {}): Promise<void> {
-  const args = parseArgsOrExit();
   const version = readVersion();
-  const terminal = new PrintTerminal();
 
-  const cwd = process.cwd();
-
-  // Pre-preflight: create commandSetup early so init can offer inline provider setup
-  const commandSetup = createCommandSetup(cwd, options);
-  const configPhaseOpts = toConfigPhaseOptions(args);
-
-  // Layer 0: pre-flight — single point for all early-exit commands
-  if (
-    (
-      await handlePreflightCommands(args, {
-        version,
-        terminal,
-        cwd,
-        onProviderSetup: () =>
-          runInteractiveProviderSetup(
-            cwd,
-            configPhaseOpts,
-            promptInput,
-            terminal,
-            commandSetup.providerDefinitions,
-          ),
-      })
-    ).handled
-  )
+  if (args.help) {
+    process.stdout.write(printHelp());
     return;
-
-  if (args.apiKey) {
-    process.stderr.write(
-      '\n⚠  Warning: --api-key value may appear in your shell history.\n' +
-        '   Prefer: export ANTHROPIC_API_KEY=<key>, or use --api-key-env ANTHROPIC_API_KEY\n\n',
-    );
   }
 
-  // Layer 1: IParsedCliArgs → typed option objects (boundary)
-  const sessionOpts = toSessionRunOptions(args);
+  if (args.version) {
+    process.stdout.write(`robota ${version}\n`);
+    return;
+  }
+
+  if (args.checkUpdate) {
+    const result = await checkForCliUpdate({ currentVersion: version, force: true });
+    const message = formatCliUpdateCheckMessage(result);
+    if (result.status === 'error') {
+      process.stderr.write(`${message}\n`);
+      process.exit(1);
+    }
+    process.stdout.write(`${message}\n`);
+    return;
+  }
+
+  const cwd = process.cwd();
+  const terminal = new PrintTerminal();
+
+  if (args.reset) {
+    runResetConfig(terminal);
+    return;
+  }
 
   try {
-    if (await runUserLocalDirectCommandIfRequested(toUserLocalCommandOptions(args), cwd, terminal))
+    if (await runUserLocalDirectCommandIfRequested(args, cwd, terminal)) {
       return;
+    }
   } catch (error) {
-    // allow-fallback: user-local command failure is terminal
+    // allow-fallback: user-local command failure is terminal — exit is the correct response
     terminal.writeError(error instanceof Error ? error.message : String(error));
     process.exit(1);
   }
 
-  // Layer 2: sub-layer assembly (same-level grouping)
-  const isTTY = process.stdin.isTTY === true && process.stdout.isTTY === true;
-  const configPhase = await handleConfigPhase(cwd, configPhaseOpts, commandSetup, terminal, isTTY);
-  if (configPhase.handled) return;
+  const { commandHostAdapters, providerDefinitions, commandModules, startupUpdateNoticePromise } =
+    buildCommandSetup(cwd, args, options, version);
 
-  const providerSetup = createProviderSetup(cwd, configPhaseOpts, commandSetup);
-  const sessionSetup = createSessionSetup(cwd, sessionOpts);
-
-  const { orgPolicy } = commandSetup;
-  if (
-    orgPolicy?.allowedProviders &&
-    providerSetup.activeProfileName &&
-    !orgPolicy.allowedProviders.includes(providerSetup.activeProfileName)
-  ) {
-    const contact = orgPolicy.adminContact
-      ? `\nContact your administrator: ${orgPolicy.adminContact}`
-      : '';
-    terminal.writeError(
-      `Provider "${providerSetup.activeProfileName}" is not allowed by your organization policy. Allowed: ${orgPolicy.allowedProviders.join(', ')}.${contact}`,
-    );
-    process.exit(1);
-  }
-
-  // Layer 3: runtime assembly
-  const runtime = createAgentRuntime({
-    cwd,
-    provider: providerSetup.provider,
-    commandModules: commandSetup.commandModules,
-    commandHostAdapters: commandSetup.commandHostAdapters,
-    reloadPluginCommandSource: commandSetup.reloadPluginCommandSource,
-    subagentRunnerFactory: providerSetup.subagentRunnerFactory,
-    sessionStore: sessionSetup.sessionStore,
-    transportRegistry: createDefaultTransportRegistry(),
-    orgPolicy: orgPolicy ?? undefined,
-  });
-
-  // Layer 4: mode / transport
-  if (configPhaseOpts.printMode) {
-    await runPrintMode(sessionOpts, runtime);
+  if (args.configure) {
+    await runInteractiveProviderSetup(cwd, args, promptInput, terminal, providerDefinitions);
     return;
   }
 
-  if (isFirstRun()) {
-    printFirstRunWelcome();
-    markOnboarded();
+  if (handleProviderConfigurationArgs(cwd, args, terminal, providerDefinitions)) {
+    return;
   }
 
-  await runTuiMode({
-    runtime,
-    version,
-    commandSetup,
-    providerSetup,
-    sessionSetup,
-    sessionOpts,
-    startupUpdateNotice: resolveStartupUpdateNotice(version, toStartupUpdatePolicyOptions(args)),
+  try {
+    await ensureConfig(cwd, args, promptInput, terminal, providerDefinitions);
+  } catch (error) {
+    // allow-fallback: terminal failure — not a silent fallback
+    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+    process.exit(1);
+  }
+
+  const providerOptions = args.provider
+    ? { providerOverride: args.provider, providerDefinitions }
+    : { providerDefinitions };
+  const providerSettings = readProviderSettings(cwd, providerOptions);
+  const modelId = args.model ?? providerSettings.model;
+  const provider = createProviderFromSettings(cwd, args.model, providerOptions);
+  const backgroundTaskRunners = createDefaultBackgroundTaskRunners();
+  const paths = projectPaths(cwd);
+  const subagentRunnerFactory = createChildProcessSubagentRunnerFactory({
+    workerPath: getDefaultSubagentWorkerPath(),
+    providerConfig: { ...providerSettings, model: modelId },
+    logsDir: paths.logs,
   });
+
+  const sessionStore = createProjectSessionStore(cwd);
+  let resumeSessionId: string | undefined;
+  let showSessionPickerOnStart = false;
+
+  if (args.continueMode) {
+    resumeSessionId = resolveLatestSessionId(sessionStore, cwd);
+  } else if (args.resumeId !== undefined) {
+    if (args.resumeId === '') {
+      showSessionPickerOnStart = true;
+    } else {
+      resumeSessionId = resolveSessionIdByIdOrName(sessionStore, args.resumeId);
+      if (resumeSessionId === undefined) {
+        process.stderr.write(`Session not found: ${args.resumeId}\n`);
+        process.exit(1);
+      }
+    }
+  }
+
+  if (args.printMode) {
+    await runPrintMode(
+      cwd,
+      args,
+      provider,
+      sessionStore,
+      backgroundTaskRunners,
+      subagentRunnerFactory,
+      commandModules,
+      commandHostAdapters,
+    );
+    return;
+  }
+
+  const tuiTransport = new TuiTransport({
+    cwd,
+    provider,
+    providerOverride: args.provider,
+    providerType: providerSettings.name,
+    modelId,
+    language: args.language,
+    permissionMode: args.permissionMode,
+    maxTurns: args.maxTurns,
+    version,
+    sessionStore: args.noSessionPersistence ? undefined : sessionStore,
+    resumeSessionId,
+    showSessionPickerOnStart,
+    forkSession: args.forkSession,
+    sessionName: args.sessionName,
+    backgroundTaskRunners,
+    subagentRunnerFactory,
+    commandModules,
+    commandHostAdapters,
+    shellExec: (command: string) =>
+      execSync(command, { timeout: 5000, encoding: 'utf-8', stdio: 'pipe' }).trimEnd(),
+    startupUpdateNotice: startupUpdateNoticePromise
+      ? startupUpdateNoticePromise.then((n) => (n ? formatCliUpdateNotice(n) : undefined))
+      : undefined,
+    transportRegistry: createDefaultTransportRegistry(),
+    cliAdapter: createDefaultTuiCliAdapter({ providerDefinitions, reloadPluginCommandSource }),
+    reloadPluginCommandSource,
+    agentName: 'robota-cli',
+  });
+  await tuiTransport.start();
   process.exit(0);
 }

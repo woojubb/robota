@@ -40,10 +40,9 @@ See [packages/agent-cli/docs/SPEC.md](../../../../packages/agent-cli/docs/SPEC.m
 ```mermaid
 sequenceDiagram
   participant CLI as cli.ts -p path
-  participant Runtime as IAgentRuntime
-  participant Session as IInteractiveSession
+  participant SDK as InteractiveSession
   participant Transport as agent-transport/headless
-  participant SessionSvc as agent-session Session
+  participant Session as agent-session Session
 
   CLI->>CLI: collect positional prompt or piped stdin
   CLI->>CLI: build appendSystemPrompt from flags
@@ -71,7 +70,7 @@ sequenceDiagram
   participant TUI as agent-cli React/Ink TUI
   participant Sidecar as startWebSidecarServer
   participant WsTransport as agent-transport/ws createWsHandler
-  participant Browser as agent-web-ui (browser)
+  participant Browser as agent-web (browser)
 
   User->>TUI: launch with --web flag
   TUI->>Sidecar: startWebSidecarServer(interactiveSession, port)

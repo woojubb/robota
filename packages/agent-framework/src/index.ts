@@ -614,14 +614,6 @@ export { resolveGitBranch } from './git/git-branch.js';
 // ── Semver comparison ─────────────────────────────────────────
 export { compareSemverVersions, isNewerSemverVersion } from './utils/semver-compare.js';
 
-// ── Agent runtime (composition API) ──────────────────────────
-export type {
-  IAgentRuntimeConfig,
-  IAgentRuntime,
-  IHeadlessSessionOptions,
-} from './runtime/index.js';
-export { createAgentRuntime } from './runtime/index.js';
-
 // ── Package version ───────────────────────────────────────────
 export { readPackageVersion } from './utils/read-package-version.js';
 
@@ -648,7 +640,13 @@ export type {
   TCliUpdateCheckResult,
 } from './update-check/update-check.js';
 
-// ── Config types (for advanced consumers passing config directly) ─
+// ── Agent runtime ─────────────────────────────────────────────
+export { createAgentRuntime } from './runtime/index.js';
+export type {
+  IAgentRuntimeConfig,
+  IAgentRuntime,
+  IHeadlessSessionOptions,
+} from './runtime/index.js';
 export type { IResolvedConfig } from './config/config-types.js';
 
 // ──────────────────────────────────────────────────────────────
