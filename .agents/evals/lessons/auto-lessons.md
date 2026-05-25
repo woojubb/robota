@@ -17,31 +17,31 @@ Do not promote entries to `.agents/rules/common-mistakes.md` without human revie
 
 ## user-correction
 
-- Frequency: 33 events in the last 7 days
+- Frequency: 34 events in the last 7 days
 - Sources: corrections
 - Example paths: (none)
 - First seen: 2026-05-19T02:54:35.000Z
-- Last seen: 2026-05-25T15:27:49.000Z
+- Last seen: 2026-05-25T16:33:57.000Z
 - Status: candidate; human review is required before promotion.
 <!-- auto-lesson:same-file-edited-3-times -->
 
 ## same-file-edited-3-times
 
-- Frequency: 120410 events in the last 7 days
+- Frequency: 122952 events in the last 7 days
 - Sources: reverts
 - Example paths: `/Users/jungyoun/.claude/projects/-Users-jungyoun-Documents-dev-robota/memory/MEMORY.md`, `/Users/jungyoun/.claude/projects/-Users-jungyoun-Documents-dev-robota/memory/feedback_otp_immediate.md`, `/Users/jungyoun/.robota/settings.json`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-002-p10-cli-ts-extract-startup-modules.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-002-p22-subagent-worker-to-framework.md`
 - First seen: 2026-05-19T00:42:27.000Z
-- Last seen: 2026-05-25T15:28:07.000Z
+- Last seen: 2026-05-25T16:37:44.000Z
 - Status: candidate; human review is required before promotion.
 <!-- auto-lesson:repeated-tool-errors -->
 
 ## repeated-tool-errors
 
-- Frequency: 216 events in the last 7 days
+- Frequency: 220 events in the last 7 days
 - Sources: reverts
 - Example paths: (none)
 - First seen: 2026-05-19T00:42:27.000Z
-- Last seen: 2026-05-25T15:28:07.000Z
+- Last seen: 2026-05-25T16:37:44.000Z
 - Status: candidate; human review is required before promotion.
 <!-- auto-lesson:try-catch-fallback -->
 
