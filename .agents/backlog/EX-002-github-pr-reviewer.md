@@ -1,6 +1,8 @@
 ---
 title: 'EX-002: GitHub PR 자동 리뷰어 — GitHub Actions + agent-framework'
-status: todo
+status: done
+done_at: 2026-05-25
+pr: '615'
 created: 2026-05-25
 priority: high
 urgency: soon
