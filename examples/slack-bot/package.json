@@ -1,0 +1,22 @@
+{
+  "name": "slack-bot-example",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node --experimental-vm-modules dist/app.js",
+    "dev": "tsx src/app.ts",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@robota-sdk/agent-framework": "^3.0.0-beta.67",
+    "@robota-sdk/agent-provider": "^3.0.0-beta.67",
+    "@slack/bolt": "^3.21.1",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}

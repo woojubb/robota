@@ -1,6 +1,8 @@
 ---
 title: 'EX-004: Telegram Bot — grammY + agent-framework'
-status: todo
+status: done
+done_at: 2026-05-25
+pr: '615'
 created: 2026-05-25
 priority: medium
 urgency: later

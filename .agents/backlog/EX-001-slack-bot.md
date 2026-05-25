@@ -1,6 +1,8 @@
 ---
 title: 'EX-001: Slack Bot — 이벤트 기반 AI 어시스턴트'
-status: todo
+status: done
+done_at: 2026-05-25
+pr: '615'
 created: 2026-05-25
 priority: high
 urgency: soon
