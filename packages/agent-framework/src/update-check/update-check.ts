@@ -1,6 +1,5 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-
 import { compareSemverVersions, isNewerSemverVersion } from '../utils/semver-compare.js';
 
 export const CLI_UPDATE_PACKAGE_NAME = '@robota-sdk/agent-cli';

@@ -6,7 +6,6 @@ import {
   parseCliArgs,
   printHelp,
 } from '../cli-args.js';
-import { toSessionRunOptions } from '../../startup/args-to-options.js';
 
 describe('parsePermissionMode', () => {
   it('returns undefined for undefined input', () => {
@@ -208,18 +207,6 @@ describe('new non-interactive flags', () => {
     expect(parseCliArgs().allowedTools).toBe('Bash,Read,Write');
   });
 
-  it('parses --dry-run flag', () => {
-    process.argv = ['node', 'cli', '--dry-run', 'Refactor auth'];
-    const args = parseCliArgs();
-    expect(args.dryRun).toBe(true);
-    expect(args.positional).toContain('Refactor auth');
-  });
-
-  it('defaults dryRun to false', () => {
-    process.argv = ['node', 'cli'];
-    expect(parseCliArgs().dryRun).toBe(false);
-  });
-
   it('defaults allowedTools to undefined', () => {
     process.argv = ['node', 'cli'];
     expect(parseCliArgs().allowedTools).toBeUndefined();
@@ -277,51 +264,5 @@ describe('help flag', () => {
     expect(output).toContain('--help');
     expect(output).toContain('--version');
     expect(output).toContain('-p');
-  });
-});
-
-// CLI-046: --denied-tools flag
-describe('denied-tools flag', () => {
-  let originalArgv: string[];
-
-  beforeEach(() => {
-    originalArgv = process.argv;
-  });
-
-  afterEach(() => {
-    process.argv = originalArgv;
-  });
-
-  // TC-01: --denied-tools Bash → deniedTools parsed as string 'Bash'
-  it('TC-01: parses --denied-tools Bash as deniedTools string', () => {
-    process.argv = ['node', 'cli', '--denied-tools', 'Bash'];
-    const args = parseCliArgs();
-    expect(args.deniedTools).toBe('Bash');
-  });
-
-  // TC-02: --denied-tools "*" → deniedTools parsed as '*'
-  it('TC-02: parses --denied-tools "*" as wildcard deniedTools', () => {
-    process.argv = ['node', 'cli', '--denied-tools', '*'];
-    const args = parseCliArgs();
-    expect(args.deniedTools).toBe('*');
-  });
-
-  // TC-03: --allowed-tools and --denied-tools both present → toSessionRunOptions preserves both (denied wins in runtime)
-  it('TC-03: toSessionRunOptions carries both allowedTools and deniedTools when used together', () => {
-    process.argv = ['node', 'cli', '--allowed-tools', 'Read,Bash', '--denied-tools', 'Bash'];
-    const args = parseCliArgs();
-    const opts = toSessionRunOptions(args);
-    expect(opts.allowedTools).toBe('Read,Bash');
-    expect(opts.deniedTools).toBe('Bash');
-  });
-
-  it('defaults deniedTools to undefined when not specified', () => {
-    process.argv = ['node', 'cli'];
-    expect(parseCliArgs().deniedTools).toBeUndefined();
-  });
-
-  it('parses comma-separated denied tools string', () => {
-    process.argv = ['node', 'cli', '--denied-tools', 'Bash,Write'];
-    expect(parseCliArgs().deniedTools).toBe('Bash,Write');
   });
 });

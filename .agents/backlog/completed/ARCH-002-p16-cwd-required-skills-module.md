@@ -1,9 +1,6 @@
----
-title: 'ARCH-002-p16: Make cwd required in createSkillsCommandModule'
-status: done
----
-
 # ARCH-002-p16: Make cwd required in createSkillsCommandModule
+
+## Status: done
 
 ## Problem
 

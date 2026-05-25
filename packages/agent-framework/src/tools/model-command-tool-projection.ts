@@ -14,7 +14,10 @@ const MAX_PROVIDER_TOOL_NAME_LENGTH = 64;
 const HASH_LENGTH = 8;
 const HASH_SEPARATOR_LENGTH = 1;
 
-type TModelCommandDescriptor = Pick<ICapabilityDescriptor, 'name' | 'description' | 'argumentHint'>;
+type TModelCommandDescriptor = Pick<
+  ICapabilityDescriptor,
+  'name' | 'description' | 'argumentHint' | 'requiresPermission'
+>;
 
 interface IProjectedCommandArgs {
   args?: string;
@@ -25,6 +28,8 @@ export interface IProjectedModelCommandTool {
   readonly toolName: string;
   readonly description: string;
   readonly descriptor: TModelCommandDescriptor;
+  /** Mirrors the source command's requiresPermission flag. false = auto-approved. */
+  readonly requiresPermission: boolean;
 }
 
 export interface IModelCommandToolProjection {
@@ -120,6 +125,7 @@ export function createModelCommandToolProjection(
       toolName,
       description: formatProjectedModelCommandToolDescription(commandName, descriptor),
       descriptor,
+      requiresPermission: descriptor.requiresPermission !== false,
     });
   }
 
