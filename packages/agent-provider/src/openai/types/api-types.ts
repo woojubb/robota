@@ -93,6 +93,7 @@ export interface IOpenAIStreamChunk {
  */
 export interface IOpenAIError {
   message: string;
+  status?: number;
   type?: string;
   param?: string | null;
   code?: string | null;
