@@ -540,3 +540,50 @@ Epic: [PLG-008](PLG-008-visual-agent-builder-playground.md)
 | [PM-028](completed/PM-028-beta-invite-program.md)           | 외부 베타 초대 프로그램 — early adopter 확보      | medium   |
 | [PM-029](completed/PM-029-sdk-starter-kit.md)               | SDK Starter Kit — Next.js + Express 템플릿 저장소 | low      |
 | [PM-030](completed/PM-030-opt-in-telemetry.md)              | opt-in 익명 텔레메트리 — 실제 사용 패턴 수집      | low      |
+
+### Pre-Release Readiness — SDK Adoption Audit (2026-05-25)
+
+시니어 개발자 에이전트 + PM 에이전트 병렬 감사에서 도출된 출시 준비 항목.  
+보고서: [.agents/reports/pre-release-combined-report.md](../reports/pre-release-combined-report.md)  
+원본 보고서: [dev-audit](../reports/pre-release-dev-audit.md) · [pm-audit](../reports/pre-release-pm-audit.md)
+
+#### P0 — 출시 전 필수 수정 (첫 사용자가 30분 내 실패하는 문제)
+
+| ID                                                      | 제목                                                       | 우선순위 |
+| ------------------------------------------------------- | ---------------------------------------------------------- | -------- |
+| [REL-001](REL-001-fix-readme-wrong-import.md)           | root README Quick Start에서 `query` → `createQuery` 수정   | critical |
+| [REL-002](REL-002-fix-npm-install-subpath-command.md)   | Getting Started npm install 명령 수정 (서브패스 설치 불가) | critical |
+| [REL-003](REL-003-openapi-tool-stub.md)                 | OpenAPITool.execute() 미구현 stub — 공개 export에서 제거   | critical |
+| [REL-004](REL-004-wire-system-prompt-cli-flag.md)       | --system-prompt CLI 플래그 연결 또는 문서에서 제거         | critical |
+| [REL-005](REL-005-update-contributing-package-paths.md) | CONTRIBUTING.md 구식 패키지 경로 전면 수정                 | critical |
+| [REL-006](REL-006-beta-disclaimer-homepage.md)          | docs 홈페이지·root README에 베타 고지 추가                 | critical |
+| [REL-007](REL-007-audit-publish-registry.md)            | publish-registry 감사 — 잘못된 private 설정 수정           | critical |
+
+#### P1 — 소프트 론치 전 수정 (신뢰 손상 이슈)
+
+| ID                                                             | 제목                                                      | 우선순위 |
+| -------------------------------------------------------------- | --------------------------------------------------------- | -------- |
+| [REL-008](REL-008-fix-broken-links-docs-homepage.md)           | docs 홈페이지 깨진 링크 수정 (showcase, roadmap, compare) | high     |
+| [REL-009](REL-009-remove-internal-ticket-ref-embedding-doc.md) | embedding.md에 노출된 내부 티켓 참조 제거 (CORE-002 등)   | high     |
+| [REL-010](REL-010-update-agent-framework-readme-stale-arch.md) | agent-framework README 구식 패키지명 수정                 | high     |
+| [REL-011](REL-011-fix-codeowners-stale-paths.md)               | .github/CODEOWNERS 구식 경로 수정                         | high     |
+
+#### P2 — 안정 출시 전 완료 (1.0.0 전)
+
+| ID                                                           | 제목                                                       | 우선순위 |
+| ------------------------------------------------------------ | ---------------------------------------------------------- | -------- |
+| [REL-012](REL-012-migration-guide-3-0-0.md)                  | 3.0.0 마이그레이션 가이드 작성                             | medium   |
+| [REL-013](REL-013-providers-reference-page.md)               | providers 레퍼런스 페이지 생성                             | medium   |
+| [REL-014](REL-014-record-cli-demo-gif.md)                    | agent-cli README 데모 GIF 녹화 (현재 1×1 픽셀 placeholder) | medium   |
+| [REL-015](REL-015-add-npm-keywords-consumer-packages.md)     | agent-cli·agent-framework npm keywords 추가                | medium   |
+| [REL-016](REL-016-map-rate-limit-errors-anthropic-openai.md) | Anthropic·OpenAI 429 → RateLimitError 매핑                 | medium   |
+| [REL-017](REL-017-export-tqueryfunction-type.md)             | TQueryFunction 타입 alias 공개 export 추가                 | medium   |
+| [REL-018](REL-018-remove-github-action-ghost-doc.md)         | GitHub Action 문서 제거 (404 repo 참조)                    | medium   |
+
+#### P3 — 장기 성장 과제
+
+| ID                                                 | 제목                                              | 우선순위 |
+| -------------------------------------------------- | ------------------------------------------------- | -------- |
+| [REL-019](REL-019-community-channel-setup.md)      | 커뮤니티 채널 개설 (GitHub Discussions / Discord) | low      |
+| [REL-020](REL-020-error-handling-guide.md)         | 공개 에러 핸들링 가이드 작성                      | low      |
+| [REL-021](REL-021-fix-provider-tui-gemma-label.md) | provider 설정 TUI "Gemma / LM Studio" 레이블 수정 | low      |

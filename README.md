@@ -17,13 +17,19 @@ npm install -g @robota-sdk/agent-cli
 robota
 ```
 
+> **Beta**: Robota is currently `3.0.0-beta`. Core features are stable but APIs may change before 1.0. See [CHANGELOG.md](./CHANGELOG.md) for upgrade notes.
+
 > **macOS users**: Korean/CJK IME input may crash macOS Terminal.app. Use **[iTerm2](https://iterm2.com/)** instead. This is a known Ink + Terminal.app issue shared with Claude Code.
 
 ### SDK — Programmatic Usage
 
 ```typescript
-import { query } from '@robota-sdk/agent-framework';
+import { createQuery } from '@robota-sdk/agent-framework';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 
+const query = createQuery({
+  provider: new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY }),
+});
 const response = await query('List all TypeScript files in src/');
 ```
 
@@ -49,15 +55,15 @@ const response = await agent.run('Hello!');
 ## Architecture
 
 ```
-agent-cli         ← Interactive terminal AI coding assistant
+agent-cli              ← Interactive terminal AI coding assistant
   ↓
-agent-sdk         ← Assembly layer: config, context, session factory, query()
+agent-framework        ← Assembly layer: InteractiveSession, createQuery(), config/context loading
   ↓
-agent-sessions    ← Session lifecycle: permissions, hooks, compaction
-agent-tools       ← Tool infrastructure + 8 built-in tools
-agent-providers   ← AI provider implementations
+agent-session          ← Session lifecycle: permissions, hooks, compaction
+agent-tools            ← Tool infrastructure + 8 built-in tools
+agent-provider         ← Consolidated AI providers (sub-paths: /anthropic, /openai, /gemini, …)
   ↓
-agent-core        ← Foundation: Robota engine, abstractions, plugins
+agent-core             ← Foundation: Robota engine, abstractions, plugins
 ```
 
 ## Packages

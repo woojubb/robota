@@ -17,6 +17,8 @@ lang: en-US
 
 **[→ 2-minute CLI install](#installation)** &nbsp;|&nbsp; **[→ Build your first agent](./getting-started/)** &nbsp;|&nbsp; **[→ Try Playground](https://play.robota.io/playground)**
 
+> **Beta software** — Robota SDK is currently in `3.0.0-beta`. Core features are stable but APIs may change before the 1.0 stable release. See the [changelog](./changelog/) for upgrade notes. [Report issues](https://github.com/woojubb/robota/issues).
+
 ---
 
 ## Overview
@@ -41,7 +43,7 @@ The CLI is built on top of the Assembly Layer. The Assembly Layer is assembled f
 | Terminal CLI                           |     ✅     |        ✅         |   ❌ IDE only   |  ✅   |  ✅   |
 | Session persistence & resume           |     ✅     |        ✅         |       ✅        |  ❌   |  ❌   |
 
-**[→ Full comparison: features, cost, and when to choose each tool](/compare/)**
+**[→ Full comparison on robota.io](https://robota.io/compare/)**
 
 ## No API Key Needed — Run Local Models
 
@@ -53,7 +55,7 @@ ollama pull llama3.2 && ollama serve
 
 # 2. Configure Robota to use it
 robota --configure
-# Select "Gemma / LM Studio", set URL: http://localhost:11434/v1
+# Select "Local (OpenAI-compatible)", set URL: http://localhost:11434/v1
 
 # 3. Run with no API key
 robota
@@ -216,8 +218,6 @@ agent-core             ← Foundation: Robota engine, abstractions, plugins
 - [Getting Started](./getting-started/) — Installation and first steps
 - [Guide](./guide/) — Architecture, building agents, SDK, CLI
 - [Changelog](./changelog/) — What's new in each release
-- [Showcase](./showcase/) — Projects built with Robota SDK
-- [Roadmap](./roadmap.md) — What's coming next
 - [Examples](./examples/) — Working code samples
 - [Development](./development/) — Contributing and monorepo setup
 

@@ -38,7 +38,7 @@ const GEMMA_MODEL_CATALOG: NonNullable<IProviderDefinition['modelCatalog']> = {
 export function createGemmaProviderDefinition(): IProviderDefinition {
   return {
     type: 'gemma',
-    displayName: 'Gemma / LM Studio',
+    displayName: 'Ollama / LM Studio / llama.cpp',
     description: 'Local models via LM Studio or Ollama. No API key needed.',
     category: 'local-free',
     defaults: {
