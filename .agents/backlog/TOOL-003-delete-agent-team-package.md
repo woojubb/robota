@@ -1,6 +1,8 @@
 ---
 title: 'TOOL-003: @robota-sdk/agent-team 패키지 완전 삭제'
-status: todo
+status: done
+done_at: 2026-05-25
+pr: '612'
 created: 2026-05-25
 priority: high
 urgency: soon
