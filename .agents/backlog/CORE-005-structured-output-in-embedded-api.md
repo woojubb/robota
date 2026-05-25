@@ -1,6 +1,8 @@
 ---
 title: 'CORE-005: responseFormat end-to-end wiring — IAgentConfig → IChatOptions → provider'
-status: todo
+status: done
+done_at: 2026-05-25
+pr: '616'
 created: 2026-05-25
 priority: medium
 urgency: later

@@ -108,7 +108,11 @@ function buildChatRequestParams(
     );
   }
 
-  const responseFormat = buildOpenAIChatResponseFormat(input.providerOptions);
+  const responseFormat = buildOpenAIChatResponseFormat(
+    input.chatOptions?.responseFormat?.type !== undefined
+      ? { ...input.providerOptions, responseFormat: input.chatOptions.responseFormat.type }
+      : input.providerOptions,
+  );
   return {
     model,
     messages: openaiMessages,

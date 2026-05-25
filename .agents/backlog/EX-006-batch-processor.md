@@ -1,6 +1,8 @@
 ---
 title: 'EX-006: 문서 배치 처리기 — 병렬 AI 분석 파이프라인'
-status: todo
+status: done
+done_at: 2026-05-25
+pr: '615'
 created: 2026-05-25
 priority: medium
 urgency: later

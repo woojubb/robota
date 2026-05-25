@@ -248,6 +248,7 @@ export function createSession(options: ICreateSessionOptions): ICreateSessionRes
     sessionLogger: options.sessionLogger,
     hookTypeExecutors: hookTypeExecutors.length > 0 ? hookTypeExecutors : undefined,
     agentName: options.agentName,
+    ...(options.responseFormat ? { responseFormat: options.responseFormat } : {}),
   });
 
   wireSessionDeps(session, agentToolDeps, backgroundProcessToolDeps, backgroundTaskManager);
