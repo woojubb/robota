@@ -7,8 +7,9 @@
 
 import { Hono } from 'hono';
 import { streamSSE } from 'hono/streaming';
-import type { Context } from 'hono';
+
 import type { IInteractiveSession } from '@robota-sdk/agent-framework';
+import type { Context } from 'hono';
 
 /** Callback that resolves an IInteractiveSession from the request context. */
 export type TSessionFactory = (c: Context) => IInteractiveSession | Promise<IInteractiveSession>;

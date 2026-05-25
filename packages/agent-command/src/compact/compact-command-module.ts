@@ -1,10 +1,11 @@
+import { executeCompactCommand } from './compact-command.js';
+
 import type {
   ICommand,
   ICommandModule,
   ICommandSource,
   ISystemCommand,
 } from '@robota-sdk/agent-framework';
-import { executeCompactCommand } from './compact-command.js';
 
 export function createCompactCommandEntry(): ICommand {
   return {
@@ -15,6 +16,7 @@ export function createCompactCommandEntry(): ICommand {
     modelInvocable: true,
     argumentHint: '[instructions]',
     safety: 'write',
+    example: '/compact Summarize the current context',
   };
 }
 
@@ -24,6 +26,7 @@ function createCompactSystemCommand(): ISystemCommand {
     name: entry.name,
     displayName: entry.displayName,
     description: entry.description,
+    example: entry.example,
     requiresPermission: false,
     userInvocable: true,
     modelInvocable: entry.modelInvocable,

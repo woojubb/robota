@@ -35,6 +35,7 @@ This file contains only domain-free rules and routing. It does not contain packa
 | [.agents/project-structure.md](.agents/project-structure.md)             | Package listing and dependency rules                                                                              |
 | [.agents/skills/index.md](.agents/skills/index.md)                       | All procedural workflow skills                                                                                    |
 | [.agents/backlog/README.md](.agents/backlog/README.md)                   | Future work items and backlog process                                                                             |
+| `.agents/spec-docs/`                                                     | Gate-pipeline spec documents — draft/backlog/todo/active/done/rejected lifecycle                                  |
 | [.agents/templates/spec-template.md](.agents/templates/spec-template.md) | SPEC.md authoring template                                                                                        |
 | [.agents/specs/README.md](.agents/specs/README.md)                       | Cross-cutting specs that span multiple packages                                                                   |
 | [.agents/evals/README.md](.agents/evals/README.md)                       | Agent quality evaluation datasets and metrics                                                                     |
@@ -92,6 +93,7 @@ All rules below are mandatory, non-negotiable, and domain-free. Each rule group 
 | Naming & Style       | [naming-style.md](.agents/rules/naming-style.md)               | Language policy, agent identity, Tailwind only                                                                                                                                                              |
 | Git & Branch         | [git-branch.md](.agents/rules/git-branch.md)                   | Branch policy and conventional commits                                                                                                                                                                      |
 | Package Dependencies | [`.agents/project-structure.md`](.agents/project-structure.md) | One-way deps, no cycles, no pass-through re-exports                                                                                                                                                         |
+| Frontend             | [frontend.md](.agents/rules/frontend.md)                       | React only, Next.js for SSR, VitePress is the sole Vue exception                                                                                                                                            |
 | Common Mistakes      | [common-mistakes.md](.agents/rules/common-mistakes.md)         | Observed failure patterns with correct approaches                                                                                                                                                           |
 
 ## Skills Reference

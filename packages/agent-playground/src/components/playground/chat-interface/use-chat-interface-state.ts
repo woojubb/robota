@@ -19,13 +19,16 @@ interface IUseChatInterfaceStateReturn {
   copyToClipboard: (text: string, messageId: string) => Promise<void>;
   clearChat: () => void;
   retryLastMessage: () => void;
+  selectStarterPrompt: (prompt: string) => void;
 }
 
 export function useChatInterfaceState({
   isAgentReady,
   onSendMessage,
+  onClearChat,
+  initialMessages,
 }: IChatPanelProps): IUseChatInterfaceStateReturn {
-  const [messages, setMessages] = useState<IChatPanelMessage[]>([]);
+  const [messages, setMessages] = useState<IChatPanelMessage[]>(initialMessages ?? []);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -52,7 +55,8 @@ export function useChatInterfaceState({
 
   const clearChat = useCallback(() => {
     setMessages([]);
-  }, []);
+    onClearChat?.();
+  }, [onClearChat]);
 
   const retryLastMessage = useCallback(() => {
     const lastUserMessage = findLastUserMessage(messages);
@@ -61,6 +65,11 @@ export function useChatInterfaceState({
     setInput(lastUserMessage.content);
     inputRef.current?.focus();
   }, [messages]);
+
+  const selectStarterPrompt = useCallback((prompt: string) => {
+    setInput(prompt);
+    inputRef.current?.focus();
+  }, []);
 
   return {
     messages,
@@ -74,5 +83,6 @@ export function useChatInterfaceState({
     copyToClipboard,
     clearChat,
     retryLastMessage,
+    selectStarterPrompt,
   };
 }

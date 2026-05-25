@@ -10,18 +10,20 @@ import {
   startPeriodicTask,
   stopPeriodicTask,
 } from '@robota-sdk/agent-core';
-import {
-  IConversationHistoryPluginOptions,
-  IConversationHistoryPluginStats,
-  IConversationHistoryEntry,
-  IHistoryStorage,
-} from './types';
+
 import {
   validateConversationHistoryOptions,
   createHistoryStorage,
   loadConversationEntry,
   savePendingConversations,
 } from './conversation-history-helpers';
+
+import type {
+  IConversationHistoryPluginOptions,
+  IConversationHistoryPluginStats,
+  IConversationHistoryEntry,
+  IHistoryStorage,
+} from './types';
 
 const DEFAULT_MAX_CONVERSATIONS = 100;
 const DEFAULT_MAX_MESSAGES = 1000;

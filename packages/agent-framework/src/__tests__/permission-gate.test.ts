@@ -2,8 +2,9 @@
  * Table-driven tests for permission-gate.ts
  */
 
-import { describe, it, expect } from 'vitest';
 import { evaluatePermission } from '@robota-sdk/agent-core';
+import { describe, it, expect } from 'vitest';
+
 import type { TToolArgs } from '@robota-sdk/agent-core';
 import type { TPermissionMode, TPermissionDecision } from '@robota-sdk/agent-core';
 

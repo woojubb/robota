@@ -9,20 +9,21 @@
  * - BundlePlugin loading from real directory structure
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { tmpdir } from 'node:os';
-
-import { SkillCommandSource } from '../commands/skill-source.js';
-import { PluginCommandSource } from '../commands/plugin-source.js';
 import { execSync } from 'node:child_process';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+
+import { PluginCommandSource } from '../commands/plugin-source.js';
+import { SkillCommandSource } from '../commands/skill-source.js';
+import { loadConfig } from '../config/config-loader.js';
+import { BundlePluginLoader } from '../plugins/index.js';
 import { substituteVariables, preprocessShellCommands } from '../utils/skill-prompt.js';
 
 const testShellExec = (cmd: string) =>
   execSync(cmd, { timeout: 5000, encoding: 'utf-8', stdio: 'pipe' }).trimEnd();
-import { loadConfig } from '../config/config-loader.js';
-import { BundlePluginLoader } from '../plugins/index.js';
 
 // ---------------------------------------------------------------------------
 // Helpers

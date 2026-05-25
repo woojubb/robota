@@ -4,12 +4,14 @@
  * Clean HTTP client using atomic components for maximum type safety
  */
 
-import type { IHttpRequest, IHttpResponse, TDefaultRequestData } from '../types/http-types';
-import type { ILogger, IToolSchema } from '@robota-sdk/agent-core';
 import { SilentLogger } from '@robota-sdk/agent-core';
-import type { IBasicMessage, IResponseMessage } from '../types/message-types';
-import { createHttpRequest, createHttpResponse, generateId } from '../utils/transformers';
+
 import { executeChatRequest, executeChatStreamRequest } from './chat-http-methods';
+import { createHttpRequest, createHttpResponse, generateId } from '../utils/transformers';
+
+import type { IHttpRequest, IHttpResponse, TDefaultRequestData } from '../types/http-types';
+import type { IBasicMessage, IResponseMessage } from '../types/message-types';
+import type { ILogger, IToolSchema } from '@robota-sdk/agent-core';
 
 export interface IHttpClientConfig {
   baseUrl: string;

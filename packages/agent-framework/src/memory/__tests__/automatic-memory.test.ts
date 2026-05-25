@@ -1,7 +1,9 @@
-import { describe, expect, it, afterEach } from 'vitest';
 import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
-import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { describe, expect, it, afterEach } from 'vitest';
+
 import {
   AutomaticMemoryController,
   renderRetrievedMemory,
@@ -10,6 +12,7 @@ import { RegexMemoryCandidateExtractor } from '../memory-candidate-extractor.js'
 import { MemoryPolicyEvaluator } from '../memory-policy-evaluator.js';
 import { MemoryRetrievalService } from '../memory-retrieval-service.js';
 import { ProjectMemoryStore } from '../project-memory-store.js';
+
 import type { IMemoryCandidate } from '../automatic-memory-types.js';
 
 const TMP_BASE = join(tmpdir(), `robota-automatic-memory-${process.pid}`);

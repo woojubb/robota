@@ -1,8 +1,9 @@
+---
+title: 'User-Local Memory Transparency for agent-cli'
+status: done
+---
+
 # User-Local Memory Transparency for agent-cli
-
-## Status
-
-Completed.
 
 ## Created
 

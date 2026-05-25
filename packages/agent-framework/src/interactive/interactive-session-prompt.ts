@@ -5,14 +5,13 @@
  * InteractiveSession state without coupling to the class directly.
  */
 
-import type { Session } from '@robota-sdk/agent-session';
-import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import {
   createUserMessage,
   createAssistantMessage,
   createSystemMessage,
   messageToHistoryEntry,
 } from '@robota-sdk/agent-core';
+
 import {
   isAbortError,
   buildResult,
@@ -21,9 +20,13 @@ import {
   preparePromptInput,
 } from './interactive-session-execution.js';
 import { pushToolSummaryToHistory } from './interactive-session-streaming.js';
+import { humanizeApiError } from '../utils/error-humanizer.js';
+
 import type { IToolState, IExecutionResult } from './types.js';
 import type { IContextReferenceItem } from '../context/context-reference-inventory.js';
 import type { IPromptFileReferenceRecord } from '../context/prompt-file-references.js';
+import type { IHistoryEntry } from '@robota-sdk/agent-core';
+import type { Session } from '@robota-sdk/agent-session';
 
 export interface IPromptTurnContext {
   getSession: () => Session;
@@ -107,9 +110,10 @@ export async function executePromptTurn(
     } else {
       pushToolSummaryToHistory({ activeTools: ctx.getActiveTools(), history });
       ctx.clearStreaming();
-      const errMsg = err instanceof Error ? err.message : String(err);
+      const errObj = err instanceof Error ? err : new Error(String(err));
+      const errMsg = humanizeApiError(errObj);
       history.push(messageToHistoryEntry(createSystemMessage(`Error: ${errMsg}`)));
-      ctx.onError(err instanceof Error ? err : new Error(errMsg));
+      ctx.onError(errObj);
     }
   }
 }

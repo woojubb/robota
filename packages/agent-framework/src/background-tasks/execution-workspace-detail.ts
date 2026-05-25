@@ -1,9 +1,9 @@
-import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type {
   ICreateLineDetailPageInput,
   ICreateMainThreadDetailPageInput,
   IExecutionDetailPage,
 } from './execution-workspace-types.js';
+import type { IHistoryEntry } from '@robota-sdk/agent-core';
 
 const EXECUTION_DETAIL_PAGE_SIZE = 80;
 

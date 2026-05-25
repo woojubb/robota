@@ -2,6 +2,15 @@
  * Session types — interfaces and type aliases for Session construction.
  */
 
+import type { TAutoCompactThreshold } from './context-window-tracker.js';
+import type {
+  TPermissionHandler,
+  TPermissionResult,
+  ITerminalOutput,
+  ISpinner,
+} from './permission-types.js';
+import type { ISessionLogger } from './session-logger.js';
+import type { ISessionStore } from './session-store.js';
 import type {
   IAIProvider,
   IContextWindowState,
@@ -11,15 +20,6 @@ import type {
   TToolArgs,
 } from '@robota-sdk/agent-core';
 import type { IHookTypeExecutor } from '@robota-sdk/agent-core';
-import type { ISessionStore } from './session-store.js';
-import type { ISessionLogger } from './session-logger.js';
-import type { TAutoCompactThreshold } from './context-window-tracker.js';
-import type {
-  TPermissionHandler,
-  TPermissionResult,
-  ITerminalOutput,
-  ISpinner,
-} from './permission-types.js';
 
 export type { TPermissionHandler, TPermissionResult, ITerminalOutput, ISpinner };
 
@@ -65,6 +65,8 @@ export interface ISessionOptions {
   sessionId?: string;
   /** Custom permission handler (overrides terminal-based prompts, used by Ink UI) */
   permissionHandler?: TPermissionHandler;
+  /** Called when the user selects "allow for project" — persists the tool pattern to project settings. */
+  onProjectAllowTool?: (toolName: string) => void;
   /** Callback for text deltas — enables streaming text to the UI in real-time */
   onTextDelta?: (delta: string) => void;
   /** Callback when context window usage is refreshed */
@@ -74,7 +76,7 @@ export interface ISessionOptions {
     terminal: ITerminalOutput,
     toolName: string,
     toolArgs: TToolArgs,
-  ) => Promise<boolean>;
+  ) => Promise<TPermissionResult>;
   /** Callback when a tool starts or finishes execution — enables real-time tool display in UI */
   onToolExecution?: (event: {
     type: 'start' | 'end';
@@ -83,6 +85,7 @@ export interface ISessionOptions {
     success?: boolean;
     denied?: boolean;
     toolResultData?: string;
+    executionId?: string;
   }) => void;
   /** Callback when context is compacted */
   onCompact?: (summary: string) => void;

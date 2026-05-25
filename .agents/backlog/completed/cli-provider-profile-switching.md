@@ -1,8 +1,9 @@
+---
+title: 'CLI Provider Profile Switching'
+status: done
+---
+
 # CLI Provider Profile Switching
-
-## Status
-
-Completed.
 
 ## Priority
 

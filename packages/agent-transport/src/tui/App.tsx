@@ -1,7 +1,36 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
+import { listResumableSessionSummaries } from '@robota-sdk/agent-framework';
 import { Box, Text, useApp, useInput } from 'ink';
-import type { IAIProvider } from '@robota-sdk/agent-core';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+
+import BackgroundTaskPanel from './BackgroundTaskPanel.js';
+import ConfirmPrompt from './ConfirmPrompt.js';
+import { ContextWarningBanner } from './ContextWarningBanner.js';
+import {
+  countActiveBackgroundWorkspaceEntries,
+  getDefaultBackgroundWorkspaceEntries,
+} from './execution-workspace-view-model.js';
+import ExecutionWorkspaceDetailPane from './ExecutionWorkspaceDetailPane.js';
+import ExecutionWorkspaceSwitcher from './ExecutionWorkspaceSwitcher.js';
+import { useInteractiveSession } from './hooks/useInteractiveSession.js';
+import { usePluginCallbacks } from './hooks/usePluginCallbacks.js';
+import { useSideEffects } from './hooks/useSideEffects.js';
+import { useStatusLineSettings } from './hooks/useStatusLineSettings.js';
+import InputArea from './InputArea.js';
+import InteractivePrompt from './InteractivePrompt.js';
+import MessageList from './MessageList.js';
+import PermissionPrompt from './PermissionPrompt.js';
+import PluginTUI from './PluginTUI.js';
+import SessionPicker from './SessionPicker.js';
+import SessionStatusBar from './SessionStatusBar.js';
+import StreamingIndicator from './StreamingIndicator.js';
+import TransportTUI from './TransportTUI.js';
+import { TuiCliAdapterProvider } from './tui-cli-adapter-context.js';
+import UpdateNotice from './UpdateNotice.js';
+
+import type { ITuiCliAdapter } from './tui-cli-adapter.js';
 import type { TPermissionMode } from '@robota-sdk/agent-core';
+import type { IAIProvider } from '@robota-sdk/agent-core';
 import type {
   IBackgroundTaskRunner,
   ICommandHostAdapters,
@@ -12,34 +41,6 @@ import type {
   TShellExecFn,
   IExecutionDetailPage,
 } from '@robota-sdk/agent-framework';
-import { listResumableSessionSummaries } from '@robota-sdk/agent-framework';
-import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
-import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
-import { useInteractiveSession } from './hooks/useInteractiveSession.js';
-import { usePluginCallbacks } from './hooks/usePluginCallbacks.js';
-import { useSideEffects } from './hooks/useSideEffects.js';
-import { useStatusLineSettings } from './hooks/useStatusLineSettings.js';
-import MessageList from './MessageList.js';
-import SessionStatusBar from './SessionStatusBar.js';
-import InputArea from './InputArea.js';
-import ConfirmPrompt from './ConfirmPrompt.js';
-import InteractivePrompt from './InteractivePrompt.js';
-import PermissionPrompt from './PermissionPrompt.js';
-import StreamingIndicator from './StreamingIndicator.js';
-import PluginTUI from './PluginTUI.js';
-import TransportTUI from './TransportTUI.js';
-import SessionPicker from './SessionPicker.js';
-import BackgroundTaskPanel from './BackgroundTaskPanel.js';
-import ExecutionWorkspaceSwitcher from './ExecutionWorkspaceSwitcher.js';
-import ExecutionWorkspaceDetailPane from './ExecutionWorkspaceDetailPane.js';
-import UpdateNotice from './UpdateNotice.js';
-import { formatModelChangeConfirmationMessage } from './hooks/model-change-side-effect.js';
-import {
-  countActiveBackgroundWorkspaceEntries,
-  getDefaultBackgroundWorkspaceEntries,
-} from './execution-workspace-view-model.js';
-import { TuiCliAdapterProvider } from './tui-cli-adapter-context.js';
-import type { ITuiCliAdapter } from './tui-cli-adapter.js';
 import type { CommandRegistry } from '@robota-sdk/agent-framework';
 
 interface IProps {
@@ -95,6 +96,7 @@ function AppInner(
   props: IProps & { onSessionSwitch: (sessionId: string) => void },
 ): React.ReactElement {
   const cwd = props.cwd;
+  const [sessionName, setSessionName] = useState<string | undefined>(props.sessionName);
 
   const {
     interactiveSession,
@@ -127,6 +129,7 @@ function AppInner(
     resumeSessionId: props.resumeSessionId,
     forkSession: props.forkSession,
     sessionName: props.sessionName,
+    onAutoNamed: setSessionName,
     backgroundTaskRunners: props.backgroundTaskRunners,
     subagentRunnerFactory: props.subagentRunnerFactory,
     commandModules: props.commandModules,
@@ -136,12 +139,15 @@ function AppInner(
     language: props.language,
     reloadPluginCommandSource: props.reloadPluginCommandSource,
     agentName: props.agentName,
+    systemPrompt: props.systemPrompt,
+    appendSystemPrompt: props.appendSystemPrompt,
+    allowedTools: props.allowedTools,
+    deniedTools: props.deniedTools,
   });
 
   const fallbackPluginCallbacks = usePluginCallbacks(cwd);
   const pluginCallbacks = props.commandHostAdapters?.plugin ?? fallbackPluginCallbacks;
   const { exit } = useApp();
-  const [sessionName, setSessionName] = useState<string | undefined>(props.sessionName);
   const [updateNotice, setUpdateNotice] = useState<string | undefined>();
   const [showExecutionWorkspaceSwitcher, setShowExecutionWorkspaceSwitcher] = useState(false);
   const [executionDetailPage, setExecutionDetailPage] = useState<IExecutionDetailPage | null>(null);
@@ -164,7 +170,6 @@ function AppInner(
 
   const {
     handleSubmit,
-    pendingModelId,
     pendingInteractionPrompt,
     showPluginTUI,
     showSessionPicker,
@@ -172,7 +177,6 @@ function AppInner(
     setShowPluginTUI,
     setShowSessionPicker,
     setShowTransportTUI,
-    handleModelConfirm,
     handleInteractionSubmit,
     handleInteractionCancel,
   } = useSideEffects({
@@ -415,12 +419,6 @@ function AppInner(
         />
       )}
       {permissionRequest && <PermissionPrompt request={permissionRequest} />}
-      {pendingModelId && (
-        <ConfirmPrompt
-          message={formatModelChangeConfirmationMessage(pendingModelId)}
-          onSelect={handleModelConfirm}
-        />
-      )}
       {pendingInteractionPrompt && (
         <InteractivePrompt
           prompt={pendingInteractionPrompt}
@@ -454,6 +452,7 @@ function AppInner(
           }}
         />
       )}
+      <ContextWarningBanner percentage={contextState.percentage} />
       <SessionStatusBar
         cwd={cwd}
         permissionMode={permissionMode}

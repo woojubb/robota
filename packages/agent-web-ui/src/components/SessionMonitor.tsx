@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useWsSession } from '../hooks/useWsSession.js';
-import { ConversationView } from './ConversationView.js';
+
 import { AgentActivityPanel } from './AgentActivityPanel.js';
+import { ConversationView } from './ConversationView.js';
+import { useWsSession } from '../hooks/useWsSession.js';
 
 const STATUS_CONFIG: Record<string, { label: string; dot: string; text: string; glow: string }> = {
   connected: {

@@ -8,14 +8,7 @@ import {
   type IEventEmitterEventData,
   type TEventName,
 } from '@robota-sdk/agent-core';
-import {
-  IPerformanceMetrics,
-  IAggregatedPerformanceStats,
-  IPerformancePluginOptions,
-  IPerformancePluginStats,
-  IPerformanceStorage,
-  ISystemMetricsCollector,
-} from './types';
+
 import { NodeSystemMetricsCollector } from './collectors/system-metrics-collector';
 import {
   validatePerformanceOptions,
@@ -23,6 +16,15 @@ import {
   extractPerformanceModuleData,
   PERFORMANCE_MODULE_EVENT_MAP,
 } from './performance-helpers';
+
+import type {
+  IPerformanceMetrics,
+  IAggregatedPerformanceStats,
+  IPerformancePluginOptions,
+  IPerformancePluginStats,
+  IPerformanceStorage,
+  ISystemMetricsCollector,
+} from './types';
 
 const DEFAULT_MAX_ENTRIES = 5000;
 const DEFAULT_BATCH_SIZE = 100;

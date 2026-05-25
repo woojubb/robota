@@ -1,8 +1,9 @@
+---
+title: 'Executable User Execution Test Scenario Gate Hardening'
+status: done
+---
+
 # Executable User Execution Test Scenario Gate Hardening
-
-## Status
-
-Completed.
 
 ## Created
 

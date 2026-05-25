@@ -1,6 +1,6 @@
-import type { ICapabilityDescriptor } from '../capabilities/types.js';
-import type { ICommandSource } from './types.js';
 import type { ISystemCommand } from './contracts.js';
+import type { ICommandSource } from './types.js';
+import type { ICapabilityDescriptor } from '../capabilities/types.js';
 
 export type TCommandModuleSessionRequirement = 'agent-runtime';
 

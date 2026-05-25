@@ -1,11 +1,7 @@
-import OpenAI from 'openai';
 import { AbstractAIProvider, SilentLogger } from '@robota-sdk/agent-core';
-import type {
-  IChatOptions,
-  IProviderCapabilities,
-  TTextDeltaCallback,
-  TUniversalMessage,
-} from '@robota-sdk/agent-core';
+import OpenAI from 'openai';
+
+import { DEFAULT_DEEPSEEK_PROVIDER_BASE_URL } from './defaults';
 import {
   assembleOpenAICompatibleStream,
   convertToOpenAICompatibleMessages,
@@ -13,13 +9,19 @@ import {
   observeProviderNativeRawPayloadStream,
   OpenAICompatibleResponseParser,
 } from '../shared/openai-compatible/index.js';
-import type { IOpenAICompatibleError } from '../shared/openai-compatible/index.js';
-import { DEFAULT_DEEPSEEK_PROVIDER_BASE_URL } from './defaults';
+
 import type {
   IDeepSeekProviderOptions,
   IDeepSeekThinkingConfig,
   TDeepSeekReasoningEffort,
 } from './types';
+import type { IOpenAICompatibleError } from '../shared/openai-compatible/index.js';
+import type {
+  IChatOptions,
+  IProviderCapabilities,
+  TTextDeltaCallback,
+  TUniversalMessage,
+} from '@robota-sdk/agent-core';
 
 type TDeepSeekChatCompletionCreateParamsNonStreaming = Omit<
   OpenAI.Chat.ChatCompletionCreateParamsNonStreaming,

@@ -11,7 +11,10 @@ export type TPlaygroundEventName =
   | 'tool_call_error'
   | 'execution_start'
   | 'execution_complete'
-  | 'execution_error';
+  | 'execution_error'
+  | 'agent_job_created'
+  | 'agent_job_completed'
+  | 'agent_job_failed';
 
 export interface IConversationEvent {
   id: string;
@@ -20,6 +23,8 @@ export interface IConversationEvent {
   content?: string;
   agentId?: string;
   toolName?: string;
+  /** For agent job events: the background task id this event belongs to. */
+  taskId?: string;
   metadata?: Record<string, TUniversalValue>;
 }
 

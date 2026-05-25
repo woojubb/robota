@@ -1,18 +1,19 @@
-import type { IAgentConfig, IAssistantMessage } from '../interfaces/agent';
-import type { IPluginContext, TMetadata } from '../interfaces/types';
-import type { IAIProviderManager } from '../interfaces/manager';
-import type { IToolManager } from '../interfaces/manager';
-import type { IChatOptions } from '../interfaces/provider';
-import type { IToolCall, TUniversalMessage } from '../interfaces/messages';
+import { executeStreamToolCalls } from './execution-stream-tools';
+import { callPluginHook } from './plugin-hook-dispatcher';
+
+import type { ExecutionEventEmitter } from './execution-event-emitter';
+import type { IExecutionContext } from './execution-types';
+import type { TPluginWithHooks } from './plugin-hook-dispatcher';
 import type { IToolExecutionBatchContext } from './tool-execution-service';
 import type { ToolExecutionService } from './tool-execution-service';
+import type { IAgentConfig, IAssistantMessage } from '../interfaces/agent';
+import type { IAIProviderManager } from '../interfaces/manager';
+import type { IToolManager } from '../interfaces/manager';
+import type { IToolCall, TUniversalMessage } from '../interfaces/messages';
+import type { IChatOptions } from '../interfaces/provider';
+import type { IPluginContext, TMetadata } from '../interfaces/types';
 import type { ConversationHistory } from '../managers/conversation-history-manager';
 import type { ILogger } from '../utils/logger';
-import type { ExecutionEventEmitter } from './execution-event-emitter';
-import type { TPluginWithHooks } from './plugin-hook-dispatcher';
-import { callPluginHook } from './plugin-hook-dispatcher';
-import type { IExecutionContext } from './execution-types';
-import { executeStreamToolCalls } from './execution-stream-tools';
 
 /** Streaming chunk yielded by executeStream */
 export interface IStreamChunk {
@@ -136,7 +137,7 @@ export async function* executeStream(
 
     const stream = chatStream.call(provider, conversationMessages, chatOptions);
     let fullResponse = '';
-    let toolCalls: IToolCall[] = [];
+    const toolCalls: IToolCall[] = [];
     let currentToolCallIndex = -1;
 
     for await (const chunk of stream) {

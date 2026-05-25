@@ -4,12 +4,15 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { IAIProvider, IToolWithEventService } from '@robota-sdk/agent-core';
-import type { IToolResult } from '@robota-sdk/agent-core';
-import type { ITerminalOutput, TPermissionHandler } from '@robota-sdk/agent-session';
+
 import type { IAgentDefinition } from '../../agents/agent-definition-types.js';
 import type { IResolvedConfig } from '../../config/config-types.js';
 import type { ILoadedContext } from '../../context/context-loader.js';
+import type { ISubagentManager } from '../../subagents/index.js';
+import type { IAgentToolDeps } from '../agent-tool.js';
+import type { IAIProvider, IToolWithEventService } from '@robota-sdk/agent-core';
+import type { IToolResult } from '@robota-sdk/agent-core';
+import type { ITerminalOutput, TPermissionHandler } from '@robota-sdk/agent-session';
 
 const mockProvider = {
   generateResponse: vi.fn(),
@@ -47,10 +50,8 @@ vi.mock('../../agents/built-in-agents.js', () => ({
 }));
 
 import { createAgentTool, createAgentToolPromptDescription } from '../agent-tool.js';
-import type { IAgentToolDeps } from '../agent-tool.js';
 import { createSubagentSession } from '../../assembly/create-subagent-session.js';
 import { getBuiltInAgent } from '../../agents/built-in-agents.js';
-import type { ISubagentManager } from '../../subagents/index.js';
 
 /** Extract the JSON-parsed data from an IToolResult */
 function parseToolResult(toolResult: IToolResult): Record<string, unknown> {

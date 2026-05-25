@@ -6,6 +6,7 @@ import {
   parseCliArgs,
   printHelp,
 } from '../cli-args.js';
+import { toSessionRunOptions } from '../../startup/args-to-options.js';
 
 describe('parsePermissionMode', () => {
   it('returns undefined for undefined input', () => {
@@ -205,6 +206,18 @@ describe('new non-interactive flags', () => {
   it('parses --allowed-tools flag', () => {
     process.argv = ['node', 'cli', '--allowed-tools', 'Bash,Read,Write'];
     expect(parseCliArgs().allowedTools).toBe('Bash,Read,Write');
+  });
+
+  it('parses --dry-run flag', () => {
+    process.argv = ['node', 'cli', '--dry-run', 'Refactor auth'];
+    const args = parseCliArgs();
+    expect(args.dryRun).toBe(true);
+    expect(args.positional).toContain('Refactor auth');
+  });
+
+  it('defaults dryRun to false', () => {
+    process.argv = ['node', 'cli'];
+    expect(parseCliArgs().dryRun).toBe(false);
   });
 
   it('defaults allowedTools to undefined', () => {

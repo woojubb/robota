@@ -1,6 +1,7 @@
-import type { IBackgroundTaskRunner } from '../types.js';
 import { createManagedShellProcessRunner } from './managed-shell-process-runner.js';
 import { createScheduledTaskRunner } from './scheduled-task-runner.js';
+
+import type { IBackgroundTaskRunner } from '../types.js';
 
 export { createManagedShellProcessRunner } from './managed-shell-process-runner.js';
 export type { IManagedShellProcessRunnerOptions } from './managed-shell-process-runner.js';

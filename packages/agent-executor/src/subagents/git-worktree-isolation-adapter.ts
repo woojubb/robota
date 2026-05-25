@@ -2,7 +2,9 @@ import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
+
 import { BackgroundTaskError } from '../background-tasks/types.js';
+
 import type {
   IPreparedSubagentWorktree,
   ISubagentWorktreeAdapter,

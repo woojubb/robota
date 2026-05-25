@@ -1,5 +1,6 @@
-import { IUsageStorage, IUsageStats, IAggregatedUsageStats } from '../types';
 import { aggregateUsageStats } from '../aggregate-usage-stats';
+
+import type { IUsageStorage, IUsageStats, IAggregatedUsageStats } from '../types';
 
 /**
  * Silent storage implementation for usage statistics (no-op)

@@ -2,7 +2,6 @@
  * Ink render entry point.
  */
 
-import React from 'react';
 import { render } from 'ink';
 import App from './App.js';
 import type { IAIProvider } from '@robota-sdk/agent-core';
@@ -20,9 +19,6 @@ import type {
 import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
 import type { ITuiCliAdapter } from './tui-cli-adapter.js';
 
-export interface IRenderOptions {
-  cwd: string;
-  provider: IAIProvider;
   providerOverride?: string | undefined;
   providerType?: string | undefined;
   modelId?: string;
@@ -30,24 +26,17 @@ export interface IRenderOptions {
   permissionMode?: TPermissionMode;
   maxTurns?: number;
   version?: string;
-  sessionStore?: IInteractiveSessionStore;
   resumeSessionId?: string;
   showSessionPickerOnStart?: boolean;
   forkSession?: boolean;
   sessionName?: string;
-  backgroundTaskRunners?: IBackgroundTaskRunner[];
-  subagentRunnerFactory?: TSubagentRunnerFactory;
-  commandModules?: readonly ICommandModule[];
-  commandHostAdapters?: ICommandHostAdapters;
   shellExec?: TShellExecFn;
   startupUpdateNotice?: Promise<string | undefined>;
-  transportRegistry?: ITransportRegistryView<IInteractiveSession>;
   cliAdapter: ITuiCliAdapter;
-  reloadPluginCommandSource?: (registry: CommandRegistry) => void;
   agentName?: string;
 }
 
-export async function renderApp(options: IRenderOptions): Promise<void> {
+export async function renderApp(options: ITuiRenderOptions): Promise<void> {
   process.on('unhandledRejection', (reason) => {
     process.stderr.write(`\n[UNHANDLED REJECTION] ${reason}\n`);
     if (reason instanceof Error) {
@@ -55,6 +44,7 @@ export async function renderApp(options: IRenderOptions): Promise<void> {
     }
   });
 
-  const instance = render(<App {...options} />, { exitOnCtrlC: false });
+  const { runtime, ...tuiOptions } = options;
+  const instance = render(<App {...runtime} {...tuiOptions} />, { exitOnCtrlC: false });
   await instance.waitUntilExit();
 }

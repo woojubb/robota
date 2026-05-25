@@ -1,5 +1,6 @@
-import type { IInteractiveSession, IExecutionResult } from '@robota-sdk/agent-framework';
 import { executeSlashCommandIfPresent, subscribeStreamJsonEvents } from './headless-stream-json.js';
+
+import type { IInteractiveSession, IExecutionResult } from '@robota-sdk/agent-framework';
 
 export type TOutputFormat = 'text' | 'json' | 'stream-json';
 
@@ -21,12 +22,33 @@ export function createHeadlessRunner(options: IHeadlessRunnerOptions): {
   };
 }
 
+export function resolveErrorCode(error: Error): string {
+  const msg = error.message.toLowerCase();
+  if (msg.includes('api key') || msg.includes('no provider') || msg.includes('provider')) {
+    return 'config_error';
+  }
+  if (msg.includes('tool') || msg.includes('execution')) {
+    return 'tool_error';
+  }
+  return 'api_error';
+}
+
 export function writeJsonResult(
   sessionId: string,
   result: string,
   subtype: 'success' | 'error',
+  error?: Error,
 ): void {
-  const output = JSON.stringify({ type: 'result', result, session_id: sessionId, subtype });
+  const payload: Record<string, unknown> = {
+    type: 'result',
+    result,
+    session_id: sessionId,
+    subtype,
+  };
+  if (subtype === 'error' && error !== undefined) {
+    payload['error_code'] = resolveErrorCode(error);
+  }
+  const output = JSON.stringify(payload);
   process.stdout.write(output + '\n');
 }
 
@@ -94,9 +116,9 @@ function runJsonFormat(session: IInteractiveSession, prompt: string): Promise<nu
       writeJsonResult(getSessionId(session), result.response, 'success');
       resolve(0);
     };
-    const onError = (_error: Error): void => {
+    const onError = (error: Error): void => {
       cleanup();
-      writeJsonResult(getSessionId(session), '', 'error');
+      writeJsonResult(getSessionId(session), '', 'error', error);
       resolve(1);
     };
 

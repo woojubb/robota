@@ -1,8 +1,9 @@
+---
+title: 'CLI Diff Foreground Contrast'
+status: done
+---
+
 # CLI Diff Foreground Contrast
-
-## Status
-
-Completed.
 
 ## Priority
 

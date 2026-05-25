@@ -1,14 +1,16 @@
+import {
+  BACKGROUND_COMMAND_DESCRIPTION,
+  buildBackgroundCommandSubcommands,
+} from '@robota-sdk/agent-framework';
+
+import { executeBackgroundCommand } from './background-command.js';
+
 import type {
   ICommand,
   ICommandModule,
   ICommandSource,
   ISystemCommand,
 } from '@robota-sdk/agent-framework';
-import {
-  BACKGROUND_COMMAND_DESCRIPTION,
-  buildBackgroundCommandSubcommands,
-} from '@robota-sdk/agent-framework';
-import { executeBackgroundCommand } from './background-command.js';
 
 export function createBackgroundCommandEntry(): ICommand {
   return {

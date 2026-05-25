@@ -1,29 +1,5 @@
-import type {
-  IAgentConfig,
-  IAssistantMessage,
-  IExecutionContextInjection,
-} from '../interfaces/agent';
-import { ToolExecutionService } from './tool-execution-service';
-import type { IAIProviderManager, IToolManager } from '../interfaces/manager';
-import { ConversationHistory } from '../managers/conversation-history-manager';
-import { createLogger, type ILogger } from '../utils/logger';
-import type { TUniversalMessage } from '../interfaces/messages';
-import type { IEventService } from '../interfaces/event-service';
-import type { ExecutionCacheService } from './cache/execution-cache-service';
-
-// Re-export constants for public API compatibility
-export { EXECUTION_EVENTS, EXECUTION_EVENT_PREFIX } from './execution-constants';
-
-import {
-  type IExecutionRoundState,
-  type IExecutionContext,
-  type IExecutionResult,
-  type IExecutionServicePluginStats,
-} from './execution-types';
 import { ExecutionEventEmitter } from './execution-event-emitter';
-import { callPluginHook, type TPluginWithHooks } from './plugin-hook-dispatcher';
-import type { TMetadata } from '../interfaces/types';
-import { executeStream as executeStreamFn } from './execution-stream';
+import { runExecutionLoop, finalizeExecution } from './execution-pipeline';
 import {
   resolveProviderAndTools,
   validateProvider,
@@ -33,7 +9,31 @@ import {
   requireConversationId,
   buildFullExecutionContext,
 } from './execution-service-helpers';
-import { runExecutionLoop, finalizeExecution } from './execution-pipeline';
+import { executeStream as executeStreamFn } from './execution-stream';
+import {
+  type IExecutionRoundState,
+  type IExecutionContext,
+  type IExecutionResult,
+  type IExecutionServicePluginStats,
+} from './execution-types';
+import { callPluginHook, type TPluginWithHooks } from './plugin-hook-dispatcher';
+import { ToolExecutionService } from './tool-execution-service';
+import { createLogger, type ILogger } from '../utils/logger';
+
+import type {
+  IAgentConfig,
+  IAssistantMessage,
+  IExecutionContextInjection,
+} from '../interfaces/agent';
+import type { IEventService } from '../interfaces/event-service';
+import type { IAIProviderManager, IToolManager } from '../interfaces/manager';
+import type { TUniversalMessage } from '../interfaces/messages';
+import type { TMetadata } from '../interfaces/types';
+import type { ConversationHistory } from '../managers/conversation-history-manager';
+import type { ExecutionCacheService } from './cache/execution-cache-service';
+
+// Re-export constants for public API compatibility
+export { EXECUTION_EVENTS, EXECUTION_EVENT_PREFIX } from './execution-constants';
 
 /** Orchestrates the execution pipeline: AI provider, tool execution, and plugin lifecycle. */
 export class ExecutionService {
@@ -181,6 +181,7 @@ export class ExecutionService {
         lastTrackedAssistantMessage: undefined,
         cumulativeInputTokens: 0,
         consecutiveUnknownToolFailureRounds: 0,
+        sameToolInputCounts: new Map(),
       };
 
       for (const msg of conversationStore.getMessages()) {

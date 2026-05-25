@@ -1,8 +1,9 @@
+---
+title: 'SDK Public Surface Owner Audit'
+status: done
+---
+
 # SDK Public Surface Owner Audit
-
-## Status
-
-Completed.
 
 ## Priority
 

@@ -7,6 +7,7 @@ import {
   type IProviderDefinition,
   type TProviderCredentialField,
 } from '@robota-sdk/agent-core';
+
 import type { TProviderSettingsDocument } from './provider-settings.js';
 
 export type TSettingsCheck = 'missing' | 'valid' | 'corrupt' | 'incomplete';

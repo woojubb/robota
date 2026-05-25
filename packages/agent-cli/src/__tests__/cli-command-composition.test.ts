@@ -1,7 +1,21 @@
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+
+import { createDefaultCommandModules } from '@robota-sdk/agent-command';
+import {
+  CommandRegistry,
+  InteractiveSession,
+  readMergedProviderSettings,
+  readSettings,
+  resolveProviderSettingsWriteTargetPath,
+  writeSettings,
+} from '@robota-sdk/agent-framework';
+import { createHeadlessTransport } from '@robota-sdk/agent-transport/headless';
 import { describe, expect, it, vi } from 'vitest';
+
+import { startCli } from '../cli.js';
+
 import type {
   IAIProvider,
   IChatOptions,

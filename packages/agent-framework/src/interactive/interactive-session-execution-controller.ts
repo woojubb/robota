@@ -6,39 +6,45 @@
  * shutting-down flag, and all private execution lifecycle methods.
  */
 
-import type { Session } from '@robota-sdk/agent-session';
-import type { ICompactEvent } from '@robota-sdk/agent-session';
-import type { IContextWindowState, TToolArgs } from '@robota-sdk/agent-core';
 import {
   createUserMessage,
   createAssistantMessage,
   createSystemMessage,
   messageToHistoryEntry,
 } from '@robota-sdk/agent-core';
-import type { ICommand, ICommandResult, ISkillExecutionResult } from '../commands/index.js';
-import type { TExecutionWorkspaceUpdateCause } from '../background-tasks/index.js';
-import type { ISkillActivationEvent } from '../commands/skill-activation-events.js';
-import type { IContextFileEntry } from '../context/context-file-tracker.js';
+
 import { checkAndRefreshContextIfStale } from './interactive-session-context-refresh.js';
-import type { ICreatedInteractiveSession } from './interactive-session-init.js';
+import { executePromptTurn } from './interactive-session-prompt.js';
 import {
   STREAMING_FLUSH_INTERVAL_MS,
   pushToolSummaryToHistory,
   applyToolStart,
   applyToolEnd,
 } from './interactive-session-streaming.js';
-import { executePromptTurn } from './interactive-session-prompt.js';
-import type { IToolState } from './types.js';
+import { humanizeApiError } from '../utils/error-humanizer.js';
+
 import type { SessionHistoryTracker } from './interactive-session-history-tracker.js';
+import type { ICreatedInteractiveSession } from './interactive-session-init.js';
 import type { SessionSkillRouter } from './interactive-session-skill-router.js';
+import type { IToolState } from './types.js';
 import type { IExecutionResult } from './types.js';
+import type {
+  IExecutionWorkspaceSnapshot,
+  TExecutionWorkspaceUpdateCause,
+} from '../background-tasks/index.js';
+import type { ICommand, ICommandResult, ISkillExecutionResult } from '../commands/index.js';
+import type { ISkillActivationEvent } from '../commands/skill-activation-events.js';
+import type { IContextFileEntry } from '../context/context-file-tracker.js';
+import type { IContextWindowState, TToolArgs } from '@robota-sdk/agent-core';
+import type { ICompactEvent } from '@robota-sdk/agent-session';
+import type { Session } from '@robota-sdk/agent-session';
 
 export interface IExecutionControllerCallbacks {
   getSession: () => Session;
   getSessionOrThrow: () => Session;
   getCwd: () => string;
   getContextState: () => IContextWindowState;
-  getExecutionWorkspaceSnapshot: () => import('../background-tasks/index.js').IExecutionWorkspaceSnapshot;
+  getExecutionWorkspaceSnapshot: () => IExecutionWorkspaceSnapshot;
   emit: <E extends string>(event: E, ...args: unknown[]) => void;
   persistSession: () => void;
 }
@@ -111,6 +117,7 @@ export class SessionExecutionController {
     success?: boolean;
     denied?: boolean;
     toolResultData?: string;
+    executionId?: string;
   }): void {
     const streamingState = {
       activeTools: this.activeTools,
@@ -240,9 +247,10 @@ export class SessionExecutionController {
       await this.applyForkSkillResult(result.result ?? '(empty response)');
       return result;
     } catch (err) {
+      // allow-fallback: fork-skill errors must not crash the main execution thread
       const error = err instanceof Error ? err : new Error(String(err));
       this.histTracker.append(
-        messageToHistoryEntry(createSystemMessage(`Error: ${error.message}`)),
+        messageToHistoryEntry(createSystemMessage(`Error: ${humanizeApiError(error)}`)),
       );
       this.callbacks.emit('error', error);
       return { mode: 'fork', result: '' };

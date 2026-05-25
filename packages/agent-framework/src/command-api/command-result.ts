@@ -1,6 +1,6 @@
-import type { TUniversalValue } from '@robota-sdk/agent-core';
 import type { TCommandEffect } from './effects.js';
 import type { ICommandInteraction } from './interactions.js';
+import type { TUniversalValue } from '@robota-sdk/agent-core';
 
 export type TCommandResultDataValue =
   | TUniversalValue

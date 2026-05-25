@@ -5,15 +5,16 @@
  * Handles agent event emission and owner path construction.
  */
 import { AGENT_EVENTS, AGENT_EVENT_PREFIX } from '../agents/constants';
+import { isDefaultEventService } from '../event-service/index';
+import { EVENT_EMITTER_EVENTS } from '../plugins/event-emitter/types';
+import { EventEmitterPlugin } from '../plugins/event-emitter-plugin';
+
+import type { IAgentConfig, IExecutionContextInjection } from '../interfaces/agent';
 import type {
   IEventService,
   IOwnerPathSegment,
   IAgentEventData,
 } from '../interfaces/event-service';
-import { isDefaultEventService } from '../event-service/index';
-import type { IAgentConfig, IExecutionContextInjection } from '../interfaces/agent';
-import { EventEmitterPlugin } from '../plugins/event-emitter-plugin';
-import { EVENT_EMITTER_EVENTS } from '../plugins/event-emitter/types';
 
 /**
  * Emit the AGENT_EVENTS.CREATED event with tool and model parameters.

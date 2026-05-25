@@ -1,7 +1,12 @@
 import { randomUUID } from 'node:crypto';
+
 import { GoogleGenAI } from '@google/genai';
-import type { IGeminiProviderOptions } from './types';
 import { AbstractAIProvider } from '@robota-sdk/agent-core';
+
+import { executeDirect, executeDirectStream, runImageRequest } from './execution-helpers';
+import { mapImageInputSourceToPart } from './image-operations';
+
+import type { IGeminiProviderOptions } from './types';
 import type {
   TUniversalMessage,
   IChatOptions,
@@ -14,8 +19,6 @@ import type {
   IImageGenerationResult,
   TProviderMediaResult,
 } from '@robota-sdk/agent-core';
-import { mapImageInputSourceToPart } from './image-operations';
-import { executeDirect, executeDirectStream, runImageRequest } from './execution-helpers';
 
 /**
  * Gemini provider implementation for Robota

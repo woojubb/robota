@@ -3,14 +3,14 @@
  *
  * Extracted from robota.ts to keep the main class under 300 lines.
  */
+import type { TAgentStatsMetadata } from './robota-config-manager';
 import type { TUniversalMessage } from '../interfaces/agent';
 import type { AIProviders } from '../managers/ai-provider-manager';
-import type { Tools } from '../managers/tool-manager';
 import type { ModuleRegistry } from '../managers/module-registry';
+import type { Tools } from '../managers/tool-manager';
 import type { EventEmitterPlugin } from '../plugins/event-emitter-plugin';
 import type { ExecutionService } from '../services/execution-service';
 import type { ILogger } from '../utils/logger';
-import type { TAgentStatsMetadata } from './robota-config-manager';
 
 /** Dependencies required by getStats. @internal */
 export interface IRobotaStatsDeps {

@@ -1,7 +1,9 @@
-import { describe, expect, it, vi } from 'vitest';
 import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
-import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { describe, expect, it, vi } from 'vitest';
+
 import {
   CLI_UPDATE_CACHE_TTL_MS,
   checkForCliUpdate,

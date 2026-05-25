@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync, unlinkSync } from 'node:fs';
 import { join, dirname } from 'node:path';
+
 import type { TUniversalValue } from '@robota-sdk/agent-core';
 
 export type TSettingsData = Record<string, TUniversalValue>;

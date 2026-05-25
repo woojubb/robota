@@ -1,4 +1,3 @@
-import type { ICommandHostContext, ICommandResult } from '@robota-sdk/agent-framework';
 import {
   BACKGROUND_COMMAND_USAGE,
   cancelCommandBackgroundTask,
@@ -8,6 +7,8 @@ import {
   parseCommandBackgroundLogCursor,
   readCommandBackgroundTaskLog,
 } from '@robota-sdk/agent-framework';
+
+import type { ICommandHostContext, ICommandResult } from '@robota-sdk/agent-framework';
 
 function parseCommandParts(args: string): string[] {
   return args.trim().split(/\s+/).filter(Boolean);

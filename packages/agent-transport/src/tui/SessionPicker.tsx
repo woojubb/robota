@@ -3,10 +3,12 @@
  * Shows a list of sessions for the current cwd.
  */
 
-import React from 'react';
 import { Box, Text } from 'ink';
-import type { IResumableSessionSummary } from '@robota-sdk/agent-framework';
+import React from 'react';
+
 import ListPicker from './ListPicker.js';
+
+import type { IResumableSessionSummary } from '@robota-sdk/agent-framework';
 
 const SESSION_ID_DISPLAY_LENGTH = 8;
 const SESSION_PREVIEW_DISPLAY_LENGTH = 60;

@@ -5,9 +5,10 @@
  * used by BundlePluginLoader.
  */
 
-import type { IFileSystem } from '@robota-sdk/agent-core';
 import { NodeFileSystem } from '../adapters/node-file-system.js';
+
 import type { IBundlePluginManifest } from './bundle-plugin-types.js';
+import type { IFileSystem } from '@robota-sdk/agent-core';
 
 /**
  * Parse simple YAML-like frontmatter from a skill markdown file.

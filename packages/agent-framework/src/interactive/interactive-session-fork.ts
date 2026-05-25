@@ -4,12 +4,13 @@
  * Standalone functions for running skills in forked agent sessions.
  */
 
-import type { Session } from '@robota-sdk/agent-session';
-import type { IForkExecutionOptions } from '../commands/index.js';
-import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import { getBuiltInAgent } from '../agents/built-in-agents.js';
-import { retrieveAgentToolDeps } from '../tools/agent-tool.js';
 import { createSubagentSession } from '../assembly/create-subagent-session.js';
+import { retrieveAgentToolDeps } from '../tools/agent-tool.js';
+
+import type { IAgentDefinition } from '../agents/agent-definition-types.js';
+import type { IForkExecutionOptions } from '../commands/index.js';
+import type { Session } from '@robota-sdk/agent-session';
 
 export function resolveForkAgentDefinition(
   agentType: string,

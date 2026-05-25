@@ -4,7 +4,9 @@
  * Message factories live in ./conversation-message-factory.ts.
  * Store implementations live in ./conversation-store.ts.
  */
+import { ConversationStore } from './conversation-store';
 import { createLogger, type ILogger } from '../utils/logger';
+
 import type {
   TUniversalMessageMetadata,
   TUniversalMessageRole,
@@ -38,8 +40,6 @@ export {
 export { ConversationStore } from './conversation-store';
 
 export type { IProviderApiMessage } from './conversation-store';
-
-import { ConversationStore } from './conversation-store';
 
 const DEFAULT_MAX_MESSAGES_PER_CONVERSATION = 100;
 const DEFAULT_MAX_CONVERSATIONS = 50;

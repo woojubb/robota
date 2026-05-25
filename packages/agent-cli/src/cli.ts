@@ -106,10 +106,11 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   try {
     await ensureConfig(cwd, args, promptInput, terminal, providerDefinitions);
   } catch (error) {
-    // allow-fallback: terminal failure — not a silent fallback
+    // allow-fallback: argument validation errors are terminal — exit is the correct response
     process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
     process.exit(1);
   }
+}
 
   const providerOptions = args.provider
     ? { providerOverride: args.provider, providerDefinitions }
@@ -129,31 +130,88 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   let resumeSessionId: string | undefined;
   let showSessionPickerOnStart = false;
 
-  if (args.continueMode) {
-    resumeSessionId = resolveLatestSessionId(sessionStore, cwd);
-  } else if (args.resumeId !== undefined) {
-    if (args.resumeId === '') {
-      showSessionPickerOnStart = true;
-    } else {
-      resumeSessionId = resolveSessionIdByIdOrName(sessionStore, args.resumeId);
-      if (resumeSessionId === undefined) {
-        process.stderr.write(`Session not found: ${args.resumeId}\n`);
-        process.exit(1);
-      }
-    }
+  // Pre-preflight: create commandSetup early so init can offer inline provider setup
+  const commandSetup = createCommandSetup(cwd, options);
+  const configPhaseOpts = toConfigPhaseOptions(args);
+
+  // Layer 0: pre-flight — single point for all early-exit commands
+  if (
+    (
+      await handlePreflightCommands(args, {
+        version,
+        terminal,
+        cwd,
+        onProviderSetup: () =>
+          runInteractiveProviderSetup(
+            cwd,
+            configPhaseOpts,
+            promptInput,
+            terminal,
+            commandSetup.providerDefinitions,
+          ),
+      })
+    ).handled
+  )
+    return;
+
+  if (args.apiKey) {
+    process.stderr.write(
+      '\n⚠  Warning: --api-key value may appear in your shell history.\n' +
+        '   Prefer: export ANTHROPIC_API_KEY=<key>, or use --api-key-env ANTHROPIC_API_KEY\n\n',
+    );
   }
 
-  if (args.printMode) {
-    await runPrintMode(
-      cwd,
-      args,
-      provider,
-      sessionStore,
-      backgroundTaskRunners,
-      subagentRunnerFactory,
-      commandModules,
-      commandHostAdapters,
+  // Layer 1: IParsedCliArgs → typed option objects (boundary)
+  const sessionOpts = toSessionRunOptions(args);
+
+  try {
+    if (await runUserLocalDirectCommandIfRequested(toUserLocalCommandOptions(args), cwd, terminal))
+      return;
+  } catch (error) {
+    // allow-fallback: user-local command failure is terminal
+    terminal.writeError(error instanceof Error ? error.message : String(error));
+    process.exit(1);
+  }
+
+  // Layer 2: sub-layer assembly (same-level grouping)
+  const isTTY = process.stdin.isTTY === true && process.stdout.isTTY === true;
+  const configPhase = await handleConfigPhase(cwd, configPhaseOpts, commandSetup, terminal, isTTY);
+  if (configPhase.handled) return;
+
+  const providerSetup = createProviderSetup(cwd, configPhaseOpts, commandSetup);
+  const sessionSetup = createSessionSetup(cwd, sessionOpts);
+
+  const { orgPolicy } = commandSetup;
+  if (
+    orgPolicy?.allowedProviders &&
+    providerSetup.activeProfileName &&
+    !orgPolicy.allowedProviders.includes(providerSetup.activeProfileName)
+  ) {
+    const contact = orgPolicy.adminContact
+      ? `\nContact your administrator: ${orgPolicy.adminContact}`
+      : '';
+    terminal.writeError(
+      `Provider "${providerSetup.activeProfileName}" is not allowed by your organization policy. Allowed: ${orgPolicy.allowedProviders.join(', ')}.${contact}`,
     );
+    process.exit(1);
+  }
+
+  // Layer 3: runtime assembly
+  const runtime = createAgentRuntime({
+    cwd,
+    provider: providerSetup.provider,
+    commandModules: commandSetup.commandModules,
+    commandHostAdapters: commandSetup.commandHostAdapters,
+    reloadPluginCommandSource: commandSetup.reloadPluginCommandSource,
+    subagentRunnerFactory: providerSetup.subagentRunnerFactory,
+    sessionStore: sessionSetup.sessionStore,
+    transportRegistry: createDefaultTransportRegistry(),
+    orgPolicy: orgPolicy ?? undefined,
+  });
+
+  // Layer 4: mode / transport
+  if (configPhaseOpts.printMode) {
+    await runPrintMode(sessionOpts, runtime);
     return;
   }
 
@@ -186,6 +244,5 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     reloadPluginCommandSource,
     agentName: 'robota-cli',
   });
-  await tuiTransport.start();
   process.exit(0);
 }

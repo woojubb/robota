@@ -1,0 +1,32 @@
+{
+  "redirects": [
+    { "source": "/compare", "destination": "https://www.robota.io/compare", "permanent": true },
+    {
+      "source": "/compare/(.*)",
+      "destination": "https://www.robota.io/compare/$1",
+      "permanent": true
+    },
+    { "source": "/showcase", "destination": "https://www.robota.io/showcase", "permanent": true },
+    {
+      "source": "/showcase/(.*)",
+      "destination": "https://www.robota.io/showcase/$1",
+      "permanent": true
+    },
+    { "source": "/roadmap", "destination": "https://www.robota.io/roadmap", "permanent": true },
+    {
+      "source": "/enterprise",
+      "destination": "https://www.robota.io/enterprise",
+      "permanent": true
+    },
+    {
+      "source": "/enterprise/(.*)",
+      "destination": "https://www.robota.io/enterprise/$1",
+      "permanent": true
+    },
+    {
+      "source": "/tools/cost-calculator",
+      "destination": "https://www.robota.io/tools/cost-calculator",
+      "permanent": true
+    }
+  ]
+}

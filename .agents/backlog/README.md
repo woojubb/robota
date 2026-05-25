@@ -1,13 +1,22 @@
 # Backlog
 
-Future work items and ideas that are not yet scheduled as active tasks.
-Active tasks live in `.agents/tasks/`. Completed tasks are archived to `.agents/tasks/completed/`.
+Future work items and ideas that are tracked and executed as focused PRs. Completed items are
+archived to `completed/`.
 
 ## Process
 
-1. Add ideas here as `<topic>.md` files.
-2. When prioritized, move to `.agents/tasks/` and update status.
-3. When done, archive to `.agents/tasks/completed/`.
+1. Create a new `.md` file in this directory with the required frontmatter (see File Format below).
+2. Set `status: todo` (not yet started) or `status: in-progress` (underway) in frontmatter.
+3. When implementation is complete and all gates pass (see
+   [backlog-execution.md](../rules/backlog-execution.md)):
+   - Update `status: done` and add `completed: YYYY-MM-DD` in frontmatter.
+   - Use `git mv` to move the file from `backlog/` to `backlog/completed/`.
+   - Include the status update and the move in the same commit — do not split them.
+4. For items that will not be implemented, set `status: wontfix` or `status: skipped` in
+   frontmatter, then move to `completed/` in the same commit.
+
+**Never** move a file to `completed/` without first updating `status` in its frontmatter.
+**Never** set `status: done` before the User Execution Test Scenario gate passes (if applicable).
 
 ## File Format
 
@@ -17,16 +26,19 @@ required at the top of each file:
 ```markdown
 ---
 title: '<ID>: <short description>'
-status: todo | in-progress | done | wontfix | backlog
+status: todo | in-progress | done | wontfix | skipped | superseded
 created: YYYY-MM-DD
+completed: YYYY-MM-DD # required when status is done/wontfix/skipped/superseded
 priority: critical | high | medium | low
 urgency: now | soon | later | backlog
 area: <affected packages or apps>
+depends_on: [] # list of blocking backlog IDs, empty if none
 ---
 ```
 
-Inline markdown (`- **Status**: value`) is **not acceptable** for metadata. Frontmatter is the
-single source of truth for status tracking — grep-based tooling and harness scripts rely on it.
+The `status` field in frontmatter is the **single source of truth**. Do not write status
+information anywhere in the body — body sections such as `## Status` are banned. Grep-based
+tooling and harness scripts rely exclusively on frontmatter for status tracking.
 
 ## Backlog Entry Requirements
 
@@ -361,3 +373,170 @@ QA v2 점검에서 발견된 의존성 관리 이슈.
 | [REFACTOR-021](REFACTOR-021-getcwd-fallback-removal.md)                   | getCwd() process.cwd() silent fallback 제거            | low      |
 | [REFACTOR-022](REFACTOR-022-remote-client-emoji-logger.md)                | agent-remote-client 이모지 + 진단 로거 정리            | low      |
 | [REFACTOR-023](REFACTOR-023-tmodelconfig-interface-rename.md)             | TModelConfig / TConfigurationSnapshot → interface 변환 | low      |
+
+### agent-cli 아키텍처 코드리뷰 — 2026-05-17 ✅ 완료
+
+코드리뷰 보고서: [.design/agent-cli-review-2026-05-17.html](../../.design/agent-cli-review-2026-05-17.html)
+
+모든 10개 항목 구현 완료 (2026-05-17). 파일 위치: `completed/CLIR-*.md`
+
+| ID       | 제목                                                                        | 우선순위 | 상태 |
+| -------- | --------------------------------------------------------------------------- | -------- | ---- |
+| CLIR-C01 | subagent-setup.ts — @robota-sdk/agent-subagent-runner 직접 import 계층 위반 | critical | ✅   |
+| CLIR-C02 | print-mode.ts — new InteractiveSession() 직접 생성으로 IAgentRuntime 우회   | critical | ✅   |
+| CLIR-H01 | startup/ 모듈의 process.exit/stderr.write 직접 호출 제거                    | high     | ✅   |
+| CLIR-H02 | shellExec 클로저 중복 — print-mode와 tui-mode에 동일 코드 분리              | high     | ✅   |
+| CLIR-H03 | tui-mode.ts — providerSettings.name을 providerOverride에 잘못 사용          | high     | ✅   |
+| CLIR-M01 | provider-startup.ts — createDefaultProviderDefinitions() 기본 인자 4중 복제 | medium   | ✅   |
+| CLIR-M02 | TTY 인터랙티브 검출이 startup 모듈 내부에 인라인 하드코딩                   | medium   | ✅   |
+| CLIR-M03 | --system-prompt 미구현 플래그 완전 구현 또는 완전 제거                      | medium   | ✅   |
+| CLIR-L01 | agentName 하드코딩 — robota-cli 문자열 상수로 추출                          | low      | ✅   |
+| CLIR-L02 | bin.ts — TUniversalValue catch 타입 선언 제거 및 unknown으로 교체           | low      | ✅   |
+
+### Architecture Map Review — 2026-05-18
+
+시니어 설계 아키텍트 · 시니어 개발자 · 시니어 기획자 3인 병렬 리뷰 결과 도출된 아키텍처 맵 정확도 및 커버리지 개선 항목.
+리뷰 보고서: [.agents/reports/arch-review-summary.md](../reports/arch-review-summary.md)
+
+| ID                                                                         | 제목                                                                    | 우선순위 |
+| -------------------------------------------------------------------------- | ----------------------------------------------------------------------- | -------- |
+| [ARCH-REV-001](ARCH-REV-001-fix-project-structure-accuracy.md)             | project-structure.md 정확도 수정 (잘못된 경로, 존재하지 않는 패키지)    | critical |
+| [ARCH-REV-002](ARCH-REV-002-fix-dependency-direction-diagram.md)           | dependency-direction.md 다이어그램 오류 수정 (4가지 검증된 부정확성)    | critical |
+| [ARCH-REV-003](ARCH-REV-003-fix-code-quality-stale-package-names.md)       | code-quality.md 구식 패키지명 수정                                      | high     |
+| [ARCH-REV-004](ARCH-REV-004-refresh-composition-tree.md)                   | composition-tree.md 전면 갱신 (CLIR 리팩터 이후 구식)                   | critical |
+| [ARCH-REV-005](ARCH-REV-005-fix-class-interface-inventory.md)              | class-interface-inventory.md 구식 항목 수정                             | high     |
+| [ARCH-REV-006](ARCH-REV-006-fix-execution-modes-sidecar-and-print.md)      | execution-modes.md 수정 (사이드카 계획됨 표시, 프린트 모드 API 갱신)    | high     |
+| [ARCH-REV-007](ARCH-REV-007-add-evidence-to-layering-audit.md)             | layering-audit.md 누락 증거 추가 (CLI-AUDIT-012~023)                    | high     |
+| [ARCH-REV-008](ARCH-REV-008-fix-stale-names-in-spec-files.md)              | agent-team + agent-web-ui SPEC.md 구식 패키지명 수정                    | high     |
+| [ARCH-REV-009](ARCH-REV-009-update-cross-cutting-contracts.md)             | cross-cutting-contracts.md 누락 행 추가 (transport, plugin)             | high     |
+| [ARCH-REV-010](ARCH-REV-010-create-subagent-runner-spec.md)                | packages/agent-subagent-runner/docs/SPEC.md 생성 (유일하게 누락된 SPEC) | critical |
+| [ARCH-REV-011](ARCH-REV-011-create-agent-team-arch-map.md)                 | agent-team.md 아키텍처 맵 서브문서 생성 (멀티에이전트 오케스트레이션)   | high     |
+| [ARCH-REV-012](ARCH-REV-012-create-transport-architecture-doc.md)          | transport-architecture.md 서브문서 생성                                 | high     |
+| [ARCH-REV-013](ARCH-REV-013-expand-agent-system-mcp-sidecar-playground.md) | agent-system.md 확장 (MCP 명확화, 사이드카 교차참조, 플레이그라운드)    | high     |
+
+### Product Marketing — 상품성 개선 (2026-05-18)
+
+3인 병렬 분석(기획자·CEO·디자이너)에서 도출된 랜딩·온보딩·브랜드·커뮤니티·성장 개선 항목.  
+분석 보고서: [.design/planning/comprehensive-report.md](../../.design/planning/comprehensive-report.md)
+
+#### Phase 1 — 빠른 Win (1~3일)
+
+| ID                                                   | 제목                                                             | 우선순위 |
+| ---------------------------------------------------- | ---------------------------------------------------------------- | -------- |
+| [WEB-001](WEB-001-landing-positioning-quick-wins.md) | 랜딩 포지셔닝 + 신뢰 신호 배지 + 경쟁 섹션 + Playground nav 링크 | high     |
+
+#### Phase 2 — 구조 개선 (1~2주)
+
+| ID                                               | 제목                                                               | 우선순위 |
+| ------------------------------------------------ | ------------------------------------------------------------------ | -------- |
+| [WEB-002](WEB-002-onboarding-decision-tree.md)   | 온보딩 결정 트리 + 로컬 모델(LM Studio) 첫 번째 경로               | high     |
+| [WEB-003](WEB-003-brand-design-system.md)        | 브랜드 컬러 통합 + 코드 탭 전환 + 사이드바 계층화                  | high     |
+| [MKT-001](MKT-001-community-and-blog-content.md) | GitHub 커뮤니티 개설(Discussions + CONTRIBUTING.md) + 블로그 3편   | high     |
+| [MKT-002](MKT-002-v1-launch-seo.md)              | v1.0.0 선언 계획 수립 + SEO 메타/sitemap 정비 + 공개 로드맵 페이지 | medium   |
+
+#### Phase 3 — 인터랙티브 경험 (2~4주)
+
+| ID                                              | 제목                                                         | 우선순위 |
+| ----------------------------------------------- | ------------------------------------------------------------ | -------- |
+| [WEB-004](WEB-004-playground-interactive-ux.md) | Playground 온보딩/에러 상태 UI + Mermaid 아키텍처 다이어그램 | high     |
+| [PROD-001](PROD-001-public-playground.md)       | 퍼블릭 플레이그라운드 — API 키 입력 즉시 체험 데모 (BYOK)    | high     |
+
+### Tool Quality (2026-05-19)
+
+| ID                                             | 제목                                                                 | 우선순위 |
+| ---------------------------------------------- | -------------------------------------------------------------------- | -------- |
+| [TOOL-001](TOOL-001-web-fetch-error-detail.md) | WebFetch 오류 메시지 구체화 — LLM이 실패 원인을 정확히 파악하게 개선 | high     |
+
+### Playground — Visual Agent Code Generator (2026-05-19)
+
+`@robota-sdk/agent-framework` 기반 에이전트 앱 조립 도구. 캔버스에서 provider + model +
+tools + skills를 조립하면 새 프로젝트에 붙여넣을 수 있는 TypeScript 코드가 생성된다.
+Epic: [PLG-008](PLG-008-visual-agent-builder-playground.md)
+
+#### Backend Foundation
+
+| ID                                               | 제목                                                                  | 우선순위 |
+| ------------------------------------------------ | --------------------------------------------------------------------- | -------- |
+| [PLG-018](PLG-018-playground-router-module.md)   | Playground Router Module — /api/playground/\* 라우터 + BYOK sanitizer | medium   |
+| [PLG-016](PLG-016-provider-model-catalog-api.md) | Provider & Model Catalog API                                          | medium   |
+| [PLG-017](PLG-017-tool-registry-api.md)          | Tool Registry API + 서버사이드 tool 등록                              | medium   |
+| [PLG-015](PLG-015-playground-execution-api.md)   | Playground Execution API — SSE 스트리밍 에이전트 실행                 | high     |
+
+#### Frontend Migration & Redesign
+
+| ID                                                  | 제목                                                         | 우선순위 |
+| --------------------------------------------------- | ------------------------------------------------------------ | -------- |
+| [PLG-009](PLG-009-framework-executor-client.md)     | Framework Executor Client — PlaygroundExecutor SSE 기반 교체 | high     |
+| [PLG-010](PLG-010-assembly-canvas-redesign.md)      | Assembly Canvas 재설계 — AgentNode + ToolNode + 엣지 연결    | high     |
+| [PLG-011](PLG-011-execution-timeline-separation.md) | Execution Timeline 분리                                      | medium   |
+| [PLG-012](PLG-012-code-generator-engine.md)         | Code Generator 엔진 — 캔버스 상태 → TypeScript 코드          | high     |
+| [PLG-013](PLG-013-code-export-ui.md)                | Code Export UI — 미리보기 + syntax highlight + Copy 버튼     | high     |
+| [PLG-014](PLG-014-skills-support.md)                | Skills Support — Skills 패널 + skill 노드 + Code Export 반영 | medium   |
+
+### agent-cli Validation — 시니어 Dev + PM 검증 보고서 (2026-05-24)
+
+시니어 개발자 에이전트 + PM 에이전트 병렬 검증 + 종합 보고서에서 도출된 개선 항목.  
+보고서 v1: [.design/validation/synthesis-report.md](../../.design/validation/synthesis-report.md)  
+보고서 v2 (2026-05-24): [.design/validation/synthesis-report-v2.md](../../.design/validation/synthesis-report-v2.md)
+
+#### ✅ 완료된 항목 (2026-05-24)
+
+| ID                                                                | 제목                                              | 상태 |
+| ----------------------------------------------------------------- | ------------------------------------------------- | ---- |
+| [CLI-027](completed/CLI-027-system-prompt-flag-implementation.md) | --system-prompt / --append-system-prompt TUI 연결 | done |
+| [CLI-028](completed/CLI-028-nodejs-version-gate.md)               | Node.js 22 빌드 배너 (bin entry 진입 전 체크)     | done |
+| [CLI-029](completed/CLI-029-macos-cjk-crash-recheck.md)           | macOS Terminal.app CJK 경고 + IME 핸들러 개선     | done |
+| [CLI-030](completed/CLI-030-bash-session-allow.md)                | "이 세션에서 허용" 권한 옵션 (allow-session)      | done |
+| [CLI-031](completed/CLI-031-tool-output-truncation-notice.md)     | 도구 출력 truncation 시 ⚠ 터미널 경고            | done |
+| [CLI-033](completed/CLI-033-headless-e2e-tests.md)                | Headless E2E 테스트 10개                          | done |
+| [PM-023](completed/PM-023-first-run-onboarding-guide.md)          | 첫 실행 온보딩 웰컴 배너                          | done |
+| [PM-024](completed/PM-024-diagnose-command.md)                    | robota diagnose 자가 진단 커맨드 (6개 체크)       | done |
+| [PM-025](completed/PM-025-cost-accuracy.md)                       | /cost — 이미 올바르게 구현됨 확인                 | done |
+
+#### P0 — 출시 블로커 (보안·버그)
+
+| ID                                                        | 제목                                                       | 우선순위 |
+| --------------------------------------------------------- | ---------------------------------------------------------- | -------- |
+| [CLI-035](completed/CLI-035-path-traversal-protection.md) | Read/Write/Edit 도구 경로 순회(Path Traversal) 보호 없음   | critical |
+| [CLI-038](completed/CLI-038-stdin-positional-conflict.md) | `cat file \| robota -p "..."` 패턴 동작 안 함 (stdin 무시) | high     |
+| [CLI-040](completed/CLI-040-tui-mode-tests.md)            | TUI 모드 테스트 0개 — 주 사용 경로 미검증                  | high     |
+| [CLI-045](completed/CLI-045-model-flag-docs-mismatch.md)  | README의 `--model` 플래그가 구현에 없음                    | high     |
+
+#### P1 — 안정화 필수
+
+| ID                                                          | 제목                                                           | 우선순위 |
+| ----------------------------------------------------------- | -------------------------------------------------------------- | -------- |
+| [CLI-036](completed/CLI-036-bash-timeout-cap.md)            | Bash 타임아웃 캡 미적용 (Math.min 누락)                        | medium   |
+| [CLI-037](completed/CLI-037-api-key-flag-security.md)       | `--api-key` 플래그 셸 히스토리 평문 노출 경고 없음             | medium   |
+| [CLI-039](completed/CLI-039-init-json-parse-guard.md)       | `init-command.ts` Claude Code 설정 파일 JSON 파싱 예외 미처리  | medium   |
+| [CLI-041](completed/CLI-041-missing-test-coverage.md)       | diagnose / init / web-fetch / web-search 테스트 없음           | medium   |
+| [PM-031](completed/PM-031-readme-demo-gif.md)               | README 데모 GIF/스크린샷 없음                                  | high     |
+| [PM-032](completed/PM-032-env-var-bypass-setup.md)          | ENV 변수(ANTHROPIC_API_KEY)로 settings.json 없이 즉시 실행     | high     |
+| [PM-033](completed/PM-033-init-inline-provider-setup.md)    | `robota init` 완료 후 프로바이더 설정 인라인 연결              | medium   |
+| [PM-035](completed/PM-035-diagnose-improvements.md)         | diagnose 3가지 약점 (DASHSCOPE 누락, 네트워크 체크, JSON 검증) | medium   |
+| [PM-036](completed/PM-036-readme-slash-commands-sync.md)    | README 슬래시 커맨드 목록 — 10개 미문서화                      | medium   |
+| [PM-037](completed/PM-037-readme-why-robota-sdk-example.md) | README "왜 Robota인가?" + SDK 임베딩 예제 없음                 | high     |
+
+#### P2 — 완성도 향상
+
+| ID                                                       | 제목                                                     | 우선순위 |
+| -------------------------------------------------------- | -------------------------------------------------------- | -------- |
+| [CLI-032](completed/CLI-032-git-first-class-commands.md) | Git 통합 — /commit, /status, /diff                       | medium   |
+| [CLI-042](completed/CLI-042-grep-tool-parallel.md)       | grep-tool 순차 파일 읽기 → 병렬화                        | low      |
+| [CLI-043](completed/CLI-043-glob-stat-n-plus-one.md)     | glob-tool mtime 조회 N+1 I/O 폭발                        | low      |
+| [CLI-044](completed/CLI-044-process-exit-cleanup.md)     | cli.ts TUI 종료 후 process.exit 비동기 리소스 미정리     | low      |
+| [CLI-046](completed/CLI-046-denied-tools-flag.md)        | `--denied-tools` 플래그 — 특정 도구 블랙리스트           | low      |
+| [CLI-047](completed/CLI-047-structured-exit-codes.md)    | print 모드 구조화 exit code (API 에러 vs 도구 실패 구분) | low      |
+| [CLI-048](completed/CLI-048-websearch-fallback.md)       | WebSearch BRAVE_API_KEY 없을 때 폴백 및 문서화           | low      |
+| [PM-034](completed/PM-034-help-command-examples.md)      | /help 커맨드에 각 커맨드 사용 예시 추가                  | low      |
+
+#### P3 — 장기 과제
+
+| ID                                                          | 제목                                              | 우선순위 |
+| ----------------------------------------------------------- | ------------------------------------------------- | -------- |
+| [CLI-034](completed/CLI-034-plugin-publish-one-official.md) | 공식 플러그인 1개 npm 게시 — ecosystem kickstart  | low      |
+| [PM-026](completed/PM-026-github-action-official.md)        | 공식 GitHub Action — robota-sdk/action@v1         | medium   |
+| [PM-027](completed/PM-027-korean-marketing-content.md)      | 한국어 마케팅 콘텐츠 — GeekNews, okky, velog 타겟 | medium   |
+| [PM-028](completed/PM-028-beta-invite-program.md)           | 외부 베타 초대 프로그램 — early adopter 확보      | medium   |
+| [PM-029](completed/PM-029-sdk-starter-kit.md)               | SDK Starter Kit — Next.js + Express 템플릿 저장소 | low      |
+| [PM-030](completed/PM-030-opt-in-telemetry.md)              | opt-in 익명 텔레메트리 — 실제 사용 패턴 수집      | low      |

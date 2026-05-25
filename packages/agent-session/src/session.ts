@@ -1,4 +1,37 @@
 import { TRUST_TO_MODE } from '@robota-sdk/agent-core';
+
+import { SessionBase } from './session-base.js';
+import {
+  buildPermissionEnforcer,
+  buildRobota,
+  buildSessionTrackers,
+} from './session-components.js';
+import { compact, persistSession } from './session-history-ops.js';
+import {
+  configureProvider,
+  fireSessionEndHook,
+  fireSessionStartHook,
+} from './session-lifecycle.js';
+import { executeRun } from './session-run.js';
+
+import type { CompactionOrchestrator } from './compaction-orchestrator.js';
+import type { ContextWindowTracker } from './context-window-tracker.js';
+import type { PermissionEnforcer } from './permission-enforcer.js';
+import type {
+  TPermissionHandler,
+  TPermissionResult,
+  ITerminalOutput,
+  ISpinner,
+} from './permission-types.js';
+import type { ISessionLogger, TSessionLogData } from './session-logger.js';
+import type { IRunContext } from './session-run.js';
+import type { ISessionStore } from './session-store.js';
+import type {
+  ICompactEvent,
+  ISessionOptions,
+  ISessionShutdownOptions,
+  TCompactTrigger,
+} from './session-types.js';
 import type {
   IAIProvider,
   IContextWindowState,
@@ -6,36 +39,6 @@ import type {
   TPermissionMode,
   IHookTypeExecutor,
 } from '@robota-sdk/agent-core';
-import type { ISessionStore } from './session-store.js';
-import type { ISessionLogger, TSessionLogData } from './session-logger.js';
-import { PermissionEnforcer } from './permission-enforcer.js';
-import type {
-  TPermissionHandler,
-  TPermissionResult,
-  ITerminalOutput,
-  ISpinner,
-} from './permission-types.js';
-import { ContextWindowTracker } from './context-window-tracker.js';
-import { CompactionOrchestrator } from './compaction-orchestrator.js';
-import type {
-  ICompactEvent,
-  ISessionOptions,
-  ISessionShutdownOptions,
-  TCompactTrigger,
-} from './session-types.js';
-import { executeRun } from './session-run.js';
-import { compact, persistSession } from './session-history-ops.js';
-import {
-  configureProvider,
-  fireSessionEndHook,
-  fireSessionStartHook,
-} from './session-lifecycle.js';
-import { SessionBase } from './session-base.js';
-import {
-  buildPermissionEnforcer,
-  buildRobota,
-  buildSessionTrackers,
-} from './session-components.js';
 import type { Robota } from '@robota-sdk/agent-core';
 
 export type {
@@ -60,7 +63,7 @@ export class Session extends SessionBase {
   protected readonly contextTracker: ContextWindowTracker;
   protected permissionMode: TPermissionMode;
   protected readonly sessionId: string;
-  protected readonly aiProvider: IAIProvider;
+  protected aiProvider: IAIProvider;
   protected readonly toolSchemas: IToolSchema[];
   protected readonly model: string;
   protected systemMessage: string;
@@ -206,6 +209,18 @@ export class Session extends SessionBase {
     return this.shutdownPromise;
   }
 
+  swapProvider(newProvider: IAIProvider, model: string): void {
+    this.robota.swapDefaultProvider(newProvider, model);
+    newProvider.configureNativeWebTools?.({ webSearch: true });
+    if ('onServerToolUse' in newProvider) {
+      (
+        newProvider as { onServerToolUse?: (name: string, input: Record<string, string>) => void }
+      ).onServerToolUse = (name: string, input: Record<string, string>) =>
+        this.log('server_tool', { tool: name, ...input });
+    }
+    this.aiProvider = newProvider;
+  }
+
   async compact(instructions?: string, trigger: TCompactTrigger = 'manual'): Promise<void> {
     await compact(instructions, {
       sessionId: this.sessionId,
@@ -224,7 +239,7 @@ export class Session extends SessionBase {
     });
   }
 
-  private buildRunContext() {
+  private buildRunContext(): IRunContext {
     return {
       sessionId: this.sessionId,
       cwd: this.cwd,

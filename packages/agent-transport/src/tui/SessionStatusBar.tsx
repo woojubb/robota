@@ -1,8 +1,10 @@
 import React, { useMemo } from 'react';
+
+import StatusBar from './StatusBar.js';
+import { useTuiCliAdapter } from './tui-cli-adapter-context.js';
+
 import type { TPermissionMode } from '@robota-sdk/agent-core';
 import type { IStatusLineCommandSettings } from '@robota-sdk/agent-framework';
-import { useTuiCliAdapter } from './tui-cli-adapter-context.js';
-import StatusBar from './StatusBar.js';
 
 interface IProps {
   cwd: string;

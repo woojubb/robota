@@ -1,5 +1,6 @@
-import type { ICommandHostContext, ICommandResult } from '@robota-sdk/agent-framework';
 import { compactCommandContext } from '@robota-sdk/agent-framework';
+
+import type { ICommandHostContext, ICommandResult } from '@robota-sdk/agent-framework';
 
 function parseInstructions(args: string): string | undefined {
   const instructions = args.trim();
@@ -11,11 +12,18 @@ export async function executeCompactCommand(
   args: string,
 ): Promise<ICommandResult> {
   const result = await compactCommandContext(context, parseInstructions(args));
-  const before = result.before.usedPercentage;
-  const after = result.after.usedPercentage;
+  const { before, after, beforeMessageCount, afterMessageCount } = result;
+  const removedMessages = beforeMessageCount - afterMessageCount;
+  const removedPercent =
+    beforeMessageCount > 0 ? Math.round((removedMessages / beforeMessageCount) * 100) : 0;
+  const message = [
+    'Context compacted.',
+    `  Removed messages: ${removedMessages} (${removedPercent}% of total)`,
+    `  Context: ${Math.round(before.usedPercentage)}% → ${Math.round(after.usedPercentage)}%`,
+  ].join('\n');
   return {
-    message: `Context compacted: ${Math.round(before)}% -> ${Math.round(after)}%`,
+    message,
     success: true,
-    data: { before, after },
+    data: { before, after, beforeMessageCount, afterMessageCount },
   };
 }

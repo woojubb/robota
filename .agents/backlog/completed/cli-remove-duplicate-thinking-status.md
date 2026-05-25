@@ -1,8 +1,9 @@
+---
+title: 'CLI Remove Duplicate Thinking Status'
+status: done
+---
+
 # CLI Remove Duplicate Thinking Status
-
-## Status
-
-Completed.
 
 ## Created
 

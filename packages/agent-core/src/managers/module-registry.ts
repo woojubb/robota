@@ -3,6 +3,17 @@
  *
  * Validation helpers live in ./module-registry-validation.ts.
  */
+import {
+  validateModule,
+  validateModuleDependencies,
+  findDependentModules,
+  buildRegistryStats,
+} from './module-registry-validation';
+import { ModuleDescriptorRegistry } from './module-type-registry';
+import { ConfigurationError } from '../utils/errors';
+import { createLogger, type ILogger } from '../utils/logger';
+
+import type { IModuleExecutionStats, IModuleRegistryStats } from './module-registry-validation';
 import type {
   IBaseModuleOptions,
   IModule,
@@ -10,16 +21,6 @@ import type {
   IModuleExecutionResult,
 } from '../abstracts/abstract-module';
 import type { IEventEmitterPlugin } from '../plugins/event-emitter/types';
-import { ModuleDescriptorRegistry } from './module-type-registry';
-import { createLogger, type ILogger } from '../utils/logger';
-import { ConfigurationError } from '../utils/errors';
-import {
-  validateModule,
-  validateModuleDependencies,
-  findDependentModules,
-  buildRegistryStats,
-} from './module-registry-validation';
-import type { IModuleExecutionStats, IModuleRegistryStats } from './module-registry-validation';
 
 export type { IModuleExecutionStats };
 

@@ -1,6 +1,7 @@
-import type OpenAI from 'openai';
-import type { ILogger, TUniversalMessage } from '@robota-sdk/agent-core';
 import { OpenAICompatibleResponseParser } from '../../shared/openai-compatible/index.js';
+
+import type { ILogger, TUniversalMessage } from '@robota-sdk/agent-core';
+import type OpenAI from 'openai';
 
 /**
  * OpenAI response parser compatibility wrapper.

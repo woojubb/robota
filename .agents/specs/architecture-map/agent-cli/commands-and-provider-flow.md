@@ -80,4 +80,4 @@ Settings ownership:
 - `agent-framework` owns common provider settings/setup/probe APIs and generated profile-key suggestions.
 - Provider packages own defaults, setup metadata, validation, aliases, probes, options, and `createProvider()`.
 - Profile identity is the settings profile key — not provider type/model uniqueness.
-- Model catalog refresh: provider packages own `refreshModelCatalog` and `modelCatalogCacheTtlSeconds`; SDK model command common APIs orchestrate TTL-based auto-refresh; CLI/TUI renders freshness state only.
+- Model catalog refresh: provider packages own `refreshModelCatalog` and `modelCatalogCacheTtlSeconds`; `agent-framework` model command common APIs orchestrate TTL-based auto-refresh; CLI/TUI renders freshness state only.

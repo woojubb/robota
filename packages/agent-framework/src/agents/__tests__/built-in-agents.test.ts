@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+
 import { getBuiltInAgent, BUILT_IN_AGENTS } from '../built-in-agents.js';
 
 describe('Built-in agents', () => {

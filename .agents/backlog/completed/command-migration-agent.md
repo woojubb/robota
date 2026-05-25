@@ -1,3 +1,8 @@
+---
+title: 'Command Migration: `/agent`'
+status: done
+---
+
 # Command Migration: `/agent`
 
 ## What

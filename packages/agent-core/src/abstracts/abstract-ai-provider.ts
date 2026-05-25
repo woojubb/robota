@@ -6,6 +6,21 @@
  * Defines the shared contract and helper utilities for all AI provider implementations.
  * Concrete providers should extend this class and inject their own dependencies.
  */
+import {
+  validateProviderMessages,
+  validateProviderTools,
+  executeChatViaExecutor,
+  executeChatStreamViaExecutor,
+} from './ai-provider-helpers';
+import { isAssistantMessage } from '../interfaces/messages';
+import {
+  assertProviderNativeWebToolsAvailable,
+  createDefaultProviderCapabilities,
+} from '../interfaces/provider-capabilities';
+import { SilentLogger } from '../utils/logger';
+
+import type { IExecutor } from '../interfaces/executor';
+import type { TUniversalMessage } from '../interfaces/messages';
 import type {
   IAIProvider,
   IToolSchema,
@@ -17,21 +32,7 @@ import type {
   IProviderCapabilities,
   IProviderNativeWebToolRequest,
 } from '../interfaces/provider-capabilities';
-import {
-  assertProviderNativeWebToolsAvailable,
-  createDefaultProviderCapabilities,
-} from '../interfaces/provider-capabilities';
-import type { IExecutor } from '../interfaces/executor';
-import type { TUniversalMessage } from '../interfaces/messages';
-import { isAssistantMessage } from '../interfaces/messages';
 import type { ILogger } from '../utils/logger';
-import { SilentLogger } from '../utils/logger';
-import {
-  validateProviderMessages,
-  validateProviderTools,
-  executeChatViaExecutor,
-  executeChatStreamViaExecutor,
-} from './ai-provider-helpers';
 
 /**
  * Provider logging data type

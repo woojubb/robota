@@ -1,11 +1,13 @@
 import { randomUUID } from 'node:crypto';
-import Anthropic from '@anthropic-ai/sdk';
+
+import { formatWebSearchResults } from './message-converter';
+
+import type Anthropic from '@anthropic-ai/sdk';
 import type {
   TProviderNativeRawPayloadCallback,
   TUniversalMessage,
   TTextDeltaCallback,
 } from '@robota-sdk/agent-core';
-import { formatWebSearchResults } from './message-converter';
 
 /**
  * Stream the Anthropic API response and assemble a complete TUniversalMessage.

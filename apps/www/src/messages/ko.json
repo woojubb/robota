@@ -1,0 +1,344 @@
+{
+  "common": {
+    "nav": {
+      "whyRobota": "Robota 소개",
+      "showcase": "쇼케이스",
+      "roadmap": "로드맵",
+      "docs": "문서",
+      "github": "GitHub"
+    },
+    "footer": {
+      "tagline": "오픈소스 AI 에이전트 SDK 및 CLI. MIT 라이선스.",
+      "product": "제품",
+      "developers": "개발자",
+      "company": "회사",
+      "links": {
+        "whyRobota": "Robota 소개",
+        "showcase": "쇼케이스",
+        "roadmap": "로드맵",
+        "documentation": "문서",
+        "gettingStarted": "시작하기",
+        "github": "GitHub",
+        "npm": "npm",
+        "enterprise": "엔터프라이즈",
+        "githubDiscussions": "GitHub 토론",
+        "issues": "이슈",
+        "playground": "플레이그라운드"
+      },
+      "copyright": "© 2026 Robota. MIT 라이선스."
+    },
+    "lang": {
+      "en": "EN",
+      "ko": "KO"
+    }
+  },
+  "home": {
+    "hero": {
+      "badge": "공개 베타 · v3.0.0-beta",
+      "title": "진정한 소유권을 갖는 오픈소스 AI 에이전트 SDK",
+      "titleHighlight": "당신이 직접 소유하는",
+      "description": "멀티 프로바이더 BYOK CLI 및 임베드 가능한 SDK. 설정 한 줄로",
+      "descriptionSuffix": "를 자유롭게 전환하세요. MIT 라이선스.",
+      "getStarted": "시작하기",
+      "github": "GitHub",
+      "compareTo": "도구 비교",
+      "installSnippet": "$ npx @robota-sdk/agent-cli"
+    },
+    "featuresTitle": "필요한 모든 것. 불필요한 것은 없음.",
+    "features": [
+      {
+        "icon": "🔑",
+        "title": "BYOK — 구독 불필요",
+        "description": "본인의 API 키를 사용하세요. 사용한 토큰만큼만 비용을 지불합니다. Robota가 부과하는 월 $20 요금제나 시트 제한이 없습니다."
+      },
+      {
+        "icon": "🔄",
+        "title": "어떤 프로바이더든, 하나의 설정으로",
+        "description": "설정 파일 한 줄만 바꿔 Anthropic, OpenAI, DeepSeek, Gemini 또는 로컬 Ollama 모델로 전환하세요."
+      },
+      {
+        "icon": "📦",
+        "title": "임베드 가능한 SDK",
+        "description": "앱에 @robota-sdk/agent-framework를 임포트해 사용자들이 이미 아는 에이전트 런타임을 그대로 제공하세요."
+      },
+      {
+        "icon": "🏠",
+        "title": "완전한 자체 호스팅",
+        "description": "로컬 LLM으로 온프레미스에서 완전히 실행하세요. 선택한 AI 프로바이더 외에는 어떤 데이터도 외부로 나가지 않습니다."
+      },
+      {
+        "icon": "🔓",
+        "title": "MIT 라이선스",
+        "description": "모든 코드를 공개적으로 감사할 수 있으며 상업적 제품에 자유롭게 포크, 수정, 사용할 수 있습니다. CLA 불필요."
+      },
+      {
+        "icon": "⚡",
+        "title": "TypeScript 우선",
+        "description": "엔드투엔드 엄격한 타입. any 없음, 암묵적 형변환 없음, 런타임 놀라움 없음. 실제 TypeScript 코드베이스를 위해 설계되었습니다."
+      }
+    ],
+    "cta": {
+      "title": "30초 만에 시작하기",
+      "description": "계정 불필요. 구독 불필요. 터미널과 API 키만 있으면 됩니다.",
+      "commentInstall": "# 전역 설치",
+      "commentApiKey": "# API 키 설정",
+      "commentLaunch": "# 실행",
+      "readGuide": "시작 가이드 전체 읽기 →"
+    }
+  },
+  "compare": {
+    "title": "왜 Robota인가?",
+    "description": "어떤 프로바이더든 본인의 키를 사용하고, 로컬 모델로 오프라인에서 실행하며, 동일한 엔진을 자신의 앱에 임베드할 수 있는 유일한 AI 코딩 CLI — 모두 MIT 라이선스 하에.",
+    "featureComparison": "기능 비교",
+    "features": [
+      "멀티 프로바이더 (단일 설정)",
+      "BYOK — 구독 불필요",
+      "로컬 모델 지원 (Ollama/LM Studio)",
+      "임베드 가능한 SDK",
+      "오픈소스 (MIT)",
+      "TypeScript 우선, 엄격한 타입",
+      "터미널 CLI",
+      "세션 지속성 및 재개",
+      "백그라운드 에이전트",
+      "자체 호스팅 가능"
+    ],
+    "differentiators": {
+      "title": "Robota를 차별화하는 것",
+      "items": [
+        {
+          "title": "1. 어떤 프로바이더든 — 단일 설정",
+          "body": "~/.robota/settings.json 한 줄을 바꿔 Anthropic, OpenAI, DeepSeek, Gemini, 또는 Ollama로 전환하세요. 코드 변경 없음, 새로운 구독 없음."
+        },
+        {
+          "title": "2. 임베드 가능한 SDK",
+          "body": "@robota-sdk/agent-framework를 통해 동일한 에이전트 런타임을 사용자에게 제공하세요. 다른 AI 코딩 어시스턴트는 이를 제공하지 않습니다 — Claude Code, Cursor, Cline은 모두 클로즈드 제품입니다."
+        },
+        {
+          "title": "3. 완전한 오픈소스 (MIT)",
+          "body": "모든 코드를 공개적으로 감사할 수 있습니다. 포크, 수정, 자체 호스팅, 상업적 제품 제작 — CLA 불필요."
+        },
+        {
+          "title": "4. 로컬 모델 완전 지원",
+          "body": "Ollama나 LM Studio 모델을 프로바이더로 연결하세요. 코드와 프롬프트가 절대 외부로 나가지 않습니다."
+        }
+      ]
+    },
+    "whenElse": {
+      "title": "다른 것을 선택해야 할 때",
+      "items": [
+        {
+          "label": "Claude Code를 선택하세요",
+          "body": "가장 긴밀한 Claude 통합을 원하고 Anthropic만으로 만족한다면."
+        },
+        {
+          "label": "Cursor를 선택하세요",
+          "body": "인라인 diff 편집 및 탭 완성이 있는 IDE 우선 경험을 원한다면."
+        },
+        {
+          "label": "Aider를 선택하세요",
+          "body": "Python 생태계를 선호하고 주로 git 기반 배치 커밋으로 작업한다면."
+        },
+        {
+          "label": "Cline을 선택하세요",
+          "body": "VSCode 사이드바 에이전트를 원하고 임베딩이나 SDK 사용이 필요 없다면."
+        }
+      ]
+    },
+    "tryButton": "지금 Robota 사용해보기 →"
+  },
+  "enterprise": {
+    "title": "엔터프라이즈",
+    "description": "Robota는 통제 가능하고 자체 호스팅 가능한 AI 코딩 어시스턴트가 필요한 엔지니어링 팀에서 사용됩니다. 이 페이지에서는 보안 정책, 배포 옵션 및 연락 방법을 다룹니다.",
+    "contact": {
+      "title": "문의하기",
+      "description": "팀 라이선스, 온프레미스 배포, 우선 지원, 또는 커스텀 통합에 대해 논의하려면 GitHub Discussion을 열거나 직접 이메일을 보내세요.",
+      "responseTime": "모든 엔터프라이즈 문의에는",
+      "responseTimeHighlight": "30 영업일",
+      "responseTimeSuffix": "이내에 응답합니다.",
+      "githubDiscussions": "GitHub Discussions (enterprise 태그) ↗",
+      "email": "enterprise@robota.io"
+    },
+    "security": {
+      "title": "보안 정책",
+      "dataHandling": {
+        "title": "데이터 처리",
+        "description": "Robota는 로컬 CLI 또는 자체 호스팅 서버로 작동합니다.",
+        "highlight": "어떤 대화 데이터도 Robota 서버에 저장되거나 전송되지 않습니다",
+        "descriptionSuffix": "— SDK는 귀하의 머신이나 인프라에서 직접 선택한 AI 프로바이더를 호출합니다.",
+        "tableHeaders": ["데이터 유형", "저장 위치"],
+        "rows": [
+          ["프롬프트 및 응답", "설정한 AI 프로바이더에만 전송"],
+          ["API 키", "로컬 환경 변수 또는 시크릿 매니저에 저장"],
+          ["세션 기록", "로컬 파일시스템에 기록 (~/.robota/sessions/)"],
+          ["도구 출력 (파일, 쉘)", "귀하의 머신에 유지"]
+        ]
+      },
+      "onPremises": {
+        "title": "온프레미스 배포",
+        "description": "Robota는 로컬 LLM을 사용하는 완전한 에어갭 배포를 지원합니다:",
+        "items": [
+          {
+            "name": "Ollama",
+            "body": "외부 네트워크 호출 없이 로컬에서 모델 실행"
+          },
+          {
+            "name": "LM Studio",
+            "body": "OpenAI 호환 로컬 서버"
+          },
+          {
+            "name": "모든 OpenAI 호환 엔드포인트",
+            "body": "내부 게이트웨이로 baseURL 연결"
+          }
+        ]
+      },
+      "highlights": [
+        {
+          "title": "MIT 라이선스",
+          "body": "github.com/woojubb/robota에서 감사를 위한 전체 소스 코드 제공"
+        },
+        {
+          "title": "텔레메트리 없음",
+          "body": "SDK 또는 CLI에 분석 기능, 외부 전송 기능 없음"
+        },
+        {
+          "title": "추가 전용 세션 로그",
+          "body": "모든 로컬 세션 파일의 보존 및 삭제를 귀하가 제어"
+        },
+        {
+          "title": "SOC 2 / ISO 27001 호환",
+          "body": "호환되는 AI 프로바이더와 함께 사용 시"
+        }
+      ]
+    },
+    "faq": {
+      "title": "자주 묻는 질문",
+      "items": [
+        {
+          "q": "Robota가 내 코드를 클라우드에 저장하나요?",
+          "a": "아니오. 모든 파일 읽기 및 쓰기는 로컬 머신에서 이루어집니다. 머신 외부로 나가는 유일한 데이터는 설정된 AI 프로바이더로 보내는 프롬프트입니다."
+        },
+        {
+          "q": "기업 프록시 뒤에서 Robota를 사용할 수 있나요?",
+          "a": "네. 표준 HTTPS_PROXY 환경 변수를 설정하면 SDK의 HTTP 클라이언트가 프록시를 통해 라우팅됩니다."
+        },
+        {
+          "q": "인터넷 접속이 없는 제한된 네트워크에 Robota를 설치할 수 있나요?",
+          "a": "네 — 로컬 LLM (Ollama, LM Studio)을 사용하고 내부 레지스트리 미러에서 npm 패키지를 설치하세요."
+        },
+        {
+          "q": "상업적 라이선스 옵션이 있나요?",
+          "a": "Robota는 MIT 라이선스로 제한 없이 상업적으로 무료 사용이 가능합니다. 엔터프라이즈 지원 계약(SLA, 전용 채널, 커스텀 통합)도 제공됩니다 — 자세한 내용은 문의해 주세요."
+        }
+      ]
+    },
+    "vulnerabilityDisclosure": {
+      "title": "취약점 공개",
+      "description": "보안 취약점을 보고하려면",
+      "descriptionSuffix": "로 설명 및 재현 단계를 포함해 이메일을 보내주세요. 책임 있는 공개 정책을 따르며 확인 후",
+      "patchDays": "14일",
+      "patchDaysSuffix": "이내에 패치를 발행하는 것을 목표로 합니다."
+    }
+  },
+  "roadmap": {
+    "title": "로드맵",
+    "description": "Robota SDK는 현재",
+    "descriptionHighlight": "공개 베타 (v3.0.0-beta)",
+    "descriptionSuffix": "단계입니다. 이 페이지는 분기별로 업데이트됩니다.",
+    "lastUpdated": "최종 업데이트: 2026-05-23 ·",
+    "githubIssues": "GitHub Issues ↗",
+    "now": {
+      "title": "현재 — 베타 개선",
+      "subtitle": "Q2 2026 · 활성 개발 기간",
+      "tableHeaders": ["기능", "상태", "릴리스"],
+      "statusDone": "완료",
+      "statusPlanned": "예정",
+      "items": [
+        { "feature": "컨텍스트 경고 배너 (70% / 90%)", "status": "done", "release": "beta.67" },
+        { "feature": "/compact 결과 요약", "status": "done", "release": "beta.67" },
+        {
+          "feature": "3단계 권한 메모리 (세션 / 프로젝트)",
+          "status": "done",
+          "release": "beta.67"
+        },
+        { "feature": "robota init 프로젝트 설정 명령어", "status": "done", "release": "beta.67" },
+        { "feature": "플러그인 개발 가이드 + 디렉토리", "status": "done", "release": "beta.67" },
+        { "feature": "변경 로그 페이지", "status": "done", "release": "beta.67" },
+        { "feature": "? 키 키보드 단축키 오버레이", "status": "done", "release": "beta.67" },
+        {
+          "feature": "--dry-run 플래그 (계획 전용 미리보기)",
+          "status": "done",
+          "release": "beta.67"
+        },
+        { "feature": "첫 번째 메시지로 세션 자동 명명", "status": "planned", "release": "beta.68" },
+        { "feature": "/cost 개선 — 세션별 비용 추적", "status": "planned", "release": "beta.68" }
+      ]
+    },
+    "next": {
+      "title": "다음 — Q3 2026",
+      "subtitle": "다음 분기 계획",
+      "items": [
+        "v1.0.0 릴리스 후보 — 모든 P0 버그 해결 및 핵심 사용자 여정 검증 완료 시 선언",
+        "GitHub Actions 공식 액션 (robota-sdk/action@v1) — 모든 워크플로에서 Robota를 CI 봇으로 실행",
+        "공식 플러그인 스타터 팩 — 5개 커뮤니티 플러그인 템플릿: 로깅, Slack 알림, 비용 추적, Linear 통합, Datadog 메트릭",
+        "SDK 임베딩 예제 — Next.js, Express, CLI 스크립트 참조 구현",
+        "Robota Cloud 베타 — 호스팅 세션, 팀 공유, 사용량 대시보드 (BYOK 무료 티어)"
+      ]
+    },
+    "later": {
+      "title": "나중에 — 탐색 중",
+      "subtitle": "검토 중인 아이디어. 일정 미확정.",
+      "items": [
+        "세션 공유 링크 (대화 URL 공유)",
+        "터미널 내 멀티 에이전트 시각적 캔버스",
+        "네이티브 VS Code 확장 (현재 CLI 외)",
+        "엔터프라이즈 SSO 및 감사 로그"
+      ]
+    },
+    "vote": {
+      "title": "투표 및 제안",
+      "description": "가장 많은 추천을 받은 이슈가 다음 분기 계획의 우선순위에 영향을 줍니다.",
+      "githubDiscussions": "GitHub Discussions ↗",
+      "openIssues": "이슈 열기 ↗"
+    }
+  },
+  "showcase": {
+    "title": "Robota로 만들기",
+    "description": "Robota SDK로 구축한 실제 프로젝트 — 터미널 코딩 어시스턴트부터 커스텀 애플리케이션의 임베드 AI까지.",
+    "featuredTitle": "주요 프로젝트",
+    "communityTitle": "커뮤니티 프로젝트",
+    "communityEmpty": "아직 등록된 커뮤니티 프로젝트가 없습니다. 첫 번째로 제출해보세요.",
+    "submitTitle": "프로젝트 제출",
+    "submitDescription": "이 페이지에 프로젝트를 추가하려면 커뮤니티 프로젝트 섹션에 항목을 추가하는 PR을 열어주세요:",
+    "submitRequirements": [
+      "@robota-sdk/* 패키지 중 하나 이상 사용 필수",
+      "공개 소스 코드 또는 라이브 데모 필수",
+      "PR 날짜 기준으로 작동해야 함"
+    ],
+    "submitButton": "Pull Request 열기 ↗",
+    "sourceLink": "소스 ↗",
+    "liveLink": "라이브 데모 ↗",
+    "projects": [
+      {
+        "name": "Robota CLI",
+        "description": "@robota-sdk/agent-framework와 TUI 트랜스포트 위에 완전히 구축된 참조 구현체. 완전한 AI 코딩 어시스턴트입니다.",
+        "highlights": [
+          "멀티 프로바이더 전환",
+          "세션 지속성",
+          "권한 시스템",
+          "플러그인 라이프사이클",
+          "스트리밍 TUI"
+        ]
+      },
+      {
+        "name": "Visual Agent Builder Playground",
+        "description": "에이전트를 조립하고 작동하는 TypeScript 코드를 내보낼 수 있는 드래그 앤 드롭 캔버스. BYOK로 브라우저에서 완전히 실행됩니다.",
+        "highlights": [
+          "브라우저 기반 SDK 사용",
+          "SSE 스트리밍",
+          "멀티 프로바이더 BYOK",
+          "코드 내보내기"
+        ]
+      }
+    ]
+  }
+}

@@ -4,13 +4,14 @@
  * Extracted from plugins.ts to keep each file under 300 lines.
  * @internal
  */
-import type { AbstractPlugin } from '../abstracts/abstract-plugin';
+import { PluginError, ConfigurationError } from '../utils/errors';
+
 import type {
   IPluginLifecycleEvents,
   IPluginDependency,
   IPluginRegistrationOptions,
 } from './plugins';
-import { PluginError, ConfigurationError } from '../utils/errors';
+import type { AbstractPlugin } from '../abstracts/abstract-plugin';
 import type { ILogger } from '../utils/logger';
 
 function compareSemver(a: string, b: string): number {
@@ -114,7 +115,7 @@ export function resolveDependencyOrderHelper(
   const resolved: string[] = [];
   const visiting = new Set<string>();
   const visited = new Set<string>();
-  const visit = (name: string) => {
+  const visit = (name: string): void => {
     if (visited.has(name)) return;
     if (visiting.has(name))
       throw new ConfigurationError(`Circular dependency detected involving plugin "${name}"`);

@@ -1,3 +1,5 @@
+import { executeProviderCommand } from './provider-command-execution.js';
+
 import type {
   ICommand,
   ICommandModule as TCommandModule,
@@ -6,14 +8,13 @@ import type {
   IProviderCommandSettingsAdapter,
   ISystemCommand as TSystemCommand,
 } from '@robota-sdk/agent-framework';
-import { executeProviderCommand } from './provider-command-execution.js';
 export type { IProviderCommandModuleOptions, IProviderCommandSettingsAdapter };
 
 function buildProviderSubcommands(): ICommand[] {
   return [
     { name: 'current', description: 'Show current provider', source: 'provider' },
     { name: 'list', description: 'List provider profiles', source: 'provider' },
-    { name: 'use', description: 'Switch provider profile', source: 'provider' },
+    { name: 'switch', description: 'Hot-swap to another provider profile', source: 'provider' },
     { name: 'add', description: 'Configure a provider profile', source: 'provider' },
     { name: 'test', description: 'Test provider profile', source: 'provider' },
   ];
@@ -26,8 +27,9 @@ export function createProviderCommandEntry(): ICommand {
     description: 'Manage provider profiles',
     source: 'provider',
     modelInvocable: false,
-    argumentHint: 'current | list | use <profile> | add [type] | test [profile]',
+    argumentHint: 'current | list | switch <profile> | add [type] | test [profile]',
     subcommands: buildProviderSubcommands(),
+    example: '/provider switch production',
   };
 }
 
@@ -45,6 +47,7 @@ function createProviderSystemCommand(options: IProviderCommandModuleOptions): TS
     name: entry.name,
     displayName: entry.displayName,
     description: entry.description,
+    example: entry.example,
     requiresPermission: false,
     userInvocable: true,
     modelInvocable: false,

@@ -3,20 +3,21 @@
  *
  * Extracted from robota.ts to keep the main class under 300 lines.
  */
-import type { IAgentConfig } from '../interfaces/agent';
-import type { AIProviders } from '../managers/ai-provider-manager';
-import type { Tools } from '../managers/tool-manager';
-import type { AgentFactory } from '../managers/agent-factory';
-import type { ConversationHistory } from '../managers/conversation-history-manager';
-import type { ModuleRegistry } from '../managers/module-registry';
-import type { EventEmitterPlugin } from '../plugins/event-emitter-plugin';
-import { ExecutionService } from '../services/execution-service';
-import { CacheKeyBuilder, MemoryCacheStorage, ExecutionCacheService } from '../services/cache';
-import type { IEventService } from '../interfaces/event-service';
 import { AbstractTool } from '../abstracts/abstract-tool';
-import type { ILogger } from '../utils/logger';
+import { CacheKeyBuilder, MemoryCacheStorage, ExecutionCacheService } from '../services/cache';
+import { ExecutionService } from '../services/execution-service';
+
+import type { IAgentConfig } from '../interfaces/agent';
+import type { IEventService } from '../interfaces/event-service';
 import type { IToolExecutionContext, TToolParameters } from '../interfaces/tool';
 import type { TUniversalValue } from '../interfaces/types';
+import type { AgentFactory } from '../managers/agent-factory';
+import type { AIProviders } from '../managers/ai-provider-manager';
+import type { ConversationHistory } from '../managers/conversation-history-manager';
+import type { ModuleRegistry } from '../managers/module-registry';
+import type { Tools } from '../managers/tool-manager';
+import type { EventEmitterPlugin } from '../plugins/event-emitter-plugin';
+import type { ILogger } from '../utils/logger';
 
 /**
  * Context required for async initialization.

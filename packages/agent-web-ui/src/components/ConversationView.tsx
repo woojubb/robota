@@ -3,6 +3,7 @@
 import React, { useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+
 import type { IConversationMessage, IActiveTool } from '../hooks/useWsSession.js';
 
 interface IConversationViewProps {

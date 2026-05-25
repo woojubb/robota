@@ -1,3 +1,8 @@
+---
+title: 'ARCH-002 — Slim agent-cli: Proper Layer Separation and TUI as Self-Contained Plugin'
+status: done
+---
+
 # ARCH-002 — Slim agent-cli: Proper Layer Separation and TUI as Self-Contained Plugin
 
 ## Status

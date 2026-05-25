@@ -1,5 +1,394 @@
 # @robota-sdk/agent-framework SPEC
 
+## Scope
+
+`@robota-sdk/agent-framework` is the assembly layer of the Robota SDK. It composes `agent-core`, `agent-session`, `agent-tools`, and `agent-executor` into a single, provider-neutral SDK surface. The primary entry point is `InteractiveSession({ cwd, provider })`. A `createQuery({ provider })` factory is also provided for single-shot prompt use.
+
+This package owns: config loading (6-layer merge), context loading (AGENTS.md/CLAUDE.md walk-up), command infrastructure (command contracts, registry, sources), permission prompt, edit checkpointing, reversible execution policy, project memory store, self-hosting verification planner, skill discovery, background job orchestration, subagent assembly, bundle plugin management, and all SDK-specific type definitions.
+
+This package does NOT own: provider implementations, generic session run loop, tool infrastructure, background task lifecycle state machine, permissions enforcement, hook execution, or React/Ink UI components.
+
+## Boundaries
+
+### What lives here
+
+- `InteractiveSession` — event-driven composition over `Session`
+- `createQuery()` — convenience single-shot factory
+- `createAgentRuntime()` — runtime composition factory for headless and multi-session consumers
+- Command infrastructure: `CommandRegistry`, `BuiltinCommandSource`, `SkillCommandSource`, `PluginCommandSource`, `SystemCommandExecutor`, `createSystemCommands()`
+- Command API contracts: `ISystemCommand`, `ICommandModule`, `ICommandHostContext`, `ICommandResult`, `TCommandEffect`, `ICommandInteraction`
+- All `command-api/` sub-namespaces: provider, org-policy, context, compact, language, memory, background, help, permissions, statusline, plugin, session, effects, checkpoint
+- Config loading: `loadConfig()` (internal), `readSettings()`, `writeSettings()`, settings I/O utilities
+- Context loading: `loadContext()` (internal), task context helpers, prompt file reference resolver, context reference inventory
+- Project memory: `ProjectMemoryStore`, memory policy constants
+- Edit checkpointing: `EditCheckpointStore`, `wrapEditCheckpointTools()`
+- Reversible execution: `evaluateReversibleToolSafety()`, `wrapReversibleExecutionTools()`
+- Self-hosting verification: `planSelfHostingVerification()`, `transitionSelfHostingLoop()`
+- Background job orchestration: `BackgroundJobOrchestrator`, execution workspace projections
+- Subagent assembly: `createSubagentSession()`, `createInProcessSubagentRunner()`, `createDefaultTools()`
+- Bundle plugin management: `BundlePluginLoader`, `BundlePluginInstaller`, `MarketplaceClient`, `PluginSettingsStore`
+- Agent tool: `createAgentTool()`, `storeAgentToolDeps()`, `retrieveAgentToolDeps()`
+- Hook executors: `PromptExecutor`, `AgentExecutor`
+- Permission prompt: `promptForApproval()`
+- Path helpers: `projectPaths()`, `userPaths()`
+- User-local storage: `resolveUserLocalStorageRoot()`, user-local memory APIs
+- Testing utilities: `createTestInteractiveSession()`
+- Update check: `checkForCliUpdate()`, related helpers
+- Git utilities: `resolveGitBranch()`
+- Semver utilities: `compareSemverVersions()`, `isNewerSemverVersion()`
+- Runtime re-exports (explicit SDK facades): background task types from `agent-executor`, subagent types from `agent-executor`
+
+### What does NOT live here
+
+- `agent-core`: provider interface (`IAIProvider`), engine (`Robota`), history helpers, permissions enforcement (`evaluatePermission`), hook runner (`runHooks`), generic message utilities
+- `agent-session`: `Session` class, `SessionStore`, `PermissionEnforcer`, `ContextWindowTracker`, `CompactionOrchestrator`, terminal output (`ITerminalOutput`)
+- `agent-tools`: built-in tools (`bashTool`, `readTool`, `writeTool`, etc.), tool creation infrastructure, sandbox client (`ISandboxClient`), `TToolResult`
+- `agent-executor`: `BackgroundTaskManager`, `SubagentManager`, `WorktreeSubagentRunner`, lifecycle state machine
+- `agent-provider-*`: provider implementations
+- React/Ink components (belong in `agent-cli`)
+
+### Forbidden imports
+
+`agent-framework` must not import from `agent-provider-*` packages. The provider is always injected by the consumer.
+
+## Architecture Overview
+
+`agent-framework` sits above `agent-core`, `agent-session`, `agent-tools`, and `agent-executor` and provides a single assembly surface for building AI agent applications. See the "Architecture" section below for the full package dependency chain and feature layout.
+
+Key design rules:
+
+- **Assembly first**: all features are implemented by composing existing packages.
+- **Provider-neutral**: the consumer (CLI, server, worker) creates the provider and passes it in.
+- **React-free**: no React or Ink dependency; those belong in `agent-cli`.
+- **No pass-through re-exports**: general-purpose symbols are imported from their owner packages; only explicit SDK facade barrels (`background-tasks/`, `subagents/`) may re-export runtime contracts.
+
+## Type Ownership
+
+| Type                                 | Location                                              | Purpose                                                                          |
+| ------------------------------------ | ----------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `IInteractiveSession`                | `src/interactive/i-interactive-session.ts`            | Public interface for the event-driven session wrapper                            |
+| `TInteractiveSessionOptions`         | `src/interactive/interactive-session-options.ts`      | Constructor options for `InteractiveSession`                                     |
+| `IInteractiveSessionShutdownOptions` | `src/interactive/interactive-session.ts`              | Options for graceful session shutdown                                            |
+| `IInteractiveSessionEvents`          | `src/interactive/types.ts`                            | Event map for all session events                                                 |
+| `IInteractiveSessionRecord`          | `src/interactive/session-persistence.ts`              | Persisted session record shape                                                   |
+| `IInteractiveSessionStore`           | `src/interactive/session-persistence.ts`              | Session persistence adapter interface                                            |
+| `IResumableSessionSummary`           | `src/interactive/session-persistence.ts`              | Lightweight session summary for session picker                                   |
+| `IToolState`                         | `src/interactive/types.ts`                            | Tool execution state visible to clients                                          |
+| `IDiffLine`                          | `src/interactive/types.ts`                            | One diff line for Edit tool display metadata                                     |
+| `IExecutionResult`                   | `src/interactive/types.ts`                            | Result of a completed prompt execution                                           |
+| `IToolSummary`                       | `src/interactive/types.ts`                            | Summary of a tool call extracted from history                                    |
+| `IUsageSnapshot`                     | `src/interactive/types.ts`                            | Provider-neutral execution usage record                                          |
+| `TPermissionResultValue`             | `src/interactive/types.ts`                            | Permission handler result: `true`, `false`, `'allow-session'`, `'allow-project'` |
+| `TInteractivePermissionHandler`      | `src/interactive/types.ts`                            | Client-provided permission approval callback                                     |
+| `TInteractiveEventName`              | `src/interactive/types.ts`                            | Union of all event names                                                         |
+| `IContextFileRefreshedEvent`         | `src/interactive/types.ts`                            | Event emitted when a context file is refreshed                                   |
+| `ITransportAdapter`                  | `@robota-sdk/agent-interface-transport` (re-exported) | Common interface for transport adapters                                          |
+| `IConfigurableTransport`             | `@robota-sdk/agent-interface-transport` (re-exported) | Transport with configurable options                                              |
+| `ITransportConfig`                   | `@robota-sdk/agent-interface-transport` (re-exported) | Transport configuration shape                                                    |
+| `ISkillActivationEvent`              | `src/commands/skill-activation-events.ts`             | Structured skill activation record                                               |
+| `ISystemCommand`                     | `src/command-api/contracts.ts`                        | Command metadata and execute contract                                            |
+| `ICommandModule`                     | `src/command-api/command-module.ts`                   | Composition unit for command modules                                             |
+| `ICommandHostContext`                | `src/command-api/host-context.ts`                     | Narrow facade for command module implementations                                 |
+| `ICommandHostAdapters`               | `src/command-api/host-adapters.ts`                    | Host-provided adapter bag                                                        |
+| `ICommandResult`                     | `src/command-api/contracts.ts`                        | Command output, effects, and interaction                                         |
+| `TCommandEffect`                     | `src/command-api/contracts.ts`                        | Typed host-applied effect union                                                  |
+| `ICommandInteraction`                | `src/command-api/contracts.ts`                        | Generic command follow-up prompt                                                 |
+| `TCommandInteractionPrompt`          | `src/command-api/contracts.ts`                        | Prompt descriptor for command interactions                                       |
+| `ICapabilityDescriptor`              | `src/capabilities/types.ts`                           | Model-visible command descriptor                                                 |
+| `TCapabilityKind`                    | `src/capabilities/types.ts`                           | Capability kind union                                                            |
+| `TCapabilitySafety`                  | `src/capabilities/types.ts`                           | Capability safety level                                                          |
+| `IOrgPolicy`                         | `src/command-api/org-policy/`                         | Org-level policy constraints                                                     |
+| `IAgentRuntimeConfig`                | `src/runtime/agent-runtime.ts`                        | Configuration for `createAgentRuntime()`                                         |
+| `IAgentRuntime`                      | `src/runtime/agent-runtime.ts`                        | Runtime composition factory interface                                            |
+| `IHeadlessSessionOptions`            | `src/runtime/agent-runtime.ts`                        | Per-session options for headless/multi-session use                               |
+| `IAgentDefinition`                   | `src/agents/index.ts`                                 | Agent definition shape (name, description, systemPrompt, tools)                  |
+| `IEditCheckpointSummary`             | `src/checkpoints/index.ts`                            | Checkpoint summary for list/inspect                                              |
+| `IEditCheckpointInspection`          | `src/checkpoints/index.ts`                            | Full checkpoint inspection with file list                                        |
+| `IEditCheckpointRecorder`            | `src/checkpoints/index.ts`                            | Port for checkpoint capture integration                                          |
+| `IReversibleExecutionOptions`        | `src/reversible-execution/index.ts`                   | Options for reversible execution mode                                            |
+| `IReversibleToolSafetyReport`        | `src/reversible-execution/index.ts`                   | Classification report for a tool call                                            |
+| `ISelfHostingVerificationPlan`       | `src/self-hosting/index.ts`                           | Ordered verification step plan                                                   |
+| `TSelfHostingLoopState`              | `src/self-hosting/index.ts`                           | Self-hosting lifecycle state                                                     |
+| `IBundlePluginManifest`              | `src/plugins/index.ts`                                | Plugin metadata: name, version, description                                      |
+| `ILoadedBundlePlugin`                | `src/plugins/index.ts`                                | Full bundle: manifest + tools, hooks, permissions, systemPrompt                  |
+| `IPluginSettings`                    | `src/plugins/index.ts`                                | Plugin enable/disable settings                                                   |
+| `IResolvedConfig`                    | `src/config/config-types.ts`                          | Fully resolved SDK configuration                                                 |
+| `TSettingsData`                      | `src/config/settings-io.ts`                           | Generic settings document shape                                                  |
+| `TSettingsScope`                     | `src/config/settings-io.ts`                           | `'user'` or `'project-local'`                                                    |
+| `IResetUserConfigResult`             | `src/config/reset-user-config.ts`                     | Result of resetting user configuration                                           |
+| `ITaskContextFile`                   | `src/context/task-context.ts`                         | Discovered task file shape                                                       |
+| `TTaskFileStatus`                    | `src/context/task-context.ts`                         | Task status union                                                                |
+| `IPromptFileReferenceRecord`         | `src/context/prompt-file-references.ts`               | Resolved prompt file reference metadata                                          |
+| `TPromptFileReferenceDiagnosticCode` | `src/context/prompt-file-references.ts`               | Diagnostic code for reference errors                                             |
+| `IUserLocalStorageInspection`        | `src/user-local/index.ts`                             | User-local storage inspection projection                                         |
+| `IUserLocalMemoryItemProjection`     | `src/user-local/index.ts`                             | Memory item with display/navigation metadata                                     |
+| `TUserLocalMemoryCategory`           | `src/user-local/index.ts`                             | Allowed user-local memory category union                                         |
+| `SkillPromptContext`                 | `src/utils/skill-prompt.ts`                           | Variable substitution context for skill prompts                                  |
+| `ICliUpdateNotice`                   | `src/update-check/update-check.ts`                    | CLI update notification data                                                     |
+| `TCliUpdateCheckResult`              | `src/update-check/update-check.ts`                    | Result of a CLI update check                                                     |
+
+## Public API Surface
+
+Core classes and functions exported from `@robota-sdk/agent-framework`:
+
+| Export                                      | Kind     | Description                                                                     |
+| ------------------------------------------- | -------- | ------------------------------------------------------------------------------- |
+| `InteractiveSession`                        | class    | Primary SDK entry point; event-driven session wrapper                           |
+| `createQuery`                               | function | Single-shot prompt factory (`({ provider }) => (prompt) => result`)             |
+| `createAgentRuntime`                        | function | Headless/multi-session runtime composition factory                              |
+| `createProjectSessionStore`                 | function | Project-local session store facade                                              |
+| `listResumableSessionSummaries`             | function | List saved sessions for session picker UI                                       |
+| `resolveLatestSessionId`                    | function | Resolve the most recent session ID                                              |
+| `resolveSessionIdByIdOrName`                | function | Resolve session ID by ID or user-visible name                                   |
+| `CommandRegistry`                           | class    | Aggregates `ICommandSource` instances for slash command discovery               |
+| `BuiltinCommandSource`                      | class    | SDK core compatibility command source (currently empty)                         |
+| `SkillCommandSource`                        | class    | Discovers SKILL.md files for virtual skill palette metadata                     |
+| `PluginCommandSource`                       | class    | Discovers commands exposed by installed bundle plugins                          |
+| `SystemCommandExecutor`                     | class    | Registry and executor for `ISystemCommand` instances                            |
+| `createSystemCommands`                      | function | SDK core command factory (returns empty list; built-ins are in command modules) |
+| `createBuiltinCommandModule`                | function | SDK core compatibility module factory                                           |
+| `parseFrontmatter`                          | function | YAML frontmatter parser for skill/agent definition files                        |
+| `executeSkill`                              | function | Internal skill execution helper                                                 |
+| `loadOrgPolicy`                             | function | Read org policy from `~/.robota/org-policy.json`                                |
+| `formatOrgPolicyViolationMessage`           | function | Format a human-readable org policy violation message                            |
+| `isApiKeyPlaintext`                         | function | Check whether an API key value is a plaintext secret                            |
+| `ProjectMemoryStore`                        | class    | Project memory CRUD store backed by `.robota/memory/`                           |
+| `isMemoryType`                              | function | Type guard for `TMemoryType`                                                    |
+| `EditCheckpointStore`                       | class    | Edit checkpoint store backed by `.robota/checkpoints/`                          |
+| `wrapEditCheckpointTools`                   | function | Wrap Write/Edit tools to snapshot pre-images before mutation                    |
+| `planSelfHostingVerification`               | function | Generate ordered verification steps for self-modifying runs                     |
+| `transitionSelfHostingLoop`                 | function | Pure state machine transition for the self-hosting loop                         |
+| `evaluateReversibleToolSafety`              | function | Classify a tool call by reversibility and isolation requirements                |
+| `wrapReversibleExecutionTools`              | function | Wrap tools with reversible execution enforcement                                |
+| `PluginSettingsStore`                       | class    | Plugin enable/disable settings store                                            |
+| `BundlePluginLoader`                        | class    | Load a bundle plugin from a directory path                                      |
+| `BundlePluginInstaller`                     | class    | Install/uninstall bundle plugins under user or project scope                    |
+| `MarketplaceClient`                         | class    | Plugin discovery and install from remote marketplace                            |
+| `BUILT_IN_AGENTS`                           | const    | Array of built-in agent definitions (`general-purpose`, `Explore`, `Plan`)      |
+| `getBuiltInAgent`                           | function | Look up a built-in agent by name                                                |
+| `createDefaultTools`                        | function | Assemble default built-in tools (exported for CLI fork composition)             |
+| `createSubagentSession`                     | function | Assemble an isolated child session for subagent execution                       |
+| `createSubagentLogger`                      | function | Create an append-only subagent transcript logger                                |
+| `assembleSubagentPrompt`                    | function | Assemble the full system prompt for a subagent session                          |
+| `getSubagentSuffix`                         | function | Framework suffix for standard subagent system prompts                           |
+| `getForkWorkerSuffix`                       | function | Framework suffix for fork-worker (skill context: fork) prompts                  |
+| `resolveSubagentLogDir`                     | function | Resolve the log directory for a subagent                                        |
+| `createAgentTool`                           | function | Create the SDK-specific agent sub-session tool                                  |
+| `storeAgentToolDeps`                        | function | Store agent tool runtime dependencies in session context                        |
+| `retrieveAgentToolDeps`                     | function | Retrieve stored agent tool runtime dependencies                                 |
+| `createCommandExecutionTool`                | function | Legacy model command execution tool factory (compatibility)                     |
+| `createModelCommandToolProjection`          | function | Project command descriptors to provider-safe tool definitions                   |
+| `createProjectedCommandExecutionTools`      | function | Create projected command tools from descriptors                                 |
+| `createProviderSafeModelCommandToolName`    | function | Normalize a command name to a provider-safe tool name                           |
+| `createBackgroundProcessTool`               | function | Create the model-callable `BackgroundProcess` tool                              |
+| `BackgroundJobOrchestrator`                 | class    | SDK grouping/wait layer above `BackgroundTaskManager`                           |
+| `createExecutionWorkspaceSnapshot`          | function | Build a presentation-neutral execution workspace snapshot                       |
+| `createExecutionWorkspaceTaskSpawner`       | function | Build an origin-bound task spawning port                                        |
+| `createLineDetailPage`                      | function | Build a cursor-based detail page for a task log                                 |
+| `createMainThreadDetailPage`                | function | Build a detail page for the main thread transcript                              |
+| `createInProcessSubagentRunner`             | function | Default in-process subagent runner adapter                                      |
+| `PromptExecutor`                            | class    | Hook executor: injects a prompt into session context                            |
+| `AgentExecutor`                             | class    | Hook executor: creates a nested agent session for hook input                    |
+| `promptForApproval`                         | function | Terminal permission approval prompt                                             |
+| `projectPaths`                              | function | Structured project-local paths under `.robota/`                                 |
+| `userPaths`                                 | function | Structured user-local paths under `~/.robota/`                                  |
+| `resolveUserLocalStorageRoot`               | function | Validate and resolve the user-local storage root                                |
+| `inspectUserLocalStorage`                   | function | Return a structured inspection of user-local storage                            |
+| `setUserLocalMemoryItem`                    | function | Write a user-local memory item                                                  |
+| `listUserLocalMemoryItems`                  | function | List user-local memory items                                                    |
+| `readEnabledUserLocalMemoryItem`            | function | Read an enabled memory item (returns `null` when disabled)                      |
+| `disableUserLocalMemoryItem`                | function | Disable a user-local memory item                                                |
+| `deleteUserLocalMemoryItem`                 | function | Delete a user-local memory item                                                 |
+| `substituteVariables`                       | function | Substitute `$VAR` / `${VAR}` placeholders in a skill prompt                     |
+| `preprocessShellCommands`                   | function | Extract shell commands embedded in skill prompt text                            |
+| `discoverTaskFiles`                         | function | Discover active `.agents/tasks/*.md` files                                      |
+| `loadTaskContext`                           | function | Load, select, and format task context for the system prompt                     |
+| `parseTaskFile`                             | function | Parse a task Markdown file                                                      |
+| `selectRelevantTasks`                       | function | Select the most relevant task files for the current session                     |
+| `formatTaskContext`                         | function | Format selected tasks as neutral system prompt metadata                         |
+| `updateTaskFileStatus`                      | function | Update task status and append a dated progress entry                            |
+| `readCurrentGitBranch`                      | function | Read the current Git branch for task selection                                  |
+| `buildPromptWithFileReferences`             | function | Expand `@file` references in a prompt string                                    |
+| `resolvePromptFileReferences`               | function | Resolve `@file` reference tokens to file content                                |
+| `parsePromptFileReferences`                 | function | Parse `@file` reference tokens from a prompt string                             |
+| `resolvePromptFileReferencePaths`           | function | Resolve paths for prompt file references                                        |
+| `formatPromptFileReferenceDiagnostics`      | function | Format diagnostics for file reference errors                                    |
+| `hasBlockingPromptFileReferenceDiagnostics` | function | Check whether any reference diagnostic blocks sending                           |
+| `toPromptFileReferenceRecords`              | function | Convert resolved references to structured records                               |
+| `createPromptFileReferenceHistoryEntry`     | function | Build a history entry for prompt file reference metadata                        |
+| `listActiveContextReferences`               | function | List active context references from the inventory                               |
+| `upsertContextReference`                    | function | Add or update a context reference in the inventory                              |
+| `removeContextReference`                    | function | Remove a context reference from the inventory                                   |
+| `clearContextReferences`                    | function | Clear all context references from the inventory                                 |
+| `createContextReferenceItem`                | function | Build a context reference item shape                                            |
+| `toContextReferenceRecords`                 | function | Convert context references to structured records                                |
+| `createTestInteractiveSession`              | function | Create a stub `IInteractiveSession` for tests                                   |
+| `getUserSettingsPath`                       | function | Return the user-global settings file path                                       |
+| `resolveSettingsPathForScope`               | function | Resolve settings path for `'user'` or `'project-local'` scope                   |
+| `readSettings`                              | function | Read a settings JSON file                                                       |
+| `writeSettings`                             | function | Write a settings JSON file                                                      |
+| `updateModelInSettings`                     | function | Update the active model in a settings file                                      |
+| `deleteSettings`                            | function | Delete a settings file                                                          |
+| `resetUserConfig`                           | function | Reset user configuration to defaults                                            |
+| `getProviderSettingsPaths`                  | function | Return the ordered provider settings file paths                                 |
+| `resolveGitBranch`                          | function | Resolve the current Git branch name                                             |
+| `compareSemverVersions`                     | function | Compare two semver version strings                                              |
+| `isNewerSemverVersion`                      | function | Check whether a version is newer than another                                   |
+| `readPackageVersion`                        | function | Read the package version from `package.json`                                    |
+| `checkForCliUpdate`                         | function | Check npm for a newer version of the CLI                                        |
+| `formatCliUpdateCheckMessage`               | function | Format a CLI update check result as a string                                    |
+| `formatCliUpdateNotice`                     | function | Format a CLI update notice for display                                          |
+| `getStartupCliUpdateNotice`                 | function | Get an update notice string for startup display                                 |
+| `getUserUpdateCheckCachePath`               | function | Return the path for the CLI update check cache                                  |
+| `readUpdateCheckCache`                      | function | Read the CLI update check cache                                                 |
+| `writeUpdateCheckCache`                     | function | Write the CLI update check cache                                                |
+| `shouldRunStartupCliUpdateCheck`            | function | Decide whether to run a startup update check                                    |
+
+## Extension Points
+
+### Command Modules (`ICommandModule`)
+
+The primary extension point. Any host or third-party package can contribute commands, command sources, model-visible descriptors, and session requirements by implementing `ICommandModule` and passing it to `InteractiveSession({ commandModules })` or `createAgentRuntime({ commandModules })`.
+
+```typescript
+interface ICommandModule {
+  name: string;
+  commandSources?: readonly ICommandSource[];
+  systemCommands?: readonly ISystemCommand[];
+  commandDescriptors?: readonly ICapabilityDescriptor[];
+  sessionRequirements?: readonly TCommandModuleSessionRequirement[];
+}
+```
+
+Current requirement: `'agent-executor'` — enables agent definitions and shared background/subagent managers.
+
+### Transport Adapters (`ITransportAdapter`)
+
+Any consumer can attach a transport adapter to expose the session over HTTP, WebSocket, MCP, or any other protocol:
+
+```typescript
+session.attachTransport(transport); // ITransportAdapter from @robota-sdk/agent-interface-transport
+await transport.start();
+```
+
+### Hook Executors
+
+`createSession()` accepts custom `IHookTypeExecutor` implementations alongside the SDK-built-in `PromptExecutor` and `AgentExecutor`. Executors are keyed by hook type string and receive hook configuration plus a JSON payload.
+
+### Bundle Plugins
+
+`BundlePluginLoader`/`BundlePluginInstaller` provide a plugin system where reusable extensions (tools, hooks, permissions, system prompt additions) can be packaged as installable bundles under `~/.robota/plugins/` (user) or `.robota/plugins/` (project).
+
+### Permission Handler
+
+Consumers provide a `permissionHandler` callback (`TInteractivePermissionHandler`) to `InteractiveSession` options to intercept tool permission requests with custom UI instead of the built-in terminal prompt.
+
+### Subagent Runner Factory (`TSubagentRunnerFactory`)
+
+Runtime shells can inject a factory to replace the default in-process subagent runner with a process-backed or worktree-isolated runner:
+
+```typescript
+createSession({ subagentRunnerFactory: myFactory });
+```
+
+### Sandbox Client (`ISandboxClient`)
+
+When `sandboxClient` is provided to `InteractiveSession`, Bash, Read, Write, and Edit tools are created through sandbox-aware factories that route I/O through the injected client.
+
+## Error Taxonomy
+
+The package does not define its own named `Error` subclasses. Errors propagate from underlying packages and from SDK assembly validation:
+
+| Error Source            | Category                    | Description                                                                                                     |
+| ----------------------- | --------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `agent-session`         | `SessionRunError`           | Unrecoverable error during `session.run()`                                                                      |
+| `agent-core`            | `PermissionDeniedError`     | Tool call denied by permission policy                                                                           |
+| Config loading          | `TypeError` / thrown string | Missing `type` field in provider profile; unknown `currentProvider` key                                         |
+| Prompt file references  | blocking diagnostic         | Missing file, outside-root, circular, max-depth, or size-limit violations; prompt is rejected before being sent |
+| Org policy              | thrown string               | `allowedProviders` or `requireApiKeyFromEnv` violation detected at command dispatch                             |
+| Reversible execution    | thrown `Error`              | Local-first mode blocks a tool that lacks required isolation                                                    |
+| Checkpoint restore      | thrown `Error`              | Restore attempted while a prompt is running                                                                     |
+| User-local storage      | thrown `Error`              | Empty root, relative root, root equal to the active repository, or root inside the active repository            |
+| `BackgroundTaskManager` | `BackgroundTaskError`       | Typed error with category and recoverability (re-exported from `agent-executor`)                                |
+
+All errors from `session.run()` are caught by `InteractiveSession` and emitted as an `error` event rather than thrown from `submit()`.
+
+## Test Strategy
+
+### Test coverage (as of 2026-05)
+
+- 82 test files across `src/__tests__/` and `src/interactive/__tests__/`
+- Key test files:
+  - `interactive-session.test.ts` — InteractiveSession behavior: submit, abort, queue, history
+  - `interactive-session-background-tasks.test.ts` — background task events and controls
+  - `interactive-session-checkpoints.test.ts` — edit checkpoint capture and restore
+  - `interactive-session-skill-command.test.ts` — skill command routing
+  - `interactive-session-streaming.test.ts` — streaming text delta accumulation
+  - `session-persistence.test.ts` — session store save/restore
+  - `e2e-scenarios.test.ts` — end-to-end scenarios with mock provider
+  - `config-loader.test.ts` — 6-layer settings merge and `$ENV:` substitution
+  - `context-loader.test.ts` — AGENTS.md/CLAUDE.md discovery
+  - `permission-gate.test.ts` — permission mode evaluation
+  - `hook-wiring.test.ts` — hook lifecycle integration
+  - `public-api.test.ts` — ensures forbidden symbols are not exposed in the public barrel
+  - `provider-settings.test.ts` — provider profile merge and validation
+  - `skill-prompt.test.ts` — variable substitution and shell command preprocessing
+
+### Approach
+
+- Unit tests use a mock `IAIProvider` from `@robota-sdk/agent-core` test utilities; no real API calls
+- `createTestInteractiveSession()` provides a stub `IInteractiveSession` for command module tests
+- Integration tests (`cross-package-hooks.test.ts`, `cross-package-skills.test.ts`) use real `createSession()` with mock providers to verify hook wiring and skill routing
+- Public API surface test (`public-api.test.ts`) acts as a regression guard: it asserts that lower-package symbols are not accidentally re-exported
+
+### Gaps
+
+- No test for full sandbox client lifecycle (snapshot + restore)
+- No test for `MarketplaceClient` network behavior (requires network mock)
+- No test for worktree subagent runner (requires Git mock)
+
+## Class Contract Registry
+
+### Interface Implementations
+
+| Interface                 | Implementation                                                      | Package           |
+| ------------------------- | ------------------------------------------------------------------- | ----------------- |
+| `IInteractiveSession`     | `InteractiveSession`                                                | `agent-framework` |
+| `IAgentRuntime`           | returned by `createAgentRuntime()` (anonymous object)               | `agent-framework` |
+| `IEditCheckpointRecorder` | `EditCheckpointStore`                                               | `agent-framework` |
+| `ITransportAdapter`       | implementations in `agent-transport-*` packages                     | external          |
+| `ISubagentRunner`         | `createInProcessSubagentRunner()`                                   | `agent-framework` |
+| `ISubagentRunner`         | `WorktreeSubagentRunner` (decorator)                                | `agent-executor`  |
+| `IBackgroundTaskRunner`   | adapters provided by runtime shells                                 | external          |
+| `ICommandSource`          | `BuiltinCommandSource`, `SkillCommandSource`, `PluginCommandSource` | `agent-framework` |
+| `IBundlePluginManifest`   | validated by `BundlePluginLoader`                                   | `agent-framework` |
+
+### Inheritance Chains
+
+| Class                       | Inherits from                                    | Notes                                        |
+| --------------------------- | ------------------------------------------------ | -------------------------------------------- |
+| `InteractiveSession`        | `InteractiveSessionBase`                         | Composition over `Session` (not inheritance) |
+| `InteractiveSessionBase`    | `EventEmitter` (Node.js)                         | Provides `on`, `off`, `emit`                 |
+| `EditCheckpointStore`       | none                                             | Plain class                                  |
+| `BackgroundJobOrchestrator` | none                                             | Plain class                                  |
+| `PromptExecutor`            | implements `IHookTypeExecutor` from `agent-core` | —                                            |
+| `AgentExecutor`             | implements `IHookTypeExecutor` from `agent-core` | —                                            |
+
+### Cross-Package Port Consumers
+
+| Port (interface)         | Owner package               | Consumed by (in agent-framework)                             |
+| ------------------------ | --------------------------- | ------------------------------------------------------------ |
+| `IAIProvider`            | `agent-core`                | `InteractiveSession`, `createSession()`, `createQuery()`     |
+| `ISession`               | `agent-core`                | `InteractiveSession` (implements)                            |
+| `Session`                | `agent-session`             | `createSession()`, `createSubagentSession()`                 |
+| `ISandboxClient`         | `agent-tools`               | `InteractiveSession` options, `createSession()`              |
+| `IBackgroundTaskManager` | `agent-executor`            | `InteractiveSession`, `BackgroundJobOrchestrator`            |
+| `ISubagentRunner`        | `agent-executor`            | `createInProcessSubagentRunner()`, `createSubagentSession()` |
+| `IHookTypeExecutor`      | `agent-core`                | `PromptExecutor`, `AgentExecutor`                            |
+| `ITransportAdapter`      | `agent-interface-transport` | `InteractiveSession.attachTransport()`                       |
+
+---
+
 ## Overview
 
 Robota SDK is a programming SDK built by **assembling** existing Robota packages.
@@ -64,8 +453,6 @@ agent-cli            ← minimal TUI
 SDK is provider-neutral. The consumer (CLI, server, etc.) creates the provider and passes it to the SDK. Assembly (wiring tools, provider, system prompt) happens inside the SDK, but the provider itself comes from the consumer.
 
 SDK command code is split between generic infrastructure and command-facing common APIs. The SDK responsibility is the command contract layer: command contracts, registries/executors, lifecycle metadata, effects/interactions, reusable command-facing common APIs, and skill discovery/activation services consumed by command modules. User-visible internal commands, including `/skills`, must be implemented as command modules selected by composition roots.
-
-Model command common APIs are provider-aware but provider-neutral. They resolve the effective active provider profile from the provider settings document, read model catalog fallback metadata from injected `IProviderDefinition` records, can explicitly invoke provider-owned catalog refresh hooks, and produce command descriptors without hardcoding CLI/TUI provider branches. If a live refresh fails or a provider does not expose catalog metadata, `/model` remains manually invocable and the command result must surface stale/unavailable catalog state rather than showing another provider's models.
 
 ### Client–SDK–Session Relationship
 
@@ -200,7 +587,10 @@ agent-cli (Ink TUI — CLI-specific)
 - **Implementation**: 3-step evaluation — deny list → allow list → mode policy
 - **Modes**: `plan` (read-only), `default` (write requires approval), `acceptEdits` (write auto-approved), `bypassPermissions` (all auto-approved)
 - **Pattern syntax**: `Bash(pnpm *)`, `Read(/src/**)`, `Write(*)` etc. with glob matching
-- **Terminal prompt**: `agent-framework/src/permissions/permission-prompt.ts` is the SSOT implementation of the terminal approval prompt. Used by both `InteractiveSession`/`createQuery()` and `agent-cli` (which imports from `@robota-sdk/agent-framework`).
+- **Terminal prompt**: `agent-framework/src/permissions/permission-prompt.ts` is the SSOT implementation of the terminal approval prompt. Used by both `InteractiveSession`/`createQuery()` and `agent-cli` (which imports from `@robota-sdk/agent-framework`). Presents 3 options: **Allow once** (returns `true`), **Allow for this session** (returns `'allow-session'`), **Deny** (returns `false`).
+- **Session-level allow**: `PermissionEnforcer` maintains an in-memory `sessionAllowedTools` set. When a permission handler or `promptForApprovalFn` returns `'allow-session'`, the tool name is added to this set and all future calls for that tool in the same session are auto-approved without prompting. The set is cleared by `clearSessionAllowedTools()` and discarded on session end (never persisted).
+- **Project-level allow**: When a handler returns `'allow-project'`, `PermissionEnforcer` adds the tool to `sessionAllowedTools` (same-session convenience) and calls `onProjectAllowTool(toolName)`. The `createSession()` factory wires `onProjectAllowTool` to append `ToolName(*)` to `.robota/settings.local.json` permissions.allow.
+- **TUI permission prompt**: `PermissionPrompt.tsx` in `agent-transport` presents 4 options: **Allow** (once), **Allow always (this session)** (`a` shortcut), **Allow always (this project)** (`p` shortcut), **Deny** (`n`/`d` shortcut). The TUI uses `permissionHandler` (React async queue) rather than `promptForApprovalFn`.
 - **Default allow patterns**: `createSession()` automatically adds allow patterns for config folder access: `Read(.agents/**)`, `Read(.claude/**)`, `Read(.robota/**)`, `Glob(.agents/**)`, `Glob(.claude/**)`, `Glob(.robota/**)`. These are merged with user-configured permissions.
 
 ### Hooks System
@@ -308,8 +698,8 @@ agent-cli (Ink TUI — CLI-specific)
   - `TCommandEffect` — typed host-applied effects such as model/language change, restart, exit, session picker, plugin UI, plugin registry reload, rename, and statusline patch.
   - `ICommandInteraction` / `TCommandInteractionPrompt` — generic command-owned follow-up prompts rendered by host UIs. Prompt descriptors may include a provider-neutral `description` string for host-rendered help text.
 - **Provider common APIs**: `agent-framework/command-api/provider/` owns provider settings document types, provider profile merge/validation/delete helpers, environment reference helpers, setup-flow primitives including fixed-profile edit defaults, provider-owned setup help link projection, provider profile name suggestion helpers, provider command settings adapter contracts, and provider probe defaults. `provider` command behavior lives in `@robota-sdk/agent-command-provider` and consumes these APIs as an external command module.
+- **Org-policy common APIs**: `agent-framework/command-api/org-policy/` owns `IOrgPolicy` (allowedProviders, blockedCommands, requireApiKeyFromEnv, adminContact), `loadOrgPolicy()` (reads `~/.robota/org-policy.json`), `formatOrgPolicyViolationMessage()`, and `isApiKeyPlaintext()`. Enforcement is split: `InteractiveSession.executeCommand()` blocks `blockedCommands` before dispatch and blocks `allowedProviders` violations after a `provider-hot-swap-requested` effect is observed. `IProviderCommandModuleOptions.orgPolicy` passes the policy to provider command module so `buildProviderSwitch` and `completeProviderEdit` can enforce `allowedProviders` and `requireApiKeyFromEnv` within command boundaries. `IAgentRuntimeConfig.orgPolicy` carries the policy through runtime construction to session creation.
 - **Context/compact common APIs**: `agent-framework/command-api/context/` owns command-facing context-state reads, automatic compact policy reads, active-session policy updates, settings-adapter persistence helpers, and manual compact host-facade helpers. `context` and `compact` command behavior lives in `@robota-sdk/agent-command-context` and `@robota-sdk/agent-command-compact`; both consume these APIs as external command modules.
-- **Model common APIs**: `agent-framework/command-api/model/` owns model-command metadata constants and subcommand projection helpers. `model` command behavior lives in `@robota-sdk/agent-command-model` and consumes these APIs as an external command module.
 - **Language common APIs**: `agent-framework/command-api/language/` owns language-command metadata constants, recommended subcommands, argument parsing, and usage formatting. `language` command behavior lives in `@robota-sdk/agent-command-language` and consumes these APIs as an external command module.
 - **Memory common APIs**: `agent-framework/command-api/memory/` owns memory-command metadata constants, subcommand projection helpers, project/pending memory store facades, sensitive-content checks, used-memory reference reads, and memory-event recording helpers. `memory` command behavior lives in `@robota-sdk/agent-command-memory` and consumes these APIs as an external command module.
 - **Background common APIs**: `agent-framework/command-api/background/` owns background-command metadata constants, subcommand projection helpers, task-list/log formatting helpers, and list/read/cancel/close facades over `ICommandHostContext`. `background` command behavior lives in `@robota-sdk/agent-command-background` and consumes these APIs as an external command module.
@@ -423,7 +813,6 @@ reusing broad context-loading internals for repository interpretation.
 - **Product-specific built-in commands**: User-visible internal commands outside SDK-owned discovery are provided by product-composed command modules.
 - **Product-composed built-in command modules**: `skills` is provided by `@robota-sdk/agent-command-skills`. It is user- and model-invocable, lists registered skill metadata, and activates a skill through `ICommandHostContext.executeSkillCommandByName()`. Model-side activation uses the projected `robota_command_skills` tool with skill arguments in `args`.
 - **Product-composed built-in command modules**: `help` is provided by `@robota-sdk/agent-command-help` and renders the composed command list through SDK help common APIs.
-- **Product-composed built-in command modules**: `model` is provided by `@robota-sdk/agent-command-model`, reuses SDK model-command common APIs for subcommand metadata, and emits `model-change-requested` effects for host application.
 - **Product-composed built-in command modules**: `permissions` is provided by `@robota-sdk/agent-command-permissions`, reuses SDK permission common APIs for validation/subcommand metadata, state reads/formatting, and permission-mode updates through the command host adapter facade, and stays user-invocable only.
 - **Optional legacy command modules**: `mode` is provided by `@robota-sdk/agent-command-mode` only when an application explicitly composes that module. Product CLIs should prefer the canonical `permissions` command for permission-mode changes.
 - **Product-composed built-in command modules**: `language` is provided by `@robota-sdk/agent-command-language`, reuses SDK language command common APIs for usage/subcommand metadata, and emits `language-change-requested` effects for host application.
@@ -763,23 +1152,32 @@ interface IInteractiveSessionEvents {
   complete: (result: IExecutionResult) => void;
   error: (error: Error) => void;
   context_update: (state: IContextWindowState) => void;
+  compact: (event: ICompactEvent) => void;
   interrupted: (result: IExecutionResult) => void;
   skill_activation: (event: ISkillActivationEvent) => void;
   background_task_event: (event: TBackgroundTaskEvent) => void;
+  background_job_group_event: (event: TBackgroundJobGroupEvent) => void;
+  execution_workspace_event: (event: IExecutionWorkspaceEvent) => void;
+  user_message: (content: string) => void;
+  context_file_refreshed: (event: IContextFileRefreshedEvent) => void;
 }
 ```
 
+`ICompactEvent` is owned by `agent-session` and imported from `@robota-sdk/agent-session`. All other event payload types are owned by `agent-framework`.
+
 **ITransportAdapter:**
 
+`ITransportAdapter` is owned by `@robota-sdk/agent-interface-transport` and re-exported from `@robota-sdk/agent-framework`. Each `agent-transport-*` package provides a factory that returns an `ITransportAdapter` implementation.
+
 ```typescript
-interface ITransportAdapter {
+interface ITransportAdapter<TSession = unknown> {
   /** Human-readable transport name (e.g., 'http', 'ws', 'mcp', 'headless') */
   readonly name: string;
 
-  /** Attach an InteractiveSession to this transport. */
-  attach(session: InteractiveSession): void;
+  /** Attach a session to this transport. */
+  attach(session: TSession): void;
 
-  /** Start serving. What this means depends on the transport. */
+  /** Start serving. */
   start(): Promise<void>;
 
   /** Stop serving and clean up resources. */
@@ -787,46 +1185,49 @@ interface ITransportAdapter {
 }
 ```
 
-Common interface for all transport adapters. Defined in `src/interactive/types.ts` and exported from `@robota-sdk/agent-framework`. Each `agent-transport-*` package provides a factory that returns an `ITransportAdapter` implementation.
-
 ### Background and Subagent Runtime Exports
 
 `BackgroundTaskManager` is re-exported from `agent-executor` as the generic runtime registry for long-running work. It owns task IDs, queueing, bounded concurrency, lifecycle events, targeted cancellation, shutdown, terminal close/dismiss, optional send/log controls, watchdogs, and immutable state snapshots.
 
 Runner adapters receive `IBackgroundTaskStart.emit(event)` for progress reporting. The manager stamps task IDs onto runner events, updates `currentAction` for tool start/end events, and forwards the resulting `TBackgroundTaskEvent` to subscribers.
 
-Background task runtime exports:
+Background task runtime exports (from `src/background-tasks/index.ts`):
 
-| Export                                | Kind      | Description                                                             |
-| ------------------------------------- | --------- | ----------------------------------------------------------------------- |
-| `BackgroundTaskManager`               | class     | Generic in-memory background task registry and scheduler                |
-| `BackgroundTaskError`                 | class     | Typed background task error with category and recoverability            |
-| `createLimitedOutputCapture`          | function  | Runtime-owned UTF-8-safe bounded output capture helper                  |
-| `appendPrefixedLogLines`              | function  | Runtime-owned source-prefixed log line projection helper                |
-| `createBackgroundTaskLogPage`         | function  | Runtime-owned cursor-based log pagination helper                        |
-| `IBackgroundTaskManager`              | interface | Generic manager API for spawn/wait/list/get/cancel/close/shutdown/send  |
-| `IBackgroundTaskRunner`               | interface | Port implemented by agent/process runner adapters                       |
-| `ILimitedOutputCapture`               | interface | Runtime-owned bounded output capture contract                           |
-| `TBackgroundTaskIdFactory`            | type      | Request-aware task ID factory used by composed managers                 |
-| `IBackgroundTaskState`                | interface | Runtime lifecycle state for one background task                         |
-| `IBackgroundTaskRequest`              | type      | Discriminated union of agent/process background task requests           |
-| `IBackgroundTaskResult`               | interface | Completed background task output                                        |
-| `TBackgroundTaskEvent`                | type      | Runtime-owned lifecycle/progress event union                            |
-| `TBackgroundTaskRunnerEvent`          | type      | Runner-owned progress event union without task IDs                      |
-| `TBackgroundTaskMode`                 | type      | `foreground` or `background`                                            |
-| `TBackgroundTaskStatus`               | type      | Shared task lifecycle status union                                      |
-| `TBackgroundTaskTimeoutReason`        | type      | Watchdog reason union projected onto failed task state                  |
-| `transitionBackgroundTaskStatus`      | function  | Pure lifecycle transition function                                      |
-| `BackgroundJobOrchestrator`           | class     | SDK-owned grouping/wait layer above `BackgroundTaskManager`             |
-| `IBackgroundJobGroupState`            | interface | Parent-session-scoped background task group snapshot                    |
-| `IBackgroundJobGroupSummary`          | interface | Presentation-neutral group completion counts and result lines           |
-| `TBackgroundJobWaitPolicy`            | type      | `detached`, `wait_all`, `wait_any`, or `manual` group completion policy |
-| `createExecutionWorkspaceSnapshot`    | function  | SDK-owned main-thread/task/group workspace projection                   |
-| `createExecutionWorkspaceTaskSpawner` | function  | Origin-bound task spawning port for commands, skills, and transports    |
-| `IExecutionWorkspaceEntry`            | interface | Presentation-neutral selectable execution entry                         |
-| `IExecutionWorkspaceSnapshot`         | interface | Session-scoped execution workspace read model                           |
-| `IExecutionWorkspaceTaskSpawner`      | interface | SDK task creation port for agent/process tasks and groups               |
-| `IExecutionOrigin`                    | interface | SDK-owned task provenance projected from opaque runtime metadata        |
+Note: `BackgroundTaskManager`, `BackgroundTaskError`, `createLimitedOutputCapture`, `appendPrefixedLogLines`, `createBackgroundTaskLogPage`, and `transitionBackgroundTaskStatus` are owned by `agent-executor` and are NOT re-exported as values from `@robota-sdk/agent-framework`. Consumers that need these runtime classes directly must import from `@robota-sdk/agent-executor`. The framework only re-exports their type interfaces and the SDK-owned orchestration layer.
+
+| Export                                  | Kind      | Description                                                             |
+| --------------------------------------- | --------- | ----------------------------------------------------------------------- |
+| `BackgroundJobOrchestrator`             | class     | SDK-owned grouping/wait layer above `BackgroundTaskManager`             |
+| `summarizeBackgroundJobGroup`           | function  | SDK helper: returns counts and concise result lines for a group         |
+| `createExecutionWorkspaceSnapshot`      | function  | SDK-owned main-thread/task/group workspace projection                   |
+| `createExecutionWorkspaceTaskSpawner`   | function  | Origin-bound task spawning port for commands, skills, and transports    |
+| `createLineDetailPage`                  | function  | Build a cursor-based detail page for a task log line stream             |
+| `createMainThreadDetailPage`            | function  | Build a detail page for the main thread transcript                      |
+| `createBackgroundGroupExecutionEntryId` | function  | Generate a stable ID for a background group workspace entry             |
+| `createBackgroundTaskExecutionEntryId`  | function  | Generate a stable ID for a background task workspace entry              |
+| `createExecutionOriginMetadata`         | function  | Build opaque origin metadata for task provenance                        |
+| `createMainThreadExecutionEntryId`      | function  | Generate a stable ID for the main thread workspace entry                |
+| `parseExecutionWorkspaceEntryId`        | function  | Parse a workspace entry ID into its components                          |
+| `EXECUTION_ORIGIN_METADATA_KEYS`        | const     | Canonical keys for execution origin metadata bag                        |
+| `IBackgroundTaskManager`                | interface | Generic manager API for spawn/wait/list/get/cancel/close/shutdown/send  |
+| `IBackgroundTaskRunner`                 | interface | Port implemented by agent/process runner adapters                       |
+| `ILimitedOutputCapture`                 | interface | Runtime-owned bounded output capture contract                           |
+| `TBackgroundTaskIdFactory`              | type      | Request-aware task ID factory used by composed managers                 |
+| `IBackgroundTaskState`                  | interface | Runtime lifecycle state for one background task                         |
+| `TBackgroundTaskRequest`                | type      | Discriminated union of agent/process background task requests           |
+| `IBackgroundTaskResult`                 | interface | Completed background task output                                        |
+| `TBackgroundTaskEvent`                  | type      | Runtime-owned lifecycle/progress event union                            |
+| `TBackgroundTaskRunnerEvent`            | type      | Runner-owned progress event union without task IDs                      |
+| `TBackgroundTaskMode`                   | type      | `foreground` or `background`                                            |
+| `TBackgroundTaskStatus`                 | type      | Shared task lifecycle status union                                      |
+| `TBackgroundTaskTimeoutReason`          | type      | Watchdog reason union projected onto failed task state                  |
+| `IBackgroundJobGroupState`              | interface | Parent-session-scoped background task group snapshot                    |
+| `IBackgroundJobGroupSummary`            | interface | Presentation-neutral group completion counts and result lines           |
+| `TBackgroundJobWaitPolicy`              | type      | `detached`, `wait_all`, `wait_any`, or `manual` group completion policy |
+| `IExecutionWorkspaceEntry`              | interface | Presentation-neutral selectable execution entry                         |
+| `IExecutionWorkspaceSnapshot`           | interface | Session-scoped execution workspace read model                           |
+| `IExecutionWorkspaceTaskSpawner`        | interface | SDK task creation port for agent/process tasks and groups               |
+| `IExecutionOrigin`                      | interface | SDK-owned task provenance projected from opaque runtime metadata        |
 
 Background agent watchdog configuration is provider-neutral. Agent requests may set `idleTimeoutMs`, `maxRuntimeMs`, `outputLimitBytes`, `maxTextDeltas`, `repetitionWindow`, and `repetitionThreshold`; the runtime refreshes `lastActivityAt` from runner progress events and fails runaway jobs with `timeoutReason`.
 
@@ -846,26 +1247,13 @@ Background agent watchdog configuration is provider-neutral. Agent requests may 
 
 `InteractiveSession` emits `background_job_group_event` with `TBackgroundJobGroupEvent`. When session persistence is enabled, group snapshots and group events are stored alongside background task snapshots/events so resume/debugging can reconstruct group provenance.
 
-`SubagentManager` and its associated types are exported for clients that need to compose managed subagent execution. It is now a compatibility facade over `BackgroundTaskManager` for `kind: 'agent'` tasks, preserving the existing subagent API while moving lifecycle semantics to the shared background layer.
+`SubagentManager` and `WorktreeSubagentRunner` are owned by `agent-executor` and are NOT exported as values from `@robota-sdk/agent-framework`. Consumers needing these classes must import from `@robota-sdk/agent-executor`. The framework exports only the SDK-owned `createInProcessSubagentRunner` factory plus type-only re-exports of the subagent contracts.
 
 ```typescript
-import { SubagentManager } from '@robota-sdk/agent-framework';
-import type { ISubagentRunner } from '@robota-sdk/agent-framework';
-
-const runner: ISubagentRunner = createRunner();
-const manager = new SubagentManager({ runner, maxConcurrent: 2 });
-
-const job = await manager.spawn({
-  type: 'general-purpose',
-  label: 'General purpose',
-  parentSessionId: 'session_parent',
-  mode: 'foreground',
-  depth: 1,
-  cwd: process.cwd(),
-  prompt: 'Review the codebase',
-});
-
-const result = await manager.wait(job.id);
+import { createInProcessSubagentRunner } from '@robota-sdk/agent-framework';
+import type { ISubagentRunner, ISubagentSpawnRequest } from '@robota-sdk/agent-framework';
+// For the SubagentManager class itself, import from agent-executor:
+import { SubagentManager } from '@robota-sdk/agent-executor';
 ```
 
 Agent subagent requests may set `isolation: 'worktree'`. The SDK treats this as a contract flag and propagates it through `agent` command arguments, `ISubagentSpawnRequest`, and background task metadata. Worktree isolation is explicit unless a host assembly provides and documents a capability-aware default policy; SDK core must not silently infer or fallback between isolated and non-isolated execution. `agent-executor` owns `WorktreeSubagentRunner`, which decorates any `ISubagentRunner` with worktree lifecycle, metadata, cleanup, and hook behavior. Runtime shells provide an `ISubagentWorktreeAdapter` implementation for concrete local Git/filesystem operations. If a preserved worktree is returned by a runner, `IBackgroundTaskResult.metadata.worktreePath`, `branchName`, `worktreeStatus`, `worktreeNextAction`, `worktreeBaseRevision`, and `parentWorktreeStatus` are projected onto matching `IBackgroundTaskState` fields.
@@ -874,27 +1262,27 @@ Agent subagent requests may set `isolation: 'worktree'`. The SDK treats this as 
 
 `createSession()` also accepts `subagentRunnerFactory?: TSubagentRunnerFactory`. When omitted, SDK composition uses `createInProcessSubagentRunner`. Runtime shells such as `agent-cli` may inject a factory that receives the same assembled dependency bundle and returns a process-backed `ISubagentRunner`.
 
-Exported subagent runtime types:
+Exported subagent types from `src/subagents/index.ts`:
 
-| Export                          | Kind      | Description                                                               |
-| ------------------------------- | --------- | ------------------------------------------------------------------------- |
-| `SubagentManager`               | class     | Re-export from `agent-executor`; in-memory subagent job facade            |
-| `createInProcessSubagentRunner` | function  | Runner adapter that executes subagent jobs with `createSubagentSession()` |
-| `WorktreeSubagentRunner`        | class     | Re-export from `agent-executor`; worktree isolation runner decorator      |
-| `createWorktreeSubagentRunner`  | function  | Factory for `WorktreeSubagentRunner`                                      |
-| `createDefaultTools`            | function  | Default tool assembly helper exported for CLI fork-worker composition     |
-| `ISubagentManager`              | interface | Re-export from `agent-executor`; manager API                              |
-| `ISubagentRunner`               | interface | Re-export from `agent-executor`; single-job runner port                   |
-| `ISubagentWorktreeAdapter`      | interface | Re-export from `agent-executor`; concrete worktree I/O port               |
-| `IPreparedSubagentWorktree`     | interface | Re-export from `agent-executor`; prepared worktree handoff                |
-| `IInProcessSubagentRunnerDeps`  | interface | Dependencies captured by the in-process runner adapter                    |
-| `TSubagentRunnerFactory`        | type      | Factory seam for runtime shells to replace the default subagent runner    |
-| `ISubagentJobHandle`            | interface | Re-export from `agent-executor`; targeted job handle                      |
-| `ISubagentJobState`             | interface | Re-export from `agent-executor`; subagent job projection                  |
-| `ISubagentSpawnRequest`         | interface | Re-export from `agent-executor`; spawn request                            |
-| `ISubagentJobResult`            | interface | Re-export from `agent-executor`; completion output and metadata           |
-| `TSubagentJobMode`              | type      | Re-export from `agent-executor`; `foreground` or `background`             |
-| `TSubagentJobStatus`            | type      | Re-export from `agent-executor`; lifecycle status union                   |
+| Export                            | Kind      | Description                                                               |
+| --------------------------------- | --------- | ------------------------------------------------------------------------- |
+| `createInProcessSubagentRunner`   | function  | Runner adapter that executes subagent jobs with `createSubagentSession()` |
+| `IInProcessSubagentRunnerDeps`    | interface | Dependencies captured by the in-process runner adapter                    |
+| `TSubagentRunnerFactory`          | type      | Factory seam for runtime shells to replace the default subagent runner    |
+| `ISubagentManager`                | interface | Type re-export from `agent-executor`; manager API                         |
+| `ISubagentManagerOptions`         | interface | Type re-export from `agent-executor`; manager construction options        |
+| `ISubagentRunner`                 | interface | Type re-export from `agent-executor`; single-job runner port              |
+| `ISubagentWorktreeAdapter`        | interface | Type re-export from `agent-executor`; concrete worktree I/O port          |
+| `ISubagentWorktreePrepareRequest` | interface | Type re-export from `agent-executor`; worktree prepare request            |
+| `IWorktreeSubagentRunnerOptions`  | interface | Type re-export from `agent-executor`; worktree runner options             |
+| `IPreparedSubagentWorktree`       | interface | Type re-export from `agent-executor`; prepared worktree handoff           |
+| `ISubagentJobHandle`              | interface | Type re-export from `agent-executor`; targeted job handle                 |
+| `ISubagentJobState`               | interface | Type re-export from `agent-executor`; subagent job projection             |
+| `ISubagentJobStart`               | interface | Type re-export from `agent-executor`; job start request                   |
+| `ISubagentSpawnRequest`           | interface | Type re-export from `agent-executor`; spawn request                       |
+| `ISubagentJobResult`              | interface | Type re-export from `agent-executor`; completion output and metadata      |
+| `TSubagentJobMode`                | type      | Type re-export from `agent-executor`; `foreground` or `background`        |
+| `TSubagentJobStatus`              | type      | Type re-export from `agent-executor`; lifecycle status union              |
 
 ### History Entry Types
 
@@ -1057,17 +1445,20 @@ interface ICommandResult {
 }
 
 type TCommandEffect =
-  | { type: 'model-change-requested'; modelId: string }
+  | { type: 'provider-hot-swap-requested'; profileName: string }
   | { type: 'language-change-requested'; language: string }
   | { type: 'settings-reset-requested' }
   | { type: 'session-exit-requested'; reason?: TSessionEndReason; message?: string }
   | { type: 'session-restart-requested'; reason: TSessionEndReason; message: string }
   | { type: 'plugin-tui-requested' }
   | { type: 'plugin-registry-reload-requested' }
+  | { type: 'settings-tui-requested' }
   | { type: 'session-picker-requested' }
   | { type: 'session-renamed'; name: string }
   | { type: 'conversation-history-cleared' }
-  | { type: 'statusline-settings-patch'; patch: TStatusLineCommandSettingsPatch };
+  | { type: 'session-execution-started' }
+  | { type: 'statusline-settings-patch'; patch: TStatusLineCommandSettingsPatch }
+  | { type: 'agent-switcher-requested' };
 
 interface ICommandInteraction {
   prompt: ICommandInteractionPrompt;

@@ -53,6 +53,12 @@ export type {
   TCapabilityKind,
   TCapabilitySafety,
 } from './capabilities/types.js';
+export type { IOrgPolicy } from './command-api/org-policy/index.js';
+export {
+  loadOrgPolicy,
+  formatOrgPolicyViolationMessage,
+  isApiKeyPlaintext,
+} from './command-api/org-policy/index.js';
 export type {
   IAgentJobHostContext,
   ICommand,
@@ -87,11 +93,6 @@ export type {
   TSkillActivationSource,
   TSkillActivationStatus,
   TCommandModuleSessionRequirement,
-  IActiveProviderModelCatalogState,
-  IBuildModelCommandSubcommandsOptions,
-  IModelCommandModuleOptions,
-  IModelCommandSettingsAdapter,
-  IResolveActiveProviderModelCatalogStateOptions,
   IProviderCommandModuleOptions,
   IProviderCommandSettingsAdapter,
   IProviderProfileNameSuggestionInput,
@@ -163,13 +164,6 @@ export {
   writeAutoCompactThresholdSetting,
   formatCommandHelpMessage,
   HELP_COMMAND_DESCRIPTION,
-  buildModelCommandSubcommands,
-  formatModelCommandUsageMessageAsync,
-  formatModelCommandUsageMessage,
-  MODEL_COMMAND_ARGUMENT_HINT,
-  MODEL_COMMAND_DESCRIPTION,
-  resolveActiveProviderModelCatalog,
-  resolveActiveProviderModelCatalogState,
   buildLanguageCommandSubcommands,
   formatLanguageUsageMessage,
   LANGUAGE_COMMAND_ARGUMENT_HINT,

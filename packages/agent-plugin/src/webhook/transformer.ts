@@ -4,12 +4,6 @@
  */
 
 import type {
-  IPluginExecutionContext,
-  IPluginExecutionResult,
-  TLoggerData,
-  TUniversalValue,
-} from '@robota-sdk/agent-core';
-import type {
   IWebhookExecutionContext,
   IWebhookExecutionResult,
   IWebhookEventData,
@@ -20,6 +14,12 @@ import type {
   IWebhookToolCallData,
   TWebhookEventName,
 } from './types';
+import type {
+  IPluginExecutionContext,
+  IPluginExecutionResult,
+  TLoggerData,
+  TUniversalValue,
+} from '@robota-sdk/agent-core';
 
 /**
  * Webhook data transformer utility class

@@ -1,4 +1,5 @@
 import { ProjectMemoryStore } from './project-memory-store.js';
+
 import type {
   IAutomaticMemoryConfig,
   IMemoryReference,

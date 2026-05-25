@@ -1,3 +1,11 @@
+import { getBuiltInAgent } from '../agents/built-in-agents.js';
+import { createSubagentSession } from '../assembly/create-subagent-session.js';
+
+import type { IAgentDefinition } from '../agents/agent-definition-types.js';
+import type { ISubagentOptions } from '../assembly/create-subagent-session.js';
+import type { IResolvedConfig } from '../config/config-types.js';
+import type { ILoadedContext } from '../context/context-loader.js';
+import type { ITerminalOutput } from '@robota-sdk/agent-core';
 import type {
   IAIProvider,
   IHookTypeExecutor,
@@ -5,19 +13,12 @@ import type {
   TPermissionMode,
   TToolArgs,
 } from '@robota-sdk/agent-core';
-import type { ITerminalOutput } from '@robota-sdk/agent-core';
-import type { TPermissionHandler } from '@robota-sdk/agent-session';
-import type { IAgentDefinition } from '../agents/agent-definition-types.js';
-import { getBuiltInAgent } from '../agents/built-in-agents.js';
-import type { ISubagentOptions } from '../assembly/create-subagent-session.js';
-import { createSubagentSession } from '../assembly/create-subagent-session.js';
-import type { IResolvedConfig } from '../config/config-types.js';
-import type { ILoadedContext } from '../context/context-loader.js';
 import type {
   ISubagentJobHandle,
   ISubagentJobStart,
   ISubagentRunner,
 } from '@robota-sdk/agent-executor';
+import type { TPermissionHandler } from '@robota-sdk/agent-session';
 
 type TSubagentToolExecutionEvent = Parameters<
   NonNullable<IInProcessSubagentRunnerDeps['onToolExecution']>
@@ -41,6 +42,7 @@ export interface IInProcessSubagentRunnerDeps {
     success?: boolean;
     denied?: boolean;
     toolResultData?: string;
+    executionId?: string;
   }) => void;
   customAgentRegistry?: (name: string) => IAgentDefinition | undefined;
 }

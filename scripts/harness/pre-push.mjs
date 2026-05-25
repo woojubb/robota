@@ -29,6 +29,48 @@ function runGitQuiet(args) {
   );
 }
 
+function assertNoActiveWorktrees() {
+  const result = spawnSync('git', ['worktree', 'list', '--porcelain'], {
+    cwd: WORKSPACE_ROOT,
+    encoding: 'utf8',
+  });
+  const entries = (result.stdout ?? '').trim().split('\n\n').filter(Boolean);
+  if (entries.length > 1) {
+    process.stderr.write(
+      '\n[BANNED] Active git worktree(s) detected — push blocked.\n' +
+        'git worktree is absolutely prohibited in this repo.\n' +
+        'Remove all extra worktrees before pushing:\n' +
+        '  git worktree list\n' +
+        '  git worktree remove -f -f <path>\n\n',
+    );
+    process.exit(1);
+  }
+}
+
+function assertCleanWorkingTree() {
+  const result = spawnSync('git', ['status', '--porcelain'], {
+    cwd: WORKSPACE_ROOT,
+    encoding: 'utf8',
+  });
+  const lines = (result.stdout ?? '')
+    .split('\n')
+    .map((l) => l.trimEnd())
+    .filter(Boolean);
+  // XY status codes: first char = staged, second char = unstaged.
+  // '??' = untracked. We block on any modified/staged file but not on
+  // untracked files (those are handled by .gitignore discipline).
+  const dirty = lines.filter((l) => l.slice(0, 2) !== '??');
+  if (dirty.length > 0) {
+    process.stderr.write(
+      '\n[BLOCKED] Uncommitted changes detected — push blocked.\n' +
+        'Commit or discard all modified/staged files before pushing:\n\n' +
+        dirty.map((l) => `  ${l}`).join('\n') +
+        '\n\nSee .agents/rules/git-branch.md "Clean Working Tree" rule.\n\n',
+    );
+    process.exit(1);
+  }
+}
+
 function hasWorkingTreeChanges() {
   const result = spawnSync('git', ['status', '--porcelain', '--untracked-files=all'], {
     cwd: WORKSPACE_ROOT,
@@ -59,6 +101,9 @@ function resolvePrePushMode(value) {
   }
   return mode;
 }
+
+assertNoActiveWorktrees();
+assertCleanWorkingTree();
 
 const baseRef = resolveGitBaseRef(process.env.HARNESS_BASE_REF ?? null);
 const baseArgs = baseRef ? ['--base-ref', baseRef] : [];
@@ -93,6 +138,9 @@ if (prePushMode === 'fast') {
 
 run('pnpm', ['harness:plan', '--', ...baseArgs, ...scopeExpansionArgs]);
 run('pnpm', ['harness:verify', '--', ...baseArgs, ...scopeExpansionArgs, '--skip-record-check']);
+
+process.stdout.write('\n▶ CLI smoke check (cli:dev --version)\n');
+run('pnpm', ['cli:dev', '--version']);
 
 process.stdout.write('\nRelease-grade verification remains explicit:\n');
 process.stdout.write('  HARNESS_PRE_PUSH_MODE=full pnpm harness:pre-push\n');

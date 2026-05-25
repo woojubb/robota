@@ -1,3 +1,16 @@
+import type { IBackgroundTaskRunner } from '../background-tasks/index.js';
+import type { ICapabilityDescriptor } from '../capabilities/types.js';
+import type { IEditCheckpointRecorder } from '../checkpoints/edit-checkpoint-types.js';
+import type { ICommandResult } from '../commands/system-command.js';
+import type { IResolvedConfig } from '../config/config-types.js';
+import type { ILoadedContext } from '../context/context-loader.js';
+import type { IProjectInfo } from '../context/project-detector.js';
+import type { ISystemPromptParams } from '../context/system-prompt-builder.js';
+import type { TSessionFactory } from '../hooks/agent-executor.js';
+import type { TProviderFactory } from '../hooks/prompt-executor.js';
+import type { IInteractiveSessionStore } from '../interactive/session-persistence.js';
+import type { IReversibleExecutionOptions } from '../reversible-execution/index.js';
+import type { TSubagentRunnerFactory } from '../subagents/in-process-subagent-runner.js';
 import type {
   IAIProvider,
   IContextWindowState,
@@ -12,22 +25,10 @@ import type {
   ITerminalOutput,
   ICompactEvent,
   TPermissionHandler,
+  TPermissionResult,
   ISessionLogger,
 } from '@robota-sdk/agent-session';
-import type { IResolvedConfig } from '../config/config-types.js';
-import type { ILoadedContext } from '../context/context-loader.js';
-import type { IProjectInfo } from '../context/project-detector.js';
-import type { ISystemPromptParams } from '../context/system-prompt-builder.js';
 import type { ISandboxClient } from '@robota-sdk/agent-tools';
-import type { TSubagentRunnerFactory } from '../subagents/in-process-subagent-runner.js';
-import type { IInteractiveSessionStore } from '../interactive/session-persistence.js';
-import type { ICommandResult } from '../commands/system-command.js';
-import type { ICapabilityDescriptor } from '../capabilities/types.js';
-import type { IEditCheckpointRecorder } from '../checkpoints/edit-checkpoint-types.js';
-import type { IReversibleExecutionOptions } from '../reversible-execution/index.js';
-import type { TProviderFactory } from '../hooks/prompt-executor.js';
-import type { TSessionFactory } from '../hooks/agent-executor.js';
-import type { IBackgroundTaskRunner } from '../background-tasks/index.js';
 
 export type TAutoCompactThreshold = number | false;
 export type TSessionOptionsWithAutoCompact = ISessionOptions & {
@@ -68,7 +69,7 @@ export interface ICreateSessionOptions {
     terminal: ITerminalOutput,
     toolName: string,
     toolArgs: TToolArgs,
-  ) => Promise<boolean>;
+  ) => Promise<TPermissionResult>;
   /** Additional tools to register beyond the defaults (e.g. agent-tool) */
   additionalTools?: IToolWithEventService[];
   /** Additional background task runners composed by the runtime shell. */
@@ -85,6 +86,7 @@ export interface ICreateSessionOptions {
     success?: boolean;
     denied?: boolean;
     toolResultData?: string;
+    executionId?: string;
   }) => void;
   /** Callback when context is compacted */
   onCompact?: (summary: string) => void;
@@ -110,6 +112,10 @@ export interface ICreateSessionOptions {
   sessionId?: string;
   /** Pre-approved tool names — added to permissions.allow as ToolName(*) patterns. */
   allowedTools?: string[];
+  /** Denied tool names — added to permissions.deny as ToolName(*) patterns. denied > allowed. */
+  deniedTools?: string[];
+  /** Override the model from config. When set, takes precedence over config.provider.model. */
+  model?: string;
   /** Text to append to the generated system prompt. */
   appendSystemPrompt?: string;
   /** Model command execution bridge. */

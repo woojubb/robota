@@ -1,3 +1,8 @@
+---
+title: 'PLG-005: Web Monitor — 에이전트 활동 패널'
+status: done
+---
+
 # PLG-005: Web Monitor — 에이전트 활동 패널
 
 - **Status**: done

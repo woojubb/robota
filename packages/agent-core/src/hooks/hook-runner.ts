@@ -15,6 +15,9 @@
  * - UserPromptSubmit: { decision: "block" } → block; hookSpecificOutput.additionalContext → injected into stdout
  */
 
+import { CommandExecutor } from './executors/command-executor.js';
+import { HttpExecutor } from './executors/http-executor.js';
+
 import type {
   THookEvent,
   THooksConfig,
@@ -22,8 +25,6 @@ import type {
   IHookInput,
   IHookTypeExecutor,
 } from './types.js';
-import { CommandExecutor } from './executors/command-executor.js';
-import { HttpExecutor } from './executors/http-executor.js';
 
 /** Default set of hook type executors */
 function createDefaultExecutors(): IHookTypeExecutor[] {

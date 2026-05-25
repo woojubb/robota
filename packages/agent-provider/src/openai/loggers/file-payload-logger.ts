@@ -1,10 +1,13 @@
 import * as fs from 'fs';
 import * as path from 'path';
+
+import { SilentLogger } from '@robota-sdk/agent-core';
+
+import { sanitizeOpenAILogData } from './sanitize-openai-log-data';
+
 import type { IPayloadLogger } from '../interfaces/payload-logger';
 import type { IOpenAILogData } from '../types/api-types';
 import type { ILogger } from '@robota-sdk/agent-core';
-import { SilentLogger } from '@robota-sdk/agent-core';
-import { sanitizeOpenAILogData } from './sanitize-openai-log-data';
 
 /**
  * File-based payload logger for Node.js environments

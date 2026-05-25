@@ -4,8 +4,9 @@
  * Extracted from Session to separate context monitoring from conversation management.
  */
 
-import type { IContextWindowState, TUniversalMessage } from '@robota-sdk/agent-core';
 import { estimateContextTokensFromMessages, getModelContextWindow } from '@robota-sdk/agent-core';
+
+import type { IContextWindowState, TUniversalMessage } from '@robota-sdk/agent-core';
 
 /** Percentage conversion factor */
 const PERCENT = 100;

@@ -21,7 +21,7 @@ import type {
   TSubagentRunnerFactory,
 } from '@robota-sdk/agent-framework';
 import { getBuiltInAgent } from '@robota-sdk/agent-framework';
-import type { ISubagentWorkerStartPayload } from './child-process-subagent-ipc.js';
+
 import {
   createCancellationResult,
   createChildProcessSubagentResult,
@@ -31,6 +31,15 @@ import {
   sendWorkerMessage,
   type IChildProcessRuntime,
 } from './child-process-subagent-transport.js';
+import { getDefaultSubagentWorkerPath } from './worker-path-resolver.js';
+
+import type { ISubagentWorkerStartPayload } from './child-process-subagent-ipc.js';
+import type { IProviderConfig } from '@robota-sdk/agent-core';
+import type {
+  IAgentDefinition,
+  IInProcessSubagentRunnerDeps,
+  TSubagentRunnerFactory,
+} from '@robota-sdk/agent-framework';
 
 const DEFAULT_KILL_GRACE_MS = 2_000;
 

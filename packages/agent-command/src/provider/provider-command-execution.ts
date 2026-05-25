@@ -1,14 +1,17 @@
 import { findProviderDefinition, formatSupportedProviderTypes } from '@robota-sdk/agent-core';
+import { testProviderProfileCommand } from '@robota-sdk/agent-framework';
+
+import { buildProviderSwitch } from './provider-command-profile-operations.js';
+import { createProviderProfileSelectionInteraction } from './provider-command-profile.js';
+import { createSetupFlow, createProviderSetupInteraction } from './provider-command-setup.js';
+import { formatProviderSetupChoiceLabel } from './provider-setup-flow.js';
+
 import type {
+  ICommandInteraction,
   ICommandResult,
   IProviderCommandModuleOptions,
   IProviderProfileSettings,
 } from '@robota-sdk/agent-framework';
-import { testProviderProfileCommand } from '@robota-sdk/agent-framework';
-import { formatProviderSetupChoiceLabel } from './provider-setup-flow.js';
-import { createSetupFlow, createProviderSetupInteraction } from './provider-command-setup.js';
-import { buildProviderSwitch } from './provider-command-profile-operations.js';
-import { createProviderProfileSelectionInteraction } from './provider-command-profile.js';
 
 export async function executeProviderCommand(
   args: string,
@@ -30,7 +33,7 @@ export async function executeProviderCommand(
       success: true,
     };
   }
-  if (subcommand === 'use') {
+  if (subcommand === 'switch') {
     return buildProviderSwitch(settings.providers, profileArg, options);
   }
   if (subcommand === 'test') {
@@ -46,7 +49,7 @@ export async function executeProviderCommand(
   }
 
   return {
-    message: 'Usage: provider [current|list|use <profile>|add <type>|test [profile]]',
+    message: 'Usage: provider [current|list|switch <profile>|add <type>|test [profile]]',
     success: false,
   };
 }
@@ -126,7 +129,9 @@ function buildProviderSetup(
   };
 }
 
-function createProviderSelectionInteraction(options: IProviderCommandModuleOptions) {
+function createProviderSelectionInteraction(
+  options: IProviderCommandModuleOptions,
+): ICommandInteraction {
   return {
     prompt: {
       kind: 'choice' as const,

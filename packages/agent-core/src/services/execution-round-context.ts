@@ -1,10 +1,11 @@
-import type { IAgentConfig } from '../interfaces/agent';
-import type { TUniversalMessage } from '../interfaces/messages';
-import type { ILogger } from '../utils/logger';
-import type { ConversationStore } from '../managers/conversation-history-manager';
 import { estimateContextTokensFromMessages } from '../context/estimation';
 import { getModelContextWindow } from '../context/models';
+
 import type { IExecutionRoundState } from './execution-types';
+import type { IAgentConfig } from '../interfaces/agent';
+import type { TUniversalMessage } from '../interfaces/messages';
+import type { ConversationStore } from '../managers/conversation-history-manager';
+import type { ILogger } from '../utils/logger';
 
 export const CONTEXT_HARD_BLOCK_THRESHOLD = 0.95;
 

@@ -5,6 +5,11 @@
  *   { "ws": { "enabled": true, "options": { "port": 7070 } } }
  */
 
+import { getUserSettingsPath } from '@robota-sdk/agent-framework';
+import { readSettings, writeSettings, type TSettingsData } from '@robota-sdk/agent-framework';
+
+import { WsTransport } from './ws/index.js';
+
 import type { TUniversalValue } from '@robota-sdk/agent-core';
 import type { IInteractiveSession } from '@robota-sdk/agent-framework';
 import { getUserSettingsPath } from '@robota-sdk/agent-framework';

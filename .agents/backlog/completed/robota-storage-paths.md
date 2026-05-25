@@ -1,3 +1,8 @@
+---
+title: 'Robota Storage Paths'
+status: done
+---
+
 # Robota Storage Paths
 
 ## What
