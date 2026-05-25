@@ -52,7 +52,6 @@ packages/
 ├── agent-interface-tui/        ← TUI interaction type contracts (zero deps)
 ├── agent-cli/                  ← Terminal AI coding assistant
 ├── agent-subagent-runner/      ← Opt-in child-process subagent runner
-├── agent-team/                 ← Multi-agent task delegation (playground stack)
 ├── agent-remote-client/        ← HTTP client for remote agents
 ├── agent-web-ui/               ← Browser React component library
 ├── agent-tool-mcp/             ← MCP tool client adapter

@@ -210,7 +210,6 @@ agent-core             ← Foundation: Robota engine, abstractions, plugins
 | [`@robota-sdk/agent-cli`](./packages/agent-cli/)                         | Interactive terminal AI coding assistant                                                                                                                                                         |
 | [`@robota-sdk/agent-transport`](./packages/agent-transport/)             | Consolidated transport package — TUI (`/tui`), headless (`/headless`), HTTP (`/http`), WebSocket (`/ws`), MCP (`/mcp`) in one package                                                            |
 | [`@robota-sdk/agent-subagent-runner`](./packages/agent-subagent-runner/) | Opt-in child-process subagent runner — install only when using `/agent` with child-process isolation                                                                                             |
-| [`@robota-sdk/agent-team`](./packages/agent-team/)                       | Multi-agent task delegation for playground and orchestration use cases                                                                                                                           |
 
 ## Documentation
 
