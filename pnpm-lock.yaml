@@ -948,43 +948,6 @@ importers:
         specifier: ^1.6.1
         version: 1.6.1(@types/node@22.16.5)
 
-  packages/agent-team:
-    dependencies:
-      '@robota-sdk/agent-core':
-        specifier: workspace:*
-        version: link:../agent-core
-      '@robota-sdk/agent-tool-mcp':
-        specifier: workspace:*
-        version: link:../agent-tool-mcp
-      '@robota-sdk/agent-tools':
-        specifier: workspace:*
-        version: link:../agent-tools
-      uuid:
-        specifier: ^9.0.1
-        version: 9.0.1
-      zod:
-        specifier: ^3.24.4
-        version: 3.25.76
-    devDependencies:
-      '@types/uuid':
-        specifier: ^9.0.7
-        version: 9.0.8
-      eslint:
-        specifier: ^8.56.0
-        version: 8.57.1
-      rimraf:
-        specifier: ^5.0.5
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.0
-        version: 0.22.0(tsx@4.21.0)(typescript@5.8.3)
-      typescript:
-        specifier: ^5.3.3
-        version: 5.8.3
-      vitest:
-        specifier: ^1.6.1
-        version: 1.6.1(@types/node@20.19.9)
-
   packages/agent-tool-mcp:
     dependencies:
       '@modelcontextprotocol/sdk':
@@ -8852,13 +8815,6 @@ packages:
         integrity: sha512-ko/gIFJRv177XgZsZcBwnqJN5x/Gien8qNOn0D5bQU/zAzVf9Zt3BlcUiLqhV9y4ARk0GbT3tnUiPNgnTXzc/Q==,
       }
     dev: false
-
-  /@types/uuid@9.0.8:
-    resolution:
-      {
-        integrity: sha512-jg+97EGIcY9AGHJJRaaPVgetKDsrTgbRjQ5Msgjh/DQKEFl0DtyRr/VCOyD1T2R1MNeWPK/u7JoGhlDZnKBAfA==,
-      }
-    dev: true
 
   /@types/ws@8.18.1:
     resolution:
@@ -23821,7 +23777,9 @@ packages:
         integrity: sha512-b+1eJOlsR9K8HJpow9Ok3fiWOWSIcIzXodvv0rQjVoOVNpWMpxf1wZNpt4y9h10odCNrqnYp1OBzRktckBe3sA==,
       }
     hasBin: true
+    requiresBuild: true
     dev: false
+    optional: true
 
   /v8-to-istanbul@9.3.0:
     resolution:

@@ -1,6 +1,8 @@
 ---
 title: 'CORE-004: createStatelessRuntime 헬퍼 — 파일시스템 없는 임베디드 모드'
-status: todo
+status: done
+done_at: 2026-05-25
+pr: '610'
 created: 2026-05-25
 priority: high
 urgency: soon
