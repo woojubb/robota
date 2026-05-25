@@ -50,6 +50,8 @@ export interface IHeadlessSessionOptions {
   additionalTools?: IToolWithEventService[];
   /** Resume an existing persisted session by ID. Requires sessionStore to be configured. */
   resumeSessionId?: string;
+  /** Request structured output from the provider for this session. */
+  responseFormat?: { type: 'text' | 'json_object' };
 }
 
 export interface IAgentRuntime {
@@ -114,6 +116,7 @@ export function createAgentRuntime(config: IAgentRuntimeConfig): IAgentRuntime {
         orgPolicy: config.orgPolicy,
         additionalTools: opts.additionalTools,
         resumeSessionId: opts.resumeSessionId,
+        ...(opts.responseFormat ? { responseFormat: opts.responseFormat } : {}),
       });
     },
   };

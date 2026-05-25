@@ -56,6 +56,9 @@ export async function callProviderWithCache(
       temperature: config.defaultModel.temperature,
     }),
     ...(resolved.availableTools.length > 0 && { tools: resolved.availableTools }),
+    ...(config.responseFormat?.type
+      ? { responseFormat: { type: config.responseFormat.type } }
+      : {}),
     ...overrides,
   };
   const providerChat = resolved.provider.chat.bind(resolved.provider) as TProviderChat;

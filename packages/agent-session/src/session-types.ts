@@ -103,4 +103,6 @@ export interface ISessionOptions {
   hookTypeExecutors?: IHookTypeExecutor[];
   /** Name reported to the Robota agent config. Defaults to 'agent' if not provided. */
   agentName?: string;
+  /** Request structured output from the provider for this session. */
+  responseFormat?: { type: 'text' | 'json_object' };
 }
