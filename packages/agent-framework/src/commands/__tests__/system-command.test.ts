@@ -236,6 +236,7 @@ describe('SystemCommandExecutor', () => {
         userInvocable: true,
         modelInvocable: true,
         safety: 'read-only',
+        requiresPermission: false,
       },
     ]);
 

@@ -50,6 +50,38 @@ detected, schedule a SPEC catch-up as a dedicated backlog item before continuing
 - See [`spec-first-development`](../skills/spec-first-development/SKILL.md) skill for the procedural workflow.
 - For any new gap, fix, or improvement: write a spec document to `.agents/spec-docs/draft/` first using [`backlog-writer`](../skills/backlog-writer/SKILL.md), then run [`backlog-pipeline`](../skills/backlog-pipeline/SKILL.md).
 
+### User Request Implementation Gate (mandatory, zero exceptions)
+
+When the user sends any message requesting implementation, code changes, feature additions, fixes,
+or modifications, the agent MUST follow this sequence regardless of how the request is phrased:
+
+**Allowed before spec exists:**
+
+- Read files, explore the codebase (`Read`, `grep`, `find`, `git log`, `Bash` with read-only commands)
+- Ask clarifying questions
+- Write spec documents (backlog draft, SPEC.md)
+
+**Not allowed before spec exists:**
+
+- `Write` or `Edit` to any `.ts`, `.tsx`, `.js`, `.mjs` file
+- Creating new source code files
+- Running code generation commands
+
+**Sequence for any user-requested code change:**
+
+1. Read-only exploration to understand the codebase (allowed immediately)
+2. Create backlog draft: `.agents/spec-docs/draft/<TYPE>-NNN-<slug>.md`
+   - Use [`backlog-writer`](../skills/backlog-writer/SKILL.md)
+   - All required frontmatter and sections must be present
+3. Run [`backlog-pipeline`](../skills/backlog-pipeline/SKILL.md) through GATE-APPROVAL
+4. Implement only after GATE-APPROVAL passes
+
+**Waiver**: If the user explicitly says "skip the spec" or "just fix it now", the agent must
+acknowledge the waiver in its response before proceeding, and note it as a process exception.
+
+**Automated enforcement**: `.claude/hooks/spec-first-gate.sh` (UserPromptSubmit hook) injects
+this reminder when implementation-intent keywords are detected in the user's prompt.
+
 ### HARD GATE: No Immediate Implementation
 
 Any gap, improvement, or fix discovered during development MUST follow this sequence before writing a single line of code:
