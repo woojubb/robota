@@ -640,6 +640,14 @@ export type {
   TCliUpdateCheckResult,
 } from './update-check/update-check.js';
 
+// ── Agent runtime ─────────────────────────────────────────────
+export { createAgentRuntime } from './runtime/index.js';
+export type {
+  IAgentRuntimeConfig,
+  IAgentRuntime,
+  IHeadlessSessionOptions,
+} from './runtime/index.js';
+
 // ──────────────────────────────────────────────────────────────
 // INTERNAL (not exported):
 //   createSession()        — assembly factory
