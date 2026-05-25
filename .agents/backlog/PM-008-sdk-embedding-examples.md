@@ -1,6 +1,6 @@
 ---
 title: 'PM-008: SDK 임베딩 예제 레포 — Next.js, Express, CLI 스크립트 3종'
-status: todo
+status: done
 created: 2026-05-23
 priority: high
 urgency: later
