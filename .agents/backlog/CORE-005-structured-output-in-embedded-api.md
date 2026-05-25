@@ -1,85 +1,108 @@
 ---
-title: 'CORE-005: responseFormat을 createQuery / IHeadlessSessionOptions에 노출'
+title: 'CORE-005: responseFormat end-to-end wiring — IAgentConfig → IChatOptions → provider'
 status: todo
 created: 2026-05-25
 priority: medium
 urgency: later
-area: packages/agent-framework
+area: packages/agent-core, packages/agent-session, packages/agent-framework, packages/agent-provider
 depends_on: []
 ---
 
 ## Background
 
-`IAgentConfig`(agent-core)에 `responseFormat?: IResponseFormatConfig`가 **이미 있다**:
+`IAgentConfig.responseFormat?: IResponseFormatConfig` exists in agent-core's type interface,
+but is **not wired into the execution path**. The field is declared but unused.
+
+The actual execution path (`execution-stream.ts`) builds `IChatOptions` with only `model`
+and `tools` — `responseFormat` is never passed. The OpenAI provider reads `responseFormat`
+from its static `providerOptions` (provider-level config), not from per-call `IChatOptions`.
+
+For batch processing (EX-006) and data-extraction pipelines to reliably receive structured
+JSON, the full chain must be implemented.
+
+## Corrected Architectural Analysis (post-investigation)
+
+```
+agent-core/src/interfaces/provider.ts  → IChatOptions: NO responseFormat field (gap)
+agent-core/src/services/execution-stream.ts
+  chatOptions = { model, tools }        → responseFormat never read from IAgentConfig (gap)
+
+agent-provider/src/openai/             → reads providerOptions.responseFormat (static, not per-call)
+agent-provider/src/anthropic/          → needs investigation
+```
+
+Original backlog assumption ("just wire through the assembly chain") was incorrect.
+The gap is in agent-core's execution layer, not only in the assembly API surface.
+
+## Full Change Scope (9 files across 4 packages)
+
+### 1. `packages/agent-core/src/interfaces/provider.ts`
+
+Add `responseFormat` to `IChatOptions`:
 
 ```typescript
-interface IResponseFormatConfig {
-  type?: 'text' | 'json_object';
-  schema?: Record<string, TConfigValue>;
-}
-```
-
-그러나 이 옵션이 조립 체인을 통해 임베디드 API까지 흘러오지 않는다.
-
-배치 처리(EX-006), 데이터 추출 파이프라인에서 AI 응답을 안정적으로 JSON으로
-받으려면 `createQuery`와 `createAgentRuntime.createSession()`에서 이 옵션을
-지정할 수 있어야 한다.
-
-## 아키텍처 분석
-
-```
-agent-core         → IAgentConfig.responseFormat   ← 존재
-agent-session      → Session → Robota({responseFormat}) ← 전달 가능
-agent-framework    → ICreateSessionOptions          ← responseFormat 없음 (gap)
-  ├─ runtime/agent-runtime.ts  IHeadlessSessionOptions   ← 없음
-  └─ query.ts                  ICreateQueryOptions        ← 없음
-```
-
-체인:
-`IHeadlessSessionOptions.responseFormat`
-→ `IInteractiveSessionStandardOptions.responseFormat`
-→ `ICreateSessionOptions.responseFormat` (assembly)
-→ `Session({ responseFormat })` (agent-session)
-→ `Robota({ defaultModel: { responseFormat } })` (agent-core)
-→ Provider `IChatOptions.responseFormat` → API 요청
-
-## 변경 범위
-
-### 1. `ICreateSessionOptions` (assembly/create-session-types.ts)
-
-```typescript
-export interface ICreateSessionOptions {
-  // ...기존...
-  /** Request structured output from the model. */
+export interface IChatOptions extends IProviderSpecificOptions {
+  // ...existing...
+  /** Request structured output. Providers map this to their native format. */
   responseFormat?: { type: 'text' | 'json_object' };
 }
 ```
 
-### 2. `IHeadlessSessionOptions` (runtime/agent-runtime.ts)
+### 2. `packages/agent-core/src/services/execution-stream.ts`
+
+Pass `config.responseFormat` to `chatOptions`:
 
 ```typescript
-export interface IHeadlessSessionOptions {
-  // ...기존...
-  responseFormat?: { type: 'text' | 'json_object' };
-}
+const chatOptions: IChatOptions = {
+  model: config.defaultModel.model,
+  ...(config.tools && config.tools.length > 0 && { tools: tools.getTools() }),
+  ...(config.responseFormat ? { responseFormat: config.responseFormat } : {}),
+};
 ```
 
-### 3. `ICreateQueryOptions` (query.ts)
+(Same in `execution-round-provider.ts` if it builds `chatOptions` independently.)
+
+### 3. `packages/agent-provider/src/openai/chat-completions-chat.ts`
+
+Read `responseFormat` from per-call `chatOptions` first, fall back to provider config:
 
 ```typescript
-export interface ICreateQueryOptions {
-  // ...기존...
-  responseFormat?: { type: 'text' | 'json_object' };
-}
+const responseFormat = buildOpenAIChatResponseFormat(
+  input.chatOptions?.responseFormat ?? input.providerOptions,
+);
 ```
 
-### 4. 전달 경로 구현
+### 4. `packages/agent-session/src/session-types.ts`
 
-`assembly/create-session.ts`에서 `options.responseFormat`을
-Robota 설정의 `defaultModel.responseFormat`에 주입.
+Add `responseFormat?: IResponseFormatConfig` to `ISessionOptions`.
+
+### 5. `packages/agent-session/src/session-components.ts` (`buildRobota`)
+
+Pass `options.responseFormat` to `agentConfig.responseFormat`.
+
+### 6. `packages/agent-framework/src/assembly/create-session-types.ts`
+
+Add `responseFormat?: { type: 'text' | 'json_object' }` to `ICreateSessionOptions`.
+
+### 7. `packages/agent-framework/src/assembly/create-session.ts`
+
+Pass `responseFormat` to `new Session({ ..., responseFormat })`.
+
+### 8. `packages/agent-framework/src/runtime/agent-runtime.ts`
+
+Add `responseFormat` to `IHeadlessSessionOptions`, thread to `InteractiveSession`.
+
+### 9. `packages/agent-framework/src/query.ts`
+
+Add `responseFormat` to `ICreateQueryOptions`, thread to `InteractiveSession`.
+
+## Non-Goals
+
+- Anthropic JSON mode (not the same as OpenAI) — investigate separately
+- `json_schema` mode (requires schema field, different from `json_object`) — out of scope here
 
 ## Test Plan
 
-- `createQuery({ responseFormat: { type: 'json_object' } })` 호출
-- `JSON.parse(await query('Extract...'))` 성공 확인
-- `pnpm test` 통과
+- `createQuery({ responseFormat: { type: 'json_object' } })` → `JSON.parse(result)` succeeds
+- `createStatelessRuntime` session with `responseFormat` → structured JSON response
+- `pnpm test` across all affected packages passes
