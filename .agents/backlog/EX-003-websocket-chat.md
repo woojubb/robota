@@ -1,6 +1,8 @@
 ---
 title: 'EX-003: WebSocket 실시간 채팅 서버 — 양방향 스트리밍'
-status: todo
+status: done
+done_at: 2026-05-25
+pr: '615'
 created: 2026-05-25
 priority: medium
 urgency: soon

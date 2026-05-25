@@ -81,6 +81,7 @@ export function buildRobota(
     tools: wrappedTools,
     logging: { enabled: false },
     ...(options.providerTimeout !== undefined && { timeout: options.providerTimeout }),
+    ...(options.responseFormat ? { responseFormat: options.responseFormat } : {}),
   };
   return new Robota(agentConfig);
 }

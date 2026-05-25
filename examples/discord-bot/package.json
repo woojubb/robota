@@ -1,0 +1,30 @@
+{
+  "name": "robota-example-discord-bot",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Robota SDK — Discord bot example using discord.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/bot.js",
+    "dev": "tsx src/bot.ts",
+    "deploy": "tsx src/deploy-commands.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@discordjs/rest": "^2.4.0",
+    "@robota-sdk/agent-framework": "^3.0.0-beta.67",
+    "@robota-sdk/agent-provider": "^3.0.0-beta.67",
+    "discord-api-types": "^0.37.97",
+    "discord.js": "^14.15.3",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

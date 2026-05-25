@@ -1,14 +1,20 @@
 # Robota SDK — Embedding Examples
 
-Three minimal, fully-typed TypeScript examples showing how to embed `@robota-sdk` into your own application.
+Fully-typed TypeScript examples showing how to embed `@robota-sdk` into your own application.
 
 ## Examples
 
-| Directory                | Stack                 | Highlights                                      |
-| ------------------------ | --------------------- | ----------------------------------------------- |
-| [`nextjs/`](./nextjs/)   | Next.js 15 App Router | SSE streaming chat, React client                |
-| [`express/`](./express/) | Express 4             | Tool use (`calculate`, `get_current_time`), SSE |
-| [`cli/`](./cli/)         | Node.js script        | `createQuery`, stdout streaming, CI/CD ready    |
+| Directory                                      | Stack                 | Highlights                                                  |
+| ---------------------------------------------- | --------------------- | ----------------------------------------------------------- |
+| [`nextjs/`](./nextjs/)                         | Next.js 15 App Router | SSE streaming chat, React client                            |
+| [`express/`](./express/)                       | Express 4             | Tool use (`calculate`, `get_current_time`), SSE             |
+| [`cli/`](./cli/)                               | Node.js script        | `createQuery`, stdout streaming, CI/CD ready                |
+| [`slack-bot/`](./slack-bot/)                   | @slack/bolt           | Socket Mode, per-thread sessions, `resumeSessionId`         |
+| [`github-pr-reviewer/`](./github-pr-reviewer/) | @octokit/rest         | `createQuery`, GitHub Actions workflow, PR diff review      |
+| [`websocket-chat/`](./websocket-chat/)         | ws                    | Per-client sessions, real-time streaming, abort support     |
+| [`batch-processor/`](./batch-processor/)       | p-limit               | Parallel `createQuery`, concurrency control, JSON reporting |
+| [`telegram-bot/`](./telegram-bot/)             | grammy                | Per-chat sessions, `resumeSessionId`, session persistence   |
+| [`discord-bot/`](./discord-bot/)               | discord.js v14        | Slash commands, deferred replies, response chunking         |
 
 ## Prerequisites
 

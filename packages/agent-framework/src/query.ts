@@ -26,6 +26,8 @@ export interface ICreateQueryOptions {
   onTextDelta?: (delta: string) => void;
   /** Additional tools registered alongside the default CLI tools. */
   additionalTools?: IToolWithEventService[];
+  /** Request structured output from the provider. */
+  responseFormat?: { type: 'text' | 'json_object' };
 }
 
 /**
@@ -47,6 +49,7 @@ export function createQuery(options: ICreateQueryOptions): (prompt: string) => P
     maxTurns: options.maxTurns,
     permissionHandler: options.permissionHandler,
     additionalTools: options.additionalTools,
+    ...(options.responseFormat ? { responseFormat: options.responseFormat } : {}),
   });
 
   if (options.onTextDelta) {
