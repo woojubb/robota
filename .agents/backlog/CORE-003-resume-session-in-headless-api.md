@@ -10,96 +10,94 @@ depends_on: []
 
 ## Background
 
-Slack/Telegram/Discord 봇은 사용자가 메시지를 보낼 때마다 별도 webhook 이벤트가 들어온다.
-멀티턴 대화를 유지하려면 이전 세션을 **재개(resume)** 해야 한다.
+내부 타입 `TInteractiveSessionOptions`(interactive-session-options.ts)에
+`resumeSessionId?: string`이 **이미 존재**한다.
 
-현재 `TInteractiveSessionOptions`(내부 타입)에는 `resumeSessionId`가 있으나,
-`IHeadlessSessionOptions`(공개 API)에는 없다.
+그러나 **공개 API `IHeadlessSessionOptions`에 노출되지 않는다.**
 
-결과: `createAgentRuntime.createSession()`으로는 기존 대화를 재개할 수 없다.
+Slack/Telegram/Discord 봇에서 사용자가 새 메시지를 보낼 때마다 새 session이 생성되어
+이전 대화 컨텍스트가 사라진다. `resumeSessionId`를 공개하면 이 문제가 해결된다.
 
-## 현재 상태
+## 아키텍처 분석
+
+```
+agent-session   → SessionStore (파일 기반 세션 영속) — 소유자
+agent-framework → InteractiveSession
+  ├─ interactive-session-options.ts
+  │     TInteractiveSessionOptions.resumeSessionId  ← 이미 있음
+  │     IInteractiveSessionStandardOptions.resumeSessionId ← 이미 있음
+  └─ runtime/agent-runtime.ts
+        IHeadlessSessionOptions  ← resumeSessionId 없음 (gap)
+```
+
+`agent-session.SessionStore.load(sessionId)` 로 기존 세션을 복원하는 로직은
+`interactive-session-restore.ts`에 이미 구현되어 있다.
+
+노출만 하면 된다.
+
+## 변경 범위 (최소)
+
+### `IHeadlessSessionOptions` (agent-runtime.ts)
 
 ```typescript
-// 내부 타입에는 있음 (interactive-session-options.ts)
-interface IInteractiveSessionStandardOptions {
-  resumeSessionId?: string; // ← 있음
-}
-
-// 하지만 공개 API에는 없음
-interface IHeadlessSessionOptions {
-  sessionName?: string; // ← 이름 지정만 가능
-  // resumeSessionId?: string; ← 없음
+export interface IHeadlessSessionOptions {
+  // ...기존...
+  /**
+   * Resume an existing persisted session. Requires sessionStore to be set.
+   * The session history and context are restored from the store.
+   */
+  resumeSessionId?: string;
 }
 ```
 
-## 목표
+### `createSession(opts)` 내 전달
 
 ```typescript
-// Slack 봇 예시
-const sessions = new Map<string, string>(); // threadTs → sessionId
+return new InteractiveSession({
+  // ...기존...
+  resumeSessionId: opts.resumeSessionId,
+});
+```
 
-app.event('app_mention', async ({ event, client }) => {
-  const existingSessionId = sessions.get(event.thread_ts ?? event.ts);
+`IInteractiveSessionStandardOptions`가 이미 `resumeSessionId`를 받으므로
+`InteractiveSession` 내부는 변경 불필요.
 
+### 세션 ID 조회 API
+
+외부에서 저장하려면 완료 후 sessionId를 알아야 한다.
+`InteractiveSession`에 `getSessionId(): string | undefined` 메서드 추가 또는
+`complete` 이벤트 페이로드에 `sessionId` 포함 여부 확인.
+
+## 봇 패턴 예시 (설계 의도)
+
+```typescript
+// Slack bot: thread_ts → sessionId 매핑
+const sessions = new Map<string, string>();
+
+app.event('app_mention', async ({ event }) => {
+  const runtime = createAgentRuntime({ cwd, provider });
+
+  const threadKey = event.thread_ts ?? event.ts;
   const session = runtime.createSession({
     permissionMode: 'bypassPermissions',
     bare: true,
-    resumeSessionId: existingSessionId, // ← 재개
+    sessionStore: projectStore,
+    resumeSessionId: sessions.get(threadKey), // 이전 대화 재개
   });
 
-  // 세션 완료 후 ID 저장
   session.on('complete', async (result) => {
-    const sessionId = session.getSessionId?.(); // 새 세션 ID 얻기
-    if (sessionId) sessions.set(event.thread_ts ?? event.ts, sessionId);
-    await client.chat.postMessage({ channel: event.channel, text: result.response });
+    // 세션 ID를 저장해 다음 메시지에 재사용
+    const sid = session.getSessionId();
+    if (sid) sessions.set(threadKey, sid);
   });
 
   await session.submit(event.text);
 });
 ```
 
-## 구현 범위
-
-### 1. `IHeadlessSessionOptions`에 `resumeSessionId` 추가
-
-```typescript
-export interface IHeadlessSessionOptions {
-  // ...기존 필드...
-  /** Resume an existing persisted session. Requires sessionStore to be configured. */
-  resumeSessionId?: string;
-}
-```
-
-### 2. `createSession()`에서 `resumeSessionId` 전달
-
-`agent-runtime.ts`의 `createSession` 내부에서 `opts.resumeSessionId`를
-`InteractiveSession` 생성자에 전달.
-
-### 3. `getSessionId()` 공개 메서드 확인/추가
-
-세션 생성 후 sessionId를 가져와 외부에서 저장할 수 있어야 함.
-
 ## Test Plan
 
-1. `sessionStore`가 있는 runtime에서 세션 생성 → sessionId 저장
-2. 같은 sessionId로 새 세션 생성 → 이전 대화 이어받기 확인
-3. `pnpm test` 통과
-
-## User Execution Test Scenarios
-
-### Scenario 1: 대화 재개
-
-**Steps:**
-
-```typescript
-const session1 = runtime.createSession({ bare: true });
-await session1.submit('My name is Alice.');
-
-const session2 = runtime.createSession({
-  bare: true,
-  resumeSessionId: session1Id,
-});
-await session2.submit('What is my name?');
-// Expected: "Alice"
-```
+- 세션 생성 → 대화 진행 → sessionId 저장
+- 같은 sessionId로 새 세션 생성 (`resumeSessionId` 전달)
+- 이전 대화 내용 기억 확인
+- `pnpm test` 통과

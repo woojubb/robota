@@ -131,118 +131,119 @@ Key design rules:
 
 Core classes and functions exported from `@robota-sdk/agent-framework`:
 
-| Export                                      | Kind     | Description                                                                     |
-| ------------------------------------------- | -------- | ------------------------------------------------------------------------------- |
-| `InteractiveSession`                        | class    | Primary SDK entry point; event-driven session wrapper                           |
-| `createQuery`                               | function | Single-shot prompt factory (`({ provider }) => (prompt) => result`)             |
-| `createAgentRuntime`                        | function | Headless/multi-session runtime composition factory                              |
-| `createProjectSessionStore`                 | function | Project-local session store facade                                              |
-| `listResumableSessionSummaries`             | function | List saved sessions for session picker UI                                       |
-| `resolveLatestSessionId`                    | function | Resolve the most recent session ID                                              |
-| `resolveSessionIdByIdOrName`                | function | Resolve session ID by ID or user-visible name                                   |
-| `CommandRegistry`                           | class    | Aggregates `ICommandSource` instances for slash command discovery               |
-| `BuiltinCommandSource`                      | class    | SDK core compatibility command source (currently empty)                         |
-| `SkillCommandSource`                        | class    | Discovers SKILL.md files for virtual skill palette metadata                     |
-| `PluginCommandSource`                       | class    | Discovers commands exposed by installed bundle plugins                          |
-| `SystemCommandExecutor`                     | class    | Registry and executor for `ISystemCommand` instances                            |
-| `createSystemCommands`                      | function | SDK core command factory (returns empty list; built-ins are in command modules) |
-| `createBuiltinCommandModule`                | function | SDK core compatibility module factory                                           |
-| `parseFrontmatter`                          | function | YAML frontmatter parser for skill/agent definition files                        |
-| `executeSkill`                              | function | Internal skill execution helper                                                 |
-| `loadOrgPolicy`                             | function | Read org policy from `~/.robota/org-policy.json`                                |
-| `formatOrgPolicyViolationMessage`           | function | Format a human-readable org policy violation message                            |
-| `isApiKeyPlaintext`                         | function | Check whether an API key value is a plaintext secret                            |
-| `ProjectMemoryStore`                        | class    | Project memory CRUD store backed by `.robota/memory/`                           |
-| `isMemoryType`                              | function | Type guard for `TMemoryType`                                                    |
-| `EditCheckpointStore`                       | class    | Edit checkpoint store backed by `.robota/checkpoints/`                          |
-| `wrapEditCheckpointTools`                   | function | Wrap Write/Edit tools to snapshot pre-images before mutation                    |
-| `planSelfHostingVerification`               | function | Generate ordered verification steps for self-modifying runs                     |
-| `transitionSelfHostingLoop`                 | function | Pure state machine transition for the self-hosting loop                         |
-| `evaluateReversibleToolSafety`              | function | Classify a tool call by reversibility and isolation requirements                |
-| `wrapReversibleExecutionTools`              | function | Wrap tools with reversible execution enforcement                                |
-| `PluginSettingsStore`                       | class    | Plugin enable/disable settings store                                            |
-| `BundlePluginLoader`                        | class    | Load a bundle plugin from a directory path                                      |
-| `BundlePluginInstaller`                     | class    | Install/uninstall bundle plugins under user or project scope                    |
-| `MarketplaceClient`                         | class    | Plugin discovery and install from remote marketplace                            |
-| `BUILT_IN_AGENTS`                           | const    | Array of built-in agent definitions (`general-purpose`, `Explore`, `Plan`)      |
-| `getBuiltInAgent`                           | function | Look up a built-in agent by name                                                |
-| `createDefaultTools`                        | function | Assemble default built-in tools (exported for CLI fork composition)             |
-| `createSubagentSession`                     | function | Assemble an isolated child session for subagent execution                       |
-| `createSubagentLogger`                      | function | Create an append-only subagent transcript logger                                |
-| `assembleSubagentPrompt`                    | function | Assemble the full system prompt for a subagent session                          |
-| `getSubagentSuffix`                         | function | Framework suffix for standard subagent system prompts                           |
-| `getForkWorkerSuffix`                       | function | Framework suffix for fork-worker (skill context: fork) prompts                  |
-| `resolveSubagentLogDir`                     | function | Resolve the log directory for a subagent                                        |
-| `createAgentTool`                           | function | Create the SDK-specific agent sub-session tool                                  |
-| `storeAgentToolDeps`                        | function | Store agent tool runtime dependencies in session context                        |
-| `retrieveAgentToolDeps`                     | function | Retrieve stored agent tool runtime dependencies                                 |
-| `createCommandExecutionTool`                | function | Legacy model command execution tool factory (compatibility)                     |
-| `createModelCommandToolProjection`          | function | Project command descriptors to provider-safe tool definitions                   |
-| `createProjectedCommandExecutionTools`      | function | Create projected command tools from descriptors                                 |
-| `createProviderSafeModelCommandToolName`    | function | Normalize a command name to a provider-safe tool name                           |
-| `createBackgroundProcessTool`               | function | Create the model-callable `BackgroundProcess` tool                              |
-| `BackgroundJobOrchestrator`                 | class    | SDK grouping/wait layer above `BackgroundTaskManager`                           |
-| `createExecutionWorkspaceSnapshot`          | function | Build a presentation-neutral execution workspace snapshot                       |
-| `createExecutionWorkspaceTaskSpawner`       | function | Build an origin-bound task spawning port                                        |
-| `createLineDetailPage`                      | function | Build a cursor-based detail page for a task log                                 |
-| `createMainThreadDetailPage`                | function | Build a detail page for the main thread transcript                              |
-| `createInProcessSubagentRunner`             | function | Default in-process subagent runner adapter                                      |
-| `PromptExecutor`                            | class    | Hook executor: injects a prompt into session context                            |
-| `AgentExecutor`                             | class    | Hook executor: creates a nested agent session for hook input                    |
-| `promptForApproval`                         | function | Terminal permission approval prompt                                             |
-| `projectPaths`                              | function | Structured project-local paths under `.robota/`                                 |
-| `userPaths`                                 | function | Structured user-local paths under `~/.robota/`                                  |
-| `resolveUserLocalStorageRoot`               | function | Validate and resolve the user-local storage root                                |
-| `inspectUserLocalStorage`                   | function | Return a structured inspection of user-local storage                            |
-| `setUserLocalMemoryItem`                    | function | Write a user-local memory item                                                  |
-| `listUserLocalMemoryItems`                  | function | List user-local memory items                                                    |
-| `readEnabledUserLocalMemoryItem`            | function | Read an enabled memory item (returns `null` when disabled)                      |
-| `disableUserLocalMemoryItem`                | function | Disable a user-local memory item                                                |
-| `deleteUserLocalMemoryItem`                 | function | Delete a user-local memory item                                                 |
-| `substituteVariables`                       | function | Substitute `$VAR` / `${VAR}` placeholders in a skill prompt                     |
-| `preprocessShellCommands`                   | function | Extract shell commands embedded in skill prompt text                            |
-| `discoverTaskFiles`                         | function | Discover active `.agents/tasks/*.md` files                                      |
-| `loadTaskContext`                           | function | Load, select, and format task context for the system prompt                     |
-| `parseTaskFile`                             | function | Parse a task Markdown file                                                      |
-| `selectRelevantTasks`                       | function | Select the most relevant task files for the current session                     |
-| `formatTaskContext`                         | function | Format selected tasks as neutral system prompt metadata                         |
-| `updateTaskFileStatus`                      | function | Update task status and append a dated progress entry                            |
-| `readCurrentGitBranch`                      | function | Read the current Git branch for task selection                                  |
-| `buildPromptWithFileReferences`             | function | Expand `@file` references in a prompt string                                    |
-| `resolvePromptFileReferences`               | function | Resolve `@file` reference tokens to file content                                |
-| `parsePromptFileReferences`                 | function | Parse `@file` reference tokens from a prompt string                             |
-| `resolvePromptFileReferencePaths`           | function | Resolve paths for prompt file references                                        |
-| `formatPromptFileReferenceDiagnostics`      | function | Format diagnostics for file reference errors                                    |
-| `hasBlockingPromptFileReferenceDiagnostics` | function | Check whether any reference diagnostic blocks sending                           |
-| `toPromptFileReferenceRecords`              | function | Convert resolved references to structured records                               |
-| `createPromptFileReferenceHistoryEntry`     | function | Build a history entry for prompt file reference metadata                        |
-| `listActiveContextReferences`               | function | List active context references from the inventory                               |
-| `upsertContextReference`                    | function | Add or update a context reference in the inventory                              |
-| `removeContextReference`                    | function | Remove a context reference from the inventory                                   |
-| `clearContextReferences`                    | function | Clear all context references from the inventory                                 |
-| `createContextReferenceItem`                | function | Build a context reference item shape                                            |
-| `toContextReferenceRecords`                 | function | Convert context references to structured records                                |
-| `createTestInteractiveSession`              | function | Create a stub `IInteractiveSession` for tests                                   |
-| `getUserSettingsPath`                       | function | Return the user-global settings file path                                       |
-| `resolveSettingsPathForScope`               | function | Resolve settings path for `'user'` or `'project-local'` scope                   |
-| `readSettings`                              | function | Read a settings JSON file                                                       |
-| `writeSettings`                             | function | Write a settings JSON file                                                      |
-| `updateModelInSettings`                     | function | Update the active model in a settings file                                      |
-| `deleteSettings`                            | function | Delete a settings file                                                          |
-| `resetUserConfig`                           | function | Reset user configuration to defaults                                            |
-| `getProviderSettingsPaths`                  | function | Return the ordered provider settings file paths                                 |
-| `resolveGitBranch`                          | function | Resolve the current Git branch name                                             |
-| `compareSemverVersions`                     | function | Compare two semver version strings                                              |
-| `isNewerSemverVersion`                      | function | Check whether a version is newer than another                                   |
-| `readPackageVersion`                        | function | Read the package version from `package.json`                                    |
-| `checkForCliUpdate`                         | function | Check npm for a newer version of the CLI                                        |
-| `formatCliUpdateCheckMessage`               | function | Format a CLI update check result as a string                                    |
-| `formatCliUpdateNotice`                     | function | Format a CLI update notice for display                                          |
-| `getStartupCliUpdateNotice`                 | function | Get an update notice string for startup display                                 |
-| `getUserUpdateCheckCachePath`               | function | Return the path for the CLI update check cache                                  |
-| `readUpdateCheckCache`                      | function | Read the CLI update check cache                                                 |
-| `writeUpdateCheckCache`                     | function | Write the CLI update check cache                                                |
-| `shouldRunStartupCliUpdateCheck`            | function | Decide whether to run a startup update check                                    |
+| Export                                      | Kind     | Description                                                                                                           |
+| ------------------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------- |
+| `InteractiveSession`                        | class    | Primary SDK entry point; event-driven session wrapper                                                                 |
+| `createQuery`                               | function | Single-shot prompt factory (`({ provider }) => (prompt) => result`)                                                   |
+| `createAgentRuntime`                        | function | Headless/multi-session runtime composition factory                                                                    |
+| `createStatelessRuntime`                    | function | Filesystem-free runtime for serverless/embedded contexts (no session store, no-op settings, bare sessions by default) |
+| `createProjectSessionStore`                 | function | Project-local session store facade                                                                                    |
+| `listResumableSessionSummaries`             | function | List saved sessions for session picker UI                                                                             |
+| `resolveLatestSessionId`                    | function | Resolve the most recent session ID                                                                                    |
+| `resolveSessionIdByIdOrName`                | function | Resolve session ID by ID or user-visible name                                                                         |
+| `CommandRegistry`                           | class    | Aggregates `ICommandSource` instances for slash command discovery                                                     |
+| `BuiltinCommandSource`                      | class    | SDK core compatibility command source (currently empty)                                                               |
+| `SkillCommandSource`                        | class    | Discovers SKILL.md files for virtual skill palette metadata                                                           |
+| `PluginCommandSource`                       | class    | Discovers commands exposed by installed bundle plugins                                                                |
+| `SystemCommandExecutor`                     | class    | Registry and executor for `ISystemCommand` instances                                                                  |
+| `createSystemCommands`                      | function | SDK core command factory (returns empty list; built-ins are in command modules)                                       |
+| `createBuiltinCommandModule`                | function | SDK core compatibility module factory                                                                                 |
+| `parseFrontmatter`                          | function | YAML frontmatter parser for skill/agent definition files                                                              |
+| `executeSkill`                              | function | Internal skill execution helper                                                                                       |
+| `loadOrgPolicy`                             | function | Read org policy from `~/.robota/org-policy.json`                                                                      |
+| `formatOrgPolicyViolationMessage`           | function | Format a human-readable org policy violation message                                                                  |
+| `isApiKeyPlaintext`                         | function | Check whether an API key value is a plaintext secret                                                                  |
+| `ProjectMemoryStore`                        | class    | Project memory CRUD store backed by `.robota/memory/`                                                                 |
+| `isMemoryType`                              | function | Type guard for `TMemoryType`                                                                                          |
+| `EditCheckpointStore`                       | class    | Edit checkpoint store backed by `.robota/checkpoints/`                                                                |
+| `wrapEditCheckpointTools`                   | function | Wrap Write/Edit tools to snapshot pre-images before mutation                                                          |
+| `planSelfHostingVerification`               | function | Generate ordered verification steps for self-modifying runs                                                           |
+| `transitionSelfHostingLoop`                 | function | Pure state machine transition for the self-hosting loop                                                               |
+| `evaluateReversibleToolSafety`              | function | Classify a tool call by reversibility and isolation requirements                                                      |
+| `wrapReversibleExecutionTools`              | function | Wrap tools with reversible execution enforcement                                                                      |
+| `PluginSettingsStore`                       | class    | Plugin enable/disable settings store                                                                                  |
+| `BundlePluginLoader`                        | class    | Load a bundle plugin from a directory path                                                                            |
+| `BundlePluginInstaller`                     | class    | Install/uninstall bundle plugins under user or project scope                                                          |
+| `MarketplaceClient`                         | class    | Plugin discovery and install from remote marketplace                                                                  |
+| `BUILT_IN_AGENTS`                           | const    | Array of built-in agent definitions (`general-purpose`, `Explore`, `Plan`)                                            |
+| `getBuiltInAgent`                           | function | Look up a built-in agent by name                                                                                      |
+| `createDefaultTools`                        | function | Assemble default built-in tools (exported for CLI fork composition)                                                   |
+| `createSubagentSession`                     | function | Assemble an isolated child session for subagent execution                                                             |
+| `createSubagentLogger`                      | function | Create an append-only subagent transcript logger                                                                      |
+| `assembleSubagentPrompt`                    | function | Assemble the full system prompt for a subagent session                                                                |
+| `getSubagentSuffix`                         | function | Framework suffix for standard subagent system prompts                                                                 |
+| `getForkWorkerSuffix`                       | function | Framework suffix for fork-worker (skill context: fork) prompts                                                        |
+| `resolveSubagentLogDir`                     | function | Resolve the log directory for a subagent                                                                              |
+| `createAgentTool`                           | function | Create the SDK-specific agent sub-session tool                                                                        |
+| `storeAgentToolDeps`                        | function | Store agent tool runtime dependencies in session context                                                              |
+| `retrieveAgentToolDeps`                     | function | Retrieve stored agent tool runtime dependencies                                                                       |
+| `createCommandExecutionTool`                | function | Legacy model command execution tool factory (compatibility)                                                           |
+| `createModelCommandToolProjection`          | function | Project command descriptors to provider-safe tool definitions                                                         |
+| `createProjectedCommandExecutionTools`      | function | Create projected command tools from descriptors                                                                       |
+| `createProviderSafeModelCommandToolName`    | function | Normalize a command name to a provider-safe tool name                                                                 |
+| `createBackgroundProcessTool`               | function | Create the model-callable `BackgroundProcess` tool                                                                    |
+| `BackgroundJobOrchestrator`                 | class    | SDK grouping/wait layer above `BackgroundTaskManager`                                                                 |
+| `createExecutionWorkspaceSnapshot`          | function | Build a presentation-neutral execution workspace snapshot                                                             |
+| `createExecutionWorkspaceTaskSpawner`       | function | Build an origin-bound task spawning port                                                                              |
+| `createLineDetailPage`                      | function | Build a cursor-based detail page for a task log                                                                       |
+| `createMainThreadDetailPage`                | function | Build a detail page for the main thread transcript                                                                    |
+| `createInProcessSubagentRunner`             | function | Default in-process subagent runner adapter                                                                            |
+| `PromptExecutor`                            | class    | Hook executor: injects a prompt into session context                                                                  |
+| `AgentExecutor`                             | class    | Hook executor: creates a nested agent session for hook input                                                          |
+| `promptForApproval`                         | function | Terminal permission approval prompt                                                                                   |
+| `projectPaths`                              | function | Structured project-local paths under `.robota/`                                                                       |
+| `userPaths`                                 | function | Structured user-local paths under `~/.robota/`                                                                        |
+| `resolveUserLocalStorageRoot`               | function | Validate and resolve the user-local storage root                                                                      |
+| `inspectUserLocalStorage`                   | function | Return a structured inspection of user-local storage                                                                  |
+| `setUserLocalMemoryItem`                    | function | Write a user-local memory item                                                                                        |
+| `listUserLocalMemoryItems`                  | function | List user-local memory items                                                                                          |
+| `readEnabledUserLocalMemoryItem`            | function | Read an enabled memory item (returns `null` when disabled)                                                            |
+| `disableUserLocalMemoryItem`                | function | Disable a user-local memory item                                                                                      |
+| `deleteUserLocalMemoryItem`                 | function | Delete a user-local memory item                                                                                       |
+| `substituteVariables`                       | function | Substitute `$VAR` / `${VAR}` placeholders in a skill prompt                                                           |
+| `preprocessShellCommands`                   | function | Extract shell commands embedded in skill prompt text                                                                  |
+| `discoverTaskFiles`                         | function | Discover active `.agents/tasks/*.md` files                                                                            |
+| `loadTaskContext`                           | function | Load, select, and format task context for the system prompt                                                           |
+| `parseTaskFile`                             | function | Parse a task Markdown file                                                                                            |
+| `selectRelevantTasks`                       | function | Select the most relevant task files for the current session                                                           |
+| `formatTaskContext`                         | function | Format selected tasks as neutral system prompt metadata                                                               |
+| `updateTaskFileStatus`                      | function | Update task status and append a dated progress entry                                                                  |
+| `readCurrentGitBranch`                      | function | Read the current Git branch for task selection                                                                        |
+| `buildPromptWithFileReferences`             | function | Expand `@file` references in a prompt string                                                                          |
+| `resolvePromptFileReferences`               | function | Resolve `@file` reference tokens to file content                                                                      |
+| `parsePromptFileReferences`                 | function | Parse `@file` reference tokens from a prompt string                                                                   |
+| `resolvePromptFileReferencePaths`           | function | Resolve paths for prompt file references                                                                              |
+| `formatPromptFileReferenceDiagnostics`      | function | Format diagnostics for file reference errors                                                                          |
+| `hasBlockingPromptFileReferenceDiagnostics` | function | Check whether any reference diagnostic blocks sending                                                                 |
+| `toPromptFileReferenceRecords`              | function | Convert resolved references to structured records                                                                     |
+| `createPromptFileReferenceHistoryEntry`     | function | Build a history entry for prompt file reference metadata                                                              |
+| `listActiveContextReferences`               | function | List active context references from the inventory                                                                     |
+| `upsertContextReference`                    | function | Add or update a context reference in the inventory                                                                    |
+| `removeContextReference`                    | function | Remove a context reference from the inventory                                                                         |
+| `clearContextReferences`                    | function | Clear all context references from the inventory                                                                       |
+| `createContextReferenceItem`                | function | Build a context reference item shape                                                                                  |
+| `toContextReferenceRecords`                 | function | Convert context references to structured records                                                                      |
+| `createTestInteractiveSession`              | function | Create a stub `IInteractiveSession` for tests                                                                         |
+| `getUserSettingsPath`                       | function | Return the user-global settings file path                                                                             |
+| `resolveSettingsPathForScope`               | function | Resolve settings path for `'user'` or `'project-local'` scope                                                         |
+| `readSettings`                              | function | Read a settings JSON file                                                                                             |
+| `writeSettings`                             | function | Write a settings JSON file                                                                                            |
+| `updateModelInSettings`                     | function | Update the active model in a settings file                                                                            |
+| `deleteSettings`                            | function | Delete a settings file                                                                                                |
+| `resetUserConfig`                           | function | Reset user configuration to defaults                                                                                  |
+| `getProviderSettingsPaths`                  | function | Return the ordered provider settings file paths                                                                       |
+| `resolveGitBranch`                          | function | Resolve the current Git branch name                                                                                   |
+| `compareSemverVersions`                     | function | Compare two semver version strings                                                                                    |
+| `isNewerSemverVersion`                      | function | Check whether a version is newer than another                                                                         |
+| `readPackageVersion`                        | function | Read the package version from `package.json`                                                                          |
+| `checkForCliUpdate`                         | function | Check npm for a newer version of the CLI                                                                              |
+| `formatCliUpdateCheckMessage`               | function | Format a CLI update check result as a string                                                                          |
+| `formatCliUpdateNotice`                     | function | Format a CLI update notice for display                                                                                |
+| `getStartupCliUpdateNotice`                 | function | Get an update notice string for startup display                                                                       |
+| `getUserUpdateCheckCachePath`               | function | Return the path for the CLI update check cache                                                                        |
+| `readUpdateCheckCache`                      | function | Read the CLI update check cache                                                                                       |
+| `writeUpdateCheckCache`                     | function | Write the CLI update check cache                                                                                      |
+| `shouldRunStartupCliUpdateCheck`            | function | Decide whether to run a startup update check                                                                          |
 
 ## Extension Points
 

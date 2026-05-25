@@ -641,11 +641,12 @@ export type {
 } from './update-check/update-check.js';
 
 // ── Agent runtime ─────────────────────────────────────────────
-export { createAgentRuntime } from './runtime/index.js';
+export { createAgentRuntime, createStatelessRuntime } from './runtime/index.js';
 export type {
   IAgentRuntimeConfig,
   IAgentRuntime,
   IHeadlessSessionOptions,
+  IStatelessRuntimeConfig,
 } from './runtime/index.js';
 export type { IResolvedConfig } from './config/config-types.js';
 
