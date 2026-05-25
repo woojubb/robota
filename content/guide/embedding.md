@@ -6,14 +6,15 @@ each deployment context.
 
 ## API selection
 
-| Use case                          | Recommended API                      | Notes                            |
-| --------------------------------- | ------------------------------------ | -------------------------------- |
-| Single-shot query (scripts, CI)   | `createQuery`                        | Simplest; multi-turn capable     |
-| Streaming server (SSE, WebSocket) | `createAgentRuntime + createSession` | Full event system                |
-| Custom tools + streaming          | `createSession({ additionalTools })` | Tools AND events together        |
-| Bot with conversation memory      | `createSession({ resumeSessionId })` | Resumes persisted session        |
-| Serverless / no filesystem        | `createStatelessRuntime`             | No session store, no-op settings |
-| Batch processing                  | `createQuery` with `Promise.all`     | Parallel queries                 |
+| Use case                          | Recommended API                                            | Notes                                 |
+| --------------------------------- | ---------------------------------------------------------- | ------------------------------------- |
+| Single-shot query (scripts, CI)   | `createQuery`                                              | Simplest; multi-turn capable          |
+| Streaming server (SSE, WebSocket) | `createAgentRuntime + createSession`                       | Full event system                     |
+| Custom tools + streaming          | `createSession({ additionalTools })`                       | Tools AND events together             |
+| Bot with conversation memory      | `createSession({ resumeSessionId })`                       | Resumes persisted session             |
+| Serverless / no filesystem        | `createStatelessRuntime`                                   | No session store, no-op settings      |
+| Batch processing                  | `createQuery` with `Promise.all`                           | Parallel queries                      |
+| Structured JSON output            | `createQuery({ responseFormat: { type: 'json_object' } })` | Instructs provider to emit valid JSON |
 
 ## Layer overview
 
@@ -219,6 +220,37 @@ try {
 ```
 
 For `createQuery`, the session is managed internally and cleaned up automatically.
+
+## Structured output (responseFormat)
+
+When you need the AI to return valid JSON (data extraction, classification, structured reports),
+pass `responseFormat: { type: 'json_object' }`. This is wired end-to-end from the public API
+through to the provider's native JSON mode.
+
+```typescript
+const query = createQuery({
+  provider: new AnthropicProvider({ apiKey }),
+  responseFormat: { type: 'json_object' },
+});
+
+const raw = await query('Classify this text: "TypeScript is great for large codebases."');
+const result = JSON.parse(raw);
+// result: { sentiment: "positive", topic: "TypeScript", confidence: 0.95 }
+```
+
+Works with `createSession` and `createAgentRuntime.createSession` too:
+
+```typescript
+const session = runtime.createSession({
+  permissionMode: 'bypassPermissions',
+  bare: true,
+  responseFormat: { type: 'json_object' },
+});
+```
+
+**Provider support:** OpenAI uses the native `response_format: { type: 'json_object' }` parameter.
+Other providers that don't support JSON mode will produce text responses as usual — check provider
+capabilities before relying on machine-parseable output.
 
 ## Express server example
 

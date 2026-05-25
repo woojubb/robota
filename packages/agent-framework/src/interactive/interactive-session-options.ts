@@ -89,6 +89,8 @@ export interface IInteractiveSessionStandardOptions {
   orgPolicy?: IOrgPolicy;
   /** Additional tools registered alongside the default CLI tools. */
   additionalTools?: IToolWithEventService[];
+  /** Request structured output from the provider for this session. */
+  responseFormat?: { type: 'text' | 'json_object' };
 }
 
 /** Test/advanced construction: inject pre-built session directly. */
@@ -178,4 +180,6 @@ export interface IInitOptions {
   agentName?: string;
   /** Additional tools registered alongside the default CLI tools. */
   additionalTools?: IToolWithEventService[];
+  /** Request structured output from the provider for this session. */
+  responseFormat?: { type: 'text' | 'json_object' };
 }
