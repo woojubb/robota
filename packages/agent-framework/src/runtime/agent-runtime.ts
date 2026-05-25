@@ -13,7 +13,7 @@ import type { CommandRegistry } from '../commands/index.js';
 import type { IInteractiveSession, IInteractiveSessionStore } from '../interactive/index.js';
 import type { TSubagentRunnerFactory } from '../subagents/index.js';
 import type { TShellExecFn } from '../utils/skill-prompt.js';
-import type { IAIProvider, TPermissionMode } from '@robota-sdk/agent-core';
+import type { IAIProvider, IToolWithEventService, TPermissionMode } from '@robota-sdk/agent-core';
 import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
 
 export interface IAgentRuntimeConfig {
@@ -46,6 +46,10 @@ export interface IHeadlessSessionOptions {
   systemPrompt?: string;
   shellExec?: TShellExecFn;
   agentName?: string;
+  /** Additional tools registered alongside the default CLI tools. */
+  additionalTools?: IToolWithEventService[];
+  /** Resume an existing persisted session by ID. Requires sessionStore to be configured. */
+  resumeSessionId?: string;
 }
 
 export interface IAgentRuntime {
@@ -108,6 +112,8 @@ export function createAgentRuntime(config: IAgentRuntimeConfig): IAgentRuntime {
         shellExec: opts.shellExec,
         agentName: opts.agentName,
         orgPolicy: config.orgPolicy,
+        additionalTools: opts.additionalTools,
+        resumeSessionId: opts.resumeSessionId,
       });
     },
   };
