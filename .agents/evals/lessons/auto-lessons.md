@@ -27,31 +27,31 @@ Do not promote entries to `.agents/rules/common-mistakes.md` without human revie
 
 ## same-file-edited-3-times
 
-- Frequency: 90152 events in the last 7 days
+- Frequency: 93912 events in the last 7 days
 - Sources: reverts
 - Example paths: `/Users/jungyoun/.claude/projects/-Users-jungyoun-Documents-dev-robota/memory/MEMORY.md`, `/Users/jungyoun/.claude/projects/-Users-jungyoun-Documents-dev-robota/memory/feedback_otp_immediate.md`, `/Users/jungyoun/.robota/settings.json`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-002-p10-cli-ts-extract-startup-modules.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-002-p22-subagent-worker-to-framework.md`
 - First seen: 2026-05-19T00:42:27.000Z
-- Last seen: 2026-05-25T06:13:20.000Z
+- Last seen: 2026-05-25T07:46:28.000Z
 - Status: candidate; human review is required before promotion.
 <!-- auto-lesson:repeated-tool-errors -->
 
 ## repeated-tool-errors
 
-- Frequency: 168 events in the last 7 days
+- Frequency: 174 events in the last 7 days
 - Sources: reverts
 - Example paths: (none)
 - First seen: 2026-05-19T00:42:27.000Z
-- Last seen: 2026-05-25T06:13:20.000Z
+- Last seen: 2026-05-25T07:46:28.000Z
 - Status: candidate; human review is required before promotion.
 <!-- auto-lesson:try-catch-fallback -->
 
 ## try-catch-fallback
 
-- Frequency: 26 events in the last 7 days
+- Frequency: 28 events in the last 7 days
 - Sources: blocks
 - Example paths: `packages/agent-cli/src/cli.ts`, `packages/agent-cli/src/init/init-command.ts`, `packages/agent-cli/src/modes/print-mode.ts`, `packages/agent-cli/src/startup/diagnose-command.ts`, `packages/agent-cli/src/startup/telemetry.ts`
 - First seen: 2026-05-19T03:51:30.000Z
-- Last seen: 2026-05-24T16:29:38.000Z
+- Last seen: 2026-05-25T07:40:36.000Z
 - Status: candidate; human review is required before promotion.
 <!-- auto-lesson:console-usage -->
 
