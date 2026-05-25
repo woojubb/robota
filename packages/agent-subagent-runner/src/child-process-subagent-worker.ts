@@ -4,15 +4,16 @@ import {
   createSubagentLogger,
   createSubagentSession,
 } from '@robota-sdk/agent-framework';
-import { createProviderFromProfile } from '@robota-sdk/agent-executor';
-import type { ITerminalOutput } from '@robota-sdk/agent-core';
 import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider';
+
 import {
   isSubagentWorkerParentMessage,
   type ISubagentWorkerStartPayload,
   type TSubagentWorkerChildMessage,
   type TSubagentWorkerWireValue,
 } from './child-process-subagent-ipc.js';
+
+import type { ITerminalOutput } from '@robota-sdk/agent-core';
 
 const CANCEL_EXIT_CODE = 130;
 

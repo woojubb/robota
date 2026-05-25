@@ -42,6 +42,7 @@ import type {
   IExecutionDetailPage,
 } from '@robota-sdk/agent-framework';
 import type { CommandRegistry } from '@robota-sdk/agent-framework';
+import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
 
 interface IProps {
   cwd: string;
@@ -68,6 +69,10 @@ interface IProps {
   cliAdapter: ITuiCliAdapter;
   reloadPluginCommandSource?: (registry: CommandRegistry) => void;
   agentName?: string;
+  systemPrompt?: string;
+  appendSystemPrompt?: string;
+  allowedTools?: string[];
+  deniedTools?: string[];
 }
 
 export default function App(props: IProps): React.ReactElement {

@@ -23,28 +23,18 @@ import type {
   IRawProviderResponse,
   TUniversalMessage,
 } from '@robota-sdk/agent-core';
-import {
-  CommandRegistry,
-  InteractiveSession,
-  readMergedProviderSettings,
-  readSettings,
-  resolveProviderSettingsWriteTargetPath,
-  writeSettings,
+import type {
+  IProviderCommandSettingsAdapter,
+  TProviderSettingsDocument,
 } from '@robota-sdk/agent-framework';
-import type { TProviderSettingsDocument } from '@robota-sdk/agent-framework';
-import { createHeadlessTransport } from '@robota-sdk/agent-transport/headless';
-import { createDefaultCommandModules } from '@robota-sdk/agent-command';
-import { startCli } from '../cli.js';
 
-function createProviderSettingsAdapter(cwd: string) {
-  return {
-    readMergedSettings: () => readMergedProviderSettings(cwd),
-    readTargetSettings: () =>
-      readSettings(resolveProviderSettingsWriteTargetPath(cwd)) as TProviderSettingsDocument,
-    writeTargetSettings: (settings: TProviderSettingsDocument) =>
-      writeSettings(resolveProviderSettingsWriteTargetPath(cwd), settings),
-  };
-}
+const createProviderSettingsAdapter = (cwd: string): IProviderCommandSettingsAdapter => ({
+  readMergedSettings: () => readMergedProviderSettings(cwd),
+  readTargetSettings: () =>
+    readSettings(resolveProviderSettingsWriteTargetPath(cwd)) as TProviderSettingsDocument,
+  writeTargetSettings: (settings: TProviderSettingsDocument) =>
+    writeSettings(resolveProviderSettingsWriteTargetPath(cwd), settings),
+});
 
 const noopProviderSettingsAdapter = {
   readMergedSettings: () => ({}) as TProviderSettingsDocument,
