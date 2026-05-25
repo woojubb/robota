@@ -1,6 +1,8 @@
 ---
 title: 'CORE-003: IHeadlessSessionOptions에 resumeSessionId 노출 — 봇 대화 재개'
-status: todo
+status: done
+done_at: 2026-05-25
+pr: '610'
 created: 2026-05-25
 priority: high
 urgency: soon

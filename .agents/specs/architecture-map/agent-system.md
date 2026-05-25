@@ -140,16 +140,9 @@ For the intended sequence diagram see [agent-cli/execution-modes.md](agent-cli/e
 
 ## Multi-Agent Orchestration
 
-`agent-team` is reserved for future multi-agent coordination capabilities. The previous
-`assignTask` relay tool pattern was removed (TOOL-002) in favour of the Agent Command pattern
-(`robota_command_agent` via `@robota-sdk/agent-command`).
-
-See [agent-team.md](agent-team.md) for current state and future direction.
-
 The `agent-subagent-runner` package handles child-process subagent execution (opt-in, CLI only).
 
-| Concern                           | Owner                   | Contract                                                                                      |
-| --------------------------------- | ----------------------- | --------------------------------------------------------------------------------------------- |
-| Multi-agent coordination (future) | `agent-team`            | Placeholder — no exports until new features are designed. See [agent-team.md](agent-team.md). |
-| Child-process subagent runner     | `agent-subagent-runner` | Opt-in. CLI imports factory; forks worker via `child_process.fork()`.                         |
-| Agent Command (spawn + delegate)  | `agent-command`         | `robota_command_agent` tool — spawns background agent job via `agent-executor` contracts.     |
+| Concern                          | Owner                   | Contract                                                                                  |
+| -------------------------------- | ----------------------- | ----------------------------------------------------------------------------------------- |
+| Child-process subagent runner    | `agent-subagent-runner` | Opt-in. CLI imports factory; forks worker via `child_process.fork()`.                     |
+| Agent Command (spawn + delegate) | `agent-command`         | `robota_command_agent` tool — spawns background agent job via `agent-executor` contracts. |
