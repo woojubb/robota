@@ -20,8 +20,6 @@ flowchart TD
   Providers["agent-provider\nprovider definitions + transports"]
   SubagentRunner["agent-subagent-runner\nChildProcessSubagentRunner + worker\n(optional — install only when needed)"]
   Plugins["agent-plugin\nplugin layer (event, logging, usage, etc.)"]
-  IfaceTransport["agent-interface-transport\nITransportAdapter · IConfigurableTransport\ntype contracts only"]
-  IfaceTui["agent-interface-tui\nITuiCommandInteraction · ITuiCliAdapter\ntype contracts only"]
 
   AgentCLI --> TuiTransport
   AgentCLI --> Framework
@@ -30,7 +28,6 @@ flowchart TD
   AgentCLI --> Headless
   AgentCLI --> SubagentRunner
   TuiTransport --> Framework
-  TuiTransport --> IfaceTui
   AgentCLI -. "consumer opt-in" .-> Plugins
   Headless --> Framework
   Commands --> Framework
@@ -42,7 +39,6 @@ flowchart TD
   Framework --> Executor
   Framework --> Tools
   Framework --> Core
-  Framework --> IfaceTransport
   Framework -. "consumer opt-in" .-> Plugins
   Providers --> Core
   Sessions --> Core
@@ -55,24 +51,20 @@ flowchart TD
 
 Agent stack ownership:
 
-| Concern                                           | Owner                                | Contract                                                                         |
-| ------------------------------------------------- | ------------------------------------ | -------------------------------------------------------------------------------- |
-| Terminal input/rendering                          | `agent-transport/tui`                | I/O adapter only — implements `IConfigurableTransport`.                          |
-| CLI lifecycle + assembly                          | `agent-cli`                          | Composes transports, providers, commands; owns `process.exit()`.                 |
-| Framework assembly layer                          | `agent-framework`                    | Composes sessions/executor/tools/core. React-free.                               |
-| Command contracts/common APIs                     | `agent-framework`                    | Command packages consume these as third-party modules.                           |
-| User-visible built-in command behavior            | `agent-command`                      | CLI composes defaults; framework must not import them.                           |
-| Provider defaults, setup metadata, model catalogs | `agent-provider` via `agent-core`    | CLI must not hardcode provider branches.                                         |
-| Session lifecycle and compaction                  | `agent-session`                      | CLI consumes through framework facades only.                                     |
-| Background/subagent lifecycle ports               | `agent-executor`                     | CLI keeps concrete local process/worktree adapters.                              |
-| Child-process subagent runner + worker            | `agent-subagent-runner` (opt-in)     | CLI imports factory; pass workerPath from getDefaultSubagentWorkerPath().        |
-| Background workspace/read model                   | `agent-framework` + `agent-executor` | CLI renders framework projections; keeps only ephemeral UI selection state.      |
-| Transport adapter type contracts                  | `agent-interface-transport`          | `ITransportAdapter`, `IConfigurableTransport` — no runtime deps.                 |
-| TUI interaction type contracts                    | `agent-interface-tui`                | `ITuiCommandInteraction`, `ITuiCliAdapter`, `ITerminalOutput` — no runtime deps. |
+| Concern                                           | Owner                                | Contract                                                                    |
+| ------------------------------------------------- | ------------------------------------ | --------------------------------------------------------------------------- |
+| Terminal input/rendering                          | `agent-transport/tui`                | I/O adapter only — implements `IConfigurableTransport`.                     |
+| CLI lifecycle + assembly                          | `agent-cli`                          | Composes transports, providers, commands; owns `process.exit()`.            |
+| Framework assembly layer                          | `agent-framework`                    | Composes sessions/executor/tools/core. React-free.                          |
+| Command contracts/common APIs                     | `agent-framework`                    | Command packages consume these as third-party modules.                      |
+| User-visible built-in command behavior            | `agent-command`                      | CLI composes defaults; framework must not import them.                      |
+| Provider defaults, setup metadata, model catalogs | `agent-provider` via `agent-core`    | CLI must not hardcode provider branches.                                    |
+| Session lifecycle and compaction                  | `agent-session`                      | CLI consumes through framework facades only.                                |
+| Background/subagent lifecycle ports               | `agent-executor`                     | CLI keeps concrete local process/worktree adapters.                         |
+| Child-process subagent runner + worker            | `agent-subagent-runner` (opt-in)     | CLI imports factory; pass workerPath from getDefaultSubagentWorkerPath().   |
+| Background workspace/read model                   | `agent-framework` + `agent-executor` | CLI renders framework projections; keeps only ephemeral UI selection state. |
 
 Provider profile identity is the settings profile key, not provider `type` or model uniqueness. See [commands-and-provider-flow.md](agent-cli/commands-and-provider-flow.md) for profile switching semantics.
-
-**MCP dual role**: `agent-tool-mcp` and `agent-transport/mcp` serve opposite MCP directions. `agent-tool-mcp` is a **client adapter** — the agent calls external MCP tool servers. `agent-transport/mcp` is a **server adapter** — external MCP clients connect to a Robota session. These two packages have no dependency on each other. See [transport-architecture.md](transport-architecture.md) for the full MCP disambiguation table.
 
 **Plugin consumer opt-in**: `agent-plugin` packages are not imported by `agent-cli` or `agent-framework` production source. Plugins are registered by consuming applications at composition time. The dashed edges above (`consumer opt-in`) reflect this: no plugin imports exist in the CLI or framework assembly paths. Application consumers pass plugin instances to the framework assembly API.
 

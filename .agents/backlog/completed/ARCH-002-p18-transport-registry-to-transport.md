@@ -1,9 +1,6 @@
----
-title: 'ARCH-002-p18: Move TransportRegistry to agent-transport'
-status: done
----
-
 # ARCH-002-p18: Move TransportRegistry to agent-transport
+
+## Status: done
 
 ## Problem
 

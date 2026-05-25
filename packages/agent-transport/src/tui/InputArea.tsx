@@ -1,8 +1,8 @@
-import { Box, Text, useInput, useWindowSize } from 'ink';
 import React, { useState, useCallback, useRef, useMemo } from 'react';
 
 const PENDING_PROMPT_DISPLAY_MAX = 50;
 const PENDING_PROMPT_TAIL_KEEP = 47;
+import { Box, Text, useInput, useWindowSize } from 'ink';
 
 import CjkTextInput from './CjkTextInput.js';
 import { resolveCommandInteraction } from './command-interaction-registry.js';
@@ -30,11 +30,12 @@ import { useAutocomplete } from './hooks/useAutocomplete.js';
 import CommandConfirm from './interactions/CommandConfirm.js';
 import CommandPicker from './interactions/CommandPicker.js';
 import SlashAutocomplete from './SlashAutocomplete.js';
-import { expandPasteLabels } from './utils/paste-labels.js';
 import WaveText from './WaveText.js';
 
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type { CommandRegistry, ICommand } from '@robota-sdk/agent-framework';
+
+import { expandPasteLabels } from './utils/paste-labels.js';
 
 interface IActiveInteraction {
   commandName: string;

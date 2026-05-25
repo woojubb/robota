@@ -152,7 +152,7 @@ function WorkflowVisualizationContent({
               {
                 '--xy-node-border-default': 'none',
                 '--xy-node-selected-border': 'none',
-              } as React.CSSProperties
+              } as unknown as React.CSSProperties
             }
           >
             <Background variant={BackgroundVariant.Dots} gap={16} size={1} />

@@ -1,4 +1,6 @@
 import { findProviderDefinition } from '@robota-sdk/agent-core';
+import type { IProviderDefinition } from '@robota-sdk/agent-core';
+import type { CommandRegistry } from '@robota-sdk/agent-framework';
 import {
   applyActiveModelChange,
   applyStatusLineSettings,
@@ -8,10 +10,7 @@ import {
   resolveGitBranch,
   writeSettings,
 } from '@robota-sdk/agent-framework';
-
 import type { ITuiCliAdapter } from './tui-cli-adapter.js';
-import type { IProviderDefinition } from '@robota-sdk/agent-core';
-import type { CommandRegistry } from '@robota-sdk/agent-framework';
 
 export interface IDefaultTuiCliAdapterOptions {
   providerDefinitions: readonly IProviderDefinition[];
