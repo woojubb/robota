@@ -34,7 +34,7 @@ export type {
 
 // ── createQuery() factory (convenience API) ─────────────────
 export { createQuery } from './query.js';
-export type { ICreateQueryOptions } from './query.js';
+export type { ICreateQueryOptions, TQueryFunction } from './query.js';
 
 // ── Command system (managed by InteractiveSession) ──────────
 export {

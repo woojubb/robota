@@ -76,6 +76,23 @@
     "typescript": "^5.3.3",
     "vitest": "^1.6.1"
   },
+  "keywords": [
+    "ai",
+    "cli",
+    "coding-assistant",
+    "agent",
+    "llm",
+    "anthropic",
+    "openai",
+    "claude",
+    "typescript",
+    "developer-tools",
+    "terminal",
+    "automation",
+    "multi-provider",
+    "robota",
+    "open-source"
+  ],
   "license": "MIT",
   "publishConfig": {
     "access": "public"

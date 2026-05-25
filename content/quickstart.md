@@ -98,5 +98,5 @@ The starter template includes a one-click Deploy button. Set `ANTHROPIC_API_KEY`
 
 - [CLI reference](/guide/cli) — full flag and slash command reference
 - [Providers](/guide/providers) — configure multi-provider setups
-- [Permission modes](/guide/permissions) — control what tools the AI can call
+- [Permission modes](/guide/permissions-and-hooks) — control what tools the AI can call
 - [SDK API reference](/api-reference) — full TypeScript API docs

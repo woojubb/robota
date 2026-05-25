@@ -1,6 +1,48 @@
-# GitHub Action — robota-sdk/action@v1
+# GitHub Action — Coming Soon
 
-Run Robota AI coding assistant directly in your GitHub Actions workflows.
+> **Not yet available.** The `robota-sdk/action` GitHub Action is planned but not yet published.
+> Follow the [GitHub repository](https://github.com/woojubb/robota) for release announcements.
+
+## In the Meantime
+
+You can run Robota in CI today using the CLI directly:
+
+```yaml
+- name: Install Robota CLI
+  run: npm install -g @robota-sdk/agent-cli
+
+- name: Run Robota task
+  env:
+    ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+  run: robota -p "Review the changed files in this PR"
+```
+
+Or use the SDK programmatically in a Node.js step:
+
+```typescript
+import { createQuery } from '@robota-sdk/agent-framework';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+
+const query = createQuery({
+  provider: new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY }),
+});
+const result = await query('Review the changed files in this PR for potential issues');
+console.log(result);
+```
+
+## Planned Usage (future)
+
+Once released, the action will support:
+
+```yaml
+- name: Run Robota (future)
+  uses: robota-sdk/action@v1
+  with:
+    task: 'Review the changed files in this PR for potential issues'
+    api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+```
+
+[Open an issue](https://github.com/woojubb/robota/issues) to request prioritization.
 
 ## Quick Start
 

@@ -39,11 +39,6 @@ export async function runPrintMode(
 
   const appendSystemPrompt = buildAppendSystemPrompt(cwd, args);
 
-  // TODO: wire --system-prompt once IInteractiveSessionStandardOptions adds systemPrompt field
-  if (args.systemPrompt) {
-    process.stderr.write('Warning: --system-prompt is not yet functional and will be ignored.\n');
-  }
-
   const shellExec = (command: string) =>
     execSync(command, { timeout: 5000, encoding: 'utf-8', stdio: 'pipe' }).trimEnd();
 
@@ -62,6 +57,7 @@ export async function runPrintMode(
           .filter((t) => t.length > 0)
       : undefined,
     appendSystemPrompt,
+    ...(args.systemPrompt ? { systemPrompt: args.systemPrompt } : {}),
     backgroundTaskRunners,
     subagentRunnerFactory,
     commandModules,
