@@ -1,0 +1,27 @@
+{
+  "name": "robota-example-websocket-chat",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Robota SDK — WebSocket chat server with real-time AI streaming",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@robota-sdk/agent-framework": "^3.0.0-beta.67",
+    "@robota-sdk/agent-provider": "^3.0.0-beta.67",
+    "ws": "^8.17.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/ws": "^8.5.0",
+    "tsx": "^4.6.0",
+    "typescript": "^5.5.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WebSocket Chat</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: system-ui, sans-serif;
+        background: #f5f5f5;
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        padding: 16px;
+        gap: 12px;
+      }
+      h1 {
+        font-size: 1.2rem;
+        font-weight: 600;
+        color: #333;
+      }
+      #status {
+        font-size: 0.85rem;
+        padding: 4px 10px;
+        border-radius: 12px;
+        display: inline-block;
+        background: #fde68a;
+        color: #92400e;
+      }
+      #status.connected {
+        background: #bbf7d0;
+        color: #14532d;
+      }
+      #status.error {
+        background: #fecaca;
+        color: #7f1d1d;
+      }
+      #messages {
+        flex: 1;
+        overflow-y: auto;
+        background: #fff;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .message {
+        max-width: 80%;
+        padding: 10px 14px;
+        border-radius: 8px;
+        line-height: 1.5;
+        white-space: pre-wrap;
+        word-break: break-word;
+        font-size: 0.95rem;
+      }
+      .message.user {
+        align-self: flex-end;
+        background: #2563eb;
+        color: #fff;
+      }
+      .message.assistant {
+        align-self: flex-start;
+        background: #f3f4f6;
+        color: #111;
+      }
+      .message.assistant.streaming::after {
+        content: '▌';
+        animation: blink 0.7s step-end infinite;
+      }
+      @keyframes blink {
+        50% {
+          opacity: 0;
+        }
+      }
+      .message.error-msg {
+        align-self: flex-start;
+        background: #fef2f2;
+        color: #dc2626;
+        border: 1px solid #fecaca;
+      }
+      #input-row {
+        display: flex;
+        gap: 8px;
+      }
+      #input {
+        flex: 1;
+        padding: 10px 14px;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        font-size: 0.95rem;
+        outline: none;
+        resize: none;
+        height: 44px;
+        line-height: 1.4;
+      }
+      #input:focus {
+        border-color: #2563eb;
+      }
+      button {
+        padding: 0 18px;
+        border: none;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        font-weight: 500;
+        cursor: pointer;
+        height: 44px;
+        transition: background 0.15s;
+      }
+      #send-btn {
+        background: #2563eb;
+        color: #fff;
+      }
+      #send-btn:hover:not(:disabled) {
+        background: #1d4ed8;
+      }
+      #send-btn:disabled {
+        background: #93c5fd;
+        cursor: not-allowed;
+      }
+      #stop-btn {
+        background: #ef4444;
+        color: #fff;
+      }
+      #stop-btn:hover:not(:disabled) {
+        background: #dc2626;
+      }
+      #stop-btn:disabled {
+        background: #fca5a5;
+        cursor: not-allowed;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>WebSocket Chat <span id="status">connecting…</span></h1>
+    <div id="messages"></div>
+    <div id="input-row">
+      <textarea id="input" placeholder="Type a message…" disabled></textarea>
+      <button id="send-btn" disabled>Send</button>
+      <button id="stop-btn" disabled>Stop</button>
+    </div>
+
+    <script>
+      const statusEl = document.getElementById('status');
+      const messagesEl = document.getElementById('messages');
+      const inputEl = document.getElementById('input');
+      const sendBtn = document.getElementById('send-btn');
+      const stopBtn = document.getElementById('stop-btn');
+
+      let ws = null;
+      let streamingEl = null;
+      let isStreaming = false;
+
+      function setStatus(text, cls) {
+        statusEl.textContent = text;
+        statusEl.className = cls ?? '';
+      }
+
+      function setReady(ready) {
+        inputEl.disabled = !ready;
+        sendBtn.disabled = !ready || isStreaming;
+      }
+
+      function setStreaming(streaming) {
+        isStreaming = streaming;
+        sendBtn.disabled = streaming;
+        stopBtn.disabled = !streaming;
+      }
+
+      function appendMessage(text, role) {
+        const el = document.createElement('div');
+        el.className = `message ${role}`;
+        el.textContent = text;
+        messagesEl.appendChild(el);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+        return el;
+      }
+
+      function connect() {
+        ws = new WebSocket('ws://localhost:8080');
+
+        ws.addEventListener('open', () => {
+          setStatus('connected', 'connected');
+          setReady(true);
+        });
+
+        ws.addEventListener('close', () => {
+          setStatus('disconnected', 'error');
+          setReady(false);
+          setStreaming(false);
+          streamingEl = null;
+          setTimeout(connect, 3000);
+        });
+
+        ws.addEventListener('error', () => {
+          setStatus('error', 'error');
+        });
+
+        ws.addEventListener('message', (event) => {
+          let msg;
+          try {
+            msg = JSON.parse(event.data);
+          } catch {
+            return;
+          }
+
+          if (msg.type === 'delta') {
+            if (!streamingEl) {
+              streamingEl = appendMessage('', 'assistant streaming');
+            }
+            streamingEl.textContent += msg.text;
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+          } else if (msg.type === 'done') {
+            if (streamingEl) {
+              streamingEl.classList.remove('streaming');
+              streamingEl = null;
+            }
+            setStreaming(false);
+          } else if (msg.type === 'error') {
+            if (streamingEl) {
+              streamingEl.classList.remove('streaming');
+              streamingEl = null;
+            }
+            appendMessage(`Error: ${msg.message}`, 'error-msg');
+            setStreaming(false);
+          }
+        });
+      }
+
+      function sendMessage() {
+        const text = inputEl.value.trim();
+        if (!text || !ws || ws.readyState !== WebSocket.OPEN) return;
+        appendMessage(text, 'user');
+        ws.send(JSON.stringify({ type: 'message', text }));
+        inputEl.value = '';
+        setStreaming(true);
+      }
+
+      sendBtn.addEventListener('click', sendMessage);
+
+      inputEl.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          sendMessage();
+        }
+      });
+
+      stopBtn.addEventListener('click', () => {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'abort' }));
+        }
+      });
+
+      setStreaming(false);
+      connect();
+    </script>
+  </body>
+</html>
