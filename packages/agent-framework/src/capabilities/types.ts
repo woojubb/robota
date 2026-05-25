@@ -10,4 +10,6 @@ export interface ICapabilityDescriptor {
   readonly modelInvocable: boolean;
   readonly argumentHint?: string;
   readonly safety?: TCapabilitySafety;
+  /** When false, the projected tool is auto-approved without prompting the user. */
+  readonly requiresPermission?: boolean;
 }
