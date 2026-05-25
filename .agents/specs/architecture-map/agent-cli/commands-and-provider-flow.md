@@ -52,7 +52,7 @@ sequenceDiagram
   participant Setup as provider-setup.ts
   participant Factory as provider-factory.ts
   participant Defs as IProviderDefinition[]
-  participant SDKCommon as agent-framework provider common APIs
+  participant SDKCommon as SDK provider common APIs
   participant Command as agent-command (provider module)
   participant CLI as agent-cli host adapters
   participant Session as InteractiveSession

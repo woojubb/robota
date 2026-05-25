@@ -39,7 +39,7 @@ import type {
 const DEFAULT_KILL_GRACE_MS = 2_000;
 
 export interface IChildProcessSubagentRunnerOptions {
-  workerPath?: string;
+  workerPath: string;
   providerConfig?: IProviderConfig;
   execArgv?: string[];
   killGraceMs?: number;
@@ -76,7 +76,7 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
     private readonly deps: IInProcessSubagentRunnerDeps,
     options: IChildProcessSubagentRunnerOptions,
   ) {
-    this.workerPath = options.workerPath ?? getDefaultSubagentWorkerPath();
+    this.workerPath = options.workerPath;
     this.execArgv = options.execArgv;
     this.killGraceMs = options.killGraceMs ?? DEFAULT_KILL_GRACE_MS;
     this.providerConfig = options.providerConfig;
