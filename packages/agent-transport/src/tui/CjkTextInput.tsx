@@ -9,20 +9,11 @@
  *   (IME sends multiple keystrokes synchronously, state updates are async)
  *
  * Drop-in replacement: same props as ink-text-input.
- *
- * TEST BRANCH (test/cjk-cursor-positioning):
- * Using useBoxMetrics + useCursor to position the real terminal cursor
- * at the current cursor position via yoga node tree traversal for absolute coords.
  */
 
-import fs from 'fs';
-
 import chalk from 'chalk';
-import { Box, Text, useInput, usePaste, useCursor, type DOMElement } from 'ink';
-import React, { useRef, useState, useEffect } from 'react';
-import stringWidth from 'string-width';
-
-const DEBUG_LOG = '/tmp/cjk-cursor-debug.log';
+import { Text, useInput, usePaste } from 'ink';
+import React, { useRef, useState } from 'react';
 
 import {
   applyCjkTextInput,
@@ -73,8 +64,6 @@ export default function CjkTextInput({
 }: IProps): React.ReactElement {
   const stateRef = useRef<ICjkTextInputFlowState>(createCjkTextInputFlowState(value));
   const [, forceRender] = useState(0);
-  const boxRef = useRef<DOMElement | null>(null);
-  const { setCursorPosition } = useCursor();
 
   // Sync ref when value changes from parent (e.g., setValue(''), tab completion, paste)
   stateRef.current = syncCjkTextInputFlowState(stateRef.current, value, cursorHint);
@@ -90,68 +79,25 @@ export default function CjkTextInput({
     forceRender,
   });
 
-  // TEST: yoga tree traversal to compute absolute cursor position.
-  // chalk.inverse cursor is DISABLED — real terminal cursor (via setCursorPosition) only.
-  // Hypothesis: double cursor (chalk + terminal) causes IME composition artifacts ("녕안").
-  useEffect(() => {
-    if (!focus || !showCursor) {
-      setCursorPosition(undefined);
-      return;
-    }
-    if (boxRef.current == null) {
-      return; // ref not attached yet — skip to avoid setting cursor to (0,0)
-    }
-    const abs = getAbsolutePosition(boxRef.current);
-    const cursorX =
-      abs.x + displayWidthBeforeCursor(stateRef.current.value, stateRef.current.cursor);
-
-    // Debug: write computed coords to file (avoids corrupting TUI stdout/stderr).
-    // Run: tail -f /tmp/cjk-cursor-debug.log  in a separate terminal to watch.
-    fs.appendFileSync(
-      // allow-fallback: debug-only, test branch
-      DEBUG_LOG,
-      `x=${cursorX}(abs.x=${abs.x}) y=${abs.y} cursor=${stateRef.current.cursor} val="${stateRef.current.value}"\n`,
-    );
-
-    setCursorPosition({ x: cursorX, y: abs.y });
-  });
+  // Do NOT call setCursorPosition() — passing y:0 moves the real terminal cursor
+  // to the top of the entire ink output (logo area), which causes Terminal.app to
+  // SIGSEGV when Korean IME queries attributedSubstringFromRange: at that position.
+  // Without setCursorPosition, the IME candidate window appears at bottom-left
+  // (same behavior as Claude Code, issue #19207), but Terminal.app does not crash.
+  //
+  // A correct fix would require knowing the total rendered height to pass the right
+  // y coordinate, which ink does not expose to components.
 
   return (
-    <Box ref={boxRef}>
-      <Text>
-        {renderWithCursor(
-          stateRef.current.value,
-          stateRef.current.cursor,
-          placeholder,
-          false, // real terminal cursor handles this — chalk cursor disabled for IME test
-        )}
-      </Text>
-    </Box>
+    <Text>
+      {renderWithCursor(
+        stateRef.current.value,
+        stateRef.current.cursor,
+        placeholder,
+        showCursor && focus,
+      )}
+    </Text>
   );
-}
-
-/** Walk the yoga parentNode chain to compute absolute position from the ink-root origin. */
-function getAbsolutePosition(element: DOMElement | null): { x: number; y: number } {
-  let x = 0;
-  let y = 0;
-  let current: DOMElement | undefined | null = element;
-  while (current != null) {
-    const layout = current.yogaNode?.getComputedLayout();
-    x += layout?.left ?? 0;
-    y += layout?.top ?? 0;
-    current = current.parentNode;
-  }
-  return { x, y };
-}
-
-/** Display column width of the text before the cursor index. */
-function displayWidthBeforeCursor(value: string, cursor: number): number {
-  const chars = [...value];
-  let width = 0;
-  for (let i = 0; i < cursor && i < chars.length; i++) {
-    width += stringWidth(chars[i] ?? '');
-  }
-  return width;
 }
 
 function useCjkTextInputHandlers(options: IInputHandlerOptions): void {
@@ -201,7 +147,7 @@ function applyCjkFlowSafely(
       options.forceRender,
     );
   } catch {
-    // Korean IME in raw mode can produce unexpected byte sequences.
+    // allow-fallback: Korean IME in raw mode can produce unexpected byte sequences
   }
 }
 

@@ -494,8 +494,10 @@ function AppInner(
         sessionName={sessionName}
         history={history}
       />
-      {/* Permanent blank line below input — required for Korean IME stability. */}
-      <Text> </Text>
+      {/* Blank line for Korean IME — absolute to avoid extending output height. */}
+      <Box position="absolute">
+        <Text> </Text>
+      </Box>
     </Box>
   );
 }
