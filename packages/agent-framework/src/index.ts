@@ -647,6 +647,7 @@ export type {
   IAgentRuntime,
   IHeadlessSessionOptions,
 } from './runtime/index.js';
+export type { IResolvedConfig } from './config/config-types.js';
 
 // ──────────────────────────────────────────────────────────────
 // INTERNAL (not exported):
