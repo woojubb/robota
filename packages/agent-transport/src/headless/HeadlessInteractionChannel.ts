@@ -1,0 +1,84 @@
+/**
+ * HeadlessInteractionChannel — owns session lifecycle for non-interactive (print) mode.
+ *
+ * Mirrors TuiInteractionChannel's ownership pattern: session creation lives here,
+ * not in the caller. print-mode.ts constructs this and calls run().
+ */
+
+import { execSync } from 'node:child_process';
+
+import { InteractiveSession } from '@robota-sdk/agent-framework';
+
+import { createHeadlessRunner, type TOutputFormat } from './headless-runner.js';
+
+import type { IAIProvider, TPermissionMode } from '@robota-sdk/agent-core';
+import type {
+  IBackgroundTaskRunner,
+  ICommandHostAdapters,
+  ICommandModule,
+  IInteractiveSessionStore,
+  TSubagentRunnerFactory,
+  TShellExecFn,
+} from '@robota-sdk/agent-framework';
+
+export interface IHeadlessInteractionChannelOptions {
+  cwd: string;
+  provider: IAIProvider;
+  outputFormat: TOutputFormat;
+  permissionMode?: TPermissionMode;
+  maxTurns?: number;
+  sessionStore?: IInteractiveSessionStore;
+  sessionName?: string;
+  bare?: boolean;
+  allowedTools?: string[];
+  appendSystemPrompt?: string;
+  systemPrompt?: string;
+  backgroundTaskRunners?: IBackgroundTaskRunner[];
+  subagentRunnerFactory?: TSubagentRunnerFactory;
+  commandModules?: readonly ICommandModule[];
+  commandHostAdapters?: ICommandHostAdapters;
+  shellExec?: TShellExecFn;
+}
+
+export class HeadlessInteractionChannel {
+  private readonly opts: IHeadlessInteractionChannelOptions;
+  private exitCode = 0;
+
+  constructor(options: IHeadlessInteractionChannelOptions) {
+    this.opts = options;
+  }
+
+  async run(prompt: string): Promise<void> {
+    const shellExec: TShellExecFn =
+      this.opts.shellExec ??
+      ((command: string) =>
+        execSync(command, { timeout: 5000, encoding: 'utf-8', stdio: 'pipe' }).trimEnd());
+
+    const session = new InteractiveSession({
+      cwd: this.opts.cwd,
+      provider: this.opts.provider,
+      permissionMode: this.opts.permissionMode ?? 'bypassPermissions',
+      maxTurns: this.opts.maxTurns,
+      sessionStore: this.opts.sessionStore,
+      sessionName: this.opts.sessionName,
+      bare: this.opts.bare || undefined,
+      allowedTools: this.opts.allowedTools,
+      appendSystemPrompt: this.opts.appendSystemPrompt,
+      ...(this.opts.systemPrompt ? { systemPrompt: this.opts.systemPrompt } : {}),
+      backgroundTaskRunners: this.opts.backgroundTaskRunners,
+      subagentRunnerFactory: this.opts.subagentRunnerFactory,
+      commandModules: this.opts.commandModules,
+      commandHostAdapters: this.opts.commandHostAdapters,
+      shellExec,
+      agentName: 'robota-cli',
+    });
+
+    const runner = createHeadlessRunner({ session, outputFormat: this.opts.outputFormat });
+    this.exitCode = await runner.run(prompt);
+    await session.shutdown({ reason: 'prompt_input_exit', message: 'Headless transport complete' });
+  }
+
+  getExitCode(): number {
+    return this.exitCode;
+  }
+}

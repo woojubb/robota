@@ -1,12 +1,7 @@
-import { execSync } from 'node:child_process';
 import type { IAIProvider } from '@robota-sdk/agent-core';
-import {
-  InteractiveSession,
-  type ICommandHostAdapters,
-  type ICommandModule,
-} from '@robota-sdk/agent-framework';
+import type { ICommandHostAdapters, ICommandModule } from '@robota-sdk/agent-framework';
 import type { createProjectSessionStore } from '@robota-sdk/agent-framework';
-import { createHeadlessTransport } from '@robota-sdk/agent-transport/headless';
+import { HeadlessInteractionChannel } from '@robota-sdk/agent-transport/headless';
 import type { IBackgroundTaskRunner } from '@robota-sdk/agent-executor';
 import type { createChildProcessSubagentRunnerFactory } from '@robota-sdk/agent-subagent-runner';
 import type { IParsedCliArgs } from '../utils/cli-args.js';
@@ -39,12 +34,10 @@ export async function runPrintMode(
 
   const appendSystemPrompt = buildAppendSystemPrompt(cwd, args);
 
-  const shellExec = (command: string) =>
-    execSync(command, { timeout: 5000, encoding: 'utf-8', stdio: 'pipe' }).trimEnd();
-
-  const session = new InteractiveSession({
+  const channel = new HeadlessInteractionChannel({
     cwd,
     provider,
+    outputFormat: args.outputFormat ?? 'text',
     permissionMode: args.permissionMode ?? 'bypassPermissions',
     maxTurns: args.maxTurns,
     sessionStore: args.noSessionPersistence ? undefined : sessionStore,
@@ -62,16 +55,8 @@ export async function runPrintMode(
     subagentRunnerFactory,
     commandModules,
     commandHostAdapters,
-    shellExec,
-    agentName: 'robota-cli',
   });
 
-  const transport = createHeadlessTransport({
-    outputFormat: args.outputFormat ?? 'text',
-    prompt,
-  });
-  session.attachTransport(transport);
-  await transport.start();
-  await session.shutdown({ reason: 'prompt_input_exit', message: 'Headless transport complete' });
-  process.exit(transport.getExitCode());
+  await channel.run(prompt);
+  process.exit(channel.getExitCode());
 }
