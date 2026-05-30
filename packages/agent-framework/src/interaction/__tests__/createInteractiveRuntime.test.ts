@@ -312,4 +312,79 @@ describe('createInteractiveRuntime', () => {
     expect(channel.stopped).toBe(true);
     expect(session.off).toHaveBeenCalledTimes(6);
   });
+
+  it('Given user message submitted When complete emitted Then setBusy called true then false', async () => {
+    const busyCalls: boolean[] = [];
+    const originalSetBusy = channel.setBusy.bind(channel);
+    vi.spyOn(channel, 'setBusy').mockImplementation((v) => {
+      busyCalls.push(v);
+      originalSetBusy(v);
+    });
+
+    const runtime = createInteractiveRuntime({
+      channel,
+      commandModules: [],
+      _testSession: session,
+    });
+    await runtime.start();
+
+    const submitPromise = channel.simulateSubmit('hello');
+    session.emitEvent('complete', {
+      response: 'hi',
+      history: [],
+      toolSummaries: [],
+      contextState: { usedPercentage: 0, usedTokens: 0, maxTokens: 0, remainingPercentage: 100 },
+    });
+    await submitPromise;
+
+    expect(busyCalls).toEqual([true, false]);
+  });
+
+  it('Given tool_start event When emitted Then tool-call event written', async () => {
+    const runtime = createInteractiveRuntime({
+      channel,
+      commandModules: [],
+      _testSession: session,
+    });
+    await runtime.start();
+
+    session.emitEvent('tool_start', {
+      toolName: 'bash',
+      executionId: 'exec-1',
+      firstArg: 'ls',
+      isRunning: true,
+    });
+
+    expect(channel.events).toContainEqual({
+      type: 'tool-call',
+      id: 'exec-1',
+      name: 'bash',
+      args: 'ls',
+    });
+  });
+
+  it('Given tool_end event When emitted Then tool-result event written', async () => {
+    const runtime = createInteractiveRuntime({
+      channel,
+      commandModules: [],
+      _testSession: session,
+    });
+    await runtime.start();
+
+    session.emitEvent('tool_end', {
+      toolName: 'bash',
+      executionId: 'exec-1',
+      firstArg: 'ls',
+      isRunning: false,
+      result: 'success',
+      toolResultData: 'file.txt',
+    });
+
+    expect(channel.events).toContainEqual({
+      type: 'tool-result',
+      id: 'exec-1',
+      name: 'bash',
+      result: 'file.txt',
+    });
+  });
 });
