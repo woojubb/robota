@@ -44,6 +44,17 @@ See [capability-placement.md](specs/architecture-map/capability-placement.md) fo
 | [publish-registry.md](publish-registry.md)                                                       | npm publish rules, package registry table |
 | [../packages/agent-cli/docs/ARCHITECTURE-MAP.md](../packages/agent-cli/docs/ARCHITECTURE-MAP.md) | CLI architecture map router               |
 
+## Interaction Channel Contract
+
+`agent-framework` owns the `IInteractionChannel` interface and `createInteractiveRuntime` factory. These define the contract between the session runtime and transport implementations.
+
+- `IInteractionChannel` — the interface that all interactive transports implement (TUI, headless, future web/remote)
+- `InteractionEvent` — the union type of one-way display events emitted by the runtime to the channel
+- `IActionRequest` / `IActionResponse` — the disambiguation dialog protocol (permission prompts)
+- `createInteractiveRuntime` — the factory that wires `IInteractionChannel` ↔ `InteractiveSession`
+
+`agent-transport` owns concrete implementations: `TuiInteractionChannel` (TUI mode) and `HeadlessInteractionChannel` (print mode). Neither class implements `IInteractionChannel` directly if doing so would lose access to session events outside the `InteractionEvent` union.
+
 ## Command Package Rule
 
 User-visible internal commands belong in `agent-command` or command-module owners that consume `@robota-sdk/agent-framework` command contracts. `agent-framework` owns command infrastructure and reusable common APIs; `agent-cli` composes selected modules and renders generic UI.

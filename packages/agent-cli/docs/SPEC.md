@@ -271,24 +271,23 @@ bin.ts → cli.ts (arg parsing + provider definition composition)
               ├── createResetCommandModule()      (from @robota-sdk/agent-command-reset)
               ├── createRewindCommandModule()     (from @robota-sdk/agent-command-rewind)
               ├── createStatusLineCommandModule() (from @robota-sdk/agent-command-statusline)
-              └── new TuiTransport({ ..., transportRegistry, cliAdapter })  (from @robota-sdk/agent-transport-tui)
-                    └── tuiTransport.start() → renderApp() → App.tsx (Ink TUI, owned by agent-transport-tui)
-                          ├── useInteractiveSession (ONLY React↔SDK bridge)
-                          │   ├── InteractiveSession({ cwd, provider })
-                          │   │   (from @robota-sdk/agent-framework; config/context loaded internally)
-                          │   ├── TuiStateManager    (owned by agent-transport-tui)
-                          │   │   holds history: IHistoryEntry[]  ← primary state for message list
-                          │   │   syncs from interactiveSession.getFullHistory() on each update
-                          │   ├── CommandRegistry    (from @robota-sdk/agent-framework)
-                          │   │   ├── command modules        (including @robota-sdk/agent-command-skills)
-                          │   │   └── PluginCommandSource    (from @robota-sdk/agent-framework)
-                          │   └── session.executeCommand()  (slash commands routed through injected command modules)
-                          ├── MessageList.tsx        (renders IHistoryEntry[]; EntryItem dispatches on category)
-                          ├── InputArea.tsx          (bottom input area, slash detection)
-                          ├── SessionStatusBar.tsx   (connects statusline settings + git branch to renderer)
-                          ├── StatusBar.tsx          (pure status bar renderer, shows primary activity state)
-                          ├── PermissionPrompt.tsx   (arrow-key selection)
-                          └── SlashAutocomplete.tsx  (command popup with scroll)
+              └── renderApp({ ..., transportRegistry, cliAdapter })  (from @robota-sdk/agent-transport/tui)
+                    └── TuiInteractionChannel (owns session lifecycle)
+                          ├── InteractiveSession({ cwd, provider })
+                          │   (from @robota-sdk/agent-framework; config/context loaded internally)
+                          ├── TuiStateManager    (owned by agent-transport/tui)
+                          │   holds history: IHistoryEntry[]  ← primary state for message list
+                          │   syncs from interactiveSession.getFullHistory() on each update
+                          ├── CommandRegistry    (from @robota-sdk/agent-framework)
+                          │   ├── command modules        (including @robota-sdk/agent-command-skills)
+                          │   └── PluginCommandSource    (from @robota-sdk/agent-framework)
+                          └── App.tsx (Ink TUI, subscribes via useTuiChannel)
+                                ├── MessageList.tsx        (renders IHistoryEntry[]; EntryItem dispatches on category)
+                                ├── InputArea.tsx          (bottom input area, slash detection)
+                                ├── SessionStatusBar.tsx   (connects statusline settings + git branch to renderer)
+                                ├── StatusBar.tsx          (pure status bar renderer, shows primary activity state)
+                                ├── PermissionPrompt.tsx   (arrow-key selection)
+                                └── SlashAutocomplete.tsx  (command popup with scroll)
 ```
 
 Dependency chain:
@@ -307,8 +306,8 @@ agent-cli ─→ agent-sdk ─→ agent-sessions ─→ agent-core
 ### Transport Registry
 
 The CLI assembles a `TransportRegistry` (`src/transports/transport-registry.ts`) and passes it to
-`TuiTransport` for the interactive session. `TuiTransport` forwards the registry to
-`useInteractiveSession`, which starts all enabled transports against the active `InteractiveSession`.
+`renderApp()`. `renderApp()` creates a `TuiInteractionChannel` which starts all enabled transports
+against the active `InteractiveSession` it owns.
 
 Registered transports:
 
@@ -379,7 +378,7 @@ export const TUI_COMMAND_INTERACTIONS: Record<
 - `{ onMissingArgs: 'picker', getItems }` — opens a picker overlay
 - `{ onMissingArgs: 'confirm', message }` — opens a yes/no confirm dialog
 
-The registry exports `resolveInteraction(commandName)` which is passed as `IRenderOptions.resolveInteraction` to `TuiTransport` and threaded through `App` → `InputArea`.
+The registry exports `resolveInteraction(commandName)` which is passed as `IRenderOptions.resolveInteraction` to `renderApp()` and threaded through `TuiInteractionChannel` → `App` → `InputArea`.
 
 A runtime gate (`registry-coverage.test.ts`) verifies that every picker entry has a working `getItems()` and every confirm entry has a non-empty `message`.
 
@@ -682,18 +681,18 @@ Subcommands:
 
 Installed plugins contribute skills via `PluginCommandSource`, which discovers skills from each plugin's bundle manifest and makes them available as slash commands alongside project and user skills.
 
-## React↔SDK Bridge
+## Session Ownership — TuiInteractionChannel
 
-`useInteractiveSession` is the single boundary between React and the SDK. It:
+`TuiInteractionChannel` (owned by `@robota-sdk/agent-transport`) is the single owner of the SDK session lifecycle in TUI mode. It:
 
-1. Creates `InteractiveSession({ cwd, provider, commandModules, commandHostAdapters })` and `CommandRegistry` once (via `useRef` — never recreated on re-render). The provider instance is passed in from the caller; `InteractiveSession` handles config/context loading internally. Host adapters are thin CLI-owned services such as settings read/write, not command implementations.
-2. Creates a `TuiStateManager` instance that holds `history: IHistoryEntry[]` as the primary state for the message list and the latest SDK execution workspace snapshot for background/workspace rendering. On each execution update (when `thinking` transitions to `false`, or on `complete`/`interrupted`), the hook delegates to `TuiStateManager` to sync state from `interactiveSession.getFullHistory()` and `interactiveSession.getExecutionWorkspaceSnapshot()`.
-3. Subscribes to `InteractiveSession` events (`text_delta`, `tool_start`, `tool_end`, `thinking`, `complete`, `interrupted`, `error`, `execution_workspace_event`) and converts them to React state.
-4. Exposes `handleSubmit`, `handleAbort`, `handleCancelQueue`, and `handleShutdown` as stable callbacks to the TUI.
+1. Creates `InteractiveSession({ cwd, provider, commandModules, commandHostAdapters })` and `CommandRegistry` once (in the constructor — never recreated). The provider instance is passed in from the caller; `InteractiveSession` handles config/context loading internally. Host adapters are thin CLI-owned services such as settings read/write, not command implementations.
+2. Creates a `TuiStateManager` instance that holds `history: IHistoryEntry[]` as the primary state for the message list and the latest SDK execution workspace snapshot for background/workspace rendering. On each execution update (when `thinking` transitions to `false`, or on `complete`/`interrupted`), delegates to `TuiStateManager` to sync state from `interactiveSession.getFullHistory()` and `interactiveSession.getExecutionWorkspaceSnapshot()`.
+3. Subscribes to `InteractiveSession` events (`text_delta`, `tool_start`, `tool_end`, `thinking`, `complete`, `interrupted`, `error`, `execution_workspace_event`) and converts them to channel state.
+4. Exposes `handleSubmit`, `handleAbort`, `handleCancelQueue`, and `handleShutdown` as stable callbacks to the TUI via `useTuiChannel`.
 5. Routes slash commands via `session.executeCommand(name, args)` — no `SystemCommandExecutor` is instantiated directly by the CLI. Command-specific follow-up prompts are handled by `ICommandInteraction` and command-specific host actions are handled by typed `TCommandEffect` values.
 6. Manages the permission queue (serialises concurrent permission requests).
 
-No other hook or component interacts with `InteractiveSession` directly.
+`useTuiChannel` is the React hook that subscribes to `TuiInteractionChannel.onChange` and exposes its state/callbacks to `App.tsx`. No component interacts with `InteractiveSession` directly.
 
 ### Plugin Hook Merging
 
@@ -703,7 +702,7 @@ Plugin hook merging (resolving `${CLAUDE_PLUGIN_ROOT}` and merging hook groups) 
 
 `App.tsx` is owned by `@robota-sdk/agent-transport-tui` (`src/App.tsx`). It is a thin JSX shell that:
 
-- Calls `useInteractiveSession` and `usePluginCallbacks`.
+- Calls `useTuiChannel` and `usePluginCallbacks`.
 - Applies typed command effects that require the host shell via `ITuiCliAdapter` (injected by `startCli()`).
 - Contains no queue logic, no abort logic, no session business logic.
 
@@ -864,9 +863,8 @@ src/
 ├── init/
 │   └── init-command.ts                           ← `robota init` — creates AGENTS.md + .robota/settings.json
 ├── modes/
-│   ├── print-mode.ts                             ← Headless/print mode runner (-p flag)
-│   ├── shell-exec.ts                             ← createShellExec() — Node child_process.execSync wrapper
-│   └── tui-mode.ts                               ← TUI mode runner; wires TuiTransport with allowedTools/deniedTools
+│   ├── print-mode.ts                             ← Headless/print mode runner (-p flag); uses HeadlessInteractionChannel
+│   └── shell-exec.ts                             ← createShellExec() — Node child_process.execSync wrapper
 └── startup/
     ├── append-system-prompt.ts                   ← Builds appendSystemPrompt string from session options
     ├── args-to-options.ts                        ← IParsedCliArgs → typed option objects boundary
@@ -1170,7 +1168,7 @@ System: Interrupted by user.   ← MessageList (abort only)
 
 ### Ctrl+C — Graceful Shutdown
 
-Ink render uses `exitOnCtrlC: false`. The first Ctrl+C is handled by `App.tsx`, renders `Shutting down...`, and calls `useInteractiveSession.handleShutdown('prompt_input_exit')`. That delegates to `InteractiveSession.shutdown()`, so foreground abort, managed background task cancellation, session persistence, and `SessionEnd` hooks run in the SDK-owned lifecycle before the TUI exits.
+Ink render uses `exitOnCtrlC: false`. The first Ctrl+C is handled by `App.tsx`, renders `Shutting down...`, and calls `channel.handleShutdown('prompt_input_exit')` (exposed by `useTuiChannel`). That delegates to `InteractiveSession.shutdown()` inside `TuiInteractionChannel`, so foreground abort, managed background task cancellation, session persistence, and `SessionEnd` hooks run in the SDK-owned lifecycle before the TUI exits.
 
 Slash-command restarts and exits (`/exit`, language restart, reset) also call `InteractiveSession.shutdown()` before `useApp().exit()`. The CLI owns only signal/UI wiring; it must not enumerate or kill SDK-managed background work directly.
 
@@ -1178,7 +1176,7 @@ Slash-command restarts and exits (`/exit`, language restart, reset) also call `I
 
 ESC aborts the current execution gracefully (unlike Ctrl+C which kills the process):
 
-1. ESC key handler in `App.tsx` calls `handleAbort()` (from `useInteractiveSession`). The App-level ESC listener remains mounted and guards permission, plugin, and session-picker overlays inside the handler instead of toggling `useInput({ isActive })`.
+1. ESC key handler in `App.tsx` calls `handleAbort()` (from `useTuiChannel`). The App-level ESC listener remains mounted and guards permission, plugin, and session-picker overlays inside the handler instead of toggling `useInput({ isActive })`.
 2. `handleAbort` sets `isAborting: true` and calls `interactiveSession.abort()`
 3. AbortSignal propagates through the entire stack (ExecutionService -> Provider -> `streamWithAbort`)
 4. `executeRound` calls `commitAssistant('interrupted')` — the partial response is saved to conversation history with `state: 'interrupted'`. Text is ALWAYS preserved (no stripping).
@@ -1191,7 +1189,7 @@ ESC aborts the current execution gracefully (unlike Ctrl+C which kills the proce
 - **isAborting**: cleared by `onThinking(false)` handler.
 - **Border color**: yellow (aborting) → green (normal) after `onThinking(false)`.
 
-6. `useInteractiveSession`'s `onThinking(false)` handler:
+6. `TuiInteractionChannel`'s `onThinking(false)` handler:
    - Sets `isAborting: false`
    - Re-syncs `messages` from `interactiveSession.getMessages()` — interrupted messages are already committed
    - Messages with `msg.state === 'interrupted'` show an interrupted indicator in the UI
@@ -1506,12 +1504,12 @@ The CLI uses `IHistoryEntry` from `@robota-sdk/agent-core` as the primary messag
 - `TUniversalMessage` is still used where needed (type guards, provider API calls, `getMessages()` for backward compat)
 - `msg.state === 'interrupted'` shows an interrupted indicator in the UI
 
-### Message State in useInteractiveSession
+### Message State in TuiInteractionChannel
 
-- `history: IHistoryEntry[]` React state is managed by `TuiStateManager` and derived from `interactiveSession.getFullHistory()`.
-- After each execution (when `thinking` transitions to `false`), the hook delegates to `TuiStateManager` to sync `history` from `interactiveSession.getFullHistory()` — the session is the SSOT for all history content.
-- `addMessage` appends a local system message directly to React state (used for command output and error notices that are not part of the AI conversation). These are wrapped as `IHistoryEntry` with `category: 'event'` before insertion.
-- After abort: interrupted messages are already committed to session history by `InteractiveSession`; the hook re-syncs from full history — no separate streaming text ref is needed.
+- `history: IHistoryEntry[]` state is managed by `TuiStateManager` inside `TuiInteractionChannel`, derived from `interactiveSession.getFullHistory()`.
+- After each execution (when `thinking` transitions to `false`), delegates to `TuiStateManager` to sync `history` from `interactiveSession.getFullHistory()` — the session is the SSOT for all history content.
+- `addMessage` appends a local system message directly to channel state (used for command output and error notices that are not part of the AI conversation). These are wrapped as `IHistoryEntry` with `category: 'event'` before insertion.
+- After abort: interrupted messages are already committed to session history by `InteractiveSession`; the channel re-syncs from full history — no separate streaming text ref is needed.
 
 ### Tool Message Type Guards
 
@@ -1557,15 +1555,15 @@ Tool messages use the `isToolMessage(msg)` type guard for safe access to `msg.na
 The CLI is designed to accept injected dependencies at `startCli()`. All extension is done by
 passing values into the public entry point rather than by subclassing or monkey-patching.
 
-| Extension              | Mechanism                                                                | Where injected              |
-| ---------------------- | ------------------------------------------------------------------------ | --------------------------- |
-| Custom command modules | `IStartCliOptions.commandModules`                                        | `startCli(options)`         |
-| Custom provider defs   | `IStartCliOptions.providerDefinitions`                                   | `startCli(options)`         |
-| Provider composition   | `IProviderDefinition[]` passed to `createCommandSetup()`                 | `cli.ts` assembly layer     |
-| Transport registry     | `createDefaultTransportRegistry()` wired into `createAgentRuntime`       | `cli.ts` layer 3            |
-| Subagent runner        | `createChildProcessSubagentRunnerFactory()` from `agent-subagent-runner` | `startup/provider-setup.ts` |
-| Command host adapters  | `ICommandHostAdapters` (settings read/write, plugin adapter)             | `createCommandSetup()`      |
-| Shell exec             | `createShellExec()` — passed to `TuiTransport` and print mode            | `modes/*.ts`                |
+| Extension              | Mechanism                                                                                             | Where injected              |
+| ---------------------- | ----------------------------------------------------------------------------------------------------- | --------------------------- |
+| Custom command modules | `IStartCliOptions.commandModules`                                                                     | `startCli(options)`         |
+| Custom provider defs   | `IStartCliOptions.providerDefinitions`                                                                | `startCli(options)`         |
+| Provider composition   | `IProviderDefinition[]` passed to `createCommandSetup()`                                              | `cli.ts` assembly layer     |
+| Transport registry     | `createDefaultTransportRegistry()` wired into `createAgentRuntime`                                    | `cli.ts` layer 3            |
+| Subagent runner        | `createChildProcessSubagentRunnerFactory()` from `agent-subagent-runner`                              | `startup/provider-setup.ts` |
+| Command host adapters  | `ICommandHostAdapters` (settings read/write, plugin adapter)                                          | `createCommandSetup()`      |
+| Shell exec             | `createShellExec()` — passed to `renderApp()` (via `IRenderOptions`) and `HeadlessInteractionChannel` | `modes/*.ts`                |
 
 The CLI does not expose plugin hooks at the binary level. Plugin lifecycle is owned by
 `@robota-sdk/agent-framework` through the plugin command adapter.
@@ -1621,21 +1619,21 @@ Testing rules:
 All behavioral contracts in this package are expressed through interfaces and factory functions, not
 classes. The following table lists the primary runtime constructs with their contracts.
 
-| Construct                              | Kind     | Owner file                      | Contract summary                                                                                   |
-| -------------------------------------- | -------- | ------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `startCli(options?)`                   | function | `src/cli.ts`                    | Parse args → assemble layers → dispatch to print or TUI mode; never throws (catches and exits)     |
-| `createCommandSetup(cwd, options?)`    | factory  | `src/startup/command-setup.ts`  | Returns `ICommandSetup` with command modules, adapters, provider defs, and org policy              |
-| `createProviderSetup(cwd, opts, cmd)`  | factory  | `src/startup/provider-setup.ts` | Resolves active provider profile and creates provider instance from injected definitions           |
-| `createSessionSetup(cwd, opts)`        | factory  | `src/startup/session-setup.ts`  | Returns session store and resume session id based on `--continue` / `--resume` flags               |
-| `handlePreflightCommands(args, ctx)`   | function | `src/startup/preflight.ts`      | Dispatches `init`, `diagnose`, `help`, `version`, `--check-update`, `--reset`; returns `{handled}` |
-| `handleConfigPhase(cwd, opts, ...)`    | function | `src/startup/config-phase.ts`   | Runs `--configure` / `--configure-provider` flows; returns `{handled}` if consumed                 |
-| `runPrintMode(opts, runtime)`          | function | `src/modes/print-mode.ts`       | Creates session, attaches headless transport, awaits completion, exits with transport exit code    |
-| `runTuiMode(opts)`                     | function | `src/modes/tui-mode.ts`         | Creates `TuiTransport` with `allowedTools`/`deniedTools`, calls `tuiTransport.start()`             |
-| `runInitCommand(cwd, terminal, opts?)` | function | `src/init/init-command.ts`      | Creates AGENTS.md and `.robota/settings.json`; optionally migrates `.claude/` settings             |
-| `isFirstRun()`                         | function | `src/startup/first-run.ts`      | Returns `true` when `userPaths().onboarded` marker file is absent                                  |
-| `markOnboarded()`                      | function | `src/startup/first-run.ts`      | Creates the onboarded marker file; idempotent                                                      |
-| `printFirstRunWelcome()`               | function | `src/startup/first-run.ts`      | Writes welcome banner to stderr using `AGENT_CLI_BIN` constant                                     |
-| `createShellExec()`                    | factory  | `src/modes/shell-exec.ts`       | Returns a synchronous shell executor with 5 s timeout; used by skill `!` substitution              |
-| `parseCliArgs()`                       | function | `src/utils/cli-args.ts`         | Parses `process.argv` into `IParsedCliArgs`; throws `Error` on invalid input                       |
-| `AGENT_CLI_NAME`                       | constant | `src/constants.ts`              | `'robota-cli'` — internal package name used as `agentName` in session construction                 |
-| `AGENT_CLI_BIN`                        | constant | `src/constants.ts`              | `'robota'` — binary name used in user-facing messages and welcome banner                           |
+| Construct                              | Kind     | Owner file                      | Contract summary                                                                                                       |
+| -------------------------------------- | -------- | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `startCli(options?)`                   | function | `src/cli.ts`                    | Parse args → assemble layers → dispatch to print or TUI mode; never throws (catches and exits)                         |
+| `createCommandSetup(cwd, options?)`    | factory  | `src/startup/command-setup.ts`  | Returns `ICommandSetup` with command modules, adapters, provider defs, and org policy                                  |
+| `createProviderSetup(cwd, opts, cmd)`  | factory  | `src/startup/provider-setup.ts` | Resolves active provider profile and creates provider instance from injected definitions                               |
+| `createSessionSetup(cwd, opts)`        | factory  | `src/startup/session-setup.ts`  | Returns session store and resume session id based on `--continue` / `--resume` flags                                   |
+| `handlePreflightCommands(args, ctx)`   | function | `src/startup/preflight.ts`      | Dispatches `init`, `diagnose`, `help`, `version`, `--check-update`, `--reset`; returns `{handled}`                     |
+| `handleConfigPhase(cwd, opts, ...)`    | function | `src/startup/config-phase.ts`   | Runs `--configure` / `--configure-provider` flows; returns `{handled}` if consumed                                     |
+| `runPrintMode(opts, runtime)`          | function | `src/modes/print-mode.ts`       | Creates `HeadlessInteractionChannel`, calls `channel.run(prompt)`, exits with channel exit code                        |
+| `runTuiMode(opts)`                     | function | `src/cli.ts` (inline)           | Calls `renderApp(IRenderOptions)` from `@robota-sdk/agent-transport/tui`; TuiInteractionChannel owns session lifecycle |
+| `runInitCommand(cwd, terminal, opts?)` | function | `src/init/init-command.ts`      | Creates AGENTS.md and `.robota/settings.json`; optionally migrates `.claude/` settings                                 |
+| `isFirstRun()`                         | function | `src/startup/first-run.ts`      | Returns `true` when `userPaths().onboarded` marker file is absent                                                      |
+| `markOnboarded()`                      | function | `src/startup/first-run.ts`      | Creates the onboarded marker file; idempotent                                                                          |
+| `printFirstRunWelcome()`               | function | `src/startup/first-run.ts`      | Writes welcome banner to stderr using `AGENT_CLI_BIN` constant                                                         |
+| `createShellExec()`                    | factory  | `src/modes/shell-exec.ts`       | Returns a synchronous shell executor with 5 s timeout; used by skill `!` substitution                                  |
+| `parseCliArgs()`                       | function | `src/utils/cli-args.ts`         | Parses `process.argv` into `IParsedCliArgs`; throws `Error` on invalid input                                           |
+| `AGENT_CLI_NAME`                       | constant | `src/constants.ts`              | `'robota-cli'` — internal package name used as `agentName` in session construction                                     |
+| `AGENT_CLI_BIN`                        | constant | `src/constants.ts`              | `'robota'` — binary name used in user-facing messages and welcome banner                                               |
