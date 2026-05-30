@@ -4,6 +4,7 @@ import { executeExitCommand } from './exit-command.js';
 
 import type {
   ICommand,
+  ICommandInteractionHint,
   ICommandModule,
   ICommandSource,
   ISystemCommand,
@@ -41,10 +42,15 @@ export class ExitCommandSource implements ICommandSource {
   }
 }
 
+const EXIT_INTERACTION_HINTS: Record<string, ICommandInteractionHint> = {
+  exit: { type: 'confirm', message: 'Exit the session?' },
+};
+
 export function createExitCommandModule(): ICommandModule {
   return {
     name: 'agent-command-exit',
     commandSources: [new ExitCommandSource()],
     systemCommands: [createExitSystemCommand()],
+    interactionHints: EXIT_INTERACTION_HINTS,
   };
 }
