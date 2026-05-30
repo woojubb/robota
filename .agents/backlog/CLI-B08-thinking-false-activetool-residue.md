@@ -1,6 +1,6 @@
 ---
 title: 'CLI-B08: thinking(false) 시 activeTools가 초기화되지 않아 잔존 가능'
-status: todo
+status: done
 created: 2026-05-31
 priority: low
 urgency: eventually

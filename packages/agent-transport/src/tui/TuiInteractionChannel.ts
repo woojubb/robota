@@ -5,7 +5,11 @@
  * out of React hooks and into a plain TypeScript class.
  */
 
-import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
+import {
+  createSystemMessage,
+  createUserMessage,
+  messageToHistoryEntry,
+} from '@robota-sdk/agent-core';
 import { InteractiveSession, CommandRegistry } from '@robota-sdk/agent-framework';
 
 import { CommandEffectQueue, type ICommandEffectQueue } from './hooks/command-effect-queue.js';
@@ -347,7 +351,10 @@ export class TuiInteractionChannel implements IInteractionChannel {
     const session = this.interactiveSession;
     const manager = this.stateManager;
 
-    const onUserMessage = (content: string): void => this.handleAutoNaming(content);
+    const onUserMessage = (content: string): void => {
+      this.handleAutoNaming(content);
+      manager.addEntry(messageToHistoryEntry(createUserMessage(content)));
+    };
     const onComplete = (result: IExecutionResult): void => {
       manager.onComplete(result);
       manager.syncHistory(session.getFullHistory());

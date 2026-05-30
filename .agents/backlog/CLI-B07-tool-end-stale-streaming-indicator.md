@@ -1,6 +1,6 @@
 ---
 title: 'CLI-B07: tool_end 후 완료된 툴이 activeTools에 잔존 — StreamingIndicator 오표시'
-status: todo
+status: in-progress
 created: 2026-05-31
 priority: medium
 urgency: soon

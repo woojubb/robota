@@ -1,6 +1,6 @@
 ---
 title: 'CLI-B05: 사용자 입력 프롬프트가 MessageList에 표시되지 않음 — INFRA-001 회귀'
-status: todo
+status: done
 created: 2026-05-31
 priority: critical
 urgency: now
