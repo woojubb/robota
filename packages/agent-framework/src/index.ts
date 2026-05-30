@@ -586,6 +586,18 @@ export type {
   TContextReferenceStatus,
 } from './context/context-reference-inventory.js';
 
+// ── Interaction channel contracts ────────────────────────────
+export type { IInteractionChannel } from './interaction/IInteractionChannel.js';
+export type {
+  InteractionEvent,
+  IPermissionRequest,
+  IActionRequest,
+  IActionResponse,
+  IPickItem,
+  ICommandInfo,
+  ICommandInteractionHint,
+} from './interaction/types.js';
+
 // ── Permissions ─────────────────────────────────────────────
 export { promptForApproval } from './permissions/permission-prompt.js';
 
