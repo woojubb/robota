@@ -1,7 +1,8 @@
 ---
 title: 'CLI-041: diagnose, init, web-fetch, web-search 테스트 커버리지'
-status: todo
+status: superseded
 created: 2026-05-24
+completed: 2026-05-31
 priority: medium
 category: test
 ---

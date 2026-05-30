@@ -1,7 +1,8 @@
 ---
 title: 'CLI-040: TUI 모드 기본 테스트 추가'
-status: todo
+status: superseded
 created: 2026-05-24
+completed: 2026-05-31
 priority: high
 category: test
 ---
