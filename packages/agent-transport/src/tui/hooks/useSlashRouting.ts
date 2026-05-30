@@ -1,6 +1,6 @@
 /**
  * Slash command routing logic for the TUI.
- * Extracted from useInteractiveSession for single-responsibility.
+ * Extracted for single-responsibility.
  */
 
 import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';

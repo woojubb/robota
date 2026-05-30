@@ -4,7 +4,7 @@
  * Converts InteractiveSession events into rendering state.
  * No React dependency. Fully unit-testable.
  *
- * React hook (useInteractiveSession) subscribes to onChange
+ * React hook (useTuiChannel) subscribes to onChange
  * and reads state for rendering.
  */
 

@@ -3,9 +3,44 @@ import { InteractiveSession, CommandRegistry } from '@robota-sdk/agent-framework
 import { TuiStateManager } from '../tui-state-manager.js';
 import { CommandEffectQueue, type ICommandEffectQueue } from './command-effect-queue.js';
 
-import type { IInteractiveSessionProps } from './useInteractiveSession.js';
+import type { IAIProvider, TPermissionMode } from '@robota-sdk/agent-core';
 import type { TToolArgs } from '@robota-sdk/agent-core';
-import type { TPermissionResultValue } from '@robota-sdk/agent-framework';
+import type {
+  IBackgroundTaskRunner,
+  ICommandHostAdapters,
+  ICommandModule,
+  IInteractiveSession,
+  IInteractiveSessionStore,
+  TSubagentRunnerFactory,
+  TShellExecFn,
+  TPermissionResultValue,
+} from '@robota-sdk/agent-framework';
+import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
+
+export interface IInteractiveSessionProps {
+  cwd: string;
+  provider: IAIProvider;
+  permissionMode?: TPermissionMode;
+  maxTurns?: number;
+  sessionStore?: IInteractiveSessionStore;
+  resumeSessionId?: string;
+  forkSession?: boolean;
+  sessionName?: string;
+  onAutoNamed?: (name: string) => void;
+  backgroundTaskRunners?: IBackgroundTaskRunner[];
+  subagentRunnerFactory?: TSubagentRunnerFactory;
+  commandModules?: readonly ICommandModule[];
+  commandHostAdapters?: ICommandHostAdapters;
+  shellExec?: TShellExecFn;
+  transportRegistry?: ITransportRegistryView<IInteractiveSession>;
+  language?: string;
+  reloadPluginCommandSource?: (registry: CommandRegistry) => void;
+  agentName?: string;
+  systemPrompt?: string;
+  appendSystemPrompt?: string;
+  allowedTools?: string[];
+  deniedTools?: string[];
+}
 
 export interface IInitState {
   interactiveSession: InteractiveSession;

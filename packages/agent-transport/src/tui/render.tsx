@@ -6,6 +6,7 @@ import { render } from 'ink';
 import React from 'react';
 
 import App from './App.js';
+import { TuiInteractionChannel } from './TuiInteractionChannel.js';
 
 import type { ITuiCliAdapter } from './tui-cli-adapter.js';
 import type { IAIProvider } from '@robota-sdk/agent-core';
@@ -57,6 +58,43 @@ export async function renderApp(options: IRenderOptions): Promise<void> {
     }
   });
 
-  const instance = render(<App {...options} />, { exitOnCtrlC: false });
+  const channel = new TuiInteractionChannel({
+    cwd: options.cwd,
+    provider: options.provider,
+    permissionMode: options.permissionMode,
+    maxTurns: options.maxTurns,
+    sessionStore: options.sessionStore,
+    resumeSessionId: options.resumeSessionId,
+    forkSession: options.forkSession,
+    sessionName: options.sessionName,
+    backgroundTaskRunners: options.backgroundTaskRunners,
+    subagentRunnerFactory: options.subagentRunnerFactory,
+    commandModules: options.commandModules,
+    commandHostAdapters: options.commandHostAdapters,
+    shellExec: options.shellExec,
+    transportRegistry: options.transportRegistry,
+    language: options.language,
+    reloadPluginCommandSource: options.reloadPluginCommandSource,
+    agentName: options.agentName,
+  });
+
+  const instance = render(
+    <App
+      cwd={options.cwd}
+      channel={channel}
+      providerOverride={options.providerOverride}
+      providerType={options.providerType}
+      modelId={options.modelId}
+      permissionMode={options.permissionMode}
+      version={options.version}
+      sessionStore={options.sessionStore}
+      resumeSessionId={options.resumeSessionId}
+      showSessionPickerOnStart={options.showSessionPickerOnStart}
+      startupUpdateNotice={options.startupUpdateNotice}
+      transportRegistry={options.transportRegistry}
+      cliAdapter={options.cliAdapter}
+    />,
+    { exitOnCtrlC: false },
+  );
   await instance.waitUntilExit();
 }
