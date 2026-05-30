@@ -1,5 +1,26 @@
 # @robota-sdk/agent-framework
 
+## 3.0.0-beta.69
+
+### Patch Changes
+
+- Fix /context list showing empty despite non-zero context percentage. System context files (AGENTS.md, CLAUDE.md) loaded at session startup now appear in the list with [system, active] label. Prompt execution no longer re-adds them as manual duplicates.
+  - @robota-sdk/agent-core@3.0.0-beta.69
+  - @robota-sdk/agent-executor@3.0.0-beta.69
+  - @robota-sdk/agent-interface-transport@3.0.0-beta.69
+  - @robota-sdk/agent-session@3.0.0-beta.69
+  - @robota-sdk/agent-tools@3.0.0-beta.69
+
+## 3.0.0-beta.68
+
+### Patch Changes
+
+- @robota-sdk/agent-core@3.0.0-beta.68
+- @robota-sdk/agent-executor@3.0.0-beta.68
+- @robota-sdk/agent-interface-transport@3.0.0-beta.68
+- @robota-sdk/agent-session@3.0.0-beta.68
+- @robota-sdk/agent-tools@3.0.0-beta.68
+
 ## 3.0.0-beta.67
 
 ### Patch Changes

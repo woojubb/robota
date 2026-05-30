@@ -5,6 +5,10 @@ status: done
 
 # ARCH-002 — Slim agent-cli: Proper Layer Separation and TUI as Self-Contained Plugin
 
+## Status
+
+`done`
+
 ## Problem
 
 `agent-cli` is supposed to be a thin composition root — it selects providers, picks transports, and wires them together. Instead it carries three categories of misplaced code:

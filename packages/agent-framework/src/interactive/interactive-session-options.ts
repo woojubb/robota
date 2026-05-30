@@ -18,7 +18,12 @@ import type { IResolvedConfig } from '../config/config-types.js';
 import type { IReversibleExecutionOptions } from '../reversible-execution/index.js';
 import type { TSubagentRunnerFactory } from '../subagents/index.js';
 import type { TShellExecFn } from '../utils/skill-prompt.js';
-import type { IAIProvider, IContextWindowState, TToolArgs } from '@robota-sdk/agent-core';
+import type {
+  IAIProvider,
+  IContextWindowState,
+  IToolWithEventService,
+  TToolArgs,
+} from '@robota-sdk/agent-core';
 import type { ICompactEvent } from '@robota-sdk/agent-session';
 import type { Session } from '@robota-sdk/agent-session';
 import type { ISandboxClient, IWorkspaceManifest } from '@robota-sdk/agent-tools';
@@ -82,6 +87,10 @@ export interface IInteractiveSessionStandardOptions {
   agentName?: string;
   /** Organization policy for enforcing provider restrictions, command blocks, and API key rules. */
   orgPolicy?: IOrgPolicy;
+  /** Additional tools registered alongside the default CLI tools. */
+  additionalTools?: IToolWithEventService[];
+  /** Request structured output from the provider for this session. */
+  responseFormat?: { type: 'text' | 'json_object' };
 }
 
 /** Test/advanced construction: inject pre-built session directly. */
@@ -169,4 +178,8 @@ export interface IInitOptions {
   sandboxSnapshotId?: string;
   /** Name reported to the underlying Robota agent config. Defaults to 'agent'. */
   agentName?: string;
+  /** Additional tools registered alongside the default CLI tools. */
+  additionalTools?: IToolWithEventService[];
+  /** Request structured output from the provider for this session. */
+  responseFormat?: { type: 'text' | 'json_object' };
 }

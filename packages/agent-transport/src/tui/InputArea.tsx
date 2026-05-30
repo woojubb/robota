@@ -1,8 +1,8 @@
-import { Box, Text, useInput, useWindowSize } from 'ink';
 import React, { useState, useCallback, useRef, useMemo } from 'react';
 
 const PENDING_PROMPT_DISPLAY_MAX = 50;
 const PENDING_PROMPT_TAIL_KEEP = 47;
+import { Box, Text, useInput, useWindowSize } from 'ink';
 
 import CjkTextInput from './CjkTextInput.js';
 import { resolveCommandInteraction } from './command-interaction-registry.js';

@@ -1,9 +1,6 @@
----
-title: 'ARCH-002-p20: Eliminate agent-cli subagents/index.ts pass-through barrel'
-status: done
----
-
 # ARCH-002-p20: Eliminate agent-cli subagents/index.ts pass-through barrel
+
+## Status: done
 
 ## Problem
 

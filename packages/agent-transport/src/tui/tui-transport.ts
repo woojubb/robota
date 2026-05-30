@@ -1,4 +1,4 @@
-import { renderApp, type ITuiRenderOptions } from './render.js';
+import { renderApp, type IRenderOptions } from './render.js';
 
 import type { TUniversalValue } from '@robota-sdk/agent-core';
 import type { IInteractiveSession } from '@robota-sdk/agent-framework';
@@ -9,9 +9,9 @@ export class TuiTransport implements IConfigurableTransport<IInteractiveSession>
   readonly defaultEnabled = true;
   readonly optionsSchema = {};
 
-  private readonly options: ITuiRenderOptions;
+  private readonly options: IRenderOptions;
 
-  constructor(options: ITuiRenderOptions) {
+  constructor(options: IRenderOptions) {
     this.options = options;
   }
 

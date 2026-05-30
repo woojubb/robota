@@ -182,7 +182,7 @@ export class SessionExecutionController {
         getSession: () => this.callbacks.getSessionOrThrow(),
         getCwd: () => this.callbacks.getCwd(),
         getHistory: () => this.histTracker.getHistory(),
-        getContextReferences: () => this.histTracker.listContextReferences(),
+        getContextReferences: () => this.histTracker.listInjectionContextReferences(),
         getActiveTools: () => this.activeTools,
         resetUsedMemoryReferences: () => this.histTracker.resetUsedMemoryReferences(),
         recordContextReferenceUsage: (r) => this.histTracker.recordContextReferenceUsage(r),

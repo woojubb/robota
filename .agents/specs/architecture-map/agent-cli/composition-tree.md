@@ -1,116 +1,100 @@
 # Agent CLI Composition Tree
 
-Source-verified against `develop` on 2026-05-18 (merged from `refactor/arch-002-slim-agent-cli`).
+Source-verified against `refactor/arch-002-slim-agent-cli` on 2026-05-17.
 
 This document owns the concrete startup tree from `packages/agent-cli/src/bin.ts` through
 interactive TUI and print-mode composition.
 
-`cli.ts` is a pure composition root (98 lines) — no function definitions, only
+`cli.ts` is a pure composition root (196 lines) — no function definitions, only
 import-and-call. All behavior lives in dedicated startup modules, mode runners, and packages.
 
 ## CLI Composition Tree
 
 ```text
-packages/agent-cli/src/bin.ts  [1-line entry point]
-`- startCli()  (src/cli.ts, 98 lines — pure composition root)
-
-   Layer 0: Pre-flight — all early-exit commands in one place
-   |- parseArgsOrExit()  (utils/cli-args.ts → parseCliArgs)
+packages/agent-cli/src/bin.ts
+`- startCli() from src/cli.ts  [pure composition root]
+   |- parseCliArgs()  (utils/cli-args.ts)
    |- readVersion()  (startup/version.ts)
-   |- handlePreflightCommands(args, { version, terminal })  (startup/preflight.ts)
-   |  `- early exit for --version, --help, reset, etc.
-
-   Layer 1: arg → typed option boundary
-   |- toConfigPhaseOptions(args)  (startup/args-to-options.ts)
-   |- toSessionRunOptions(args)  (startup/args-to-options.ts)
-   |- toUserLocalCommandOptions(args)  (startup/args-to-options.ts)
-   |- toStartupUpdatePolicyOptions(args)  (startup/args-to-options.ts)
-   |- runUserLocalDirectCommandIfRequested(...)  (user-local-direct-command.ts)
-
-   Layer 2: sub-layer assembly (TTY detection + setup factories)
-   |- isTTY = process.stdin.isTTY && process.stdout.isTTY
-   |- createCommandSetup(cwd, options)  (startup/command-setup.ts)
+   |- update-check flags  (checkForCliUpdate from agent-framework)
+   |- resetConfig()  (startup/reset-config.ts)
+   |- runUserLocalDirectCommandIfRequested()  (user-local-direct-command.ts)
+   |- buildCommandSetup()  (startup/command-setup.ts)
    |  |- commandHostAdapters
    |  |  |- settings adapter -> agent-framework settings-io
    |  |  `- plugin adapter -> createDefaultPluginCommandAdapter()  (agent-command)
-   |  |- commandModules via createDefaultCommandModules()  (agent-command)
-   |  |  |- createSkillsCommandModule, createHelpCommandModule
-   |  |  |- createAgentCommandModule, createModelCommandModule
-   |  |  |- createPermissionsCommandModule, createLanguageCommandModule
-   |  |  |- createBackgroundCommandModule, createMemoryCommandModule
-   |  |  |- createUserLocalCommandModule, createCompactCommandModule
-   |  |  |- createContextCommandModule, createExitCommandModule
-   |  |  |- createSessionCommandModule, createResetCommandModule
-   |  |  |- createRewindCommandModule, createStatusLineCommandModule
-   |  |  |- createPluginCommandModule
+   |  |- providerDefinitions = DEFAULT_PROVIDER_DEFINITIONS  (utils/provider-default-definitions.ts)
+   |  |  |- agent-provider-anthropic
+   |  |  |- agent-provider-openai
+   |  |  |- agent-provider-gemini
+   |  |  |- agent-provider-gemma
+   |  |  |- agent-provider-qwen
+   |  |  `- agent-provider-deepseek
+   |  |- commandModules (via createDefaultCommandModules() from agent-command)
+   |  |  |- createSkillsCommandModule({ cwd })
+   |  |  |- createHelpCommandModule()
+   |  |  |- createAgentCommandModule()
+   |  |  |- createModelCommandModule({ providerDefinitions })
+   |  |  |- createPermissionsCommandModule()
+   |  |  |- createLanguageCommandModule()
+   |  |  |- createBackgroundCommandModule()
+   |  |  |- createMemoryCommandModule()
+   |  |  |- createUserLocalCommandModule()
+   |  |  |- createCompactCommandModule()
+   |  |  |- createContextCommandModule()
+   |  |  |- createExitCommandModule()
+   |  |  |- createSessionCommandModule()
+   |  |  |- createResetCommandModule()
+   |  |  |- createRewindCommandModule()
+   |  |  |- createStatusLineCommandModule()
+   |  |  |- createPluginCommandModule()
    |  |  |- createProviderCommandModule({ providerDefinitions, settings adapter })
    |  |  `- options.commandModules (injected extras)
-   |  `- reloadPluginCommandSource  (agent-command)
-   |- handleConfigPhase(cwd, configPhaseOpts, commandSetup, terminal, isTTY)  (startup/config-phase.ts)
-   |  `- early exit if provider setup required
-   |- createProviderSetup(cwd, configPhaseOpts, commandSetup)  (startup/provider-setup.ts)
-   |  |- createProviderFromSettings(cwd, model, opts)  (agent-framework)
-   |  `- createSubagentSetup(...)  (startup/subagent-setup.ts)
-   |     `- subagentRunnerFactory from agent-subagent-runner (opt-in)
-   `- createSessionSetup(cwd, sessionOpts)  (startup/session-setup.ts)
-      `- sessionStore = createProjectSessionStore(cwd)  (agent-framework)
-
-   Layer 3: runtime assembly
-   |- createAgentRuntime({ cwd, provider, commandModules, commandHostAdapters,
-   |    reloadPluginCommandSource, subagentRunnerFactory, sessionStore,
-   |    transportRegistry })  (agent-framework)
-   |  `- createDefaultBackgroundTaskRunners()  (agent-executor, called internally)
-   `- createDefaultTransportRegistry()  (agent-transport)
-
-   Layer 4: mode / transport dispatch
-   |- if -p / --print mode
-   |  `- runPrintMode(sessionOpts, runtime)  (modes/print-mode.ts)
-   |     |- session = runtime.createSession({ ... })  (IAgentRuntime.createSession)
+   |  `- startupUpdateNoticePromise (getStartupCliUpdateNotice from agent-framework)
+   |- runInteractiveProviderSetup() / handleProviderConfigurationArgs() / ensureConfig()
+   |- readProviderSettings() and createProviderFromSettings()  (agent-framework)
+   |- createDefaultBackgroundTaskRunners()  (agent-executor)
+   |- createChildProcessSubagentRunnerFactory()  (agent-subagent-runner)
+   |  `- workerPath = getDefaultSubagentWorkerPath()  (agent-subagent-runner)
+   |- createProjectSessionStore(cwd)  (agent-framework)
+   |- if -p print mode
+   |  `- runPrintMode()  (modes/print-mode.ts)
+   |     |- new InteractiveSession({ cwd, provider, commandModules, commandHostAdapters, ... })
    |     |- createHeadlessTransport({ outputFormat, prompt })  (agent-transport/headless)
    |     |- session.attachTransport(transport)
    |     `- transport.start(); session.shutdown()
-   `- otherwise interactive TUI mode
-      `- runTuiMode({ runtime, version, commandSetup, providerSetup,
-           sessionSetup, sessionOpts, startupUpdateNotice })  (modes/tui-mode.ts)
-         |- cliAdapter = createDefaultTuiCliAdapter(...)  (agent-transport/tui)
-         `- new TuiTransport(options: ITuiRenderOptions)  (agent-transport/tui)
-            `- tuiTransport.start() -> renderApp(options)  (agent-transport/tui/render.tsx)
-               `- App.tsx  (agent-transport/tui)
-                  |- <TuiCliAdapterProvider value={cliAdapter}>  (tui-cli-adapter-context.tsx)
-                  |- usePluginCallbacks(cwd)  (hooks/usePluginCallbacks.ts)
-                  |- useStatusLineSettings()  (hooks/useStatusLineSettings.ts)
-                  |- useInteractiveSession(runtime, ...)  (hooks/use-interactive-session.ts)
-                  |  `- initializeSession(runtime, ...)  (hooks/use-interactive-session-init.ts)
-                  |     |- new InteractiveSession({ ... })  (agent-framework)
-                  |     |- CommandRegistry  (agent-framework)
-                  |     |- CommandEffectQueue  (tui/hooks/command-effect-queue.ts)
-                  |     |- register injected command modules
-                  |     |- PluginCommandSource reload
-                  |     `- TuiStateManager event bridge
-                  |        |- framework skill_activation -> MessageList system event
-                  |        `- framework execution_workspace_event -> workspace render state
-                  |- useSlashRouting()
-                  |  |- non-slash input -> interactiveSession.submit()
-                  |  `- slash input -> interactiveSession.executeCommand()
-                  |- useSideEffects()
-                  |  |- render generic ICommandInteraction prompts via ITuiCliAdapter
-                  |  `- apply typed TCommandEffect values
-                  |- <UpdateNotice>  (UpdateNotice.tsx)
-                  |- <StreamingIndicator>  (StreamingIndicator.tsx)
-                  |- <TransportTUI>  (TransportTUI.tsx) [conditional]
-                  |- <SessionStatusBar>  (SessionStatusBar.tsx)
-                  |  `- <StatusBar>  (StatusBar.tsx) [inside SessionStatusBar]
-                  |- <InputArea>  (InputArea.tsx)
-                  |  `- <SlashAutocomplete>  [inside InputArea]
-                  `- Ink renderers (main content area)
-                     |- <MessageList>
-                     |- <ExecutionWorkspaceSwitcher> / <ExecutionWorkspaceDetailPane>
-                     |- <BackgroundTaskPanel>
-                     |- <PermissionPrompt>
-                     |- <InteractivePrompt>
-                     |- <ConfirmPrompt>
-                     |- <PluginTUI>
-                     `- <SessionPicker>
+   `- otherwise interactive mode
+      |- new TuiTransport({ cwd, provider, ..., transportRegistry, cliAdapter })
+      |  |- transportRegistry = createDefaultTransportRegistry()  (agent-transport)
+      |  `- cliAdapter = createDefaultTuiCliAdapter({ providerDefinitions, reloadPluginCommandSource })  (agent-transport/tui)
+      |     `- reloadPluginCommandSource  (agent-command)
+      `- tuiTransport.start() -> renderApp()  (agent-transport/tui)
+         `- App.tsx  (agent-transport/tui)
+            |- useInteractiveSession()
+            |  |- new InteractiveSession({ cwd, provider, commandModules, commandHostAdapters, ... })
+            |  |- CommandRegistry
+            |  |- CommandEffectQueue
+            |  |- register injected command modules
+            |  |- PluginCommandSource reload
+            |  `- TuiStateManager event bridge
+            |     |- SDK skill_activation -> MessageList system event
+            |     `- SDK execution_workspace_event -> workspace snapshot render state
+            |- useSlashRouting()
+            |  |- non-slash input -> interactiveSession.submit()
+            |  `- slash input -> interactiveSession.executeCommand()
+            |- useSideEffects()
+            |  |- render generic ICommandInteraction prompts via ITuiCliAdapter
+            |  `- apply typed TCommandEffect values
+            `- Ink renderers
+               |- MessageList
+               |- InputArea
+               |- ExecutionWorkspaceSwitcher / ExecutionWorkspaceDetailPane
+               |- BackgroundTaskPanel
+               |- SessionStatusBar / StatusBar
+               |- PermissionPrompt
+               |- InteractivePrompt
+               |- ConfirmPrompt
+               |- PluginTUI
+               `- SessionPicker
 ```
 
 ## Package name map (old → current)

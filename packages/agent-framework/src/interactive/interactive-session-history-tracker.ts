@@ -9,6 +9,7 @@ import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-co
 
 import {
   addInteractiveContextReference,
+  createSystemContextReferenceItems,
   recordInteractiveContextReferences,
 } from './interactive-session-context-references.js';
 import { EditCheckpointStore } from '../checkpoints/edit-checkpoint-store.js';
@@ -24,6 +25,7 @@ import type {
   IEditCheckpointSummary,
 } from '../checkpoints/edit-checkpoint-types.js';
 import type { ISkillActivationEvent } from '../commands/skill-activation-events.js';
+import type { IContextFileEntry } from '../context/context-file-tracker.js';
 import type {
   IContextReferenceAddResult,
   IContextReferenceClearResult,
@@ -48,6 +50,7 @@ export class SessionHistoryTracker {
   private memoryEvents: IMemoryEvent[] = [];
   private usedMemoryReferences: IMemoryReference[] = [];
   private contextReferences: IContextReferenceItem[] = [];
+  private systemContextReferences: IContextReferenceItem[] = [];
   private skillActivationEvents: ISkillActivationEvent[] = [];
 
   constructor(
@@ -184,7 +187,15 @@ export class SessionHistoryTracker {
     this.persistSession();
   }
 
+  recordSystemContextFiles(entries: readonly IContextFileEntry[]): void {
+    this.systemContextReferences = createSystemContextReferenceItems(entries, this.cwd);
+  }
+
   listContextReferences(): IContextReferenceItem[] {
+    return [...this.systemContextReferences, ...this.contextReferences];
+  }
+
+  listInjectionContextReferences(): IContextReferenceItem[] {
     return [...this.contextReferences];
   }
 

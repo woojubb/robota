@@ -1,14 +1,14 @@
 import { formatSupportedProviderTypes, type IProviderDefinition } from '@robota-sdk/agent-core';
-import type { IConfigPhaseOptions } from './args-to-options.js';
+import type { IParsedCliArgs } from '../utils/cli-args.js';
 import {
   applyProviderConfiguration,
   applyProviderSwitch,
-  checkSettingsDocument,
   readMergedProviderSettings,
   resolveProviderSettingsWriteTargetPath,
   resolveSettingsPathForScope,
 } from '@robota-sdk/agent-framework';
 import type { TSettingsScope } from '@robota-sdk/agent-framework';
+import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider';
 import { type IProviderSetupInput } from '@robota-sdk/agent-framework';
 import {
   ensureProviderConfig,
@@ -16,24 +16,6 @@ import {
   type TPromptInput,
 } from '@robota-sdk/agent-command';
 import type { ITerminalOutput } from '@robota-sdk/agent-core';
-
-interface IEnvProviderCandidate {
-  env: string;
-  type: string;
-  model: string;
-}
-
-const ENV_PROVIDER_CANDIDATES: IEnvProviderCandidate[] = [
-  { env: 'ANTHROPIC_API_KEY', type: 'anthropic', model: 'claude-sonnet-4-6' },
-  { env: 'OPENAI_API_KEY', type: 'openai', model: 'gpt-4o' },
-  { env: 'GEMINI_API_KEY', type: 'gemini', model: 'gemini-3-flash-preview' },
-  { env: 'DEEPSEEK_API_KEY', type: 'deepseek', model: 'deepseek-v4-flash' },
-  { env: 'DASHSCOPE_API_KEY', type: 'qwen', model: 'qwen-plus' },
-];
-
-function detectEnvProvider(): IEnvProviderCandidate | undefined {
-  return ENV_PROVIDER_CANDIDATES.find((c) => process.env[c.env] !== undefined);
-}
 
 function validateSettingsScope(scope: string | undefined): TSettingsScope | undefined {
   if (scope === undefined || scope === 'user' || scope === 'project-local') {
@@ -44,112 +26,88 @@ function validateSettingsScope(scope: string | undefined): TSettingsScope | unde
 
 export function handleProviderConfigurationArgs(
   cwd: string,
-  opts: IConfigPhaseOptions,
+  args: IParsedCliArgs,
   terminal: ITerminalOutput,
-  providerDefinitions: readonly IProviderDefinition[],
+  providerDefinitions: readonly IProviderDefinition[] = createDefaultProviderDefinitions(),
 ): boolean {
-  const settingsPath = resolveSettingsPathForScope(cwd, validateSettingsScope(opts.settingsScope));
-  if (opts.configureProvider) {
-    applyProviderConfiguration(settingsPath, buildSetupInputFromOptions(opts), {
+  const settingsPath = resolveSettingsPathForScope(cwd, validateSettingsScope(args.settingsScope));
+  if (args.configureProvider) {
+    applyProviderConfiguration(settingsPath, buildSetupInputFromArgs(args), {
       providerDefinitions,
     });
     terminal.writeLine(`Provider profile saved to ${settingsPath}`);
-    return !opts.printMode && opts.positional.length === 0;
+    return !args.printMode && args.positional.length === 0;
   }
-  if (opts.provider && opts.setCurrent) {
+  if (args.provider && args.setCurrent) {
     const switchSettingsPath =
-      opts.settingsScope === undefined ? resolveProviderSettingsWriteTargetPath(cwd) : settingsPath;
-    applyProviderSwitch(switchSettingsPath, opts.provider, {
+      args.settingsScope === undefined ? resolveProviderSettingsWriteTargetPath(cwd) : settingsPath;
+    applyProviderSwitch(switchSettingsPath, args.provider, {
       knownProviders: readMergedProviderSettings(cwd).providers,
     });
-    terminal.writeLine(`Current provider set to ${opts.provider}`);
-    return !opts.printMode && opts.positional.length === 0;
+    terminal.writeLine(`Current provider set to ${args.provider}`);
+    return !args.printMode && args.positional.length === 0;
   }
   return false;
 }
 
 export async function ensureConfig(
   cwd: string,
-  opts: IConfigPhaseOptions,
+  args: IParsedCliArgs,
   promptInput: TPromptInput,
   terminal: ITerminalOutput,
-  providerDefinitions: readonly IProviderDefinition[],
-  isInteractive: boolean,
+  providerDefinitions: readonly IProviderDefinition[] = createDefaultProviderDefinitions(),
+  isInteractive?: boolean,
 ): Promise<void> {
-  const merged = readMergedProviderSettings(cwd);
-  const selectedSettings =
-    opts.provider !== undefined ? { ...merged, currentProvider: opts.provider } : merged;
-
-  if (checkSettingsDocument(selectedSettings, providerDefinitions) === 'valid') {
-    return;
-  }
-
-  const envCandidate = detectEnvProvider();
-  if (envCandidate !== undefined) {
-    const settingsPath = resolveSettingsPathForScope(cwd, 'user');
-    applyProviderConfiguration(
-      settingsPath,
-      {
-        profile: envCandidate.model,
-        type: envCandidate.type,
-        model: envCandidate.model,
-        apiKeyEnv: envCandidate.env,
-        setCurrent: true,
-      },
-      { providerDefinitions },
-    );
-    terminal.writeLine(
-      `  Auto-configured provider: ${envCandidate.type} (via ${envCandidate.env})`,
-    );
-    return;
-  }
-
   await ensureProviderConfig(
     cwd,
-    { provider: opts.provider, settingsScope: validateSettingsScope(opts.settingsScope) },
+    { provider: args.provider, settingsScope: validateSettingsScope(args.settingsScope) },
     promptInput,
     terminal,
     providerDefinitions,
     {
       formatError: formatMissingProviderConfigMessage,
-      isInteractive: () => isInteractive,
+      isInteractive:
+        isInteractive !== undefined
+          ? () => isInteractive
+          : () => process.stdin.isTTY === true && process.stdout.isTTY === true,
     },
   );
 }
 
 export async function runInteractiveProviderSetup(
   cwd: string,
-  opts: IConfigPhaseOptions,
+  args: IParsedCliArgs,
   promptInput: TPromptInput,
   terminal: ITerminalOutput,
-  providerDefinitions: readonly IProviderDefinition[],
+  providerDefinitions: readonly IProviderDefinition[] = createDefaultProviderDefinitions(),
 ): Promise<void> {
   await runProviderStartupSetup(
     cwd,
-    { settingsScope: validateSettingsScope(opts.settingsScope) },
+    { settingsScope: validateSettingsScope(args.settingsScope) },
     promptInput,
     terminal,
     providerDefinitions,
   );
 }
 
-function buildSetupInputFromOptions(opts: IConfigPhaseOptions): IProviderSetupInput {
-  const type = opts.providerType ?? opts.configureProvider;
-  if (!opts.configureProvider || !type) {
+function buildSetupInputFromArgs(args: IParsedCliArgs): IProviderSetupInput {
+  const type = args.providerType ?? args.configureProvider;
+  if (!args.configureProvider || !type) {
     throw new Error('--configure-provider requires a provider profile and --type');
   }
   return {
-    profile: opts.configureProvider,
+    profile: args.configureProvider,
     type,
-    ...(opts.apiKey !== undefined && { apiKey: opts.apiKey }),
-    ...(opts.apiKeyEnv !== undefined && { apiKeyEnv: opts.apiKeyEnv }),
-    ...(opts.baseURL !== undefined && { baseURL: opts.baseURL }),
-    setCurrent: opts.setCurrent,
+    ...(args.model !== undefined && { model: args.model }),
+    ...(args.apiKey !== undefined && { apiKey: args.apiKey }),
+    ...(args.apiKeyEnv !== undefined && { apiKeyEnv: args.apiKeyEnv }),
+    ...(args.baseURL !== undefined && { baseURL: args.baseURL }),
+    setCurrent: args.setCurrent,
   };
 }
 
 export function formatMissingProviderConfigMessage(
-  providerDefinitions: readonly IProviderDefinition[],
+  providerDefinitions: readonly IProviderDefinition[] = createDefaultProviderDefinitions(),
 ): string {
   return [
     'No provider configuration found.',
@@ -164,6 +122,7 @@ function formatConfigureProviderExample(definition: IProviderDefinition): string
     `robota --configure-provider ${definition.type}`,
     `--type ${definition.type}`,
     ...(definition.defaults?.baseURL !== undefined ? ['--base-url <url>'] : []),
+    '--model <model>',
     ...(definition.requiresApiKey === true ? ['--api-key-env <ENV_NAME>'] : []),
     '--set-current',
   ];

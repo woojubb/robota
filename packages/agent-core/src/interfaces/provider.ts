@@ -200,6 +200,8 @@ export interface IChatOptions extends IProviderSpecificOptions {
   signal?: AbortSignal;
   /** Provider-native hosted web tools requested for this call */
   nativeWebTools?: IProviderNativeWebToolRequest;
+  /** Request structured output from the provider. */
+  responseFormat?: { type: 'text' | 'json_object' };
 }
 
 /**

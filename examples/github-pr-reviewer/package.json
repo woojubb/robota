@@ -1,0 +1,21 @@
+{
+  "name": "github-pr-reviewer-example",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "review": "tsx src/review.ts",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@octokit/rest": "^20.1.1",
+    "@robota-sdk/agent-framework": "^3.0.0-beta.67",
+    "@robota-sdk/agent-provider": "^3.0.0-beta.67",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}

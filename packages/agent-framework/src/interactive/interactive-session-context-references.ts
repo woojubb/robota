@@ -1,3 +1,5 @@
+import { relative } from 'node:path';
+
 import {
   createContextReferenceItem,
   upsertContextReference,
@@ -9,6 +11,7 @@ import {
   toPromptFileReferenceRecords,
 } from '../context/prompt-file-references.js';
 
+import type { IContextFileEntry } from '../context/context-file-tracker.js';
 import type {
   IContextReferenceAddResult,
   IContextReferenceItem,
@@ -76,4 +79,25 @@ export function recordInteractiveContextReferences(
     next = upsertContextReference(next, item).references;
   }
   return next;
+}
+
+export function createSystemContextReferenceItems(
+  entries: readonly IContextFileEntry[],
+  cwd: string,
+): IContextReferenceItem[] {
+  const now = new Date().toISOString();
+  return entries.map((entry) => {
+    const relativePath = relative(cwd, entry.filePath);
+    return {
+      id: `system:${relativePath}`,
+      sourcePath: entry.filePath,
+      relativePath,
+      originalReference: relativePath,
+      loadType: 'system' as const,
+      status: 'active' as const,
+      byteLength: Buffer.byteLength(entry.content, 'utf-8'),
+      loadedAt: now,
+      lastUsedAt: now,
+    };
+  });
 }

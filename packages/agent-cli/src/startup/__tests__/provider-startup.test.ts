@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { rmSync, readFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
-import type { IConfigPhaseOptions } from '../args-to-options.js';
+import type { IParsedCliArgs } from '../../utils/cli-args.js';
 import {
   ensureConfig,
   formatMissingProviderConfigMessage,
@@ -123,19 +123,46 @@ const providerDefinitions: readonly IProviderDefinition[] = [
   },
 ];
 
-function baseArgs(): IConfigPhaseOptions {
+function baseArgs(): IParsedCliArgs {
   return {
-    configure: false,
     positional: [],
+    help: false,
     printMode: false,
-    provider: undefined,
-    settingsScope: undefined,
+    continueMode: false,
+    resumeId: undefined,
+    language: undefined,
+    permissionMode: undefined,
+    maxTurns: undefined,
+    forkSession: false,
+    sessionName: undefined,
+    outputFormat: undefined,
+    format: undefined,
+    summary: undefined,
+    source: undefined,
+    systemPrompt: undefined,
+    appendSystemPrompt: undefined,
+    taskFile: undefined,
+    version: false,
+    reset: false,
+    bare: false,
+    allowedTools: undefined,
+    deniedTools: undefined,
+    model: undefined,
+    noSessionPersistence: false,
+    jsonSchema: undefined,
+    configure: false,
     configureProvider: undefined,
+    provider: undefined,
     providerType: undefined,
+    baseURL: undefined,
     apiKey: undefined,
     apiKeyEnv: undefined,
-    baseURL: undefined,
     setCurrent: false,
+    settingsScope: undefined,
+    checkUpdate: false,
+    disableUpdateCheck: false,
+    dryRun: false,
+    yes: false,
   };
 }
 
@@ -415,7 +442,7 @@ describe('provider startup', () => {
 
     expect(message).toContain('Supported providers: anthropic, openai, qwen');
     expect(message).toContain(
-      'robota --configure-provider qwen --type qwen --base-url <url> --api-key-env <ENV_NAME> --set-current',
+      'robota --configure-provider qwen --type qwen --base-url <url> --model <model> --api-key-env <ENV_NAME> --set-current',
     );
     expect(message).not.toContain('supergemma4-26b-uncensored-v2');
   });

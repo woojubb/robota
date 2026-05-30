@@ -1,9 +1,6 @@
----
-title: 'ARCH-002-p19: Move DEFAULT_PROVIDER_DEFINITIONS to agent-provider'
-status: done
----
-
 # ARCH-002-p19: Move DEFAULT_PROVIDER_DEFINITIONS to agent-provider
+
+## Status: done
 
 ## Problem
 
