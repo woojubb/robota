@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type {
   ICommandHostContext,
   IContextReferenceAddResult,
@@ -57,7 +58,10 @@ const SYSTEM_REFERENCE: IContextReferenceItem = {
   lastUsedAt: '2026-05-05T00:00:00.000Z',
 };
 
-function createRuntime(state: { threshold: number | false }): ICommandSessionRuntime {
+function createRuntime(
+  state: { threshold: number | false },
+  history: IHistoryEntry[] = [],
+): ICommandSessionRuntime {
   let mode: TPermissionMode = 'default';
   return {
     clearHistory: vi.fn(),
@@ -71,6 +75,7 @@ function createRuntime(state: { threshold: number | false }): ICommandSessionRun
     getMessageCount: () => 1,
     getSessionAllowedTools: () => [],
     getAutoCompactThreshold: () => state.threshold,
+    getFullHistory: () => history,
     setAutoCompactThreshold: (threshold) => {
       state.threshold = threshold;
     },
@@ -329,12 +334,17 @@ describe('createContextCommandModule', () => {
     expect(result?.message).toContain('References: 2 active, 0 observed');
   });
 
-  it('shows no context references message when only system refs are absent', async () => {
+  it('shows full context breakdown with empty sections when no references', async () => {
     const context = createCommandHostContext();
 
     const result = await createExecutor().execute('context', context, 'list');
 
     expect(result?.success).toBe(true);
-    expect(result?.message).toBe('No context references.');
+    expect(result?.message).toContain('System prompt (active every turn):');
+    expect(result?.message).toContain('Conversation history — 0 turns:');
+    expect(result?.message).toContain('Manually added:');
+    expect(result?.message).toContain('Prompt references (@-syntax):');
+    // All sections empty
+    expect(result?.message).not.toContain('~');
   });
 });
