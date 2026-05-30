@@ -290,10 +290,17 @@ function formatContextReferenceList(references: readonly IContextReferenceItem[]
   };
 }
 
+// 1 token ≈ 4 chars — same approximation used across the codebase (limits-helpers.ts)
+const CHARS_PER_TOKEN = 4;
+
+function estimateTokens(byteLength: number): number {
+  return Math.ceil(byteLength / CHARS_PER_TOKEN);
+}
+
 function formatContextReferenceLine(reference: IContextReferenceItem): string {
   return [
     reference.relativePath,
     `[${reference.loadType}, ${reference.status}]`,
-    `${reference.byteLength.toLocaleString()} B`,
+    `~${estimateTokens(reference.byteLength).toLocaleString()} tokens`,
   ].join(' ');
 }

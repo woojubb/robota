@@ -202,9 +202,9 @@ describe('createContextCommandModule', () => {
     const result = await createExecutor().execute('context', context, 'list');
 
     expect(result?.success).toBe(true);
-    expect(result?.message).toContain('AGENTS.md [manual, active] 42 B');
+    expect(result?.message).toContain('AGENTS.md [manual, active] ~11 tokens');
     expect(result?.message).toContain(
-      'packages/agent-sdk/docs/SPEC.md [prompt-reference, observed] 200 B',
+      'packages/agent-sdk/docs/SPEC.md [prompt-reference, observed] ~50 tokens',
     );
     expect(result?.data?.references).toEqual([MANUAL_REFERENCE, PROMPT_REFERENCE]);
   });
@@ -215,7 +215,9 @@ describe('createContextCommandModule', () => {
     const result = await createExecutor().execute('context', context, 'add AGENTS.md');
 
     expect(result?.success).toBe(true);
-    expect(result?.message).toContain('Context reference added: AGENTS.md [manual, active] 42 B.');
+    expect(result?.message).toContain(
+      'Context reference added: AGENTS.md [manual, active] ~11 tokens.',
+    );
     expect(context.references[0]?.relativePath).toBe('AGENTS.md');
   });
 
@@ -226,7 +228,9 @@ describe('createContextCommandModule', () => {
     const result = await createExecutor().execute('context', context, 'remove AGENTS.md');
 
     expect(result?.success).toBe(true);
-    expect(result?.message).toBe('Context reference removed: AGENTS.md [manual, active] 42 B.');
+    expect(result?.message).toBe(
+      'Context reference removed: AGENTS.md [manual, active] ~11 tokens.',
+    );
     expect(context.references).toEqual([]);
   });
 
@@ -311,7 +315,7 @@ describe('createContextCommandModule', () => {
     const result = await createExecutor().execute('context', context, 'list');
 
     expect(result?.success).toBe(true);
-    expect(result?.message).toContain('AGENTS.md [system, active] 1,024 B');
+    expect(result?.message).toContain('AGENTS.md [system, active] ~256 tokens');
     expect(result?.data?.references).toEqual([SYSTEM_REFERENCE]);
   });
 
