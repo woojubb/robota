@@ -1,7 +1,8 @@
 ---
 title: 'ARCH-003-p6: Wire agent-cli composition root'
-status: todo
+status: done
 created: 2026-05-30
+completed: 2026-05-31
 priority: high
 urgency: soon
 area: packages/agent-cli
