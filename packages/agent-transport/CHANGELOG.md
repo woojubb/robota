@@ -1,5 +1,25 @@
 # @robota-sdk/agent-transport
 
+## 3.0.0-beta.69
+
+### Patch Changes
+
+- Updated dependencies
+  - @robota-sdk/agent-framework@3.0.0-beta.69
+  - @robota-sdk/agent-core@3.0.0-beta.69
+  - @robota-sdk/agent-interface-transport@3.0.0-beta.69
+  - @robota-sdk/agent-interface-tui@3.0.0-beta.69
+
+## 3.0.0-beta.68
+
+### Patch Changes
+
+- Wrap Korean IME spacer in Box position=absolute to reduce terminal cursor offset by 1 row, moving the IME candidate window closer to the input area.
+  - @robota-sdk/agent-core@3.0.0-beta.68
+  - @robota-sdk/agent-framework@3.0.0-beta.68
+  - @robota-sdk/agent-interface-transport@3.0.0-beta.68
+  - @robota-sdk/agent-interface-tui@3.0.0-beta.68
+
 ## 3.0.0-beta.67
 
 ### Patch Changes

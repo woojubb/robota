@@ -1,5 +1,9 @@
 # @robota-sdk/agent-interface-tui
 
+## 3.0.0-beta.69
+
+## 3.0.0-beta.68
+
 ## 3.0.0-beta.67
 
 ### Patch Changes

@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-cli",
-  "version": "3.0.0-beta.67",
+  "version": "3.0.0-beta.69",
   "description": "AI coding assistant CLI built on Robota SDK",
   "type": "module",
   "bin": {
@@ -76,6 +76,23 @@
     "typescript": "^5.3.3",
     "vitest": "^1.6.1"
   },
+  "keywords": [
+    "ai",
+    "cli",
+    "coding-assistant",
+    "agent",
+    "llm",
+    "anthropic",
+    "openai",
+    "claude",
+    "typescript",
+    "developer-tools",
+    "terminal",
+    "automation",
+    "multi-provider",
+    "robota",
+    "open-source"
+  ],
   "license": "MIT",
   "publishConfig": {
     "access": "public"

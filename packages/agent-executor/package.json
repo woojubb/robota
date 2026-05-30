@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-executor",
-  "version": "3.0.0-beta.67",
+  "version": "3.0.0-beta.69",
   "description": "Composable runtime primitives for Robota background tasks and subagent orchestration",
   "type": "module",
   "main": "dist/node/index.js",
@@ -70,5 +70,6 @@
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org/"
-  }
+  },
+  "private": true
 }

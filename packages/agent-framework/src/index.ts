@@ -34,7 +34,7 @@ export type {
 
 // ── createQuery() factory (convenience API) ─────────────────
 export { createQuery } from './query.js';
-export type { ICreateQueryOptions } from './query.js';
+export type { ICreateQueryOptions, TQueryFunction } from './query.js';
 
 // ── Command system (managed by InteractiveSession) ──────────
 export {
@@ -641,11 +641,12 @@ export type {
 } from './update-check/update-check.js';
 
 // ── Agent runtime ─────────────────────────────────────────────
-export { createAgentRuntime } from './runtime/index.js';
+export { createAgentRuntime, createStatelessRuntime } from './runtime/index.js';
 export type {
   IAgentRuntimeConfig,
   IAgentRuntime,
   IHeadlessSessionOptions,
+  IStatelessRuntimeConfig,
 } from './runtime/index.js';
 export type { IResolvedConfig } from './config/config-types.js';
 
