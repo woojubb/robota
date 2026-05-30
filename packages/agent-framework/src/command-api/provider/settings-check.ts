@@ -1,5 +1,4 @@
 import { existsSync, readFileSync } from 'node:fs';
-
 import {
   findProviderDefinition,
   getProviderCredentialRequirement,

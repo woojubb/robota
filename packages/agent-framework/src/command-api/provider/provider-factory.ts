@@ -1,10 +1,8 @@
-import { createProviderFromConfig } from '@robota-sdk/agent-executor';
-
-import { readMergedProviderSettingsFromPaths, resolveActiveProvider } from './provider-merge.js';
-import { getProviderSettingsPaths } from '../../config/provider-paths.js';
-
-import type { TProviderSettingsDocument } from './provider-settings.js';
 import type { IAIProvider, IProviderConfig, IProviderDefinition } from '@robota-sdk/agent-core';
+import { createProviderFromConfig } from '@robota-sdk/agent-executor';
+import { getProviderSettingsPaths } from '../../config/provider-paths.js';
+import { readMergedProviderSettingsFromPaths, resolveActiveProvider } from './provider-merge.js';
+import type { TProviderSettingsDocument } from './provider-settings.js';
 
 export interface IReadProviderSettingsOptions {
   providerOverride?: string;
