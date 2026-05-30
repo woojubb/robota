@@ -1,12 +1,8 @@
 ---
 title: 'CORE-002: IHeadlessSessionOptions에 additionalTools 노출 — 임베디드 커스텀 도구'
-<<<<<<< HEAD
 status: done
 done_at: 2026-05-25
 pr: '610'
-=======
-status: todo
->>>>>>> origin/main
 created: 2026-05-25
 priority: critical
 urgency: soon
