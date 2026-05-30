@@ -1,6 +1,7 @@
 ---
 title: 'TOOL-002: assignTask 완전 제거 — 코드·문서·테스트 모든 흔적 삭제'
-status: todo
+status: done
+done_at: 2026-05-31
 created: 2026-05-20
 priority: high
 urgency: soon

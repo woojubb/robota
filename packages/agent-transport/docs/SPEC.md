@@ -74,10 +74,19 @@ src/
     mcp-server.ts            ← createAgentMcpServer
     mcp-transport.ts         ← createMcpTransport
     index.ts
+  headless/
+    HeadlessInteractionChannel.ts ← HeadlessInteractionChannel (owns session + runner)
+    headless-transport.ts    ← createHeadlessTransport (legacy ITransportAdapter wrapper)
+    headless-runner.ts       ← createHeadlessRunner (text/json/stream-json modes)
+    headless-stream-json.ts  ← stream-json event subscription helpers
+    print-terminal.ts        ← PrintTerminal utility
+    cli-input.ts             ← promptInput utility
+    index.ts
   tui/
-    render.tsx               ← renderApp, ITuiRenderOptions (Ink entry point)
+    render.tsx               ← renderApp, IRenderOptions (Ink entry point)
     App.tsx                  ← App / AppInner root React component (IProps)
-    tui-transport.ts         ← TuiTransport (IConfigurableTransport)
+    TuiInteractionChannel.ts ← TuiInteractionChannel implements IInteractionChannel
+    tui-transport.ts         ← TuiTransport (IConfigurableTransport, thin wrapper)
     tui-cli-adapter.ts       ← ITuiCliAdapter interface
     create-default-tui-cli-adapter.ts ← createDefaultTuiCliAdapter
     tui-state-manager.ts     ← TuiStateManager (internal)
@@ -85,72 +94,77 @@ src/
     types.ts                 ← TPermissionResult, IPermissionRequest
     command-interaction.ts   ← re-exports from @robota-sdk/agent-interface-tui
     hooks/
-      useInteractiveSession.ts ← useInteractiveSession, IInteractiveSessionProps
+      useTuiChannel.ts       ← useTuiChannel (React → TuiInteractionChannel bridge)
       usePermissionQueue.ts
       useSlashRouting.ts
       useSideEffects.ts
       usePluginCallbacks.ts
       useStatusLineSettings.ts
+    interactions/
+      CommandPicker.tsx      ← Ink picker dialog component
+      CommandConfirm.tsx     ← Ink confirm dialog component
     index.ts
 ```
 
 ### TUI lifecycle
 
-`TuiTransport` is constructed with `ITuiRenderOptions` and registered with `TransportRegistry`. On `start()`, it calls `renderApp()` which mounts the Ink `App` component. `App` delegates session management to the `useInteractiveSession` hook, which creates an `InteractiveSession` (via `agent-framework`) and wires all session events to `TuiStateManager` for re-renders.
+`renderApp()` creates a `TuiInteractionChannel` (which owns `InteractiveSession`, `CommandRegistry`, and `TuiStateManager` creation) and then mounts the Ink `App` component. `App` subscribes to channel state via the `useTuiChannel` hook, which calls `channel.onChange` on each state change. User input is forwarded to `channel.handleInput()`; slash commands that need disambiguation call `channel.requestAction()`, which queues a pick/confirm dialog rendered by `App` and resolved via `channel.resolveAction()`.
 
 ### Headless lifecycle
 
-`createHeadlessTransport(options)` returns an `ITransportAdapter` object. Callers call `attach(session)` then `start()`. `start()` delegates to `createHeadlessRunner` which chooses between `text`, `json`, or `stream-json` output modes. On completion `getExitCode()` returns `0` or `1`.
+`HeadlessInteractionChannel` owns session creation for non-interactive (print) mode. Callers construct `new HeadlessInteractionChannel(options)` and call `await channel.run(prompt)`. The channel creates `InteractiveSession`, runs `createHeadlessRunner`, and awaits completion. `channel.getExitCode()` returns `0` or `1`. The legacy `createHeadlessTransport` wrapper is retained for internal use by `headless-runner`.
 
 ## 4. Type Ownership
 
-| Type                           | Location                                                   | Purpose                                                                                                                           |
-| ------------------------------ | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `ITuiRenderOptions`            | `src/tui/render.tsx`                                       | Options passed to `renderApp()` and consumed by `TuiTransport`; includes `allowedTools` and `deniedTools` for tool-name filtering |
-| `IProps`                       | `src/tui/App.tsx` (internal)                               | React props for the root `App` / `AppInner` components; includes `allowedTools` and `deniedTools`                                 |
-| `IInteractiveSessionProps`     | `src/tui/hooks/useInteractiveSession.ts`                   | Props for the `useInteractiveSession` hook; includes `allowedTools` and `deniedTools`                                             |
-| `IInteractiveSessionState`     | `src/tui/hooks/useInteractiveSession.ts`                   | Return type of `useInteractiveSession`; full reactive TUI state                                                                   |
-| `ITuiCliAdapter`               | `src/tui/tui-cli-adapter.ts`                               | Port interface for CLI-level operations (settings, git, model switching)                                                          |
-| `IDefaultTuiCliAdapterOptions` | `src/tui/create-default-tui-cli-adapter.ts`                | Options for `createDefaultTuiCliAdapter`                                                                                          |
-| `TPermissionResult`            | `src/tui/types.ts`                                         | Union: `boolean \| 'allow-session' \| 'allow-project'`                                                                            |
-| `IPermissionRequest`           | `src/tui/types.ts`                                         | Pending permission request passed to `PermissionPrompt`                                                                           |
-| `IHeadlessTransportOptions`    | `src/headless/headless-transport.ts`                       | Options for `createHeadlessTransport` (`outputFormat`, `prompt`)                                                                  |
-| `IHeadlessRunnerOptions`       | `src/headless/headless-runner.ts`                          | Options for `createHeadlessRunner` (`session`, `outputFormat`)                                                                    |
-| `TOutputFormat`                | `src/headless/headless-runner.ts`                          | `'text' \| 'json' \| 'stream-json'`                                                                                               |
-| `IAgentRoutesOptions`          | `src/http/routes.ts`                                       | Options for `createAgentRoutes`                                                                                                   |
-| `TSessionFactory`              | `src/http/routes.ts`                                       | Factory type for creating sessions in HTTP handlers                                                                               |
-| `IHttpTransportOptions`        | `src/http/http-transport.ts`                               | Options for `createHttpTransport`                                                                                                 |
-| `TClientMessage`               | `src/ws/ws-protocol.ts`                                    | WebSocket client → server message wire type                                                                                       |
-| `TServerMessage`               | `src/ws/ws-protocol.ts`                                    | WebSocket server → client message wire type                                                                                       |
-| `IWsHandlerOptions`            | `src/ws/ws-handler.ts`                                     | Options for `createWsHandler`                                                                                                     |
-| `IWsTransportOptions`          | `src/ws/ws-transport.ts`                                   | Options for `createWsTransport`                                                                                                   |
-| `IWsTransportConfig`           | `src/ws/ws-transport-configurable.ts`                      | Config for the `WsTransport` configurable class                                                                                   |
-| `IAgentMcpOptions`             | `src/mcp/mcp-server.ts`                                    | Options for `createAgentMcpServer`                                                                                                |
-| `IMcpTransportOptions`         | `src/mcp/mcp-transport.ts`                                 | Options for `createMcpTransport`                                                                                                  |
-| `TOnMissingArgsAction`         | re-exported from `@robota-sdk/agent-interface-tui`         | Action when command args are missing                                                                                              |
-| `ITuiPickerItem`               | re-exported from `@robota-sdk/agent-interface-tui`         | Item shape for picker interactions                                                                                                |
-| `ITuiCommandInteraction`       | re-exported from `@robota-sdk/agent-interface-tui`         | Base command interaction type                                                                                                     |
-| `ITuiPickerInteraction`        | re-exported from `@robota-sdk/agent-interface-tui`         | Picker interaction variant                                                                                                        |
-| `ITuiConfirmInteraction`       | re-exported from `@robota-sdk/agent-interface-tui`         | Confirm interaction variant                                                                                                       |
-| `TAnyTuiCommandInteraction`    | re-exported from `@robota-sdk/agent-interface-tui`         | Union of all TUI interaction types                                                                                                |
-| `IExecutionWorkspaceSnapshot`  | re-exported from `@robota-sdk/agent-framework` (via `/ws`) | Snapshot of agent execution workspace                                                                                             |
-| `IExecutionWorkspaceEntry`     | re-exported from `@robota-sdk/agent-framework` (via `/ws`) | Single entry in the execution workspace                                                                                           |
-| `TExecutionWorkspaceStatus`    | re-exported from `@robota-sdk/agent-framework` (via `/ws`) | Status enum for workspace entries                                                                                                 |
-| `TExecutionAttention`          | re-exported from `@robota-sdk/agent-framework` (via `/ws`) | Attention level for workspace entries                                                                                             |
+| Type                                 | Location                                                   | Purpose                                                                  |
+| ------------------------------------ | ---------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `IRenderOptions`                     | `src/tui/render.tsx`                                       | Options passed to `renderApp()`; includes all session + TUI options      |
+| `ITuiInteractionChannelOptions`      | `src/tui/TuiInteractionChannel.ts`                         | Constructor options for `TuiInteractionChannel`                          |
+| `IProps`                             | `src/tui/App.tsx` (internal)                               | React props for the root `App` / `AppInner` components                   |
+| `IHeadlessInteractionChannelOptions` | `src/headless/HeadlessInteractionChannel.ts`               | Constructor options for `HeadlessInteractionChannel`                     |
+| `ITuiCliAdapter`                     | `src/tui/tui-cli-adapter.ts`                               | Port interface for CLI-level operations (settings, git, model switching) |
+| `IDefaultTuiCliAdapterOptions`       | `src/tui/create-default-tui-cli-adapter.ts`                | Options for `createDefaultTuiCliAdapter`                                 |
+| `TPermissionResult`                  | `src/tui/types.ts`                                         | Union: `boolean \| 'allow-session' \| 'allow-project'`                   |
+| `IPermissionRequest`                 | `src/tui/types.ts`                                         | Pending permission request passed to `PermissionPrompt`                  |
+| `IHeadlessTransportOptions`          | `src/headless/headless-transport.ts`                       | Options for `createHeadlessTransport` (`outputFormat`, `prompt`)         |
+| `IHeadlessRunnerOptions`             | `src/headless/headless-runner.ts`                          | Options for `createHeadlessRunner` (`session`, `outputFormat`)           |
+| `TOutputFormat`                      | `src/headless/headless-runner.ts`                          | `'text' \| 'json' \| 'stream-json'`                                      |
+| `IAgentRoutesOptions`                | `src/http/routes.ts`                                       | Options for `createAgentRoutes`                                          |
+| `TSessionFactory`                    | `src/http/routes.ts`                                       | Factory type for creating sessions in HTTP handlers                      |
+| `IHttpTransportOptions`              | `src/http/http-transport.ts`                               | Options for `createHttpTransport`                                        |
+| `TClientMessage`                     | `src/ws/ws-protocol.ts`                                    | WebSocket client → server message wire type                              |
+| `TServerMessage`                     | `src/ws/ws-protocol.ts`                                    | WebSocket server → client message wire type                              |
+| `IWsHandlerOptions`                  | `src/ws/ws-handler.ts`                                     | Options for `createWsHandler`                                            |
+| `IWsTransportOptions`                | `src/ws/ws-transport.ts`                                   | Options for `createWsTransport`                                          |
+| `IWsTransportConfig`                 | `src/ws/ws-transport-configurable.ts`                      | Config for the `WsTransport` configurable class                          |
+| `IAgentMcpOptions`                   | `src/mcp/mcp-server.ts`                                    | Options for `createAgentMcpServer`                                       |
+| `IMcpTransportOptions`               | `src/mcp/mcp-transport.ts`                                 | Options for `createMcpTransport`                                         |
+| `TOnMissingArgsAction`               | re-exported from `@robota-sdk/agent-interface-tui`         | Action when command args are missing                                     |
+| `ITuiPickerItem`                     | re-exported from `@robota-sdk/agent-interface-tui`         | Item shape for picker interactions                                       |
+| `ITuiCommandInteraction`             | re-exported from `@robota-sdk/agent-interface-tui`         | Base command interaction type                                            |
+| `ITuiPickerInteraction`              | re-exported from `@robota-sdk/agent-interface-tui`         | Picker interaction variant                                               |
+| `ITuiConfirmInteraction`             | re-exported from `@robota-sdk/agent-interface-tui`         | Confirm interaction variant                                              |
+| `TAnyTuiCommandInteraction`          | re-exported from `@robota-sdk/agent-interface-tui`         | Union of all TUI interaction types                                       |
+| `IExecutionWorkspaceSnapshot`        | re-exported from `@robota-sdk/agent-framework` (via `/ws`) | Snapshot of agent execution workspace                                    |
+| `IExecutionWorkspaceEntry`           | re-exported from `@robota-sdk/agent-framework` (via `/ws`) | Single entry in the execution workspace                                  |
+| `TExecutionWorkspaceStatus`          | re-exported from `@robota-sdk/agent-framework` (via `/ws`) | Status enum for workspace entries                                        |
+| `TExecutionAttention`                | re-exported from `@robota-sdk/agent-framework` (via `/ws`) | Attention level for workspace entries                                    |
 
 ## 5. Public API Surface
 
 ### `/headless`
 
-| Export                      | Kind       | Description                                                                                |
-| --------------------------- | ---------- | ------------------------------------------------------------------------------------------ |
-| `PrintTerminal`             | class      | Utility for formatted terminal output in headless mode                                     |
-| `promptInput`               | function   | Reads a single line from stdin                                                             |
-| `createHeadlessRunner`      | function   | Creates a runner with `run(prompt): Promise<number>`; supports text/json/stream-json modes |
-| `IHeadlessRunnerOptions`    | interface  | Options for `createHeadlessRunner`                                                         |
-| `TOutputFormat`             | type alias | `'text' \| 'json' \| 'stream-json'`                                                        |
-| `createHeadlessTransport`   | function   | Returns `ITransportAdapter & { getExitCode(): number }` wrapping `createHeadlessRunner`    |
-| `IHeadlessTransportOptions` | interface  | Options for `createHeadlessTransport`                                                      |
+| Export                               | Kind       | Description                                                                                              |
+| ------------------------------------ | ---------- | -------------------------------------------------------------------------------------------------------- |
+| `HeadlessInteractionChannel`         | class      | Owns session creation + runner for non-interactive (print) mode; call `run(prompt)` then `getExitCode()` |
+| `IHeadlessInteractionChannelOptions` | interface  | Constructor options for `HeadlessInteractionChannel`                                                     |
+| `PrintTerminal`                      | class      | Utility for formatted terminal output in headless mode                                                   |
+| `promptInput`                        | function   | Reads a single line from stdin                                                                           |
+| `createHeadlessRunner`               | function   | Creates a runner with `run(prompt): Promise<number>`; supports text/json/stream-json modes               |
+| `IHeadlessRunnerOptions`             | interface  | Options for `createHeadlessRunner`                                                                       |
+| `TOutputFormat`                      | type alias | `'text' \| 'json' \| 'stream-json'`                                                                      |
+| `createHeadlessTransport`            | function   | Legacy: returns `ITransportAdapter & { getExitCode(): number }` wrapping `createHeadlessRunner`          |
+| `IHeadlessTransportOptions`          | interface  | Options for `createHeadlessTransport`                                                                    |
 
 ### `/http`
 
@@ -190,19 +204,20 @@ src/
 
 ### `/tui`
 
-| Export                         | Kind       | Description                                                                                               |
-| ------------------------------ | ---------- | --------------------------------------------------------------------------------------------------------- |
-| `TuiTransport`                 | class      | Ink/React TUI transport (`IConfigurableTransport<IInteractiveSession>`); calls `renderApp()` on `start()` |
-| `ITuiCliAdapter`               | interface  | Port for CLI-level side-effects (settings, git, model change)                                             |
-| `IDefaultTuiCliAdapterOptions` | interface  | Options for `createDefaultTuiCliAdapter`                                                                  |
-| `createDefaultTuiCliAdapter`   | function   | Factory for the default `ITuiCliAdapter` implementation                                                   |
-| `ITuiRenderOptions`            | interface  | All options for `renderApp()` and `TuiTransport`; includes `allowedTools` and `deniedTools`               |
-| `TOnMissingArgsAction`         | type alias | Re-exported from `agent-interface-tui`                                                                    |
-| `ITuiPickerItem`               | interface  | Re-exported from `agent-interface-tui`                                                                    |
-| `ITuiCommandInteraction`       | interface  | Re-exported from `agent-interface-tui`                                                                    |
-| `ITuiPickerInteraction`        | interface  | Re-exported from `agent-interface-tui`                                                                    |
-| `ITuiConfirmInteraction`       | interface  | Re-exported from `agent-interface-tui`                                                                    |
-| `TAnyTuiCommandInteraction`    | type alias | Re-exported from `agent-interface-tui`                                                                    |
+| Export                         | Kind       | Description                                                                                   |
+| ------------------------------ | ---------- | --------------------------------------------------------------------------------------------- |
+| `renderApp`                    | function   | Mounts Ink TUI; creates `TuiInteractionChannel` and resolves when the UI exits                |
+| `IRenderOptions`               | interface  | All options for `renderApp()`                                                                 |
+| `TuiTransport`                 | class      | Thin `IConfigurableTransport` wrapper; calls `renderApp()` on `start()`                       |
+| `ITuiCliAdapter`               | interface  | Port for CLI-level side-effects (settings, git, model change)                                 |
+| `IDefaultTuiCliAdapterOptions` | interface  | Options for `createDefaultTuiCliAdapter`                                                      |
+| `createDefaultTuiCliAdapter`   | function   | Factory for the default `ITuiCliAdapter` implementation                                       |
+| `TOnMissingArgsAction`         | type alias | Re-exported from `agent-interface-tui`                                                        |
+| `ITuiPickerItem`               | interface  | Re-exported from `agent-interface-tui` — item shape for `CommandPicker`                       |
+| `ITuiCommandInteraction`       | interface  | Re-exported from `agent-interface-tui`                                                        |
+| `ITuiPickerInteraction`        | interface  | Re-exported from `agent-interface-tui` — picker interaction variant used by `CommandPicker`   |
+| `ITuiConfirmInteraction`       | interface  | Re-exported from `agent-interface-tui` — confirm interaction variant used by `CommandConfirm` |
+| `TAnyTuiCommandInteraction`    | type alias | Re-exported from `agent-interface-tui`                                                        |
 
 ### Root (`@robota-sdk/agent-transport`)
 
@@ -233,8 +248,8 @@ Root re-exports all sub-path exports plus:
 | `tool_error` (headless JSON output)         | `resolveErrorCode` in `headless-runner.ts` | Emitted when error message matches `tool` or `execution`                                                                    |
 | `api_error` (headless JSON output)          | `resolveErrorCode` in `headless-runner.ts` | Default fallback error code for unclassified errors                                                                         |
 | Unhandled rejection (TUI)                   | `renderApp` in `render.tsx`                | Caught by a global `unhandledRejection` listener; written to `stderr` with stack trace; does not crash the TUI process      |
-| Session not initialized (TUI polling)       | `useInteractiveSession` init check loop    | Swallowed silently; polling continues at 200 ms intervals until session is ready                                            |
-| Transport start/stop errors                 | `useInteractiveSession` transport registry | `startAll` / `stopAll` errors are swallowed (`.catch(() => undefined)`) to avoid crashing the TUI                           |
+| Session not initialized (TUI polling)       | `TuiInteractionChannel` init check loop    | Swallowed silently; polling continues at 200 ms intervals until session is ready                                            |
+| Transport start/stop errors                 | `TuiInteractionChannel` transport registry | `startAll` / `stopAll` errors are swallowed (`.catch(() => undefined)`) to avoid crashing the TUI                           |
 
 ## 8. Test Strategy
 
@@ -246,13 +261,59 @@ pnpm --filter @robota-sdk/agent-transport test:coverage
 - Unit tests live in `src/**/__tests__/` co-located with source
 - Headless runner modes (`text`, `json`, `stream-json`) are tested with mocked `IInteractiveSession`
 - WebSocket protocol round-trips are tested with in-process `ws` connections
-- TUI components are tested with `ink-testing-library`
+- TUI components tested with `ink-testing-library`; `TuiInteractionChannel.requestAction()` protocol tested without Ink
+- `CommandPicker` and `CommandConfirm` dialog components tested in isolation with `ink-testing-library`
 - `TransportRegistry` enable/disable logic is unit-tested with mock settings files
 - All tests run with Vitest; `--passWithNoTests` allows sub-directories without tests to pass CI
 
-Expected baseline: 10 test files, ~80 tests, all passing.
+Expected baseline: 51 test files, ~431 tests, all passing.
 
 ## 9. Class Contract Registry
+
+### `TuiInteractionChannel`
+
+```typescript
+class TuiInteractionChannel implements IInteractionChannel {
+  readonly stateManager: TuiStateManager;
+  pendingAction: IActionRequest | null;
+  permissionRequest: IPermissionRequest | null;
+  availableCommands: ICommandInfo[];
+  isShuttingDown: boolean;
+  sessionName: string | undefined;
+  onChange: (() => void) | null; // set by useTuiChannel for React re-renders
+
+  constructor(opts: ITuiInteractionChannelOptions): TuiInteractionChannel;
+
+  // IInteractionChannel
+  onSubmit(handler: (text: string) => Promise<void>): void;
+  write(_event: InteractionEvent): void; // no-op; session events wired in start()
+  requestAction(action: IActionRequest): Promise<IActionResponse>;
+  setAvailableCommands(commands: ICommandInfo[]): void;
+  setBusy(busy: boolean): void;
+  start(): Promise<void>; // wires session events, starts transport registry
+  stop(): Promise<void>;
+
+  // App.tsx API
+  getSession(): InteractiveSession;
+  getRegistry(): CommandRegistry;
+  getCommandEffectQueue(): ICommandEffectQueue;
+  abort(): void;
+  cancelQueue(): void;
+  shutdown(options?: { reason?: TSessionEndReason }): Promise<void>;
+  resolveAction(response: IActionResponse): void;
+  handleInput(input: string): Promise<void>;
+}
+```
+
+### `HeadlessInteractionChannel`
+
+```typescript
+class HeadlessInteractionChannel {
+  constructor(options: IHeadlessInteractionChannelOptions): HeadlessInteractionChannel;
+  run(prompt: string): Promise<void>; // creates session, runs runner, shuts down session
+  getExitCode(): number; // 0 = success, 1 = error
+}
+```
 
 ### `TuiTransport`
 
@@ -261,8 +322,8 @@ class TuiTransport implements IConfigurableTransport<IInteractiveSession> {
   readonly name: 'tui';
   readonly defaultEnabled: true;
   readonly optionsSchema: {};
-  constructor(options: ITuiRenderOptions): TuiTransport;
-  attach(_session: IInteractiveSession): void; // no-op: session created internally
+  constructor(options: IRenderOptions): TuiTransport;
+  attach(_session: IInteractiveSession): void; // no-op: session created internally by TuiInteractionChannel
   start(): Promise<void>; // calls renderApp(); resolves on TUI exit
   stop(): Promise<void>; // no-op: Ink exits from within TUI
   validateOptions(_options: Record<string, TUniversalValue>): boolean;
@@ -295,31 +356,6 @@ class WsTransport implements IConfigurableTransport<IInteractiveSession> {
   stop(): Promise<void>;
   validateOptions(options: Record<string, TUniversalValue>): boolean;
 }
-```
-
-### `useInteractiveSession` hook contract
-
-```typescript
-function useInteractiveSession(props: IInteractiveSessionProps): IInteractiveSessionState;
-
-// IInteractiveSessionProps (key fields):
-// - cwd, provider, permissionMode, maxTurns
-// - sessionStore, resumeSessionId, forkSession, sessionName
-// - backgroundTaskRunners, subagentRunnerFactory
-// - commandModules, commandHostAdapters, shellExec
-// - transportRegistry, language, reloadPluginCommandSource
-// - agentName, systemPrompt, appendSystemPrompt
-// - allowedTools?: string[]   ← tool allow-list forwarded to session
-// - deniedTools?: string[]    ← tool deny-list forwarded to session
-
-// IInteractiveSessionState (key fields):
-// - interactiveSession, registry, commandEffectQueue
-// - history, addEntry, streamingText, activeTools
-// - isThinking, isAborting, isShuttingDown, pendingPrompt
-// - executionWorkspaceSnapshot, selectedExecutionEntryId
-// - permissionRequest, contextState
-// - handleSubmit, handleAbort, handleCancelQueue, handleShutdown
-// - selectExecutionWorkspaceEntry, readExecutionWorkspaceDetail
 ```
 
 ### `ITuiRenderOptions` shape (key fields)

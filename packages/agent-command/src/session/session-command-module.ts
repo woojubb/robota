@@ -16,6 +16,7 @@ import {
 
 import type {
   ICommand,
+  ICommandInteractionHint,
   ICommandModule,
   ICommandSource,
   ISystemCommand,
@@ -155,6 +156,10 @@ export class SessionCommandSource implements ICommandSource {
   }
 }
 
+const SESSION_INTERACTION_HINTS: Record<string, ICommandInteractionHint> = {
+  clear: { type: 'confirm', message: 'Clear conversation history?' },
+};
+
 export function createSessionCommandModule(): ICommandModule {
   return {
     name: 'agent-command-session',
@@ -166,5 +171,6 @@ export function createSessionCommandModule(): ICommandModule {
       createCostSystemCommand(),
       createValidateSessionSystemCommand(),
     ],
+    interactionHints: SESSION_INTERACTION_HINTS,
   };
 }

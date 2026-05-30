@@ -1,7 +1,8 @@
 ---
 title: 'ARCH-003-p7: HeadlessInteractionChannel in agent-transport/headless'
-status: todo
+status: done
 created: 2026-05-30
+completed: 2026-05-31
 priority: high
 urgency: soon
 area: packages/agent-transport, packages/agent-cli

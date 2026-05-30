@@ -8,6 +8,7 @@ import { executeModeCommand } from './mode-command.js';
 
 import type {
   ICommand,
+  ICommandInteractionHint,
   ICommandModule,
   ICommandSource,
   ISystemCommand,
@@ -49,10 +50,23 @@ export class ModeCommandSource implements ICommandSource {
   }
 }
 
+const MODE_INTERACTION_HINTS: Record<string, ICommandInteractionHint> = {
+  mode: {
+    type: 'pick',
+    getItems: () =>
+      buildPermissionModeSubcommands().map((sub) => ({
+        label: sub.name,
+        value: sub.name,
+        description: sub.description,
+      })),
+  },
+};
+
 export function createModeCommandModule(): ICommandModule {
   return {
     name: 'agent-command-mode',
     commandSources: [new ModeCommandSource()],
     systemCommands: [createModeSystemCommand()],
+    interactionHints: MODE_INTERACTION_HINTS,
   };
 }

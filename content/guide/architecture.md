@@ -7,7 +7,7 @@ Robota SDK follows a strict bottom-up layered assembly model. Each layer builds 
 ```mermaid
 flowchart TB
     CLI["**agent-cli**\nCLI entry point · argument parsing · provider wiring · TUI startup"]
-    TUI["**agent-transport/tui**\nInk/React terminal UI · TuiTransport"]
+    TUI["**agent-transport/tui**\nInk/React terminal UI · TuiInteractionChannel"]
     CMD["**agent-command**\n20 slash command modules"]
     TRANS["**agent-transport**\nHTTP · WebSocket · MCP · Headless"]
     FW["**agent-framework**\nInteractiveSession · CommandRegistry · createQuery()"]
@@ -49,23 +49,23 @@ flowchart TB
 
 ## Package Roles
 
-| Package                       | Role                                                                                                                                                                | Layer        |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
-| **agent-core**                | Robota engine, execution loop, provider abstraction, permissions, hooks, plugin system, model definitions (SSOT)                                                    | Foundation   |
-| **agent-tools**               | ToolRegistry, FunctionTool, createZodFunctionTool, 8 built-in CLI tools                                                                                             | General      |
-| **agent-session**             | Session class with permission enforcement, context tracking, compaction                                                                                             | General      |
-| **agent-executor**            | Background task state machines, subagent manager contracts, task snapshots, watchdogs, transcript references                                                        | General      |
-| **agent-provider**            | Provider packages for Anthropic, OpenAI, OpenAI-compatible primitives, DeepSeek, Gemini, Gemma, Qwen, and more                                                      | General      |
-| **agent-plugin**              | 8 official plugins: ConversationHistory, Logging, Usage, Limits, ErrorHandling, ExecutionAnalytics, Performance, Webhook                                            | General      |
-| **agent-command**             | Consolidated slash command package — all 20 command modules in a single import                                                                                      | SDK-specific |
-| **agent-framework**           | Assembly: InteractiveSession, CommandRegistry, BuiltinCommandSource, SkillCommandSource, config loading, context discovery, skill/agent runtime APIs, createQuery() | SDK-specific |
-| **agent-transport**           | Protocol transports (pure TS, zero React/Ink): headless (`/headless`), HTTP (`/http`), WebSocket (`/ws`), MCP (`/mcp`)                                              | Transport    |
-| **agent-transport/tui**       | TUI rendering layer — all Ink/React terminal UI components, hooks, and `TuiTransport` adapter (subpath of `agent-transport`)                                        | Transport    |
-| **agent-cli**                 | CLI entry point: argument parsing, provider factory, TUI startup; wires `agent-transport/tui`, `agent-transport`, `agent-command`, `agent-framework`                | CLI          |
-| **agent-remote-client**       | HTTP client for calling a remote Robota agent exposed via `agent-transport/http`                                                                                    | Client       |
-| **agent-web-ui**              | Browser React component library for monitoring a CLI session over WebSocket                                                                                         | Browser UI   |
-| **agent-interface-transport** | Transport contract interfaces only (no implementation): `ITransportAdapter`, `IConfigurableTransport`, `ITransportConfig`                                           | Contracts    |
-| **agent-interface-tui**       | TUI interaction type contracts only: `ITuiCommandInteraction`, `ITuiCliAdapter`, `ITerminalOutput` — no runtime deps                                                | Contracts    |
+| Package                       | Role                                                                                                                                                                  | Layer        |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| **agent-core**                | Robota engine, execution loop, provider abstraction, permissions, hooks, plugin system, model definitions (SSOT)                                                      | Foundation   |
+| **agent-tools**               | ToolRegistry, FunctionTool, createZodFunctionTool, 8 built-in CLI tools                                                                                               | General      |
+| **agent-session**             | Session class with permission enforcement, context tracking, compaction                                                                                               | General      |
+| **agent-executor**            | Background task state machines, subagent manager contracts, task snapshots, watchdogs, transcript references                                                          | General      |
+| **agent-provider**            | Provider packages for Anthropic, OpenAI, OpenAI-compatible primitives, DeepSeek, Gemini, Gemma, Qwen, and more                                                        | General      |
+| **agent-plugin**              | 8 official plugins: ConversationHistory, Logging, Usage, Limits, ErrorHandling, ExecutionAnalytics, Performance, Webhook                                              | General      |
+| **agent-command**             | Consolidated slash command package — all 20 command modules in a single import                                                                                        | SDK-specific |
+| **agent-framework**           | Assembly: InteractiveSession, CommandRegistry, BuiltinCommandSource, SkillCommandSource, config loading, context discovery, skill/agent runtime APIs, createQuery()   | SDK-specific |
+| **agent-transport**           | Protocol transports (pure TS, zero React/Ink): headless (`/headless`), HTTP (`/http`), WebSocket (`/ws`), MCP (`/mcp`)                                                | Transport    |
+| **agent-transport/tui**       | TUI rendering layer — all Ink/React terminal UI components, `TuiInteractionChannel` (owns session lifecycle), and `useTuiChannel` hook (subpath of `agent-transport`) | Transport    |
+| **agent-cli**                 | CLI entry point: argument parsing, provider factory, TUI startup; wires `agent-transport/tui`, `agent-transport`, `agent-command`, `agent-framework`                  | CLI          |
+| **agent-remote-client**       | HTTP client for calling a remote Robota agent exposed via `agent-transport/http`                                                                                      | Client       |
+| **agent-web-ui**              | Browser React component library for monitoring a CLI session over WebSocket                                                                                           | Browser UI   |
+| **agent-interface-transport** | Transport contract interfaces only (no implementation): `ITransportAdapter`, `IConfigurableTransport`, `ITransportConfig`                                             | Contracts    |
+| **agent-interface-tui**       | TUI interaction type contracts only: `ITuiCommandInteraction`, `ITuiCliAdapter`, `ITerminalOutput` — no runtime deps                                                  | Contracts    |
 
 ## Dependency Flow
 
@@ -154,7 +154,7 @@ Key responsibilities:
 | **Universal history** | Maintains `IHistoryEntry[]` — unified timeline of chat messages and session events; `getFullHistory()` returns the complete list |
 | **CommandRegistry**   | SDK-owned utility used by clients to aggregate built-in, skill, plugin, and command-module sources for slash-command discovery   |
 
-`agent-transport/tui`'s `useInteractiveSession` hook subscribes to these events and translates them into React state via `TuiStateManager`. `InteractiveSession` itself has no React dependency.
+`agent-transport/tui`'s `TuiInteractionChannel` owns the session lifecycle and subscribes to these events, translating them into channel state via `TuiStateManager`. The `useTuiChannel` React hook bridges channel state into `App.tsx`. `InteractiveSession` itself has no React dependency.
 
 ## Transport Layer
 
