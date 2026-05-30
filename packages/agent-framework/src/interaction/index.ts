@@ -8,3 +8,5 @@ export type {
   ICommandInfo,
   ICommandInteractionHint,
 } from './types.js';
+export { parseInput, isSlashCommand, tokeniseSlashCommand } from './input-parser.js';
+export type { ParsedInput } from './input-parser.js';

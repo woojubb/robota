@@ -597,6 +597,8 @@ export type {
   ICommandInfo,
   ICommandInteractionHint,
 } from './interaction/types.js';
+export { parseInput, isSlashCommand, tokeniseSlashCommand } from './interaction/input-parser.js';
+export type { ParsedInput } from './interaction/input-parser.js';
 
 // ── Permissions ─────────────────────────────────────────────
 export { promptForApproval } from './permissions/permission-prompt.js';
