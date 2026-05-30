@@ -1,8 +1,8 @@
-import type { TSessionEndReason } from '@robota-sdk/agent-core';
 import type { TStatusLineCommandSettingsPatch } from './statusline/statusline-command-api.js';
+import type { TSessionEndReason } from '@robota-sdk/agent-core';
 
 export type TCommandEffect =
-  | { type: 'model-change-requested'; modelId: string }
+  | { type: 'provider-hot-swap-requested'; profileName: string }
   | { type: 'language-change-requested'; language: string }
   | { type: 'settings-reset-requested' }
   | { type: 'session-exit-requested'; reason?: TSessionEndReason; message?: string }

@@ -1,10 +1,11 @@
-import type { IToolCall, IToolSchema } from '@robota-sdk/agent-core';
+import { projectGemmaPseudoToolCallText } from './pseudo-tool-call-projector';
+import { GemmaArgumentParser } from './tool-call-argument-parser';
+
 import type {
   IOpenAICompatibleToolCallTextProjection,
   IOpenAICompatibleToolCallTextProjector,
 } from '../shared/openai-compatible/index.js';
-import { GemmaArgumentParser } from './tool-call-argument-parser';
-import { projectGemmaPseudoToolCallText } from './pseudo-tool-call-projector';
+import type { IToolCall, IToolSchema } from '@robota-sdk/agent-core';
 
 const TOOL_CALL_START = '<|tool_call>';
 const TOOL_CALL_END = '<tool_call|>';

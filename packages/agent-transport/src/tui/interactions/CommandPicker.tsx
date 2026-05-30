@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
 import { Box, Text, useInput, useStdout } from 'ink';
+import React, { useState } from 'react';
+
 import type { ITuiPickerInteraction, ITuiPickerItem } from '../command-interaction.js';
 
 interface IProps {

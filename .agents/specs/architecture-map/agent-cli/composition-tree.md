@@ -96,3 +96,35 @@ packages/agent-cli/src/bin.ts
                |- PluginTUI
                `- SessionPicker
 ```
+
+## Package name map (old → current)
+
+When reading older branches or PRs, use this map.
+
+| Old name (pre-2026-05) | Current name                                  |
+| ---------------------- | --------------------------------------------- |
+| `agent-runtime`        | `agent-executor`                              |
+| `agent-sessions`       | `agent-session`                               |
+| `agent-providers`      | `agent-provider`                              |
+| `agent-plugins`        | `agent-plugin`                                |
+| `agent-sdk`            | `agent-framework`                             |
+| `agent-transport-ws`   | `agent-transport/ws`                          |
+| `agent-transport-tui`  | `agent-transport/tui`                         |
+| `agent-command-*`      | `agent-command`                               |
+| `agent-web`            | `agent-web-ui` (pkg) / `apps/agent-web` (app) |
+
+## Startup Module Boundary Map
+
+Each startup module owns a distinct architectural concern:
+
+| Module                       | Concern                                          |
+| ---------------------------- | ------------------------------------------------ |
+| `startup/preflight.ts`       | Early-exit gate (--version, --help, reset, etc.) |
+| `startup/args-to-options.ts` | IParsedCliArgs → typed option objects boundary   |
+| `startup/command-setup.ts`   | Command modules + host adapters assembly         |
+| `startup/config-phase.ts`    | Interactive provider configuration flow          |
+| `startup/provider-setup.ts`  | Provider + subagent runner factory               |
+| `startup/subagent-setup.ts`  | agent-subagent-runner opt-in wiring              |
+| `startup/session-setup.ts`   | Session store creation                           |
+| `startup/update-notice.ts`   | CLI update notification resolution               |
+| `startup/version.ts`         | Version string reading                           |

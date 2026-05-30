@@ -15,31 +15,30 @@ not mean the implementation lives in `agent-sdk` or `agent-cli`.
 
 ## Current Built-ins
 
-| Command           | Owner package                           | Lifecycle | Model-invocable | Host adapter/effect surface                               |
-| ----------------- | --------------------------------------- | --------- | --------------- | --------------------------------------------------------- |
-| `/agent`          | `@robota-sdk/agent-command-agent`       | inline    | yes             | agent runtime session requirement and background job APIs |
-| `/background`     | `@robota-sdk/agent-command-background`  | inline    | no              | background task read/control APIs                         |
-| `/clear`          | `@robota-sdk/agent-command-session`     | inline    | no              | `conversation-history-cleared` effect                     |
-| `/compact`        | `@robota-sdk/agent-command-compact`     | blocking  | yes             | compaction host context                                   |
-| `/context`        | `@robota-sdk/agent-command-context`     | inline    | no              | context reads and auto-compact settings persistence       |
-| `/cost`           | `@robota-sdk/agent-command-session`     | inline    | no              | session info reads                                        |
-| `/exit`           | `@robota-sdk/agent-command-exit`        | inline    | no              | `session-exit-requested` effect                           |
-| `/help`           | `@robota-sdk/agent-command-help`        | inline    | no              | registered command listing                                |
-| `/language`       | `@robota-sdk/agent-command-language`    | inline    | no              | `language-change-requested` effect                        |
-| `/memory`         | `@robota-sdk/agent-command-memory`      | inline    | yes             | project memory APIs                                       |
-| `/mode`           | `@robota-sdk/agent-command-mode`        | inline    | no              | permission mode APIs                                      |
-| `/model`          | `@robota-sdk/agent-command-model`       | inline    | no              | `model-change-requested` effect                           |
-| `/permissions`    | `@robota-sdk/agent-command-permissions` | inline    | no              | permission/session-approved-tool reads                    |
-| `/plugin`         | `@robota-sdk/agent-command-plugin`      | inline    | no              | plugin adapter and `plugin-tui-requested` effect          |
-| `/provider`       | `@robota-sdk/agent-command-provider`    | inline    | no              | provider settings adapter, interaction prompts, restart   |
-| `/reload-plugins` | `@robota-sdk/agent-command-plugin`      | inline    | no              | `plugin-registry-reload-requested` effect                 |
-| `/rename`         | `@robota-sdk/agent-command-session`     | inline    | no              | `session-renamed` effect                                  |
-| `/reset`          | `@robota-sdk/agent-command-reset`       | inline    | no              | `settings-reset-requested` effect                         |
-| `/resume`         | `@robota-sdk/agent-command-session`     | inline    | no              | `session-picker-requested` effect                         |
-| `/rewind`         | `@robota-sdk/agent-command-rewind`      | inline    | no              | checkpoint list/restore/rollback APIs                     |
-| `/settings`       | `@robota-sdk/agent-command-settings`    | inline    | no              | `settings-tui-requested` effect                           |
-| `/statusline`     | `@robota-sdk/agent-command-statusline`  | inline    | no              | `statusline-settings-patch` effect                        |
-| `/user-local`     | `@robota-sdk/agent-command-user-local`  | inline    | no              | user-local storage reads/writes (memory, storage inspect) |
+| Command           | Owner package                           | Lifecycle | Model-invocable | Host adapter/effect surface                                     |
+| ----------------- | --------------------------------------- | --------- | --------------- | --------------------------------------------------------------- |
+| `/agent`          | `@robota-sdk/agent-command-agent`       | inline    | yes             | agent runtime session requirement and background job APIs       |
+| `/background`     | `@robota-sdk/agent-command-background`  | inline    | no              | background task read/control APIs                               |
+| `/clear`          | `@robota-sdk/agent-command-session`     | inline    | no              | `conversation-history-cleared` effect                           |
+| `/compact`        | `@robota-sdk/agent-command-compact`     | blocking  | yes             | compaction host context                                         |
+| `/context`        | `@robota-sdk/agent-command-context`     | inline    | no              | context reads and auto-compact settings persistence             |
+| `/cost`           | `@robota-sdk/agent-command-session`     | inline    | no              | session info reads                                              |
+| `/exit`           | `@robota-sdk/agent-command-exit`        | inline    | no              | `session-exit-requested` effect                                 |
+| `/help`           | `@robota-sdk/agent-command-help`        | inline    | no              | registered command listing                                      |
+| `/language`       | `@robota-sdk/agent-command-language`    | inline    | no              | `language-change-requested` effect                              |
+| `/memory`         | `@robota-sdk/agent-command-memory`      | inline    | yes             | project memory APIs                                             |
+| `/mode`           | `@robota-sdk/agent-command-mode`        | inline    | no              | permission mode APIs                                            |
+| `/permissions`    | `@robota-sdk/agent-command-permissions` | inline    | no              | permission/session-approved-tool reads                          |
+| `/plugin`         | `@robota-sdk/agent-command-plugin`      | inline    | no              | plugin adapter and `plugin-tui-requested` effect                |
+| `/provider`       | `@robota-sdk/agent-command-provider`    | inline    | no              | provider settings adapter, `provider-hot-swap-requested` effect |
+| `/reload-plugins` | `@robota-sdk/agent-command-plugin`      | inline    | no              | `plugin-registry-reload-requested` effect                       |
+| `/rename`         | `@robota-sdk/agent-command-session`     | inline    | no              | `session-renamed` effect                                        |
+| `/reset`          | `@robota-sdk/agent-command-reset`       | inline    | no              | `settings-reset-requested` effect                               |
+| `/resume`         | `@robota-sdk/agent-command-session`     | inline    | no              | `session-picker-requested` effect                               |
+| `/rewind`         | `@robota-sdk/agent-command-rewind`      | inline    | no              | checkpoint list/restore/rollback APIs                           |
+| `/settings`       | `@robota-sdk/agent-command-settings`    | inline    | no              | `settings-tui-requested` effect                                 |
+| `/statusline`     | `@robota-sdk/agent-command-statusline`  | inline    | no              | `statusline-settings-patch` effect                              |
+| `/user-local`     | `@robota-sdk/agent-command-user-local`  | inline    | no              | user-local storage reads/writes (memory, storage inspect)       |
 
 ## Retired Sources
 

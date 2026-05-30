@@ -1,4 +1,3 @@
-import type OpenAI from 'openai';
 import type {
   IExecutor,
   ILogger,
@@ -6,6 +5,7 @@ import type {
   TProviderOptionValueBase,
   TUniversalMessage,
 } from '@robota-sdk/agent-core';
+import type OpenAI from 'openai';
 
 export type TQwenBuiltInWebToolName = 'web_search' | 'web_extractor';
 

@@ -9,6 +9,58 @@ behavior, transport projection, session behavior, or shared policy. For spec-fir
 document authority rules, see [../../rules/documentation-sync.md](../../rules/documentation-sync.md)
 and [../../rules/spec-workflow.md](../../rules/spec-workflow.md).
 
+## Ownership Layer Map
+
+```mermaid
+flowchart TB
+  subgraph Shell["Product Shells — render + wire only"]
+    CLI2["agent-cli"]
+    Web["apps/agent-web"]
+  end
+  subgraph Assembly["Assembly Layer — behavior + contracts"]
+    CMD["agent-command\nbuilt-in commands"]
+    FW["agent-framework\ncommand contracts · InteractiveSession"]
+  end
+  subgraph Services["Services — lifecycle state machines"]
+    SESS["agent-session\nsession + compaction"]
+    EXEC["agent-executor\nbackground tasks + subagent lifecycle"]
+  end
+  subgraph OptIn["Opt-In Runners — install only when needed"]
+    SUBRUN["agent-subagent-runner\nchild-process runner (opt-in)"]
+  end
+  subgraph Adapters["Adapters — vendor + tool + plugin"]
+    PROV["agent-provider\nprovider defs · model catalogs"]
+    TOOLS["agent-tools · agent-tool-mcp"]
+    PLUGIN["agent-plugin"]
+  end
+  subgraph Orchestration["Orchestration — multi-agent coordination"]
+    TEAM["agent-team\n(placeholder — no exports)"]
+    REMOTE["agent-remote-client\nremote HTTP executor"]
+  end
+  subgraph TypeContracts["Type Contracts — zero runtime deps"]
+    IFTRANSPORT["agent-interface-transport\nITransportAdapter · IConfigurableTransport"]
+    IFTUI["agent-interface-tui\nITuiCommandInteraction · ITuiCliAdapter"]
+  end
+  subgraph Domain["Domain — ZERO agent-* deps"]
+    CORE["agent-core\nprovider · history · permissions · events"]
+  end
+
+  Shell --> Assembly
+  Shell --> OptIn
+  Assembly --> Services
+  Assembly --> Adapters
+  Assembly --> Orchestration
+  Assembly --> TypeContracts
+  Services --> Domain
+  Adapters --> Domain
+  Orchestration --> Domain
+  OptIn --> Assembly
+  OptIn --> Services
+```
+
+New capability ownership follows the **lowest reusable boundary**: if two shells or packages need it,
+it belongs in the layer below both of them.
+
 ## Owner Selection Table
 
 | Capability concern                                      | Owner first                                                                                 | Product shell responsibility                                                |

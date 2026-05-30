@@ -1,9 +1,11 @@
-import dotenv from 'dotenv';
+import { createServer } from 'http';
 import path from 'node:path';
+
+import { createLogger } from '@robota-sdk/agent-core';
+import dotenv from 'dotenv';
+
 import { createApp, setPlaygroundWebSocketServer } from './app';
 import { PlaygroundWebSocketServer } from './websocket-server';
-import { createServer } from 'http';
-import { createLogger } from '@robota-sdk/agent-core';
 
 // Load environment variables
 dotenv.config({
@@ -25,7 +27,7 @@ process.on('uncaughtException', (error) => {
  * Standalone server entry point
  * This file is used when running the API server independently
  */
-async function startServer() {
+async function startServer(): Promise<void> {
   try {
     // Create Express app
     const app = createApp();
@@ -49,7 +51,7 @@ async function startServer() {
     });
 
     // Graceful shutdown
-    const shutdown = (signal: string) => {
+    const shutdown = (signal: string): void => {
       logger.info(`${signal} received, shutting down gracefully`);
       wsServer.close();
       server.close(() => {

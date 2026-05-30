@@ -1,7 +1,8 @@
 ---
 title: 'TUI-001: status bar git branch 자동 갱신 — prompt submit/response 완료 시점에 .git/HEAD 재읽기'
-status: backlog
+status: done
 created: 2026-05-17
+completed: 2026-05-18
 priority: low
 urgency: later
 area: packages/agent-transport, packages/agent-cli
@@ -127,7 +128,17 @@ const gitBranch = useMemo(
 
 **Expected**: status bar가 `git: feature/test`로 변경됨
 
-**Evidence**: _(구현 완료 후 스크린샷)_
+**Evidence (2026-05-18)**:
+
+코드 분석으로 검증 (TUI 자동화 환경에서 실행 불가):
+
+- `SessionStatusBar.tsx:43`: `useMemo(() => cliAdapter.getGitBranch(cwd), [cliAdapter, cwd, gitRefreshToken])` — gitRefreshToken deps 포함됨
+- `App.tsx:153`: `const [gitRefreshToken, setGitRefreshToken] = useState(0)`
+- `App.tsx:223-229`: `handleSubmitWithGitRefresh` — submit 직전 `setGitRefreshToken(t => t + 1)`
+- `App.tsx:231-238`: `useEffect([isThinking])` — `wasThinking → !isThinking` 전환 시 `setGitRefreshToken(t => t + 1)`
+- `App.tsx:473`: `SessionStatusBar`에 `gitRefreshToken={gitRefreshToken}` 전달됨
+
+설계 문서의 "refreshToken approach"가 완전히 구현되어 있음.
 
 ### Scenario 2: response 완료 시점 갱신
 
@@ -141,4 +152,4 @@ const gitBranch = useMemo(
 
 **Expected**: 응답 완료 직후 status bar가 `git: feature/test`로 변경됨
 
-**Evidence**: _(구현 완료 후 스크린샷)_
+**Evidence (2026-05-18)**: Scenario 1과 동일한 코드 분석으로 검증. `useEffect([isThinking])`가 `wasThinkingRef.current && !isThinking` 조건 시 token 증가시킴.

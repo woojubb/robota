@@ -69,14 +69,14 @@ export function Modal({
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-gray-900/20 transition-opacity duration-300"
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300"
         onClick={onClose}
       />
 
       {/* Modal Content */}
       <div
         className={`
-                    relative bg-white rounded-lg shadow-xl 
+                    relative bg-card border border-border rounded-lg shadow-xl
                     transition-all duration-300 transform
                     w-full mx-4 my-8 max-h-[90vh] overflow-hidden
                     ${sizeClasses[size]}
@@ -86,13 +86,13 @@ export function Modal({
       >
         {/* Header */}
         {title && (
-          <div className="flex items-center justify-between p-6 border-b border-gray-200">
-            <h2 className="text-xl font-semibold text-gray-900">{title}</h2>
+          <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+            <h2 className="text-base font-semibold text-card-foreground">{title}</h2>
             <button
               onClick={onClose}
-              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              className="p-1.5 hover:bg-accent rounded-md transition-colors"
             >
-              <X className="h-5 w-5 text-gray-500" />
+              <X className="h-4 w-4 text-muted-foreground" />
             </button>
           </div>
         )}
@@ -101,9 +101,9 @@ export function Modal({
         {!title && (
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 p-2 hover:bg-gray-100 rounded-full transition-colors z-10"
+            className="absolute top-4 right-4 p-1.5 hover:bg-accent rounded-md transition-colors z-10"
           >
-            <X className="h-5 w-5 text-gray-500" />
+            <X className="h-4 w-4 text-muted-foreground" />
           </button>
         )}
 

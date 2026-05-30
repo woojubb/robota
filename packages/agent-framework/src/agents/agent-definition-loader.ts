@@ -1,9 +1,11 @@
-import { join, basename } from 'node:path';
 import { homedir } from 'node:os';
-import type { IFileSystem, IDirent } from '@robota-sdk/agent-core';
-import { NodeFileSystem } from '../adapters/node-file-system.js';
-import type { IAgentDefinition } from './agent-definition-types.js';
+import { join, basename } from 'node:path';
+
 import { BUILT_IN_AGENTS } from './built-in-agents.js';
+import { NodeFileSystem } from '../adapters/node-file-system.js';
+
+import type { IAgentDefinition } from './agent-definition-types.js';
+import type { IFileSystem, IDirent } from '@robota-sdk/agent-core';
 
 /** Known frontmatter keys that should be parsed as comma-separated or whitespace-separated lists. */
 const LIST_KEYS = new Set(['tools', 'disallowedTools']);

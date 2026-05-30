@@ -1,5 +1,5 @@
-import type OpenAI from 'openai';
 import type { IExecutor, ILogger, TProviderOptionValueBase } from '@robota-sdk/agent-core';
+import type OpenAI from 'openai';
 
 export type TDeepSeekThinkingMode = 'enabled' | 'disabled';
 export type TDeepSeekReasoningEffort = 'low' | 'medium' | 'high' | 'xhigh' | 'max';

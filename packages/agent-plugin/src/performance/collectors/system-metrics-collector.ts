@@ -1,5 +1,6 @@
-import { type ISystemMetricsCollector, type IPerformanceMetrics } from '../types';
 import { createLogger, type ILogger } from '@robota-sdk/agent-core';
+
+import { type ISystemMetricsCollector, type IPerformanceMetrics } from '../types';
 
 /**
  * Node.js system metrics collector

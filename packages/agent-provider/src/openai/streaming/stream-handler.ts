@@ -1,9 +1,11 @@
-import OpenAI from 'openai';
-import type { TUniversalMessage } from '@robota-sdk/agent-core';
+import { SilentLogger, type ILogger } from '@robota-sdk/agent-core';
+
+import { OpenAIResponseParser } from '../parsers/response-parser';
+
 import type { IPayloadLogger } from '../interfaces/payload-logger';
 import type { IOpenAIChatRequestParams, IOpenAIStreamRequestParams } from '../types/api-types';
-import { SilentLogger, type ILogger } from '@robota-sdk/agent-core';
-import { OpenAIResponseParser } from '../parsers/response-parser';
+import type { TUniversalMessage } from '@robota-sdk/agent-core';
+import type OpenAI from 'openai';
 
 /**
  * OpenAI streaming response handler

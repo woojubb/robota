@@ -4,6 +4,7 @@
  */
 
 import { parseArgs } from 'node:util';
+
 import type { TPermissionMode } from '@robota-sdk/agent-core';
 
 const VALID_MODES: TPermissionMode[] = ['plan', 'default', 'acceptEdits', 'bypassPermissions'];
@@ -17,7 +18,6 @@ export interface IParsedCliArgs {
   printMode: boolean;
   continueMode: boolean;
   resumeId: string | undefined;
-  model: string | undefined;
   language: string | undefined;
   permissionMode: TPermissionMode | undefined;
   maxTurns: number | undefined;
@@ -34,6 +34,8 @@ export interface IParsedCliArgs {
   reset: boolean;
   bare: boolean;
   allowedTools: string | undefined;
+  deniedTools: string | undefined;
+  model: string | undefined;
   noSessionPersistence: boolean;
   jsonSchema: string | undefined;
   configure: boolean;
@@ -47,6 +49,8 @@ export interface IParsedCliArgs {
   settingsScope: string | undefined;
   checkUpdate: boolean;
   disableUpdateCheck: boolean;
+  dryRun: boolean;
+  yes: boolean;
 }
 
 /** Return CLI usage help text. */
@@ -61,23 +65,32 @@ Options:
   --append-system-prompt <t> Append text to the system prompt
   --language <lang>          Language preference (e.g. ko, en)
   --no-session-persistence   Disable session persistence for this run
-  --model <model>            Override model for this session
   --permission-mode <mode>   Permission mode: plan | default | acceptEdits | bypassPermissions
   --max-turns <n>            Maximum agent turns before stopping
   -c, --continue             Continue the most recent session
   -r, --resume <id>          Resume a session by ID or name
   -n, --name <name>          Name for the new session
-  --fork-session             Fork the current session
+  --fork-session             Fork the current session into a new independent session
+  --task-file <path>         Read a task prompt from file and append it to the system prompt
+  --bare                     Print mode: output raw text only, no formatting wrapper
   --configure                Run interactive provider configuration
   --configure-provider <n>   Configure a specific provider
+  --dry-run                  Plan-only run: show what the agent would do without modifying files
   --check-update             Check for CLI updates
   --version                  Show version number
   -h, --help                 Show this help message
 
+Commands:
+  robota init                      Initialize AGENTS.md and .robota/settings.json
+
 Examples:
   robota                           Start interactive TUI session
+  robota init                      Initialize project files
   robota -p "Hello"                Print mode: send prompt and exit
   robota -p "Hello" --output-format json
+  robota -p "Review this diff" --bare    Raw output for shell pipelines
+  robota --task-file task.md       Run task from file (appended to system prompt)
+  robota --dry-run "Refactor the auth module"      Show plan without modifying files
   robota --continue                Resume the last session
 `;
 }
@@ -110,55 +123,59 @@ export function parseMaxTurns(raw: string | undefined): number | undefined {
   return n;
 }
 
-/** Parse and validate CLI arguments. */
-export function parseCliArgs(): IParsedCliArgs {
-  const { values, positionals } = parseArgs({
-    allowPositionals: true,
-    options: {
-      help: { type: 'boolean', short: 'h', default: false },
-      p: { type: 'boolean', short: 'p', default: false },
-      continue: { type: 'boolean', short: 'c', default: false },
-      resume: { type: 'string', short: 'r' },
-      model: { type: 'string' },
-      language: { type: 'string' },
-      'permission-mode': { type: 'string' },
-      'max-turns': { type: 'string' },
-      'fork-session': { type: 'boolean', default: false },
-      name: { type: 'string', short: 'n' },
-      'output-format': { type: 'string' },
-      format: { type: 'string' },
-      summary: { type: 'string' },
-      source: { type: 'string' },
-      'system-prompt': { type: 'string' },
-      'append-system-prompt': { type: 'string' },
-      'task-file': { type: 'string' },
-      version: { type: 'boolean', default: false },
-      reset: { type: 'boolean', default: false },
-      bare: { type: 'boolean', default: false },
-      'allowed-tools': { type: 'string' },
-      'no-session-persistence': { type: 'boolean', default: false },
-      'json-schema': { type: 'string' },
-      configure: { type: 'boolean', default: false },
-      'configure-provider': { type: 'string' },
-      provider: { type: 'string' },
-      type: { type: 'string' },
-      'base-url': { type: 'string' },
-      'api-key': { type: 'string' },
-      'api-key-env': { type: 'string' },
-      'set-current': { type: 'boolean', default: false },
-      'settings-scope': { type: 'string' },
-      'check-update': { type: 'boolean', default: false },
-      'disable-update-check': { type: 'boolean', default: false },
-    },
-  });
+const PARSE_ARGS_CONFIG = {
+  allowPositionals: true,
+  options: {
+    help: { type: 'boolean', short: 'h', default: false },
+    p: { type: 'boolean', short: 'p', default: false },
+    continue: { type: 'boolean', short: 'c', default: false },
+    resume: { type: 'string', short: 'r' },
+    language: { type: 'string' },
+    'permission-mode': { type: 'string' },
+    'max-turns': { type: 'string' },
+    'fork-session': { type: 'boolean', default: false },
+    name: { type: 'string', short: 'n' },
+    'output-format': { type: 'string' },
+    format: { type: 'string' },
+    summary: { type: 'string' },
+    source: { type: 'string' },
+    'system-prompt': { type: 'string' },
+    'append-system-prompt': { type: 'string' },
+    'task-file': { type: 'string' },
+    version: { type: 'boolean', default: false },
+    reset: { type: 'boolean', default: false },
+    bare: { type: 'boolean', default: false },
+    'allowed-tools': { type: 'string' },
+    'denied-tools': { type: 'string' },
+    model: { type: 'string' },
+    'no-session-persistence': { type: 'boolean', default: false },
+    'json-schema': { type: 'string' },
+    configure: { type: 'boolean', default: false },
+    'configure-provider': { type: 'string' },
+    provider: { type: 'string' },
+    type: { type: 'string' },
+    'base-url': { type: 'string' },
+    'api-key': { type: 'string' },
+    'api-key-env': { type: 'string' },
+    'set-current': { type: 'boolean', default: false },
+    'settings-scope': { type: 'string' },
+    'check-update': { type: 'boolean', default: false },
+    'disable-update-check': { type: 'boolean', default: false },
+    'dry-run': { type: 'boolean', default: false },
+    yes: { type: 'boolean', short: 'y', default: false },
+  },
+} as const;
 
+function mapParsedValues(
+  values: ReturnType<typeof parseArgs<typeof PARSE_ARGS_CONFIG>>['values'],
+  positionals: string[],
+): IParsedCliArgs {
   return {
     positional: positionals,
     help: values['help'] ?? false,
     printMode: values['p'] ?? false,
     continueMode: values['continue'] ?? false,
     resumeId: values['resume'],
-    model: values['model'],
     language: values['language'],
     permissionMode: parsePermissionMode(values['permission-mode']),
     maxTurns: parseMaxTurns(values['max-turns']),
@@ -175,6 +192,8 @@ export function parseCliArgs(): IParsedCliArgs {
     reset: values['reset'] ?? false,
     bare: values['bare'] ?? false,
     allowedTools: values['allowed-tools'],
+    deniedTools: values['denied-tools'],
+    model: values['model'],
     noSessionPersistence: values['no-session-persistence'] ?? false,
     jsonSchema: values['json-schema'],
     configure: values['configure'] ?? false,
@@ -188,5 +207,13 @@ export function parseCliArgs(): IParsedCliArgs {
     settingsScope: values['settings-scope'],
     checkUpdate: values['check-update'] ?? false,
     disableUpdateCheck: values['disable-update-check'] ?? false,
+    dryRun: values['dry-run'] ?? false,
+    yes: values['yes'] ?? false,
   };
+}
+
+/** Parse and validate CLI arguments. */
+export function parseCliArgs(): IParsedCliArgs {
+  const { values, positionals } = parseArgs(PARSE_ARGS_CONFIG);
+  return mapParsedValues(values, positionals);
 }

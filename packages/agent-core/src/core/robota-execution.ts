@@ -3,12 +3,13 @@
  *
  * Extracted from robota.ts to keep the main class under 300 lines.
  */
+import { AGENT_EVENTS } from '../agents/constants';
+
 import type { TUniversalMessage, IAgentConfig, IRunOptions } from '../interfaces/agent';
+import type { IAgentEventData } from '../interfaces/event-service';
 import type { ExecutionService } from '../services/execution-service';
 import type { IExecutionContext } from '../services/execution-types';
 import type { ILogger } from '../utils/logger';
-import type { IAgentEventData } from '../interfaces/event-service';
-import { AGENT_EVENTS } from '../agents/constants';
 
 /** Dependencies required by the execution helpers. @internal */
 export interface IRobotaExecutionDeps {
@@ -34,6 +35,9 @@ function buildRunContext(
     ...(options.onExecutionEvent && { onExecutionEvent: options.onExecutionEvent }),
     ...(options.maxExecutionRounds !== undefined && {
       maxExecutionRounds: options.maxExecutionRounds,
+    }),
+    ...(options.maxSameToolInputs !== undefined && {
+      maxSameToolInputs: options.maxSameToolInputs,
     }),
   };
 }

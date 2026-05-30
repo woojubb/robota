@@ -1,3 +1,11 @@
+import {
+  findProviderDefinition,
+  formatSupportedProviderTypes,
+  getProviderCredentialRequirement,
+  resolveEnvReference,
+} from '@robota-sdk/agent-core';
+
+import type { ISerializableProviderProfile } from '../background-tasks/types.js';
 import type {
   IAIProvider,
   IProviderConfig,
@@ -6,13 +14,6 @@ import type {
   TProviderCredentialField,
   TUniversalValue,
 } from '@robota-sdk/agent-core';
-import {
-  findProviderDefinition,
-  formatSupportedProviderTypes,
-  getProviderCredentialRequirement,
-  resolveEnvReference,
-} from '@robota-sdk/agent-core';
-import type { ISerializableProviderProfile } from '../background-tasks/types.js';
 
 export function normalizeProviderConfig(
   settings: {

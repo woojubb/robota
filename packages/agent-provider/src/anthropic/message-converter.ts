@@ -1,11 +1,44 @@
 import { randomUUID } from 'node:crypto';
-import Anthropic from '@anthropic-ai/sdk';
+
+import type Anthropic from '@anthropic-ai/sdk';
 import type {
   TUniversalMessage,
   IToolSchema,
   IAssistantMessage,
   IToolMessage,
+  IUserMessage,
 } from '@robota-sdk/agent-core';
+
+/** Convert IUserMessage parts to Anthropic content blocks (text + images). */
+function convertUserParts(
+  msg: IUserMessage,
+): Array<Anthropic.TextBlockParam | Anthropic.ImageBlockParam> {
+  if (!msg.parts || msg.parts.length === 0) {
+    return [{ type: 'text', text: msg.content || '' }];
+  }
+
+  const blocks: Array<Anthropic.TextBlockParam | Anthropic.ImageBlockParam> = [];
+  for (const part of msg.parts) {
+    if (part.type === 'text') {
+      blocks.push({ type: 'text', text: part.text });
+    } else if (part.type === 'image_inline') {
+      blocks.push({
+        type: 'image',
+        source: {
+          type: 'base64',
+          media_type: part.mimeType as Anthropic.Base64ImageSource['media_type'],
+          data: part.data,
+        },
+      });
+    } else if (part.type === 'image_uri') {
+      blocks.push({
+        type: 'image',
+        source: { type: 'url', url: part.uri },
+      });
+    }
+  }
+  return blocks;
+}
 
 /**
  * Convert TUniversalMessage array to Anthropic message format.
@@ -17,6 +50,10 @@ import type {
 export function convertToAnthropicFormat(messages: TUniversalMessage[]): Anthropic.MessageParam[] {
   return messages.map((msg) => {
     if (msg.role === 'user') {
+      const userMsg = msg as IUserMessage;
+      if (userMsg.parts && userMsg.parts.length > 0) {
+        return { role: 'user', content: convertUserParts(userMsg) };
+      }
       return {
         role: 'user',
         content: msg.content || '',
@@ -91,7 +128,7 @@ export function convertFromAnthropicResponse(response: Anthropic.Message): TUniv
     throw new Error('No content in Anthropic response');
   }
 
-  let textParts: string[] = [];
+  const textParts: string[] = [];
   const toolCalls: Array<{
     id: string;
     type: 'function';

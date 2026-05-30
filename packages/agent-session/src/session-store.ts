@@ -8,6 +8,7 @@
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync, unlinkSync, readdirSync } from 'fs';
 import { join } from 'path';
+
 import type { IToolSchema } from '@robota-sdk/agent-core';
 
 /** A persisted session record */
@@ -108,15 +109,20 @@ export class SessionStore implements ISessionStore {
 
   /**
    * Load a session by its ID.
-   * Returns `undefined` when the session file does not exist.
+   * Returns `undefined` when the session file does not exist or is corrupt.
    */
   load(id: string): ISessionRecord | undefined {
     const path = this.filePath(id);
     if (!existsSync(path)) {
       return undefined;
     }
-    const raw = readFileSync(path, 'utf-8');
-    return JSON.parse(raw) as ISessionRecord;
+    try {
+      const raw = readFileSync(path, 'utf-8');
+      return JSON.parse(raw) as ISessionRecord;
+    } catch {
+      // allow-fallback: corrupt session file is unrecoverable; treat as missing to avoid crash on --continue/--resume
+      return undefined;
+    }
   }
 
   /**

@@ -1,6 +1,16 @@
-import OpenAI from 'openai';
-import type { IOpenAIProviderOptions, TOpenAIApiSurface } from './types';
 import { AbstractAIProvider } from '@robota-sdk/agent-core';
+import { SilentLogger } from '@robota-sdk/agent-core';
+import OpenAI from 'openai';
+
+import {
+  chatStreamWithOpenAIChatCompletions,
+  chatWithOpenAIChatCompletions,
+} from './chat-completions-chat';
+import { OpenAIResponseParser } from './parsers/response-parser';
+import { chatStreamWithOpenAIResponsesApi, chatWithOpenAIResponsesApi } from './responses-chat';
+
+import type { IPayloadLogger } from './interfaces/payload-logger';
+import type { IOpenAIProviderOptions, TOpenAIApiSurface } from './types';
 import type {
   TUniversalMessage,
   IChatOptions,
@@ -8,14 +18,6 @@ import type {
   IProviderCapabilities,
   TTextDeltaCallback,
 } from '@robota-sdk/agent-core';
-import type { IPayloadLogger } from './interfaces/payload-logger';
-import { OpenAIResponseParser } from './parsers/response-parser';
-import { SilentLogger } from '@robota-sdk/agent-core';
-import {
-  chatStreamWithOpenAIChatCompletions,
-  chatWithOpenAIChatCompletions,
-} from './chat-completions-chat';
-import { chatStreamWithOpenAIResponsesApi, chatWithOpenAIResponsesApi } from './responses-chat';
 
 /**
  * OpenAI provider implementation for Robota

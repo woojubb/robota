@@ -3,32 +3,37 @@
  * tools, and provider.
  */
 
-import type { IToolWithEventService, IHookTypeExecutor } from '@robota-sdk/agent-core';
-import { PromptExecutor } from '../hooks/prompt-executor.js';
-import { AgentExecutor } from '../hooks/agent-executor.js';
-import type { TProviderFactory } from '../hooks/prompt-executor.js';
-import type { TSessionFactory } from '../hooks/agent-executor.js';
+import { join } from 'node:path';
+
 import { Session } from '@robota-sdk/agent-session';
-import { createDefaultTools, DEFAULT_TOOL_DESCRIPTIONS } from './create-tools.js';
-import { wrapEditCheckpointTools } from '../checkpoints/edit-checkpoint-tools.js';
-import { wrapReversibleExecutionTools } from '../reversible-execution/index.js';
-import {
-  createModelCommandToolProjection,
-  createProjectedCommandExecutionTools,
-} from '../tools/model-command-tool-projection.js';
-import type { ICapabilityDescriptor } from '../capabilities/types.js';
-import { SkillCommandSource } from '../commands/skill-source.js';
-import type {
-  ICreateSessionOptions,
-  ICreateSessionResult,
-  TSessionConstructorWithAutoCompact,
-} from './create-session-types.js';
+
 import {
   buildAgentRuntime,
   buildBackgroundProcessTool,
   buildSessionSystemPrompt,
   wireSessionDeps,
 } from './create-session-runtime.js';
+import { createDefaultTools, DEFAULT_TOOL_DESCRIPTIONS } from './create-tools.js';
+import { wrapEditCheckpointTools } from '../checkpoints/edit-checkpoint-tools.js';
+import { SkillCommandSource } from '../commands/skill-source.js';
+import { readSettings, writeSettings } from '../config/settings-io.js';
+import { AgentExecutor } from '../hooks/agent-executor.js';
+import { PromptExecutor } from '../hooks/prompt-executor.js';
+import { wrapReversibleExecutionTools } from '../reversible-execution/index.js';
+import {
+  createModelCommandToolProjection,
+  createProjectedCommandExecutionTools,
+} from '../tools/model-command-tool-projection.js';
+
+import type {
+  ICreateSessionOptions,
+  ICreateSessionResult,
+  TSessionConstructorWithAutoCompact,
+} from './create-session-types.js';
+import type { ICapabilityDescriptor } from '../capabilities/types.js';
+import type { TSessionFactory } from '../hooks/agent-executor.js';
+import type { TProviderFactory } from '../hooks/prompt-executor.js';
+import type { IToolWithEventService, IHookTypeExecutor } from '@robota-sdk/agent-core';
 
 export type { ICreateSessionOptions, ICreateSessionResult } from './create-session-types.js';
 
@@ -88,7 +93,7 @@ export function createSession(options: ICreateSessionOptions): ICreateSessionRes
     ? skillCommandSource.getModelInvocableSkills()
     : [];
 
-  const baseDefaultTools = createDefaultTools({ sandboxClient: options.sandboxClient });
+  const baseDefaultTools = createDefaultTools({ sandboxClient: options.sandboxClient, cwd });
   const shouldWrapHostEditCheckpoints =
     options.editCheckpointRecorder !== undefined && options.sandboxClient === undefined;
   const defaultTools =
@@ -175,11 +180,45 @@ export function createSession(options: ICreateSessionOptions): ICreateSessionRes
     'Glob(.claude/**)',
     'Glob(.robota/**)',
   ];
+
+  // Commands with requiresPermission: false are auto-approved — no prompt needed.
+  const commandAutoAllow = modelCommandToolProjection
+    ? modelCommandToolProjection.commandTools
+        .filter((t) => !t.requiresPermission)
+        .map((t) => t.toolName)
+    : [];
+
   const allowedToolPatterns = (options.allowedTools ?? []).map((name) => `${name}(*)`);
+  const deniedToolPatterns = (options.deniedTools ?? []).map((name) => `${name}(*)`);
   const mergedPermissions = {
-    allow: [...defaultAllow, ...(options.config.permissions.allow ?? []), ...allowedToolPatterns],
-    deny: options.config.permissions.deny ?? [],
+    allow: [
+      ...defaultAllow,
+      ...commandAutoAllow,
+      ...(options.config.permissions.allow ?? []),
+      ...allowedToolPatterns,
+    ],
+    deny: [...(options.config.permissions.deny ?? []), ...deniedToolPatterns],
   };
+
+  const projectSettingsPath = join(cwd, '.robota', 'settings.local.json');
+  function onProjectAllowTool(toolName: string): void {
+    const pattern = `${toolName}(*)`;
+    const settings = readSettings(projectSettingsPath);
+    const currentAllow = Array.isArray(settings.permissions)
+      ? []
+      : (((settings.permissions as Record<string, unknown> | undefined)?.allow as
+          | string[]
+          | undefined) ?? []);
+    if (!currentAllow.includes(pattern)) {
+      writeSettings(projectSettingsPath, {
+        ...settings,
+        permissions: {
+          ...((settings.permissions as Record<string, unknown>) ?? {}),
+          allow: [...currentAllow, pattern],
+        },
+      });
+    }
+  }
 
   const SessionWithAutoCompact = Session as TSessionConstructorWithAutoCompact;
   const session = new SessionWithAutoCompact({
@@ -191,12 +230,13 @@ export function createSession(options: ICreateSessionOptions): ICreateSessionRes
     hooks: options.config.hooks,
     permissionMode: options.permissionMode,
     defaultTrustLevel: options.config.defaultTrustLevel,
-    model: options.config.provider.model,
+    model: options.model ?? options.config.provider.model,
     providerTimeout: options.config.provider.timeout ?? DEFAULT_PROVIDER_IDLE_TIMEOUT_MS,
     maxTurns: options.maxTurns,
     sessionStore: options.sessionStore,
     sessionId,
     permissionHandler: options.permissionHandler,
+    onProjectAllowTool,
     onTextDelta: options.onTextDelta,
     onContextUpdate: options.onContextUpdate,
     onToolExecution: options.onToolExecution,
@@ -208,6 +248,7 @@ export function createSession(options: ICreateSessionOptions): ICreateSessionRes
     sessionLogger: options.sessionLogger,
     hookTypeExecutors: hookTypeExecutors.length > 0 ? hookTypeExecutors : undefined,
     agentName: options.agentName,
+    ...(options.responseFormat ? { responseFormat: options.responseFormat } : {}),
   });
 
   wireSessionDeps(session, agentToolDeps, backgroundProcessToolDeps, backgroundTaskManager);

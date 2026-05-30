@@ -1,37 +1,34 @@
 ---
 name: Bug report
-about: Report a reproducible bug
-title: '[Bug] '
+about: Something is broken or behaving unexpectedly
+title: '[bug] '
 labels: bug
 assignees: ''
 ---
 
-## Description
+## What happened
 
-A clear and concise description of the bug.
+A clear description of the bug.
 
 ## Steps to reproduce
 
-1. Run `...`
-2. See error
+1. ...
+2. ...
+3. ...
 
 ## Expected behavior
 
-What you expected to happen.
-
-## Actual behavior
-
-What actually happened. Include error output, stack traces, or screenshots where applicable.
+What should have happened.
 
 ## Environment
 
-- Robota version: (run `robota --version`)
+- OS: (e.g. macOS 15, Ubuntu 22.04)
 - Node.js version: (run `node --version`)
-- OS: [e.g. macOS 14, Ubuntu 22.04]
-- Terminal: [e.g. iTerm2, Terminal.app, Windows Terminal]
-- AI Provider: [e.g. Anthropic, OpenAI, Google, local]
-- Shell: [e.g. zsh, bash]
+- Robota version: (run `robota --version` or check your package.json)
+- Provider: (e.g. Anthropic, OpenAI, DeepSeek)
 
-## Additional context
+## Relevant output or error message
 
-Any other context about the problem.
+\`\`\`
+Paste error output here
+\`\`\`

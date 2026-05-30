@@ -35,7 +35,7 @@ console.log(response);
 ## With Sessions (SDK)
 
 ```typescript
-import { InteractiveSession } from '@robota-sdk/agent-sdk';
+import { InteractiveSession } from '@robota-sdk/agent-framework';
 
 const session = new InteractiveSession({
   cwd: process.cwd(),

@@ -1,3 +1,8 @@
+---
+title: 'PLG-007: agent-transport-tui 분리 — CLI 라이프사이클 소유권 복구'
+status: done
+---
+
 # PLG-007: agent-transport-tui 분리 — CLI 라이프사이클 소유권 복구
 
 - **Status**: done

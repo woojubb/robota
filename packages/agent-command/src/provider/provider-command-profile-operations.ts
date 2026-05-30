@@ -1,3 +1,18 @@
+import {
+  buildProviderSetupPatch,
+  formatOrgPolicyViolationMessage,
+  isApiKeyPlaintext,
+  setCurrentProvider,
+  upsertProviderProfile,
+} from '@robota-sdk/agent-framework';
+
+import {
+  createProviderSetupInteraction,
+  toProviderSetupStepPrompt,
+} from './provider-command-setup.js';
+import { createProviderSetupFlow, submitProviderSetupValue } from './provider-setup-flow.js';
+
+import type { IProviderSetupFlowState } from './provider-setup-flow.js';
 import type {
   ICommandInteraction,
   ICommandResult,
@@ -5,23 +20,6 @@ import type {
   IProviderProfileSettings,
   IProviderSetupInput,
 } from '@robota-sdk/agent-framework';
-import {
-  buildProviderSetupPatch,
-  setCurrentProvider,
-  upsertProviderProfile,
-} from '@robota-sdk/agent-framework';
-import { createProviderSetupFlow, submitProviderSetupValue } from './provider-setup-flow.js';
-import type { IProviderSetupFlowState } from './provider-setup-flow.js';
-import {
-  createProviderSetupInteraction,
-  toProviderSetupStepPrompt,
-} from './provider-command-setup.js';
-
-const YES = 'yes';
-const PROVIDER_RESTART_EFFECT = {
-  type: 'session-restart-requested',
-  reason: 'other',
-} as const;
 
 export function formatProviderChoiceLabel(
   name: string,
@@ -38,53 +36,37 @@ export function buildProviderSwitch(
   options: IProviderCommandModuleOptions,
 ): ICommandResult {
   if (!profileName) {
-    return { message: 'Usage: provider use <profile>', success: false };
+    return { message: 'Usage: /provider switch <profile>', success: false };
   }
   if (!providers?.[profileName]) {
     return { message: `Provider profile "${profileName}" was not found.`, success: false };
   }
-  if (options.settings.readMergedSettings().currentProvider === profileName) {
-    return { message: `Provider profile "${profileName}" is already current.`, success: true };
+  const { orgPolicy } = options;
+  if (orgPolicy?.allowedProviders && !orgPolicy.allowedProviders.includes(profileName)) {
+    return {
+      message: formatOrgPolicyViolationMessage(
+        `Provider "${profileName}" is not allowed by your organization policy. Allowed: ${orgPolicy.allowedProviders.join(', ')}.`,
+        orgPolicy.adminContact,
+      ),
+      success: false,
+    };
   }
+  if (options.settings.readMergedSettings().currentProvider === profileName) {
+    return { message: `Already using provider "${profileName}".`, success: true };
+  }
+  const profile = providers[profileName];
+  const target = options.settings.readTargetSettings();
+  const merged = options.settings.readMergedSettings();
+  const next =
+    target.providers?.[profileName] !== undefined || merged.providers?.[profileName] !== undefined
+      ? { ...target, currentProvider: profileName }
+      : setCurrentProvider(target, profileName);
+  options.settings.writeTargetSettings(next);
+  const modelLabel = profile.model ?? 'unknown model';
   return {
-    message: `Provider change requested: ${profileName}`,
+    message: `Switched to ${profileName} (${modelLabel}). History preserved.`,
     success: true,
-    interaction: createProviderSwitchInteraction(profileName, options),
-  };
-}
-
-function createProviderSwitchInteraction(
-  profileName: string,
-  options: IProviderCommandModuleOptions,
-): ICommandInteraction {
-  return {
-    prompt: {
-      kind: 'choice',
-      title: `Change provider to ${profileName}? This will restart the session.`,
-      options: [
-        { value: YES, label: 'Yes' },
-        { value: 'no', label: 'No' },
-      ],
-    },
-    submit: (value) => {
-      if (value !== YES) {
-        return { message: 'Provider change cancelled.', success: true };
-      }
-      const merged = options.settings.readMergedSettings();
-      const target = options.settings.readTargetSettings();
-      const next =
-        target.providers?.[profileName] !== undefined ||
-        merged.providers?.[profileName] !== undefined
-          ? { ...target, currentProvider: profileName }
-          : setCurrentProvider(target, profileName);
-      options.settings.writeTargetSettings(next);
-      return {
-        message: `Provider changed to ${profileName}. Restarting...`,
-        success: true,
-        effects: [{ ...PROVIDER_RESTART_EFFECT, message: 'Provider change restart' }],
-      };
-    },
-    cancel: () => ({ message: 'Provider change cancelled.', success: true }),
+    effects: [{ type: 'provider-hot-swap-requested', profileName }],
   };
 }
 
@@ -174,6 +156,16 @@ function completeProviderEdit(
   if (!currentProfile) {
     return { message: `Provider profile "${profileName}" was not found.`, success: false };
   }
+  const { orgPolicy } = options;
+  if (orgPolicy?.requireApiKeyFromEnv && isApiKeyPlaintext(input.apiKey)) {
+    return {
+      message: formatOrgPolicyViolationMessage(
+        'Your organization policy requires API keys to be stored as environment variable references ($ENV:VAR_NAME), not as plaintext.',
+        orgPolicy.adminContact,
+      ),
+      success: false,
+    };
+  }
   const target = options.settings.readTargetSettings();
   const patch = buildProviderSetupPatch(input, {
     providerDefinitions: options.providerDefinitions,
@@ -188,11 +180,9 @@ function completeProviderEdit(
   const isCurrent = merged.currentProvider === profileName;
   return {
     message: isCurrent
-      ? `Provider ${profileName} updated. Restarting...`
+      ? `Provider ${profileName} updated. Switching...`
       : `Provider ${profileName} updated.`,
     success: true,
-    ...(isCurrent
-      ? { effects: [{ ...PROVIDER_RESTART_EFFECT, message: 'Provider edit restart' }] }
-      : {}),
+    ...(isCurrent ? { effects: [{ type: 'provider-hot-swap-requested', profileName }] } : {}),
   };
 }

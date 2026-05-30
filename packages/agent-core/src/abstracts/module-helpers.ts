@@ -4,12 +4,8 @@
  * Extracted from abstracts/abstract-module.ts to keep that file under 300 lines.
  * Contains context data extraction, event payload conversion, and stats utilities.
  */
-import type {
-  TEventDataValue,
-  IEventEmitterPlugin,
-  TEventName,
-} from '../plugins/event-emitter/types';
 import { EVENT_EMITTER_EVENTS } from '../plugins/event-emitter/types';
+
 import type {
   IModuleInitializationEventData,
   IModuleExecutionEventData,
@@ -22,6 +18,11 @@ import type {
   IModuleDescriptor,
   IModuleData,
 } from './abstract-module-types';
+import type {
+  TEventDataValue,
+  IEventEmitterPlugin,
+  TEventName,
+} from '../plugins/event-emitter/types';
 
 /**
  * Extract string context fields from an execution context for event emission.

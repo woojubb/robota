@@ -4,6 +4,10 @@
  * and all command/skill invocation logic.
  */
 
+import { executeSkill, SkillCommandSource, SystemCommandExecutor } from '../commands/index.js';
+import { createSkillActivationEvent } from '../commands/skill-activation-events.js';
+
+import type { ICommandHostContext } from '../command-api/index.js';
 import type {
   ICommand,
   ICommandHostAdapters,
@@ -16,11 +20,8 @@ import type {
   TCommandInvocationSource,
   ISystemCommand,
 } from '../commands/index.js';
-import { executeSkill, SkillCommandSource, SystemCommandExecutor } from '../commands/index.js';
-import type { TShellExecFn } from '../utils/skill-prompt.js';
 import type { ISkillActivationEvent } from '../commands/skill-activation-events.js';
-import { createSkillActivationEvent } from '../commands/skill-activation-events.js';
-import type { ICommandHostContext } from '../command-api/index.js';
+import type { TShellExecFn } from '../utils/skill-prompt.js';
 
 function normalizeSkillName(name: string): string {
   return name.trim().replace(/^\/+/, '').split(/\s+/)[0] ?? '';
@@ -96,11 +97,17 @@ export class SessionSkillRouter {
     return this.commandHostAdapters ?? {};
   }
 
-  listCommands(): Array<{ name: string; displayName?: string; description: string }> {
+  listCommands(): Array<{
+    name: string;
+    displayName?: string;
+    description: string;
+    example?: string;
+  }> {
     return this.commandExecutor.listCommands().map((cmd) => ({
       name: cmd.name,
       ...(cmd.displayName !== undefined ? { displayName: cmd.displayName } : {}),
       description: cmd.description,
+      ...(cmd.example !== undefined ? { example: cmd.example } : {}),
     }));
   }
 

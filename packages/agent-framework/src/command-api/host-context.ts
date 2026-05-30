@@ -1,5 +1,5 @@
-import type { IContextWindowState, TPermissionMode } from '@robota-sdk/agent-core';
-import type { ISessionReplayValidationResult } from '@robota-sdk/agent-session';
+import type { ICommandResult } from './command-result.js';
+import type { ICommandHostAdapters } from './host-adapters.js';
 import type {
   IBackgroundJobGroupCreateRequest,
   IBackgroundJobGroupState,
@@ -9,28 +9,30 @@ import type {
   IBackgroundTaskState,
   TBackgroundTaskIsolation,
 } from '../background-tasks/index.js';
-import type { ISubagentJobState } from '../subagents/index.js';
-import type { ICommandHostAdapters } from './host-adapters.js';
 import type {
   IEditCheckpointInspection,
   IEditCheckpointRestoreResult,
   IEditCheckpointSummary,
 } from '../checkpoints/index.js';
-import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
-import type { TAutoCompactThreshold } from './context/context-command-api.js';
-import type { ICommandResult } from './command-result.js';
 import type {
   IContextReferenceAddResult,
   IContextReferenceClearResult,
   IContextReferenceItem,
   IContextReferenceRemoveResult,
 } from '../context/context-reference-inventory.js';
+import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
+import type { ISubagentJobState } from '../subagents/index.js';
+import type { TAutoCompactThreshold } from './context/context-command-api.js';
+import type { IContextWindowState, TPermissionMode } from '@robota-sdk/agent-core';
+import type { ISessionReplayValidationResult } from '@robota-sdk/agent-session';
 
 export interface ICommandListEntry {
   name: string;
   /** User-friendly display label. Falls back to `name` if not set. */
   displayName?: string;
   description: string;
+  /** Optional usage example shown in /help output (e.g., "/compact Summarize the context"). */
+  example?: string;
 }
 
 export interface ICommandSkillListEntry {
@@ -65,6 +67,8 @@ export interface ICommandSessionRuntime {
   getSessionAllowedTools(): readonly string[];
   getAutoCompactThreshold(): number | false;
   setAutoCompactThreshold?(threshold: TAutoCompactThreshold): void;
+  getSessionTokenUsage?(): { inputTokens: number; outputTokens: number } | undefined;
+  getModelId?(): string | undefined;
 }
 
 export interface ICommandSessionReplayValidationReport {

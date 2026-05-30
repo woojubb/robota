@@ -1,12 +1,14 @@
-import { z } from 'zod';
 import { createZodFunctionTool } from '@robota-sdk/agent-tools';
-import type { IZodSchema } from '@robota-sdk/agent-tools';
-import type { ICommandResult } from '../commands/index.js';
-import type { ICapabilityDescriptor } from '../capabilities/types.js';
+import { z } from 'zod';
+
 import {
   normalizeModelCommandName,
   stringifyModelCommandResult,
 } from './model-command-tool-projection.js';
+
+import type { ICapabilityDescriptor } from '../capabilities/types.js';
+import type { ICommandResult } from '../commands/index.js';
+import type { IZodSchema } from '@robota-sdk/agent-tools';
 
 interface ICommandExecutionArgs {
   command: string;

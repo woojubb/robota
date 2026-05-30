@@ -1,8 +1,10 @@
-import React from 'react';
-import { Box, Text } from 'ink';
-import type { TPermissionMode } from '@robota-sdk/agent-core';
 import { formatTokenCount } from '@robota-sdk/agent-core';
+import { Box, Text } from 'ink';
+import React from 'react';
+
 import { formatStatusActivity } from './status-activity.js';
+
+import type { TPermissionMode } from '@robota-sdk/agent-core';
 
 /** Threshold boundaries for context percentage color coding */
 const CONTEXT_YELLOW_THRESHOLD = 70;

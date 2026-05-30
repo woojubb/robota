@@ -1,7 +1,9 @@
-import { describe, expect, it, afterEach } from 'vitest';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { describe, expect, it, afterEach } from 'vitest';
+
 import { resolveGitBranch } from '../git-branch.js';
 
 const TMP_BASE = join(tmpdir(), `robota-git-branch-test-${process.pid}`);

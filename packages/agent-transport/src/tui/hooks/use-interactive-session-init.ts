@@ -1,9 +1,11 @@
 import { InteractiveSession, CommandRegistry } from '@robota-sdk/agent-framework';
-import type { TToolArgs } from '@robota-sdk/agent-core';
-import type { TPermissionResultValue } from '@robota-sdk/agent-framework';
+
 import { TuiStateManager } from '../tui-state-manager.js';
 import { CommandEffectQueue, type ICommandEffectQueue } from './command-effect-queue.js';
+
 import type { IInteractiveSessionProps } from './useInteractiveSession.js';
+import type { TToolArgs } from '@robota-sdk/agent-core';
+import type { TPermissionResultValue } from '@robota-sdk/agent-framework';
 
 export interface IInitState {
   interactiveSession: InteractiveSession;
@@ -33,6 +35,10 @@ export function initializeSession(
     shellExec: props.shellExec,
     language: props.language,
     agentName: props.agentName,
+    systemPrompt: props.systemPrompt,
+    appendSystemPrompt: props.appendSystemPrompt,
+    allowedTools: props.allowedTools,
+    deniedTools: props.deniedTools,
   });
 
   const registry = new CommandRegistry();

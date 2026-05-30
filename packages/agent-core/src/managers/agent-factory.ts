@@ -1,8 +1,3 @@
-import type { IAgent, IAgentConfig, IAgentTemplate } from '../interfaces/agent';
-import { ConfigurationError, ValidationError } from '../utils/errors';
-import { validateAgentConfig } from '../utils/validation';
-import { createLogger, type ILogger } from '../utils/logger';
-import { AgentTemplates, type ITemplateApplicationResult } from './agent-templates';
 import {
   applyAgentDefaults,
   generateAgentId,
@@ -13,6 +8,13 @@ import {
   type IAgentLifecycleEvents,
   type TResolvedFactoryOptions,
 } from './agent-factory-helpers';
+import { AgentTemplates, type ITemplateApplicationResult } from './agent-templates';
+import { ConfigurationError, ValidationError } from '../utils/errors';
+import { createLogger, type ILogger } from '../utils/logger';
+import { validateAgentConfig } from '../utils/validation';
+
+import type { IAgent, IAgentConfig, IAgentTemplate } from '../interfaces/agent';
+import type { TConfigData } from '../interfaces/types';
 
 export type {
   IAgentFactoryOptions,
@@ -233,10 +235,7 @@ export class AgentFactory {
     template: IAgentTemplate,
     overrides: Partial<IAgentConfig> = {},
   ): ITemplateApplicationResult {
-    return this.agentTemplates.applyTemplate(
-      template,
-      overrides as import('../interfaces/types').TConfigData,
-    );
+    return this.agentTemplates.applyTemplate(template, overrides as TConfigData);
   }
 
   /**

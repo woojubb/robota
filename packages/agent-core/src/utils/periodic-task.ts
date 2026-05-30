@@ -1,5 +1,5 @@
-import type { ILogger } from './logger';
 import type { TTimerId } from './index';
+import type { ILogger } from './logger';
 
 interface IPeriodicTaskOptions {
   name: string;

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import type { IContextWindowState, TUniversalMessage } from '@robota-sdk/agent-core';
+
 import { buildResult, createUsageSummaryEntry } from '../interactive-session-execution.js';
+
+import type { IContextWindowState, TUniversalMessage } from '@robota-sdk/agent-core';
 
 const CONTEXT_STATE: IContextWindowState = {
   maxTokens: 1000,

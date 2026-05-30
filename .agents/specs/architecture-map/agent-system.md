@@ -45,6 +45,8 @@ flowchart TD
   Executor --> Core
   Tools --> Core
   Plugins --> Core
+  IfaceTransport --> Core
+  IfaceTui --> Core
 ```
 
 Agent stack ownership:
@@ -82,27 +84,36 @@ See [agent-cli-composition.md](agent-cli-composition.md) and [agent-cli/](agent-
 ```mermaid
 flowchart TD
   Browser["Browser"]
-  AgentWeb["agent-web\nNext.js product host"]
+  AgentWeb["apps/agent-web\nNext.js product host"]
+  AgentServer["apps/agent-server\nAI provider proxy + WebSocket"]
   ClientEntry["agent-playground/client\nbrowser-safe React entry"]
   Playground["agent-playground\nexecutor + hooks + components"]
   RemoteClient["agent-remote-client\nRemoteExecutor (API keys stay server-side)"]
   Core["agent-core / agent-tools"]
-  Providers["agent-provider-openai / anthropic\nprovider adapters"]
+  Providers["agent-provider\nprovider adapters"]
 
   Browser --> AgentWeb
+  AgentWeb --> AgentServer
   AgentWeb --> ClientEntry
   ClientEntry --> Playground
   Playground --> RemoteClient
   Playground --> Core
   Playground --> Providers
   RemoteClient --> Core
+  AgentServer --> Providers
 ```
+
+Data flow: `Browser → apps/agent-web → apps/agent-server → agent-provider → AI provider`. The
+browser never holds API keys — all provider calls are proxied through `apps/agent-server`. The
+playground package itself is a lightweight client UI; session management and server-side policy
+live in `apps/agent-server`.
 
 Playground ownership:
 
 | Concern                                | Owner                     | Contract                                                                                                                                                |
 | -------------------------------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Product route and deployment host      | `agent-web`               | Imports browser-safe playground entry only.                                                                                                             |
+| Product route and deployment host      | `apps/agent-web`          | Imports browser-safe playground entry only.                                                                                                             |
+| AI provider proxy + WebSocket host     | `apps/agent-server`       | API keys and server-side provider policy stay here; never in browser.                                                                                   |
 | Browser-safe React package entry       | `agent-playground/client` | Must not expose Node-only services.                                                                                                                     |
 | Executor, hooks, components, context   | `agent-playground`        | Internal modules under `src/lib/` and `src/components/`; see [packages/agent-playground/docs/SPEC.md](../../../packages/agent-playground/docs/SPEC.md). |
 | Secure provider execution from browser | `agent-remote-client`     | API keys stay server-side through `RemoteExecutor`.                                                                                                     |
@@ -111,3 +122,27 @@ Playground ownership:
 `agent-framework`, `agent-session`, or `agent-executor`. Session management and all server-side
 policy run in `apps/agent-server`; the playground is a lightweight client UI only.
 See [packages/agent-playground/docs/SPEC.md](../../../packages/agent-playground/docs/SPEC.md).
+
+## WebSocket Sidecar Mode [Planned]
+
+> **[Planned — not yet implemented]** The `--web` / `--web-port` flags and `startWebSidecarServer()` do not exist in the codebase. This section documents the intended design only.
+
+When implemented, sidecar mode will span four packages:
+
+| Package              | Role                                                                        |
+| -------------------- | --------------------------------------------------------------------------- |
+| `agent-cli`          | Launch `--web` flag; host `startWebSidecarServer(interactiveSession, port)` |
+| `agent-transport/ws` | `createWsHandler({ session, send })` — real-time session event relay        |
+| `agent-web-ui`       | Browser React components; `useWsSession(url)` hook for WebSocket connection |
+| `apps/agent-web`     | Deployment host; opens monitor URL in browser                               |
+
+For the intended sequence diagram see [agent-cli/execution-modes.md](agent-cli/execution-modes.md).
+
+## Multi-Agent Orchestration
+
+The `agent-subagent-runner` package handles child-process subagent execution (opt-in, CLI only).
+
+| Concern                          | Owner                   | Contract                                                                                  |
+| -------------------------------- | ----------------------- | ----------------------------------------------------------------------------------------- |
+| Child-process subagent runner    | `agent-subagent-runner` | Opt-in. CLI imports factory; forks worker via `child_process.fork()`.                     |
+| Agent Command (spawn + delegate) | `agent-command`         | `robota_command_agent` tool — spawns background agent job via `agent-executor` contracts. |

@@ -1,32 +1,68 @@
 **Language:** [English](README.md) | [한국어](docs/README-KO.md)
 
+> **Beta software** — currently `3.0.0-beta`. APIs and behavior may change before stable release.
+> Please [report issues](https://github.com/woojubb/robota/issues) to help us improve.
+
 # @robota-sdk/agent-cli
 
 AI coding assistant CLI built on Robota SDK. Loads AGENTS.md/CLAUDE.md for project context and provides a tool-calling REPL with Claude Code-compatible permission modes.
 
+## Why Robota?
+
+|                                                   | Robota | Claude Code | Aider |
+| ------------------------------------------------- | :----: | :---------: | :---: |
+| Multi-provider (Anthropic, OpenAI, Gemini, Qwen…) |   ✅   |     ❌      |  ✅   |
+| Embed SDK in your own app                         |   ✅   |     ❌      |  ❌   |
+| Local models (LM Studio, Ollama via OpenAI API)   |   ✅   |     ❌      |  ✅   |
+| Open source (MIT)                                 |   ✅   |   partial   |  ✅   |
+| Claude Code config compatible (CLAUDE.md, modes)  |   ✅   |      —      |  ❌   |
+
+## Embed in Your App
+
+```typescript
+import { createAgentRuntime } from '@robota-sdk/agent-framework';
+import { createAnthropicProvider } from '@robota-sdk/agent-provider';
+
+const runtime = createAgentRuntime({
+  provider: createAnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY }),
+});
+const session = runtime.createSession({ permissionMode: 'bypassPermissions' });
+const response = await session.submit('Explain this codebase');
+```
+
 ## Prerequisites
 
-Node.js **22 or higher** is required.
+Node.js **22 or higher** is required. The TUI renderer ([ink 7.x](https://github.com/vadimdemedes/ink)) requires Node.js 22+.
 
 ```bash
 node --version  # Must output v22.x.x or higher
 ```
 
-If your version is below 22, upgrade using [nvm](https://github.com/nvm-sh/nvm):
+If your version is below 22, upgrade using one of:
 
 ```bash
-nvm install 22
-nvm use 22
+# nvm
+nvm install 22 && nvm use 22
+
+# Volta
+volta install node@22
 ```
+
+## Demo
+
+<!-- TODO: Add demo GIF here -->
+<!-- Run `pnpm demo:record` to capture a demo recording — see docs/demo-script.md for instructions -->
+
+![Demo](./docs/demo.gif)
 
 ## Installation
 
 ```bash
-# Global install
-npm install -g @robota-sdk/agent-cli
-
-# Or run directly with npx
+# Try it now — no install needed
 npx @robota-sdk/agent-cli
+
+# Install globally for persistent use
+npm install -g @robota-sdk/agent-cli
 ```
 
 > **macOS users**: Korean/CJK IME input may crash macOS Terminal.app. Use **[iTerm2](https://iterm2.com/)** instead. This is a known Ink + Terminal.app issue shared with Claude Code.
@@ -41,11 +77,14 @@ robota -p "List all files"    # Print mode (one-shot, exit after response)
 
 ### Environment Variables
 
-| Variable            | Description                                    | Required       |
-| ------------------- | ---------------------------------------------- | -------------- |
-| `ANTHROPIC_API_KEY` | Anthropic API key for the `anthropic` provider | Anthropic only |
-| `DEEPSEEK_API_KEY`  | DeepSeek API key for the `deepseek` provider   | DeepSeek only  |
-| `DASHSCOPE_API_KEY` | Alibaba Cloud Model Studio key for `qwen`      | Qwen only      |
+| Variable            | Description                                              | Provider  |
+| ------------------- | -------------------------------------------------------- | --------- |
+| `ANTHROPIC_API_KEY` | Anthropic API key                                        | Anthropic |
+| `OPENAI_API_KEY`    | OpenAI API key                                           | OpenAI    |
+| `GEMINI_API_KEY`    | Google Gemini API key                                    | Gemini    |
+| `DEEPSEEK_API_KEY`  | DeepSeek API key                                         | DeepSeek  |
+| `DASHSCOPE_API_KEY` | Alibaba Cloud Model Studio key                           | Qwen      |
+| `BRAVE_API_KEY`     | Brave Search API key (optional — enables WebSearch tool) | WebSearch |
 
 Set your key before running:
 
@@ -87,13 +126,15 @@ robota "prompt"                     # REPL with initial prompt
 robota -p "prompt"                  # Print mode (one-shot, exit after response)
 robota -c                           # Continue last session
 robota -r <session-id>              # Resume session by ID
-robota --model <model>              # Model override (e.g., claude-sonnet-4-6)
 robota --language <lang>            # Response language (ko, en, ja, zh)
 robota --permission-mode <mode>     # plan | default | acceptEdits | bypassPermissions
 robota --max-turns <n>              # Limit agentic turns per interaction
 robota --output-format <fmt>        # text | json | stream-json (print mode)
 robota --system-prompt <text>       # Replace system prompt (print mode)
 robota --append-system-prompt <text> # Append to system prompt (print mode)
+robota --model claude-opus-4-7       # Override provider model for this session
+robota --allowed-tools "Bash,Read"  # Whitelist specific tools
+robota --denied-tools "Bash,Write"  # Blacklist specific tools (denied > allowed)
 robota --reset                      # Delete user settings and exit
 robota --check-update               # Check npm for a newer CLI version and exit
 robota --disable-update-check        # Skip interactive startup update check for this run
@@ -126,9 +167,20 @@ Print mode (`-p`) supports three output formats via `--output-format`:
 | `json`        | Single JSON object: `{ type, result, session_id, subtype }`        |
 | `stream-json` | Newline-delimited JSON with `content_block_delta` streaming events |
 
+### Exit Codes (print mode)
+
+| Code | Meaning                                        |
+| ---- | ---------------------------------------------- |
+| 0    | Success                                        |
+| 1    | General error                                  |
+| 2    | Argument error                                 |
+| 3    | Configuration error (missing provider/API key) |
+| 4    | API error                                      |
+| 5    | Tool execution error                           |
+
 ### Stdin Pipe
 
-When `-p` is used without a positional argument and stdin is piped, the CLI reads from stdin:
+When stdin is piped, the CLI reads it automatically. If a positional prompt is also given, the piped content is appended inside `<stdin>` tags:
 
 ```bash
 echo "Explain this error" | robota -p
@@ -161,16 +213,18 @@ Non-interactive/headless mode never prompts. Configure a provider ahead of time 
 
 The AI agent can invoke 8 local tools:
 
-| Tool        | Description                          | Primary Argument |
-| ----------- | ------------------------------------ | ---------------- |
-| `Bash`      | Execute shell commands               | `command`        |
-| `Read`      | Read file contents with line numbers | `filePath`       |
-| `Write`     | Write content to a file              | `filePath`       |
-| `Edit`      | Replace a string in a file           | `filePath`       |
-| `Glob`      | Find files matching a pattern        | `pattern`        |
-| `Grep`      | Search file contents with regex      | `pattern`        |
-| `WebFetch`  | Fetch URL content as text            | `url`            |
-| `WebSearch` | Search the internet                  | `query`          |
+| Tool        | Description                                    | Primary Argument |
+| ----------- | ---------------------------------------------- | ---------------- |
+| `Bash`      | Execute shell commands                         | `command`        |
+| `Read`      | Read file contents with line numbers           | `filePath`       |
+| `Write`     | Write content to a file                        | `filePath`       |
+| `Edit`      | Replace a string in a file                     | `filePath`       |
+| `Glob`      | Find files matching a pattern                  | `pattern`        |
+| `Grep`      | Search file contents with regex                | `pattern`        |
+| `WebFetch`  | Fetch URL content as text                      | `url`            |
+| `WebSearch` | Search the internet (requires `BRAVE_API_KEY`) | `query`          |
+
+> **WebSearch** requires a `BRAVE_API_KEY` environment variable. Without it, the tool returns a setup message instead of results. Get a free key at [brave.com/search/api](https://brave.com/search/api/) (2,000 queries/month free tier).
 
 ## Recent TUI Capabilities
 
@@ -290,23 +344,50 @@ When a session has a name, it appears in three places:
 
 ## Slash Commands
 
+Typing `/` in the TUI opens an autocomplete popup. Arrow keys navigate, Tab inserts without executing, Enter executes. Subcommands (e.g., `/provider list`) show a nested submenu.
+
+### Session & Context
+
 | Command                   | Description                                                            |
 | ------------------------- | ---------------------------------------------------------------------- |
-| `/help`                   | Show available commands                                                |
 | `/clear`                  | Clear conversation history                                             |
-| `/model [model]`          | Select AI model (confirmation prompt, CLI restarts)                    |
-| `/language [lang]`        | Set response language (ko, en, ja, zh), saves and restarts             |
 | `/compact [instructions]` | Compress context window                                                |
-| `/cost`                   | Show session info                                                      |
 | `/context`                | Context window details, reference inventory, and auto-compact controls |
-| `/agent`                  | Run and manage background subagent jobs                                |
-| `/permissions [mode]`     | Show permission rules or change permission mode                        |
-| `/plugin [subcommand]`    | Plugin management                                                      |
+| `/cost`                   | Show session token usage and cost                                      |
 | `/resume`                 | List recent sessions and resume one                                    |
 | `/rename <name>`          | Rename the current session                                             |
-| `/exit`                   | Exit CLI                                                               |
+| `/rewind`                 | List, inspect, restore, or rollback edit checkpoints                   |
 
-Typing `/` triggers an autocomplete popup with arrow-key navigation and Esc to dismiss. Tab inserts the highlighted command into the input field without executing — continue typing args or press Enter to execute. Enter selects and executes immediately. Commands with subcommands (e.g., `/permissions`, `/model`) show a nested submenu. Skill commands discovered from `.agents/skills/` and `.claude/commands/` appear alongside built-in commands.
+### Providers & Settings
+
+| Command                  | Description                                                          |
+| ------------------------ | -------------------------------------------------------------------- | ------- | -------------------------------------------------- |
+| `/provider [subcommand]` | Manage provider profiles: `list`, `switch`, `add`, `test`, `current` |
+| `/mode [mode]`           | Show or switch permission mode                                       |
+| `/permissions [mode]`    | Show permission rules or change permission mode                      |
+| `/settings`              | Open transport settings (enable/disable transports)                  |
+| `/language [lang]`       | Set response language (ko, en, ja, zh), saves and restarts           |
+| `/statusline [on         | off                                                                  | reset]` | Configure status-line fields (model, context, git) |
+
+### Tools & Memory
+
+| Command                | Description                                    |
+| ---------------------- | ---------------------------------------------- |
+| `/memory [subcommand]` | Inspect, add, or review project memory entries |
+| `/background`          | List and control background tasks              |
+| `/agent`               | Run and manage background subagent jobs        |
+| `/skills [name]`       | List registered skills or activate one by name |
+| `/plugin [subcommand]` | Plugin management                              |
+
+### Utility
+
+| Command  | Description                                        |
+| -------- | -------------------------------------------------- |
+| `/help`  | Show available commands                            |
+| `/reset` | Delete user settings and return to first-run state |
+| `/exit`  | Exit CLI                                           |
+
+Skill commands discovered from `.agents/skills/` and `.claude/commands/` appear alongside built-in commands.
 
 ## Plugin Management
 

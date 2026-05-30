@@ -1,0 +1,33 @@
+name: 'Robota Action'
+description: 'Run Robota AI coding assistant in CI/CD workflows'
+author: 'robota-sdk'
+branding:
+  icon: 'cpu'
+  color: 'blue'
+
+inputs:
+  task:
+    description: 'The task or prompt to send to the agent'
+    required: true
+  model:
+    description: 'AI model to use (e.g. claude-sonnet-4-6)'
+    required: false
+  api-key:
+    description: 'Anthropic API key (prefer using secrets)'
+    required: false
+  output:
+    description: 'Output format: text | json | stream-json'
+    required: false
+    default: 'text'
+  max-turns:
+    description: 'Maximum agent turns'
+    required: false
+
+outputs:
+  result:
+    description: 'The agent response text'
+    value: ${{ steps.run-robota.outputs.result }}
+
+runs:
+  using: 'node20'
+  main: 'dist/index.js'

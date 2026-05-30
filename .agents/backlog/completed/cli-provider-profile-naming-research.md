@@ -1,8 +1,9 @@
+---
+title: 'CLI Provider Profile Naming Research'
+status: done
+---
+
 # CLI Provider Profile Naming Research
-
-## Status
-
-Completed.
 
 ## Priority
 

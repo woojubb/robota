@@ -1,3 +1,6 @@
+import { findProviderDefinition, getProviderCredentialRequirement } from '@robota-sdk/agent-core';
+import { formatEnvReference, hasUsableSecretReference } from '@robota-sdk/agent-core';
+
 import type {
   IProviderDefinition,
   IProviderCredentialRequirement,
@@ -5,8 +8,6 @@ import type {
   TProviderCredentialField,
   TUniversalValue,
 } from '@robota-sdk/agent-core';
-import { findProviderDefinition, getProviderCredentialRequirement } from '@robota-sdk/agent-core';
-import { formatEnvReference, hasUsableSecretReference } from '@robota-sdk/agent-core';
 
 export interface IProviderProfileSettings extends IProviderProfileConfig {
   [key: string]: TUniversalValue;
@@ -151,6 +152,12 @@ export function buildProviderProfile(
   options: IProviderSettingsBuildOptions = {},
 ): IProviderProfileSettings {
   const defaults = getProviderDefaults(input.type, options.providerDefinitions ?? []);
+  if (input.apiKey !== undefined && input.apiKeyEnv === undefined) {
+    // eslint-disable-next-line no-console -- security warning surfaced to CLI user at setup time; no logger injected in this pure-function context
+    console.warn(
+      'API key stored as plain text in settings. Use --api-key-env for better security.',
+    ); // allow-console: security warning at setup time
+  }
   const apiKey =
     input.apiKeyEnv !== undefined
       ? formatEnvReference(input.apiKeyEnv)

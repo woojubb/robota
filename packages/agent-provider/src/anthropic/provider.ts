@@ -1,7 +1,12 @@
 import { randomUUID } from 'node:crypto';
+
 import Anthropic from '@anthropic-ai/sdk';
+import { AbstractAIProvider, getModelMaxOutput, RateLimitError } from '@robota-sdk/agent-core';
+
+import { convertToAnthropicFormat, convertToolsToAnthropicFormat } from './message-converter';
+import { streamAndAssemble } from './streaming-handler';
+
 import type { IAnthropicProviderOptions } from './types';
-import { AbstractAIProvider, getModelMaxOutput } from '@robota-sdk/agent-core';
 import type {
   IProviderCapabilities,
   IProviderNativeWebToolRequest,
@@ -9,8 +14,6 @@ import type {
   IChatOptions,
   TTextDeltaCallback,
 } from '@robota-sdk/agent-core';
-import { convertToAnthropicFormat, convertToolsToAnthropicFormat } from './message-converter';
-import { streamAndAssemble } from './streaming-handler';
 
 /**
  * Anthropic provider implementation for Robota
@@ -87,11 +90,7 @@ export class AnthropicProvider extends AbstractAIProvider {
 
     // Use executor when configured; otherwise use direct execution
     if (this.executor) {
-      try {
-        return await this.executeViaExecutorOrDirect(messages, options);
-      } catch (error) {
-        throw error;
-      }
+      return this.executeViaExecutorOrDirect(messages, options);
     }
 
     // Direct execution with Anthropic client
@@ -131,14 +130,31 @@ export class AnthropicProvider extends AbstractAIProvider {
     // Always use streaming to avoid Anthropic SDK's 10-minute non-streaming timeout.
     // When no onTextDelta callback is available, use a no-op to silently assemble the response.
     const textDeltaCb = options?.onTextDelta ?? this.onTextDelta ?? (() => {});
-    return streamAndAssemble(
-      this.client,
-      baseParams,
-      textDeltaCb,
-      this.onServerToolUse,
-      options?.signal,
-      options?.onProviderNativeRawPayload,
-    );
+    try {
+      return await streamAndAssemble(
+        this.client,
+        baseParams,
+        textDeltaCb,
+        this.onServerToolUse,
+        options?.signal,
+        options?.onProviderNativeRawPayload,
+      );
+    } catch (error) {
+      // allow-fallback: re-throws original after mapping 429 to RateLimitError
+      const anthropicError = error as {
+        status?: number;
+        error?: { type?: string };
+        message?: string;
+      };
+      if (anthropicError.status === 429 || anthropicError.error?.type === 'rate_limit_error') {
+        throw new RateLimitError(
+          anthropicError.message ?? 'Anthropic rate limit exceeded.',
+          undefined,
+          'anthropic',
+        );
+      }
+      throw error;
+    }
   }
 
   /**
@@ -153,12 +169,8 @@ export class AnthropicProvider extends AbstractAIProvider {
 
     // Use executor when configured; otherwise use direct execution
     if (this.executor) {
-      try {
-        yield* this.executeStreamViaExecutorOrDirect(messages, options);
-        return;
-      } catch (error) {
-        throw error;
-      }
+      yield* this.executeStreamViaExecutorOrDirect(messages, options);
+      return;
     }
 
     // Direct execution with Anthropic client
@@ -203,7 +215,25 @@ export class AnthropicProvider extends AbstractAIProvider {
       payloadKind: 'request',
       payload: requestParams,
     });
-    const stream = await this.client.messages.create(requestParams);
+    let stream: AsyncIterable<Anthropic.MessageStreamEvent>;
+    try {
+      stream = await this.client.messages.create(requestParams);
+    } catch (streamError) {
+      // allow-fallback: re-throws original after mapping 429 to RateLimitError
+      const anthropicError = streamError as {
+        status?: number;
+        error?: { type?: string };
+        message?: string;
+      }; // allow-any: narrowing unknown HTTP error shape from Anthropic SDK
+      if (anthropicError.status === 429 || anthropicError.error?.type === 'rate_limit_error') {
+        throw new RateLimitError(
+          anthropicError.message ?? 'Anthropic rate limit exceeded.',
+          undefined,
+          'anthropic',
+        );
+      }
+      throw streamError;
+    }
 
     let sequence = 0;
     for await (const chunk of stream) {

@@ -11,28 +11,31 @@
  * multiple concurrent sessions without race conditions.
  */
 
-import { z } from 'zod';
-import { createZodFunctionTool } from '@robota-sdk/agent-tools';
-import type { IZodSchema } from '@robota-sdk/agent-tools';
-import type { IAgentDefinition } from '../agents/agent-definition-types.js';
-import { getBuiltInAgent } from '../agents/built-in-agents.js';
 import { SubagentManager } from '@robota-sdk/agent-executor';
+import { createZodFunctionTool } from '@robota-sdk/agent-tools';
+import { z } from 'zod';
+
+import { runManagedAgentBatch } from './agent-tool-batch.js';
+import {
+  stringifyAgentError,
+  stringifyAgentSuccess,
+  stringifyUnknownAgentType,
+} from './agent-tool-output.js';
+import { getBuiltInAgent } from '../agents/built-in-agents.js';
+import { createExecutionOriginMetadata } from '../background-tasks/index.js';
 import { createInProcessSubagentRunner } from '../subagents/in-process-subagent-runner.js';
+
+import type { IAgentToolBatchJobArgs } from './agent-tool-batch.js';
+import type { IAgentDefinition } from '../agents/agent-definition-types.js';
+import type { IBackgroundTaskManager } from '../background-tasks/index.js';
 import type {
   IInProcessSubagentRunnerDeps,
   ISubagentManager,
   ISubagentJobResult,
   ISubagentSpawnRequest,
 } from '../subagents/index.js';
-import { createExecutionOriginMetadata } from '../background-tasks/index.js';
-import type { IBackgroundTaskManager } from '../background-tasks/index.js';
-import { runManagedAgentBatch } from './agent-tool-batch.js';
-import type { IAgentToolBatchJobArgs } from './agent-tool-batch.js';
-import {
-  stringifyAgentError,
-  stringifyAgentSuccess,
-  stringifyUnknownAgentType,
-} from './agent-tool-output.js';
+import type { IToolExecutionContext } from '@robota-sdk/agent-core';
+import type { IZodSchema } from '@robota-sdk/agent-tools';
 
 export const AGENT_TOOL_DESCRIPTION = [
   'Creates delegated subagent jobs in isolated contexts.',
@@ -176,6 +179,7 @@ function createSpawnRequest(
   agentDef: IAgentDefinition,
   deps: IAgentToolDeps,
   label = agentDef.name,
+  toolCallId?: string,
 ): ISubagentSpawnRequest {
   return {
     type: agentType,
@@ -191,6 +195,7 @@ function createSpawnRequest(
       kind: 'tool_call',
       sessionId: deps.parentSessionId ?? 'unknown-session',
       label,
+      ...(toolCallId ? { toolCallId } : {}),
     }),
   };
 }
@@ -199,6 +204,7 @@ async function runManagedAgent(
   args: TAgentArgs,
   deps: IAgentToolDeps,
   manager: ISubagentManager,
+  toolCallId?: string,
 ): Promise<string> {
   if (typeof args.prompt !== 'string' || args.prompt.length === 0) {
     return stringifyAgentError('prompt is required when jobs is omitted');
@@ -213,7 +219,9 @@ async function runManagedAgent(
 
   let agentId: string | undefined;
   try {
-    const state = await manager.spawn(createSpawnRequest(singleArgs, agentType, agentDef, deps));
+    const state = await manager.spawn(
+      createSpawnRequest(singleArgs, agentType, agentDef, deps, undefined, toolCallId),
+    );
     agentId = state.id;
     const response = await manager.wait(state.id);
     return stringifyAgentSuccess(response);
@@ -235,8 +243,9 @@ export function createAgentTool(deps: IAgentToolDeps): ReturnType<typeof createZ
     'Agent',
     AGENT_TOOL_DESCRIPTION,
     asZodSchema(AgentSchema),
-    async (params) => {
+    async (params, context) => {
       const args = params as TAgentArgs;
+      const toolCallId = (context as IToolExecutionContext | undefined)?.executionId;
       if (Array.isArray(args.jobs) && args.jobs.length > 0) {
         return runManagedAgentBatch({
           jobs: args.jobs as TAgentJobArgs[],
@@ -244,6 +253,7 @@ export function createAgentTool(deps: IAgentToolDeps): ReturnType<typeof createZ
           manager,
           resolveAgentDefinition,
           createSpawnRequest,
+          toolCallId,
         });
       }
       return runManagedAgent(
@@ -255,6 +265,7 @@ export function createAgentTool(deps: IAgentToolDeps): ReturnType<typeof createZ
         },
         deps,
         manager,
+        toolCallId,
       );
     },
   );

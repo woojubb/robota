@@ -1,3 +1,8 @@
+---
+title: 'CLI Cancel Execution'
+status: done
+---
+
 # CLI Cancel Execution
 
 ## What

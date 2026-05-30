@@ -1,8 +1,9 @@
-import type { IProviderDefinition, TUniversalValue } from '@robota-sdk/agent-core';
-import { probeOpenAICompatibleProfile } from '../shared/openai-compatible/index.js';
 import { refreshOpenAIModelCatalog } from './model-catalog-refresh';
 import { OpenAIProvider } from './provider';
+import { probeOpenAICompatibleProfile } from '../shared/openai-compatible/index.js';
+
 import type { IOpenAINativeWebToolsOptions, TOpenAIApiSurface } from './types';
+import type { IProviderDefinition, TUniversalValue } from '@robota-sdk/agent-core';
 
 export const DEFAULT_OPENAI_PROVIDER_MODEL: string | undefined = undefined;
 export const DEFAULT_OPENAI_PROVIDER_API_KEY_REFERENCE = '$ENV:OPENAI_API_KEY';
@@ -24,7 +25,8 @@ export function createOpenAIProviderDefinition(): IProviderDefinition {
   return {
     type: 'openai',
     displayName: 'OpenAI',
-    description: 'Official OpenAI Responses API provider',
+    description: 'GPT series — general-purpose assistant. API key required.',
+    category: 'cloud-paid',
     defaults: {
       apiKey: DEFAULT_OPENAI_PROVIDER_API_KEY_REFERENCE,
     },

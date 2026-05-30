@@ -3,17 +3,21 @@
  * agent definitions, tool filtering, session creation, and agent tool wiring.
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { mkdirSync, writeFileSync, rmSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import type { IAIProvider, IToolWithEventService } from '@robota-sdk/agent-core';
-import type { ITerminalOutput } from '@robota-sdk/agent-session';
+import { join } from 'node:path';
+
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+
+import { AgentDefinitionLoader } from '../agents/agent-definition-loader.js';
+import { BUILT_IN_AGENTS, getBuiltInAgent } from '../agents/built-in-agents.js';
+import { createSubagentSession } from '../assembly/create-subagent-session.js';
+import { createSubagentLogger, resolveSubagentLogDir } from '../assembly/subagent-logger.js';
+import { storeAgentToolDeps, retrieveAgentToolDeps } from '../tools/agent-tool.js';
+
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import type { IResolvedConfig } from '../config/config-types.js';
 import type { ILoadedContext } from '../context/context-loader.js';
-import { BUILT_IN_AGENTS, getBuiltInAgent } from '../agents/built-in-agents.js';
-import { AgentDefinitionLoader } from '../agents/agent-definition-loader.js';
 
 // Mock Session to capture constructor args
 const mockSessionConstructor = vi.fn();
@@ -43,9 +47,8 @@ const mockProvider = {
   generateResponse: vi.fn(),
 } as unknown as IAIProvider;
 
-import { createSubagentSession } from '../assembly/create-subagent-session.js';
-import { storeAgentToolDeps, retrieveAgentToolDeps } from '../tools/agent-tool.js';
-import { createSubagentLogger, resolveSubagentLogDir } from '../assembly/subagent-logger.js';
+import type { IAIProvider, IToolWithEventService } from '@robota-sdk/agent-core';
+import type { ITerminalOutput } from '@robota-sdk/agent-session';
 
 function makeTool(name: string): IToolWithEventService {
   return {

@@ -1,8 +1,10 @@
-import { join, basename } from 'node:path';
 import { homedir } from 'node:os';
-import type { IFileSystem, IDirent } from '@robota-sdk/agent-core';
+import { join, basename } from 'node:path';
+
 import { NodeFileSystem } from '../adapters/node-file-system.js';
+
 import type { ICommandSource, ICommand } from '../command-api/types.js';
+import type { IFileSystem, IDirent } from '@robota-sdk/agent-core';
 
 interface IFrontmatter {
   name?: string;

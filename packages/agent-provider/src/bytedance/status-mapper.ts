@@ -1,5 +1,5 @@
-import type { TProviderMediaResult, IVideoJobSnapshot } from '@robota-sdk/agent-core';
 import type { IBytedanceVideoTaskResponse } from './types';
+import type { TProviderMediaResult, IVideoJobSnapshot } from '@robota-sdk/agent-core';
 
 /** Threshold (in milliseconds) above which a numeric timestamp is treated as milliseconds rather than seconds. */
 const MILLISECOND_EPOCH_THRESHOLD = 1_000_000_000_000;

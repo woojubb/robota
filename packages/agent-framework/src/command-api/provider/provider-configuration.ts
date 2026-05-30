@@ -1,5 +1,3 @@
-import { readSettings, writeSettings } from '../../config/settings-io.js';
-import { getProviderSettingsPaths } from '../../config/provider-paths.js';
 import { readMergedProviderSettingsFromPaths } from './provider-merge.js';
 import {
   buildProviderSetupPatch,
@@ -10,6 +8,8 @@ import {
   type IProviderSettingsBuildOptions,
   type TProviderSettingsDocument,
 } from './provider-settings.js';
+import { getProviderSettingsPaths } from '../../config/provider-paths.js';
+import { readSettings, writeSettings } from '../../config/settings-io.js';
 
 export interface IProviderSwitchOptions {
   knownProviders?: Record<string, IProviderProfileSettings>;

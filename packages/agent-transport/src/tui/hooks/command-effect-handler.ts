@@ -1,13 +1,13 @@
-import type { TCommandEffect, TStatusLineCommandSettingsPatch } from '@robota-sdk/agent-framework';
-import { isStatusLineCommandSettingsPatch } from '@robota-sdk/agent-framework';
 import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
-import type { IHistoryEntry, TSessionEndReason } from '@robota-sdk/agent-core';
+import { isStatusLineCommandSettingsPatch } from '@robota-sdk/agent-framework';
+
 import type { ITuiCliAdapter } from '../tui-cli-adapter.js';
+import type { IHistoryEntry, TSessionEndReason } from '@robota-sdk/agent-core';
+import type { TCommandEffect, TStatusLineCommandSettingsPatch } from '@robota-sdk/agent-framework';
 
 export interface ICommandEffectHandlerDeps {
   addEntry: (entry: IHistoryEntry) => void;
   requestShutdown: (reason: TSessionEndReason, message: string) => void;
-  requestModelChange: (modelId: string) => void;
   openPluginTUI: () => void;
   openSessionPicker: () => void;
   openTransportTUI: () => void;
@@ -22,10 +22,6 @@ export function applyCommandEffects(
   deps: ICommandEffectHandlerDeps,
 ): boolean {
   for (const effect of effects) {
-    if (effect.type === 'model-change-requested') {
-      deps.requestModelChange(effect.modelId);
-      return true;
-    }
     if (effect.type === 'language-change-requested') {
       applyLanguageEffect(effect.language, deps);
       return true;

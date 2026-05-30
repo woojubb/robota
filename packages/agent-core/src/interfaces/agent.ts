@@ -1,12 +1,12 @@
-import type { TProviderConfigValue, IAIProvider, TTextDeltaCallback } from './provider';
-import type { IPluginContract, IPluginOptions, IPluginStats } from '../abstracts/abstract-plugin';
-import type { IModule } from '../abstracts/abstract-module';
-import type { IToolWithEventService } from '../abstracts/abstract-tool';
-import type { TUtilLogLevel } from '../utils/logger';
-import type { TMetadata, TConfigValue } from './types';
-import type { IEventService, IOwnerPathSegment } from '../interfaces/event-service';
-import type { TUniversalMessageMetadata, TUniversalMessage } from './messages';
 import type { ICacheOptions } from './cache';
+import type { TUniversalMessageMetadata, TUniversalMessage } from './messages';
+import type { TProviderConfigValue, IAIProvider, TTextDeltaCallback } from './provider';
+import type { TMetadata, TConfigValue } from './types';
+import type { IModule } from '../abstracts/abstract-module';
+import type { IPluginContract, IPluginOptions, IPluginStats } from '../abstracts/abstract-plugin';
+import type { IToolWithEventService } from '../abstracts/abstract-tool';
+import type { IEventService, IOwnerPathSegment } from '../interfaces/event-service';
+import type { TUtilLogLevel } from '../utils/logger';
 
 export type {
   TUniversalMessage,
@@ -119,6 +119,7 @@ export interface IAgentConfig {
   // Performance and limits
   timeout?: number;
   maxExecutionRounds?: number;
+  maxSameToolInputs?: number;
   retryAttempts?: number;
   rateLimiting?: {
     enabled?: boolean;
@@ -174,6 +175,8 @@ export interface IRunOptions {
    * Use 0 for no core round cap.
    */
   maxExecutionRounds?: number;
+  /** Max times the same tool may be called with identical input before aborting. Unset = no limit. */
+  maxSameToolInputs?: number;
 }
 
 export type TExecutionEventData = Record<string, unknown>;

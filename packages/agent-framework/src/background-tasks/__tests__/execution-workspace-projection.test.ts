@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import {
   createBackgroundGroupExecutionEntryId,
   createBackgroundTaskExecutionEntryId,
@@ -6,8 +7,9 @@ import {
   createExecutionWorkspaceSnapshot,
   createMainThreadExecutionEntryId,
 } from '../index.js';
-import type { IBackgroundTaskState } from '../index.js';
+
 import type { IBackgroundJobGroupState } from '../background-job-orchestrator.js';
+import type { IBackgroundTaskState } from '../index.js';
 
 function createTask(overrides: Partial<IBackgroundTaskState> = {}): IBackgroundTaskState {
   return {

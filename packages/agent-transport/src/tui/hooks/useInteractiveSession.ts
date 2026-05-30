@@ -1,30 +1,35 @@
-import { useState, useCallback, useEffect } from 'react';
-import { InteractiveSession, CommandRegistry } from '@robota-sdk/agent-framework';
-import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
-import type {
-  IBackgroundTaskRunner,
-  ICommandHostAdapters,
-  ICommandModule,
-  IInteractiveSession,
-  IInteractiveSessionStore,
-  TSubagentRunnerFactory,
-  IExecutionDetailPage,
-  IExecutionWorkspaceSnapshot,
-  TShellExecFn,
-} from '@robota-sdk/agent-framework';
+import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
+import { useState, useCallback, useEffect, useRef } from 'react';
+
+import { CommandEffectQueue, type ICommandEffectQueue } from './command-effect-queue.js';
+import { initializeSession, type IInitState } from './use-interactive-session-init.js';
+import { usePermissionQueue } from './usePermissionQueue.js';
+import { useSlashRouting } from './useSlashRouting.js';
+import { generateSessionName } from '../session-naming.js';
+
+import type { TuiStateManager } from '../tui-state-manager.js';
+import type { IPermissionRequest } from '../types.js';
 import type {
   IAIProvider,
   TPermissionMode,
   IHistoryEntry,
   TSessionEndReason,
 } from '@robota-sdk/agent-core';
-import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
-import type { IPermissionRequest } from '../types.js';
-import { TuiStateManager } from '../tui-state-manager.js';
-import { useSlashRouting } from './useSlashRouting.js';
-import { CommandEffectQueue, type ICommandEffectQueue } from './command-effect-queue.js';
-import { usePermissionQueue } from './usePermissionQueue.js';
-import { initializeSession, type IInitState } from './use-interactive-session-init.js';
+import type { InteractiveSession, CommandRegistry } from '@robota-sdk/agent-framework';
+import type {
+  IBackgroundTaskRunner,
+  ICommandHostAdapters,
+  ICommandModule,
+  IInteractiveSession,
+  IInteractiveSessionStore,
+  IExecutionWorkspaceEvent,
+  TSubagentRunnerFactory,
+  IExecutionDetailPage,
+  IExecutionWorkspaceSnapshot,
+  IToolState,
+  TShellExecFn,
+} from '@robota-sdk/agent-framework';
+import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
 
 const SESSION_INIT_POLL_MS = 200;
 
@@ -37,6 +42,7 @@ export interface IInteractiveSessionProps {
   resumeSessionId?: string;
   forkSession?: boolean;
   sessionName?: string;
+  onAutoNamed?: (name: string) => void;
   backgroundTaskRunners?: IBackgroundTaskRunner[];
   subagentRunnerFactory?: TSubagentRunnerFactory;
   commandModules?: readonly ICommandModule[];
@@ -46,6 +52,10 @@ export interface IInteractiveSessionProps {
   language?: string;
   reloadPluginCommandSource?: (registry: CommandRegistry) => void;
   agentName?: string;
+  systemPrompt?: string;
+  appendSystemPrompt?: string;
+  allowedTools?: string[];
+  deniedTools?: string[];
 }
 
 export interface IInteractiveSessionState {
@@ -55,7 +65,7 @@ export interface IInteractiveSessionState {
   history: IHistoryEntry[];
   addEntry: (entry: IHistoryEntry) => void;
   streamingText: string;
-  activeTools: import('@robota-sdk/agent-framework').IToolState[];
+  activeTools: IToolState[];
   isThinking: boolean;
   isAborting: boolean;
   isShuttingDown: boolean;
@@ -114,6 +124,7 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
   const [, forceRender] = useState(0);
   const [isShuttingDown, setIsShuttingDown] = useState(false);
   const { permissionHandler, permissionRequest } = usePermissionQueue();
+  const autoNameTriggeredRef = useRef(false);
 
   // Initialize once — useState lazy initializer runs exactly once per mount, safe for Concurrent Mode
   const [initState] = useState<IInitState>(() => initializeSession(props, permissionHandler));
@@ -144,10 +155,24 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
     const onCompact = (): void => applyCompactEventToManager(interactiveSession, manager);
     const onSkillActivation = (): void =>
       applySkillActivationEventToManager(interactiveSession, manager);
-    const onExecutionWorkspaceEvent = (
-      event: import('@robota-sdk/agent-framework').IExecutionWorkspaceEvent,
-    ): void => manager.syncExecutionWorkspaceSnapshot(event.snapshot);
 
+    const onUserMessage = (content: string): void => {
+      if (autoNameTriggeredRef.current) return;
+      if (props.sessionName || interactiveSession.getName()) return;
+      autoNameTriggeredRef.current = true;
+      generateSessionName(props.provider, content)
+        .then((name) => {
+          interactiveSession.setName(name);
+          props.onAutoNamed?.(name);
+        })
+        .catch(() => {
+          autoNameTriggeredRef.current = false;
+        });
+    };
+    const onExecutionWorkspaceEvent = (event: IExecutionWorkspaceEvent): void =>
+      manager.syncExecutionWorkspaceSnapshot(event.snapshot);
+
+    interactiveSession.on('user_message', onUserMessage);
     interactiveSession.on('text_delta', manager.onTextDelta);
     interactiveSession.on('tool_start', manager.onToolStart);
     interactiveSession.on('tool_end', manager.onToolEnd);
@@ -183,6 +208,7 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
 
     return () => {
       clearInterval(initCheck);
+      interactiveSession.off('user_message', onUserMessage);
       interactiveSession.off('text_delta', manager.onTextDelta);
       interactiveSession.off('tool_start', manager.onToolStart);
       interactiveSession.off('tool_end', manager.onToolEnd);

@@ -1,3 +1,4 @@
+import type { IEditCheckpointRecorder } from './edit-checkpoint-types.js';
 import type {
   IEventService,
   IParameterValidationResult,
@@ -7,7 +8,6 @@ import type {
   IToolWithEventService,
   TToolParameters,
 } from '@robota-sdk/agent-core';
-import type { IEditCheckpointRecorder } from './edit-checkpoint-types.js';
 
 const CHECKPOINTED_TOOL_NAMES = new Set(['Write', 'Edit']);
 

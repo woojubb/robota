@@ -1,11 +1,13 @@
+import { EXIT_COMMAND_DESCRIPTION } from '@robota-sdk/agent-framework';
+
+import { executeExitCommand } from './exit-command.js';
+
 import type {
   ICommand,
   ICommandModule,
   ICommandSource,
   ISystemCommand,
 } from '@robota-sdk/agent-framework';
-import { EXIT_COMMAND_DESCRIPTION } from '@robota-sdk/agent-framework';
-import { executeExitCommand } from './exit-command.js';
 
 export function createExitCommandEntry(): ICommand {
   return {

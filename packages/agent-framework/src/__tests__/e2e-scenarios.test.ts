@@ -6,24 +6,25 @@
  * Only external I/O (network, git) is mocked.
  */
 
-import { describe, it, expect, afterEach, vi } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, cpSync } from 'node:fs';
-import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
-import { buildSystemPrompt } from '../context/system-prompt-builder.js';
-import { loadConfig } from '../config/config-loader.js';
-import { BundlePluginLoader } from '../plugins/index.js';
 import { runHooks } from '@robota-sdk/agent-core';
+import { describe, it, expect, afterEach, vi } from 'vitest';
+
+import { CommandRegistry } from '../commands/command-registry.js';
+import { PluginCommandSource } from '../commands/plugin-source.js';
+import { executeSkill } from '../commands/skill-executor.js';
+import { SkillCommandSource } from '../commands/skill-source.js';
+import { loadConfig } from '../config/config-loader.js';
+import { buildSystemPrompt } from '../context/system-prompt-builder.js';
+import { BundlePluginLoader } from '../plugins/index.js';
+import { substituteVariables } from '../utils/skill-prompt.js';
+
+import type { IForkExecutionOptions } from '../commands/skill-executor.js';
 import type { ISystemPromptParams } from '../context/system-prompt-builder.js';
 import type { THooksConfig, IHookInput } from '@robota-sdk/agent-core';
-
-import { SkillCommandSource } from '../commands/skill-source.js';
-import { PluginCommandSource } from '../commands/plugin-source.js';
-import { CommandRegistry } from '../commands/command-registry.js';
-import { executeSkill } from '../commands/skill-executor.js';
-import type { IForkExecutionOptions } from '../commands/skill-executor.js';
-import { substituteVariables } from '../utils/skill-prompt.js';
 
 // ---------------------------------------------------------------------------
 // Helpers

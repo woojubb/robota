@@ -1,8 +1,10 @@
-import type { IFileSystem } from '@robota-sdk/agent-core';
-import { NodeFileSystem } from '../../adapters/node-file-system.js';
-import type { IProviderConfig, IProviderDefinition } from '@robota-sdk/agent-core';
 import { normalizeProviderConfig } from '@robota-sdk/agent-executor';
+
+import { NodeFileSystem } from '../../adapters/node-file-system.js';
+
 import type { IProviderProfileSettings, TProviderSettingsDocument } from './provider-settings.js';
+import type { IFileSystem } from '@robota-sdk/agent-core';
+import type { IProviderConfig, IProviderDefinition } from '@robota-sdk/agent-core';
 
 export function readMergedProviderSettingsFromPaths(
   paths: readonly string[],

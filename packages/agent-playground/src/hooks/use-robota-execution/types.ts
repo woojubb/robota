@@ -27,6 +27,7 @@ export interface IRobotaExecutionHookReturn {
   totalExecutions: number;
   successRate: number;
   createAgent: (config: IPlaygroundAgentConfig) => Promise<void>;
+  popRestoredMessages: () => import('../../lib/playground/robota-executor/sse-client').IRestoredMessage[];
   executePrompt: (prompt: string) => Promise<IPlaygroundExecutorResult>;
   executeStreamPrompt: (
     prompt: string,

@@ -1,48 +1,77 @@
 # Getting Started
 
+> **Beta software** — Robota CLI is currently in `3.0.0-beta`. Core features are stable but APIs may
+> change before the stable release. [Report issues](https://github.com/woojubb/robota/issues).
+
+## Which path is right for you?
+
+**"I want a coding assistant in my terminal right now"**
+→ [CLI Quick Start](#quick-start--cli) — 2 minutes, API key required
+
+**"I want to build a chatbot or AI feature in my app"**
+→ [First Agent (5 lines)](#1-create-a-simple-conversational-agent) — 10 minutes
+
+**"I want to switch AI providers without rewriting code"**
+→ [Switch Providers](#3-switch-providers-dynamically) — 5 minutes
+
+**"I want to embed an AI assistant in my own tool or app"**
+→ [Using the SDK (InteractiveSession)](#4-use-the-sdk-for-project-aware-sessions) — 15 minutes
+
+**"I have no API key and want to try for free"**
+→ [Local Model with LM Studio](#no-api-key-try-with-a-local-model) — 10 minutes
+
+---
+
+## No API key? Try with a local model
+
+Install [LM Studio](https://lmstudio.ai/) → Download any model → Enable local server
+
+```bash
+npx @robota-sdk/agent-cli  # Select "LM Studio" when prompted — no API key needed
+```
+
+---
+
 ## Prerequisites
 
 - **Node.js 22 or higher** — required for Robota CLI; SDK supports Node.js 18+ (22 recommended)
 - **AI Provider API key**: Anthropic, OpenAI, DeepSeek, Gemini, Qwen, or another configured
-  provider
+  provider — _or_ use LM Studio locally (no key required)
 
 ## Installation
 
 Choose the packages you need based on your use case:
 
+### I want a ready-to-use coding assistant
+
+```bash
+# Try it now — no install needed
+npx @robota-sdk/agent-cli
+
+# Install globally for persistent use
+npm install -g @robota-sdk/agent-cli
+```
+
 ### I want to build a custom AI agent
 
 ```bash
-npm install @robota-sdk/agent-core @robota-sdk/agent-provider/anthropic @anthropic-ai/sdk
+npm install @robota-sdk/agent-core @robota-sdk/agent-provider
 ```
 
 ### I want tool calling (function tools)
 
 ```bash
-npm install @robota-sdk/agent-core @robota-sdk/agent-tools @robota-sdk/agent-provider/anthropic @anthropic-ai/sdk
+npm install @robota-sdk/agent-core @robota-sdk/agent-tools @robota-sdk/agent-provider
 ```
-
-### I want a ready-to-use coding assistant
-
-```bash
-npm install -g @robota-sdk/agent-cli
-```
-
-> **macOS users**: Korean/CJK IME input may crash macOS Terminal.app. Use **[iTerm2](https://iterm2.com/)** instead. This is a known Ink + Terminal.app issue shared with Claude Code.
 
 ## Quick Start — CLI (Robota Coding Assistant)
 
-Install the CLI globally:
-
 ```bash
+# Try it now — no install needed
+npx @robota-sdk/agent-cli
+
+# Install globally for persistent use
 npm install -g @robota-sdk/agent-cli
-# or
-pnpm add -g @robota-sdk/agent-cli
-```
-
-Start the assistant:
-
-```bash
 robota
 ```
 
@@ -63,7 +92,6 @@ On first run, you'll be guided through provider selection and API key configurat
 
 - **Node.js 22 or higher** — check with `node --version`
 - macOS, Linux, or Windows (WSL recommended)
-- **macOS Terminal.app**: CJK input (Korean/Chinese/Japanese) may cause crashes — use iTerm2 instead
 
 ## Your First Agent
 
@@ -203,3 +231,14 @@ robota --model claude-opus-4-6
 - [Using the SDK](../guide/sdk.md) — InteractiveSession, transports, sessions, createQuery()
 - [CLI Reference](../guide/cli.md) — Full CLI usage guide
 - [Architecture](../guide/architecture.md) — Package layers and design
+- [Providers Reference](../guide/providers.md) — All providers, config options, and model names
+- [Error Handling](../guide/error-handling.md) — Error types, retry patterns, best practices
+- [Migration Guide](../guide/migration.md) — Upgrading from v2.x to 3.0.0
+
+## Troubleshooting
+
+**macOS Terminal.app + Korean/CJK input**: IME input may crash macOS Terminal.app. Use **[iTerm2](https://iterm2.com/)** instead. This is a known Ink + Terminal.app issue shared with Claude Code.
+
+**Node.js version**: Robota CLI requires Node.js 22+. Check with `node --version`. Use [Volta](https://volta.sh/) or [nvm](https://github.com/nvm-sh/nvm) to manage versions.
+
+**API key not found**: Set your key as an environment variable (`export ANTHROPIC_API_KEY=...`) or run `robota` and follow the interactive setup prompts.

@@ -6,10 +6,12 @@
  */
 
 import { join, dirname } from 'node:path';
-import type { IFileSystem } from '@robota-sdk/agent-core';
+
 import { NodeFileSystem } from '../adapters/node-file-system.js';
-import type { PluginSettingsStore } from './plugin-settings-store.js';
+
 import type { MarketplaceClient, IMarketplacePluginEntry, TExecFn } from './marketplace-client.js';
+import type { PluginSettingsStore } from './plugin-settings-store.js';
+import type { IFileSystem } from '@robota-sdk/agent-core';
 
 /** Record of an installed plugin in installed_plugins.json. */
 export interface IInstalledPluginRecord {

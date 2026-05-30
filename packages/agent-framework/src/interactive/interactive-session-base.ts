@@ -6,16 +6,26 @@
  * plus the abstract accessors declared here.
  */
 
-import type { Session } from '@robota-sdk/agent-session';
-import type { IHistoryEntry, TUniversalMessage, IContextWindowState } from '@robota-sdk/agent-core';
-import type {
-  ICommandHostAdapters,
-  ICommandResult,
-  ICommandSkillListEntry,
-  ICommandSkillActivationRequest,
-  TCommandInvocationSource,
-} from '../commands/index.js';
-import type { ISkillActivationEvent } from '../commands/skill-activation-events.js';
+import {
+  listAgentDefinitionsFromSession,
+  listAgentJobsFromSession,
+  spawnAgentJobFromSession,
+  waitAgentJobFromSession,
+  sendAgentJobFromSession,
+  cancelAgentJobFromSession,
+  closeAgentJobFromSession,
+  type ISpawnAgentJobInput,
+} from './interactive-session-agent-jobs.js';
+import {
+  buildExecutionWorkspaceSnapshot,
+  buildWorkspaceTaskSpawner,
+  readWorkspaceDetail,
+} from './interactive-session-workspace.js';
+
+import type { SessionBackgroundTaskTracker } from './interactive-session-background-tracker.js';
+import type { SessionExecutionController } from './interactive-session-execution-controller.js';
+import type { SessionHistoryTracker } from './interactive-session-history-tracker.js';
+import type { SessionSkillRouter } from './interactive-session-skill-router.js';
 import type {
   IBackgroundJobGroupCreateRequest,
   IBackgroundJobGroupState,
@@ -33,38 +43,29 @@ import type {
   IExecutionWorkspaceSnapshotOptions,
   IExecutionWorkspaceTaskSpawner,
 } from '../background-tasks/index.js';
-import type { ISubagentJobResult, ISubagentJobState } from '../subagents/index.js';
-import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
+import type {
+  IEditCheckpointInspection,
+  IEditCheckpointRestoreResult,
+  IEditCheckpointSummary,
+} from '../checkpoints/edit-checkpoint-types.js';
+import type {
+  ICommandHostAdapters,
+  ICommandResult,
+  ICommandSkillListEntry,
+  ICommandSkillActivationRequest,
+  TCommandInvocationSource,
+} from '../commands/index.js';
+import type { ISkillActivationEvent } from '../commands/skill-activation-events.js';
 import type {
   IContextReferenceAddResult,
   IContextReferenceClearResult,
   IContextReferenceItem,
   IContextReferenceRemoveResult,
 } from '../context/context-reference-inventory.js';
-import type {
-  IEditCheckpointInspection,
-  IEditCheckpointRestoreResult,
-  IEditCheckpointSummary,
-} from '../checkpoints/edit-checkpoint-types.js';
-import { SessionBackgroundTaskTracker } from './interactive-session-background-tracker.js';
-import { SessionHistoryTracker } from './interactive-session-history-tracker.js';
-import { SessionSkillRouter } from './interactive-session-skill-router.js';
-import { SessionExecutionController } from './interactive-session-execution-controller.js';
-import {
-  listAgentDefinitionsFromSession,
-  listAgentJobsFromSession,
-  spawnAgentJobFromSession,
-  waitAgentJobFromSession,
-  sendAgentJobFromSession,
-  cancelAgentJobFromSession,
-  closeAgentJobFromSession,
-  type ISpawnAgentJobInput,
-} from './interactive-session-agent-jobs.js';
-import {
-  buildExecutionWorkspaceSnapshot,
-  buildWorkspaceTaskSpawner,
-  readWorkspaceDetail,
-} from './interactive-session-workspace.js';
+import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
+import type { ISubagentJobResult, ISubagentJobState } from '../subagents/index.js';
+import type { IHistoryEntry, TUniversalMessage, IContextWindowState } from '@robota-sdk/agent-core';
+import type { Session } from '@robota-sdk/agent-session';
 
 export abstract class InteractiveSessionBase {
   protected abstract readonly bgTracker: SessionBackgroundTaskTracker;
@@ -84,7 +85,7 @@ export abstract class InteractiveSessionBase {
   getStreamingText(): string {
     return this.execCtrl.streamingText;
   }
-  getActiveTools() {
+  getActiveTools(): SessionExecutionController['activeTools'] {
     return this.execCtrl.activeTools;
   }
   cancelQueue(): void {
@@ -115,7 +116,12 @@ export abstract class InteractiveSessionBase {
     await this.ensureInitialized();
     return this.skillRouter.executeSkillCommandByName(name, args, request);
   }
-  listCommands(): Array<{ name: string; displayName?: string; description: string }> {
+  listCommands(): Array<{
+    name: string;
+    displayName?: string;
+    description: string;
+    example?: string;
+  }> {
     return this.skillRouter.listCommands();
   }
   listSkills(): ICommandSkillListEntry[] {

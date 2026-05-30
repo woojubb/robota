@@ -1,5 +1,5 @@
-import type { IToolSchema } from './provider';
 import type { IEventService, IOwnerPathSegment } from './event-service';
+import type { IToolSchema } from './provider';
 import type { TContextData, TLoggerData, TToolParameters, TUniversalValue } from './types';
 
 // Re-export canonical tool parameter types from the shared "types" axis.

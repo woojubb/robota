@@ -1,8 +1,9 @@
+---
+title: 'CLI Session Store Boundary Cleanup'
+status: done
+---
+
 # CLI Session Store Boundary Cleanup
-
-## Status
-
-Completed.
 
 ## Priority
 

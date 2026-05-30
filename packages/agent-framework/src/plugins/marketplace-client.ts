@@ -7,13 +7,14 @@
  */
 
 import { join } from 'node:path';
-import type { IFileSystem } from '@robota-sdk/agent-core';
-import { NodeFileSystem } from '../adapters/node-file-system.js';
+
 import {
   readRegistry,
   writeRegistry,
   removeInstalledPluginsForMarketplace,
 } from './marketplace-registry.js';
+import { NodeFileSystem } from '../adapters/node-file-system.js';
+
 import type {
   TMarketplaceSource,
   IMarketplacePluginEntry,
@@ -21,6 +22,7 @@ import type {
   IMarketplaceClientOptions,
   TExecFn,
 } from './marketplace-types.js';
+import type { IFileSystem } from '@robota-sdk/agent-core';
 
 export type {
   TMarketplaceSource,

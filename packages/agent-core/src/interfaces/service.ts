@@ -3,12 +3,12 @@
  * Defines contracts for stateless service implementations
  */
 
-import type { TUniversalMessage } from './messages';
-import type { IToolSchema, IAIProvider } from './provider';
-import type { TUniversalValue } from './types';
-import type { IToolCall } from './messages';
 import type { IOwnerPathSegment, IEventService } from './event-service';
+import type { TUniversalMessage } from './messages';
+import type { IToolCall } from './messages';
+import type { IToolSchema, IAIProvider } from './provider';
 import type { TToolParameters, TToolMetadata } from './tool';
+import type { TUniversalValue } from './types';
 
 /**
  * Reusable type definitions for service layer

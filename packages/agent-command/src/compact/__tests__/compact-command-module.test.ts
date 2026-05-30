@@ -20,8 +20,9 @@ const AFTER_CONTEXT: TContextWindowState = {
   remainingPercentage: 65,
 };
 
-function createRuntime(): ICommandSessionRuntime {
+function createRuntime(beforeCount = 10, afterCount = 3): ICommandSessionRuntime {
   let mode: TPermissionMode = 'default';
+  const getMessageCount = vi.fn().mockReturnValueOnce(beforeCount).mockReturnValue(afterCount);
   return {
     clearHistory: vi.fn(),
     compact: vi.fn().mockResolvedValue(undefined),
@@ -31,7 +32,7 @@ function createRuntime(): ICommandSessionRuntime {
       mode = nextMode;
     },
     getSessionId: () => 'session_1',
-    getMessageCount: () => 1,
+    getMessageCount,
     getSessionAllowedTools: () => [],
     getAutoCompactThreshold: () => 0.835,
   };
@@ -104,6 +105,7 @@ describe('createCompactCommandModule', () => {
         modelInvocable: true,
         argumentHint: '[instructions]',
         safety: 'write',
+        requiresPermission: false,
       },
     ]);
   });
@@ -117,8 +119,15 @@ describe('createCompactCommandModule', () => {
     const result = await executor.execute('compact', context, ' focus on tests ');
 
     expect(result?.success).toBe(true);
-    expect(result?.message).toBe('Context compacted: 80% -> 35%');
-    expect(result?.data).toEqual({ before: 80, after: 35 });
+    expect(result?.message).toBe(
+      'Context compacted.\n  Removed messages: 7 (70% of total)\n  Context: 80% → 35%',
+    );
+    expect(result?.data).toEqual({
+      before: BEFORE_CONTEXT,
+      after: AFTER_CONTEXT,
+      beforeMessageCount: 10,
+      afterMessageCount: 3,
+    });
     expect(context.compactContext).toHaveBeenCalledWith('focus on tests');
   });
 

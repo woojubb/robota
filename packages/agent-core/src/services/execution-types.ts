@@ -1,9 +1,9 @@
 import type { IAgentConfig, IAssistantMessage, TExecutionEventCallback } from '../interfaces/agent';
-import type { TMetadata } from '../interfaces/types';
 import type { IAIProviderManager } from '../interfaces/manager';
 import type { IToolManager } from '../interfaces/manager';
-import type { IChatOptions, TTextDeltaCallback } from '../interfaces/provider';
 import type { TUniversalMessage } from '../interfaces/messages';
+import type { IChatOptions, TTextDeltaCallback } from '../interfaces/provider';
+import type { TMetadata } from '../interfaces/types';
 
 /** Preview length for general content truncation */
 export const PREVIEW_LENGTH = 100;
@@ -74,6 +74,8 @@ export interface IExecutionRoundState {
   consecutiveUnknownToolFailureRounds: number;
   /** Optional instruction used when forcing a final response after loop guard trips. */
   forcedSummaryInstruction?: string;
+  /** Tracks how many times each (toolName, inputHash) pair has been called this turn. */
+  sameToolInputCounts: Map<string, number>;
 }
 
 /**
@@ -113,6 +115,8 @@ export interface IExecutionContext {
   onExecutionEvent?: TExecutionEventCallback;
   /** Per-run model/tool round limit. Use 0 for no core round cap. */
   maxExecutionRounds?: number;
+  /** Max times the same tool may be called with identical input before aborting. Unset = no limit. */
+  maxSameToolInputs?: number;
 }
 
 /**

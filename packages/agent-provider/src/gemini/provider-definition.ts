@@ -1,6 +1,7 @@
-import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import { refreshGeminiModelCatalog } from './model-catalog-refresh';
 import { GeminiProvider } from './provider';
+
+import type { IProviderDefinition } from '@robota-sdk/agent-core';
 
 export const DEFAULT_GEMINI_PROVIDER_API_KEY_ENV = 'GEMINI_API_KEY';
 export const DEFAULT_GEMINI_PROVIDER_API_KEY_REFERENCE = `$ENV:${DEFAULT_GEMINI_PROVIDER_API_KEY_ENV}`;
@@ -25,7 +26,8 @@ export function createGeminiProviderDefinition(): IProviderDefinition {
     type: 'gemini',
     aliases: ['google'],
     displayName: 'Gemini',
-    description: 'Google Gemini API provider',
+    description: 'Google Gemini series — free tier available.',
+    category: 'cloud-free',
     defaults: {
       model: DEFAULT_GEMINI_PROVIDER_MODEL,
       apiKey: DEFAULT_GEMINI_PROVIDER_API_KEY_REFERENCE,

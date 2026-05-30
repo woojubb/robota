@@ -1,10 +1,9 @@
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import {
-  BundlePluginLoader,
-  CommandRegistry,
-  PluginCommandSource,
-} from '@robota-sdk/agent-framework';
+
+import { BundlePluginLoader, PluginCommandSource } from '@robota-sdk/agent-framework';
+
+import type { CommandRegistry } from '@robota-sdk/agent-framework';
 
 const PLUGIN_SOURCE_NAME = 'plugin';
 

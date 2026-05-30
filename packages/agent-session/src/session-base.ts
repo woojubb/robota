@@ -1,12 +1,14 @@
+import type { ContextWindowTracker, TAutoCompactThreshold } from './context-window-tracker.js';
+import type { PermissionEnforcer } from './permission-enforcer.js';
 import type {
   Robota,
   IAIProvider,
+  IContextWindowState,
+  IHistoryEntry,
   IToolSchema,
   TPermissionMode,
-  IHistoryEntry,
+  TUniversalMessage,
 } from '@robota-sdk/agent-core';
-import type { PermissionEnforcer } from './permission-enforcer.js';
-import type { ContextWindowTracker } from './context-window-tracker.js';
 
 export abstract class SessionBase {
   protected abstract readonly robota: Robota;
@@ -77,11 +79,11 @@ export abstract class SessionBase {
     return this.abortController !== null;
   }
 
-  getContextState() {
+  getContextState(): IContextWindowState {
     return this.contextTracker.getContextState();
   }
 
-  getAutoCompactThreshold() {
+  getAutoCompactThreshold(): TAutoCompactThreshold {
     return this.contextTracker.getAutoCompactThreshold();
   }
 
@@ -89,12 +91,30 @@ export abstract class SessionBase {
     this.contextTracker.setAutoCompactThreshold(threshold);
   }
 
-  getHistory() {
+  getHistory(): TUniversalMessage[] {
     return this.robota.getHistory();
   }
 
   getFullHistory(): IHistoryEntry[] {
     return this.robota.getFullHistory();
+  }
+
+  getSessionTokenUsage(): { inputTokens: number; outputTokens: number } | undefined {
+    let inputTokens = 0;
+    let outputTokens = 0;
+    let found = false;
+    for (const entry of this.getFullHistory()) {
+      if (entry.category !== 'event' || entry.type !== 'usage-summary') continue;
+      const snap = entry.data as { promptTokens?: number; completionTokens?: number } | undefined;
+      inputTokens += snap?.promptTokens ?? 0;
+      outputTokens += snap?.completionTokens ?? 0;
+      found = true;
+    }
+    return found ? { inputTokens, outputTokens } : undefined;
+  }
+
+  getModelId(): string {
+    return this.model;
   }
 
   /** Add an event entry to history (not a chat message) */

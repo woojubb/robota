@@ -4,8 +4,9 @@
 
 Browser React component library for monitoring and optionally controlling a running `agent-cli`
 session over WebSocket. Provides a connection hook (`useWsSession`), a conversation view component
-(`ConversationView`), and a self-contained monitor widget (`SessionMonitor`) that applications can
-embed without importing from any other `@robota-sdk/*` package.
+(`ConversationView`), an agent activity panel (`AgentActivityPanel`), and a self-contained monitor
+widget (`SessionMonitor`) that applications can embed without importing from any other
+`@robota-sdk/*` package.
 
 This package sits in the **Product shells** layer. It is a pure browser UI library — it does not
 own session lifecycle, conversation history, or agent runtime state.
@@ -17,16 +18,17 @@ different layers: this package is a library; the app is a deployment.
 
 ## Boundaries
 
-- Does NOT own WebSocket protocol framing — that is `@robota-sdk/agent-transport-ws`
+- Does NOT own WebSocket protocol framing — that is `@robota-sdk/agent-transport/ws`
   (`TServerMessage`, `TClientMessage`).
 - Does NOT own `InteractiveSession` or any SDK/session/runtime contracts — those live in
-  `agent-sdk`, `agent-sessions`, `agent-runtime`.
-- Does NOT own `agent-core` types directly — message types pass through `agent-transport-ws`.
+  `agent-framework`, `agent-session`, `agent-executor`.
+- Does NOT own `agent-core` types directly — message types pass through `agent-transport/ws`.
 - Does NOT own the CLI sidecar server — that is `agent-cli` (`startWebSidecarServer`).
 - OWNS: browser WebSocket client lifecycle (`IWsSessionClient`, reconnect logic).
 - OWNS: React state reconstruction from `TServerMessage` events (`useWsSession`).
-- OWNS: React components `SessionMonitor` and `ConversationView`.
+- OWNS: React components `SessionMonitor`, `ConversationView`, and `AgentActivityPanel`.
 - OWNS: `TConnectionStatus` type (`disconnected | connecting | connected | error`).
+- OWNS: `IWsSessionClientCallbacks` callback contract for `createWsSessionClient`.
 
 ## Architecture Overview
 
@@ -35,40 +37,54 @@ agent-web (browser)
   └── useWsSession(url)
         └── createWsSessionClient  ← reconnects on disconnect (max 10 attempts, 2s delay)
               │  onMessage (TServerMessage)
-              └── agent-transport-ws  ← TServerMessage / TClientMessage types only
+              └── agent-transport/ws  ← TServerMessage / TClientMessage types only
 ```
 
 On connect the client sends `{ type: "get-messages" }` to request full history replay from
 the CLI sidecar. Subsequent `TServerMessage` events update React state in `useWsSession`.
+The hook handles: `messages`, `user_message`, `text_delta`, `thinking`, `tool_start`,
+`tool_end`, `execution_workspace_event`, `complete`, and `interrupted` message types.
 
 `SessionMonitor` is a self-contained React component that renders connection status, the
-conversation view, and a prompt input. It calls `useWsSession` internally and requires only
-a `url` prop pointing at the CLI sidecar's WebSocket endpoint.
+conversation view, a prompt input, and an optional `AgentActivityPanel` for background tasks.
+It calls `useWsSession` internally and requires a `wsUrl` prop pointing at the CLI sidecar's
+WebSocket endpoint. It conditionally renders `AgentActivityPanel` when
+`executionWorkspace.entries` contains visible background tasks.
 
 `ConversationView` is a pure rendering component that accepts `IConversationMessage[]`,
 `IActiveTool[]`, `streamingText`, and `isThinking` props from the caller.
 
+`AgentActivityPanel` is a pure rendering component that accepts a `tasks` prop of
+`readonly IExecutionWorkspaceEntry[]` (from `agent-transport/ws`) and renders each agent's
+status, current action, and preview with animated status indicators.
+
 ## Type Ownership
 
-| Type                   | Location                          | Purpose                                                                                |
-| ---------------------- | --------------------------------- | -------------------------------------------------------------------------------------- |
-| `TConnectionStatus`    | `src/client/ws-session-client.ts` | WebSocket lifecycle state: disconnected / connecting / connected / error               |
-| `IWsSessionClient`     | `src/client/ws-session-client.ts` | Handle returned by `createWsSessionClient` (connect/disconnect/send/status)            |
-| `IConversationMessage` | `src/hooks/useWsSession.ts`       | Reconstructed conversation message with id, role, content, and optional streaming flag |
-| `IActiveTool`          | `src/hooks/useWsSession.ts`       | Active tool call state: id, name, status (running/done/error), input, result           |
-| `IWsSessionState`      | `src/hooks/useWsSession.ts`       | Full React hook state: status, messages, activeTools, streamingText, isThinking, send  |
+| Type                        | Location                          | Purpose                                                                                                   |
+| --------------------------- | --------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `TConnectionStatus`         | `src/client/ws-session-client.ts` | WebSocket lifecycle state: disconnected / connecting / connected / error                                  |
+| `IWsSessionClient`          | `src/client/ws-session-client.ts` | Handle returned by `createWsSessionClient` (connect/disconnect/send/status)                               |
+| `IWsSessionClientCallbacks` | `src/client/ws-session-client.ts` | Callback contract passed to `createWsSessionClient` (onMessage, onStatusChange)                           |
+| `IConversationMessage`      | `src/hooks/useWsSession.ts`       | Reconstructed conversation message with id, role, content, and optional streaming flag                    |
+| `IActiveTool`               | `src/hooks/useWsSession.ts`       | Active tool call state: id, name, status (running/done/error), input, result                              |
+| `IWsSessionState`           | `src/hooks/useWsSession.ts`       | Full React hook state: status, messages, activeTools, streamingText, isThinking, executionWorkspace, send |
+
+Note: `IExecutionWorkspaceSnapshot`, `IExecutionWorkspaceEntry`, `TExecutionWorkspaceStatus`, and
+`TExecutionAttention` are consumed from `@robota-sdk/agent-transport/ws` and are not owned by this
+package.
 
 ## Public API Surface
 
-| Export                 | Kind      | Description                                                                          |
-| ---------------------- | --------- | ------------------------------------------------------------------------------------ |
-| `SessionMonitor`       | component | Self-contained monitor widget; accepts `url` prop for the CLI sidecar WebSocket      |
-| `ConversationView`     | component | Pure conversation renderer; accepts messages, activeTools, streamingText, isThinking |
-| `useWsSession`         | hook      | React hook managing WebSocket connection and reconstructing session state            |
-| `IConversationMessage` | type      | Reconstructed message shape for display                                              |
-| `IActiveTool`          | type      | Active tool call display state                                                       |
-| `IWsSessionState`      | type      | Full hook return type                                                                |
-| `TConnectionStatus`    | type      | WebSocket lifecycle status enum                                                      |
+| Export                 | Kind      | Description                                                                                                     |
+| ---------------------- | --------- | --------------------------------------------------------------------------------------------------------------- |
+| `SessionMonitor`       | component | Self-contained monitor widget; accepts `wsUrl` prop for the CLI sidecar WebSocket                               |
+| `ConversationView`     | component | Pure conversation renderer; accepts messages, activeTools, streamingText, isThinking                            |
+| `AgentActivityPanel`   | component | Background-task monitor panel; accepts `tasks: readonly IExecutionWorkspaceEntry[]` (not re-exported from root) |
+| `useWsSession`         | hook      | React hook managing WebSocket connection and reconstructing session state                                       |
+| `IConversationMessage` | type      | Reconstructed message shape for display                                                                         |
+| `IActiveTool`          | type      | Active tool call display state                                                                                  |
+| `IWsSessionState`      | type      | Full hook return type including `executionWorkspace: IExecutionWorkspaceSnapshot \| null`                       |
+| `TConnectionStatus`    | type      | WebSocket lifecycle status enum                                                                                 |
 
 ## Extension Points
 
@@ -103,14 +119,18 @@ a `url` prop pointing at the CLI sidecar's WebSocket endpoint.
 
 ### Components
 
-| Component          | Defined In                            | Notes                                  |
-| ------------------ | ------------------------------------- | -------------------------------------- |
-| `SessionMonitor`   | `src/components/SessionMonitor.tsx`   | `'use client'` directive; Tailwind CSS |
-| `ConversationView` | `src/components/ConversationView.tsx` | Pure renderer; Tailwind CSS            |
+| Component            | Defined In                              | Notes                                                        |
+| -------------------- | --------------------------------------- | ------------------------------------------------------------ |
+| `SessionMonitor`     | `src/components/SessionMonitor.tsx`     | `'use client'` directive; Tailwind CSS; prop `wsUrl: string` |
+| `ConversationView`   | `src/components/ConversationView.tsx`   | Pure renderer; `'use client'` directive; Tailwind CSS        |
+| `AgentActivityPanel` | `src/components/AgentActivityPanel.tsx` | Pure renderer; not exported from package root; Tailwind CSS  |
 
 ### Cross-Package Port Consumers
 
-| Port (Owner)                          | Usage                                              |
-| ------------------------------------- | -------------------------------------------------- |
-| `TServerMessage` (agent-transport-ws) | Parsed from WebSocket `onmessage` events           |
-| `TClientMessage` (agent-transport-ws) | Sent to sidecar via `ws.send(JSON.stringify(msg))` |
+| Port (Owner)                                                            | Usage                                               |
+| ----------------------------------------------------------------------- | --------------------------------------------------- |
+| `TServerMessage` (agent-transport/ws)                                   | Parsed from WebSocket `onmessage` events            |
+| `TClientMessage` (agent-transport/ws)                                   | Sent to sidecar via `ws.send(JSON.stringify(msg))`  |
+| `IExecutionWorkspaceSnapshot` (agent-transport/ws)                      | Stored in `IWsSessionState.executionWorkspace`      |
+| `IExecutionWorkspaceEntry` (agent-transport/ws)                         | Passed as `tasks` prop to `AgentActivityPanel`      |
+| `TExecutionWorkspaceStatus`, `TExecutionAttention` (agent-transport/ws) | Used in `AgentActivityPanel` status rendering logic |

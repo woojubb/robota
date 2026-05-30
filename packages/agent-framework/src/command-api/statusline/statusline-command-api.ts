@@ -1,7 +1,8 @@
-import type { TUniversalValue } from '@robota-sdk/agent-core';
 import { readSettings, writeSettings } from '../../config/settings-io.js';
+
 import type { TSettingsData } from '../../config/settings-io.js';
 import type { ICommand } from '../types.js';
+import type { TUniversalValue } from '@robota-sdk/agent-core';
 
 export const STATUSLINE_COMMAND_DESCRIPTION =
   'Configure TUI status-line visibility and fields such as model, context, tokens, session, and git branch.';

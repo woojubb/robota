@@ -1,10 +1,10 @@
+import type { ICommandEffectQueue } from './command-effect-queue.js';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type { InteractiveSession } from '@robota-sdk/agent-framework';
 import type {
   TCommandInteractionPrompt as TInteractivePrompt,
   IStatusLineCommandSettings as TStatusLineSettings,
 } from '@robota-sdk/agent-framework';
-import type { ICommandEffectQueue } from './command-effect-queue.js';
 
 export type { TInteractivePrompt, TStatusLineSettings };
 
@@ -23,16 +23,13 @@ export interface IUseSideEffectsOptions {
 
 export interface IUseSideEffectsResult {
   handleSubmit: (input: string) => Promise<void>;
-  pendingModelId: string | null;
   pendingInteractionPrompt: TInteractivePrompt | null;
   showPluginTUI: boolean;
   showSessionPicker: boolean;
   showTransportTUI: boolean;
-  setPendingModelId: (id: string | null) => void;
   setShowPluginTUI: (show: boolean) => void;
   setShowSessionPicker: (show: boolean) => void;
   setShowTransportTUI: (show: boolean) => void;
-  handleModelConfirm: (index: number) => void;
   handleInteractionSubmit: (value: string) => Promise<void>;
   handleInteractionCancel: () => void;
 }

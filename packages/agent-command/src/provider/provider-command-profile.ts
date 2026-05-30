@@ -1,19 +1,21 @@
+import { testProviderProfileCommand } from '@robota-sdk/agent-framework';
+
+import {
+  buildProviderDelete,
+  buildProviderDuplicate,
+} from './provider-command-profile-lifecycle.js';
+import {
+  buildProviderEdit,
+  buildProviderSwitch,
+  formatProviderChoiceLabel,
+} from './provider-command-profile-operations.js';
+
 import type {
   ICommandInteraction,
   ICommandResult,
   IProviderCommandModuleOptions,
   IProviderProfileSettings,
 } from '@robota-sdk/agent-framework';
-import { testProviderProfileCommand } from '@robota-sdk/agent-framework';
-import {
-  buildProviderEdit,
-  buildProviderSwitch,
-  formatProviderChoiceLabel,
-} from './provider-command-profile-operations.js';
-import {
-  buildProviderDelete,
-  buildProviderDuplicate,
-} from './provider-command-profile-lifecycle.js';
 
 const ACTION_SWITCH = 'switch';
 const ACTION_EDIT = 'edit';

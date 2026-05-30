@@ -11,12 +11,7 @@ import {
   type TToolParameters,
   type IToolExecutionResult,
 } from '@robota-sdk/agent-core';
-import type {
-  IExecutionStats,
-  IAggregatedExecutionStats,
-  IExecutionAnalyticsOptions,
-  IExecutionAnalyticsPluginStats,
-} from './types';
+
 import { aggregateExecutionStats } from './analytics-aggregation';
 import {
   validateExecutionAnalyticsOptions,
@@ -24,6 +19,13 @@ import {
   findActiveExecution,
   buildErrorExecutionStats,
 } from './execution-analytics-helpers';
+
+import type {
+  IExecutionStats,
+  IAggregatedExecutionStats,
+  IExecutionAnalyticsOptions,
+  IExecutionAnalyticsPluginStats,
+} from './types';
 
 const DEFAULT_MAX_ENTRIES = 1000;
 const DEFAULT_PERFORMANCE_THRESHOLD_MS = 5000;
@@ -279,7 +281,16 @@ export class ExecutionAnalyticsPlugin extends AbstractPlugin<
     this.clearStats();
   }
 
-  override getStatus() {
+  override getStatus(): {
+    name: string;
+    version: string;
+    enabled: boolean;
+    initialized: boolean;
+    category: PluginCategory;
+    priority: number;
+    subscribedEventsCount: number;
+    hasEventEmitter: boolean;
+  } {
     return {
       name: this.name,
       version: this.version,

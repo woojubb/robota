@@ -1,12 +1,14 @@
 import { randomUUID } from 'node:crypto';
-import type OpenAI from 'openai';
-import type { ILogger, IToolCall, TUniversalMessage } from '@robota-sdk/agent-core';
+
 import { SilentLogger } from '@robota-sdk/agent-core';
+
 import type {
   IOpenAICompatibleToolCallTextProjector,
   IOpenAICompatibleToolCallTextProjection,
   TOpenAICompatibleTextProjector,
 } from './types';
+import type { ILogger, IToolCall, TUniversalMessage } from '@robota-sdk/agent-core';
+import type OpenAI from 'openai';
 
 export interface IOpenAICompatibleResponseParserOptions {
   logger?: ILogger;

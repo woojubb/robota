@@ -1,3 +1,8 @@
+---
+title: 'Worktree Support Hardening'
+status: done
+---
+
 # Worktree Support Hardening
 
 ## What

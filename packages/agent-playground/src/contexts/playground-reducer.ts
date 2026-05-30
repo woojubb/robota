@@ -68,7 +68,8 @@ export type TPlaygroundReducerAction =
   | { type: 'CLEAR_CONVERSATION_HISTORY' }
   | { type: 'SET_EXECUTION_RESULT'; payload: IPlaygroundExecutorResult }
   | { type: 'SET_TOOL_ITEMS'; payload: IPlaygroundToolMeta[] }
-  | { type: 'ADD_TOOL_TO_AGENT_OVERLAY'; payload: { agentId: string; toolId: string } };
+  | { type: 'ADD_TOOL_TO_AGENT_OVERLAY'; payload: { agentId: string; toolId: string } }
+  | { type: 'CLEAR_AGENT_TOOL_OVERLAY'; payload: string };
 
 // ===== Initial State =====
 
@@ -188,6 +189,11 @@ export function playgroundReducer(
         ...state,
         addedToolsByAgent: { ...state.addedToolsByAgent, [agentId]: [...prev, toolId] },
       };
+    }
+    case 'CLEAR_AGENT_TOOL_OVERLAY': {
+      const next = { ...state.addedToolsByAgent };
+      delete next[action.payload];
+      return { ...state, addedToolsByAgent: next };
     }
     default:
       return state;

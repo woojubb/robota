@@ -1,3 +1,5 @@
+import { AbstractExecutor } from '../abstracts/abstract-executor';
+
 import type {
   IChatExecutionRequest,
   IStreamExecutionRequest,
@@ -5,7 +7,6 @@ import type {
 } from '../interfaces/executor';
 import type { TUniversalMessage, IAssistantMessage } from '../interfaces/messages';
 import type { IChatOptions } from '../interfaces/provider';
-import { AbstractExecutor } from '../abstracts/abstract-executor';
 
 /**
  * Local executor that directly delegates to AI provider instances

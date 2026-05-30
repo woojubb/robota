@@ -1,6 +1,7 @@
-import type { IProviderDefinition } from '@robota-sdk/agent-core';
-import { probeOpenAICompatibleProfile } from '../shared/openai-compatible/index.js';
 import { GemmaProvider } from './provider';
+import { probeOpenAICompatibleProfile } from '../shared/openai-compatible/index.js';
+
+import type { IProviderDefinition } from '@robota-sdk/agent-core';
 
 export const DEFAULT_GEMMA_PROVIDER_MODEL = 'supergemma4-26b-uncensored-v2';
 export const DEFAULT_GEMMA_PROVIDER_API_KEY = 'lm-studio';
@@ -37,8 +38,9 @@ const GEMMA_MODEL_CATALOG: NonNullable<IProviderDefinition['modelCatalog']> = {
 export function createGemmaProviderDefinition(): IProviderDefinition {
   return {
     type: 'gemma',
-    displayName: 'Gemma',
-    description: 'Gemma-family local models through an OpenAI-compatible endpoint',
+    displayName: 'Ollama / LM Studio / llama.cpp',
+    description: 'Local models via LM Studio or Ollama. No API key needed.',
+    category: 'local-free',
     defaults: {
       model: DEFAULT_GEMMA_PROVIDER_MODEL,
       apiKey: DEFAULT_GEMMA_PROVIDER_API_KEY,

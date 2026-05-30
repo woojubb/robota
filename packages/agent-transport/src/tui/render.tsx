@@ -2,9 +2,12 @@
  * Ink render entry point.
  */
 
-import React from 'react';
 import { render } from 'ink';
+import React from 'react';
+
 import App from './App.js';
+
+import type { ITuiCliAdapter } from './tui-cli-adapter.js';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 import type { TPermissionMode } from '@robota-sdk/agent-core';
 import type {
@@ -18,7 +21,6 @@ import type {
   CommandRegistry,
 } from '@robota-sdk/agent-framework';
 import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
-import type { ITuiCliAdapter } from './tui-cli-adapter.js';
 
 export interface IRenderOptions {
   cwd: string;

@@ -1,11 +1,12 @@
 import { randomUUID } from 'node:crypto';
-import type { IHistoryEntry } from '@robota-sdk/agent-core';
+
 import type {
   IPromptFileReferenceDiagnostic,
   IPromptFileReferenceHistoryData,
   IPromptFileReferenceRecord,
   IResolvedPromptFileReference,
 } from './prompt-file-reference-types.js';
+import type { IHistoryEntry } from '@robota-sdk/agent-core';
 
 export function buildPromptWithFileReferences(
   input: string,

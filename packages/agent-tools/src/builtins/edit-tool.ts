@@ -6,11 +6,16 @@
  */
 
 import { readFile } from 'node:fs/promises';
+
 import { z } from 'zod';
+
+import { atomicWriteUtf8File } from './atomic-file-write.js';
+import { checkPathWithinCwd } from './path-guard.js';
 import { createZodFunctionTool } from '../implementations/function-tool';
+
+import type { FunctionTool } from '../implementations/function-tool';
 import type { ISandboxToolOptions } from '../sandbox/types.js';
 import type { TToolResult } from '../types/tool-result.js';
-import { atomicWriteUtf8File } from './atomic-file-write.js';
 
 const EditSchema = z.object({
   filePath: z.string().describe('The absolute path to the file to modify'),
@@ -31,12 +36,18 @@ type TEditArgs = z.infer<typeof EditSchema>;
 async function editFileTool(args: TEditArgs, options: ISandboxToolOptions = {}): Promise<string> {
   const { filePath, oldString, newString, replaceAll = false } = args;
 
+  if (!options.sandboxClient) {
+    const pathError = checkPathWithinCwd(filePath, options.cwd);
+    if (pathError !== undefined) return pathError;
+  }
+
   let content: string;
   try {
     content = options.sandboxClient
       ? await options.sandboxClient.readFile(filePath)
       : await readFile(filePath, 'utf8');
   } catch (err) {
+    // allow-fallback: read failure before edit → TToolResult error (file not found)
     const result: TToolResult = {
       success: false,
       output: '',
@@ -84,6 +95,7 @@ async function editFileTool(args: TEditArgs, options: ISandboxToolOptions = {}):
       await atomicWriteUtf8File(filePath, updated);
     }
   } catch (err) {
+    // allow-fallback: write failure after edit → TToolResult error
     const result: TToolResult = {
       success: false,
       output: '',
@@ -107,7 +119,7 @@ async function editFileTool(args: TEditArgs, options: ISandboxToolOptions = {}):
 /**
  * Create an EditTool instance — register with Robota agent tools registry.
  */
-export function createEditTool(options: ISandboxToolOptions = {}) {
+export function createEditTool(options: ISandboxToolOptions = {}): FunctionTool {
   return createZodFunctionTool(
     'Edit',
     'Performs exact string replacements in files.\n\nYou must use the Read tool at least once before editing. When editing text from Read output, preserve the exact indentation.\n\nThe edit will FAIL if old_string is not unique in the file. Either provide more surrounding context to make it unique, or use replace_all to change every instance.\n\nALWAYS prefer editing existing files over creating new ones.',

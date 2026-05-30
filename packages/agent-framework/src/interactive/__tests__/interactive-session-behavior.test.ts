@@ -7,9 +7,11 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import { InteractiveSession } from '../interactive-session.js';
-import type { IExecutionResult, IToolState } from '../types.js';
+
 import { EditCheckpointStore } from '../../checkpoints/edit-checkpoint-store.js';
+import { InteractiveSession } from '../interactive-session.js';
+
+import type { IExecutionResult, IToolState } from '../types.js';
 
 function createMockSession(options?: {
   runResult?: string;
@@ -261,7 +263,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     expect(errorReceived!.message).toBe('API rate limit exceeded');
     const messages = session.getMessages();
     const errorMsg = messages.find(
-      (m) => m.role === 'system' && m.content?.includes('API rate limit'),
+      (m) => m.role === 'system' && m.content?.includes('Rate limit reached'),
     );
     expect(errorMsg).toBeDefined();
   });

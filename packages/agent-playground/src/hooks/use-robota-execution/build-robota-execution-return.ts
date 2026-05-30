@@ -1,4 +1,4 @@
-import type { IPlaygroundState } from '../../contexts/playground-context';
+import type { IPlaygroundActionsValue, IPlaygroundState } from '../../contexts/playground-context';
 import { getDefaultAgentConfig, validateConfiguration } from './configuration-helpers';
 import type {
   IExecutionLocalState,
@@ -10,12 +10,14 @@ interface IBuildRobotaExecutionReturnOptions {
   state: IPlaygroundState;
   localState: IExecutionLocalState;
   actions: IRobotaExecutionActions;
+  contextActions: IPlaygroundActionsValue;
 }
 
 export function buildRobotaExecutionReturn({
   state,
   localState,
   actions,
+  contextActions,
 }: IBuildRobotaExecutionReturnOptions): IRobotaExecutionHookReturn {
   return {
     executionState: localState.executionState,
@@ -32,6 +34,7 @@ export function buildRobotaExecutionReturn({
     totalExecutions: localState.totalExecutions,
     successRate: localState.successRate,
     createAgent: actions.createAgent,
+    popRestoredMessages: contextActions.popRestoredMessages,
     executePrompt: actions.executePrompt,
     executeStreamPrompt: actions.executeStreamPrompt,
     retryLastExecution: actions.retryLastExecution,

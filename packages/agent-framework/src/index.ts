@@ -34,7 +34,7 @@ export type {
 
 // ── createQuery() factory (convenience API) ─────────────────
 export { createQuery } from './query.js';
-export type { ICreateQueryOptions } from './query.js';
+export type { ICreateQueryOptions, TQueryFunction } from './query.js';
 
 // ── Command system (managed by InteractiveSession) ──────────
 export {
@@ -53,6 +53,12 @@ export type {
   TCapabilityKind,
   TCapabilitySafety,
 } from './capabilities/types.js';
+export type { IOrgPolicy } from './command-api/org-policy/index.js';
+export {
+  loadOrgPolicy,
+  formatOrgPolicyViolationMessage,
+  isApiKeyPlaintext,
+} from './command-api/org-policy/index.js';
 export type {
   IAgentJobHostContext,
   ICommand,
@@ -87,11 +93,6 @@ export type {
   TSkillActivationSource,
   TSkillActivationStatus,
   TCommandModuleSessionRequirement,
-  IActiveProviderModelCatalogState,
-  IBuildModelCommandSubcommandsOptions,
-  IModelCommandModuleOptions,
-  IModelCommandSettingsAdapter,
-  IResolveActiveProviderModelCatalogStateOptions,
   IProviderCommandModuleOptions,
   IProviderCommandSettingsAdapter,
   IProviderProfileNameSuggestionInput,
@@ -163,13 +164,6 @@ export {
   writeAutoCompactThresholdSetting,
   formatCommandHelpMessage,
   HELP_COMMAND_DESCRIPTION,
-  buildModelCommandSubcommands,
-  formatModelCommandUsageMessageAsync,
-  formatModelCommandUsageMessage,
-  MODEL_COMMAND_ARGUMENT_HINT,
-  MODEL_COMMAND_DESCRIPTION,
-  resolveActiveProviderModelCatalog,
-  resolveActiveProviderModelCatalogState,
   buildLanguageCommandSubcommands,
   formatLanguageUsageMessage,
   LANGUAGE_COMMAND_ARGUMENT_HINT,
@@ -608,6 +602,8 @@ export {
   deleteSettings,
 } from './config/settings-io.js';
 export type { TSettingsData, TSettingsScope } from './config/settings-io.js';
+export { resetUserConfig } from './config/reset-user-config.js';
+export type { IResetUserConfigResult } from './config/reset-user-config.js';
 
 // ── Provider settings paths ──────────────────────────────────
 export { getProviderSettingsPaths } from './config/provider-paths.js';
@@ -617,6 +613,9 @@ export { resolveGitBranch } from './git/git-branch.js';
 
 // ── Semver comparison ─────────────────────────────────────────
 export { compareSemverVersions, isNewerSemverVersion } from './utils/semver-compare.js';
+
+// ── Package version ───────────────────────────────────────────
+export { readPackageVersion } from './utils/read-package-version.js';
 
 // ── CLI update check ──────────────────────────────────────────
 export {
@@ -640,6 +639,16 @@ export type {
   IUpdateCheckCache,
   TCliUpdateCheckResult,
 } from './update-check/update-check.js';
+
+// ── Agent runtime ─────────────────────────────────────────────
+export { createAgentRuntime, createStatelessRuntime } from './runtime/index.js';
+export type {
+  IAgentRuntimeConfig,
+  IAgentRuntime,
+  IHeadlessSessionOptions,
+  IStatelessRuntimeConfig,
+} from './runtime/index.js';
+export type { IResolvedConfig } from './config/config-types.js';
 
 // ──────────────────────────────────────────────────────────────
 // INTERNAL (not exported):

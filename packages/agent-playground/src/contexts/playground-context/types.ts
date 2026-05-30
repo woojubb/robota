@@ -1,6 +1,7 @@
 import type { Dispatch, MutableRefObject, ReactNode } from 'react';
 
 import type {
+  IConversationEvent,
   IPlaygroundAgentConfig,
   IPlaygroundExecutorResult,
   IVisualizationData,
@@ -11,6 +12,8 @@ import type { IPlaygroundState, TPlaygroundReducerAction } from '../playground-r
 
 export interface IPlaygroundActionsValue {
   createAgent: (config: IPlaygroundAgentConfig) => Promise<void>;
+  popRestoredMessages: () => import('../../lib/playground/robota-executor/sse-client').IRestoredMessage[];
+  setConversationHistory: (events: IConversationEvent[]) => void;
   addAgentConfig: (config: IPlaygroundAgentConfig) => void;
   updateAgentConfig: (index: number, config: IPlaygroundAgentConfig) => void;
   executePrompt: (prompt: string) => Promise<IPlaygroundExecutorResult>;
@@ -24,6 +27,10 @@ export interface IPlaygroundActionsValue {
   setExecuting: (isExecuting: boolean) => void;
   setToolItems: (tools: IPlaygroundToolMeta[]) => void;
   addToolToAgentOverlay: (agentId: string, toolId: string) => void;
+  injectToolIntoAgent: (
+    agentId: string,
+    card: { id: string; name: string; description?: string },
+  ) => Promise<void>;
   getVisualizationData: () => IVisualizationData | null;
   getConnectionStatus: () => { connected: boolean; url: string };
 }

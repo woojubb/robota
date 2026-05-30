@@ -3,6 +3,41 @@
 Rules governing spec-first development, conformance verification, and spec maintenance.
 Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 
+### Live Spec Policy
+
+A `docs/SPEC.md` is a **living document**. It is never "done" — it grows with every change to its
+package. The spec is the canonical description of what the package is _right now_, not what it was
+when it was first written.
+
+**Universal update mandate.** Every PR that introduces any of the following MUST update the
+governing `docs/SPEC.md` in the same PR:
+
+| What changed                                   | SPEC section to update                  |
+| ---------------------------------------------- | --------------------------------------- |
+| New or removed public export                   | Public API Surface                      |
+| New or changed type or interface               | Type Ownership                          |
+| New class or `implements`/`extends` relation   | Class Contract Registry                 |
+| New or changed error type or code              | Error Taxonomy                          |
+| New or changed lifecycle event                 | State Lifecycle / Event Architecture    |
+| New or changed behavior or semantics           | Architecture Overview, relevant section |
+| New extension point (abstract class, callback) | Extension Points                        |
+
+A PR that changes package behavior without updating the SPEC is an **incomplete change** — treated
+the same as a missing test or a build failure.
+
+**Incremental evolution.** Only the sections affected by a change need to be updated. Never
+rewrite the whole document for a localized change. Add, edit, or remove only the rows, paragraphs,
+or tables that describe the changed behavior.
+
+**Spec-first invariant.** Write the new SPEC section(s) before writing implementation code. The
+spec is the design artifact. Implementation fills in what the spec already describes. Back-filling
+the spec after implementation is a process violation — the spec must come first.
+
+**Spec drift is a process violation.** If `docs/SPEC.md` no longer accurately describes the
+current state of its package, every subsequent PR on that package is incomplete. When drift is
+detected, schedule a SPEC catch-up as a dedicated backlog item before continuing normal work. See
+[`spec-code-conformance`](../skills/spec-code-conformance/SKILL.md) for the drift resolution loop.
+
 ### Spec-First Development
 
 - Any change touching a contract boundary (package imports, class dependencies, service connections, cross-package types) MUST update or create the governing spec BEFORE writing implementation code.
@@ -13,18 +48,56 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 - Every spec change MUST include a verification test plan.
 - Implementation code that does not conform to its governing spec is a bug.
 - See [`spec-first-development`](../skills/spec-first-development/SKILL.md) skill for the procedural workflow.
+- For any new gap, fix, or improvement: write a spec document to `.agents/spec-docs/draft/` first using [`backlog-writer`](../skills/backlog-writer/SKILL.md), then run [`backlog-pipeline`](../skills/backlog-pipeline/SKILL.md).
 
-### Feature Gap / Behavior Change Process
+### User Request Implementation Gate (mandatory, zero exceptions)
 
-When a feature gap, missing behavior, or spec-vs-implementation mismatch is discovered during development:
+When the user sends any message requesting implementation, code changes, feature additions, fixes,
+or modifications, the agent MUST follow this sequence regardless of how the request is phrased:
 
-1. **Stop coding.** Do not implement a fix or new behavior before the spec is updated.
-2. **Ask the user:** "This requires a spec change. Should I add it to the backlog, or proceed now?"
-3. **If proceeding:** Update the spec document first to describe the intended final state.
-4. **Then implement** the code to match the updated spec.
-5. **Verify conformance** between updated spec and implementation.
+**Allowed before spec exists:**
 
-Skipping step 1–3 (coding before spec) is a process violation. This applies even to "obvious" fixes — if the fix changes observable behavior, the spec must reflect it first.
+- Read files, explore the codebase (`Read`, `grep`, `find`, `git log`, `Bash` with read-only commands)
+- Ask clarifying questions
+- Write spec documents (backlog draft, SPEC.md)
+
+**Not allowed before spec exists:**
+
+- `Write` or `Edit` to any `.ts`, `.tsx`, `.js`, `.mjs` file
+- Creating new source code files
+- Running code generation commands
+
+**Sequence for any user-requested code change:**
+
+1. Read-only exploration to understand the codebase (allowed immediately)
+2. Create backlog draft: `.agents/spec-docs/draft/<TYPE>-NNN-<slug>.md`
+   - Use [`backlog-writer`](../skills/backlog-writer/SKILL.md)
+   - All required frontmatter and sections must be present
+3. Run [`backlog-pipeline`](../skills/backlog-pipeline/SKILL.md) through GATE-APPROVAL
+4. Implement only after GATE-APPROVAL passes
+
+**Waiver**: If the user explicitly says "skip the spec" or "just fix it now", the agent must
+acknowledge the waiver in its response before proceeding, and note it as a process exception.
+
+**Automated enforcement**: `.claude/hooks/spec-first-gate.sh` (UserPromptSubmit hook) injects
+this reminder when implementation-intent keywords are detected in the user's prompt.
+
+### HARD GATE: No Immediate Implementation
+
+Any gap, improvement, or fix discovered during development MUST follow this sequence before writing a single line of code:
+
+1. **Architecture review** — analyse the problem and affected scope.
+2. **Spec document** — write to `.agents/spec-docs/draft/` using [`backlog-writer`](../skills/backlog-writer/SKILL.md). All required sections and frontmatter must be present.
+3. **Gate pipeline** — run [`backlog-pipeline`](../skills/backlog-pipeline/SKILL.md) to advance through GATE-WRITE → GATE-APPROVAL before any implementation.
+4. **User approval** — GATE-APPROVAL requires an explicit user sign-off quoted in the Evidence Log.
+5. **Implement** — code only after GATE-APPROVAL passes. Use [`backlog-gate-guard`](../skills/backlog-gate-guard/SKILL.md) for GATE-IMPLEMENT, GATE-VERIFY, and GATE-COMPLETE.
+
+No exceptions. One-line fixes, evaluation findings, and "obvious" improvements all require this gate.
+A spec update is also required for any change touching a contract boundary (see Spec-First Development).
+
+**Status levels (frontmatter `status:` field):** `draft → review-ready → approved → in-progress → verifying → done`
+**Lifecycle folders:** `spec-docs/draft/` → `spec-docs/backlog/` → `spec-docs/todo/` → `spec-docs/active/` → `spec-docs/done/`
+Each status transition is a gate. Every gate must leave an Evidence Log entry (PASS / FAIL / NON-COMPLIANCE).
 
 ### Spec-Code Conformance Verification
 
