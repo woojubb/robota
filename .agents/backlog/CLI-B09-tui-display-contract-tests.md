@@ -1,6 +1,6 @@
 ---
 title: 'CLI-B09: TUI 사용자 표시 컨트랙트 테스트 누락 — ARCH-003 회귀 재발 방지'
-status: todo
+status: done
 created: 2026-05-31
 priority: critical
 urgency: now
