@@ -1,6 +1,5 @@
 import { isSlashCommand, tokeniseSlashCommand } from '@robota-sdk/agent-framework';
 
-import type { ITuiCommandInteraction } from '../command-interaction.js';
 import type { IHistoryEntry, TUniversalValue } from '@robota-sdk/agent-core';
 import type { ICommand } from '@robota-sdk/agent-framework';
 
@@ -19,8 +18,7 @@ export type TPromptHistoryInputAction = 'previous' | 'next';
 
 export type TCommandSelectionResult =
   | { type: 'insert'; value: string; selectedIndex?: number }
-  | { type: 'submit'; value: string }
-  | { type: 'open-interaction'; commandName: string };
+  | { type: 'submit'; value: string };
 
 export interface IPasteLabelChange {
   value: string;
@@ -158,16 +156,11 @@ export function resolveTabCompletion(value: string, command: ICommand): TCommand
 export function resolveEnterCommandSelection(
   value: string,
   command: ICommand,
-  interaction?: ITuiCommandInteraction,
 ): TCommandSelectionResult {
   // Subcommand mode: '/parent filter' — space present after command name
   if (isSlashCommand(value) && value.slice(1).includes(' ')) {
     const { name } = tokeniseSlashCommand(value);
     return { type: 'submit', value: `/${name} ${command.name}` };
-  }
-  // No args provided beyond the command name itself
-  if (interaction?.onMissingArgs) {
-    return { type: 'open-interaction', commandName: command.name };
   }
   if (command.subcommands && command.subcommands.length > 0) {
     return { type: 'insert', value: `/${command.name} `, selectedIndex: 0 };
