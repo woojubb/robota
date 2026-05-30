@@ -156,6 +156,13 @@ function AppInner(
     openAgentSwitcher: () => setShowExecutionWorkspaceSwitcher(true),
   });
 
+  useEffect(() => {
+    void channel.start();
+    return () => {
+      void channel.stop();
+    };
+  }, [channel]);
+
   const isSelectedEntryInteractive =
     !selectedExecutionEntry ||
     selectedExecutionEntry.kind === 'main_thread' ||
