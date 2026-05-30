@@ -107,6 +107,7 @@ export class TuiStateManager {
       this.activeTools = [];
     } else {
       this.isAborting = false;
+      this.activeTools = [];
     }
     this.notify();
   };
