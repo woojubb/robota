@@ -1,10 +1,11 @@
-import { deleteSettings, getUserSettingsPath } from '@robota-sdk/agent-framework';
+import { resetUserConfig } from '@robota-sdk/agent-framework';
+import type { ITerminalOutput } from '@robota-sdk/agent-core';
 
-export function resetConfig(): void {
-  const userPath = getUserSettingsPath();
-  if (deleteSettings(userPath)) {
-    process.stdout.write(`Deleted ${userPath}\n`);
+export function runResetConfig(terminal: ITerminalOutput): void {
+  const result = resetUserConfig();
+  if (result.deleted) {
+    terminal.writeLine(`Deleted ${result.path}`);
   } else {
-    process.stdout.write('No user settings found.\n');
+    terminal.writeLine('No user settings found.');
   }
 }

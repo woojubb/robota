@@ -45,6 +45,18 @@ const PROMPT_REFERENCE: IContextReferenceItem = {
   lastUsedAt: '2026-05-05T00:00:01.000Z',
 };
 
+const SYSTEM_REFERENCE: IContextReferenceItem = {
+  id: 'system:AGENTS.md',
+  sourcePath: '/workspace/AGENTS.md',
+  relativePath: 'AGENTS.md',
+  originalReference: 'AGENTS.md',
+  loadType: 'system',
+  status: 'active',
+  byteLength: 1024,
+  loadedAt: '2026-05-05T00:00:00.000Z',
+  lastUsedAt: '2026-05-05T00:00:00.000Z',
+};
+
 function createRuntime(state: { threshold: number | false }): ICommandSessionRuntime {
   let mode: TPermissionMode = 'default';
   return {
@@ -290,5 +302,35 @@ describe('createContextCommandModule', () => {
 
     expect(result?.success).toBe(false);
     expect(result?.message).toContain('greater than 0% and at most 100%');
+  });
+
+  it('lists system context references with [system, active] label', async () => {
+    const context = createCommandHostContext();
+    context.references.push(SYSTEM_REFERENCE);
+
+    const result = await createExecutor().execute('context', context, 'list');
+
+    expect(result?.success).toBe(true);
+    expect(result?.message).toContain('AGENTS.md [system, active] 1,024 B');
+    expect(result?.data?.references).toEqual([SYSTEM_REFERENCE]);
+  });
+
+  it('includes system references in context summary active count', async () => {
+    const context = createCommandHostContext();
+    context.references.push(SYSTEM_REFERENCE, MANUAL_REFERENCE);
+
+    const result = await createExecutor().execute('context', context, '');
+
+    expect(result?.success).toBe(true);
+    expect(result?.message).toContain('References: 2 active, 0 observed');
+  });
+
+  it('shows no context references message when only system refs are absent', async () => {
+    const context = createCommandHostContext();
+
+    const result = await createExecutor().execute('context', context, 'list');
+
+    expect(result?.success).toBe(true);
+    expect(result?.message).toBe('No context references.');
   });
 });

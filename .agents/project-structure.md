@@ -2,8 +2,6 @@
 
 ```text
 packages/
-├── auth/                        # Auth contracts, verifier ports, scope policy
-├── credits/                     # Credit account, reservation, and settlement contracts
 ├── agent-core/                  # Foundation contracts, engine, events, hooks, permissions
 ├── agent-executor/               # Reusable background task and subagent lifecycle/state/ports
 ├── agent-session/               # Session lifecycle and persistence
@@ -15,18 +13,27 @@ packages/
 ├── agent-cli/                   # Terminal UI and local runtime adapters
 ├── agent-web-ui/                # Browser React component library for monitoring a CLI session over WebSocket (product shell, browser-only)
 ├── agent-provider/              # Provider packages: anthropic, openai, openai-compatible, deepseek, gemma, qwen, gemini, google, bytedance
-├── agent-team/                  # Team collaboration (assignTask relay tools)
 ├── agent-playground/            # Playground UI package
 ├── agent-remote-client/         # Remote execution client
 ├── agent-interface-*/           # Interface/contract packages: pure type contracts with no implementation (e.g. agent-interface-transport)
 ├── agent-transport/             # Protocol transports: headless, HTTP, WebSocket, MCP (pure TS); TUI/Ink via ./tui subpath
 └── agent-plugin/                # Plugins: conversation-history, logging, usage, performance, execution-analytics, error-handling, limits, event-emitter, webhook
 apps/
-├── agent-web-ui/           # Web application (Agent Playground)
+├── agent-web/              # Web application (Agent Playground)
 ├── blog/                   # Blog/content application
 ├── docs/                   # Documentation site
 └── agent-server/           # AI provider proxy + Playground WebSocket
 ```
+
+## Planned Packages (Not Yet Created)
+
+The following packages are planned but do not yet exist on disk. Do not attempt to import from them.
+See [capability-placement.md](specs/architecture-map/capability-placement.md) for their TBD ownership status.
+
+| Package             | Planned Purpose                                       |
+| ------------------- | ----------------------------------------------------- |
+| `packages/auth/`    | Auth contracts, verifier ports, scope policy          |
+| `packages/credits/` | Credit account, reservation, and settlement contracts |
 
 ## Related Documents
 
@@ -39,7 +46,7 @@ apps/
 
 ## Command Package Rule
 
-User-visible internal commands belong in `agent-command-*` packages or command-module owners that consume `@robota-sdk/agent-framework` command contracts. `agent-framework` owns command infrastructure and reusable common APIs; `agent-cli` composes selected modules and renders generic UI.
+User-visible internal commands belong in `agent-command` or command-module owners that consume `@robota-sdk/agent-framework` command contracts. `agent-framework` owns command infrastructure and reusable common APIs; `agent-cli` composes selected modules and renders generic UI.
 
 ## Interface Package Rule
 
@@ -53,6 +60,6 @@ They are the SSOT for cross-cutting contracts shared between implementation fami
 Rules:
 
 - An `agent-interface-*` package must not contain classes or runtime logic.
-- Implementation packages (`agent-transport-*`, `agent-provider-*`, etc.) depend on the corresponding `agent-interface-*` package, not on `agent-framework`, for interface types.
+- Implementation packages (`agent-transport` with subpaths `/tui`, `/headless`, `/ws`, `/http`, `/mcp`; `agent-provider` with subpaths `/anthropic`, `/openai`, etc.) depend on the corresponding `agent-interface-*` package, not on `agent-framework`, for interface types.
 - `agent-framework` depends on `agent-interface-*` packages to consume the contracts it needs.
 - Do not place interface packages in `agent-core` — `agent-core` is zero-deps and owns foundational primitives only.

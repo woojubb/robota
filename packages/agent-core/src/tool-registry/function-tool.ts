@@ -1,3 +1,6 @@
+import { ToolExecutionError, ValidationError } from '../utils/errors';
+
+import type { IToolSchema, IParameterSchema } from '../interfaces/provider';
 import type {
   IFunctionTool,
   IToolResult,
@@ -7,8 +10,6 @@ import type {
   TToolParameters,
   IEventService,
 } from '../interfaces/tool';
-import type { IToolSchema, IParameterSchema } from '../interfaces/provider';
-import { ToolExecutionError, ValidationError } from '../utils/errors';
 import type { TUniversalValue } from '../interfaces/types';
 
 /**

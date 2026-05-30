@@ -6,20 +6,26 @@
  * IInitOptions: internal async init shape passed to createInteractiveSession().
  */
 
-import type { Session } from '@robota-sdk/agent-session';
-import type { ICompactEvent } from '@robota-sdk/agent-session';
-import type { IAIProvider, IContextWindowState, TToolArgs } from '@robota-sdk/agent-core';
-import type { IBackgroundTaskRunner } from '../background-tasks/index.js';
-import type { TSubagentRunnerFactory } from '../subagents/index.js';
-import type { ICommandHostAdapters, ICommandModule, ICommandResult } from '../commands/index.js';
-import type { TShellExecFn } from '../utils/skill-prompt.js';
-import type { ICapabilityDescriptor } from '../capabilities/types.js';
-import type { ICreateSessionOptions } from '../assembly/index.js';
-import type { IResolvedConfig } from '../config/config-types.js';
-import type { TInteractivePermissionHandler } from './types.js';
 import type { IInteractiveSessionStore } from './session-persistence.js';
+import type { TInteractivePermissionHandler } from './types.js';
+import type { ICreateSessionOptions } from '../assembly/index.js';
+import type { IBackgroundTaskRunner } from '../background-tasks/index.js';
+import type { ICapabilityDescriptor } from '../capabilities/types.js';
 import type { IEditCheckpointRecorder } from '../checkpoints/edit-checkpoint-types.js';
+import type { IOrgPolicy } from '../command-api/org-policy/org-policy-types.js';
+import type { ICommandHostAdapters, ICommandModule, ICommandResult } from '../commands/index.js';
+import type { IResolvedConfig } from '../config/config-types.js';
 import type { IReversibleExecutionOptions } from '../reversible-execution/index.js';
+import type { TSubagentRunnerFactory } from '../subagents/index.js';
+import type { TShellExecFn } from '../utils/skill-prompt.js';
+import type {
+  IAIProvider,
+  IContextWindowState,
+  IToolWithEventService,
+  TToolArgs,
+} from '@robota-sdk/agent-core';
+import type { ICompactEvent } from '@robota-sdk/agent-session';
+import type { Session } from '@robota-sdk/agent-session';
 import type { ISandboxClient, IWorkspaceManifest } from '@robota-sdk/agent-tools';
 
 /** Standard construction: cwd + provider. Config/context loaded internally. */
@@ -37,8 +43,14 @@ export interface IInteractiveSessionStandardOptions {
   bare?: boolean;
   /** Pre-approved tool names passed to createSession. */
   allowedTools?: string[];
+  /** Denied tool names — added to permissions.deny. denied > allowed. */
+  deniedTools?: string[];
+  /** Override the model from config. When set, takes precedence over config.provider.model. */
+  model?: string;
   /** Text to append to the system prompt. */
   appendSystemPrompt?: string;
+  /** Replace the entire system prompt with this string. Takes precedence over the default builder. */
+  systemPrompt?: string;
   /** Override config language (e.g., "ko", "en"). Injected into system prompt. */
   language?: string;
   /** Runtime-composed background task runners. */
@@ -53,6 +65,8 @@ export interface IInteractiveSessionStandardOptions {
   shellExec?: TShellExecFn;
   /** Model-visible command descriptors derived from the composed command executor. */
   commandDescriptors?: readonly ICapabilityDescriptor[];
+  /** Provider definitions for hot-swap via /provider switch. */
+  providerDefinitions?: readonly import('@robota-sdk/agent-core').IProviderDefinition[];
   /** Model command execution bridge. */
   modelCommandExecutor?: (command: string, args: string) => Promise<ICommandResult | null>;
   /** Predicate for commands allowed through the model command execution bridge. */
@@ -71,6 +85,12 @@ export interface IInteractiveSessionStandardOptions {
   sandboxSnapshotId?: string;
   /** Name reported to the underlying Robota agent config. Defaults to 'agent'. */
   agentName?: string;
+  /** Organization policy for enforcing provider restrictions, command blocks, and API key rules. */
+  orgPolicy?: IOrgPolicy;
+  /** Additional tools registered alongside the default CLI tools. */
+  additionalTools?: IToolWithEventService[];
+  /** Request structured output from the provider for this session. */
+  responseFormat?: { type: 'text' | 'json_object' };
 }
 
 /** Test/advanced construction: inject pre-built session directly. */
@@ -120,8 +140,14 @@ export interface IInitOptions {
   bare?: boolean;
   /** Pre-approved tool names passed to createSession. */
   allowedTools?: string[];
+  /** Denied tool names — added to permissions.deny. denied > allowed. */
+  deniedTools?: string[];
+  /** Override the model from config. When set, takes precedence over config.provider.model. */
+  model?: string;
   /** Text to append to the system prompt. */
   appendSystemPrompt?: string;
+  /** Replace the entire system prompt with this string. Takes precedence over the default builder. */
+  systemPrompt?: string;
   /** Override config language (e.g., "ko", "en"). Injected into system prompt. */
   language?: string;
   /** Runtime-composed background task runners. */
@@ -152,4 +178,8 @@ export interface IInitOptions {
   sandboxSnapshotId?: string;
   /** Name reported to the underlying Robota agent config. Defaults to 'agent'. */
   agentName?: string;
+  /** Additional tools registered alongside the default CLI tools. */
+  additionalTools?: IToolWithEventService[];
+  /** Request structured output from the provider for this session. */
+  responseFormat?: { type: 'text' | 'json_object' };
 }

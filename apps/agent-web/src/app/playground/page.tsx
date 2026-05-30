@@ -2,6 +2,8 @@
 
 import dynamic from 'next/dynamic';
 
+import type { ReactElement } from 'react';
+
 const PlaygroundApp = dynamic(
   () => import('@robota-sdk/agent-playground/client').then((m) => ({ default: m.PlaygroundApp })),
   {
@@ -10,6 +12,6 @@ const PlaygroundApp = dynamic(
   },
 );
 
-export default function PlaygroundPage() {
+export default function PlaygroundPage(): ReactElement {
   return <PlaygroundApp defaultServerUrl={process.env.NEXT_PUBLIC_PLAYGROUND_WS_URL} />;
 }

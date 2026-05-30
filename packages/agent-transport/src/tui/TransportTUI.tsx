@@ -4,13 +4,14 @@
  * Arrow keys navigate the list, space toggles enabled/disabled, enter/esc closes.
  */
 
-import React, { useState, useCallback } from 'react';
 import { Box, Text, useInput } from 'ink';
+import React, { useState, useCallback } from 'react';
+
+import type { IInteractiveSession } from '@robota-sdk/agent-framework';
 import type {
   ITransportEntry,
   ITransportRegistryView,
 } from '@robota-sdk/agent-interface-transport';
-import type { IInteractiveSession } from '@robota-sdk/agent-framework';
 
 const TRANSPORT_NAME_WIDTH = 18;
 

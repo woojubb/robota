@@ -4,12 +4,10 @@
  *
  * Boots the CLI and handles any uncaught top-level errors gracefully.
  *
- * NOTE: Node.js version check and Terminal.app warning are injected as a
- * build-time banner in tsup.config.ts, ensuring they execute before any
- * ESM module is loaded (static imports are hoisted by the JS engine).
+ * A Node.js version check (>=22) is injected as a build-time banner in
+ * tsdown.config.ts and runs before any module imports are loaded.
  */
 import { startCli } from './cli.js';
-import type { TUniversalValue } from '@robota-sdk/agent-core';
 
 // Last-resort crash prevention for IME-related errors only.
 // Korean IME in raw mode can cause errors that escape React/Ink.
@@ -23,14 +21,18 @@ process.on('uncaughtException', (err) => {
     msg.includes('slice') ||
     msg.includes('charCodeAt');
   if (isLikelyIME) {
-    process.stderr.write(`[robota] IME error suppressed: ${msg}\n`);
+    process.stderr.write(
+      '\n[robota] CJK/IME input error — this is a known issue with macOS Terminal.app.\n' +
+        '  Workaround: use iTerm2 (https://iterm2.com) or input your prompt in English.\n' +
+        '  Alternatively, use headless mode: robota -p "your prompt here"\n\n',
+    );
     return;
   }
   // Re-throw non-IME errors — let them crash normally
   throw err;
 });
 
-startCli().catch((err: Error | TUniversalValue) => {
+startCli().catch((err) => {
   const message = err instanceof Error ? err.message : String(err);
   process.stderr.write(message + '\n');
   process.exit(1);

@@ -1,9 +1,12 @@
-import { describe, expect, it, afterEach, vi } from 'vitest';
 import { existsSync, mkdirSync, rmSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { writeTool } from '@robota-sdk/agent-tools';
+import { describe, expect, it, afterEach, vi } from 'vitest';
+
 import { wrapEditCheckpointTools } from '../edit-checkpoint-tools.js';
+
 import type { IEditCheckpointRecorder } from '../edit-checkpoint-types.js';
 
 const TMP_BASE = join(tmpdir(), `robota-edit-checkpoint-tools-${process.pid}`);

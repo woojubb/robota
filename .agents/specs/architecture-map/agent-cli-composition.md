@@ -12,7 +12,7 @@ area. Package `SPEC.md` files remain the source of truth for ownership contracts
 2. Read [agent-cli/composition-tree.md](agent-cli/composition-tree.md) before changing `startCli()`, provider/module composition, TUI hook composition, or print-mode startup.
 3. Read [agent-cli/commands-and-provider-flow.md](agent-cli/commands-and-provider-flow.md) before changing built-in commands, `/provider`, `/model`, provider setup, profile switching, or model catalog flow.
 4. Read [agent-cli/execution-modes.md](agent-cli/execution-modes.md) before changing interactive TUI behavior, headless print mode, transports, or execution flags.
-5. Read [agent-cli/class-interface-inventory.md](agent-cli/class-interface-inventory.md) before changing class/interface ownership or moving contracts across CLI, SDK, command packages, providers, runtime, sessions, tools, or core.
+5. Read [agent-cli/class-interface-inventory.md](agent-cli/class-interface-inventory.md) before changing class/interface ownership or moving contracts across CLI, `agent-framework`, `agent-command`, `agent-provider`, `agent-executor`, `agent-session`, tools, or core.
 6. Read [agent-cli/layering-audit.md](agent-cli/layering-audit.md) before resolving or adding CLI layer audit findings.
 7. Use [../ARCHITECTURE-MAP.md](../ARCHITECTURE-MAP.md) as the repo-wide architecture router before changing package boundaries outside the CLI detail path.
 
@@ -48,7 +48,7 @@ affects any of these:
 - a new or removed `@robota-sdk/agent-command` module in the default CLI product;
 - provider setup, provider switching, model catalog, or model switching flow;
 - interactive vs non-interactive execution mode flags or transport behavior;
-- package dependencies among CLI, SDK, command packages, provider packages, runtime, sessions, tools, or core;
+- package dependencies among CLI, `agent-framework`, `agent-command`, `agent-provider`, `agent-executor`, `agent-session`, tools, or core;
 - any future CLI composition of MCP/deployment capabilities.
 
 CLI-visible behavior is not automatically CLI-owned behavior. Before adding terminal UI for a new

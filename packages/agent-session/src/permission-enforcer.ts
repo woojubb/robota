@@ -7,21 +7,7 @@
  */
 
 import { evaluatePermission } from '@robota-sdk/agent-core';
-import type {
-  IToolWithEventService,
-  IToolResult,
-  TToolParameters,
-  IToolExecutionContext,
-  TToolArgs,
-} from '@robota-sdk/agent-core';
-import type { ISessionLogger, TSessionLogData } from './session-logger.js';
-import type {
-  IPermissionEnforcerOptions,
-  TPermissionHandler,
-  TPermissionResult,
-  ITerminalOutput,
-  ISpinner,
-} from './permission-types.js';
+
 import { PERMISSION_DENIED_RESULT } from './permission-types.js';
 import {
   truncateToolResult,
@@ -29,6 +15,22 @@ import {
   runPreToolHook,
   firePostToolHook,
 } from './tool-hook-helpers.js';
+
+import type {
+  IPermissionEnforcerOptions,
+  TPermissionHandler,
+  TPermissionResult,
+  ITerminalOutput,
+  ISpinner,
+} from './permission-types.js';
+import type { ISessionLogger, TSessionLogData } from './session-logger.js';
+import type {
+  IToolWithEventService,
+  IToolResult,
+  TToolParameters,
+  IToolExecutionContext,
+  TToolArgs,
+} from '@robota-sdk/agent-core';
 
 export type { TPermissionHandler, TPermissionResult, ITerminalOutput, ISpinner };
 export type { IPermissionEnforcerOptions };
@@ -46,6 +48,7 @@ export class PermissionEnforcer {
   private readonly hookTypeExecutors?: IPermissionEnforcerOptions['hookTypeExecutors'];
   private readonly transcriptPath?: string;
   private readonly sessionAllowedTools = new Set<string>();
+  private readonly onProjectAllowTool?: (toolName: string) => void;
 
   constructor(options: IPermissionEnforcerOptions) {
     this.sessionId = options.sessionId;
@@ -59,6 +62,7 @@ export class PermissionEnforcer {
     this.onToolExecution = options.onToolExecution;
     this.hookTypeExecutors = options.hookTypeExecutors;
     this.transcriptPath = options.transcriptPath;
+    this.onProjectAllowTool = options.onProjectAllowTool;
   }
 
   /** Wrap all tools with permission checking */
@@ -128,16 +132,28 @@ export class PermissionEnforcer {
             toolArgs: parameters as TToolArgs,
             success: false,
             denied: true,
+            executionId: context?.executionId,
           });
           return PERMISSION_DENIED_RESULT;
         }
 
-        enforcer.onToolExecution?.({ type: 'start', toolName, toolArgs: parameters as TToolArgs });
+        enforcer.onToolExecution?.({
+          type: 'start',
+          toolName,
+          toolArgs: parameters as TToolArgs,
+          executionId: context?.executionId,
+        });
 
         const result = await originalExecute(parameters, context as IToolExecutionContext);
 
-        // Truncate oversized tool output (Claude Code uses 30K char limit)
+        // Truncate oversized tool output (matches 30K char limit)
         const truncatedResult = truncateToolResult(result);
+
+        if (truncatedResult !== result && typeof result.data === 'string') {
+          enforcer.terminal.writeLine(
+            `  ⚠  Output truncated: ${result.data.length.toLocaleString()} chars total — model sees first and last 15,000 chars`,
+          );
+        }
 
         enforcer.onToolExecution?.({
           type: 'end',
@@ -148,6 +164,7 @@ export class PermissionEnforcer {
             typeof truncatedResult.data === 'string'
               ? truncatedResult.data
               : JSON.stringify(truncatedResult.data),
+          executionId: context?.executionId,
         });
 
         const dataSize =
@@ -200,10 +217,25 @@ export class PermissionEnforcer {
         this.sessionAllowedTools.add(toolName);
         return true;
       }
+      if (result === 'allow-project') {
+        this.sessionAllowedTools.add(toolName);
+        this.onProjectAllowTool?.(toolName);
+        return true;
+      }
       return result;
     }
     if (this.promptForApprovalFn) {
-      return this.promptForApprovalFn(this.terminal, toolName, toolArgs);
+      const result = await this.promptForApprovalFn(this.terminal, toolName, toolArgs);
+      if (result === 'allow-session') {
+        this.sessionAllowedTools.add(toolName);
+        return true;
+      }
+      if (result === 'allow-project') {
+        this.sessionAllowedTools.add(toolName);
+        this.onProjectAllowTool?.(toolName);
+        return true;
+      }
+      return result;
     }
     // No approval mechanism available — deny by default
     return false;

@@ -6,11 +6,13 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import type { IFileSystem } from '@robota-sdk/agent-core';
+
 import { NodeFileSystem } from '../adapters/node-file-system.js';
+
+import type { IDiffLine, IToolState } from './types.js';
+import type { IFileSystem } from '@robota-sdk/agent-core';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type { TToolArgs } from '@robota-sdk/agent-core';
-import type { IDiffLine, IToolState } from './types.js';
 
 /** Max chars to display from first tool argument. */
 export const TOOL_ARG_DISPLAY_MAX = 80;
@@ -45,6 +47,7 @@ interface IToolEndEvent {
   success?: boolean;
   denied?: boolean;
   toolResultData?: string;
+  executionId?: string;
 }
 
 function getStringArg(args: TToolArgs | undefined, snake: string, camel: string): string | null {
@@ -203,10 +206,15 @@ export function trimCompletedTools(activeTools: IToolState[]): IToolState[] {
 /** Process a tool-start event: add to activeTools and push to history. */
 export function applyToolStart(
   state: IStreamingState,
-  event: { toolName: string; toolArgs?: TToolArgs },
+  event: { toolName: string; toolArgs?: TToolArgs; executionId?: string },
 ): IToolState {
   const firstArg = extractFirstArg(event.toolArgs);
-  const toolState: IToolState = { toolName: event.toolName, firstArg, isRunning: true };
+  const toolState: IToolState = {
+    toolName: event.toolName,
+    firstArg,
+    isRunning: true,
+    ...(event.executionId ? { executionId: event.executionId } : {}),
+  };
   state.activeTools.push(toolState);
 
   state.history.push({

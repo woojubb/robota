@@ -1,21 +1,17 @@
 import { SilentLogger } from '@robota-sdk/agent-core';
 import type {
-  IAIProvider,
   IEventService,
   TUniversalMessage,
   TUniversalValue,
   ILogger,
 } from '@robota-sdk/agent-core';
 
-import { PlaygroundAgentSession } from './agent-session';
-import { createAssistantMessage, createUserMessage } from './execution-messages';
 import {
   createFailureResult,
   createSuccessResult,
   getExecutionErrorMessage,
 } from './executor-results';
 import { createHistoryPlugin, createStatisticsPlugin } from './plugin-factory';
-import { createProvidersWithExecutor } from './remote-providers';
 import { recordExecutionStats } from './statistics-recorder';
 import type { IAgentConfigurationSnapshot, IToolCard } from './types';
 import {
@@ -23,7 +19,9 @@ import {
   type IVisualizationData,
 } from '../plugins/playground-history-plugin';
 import { PlaygroundStatisticsPlugin } from '../plugins/playground-statistics-plugin';
-import { PlaygroundWebSocketClient } from '../websocket-client';
+import { createSession, sseSessionSubmit, destroySession } from './sse-client';
+import type { IRestoredMessage } from './sse-client';
+import { mapSseEventToConversationEvent } from './event-mapper';
 import type {
   IPlaygroundAgentConfig,
   IPlaygroundExecutorResult,
@@ -32,133 +30,182 @@ import type {
 } from '../robota-executor-types';
 import type { IPlaygroundAction, IPlaygroundMetrics } from '../../../types/playground-statistics';
 
+interface ILocalAgentConfig {
+  provider: string;
+  model: string;
+  apiKey?: string;
+  systemPrompt?: string;
+  toolIds: string[];
+}
+
 export class PlaygroundExecutor {
-  private mode: 'agent' = 'agent';
-  private agentSession: PlaygroundAgentSession;
-  private historyPlugin: PlaygroundHistoryPlugin;
-  private statisticsPlugin: PlaygroundStatisticsPlugin;
-  private eventService: IEventService;
-  private websocketClient?: PlaygroundWebSocketClient;
+  private readonly mode: 'agent' = 'agent';
+  private readonly historyPlugin: PlaygroundHistoryPlugin;
+  private readonly statisticsPlugin: PlaygroundStatisticsPlugin;
+  private readonly eventService: IEventService;
   private readonly logger: ILogger;
+  private localConfig: ILocalAgentConfig | null = null;
+  private sessionId: string | null = null;
+  private restoredMessages: IRestoredMessage[] = [];
+  // Incremented on every clearHistory()/createAgent() call so in-flight SSE loops can
+  // detect a mid-execution clear and stop recording stale events.
+  private executionToken = 0;
 
   constructor(
     private serverUrl: string,
-    private authToken: string,
+    _authToken: string,
     options: { eventService: IEventService; logger?: ILogger },
   ) {
-    this.logger = options.logger || SilentLogger;
+    this.logger = options.logger ?? SilentLogger;
     this.historyPlugin = createHistoryPlugin(this.logger);
     this.statisticsPlugin = createStatisticsPlugin();
     this.eventService = options.eventService;
-    this.agentSession = new PlaygroundAgentSession(this.eventService);
-
-    if (serverUrl) {
-      const sessionId =
-        typeof crypto !== 'undefined' && crypto.randomUUID
-          ? crypto.randomUUID()
-          : `session-${Date.now()}`;
-      this.websocketClient = new PlaygroundWebSocketClient(
-        serverUrl,
-        'playground-user',
-        sessionId,
-        authToken,
-      );
-      this.websocketClient.connect().catch((err) => {
-        this.logger.warn('WebSocket initial connect failed', {
-          error: err instanceof Error ? err.message : String(err),
-        });
-      });
-    }
   }
 
   async createAgent(config: IPlaygroundAgentConfig): Promise<void> {
-    const aiProviders = this.createProvidersWithExecutor();
-    this.agentSession.createAgent(config, aiProviders);
-    this.setMode('agent');
+    if (this.sessionId) {
+      const oldSessionId = this.sessionId;
+      this.sessionId = null;
+      void destroySession(this.serverUrl, this.localConfig?.apiKey, oldSessionId);
+    }
+
+    this.localConfig = {
+      provider: config.defaultModel.provider,
+      model: config.defaultModel.model,
+      apiKey: config.apiKey,
+      systemPrompt: config.defaultModel.systemMessage ?? config.systemMessage,
+      toolIds: [],
+    };
+    this.executionToken++;
+    this.historyPlugin.clearEvents();
     await this.statisticsPlugin.recordUIInteraction('agent_create', {
       agentName: config.name,
       provider: config.defaultModel.provider,
       model: config.defaultModel.model,
     });
+
+    const skills = config.skills?.map((s) => ({
+      id: s.id,
+      name: s.name,
+      description: s.description,
+      skillMdContent: s.skillMdContent,
+    }));
+
+    const sessionResponse = await createSession(this.serverUrl, this.localConfig.apiKey, {
+      provider: this.localConfig.provider,
+      model: this.localConfig.model,
+      systemPrompt: this.localConfig.systemPrompt,
+      ...(skills && skills.length > 0 ? { skills } : {}),
+      ...(config.resumeSessionId ? { resumeSessionId: config.resumeSessionId } : {}),
+    });
+    this.sessionId = sessionResponse.sessionId;
+    this.restoredMessages = sessionResponse.messages ?? [];
   }
 
-  async updateAgentTools(agentId: string, tools: IPlaygroundTool[]): Promise<{ version: number }> {
-    return this.agentSession.updateAgentTools(agentId, tools);
+  popRestoredMessages(): IRestoredMessage[] {
+    const msgs = this.restoredMessages;
+    this.restoredMessages = [];
+    return msgs;
   }
 
-  async getAgentConfiguration(agentId: string): Promise<IAgentConfigurationSnapshot> {
-    return this.agentSession.getAgentConfiguration(agentId);
+  async updateAgentTools(
+    _agentId: string,
+    _tools: IPlaygroundTool[],
+  ): Promise<{ version: number }> {
+    return { version: Date.now() };
   }
 
-  async updateAgentToolsFromCard(agentId: string, card: IToolCard): Promise<{ version: number }> {
-    return this.agentSession.updateAgentToolsFromCard(
-      agentId,
-      card,
-      this.createProvidersWithExecutor(),
-    );
+  async getAgentConfiguration(_agentId: string): Promise<IAgentConfigurationSnapshot> {
+    return {
+      version: 1,
+      tools: (this.localConfig?.toolIds ?? []).map((id) => ({ name: id })),
+      updatedAt: Date.now(),
+    };
+  }
+
+  async updateAgentToolsFromCard(_agentId: string, card: IToolCard): Promise<{ version: number }> {
+    if (!this.localConfig) throw new Error('No agent configured. Call createAgent first.');
+    if (!this.localConfig.toolIds.includes(card.id)) {
+      this.localConfig.toolIds.push(card.id);
+    }
+    return { version: Date.now() };
   }
 
   async run(prompt: string): Promise<IPlaygroundExecutorResult> {
-    const startTime = Date.now();
-    const request = [createUserMessage(prompt)];
-
-    try {
-      const result = await this.executeChat(request);
-      const duration = Date.now() - startTime;
-      const executionResult = createSuccessResult({
-        response: result.content || 'No response',
-        duration,
+    if (!this.localConfig) {
+      return createFailureResult({
+        response: 'No agent configured',
+        duration: 0,
+        error: new Error('No agent configured. Call createAgent first.'),
         visualizationData: this.getVisualizationData(),
         includeUiError: true,
       });
+    }
+
+    if (!this.sessionId) {
+      const sessionResponse = await createSession(this.serverUrl, this.localConfig.apiKey, {
+        provider: this.localConfig.provider,
+        model: this.localConfig.model,
+        systemPrompt: this.localConfig.systemPrompt,
+      });
+      this.sessionId = sessionResponse.sessionId;
+    }
+
+    const startTime = Date.now();
+    const textAccumulator = { value: '' };
+    const taskTextAccumulators = new Map<string, string>();
+    const sessionId = this.sessionId;
+    const { apiKey } = this.localConfig;
+    const myToken = this.executionToken;
+
+    try {
+      this.historyPlugin.recordEvent({
+        id: crypto.randomUUID(),
+        type: 'user_message',
+        timestamp: new Date(),
+        content: prompt,
+      });
+
+      const stream = sseSessionSubmit(this.serverUrl, apiKey, sessionId, prompt);
+
+      for await (const sseEvent of stream) {
+        // clearHistory()/createAgent() increments executionToken; stop recording stale events.
+        if (this.executionToken !== myToken) break;
+        const conversationEvent = mapSseEventToConversationEvent(
+          sseEvent,
+          textAccumulator,
+          taskTextAccumulators,
+        );
+        if (conversationEvent) {
+          this.historyPlugin.recordEvent(conversationEvent);
+        }
+        if (sseEvent.type === 'error') {
+          throw new Error(sseEvent.data.message);
+        }
+      }
+
+      const response = textAccumulator.value || 'No response';
+      const duration = Date.now() - startTime;
       await recordExecutionStats(this.statisticsPlugin, this.mode, {
         success: true,
         duration,
-        streaming: false,
+        streaming: true,
       });
-      return executionResult;
-    } catch (error) {
-      const executionError = error instanceof Error ? error : String(error);
-      const duration = Date.now() - startTime;
-      const executionResult = createFailureResult({
-        response: 'Execution failed',
+
+      return createSuccessResult({
+        response,
         duration,
-        error: executionError,
         visualizationData: this.getVisualizationData(),
         includeUiError: true,
       });
+    } catch (error) {
+      // allow-fallback: execution errors return IPlaygroundExecutorResult, not thrown
+      const executionError = error instanceof Error ? error : String(error);
+      const duration = Date.now() - startTime;
       await recordExecutionStats(this.statisticsPlugin, this.mode, {
         success: false,
         duration,
         streaming: false,
-        error: getExecutionErrorMessage(executionError),
-      });
-      return executionResult;
-    }
-  }
-
-  async execute(
-    prompt: string,
-    onChunk?: (chunk: string) => void,
-  ): Promise<IPlaygroundExecutorResult> {
-    const startTime = Date.now();
-    try {
-      const result = await this.agentSession.runPrompt(prompt, 'No active agent to execute prompt');
-      const duration = Date.now() - startTime;
-      if (onChunk) {
-        onChunk(result);
-      }
-
-      return createSuccessResult({
-        response: result,
-        duration,
-        visualizationData: this.getVisualizationData(),
-        includeUiError: true,
-      });
-    } catch (error) {
-      const executionError = error instanceof Error ? error : String(error);
-      const duration = Date.now() - startTime;
-      this.logger.error('Playground execution failed', {
         error: getExecutionErrorMessage(executionError),
       });
       return createFailureResult({
@@ -171,46 +218,75 @@ export class PlaygroundExecutor {
     }
   }
 
-  async *runStream(prompt: string): AsyncGenerator<string, IPlaygroundExecutorResult> {
+  async execute(
+    prompt: string,
+    onChunk?: (chunk: string) => void,
+  ): Promise<IPlaygroundExecutorResult> {
+    if (!this.localConfig || !this.sessionId) {
+      return createFailureResult({
+        response: 'No agent configured',
+        duration: 0,
+        error: new Error('No agent configured. Call createAgent first.'),
+        visualizationData: this.getVisualizationData(),
+        includeUiError: true,
+      });
+    }
+
     const startTime = Date.now();
-    const request = [createUserMessage(prompt)];
+    const textAccumulator = { value: '' };
+    const taskTextAccumulators = new Map<string, string>();
+    const sessionId = this.sessionId;
+    const { apiKey } = this.localConfig;
+    const myToken = this.executionToken;
 
     try {
-      let fullResponse = '';
-      for await (const chunk of this.executeChatStream(request)) {
-        fullResponse += chunk.content || '';
+      const stream = sseSessionSubmit(this.serverUrl, apiKey, sessionId, prompt);
+
+      for await (const sseEvent of stream) {
+        // clearHistory()/createAgent() increments executionToken; stop recording stale events.
+        if (this.executionToken !== myToken) break;
+        if (sseEvent.type === 'text_delta') {
+          onChunk?.(sseEvent.data.text);
+        }
+        const conversationEvent = mapSseEventToConversationEvent(
+          sseEvent,
+          textAccumulator,
+          taskTextAccumulators,
+        );
+        if (conversationEvent) {
+          this.historyPlugin.recordEvent(conversationEvent);
+        }
+        if (sseEvent.type === 'error') {
+          throw new Error(sseEvent.data.message);
+        }
       }
 
-      yield fullResponse;
+      const response = textAccumulator.value || 'No response';
       const duration = Date.now() - startTime;
-      const executionResult = createSuccessResult({
-        response: fullResponse,
+      return createSuccessResult({
+        response,
         duration,
         visualizationData: this.getVisualizationData(),
+        includeUiError: true,
       });
-      await recordExecutionStats(this.statisticsPlugin, this.mode, {
-        success: true,
-        duration,
-        streaming: true,
-      });
-      return executionResult;
     } catch (error) {
+      // allow-fallback: execution errors return IPlaygroundExecutorResult, not thrown
       const executionError = error instanceof Error ? error : String(error);
       const duration = Date.now() - startTime;
-      const executionResult = createFailureResult({
-        response: 'Streaming execution failed',
+      return createFailureResult({
+        response: 'Execution failed',
         duration,
         error: executionError,
         visualizationData: this.getVisualizationData(),
+        includeUiError: true,
       });
-      await recordExecutionStats(this.statisticsPlugin, this.mode, {
-        success: false,
-        duration,
-        streaming: true,
-        error: getExecutionErrorMessage(executionError),
-      });
-      return executionResult;
     }
+  }
+
+  async *runStream(prompt: string): AsyncGenerator<string, IPlaygroundExecutorResult> {
+    const result = await this.execute(prompt);
+    yield result.response;
+    return result;
   }
 
   getPlaygroundStatistics(): IPlaygroundMetrics {
@@ -240,64 +316,37 @@ export class PlaygroundExecutor {
   }
 
   getHistory(): TUniversalMessage[] {
-    return this.mode === 'agent' ? this.agentSession.getHistory() : [];
+    return [];
   }
 
   clearHistory(): void {
+    this.executionToken++;
+    if (this.sessionId) {
+      const sessionId = this.sessionId;
+      this.sessionId = null;
+      void destroySession(this.serverUrl, this.localConfig?.apiKey, sessionId);
+    }
     this.historyPlugin.clearEvents();
   }
 
   async dispose(): Promise<void> {
-    try {
-      await this.agentSession.disposeCurrentAgent();
-      if (this.websocketClient) {
-        await this.websocketClient.disconnect();
-        this.websocketClient = undefined;
-      }
-      await this.historyPlugin.dispose();
-    } catch (error) {
-      throw new Error(
-        `Error during PlaygroundExecutor disposal: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      );
+    if (this.sessionId) {
+      const sessionId = this.sessionId;
+      this.sessionId = null;
+      await destroySession(this.serverUrl, this.localConfig?.apiKey, sessionId);
     }
+    await this.historyPlugin.dispose();
   }
 
-  updateAuth(userId: string, sessionId: string, authToken: string): void {
-    if (this.websocketClient) {
-      this.websocketClient.updateAuth(userId, sessionId, authToken);
-    }
+  updateAuth(_userId: string, _sessionId: string, _authToken: string): void {
+    // SSE model is stateless; auth is per-request via X-Provider-API-Key
   }
 
   isWebSocketConnected(): boolean {
-    return this.websocketClient ? this.websocketClient.getStatus().connected : false;
+    return false;
   }
 
   getLastExecutionId(): string | null {
     return 'agent-execution-' + Date.now();
-  }
-
-  private async executeChat(messages: TUniversalMessage[]): Promise<TUniversalMessage> {
-    const prompt = messages[0]?.content || '';
-    const result = await this.agentSession.runPrompt(prompt, 'No agent configured for execution');
-    return createAssistantMessage(result);
-  }
-
-  private async *executeChatStream(
-    messages: TUniversalMessage[],
-  ): AsyncIterable<TUniversalMessage> {
-    const prompt = messages[0]?.content || '';
-    let fullResponse = '';
-    for await (const chunk of this.agentSession.streamPrompt(prompt)) {
-      fullResponse += chunk;
-    }
-    yield createAssistantMessage(fullResponse);
-  }
-
-  private createProvidersWithExecutor(): IAIProvider[] {
-    return createProvidersWithExecutor(this.serverUrl, this.authToken);
-  }
-
-  private setMode(mode: TPlaygroundMode): void {
-    this.mode = mode;
   }
 }

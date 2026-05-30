@@ -25,14 +25,19 @@ pnpm dev
 
 ## Project Structure
 
-Robota is designed as a monorepo structure, consisting of the following packages:
+Robota is a pnpm monorepo. The main packages are:
 
-- `packages/core`: Core modules and common interfaces
-- `packages/openai`: OpenAI integration
-- `packages/anthropic`: Anthropic integration
-- `packages/tools`: Tools and utilities
-- `apps/docs`: Documentation website
-- `packages/*/examples`: Package-owned example code
+- `packages/agent-core` — Core agent runtime, abstractions, and plugin system
+- `packages/agent-framework` — Assembly layer: `InteractiveSession`, `createQuery()`, config/context loading
+- `packages/agent-session` — Session lifecycle: permissions, hooks, context-window compaction
+- `packages/agent-tools` — Tool infrastructure + 8 built-in tools (Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch)
+- `packages/agent-provider` — Consolidated AI providers (Anthropic, OpenAI, Gemini, DeepSeek, Gemma, Qwen, ByteDance)
+- `packages/agent-cli` — Interactive terminal AI coding assistant
+- `packages/agent-command` — Slash command modules (/agent, /help, /provider, /skills, /plugin, …)
+- `packages/agent-transport` — Transport adapters (TUI, headless, HTTP, WebSocket, MCP)
+- `apps/docs` — VitePress documentation site
+- `apps/www` — Marketing website
+- `apps/agent-web` — Web playground
 
 ## Developing New Features
 
@@ -71,12 +76,14 @@ Commit messages should follow this format:
 - `chore`: Build process or auxiliary tool changes
 
 ### Guidelines:
+
 - Keep commit messages under 80 characters
 - Use English for all commit messages
 - Write in present tense (e.g., "add feature" not "added feature")
 - Be concise but descriptive
 
 Examples:
+
 - ✅ `feat: add gpt-4o model support to OpenAI provider`
 - ✅ `fix: resolve memory leak in cache manager`
 - ❌ `feat: add gpt-4o model support to OpenAI provider with comprehensive error handling and validation` (too long)
@@ -100,4 +107,4 @@ pnpm format
 
 ## License
 
-All contributions are provided under the project's MIT license. 
+All contributions are provided under the project's MIT license.

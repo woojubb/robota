@@ -1,3 +1,13 @@
+import {
+  createExecutionOriginMetadata,
+  type IExecutionOrigin,
+} from './execution-workspace-types.js';
+
+import type { BackgroundJobOrchestrator } from './background-job-orchestrator.js';
+import type {
+  IBackgroundJobGroupCreateRequest,
+  IBackgroundJobGroupState,
+} from './background-job-orchestrator.js';
 import type {
   IAgentBackgroundTaskRequest,
   IBackgroundTaskManager,
@@ -7,15 +17,6 @@ import type {
   TBackgroundTaskIsolation,
   TBackgroundTaskMode,
 } from '@robota-sdk/agent-executor';
-import type {
-  IBackgroundJobGroupCreateRequest,
-  IBackgroundJobGroupState,
-} from './background-job-orchestrator.js';
-import { BackgroundJobOrchestrator } from './background-job-orchestrator.js';
-import {
-  createExecutionOriginMetadata,
-  type IExecutionOrigin,
-} from './execution-workspace-types.js';
 
 export interface ISpawnAgentTaskRequest {
   readonly label: string;

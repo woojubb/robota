@@ -1,16 +1,21 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { IToolWithEventService, IAIProvider } from '@robota-sdk/agent-core';
-import type { ITerminalOutput } from '@robota-sdk/agent-session';
+
+import { storeAgentToolDeps } from '../../tools/agent-tool.js';
+import { InteractiveSession } from '../interactive-session.js';
+
+import type { IAgentDefinition } from '../../agents/agent-definition-types.js';
 import type { IResolvedConfig } from '../../config/config-types.js';
 import type { ILoadedContext } from '../../context/context-loader.js';
-import type { IAgentDefinition } from '../../agents/agent-definition-types.js';
 import type {
   IInteractiveSessionRecord,
   IInteractiveSessionStore,
 } from '../session-persistence.js';
+import type { IToolWithEventService, IAIProvider } from '@robota-sdk/agent-core';
+import type { ITerminalOutput } from '@robota-sdk/agent-session';
 
 const mocks = vi.hoisted(() => ({
   createSubagentSession: vi.fn(),
@@ -20,9 +25,6 @@ const mocks = vi.hoisted(() => ({
 vi.mock('../../assembly/create-subagent-session.js', () => ({
   createSubagentSession: mocks.createSubagentSession,
 }));
-
-import { InteractiveSession } from '../interactive-session.js';
-import { storeAgentToolDeps } from '../../tools/agent-tool.js';
 
 function makeParentSession() {
   return {

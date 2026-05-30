@@ -8,6 +8,16 @@
  * @template TOutput - Output workflow data type
  */
 
+import {
+  getWorkflowDataStats,
+  buildSuccessResult,
+  buildFailureResult,
+  defaultValidateInput,
+  defaultValidateOutput,
+} from './workflow-converter-helpers';
+import { SilentLogger } from '../utils/logger';
+
+import type { TUniversalValue } from '../interfaces/types';
 import type {
   IWorkflowConverter,
   IWorkflowConversionOptions,
@@ -16,15 +26,6 @@ import type {
   IWorkflowConfig,
 } from '../interfaces/workflow-converter';
 import type { ILogger } from '../utils/logger';
-import { SilentLogger } from '../utils/logger';
-import type { TUniversalValue } from '../interfaces/types';
-import {
-  getWorkflowDataStats,
-  buildSuccessResult,
-  buildFailureResult,
-  defaultValidateInput,
-  defaultValidateOutput,
-} from './workflow-converter-helpers';
 
 /**
  * Converter options (enabled flag + injected logger).
@@ -235,7 +236,13 @@ export abstract class AbstractWorkflowConverter<
   }
 
   /** Get converter statistics. */
-  getStats() {
+  getStats(): {
+    totalConversions: number;
+    successfulConversions: number;
+    failedConversions: number;
+    averageProcessingTime: number;
+    lastConversionAt?: Date;
+  } {
     return {
       totalConversions: this.stats.totalConversions,
       successfulConversions: this.stats.successfulConversions,

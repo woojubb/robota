@@ -1,8 +1,9 @@
+---
+title: 'Provider Model Catalog Refresh Adapters'
+status: done
+---
+
 # Provider Model Catalog Refresh Adapters
-
-## Status
-
-Completed.
 
 ## Priority
 

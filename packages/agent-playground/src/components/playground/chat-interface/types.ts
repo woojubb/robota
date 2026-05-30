@@ -9,7 +9,17 @@ export interface IChatPanelMessage {
   status?: TChatPanelMessageStatus;
 }
 
+export interface ISlashCommand {
+  name: string;
+  description: string;
+  argumentHint?: string;
+}
+
 export interface IChatPanelProps {
   isAgentReady: boolean;
   onSendMessage?: (message: string) => Promise<string>;
+  onClearChat?: () => void;
+  starterPrompts?: string[];
+  availableCommands?: ISlashCommand[];
+  initialMessages?: IChatPanelMessage[];
 }

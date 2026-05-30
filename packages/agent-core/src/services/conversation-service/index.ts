@@ -4,25 +4,6 @@
  * Message creation and retry helpers live in ./message-helpers.ts.
  * @internal
  */
-import type {
-  IAssistantMessage,
-  ISystemMessage,
-  IToolMessage,
-  IUserMessage,
-  TUniversalMessage,
-} from '../../interfaces/messages';
-import type { IAIProvider, IProviderRequest } from '../../interfaces/provider';
-import type { TUniversalValue } from '../../interfaces/types';
-import { ProviderError } from '../../utils/errors';
-import { createLogger, type ILogger } from '../../utils/logger';
-import {
-  IConversationContext,
-  IConversationResponse,
-  IStreamingChunk,
-  IConversationServiceOptions,
-  IContextOptions,
-  IConversationService,
-} from '../../interfaces/service';
 import {
   createUserMessageStatic,
   createAssistantMessageStatic,
@@ -33,6 +14,26 @@ import {
   processStreamingChunk,
   executeWithRetry,
 } from './message-helpers';
+import { ProviderError } from '../../utils/errors';
+import { createLogger, type ILogger } from '../../utils/logger';
+
+import type {
+  IAssistantMessage,
+  ISystemMessage,
+  IToolMessage,
+  IUserMessage,
+  TUniversalMessage,
+} from '../../interfaces/messages';
+import type { IAIProvider, IProviderRequest } from '../../interfaces/provider';
+import type {
+  IConversationContext,
+  IConversationResponse,
+  IStreamingChunk,
+  IConversationServiceOptions,
+  IContextOptions,
+  IConversationService,
+} from '../../interfaces/service';
+import type { TUniversalValue } from '../../interfaces/types';
 
 const DEFAULT_OPTIONS: Required<IConversationServiceOptions> = {
   maxHistoryLength: 100,

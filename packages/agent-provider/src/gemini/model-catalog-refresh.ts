@@ -1,9 +1,10 @@
+import { GEMINI_MODEL_LAST_VERIFIED_AT, GEMINI_MODEL_SOURCE_URL } from './provider-definition';
+
 import type {
   IProviderModelCatalog,
   IProviderModelCatalogEntry,
   IProviderProfileConfig,
 } from '@robota-sdk/agent-core';
-import { GEMINI_MODEL_LAST_VERIFIED_AT, GEMINI_MODEL_SOURCE_URL } from './provider-definition';
 
 const GEMINI_API_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models';
 

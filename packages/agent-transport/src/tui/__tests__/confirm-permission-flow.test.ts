@@ -6,6 +6,7 @@ import {
 import {
   applyPermissionPromptInput,
   getPermissionPromptInputAction,
+  PERMISSION_PROMPT_OPTIONS,
 } from '../flows/permission-prompt-flow.js';
 import { createSelectionFlowState } from '../flows/selection-flow.js';
 
@@ -58,6 +59,21 @@ describe('permission prompt flow', () => {
     expect(result.effect).toEqual({ type: 'resolve', decision: 'allow-session' });
   });
 
+  it('Given p or 3 shortcut When applied Then allow-project decision is emitted', () => {
+    expect(
+      applyPermissionPromptInput(
+        createSelectionFlowState(),
+        getPermissionPromptInputAction('p', {})!,
+      ).effect,
+    ).toEqual({ type: 'resolve', decision: 'allow-project' });
+    expect(
+      applyPermissionPromptInput(
+        createSelectionFlowState(),
+        getPermissionPromptInputAction('3', {})!,
+      ).effect,
+    ).toEqual({ type: 'resolve', decision: 'allow-project' });
+  });
+
   it('Given deny shortcuts When applied Then false decision is emitted', () => {
     expect(
       applyPermissionPromptInput(
@@ -68,7 +84,7 @@ describe('permission prompt flow', () => {
     expect(
       applyPermissionPromptInput(
         createSelectionFlowState(),
-        getPermissionPromptInputAction('3', {})!,
+        getPermissionPromptInputAction('4', {})!,
       ).effect,
     ).toEqual({ type: 'resolve', decision: false });
   });
@@ -87,5 +103,28 @@ describe('permission prompt flow', () => {
     const result = applyPermissionPromptInput(resolved, { type: 'shortcut', index: 2 });
 
     expect(result.effect).toEqual({ type: 'none' });
+  });
+
+  // CLI-030 TC-03: [s] option is shown
+  it('Given PERMISSION_PROMPT_OPTIONS When inspected Then session option contains [s] hint', () => {
+    expect(PERMISSION_PROMPT_OPTIONS[1]).toContain('[s]');
+  });
+
+  // CLI-030 TC-03: s key maps to allow-session
+  it('Given s shortcut When applied Then allow-session decision is emitted', () => {
+    const action = getPermissionPromptInputAction('s', {});
+
+    const result = applyPermissionPromptInput(createSelectionFlowState(), action!);
+
+    expect(result.effect).toEqual({ type: 'resolve', decision: 'allow-session' });
+  });
+
+  // CLI-030 TC-04: allow-once (y) does not add to session list
+  it('Given y (allow-once) shortcut When applied Then true decision is emitted (not allow-session)', () => {
+    const action = getPermissionPromptInputAction('y', {});
+
+    const result = applyPermissionPromptInput(createSelectionFlowState(), action!);
+
+    expect(result.effect).toEqual({ type: 'resolve', decision: true });
   });
 });

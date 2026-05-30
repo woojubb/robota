@@ -1,5 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
+
 import { AgentExecutor } from '../agent-executor.js';
+
 import type { IAgentHookDefinition, IHookInput } from '@robota-sdk/agent-core';
 
 const makeInput = (overrides?: Partial<IHookInput>): IHookInput => ({

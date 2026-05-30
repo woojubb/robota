@@ -1,9 +1,11 @@
-import { describe, expect, it } from 'vitest';
 import { BackgroundTaskManager } from '@robota-sdk/agent-executor';
+import { describe, expect, it } from 'vitest';
+
 import {
   BackgroundJobOrchestrator,
   summarizeBackgroundJobGroup,
 } from '../background-job-orchestrator.js';
+
 import type {
   IBackgroundTaskHandle,
   TBackgroundTaskRequest,

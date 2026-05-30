@@ -11,9 +11,10 @@
  * Drop-in replacement: same props as ink-text-input.
  */
 
-import React, { useRef, useState } from 'react';
-import { Text, useInput, usePaste } from 'ink';
 import chalk from 'chalk';
+import { Text, useInput, usePaste } from 'ink';
+import React, { useRef, useState } from 'react';
+
 import {
   applyCjkTextInput,
   applyCjkTextPaste,
@@ -63,8 +64,6 @@ export default function CjkTextInput({
 }: IProps): React.ReactElement {
   const stateRef = useRef<ICjkTextInputFlowState>(createCjkTextInputFlowState(value));
   const [, forceRender] = useState(0);
-
-  // useCursor removed — see comment below about Terminal.app SIGSEGV
 
   // Sync ref when value changes from parent (e.g., setValue(''), tab completion, paste)
   stateRef.current = syncCjkTextInputFlowState(stateRef.current, value, cursorHint);
@@ -148,7 +147,7 @@ function applyCjkFlowSafely(
       options.forceRender,
     );
   } catch {
-    // Korean IME in raw mode can produce unexpected byte sequences.
+    // allow-fallback: Korean IME in raw mode can produce unexpected byte sequences
   }
 }
 

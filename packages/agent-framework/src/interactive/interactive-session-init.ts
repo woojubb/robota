@@ -6,31 +6,34 @@
  * Session restore logic lives in interactive-session-restore.ts.
  */
 
-import { createSession } from '../assembly/index.js';
-import type { IContextFileEntry } from '../context/context-loader.js';
-import { FileSessionLogger } from '@robota-sdk/agent-session';
-import type { Session } from '@robota-sdk/agent-session';
-import type { ICompactEvent } from '@robota-sdk/agent-session';
-import type { IContextWindowState, TToolArgs, TUniversalMessage } from '@robota-sdk/agent-core';
-import { projectPaths } from '../paths.js';
-import { loadConfig } from '../config/config-loader.js';
-import type { IResolvedConfig } from '../config/config-types.js';
-import { loadContext } from '../context/context-loader.js';
-import { detectProject } from '../context/project-detector.js';
-import { BundlePluginLoader } from '../plugins/index.js';
-import { mergePluginHooks, mergeHooksIntoConfig } from '../plugins/plugin-hooks-merger.js';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { NOOP_TERMINAL } from './interactive-session-execution.js';
+
+import { FileSessionLogger } from '@robota-sdk/agent-session';
 import { applyWorkspaceManifest } from '@robota-sdk/agent-tools';
-import type { ICommandResult } from '../commands/index.js';
-import type { ICapabilityDescriptor } from '../capabilities/types.js';
+
+import { NOOP_TERMINAL } from './interactive-session-execution.js';
+import { detectProject } from '../context/project-detector.js';
+import { projectPaths } from '../paths.js';
+import { injectSavedMessage } from './interactive-session-restore.js';
+import { createSession } from '../assembly/index.js';
+import { EditCheckpointStore } from '../checkpoints/edit-checkpoint-store.js';
+import { loadConfig } from '../config/config-loader.js';
+import { loadContext } from '../context/context-loader.js';
+import { BundlePluginLoader } from '../plugins/index.js';
+import { mergePluginHooks, mergeHooksIntoConfig } from '../plugins/plugin-hooks-merger.js';
+
 import type {
   IInteractiveSessionStandardOptions,
   IInitOptions,
 } from './interactive-session-options.js';
-import { injectSavedMessage } from './interactive-session-restore.js';
-import { EditCheckpointStore } from '../checkpoints/edit-checkpoint-store.js';
+import type { ICapabilityDescriptor } from '../capabilities/types.js';
+import type { ICommandResult } from '../commands/index.js';
+import type { IResolvedConfig } from '../config/config-types.js';
+import type { IContextFileEntry } from '../context/context-loader.js';
+import type { IContextWindowState, TToolArgs, TUniversalMessage } from '@robota-sdk/agent-core';
+import type { ICompactEvent } from '@robota-sdk/agent-session';
+import type { Session } from '@robota-sdk/agent-session';
 
 export type {
   IInteractiveSessionStandardOptions,
@@ -127,7 +130,10 @@ export async function createInteractiveSession(
     onToolExecution: options.onToolExecution,
     sessionId,
     allowedTools: options.allowedTools,
+    deniedTools: options.deniedTools,
+    model: options.model,
     appendSystemPrompt: options.appendSystemPrompt,
+    ...(options.systemPrompt ? { systemPromptBuilder: () => options.systemPrompt! } : {}),
     backgroundTaskRunners: options.backgroundTaskRunners,
     subagentRunnerFactory: options.subagentRunnerFactory,
     ...(options.commandModules?.some((module) =>
@@ -149,6 +155,8 @@ export async function createInteractiveSession(
     reversibleExecution: options.reversibleExecution,
     sandboxClient: options.sandboxClient,
     agentName: options.agentName,
+    ...(options.additionalTools ? { additionalTools: options.additionalTools } : {}),
+    ...(options.responseFormat ? { responseFormat: options.responseFormat } : {}),
   });
 
   return {
@@ -249,7 +257,10 @@ export async function initializeInteractiveSessionAsync(
     onToolExecution: deps.onToolExecution,
     bare: options.bare,
     allowedTools: options.allowedTools,
+    deniedTools: options.deniedTools,
+    model: options.model,
     appendSystemPrompt: options.appendSystemPrompt,
+    ...(options.systemPrompt ? { systemPrompt: options.systemPrompt } : {}),
     language: options.language,
     backgroundTaskRunners: options.backgroundTaskRunners,
     subagentRunnerFactory: options.subagentRunnerFactory,
@@ -261,6 +272,8 @@ export async function initializeInteractiveSessionAsync(
     ...(options.sandboxWorkspaceRoot ? { sandboxWorkspaceRoot: options.sandboxWorkspaceRoot } : {}),
     ...(deps.sandboxSnapshotId ? { sandboxSnapshotId: deps.sandboxSnapshotId } : {}),
     ...(options.agentName ? { agentName: options.agentName } : {}),
+    ...(options.additionalTools ? { additionalTools: options.additionalTools } : {}),
+    ...(options.responseFormat ? { responseFormat: options.responseFormat } : {}),
     commandDescriptors: deps.commandDescriptors,
     ...(deps.commandDescriptors.length > 0
       ? {

@@ -1,9 +1,10 @@
-import type { IAIProviderManager } from '../interfaces/manager';
-import type { IAIProvider } from '../interfaces/provider';
 import { AbstractManager } from '../abstracts/abstract-manager';
 import { ConfigurationError, ValidationError } from '../utils/errors';
-import { Validator } from '../utils/validation';
 import { logger } from '../utils/logger';
+import { Validator } from '../utils/validation';
+
+import type { IAIProviderManager } from '../interfaces/manager';
+import type { IAIProvider } from '../interfaces/provider';
 
 /**
  * AI Provider Manager - manages AI provider instances

@@ -1,24 +1,26 @@
 import { randomUUID } from 'node:crypto';
-import type { GoogleGenAI } from '@google/genai';
-import type { Content, GenerateContentParameters, GenerateContentResponse } from '@google/genai';
-import type { IGeminiProviderOptions } from './types';
-import type {
-  TUniversalMessage,
-  IChatOptions,
-  IImageGenerationResult,
-  TProviderMediaResult,
-} from '@robota-sdk/agent-core';
-import {
-  convertToGeminiRequestFormat,
-  convertFromGeminiResponse,
-  convertToolsToGeminiFormat,
-} from './message-converter';
+
 import {
   hasImagePart,
   mapInlineImagePartsToMediaOutputs,
   buildResponseModalities,
   buildGenerationConfig,
 } from './image-operations';
+import {
+  convertToGeminiRequestFormat,
+  convertFromGeminiResponse,
+  convertToolsToGeminiFormat,
+} from './message-converter';
+
+import type { IGeminiProviderOptions } from './types';
+import type { GoogleGenAI } from '@google/genai';
+import type { Content, GenerateContentParameters, GenerateContentResponse } from '@google/genai';
+import type {
+  TUniversalMessage,
+  IChatOptions,
+  IImageGenerationResult,
+  TProviderMediaResult,
+} from '@robota-sdk/agent-core';
 
 /**
  * Execute a direct (non-streaming) chat request against the Gemini API.

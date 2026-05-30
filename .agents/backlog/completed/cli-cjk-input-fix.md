@@ -1,3 +1,8 @@
+---
+title: 'CJK Input Fix for CLI'
+status: done
+---
+
 # CJK Input Fix for CLI
 
 ## Problem

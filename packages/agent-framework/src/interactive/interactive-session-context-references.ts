@@ -1,18 +1,22 @@
-import type { IPromptFileReferenceRecord } from '../context/prompt-file-references.js';
+import { relative } from 'node:path';
+
+import {
+  createContextReferenceItem,
+  upsertContextReference,
+} from '../context/context-reference-inventory.js';
 import {
   formatPromptFileReferenceDiagnostics,
   hasBlockingPromptFileReferenceDiagnostics,
   resolvePromptFileReferencePaths,
   toPromptFileReferenceRecords,
 } from '../context/prompt-file-references.js';
+
+import type { IContextFileEntry } from '../context/context-file-tracker.js';
 import type {
   IContextReferenceAddResult,
   IContextReferenceItem,
 } from '../context/context-reference-inventory.js';
-import {
-  createContextReferenceItem,
-  upsertContextReference,
-} from '../context/context-reference-inventory.js';
+import type { IPromptFileReferenceRecord } from '../context/prompt-file-references.js';
 
 export interface IAddInteractiveContextReferenceResult {
   references: IContextReferenceItem[];
@@ -75,4 +79,25 @@ export function recordInteractiveContextReferences(
     next = upsertContextReference(next, item).references;
   }
   return next;
+}
+
+export function createSystemContextReferenceItems(
+  entries: readonly IContextFileEntry[],
+  cwd: string,
+): IContextReferenceItem[] {
+  const now = new Date().toISOString();
+  return entries.map((entry) => {
+    const relativePath = relative(cwd, entry.filePath);
+    return {
+      id: `system:${relativePath}`,
+      sourcePath: entry.filePath,
+      relativePath,
+      originalReference: relativePath,
+      loadType: 'system' as const,
+      status: 'active' as const,
+      byteLength: Buffer.byteLength(entry.content, 'utf-8'),
+      loadedAt: now,
+      lastUsedAt: now,
+    };
+  });
 }

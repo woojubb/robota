@@ -1,11 +1,12 @@
 import { randomUUID } from 'node:crypto';
-import type OpenAI from 'openai';
-import type { IToolCall, TUniversalMessage } from '@robota-sdk/agent-core';
+
 import type {
   IOpenAICompatibleToolCallTextProjection,
   IOpenAICompatibleStreamAssemblyOptions,
   TOpenAICompatibleTextProjector,
 } from './types';
+import type { IToolCall, TUniversalMessage } from '@robota-sdk/agent-core';
+import type OpenAI from 'openai';
 
 interface IToolCallPart {
   id: string;

@@ -9,9 +9,9 @@
   --bg: #0a0e14;
   --bg-surface: #111820;
   --bg-elevated: #1a2130;
-  --green: #39ff85;
-  --green-dim: #1a6b3a;
-  --green-glow: rgba(57, 255, 133, 0.15);
+  --brand: #a78bfa;
+  --brand-dim: #3d35b3;
+  --brand-glow: rgba(167, 139, 250, 0.15);
   --amber: #ffb454;
   --red: #ff6b6b;
   --cyan: #59c2ff;
@@ -27,9 +27,9 @@
   --bg: #ffffff;
   --bg-surface: #f5f5f5;
   --bg-elevated: #eaeaea;
-  --green: #0a8a3e;
-  --green-dim: #b2dfbe;
-  --green-glow: rgba(10, 138, 62, 0.08);
+  --brand: #6355e8;
+  --brand-dim: #c9c1fd;
+  --brand-glow: rgba(99, 85, 232, 0.08);
   --amber: #b45309;
   --red: #dc2626;
   --cyan: #0369a1;
@@ -55,7 +55,7 @@ a {
 }
 
 a:hover {
-  color: var(--green);
+  color: var(--brand);
 }
 
 /* ── Typography ── */
@@ -64,21 +64,21 @@ h1 {
   font-weight: 800;
   font-size: 2.4rem;
   line-height: 1.2;
-  color: var(--green);
+  color: var(--brand);
   margin-bottom: 16px;
-  text-shadow: 0 0 40px var(--green-glow);
+  text-shadow: 0 0 40px var(--brand-glow);
 }
 
 h2 {
   font-family: var(--mono);
   font-weight: 700;
   font-size: 1.6rem;
-  color: var(--green);
+  color: var(--brand);
   margin-top: 64px;
   margin-bottom: 16px;
   padding-top: 32px;
   border-top: 1px solid var(--border);
-  text-shadow: 0 0 30px var(--green-glow);
+  text-shadow: 0 0 30px var(--brand-glow);
 }
 
 h2:first-child {
@@ -116,7 +116,7 @@ li {
 }
 
 ul li::marker {
-  color: var(--green);
+  color: var(--brand);
   content: '› ';
   font-family: var(--mono);
   font-weight: 700;
@@ -130,7 +130,7 @@ code {
   border: 1px solid var(--border);
   border-radius: 4px;
   padding: 2px 6px;
-  color: var(--green);
+  color: var(--brand);
 }
 
 pre {
@@ -174,7 +174,7 @@ pre.mermaid svg {
 pre.mermaid .node rect,
 pre.mermaid .node polygon {
   fill: var(--bg-elevated) !important;
-  stroke: var(--green) !important;
+  stroke: var(--brand) !important;
 }
 
 pre.mermaid .nodeLabel,
@@ -183,12 +183,12 @@ pre.mermaid .node .label {
 }
 
 pre.mermaid .edgePath path {
-  stroke: var(--green) !important;
+  stroke: var(--brand) !important;
 }
 
 pre.mermaid .edgePath marker path {
-  fill: var(--green) !important;
-  stroke: var(--green) !important;
+  fill: var(--brand) !important;
+  stroke: var(--brand) !important;
 }
 
 pre.mermaid .cluster rect {
@@ -210,8 +210,8 @@ pre.mermaid .cluster rect {
 }
 
 .theme-btn:hover {
-  color: var(--green);
-  border-color: var(--green);
+  color: var(--brand);
+  border-color: var(--brand);
 }
 
 /* ── Table ── */
@@ -226,10 +226,10 @@ th {
   font-family: var(--mono);
   font-weight: 500;
   font-size: 0.85rem;
-  color: var(--green);
+  color: var(--brand);
   text-align: left;
   padding: 10px 16px;
-  border-bottom: 2px solid var(--green-dim);
+  border-bottom: 2px solid var(--brand-dim);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }

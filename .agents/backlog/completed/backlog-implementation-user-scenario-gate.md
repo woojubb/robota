@@ -1,8 +1,9 @@
+---
+title: 'Implementation User Execution Test Scenario Gate Alignment'
+status: done
+---
+
 # Implementation User Execution Test Scenario Gate Alignment
-
-## Status
-
-Completed.
 
 ## Created
 

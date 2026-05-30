@@ -43,16 +43,6 @@ describe('ExecutionProxy', () => {
       expect(result).toBe(proxy);
     });
 
-    it('configures team methods', () => {
-      const proxy = new ExecutionProxy({
-        eventService,
-        sourceType: 'team',
-        sourceId: 'test',
-      });
-      const result = proxy.configureStandardMethods();
-      expect(result).toBe(proxy);
-    });
-
     it('configures tool methods', () => {
       const proxy = new ExecutionProxy({
         eventService,

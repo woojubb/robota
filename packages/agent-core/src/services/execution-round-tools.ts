@@ -1,20 +1,45 @@
+import {
+  type IToolResultsOutcome,
+  addToolResultsToHistory,
+  isUnknownToolExecutionResult,
+} from './execution-round-tool-results';
+import { type IExecutionRoundState } from './execution-types';
+import { getModelContextWindow } from '../context/models';
+
+import type { IRoundDependencies } from './execution-round';
+import type { IToolExecutionBatchContext } from './tool-execution-service';
 import type {
   IAgentConfig,
   TExecutionEventCallback,
   TExecutionEventData,
 } from '../interfaces/agent';
 import type { IToolCall } from '../interfaces/messages';
-import type { IToolExecutionBatchContext } from './tool-execution-service';
 import type { ConversationStore } from '../managers/conversation-history-manager';
-import { getModelContextWindow } from '../context/models';
-import { type IExecutionRoundState } from './execution-types';
-import type { IRoundDependencies } from './execution-round';
-import {
-  type IToolResultsOutcome,
-  addToolResultsToHistory,
-  isUnknownToolExecutionResult,
-} from './execution-round-tool-results';
+
 export type { IToolResultsOutcome } from './execution-round-tool-results';
+
+/** @internal exported for unit testing */
+export function checkSameToolInputLimit(
+  assistantToolCalls: IToolCall[],
+  roundState: IExecutionRoundState,
+  maxSameToolInputs: number,
+): void {
+  for (const toolCall of assistantToolCalls) {
+    const name = toolCall.function?.name ?? 'unknown';
+    const args =
+      typeof toolCall.function?.arguments === 'string'
+        ? toolCall.function.arguments
+        : JSON.stringify(toolCall.function?.arguments ?? {});
+    const key = `${name}::${args}`;
+    const count = (roundState.sameToolInputCounts.get(key) ?? 0) + 1;
+    roundState.sameToolInputCounts.set(key, count);
+    if (count > maxSameToolInputs) {
+      throw new Error(
+        `[EXECUTION] Tool "${name}" called with identical input ${count} times — aborting to prevent infinite loop`,
+      );
+    }
+  }
+}
 
 /** Execute tools from assistant tool calls and add results to conversation history */
 export async function executeAndRecordToolCalls(
@@ -30,8 +55,14 @@ export async function executeAndRecordToolCalls(
   config?: IAgentConfig,
   signal?: AbortSignal,
   onExecutionEvent?: TExecutionEventCallback,
+  maxSameToolInputs?: number,
 ): Promise<IToolResultsOutcome> {
   const { toolExecutionService, logger, eventEmitter } = deps;
+
+  const resolvedMaxSameToolInputs = maxSameToolInputs ?? config?.maxSameToolInputs;
+  if (resolvedMaxSameToolInputs !== undefined) {
+    checkSameToolInputLimit(assistantToolCalls, roundState, resolvedMaxSameToolInputs);
+  }
 
   logger.debug('Tool calls detected, executing tools', {
     toolCallCount: assistantToolCalls.length,

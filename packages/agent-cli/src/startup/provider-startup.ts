@@ -56,6 +56,7 @@ export async function ensureConfig(
   promptInput: TPromptInput,
   terminal: ITerminalOutput,
   providerDefinitions: readonly IProviderDefinition[] = createDefaultProviderDefinitions(),
+  isInteractive?: boolean,
 ): Promise<void> {
   await ensureProviderConfig(
     cwd,
@@ -65,7 +66,10 @@ export async function ensureConfig(
     providerDefinitions,
     {
       formatError: formatMissingProviderConfigMessage,
-      isInteractive: () => process.stdin.isTTY === true && process.stdout.isTTY === true,
+      isInteractive:
+        isInteractive !== undefined
+          ? () => isInteractive
+          : () => process.stdin.isTTY === true && process.stdout.isTTY === true,
     },
   );
 }

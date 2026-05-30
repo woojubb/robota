@@ -1,11 +1,13 @@
 import { dirname, join } from 'node:path';
-import type { IFileSystem } from '@robota-sdk/agent-core';
+
 import { NodeFileSystem } from '../adapters/node-file-system.js';
+
 import type {
   IMemoryCandidate,
   IMemoryPendingRecord,
   TMemoryCandidateStatus,
 } from './automatic-memory-types.js';
+import type { IFileSystem } from '@robota-sdk/agent-core';
 
 interface IPendingMemoryDocument {
   version: 1;

@@ -34,7 +34,7 @@ import {
 import { reloadPluginCommandSource } from '@robota-sdk/agent-command';
 import { runUserLocalDirectCommandIfRequested } from './user-local-direct-command.js';
 import { readVersion } from './startup/version.js';
-import { resetConfig } from './startup/reset-config.js';
+import { runResetConfig } from './startup/reset-config.js';
 import type { IStartCliOptions } from './startup/command-setup.js';
 import { buildCommandSetup } from './startup/command-setup.js';
 import { runPrintMode } from './modes/print-mode.js';
@@ -73,20 +73,21 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     return;
   }
 
-  if (args.reset) {
-    resetConfig();
-    return;
-  }
-
   const cwd = process.cwd();
   const terminal = new PrintTerminal();
+
+  if (args.reset) {
+    runResetConfig(terminal);
+    return;
+  }
 
   try {
     if (await runUserLocalDirectCommandIfRequested(args, cwd, terminal)) {
       return;
     }
-  } catch {
+  } catch (error) {
     // allow-fallback: user-local command failure is terminal — exit is the correct response
+    terminal.writeError(error instanceof Error ? error.message : String(error));
     process.exit(1);
   }
 

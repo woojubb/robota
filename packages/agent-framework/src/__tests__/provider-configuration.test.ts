@@ -1,14 +1,16 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdirSync, rmSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+
 import {
   applyActiveModelChange,
   applyProviderConfiguration,
   applyProviderSwitch,
   resolveProviderSettingsWriteTargetPath,
-} from '@robota-sdk/agent-framework';
-import { readProviderSettings } from '@robota-sdk/agent-framework';
+} from '../command-api/provider/provider-configuration.js';
+import { readProviderSettings } from '../command-api/provider/provider-factory.js';
 
 const TMP_BASE = join(tmpdir(), `robota-provider-configuration-test-${process.pid}`);
 const ORIGINAL_HOME = process.env.HOME;

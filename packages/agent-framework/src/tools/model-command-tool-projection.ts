@@ -1,9 +1,11 @@
 import { createHash } from 'node:crypto';
-import { z } from 'zod';
+
 import { createZodFunctionTool } from '@robota-sdk/agent-tools';
-import type { IZodSchema } from '@robota-sdk/agent-tools';
-import type { ICommandResult } from '../commands/index.js';
+import { z } from 'zod';
+
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
+import type { ICommandResult } from '../commands/index.js';
+import type { IZodSchema } from '@robota-sdk/agent-tools';
 
 export const MODEL_COMMAND_TOOL_PREFIX = 'robota_command_' as const;
 export const PROVIDER_SAFE_TOOL_NAME_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
@@ -12,7 +14,10 @@ const MAX_PROVIDER_TOOL_NAME_LENGTH = 64;
 const HASH_LENGTH = 8;
 const HASH_SEPARATOR_LENGTH = 1;
 
-type TModelCommandDescriptor = Pick<ICapabilityDescriptor, 'name' | 'description' | 'argumentHint'>;
+type TModelCommandDescriptor = Pick<
+  ICapabilityDescriptor,
+  'name' | 'description' | 'argumentHint' | 'requiresPermission'
+>;
 
 interface IProjectedCommandArgs {
   args?: string;
@@ -23,6 +28,8 @@ export interface IProjectedModelCommandTool {
   readonly toolName: string;
   readonly description: string;
   readonly descriptor: TModelCommandDescriptor;
+  /** Mirrors the source command's requiresPermission flag. false = auto-approved. */
+  readonly requiresPermission: boolean;
 }
 
 export interface IModelCommandToolProjection {
@@ -118,6 +125,7 @@ export function createModelCommandToolProjection(
       toolName,
       description: formatProjectedModelCommandToolDescription(commandName, descriptor),
       descriptor,
+      requiresPermission: descriptor.requiresPermission !== false,
     });
   }
 

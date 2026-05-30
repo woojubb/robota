@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+
 import type { IMemoryCandidate, IMemoryExtractionInput } from './automatic-memory-types.js';
 import type { TMemoryType } from './project-memory-store.js';
 

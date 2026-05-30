@@ -1,5 +1,3 @@
-import type { IProviderDefinition } from '@robota-sdk/agent-core';
-import type { ICommandModule, IProviderCommandSettingsAdapter } from '@robota-sdk/agent-framework';
 import { createAgentCommandModule } from '../agent/index.js';
 import { createBackgroundCommandModule } from '../background/index.js';
 import { createCompactCommandModule } from '../compact/index.js';
@@ -9,7 +7,6 @@ import { createHelpCommandModule } from '../help/index.js';
 import { createLanguageCommandModule } from '../language/index.js';
 import { createMemoryCommandModule } from '../memory/index.js';
 import { createModeCommandModule } from '../mode/index.js';
-import { createModelCommandModule } from '../model/index.js';
 import { createPermissionsCommandModule } from '../permissions/index.js';
 import { createPluginCommandModule } from '../plugin/index.js';
 import { createProviderCommandModule } from '../provider/index.js';
@@ -20,6 +17,9 @@ import { createSettingsCommandModule } from '../settings/index.js';
 import { createSkillsCommandModule } from '../skills/index.js';
 import { createStatusLineCommandModule } from '../statusline/index.js';
 import { createUserLocalCommandModule } from '../user-local/index.js';
+
+import type { IProviderDefinition } from '@robota-sdk/agent-core';
+import type { ICommandModule, IProviderCommandSettingsAdapter } from '@robota-sdk/agent-framework';
 
 export interface IDefaultCommandModulesOptions {
   cwd: string;
@@ -36,10 +36,6 @@ export function createDefaultCommandModules({
     createSkillsCommandModule({ cwd }),
     createHelpCommandModule(),
     createAgentCommandModule(),
-    createModelCommandModule({
-      providerDefinitions,
-      settings: { readMergedSettings: () => providerSettingsAdapter.readMergedSettings() },
-    }),
     createPermissionsCommandModule(),
     createModeCommandModule(),
     createLanguageCommandModule(),

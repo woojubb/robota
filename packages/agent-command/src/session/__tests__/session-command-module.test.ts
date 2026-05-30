@@ -139,7 +139,7 @@ describe('createSessionCommandModule', () => {
     expect(entry).toEqual(
       expect.objectContaining({
         name: 'cost',
-        description: 'Show session info',
+        description: expect.stringContaining('token usage'),
         source: 'session',
         modelInvocable: false,
       }),
@@ -288,18 +288,62 @@ describe('createSessionCommandModule', () => {
     });
   });
 
-  it('shows session info through the session command API', async () => {
+  it('shows session info through the session command API (no token data yet)', async () => {
     const executor = new SystemCommandExecutor([
       ...(createSessionCommandModule().systemCommands ?? []),
     ]);
 
     const result = await executor.execute('cost', createCommandContext(), '');
 
-    expect(result).toEqual({
-      success: true,
-      message: 'Session: session_1\nMessages: 5',
-      data: { sessionId: 'session_1', messageCount: 5 },
-    });
+    expect(result?.success).toBe(true);
+    expect(result?.message).toContain('session_1');
+    expect(result?.message).toContain('Messages: 5');
+    expect(result?.message).toContain('not yet available');
+  });
+
+  it('shows token counts and estimated cost when session has usage data', async () => {
+    const runtime = {
+      ...createRuntime(),
+      getSessionTokenUsage: () => ({ inputTokens: 45_000, outputTokens: 12_000 }),
+      getModelId: () => 'claude-sonnet-4-5',
+    };
+    const context = { ...createCommandContext(), getSession: () => runtime };
+    const executor = new SystemCommandExecutor([
+      ...(createSessionCommandModule().systemCommands ?? []),
+    ]);
+
+    const result = await executor.execute('cost', context, '');
+
+    expect(result?.success).toBe(true);
+    expect(result?.message).toContain('45,000');
+    expect(result?.message).toContain('12,000');
+    expect(result?.message).toContain('$');
+    expect((result?.data as Record<string, unknown>)?.inputTokens).toBe(45_000);
+    expect((result?.data as Record<string, unknown>)?.outputTokens).toBe(12_000);
+    expect((result?.data as Record<string, unknown>)?.estimatedCostUsd).toBeDefined();
+  });
+
+  it('sets a monthly budget via /cost budget subcommand', async () => {
+    const executor = new SystemCommandExecutor([
+      ...(createSessionCommandModule().systemCommands ?? []),
+    ]);
+    const context = { ...createCommandContext(), getCwd: () => '/tmp/robota-test-budget' };
+
+    const result = await executor.execute('cost', context, 'budget 5.00');
+
+    expect(result?.success).toBe(true);
+    expect(result?.message).toContain('$5.00');
+  });
+
+  it('rejects invalid budget amount', async () => {
+    const executor = new SystemCommandExecutor([
+      ...(createSessionCommandModule().systemCommands ?? []),
+    ]);
+
+    const result = await executor.execute('cost', createCommandContext(), 'budget notanumber');
+
+    expect(result?.success).toBe(false);
+    expect(result?.message).toContain('Usage:');
   });
 
   it('validates the current session replay log through the SDK common API', async () => {

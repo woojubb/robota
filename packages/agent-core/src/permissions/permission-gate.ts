@@ -13,8 +13,9 @@
  * - `ToolName`      — match any invocation of that tool
  */
 
-import type { TPermissionMode, TPermissionDecision } from './types.js';
 import { MODE_POLICY, UNKNOWN_TOOL_FALLBACK } from './permission-mode.js';
+
+import type { TPermissionMode, TPermissionDecision } from './types.js';
 
 /**
  * Tool arguments passed from the LLM invocation.

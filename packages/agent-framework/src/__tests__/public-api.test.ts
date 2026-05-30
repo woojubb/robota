@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import * as sdk from '../index.js';
 
 describe('agent-sdk public API', () => {
@@ -10,8 +11,7 @@ describe('agent-sdk public API', () => {
     expect(typeof sdk.listCommandContextReferences).toBe('function');
     expect(typeof sdk.addCommandContextReference).toBe('function');
     expect(typeof sdk.createContextReferenceItem).toBe('function');
-    expect(typeof sdk.formatModelCommandUsageMessageAsync).toBe('function');
-    expect(typeof sdk.resolveActiveProviderModelCatalogState).toBe('function');
+    expect(typeof sdk.buildLanguageCommandSubcommands).toBe('function');
   });
 
   it('does not expose automatic memory orchestration from the top-level package', () => {

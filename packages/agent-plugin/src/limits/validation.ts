@@ -5,6 +5,7 @@
  * @internal
  */
 import { PluginError, type ILogger } from '@robota-sdk/agent-core';
+
 import type { ILimitsPluginOptions } from './types';
 
 /** Validate LimitsPlugin options. @internal */

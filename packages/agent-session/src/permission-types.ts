@@ -2,9 +2,9 @@
  * Permission types — interfaces and type aliases for permission enforcement.
  */
 
+import type { ISessionLogger } from './session-logger.js';
 import type { IToolWithEventService, TPermissionMode, TToolArgs } from '@robota-sdk/agent-core';
 import type { IHookTypeExecutor, ISpinner, ITerminalOutput } from '@robota-sdk/agent-core';
-import type { ISessionLogger } from './session-logger.js';
 
 export type { ISpinner, ITerminalOutput };
 
@@ -13,8 +13,9 @@ export type { ISpinner, ITerminalOutput };
  * - true: allow this invocation
  * - false: deny this invocation
  * - 'allow-session': allow this invocation and auto-approve this tool for the rest of the session
+ * - 'allow-project': allow this invocation and persist the approval to .robota/settings.local.json
  */
-export type TPermissionResult = boolean | 'allow-session';
+export type TPermissionResult = boolean | 'allow-session' | 'allow-project';
 
 /**
  * Custom permission handler — called when a tool needs user approval.
@@ -39,7 +40,7 @@ export interface IPermissionEnforcerOptions {
     terminal: ITerminalOutput,
     toolName: string,
     toolArgs: TToolArgs,
-  ) => Promise<boolean>;
+  ) => Promise<TPermissionResult>;
   sessionLogger?: ISessionLogger;
   onToolExecution?: (event: {
     type: 'start' | 'end';
@@ -48,11 +49,14 @@ export interface IPermissionEnforcerOptions {
     success?: boolean;
     denied?: boolean;
     toolResultData?: string;
+    executionId?: string;
   }) => void;
   /** Additional hook type executors (e.g. prompt, agent) beyond the core defaults. */
   hookTypeExecutors?: IHookTypeExecutor[];
   /** Absolute path to session transcript file — passed to PreToolUse hook inputs as transcript_path */
   transcriptPath?: string;
+  /** Called when the user selects "allow for project" — persists the tool pattern to project settings. */
+  onProjectAllowTool?: (toolName: string) => void;
 }
 
 /** Returned when the user denies a permission prompt. success:true prevents ToolExecutionError. */

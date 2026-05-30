@@ -1,5 +1,5 @@
-import type { IProviderCapabilities } from '@robota-sdk/agent-core';
 import type { IQwenProviderOptions } from './types';
+import type { IProviderCapabilities } from '@robota-sdk/agent-core';
 
 const QWEN_RESPONSES_SOURCE = 'qwen-responses';
 const ENABLE_WEB_SEARCH_REASON = 'Enable builtInWebTools.webSearch or builtInWebTools.webFetch.';

@@ -1,10 +1,3 @@
-import type {
-  IMemoryCandidate,
-  IMemoryEvent,
-  IMemoryPendingRecord,
-  IMemoryReference,
-  TMemoryCandidateStatus,
-} from '../../memory/automatic-memory-types.js';
 import { containsSensitiveMemoryContent } from '../../memory/memory-policy-evaluator.js';
 import { PendingMemoryStore } from '../../memory/pending-memory-store.js';
 import {
@@ -16,6 +9,14 @@ import {
   type IStartupMemory,
   type TMemoryType,
 } from '../../memory/project-memory-store.js';
+
+import type {
+  IMemoryCandidate,
+  IMemoryEvent,
+  IMemoryPendingRecord,
+  IMemoryReference,
+  TMemoryCandidateStatus,
+} from '../../memory/automatic-memory-types.js';
 import type { ICommandHostContext } from '../host-context.js';
 import type { ICommand } from '../types.js';
 

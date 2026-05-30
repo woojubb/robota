@@ -6,7 +6,9 @@
  */
 
 import { ConfigurationError, EVENT_EMITTER_EVENTS } from '@robota-sdk/agent-core';
+
 import { MemoryPerformanceStorage } from './storages/index';
+
 import type { IPerformancePluginOptions, IPerformanceStorage } from './types';
 
 /** Validate PerformancePlugin constructor options. @internal */

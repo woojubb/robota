@@ -10,13 +10,11 @@ export * from './types';
 export * from './provider-definition';
 export * from './model-catalog-refresh';
 
-import type { IAnthropicProviderOptions } from './types';
+import { AnthropicProvider } from './provider';
 
-/**
- * Factory function for creating an AnthropicProvider instance.
- * @param _options - Configuration options for the Anthropic provider
- * @returns An AnthropicProvider instance
- */
-export function createAnthropicProvider(_options: IAnthropicProviderOptions) {
-  // Implementation of createAnthropicProvider function
+import type { IAnthropicProviderOptions } from './types';
+import type { IAIProvider } from '@robota-sdk/agent-core';
+
+export function createAnthropicProvider(options: IAnthropicProviderOptions): IAIProvider {
+  return new AnthropicProvider(options);
 }

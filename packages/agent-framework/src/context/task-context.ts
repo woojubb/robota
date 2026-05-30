@@ -1,6 +1,8 @@
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
-import type { IFileSystem } from '@robota-sdk/agent-core';
+
 import { NodeFileSystem } from '../adapters/node-file-system.js';
+
+import type { IFileSystem } from '@robota-sdk/agent-core';
 
 export type TTaskFileStatus = 'todo' | 'in-progress' | 'blocked' | 'completed' | 'unknown';
 

@@ -3,6 +3,45 @@
 Mandatory rules for executing backlog-driven work through recommendation gates and focused PRs.
 Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 
+## Agent Decision Authority
+
+When a decision must be made during backlog work, the agent must first determine whether it falls
+within agent authority or requires user judgment.
+
+**Agent authority — decide and proceed:**
+
+The agent must form a recommendation with explicit reasoning and may act on it without asking the
+user when ALL of the following hold:
+
+- The decision follows clearly from existing project rules, architecture constraints, or repository
+  conventions.
+- A knowledgeable senior engineer reviewing the reasoning would reach the same conclusion.
+- The decision does not change public API contracts, package ownership, dependency direction, or
+  module boundaries in a way that requires cross-team coordination.
+- The decision is reversible or has a low blast radius (e.g., internal cleanup, dead code removal,
+  path constant extraction, naming fix).
+
+When acting on agent authority, the agent must document the reasoning inline — in the backlog item,
+PR description, or commit message — so the user can review and override if needed.
+
+**User judgment required — stop and ask:**
+
+The agent must stop and present options to the user when ANY of the following hold:
+
+- The decision involves product direction, feature scope, or user-facing behavior that is not
+  dictated by existing rules (e.g., "should this feature exist at all?").
+- Multiple architecturally valid approaches exist and the choice has long-term structural impact.
+- The decision changes a published or externally visible contract.
+- The decision requires business, legal, or strategic judgment (e.g., telemetry opt-in consent,
+  third-party service selection).
+
+**Never write "사용자 결정 필요" without first presenting a concrete recommendation.** Every
+open decision in a backlog item must include the agent's recommendation and the reasoning behind it.
+If the recommendation is sound, the agent may proceed. If genuinely uncertain, the agent presents
+two to three options with trade-offs and asks the user to choose.
+
+---
+
 ## Recommendation Gate
 
 Before starting each backlog or meaningful work unit inside a backlog, present a recommendation with
@@ -17,12 +56,36 @@ The recommendation must include:
 - the expected test and verification plan;
 - the expected user execution test scenario plan when the backlog changes runnable user-facing
   behavior, or the not-applicable reason when it does not;
-- any decisions that require the user instead of agent autonomy.
+- open decisions within agent authority (with the agent's recommendation and reasoning) or, if
+  genuinely outside agent authority, a clearly stated question with two to three concrete options.
 
 If the recommendation is coherent with repository rules, layering, architecture, and the backlog
 intent, the agent may proceed with that recommendation. If the recommendation is weak, conflicts
 with rules, changes ownership boundaries, introduces new dependency direction, or requires product
 judgment, stop and ask the user for a decision.
+
+## One-Backlog-At-A-Time Rule (mandatory, zero exceptions)
+
+**Finish one backlog completely before starting the next.**
+
+The sequence is:
+
+1. Complete all implementation, tests, and verification for the current backlog.
+2. Commit every changed file — the working tree must be clean (`git status` shows no modified or
+   staged files) before creating the PR.
+3. Open the PR, merge it into `develop` (or the initiative base branch).
+4. Only after the PR is merged may the next backlog begin.
+
+**Violations:**
+
+- Starting a new backlog while the current backlog's PR is open or unmerged → stop, merge first.
+- Leaving uncommitted files (modified, staged, or newly tracked) after declaring a backlog done →
+  stop, commit or discard them before opening the PR.
+- Combining work from two separate backlogs in one PR → not allowed unless the backlogs were
+  explicitly split into a single named work unit before implementation began.
+
+**Automated enforcement:** `scripts/harness/pre-push.mjs` calls `assertCleanWorkingTree()` at
+startup. Any push with modified or staged uncommitted files is blocked with exit code 1.
 
 ## PR Unit Rule
 
@@ -179,6 +242,38 @@ that the scenario was verified, provide the concrete command or UI steps the use
 expected result, and summarize the evidence already observed by the agent. If the user execution
 test scenario gate does not pass, the work is not complete and the agent must fix the issue or ask
 for a decision.
+
+## Completion Steps
+
+When all gates pass and the work is fully done, follow these steps **in order**:
+
+1. **Update frontmatter** — set `status: done` and add `completed: YYYY-MM-DD` to the backlog
+   file's frontmatter. For items that will not be implemented, use `status: wontfix` or
+   `status: skipped` instead.
+2. **Move the file** — `git mv .agents/backlog/<file>.md .agents/backlog/completed/<file>.md`.
+3. **Single commit** — include the frontmatter update and the `git mv` in the same commit.
+   Do not commit or push before both the status update and the move are staged together.
+
+### Status Invariants
+
+- Frontmatter `status:` is the **only** place status is recorded. Body sections such as
+  `## Status` are banned and must not be written.
+- A file may not reside in `completed/` with `status: todo` or `status: in-progress`.
+- A file may not have `status: done` while still in the `backlog/` root.
+- `status: done` must not be set before the User Execution Test Scenario gate passes (Stage 2).
+- `wontfix`, `skipped`, and `superseded` are valid terminal statuses for items that were
+  deliberately not implemented.
+
+### Common Mistakes to Avoid
+
+| Mistake                                                                | Correct action                                                      |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| Moving file to `completed/` before updating `status:` in frontmatter   | Update frontmatter first, then `git mv`                             |
+| Leaving `status: done` in frontmatter but file still in `backlog/`     | Move with `git mv` immediately after the status update              |
+| Splitting the status update and the move into separate commits         | Stage both changes and commit together                              |
+| Writing `## Status` section in body instead of using frontmatter       | Use frontmatter `status:` field only                                |
+| Setting `status: done` before user execution test scenario gate passes | Run the scenario, record evidence, then set done                    |
+| Copying (not moving) to `completed/`, leaving a duplicate in root      | Always use `git mv` — never `cp`. Root must have no duplicate files |
 
 ## Base Branch Workflow
 

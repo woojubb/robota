@@ -1,0 +1,25 @@
+{
+  "nav": {
+    "gettingStarted": "시작하기",
+    "guide": "가이드",
+    "examples": "예제",
+    "packages": "패키지",
+    "changelog": "변경 로그",
+    "development": "개발",
+    "playground": "플레이그라운드",
+    "backToSite": "← robota.io"
+  },
+  "home": {
+    "badge": "오픈소스 · MIT 라이선스",
+    "title": "Robota SDK",
+    "titleHighlight": "문서",
+    "description": "멀티 프로바이더 AI 에이전트 SDK 및 CLI — TypeScript 네이티브, 자체 호스팅 가능. Anthropic, OpenAI, DeepSeek, Gemini, 로컬 모델을 지원합니다.",
+    "getStarted": "시작하기 →",
+    "readGuide": "가이드 읽기",
+    "quickInstall": "빠른 설치"
+  },
+  "lang": {
+    "en": "EN",
+    "ko": "KO"
+  }
+}

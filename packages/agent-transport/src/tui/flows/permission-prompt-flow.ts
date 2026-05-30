@@ -6,9 +6,14 @@ import {
   type TSelectionInputAction,
 } from './selection-flow.js';
 
-export const PERMISSION_PROMPT_OPTIONS = ['Allow', 'Allow always (this session)', 'Deny'] as const;
+export const PERMISSION_PROMPT_OPTIONS = [
+  'Allow [y]',
+  'Allow always (this session) [s]',
+  'Allow always (this project) [p]',
+  'Deny [n]',
+] as const;
 
-export type TPermissionPromptDecision = true | 'allow-session' | false;
+export type TPermissionPromptDecision = true | 'allow-session' | 'allow-project' | false;
 export type TPermissionPromptInputAction =
   | TSelectionInputAction
   | { type: 'shortcut'; index: number };
@@ -28,11 +33,14 @@ export function getPermissionPromptInputAction(
   if (input === 'y' || input === '1') {
     return { type: 'shortcut', index: 0 };
   }
-  if (input === 'a' || input === '2') {
+  if (input === 's' || input === 'a' || input === '2') {
     return { type: 'shortcut', index: 1 };
   }
-  if (input === 'n' || input === 'd' || input === '3') {
+  if (input === 'p' || input === '3') {
     return { type: 'shortcut', index: 2 };
+  }
+  if (input === 'n' || input === 'd' || input === '4') {
+    return { type: 'shortcut', index: 3 };
   }
   return undefined;
 }
@@ -62,6 +70,7 @@ export function applyPermissionPromptInput(
 export function getPermissionDecision(index: number): TPermissionPromptDecision {
   if (index === 0) return true;
   if (index === 1) return 'allow-session';
+  if (index === 2) return 'allow-project';
   return false;
 }
 

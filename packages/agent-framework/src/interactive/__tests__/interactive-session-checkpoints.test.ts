@@ -1,9 +1,12 @@
-import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import type { IAIProvider, IAssistantMessage, TUniversalMessage } from '@robota-sdk/agent-core';
+import { join } from 'node:path';
+
+import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
+
 import { InteractiveSession } from '../interactive-session.js';
+
+import type { IAIProvider, IAssistantMessage, TUniversalMessage } from '@robota-sdk/agent-core';
 
 const TMP_BASE = join(tmpdir(), `robota-interactive-checkpoints-${process.pid}`);
 const ORIGINAL_HOME = process.env.HOME;

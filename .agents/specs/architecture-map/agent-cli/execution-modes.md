@@ -46,20 +46,23 @@ sequenceDiagram
 
   CLI->>CLI: collect positional prompt or piped stdin
   CLI->>CLI: build appendSystemPrompt from flags
-  CLI->>SDK: new InteractiveSession({ permissionMode: bypassPermissions, bare, allowedTools, noSessionPersistence, commandModules })
+  CLI->>Runtime: runtime.createSession({ permissionMode, maxTurns, sessionStore, bare, allowedTools, appendSystemPrompt })
+  Runtime-->>CLI: session (IInteractiveSession)
   CLI->>Transport: createHeadlessTransport({ outputFormat, prompt })
-  CLI->>SDK: attachTransport(transport)
-  CLI->>Transport: start()
-  Transport->>SDK: submit prompt
-  SDK->>Session: run loop
-  Session-->>Transport: text/json/stream-json output events
-  CLI->>SDK: shutdown()
+  CLI->>Session: session.attachTransport(transport)
+  CLI->>Transport: transport.start()
+  Transport->>Session: submit prompt
+  Session->>SessionSvc: run loop
+  SessionSvc-->>Transport: text/json/stream-json output events
+  CLI->>Session: session.shutdown()
 ```
 
 Flags: `-p`, piped stdin, `--output-format`, `--permission-mode`, `--max-turns`, `--bare`,
 `--allowed-tools`, `--no-session-persistence`, `--append-system-prompt`, `--json-schema`.
 
 ## WebSocket Sidecar Mode
+
+> **[Planned — not yet implemented]** The `--web` / `--web-port` flags and `startWebSidecarServer()` described below do not exist in the codebase. This section documents the planned design intent referenced in `agent-web-ui/docs/SPEC.md`. Do not rely on it as a current implementation reference.
 
 ```mermaid
 sequenceDiagram

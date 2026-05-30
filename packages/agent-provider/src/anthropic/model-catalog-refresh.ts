@@ -1,12 +1,13 @@
+import {
+  ANTHROPIC_MODEL_SOURCE_URL,
+  ANTHROPIC_MODEL_LAST_VERIFIED_AT,
+} from './provider-definition';
+
 import type {
   IProviderModelCatalog,
   IProviderModelCatalogEntry,
   IProviderProfileConfig,
 } from '@robota-sdk/agent-core';
-import {
-  ANTHROPIC_MODEL_SOURCE_URL,
-  ANTHROPIC_MODEL_LAST_VERIFIED_AT,
-} from './provider-definition';
 
 const ANTHROPIC_MODELS_API_URL = 'https://api.anthropic.com/v1/models';
 const ANTHROPIC_API_VERSION = '2023-06-01';

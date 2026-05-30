@@ -2,19 +2,20 @@
  * Types for InteractiveSession — event-driven session wrapper.
  */
 
-import type { IContextWindowState, TToolArgs, IHistoryEntry } from '@robota-sdk/agent-core';
-import type { ICompactEvent } from '@robota-sdk/agent-session';
 import type {
   IExecutionWorkspaceEvent,
   TBackgroundJobGroupEvent,
   TBackgroundTaskEvent,
 } from '../background-tasks/index.js';
-import type { IPromptFileReferenceRecord } from '../context/prompt-file-references.js';
 import type { ISkillActivationEvent } from '../commands/skill-activation-events.js';
+import type { IPromptFileReferenceRecord } from '../context/prompt-file-references.js';
+import type { IContextWindowState, TToolArgs, IHistoryEntry } from '@robota-sdk/agent-core';
+import type { ICompactEvent } from '@robota-sdk/agent-session';
 
 /** Permission handler result — SDK-owned type (mirrors agent-sessions TPermissionResult).
- *  true = allow, false = deny, 'allow-session' = allow and remember for this session. */
-export type TPermissionResultValue = boolean | 'allow-session';
+ *  true = allow, false = deny, 'allow-session' = allow and remember for this session,
+ *  'allow-project' = allow and persist to .robota/settings.local.json. */
+export type TPermissionResultValue = boolean | 'allow-session' | 'allow-project';
 
 /** Tool execution state visible to clients. */
 export interface IToolState {
@@ -25,6 +26,7 @@ export interface IToolState {
   diffLines?: IDiffLine[];
   diffFile?: string;
   toolResultData?: string;
+  executionId?: string;
 }
 
 /** A single diff line for Edit tool display. */

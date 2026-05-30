@@ -1,6 +1,8 @@
-import type { ILogEntry, ILogStorage, ILogFormatter, TLogLevel } from '../types';
-import { ConsoleLogFormatter } from '../formatters';
 import { SilentLogger, type ILogger } from '@robota-sdk/agent-core';
+
+import { ConsoleLogFormatter } from '../formatters';
+
+import type { ILogEntry, ILogStorage, ILogFormatter, TLogLevel } from '../types';
 
 /**
  * Console log storage

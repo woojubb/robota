@@ -2,6 +2,8 @@
 
 import dynamic from 'next/dynamic';
 
+import type { ReactElement } from 'react';
+
 const SessionMonitor = dynamic(
   () => import('@robota-sdk/agent-web-ui/client').then((m) => ({ default: m.SessionMonitor })),
   {
@@ -14,7 +16,7 @@ const SessionMonitor = dynamic(
   },
 );
 
-export function MonitorClient() {
+export function MonitorClient(): ReactElement {
   return (
     <SessionMonitor
       wsUrl={process.env.NEXT_PUBLIC_CLI_WS_URL ?? 'ws://localhost:7070'}

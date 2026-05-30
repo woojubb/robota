@@ -1,13 +1,14 @@
-import type {
-  IProviderModelCatalog,
-  IProviderModelCatalogEntry,
-  IProviderProfileConfig,
-} from '@robota-sdk/agent-core';
 import {
   DEFAULT_QWEN_PROVIDER_BASE_URL,
   QWEN_MODEL_LAST_VERIFIED_AT,
   QWEN_MODEL_SOURCE_URL,
 } from './defaults';
+
+import type {
+  IProviderModelCatalog,
+  IProviderModelCatalogEntry,
+  IProviderProfileConfig,
+} from '@robota-sdk/agent-core';
 
 export interface IQwenModelsResponse {
   data?: Array<{

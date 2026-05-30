@@ -1,8 +1,9 @@
+---
+title: 'CLI Permissions Command Owns Permission Mode Setting'
+status: done
+---
+
 # CLI Permissions Command Owns Permission Mode Setting
-
-## Status
-
-Completed.
 
 ## Created
 

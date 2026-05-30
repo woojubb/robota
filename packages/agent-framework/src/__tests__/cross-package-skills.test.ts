@@ -9,18 +9,19 @@
  * - CommandRegistry aggregates command module + skill + plugin sources
  */
 
-import { describe, it, expect, afterEach } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
-import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
+import { describe, it, expect, afterEach } from 'vitest';
+
+import { CommandRegistry } from '../commands/command-registry.js';
+import { PluginCommandSource } from '../commands/plugin-source.js';
+import { SkillCommandSource } from '../commands/skill-source.js';
 import { buildSystemPrompt } from '../context/system-prompt-builder.js';
+
 import type { ISystemPromptParams } from '../context/system-prompt-builder.js';
 import type { ILoadedBundlePlugin } from '../plugins/index.js';
-
-import { SkillCommandSource } from '../commands/skill-source.js';
-import { PluginCommandSource } from '../commands/plugin-source.js';
-import { CommandRegistry } from '../commands/command-registry.js';
 
 let tempDirs: string[] = [];
 

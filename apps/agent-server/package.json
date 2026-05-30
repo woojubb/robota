@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-server",
-  "version": "3.0.1-beta.21",
+  "version": "3.0.1-beta.25",
   "description": "Agent Server - AI provider proxy and Playground WebSocket server",
   "private": true,
   "keywords": [
@@ -34,7 +34,9 @@
     "clean": "rm -rf dist lib"
   },
   "dependencies": {
+    "@robota-sdk/agent-command": "workspace:*",
     "@robota-sdk/agent-core": "workspace:*",
+    "@robota-sdk/agent-framework": "workspace:*",
     "@robota-sdk/agent-playground": "workspace:*",
     "@robota-sdk/agent-provider": "workspace:*",
     "@types/ws": "^8.18.1",

@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+
 import { substituteVariables, preprocessShellCommands } from '../utils/skill-prompt.js';
 
 describe('substituteVariables', () => {

@@ -37,7 +37,6 @@ export {
   createFunctionTool,
   createZodFunctionTool,
 } from './implementations/function-tool';
-export { OpenAPITool, createOpenAPITool } from './implementations/openapi-tool';
 export { zodToJsonSchema } from './implementations/function-tool/schema-converter';
 export type {
   IZodSchema,

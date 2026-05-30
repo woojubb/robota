@@ -1,6 +1,7 @@
 import jsSHA from 'jssha';
-import type { TUniversalMessage } from '../../interfaces/messages';
+
 import type { ICacheKey } from '../../interfaces/cache';
+import type { TUniversalMessage } from '../../interfaces/messages';
 
 interface ICacheKeyOptions {
   temperature?: number;

@@ -5,6 +5,7 @@ import {
   type TEventName,
   EVENT_EMITTER_EVENTS,
 } from '@robota-sdk/agent-core';
+
 import type { IUsagePluginOptions } from './types';
 
 const DEFAULT_MAX_ENTRIES = 10000;

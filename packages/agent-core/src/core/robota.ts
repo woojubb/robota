@@ -1,23 +1,13 @@
-import type { TUniversalMessage, IAgentConfig, IRunOptions, IAgent } from '../interfaces/agent';
-import { ModuleRegistry } from '../managers/module-registry';
-import { EventEmitterPlugin } from '../plugins/event-emitter-plugin';
-import { AIProviders } from '../managers/ai-provider-manager';
-import { Tools } from '../managers/tool-manager';
-import { AgentFactory } from '../managers/agent-factory';
-import { ConversationHistory } from '../managers/conversation-history-manager';
-import type { ExecutionService } from '../services/execution-service';
-import type { IEventService, IAgentEventData } from '../interfaces/event-service';
-import { DEFAULT_ABSTRACT_EVENT_SERVICE, bindWithOwnerPath } from '../event-service/index';
-import type { AbstractTool, IToolWithEventService } from '../abstracts/abstract-tool';
-import { createLogger, setGlobalLogLevel, type ILogger } from '../utils/logger';
-import type { IHistoryEntry } from '../interfaces/messages';
-import type { IModelConfig, IConfigurationSnapshot } from './robota-types';
+import { RobotaBase } from './robota-base';
 import { validateAgentConfig } from './robota-config-manager';
 import { createRobotaDelegates } from './robota-delegate-factory';
-import type { RobotaConfigManager } from './robota-config-manager';
-import { performDoAsyncInit } from './robota-initializer';
+import {
+  emitCreatedEvent,
+  emitAgentEvent,
+  buildOwnerPath,
+  createModuleEventEmitter,
+} from './robota-events';
 import { robotaRun, robotaRunStream, type IRobotaExecutionDeps } from './robota-execution';
-import { buildAgentStats, destroyAgent } from './robota-lifecycle';
 import {
   getHistory,
   getFullHistory,
@@ -25,13 +15,25 @@ import {
   clearHistory,
   injectMessage,
 } from './robota-history';
-import {
-  emitCreatedEvent,
-  emitAgentEvent,
-  buildOwnerPath,
-  createModuleEventEmitter,
-} from './robota-events';
-import { RobotaBase } from './robota-base';
+import { performDoAsyncInit } from './robota-initializer';
+import { buildAgentStats, destroyAgent } from './robota-lifecycle';
+import { DEFAULT_ABSTRACT_EVENT_SERVICE, bindWithOwnerPath } from '../event-service/index';
+import { AgentFactory } from '../managers/agent-factory';
+import { AIProviders } from '../managers/ai-provider-manager';
+import { ConversationHistory } from '../managers/conversation-history-manager';
+import { ModuleRegistry } from '../managers/module-registry';
+import { Tools } from '../managers/tool-manager';
+import { createLogger, setGlobalLogLevel, type ILogger } from '../utils/logger';
+
+import type { RobotaConfigManager } from './robota-config-manager';
+import type { IModelConfig, IConfigurationSnapshot } from './robota-types';
+import type { AbstractTool, IToolWithEventService } from '../abstracts/abstract-tool';
+import type { TUniversalMessage, IAgentConfig, IRunOptions, IAgent } from '../interfaces/agent';
+import type { IEventService, IAgentEventData } from '../interfaces/event-service';
+import type { IHistoryEntry } from '../interfaces/messages';
+import type { IAIProvider } from '../interfaces/provider';
+import type { EventEmitterPlugin } from '../plugins/event-emitter-plugin';
+import type { ExecutionService } from '../services/execution-service';
 
 const ID_RADIX = 36;
 const ID_RANDOM_LENGTH = 9;
@@ -193,7 +195,12 @@ export class Robota
     return { ...this.config };
   }
 
-  getStats() {
+  swapDefaultProvider(newProvider: IAIProvider, model: string): void {
+    this.aiProviders.addProvider(newProvider.name, newProvider);
+    this.configManager.setModel({ provider: newProvider.name, model });
+  }
+
+  getStats(): ReturnType<typeof buildAgentStats> {
     return buildAgentStats({
       name: this.name,
       version: this.version,

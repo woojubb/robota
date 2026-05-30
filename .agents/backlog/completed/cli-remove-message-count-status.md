@@ -1,8 +1,9 @@
+---
+title: 'CLI Remove Message Count From Status Bar'
+status: done
+---
+
 # CLI Remove Message Count From Status Bar
-
-## Status
-
-Completed.
 
 ## Created
 

@@ -60,6 +60,11 @@ secrets.*
 # Finder (MacOS) folder config
 .DS_Store
 
+# Screenshot/capture files at repo root (session evidence, not source)
+/*.png
+/*.jpg
+/*.jpeg
+
 # Environment variables
 .env
 .env.local
@@ -127,3 +132,4 @@ scripts/audit/output/
 # Auto-generated API reference from docs:build (typedoc output)
 content/api-reference/
 .worktrees/
+.claude/worktrees/

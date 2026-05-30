@@ -6,8 +6,9 @@
  */
 
 import { PluginError } from '@robota-sdk/agent-core';
-import type { TUniversalMessage } from '@robota-sdk/agent-core';
+
 import type { ILimitWindow, ITokenBucket } from './types';
+import type { TUniversalMessage } from '@robota-sdk/agent-core';
 
 const COST_DECIMAL_PLACES = 4;
 const CHARS_PER_TOKEN = 4;

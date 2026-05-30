@@ -1,13 +1,16 @@
-import type OpenAI from 'openai';
-import type { IChatOptions, TTextDeltaCallback, TUniversalMessage } from '@robota-sdk/agent-core';
-import { observeProviderNativeRawPayloadStream } from '../shared/openai-compatible/index.js';
-import type { IPayloadLogger } from './interfaces/payload-logger';
-import type { IOpenAIError, IOpenAILogData } from './types/api-types';
-import type { IOpenAIProviderOptions } from './types';
-import { buildOpenAIChatResponseFormat } from './openai-request-format';
+import { RateLimitError } from '@robota-sdk/agent-core';
+
 import { convertToOpenAIMessages, convertToOpenAITools } from './message-converter';
-import { OpenAIResponseParser } from './parsers/response-parser';
+import { buildOpenAIChatResponseFormat } from './openai-request-format';
 import { assembleOpenAIStream } from './streaming/stream-assembler';
+import { observeProviderNativeRawPayloadStream } from '../shared/openai-compatible/index.js';
+
+import type { IPayloadLogger } from './interfaces/payload-logger';
+import type { OpenAIResponseParser } from './parsers/response-parser';
+import type { IOpenAIProviderOptions } from './types';
+import type { IOpenAIError, IOpenAILogData } from './types/api-types';
+import type { IChatOptions, TTextDeltaCallback, TUniversalMessage } from '@robota-sdk/agent-core';
+import type OpenAI from 'openai';
 
 export interface IOpenAIChatCompletionsOptions {
   client?: OpenAI;
@@ -50,7 +53,15 @@ export async function chatWithOpenAIChatCompletions(
     });
     return input.responseParser.parseResponse(response);
   } catch (error) {
+    // allow-fallback: maps 429 to RateLimitError, wraps others in Error
     const openaiError = error as IOpenAIError;
+    if (openaiError.status === 429) {
+      throw new RateLimitError(
+        openaiError.message ?? 'OpenAI rate limit exceeded.',
+        undefined,
+        'openai',
+      );
+    }
     const errorMessage = openaiError.message || 'OpenAI API request failed';
     throw new Error(`OpenAI chat failed: ${errorMessage}`);
   }
@@ -90,7 +101,15 @@ export async function* chatStreamWithOpenAIChatCompletions(
       }
     }
   } catch (error) {
+    // allow-fallback: maps 429 to RateLimitError, wraps others in Error
     const openaiError = error as IOpenAIError;
+    if (openaiError.status === 429) {
+      throw new RateLimitError(
+        openaiError.message ?? 'OpenAI rate limit exceeded.',
+        undefined,
+        'openai',
+      );
+    }
     const errorMessage = openaiError.message || 'OpenAI API request failed';
     throw new Error(`OpenAI stream failed: ${errorMessage}`);
   }
@@ -107,7 +126,11 @@ function buildChatRequestParams(
     );
   }
 
-  const responseFormat = buildOpenAIChatResponseFormat(input.providerOptions);
+  const responseFormat = buildOpenAIChatResponseFormat(
+    input.chatOptions?.responseFormat?.type !== undefined
+      ? { ...input.providerOptions, responseFormat: input.chatOptions.responseFormat.type }
+      : input.providerOptions,
+  );
   return {
     model,
     messages: openaiMessages,
@@ -151,7 +174,15 @@ async function chatWithStreamingAssembly(
       signal: input.chatOptions?.signal,
     });
   } catch (error) {
+    // allow-fallback: maps 429 to RateLimitError, wraps others in Error
     const openaiError = error as IOpenAIError;
+    if (openaiError.status === 429) {
+      throw new RateLimitError(
+        openaiError.message ?? 'OpenAI rate limit exceeded.',
+        undefined,
+        'openai',
+      );
+    }
     const errorMessage = openaiError.message || 'OpenAI streaming request failed';
     throw new Error(`OpenAI stream failed: ${errorMessage}`);
   }

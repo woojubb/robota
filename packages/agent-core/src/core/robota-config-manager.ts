@@ -3,17 +3,18 @@
  *
  * Extracted from robota.ts to keep the main class under 300 lines.
  */
-import type { IAgentConfig, IExecutionContextInjection } from '../interfaces/agent';
+import { AGENT_EVENTS } from '../agents/constants';
+import { ConfigurationError } from '../utils/errors';
+
 import type { IToolWithEventService } from '../abstracts/abstract-tool';
 import type { AbstractTool } from '../abstracts/abstract-tool';
-import type { AIProviders } from '../managers/ai-provider-manager';
-import type { Tools } from '../managers/tool-manager';
+import type { IAgentConfig, IExecutionContextInjection } from '../interfaces/agent';
 import type { IEventService } from '../interfaces/event-service';
-import type { ILogger } from '../utils/logger';
 import type { IToolExecutionContext, TToolParameters } from '../interfaces/tool';
 import type { TUniversalValue } from '../interfaces/types';
-import { ConfigurationError } from '../utils/errors';
-import { AGENT_EVENTS } from '../agents/constants';
+import type { AIProviders } from '../managers/ai-provider-manager';
+import type { Tools } from '../managers/tool-manager';
+import type { ILogger } from '../utils/logger';
 
 /** Agent statistics metadata type */
 export type TAgentStatsMetadata = Record<string, string | number | boolean | Date | string[]>;

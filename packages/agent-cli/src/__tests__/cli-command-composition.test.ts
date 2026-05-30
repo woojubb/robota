@@ -1,14 +1,8 @@
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, it, vi } from 'vitest';
-import type {
-  IAIProvider,
-  IChatOptions,
-  IProviderRequest,
-  IRawProviderResponse,
-  TUniversalMessage,
-} from '@robota-sdk/agent-core';
+
+import { createDefaultCommandModules } from '@robota-sdk/agent-command';
 import {
   CommandRegistry,
   InteractiveSession,
@@ -17,20 +11,30 @@ import {
   resolveProviderSettingsWriteTargetPath,
   writeSettings,
 } from '@robota-sdk/agent-framework';
-import type { TProviderSettingsDocument } from '@robota-sdk/agent-framework';
 import { createHeadlessTransport } from '@robota-sdk/agent-transport/headless';
-import { createDefaultCommandModules } from '@robota-sdk/agent-command';
+import { describe, expect, it, vi } from 'vitest';
+
 import { startCli } from '../cli.js';
 
-function createProviderSettingsAdapter(cwd: string) {
-  return {
-    readMergedSettings: () => readMergedProviderSettings(cwd),
-    readTargetSettings: () =>
-      readSettings(resolveProviderSettingsWriteTargetPath(cwd)) as TProviderSettingsDocument,
-    writeTargetSettings: (settings: TProviderSettingsDocument) =>
-      writeSettings(resolveProviderSettingsWriteTargetPath(cwd), settings),
-  };
-}
+import type {
+  IAIProvider,
+  IChatOptions,
+  IProviderRequest,
+  IRawProviderResponse,
+  TUniversalMessage,
+} from '@robota-sdk/agent-core';
+import type {
+  IProviderCommandSettingsAdapter,
+  TProviderSettingsDocument,
+} from '@robota-sdk/agent-framework';
+
+const createProviderSettingsAdapter = (cwd: string): IProviderCommandSettingsAdapter => ({
+  readMergedSettings: () => readMergedProviderSettings(cwd),
+  readTargetSettings: () =>
+    readSettings(resolveProviderSettingsWriteTargetPath(cwd)) as TProviderSettingsDocument,
+  writeTargetSettings: (settings: TProviderSettingsDocument) =>
+    writeSettings(resolveProviderSettingsWriteTargetPath(cwd), settings),
+});
 
 const noopProviderSettingsAdapter = {
   readMergedSettings: () => ({}) as TProviderSettingsDocument,

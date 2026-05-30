@@ -19,9 +19,11 @@ flowchart TD
   OptIn["Optional runners\nagent-subagent-runner (opt-in)"]
 
   ProductShells --> Assembly
+  ProductShells --> Playground
   Assembly --> Sessions
   Assembly --> Executor
   Assembly --> Domain
+  Assembly --> TypeContracts
   Sessions --> Domain
   Executor --> Domain
   Assembly --> Adapters
@@ -29,6 +31,7 @@ flowchart TD
   ProductShells --> OptIn
   Adapters --> Domain
   TransportShells --> Assembly
+  TransportShells --> TypeContracts
   Assembly --> TransportShells
   Orchestration --> Domain
   Orchestration --> Adapters

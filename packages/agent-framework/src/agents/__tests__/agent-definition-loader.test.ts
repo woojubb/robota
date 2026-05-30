@@ -1,7 +1,9 @@
-import { describe, it, expect, afterEach } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
-import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { describe, it, expect, afterEach } from 'vitest';
+
 import { AgentDefinitionLoader } from '../agent-definition-loader.js';
 import { BUILT_IN_AGENTS } from '../built-in-agents.js';
 

@@ -1,4 +1,8 @@
-import { IPerformanceStorage, IPerformanceMetrics, IAggregatedPerformanceStats } from '../types';
+import type {
+  IPerformanceStorage,
+  IPerformanceMetrics,
+  IAggregatedPerformanceStats,
+} from '../types';
 
 export class MemoryPerformanceStorage implements IPerformanceStorage {
   private entries: IPerformanceMetrics[] = [];

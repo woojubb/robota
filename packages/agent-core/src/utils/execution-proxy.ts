@@ -1,9 +1,3 @@
-import type { IBaseEventData, IEventService } from '../interfaces/event-service';
-import { EXECUTION_EVENTS } from '../services/execution-service';
-import { TOOL_EVENTS } from '../services/tool-execution-service';
-import { AGENT_EVENTS } from '../agents/constants';
-import { TASK_EVENTS } from '../event-service/index';
-import type { TUniversalValue } from '../interfaces/types';
 import {
   asObjectValue,
   getStringLength,
@@ -12,6 +6,12 @@ import {
   type TExecutionProxyTarget,
   type TExecutionProxyArgs,
 } from './execution-proxy-types';
+import { AGENT_EVENTS } from '../agents/constants';
+import { EXECUTION_EVENTS } from '../services/execution-service';
+import { TOOL_EVENTS } from '../services/tool-execution-service';
+
+import type { IBaseEventData, IEventService } from '../interfaces/event-service';
+import type { TUniversalValue } from '../interfaces/types';
 
 export type {
   IExecutionProxyConfig,
@@ -78,40 +78,6 @@ export class ExecutionProxy<T extends object = object> {
           streaming: true,
           options: asObjectValue(args[1]) || {},
         }),
-      });
-    }
-
-    // Team task assignment methods
-    if (this.config.sourceType === 'team') {
-      this.configureMethod('assignTask', {
-        startEvent: TASK_EVENTS.ASSIGNED,
-        completeEvent: TASK_EVENTS.COMPLETED,
-        errorEvent: EXECUTION_EVENTS.ERROR,
-        extractMetadata: (target, methodName, args) => {
-          const params = asObjectValue(args[0]);
-          return {
-            taskDescription: params?.jobDescription,
-            agentTemplate: params?.agentTemplate,
-            priority: params?.priority,
-            allowFurtherDelegation: params?.allowFurtherDelegation,
-          };
-        },
-        extractResult: (result) => ({
-          result: asObjectValue(result)?.result,
-          agentId: asObjectValue(result)?.agentId,
-          metadata: asObjectValue(result)?.metadata,
-        }),
-      });
-
-      this.configureMethod('execute', {
-        startEvent: EXECUTION_EVENTS.START,
-        completeEvent: EXECUTION_EVENTS.COMPLETE,
-        errorEvent: EXECUTION_EVENTS.ERROR,
-        extractMetadata: (target, methodName, args) => ({
-          taskDescription: args[0],
-          teamMode: true,
-        }),
-        extractResult: (result) => ({ response: result }),
       });
     }
 
@@ -281,7 +247,7 @@ export function createExecutionProxy<T extends object>(
  */
 export function withEventEmission(
   eventService: IEventService,
-  sourceType: 'agent' | 'team' | 'tool',
+  sourceType: 'agent' | 'tool',
   sourceId: string,
 ) {
   return function <T extends object>(target: T): T {

@@ -1,8 +1,9 @@
+---
+title: 'CLI Command Effect State Boundary'
+status: done
+---
+
 # CLI Command Effect State Boundary
-
-## Status
-
-Completed.
 
 Completed: 2026-05-05
 

@@ -1,5 +1,5 @@
-import type { TProviderMediaResult } from '@robota-sdk/agent-core';
 import type { IBytedanceApiErrorResponse, IBytedanceProviderOptions } from './types';
+import type { TProviderMediaResult } from '@robota-sdk/agent-core';
 
 const DEFAULT_TIMEOUT_MS = 60_000;
 

@@ -1,3 +1,5 @@
+import { SilentLogger } from '../utils/logger';
+
 import type {
   IExecutor,
   IChatExecutionRequest,
@@ -6,7 +8,6 @@ import type {
 import type { TUniversalMessage, IAssistantMessage } from '../interfaces/messages';
 import type { TLoggerData } from '../interfaces/types';
 import type { ILogger } from '../utils/logger';
-import { SilentLogger } from '../utils/logger';
 
 /**
  * @fileoverview Abstract Executor Base Class

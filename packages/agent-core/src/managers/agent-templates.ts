@@ -1,5 +1,6 @@
-import type { IAgentTemplate, IAgentConfig } from '../interfaces/agent';
 import { createLogger, type ILogger } from '../utils/logger';
+
+import type { IAgentTemplate, IAgentConfig } from '../interfaces/agent';
 
 /**
  * Reusable type definitions for agent templates

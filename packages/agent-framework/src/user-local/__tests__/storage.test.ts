@@ -1,7 +1,9 @@
 import { promises as fs } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+
 import { afterEach, describe, expect, it } from 'vitest';
+
 import {
   USER_LOCAL_STORAGE_CATEGORIES,
   inspectUserLocalStorage,
