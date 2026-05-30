@@ -1,6 +1,7 @@
 ---
 title: 'ARCH-003-p1: Define IInteractionChannel + types in agent-framework'
-status: todo
+status: done
+done_at: 2026-05-31
 created: 2026-05-30
 priority: high
 urgency: soon
