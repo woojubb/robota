@@ -296,6 +296,58 @@ createSession({ subagentRunnerFactory: myFactory });
 
 When `sandboxClient` is provided to `InteractiveSession`, Bash, Read, Write, and Edit tools are created through sandbox-aware factories that route I/O through the injected client.
 
+### Interaction Channel Contract (`IInteractionChannel`)
+
+`agent-framework` defines the channel abstraction that decouples session I/O from transport implementations. Transport packages implement `IInteractionChannel`; `createInteractiveRuntime` wires them to a session.
+
+```typescript
+interface IInteractionChannel {
+  onSubmit(handler: (text: string) => Promise<void>): void;
+  write(event: InteractionEvent): void;
+  requestAction(action: IActionRequest): Promise<IActionResponse>;
+  setAvailableCommands(commands: ICommandInfo[]): void;
+  setBusy(busy: boolean): void;
+  start(): Promise<void>;
+  stop(): Promise<void>;
+}
+```
+
+**`InteractionEvent`** — one-way display events pushed by the framework to the channel:
+
+| Event type            | When emitted                       |
+| --------------------- | ---------------------------------- |
+| `user-message`        | User text submitted                |
+| `assistant-chunk`     | AI token delta                     |
+| `assistant-done`      | Streaming complete, with full text |
+| `tool-call`           | Tool invocation started            |
+| `tool-result`         | Tool invocation finished           |
+| `permission-request`  | Tool requires user permission      |
+| `permission-resolved` | Permission granted or denied       |
+| `command-result`      | Slash command executed             |
+| `error`               | Session error                      |
+
+**`IActionRequest` / `IActionResponse`** — disambiguation protocol for slash commands that need user input (pick list or confirm dialog). `createInteractiveRuntime` calls `channel.requestAction()` when a command module declares an `interactionHint` and the user submits the command without arguments.
+
+**`ICommandInteractionHint`** — declared per command name in `ICommandModule.interactionHints`:
+
+```typescript
+type ICommandInteractionHint =
+  | { type: 'pick'; getItems(): IPickItem[] }
+  | { type: 'confirm'; message: string };
+```
+
+When a hint is present and the user omits arguments, `createInteractiveRuntime` calls `requestAction` to show a picker or confirm dialog before executing the command.
+
+**`createInteractiveRuntime`** — factory that wires a channel to a session:
+
+- Registers command modules and exposes their commands via `setAvailableCommands`
+- Routes user messages → `session.submit()`
+- Routes slash commands → optional `requestAction()` → `session.executeCommand()`
+- Forwards session events → `channel.write(InteractionEvent)`
+- Calls `setBusy(true/false)` around AI completions
+
+`agent-framework` does **not** own: Ink rendering, web socket connections, dialog HTML, or any channel implementation. Those live in transport packages.
+
 ## Error Taxonomy
 
 The package does not define its own named `Error` subclasses. Errors propagate from underlying packages and from SDK assembly validation:

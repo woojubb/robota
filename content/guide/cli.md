@@ -2,7 +2,7 @@
 
 `@robota-sdk/agent-cli` is a purely CLI entry point that wires providers, transports, and commands into a terminal experience. `InteractiveSession` (from `@robota-sdk/agent-framework`) drives all session logic. The CLI has no session logic of its own: `TuiStateManager` (in `agent-transport/tui`) receives session events and produces an immutable state snapshot consumed by the Ink React component tree. All session logic — command handling, prompt queuing, system commands, skill discovery — lives in the framework layer.
 
-State is managed by `TuiStateManager`, a pure TypeScript class (no React dependency) that receives SDK events and produces an immutable state snapshot. The `useInteractiveSession` hook wraps `TuiStateManager` and feeds its output into the React component tree via `useState`.
+State is managed by `TuiStateManager`, a pure TypeScript class (no React dependency) that receives SDK events and produces an immutable state snapshot. `TuiInteractionChannel` (in `agent-transport/tui`) owns the session lifecycle and drives `TuiStateManager`. The `useTuiChannel` hook bridges channel state into the React component tree.
 
 ## Installation
 
@@ -215,19 +215,21 @@ The CLI is intentionally a thin TUI over SDK-owned session state. Recent updates
 - Background subagent work renders as tree rows with status activity instead of a flat list.
 - Print/headless mode skips startup update checks so scripted stdout/stderr remain deterministic.
 
-### useInteractiveSession Hook
+### TuiInteractionChannel and useTuiChannel
 
-The `useInteractiveSession` hook is the sole bridge between `InteractiveSession` (SDK) and the React component tree. It:
+`TuiInteractionChannel` (in `agent-transport/tui`) is the owner of the `InteractiveSession` lifecycle in TUI mode. It:
 
-1. Receives an `InteractiveSession` instance as its argument.
-2. Passes SDK events (`text_delta`, `tool_start`, `tool_end`, `thinking`, `context_update`, `error`) to a `TuiStateManager` instance.
-3. Exposes derived React state and actions (`submit`, `abort`, `cancelQueue`).
+1. Creates `InteractiveSession` and `CommandRegistry` once (not recreated on re-render).
+2. Subscribes to SDK events (`text_delta`, `tool_start`, `tool_end`, `thinking`, `context_update`, `error`) and drives a `TuiStateManager` instance.
+3. Exposes actions (`submit`, `abort`, `cancelQueue`, `shutdown`) and state via an `onChange` subscription.
+
+The `useTuiChannel` React hook subscribes to `TuiInteractionChannel.onChange` and feeds the immutable state snapshot into the React component tree.
 
 The state shape exposed to components includes `history: IHistoryEntry[]` — the universal timeline of chat messages and session events. Components render from this single list; there is no separate `messages` array.
 
 `TuiStateManager` is a pure TypeScript class with no React dependency. It can be instantiated and tested independently of the component tree, making state transition logic fully unit-testable.
 
-The CLI contains no session management logic beyond this hook. The old `useSession`, `useSubmitHandler`, `useSlashCommands`, `useCommandRegistry`, and `useMessages` hooks have been removed; session execution lives in `InteractiveSession`, and command discovery uses SDK-owned command registry/source classes.
+The CLI contains no session management logic. Session execution lives in `InteractiveSession`, and command discovery uses SDK-owned command registry/source classes.
 
 ## Slash Commands
 

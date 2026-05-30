@@ -16,7 +16,7 @@ export class TuiTransport implements IConfigurableTransport<IInteractiveSession>
   }
 
   attach(_session: IInteractiveSession): void {
-    // TuiTransport creates its own InteractiveSession internally via useInteractiveSession.
+    // TuiTransport creates its own InteractiveSession internally via TuiInteractionChannel.
   }
 
   async start(): Promise<void> {

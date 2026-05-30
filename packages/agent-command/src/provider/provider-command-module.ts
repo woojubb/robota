@@ -2,6 +2,7 @@ import { executeProviderCommand } from './provider-command-execution.js';
 
 import type {
   ICommand,
+  ICommandInteractionHint,
   ICommandModule as TCommandModule,
   ICommandSource,
   IProviderCommandModuleOptions,
@@ -57,6 +58,18 @@ function createProviderSystemCommand(options: IProviderCommandModuleOptions): TS
   };
 }
 
+const PROVIDER_INTERACTION_HINTS: Record<string, ICommandInteractionHint> = {
+  provider: {
+    type: 'pick',
+    getItems: () =>
+      buildProviderSubcommands().map((sub) => ({
+        label: sub.name,
+        value: sub.name,
+        description: sub.description,
+      })),
+  },
+};
+
 export function createProviderCommandModule(
   options: IProviderCommandModuleOptions,
 ): TCommandModule {
@@ -64,5 +77,6 @@ export function createProviderCommandModule(
     name: 'agent-command-provider',
     commandSources: [new ProviderCommandSource()],
     systemCommands: [createProviderSystemCommand(options)],
+    interactionHints: PROVIDER_INTERACTION_HINTS,
   };
 }

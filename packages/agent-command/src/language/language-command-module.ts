@@ -8,6 +8,7 @@ import { executeLanguageCommand } from './language-command.js';
 
 import type {
   ICommand,
+  ICommandInteractionHint,
   ICommandModule,
   ICommandSource,
   ISystemCommand,
@@ -49,10 +50,23 @@ export class LanguageCommandSource implements ICommandSource {
   }
 }
 
+const LANGUAGE_INTERACTION_HINTS: Record<string, ICommandInteractionHint> = {
+  language: {
+    type: 'pick',
+    getItems: () =>
+      buildLanguageCommandSubcommands().map((sub) => ({
+        label: `${sub.name}  ${sub.description ?? ''}`.trimEnd(),
+        value: sub.name,
+        description: sub.description,
+      })),
+  },
+};
+
 export function createLanguageCommandModule(): ICommandModule {
   return {
     name: 'agent-command-language',
     commandSources: [new LanguageCommandSource()],
     systemCommands: [createLanguageSystemCommand()],
+    interactionHints: LANGUAGE_INTERACTION_HINTS,
   };
 }

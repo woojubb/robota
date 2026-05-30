@@ -72,11 +72,10 @@ The architecture map is structurally sound and unusually well-organized for a mo
 
 > `agent-team` owns multi-agent task delegation and coordination… below `agent-framework` but above `agent-core`.
 
-The actual multi-agent architecture involves: template-based delegation, relay tools (`createAssignTaskRelayTool`), owner-path propagation through `IEventService`, injection of `IAIProvider` and `IEventService` at wiring time (not registered in a global registry), and the constraint that `agent-team` must not import `agent-framework`, `agent-session`, or `agent-cli`. None of this is documented in the architecture map.
+Note: `agent-team` package was deleted (TOOL-003, PR #634). Multi-agent delegation via
+relay tools has been removed. The `agent-team` gap finding below is superseded.
 
-The backlog item ARCH-FIX-004 (completed) added `agent-team` and `agent-remote-client` to the layer diagrams, but only at label level. No subdocument was produced. The work is complete as a diagram entry but incomplete as architectural documentation.
-
-The current backlog has MULTI-001 (high priority) for TUI multi-agent multiplexer, which will add new architecture complexity. Without a subdocument for multi-agent architecture, that work has no map checkpoint.
+The backlog item ARCH-FIX-004 (completed) added `agent-team` and `agent-remote-client` to the layer diagrams, but only at label level. No subdocument was produced.
 
 ### C-02 — MCP Transport vs MCP Tool Disambiguation
 

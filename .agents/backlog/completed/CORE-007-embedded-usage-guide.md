@@ -1,10 +1,11 @@
 ---
 title: 'CORE-007: 임베디드 사용 가이드 — agent-framework 통합 패턴 문서'
-status: todo
+status: done
 created: 2026-05-25
+completed: 2026-05-31
 priority: high
 urgency: soon
-area: content/guides/
+area: content/guide/
 depends_on: [CORE-002, CORE-003, CORE-004]
 ---
 

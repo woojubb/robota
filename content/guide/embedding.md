@@ -252,6 +252,117 @@ const session = runtime.createSession({
 Other providers that don't support JSON mode will produce text responses as usual — check provider
 capabilities before relying on machine-parseable output.
 
+## WebSocket server
+
+`createAgentRuntime` sessions map naturally to WebSocket connections — one session
+per connection, events forwarded as JSON messages.
+
+```typescript
+import { WebSocketServer } from 'ws';
+import { createAgentRuntime } from '@robota-sdk/agent-framework';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+
+const runtime = createAgentRuntime({
+  cwd: process.cwd(),
+  provider: new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY! }),
+});
+
+const wss = new WebSocketServer({ port: 8080 });
+
+wss.on('connection', (ws) => {
+  const session = runtime.createSession({
+    permissionMode: 'bypassPermissions',
+    bare: true,
+  });
+
+  session.on('text_delta', (delta) => ws.send(JSON.stringify({ type: 'delta', delta })));
+  session.on('tool_start', ({ toolName }) =>
+    ws.send(JSON.stringify({ type: 'tool_start', toolName })),
+  );
+  session.on('complete', (result) =>
+    ws.send(JSON.stringify({ type: 'complete', response: result.response })),
+  );
+  session.on('error', (err) => ws.send(JSON.stringify({ type: 'error', message: err.message })));
+
+  ws.on('message', (data) => {
+    const { prompt } = JSON.parse(data.toString());
+    session
+      .submit(prompt)
+      .catch((err) => ws.send(JSON.stringify({ type: 'error', message: err.message })));
+  });
+
+  ws.on('close', async () => {
+    await session.abort();
+    await session.shutdown();
+  });
+});
+```
+
+## Batch processing
+
+Run multiple independent queries in parallel with `Promise.all`. Each `createQuery`
+call owns its own internal session, so parallelism is safe.
+
+```typescript
+import { createQuery } from '@robota-sdk/agent-framework';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+
+const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY! });
+
+async function classifyAll(texts: string[]): Promise<string[]> {
+  const tasks = texts.map((text) => {
+    const query = createQuery({ provider });
+    return query(
+      `Classify the sentiment of: "${text}". Reply with one word: positive, negative, or neutral.`,
+    );
+  });
+  return Promise.all(tasks);
+}
+
+const results = await classifyAll(['TypeScript is great!', 'This API is confusing.', 'It works.']);
+// ["positive", "negative", "neutral"]
+```
+
+For rate-limited providers, chunk the array and process sequentially or with a concurrency limit.
+
+## Error handling
+
+### Rate limits (429)
+
+Configure provider-level retry via the provider options:
+
+```typescript
+const provider = new AnthropicProvider({
+  apiKey,
+  maxRetries: 3, // retry up to 3 times on 429 / 529
+  timeout: 60_000, // per-request timeout in ms
+});
+```
+
+### Context overflow
+
+`InteractiveSession` runs auto-compaction when the context approaches the model's
+limit. For `createAgentRuntime` sessions, compaction runs transparently before
+each `submit` call if the context is full.
+
+### Submitting after shutdown
+
+Calling `session.submit()` after `session.shutdown()` throws. Guard with a flag:
+
+```typescript
+let alive = true;
+
+session.on('complete', async () => {
+  alive = false;
+  await session.shutdown();
+});
+
+// elsewhere
+if (alive) {
+  await session.submit(nextPrompt);
+}
+```
+
 ## Express server example
 
 See [`examples/express/`](../../examples/express/) for a complete Express server
