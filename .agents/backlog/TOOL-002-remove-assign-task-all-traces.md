@@ -1,8 +1,7 @@
 ---
 title: 'TOOL-002: assignTask 완전 제거 — 코드·문서·테스트 모든 흔적 삭제'
-status: superseded
+status: todo
 created: 2026-05-20
-superseded_by: TOOL-003
 priority: high
 urgency: soon
 area: packages/agent-team, packages/agent-core, packages/agent-playground, content/, .agents/
