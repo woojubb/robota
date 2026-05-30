@@ -24,7 +24,7 @@ import {
   handleProviderConfigurationArgs,
   runInteractiveProviderSetup,
 } from './startup/provider-startup.js';
-import { TuiTransport, createDefaultTuiCliAdapter } from '@robota-sdk/agent-transport/tui';
+import { renderApp, createDefaultTuiCliAdapter } from '@robota-sdk/agent-transport/tui';
 import { createDefaultTransportRegistry } from '@robota-sdk/agent-transport';
 import { createDefaultBackgroundTaskRunners } from '@robota-sdk/agent-executor';
 import {
@@ -157,7 +157,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     return;
   }
 
-  const tuiTransport = new TuiTransport({
+  await renderApp({
     cwd,
     provider,
     providerOverride: args.provider,
@@ -186,6 +186,5 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     reloadPluginCommandSource,
     agentName: 'robota-cli',
   });
-  await tuiTransport.start();
   process.exit(0);
 }
