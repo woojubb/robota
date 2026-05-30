@@ -5,13 +5,6 @@ const PENDING_PROMPT_TAIL_KEEP = 47;
 import { Box, Text, useInput, useWindowSize } from 'ink';
 
 import CjkTextInput from './CjkTextInput.js';
-import { resolveCommandInteraction } from './command-interaction-registry.js';
-import {
-  isPickerInteraction,
-  isConfirmInteraction,
-  type ITuiCommandInteraction,
-  type ITuiPickerItem,
-} from './command-interaction.js';
 import {
   appendPromptHistory,
   createPasteLabelChange,
@@ -27,20 +20,12 @@ import {
   shouldSubmitInput,
 } from './flows/input-area-flow.js';
 import { useAutocomplete } from './hooks/useAutocomplete.js';
-import CommandConfirm from './interactions/CommandConfirm.js';
-import CommandPicker from './interactions/CommandPicker.js';
 import SlashAutocomplete from './SlashAutocomplete.js';
+import { expandPasteLabels } from './utils/paste-labels.js';
 import WaveText from './WaveText.js';
 
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type { CommandRegistry, ICommand } from '@robota-sdk/agent-framework';
-
-import { expandPasteLabels } from './utils/paste-labels.js';
-
-interface IActiveInteraction {
-  commandName: string;
-  interaction: ITuiCommandInteraction;
-}
 
 interface IProps {
   onSubmit: (value: string) => void;
@@ -85,7 +70,6 @@ export default function InputArea({
 }: IProps): React.ReactElement {
   const [value, setValue] = useState('');
   const [cursorHint, setCursorHint] = useState<number | null>(null);
-  const [activeInteraction, setActiveInteraction] = useState<IActiveInteraction | null>(null);
   const [historyState, setHistoryState] = useState(createPromptHistoryNavigationState);
   const [localPromptHistory, setLocalPromptHistory] = useState<string[]>([]);
   const restoredPromptHistory = useMemo(() => extractPromptHistory(history ?? []), [history]);
@@ -157,8 +141,7 @@ export default function InputArea({
   /** Enter: insert and execute command immediately */
   const enterSelectCommand = useCallback(
     (cmd: ICommand): void => {
-      const interaction = resolveCommandInteraction(cmd.name);
-      const result = resolveEnterCommandSelection(value, cmd, interaction);
+      const result = resolveEnterCommandSelection(value, cmd);
       if (result.type === 'insert') {
         setValue(result.value);
         if (result.selectedIndex !== undefined) {
@@ -166,17 +149,12 @@ export default function InputArea({
         }
         return;
       }
-      if (result.type === 'open-interaction' && interaction?.onMissingArgs) {
-        setShowPopup(false);
-        setActiveInteraction({ commandName: result.commandName, interaction });
-        return;
-      }
       if (result.type === 'submit') {
         setValue('');
         submitPrompt(result.value);
       }
     },
-    [value, submitPrompt, setSelectedIndex, setShowPopup],
+    [value, submitPrompt, setSelectedIndex],
   );
 
   const handleSubmit = useCallback(
@@ -264,44 +242,9 @@ export default function InputArea({
     return { left: '┌' + '─'.repeat(innerWidth), label: '', right: '┐' };
   })();
 
-  const handlePickerSelect = useCallback(
-    (item: ITuiPickerItem): void => {
-      if (!activeInteraction) return;
-      setActiveInteraction(null);
-      submitPrompt(`/${activeInteraction.commandName} ${item.value}`);
-    },
-    [activeInteraction, submitPrompt],
-  );
-
-  const handleConfirm = useCallback((): void => {
-    if (!activeInteraction) return;
-    setActiveInteraction(null);
-    submitPrompt(`/${activeInteraction.commandName}`);
-  }, [activeInteraction, submitPrompt]);
-
-  const handleInteractionCancel = useCallback((): void => {
-    setActiveInteraction(null);
-  }, []);
-
   return (
     <Box flexDirection="column">
-      {activeInteraction && isPickerInteraction(activeInteraction.interaction) && (
-        <CommandPicker
-          commandName={activeInteraction.commandName}
-          interaction={activeInteraction.interaction}
-          onSelect={handlePickerSelect}
-          onCancel={handleInteractionCancel}
-        />
-      )}
-      {activeInteraction && isConfirmInteraction(activeInteraction.interaction) && (
-        <CommandConfirm
-          commandName={activeInteraction.commandName}
-          interaction={activeInteraction.interaction}
-          onConfirm={handleConfirm}
-          onCancel={handleInteractionCancel}
-        />
-      )}
-      {!activeInteraction && showPopup && (
+      {showPopup && (
         <SlashAutocomplete
           commands={filteredCommands}
           selectedIndex={selectedIndex}
