@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
 import { TuiStateManager } from '../tui-state-manager.js';
-import { applyCompactEventToManager } from '../hooks/useInteractiveSession.js';
+import { applyCompactEventToManager } from '../hooks/useTuiChannel.js';
 
 describe('compact event bridge', () => {
   it('syncs session history so automatic compaction notifications render', () => {

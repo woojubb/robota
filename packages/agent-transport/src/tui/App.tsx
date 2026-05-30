@@ -4,7 +4,6 @@ import { Box, Text, useApp, useInput } from 'ink';
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 
 import BackgroundTaskPanel from './BackgroundTaskPanel.js';
-import ConfirmPrompt from './ConfirmPrompt.js';
 import { ContextWarningBanner } from './ContextWarningBanner.js';
 import {
   countActiveBackgroundWorkspaceEntries,
@@ -12,10 +11,10 @@ import {
 } from './execution-workspace-view-model.js';
 import ExecutionWorkspaceDetailPane from './ExecutionWorkspaceDetailPane.js';
 import ExecutionWorkspaceSwitcher from './ExecutionWorkspaceSwitcher.js';
-import { useInteractiveSession } from './hooks/useInteractiveSession.js';
 import { usePluginCallbacks } from './hooks/usePluginCallbacks.js';
 import { useSideEffects } from './hooks/useSideEffects.js';
 import { useStatusLineSettings } from './hooks/useStatusLineSettings.js';
+import { useTuiChannel } from './hooks/useTuiChannel.js';
 import InputArea from './InputArea.js';
 import InteractivePrompt from './InteractivePrompt.js';
 import MessageList from './MessageList.js';
@@ -29,50 +28,29 @@ import { TuiCliAdapterProvider } from './tui-cli-adapter-context.js';
 import UpdateNotice from './UpdateNotice.js';
 
 import type { ITuiCliAdapter } from './tui-cli-adapter.js';
+import type { TuiInteractionChannel } from './TuiInteractionChannel.js';
 import type { TPermissionMode } from '@robota-sdk/agent-core';
-import type { IAIProvider } from '@robota-sdk/agent-core';
 import type {
-  IBackgroundTaskRunner,
-  ICommandHostAdapters,
-  ICommandModule,
   IInteractiveSession,
   IInteractiveSessionStore,
-  TSubagentRunnerFactory,
-  TShellExecFn,
   IExecutionDetailPage,
 } from '@robota-sdk/agent-framework';
-import type { CommandRegistry } from '@robota-sdk/agent-framework';
 import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
 
 interface IProps {
   cwd: string;
-  provider: IAIProvider;
+  channel: TuiInteractionChannel;
   providerOverride?: string | undefined;
   providerType?: string | undefined;
   modelId?: string;
-  language?: string;
   permissionMode?: TPermissionMode;
-  maxTurns?: number;
   version?: string;
   sessionStore?: IInteractiveSessionStore;
   resumeSessionId?: string;
   showSessionPickerOnStart?: boolean;
-  forkSession?: boolean;
-  sessionName?: string;
-  backgroundTaskRunners?: IBackgroundTaskRunner[];
-  subagentRunnerFactory?: TSubagentRunnerFactory;
-  commandModules?: readonly ICommandModule[];
-  commandHostAdapters?: ICommandHostAdapters;
-  shellExec?: TShellExecFn;
   startupUpdateNotice?: Promise<string | undefined>;
   transportRegistry?: ITransportRegistryView<IInteractiveSession>;
   cliAdapter: ITuiCliAdapter;
-  reloadPluginCommandSource?: (registry: CommandRegistry) => void;
-  agentName?: string;
-  systemPrompt?: string;
-  appendSystemPrompt?: string;
-  allowedTools?: string[];
-  deniedTools?: string[];
 }
 
 export default function App(props: IProps): React.ReactElement {
@@ -101,7 +79,7 @@ function AppInner(
   props: IProps & { onSessionSwitch: (sessionId: string) => void },
 ): React.ReactElement {
   const cwd = props.cwd;
-  const [sessionName, setSessionName] = useState<string | undefined>(props.sessionName);
+  const { channel } = props;
 
   const {
     interactiveSession,
@@ -125,33 +103,14 @@ function AppInner(
     handleAbort,
     handleCancelQueue,
     handleShutdown,
-  } = useInteractiveSession({
-    cwd,
-    provider: props.provider,
-    permissionMode: props.permissionMode,
-    maxTurns: props.maxTurns,
-    sessionStore: props.sessionStore,
-    resumeSessionId: props.resumeSessionId,
-    forkSession: props.forkSession,
-    sessionName: props.sessionName,
-    onAutoNamed: setSessionName,
-    backgroundTaskRunners: props.backgroundTaskRunners,
-    subagentRunnerFactory: props.subagentRunnerFactory,
-    commandModules: props.commandModules,
-    commandHostAdapters: props.commandHostAdapters,
-    shellExec: props.shellExec,
-    transportRegistry: props.transportRegistry,
-    language: props.language,
-    reloadPluginCommandSource: props.reloadPluginCommandSource,
-    agentName: props.agentName,
-    systemPrompt: props.systemPrompt,
-    appendSystemPrompt: props.appendSystemPrompt,
-    allowedTools: props.allowedTools,
-    deniedTools: props.deniedTools,
-  });
+  } = useTuiChannel(channel);
+
+  const [sessionName, setSessionName] = useState<string | undefined>(channel.sessionName);
 
   const fallbackPluginCallbacks = usePluginCallbacks(cwd);
-  const pluginCallbacks = props.commandHostAdapters?.plugin ?? fallbackPluginCallbacks;
+  const pluginCallbacks = interactiveSession
+    ? (undefined as unknown as ReturnType<typeof usePluginCallbacks>)
+    : fallbackPluginCallbacks;
   const { exit } = useApp();
   const [updateNotice, setUpdateNotice] = useState<string | undefined>();
   const [showExecutionWorkspaceSwitcher, setShowExecutionWorkspaceSwitcher] = useState(false);
