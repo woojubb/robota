@@ -24,11 +24,14 @@ COMMAND=$(echo "$INPUT" | grep -o '"command"[[:space:]]*:[[:space:]]*"[^"]*"' | 
 IS_COMMIT=false
 IS_PUSH=false
 IS_MERGE=false
+IS_BRANCH_CREATE=false
 echo "$COMMAND" | grep -qE '^\s*git\s+commit\b' && IS_COMMIT=true
 echo "$COMMAND" | grep -qE '^\s*git\s+(push|push\s)' && IS_PUSH=true
 echo "$COMMAND" | grep -qE '^\s*git\s+merge\b' && IS_MERGE=true
+echo "$COMMAND" | grep -qE '^\s*git\s+checkout\s+-b\b' && IS_BRANCH_CREATE=true
+echo "$COMMAND" | grep -qE '^\s*git\s+switch\s+-c\b' && IS_BRANCH_CREATE=true
 
-if [[ "$IS_COMMIT" == "false" && "$IS_PUSH" == "false" && "$IS_MERGE" == "false" ]]; then
+if [[ "$IS_COMMIT" == "false" && "$IS_PUSH" == "false" && "$IS_MERGE" == "false" && "$IS_BRANCH_CREATE" == "false" ]]; then
   exit 0
 fi
 
@@ -38,6 +41,36 @@ CURRENT_BRANCH=$(git -C "$PROJECT_DIR" branch --show-current 2>/dev/null || echo
 
 if [[ -z "$CURRENT_BRANCH" ]]; then
   exit 0
+fi
+
+# Block new branch creation when local branches have commits not yet in main.
+# Uses git rev-list --count main..<branch>: non-zero means unmerged commits exist.
+# This correctly handles squash-merged branches (their commits appear reachable
+# from main after squash) as long as the local branch pointer is deleted post-merge.
+if [[ "$IS_BRANCH_CREATE" == "true" && "${BRANCH_GUARD_ALLOW_OPEN_BRANCHES:-0}" != "1" ]]; then
+  UNMERGED_BRANCHES=()
+  SKIP_PATTERNS="^(main|master|develop|gh-pages)$"
+  while IFS= read -r candidate; do
+    candidate="${candidate#  }"   # strip leading spaces
+    candidate="${candidate#\* }"  # strip current-branch marker
+    [[ "$candidate" =~ $SKIP_PATTERNS ]] && continue
+    [[ -z "$candidate" ]] && continue
+    ahead=$(git -C "$PROJECT_DIR" rev-list --count "main..$candidate" 2>/dev/null || echo 0)
+    if [[ "$ahead" -gt 0 ]]; then
+      UNMERGED_BRANCHES+=("$candidate ($ahead commits ahead of main)")
+    fi
+  done < <(git -C "$PROJECT_DIR" branch 2>/dev/null)
+
+  if [[ "${#UNMERGED_BRANCHES[@]}" -gt 0 ]]; then
+    echo "[branch-guard] Blocked: local branches with unmerged commits detected." >&2
+    echo "[branch-guard] Merge or delete them before creating a new branch:" >&2
+    for b in "${UNMERGED_BRANCHES[@]}"; do
+      echo "  - $b" >&2
+    done
+    echo "[branch-guard] After squash-merge via PR, delete the local branch: git branch -D <name>" >&2
+    echo "[branch-guard] To override: set BRANCH_GUARD_ALLOW_OPEN_BRANCHES=1" >&2
+    exit 2
+  fi
 fi
 
 # Block commit on all protected branches
