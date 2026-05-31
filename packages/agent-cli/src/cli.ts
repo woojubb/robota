@@ -33,6 +33,7 @@ import {
 } from '@robota-sdk/agent-subagent-runner';
 import { reloadPluginCommandSource } from '@robota-sdk/agent-command';
 import { runUserLocalDirectCommandIfRequested } from './user-local-direct-command.js';
+import { runSessionAnalyze } from './session-analyzer/session-analyze-command.js';
 import { readVersion } from './startup/version.js';
 import { runResetConfig } from './startup/reset-config.js';
 import type { IStartCliOptions } from './startup/command-setup.js';
@@ -78,6 +79,11 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
 
   if (args.reset) {
     runResetConfig(terminal);
+    return;
+  }
+
+  if (args.positional[0] === 'session' && args.positional[1] === 'analyze') {
+    await runSessionAnalyze(process.argv.slice(4));
     return;
   }
 

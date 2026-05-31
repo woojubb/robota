@@ -83,6 +83,11 @@ export abstract class SessionBase {
     return this.contextTracker.getContextState();
   }
 
+  /** Estimate context usage from current conversation history (used after session restore). */
+  syncContextFromHistory(): void {
+    this.contextTracker.updateFromHistory(this.robota.getHistory());
+  }
+
   getAutoCompactThreshold(): TAutoCompactThreshold {
     return this.contextTracker.getAutoCompactThreshold();
   }
@@ -129,6 +134,14 @@ export abstract class SessionBase {
     options?: { toolCallId?: string; name?: string },
   ): void {
     this.robota.injectMessage(role, content, options);
+  }
+
+  /**
+   * Inject a full TUniversalMessage preserving all fields (toolCalls, toolCallId, null content).
+   * Used during session restore to correctly reconstruct tool_use+tool_result pairs.
+   */
+  injectRawMessage(msg: TUniversalMessage): void {
+    this.robota.injectRawMessage(msg);
   }
 
   clearHistory(): void {

@@ -204,6 +204,10 @@ export class InteractiveSession
     });
     this.pendingRestoreMessages = restored.pendingRestoreMessages;
     this.sandboxSnapshotId = this.forkSession ? undefined : restored.sandboxSnapshotId;
+    if (this.session && restored.pendingRestoreMessages === null) {
+      // Injected-session path: messages were injected immediately — sync context estimate.
+      this.session.syncContextFromHistory();
+    }
   }
 
   private startAsyncInitializationIfNeeded(

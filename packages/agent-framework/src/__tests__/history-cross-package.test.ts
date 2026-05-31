@@ -39,6 +39,9 @@ function createMockSession(options?: {
     getSessionAllowedTools: vi.fn().mockReturnValue([]),
     compact: vi.fn(),
     injectMessage: vi.fn(),
+    injectRawMessage: vi.fn(),
+    syncContextFromHistory: vi.fn(),
+
     getSystemMessage: vi.fn().mockReturnValue('mock system prompt'),
     getToolSchemas: vi.fn().mockReturnValue([]),
   };
@@ -136,6 +139,94 @@ describe('IHistoryEntry cross-package integration', () => {
 
     const restoredHistory = restored.getFullHistory();
     expect(restoredHistory).toEqual(persistedHistory);
+  });
+
+  // ── TC-03/T-08: tool_use+tool_result round-trip via SessionStore ────────────
+
+  it('TC-03/T-08: tool_use+tool_result pairs round-trip through persist→load→restore with structure intact', () => {
+    const toolCalls = [
+      {
+        id: 'call-abc',
+        type: 'function' as const,
+        function: { name: 'readFile', arguments: '{"path":"a.ts"}' },
+      },
+    ];
+
+    const originalMessages = [
+      { id: 'u1', role: 'user', content: '파일 읽어줘', state: 'complete', timestamp: new Date() },
+      {
+        id: 'a1',
+        role: 'assistant',
+        content: null,
+        toolCalls,
+        state: 'complete',
+        timestamp: new Date(),
+      },
+      {
+        id: 't1',
+        role: 'tool',
+        toolCallId: 'call-abc',
+        content: 'a.ts content here',
+        state: 'complete',
+        timestamp: new Date(),
+      },
+      {
+        id: 'a2',
+        role: 'assistant',
+        content: '파일을 읽었습니다.',
+        state: 'complete',
+        timestamp: new Date(),
+      },
+    ];
+
+    const mockStore = {
+      save: vi.fn(),
+      load: vi.fn().mockReturnValue({
+        id: 'round-trip-session',
+        cwd: '/tmp',
+        createdAt: '2026-01-01T00:00:00Z',
+        updatedAt: '2026-01-01T00:00:00Z',
+        messages: originalMessages,
+        history: [],
+      }),
+      list: vi.fn().mockReturnValue([]),
+      delete: vi.fn(),
+    };
+
+    const restoreTarget = createMockSession();
+
+    new InteractiveSession({
+      session: restoreTarget as never,
+      cwd: '/tmp',
+      sessionStore: mockStore,
+      resumeSessionId: 'round-trip-session',
+    } as never);
+
+    // All 4 messages must have been injected
+    expect(restoreTarget.injectRawMessage).toHaveBeenCalledTimes(4);
+
+    // assistant message with toolCalls must preserve structure (not be stringified)
+    const injectedAssistant = restoreTarget.injectRawMessage.mock.calls[1]?.[0] as {
+      role: string;
+      content: null;
+      toolCalls: typeof toolCalls;
+    };
+    expect(injectedAssistant.role).toBe('assistant');
+    expect(injectedAssistant.content).toBeNull();
+    expect(Array.isArray(injectedAssistant.toolCalls)).toBe(true);
+    expect(injectedAssistant.toolCalls[0]?.id).toBe('call-abc');
+    expect(injectedAssistant.toolCalls[0]?.function?.name).toBe('readFile');
+    expect(typeof injectedAssistant.toolCalls).not.toBe('string');
+
+    // tool message must preserve toolCallId as string (linking back to call-abc)
+    const injectedTool = restoreTarget.injectRawMessage.mock.calls[2]?.[0] as {
+      role: string;
+      toolCallId: string;
+      content: string;
+    };
+    expect(injectedTool.role).toBe('tool');
+    expect(injectedTool.toolCallId).toBe('call-abc');
+    expect(injectedTool.content).toBe('a.ts content here');
   });
 
   // ── messageToHistoryEntry preserves data ───────────────────
