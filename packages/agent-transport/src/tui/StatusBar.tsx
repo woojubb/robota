@@ -86,7 +86,7 @@ function ContextText({
   return (
     <Text color={getContextColor(percentage)}>
       Context: {Math.round(percentage)}% ({formatTokenCount(usedTokens)}/
-      {formatTokenCount(maxTokens)})
+      {formatTokenCount(maxTokens)} tokens)
     </Text>
   );
 }

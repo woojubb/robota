@@ -5,7 +5,11 @@
  * out of React hooks and into a plain TypeScript class.
  */
 
-import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
+import {
+  createSystemMessage,
+  createUserMessage,
+  messageToHistoryEntry,
+} from '@robota-sdk/agent-core';
 import { InteractiveSession, CommandRegistry } from '@robota-sdk/agent-framework';
 
 import { CommandEffectQueue, type ICommandEffectQueue } from './hooks/command-effect-queue.js';
@@ -32,6 +36,7 @@ import type {
   TSubagentRunnerFactory,
   IExecutionWorkspaceEvent,
   IExecutionDetailPage,
+  IExecutionResult,
   TShellExecFn,
 } from '@robota-sdk/agent-framework';
 import type { TPermissionResultValue } from '@robota-sdk/agent-framework';
@@ -86,6 +91,7 @@ export class TuiInteractionChannel implements IInteractionChannel {
   sessionName: string | undefined;
 
   private autoNameTriggered = false;
+  private sessionStarted = false;
   private initCheckInterval: ReturnType<typeof setInterval> | null = null;
   private permissionQueue: Array<{
     toolName: string;
@@ -150,8 +156,10 @@ export class TuiInteractionChannel implements IInteractionChannel {
   }
 
   write(_event: InteractionEvent): void {
-    // For future use with createInteractiveRuntime.
-    // Currently the session events are wired directly via start().
+    // Intentionally unused in TUI direct-wiring mode.
+    // TuiInteractionChannel subscribes to session events directly via start() →
+    // wireSessionEvents(), not through the IInteractionChannel event protocol used
+    // by createInteractiveRuntime. The two paths are mutually exclusive.
   }
 
   async requestAction(action: IActionRequest): Promise<IActionResponse> {
@@ -171,6 +179,8 @@ export class TuiInteractionChannel implements IInteractionChannel {
   }
 
   async start(): Promise<void> {
+    if (this.sessionStarted) return;
+    this.sessionStarted = true;
     this.wireSessionEvents();
     this.syncRestoredHistory();
     this.startInitCheck();
@@ -181,6 +191,8 @@ export class TuiInteractionChannel implements IInteractionChannel {
   }
 
   async stop(): Promise<void> {
+    this.onChange = null;
+    this.sessionStarted = false;
     this.stopInitCheck();
     if (this.opts.transportRegistry) {
       await this.opts.transportRegistry.stopAll();
@@ -339,7 +351,18 @@ export class TuiInteractionChannel implements IInteractionChannel {
     const session = this.interactiveSession;
     const manager = this.stateManager;
 
-    const onUserMessage = (content: string): void => this.handleAutoNaming(content);
+    const onUserMessage = (content: string): void => {
+      this.handleAutoNaming(content);
+      manager.addEntry(messageToHistoryEntry(createUserMessage(content)));
+    };
+    const onComplete = (result: IExecutionResult): void => {
+      manager.onComplete(result);
+      manager.syncHistory(session.getFullHistory());
+    };
+    const onError = (): void => {
+      manager.onError();
+      manager.syncHistory(session.getFullHistory());
+    };
     const onCompact = (): void => {
       manager.syncHistory(session.getFullHistory());
     };
@@ -355,9 +378,9 @@ export class TuiInteractionChannel implements IInteractionChannel {
     session.on('tool_start', manager.onToolStart);
     session.on('tool_end', manager.onToolEnd);
     session.on('thinking', manager.onThinking);
-    session.on('complete', manager.onComplete);
+    session.on('complete', onComplete);
     session.on('interrupted', manager.onInterrupted);
-    session.on('error', manager.onError);
+    session.on('error', onError);
     session.on('context_update', manager.onContextUpdate);
     session.on('compact', onCompact);
     session.on('skill_activation', onSkillActivation);
