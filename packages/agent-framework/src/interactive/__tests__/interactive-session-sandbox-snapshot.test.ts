@@ -53,6 +53,7 @@ vi.mock('@robota-sdk/agent-session', async () => {
           events.push(`message-injected:${msg.role}:${String(msg.content ?? '')}`);
         }),
         syncContextFromHistory: vi.fn(),
+
         getSessionAllowedTools: vi.fn().mockReturnValue([]),
         clearSessionAllowedTools: vi.fn(),
       };
