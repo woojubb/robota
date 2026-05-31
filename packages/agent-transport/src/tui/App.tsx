@@ -1,6 +1,6 @@
 import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
 import { listResumableSessionSummaries } from '@robota-sdk/agent-framework';
-import { Box, Text, useApp, useInput } from 'ink';
+import { Box, Static, Text, useApp, useInput } from 'ink';
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 
 import BackgroundTaskPanel from './BackgroundTaskPanel.js';
@@ -155,6 +155,13 @@ function AppInner(
     showSessionPickerOnStart: props.showSessionPickerOnStart,
     openAgentSwitcher: () => setShowExecutionWorkspaceSwitcher(true),
   });
+
+  useEffect(() => {
+    void channel.start();
+    return () => {
+      void channel.stop();
+    };
+  }, [channel]);
 
   const isSelectedEntryInteractive =
     !selectedExecutionEntry ||
@@ -336,16 +343,20 @@ function AppInner(
 
   return (
     <Box flexDirection="column">
-      <Box flexDirection="column" paddingX={1} marginBottom={1}>
-        <Text color="cyan" bold>{`
+      <Static items={[{ version: props.version ?? '0.0.0' }]}>
+        {(item) => (
+          <Box key="logo" flexDirection="column" paddingX={1} marginBottom={1}>
+            <Text color="cyan" bold>{`
   ____   ___  ____   ___ _____  _
  |  _ \\ / _ \\| __ ) / _ \\_   _|/ \\
  | |_) | | | |  _ \\| | | || | / _ \\
  |  _ <| |_| | |_) | |_| || |/ ___ \\
  |_| \\_\\\\___/|____/ \\___/ |_/_/   \\_\\
 `}</Text>
-        <Text dimColor> v{props.version ?? '0.0.0'}</Text>
-      </Box>
+            <Text dimColor> v{item.version}</Text>
+          </Box>
+        )}
+      </Static>
       {updateNotice && <UpdateNotice message={updateNotice} />}
       <Box flexDirection="column" paddingX={1} flexGrow={1}>
         {selectedExecutionEntry && selectedExecutionEntry.kind !== 'main_thread' ? (

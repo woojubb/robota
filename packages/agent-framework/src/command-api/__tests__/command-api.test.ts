@@ -94,6 +94,7 @@ function createCommandSessionRuntime(): ICommandSessionRuntime {
     getMessageCount: () => 2,
     getSessionAllowedTools: () => [],
     getAutoCompactThreshold: () => 0.8,
+    getFullHistory: () => [],
   };
 }
 
