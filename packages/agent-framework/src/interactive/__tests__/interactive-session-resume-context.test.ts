@@ -31,6 +31,7 @@ function createMockSession(options?: { sessionId?: string; usedTokens?: number }
     injectMessage: vi.fn(),
     injectRawMessage: vi.fn(),
     restoreUsedTokens,
+    syncContextFromHistory: vi.fn(),
     getSessionId: vi.fn().mockReturnValue(options?.sessionId ?? 'test-session'),
     getSystemMessage: vi.fn().mockReturnValue('system prompt'),
     getToolSchemas: vi.fn().mockReturnValue([]),
@@ -194,6 +195,76 @@ describe('RESUME-001: session resume context recovery', () => {
       const state = mockSession.getContextState();
       expect(state.usedTokens).toBe(20_000);
       expect(state.usedPercentage).toBeGreaterThan(0);
+    });
+
+    it('syncContextFromHistory() called for old sessions (no usedTokens field) — not 0%', () => {
+      // Old session without usedTokens — context must be estimated from messages, not stay at 0
+      const mockSession = createMockSession({ sessionId: 'old-session' });
+      const mockStore = createMockSessionStore({
+        'old-session': {
+          id: 'old-session',
+          cwd: '/project',
+          createdAt: '2026-01-01T00:00:00Z',
+          updatedAt: '2026-01-01T00:00:00Z',
+          messages: [
+            { id: 'm1', role: 'user', content: 'hello', state: 'complete', timestamp: new Date() },
+            {
+              id: 'm2',
+              role: 'assistant',
+              content: 'world',
+              state: 'complete',
+              timestamp: new Date(),
+            },
+          ],
+          history: [],
+          // no usedTokens field — old format
+        },
+      });
+
+      new InteractiveSession({
+        session: mockSession as never,
+        cwd: '/project',
+        sessionStore: mockStore as never,
+        resumeSessionId: 'old-session',
+      });
+
+      // syncContextFromHistory must be called to estimate context from injected messages
+      expect(mockSession.syncContextFromHistory).toHaveBeenCalled();
+      // restoreUsedTokens must NOT be called (no usedTokens in record)
+      expect(mockSession.restoreUsedTokens).not.toHaveBeenCalled();
+    });
+
+    it('syncContextFromHistory() called before restoreUsedTokens for new sessions', () => {
+      const mockSession = createMockSession({ sessionId: 'new-session' });
+      const mockStore = createMockSessionStore({
+        'new-session': {
+          id: 'new-session',
+          cwd: '/project',
+          createdAt: '2026-05-31T00:00:00Z',
+          updatedAt: '2026-05-31T00:00:00Z',
+          messages: [
+            { id: 'm1', role: 'user', content: 'hello', state: 'complete', timestamp: new Date() },
+          ],
+          history: [],
+          usedTokens: 12_000,
+        },
+      });
+
+      new InteractiveSession({
+        session: mockSession as never,
+        cwd: '/project',
+        sessionStore: mockStore as never,
+        resumeSessionId: 'new-session',
+      });
+
+      // Both must be called: estimate first, then accurate value overrides
+      expect(mockSession.syncContextFromHistory).toHaveBeenCalled();
+      expect(mockSession.restoreUsedTokens).toHaveBeenCalledWith(12_000);
+
+      // Verify call order: syncContextFromHistory before restoreUsedTokens
+      const syncOrder = mockSession.syncContextFromHistory.mock.invocationCallOrder[0];
+      const restoreOrder = mockSession.restoreUsedTokens.mock.invocationCallOrder[0];
+      expect(syncOrder).toBeLessThan(restoreOrder);
     });
   });
 

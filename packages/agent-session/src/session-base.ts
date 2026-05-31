@@ -88,6 +88,11 @@ export abstract class SessionBase {
     this.contextTracker.restoreUsedTokens(usedTokens);
   }
 
+  /** Estimate context usage from current conversation history (used after session restore). */
+  syncContextFromHistory(): void {
+    this.contextTracker.updateFromHistory(this.robota.getHistory());
+  }
+
   getAutoCompactThreshold(): TAutoCompactThreshold {
     return this.contextTracker.getAutoCompactThreshold();
   }
