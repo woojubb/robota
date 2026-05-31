@@ -314,6 +314,9 @@ interface IHistoryAnalysis {
   assistantCount: number;
   assistantTokens: number;
   toolResults: IToolResultSummary[];
+  totalToolCallCount: number;
+  totalToolTokens: number;
+  systemTokens: number;
   totalTokens: number;
 }
 
@@ -355,7 +358,11 @@ function analyzeHistory(history: IHistoryEntry[]): IHistoryAnalysis {
   let userTokens = 0;
   let assistantCount = 0;
   let assistantTokens = 0;
-  const toolResultMap = new Map<string, IToolResultSummary>();
+  let systemTokens = 0;
+  let totalToolCallCount = 0;
+  let totalToolTokens = 0;
+  // For display only: group by toolName:displayArg (keeps last call's token count per key)
+  const toolDisplayMap = new Map<string, IToolResultSummary>();
 
   for (const entry of history) {
     if (entry.category !== 'chat') continue;
@@ -363,6 +370,9 @@ function analyzeHistory(history: IHistoryEntry[]): IHistoryAnalysis {
       const data = entry.data as { content?: string };
       userCount++;
       userTokens += estimateTokens((data.content ?? '').length);
+    } else if (entry.type === 'system') {
+      const data = entry.data as { content?: string };
+      systemTokens += estimateTokens((data.content ?? '').length);
     } else if (entry.type === 'assistant') {
       const data = entry.data as { content?: string | null; toolCalls?: unknown[] };
       assistantCount++;
@@ -375,12 +385,15 @@ function analyzeHistory(history: IHistoryEntry[]): IHistoryAnalysis {
       const toolName = tc?.name ?? 'tool';
       const displayArg = tc?.firstArg ?? '';
       const tokens = estimateTokens((data.content ?? '').length);
-      toolResultMap.set(`${toolName}:${displayArg}`, { toolName, displayArg, tokens });
+      // Accumulate ALL tool call tokens (no deduplication) for accurate total
+      totalToolCallCount++;
+      totalToolTokens += tokens;
+      // Track for display grouping (last call per toolName:arg wins for display)
+      toolDisplayMap.set(`${toolName}:${displayArg}`, { toolName, displayArg, tokens });
     }
   }
 
-  const toolResults = [...toolResultMap.values()];
-  const toolTokens = toolResults.reduce((s, t) => s + t.tokens, 0);
+  const toolResults = [...toolDisplayMap.values()];
   return {
     turnCount: userCount,
     userCount,
@@ -388,7 +401,10 @@ function analyzeHistory(history: IHistoryEntry[]): IHistoryAnalysis {
     assistantCount,
     assistantTokens,
     toolResults,
-    totalTokens: userTokens + assistantTokens + toolTokens,
+    totalToolCallCount,
+    totalToolTokens,
+    systemTokens,
+    totalTokens: userTokens + assistantTokens + totalToolTokens + systemTokens,
   };
 }
 
@@ -428,18 +444,27 @@ function formatFullContextBreakdown(context: ICommandHostContext): ICommandResul
       `${t.toolName}${t.displayArg ? `: ${t.displayArg}` : ''} — ~${t.tokens.toLocaleString()} tokens`,
   );
 
+  const uniqueToolCount = analysis.toolResults.length;
+  const totalToolCallCount = analysis.totalToolCallCount;
+  const toolResultsLabel =
+    totalToolCallCount === 0
+      ? 'Tool results (0): (none)'
+      : uniqueToolCount < totalToolCallCount
+        ? `Tool results (${uniqueToolCount} unique / ${totalToolCallCount} calls, ~${analysis.totalToolTokens.toLocaleString()} tokens):`
+        : `Tool results (${uniqueToolCount}):`;
+
   const conversationLines: string[] =
     analysis.turnCount === 0
       ? []
       : [
           `User (${analysis.userCount}): ~${analysis.userTokens.toLocaleString()} tokens`,
           `Assistant (${analysis.assistantCount}): ~${analysis.assistantTokens.toLocaleString()} tokens`,
-          analysis.toolResults.length > 0
-            ? [
-                `Tool results (${analysis.toolResults.length}):`,
-                ...toolResultLines.map((l) => `  ${l}`),
-              ].join('\n')
-            : `Tool results (0): (none)`,
+          ...(analysis.systemTokens > 0
+            ? [`System messages: ~${analysis.systemTokens.toLocaleString()} tokens`]
+            : []),
+          totalToolCallCount > 0
+            ? [toolResultsLabel, ...toolResultLines.map((l) => `  ${l}`)].join('\n')
+            : toolResultsLabel,
         ];
 
   const convSection =
