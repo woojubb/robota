@@ -1,6 +1,6 @@
 ---
 title: 'CLI-B02: AI 대화 응답이 화면에 표시되지 않음 — ARCH-003 회귀'
-status: todo
+status: done
 created: 2026-05-31
 priority: critical
 urgency: now

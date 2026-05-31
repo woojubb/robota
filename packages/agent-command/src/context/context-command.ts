@@ -12,6 +12,7 @@ import {
   writeAutoCompactThresholdSetting,
 } from '@robota-sdk/agent-framework';
 
+import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type {
   ICommandHostContext,
   ICommandResult,
@@ -63,11 +64,15 @@ export async function executeContextCommand(
   const state = readCommandContextState(context);
   const autoCompactThreshold = readAutoCompactThreshold(context);
   const autoCompactThresholdSource = readAutoCompactThresholdSource(context);
+  const history = context.getSession().getFullHistory();
+  const analysis = analyzeHistory(history);
+  const references = listCommandContextReferences(context);
   return {
     message: [
       `Context: ${state.usedTokens.toLocaleString()} / ${state.maxTokens.toLocaleString()} tokens (${Math.round(state.usedPercentage)}%)`,
       formatAutoCompactLine(autoCompactThreshold, autoCompactThresholdSource),
-      formatContextReferenceSummary(listCommandContextReferences(context)),
+      formatContextReferenceSummary(references),
+      `History: ${analysis.turnCount} turn${analysis.turnCount !== 1 ? 's' : ''}`,
     ].join('\n'),
     success: true,
     data: {
@@ -76,7 +81,7 @@ export async function executeContextCommand(
       percentage: state.usedPercentage,
       autoCompactThreshold,
       autoCompactThresholdSource,
-      references: listCommandContextReferences(context),
+      references,
     },
   };
 }
@@ -88,7 +93,7 @@ async function executeContextSubcommand(
   const [subcommand, ...rest] = parts;
   if (subcommand === 'list') {
     if (rest.length > 0) return { success: false, message: USAGE };
-    return formatContextReferenceList(listCommandContextReferences(context));
+    return formatFullContextBreakdown(context);
   }
   if (subcommand === 'add') {
     return executeAddContextReference(context, rest);
@@ -278,22 +283,197 @@ function formatContextReferenceSummary(references: readonly IContextReferenceIte
   return `References: ${active} active, ${observed} observed`;
 }
 
-function formatContextReferenceList(references: readonly IContextReferenceItem[]): ICommandResult {
-  if (references.length === 0) {
-    return { success: true, message: 'No context references.', data: { references } };
-  }
+// 1 token ≈ 4 chars — same approximation used across the codebase (limits-helpers.ts)
+const CHARS_PER_TOKEN = 4;
+const TOOL_ARG_MAX_LEN = 60;
 
-  return {
-    success: true,
-    message: ['Context references:', ...references.map(formatContextReferenceLine)].join('\n'),
-    data: { references },
-  };
+function estimateTokens(charLength: number): number {
+  return Math.ceil(charLength / CHARS_PER_TOKEN);
 }
 
 function formatContextReferenceLine(reference: IContextReferenceItem): string {
   return [
     reference.relativePath,
     `[${reference.loadType}, ${reference.status}]`,
-    `${reference.byteLength.toLocaleString()} B`,
+    `~${estimateTokens(reference.byteLength).toLocaleString()} tokens`,
   ].join(' ');
+}
+
+// ── History analysis ────────────────────────────────────────────────────────
+
+interface IToolResultSummary {
+  toolName: string;
+  displayArg: string;
+  tokens: number;
+}
+
+interface IHistoryAnalysis {
+  turnCount: number;
+  userCount: number;
+  userTokens: number;
+  assistantCount: number;
+  assistantTokens: number;
+  toolResults: IToolResultSummary[];
+  totalTokens: number;
+}
+
+function parseToolCallArgs(argsJson: string): Record<string, unknown> | null {
+  try {
+    return JSON.parse(argsJson) as Record<string, unknown>;
+  } catch {
+    // allow-fallback: tool call arguments JSON may be malformed; display-only degradation, not a terminal path
+    return null;
+  }
+}
+
+function extractFirstToolArg(argsJson: string): string {
+  const parsed = parseToolCallArgs(argsJson);
+  if (parsed === null) return '';
+  const first = Object.values(parsed)[0];
+  const raw = typeof first === 'string' ? first : JSON.stringify(first);
+  return raw.length > TOOL_ARG_MAX_LEN ? `${raw.slice(0, TOOL_ARG_MAX_LEN)}…` : raw;
+}
+
+function analyzeHistory(history: IHistoryEntry[]): IHistoryAnalysis {
+  type TToolCallEntry = { name: string; firstArg: string };
+  const toolCallMap = new Map<string, TToolCallEntry>();
+
+  for (const entry of history) {
+    if (entry.category !== 'chat' || entry.type !== 'assistant') continue;
+    const data = entry.data as {
+      toolCalls?: Array<{ id: string; function: { name: string; arguments: string } }>;
+    };
+    for (const tc of data.toolCalls ?? []) {
+      toolCallMap.set(tc.id, {
+        name: tc.function.name,
+        firstArg: extractFirstToolArg(tc.function.arguments),
+      });
+    }
+  }
+
+  let userCount = 0;
+  let userTokens = 0;
+  let assistantCount = 0;
+  let assistantTokens = 0;
+  const toolResultMap = new Map<string, IToolResultSummary>();
+
+  for (const entry of history) {
+    if (entry.category !== 'chat') continue;
+    if (entry.type === 'user') {
+      const data = entry.data as { content?: string };
+      userCount++;
+      userTokens += estimateTokens((data.content ?? '').length);
+    } else if (entry.type === 'assistant') {
+      const data = entry.data as { content?: string | null; toolCalls?: unknown[] };
+      assistantCount++;
+      assistantTokens += estimateTokens(
+        (data.content ?? '').length + (data.toolCalls ? JSON.stringify(data.toolCalls).length : 0),
+      );
+    } else if (entry.type === 'tool') {
+      const data = entry.data as { content?: string; toolCallId?: string };
+      const tc = toolCallMap.get(data.toolCallId ?? '');
+      const toolName = tc?.name ?? 'tool';
+      const displayArg = tc?.firstArg ?? '';
+      const tokens = estimateTokens((data.content ?? '').length);
+      toolResultMap.set(`${toolName}:${displayArg}`, { toolName, displayArg, tokens });
+    }
+  }
+
+  const toolResults = [...toolResultMap.values()];
+  const toolTokens = toolResults.reduce((s, t) => s + t.tokens, 0);
+  return {
+    turnCount: userCount,
+    userCount,
+    userTokens,
+    assistantCount,
+    assistantTokens,
+    toolResults,
+    totalTokens: userTokens + assistantTokens + toolTokens,
+  };
+}
+
+// ── Full context breakdown (for /context list) ──────────────────────────────
+
+function formatSection(title: string, tokens: number, lines: string[]): string {
+  const tokenLabel = tokens > 0 ? ` — ~${tokens.toLocaleString()} tokens` : '';
+  const header = `${title}${tokenLabel}:`;
+  return lines.length === 0
+    ? `${header}\n  (none)`
+    : [header, ...lines.map((l) => `  ${l}`)].join('\n');
+}
+
+function formatFullContextBreakdown(context: ICommandHostContext): ICommandResult {
+  const state = readCommandContextState(context);
+  const autoCompactThreshold = readAutoCompactThreshold(context);
+  const autoCompactThresholdSource = readAutoCompactThresholdSource(context);
+  const history = context.getSession().getFullHistory();
+  const analysis = analyzeHistory(history);
+  const references = listCommandContextReferences(context);
+
+  const systemRefs = references.filter((r) => r.loadType === 'system');
+  const manualRefs = references.filter((r) => r.loadType === 'manual');
+  const promptRefs = references.filter((r) => r.loadType === 'prompt-reference');
+
+  const systemTokens = systemRefs.reduce((s, r) => s + estimateTokens(r.byteLength), 0);
+  const manualTokens = manualRefs.reduce((s, r) => s + estimateTokens(r.byteLength), 0);
+  const promptRefTokens = promptRefs.reduce((s, r) => s + estimateTokens(r.byteLength), 0);
+
+  const convTurnLabel =
+    analysis.turnCount === 0
+      ? 'Conversation history — 0 turns'
+      : `Conversation history — ${analysis.turnCount} turn${analysis.turnCount !== 1 ? 's' : ''} | ~${analysis.totalTokens.toLocaleString()} tokens`;
+
+  const toolResultLines = analysis.toolResults.map(
+    (t) =>
+      `${t.toolName}${t.displayArg ? `: ${t.displayArg}` : ''} — ~${t.tokens.toLocaleString()} tokens`,
+  );
+
+  const conversationLines: string[] =
+    analysis.turnCount === 0
+      ? []
+      : [
+          `User (${analysis.userCount}): ~${analysis.userTokens.toLocaleString()} tokens`,
+          `Assistant (${analysis.assistantCount}): ~${analysis.assistantTokens.toLocaleString()} tokens`,
+          analysis.toolResults.length > 0
+            ? [
+                `Tool results (${analysis.toolResults.length}):`,
+                ...toolResultLines.map((l) => `  ${l}`),
+              ].join('\n')
+            : `Tool results (0): (none)`,
+        ];
+
+  const convSection =
+    analysis.turnCount === 0
+      ? `${convTurnLabel}:\n  (none)`
+      : [`${convTurnLabel}:`, ...conversationLines.map((l) => `  ${l}`)].join('\n');
+
+  const message = [
+    `Context: ${state.usedTokens.toLocaleString()} / ${state.maxTokens.toLocaleString()} tokens (${Math.round(state.usedPercentage)}%)`,
+    formatAutoCompactLine(autoCompactThreshold, autoCompactThresholdSource),
+    '',
+    formatSection(
+      'System prompt (active every turn)',
+      systemTokens,
+      systemRefs.map(formatContextReferenceLine),
+    ),
+    '',
+    convSection,
+    '',
+    formatSection('Manually added', manualTokens, manualRefs.map(formatContextReferenceLine)),
+    '',
+    formatSection(
+      'Prompt references (@-syntax)',
+      promptRefTokens,
+      promptRefs.map(formatContextReferenceLine),
+    ),
+  ].join('\n');
+
+  return {
+    success: true,
+    message,
+    data: {
+      references,
+      history: { turnCount: analysis.turnCount, toolResults: analysis.toolResults },
+    },
+  };
 }
