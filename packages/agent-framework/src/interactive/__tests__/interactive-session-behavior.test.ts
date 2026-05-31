@@ -50,6 +50,8 @@ function createMockSession(options?: {
     compact: vi.fn(),
     injectMessage: vi.fn(),
     injectRawMessage: vi.fn(),
+    restoreUsedTokens: vi.fn(),
+    syncContextFromHistory: vi.fn(),
   };
 }
 

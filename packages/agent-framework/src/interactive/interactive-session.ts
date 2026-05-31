@@ -205,8 +205,13 @@ export class InteractiveSession
     });
     this.pendingRestoreMessages = restored.pendingRestoreMessages;
     this.sandboxSnapshotId = this.forkSession ? undefined : restored.sandboxSnapshotId;
+    if (this.session && restored.pendingRestoreMessages === null) {
+      // Messages were injected immediately (injected-session path) — sync context estimate.
+      this.session.syncContextFromHistory();
+    }
     if (restored.usedTokens > 0) {
       if (this.session) {
+        // Override estimate with the accurate persisted value.
         this.session.restoreUsedTokens(restored.usedTokens);
       } else {
         this.pendingRestoreUsedTokens = restored.usedTokens;
