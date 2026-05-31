@@ -104,6 +104,7 @@ function buildInteractiveSessionRecord(
     history: input.history,
     systemPrompt: input.session.getSystemMessage(),
     toolSchemas: input.session.getToolSchemas(),
+    usedTokens: input.session.getContextState().usedTokens,
     ...(input.sandboxSnapshotId !== undefined
       ? { sandboxSnapshotId: input.sandboxSnapshotId }
       : {}),
