@@ -58,30 +58,34 @@ export async function renderApp(options: IRenderOptions): Promise<void> {
     }
   });
 
-  const channel = new TuiInteractionChannel({
-    cwd: options.cwd,
-    provider: options.provider,
-    permissionMode: options.permissionMode,
-    maxTurns: options.maxTurns,
-    sessionStore: options.sessionStore,
-    resumeSessionId: options.resumeSessionId,
-    forkSession: options.forkSession,
-    sessionName: options.sessionName,
-    backgroundTaskRunners: options.backgroundTaskRunners,
-    subagentRunnerFactory: options.subagentRunnerFactory,
-    commandModules: options.commandModules,
-    commandHostAdapters: options.commandHostAdapters,
-    shellExec: options.shellExec,
-    transportRegistry: options.transportRegistry,
-    language: options.language,
-    reloadPluginCommandSource: options.reloadPluginCommandSource,
-    agentName: options.agentName,
-  });
+  const createChannel = (resumeSessionId?: string): TuiInteractionChannel =>
+    new TuiInteractionChannel({
+      cwd: options.cwd,
+      provider: options.provider,
+      permissionMode: options.permissionMode,
+      maxTurns: options.maxTurns,
+      sessionStore: options.sessionStore,
+      resumeSessionId,
+      forkSession: options.forkSession,
+      sessionName: options.sessionName,
+      backgroundTaskRunners: options.backgroundTaskRunners,
+      subagentRunnerFactory: options.subagentRunnerFactory,
+      commandModules: options.commandModules,
+      commandHostAdapters: options.commandHostAdapters,
+      shellExec: options.shellExec,
+      transportRegistry: options.transportRegistry,
+      language: options.language,
+      reloadPluginCommandSource: options.reloadPluginCommandSource,
+      agentName: options.agentName,
+    });
+
+  const channel = createChannel(options.resumeSessionId);
 
   const instance = render(
     <App
       cwd={options.cwd}
       channel={channel}
+      createChannel={createChannel}
       providerOverride={options.providerOverride}
       providerType={options.providerType}
       modelId={options.modelId}

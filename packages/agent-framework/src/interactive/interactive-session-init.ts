@@ -285,6 +285,7 @@ export async function initializeInteractiveSessionAsync(
 
   if (deps.pendingRestoreMessages) {
     for (const msg of deps.pendingRestoreMessages) injectSavedMessage(created.session, msg);
+    created.session.syncContextFromHistory();
   }
 
   return {
