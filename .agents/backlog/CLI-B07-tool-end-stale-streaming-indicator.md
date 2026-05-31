@@ -1,10 +1,12 @@
 ---
 title: 'CLI-B07: tool_end 후 완료된 툴이 activeTools에 잔존 — StreamingIndicator 오표시'
-status: in-progress
+status: done
 created: 2026-05-31
+completed: 2026-05-31
 priority: medium
 urgency: soon
 area: packages/agent-transport
+resolution: won't-fix
 ---
 
 ## 증상
@@ -38,10 +40,17 @@ onToolEnd = (state: IToolState): void => {
 - `tool_end` 시 `isRunning: false`인 툴을 즉시 배열에서 제거하는 게 맞는지, 아니면 "완료됨" 상태로 잠깐 표시 후 제거하는 게 맞는지 UX 결정 필요
 - StreamingIndicator가 `isRunning: false`인 항목을 어떻게 렌더하는지 확인
 
+## UX 결정 (2026-05-31)
+
+사용자 확인 후 **현 상태 유지**로 결정.
+
+완료된 툴(✓ 아이콘)을 AI 생각 중에 표시하는 것은 실행 이력을 보여주는 의도된 UX이다.
+`complete` 이벤트 발생 시 `activeTools = []` 로 즉시 정리되므로 실제 "잔존" 문제는 없음.
+
 ## Done gate
 
-- [ ] `tool_end` 후 완료된 툴이 불필요하게 StreamingIndicator에 잔존하지 않음
-- [ ] `pnpm --filter @robota-sdk/agent-transport test` 통과
+- [x] UX 결정 완료 — 현 동작이 의도된 동작임을 확인
+- [x] `pnpm --filter @robota-sdk/agent-transport test` 통과 (450/450, no-code-change)
 
 ## User Execution Test Scenarios
 
