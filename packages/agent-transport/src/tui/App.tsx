@@ -40,6 +40,7 @@ import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transpo
 interface IProps {
   cwd: string;
   channel: TuiInteractionChannel;
+  createChannel?: (resumeSessionId?: string) => TuiInteractionChannel;
   providerOverride?: string | undefined;
   providerType?: string | undefined;
   modelId?: string;
@@ -54,7 +55,10 @@ interface IProps {
 }
 
 export default function App(props: IProps): React.ReactElement {
-  const [activeSessionId, setActiveSessionId] = useState<string | undefined>(props.resumeSessionId);
+  const [sessionState, setSessionState] = useState<{
+    channel: TuiInteractionChannel;
+    sessionId: string | undefined;
+  }>({ channel: props.channel, sessionId: props.resumeSessionId });
   const [showInitialSessionPicker, setShowInitialSessionPicker] = useState(
     props.showSessionPickerOnStart ?? false,
   );
@@ -62,13 +66,17 @@ export default function App(props: IProps): React.ReactElement {
   return (
     <TuiCliAdapterProvider value={props.cliAdapter}>
       <AppInner
-        key={activeSessionId ?? '__new__'}
+        key={sessionState.sessionId ?? '__new__'}
         {...props}
+        channel={sessionState.channel}
         showSessionPickerOnStart={showInitialSessionPicker}
-        resumeSessionId={activeSessionId}
+        resumeSessionId={sessionState.sessionId}
         onSessionSwitch={(sessionId) => {
           setShowInitialSessionPicker(false);
-          setActiveSessionId(sessionId);
+          const oldChannel = sessionState.channel;
+          const newChannel = props.createChannel ? props.createChannel(sessionId) : props.channel;
+          setSessionState({ channel: newChannel, sessionId });
+          void oldChannel.stop();
         }}
       />
     </TuiCliAdapterProvider>
