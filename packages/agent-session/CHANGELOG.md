@@ -1,5 +1,13 @@
 # @robota-sdk/agent-session
 
+## 3.0.0-beta.71
+
+### Patch Changes
+
+- fix(context): unify token estimation to single SSOT — status bar and /context list now use the same serialized JSON estimate
+- Updated dependencies
+  - @robota-sdk/agent-core@3.0.0-beta.71
+
 ## 3.0.0-beta.70
 
 ### Patch Changes
