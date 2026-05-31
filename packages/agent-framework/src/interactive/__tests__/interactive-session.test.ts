@@ -35,6 +35,7 @@ function createMockSession(options?: {
     }),
     compact: vi.fn().mockResolvedValue(undefined),
     injectMessage: vi.fn(),
+    injectRawMessage: vi.fn(),
     getSessionId: vi.fn().mockReturnValue(options?.sessionId ?? 'test-session-id'),
     getSystemMessage: vi.fn().mockReturnValue('mock system prompt'),
     getToolSchemas: vi.fn().mockReturnValue([]),
@@ -452,9 +453,13 @@ describe('InteractiveSession', () => {
         resumeSessionId: 'old-session',
       });
 
-      expect(mockSession.injectMessage).toHaveBeenCalledTimes(2);
-      expect(mockSession.injectMessage).toHaveBeenCalledWith('user', 'hello');
-      expect(mockSession.injectMessage).toHaveBeenCalledWith('assistant', 'hi there');
+      expect(mockSession.injectRawMessage).toHaveBeenCalledTimes(2);
+      expect(mockSession.injectRawMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ role: 'user', content: 'hello' }),
+      );
+      expect(mockSession.injectRawMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ role: 'assistant', content: 'hi there' }),
+      );
     });
 
     it('restores history entries from session record', () => {
@@ -534,9 +539,11 @@ describe('InteractiveSession', () => {
         resumeSessionId: 'old-session',
       });
 
-      // For injected session, messages are injected immediately
-      expect(mockSession.injectMessage).toHaveBeenCalledTimes(1);
-      expect(mockSession.injectMessage).toHaveBeenCalledWith('user', 'pending msg');
+      // For injected session, messages are injected immediately via injectRawMessage
+      expect(mockSession.injectRawMessage).toHaveBeenCalledTimes(1);
+      expect(mockSession.injectRawMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ role: 'user', content: 'pending msg' }),
+      );
     });
   });
 
@@ -563,6 +570,313 @@ describe('InteractiveSession', () => {
 
       // Session was injected so getSessionId should return the mock's value
       expect(session.getSession().getSessionId()).toBe('old-session');
+    });
+  });
+
+  // ── BEHAVIOR-001: Session resume correctness tests ──────────────────────────
+
+  describe('session resume — BEHAVIOR-001 correctness', () => {
+    // TC-01: tool_use+tool_result 쌍이 구조체로 복구됨 (JSON.stringify 문자열이 아님)
+    it('TC-01: restores tool_use+tool_result pairs as structured objects, not stringified', () => {
+      const mockSession = createMockSession({ sessionId: 'tool-session' });
+      const toolCalls = [
+        {
+          id: 'tc1',
+          type: 'function' as const,
+          function: { name: 'read', arguments: '{"path":"foo.ts"}' },
+        },
+      ];
+      const mockStore = createMockSessionStore({
+        'tool-session': {
+          id: 'tool-session',
+          cwd: '/tmp',
+          createdAt: '2026-01-01T00:00:00Z',
+          updatedAt: '2026-01-01T00:00:00Z',
+          messages: [
+            {
+              id: 'u1',
+              role: 'user',
+              content: '파일을 읽어줘',
+              state: 'complete',
+              timestamp: new Date(),
+            },
+            {
+              id: 'a1',
+              role: 'assistant',
+              content: null,
+              toolCalls,
+              state: 'complete',
+              timestamp: new Date(),
+            },
+            {
+              id: 't1',
+              role: 'tool',
+              toolCallId: 'tc1',
+              content: 'file content',
+              state: 'complete',
+              timestamp: new Date(),
+            },
+            {
+              id: 'a2',
+              role: 'assistant',
+              content: 'foo.ts를 읽었습니다.',
+              state: 'complete',
+              timestamp: new Date(),
+            },
+          ],
+          history: [],
+        },
+      });
+
+      new InteractiveSession({
+        session: mockSession as never,
+        cwd: '/tmp',
+        sessionStore: mockStore as never,
+        resumeSessionId: 'tool-session',
+      });
+
+      expect(mockSession.injectRawMessage).toHaveBeenCalledTimes(4);
+
+      // assistant message with toolCalls must be injected with the actual toolCalls array, not a string
+      const assistantWithToolCall = mockSession.injectRawMessage.mock.calls[1]?.[0] as {
+        role: string;
+        content: null;
+        toolCalls: typeof toolCalls;
+      };
+      expect(assistantWithToolCall.role).toBe('assistant');
+      expect(assistantWithToolCall.content).toBeNull();
+      expect(assistantWithToolCall.toolCalls).toEqual(toolCalls);
+      expect(typeof assistantWithToolCall.toolCalls).not.toBe('string');
+
+      // tool message must preserve toolCallId
+      const toolMsg = mockSession.injectRawMessage.mock.calls[2]?.[0] as {
+        role: string;
+        toolCallId: string;
+        content: string;
+      };
+      expect(toolMsg.role).toBe('tool');
+      expect(toolMsg.toolCallId).toBe('tc1');
+      expect(toolMsg.content).toBe('file content');
+    });
+
+    // TC-02: resume 후 messages 배열 길이가 저장된 messages와 동일
+    it('TC-02: restores exact number of messages from session record', () => {
+      const mockSession = createMockSession({ sessionId: 's2' });
+      const messages = [
+        { id: 'u1', role: 'user', content: 'msg1', state: 'complete', timestamp: new Date() },
+        { id: 'a1', role: 'assistant', content: 'resp1', state: 'complete', timestamp: new Date() },
+        { id: 'u2', role: 'user', content: 'msg2', state: 'complete', timestamp: new Date() },
+        { id: 'a2', role: 'assistant', content: 'resp2', state: 'complete', timestamp: new Date() },
+      ];
+      const mockStore = createMockSessionStore({
+        s2: {
+          id: 's2',
+          cwd: '/tmp',
+          createdAt: '2026-01-01T00:00:00Z',
+          updatedAt: '2026-01-01T00:00:00Z',
+          messages,
+          history: [],
+        },
+      });
+
+      new InteractiveSession({
+        session: mockSession as never,
+        cwd: '/tmp',
+        sessionStore: mockStore as never,
+        resumeSessionId: 's2',
+      });
+
+      expect(mockSession.injectRawMessage).toHaveBeenCalledTimes(messages.length);
+    });
+
+    // TC-04: history turn count가 저장된 history와 일치
+    it('TC-04: restores history entries with correct count', () => {
+      const mockSession = createMockSession();
+      const historyEntries = [
+        {
+          id: 'h1',
+          timestamp: new Date(),
+          category: 'chat',
+          type: 'user',
+          data: { role: 'user', content: 'q1' },
+        },
+        {
+          id: 'h2',
+          timestamp: new Date(),
+          category: 'chat',
+          type: 'assistant',
+          data: { role: 'assistant', content: 'a1' },
+        },
+        { id: 'h3', timestamp: new Date(), category: 'event', type: 'tool-start', data: {} },
+      ];
+      const mockStore = createMockSessionStore({
+        s4: {
+          id: 's4',
+          cwd: '/tmp',
+          createdAt: '2026-01-01T00:00:00Z',
+          updatedAt: '2026-01-01T00:00:00Z',
+          messages: [],
+          history: historyEntries,
+        },
+      });
+
+      const session = new InteractiveSession({
+        session: mockSession as never,
+        cwd: '/tmp',
+        sessionStore: mockStore as never,
+        resumeSessionId: 's4',
+      });
+
+      const restoredHistory = session.getFullHistory();
+      expect(restoredHistory).toHaveLength(historyEntries.length);
+      expect(restoredHistory[0]?.category).toBe('chat');
+      expect(restoredHistory[2]?.category).toBe('event');
+    });
+
+    // TC-05: sessionName이 있으면 getName()이 저장된 이름 반환
+    it('TC-05: restores sessionName so getName() returns the saved name', () => {
+      const mockSession = createMockSession({ sessionId: 'named-session' });
+      const mockStore = createMockSessionStore({
+        'named-session': {
+          id: 'named-session',
+          cwd: '/tmp',
+          createdAt: '2026-01-01T00:00:00Z',
+          updatedAt: '2026-01-01T00:00:00Z',
+          name: 'My Important Session',
+          messages: [],
+          history: [],
+        },
+      });
+
+      const session = new InteractiveSession({
+        session: mockSession as never,
+        cwd: '/tmp',
+        sessionStore: mockStore as never,
+        resumeSessionId: 'named-session',
+      });
+
+      expect(session.getName()).toBe('My Important Session');
+    });
+
+    // TC-06: multi-turn tool 호출(3회 이상) 포함 세션 resume 시 pairing 유지
+    it('TC-06: restores multi-turn tool calls preserving tool_use+tool_result pairing order', () => {
+      const mockSession = createMockSession({ sessionId: 'multi-tool-session' });
+      const tc1 = [
+        { id: 'call1', type: 'function' as const, function: { name: 'readFile', arguments: '{}' } },
+      ];
+      const tc2 = [
+        { id: 'call2', type: 'function' as const, function: { name: 'listDir', arguments: '{}' } },
+      ];
+      const tc3 = [
+        {
+          id: 'call3',
+          type: 'function' as const,
+          function: { name: 'writeFile', arguments: '{}' },
+        },
+      ];
+
+      const messages = [
+        {
+          id: 'm1',
+          role: 'user',
+          content: '여러 파일 작업해줘',
+          state: 'complete',
+          timestamp: new Date(),
+        },
+        {
+          id: 'm2',
+          role: 'assistant',
+          content: null,
+          toolCalls: tc1,
+          state: 'complete',
+          timestamp: new Date(),
+        },
+        {
+          id: 'm3',
+          role: 'tool',
+          toolCallId: 'call1',
+          content: 'file1 content',
+          state: 'complete',
+          timestamp: new Date(),
+        },
+        {
+          id: 'm4',
+          role: 'assistant',
+          content: null,
+          toolCalls: tc2,
+          state: 'complete',
+          timestamp: new Date(),
+        },
+        {
+          id: 'm5',
+          role: 'tool',
+          toolCallId: 'call2',
+          content: 'dir listing',
+          state: 'complete',
+          timestamp: new Date(),
+        },
+        {
+          id: 'm6',
+          role: 'assistant',
+          content: null,
+          toolCalls: tc3,
+          state: 'complete',
+          timestamp: new Date(),
+        },
+        {
+          id: 'm7',
+          role: 'tool',
+          toolCallId: 'call3',
+          content: 'write ok',
+          state: 'complete',
+          timestamp: new Date(),
+        },
+        {
+          id: 'm8',
+          role: 'assistant',
+          content: '작업이 완료되었습니다.',
+          state: 'complete',
+          timestamp: new Date(),
+        },
+      ];
+
+      const mockStore = createMockSessionStore({
+        'multi-tool-session': {
+          id: 'multi-tool-session',
+          cwd: '/tmp',
+          createdAt: '2026-01-01T00:00:00Z',
+          updatedAt: '2026-01-01T00:00:00Z',
+          messages,
+          history: [],
+        },
+      });
+
+      new InteractiveSession({
+        session: mockSession as never,
+        cwd: '/tmp',
+        sessionStore: mockStore as never,
+        resumeSessionId: 'multi-tool-session',
+      });
+
+      expect(mockSession.injectRawMessage).toHaveBeenCalledTimes(8);
+
+      // Verify tool_use+tool_result pairing by checking toolCallId matches
+      const calls = mockSession.injectRawMessage.mock.calls;
+      const injectedTool1 = calls[2]?.[0] as { role: string; toolCallId: string };
+      const injectedTool2 = calls[4]?.[0] as { role: string; toolCallId: string };
+      const injectedTool3 = calls[6]?.[0] as { role: string; toolCallId: string };
+
+      expect(injectedTool1.role).toBe('tool');
+      expect(injectedTool1.toolCallId).toBe('call1');
+      expect(injectedTool2.role).toBe('tool');
+      expect(injectedTool2.toolCallId).toBe('call2');
+      expect(injectedTool3.role).toBe('tool');
+      expect(injectedTool3.toolCallId).toBe('call3');
+
+      // assistant toolCalls structure preserved (not stringified)
+      const assistantCall1 = calls[1]?.[0] as { toolCalls: typeof tc1 };
+      expect(assistantCall1.toolCalls).toEqual(tc1);
+      expect(typeof assistantCall1.toolCalls).not.toBe('string');
     });
   });
 });

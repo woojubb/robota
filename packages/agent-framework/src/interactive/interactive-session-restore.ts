@@ -19,26 +19,9 @@ import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-
 import type { TUniversalMessage, IHistoryEntry } from '@robota-sdk/agent-core';
 import type { Session } from '@robota-sdk/agent-session';
 
-/** Inject a saved message into a session, supporting all roles including 'tool'. */
+/** Inject a saved message into a session, preserving all fields including toolCalls. */
 export function injectSavedMessage(session: Session, msg: TUniversalMessage): void {
-  // content can be null (assistant with tool calls) or a non-string from legacy storage;
-  // serialize rather than skip to preserve tool_use/tool_result pairs on restore
-  const rawContent: unknown = msg.content;
-  const content =
-    typeof rawContent === 'string'
-      ? rawContent
-      : rawContent != null
-        ? JSON.stringify(rawContent)
-        : '';
-
-  if (msg.role === 'tool') {
-    session.injectMessage('tool', content, {
-      toolCallId: msg.toolCallId,
-      ...(msg.name !== undefined ? { name: msg.name } : {}),
-    });
-  } else {
-    session.injectMessage(msg.role, content);
-  }
+  session.injectRawMessage(msg);
 }
 
 /**

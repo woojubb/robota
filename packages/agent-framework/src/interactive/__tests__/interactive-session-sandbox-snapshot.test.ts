@@ -49,6 +49,9 @@ vi.mock('@robota-sdk/agent-session', async () => {
         injectMessage: vi.fn((role: string, content: string) => {
           events.push(`message-injected:${role}:${content}`);
         }),
+        injectRawMessage: vi.fn((msg: { role: string; content: string | null }) => {
+          events.push(`message-injected:${msg.role}:${String(msg.content ?? '')}`);
+        }),
         getSessionAllowedTools: vi.fn().mockReturnValue([]),
         clearSessionAllowedTools: vi.fn(),
       };
@@ -67,6 +70,7 @@ vi.mock('@robota-sdk/agent-core', async () => {
       getFullHistory: vi.fn().mockReturnValue([]),
       clearHistory: vi.fn(),
       injectMessage: vi.fn(),
+      injectRawMessage: vi.fn(),
       addHistoryEntry: vi.fn(),
     })),
     runHooks: vi.fn().mockResolvedValue({ blocked: false }),
