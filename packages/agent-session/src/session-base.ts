@@ -83,6 +83,11 @@ export abstract class SessionBase {
     return this.contextTracker.getContextState();
   }
 
+  /** Restore token count from a persisted session record. */
+  restoreUsedTokens(usedTokens: number): void {
+    this.contextTracker.restoreUsedTokens(usedTokens);
+  }
+
   getAutoCompactThreshold(): TAutoCompactThreshold {
     return this.contextTracker.getAutoCompactThreshold();
   }

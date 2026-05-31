@@ -63,6 +63,7 @@ export class InteractiveSession
   private sessionName?: string;
   private cwd?: string;
   private pendingRestoreMessages: TUniversalMessage[] | null = null;
+  private pendingRestoreUsedTokens: number = 0;
   private resumeSessionId?: string;
   private forkSession: boolean;
   private autoCompactThresholdSource: TAutoCompactThresholdSource = 'default';
@@ -204,6 +205,13 @@ export class InteractiveSession
     });
     this.pendingRestoreMessages = restored.pendingRestoreMessages;
     this.sandboxSnapshotId = this.forkSession ? undefined : restored.sandboxSnapshotId;
+    if (restored.usedTokens > 0) {
+      if (this.session) {
+        this.session.restoreUsedTokens(restored.usedTokens);
+      } else {
+        this.pendingRestoreUsedTokens = restored.usedTokens;
+      }
+    }
   }
 
   private startAsyncInitializationIfNeeded(
@@ -240,6 +248,10 @@ export class InteractiveSession
       ...result.claudeFileEntries,
     ]);
     this.pendingRestoreMessages = null;
+    if (this.pendingRestoreUsedTokens > 0) {
+      this.session.restoreUsedTokens(this.pendingRestoreUsedTokens);
+      this.pendingRestoreUsedTokens = 0;
+    }
     this.initialized = true;
     this.bgTracker.subscribe(this.session);
     this.persistCurrentSession();
