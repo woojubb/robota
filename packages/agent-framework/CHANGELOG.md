@@ -1,5 +1,16 @@
 # @robota-sdk/agent-framework
 
+## 3.0.0-beta.70
+
+### Patch Changes
+
+- CLI UX fixes: /context list full LLM context breakdown (CLI-B10), logo resize fix (CLI-B03), token estimates in context list (CLI-B04)
+  - @robota-sdk/agent-core@3.0.0-beta.70
+  - @robota-sdk/agent-executor@3.0.0-beta.70
+  - @robota-sdk/agent-interface-transport@3.0.0-beta.70
+  - @robota-sdk/agent-session@3.0.0-beta.70
+  - @robota-sdk/agent-tools@3.0.0-beta.70
+
 ## 3.0.0-beta.69
 
 ### Patch Changes
