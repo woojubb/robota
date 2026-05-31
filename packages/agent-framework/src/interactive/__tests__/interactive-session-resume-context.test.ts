@@ -1,7 +1,7 @@
 /**
  * RESUME-001: Session resume context recovery tests.
  * TC-01: contextReferences round-trip through save/resume
- * TC-02: usedTokens restored immediately after resume (status bar 0% bug fix)
+ * TC-02: context estimated via syncContextFromHistory() on resume (single SSOT method)
  * TC-04: listContextReferences() = system refs + restored user refs, no duplicates
  * TC-06: listInjectionContextReferences() prevents duplicate context injection
  */
@@ -12,25 +12,20 @@ import { InteractiveSession } from '../interactive-session.js';
 
 import type { IContextReferenceItem } from '../../context/context-reference-inventory.js';
 
-function createMockSession(options?: { sessionId?: string; usedTokens?: number }) {
-  const restoreUsedTokens = vi.fn();
+function createMockSession(options?: { sessionId?: string }) {
   return {
     run: vi.fn().mockResolvedValue('mock response'),
     abort: vi.fn(),
     getHistory: vi.fn().mockReturnValue([]),
-    getContextState: vi.fn().mockImplementation(() => {
-      const restored = restoreUsedTokens.mock.calls[0]?.[0] ?? 0;
-      return {
-        usedTokens: restored,
-        maxTokens: 200_000,
-        usedPercentage: (restored / 200_000) * 100,
-        remainingPercentage: 100 - (restored / 200_000) * 100,
-      };
+    getContextState: vi.fn().mockReturnValue({
+      usedTokens: 0,
+      maxTokens: 200_000,
+      usedPercentage: 0,
+      remainingPercentage: 100,
     }),
     compact: vi.fn().mockResolvedValue(undefined),
     injectMessage: vi.fn(),
     injectRawMessage: vi.fn(),
-    restoreUsedTokens,
     syncContextFromHistory: vi.fn(),
     getSessionId: vi.fn().mockReturnValue(options?.sessionId ?? 'test-session'),
     getSystemMessage: vi.fn().mockReturnValue('system prompt'),
@@ -120,85 +115,8 @@ describe('RESUME-001: session resume context recovery', () => {
     });
   });
 
-  describe('TC-02: usedTokens restored immediately after resume', () => {
-    it('calls restoreUsedTokens on the session when record has usedTokens > 0', () => {
-      const mockSession = createMockSession({ sessionId: 'session-with-tokens' });
-      const mockStore = createMockSessionStore({
-        'session-with-tokens': {
-          id: 'session-with-tokens',
-          cwd: '/project',
-          createdAt: '2026-05-31T00:00:00Z',
-          updatedAt: '2026-05-31T00:00:00Z',
-          messages: [],
-          history: [],
-          usedTokens: 5_000,
-        },
-      });
-
-      new InteractiveSession({
-        session: mockSession as never,
-        cwd: '/project',
-        sessionStore: mockStore as never,
-        resumeSessionId: 'session-with-tokens',
-      });
-
-      expect(mockSession.restoreUsedTokens).toHaveBeenCalledWith(5_000);
-    });
-
-    it('does not call restoreUsedTokens when usedTokens is 0 or absent', () => {
-      const mockSession = createMockSession({ sessionId: 'session-zero' });
-      const mockStore = createMockSessionStore({
-        'session-zero': {
-          id: 'session-zero',
-          cwd: '/project',
-          createdAt: '2026-05-31T00:00:00Z',
-          updatedAt: '2026-05-31T00:00:00Z',
-          messages: [],
-          history: [],
-          usedTokens: 0,
-        },
-      });
-
-      new InteractiveSession({
-        session: mockSession as never,
-        cwd: '/project',
-        sessionStore: mockStore as never,
-        resumeSessionId: 'session-zero',
-      });
-
-      expect(mockSession.restoreUsedTokens).not.toHaveBeenCalled();
-    });
-
-    it('status bar usedPercentage > 0 after restoring non-zero usedTokens', () => {
-      const mockSession = createMockSession({ sessionId: 'session-pct' });
-      const mockStore = createMockSessionStore({
-        'session-pct': {
-          id: 'session-pct',
-          cwd: '/project',
-          createdAt: '2026-05-31T00:00:00Z',
-          updatedAt: '2026-05-31T00:00:00Z',
-          messages: [],
-          history: [],
-          usedTokens: 20_000,
-        },
-      });
-
-      new InteractiveSession({
-        session: mockSession as never,
-        cwd: '/project',
-        sessionStore: mockStore as never,
-        resumeSessionId: 'session-pct',
-      });
-
-      // restoreUsedTokens was called → mock getContextState returns restored value
-      expect(mockSession.restoreUsedTokens).toHaveBeenCalledWith(20_000);
-      const state = mockSession.getContextState();
-      expect(state.usedTokens).toBe(20_000);
-      expect(state.usedPercentage).toBeGreaterThan(0);
-    });
-
-    it('syncContextFromHistory() called for old sessions (no usedTokens field) — not 0%', () => {
-      // Old session without usedTokens — context must be estimated from messages, not stay at 0
+  describe('TC-02: context estimated via syncContextFromHistory() — single SSOT method', () => {
+    it('syncContextFromHistory() is called for sessions with messages (old format)', () => {
       const mockSession = createMockSession({ sessionId: 'old-session' });
       const mockStore = createMockSessionStore({
         'old-session': {
@@ -228,13 +146,11 @@ describe('RESUME-001: session resume context recovery', () => {
         resumeSessionId: 'old-session',
       });
 
-      // syncContextFromHistory must be called to estimate context from injected messages
+      // Context is always estimated from injected messages via syncContextFromHistory
       expect(mockSession.syncContextFromHistory).toHaveBeenCalled();
-      // restoreUsedTokens must NOT be called (no usedTokens in record)
-      expect(mockSession.restoreUsedTokens).not.toHaveBeenCalled();
     });
 
-    it('syncContextFromHistory() called before restoreUsedTokens for new sessions', () => {
+    it('syncContextFromHistory() is called for sessions with usedTokens field (new format)', () => {
       const mockSession = createMockSession({ sessionId: 'new-session' });
       const mockStore = createMockSessionStore({
         'new-session': {
@@ -246,7 +162,7 @@ describe('RESUME-001: session resume context recovery', () => {
             { id: 'm1', role: 'user', content: 'hello', state: 'complete', timestamp: new Date() },
           ],
           history: [],
-          usedTokens: 12_000,
+          usedTokens: 12_000, // stored for analytics, not used for restoration
         },
       });
 
@@ -257,14 +173,31 @@ describe('RESUME-001: session resume context recovery', () => {
         resumeSessionId: 'new-session',
       });
 
-      // Both must be called: estimate first, then accurate value overrides
+      // Same single method regardless of whether usedTokens is in record
       expect(mockSession.syncContextFromHistory).toHaveBeenCalled();
-      expect(mockSession.restoreUsedTokens).toHaveBeenCalledWith(12_000);
+    });
 
-      // Verify call order: syncContextFromHistory before restoreUsedTokens
-      const syncOrder = mockSession.syncContextFromHistory.mock.invocationCallOrder[0];
-      const restoreOrder = mockSession.restoreUsedTokens.mock.invocationCallOrder[0];
-      expect(syncOrder).toBeLessThan(restoreOrder);
+    it('syncContextFromHistory() is called even for sessions with no messages', () => {
+      const mockSession = createMockSession({ sessionId: 'empty-session' });
+      const mockStore = createMockSessionStore({
+        'empty-session': {
+          id: 'empty-session',
+          cwd: '/project',
+          createdAt: '2026-05-31T00:00:00Z',
+          updatedAt: '2026-05-31T00:00:00Z',
+          messages: [],
+          history: [],
+        },
+      });
+
+      new InteractiveSession({
+        session: mockSession as never,
+        cwd: '/project',
+        sessionStore: mockStore as never,
+        resumeSessionId: 'empty-session',
+      });
+
+      expect(mockSession.syncContextFromHistory).toHaveBeenCalled();
     });
   });
 
@@ -303,7 +236,6 @@ describe('RESUME-001: session resume context recovery', () => {
 
   describe('TC-06: no duplicate context refs after resume', () => {
     it('listContextReferences() contains each path exactly once after resume with overlapping refs', () => {
-      // Simulate a session saved with refs that share a path with what system context would register
       const userRefs: IContextReferenceItem[] = [
         contextRef('/project/src/feature.ts'),
         contextRef('/project/src/feature.ts'), // intentional duplicate in stored data
@@ -330,8 +262,6 @@ describe('RESUME-001: session resume context recovery', () => {
 
       const refs = session.listContextReferences();
       const featurePaths = refs.filter((r) => r.sourcePath === '/project/src/feature.ts');
-      // The session may store duplicates but the prompt injection path should not double-inject
-      // At minimum verify listContextReferences doesn't crash and returns the path
       expect(featurePaths.length).toBeGreaterThan(0);
     });
 
@@ -362,7 +292,7 @@ describe('RESUME-001: session resume context recovery', () => {
     });
   });
 
-  describe('usedTokens is persisted when saving session', () => {
+  describe('usedTokens is persisted when saving session (for analytics)', () => {
     it('save() call includes usedTokens field', async () => {
       const mockSession = createMockSession({ sessionId: 'save-test' });
       mockSession.getContextState.mockReturnValue({

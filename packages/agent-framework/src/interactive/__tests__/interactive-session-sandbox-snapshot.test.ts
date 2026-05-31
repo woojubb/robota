@@ -52,7 +52,6 @@ vi.mock('@robota-sdk/agent-session', async () => {
         injectRawMessage: vi.fn((msg: { role: string; content: string | null }) => {
           events.push(`message-injected:${msg.role}:${String(msg.content ?? '')}`);
         }),
-        restoreUsedTokens: vi.fn(),
         syncContextFromHistory: vi.fn(),
         getSessionAllowedTools: vi.fn().mockReturnValue([]),
         clearSessionAllowedTools: vi.fn(),

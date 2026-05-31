@@ -72,11 +72,6 @@ export class ContextWindowTracker {
     this.contextUsedTokens = estimateContextTokensFromMessages(history).usedTokens;
   }
 
-  /** Restore token count from a persisted session record (SSOT: IInteractiveSessionRecord.usedTokens). */
-  restoreUsedTokens(usedTokens: number): void {
-    this.contextUsedTokens = usedTokens;
-  }
-
   /** Reset token tracking */
   reset(): void {
     this.contextUsedTokens = 0;

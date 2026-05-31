@@ -31,7 +31,6 @@ function createSessionStub(): Session {
     abort: vi.fn(),
     shutdown: vi.fn().mockResolvedValue(undefined),
     injectRawMessage: vi.fn(),
-    restoreUsedTokens: vi.fn(),
     syncContextFromHistory: vi.fn(),
   } as unknown as Session;
 }

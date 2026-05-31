@@ -83,11 +83,6 @@ export abstract class SessionBase {
     return this.contextTracker.getContextState();
   }
 
-  /** Restore token count from a persisted session record. */
-  restoreUsedTokens(usedTokens: number): void {
-    this.contextTracker.restoreUsedTokens(usedTokens);
-  }
-
   /** Estimate context usage from current conversation history (used after session restore). */
   syncContextFromHistory(): void {
     this.contextTracker.updateFromHistory(this.robota.getHistory());
