@@ -20,6 +20,7 @@ function createRuntime(): ICommandSessionRuntime {
     getSessionAllowedTools: () => [],
     getAutoCompactThreshold: () => false,
     getFullHistory: () => [],
+    getHistory: () => [],
   };
 }
 

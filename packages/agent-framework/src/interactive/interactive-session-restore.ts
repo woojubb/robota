@@ -45,7 +45,6 @@ export function loadSessionRecord(
   memoryEvents: IMemoryEvent[];
   usedMemoryReferences: IMemoryReference[];
   contextReferences: IContextReferenceItem[];
-  usedTokens: number;
   sandboxSnapshotId: string | undefined;
 } {
   const record = sessionStore.load(resumeSessionId);
@@ -62,7 +61,6 @@ export function loadSessionRecord(
       memoryEvents: [],
       usedMemoryReferences: [],
       contextReferences: [],
-      usedTokens: 0,
       sandboxSnapshotId: undefined,
     };
   }
@@ -76,7 +74,6 @@ export function loadSessionRecord(
   const memoryEvents = record.memoryEvents ?? [];
   const usedMemoryReferences = record.usedMemoryReferences ?? [];
   const contextReferences = record.contextReferences ?? [];
-  const usedTokens = record.usedTokens ?? 0;
   const sandboxSnapshotId = record.sandboxSnapshotId;
   const { backgroundTasks, backgroundTaskEvents } = reconcileRestoredBackgroundTasks(
     restoredBackgroundTasks,
@@ -107,7 +104,6 @@ export function loadSessionRecord(
     memoryEvents,
     usedMemoryReferences,
     contextReferences,
-    usedTokens,
     sandboxSnapshotId,
   };
 }

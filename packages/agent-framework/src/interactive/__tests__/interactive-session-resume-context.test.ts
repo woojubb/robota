@@ -150,7 +150,7 @@ describe('RESUME-001: session resume context recovery', () => {
       expect(mockSession.syncContextFromHistory).toHaveBeenCalled();
     });
 
-    it('syncContextFromHistory() is called for sessions with usedTokens field (new format)', () => {
+    it('syncContextFromHistory() is called for sessions with messages', () => {
       const mockSession = createMockSession({ sessionId: 'new-session' });
       const mockStore = createMockSessionStore({
         'new-session': {
@@ -162,7 +162,6 @@ describe('RESUME-001: session resume context recovery', () => {
             { id: 'm1', role: 'user', content: 'hello', state: 'complete', timestamp: new Date() },
           ],
           history: [],
-          usedTokens: 12_000, // stored for analytics, not used for restoration
         },
       });
 
@@ -173,7 +172,6 @@ describe('RESUME-001: session resume context recovery', () => {
         resumeSessionId: 'new-session',
       });
 
-      // Same single method regardless of whether usedTokens is in record
       expect(mockSession.syncContextFromHistory).toHaveBeenCalled();
     });
 
@@ -292,8 +290,8 @@ describe('RESUME-001: session resume context recovery', () => {
     });
   });
 
-  describe('usedTokens is persisted when saving session (for analytics)', () => {
-    it('save() call includes usedTokens field', async () => {
+  describe('session save does not persist usedTokens', () => {
+    it('save() call does not include usedTokens field', async () => {
       const mockSession = createMockSession({ sessionId: 'save-test' });
       mockSession.getContextState.mockReturnValue({
         usedTokens: 8_000,
@@ -314,7 +312,7 @@ describe('RESUME-001: session resume context recovery', () => {
 
       expect(mockStore.save).toHaveBeenCalled();
       const savedRecord = mockStore.save.mock.calls[0]?.[0] as Record<string, unknown>;
-      expect(savedRecord?.['usedTokens']).toBe(8_000);
+      expect(Object.prototype.hasOwnProperty.call(savedRecord, 'usedTokens')).toBe(false);
     });
   });
 });

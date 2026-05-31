@@ -76,6 +76,7 @@ function createRuntime(
     getSessionAllowedTools: () => [],
     getAutoCompactThreshold: () => state.threshold,
     getFullHistory: () => history,
+    getHistory: () => [],
     setAutoCompactThreshold: (threshold) => {
       state.threshold = threshold;
     },
