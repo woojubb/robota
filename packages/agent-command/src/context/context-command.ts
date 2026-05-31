@@ -12,7 +12,7 @@ import {
   writeAutoCompactThresholdSetting,
 } from '@robota-sdk/agent-framework';
 
-import type { IHistoryEntry } from '@robota-sdk/agent-core';
+import type { IHistoryEntry, TUniversalMessage } from '@robota-sdk/agent-core';
 import type {
   ICommandHostContext,
   ICommandResult,
@@ -65,14 +65,14 @@ export async function executeContextCommand(
   const autoCompactThreshold = readAutoCompactThreshold(context);
   const autoCompactThresholdSource = readAutoCompactThresholdSource(context);
   const history = context.getSession().getFullHistory();
-  const analysis = analyzeHistory(history);
+  const display = buildToolDisplayList(history);
   const references = listCommandContextReferences(context);
   return {
     message: [
       `Context: ${state.usedTokens.toLocaleString()} / ${state.maxTokens.toLocaleString()} tokens (${Math.round(state.usedPercentage)}%)`,
       formatAutoCompactLine(autoCompactThreshold, autoCompactThresholdSource),
       formatContextReferenceSummary(references),
-      `History: ${analysis.turnCount} turn${analysis.turnCount !== 1 ? 's' : ''}`,
+      `History: ${display.turnCount} turn${display.turnCount !== 1 ? 's' : ''}`,
     ].join('\n'),
     success: true,
     data: {
@@ -304,20 +304,23 @@ function formatContextReferenceLine(reference: IContextReferenceItem): string {
 interface IToolResultSummary {
   toolName: string;
   displayArg: string;
-  tokens: number;
 }
 
-interface IHistoryAnalysis {
-  turnCount: number;
-  userCount: number;
+interface IMessageTokensByRole {
+  systemTokens: number;
   userTokens: number;
-  assistantCount: number;
+  userCount: number;
   assistantTokens: number;
+  assistantCount: number;
+  toolTokens: number;
+  toolCallCount: number;
+  totalTokens: number;
+}
+
+interface IToolDisplayList {
+  turnCount: number;
   toolResults: IToolResultSummary[];
   totalToolCallCount: number;
-  totalToolTokens: number;
-  systemTokens: number;
-  totalTokens: number;
 }
 
 function parseToolCallArgs(argsJson: string): Record<string, unknown> | null {
@@ -337,7 +340,44 @@ function extractFirstToolArg(argsJson: string): string {
   return raw.length > TOOL_ARG_MAX_LEN ? `${raw.slice(0, TOOL_ARG_MAX_LEN)}…` : raw;
 }
 
-function analyzeHistory(history: IHistoryEntry[]): IHistoryAnalysis {
+function computeMessageTokensByRole(rawMessages: TUniversalMessage[]): IMessageTokensByRole {
+  let systemTokens = 0;
+  let userTokens = 0;
+  let userCount = 0;
+  let assistantTokens = 0;
+  let assistantCount = 0;
+  let toolTokens = 0;
+  let toolCallCount = 0;
+
+  for (const msg of rawMessages) {
+    const t = Math.ceil(JSON.stringify(msg).length / CHARS_PER_TOKEN);
+    if (msg.role === 'system') {
+      systemTokens += t;
+    } else if (msg.role === 'user') {
+      userTokens += t;
+      userCount++;
+    } else if (msg.role === 'assistant') {
+      assistantTokens += t;
+      assistantCount++;
+    } else if (msg.role === 'tool') {
+      toolTokens += t;
+      toolCallCount++;
+    }
+  }
+
+  return {
+    systemTokens,
+    userTokens,
+    userCount,
+    assistantTokens,
+    assistantCount,
+    toolTokens,
+    toolCallCount,
+    totalTokens: systemTokens + userTokens + assistantTokens + toolTokens,
+  };
+}
+
+function buildToolDisplayList(history: IHistoryEntry[]): IToolDisplayList {
   type TToolCallEntry = { name: string; firstArg: string };
   const toolCallMap = new Map<string, TToolCallEntry>();
 
@@ -354,57 +394,28 @@ function analyzeHistory(history: IHistoryEntry[]): IHistoryAnalysis {
     }
   }
 
-  let userCount = 0;
-  let userTokens = 0;
-  let assistantCount = 0;
-  let assistantTokens = 0;
-  let systemTokens = 0;
+  let turnCount = 0;
   let totalToolCallCount = 0;
-  let totalToolTokens = 0;
-  // For display only: group by toolName:displayArg (keeps last call's token count per key)
   const toolDisplayMap = new Map<string, IToolResultSummary>();
 
   for (const entry of history) {
     if (entry.category !== 'chat') continue;
     if (entry.type === 'user') {
-      const data = entry.data as { content?: string };
-      userCount++;
-      userTokens += estimateTokens((data.content ?? '').length);
-    } else if (entry.type === 'system') {
-      const data = entry.data as { content?: string };
-      systemTokens += estimateTokens((data.content ?? '').length);
-    } else if (entry.type === 'assistant') {
-      const data = entry.data as { content?: string | null; toolCalls?: unknown[] };
-      assistantCount++;
-      assistantTokens += estimateTokens(
-        (data.content ?? '').length + (data.toolCalls ? JSON.stringify(data.toolCalls).length : 0),
-      );
+      turnCount++;
     } else if (entry.type === 'tool') {
-      const data = entry.data as { content?: string; toolCallId?: string };
+      const data = entry.data as { toolCallId?: string };
       const tc = toolCallMap.get(data.toolCallId ?? '');
       const toolName = tc?.name ?? 'tool';
       const displayArg = tc?.firstArg ?? '';
-      const tokens = estimateTokens((data.content ?? '').length);
-      // Accumulate ALL tool call tokens (no deduplication) for accurate total
       totalToolCallCount++;
-      totalToolTokens += tokens;
-      // Track for display grouping (last call per toolName:arg wins for display)
-      toolDisplayMap.set(`${toolName}:${displayArg}`, { toolName, displayArg, tokens });
+      toolDisplayMap.set(`${toolName}:${displayArg}`, { toolName, displayArg });
     }
   }
 
-  const toolResults = [...toolDisplayMap.values()];
   return {
-    turnCount: userCount,
-    userCount,
-    userTokens,
-    assistantCount,
-    assistantTokens,
-    toolResults,
+    turnCount,
+    toolResults: [...toolDisplayMap.values()],
     totalToolCallCount,
-    totalToolTokens,
-    systemTokens,
-    totalTokens: userTokens + assistantTokens + totalToolTokens + systemTokens,
   };
 }
 
@@ -422,45 +433,45 @@ function formatFullContextBreakdown(context: ICommandHostContext): ICommandResul
   const state = readCommandContextState(context);
   const autoCompactThreshold = readAutoCompactThreshold(context);
   const autoCompactThresholdSource = readAutoCompactThresholdSource(context);
-  const history = context.getSession().getFullHistory();
-  const analysis = analyzeHistory(history);
+  const rawMessages = context.getSession().getHistory();
+  const msgTokens = computeMessageTokensByRole(rawMessages);
+  const display = buildToolDisplayList(context.getSession().getFullHistory());
   const references = listCommandContextReferences(context);
 
   const systemRefs = references.filter((r) => r.loadType === 'system');
   const manualRefs = references.filter((r) => r.loadType === 'manual');
   const promptRefs = references.filter((r) => r.loadType === 'prompt-reference');
 
-  const systemTokens = systemRefs.reduce((s, r) => s + estimateTokens(r.byteLength), 0);
+  const systemRefTokens = systemRefs.reduce((s, r) => s + estimateTokens(r.byteLength), 0);
   const manualTokens = manualRefs.reduce((s, r) => s + estimateTokens(r.byteLength), 0);
   const promptRefTokens = promptRefs.reduce((s, r) => s + estimateTokens(r.byteLength), 0);
 
   const convTurnLabel =
-    analysis.turnCount === 0
+    display.turnCount === 0
       ? 'Conversation history — 0 turns'
-      : `Conversation history — ${analysis.turnCount} turn${analysis.turnCount !== 1 ? 's' : ''} | ~${analysis.totalTokens.toLocaleString()} tokens`;
+      : `Conversation history — ${display.turnCount} turn${display.turnCount !== 1 ? 's' : ''} | ~${msgTokens.totalTokens.toLocaleString()} tokens`;
 
-  const toolResultLines = analysis.toolResults.map(
-    (t) =>
-      `${t.toolName}${t.displayArg ? `: ${t.displayArg}` : ''} — ~${t.tokens.toLocaleString()} tokens`,
+  const toolResultLines = display.toolResults.map(
+    (t) => `${t.toolName}${t.displayArg ? `: ${t.displayArg}` : ''}`,
   );
 
-  const uniqueToolCount = analysis.toolResults.length;
-  const totalToolCallCount = analysis.totalToolCallCount;
+  const uniqueToolCount = display.toolResults.length;
+  const totalToolCallCount = display.totalToolCallCount;
   const toolResultsLabel =
     totalToolCallCount === 0
       ? 'Tool results (0): (none)'
       : uniqueToolCount < totalToolCallCount
-        ? `Tool results (${uniqueToolCount} unique / ${totalToolCallCount} calls, ~${analysis.totalToolTokens.toLocaleString()} tokens):`
-        : `Tool results (${uniqueToolCount}):`;
+        ? `Tool results (${uniqueToolCount} unique / ${totalToolCallCount} calls, ~${msgTokens.toolTokens.toLocaleString()} tokens):`
+        : `Tool results (${uniqueToolCount}, ~${msgTokens.toolTokens.toLocaleString()} tokens):`;
 
   const conversationLines: string[] =
-    analysis.turnCount === 0
+    display.turnCount === 0
       ? []
       : [
-          `User (${analysis.userCount}): ~${analysis.userTokens.toLocaleString()} tokens`,
-          `Assistant (${analysis.assistantCount}): ~${analysis.assistantTokens.toLocaleString()} tokens`,
-          ...(analysis.systemTokens > 0
-            ? [`System messages: ~${analysis.systemTokens.toLocaleString()} tokens`]
+          `User (${msgTokens.userCount}): ~${msgTokens.userTokens.toLocaleString()} tokens`,
+          `Assistant (${msgTokens.assistantCount}): ~${msgTokens.assistantTokens.toLocaleString()} tokens`,
+          ...(msgTokens.systemTokens > 0
+            ? [`System messages: ~${msgTokens.systemTokens.toLocaleString()} tokens`]
             : []),
           totalToolCallCount > 0
             ? [toolResultsLabel, ...toolResultLines.map((l) => `  ${l}`)].join('\n')
@@ -468,7 +479,7 @@ function formatFullContextBreakdown(context: ICommandHostContext): ICommandResul
         ];
 
   const convSection =
-    analysis.turnCount === 0
+    display.turnCount === 0
       ? `${convTurnLabel}:\n  (none)`
       : [`${convTurnLabel}:`, ...conversationLines.map((l) => `  ${l}`)].join('\n');
 
@@ -478,7 +489,7 @@ function formatFullContextBreakdown(context: ICommandHostContext): ICommandResul
     '',
     formatSection(
       'System prompt (active every turn)',
-      systemTokens,
+      systemRefTokens,
       systemRefs.map(formatContextReferenceLine),
     ),
     '',
@@ -498,7 +509,7 @@ function formatFullContextBreakdown(context: ICommandHostContext): ICommandResul
     message,
     data: {
       references,
-      history: { turnCount: analysis.turnCount, toolResults: analysis.toolResults },
+      history: { turnCount: display.turnCount, toolResults: display.toolResults },
     },
   };
 }
