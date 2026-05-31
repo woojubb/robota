@@ -23,7 +23,7 @@ import type {
 import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
 import type { ISubagentJobState } from '../subagents/index.js';
 import type { TAutoCompactThreshold } from './context/context-command-api.js';
-import type { IContextWindowState, TPermissionMode } from '@robota-sdk/agent-core';
+import type { IContextWindowState, IHistoryEntry, TPermissionMode } from '@robota-sdk/agent-core';
 import type { ISessionReplayValidationResult } from '@robota-sdk/agent-session';
 
 export interface ICommandListEntry {
@@ -66,6 +66,7 @@ export interface ICommandSessionRuntime {
   getMessageCount(): number;
   getSessionAllowedTools(): readonly string[];
   getAutoCompactThreshold(): number | false;
+  getFullHistory(): IHistoryEntry[];
   setAutoCompactThreshold?(threshold: TAutoCompactThreshold): void;
   getSessionTokenUsage?(): { inputTokens: number; outputTokens: number } | undefined;
   getModelId?(): string | undefined;

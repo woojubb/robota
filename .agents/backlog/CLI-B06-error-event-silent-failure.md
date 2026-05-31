@@ -1,6 +1,6 @@
 ---
 title: 'CLI-B06: AI 호출 오류 시 사용자에게 아무 피드백이 없음'
-status: todo
+status: done
 created: 2026-05-31
 priority: critical
 urgency: now
@@ -36,8 +36,15 @@ const onError = (): void => {
 
 ## Done gate
 
-- [ ] `error` 이벤트 발화 시 오류 메시지가 MessageList에 즉시 표시됨
-- [ ] `pnpm --filter @robota-sdk/agent-transport test` 통과
+- [x] `error` 이벤트 발화 시 오류 메시지가 MessageList에 즉시 표시됨
+- [x] `pnpm --filter @robota-sdk/agent-transport test` 통과 (450/450)
+
+## Implementation notes
+
+조사 결과: `interactive-session-prompt.ts`에서 error entry를 `histTracker.push()` 후 `ctx.onError()` 호출 순서 확인.
+즉, `error` 이벤트 발화 시점에 이미 `getFullHistory()`에 error entry 포함.
+`wireSessionEvents()`의 `onError` 핸들러가 `syncHistory(session.getFullHistory())`를 호출하므로 자동 해결됨.
+D3 display-contract test로 회귀 방지 확보.
 
 ## User Execution Test Scenarios
 

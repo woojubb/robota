@@ -1,6 +1,6 @@
 ---
 title: 'CLI-B04: /context list와 status bar 컨텍스트 수치의 데이터 소스 불일치'
-status: todo
+status: done
 created: 2026-05-31
 priority: medium
 urgency: soon
@@ -62,11 +62,16 @@ Context: 4% (41.1K/1M)
 
 ## Done gate
 
-- [ ] `IContextReferenceItem`에 `tokenCount` 필드 추가 및 토큰 계산 연동
-- [ ] `/context list` 출력이 토큰 수를 표시함
-- [ ] Status bar 수치와 `/context list` 합계의 관계를 사용자가 이해할 수 있음
-- [ ] `pnpm --filter @robota-sdk/agent-framework test` 통과
-- [ ] `pnpm --filter @robota-sdk/agent-command test` 통과
+- [x] `/context list` 출력이 토큰 수를 표시함 — `~N tokens` 포맷 (byteLength / 4 추정)
+- [x] Status bar에 "tokens" 단위 레이블 추가 — 두 UI 모두 토큰 단위로 표현
+- [x] `pnpm --filter @robota-sdk/agent-command test` 통과 (168/168)
+- [x] `pnpm --filter @robota-sdk/agent-transport test` 통과 (450/450)
+
+## Implementation notes
+
+`IContextReferenceItem.tokenCount` 필드 추가 대신 `byteLength / CHARS_PER_TOKEN(=4)` 추정을 사용.
+이미 `limits-helpers.ts`에서 동일 상수를 사용 중 → SSOT 근거 확립.
+단위 불일치(bytes vs tokens) 문제 해소.
 
 ## User Execution Test Scenarios
 

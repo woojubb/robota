@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type {
   ICommandHostContext,
   IContextReferenceAddResult,
@@ -57,7 +58,10 @@ const SYSTEM_REFERENCE: IContextReferenceItem = {
   lastUsedAt: '2026-05-05T00:00:00.000Z',
 };
 
-function createRuntime(state: { threshold: number | false }): ICommandSessionRuntime {
+function createRuntime(
+  state: { threshold: number | false },
+  history: IHistoryEntry[] = [],
+): ICommandSessionRuntime {
   let mode: TPermissionMode = 'default';
   return {
     clearHistory: vi.fn(),
@@ -71,6 +75,7 @@ function createRuntime(state: { threshold: number | false }): ICommandSessionRun
     getMessageCount: () => 1,
     getSessionAllowedTools: () => [],
     getAutoCompactThreshold: () => state.threshold,
+    getFullHistory: () => history,
     setAutoCompactThreshold: (threshold) => {
       state.threshold = threshold;
     },
@@ -202,9 +207,9 @@ describe('createContextCommandModule', () => {
     const result = await createExecutor().execute('context', context, 'list');
 
     expect(result?.success).toBe(true);
-    expect(result?.message).toContain('AGENTS.md [manual, active] 42 B');
+    expect(result?.message).toContain('AGENTS.md [manual, active] ~11 tokens');
     expect(result?.message).toContain(
-      'packages/agent-sdk/docs/SPEC.md [prompt-reference, observed] 200 B',
+      'packages/agent-sdk/docs/SPEC.md [prompt-reference, observed] ~50 tokens',
     );
     expect(result?.data?.references).toEqual([MANUAL_REFERENCE, PROMPT_REFERENCE]);
   });
@@ -215,7 +220,9 @@ describe('createContextCommandModule', () => {
     const result = await createExecutor().execute('context', context, 'add AGENTS.md');
 
     expect(result?.success).toBe(true);
-    expect(result?.message).toContain('Context reference added: AGENTS.md [manual, active] 42 B.');
+    expect(result?.message).toContain(
+      'Context reference added: AGENTS.md [manual, active] ~11 tokens.',
+    );
     expect(context.references[0]?.relativePath).toBe('AGENTS.md');
   });
 
@@ -226,7 +233,9 @@ describe('createContextCommandModule', () => {
     const result = await createExecutor().execute('context', context, 'remove AGENTS.md');
 
     expect(result?.success).toBe(true);
-    expect(result?.message).toBe('Context reference removed: AGENTS.md [manual, active] 42 B.');
+    expect(result?.message).toBe(
+      'Context reference removed: AGENTS.md [manual, active] ~11 tokens.',
+    );
     expect(context.references).toEqual([]);
   });
 
@@ -311,7 +320,7 @@ describe('createContextCommandModule', () => {
     const result = await createExecutor().execute('context', context, 'list');
 
     expect(result?.success).toBe(true);
-    expect(result?.message).toContain('AGENTS.md [system, active] 1,024 B');
+    expect(result?.message).toContain('AGENTS.md [system, active] ~256 tokens');
     expect(result?.data?.references).toEqual([SYSTEM_REFERENCE]);
   });
 
@@ -325,12 +334,17 @@ describe('createContextCommandModule', () => {
     expect(result?.message).toContain('References: 2 active, 0 observed');
   });
 
-  it('shows no context references message when only system refs are absent', async () => {
+  it('shows full context breakdown with empty sections when no references', async () => {
     const context = createCommandHostContext();
 
     const result = await createExecutor().execute('context', context, 'list');
 
     expect(result?.success).toBe(true);
-    expect(result?.message).toBe('No context references.');
+    expect(result?.message).toContain('System prompt (active every turn):');
+    expect(result?.message).toContain('Conversation history — 0 turns:');
+    expect(result?.message).toContain('Manually added:');
+    expect(result?.message).toContain('Prompt references (@-syntax):');
+    // All sections empty
+    expect(result?.message).not.toContain('~');
   });
 });
