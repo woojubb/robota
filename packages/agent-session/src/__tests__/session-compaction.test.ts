@@ -141,16 +141,27 @@ describe('Session compaction', () => {
     const session = createSession({
       onCompactEvent: (event: ICompactEvent) => compactEvents.push(event),
     });
+    // Content long enough so serialized JSON estimate is clearly non-zero regardless of context window.
     mockHistory = [
-      { role: 'user', content: 'hello', metadata: { inputTokens: 70, outputTokens: 10 } },
-      { role: 'assistant', content: 'hi', metadata: { inputTokens: 90_000, outputTokens: 10_000 } },
+      {
+        role: 'user',
+        content: 'x'.repeat(130),
+        metadata: { inputTokens: 70, outputTokens: 10 },
+      },
+      {
+        role: 'assistant',
+        content: 'x'.repeat(130),
+        metadata: { inputTokens: 90_000, outputTokens: 10_000 },
+      },
     ];
 
     await session.compact();
 
     expect(compactEvents).toHaveLength(1);
     expect(compactEvents[0].trigger).toBe('manual');
-    expect(compactEvents[0].before.usedPercentage).toBeGreaterThan(0);
+    // Check usedTokens (raw count) rather than usedPercentage, which rounds to 0 for tiny messages
+    // against a large context window (e.g., 200k).
+    expect(compactEvents[0].before.usedTokens).toBeGreaterThan(0);
     expect(compactEvents[0].after.usedPercentage).toBeGreaterThanOrEqual(0);
   });
 
@@ -214,10 +225,15 @@ describe('Session compaction', () => {
     // Create session with a small context window to trigger compaction easily
     const session = createSession({ contextMaxTokens: 100 });
 
-    // Seed history with metadata that shows high token usage
+    // Seed history with large enough content so the serialized JSON estimate exceeds the threshold.
+    // Two messages with 130-char content each → ~420 JSON chars → 105 estimated tokens > 83.5% of 100.
     mockHistory = [
-      { role: 'user', content: 'hello', metadata: { inputTokens: 90, outputTokens: 10 } },
-      { role: 'assistant', content: 'response', metadata: { inputTokens: 90, outputTokens: 10 } },
+      { role: 'user', content: 'x'.repeat(130), metadata: { inputTokens: 90, outputTokens: 10 } },
+      {
+        role: 'assistant',
+        content: 'x'.repeat(130),
+        metadata: { inputTokens: 90, outputTokens: 10 },
+      },
     ];
 
     // run() should trigger auto-compact at the START (before processing the message)
@@ -241,9 +257,18 @@ describe('Session compaction', () => {
       onCompactEvent: (event: ICompactEvent) => compactEvents.push(event),
     });
 
+    // Two messages with 130-char content → serialized JSON exceeds contextMaxTokens (100 tokens cap = 100%)
     mockHistory = [
-      { role: 'user', content: 'hello', metadata: { inputTokens: 90, outputTokens: 10 } },
-      { role: 'assistant', content: 'response', metadata: { inputTokens: 90, outputTokens: 10 } },
+      {
+        role: 'user',
+        content: 'x'.repeat(130),
+        metadata: { inputTokens: 90, outputTokens: 10 },
+      },
+      {
+        role: 'assistant',
+        content: 'x'.repeat(130),
+        metadata: { inputTokens: 90, outputTokens: 10 },
+      },
     ];
 
     await session.run('next question');
@@ -256,8 +281,9 @@ describe('Session compaction', () => {
   it('auto-compact uses a configured threshold', async () => {
     const session = createSession({ contextMaxTokens: 100, autoCompactThreshold: 0.5 });
 
+    // Single message with 130-char content → serialized JSON ~208 chars → 52 tokens → 52% > 50% threshold
     mockHistory = [
-      { role: 'user', content: 'hello', metadata: { inputTokens: 40, outputTokens: 20 } },
+      { role: 'user', content: 'x'.repeat(130), metadata: { inputTokens: 40, outputTokens: 20 } },
     ];
 
     await session.run('next question');
@@ -286,8 +312,9 @@ describe('Session compaction', () => {
     const session = createSession({ contextMaxTokens: 100, autoCompactThreshold: false });
     session.setAutoCompactThreshold(0.5);
 
+    // Single message with 130-char content → serialized JSON ~208 chars → 52 tokens → 52% > 50% threshold
     mockHistory = [
-      { role: 'user', content: 'hello', metadata: { inputTokens: 40, outputTokens: 20 } },
+      { role: 'user', content: 'x'.repeat(130), metadata: { inputTokens: 40, outputTokens: 20 } },
     ];
 
     await session.run('next question');
