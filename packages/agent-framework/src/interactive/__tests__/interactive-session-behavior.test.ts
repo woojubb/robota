@@ -49,6 +49,8 @@ function createMockSession(options?: {
     getSessionAllowedTools: vi.fn().mockReturnValue([]),
     compact: vi.fn(),
     injectMessage: vi.fn(),
+    injectRawMessage: vi.fn(),
+    syncContextFromHistory: vi.fn(),
   };
 }
 
@@ -677,9 +679,13 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     expect(mockSessionStore.load).toHaveBeenCalledWith('prev-session');
 
     // Messages should have been injected into Session's Robota for AI context
-    expect(mockSession.injectMessage).toHaveBeenCalledTimes(2);
-    expect(mockSession.injectMessage).toHaveBeenCalledWith('user', 'previous');
-    expect(mockSession.injectMessage).toHaveBeenCalledWith('assistant', 'answer');
+    expect(mockSession.injectRawMessage).toHaveBeenCalledTimes(2);
+    expect(mockSession.injectRawMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ role: 'user', content: 'previous' }),
+    );
+    expect(mockSession.injectRawMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ role: 'assistant', content: 'answer' }),
+    );
   });
 
   // ── Scenario: getName / setName ────────────────────────────────
