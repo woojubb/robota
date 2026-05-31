@@ -85,3 +85,16 @@ export function injectMessage(
     session.addUserMessage(content);
   }
 }
+
+/**
+ * Inject a full TUniversalMessage into conversation history preserving all fields
+ * (toolCalls, toolCallId, content=null, etc.) without triggering execution.
+ * Used for session restore to correctly reconstruct tool_use+tool_result pairs.
+ */
+export function injectRawMessage(
+  conversationHistory: ConversationHistory,
+  conversationId: string,
+  msg: TUniversalMessage,
+): void {
+  conversationHistory.getConversationStore(conversationId).addMessage(msg);
+}

@@ -131,6 +131,14 @@ export abstract class SessionBase {
     this.robota.injectMessage(role, content, options);
   }
 
+  /**
+   * Inject a full TUniversalMessage preserving all fields (toolCalls, toolCallId, null content).
+   * Used during session restore to correctly reconstruct tool_use+tool_result pairs.
+   */
+  injectRawMessage(msg: TUniversalMessage): void {
+    this.robota.injectRawMessage(msg);
+  }
+
   clearHistory(): void {
     this.robota.clearHistory();
     this.contextTracker.reset();

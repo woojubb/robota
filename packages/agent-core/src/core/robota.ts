@@ -14,6 +14,7 @@ import {
   addHistoryEntry,
   clearHistory,
   injectMessage,
+  injectRawMessage,
 } from './robota-history';
 import { performDoAsyncInit } from './robota-initializer';
 import { buildAgentStats, destroyAgent } from './robota-lifecycle';
@@ -168,6 +169,9 @@ export class Robota
     options?: { toolCallId?: string; name?: string },
   ): void {
     injectMessage(this.conversationHistory, this.conversationId, role, content, options);
+  }
+  injectRawMessage(msg: TUniversalMessage): void {
+    injectRawMessage(this.conversationHistory, this.conversationId, msg);
   }
 
   async updateTools(next: Array<IToolWithEventService>): Promise<{ version: number }> {
