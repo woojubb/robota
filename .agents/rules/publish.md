@@ -44,8 +44,7 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 ### Publish Safety Gate
 
 - Before entering the publish flow, follow [release-operations.md](release-operations.md): the Release Control Plane must identify the current SHA, target version, active gate, next action, and stop condition, and the matching release-run artifact must pass `pnpm harness:release:check -- --version <version> --publish`.
-- Build and test must pass BEFORE running `pnpm publish:beta`. The script does NOT run build/test internally — the agent must verify these before asking for OTP.
-- **npm authentication MUST be verified explicitly by the agent BEFORE anything else** — run `npm whoami --registry https://registry.npmjs.org/` as the very first step of any publish flow. Do NOT skip this and do NOT rely on `pnpm publish:beta` to surface the error on the user's behalf. If auth fails: tell the user to log in (`npm login --registry https://registry.npmjs.org/`), wait for confirmation, rerun `npm whoami`, and only then proceed. Never ask for OTP until `npm whoami` returns a username.
+- Build must pass BEFORE running dry-run. The script does NOT run build internally — the agent must verify build first.
 - MUST use `pnpm publish`, NEVER `npm publish`.
 - When a package is published for the first time, search `content/` and `docs/` for "not yet published" references and remove them.
 
@@ -55,12 +54,14 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 
 **Mandatory sequence — every step must complete before the next:**
 
-1. `npm whoami` returns a username → npm auth confirmed
+1. `pnpm changeset version` → version bump
 2. `pnpm build` exits 0 → build confirmed
 3. `pnpm harness:release:check -- --version <version> --publish` passes
-4. **STOP. Ask the user:** "OTP를 입력해주세요 (authenticator 앱에서 확인)" — do NOT run any command yet
-5. User provides OTP in their reply
-6. Immediately run `pnpm publish:beta --otp=<otp>` with the OTP from step 5
+4. `npm whoami --registry https://registry.npmjs.org/` → auth confirmed. **Do NOT run this at the start** — run it just before dry-run, after build succeeds. If auth fails: tell the user to log in, wait for confirmation, rerun `npm whoami`, then continue.
+5. `pnpm publish -r --no-git-checks --dry-run` → dry-run passes
+6. **STOP. Ask the user:** "OTP를 입력해주세요 (authenticator 앱에서 확인)" — do NOT run any command yet
+7. User provides OTP in their reply
+8. Immediately run `pnpm publish:beta --otp=<otp> --tag-otp=<otp>` with the OTP from step 7
 
 **Violations that are absolutely forbidden:**
 
@@ -68,6 +69,7 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 - Running `pnpm publish:beta` before receiving OTP from the user in the current turn
 - Asking for OTP and then running a different command first (OTP expires in ~30 seconds)
 - Asking the user to "type the OTP when prompted" — Claude Code cannot relay interactive prompts
+- Running `npm whoami` as the first step of the flow (wastes time if auth is valid; user logs in when needed, not before)
 
 If `pnpm publish:beta` exits after printing only the filtered dry-run package list, do not infer the cause from that filtered output. Immediately rerun `pnpm publish -r --no-git-checks --dry-run` with full unfiltered output in the same permission context to identify the real failure.
 
