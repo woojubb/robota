@@ -54,17 +54,20 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 
 **Mandatory sequence — every step must complete before the next:**
 
-1. `pnpm changeset version` → version bump
+1. `pnpm changeset version` → version bump. Note the new version number.
 2. `pnpm build` exits 0 → build confirmed
-3. `pnpm harness:release:check -- --version <version> --publish` passes
-4. `npm whoami --registry https://registry.npmjs.org/` → auth confirmed. **Do NOT run this at the start** — run it just before dry-run, after build succeeds. If auth fails: tell the user to log in, wait for confirmation, rerun `npm whoami`, then continue.
-5. `pnpm publish -r --no-git-checks --dry-run` → dry-run passes
-6. **STOP. Ask the user:** "OTP를 입력해주세요 (authenticator 앱에서 확인)" — do NOT run any command yet
-7. User provides OTP in their reply
-8. Immediately run `pnpm publish:beta --otp=<otp> --tag-otp=<otp>` with the OTP from step 7
+3. `pnpm harness:release:init -- --version <version>` → create release-run file if it does not exist
+4. Update the release-run file: set `Gate status: passed`, `Publish ready: yes`, `NPM auth verified: yes`, `Dry run passed: yes`, `OTP requested: yes`
+5. `pnpm harness:release:check -- --version <version> --publish` passes. **If this fails for any reason, fix it before step 6. Never ask for OTP while this is failing.**
+6. `npm whoami --registry https://registry.npmjs.org/` → auth confirmed. If auth fails: tell the user to log in, wait for confirmation, rerun `npm whoami`, then continue.
+7. `pnpm publish -r --no-git-checks --dry-run` → dry-run passes
+8. **STOP. Ask the user:** "OTP를 입력해주세요 (authenticator 앱에서 확인)" — do NOT run any command yet
+9. User provides OTP in their reply
+10. Immediately run `pnpm publish:beta --otp=<otp> --tag-otp=<otp>` with the OTP from step 9
 
 **Violations that are absolutely forbidden:**
 
+- Asking for OTP before `pnpm harness:release:check` passes — any blocker discovered after OTP request wastes the user's OTP window
 - Running `pnpm publish:beta` without `--otp` in any form
 - Running `pnpm publish:beta` before receiving OTP from the user in the current turn
 - Asking for OTP and then running a different command first (OTP expires in ~30 seconds)
