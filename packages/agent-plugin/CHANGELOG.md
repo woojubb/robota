@@ -1,5 +1,11 @@
 # @robota-sdk/agent-plugin
 
+## 3.0.0-beta.72
+
+### Patch Changes
+
+- @robota-sdk/agent-core@3.0.0-beta.72
+
 ## 3.0.0-beta.71
 
 ### Patch Changes
