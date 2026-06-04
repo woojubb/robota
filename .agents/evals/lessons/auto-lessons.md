@@ -17,11 +17,11 @@ Do not promote entries to `.agents/rules/common-mistakes.md` without human revie
 
 ## user-correction
 
-- Frequency: 6 events in the last 7 days
+- Frequency: 8 events in the last 7 days
 - Sources: corrections
 - Example paths: (none)
 - First seen: 2026-05-30T10:36:17.000Z
-- Last seen: 2026-05-31T08:26:17.000Z
+- Last seen: 2026-06-04T11:59:44.000Z
 - Status: candidate; human review is required before promotion.
 <!-- auto-lesson:same-file-edited-3-times -->
 
@@ -37,11 +37,11 @@ Do not promote entries to `.agents/rules/common-mistakes.md` without human revie
 
 ## repeated-tool-errors
 
-- Frequency: 69 events in the last 7 days
+- Frequency: 76 events in the last 7 days
 - Sources: reverts
 - Example paths: (none)
 - First seen: 2026-05-30T14:34:01.000Z
-- Last seen: 2026-05-31T10:12:09.000Z
+- Last seen: 2026-06-04T12:00:34.000Z
 - Status: candidate; human review is required before promotion.
 <!-- auto-lesson:try-catch-fallback -->
 
