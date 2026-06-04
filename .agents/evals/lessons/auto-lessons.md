@@ -27,21 +27,21 @@ Do not promote entries to `.agents/rules/common-mistakes.md` without human revie
 
 ## same-file-edited-3-times
 
-- Frequency: 3913 events in the last 7 days
+- Frequency: 3928 events in the last 7 days
 - Sources: reverts
 - Example paths: `/Users/jungyoun/.claude/projects/-Users-jungyoun-Documents-dev-robota/memory/MEMORY.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-003-cli-interaction-channel-abstraction.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-003-cli-runtime-io-abstraction.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-003-p1-interaction-channel-contracts.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-003-p2-input-parser-extraction.md`
 - First seen: 2026-05-30T10:40:28.000Z
-- Last seen: 2026-05-31T10:12:09.000Z
+- Last seen: 2026-06-04T13:09:43.000Z
 - Status: candidate; human review is required before promotion.
 <!-- auto-lesson:repeated-tool-errors -->
 
 ## repeated-tool-errors
 
-- Frequency: 76 events in the last 7 days
+- Frequency: 85 events in the last 7 days
 - Sources: reverts
 - Example paths: (none)
 - First seen: 2026-05-30T14:34:01.000Z
-- Last seen: 2026-06-04T12:00:34.000Z
+- Last seen: 2026-06-04T13:09:43.000Z
 - Status: candidate; human review is required before promotion.
 <!-- auto-lesson:try-catch-fallback -->
 

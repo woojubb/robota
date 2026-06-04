@@ -102,12 +102,14 @@
     "preserve-atomic-write-mode",
     "refine-cli-background-work-tree",
     "remove-automatic-memory-public-surface",
+    "resume-001-context-update-emit",
     "sandbox-snapshot-hydration",
     "self-hosting-loop-verification",
     "session-continue-resume",
     "streaming-debounce",
     "task-context-injection",
     "tool-execution-history-fix",
+    "tui-ime-blank-line-normal-flow",
     "universal-history-beta44",
     "workspace-manifest-sandbox"
   ]
