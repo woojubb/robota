@@ -26,7 +26,7 @@ function assistantMessage(inputTokens: number, outputTokens: number): TUniversal
 }
 
 describe('ContextWindowTracker', () => {
-  it('includes metadata-free prompt text even when previous provider usage exists', () => {
+  it('estimates tokens from serialized JSON — large user message dominates estimate', () => {
     const tracker = new ContextWindowTracker('claude-haiku-4-5', 200_000);
 
     tracker.updateFromHistory([assistantMessage(1_000, 100), userMessage('x'.repeat(320_000))]);

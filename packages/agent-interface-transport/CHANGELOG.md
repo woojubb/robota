@@ -1,5 +1,11 @@
 # @robota-sdk/agent-interface-transport
 
+## 3.0.0-beta.71
+
+### Patch Changes
+
+- fix(context): unify token estimation to single SSOT — status bar and /context list now use the same serialized JSON estimate
+
 ## 3.0.0-beta.70
 
 ## 3.0.0-beta.69

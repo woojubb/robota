@@ -40,7 +40,6 @@ export interface IInteractiveSessionRecord {
   memoryEvents?: IMemoryEvent[];
   usedMemoryReferences?: IMemoryReference[];
   contextReferences?: IContextReferenceItem[];
-  usedTokens?: number;
   sandboxSnapshotId?: string;
 }
 
