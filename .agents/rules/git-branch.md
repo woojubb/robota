@@ -51,6 +51,26 @@ start from an inconsistent baseline.
 - Conventional commit format: `<type>(<scope>): <message>` (max 72 chars).
 - Valid types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`, `perf`.
 
+### `--delete-branch` is Prohibited in `gh pr merge`
+
+**Never pass `--delete-branch` to `gh pr merge`. Zero exceptions.**
+
+```bash
+# WRONG — deletes the branch automatically:
+gh pr merge 670 --squash --delete-branch
+
+# CORRECT — merge only, no auto-deletion:
+gh pr merge 670 --squash --auto
+```
+
+Branches must only be deleted by explicit user request. Use `git branch -D <name>` (local) or
+`gh api -X DELETE repos/<owner>/<repo>/git/refs/heads/<name>` (remote) when the user says to delete a branch.
+
+**Why:** `--delete-branch` on a `develop → main` PR deleted the `develop` integration branch,
+breaking the entire branch structure and requiring manual restoration. Auto-deletion is safe only
+for short-lived feature branches, not for long-lived integration branches — and there is no way to
+distinguish them automatically.
+
 ### Branch Policy
 
 - `main` is the production branch. Direct commits, pushes, and merges to `main` are prohibited.
