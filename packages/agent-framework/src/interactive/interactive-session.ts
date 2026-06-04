@@ -207,6 +207,7 @@ export class InteractiveSession
     if (this.session && restored.pendingRestoreMessages === null) {
       // Injected-session path: messages were injected immediately — sync context estimate.
       this.session.syncContextFromHistory();
+      this.emit('context_update', this.getContextState());
     }
   }
 
@@ -247,6 +248,7 @@ export class InteractiveSession
     this.initialized = true;
     this.bgTracker.subscribe(this.session);
     this.persistCurrentSession();
+    this.emit('context_update', this.getContextState());
   }
 
   protected async ensureInitialized(): Promise<void> {
