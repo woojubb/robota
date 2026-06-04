@@ -4,7 +4,7 @@
  * Extracted from Session to separate context monitoring from conversation management.
  */
 
-import { estimateContextTokensFromMessages, getModelContextWindow } from '@robota-sdk/agent-core';
+import { estimateSerializedContextTokens, getModelContextWindow } from '@robota-sdk/agent-core';
 
 import type { IContextWindowState, TUniversalMessage } from '@robota-sdk/agent-core';
 
@@ -69,7 +69,7 @@ export class ContextWindowTracker {
    * execution guards reason about the same effective token state.
    */
   updateFromHistory(history: TUniversalMessage[]): void {
-    this.contextUsedTokens = estimateContextTokensFromMessages(history).usedTokens;
+    this.contextUsedTokens = estimateSerializedContextTokens(history);
   }
 
   /** Reset token tracking */
