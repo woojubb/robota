@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-session",
-  "version": "3.0.0-beta.71",
+  "version": "3.0.0-beta.72",
   "description": "Session and chat management for Robota SDK - multi-session support with independent workspaces",
   "type": "module",
   "main": "dist/node/index.js",
