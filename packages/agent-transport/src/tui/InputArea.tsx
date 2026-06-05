@@ -45,14 +45,14 @@ interface IProps {
  * Reference: https://github.com/anthropics/claude-code/issues/3045
  */
 /**
- * Layout constants for InputArea border box (columns).
+ * Layout constants for InputArea (columns).
  * Used to compute available text width from terminal columns.
  *
- * Box borderStyle="single" adds 1 column per side (left + right).
+ * Side borders removed — only top/bottom horizontal lines remain.
  * paddingLeft={1} adds 1 column inside the box.
  * Prompt "> " takes 2 columns.
  */
-const BORDER_HORIZONTAL = 2;
+const BORDER_HORIZONTAL = 0;
 const PADDING_LEFT = 1;
 const PROMPT_WIDTH = 2;
 const INPUT_AREA_OVERHEAD = BORDER_HORIZONTAL + PADDING_LEFT + PROMPT_WIDTH;
@@ -261,7 +261,14 @@ export default function InputArea({
         ) : null}
         {topBorder.right}
       </Text>
-      <Box borderStyle="single" borderTop={false} borderColor={borderColor} paddingLeft={1}>
+      <Box
+        borderStyle="single"
+        borderTop={false}
+        borderLeft={false}
+        borderRight={false}
+        borderColor={borderColor}
+        paddingLeft={1}
+      >
         {isAborting ? (
           <Text color="yellow"> Interrupting...</Text>
         ) : pendingPrompt ? (
