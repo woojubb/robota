@@ -237,9 +237,9 @@ export default function InputArea({
       const label = ` "${sessionName}" `;
       const rightPad = 2;
       const leftLen = Math.max(0, innerWidth - label.length - rightPad);
-      return { left: '┌' + '─'.repeat(leftLen), label, right: '─'.repeat(rightPad) + '┐' };
+      return { left: '─'.repeat(leftLen), label, right: '─'.repeat(rightPad) };
     }
-    return { left: '┌' + '─'.repeat(innerWidth), label: '', right: '┐' };
+    return { left: '─'.repeat(innerWidth), label: '', right: '' };
   })();
 
   return (
