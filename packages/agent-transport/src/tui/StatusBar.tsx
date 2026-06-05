@@ -183,13 +183,7 @@ export default function StatusBar({
   activeAgentLabel,
 }: IProps): React.ReactElement {
   return (
-    <Box
-      borderStyle="single"
-      borderColor="gray"
-      paddingLeft={1}
-      paddingRight={1}
-      justifyContent="space-between"
-    >
+    <Box paddingLeft={1} paddingRight={1} justifyContent="space-between">
       <StatusLeft
         permissionMode={permissionMode}
         modelName={modelName}

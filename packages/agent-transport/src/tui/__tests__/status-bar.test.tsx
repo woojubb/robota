@@ -134,7 +134,7 @@ describe('StatusBar', () => {
       />,
     );
     const frame = lastFrame()!;
-    const firstLine = frame.split('\n')[1] ?? '';
+    const firstLine = frame.split('\n')[0] ?? '';
     const activityEnd = firstLine.indexOf('test-model');
     const activitySegment = firstLine.slice(0, activityEnd);
     expect(activitySegment).toContain('Tools x12');
