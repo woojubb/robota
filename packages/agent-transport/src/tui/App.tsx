@@ -456,8 +456,6 @@ function AppInner(
         sessionName={sessionName}
         history={history}
       />
-      {/* Blank line for Korean IME — normal flow ensures it persists across remounts. */}
-      <Text> </Text>
       <SessionStatusBar
         cwd={cwd}
         permissionMode={permissionMode}
