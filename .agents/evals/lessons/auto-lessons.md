@@ -17,31 +17,31 @@ Do not promote entries to `.agents/rules/common-mistakes.md` without human revie
 
 ## user-correction
 
-- Frequency: 8 events in the last 7 days
+- Frequency: 9 events in the last 7 days
 - Sources: corrections
 - Example paths: (none)
 - First seen: 2026-05-30T10:36:17.000Z
-- Last seen: 2026-06-04T11:59:44.000Z
+- Last seen: 2026-06-04T13:13:39.000Z
 - Status: candidate; human review is required before promotion.
 <!-- auto-lesson:same-file-edited-3-times -->
 
 ## same-file-edited-3-times
 
-- Frequency: 3928 events in the last 7 days
+- Frequency: 128 events in the last 7 days
 - Sources: reverts
-- Example paths: `/Users/jungyoun/.claude/projects/-Users-jungyoun-Documents-dev-robota/memory/MEMORY.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-003-cli-interaction-channel-abstraction.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-003-cli-runtime-io-abstraction.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-003-p1-interaction-channel-contracts.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/ARCH-003-p2-input-parser-extraction.md`
-- First seen: 2026-05-30T10:40:28.000Z
-- Last seen: 2026-06-04T13:09:43.000Z
+- Example paths: `/Users/jungyoun/Documents/dev/robota/.agents/release-runs/3.0.0-beta.72.md`, `/Users/jungyoun/Documents/dev/robota/.agents/rules/publish.md`, `/Users/jungyoun/Documents/dev/robota/.agents/spec-docs/backlog/SCREEN-001-tui-input-border-cleanup.md`, `/Users/jungyoun/Documents/dev/robota/.agents/spec-docs/backlog/SCREEN-002-tui-statusbar-below-input.md`, `/Users/jungyoun/Documents/dev/robota/.agents/spec-docs/todo/SCREEN-001-tui-input-border-cleanup.md`
+- First seen: 2026-06-04T12:19:21.000Z
+- Last seen: 2026-06-08T13:18:48.000Z
 - Status: candidate; human review is required before promotion.
 <!-- auto-lesson:repeated-tool-errors -->
 
 ## repeated-tool-errors
 
-- Frequency: 85 events in the last 7 days
+- Frequency: 33 events in the last 7 days
 - Sources: reverts
 - Example paths: (none)
-- First seen: 2026-05-30T14:34:01.000Z
-- Last seen: 2026-06-04T13:09:43.000Z
+- First seen: 2026-06-04T11:20:51.000Z
+- Last seen: 2026-06-08T13:18:48.000Z
 - Status: candidate; human review is required before promotion.
 <!-- auto-lesson:try-catch-fallback -->
 
