@@ -79,14 +79,10 @@ export default function CjkTextInput({
     forceRender,
   });
 
-  // Do NOT call setCursorPosition() — passing y:0 moves the real terminal cursor
-  // to the top of the entire ink output (logo area), which causes Terminal.app to
-  // SIGSEGV when Korean IME queries attributedSubstringFromRange: at that position.
-  // Without setCursorPosition, the IME candidate window appears at bottom-left
-  // (same behavior as Claude Code, issue #19207), but Terminal.app does not crash.
-  //
-  // A correct fix would require knowing the total rendered height to pass the right
-  // y coordinate, which ink does not expose to components.
+  // Real terminal cursor positioning is intentionally omitted.
+  // setCursorPosition(x, 0) crashes Terminal.app via Korean IME SIGSEGV.
+  // Correct fix requires the input row's y offset from the bottom of the render,
+  // which Ink does not expose. Tracked as a known limitation.
 
   return (
     <Text>
