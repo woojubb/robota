@@ -1,5 +1,15 @@
 # @robota-sdk/agent-server
 
+## 3.0.1-beta.29
+
+### Patch Changes
+
+- @robota-sdk/agent-command@3.0.0-beta.73
+- @robota-sdk/agent-core@3.0.0-beta.73
+- @robota-sdk/agent-framework@3.0.0-beta.73
+- @robota-sdk/agent-provider@3.0.0-beta.73
+- @robota-sdk/agent-playground@3.0.0-beta.73
+
 ## 3.0.1-beta.28
 
 ### Patch Changes
