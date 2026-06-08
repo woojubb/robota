@@ -436,22 +436,6 @@ function AppInner(
         />
       )}
       <ContextWarningBanner percentage={contextState.percentage} />
-      <SessionStatusBar
-        cwd={cwd}
-        permissionMode={permissionMode}
-        modelId={props.modelId}
-        providerType={props.providerType}
-        sessionId={sessionId}
-        isThinking={isThinking}
-        activeToolCount={activeTools.length}
-        activeBackgroundTaskCount={activeBackgroundTaskCount}
-        hasPendingPrompt={pendingPrompt !== null}
-        contextState={contextState}
-        sessionName={sessionName}
-        settings={statusLineSettings}
-        activeAgentLabel={activeAgentLabel}
-        gitRefreshToken={gitRefreshToken}
-      />
       <InputArea
         onSubmit={handleSubmitWithGitRefresh}
         onCancelQueue={handleCancelQueue}
@@ -472,8 +456,22 @@ function AppInner(
         sessionName={sessionName}
         history={history}
       />
-      {/* Blank line for Korean IME — normal flow ensures it persists across remounts. */}
-      <Text> </Text>
+      <SessionStatusBar
+        cwd={cwd}
+        permissionMode={permissionMode}
+        modelId={props.modelId}
+        providerType={props.providerType}
+        sessionId={sessionId}
+        isThinking={isThinking}
+        activeToolCount={activeTools.length}
+        activeBackgroundTaskCount={activeBackgroundTaskCount}
+        hasPendingPrompt={pendingPrompt !== null}
+        contextState={contextState}
+        sessionName={sessionName}
+        settings={statusLineSettings}
+        activeAgentLabel={activeAgentLabel}
+        gitRefreshToken={gitRefreshToken}
+      />
     </Box>
   );
 }
