@@ -110,6 +110,7 @@
     "task-context-injection",
     "tool-execution-history-fix",
     "tui-ime-blank-line-normal-flow",
+    "tui-screen-001-002-border-cleanup",
     "universal-history-beta44",
     "workspace-manifest-sandbox"
   ]
