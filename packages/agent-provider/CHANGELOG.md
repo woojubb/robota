@@ -1,5 +1,11 @@
 # @robota-sdk/agent-provider
 
+## 3.0.0-beta.73
+
+### Patch Changes
+
+- @robota-sdk/agent-core@3.0.0-beta.73
+
 ## 3.0.0-beta.72
 
 ### Patch Changes

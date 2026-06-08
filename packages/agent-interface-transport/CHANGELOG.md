@@ -1,5 +1,7 @@
 # @robota-sdk/agent-interface-transport
 
+## 3.0.0-beta.73
+
 ## 3.0.0-beta.72
 
 ## 3.0.0-beta.71

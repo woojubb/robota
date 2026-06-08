@@ -1,5 +1,15 @@
 # @robota-sdk/agent-transport
 
+## 3.0.0-beta.73
+
+### Patch Changes
+
+- d4fd33f: TUI input area UX: remove side borders and status bar box (SCREEN-001), move status bar below input area (SCREEN-002), fix top border corner characters.
+  - @robota-sdk/agent-core@3.0.0-beta.73
+  - @robota-sdk/agent-framework@3.0.0-beta.73
+  - @robota-sdk/agent-interface-transport@3.0.0-beta.73
+  - @robota-sdk/agent-interface-tui@3.0.0-beta.73
+
 ## 3.0.0-beta.72
 
 ### Patch Changes
