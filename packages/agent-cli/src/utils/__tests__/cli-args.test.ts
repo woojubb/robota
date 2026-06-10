@@ -4,6 +4,7 @@ import {
   parseMaxTurns,
   parseOutputFormat,
   parseCliArgs,
+  parseToolList,
   printHelp,
 } from '../cli-args.js';
 
@@ -264,5 +265,67 @@ describe('help flag', () => {
     expect(output).toContain('--help');
     expect(output).toContain('--version');
     expect(output).toContain('-p');
+  });
+});
+
+describe('parseToolList', () => {
+  it('returns undefined for undefined input', () => {
+    expect(parseToolList(undefined)).toBeUndefined();
+  });
+
+  it('returns undefined for an empty string', () => {
+    expect(parseToolList('')).toBeUndefined();
+  });
+
+  it('splits a comma-separated list', () => {
+    expect(parseToolList('Read,Bash')).toEqual(['Read', 'Bash']);
+  });
+
+  it('trims entries and drops empties', () => {
+    expect(parseToolList(' Read , ,Bash ')).toEqual(['Read', 'Bash']);
+  });
+});
+
+describe('--dry-run permission mode alias', () => {
+  let originalArgv: string[];
+
+  beforeEach(() => {
+    originalArgv = process.argv;
+  });
+
+  afterEach(() => {
+    process.argv = originalArgv;
+  });
+
+  it('TC-03: maps --dry-run to permissionMode plan', () => {
+    process.argv = ['node', 'cli', '--dry-run'];
+    const args = parseCliArgs();
+    expect(args.dryRun).toBe(true);
+    expect(args.permissionMode).toBe('plan');
+  });
+
+  it('TC-03: accepts --dry-run with explicit --permission-mode plan', () => {
+    process.argv = ['node', 'cli', '--dry-run', '--permission-mode', 'plan'];
+    expect(parseCliArgs().permissionMode).toBe('plan');
+  });
+
+  it('TC-03: throws on --dry-run with a conflicting --permission-mode', () => {
+    process.argv = ['node', 'cli', '--dry-run', '--permission-mode', 'acceptEdits'];
+    expect(() => parseCliArgs()).toThrow(/--dry-run.*--permission-mode/);
+  });
+});
+
+describe('printHelp flag coverage', () => {
+  it('TC-04: lists --json-schema', () => {
+    expect(printHelp()).toContain('--json-schema');
+  });
+
+  it('TC-04: describes --dry-run as a plan-mode alias', () => {
+    expect(printHelp()).toMatch(/--dry-run\s+Alias for --permission-mode plan/);
+  });
+
+  it('TC-04: lists tool filter flags', () => {
+    expect(printHelp()).toContain('--allowed-tools');
+    expect(printHelp()).toContain('--denied-tools');
   });
 });

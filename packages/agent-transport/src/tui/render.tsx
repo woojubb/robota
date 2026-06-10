@@ -32,6 +32,8 @@ export interface IRenderOptions {
   language?: string;
   permissionMode?: TPermissionMode;
   maxTurns?: number;
+  allowedTools?: string[];
+  deniedTools?: string[];
   version?: string;
   sessionStore?: IInteractiveSessionStore;
   resumeSessionId?: string;
@@ -50,6 +52,34 @@ export interface IRenderOptions {
   agentName?: string;
 }
 
+/** Map render options to TuiInteractionChannel constructor options. */
+export function toChannelOptions(
+  options: IRenderOptions,
+  resumeSessionId?: string,
+): ConstructorParameters<typeof TuiInteractionChannel>[0] {
+  return {
+    cwd: options.cwd,
+    provider: options.provider,
+    permissionMode: options.permissionMode,
+    maxTurns: options.maxTurns,
+    allowedTools: options.allowedTools,
+    deniedTools: options.deniedTools,
+    sessionStore: options.sessionStore,
+    resumeSessionId,
+    forkSession: options.forkSession,
+    sessionName: options.sessionName,
+    backgroundTaskRunners: options.backgroundTaskRunners,
+    subagentRunnerFactory: options.subagentRunnerFactory,
+    commandModules: options.commandModules,
+    commandHostAdapters: options.commandHostAdapters,
+    shellExec: options.shellExec,
+    transportRegistry: options.transportRegistry,
+    language: options.language,
+    reloadPluginCommandSource: options.reloadPluginCommandSource,
+    agentName: options.agentName,
+  };
+}
+
 export async function renderApp(options: IRenderOptions): Promise<void> {
   process.on('unhandledRejection', (reason) => {
     process.stderr.write(`\n[UNHANDLED REJECTION] ${reason}\n`);
@@ -59,25 +89,7 @@ export async function renderApp(options: IRenderOptions): Promise<void> {
   });
 
   const createChannel = (resumeSessionId?: string): TuiInteractionChannel =>
-    new TuiInteractionChannel({
-      cwd: options.cwd,
-      provider: options.provider,
-      permissionMode: options.permissionMode,
-      maxTurns: options.maxTurns,
-      sessionStore: options.sessionStore,
-      resumeSessionId,
-      forkSession: options.forkSession,
-      sessionName: options.sessionName,
-      backgroundTaskRunners: options.backgroundTaskRunners,
-      subagentRunnerFactory: options.subagentRunnerFactory,
-      commandModules: options.commandModules,
-      commandHostAdapters: options.commandHostAdapters,
-      shellExec: options.shellExec,
-      transportRegistry: options.transportRegistry,
-      language: options.language,
-      reloadPluginCommandSource: options.reloadPluginCommandSource,
-      agentName: options.agentName,
-    });
+    new TuiInteractionChannel(toChannelOptions(options, resumeSessionId));
 
   const channel = createChannel(options.resumeSessionId);
 

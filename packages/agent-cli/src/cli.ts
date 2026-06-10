@@ -17,7 +17,7 @@ import {
   formatCliUpdateCheckMessage,
   formatCliUpdateNotice,
 } from '@robota-sdk/agent-framework';
-import { parseCliArgs, printHelp } from './utils/cli-args.js';
+import { parseCliArgs, parseToolList, printHelp } from './utils/cli-args.js';
 import type { IParsedCliArgs } from './utils/cli-args.js';
 import {
   ensureConfig,
@@ -197,6 +197,8 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     language: args.language,
     permissionMode: args.permissionMode,
     maxTurns: args.maxTurns,
+    allowedTools: parseToolList(args.allowedTools),
+    deniedTools: parseToolList(args.deniedTools),
     version,
     sessionStore: args.noSessionPersistence ? undefined : sessionStore,
     resumeSessionId,
