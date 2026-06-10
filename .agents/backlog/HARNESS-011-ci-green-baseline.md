@@ -45,3 +45,13 @@ behind the first one (fixing capability-placement immediately surfaced a hidden
 ## User Execution Test Scenarios
 
 Not applicable — CI/infra change; evidence is green pipeline runs on the PR.
+
+## Progress
+
+- (2026-06-11) Items 1-2 DONE via spec `HARNESS-011-ci-scan-aggregation` (PR feat/harness-ci-green):
+  compat-node18 excludes jest-based robota-web; `harness:scan` is now the aggregating
+  `run-all-scans.mjs` (all 22 scans report every run). De-masking fallout fixed in the same PR:
+  coverage-scripts (apps/action test:coverage) and docs-structure (DEMO-SCRIPT.md rename).
+  Remaining scope: item 3 (background-workspace 3 layering findings — the only red scan left,
+  21/22 green), item 4 (7 pre-existing failing harness unit tests in 3 test files), security
+  audit advisories, Cloudflare Pages check.

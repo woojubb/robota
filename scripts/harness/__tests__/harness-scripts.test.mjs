@@ -1,6 +1,10 @@
 import { existsSync, readFileSync } from 'node:fs';
 
 import { describe, it, expect } from 'vitest';
+
+// harness:scan delegates to the aggregating runner (HARNESS-011); wiring
+// assertions check the runner's scan table.
+const runAllScansSource = readFileSync(new URL('../run-all-scans.mjs', import.meta.url), 'utf8');
 import {
   parseScopeArgs,
   classifyScopeChanges,
@@ -240,7 +244,7 @@ describe('release governance scan', () => {
     expect(rootPackage.scripts['harness:release:report']).toBe(
       'node scripts/harness/release-run.mjs report',
     );
-    expect(rootPackage.scripts['harness:scan']).toContain('pnpm harness:scan:release-governance');
+    expect(runAllScansSource).toContain('check-release-governance.mjs');
     expect(script).toContain('Release Control Plane');
     expect(script).toContain('release-run.mjs');
     expect(script).toContain('checksRequiringPackageDist');
@@ -342,7 +346,7 @@ describe('command layering scan', () => {
     expect(rootPackage.scripts['harness:scan:commands']).toBe(
       'node scripts/harness/check-command-layering.mjs',
     );
-    expect(rootPackage.scripts['harness:scan']).toContain('pnpm harness:scan:commands');
+    expect(runAllScansSource).toContain('check-command-layering.mjs');
   });
 });
 
@@ -356,7 +360,7 @@ describe('SDK public surface scan', () => {
     expect(rootPackage.scripts['harness:scan:sdk-public-surface']).toBe(
       'node scripts/harness/check-sdk-public-surface.mjs',
     );
-    expect(rootPackage.scripts['harness:scan']).toContain('pnpm harness:scan:sdk-public-surface');
+    expect(runAllScansSource).toContain('check-sdk-public-surface.mjs');
   });
 });
 

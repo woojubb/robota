@@ -257,4 +257,6 @@ jobs:
         run: pnpm run build:deps
 
       - name: Test with coverage (excludes packages requiring Node 20+)
-        run: pnpm --filter !@robota-sdk/agent-cli run test -- --coverage --coverage.thresholds.lines=80
+        # robota-web (apps/agent-web) is a jest-based Next.js app, not a published
+        # Node-18 consumer surface; jest cannot parse the vitest coverage flags.
+        run: pnpm --filter !@robota-sdk/agent-cli --filter !robota-web run test -- --coverage --coverage.thresholds.lines=80
