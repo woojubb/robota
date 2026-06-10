@@ -110,6 +110,16 @@ src/
 
 `renderApp()` creates a `TuiInteractionChannel` (which owns `InteractiveSession`, `CommandRegistry`, and `TuiStateManager` creation) and then mounts the Ink `App` component. `App` subscribes to channel state via the `useTuiChannel` hook, which calls `channel.onChange` on each state change. User input is forwarded to `channel.handleInput()`; slash commands that need disambiguation call `channel.requestAction()`, which queues a pick/confirm dialog rendered by `App` and resolved via `channel.resolveAction()`.
 
+### TUI session-init polling
+
+`TuiInteractionChannel.start()` polls session readiness via
+`flows/session-init-poller.ts` (`createSessionInitPoller`): every 200ms it runs the readiness
+check; errors matching /not initialized/i are benign and retried until a 15s timeout, any other
+error fails immediately. On failure the channel sets the state-manager error flag and appends a
+`category: 'event'` / `type: 'session-init-error'` history entry so the user sees a message
+instead of an eternal spinner. The channel also subscribes to the session `memory_event` and
+re-syncs history so memory notices render in the transcript.
+
 ### Headless lifecycle
 
 `HeadlessInteractionChannel` owns session creation for non-interactive (print) mode. Callers construct `new HeadlessInteractionChannel(options)` and call `await channel.run(prompt)`. The channel creates `InteractiveSession`, runs `createHeadlessRunner`, and awaits completion. `channel.getExitCode()` returns `0` or `1`. The legacy `createHeadlessTransport` wrapper is retained for internal use by `headless-runner`.
