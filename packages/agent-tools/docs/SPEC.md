@@ -46,7 +46,7 @@ builtins/
   write-tool.ts         -- Write: write content to a file
   edit-tool.ts          -- Edit: replace a string in a file
   glob-tool.ts          -- Glob: find files matching a pattern (uses fast-glob)
-  grep-tool.ts          -- Grep: search file contents with regex
+  grep-tool.ts          -- Grep: regex content search (files_with_matches/content/count, headLimit)
   web-fetch-tool.ts     -- WebFetch: fetch URL content (HTML→text conversion); classifyFetchError exported
   web-search-tool.ts    -- WebSearch: web search via Brave Search API
 ```
@@ -137,17 +137,17 @@ Types owned by this package (SSOT):
 
 ### Built-in CLI Tools
 
-| Export               | Kind     | Tool Name   | Description                                        |
-| -------------------- | -------- | ----------- | -------------------------------------------------- |
-| `bashTool`           | Object   | `Bash`      | Execute shell commands via host process by default |
-| `readTool`           | Object   | `Read`      | Read file contents with line numbers (cat -n)      |
-| `writeTool`          | Object   | `Write`     | Write content to a file (creates parent dirs)      |
-| `editTool`           | Object   | `Edit`      | Replace a specific string in a file                |
-| `globTool`           | Object   | `Glob`      | Find files matching a glob pattern (fast-glob)     |
-| `grepTool`           | Object   | `Grep`      | Search file contents with regex patterns           |
-| `webFetchTool`       | Object   | `WebFetch`  | Fetch URL content with HTML-to-text conversion     |
-| `webSearchTool`      | Object   | `WebSearch` | Web search via Brave Search API                    |
-| `classifyFetchError` | Function | —           | Maps fetch errors to human-readable error strings  |
+| Export               | Kind     | Tool Name   | Description                                                                              |
+| -------------------- | -------- | ----------- | ---------------------------------------------------------------------------------------- |
+| `bashTool`           | Object   | `Bash`      | Execute shell commands via host process by default                                       |
+| `readTool`           | Object   | `Read`      | Read file contents with line numbers (cat -n)                                            |
+| `writeTool`          | Object   | `Write`     | Write content to a file (creates parent dirs)                                            |
+| `editTool`           | Object   | `Edit`      | Replace a specific string in a file                                                      |
+| `globTool`           | Object   | `Glob`      | Find files matching a glob pattern (fast-glob)                                           |
+| `grepTool`           | Object   | `Grep`      | Regex content search — modes: files_with_matches/content/count; `headLimit` caps results |
+| `webFetchTool`       | Object   | `WebFetch`  | Fetch URL content with HTML-to-text conversion                                           |
+| `webSearchTool`      | Object   | `WebSearch` | Web search via Brave Search API                                                          |
+| `classifyFetchError` | Function | —           | Maps fetch errors to human-readable error strings                                        |
 
 Each built-in tool is an `IToolWithEventService`-compatible object with `getName()`, `getDescription()`, `getSchema()`, and `execute()` methods.
 
