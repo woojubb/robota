@@ -1,7 +1,8 @@
 ---
 title: 'HARNESS-012: Lockfile consistency in local CI'
-status: todo
+status: done
 created: 2026-06-11
+completed: 2026-06-11
 priority: medium
 urgency: soon
 area: .claude/hooks, scripts
@@ -30,3 +31,7 @@ text to include lockfile consistency whenever any package.json dependency block 
 ## User Execution Test Scenarios
 
 Not applicable — local dev tooling.
+
+## Evidence
+
+- (2026-06-11) `assertLockfileConsistency()` in pre-push.mjs using `pnpm install --frozen-lockfile --lockfile-only` (0.47s sync / ERR_PNPM_OUTDATED_LOCKFILE on desync, both proven live); blocked message tested.
