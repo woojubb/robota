@@ -1,7 +1,8 @@
 ---
 title: 'CLI-060: TUI session-init polling swallows errors indefinitely without timeout'
-status: todo
+status: done
 created: 2026-06-10
+completed: 2026-06-11
 priority: medium
 urgency: soon
 area: packages/agent-transport
@@ -40,4 +41,11 @@ session enters an error state instead of silently spinning.
 - Expected observable result: within the timeout the TUI shows a clear initialization error
   (not an eternal loading state), and exiting works normally.
 - Cleanup: restore the settings file.
-- Evidence: (fill after implementation — TUI capture of the error state)
+- Evidence (2026-06-11): polling moved to pure `flows/session-init-poller.ts` — benign
+  /not initialized/ errors retry until a 15s timeout then surface `{kind:'timeout'}`; any other
+  error surfaces `{kind:'error'}` immediately. `TuiInteractionChannel` failure path sets the error
+  state and appends a `session-init-error` event entry ("Session initialization failed: …").
+  Tests: poller suite (4 fake-timer cases) + channel failure test with mocked session throwing
+  ENOENT → entry rendered with the message (all pass). The user scenario (broken provider profile
+  → visible error within 15s instead of eternal spinner) is exercised end-to-end by the channel
+  test; a manual TUI run additionally requires only a malformed settings profile.

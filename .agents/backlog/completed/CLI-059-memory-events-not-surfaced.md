@@ -1,7 +1,8 @@
 ---
 title: 'CLI-059: memory events captured but never emitted to listeners or rendered in TUI'
-status: todo
+status: done
 created: 2026-06-10
+completed: 2026-06-11
 priority: medium
 urgency: soon
 area: packages/agent-framework, packages/agent-transport
@@ -44,4 +45,11 @@ the SPEC boundary.
 - Expected observable result: a visible memory notice appears in the transcript (e.g.
   "memory captured: …") at the time of capture.
 - Cleanup: delete the captured memory via the `/memory` command.
-- Evidence: (fill after implementation — TUI capture showing the notice)
+- Evidence (2026-06-11): `memory_event` added to `IInteractiveSessionEvents`; tracker appends
+  `{category:'event', type:'memory-event', data.message}` history entries for user-visible types
+  (saved/approved/rejected/retrieved) via `formatMemoryEventMessage()` (SDK-owned wording) and
+  emits all types; TUI channel subscribes and re-syncs history, so notices render through the
+  generic `EventEntry` ("System: Memory saved: …"). Tests: tracker memory-events suite (7 cases),
+  interactive-session emit wiring test — all pass (framework 890/890, transport 458/458). Live TUI
+  capture of an automatic memory capture requires a provider key (none in this environment); the
+  render path is the same EventEntry used by skill activations, which is display-contract tested.
