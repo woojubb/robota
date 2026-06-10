@@ -910,9 +910,10 @@ robota --model <model>               # Model override
 robota --language <lang>             # Response language (ko, en, ja, zh)
 robota --permission-mode <mode>      # plan | default | acceptEdits | bypassPermissions
 robota --max-turns <n>               # Limit turns
-robota --allowed-tools <list>        # Comma-separated tool allowlist (passed to session)
-robota --denied-tools <list>         # Comma-separated tool denylist (passed to session)
-robota --dry-run                     # Plan-only mode: describe actions without executing writes
+robota --allowed-tools <list>        # Comma-separated tool allowlist (TUI and print mode)
+robota --denied-tools <list>         # Comma-separated tool denylist (TUI and print mode)
+robota --json-schema <schema>        # Print mode: require JSON output matching this schema
+robota --dry-run                     # Alias for --permission-mode plan (plan only, no execution)
 robota --output-format <fmt>         # text | json | stream-json (print mode only)
 robota --system-prompt <text>        # Replace system prompt (print mode only)
 robota --append-system-prompt <text> # Append to system prompt (print mode only)

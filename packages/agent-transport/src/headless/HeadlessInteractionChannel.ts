@@ -31,6 +31,7 @@ export interface IHeadlessInteractionChannelOptions {
   sessionName?: string;
   bare?: boolean;
   allowedTools?: string[];
+  deniedTools?: string[];
   appendSystemPrompt?: string;
   systemPrompt?: string;
   backgroundTaskRunners?: IBackgroundTaskRunner[];
@@ -63,6 +64,7 @@ export class HeadlessInteractionChannel {
       sessionName: this.opts.sessionName,
       bare: this.opts.bare || undefined,
       allowedTools: this.opts.allowedTools,
+      deniedTools: this.opts.deniedTools,
       appendSystemPrompt: this.opts.appendSystemPrompt,
       ...(this.opts.systemPrompt ? { systemPrompt: this.opts.systemPrompt } : {}),
       backgroundTaskRunners: this.opts.backgroundTaskRunners,
