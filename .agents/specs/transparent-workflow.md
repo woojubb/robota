@@ -194,3 +194,14 @@ files and no Robota local state inside the repository.
 - [Background work state management](../backlog/completed/cli-background-work-state-management.md)
 - [User-local memory transparency](../backlog/completed/cli-user-local-memory-transparency.md)
 - [Repository situational awareness](../backlog/completed/cli-repository-situational-awareness.md)
+
+## Event Continuity (mandatory)
+
+Every recorded user-meaningful event MUST define its full loop: emission (a typed session/runtime
+event listeners can subscribe to) and a render path (how the user sees it), or explicitly declare
+itself internal-only in the owning SPEC. Recording into internal state without an emission/render
+path is a broken disclosure loop.
+
+Incident (CLI-059, 2026-06-11): automatic-memory events were pushed into an internal array with
+no `memory_event` in `IInteractiveSessionEvents` and no TUI rendering — memory capture/recall was
+invisible to users until the loop was completed end-to-end.

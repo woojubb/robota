@@ -1,7 +1,8 @@
 ---
 title: 'HARNESS-006: CLI flag wiring check — parsed args must have consumers'
-status: todo
+status: done
 created: 2026-06-11
+completed: 2026-06-11
 priority: high
 urgency: soon
 area: packages/agent-cli, scripts/harness
@@ -31,3 +32,7 @@ asserting each help-listed flag maps to a wired field.
 ## User Execution Test Scenarios
 
 Not applicable — harness/internal tooling.
+
+## Evidence
+
+- (2026-06-11, approved form: CI-enforced unit test, not a repo scan) `cli-flag-wiring.test.ts` enumerates IParsedCliArgs from source and asserts consumers with a reasoned allowlist; first run caught disableUpdateCheck (cross-package pass-through, allowlisted with reason). agent-cli 107/107.
