@@ -1,7 +1,8 @@
 ---
 title: 'HARNESS-009: Minimum test coverage for permission/security modules'
-status: todo
+status: done
 created: 2026-06-11
+completed: 2026-06-11
 priority: medium
 urgency: soon
 area: packages/agent-core
@@ -30,3 +31,7 @@ item. Optionally a coverage threshold scoped to those directories in vitest conf
 ## User Execution Test Scenarios
 
 Not applicable — test/rule change.
+
+## Evidence
+
+- (2026-06-11, approved form: review rule, no numeric threshold) common-mistakes #59 requires unit tests for every security/permission decision branch, citing permission-gate.test.ts.
