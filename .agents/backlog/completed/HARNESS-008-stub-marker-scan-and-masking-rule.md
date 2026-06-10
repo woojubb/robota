@@ -1,7 +1,8 @@
 ---
 title: 'HARNESS-008: Stub-marker scan + no-success-masking rule'
-status: todo
+status: done
 created: 2026-06-11
+completed: 2026-06-11
 priority: high
 urgency: soon
 area: scripts/harness, .agents/rules
@@ -32,3 +33,7 @@ implemented…')` in its core execution path, and wrapped that permanent failure
 ## User Execution Test Scenarios
 
 Not applicable — harness/internal tooling and rules documentation.
+
+## Evidence
+
+- (2026-06-11) `check-stub-markers.mjs` implemented + 3 unit tests; live triage executed REL-003 (OpenAPITool removal); common-mistakes #57 added; scan green and registered.

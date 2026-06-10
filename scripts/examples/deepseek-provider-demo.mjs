@@ -2,7 +2,7 @@
 /**
  * deepseek-api-provider backlog User Execution Test Scenario
  *
- * Verifies that @robota-sdk/agent-provider-deepseek is a correctly implemented
+ * Verifies that @robota-sdk/agent-provider/deepseek is a correctly implemented
  * public SDK package and that DeepSeek is wired into the CLI default provider list.
  *
  * Scenarios:
@@ -11,7 +11,7 @@
  *   2. DEFAULT_PROVIDER_DEFINITIONS in agent-cli includes a DeepSeek entry
  *
  * Usage: node scripts/examples/deepseek-provider-demo.mjs
- * Prerequisites: pnpm build (agent-provider-deepseek and agent-cli dist must exist)
+ * Prerequisites: pnpm build (agent-provider and agent-cli dist must exist)
  */
 
 import { createRequire } from 'node:module';
@@ -37,7 +37,7 @@ console.log(
 );
 
 const { createDeepSeekProviderDefinition } = await import(
-  resolve(repoRoot, 'packages/agent-provider-deepseek/dist/node/index.js')
+  resolve(repoRoot, 'packages/agent-provider/dist/node/deepseek/index.js')
 );
 
 const def = createDeepSeekProviderDefinition();

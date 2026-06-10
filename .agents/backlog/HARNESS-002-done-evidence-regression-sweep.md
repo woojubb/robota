@@ -14,7 +14,9 @@ depends_on: []
 
 Done-backlog evidence became false over time with no alarm: CLI-033 claimed 10 headless E2E
 tests (files no longer exist), CLI-042 claimed grep parallelization (code is sequential again),
-CLI-046 claimed --denied-tools delivery (flag was never threaded). The done gate validates at
+CLI-046 claimed --denied-tools delivery (flag was never threaded). Additional case found
+2026-06-11: REL-003 (critical) sat in completed/ with status done while the OpenAPITool stub it
+was supposed to remove still existed — caught only by the new HARNESS-008 stub-marker scan. The done gate validates at
 completion time only; nothing re-validates later.
 
 ## Proposed Check

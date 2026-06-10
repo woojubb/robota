@@ -1,7 +1,8 @@
 ---
 title: 'HARNESS-003: SPEC file-path existence scan'
-status: todo
+status: done
 created: 2026-06-11
+completed: 2026-06-11
 priority: high
 urgency: soon
 area: scripts/harness
@@ -32,3 +33,7 @@ illustrative paths (e.g. `(planned)` suffix).
 ## User Execution Test Scenarios
 
 Not applicable — harness/internal tooling.
+
+## Evidence
+
+- (2026-06-11) `check-spec-paths.mjs` implemented + 5 unit tests; live triage fixed 23 real ghost paths across 3 SPECs; scan green and registered in harness:scan.
