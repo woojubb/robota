@@ -92,6 +92,9 @@ const DOCUMENTED_WORKSPACE_PATTERNS = [
   { pathPattern: /^apps\/agent-server$/, textPattern: /agent-server/ },
   { pathPattern: /^apps\/docs$/, textPattern: /(?:apps\/)?docs\// },
   { pathPattern: /^apps\/blog$/, textPattern: /(?:apps\/)?blog\// },
+  { pathPattern: /^apps\/action$/, textPattern: /(?:apps\/)?action\// },
+  { pathPattern: /^apps\/starter-nextjs$/, textPattern: /starter-nextjs\// },
+  { pathPattern: /^apps\/www$/, textPattern: /(?:apps\/)?www\// },
 ];
 
 async function pathExists(targetPath) {
