@@ -27,8 +27,6 @@ implementations/
     schema-converter.ts -- zodToJsonSchema: converts Zod schemas to JSON Schema
     parameter-validator.ts -- validateToolParameters / getValidationErrors / validateParameterType
     types.ts            -- FunctionTool-specific types
-  openapi-tool.ts       -- OpenAPITool: tool generated from OpenAPI spec
-  openapi-schema-converter.ts -- OpenAPI V3 → IToolSchema converter (findOperation, createSchemaFromOperation)
 types/
   tool-result.ts        -- TToolResult: result type for CLI tool invocations
 sandbox/
@@ -65,41 +63,40 @@ builtins/
 
 Types owned by this package (SSOT):
 
-| Type                                    | Kind      | File                                          | Description                                                         |
-| --------------------------------------- | --------- | --------------------------------------------- | ------------------------------------------------------------------- |
-| `TToolResult`                           | Interface | `types/tool-result.ts`                        | Result shape for CLI tool invocations                               |
-| `IZodSchema`                            | Interface | `implementations/function-tool/types.ts`      | Zod schema shape for function tools                                 |
-| `IZodParseResult`                       | Interface | `implementations/function-tool/types.ts`      | Zod parse result shape                                              |
-| `IZodSchemaDef`                         | Interface | `implementations/function-tool/types.ts`      | Zod schema definition shape                                         |
-| `IFunctionToolValidationOptions`        | Interface | `implementations/function-tool/types.ts`      | Validation options for function tools                               |
-| `ISchemaConversionOptions`              | Interface | `implementations/function-tool/types.ts`      | Options for Zod-to-JSON-Schema conversion                           |
-| `IFunctionToolExecutionMetadata`        | Interface | `implementations/function-tool/types.ts`      | Metadata returned by function tool execution                        |
-| `IFunctionToolResult`                   | Interface | `implementations/function-tool/types.ts`      | Extended result type for function tool execution                    |
-| `ISandboxClient`                        | Interface | `sandbox/types.ts`                            | Provider-neutral command, file, manifest, and snapshot sandbox port |
-| `ISandboxRunOptions`                    | Interface | `sandbox/types.ts`                            | Sandbox command execution options                                   |
-| `ISandboxRunResult`                     | Interface | `sandbox/types.ts`                            | Sandbox command execution result                                    |
-| `ISandboxToolOptions`                   | Interface | `sandbox/types.ts`                            | Built-in tool factory options for sandbox use                       |
-| `IWorkspaceManifest`                    | Interface | `sandbox/types.ts`                            | Declarative sandbox workspace setup contract                        |
-| `IWorkspaceManifestApplyOptions`        | Interface | `sandbox/types.ts`                            | Generic manifest application options                                |
-| `IWorkspaceManifestApplyResult`         | Interface | `sandbox/types.ts`                            | Per-entry manifest application result                               |
-| `IWorkspaceManifestAppliedEntry`        | Interface | `sandbox/types.ts`                            | Per-entry manifest application status                               |
-| `IWorkspaceManifestFileEntry`           | Interface | `sandbox/types.ts`                            | Inline file entry (content + optional encoding)                     |
-| `IWorkspaceManifestDirectoryEntry`      | Interface | `sandbox/types.ts`                            | Directory creation entry                                            |
-| `IWorkspaceManifestLocalFileEntry`      | Interface | `sandbox/types.ts`                            | Host-local file copy entry                                          |
-| `IWorkspaceManifestLocalDirectoryEntry` | Interface | `sandbox/types.ts`                            | Host-local directory copy entry                                     |
-| `IWorkspaceManifestGitRepositoryEntry`  | Interface | `sandbox/types.ts`                            | Git repository clone entry                                          |
-| `IWorkspaceManifestS3MountEntry`        | Interface | `sandbox/types.ts`                            | AWS S3 bucket mount entry                                           |
-| `IWorkspaceManifestGcsMountEntry`       | Interface | `sandbox/types.ts`                            | GCS bucket mount entry                                              |
-| `IWorkspaceManifestR2MountEntry`        | Interface | `sandbox/types.ts`                            | Cloudflare R2 bucket mount entry                                    |
-| `IWorkspaceManifestAzureBlobMountEntry` | Interface | `sandbox/types.ts`                            | Azure Blob Storage mount entry                                      |
-| `IWorkspaceManifestPermissions`         | Interface | `sandbox/types.ts`                            | Read/write path permission lists for a workspace manifest           |
-| `TWorkspaceManifestEntry`               | Type      | `sandbox/types.ts`                            | Union of all manifest entry types                                   |
-| `TWorkspaceManifestApplyStatus`         | Type      | `sandbox/types.ts`                            | `'applied' \| 'unsupported'` status for each applied manifest entry |
-| `TInMemorySandboxRunHandler`            | Type      | `sandbox/in-memory-sandbox-client.ts`         | Custom run handler for `InMemorySandboxClient`                      |
-| `IE2BSandboxAdapter`                    | Interface | `sandbox/e2b-sandbox-client.ts`               | Structural E2B-compatible adapter input                             |
-| `IE2BSandboxClientOptions`              | Interface | `sandbox/e2b-sandbox-client.ts`               | E2B adapter construction and restore options                        |
-| `IInMemorySandboxClientOptions`         | Interface | `sandbox/in-memory-sandbox-client.ts`         | In-memory sandbox construction options                              |
-| `THTTPMethod`                           | Type      | `implementations/openapi-schema-converter.ts` | HTTP method literal union used in OpenAPI tool creation             |
+| Type                                    | Kind      | File                                     | Description                                                         |
+| --------------------------------------- | --------- | ---------------------------------------- | ------------------------------------------------------------------- |
+| `TToolResult`                           | Interface | `types/tool-result.ts`                   | Result shape for CLI tool invocations                               |
+| `IZodSchema`                            | Interface | `implementations/function-tool/types.ts` | Zod schema shape for function tools                                 |
+| `IZodParseResult`                       | Interface | `implementations/function-tool/types.ts` | Zod parse result shape                                              |
+| `IZodSchemaDef`                         | Interface | `implementations/function-tool/types.ts` | Zod schema definition shape                                         |
+| `IFunctionToolValidationOptions`        | Interface | `implementations/function-tool/types.ts` | Validation options for function tools                               |
+| `ISchemaConversionOptions`              | Interface | `implementations/function-tool/types.ts` | Options for Zod-to-JSON-Schema conversion                           |
+| `IFunctionToolExecutionMetadata`        | Interface | `implementations/function-tool/types.ts` | Metadata returned by function tool execution                        |
+| `IFunctionToolResult`                   | Interface | `implementations/function-tool/types.ts` | Extended result type for function tool execution                    |
+| `ISandboxClient`                        | Interface | `sandbox/types.ts`                       | Provider-neutral command, file, manifest, and snapshot sandbox port |
+| `ISandboxRunOptions`                    | Interface | `sandbox/types.ts`                       | Sandbox command execution options                                   |
+| `ISandboxRunResult`                     | Interface | `sandbox/types.ts`                       | Sandbox command execution result                                    |
+| `ISandboxToolOptions`                   | Interface | `sandbox/types.ts`                       | Built-in tool factory options for sandbox use                       |
+| `IWorkspaceManifest`                    | Interface | `sandbox/types.ts`                       | Declarative sandbox workspace setup contract                        |
+| `IWorkspaceManifestApplyOptions`        | Interface | `sandbox/types.ts`                       | Generic manifest application options                                |
+| `IWorkspaceManifestApplyResult`         | Interface | `sandbox/types.ts`                       | Per-entry manifest application result                               |
+| `IWorkspaceManifestAppliedEntry`        | Interface | `sandbox/types.ts`                       | Per-entry manifest application status                               |
+| `IWorkspaceManifestFileEntry`           | Interface | `sandbox/types.ts`                       | Inline file entry (content + optional encoding)                     |
+| `IWorkspaceManifestDirectoryEntry`      | Interface | `sandbox/types.ts`                       | Directory creation entry                                            |
+| `IWorkspaceManifestLocalFileEntry`      | Interface | `sandbox/types.ts`                       | Host-local file copy entry                                          |
+| `IWorkspaceManifestLocalDirectoryEntry` | Interface | `sandbox/types.ts`                       | Host-local directory copy entry                                     |
+| `IWorkspaceManifestGitRepositoryEntry`  | Interface | `sandbox/types.ts`                       | Git repository clone entry                                          |
+| `IWorkspaceManifestS3MountEntry`        | Interface | `sandbox/types.ts`                       | AWS S3 bucket mount entry                                           |
+| `IWorkspaceManifestGcsMountEntry`       | Interface | `sandbox/types.ts`                       | GCS bucket mount entry                                              |
+| `IWorkspaceManifestR2MountEntry`        | Interface | `sandbox/types.ts`                       | Cloudflare R2 bucket mount entry                                    |
+| `IWorkspaceManifestAzureBlobMountEntry` | Interface | `sandbox/types.ts`                       | Azure Blob Storage mount entry                                      |
+| `IWorkspaceManifestPermissions`         | Interface | `sandbox/types.ts`                       | Read/write path permission lists for a workspace manifest           |
+| `TWorkspaceManifestEntry`               | Type      | `sandbox/types.ts`                       | Union of all manifest entry types                                   |
+| `TWorkspaceManifestApplyStatus`         | Type      | `sandbox/types.ts`                       | `'applied' \| 'unsupported'` status for each applied manifest entry |
+| `TInMemorySandboxRunHandler`            | Type      | `sandbox/in-memory-sandbox-client.ts`    | Custom run handler for `InMemorySandboxClient`                      |
+| `IE2BSandboxAdapter`                    | Interface | `sandbox/e2b-sandbox-client.ts`          | Structural E2B-compatible adapter input                             |
+| `IE2BSandboxClientOptions`              | Interface | `sandbox/e2b-sandbox-client.ts`          | E2B adapter construction and restore options                        |
+| `IInMemorySandboxClientOptions`         | Interface | `sandbox/in-memory-sandbox-client.ts`    | In-memory sandbox construction options                              |
 
 ## Public API Surface
 
@@ -196,7 +193,6 @@ This package does not define a custom error hierarchy. Built-in tools return err
 | Interface                      | Implementor             | Kind         | Location                                  |
 | ------------------------------ | ----------------------- | ------------ | ----------------------------------------- |
 | `IFunctionTool` (agent-core)   | `FunctionTool`          | production   | `src/implementations/function-tool.ts`    |
-| `ITool` (agent-core)           | `OpenAPITool`           | production   | `src/implementations/openapi-tool.ts`     |
 | `IToolRegistry` (agent-core)   | `ToolRegistry`          | production   | `src/registry/tool-registry.ts`           |
 | `ISandboxClient` (agent-tools) | `E2BSandboxClient`      | production   | `src/sandbox/e2b-sandbox-client.ts`       |
 | `ISandboxClient` (agent-tools) | `InMemorySandboxClient` | test/utility | `src/sandbox/in-memory-sandbox-client.ts` |
@@ -210,7 +206,6 @@ None. `FunctionTool` and `OpenAPITool` implement their respective interfaces dir
 | Port (Owner)                       | Consumer                                 | Location                                                                     |
 | ---------------------------------- | ---------------------------------------- | ---------------------------------------------------------------------------- |
 | `IFunctionTool` (agent-core)       | `FunctionTool`                           | `src/implementations/function-tool.ts`                                       |
-| `ITool` (agent-core)               | `OpenAPITool`                            | `src/implementations/openapi-tool.ts`                                        |
 | `IToolWithEventService` shape      | Built-in CLI tools                       | `src/builtins/*.ts`                                                          |
 | `ISandboxClient` (agent-tools)     | Built-in CLI tool factories              | `src/builtins/bash-tool.ts`, `read-tool.ts`, `write-tool.ts`, `edit-tool.ts` |
 | `IWorkspaceManifest` (agent-tools) | `agent-sdk` interactive session assembly | `packages/agent-framework/src/interactive/interactive-session-init.ts`       |
@@ -242,8 +237,6 @@ None. `FunctionTool` and `OpenAPITool` implement their respective interfaces dir
 - `zod` -- Schema validation for function tool parameters
 
 ### Dev (notable)
-
-- `openapi-types` -- OpenAPI V3 type definitions used in `OpenAPITool` type imports. Listed as devDependency since only type-level imports are used, but consumers using `OpenAPITool` may need this installed for `.d.ts` resolution.
 
 ### Peer (1)
 

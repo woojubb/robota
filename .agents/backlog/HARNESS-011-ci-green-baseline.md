@@ -32,7 +32,10 @@ behind the first one (fixing capability-placement immediately surfaced a hidden
    `missing-cli-sdk-detail-reader` — confirmed present on clean develop, masked behind the
    capability-placement failure in the && chain), security-audit advisories
    (dependency upgrades or documented waiver), Cloudflare Pages check.
-4. Target end state: overall run conclusion is green on develop; any red run means a NEW problem.
+4. 7 pre-existing failing harness unit tests (check-background-workspace-conformance,
+   check-capability-placement, check-command-layering test files — confirmed failing on clean
+   develop, 2026-06-11) must be repaired or their scans' fixtures updated.
+5. Target end state: overall run conclusion is green on develop; any red run means a NEW problem.
 
 ## Test Plan
 
