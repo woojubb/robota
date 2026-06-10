@@ -305,7 +305,7 @@ agent-cli ─→ agent-sdk ─→ agent-sessions ─→ agent-core
 
 ### Transport Registry
 
-The CLI assembles a `TransportRegistry` (`src/transports/transport-registry.ts`) and passes it to
+The CLI assembles a `TransportRegistry` via `createDefaultTransportRegistry()` (owned by `@robota-sdk/agent-transport`, `packages/agent-transport/src/transport-registry.ts`) and passes it to
 `renderApp()`. `renderApp()` creates a `TuiInteractionChannel` which starts all enabled transports
 against the active `InteractiveSession` it owns.
 
@@ -363,24 +363,13 @@ Supported commands:
 
 Defaults are `enabled=true` and `gitBranch=true`. The command emits the typed SDK `statusline-settings-patch` effect, `useSlashRouting` stores it as a pending command effect, and `useSideEffects` persists the setting and updates React state. `StatusBar` remains a pure renderer.
 
-### TUI Command Interaction Registry
+### TUI Command Interactions
 
-`src/tui-interactions/registry.ts` owns the mapping from system command names to TUI interaction behaviors. Every known system command must appear in `TUI_COMMAND_INTERACTIONS` — missing keys produce a TypeScript compile error (exhaustive `Record` type).
+TUI interaction behaviors (picker overlays, confirm dialogs) are not registered in a CLI-owned mapping. Command modules return an interaction (`TAnyTuiCommandInteraction`, owned by `@robota-sdk/agent-interface-tui`) as part of their command result; the TUI hook layer enqueues and renders it generically:
 
-```typescript
-export const TUI_COMMAND_INTERACTIONS: Record<
-  TSystemCommandName,
-  TAnyTuiCommandInteraction | undefined
-> = { ... };
-```
-
-- `undefined` — existing insert/submit behavior (intentional, no dialog needed)
 - `{ onMissingArgs: 'picker', getItems }` — opens a picker overlay
 - `{ onMissingArgs: 'confirm', message }` — opens a yes/no confirm dialog
-
-The registry exports `resolveInteraction(commandName)` which is passed as `IRenderOptions.resolveInteraction` to `renderApp()` and threaded through `TuiInteractionChannel` → `App` → `InputArea`.
-
-A runtime gate (`registry-coverage.test.ts`) verifies that every picker entry has a working `getItems()` and every confirm entry has a non-empty `message`.
+- no interaction — existing insert/submit behavior (intentional, no dialog needed)
 
 ### Command Module Composition
 
@@ -700,7 +689,7 @@ Plugin hook merging (resolving `${CLAUDE_PLUGIN_ROOT}` and merging hook groups) 
 
 ### App.tsx
 
-`App.tsx` is owned by `@robota-sdk/agent-transport-tui` (`src/App.tsx`). It is a thin JSX shell that:
+`App.tsx` is owned by `@robota-sdk/agent-transport` (`packages/agent-transport/src/tui/App.tsx`). It is a thin JSX shell that:
 
 - Calls `useTuiChannel` and `usePluginCallbacks`.
 - Applies typed command effects that require the host shell via `ITuiCliAdapter` (injected by `startCli()`).
@@ -1108,8 +1097,8 @@ When an Edit tool summary includes diff lines, the CLI shows a compact diff belo
 **Display format:**
 
 ```markdown
-✓ Edit(src/provider.ts)
-│ src/provider.ts
+✓ Edit(src/constants.ts)
+│ src/constants.ts
 `diff
     - 42 | const DEFAULT_MAX_TOKENS = 4096;
     + 42 | const maxTokens = getModelMaxOutput(modelId);

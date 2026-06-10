@@ -984,9 +984,6 @@ importers:
       '@robota-sdk/agent-core':
         specifier: workspace:*
         version: link:../agent-core
-      openapi-types:
-        specifier: ^12.1.3
-        version: 12.1.3
       rimraf:
         specifier: ^5.0.5
         version: 5.0.10

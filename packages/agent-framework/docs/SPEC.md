@@ -564,17 +564,17 @@ agent-executor (reusable runtime primitives — depends only on agent-core)
 agent-tools
 ├── src/builtins/             ← bash, read, write, edit, glob, grep, web-fetch, web-search tools
 ├── src/sandbox/              ← ISandboxClient, workspace manifest contracts, snapshot ports, E2B structural adapter, and in-memory contract adapter
-├── src/types/tool-result.ts  ← TToolResult
+├── packages/agent-tools/src/types/tool-result.ts  ← TToolResult
 └── (existing) FunctionTool, createZodFunctionTool, schema conversion
 
 agent-session (generic — depends only on agent-core)
-├── src/session.ts                ← Session: orchestrates run loop, delegates to sub-components
-├── src/permission-enforcer.ts    ← PermissionEnforcer: tool wrapping, permission checks, hooks, truncation
-├── src/context-window-tracker.ts ← ContextWindowTracker: token usage, auto-compact threshold
-├── src/compaction-orchestrator.ts ← CompactionOrchestrator: conversation summarization via LLM
-├── src/session-logger.ts         ← ISessionLogger + FileSessionLogger / SilentSessionLogger
-├── src/session-store.ts          ← SessionStore (JSON file persistence)
-└── src/index.ts
+├── packages/agent-session/src/session.ts                ← Session: orchestrates run loop, delegates to sub-components
+├── packages/agent-session/src/permission-enforcer.ts    ← PermissionEnforcer: tool wrapping, permission checks, hooks, truncation
+├── packages/agent-session/src/context-window-tracker.ts ← ContextWindowTracker: token usage, auto-compact threshold
+├── packages/agent-session/src/compaction-orchestrator.ts ← CompactionOrchestrator: conversation summarization via LLM
+├── packages/agent-session/src/session-logger.ts         ← ISessionLogger + FileSessionLogger / SilentSessionLogger
+├── packages/agent-session/src/session-store.ts          ← SessionStore (JSON file persistence)
+└── packages/agent-session/src/index.ts
 
 agent-framework (assembly layer — SDK-specific features only)
 ├── src/interactive/
@@ -620,8 +620,8 @@ agent-cli (Ink TUI — CLI-specific)
 │                                  SlashAutocomplete, CjkTextInput, WaveText, InkTerminal, render
 ├── src/permissions/            ← permission-prompt.ts (terminal arrow-key selection)
 ├── src/types.ts                ← ITerminalOutput, ISpinner (duplicate — SSOT is agent-session)
-├── src/cli.ts                  ← CLI argument parsing, Ink render
-└── src/bin.ts                  ← Binary entry point
+├── packages/agent-cli/src/cli.ts                  ← CLI argument parsing, Ink render
+└── packages/agent-cli/src/bin.ts                  ← Binary entry point
 ```
 
 ## Feature Details

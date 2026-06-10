@@ -1,7 +1,8 @@
 ---
 title: 'HARNESS-004: Workspace package-name reference resolution scan'
-status: todo
+status: done
 created: 2026-06-11
+completed: 2026-06-11
 priority: high
 urgency: soon
 area: scripts/harness
@@ -31,3 +32,7 @@ existing workspace package name.
 ## User Execution Test Scenarios
 
 Not applicable — harness/internal tooling.
+
+## Evidence
+
+- (2026-06-11) `check-workspace-refs.mjs` implemented + 3 unit tests; live triage fixed root package.json web:\* filters, agent-server-boundary forbidden lists, deepseek demo paths; scan green and registered.
