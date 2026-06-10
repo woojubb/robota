@@ -1,7 +1,8 @@
 ---
 title: 'CLI-057: Grep tool description advertises count mode and head_limit that do not exist'
-status: todo
+status: done
 created: 2026-06-10
+completed: 2026-06-11
 priority: high
 urgency: soon
 area: packages/agent-tools
@@ -44,4 +45,9 @@ Grep tool with count mode"`.
   transcript) and returns counts (if implemented) or the agent uses a supported mode without
   emitting invalid parameters (if description was reduced).
 - Cleanup: none.
-- Evidence: (fill after implementation — transcript excerpt of the Grep tool call and result)
+- Evidence (2026-06-11): implemented (preferred option). `grep-tool.test.ts` 9/9 pass — count mode
+  returns `path:count` rows; `headLimit: 2` caps to 2 rows + `(+1 more results truncated by
+headLimit)` marker; schema rejects `headLimit: 0`; description now lists exactly the three real
+  modes and `headLimit` (camelCase, matching sibling fields). Live-LLM transcript portion of the
+  scenario requires a provider key (none configured in this environment); schema-validation
+  acceptance of `outputMode: 'count'` is unit-proven so the invalid-call failure mode is gone.
