@@ -42,6 +42,20 @@ description: Defines a practical testing strategy for TypeScript and JavaScript 
 - Integration: minimal fixture setup, real wiring for one boundary.
 - Type-level: `expectTypeOf` for generic and inference guarantees.
 
+## Worker-Thread Environment Gotchas
+
+- `vi.stubEnv('HOME', …)` (and any `process.env` mutation) does NOT propagate to native APIs
+  such as `os.homedir()` inside vitest worker threads — the native environment is a snapshot.
+  Tests that "stub HOME" and then call code using `os.homedir()` silently exercise the real
+  home directory.
+- Never freeze user/project paths into module-level constants
+  (`const MARKER = userPaths().onboarded` at top level) — the path is resolved at import time
+  and cannot be redirected by any test.
+- Correct pattern: resolve lazily and accept an injectable default parameter, e.g.
+  `export function isFirstRun(markerPath = userPaths().onboarded)` — production callers pass
+  nothing; tests pass a temp path (incident + fix: agent-cli `startup/first-run.ts`,
+  2026-06-11).
+
 ## Checklist
 
 - [ ] New behavior has at least one unit test.
