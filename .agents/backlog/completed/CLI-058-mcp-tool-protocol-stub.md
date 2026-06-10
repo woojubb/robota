@@ -1,7 +1,8 @@
 ---
 title: 'CLI-058: agent-tool-mcp protocol and connection layers are stubs — tool always fails'
-status: todo
+status: done
 created: 2026-06-10
+completed: 2026-06-11
 priority: critical
 urgency: soon
 area: packages/agent-tool-mcp
@@ -55,4 +56,13 @@ execute paths are required either way.
   result data (not "Not implemented"); killing the server makes the next call fail with a clear
   connection error.
 - Cleanup: stop the local server.
-- Evidence: (fill after implementation — example output for success and failure cases)
+- Evidence (2026-06-11): implemented a real MCP client over Streamable HTTP (decision: implement,
+  zero new dependencies — global fetch). The User Execution Test Scenario's required fixture (a
+  local mock MCP server) was built at `packages/agent-tool-mcp/src/__tests__/mock-mcp-server.ts`
+  and the scenario is executed by the integration suite (9/9 pass): real round-trip
+  initialize → notifications/initialized → tools/call returning actual result text
+  ("echoed: hi" — not "Not implemented"), and killing/refusing the server produces a clear
+  thrown connection error with status 'error'. JSON-RPC errors and isError results now THROW
+  ToolExecutionError (success-masking removed); timeout/retries/headers/apiKey all honored and
+  asserted server-side; Mcp-Session-Id echoed; DELETE on disconnect. SPEC.md rewritten; unused
+  peer deps removed.

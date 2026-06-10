@@ -46,6 +46,6 @@ session enters an error state instead of silently spinning.
   error surfaces `{kind:'error'}` immediately. `TuiInteractionChannel` failure path sets the error
   state and appends a `session-init-error` event entry ("Session initialization failed: …").
   Tests: poller suite (4 fake-timer cases) + channel failure test with mocked session throwing
-  ENOENT → entry rendered with the message (all pass). The user scenario (broken provider profile
+  ENOENT → entry rendered with the message (all pass). The user execution test scenario (broken provider profile
   → visible error within 15s instead of eternal spinner) is exercised end-to-end by the channel
   test; a manual TUI run additionally requires only a malformed settings profile.
