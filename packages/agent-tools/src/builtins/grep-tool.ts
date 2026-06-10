@@ -1,9 +1,12 @@
 /**
  * GrepTool — recursive regex content search.
  *
- * Supports two output modes:
+ * Supports three output modes:
  * - files_with_matches (default): return only file paths that contain a match
  * - content: return matching lines with optional context lines
+ * - count: return per-file match counts as "path:count" rows
+ *
+ * headLimit caps the number of result lines; excess is truncated with a marker.
  */
 
 import { readFile, readdir, stat } from 'node:fs/promises';
@@ -34,10 +37,18 @@ const GrepSchema = z.object({
       'Number of context lines to show before and after each match. Only applies when outputMode is "content". Default: 0',
     ),
   outputMode: z
-    .enum(['files_with_matches', 'content'])
+    .enum(['files_with_matches', 'content', 'count'])
     .optional()
     .describe(
-      'Output mode: "files_with_matches" shows only file paths (default), "content" shows matching lines with context',
+      'Output mode: "files_with_matches" shows only file paths (default), "content" shows matching lines with context, "count" shows per-file match counts',
+    ),
+  headLimit: z
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .describe(
+      'Maximum number of result lines (file paths, content lines, or count rows) to return. Excess results are truncated with a marker line',
     ),
 });
 
@@ -101,7 +112,7 @@ function searchFile(
   filePath: string,
   regex: RegExp,
   contextLines: number,
-  outputMode: 'files_with_matches' | 'content',
+  outputMode: 'files_with_matches' | 'content' | 'count',
 ): string[] {
   const lines = content.split('\n');
   const matchingIndices: number[] = [];
@@ -116,6 +127,10 @@ function searchFile(
 
   if (outputMode === 'files_with_matches') {
     return [filePath];
+  }
+
+  if (outputMode === 'count') {
+    return [`${filePath}:${matchingIndices.length}`];
   }
 
   // content mode — include context lines
@@ -154,6 +169,7 @@ async function grepFileTool(args: TGrepArgs): Promise<string> {
     glob,
     contextLines = 0,
     outputMode = 'files_with_matches',
+    headLimit,
   } = args;
   const targetPath = searchPath ? resolve(searchPath) : process.cwd();
 
@@ -214,9 +230,18 @@ async function grepFileTool(args: TGrepArgs): Promise<string> {
     allOutputLines.push(...fileMatches);
   }
 
+  let outputLines = allOutputLines;
+  if (headLimit !== undefined && outputLines.length > headLimit) {
+    const truncatedCount = outputLines.length - headLimit;
+    outputLines = [
+      ...outputLines.slice(0, headLimit),
+      `(+${truncatedCount} more results truncated by headLimit)`,
+    ];
+  }
+
   const result: TToolResult = {
     success: true,
-    output: allOutputLines.length > 0 ? allOutputLines.join('\n') : '(no matches)',
+    output: outputLines.length > 0 ? outputLines.join('\n') : '(no matches)',
   };
   return JSON.stringify(result);
 }
@@ -226,7 +251,7 @@ async function grepFileTool(args: TGrepArgs): Promise<string> {
  */
 export const grepTool = createZodFunctionTool(
   'Grep',
-  "A powerful search tool built on regex matching.\n\nSupports full regex syntax (e.g., 'log.*Error', 'function\\\\s+\\\\w+'). Filter files with glob parameter (e.g., '*.js', '**/*.tsx').\n\nOutput modes: 'content' shows matching lines with context, 'files_with_matches' shows only file paths (default), 'count' shows match counts.\n\nUse this tool for ALL search tasks. NEVER invoke grep or rg as a Bash command.\n\nUse head_limit to control result size and save context space.",
+  "A powerful search tool built on regex matching.\n\nSupports full regex syntax (e.g., 'log.*Error', 'function\\\\s+\\\\w+'). Filter files with glob parameter (e.g., '*.js', '**/*.tsx').\n\nOutput modes: 'content' shows matching lines with context, 'files_with_matches' shows only file paths (default), 'count' shows per-file match counts.\n\nUse this tool for ALL search tasks. NEVER invoke grep or rg as a Bash command.\n\nUse headLimit to control result size and save context space.",
   GrepSchema,
   async (params) => {
     return grepFileTool(params as TGrepArgs);
