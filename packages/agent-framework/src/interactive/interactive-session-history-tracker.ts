@@ -18,6 +18,10 @@ import {
   clearContextReferences,
   removeContextReference,
 } from '../context/context-reference-inventory.js';
+import {
+  VISIBLE_MEMORY_EVENT_TYPES,
+  formatMemoryEventMessage,
+} from '../memory/memory-event-format.js';
 
 import type {
   IEditCheckpointInspection,
@@ -34,7 +38,7 @@ import type {
 } from '../context/context-reference-inventory.js';
 import type { IPromptFileReferenceRecord } from '../context/prompt-file-references.js';
 import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
-import type { IHistoryEntry } from '@robota-sdk/agent-core';
+import type { IHistoryEntry, TUniversalValue } from '@robota-sdk/agent-core';
 
 export interface IHistoryTrackerState {
   history: IHistoryEntry[];
@@ -59,6 +63,7 @@ export class SessionHistoryTracker {
     private readonly getExecuting: () => boolean,
     private readonly persistSession: () => void,
     private readonly emitSkillActivation: (event: ISkillActivationEvent) => void,
+    private readonly emitMemoryEvent: (event: IMemoryEvent) => void,
     editCheckpointStore: EditCheckpointStore | null = null,
   ) {
     this.editCheckpointStore = editCheckpointStore;
@@ -184,6 +189,19 @@ export class SessionHistoryTracker {
 
   recordMemoryEvent(event: IMemoryEvent): void {
     this.memoryEvents.push(event);
+    if (VISIBLE_MEMORY_EVENT_TYPES.has(event.type)) {
+      this.history.push({
+        id: randomUUID(),
+        timestamp: new Date(event.at),
+        category: 'event',
+        type: 'memory-event',
+        data: {
+          ...(event as unknown as Record<string, TUniversalValue>),
+          message: formatMemoryEventMessage(event),
+        },
+      });
+    }
+    this.emitMemoryEvent(event);
     this.persistSession();
   }
 

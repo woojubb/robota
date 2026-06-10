@@ -949,10 +949,6 @@ importers:
         version: 1.6.1(@types/node@22.16.5)
 
   packages/agent-tool-mcp:
-    dependencies:
-      '@modelcontextprotocol/sdk':
-        specifier: ^1.29.0
-        version: 1.29.0(zod@3.25.76)
     devDependencies:
       '@robota-sdk/agent-core':
         specifier: workspace:*

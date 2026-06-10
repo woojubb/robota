@@ -5,6 +5,7 @@ import { HeadlessInteractionChannel } from '@robota-sdk/agent-transport/headless
 import type { IBackgroundTaskRunner } from '@robota-sdk/agent-executor';
 import type { createChildProcessSubagentRunnerFactory } from '@robota-sdk/agent-subagent-runner';
 import type { IParsedCliArgs } from '../utils/cli-args.js';
+import { parseToolList } from '../utils/cli-args.js';
 import { buildAppendSystemPrompt } from '../startup/append-system-prompt.js';
 
 export async function runPrintMode(
@@ -43,12 +44,8 @@ export async function runPrintMode(
     sessionStore: args.noSessionPersistence ? undefined : sessionStore,
     sessionName: args.sessionName,
     bare: args.bare || undefined,
-    allowedTools: args.allowedTools
-      ? args.allowedTools
-          .split(',')
-          .map((t) => t.trim())
-          .filter((t) => t.length > 0)
-      : undefined,
+    allowedTools: parseToolList(args.allowedTools),
+    deniedTools: parseToolList(args.deniedTools),
     appendSystemPrompt,
     ...(args.systemPrompt ? { systemPrompt: args.systemPrompt } : {}),
     backgroundTaskRunners,

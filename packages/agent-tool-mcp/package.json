@@ -34,9 +34,7 @@
     "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
   },
   "peerDependencies": {
-    "@robota-sdk/agent-core": "workspace:*",
-    "@robota-sdk/agent-tools": "workspace:*",
-    "@modelcontextprotocol/sdk": "^1.29.0"
+    "@robota-sdk/agent-core": "workspace:*"
   },
   "devDependencies": {
     "@robota-sdk/agent-core": "workspace:*",

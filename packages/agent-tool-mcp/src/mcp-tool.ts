@@ -4,8 +4,10 @@ import {
   type IMCPConfig,
   type TMCPConnectionStatus,
   buildMCPRequest,
-  executeMCPRequest,
+  initializeMCPSession,
   processMCPResponse,
+  sendMCPRequest,
+  terminateMCPSession,
 } from './mcp-protocol';
 
 import type {
@@ -32,6 +34,7 @@ export class MCPTool implements ITool {
   readonly schema: IToolSchema;
   private readonly mcpConfig: IMCPConfig;
   private connectionStatus: TMCPConnectionStatus = 'disconnected';
+  private sessionId: string | undefined;
 
   constructor(config: IMCPConfig, schema: IToolSchema) {
     this.mcpConfig = {
@@ -58,13 +61,21 @@ export class MCPTool implements ITool {
         await this.ensureConnection();
       }
 
-      // Build MCP request
-      const mcpRequest = buildMCPRequest(toolName, parameters, this.mcpConfig.headers);
+      // Build MCP request (spec-conformant tools/call params)
+      const mcpRequest = buildMCPRequest(toolName, parameters);
 
-      // Execute MCP call
-      const mcpResponse = await executeMCPRequest(mcpRequest, this.mcpConfig.endpoint);
+      // Execute MCP call over Streamable HTTP
+      const { response: mcpResponse, sessionId } = await sendMCPRequest(
+        mcpRequest,
+        this.mcpConfig,
+        this.sessionId,
+      );
+      this.sessionId = sessionId ?? this.sessionId;
+      if (mcpResponse === null) {
+        throw new Error('MCP server returned no response for tools/call');
+      }
 
-      // Process response
+      // Process response — throws on JSON-RPC errors and isError results
       const executionResult = processMCPResponse(mcpResponse);
       const executionTime = Date.now() - startTime;
 
@@ -163,12 +174,7 @@ export class MCPTool implements ITool {
     this.connectionStatus = 'connecting';
 
     try {
-      // TODO: Implement actual MCP connection logic
-      // This would typically involve WebSocket or HTTP connection
-
-      // Simulate connection delay
-      await new Promise((resolve) => setTimeout(resolve, CONNECTION_CHECK_INTERVAL_MS));
-
+      this.sessionId = await initializeMCPSession(this.mcpConfig);
       this.connectionStatus = 'connected';
     } catch (error) {
       this.connectionStatus = 'error';
@@ -193,7 +199,8 @@ export class MCPTool implements ITool {
       this.connectionStatus = 'disconnecting';
 
       try {
-        // TODO: Implement actual disconnection logic
+        await terminateMCPSession(this.mcpConfig, this.sessionId);
+        this.sessionId = undefined;
         this.connectionStatus = 'disconnected';
       } catch (error) {
         this.connectionStatus = 'error';

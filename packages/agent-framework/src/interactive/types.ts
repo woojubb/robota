@@ -9,6 +9,7 @@ import type {
 } from '../background-tasks/index.js';
 import type { ISkillActivationEvent } from '../commands/skill-activation-events.js';
 import type { IPromptFileReferenceRecord } from '../context/prompt-file-references.js';
+import type { IMemoryEvent } from '../memory/automatic-memory-types.js';
 import type { IContextWindowState, TToolArgs, IHistoryEntry } from '@robota-sdk/agent-core';
 import type { ICompactEvent } from '@robota-sdk/agent-session';
 
@@ -88,6 +89,8 @@ export interface IInteractiveSessionEvents {
   user_message: (content: string) => void;
   /** Emitted when a context file (AGENTS.md or CLAUDE.md) is refreshed due to staleness. */
   context_file_refreshed: (event: IContextFileRefreshedEvent) => void;
+  /** Emitted for every automatic-memory pipeline event (capture, approval, retrieval). */
+  memory_event: (event: IMemoryEvent) => void;
 }
 
 /** Emitted when a context file is found stale and re-read before a turn. */

@@ -19,6 +19,7 @@ function createTracker(): SessionHistoryTracker {
     () => false,
     vi.fn(),
     vi.fn(),
+    vi.fn(),
   );
 }
 

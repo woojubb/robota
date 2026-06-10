@@ -587,3 +587,73 @@ Epic: [PLG-008](PLG-008-visual-agent-builder-playground.md)
 | [REL-019](REL-019-community-channel-setup.md)      | 커뮤니티 채널 개설 (GitHub Discussions / Discord) | low      |
 | [REL-020](REL-020-error-handling-guide.md)         | 공개 에러 핸들링 가이드 작성                      | low      |
 | [REL-021](REL-021-fix-provider-tui-gemma-label.md) | provider 설정 TUI "Gemma / LM Studio" 레이블 수정 | low      |
+
+### agent-cli Incomplete Features Audit (2026-06-10)
+
+CLI 제품의 기존 기본 기능 중 미완성/회귀 상태로 확인된 항목. 4개 영역(agent-cli 본체, 슬래시
+커맨드, TUI/세션, 내장 도구) 병렬 감사 + 코드 교차 검증 결과. CLI-049/050/051/052는 완료된
+백로그(PM-033, PM-024, PM-023, UX-002/CLI-029)가 이후 startup 리팩터링(`a12a3348d`)에서 회귀된
+사례.
+
+#### Critical — 문서화된 커맨드/패키지가 동작하지 않음
+
+| ID                                                       | 제목                                                                            | 우선순위 |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------- | -------- |
+| [CLI-049](completed/CLI-049-init-command-unreachable.md) | `robota init` positional 디스패치 누락 — runInitCommand orphan (PM-033 회귀)    | critical |
+| [CLI-050](completed/CLI-050-diagnose-command-missing.md) | `robota diagnose` 구현 파일 삭제됨 — SPEC/웰컴 문구는 여전히 안내 (PM-024 회귀) | critical |
+| [CLI-058](completed/CLI-058-mcp-tool-protocol-stub.md)   | agent-tool-mcp 프로토콜/연결 계층 전체 stub — 모든 MCP 도구 호출 실패           | critical |
+
+#### High — 플래그/도구 계약 불일치
+
+| ID                                                                    | 제목                                                                           | 우선순위 |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------------------ | -------- |
+| [CLI-051](completed/CLI-051-first-run-welcome-orphaned.md)            | first-run 웰컴 온보딩 함수 orphan — 시작 경로에서 미호출 (PM-023 회귀)         | high     |
+| [CLI-053](completed/CLI-053-tool-filter-flags-not-threaded.md)        | `--denied-tools` 미소비 + TUI 모드에 allowed/denied 모두 미전달 (CLI-046 후속) | high     |
+| [CLI-054](completed/CLI-054-dry-run-flag-unwired.md)                  | `--dry-run` help 광고와 달리 완전 미연결 — 안전 플래그 무음 무시               | high     |
+| [CLI-057](completed/CLI-057-grep-tool-schema-description-mismatch.md) | Grep 도구 description의 `count` 모드·`head_limit` 파라미터가 스키마에 없음     | high     |
+
+#### Medium / Low — 부분 동작·가시성 결함
+
+| ID                                                            | 제목                                                                         | 우선순위 |
+| ------------------------------------------------------------- | ---------------------------------------------------------------------------- | -------- |
+| [CLI-052](completed/CLI-052-terminal-app-warning-orphaned.md) | macOS Terminal.app CJK 경고 함수 orphan — 미호출 (UX-002 회귀)               | medium   |
+| [CLI-056](completed/CLI-056-spec-stale-startup-claims.md)     | agent-cli SPEC.md 구식 주장 — preflight.ts/diagnose 목록, system-prompt 주석 | medium   |
+| [CLI-059](completed/CLI-059-memory-events-not-surfaced.md)    | 메모리 이벤트 내부 기록만 되고 이벤트 미발행·TUI 미표시                      | medium   |
+| [CLI-060](completed/CLI-060-tui-init-polling-no-timeout.md)   | TUI 세션 초기화 폴링이 오류를 무한정 무음 삼킴 — 타임아웃 없음               | medium   |
+| [CLI-061](CLI-061-ime-last-character-drop.md)                 | 한국어 IME 마지막 글자 Enter 시 유실                                         | medium   |
+| [CLI-055](completed/CLI-055-json-schema-flag-undocumented.md) | `--json-schema` 동작하지만 help 미기재                                       | low      |
+| [CLI-062](CLI-062-cjk-cursor-positioning-disabled.md)         | CJK 입력 실제 커서 위치 동기화 비활성 (Terminal.app SIGSEGV 우회 상태)       | low      |
+
+### Harness Lessons — 2026-06-10/11 감사·구현 세션 교훈 (2026-06-11)
+
+agent-cli 미완성 기능 감사(CLI-049~060)와 구현 5개 PR 과정에서 드러난 프로세스/하네스 공백.
+각 항목은 "사건 → 기계적 검사/규칙" 구조로, 같은 실수의 재발을 하네스 차원에서 차단한다.
+
+#### Critical — 이번 감사 비용의 직접 원인
+
+| ID                                               | 제목                                                                                                              | 우선순위 |
+| ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- | -------- |
+| [HARNESS-001](HARNESS-001-orphan-export-scan.md) | orphan-export 스캔 — 리팩터링이 죽인 기능 검출 (PM-023/024 회귀 근본 원인)                                        | critical |
+| [HARNESS-011](HARNESS-011-ci-green-baseline.md)  | CI 그린 베이스라인 — 상시 빨간 CI가 진짜 실패를 가림 (compat-node18 jest 인자, release-grade && 체인 마스킹 포함) | critical |
+
+#### High
+
+| ID                                                              | 제목                                                               | 우선순위 |
+| --------------------------------------------------------------- | ------------------------------------------------------------------ | -------- |
+| [HARNESS-002](HARNESS-002-done-evidence-regression-sweep.md)    | done 백로그 증거 회귀 스윕 — 증거가 가리키는 테스트 파일 실재 검증 | high     |
+| [HARNESS-003](HARNESS-003-spec-file-path-existence.md)          | SPEC 파일경로 실재 스캔 — 삭제된 파일 참조 검출                    | high     |
+| [HARNESS-004](HARNESS-004-workspace-name-reference-scan.md)     | workspace 패키지명 참조 해석 스캔 — rename 잔재 검출               | high     |
+| [HARNESS-006](HARNESS-006-parsed-args-consumption-check.md)     | CLI 플래그 배선 검사 — 파싱만 되고 소비처 없는 플래그 검출         | high     |
+| [HARNESS-008](HARNESS-008-stub-marker-scan-and-masking-rule.md) | 스텁 마커 스캔 + 성공 봉투 오류 포장 금지 규칙                     | high     |
+
+#### Medium / Low
+
+| ID                                                           | 제목                                                             | 우선순위 |
+| ------------------------------------------------------------ | ---------------------------------------------------------------- | -------- |
+| [HARNESS-005](HARNESS-005-bidirectional-spec-conformance.md) | conformance 루프 양방향화 — SPEC→코드 방향 드리프트 검증         | medium   |
+| [HARNESS-007](HARNESS-007-tool-description-schema-tests.md)  | 전 빌트인 도구 description-스키마 일치 테스트 (Grep 패턴 확대)   | medium   |
+| [HARNESS-009](HARNESS-009-permission-module-coverage.md)     | permission/보안 모듈 최소 커버리지 요구                          | medium   |
+| [HARNESS-010](HARNESS-010-event-contract-continuity.md)      | 이벤트 루프 연속성 — 기록되는 이벤트의 발행/표시 경로 보장       | medium   |
+| [HARNESS-012](HARNESS-012-lockfile-consistency-check.md)     | lockfile 정합 로컬 체크 — deps 변경 시 frozen-lockfile 사전 검증 | medium   |
+| [HARNESS-014](HARNESS-014-provider-free-scenario-rule.md)    | 사용자 실행 시나리오 provider-free 우선 규칙                     | medium   |
+| [HARNESS-013](HARNESS-013-test-env-injectable-paths.md)      | 테스트 스킬 보강 — env 스텁/homedir 갓차, 주입 가능한 경로 설계  | low      |

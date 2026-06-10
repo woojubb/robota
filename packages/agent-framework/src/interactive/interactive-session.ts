@@ -110,6 +110,7 @@ export class InteractiveSession
       () => this.execCtrl.executing,
       () => this.persistCurrentSession(),
       (event) => this.emit('skill_activation', event),
+      (event) => this.emit('memory_event', event),
       initCheckpointStore,
     );
 

@@ -110,6 +110,16 @@ src/
 
 `renderApp()` creates a `TuiInteractionChannel` (which owns `InteractiveSession`, `CommandRegistry`, and `TuiStateManager` creation) and then mounts the Ink `App` component. `App` subscribes to channel state via the `useTuiChannel` hook, which calls `channel.onChange` on each state change. User input is forwarded to `channel.handleInput()`; slash commands that need disambiguation call `channel.requestAction()`, which queues a pick/confirm dialog rendered by `App` and resolved via `channel.resolveAction()`.
 
+### TUI session-init polling
+
+`TuiInteractionChannel.start()` polls session readiness via
+`flows/session-init-poller.ts` (`createSessionInitPoller`): every 200ms it runs the readiness
+check; errors matching /not initialized/i are benign and retried until a 15s timeout, any other
+error fails immediately. On failure the channel sets the state-manager error flag and appends a
+`category: 'event'` / `type: 'session-init-error'` history entry so the user sees a message
+instead of an eternal spinner. The channel also subscribes to the session `memory_event` and
+re-syncs history so memory notices render in the transcript.
+
 ### Headless lifecycle
 
 `HeadlessInteractionChannel` owns session creation for non-interactive (print) mode. Callers construct `new HeadlessInteractionChannel(options)` and call `await channel.run(prompt)`. The channel creates `InteractiveSession`, runs `createHeadlessRunner`, and awaits completion. `channel.getExitCode()` returns `0` or `1`. The legacy `createHeadlessTransport` wrapper is retained for internal use by `headless-runner`.
@@ -236,7 +246,7 @@ Root re-exports all sub-path exports plus:
 | Configurable transport      | Implement `IConfigurableTransport<IInteractiveSession>` from `agent-interface-transport` | Extends adapter with `name`, `defaultEnabled`, `optionsSchema`, and `validateOptions()`; registerable with `TransportRegistry`                    |
 | Custom CLI adapter          | Implement `ITuiCliAdapter` from `@robota-sdk/agent-transport/tui`                        | Provides CLI-side operations (settings I/O, git, model switching) to the TUI layer                                                                |
 | TUI command interactions    | Implement interaction types from `@robota-sdk/agent-interface-tui`                       | `ITuiCommandInteraction`, `ITuiPickerInteraction`, `ITuiConfirmInteraction` for slash-command UX                                                  |
-| Tool filtering              | Pass `allowedTools` / `deniedTools` in `ITuiRenderOptions`                               | String arrays forwarded through `IProps` → `IInteractiveSessionProps` → session initialization; restrict which tools the agent may invoke         |
+| Tool filtering              | Pass `allowedTools` / `deniedTools` in `IRenderOptions`                                  | String arrays forwarded through `IProps` → `IInteractiveSessionProps` → session initialization; restrict which tools the agent may invoke         |
 | Transport registry settings | Settings file under `transports` key                                                     | Shape: `{ "<name>": { "enabled": boolean, "options": { ... } } }`; read and written by `TransportRegistry` via `agent-framework` settings helpers |
 
 ## 7. Error Taxonomy
@@ -358,11 +368,12 @@ class WsTransport implements IConfigurableTransport<IInteractiveSession> {
 }
 ```
 
-### `ITuiRenderOptions` shape (key fields)
+### `IRenderOptions` shape (key fields)
 
 ```typescript
-interface ITuiRenderOptions {
-  runtime: IAgentRuntime;
+interface IRenderOptions {
+  cwd: string;
+  provider: IAIProvider;
   cliAdapter: ITuiCliAdapter;
   providerOverride?: string;
   providerType?: string;
@@ -370,17 +381,25 @@ interface ITuiRenderOptions {
   language?: string;
   permissionMode?: TPermissionMode;
   maxTurns?: number;
+  allowedTools?: string[]; // tool name allow-list (forwarded to session init)
+  deniedTools?: string[]; // tool name deny-list (forwarded to session init)
   version?: string;
+  sessionStore?: IInteractiveSessionStore;
   resumeSessionId?: string;
   showSessionPickerOnStart?: boolean;
   forkSession?: boolean;
   sessionName?: string;
+  backgroundTaskRunners?: IBackgroundTaskRunner[];
+  subagentRunnerFactory?: TSubagentRunnerFactory;
+  commandModules?: readonly ICommandModule[];
+  commandHostAdapters?: ICommandHostAdapters;
   shellExec?: TShellExecFn;
   startupUpdateNotice?: Promise<string | undefined>;
+  transportRegistry?: ITransportRegistryView<IInteractiveSession>;
+  reloadPluginCommandSource?: (registry: CommandRegistry) => void;
   agentName?: string;
-  systemPrompt?: string;
-  appendSystemPrompt?: string;
-  allowedTools?: string[]; // tool name allow-list
-  deniedTools?: string[]; // tool name deny-list
 }
 ```
+
+`toChannelOptions(options, resumeSessionId?)` maps `IRenderOptions` to the
+`TuiInteractionChannel` constructor options (exported for contract tests).

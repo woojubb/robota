@@ -19,9 +19,12 @@ packages/
 ├── agent-transport/             # Protocol transports: headless, HTTP, WebSocket, MCP (pure TS); TUI/Ink via ./tui subpath
 └── agent-plugin/                # Plugins: conversation-history, logging, usage, performance, execution-analytics, error-handling, limits, event-emitter, webhook
 apps/
+├── action/                 # Official GitHub Action wrapper for the CLI (robota-sdk/action)
 ├── agent-web/              # Web application (Agent Playground)
 ├── blog/                   # Blog/content application
 ├── docs/                   # Documentation site
+├── starter-nextjs/         # Next.js SDK starter template (PM-029)
+├── www/                    # Marketing site (robota.io)
 └── agent-server/           # AI provider proxy + Playground WebSocket
 ```
 
