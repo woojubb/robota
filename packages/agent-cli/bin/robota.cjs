@@ -29,14 +29,6 @@ if (nodeMajor < REQUIRED_NODE_MAJOR) {
   process.exit(1);
 }
 
-if (process.env.TERM_PROGRAM === 'Apple_Terminal') {
-  process.stderr.write(
-    '\n  ⚠️  Warning: macOS Terminal.app detected.\n' +
-      '  CJK input (Korean/Chinese/Japanese) may cause crashes.\n' +
-      '  Recommended: use iTerm2 or another terminal emulator.\n\n',
-  );
-}
-
 // Load ESM main entry only after synchronous checks pass.
 // CJS can dynamic-import ESM in Node.js 12+. This is the only way to load
 // an ESM module from CJS — eslint-disable is intentional and required.

@@ -36,6 +36,10 @@ import { runUserLocalDirectCommandIfRequested } from './user-local-direct-comman
 import { runSessionAnalyze } from './session-analyzer/session-analyze-command.js';
 import { readVersion } from './startup/version.js';
 import { runResetConfig } from './startup/reset-config.js';
+import { runDiagnoseCommand } from './startup/diagnose-command.js';
+import { runInitCommand } from './init/init-command.js';
+import { isFirstRun, markOnboarded, printFirstRunWelcome } from './startup/first-run.js';
+import { warnIfTerminalAppOnMacOS } from './startup/terminal-check.js';
 import type { IStartCliOptions } from './startup/command-setup.js';
 import { buildCommandSetup } from './startup/command-setup.js';
 import { runPrintMode } from './modes/print-mode.js';
@@ -82,6 +86,11 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     return;
   }
 
+  if (args.positional[0] === 'diagnose') {
+    await runDiagnoseCommand({ version, terminal, cwd });
+    return;
+  }
+
   if (args.positional[0] === 'session' && args.positional[1] === 'analyze') {
     await runSessionAnalyze(process.argv.slice(4));
     return;
@@ -99,6 +108,16 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
 
   const { commandHostAdapters, providerDefinitions, commandModules, startupUpdateNoticePromise } =
     buildCommandSetup(cwd, args, options, version);
+
+  if (args.positional[0] === 'init') {
+    await runInitCommand(cwd, terminal, {
+      yes: args.yes,
+      onProviderSetup: async () => {
+        await runInteractiveProviderSetup(cwd, args, promptInput, terminal, providerDefinitions);
+      },
+    });
+    return;
+  }
 
   if (args.configure) {
     await runInteractiveProviderSetup(cwd, args, promptInput, terminal, providerDefinitions);
@@ -161,6 +180,12 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
       commandHostAdapters,
     );
     return;
+  }
+
+  warnIfTerminalAppOnMacOS(terminal);
+  if (isFirstRun()) {
+    printFirstRunWelcome(terminal);
+    markOnboarded();
   }
 
   await renderApp({

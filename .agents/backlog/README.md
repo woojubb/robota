@@ -587,3 +587,39 @@ Epic: [PLG-008](PLG-008-visual-agent-builder-playground.md)
 | [REL-019](REL-019-community-channel-setup.md)      | 커뮤니티 채널 개설 (GitHub Discussions / Discord) | low      |
 | [REL-020](REL-020-error-handling-guide.md)         | 공개 에러 핸들링 가이드 작성                      | low      |
 | [REL-021](REL-021-fix-provider-tui-gemma-label.md) | provider 설정 TUI "Gemma / LM Studio" 레이블 수정 | low      |
+
+### agent-cli Incomplete Features Audit (2026-06-10)
+
+CLI 제품의 기존 기본 기능 중 미완성/회귀 상태로 확인된 항목. 4개 영역(agent-cli 본체, 슬래시
+커맨드, TUI/세션, 내장 도구) 병렬 감사 + 코드 교차 검증 결과. CLI-049/050/051/052는 완료된
+백로그(PM-033, PM-024, PM-023, UX-002/CLI-029)가 이후 startup 리팩터링(`a12a3348d`)에서 회귀된
+사례.
+
+#### Critical — 문서화된 커맨드/패키지가 동작하지 않음
+
+| ID                                                       | 제목                                                                            | 우선순위 |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------- | -------- |
+| [CLI-049](completed/CLI-049-init-command-unreachable.md) | `robota init` positional 디스패치 누락 — runInitCommand orphan (PM-033 회귀)    | critical |
+| [CLI-050](completed/CLI-050-diagnose-command-missing.md) | `robota diagnose` 구현 파일 삭제됨 — SPEC/웰컴 문구는 여전히 안내 (PM-024 회귀) | critical |
+| [CLI-058](CLI-058-mcp-tool-protocol-stub.md)             | agent-tool-mcp 프로토콜/연결 계층 전체 stub — 모든 MCP 도구 호출 실패           | critical |
+
+#### High — 플래그/도구 계약 불일치
+
+| ID                                                          | 제목                                                                           | 우선순위 |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------------ | -------- |
+| [CLI-051](completed/CLI-051-first-run-welcome-orphaned.md)  | first-run 웰컴 온보딩 함수 orphan — 시작 경로에서 미호출 (PM-023 회귀)         | high     |
+| [CLI-053](CLI-053-tool-filter-flags-not-threaded.md)        | `--denied-tools` 미소비 + TUI 모드에 allowed/denied 모두 미전달 (CLI-046 후속) | high     |
+| [CLI-054](CLI-054-dry-run-flag-unwired.md)                  | `--dry-run` help 광고와 달리 완전 미연결 — 안전 플래그 무음 무시               | high     |
+| [CLI-057](CLI-057-grep-tool-schema-description-mismatch.md) | Grep 도구 description의 `count` 모드·`head_limit` 파라미터가 스키마에 없음     | high     |
+
+#### Medium / Low — 부분 동작·가시성 결함
+
+| ID                                                            | 제목                                                                         | 우선순위 |
+| ------------------------------------------------------------- | ---------------------------------------------------------------------------- | -------- |
+| [CLI-052](completed/CLI-052-terminal-app-warning-orphaned.md) | macOS Terminal.app CJK 경고 함수 orphan — 미호출 (UX-002 회귀)               | medium   |
+| [CLI-056](completed/CLI-056-spec-stale-startup-claims.md)     | agent-cli SPEC.md 구식 주장 — preflight.ts/diagnose 목록, system-prompt 주석 | medium   |
+| [CLI-059](CLI-059-memory-events-not-surfaced.md)              | 메모리 이벤트 내부 기록만 되고 이벤트 미발행·TUI 미표시                      | medium   |
+| [CLI-060](CLI-060-tui-init-polling-no-timeout.md)             | TUI 세션 초기화 폴링이 오류를 무한정 무음 삼킴 — 타임아웃 없음               | medium   |
+| [CLI-061](CLI-061-ime-last-character-drop.md)                 | 한국어 IME 마지막 글자 Enter 시 유실                                         | medium   |
+| [CLI-055](CLI-055-json-schema-flag-undocumented.md)           | `--json-schema` 동작하지만 help 미기재                                       | low      |
+| [CLI-062](CLI-062-cjk-cursor-positioning-disabled.md)         | CJK 입력 실제 커서 위치 동기화 비활성 (Terminal.app SIGSEGV 우회 상태)       | low      |

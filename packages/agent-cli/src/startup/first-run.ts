@@ -1,19 +1,18 @@
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 
+import type { ITerminalOutput } from '@robota-sdk/agent-core';
 import { userPaths } from '@robota-sdk/agent-framework';
 
 import { AGENT_CLI_BIN } from '../constants.js';
 
-const ONBOARDED_MARKER = userPaths().onboarded;
-
-export function isFirstRun(): boolean {
-  return !existsSync(ONBOARDED_MARKER);
+export function isFirstRun(markerPath: string = userPaths().onboarded): boolean {
+  return !existsSync(markerPath);
 }
 
-export function markOnboarded(): void {
-  mkdirSync(dirname(ONBOARDED_MARKER), { recursive: true });
-  writeFileSync(ONBOARDED_MARKER, new Date().toISOString());
+export function markOnboarded(markerPath: string = userPaths().onboarded): void {
+  mkdirSync(dirname(markerPath), { recursive: true });
+  writeFileSync(markerPath, new Date().toISOString());
 }
 
 const WELCOME_MESSAGE = `
@@ -35,6 +34,6 @@ const WELCOME_MESSAGE = `
 ╰─────────────────────────────────────────────────────────────╯
 `;
 
-export function printFirstRunWelcome(): void {
-  process.stderr.write(WELCOME_MESSAGE + '\n');
+export function printFirstRunWelcome(terminal: ITerminalOutput): void {
+  terminal.writeLine(WELCOME_MESSAGE);
 }
