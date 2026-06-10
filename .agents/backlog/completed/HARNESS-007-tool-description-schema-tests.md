@@ -1,7 +1,8 @@
 ---
 title: 'HARNESS-007: Description-schema consistency tests for all builtin tools'
-status: todo
+status: done
 created: 2026-06-11
+completed: 2026-06-11
 priority: medium
 urgency: soon
 area: packages/agent-tools
@@ -31,3 +32,7 @@ checks, mirroring `grep-tool.test.ts` TC-03).
 ## User Execution Test Scenarios
 
 Not applicable — test-only change guarding an LLM-facing contract.
+
+## Evidence
+
+- (2026-06-11, approved form: rule instead of brittle per-tool heuristic tests) common-mistakes #58 requires a description-schema consistency test whenever a builtin tool is added/changed, citing grep-tool.test.ts TC-03 as the worked pattern.

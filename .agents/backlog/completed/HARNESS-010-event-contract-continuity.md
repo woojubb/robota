@@ -1,7 +1,8 @@
 ---
 title: 'HARNESS-010: Event-loop continuity — recorded events must have emit/render paths'
-status: todo
+status: done
 created: 2026-06-11
+completed: 2026-06-11
 priority: medium
 urgency: later
 area: .agents/specs, scripts/harness
@@ -31,3 +32,7 @@ layers for the product's transparency goals (CLI-059).
 ## User Execution Test Scenarios
 
 Not applicable — spec/scan change.
+
+## Evidence
+
+- (2026-06-11, approved form: spec clause; emit-site scan deferred) transparent-workflow.md "Event Continuity (mandatory)" — recorded user-meaningful events must define emission + render path or declare internal-only (CLI-059 example).
