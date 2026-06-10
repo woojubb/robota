@@ -199,3 +199,14 @@ prerequisite) citing CLI-053 vs CLI-058.
 - TC-05 re-verified this run: pre-push-lockfile test 1/1 pass; `harness:scan:consistency` pass (exit 0)
 - Test Plan coverage: TC-01 → test reference `scripts/harness/__tests__/pre-push-lockfile.test.mjs` + live sync/desync proofs; TC-02/03/04 → static grep verification (no automated test needed for prose sections — greps recorded above); TC-05 → live scan runs recorded; no TC-N row silently unaddressed
 - Tasks archived: `.agents/tasks/completed/HARNESS-012.md` exists (all T1–T5 `[x]`); original `.agents/tasks/HARNESS-012.md` removed; `## Tasks` section updated to the archived path this gate run
+
+### [DEFECT-FIX] — ✅ | 2026-06-11
+
+**Defect found post-merge (PR #694):** pnpm 8's `--lockfile-only` rewrites pnpm-lock.yaml
+(~23k-line format churn) even with `--frozen-lockfile` when the check PASSES — the gate dirtied
+the working tree on every push, which would itself trip the clean-tree assert on the next push.
+**Fix:** validation now runs in a throwaway temp copy of the manifests
+(package.json/pnpm-workspace.yaml/pnpm-lock.yaml/.npmrc + every workspace package.json) —
+zero working-tree side effects. **Re-verified:** sync check exit 0 in 401ms with
+`git status pnpm-lock.yaml` empty afterwards; staged desync (dependency added to a workspace
+manifest copy) exits 1. Fix PR: fix/harness-lockfile-gate-side-effect.
