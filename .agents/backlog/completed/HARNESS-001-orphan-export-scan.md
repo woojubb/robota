@@ -1,7 +1,8 @@
 ---
 title: 'HARNESS-001: Orphan-export scan — detect features killed by refactors'
-status: todo
+status: done
 created: 2026-06-11
+completed: 2026-06-11
 priority: critical
 urgency: now
 area: scripts/harness, .agents/rules
@@ -35,3 +36,7 @@ the scan with file:symbol detail.
 ## User Execution Test Scenarios
 
 Not applicable — harness/internal tooling; verification is the Test Plan scanner runs.
+
+## Evidence
+
+- (2026-06-11) `check-orphan-exports.mjs` implemented (8 unit tests incl. ARCH-002 incident replica proving detection of all four orphaned features); 153 pre-existing findings frozen in a ratchet baseline with burn-down backlog HARNESS-015; scan green and registered in harness:scan.
