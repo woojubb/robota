@@ -79,11 +79,20 @@ requireScript(
   'harness:release:report',
   'node scripts/harness/release-run.mjs report',
 );
+// harness:scan delegates to the aggregating runner (HARNESS-011); the
+// governance invariant — release verification runs this scan — now lives in
+// the runner's scan table.
+requireContains(
+  'scripts/harness/run-all-scans.mjs',
+  readText('scripts/harness/run-all-scans.mjs'),
+  'check-release-governance.mjs',
+  'run-all-scans.mjs must include the release-governance scan.',
+);
 requireContains(
   'package.json',
   rootPackageJson.scripts?.['harness:scan'] ?? '',
-  'pnpm harness:scan:release-governance',
-  'Root harness:scan must include harness:scan:release-governance.',
+  'run-all-scans.mjs',
+  'Root harness:scan must delegate to the aggregating scan runner.',
 );
 
 const releaseRunScript = readText('scripts/harness/release-run.mjs');

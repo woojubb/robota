@@ -8,6 +8,7 @@
  * explicit and opt-in.
  */
 
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { listWorkspaceScopes, readJson } from './shared.mjs';
@@ -72,7 +73,24 @@ export function findRootCoverageScriptFindings(packageJson) {
   }
 
   const harnessScan = scripts['harness:scan'];
-  if (typeof harnessScan !== 'string' || !harnessScan.includes('harness:scan:coverage-scripts')) {
+  // harness:scan delegates to the aggregating runner (HARNESS-011); the wiring
+  // invariant is satisfied when the runner's scan table includes this scan.
+  const runnerWired = (() => {
+    try {
+      return readFileSync(
+        path.join(process.cwd(), 'scripts/harness/run-all-scans.mjs'),
+        'utf8',
+      ).includes('check-test-coverage-scripts.mjs');
+    } catch {
+      // allow-fallback: missing runner file means the wiring invariant fails below
+      return false;
+    }
+  })();
+  if (
+    typeof harnessScan !== 'string' ||
+    (!harnessScan.includes('harness:scan:coverage-scripts') &&
+      !(harnessScan.includes('run-all-scans.mjs') && runnerWired))
+  ) {
     findings.push({
       file: 'package.json',
       type: 'coverage-scan-not-wired',
