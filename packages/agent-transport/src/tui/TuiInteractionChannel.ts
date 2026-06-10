@@ -12,11 +12,13 @@ import {
 } from '@robota-sdk/agent-core';
 import { InteractiveSession, CommandRegistry } from '@robota-sdk/agent-framework';
 
+import { createSessionInitPoller } from './flows/session-init-poller.js';
 import { CommandEffectQueue, type ICommandEffectQueue } from './hooks/command-effect-queue.js';
 import { applySystemCommandResult } from './hooks/useSlashRouting.js';
 import { generateSessionName } from './session-naming.js';
 import { TuiStateManager } from './tui-state-manager.js';
 
+import type { ISessionInitPoller, TSessionInitFailure } from './flows/session-init-poller.js';
 import type { IPermissionRequest } from './types.js';
 import type { IAIProvider, TPermissionMode, TSessionEndReason } from '@robota-sdk/agent-core';
 import type { TToolArgs } from '@robota-sdk/agent-core';
@@ -43,6 +45,7 @@ import type { TPermissionResultValue } from '@robota-sdk/agent-framework';
 import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
 
 const SESSION_INIT_POLL_MS = 200;
+const SESSION_INIT_TIMEOUT_MS = 15000;
 
 export interface ITuiInteractionChannelOptions {
   cwd: string;
@@ -92,7 +95,7 @@ export class TuiInteractionChannel implements IInteractionChannel {
 
   private autoNameTriggered = false;
   private sessionStarted = false;
-  private initCheckInterval: ReturnType<typeof setInterval> | null = null;
+  private initPoller: ISessionInitPoller | null = null;
   private permissionQueue: Array<{
     toolName: string;
     toolArgs: TToolArgs;
@@ -369,6 +372,9 @@ export class TuiInteractionChannel implements IInteractionChannel {
     const onSkillActivation = (): void => {
       manager.syncHistory(session.getFullHistory());
     };
+    const onMemoryEvent = (): void => {
+      manager.syncHistory(session.getFullHistory());
+    };
     const onExecutionWorkspaceEvent = (event: IExecutionWorkspaceEvent): void => {
       manager.syncExecutionWorkspaceSnapshot(event.snapshot);
     };
@@ -384,6 +390,7 @@ export class TuiInteractionChannel implements IInteractionChannel {
     session.on('context_update', manager.onContextUpdate);
     session.on('compact', onCompact);
     session.on('skill_activation', onSkillActivation);
+    session.on('memory_event', onMemoryEvent);
     session.on('execution_workspace_event', onExecutionWorkspaceEvent);
   }
 
@@ -413,36 +420,51 @@ export class TuiInteractionChannel implements IInteractionChannel {
   }
 
   private startInitCheck(): void {
-    this.initCheckInterval = setInterval(() => {
-      this.runInitCheck();
-    }, SESSION_INIT_POLL_MS);
+    this.initPoller = createSessionInitPoller({
+      check: () => this.runInitCheck(),
+      intervalMs: SESSION_INIT_POLL_MS,
+      timeoutMs: SESSION_INIT_TIMEOUT_MS,
+      onReady: () => undefined,
+      onFailure: (failure) => this.onInitFailure(failure),
+    });
+    this.initPoller.start();
   }
 
+  /** Throws while the session is not ready; the init poller classifies the error. */
   private runInitCheck(): void {
-    try {
-      const ctx = this.interactiveSession.getContextState();
-      this.stateManager.setContextState({
-        percentage: ctx.usedPercentage,
-        usedTokens: ctx.usedTokens,
-        maxTokens: ctx.maxTokens,
-      });
-      const restored = this.interactiveSession.getFullHistory();
-      if (restored.length > 0) {
-        this.stateManager.syncHistory(restored);
-      }
-      this.syncExecutionWorkspace();
-      this.stopInitCheck();
-    } catch {
-      // allow-fallback: session initializes asynchronously; poll until ready
-      /* Not yet initialized */
+    const ctx = this.interactiveSession.getContextState();
+    this.stateManager.setContextState({
+      percentage: ctx.usedPercentage,
+      usedTokens: ctx.usedTokens,
+      maxTokens: ctx.maxTokens,
+    });
+    const restored = this.interactiveSession.getFullHistory();
+    if (restored.length > 0) {
+      this.stateManager.syncHistory(restored);
     }
+    this.syncExecutionWorkspace();
+  }
+
+  private onInitFailure(failure: TSessionInitFailure): void {
+    const message =
+      failure.kind === 'timeout'
+        ? `Session initialization timed out after ${SESSION_INIT_TIMEOUT_MS / 1000}s${
+            failure.lastError ? ` (last error: ${failure.lastError.message})` : ''
+          }`
+        : `Session initialization failed: ${failure.error.message}`;
+    this.stateManager.onError();
+    this.stateManager.addEntry({
+      id: `session-init-error-${Date.now()}`,
+      timestamp: new Date(),
+      category: 'event',
+      type: 'session-init-error',
+      data: { message },
+    });
   }
 
   private stopInitCheck(): void {
-    if (this.initCheckInterval !== null) {
-      clearInterval(this.initCheckInterval);
-      this.initCheckInterval = null;
-    }
+    this.initPoller?.stop();
+    this.initPoller = null;
   }
 
   private syncExecutionWorkspace(): void {

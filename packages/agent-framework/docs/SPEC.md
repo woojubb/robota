@@ -1069,6 +1069,10 @@ session.on('error', (error: Error) => { /* execution error */ });
 session.on('context_update', (state: IContextWindowState) => { /* token usage updated */ });
 session.on('interrupted', (result: IExecutionResult) => { /* abort completed */ });
 session.on('skill_activation', (event: ISkillActivationEvent) => { /* skill activation state */ });
+session.on('memory_event', (event: IMemoryEvent) => {
+  /* memory capture/approval/retrieval; user-visible types are also appended to history as
+     category 'event' / type 'memory-event' entries with a formatMemoryEventMessage() message */
+});
 
 // Submit prompt. Queues if already executing (max 1 queued).
 // displayInput: shown in UI (e.g., "/audit") instead of full built prompt
@@ -1213,6 +1217,7 @@ interface IInteractiveSessionEvents {
   execution_workspace_event: (event: IExecutionWorkspaceEvent) => void;
   user_message: (content: string) => void;
   context_file_refreshed: (event: IContextFileRefreshedEvent) => void;
+  memory_event: (event: IMemoryEvent) => void; // all automatic-memory pipeline events
 }
 ```
 

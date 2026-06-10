@@ -75,13 +75,18 @@ Options:
   --bare                     Print mode: output raw text only, no formatting wrapper
   --configure                Run interactive provider configuration
   --configure-provider <n>   Configure a specific provider
-  --dry-run                  Plan-only run: show what the agent would do without modifying files
+  --allowed-tools <list>     Comma-separated tool allowlist (TUI and print mode)
+  --denied-tools <list>      Comma-separated tool denylist (TUI and print mode)
+  --model <model>            Model override for this run
+  --json-schema <schema>     Print mode: instruct the model to respond with JSON matching this schema
+  --dry-run                  Alias for --permission-mode plan (plan only, no execution)
   --check-update             Check for CLI updates
   --version                  Show version number
   -h, --help                 Show this help message
 
 Commands:
   robota init                      Initialize AGENTS.md and .robota/settings.json
+  robota diagnose                  Check setup and print a diagnostics report
 
 Examples:
   robota                           Start interactive TUI session
@@ -90,9 +95,19 @@ Examples:
   robota -p "Hello" --output-format json
   robota -p "Review this diff" --bare    Raw output for shell pipelines
   robota --task-file task.md       Run task from file (appended to system prompt)
-  robota --dry-run "Refactor the auth module"      Show plan without modifying files
+  robota -p "Refactor the auth module" --dry-run   Plan only, no execution
   robota --continue                Resume the last session
 `;
+}
+
+/** Split a comma-separated tool list into trimmed, non-empty names. */
+export function parseToolList(value: string | undefined): string[] | undefined {
+  if (value === undefined) return undefined;
+  const tools = value
+    .split(',')
+    .map((tool) => tool.trim())
+    .filter((tool) => tool.length > 0);
+  return tools.length > 0 ? tools : undefined;
 }
 
 /** Validate and return a TOutputFormat from a raw CLI string, or throw on error. */
@@ -215,5 +230,14 @@ function mapParsedValues(
 /** Parse and validate CLI arguments. */
 export function parseCliArgs(): IParsedCliArgs {
   const { values, positionals } = parseArgs(PARSE_ARGS_CONFIG);
-  return mapParsedValues(values, positionals);
+  const args = mapParsedValues(values, positionals);
+  if (args.dryRun) {
+    if (args.permissionMode !== undefined && args.permissionMode !== 'plan') {
+      throw new Error(
+        `--dry-run is an alias for --permission-mode plan and conflicts with --permission-mode ${args.permissionMode}`,
+      );
+    }
+    return { ...args, permissionMode: 'plan' };
+  }
+  return args;
 }
