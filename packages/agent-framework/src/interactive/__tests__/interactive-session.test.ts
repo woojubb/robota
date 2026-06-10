@@ -882,3 +882,22 @@ describe('InteractiveSession', () => {
     });
   });
 });
+
+describe('memory_event emission', () => {
+  it('TC-03: emits memory_event to subscribed listeners on recordMemoryEvent', () => {
+    const mockSession = createMockSession();
+    const session = new InteractiveSession({
+      session: mockSession as never,
+      cwd: '/tmp',
+    });
+    const received: unknown[] = [];
+    session.on('memory_event', (event) => received.push(event));
+    session.recordMemoryEvent({
+      type: 'memory_candidate_saved',
+      at: '2026-06-11T00:00:00.000Z',
+      topic: 'test topic',
+    });
+    expect(received).toHaveLength(1);
+    expect(received[0]).toMatchObject({ type: 'memory_candidate_saved' });
+  });
+});
