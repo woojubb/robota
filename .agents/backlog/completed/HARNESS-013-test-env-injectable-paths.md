@@ -1,7 +1,8 @@
 ---
 title: 'HARNESS-013: Testing skill note — env stubs do not reach native path APIs; design for injection'
-status: todo
+status: done
 created: 2026-06-11
+completed: 2026-06-11
 priority: low
 urgency: later
 area: .agents/skills
@@ -31,3 +32,7 @@ APIs in vitest workers.
 ## User Execution Test Scenarios
 
 Not applicable — skill documentation.
+
+## Evidence
+
+- (2026-06-11) vitest-testing-strategy SKILL "Worker-Thread Environment Gotchas" added (env stubs vs native APIs, injectable default parameters, first-run.ts example).

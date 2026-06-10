@@ -1,7 +1,8 @@
 ---
 title: 'HARNESS-005: Spec-conformance loop must check SPEC→code direction explicitly'
-status: todo
+status: done
 created: 2026-06-11
+completed: 2026-06-11
 priority: medium
 urgency: soon
 area: .agents/skills
@@ -30,3 +31,7 @@ code→SPEC direction. Record both directions in conformance evidence.
 ## User Execution Test Scenarios
 
 Not applicable — skill documentation change.
+
+## Evidence
+
+- (2026-06-11) spec-code-conformance SKILL "Bidirectional Verification" section added with SPEC→code direction and the CLI-053 worked example.

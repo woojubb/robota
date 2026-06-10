@@ -10,6 +10,7 @@ description: Mandatory verification loop after any SPEC.md or contract document 
 ## When to Use
 
 This skill is **mandatory** whenever:
+
 - A `docs/SPEC.md` file is created or modified
 - An API specification document is created or modified
 - A contract test file is created or modified that changes expected behavior
@@ -58,6 +59,7 @@ This skill is **mandatory** whenever:
 ### Step 1: Collect affected specs
 
 Identify all SPEC.md files that were changed in the current work. For each spec, note:
+
 - File path
 - Packages whose code must conform to this spec
 - Existing contract test files (if any)
@@ -65,11 +67,13 @@ Identify all SPEC.md files that were changed in the current work. For each spec,
 ### Step 2: Read spec, compare against code
 
 For each spec assertion (endpoints, types, error codes, response shapes, status codes, class contracts):
+
 1. Read the spec statement
 2. Find the corresponding implementation code
 3. Check if the code matches the spec exactly
 
 Pay attention to:
+
 - HTTP status codes (spec says 404, code returns 400?)
 - Response envelope shapes (raw error vs IProblemDetails?)
 - Type names and field names
@@ -81,8 +85,8 @@ Pay attention to:
 
 Create a gap table:
 
-| # | Spec file | Spec assertion | Code location | Discrepancy |
-|---|-----------|---------------|---------------|-------------|
+| #   | Spec file | Spec assertion | Code location | Discrepancy |
+| --- | --------- | -------------- | ------------- | ----------- |
 
 Every gap is a code fix. The spec is not modified in this workflow.
 
@@ -91,6 +95,7 @@ If zero gaps: skip to Step 6.
 ### Step 4: Fix code to match spec
 
 For each gap:
+
 1. Fix the implementation code so it conforms to the spec
 2. Add or update a contract test that verifies the corrected behavior
 
@@ -127,9 +132,23 @@ pnpm --filter <pkg1> --filter <pkg2> ... build
 
 All must pass. Only then is the conformance verification complete.
 
+## Bidirectional Verification (mandatory)
+
+Drift is bidirectional. The loop above catches code-ahead-of-spec; you MUST also run the
+reverse direction:
+
+**Direction 2 — SPEC→code.** Enumerate every field, export, option, event, and behavior the
+SPEC declares, and confirm each exists in code with the declared shape. Record both directions
+in the conformance evidence ("code→SPEC: N items checked; SPEC→code: M items checked").
+
+Incident (2026-06-11, CLI-053): agent-transport SPEC documented `allowedTools`/`deniedTools` on
+the TUI render options while `IRenderOptions` had neither field — SPEC-ahead drift that
+one-directional verification never caught. The flags silently no-opped in TUI mode.
+
 ## Completion Criteria
 
 The verification is complete when ALL of the following are true:
+
 - [ ] Every spec assertion has a matching implementation
 - [ ] Every fix has a corresponding contract test
 - [ ] All contract tests pass
@@ -139,10 +158,10 @@ The verification is complete when ALL of the following are true:
 
 ## Orchestrated Skills
 
-| Skill | Role in this workflow |
-|-------|----------------------|
-| `contract-testing` | Contract test patterns |
-| `repo-change-loop` | Build and verify loop |
+| Skill                    | Role in this workflow            |
+| ------------------------ | -------------------------------- |
+| `contract-testing`       | Contract test patterns           |
+| `repo-change-loop`       | Build and verify loop            |
 | `tdd-red-green-refactor` | Test-first approach for each fix |
 
 ## Anti-Patterns

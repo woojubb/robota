@@ -243,6 +243,24 @@ expected result, and summarize the evidence already observed by the agent. If th
 test scenario gate does not pass, the work is not complete and the agent must fix the issue or ask
 for a decision.
 
+## Scenario Design Preference Order (mandatory for new scenarios)
+
+When authoring `## User Execution Test Scenarios`, choose the verification surface in this
+order:
+
+1. **Provider-free product observables** — exit codes, created files, provider-free commands
+   (e.g. `robota diagnose`, `robota init`, direct command output).
+2. **Fixtures built by the work itself** — local mock servers, sample projects, seeded settings
+   the implementation ships with (worked example: CLI-058's in-repo mock MCP server made the
+   entire scenario machine-executable).
+3. **Live-credential runs only when the verified behavior is inherently provider-coupled** —
+   and then the scenario MUST state the credential prerequisite explicitly so an executor
+   without keys knows the gate cannot run in that environment (counter-example: CLI-053's
+   live-LLM transcript step was unexecutable in the implementing environment).
+
+A scenario whose only observable requires credentials the executor may not have is a design
+smell — restructure toward 1 or 2 before falling back to 3.
+
 ## Completion Steps
 
 When all gates pass and the work is fully done, follow these steps **in order**:

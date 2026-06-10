@@ -2,7 +2,11 @@ import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 
 import { resolveGitBaseRef, WORKSPACE_ROOT } from './shared.mjs';
-import { decidePrePushVerification, parsePrePushUpdates } from './pre-push-updates.mjs';
+import {
+  decidePrePushVerification,
+  formatLockfileFailureMessage,
+  parsePrePushUpdates,
+} from './pre-push-updates.mjs';
 
 function run(command, args) {
   const rendered = [command, ...args].join(' ');
@@ -43,6 +47,18 @@ function assertNoActiveWorktrees() {
         '  git worktree list\n' +
         '  git worktree remove -f -f <path>\n\n',
     );
+    process.exit(1);
+  }
+}
+
+function assertLockfileConsistency() {
+  const result = spawnSync('pnpm', ['install', '--frozen-lockfile', '--lockfile-only'], {
+    cwd: WORKSPACE_ROOT,
+    stdio: 'ignore',
+    encoding: 'utf8',
+  });
+  if (result.status !== 0) {
+    process.stderr.write(formatLockfileFailureMessage());
     process.exit(1);
   }
 }
@@ -104,6 +120,7 @@ function resolvePrePushMode(value) {
 
 assertNoActiveWorktrees();
 assertCleanWorkingTree();
+assertLockfileConsistency();
 
 const baseRef = resolveGitBaseRef(process.env.HARNESS_BASE_REF ?? null);
 const baseArgs = baseRef ? ['--base-ref', baseRef] : [];

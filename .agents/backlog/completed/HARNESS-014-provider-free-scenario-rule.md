@@ -1,7 +1,8 @@
 ---
 title: 'HARNESS-014: User execution test scenarios should prefer provider-free observables or built fixtures'
-status: todo
+status: done
 created: 2026-06-11
+completed: 2026-06-11
 priority: medium
 urgency: soon
 area: .agents/backlog, .agents/rules
@@ -33,3 +34,7 @@ state the credential prerequisite explicitly.
 ## User Execution Test Scenarios
 
 Not applicable — rule documentation.
+
+## Evidence
+
+- (2026-06-11) backlog-execution.md "Scenario Design Preference Order" added (provider-free → built fixture → live credential with stated prerequisite; CLI-058 vs CLI-053 examples).

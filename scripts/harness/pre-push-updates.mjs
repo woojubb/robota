@@ -44,3 +44,14 @@ export function decidePrePushVerification({ updates, baseRef, treeMatchesBase })
     reason: null,
   };
 }
+
+/** Failure message for the pre-push lockfile consistency gate (HARNESS-012). */
+export function formatLockfileFailureMessage() {
+  return (
+    '\n[BLOCKED] pnpm-lock.yaml is out of date with a package.json — push blocked.\n' +
+    'CI would fail with ERR_PNPM_OUTDATED_LOCKFILE (incident: PR #688, HARNESS-012).\n' +
+    'Fix:\n' +
+    '  pnpm install\n' +
+    '  git add pnpm-lock.yaml && git commit\n\n'
+  );
+}
