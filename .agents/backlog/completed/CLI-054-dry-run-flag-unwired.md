@@ -1,7 +1,8 @@
 ---
 title: 'CLI-054: --dry-run flag advertised in help but completely unwired'
-status: todo
+status: done
 created: 2026-06-10
+completed: 2026-06-11
 priority: high
 urgency: soon
 area: packages/agent-cli, packages/agent-framework
@@ -43,4 +44,9 @@ Silently ignoring a safety flag is not acceptable.
 - Expected observable result: if wired — no `hello.txt` is created and the output describes the
   planned action; if removed — the CLI exits with an unknown-flag error.
 - Cleanup: delete the temp repo.
-- Evidence: (fill after implementation — command output + `ls` proof)
+- Evidence (2026-06-11): decision = wire as alias for the SDK-owned plan mode.
+  `node packages/agent-cli/bin/robota.cjs --dry-run --permission-mode acceptEdits -p "hi"` →
+  "--dry-run is an alias for --permission-mode plan and conflicts with --permission-mode
+  acceptEdits", exit code 1. `--dry-run` alone maps to `permissionMode: 'plan'`
+  (cli-args.test.ts 3 alias cases pass); help text now reads "Alias for --permission-mode plan
+  (plan only, no execution)" — no silent ignore remains.

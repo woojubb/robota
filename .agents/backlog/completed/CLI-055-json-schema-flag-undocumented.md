@@ -1,7 +1,8 @@
 ---
 title: 'CLI-055: --json-schema flag functional but missing from help text'
-status: todo
+status: done
 created: 2026-06-10
+completed: 2026-06-11
 priority: low
 urgency: later
 area: packages/agent-cli
@@ -36,4 +37,7 @@ table includes it; or, if intentionally internal, the flag is removed from the p
 - Expected observable result: the `--json-schema` flag appears in the flags section with its
   description.
 - Cleanup: none.
-- Evidence: (fill after implementation — help output excerpt)
+- Evidence (2026-06-11): `node packages/agent-cli/bin/robota.cjs --help` output contains
+  "--json-schema <schema> Print mode: instruct the model to respond with JSON matching this
+  schema"; SPEC.md CLI Usage block gained the matching row. printHelp() unit tests assert the flag
+  listing (cli-args.test.ts "printHelp flag coverage").

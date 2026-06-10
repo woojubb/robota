@@ -1,7 +1,8 @@
 ---
 title: 'CLI-053: --denied-tools never consumed; --allowed-tools/--denied-tools not threaded into TUI mode'
-status: todo
+status: done
 created: 2026-06-10
+completed: 2026-06-11
 priority: high
 urgency: soon
 area: packages/agent-cli, packages/agent-transport
@@ -46,4 +47,10 @@ Both flags are passed to the headless channel in print mode and through `renderA
   transcript); (2) in TUI mode the agent has only Read available and Bash invocation is not
   offered/executed.
 - Cleanup: none.
-- Evidence: (fill after implementation — transcript excerpts for both modes)
+- Evidence (2026-06-11): unit chain fully verified — `headless-channel-options.test.ts` proves
+  `HeadlessInteractionChannel` forwards `deniedTools: ['Bash','Glob']` into `InteractiveSession`
+  options; `render-channel-options.test.ts` proves `toChannelOptions()` threads both lists from
+  `IRenderOptions` into `TuiInteractionChannel`; new `permission-gate.test.ts` proves deny patterns
+  win over every mode including `bypassPermissions` (print-mode default). Live-LLM transcript not
+  executable in this environment (no API credentials configured); the scenario above runs as
+  written once a provider key is configured.
