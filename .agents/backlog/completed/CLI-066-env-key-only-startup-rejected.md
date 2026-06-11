@@ -1,6 +1,6 @@
 ---
 title: 'CLI-066: Env-var-only startup is advertised by the product but rejected at session start'
-status: todo
+status: done
 created: 2026-06-11
 priority: high
 urgency: soon
@@ -42,4 +42,18 @@ intent of CLI-049/050; the decision needs explicit approval.
 - Steps: `ANTHROPIC_API_KEY=<key> robota -p "Say hi"`.
 - Expected observable result: per the approved contract — either a successful response
   (zero-config) or guidance that no longer claims this path works.
-- Evidence: (fill after implementation)
+- Evidence: executed 2026-06-12 against the fixed local build (`bin/robota.cjs`, branch
+  `feat/cli-066-env-zero-config`), isolated HOME with **no settings profile anywhere**, real
+  `ANTHROPIC_API_KEY` from the package `.env`:
+  - `robota -p "Say exactly: ZERO_CONF_OK"` → stdout `ZERO_CONF_OK`, **exit 0** (was: "No
+    provider configuration found", exit 1) — real Anthropic API call on the synthesized
+    config (definition default model claude-sonnet-4-6)
+  - stderr carries exactly one notice: `Using anthropic (claude-sonnet-4-6) via
+ANTHROPIC_API_KEY — run \`robota --configure\` to persist a profile.`; the key value
+    appears nowhere in stdout/stderr
+  - after `--configure-provider ... --set-current`: the profile wins (model from profile),
+    zero notice lines (regression held)
+  - Automated regression: `env-default-provider.test.ts` 10 tests (synthesis, definition
+    order, profile-wins, ProviderConfigError, exclusion rules incl. openai-no-model and
+    gemma-literal-key), `cli-exit-codes.test.ts` TC-06 (startCli notice exactly once, no
+    value leak)

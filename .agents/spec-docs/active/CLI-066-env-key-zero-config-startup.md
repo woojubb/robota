@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: BEHAVIOR
 tags: [cli, typescript]
 ---
@@ -88,6 +88,19 @@ prompt change.
    settings → env-default → error).
 4. SPEC updates: framework resolution order; CLI startup contract and error meaning.
 
+_Correction during implementation (within the approved Decision): the draft's sibling scan
+misread the actual definition data. Verified against `packages/agent-provider/src/*/`
+(2026-06-12): **openai has `defaults.model: undefined`** by deliberate policy (model
+catalog status `unavailable` — "discovered live from GET /v1/models"), so it cannot be
+synthesized; **gemma's `defaults.apiKey` is the literal `'lm-studio'`**, not an `$ENV:`
+reference, so it is excluded by the candidate rule itself; **qwen and deepseek carry
+complete defaults** (`$ENV:` apiKey reference + model + baseURL), so they ARE synthesizable
+— their baseURL comes from their own defaults, not from the environment. The data-driven
+candidate rule in Solution step 1 is unchanged; only the draft's expected membership list
+was wrong. Synthesizable set: anthropic, gemini, qwen, deepseek. Excluded: openai (no
+default model — `OPENAI_API_KEY` alone still gets the configure guidance), gemma (literal
+key). TC-02/TC-05 reworded accordingly._
+
 ## Affected Files
 
 - `packages/agent-framework/src/command-api/provider/provider-factory.ts`
@@ -101,15 +114,26 @@ prompt change.
 ## Completion Criteria
 
 - [ ] TC-01: no settings profile + injected env `ANTHROPIC_API_KEY=x` → resolution returns
-      anthropic config with definition default model and `$ENV:ANTHROPIC_API_KEY` key
-      reference, `source: 'env-default'`
-- [ ] TC-02: multiple env keys set (`ANTHROPIC_API_KEY` + `OPENAI_API_KEY`) → anthropic wins
-      (definition order)
+      anthropic config with definition default model, the key resolved from the injected
+      env (profile-path parity — `resolveActiveProvider` also returns resolved keys via
+      `normalizeProviderConfig`), `source: 'env-default'`, and the env var NAME carried in
+      `sourceEnvVar` for the notice. _Corrected during implementation: the draft said the
+      key "stays a `$ENV:` reference", but provider creation and the subagent runner
+      factory consume resolved keys (verified by a real 401 from the literal reference
+      string in the live scenario run); the env name moved to a dedicated typed field so
+      the notice never touches the value._
+- [ ] TC-02: multiple synthesizable env keys set (`ANTHROPIC_API_KEY` + `GEMINI_API_KEY`) →
+      anthropic wins (definition order). _Reworded during implementation: the draft paired
+      anthropic with openai, but openai is not synthesizable (no default model) — see the
+      Solution correction note._
 - [ ] TC-03: settings profile present + env key set → settings profile wins (regression)
 - [ ] TC-04: no profile + no recognized env key → existing "No provider configuration found"
       error unchanged (regression)
-- [ ] TC-05: local-type definitions (gemma/qwen/deepseek) are never synthesized from env keys
-      alone (baseURL requirement respected)
+- [ ] TC-05: definitions failing the candidate rule are never synthesized — gemma (literal
+      non-`$ENV:` apiKey default) and openai (no default model) produce no synthesis even
+      with their env vars set; qwen/deepseek synthesize using their own complete defaults
+      (incl. baseURL). _Reworded during implementation per the Solution correction note: the
+      draft's "local 3종 excluded" premise misread the definition data._
 - [ ] TC-06: startup notice line printed exactly once when running on an env-synthesized
       profile, naming provider, model, and env var name — never the key value
 - [ ] TC-07: framework + CLI SPEC.md document the resolution order
@@ -132,7 +156,7 @@ the notice line.
 
 ## Tasks
 
-- [ ] `.agents/tasks/CLI-066.md` — 미생성 (GATE-APPROVAL 통과 후 생성)
+- [x] `.agents/tasks/CLI-066.md` — 생성 완료 (T1~T8, TC-01~TC-07 매핑)
 
 ## Evidence Log
 
@@ -155,3 +179,23 @@ the notice line.
 - Direct, unambiguous, directed at this spec: the approval message summarized CLI-066's design decisions specifically (in-memory env-default profile synthesis from definition defaults in definition order, no persistence, settings profile always wins, one-line provider/model/env-var startup notice without key value, local-type definitions excluded) and flagged it as containing a product-direction decision ("제품 방향 결정 포함"); "승인함" confirms all four presented designs including this one — not a clarifying answer, not silence, not approval of a different item.
 - No post-approval modification: frontmatter (`type: BEHAVIOR`, `tags: [cli, typescript]`) and Architecture Review content match what was summarized for approval; last Evidence Log entry before this gate is GATE-WRITE (2026-06-11); approval was given after spec content was authored and summarized.
 - NON-COMPLIANCE trigger check: no implementation started before this gate — `.agents/tasks/CLI-066.md` does not exist; no uncommitted changes in `packages/agent-framework/src/command-api/provider/` or `packages/agent-cli/src/cli.ts`.
+
+### [GATE-IMPLEMENT] — ❌ FAIL | 2026-06-12
+
+**Status remains:** approved
+**Failed criteria:**
+
+- Tasks correspond to Completion Criteria: `.agents/tasks/CLI-066.md` exists (criterion 1 met) and its path is recorded in `## Tasks` (criterion 2 met); T1–T7 cover TC-01–TC-07 by label, but T5 and T2 contradict the approved spec content. T5 defines the exclusion rule as "no `$ENV:` apiKey default (gemma) or no default model (openai)", while TC-05 and the approved sibling scan state all three cloud definitions (anthropic/openai/gemini) carry `defaults.model` + `$ENV:` apiKey and only local-type definitions (gemma/qwen/deepseek) are excluded due to the baseURL requirement — T5 wrongly removes openai from the synthesizable set. T2 tests priority with "anthropic before gemini", while TC-02 specifies `ANTHROPIC_API_KEY` + `OPENAI_API_KEY` with anthropic winning — consistent with T5's incorrect model rather than the spec. Implementing per the tasks file would fail TC-02/TC-05.
+  **Required action:** Rewrite T2 and T5 in `.agents/tasks/CLI-066.md` to match TC-02 (anthropic + openai env keys, anthropic wins by definition order) and TC-05 (local-type definitions gemma/qwen/deepseek excluded — baseURL requirement; cloud definitions including openai remain candidates), then re-run GATE-IMPLEMENT.
+- NON-COMPLIANCE trigger check: no implementation commits — working tree clean for `packages/agent-framework/src/command-api/provider/` and `packages/agent-cli/src/cli.ts`; latest commit on provider-factory/provider-merge is CLI-064 (#698, 847cf8991), which introduced `ProviderConfigError` as a dependency of this item, not CLI-066 work.
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-06-12
+
+**Status upgrade:** approved → in-progress
+
+- Tasks file created: `.agents/tasks/CLI-066.md` exists with tasks T1–T8 and a Test Plan summary deferring to this spec's authoritative TC table.
+- Tasks file path recorded: `## Tasks` section lists `.agents/tasks/CLI-066.md` (T1~T8, TC-01~TC-07 매핑).
+- Tasks correspond to Completion Criteria (one task per TC-N): T1↔TC-01 (env-default synthesis, `source: 'env-default'`, `$ENV:` key reference); T2↔TC-02 (`ANTHROPIC_API_KEY` + `GEMINI_API_KEY`, anthropic wins by definition order — matches the reworded TC-02); T3↔TC-03 (settings profile wins); T4↔TC-04 (`ProviderConfigError` "No provider configuration found" unchanged); T5↔TC-05 (gemma literal-apiKey and openai no-default-model excluded; qwen/deepseek synthesize from complete defaults incl. baseURL — matches the reworded TC-05); T6↔TC-06 (one-line stderr notice, never the key value); T7↔TC-07 (framework + CLI SPEC resolution order); T8 is an additional verification/PR task beyond the TC minimum.
+- Prior FAIL (2026-06-12) resolution verified: the spec's Solution correction note was checked against `packages/agent-provider/src/*/` source — openai `defaults` contains only `apiKey: '$ENV:OPENAI_API_KEY'` with no `model` (modelCatalog `status: 'unavailable'`, `openai/provider-definition.ts:30-37`); gemma `defaults.apiKey` is the literal `'lm-studio'` (not an `$ENV:` reference); qwen and deepseek both carry `$ENV:` apiKey reference + model + baseURL in `defaults` (`qwen/provider-definition.ts:77-81`, `deepseek/provider-definition.ts:43-47`); anthropic and gemini carry `$ENV:` apiKey + model; definition order in `default-provider-definitions.ts` is anthropic → openai → gemini → gemma → qwen → deepseek, so anthropic precedes gemini as TC-02/T2 assume. T2/T5 no longer contradict TC-02/TC-05 — both sides now state the same corrected membership.
+- Approved Decision integrity: the candidate rule in Solution step 1 and the Decision (definition-defaults fallback, settings-first, no persistence, startup notice) are unchanged; only the draft's expected membership list was corrected via the documented italic correction note, with TC-02/TC-05 carrying inline rationale.
+- NON-COMPLIANCE trigger check: no implementation commits — `git status` clean for `packages/agent-framework/src` and `packages/agent-cli/src`; latest commits touching the affected paths are CLI-065 (#699, f25ad91b5), CLI-064 (#698, 847cf8991), CLI-063 (#697, eedc2f9bc) — all prior items, no CLI-066 work started.

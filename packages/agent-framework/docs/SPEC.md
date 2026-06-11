@@ -348,12 +348,36 @@ When a hint is present and the user omits arguments, `createInteractiveRuntime` 
 
 `agent-framework` does **not** own: Ink rendering, web socket connections, dialog HTML, or any channel implementation. Those live in transport packages.
 
+## Provider Resolution Order
+
+`readProviderSettings(cwd, options)` resolves the active provider configuration in this
+order — the first hit wins:
+
+1. **Settings documents** (`resolveActiveProvider` over the merged settings paths): an
+   explicit profile always wins.
+2. **Env-default synthesis** (`resolveEnvDefaultProvider(definitions, env)`): when no
+   profile resolves, the first provider definition (in definition order) whose
+   `defaults.apiKey` is a `$ENV:<NAME>` reference with `env[<NAME>]` set non-empty AND
+   whose `defaults.model` exists yields an in-memory config flagged `source: 'env-default'`
+   (key stays the `$ENV:` reference; `defaults.baseURL`/`timeout` carried over). Nothing is
+   persisted. Definitions without an `$ENV:` apiKey default or without a default model are
+   never synthesized. `env` is injectable (default `process.env`).
+3. **`ProviderConfigError`**: thrown when neither resolves.
+
+Callers can detect `source === 'env-default'` to render a one-line startup notice naming
+provider/model/env-var — never the key value.
+
 ## Error Taxonomy
 
-The package does not define its own named `Error` subclasses. Errors propagate from underlying packages and from SDK assembly validation:
+The package defines one named `Error` subclass: `ProviderConfigError` (missing/unusable
+provider configuration at session start — thrown by `readProviderSettings` and by
+`agent-command`'s `ensureProviderConfig`; the CLI maps it to a distinct exit code in print
+mode). All other errors propagate from underlying packages and from SDK assembly
+validation:
 
 | Error Source            | Category                    | Description                                                                                                     |
 | ----------------------- | --------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| Provider resolution     | `ProviderConfigError`       | No settings profile and no env-default synthesis candidate (see §Provider Resolution Order)                     |
 | `agent-session`         | `SessionRunError`           | Unrecoverable error during `session.run()`                                                                      |
 | `agent-core`            | `PermissionDeniedError`     | Tool call denied by permission policy                                                                           |
 | Config loading          | `TypeError` / thrown string | Missing `type` field in provider profile; unknown `currentProvider` key                                         |

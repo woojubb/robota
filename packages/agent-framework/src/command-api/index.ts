@@ -121,6 +121,7 @@ export {
   ProviderConfigError,
   readMergedProviderSettings,
   readProviderSettings,
+  resolveEnvDefaultProvider,
 } from './provider/provider-factory.js';
 export { formatCommandHelpMessage, HELP_COMMAND_DESCRIPTION } from './help/help-command-api.js';
 export {

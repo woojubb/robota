@@ -138,6 +138,7 @@ export {
   ProviderConfigError,
   readMergedProviderSettings,
   readProviderSettings,
+  resolveEnvDefaultProvider,
   clearCommandContextReferences,
   deleteProviderProfile,
   formatEnvReference,

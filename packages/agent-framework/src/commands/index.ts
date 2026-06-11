@@ -63,6 +63,7 @@ export {
   ProviderConfigError,
   readMergedProviderSettings,
   readProviderSettings,
+  resolveEnvDefaultProvider,
 } from '../command-api/provider/provider-factory.js';
 export { commandToCapabilityDescriptor } from './capability-descriptors.js';
 export { SkillCommandSource, parseFrontmatter } from './skill-source.js';
