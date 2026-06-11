@@ -315,6 +315,53 @@ describe('--dry-run permission mode alias', () => {
   });
 });
 
+describe('print-mode session flag validation (CLI-063)', () => {
+  let originalArgv: string[];
+
+  beforeEach(() => {
+    originalArgv = process.argv;
+  });
+
+  afterEach(() => {
+    process.argv = originalArgv;
+  });
+
+  it('TC-04: throws on print mode with an empty resume id (-r "")', () => {
+    process.argv = ['node', 'cli', '-p', 'hi', '-r', ''];
+    expect(() => parseCliArgs()).toThrow(/Print mode requires an explicit session id/);
+  });
+
+  it('TC-04: bare -r is a parse error in any mode (parseArgs argument missing)', () => {
+    process.argv = ['node', 'cli', '-p', 'hi', '-r'];
+    expect(() => parseCliArgs()).toThrow(/argument missing/);
+  });
+
+  it('TC-04: accepts print mode with an explicit -r id', () => {
+    process.argv = ['node', 'cli', '-p', 'hi', '-r', 'session_abc'];
+    expect(parseCliArgs().resumeId).toBe('session_abc');
+  });
+
+  it('TC-04: accepts an empty -r "" outside print mode (TUI session picker)', () => {
+    process.argv = ['node', 'cli', '-r', ''];
+    expect(parseCliArgs().resumeId).toBe('');
+  });
+
+  it('TC-05: throws on print mode with -c and --no-session-persistence', () => {
+    process.argv = ['node', 'cli', '-p', 'hi', '-c', '--no-session-persistence'];
+    expect(() => parseCliArgs()).toThrow(/--no-session-persistence conflicts/);
+  });
+
+  it('TC-05: throws on print mode with -r <id> and --no-session-persistence', () => {
+    process.argv = ['node', 'cli', '-p', 'hi', '-r', 'session_abc', '--no-session-persistence'];
+    expect(() => parseCliArgs()).toThrow(/--no-session-persistence conflicts/);
+  });
+
+  it('TC-05: accepts --no-session-persistence in print mode without -c/-r', () => {
+    process.argv = ['node', 'cli', '-p', 'hi', '--no-session-persistence'];
+    expect(parseCliArgs().noSessionPersistence).toBe(true);
+  });
+});
+
 describe('printHelp flag coverage', () => {
   it('TC-04: lists --json-schema', () => {
     expect(printHelp()).toContain('--json-schema');

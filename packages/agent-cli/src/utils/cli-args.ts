@@ -231,6 +231,18 @@ function mapParsedValues(
 export function parseCliArgs(): IParsedCliArgs {
   const { values, positionals } = parseArgs(PARSE_ARGS_CONFIG);
   const args = mapParsedValues(values, positionals);
+  if (args.printMode) {
+    if (args.resumeId === '') {
+      throw new Error(
+        'Print mode requires an explicit session id: -r <id|name> (the interactive session picker is TUI-only)',
+      );
+    }
+    if (args.noSessionPersistence && (args.continueMode || args.resumeId !== undefined)) {
+      throw new Error(
+        '--no-session-persistence conflicts with -c/-r (resume needs the session store)',
+      );
+    }
+  }
   if (args.dryRun) {
     if (args.permissionMode !== undefined && args.permissionMode !== 'plan') {
       throw new Error(

@@ -1,6 +1,6 @@
 ---
 title: 'CLI-063: Print mode silently ignores -c/--continue and -r/--resume'
-status: todo
+status: done
 created: 2026-06-11
 priority: high
 urgency: now
@@ -46,4 +46,16 @@ can reference them. Headless/automation users get the same session semantics as 
 to remember?" -c`.
 - Expected observable result: second run answers 42; `.robota/sessions/` gains no third file
   beyond the continued session's update.
-- Evidence: (fill after implementation)
+- Evidence: executed 2026-06-12 against the fixed local build (`bin/robota.cjs`, branch
+  `feat/cli-063-print-mode-resume`, PR #697) with a real Anthropic provider
+  (claude-sonnet-4-6, key via `$ENV:ANTHROPIC_API_KEY`) in an isolated HOME + temp cwd:
+  - turn 1 `robota -p "Remember this number: 42. Acknowledge briefly."` → "Saved! The
+    number **42** has been stored in memory.", exit 0
+  - turn 2 `robota -p "What number did I ask you to remember? Answer with just the
+number." -c` → output exactly `42`, exit 0
+  - `.robota/sessions/` contains exactly **1** session file after both turns (before the
+    fix: a new file per run, model had no memory — see
+    `.design/validation/agent-cli-product-verification-2026-06.md` L3)
+  - Automated regression: `print-mode-integration.test.ts` TC-02/03/06,
+    `headless-channel-options.test.ts` resume/fork wiring, `cli-args.test.ts` TC-04/05
+    (agent-cli 117 tests, agent-transport 460 tests green)
