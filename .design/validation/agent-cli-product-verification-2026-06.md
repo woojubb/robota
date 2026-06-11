@@ -23,6 +23,22 @@
 비대화식에서 동작하지 않는다(major). "한 번 묻고 끝나는 일회성 CLI"로는 합격,
 "파이프라인에 끼워 쓰는 에이전트 도구"로는 백로그 CLI-063~066 해소 전까지 불합격.
 
+## Addendum (2026-06-12): critical/major 4건 해소 — 자동화 합격선 도달
+
+CLI-063~066이 spec-gate 파이프라인을 거쳐 수정·머지되었고(develop PR #697~#700), 각
+백로그의 User Execution Test Scenario를 실 바이너리 + 실 Anthropic API로 재실측해
+evidence를 기록했다 (`.agents/backlog/completed/CLI-063~066`):
+
+| 결함                   | 해소 PR | 재검증 결과                                                                                                                           |
+| ---------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| CLI-063 print resume   | #697    | `-p "Remember 42"` → `-p ... -c`가 정확히 `42` 응답, 세션 파일 1개 (이전: 매번 새 세션)                                               |
+| CLI-064 exit code 계약 | #698    | 실 401 → text exit 1 + stderr, json `subtype: error` + `error_code: api_error`; 설정 없음 print → exit 3 (이전: 전부 exit 0/1 뒤섞임) |
+| CLI-065 init --yes     | #699    | 비TTY `init --yes` 멱등 완주(exit 0), `--yes` 없으면 질문 명시 에러 exit 1 (이전: TTY 에러 + 엉뚱한 안내)                             |
+| CLI-066 zero-config    | #700    | 프로필 없이 `ANTHROPIC_API_KEY`만으로 실 LLM 응답 + 안내 1줄 + 키 미노출 (이전: 거부)                                                 |
+
+이로써 종합 판정의 "불합격" 단서는 해소되었다. 잔여: medium/low 백로그(CLI-067~073),
+L2 본격 하네스(spec-gate 대기), CJK(CLI-061/062, 사용자 지시로 제외).
+
 ## L0 — 베이스라인 (통과)
 
 | 항목                   | 결과                                                                            |
