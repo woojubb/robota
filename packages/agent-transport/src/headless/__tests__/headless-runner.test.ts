@@ -96,6 +96,25 @@ describe('createHeadlessRunner (text format)', () => {
     expect(stdoutWriteSpy).not.toHaveBeenCalled();
   });
 
+  it('TC-02 (CLI-064): text format writes the error message to stderr on error', async () => {
+    const stderrWrites: string[] = [];
+    const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(((chunk: unknown) => {
+      stderrWrites.push(String(chunk));
+      return true;
+    }) as never);
+    try {
+      const session = createMockSession('error');
+      const runner = createHeadlessRunner({ session, outputFormat: 'text' });
+
+      const exitCode = await runner.run('test prompt');
+
+      expect(exitCode).toBe(1);
+      expect(stderrWrites.join('')).toContain('test error');
+    } finally {
+      stderrSpy.mockRestore();
+    }
+  });
+
   it('passes the prompt to session.submit', async () => {
     const session = createMockSession('complete', 'ok');
     const runner = createHeadlessRunner({ session, outputFormat: 'text' });

@@ -60,6 +60,7 @@ export {
 export type { IReadProviderSettingsOptions } from '../command-api/provider/provider-factory.js';
 export {
   createProviderFromSettings,
+  ProviderConfigError,
   readMergedProviderSettings,
   readProviderSettings,
 } from '../command-api/provider/provider-factory.js';
