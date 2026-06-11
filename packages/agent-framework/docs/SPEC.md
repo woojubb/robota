@@ -358,14 +358,17 @@ order — the first hit wins:
 2. **Env-default synthesis** (`resolveEnvDefaultProvider(definitions, env)`): when no
    profile resolves, the first provider definition (in definition order) whose
    `defaults.apiKey` is a `$ENV:<NAME>` reference with `env[<NAME>]` set non-empty AND
-   whose `defaults.model` exists yields an in-memory config flagged `source: 'env-default'`
-   (key stays the `$ENV:` reference; `defaults.baseURL`/`timeout` carried over). Nothing is
-   persisted. Definitions without an `$ENV:` apiKey default or without a default model are
-   never synthesized. `env` is injectable (default `process.env`).
+   whose `defaults.model` exists yields an in-memory config flagged `source: 'env-default'`.
+   The key is **resolved** from the env map (profile-path parity — `resolveActiveProvider`
+   also returns resolved keys via `normalizeProviderConfig`); the env var NAME travels in
+   the dedicated `sourceEnvVar` field so callers can name the variable without touching the
+   value. `defaults.baseURL`/`timeout`/`options` are carried over. Nothing is persisted.
+   Definitions without an `$ENV:` apiKey default or without a default model are never
+   synthesized. `env` is injectable (default `process.env`).
 3. **`ProviderConfigError`**: thrown when neither resolves.
 
-Callers can detect `source === 'env-default'` to render a one-line startup notice naming
-provider/model/env-var — never the key value.
+Callers can detect `source === 'env-default'` and read `sourceEnvVar` to render a one-line
+startup notice naming provider/model/env-var — never the key value.
 
 ## Error Taxonomy
 
