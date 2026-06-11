@@ -1010,6 +1010,20 @@ The CLI asks `@robota-sdk/agent-framework` for a project-local session persisten
 - **Universal cap**: Tool output is capped at 30,000 characters. Outputs exceeding this limit are middle-truncated (first and last portions are kept, with a truncation marker in the middle).
 - **Glob entry limit**: The Glob tool defaults to a maximum of 1,000 entries per invocation to prevent oversized responses.
 
+## Zero-Config Startup (env-default)
+
+When no provider profile exists in any settings document but a recognized provider env key
+is set, the CLI starts anyway: provider resolution synthesizes an in-memory config from the
+provider definition's defaults (see agent-framework SPEC §Provider Resolution Order —
+candidate rule: `$ENV:` apiKey default whose variable is set + a default model; nothing is
+persisted; settings profiles always win). On an env-synthesized run the CLI prints exactly
+one notice line — `Using <provider> (<model>) via <ENV_NAME> — run robota --configure to
+persist a profile.` — to stderr in print mode (stdout contracts stay clean) or to the
+terminal in TUI mode. The key value is never printed. `ensureConfig` skips the interactive
+setup flow when an env-default candidate exists (unless `--provider` explicitly selects a
+profile). The "No provider configuration found" error therefore means: no profile AND no
+synthesizable env key.
+
 ## First-Run Setup
 
 First-run detection uses an onboarded marker file at `userPaths().onboarded` (resolved by
