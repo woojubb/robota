@@ -325,6 +325,14 @@ class HeadlessInteractionChannel {
 }
 ```
 
+`IHeadlessInteractionChannelOptions` accepts `resumeSessionId?: string` and
+`forkSession?: boolean`, forwarded verbatim to `InteractiveSession` so print mode has the
+same session resume/fork semantics as the TUI channel (`-c`/`-r`/`--fork-session` parity).
+When `resumeSessionId` is set without `forkSession`, the existing session is continued
+(same id, prior conversation messages restored); with `forkSession: true` a new independent
+session id is created per the framework's fork semantics. The caller (agent-cli) resolves
+ids and validates print-mode-impossible flag combinations before constructing the channel.
+
 ### `TuiTransport`
 
 ```typescript

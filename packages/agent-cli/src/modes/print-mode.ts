@@ -8,6 +8,13 @@ import type { IParsedCliArgs } from '../utils/cli-args.js';
 import { parseToolList } from '../utils/cli-args.js';
 import { buildAppendSystemPrompt } from '../startup/append-system-prompt.js';
 
+export interface IPrintModeSessionResolution {
+  /** Session id resolved by the CLI from -c/-r (undefined starts a new session). */
+  resumeSessionId?: string;
+  /** Fork the resumed session into a new independent session (--fork-session). */
+  forkSession?: boolean;
+}
+
 export async function runPrintMode(
   cwd: string,
   args: IParsedCliArgs,
@@ -17,6 +24,7 @@ export async function runPrintMode(
   subagentRunnerFactory: ReturnType<typeof createChildProcessSubagentRunnerFactory>,
   commandModules: readonly ICommandModule[],
   commandHostAdapters: ICommandHostAdapters,
+  sessionResolution: IPrintModeSessionResolution = {},
 ): Promise<void> {
   let prompt = args.positional.join(' ').trim();
 
@@ -42,6 +50,8 @@ export async function runPrintMode(
     permissionMode: args.permissionMode ?? 'bypassPermissions',
     maxTurns: args.maxTurns,
     sessionStore: args.noSessionPersistence ? undefined : sessionStore,
+    resumeSessionId: sessionResolution.resumeSessionId,
+    forkSession: sessionResolution.forkSession,
     sessionName: args.sessionName,
     bare: args.bare || undefined,
     allowedTools: parseToolList(args.allowedTools),
