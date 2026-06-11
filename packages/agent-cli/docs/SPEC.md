@@ -980,7 +980,16 @@ Operational cache lives in `~/.robota/update-check.json` and is not part of `.ro
 | `--fork-session`    | Boolean flag, used with `--continue` or `--resume`. Creates a new session (fresh UUID) but restores context from the resumed session. Original file preserved |
 | `--name <name>`     | Sets the session name. Can be combined with other flags                                                                                                       |
 
-When `--resume` is used without a value, a `ListPicker` overlay is shown with all saved sessions. The user selects one to resume.
+When `--resume` is used with an explicit empty value (`-r ""`) in TUI mode, a `ListPicker` overlay is shown with all saved sessions. The user selects one to resume. A bare `-r` with no value at all is rejected by the argument parser ("argument missing", exit 1).
+
+Session resolution applies to **both TUI and print mode**: `cli.ts` resolves the target session id once (from `-c`/`-r`) and passes it to `renderApp` (TUI) or `runPrintMode` → `HeadlessInteractionChannel` (print mode). Print-mode-only argument errors (validated in `parseCliArgs()`, written to stderr, exit 1):
+
+| Combination                                        | Error                                                                                        |
+| -------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `-p` with `-r ""` (empty resume id)                | `Print mode requires an explicit session id: -r <id\|name>` (the session picker is TUI-only) |
+| `-p` with `-c`/`-r` and `--no-session-persistence` | `--no-session-persistence conflicts with -c/-r (resume needs the session store)`             |
+
+`-c` with no prior session for the cwd starts a new session (continue-or-start semantics, identical in both modes).
 
 ### Session Storage
 

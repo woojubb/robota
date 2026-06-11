@@ -178,6 +178,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
       subagentRunnerFactory,
       commandModules,
       commandHostAdapters,
+      { resumeSessionId, forkSession: args.forkSession },
     );
     return;
   }
