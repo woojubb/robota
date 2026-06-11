@@ -943,11 +943,11 @@ If both stdin and a positional argument are provided, stdin content is prepended
 This is the single authoritative exit-code table. The error-handling table in §Error
 Handling maps each error class onto one of these codes.
 
-| Code | Meaning                                                                                                                                |
-| ---- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| 0    | Success or user interruption                                                                                                           |
-| 1    | Error during execution — argument parse errors, provider API failures (network/auth), user-local command errors, org policy violations |
-| 3    | Provider configuration error at print-mode session start (`ProviderConfigError`) — reconfigure, do not retry                           |
+| Code | Meaning                                                                                                         |
+| ---- | --------------------------------------------------------------------------------------------------------------- |
+| 0    | Success or user interruption                                                                                    |
+| 1    | Error during execution — argument parse errors, provider API failures (network/auth), user-local command errors |
+| 3    | Provider configuration error at print-mode session start (`ProviderConfigError`) — reconfigure, do not retry    |
 
 Provider API failures during a model call must never exit 0: the execution layer marks the
 result failed (`success: false` + `error` when the final assistant message carries
@@ -1587,7 +1587,7 @@ The CLI does not expose plugin hooks at the binary level. Plugin lifecycle is ow
 | Provider config error | `ProviderConfigError` from `ensureConfig`/`readProviderSettings` at session start | Written to stderr; `process.exit(3)` in `cli.ts` when print mode, `process.exit(1)` otherwise (TTY runs the interactive setup flow instead)                                                                           | 3 (print) / 1 |
 | Provider API error    | Network or auth failure during model call                                         | Execution result marked failed (`providerError` metadata → `success: false`); `robotaRun` throws; headless runner `onError` writes stderr (text) or `subtype: "error"` envelope (json/stream-json); `process.exit(1)` | 1             |
 | User-local cmd error  | Exception thrown by user-local command handler                                    | Written to stderr via `terminal.writeError()`; `process.exit(1)`                                                                                                                                                      | 1             |
-| Org policy violation  | Provider not in `orgPolicy.allowedProviders`                                      | Written to stderr; `process.exit(1)` in `cli.ts`                                                                                                                                                                      | 1             |
+| Org policy violation  | Provider not in `orgPolicy.allowedProviders`                                      | Surfaced as a failed command result (`provider-command-profile-operations.ts` in agent-command) or session-level rejection (`interactive-session.ts` in agent-framework); the process keeps running — no exit         | —             |
 | IME / CJK crash       | `uncaughtException` with string-width/cursor signals                              | Diagnostic written to stderr; process continues (IME-only)                                                                                                                                                            | —             |
 | Unhandled exception   | Non-IME `uncaughtException` in `bin.ts`                                           | Re-thrown; Node prints stack trace and exits with code 1                                                                                                                                                              | 1             |
 | Init cancel           | User declines overwrite in `robota init`                                          | Prints "Init cancelled." and returns normally (no exit code)                                                                                                                                                          | 0             |

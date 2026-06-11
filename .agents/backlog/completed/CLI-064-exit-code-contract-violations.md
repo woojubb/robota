@@ -1,6 +1,6 @@
 ---
 title: 'CLI-064: Exit-code contract violations and SPEC self-contradiction'
-status: todo
+status: done
 created: 2026-06-11
 priority: high
 urgency: now
