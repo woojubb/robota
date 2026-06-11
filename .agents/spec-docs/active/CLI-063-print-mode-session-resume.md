@@ -219,3 +219,22 @@ NON-COMPLIANCE trigger check: no implementation commits exist — `git status --
 - NON-COMPLIANCE trigger check: no implementation commits before this gate — `git status --porcelain packages/agent-cli/src packages/agent-transport/src` clean; latest commits touching affected files remain prior merged PRs (#685, #684, #657) — not triggered
 
 This resolves the prior FAIL of 2026-06-11 (tasks file missing). Tasks created: T1, T2, T3, T4, T5, T6, T7, T8 in `.agents/tasks/CLI-063.md`.
+
+### [GATE-VERIFY] — ❌ FAIL | 2026-06-12
+
+**Status remains:** in-progress
+**Failed criteria:**
+
+- All tasks in `.agents/tasks/CLI-063.md` marked complete (`[x]`): T8 is unchecked — `- [ ] T8: build/typecheck/lint/test green; PR to develop; backlog CLI-063 evidence recording`. T1–T7 are `[x]`.
+  **Required action:** Complete T8 — open the PR from `feat/cli-063-print-mode-resume` to `develop` and record the backlog evidence — then mark T8 `[x]` and re-run GATE-VERIFY. (If the pipeline determines the PR/evidence steps belong after this gate, re-scope T8 in the tasks file first; the gate cannot pass over an unchecked task.)
+- No tasks are blocked or pending: T8 is genuinely pending, not merely unticked — branch `feat/cli-063-print-mode-resume` has no upstream (`git status -sb` shows no remote tracking) and `gh pr list --head feat/cli-063-print-mode-resume --state all` returns no PR; backlog evidence recording has not occurred.
+  **Required action:** Same as above.
+
+Criteria verified as met during this run (recorded for the re-run):
+
+- Build passes for affected packages: `pnpm --filter @robota-sdk/agent-transport build` → Build complete; `pnpm --filter @robota-sdk/agent-cli build` → Build complete — met
+- Tests pass for affected packages: `pnpm --filter @robota-sdk/agent-transport test` → 57 files / 460 tests passed; `pnpm --filter @robota-sdk/agent-cli test` → 12 files / 117 tests passed. Named TC files re-run individually: `headless-channel-options.test.ts` 3/3 passed (TC-01); `print-mode-integration.test.ts` 3/3 passed (TC-02/03/06); `cli-args.test.ts` 50/50 passed (incl. TC-04/05 print-mode validation block) — met
+- Documented TC corrections stay within the approved Decision (Alternative 1: TUI parity, no new restore logic): TC-03 verified against `packages/agent-framework/src/interactive/interactive-session-restore.ts` — saved messages are injected only `if (!forkSession && record.messages)`, so fork-as-fresh-context is the framework's existing TUI semantics (follow-up CLI-073 exists in `.agents/spec-docs/`); TC-04 verified against `packages/agent-cli/src/utils/cli-args.ts:235-243` — `parseCliArgs` rejects `-p` with `-r ""` ("Print mode requires an explicit session id") and `-c`/`-r` + `--no-session-persistence` ("--no-session-persistence conflicts with -c/-r") as pre-dispatch argument errors (exit 1), consistent with the Decision's argument-error class; bare `-r` without a value is rejected earlier by `parseArgs` itself — corrections in scope
+- Wiring spot-check: `HeadlessInteractionChannel.ts` declares `resumeSessionId?`/`forkSession?` (lines 32/34) and forwards both to `InteractiveSession` (lines 68-69); `packages/agent-cli/docs/SPEC.md:985-989` documents print-mode session resolution + error rows; `packages/agent-transport/docs/SPEC.md:328-398` documents the new channel options — consistent with TC-01/TC-07 claims
+
+Completion Criteria checkboxes were intentionally left unchecked: per the backlog-gate-guard skill, TC-N checkbox validation and checking belong to GATE-COMPLETE, and GATE-VERIFY may not modify that section.
