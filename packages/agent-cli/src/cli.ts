@@ -150,6 +150,14 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     : { providerDefinitions };
   const providerSettings = readProviderSettings(cwd, providerOptions);
   const modelId = args.model ?? providerSettings.model;
+  if (providerSettings.source === 'env-default' && providerSettings.sourceEnvVar !== undefined) {
+    const notice = `Using ${providerSettings.name} (${modelId}) via ${providerSettings.sourceEnvVar} — run \`robota --configure\` to persist a profile.\n`;
+    if (args.printMode) {
+      process.stderr.write(notice);
+    } else {
+      terminal.writeLine(notice.trimEnd());
+    }
+  }
   const provider = createProviderFromSettings(cwd, args.model, providerOptions);
   const backgroundTaskRunners = createDefaultBackgroundTaskRunners();
   const paths = projectPaths(cwd);

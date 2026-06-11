@@ -6,6 +6,7 @@ import {
   readMergedProviderSettings,
   readSettings,
   writeSettings,
+  resolveEnvDefaultProvider,
   resolveSettingsPathForScope,
   getProviderSettingsPaths,
   applyProviderConfiguration,
@@ -31,6 +32,8 @@ export interface IProviderStartupContext {
 export interface IEnsureProviderConfigOptions {
   formatError: (defs: readonly IProviderDefinition[]) => string;
   isInteractive?: () => boolean;
+  /** Environment map for env-default synthesis (test seam, default: process.env). */
+  env?: Record<string, string | undefined>;
 }
 
 export async function runProviderStartupSetup(
@@ -79,6 +82,14 @@ export async function ensureProviderConfig(
   const selectedSettings =
     ctx.provider !== undefined ? { ...merged, currentProvider: ctx.provider } : merged;
   if (checkSettingsDocument(selectedSettings, providerDefinitions) === 'valid') {
+    return;
+  }
+  // Zero-config startup: a recognized provider env key with complete definition defaults
+  // makes setup unnecessary — resolution will synthesize an env-default config.
+  if (
+    ctx.provider === undefined &&
+    resolveEnvDefaultProvider(providerDefinitions, options.env) !== undefined
+  ) {
     return;
   }
   const checkInteractive = options.isInteractive ?? (() => false);

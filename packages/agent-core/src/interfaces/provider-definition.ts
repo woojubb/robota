@@ -8,6 +8,18 @@ export interface IProviderConfig {
   baseURL?: string;
   timeout?: number;
   options?: Record<string, TUniversalValue>;
+  /**
+   * Resolution origin. `'env-default'` means no settings profile existed and the config
+   * was synthesized from a provider definition's defaults because its `$ENV:` apiKey
+   * reference resolved — callers surface a startup notice for this case.
+   */
+  source?: 'env-default';
+  /**
+   * Name of the environment variable the env-default key was resolved from
+   * (set only when `source` is `'env-default'`) — lets callers name the variable in the
+   * startup notice without exposing the key value.
+   */
+  sourceEnvVar?: string;
 }
 
 export interface IProviderProfileDefaults {
