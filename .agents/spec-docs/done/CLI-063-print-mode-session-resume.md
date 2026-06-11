@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: BEHAVIOR
 tags: [cli, typescript]
 ---
@@ -106,13 +106,13 @@ args.resumeId !== undefined)` → "--no-session-persistence conflicts with -c/-r
 
 ## Completion Criteria
 
-- [ ] TC-01: `HeadlessInteractionChannel` constructed with `resumeSessionId` passes it to
+- [x] TC-01: `HeadlessInteractionChannel` constructed with `resumeSessionId` passes it to
       `InteractiveSession` options; with `forkSession: true` passes that too (unit assertion
       on the constructed session's options/restored state)
-- [ ] TC-02: print-mode integration — seeded session store with prior user+assistant
+- [x] TC-02: print-mode integration — seeded session store with prior user+assistant
       messages, run with `resumeSessionId` of that session → provider receives the prior
       messages in its request and the store gains no additional session id
-- [ ] TC-03: print-mode integration — same seed, `forkSession: true` → a new independent
+- [x] TC-03: print-mode integration — same seed, `forkSession: true` → a new independent
       session id is created and the original is untouched; the forked run starts a fresh
       model context (prior messages NOT injected — identical to the framework's existing
       TUI fork semantics in `interactive-session-restore.ts:85`). _Corrected during
@@ -120,15 +120,15 @@ args.resumeId !== undefined)` → "--no-session-persistence conflicts with -c/-r
       framework's fork semantics; the approved Decision is TUI parity with no new restore
       logic. Whether forks should carry conversation context is tracked separately as
       backlog CLI-073._
-- [ ] TC-04: `robota -p "hi" -r ""` (empty resume id) → stderr contains "Print mode requires
+- [x] TC-04: `robota -p "hi" -r ""` (empty resume id) → stderr contains "Print mode requires
       an explicit session id" and exit code 1. _Implementation note: a bare `-r` without any
       value is rejected earlier by `parseArgs` itself ("argument missing", exit 1); the
       empty-id case reachable as `-r ""` is the one this criterion governs._
-- [ ] TC-05: `robota -p "hi" -c --no-session-persistence` → stderr contains
+- [x] TC-05: `robota -p "hi" -c --no-session-persistence` → stderr contains
       "--no-session-persistence conflicts" and exit code 1
-- [ ] TC-06: `-c` with an empty session store → run succeeds (exit 0) and creates exactly one
+- [x] TC-06: `-c` with an empty session store → run succeeds (exit 0) and creates exactly one
       new session (continue-or-start semantics)
-- [ ] TC-07: `packages/agent-cli/docs/SPEC.md` Session Resolution Logic section states print
+- [x] TC-07: `packages/agent-cli/docs/SPEC.md` Session Resolution Logic section states print
       mode support and documents the TC-04/TC-05 error rows; transport SPEC documents the new
       channel options
 
@@ -146,9 +146,19 @@ Derived strategy (BEHAVIOR + cli/typescript): unit + process/integration tests v
 | TC-06 | integration | vitest — empty temp store, stub provider                                |                                        |
 | TC-07 | manual      | SPEC.md diff review                                                     | doc change — reviewed in PR diff       |
 
+Test references (recorded at GATE-COMPLETE, 2026-06-12):
+
+- TC-01: `packages/agent-transport/src/headless/__tests__/headless-channel-options.test.ts` > `HeadlessInteractionChannel session options` > `TC-01 (CLI-063): passes resumeSessionId and forkSession through to the InteractiveSession options` and `TC-01 (CLI-063): omits resume fields when not provided`
+- TC-02: `packages/agent-cli/src/modes/__tests__/print-mode-integration.test.ts` > `print mode session resume integration (CLI-063)` > `TC-02: resume loads prior messages into the provider request and creates no extra session`
+- TC-03: `packages/agent-cli/src/modes/__tests__/print-mode-integration.test.ts` > `TC-03: fork creates a new independent session and leaves the original untouched (TUI-parity fork semantics)`
+- TC-04: `packages/agent-cli/src/utils/__tests__/cli-args.test.ts` > `print-mode session flag validation (CLI-063)` > 4 `TC-04:` tests (empty `-r ""` error, bare `-r` parse error, explicit id accepted, empty `-r ""` accepted outside print mode)
+- TC-05: `packages/agent-cli/src/utils/__tests__/cli-args.test.ts` > `print-mode session flag validation (CLI-063)` > 3 `TC-05:` tests (`-c` conflict, `-r <id>` conflict, `--no-session-persistence` alone accepted)
+- TC-06: `packages/agent-cli/src/modes/__tests__/print-mode-integration.test.ts` > `TC-06: starts exactly one new session when no resume id is given (continue-or-start)`
+- TC-07: test skipped — doc-only criterion; automated test not applicable. Verified by direct content inspection of both SPEC.md files (see GATE-COMPLETE TC-07 evidence) and reviewed in PR #697 diff.
+
 ## Tasks
 
-- [x] `.agents/tasks/CLI-063.md` — 생성 완료 (T1~T8, TC-01~TC-07 매핑)
+- [x] `.agents/tasks/completed/CLI-063.md` — T1~T8 완료, GATE-COMPLETE에서 아카이브됨 (2026-06-12)
 
 ## Evidence Log
 
@@ -238,3 +248,75 @@ Criteria verified as met during this run (recorded for the re-run):
 - Wiring spot-check: `HeadlessInteractionChannel.ts` declares `resumeSessionId?`/`forkSession?` (lines 32/34) and forwards both to `InteractiveSession` (lines 68-69); `packages/agent-cli/docs/SPEC.md:985-989` documents print-mode session resolution + error rows; `packages/agent-transport/docs/SPEC.md:328-398` documents the new channel options — consistent with TC-01/TC-07 claims
 
 Completion Criteria checkboxes were intentionally left unchecked: per the backlog-gate-guard skill, TC-N checkbox validation and checking belong to GATE-COMPLETE, and GATE-VERIFY may not modify that section.
+
+### [GATE-VERIFY] — ✅ PASS | 2026-06-12
+
+**Status upgrade:** in-progress → verifying
+
+- All tasks in `.agents/tasks/CLI-063.md` marked complete (`[x]`): T1–T8 all `[x]` — the sole failing task from the 2026-06-12 FAIL run (T8: PR + backlog evidence) is now checked — met
+- No tasks blocked or pending: T8's substance verified — PR #697 exists and is OPEN (`gh pr view 697`: `fix(cli): print mode session resume — wire -c/-r/--fork-session (CLI-063)`, head `feat/cli-063-print-mode-resume` → base `develop`, https://github.com/woojubb/robota/pull/697); backlog evidence recorded in `.agents/backlog/completed/CLI-063-print-mode-session-resume-broken.md` (`status: done`, User Execution Test Scenarios Evidence filled: 2026-06-12 real-provider run — turn 1 "Remember 42" stored, turn 2 with `-c` answered exactly `42`, exit 0, exactly 1 session file in `.robota/sessions/` vs. a new file per run before the fix) — met
+- Build passes for affected packages: relied on this gate's prior run evidence (2026-06-12 FAIL entry, "Criteria verified as met" section): `pnpm --filter @robota-sdk/agent-transport build` → Build complete; `pnpm --filter @robota-sdk/agent-cli build` → Build complete. Validity confirmed: no source changes since that run — `git status --porcelain packages/agent-cli/src packages/agent-transport/src` is clean and the only commit after the implementation commit `0d4b318a8` is docs-only (`1d59f4b02` evidence log + evals); working-tree deltas are backlog/tasks docs only — met
+- Tests pass for affected packages: relied on the same recorded evidence: agent-transport 57 files / 460 tests passed (incl. `headless-channel-options.test.ts` 3/3 — TC-01 resume/fork wiring); agent-cli 12 files / 117 tests passed (incl. `print-mode-integration.test.ts` 3/3 — TC-02/03/06; `cli-args.test.ts` 50/50 — TC-04/05 print-mode validation block); typecheck/lint clean per the same run. Same no-source-change validity check as above — met
+- Documented TC corrections (TC-03 fork fresh-context, TC-04 `-r ""`) remain within the approved Alternative 1 Decision per the prior run's verification against `interactive-session-restore.ts` and `cli-args.ts:235-243`; no spec design sections modified since — within scope
+
+This resolves the prior FAIL of 2026-06-12 (T8 pending). Completion Criteria checkboxes remain unchecked by design: TC-N validation belongs to GATE-COMPLETE.
+
+### [GATE-COMPLETE: TC-01] — ✅ verified | 2026-06-12
+
+- Command: `npx vitest run src/headless/__tests__/headless-channel-options.test.ts` (cwd `packages/agent-transport`)
+- Output: `Test Files 1 passed (1)`, `Tests 3 passed (3)` — exit code 0
+- Tests: `TC-01 (CLI-063): passes resumeSessionId and forkSession through to the InteractiveSession options` and `TC-01 (CLI-063): omits resume fields when not provided` (plus pre-existing deniedTools wiring test)
+- Test reference recorded in Test Plan: `packages/agent-transport/src/headless/__tests__/headless-channel-options.test.ts`
+
+### [GATE-COMPLETE: TC-02] — ✅ verified | 2026-06-12
+
+- Command: `npx vitest run src/modes/__tests__/print-mode-integration.test.ts` (cwd `packages/agent-cli`)
+- Output: `Test Files 1 passed (1)`, `Tests 3 passed (3)` — exit code 0
+- Test: `print mode session resume integration (CLI-063)` > `TC-02: resume loads prior messages into the provider request and creates no extra session` — seeded store + `resumeSessionId`, stub provider asserts prior messages in request, store gains no additional session id
+- Test reference recorded in Test Plan: `packages/agent-cli/src/modes/__tests__/print-mode-integration.test.ts`
+
+### [GATE-COMPLETE: TC-03] — ✅ verified | 2026-06-12
+
+- Command: same run as TC-02 (`print-mode-integration.test.ts`, 3/3 passed, exit code 0)
+- Test: `TC-03: fork creates a new independent session and leaves the original untouched (TUI-parity fork semantics)` — matches the corrected criterion (fresh model context, no prior-message injection; fork-context question tracked as CLI-073)
+- Test reference recorded in Test Plan: same file
+
+### [GATE-COMPLETE: TC-04] — ✅ verified | 2026-06-12
+
+- Command: `npx vitest run src/utils/__tests__/cli-args.test.ts` (cwd `packages/agent-cli`)
+- Output: `Test Files 1 passed (1)`, `Tests 50 passed (50)` — exit code 0
+- Tests (describe `print-mode session flag validation (CLI-063)`): `TC-04: throws on print mode with an empty resume id (-r "")` asserts `/Print mode requires an explicit session id/`; `TC-04: bare -r is a parse error in any mode (parseArgs argument missing)`; plus two acceptance tests (explicit `-r id` in print mode, empty `-r ""` in TUI mode)
+- stderr + exit 1 path confirmed in source: `packages/agent-cli/src/cli.ts:52-56` — `parseCliArgs()` throw is written to `process.stderr` and followed by `process.exit(1)`
+- Test reference recorded in Test Plan: `packages/agent-cli/src/utils/__tests__/cli-args.test.ts`
+
+### [GATE-COMPLETE: TC-05] — ✅ verified | 2026-06-12
+
+- Command: same run as TC-04 (`cli-args.test.ts`, 50/50 passed, exit code 0)
+- Tests: `TC-05: throws on print mode with -c and --no-session-persistence` and `TC-05: throws on print mode with -r <id> and --no-session-persistence` assert `/--no-session-persistence conflicts/`; `TC-05: accepts --no-session-persistence in print mode without -c/-r` guards against over-blocking
+- Same `cli.ts:52-56` stderr + exit 1 path as TC-04
+- Test reference recorded in Test Plan: same file
+
+### [GATE-COMPLETE: TC-06] — ✅ verified | 2026-06-12
+
+- Command: same run as TC-02 (`print-mode-integration.test.ts`, 3/3 passed, exit code 0)
+- Test: `TC-06: starts exactly one new session when no resume id is given (continue-or-start)` — empty temp store, run succeeds, exactly one new session created
+- Test reference recorded in Test Plan: same file
+
+### [GATE-COMPLETE: TC-07] — ✅ verified | 2026-06-12
+
+- Action: direct content inspection of both SPEC.md files (doc-only criterion — automated test skipped, skip reason recorded in Test Plan)
+- `packages/agent-cli/docs/SPEC.md` (Session Resolution Logic): states "Session resolution applies to **both TUI and print mode**" and contains the print-mode argument error table with both rows — `-p` with `-r ""` → "Print mode requires an explicit session id: -r <id|name>" and `-p` with `-c`/`-r` + `--no-session-persistence` → "--no-session-persistence conflicts with -c/-r"; continue-or-start semantics documented
+- `packages/agent-transport/docs/SPEC.md:328-332,396-398`: documents `resumeSessionId?: string` / `forkSession?: boolean` on `IHeadlessInteractionChannelOptions`, forwarded verbatim to `InteractiveSession`, with continue vs fork semantics
+- Reviewed in PR #697 diff (CI green per pipeline context)
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-06-12
+
+**Status upgrade:** verifying → done
+
+- Every TC-N checkbox checked (`[x]`) with a matching `[GATE-COMPLETE: TC-N]` evidence entry above (TC-01…TC-07) — met
+- Every Test Plan TC-N row has a test reference (TC-01…TC-06: vitest file + test names recorded under the Test Plan table) or an explicit skip reason (TC-07: doc-only, content inspection + PR diff) — met
+- All Completion Criteria checkboxes are `[x]` — met
+- Test Plan updated with test references / skip reasons for all 7 TC-N rows — met
+- Tasks file archived: `git mv .agents/tasks/CLI-063.md .agents/tasks/completed/CLI-063.md` — file exists at `.agents/tasks/completed/CLI-063.md` — met
+- `## Tasks` section updated to reference the archived path — met
+- Supporting state: PR #697 CI green (build 1m33s, quality 1m3s, security audit pass; Cloudflare Pages docs-preview failure is a known non-blocking check also failing on merged PR #696); backlog item done with real-LLM user-execution evidence at `.agents/backlog/completed/CLI-063-print-mode-session-resume-broken.md`
