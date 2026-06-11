@@ -863,7 +863,13 @@ describe('ExecutionService', () => {
         },
       );
 
-      expect(result.success).toBe(true);
+      // CLI-064 exit-code contract: a round ending in a provider failure must NOT
+      // report success — the masked "Request failed:" assistant message marks the
+      // result failed so transports surface a non-zero exit.
+      expect(result.success).toBe(false);
+      expect(result.error?.message).toContain(
+        'Request failed: Provider call idle timeout after 10ms',
+      );
       expect(result.response).toContain('Request failed: Provider call idle timeout after 10ms');
     });
 

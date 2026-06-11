@@ -118,6 +118,7 @@ export {
 export type { IReadProviderSettingsOptions } from './provider/provider-factory.js';
 export {
   createProviderFromSettings,
+  ProviderConfigError,
   readMergedProviderSettings,
   readProviderSettings,
 } from './provider/provider-factory.js';

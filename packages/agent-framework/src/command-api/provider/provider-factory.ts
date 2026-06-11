@@ -1,12 +1,25 @@
-import type { IAIProvider, IProviderConfig, IProviderDefinition } from '@robota-sdk/agent-core';
 import { createProviderFromConfig } from '@robota-sdk/agent-executor';
-import { getProviderSettingsPaths } from '../../config/provider-paths.js';
+
 import { readMergedProviderSettingsFromPaths, resolveActiveProvider } from './provider-merge.js';
+import { getProviderSettingsPaths } from '../../config/provider-paths.js';
+
 import type { TProviderSettingsDocument } from './provider-settings.js';
+import type { IAIProvider, IProviderConfig, IProviderDefinition } from '@robota-sdk/agent-core';
 
 export interface IReadProviderSettingsOptions {
   providerOverride?: string;
   providerDefinitions?: readonly IProviderDefinition[];
+}
+
+/**
+ * Missing or unusable provider configuration at session start.
+ * Typed so callers can map it to a distinct exit code without message matching.
+ */
+export class ProviderConfigError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ProviderConfigError';
+  }
 }
 
 export function readMergedProviderSettings(cwd: string): TProviderSettingsDocument {
@@ -27,7 +40,7 @@ export function readProviderSettings(
     return providerConfig;
   }
 
-  throw new Error('No provider configuration found. Run `robota` to set up.');
+  throw new ProviderConfigError('No provider configuration found. Run `robota` to set up.');
 }
 
 export function createProviderFromSettings(

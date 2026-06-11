@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: BEHAVIOR
 tags: [cli, typescript]
 ---
@@ -90,16 +90,29 @@ distinction; spec-first means making the code conform after reconciling the tabl
 
 ## Solution
 
-1. `agent-core`: when `executeRound` ends a round via the provider-error branch, the
-   execution service sets a typed field on the completion result (e.g.
-   `providerError: { message: string }` on `IExecutionResult` — exact name per existing
-   type conventions, SSOT in agent-core types). History append behavior unchanged.
-2. `agent-transport` headless runner: on `complete` with `providerError` present → write the
-   error form for the active output format (`subtype: 'error'`, `error_code` from
-   `resolveErrorCode`), resolve exit code 1.
+_Mechanism correction during implementation (within the approved Decision): code reading
+revealed `IExecutionResult` already carries typed `success: boolean` + `error?: Error`
+fields, and `robotaRun` (`robota-execution.ts:81`) already throws failed results
+(`!result.success && result.error`), which propagates session → framework `error` event →
+the headless runner's existing `onError` exit path. The masking bug is solely that
+`buildFinalResult` (`execution-service-helpers.ts:163`) computes `success:
+!!lastAssistantMessage`, so the round's own "Request failed:" assistant message counts as
+success. Therefore no new result field and no runner complete-mapping are needed — adding
+them would duplicate an existing typed channel as dead code. The single-source-of-truth
+intent of Alternative 1 is unchanged: the execution layer states what happened via its
+existing typed fields; every transport decides presentation via the existing error event._
+
+1. `agent-core`: `buildFinalResult` marks the result failed (`success: false`, `error`
+   carrying the failure message) when the final assistant message has `providerError: true`
+   metadata (set by the provider-error round branch). History append behavior unchanged.
+   `robotaRun`'s existing failed-result throw then propagates it — no new field.
+2. `agent-transport` headless runner: the existing `onError` handlers already produce
+   `subtype: 'error'` + `error_code` (json/stream) and exit 1; gap to close: the text-format
+   `onError` writes nothing — add the error message to stderr before resolving 1.
 3. `agent-framework`: `readProviderSettings` throws `ProviderConfigError extends Error`
-   (exported, typed). `agent-cli` print-mode dispatch catches it → stderr message (existing
-   guidance text) + exit 3. Interactive TTY flow unchanged.
+   (exported, typed); `agent-command` `ensureProviderConfig` throws the same class (it
+   depends on agent-framework). `agent-cli` print-mode dispatch catches it → stderr message
+   (existing guidance text) + exit 3. Interactive TTY flow unchanged.
 4. `agent-cli` SPEC: one §Exit Codes table (`0/1/3` with meanings above); error-handling
    table rows updated to match real paths; the fictional rows removed.
 
@@ -149,7 +162,7 @@ Derived strategy (BEHAVIOR + cli/typescript): unit + integration via vitest.
 
 ## Tasks
 
-- [ ] `.agents/tasks/CLI-064.md` — 미생성 (GATE-APPROVAL 통과 후 생성)
+- [x] `.agents/tasks/CLI-064.md` — 생성 완료 (T1~T7, TC-01~TC-06 매핑)
 
 ## Evidence Log
 
@@ -175,3 +188,12 @@ Derived strategy (BEHAVIOR + cli/typescript): unit + integration via vitest.
 - Approval given AFTER spec content was authored and after GATE-WRITE passed (2026-06-11), so the approved content is the current content
 - No Architecture Review or frontmatter type/tags modified after approval: `git diff` on the spec shows the only post-staging change is `status: draft → review-ready` (GATE-WRITE upgrade); `type: BEHAVIOR`, `tags: [cli, typescript]`, and the Architecture Review section are unchanged
 - No NON-COMPLIANCE trigger: no implementation work started before this gate — `## Tasks` still shows placeholder (`.agents/tasks/CLI-064.md` — 미생성), no implementation commits exist for this item
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-06-12
+
+**Status upgrade:** approved → in-progress
+
+- Tasks file created: `.agents/tasks/CLI-064.md` exists with tasks T1–T7 (T1: agent-core provider-error result marking; T2: agent-transport headless runner error surfacing; T3: agent-cli print-mode exit 3; T4: agent-framework ProviderConfigError; T5: TUI regression; T6: SPEC exit-code table reconciliation; T7: build/test/PR wrap-up)
+- Tasks file path recorded in `## Tasks` section of this spec: `- [x] .agents/tasks/CLI-064.md — 생성 완료 (T1~T7, TC-01~TC-06 매핑)`
+- Tasks correspond to Completion Criteria — one task per TC-N: T1→TC-01, T2→TC-02, T3→TC-03, T4→TC-04, T5→TC-05, T6→TC-06 (all 6 TC-N covered; T7 is wrap-up, no TC mapping required)
+- No NON-COMPLIANCE trigger: no implementation commits exist for this item — `git log` on affected paths (agent-core/src, agent-transport/src, agent-framework provider, agent-cli cli.ts) shows latest commit is CLI-063's PR #697 (unrelated files); `git status` shows no working-tree changes in affected packages

@@ -135,6 +135,7 @@ export {
   readMergedProviderSettingsFromPaths,
   resolveActiveProvider,
   createProviderFromSettings,
+  ProviderConfigError,
   readMergedProviderSettings,
   readProviderSettings,
   clearCommandContextReferences,
