@@ -632,7 +632,7 @@ L0~L3 제품 검증 캠페인(npm 설치본 beta.73, 실 provider 포함)에서 
 | ID                                                               | 제목                                                                           | 우선순위 |
 | ---------------------------------------------------------------- | ------------------------------------------------------------------------------ | -------- |
 | [CLI-063](completed/CLI-063-print-mode-session-resume-broken.md) | print mode가 `-c`/`-r` resume을 무음 무시 — 항상 새 세션 생성 (critical)       | high     |
-| [CLI-064](CLI-064-exit-code-contract-violations.md)              | provider 401 에러에 exit 0 + SPEC exit code 표 자체 모순 (exit 3 경로 부재)    | high     |
+| [CLI-064](completed/CLI-064-exit-code-contract-violations.md)    | provider 401 에러에 exit 0 + SPEC exit code 표 자체 모순 (exit 3 경로 부재)    | high     |
 | [CLI-065](CLI-065-init-yes-ignores-prompts.md)                   | `init --yes`가 overwrite/마이그레이션 프롬프트에서 무시됨 — 비대화식 사용 불가 | high     |
 | [CLI-066](CLI-066-env-key-only-startup-rejected.md)              | 제품 안내문이 약속하는 env 키 단독 구동이 실제로는 거부됨                      | high     |
 | [CLI-067](CLI-067-diagnose-accuracy.md)                          | diagnose가 동작 중인 설정 프로필을 "No API key found"로 보고 + 이슈에도 exit 0 | medium   |

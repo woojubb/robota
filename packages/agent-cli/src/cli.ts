@@ -16,6 +16,7 @@ import {
   checkForCliUpdate,
   formatCliUpdateCheckMessage,
   formatCliUpdateNotice,
+  ProviderConfigError,
 } from '@robota-sdk/agent-framework';
 import { parseCliArgs, parseToolList, printHelp } from './utils/cli-args.js';
 import type { IParsedCliArgs } from './utils/cli-args.js';
@@ -133,7 +134,9 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   } catch (error) {
     // allow-fallback: terminal failure — not a silent fallback
     process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
-    process.exit(1);
+    // Exit-code contract: provider configuration errors in print mode exit 3 so
+    // automation can distinguish "reconfigure" from runtime failures (exit 1).
+    process.exit(error instanceof ProviderConfigError && args.printMode ? 3 : 1);
   }
 
   const providerOptions = args.provider

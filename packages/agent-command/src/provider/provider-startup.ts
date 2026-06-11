@@ -2,6 +2,7 @@ import { join } from 'node:path';
 
 import {
   checkSettingsDocument,
+  ProviderConfigError,
   readMergedProviderSettings,
   readSettings,
   writeSettings,
@@ -82,7 +83,7 @@ export async function ensureProviderConfig(
   }
   const checkInteractive = options.isInteractive ?? (() => false);
   if (!checkInteractive()) {
-    throw new Error(options.formatError(providerDefinitions));
+    throw new ProviderConfigError(options.formatError(providerDefinitions));
   }
   await runProviderStartupSetup(
     cwd,
@@ -95,7 +96,7 @@ export async function ensureProviderConfig(
   const updatedSettings =
     ctx.provider !== undefined ? { ...updated, currentProvider: ctx.provider } : updated;
   if (checkSettingsDocument(updatedSettings, providerDefinitions) !== 'valid') {
-    throw new Error(options.formatError(providerDefinitions));
+    throw new ProviderConfigError(options.formatError(providerDefinitions));
   }
 }
 

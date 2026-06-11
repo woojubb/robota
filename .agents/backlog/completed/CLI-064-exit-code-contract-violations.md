@@ -1,6 +1,6 @@
 ---
 title: 'CLI-064: Exit-code contract violations and SPEC self-contradiction'
-status: todo
+status: done
 created: 2026-06-11
 priority: high
 urgency: now
@@ -44,4 +44,16 @@ error. Every row in the error table corresponds to a real code path with a test.
 - Prerequisite: provider profile referencing an env var set to an invalid key.
 - Steps: `FAKE=sk-invalid robota -p "hi"`; `echo $?`.
 - Expected observable result: non-zero exit code matching the (reconciled) SPEC table.
-- Evidence: (fill after implementation)
+- Evidence: executed 2026-06-12 against the fixed local build (`bin/robota.cjs`, branch
+  `feat/cli-064-exit-code-contract`) in an isolated HOME + temp cwd, real HTTP 401 from
+  api.anthropic.com:
+  - no provider config + `robota -p "say hi"` → stderr "No provider configuration found"
+    guidance, **exit 3** (was exit 1; SPEC-promised code now real via `ProviderConfigError`)
+  - configured profile + invalid key, text format → stderr `Request failed: 401
+{"type":"error","error":{"type":"authentication_error",...}}`, **exit 1** (was exit 0)
+  - same, `--output-format json` → stdout `{"type":"result","subtype":"error",
+"error_code":"api_error",...}`, **exit 1** (was exit 0 with subtype success)
+  - Automated regression: `execution-service-helpers.test.ts` (provider-error marking),
+    `headless-provider-failure.integration.test.ts` (text/json full chain),
+    `headless-runner.test.ts` (text stderr), `provider-factory.test.ts`
+    (ProviderConfigError instanceof), `cli-exit-codes.test.ts` (exit 3/1 via startCli)
