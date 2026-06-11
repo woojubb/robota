@@ -111,12 +111,18 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     buildCommandSetup(cwd, args, options, version);
 
   if (args.positional[0] === 'init') {
-    await runInitCommand(cwd, terminal, {
-      yes: args.yes,
-      onProviderSetup: async () => {
-        await runInteractiveProviderSetup(cwd, args, promptInput, terminal, providerDefinitions);
-      },
-    });
+    try {
+      await runInitCommand(cwd, terminal, {
+        yes: args.yes,
+        onProviderSetup: async () => {
+          await runInteractiveProviderSetup(cwd, args, promptInput, terminal, providerDefinitions);
+        },
+      });
+    } catch (error) {
+      // allow-fallback: init prompt failure is terminal — exit is the correct response
+      terminal.writeError(error instanceof Error ? error.message : String(error));
+      process.exit(1);
+    }
     return;
   }
 

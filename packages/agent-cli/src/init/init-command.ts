@@ -59,16 +59,58 @@ function readClaudeSettings(claudeDir: string): Record<string, unknown> | null {
   }
 }
 
-async function askYesNo(question: string): Promise<boolean> {
-  const answer = await promptInput(`${question} [y/N] `);
-  return answer.toLowerCase() === 'y' || answer.toLowerCase() === 'yes';
+/** A confirmation was required but stdin cannot prompt (non-TTY without --yes). */
+export class InitPromptUnavailableError extends Error {
+  constructor(question: string) {
+    super(
+      `Cannot ask "${question}" in a non-interactive shell. Re-run with --yes to accept the defaults.`,
+    );
+    this.name = 'InitPromptUnavailableError';
+  }
 }
 
 export interface IInitCommandOptions {
-  /** Skip all Y/n prompts and use defaults (non-interactive mode). */
+  /** Skip all Y/n prompts and use the documented defaults (non-interactive mode). */
   yes?: boolean;
   /** Called after init completes when the user accepts the provider setup prompt. */
   onProviderSetup?: () => Promise<void>;
+  /** Test seam: prompt function (default: transport promptInput). */
+  promptFn?: (question: string) => Promise<string>;
+  /** Test seam: interactive stdin state (default: process.stdin.isTTY). */
+  isTTY?: boolean;
+  /** Test seam: CI environment detection (default: process.env.CI === 'true'). */
+  ci?: boolean;
+}
+
+interface IConfirmContext {
+  yes: boolean;
+  ci: boolean;
+  isTTY: boolean;
+  promptFn: (question: string) => Promise<string>;
+  terminal: ITerminalOutput;
+}
+
+/**
+ * Unified Y/n confirmation: --yes/CI apply the documented default without
+ * prompting; non-TTY without --yes is a hard error naming the question;
+ * otherwise prompt interactively.
+ */
+async function confirm(
+  question: string,
+  defaultAnswer: boolean,
+  ctx: IConfirmContext,
+): Promise<boolean> {
+  if (ctx.yes || ctx.ci) {
+    ctx.terminal.writeLine(
+      `${question} → ${defaultAnswer ? 'Y' : 'N'} (${ctx.yes ? '--yes' : 'CI'}: using default)`,
+    );
+    return defaultAnswer;
+  }
+  if (!ctx.isTTY) {
+    throw new InitPromptUnavailableError(question);
+  }
+  const answer = await ctx.promptFn(`${question} [y/N] `);
+  return answer.toLowerCase() === 'y' || answer.toLowerCase() === 'yes';
 }
 
 export async function runInitCommand(
@@ -79,6 +121,14 @@ export async function runInitCommand(
   terminal.writeLine('');
   terminal.writeLine(`${AGENT_CLI_BIN} project initialization`);
   terminal.writeLine('─'.repeat(40));
+
+  const confirmCtx: IConfirmContext = {
+    yes: options.yes === true,
+    ci: options.ci ?? process.env['CI'] === 'true',
+    isTTY: options.isTTY ?? process.stdin.isTTY === true,
+    promptFn: options.promptFn ?? promptInput,
+    terminal,
+  };
 
   const settingsPath = projectPaths(cwd).settings;
   const robotaDir = dirname(settingsPath);
@@ -92,7 +142,7 @@ export async function runInitCommand(
   if (hasSettings && hasAgentsMd) {
     terminal.writeLine('');
     terminal.writeLine('Both AGENTS.md and .robota/settings.json already exist.');
-    const overwrite = await askYesNo('Overwrite existing files?');
+    const overwrite = await confirm('Overwrite existing files?', false, confirmCtx);
     if (!overwrite) {
       terminal.writeLine('Init cancelled.');
       return;
@@ -104,7 +154,7 @@ export async function runInitCommand(
   if (hasClaudeDir) {
     terminal.writeLine('');
     terminal.writeLine('Detected .claude/ directory (Claude Code configuration).');
-    const migrate = await askYesNo('Migrate Claude Code settings to .robota/?');
+    const migrate = await confirm('Migrate Claude Code settings to .robota/?', false, confirmCtx);
     if (migrate) {
       const claudeSettings = readClaudeSettings(claudeDir);
       if (claudeSettings === null) {
@@ -148,9 +198,13 @@ export async function runInitCommand(
   terminal.writeLine(`  3. Run \`${AGENT_CLI_BIN}\` to start the assistant`);
   terminal.writeLine('');
 
-  const isCI = process.env['CI'] === 'true';
-  if (!isCI && !options.yes && options.onProviderSetup !== undefined) {
-    const setupNow = await askYesNo('Would you like to set up a provider now?');
+  // Provider setup is an optional trailing step: init has already completed, so a
+  // non-TTY shell skips it (default N) rather than failing a successful init.
+  if (
+    options.onProviderSetup !== undefined &&
+    (confirmCtx.isTTY || confirmCtx.yes || confirmCtx.ci)
+  ) {
+    const setupNow = await confirm('Would you like to set up a provider now?', false, confirmCtx);
     if (setupNow) {
       await options.onProviderSetup();
     }
