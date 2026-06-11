@@ -1037,9 +1037,21 @@ after command setup and returns before any session starts. Behavior:
 3. If `.claude/` exists, offers to migrate `settings.json` permission rules from `.claude/` to
    `.robota/`.
 4. After initialization, optionally offers interactive provider setup (via `onProviderSetup`
-   callback) unless `--yes` flag or `CI=true` environment is detected.
+   callback).
 
 The settings path is resolved through `projectPaths(cwd).settings` from `@robota-sdk/agent-framework`.
+
+**Non-interactive semantics.** All confirmations route through one `confirm()` helper:
+
+| Prompt                                                 | Default | With `--yes` or `CI=true`                                      | Non-TTY without `--yes`                                                                     |
+| ------------------------------------------------------ | ------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `Overwrite existing files?` (both files already exist) | N       | default applied → "Init cancelled.", exit 0 (idempotent no-op) | `InitPromptUnavailableError` — message names the question and suggests `--yes`; CLI exits 1 |
+| `Migrate Claude Code settings to .robota/?`            | N       | default applied → plain template, nothing imported             | same error as above                                                                         |
+| `Would you like to set up a provider now?`             | N       | default applied → skipped                                      | skipped — init already completed; an optional trailing step must not fail a successful init |
+
+`--yes` means "non-interactive with documented defaults", NOT "answer yes to everything" — it
+never overwrites existing files. The non-TTY error message never mentions API keys (the prior
+behavior fell through to unrelated API-key guidance).
 
 ### `robota diagnose`
 

@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: FLOW
 tags: [cli, typescript]
 ---
@@ -79,6 +79,14 @@ defaults.` and exits 1.
    delete the ad-hoc `isCI && !options.yes` special-case.
 3. SPEC: init section documents the per-prompt defaults and `--yes`/CI semantics.
 
+_Correction during implementation (within the approved Decision): the provider-setup prompt
+is an optional trailing step that fires after init has already completed — throwing
+`InitPromptUnavailableError` there would exit 1 on an init that succeeded (files created).
+Non-TTY without `--yes` therefore skips that one prompt (default N, same outcome as the
+documented default) instead of erroring; the overwrite and migration prompts keep the strict
+typed-error behavior exactly as specified. Documented in the SPEC table and covered by a
+dedicated test._
+
 ## Affected Files
 
 - `packages/agent-cli/src/init/init-command.ts`
@@ -115,7 +123,7 @@ injected prompt/TTY state.
 
 ## Tasks
 
-- [ ] `.agents/tasks/CLI-065.md` — 미생성 (GATE-APPROVAL 통과 후 생성)
+- [x] `.agents/tasks/CLI-065.md` — 생성 완료 (T1~T7, TC-01~TC-06 매핑)
 
 ## Evidence Log
 
@@ -139,3 +147,12 @@ injected prompt/TTY state.
 - Direct, unambiguous, directed at this spec: the summary explicitly presented CLI-065's key decision — `--yes` = "skip prompts and apply documented defaults" (not "answer yes to everything"), overwrite default N (idempotent "Init cancelled." exit 0 on re-run), migration default N, question-naming error for non-TTY prompts without `--yes` — and flagged it as "의미론 결정 포함"; the message asked for approval of all 4 items ("4건 승인해 주시면 GATE-APPROVAL → 구현(TDD) → PR 순서로 진행합니다") and "승인함" approved all four including this one, given after the spec content was authored and summarized.
 - No post-approval modification: Architecture Review section and frontmatter `type: FLOW` / `tags: [cli, typescript]` unchanged since GATE-WRITE; no edits to the spec between approval and this gate run.
 - No premature implementation: `.agents/tasks/CLI-065.md` does not exist; `git status` shows no changes under `packages/agent-cli/` — no implementation work started before this gate.
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-06-12
+
+**Status upgrade:** approved → in-progress
+
+- Tasks file created: `.agents/tasks/CLI-065.md` exists with tasks T1–T7 (T1–T6 implementation/test tasks, T7 build/lint/test + PR wrap-up).
+- Tasks file path recorded in spec: `## Tasks` section references `.agents/tasks/CLI-065.md` with the T1~T7 / TC-01~TC-06 mapping note.
+- Task-to-criteria correspondence: one task per TC-N — T1→TC-01 (yes:true + existing files, no prompt, "Init cancelled."), T2→TC-02 (yes:true + .claude, migration default N), T3→TC-03 (CI=true parity), T4→TC-04 (non-TTY error contract), T5→TC-05 (interactive TTY regression), T6→TC-06 (SPEC.md doc update); all 6 Completion Criteria covered.
+- NON-COMPLIANCE check (no implementation before tasks file): `git status --porcelain -- packages/agent-cli/` is clean; last commit touching `src/init/init-command.ts` is 78d27a47a (2026-05-25), prior to spec approval (2026-06-11) — no implementation commits exist for this item.

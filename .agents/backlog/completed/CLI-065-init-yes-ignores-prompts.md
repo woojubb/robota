@@ -1,6 +1,6 @@
 ---
 title: 'CLI-065: init --yes does not skip prompts; non-TTY fallthrough prints wrong guidance'
-status: todo
+status: done
 created: 2026-06-11
 priority: high
 urgency: soon
@@ -45,4 +45,16 @@ could not be asked.
 - Steps: `robota init --yes < /dev/null`; `echo $?`.
 - Expected observable result: exit 0, files created/kept per documented defaults, no TTY
   error.
-- Evidence: (fill after implementation)
+- Evidence: executed 2026-06-12 against the fixed local build (`bin/robota.cjs`, branch
+  `feat/cli-065-init-yes`) in an isolated HOME + temp dir containing `.claude/` (with a
+  `Bash(*)` allow rule) — all via `< /dev/null` (non-TTY):
+  - `robota init --yes` (clean dir + .claude) → exit 0; prints `Migrate Claude Code settings
+to .robota/? → N (--yes: using default)`; `Initialization complete.`; the `.claude`
+    `Bash(*)` rule is NOT imported (migration default N honored)
+  - `robota init --yes` re-run (files exist) → exit 0; `Overwrite existing files? → N`;
+    `Init cancelled.` (idempotent no-op; previously: TTY error + irrelevant API-key guidance)
+  - `robota init` without `--yes` (files exist) → exit 1; `Cannot ask "Overwrite existing
+files?" in a non-interactive shell. Re-run with --yes to accept the defaults.` — names
+    the question, suggests --yes, no API-key text
+  - Automated regression: `init-command.test.ts` 8 tests (prompt matrix: yes × CI × TTY ×
+    existing-files × .claude + non-TTY error contract), agent-cli suite 127 tests green
