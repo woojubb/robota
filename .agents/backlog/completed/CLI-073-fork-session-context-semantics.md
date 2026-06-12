@@ -1,6 +1,6 @@
 ---
 title: 'CLI-073: --fork-session starts an empty model context — is that the intended fork semantics?'
-status: todo
+status: done
 created: 2026-06-12
 priority: low
 urgency: later
@@ -50,4 +50,20 @@ TUI-and-print behavior together in the framework restore path.
 - Steps: `robota -p "Remember 42"`; `robota -p "What number?" -r <id> --fork-session`.
 - Expected observable result: per the approved contract — answer references 42 (a) or
   documentation clearly states forks start fresh (b).
-- Evidence: (fill after implementation)
+- Evidence (2026-06-13, real binary + real Anthropic provider, isolated HOME —
+  contract (a) implemented per spec-is-SSOT):
+
+  ```
+  $ robota -p "Remember the number 42. Reply only: noted."
+  noted.
+  $ robota -p "What number did I ask you to remember? Answer with just the number." \
+      -r <id> --fork-session
+  42            # fork answers from restored context
+  session files: 2   # fresh UUID — source record content untouched
+  ```
+
+  CI tests: framework `fork-restores-context.test.ts` (3/3 — restore yields messages,
+  source byte-identical at restore level, resume regression); agent-cli scripted e2e
+  "CLI-073: --fork-session restores the prior conversation into a NEW session"
+  (request carries source conversation, 2 session files, source content invariant);
+  CLI-063 print-mode fork test updated to the SPEC-conform semantics.

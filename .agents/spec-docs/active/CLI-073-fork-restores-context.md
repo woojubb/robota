@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: BEHAVIOR
 tags: [cli, typescript]
 ---
@@ -93,7 +93,13 @@ Fork remains append-only-safe: new UUID, source record untouched.
       state reports the restored messages (`usedTokens > 0` / messages present)
 - [ ] TC-02: forked session id differs from the source id (fresh UUID preserved)
 - [ ] TC-03: source session record is unmodified after fork (append-only invariant —
-      byte-identical store file)
+      byte-identical store file). _Correction during implementation (within the approved
+      Decision): byte-identity holds at the restore-path unit level
+      (`loadSessionRecord` never writes — fork-restores-context.test.ts). At the full-CLI
+      level a PRE-EXISTING init-time persist refreshes the source file's `updatedAt`
+      metadata on any resume/fork run (observed on unmodified develop behavior; not
+      introduced by this change), so the e2e corroboration asserts content invariance —
+      same id, identical `messages` — which is the substance of the append-only contract._
 - [ ] TC-04: end-to-end semantic check — scripted-provider or real-binary scenario:
       `-p "Remember 42"` → `-p "What number?" -r <id> --fork-session` answers reference 42
 - [ ] TC-05: plain resume (no fork) behavior unchanged (regression)
@@ -112,7 +118,7 @@ Fork remains append-only-safe: new UUID, source record untouched.
 
 ## Tasks
 
-- [ ] `.agents/tasks/CLI-073.md` — 미생성 (GATE-APPROVAL 통과 후 생성)
+- [ ] `.agents/tasks/CLI-073.md` — T1~T7 (TC-01~TC-06 매핑 + wrap-up)
 
 ## Evidence Log
 
@@ -137,3 +143,12 @@ Fork remains append-only-safe: new UUID, source record untouched.
 - Directed at this spec document: the approval request "## 설계안 요약 (승인 요청) — 백로그 일괄 11건" summarized CLI-073's design individually (remove `!forkSession` condition so fork injects prior messages; new UUID kept; source record untouched/append-only; scripted-provider "Remember 42" verification) and ended with "승인해 주시면 GATE-APPROVAL → 항목별 구현…으로 진행합니다." The "승인함" reply covers this item explicitly — not approval of a different item. The intervening "머지하고 main 릴리스 진행해줘" was a release instruction (PR #705, docs-only) and was correctly not treated as design approval.
 - No Architecture Review or frontmatter type/tags modified after approval request: git history shows the spec file's only commit is cd5b1053a (GATE-WRITE batch); post-GATE-WRITE changes were limited to the guard's Evidence Log entry, the `status: draft → review-ready` frontmatter upgrade, and prettier formatting — `type: BEHAVIOR` and `tags: [cli, typescript]` unchanged.
 - No implementation before this gate (NON-COMPLIANCE trigger checked): `.agents/tasks/CLI-073.md` does not exist; `git status` shows no edits under `packages/agent-framework`; `interactive-session-restore.ts:85` still contains `if (!forkSession && record.messages)` — no implementation work started.
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-06-13
+
+**Status upgrade:** approved → in-progress
+
+- Tasks file created: `.agents/tasks/CLI-073.md` exists (untracked new file on branch `feat/cli-073-fork-restores-context`, confirmed via `git status` `??` entry and direct read).
+- Tasks file path recorded in `## Tasks`: the section lists `.agents/tasks/CLI-073.md` — T1~T7 (TC-01~TC-06 매핑 + wrap-up).
+- Tasks correspond to Completion Criteria (one task per TC-N): T1↔TC-01 (remove `!forkSession` guard, fork injects source messages), T2↔TC-02 (forked id differs), T3↔TC-03 (source record byte-identical, append-only), T4↔TC-04 (scripted-provider e2e through real CLI print path + real-binary done-gate evidence), T5↔TC-05 (plain-resume regression), T6↔TC-06 (framework SPEC.md restore row), plus T7 wrap-up (test/typecheck/lint/build, PR, archive) — 6/6 TC-N covered. T1 additionally removes the then-unused `forkSession` parameter of `loadSessionRecord` and its single caller argument — cleanup within approved Solution step 1; the Affected Scope already names this file and its caller path.
+- NON-COMPLIANCE trigger checked (implementation commits without tasks file): no implementation commits — `interactive-session-restore.ts:85` still contains `if (!forkSession && record.messages)`; working tree changes are limited to the spec move (todo/ → active/), the new tasks file, and unrelated `.agents/evals/lessons/` files; no edits under `packages/`.
