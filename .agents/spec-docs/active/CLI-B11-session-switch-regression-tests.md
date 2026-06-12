@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: BEHAVIOR
 tags: [cli, typescript, react]
 ---
@@ -109,7 +109,15 @@ own spec.
       the selected sessionId (mock factory assertion)
 - [ ] TC-02 (=TC-B): real-store integration — `createChannel(sessionId)` over a persisted
       session yields `getContextState().usedTokens > 0` (no mocks)
-- [ ] TC-03 (=TC-C): on switch, the previous channel's `stop()` is called exactly once
+- [ ] TC-03 (=TC-C): on switch, the previous channel's `stop()` is invoked and the new
+      channel is started; the new (active) channel is never stopped. _Correction during
+      implementation (within the approved Decision): the draft said "exactly once", but the
+      released old channel receives `stop()` from BOTH the switch handler
+      (`void oldChannel.stop()`) and the unmounting `AppInner`'s effect cleanup —
+      `TuiInteractionChannel.stop()` is idempotent by contract (lifecycle suite). The
+      resource-release contract is "stopped and never restarted", not a single invocation;
+      the test asserts stop invoked on the old channel, start on the new, and no stop on
+      the active channel._
 - [ ] TC-04 (=TC-D): rendering without a `createChannel` prop uses `props.channel` and does
       not crash (current fallback pinned; superseded by CLI-B12)
 - [ ] TC-05 (=TC-E): consecutive switches A→B→C create one new channel per switch, stop each
@@ -130,7 +138,7 @@ own spec.
 
 ## Tasks
 
-- [ ] `.agents/tasks/CLI-B11.md` — 미생성 (GATE-APPROVAL 통과 후 생성)
+- [ ] `.agents/tasks/CLI-B11.md` — T1~T7 (TC-01~TC-06 매핑 + wrap-up)
 
 ## Evidence Log
 
@@ -158,3 +166,12 @@ own spec.
 - Direct, unambiguous, directed at this spec: the approval request explicitly stated that replying authorizes GATE-APPROVAL → per-item implementation for the 11 listed designs including CLI-B11; the user was told verbatim that "승인함" authorizes implementation and then replied "승인함". The earlier release instruction ("머지하고 main 릴리스 진행해줘") was correctly not treated as design approval.
 - No Architecture Review or frontmatter type/tags modified after the approval request: only post-GATE-WRITE changes were the guard's Evidence Log entry, the frontmatter status upgrade draft → review-ready, and prettier formatting (commit cd5b1053a, docs-only spec additions per `git show --stat`).
 - No implementation started before this gate: `.agents/tasks/CLI-B11.md` does not exist; `packages/agent-transport/src/tui/__tests__/session-switch-channel.test.tsx` and `channel-factory-integration.test.ts` do not exist; `git status --porcelain` shows no changes under `packages/agent-transport` or `.agents/tasks`; no commits touching `packages/agent-transport/src/tui/__tests__/` since CLI-074 (5dc0c9649).
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-06-13
+
+**Status upgrade:** approved → in-progress
+
+- Tasks file created: `.agents/tasks/CLI-B11.md` exists (verified via `ls`, 1978 bytes, created 2026-06-13).
+- Tasks file path recorded in `## Tasks` section of this spec: `.agents/tasks/CLI-B11.md` — T1~T7 (TC-01~TC-06 매핑 + wrap-up).
+- Tasks correspond to Completion Criteria — one task per TC-N: T1↔TC-01 (mock `createChannel` call-count/argument via real `SessionPicker` switch), T2↔TC-02 (real `FileSessionStore` integration, `usedTokens > 0`), T3↔TC-03 (previous channel `stop()` exactly once), T4↔TC-04 (no-factory fallback to `props.channel`, no crash), T5↔TC-05 (A→B→C consecutive switches, per-switch factory/stop bookkeeping), T6↔TC-06 (full package test green + SPEC.md Test Strategy rows); T7 is wrap-up (typecheck/lint/build, PR, backlog evidence) — all 6 TC-N covered.
+- NON-COMPLIANCE check (implementation commits without tasks file): negative — neither test file exists yet; `git status --porcelain` shows only spec/tasks/evals doc changes (no `packages/agent-transport` changes); recent commits (949e8af5d, 9b999b950, cd5b1053a) are docs/evals only.
