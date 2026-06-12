@@ -22,12 +22,12 @@ const baselineFiles = {
     'export class BackgroundTaskManager {}\n',
   'packages/agent-framework/src/background-tasks/execution-workspace-projection.ts':
     'export function createExecutionWorkspaceSnapshot() { return { entries: [] }; }\n',
-  'packages/agent-cli/src/ui/hooks/useInteractiveSession.ts':
+  'packages/agent-transport/src/tui/TuiInteractionChannel.ts':
     'session.getExecutionWorkspaceSnapshot(); session.on("execution_workspace_event", () => {}); session.readExecutionWorkspaceDetail("main");\n',
-  'packages/agent-cli/src/ui/tui-state-manager.ts':
+  'packages/agent-transport/src/tui/tui-state-manager.ts':
     'export class TuiStateManager { syncExecutionWorkspaceSnapshot() {} }\n',
   '.agents/specs/architecture-map/agent-system.md':
-    '| Background workspace/read model                   | `agent-sdk` + `agent-runtime`                     | CLI renders projections only. |\n',
+    '| Background workspace/read model                   | `agent-framework` + `agent-executor`              | CLI renders projections only. |\n',
   'packages/agent-cli/docs/SPEC.md':
     'Background agent task lifecycle and progress are projected by the SDK execution workspace APIs.\n',
 };
@@ -42,10 +42,15 @@ describe('findBackgroundWorkspaceConformanceFindings', () => {
   });
 
   it('flags direct CLI imports from agent-runtime', async () => {
+    // The rule's pattern still targets the legacy '@robota-sdk/agent-runtime' name and is
+    // therefore dead against current '@robota-sdk/agent-executor' imports — reviving it
+    // requires an architecture decision on the CLI composition root's two real
+    // agent-executor imports (tracked in HARNESS-011). This test pins the implemented
+    // behavior so the rule's revival is a deliberate change, not an accident.
     const root = await createFixture({
       ...baselineFiles,
       'packages/agent-cli/src/background/runtime-import.ts':
-        'import { BackgroundTaskManager } from "@robota-sdk/agent-executor";\n',
+        'import { BackgroundTaskManager } from "@robota-sdk/agent-runtime";\n',
     });
 
     const findings = await findBackgroundWorkspaceConformanceFindings(root);
@@ -78,10 +83,10 @@ describe('findBackgroundWorkspaceConformanceFindings', () => {
     ]);
   });
 
-  it('flags missing SDK snapshot consumption in the CLI hook', async () => {
+  it('flags missing SDK snapshot consumption in the TUI channel', async () => {
     const root = await createFixture({
       ...baselineFiles,
-      'packages/agent-cli/src/ui/hooks/useInteractiveSession.ts':
+      'packages/agent-transport/src/tui/TuiInteractionChannel.ts':
         'session.getFullHistory(); session.readExecutionWorkspaceDetail("main");\n',
     });
 

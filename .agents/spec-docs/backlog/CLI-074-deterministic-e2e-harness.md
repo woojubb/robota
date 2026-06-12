@@ -165,3 +165,25 @@ suite (PTY TCs in a dedicated vitest project).
 - Completion Criteria: 9 items, all TC-N prefixed (TC-01–TC-09); ≥1 criterion per sub-item (scripted provider, tool loop, permissions, resume, output contracts, slash commands, PTY input, PTY shutdown, SPEC docs); all use Command/Observable form; no banned vague phrases ("works correctly", "no errors", "implemented", "displays correctly") found
 - Test Plan: section present; 9 rows match 9 TC-N entries (count 9 = 9); every row has non-empty Test Type and Tool/Approach, no "TBD"; sole manual row (TC-09) has non-empty Notes explaining why ("doc change — reviewed in PR diff")
 - Structure: `## Tasks` section present with placeholder; `## Evidence Log` present and empty at first GATE-WRITE run; no `## Status` or `## Classification` sections in body
+
+### [GATE-APPROVAL] — ❌ FAIL | 2026-06-12
+
+**Status remains:** review-ready
+**Failed criteria:**
+
+- Explicit approval in current conversation: user reply was "머지하고 CLI-064 진행해줘" — it contains no approval token ("승인", "진행해" directed at this design) for CLI-074 and names a different item ID (CLI-064)
+  **Required action:** none beyond the next criterion's action — this criterion is evaluated jointly with directedness below
+- Direct, unambiguous statement directed at this spec document: the statement is directed at "CLI-064", not CLI-074. The skill explicitly excludes "Approval of a different item in the same conversation." The agent's typo hypothesis (CLI-064 already done/merged via PR #698, CLI-074 the only pending approval) is contextually plausible, but agent-side reinterpretation does not make the user's statement unambiguous; the user's non-correction after the agent announced the interpretation is "silence or lack of objection," which the skill states does NOT count as approval. The reply also did not address the offered scope options (e.g., PTY 제외 여부), so it does not "clearly confirm the design."
+  **Required action:** Ask the user to explicitly confirm: "CLI-074 (scripted provider + node-pty PTY driver) 설계를 승인하시나요? (CLI-064는 PR #698로 이미 완료됨)" — re-run GATE-APPROVAL only after an unambiguous approval naming or clearly referring to CLI-074, including any scope adjustment.
+- No Architecture Review or frontmatter modification after approval: N/A — no valid approval exists to anchor this check (no modifications observed since GATE-WRITE in any case).
+
+Note: not NON-COMPLIANCE — no CLI-074 implementation work (file edits/commits) was started before this gate ran; PR #701 is a develop→main release merge unrelated to CLI-074 implementation.
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-06-12
+
+**Status upgrade:** review-ready → approved
+
+- Explicit approval in current conversation: after the prior FAIL's required action was executed, the agent asked a direct structured question (AskUserQuestion, 2026-06-12) clarifying that CLI-064 was already merged (PR #698) and that the pending approval item is CLI-074, with four options (CLI-074 전체 진행 / scripted provider만 / 보류 / 다른 의미였음). The user selected: **"CLI-074 전체 진행 (Recommended)"** — an affirmative selection authorizing implementation, given after the spec was authored and summarized.
+- Direct, unambiguous statement directed at this spec document: the selected option explicitly names CLI-074 and resolves the offered scope choice (full scope: scripted provider fixture + node-pty TUI driver). It is not a clarifying-answer-only reply, not silence, and not approval of a different item — the CLI-064/074 ambiguity that caused the prior FAIL was surfaced in the question itself and resolved by the selection.
+- No Architecture Review or frontmatter type/tags modified after approval: `git diff HEAD` on this file shows the only change since the GATE-WRITE commit (492d81263) is the prior GATE-APPROVAL FAIL Evidence Log entry; frontmatter (`status: review-ready`, `type: INFRA`, `tags: [cli, typescript]`) and Architecture Review section are untouched.
+- NON-COMPLIANCE check: no implementation artifacts exist — `.agents/tasks/CLI-074.md`, `packages/agent-transport/src/testing/`, `packages/agent-cli/src/__tests__/e2e/`, `packages/agent-transport/src/tui/__tests__/pty/` all absent; no implementation started before this gate.
