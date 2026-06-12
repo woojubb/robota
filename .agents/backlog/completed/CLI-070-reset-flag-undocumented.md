@@ -1,6 +1,6 @@
 ---
 title: 'CLI-070: --reset is absent from --help and deletes settings without confirmation'
-status: todo
+status: done
 created: 2026-06-11
 priority: low
 urgency: later
@@ -35,4 +35,23 @@ for confirmation in a TTY (skippable with `--yes`); in non-TTY it requires `--ye
 - Steps: `robota --help | grep reset`; `robota --reset < /dev/null` with settings present.
 - Expected observable result: help documents the flag; non-TTY without `--yes` refuses to
   delete.
-- Evidence: (fill after implementation)
+- Evidence (2026-06-13, real binary `bin/robota.cjs`, isolated HOME via `env -i`,
+  settings file present):
+
+  ```
+  $ robota --help | grep -A1 -- --reset
+  --reset    Delete ~/.robota/settings.json (provider profiles and preferences).
+             Asks for confirmation; use --yes to skip
+
+  $ robota --reset < /dev/null; echo $?
+  --reset deletes <home>/.robota/settings.json. Refusing without confirmation in
+  non-interactive mode — pass --yes to proceed.
+  1            # file still present
+
+  $ robota --reset --yes; echo $?
+  Deleted <home>/.robota/settings.json
+  0            # file deleted
+  ```
+
+  CI tests: `packages/agent-cli/src/startup/__tests__/reset-config.test.ts`
+  (TC-01~TC-05, 5/5 — help content, refusal matrix, --yes, injected y/N, clean state).
