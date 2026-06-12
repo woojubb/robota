@@ -29,17 +29,21 @@ Key facts:
 
 ### U1 — semver-safe bumps + targeted overrides (highs minus majors)
 
-- [ ] `next` 15.4.1 → ≥15.5.18 exact-pin bump in apps/agent-web, docs, starter-nextjs, www
+- [x] `next` 15.4.1 → 15.5.19 exact-pin bump in apps/agent-web, docs, starter-nextjs, www
       (8 high + 4 moderate + 2 low advisories)
-- [ ] `@anthropic-ai/sdk` ^0.80.0 → ^0.91.1 (packages/agent-provider; 2 moderate)
-- [ ] `pnpm update -r` for in-range stale resolutions: hono ≥4.12.21, ws ≥8.20.1,
+- [x] `@anthropic-ai/sdk` ^0.80.0 → ^0.91.1 (packages/agent-provider; 2 moderate)
+- [x] `pnpm update -r` for in-range stale resolutions: hono ≥4.12.21, ws ≥8.20.1,
       @grpc/grpc-js ≥1.13.5 (2 high), tmp ≥0.2.6 (high+low), devalue ≥5.8.1 (high),
       astro ≥6.1.10, qs, brace-expansion, js-yaml, postcss, ip-address, smol-toml, yaml,
       mdast-util-to-hast, @protobufjs/utf8, @hono/node-server, uuid, @tootallnate/once,
       vite ≥5.4.21 (patch line)
-- [ ] targeted `pnpm.overrides` ONLY for out-of-range transitives that remain (e.g.
+- [x] targeted `pnpm.overrides` ONLY for out-of-range transitives (undici@<6.24.0 → >=6.24.0) that remain (e.g.
       undici ≥6.24.0 under apps/action @actions/core — 2 high + 3 moderate)
-- [ ] full build + test + typecheck + lint green; re-audit and record the delta
+- [x] full build + test + typecheck + lint green; re-audit delta recorded:
+      **89 → 9** advisories (2026-06-12: before 2 critical / 18 high / 57 moderate / 12 low →
+      after 2 critical [vitest, U3] / 1 high [next-mdx-remote, U2] / 6 moderate / 0 low);
+      grpc-js, protobufjs(high), tmp, devalue, ws, hono, qs and the rest cleared by in-range
+      updates; firebase tree highs resolved without majors
 
 ### U2 — app dependency majors
 

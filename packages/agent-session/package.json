@@ -79,13 +79,12 @@
   "dependencies": {
     "@robota-sdk/agent-core": "workspace:*"
   },
-  "peerDependencies": {},
   "devDependencies": {
     "@robota-sdk/agent-core": "workspace:*",
-    "eslint": "^8.56.0",
-    "rimraf": "^5.0.5",
-    "tsdown": "^0.22.0",
-    "typescript": "^5.3.3",
+    "eslint": "^8.57.1",
+    "rimraf": "^5.0.10",
+    "tsdown": "^0.22.2",
+    "typescript": "^5.9.3",
     "vitest": "^1.6.1"
   },
   "publishConfig": {
