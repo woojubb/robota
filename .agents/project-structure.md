@@ -77,3 +77,18 @@ Rules:
 - Implementation packages (`agent-transport` with subpaths `/tui`, `/headless`, `/ws`, `/http`, `/mcp`; `agent-provider` with subpaths `/anthropic`, `/openai`, etc.) depend on the corresponding `agent-interface-*` package, not on `agent-framework`, for interface types.
 - `agent-framework` depends on `agent-interface-*` packages to consume the contracts it needs.
 - Do not place interface packages in `agent-core` — `agent-core` is zero-deps and owns foundational primitives only.
+
+## Composition-Root Exemption (Import-Layering Scans)
+
+`agent-cli` must not import `@robota-sdk/agent-executor` directly — it consumes SDK
+workspace projections through `agent-framework`. The single permitted exception is the
+**composition root**: the app assembly point may wire concrete implementations (e.g.
+`cli.ts` wiring `createDefaultBackgroundTaskRunners`, `modes/print-mode.ts` consuming the
+type-only `IBackgroundTaskRunner` contract). Routing these through an `agent-framework`
+re-export is NOT an alternative — it would violate the no-pass-through-re-exports rule
+above.
+
+Enforced by the `cli-agent-executor-import` rule in
+`scripts/harness/check-background-workspace-conformance.mjs`. Every exemption entry MUST
+carry a reason string and is reported (never silent) on each scan run; composition-root
+wiring is the only valid exemption category. (HARNESS-011)
