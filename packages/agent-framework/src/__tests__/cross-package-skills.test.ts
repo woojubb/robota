@@ -73,7 +73,7 @@ describe('Cross-package: skill discovery -> system prompt', () => {
       agentsMd: '',
       claudeMd: '',
       toolDescriptions: ['bash: Execute shell commands'],
-      trustLevel: 'moderate',
+      permissionMode: 'default',
       projectInfo: { type: 'node', language: 'typescript' },
       skills: invocable.map((cmd) => ({
         name: cmd.name,
@@ -137,7 +137,7 @@ describe('Cross-package: skill discovery -> system prompt', () => {
       agentsMd: '',
       claudeMd: '',
       toolDescriptions: [],
-      trustLevel: 'moderate',
+      permissionMode: 'default',
       projectInfo: { type: 'unknown', language: 'unknown' },
       skills: invocable.map((cmd) => ({
         name: cmd.name,
@@ -300,7 +300,7 @@ describe('Cross-package: BundlePlugin -> CLI commands', () => {
       agentsMd: '',
       claudeMd: '',
       toolDescriptions: [],
-      trustLevel: 'moderate',
+      permissionMode: 'default',
       projectInfo: { type: 'unknown', language: 'unknown' },
       skills,
     });
