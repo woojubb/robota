@@ -1038,8 +1038,22 @@ On the first TUI invocation:
 No provider API key or language is prompted at first run. Provider setup is done separately via
 `robota --configure` or `robota init`. First-run welcome is suppressed in print/headless mode.
 
-Use `robota --reset` to delete the user settings file and return to the unconfigured state (the
-onboarded marker is not cleared by `--reset`; the welcome banner will not reappear).
+Use `robota --reset` to delete the user settings file (`~/.robota/settings.json`) and return to
+the unconfigured state (the onboarded marker is not cleared by `--reset`; the welcome banner will
+not reappear).
+
+**Destructive-action contract (CLI-070)** — `--reset` is listed in `--help` and never deletes
+without consent:
+
+| stdin TTY | `--yes` | Behavior                                                            | Exit  |
+| --------- | ------- | ------------------------------------------------------------------- | ----- |
+| any       | any     | No settings file present → "No user settings found.", nothing to do | 0     |
+| yes       | no      | `Delete <path>? [y/N]` prompt — `y` deletes, anything else cancels  | 0 / 1 |
+| yes       | yes     | Deletes without prompting                                           | 0     |
+| no        | no      | Refuses, names `--yes`, file untouched                              | 1     |
+| no        | yes     | Deletes without prompting                                           | 0     |
+
+This matrix is the general contract for destructive CLI flags.
 
 ### `robota init`
 
