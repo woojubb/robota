@@ -1,6 +1,6 @@
 ---
 title: 'HARNESS-011: CI green baseline — stop normalizing red runs'
-status: todo
+status: done
 created: 2026-06-11
 priority: critical
 urgency: now
@@ -72,3 +72,19 @@ Not applicable — CI/infra change; evidence is green pipeline runs on the PR.
   `IBackgroundTaskRunner`). Decide whether composition-root wiring is a documented
   exception or must route through an agent-framework re-export, then update the pattern.
   The test currently pins the legacy-name behavior so revival is deliberate.
+
+## Progress update (2026-06-13) — CLOSED
+
+- Remaining decision resolved (spec `HARNESS-011-agent-executor-import-rule`, user-approved):
+  the dead `cli-agent-runtime-import` rule is revived as **`cli-agent-executor-import`**
+  targeting `@robota-sdk/agent-executor` under `packages/agent-cli/src/`, with exactly two
+  composition-root exemptions carrying reason strings (`cli.ts` — concrete runner wiring;
+  `modes/print-mode.ts` — type-only runner contract). Exemptions are reported on every scan
+  run, never silent. Framework re-export routing rejected (no-pass-through rule).
+- Rationale + exemption policy documented in `.agents/project-structure.md`
+  §Composition-Root Exemption.
+- Evidence: `pnpm harness:scan` → all 22 scans passed with the revived rule active;
+  scan unit tests 5/5 (violation fixture flagged, exemption fixtures pass with reasons,
+  legacy `agent-runtime` name fully retired).
+- All HARNESS-011 scope items now complete: aggregation (1-2), stale-path fixes (3-4),
+  this rule revival. CI green baseline achieved — any red run means a NEW problem.

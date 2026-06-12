@@ -33,6 +33,7 @@ function packageJson(name, extra = {}) {
 const projectStructure = [
   'packages/',
   '- agent-cli',
+  '- agent-framework',
   '- agent-sdk',
   '- agent-command-*',
   '- agent-provider-*',

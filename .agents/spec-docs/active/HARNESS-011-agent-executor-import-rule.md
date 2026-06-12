@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: RULE
 tags: [harness, typescript]
 ---
@@ -84,7 +84,20 @@ wiring` / `composition root — type-only runner contract`).
    import fails; exempt files pass; clean tree passes.
 3. `.agents/project-structure.md`: one paragraph defining the composition-root exemption
    (what qualifies, reason-string requirement).
-4. Verify `pnpm harness:scan` 23/23 (with HARNESS-002) green on develop.
+4. Verify `pnpm harness:scan` green on develop (22/22 at this item's merge time;
+   HARNESS-002 adds its scan separately).
+
+_Extension during implementation (within the parent HARNESS-011 scope this spec closes):
+running the full harness unit suite for TC-03 surfaced 3 pre-existing failing tests of the
+SAME defect class this spec exists to fix — (a) `check-command-layering.mjs` carried another
+dead legacy-name pattern (`@robota-sdk/agent-sessions`, plural; the real package is
+`agent-session`) so its violation fixture matched nothing; (b) two
+`check-capability-placement` fixtures predated the `workspace-package-not-documented`
+check and omitted `agent-framework` from the fixture structure doc. Both repaired here
+(pattern retargeted to the singular name with subpath support — zero live findings,
+agent-cli has no real agent-session imports; fixture doc row added). HARNESS-011 item 4
+("failing harness unit tests must be repaired") is the parent scope authorizing this;
+harness suite now 184/184._
 
 ## Affected Files
 
@@ -117,7 +130,7 @@ wiring` / `composition root — type-only runner contract`).
 
 ## Tasks
 
-- [ ] `.agents/tasks/HARNESS-011R.md` — 미생성 (GATE-APPROVAL 통과 후 생성)
+- [ ] `.agents/tasks/HARNESS-011R.md` — T1~T6 (TC-01~TC-05 매핑 + wrap-up)
 
 ## Evidence Log
 
@@ -141,3 +154,13 @@ wiring` / `composition root — type-only runner contract`).
 - No Architecture Review or frontmatter type/tags modified after the approval request: only post-GATE-WRITE changes were the guard's GATE-WRITE Evidence Log entry, the frontmatter status upgrade draft → review-ready, and prettier formatting at commit cd5b1053a (released in PR #705); verified the commit is a 133-line new-file addition for this spec.
 - NON-COMPLIANCE trigger checked — no implementation started before this gate: `.agents/tasks/HARNESS-011R.md` absent; scan rule still carries the legacy `cli-agent-runtime-import` type and legacy package name in `scripts/harness/check-background-workspace-conformance.mjs:70` and `scripts/harness/__tests__/check-background-workspace-conformance.test.mjs:61`; no commits to `scripts/harness/` or `.agents/project-structure.md` for this spec since the approval request (only afdca8b66, 2026-06-12, the earlier HARNESS-011 items 1–2 fix predating this spec).
 - Prior gate evidence present: [GATE-WRITE] ✅ PASS entry (2026-06-13) exists in this Evidence Log; frontmatter `status: review-ready` matches the gate's entry state.
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-06-13
+
+**Status upgrade:** approved → in-progress
+
+- Tasks file created: `.agents/tasks/HARNESS-011R.md` exists on branch `feat/harness-011r-executor-import-rule` (untracked working-tree file, 6 tasks T1–T6, spec back-reference and Test Plan SSOT pointer present).
+- Tasks file path recorded: `## Tasks` section of this spec lists `.agents/tasks/HARNESS-011R.md` — T1~T6 (TC-01~TC-05 매핑 + wrap-up).
+- Tasks ↔ Completion Criteria correspondence: T1↔TC-01 (rule retarget + non-exempt fixture fails), T2↔TC-02 (per-file exemptions with reason strings + exempt fixtures pass), T3↔TC-03 (`pnpm harness:scan` green on develop), T4↔TC-04 (legacy `@robota-sdk/agent-runtime` retired from rule + test), T5↔TC-05 (`.agents/project-structure.md` composition-root exemption doc) — at least one task per TC-N, all 5 covered; T6 is wrap-up (tests green, PR, archive) with no TC mapping required. Note: tasks file uses the actual file path `src/modes/print-mode.ts` (verified on disk; spec's `src/print-mode.ts` shorthand refers to the same file) — correspondence intact.
+- NON-COMPLIANCE trigger checked — no implementation commits before tasks file: `scripts/harness/check-background-workspace-conformance.mjs:70` still carries the legacy `cli-agent-runtime-import` rule with pattern `@robota-sdk/agent-runtime`; branch diff vs develop contains only the spec move todo/ → active/ and the new tasks file; last commits touching `scripts/harness/` or `.agents/project-structure.md` predate this spec (550cdcd80 / 8099b117f, HARNESS-012/005/013/014).
+- Prior gate evidence present: [GATE-WRITE] and [GATE-APPROVAL] ✅ PASS entries (2026-06-13) exist above; frontmatter `status: approved` matches the entry state for this gate.
