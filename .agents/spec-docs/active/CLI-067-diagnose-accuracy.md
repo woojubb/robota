@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: BEHAVIOR
 tags: [cli, typescript]
 ---
@@ -126,7 +126,7 @@ project-level, each reported), removing the either/or fallback in `checkSettings
 
 ## Tasks
 
-- [ ] `.agents/tasks/CLI-067.md` — 미생성 (GATE-APPROVAL 통과 후 생성)
+- [ ] `.agents/tasks/CLI-067.md` — T1~T8 (TC-01~TC-07 매핑 + wrap-up)
 
 ## Evidence Log
 
@@ -149,3 +149,12 @@ project-level, each reported), removing the either/or fallback in `checkSettings
 - Directed at this spec: the consolidated approval request "## 설계안 요약 (승인 요청) — 백로그 일괄 11건" summarized CLI-067 individually (API-key check reuses runtime resolution functions, settings → env-default CLI-066 order; user-level and project settings validated independently; exit-code policy 0 = no issues / 1 = issues) and explicitly flagged the 067 exit-code policy as a product-direction decision; the prior "머지하고 main 릴리스 진행해줘" was a release instruction (PR #705, docs-only) and was not counted as design approval.
 - No post-approval-request modification of Architecture Review or frontmatter type/tags: only changes after the approval request were the GATE-WRITE Evidence Log entry, frontmatter status draft → review-ready, and prettier formatting (commit cd5b1053a).
 - No implementation before this gate: `.agents/tasks/CLI-067.md` absent (verified via ls), `git status` clean for `packages/agent-cli` and `.agents/tasks`, latest commits to `diagnose-command.ts`/`cli.ts` belong to prior items (CLI-066 #700 and earlier) — NON-COMPLIANCE trigger not met.
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-06-13
+
+**Status upgrade:** approved → in-progress
+
+- Tasks file created: `.agents/tasks/CLI-067.md` exists (read and verified; header references this spec as Test Plan SSOT).
+- Tasks file path recorded in `## Tasks` section of this spec: `- [ ] .agents/tasks/CLI-067.md — T1~T8 (TC-01~TC-07 매핑 + wrap-up)`.
+- Tasks correspond to Completion Criteria — one task per TC-N: T1↔TC-01 (provider check via `readProviderSettings`, profile `$ENV:` ✓), T2↔TC-02 (env-default agreement), T3↔TC-03 (✗ with runtime guidance + issue count), T4↔TC-04 (all `getProviderSettingsPaths` levels, corrupt user-level flagged), T5↔TC-05 (issue-count → exit-code matrix incl. `cli.ts` dispatch), T6↔TC-06 (no key value in output), T7↔TC-07 (SPEC.md documents checks + 0/1 exit contract); plus T8 wrap-up (test/typecheck/lint/build, PR, evidence, archive). All 7 TC-N covered.
+- NON-COMPLIANCE trigger not met: branch `feat/cli-067-diagnose-accuracy` has no commits touching `packages/agent-cli/src` beyond develop; `git status` clean for `packages/agent-cli`; latest commits to `diagnose-command.ts`/`cli.ts` are prior items (CLI-066 #700 and earlier) — tasks file exists before any implementation.
