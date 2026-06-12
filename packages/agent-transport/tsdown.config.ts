@@ -36,6 +36,7 @@ export default defineConfig({
     'ws/index': 'src/ws/index.ts',
     'mcp/index': 'src/mcp/index.ts',
     'tui/index': 'src/tui/index.ts',
+    'testing/index': 'src/testing/index.ts',
   },
   format: ['esm', 'cjs'],
   outDir: 'dist/node',

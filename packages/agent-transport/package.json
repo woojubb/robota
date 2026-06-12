@@ -30,6 +30,18 @@
         "require": "./dist/node/headless/index.cjs"
       }
     },
+    "./testing": {
+      "types": "./dist/node/testing/index.d.ts",
+      "source": "./src/testing/index.ts",
+      "node": {
+        "import": "./dist/node/testing/index.js",
+        "require": "./dist/node/testing/index.cjs"
+      },
+      "default": {
+        "import": "./dist/node/testing/index.js",
+        "require": "./dist/node/testing/index.cjs"
+      }
+    },
     "./http": {
       "types": "./dist/node/http/index.d.ts",
       "source": "./src/http/index.ts",
@@ -102,7 +114,8 @@
     "test": "vitest run --passWithNoTests",
     "test:coverage": "vitest run --coverage --passWithNoTests",
     "clean": "rimraf dist",
-    "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
+    "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh",
+    "test:pty": "vitest run --config vitest.pty.config.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
