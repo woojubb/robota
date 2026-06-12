@@ -1,6 +1,7 @@
 import { normalizeProviderConfig } from '@robota-sdk/agent-executor';
 
 import { NodeFileSystem } from '../../adapters/node-file-system.js';
+import { SettingsParseError } from '../../config/settings-parse-error.js';
 
 import type { IProviderProfileSettings, TProviderSettingsDocument } from './provider-settings.js';
 import type { IFileSystem } from '@robota-sdk/agent-core';
@@ -19,6 +20,10 @@ export function readMergedProviderSettingsFromPaths(
   }, {});
 }
 
+/**
+ * CLI-069: a missing file is a non-error (undefined); an EXISTING file that
+ * fails to parse throws SettingsParseError — corrupt is never treated as missing.
+ */
 function readSettingsFile(
   filePath: string,
   fs: IFileSystem,
@@ -26,12 +31,12 @@ function readSettingsFile(
   if (!fs.existsSync(filePath)) {
     return undefined;
   }
+  const raw = fs.readFileSync(filePath, 'utf8');
   try {
-    const raw = fs.readFileSync(filePath, 'utf8');
     return JSON.parse(raw) as TProviderSettingsDocument;
-  } catch {
-    // allow-fallback: unparseable settings file is skipped to allow the config chain to continue
-    return undefined;
+  } catch (error) {
+    // allow-fallback: rethrown as typed SettingsParseError — fail-fast, not a fallback
+    throw new SettingsParseError(filePath, error instanceof Error ? error.message : String(error));
   }
 }
 

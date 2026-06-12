@@ -1,6 +1,6 @@
 ---
 title: 'CLI-069: Corrupt user-level settings.json is silently treated as missing (forbidden fallback)'
-status: todo
+status: done
 created: 2026-06-11
 priority: medium
 urgency: soon
@@ -38,4 +38,19 @@ treat-as-missing.
 - Steps: write `{ broken` to `~/.robota/settings.json`; run `robota -p "hi"`; `echo $?`.
 - Expected observable result: error names the corrupt file and exits non-zero; not "No
   provider configuration found".
-- Evidence: (fill after implementation)
+- Evidence (2026-06-13, real binary `bin/robota.cjs`, isolated HOME via `env -i`,
+  `{ broken` written to `~/.robota/settings.json`):
+
+  ```
+  $ robota -p "hi"; echo $?
+  Settings file /tmp/.../home/.robota/settings.json contains invalid JSON: Expected
+  property name or '}' in JSON at position 2 (line 1 column 3). Fix or delete the file,
+  or run robota diagnose.
+  exit=1
+  ```
+
+  Not "No provider configuration found" — the forbidden treat-as-missing fallback is gone
+  from both readers (`provider-merge.readSettingsFile`, `settings-io.readSettings`).
+  CI tests: `packages/agent-framework/src/command-api/provider/__tests__/
+corrupt-settings-fail-fast.test.ts` (6/6 — typed SettingsParseError, both levels,
+  missing/valid regressions, no stderr warn fallback).
