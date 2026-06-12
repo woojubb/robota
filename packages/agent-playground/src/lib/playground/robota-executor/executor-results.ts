@@ -51,7 +51,7 @@ export function createFailureResult(input: IFailureResultInput): IPlaygroundExec
   return result;
 }
 
-export function toExecutionError(error: TExecutionErrorInput): Error {
+function toExecutionError(error: TExecutionErrorInput): Error {
   return error instanceof Error ? error : new Error(String(error));
 }
 

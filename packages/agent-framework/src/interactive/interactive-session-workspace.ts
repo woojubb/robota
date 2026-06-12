@@ -61,20 +61,6 @@ export function buildExecutionWorkspaceSnapshot(
   });
 }
 
-export function listWorkspaceEntries(
-  getSnapshot: (options?: IExecutionWorkspaceSnapshotOptions) => IExecutionWorkspaceSnapshot,
-  filter?: IExecutionWorkspaceFilter,
-): IExecutionWorkspaceEntry[] {
-  return [...getSnapshot({ filter }).entries];
-}
-
-export function getWorkspaceEntry(
-  getSnapshot: (options?: IExecutionWorkspaceSnapshotOptions) => IExecutionWorkspaceSnapshot,
-  entryId: string,
-): IExecutionWorkspaceEntry | undefined {
-  return getSnapshot().entries.find((entry) => entry.id === entryId);
-}
-
 export async function readWorkspaceDetail(
   entryId: string,
   getHistory: () => IHistoryEntry[],

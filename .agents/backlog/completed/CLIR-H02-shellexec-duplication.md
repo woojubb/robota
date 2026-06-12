@@ -71,7 +71,7 @@ robota
 
 TUI 모드는 자동화 환경에서 실행 불가. 코드 분석으로 검증:
 
-- `packages/agent-cli/src/modes/shell-exec.ts` 신규 생성:
+- `packages/agent-cli/src/modes/shell-exec.ts` 신규 생성: <!-- evidence-superseded: shell-exec.ts deleted in HARNESS-015 (orphan burn-down) — the dedup it verified holds; skill ! substitution moved with the TUI refactor -->
   - `export const SHELL_EXEC_TIMEOUT_MS = 5_000`
   - `export function createShellExec(): (command: string) => string`
   <!-- evidence-superseded: tui-mode.ts removed in the TUI → agent-transport migration; shellExec dedup is held by current agent-transport/cli suites -->

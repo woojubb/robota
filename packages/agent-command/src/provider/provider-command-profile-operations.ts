@@ -110,7 +110,7 @@ function getProviderProfileSetupValues(profile: IProviderProfileSettings): {
   };
 }
 
-export function createProviderEditInteraction(
+function createProviderEditInteraction(
   flow: IProviderSetupFlowState,
   profileName: string,
   options: IProviderCommandModuleOptions,

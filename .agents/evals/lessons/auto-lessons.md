@@ -27,31 +27,31 @@ Do not promote entries to `.agents/rules/common-mistakes.md` without human revie
 
 ## same-file-edited-3-times
 
-- Frequency: 567 events in the last 7 days
+- Frequency: 3215 events in the last 7 days
 - Sources: reverts
-- Example paths: `/Users/jungyoun/Documents/dev/robota/.agents/backlog/CLI-063-print-mode-session-resume-broken.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/CLI-064-exit-code-contract-violations.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/README.md`, `/Users/jungyoun/Documents/dev/robota/.agents/release-runs/3.0.0-beta.72.md`, `/Users/jungyoun/Documents/dev/robota/.agents/release-runs/3.0.0-beta.73.md`
+- Example paths: `/Users/jungyoun/Documents/dev/robota/.agents/backlog/CLI-063-print-mode-session-resume-broken.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/CLI-064-exit-code-contract-violations.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/CLI-073-fork-session-context-semantics.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/README.md`, `/Users/jungyoun/Documents/dev/robota/.agents/release-runs/3.0.0-beta.72.md`
 - First seen: 2026-06-08T13:10:40.000Z
-- Last seen: 2026-06-12T15:43:05.000Z
+- Last seen: 2026-06-12T20:07:52.000Z
 - Status: candidate; human review is required before promotion.
 <!-- auto-lesson:repeated-tool-errors -->
 
 ## repeated-tool-errors
 
-- Frequency: 42 events in the last 7 days
+- Frequency: 134 events in the last 7 days
 - Sources: reverts
 - Example paths: (none)
 - First seen: 2026-06-08T13:10:40.000Z
-- Last seen: 2026-06-12T15:43:05.000Z
+- Last seen: 2026-06-12T20:07:52.000Z
 - Status: candidate; human review is required before promotion.
 <!-- auto-lesson:try-catch-fallback -->
 
 ## try-catch-fallback
 
-- Frequency: 10 events in the last 7 days
+- Frequency: 7 events in the last 7 days
 - Sources: blocks
-- Example paths: `packages/agent-cli/src/cli.ts`, `packages/agent-cli/src/session-analyzer/session-analyze-command.ts`, `packages/agent-command/src/context/context-command.ts`, `packages/agent-transport/src/tui/TuiInteractionChannel.ts`
-- First seen: 2026-05-30T15:55:40.000Z
-- Last seen: 2026-05-31T09:09:27.000Z
+- Example paths: `packages/agent-cli/src/cli.ts`, `packages/agent-cli/src/startup/diagnose-command.ts`, `packages/agent-transport/src/tui/flows/session-init-poller.ts`
+- First seen: 2026-06-10T14:30:02.000Z
+- Last seen: 2026-06-12T17:23:22.000Z
 - Status: candidate; human review is required before promotion.
 <!-- auto-lesson:console-usage -->
 

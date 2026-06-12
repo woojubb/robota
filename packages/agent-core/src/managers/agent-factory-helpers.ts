@@ -139,4 +139,3 @@ export function updateCreationStats(
 }
 
 // Re-export constant so consumers can use it if needed
-export { MAX_CONCURRENT_AGENTS };

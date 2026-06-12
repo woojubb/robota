@@ -142,42 +142,6 @@ export interface IPlaygroundStatisticsStats {
 // Default Values and Constants
 // =============================================================================
 
-/**
- * Default Playground metrics
- */
-export const defaultPlaygroundStats: IPlaygroundMetrics = {
-  totalChatExecutions: 0,
-  agentModeExecutions: 0,
-  teamModeExecutions: 0,
-  streamingExecutions: 0,
-  blockCreations: 0,
-  uiInteractions: 0,
-  configChanges: 0,
-  averageResponseTime: 0,
-  lastExecutionTime: null,
-  errorCount: 0,
-  successRate: 100,
-  isActive: false,
-  lastUpdated: new Date(),
-};
-
-/**
- * Default plugin options
- */
-export const defaultPlaygroundStatisticsOptions: Required<IPlaygroundStatisticsOptions> = {
-  enabled: true,
-  collectUIMetrics: true,
-  collectBlockMetrics: true,
-  collectConfigMetrics: true,
-  trackResponseTime: true,
-  trackExecutionDetails: true,
-  maxEntries: 1000,
-  aggregateStats: true,
-  resetOnSessionStart: false,
-  slowExecutionThreshold: 3000, // 3 seconds
-  errorRateThreshold: 10, // 10%
-};
-
 // =============================================================================
 // Event Types for Statistics Collection
 // =============================================================================
@@ -185,7 +149,7 @@ export const defaultPlaygroundStatisticsOptions: Required<IPlaygroundStatisticsO
 /**
  * Event types for statistics collection
  */
-export const PLAYGROUND_STATISTICS_EVENTS = {
+const PLAYGROUND_STATISTICS_EVENTS = {
   UI_INTERACTION: 'ui_interaction',
   BLOCK_CREATE: 'block_create',
   BLOCK_EXPAND: 'block_expand',
@@ -195,7 +159,7 @@ export const PLAYGROUND_STATISTICS_EVENTS = {
   SESSION_END: 'session_end',
 } as const;
 
-export const PLAYGROUND_STATISTICS_EVENT_PREFIX = 'playground' as const;
+const PLAYGROUND_STATISTICS_EVENT_PREFIX = 'playground' as const;
 
 // SSOT: TExecutionEventName is owned by @robota-sdk/agent-core (event-emitter/types.ts)
 export type { TExecutionEventName } from '@robota-sdk/agent-core';

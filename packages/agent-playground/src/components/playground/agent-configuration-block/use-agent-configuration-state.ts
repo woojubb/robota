@@ -3,9 +3,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import type { IPlaygroundAgentConfig } from '../../../lib/playground/robota-executor';
 import type { IAgentConfigurationValidation, TAgentConfigUpdateHandler } from './types';
 
-export function validateAgentConfiguration(
-  config: IPlaygroundAgentConfig,
-): IAgentConfigurationValidation {
+function validateAgentConfiguration(config: IPlaygroundAgentConfig): IAgentConfigurationValidation {
   const errors: string[] = [];
 
   if (!config.name?.trim()) {
