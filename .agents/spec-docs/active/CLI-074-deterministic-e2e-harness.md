@@ -198,3 +198,21 @@ Note: not NON-COMPLIANCE — no CLI-074 implementation work (file edits/commits)
 - NON-COMPLIANCE check: no implementation commits exist — `git diff develop...HEAD --stat` is empty (branch has no commits ahead of develop); working tree contains only the spec stage move (`backlog/ → todo/`) and the tasks file; `packages/agent-transport/src/testing/`, `packages/agent-cli/src/__tests__/e2e/`, `packages/agent-transport/src/tui/__tests__/pty/` all absent; `@homebridge/node-pty-prebuilt-multiarch` devDependency in `packages/agent-transport/package.json` is pre-existing in develop (verified via `git show develop:packages/agent-transport/package.json`), not CLI-074 implementation work
 
 Tasks created (from `.agents/tasks/CLI-074.md`): T1 scripted provider unit (TC-01) · T2 tool-loop E2E (TC-02) · T3 permission E2E (TC-03) · T4 resume E2E (TC-04) · T5 output-contract E2E (TC-05) · T6 slash-command smoke (TC-06) · T7 PTY driver helper + boot/autocomplete/`/help` (TC-07) · T8 PTY `/exit` shutdown deadline (TC-08) · T9 SPEC sync (TC-09) · T10 verification + PR + evidence wrap-up
+
+### [GATE-VERIFY] — ❌ FAIL | 2026-06-12
+
+**Status remains:** in-progress
+**Failed criteria:**
+
+- All tasks in `.agents/tasks/CLI-074.md` marked complete: T1–T9 are `[x]`, but **T10 is unchecked (`[ ] T10: build/typecheck/lint/test green; PR to develop; backlog/L2 evidence recording`)** — the gate requires every task `[x]`
+  **Required action:** Confirm T10's remaining substance (verification runs are green per evidence below; PR #703 to develop is OPEN; evidence-recording substance must be confirmed by the implementer), mark T10 `[x]` in `.agents/tasks/CLI-074.md`, then re-run GATE-VERIFY
+- No tasks blocked or pending: T10 is pending (same finding as above)
+
+Evidence for the remaining criteria (all met — recorded so the re-run only needs to confirm the tasks file):
+
+- Build: `pnpm --filter "@robota-sdk/agent-cli..." build` (agent-cli + all workspace deps incl. agent-transport) — "Build complete", exit 0
+- Tests (targeted): scripted-provider unit 4/4 passed (`src/testing/__tests__/scripted-provider.test.ts`); agent-cli E2E `scripted-e2e.test.ts` 5/5 + `slash-smoke.test.ts` 1/1 passed
+- Tests (full affected packages): `pnpm --filter @robota-sdk/agent-transport test -- --run` → 59 files / 467 tests passed; `pnpm --filter @robota-sdk/agent-cli test -- --run` → 16 files / 134 tests passed
+- PTY project: `pnpm --filter @robota-sdk/agent-transport test:pty` → 2/2 passed (TC-07 boot/autocomplete//help-as-command 840ms; TC-08 /exit exit within 10s, 1246ms)
+- SPEC sections present: `packages/agent-transport/docs/SPEC.md` line 283 "## Test Harness Contracts (CLI-074)"; `packages/agent-cli/docs/SPEC.md` Test Strategy references the scripted provider from `@robota-sdk/agent-transport/testing` (line 1632)
+- PR #703 `feat/cli-074-e2e-harness` → `develop` is OPEN (gh pr view 703); branch carries 2 commits (a56eb1c14 T1, 87c22bd79 T2–T9)
