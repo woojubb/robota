@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: BEHAVIOR
 tags: [cli, typescript, react]
 ---
@@ -105,11 +105,11 @@ own spec.
 
 ## Completion Criteria
 
-- [ ] TC-01 (=TC-A): session switch from the picker calls `createChannel` exactly once with
+- [x] TC-01 (=TC-A): session switch from the picker calls `createChannel` exactly once with
       the selected sessionId (mock factory assertion)
-- [ ] TC-02 (=TC-B): real-store integration — `createChannel(sessionId)` over a persisted
+- [x] TC-02 (=TC-B): real-store integration — `createChannel(sessionId)` over a persisted
       session yields `getContextState().usedTokens > 0` (no mocks)
-- [ ] TC-03 (=TC-C): on switch, the previous channel's `stop()` is invoked and the new
+- [x] TC-03 (=TC-C): on switch, the previous channel's `stop()` is invoked and the new
       channel is started; the new (active) channel is never stopped. _Correction during
       implementation (within the approved Decision): the draft said "exactly once", but the
       released old channel receives `stop()` from BOTH the switch handler
@@ -118,27 +118,27 @@ own spec.
       resource-release contract is "stopped and never restarted", not a single invocation;
       the test asserts stop invoked on the old channel, start on the new, and no stop on
       the active channel._
-- [ ] TC-04 (=TC-D): rendering without a `createChannel` prop uses `props.channel` and does
+- [x] TC-04 (=TC-D): rendering without a `createChannel` prop uses `props.channel` and does
       not crash (current fallback pinned; superseded by CLI-B12)
-- [ ] TC-05 (=TC-E): consecutive switches A→B→C create one new channel per switch, stop each
+- [x] TC-05 (=TC-E): consecutive switches A→B→C create one new channel per switch, stop each
       prior channel, and the latest channel is active
-- [ ] TC-06: `pnpm --filter @robota-sdk/agent-transport test` passes with the new suites
+- [x] TC-06: `pnpm --filter @robota-sdk/agent-transport test` passes with the new suites
       included; `docs/SPEC.md` Test Strategy lists both files
 
 ## Test Plan
 
-| TC-ID | Test Type   | Tool / Approach                                                     | Notes                                        |
-| ----- | ----------- | ------------------------------------------------------------------- | -------------------------------------------- |
-| TC-01 | unit        | vitest + ink-testing-library, mock `createChannel` injection        | asserts call count + argument                |
-| TC-02 | integration | vitest, real `FileSessionStore`/`Session` in temp dir, real factory | CI equivalent of `real-resume-verify-v3.mjs` |
-| TC-03 | unit        | vitest, mock channel with spied `stop()`                            | exactly-once assertion                       |
-| TC-04 | unit        | vitest, render `App` without factory prop                           | pins current fallback until CLI-B12          |
-| TC-05 | unit        | vitest, three sequential switch triggers                            | per-switch factory/stop bookkeeping          |
-| TC-06 | integration | `pnpm --filter @robota-sdk/agent-transport test` + SPEC.md diff     | suite-level green + doc row present          |
+| TC-ID | Test Type   | Tool / Approach                                                        | Notes                                                                                                                                                                                                                                                                                                                |
+| ----- | ----------- | ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| TC-01 | unit        | vitest + ink-testing-library, mock `createChannel` injection           | Test: `packages/agent-transport/src/tui/__tests__/session-switch-channel.test.tsx` > `App session-switch channel ownership (CLI-B11)` > `TC-01: selecting a session in the picker calls createChannel exactly once with that sessionId`                                                                              |
+| TC-02 | integration | vitest, real `FileSessionStore`/`Session` in temp dir, real factory    | Test: `packages/agent-transport/src/tui/__tests__/channel-factory-integration.test.ts` > `channel factory restores persisted context (CLI-B11 TC-02)` > `createChannel(sessionId) over a real FileSessionStore yields usedTokens > 0` (+ empty-context control test in same describe)                                |
+| TC-03 | unit        | vitest, mock channel with spied `stop()`                               | Test: `packages/agent-transport/src/tui/__tests__/session-switch-channel.test.tsx` > `App session-switch channel ownership (CLI-B11)` > `TC-03: the previous channel is stopped on switch and the new channel is started` (per in-Decision correction: old stopped — idempotent — new started, active never stopped) |
+| TC-04 | unit        | vitest, render `App` without factory prop                              | Test: `packages/agent-transport/src/tui/__tests__/session-switch-channel.test.tsx` > `App session-switch channel ownership (CLI-B11)` > `TC-04: without a createChannel prop, the switch falls back to props.channel and does not crash` — pins current fallback until CLI-B12                                       |
+| TC-05 | unit        | vitest, three sequential switch triggers                               | Test: `packages/agent-transport/src/tui/__tests__/session-switch-channel.test.tsx` > `App session-switch channel ownership (CLI-B11)` > `TC-05: consecutive switches A→B→C create one channel per switch and stop each prior channel`                                                                                |
+| TC-06 | integration | `pnpm --filter @robota-sdk/agent-transport test` + SPEC.md direct read | Suite-level: full package run, 61 files / 473 tests green (2026-06-13). Doc-row half verified manually by direct read of `packages/agent-transport/docs/SPEC.md` Test Strategy lines 279–283 listing both new test files (manual read — a doc-presence check, not automatable as a unit test)                        |
 
 ## Tasks
 
-- [ ] `.agents/tasks/CLI-B11.md` — T1~T7 (TC-01~TC-06 매핑 + wrap-up)
+- [x] `.agents/tasks/completed/CLI-B11.md` — archived at GATE-COMPLETE (T1~T7 complete, TC-01~TC-06 매핑)
 
 ## Evidence Log
 
@@ -175,3 +175,64 @@ own spec.
 - Tasks file path recorded in `## Tasks` section of this spec: `.agents/tasks/CLI-B11.md` — T1~T7 (TC-01~TC-06 매핑 + wrap-up).
 - Tasks correspond to Completion Criteria — one task per TC-N: T1↔TC-01 (mock `createChannel` call-count/argument via real `SessionPicker` switch), T2↔TC-02 (real `FileSessionStore` integration, `usedTokens > 0`), T3↔TC-03 (previous channel `stop()` exactly once), T4↔TC-04 (no-factory fallback to `props.channel`, no crash), T5↔TC-05 (A→B→C consecutive switches, per-switch factory/stop bookkeeping), T6↔TC-06 (full package test green + SPEC.md Test Strategy rows); T7 is wrap-up (typecheck/lint/build, PR, backlog evidence) — all 6 TC-N covered.
 - NON-COMPLIANCE check (implementation commits without tasks file): negative — neither test file exists yet; `git status --porcelain` shows only spec/tasks/evals doc changes (no `packages/agent-transport` changes); recent commits (949e8af5d, 9b999b950, cd5b1053a) are docs/evals only.
+
+### [GATE-VERIFY] — ✅ PASS | 2026-06-13
+
+**Status upgrade:** in-progress → verifying
+
+- All tasks complete: `.agents/tasks/CLI-B11.md` T1–T6 `[x]`. T7 (wrap-up: PR merge + backlog completed/) unchecked but every component independently verified per the established CLI-063/064/065/066 GATE-VERIFY interpretation: PR #706 OPEN (`feat/cli-b11-session-switch-tests` → `develop`, "test(transport): session-switch channel regression suite (CLI-B11)") with all CI checks green on `gh pr checks 706` — build pass (1m24s), quality pass (49s), security audit pass, Cloudflare Pages pass; compat-node18 and release-grade verification report "skipping" by workflow design on feature PRs; backlog evidence recorded in `.agents/backlog/completed/CLI-B11-session-switch-context-restoration-tests.md` (frontmatter `status: done`; real-binary PTY `/resume` evidence 2026-06-13: boot `Context: 0%` → first select `Context: 6% (11.9K/200K)` → second select `Context: 16% (31.8K/200K)`).
+- No tasks blocked or pending: tasks file contains no blocked markers; only T7 wrap-up remains open as adjudicated above. The TC-03 "exactly once" → "stopped and never restarted" wording is a documented in-Decision correction in this spec (italic note, resource-release contract — stop() idempotent by lifecycle contract), mirrored in T3; within the approved Decision per the CLI-066 correction-note precedent, not a blocked/divergent task.
+- Build passes: `pnpm --filter @robota-sdk/agent-transport build` fresh-run this gate — "Build complete in 758ms" (38 files, 481.52 kB), exit 0.
+- Tests pass: `pnpm --filter @robota-sdk/agent-transport test` fresh-run this gate — **61 files passed / 473 tests passed**, 0 failures, including both new suites: `src/tui/__tests__/session-switch-channel.test.tsx` (4 tests ✓) and `src/tui/__tests__/channel-factory-integration.test.ts` (2 tests ✓). Both files exist on disk and `docs/SPEC.md` Test Strategy lists both (lines 279–281), matching TC-06's doc-row requirement.
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-06-13
+
+- Checkbox: TC-01 `[x]` in Completion Criteria.
+- Command: `npx vitest run src/tui/__tests__/session-switch-channel.test.tsx` (cwd `packages/agent-transport`), fresh-run this gate.
+- Observed: `✓ App session-switch channel ownership (CLI-B11) > TC-01: selecting a session in the picker calls createChannel exactly once with that sessionId 1059ms`; suite total 4/4 passed. Exit code 0.
+- Test reference recorded in Test Plan: `session-switch-channel.test.tsx` > `App session-switch channel ownership (CLI-B11)` > TC-01 test.
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-06-13
+
+- Checkbox: TC-02 `[x]` in Completion Criteria.
+- Command: `npx vitest run src/tui/__tests__/channel-factory-integration.test.ts` (cwd `packages/agent-transport`), fresh-run this gate.
+- Observed: `✓ src/tui/__tests__/channel-factory-integration.test.ts (2 tests) 110ms` — `describe('channel factory restores persisted context (CLI-B11 TC-02)')` containing `it('createChannel(sessionId) over a real FileSessionStore yields usedTokens > 0')` and the control `it('a channel created WITHOUT resumeSessionId starts with an empty context (control)')` (test names confirmed at file lines 58/72/108). 2/2 passed. Exit code 0. No mocks — real `FileSessionStore`/`Session`.
+- Test reference recorded in Test Plan.
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-06-13
+
+- Checkbox: TC-03 `[x]` in Completion Criteria, with the documented in-Decision correction (old channel stopped — `stop()` idempotent, invoked by both the switch handler and AppInner effect cleanup — new channel started, active channel never stopped; resource-release contract instead of literal exactly-once).
+- Command: same `session-switch-channel.test.tsx` run as TC-01.
+- Observed: `✓ App session-switch channel ownership (CLI-B11) > TC-03: the previous channel is stopped on switch and the new channel is started 988ms`. Exit code 0.
+- Test reference recorded in Test Plan, including the correction note.
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-06-13
+
+- Checkbox: TC-04 `[x]` in Completion Criteria.
+- Command: same `session-switch-channel.test.tsx` run as TC-01.
+- Observed: `✓ App session-switch channel ownership (CLI-B11) > TC-04: without a createChannel prop, the switch falls back to props.channel and does not crash 993ms`. Exit code 0. Pins the current fallback until CLI-B12 supersedes it.
+- Test reference recorded in Test Plan.
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-06-13
+
+- Checkbox: TC-05 `[x]` in Completion Criteria.
+- Command: same `session-switch-channel.test.tsx` run as TC-01.
+- Observed: `✓ App session-switch channel ownership (CLI-B11) > TC-05: consecutive switches A→B→C create one channel per switch and stop each prior channel 2678ms`. Exit code 0.
+- Test reference recorded in Test Plan.
+
+### [GATE-COMPLETE: TC-06] — ✅ PASS | 2026-06-13
+
+- Checkbox: TC-06 `[x]` in Completion Criteria.
+- Command (suite half): `pnpm --filter @robota-sdk/agent-transport test`, fresh-run this gate — **Test Files 61 passed (61), Tests 473 passed (473)**, duration 30.49s, exit code 0; both new suites included and green (session-switch 4 ✓, channel-factory-integration 2 ✓).
+- Doc-row half (manual read): `packages/agent-transport/docs/SPEC.md` Test Strategy, lines 279–283 read directly this gate — bullet "Session-switch channel ownership (CLI-B11)" lists `src/tui/__tests__/session-switch-channel.test.tsx` (real `App` + mocked `createChannel` factory) and `src/tui/__tests__/channel-factory-integration.test.ts` (real `toChannelOptions`/`TuiInteractionChannel` path, `usedTokens > 0`). Skip reason for automation: doc-presence check, verified by direct read.
+- Test Plan row records the suite run + the manual doc-read with reason.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-06-13
+
+**Status upgrade:** verifying → done
+
+- Completion Criteria: all 6 TC-N checkboxes `[x]` (TC-01…TC-06), each with a matching `[GATE-COMPLETE: TC-N]` evidence entry above containing command, observed output, and exit code — all fresh-run 2026-06-13.
+- Test Plan: all 6 rows updated with test file + describe/test references (TC-01…TC-05) or suite run + explicit manual-read reason (TC-06 doc-row half). No TC-N silently unaddressed.
+- Tasks file archived: `.agents/tasks/completed/CLI-B11.md` exists (2694 bytes); active path `.agents/tasks/CLI-B11.md` no longer exists; archived file shows T1–T7 all `[x]` (T7 wrap-up closed: PR merged, backlog completed).
+- `## Tasks` section points at the archived path `.agents/tasks/completed/CLI-B11.md`.
+- User-execution corroboration (done-gate): `.agents/backlog/completed/CLI-B11-session-switch-context-restoration-tests.md` frontmatter `status: done` with real-binary PTY `/resume` evidence — boot `Context: 0% (0K/200K)` → first select `Context: 6% (11.9K/200K)` → second select `Context: 16% (31.8K/200K)` (file lines 107–128, verified by grep this gate).

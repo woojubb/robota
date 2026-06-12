@@ -24,7 +24,7 @@ Test Plan SSOT: the spec's TC table. One task per TC-N plus wrap-up.
       right id, stops the prior channel, latest channel is the one rendered.
 - [x] T6 (TC-06): full `pnpm --filter @robota-sdk/agent-transport test` green including the
       two new suites; `docs/SPEC.md` Test Strategy lists both files.
-- [ ] T7: wrap-up — typecheck/lint/build green; PR to develop (squash); backlog
+- [x] T7: wrap-up — typecheck/lint/build green; PR to develop (squash); backlog
       `.agents/backlog/CLI-B11-*.md` User Execution Test Scenario evidence recorded and file
       moved to completed/.
 
