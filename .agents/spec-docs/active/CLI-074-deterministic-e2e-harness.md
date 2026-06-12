@@ -1,5 +1,5 @@
 ---
-status: review-ready
+status: approved
 type: INFRA
 tags: [cli, typescript]
 ---
@@ -151,7 +151,7 @@ suite (PTY TCs in a dedicated vitest project).
 
 ## Tasks
 
-- [ ] `.agents/tasks/CLI-074.md` — 미생성 (GATE-APPROVAL 통과 후 생성)
+- [x] `.agents/tasks/CLI-074.md` — 생성 완료 (T1~T10, TC-01~TC-09 매핑)
 
 ## Evidence Log
 
@@ -187,3 +187,14 @@ Note: not NON-COMPLIANCE — no CLI-074 implementation work (file edits/commits)
 - Direct, unambiguous statement directed at this spec document: the selected option explicitly names CLI-074 and resolves the offered scope choice (full scope: scripted provider fixture + node-pty TUI driver). It is not a clarifying-answer-only reply, not silence, and not approval of a different item — the CLI-064/074 ambiguity that caused the prior FAIL was surfaced in the question itself and resolved by the selection.
 - No Architecture Review or frontmatter type/tags modified after approval: `git diff HEAD` on this file shows the only change since the GATE-WRITE commit (492d81263) is the prior GATE-APPROVAL FAIL Evidence Log entry; frontmatter (`status: review-ready`, `type: INFRA`, `tags: [cli, typescript]`) and Architecture Review section are untouched.
 - NON-COMPLIANCE check: no implementation artifacts exist — `.agents/tasks/CLI-074.md`, `packages/agent-transport/src/testing/`, `packages/agent-cli/src/__tests__/e2e/`, `packages/agent-transport/src/tui/__tests__/pty/` all absent; no implementation started before this gate.
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-06-12
+
+**Status upgrade:** approved → in-progress
+
+- Tasks file created: `.agents/tasks/CLI-074.md` exists (verified via filesystem; present as untracked file in `git status` on branch `feat/cli-074-e2e-harness`)
+- Tasks file path recorded in `## Tasks` section: spec `## Tasks` contains `- [x] .agents/tasks/CLI-074.md — 생성 완료 (T1~T10, TC-01~TC-09 매핑)` — path matches the actual file
+- Tasks correspond to Completion Criteria (≥1 task per TC-N): T1→TC-01, T2→TC-02, T3→TC-03, T4→TC-04, T5→TC-05, T6→TC-06, T7→TC-07, T8→TC-08, T9→TC-09 — all 9 TC-Ns covered, each task body matches its TC's scope; T10 is a wrap-up task (build/typecheck/lint/test, PR, evidence recording) with no TC mapping required
+- NON-COMPLIANCE check: no implementation commits exist — `git diff develop...HEAD --stat` is empty (branch has no commits ahead of develop); working tree contains only the spec stage move (`backlog/ → todo/`) and the tasks file; `packages/agent-transport/src/testing/`, `packages/agent-cli/src/__tests__/e2e/`, `packages/agent-transport/src/tui/__tests__/pty/` all absent; `@homebridge/node-pty-prebuilt-multiarch` devDependency in `packages/agent-transport/package.json` is pre-existing in develop (verified via `git show develop:packages/agent-transport/package.json`), not CLI-074 implementation work
+
+Tasks created (from `.agents/tasks/CLI-074.md`): T1 scripted provider unit (TC-01) · T2 tool-loop E2E (TC-02) · T3 permission E2E (TC-03) · T4 resume E2E (TC-04) · T5 output-contract E2E (TC-05) · T6 slash-command smoke (TC-06) · T7 PTY driver helper + boot/autocomplete/`/help` (TC-07) · T8 PTY `/exit` shutdown deadline (TC-08) · T9 SPEC sync (TC-09) · T10 verification + PR + evidence wrap-up
