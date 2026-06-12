@@ -1,5 +1,5 @@
 ---
-status: review-ready
+status: approved
 type: BEHAVIOR
 tags: [cli, typescript]
 ---
@@ -128,3 +128,12 @@ Fork remains append-only-safe: new UUID, source record untouched.
 - Completion Criteria: all 6 items have TC-N prefixes (TC-01–TC-06); each uses Command or Observable behavior form (token/message state, id comparison, byte-identical store file, scripted e2e answer, existing resume tests, SPEC row content); no banned phrases ("works correctly", "no errors", "implemented", "displays correctly").
 - Test Plan: section present; 6 rows match 6 TC-N criteria (count 6 = 6); every row has non-empty Test Type and Tool/Approach, no "TBD"; manual row TC-06 has Notes explaining why automation is not possible (doc prose, verified by direct read at GATE-COMPLETE).
 - Structure: `## Tasks` section present with placeholder (tasks file deferred until GATE-APPROVAL); `## Evidence Log` present and empty at first GATE-WRITE run; no `## Status` or `## Classification` sections in body.
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-06-13
+
+**Status upgrade:** review-ready → approved
+
+- Explicit approval in current conversation: user replied exactly "승인함" (2026-06-13) — matches the explicit-approval list ("승인"). Per the orchestrator's record, the agent had stated verbatim that replying "승인함" authorizes implementation of the 11 designs, so the statement is a confirmed design approval, not an answer to a clarifying question.
+- Directed at this spec document: the approval request "## 설계안 요약 (승인 요청) — 백로그 일괄 11건" summarized CLI-073's design individually (remove `!forkSession` condition so fork injects prior messages; new UUID kept; source record untouched/append-only; scripted-provider "Remember 42" verification) and ended with "승인해 주시면 GATE-APPROVAL → 항목별 구현…으로 진행합니다." The "승인함" reply covers this item explicitly — not approval of a different item. The intervening "머지하고 main 릴리스 진행해줘" was a release instruction (PR #705, docs-only) and was correctly not treated as design approval.
+- No Architecture Review or frontmatter type/tags modified after approval request: git history shows the spec file's only commit is cd5b1053a (GATE-WRITE batch); post-GATE-WRITE changes were limited to the guard's Evidence Log entry, the `status: draft → review-ready` frontmatter upgrade, and prettier formatting — `type: BEHAVIOR` and `tags: [cli, typescript]` unchanged.
+- No implementation before this gate (NON-COMPLIANCE trigger checked): `.agents/tasks/CLI-073.md` does not exist; `git status` shows no edits under `packages/agent-framework`; `interactive-session-restore.ts:85` still contains `if (!forkSession && record.messages)` — no implementation work started.

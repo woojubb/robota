@@ -1,5 +1,5 @@
 ---
-status: review-ready
+status: approved
 type: RULE
 tags: [harness, typescript]
 ---
@@ -131,3 +131,13 @@ wiring` / `composition root — type-only runner contract`).
 - Completion Criteria: all 5 items prefixed TC-01..TC-05; one criterion per Solution sub-item (rule retarget, exemptions, scan integration, legacy-name retirement, doc update); each uses command form or observable behavior; no banned vague phrases ("works correctly", "no errors", "implemented", "displays correctly") present.
 - Test Plan: section present; 5 rows for 5 TC-Ns — count matches Completion Criteria; every row has non-empty Test Type and Tool/Approach with no TBD; the single manual row (TC-05) has a Notes entry explaining why automation is not possible (doc prose, verified by direct read at GATE-COMPLETE).
 - Structure: `## Tasks` section present with placeholder (`.agents/tasks/HARNESS-011R.md` — 미생성); `## Evidence Log` section present and empty at first GATE-WRITE run; no `## Status` or `## Classification` sections in the body.
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-06-13
+
+**Status upgrade:** review-ready → approved
+
+- Explicit approval in current conversation: user replied exactly "승인함" (2026-06-13) to the consolidated approval request "## 설계안 요약 (승인 요청) — 백로그 일괄 11건", which individually summarized this spec's design decision (revive the dead rule retargeted to `agent-executor`, exactly two composition-root exemptions `cli.ts`/`print-mode.ts` each with a reason string, framework re-export route rejected as no-pass-through violation) and stated that approval authorizes GATE-APPROVAL → per-item implementation.
+- Direct, unambiguous, directed at this spec: before replying, the user was told verbatim that replying "승인함" authorizes implementation of the 11 summarized designs including HARNESS-011(잔여); the intervening release instruction ("머지하고 main 릴리스 진행해줘", executed as docs-only PR #705) and the clarifying question ("그래서 뭐?") were not treated as approval.
+- No Architecture Review or frontmatter type/tags modified after the approval request: only post-GATE-WRITE changes were the guard's GATE-WRITE Evidence Log entry, the frontmatter status upgrade draft → review-ready, and prettier formatting at commit cd5b1053a (released in PR #705); verified the commit is a 133-line new-file addition for this spec.
+- NON-COMPLIANCE trigger checked — no implementation started before this gate: `.agents/tasks/HARNESS-011R.md` absent; scan rule still carries the legacy `cli-agent-runtime-import` type and legacy package name in `scripts/harness/check-background-workspace-conformance.mjs:70` and `scripts/harness/__tests__/check-background-workspace-conformance.test.mjs:61`; no commits to `scripts/harness/` or `.agents/project-structure.md` for this spec since the approval request (only afdca8b66, 2026-06-12, the earlier HARNESS-011 items 1–2 fix predating this spec).
+- Prior gate evidence present: [GATE-WRITE] ✅ PASS entry (2026-06-13) exists in this Evidence Log; frontmatter `status: review-ready` matches the gate's entry state.

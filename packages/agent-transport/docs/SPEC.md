@@ -276,6 +276,11 @@ pnpm --filter @robota-sdk/agent-transport test:coverage
 - TUI components tested with `ink-testing-library`; `TuiInteractionChannel.requestAction()` protocol tested without Ink
 - `CommandPicker` and `CommandConfirm` dialog components tested in isolation with `ink-testing-library`
 - `TransportRegistry` enable/disable logic is unit-tested with mock settings files
+- Session-switch channel ownership (CLI-B11): `src/tui/__tests__/session-switch-channel.test.tsx`
+  renders the real `App` with a mocked `createChannel` factory (factory call args/count,
+  old-channel stop, consecutive A→B→C switches); `src/tui/__tests__/channel-factory-integration.test.ts`
+  builds the channel via the real `toChannelOptions`/`TuiInteractionChannel` path over a real
+  project session store and asserts restored context `usedTokens > 0`
 - All tests run with Vitest; `--passWithNoTests` allows sub-directories without tests to pass CI
 
 Expected baseline: 51 test files, ~431 tests, all passing.

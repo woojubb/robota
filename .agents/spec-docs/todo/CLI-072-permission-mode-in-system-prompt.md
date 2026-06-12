@@ -1,5 +1,5 @@
 ---
-status: review-ready
+status: approved
 type: BEHAVIOR
 tags: [cli, typescript]
 ---
@@ -119,3 +119,12 @@ is removed; if no other consumer remains, the constant is deleted (no-deprecated
 - Completion Criteria: all 4 items have TC-N prefixes (TC-01–TC-04); at least 1 criterion per sub-item (prompt content, mode union coverage, regression, SPEC doc); each uses Command form or Observable behavior form; no banned vague phrases ("works correctly", "no errors", "implemented", "displays correctly") found.
 - Test Plan: `## Test Plan` section present; 4 rows match the 4 TC-N entries in Completion Criteria (count matches: 4 = 4); every row has non-empty Test Type and Tool/Approach with no "TBD"; the single manual row (TC-04) has a non-empty Notes entry explaining why automation is not possible (doc prose, verified by direct read at GATE-COMPLETE).
 - Structure: `## Tasks` section present with placeholder (tasks file to be created after GATE-APPROVAL); `## Evidence Log` section present and empty before this first GATE-WRITE run; no `## Status` or `## Classification` sections in the body.
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-06-13
+
+**Status upgrade:** review-ready → approved
+
+- Explicit approval in current conversation: after the consolidated approval request "## 설계안 요약 (승인 요청) — 백로그 일괄 11건" (which individually summarized CLI-072: trust-level line replaced with `Permission mode: <active mode>` fed from the gate-enforced resolved mode, `TRUST_LEVEL_LABELS` deleted if orphaned), the user was told verbatim that replying "승인함" authorizes implementation of the 11 designs, and replied exactly: "승인함" (2026-06-13).
+- Direct, unambiguous, directed at this spec: the approval responds to the batch request that explicitly includes CLI-072's design summary; it is not an answer to a clarifying question, not silence, and not approval of a different item. The earlier release instruction ("머지하고 main 릴리스 진행해줘", executed as docs-only release PR #705) was correctly not treated as design approval.
+- No Architecture Review or frontmatter type/tags modified after approval: the spec file has exactly one commit (cd5b1053a, the GATE-WRITE batch); the only post-GATE-WRITE changes were the guard's Evidence Log entry, the frontmatter status upgrade draft → review-ready, and prettier formatting — all prior to approval. Frontmatter remains `type: BEHAVIOR`, `tags: [cli, typescript]`.
+- NON-COMPLIANCE trigger (implementation before this gate) not present: `.agents/tasks/CLI-072.md` does not exist (`ls` → No such file or directory); `git status --porcelain -- packages/agent-framework packages/agent-core` is clean; last commit touching `system-prompt-section-providers.ts` is the unrelated REFACTOR-024 rename (8cac18921).

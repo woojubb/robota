@@ -1,5 +1,5 @@
 ---
-status: review-ready
+status: approved
 type: RULE
 tags: [harness, typescript]
 ---
@@ -144,3 +144,12 @@ reference that has documented replacement evidence.
 - Completion Criteria: 7 items, all prefixed TC-01..TC-07; each uses Command form or Observable behavior form (exit codes, output content, doc content); no banned vague phrases ("works correctly", "no errors", "implemented", "displays correctly") found.
 - Test Plan: section present; 7 rows match 7 TC-N in Completion Criteria (count matches: 7 = 7); every row has non-empty Test Type and Tool/Approach with no "TBD"; the single manual row (TC-07) has a non-empty Notes entry explaining why it is not automatable (doc prose, direct read at GATE-COMPLETE).
 - Structure: `## Tasks` section present with placeholder; `## Evidence Log` section present and empty before this first GATE-WRITE entry; no `## Status` or `## Classification` sections in the body.
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-06-13
+
+**Status upgrade:** review-ready → approved
+
+- Explicit approval in current conversation: user replied exactly "승인함" on 2026-06-13, after being told verbatim that replying "승인함" authorizes implementation of the 11 designs.
+- Approval directed at this spec: the consolidated approval request "## 설계안 요약 (승인 요청) — 백로그 일괄 11건" individually summarized HARNESS-002's design (23rd scan for test-file paths in `.agents/backlog/completed/*.md` evidence, durable-artifact rule, `evidence-superseded` annotation, initial triage of CLI-033/042/046/REL-003) and stated approval would advance GATE-APPROVAL → per-item implementation; the user's "승인함" is a direct, unambiguous confirmation covering this spec. The earlier release instruction ("머지하고 main 릴리스 진행해줘") and clarifying exchange ("그래서 뭐?") were not treated as approval.
+- No post-approval modification of Architecture Review or frontmatter type/tags: only post-GATE-WRITE changes were the guard's Evidence Log entry, the frontmatter status upgrade draft → review-ready, and prettier formatting (commit cd5b1053a, PR #705).
+- No implementation before this gate: `.agents/tasks/HARNESS-002.md` does not exist; `scripts/harness/check-done-evidence.mjs` does not exist; no `harness:scan:done-evidence` script in `package.json`; no commits touching these paths.

@@ -1,5 +1,5 @@
 ---
-status: review-ready
+status: approved
 type: BEHAVIOR
 tags: [cli, typescript]
 ---
@@ -140,3 +140,12 @@ project-level, each reported), removing the either/or fallback in `checkSettings
 - Completion Criteria: 7 items, all `TC-N` prefixed (TC-01–TC-07); ≥1 criterion per problem sub-item (resolution: TC-01–03, settings levels: TC-04, exit code: TC-05, plus TC-06 security, TC-07 docs); all use command/observable forms (`echo $?` → 1, "reports ✓ naming the profile"); no forbidden vague phrases.
 - Test Plan: section present; 7 rows match 7 TC-N (count matches); every row has non-empty Test Type and Tool/Approach, no TBD; sole manual row (TC-07) has Notes explaining non-automatability (doc prose, direct read at GATE-COMPLETE).
 - Structure: `## Tasks` present with placeholder; `## Evidence Log` present and empty at first run; no `## Status` or `## Classification` body sections.
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-06-13
+
+**Status upgrade:** review-ready → approved
+
+- Explicit approval: user replied exactly "승인함" (2026-06-13) in the current conversation, after being told verbatim that replying "승인함" authorizes implementation of the 11 approved designs.
+- Directed at this spec: the consolidated approval request "## 설계안 요약 (승인 요청) — 백로그 일괄 11건" summarized CLI-067 individually (API-key check reuses runtime resolution functions, settings → env-default CLI-066 order; user-level and project settings validated independently; exit-code policy 0 = no issues / 1 = issues) and explicitly flagged the 067 exit-code policy as a product-direction decision; the prior "머지하고 main 릴리스 진행해줘" was a release instruction (PR #705, docs-only) and was not counted as design approval.
+- No post-approval-request modification of Architecture Review or frontmatter type/tags: only changes after the approval request were the GATE-WRITE Evidence Log entry, frontmatter status draft → review-ready, and prettier formatting (commit cd5b1053a).
+- No implementation before this gate: `.agents/tasks/CLI-067.md` absent (verified via ls), `git status` clean for `packages/agent-cli` and `.agents/tasks`, latest commits to `diagnose-command.ts`/`cli.ts` belong to prior items (CLI-066 #700 and earlier) — NON-COMPLIANCE trigger not met.
