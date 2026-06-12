@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: BEHAVIOR
 tags: [cli, typescript]
 ---
@@ -105,7 +105,7 @@ is removed; if no other consumer remains, the constant is deleted (no-deprecated
 
 ## Tasks
 
-- [ ] `.agents/tasks/CLI-072.md` — 미생성 (GATE-APPROVAL 통과 후 생성)
+- [ ] `.agents/tasks/CLI-072.md` — T1~T5 (TC-01~TC-04 매핑 + wrap-up)
 
 ## Evidence Log
 
@@ -128,3 +128,12 @@ is removed; if no other consumer remains, the constant is deleted (no-deprecated
 - Direct, unambiguous, directed at this spec: the approval responds to the batch request that explicitly includes CLI-072's design summary; it is not an answer to a clarifying question, not silence, and not approval of a different item. The earlier release instruction ("머지하고 main 릴리스 진행해줘", executed as docs-only release PR #705) was correctly not treated as design approval.
 - No Architecture Review or frontmatter type/tags modified after approval: the spec file has exactly one commit (cd5b1053a, the GATE-WRITE batch); the only post-GATE-WRITE changes were the guard's Evidence Log entry, the frontmatter status upgrade draft → review-ready, and prettier formatting — all prior to approval. Frontmatter remains `type: BEHAVIOR`, `tags: [cli, typescript]`.
 - NON-COMPLIANCE trigger (implementation before this gate) not present: `.agents/tasks/CLI-072.md` does not exist (`ls` → No such file or directory); `git status --porcelain -- packages/agent-framework packages/agent-core` is clean; last commit touching `system-prompt-section-providers.ts` is the unrelated REFACTOR-024 rename (8cac18921).
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-06-13
+
+**Status upgrade:** approved → in-progress
+
+- Tasks file created: `.agents/tasks/CLI-072.md` exists (`ls -la` → 1666 bytes, created 2026-06-13).
+- Tasks file path recorded in `## Tasks`: the spec's Tasks section lists `.agents/tasks/CLI-072.md` — T1~T5 (TC-01~TC-04 매핑 + wrap-up).
+- Tasks correspond to Completion Criteria (one task per TC-N): T1 ↔ TC-01 (permission-mode line rendered, no `Trust level:` under mode `plan`); T2 ↔ TC-02 (parameterized interpolation over the `TPermissionMode` union); T3 ↔ TC-03 (prompt-assembly regression, `trustLevel` → `permissionMode`, full framework suite green, orphaned `TRUST_LEVEL_LABELS` deletion); T4 ↔ TC-04 (framework SPEC.md documents the line change); T5 = wrap-up (verify/PR/scenario evidence) beyond the TC minimum.
+- NON-COMPLIANCE trigger (implementation commits without tasks file) not present: branch `feat/cli-072-permission-mode-prompt` has only spec/tasks doc changes; `git status --porcelain -- packages/agent-framework packages/agent-core` is clean; last commit touching `system-prompt-section-providers.ts` remains the unrelated REFACTOR-024 rename (8cac18921).
