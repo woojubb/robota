@@ -1,6 +1,6 @@
 ---
 title: 'CLI-B13: TUI input area border cleanup — remove side borders and status bar box border'
-status: todo
+status: done
 created: 2026-06-04
 priority: low
 urgency: later
@@ -72,7 +72,19 @@ Reduce visual noise and line-height cost in the TUI bottom area by:
 
 **Expected:** input row shows `> cursor` with only a horizontal line above and below — no `│` on either side
 
-**Evidence:** _(fill after implementation)_
+**Evidence (2026-06-13, real binary `bin/robota.cjs` in a real PTY, 100x30):** already
+implemented by SCREEN-001/SCREEN-002 (shipped in 3.0.0-beta.73) - verified against current
+develop. Bottom-area snapshot:
+
+```
+"--------------------------------------------"  (input top border - full width)
+" > Type a message or /help"                    (no side bars on either side)
+"--------------------------------------------"  (input bottom border)
+" Idle  |  Anthropic claude-test-model  |  Context: 0% (0K/200K tokens)"
+```
+
+`prompt line has side borders: false` - B13_VERIFY_PASS. Code state: `InputArea.tsx`
+`BORDER_HORIZONTAL = 0` ("Side borders removed - only top/bottom horizontal lines remain").
 
 ### Scenario 2 — Status bar renders without box
 
@@ -85,7 +97,9 @@ Reduce visual noise and line-height cost in the TUI bottom area by:
 
 **Expected:** status bar content (model name, branch, context%) displays on a plain line, no box characters around it, takes exactly 1 terminal line
 
-**Evidence:** _(fill after implementation)_
+**Evidence (2026-06-13, same PTY run):** `status line has box characters: false`,
+`status line is a single plain line: true` - `StatusBar.tsx` root is a plain
+`<Box paddingLeft={1} paddingRight={1}>` with no `borderStyle`.
 
 ### Scenario 3 — Layout intact at narrow terminal width (60 columns)
 
@@ -96,4 +110,14 @@ Reduce visual noise and line-height cost in the TUI bottom area by:
 
 **Expected:** no visual overflow or misaligned borders; input top/bottom lines span the full width
 
-**Evidence:** _(fill after implementation)_
+**Evidence (2026-06-13, PTY at 60x30):** border lines span exactly 60 columns, no overflow
+or box characters; long status content word-wraps as plain text (no misalignment) -
+B13_VERIFY_PASS.
+
+## Closure note (2026-06-13)
+
+This item was already delivered by SCREEN-001 (input side-border removal) and SCREEN-002
+(status bar below input, box removed), shipped in 3.0.0-beta.73. No code change was needed;
+closure is by the verification evidence above. NOTE: the SCREEN-001/SCREEN-002 spec
+documents still sit in `.agents/spec-docs/active/` with stale `in-progress` status - their
+gate pipelines were never formally completed and need separate bookkeeping.
