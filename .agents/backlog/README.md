@@ -487,7 +487,7 @@ Epic: [PLG-008](PLG-008-visual-agent-builder-playground.md)
 | [CLI-028](completed/CLI-028-nodejs-version-gate.md)               | Node.js 22 빌드 배너 (bin entry 진입 전 체크)     | done |
 | [CLI-029](completed/CLI-029-macos-cjk-crash-recheck.md)           | macOS Terminal.app CJK 경고 + IME 핸들러 개선     | done |
 | [CLI-030](completed/CLI-030-bash-session-allow.md)                | "이 세션에서 허용" 권한 옵션 (allow-session)      | done |
-| [CLI-031](completed/CLI-031-tool-output-truncation-notice.md)     | 도구 출력 truncation 시 ⚠ 터미널 경고            | done |
+| [CLI-031](completed/CLI-031-tool-output-truncation-notice.md)     | 도구 출력 truncation 시 ⚠ 터미널 경고             | done |
 | [CLI-033](completed/CLI-033-headless-e2e-tests.md)                | Headless E2E 테스트 10개                          | done |
 | [PM-023](completed/PM-023-first-run-onboarding-guide.md)          | 첫 실행 온보딩 웰컴 배너                          | done |
 | [PM-024](completed/PM-024-diagnose-command.md)                    | robota diagnose 자가 진단 커맨드 (6개 체크)       | done |
@@ -629,9 +629,9 @@ CLI 제품의 기존 기본 기능 중 미완성/회귀 상태로 확인된 항�
 릴리스 게이트(`pnpm audit --audit-level high`)를 막는 취약점 전면 해소 캠페인. 사용자 지시로
 배포물-범위 게이트 조정 대신 전면 수정 선택. 릴리스 PR #701이 완료를 대기.
 
-| ID                                                 | 제목                                                                              | 우선순위 |
-| -------------------------------------------------- | --------------------------------------------------------------------------------- | -------- |
-| [DEPS-001](DEPS-001-security-audit-remediation.md) | 보안 audit 전면 해소 — U1 semver-safe / U2 앱 메이저 / U3 vitest 3.x 마이그레이션 | high     |
+| ID                                                           | 제목                                                                              | 우선순위 |
+| ------------------------------------------------------------ | --------------------------------------------------------------------------------- | -------- |
+| [DEPS-001](completed/DEPS-001-security-audit-remediation.md) | 보안 audit 전면 해소 — U1 semver-safe / U2 앱 메이저 / U3 vitest 3.x 마이그레이션 | high     |
 
 ### agent-cli Product Verification Defects (2026-06-11)
 
