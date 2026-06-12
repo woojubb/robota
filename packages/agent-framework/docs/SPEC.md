@@ -1000,6 +1000,7 @@ Resolved provider fields:
 - **Rationale**: AGENTS.md/CLAUDE.md walk-up discovery is for local development environments only
 - **Implementation**: Directory traversal from cwd to root, project type/language detection, `.robota/memory/MEMORY.md` startup memory loading, active task context loading, system prompt assembly
 - **Response Language**: `IResolvedConfig.language` (from settings.json `language` field) is rendered as neutral metadata by `buildSystemPrompt()`. Persists across compaction because system message is preserved.
+- **Permission Mode section (CLI-072)**: `buildSystemPrompt()` renders `- **Permission mode:** <mode>` from `ISystemPromptParams.permissionMode` — the ACTIVE `TPermissionMode` resolved exactly as agent-session does (`options.permissionMode ?? TRUST_TO_MODE[config.defaultTrustLevel] ?? 'default'`), so the prompt always names the mode the permission gate enforces. The former `Trust level:` line (a separate axis that defaulted to `moderate` and misled the model under `--permission-mode plan`) is removed; `TRUST_LEVEL_LABELS` is deleted.
 - **Compact Instructions**: Extracts "Compact Instructions" section from CLAUDE.md and passes to Session for compaction
 - **Skill Discovery Paths**: Skills are discovered from `.agents/skills/*/SKILL.md` (project), `.claude/skills/*/SKILL.md`, `.claude/commands/*.md`, and `~/.robota/skills/*/SKILL.md`. Used by conditional SDK skill metadata injection when `/skills` is model-invocable, and by `@robota-sdk/agent-command-skills` for virtual skill command palette metadata.
 

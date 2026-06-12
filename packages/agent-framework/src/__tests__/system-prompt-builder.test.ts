@@ -1,3 +1,4 @@
+import type { TPermissionMode } from '@robota-sdk/agent-core';
 import { describe, it, expect } from 'vitest';
 
 import { buildSystemPrompt } from '../context/system-prompt-builder.js';
@@ -8,7 +9,7 @@ const BASE_PARAMS: ISystemPromptParams = {
   agentsMd: '',
   claudeMd: '',
   toolDescriptions: [],
-  trustLevel: 'moderate',
+  permissionMode: 'default',
   projectInfo: {
     type: 'node',
     name: 'my-project',
@@ -69,12 +70,22 @@ describe('buildSystemPrompt', () => {
     expect(result).toContain('Read: read file contents');
   });
 
-  it('includes trust level', () => {
-    const resultSafe = buildSystemPrompt({ ...BASE_PARAMS, trustLevel: 'safe' });
-    expect(resultSafe).toContain('- **Trust level:** safe');
+  it('interpolates every TPermissionMode value verbatim (CLI-072 TC-02)', () => {
+    const modes: TPermissionMode[] = ['plan', 'default', 'acceptEdits', 'bypassPermissions'];
+    for (const mode of modes) {
+      const prompt = buildSystemPrompt({ ...BASE_PARAMS, permissionMode: mode });
+      expect(prompt).toContain(`- **Permission mode:** ${mode}`);
+      expect(prompt).not.toContain('Trust level:');
+    }
+  });
 
-    const resultFull = buildSystemPrompt({ ...BASE_PARAMS, trustLevel: 'full' });
-    expect(resultFull).toContain('- **Trust level:** full');
+  it('includes the active permission mode and no trust-level label (CLI-072)', () => {
+    const resultPlan = buildSystemPrompt({ ...BASE_PARAMS, permissionMode: 'plan' });
+    expect(resultPlan).toContain('- **Permission mode:** plan');
+    expect(resultPlan).not.toContain('Trust level:');
+
+    const resultAccept = buildSystemPrompt({ ...BASE_PARAMS, permissionMode: 'acceptEdits' });
+    expect(resultAccept).toContain('- **Permission mode:** acceptEdits');
   });
 
   it('includes response language as metadata when provided', () => {

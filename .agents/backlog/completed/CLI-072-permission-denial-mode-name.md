@@ -1,6 +1,6 @@
 ---
 title: 'CLI-072: Permission-denial feedback names mode "moderate" while running under plan mode'
-status: todo
+status: done
 created: 2026-06-11
 priority: low
 urgency: later
@@ -35,4 +35,19 @@ explanations are accurate.
 
 - Steps: `robota -p "edit some file" --dry-run`; read the explanation.
 - Expected observable result: explanation references plan mode, not another mode name.
-- Evidence: (fill after implementation)
+- Evidence (2026-06-13, real binary + real Anthropic provider, isolated HOME,
+  `--dry-run` → permission mode `plan`):
+
+  ```
+  $ robota -p "What is your current permission mode? Answer with just the mode name." --dry-run
+  plan
+  ```
+
+  Root cause confirmed and fixed: the system prompt injected `Trust level: moderate`
+  (config default, a separate axis) — replaced with `- **Permission mode:** <active mode>`
+  fed from the session's own resolution (`options.permissionMode ??
+TRUST_TO_MODE[defaultTrustLevel] ?? 'default'`). A dry-run edit request explanation now
+  describes plan-mode restrictions without misnaming the mode; the edit stays blocked
+  (file unchanged). CI tests: `packages/agent-framework/src/__tests__/
+system-prompt-builder.test.ts` (CLI-072 mode interpolation over the full union +
+  no Trust-level label).

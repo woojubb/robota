@@ -108,7 +108,7 @@ describe('E2E: Skill lifecycle', () => {
       agentsMd: '',
       claudeMd: '',
       toolDescriptions: ['bash: Execute shell commands'],
-      trustLevel: 'moderate',
+      permissionMode: 'default',
       projectInfo: { type: 'node', language: 'typescript' },
       skills: modelSkills.map((cmd) => ({
         name: cmd.name,
@@ -157,7 +157,7 @@ describe('E2E: Skill lifecycle', () => {
       agentsMd: '',
       claudeMd: '',
       toolDescriptions: [],
-      trustLevel: 'moderate',
+      permissionMode: 'default',
       projectInfo: { type: 'unknown', language: 'unknown' },
       skills: modelSkills.map((cmd) => ({
         name: cmd.name,
@@ -617,7 +617,7 @@ describe('E2E: CommandRegistry aggregation', () => {
       agentsMd: '',
       claudeMd: '',
       toolDescriptions: [],
-      trustLevel: 'moderate',
+      permissionMode: 'default',
       projectInfo: { type: 'node', language: 'typescript' },
       skills: modelSkills,
     });
