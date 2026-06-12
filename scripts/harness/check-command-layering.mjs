@@ -61,7 +61,7 @@ const CLI_UI_FORBIDDEN_PATTERNS = [
 const CLI_FORBIDDEN_PATTERNS = [
   {
     type: 'cli-agent-sessions-import',
-    pattern: /from\s+['"]@robota-sdk\/agent-sessions['"]/,
+    pattern: /from\s+['"]@robota-sdk\/agent-session(?:\/[^'"]*)?['"]/,
     detail:
       'agent-cli must not import @robota-sdk/agent-session; use SDK-owned session persistence APIs.',
   },
