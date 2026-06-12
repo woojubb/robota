@@ -17,7 +17,7 @@ Test Plan SSOT: the spec's TC table.
       references restored or annotated with replacement evidence).
 - [x] T7 (TC-07): `.agents/rules/backlog-execution.md` documents the durable-artifact
       evidence rule referencing this scan.
-- [ ] T8: wrap-up — harness tests green; PR to develop (squash); backlog moved to
+- [x] T8: wrap-up — harness tests green; PR to develop (squash); backlog moved to
       completed/ (User Execution N/A — harness/internal tooling).
 
 ## Test Plan

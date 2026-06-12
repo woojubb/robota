@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: RULE
 tags: [harness, typescript]
 ---
@@ -109,34 +109,34 @@ real decayed-evidence class (3 live findings, all triaged with superseded annota
 
 ## Completion Criteria
 
-- [ ] TC-01: fixture with an existing referenced path → scan passes (exit 0)
-- [ ] TC-02: fixture with a missing referenced path → scan fails (exit ≠ 0) naming both the
+- [x] TC-01: fixture with an existing referenced path → scan passes (exit 0)
+- [x] TC-02: fixture with a missing referenced path → scan fails (exit ≠ 0) naming both the
       backlog file and the missing path
-- [ ] TC-03: fixture with prose only (no repo paths) → skipped, scan passes
-- [ ] TC-04: fixture with a missing path annotated `evidence-superseded` → scan passes and
+- [x] TC-03: fixture with prose only (no repo paths) → skipped, scan passes
+- [x] TC-04: fixture with a missing path annotated `evidence-superseded` → scan passes and
       reports the exemption count
-- [ ] TC-05: `pnpm harness:scan:done-evidence` runs the scan standalone;
+- [x] TC-05: `pnpm harness:scan:done-evidence` runs the scan standalone;
       `pnpm harness:scan` includes it in the aggregate (23 scans reported)
-- [ ] TC-06: live run on current `completed/` is green after triage (every stale reference
+- [x] TC-06: live run on current `completed/` is green after triage (every stale reference
       restored or annotated with replacement evidence)
-- [ ] TC-07: `.agents/rules/backlog-execution.md` contains the durable-artifact evidence
+- [x] TC-07: `.agents/rules/backlog-execution.md` contains the durable-artifact evidence
       rule referencing this scan
 
 ## Test Plan
 
-| TC-ID | Test Type   | Tool / Approach                                        | Notes                                                                 |
-| ----- | ----------- | ------------------------------------------------------ | --------------------------------------------------------------------- |
-| TC-01 | unit        | vitest — fixture completed-backlog dir                 | pass path                                                             |
-| TC-02 | unit        | vitest — fixture with missing path                     | failure message content                                               |
-| TC-03 | unit        | vitest — prose-only fixture                            | skip behavior                                                         |
-| TC-04 | unit        | vitest — superseded-annotation fixture                 | exemption behavior                                                    |
-| TC-05 | integration | run pnpm scripts, assert exit codes + aggregate output | standalone + aggregated registration                                  |
-| TC-06 | integration | live scan run on repo                                  | triage completion proof                                               |
-| TC-07 | manual      | rule doc diff review                                   | doc prose — verified by direct read at GATE-COMPLETE, not automatable |
+| TC-ID | Test Type   | Tool / Approach                                        | Notes                                                                                                                                                                                                                  |
+| ----- | ----------- | ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| TC-01 | unit        | vitest — fixture completed-backlog dir                 | Test: `scripts/harness/__tests__/check-done-evidence.test.mjs` > `findDoneEvidenceFindings` > "TC-01: an existing referenced path passes"                                                                              |
+| TC-02 | unit        | vitest — fixture with missing path                     | Test: `scripts/harness/__tests__/check-done-evidence.test.mjs` > `findDoneEvidenceFindings` > "TC-02: a missing referenced path fails naming the backlog file and the path"                                            |
+| TC-03 | unit        | vitest — prose-only fixture                            | Test: `scripts/harness/__tests__/check-done-evidence.test.mjs` > `findDoneEvidenceFindings` > "TC-03: prose without repo paths (and non-evidence prose with paths) is skipped"                                         |
+| TC-04 | unit        | vitest — superseded-annotation fixture                 | Test: `scripts/harness/__tests__/check-done-evidence.test.mjs` > `findDoneEvidenceFindings` > "TC-04: an evidence-superseded annotation exempts a missing path and is reported" (+ region-close test in same describe) |
+| TC-05 | integration | run pnpm scripts, assert exit codes + aggregate output | Skipped as automated test: command-level integration — verified by live run at GATE-COMPLETE (`pnpm harness:scan:done-evidence` exit 0; `pnpm harness:scan` exit 0, "all 23 scans passed" incl. ✓ done-evidence)       |
+| TC-06 | integration | live scan run on repo                                  | Skipped as automated test: live-tree state check, not a fixture — verified by live run at GATE-COMPLETE (exit 0, 3 superseded references reported: CLIR-H02, CLIR-L01, DOC-002)                                        |
+| TC-07 | manual      | rule doc diff review                                   | Skipped as automated test: doc prose, not automatable — verified by direct read at GATE-COMPLETE (`.agents/rules/backlog-execution.md` lines 186–192, "Durable-artifact evidence rule (HARNESS-002)")                  |
 
 ## Tasks
 
-- [ ] `.agents/tasks/HARNESS-002.md` — T1~T8 (TC-01~TC-07 매핑 + wrap-up)
+- [x] `.agents/tasks/completed/HARNESS-002.md` — archived at GATE-COMPLETE (T1~T8 complete, TC-01~TC-07 매핑)
 
 ## Evidence Log
 
@@ -191,3 +191,76 @@ Criteria verified as met during this run (recorded for the re-run):
 - In-Decision correction noted: evidence-region-limited extraction is documented inside the approved Decision section (correction paragraph) with rationale (226 non-evidence whole-document findings vs 3 real ones) — not a verification-time SPEC rewrite.
 
 Completion Criteria checkboxes remain unchecked by design: TC-N validation belongs to GATE-COMPLETE.
+
+### [GATE-VERIFY] — ✅ PASS | 2026-06-13
+
+**Status upgrade:** in-progress → verifying
+
+- Re-run after prior FAIL (same date, above). Sole failing criterion was the DOC-002 annotation adjacency; fix verified: annotation now sits INLINE on the evidence reference line of `.agents/backlog/completed/DOC-002-multilang-readme.md` (formatter-safe — no blank-line separation possible), committed as `0ad9b66f9` "fix(harness): inline DOC-002 evidence-superseded annotation (formatter-safe)" on `feat/harness-002-done-evidence`, pushed (local == origin, 0/0 ahead/behind), `git status` clean for that file.
+- Tests pass for affected scope (mapped per no-package-build scope, as in prior run): `pnpm harness:scan:done-evidence` → exit 0, "done-evidence scan passed (3 superseded reference(s))" — all 3 triage exemptions effective (CLIR-H02 → tui-mode.ts, CLIR-L01 → tui-mode.ts, DOC-002 → README.ko.md). `pnpm harness:scan` → "all 23 scans passed", exit 0.
+- Unit tests: `npx vitest run scripts/harness/__tests__/check-done-evidence.test.mjs` → 1 file passed, 5/5 tests passed.
+- All tasks in `.agents/tasks/HARNESS-002.md` complete: T1–T7 all `[x]` re-confirmed by direct read; no blocked or pending markers. T6's substance is now true (live scan green, above), restoring the backlog closure claim "`pnpm harness:scan` → all 23 scans passed". T8 (wrap-up) unchecked — adjudicated per the established CLI-063..073/HARNESS-011 GATE-VERIFY precedent (validated in the prior run's entry): PR #715 OPEN (`gh pr view 715 --json state`: OPEN, `feat/harness-002-done-evidence` → `develop`, re-confirmed this run), CI checks green and backlog closure file present (`.agents/backlog/completed/HARNESS-002-done-evidence-regression-sweep.md`, status done) per prior run.
+- Build mapping: no package source changes in scope (`scripts/harness/*.mjs`, `package.json` script entry, rule/backlog markdown) — `pnpm build` not applicable, consistent with the HARNESS-011 GATE-VERIFY precedent (carried from prior run; no scope change since).
+- Validity: run on branch `feat/harness-002-done-evidence` at `0ad9b66f9`; `git status --porcelain` shows only `.agents/evals/lessons/*` modifications — evidence reflects the pushed PR #715 head state.
+
+Completion Criteria checkboxes remain unchecked by design: TC-N validation belongs to GATE-COMPLETE.
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-06-13
+
+- Checkbox: TC-01 is `[x]` in `## Completion Criteria`.
+- Command: `npx vitest run scripts/harness/__tests__/check-done-evidence.test.mjs`
+- Output: `✓ scripts/harness/__tests__/check-done-evidence.test.mjs (5 tests) 6ms — Test Files 1 passed (1), Tests 5 passed (5)`; includes test "TC-01: an existing referenced path passes". Exit code 0.
+- Test reference recorded in Test Plan: `check-done-evidence.test.mjs > findDoneEvidenceFindings > "TC-01: an existing referenced path passes"`.
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-06-13
+
+- Checkbox: TC-02 is `[x]` in `## Completion Criteria`.
+- Command: `npx vitest run scripts/harness/__tests__/check-done-evidence.test.mjs` (same run as TC-01)
+- Output: 5/5 tests passed; includes test "TC-02: a missing referenced path fails naming the backlog file and the path". Exit code 0.
+- Test reference recorded in Test Plan: `check-done-evidence.test.mjs > findDoneEvidenceFindings > "TC-02: a missing referenced path fails naming the backlog file and the path"`.
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-06-13
+
+- Checkbox: TC-03 is `[x]` in `## Completion Criteria`.
+- Command: `npx vitest run scripts/harness/__tests__/check-done-evidence.test.mjs` (same run as TC-01)
+- Output: 5/5 tests passed; includes test "TC-03: prose without repo paths (and non-evidence prose with paths) is skipped". Exit code 0.
+- Test reference recorded in Test Plan: `check-done-evidence.test.mjs > findDoneEvidenceFindings > "TC-03: prose without repo paths (and non-evidence prose with paths) is skipped"`.
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-06-13
+
+- Checkbox: TC-04 is `[x]` in `## Completion Criteria`.
+- Command: `npx vitest run scripts/harness/__tests__/check-done-evidence.test.mjs` (same run as TC-01)
+- Output: 5/5 tests passed; includes test "TC-04: an evidence-superseded annotation exempts a missing path and is reported", plus the region-close test "closes the evidence region at the next non-evidence heading". Exit code 0.
+- Test reference recorded in Test Plan: `check-done-evidence.test.mjs > findDoneEvidenceFindings > "TC-04: an evidence-superseded annotation exempts a missing path and is reported"`.
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-06-13
+
+- Checkbox: TC-05 is `[x]` in `## Completion Criteria`.
+- Command 1 (standalone): `pnpm harness:scan:done-evidence` → output "done-evidence scan passed (3 superseded reference(s))." with the 3 exemptions listed (CLIR-H02 → tui-mode.ts, CLIR-L01 → tui-mode.ts, DOC-002 → README.ko.md). Exit code 0.
+- Command 2 (aggregate): `pnpm harness:scan` → summary lists `✓ done-evidence` among 23 ✓ lines, final line "all 23 scans passed". Exit code 0.
+- Test Plan row updated with explicit skip reason (command-level integration verified by live run; no fixture test).
+
+### [GATE-COMPLETE: TC-06] — ✅ PASS | 2026-06-13
+
+- Checkbox: TC-06 is `[x]` in `## Completion Criteria`.
+- Command: `pnpm harness:scan:done-evidence` (live run on current `.agents/backlog/completed/`, same run as TC-05 command 1)
+- Output: green — "done-evidence scan passed (3 superseded reference(s))."; the triage state holds: 3 annotated stale references reported as superseded exemptions (`CLIR-H02-shellexec-duplication.md` → `packages/agent-cli/src/modes/tui-mode.ts`, `CLIR-L01-agent-name-hardcoded.md` → `packages/agent-cli/src/modes/tui-mode.ts`, `DOC-002-multilang-readme.md` → `packages/agent-cli/README.ko.md`), zero unannotated missing paths. Exit code 0.
+- Test Plan row updated with explicit skip reason (live-tree state check verified by live run).
+
+### [GATE-COMPLETE: TC-07] — ✅ PASS | 2026-06-13
+
+- Checkbox: TC-07 is `[x]` in `## Completion Criteria`.
+- Action: direct read of `.agents/rules/backlog-execution.md` — lines 186–192 contain the paragraph "**Durable-artifact evidence rule (HARNESS-002).** For code-changing backlogs, evidence MUST reference durable artifacts — test file paths that exist in the repository. Evidence sections of completed backlogs are continuously re-validated by `pnpm harness:scan:done-evidence` (`scripts/harness/check-done-evidence.mjs`, part of the `harness:scan` aggregate) … annotate the reference with `<!-- evidence-superseded: <reason> -->` on the same or the preceding line — exemptions are reported on every run, never silent."
+- The rule names this scan and the annotation contract, satisfying the criterion.
+- Test Plan row updated with explicit skip reason (doc prose, manual direct read — not automatable).
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-06-13
+
+**Status upgrade:** verifying → done
+
+- Completion Criteria: all 7 checkboxes (TC-01..TC-07) are `[x]`, and each has a matching `[GATE-COMPLETE: TC-N]` evidence entry above with exact command, observed output, and exit code.
+- Test Plan: all 7 rows updated — TC-01..TC-04 carry test file + describe/test-name references; TC-05..TC-07 carry explicit skip reasons (live-run integration ×2, manual doc read ×1). No TC-N silently unaddressed.
+- Tasks file archived: `.agents/tasks/completed/HARNESS-002.md` exists with T1–T8 all `[x]` (T1↔TC-01 … T7↔TC-07, T8 wrap-up), verified by direct read.
+- `## Tasks` section reflects the archived path (`.agents/tasks/completed/HARNESS-002.md — archived at GATE-COMPLETE`).
+- Backlog closure: `.agents/backlog/completed/HARNESS-002-done-evidence-regression-sweep.md` has `status: done`; done gate satisfied — `## User Execution Test Scenarios` section is N/A per the backlog itself (harness/internal tooling), recorded in its Completion section.
+- Validity: all commands run 2026-06-13 from repo root on branch `develop` working tree; aggregate scan re-run with captured exit code (`pnpm harness:scan` → exit 0, 23/23 ✓).
