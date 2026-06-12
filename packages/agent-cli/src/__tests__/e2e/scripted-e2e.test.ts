@@ -207,6 +207,44 @@ describe('scripted agent-loop E2E (CLI-074)', () => {
     expect(sessionFiles(project)).toHaveLength(1);
   });
 
+  it('CLI-073: --fork-session restores the prior conversation into a NEW session', async () => {
+    const first = createScriptedProvider([{ text: 'noted: 42' }]);
+    const firstRun = await runScripted(project, ['-p', 'Remember the number 42'], first);
+    expect(firstRun.exitCode).toBe(0);
+    const [sourceFile] = sessionFiles(project);
+    expect(sourceFile).toBeDefined();
+    const sourceRaw = readFileSync(join(project, '.robota', 'sessions', sourceFile!), 'utf8');
+    const sourceId = (JSON.parse(sourceRaw) as { id: string }).id;
+
+    const second = createScriptedProvider([{ text: 'it was 42' }]);
+    const secondRun = await runScripted(
+      project,
+      ['-p', 'What number?', '-r', sourceId, '--fork-session'],
+      second,
+    );
+    expect(secondRun.exitCode).toBe(0);
+
+    // TC-04: the forked session's first request carries the source conversation.
+    const request = second.requests[0] ?? [];
+    const contents = request.map((message) => String(message.content));
+    expect(contents.some((content) => content.includes('Remember the number 42'))).toBe(true);
+    expect(contents.some((content) => content.includes('noted: 42'))).toBe(true);
+
+    // TC-02: fresh UUID — a second session file exists with a different id.
+    const files = sessionFiles(project);
+    expect(files).toHaveLength(2);
+    // TC-03 corroboration: the source CONTENT is unchanged (append-only).
+    // (A pre-existing init-time persist refreshes the source file's updatedAt
+    // metadata on any resume/fork run; the restore path itself never writes —
+    // proven byte-identical at the unit level in fork-restores-context.test.ts.)
+    const sourceAfter = JSON.parse(
+      readFileSync(join(project, '.robota', 'sessions', sourceFile!), 'utf8'),
+    ) as { id: string; messages: unknown[]; history?: unknown[] };
+    const sourceBefore = JSON.parse(sourceRaw) as { id: string; messages: unknown[] };
+    expect(sourceAfter.id).toBe(sourceBefore.id);
+    expect(sourceAfter.messages).toEqual(sourceBefore.messages);
+  });
+
   it('TC-05: output contracts — text, json, stream-json, --bare', async () => {
     const textRun = await runScripted(
       project,
