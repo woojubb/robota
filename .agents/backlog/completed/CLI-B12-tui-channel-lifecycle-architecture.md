@@ -1,6 +1,6 @@
 ---
 title: 'CLI-B12: TuiInteractionChannel 생명주기 — React 외부 생성으로 인한 구조적 사각지대'
-status: todo
+status: done
 created: 2026-05-31
 priority: high
 urgency: soon
@@ -102,7 +102,20 @@ CLI-B11 테스트에서 직접 사용할 수 있게 한다.
 
 ## 완료 기준
 
-- [ ] 설계안 확정 (사용자 컨펌)
-- [ ] 채널 생명주기 소유자가 단일화됨
-- [ ] `TuiInteractionChannel` 또는 동등한 인터페이스를 외부 테스트에서 사용 가능
-- [ ] CLI-B11의 TC-A ~ TC-E가 이 구조 위에서 안정적으로 동작
+- [x] 설계안 확정 (사용자 컨펌) — Option A, 2026-06-13 "승인함" (스펙 GATE-APPROVAL 증거)
+- [x] 채널 생명주기 소유자가 단일화됨 — `App` React state가 유일한 소유자:
+      `useState(() => createChannel(resumeSessionId))` 초기 생성, 전환 시
+      `void old.stop()` 후 교체; `render.tsx`는 팩토리만 전달 (채널 생성 코드 제거)
+- [x] `TuiInteractionChannel` 또는 동등한 인터페이스를 외부 테스트에서 사용 가능 —
+      패키지 내 테스트가 팩토리 seam + 실제 채널 경로
+      (`channel-factory-integration.test.ts`)로 검증; 공개 export 없이 해결
+- [x] CLI-B11의 TC-A ~ TC-E가 이 구조 위에서 안정적으로 동작 —
+      `session-switch-channel.test.tsx` 4/4 + 통합 2/2 green (TC-D는 팩토리 필수화로
+      대체 — CLI-B12 스펙 Solution 3)
+
+## Evidence (2026-06-13)
+
+- `pnpm --filter @robota-sdk/agent-transport test` — 61 files / 473 tests green
+- typecheck 0 errors (transport + agent-cli), lint clean, build complete
+- 재빌드 실 바이너리 PTY 시나리오 (단일 소유 구조):
+  `Context: 0% → 6% (11.9K/200K) → 16% (31.8K/200K)` 연속 /resume 전환

@@ -39,8 +39,11 @@ import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transpo
 
 interface IProps {
   cwd: string;
-  channel: TuiInteractionChannel;
-  createChannel?: (resumeSessionId?: string) => TuiInteractionChannel;
+  /**
+   * Sole channel source (CLI-B12): App owns the channel lifecycle in React state.
+   * The initial channel and every session-switch replacement come from this factory.
+   */
+  createChannel: (resumeSessionId?: string) => TuiInteractionChannel;
   providerOverride?: string | undefined;
   providerType?: string | undefined;
   modelId?: string;
@@ -55,10 +58,15 @@ interface IProps {
 }
 
 export default function App(props: IProps): React.ReactElement {
+  // Lazy initializer: channel construction is side-effect-free (object wiring only);
+  // I/O starts in AppInner's effect via channel.start(). Runs once per mount.
   const [sessionState, setSessionState] = useState<{
     channel: TuiInteractionChannel;
     sessionId: string | undefined;
-  }>({ channel: props.channel, sessionId: props.resumeSessionId });
+  }>(() => ({
+    channel: props.createChannel(props.resumeSessionId),
+    sessionId: props.resumeSessionId,
+  }));
   const [showInitialSessionPicker, setShowInitialSessionPicker] = useState(
     props.showSessionPickerOnStart ?? false,
   );
@@ -73,10 +81,10 @@ export default function App(props: IProps): React.ReactElement {
         resumeSessionId={sessionState.sessionId}
         onSessionSwitch={(sessionId) => {
           setShowInitialSessionPicker(false);
-          const oldChannel = sessionState.channel;
-          const newChannel = props.createChannel ? props.createChannel(sessionId) : props.channel;
-          setSessionState({ channel: newChannel, sessionId });
-          void oldChannel.stop();
+          // Stop the old channel BEFORE the new one becomes active so it can
+          // never receive events addressed to the new session (CLI-B12).
+          void sessionState.channel.stop();
+          setSessionState({ channel: props.createChannel(sessionId), sessionId });
         }}
       />
     </TuiCliAdapterProvider>
@@ -84,7 +92,10 @@ export default function App(props: IProps): React.ReactElement {
 }
 
 function AppInner(
-  props: IProps & { onSessionSwitch: (sessionId: string) => void },
+  props: IProps & {
+    channel: TuiInteractionChannel;
+    onSessionSwitch: (sessionId: string) => void;
+  },
 ): React.ReactElement {
   const cwd = props.cwd;
   const { channel } = props;

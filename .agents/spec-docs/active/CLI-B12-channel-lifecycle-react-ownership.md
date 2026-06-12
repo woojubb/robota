@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: INFRA
 tags: [cli, typescript, react]
 ---
@@ -101,7 +101,13 @@ props.createChannel(id), sessionId: id })`. Remove the `channel` prop from `IApp
       per mount (mock factory call count = 1 on initial render)
 - [ ] TC-02: session switch stops the old channel before the new channel becomes active
       (ordering observable via spied `stop()` vs factory invocation order)
-- [ ] TC-03: CLI-B11 TC-A/B/C/E assertions still pass unchanged on the new structure
+- [ ] TC-03: CLI-B11 TC-A/B/C/E assertions still pass on the new structure. _Correction
+      during implementation (within the approved Decision): "unchanged" holds for the
+      asserted contracts (factory receives the selected id, one new channel per switch, old
+      stopped / active never stopped, real-store restoration), but the suite was
+      mechanically adapted to the new channel source — the initial channel is now factory
+      call 1 (`undefined`), so switch calls shift to nth 2..4 and the old B11 TC-D
+      no-factory fallback test is deleted as specified by this spec's Solution step 3._
 - [ ] TC-04: `App` no longer accepts a `channel` prop and `createChannel` is required —
       typecheck fails for the old call shape (`pnpm --filter @robota-sdk/agent-transport typecheck` exits 0 on new code)
 - [ ] TC-05: real TUI boots and `/resume` session switch shows Context > 0% (PTY or
@@ -122,7 +128,7 @@ props.createChannel(id), sessionId: id })`. Remove the `channel` prop from `IApp
 
 ## Tasks
 
-- [ ] `.agents/tasks/CLI-B12.md` — 미생성 (GATE-APPROVAL 통과 후 생성)
+- [ ] `.agents/tasks/CLI-B12.md` — T1~T7 (TC-01~TC-06 매핑 + wrap-up)
 
 ## Evidence Log
 
@@ -151,3 +157,12 @@ props.createChannel(id), sessionId: id })`. Remove the `channel` prop from `IApp
 - Non-approval messages correctly excluded: "머지하고 main 릴리스 진행해줘" (release instruction, executed as docs-only release PR #705) and "그래서 뭐?" (clarifying question) were not counted as design approval.
 - No Architecture Review or frontmatter type/tags modified after the approval request: git history for this file contains a single commit (`cd5b1053a`, GATE-WRITE batch); only post-GATE-WRITE changes were the GATE-WRITE Evidence Log entry, frontmatter status draft → review-ready, and prettier formatting; working tree clean.
 - NON-COMPLIANCE check (no implementation before this gate): `.agents/tasks/CLI-B12.md` does not exist; `packages/agent-transport` working tree clean; latest commit touching `src/tui` is `5dc0c9649` (CLI-074, prior item) — no CLI-B12 implementation work started.
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-06-13
+
+**Status upgrade:** approved → in-progress
+
+- Tasks file created: `.agents/tasks/CLI-B12.md` exists (verified by direct read; present as untracked file on branch `feat/cli-b12-channel-react-ownership`).
+- Tasks file path recorded in `## Tasks`: spec's Tasks section lists `.agents/tasks/CLI-B12.md` — T1~T7 (TC-01~TC-06 매핑 + wrap-up).
+- Tasks correspond to Completion Criteria (one task per TC-N): T1→TC-01 (useState lazy-initializer channel creation, render.tsx construction removed), T2→TC-02 (old channel stop ordering before new channel active), T3→TC-03 (CLI-B11 TC-A/B/C/E regression hold), T4→TC-04 (IAppProps drops `channel`, `createChannel` required, typecheck/build), T5→TC-05 (real-store integration / PTY /resume Context > 0%), T6→TC-06 (docs/SPEC.md single-owner lifecycle contract) — all 6 TC-N covered; T7 is wrap-up (test/typecheck/lint/build + PR + backlog completion), additive beyond the minimum.
+- NON-COMPLIANCE check (tasks file before implementation): `git status` shows only spec move (todo → active), the new tasks file, and unrelated evals lessons; `packages/agent-transport/src/tui/App.tsx` and `render.tsx` untouched; latest commit touching `src/tui` is `0c472a40f` (CLI-B11 #706, prerequisite merge) — no CLI-B12 implementation commits exist.

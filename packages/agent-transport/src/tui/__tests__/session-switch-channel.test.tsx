@@ -1,10 +1,13 @@
 /**
- * CLI-B11 TC-01/03/04/05: session-switch channel ownership at the App boundary.
+ * CLI-B11 TC-01/03/05 + CLI-B12 TC-01/02/04: session-switch channel ownership
+ * at the App boundary.
  *
  * The 2026-05-31 context-loss bug lived between render.tsx, App.tsx and
  * TuiInteractionChannel — InteractiveSession-level tests stayed green through it.
  * These tests render the REAL App with a mocked createChannel factory and drive
  * switches through the real SessionPicker, pinning the factory-call contract.
+ * Since CLI-B12 the factory is the SOLE channel source: App creates the initial
+ * channel in its useState initializer and replaces it on every switch.
  */
 
 import { mkdtempSync, rmSync } from 'node:fs';
@@ -163,12 +166,10 @@ describe('App session-switch channel ownership (CLI-B11)', () => {
   let cwd: string;
   let created: IFakeChannel[];
   let createChannel: ReturnType<typeof vi.fn>;
-  let initialChannel: IFakeChannel;
 
   beforeEach(() => {
     cwd = mkdtempSync(join(tmpdir(), 'robota-b11-'));
     created = [];
-    initialChannel = createFakeChannel(undefined);
     createChannel = vi.fn((resumeSessionId?: string) => {
       const fake = createFakeChannel(resumeSessionId);
       created.push(fake);
@@ -180,15 +181,14 @@ describe('App session-switch channel ownership (CLI-B11)', () => {
     rmSync(cwd, { recursive: true, force: true });
   });
 
-  function renderApp(options?: { withFactory?: boolean; sessionIds?: string[] }) {
+  function renderApp(options?: { sessionIds?: string[] }) {
     const ids = options?.sessionIds ?? ['session-aaaaaaaa', 'session-bbbbbbbb'];
     const records = ids.map((id) => sessionRecord(id, cwd));
     const store = createFakeStore(records);
     const instance = render(
       <App
         cwd={cwd}
-        channel={asChannel(initialChannel)}
-        {...(options?.withFactory === false ? {} : { createChannel })}
+        createChannel={createChannel}
         sessionStore={store}
         showSessionPickerOnStart
         cliAdapter={createCliAdapter(join(cwd, 'settings.json'))}
@@ -197,21 +197,28 @@ describe('App session-switch channel ownership (CLI-B11)', () => {
     return { ...instance, records };
   }
 
-  it('TC-01: selecting a session in the picker calls createChannel exactly once with that sessionId', async () => {
+  it('TC-01 (B11) / TC-01 (B12): the factory is the sole channel source — once at mount, once per switch with the selected sessionId', async () => {
     const { stdin, lastFrame } = renderApp();
     await tick();
     expect(lastFrame()).toContain('Select a session to resume');
 
+    // CLI-B12 TC-01: initial channel from the useState initializer, exactly once.
+    expect(createChannel).toHaveBeenCalledTimes(1);
+    expect(createChannel).toHaveBeenNthCalledWith(1, undefined);
+
     stdin.write('\r'); // select first item (newest first — equal timestamps keep list order)
     await tick();
 
-    expect(createChannel).toHaveBeenCalledTimes(1);
-    expect(createChannel).toHaveBeenCalledWith('session-aaaaaaaa');
+    // CLI-B11 TC-A: the switch asks the factory for exactly one channel with the id.
+    expect(createChannel).toHaveBeenCalledTimes(2);
+    expect(createChannel).toHaveBeenNthCalledWith(2, 'session-aaaaaaaa');
   });
 
-  it('TC-03: the previous channel is stopped on switch and the new channel is started', async () => {
+  it('TC-03 (B11) / TC-02 (B12): the previous channel is stopped before the new one becomes active', async () => {
     const { stdin } = renderApp();
     await tick();
+    const initialChannel = created[0]!;
+    expect(initialChannel.start).toHaveBeenCalled();
 
     stdin.write('\r');
     await tick();
@@ -219,23 +226,29 @@ describe('App session-switch channel ownership (CLI-B11)', () => {
     // Old channel released: stopped by the switch handler and by the unmounting
     // AppInner's effect cleanup (stop() is idempotent by contract).
     expect(initialChannel.stop).toHaveBeenCalled();
-    expect(created).toHaveLength(1);
-    const newChannel = created[0]!;
+    expect(created).toHaveLength(2);
+    const newChannel = created[1]!;
     expect(newChannel.start).toHaveBeenCalled();
     expect(newChannel.stop).not.toHaveBeenCalled();
+
+    // CLI-B12 TC-02 ordering: old stop() was invoked BEFORE the factory built
+    // the replacement channel (stop-before-active contract).
+    const stopOrder = initialChannel.stop.mock.invocationCallOrder[0]!;
+    const replacementOrder = createChannel.mock.invocationCallOrder[1]!;
+    expect(stopOrder).toBeLessThan(replacementOrder);
   });
 
-  it('TC-04: without a createChannel prop, the switch falls back to props.channel and does not crash', async () => {
-    const { stdin, lastFrame } = renderApp({ withFactory: false });
+  it('TC-04 (B12): App renders from the factory alone — no channel prop exists', async () => {
+    // The old no-factory fallback (B11 TC-D) is deleted with CLI-B12: createChannel
+    // is required and `channel` is no longer a prop (enforced at the type level —
+    // passing one is a compile error). This pins the runtime half: a render with
+    // only the factory boots, starts the initial channel, and keeps rendering.
+    const { lastFrame } = renderApp();
     await tick();
 
-    stdin.write('\r');
-    await tick();
-
-    expect(createChannel).not.toHaveBeenCalled();
-    // Fallback keeps the initial channel active; the app keeps rendering.
     expect(lastFrame()).toBeTruthy();
-    expect(initialChannel.start).toHaveBeenCalled();
+    expect(createChannel).toHaveBeenCalledTimes(1);
+    expect(created[0]!.start).toHaveBeenCalled();
   });
 
   it('TC-05: consecutive switches A→B→C create one channel per switch and stop each prior channel', async () => {
@@ -246,11 +259,16 @@ describe('App session-switch channel ownership (CLI-B11)', () => {
     touch(records, 'aaaaaaaa-1111', '2026-06-13T01:00:00.000Z'); // A on top
     await waitForFrame(lastFrame, (f) => f.includes('Select a session to resume'));
 
+    // Mount creates the initial channel (factory call 1, undefined).
+    expect(createChannel).toHaveBeenNthCalledWith(1, undefined);
+    const channelInitial = created[0]!;
+
     // Switch 1: pick A (top) from the startup picker.
     stdin.write('\r');
-    await waitForFrame(lastFrame, () => createChannel.mock.calls.length === 1);
-    expect(createChannel).toHaveBeenNthCalledWith(1, 'aaaaaaaa-1111');
-    const channelA = created[0]!;
+    await waitForFrame(lastFrame, () => createChannel.mock.calls.length === 2);
+    expect(createChannel).toHaveBeenNthCalledWith(2, 'aaaaaaaa-1111');
+    expect(channelInitial.stop).toHaveBeenCalled();
+    const channelA = created[1]!;
 
     // Switch 2: reopen the picker via a queued session-picker-requested effect,
     // drained by a submit on the active channel (real /resume drain path).
@@ -262,10 +280,10 @@ describe('App session-switch channel ownership (CLI-B11)', () => {
     await waitForFrame(lastFrame, (f) => f.includes('> bbbbbbbb'));
     await tick(); // settle: let the reopened picker's useInput subscription attach
     stdin.write('\r');
-    await waitForFrame(lastFrame, () => createChannel.mock.calls.length === 2);
-    expect(createChannel).toHaveBeenNthCalledWith(2, 'bbbbbbbb-2222');
+    await waitForFrame(lastFrame, () => createChannel.mock.calls.length === 3);
+    expect(createChannel).toHaveBeenNthCalledWith(3, 'bbbbbbbb-2222');
     expect(channelA.stop).toHaveBeenCalled();
-    const channelB = created[1]!;
+    const channelB = created[2]!;
     expect(channelB.start).toHaveBeenCalled();
 
     // Switch 3: same drill from B to C.
@@ -277,13 +295,13 @@ describe('App session-switch channel ownership (CLI-B11)', () => {
     await waitForFrame(lastFrame, (f) => f.includes('> cccccccc'));
     await tick(); // settle: let the reopened picker's useInput subscription attach
     stdin.write('\r');
-    await waitForFrame(lastFrame, () => createChannel.mock.calls.length === 3);
-    expect(createChannel).toHaveBeenNthCalledWith(3, 'cccccccc-3333');
+    await waitForFrame(lastFrame, () => createChannel.mock.calls.length === 4);
+    expect(createChannel).toHaveBeenNthCalledWith(4, 'cccccccc-3333');
     expect(channelB.stop).toHaveBeenCalled();
 
-    const channelC = created[2]!;
+    const channelC = created[3]!;
     expect(channelC.start).toHaveBeenCalled();
     expect(channelC.stop).not.toHaveBeenCalled();
-    expect(createChannel).toHaveBeenCalledTimes(3);
+    expect(createChannel).toHaveBeenCalledTimes(4);
   });
 });
