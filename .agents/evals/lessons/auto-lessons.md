@@ -27,11 +27,11 @@ Do not promote entries to `.agents/rules/common-mistakes.md` without human revie
 
 ## same-file-edited-3-times
 
-- Frequency: 402 events in the last 7 days
+- Frequency: 567 events in the last 7 days
 - Sources: reverts
 - Example paths: `/Users/jungyoun/Documents/dev/robota/.agents/backlog/CLI-063-print-mode-session-resume-broken.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/CLI-064-exit-code-contract-violations.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/README.md`, `/Users/jungyoun/Documents/dev/robota/.agents/release-runs/3.0.0-beta.72.md`, `/Users/jungyoun/Documents/dev/robota/.agents/release-runs/3.0.0-beta.73.md`
-- First seen: 2026-06-05T12:20:16.000Z
-- Last seen: 2026-06-11T17:17:10.000Z
+- First seen: 2026-06-08T13:10:40.000Z
+- Last seen: 2026-06-12T15:43:05.000Z
 - Status: candidate; human review is required before promotion.
 <!-- auto-lesson:repeated-tool-errors -->
 
@@ -40,8 +40,8 @@ Do not promote entries to `.agents/rules/common-mistakes.md` without human revie
 - Frequency: 42 events in the last 7 days
 - Sources: reverts
 - Example paths: (none)
-- First seen: 2026-06-05T12:20:16.000Z
-- Last seen: 2026-06-11T17:17:10.000Z
+- First seen: 2026-06-08T13:10:40.000Z
+- Last seen: 2026-06-12T15:43:05.000Z
 - Status: candidate; human review is required before promotion.
 <!-- auto-lesson:try-catch-fallback -->
 
