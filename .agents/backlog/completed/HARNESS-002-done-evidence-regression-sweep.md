@@ -1,6 +1,6 @@
 ---
 title: 'HARNESS-002: Done-backlog evidence regression sweep'
-status: todo
+status: done
 created: 2026-06-11
 priority: high
 urgency: soon
@@ -37,3 +37,16 @@ completion time only; nothing re-validates later.
 ## User Execution Test Scenarios
 
 Not applicable — harness/internal tooling.
+
+## Completion (2026-06-13)
+
+- `scripts/harness/check-done-evidence.mjs` shipped: validates repo-file references in the
+  EVIDENCE regions of `.agents/backlog/completed/*.md`; `<!-- evidence-superseded: <reason> -->`
+  exemptions reported on every run, never silent.
+- Registered as the 23rd scan in `run-all-scans.mjs` + `pnpm harness:scan:done-evidence`.
+- Durable-artifact rule added to `.agents/rules/backlog-execution.md`.
+- Initial live triage: 3 stale references found and annotated (CLIR-H02/CLIR-L01 —
+  tui-mode.ts retired by the TUI→transport migration; DOC-002 — README.ko.md retired by
+  docs-site i18n). `pnpm harness:scan` → all 23 scans passed.
+- Unit fixtures: `scripts/harness/__tests__/check-done-evidence.test.mjs` (5/5).
+- User Execution Test Scenarios: N/A per this backlog (harness/internal tooling).

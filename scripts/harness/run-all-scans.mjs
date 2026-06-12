@@ -39,6 +39,7 @@ const SCAN_COMMANDS = [
   { name: 'spec-paths', command: ['node', 'scripts/harness/check-spec-paths.mjs'] },
   { name: 'workspace-refs', command: ['node', 'scripts/harness/check-workspace-refs.mjs'] },
   { name: 'stub-markers', command: ['node', 'scripts/harness/check-stub-markers.mjs'] },
+  { name: 'done-evidence', command: ['node', 'scripts/harness/check-done-evidence.mjs'] },
   { name: 'orphan-exports', command: ['node', 'scripts/harness/check-orphan-exports.mjs'] },
   { name: 'deps', command: ['node', 'scripts/harness/check-dependency-direction.mjs'] },
   { name: 'sdk-react-free', command: ['node', 'scripts/harness/check-sdk-react-free.mjs'] },
