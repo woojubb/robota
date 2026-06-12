@@ -40,9 +40,7 @@ export interface IRobotaInitContext {
  * Returns the created ExecutionService.
  * @internal
  */
-export async function performAsyncInitialization(
-  ctx: IRobotaInitContext,
-): Promise<ExecutionService> {
+async function performAsyncInitialization(ctx: IRobotaInitContext): Promise<ExecutionService> {
   const {
     config,
     aiProviders,

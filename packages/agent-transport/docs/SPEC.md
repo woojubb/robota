@@ -95,7 +95,6 @@ src/
     command-interaction.ts   ← re-exports from @robota-sdk/agent-interface-tui
     hooks/
       useTuiChannel.ts       ← useTuiChannel (React → TuiInteractionChannel bridge)
-      usePermissionQueue.ts
       useSlashRouting.ts
       useSideEffects.ts
       usePluginCallbacks.ts

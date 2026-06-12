@@ -94,7 +94,7 @@ export function applyBackgroundTaskResultMetadataToState(
   if (isBackgroundTaskTimeoutReason(timeoutReason)) state.timeoutReason = timeoutReason;
 }
 
-export function isBackgroundTaskTimeoutReason(
+function isBackgroundTaskTimeoutReason(
   value: TBackgroundPrimitive | undefined,
 ): value is TBackgroundTaskTimeoutReason {
   return typeof value === 'string' && TIMEOUT_REASONS.has(value as TBackgroundTaskTimeoutReason);

@@ -47,10 +47,7 @@ export function isAbortError(err: unknown): boolean {
  * Scans history entries from `historyBefore` onwards and collects
  * tool call records from assistant messages.
  */
-export function extractToolSummaries(
-  history: TUniversalMessage[],
-  historyBefore: number,
-): IToolSummary[] {
+function extractToolSummaries(history: TUniversalMessage[], historyBefore: number): IToolSummary[] {
   const summaries: IToolSummary[] = [];
   for (let i = historyBefore; i < history.length; i++) {
     const msg = history[i];

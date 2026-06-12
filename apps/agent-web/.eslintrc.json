@@ -9,12 +9,18 @@
       {
         "groups": ["builtin", "external", "internal", ["parent", "sibling", "index"], "type"],
         "newlines-between": "always",
-        "alphabetize": { "order": "asc", "caseInsensitive": true }
+        "alphabetize": {
+          "order": "asc",
+          "caseInsensitive": true
+        }
       }
     ],
     "@typescript-eslint/consistent-type-imports": [
       "warn",
-      { "prefer": "type-imports", "fixStyle": "separate-type-imports" }
+      {
+        "prefer": "type-imports",
+        "fixStyle": "separate-type-imports"
+      }
     ],
     "@typescript-eslint/explicit-function-return-type": [
       "warn",
@@ -26,7 +32,8 @@
       }
     ],
     "prefer-const": "warn",
-    "object-shorthand": ["warn", "always"]
+    "object-shorthand": ["warn", "always"],
+    "@typescript-eslint/ban-types": "off"
   },
   "overrides": [
     {

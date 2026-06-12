@@ -49,7 +49,7 @@ export function getCommonFixes(error: IErrorPanelIssue): string[] {
   return COMMON_FIXES[error.type];
 }
 
-export function buildIssueLocation(error: IErrorPanelIssue): string {
+function buildIssueLocation(error: IErrorPanelIssue): string {
   if (!error.line) return 'Unknown';
   return `Line ${error.line}${error.column ? `, Column ${error.column}` : ''}`;
 }

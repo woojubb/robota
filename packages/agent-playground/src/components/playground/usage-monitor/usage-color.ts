@@ -4,7 +4,7 @@ import {
   USAGE_WARNING_THRESHOLD,
 } from './constants';
 
-export function getUsagePercentage(current: number, max: number): number {
+function getUsagePercentage(current: number, max: number): number {
   return (current / max) * PERCENTAGE_MULTIPLIER;
 }
 

@@ -110,9 +110,10 @@ export async function processEvent(
 /**
  * Compute the listener-count stats portion of EventEmitterPlugin.getStats().
  */
-export function computeListenerStats(
-  handlers: Map<TEventName, IEventEmitterHandlerRegistration[]>,
-): { listenerCounts: Partial<Record<TEventName, number>>; totalListeners: number } {
+function computeListenerStats(handlers: Map<TEventName, IEventEmitterHandlerRegistration[]>): {
+  listenerCounts: Partial<Record<TEventName, number>>;
+  totalListeners: number;
+} {
   const listenerCounts: Partial<Record<TEventName, number>> = {};
   let totalListeners = 0;
   for (const [eventType, hs] of handlers) {

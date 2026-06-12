@@ -39,7 +39,7 @@ export interface IChatResponsePayload {
  * Validate that an array of unknown values conforms to IToolCall[].
  * Filters out entries that do not have the required shape.
  */
-export function validateToolCallArray(items: unknown[]): IToolCall[] {
+function validateToolCallArray(items: unknown[]): IToolCall[] {
   return items.filter(
     (item): item is IToolCall =>
       typeof item === 'object' &&
