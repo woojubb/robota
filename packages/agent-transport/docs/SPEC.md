@@ -108,7 +108,7 @@ src/
 
 ### TUI lifecycle
 
-`renderApp()` creates a `TuiInteractionChannel` (which owns `InteractiveSession`, `CommandRegistry`, and `TuiStateManager` creation) and then mounts the Ink `App` component. `App` subscribes to channel state via the `useTuiChannel` hook, which calls `channel.onChange` on each state change. User input is forwarded to `channel.handleInput()`; slash commands that need disambiguation call `channel.requestAction()`, which queues a pick/confirm dialog rendered by `App` and resolved via `channel.resolveAction()`.
+**Single channel owner (CLI-B12):** `renderApp()` does NOT construct a channel. It passes only a `createChannel(resumeSessionId?)` factory to the Ink `App` component; `App` creates the initial `TuiInteractionChannel` (which owns `InteractiveSession`, `CommandRegistry`, and `TuiStateManager` creation) in its `useState` lazy initializer and replaces it on every session switch — the old channel is stopped (`void channel.stop()`) before the replacement becomes active. Channel construction is side-effect-free; I/O starts only in `AppInner`'s effect via `channel.start()`. The channel lifecycle is therefore exactly the React state lifecycle: created, replaced, and stopped exclusively through `App` state, with no second owner outside React. `App` subscribes to channel state via the `useTuiChannel` hook, which calls `channel.onChange` on each state change. User input is forwarded to `channel.handleInput()`; slash commands that need disambiguation call `channel.requestAction()`, which queues a pick/confirm dialog rendered by `App` and resolved via `channel.resolveAction()`.
 
 ### TUI session-init polling
 
