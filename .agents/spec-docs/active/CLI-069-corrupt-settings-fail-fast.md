@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: BEHAVIOR
 tags: [cli, typescript]
 ---
@@ -130,7 +130,7 @@ run robota diagnose.` → exit 1.
 
 ## Tasks
 
-- [ ] `.agents/tasks/CLI-069.md` — 미생성 (GATE-APPROVAL 통과 후 생성)
+- [ ] `.agents/tasks/CLI-069.md` — T1~T7 (TC-01~TC-06 매핑 + wrap-up)
 
 ## Evidence Log
 
@@ -155,3 +155,12 @@ run robota diagnose.` → exit 1.
 - Direct, unambiguous, directed at this spec: the approval request enumerated all 11 specs including CLI-069 and stated that approval authorizes GATE-APPROVAL → per-item implementation; the user was told verbatim that replying "승인함" authorizes implementation of the 11 designs and then replied "승인함". The earlier release instruction ("머지하고 main 릴리스 진행해줘", PR #705) was not treated as design approval. Not a clarifying-question answer, silence, or approval of a different item.
 - No Architecture Review or frontmatter type/tags modified after approval: the spec file exists in exactly one commit (cd5b1053a, 148-line creation, GATE-WRITE batch); post-GATE-WRITE changes were limited to the guard's Evidence Log entry, frontmatter status draft → review-ready, and prettier formatting at commit time; `git status` shows no working-tree modifications to this file; current frontmatter remains `type: BEHAVIOR`, `tags: [cli, typescript]`.
 - NON-COMPLIANCE trigger checked — no implementation started before this gate: `.agents/tasks/CLI-069.md` does not exist; `git log --all --since=2026-06-12` on `packages/agent-framework/src/command-api/provider/provider-merge.ts` and `packages/agent-framework/src/config/settings-io.ts` shows no commits; `git status` shows no working-tree changes under `packages/agent-framework`.
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-06-13
+
+**Status upgrade:** approved → in-progress
+
+- Tasks file created: `.agents/tasks/CLI-069.md` exists (read directly; contains T1–T7 with checkboxes and a Test Plan summary deferring to the spec's TC table as SSOT).
+- Tasks file path recorded in `## Tasks` of this spec: `- [ ] `.agents/tasks/CLI-069.md` — T1~T7 (TC-01~TC-06 매핑 + wrap-up)`.
+- Tasks correspond to Completion Criteria, one task per TC-N: T1↔TC-01 (typed `SettingsParseError`, `readSettingsFile` throws, `robota -p "hi"` exits 1 naming the file), T2↔TC-02 (project-level corrupt file, same contract), T3↔TC-03 (missing files unchanged per CLI-066 order), T4↔TC-04 (valid files regression), T5↔TC-05 (remediation guidance + `readSettings` fallback deletion + diagnose reports), T6↔TC-06 (framework SPEC error taxonomy + CLI SPEC startup failure modes), plus T7 wrap-up (test/typecheck/lint/build, PR, evidence + archive). 6/6 TC-N covered.
+- NON-COMPLIANCE trigger checked — no implementation commits without a tasks file: on branch `feat/cli-069-corrupt-settings-failfast`, `git log --oneline develop..HEAD` shows no commits touching implementation; last commits on `provider-merge.ts` / `settings-io.ts` predate this spec (266d9e934, 4d46b6c54); `git status --porcelain -- packages/agent-framework` is empty.

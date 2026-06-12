@@ -621,6 +621,7 @@ export {
   deleteSettings,
 } from './config/settings-io.js';
 export type { TSettingsData, TSettingsScope } from './config/settings-io.js';
+export { SettingsParseError } from './config/settings-parse-error.js';
 export { resetUserConfig } from './config/reset-user-config.js';
 export type { IResetUserConfigResult } from './config/reset-user-config.js';
 
