@@ -1069,9 +1069,28 @@ behavior fell through to unrelated API-key guidance).
 
 ### `robota diagnose`
 
-`robota diagnose` checks the current environment and prints a diagnostics report (Node.js version,
-CLI version, API keys, settings file validity, terminal, provider network reachability). It is
+`robota diagnose` checks the current environment and prints a diagnostics report. It is
 dispatched inline by `startCli()` before provider setup and returns without starting a session.
+
+Checks performed (CLI-067):
+
+- **Node.js version** — `>=22` required.
+- **CLI version** — informational.
+- **API key** — runs the runtime's own provider resolution (`readProviderSettings`:
+  settings profiles with `$ENV:` references first, then env-default synthesis per
+  §Zero-Config Startup). Diagnose therefore always agrees with session start: ✓ names the
+  resolved provider, model, and source (`settings profile` or `env-default via <ENV_NAME>`);
+  ✗ carries the runtime's own resolution error plus configure guidance. Key values are
+  never printed.
+- **Settings file(s)** — every file on the runtime merge-chain path
+  (`getProviderSettingsPaths(cwd)`: user-level and project-level) that exists is validated
+  independently; a corrupt user-level file is flagged with its path even when a valid
+  project file exists. Missing files are a warning at most, never a failure.
+- **Terminal** — known-problem terminal warning.
+- **Network** — TCP reachability of the active provider endpoint.
+
+**Exit-code contract**: `0` when no check fails (warnings allowed), `1` when one or more
+checks fail — `robota diagnose` can gate CI and scripts.
 
 ## Session Logging
 

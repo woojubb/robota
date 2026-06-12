@@ -88,7 +88,9 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   }
 
   if (args.positional[0] === 'diagnose') {
-    await runDiagnoseCommand({ version, terminal, cwd });
+    // Exit contract (CLI-067): 0 = no issues, 1 = one or more failed checks.
+    const failCount = await runDiagnoseCommand({ version, terminal, cwd });
+    process.exitCode = failCount > 0 ? 1 : 0;
     return;
   }
 

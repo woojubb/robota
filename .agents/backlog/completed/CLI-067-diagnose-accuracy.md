@@ -1,6 +1,6 @@
 ---
 title: 'CLI-067: diagnose reports "No API key found" despite a working configured provider; exits 0 on issues'
-status: todo
+status: done
 created: 2026-06-11
 priority: medium
 urgency: soon
@@ -42,4 +42,23 @@ contract) and implemented to match.
   keys.
 - Steps: `robota diagnose; echo $?`.
 - Expected observable result: API key check ✓; exit code matches the documented policy.
-- Evidence: (fill after implementation)
+- Evidence (2026-06-13, real binary `bin/robota.cjs`, isolated HOME via `env -i`, profile
+  `apiKey: "$ENV:MY_DIAG_KEY"` with the var set, no bare provider env keys):
+
+  ```
+  ✓ API key: anthropic (claude-test-model) — settings profile
+  ✓ Settings file: <proj>/.robota/settings.json
+  ✓ All checks passed. robota is ready to use.
+  exit=0
+  ```
+
+  Corrupt user-level `~/.robota/settings.json` (valid project file kept):
+
+  ```
+  ✗ Settings file: <home>/.robota/settings.json — invalid JSON
+  ✗ 1 issue(s) found. Fix the items above to use robota.
+  exit=1
+  ```
+
+  Key value occurrences in full output: 0. CI tests:
+  `packages/agent-cli/src/startup/__tests__/diagnose-accuracy.test.ts` (TC-01~TC-06, 6/6).
