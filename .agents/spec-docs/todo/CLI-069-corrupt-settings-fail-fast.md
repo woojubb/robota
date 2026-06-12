@@ -1,5 +1,5 @@
 ---
-status: review-ready
+status: approved
 type: BEHAVIOR
 tags: [cli, typescript]
 ---
@@ -146,3 +146,12 @@ run robota diagnose.` → exit 1.
 - Completion Criteria: 6 items, all `TC-N` prefixed (TC-01 … TC-06); each uses Command form or Observable behavior form; no forbidden vague phrases ("works correctly", "no errors", "implemented", "displays correctly").
 - Test Plan: section present; 6 rows match 6 TC-N criteria (count matches); every row has non-empty Test Type and Tool/Approach with no "TBD"; the single manual row (TC-06) has a non-empty Notes entry explaining why it is not automatable (doc prose, verified by direct read at GATE-COMPLETE).
 - Structure: `## Tasks` section present with placeholder; `## Evidence Log` section present and empty at first GATE-WRITE run; no `## Status` or `## Classification` sections in the body.
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-06-13
+
+**Status upgrade:** review-ready → approved
+
+- Explicit approval in current conversation: user replied exactly "승인함" (2026-06-13) in response to the consolidated request "## 설계안 요약 (승인 요청) — 백로그 일괄 11건", which individually summarized this spec's design (remove silent catch layers; typed `SettingsParseError` with file path + parse error; session start fails fast with exit 1 and `robota diagnose` guidance; diagnose catches and reports the same typed error; missing files remain a non-error). "승인함" matches the explicit-approval pattern ("승인").
+- Direct, unambiguous, directed at this spec: the approval request enumerated all 11 specs including CLI-069 and stated that approval authorizes GATE-APPROVAL → per-item implementation; the user was told verbatim that replying "승인함" authorizes implementation of the 11 designs and then replied "승인함". The earlier release instruction ("머지하고 main 릴리스 진행해줘", PR #705) was not treated as design approval. Not a clarifying-question answer, silence, or approval of a different item.
+- No Architecture Review or frontmatter type/tags modified after approval: the spec file exists in exactly one commit (cd5b1053a, 148-line creation, GATE-WRITE batch); post-GATE-WRITE changes were limited to the guard's Evidence Log entry, frontmatter status draft → review-ready, and prettier formatting at commit time; `git status` shows no working-tree modifications to this file; current frontmatter remains `type: BEHAVIOR`, `tags: [cli, typescript]`.
+- NON-COMPLIANCE trigger checked — no implementation started before this gate: `.agents/tasks/CLI-069.md` does not exist; `git log --all --since=2026-06-12` on `packages/agent-framework/src/command-api/provider/provider-merge.ts` and `packages/agent-framework/src/config/settings-io.ts` shows no commits; `git status` shows no working-tree changes under `packages/agent-framework`.

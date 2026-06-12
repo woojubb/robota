@@ -1,6 +1,6 @@
 ---
 title: 'CLI-B11: 세션 전환 컨텍스트 복원 — 재발 방지 테스트 누락'
-status: todo
+status: done
 created: 2026-05-31
 priority: critical
 urgency: now
@@ -99,9 +99,31 @@ expect(mockCreateChannel).toHaveBeenCalledTimes(1);
 **Expected**: `Context: NN% (XXK/YYYYK tokens)` (NN > 0)
 **Previously**: `Context: 0% (0K/1M tokens)`
 
+**Evidence (2026-06-13, real binary `bin/robota.cjs` v3.0.0-beta.73 in a real PTY,
+isolated HOME + temp project, sessions persisted via the real
+`createProjectSessionStore` write path):**
+
+```
+[boot] status: Context: 0% (0K/200K tokens)
+[after first /resume select] status: Context: 6% (11.9K/200K tokens)
+```
+
+CI equivalents added in this change: `packages/agent-transport/src/tui/__tests__/
+session-switch-channel.test.tsx` (TC-A/C/D/E — mock factory call args/count, old-channel
+stop, fallback, consecutive switches) and `packages/agent-transport/src/tui/__tests__/
+channel-factory-integration.test.ts` (TC-B — real store, restored `usedTokens > 0`).
+
 ### Scenario 2: 연속 세션 전환 후 context % 유지
 
 1. A 세션 → 피커 → B 세션 선택 → context > 0% 확인
 2. 다시 `/resume` → A 세션 선택 → context > 0% 확인
 
 **Expected**: 각 전환마다 해당 세션의 실제 context % 반영
+
+**Evidence (2026-06-13, same PTY run — two different persisted sessions selected
+consecutively, each switch reflects that session's own context):**
+
+```
+[after first /resume select] status: Context: 6% (11.9K/200K tokens)   ← session B (30 msgs)
+[after second /resume select] status: Context: 16% (31.8K/200K tokens) ← session A (80 msgs)
+```

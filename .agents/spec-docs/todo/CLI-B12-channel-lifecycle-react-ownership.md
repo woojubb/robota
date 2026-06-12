@@ -1,5 +1,5 @@
 ---
-status: review-ready
+status: approved
 type: INFRA
 tags: [cli, typescript, react]
 ---
@@ -141,3 +141,13 @@ props.createChannel(id), sessionId: id })`. Remove the `channel` prop from `IApp
 - Completion Criteria: 6 items, all prefixed TC-01–TC-06; each uses command form (`pnpm --filter @robota-sdk/agent-transport typecheck` exits 0) or observable behavior (mock factory call count = 1, spied `stop()` ordering, Context > 0%); no forbidden vague phrases ("works correctly", "no errors", "implemented", "displays correctly").
 - Test Plan: section present; 6 rows match 6 TC-N (count 6 = 6); every row has non-empty Test Type and Tool/Approach with no "TBD"; the single manual row (TC-06) has a Notes entry explaining why it is not automatable (doc prose, reviewed by direct read at GATE-COMPLETE).
 - Structure: `## Tasks` present with placeholder (`.agents/tasks/CLI-B12.md` — 미생성); `## Evidence Log` present and empty before this first GATE-WRITE entry; no `## Status` or `## Classification` sections in the body.
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-06-13
+
+**Status upgrade:** review-ready → approved
+
+- Explicit approval in current conversation: user replied exactly "승인함" (2026-06-13) in direct response to the consolidated approval request "## 설계안 요약 (승인 요청) — 백로그 일괄 11건", after being told verbatim that replying "승인함" authorizes implementation of the 11 designs.
+- Approval directed at this spec: the approval-request message individually summarized CLI-B12 — Option A chosen (channel creation moves into App React state via `useState(() => createChannel(resumeSessionId))`, `channel` prop deleted, `createChannel` required, old channel stopped before new one set) — and explicitly flagged "B12 Option A" as a product-direction decision; "승인함" covers this enumerated item, not a different one.
+- Non-approval messages correctly excluded: "머지하고 main 릴리스 진행해줘" (release instruction, executed as docs-only release PR #705) and "그래서 뭐?" (clarifying question) were not counted as design approval.
+- No Architecture Review or frontmatter type/tags modified after the approval request: git history for this file contains a single commit (`cd5b1053a`, GATE-WRITE batch); only post-GATE-WRITE changes were the GATE-WRITE Evidence Log entry, frontmatter status draft → review-ready, and prettier formatting; working tree clean.
+- NON-COMPLIANCE check (no implementation before this gate): `.agents/tasks/CLI-B12.md` does not exist; `packages/agent-transport` working tree clean; latest commit touching `src/tui` is `5dc0c9649` (CLI-074, prior item) — no CLI-B12 implementation work started.

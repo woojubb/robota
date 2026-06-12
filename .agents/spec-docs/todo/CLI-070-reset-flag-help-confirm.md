@@ -1,5 +1,5 @@
 ---
-status: review-ready
+status: approved
 type: BEHAVIOR
 tags: [cli, typescript]
 ---
@@ -127,3 +127,12 @@ preferences). Asks for confirmation; use --yes to skip.`
 - Completion Criteria: 6 items, all prefixed TC-01..TC-06; each uses command form or observable behavior (exit codes, file presence, output content); no banned vague phrases ("works correctly", "no errors", "implemented", "displays correctly").
 - Test Plan: section present; 6 rows match 6 TC-N criteria (count 6 = 6); every row has non-empty Test Type and Tool/Approach, no "TBD"; sole manual row (TC-06) has Notes explaining non-automatability (doc prose, verified by direct read at GATE-COMPLETE).
 - Structure: `## Tasks` present with placeholder (`.agents/tasks/CLI-070.md` — to be created after GATE-APPROVAL); `## Evidence Log` present and empty before this first run; no `## Status` or `## Classification` sections in body.
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-06-13
+
+**Status upgrade:** review-ready → approved
+
+- Explicit approval in current conversation: user replied exactly "승인함" (2026-06-13) to the consolidated design-approval request "## 설계안 요약 (승인 요청) — 백로그 일괄 11건", after being told verbatim that replying "승인함" authorizes implementation of the 11 designs.
+- Approval directed at this spec: the approval request individually summarized CLI-070's design (`--reset` added to help; confirmation matrix — TTY y/N prompt skippable with `--yes`, non-TTY without `--yes` refuses with exit 1 and leaves the file untouched), so "승인함" unambiguously covers this document. The earlier release instruction ("머지하고 main 릴리스 진행해줘") was correctly not treated as design approval; the answer to "그래서 뭐?" was a clarification, not the approval itself.
+- No Architecture Review or frontmatter type/tags modified after approval: `git log` for this file shows only commit cd5b1053a (GATE-WRITE batch, pre-approval); post-GATE-WRITE changes were limited to the guard's Evidence Log entry, the draft → review-ready status upgrade, and prettier formatting; working tree clean for this file.
+- NON-COMPLIANCE trigger not present: `.agents/tasks/CLI-070.md` does not exist (verified by ls), no uncommitted changes under `packages/agent-cli`, and the latest `packages/agent-cli/src` commits (CLI-074 #703, DEPS-001 #702, CLI-066 #700) belong to other specs — no implementation work for CLI-070 has started.
