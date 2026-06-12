@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: BEHAVIOR
 tags: [cli, typescript]
 ---
@@ -85,27 +85,27 @@ is removed; if no other consumer remains, the constant is deleted (no-deprecated
 
 ## Completion Criteria
 
-- [ ] TC-01: with permission mode `plan`, the generated system prompt contains
+- [x] TC-01: with permission mode `plan`, the generated system prompt contains
       `Permission mode: plan` and does NOT contain `Trust level:`
-- [ ] TC-02: each `TPermissionMode` value is interpolated verbatim (parameterized over the
+- [x] TC-02: each `TPermissionMode` value is interpolated verbatim (parameterized over the
       mode union — no hardcoded subset)
-- [ ] TC-03: full prompt-assembly regression — other sections unchanged
+- [x] TC-03: full prompt-assembly regression — other sections unchanged
       (`pnpm --filter @robota-sdk/agent-framework test` green)
-- [ ] TC-04: framework SPEC.md documents the section's permission-mode line and the removal
+- [x] TC-04: framework SPEC.md documents the section's permission-mode line and the removal
       of the trust-level line
 
 ## Test Plan
 
-| TC-ID | Test Type | Tool / Approach                                     | Notes                                                                 |
-| ----- | --------- | --------------------------------------------------- | --------------------------------------------------------------------- |
-| TC-01 | unit      | vitest — section provider with mode `plan`          | positive + negative content assertion                                 |
-| TC-02 | unit      | vitest — parameterized over `TPermissionMode` union | exhaustive via type-derived list                                      |
-| TC-03 | unit      | vitest — existing prompt assembly suite             | regression                                                            |
-| TC-04 | manual    | SPEC.md diff review                                 | doc prose — verified by direct read at GATE-COMPLETE, not automatable |
+| TC-ID | Test Type | Tool / Approach                                     | Notes                                                                                                                                                                                                                            |
+| ----- | --------- | --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| TC-01 | unit      | vitest — section provider with mode `plan`          | Test written: `packages/agent-framework/src/__tests__/system-prompt-builder.test.ts > includes the active permission mode and no trust-level label (CLI-072)` — positive `- **Permission mode:** plan` + negative `Trust level:` |
+| TC-02 | unit      | vitest — parameterized over `TPermissionMode` union | Test written: `packages/agent-framework/src/__tests__/system-prompt-builder.test.ts > interpolates every TPermissionMode value verbatim (CLI-072 TC-02)` — all 4 union values (plan/default/acceptEdits/bypassPermissions)       |
+| TC-03 | unit      | vitest — existing prompt assembly suite             | Test written: full `@robota-sdk/agent-framework` suite (92 files / 912 tests green at GATE-COMPLETE); `TRUST_LEVEL_LABELS` grep over `packages/agent-framework/src` → zero hits (deleted)                                        |
+| TC-04 | manual    | SPEC.md diff review                                 | Test skipped (doc prose, not automatable): verified by direct read at GATE-COMPLETE — `packages/agent-framework/docs/SPEC.md:1003` "Permission Mode section (CLI-072)" bullet                                                    |
 
 ## Tasks
 
-- [ ] `.agents/tasks/CLI-072.md` — T1~T5 (TC-01~TC-04 매핑 + wrap-up)
+- [x] `.agents/tasks/completed/CLI-072.md` — archived at GATE-COMPLETE (T1~T5 complete, TC-01~TC-04 매핑)
 
 ## Evidence Log
 
@@ -137,3 +137,53 @@ is removed; if no other consumer remains, the constant is deleted (no-deprecated
 - Tasks file path recorded in `## Tasks`: the spec's Tasks section lists `.agents/tasks/CLI-072.md` — T1~T5 (TC-01~TC-04 매핑 + wrap-up).
 - Tasks correspond to Completion Criteria (one task per TC-N): T1 ↔ TC-01 (permission-mode line rendered, no `Trust level:` under mode `plan`); T2 ↔ TC-02 (parameterized interpolation over the `TPermissionMode` union); T3 ↔ TC-03 (prompt-assembly regression, `trustLevel` → `permissionMode`, full framework suite green, orphaned `TRUST_LEVEL_LABELS` deletion); T4 ↔ TC-04 (framework SPEC.md documents the line change); T5 = wrap-up (verify/PR/scenario evidence) beyond the TC minimum.
 - NON-COMPLIANCE trigger (implementation commits without tasks file) not present: branch `feat/cli-072-permission-mode-prompt` has only spec/tasks doc changes; `git status --porcelain -- packages/agent-framework packages/agent-core` is clean; last commit touching `system-prompt-section-providers.ts` remains the unrelated REFACTOR-024 rename (8cac18921).
+
+### [GATE-VERIFY] — ✅ PASS | 2026-06-13
+
+**Status upgrade:** in-progress → verifying
+
+- All tasks complete: `.agents/tasks/CLI-072.md` T1–T4 all `[x]` (verified by direct read). T5 (wrap-up) unchecked but every component independently verified per the established CLI-063..070 GATE-VERIFY interpretation (precedent confirmed by direct read of the CLI-069 and CLI-070 done-spec GATE-VERIFY entries): PR #712 OPEN (`gh pr view 712 --json state,headRefName,baseRefName`: state OPEN, head `feat/cli-072-permission-mode-prompt` → base `develop`) with CI green on `gh pr checks 712` — build pass (1m28s), quality pass (50s), security audit pass (6s), Cloudflare Pages pass; compat-node18 and release-grade verification "skipping" (skipped by design on feature PRs); backlog evidence recorded in `.agents/backlog/completed/CLI-072-permission-denial-mode-name.md` (`status: done`, User Execution Test Scenario Evidence filled: 2026-06-13 real binary + real Anthropic provider, isolated HOME, `--dry-run` → permission mode `plan`, mode question answered `plan`, dry-run edit explanation describes plan-mode restrictions without misnaming the mode, edit stays blocked) — met
+- No tasks blocked or pending: tasks file contains no blocked markers (grep for "blocked" → no hits); only T5 wrap-up remains open as adjudicated above — met
+- Build passes for affected package: `pnpm --filter @robota-sdk/agent-framework build` → "Build complete in 853ms" (ESM bundles, no errors) — met
+- Tests pass for affected package: `pnpm --filter @robota-sdk/agent-framework test` → 92 files / 912 tests passed, including the CLI-072 assertions in `src/__tests__/system-prompt-builder.test.ts` (parameterized `- **Permission mode:** ${mode}` over the union at line 76-77; explicit `plan` and `acceptEdits` content assertions at lines 83-88) — met
+- Note on approved scope: `ISystemPromptParams.trustLevel` → `permissionMode` replacement and `TRUST_LEVEL_LABELS` deletion match the approved Decision (Alternative 1 incl. no-deprecated cleanup); five test files migrated from trustLevel values to TRUST_TO_MODE-equivalent permissionMode values, all green in the 912-test run above.
+- Validity: on branch `feat/cli-072-permission-mode-prompt`; `git status --porcelain` shows only `.agents/evals/lessons/*` modifications, nothing under `packages/agent-framework` or `.agents/tasks` — build/test evidence reflects the PR #712 head state.
+
+Completion Criteria checkboxes remain unchecked by design: TC-N validation belongs to GATE-COMPLETE.
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-06-13
+
+- Checkbox: TC-01 is `[x]` in `## Completion Criteria`.
+- Command: `npx vitest run src/__tests__/system-prompt-builder.test.ts` (cwd `packages/agent-framework`).
+- Observed output: `Test Files 1 passed (1)`, `Tests 26 passed (26)`; exit code 0.
+- Test reference: `packages/agent-framework/src/__tests__/system-prompt-builder.test.ts > includes the active permission mode and no trust-level label (CLI-072)` (line 82) — asserts `buildSystemPrompt({ permissionMode: 'plan' })` contains `- **Permission mode:** plan` and does NOT contain `Trust level:` (positive + negative content assertion, verified by direct read of the test source).
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-06-13
+
+- Checkbox: TC-02 is `[x]` in `## Completion Criteria`.
+- Command: `npx vitest run src/__tests__/system-prompt-builder.test.ts` (cwd `packages/agent-framework`) — same run as TC-01.
+- Observed output: `Tests 26 passed (26)`; exit code 0.
+- Test reference: `packages/agent-framework/src/__tests__/system-prompt-builder.test.ts > interpolates every TPermissionMode value verbatim (CLI-072 TC-02)` (line 73) — parameterized loop over `const modes: TPermissionMode[] = ['plan', 'default', 'acceptEdits', 'bypassPermissions']` (the full `TPermissionMode` union, no hardcoded subset), asserting `- **Permission mode:** ${mode}` verbatim and no `Trust level:` for each mode (verified by direct read of the test source).
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-06-13
+
+- Checkbox: TC-03 is `[x]` in `## Completion Criteria`.
+- Command: `pnpm --filter @robota-sdk/agent-framework test`.
+- Observed output: `Test Files 92 passed (92)`, `Tests 912 passed (912)`, duration 2.64s; exit code 0 — full prompt-assembly regression green, other sections unchanged.
+- Orphan cleanup confirmed: `grep -rn "TRUST_LEVEL_LABELS" packages/agent-framework/src` → zero hits, exit code 1 — constant deleted per the no-deprecated rule.
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-06-13
+
+- Checkbox: TC-04 is `[x]` in `## Completion Criteria`.
+- Action: direct read of `packages/agent-framework/docs/SPEC.md` (manual doc verification per Test Plan — not automatable).
+- Observed: line 1003, "Context Loading (SDK-Specific)" section, bullet "**Permission Mode section (CLI-072)**" — documents that `buildSystemPrompt()` renders `- **Permission mode:** <mode>` from `ISystemPromptParams.permissionMode` (the active `TPermissionMode` resolved as `options.permissionMode ?? TRUST_TO_MODE[config.defaultTrustLevel] ?? 'default'`), that the former `Trust level:` line is removed, and that `TRUST_LEVEL_LABELS` is deleted.
+- Test Plan row marked as explicit skip (doc prose) with the direct-read reference above.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-06-13
+
+**Status upgrade:** verifying → done
+
+- All 4 Completion Criteria checkboxes are `[x]` (TC-01–TC-04), each backed by a `[GATE-COMPLETE: TC-N]` evidence entry above with exact command, observed output, and exit code.
+- `## Test Plan` updated: TC-01/TC-02/TC-03 rows carry test references (file path + test name / full-suite run + grep), TC-04 row carries an explicit skip reason (doc prose, direct read at `docs/SPEC.md:1003`). No TC-N is silently unaddressed.
+- Tasks file archived: `.agents/tasks/completed/CLI-072.md` exists with T1–T5 all `[x]`; the un-archived path `.agents/tasks/CLI-072.md` no longer exists (`ls` → No such file or directory, exit 1). The spec `## Tasks` section points at the archived path.
+- User-execution corroboration (done-gate): `.agents/backlog/completed/CLI-072-permission-denial-mode-name.md` is `status: done` with real-provider evidence (2026-06-13, real binary + real Anthropic provider, isolated HOME): `robota -p "What is your current permission mode? ..." --dry-run` → answer `plan`; dry-run edit explanation describes plan-mode restrictions without misnaming the mode and the edit stays blocked.
