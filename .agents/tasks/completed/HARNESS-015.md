@@ -14,7 +14,7 @@ Test Plan SSOT: the spec's TC table.
       tests in this branch.
 - [x] T6 (TC-06): SPEC Public API Surface tables of touched packages contain no row
       referencing a deleted symbol.
-- [ ] T7: wrap-up — full harness scan green; PR to develop (squash); backlog moved to
+- [x] T7: wrap-up — full harness scan green; PR to develop (squash); backlog moved to
       completed/ (User Execution N/A — internal dead-code cleanup per the backlog).
 
 ## Test Plan
