@@ -183,6 +183,14 @@ changed-file diff, or another concrete artifact that proves the expected observa
 After running the scenario, the agent must update the backlog item with the observed evidence before
 the backlog can be considered complete.
 
+**Durable-artifact evidence rule (HARNESS-002).** For code-changing backlogs, evidence MUST
+reference durable artifacts — test file paths that exist in the repository. Evidence sections of
+completed backlogs are continuously re-validated by `pnpm harness:scan:done-evidence`
+(`scripts/harness/check-done-evidence.mjs`, part of the `harness:scan` aggregate): a referenced
+repo file that no longer exists fails the scan. When a later refactor legitimately retires a
+referenced artifact, annotate the reference with `<!-- evidence-superseded: <reason> -->` on the
+same or the preceding line — exemptions are reported on every run, never silent.
+
 **Done gate — ABSOLUTE RULE.** A backlog item with a `## User Execution Test Scenarios` section
 must not have its status set to `done` (or equivalent completion marker) until BOTH gate stages
 below pass. Setting `status: done` before both stages pass is a process violation with no exception

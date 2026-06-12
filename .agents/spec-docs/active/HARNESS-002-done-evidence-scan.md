@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: RULE
 tags: [harness, typescript]
 ---
@@ -60,8 +60,17 @@ the highest-value/lowest-cost layer (every documented incident involved a now-mi
 never-existing artifact) and composes with CI's suite-green signal to cover semantics.
 Extraction rule: paths matching repo-file patterns (`packages/...`, `apps/...`,
 `scripts/...` with a file extension) inside completed-backlog markdown; prose without paths
-is skipped; an explicit `<!-- evidence-superseded: <reason> -->` annotation exempts a stale
-reference that has documented replacement evidence.
+is skipped; an explicit `<!-- evidence-superseded: <reason> -->` annotation (same or
+preceding line) exempts a stale reference that has documented replacement evidence.
+
+_Correction during implementation (within the approved Decision): extraction is limited to
+EVIDENCE regions (a heading or "Evidence"-led list/bold line opens a region; the next
+non-evidence heading closes it) — matching the parent backlog's wording ("test-file paths
+referenced in evidence sections"). The draft's whole-document scanning produced 226
+findings on the live tree, nearly all historical path mentions in Problem/Plan prose of
+pre-convention backlogs whose files were moved by later refactors — those are not evidence
+claims and annotating them would be noise, not signal. Evidence-region scanning leaves the
+real decayed-evidence class (3 live findings, all triaged with superseded annotations)._
 
 ### Architecture Review Checklist
 
@@ -127,7 +136,7 @@ reference that has documented replacement evidence.
 
 ## Tasks
 
-- [ ] `.agents/tasks/HARNESS-002.md` — 미생성 (GATE-APPROVAL 통과 후 생성)
+- [ ] `.agents/tasks/HARNESS-002.md` — T1~T8 (TC-01~TC-07 매핑 + wrap-up)
 
 ## Evidence Log
 
@@ -153,3 +162,12 @@ reference that has documented replacement evidence.
 - Approval directed at this spec: the consolidated approval request "## 설계안 요약 (승인 요청) — 백로그 일괄 11건" individually summarized HARNESS-002's design (23rd scan for test-file paths in `.agents/backlog/completed/*.md` evidence, durable-artifact rule, `evidence-superseded` annotation, initial triage of CLI-033/042/046/REL-003) and stated approval would advance GATE-APPROVAL → per-item implementation; the user's "승인함" is a direct, unambiguous confirmation covering this spec. The earlier release instruction ("머지하고 main 릴리스 진행해줘") and clarifying exchange ("그래서 뭐?") were not treated as approval.
 - No post-approval modification of Architecture Review or frontmatter type/tags: only post-GATE-WRITE changes were the guard's Evidence Log entry, the frontmatter status upgrade draft → review-ready, and prettier formatting (commit cd5b1053a, PR #705).
 - No implementation before this gate: `.agents/tasks/HARNESS-002.md` does not exist; `scripts/harness/check-done-evidence.mjs` does not exist; no `harness:scan:done-evidence` script in `package.json`; no commits touching these paths.
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-06-13
+
+**Status upgrade:** approved → in-progress
+
+- Tasks file created: `.agents/tasks/HARNESS-002.md` exists (verified on branch `feat/harness-002-done-evidence`; untracked new file in `git status`, no prior implementation commits).
+- Tasks file path recorded: spec `## Tasks` section lists `.agents/tasks/HARNESS-002.md — T1~T8 (TC-01~TC-07 매핑 + wrap-up)`.
+- Tasks ↔ Completion Criteria mapping (at minimum one task per TC-N): T1↔TC-01 (existing path passes), T2↔TC-02 (missing path fails naming backlog + path), T3↔TC-03 (prose-only skipped), T4↔TC-04 (evidence-superseded exemption + count), T5↔TC-05 (standalone pnpm script + run-all-scans aggregate 23 scans), T6↔TC-06 (live triage green), T7↔TC-07 (backlog-execution.md durable-artifact rule); T8 is wrap-up (harness tests green, PR to develop, backlog archive) beyond the TC set.
+- NON-COMPLIANCE trigger checked: no implementation commits exist before tasks-file creation — `scripts/harness/check-done-evidence.mjs` absent, `run-all-scans.mjs` and `package.json` untouched in working tree; only spec move todo/ → active/ and the tasks file are present.

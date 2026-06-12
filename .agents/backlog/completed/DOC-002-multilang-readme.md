@@ -57,4 +57,6 @@ grep -n '\[.*\](.*\.md)' packages/agent-cli/README.ko.md | \
   done
 ```
 
+<!-- evidence-superseded: README.ko.md retired when docs i18n moved to the docs site (SITE-006/007 ko locales) -->
+
 **Evidence:** PR #357 (test/agent-web-and-docs) — `packages/agent-cli/README.ko.md` 생성, `packages/agent-cli/README.md` 상단에 언어 선택 링크(`[English](README.md) | [한국어](README.ko.md)`) 추가.
