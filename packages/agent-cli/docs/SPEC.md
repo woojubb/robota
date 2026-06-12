@@ -1628,6 +1628,15 @@ calls `process.exit(1)`.
 
 Tests live in `src/__tests__/` and `src/startup/__tests__/`. All tests use Vitest.
 
+**Deterministic E2E (CLI-074)**: `src/__tests__/e2e/` drives full `startCli` print-mode runs
+with the scripted provider from `@robota-sdk/agent-transport/testing` — real agent loop,
+builtin tools, permission gate, and session persistence with zero model/network access.
+Suites: tool loop (scripted Read→Edit→Bash mutating a temp repo), permission matrix
+(`--dry-run`, `--denied-tools`), `-c` resume context, output contracts
+(text/json/stream-json/`--bare`), and a registry-driven slash-command smoke (every command
+listed by `/help` must produce a valid result envelope). Real-terminal TUI coverage lives in
+agent-transport's PTY project (see that SPEC's Test Harness Contracts).
+
 | Layer               | Test file(s)                                 | Strategy                                                                 |
 | ------------------- | -------------------------------------------- | ------------------------------------------------------------------------ |
 | CLI arg parsing     | `cli-args.test.ts`                           | Unit tests for `parseCliArgs()` — valid flags, invalid flags, edge cases |

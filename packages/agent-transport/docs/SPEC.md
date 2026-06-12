@@ -280,6 +280,23 @@ pnpm --filter @robota-sdk/agent-transport test:coverage
 
 Expected baseline: 51 test files, ~431 tests, all passing.
 
+## Test Harness Contracts (CLI-074)
+
+**Scripted provider fixture** — `@robota-sdk/agent-transport/testing` (dev-only subpath;
+never imported by runtime code): `createScriptedProvider(turns)` replays declared
+text/tool_use turns through the real agent loop, records every `chat()` request's message
+array in `requests`, and throws on script exhaustion (no improvised responses). Consumers:
+agent-cli scripted E2E suites (tool loop, permission matrix, resume, output contracts,
+slash smoke).
+
+**PTY TUI project** — `src/tui/__tests__/pty/` runs against the BUILT robota binary in a
+real pseudo-terminal (`@homebridge/node-pty-prebuilt-multiarch`, per-key paced input to
+avoid bracketed-paste bundling). Dedicated vitest project: files use the `*.ptytest.ts`
+suffix (excluded from the default `pnpm test` glob) and run via
+`pnpm --filter @robota-sdk/agent-transport test:pty` after building agent-cli. Covered
+contracts: boot render, slash autocomplete, `/help` command execution at human key rates,
+`/exit` process exit within 10s.
+
 ## 9. Class Contract Registry
 
 ### `TuiInteractionChannel`

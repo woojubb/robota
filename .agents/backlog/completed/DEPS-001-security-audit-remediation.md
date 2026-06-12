@@ -1,6 +1,6 @@
 ---
 title: 'DEPS-001: Security audit remediation campaign — clear pnpm audit to unblock release-grade verification'
-status: todo
+status: done
 created: 2026-06-12
 priority: high
 urgency: now
@@ -85,4 +85,11 @@ release-grade verification job (which runs `pnpm audit --audit-level high`) pass
 - Steps: after all units merge to develop, observe PR #701 checks.
 - Expected observable result: `release-grade verification` check passes; `pnpm audit
 --audit-level high` locally exits 0.
-- Evidence: (fill after implementation)
+- Evidence: 2026-06-12 — PR #702 (DEPS-001 U1+U2+U3, squash-merged to develop) ran the
+  full CI including the dependency-change-triggered `security audit` job: **pass**. Release
+  PR #701 then re-ran `release-grade verification` (which executes
+  `pnpm audit --audit-level high` + full build/test/typecheck/lint + all 22 harness scans):
+  **pass**, and #701 merged to main (73fcd72f6, merge commit;
+  `git merge-base --is-ancestor` confirms develop ⊂ main). Local final state:
+  `pnpm audit` → 1 moderate (postcss pinned inside next@15.5.19, upstream-only), 0 high,
+  0 critical — from 89 advisories (2 critical / 18 high) at campaign start.
