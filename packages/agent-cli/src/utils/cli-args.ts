@@ -80,6 +80,9 @@ Options:
   --model <model>            Model override for this run
   --json-schema <schema>     Print mode: instruct the model to respond with JSON matching this schema
   --dry-run                  Alias for --permission-mode plan (plan only, no execution)
+  --reset                    Delete ~/.robota/settings.json (provider profiles and preferences).
+                             Asks for confirmation; use --yes to skip
+  --yes                      Skip confirmation prompts (required for --reset in non-TTY)
   --check-update             Check for CLI updates
   --version                  Show version number
   -h, --help                 Show this help message

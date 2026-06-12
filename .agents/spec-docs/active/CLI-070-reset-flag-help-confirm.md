@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: BEHAVIOR
 tags: [cli, typescript]
 ---
@@ -110,7 +110,7 @@ preferences). Asks for confirmation; use --yes to skip.`
 
 ## Tasks
 
-- [ ] `.agents/tasks/CLI-070.md` — 미생성 (GATE-APPROVAL 통과 후 생성)
+- [ ] `.agents/tasks/CLI-070.md` — T1~T7 (TC-01~TC-06 매핑 + wrap-up)
 
 ## Evidence Log
 
@@ -136,3 +136,12 @@ preferences). Asks for confirmation; use --yes to skip.`
 - Approval directed at this spec: the approval request individually summarized CLI-070's design (`--reset` added to help; confirmation matrix — TTY y/N prompt skippable with `--yes`, non-TTY without `--yes` refuses with exit 1 and leaves the file untouched), so "승인함" unambiguously covers this document. The earlier release instruction ("머지하고 main 릴리스 진행해줘") was correctly not treated as design approval; the answer to "그래서 뭐?" was a clarification, not the approval itself.
 - No Architecture Review or frontmatter type/tags modified after approval: `git log` for this file shows only commit cd5b1053a (GATE-WRITE batch, pre-approval); post-GATE-WRITE changes were limited to the guard's Evidence Log entry, the draft → review-ready status upgrade, and prettier formatting; working tree clean for this file.
 - NON-COMPLIANCE trigger not present: `.agents/tasks/CLI-070.md` does not exist (verified by ls), no uncommitted changes under `packages/agent-cli`, and the latest `packages/agent-cli/src` commits (CLI-074 #703, DEPS-001 #702, CLI-066 #700) belong to other specs — no implementation work for CLI-070 has started.
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-06-13
+
+**Status upgrade:** approved → in-progress
+
+- Tasks file created: `.agents/tasks/CLI-070.md` exists on branch `feat/cli-070-reset-confirm` (read in full; references the spec as Test Plan SSOT).
+- Tasks file path recorded in `## Tasks`: spec's Tasks section lists `.agents/tasks/CLI-070.md` — T1~T7 (TC-01~TC-06 매핑 + wrap-up).
+- Tasks ↔ Completion Criteria correspondence (≥ one task per TC-N): T1→TC-01 (printHelp lists `--reset`), T2→TC-02 (non-TTY refusal, exit 1, file intact), T3→TC-03 (`--yes` deletion, exit 0), T4→TC-04 (injected confirm n/y branches), T5→TC-05 (idempotent clean state, exit 0), T6→TC-06 (SPEC.md flag + confirmation matrix); T7 is wrap-up (test/typecheck/lint/build, PR, evidence + archive) — all 6 TC-N covered.
+- NON-COMPLIANCE trigger not present: `git status` for `packages/agent-cli` shows no modifications (only the spec move todo/ → active/ and the new tasks file); recent `packages/agent-cli/src` commits (CLI-067 #708, CLI-074 #703, DEPS-001 #702, CLI-066 #700, CLI-065 #699) belong to other specs — no implementation commits precede this tasks file.

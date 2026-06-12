@@ -83,7 +83,11 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   const terminal = new PrintTerminal();
 
   if (args.reset) {
-    runResetConfig(terminal);
+    // Destructive-action contract (CLI-070): confirm in TTY, require --yes otherwise.
+    process.exitCode = await runResetConfig(terminal, {
+      yes: args.yes,
+      isTTY: process.stdin.isTTY === true,
+    });
     return;
   }
 
