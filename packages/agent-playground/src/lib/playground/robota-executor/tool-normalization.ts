@@ -7,7 +7,7 @@ export function normalizeTools(tools: IPlaygroundTool[]): FunctionTool[] {
   return tools.map((tool) => (tool instanceof FunctionTool ? tool : buildFunctionTool(tool)));
 }
 
-export function buildFunctionTool(tool: IPlaygroundTool): FunctionTool {
+function buildFunctionTool(tool: IPlaygroundTool): FunctionTool {
   const schema: IToolSchema = {
     name: tool.name,
     description: tool.description || `Playground tool: ${tool.name}`,

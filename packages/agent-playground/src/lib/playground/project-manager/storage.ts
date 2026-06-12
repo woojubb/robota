@@ -37,9 +37,7 @@ export function saveProjectsToStorage(projects: ReadonlyMap<string, IPlaygroundP
   }
 }
 
-export function parseProjectEntries(
-  parsed: TUniversalValue[],
-): Array<[string, IPlaygroundProject]> {
+function parseProjectEntries(parsed: TUniversalValue[]): Array<[string, IPlaygroundProject]> {
   const projects: Array<[string, IPlaygroundProject]> = [];
 
   for (const item of parsed) {

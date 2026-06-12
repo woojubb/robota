@@ -15,10 +15,10 @@ import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type { TToolArgs } from '@robota-sdk/agent-core';
 
 /** Max chars to display from first tool argument. */
-export const TOOL_ARG_DISPLAY_MAX = 80;
+const TOOL_ARG_DISPLAY_MAX = 80;
 const TAIL_KEEP = 30;
 /** Max completed tools to keep in the activeTools array during a single response. */
-export const MAX_COMPLETED_TOOLS = 50;
+const MAX_COMPLETED_TOOLS = 50;
 /** Streaming text flush interval (ms) — ~60fps. */
 export const STREAMING_FLUSH_INTERVAL_MS = 16;
 const DEFAULT_START_LINE = 1;
@@ -188,7 +188,7 @@ export function pushToolSummaryToHistory(state: IStreamingState): void {
 }
 
 /** Trim oldest completed tools from the activeTools array if over the limit. */
-export function trimCompletedTools(activeTools: IToolState[]): IToolState[] {
+function trimCompletedTools(activeTools: IToolState[]): IToolState[] {
   const completed = activeTools.filter((t) => !t.isRunning);
   if (completed.length <= MAX_COMPLETED_TOOLS) return activeTools;
 

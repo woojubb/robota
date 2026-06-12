@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: RULE
 tags: [harness, typescript]
 ---
@@ -114,7 +114,7 @@ decided in-batch; anything touching product contracts is surfaced before merging
 
 ## Tasks
 
-- [ ] `.agents/tasks/HARNESS-015.md` — 미생성 (GATE-APPROVAL 통과 후 생성)
+- [ ] `.agents/tasks/HARNESS-015.md` — T1~T7 (TC-01~TC-06 매핑 + wrap-up)
 
 ## Evidence Log
 
@@ -137,3 +137,12 @@ decided in-batch; anything touching product contracts is surfaced before merging
 - Direct, unambiguous, directed at this spec: the approval request ("## 설계안 요약 (승인 요청) — 백로그 일괄 11건") individually summarized HARNESS-015's design (per-package triage batches of the 153 baseline entries — delete / allowlist-with-reason / wire-to-surface — until the baseline is empty and the file removed, each batch gated on the owning package's build/test green) and stated that approval triggers GATE-APPROVAL → per-item implementation; "승인함" confirms that design and authorizes implementation. The earlier release instruction ("머지하고 main 릴리스 진행해줘", executed as docs-only release PR #705) was correctly not treated as design approval.
 - No Architecture Review or frontmatter type/tags modified after the approval request: only post-GATE-WRITE changes were the guard's Evidence Log entry, the frontmatter status upgrade draft → review-ready, and prettier formatting at commit time (commit cd5b1053a); spec-file git history shows a single commit (cd5b1053a, the GATE-WRITE batch).
 - No implementation started before this gate (NON-COMPLIANCE trigger checked): `.agents/tasks/HARNESS-015.md` does not exist (verified by ls); `scripts/harness/orphan-export-baseline.json` still contains its full 153-entry set (verified by JSON count); no implementation commits touch this spec's scope.
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-06-13
+
+**Status upgrade:** approved → in-progress
+
+- Tasks file created: `.agents/tasks/HARNESS-015.md` exists (verified by read) on branch `feat/harness-015-orphan-burndown`.
+- Tasks file path recorded in `## Tasks`: the spec's Tasks section lists `.agents/tasks/HARNESS-015.md` — T1~T7 (TC-01~TC-06 매핑 + wrap-up).
+- Tasks ↔ Completion Criteria correspondence: T1→TC-01 (per-entry triage table for all 153 entries), T2→TC-02 (baseline file deleted + baseline-loading branch removed), T3→TC-03 (`pnpm harness:scan:orphan-exports` exit 0), T4→TC-04 (non-empty reason string per allowlist entry), T5→TC-05 (per-package build/typecheck/tests green), T6→TC-06 (SPEC Public API tables free of deleted symbols) — one task per TC-N (6/6), plus T7 wrap-up (full harness scan, squash PR to develop, backlog archival).
+- NON-COMPLIANCE trigger checked — no implementation commits without tasks file: `git log develop..HEAD` on `feat/harness-015-orphan-burndown` is empty; `scripts/harness/orphan-export-baseline.json` still contains all 153 entries (verified by JSON count); working tree holds only the spec move todo/ → active/ and the new tasks file.

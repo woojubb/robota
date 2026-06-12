@@ -63,7 +63,7 @@ export function convertModuleEventData(
 }
 
 /** Emit a module lifecycle event, converting data to the emitter's format. */
-export async function emitModuleEvent(
+async function emitModuleEvent(
   eventEmitter: IEventEmitterPlugin,
   eventName: TEventName,
   data: IModuleInitializationEventData | IModuleExecutionEventData | IModuleDisposalEventData,

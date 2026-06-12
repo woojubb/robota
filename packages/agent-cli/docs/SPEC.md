@@ -852,7 +852,6 @@ src/
 │   └── init-command.ts                           ← `robota init` — creates AGENTS.md + .robota/settings.json
 ├── modes/
 │   ├── print-mode.ts                             ← Headless/print mode runner (-p flag); uses HeadlessInteractionChannel
-│   └── shell-exec.ts                             ← createShellExec() — Node child_process.execSync wrapper
 ├── session-analyzer/
 │   └── session-analyze-command.ts                ← `robota session analyze` — session log analysis report
 └── startup/
@@ -862,7 +861,6 @@ src/
     ├── first-run.ts                               ← isFirstRun() / markOnboarded() / printFirstRunWelcome(terminal)
     ├── provider-startup.ts                        ← runInteractiveProviderSetup() — interactive provider config
     ├── reset-config.ts                            ← Deletes user settings file on --reset
-    ├── subagent-setup.ts                          ← createSubagentSetup() — child-process subagent runner factory
     ├── terminal-check.ts                          ← warnIfTerminalAppOnMacOS(terminal) — macOS Terminal.app CJK warning
     └── version.ts                                 ← readVersion() — reads package.json version
 ```
@@ -1706,7 +1704,6 @@ classes. The following table lists the primary runtime constructs with their con
 | `markOnboarded(markerPath?)`            | function | `src/startup/first-run.ts`        | Creates the onboarded marker file; idempotent                                                                                                        |
 | `printFirstRunWelcome(terminal)`        | function | `src/startup/first-run.ts`        | Writes welcome banner via injected `ITerminalOutput` using `AGENT_CLI_BIN` constant                                                                  |
 | `warnIfTerminalAppOnMacOS(terminal)`    | function | `src/startup/terminal-check.ts`   | Emits CJK/IME stability warning on darwin + Apple_Terminal via injected `ITerminalOutput`                                                            |
-| `createShellExec()`                     | factory  | `src/modes/shell-exec.ts`         | Returns a synchronous shell executor with 5 s timeout; used by skill `!` substitution                                                                |
 | `parseCliArgs()`                        | function | `src/utils/cli-args.ts`           | Parses `process.argv` into `IParsedCliArgs`; throws `Error` on invalid input                                                                         |
 | `AGENT_CLI_NAME`                        | constant | `src/constants.ts`                | `'robota-cli'` — internal package name used as `agentName` in session construction                                                                   |
 | `AGENT_CLI_BIN`                         | constant | `src/constants.ts`                | `'robota'` — binary name used in user-facing messages and welcome banner                                                                             |

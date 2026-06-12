@@ -44,7 +44,7 @@ export function validateBackgroundTaskRequest(
   }
 }
 
-export function attachBackgroundTaskHandleMetadata(
+function attachBackgroundTaskHandleMetadata(
   task: ITrackedBackgroundTask,
   handle: IBackgroundTaskHandle,
   now: () => string,
