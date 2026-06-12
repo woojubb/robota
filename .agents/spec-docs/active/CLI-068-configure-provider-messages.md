@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: BEHAVIOR
 tags: [cli, typescript]
 ---
@@ -114,7 +114,7 @@ before configuring (the profile will reference $ENV:<VAR>).` Env is injected
 
 ## Tasks
 
-- [ ] `.agents/tasks/CLI-068.md` — 미생성 (GATE-APPROVAL 통과 후 생성)
+- [ ] `.agents/tasks/CLI-068.md` — T1~T6 (TC-01~TC-05 매핑 + wrap-up)
 
 ## Evidence Log
 
@@ -137,3 +137,12 @@ before configuring (the profile will reference $ENV:<VAR>).` Env is injected
 - Approval directed at this spec: the consolidated approval request ("## 설계안 요약 (승인 요청) — 백로그 일괄 11건") itemized CLI-068 individually (validation reordered to causal order; unknown provider checked first with supported names from the definitions SSOT; unset `--api-key-env` errors naming the env var; configure-time env existence becomes REQUIRED) and explicitly flagged the CLI-068 product-direction decision ("068 configure 시점 env 필수화") before approval was given. Earlier replies were correctly not counted: "머지하고 main 릴리스 진행해줘" was a release instruction (executed as docs-only PR #705), and "그래서 뭐?" was a clarifying question — neither treated as approval.
 - No Architecture Review or frontmatter type/tags modified after the approval request: `git log` shows exactly one commit touching this spec (cd5b1053a, GATE-WRITE batch, released in PR #705); post-GATE-WRITE changes were limited to the GATE-WRITE Evidence Log entry, the frontmatter status upgrade draft → review-ready, and prettier formatting; `type: BEHAVIOR` and `tags: [cli, typescript]` unchanged; working tree clean for this file.
 - NON-COMPLIANCE trigger checked — no implementation before this gate: `.agents/tasks/CLI-068.md` does not exist; `git status` clean for `packages/agent-framework`; `provider-settings.ts` still has pre-spec validation order (missing-type/model checks at :119/:122 precede `findProviderDefinition` at :124, no "Unknown provider" message); the only recent provider-directory commit (f14ac82d9) is CLI-066 (#700), a different item.
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-06-13
+
+**Status upgrade:** approved → in-progress
+
+- Tasks file created: `.agents/tasks/CLI-068.md` exists (untracked on branch `feat/cli-068-configure-messages`, confirmed via `git status`).
+- Tasks file path recorded in `## Tasks` of this spec: entry "`.agents/tasks/CLI-068.md` — T1~T6 (TC-01~TC-05 매핑 + wrap-up)".
+- Tasks correspond to Completion Criteria, at minimum one task per TC-N: T1↔TC-01 (definition lookup first, unknown-provider message with supported list, exit 1), T2↔TC-02 (configure-time `--api-key-env` existence check with injected env), T3↔TC-03 (happy-path regression), T4↔TC-04 (genuine missing-model diagnosis preserved), T5↔TC-05 (framework SPEC.md error taxonomy), plus T6 wrap-up (verify/PR/archive) — 5/5 TC-N covered.
+- NON-COMPLIANCE trigger checked — no implementation commits without tasks file: `git log develop..HEAD` empty; working tree contains only the spec move todo/ → active/, the new tasks file, and pre-existing eval-lessons edits; `packages/agent-framework/src/command-api/provider/provider-settings.ts` untouched.

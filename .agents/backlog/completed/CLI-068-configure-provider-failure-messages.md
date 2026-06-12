@@ -1,6 +1,6 @@
 ---
 title: 'CLI-068: configure-provider failure messages misdiagnose the actual problem'
-status: todo
+status: done
 created: 2026-06-11
 priority: low
 urgency: later
@@ -38,4 +38,24 @@ configuring. Both exit 1.
 
 - Steps: run both commands above; observe stderr.
 - Expected observable result: messages name the actual cause as described.
-- Evidence: (fill after implementation)
+- Evidence (2026-06-13, real binary `bin/robota.cjs`, isolated HOME via `env -i`):
+
+  ```
+  $ robota --configure-provider doesnotexist
+  Unknown provider "doesnotexist". Supported providers: anthropic, openai,
+  gemini (alias: google), gemma, qwen, deepseek
+  exit=1
+
+  $ robota --configure-provider anthropic --type anthropic --model m --api-key-env UNSET_VAR
+  Environment variable UNSET_VAR is not set — set it before configuring
+  (the profile will reference $ENV:UNSET_VAR)
+  exit=1
+
+  $ SET_VAR_068=... robota --configure-provider anthropic --type anthropic \
+      --model claude-test --api-key-env SET_VAR_068
+  Provider profile saved to <home>/.robota/settings.json
+  exit=0
+  ```
+
+  CI tests: `packages/agent-framework/src/command-api/provider/__tests__/
+configure-provider-messages.test.ts` (TC-01~TC-04, 4/4).
