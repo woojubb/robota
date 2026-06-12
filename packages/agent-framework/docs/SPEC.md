@@ -367,29 +367,40 @@ order — the first hit wins:
    synthesized. `env` is injectable (default `process.env`).
 3. **`ProviderConfigError`**: thrown when neither resolves.
 
+Settings files on the merge-chain paths are read fail-fast (CLI-069): a missing file is a
+non-error (skipped / empty defaults), but an EXISTING file that fails to parse throws
+`SettingsParseError` (typed; carries `filePath` and the JSON parse message, with fix/delete
+
+- `robota diagnose` remediation in the message). Corrupt is never treated as missing — both
+  `provider-merge.readSettingsFile` and `config/settings-io.readSettings` enforce this; the
+  old warn-and-continue path is removed. Session start propagates the error (exit 1 at the
+  CLI); reporting consumers (e.g. diagnose) catch it and present it as a finding.
+
 Callers can detect `source === 'env-default'` and read `sourceEnvVar` to render a one-line
 startup notice naming provider/model/env-var — never the key value.
 
 ## Error Taxonomy
 
-The package defines one named `Error` subclass: `ProviderConfigError` (missing/unusable
+The package defines two named `Error` subclasses: `ProviderConfigError` (missing/unusable
 provider configuration at session start — thrown by `readProviderSettings` and by
 `agent-command`'s `ensureProviderConfig`; the CLI maps it to a distinct exit code in print
-mode). All other errors propagate from underlying packages and from SDK assembly
-validation:
+mode) and `SettingsParseError` (existing settings file with invalid JSON — see §Provider
+Resolution Order; generic exit 1 at the CLI). All other errors propagate from underlying
+packages and from SDK assembly validation:
 
-| Error Source            | Category                    | Description                                                                                                     |
-| ----------------------- | --------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| Provider resolution     | `ProviderConfigError`       | No settings profile and no env-default synthesis candidate (see §Provider Resolution Order)                     |
-| `agent-session`         | `SessionRunError`           | Unrecoverable error during `session.run()`                                                                      |
-| `agent-core`            | `PermissionDeniedError`     | Tool call denied by permission policy                                                                           |
-| Config loading          | `TypeError` / thrown string | Missing `type` field in provider profile; unknown `currentProvider` key                                         |
-| Prompt file references  | blocking diagnostic         | Missing file, outside-root, circular, max-depth, or size-limit violations; prompt is rejected before being sent |
-| Org policy              | thrown string               | `allowedProviders` or `requireApiKeyFromEnv` violation detected at command dispatch                             |
-| Reversible execution    | thrown `Error`              | Local-first mode blocks a tool that lacks required isolation                                                    |
-| Checkpoint restore      | thrown `Error`              | Restore attempted while a prompt is running                                                                     |
-| User-local storage      | thrown `Error`              | Empty root, relative root, root equal to the active repository, or root inside the active repository            |
-| `BackgroundTaskManager` | `BackgroundTaskError`       | Typed error with category and recoverability (re-exported from `agent-executor`)                                |
+| Error Source            | Category                    | Description                                                                                                             |
+| ----------------------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Provider resolution     | `ProviderConfigError`       | No settings profile and no env-default synthesis candidate (see §Provider Resolution Order)                             |
+| Settings file parsing   | `SettingsParseError`        | Existing settings file with invalid JSON — fail-fast with file path + parse message (CLI-069); never treated as missing |
+| `agent-session`         | `SessionRunError`           | Unrecoverable error during `session.run()`                                                                              |
+| `agent-core`            | `PermissionDeniedError`     | Tool call denied by permission policy                                                                                   |
+| Config loading          | `TypeError` / thrown string | Missing `type` field in provider profile; unknown `currentProvider` key                                                 |
+| Prompt file references  | blocking diagnostic         | Missing file, outside-root, circular, max-depth, or size-limit violations; prompt is rejected before being sent         |
+| Org policy              | thrown string               | `allowedProviders` or `requireApiKeyFromEnv` violation detected at command dispatch                                     |
+| Reversible execution    | thrown `Error`              | Local-first mode blocks a tool that lacks required isolation                                                            |
+| Checkpoint restore      | thrown `Error`              | Restore attempted while a prompt is running                                                                             |
+| User-local storage      | thrown `Error`              | Empty root, relative root, root equal to the active repository, or root inside the active repository                    |
+| `BackgroundTaskManager` | `BackgroundTaskError`       | Typed error with category and recoverability (re-exported from `agent-executor`)                                        |
 
 All errors from `session.run()` are caught by `InteractiveSession` and emitted as an `error` event rather than thrown from `submit()`.
 
