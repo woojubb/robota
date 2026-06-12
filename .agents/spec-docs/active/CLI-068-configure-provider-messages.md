@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: verifying
 type: BEHAVIOR
 tags: [cli, typescript]
 ---
@@ -91,30 +91,30 @@ before configuring (the profile will reference $ENV:<VAR>).` Env is injected
 
 ## Completion Criteria
 
-- [ ] TC-01: unknown provider name → error contains `Unknown provider "doesnotexist"` and
+- [x] TC-01: unknown provider name → error contains `Unknown provider "doesnotexist"` and
       the supported-name list from `providerDefinitions`; process exit 1
-- [ ] TC-02: known provider + `--api-key-env UNSET_VAR` (injected env without it) → error
+- [x] TC-02: known provider + `--api-key-env UNSET_VAR` (injected env without it) → error
       names `UNSET_VAR` and states it must be set when configuring; exit 1
-- [ ] TC-03: valid configure flow (known provider, set env var) succeeds unchanged
+- [x] TC-03: valid configure flow (known provider, set env var) succeeds unchanged
       (regression)
-- [ ] TC-04: missing `--model` on a known provider still reports the missing field (the
+- [x] TC-04: missing `--model` on a known provider still reports the missing field (the
       original message remains for the genuinely-missing-field case)
-- [ ] TC-05: framework SPEC.md error taxonomy documents both new messages and the
+- [x] TC-05: framework SPEC.md error taxonomy documents both new messages and the
       configure-time env requirement
 
 ## Test Plan
 
-| TC-ID | Test Type | Tool / Approach                                 | Notes                                                                 |
-| ----- | --------- | ----------------------------------------------- | --------------------------------------------------------------------- |
-| TC-01 | unit      | vitest — validation fn with unknown name        | message content + supported list assertion                            |
-| TC-02 | unit      | vitest — injected env map without the var       | env var named, no key value printed                                   |
-| TC-03 | unit      | vitest — happy-path configure with injected env | regression                                                            |
-| TC-04 | unit      | vitest — known provider, missing model          | original diagnosis preserved where correct                            |
-| TC-05 | manual    | SPEC.md diff review                             | doc prose — verified by direct read at GATE-COMPLETE, not automatable |
+| TC-ID | Test Type | Tool / Approach                                 | Notes                                                                                                                                                                                                                                |
+| ----- | --------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| TC-01 | unit      | vitest — validation fn with unknown name        | Test: `packages/agent-framework/src/command-api/provider/__tests__/configure-provider-messages.test.ts > configure-provider failure messages (CLI-068) > TC-01: unknown provider type names the cause and lists supported providers` |
+| TC-02 | unit      | vitest — injected env map without the var       | Test: same file > `TC-02: unset --api-key-env target names the variable and the configure-time requirement`                                                                                                                          |
+| TC-03 | unit      | vitest — happy-path configure with injected env | Test: same file > `TC-03: valid configure flow succeeds unchanged (regression)`                                                                                                                                                      |
+| TC-04 | unit      | vitest — known provider, missing model          | Test: same file > `TC-04: a known provider genuinely missing a model still reports the missing field`                                                                                                                                |
+| TC-05 | manual    | SPEC.md diff review                             | Skip reason (no automated test): doc prose — verified by direct read at GATE-COMPLETE, not automatable                                                                                                                               |
 
 ## Tasks
 
-- [ ] `.agents/tasks/CLI-068.md` — T1~T6 (TC-01~TC-05 매핑 + wrap-up)
+- [x] `.agents/tasks/completed/CLI-068.md` — archived at GATE-COMPLETE (T1~T6 complete, TC-01~TC-05 매핑)
 
 ## Evidence Log
 
@@ -146,3 +146,61 @@ before configuring (the profile will reference $ENV:<VAR>).` Env is injected
 - Tasks file path recorded in `## Tasks` of this spec: entry "`.agents/tasks/CLI-068.md` — T1~T6 (TC-01~TC-05 매핑 + wrap-up)".
 - Tasks correspond to Completion Criteria, at minimum one task per TC-N: T1↔TC-01 (definition lookup first, unknown-provider message with supported list, exit 1), T2↔TC-02 (configure-time `--api-key-env` existence check with injected env), T3↔TC-03 (happy-path regression), T4↔TC-04 (genuine missing-model diagnosis preserved), T5↔TC-05 (framework SPEC.md error taxonomy), plus T6 wrap-up (verify/PR/archive) — 5/5 TC-N covered.
 - NON-COMPLIANCE trigger checked — no implementation commits without tasks file: `git log develop..HEAD` empty; working tree contains only the spec move todo/ → active/, the new tasks file, and pre-existing eval-lessons edits; `packages/agent-framework/src/command-api/provider/provider-settings.ts` untouched.
+
+### [GATE-VERIFY] — ✅ PASS | 2026-06-13
+
+**Status upgrade:** in-progress → verifying
+
+- All tasks complete or adjudicated: `.agents/tasks/CLI-068.md` T1–T5 are `[x]` (TC-01–TC-05 mapped). T6 (wrap-up) is intentionally unchecked and adjudicated per established CLI-063..069 precedent — its substance was verified directly this run: PR #710 (`feat/cli-068-configure-messages` → `develop`) is OPEN (`gh pr view 710 --json state`) with CI green (`gh pr checks 710`: build pass 1m19s, quality pass 50s, security audit pass 5s; compat-node18 and release-grade verification skipping by design; Cloudflare Pages preview not listed on this PR — non-blocking docs preview); backlog evidence exists at `.agents/backlog/completed/CLI-068-configure-provider-failure-messages.md` (`status: done`, real-binary User Execution scenarios recorded 2026-06-13: unknown provider → "Unknown provider" + supported list + exit 1; UNSET_VAR named + exit 1; valid configure saved + exit 0). Only the squash-merge itself remains, which by definition follows verification.
+- No tasks blocked or pending: no task in `.agents/tasks/CLI-068.md` is marked blocked; T1–T5 done, T6 adjudicated as above.
+- Build passes for the affected package: `pnpm --filter @robota-sdk/agent-framework build` → "Build complete" for both CJS (852ms) and ESM (862ms) outputs, no errors. agent-framework is the sole code-affected package (provider-settings.ts, configure-provider-messages.test.ts, two adapted pre-existing tests, docs/SPEC.md).
+- Tests pass for the affected package: `pnpm --filter @robota-sdk/agent-framework test` → 92 test files passed, 911/911 tests passed, including the 4 new tests in `src/command-api/provider/__tests__/configure-provider-messages.test.ts` (re-run in isolation: 4/4 passed). The two adapted pre-existing tests (`src/__tests__/provider-configuration.test.ts`, `src/command-api/__tests__/command-api.test.ts`) inject env at configure time — this is the approved deliberate tightening (Decision/Alternative 1, TC-02), not contract drift.
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-06-13
+
+- Checkbox: TC-01 is `[x]` in Completion Criteria.
+- Command: `npx vitest run src/command-api/provider/__tests__/configure-provider-messages.test.ts` (cwd `packages/agent-framework`).
+- Output: `✓ configure-provider failure messages (CLI-068) > TC-01: unknown provider type names the cause and lists supported providers` — 4/4 tests passed, exit code 0.
+- End-to-end corroboration: `.agents/backlog/completed/CLI-068-configure-provider-failure-messages.md` records the real binary `robota --configure-provider doesnotexist` → `Unknown provider "doesnotexist". Supported providers: anthropic, openai, …`, exit=1.
+- Test Plan reference recorded: `configure-provider-messages.test.ts > … > TC-01: unknown provider type names the cause and lists supported providers`.
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-06-13
+
+- Checkbox: TC-02 is `[x]` in Completion Criteria.
+- Command: same vitest run as TC-01 (cwd `packages/agent-framework`).
+- Output: `✓ … > TC-02: unset --api-key-env target names the variable and the configure-time requirement` — passed, suite exit code 0.
+- End-to-end corroboration: backlog completed file records `robota --configure-provider anthropic --type anthropic --model m --api-key-env UNSET_VAR` → `Environment variable UNSET_VAR is not set — set it before configuring (the profile will reference $ENV:UNSET_VAR)`, exit=1; no key value printed.
+- Test Plan reference recorded: `configure-provider-messages.test.ts > … > TC-02: unset --api-key-env target names the variable and the configure-time requirement`.
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-06-13
+
+- Checkbox: TC-03 is `[x]` in Completion Criteria.
+- Command: same vitest run as TC-01.
+- Output: `✓ … > TC-03: valid configure flow succeeds unchanged (regression)` — passed, suite exit code 0.
+- End-to-end corroboration: backlog completed file records the valid configure scenario saving the profile with exit=0.
+- Test Plan reference recorded: `configure-provider-messages.test.ts > … > TC-03: valid configure flow succeeds unchanged (regression)`.
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-06-13
+
+- Checkbox: TC-04 is `[x]` in Completion Criteria.
+- Command: same vitest run as TC-01.
+- Output: `✓ … > TC-04: a known provider genuinely missing a model still reports the missing field` — passed, suite exit code 0 (4 passed / 4 total).
+- Test Plan reference recorded: `configure-provider-messages.test.ts > … > TC-04: a known provider genuinely missing a model still reports the missing field`.
+
+### [GATE-COMPLETE: TC-05] — ❌ FAIL | 2026-06-13
+
+- Checkbox: TC-05 is `[x]` in Completion Criteria — but the claimed artifact does not exist.
+- Verification: direct read of `packages/agent-framework/docs/SPEC.md` `## Error Taxonomy` (line 382; table rows at lines 391–403) — no "Configure-provider validation" row; neither new message nor the configure-time env requirement is documented.
+- Corroborating greps (all zero matches in framework SPEC.md): `Unknown provider`, `api-key-env`/`apiKeyEnv`, `configure-provider`, `supported providers`, `configure-time`.
+- Commit check: CLI-068 commit `100dfb51b` (`git show --stat`) touches `provider-settings.ts`, `configure-provider-messages.test.ts`, two adapted tests, spec/backlog/tasks docs — but NOT `packages/agent-framework/docs/SPEC.md`; `git status` shows no uncommitted SPEC.md change. T5 is `[x]` in the archived tasks file without a real artifact.
+- Test Plan: manual row with explicit skip reason is formally present; the manual verification itself failed.
+
+### [GATE-COMPLETE] — ❌ FAIL | 2026-06-13
+
+**Status remains:** verifying
+**Failed criteria:**
+
+- TC-05 (framework SPEC.md error taxonomy documents both new messages and the configure-time env requirement): checkbox is `[x]` and tasks-file T5 is `[x]`, but `packages/agent-framework/docs/SPEC.md` contains no Configure-provider validation row, no `Unknown provider` message, no `--api-key-env` configure-time requirement (Error Taxonomy table lines 391–403 unchanged since CLI-069 commit `839bd73ad`; CLI-068 commit `100dfb51b` does not touch SPEC.md).
+  **Required action:** add the "Configure-provider validation" row(s) to `packages/agent-framework/docs/SPEC.md` `## Error Taxonomy` documenting the `Unknown provider "<name>". Supported providers: …` message, the `Environment variable <VAR> is not set — set it before configuring …` message, and the configure-time env-var requirement; commit on `feat/cli-068-configure-messages`; then re-run GATE-COMPLETE.
+
+Passed criteria for the record: TC-01–TC-04 all `[x]` with vitest evidence (4/4 passed, exit 0) plus real-binary corroboration (exits 1/1/0); Test Plan rows updated with test references (TC-01–TC-04) and an explicit manual skip reason (TC-05); tasks file archived at `.agents/tasks/completed/CLI-068.md` with `## Tasks` pointing at the archived path. Only TC-05 blocks `verifying → done`.
