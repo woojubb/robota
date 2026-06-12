@@ -1,4 +1,8 @@
-import { findProviderDefinition, getProviderCredentialRequirement } from '@robota-sdk/agent-core';
+import {
+  findProviderDefinition,
+  formatSupportedProviderTypes,
+  getProviderCredentialRequirement,
+} from '@robota-sdk/agent-core';
 import { formatEnvReference, hasUsableSecretReference } from '@robota-sdk/agent-core';
 
 import type {
@@ -47,6 +51,8 @@ export interface IProviderSetupPatch {
 
 export interface IProviderSettingsBuildOptions {
   providerDefinitions?: readonly IProviderDefinition[];
+  /** Environment map for configure-time checks (test seam, default: process.env). */
+  env?: Record<string, string | undefined>;
 }
 
 export function upsertProviderProfile(
@@ -118,10 +124,18 @@ export function validateProviderProfile(
   if (!profile.type) {
     throw new Error(`Provider profile "${profileName}" is missing type`);
   }
+  // CLI-068: causal order — an unknown provider must be diagnosed as unknown,
+  // not as a missing field that its (nonexistent) defaults failed to fill.
+  const definitions = options.providerDefinitions ?? [];
+  const definition = findProviderDefinition(definitions, profile.type);
+  if (definition === undefined && definitions.length > 0) {
+    throw new Error(
+      `Unknown provider "${profile.type}". Supported providers: ${formatSupportedProviderTypes(definitions)}`,
+    );
+  }
   if (!profile.model) {
     throw new Error(`Provider profile "${profileName}" is missing model`);
   }
-  const definition = findProviderDefinition(options.providerDefinitions ?? [], profile.type);
   const credentialRequirement = getProviderCredentialRequirement(definition);
   if (
     credentialRequirement !== undefined &&
@@ -157,6 +171,17 @@ export function buildProviderProfile(
     console.warn(
       'API key stored as plain text in settings. Use --api-key-env for better security.',
     ); // allow-console: security warning at setup time
+  }
+  if (input.apiKeyEnv !== undefined) {
+    // CLI-068: the referenced variable must exist when configuring — failing at
+    // first run with a generic missing-apiKey message diagnoses the wrong cause.
+    const envValue = (options.env ?? process.env)[input.apiKeyEnv];
+    if (envValue === undefined || envValue.length === 0) {
+      throw new Error(
+        `Environment variable ${input.apiKeyEnv} is not set — set it before configuring ` +
+          `(the profile will reference $ENV:${input.apiKeyEnv})`,
+      );
+    }
   }
   const apiKey =
     input.apiKeyEnv !== undefined
