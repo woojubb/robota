@@ -46,19 +46,19 @@
     "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
   },
   "dependencies": {
-    "fast-glob": "^3.3.0",
+    "fast-glob": "^3.3.3",
     "p-limit": "^7.3.0",
-    "zod": "^3.24.0"
+    "zod": "^3.25.76"
   },
   "peerDependencies": {
     "@robota-sdk/agent-core": "workspace:*"
   },
   "devDependencies": {
     "@robota-sdk/agent-core": "workspace:*",
-    "rimraf": "^5.0.5",
-    "tsdown": "^0.22.0",
-    "typescript": "^5.3.3",
-    "vitest": "^1.6.1"
+    "rimraf": "^5.0.10",
+    "tsdown": "^0.22.2",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.6"
   },
   "license": "MIT",
   "publishConfig": {

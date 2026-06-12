@@ -36,11 +36,11 @@ function createTerminal(): { terminal: ITerminalOutput; output(): string } {
 
 describe('runInitCommand prompt matrix (CLI-065)', () => {
   let cwd: string;
-  let promptSpy: ReturnType<typeof vi.fn<[string], Promise<string>>>;
+  let promptSpy: ReturnType<typeof vi.fn<(question: string) => Promise<string>>>;
 
   beforeEach(() => {
     cwd = mkdtempSync(join(tmpdir(), 'robota-init-test-'));
-    promptSpy = vi.fn<[string], Promise<string>>(async () => 'y');
+    promptSpy = vi.fn<(question: string) => Promise<string>>(async () => 'y');
   });
 
   afterEach(() => {
