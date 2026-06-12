@@ -39,7 +39,7 @@ describe('FunctionTool', () => {
   // ----------------------------------------------------------------
   describe('construction', () => {
     it('should construct with valid schema and function', () => {
-      const fn = vi.fn<[TToolParameters], Promise<string>>().mockResolvedValue('ok');
+      const fn = vi.fn<(parameters: TToolParameters) => Promise<string>>().mockResolvedValue('ok');
       const tool = new FunctionTool(buildSchema(), fn);
 
       expect(tool.schema.name).toBe('echo');
@@ -47,7 +47,7 @@ describe('FunctionTool', () => {
     });
 
     it('should throw when schema is missing a name', () => {
-      const fn = vi.fn<[TToolParameters], Promise<string>>().mockResolvedValue('ok');
+      const fn = vi.fn<(parameters: TToolParameters) => Promise<string>>().mockResolvedValue('ok');
 
       expect(() => new FunctionTool(buildSchema({ name: '' }), fn)).toThrow(ValidationError);
     });
@@ -156,7 +156,9 @@ describe('FunctionTool', () => {
   // ----------------------------------------------------------------
   describe('execute', () => {
     it('should execute and return success result', async () => {
-      const fn = vi.fn<[TToolParameters], Promise<string>>().mockResolvedValue('echoed');
+      const fn = vi
+        .fn<(parameters: TToolParameters) => Promise<string>>()
+        .mockResolvedValue('echoed');
       const tool = new FunctionTool(buildSchema(), fn);
       const context = buildContext();
 
@@ -174,7 +176,9 @@ describe('FunctionTool', () => {
     });
 
     it('should wrap unexpected errors in ToolExecutionError', async () => {
-      const fn = vi.fn<[TToolParameters], Promise<string>>().mockRejectedValue(new Error('boom'));
+      const fn = vi
+        .fn<(parameters: TToolParameters) => Promise<string>>()
+        .mockRejectedValue(new Error('boom'));
       const tool = new FunctionTool(buildSchema(), fn);
 
       await expect(tool.execute({ message: 'hi' }, buildContext())).rejects.toThrow(
@@ -184,14 +188,16 @@ describe('FunctionTool', () => {
 
     it('should re-throw ToolExecutionError as-is', async () => {
       const original = new ToolExecutionError('custom', 'echo');
-      const fn = vi.fn<[TToolParameters], Promise<string>>().mockRejectedValue(original);
+      const fn = vi
+        .fn<(parameters: TToolParameters) => Promise<string>>()
+        .mockRejectedValue(original);
       const tool = new FunctionTool(buildSchema(), fn);
 
       await expect(tool.execute({ message: 'hi' }, buildContext())).rejects.toBe(original);
     });
 
     it('should include execution metadata in result', async () => {
-      const fn = vi.fn<[TToolParameters], Promise<string>>().mockResolvedValue('ok');
+      const fn = vi.fn<(parameters: TToolParameters) => Promise<string>>().mockResolvedValue('ok');
       const tool = new FunctionTool(buildSchema(), fn);
 
       const result = await tool.execute({ message: 'hi' }, buildContext());
@@ -317,7 +323,7 @@ describe('FunctionTool', () => {
   // ----------------------------------------------------------------
   describe('createFunctionTool helper', () => {
     it('should create a FunctionTool with the given parameters', () => {
-      const fn = vi.fn<[TToolParameters], Promise<string>>().mockResolvedValue('ok');
+      const fn = vi.fn<(parameters: TToolParameters) => Promise<string>>().mockResolvedValue('ok');
       const tool = createFunctionTool(
         'helper',
         'Helper tool',
