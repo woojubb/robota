@@ -47,27 +47,30 @@ Key facts:
 
 ### U2 — app dependency majors
 
-- [ ] apps/agent-server: firebase-admin ^12 → 13.x / firebase-functions ^4.8 → latest —
-      clears protobufjs ≥8.0.2 (4 high + 4 moderate), fast-xml-parser ≥5.7.0, uuid ≥11.1.1,
-      @grpc residuals; verify server build + tests
-- [ ] apps/docs: next-mdx-remote ^5 → ^6 (high, arbitrary code execution) — verify docs build
-- [ ] apps/blog: astro majors if any residual after U1
-- [ ] re-audit and record the delta
+- [x] apps/agent-server: firebase-admin ^12 → ^13 (13.10.0) / firebase-functions ^4.8 → ^7
+      (7.2.5) — usage surface was a single `onRequest` from `firebase-functions/v2/https`
+      (path valid in v7); server build + 19 tests green. Residual transitive
+      uuid@9 (via google-auth-library > gaxios) cleared with override `uuid@<11.1.1`
+- [x] apps/docs: next-mdx-remote ^5 → ^6 — `/rsc` import unchanged; docs build green
+- [x] apps/blog: no residual after U1 (astro cleared by in-range update)
+- [x] re-audit: 9 → 1 (after U2+U3 combined; see Final)
 
 ### U3 — vitest 1.6.1 → ≥3.2.6 workspace migration (the critical)
 
-- [ ] vitest + @vitest/coverage-v8 major bump across the workspace (~30 projects); vite
-      peer alignment (5.4 patch line or 6.x per vitest 3 requirements); esbuild moderate
-      clears with it
-- [ ] migration notes: workspace config API changes, mock typing changes (vi.fn generics
-      used in agent-cli tests), reporter/coverage config
-- [ ] full workspace test sweep green; this unit likely needs its own spec doc if config
-      surface changes (SPEC-GATE applies to test-infra .ts changes)
+- [x] vitest ^1.6.1 → ^3.2.6 + @vitest/coverage-v8 ^3.2.6 across 19 package.json files;
+      vite/esbuild moderates cleared with the new tree
+- [x] migration fallout was minimal: zero test failures workspace-wide; two TS7006
+      implicit-any params in agent-core execution-service.test.ts (vitest 3 vi.fn inference
+      change) fixed with explicit annotations; no config changes required
+- [x] full workspace test sweep green (all packages + apps, 0 failures); no config surface
+      change → no separate spec doc needed (two-line type annotation fix only)
 
 ### Final
 
-- [ ] `pnpm audit --audit-level high` exits 0 → release-grade verification green on PR #701
-- [ ] residual moderate/low advisories recorded here with reasons if unfixable
+- [x] `pnpm audit --audit-level high` exits 0 locally (final state: 1 moderate)
+- [x] residual: **1 moderate** — postcss@8.4.31 pinned INSIDE next@15.5.19 itself
+      (apps/agent-web > next > postcss); not overridable without patching next's internal
+      pin — waits for the next upstream release. No high/critical remain.
 
 ## Test Plan
 

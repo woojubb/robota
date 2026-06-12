@@ -29,8 +29,7 @@ interface IGenerateContentInput {
 }
 
 const generateContentMock = vi.fn<
-  [IGenerateContentInput],
-  Promise<{
+  (input: IGenerateContentInput) => Promise<{
     candidates: Array<{
       content: {
         parts: Array<{
