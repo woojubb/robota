@@ -1,5 +1,5 @@
 ---
-status: approved
+status: done
 type: INFRA
 tags: [cli, typescript]
 ---
@@ -113,23 +113,23 @@ scripted-provider suites.
 
 ## Completion Criteria
 
-- [ ] TC-01: `createScriptedProvider` replays declared turns in order, records request
+- [x] TC-01: `createScriptedProvider` replays declared turns in order, records request
       message arrays, and throws on script exhaustion (unit)
-- [ ] TC-02: tool-loop E2E — scripted tool_use turns drive real Read/Edit/Bash on a temp
+- [x] TC-02: tool-loop E2E — scripted tool_use turns drive real Read/Edit/Bash on a temp
       repo through print mode; the file mutation and final response are asserted; exit 0
-- [ ] TC-03: permission E2E — same script under `--dry-run` leaves the file untouched and
+- [x] TC-03: permission E2E — same script under `--dry-run` leaves the file untouched and
       under `--denied-tools Edit` the Edit call is denied (deny surfaced in the tool result)
-- [ ] TC-04: resume E2E — turn 1 then `-c` turn 2: the scripted provider's second-run
+- [x] TC-04: resume E2E — turn 1 then `-c` turn 2: the scripted provider's second-run
       request contains turn-1 messages; exactly one session file
-- [ ] TC-05: output-contract E2E — one scripted run each for text/json/stream-json/--bare
+- [x] TC-05: output-contract E2E — one scripted run each for text/json/stream-json/--bare
       asserting the documented envelope shapes and exit codes
-- [ ] TC-06: slash-command smoke — every command listed by the registry executes through
+- [x] TC-06: slash-command smoke — every command listed by the registry executes through
       print mode returning a result envelope (no throw, no model call needed or scripted)
-- [ ] TC-07: PTY — TUI boots to the prompt, `/` renders the autocomplete dropdown, `/help`
+- [x] TC-07: PTY — TUI boots to the prompt, `/` renders the autocomplete dropdown, `/help`
       executes as a command (not paste-bundled) at ≥30ms/key rate
-- [ ] TC-08: PTY — `/exit` reaches process exit within 10s (CLI-071 confirmed fixed or the
+- [x] TC-08: PTY — `/exit` reaches process exit within 10s (CLI-071 confirmed fixed or the
       hang reproduced and recorded in the CLI-071 backlog with the captured state)
-- [ ] TC-09: both SPEC.md test-strategy sections document the harness and its boundaries
+- [x] TC-09: both SPEC.md test-strategy sections document the harness and its boundaries
       (testing subpath is dev-only; PTY suite isolation)
 
 ## Test Plan
@@ -137,21 +137,21 @@ scripted-provider suites.
 Derived strategy (INFRA + cli): the harness IS the test infrastructure; each TC is a vitest
 suite (PTY TCs in a dedicated vitest project).
 
-| TC-ID | Test Type   | Tool / Approach                             | Notes                                      |
-| ----- | ----------- | ------------------------------------------- | ------------------------------------------ |
-| TC-01 | unit        | vitest — scripted provider behavior         |                                            |
-| TC-02 | integration | vitest — startCli print mode + temp repo    |                                            |
-| TC-03 | integration | vitest — permission matrix variants         |                                            |
-| TC-04 | integration | vitest — two startCli runs, shared store    |                                            |
-| TC-05 | integration | vitest — envelope shape assertions          |                                            |
-| TC-06 | integration | vitest — registry-driven command sweep      |                                            |
-| TC-07 | integration | vitest + node-pty — real PTY input pipeline | dedicated vitest project, generous timeout |
-| TC-08 | integration | vitest + node-pty — shutdown deadline       | CLI-071 confirmation                       |
-| TC-09 | manual      | SPEC.md diff review                         | doc change — reviewed in PR diff           |
+| TC-ID | Test Type   | Tool / Approach                             | Notes                                      | Test reference / skip reason                                                                                                                                                                                                        |
+| ----- | ----------- | ------------------------------------------- | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| TC-01 | unit        | vitest — scripted provider behavior         |                                            | `packages/agent-transport/src/testing/__tests__/scripted-provider.test.ts` > `createScriptedProvider (CLI-074)` > 3 `TC-01:` tests (replay order/records requests, tool_use turns, throws on exhaustion)                            |
+| TC-02 | integration | vitest — startCli print mode + temp repo    |                                            | `packages/agent-cli/src/__tests__/e2e/scripted-e2e.test.ts` > `scripted agent-loop E2E (CLI-074)` > `TC-02: scripted Read→Edit→Bash turns mutate a real file through print mode`                                                    |
+| TC-03 | integration | vitest — permission matrix variants         |                                            | same file > `TC-03: --dry-run blocks the Edit and leaves the file untouched` + `TC-03: --denied-tools Edit surfaces the denial in the tool result`                                                                                  |
+| TC-04 | integration | vitest — two startCli runs, shared store    |                                            | same file > `TC-04: -c resume feeds the prior conversation into the next scripted request`                                                                                                                                          |
+| TC-05 | integration | vitest — envelope shape assertions          |                                            | same file > `TC-05: output contracts — text, json, stream-json, --bare`                                                                                                                                                             |
+| TC-06 | integration | vitest — registry-driven command sweep      |                                            | `packages/agent-cli/src/__tests__/e2e/slash-smoke.test.ts` > `slash-command smoke through print mode (CLI-074 TC-06)` > `TC-06: every command listed by /help executes to a valid json envelope`                                    |
+| TC-07 | integration | vitest + node-pty — real PTY input pipeline | dedicated vitest project, generous timeout | `packages/agent-transport/src/tui/__tests__/pty/tui-pty.ptytest.ts` > `TUI through a real PTY (CLI-074)` > `TC-07: boots, opens slash autocomplete, and executes /help as a command`                                                |
+| TC-08 | integration | vitest + node-pty — shutdown deadline       | CLI-071 confirmation                       | same file > `TC-08: /exit reaches process exit within 10s`                                                                                                                                                                          |
+| TC-09 | manual      | SPEC.md diff review                         | doc change — reviewed in PR diff           | Test skipped: doc-only change — automated test not applicable; verified by SPEC section inspection (transport SPEC `## Test Harness Contracts (CLI-074)`, cli SPEC `## Test Strategy` deterministic-E2E paragraph) and PR #703 diff |
 
 ## Tasks
 
-- [x] `.agents/tasks/CLI-074.md` — 생성 완료 (T1~T10, TC-01~TC-09 매핑)
+- [x] `.agents/tasks/completed/CLI-074.md` — archived at GATE-COMPLETE (T1~T10 all complete, TC-01~TC-09 매핑)
 
 ## Evidence Log
 
@@ -198,3 +198,95 @@ Note: not NON-COMPLIANCE — no CLI-074 implementation work (file edits/commits)
 - NON-COMPLIANCE check: no implementation commits exist — `git diff develop...HEAD --stat` is empty (branch has no commits ahead of develop); working tree contains only the spec stage move (`backlog/ → todo/`) and the tasks file; `packages/agent-transport/src/testing/`, `packages/agent-cli/src/__tests__/e2e/`, `packages/agent-transport/src/tui/__tests__/pty/` all absent; `@homebridge/node-pty-prebuilt-multiarch` devDependency in `packages/agent-transport/package.json` is pre-existing in develop (verified via `git show develop:packages/agent-transport/package.json`), not CLI-074 implementation work
 
 Tasks created (from `.agents/tasks/CLI-074.md`): T1 scripted provider unit (TC-01) · T2 tool-loop E2E (TC-02) · T3 permission E2E (TC-03) · T4 resume E2E (TC-04) · T5 output-contract E2E (TC-05) · T6 slash-command smoke (TC-06) · T7 PTY driver helper + boot/autocomplete/`/help` (TC-07) · T8 PTY `/exit` shutdown deadline (TC-08) · T9 SPEC sync (TC-09) · T10 verification + PR + evidence wrap-up
+
+### [GATE-VERIFY] — ❌ FAIL | 2026-06-12
+
+**Status remains:** in-progress
+**Failed criteria:**
+
+- All tasks in `.agents/tasks/CLI-074.md` marked complete: T1–T9 are `[x]`, but **T10 is unchecked (`[ ] T10: build/typecheck/lint/test green; PR to develop; backlog/L2 evidence recording`)** — the gate requires every task `[x]`
+  **Required action:** Confirm T10's remaining substance (verification runs are green per evidence below; PR #703 to develop is OPEN; evidence-recording substance must be confirmed by the implementer), mark T10 `[x]` in `.agents/tasks/CLI-074.md`, then re-run GATE-VERIFY
+- No tasks blocked or pending: T10 is pending (same finding as above)
+
+Evidence for the remaining criteria (all met — recorded so the re-run only needs to confirm the tasks file):
+
+- Build: `pnpm --filter "@robota-sdk/agent-cli..." build` (agent-cli + all workspace deps incl. agent-transport) — "Build complete", exit 0
+- Tests (targeted): scripted-provider unit 4/4 passed (`src/testing/__tests__/scripted-provider.test.ts`); agent-cli E2E `scripted-e2e.test.ts` 5/5 + `slash-smoke.test.ts` 1/1 passed
+- Tests (full affected packages): `pnpm --filter @robota-sdk/agent-transport test -- --run` → 59 files / 467 tests passed; `pnpm --filter @robota-sdk/agent-cli test -- --run` → 16 files / 134 tests passed
+- PTY project: `pnpm --filter @robota-sdk/agent-transport test:pty` → 2/2 passed (TC-07 boot/autocomplete//help-as-command 840ms; TC-08 /exit exit within 10s, 1246ms)
+- SPEC sections present: `packages/agent-transport/docs/SPEC.md` line 283 "## Test Harness Contracts (CLI-074)"; `packages/agent-cli/docs/SPEC.md` Test Strategy references the scripted provider from `@robota-sdk/agent-transport/testing` (line 1632)
+- PR #703 `feat/cli-074-e2e-harness` → `develop` is OPEN (gh pr view 703); branch carries 2 commits (a56eb1c14 T1, 87c22bd79 T2–T9)
+
+### [GATE-VERIFY] — ✅ PASS | 2026-06-12
+
+**Status upgrade:** in-progress → verifying
+
+- All tasks in `.agents/tasks/CLI-074.md` marked complete: T1–T10 all `[x]` (verified firsthand; the prior FAIL's sole failing criterion — T10 unchecked — is resolved)
+- No tasks blocked or pending: none — T10's substance confirmed firsthand: (a) PR #703 `feat/cli-074-e2e-harness` → `develop` is OPEN (`gh pr view 703`); (b) L2 evidence recorded — `.design/validation/agent-cli-product-verification-2026-06.md` line 42 carries the "L2 추가 (2026-06-12, CLI-074 / PR #703)" addendum documenting the harness closing the L2 gap and PTY TC-08 refuting the CLI-071 hang; (c) CLI-071 closed — `.agents/backlog/completed/CLI-071-tui-exit-shutdown-hang.md` exists with a dated User Execution evidence block (TC-08 `/exit` exit 0 in ~1.25s; original hang shown to be an expect(1) paste-bundling artifact), committed in 87c22bd79; (d) all committed and pushed — wrap-up commit 2d10d855f (docs-only: spec doc, tasks file, validation report), branch in sync with `origin/feat/cli-074-e2e-harness`
+- Build passes (`pnpm build` for affected packages): relies on the prior GATE-VERIFY run's firsthand evidence (entry above: `pnpm --filter "@robota-sdk/agent-cli..." build` → "Build complete", exit 0) — still valid because the only commit since (2d10d855f) touches docs/spec/tasks files only, no package sources
+- Tests pass (`pnpm test` for affected packages): same basis — agent-transport 59 files / 467 tests passed, agent-cli 16 files / 134 tests passed, PTY project 2/2 passed (TC-07, TC-08), scripted-provider unit 4/4 passed; no source changes since
+- Note: PR #703 CI checks re-triggered by the docs-only push were IN_PROGRESS at check time (build, security audit); not a gate criterion — gate build/test criteria are satisfied by the local runs above
+
+### [GATE-COMPLETE: TC-01] — ✅ | 2026-06-12
+
+- Command: `pnpm --filter @robota-sdk/agent-transport test -- --run src/testing/__tests__/scripted-provider.test.ts`
+- Output: `Test Files 1 passed (1)`, `Tests 4 passed (4)` — `createScriptedProvider (CLI-074)` suite: replays text turns in order and records requests; replays tool_use turns as assistant toolCalls; throws on script exhaustion instead of improvising; supportsTools/validateConfig prerequisites. Exit code 0.
+- Test reference: `packages/agent-transport/src/testing/__tests__/scripted-provider.test.ts` > `createScriptedProvider (CLI-074)` > three `TC-01:` tests
+
+### [GATE-COMPLETE: TC-02] — ✅ | 2026-06-12
+
+- Command: `pnpm --filter @robota-sdk/agent-cli test -- --run src/__tests__/e2e/scripted-e2e.test.ts src/__tests__/e2e/slash-smoke.test.ts`
+- Output: `scripted-e2e.test.ts (5 tests)` passed, including `TC-02: scripted Read→Edit→Bash turns mutate a real file through print mode` — file mutation + final response + exit 0 asserted in-test. Run exit code 0.
+- Test reference: `packages/agent-cli/src/__tests__/e2e/scripted-e2e.test.ts` > `scripted agent-loop E2E (CLI-074)` > `TC-02: ...`
+
+### [GATE-COMPLETE: TC-03] — ✅ | 2026-06-12
+
+- Command: same run as TC-02 (scripted-e2e.test.ts, 5/5 passed, exit 0)
+- Output: both permission variants passed — `TC-03: --dry-run blocks the Edit and leaves the file untouched` and `TC-03: --denied-tools Edit surfaces the denial in the tool result` (denial asserted via `/denied|permission|not allowed/` on tool result content)
+- Test reference: same file > two `TC-03:` tests
+
+### [GATE-COMPLETE: TC-04] — ✅ | 2026-06-12
+
+- Command: same run as TC-02 (scripted-e2e.test.ts, 5/5 passed, exit 0)
+- Output: `TC-04: -c resume feeds the prior conversation into the next scripted request` passed — second-run request contains turn-1 messages, single session file asserted
+- Test reference: same file > `TC-04: ...`
+
+### [GATE-COMPLETE: TC-05] — ✅ | 2026-06-12
+
+- Command: same run as TC-02 (scripted-e2e.test.ts, 5/5 passed, exit 0)
+- Output: `TC-05: output contracts — text, json, stream-json, --bare` passed — envelope shapes and exit codes asserted for all four output modes
+- Test reference: same file > `TC-05: ...`
+
+### [GATE-COMPLETE: TC-06] — ✅ | 2026-06-12
+
+- Command: same run as TC-02 (slash-smoke.test.ts 1/1 passed, exit 0)
+- Output: `TC-06: every command listed by /help executes to a valid json envelope` passed — registry-driven sweep, each command returns a result envelope with no throw
+- Test reference: `packages/agent-cli/src/__tests__/e2e/slash-smoke.test.ts` > `slash-command smoke through print mode (CLI-074 TC-06)` > `TC-06: ...`
+
+### [GATE-COMPLETE: TC-07] — ✅ | 2026-06-12
+
+- Command: `pnpm --filter @robota-sdk/agent-transport test:pty`
+- Output: `TC-07: boots, opens slash autocomplete, and executes /help as a command` passed (837ms) — real PTY via node-pty, dedicated vitest project (`vitest.pty.config.ts`), `/help` executed as a command (not paste-bundled) at the ≥30ms/key rate. Run exit code 0.
+- Test reference: `packages/agent-transport/src/tui/__tests__/pty/tui-pty.ptytest.ts` > `TUI through a real PTY (CLI-074)` > `TC-07: ...`
+
+### [GATE-COMPLETE: TC-08] — ✅ | 2026-06-12
+
+- Command: same run as TC-07 (`pnpm --filter @robota-sdk/agent-transport test:pty`, 2/2 passed, exit 0)
+- Output: `TC-08: /exit reaches process exit within 10s` passed (1244ms) — outcome is the criterion's first branch: CLI-071 refuted/confirmed fixed (`/exit` exits cleanly in ~1.25s; the original "hang" was an expect(1) paste-bundling artifact). Recorded: `.agents/backlog/completed/CLI-071-tui-exit-shutdown-hang.md` exists with the dated User Execution evidence block (verified on disk).
+- Test reference: same file > `TC-08: ...`
+
+### [GATE-COMPLETE: TC-09] — ✅ | 2026-06-12
+
+- Action: SPEC section inspection (manual per Test Plan; skip reason recorded — doc-only change, no automated test applicable)
+- Observed: `packages/agent-transport/docs/SPEC.md` contains `## Test Harness Contracts (CLI-074)` (line 283) documenting the scripted provider fixture as a dev-only `@robota-sdk/agent-transport/testing` subpath and the PTY project isolation (runs against the built binary, dedicated project); `packages/agent-cli/docs/SPEC.md` `## Test Strategy` (line 1627) documents the deterministic E2E suites in `src/__tests__/e2e/` driving `startCli` with the scripted provider and defers PTY coverage to the transport SPEC's harness contracts. Both sections present in PR #703.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-06-12
+
+**Status upgrade:** verifying → done
+
+- All TC-N checkboxes checked: TC-01..TC-09 all `[x]` in `## Completion Criteria` (checked by this guard after firsthand verification above)
+- One `[GATE-COMPLETE: TC-N]` evidence entry per TC-N: 9 entries above, each with command/action, observed output, and exit code where applicable — all from fresh re-runs on 2026-06-12 (scripted-provider 4/4, agent-cli e2e 6/6, PTY 2/2)
+- Test Plan updated: every TC row carries a test reference (TC-01..TC-08, file > describe > test name) or an explicit skip reason (TC-09 manual, doc-only); no TC silently unaddressed
+- Tasks file archived: `.agents/tasks/CLI-074.md` → `.agents/tasks/completed/CLI-074.md` (`git mv`, verified on disk); all T1–T10 `[x]` at archive time
+- `## Tasks` section updated to the archived path
+- Prior-gate evidence intact: GATE-WRITE/APPROVAL/IMPLEMENT/VERIFY PASS entries present and well-formed — no NON-COMPLIANCE condition

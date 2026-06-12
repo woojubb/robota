@@ -1,6 +1,6 @@
 ---
 title: 'CLI-071: TUI /exit prints "Shutting down..." but the process does not terminate (PTY smoke suspect)'
-status: todo
+status: done
 created: 2026-06-11
 priority: medium
 urgency: soon
@@ -44,4 +44,12 @@ keystrokes ending in Enter.
 - Prerequisite: configured provider; interactive terminal.
 - Steps: run `robota`, type `/exit`, press Enter.
 - Expected observable result: process exits promptly (shell prompt returns), exit code 0.
-- Evidence: (fill after implementation)
+- Evidence: 2026-06-12 — the CLI-074 deterministic PTY harness (node-pty, per-key paced
+  input against the built binary) **refutes the hang**: TC-08 sends `/exit` + Enter and the
+  process exits with code 0 in ~1.25s (10s deadline), repeatably
+  (`packages/agent-transport/src/tui/__tests__/pty/tui-pty.ptytest.ts`). The original
+  observation was an expect(1) artifact: its burst input was bundled as a bracketed paste,
+  leaving the input in a paste state rather than executing `/exit`. The paste-detection
+  secondary observation is likewise explained — human-rate keys (35ms) are never bundled
+  (TC-07 asserts no `[Pasted text` in the transcript); burst input being treated as paste is
+  the intended paste-detection design. TC-08 now regression-locks clean shutdown.
