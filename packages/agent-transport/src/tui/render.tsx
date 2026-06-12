@@ -88,15 +88,14 @@ export async function renderApp(options: IRenderOptions): Promise<void> {
     }
   });
 
+  // Single-owner lifecycle (CLI-B12): render.tsx supplies only the factory;
+  // App creates, replaces, and stops channels exclusively through React state.
   const createChannel = (resumeSessionId?: string): TuiInteractionChannel =>
     new TuiInteractionChannel(toChannelOptions(options, resumeSessionId));
-
-  const channel = createChannel(options.resumeSessionId);
 
   const instance = render(
     <App
       cwd={options.cwd}
-      channel={channel}
       createChannel={createChannel}
       providerOverride={options.providerOverride}
       providerType={options.providerType}
