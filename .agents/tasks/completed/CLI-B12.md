@@ -16,7 +16,7 @@ Test Plan SSOT: the spec's TC table.
       (channel-factory-integration.test.ts) and/or PTY /resume scenario shows Context > 0%.
 - [x] T6 (TC-06): `docs/SPEC.md` documents single-owner channel lifecycle
       (created/replaced/stopped only via App state; render.tsx supplies only the factory).
-- [ ] T7: wrap-up — full package test/typecheck/lint/build green; PR to develop (squash);
+- [x] T7: wrap-up — full package test/typecheck/lint/build green; PR to develop (squash);
       backlog `.agents/backlog/CLI-B12-*.md` completion criteria checked + moved to
       completed/ with evidence.
 
