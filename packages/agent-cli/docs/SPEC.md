@@ -305,7 +305,7 @@ agent-cli ─→ agent-sdk ─→ agent-sessions ─→ agent-core
 
 ### Transport Registry
 
-The CLI assembles a `TransportRegistry` (`src/transports/transport-registry.ts`) and passes it to
+The CLI assembles a `TransportRegistry` via `createDefaultTransportRegistry()` (owned by `@robota-sdk/agent-transport`, `packages/agent-transport/src/transport-registry.ts`) and passes it to
 `renderApp()`. `renderApp()` creates a `TuiInteractionChannel` which starts all enabled transports
 against the active `InteractiveSession` it owns.
 
@@ -363,24 +363,13 @@ Supported commands:
 
 Defaults are `enabled=true` and `gitBranch=true`. The command emits the typed SDK `statusline-settings-patch` effect, `useSlashRouting` stores it as a pending command effect, and `useSideEffects` persists the setting and updates React state. `StatusBar` remains a pure renderer.
 
-### TUI Command Interaction Registry
+### TUI Command Interactions
 
-`src/tui-interactions/registry.ts` owns the mapping from system command names to TUI interaction behaviors. Every known system command must appear in `TUI_COMMAND_INTERACTIONS` — missing keys produce a TypeScript compile error (exhaustive `Record` type).
+TUI interaction behaviors (picker overlays, confirm dialogs) are not registered in a CLI-owned mapping. Command modules return an interaction (`TAnyTuiCommandInteraction`, owned by `@robota-sdk/agent-interface-tui`) as part of their command result; the TUI hook layer enqueues and renders it generically:
 
-```typescript
-export const TUI_COMMAND_INTERACTIONS: Record<
-  TSystemCommandName,
-  TAnyTuiCommandInteraction | undefined
-> = { ... };
-```
-
-- `undefined` — existing insert/submit behavior (intentional, no dialog needed)
 - `{ onMissingArgs: 'picker', getItems }` — opens a picker overlay
 - `{ onMissingArgs: 'confirm', message }` — opens a yes/no confirm dialog
-
-The registry exports `resolveInteraction(commandName)` which is passed as `IRenderOptions.resolveInteraction` to `renderApp()` and threaded through `TuiInteractionChannel` → `App` → `InputArea`.
-
-A runtime gate (`registry-coverage.test.ts`) verifies that every picker entry has a working `getItems()` and every confirm entry has a non-empty `message`.
+- no interaction — existing insert/submit behavior (intentional, no dialog needed)
 
 ### Command Module Composition
 
@@ -700,7 +689,7 @@ Plugin hook merging (resolving `${CLAUDE_PLUGIN_ROOT}` and merging hook groups) 
 
 ### App.tsx
 
-`App.tsx` is owned by `@robota-sdk/agent-transport-tui` (`src/App.tsx`). It is a thin JSX shell that:
+`App.tsx` is owned by `@robota-sdk/agent-transport` (`packages/agent-transport/src/tui/App.tsx`). It is a thin JSX shell that:
 
 - Calls `useTuiChannel` and `usePluginCallbacks`.
 - Applies typed command effects that require the host shell via `ITuiCliAdapter` (injected by `startCli()`).
@@ -951,10 +940,20 @@ If both stdin and a positional argument are provided, stdin content is prepended
 
 ### Exit Codes
 
-| Code | Meaning                |
-| ---- | ---------------------- |
-| 0    | Success or interrupted |
-| 1    | Error during execution |
+This is the single authoritative exit-code table. The error-handling table in §Error
+Handling maps each error class onto one of these codes.
+
+| Code | Meaning                                                                                                         |
+| ---- | --------------------------------------------------------------------------------------------------------------- |
+| 0    | Success or user interruption                                                                                    |
+| 1    | Error during execution — argument parse errors, provider API failures (network/auth), user-local command errors |
+| 3    | Provider configuration error at print-mode session start (`ProviderConfigError`) — reconfigure, do not retry    |
+
+Provider API failures during a model call must never exit 0: the execution layer marks the
+result failed (`success: false` + `error` when the final assistant message carries
+`providerError` metadata), `robotaRun` throws failed results, and the headless runner's
+error path maps them to exit 1 (text format writes the message to stderr; json/stream-json
+emit `subtype: "error"` with an `error_code`).
 
 ### CLI Update Check
 
@@ -991,7 +990,16 @@ Operational cache lives in `~/.robota/update-check.json` and is not part of `.ro
 | `--fork-session`    | Boolean flag, used with `--continue` or `--resume`. Creates a new session (fresh UUID) but restores context from the resumed session. Original file preserved |
 | `--name <name>`     | Sets the session name. Can be combined with other flags                                                                                                       |
 
-When `--resume` is used without a value, a `ListPicker` overlay is shown with all saved sessions. The user selects one to resume.
+When `--resume` is used with an explicit empty value (`-r ""`) in TUI mode, a `ListPicker` overlay is shown with all saved sessions. The user selects one to resume. A bare `-r` with no value at all is rejected by the argument parser ("argument missing", exit 1).
+
+Session resolution applies to **both TUI and print mode**: `cli.ts` resolves the target session id once (from `-c`/`-r`) and passes it to `renderApp` (TUI) or `runPrintMode` → `HeadlessInteractionChannel` (print mode). Print-mode-only argument errors (validated in `parseCliArgs()`, written to stderr, exit 1):
+
+| Combination                                        | Error                                                                                        |
+| -------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `-p` with `-r ""` (empty resume id)                | `Print mode requires an explicit session id: -r <id\|name>` (the session picker is TUI-only) |
+| `-p` with `-c`/`-r` and `--no-session-persistence` | `--no-session-persistence conflicts with -c/-r (resume needs the session store)`             |
+
+`-c` with no prior session for the cwd starts a new session (continue-or-start semantics, identical in both modes).
 
 ### Session Storage
 
@@ -1001,6 +1009,20 @@ The CLI asks `@robota-sdk/agent-framework` for a project-local session persisten
 
 - **Universal cap**: Tool output is capped at 30,000 characters. Outputs exceeding this limit are middle-truncated (first and last portions are kept, with a truncation marker in the middle).
 - **Glob entry limit**: The Glob tool defaults to a maximum of 1,000 entries per invocation to prevent oversized responses.
+
+## Zero-Config Startup (env-default)
+
+When no provider profile exists in any settings document but a recognized provider env key
+is set, the CLI starts anyway: provider resolution synthesizes an in-memory config from the
+provider definition's defaults (see agent-framework SPEC §Provider Resolution Order —
+candidate rule: `$ENV:` apiKey default whose variable is set + a default model; nothing is
+persisted; settings profiles always win). On an env-synthesized run the CLI prints exactly
+one notice line — `Using <provider> (<model>) via <ENV_NAME> — run robota --configure to
+persist a profile.` — to stderr in print mode (stdout contracts stay clean) or to the
+terminal in TUI mode. The key value is never printed. `ensureConfig` skips the interactive
+setup flow when an env-default candidate exists (unless `--provider` explicitly selects a
+profile). The "No provider configuration found" error therefore means: no profile AND no
+synthesizable env key.
 
 ## First-Run Setup
 
@@ -1029,9 +1051,21 @@ after command setup and returns before any session starts. Behavior:
 3. If `.claude/` exists, offers to migrate `settings.json` permission rules from `.claude/` to
    `.robota/`.
 4. After initialization, optionally offers interactive provider setup (via `onProviderSetup`
-   callback) unless `--yes` flag or `CI=true` environment is detected.
+   callback).
 
 The settings path is resolved through `projectPaths(cwd).settings` from `@robota-sdk/agent-framework`.
+
+**Non-interactive semantics.** All confirmations route through one `confirm()` helper:
+
+| Prompt                                                 | Default | With `--yes` or `CI=true`                                      | Non-TTY without `--yes`                                                                     |
+| ------------------------------------------------------ | ------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `Overwrite existing files?` (both files already exist) | N       | default applied → "Init cancelled.", exit 0 (idempotent no-op) | `InitPromptUnavailableError` — message names the question and suggests `--yes`; CLI exits 1 |
+| `Migrate Claude Code settings to .robota/?`            | N       | default applied → plain template, nothing imported             | same error as above                                                                         |
+| `Would you like to set up a provider now?`             | N       | default applied → skipped                                      | skipped — init already completed; an optional trailing step must not fail a successful init |
+
+`--yes` means "non-interactive with documented defaults", NOT "answer yes to everything" — it
+never overwrites existing files. The non-TTY error message never mentions API keys (the prior
+behavior fell through to unrelated API-key guidance).
 
 ### `robota diagnose`
 
@@ -1108,8 +1142,8 @@ When an Edit tool summary includes diff lines, the CLI shows a compact diff belo
 **Display format:**
 
 ```markdown
-✓ Edit(src/provider.ts)
-│ src/provider.ts
+✓ Edit(src/constants.ts)
+│ src/constants.ts
 `diff
     - 42 | const DEFAULT_MAX_TOKENS = 4096;
     + 42 | const maxTokens = getModelMaxOutput(modelId);
@@ -1573,22 +1607,18 @@ The CLI does not expose plugin hooks at the binary level. Plugin lifecycle is ow
 
 ## Error Taxonomy
 
-| Error class           | Trigger                                              | Handling                                                         | Exit code |
-| --------------------- | ---------------------------------------------------- | ---------------------------------------------------------------- | --------- |
-| Argument parse error  | Invalid CLI flag or value in `parseCliArgs()`        | Written to stderr; `process.exit(1)` via `parseArgsOrExit()`     | 1         |
-| Provider config error | Missing/unusable provider profile at session start   | Written to stderr; `process.exit(3)` from print mode transport   | 3         |
-| Provider API error    | Network or auth failure during model call            | Written to stderr; `process.exit(1)` from print mode transport   | 1         |
-| User-local cmd error  | Exception thrown by user-local command handler       | Written to stderr via `terminal.writeError()`; `process.exit(1)` | 1         |
-| Org policy violation  | Provider not in `orgPolicy.allowedProviders`         | Written to stderr; `process.exit(1)` in `cli.ts`                 | 1         |
-| IME / CJK crash       | `uncaughtException` with string-width/cursor signals | Diagnostic written to stderr; process continues (IME-only)       | —         |
-| Unhandled exception   | Non-IME `uncaughtException` in `bin.ts`              | Re-thrown; Node prints stack trace and exits with code 1         | 1         |
-| Init cancel           | User declines overwrite in `robota init`             | Prints "Init cancelled." and returns normally (no exit code)     | 0         |
+| Error class           | Trigger                                                                           | Handling                                                                                                                                                                                                              | Exit code     |
+| --------------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
+| Argument parse error  | Invalid CLI flag or value in `parseCliArgs()`                                     | Written to stderr; `process.exit(1)` in `startCli()` parse catch                                                                                                                                                      | 1             |
+| Provider config error | `ProviderConfigError` from `ensureConfig`/`readProviderSettings` at session start | Written to stderr; `process.exit(3)` in `cli.ts` when print mode, `process.exit(1)` otherwise (TTY runs the interactive setup flow instead)                                                                           | 3 (print) / 1 |
+| Provider API error    | Network or auth failure during model call                                         | Execution result marked failed (`providerError` metadata → `success: false`); `robotaRun` throws; headless runner `onError` writes stderr (text) or `subtype: "error"` envelope (json/stream-json); `process.exit(1)` | 1             |
+| User-local cmd error  | Exception thrown by user-local command handler                                    | Written to stderr via `terminal.writeError()`; `process.exit(1)`                                                                                                                                                      | 1             |
+| Org policy violation  | Provider not in `orgPolicy.allowedProviders`                                      | Surfaced as a failed command result (`provider-command-profile-operations.ts` in agent-command) or session-level rejection (`interactive-session.ts` in agent-framework); the process keeps running — no exit         | —             |
+| IME / CJK crash       | `uncaughtException` with string-width/cursor signals                              | Diagnostic written to stderr; process continues (IME-only)                                                                                                                                                            | —             |
+| Unhandled exception   | Non-IME `uncaughtException` in `bin.ts`                                           | Re-thrown; Node prints stack trace and exits with code 1                                                                                                                                                              | 1             |
+| Init cancel           | User declines overwrite in `robota init`                                          | Prints "Init cancelled." and returns normally (no exit code)                                                                                                                                                          | 0             |
 
-Print mode transport exit codes:
-
-- `0` — success or user-interrupted execution
-- `1` — general execution error
-- `3` — provider configuration error (missing API key or no valid provider)
+See §Exit Codes for the single authoritative code table (0/1/3).
 
 TUI mode always exits with `process.exit(0)` after `runTuiMode()` returns. Unhandled errors in
 TUI startup propagate to the top-level `startCli().catch()` handler which writes to stderr and

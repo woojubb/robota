@@ -51,7 +51,7 @@ volta install node@22
 ## Demo
 
 <!-- TODO: Add demo GIF here -->
-<!-- Run `pnpm demo:record` to capture a demo recording — see docs/demo-script.md for instructions -->
+<!-- Run `pnpm demo:record` to capture a demo recording — see docs/DEMO-SCRIPT.md for instructions -->
 
 ![Demo](./docs/demo.gif)
 

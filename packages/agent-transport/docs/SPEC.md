@@ -124,6 +124,8 @@ re-syncs history so memory notices render in the transcript.
 
 `HeadlessInteractionChannel` owns session creation for non-interactive (print) mode. Callers construct `new HeadlessInteractionChannel(options)` and call `await channel.run(prompt)`. The channel creates `InteractiveSession`, runs `createHeadlessRunner`, and awaits completion. `channel.getExitCode()` returns `0` or `1`. The legacy `createHeadlessTransport` wrapper is retained for internal use by `headless-runner`.
 
+Provider failures during a run reach the runner as the session `error` event (the execution layer marks the result failed and `robotaRun` throws it). The runner's error path exits `1` in every output format: text writes the error message to stderr; json and stream-json emit a `{ type: "result", subtype: "error", error_code }` envelope on stdout (`error_code` from `resolveErrorCode`: `config_error` | `tool_error` | `api_error`). A provider failure must never produce exit `0`.
+
 ## 4. Type Ownership
 
 | Type                                 | Location                                                   | Purpose                                                                  |
@@ -324,6 +326,14 @@ class HeadlessInteractionChannel {
   getExitCode(): number; // 0 = success, 1 = error
 }
 ```
+
+`IHeadlessInteractionChannelOptions` accepts `resumeSessionId?: string` and
+`forkSession?: boolean`, forwarded verbatim to `InteractiveSession` so print mode has the
+same session resume/fork semantics as the TUI channel (`-c`/`-r`/`--fork-session` parity).
+When `resumeSessionId` is set without `forkSession`, the existing session is continued
+(same id, prior conversation messages restored); with `forkSession: true` a new independent
+session id is created per the framework's fork semantics. The caller (agent-cli) resolves
+ids and validates print-mode-impossible flag combinations before constructing the channel.
 
 ### `TuiTransport`
 

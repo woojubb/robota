@@ -16,6 +16,7 @@ import {
   checkForCliUpdate,
   formatCliUpdateCheckMessage,
   formatCliUpdateNotice,
+  ProviderConfigError,
 } from '@robota-sdk/agent-framework';
 import { parseCliArgs, parseToolList, printHelp } from './utils/cli-args.js';
 import type { IParsedCliArgs } from './utils/cli-args.js';
@@ -110,12 +111,18 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     buildCommandSetup(cwd, args, options, version);
 
   if (args.positional[0] === 'init') {
-    await runInitCommand(cwd, terminal, {
-      yes: args.yes,
-      onProviderSetup: async () => {
-        await runInteractiveProviderSetup(cwd, args, promptInput, terminal, providerDefinitions);
-      },
-    });
+    try {
+      await runInitCommand(cwd, terminal, {
+        yes: args.yes,
+        onProviderSetup: async () => {
+          await runInteractiveProviderSetup(cwd, args, promptInput, terminal, providerDefinitions);
+        },
+      });
+    } catch (error) {
+      // allow-fallback: init prompt failure is terminal — exit is the correct response
+      terminal.writeError(error instanceof Error ? error.message : String(error));
+      process.exit(1);
+    }
     return;
   }
 
@@ -133,7 +140,9 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   } catch (error) {
     // allow-fallback: terminal failure — not a silent fallback
     process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
-    process.exit(1);
+    // Exit-code contract: provider configuration errors in print mode exit 3 so
+    // automation can distinguish "reconfigure" from runtime failures (exit 1).
+    process.exit(error instanceof ProviderConfigError && args.printMode ? 3 : 1);
   }
 
   const providerOptions = args.provider
@@ -141,6 +150,14 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     : { providerDefinitions };
   const providerSettings = readProviderSettings(cwd, providerOptions);
   const modelId = args.model ?? providerSettings.model;
+  if (providerSettings.source === 'env-default' && providerSettings.sourceEnvVar !== undefined) {
+    const notice = `Using ${providerSettings.name} (${modelId}) via ${providerSettings.sourceEnvVar} — run \`robota --configure\` to persist a profile.\n`;
+    if (args.printMode) {
+      process.stderr.write(notice);
+    } else {
+      terminal.writeLine(notice.trimEnd());
+    }
+  }
   const provider = createProviderFromSettings(cwd, args.model, providerOptions);
   const backgroundTaskRunners = createDefaultBackgroundTaskRunners();
   const paths = projectPaths(cwd);
@@ -178,6 +195,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
       subagentRunnerFactory,
       commandModules,
       commandHostAdapters,
+      { resumeSessionId, forkSession: args.forkSession },
     );
     return;
   }

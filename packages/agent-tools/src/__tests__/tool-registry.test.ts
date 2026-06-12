@@ -15,16 +15,18 @@ import { ToolRegistry } from '../registry/tool-registry';
 function createMockTool(schema: IToolSchema): ITool {
   return {
     schema,
-    execute: vi.fn<[TToolParameters], Promise<IToolResult>>().mockResolvedValue({
+    execute: vi.fn<(parameters: TToolParameters) => Promise<IToolResult>>().mockResolvedValue({
       success: true,
       data: 'mock result',
     }),
-    validate: vi.fn<[TToolParameters], boolean>().mockReturnValue(true),
-    validateParameters: vi.fn<[TToolParameters], IParameterValidationResult>().mockReturnValue({
-      isValid: true,
-      errors: [],
-    }),
-    getDescription: vi.fn<[], string>().mockReturnValue(schema.description),
+    validate: vi.fn<(parameters: TToolParameters) => boolean>().mockReturnValue(true),
+    validateParameters: vi
+      .fn<(parameters: TToolParameters) => IParameterValidationResult>()
+      .mockReturnValue({
+        isValid: true,
+        errors: [],
+      }),
+    getDescription: vi.fn<() => string>().mockReturnValue(schema.description),
   };
 }
 
@@ -49,7 +51,7 @@ function buildSchema(overrides: Partial<IToolSchema> = {}): IToolSchema {
 describe('ToolRegistry', () => {
   let registry: ToolRegistry;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let warnSpy: MockInstance<any[], any>;
+  let warnSpy: MockInstance;
 
   beforeEach(() => {
     registry = new ToolRegistry();

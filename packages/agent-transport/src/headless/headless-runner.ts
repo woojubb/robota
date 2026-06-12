@@ -78,8 +78,9 @@ function runTextFormat(session: IInteractiveSession, prompt: string): Promise<nu
       if (result.response) process.stdout.write(result.response + '\n');
       resolve(0);
     };
-    const onError = (_error: Error): void => {
+    const onError = (error: Error): void => {
       cleanup();
+      process.stderr.write(error.message + '\n');
       resolve(1);
     };
 

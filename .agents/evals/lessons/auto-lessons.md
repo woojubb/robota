@@ -27,21 +27,21 @@ Do not promote entries to `.agents/rules/common-mistakes.md` without human revie
 
 ## same-file-edited-3-times
 
-- Frequency: 240 events in the last 7 days
+- Frequency: 402 events in the last 7 days
 - Sources: reverts
-- Example paths: `/Users/jungyoun/Documents/dev/robota/.agents/release-runs/3.0.0-beta.72.md`, `/Users/jungyoun/Documents/dev/robota/.agents/release-runs/3.0.0-beta.73.md`, `/Users/jungyoun/Documents/dev/robota/.agents/rules/publish.md`, `/Users/jungyoun/Documents/dev/robota/.agents/spec-docs/backlog/SCREEN-001-tui-input-border-cleanup.md`, `/Users/jungyoun/Documents/dev/robota/.agents/spec-docs/backlog/SCREEN-002-tui-statusbar-below-input.md`
-- First seen: 2026-06-04T12:19:21.000Z
-- Last seen: 2026-06-10T16:22:57.000Z
+- Example paths: `/Users/jungyoun/Documents/dev/robota/.agents/backlog/CLI-063-print-mode-session-resume-broken.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/CLI-064-exit-code-contract-violations.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/README.md`, `/Users/jungyoun/Documents/dev/robota/.agents/release-runs/3.0.0-beta.72.md`, `/Users/jungyoun/Documents/dev/robota/.agents/release-runs/3.0.0-beta.73.md`
+- First seen: 2026-06-05T12:20:16.000Z
+- Last seen: 2026-06-11T17:17:10.000Z
 - Status: candidate; human review is required before promotion.
 <!-- auto-lesson:repeated-tool-errors -->
 
 ## repeated-tool-errors
 
-- Frequency: 46 events in the last 7 days
+- Frequency: 42 events in the last 7 days
 - Sources: reverts
 - Example paths: (none)
-- First seen: 2026-06-04T11:20:51.000Z
-- Last seen: 2026-06-10T16:22:57.000Z
+- First seen: 2026-06-05T12:20:16.000Z
+- Last seen: 2026-06-11T17:17:10.000Z
 - Status: candidate; human review is required before promotion.
 <!-- auto-lesson:try-catch-fallback -->
 

@@ -477,25 +477,26 @@ The execution loop supports cooperative cancellation via the standard `AbortSign
 
 ### Interface Changes
 
-| Interface                    | Field                                        | Description                                                                        |
-| ---------------------------- | -------------------------------------------- | ---------------------------------------------------------------------------------- |
-| `IRunOptions`                | `signal?: AbortSignal`                       | Allows callers to cancel execution of `Robota.run()`                               |
-| `IRunOptions`                | `onTextDelta?: TTextDeltaCallback`           | Per-run streaming callback forwarded through execution context                     |
-| `IRunOptions`                | `onExecutionEvent?: TExecutionEventCallback` | Per-run replay event callback for provider/tool boundaries                         |
-| `IRunOptions`                | `maxExecutionRounds?: number`                | Maximum model/tool rounds for one run. `0` means unlimited.                        |
-| `IRunOptions`                | `maxSameToolInputs?: number`                 | Abort if the same tool is called with identical inputs N or more times in one run. |
-| `IChatOptions`               | `signal?: AbortSignal`                       | Passed to provider `chat()` / `chatStream()` for cancelling calls                  |
-| `IAgentConfig`               | `timeout?: number`                           | Provider idle timeout in milliseconds for a model call                             |
-| `IAgentConfig`               | `maxExecutionRounds?: number`                | Default maximum model/tool rounds for each run. `0` means unlimited.               |
-| `IAgentConfig`               | `maxSameToolInputs?: number`                 | Config-level default for the identical-tool-input abort threshold.                 |
-| `IExecutionContext`          | `signal?: AbortSignal`                       | Threaded through the execution context for round-level checks                      |
-| `IExecutionContext`          | `onTextDelta?: TTextDeltaCallback`           | Run-scoped callback used before provider-level callback fallback                   |
-| `IExecutionContext`          | `onExecutionEvent?: TExecutionEventCallback` | Internal replay event callback forwarded to provider/tool rounds                   |
-| `IExecutionContext`          | `maxExecutionRounds?: number`                | Run-scoped override for execution round limit                                      |
-| `IExecutionContext`          | `maxSameToolInputs?: number`                 | Run-scoped override for the identical-tool-input abort threshold.                  |
-| `IExecutionResult`           | `interrupted?: boolean`                      | Indicates the execution was aborted before natural completion                      |
-| `IToolExecutionBatchContext` | `signal?: AbortSignal`                       | Allows skipping queued tool executions when abort is signalled                     |
-| `IToolExecutionBatchContext` | `maxConcurrency?: number`                    | Bounds active tool executions when batch mode is `parallel`                        |
+| Interface                    | Field                                        | Description                                                                                                                                                                                                                                                                            |
+| ---------------------------- | -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `IRunOptions`                | `signal?: AbortSignal`                       | Allows callers to cancel execution of `Robota.run()`                                                                                                                                                                                                                                   |
+| `IRunOptions`                | `onTextDelta?: TTextDeltaCallback`           | Per-run streaming callback forwarded through execution context                                                                                                                                                                                                                         |
+| `IRunOptions`                | `onExecutionEvent?: TExecutionEventCallback` | Per-run replay event callback for provider/tool boundaries                                                                                                                                                                                                                             |
+| `IRunOptions`                | `maxExecutionRounds?: number`                | Maximum model/tool rounds for one run. `0` means unlimited.                                                                                                                                                                                                                            |
+| `IRunOptions`                | `maxSameToolInputs?: number`                 | Abort if the same tool is called with identical inputs N or more times in one run.                                                                                                                                                                                                     |
+| `IChatOptions`               | `signal?: AbortSignal`                       | Passed to provider `chat()` / `chatStream()` for cancelling calls                                                                                                                                                                                                                      |
+| `IAgentConfig`               | `timeout?: number`                           | Provider idle timeout in milliseconds for a model call                                                                                                                                                                                                                                 |
+| `IAgentConfig`               | `maxExecutionRounds?: number`                | Default maximum model/tool rounds for each run. `0` means unlimited.                                                                                                                                                                                                                   |
+| `IAgentConfig`               | `maxSameToolInputs?: number`                 | Config-level default for the identical-tool-input abort threshold.                                                                                                                                                                                                                     |
+| `IExecutionContext`          | `signal?: AbortSignal`                       | Threaded through the execution context for round-level checks                                                                                                                                                                                                                          |
+| `IExecutionContext`          | `onTextDelta?: TTextDeltaCallback`           | Run-scoped callback used before provider-level callback fallback                                                                                                                                                                                                                       |
+| `IExecutionContext`          | `onExecutionEvent?: TExecutionEventCallback` | Internal replay event callback forwarded to provider/tool rounds                                                                                                                                                                                                                       |
+| `IExecutionContext`          | `maxExecutionRounds?: number`                | Run-scoped override for execution round limit                                                                                                                                                                                                                                          |
+| `IExecutionContext`          | `maxSameToolInputs?: number`                 | Run-scoped override for the identical-tool-input abort threshold.                                                                                                                                                                                                                      |
+| `IExecutionResult`           | `interrupted?: boolean`                      | Indicates the execution was aborted before natural completion                                                                                                                                                                                                                          |
+| `IExecutionResult`           | `success` / `error` on provider failure      | A round ending in a provider failure records the error as an assistant message with `providerError` metadata; `buildFinalResult` must mark that result `success: false` with `error` set (never a successful response), so `robotaRun`'s failed-result throw surfaces it to transports |
+| `IToolExecutionBatchContext` | `signal?: AbortSignal`                       | Allows skipping queued tool executions when abort is signalled                                                                                                                                                                                                                         |
+| `IToolExecutionBatchContext` | `maxConcurrency?: number`                    | Bounds active tool executions when batch mode is `parallel`                                                                                                                                                                                                                            |
 
 ### Replay Boundary Events
 
@@ -794,14 +795,14 @@ NOTE: Tool implementations (`FunctionTool`, `OpenAPITool`) in `@robota-sdk/agent
 
 ### Cross-Package Port Consumers
 
-| Port (Owner)                      | Adapter (Consumer Package)                     | Location                                                     |
-| --------------------------------- | ---------------------------------------------- | ------------------------------------------------------------ |
-| `AbstractAIProvider` (agent-core) | `OpenAIProvider` (agent-provider-openai)       | `packages/agent-provider-openai/src/provider.ts`             |
-| `AbstractAIProvider` (agent-core) | `AnthropicProvider` (agent-provider-anthropic) | `packages/agent-provider-anthropic/src/provider.ts`          |
-| `AbstractAIProvider` (agent-core) | `GeminiProvider` (agent-provider-gemini)       | `packages/agent-provider-gemini/src/provider.ts`             |
-| `AbstractAIProvider` (agent-core) | `GoogleProvider` (agent-provider-google)       | `packages/agent-provider-google/src/provider.ts`             |
-| `AbstractAIProvider` (agent-core) | `MockAIProvider` (agent-sessions)              | `packages/agent-session/examples/verify-offline.ts`          |
-| `AbstractExecutor` (agent-core)   | `SimpleRemoteExecutor` (agent-remote)          | `packages/agent-remote/src/client/remote-executor-simple.ts` |
+| Port (Owner)                      | Adapter (Consumer Package)                   | Location                                                            |
+| --------------------------------- | -------------------------------------------- | ------------------------------------------------------------------- |
+| `AbstractAIProvider` (agent-core) | `OpenAIProvider` (agent-provider)            | `packages/agent-provider/src/openai/provider.ts`                    |
+| `AbstractAIProvider` (agent-core) | `AnthropicProvider` (agent-provider)         | `packages/agent-provider/src/anthropic/provider.ts`                 |
+| `AbstractAIProvider` (agent-core) | `GeminiProvider` (agent-provider)            | `packages/agent-provider/src/gemini/provider.ts`                    |
+| `AbstractAIProvider` (agent-core) | `GoogleProvider` (agent-provider)            | `packages/agent-provider/src/google/provider.ts`                    |
+| `AbstractAIProvider` (agent-core) | `MockAIProvider` (agent-sessions)            | `packages/agent-session/examples/verify-offline.ts`                 |
+| `IExecutor` (agent-core)          | `SimpleRemoteExecutor` (agent-remote-client) | `packages/agent-remote-client/src/client/remote-executor-simple.ts` |
 
 ## Test Strategy
 

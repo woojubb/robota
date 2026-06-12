@@ -1,8 +1,22 @@
 import { spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 
 import { resolveGitBaseRef, WORKSPACE_ROOT } from './shared.mjs';
-import { decidePrePushVerification, parsePrePushUpdates } from './pre-push-updates.mjs';
+import {
+  decidePrePushVerification,
+  formatLockfileFailureMessage,
+  parsePrePushUpdates,
+} from './pre-push-updates.mjs';
 
 function run(command, args) {
   const rendered = [command, ...args].join(' ');
@@ -44,6 +58,43 @@ function assertNoActiveWorktrees() {
         '  git worktree remove -f -f <path>\n\n',
     );
     process.exit(1);
+  }
+}
+
+function assertLockfileConsistency() {
+  // pnpm 8's `--lockfile-only` rewrites pnpm-lock.yaml even with
+  // --frozen-lockfile when the check passes, so the validation runs in a
+  // throwaway copy of the manifests + lockfile (zero working-tree side effects).
+  const stage = mkdtempSync(path.join(tmpdir(), 'robota-lockfile-check-'));
+  try {
+    const manifests = ['package.json', 'pnpm-workspace.yaml', 'pnpm-lock.yaml', '.npmrc'];
+    for (const file of manifests) {
+      const source = path.join(WORKSPACE_ROOT, file);
+      if (existsSync(source)) copyFileSync(source, path.join(stage, file));
+    }
+    for (const family of ['packages', 'apps']) {
+      const familyDir = path.join(WORKSPACE_ROOT, family);
+      if (!existsSync(familyDir)) continue;
+      for (const entry of readdirSync(familyDir, { withFileTypes: true })) {
+        if (!entry.isDirectory()) continue;
+        const manifest = path.join(familyDir, entry.name, 'package.json');
+        if (!existsSync(manifest)) continue;
+        const targetDir = path.join(stage, family, entry.name);
+        mkdirSync(targetDir, { recursive: true });
+        copyFileSync(manifest, path.join(targetDir, 'package.json'));
+      }
+    }
+    const result = spawnSync('pnpm', ['install', '--frozen-lockfile', '--lockfile-only'], {
+      cwd: stage,
+      stdio: 'ignore',
+      encoding: 'utf8',
+    });
+    if (result.status !== 0) {
+      process.stderr.write(formatLockfileFailureMessage());
+      process.exit(1);
+    }
+  } finally {
+    rmSync(stage, { recursive: true, force: true });
   }
 }
 
@@ -104,6 +155,7 @@ function resolvePrePushMode(value) {
 
 assertNoActiveWorktrees();
 assertCleanWorkingTree();
+assertLockfileConsistency();
 
 const baseRef = resolveGitBaseRef(process.env.HARNESS_BASE_REF ?? null);
 const baseArgs = baseRef ? ['--base-ref', baseRef] : [];

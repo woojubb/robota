@@ -2,9 +2,11 @@ import { join } from 'node:path';
 
 import {
   checkSettingsDocument,
+  ProviderConfigError,
   readMergedProviderSettings,
   readSettings,
   writeSettings,
+  resolveEnvDefaultProvider,
   resolveSettingsPathForScope,
   getProviderSettingsPaths,
   applyProviderConfiguration,
@@ -30,6 +32,8 @@ export interface IProviderStartupContext {
 export interface IEnsureProviderConfigOptions {
   formatError: (defs: readonly IProviderDefinition[]) => string;
   isInteractive?: () => boolean;
+  /** Environment map for env-default synthesis (test seam, default: process.env). */
+  env?: Record<string, string | undefined>;
 }
 
 export async function runProviderStartupSetup(
@@ -80,9 +84,17 @@ export async function ensureProviderConfig(
   if (checkSettingsDocument(selectedSettings, providerDefinitions) === 'valid') {
     return;
   }
+  // Zero-config startup: a recognized provider env key with complete definition defaults
+  // makes setup unnecessary — resolution will synthesize an env-default config.
+  if (
+    ctx.provider === undefined &&
+    resolveEnvDefaultProvider(providerDefinitions, options.env) !== undefined
+  ) {
+    return;
+  }
   const checkInteractive = options.isInteractive ?? (() => false);
   if (!checkInteractive()) {
-    throw new Error(options.formatError(providerDefinitions));
+    throw new ProviderConfigError(options.formatError(providerDefinitions));
   }
   await runProviderStartupSetup(
     cwd,
@@ -95,7 +107,7 @@ export async function ensureProviderConfig(
   const updatedSettings =
     ctx.provider !== undefined ? { ...updated, currentProvider: ctx.provider } : updated;
   if (checkSettingsDocument(updatedSettings, providerDefinitions) !== 'valid') {
-    throw new Error(options.formatError(providerDefinitions));
+    throw new ProviderConfigError(options.formatError(providerDefinitions));
   }
 }
 

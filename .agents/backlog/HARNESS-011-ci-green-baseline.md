@@ -32,7 +32,10 @@ behind the first one (fixing capability-placement immediately surfaced a hidden
    `missing-cli-sdk-detail-reader` — confirmed present on clean develop, masked behind the
    capability-placement failure in the && chain), security-audit advisories
    (dependency upgrades or documented waiver), Cloudflare Pages check.
-4. Target end state: overall run conclusion is green on develop; any red run means a NEW problem.
+4. 7 pre-existing failing harness unit tests (check-background-workspace-conformance,
+   check-capability-placement, check-command-layering test files — confirmed failing on clean
+   develop, 2026-06-11) must be repaired or their scans' fixtures updated.
+5. Target end state: overall run conclusion is green on develop; any red run means a NEW problem.
 
 ## Test Plan
 
@@ -42,3 +45,30 @@ behind the first one (fixing capability-placement immediately surfaced a hidden
 ## User Execution Test Scenarios
 
 Not applicable — CI/infra change; evidence is green pipeline runs on the PR.
+
+## Progress
+
+- (2026-06-11) Items 1-2 DONE via spec `HARNESS-011-ci-scan-aggregation` (PR feat/harness-ci-green):
+  compat-node18 excludes jest-based robota-web; `harness:scan` is now the aggregating
+  `run-all-scans.mjs` (all 22 scans report every run). De-masking fallout fixed in the same PR:
+  coverage-scripts (apps/action test:coverage) and docs-structure (DEMO-SCRIPT.md rename).
+  Remaining scope: item 3 (background-workspace 3 layering findings — the only red scan left,
+  21/22 green), item 4 (7 pre-existing failing harness unit tests in 3 test files), security
+  audit advisories, Cloudflare Pages check.
+
+## Progress update (2026-06-12)
+
+- background-workspace scan: the 3 long-standing "failures" were **stale file paths**, not
+  real violations — the required patterns (`getExecutionWorkspaceSnapshot`,
+  `execution_workspace_event`, `readExecutionWorkspaceDetail`) all live in
+  `packages/agent-transport/src/tui/TuiInteractionChannel.ts` after the TUI hook
+  refactoring. Scan entries repointed; scan now PASSES (22/22 with the rest green).
+- Its unit tests had a second generation of stale fixture paths
+  (`packages/agent-cli/src/ui/hooks/...`) — fixed; 4/4 green.
+- **Remaining decision** (this backlog): the `cli-agent-runtime-import` forbidden-pattern
+  rule still targets the legacy `@robota-sdk/agent-runtime` name and has been dead since
+  the rename. Reviving it as `agent-executor` would flag two real composition-root imports
+  (`cli.ts` `createDefaultBackgroundTaskRunners`, `print-mode.ts` type-only
+  `IBackgroundTaskRunner`). Decide whether composition-root wiring is a documented
+  exception or must route through an agent-framework re-export, then update the pattern.
+  The test currently pins the legacy-name behavior so revival is deliberate.
