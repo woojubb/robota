@@ -1,5 +1,5 @@
 ---
-status: verifying
+status: done
 type: BEHAVIOR
 tags: [cli, typescript]
 ---
@@ -204,3 +204,25 @@ before configuring (the profile will reference $ENV:<VAR>).` Env is injected
   **Required action:** add the "Configure-provider validation" row(s) to `packages/agent-framework/docs/SPEC.md` `## Error Taxonomy` documenting the `Unknown provider "<name>". Supported providers: …` message, the `Environment variable <VAR> is not set — set it before configuring …` message, and the configure-time env-var requirement; commit on `feat/cli-068-configure-messages`; then re-run GATE-COMPLETE.
 
 Passed criteria for the record: TC-01–TC-04 all `[x]` with vitest evidence (4/4 passed, exit 0) plus real-binary corroboration (exits 1/1/0); Test Plan rows updated with test references (TC-01–TC-04) and an explicit manual skip reason (TC-05); tasks file archived at `.agents/tasks/completed/CLI-068.md` with `## Tasks` pointing at the archived path. Only TC-05 blocks `verifying → done`.
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-06-13
+
+- Re-run after FAIL: required action completed via commit `175d1e825` ("docs(framework): CLI-068 configure-provider validation row in Error Taxonomy") on `feat/cli-068-configure-messages`; `git status` clean for `packages/agent-framework/docs/SPEC.md`.
+- Checkbox: TC-05 is `[x]` in Completion Criteria — artifact now exists.
+- Verification: direct read of `packages/agent-framework/docs/SPEC.md` `## Error Taxonomy` (header line 382) — row "Configure-provider validation" present at line 398. Content documents all three required elements: (1) unknown provider → `Unknown provider "<type>". Supported providers: <list from definitions SSOT>`; (2) unset `--api-key-env` target → `Environment variable <VAR> is not set — set it before configuring (the profile will reference $ENV:<VAR>)`; (3) the configure-time env requirement stated explicitly ("the variable MUST be set at configure time"), plus preservation of the original `is missing <field>` diagnosis for genuinely missing fields.
+- Corroborating grep (`grep -n "Configure-provider\|Unknown provider\|api-key-env"` on framework SPEC.md): single taxonomy row hit at line 398 — the prior zero-match condition is resolved.
+- Test Plan: manual row with explicit skip reason stands (doc prose verified by direct read, not automatable); manual verification now succeeds.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-06-13
+
+**Status upgrade:** verifying → done
+
+- TC-01: `[x]`; per-TC Evidence entry exists (vitest TC-01 passed, exit 0; real-binary corroboration exit 1); Test Plan reference recorded. Re-confirmed this run: `npx vitest run src/command-api/provider/__tests__/configure-provider-messages.test.ts` (cwd `packages/agent-framework`) → 4/4 passed, exit code 0.
+- TC-02: `[x]`; per-TC Evidence entry exists (vitest TC-02 passed; real-binary `UNSET_VAR` named, exit 1, no key value printed); Test Plan reference recorded; covered by the same fresh 4/4 re-run.
+- TC-03: `[x]`; per-TC Evidence entry exists (vitest TC-03 regression passed; real-binary valid configure exit 0); Test Plan reference recorded; covered by the same fresh 4/4 re-run.
+- TC-04: `[x]`; per-TC Evidence entry exists (vitest TC-04 passed — genuine missing-model diagnosis preserved); Test Plan reference recorded; covered by the same fresh 4/4 re-run.
+- TC-05: `[x]`; verified PASS this run (see [GATE-COMPLETE: TC-05] ✅ entry above) — SPEC.md Error Taxonomy line 398, commit `175d1e825`; Test Plan manual skip reason recorded.
+- Test Plan: every TC-N row has a test reference (TC-01–TC-04, file + describe/test names) or an explicit skip reason (TC-05 manual, doc prose); no TC-N silently unaddressed.
+- Completion Criteria: all 5 checkboxes `[x]`.
+- Tasks archived: `.agents/tasks/completed/CLI-068.md` exists; no stale `.agents/tasks/CLI-068.md` remains; `## Tasks` section points at the archived path.
+- The sole failing criterion from the prior [GATE-COMPLETE] ❌ FAIL entry (TC-05 missing taxonomy row) is resolved; status upgrade `verifying → done` is authorized.
