@@ -1,5 +1,5 @@
 ---
-status: review-ready
+status: approved
 type: BEHAVIOR
 tags: [cli, typescript]
 ---
@@ -128,3 +128,12 @@ before configuring (the profile will reference $ENV:<VAR>).` Env is injected
 - Completion Criteria: 5 items, all `TC-N` prefixed (TC-01–TC-05); one criterion per distinct sub-item (unknown-provider message, env-var check, regression, preserved missing-field case, SPEC taxonomy); all use command/observable form with explicit messages and exit codes; no banned vague phrases ("works correctly", "no errors", "implemented", "displays correctly") used.
 - Test Plan: section present; 5 rows match 5 TC-N entries (count 5 = 5); every row has non-empty Test Type and Tool/Approach with no "TBD"; the single manual row (TC-05) has a non-empty Notes entry explaining non-automatability (doc prose, verified by direct read at GATE-COMPLETE).
 - Structure: `## Tasks` present with placeholder (tasks file deferred until GATE-APPROVAL); `## Evidence Log` present and empty at first GATE-WRITE run; no `## Status` or `## Classification` sections in the body.
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-06-13
+
+**Status upgrade:** review-ready → approved
+
+- Explicit approval in current conversation: user replied verbatim "승인함" (2026-06-13), immediately after being told verbatim that replying "승인함" authorizes implementation of the 11 designs — matches the explicit-approval list ("승인").
+- Approval directed at this spec: the consolidated approval request ("## 설계안 요약 (승인 요청) — 백로그 일괄 11건") itemized CLI-068 individually (validation reordered to causal order; unknown provider checked first with supported names from the definitions SSOT; unset `--api-key-env` errors naming the env var; configure-time env existence becomes REQUIRED) and explicitly flagged the CLI-068 product-direction decision ("068 configure 시점 env 필수화") before approval was given. Earlier replies were correctly not counted: "머지하고 main 릴리스 진행해줘" was a release instruction (executed as docs-only PR #705), and "그래서 뭐?" was a clarifying question — neither treated as approval.
+- No Architecture Review or frontmatter type/tags modified after the approval request: `git log` shows exactly one commit touching this spec (cd5b1053a, GATE-WRITE batch, released in PR #705); post-GATE-WRITE changes were limited to the GATE-WRITE Evidence Log entry, the frontmatter status upgrade draft → review-ready, and prettier formatting; `type: BEHAVIOR` and `tags: [cli, typescript]` unchanged; working tree clean for this file.
+- NON-COMPLIANCE trigger checked — no implementation before this gate: `.agents/tasks/CLI-068.md` does not exist; `git status` clean for `packages/agent-framework`; `provider-settings.ts` still has pre-spec validation order (missing-type/model checks at :119/:122 precede `findProviderDefinition` at :124, no "Unknown provider" message); the only recent provider-directory commit (f14ac82d9) is CLI-066 (#700), a different item.

@@ -1,5 +1,5 @@
 ---
-status: review-ready
+status: approved
 type: BEHAVIOR
 tags: [cli, typescript, react]
 ---
@@ -149,3 +149,12 @@ own spec.
 - Completion Criteria: 6 items, all prefixed TC-01…TC-06; each uses command form or observable behavior (mock call-count assertions, `usedTokens > 0`, `pnpm --filter @robota-sdk/agent-transport test`); no banned vague phrases ("works correctly", "no errors", "implemented", "displays correctly") present.
 - Test Plan: section present; 6 rows = 6 TC-N in Completion Criteria (count matches); every row has non-empty Test Type and Tool/Approach with no "TBD"; no rows use "manual" Tool, so the manual-Notes requirement is N/A.
 - Structure: `## Tasks` section present with placeholder (`.agents/tasks/CLI-B11.md` — 미생성); `## Evidence Log` present and empty at first GATE-WRITE run; no `## Status` or `## Classification` sections in the body.
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-06-13
+
+**Status upgrade:** review-ready → approved
+
+- Explicit approval in current conversation: user replied exactly "승인함" (2026-06-13) after the consolidated approval request "## 설계안 요약 (승인 요청) — 백로그 일괄 11건", which individually summarized this spec's design (mock `createChannel` injection for TC-A~E, real-FileSessionStore integration test asserting restored `usedTokens > 0`, no `TuiInteractionChannel` export, test-only addition).
+- Direct, unambiguous, directed at this spec: the approval request explicitly stated that replying authorizes GATE-APPROVAL → per-item implementation for the 11 listed designs including CLI-B11; the user was told verbatim that "승인함" authorizes implementation and then replied "승인함". The earlier release instruction ("머지하고 main 릴리스 진행해줘") was correctly not treated as design approval.
+- No Architecture Review or frontmatter type/tags modified after the approval request: only post-GATE-WRITE changes were the guard's Evidence Log entry, the frontmatter status upgrade draft → review-ready, and prettier formatting (commit cd5b1053a, docs-only spec additions per `git show --stat`).
+- No implementation started before this gate: `.agents/tasks/CLI-B11.md` does not exist; `packages/agent-transport/src/tui/__tests__/session-switch-channel.test.tsx` and `channel-factory-integration.test.ts` do not exist; `git status --porcelain` shows no changes under `packages/agent-transport` or `.agents/tasks`; no commits touching `packages/agent-transport/src/tui/__tests__/` since CLI-074 (5dc0c9649).

@@ -1,5 +1,5 @@
 ---
-status: review-ready
+status: approved
 type: RULE
 tags: [harness, typescript]
 ---
@@ -128,3 +128,12 @@ decided in-batch; anything touching product contracts is surfaced before merging
 - Completion Criteria: 6 items, all prefixed TC-01…TC-06; each uses Command form (TC-03, TC-05) or Observable behavior form (TC-01, TC-02, TC-04, TC-06); no banned vague phrases ("works correctly", "no errors", "implemented", "displays correctly") used.
 - Test Plan: `## Test Plan` section present; 6 rows match 6 TC-N in Completion Criteria (count match confirmed: 6 = 6); every row has non-empty Test Type and Tool/Approach with no "TBD"; manual rows TC-01 and TC-06 each have a non-empty Notes entry explaining why automation is not possible (human classification decision; doc prose verified by direct read).
 - Structure: `## Tasks` section present with placeholder (tasks file deferred until GATE-APPROVAL); `## Evidence Log` section present and empty before this first GATE-WRITE run; no `## Status` or `## Classification` sections in the body.
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-06-13
+
+**Status upgrade:** review-ready → approved
+
+- Explicit approval in current conversation: user replied exactly "승인함" on 2026-06-13, after being told verbatim that replying "승인함" authorizes implementation of the 11 designs.
+- Direct, unambiguous, directed at this spec: the approval request ("## 설계안 요약 (승인 요청) — 백로그 일괄 11건") individually summarized HARNESS-015's design (per-package triage batches of the 153 baseline entries — delete / allowlist-with-reason / wire-to-surface — until the baseline is empty and the file removed, each batch gated on the owning package's build/test green) and stated that approval triggers GATE-APPROVAL → per-item implementation; "승인함" confirms that design and authorizes implementation. The earlier release instruction ("머지하고 main 릴리스 진행해줘", executed as docs-only release PR #705) was correctly not treated as design approval.
+- No Architecture Review or frontmatter type/tags modified after the approval request: only post-GATE-WRITE changes were the guard's Evidence Log entry, the frontmatter status upgrade draft → review-ready, and prettier formatting at commit time (commit cd5b1053a); spec-file git history shows a single commit (cd5b1053a, the GATE-WRITE batch).
+- No implementation started before this gate (NON-COMPLIANCE trigger checked): `.agents/tasks/HARNESS-015.md` does not exist (verified by ls); `scripts/harness/orphan-export-baseline.json` still contains its full 153-entry set (verified by JSON count); no implementation commits touch this spec's scope.
