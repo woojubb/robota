@@ -646,7 +646,7 @@ L0~L3 제품 검증 캠페인(npm 설치본 beta.73, 실 provider 포함)에서 
 | [CLI-066](completed/CLI-066-env-key-only-startup-rejected.md)    | 제품 안내문이 약속하는 env 키 단독 구동이 실제로는 거부됨                      | high     |
 | [CLI-067](CLI-067-diagnose-accuracy.md)                          | diagnose가 동작 중인 설정 프로필을 "No API key found"로 보고 + 이슈에도 exit 0 | medium   |
 | [CLI-069](CLI-069-corrupt-user-settings-silent-fallback.md)      | 손상된 사용자 settings.json을 무음으로 "없음" 취급 (no-fallback 위반)          | medium   |
-| [CLI-071](CLI-071-tui-exit-shutdown-hang.md)                     | TUI `/exit` 후 종료 행 걸림 의심 + paste 감지 과민 (PTY 스모크 관찰)           | medium   |
+| [CLI-071](completed/CLI-071-tui-exit-shutdown-hang.md)           | TUI `/exit` 후 종료 행 걸림 의심 + paste 감지 과민 (PTY 스모크 관찰)           | medium   |
 | [CLI-068](CLI-068-configure-provider-failure-messages.md)        | configure-provider 실패 메시지가 실제 원인(미지 provider/미설정 env)을 오진    | low      |
 | [CLI-070](CLI-070-reset-flag-undocumented.md)                    | `--reset`이 help 미기재 + 확인 없이 설정 삭제                                  | low      |
 | [CLI-072](CLI-072-permission-denial-mode-name.md)                | plan 모드 거부 피드백이 모드명을 "moderate"로 지칭 (저신뢰 관찰)               | low      |

@@ -114,7 +114,8 @@
     "test": "vitest run --passWithNoTests",
     "test:coverage": "vitest run --coverage --passWithNoTests",
     "clean": "rimraf dist",
-    "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
+    "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh",
+    "test:pty": "vitest run --config vitest.pty.config.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
