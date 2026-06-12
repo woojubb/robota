@@ -25,19 +25,19 @@ const REQUIRED_FILES = [
     detail: 'agent-framework must own execution workspace snapshot projection.',
   },
   {
-    file: 'packages/agent-transport/src/tui/hooks/useInteractiveSession.ts',
+    file: 'packages/agent-transport/src/tui/TuiInteractionChannel.ts',
     pattern: /getExecutionWorkspaceSnapshot/,
     type: 'missing-cli-sdk-snapshot-consumption',
     detail: 'agent-cli must consume SDK execution workspace snapshots for background UI.',
   },
   {
-    file: 'packages/agent-transport/src/tui/hooks/useInteractiveSession.ts',
+    file: 'packages/agent-transport/src/tui/TuiInteractionChannel.ts',
     pattern: /execution_workspace_event/,
     type: 'missing-cli-sdk-workspace-event-consumption',
     detail: 'agent-cli must consume SDK execution workspace events instead of raw runtime events.',
   },
   {
-    file: 'packages/agent-transport/src/tui/hooks/useInteractiveSession.ts',
+    file: 'packages/agent-transport/src/tui/TuiInteractionChannel.ts',
     pattern: /readExecutionWorkspaceDetail/,
     type: 'missing-cli-sdk-detail-reader',
     detail: 'agent-cli must read detail panes through SDK execution workspace APIs.',
