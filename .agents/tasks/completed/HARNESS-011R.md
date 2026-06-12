@@ -17,7 +17,7 @@ Test Plan SSOT: the spec's TC table.
       its unit test (the legacy-pinning test replaced).
 - [x] T5 (TC-05): `.agents/project-structure.md` documents the composition-root exemption
       with the reason-string requirement.
-- [ ] T6: wrap-up — harness unit tests green; PR to develop (squash); backlog progress
+- [x] T6: wrap-up — harness unit tests green; PR to develop (squash); backlog progress
       updated + moved to completed/ (HARNESS-011 fully closed).
 
 ## Test Plan
