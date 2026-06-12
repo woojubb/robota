@@ -43,17 +43,17 @@
   },
   "dependencies": {
     "@robota-sdk/agent-core": "workspace:*",
-    "@robota-sdk/agent-interface-transport": "workspace:*",
     "@robota-sdk/agent-executor": "workspace:*",
+    "@robota-sdk/agent-interface-transport": "workspace:*",
     "@robota-sdk/agent-session": "workspace:*",
     "@robota-sdk/agent-tools": "workspace:*",
-    "zod": "^3.24.0"
+    "zod": "^3.25.76"
   },
   "devDependencies": {
-    "rimraf": "^5.0.5",
-    "tsdown": "^0.22.0",
-    "typescript": "^5.3.3",
-    "vitest": "^1.6.1"
+    "rimraf": "^5.0.10",
+    "tsdown": "^0.22.2",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.6"
   },
   "keywords": [
     "ai",

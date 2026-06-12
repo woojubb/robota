@@ -130,6 +130,10 @@ export function buildFinalResult(
   const response: string = lastAssistantMessage
     ? (lastAssistantMessage.content as string)
     : 'No response received. The context window may be full.';
+  // A round that ended in a provider failure records the error as an assistant message
+  // with providerError metadata — that message must not count as a successful response,
+  // or the failure is masked as exit 0 downstream.
+  const endedWithProviderError = lastAssistantMessage?.metadata?.['providerError'] === true;
   const duration = Date.now() - startTime.getTime();
   return {
     response,
@@ -160,7 +164,8 @@ export function buildFinalResult(
         return sum;
       }, 0),
     toolsExecuted,
-    success: !!lastAssistantMessage,
+    success: !!lastAssistantMessage && !endedWithProviderError,
+    ...(endedWithProviderError ? { error: new Error(response) } : {}),
   };
 }
 

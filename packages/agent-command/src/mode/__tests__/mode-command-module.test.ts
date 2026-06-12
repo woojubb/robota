@@ -7,7 +7,7 @@ import { SystemCommandExecutor } from '@robota-sdk/agent-framework';
 import { createModeCommandModule } from '../mode-command-module.js';
 
 type TPermissionModeName = 'plan' | 'default' | 'acceptEdits' | 'bypassPermissions';
-type TSetPermissionModeSpy = ReturnType<typeof vi.fn<[nextMode: TPermissionModeName], void>>;
+type TSetPermissionModeSpy = ReturnType<typeof vi.fn<(nextMode: TPermissionModeName) => void>>;
 
 function createCheckpointResult(): IEditCheckpointRestoreResult {
   return {

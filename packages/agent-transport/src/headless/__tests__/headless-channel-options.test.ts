@@ -68,4 +68,39 @@ describe('HeadlessInteractionChannel session options', () => {
     expect(options.allowedTools).toEqual(['Read']);
     expect(options.deniedTools).toEqual(['Bash', 'Glob']);
   });
+
+  it('TC-01 (CLI-063): passes resumeSessionId and forkSession through to the InteractiveSession options', async () => {
+    const channel = new HeadlessInteractionChannel({
+      cwd: process.cwd(),
+      provider: {} as IAIProvider,
+      outputFormat: 'text',
+      resumeSessionId: 'session_prior_abc',
+      forkSession: true,
+      shellExec: () => '',
+    });
+    await channel.run('hello');
+    expect(sessionCtorSpy).toHaveBeenCalledTimes(1);
+    const options = sessionCtorSpy.mock.calls[0]?.[0] as {
+      resumeSessionId?: string;
+      forkSession?: boolean;
+    };
+    expect(options.resumeSessionId).toBe('session_prior_abc');
+    expect(options.forkSession).toBe(true);
+  });
+
+  it('TC-01 (CLI-063): omits resume fields when not provided', async () => {
+    const channel = new HeadlessInteractionChannel({
+      cwd: process.cwd(),
+      provider: {} as IAIProvider,
+      outputFormat: 'text',
+      shellExec: () => '',
+    });
+    await channel.run('hello');
+    const options = sessionCtorSpy.mock.calls[0]?.[0] as {
+      resumeSessionId?: string;
+      forkSession?: boolean;
+    };
+    expect(options.resumeSessionId).toBeUndefined();
+    expect(options.forkSession).toBeUndefined();
+  });
 });

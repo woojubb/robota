@@ -435,28 +435,32 @@ describe('ExecutionService', () => {
         'createExecutionRequestsWithContext' | 'executeTools'
       > = {
         createExecutionRequestsWithContext: vi.fn((toolCalls, context) =>
-          toolCalls.map((toolCall) => {
-            const parameters = JSON.parse(toolCall.function.arguments) as TToolParameters;
-            return {
-              toolName: toolCall.function.name,
-              parameters,
-              executionId: toolCall.id,
-              ownerType: 'tool',
-              ownerId: toolCall.id,
-              ownerPath: [...context.ownerPathBase, { type: 'tool', id: toolCall.id }],
-              metadata: context.metadataFactory?.(toolCall),
-            };
-          }),
+          toolCalls.map(
+            (toolCall: { id: string; function: { name: string; arguments: string } }) => {
+              const parameters = JSON.parse(toolCall.function.arguments) as TToolParameters;
+              return {
+                toolName: toolCall.function.name,
+                parameters,
+                executionId: toolCall.id,
+                ownerType: 'tool',
+                ownerId: toolCall.id,
+                ownerPath: [...context.ownerPathBase, { type: 'tool', id: toolCall.id }],
+                metadata: context.metadataFactory?.(toolCall),
+              };
+            },
+          ),
         ),
         executeTools: vi.fn((batchContext) =>
           Promise.resolve({
-            results: batchContext.requests.map((request) => ({
-              success: true,
-              toolName: request.toolName,
-              result: JSON.stringify({ ok: true, executionId: request.executionId }),
-              executionId: request.executionId,
-              duration: 1,
-            })),
+            results: batchContext.requests.map(
+              (request: { toolName: string; executionId: string }) => ({
+                success: true,
+                toolName: request.toolName,
+                result: JSON.stringify({ ok: true, executionId: request.executionId }),
+                executionId: request.executionId,
+                duration: 1,
+              }),
+            ),
             errors: [],
           }),
         ),
@@ -863,7 +867,13 @@ describe('ExecutionService', () => {
         },
       );
 
-      expect(result.success).toBe(true);
+      // CLI-064 exit-code contract: a round ending in a provider failure must NOT
+      // report success — the masked "Request failed:" assistant message marks the
+      // result failed so transports surface a non-zero exit.
+      expect(result.success).toBe(false);
+      expect(result.error?.message).toContain(
+        'Request failed: Provider call idle timeout after 10ms',
+      );
       expect(result.response).toContain('Request failed: Provider call idle timeout after 10ms');
     });
 
