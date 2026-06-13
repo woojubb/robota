@@ -545,23 +545,25 @@ Tool: [5 tools]
 
 ## Slash Commands
 
-| Command                   | Description                                                                |
-| ------------------------- | -------------------------------------------------------------------------- |
-| `/help`                   | Show available commands                                                    |
-| `/clear`                  | Clear conversation history through the session module                      |
-| `/language [lang]`        | Set response language (ko, en, ja, zh), saves and restarts                 |
-| `/compact [instructions]` | Compress context window                                                    |
-| `/cost`                   | Show session info through the session command module                       |
-| `/context`                | Context window info, reference inventory, and `/context auto ...` controls |
-| `/agent`                  | Run and manage background subagent jobs                                    |
-| `/permissions [mode]`     | Permission rules and permission mode changes                               |
-| `/memory`                 | Route project memory commands to the memory command module                 |
-| `/rewind`                 | Route edit checkpoint list/restore commands to SDK                         |
-| `/background`             | Route background task controls to the background command module            |
-| `/plugin [subcommand]`    | Plugin management through the injected plugin command module               |
-| `/resume`                 | Show session picker to resume a saved session                              |
-| `/rename <name>`          | Rename the current session (name displayed in StatusBar)                   |
-| `/exit`                   | Exit through the injected exit command module                              |
+| Command                        | Description                                                                     |
+| ------------------------------ | ------------------------------------------------------------------------------- |
+| `/help`                        | Show available commands                                                         |
+| `/clear`                       | Clear conversation history through the session module                           |
+| `/language [lang]`             | Set response language (ko, en, ja, zh), saves and restarts                      |
+| `/compact [instructions]`      | Compress context window                                                         |
+| `/cost`                        | Show session info through the session command module                            |
+| `/context`                     | Context window info, reference inventory, and `/context auto ...` controls      |
+| `/agent`                       | Run and manage background subagent jobs                                         |
+| `/permissions [mode]`          | Permission rules and permission mode changes                                    |
+| `/memory`                      | Route project memory commands to the memory command module                      |
+| `/rewind`                      | Route edit checkpoint list/restore commands to SDK                              |
+| `/background`                  | Route background task controls to the background command module                 |
+| `/schedule <when> <…>`         | Schedule an agent wake (relative delay or cron) via the schedule command module |
+| `/monitor "<cmd>" "<pat>" <…>` | Watch a process's output and wake the agent on a matching line                  |
+| `/plugin [subcommand]`         | Plugin management through the injected plugin command module                    |
+| `/resume`                      | Show session picker to resume a saved session                                   |
+| `/rename <name>`               | Rename the current session (name displayed in StatusBar)                        |
+| `/exit`                        | Exit through the injected exit command module                                   |
 
 ### Slash Command Autocomplete
 

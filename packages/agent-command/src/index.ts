@@ -13,6 +13,7 @@ export * from './plugin/index.js';
 export * from './provider/index.js';
 export * from './reset/index.js';
 export * from './rewind/index.js';
+export * from './schedule/index.js';
 export * from './session/index.js';
 export * from './settings/index.js';
 export * from './skills/index.js';
