@@ -57,6 +57,7 @@ const SCAN_COMMANDS = [
   },
   { name: 'dist', command: ['node', 'scripts/harness/scan-dist-freshness.mjs'] },
   { name: 'docs-structure', command: ['pnpm', 'docs:validate-structure'] },
+  { name: 'conformance', command: ['node', 'scripts/harness/check-architecture-conformance.mjs'] },
 ];
 
 function spawnScan(command) {
