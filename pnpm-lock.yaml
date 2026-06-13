@@ -136,6 +136,9 @@ importers:
       '@robota-sdk/agent-framework':
         specifier: workspace:*
         version: link:../../packages/agent-framework
+      '@robota-sdk/agent-interface-transport':
+        specifier: workspace:*
+        version: link:../../packages/agent-interface-transport
       '@robota-sdk/agent-playground':
         specifier: workspace:*
         version: link:../../packages/agent-playground
