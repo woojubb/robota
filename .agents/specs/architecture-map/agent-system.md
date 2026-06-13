@@ -20,6 +20,8 @@ flowchart TD
   Providers["agent-provider\nprovider definitions + transports"]
   SubagentRunner["agent-subagent-runner\nChildProcessSubagentRunner + worker\n(optional — install only when needed)"]
   Plugins["agent-plugin\nplugin layer (event, logging, usage, etc.)"]
+  IfaceTransport["agent-interface-transport\ntransport type contracts (ZERO deps)"]
+  IfaceTui["agent-interface-tui\nTUI type contracts (ZERO deps)"]
 
   AgentCLI --> TuiTransport
   AgentCLI --> Framework
@@ -45,8 +47,9 @@ flowchart TD
   Executor --> Core
   Tools --> Core
   Plugins --> Core
-  IfaceTransport --> Core
-  IfaceTui --> Core
+  Framework --> IfaceTransport
+  TuiTransport --> IfaceTransport
+  TuiTransport --> IfaceTui
 ```
 
 Agent stack ownership:
