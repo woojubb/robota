@@ -44,14 +44,16 @@ A **thin CLI layer** built on top of agent-sdk, responsible only for the termina
 
 ## Import Rules
 
-| Source             | Allowed                              | Examples                                                                                    |
-| ------------------ | ------------------------------------ | ------------------------------------------------------------------------------------------- |
-| `agent-sdk`        | SDK-owned APIs and facades           | `InteractiveSession`, `TInteractivePermissionHandler`, runtime contracts re-exported by SDK |
-| `agent-core`       | Public types + utilities only        | `TUniversalMessage`, `TPermissionMode`, `createSystemMessage`, `getModelName`               |
-| `agent-core`       | ❌ Internal engine                   | ~~`Robota`~~, ~~`ExecutionService`~~, ~~`ConversationStore`~~                               |
-| `agent-sessions`   | ❌ Forbidden                         | SDK provides its own session and permission types                                           |
-| `agent-tools`      | ❌ Forbidden                         | SDK assembles tools internally                                                              |
-| `agent-provider-*` | ✅ Provider definition assembly only | CLI composes injected `IProviderDefinition[]`; provider packages own defaults and factories |
+| Source                  | Allowed                              | Examples                                                                                                |
+| ----------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------- |
+| `agent-framework`       | SDK-owned APIs and facades           | `InteractiveSession`, `TInteractivePermissionHandler`, command/runtime contracts re-exported by the SDK |
+| `agent-core`            | Public types + utilities only        | `TUniversalMessage`, `TPermissionMode`, `createSystemMessage`, `getModelName`                           |
+| `agent-core`            | ❌ Internal engine                   | ~~`Robota`~~, ~~`ExecutionService`~~, ~~`ConversationStore`~~                                           |
+| `agent-session`         | ❌ Forbidden                         | the SDK (agent-framework) provides its own session and permission types                                 |
+| `agent-tools`           | ❌ Forbidden                         | the SDK assembles tools internally                                                                      |
+| `agent-command`         | ✅ Slash-command modules only        | CLI composes default command modules; command behavior is owned by the command package                  |
+| `agent-subagent-runner` | ✅ Subagent/background runner only   | CLI wires the concrete runner at the composition root                                                   |
+| `agent-provider`        | ✅ Provider definition assembly only | CLI composes injected `IProviderDefinition[]`; the provider package owns defaults and factories         |
 
 ## Architecture
 
@@ -293,14 +295,15 @@ bin.ts → cli.ts (arg parsing + provider definition composition)
 Dependency chain:
 
 ```
-agent-cli ─→ agent-sdk ─→ agent-sessions ─→ agent-core
-  │            ├─→ agent-tools ────────────→ agent-core
-  │            └─────────────────────────→ agent-core  (direct: types, utilities)
-  ├──────────────────────────────────────→ agent-core  (direct: public types only)
-  ├──────────────────────────────────────→ agent-provider-* (provider definitions)
-  ├──────────────────────────────────────→ agent-transport-tui (TUI I/O adapter)
-  ├──────────────────────────────────────→ agent-transport-headless (print mode)
-  └──────────────────────────────────────→ agent-transport-ws (settings-based WebSocket transport)
+agent-cli ─→ agent-framework ─→ agent-session ──→ agent-core
+  │              ├─→ agent-executor ─────────────→ agent-core
+  │              ├─→ agent-tools ────────────────→ agent-core
+  │              └───────────────────────────────→ agent-core  (direct: types, utilities)
+  ├──────────────────────────────────────→ agent-core               (direct: public types only)
+  ├──────────────────────────────────────→ agent-command            (slash-command modules)
+  ├──────────────────────────────────────→ agent-provider           (provider definitions)
+  ├──────────────────────────────────────→ agent-subagent-runner    (subagent / background execution)
+  └──────────────────────────────────────→ agent-transport          (subpaths: /tui, /headless, /ws)
 ```
 
 ### Transport Registry
