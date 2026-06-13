@@ -126,7 +126,11 @@ export function applyBackgroundTaskRunnerStateEvent(
     return cloneBackgroundTaskState(task.state);
   }
   if (event.type === 'background_task_waking') {
-    task.state.status = transitionBackgroundTaskStatus(task.state.status, 'WAKE');
+    // A scheduled task wakes from 'sleeping' → 'running'. A monitor (FLOW-004) is already
+    // 'running' and fires wakes on output matches without changing status — keep it as-is.
+    if (task.state.status === 'sleeping') {
+      task.state.status = transitionBackgroundTaskStatus(task.state.status, 'WAKE');
+    }
     task.state.nextFireAt = undefined;
     task.state.updatedAt = now;
     return cloneBackgroundTaskState(task.state);

@@ -16,7 +16,9 @@ import {
   type IBackgroundTaskRunner,
   type IBackgroundTaskStart,
   type IProcessBackgroundTaskRequest,
+  type TBackgroundTaskRunnerEvent,
 } from '../types.js';
+import { createLineWakeMatcher, type ILineWakeMatcher } from './line-wake-matcher.js';
 
 const DEFAULT_OUTPUT_LIMIT_BYTES = 30_000;
 const DEFAULT_KILL_GRACE_MS = 2_000;
@@ -33,6 +35,23 @@ interface IProcessTaskRuntime {
   capture: ILimitedOutputCapture;
   killGraceMs: number;
   killTimer?: ReturnType<typeof setTimeout>;
+  /** FLOW-004: present when the process is a monitor (matchPattern + agentInstruction set). */
+  wakeMatcher?: ILineWakeMatcher;
+}
+
+/** FLOW-004: build a line→wake matcher when the request configures monitoring. */
+function createWakeMatcher(
+  request: IProcessBackgroundTaskRequest,
+  emit: ((event: TBackgroundTaskRunnerEvent) => void) | undefined,
+): ILineWakeMatcher | undefined {
+  if (request.matchPattern === undefined || request.agentInstruction === undefined || !emit) {
+    return undefined;
+  }
+  return createLineWakeMatcher({
+    matchPattern: request.matchPattern,
+    agentInstruction: request.agentInstruction,
+    emit: (instruction) => emit({ type: 'background_task_waking', instruction }),
+  });
 }
 
 function resolveShell(request: IProcessBackgroundTaskRequest): { command: string; args: string[] } {
@@ -64,7 +83,7 @@ export function createManagedShellProcessRunner(
       if (task.request.kind !== 'process') {
         throw new BackgroundTaskError('runner', `Invalid process task kind: ${task.request.kind}`);
       }
-      return startProcessTask(task.taskId, task.request, killGraceMs);
+      return startProcessTask(task.taskId, task.request, killGraceMs, task.emit);
     },
   };
 }
@@ -73,8 +92,10 @@ function startProcessTask(
   taskId: string,
   request: IProcessBackgroundTaskRequest,
   killGraceMs: number,
+  emit: ((event: TBackgroundTaskRunnerEvent) => void) | undefined,
 ): IBackgroundTaskHandle {
   const shell = resolveShell(request);
+  const wakeMatcher = createWakeMatcher(request, emit);
   const runtime: IProcessTaskRuntime = {
     taskId,
     request,
@@ -88,6 +109,7 @@ function startProcessTask(
       limitBytes: request.outputLimitBytes ?? DEFAULT_OUTPUT_LIMIT_BYTES,
     }),
     killGraceMs,
+    ...(wakeMatcher ? { wakeMatcher } : {}),
   };
   const result = createProcessResult(runtime);
   return createProcessHandle(runtime, result);
@@ -174,11 +196,13 @@ function attachOutputListeners(runtime: IProcessTaskRuntime): void {
     const text = chunk.toString('utf8');
     runtime.capture.appendOutput(text);
     appendPrefixedLogLines(runtime.logs, 'stdout', text);
+    runtime.wakeMatcher?.push(text);
   });
   runtime.child.stderr.on('data', (chunk: Buffer) => {
     const text = chunk.toString('utf8');
     runtime.capture.appendOutput(text);
     appendPrefixedLogLines(runtime.logs, 'stderr', text);
+    runtime.wakeMatcher?.push(text);
   });
 }
 
