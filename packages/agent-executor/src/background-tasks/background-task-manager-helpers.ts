@@ -137,16 +137,28 @@ export function hasRepeatedSentence(text: string, threshold: number): boolean {
   return false;
 }
 
+function resolveBackgroundTaskPreview(
+  request: TBackgroundTaskRequest,
+  previewLength: number,
+): { promptPreview: string } | { commandPreview: string } | Record<string, never> {
+  if (request.kind === 'agent') {
+    return { promptPreview: request.prompt.slice(0, previewLength) };
+  }
+  if (request.kind === 'process') {
+    return { commandPreview: request.command.slice(0, previewLength) };
+  }
+  // scheduled: a shell command, an agent-wake instruction, or both — preview whichever is set.
+  const source = request.command ?? request.agentInstruction;
+  return source !== undefined ? { commandPreview: source.slice(0, previewLength) } : {};
+}
+
 export function createQueuedBackgroundTaskState(
   id: string,
   request: TBackgroundTaskRequest,
   now: string,
   previewLength: number,
 ): IBackgroundTaskState {
-  const preview =
-    request.kind === 'agent'
-      ? { promptPreview: request.prompt.slice(0, previewLength) }
-      : { commandPreview: request.command.slice(0, previewLength) };
+  const preview = resolveBackgroundTaskPreview(request, previewLength);
 
   return {
     id,
