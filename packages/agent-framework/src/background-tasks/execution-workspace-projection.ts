@@ -147,12 +147,29 @@ function createTaskControls(state: IBackgroundTaskState): readonly TExecutionCon
   return controls;
 }
 
+/** FLOW-006: max characters of the wake instruction shown inline in the workspace row. */
+const WAKE_PREVIEW_LENGTH = 32;
+
 function createTaskSubtitle(state: IBackgroundTaskState): string | undefined {
   if (state.kind === 'agent') return state.agentType ?? state.cwd;
+  // FLOW-006: distinguish an agent-wake schedule (carries an instruction) from a shell-only
+  // schedule with a `↻ wake` marker + a truncated instruction preview, beside `next: Xm`.
+  const wakeInstruction = state.schedule?.agentInstruction;
   if (state.status === 'sleeping' && state.nextFireAt !== undefined) {
-    return `next: ${formatNextFireAt(state.nextFireAt)}`;
+    const next = `next: ${formatNextFireAt(state.nextFireAt)}`;
+    if (wakeInstruction !== undefined) {
+      return `↻ wake "${truncateWakePreview(wakeInstruction)}" · ${next}`;
+    }
+    return next;
   }
   return state.cwd;
+}
+
+function truncateWakePreview(instruction: string): string {
+  const trimmed = instruction.trim();
+  return trimmed.length > WAKE_PREVIEW_LENGTH
+    ? `${trimmed.slice(0, WAKE_PREVIEW_LENGTH)}…`
+    : trimmed;
 }
 
 function formatNextFireAt(isoString: string): string {
