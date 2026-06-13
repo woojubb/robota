@@ -20,6 +20,7 @@ Consult the relevant skill before starting work in its domain. Each entry links 
 | [task-tracking](task-tracking/SKILL.md)                                   | Create and update task files in `.agents/tasks/`                                                |
 | [backlog-execution-orchestrator](backlog-execution-orchestrator/SKILL.md) | Recommendation-gated backlog PR pipeline with user execution test scenario gate                 |
 | [post-implementation-checklist](post-implementation-checklist/SKILL.md)   | Mandatory checklist after completing implementation work                                        |
+| [delegated-refactor-green-gate](delegated-refactor-green-gate/SKILL.md)   | Delegate a large mechanical refactor to a subagent under a hard green-or-report completion gate |
 | [repo-change-loop](repo-change-loop/SKILL.md)                             | Standard change loop: impact → build → verify → summarize                                       |
 | [version-management](version-management/SKILL.md)                         | Coordinated version bumps with changesets across all packages                                   |
 

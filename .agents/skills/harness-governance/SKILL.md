@@ -6,22 +6,26 @@ description: Governs the Robota harness by checking rule-skill-owner consistency
 # Harness Governance
 
 ## Rule Anchor
+
 - `AGENTS.md` > "Rules and Skills Boundary"
 - `AGENTS.md` > "Owner Knowledge Policy"
 - `AGENTS.md` > "Harness Direction"
 
 ## Use This Skill When
+
 - Editing `AGENTS.md`.
 - Adding, removing, or revising skills under `.agents/skills/`.
 - Changing owner documents, ADRs, or guidance that other skills depend on.
 - Reviewing documentation drift or policy contradictions.
 
 ## Preconditions
+
 - Identify the changed rule, skill, or owner files.
 - Identify the `AGENTS.md` sections a skill or owner document depends on.
 - Identify whether the change should become a mechanical check instead of more prose.
 
 ## Execution Steps
+
 1. Map each changed skill to its `AGENTS.md` anchors.
 2. Check that every anchor points to a real `AGENTS.md` section.
 3. Scan for undefined rule-level terminology introduced only in a skill.
@@ -38,13 +42,27 @@ description: Governs the Robota harness by checking rule-skill-owner consistency
    - rule-violating examples found
    - candidate checks to automate
 
+## Introducing a Mechanical Guard — Scope Discipline
+
+When you add a mechanical guard (a scan/check that enforces an invariant):
+
+1. **Declare its scan scope explicitly** — which paths/packages/tokens the guard inspects — in the guard
+   script and in the skill/rule that owns it. A guard with an implicit or unstated scope is a defect.
+2. **Capture out-of-scope findings as a backlog.** If the guard surfaces a real problem outside its
+   declared scope, file it as a backlog item (`.agents/spec-docs/`); do NOT silently widen the guard to
+   cover it, and do NOT drop the finding.
+3. Widening the guard's scope is itself a change that needs its own justification — handle it deliberately,
+   not as a side effect of an unrelated run.
+
 ## Stop Conditions
+
 - A skill anchor points to a missing `AGENTS.md` section.
 - A skill introduces new rule-level terminology without an owner definition.
 - A skill example violates repository rules.
 - The same policy is duplicated in multiple places with different wording.
 
 ## Checklist
+
 - [ ] Changed skills point to real `AGENTS.md` anchors.
 - [ ] No new undefined rule terminology is introduced.
 - [ ] Examples do not violate repository rules.
@@ -52,6 +70,7 @@ description: Governs the Robota harness by checking rule-skill-owner consistency
 - [ ] Repeated invariants are considered for automation.
 
 ## Focused Examples
+
 ```bash
 rg -n '^## ' AGENTS.md
 rg -n "main agent|sub-agent|parent-agent|child-agent" .agents/skills AGENTS.md
@@ -64,10 +83,12 @@ rg -n "await import\\(" .agents/skills AGENTS.md
 ```
 
 ## Anti-Patterns
+
 - Treating skills as a second rulebook.
 - Leaving stale anchors after renaming `AGENTS.md` sections.
 - Adding more prose when a simple scan would enforce the invariant better.
 - Keeping examples that contradict the written rule because they are "just illustrative".
 
 ## Related Harness Commands
+
 - Current: `pnpm harness:scan`, `pnpm harness:scan:consistency`, `pnpm harness:scan:specs`, `rg`-based consistency scans

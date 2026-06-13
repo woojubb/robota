@@ -60,6 +60,20 @@ This is a **repeating cycle** that runs until zero issues are found.
 - [ ] Run `pnpm test` for modified packages — must pass
 - [ ] Verify no stale references (deleted files, renamed types, removed exports)
 
+#### 2a. Independently re-verify any delegated "green" claim
+
+If any part of this code change was delegated to a subagent, the orchestrator MUST NOT trust the
+subagent's "all green" report at face value. Before marking the work done, the orchestrator
+independently re-runs the key gates in its own context:
+
+- [ ] `pnpm typecheck` — must pass
+- [ ] The relevant scan/guard for the change (e.g. `pnpm harness:scan`, dependency-direction, conformance)
+- [ ] `pnpm install --frozen-lockfile` whenever a dependency or lockfile was touched (catches a pruned or
+      regenerated lockfile a subagent may have produced)
+
+A subagent's claim is treated as a hypothesis until the orchestrator reproduces the green result. See
+[`delegated-refactor-green-gate`](../delegated-refactor-green-gate/SKILL.md) for the delegation contract.
+
 ### 3. README Update
 
 For each modified package:
