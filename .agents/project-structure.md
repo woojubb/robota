@@ -75,7 +75,7 @@ Rules:
 
 - An `agent-interface-*` package must not contain classes or runtime logic.
 - Implementation packages (`agent-transport` with subpaths `/tui`, `/headless`, `/ws`, `/http`, `/mcp`; `agent-provider` with subpaths `/anthropic`, `/openai`, etc.) depend on the corresponding `agent-interface-*` package, not on `agent-framework`, for interface types.
-- `agent-framework` depends on `agent-interface-*` packages to consume the contracts it needs.
+- `agent-framework` depends on the `agent-interface-transport` package to consume the contracts it needs (it does not depend on `agent-interface-tui`, which only `agent-transport` consumes).
 - Do not place interface packages in `agent-core` — `agent-core` is zero-deps and owns foundational primitives only.
 
 ## Composition-Root Exemption (Import-Layering Scans)
