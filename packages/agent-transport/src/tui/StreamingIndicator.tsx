@@ -9,7 +9,7 @@ import React from 'react';
 import { renderMarkdown } from './render-markdown.js';
 import ToolDiffBlock from './ToolDiffBlock.js';
 
-import type { IToolState } from '@robota-sdk/agent-framework';
+import type { IToolState } from '@robota-sdk/agent-interface-transport';
 
 function getToolStyle(t: IToolState): {
   color: string;

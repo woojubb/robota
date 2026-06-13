@@ -10,7 +10,7 @@ import type {
   IExecutionDetailPage,
   IExecutionWorkspaceEntry,
   TExecutionDetailRecordKind,
-} from '@robota-sdk/agent-framework';
+} from '@robota-sdk/agent-interface-transport';
 
 const MAX_VISIBLE_DETAIL_RECORDS = 12;
 

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type {
   IExecutionWorkspaceEntry,
   IExecutionWorkspaceSnapshot,
-} from '@robota-sdk/agent-framework';
+} from '@robota-sdk/agent-interface-transport';
 import {
   countActiveBackgroundWorkspaceEntries,
   formatExecutionDetailRecord,

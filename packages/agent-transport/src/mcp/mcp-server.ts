@@ -9,7 +9,7 @@
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { ListToolsRequestSchema, CallToolRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 
-import type { IInteractiveSession, IExecutionResult } from '@robota-sdk/agent-framework';
+import type { IExecutionResult, IInteractiveSession } from '@robota-sdk/agent-interface-transport';
 
 export interface IAgentMcpOptions {
   /** Name for the MCP server. */

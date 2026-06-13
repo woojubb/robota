@@ -7,8 +7,7 @@
 
 import { createAgentRoutes } from './routes.js';
 
-import type { IInteractiveSession } from '@robota-sdk/agent-framework';
-import type { ITransportAdapter } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSession, ITransportAdapter } from '@robota-sdk/agent-interface-transport';
 import type { Hono } from 'hono';
 
 export interface IHttpTransportOptions {

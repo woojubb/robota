@@ -4,7 +4,7 @@ import StatusBar from './StatusBar.js';
 import { useTuiCliAdapter } from './tui-cli-adapter-context.js';
 
 import type { TPermissionMode } from '@robota-sdk/agent-core';
-import type { IStatusLineCommandSettings } from '@robota-sdk/agent-framework';
+import type { IStatusLineCommandSettings } from '@robota-sdk/agent-interface-transport';
 
 interface IProps {
   cwd: string;

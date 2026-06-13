@@ -31,11 +31,11 @@ import type { ITuiCliAdapter } from './tui-cli-adapter.js';
 import type { TuiInteractionChannel } from './TuiInteractionChannel.js';
 import type { TPermissionMode } from '@robota-sdk/agent-core';
 import type {
+  IExecutionDetailPage,
   IInteractiveSession,
   IInteractiveSessionStore,
-  IExecutionDetailPage,
-} from '@robota-sdk/agent-framework';
-import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
+  ITransportRegistryView,
+} from '@robota-sdk/agent-interface-transport';
 
 interface IProps {
   cwd: string;

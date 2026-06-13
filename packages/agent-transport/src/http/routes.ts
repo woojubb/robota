@@ -8,7 +8,7 @@
 import { Hono } from 'hono';
 import { streamSSE } from 'hono/streaming';
 
-import type { IInteractiveSession } from '@robota-sdk/agent-framework';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
 import type { Context } from 'hono';
 
 /** Callback that resolves an IInteractiveSession from the request context. */

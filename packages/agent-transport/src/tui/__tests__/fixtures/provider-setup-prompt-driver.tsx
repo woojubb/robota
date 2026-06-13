@@ -15,7 +15,7 @@ import React from 'react';
 import InteractivePrompt from '../../InteractivePrompt.js';
 
 import type { IAIProvider, IProviderDefinition } from '@robota-sdk/agent-core';
-import type { TCommandInteractionPrompt as TInteractivePrompt } from '@robota-sdk/agent-framework';
+import type { TCommandInteractionPrompt as TInteractivePrompt } from '@robota-sdk/agent-interface-transport';
 
 const openaiDefaults = {
   apiKey: '$ENV:OPENAI_API_KEY',
