@@ -246,7 +246,17 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
   private handleRunnerEvent(task: ITrackedBackgroundTask, event: TBackgroundTaskRunnerEvent): void {
     if (isTerminalBackgroundTaskStatus(task.state.status)) return;
     this.applyRunnerEventToState(task, event);
-    if (event.type === 'background_task_sleeping' || event.type === 'background_task_waking') {
+    if (event.type === 'background_task_sleeping') {
+      // The status/nextFireAt change is already surfaced via background_task_updated.
+      return;
+    }
+    if (event.type === 'background_task_waking') {
+      // FLOW-001: propagate a manager-level wake so an upper layer can re-enter the agent loop.
+      this.emit({
+        type: 'background_task_waking',
+        taskId: task.state.id,
+        ...(event.instruction !== undefined ? { instruction: event.instruction } : {}),
+      });
       return;
     }
     this.emit({ ...event, taskId: task.state.id });

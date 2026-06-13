@@ -107,7 +107,16 @@ export interface IProcessBackgroundTaskRequest extends IBaseBackgroundTaskReques
 export interface IScheduledBackgroundTaskRequest extends IBaseBackgroundTaskRequest {
   kind: 'scheduled';
   cronExpression: string;
-  command: string;
+  /**
+   * Shell command to run on each fire. Optional when `agentInstruction` is set —
+   * an agent-wake schedule may fire the agent loop instead of (or in addition to) a shell command.
+   */
+  command?: string;
+  /**
+   * FLOW-001: when set, each fire carries this instruction on the `background_task_waking`
+   * event so an upper layer (FLOW-002) can wake the agent loop with a non-user turn.
+   */
+  agentInstruction?: string;
   shell?: string;
   env?: Record<string, string>;
   outputLimitBytes?: number;
@@ -202,7 +211,7 @@ export type TBackgroundTaskRunnerEvent =
       toolArgs: Record<string, TBackgroundPrimitive>;
     }
   | { type: 'background_task_sleeping'; nextFireAt: string }
-  | { type: 'background_task_waking' };
+  | { type: 'background_task_waking'; instruction?: string };
 
 export interface IBackgroundTaskStart {
   taskId: string;
@@ -251,7 +260,10 @@ export type TBackgroundTaskEvent =
   | { type: 'background_task_completed'; task: IBackgroundTaskState }
   | { type: 'background_task_failed'; task: IBackgroundTaskState }
   | { type: 'background_task_cancelled'; task: IBackgroundTaskState }
-  | { type: 'background_task_closed'; taskId: string };
+  | { type: 'background_task_closed'; taskId: string }
+  // FLOW-001: a scheduled/monitor task fired. `instruction`, when present, is the agent-wake
+  // instruction an upper layer (FLOW-002) injects as a non-user turn.
+  | { type: 'background_task_waking'; taskId: string; instruction?: string };
 
 export type TBackgroundTaskEventListener = (event: TBackgroundTaskEvent) => void;
 
