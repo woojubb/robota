@@ -1,5 +1,5 @@
 ---
-status: draft
+status: approved
 type: BEHAVIOR
 tags: [cli]
 ---
@@ -126,3 +126,13 @@ Type BEHAVIOR + tags cli → 프레임워크 합성 결과(system message/agentN
 - Completion Criteria: all items TC-01..TC-06 prefixed; command/observable-behavior form; no banned phrases ("works correctly"/"no errors"/"implemented"/"displays correctly").
 - Test Plan: `## Test Plan` present; 6 rows (TC-01..TC-06) match 6 Completion Criteria TC-N (count matches); each row has non-empty Test Type + Tool/Approach, no "TBD"; no "manual"-tool rows so Notes justification N/A.
 - Structure: Tasks section with placeholder present; Evidence Log present (was empty before this run); no `## Status`/`## Classification` body sections.
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-06-14
+
+**Status upgrade:** review-ready → approved
+
+- Prior-Gate Precondition: `### [GATE-WRITE] — ✅ PASS | 2026-06-14` present; frontmatter `status: review-ready` and folder `backlog/` match expected input stage.
+- Explicit approval: orchestrator asked "8개를 GATE-APPROVAL까지 올릴까요?" and user replied "다음 진행해" — clear authorization to advance all 8 PRESET specs to `approved`.
+- Directed at this spec: PRESET-003 is one of the 8 PRESET specs covered by the approval.
+- No Architecture Review or frontmatter type/tags modified after approval (spec unchanged since GATE-WRITE).
+- NON-COMPLIANCE check: no implementation started — `.agents/tasks/PRESET-003.md` absent, `packages/agent-preset/` absent.

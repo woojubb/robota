@@ -1,5 +1,5 @@
 ---
-status: draft
+status: approved
 type: FLOW
 tags: [cli]
 ---
@@ -105,3 +105,12 @@ Completion Criteria: TC-01..TC-05 all TC-N prefixed, Command/Observable form, no
 Test Plan: section present; 5 rows (TC-01..TC-05) match 5 Completion Criteria; each row has Test Type + Tool/Approach, no TBD; no "manual" Tool rows so manual-justification N/A — OK.
 Structure: Tasks section present with placeholder; Evidence Log empty before this entry; no `## Status`/`## Classification` body sections — OK.
 TC-N count match confirmed: Completion Criteria 5 = Test Plan 5.
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-06-14
+
+**Status upgrade:** review-ready → approved
+Prior-gate precondition: `[GATE-WRITE] — ✅ PASS | 2026-06-14` present in Evidence Log; frontmatter `status: review-ready`; file in `backlog/` folder — prior gate confirmed.
+Explicit approval: orchestrator asked "8개를 GATE-APPROVAL까지 올릴까요?" and user replied "다음 진행해" — matches "진행해" approval pattern, clearly authorizes advancing the 8 PRESET specs.
+Directed at this spec: PRESET-007 is one of the 8 PRESET specs covered by the approval — OK.
+No post-approval changes: Architecture Review and frontmatter (type FLOW / tags [cli]) unchanged after approval — OK.
+NON-COMPLIANCE triggers cleared: `.agents/tasks/PRESET-007.md` does not exist; `packages/agent-preset/` does not exist — no implementation work started before this gate ran.

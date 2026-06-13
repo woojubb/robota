@@ -1,5 +1,5 @@
 ---
-status: draft
+status: approved
 type: BEHAVIOR
 tags: [cli]
 ---
@@ -184,3 +184,13 @@ Type BEHAVIOR + tags cli → 프리셋 resolve 메커니즘 단언(effort/autono
 - Test Plan: `## Test Plan` present; 10 rows (TC-01..TC-10) — count matches 10 Completion Criteria; each row has non-empty Test Type and Tool/Approach; no row uses "manual" Tool (vitest/`rg`/spawn — no manual-justification gap).
 - Structure: Tasks section present with placeholder; Evidence Log present and empty before this run; no `## Status` or `## Classification` body sections (status/type live in frontmatter).
 - TC-N count match confirmed: Completion Criteria = 10, Test Plan = 10.
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-06-14
+
+**Status upgrade:** review-ready → approved
+
+- Prior-gate precondition: `### [GATE-WRITE] — ✅ PASS | 2026-06-14` present in Evidence Log; frontmatter `status: review-ready`; file in `backlog/` folder — matches expected input stage.
+- Explicit approval: orchestrator asked "8개를 GATE-APPROVAL까지 올릴까요?" and the user replied verbatim "다음 진행해" — an unambiguous statement authorizing advancement of all 8 PRESET specs to `approved`.
+- Directed at this spec: PRESET-005 is one of the 8 PRESET specs covered by the approval scope.
+- No Architecture Review or frontmatter type/tags modified after approval: Architecture Review section and frontmatter (`type: BEHAVIOR`, `tags: [cli]`) unchanged.
+- NON-COMPLIANCE trigger not fired: no `.agents/tasks/PRESET-005.md` and no `packages/agent-preset/` exist — implementation has not started.

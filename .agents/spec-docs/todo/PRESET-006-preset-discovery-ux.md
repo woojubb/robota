@@ -1,5 +1,5 @@
 ---
-status: draft
+status: approved
 type: SCREEN
 tags: [cli]
 ---
@@ -107,3 +107,12 @@ Architecture Review Checklist: all 4 items `[x]`; Sibling scan `[x]` with eviden
 Completion Criteria: TC-01..TC-05 all TC-N prefixed; command/observable form; no banned phrases ("works correctly"/"no errors"/"implemented"/"displays correctly").
 Test Plan: section present; 5 rows (TC-01..TC-05) match 5 Completion Criteria count; each row has non-empty Test Type + Tool/Approach; no "manual" tool rows (no manual-Notes justification required).
 Structure: Tasks section present with placeholder; Evidence Log present and empty before this run; no `## Status` or `## Classification` body sections.
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-06-14
+
+**Status upgrade:** review-ready → approved
+Prior-gate precondition: `### [GATE-WRITE] — ✅ PASS | 2026-06-14` present; frontmatter `status: review-ready` + `backlog/` folder match expected input stage.
+Explicit approval: orchestrator asked "8개를 GATE-APPROVAL까지 올릴까요?" and user replied verbatim "다음 진행해" — clear directive authorizing advance of all 8 PRESET specs (this spec included) to approved.
+Directed at this spec: PRESET-006 is one of the 8 PRESET specs covered by the batch approval.
+No post-approval changes: Architecture Review and frontmatter (`type: SCREEN`, `tags: [cli]`) unchanged after approval.
+NON-COMPLIANCE trigger clear: no `.agents/tasks/PRESET-006.md`, no `packages/agent-preset/`, no `packages/agent-command/src/preset/` — implementation not started.
