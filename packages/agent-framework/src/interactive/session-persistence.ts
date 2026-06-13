@@ -20,44 +20,15 @@ import type { ISkillActivationEvent } from '../commands/skill-activation-events.
 import type { IContextReferenceItem } from '../context/context-reference-inventory.js';
 import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
 import type { IFileSystem } from '@robota-sdk/agent-core';
-import type { IHistoryEntry, IToolSchema, TUniversalMessage } from '@robota-sdk/agent-core';
+import type { IHistoryEntry, TUniversalMessage } from '@robota-sdk/agent-core';
+// Session persistence contracts SSOT relocated to @robota-sdk/agent-interface-transport (DATA-001).
+import type {
+  IInteractiveSessionRecord,
+  IInteractiveSessionStore,
+  IResumableSessionSummary,
+} from '@robota-sdk/agent-interface-transport';
 
-export interface IInteractiveSessionRecord {
-  id: string;
-  name?: string;
-  cwd: string;
-  createdAt: string;
-  updatedAt: string;
-  messages: TUniversalMessage[];
-  history?: IHistoryEntry[];
-  systemPrompt?: string;
-  toolSchemas?: IToolSchema[];
-  backgroundTasks?: IBackgroundTaskState[];
-  backgroundTaskEvents?: TBackgroundTaskEvent[];
-  backgroundJobGroups?: IBackgroundJobGroupState[];
-  backgroundJobGroupEvents?: TBackgroundJobGroupEvent[];
-  skillActivationEvents?: ISkillActivationEvent[];
-  memoryEvents?: IMemoryEvent[];
-  usedMemoryReferences?: IMemoryReference[];
-  contextReferences?: IContextReferenceItem[];
-  sandboxSnapshotId?: string;
-}
-
-export interface IInteractiveSessionStore {
-  save(session: IInteractiveSessionRecord): void;
-  load(id: string): IInteractiveSessionRecord | undefined;
-  list(): IInteractiveSessionRecord[];
-  delete(id: string): void;
-}
-
-export interface IResumableSessionSummary {
-  id: string;
-  name?: string;
-  cwd: string;
-  updatedAt: string;
-  messageCount: number;
-  preview: string;
-}
+export type { IInteractiveSessionRecord, IInteractiveSessionStore, IResumableSessionSummary };
 
 export function createProjectSessionStore(
   cwd: string,

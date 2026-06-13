@@ -8,10 +8,13 @@ import {
 } from 'fs';
 import { basename, join } from 'path';
 
+// TMemoryType SSOT relocated to @robota-sdk/agent-interface-transport (DATA-001).
+import type { TMemoryType } from '@robota-sdk/agent-interface-transport';
+
+export type { TMemoryType };
+
 export const MEMORY_INDEX_MAX_LINES = 200;
 export const MEMORY_INDEX_MAX_BYTES = Number('25600');
-
-export type TMemoryType = 'user' | 'feedback' | 'project' | 'reference';
 
 export interface IStartupMemory {
   content: string;

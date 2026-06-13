@@ -1,6 +1,6 @@
 # System Architecture Map
 
-Source-verified against `develop` on 2026-05-07. This file is the stable router for repository
+Source-verified against `develop` on 2026-06-13. This file is the stable router for repository
 architecture. Detailed architecture content lives under [architecture-map/](architecture-map/).
 
 Package `docs/SPEC.md` files remain the owner contracts for each package. Architecture-map

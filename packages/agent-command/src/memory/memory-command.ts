@@ -12,9 +12,8 @@ import type {
   ICommandHostContext,
   ICommandPendingMemoryStore,
   ICommandProjectMemoryStore,
-  ICommandResult,
-  IMemoryEvent,
 } from '@robota-sdk/agent-framework';
+import type { ICommandResult, IMemoryEvent } from '@robota-sdk/agent-interface-transport';
 
 const SUBCOMMAND_INDEX = 0;
 const TYPE_INDEX = 1;

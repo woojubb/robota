@@ -15,13 +15,15 @@ import type {
   IBackgroundTaskRunner,
   ICommandHostAdapters,
   ICommandModule,
-  IInteractiveSession,
-  IInteractiveSessionStore,
   TSubagentRunnerFactory,
   TShellExecFn,
   CommandRegistry,
 } from '@robota-sdk/agent-framework';
-import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
+import type {
+  IInteractiveSession,
+  IInteractiveSessionStore,
+  ITransportRegistryView,
+} from '@robota-sdk/agent-interface-transport';
 
 export interface IRenderOptions {
   cwd: string;

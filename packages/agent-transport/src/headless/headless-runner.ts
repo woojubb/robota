@@ -1,6 +1,6 @@
 import { executeSlashCommandIfPresent, subscribeStreamJsonEvents } from './headless-stream-json.js';
 
-import type { IInteractiveSession, IExecutionResult } from '@robota-sdk/agent-framework';
+import type { IExecutionResult, IInteractiveSession } from '@robota-sdk/agent-interface-transport';
 
 export type TOutputFormat = 'text' | 'json' | 'stream-json';
 

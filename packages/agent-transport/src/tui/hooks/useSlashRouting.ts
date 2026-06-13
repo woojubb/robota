@@ -8,12 +8,12 @@ import { useCallback } from 'react';
 
 import type { TuiStateManager } from '../tui-state-manager.js';
 import type { ICommandEffectQueue } from './command-effect-queue.js';
+import type { CommandRegistry } from '@robota-sdk/agent-framework';
 import type {
-  IInteractiveSession,
-  CommandRegistry,
   ICommandResult,
+  IInteractiveSession,
   TCommandEffect,
-} from '@robota-sdk/agent-framework';
+} from '@robota-sdk/agent-interface-transport';
 
 export function useSlashRouting(
   interactiveSession: IInteractiveSession,

@@ -1,18 +1,20 @@
 import type {
   InteractiveSession,
-  ICommandResult,
-  IBackgroundJobGroupState,
   IBackgroundTaskInput,
   IBackgroundTaskListFilter,
   IBackgroundTaskLogCursor,
   IBackgroundTaskLogPage,
   IBackgroundTaskState,
+  TBackgroundTaskEvent,
+} from '@robota-sdk/agent-framework';
+import type {
+  IBackgroundJobGroupState,
+  ICommandResult,
   IExecutionResult,
   IExecutionWorkspaceSnapshot,
   IToolState,
   TBackgroundJobGroupEvent,
-  TBackgroundTaskEvent,
-} from '@robota-sdk/agent-framework';
+} from '@robota-sdk/agent-interface-transport';
 
 export type TBackgroundControlAction = 'cancel' | 'close' | 'send';
 

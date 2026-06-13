@@ -1,5 +1,8 @@
 import type { TMemoryType } from './project-memory-store.js';
-import type { TUniversalValue } from '@robota-sdk/agent-core';
+// IMemoryReference / IMemoryEvent SSOT relocated to @robota-sdk/agent-interface-transport (DATA-001).
+import type { IMemoryEvent, IMemoryReference } from '@robota-sdk/agent-interface-transport';
+
+export type { IMemoryEvent, IMemoryReference };
 
 export type TMemoryPolicyMode = 'disabled' | 'approval_required' | 'auto_save';
 
@@ -45,31 +48,8 @@ export interface IMemoryPendingRecord extends IMemoryCandidate {
   decisionReason?: string;
 }
 
-export interface IMemoryReference {
-  topic: string;
-  path: string;
-  score: number;
-  truncated: boolean;
-}
-
 export interface IMemoryRetrievalResult {
   content: string;
   references: IMemoryReference[];
   truncated: boolean;
-}
-
-export interface IMemoryEvent {
-  type:
-    | 'memory_candidate_extracted'
-    | 'memory_candidate_queued'
-    | 'memory_candidate_saved'
-    | 'memory_candidate_skipped'
-    | 'memory_candidate_approved'
-    | 'memory_candidate_rejected'
-    | 'memory_retrieved';
-  at: string;
-  candidateId?: string;
-  topic?: string;
-  reason?: string;
-  data?: Record<string, TUniversalValue>;
 }

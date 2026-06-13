@@ -8,8 +8,7 @@
 import { createHeadlessRunner } from './headless-runner.js';
 
 import type { TOutputFormat } from './headless-runner.js';
-import type { IInteractiveSession } from '@robota-sdk/agent-framework';
-import type { ITransportAdapter } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSession, ITransportAdapter } from '@robota-sdk/agent-interface-transport';
 
 export interface IHeadlessTransportOptions {
   /** Output format: 'text', 'json', or 'stream-json'. */

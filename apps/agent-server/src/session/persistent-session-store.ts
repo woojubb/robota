@@ -1,6 +1,6 @@
 import { createProjectSessionStore } from '@robota-sdk/agent-framework';
 
-import type { IInteractiveSessionStore } from '@robota-sdk/agent-framework';
+import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-transport';
 
 let store: IInteractiveSessionStore | undefined;
 

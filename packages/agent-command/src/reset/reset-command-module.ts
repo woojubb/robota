@@ -1,11 +1,7 @@
 import { executeResetCommand } from './reset-command.js';
 
-import type {
-  ICommand,
-  ICommandModule,
-  ICommandSource,
-  ISystemCommand,
-} from '@robota-sdk/agent-framework';
+import type { ICommandModule, ISystemCommand } from '@robota-sdk/agent-framework';
+import type { ICommand, ICommandSource } from '@robota-sdk/agent-interface-transport';
 
 const RESET_COMMAND_DESCRIPTION = 'Delete settings';
 

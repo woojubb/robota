@@ -1,21 +1,20 @@
 import type { ICommand } from '../command-api/types.js';
+// Skill-activation event contracts SSOT relocated to @robota-sdk/agent-interface-transport (DATA-001).
+import type {
+  ISkillActivationEvent,
+  TSkillActivationInvocation,
+  TSkillActivationSource,
+  TSkillActivationMode,
+  TSkillActivationStatus,
+} from '@robota-sdk/agent-interface-transport';
 
-export type TSkillActivationSource = 'skill' | 'plugin';
-export type TSkillActivationInvocation = 'user-slash' | 'model-tool';
-export type TSkillActivationMode = 'inject' | 'fork';
-export type TSkillActivationStatus = 'started' | 'completed' | 'failed';
-
-export interface ISkillActivationEvent {
-  readonly type: 'skill-activation';
-  readonly skillName: string;
-  readonly source: TSkillActivationSource;
-  readonly invocation: TSkillActivationInvocation;
-  readonly mode: TSkillActivationMode;
-  readonly status: TSkillActivationStatus;
-  readonly timestamp: string;
-  readonly qualifiedName?: string;
-  readonly error?: string;
-}
+export type {
+  TSkillActivationSource,
+  TSkillActivationInvocation,
+  TSkillActivationMode,
+  TSkillActivationStatus,
+  ISkillActivationEvent,
+};
 
 export interface ISkillActivationHistoryData extends ISkillActivationEvent {
   readonly message: string;

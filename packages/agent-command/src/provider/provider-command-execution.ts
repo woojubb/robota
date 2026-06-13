@@ -7,11 +7,10 @@ import { createSetupFlow, createProviderSetupInteraction } from './provider-comm
 import { formatProviderSetupChoiceLabel } from './provider-setup-flow.js';
 
 import type {
-  ICommandInteraction,
-  ICommandResult,
   IProviderCommandModuleOptions,
   IProviderProfileSettings,
 } from '@robota-sdk/agent-framework';
+import type { ICommandInteraction, ICommandResult } from '@robota-sdk/agent-interface-transport';
 
 export async function executeProviderCommand(
   args: string,

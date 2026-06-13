@@ -8,7 +8,7 @@ Consolidated command module for the Robota SDK CLI. Provides all slash-command i
 
 **Out of scope:**
 
-- Transport layer (WebSocket, TUI, headless) — owned by `agent-transport-*`
+- Transport layer (WebSocket, TUI, headless) — owned by `agent-transport` (subpaths `/ws`, `/tui`, `/headless`)
 - CLI entry point and argument parsing — owned by `agent-cli`
 - Agent runtime and session management — owned by `agent-core` / `agent-framework`
 - Command registration contracts (`ICommandModule`, `ICommandSource`, `ISystemCommand`) — defined in `agent-framework`
@@ -232,11 +232,9 @@ Coverage gaps: `src/default/` and `src/plugins/` subdirectories have no dedicate
 
 ## Migration
 
-Consolidated from 20 individual packages (v3.0.0-beta.63):
+Consolidated from 20 individual per-command packages (v3.0.0-beta.63):
 
-- `@robota-sdk/agent-command-agent` → `@robota-sdk/agent-command`
-- `@robota-sdk/agent-command-background` → `@robota-sdk/agent-command`
-- ... (all 20 packages merged)
+- the former `@robota-sdk/agent-command-<name>` packages (e.g. `<name>` = agent, background, provider, …) → all merged into `@robota-sdk/agent-command`
 
 Consumers replace all 20 individual imports with a single dependency:
 
@@ -249,8 +247,8 @@ Consumers replace all 20 individual imports with a single dependency:
 And update imports:
 
 ```typescript
-// Before
-import { Y } from '@robota-sdk/agent-command-provider';
+// Before (one of the 20 former per-command packages)
+import { Y } from '@robota-sdk/agent-command-<name>';
 
 // After
 import { Y } from '@robota-sdk/agent-command';

@@ -15,11 +15,10 @@ import {
 import type { IHistoryEntry, TUniversalMessage } from '@robota-sdk/agent-core';
 import type {
   ICommandHostContext,
-  ICommandResult,
   TAutoCompactThreshold,
   TAutoCompactThresholdSource,
 } from '@robota-sdk/agent-framework';
-import type { IContextReferenceItem } from '@robota-sdk/agent-framework';
+import type { ICommandResult, IContextReferenceItem } from '@robota-sdk/agent-interface-transport';
 
 const PERCENT = 100;
 const USAGE = [

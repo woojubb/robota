@@ -218,6 +218,20 @@ Never leave `[ ]`. Unchecked = work not done.
 - Derive Test Type + Tool from the type + tags derivation table.
 - If a TC-N cannot be covered by automated test: write the reason in Notes and mark `manual`.
 
+**Doc / process backlogs (e.g. `INFRA` skill/rule/docs edits):**
+
+- **Prefer command-form / CI-smoke rows** over `manual`. Most doc/process criteria are mechanically
+  checkable — use an `rg` pattern (presence/absence of a phrase, anchor, or section) or a
+  `pnpm harness:*` smoke (e.g. `pnpm harness:scan` exit 0) as the Tool/Approach.
+- A `manual` row is the exception, not the default, even for prose changes.
+
+**`manual` Tool rows REQUIRE a Notes infeasibility justification:**
+
+- Any row whose Tool is `manual` MUST carry a non-empty Notes entry explaining **why** automation is
+  infeasible (e.g. "guidance quality is a human judgement; no command asserts prose correctness").
+- A `manual` row whose justification is missing — or that a command-form check could have covered —
+  fails GATE-WRITE.
+
 **Rejected (GATE-WRITE will FAIL):**
 
 - Missing row for any TC-N

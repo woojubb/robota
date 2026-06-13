@@ -25,12 +25,15 @@ flowchart TD
 
 Deployment ownership:
 
-| Deploy unit         | Runtime shape                       | Deploy platform    | Required contract                                                                                                                                                                      |
-| ------------------- | ----------------------------------- | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `apps/agent-web`    | Next.js frontend host               | Vercel             | Browser UI imports `agent-playground/client` and keeps provider secrets server-side. Routes: `/` (→ `/playground`), `/playground`, `/playground/demo`, `/monitor` (CLI second-screen). |
-| `apps/agent-server` | Node service with WebSocket support | Firebase Functions | Owns provider proxying, Playground WebSocket, CORS, and process lifecycle handling.                                                                                                    |
-| `apps/docs`         | Static docs site                    | Cloudflare Pages   | Builds from repository docs/content and deploys through Cloudflare Pages.                                                                                                              |
-| `apps/blog`         | Static blog site                    | Cloudflare Pages   | Deploys automatically from `main` branch alongside docs.                                                                                                                               |
+| Deploy unit           | Runtime shape                                           | Deploy platform                                  | Required contract                                                                                                                                                                                                                               |
+| --------------------- | ------------------------------------------------------- | ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/agent-web`      | Next.js frontend host                                   | Vercel (frontend) + Firebase/Firestore (backend) | Browser UI imports `agent-playground/client` and keeps provider secrets server-side. Ships `vercel.json` + `firebase.json`/`firestore.rules`. Routes: `/` (→ `/playground`), `/playground`, `/playground/demo`, `/monitor` (CLI second-screen). |
+| `apps/agent-server`   | Node service with WebSocket support                     | Firebase Functions                               | Owns provider proxying, Playground WebSocket, CORS, and process lifecycle handling.                                                                                                                                                             |
+| `apps/docs`           | Next.js static docs site                                | Cloudflare Pages                                 | Builds from repository docs/content (`next build` + `pagefind`) and deploys through Cloudflare Pages.                                                                                                                                           |
+| `apps/blog`           | Static blog site                                        | Cloudflare Pages                                 | Deploys automatically from `main` branch alongside docs.                                                                                                                                                                                        |
+| `apps/www`            | Next.js marketing site (`robota-www`)                   | Cloudflare Pages                                 | Marketing/landing site; `wrangler.toml`, `pages_build_output_dir = "out"`.                                                                                                                                                                      |
+| `apps/starter-nextjs` | Next.js starter template (`@robota-sdk/starter-nextjs`) | Template (not a deployed service)                | Reference AI-chat starter that consumers copy; built with `next build`.                                                                                                                                                                         |
+| `apps/action`         | GitHub Action (`@robota-sdk/action`)                    | GitHub Marketplace (`tsc` build)                 | Official Robota GitHub Action; not a hosted web service.                                                                                                                                                                                        |
 
 `packages/agent-web-ui` vs `apps/agent-web` disambiguation:
 
@@ -59,19 +62,19 @@ Deployment decision:
 ```mermaid
 flowchart TD
   Content["content/ + package docs + app docs"]
-  Copy["apps/docs/scripts/copy-docs.js"]
-  Build["vitepress build"]
-  Public["apps/docs/scripts/copy-public.js"]
-  Dist["apps/docs/.vitepress/dist"]
+  Prepare["scripts/docs/prepare-docs.js\n(pnpm docs:build)"]
+  Build["apps/docs: next build"]
+  Pagefind["pagefind --site out\n(postbuild search index)"]
+  Out["apps/docs/out"]
   Cloudflare["Cloudflare Pages\nproduction from main"]
-  Manual["pnpm docs:deploy\nWrangler direct upload"]
+  Manual["scripts/docs/deploy-cloudflare-pages.mjs\n(pnpm docs:deploy)"]
 
-  Content --> Copy
-  Copy --> Build
-  Build --> Public
-  Public --> Dist
-  Dist --> Cloudflare
-  Dist --> Manual
+  Content --> Prepare
+  Prepare --> Build
+  Build --> Pagefind
+  Pagefind --> Out
+  Out --> Cloudflare
+  Out --> Manual
   Manual --> Cloudflare
 ```
 

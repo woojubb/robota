@@ -2,12 +2,8 @@ import { SkillCommandSource } from '@robota-sdk/agent-framework';
 
 import { executeSkillsCommand, SKILLS_COMMAND_DESCRIPTION } from './skills-command.js';
 
-import type {
-  ICommand,
-  ICommandModule,
-  ICommandSource,
-  ISystemCommand,
-} from '@robota-sdk/agent-framework';
+import type { ICommandModule, ISystemCommand } from '@robota-sdk/agent-framework';
+import type { ICommand, ICommandSource } from '@robota-sdk/agent-interface-transport';
 
 export interface ISkillsCommandModuleOptions {
   readonly cwd: string;

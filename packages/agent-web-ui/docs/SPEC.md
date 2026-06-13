@@ -1,4 +1,4 @@
-# SPEC.md — @robota-sdk/agent-web
+# SPEC.md — @robota-sdk/agent-web-ui
 
 ## Scope
 

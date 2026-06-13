@@ -6,11 +6,8 @@ import {
 
 import { formatProviderChoiceLabel } from './provider-command-profile-operations.js';
 
-import type {
-  ICommandInteraction,
-  ICommandResult,
-  IProviderCommandModuleOptions,
-} from '@robota-sdk/agent-framework';
+import type { IProviderCommandModuleOptions } from '@robota-sdk/agent-framework';
+import type { ICommandInteraction, ICommandResult } from '@robota-sdk/agent-interface-transport';
 
 const YES = 'yes';
 const MAX_DUPLICATE_PROFILE_SUFFIX = 1000;

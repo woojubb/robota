@@ -6,15 +6,17 @@ import { describe, it, expect, vi } from 'vitest';
 import { createWsHandler } from '../ws-handler.js';
 import type { TServerMessage } from '../ws-protocol.js';
 import type {
-  IBackgroundTaskLogPage,
-  IBackgroundTaskState,
+  IBackgroundJobGroupState,
   IExecutionWorkspaceEvent,
   IExecutionWorkspaceSnapshot,
   IInteractiveSession,
-  IBackgroundJobGroupState,
   TBackgroundJobGroupEvent,
-  TBackgroundTaskEvent,
   TExecutionWorkspaceUpdateCause,
+} from '@robota-sdk/agent-interface-transport';
+import type {
+  IBackgroundTaskLogPage,
+  IBackgroundTaskState,
+  TBackgroundTaskEvent,
 } from '@robota-sdk/agent-framework';
 
 const backgroundTask: IBackgroundTaskState = {

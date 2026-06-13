@@ -3,18 +3,17 @@ import { readSettings, writeSettings } from '../../config/settings-io.js';
 import type { TSettingsData } from '../../config/settings-io.js';
 import type { ICommand } from '../types.js';
 import type { TUniversalValue } from '@robota-sdk/agent-core';
+// Status-line command settings contracts SSOT relocated to @robota-sdk/agent-interface-transport (DATA-001).
+import type {
+  IStatusLineCommandSettings,
+  TStatusLineCommandSettingsPatch,
+} from '@robota-sdk/agent-interface-transport';
+
+export type { IStatusLineCommandSettings, TStatusLineCommandSettingsPatch };
 
 export const STATUSLINE_COMMAND_DESCRIPTION =
   'Configure TUI status-line visibility and fields such as model, context, tokens, session, and git branch.';
 export const STATUSLINE_COMMAND_ARGUMENT_HINT = 'on | off | reset | git on | git off';
-
-export interface IStatusLineCommandSettings {
-  enabled: boolean;
-  gitBranch: boolean;
-}
-
-export type TStatusLineCommandSettingsPatch = Partial<IStatusLineCommandSettings> &
-  Record<string, TUniversalValue>;
 
 export const DEFAULT_STATUS_LINE_COMMAND_SETTINGS: Readonly<IStatusLineCommandSettings> = {
   enabled: true,

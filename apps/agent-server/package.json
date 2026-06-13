@@ -37,6 +37,7 @@
     "@robota-sdk/agent-command": "workspace:*",
     "@robota-sdk/agent-core": "workspace:*",
     "@robota-sdk/agent-framework": "workspace:*",
+    "@robota-sdk/agent-interface-transport": "workspace:*",
     "@robota-sdk/agent-playground": "workspace:*",
     "@robota-sdk/agent-provider": "workspace:*",
     "@types/ws": "^8.18.1",

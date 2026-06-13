@@ -28,7 +28,7 @@ import type { TuiInteractionChannel } from '../TuiInteractionChannel.js';
 import type {
   IInteractiveSessionRecord,
   IInteractiveSessionStore,
-} from '@robota-sdk/agent-framework';
+} from '@robota-sdk/agent-interface-transport';
 
 const TICK_MS = 30;
 const FRAME_DEADLINE_MS = 3000;

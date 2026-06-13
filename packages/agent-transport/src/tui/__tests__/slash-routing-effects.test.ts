@@ -9,7 +9,10 @@ import {
   BundlePluginLoader,
   PluginCommandSource,
 } from '@robota-sdk/agent-framework';
-import type { ICommandInteraction, IInteractiveSession } from '@robota-sdk/agent-framework';
+import type {
+  ICommandInteraction,
+  IInteractiveSession,
+} from '@robota-sdk/agent-interface-transport';
 import { TuiStateManager } from '../tui-state-manager.js';
 import { applySystemCommandResult } from '../hooks/useSlashRouting.js';
 import { CommandEffectQueue } from '../hooks/command-effect-queue.js';
