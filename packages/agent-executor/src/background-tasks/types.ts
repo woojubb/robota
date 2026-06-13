@@ -102,6 +102,14 @@ export interface IProcessBackgroundTaskRequest extends IBaseBackgroundTaskReques
   env?: Record<string, string>;
   stdin?: string;
   outputLimitBytes?: number;
+  /**
+   * FLOW-004 (monitor): a regular-expression source. Output lines matching it fire a
+   * `background_task_waking` carrying `agentInstruction` + the matched line, so the agent
+   * reacts to "something happened in this process's output".
+   */
+  matchPattern?: string;
+  /** FLOW-004: the instruction injected on a monitor match (paired with `matchPattern`). */
+  agentInstruction?: string;
 }
 
 export interface IScheduledBackgroundTaskRequest extends IBaseBackgroundTaskRequest {
