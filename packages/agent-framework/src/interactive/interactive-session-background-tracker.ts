@@ -53,6 +53,8 @@ export class SessionBackgroundTaskTracker {
     private readonly emitTaskEvent: (event: TBackgroundTaskEvent) => void,
     private readonly emitGroupEvent: (event: TBackgroundJobGroupEvent) => void,
     private readonly persistSession: () => void,
+    // FLOW-002: invoked when a background task fires a wake carrying an agent instruction.
+    private readonly onWake?: (instruction: string, taskId: string) => void,
   ) {}
 
   subscribe(session: Session): void {
@@ -64,6 +66,10 @@ export class SessionBackgroundTaskTracker {
     this.backgroundTaskUnsubscribe = manager.subscribe((event) => {
       this.recordTaskEvent(event);
       this.emitTaskEvent(event);
+      // FLOW-002: a wake carrying an instruction re-enters the agent loop with a non-user turn.
+      if (event.type === 'background_task_waking' && event.instruction !== undefined) {
+        this.onWake?.(event.instruction, event.taskId);
+      }
     });
   }
 
