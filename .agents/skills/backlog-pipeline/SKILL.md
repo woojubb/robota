@@ -56,6 +56,12 @@ When given a full path, use it directly.
 | `done`            | `done/`     | No action. Pipeline is complete.                     | —                     | —                             |
 | `rejected`        | `rejected/` | No action. Item is closed.                           | —                     | —                             |
 
+**Out-of-band gate:** `GATE-CONFORMANCE` (architecture conformance) is NOT a status transition and does
+not appear in this table. It is run separately via `backlog-gate-guard` — on demand, after cross-package
+work, and before a `develop → main` release. See
+[`backlog-gate-guard` > GATE-CONFORMANCE](../backlog-gate-guard/SKILL.md) and
+[`spec-workflow.md` > GATE-CONFORMANCE](../../rules/spec-workflow.md).
+
 ## Execution Steps
 
 ### Step 1 — Read current state
