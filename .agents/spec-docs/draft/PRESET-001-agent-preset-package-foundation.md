@@ -1,0 +1,120 @@
+---
+status: draft
+type: DATA
+tags: [typescript]
+---
+
+# PRESET-001: agent-preset 패키지 — IPreset 계약 + resolvePreset + default 프리셋
+
+## Problem
+
+현재 `agent-cli`는 중립적인 단일 에이전트 하나만 조립한다. 시스템 프롬프트·모델·권한·명령 모듈
+오버라이드 seam은 `agent-framework`에 이미 열려 있으나(`IInteractiveSessionStandardOptions`,
+`ICreateSessionOptions`), 이를 **미리 튜닝된 명명 번들로 묶어 선택**할 수 있는 계약과 레이어가 없다.
+프리셋 기능 전체(PRESET-002~007)는 "프리셋 정의 → 프레임워크 옵션으로 변환"하는 공통 계약과
+resolver에 의존하는데, 그 기반이 존재하지 않는다.
+
+**재현 조건:** `rg "agent-preset" packages` → 매치 없음. `packages/agent-preset/` 디렉터리 부재.
+프리셋을 표현하는 타입(`IPreset`)이나 변환 함수(`resolvePreset`)가 어느 패키지에도 없다.
+
+설계 근거: [.design/preset-layer/2026-06-14/design-proposal.md](../../../.design/preset-layer/2026-06-14/design-proposal.md) §5.
+
+## Architecture Review
+
+### Affected Scope
+
+- 신규 `packages/agent-preset/` — `IPreset` 계약(SSOT), `resolvePreset()`, `listPresets()`, 빌트인 `default` 프리셋
+- `packages/agent-preset/docs/SPEC.md` (신규 — 패키지 계약)
+- `packages/agent-preset/package.json` — `@robota-sdk/agent-preset`, 의존: `@robota-sdk/agent-framework`(옵션 타입)
+- `.agents/project-structure.md` — 패키지 등재
+- `.agents/project-structure.md` 의존 방향 / `scripts/harness/check-dependency-direction.mjs` — 신규 엣지(`agent-preset → agent-framework`) 허용 등재
+- `.agents/project-structure.md` publish 레지스트리 / `.agents/publish-registry.md` — 신규 패키지 등재
+- 재사용(중복 금지): `agent-framework`의 `TInteractiveSessionOptions` / `TPermissionMode` 등 옵션 타입 — `IPreset` 필드는 이를 재사용/확장(타입 SSOT)
+
+### Alternatives Considered
+
+1. **프리셋 정의를 `agent-framework` 내부 서브모듈로 둔다.**
+   - Pro: 신규 패키지 없음, 의존 그래프 단순.
+   - Con: 프레임워크는 중립 조립 메커니즘인데 "의견 있는(opinionated) 콘텐츠"가 섞임 — 관심사 혼합,
+     rules/skills 경계 및 layered-assembly 원칙과 충돌. Rejected.
+2. **신규 `agent-preset` 패키지(계약 + resolver + 빌트인 정의).**
+   - Pro: 의견 있는 콘텐츠를 프레임워크 밖으로 격리; SDK 사용자도 import 가능; 계층 규칙 준수
+     (`agent-preset → agent-framework` 단방향); 후속 PRESET 백로그가 단일 계약에 의존.
+   - Con: 신규 패키지 1개 추가(SPEC/등재/publish 비용).
+3. **계약을 `agent-interface-preset`로, 구현을 `agent-preset`로 2패키지 분리.**
+   - Pro: interface-package 규칙에 가장 정석.
+   - Con: v1에 패키지 2개는 과함; 단일 가족만 소비하므로 추출 이득이 아직 없음. Rejected(필요 시 후속 추출).
+
+### Decision
+
+**Alternative 2.** 신규 단일 패키지 `agent-preset`를 만들고 `IPreset` 계약·`resolvePreset()`·빌트인
+`default` 프리셋을 담는다. `IPreset` 필드는 `agent-framework` 옵션 타입을 재사용/확장한다(중복 타입
+생성 금지, 타입 SSOT). 사용자 확인 결정(신규 `agent-preset` 패키지)과 일치. 트레이드오프: 패키지 1개
+추가 비용을 감수하고 프레임워크 중립성·계층 준수·재사용성을 얻는다. 계약이 다중 가족에 필요해지면
+그때 `agent-interface-preset`로 추출한다.
+
+### Architecture Review Checklist
+
+- [x] 영향 패키지/레이어 목록 작성 완료 — 신규 `agent-preset`, project-structure/publish 등재, dep-direction 등재
+- [x] Sibling scan 완료 — `agent-interface-transport`(계약 패키지 패턴), `agent-framework` 옵션 타입(`interactive-session-options.ts`, `create-session-types.ts`) 확인; 옵션 타입 재사용, 중복 생성 안 함
+- [x] 대안 최소 2개 검토 완료 — 3개 검토
+- [x] 결정 근거 문서화 완료 — Decision에 타입 SSOT + 계층 준수 근거 기록
+
+## Solution
+
+`packages/agent-preset/`를 신설한다.
+
+1. **`IPreset` 계약** (설계 제안서 §5.1): 정체성(`id`/`title`/`description`), 페르소나
+   (`appendSystemPrompt`/`systemPrompt`/`agentName`), 모델/effort(`model`/`effort`/`temperature`/
+   `maxOutputTokens`), 권한 프로파일(`defaultPermissionMode`/`defaultTrustLevel`/`allowedTools`/
+   `deniedTools`), 모듈 선택(`enabledCommandModules`/`disabledCommandModules`), 행동(`autonomy`).
+   권한/옵션 필드 타입은 `agent-framework`에서 import(`TPermissionMode` 등) — 재정의 금지.
+2. **`resolvePreset(id, base?)`**: 프리셋 id를 받아 프레임워크 옵션 부분집합(`TResolvedPresetOptions`)으로
+   변환. `default`는 항등(no-op) — base를 그대로 반환해 무회귀를 보장.
+3. **`listPresets()`**: 등록된 프리셋의 `{ id, title, description }` 목록 반환(PRESET-006 UX의 데이터원).
+4. **빌트인 `default` 프리셋**: 현재 동작과 동일(오버라이드 없음).
+5. **SPEC.md** 작성, project-structure·publish 레지스트리·dep-direction 등재.
+
+이 백로그는 계약과 기반만 만든다. 선택 배선(PRESET-002), 페르소나 합성(003), 번들(004), 첫 의견
+프리셋(005)은 후속이다.
+
+## Affected Files
+
+- `packages/agent-preset/package.json` (NEW)
+- `packages/agent-preset/src/index.ts` (NEW — public surface)
+- `packages/agent-preset/src/preset-types.ts` (NEW — `IPreset`, `TResolvedPresetOptions`)
+- `packages/agent-preset/src/resolve-preset.ts` (NEW — `resolvePreset`, `listPresets`)
+- `packages/agent-preset/src/presets/default.ts` (NEW — 빌트인 default)
+- `packages/agent-preset/docs/SPEC.md` (NEW)
+- `packages/agent-preset/tsconfig*.json`, build config (NEW — 기존 패키지 패턴 복제)
+- `.agents/project-structure.md` (패키지 + 의존 방향 등재)
+- `.agents/publish-registry.md` (publish 등재)
+- `scripts/harness/check-dependency-direction.mjs` (신규 엣지 허용, 필요 시)
+
+## Completion Criteria
+
+- [x] TC-01: `cat packages/agent-preset/package.json` → `name` 필드가 `@robota-sdk/agent-preset`
+- [ ] TC-02: `rg "export (interface|type) (IPreset|TResolvedPresetOptions)" packages/agent-preset/src` → 두 export 모두 매치
+- [ ] TC-03: `resolvePreset('default', base)`가 base와 깊은 동등(no-op)임을 단언하는 단위 테스트 통과 (`pnpm --filter @robota-sdk/agent-preset test` → exit 0)
+- [ ] TC-04: `listPresets()` 반환 배열에 `id === 'default'` 항목 존재함을 단언하는 단위 테스트 통과
+- [ ] TC-05: `pnpm --filter @robota-sdk/agent-preset build` → exit 0, 그리고 `node scripts/harness/check-dependency-direction.mjs` → exit 0 (agent-preset의 유일 의존 엣지 = agent-framework)
+- [ ] TC-06: `pnpm harness:scan` → exit 0 (신규 패키지 SPEC/등재/구조 스캔 통과)
+
+## Test Plan
+
+Type DATA + tags typescript. 검증 = 타입/단위 테스트(vitest) + 빌드·의존방향·스캔 커맨드 스모크.
+
+| TC-ID | Test Type              | Tool / Approach                                                        | Notes    |
+| ----- | ---------------------- | ---------------------------------------------------------------------- | -------- |
+| TC-01 | CI pipeline smoke test | `cat`/`rg` package.json name 단언                                      | 커맨드폼 |
+| TC-02 | DATA (typescript)      | `rg` export 패턴 (IPreset, TResolvedPresetOptions)                     | 커맨드폼 |
+| TC-03 | RULE (unit)            | vitest 단위 테스트 — default resolve no-op 깊은 동등                   |          |
+| TC-04 | RULE (unit)            | vitest 단위 테스트 — listPresets default 포함                          |          |
+| TC-05 | CI pipeline smoke test | `pnpm --filter ... build` + `check-dependency-direction.mjs` exit code | 커맨드폼 |
+| TC-06 | CI pipeline smoke test | `pnpm harness:scan` exit 0                                             | 커맨드폼 |
+
+## Tasks
+
+- [ ] `.agents/tasks/PRESET-001.md` — 미생성 (GATE-APPROVAL 통과 후 생성)
+
+## Evidence Log
