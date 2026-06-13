@@ -53,25 +53,37 @@ describe('createScheduledTaskRunner', () => {
   });
 
   it(
-    'emits background_task_sleeping immediately after start with nextFireAt',
+    'emits background_task_sleeping synchronously on start with a strictly-future nextFireAt',
     async () => {
-      const runner = createScheduledTaskRunner();
-      const emittedEvents: TBackgroundTaskRunnerEvent[] = [];
+      // BEHAVIOR-003: the initial sleeping event is emitted synchronously inside start(),
+      // so the previous "wait 200ms then compare to Date.now()" was a flake — if start ran just
+      // before a cron boundary, the 200ms wait crossed it and the (correct-at-emit) nextFireAt
+      // fell behind the moved wall clock. Pin the clock so nextFireAt is computed against a known
+      // instant and the next-minute invariant is deterministic.
+      vi.useFakeTimers();
+      try {
+        const fixedNow = new Date('2026-01-01T00:00:30.000Z');
+        vi.setSystemTime(fixedNow);
 
-      const task = makeScheduledTask('* * * * *', 'echo hello', (e) => emittedEvents.push(e));
-      const handle = runner.start(task);
+        const runner = createScheduledTaskRunner();
+        const emittedEvents: TBackgroundTaskRunnerEvent[] = [];
+        const task = makeScheduledTask('* * * * *', 'echo hello', (e) => emittedEvents.push(e));
+        const handle = runner.start(task);
 
-      // Wait briefly for the initial sleeping event
-      await new Promise((r) => setTimeout(r, 200));
+        // No wait: emitSleeping() runs synchronously during start().
+        const sleepingEvent = emittedEvents.find((e) => e.type === 'background_task_sleeping');
+        expect(sleepingEvent).toBeDefined();
+        if (sleepingEvent?.type === 'background_task_sleeping') {
+          // From 00:00:30, the next `* * * * *` fire is the next minute boundary 00:01:00 —
+          // deterministic and strictly after the pinned instant.
+          expect(sleepingEvent.nextFireAt).toBe('2026-01-01T00:01:00.000Z');
+          expect(new Date(sleepingEvent.nextFireAt).getTime()).toBeGreaterThan(fixedNow.getTime());
+        }
 
-      const sleepingEvent = emittedEvents.find((e) => e.type === 'background_task_sleeping');
-      expect(sleepingEvent).toBeDefined();
-      expect(sleepingEvent).toMatchObject({ type: 'background_task_sleeping' });
-      if (sleepingEvent?.type === 'background_task_sleeping') {
-        expect(new Date(sleepingEvent.nextFireAt).getTime()).toBeGreaterThan(Date.now());
+        await handle.cancel();
+      } finally {
+        vi.useRealTimers();
       }
-
-      await handle.cancel();
     },
     TEST_TIMEOUT_MS,
   );
