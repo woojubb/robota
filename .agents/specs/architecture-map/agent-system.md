@@ -20,6 +20,8 @@ flowchart TD
   Providers["agent-provider\nprovider definitions + transports"]
   SubagentRunner["agent-subagent-runner\nChildProcessSubagentRunner + worker\n(optional — install only when needed)"]
   Plugins["agent-plugin\nplugin layer (event, logging, usage, etc.)"]
+  IfaceTransport["agent-interface-transport\ntransport type contracts (ZERO deps)"]
+  IfaceTui["agent-interface-tui\nTUI type contracts (ZERO deps)"]
 
   AgentCLI --> TuiTransport
   AgentCLI --> Framework
@@ -45,8 +47,9 @@ flowchart TD
   Executor --> Core
   Tools --> Core
   Plugins --> Core
-  IfaceTransport --> Core
-  IfaceTui --> Core
+  Framework --> IfaceTransport
+  TuiTransport --> IfaceTransport
+  TuiTransport --> IfaceTui
 ```
 
 Agent stack ownership:
@@ -123,18 +126,22 @@ Playground ownership:
 policy run in `apps/agent-server`; the playground is a lightweight client UI only.
 See [packages/agent-playground/docs/SPEC.md](../../../packages/agent-playground/docs/SPEC.md).
 
-## WebSocket Sidecar Mode [Planned]
+## WebSocket Sidecar Mode [Partially implemented]
 
-> **[Planned — not yet implemented]** The `--web` / `--web-port` flags and `startWebSidecarServer()` do not exist in the codebase. This section documents the intended design only.
+> **[Partially implemented]** The transport + browser halves exist:
+> `createWsHandler({ session, send })` (`packages/agent-transport/src/ws/ws-handler.ts:51`) and
+> `useWsSession(url)` (`packages/agent-web-ui/src/hooks/useWsSession.ts:43`), plus the `agent-web-ui`
+> components. **Still pending:** the CLI `--web` / `--web-port` flags and
+> `startWebSidecarServer(interactiveSession, port)` that wire the sidecar server into `agent-cli`.
 
-When implemented, sidecar mode will span four packages:
+Sidecar mode spans four packages:
 
-| Package              | Role                                                                        |
-| -------------------- | --------------------------------------------------------------------------- |
-| `agent-cli`          | Launch `--web` flag; host `startWebSidecarServer(interactiveSession, port)` |
-| `agent-transport/ws` | `createWsHandler({ session, send })` — real-time session event relay        |
-| `agent-web-ui`       | Browser React components; `useWsSession(url)` hook for WebSocket connection |
-| `apps/agent-web`     | Deployment host; opens monitor URL in browser                               |
+| Package              | Role                                                                        | Status  |
+| -------------------- | --------------------------------------------------------------------------- | ------- |
+| `agent-cli`          | Launch `--web` flag; host `startWebSidecarServer(interactiveSession, port)` | pending |
+| `agent-transport/ws` | `createWsHandler({ session, send })` — real-time session event relay        | exists  |
+| `agent-web-ui`       | Browser React components; `useWsSession(url)` hook for WebSocket connection | exists  |
+| `apps/agent-web`     | Deployment host; opens monitor URL in browser                               | exists  |
 
 For the intended sequence diagram see [agent-cli/execution-modes.md](agent-cli/execution-modes.md).
 

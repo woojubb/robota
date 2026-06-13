@@ -22,27 +22,27 @@ import type { ISessionInitPoller, TSessionInitFailure } from './flows/session-in
 import type { IPermissionRequest } from './types.js';
 import type { IAIProvider, TPermissionMode, TSessionEndReason } from '@robota-sdk/agent-core';
 import type { TToolArgs } from '@robota-sdk/agent-core';
-import type { IInteractionChannel } from '@robota-sdk/agent-framework';
-import type {
-  InteractionEvent,
-  IActionRequest,
-  IActionResponse,
-  ICommandInfo,
-} from '@robota-sdk/agent-framework';
 import type {
   IBackgroundTaskRunner,
   ICommandHostAdapters,
   ICommandModule,
-  IInteractiveSession,
-  IInteractiveSessionStore,
   TSubagentRunnerFactory,
-  IExecutionWorkspaceEvent,
-  IExecutionDetailPage,
-  IExecutionResult,
   TShellExecFn,
 } from '@robota-sdk/agent-framework';
-import type { TPermissionResultValue } from '@robota-sdk/agent-framework';
-import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
+import type {
+  IActionRequest,
+  IActionResponse,
+  ICommandInfo,
+  IExecutionDetailPage,
+  IExecutionResult,
+  IExecutionWorkspaceEvent,
+  IInteractionChannel,
+  IInteractiveSession,
+  IInteractiveSessionStore,
+  ITransportRegistryView,
+  InteractionEvent,
+  TPermissionResultValue,
+} from '@robota-sdk/agent-interface-transport';
 
 const SESSION_INIT_POLL_MS = 200;
 const SESSION_INIT_TIMEOUT_MS = 15000;

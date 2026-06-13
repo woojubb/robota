@@ -1,7 +1,7 @@
 import React from 'react';
 import { describe, expect, it } from 'vitest';
 import { render } from 'ink-testing-library';
-import type { IExecutionWorkspaceEntry } from '@robota-sdk/agent-framework';
+import type { IExecutionWorkspaceEntry } from '@robota-sdk/agent-interface-transport';
 import BackgroundTaskPanel from '../BackgroundTaskPanel.js';
 
 function makeEntry(overrides: Partial<IExecutionWorkspaceEntry>): IExecutionWorkspaceEntry {

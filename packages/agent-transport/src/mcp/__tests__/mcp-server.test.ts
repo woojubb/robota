@@ -4,7 +4,7 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import { createAgentMcpServer } from '../mcp-server.js';
-import type { IInteractiveSession } from '@robota-sdk/agent-framework';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
 
 function createMockSession(commands?: Array<{ name: string; description: string }>) {
   return {

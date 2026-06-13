@@ -58,6 +58,12 @@ flowchart TB
   OptIn --> Services
 ```
 
+> **Note (arrows are ownership policy, not package edges):** the `Assembly -->` arrows to `Adapters`
+> and `Orchestration` express layer-ownership direction, not actual `package.json` dependencies. The only
+> real Assembly→Adapters package edge is `agent-framework → agent-tools`; `agent-framework` does not
+> depend on `agent-provider`/`agent-plugin` (Adapters) or `agent-remote-client` (Orchestration). For the
+> verified package dependency graph see [dependency-direction.md](dependency-direction.md).
+
 New capability ownership follows the **lowest reusable boundary**: if two shells or packages need it,
 it belongs in the layer below both of them.
 

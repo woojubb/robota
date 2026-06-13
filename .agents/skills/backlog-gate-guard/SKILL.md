@@ -18,7 +18,7 @@ Invoked as a **subagent** (Agent tool) by `backlog-pipeline`. Each invocation ha
 
 **Input required from caller:**
 
-- Gate name: one of `GATE-WRITE`, `GATE-APPROVAL`, `GATE-IMPLEMENT`, `GATE-VERIFY`, `GATE-COMPLETE`
+- Gate name: one of `GATE-WRITE`, `GATE-APPROVAL`, `GATE-IMPLEMENT`, `GATE-VERIFY`, `GATE-COMPLETE`, `GATE-CONFORMANCE`
 - Spec document path: `.agents/spec-docs/<stage>/<ID>.md`
 
 ## Output
@@ -55,6 +55,34 @@ Every entry MUST use this format. No exceptions.
 ```
 
 Partial entries (e.g., PASS without specific evidence lines) are treated as NON-COMPLIANCE on the next gate run.
+
+---
+
+## Prior-Gate Precondition (run FIRST for every gate)
+
+Before checking the criteria for ANY status-transition gate (GATE-APPROVAL, GATE-IMPLEMENT,
+GATE-VERIFY, GATE-COMPLETE), first confirm the immediately-prior gate actually passed:
+
+1. The immediately-prior gate has a **PASS** Evidence Log entry (`### [<PRIOR-GATE>] — ✅ PASS | <date>`)
+   in `## Evidence Log`.
+2. The spec file's frontmatter `status:` and its folder match the stage expected as input to this gate
+   (e.g. GATE-IMPLEMENT expects `status: approved`; GATE-VERIFY expects `status: in-progress`).
+
+If the prior PASS entry is missing, or the status/folder does not match the expected input stage, the gate
+is being run **out of order** — record **NON-COMPLIANCE** (do not evaluate the gate's own criteria) and
+stop. The required action is to run the missing prior gate first.
+
+Prior-gate map (the immediately-prior gate that must already have PASSed):
+
+| This gate      | Prior gate that must show PASS | Expected input status / folder |
+| -------------- | ------------------------------ | ------------------------------ |
+| GATE-APPROVAL  | GATE-WRITE                     | `review-ready`                 |
+| GATE-IMPLEMENT | GATE-APPROVAL                  | `approved`                     |
+| GATE-VERIFY    | GATE-IMPLEMENT                 | `in-progress`                  |
+| GATE-COMPLETE  | GATE-VERIFY                    | `verifying`                    |
+
+GATE-WRITE has no prior status gate (it is the entry gate); GATE-CONFORMANCE is standalone (no transition)
+and is exempt. Authoritative gate order: `backlog-pipeline` skill > State Machine.
 
 ---
 
@@ -136,6 +164,8 @@ Check every item. A single unmet item = FAIL.
 - [ ] `.agents/tasks/<ID>.md` has been created
 - [ ] Tasks file path is recorded in the `## Tasks` section of the spec document
 - [ ] Tasks in the file correspond to the Completion Criteria (at minimum, one task per TC-N)
+- [ ] The tasks file includes a `## Test Plan` (or `## Testing` / `## 검증`) section with ≥50 chars — the
+      `test-plans` harness scan requires development docs to carry one (else `harness:scan` fails). [AF-24]
 
 **Evidence to record on PASS:** Tasks file path + list of tasks created.
 
@@ -183,6 +213,28 @@ After all criteria:
 **Evidence to record:** One Evidence entry per TC-N (verification + test reference/skip), then a final summary entry.
 
 **FAIL trigger:** Any TC-N unchecked, or checked without a matching Evidence entry. Any TC-N in Test Plan missing both a test reference and a skip reason.
+
+---
+
+### GATE-CONFORMANCE (architecture conformance — standalone, not a status transition)
+
+Unlike the WRITE→COMPLETE gates, GATE-CONFORMANCE does not move a spec between folders. It validates
+that the canonical architecture documents match code reality (see
+[`spec-workflow.md` > GATE-CONFORMANCE](../../rules/spec-workflow.md)). Run on demand, after any
+cross-package change, and before a `develop → main` release.
+
+- [ ] `pnpm harness:conformance` was run; its exit code and `CONFORMANCE_JSON_*` summary are captured
+- [ ] `dependencyDirection` is `pass` in the JSON summary
+- [ ] No **unresolved P0** finding remains (P0 = rule violation or authority-doc contradiction)
+
+**Mechanical core:** `scripts/harness/check-architecture-conformance.mjs` (composes
+`check-dependency-direction.mjs` + the workspace-package-name guard).
+**Analytic layer:** the [`architecture-conformance-audit`](../architecture-conformance-audit/SKILL.md)
+skill set, producing `.design/architecture-audit/<date>/`.
+
+**PASS:** `harness:conformance` exits 0 and no unresolved P0. **FAIL:** otherwise — surface the JSON
+summary's `unknownPackageTokens` + any P0 findings. (Known baseline drift is tracked by INFRA-004~009;
+until those land, a FAIL here is expected and is not a release blocker.)
 
 ---
 

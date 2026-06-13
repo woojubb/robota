@@ -29,16 +29,11 @@ import type {
   TPermissionMode,
   TUniversalMessage,
 } from '@robota-sdk/agent-core';
+import type { ICommandListEntry } from '@robota-sdk/agent-interface-transport';
 import type { ISessionReplayValidationResult } from '@robota-sdk/agent-session';
+// ICommandListEntry SSOT relocated to @robota-sdk/agent-interface-transport (DATA-001).
 
-export interface ICommandListEntry {
-  name: string;
-  /** User-friendly display label. Falls back to `name` if not set. */
-  displayName?: string;
-  description: string;
-  /** Optional usage example shown in /help output (e.g., "/compact Summarize the context"). */
-  example?: string;
-}
+export type { ICommandListEntry };
 
 export interface ICommandSkillListEntry {
   readonly name: string;

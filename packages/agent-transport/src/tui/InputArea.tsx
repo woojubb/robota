@@ -25,7 +25,8 @@ import { expandPasteLabels } from './utils/paste-labels.js';
 import WaveText from './WaveText.js';
 
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
-import type { CommandRegistry, ICommand } from '@robota-sdk/agent-framework';
+import type { CommandRegistry } from '@robota-sdk/agent-framework';
+import type { ICommand } from '@robota-sdk/agent-interface-transport';
 
 interface IProps {
   onSubmit: (value: string) => void;

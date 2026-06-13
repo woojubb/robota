@@ -1,9 +1,9 @@
 import type { TUniversalValue } from '@robota-sdk/agent-core';
+import type { CommandRegistry } from '@robota-sdk/agent-framework';
 import type {
-  TStatusLineCommandSettingsPatch,
   IStatusLineCommandSettings,
-  CommandRegistry,
-} from '@robota-sdk/agent-framework';
+  TStatusLineCommandSettingsPatch,
+} from '@robota-sdk/agent-interface-transport';
 
 export interface ITuiCliAdapter {
   getUserSettingsPath(): string;

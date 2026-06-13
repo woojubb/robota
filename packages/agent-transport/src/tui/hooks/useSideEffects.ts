@@ -8,7 +8,7 @@ import { useTuiCliAdapter } from '../tui-cli-adapter-context.js';
 import type { IUseSideEffectsOptions, IUseSideEffectsResult } from './side-effects-types.js';
 import type { TInteractivePrompt } from './side-effects-types.js';
 import type { TSessionEndReason } from '@robota-sdk/agent-core';
-import type { ICommandInteraction, ICommandResult } from '@robota-sdk/agent-framework';
+import type { ICommandInteraction, ICommandResult } from '@robota-sdk/agent-interface-transport';
 
 const EXIT_DELAY_MS = 500;
 

@@ -8,18 +8,19 @@ Back to [System Architecture Map](../ARCHITECTURE-MAP.md).
 
 ```mermaid
 flowchart TD
-  ProductShells["Product shells\nagent-cli, agent-web, docs, blog"]
+  ProductShells["Product shells\nagent-cli, apps/agent-web, docs, blog"]
+  Playground["Product app\nagent-playground"]
   Assembly["Assembly/API layers\nagent-framework, apps/agent-server"]
   TransportShells["Transport shells\nagent-transport/tui, agent-transport/ws, agent-transport/http,\nagent-transport/headless, agent-transport/mcp"]
-  Orchestration["Orchestration\nagent-team, agent-remote-client"]
+  TypeContracts["Type contracts\nagent-interface-transport, agent-interface-tui\n(ZERO runtime deps)"]
+  Orchestration["Orchestration\nagent-remote-client"]
   Sessions["Session services\nagent-session"]
   Executor["Runtime services\nagent-executor"]
-  Domain["Domain contracts\nagent-core (ZERO deps from other agent-* packages),\nauth, credits"]
+  Domain["Domain contracts\nagent-core (ZERO deps from other agent-* packages),\nauth (planned), credits (planned)"]
   Adapters["Adapters and providers\nagent-provider, agent-tools, agent-tool-mcp,\nagent-plugin"]
   OptIn["Optional runners\nagent-subagent-runner (opt-in)"]
 
   ProductShells --> Assembly
-  ProductShells --> Playground
   Assembly --> Sessions
   Assembly --> Executor
   Assembly --> Domain
@@ -39,6 +40,9 @@ flowchart TD
   OptIn --> Assembly
   OptIn --> Executor
   OptIn --> Adapters
+  Playground --> Domain
+  Playground --> Adapters
+  Playground --> Orchestration
 ```
 
 `ProductShells → Adapters` is composition-root wiring only. A product shell may construct or select

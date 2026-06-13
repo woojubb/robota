@@ -137,6 +137,29 @@ interface IBackgroundTaskHandle {
 
 Runner implementations MUST report progress through manager events or the handle result. They MUST NOT mutate TUI state directly.
 
+### Wake & Scheduling (FLOW-001~006)
+
+Two runner kinds can **wake the agent loop** — re-enter the interactive turn loop with an injected
+instruction — in addition to running shell work:
+
+- **Scheduled wake** — `scheduled-task-runner` fires on a cron expression or a one-shot ISO timestamp
+  (`croner`). A schedule may carry an `agentInstruction` (agent wake) and/or a `command` (shell). On
+  fire it emits the manager-level `background_task_waking { taskId, instruction }` event; an
+  agent-wake-only schedule with no command simply re-sleeps after emitting.
+- **Process monitor wake** — `managed-shell-process-runner` streams a long-running process's stdout/stderr
+  through `line-wake-matcher`, which buffers partial lines, regex-matches `matchPattern`, and emits a
+  coalesced (cooldown-debounced) wake when a line matches.
+
+The interactive session subscribes to `background_task_waking`; on an `instruction`-bearing wake it
+coalesces and submits an **agent-wakeup turn** (a turn whose `turn_source` is the waking task), injecting
+the instruction as the pending prompt. The background-task state machine permits the `WAKE` transition
+only from `sleeping` (a `running` monitor that emits a wake is tolerated without a state change).
+Scheduled tasks persist their `schedule` (cronExpression / agentInstruction / command) so a session
+resume can re-arm sleeping schedules and surface any missed wake. The user-facing entry points are the
+`/schedule` and `/monitor` commands (see [command-inventory.md](command-inventory.md)), which call the
+`spawnScheduledWake` / `spawnMonitorWake` host-context bridges (see
+[cross-cutting-contracts.md](architecture-map/cross-cutting-contracts.md)).
+
 ### Adapter Shells
 
 Adapters implement runner ports:

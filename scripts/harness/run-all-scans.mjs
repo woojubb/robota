@@ -42,6 +42,10 @@ const SCAN_COMMANDS = [
   { name: 'done-evidence', command: ['node', 'scripts/harness/check-done-evidence.mjs'] },
   { name: 'orphan-exports', command: ['node', 'scripts/harness/check-orphan-exports.mjs'] },
   { name: 'deps', command: ['node', 'scripts/harness/check-dependency-direction.mjs'] },
+  {
+    name: 'interface-imports',
+    command: ['node', 'scripts/harness/check-interface-imports.mjs'],
+  },
   { name: 'sdk-react-free', command: ['node', 'scripts/harness/check-sdk-react-free.mjs'] },
   { name: 'publish', command: ['node', 'scripts/harness/check-publish-safety.mjs'] },
   { name: 'release-governance', command: ['node', 'scripts/harness/check-release-governance.mjs'] },
@@ -57,6 +61,7 @@ const SCAN_COMMANDS = [
   },
   { name: 'dist', command: ['node', 'scripts/harness/scan-dist-freshness.mjs'] },
   { name: 'docs-structure', command: ['pnpm', 'docs:validate-structure'] },
+  { name: 'conformance', command: ['node', 'scripts/harness/check-architecture-conformance.mjs'] },
 ];
 
 function spawnScan(command) {

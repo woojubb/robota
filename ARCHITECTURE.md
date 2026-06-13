@@ -35,7 +35,7 @@ High-level system architecture for the Robota AI Agent SDK monorepo.
 ┌──────────────────────────────────────────┐
 │              SDK Packages                │
 │                                          │
-│  agent-core / auth / credits             │
+│  agent-core (auth, credits planned)      │
 │  agent-sessions / agent-runtime          │
 │  agent-sdk / agent-command-*             │
 │  agent-tools / agent-tool-mcp            │

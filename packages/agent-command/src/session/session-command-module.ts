@@ -14,13 +14,12 @@ import {
   executeValidateSessionCommand,
 } from './session-command.js';
 
+import type { ICommandModule, ISystemCommand } from '@robota-sdk/agent-framework';
 import type {
   ICommand,
   ICommandInteractionHint,
-  ICommandModule,
   ICommandSource,
-  ISystemCommand,
-} from '@robota-sdk/agent-framework';
+} from '@robota-sdk/agent-interface-transport';
 
 export function createClearCommandEntry(): ICommand {
   return {

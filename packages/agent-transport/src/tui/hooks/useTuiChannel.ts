@@ -13,10 +13,10 @@ import type { IPermissionRequest } from '../types.js';
 import type { IHistoryEntry, TSessionEndReason } from '@robota-sdk/agent-core';
 import type { InteractiveSession, CommandRegistry } from '@robota-sdk/agent-framework';
 import type {
-  IToolState,
-  IExecutionWorkspaceSnapshot,
   IExecutionDetailPage,
-} from '@robota-sdk/agent-framework';
+  IExecutionWorkspaceSnapshot,
+  IToolState,
+} from '@robota-sdk/agent-interface-transport';
 
 export interface IInteractiveSessionState {
   interactiveSession: InteractiveSession;

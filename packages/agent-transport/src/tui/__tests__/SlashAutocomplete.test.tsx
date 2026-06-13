@@ -2,7 +2,7 @@ import React from 'react';
 import { render } from 'ink-testing-library';
 import { describe, it, expect } from 'vitest';
 import SlashAutocomplete from '../SlashAutocomplete.js';
-import type { ICommand } from '@robota-sdk/agent-framework';
+import type { ICommand } from '@robota-sdk/agent-interface-transport';
 
 // ink-testing-library fixes stdout.columns = 100
 // outer box chrome = 4 → rowWidth = 96 in tests

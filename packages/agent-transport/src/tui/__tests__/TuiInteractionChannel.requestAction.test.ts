@@ -29,7 +29,7 @@ vi.mock('@robota-sdk/agent-framework', async () => {
 import { TuiInteractionChannel } from '../TuiInteractionChannel.js';
 
 import type { IAIProvider } from '@robota-sdk/agent-core';
-import type { IActionRequest } from '@robota-sdk/agent-framework';
+import type { IActionRequest } from '@robota-sdk/agent-interface-transport';
 
 function makeChannel(): TuiInteractionChannel {
   return new TuiInteractionChannel({

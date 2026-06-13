@@ -3,7 +3,7 @@ import React from 'react';
 
 import { formatBackgroundTaskRow } from './background-task-row-format.js';
 
-import type { IExecutionWorkspaceEntry } from '@robota-sdk/agent-framework';
+import type { IExecutionWorkspaceEntry } from '@robota-sdk/agent-interface-transport';
 
 interface IProps {
   entries: IExecutionWorkspaceEntry[];

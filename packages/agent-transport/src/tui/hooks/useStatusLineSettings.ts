@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useTuiCliAdapter } from '../tui-cli-adapter-context.js';
 
 import type { TUniversalValue } from '@robota-sdk/agent-core';
-import type { IStatusLineCommandSettings } from '@robota-sdk/agent-framework';
+import type { IStatusLineCommandSettings } from '@robota-sdk/agent-interface-transport';
 
 function readStatusLineSettings(
   settings: Record<string, TUniversalValue>,

@@ -7,8 +7,8 @@
 import { Box, Text, useInput } from 'ink';
 import React, { useState, useCallback } from 'react';
 
-import type { IInteractiveSession } from '@robota-sdk/agent-framework';
 import type {
+  IInteractiveSession,
   ITransportEntry,
   ITransportRegistryView,
 } from '@robota-sdk/agent-interface-transport';
