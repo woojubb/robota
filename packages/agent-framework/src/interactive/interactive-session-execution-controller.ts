@@ -48,6 +48,24 @@ export interface IExecutionControllerCallbacks {
   emit: <E extends string>(event: E, ...args: unknown[]) => void;
   persistSession: () => void;
 }
+
+/** Origin of a turn — distinguishes a human prompt from an agent-wakeup (FLOW-002). */
+export type TTurnSource = 'user' | 'agent-wakeup';
+
+/** Options threaded through submit/executePrompt for non-user turns (FLOW-002). */
+export interface ITurnOptions {
+  turnSource?: TTurnSource;
+  /** When set, the in-flight wake for this background task id is cleared on turn completion. */
+  wakeTaskId?: string;
+}
+
+/** A submit callback that optionally carries turn options (default = user turn). */
+export type TSubmitFn = (
+  prompt: string,
+  displayInput?: string,
+  rawInput?: string,
+  options?: ITurnOptions,
+) => Promise<void>;
 export class SessionExecutionController {
   executing = false;
   streamingText = '';
@@ -56,7 +74,11 @@ export class SessionExecutionController {
   pendingPrompt: string | null = null;
   pendingDisplayInput: string | undefined;
   pendingRawInput: string | undefined;
+  pendingTurnOptions: ITurnOptions = {};
   shuttingDown = false;
+
+  /** FLOW-002: background task ids with an in-flight wake turn (coalesces duplicate wakes). */
+  readonly wakeTaskIds = new Set<string>();
 
   constructor(
     private readonly histTracker: SessionHistoryTracker,
@@ -68,6 +90,7 @@ export class SessionExecutionController {
     this.pendingPrompt = null;
     this.pendingDisplayInput = undefined;
     this.pendingRawInput = undefined;
+    this.pendingTurnOptions = {};
   }
 
   clearStreaming(): void {
@@ -145,13 +168,14 @@ export class SessionExecutionController {
     });
   }
 
-  private drainPendingQueue(submit: (p: string, d?: string, r?: string) => Promise<void>): void {
+  private drainPendingQueue(submit: TSubmitFn): void {
     if (!this.shuttingDown && this.pendingPrompt) {
       const queued = this.pendingPrompt;
       const queuedDisplay = this.pendingDisplayInput;
       const queuedRaw = this.pendingRawInput;
+      const queuedOptions = this.pendingTurnOptions;
       this.clearPendingQueue();
-      setTimeout(() => void submit(queued, queuedDisplay, queuedRaw), 0);
+      setTimeout(() => void submit(queued, queuedDisplay, queuedRaw, queuedOptions), 0);
     }
   }
 
@@ -163,7 +187,8 @@ export class SessionExecutionController {
     claudeFileEntries: IContextFileEntry[],
     rebuildSystemMessage: ICreatedInteractiveSession['rebuildSystemMessage'] | null,
     setEntries: (agents: IContextFileEntry[], claude: IContextFileEntry[]) => void,
-    submit: (p: string, d?: string, r?: string) => Promise<void>,
+    submit: TSubmitFn,
+    turnOptions: ITurnOptions = {},
   ): Promise<void> {
     await checkAndRefreshContextIfStale(
       agentsFileEntries,
@@ -175,6 +200,9 @@ export class SessionExecutionController {
     );
     this.executing = true;
     this.clearStreaming();
+    // FLOW-002: surface the turn origin so consumers (hooks, TUI) can distinguish a human
+    // prompt from an agent-wakeup re-entry.
+    this.callbacks.emit('turn_source', turnOptions.turnSource ?? 'user');
     this.callbacks.emit('user_message', displayInput ?? input);
     this.callbacks.emit('thinking', true);
     try {
@@ -212,6 +240,8 @@ export class SessionExecutionController {
       }
       this.executing = false;
       this.callbacks.emit('thinking', false);
+      // FLOW-002: the wake for this task id is no longer in flight; allow future wakes to inject.
+      if (turnOptions.wakeTaskId !== undefined) this.wakeTaskIds.delete(turnOptions.wakeTaskId);
       this.emitExecutionWorkspaceUpdated('main_thread');
       this.callbacks.persistSession();
       this.drainPendingQueue(submit);

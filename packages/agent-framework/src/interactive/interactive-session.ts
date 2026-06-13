@@ -19,6 +19,7 @@ import {
 import { retrieveAgentToolDeps } from '../tools/agent-tool.js';
 
 import type { IInteractiveSession } from './i-interactive-session.js';
+import type { ITurnOptions } from './interactive-session-execution-controller.js';
 import type { ICreatedInteractiveSession } from './interactive-session-init.js';
 import type {
   TInteractiveSessionOptions,
@@ -102,6 +103,7 @@ export class InteractiveSession
       (event) => this.emit('background_task_event', event),
       (event) => this.emit('background_job_group_event', event),
       () => this.persistCurrentSession(),
+      (instruction, taskId) => this.requestWakeup(instruction, taskId),
     );
 
     this.histTracker = new SessionHistoryTracker(
@@ -283,13 +285,19 @@ export class InteractiveSession
     if (handlers) for (const handler of handlers) handler(...args);
   }
 
-  async submit(input: string, displayInput?: string, rawInput?: string): Promise<void> {
+  async submit(
+    input: string,
+    displayInput?: string,
+    rawInput?: string,
+    options: ITurnOptions = {},
+  ): Promise<void> {
     await this.ensureInitialized();
     if (this.execCtrl.shuttingDown) throw new Error('Interactive session is shutting down.');
     if (this.execCtrl.executing) {
       this.execCtrl.pendingPrompt = input;
       this.execCtrl.pendingDisplayInput = displayInput;
       this.execCtrl.pendingRawInput = rawInput;
+      this.execCtrl.pendingTurnOptions = options;
       return;
     }
     await this.execCtrl.executePrompt(
@@ -304,8 +312,24 @@ export class InteractiveSession
         this.claudeFileEntries = claude;
         this.histTracker.recordSystemContextFiles([...agents, ...claude]);
       },
-      (p, d, r) => this.submit(p, d, r),
+      (p, d, r, o) => this.submit(p, d, r, o),
+      options,
     );
+  }
+
+  /**
+   * FLOW-002: re-enter the agent loop with a non-user turn triggered by a background wake
+   * (a scheduled fire or, later, a monitor match). Coalesces by source task id so repeated
+   * wakes for the same task while one is still in flight collapse to a single turn.
+   */
+  requestWakeup(instruction: string, sourceTaskId: string): void {
+    if (this.execCtrl.shuttingDown) return;
+    if (this.execCtrl.wakeTaskIds.has(sourceTaskId)) return;
+    this.execCtrl.wakeTaskIds.add(sourceTaskId);
+    void this.submit(instruction, undefined, undefined, {
+      turnSource: 'agent-wakeup',
+      wakeTaskId: sourceTaskId,
+    });
   }
 
   abort(): void {
