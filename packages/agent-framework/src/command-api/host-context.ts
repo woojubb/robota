@@ -144,6 +144,26 @@ export interface IAgentJobHostContext {
     input: Omit<IBackgroundJobGroupCreateRequest, 'parentSessionId'>,
   ): IBackgroundJobGroupState;
   waitBackgroundJobGroup(groupId: string): Promise<IBackgroundJobGroupState>;
+  /**
+   * FLOW-005: schedule a recurring/one-shot agent wake. On each cron fire the agent loop
+   * re-enters with `agentInstruction` (FLOW-001/002). `cronExpression` may be a standard cron
+   * string or an ISO timestamp (one-shot).
+   */
+  spawnScheduledWake(input: {
+    label: string;
+    cronExpression: string;
+    agentInstruction: string;
+  }): Promise<IBackgroundTaskState>;
+  /**
+   * FLOW-005: monitor a process's output and wake the agent with `agentInstruction` when a
+   * line matches `matchPattern` (FLOW-004).
+   */
+  spawnMonitorWake(input: {
+    label: string;
+    command: string;
+    matchPattern: string;
+    agentInstruction: string;
+  }): Promise<IBackgroundTaskState>;
   readBackgroundTaskLog(
     taskId: string,
     cursor?: IBackgroundTaskLogCursor,

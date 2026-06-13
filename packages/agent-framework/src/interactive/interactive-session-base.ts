@@ -301,4 +301,42 @@ export abstract class InteractiveSessionBase {
     await this.ensureInitialized();
     await closeAgentJobFromSession(this.getSessionOrThrow(), jobId);
   }
+
+  async spawnScheduledWake(input: {
+    label: string;
+    cronExpression: string;
+    agentInstruction: string;
+  }): Promise<IBackgroundTaskState> {
+    await this.ensureInitialized();
+    return this.bgTracker.getManagerOrThrow().spawn({
+      kind: 'scheduled',
+      label: input.label,
+      mode: 'background',
+      parentSessionId: this.getSessionOrThrow().getSessionId(),
+      depth: 0,
+      cwd: this.getCwd(),
+      cronExpression: input.cronExpression,
+      agentInstruction: input.agentInstruction,
+    });
+  }
+
+  async spawnMonitorWake(input: {
+    label: string;
+    command: string;
+    matchPattern: string;
+    agentInstruction: string;
+  }): Promise<IBackgroundTaskState> {
+    await this.ensureInitialized();
+    return this.bgTracker.getManagerOrThrow().spawn({
+      kind: 'process',
+      label: input.label,
+      mode: 'background',
+      parentSessionId: this.getSessionOrThrow().getSessionId(),
+      depth: 0,
+      cwd: this.getCwd(),
+      command: input.command,
+      matchPattern: input.matchPattern,
+      agentInstruction: input.agentInstruction,
+    });
+  }
 }
