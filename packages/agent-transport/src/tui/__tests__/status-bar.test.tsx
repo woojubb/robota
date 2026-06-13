@@ -109,18 +109,19 @@ describe('StatusBar', () => {
     );
     const frame = lastFrame()!;
     expect(frame).not.toContain('Activity:');
-    expect(frame).toContain('Tools x2');
+    expect(frame).toContain('Tools (2)');
+    expect(frame).not.toContain('Tools x2');
     expect(frame).toContain('queued');
     expect(frame).not.toContain('thinking...');
-    expect(frame.indexOf('Tools x2')).toBeLessThan(frame.indexOf('test-model'));
+    expect(frame.indexOf('Tools (2)')).toBeLessThan(frame.indexOf('test-model'));
     expect(frame).not.toContain('Thinking...');
   });
 
   it('shows background activity when no foreground execution is active', () => {
     const { lastFrame } = render(<StatusBar {...baseProps} activeBackgroundTaskCount={3} />);
     const frame = lastFrame()!;
-    expect(frame).toContain('Background x3');
-    expect(frame.indexOf('Background x3')).toBeLessThan(frame.indexOf('test-model'));
+    expect(frame).toContain('Background (3)');
+    expect(frame.indexOf('Background (3)')).toBeLessThan(frame.indexOf('test-model'));
   });
 
   it('keeps the activity segment compact for narrow terminals', () => {
@@ -137,7 +138,7 @@ describe('StatusBar', () => {
     const firstLine = frame.split('\n')[0] ?? '';
     const activityEnd = firstLine.indexOf('test-model');
     const activitySegment = firstLine.slice(0, activityEnd);
-    expect(activitySegment).toContain('Tools x12');
+    expect(activitySegment).toContain('Tools (12)');
     expect(activitySegment.length).toBeLessThanOrEqual(40);
   });
 
