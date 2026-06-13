@@ -53,6 +53,10 @@ export class SessionBackgroundTaskTracker {
     private readonly emitTaskEvent: (event: TBackgroundTaskEvent) => void,
     private readonly emitGroupEvent: (event: TBackgroundJobGroupEvent) => void,
     private readonly persistSession: () => void,
+    // FLOW-002: invoked when a background task fires a wake carrying an agent instruction.
+    private readonly onWake?: (instruction: string, taskId: string) => void,
+    // FLOW-003: append a user-visible system note (e.g. a missed-wake notice) to history.
+    private readonly appendSystemNote?: (message: string) => void,
   ) {}
 
   subscribe(session: Session): void {
@@ -64,7 +68,43 @@ export class SessionBackgroundTaskTracker {
     this.backgroundTaskUnsubscribe = manager.subscribe((event) => {
       this.recordTaskEvent(event);
       this.emitTaskEvent(event);
+      // FLOW-002: a wake carrying an instruction re-enters the agent loop with a non-user turn.
+      if (event.type === 'background_task_waking' && event.instruction !== undefined) {
+        this.onWake?.(event.instruction, event.taskId);
+      }
     });
+    this.reArmRestoredSchedules(manager);
+  }
+
+  /**
+   * FLOW-003: re-spawn restored sleeping scheduled wakes so they fire again after a resume,
+   * and surface a one-time note for any whose fire time elapsed while the CLI was closed.
+   */
+  private reArmRestoredSchedules(manager: IBackgroundTaskManager): void {
+    const nowMs = Date.now();
+    for (const task of this.backgroundTasks) {
+      if (task.kind !== 'scheduled' || task.status !== 'sleeping' || !task.schedule) continue;
+      if (task.nextFireAt !== undefined && new Date(task.nextFireAt).getTime() < nowMs) {
+        this.appendSystemNote?.(
+          `Missed scheduled wake "${task.label}" (was due ${task.nextFireAt} while the session was closed); re-arming.`,
+        );
+      }
+      void manager.spawn({
+        kind: 'scheduled',
+        cronExpression: task.schedule.cronExpression,
+        label: task.label,
+        mode: task.mode,
+        parentSessionId: task.parentSessionId,
+        depth: task.depth,
+        cwd: task.cwd,
+        ...(task.schedule.agentInstruction !== undefined
+          ? { agentInstruction: task.schedule.agentInstruction }
+          : {}),
+        ...(task.schedule.command !== undefined ? { command: task.schedule.command } : {}),
+        ...(task.schedule.shell !== undefined ? { shell: task.schedule.shell } : {}),
+        ...(task.schedule.env !== undefined ? { env: { ...task.schedule.env } } : {}),
+      });
+    }
   }
 
   dispose(): void {

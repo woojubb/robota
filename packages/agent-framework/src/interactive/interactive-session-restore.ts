@@ -117,6 +117,9 @@ function reconcileRestoredBackgroundTasks(
   const syntheticEvents: TBackgroundTaskEvent[] = [];
   const backgroundTasks = tasks.map((task) => {
     if (isRestoredTerminalStatus(task.status)) return task;
+    // FLOW-003: a sleeping scheduled wake that carries a reconstructable schedule is re-armed
+    // (re-spawned) by the background tracker on subscribe — keep it as-is rather than failing it.
+    if (isReArmableSchedule(task)) return task;
     const reconciled: IBackgroundTaskState = {
       ...task,
       status: 'failed',
@@ -141,4 +144,9 @@ function reconcileRestoredBackgroundTasks(
 
 function isRestoredTerminalStatus(status: TBackgroundTaskStatus): boolean {
   return status === 'completed' || status === 'failed' || status === 'cancelled';
+}
+
+/** FLOW-003: a restored sleeping scheduled task that can be re-armed from its persisted schedule. */
+function isReArmableSchedule(task: IBackgroundTaskState): boolean {
+  return task.kind === 'scheduled' && task.status === 'sleeping' && task.schedule !== undefined;
 }

@@ -102,12 +102,29 @@ export interface IProcessBackgroundTaskRequest extends IBaseBackgroundTaskReques
   env?: Record<string, string>;
   stdin?: string;
   outputLimitBytes?: number;
+  /**
+   * FLOW-004 (monitor): a regular-expression source. Output lines matching it fire a
+   * `background_task_waking` carrying `agentInstruction` + the matched line, so the agent
+   * reacts to "something happened in this process's output".
+   */
+  matchPattern?: string;
+  /** FLOW-004: the instruction injected on a monitor match (paired with `matchPattern`). */
+  agentInstruction?: string;
 }
 
 export interface IScheduledBackgroundTaskRequest extends IBaseBackgroundTaskRequest {
   kind: 'scheduled';
   cronExpression: string;
-  command: string;
+  /**
+   * Shell command to run on each fire. Optional when `agentInstruction` is set —
+   * an agent-wake schedule may fire the agent loop instead of (or in addition to) a shell command.
+   */
+  command?: string;
+  /**
+   * FLOW-001: when set, each fire carries this instruction on the `background_task_waking`
+   * event so an upper layer (FLOW-002) can wake the agent loop with a non-user turn.
+   */
+  agentInstruction?: string;
   shell?: string;
   env?: Record<string, string>;
   outputLimitBytes?: number;
@@ -160,7 +177,21 @@ export interface IBackgroundTaskState {
   parentWorktreeStatus?: string;
   timeoutReason?: TBackgroundTaskTimeoutReason;
   nextFireAt?: string;
+  /**
+   * FLOW-003: for `kind: 'scheduled'` tasks, the reconstructable schedule definition.
+   * Persisted with the task so a resumed session can re-arm the croner job.
+   */
+  schedule?: IBackgroundTaskSchedule;
   metadata?: Record<string, TBackgroundPrimitive>;
+}
+
+/** FLOW-003: the persisted, reconstructable definition of a scheduled wake. */
+export interface IBackgroundTaskSchedule {
+  cronExpression: string;
+  agentInstruction?: string;
+  command?: string;
+  shell?: string;
+  env?: Record<string, string>;
 }
 
 export interface IBackgroundTaskInput {
@@ -202,7 +233,7 @@ export type TBackgroundTaskRunnerEvent =
       toolArgs: Record<string, TBackgroundPrimitive>;
     }
   | { type: 'background_task_sleeping'; nextFireAt: string }
-  | { type: 'background_task_waking' };
+  | { type: 'background_task_waking'; instruction?: string };
 
 export interface IBackgroundTaskStart {
   taskId: string;
@@ -251,7 +282,10 @@ export type TBackgroundTaskEvent =
   | { type: 'background_task_completed'; task: IBackgroundTaskState }
   | { type: 'background_task_failed'; task: IBackgroundTaskState }
   | { type: 'background_task_cancelled'; task: IBackgroundTaskState }
-  | { type: 'background_task_closed'; taskId: string };
+  | { type: 'background_task_closed'; taskId: string }
+  // FLOW-001: a scheduled/monitor task fired. `instruction`, when present, is the agent-wake
+  // instruction an upper layer (FLOW-002) injects as a non-user turn.
+  | { type: 'background_task_waking'; taskId: string; instruction?: string };
 
 export type TBackgroundTaskEventListener = (event: TBackgroundTaskEvent) => void;
 
