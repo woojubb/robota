@@ -55,5 +55,5 @@ graph LR
 | Session contracts                      | [../../../packages/agent-session/docs/SPEC.md](../../../packages/agent-session/docs/SPEC.md)     | Conversation lifecycle, persistence, and compaction contracts.              |
 | Storage port contracts                 | [../../../packages/agent-session/docs/SPEC.md](../../../packages/agent-session/docs/SPEC.md)     | Storage port interfaces owned by `agent-session`.                           |
 | Agent server HTTP API                  | [../../../apps/agent-server/openapi.yaml](../../../apps/agent-server/openapi.yaml)               | OpenAPI 3.1 spec for all HTTP endpoints.                                    |
-| Auth contracts                         | [../../../packages/auth/docs/SPEC.md](../../../packages/auth/docs/SPEC.md)                       | Auth verifier ports and scope policy.                                       |
-| Credits contracts                      | [../../../packages/credits/docs/SPEC.md](../../../packages/credits/docs/SPEC.md)                 | Credit account, reservation, and settlement contracts.                      |
+| Auth contracts                         | `packages/auth/docs/SPEC.md` — **planned (package not yet created; see ADR-002)**                | Auth verifier ports and scope policy.                                       |
+| Credits contracts                      | `packages/credits/docs/SPEC.md` — **planned (package not yet created; see ADR-002)**             | Credit account, reservation, and settlement contracts.                      |
