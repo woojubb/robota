@@ -1,6 +1,12 @@
 import type { IFileSystemAsync } from '@robota-sdk/agent-core';
+// IPromptFileReferenceRecord / TPromptFileReferenceReason SSOT relocated to
+// @robota-sdk/agent-interface-transport (DATA-001).
+import type {
+  IPromptFileReferenceRecord,
+  TPromptFileReferenceReason,
+} from '@robota-sdk/agent-interface-transport';
 
-export type TPromptFileReferenceReason = 'manual' | 'prompt-reference';
+export type { IPromptFileReferenceRecord, TPromptFileReferenceReason };
 
 export type TPromptFileReferenceDiagnosticCode =
   | 'not-found'
@@ -17,15 +23,6 @@ export interface IPromptFileReferenceToken {
   original: string;
   path: string;
   index: number;
-}
-
-export interface IPromptFileReferenceRecord {
-  originalReference: string;
-  sourcePath: string;
-  relativePath: string;
-  reason: TPromptFileReferenceReason;
-  depth: number;
-  byteLength: number;
 }
 
 export interface IResolvedPromptFileReference extends IPromptFileReferenceRecord {
