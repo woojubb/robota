@@ -104,6 +104,7 @@ export class InteractiveSession
       (event) => this.emit('background_job_group_event', event),
       () => this.persistCurrentSession(),
       (instruction, taskId) => this.requestWakeup(instruction, taskId),
+      (message) => this.histTracker.append(messageToHistoryEntry(createSystemMessage(message))),
     );
 
     this.histTracker = new SessionHistoryTracker(
