@@ -137,16 +137,43 @@ export function hasRepeatedSentence(text: string, threshold: number): boolean {
   return false;
 }
 
+function resolveBackgroundTaskPreview(
+  request: TBackgroundTaskRequest,
+  previewLength: number,
+): { promptPreview: string } | { commandPreview: string } | Record<string, never> {
+  if (request.kind === 'agent') {
+    return { promptPreview: request.prompt.slice(0, previewLength) };
+  }
+  if (request.kind === 'process') {
+    return { commandPreview: request.command.slice(0, previewLength) };
+  }
+  // scheduled: a shell command, an agent-wake instruction, or both — preview whichever is set.
+  const source = request.command ?? request.agentInstruction;
+  return source !== undefined ? { commandPreview: source.slice(0, previewLength) } : {};
+}
+
 export function createQueuedBackgroundTaskState(
   id: string,
   request: TBackgroundTaskRequest,
   now: string,
   previewLength: number,
 ): IBackgroundTaskState {
-  const preview =
-    request.kind === 'agent'
-      ? { promptPreview: request.prompt.slice(0, previewLength) }
-      : { commandPreview: request.command.slice(0, previewLength) };
+  const preview = resolveBackgroundTaskPreview(request, previewLength);
+  // FLOW-003: capture the reconstructable schedule so a resumed session can re-arm the cron job.
+  const schedule =
+    request.kind === 'scheduled'
+      ? {
+          schedule: {
+            cronExpression: request.cronExpression,
+            ...(request.agentInstruction !== undefined
+              ? { agentInstruction: request.agentInstruction }
+              : {}),
+            ...(request.command !== undefined ? { command: request.command } : {}),
+            ...(request.shell !== undefined ? { shell: request.shell } : {}),
+            ...(request.env !== undefined ? { env: { ...request.env } } : {}),
+          },
+        }
+      : {};
 
   return {
     id,
@@ -163,6 +190,7 @@ export function createQueuedBackgroundTaskState(
     unread: false,
     isolation: request.kind === 'agent' ? request.isolation : undefined,
     ...(request.metadata ? { metadata: { ...request.metadata } } : {}),
+    ...schedule,
     ...preview,
   };
 }
@@ -190,5 +218,8 @@ export function cloneBackgroundTaskState(state: IBackgroundTaskState): IBackgrou
     metadata: state.metadata ? { ...state.metadata } : undefined,
     result,
     error: state.error ? { ...state.error } : undefined,
+    schedule: state.schedule
+      ? { ...state.schedule, env: state.schedule.env ? { ...state.schedule.env } : undefined }
+      : undefined,
   };
 }
