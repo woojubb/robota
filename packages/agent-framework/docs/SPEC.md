@@ -2,7 +2,7 @@
 
 ## Scope
 
-`@robota-sdk/agent-framework` is the assembly layer of the Robota SDK. It composes `agent-core`, `agent-session`, `agent-tools`, and `agent-executor` into a single, provider-neutral SDK surface. The primary entry point is `InteractiveSession({ cwd, provider })`. A `createQuery({ provider })` factory is also provided for single-shot prompt use.
+`@robota-sdk/agent-framework` is the assembly layer of the Robota SDK. It composes `agent-core`, `agent-session`, `agent-tools`, `agent-executor`, and the `agent-interface-transport` type contracts into a single, provider-neutral SDK surface. The primary entry point is `InteractiveSession({ cwd, provider })`. A `createQuery({ provider })` factory is also provided for single-shot prompt use.
 
 This package owns: config loading (6-layer merge), context loading (AGENTS.md/CLAUDE.md walk-up), command infrastructure (command contracts, registry, sources), permission prompt, edit checkpointing, reversible execution policy, project memory store, self-hosting verification planner, skill discovery, background job orchestration, subagent assembly, bundle plugin management, and all SDK-specific type definitions.
 

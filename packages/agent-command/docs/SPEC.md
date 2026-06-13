@@ -8,7 +8,7 @@ Consolidated command module for the Robota SDK CLI. Provides all slash-command i
 
 **Out of scope:**
 
-- Transport layer (WebSocket, TUI, headless) — owned by `agent-transport-*`
+- Transport layer (WebSocket, TUI, headless) — owned by `agent-transport` (subpaths `/ws`, `/tui`, `/headless`)
 - CLI entry point and argument parsing — owned by `agent-cli`
 - Agent runtime and session management — owned by `agent-core` / `agent-framework`
 - Command registration contracts (`ICommandModule`, `ICommandSource`, `ISystemCommand`) — defined in `agent-framework`
