@@ -106,14 +106,26 @@ function startScheduledTask(
 function runOneFire(state: IScheduledTaskState): void {
   if (state.cancelled) return;
 
-  state.emit({ type: 'background_task_waking' });
+  // FLOW-001: carry the agent-wake instruction (if any) so an upper layer can wake the agent loop.
+  state.emit(
+    state.request.agentInstruction !== undefined
+      ? { type: 'background_task_waking', instruction: state.request.agentInstruction }
+      : { type: 'background_task_waking' },
+  );
+
+  // An agent-wake-only schedule (no shell command) just fires the wake and re-sleeps.
+  const command = state.request.command;
+  if (command === undefined) {
+    if (!state.cancelled) emitSleeping(state);
+    return;
+  }
 
   const capture = createLimitedOutputCapture({
     limitBytes: state.request.outputLimitBytes ?? DEFAULT_OUTPUT_LIMIT_BYTES,
   });
 
   const shell = state.request.shell ?? 'sh';
-  const child = spawn(shell, ['-c', state.request.command], {
+  const child = spawn(shell, ['-c', command], {
     cwd: state.request.cwd,
     env: { ...process.env, ...(state.request.env ?? {}) },
     stdio: ['ignore', 'pipe', 'pipe'],
