@@ -26,9 +26,9 @@ resolver에 의존하는데, 그 기반이 존재하지 않는다.
 - 신규 `packages/agent-preset/` — `IPreset` 계약(SSOT), `resolvePreset()`(우선순위 병합 + DEFAULT `agentName` 상수 소유), `listPresets()`, 빌트인 `default` 프리셋. **`agent-cli`는 본 백로그에서 어떤 로직도 소유하지 않는다**(껍데기 — `--preset` 파싱/전달은 PRESET-002 범위).
 - `packages/agent-preset/docs/SPEC.md` (신규 — 패키지 계약)
 - `packages/agent-preset/package.json` — `@robota-sdk/agent-preset`, 의존: `@robota-sdk/agent-framework`(옵션 타입)
-- `.agents/project-structure.md` — 패키지 등재
-- `.agents/project-structure.md` 의존 방향 / `scripts/harness/check-dependency-direction.mjs` — 신규 엣지(`agent-preset → agent-framework`) 허용 등재
-- `.agents/project-structure.md` publish 레지스트리 / `.agents/publish-registry.md` — 신규 패키지 등재
+- `.agents/project-structure.md` — 패키지 등재 + 신규 엣지(`agent-preset → agent-framework`) 기재. (`check-dependency-direction.mjs`는 package.json에서 엣지를 **동적 도출**하므로 별도 allowlist 등재 불필요 — 일방향만 지키면 자동 검증됨.)
+- `.changeset/config.json` `fixed` 그룹에 `@robota-sdk/agent-preset` 추가(전 패키지 동일 버전 규칙). 신규 패키지 버전 = **현재 모노레포 버전 `3.0.0-beta.74`**(`agent-core`와 동일).
+- `.agents/publish-registry.md` — publish 결정: `agent-preset`는 SDK 표면(설계 §5: SDK 사용자 직접 import)이므로 **published(beta)**, `publishConfig.access: public`.
 - 재사용(중복 금지): `agent-framework`의 `TInteractiveSessionOptions` / `TPermissionMode` 등 옵션 타입 — `IPreset` 필드는 이를 재사용/확장(타입 SSOT)
 
 ### Alternatives Considered
@@ -80,7 +80,9 @@ resolver에 의존하는데, 그 기반이 존재하지 않는다.
    `default`는 항등(no-op) — 오버라이드 없는 base를 그대로 반환해 무회귀를 보장.
 3. **`listPresets()`**: 등록된 프리셋의 `{ id, title, description }` 목록 반환(PRESET-006 UX의 데이터원).
 4. **빌트인 `default` 프리셋**: 현재 동작과 동일(오버라이드 없음).
-5. **SPEC.md** 작성, project-structure·publish 레지스트리·dep-direction 등재.
+5. **등재/버전**: SPEC.md 작성; project-structure(엣지 포함)·publish 레지스트리 등재; `.changeset/config.json`
+   `fixed` 그룹에 `@robota-sdk/agent-preset` 추가; 버전 = 현재 모노레포 버전(`3.0.0-beta.74`);
+   `publishConfig.access: public`(published beta).
 
 이 백로그는 계약과 기반만 만든다. 선택 배선(PRESET-002), 페르소나 합성(003), 번들(004), 첫 의견
 프리셋(005)은 후속이다.
@@ -94,9 +96,9 @@ resolver에 의존하는데, 그 기반이 존재하지 않는다.
 - `packages/agent-preset/src/presets/default.ts` (NEW — 빌트인 default)
 - `packages/agent-preset/docs/SPEC.md` (NEW)
 - `packages/agent-preset/tsconfig*.json`, build config (NEW — 기존 패키지 패턴 복제)
-- `.agents/project-structure.md` (패키지 + 의존 방향 등재)
-- `.agents/publish-registry.md` (publish 등재)
-- `scripts/harness/check-dependency-direction.mjs` (신규 엣지 허용, 필요 시)
+- `.agents/project-structure.md` (패키지 + 의존 방향 엣지 기재)
+- `.agents/publish-registry.md` (publish 등재 — published beta)
+- `.changeset/config.json` (`fixed` 그룹에 `@robota-sdk/agent-preset` 추가)
 
 ## Completion Criteria
 
@@ -109,6 +111,9 @@ resolver에 의존하는데, 그 기반이 존재하지 않는다.
 - [ ] TC-07: `listPresets()` 반환 배열에 `id === 'default'` 항목 존재함을 단언하는 단위 테스트 통과
 - [ ] TC-08: `pnpm --filter @robota-sdk/agent-preset build` → exit 0, 그리고 `node scripts/harness/check-dependency-direction.mjs` → exit 0 (agent-preset의 유일 의존 엣지 = agent-framework)
 - [ ] TC-09: `pnpm harness:scan` → exit 0 (신규 패키지 SPEC/등재/구조 스캔 통과)
+- [ ] TC-10: `node -p "require('./packages/agent-preset/package.json').version"` 출력이 `require('./packages/agent-core/package.json').version`과 동일(모노레포 동일 버전 규칙)
+- [ ] TC-11: `rg "@robota-sdk/agent-preset" .changeset/config.json` → `fixed` 그룹에 포함되어 매치
+- [ ] TC-12: `node -p "require('./packages/agent-preset/package.json').publishConfig?.access"` → `public`, 그리고 `private` 필드 부재(published)
 
 ## Test Plan
 
@@ -125,6 +130,9 @@ Type DATA + tags typescript. 검증 = 타입/단위 테스트(vitest) + 빌드·
 | TC-07 | RULE (unit)            | vitest 단위 테스트 — listPresets default 포함                          |          |
 | TC-08 | CI pipeline smoke test | `pnpm --filter ... build` + `check-dependency-direction.mjs` exit code | 커맨드폼 |
 | TC-09 | CI pipeline smoke test | `pnpm harness:scan` exit 0                                             | 커맨드폼 |
+| TC-10 | CI pipeline smoke test | `node -p` 버전 비교 (agent-preset == agent-core)                       | 커맨드폼 |
+| TC-11 | CI pipeline smoke test | `rg` .changeset/config.json fixed 그룹 멤버십                          | 커맨드폼 |
+| TC-12 | CI pipeline smoke test | `node -p` publishConfig.access == public + private 부재                | 커맨드폼 |
 
 ## Tasks
 
@@ -135,9 +143,11 @@ Type DATA + tags typescript. 검증 = 타입/단위 테스트(vitest) + 빌드·
 ### [GATE-WRITE] — ✅ PASS | 2026-06-14
 
 **Status upgrade:** draft → review-ready
-Frontmatter: `---` block present; `status: draft`; `type: DATA` (valid 11-prefix value); `tags: [typescript]` present.
-Problem: concrete symptom (`rg "agent-preset" packages` → no match, directory absent) + reproduction condition; no TBD/TODO/vague.
-Architecture Review: all 4 checklist items `[x]`; sibling scan `[x]` with evidence (agent-interface-transport, agent-framework option types); 3 alternatives each with Pro/Con (≥2 required); Decision references trade-off (1 package cost vs framework neutrality/layering/reuse).
-Completion Criteria: TC-01..TC-09 all TC-N prefixed; command/observable form; no banned phrases ("works correctly"/"no errors"/"implemented"/"displays correctly").
-Test Plan: present; 9 rows (TC-01..TC-09) match 9 Completion Criteria count; each has Test Type + Tool/Approach, no TBD; no row uses Tool "manual" so manual-Notes justification rule not triggered.
-Structure: Tasks section with placeholder present; Evidence Log present and empty before this run; no `## Status` or `## Classification` body sections.
+
+- Frontmatter: `---` block present; `status: draft`; `type: DATA` (valid 11-prefix value); `tags: [typescript]` present.
+- Problem: concrete symptom (`rg "agent-preset" packages` → no match, directory absent) + reproduction condition; no TBD/TODO/vague text.
+- Architecture Review Checklist: all 4 items `[x]`; sibling scan `[x]` with evidence (agent-interface-transport pattern, agent-framework option files); 3 alternatives each with Pro/Con (≥2 required); Decision references trade-off (1 package cost vs framework neutrality/layer compliance/reuse).
+- Completion Criteria: 12 items all TC-N prefixed (TC-01..TC-12); command/observable form; none use banned phrases ("works correctly"/"no errors"/"implemented"/"displays correctly").
+- Test Plan: `## Test Plan` present; 12 rows (TC-01..TC-12) — count matches 12 TC criteria; every row has non-empty Test Type and Tool/Approach; no row uses Tool "manual" (cat/rg/vitest/pnpm/node), so manual-Notes justification N/A.
+- Structure: Tasks section present with placeholder; Evidence Log present and empty before this run; no `## Status` or `## Classification` body sections.
+- TC-N count match confirmed: Completion Criteria = 12, Test Plan rows = 12.

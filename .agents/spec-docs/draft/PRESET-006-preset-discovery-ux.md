@@ -23,6 +23,7 @@ tags: [cli]
 - `packages/agent-command/` — 신규 `createPresetCommandModule()`(`/preset` 목록 + 전환)
 - `packages/agent-command/src/default/default-command-modules.ts` — 기본 모듈에 preset 명령 등록
 - `packages/agent-transport/src/tui/` — 상태 표시줄에 활성 프리셋 id 표시(SessionStatusBar)
+- `packages/agent-command/package.json` — **신규 의존 엣지 `agent-command → agent-preset`**(`listPresets()` 소비). 일방향(사이클 없음); `check-dependency-direction.mjs`가 package.json에서 자동 검증.
 - 소비: PRESET-001 `listPresets()`, PRESET-002 활성 프리셋 상태
 
 ### Alternatives Considered
@@ -58,6 +59,7 @@ tags: [cli]
 
 - `packages/agent-command/src/preset/preset-command-module.ts` (NEW)
 - `packages/agent-command/src/default/default-command-modules.ts`
+- `packages/agent-command/package.json` (신규 의존: `@robota-sdk/agent-preset`)
 - `packages/agent-transport/src/tui/` (SessionStatusBar 컴포넌트)
 
 ## Completion Criteria
@@ -99,10 +101,9 @@ Type SCREEN + tags cli → 명령 출력/TUI 렌더 단언 + 빌드 스모크.
 ### [GATE-WRITE] — ✅ PASS | 2026-06-14
 
 **Status upgrade:** draft → review-ready
-Frontmatter: `---` block present; `status: draft`; `type: SCREEN` (valid 11-prefix value); `tags: [cli]` present.
-Problem: concrete symptom (`/preset` 명령 없음, 상태 표시줄 활성 프리셋 표시 없음) + reproduction condition (TUI 세션); no TBD/TODO/vague.
-Architecture Review Checklist: all 4 items `[x]`; Sibling scan `[x]` with evidence (`/mode`·`/model` + SessionStatusBar patterns confirmed); Alternatives Considered has 2 entries each with Pro/Con; Decision references trade-off (두 곳 수정 비용 감수 ↔ 명령 UX 일관성).
-Completion Criteria: TC-01–TC-05 all TC-N prefixed; ≥1 per feature (list/switch/TUI display/rejection/build); Command + Observable behavior forms; no banned phrases ("works correctly"/"no errors"/"implemented"/"displays correctly").
-Test Plan: `## Test Plan` present; 5 rows (TC-01–TC-05) match 5 Completion Criteria; every row has non-empty Test Type and Tool/Approach, no "TBD"; no row uses "manual" tool so no manual-justification required.
-Structure: Tasks section present with placeholder; Evidence Log empty before this entry; no `## Status` or `## Classification` body sections.
-TC-N count matches between Completion Criteria (5) and Test Plan (5).
+Frontmatter: `---` block present; `status: draft`; `type: SCREEN` (valid prefix); `tags: [cli]` present.
+Problem: concrete symptom (`/preset` 명령 없음, 상태 표시줄 활성 프리셋 미표시) + reproduction condition (TUI 세션); no TBD/TODO/vague.
+Architecture Review Checklist: all 4 items `[x]`; Sibling scan `[x]` with evidence (`/mode`, `/model`, SessionStatusBar 패턴); 2 alternatives each with pro/con; Decision references trade-off (두 곳 수정 비용 vs 명령 UX 일관성).
+Completion Criteria: TC-01..TC-05 all TC-N prefixed; command/observable form; no banned phrases ("works correctly"/"no errors"/"implemented"/"displays correctly").
+Test Plan: section present; 5 rows (TC-01..TC-05) match 5 Completion Criteria count; each row has non-empty Test Type + Tool/Approach; no "manual" tool rows (no manual-Notes justification required).
+Structure: Tasks section present with placeholder; Evidence Log present and empty before this run; no `## Status` or `## Classification` body sections.
