@@ -339,9 +339,9 @@ The StatusBar shows real-time session information:
 
 Activity priority is deterministic and renderer-owned:
 
-1. active tool calls (`Tools xN`)
+1. active tool calls (`Tools (N)`)
 2. foreground model waiting (`Thinking`)
-3. active background work (`Background xN`)
+3. active background work (`Background (N)`)
 4. queued prompt (`Queued`)
 5. idle (`Idle`)
 

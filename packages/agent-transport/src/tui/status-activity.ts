@@ -30,7 +30,7 @@ function getPrimaryActivity(
   if (input.activeToolCount > NO_ACTIVE_ITEMS) {
     return {
       kind: 'tools',
-      label: `Tools x${input.activeToolCount}`,
+      label: `Tools (${input.activeToolCount})`,
       color: 'cyan',
     };
   }
@@ -44,7 +44,7 @@ function getPrimaryActivity(
   if (input.activeBackgroundTaskCount > NO_ACTIVE_ITEMS) {
     return {
       kind: 'background',
-      label: `Background x${input.activeBackgroundTaskCount}`,
+      label: `Background (${input.activeBackgroundTaskCount})`,
       color: 'cyan',
     };
   }

@@ -11,10 +11,10 @@ describe('formatStatusActivity', () => {
     });
 
     expect(activity.kind).toBe('tools');
-    expect(activity.label).toBe('Tools x2');
+    expect(activity.label).toBe('Tools (2)');
     expect(activity.color).toBe('cyan');
     expect(activity.segments).toEqual(['queued']);
-    expect(activity.text).toBe('Tools x2 · queued');
+    expect(activity.text).toBe('Tools (2) · queued');
   });
 
   it('shows thinking as the primary model waiting state', () => {
@@ -39,7 +39,7 @@ describe('formatStatusActivity', () => {
     });
 
     expect(activity.kind).toBe('background');
-    expect(activity.label).toBe('Background x1');
+    expect(activity.label).toBe('Background (1)');
     expect(activity.color).toBe('cyan');
   });
 
