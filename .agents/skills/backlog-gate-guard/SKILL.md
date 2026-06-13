@@ -18,7 +18,7 @@ Invoked as a **subagent** (Agent tool) by `backlog-pipeline`. Each invocation ha
 
 **Input required from caller:**
 
-- Gate name: one of `GATE-WRITE`, `GATE-APPROVAL`, `GATE-IMPLEMENT`, `GATE-VERIFY`, `GATE-COMPLETE`
+- Gate name: one of `GATE-WRITE`, `GATE-APPROVAL`, `GATE-IMPLEMENT`, `GATE-VERIFY`, `GATE-COMPLETE`, `GATE-CONFORMANCE`
 - Spec document path: `.agents/spec-docs/<stage>/<ID>.md`
 
 ## Output
@@ -136,6 +136,8 @@ Check every item. A single unmet item = FAIL.
 - [ ] `.agents/tasks/<ID>.md` has been created
 - [ ] Tasks file path is recorded in the `## Tasks` section of the spec document
 - [ ] Tasks in the file correspond to the Completion Criteria (at minimum, one task per TC-N)
+- [ ] The tasks file includes a `## Test Plan` (or `## Testing` / `## 검증`) section with ≥50 chars — the
+      `test-plans` harness scan requires development docs to carry one (else `harness:scan` fails). [AF-24]
 
 **Evidence to record on PASS:** Tasks file path + list of tasks created.
 
@@ -183,6 +185,28 @@ After all criteria:
 **Evidence to record:** One Evidence entry per TC-N (verification + test reference/skip), then a final summary entry.
 
 **FAIL trigger:** Any TC-N unchecked, or checked without a matching Evidence entry. Any TC-N in Test Plan missing both a test reference and a skip reason.
+
+---
+
+### GATE-CONFORMANCE (architecture conformance — standalone, not a status transition)
+
+Unlike the WRITE→COMPLETE gates, GATE-CONFORMANCE does not move a spec between folders. It validates
+that the canonical architecture documents match code reality (see
+[`spec-workflow.md` > GATE-CONFORMANCE](../../rules/spec-workflow.md)). Run on demand, after any
+cross-package change, and before a `develop → main` release.
+
+- [ ] `pnpm harness:conformance` was run; its exit code and `CONFORMANCE_JSON_*` summary are captured
+- [ ] `dependencyDirection` is `pass` in the JSON summary
+- [ ] No **unresolved P0** finding remains (P0 = rule violation or authority-doc contradiction)
+
+**Mechanical core:** `scripts/harness/check-architecture-conformance.mjs` (composes
+`check-dependency-direction.mjs` + the workspace-package-name guard).
+**Analytic layer:** the [`architecture-conformance-audit`](../architecture-conformance-audit/SKILL.md)
+skill set, producing `.design/architecture-audit/<date>/`.
+
+**PASS:** `harness:conformance` exits 0 and no unresolved P0. **FAIL:** otherwise — surface the JSON
+summary's `unknownPackageTokens` + any P0 findings. (Known baseline drift is tracked by INFRA-004~009;
+until those land, a FAIL here is expected and is not a release blocker.)
 
 ---
 

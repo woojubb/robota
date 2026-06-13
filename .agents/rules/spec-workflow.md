@@ -175,6 +175,23 @@ Content promotion rules:
 - Do not append subsystem details to the architecture-map router when a focused subdocument owns that area.
 - A structural architecture change without updated structure/spec architecture documents is incomplete.
 
+### GATE-CONFORMANCE (architecture conformance gate)
+
+- **Purpose:** verify that the canonical architecture documents still match code reality (the
+  doc-vs-code drift that the per-spec `Architecture Review` section self-asserts but does not validate).
+- **Mechanical core (deterministic, non-prose):** `pnpm harness:conformance`
+  (`scripts/harness/check-architecture-conformance.mjs`) composes `check-dependency-direction.mjs` with
+  a workspace-package-name guard and emits a machine-readable JSON summary. Exit 0 = conformant, 1 = violations.
+- **Analytic layer:** the [`architecture-conformance-audit`](../skills/architecture-conformance-audit/SKILL.md)
+  skill set (dependency-graph-extraction → doc-claim-verification → conformance-finding-report →
+  improvement-proposal-authoring) produces the `.design/architecture-audit/<date>/` report + proposal.
+- **Trigger:** on demand, after any cross-package change, and before a `develop → main` release. It is a
+  **standalone gate**, NOT part of the blocking `harness:scan` aggregate, until the INFRA-002 P0/P1
+  doc-correction backlogs (INFRA-004~INFRA-009) clear the existing baseline drift; promote it into the
+  aggregate scan once `pnpm harness:conformance` exits 0.
+- **PASS/FAIL:** PASS when `harness:conformance` exits 0 and no unresolved P0 finding remains; FAIL
+  otherwise. Run via [`backlog-gate-guard`](../skills/backlog-gate-guard/SKILL.md).
+
 ### Cross-Package SPEC Reference Policy
 
 - SPEC.md MUST NOT hardcode counts, lists, or implementation details owned by another package (e.g., "6 built-in tools" when the tools are owned by a different package).
