@@ -1,5 +1,5 @@
 ---
-status: approved
+status: rejected
 type: BEHAVIOR
 tags: [session, context, resume, status-bar, test-coverage]
 ---
@@ -195,3 +195,37 @@ restoreUsedTokens(n: number): void {
 - User approval statement (verbatim): "승인"
 - Statement is unambiguous and directs implementation of RESUME-001.
 - No architecture or frontmatter changes after approval.
+
+### [REJECTED — superseded] — 2026-06-13
+
+**Status:** approved → rejected (superseded)
+
+**User decision (verbatim, 2026-06-13):** "폐기(rejected)로 정리 (권장)" — in response to a
+plain-language summary asking how to close RESUME-001 given that 4/6 criteria are already
+covered and 2/6 conflict with the current architecture.
+
+**Rationale.** RESUME-001's goal — verifying that session resume restores conversation
+context (file references, token state, tool_use/tool_result pairs) — has been achieved more
+completely by later work shipped since this spec was written:
+
+- TC-01 (contextReferences round-trip): covered by
+  `packages/agent-framework/src/interactive/__tests__/interactive-session-resume-context.test.ts`
+  (BEHAVIOR-001 line of work).
+- TC-04 (system + saved user refs, deduped): covered by the same suite +
+  `session-history-tracker-system-context.test.ts`.
+- TC-05 (tool_use+tool_result restored as structured objects): covered by
+  `packages/agent-framework/src/__tests__/history-cross-package.test.ts`.
+- TC-06 (listInjectionContextReferences no double-injection): covered by
+  `session-history-tracker-system-context.test.ts`.
+
+- TC-02 / TC-03 require persisting `usedTokens` into `IInteractiveSessionRecord` as an SSOT
+  field (the spec's "Option C") and restoring it on resume. The architecture moved the
+  OPPOSITE way after this spec: `usedTokens` is deliberately NOT persisted — it is recomputed
+  from the restored conversation. This is pinned by an existing test asserting save() does
+  not persist usedTokens, and proven working end-to-end by CLI-B11 (resume shows
+  `Context: 0% → 16% (31.8K/200K)`, recomputed from restored messages, not from a stored
+  number). Implementing TC-02/03 would reverse a settled architectural decision.
+
+**Disposition.** The spec's intent is satisfied by existing coverage; its two remaining
+criteria describe a superseded design. Moved to `rejected/` rather than `done/` because the
+spec as written (Option C usedTokens persistence) is not what shipped. No code change.
