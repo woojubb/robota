@@ -59,7 +59,7 @@ export function toProviderSetupStepPrompt(
   };
 }
 
-export function toProviderSetupPromptDescription(
+function toProviderSetupPromptDescription(
   flow: IProviderSetupFlowState,
 ): { description: string } | Record<string, never> {
   const description = formatProviderSetupHelpLinks(flow.setupHelpLinks);
@@ -89,7 +89,7 @@ function submitProviderSetupInteractionValue(
   };
 }
 
-export function completeProviderSetup(
+function completeProviderSetup(
   input: IProviderSetupInput,
   options: IProviderCommandModuleOptions,
 ): ICommandResult {

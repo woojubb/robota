@@ -12,10 +12,10 @@ import {
   createWorkingDirectorySection,
 } from './system-prompt-section-providers.js';
 
-import type { ICapabilityDescriptor } from '../capabilities/types.js';
-import type { TTrustLevel } from '../types.js';
 import type { IProjectInfo } from './project-detector.js';
 import type { ISystemPromptSection } from './system-prompt-types.js';
+import type { ICapabilityDescriptor } from '../capabilities/types.js';
+import type { TPermissionMode } from '@robota-sdk/agent-core';
 
 export interface ISystemPromptParams {
   /** Concatenated AGENTS.md content (may be empty string) */
@@ -28,8 +28,8 @@ export interface ISystemPromptParams {
   taskContext?: string;
   /** Human-readable tool descriptions, one per entry */
   toolDescriptions: string[];
-  /** Active trust level governing permission checks */
-  trustLevel: TTrustLevel;
+  /** Active permission mode — the value the permission gate enforces */
+  permissionMode: TPermissionMode;
   /** Detected project metadata */
   projectInfo: IProjectInfo;
   /** Current working directory */
@@ -94,7 +94,7 @@ export function buildSystemPrompt(params: ISystemPromptParams): string {
   appendOptionalSection(sections, createWorkingDirectorySection(params.cwd));
   sections.push(createProjectSection(params.projectInfo));
   appendOptionalSection(sections, createResponseLanguageSection(params.language));
-  sections.push(createPermissionSection(params.trustLevel));
+  sections.push(createPermissionSection(params.permissionMode));
   appendOptionalSection(sections, createToolDescriptionSection(params.toolDescriptions));
   sections.push(...createCapabilitySections(buildCapabilityDescriptors(params)));
 

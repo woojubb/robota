@@ -20,10 +20,10 @@
  * dynamic access (obj[name]) is invisible. The goal is catching refactor
  * fallout, not perfect reachability.
  *
- * Baseline ratchet: orphan-export-baseline.json freezes the pre-existing
- * findings (2026-06-11) with a written reason; only NEW orphans fail. The
- * baseline burn-down is tracked as backlog HARNESS-015 — when an entry's
- * symbol is deleted or gains a consumer, remove the entry.
+ * The 2026-06-11 launch baseline (153 frozen findings) was burned down to
+ * zero and removed in HARNESS-015 (2026-06-13) — the scan now enforces
+ * unconditionally. Intentional no-consumer exports live in the reasoned
+ * allowlist below.
  *
  * Exit code 0 = clean, 1 = findings.
  */
@@ -32,11 +32,11 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
-const BASELINE_PATH = path.join(import.meta.dirname, 'orphan-export-baseline.json');
 
 /** Symbols intentionally exported without in-repo consumers. Keep reasons. */
 export const ORPHAN_EXPORT_ALLOWLIST = new Set([
-  // (populated by live triage; format: 'symbolName', // reason
+  'collections', // Astro content.config.ts convention export — loaded by the framework by path (apps/blog)
+  'generateMetadata', // Next.js app-router convention export — called by the framework (apps/docs)
 ]);
 
 const ENTRY_BASENAMES = new Set(['index.ts', 'index.tsx', 'browser.ts', 'bin.ts', 'node.ts']);
@@ -116,15 +116,8 @@ function extractRuntimeExports(content) {
   return names;
 }
 
-function loadBaseline() {
-  if (!existsSync(BASELINE_PATH)) return new Set();
-  const baseline = JSON.parse(readFileSync(BASELINE_PATH, 'utf8'));
-  return new Set(baseline.entries.map((entry) => `${entry.file}::${entry.symbol}`));
-}
-
 export async function findOrphanExportFindings(root = WORKSPACE_ROOT, options = {}) {
   const allowlist = options.allowlist ?? ORPHAN_EXPORT_ALLOWLIST;
-  const baseline = options.baseline ?? (root === WORKSPACE_ROOT ? loadBaseline() : new Set());
   const findings = [];
 
   // Corpus: all source/script files that may reference symbols.
@@ -180,7 +173,6 @@ export async function findOrphanExportFindings(root = WORKSPACE_ROOT, options = 
         }
         if (!referenced) {
           const relativeFile = path.relative(root, file);
-          if (baseline.has(`${relativeFile}::${symbol}`)) continue;
           findings.push({
             file: relativeFile,
             type: 'orphan-export',

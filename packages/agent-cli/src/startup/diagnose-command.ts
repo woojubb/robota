@@ -2,7 +2,10 @@ import { createConnection } from 'node:net';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import type { ITerminalOutput } from '@robota-sdk/agent-core';
+import { getProviderSettingsPaths, readProviderSettings } from '@robota-sdk/agent-framework';
+import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider';
+
+import type { IProviderDefinition, ITerminalOutput } from '@robota-sdk/agent-core';
 
 const PROVIDER_ENDPOINTS: Record<string, { host: string; port: number }> = {
   anthropic: { host: 'api.anthropic.com', port: 443 },
@@ -26,6 +29,10 @@ export interface IDiagnosticCheck {
 
 export interface IDiagnoseDependencies {
   checkNetwork: (endpoint: { host: string; port: number }) => Promise<IDiagnosticCheck>;
+  /** Environment map for provider resolution (test seam, default: process.env). */
+  env?: Record<string, string | undefined>;
+  /** Provider definitions for resolution (default: the CLI's default set). */
+  providerDefinitions?: readonly IProviderDefinition[];
 }
 
 function checkNodeVersion(): IDiagnosticCheck {
@@ -44,24 +51,33 @@ function checkCliVersion(version: string): IDiagnosticCheck {
   return { label: 'robota version', status: 'ok', message: version };
 }
 
-function checkApiKey(): IDiagnosticCheck {
-  const keys = [
-    { env: 'ANTHROPIC_API_KEY', label: 'Anthropic' },
-    { env: 'OPENAI_API_KEY', label: 'OpenAI' },
-    { env: 'GEMINI_API_KEY', label: 'Gemini' },
-    { env: 'DEEPSEEK_API_KEY', label: 'DeepSeek' },
-    { env: 'DASHSCOPE_API_KEY', label: 'Qwen (DashScope)' },
-  ];
-  const found = keys.filter((k) => process.env[k.env]);
-  if (found.length > 0) {
-    return { label: 'API key', status: 'ok', message: found.map((k) => k.label).join(', ') };
+/**
+ * CLI-067: the API-key check IS the runtime resolution — settings profiles
+ * (with `$ENV:` references) first, then env-default synthesis (CLI-066).
+ * Diagnose can never disagree with session start again. Never prints key values.
+ */
+function checkApiKeyResolution(
+  cwd: string,
+  providerDefinitions: readonly IProviderDefinition[],
+  env: Record<string, string | undefined>,
+): IDiagnosticCheck {
+  try {
+    const config = readProviderSettings(cwd, { providerDefinitions, env });
+    const source =
+      config.source === 'env-default'
+        ? `env-default via ${config.sourceEnvVar ?? 'environment'}`
+        : 'settings profile';
+    const model = config.model !== undefined ? ` (${config.model})` : '';
+    return { label: 'API key', status: 'ok', message: `${config.name}${model} — ${source}` };
+  } catch (error) {
+    // allow-fallback: resolution failure is the diagnostic finding being reported, not a crash
+    const message = error instanceof Error ? error.message : String(error);
+    return {
+      label: 'API key',
+      status: 'fail',
+      message: `${message}\n  Set ANTHROPIC_API_KEY or run: robota --configure\n  Get key: https://console.anthropic.com/settings/keys`,
+    };
   }
-  return {
-    label: 'API key',
-    status: 'fail',
-    message:
-      'No API key found\n  Set ANTHROPIC_API_KEY or run: robota --configure\n  Get key: https://console.anthropic.com/settings/keys',
-  };
 }
 
 function validateJsonFile(filePath: string): 'ok' | 'corrupt' {
@@ -74,34 +90,32 @@ function validateJsonFile(filePath: string): 'ok' | 'corrupt' {
   }
 }
 
-function checkSettingsFile(cwd: string): IDiagnosticCheck {
-  const settingsPath = join(cwd, '.robota', 'settings.json');
-  const homeSettings = join(process.env['HOME'] ?? '', '.robota', 'settings.json');
-  if (existsSync(settingsPath)) {
-    if (validateJsonFile(settingsPath) === 'corrupt') {
-      return {
+/**
+ * CLI-067: every settings file the runtime merge chain reads is validated
+ * independently — a corrupt user-level file is flagged even when a valid
+ * project file exists. Missing files are not an issue (the API-key check
+ * reports actual resolution failures).
+ */
+function checkSettingsFiles(cwd: string): IDiagnosticCheck[] {
+  const existing = getProviderSettingsPaths(cwd).filter((path) => existsSync(path));
+  if (existing.length === 0) {
+    return [
+      {
         label: 'Settings file',
-        status: 'fail',
-        message: `${settingsPath} — invalid JSON\n  Delete and re-run: robota --configure`,
-      };
-    }
-    return { label: 'Settings file', status: 'ok', message: settingsPath };
+        status: 'warn',
+        message: 'Not found — run: robota --configure',
+      },
+    ];
   }
-  if (existsSync(homeSettings)) {
-    if (validateJsonFile(homeSettings) === 'corrupt') {
-      return {
-        label: 'Settings file',
-        status: 'fail',
-        message: `${homeSettings} — invalid JSON\n  Delete and re-run: robota --configure`,
-      };
-    }
-    return { label: 'Settings file', status: 'ok', message: `${homeSettings} (global)` };
-  }
-  return {
-    label: 'Settings file',
-    status: 'warn',
-    message: 'Not found — run: robota --configure',
-  };
+  return existing.map((path) =>
+    validateJsonFile(path) === 'corrupt'
+      ? {
+          label: 'Settings file',
+          status: 'fail' as const,
+          message: `${path} — invalid JSON\n  Fix or delete the file, or run: robota --configure`,
+        }
+      : { label: 'Settings file', status: 'ok' as const, message: path },
+  );
 }
 
 function tryReadCurrentProvider(settingsPath: string): string | undefined {
@@ -170,19 +184,25 @@ function checkNetworkViaSocket(endpoint: {
   });
 }
 
+/**
+ * Runs every diagnostic check and returns the number of failed checks —
+ * the exit-code contract (CLI-067) is 0 when the count is 0, otherwise 1.
+ */
 export async function runDiagnoseCommand(
   ctx: IDiagnoseContext,
   deps: IDiagnoseDependencies = { checkNetwork: checkNetworkViaSocket },
-): Promise<void> {
+): Promise<number> {
   ctx.terminal.writeLine('\nrobota diagnose\n');
 
   const networkEndpoint = resolveNetworkEndpoint(ctx.cwd);
+  const providerDefinitions = deps.providerDefinitions ?? createDefaultProviderDefinitions();
+  const env = deps.env ?? process.env;
 
   const checks: IDiagnosticCheck[] = [
     checkNodeVersion(),
     checkCliVersion(ctx.version),
-    checkApiKey(),
-    checkSettingsFile(ctx.cwd),
+    checkApiKeyResolution(ctx.cwd, providerDefinitions, env),
+    ...checkSettingsFiles(ctx.cwd),
     checkTerminal(),
     await deps.checkNetwork(networkEndpoint),
   ];
@@ -207,9 +227,8 @@ export async function runDiagnoseCommand(
   } else if (failCount > 0) {
     ctx.terminal.writeLine(`✗ ${failCount} issue(s) found. Fix the items above to use robota.`);
   } else {
-    ctx.terminal.writeLine(
-      `⚠ ${warnCount} warning(s). robota may work but check the items above.`,
-    );
+    ctx.terminal.writeLine(`⚠ ${warnCount} warning(s). robota may work but check the items above.`);
   }
   ctx.terminal.writeLine('');
+  return failCount;
 }

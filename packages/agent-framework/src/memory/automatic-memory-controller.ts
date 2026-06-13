@@ -136,11 +136,3 @@ export function renderRetrievedMemory(retrieval: IMemoryRetrievalResult): string
   if (retrieval.content.trim().length === 0) return '';
   return `<project-memory>\n${retrieval.content}\n</project-memory>`;
 }
-
-export function createMemoryRetrievedEvent(references: IMemoryReference[]): IMemoryEvent {
-  return {
-    type: 'memory_retrieved',
-    at: new Date().toISOString(),
-    data: { topics: references.map((reference) => reference.topic) },
-  };
-}

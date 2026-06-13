@@ -29,11 +29,11 @@ export interface ICreateSkillActivationEventInput {
   readonly error?: string;
 }
 
-export function getSkillActivationSource(skill: ICommand): TSkillActivationSource {
+function getSkillActivationSource(skill: ICommand): TSkillActivationSource {
   return skill.source === 'plugin' ? 'plugin' : 'skill';
 }
 
-export function getSkillActivationMode(skill: ICommand): TSkillActivationMode {
+function getSkillActivationMode(skill: ICommand): TSkillActivationMode {
   return skill.context === 'fork' ? 'fork' : 'inject';
 }
 

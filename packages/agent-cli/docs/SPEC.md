@@ -852,7 +852,6 @@ src/
 │   └── init-command.ts                           ← `robota init` — creates AGENTS.md + .robota/settings.json
 ├── modes/
 │   ├── print-mode.ts                             ← Headless/print mode runner (-p flag); uses HeadlessInteractionChannel
-│   └── shell-exec.ts                             ← createShellExec() — Node child_process.execSync wrapper
 ├── session-analyzer/
 │   └── session-analyze-command.ts                ← `robota session analyze` — session log analysis report
 └── startup/
@@ -862,7 +861,6 @@ src/
     ├── first-run.ts                               ← isFirstRun() / markOnboarded() / printFirstRunWelcome(terminal)
     ├── provider-startup.ts                        ← runInteractiveProviderSetup() — interactive provider config
     ├── reset-config.ts                            ← Deletes user settings file on --reset
-    ├── subagent-setup.ts                          ← createSubagentSetup() — child-process subagent runner factory
     ├── terminal-check.ts                          ← warnIfTerminalAppOnMacOS(terminal) — macOS Terminal.app CJK warning
     └── version.ts                                 ← readVersion() — reads package.json version
 ```
@@ -1038,8 +1036,22 @@ On the first TUI invocation:
 No provider API key or language is prompted at first run. Provider setup is done separately via
 `robota --configure` or `robota init`. First-run welcome is suppressed in print/headless mode.
 
-Use `robota --reset` to delete the user settings file and return to the unconfigured state (the
-onboarded marker is not cleared by `--reset`; the welcome banner will not reappear).
+Use `robota --reset` to delete the user settings file (`~/.robota/settings.json`) and return to
+the unconfigured state (the onboarded marker is not cleared by `--reset`; the welcome banner will
+not reappear).
+
+**Destructive-action contract (CLI-070)** — `--reset` is listed in `--help` and never deletes
+without consent:
+
+| stdin TTY | `--yes` | Behavior                                                            | Exit  |
+| --------- | ------- | ------------------------------------------------------------------- | ----- |
+| any       | any     | No settings file present → "No user settings found.", nothing to do | 0     |
+| yes       | no      | `Delete <path>? [y/N]` prompt — `y` deletes, anything else cancels  | 0 / 1 |
+| yes       | yes     | Deletes without prompting                                           | 0     |
+| no        | no      | Refuses, names `--yes`, file untouched                              | 1     |
+| no        | yes     | Deletes without prompting                                           | 0     |
+
+This matrix is the general contract for destructive CLI flags.
 
 ### `robota init`
 
@@ -1069,9 +1081,28 @@ behavior fell through to unrelated API-key guidance).
 
 ### `robota diagnose`
 
-`robota diagnose` checks the current environment and prints a diagnostics report (Node.js version,
-CLI version, API keys, settings file validity, terminal, provider network reachability). It is
+`robota diagnose` checks the current environment and prints a diagnostics report. It is
 dispatched inline by `startCli()` before provider setup and returns without starting a session.
+
+Checks performed (CLI-067):
+
+- **Node.js version** — `>=22` required.
+- **CLI version** — informational.
+- **API key** — runs the runtime's own provider resolution (`readProviderSettings`:
+  settings profiles with `$ENV:` references first, then env-default synthesis per
+  §Zero-Config Startup). Diagnose therefore always agrees with session start: ✓ names the
+  resolved provider, model, and source (`settings profile` or `env-default via <ENV_NAME>`);
+  ✗ carries the runtime's own resolution error plus configure guidance. Key values are
+  never printed.
+- **Settings file(s)** — every file on the runtime merge-chain path
+  (`getProviderSettingsPaths(cwd)`: user-level and project-level) that exists is validated
+  independently; a corrupt user-level file is flagged with its path even when a valid
+  project file exists. Missing files are a warning at most, never a failure.
+- **Terminal** — known-problem terminal warning.
+- **Network** — TCP reachability of the active provider endpoint.
+
+**Exit-code contract**: `0` when no check fails (warnings allowed), `1` when one or more
+checks fail — `robota diagnose` can gate CI and scripts.
 
 ## Session Logging
 
@@ -1611,6 +1642,7 @@ The CLI does not expose plugin hooks at the binary level. Plugin lifecycle is ow
 | --------------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
 | Argument parse error  | Invalid CLI flag or value in `parseCliArgs()`                                     | Written to stderr; `process.exit(1)` in `startCli()` parse catch                                                                                                                                                      | 1             |
 | Provider config error | `ProviderConfigError` from `ensureConfig`/`readProviderSettings` at session start | Written to stderr; `process.exit(3)` in `cli.ts` when print mode, `process.exit(1)` otherwise (TTY runs the interactive setup flow instead)                                                                           | 3 (print) / 1 |
+| Settings parse error  | `SettingsParseError` — an existing settings file contains invalid JSON (CLI-069)  | Fail-fast at session start: message names the file path + parse error + remediation (fix/delete or `robota diagnose`); written to stderr; `process.exit(1)` — never silently treated as a missing file                | 1             |
 | Provider API error    | Network or auth failure during model call                                         | Execution result marked failed (`providerError` metadata → `success: false`); `robotaRun` throws; headless runner `onError` writes stderr (text) or `subtype: "error"` envelope (json/stream-json); `process.exit(1)` | 1             |
 | User-local cmd error  | Exception thrown by user-local command handler                                    | Written to stderr via `terminal.writeError()`; `process.exit(1)`                                                                                                                                                      | 1             |
 | Org policy violation  | Provider not in `orgPolicy.allowedProviders`                                      | Surfaced as a failed command result (`provider-command-profile-operations.ts` in agent-command) or session-level rejection (`interactive-session.ts` in agent-framework); the process keeps running — no exit         | —             |
@@ -1672,7 +1704,6 @@ classes. The following table lists the primary runtime constructs with their con
 | `markOnboarded(markerPath?)`            | function | `src/startup/first-run.ts`        | Creates the onboarded marker file; idempotent                                                                                                        |
 | `printFirstRunWelcome(terminal)`        | function | `src/startup/first-run.ts`        | Writes welcome banner via injected `ITerminalOutput` using `AGENT_CLI_BIN` constant                                                                  |
 | `warnIfTerminalAppOnMacOS(terminal)`    | function | `src/startup/terminal-check.ts`   | Emits CJK/IME stability warning on darwin + Apple_Terminal via injected `ITerminalOutput`                                                            |
-| `createShellExec()`                     | factory  | `src/modes/shell-exec.ts`         | Returns a synchronous shell executor with 5 s timeout; used by skill `!` substitution                                                                |
 | `parseCliArgs()`                        | function | `src/utils/cli-args.ts`           | Parses `process.argv` into `IParsedCliArgs`; throws `Error` on invalid input                                                                         |
 | `AGENT_CLI_NAME`                        | constant | `src/constants.ts`                | `'robota-cli'` — internal package name used as `agentName` in session construction                                                                   |
 | `AGENT_CLI_BIN`                         | constant | `src/constants.ts`                | `'robota'` — binary name used in user-facing messages and welcome banner                                                                             |

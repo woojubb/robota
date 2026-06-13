@@ -1,13 +1,8 @@
-import type { ICapabilityDescriptor } from '../capabilities/types.js';
-import type { TTrustLevel } from '../types.js';
 import type { IProjectInfo } from './project-detector.js';
 import type { ISystemPromptSection } from './system-prompt-types.js';
+import type { ICapabilityDescriptor } from '../capabilities/types.js';
+import type { TPermissionMode } from '@robota-sdk/agent-core';
 
-const TRUST_LEVEL_LABELS: Record<TTrustLevel, string> = {
-  safe: 'safe',
-  moderate: 'moderate',
-  full: 'full',
-};
 const PROJECT_MEMORY_PRIORITY = Number('25');
 const TASK_CONTEXT_PRIORITY = Number('27');
 
@@ -43,12 +38,17 @@ export function createProjectSection(info: IProjectInfo): ISystemPromptSection {
   return createSection('runtime-project', 'Current Project', 40, lines.join('\n'), 'runtime');
 }
 
-export function createPermissionSection(trustLevel: TTrustLevel): ISystemPromptSection {
+/**
+ * CLI-072: the prompt names the ACTIVE permission mode — the same value the
+ * permission gate enforces — so the model's explanations can never quote a
+ * stale trust-level label.
+ */
+export function createPermissionSection(permissionMode: TPermissionMode): ISystemPromptSection {
   return createSection(
     'permission-mode',
     'Permission Mode',
     50,
-    `- **Trust level:** ${TRUST_LEVEL_LABELS[trustLevel]}`,
+    `- **Permission mode:** ${permissionMode}`,
     'permissions',
   );
 }

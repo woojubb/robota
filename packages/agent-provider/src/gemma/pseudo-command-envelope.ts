@@ -15,7 +15,7 @@ export function parseGemmaPseudoCommandEnvelopes(
   return jsonEnvelope ? [jsonEnvelope] : [];
 }
 
-export function parseGemmaPseudoCommandEnvelope(
+function parseGemmaPseudoCommandEnvelope(
   rawText: string,
   toolNames: readonly string[],
 ): IGemmaPseudoCommandEnvelope | undefined {

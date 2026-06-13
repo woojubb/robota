@@ -43,6 +43,7 @@
     "readme:cleanup": "node scripts/docs/copy-readme.cjs cleanup",
     "readme:validate": "node scripts/docs/validate-readmes.js",
     "harness:scan": "node scripts/harness/run-all-scans.mjs",
+    "harness:scan:done-evidence": "node scripts/harness/check-done-evidence.mjs",
     "harness:scan:publish": "node scripts/harness/check-publish-safety.mjs",
     "harness:scan:release-governance": "node scripts/harness/check-release-governance.mjs",
     "harness:scan:deps": "node scripts/harness/check-dependency-direction.mjs",
@@ -173,7 +174,8 @@
       "lodash": ">=4.18.0",
       "csstype": "^3.1.3",
       "undici@<6.24.0": ">=6.24.0",
-      "uuid@<11.1.1": ">=11.1.1"
+      "uuid@<11.1.1": ">=11.1.1",
+      "esbuild@<0.28.1": ">=0.28.1"
     }
   },
   "workspaces": [

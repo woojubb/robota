@@ -21,8 +21,8 @@ import type { ConversationStore } from '../managers/conversation-history-manager
 import type { ILogger } from '../utils/logger';
 import type { ExecutionCacheService } from './cache/execution-cache-service';
 
-export const DEFAULT_MAX_EXECUTION_ROUNDS = 10;
-export const UNLIMITED_EXECUTION_ROUNDS = 0;
+const DEFAULT_MAX_EXECUTION_ROUNDS = 10;
+const UNLIMITED_EXECUTION_ROUNDS = 0;
 
 function resolveMaxExecutionRounds(config: IAgentConfig, context: IExecutionContext): number {
   const configured = context.maxExecutionRounds ?? config.maxExecutionRounds;
@@ -113,7 +113,7 @@ export async function runExecutionLoop(
  * When max rounds are exhausted without a text response, force one final provider call
  * to generate a summary.
  */
-export async function forceSummaryCall(
+async function forceSummaryCall(
   conversationStore: ConversationStore,
   resolved: IResolvedProviderInfo,
   config: IAgentConfig,

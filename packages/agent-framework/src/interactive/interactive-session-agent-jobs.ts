@@ -15,7 +15,7 @@ import type { ISubagentJobResult, ISubagentJobState } from '../subagents/index.j
 import type { Session } from '@robota-sdk/agent-session';
 
 /** Retrieve agent tool deps or throw. */
-export function getAgentToolDepsOrThrow(
+function getAgentToolDepsOrThrow(
   session: Session,
 ): NonNullable<ReturnType<typeof retrieveAgentToolDeps>> {
   const deps = retrieveAgentToolDeps(session);
@@ -26,7 +26,7 @@ export function getAgentToolDepsOrThrow(
 }
 
 /** Retrieve subagent manager or throw. */
-export function getSubagentManagerOrThrow(
+function getSubagentManagerOrThrow(
   session: Session,
 ): NonNullable<ReturnType<typeof getAgentToolDepsOrThrow>['subagentManager']> {
   const deps = getAgentToolDepsOrThrow(session);

@@ -8,7 +8,7 @@ const BASE_PARAMS: ISystemPromptParams = {
   agentsMd: '',
   claudeMd: '',
   toolDescriptions: [],
-  trustLevel: 'moderate',
+  permissionMode: 'default',
   projectInfo: {
     type: 'node',
     name: 'my-project',

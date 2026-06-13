@@ -48,6 +48,14 @@ import { runPrintMode } from './modes/print-mode.js';
 export type { IStartCliOptions };
 
 export async function startCli(options: IStartCliOptions = {}): Promise<void> {
+  // OBS-001: `session analyze` carries its own flags (--last/--session) that the strict
+  // global parser does not know. Intercept it BEFORE parseCliArgs() so those flags reach
+  // the subcommand instead of being rejected as "Unknown option".
+  if (process.argv[2] === 'session' && process.argv[3] === 'analyze') {
+    await runSessionAnalyze(process.argv.slice(4), process.cwd());
+    return;
+  }
+
   let args: IParsedCliArgs;
   try {
     args = parseCliArgs();
@@ -83,17 +91,25 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   const terminal = new PrintTerminal();
 
   if (args.reset) {
-    runResetConfig(terminal);
+    // Destructive-action contract (CLI-070): confirm in TTY, require --yes otherwise.
+    process.exitCode = await runResetConfig(terminal, {
+      yes: args.yes,
+      isTTY: process.stdin.isTTY === true,
+    });
     return;
   }
 
   if (args.positional[0] === 'diagnose') {
-    await runDiagnoseCommand({ version, terminal, cwd });
+    // Exit contract (CLI-067): 0 = no issues, 1 = one or more failed checks.
+    const failCount = await runDiagnoseCommand({ version, terminal, cwd });
+    process.exitCode = failCount > 0 ? 1 : 0;
     return;
   }
 
   if (args.positional[0] === 'session' && args.positional[1] === 'analyze') {
-    await runSessionAnalyze(process.argv.slice(4));
+    // Normally unreachable — the pre-parse interceptor above handles `session analyze`.
+    // Kept as a defensive fallthrough for non-argv invocations.
+    await runSessionAnalyze(process.argv.slice(4), cwd);
     return;
   }
 

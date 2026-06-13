@@ -5,7 +5,10 @@ import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { findBackgroundWorkspaceConformanceFindings } from '../check-background-workspace-conformance.mjs';
+import {
+  findBackgroundWorkspaceConformanceFindings,
+  findUsedExemptions,
+} from '../check-background-workspace-conformance.mjs';
 
 async function createFixture(files) {
   const root = await mkdtemp(path.join(tmpdir(), 'robota-background-workspace-'));
@@ -41,28 +44,43 @@ describe('findBackgroundWorkspaceConformanceFindings', () => {
     expect(findings).toEqual([]);
   });
 
-  it('flags direct CLI imports from agent-runtime', async () => {
-    // The rule's pattern still targets the legacy '@robota-sdk/agent-runtime' name and is
-    // therefore dead against current '@robota-sdk/agent-executor' imports — reviving it
-    // requires an architecture decision on the CLI composition root's two real
-    // agent-executor imports (tracked in HARNESS-011). This test pins the implemented
-    // behavior so the rule's revival is a deliberate change, not an accident.
+  it('flags direct CLI imports from agent-executor in non-exempt files (HARNESS-011)', async () => {
     const root = await createFixture({
       ...baselineFiles,
-      'packages/agent-cli/src/background/runtime-import.ts':
-        'import { BackgroundTaskManager } from "@robota-sdk/agent-runtime";\n',
+      'packages/agent-cli/src/background/executor-import.ts':
+        'import { BackgroundTaskManager } from "@robota-sdk/agent-executor";\n',
     });
 
     const findings = await findBackgroundWorkspaceConformanceFindings(root);
 
     expect(findings).toEqual([
       {
-        file: 'packages/agent-cli/src/background/runtime-import.ts',
-        type: 'cli-agent-runtime-import',
+        file: 'packages/agent-cli/src/background/executor-import.ts',
+        type: 'cli-agent-executor-import',
         detail:
           'agent-cli must not import agent-executor directly; consume SDK workspace projections.',
       },
     ]);
+  });
+
+  it('exempts the composition root with documented reasons (HARNESS-011)', async () => {
+    const root = await createFixture({
+      ...baselineFiles,
+      'packages/agent-cli/src/cli.ts':
+        'import { createDefaultBackgroundTaskRunners } from "@robota-sdk/agent-executor";\n',
+      'packages/agent-cli/src/modes/print-mode.ts':
+        'import type { IBackgroundTaskRunner } from "@robota-sdk/agent-executor";\n',
+    });
+
+    const findings = await findBackgroundWorkspaceConformanceFindings(root);
+    expect(findings).toEqual([]);
+
+    const exemptions = await findUsedExemptions(root);
+    expect(exemptions).toHaveLength(2);
+    for (const exemption of exemptions) {
+      expect(exemption.type).toBe('cli-agent-executor-import');
+      expect(exemption.reason).toContain('composition root');
+    }
   });
 
   it('flags CLI-owned retention policy', async () => {

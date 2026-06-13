@@ -24,7 +24,7 @@ import type { IEventEmitterPlugin } from '../plugins/event-emitter/types';
 
 export type { IModuleExecutionStats };
 
-export const MODULE_REGISTRY_EVENTS = {
+const MODULE_REGISTRY_EVENTS = {
   REGISTERED: 'module.registered',
   UNREGISTERED: 'module.unregistered',
 } as const;

@@ -202,12 +202,16 @@ describe('command-api contracts', () => {
   });
 
   it('exposes provider common APIs without command implementation imports', () => {
-    const profile = buildProviderProfile({
-      profile: 'openai-main',
-      type: 'openai',
-      model: 'gpt-5.1',
-      apiKeyEnv: 'OPENAI_API_KEY',
-    });
+    const profile = buildProviderProfile(
+      {
+        profile: 'openai-main',
+        type: 'openai',
+        model: 'gpt-5.1',
+        apiKeyEnv: 'OPENAI_API_KEY',
+      },
+      // CLI-068: the referenced variable must be set at configure time.
+      { env: { OPENAI_API_KEY: 'sk-test-068' } },
+    );
 
     expect(profile.apiKey).toBe(formatEnvReference('OPENAI_API_KEY'));
     expect(() => validateProviderProfile('openai-main', profile)).not.toThrow();

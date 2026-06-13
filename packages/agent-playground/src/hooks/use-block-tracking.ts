@@ -54,7 +54,7 @@ export interface IUseBlockTrackingResult {
  * React hook for managing block tracking in Playground
  * Provides centralized block collection and tool factory management
  */
-export function useBlockTracking(options: IUseBlockTrackingOptions = {}): IUseBlockTrackingResult {
+function useBlockTracking(options: IUseBlockTrackingOptions = {}): IUseBlockTrackingResult {
   const { logger, enableRealTime = true, autoClearOnStart = false } = options;
 
   // Stable references
@@ -143,63 +143,6 @@ export function useBlockTracking(options: IUseBlockTrackingOptions = {}): IUseBl
     clearBlocks,
     isUpdating,
     lastUpdate,
-  };
-}
-
-/**
- * Hook for creating tracked tools easily
- */
-export function useTrackedTools(blockTracking: IUseBlockTrackingResult) {
-  const { toolFactory } = blockTracking;
-
-  const createFunctionTool = useCallback(
-    (
-      schema: IToolSchema,
-      executor: TToolExecutor,
-      options: { parentBlockId?: string; level?: number; logger?: ILogger } = {},
-    ) => {
-      return toolFactory.createFunctionTool(schema, executor, options);
-    },
-    [toolFactory],
-  );
-
-  const createOpenAPITool = useCallback(
-    (
-      config: Record<string, TUniversalValue>,
-      options: { parentBlockId?: string; level?: number; logger?: ILogger } = {},
-    ) => {
-      return toolFactory.createOpenAPITool(config, options);
-    },
-    [toolFactory],
-  );
-
-  const createMCPTool = useCallback(
-    (
-      config: Record<string, TUniversalValue>,
-      schema: Record<string, TUniversalValue>,
-      options: { parentBlockId?: string; level?: number; logger?: ILogger } = {},
-    ) => {
-      return toolFactory.createMCPTool(config, schema, options);
-    },
-    [toolFactory],
-  );
-
-  const createDelegationTool = useCallback(
-    (
-      teamContainer: Record<string, TUniversalValue>,
-      templates: Array<Record<string, TUniversalValue>>,
-      options: { parentBlockId?: string; level?: number; logger?: ILogger } = {},
-    ) => {
-      return toolFactory.createDelegationTool(teamContainer, templates, options);
-    },
-    [toolFactory],
-  );
-
-  return {
-    createFunctionTool,
-    createOpenAPITool,
-    createMCPTool,
-    createDelegationTool,
   };
 }
 
