@@ -2,13 +2,13 @@ import { describe, expect, it, vi } from 'vitest';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type {
   ICommandHostContext,
+  ICommandSessionRuntime,
   IContextReferenceAddResult,
   IContextReferenceClearResult,
-  IContextReferenceItem,
   IContextReferenceRemoveResult,
-  ICommandSessionRuntime,
   TAutoCompactThresholdSource,
 } from '@robota-sdk/agent-framework';
+import type { IContextReferenceItem } from '@robota-sdk/agent-interface-transport';
 import { SystemCommandExecutor } from '@robota-sdk/agent-framework';
 import { createContextCommandModule } from '../context-command-module.js';
 

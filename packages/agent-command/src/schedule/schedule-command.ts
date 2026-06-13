@@ -4,7 +4,8 @@
 
 import { parseScheduleSpec } from './schedule-spec-parser.js';
 
-import type { IAgentJobHostContext, ICommandResult } from '@robota-sdk/agent-framework';
+import type { IAgentJobHostContext } from '@robota-sdk/agent-framework';
+import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
 
 const MAX_LABEL_LENGTH = 48;
 

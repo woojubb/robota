@@ -6,12 +6,8 @@ import {
 
 import { executePermissionsCommand } from './permissions-command.js';
 
-import type {
-  ICommand,
-  ICommandModule,
-  ICommandSource,
-  ISystemCommand,
-} from '@robota-sdk/agent-framework';
+import type { ICommandModule, ISystemCommand } from '@robota-sdk/agent-framework';
+import type { ICommand, ICommandSource } from '@robota-sdk/agent-interface-transport';
 
 export function createPermissionsCommandEntry(): ICommand {
   return {

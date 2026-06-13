@@ -7,11 +7,11 @@ import {
 
 import type {
   ICommandHostContext,
-  ICommandResult,
   IEditCheckpointInspection,
   IEditCheckpointRestoreResult,
   IEditCheckpointSummary,
 } from '@robota-sdk/agent-framework';
+import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
 
 const SUBCOMMAND_INDEX = 0;
 const CHECKPOINT_ID_INDEX = 1;

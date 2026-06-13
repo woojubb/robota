@@ -10,12 +10,14 @@ import {
 
 import type { IProviderSetupFlowState } from './provider-setup-flow.js';
 import type {
-  ICommandInteraction,
-  ICommandResult,
   IProviderCommandModuleOptions,
   IProviderSetupInput,
-  TCommandInteractionPrompt,
 } from '@robota-sdk/agent-framework';
+import type {
+  ICommandInteraction,
+  ICommandResult,
+  TCommandInteractionPrompt,
+} from '@robota-sdk/agent-interface-transport';
 
 const PROVIDER_RESTART_EFFECT = {
   type: 'session-restart-requested',
