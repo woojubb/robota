@@ -159,6 +159,21 @@ export function createQueuedBackgroundTaskState(
   previewLength: number,
 ): IBackgroundTaskState {
   const preview = resolveBackgroundTaskPreview(request, previewLength);
+  // FLOW-003: capture the reconstructable schedule so a resumed session can re-arm the cron job.
+  const schedule =
+    request.kind === 'scheduled'
+      ? {
+          schedule: {
+            cronExpression: request.cronExpression,
+            ...(request.agentInstruction !== undefined
+              ? { agentInstruction: request.agentInstruction }
+              : {}),
+            ...(request.command !== undefined ? { command: request.command } : {}),
+            ...(request.shell !== undefined ? { shell: request.shell } : {}),
+            ...(request.env !== undefined ? { env: { ...request.env } } : {}),
+          },
+        }
+      : {};
 
   return {
     id,
@@ -175,6 +190,7 @@ export function createQueuedBackgroundTaskState(
     unread: false,
     isolation: request.kind === 'agent' ? request.isolation : undefined,
     ...(request.metadata ? { metadata: { ...request.metadata } } : {}),
+    ...schedule,
     ...preview,
   };
 }
@@ -202,5 +218,8 @@ export function cloneBackgroundTaskState(state: IBackgroundTaskState): IBackgrou
     metadata: state.metadata ? { ...state.metadata } : undefined,
     result,
     error: state.error ? { ...state.error } : undefined,
+    schedule: state.schedule
+      ? { ...state.schedule, env: state.schedule.env ? { ...state.schedule.env } : undefined }
+      : undefined,
   };
 }

@@ -169,7 +169,21 @@ export interface IBackgroundTaskState {
   parentWorktreeStatus?: string;
   timeoutReason?: TBackgroundTaskTimeoutReason;
   nextFireAt?: string;
+  /**
+   * FLOW-003: for `kind: 'scheduled'` tasks, the reconstructable schedule definition.
+   * Persisted with the task so a resumed session can re-arm the croner job.
+   */
+  schedule?: IBackgroundTaskSchedule;
   metadata?: Record<string, TBackgroundPrimitive>;
+}
+
+/** FLOW-003: the persisted, reconstructable definition of a scheduled wake. */
+export interface IBackgroundTaskSchedule {
+  cronExpression: string;
+  agentInstruction?: string;
+  command?: string;
+  shell?: string;
+  env?: Record<string, string>;
 }
 
 export interface IBackgroundTaskInput {
