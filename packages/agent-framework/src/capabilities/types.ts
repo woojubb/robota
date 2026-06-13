@@ -1,15 +1,6 @@
-export type TCapabilityKind = 'builtin-command' | 'skill' | 'agent' | 'tool';
-
-export type TCapabilitySafety = 'read-only' | 'write' | 'process' | 'network' | 'background-agent';
-
-export interface ICapabilityDescriptor {
-  readonly name: string;
-  readonly kind: TCapabilityKind;
-  readonly description: string;
-  readonly userInvocable: boolean;
-  readonly modelInvocable: boolean;
-  readonly argumentHint?: string;
-  readonly safety?: TCapabilitySafety;
-  /** When false, the projected tool is auto-approved without prompting the user. */
-  readonly requiresPermission?: boolean;
-}
+// Capability descriptor contracts — SSOT relocated to @robota-sdk/agent-interface-transport (DATA-001).
+export type {
+  TCapabilityKind,
+  TCapabilitySafety,
+  ICapabilityDescriptor,
+} from '@robota-sdk/agent-interface-transport';

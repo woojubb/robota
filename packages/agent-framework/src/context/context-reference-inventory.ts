@@ -2,21 +2,14 @@ import type {
   IPromptFileReferenceRecord,
   TPromptFileReferenceReason,
 } from './prompt-file-reference-types.js';
+// Context-reference contracts SSOT relocated to @robota-sdk/agent-interface-transport (DATA-001).
+import type {
+  IContextReferenceItem,
+  TContextReferenceLoadType,
+  TContextReferenceStatus,
+} from '@robota-sdk/agent-interface-transport';
 
-export type TContextReferenceLoadType = 'manual' | 'prompt-reference' | 'system';
-export type TContextReferenceStatus = 'active' | 'observed';
-
-export interface IContextReferenceItem {
-  id: string;
-  sourcePath: string;
-  relativePath: string;
-  originalReference: string;
-  loadType: TContextReferenceLoadType;
-  status: TContextReferenceStatus;
-  byteLength: number;
-  loadedAt: string;
-  lastUsedAt?: string;
-}
+export type { IContextReferenceItem, TContextReferenceLoadType, TContextReferenceStatus };
 
 export interface IContextReferenceInventoryLimits {
   maxActiveReferences?: number;
