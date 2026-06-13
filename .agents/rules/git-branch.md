@@ -106,6 +106,31 @@ This rule applies even when:
 
 **The only exception:** The user explicitly says "create a new branch anyway" or "abandon the old branch."
 
+### Post-Merge Branch Cycle (mandatory)
+
+After a branch is merged, follow this exact cycle to start the next feature branch from a correct base:
+
+1. **Stash transient churn first.** Uncommitted churn (e.g. regenerated `.agents/evals/lessons/*`) blocks
+   `git checkout develop` and, if forced or ignored, causes the new branch to fork off the wrong base.
+   Stash it before switching:
+   ```bash
+   git stash push -u -- .agents/evals/lessons
+   git checkout develop
+   git pull
+   git checkout -b <type>/<topic>
+   ```
+2. **Pull develop** so the new branch is based on the freshly-pulled integration head.
+3. **Create the feature branch** from the updated `develop`.
+4. **Verify the base.** Confirm the new branch forked from the freshly-pulled `develop`, not a previous
+   feature branch:
+   ```bash
+   git merge-base --is-ancestor origin/develop HEAD && echo "base OK"
+   ```
+
+**Why:** Branching for a new item once cut from the wrong base because uncommitted evals churn blocked
+`git checkout develop`, so the new branch silently forked off the previous feature branch. Stashing the
+transient churn before checkout prevents the wrong-base fork.
+
 ### Feature Branch Workflow (mandatory)
 
 **Never commit directly to `main` or release branches.** Always create a feature branch for work.

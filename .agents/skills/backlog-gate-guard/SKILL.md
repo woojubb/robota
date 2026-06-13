@@ -58,6 +58,34 @@ Partial entries (e.g., PASS without specific evidence lines) are treated as NON-
 
 ---
 
+## Prior-Gate Precondition (run FIRST for every gate)
+
+Before checking the criteria for ANY status-transition gate (GATE-APPROVAL, GATE-IMPLEMENT,
+GATE-VERIFY, GATE-COMPLETE), first confirm the immediately-prior gate actually passed:
+
+1. The immediately-prior gate has a **PASS** Evidence Log entry (`### [<PRIOR-GATE>] — ✅ PASS | <date>`)
+   in `## Evidence Log`.
+2. The spec file's frontmatter `status:` and its folder match the stage expected as input to this gate
+   (e.g. GATE-IMPLEMENT expects `status: approved`; GATE-VERIFY expects `status: in-progress`).
+
+If the prior PASS entry is missing, or the status/folder does not match the expected input stage, the gate
+is being run **out of order** — record **NON-COMPLIANCE** (do not evaluate the gate's own criteria) and
+stop. The required action is to run the missing prior gate first.
+
+Prior-gate map (the immediately-prior gate that must already have PASSed):
+
+| This gate      | Prior gate that must show PASS | Expected input status / folder |
+| -------------- | ------------------------------ | ------------------------------ |
+| GATE-APPROVAL  | GATE-WRITE                     | `review-ready`                 |
+| GATE-IMPLEMENT | GATE-APPROVAL                  | `approved`                     |
+| GATE-VERIFY    | GATE-IMPLEMENT                 | `in-progress`                  |
+| GATE-COMPLETE  | GATE-VERIFY                    | `verifying`                    |
+
+GATE-WRITE has no prior status gate (it is the entry gate); GATE-CONFORMANCE is standalone (no transition)
+and is exempt. Authoritative gate order: `backlog-pipeline` skill > State Machine.
+
+---
+
 ## Gate Criteria
 
 ### GATE-WRITE `draft → review-ready`
