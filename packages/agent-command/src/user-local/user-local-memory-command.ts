@@ -8,7 +8,8 @@ import {
 
 import { USER_LOCAL_COMMAND_USAGE } from './user-local-command-constants.js';
 
-import type { ICommandResult, TUserLocalMemoryCategory } from '@robota-sdk/agent-framework';
+import type { TUserLocalMemoryCategory } from '@robota-sdk/agent-framework';
+import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
 
 export interface IUserLocalMemoryCommandArgs {
   readonly action?: string;

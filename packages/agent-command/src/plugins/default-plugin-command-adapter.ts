@@ -9,14 +9,14 @@ import {
   PluginSettingsStore,
 } from '@robota-sdk/agent-framework';
 
+import type { IMarketplaceManifest } from '@robota-sdk/agent-framework';
 import type {
   ICommandAvailablePlugin,
   ICommandInstalledPlugin,
   ICommandMarketplaceSource,
   ICommandPluginAdapter,
-  IMarketplaceManifest,
   TPluginInstallScope,
-} from '@robota-sdk/agent-framework';
+} from '@robota-sdk/agent-interface-transport';
 
 interface IPluginServices {
   cwd: string;

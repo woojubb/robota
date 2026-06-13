@@ -7,13 +7,15 @@ import { executeMonitorCommand, executeScheduleCommand } from './schedule-comman
 
 import type {
   IAgentJobHostContext,
-  ICommand,
   ICommandHostContext,
   ICommandModule,
-  ICommandResult,
-  ICommandSource,
   ISystemCommand,
 } from '@robota-sdk/agent-framework';
+import type {
+  ICommand,
+  ICommandResult,
+  ICommandSource,
+} from '@robota-sdk/agent-interface-transport';
 
 function getAgentHostContext(context: ICommandHostContext): IAgentJobHostContext {
   const cap = context.getAgentJobCapability?.();
