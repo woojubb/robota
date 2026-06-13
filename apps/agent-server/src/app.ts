@@ -18,7 +18,7 @@ import type { IAIProvider } from '@robota-sdk/agent-core';
 const appLogger = createLogger('agent-server');
 
 // Global WebSocket server instance (will be initialized in server.ts)
-export let playgroundWebSocketServer: PlaygroundWebSocketServer | null = null;
+let playgroundWebSocketServer: PlaygroundWebSocketServer | null = null;
 
 export function setPlaygroundWebSocketServer(server: PlaygroundWebSocketServer): void {
   playgroundWebSocketServer = server;

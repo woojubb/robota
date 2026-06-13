@@ -1,3 +1,4 @@
+import { TRUST_TO_MODE } from '@robota-sdk/agent-core';
 import { SubagentManager, BackgroundTaskManager } from '@robota-sdk/agent-executor';
 
 import { fireSubagentLifecycleHook } from './background-task-hooks.js';
@@ -161,7 +162,10 @@ export function buildSessionSystemPrompt(
     memoryMd: options.context.memoryMd,
     taskContext: options.context.taskContext,
     toolDescriptions: resolvedToolDescriptions,
-    trustLevel: options.config.defaultTrustLevel,
+    // CLI-072: the prompt names the mode the gate enforces — same resolution
+    // as agent-session (explicit mode, else trust-level mapping, else default).
+    permissionMode:
+      options.permissionMode ?? TRUST_TO_MODE[options.config.defaultTrustLevel] ?? 'default',
     projectInfo: options.projectInfo ?? { type: 'unknown', language: 'unknown' },
     cwd,
     language: options.config.language,

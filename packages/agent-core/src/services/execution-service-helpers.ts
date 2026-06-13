@@ -263,7 +263,7 @@ export function buildFullExecutionContext(
 /**
  * Convert an IExecutionContext to the flat record format expected by plugin hooks.
  */
-export function convertExecutionContextToPluginFormat(
+function convertExecutionContextToPluginFormat(
   context: IExecutionContext,
 ): Record<string, string | number | boolean> {
   const conversationId = requireConversationId(context, 'plugin-context');

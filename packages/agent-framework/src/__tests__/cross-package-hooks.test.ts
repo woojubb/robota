@@ -362,7 +362,7 @@ describe('Cross-package: BundlePlugin -> system prompt', () => {
       agentsMd: '',
       claudeMd: '',
       toolDescriptions: [],
-      trustLevel: 'moderate',
+      permissionMode: 'default',
       projectInfo: { type: 'unknown', language: 'unknown' },
       skills: plugins[0]!.skills.map((s) => ({
         name: s.name,
@@ -432,7 +432,7 @@ describe('Cross-package: BundlePlugin -> system prompt', () => {
       agentsMd: '',
       claudeMd: '',
       toolDescriptions: [],
-      trustLevel: 'moderate',
+      permissionMode: 'default',
       projectInfo: { type: 'unknown', language: 'unknown' },
       skills: allSkills,
     });

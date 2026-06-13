@@ -31,7 +31,6 @@ export function injectSavedMessage(session: Session, msg: TUniversalMessage): vo
 export function loadSessionRecord(
   sessionStore: IInteractiveSessionStore,
   resumeSessionId: string,
-  forkSession: boolean,
   existingSession: Session | null,
 ): {
   history: IHistoryEntry[];
@@ -82,7 +81,9 @@ export function loadSessionRecord(
   const sessionName = record.name;
   let pendingRestoreMessages: TUniversalMessage[] | null = null;
 
-  if (!forkSession && record.messages) {
+  // CLI-073: forks restore the conversation too — the SPEC promises
+  // "new session (fresh UUID) but restores context"; only the session id is new.
+  if (record.messages) {
     if (existingSession) {
       for (const msg of record.messages) {
         injectSavedMessage(existingSession, msg);

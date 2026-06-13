@@ -47,13 +47,18 @@ describe('provider configuration writes', () => {
       'utf8',
     );
 
-    applyProviderConfiguration(settingsPath, {
-      profile: 'anthropic',
-      type: 'anthropic',
-      model: 'claude-sonnet-4-6',
-      apiKeyEnv: 'ANTHROPIC_API_KEY',
-      setCurrent: true,
-    });
+    applyProviderConfiguration(
+      settingsPath,
+      {
+        profile: 'anthropic',
+        type: 'anthropic',
+        model: 'claude-sonnet-4-6',
+        apiKeyEnv: 'ANTHROPIC_API_KEY',
+        setCurrent: true,
+      },
+      // CLI-068: the referenced variable must be set at configure time.
+      { env: { ANTHROPIC_API_KEY: 'sk-test-068' } },
+    );
 
     const settings = readJson(settingsPath);
     const providers = settings.providers as Record<string, Record<string, unknown>>;

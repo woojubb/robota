@@ -93,16 +93,11 @@ export class SimpleCache<TValue extends TUniversalValue = TUniversalValue> {
 }
 
 // Cache instances for different data types
-export const userCache = new SimpleCache();
-export const apiCache = new SimpleCache();
+const userCache = new SimpleCache();
+const apiCache = new SimpleCache();
 
 // Default cache instance
 export const cache = new SimpleCache();
-
-// Cache key generators
-export const cacheKeys = {
-  userProfile: (uid: string) => `user:profile:${uid}`,
-};
 
 // Cleanup expired entries every 10 minutes
 if (typeof window !== 'undefined') {

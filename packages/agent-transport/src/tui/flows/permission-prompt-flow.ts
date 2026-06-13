@@ -67,7 +67,7 @@ export function applyPermissionPromptInput(
   };
 }
 
-export function getPermissionDecision(index: number): TPermissionPromptDecision {
+function getPermissionDecision(index: number): TPermissionPromptDecision {
   if (index === 0) return true;
   if (index === 1) return 'allow-session';
   if (index === 2) return 'allow-project';

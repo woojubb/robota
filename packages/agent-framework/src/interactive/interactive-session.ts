@@ -183,12 +183,7 @@ export class InteractiveSession
 
   private restoreSessionRecordIfNeeded(options: TInteractiveSessionOptions): void {
     if (!options.resumeSessionId || !this.sessionStore) return;
-    const restored = loadSessionRecord(
-      this.sessionStore,
-      options.resumeSessionId,
-      this.forkSession,
-      this.session,
-    );
+    const restored = loadSessionRecord(this.sessionStore, options.resumeSessionId, this.session);
     this.histTracker.restoreState({
       history: restored.history,
       memoryEvents: restored.memoryEvents,

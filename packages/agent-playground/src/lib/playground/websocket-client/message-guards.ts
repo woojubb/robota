@@ -11,7 +11,7 @@ export function isUniversalObjectValue(
   );
 }
 
-export function isPlaygroundWebSocketMessage(
+function isPlaygroundWebSocketMessage(
   value: TUniversalValue,
 ): value is IPlaygroundWebSocketMessage {
   if (!isUniversalObjectValue(value)) return false;

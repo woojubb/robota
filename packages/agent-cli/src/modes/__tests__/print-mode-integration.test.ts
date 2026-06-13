@@ -195,7 +195,7 @@ describe('print mode session resume integration (CLI-063)', () => {
     expect(ids).toEqual([priorId]);
   });
 
-  it('TC-03: fork creates a new independent session and leaves the original untouched (TUI-parity fork semantics)', async () => {
+  it('TC-03: fork creates a new independent session with restored context, original untouched (CLI-073 semantics)', async () => {
     const first = createRecordingProvider('first answer');
     await runPrint(cwd, 'Remember this number: 42', first.provider);
 
@@ -211,14 +211,14 @@ describe('print mode session resume integration (CLI-063)', () => {
     });
 
     expect(exitCode).toBe(0);
-    // Framework fork semantics (interactive-session-restore.ts): a fork starts a fresh
-    // model context — prior conversation messages are NOT injected, same as TUI fork.
+    // Framework fork semantics (CLI-073, SPEC-conform): a fork is a fresh UUID WITH
+    // the source conversation restored — prior messages ARE injected, same as resume.
     const contents = forked
       .lastMessages()
       .map((message) => (typeof message.content === 'string' ? message.content : ''))
       .join('\n');
     expect(contents).toContain('And in the fork?');
-    expect(contents).not.toContain('Remember this number: 42');
+    expect(contents).toContain('Remember this number: 42');
 
     const after = createProjectSessionStore(cwd).list();
     expect(after).toHaveLength(2);

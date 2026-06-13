@@ -95,7 +95,6 @@ src/
     command-interaction.ts   ← re-exports from @robota-sdk/agent-interface-tui
     hooks/
       useTuiChannel.ts       ← useTuiChannel (React → TuiInteractionChannel bridge)
-      usePermissionQueue.ts
       useSlashRouting.ts
       useSideEffects.ts
       usePluginCallbacks.ts
@@ -108,7 +107,7 @@ src/
 
 ### TUI lifecycle
 
-`renderApp()` creates a `TuiInteractionChannel` (which owns `InteractiveSession`, `CommandRegistry`, and `TuiStateManager` creation) and then mounts the Ink `App` component. `App` subscribes to channel state via the `useTuiChannel` hook, which calls `channel.onChange` on each state change. User input is forwarded to `channel.handleInput()`; slash commands that need disambiguation call `channel.requestAction()`, which queues a pick/confirm dialog rendered by `App` and resolved via `channel.resolveAction()`.
+**Single channel owner (CLI-B12):** `renderApp()` does NOT construct a channel. It passes only a `createChannel(resumeSessionId?)` factory to the Ink `App` component; `App` creates the initial `TuiInteractionChannel` (which owns `InteractiveSession`, `CommandRegistry`, and `TuiStateManager` creation) in its `useState` lazy initializer and replaces it on every session switch — the old channel is stopped (`void channel.stop()`) before the replacement becomes active. Channel construction is side-effect-free; I/O starts only in `AppInner`'s effect via `channel.start()`. The channel lifecycle is therefore exactly the React state lifecycle: created, replaced, and stopped exclusively through `App` state, with no second owner outside React. `App` subscribes to channel state via the `useTuiChannel` hook, which calls `channel.onChange` on each state change. User input is forwarded to `channel.handleInput()`; slash commands that need disambiguation call `channel.requestAction()`, which queues a pick/confirm dialog rendered by `App` and resolved via `channel.resolveAction()`.
 
 ### TUI session-init polling
 
@@ -276,6 +275,11 @@ pnpm --filter @robota-sdk/agent-transport test:coverage
 - TUI components tested with `ink-testing-library`; `TuiInteractionChannel.requestAction()` protocol tested without Ink
 - `CommandPicker` and `CommandConfirm` dialog components tested in isolation with `ink-testing-library`
 - `TransportRegistry` enable/disable logic is unit-tested with mock settings files
+- Session-switch channel ownership (CLI-B11): `src/tui/__tests__/session-switch-channel.test.tsx`
+  renders the real `App` with a mocked `createChannel` factory (factory call args/count,
+  old-channel stop, consecutive A→B→C switches); `src/tui/__tests__/channel-factory-integration.test.ts`
+  builds the channel via the real `toChannelOptions`/`TuiInteractionChannel` path over a real
+  project session store and asserts restored context `usedTokens > 0`
 - All tests run with Vitest; `--passWithNoTests` allows sub-directories without tests to pass CI
 
 Expected baseline: 51 test files, ~431 tests, all passing.

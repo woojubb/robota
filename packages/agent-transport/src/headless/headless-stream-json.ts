@@ -65,7 +65,7 @@ interface IStreamJsonHandlers {
   onError: (error: Error) => void;
 }
 
-export function writeStreamJsonEvent(
+function writeStreamJsonEvent(
   session: IInteractiveSession,
   getSessionId: (s: IInteractiveSession) => string,
   event: TStreamJsonEvent,

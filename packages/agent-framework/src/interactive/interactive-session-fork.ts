@@ -12,7 +12,7 @@ import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import type { IForkExecutionOptions } from '../commands/index.js';
 import type { Session } from '@robota-sdk/agent-session';
 
-export function resolveForkAgentDefinition(
+function resolveForkAgentDefinition(
   agentType: string,
   options: IForkExecutionOptions,
   parentSession: Session,

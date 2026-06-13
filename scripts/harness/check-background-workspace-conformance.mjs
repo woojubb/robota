@@ -67,9 +67,15 @@ const REQUIRED_FILES = [
 
 const CLI_FORBIDDEN_PATTERNS = [
   {
-    type: 'cli-agent-runtime-import',
-    pattern: /from\s+['"]@robota-sdk\/agent-runtime(?:\/[^'"]*)?['"]/,
+    type: 'cli-agent-executor-import',
+    pattern: /from\s+['"]@robota-sdk\/agent-executor(?:\/[^'"]*)?['"]/,
     detail: 'agent-cli must not import agent-executor directly; consume SDK workspace projections.',
+    // HARNESS-011: composition-root exemptions — the app assembly point may wire
+    // concrete runners; every entry requires a reason string (.agents/project-structure.md).
+    exemptions: {
+      'packages/agent-cli/src/cli.ts': 'composition root — concrete runner wiring',
+      'packages/agent-cli/src/modes/print-mode.ts': 'composition root — type-only runner contract',
+    },
   },
   {
     type: 'cli-background-registry-owner',
@@ -164,10 +170,16 @@ async function findRequiredFileFindings(root) {
 
 async function findCliForbiddenFindings(root) {
   const findings = [];
+  const exemptionsUsed = [];
   for (const file of await walkFiles(root, 'packages/agent-cli/src')) {
     const content = await fs.readFile(path.join(root, file), 'utf8');
     for (const check of CLI_FORBIDDEN_PATTERNS) {
       if (!check.pattern.test(content)) {
+        continue;
+      }
+      const exemptionReason = check.exemptions?.[file];
+      if (exemptionReason !== undefined) {
+        exemptionsUsed.push({ file, type: check.type, reason: exemptionReason });
         continue;
       }
       findings.push({
@@ -177,16 +189,28 @@ async function findCliForbiddenFindings(root) {
       });
     }
   }
-  return findings;
+  return { findings, exemptionsUsed };
 }
 
 export async function findBackgroundWorkspaceConformanceFindings(root = WORKSPACE_ROOT) {
-  return [...(await findRequiredFileFindings(root)), ...(await findCliForbiddenFindings(root))];
+  const cli = await findCliForbiddenFindings(root);
+  return [...(await findRequiredFileFindings(root)), ...cli.findings];
+}
+
+/** Exemptions actually used in this tree (reported, never silent). */
+export async function findUsedExemptions(root = WORKSPACE_ROOT) {
+  return (await findCliForbiddenFindings(root)).exemptionsUsed;
 }
 
 export async function main() {
   const findings = await findBackgroundWorkspaceConformanceFindings(WORKSPACE_ROOT);
   if (findings.length === 0) {
+    const exemptions = await findUsedExemptions(WORKSPACE_ROOT);
+    for (const exemption of exemptions) {
+      process.stdout.write(
+        `  exempted: ${exemption.file} [${exemption.type}] — ${exemption.reason}\n`,
+      );
+    }
     process.stdout.write('background workspace conformance scan passed.\n');
     return;
   }
