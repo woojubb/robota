@@ -7,12 +7,8 @@ import {
 
 import { executePluginCommand, executeReloadPluginsCommand } from './plugin-command.js';
 
-import type {
-  ICommand,
-  ICommandModule,
-  ICommandSource,
-  ISystemCommand,
-} from '@robota-sdk/agent-framework';
+import type { ICommandModule, ISystemCommand } from '@robota-sdk/agent-framework';
+import type { ICommand, ICommandSource } from '@robota-sdk/agent-interface-transport';
 
 export function createPluginCommandEntry(): ICommand {
   return {

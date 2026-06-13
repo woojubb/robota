@@ -11,11 +11,10 @@ import {
 } from './provider-command-profile-operations.js';
 
 import type {
-  ICommandInteraction,
-  ICommandResult,
   IProviderCommandModuleOptions,
   IProviderProfileSettings,
 } from '@robota-sdk/agent-framework';
+import type { ICommandInteraction, ICommandResult } from '@robota-sdk/agent-interface-transport';
 
 const ACTION_SWITCH = 'switch';
 const ACTION_EDIT = 'edit';

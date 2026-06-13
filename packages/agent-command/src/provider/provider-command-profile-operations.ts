@@ -14,12 +14,11 @@ import { createProviderSetupFlow, submitProviderSetupValue } from './provider-se
 
 import type { IProviderSetupFlowState } from './provider-setup-flow.js';
 import type {
-  ICommandInteraction,
-  ICommandResult,
   IProviderCommandModuleOptions,
   IProviderProfileSettings,
   IProviderSetupInput,
 } from '@robota-sdk/agent-framework';
+import type { ICommandInteraction, ICommandResult } from '@robota-sdk/agent-interface-transport';
 
 export function formatProviderChoiceLabel(
   name: string,

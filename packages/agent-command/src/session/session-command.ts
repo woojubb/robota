@@ -14,7 +14,8 @@ import {
 
 import { calculateCost, formatTokens, formatUsd } from './model-pricing.js';
 
-import type { ICommandHostContext, ICommandResult } from '@robota-sdk/agent-framework';
+import type { ICommandHostContext } from '@robota-sdk/agent-framework';
+import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
 
 export const CLEAR_COMMAND_MESSAGE = 'Conversation cleared.';
 

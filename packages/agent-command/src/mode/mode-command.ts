@@ -6,7 +6,8 @@ import {
   writeCommandPermissionMode,
 } from '@robota-sdk/agent-framework';
 
-import type { ICommandHostContext, ICommandResult } from '@robota-sdk/agent-framework';
+import type { ICommandHostContext } from '@robota-sdk/agent-framework';
+import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
 
 export function executeModeCommand(context: ICommandHostContext, args: string): ICommandResult {
   const arg = parsePermissionModeArgument(args);
