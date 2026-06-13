@@ -1,0 +1,134 @@
+
+> robota-monorepo@0.1.0 harness:scan /Users/jungyoun/Documents/dev/robota
+> node scripts/harness/run-all-scans.mjs
+
+harness consistency scan passed.
+document authority scan passed.
+command layering scan passed.
+capability placement scan passed.
+  exempted: packages/agent-cli/src/cli.ts [cli-agent-executor-import] — composition root — concrete runner wiring
+  exempted: packages/agent-cli/src/modes/print-mode.ts [cli-agent-executor-import] — composition root — type-only runner contract
+background workspace conformance scan passed.
+agent server boundary scan passed.
+sdk public surface scan passed.
+workspace_scopes=24
+with_spec=24
+without_spec=0
+spec_coverage=100.0%
+with_docs_index=24
+without_docs_index=0
+docs_index_coverage=100.0%
+with_spec_reference_in_index=24
+without_spec_reference_in_index=0
+index_spec_reference_coverage=100.0%
+spec coverage audit passed.
+spec path scan passed.
+workspace ref scan passed.
+stub marker scan passed.
+  superseded: .agents/backlog/completed/CLIR-H02-shellexec-duplication.md → packages/agent-cli/src/modes/shell-exec.ts — shell-exec.ts deleted in HARNESS-015 (orphan burn-down) — the dedup it verified holds; skill ! substitution moved with the TUI refactor
+  superseded: .agents/backlog/completed/CLIR-H02-shellexec-duplication.md → packages/agent-cli/src/modes/tui-mode.ts — tui-mode.ts removed in the TUI → agent-transport migration; shellExec dedup is held by current agent-transport/cli suites
+  superseded: .agents/backlog/completed/CLIR-L01-agent-name-hardcoded.md → packages/agent-cli/src/modes/tui-mode.ts — tui-mode.ts removed in the TUI → agent-transport migration; AGENT_CLI_NAME single definition still holds in constants.ts
+  superseded: .agents/backlog/completed/DOC-002-multilang-readme.md → packages/agent-cli/README.ko.md — README.ko.md retired when docs i18n moved to the docs site (SITE-006/007 ko locales)
+done-evidence scan passed (4 superseded reference(s)).
+orphan export scan passed.
+✅ No dependency direction violations found.
+✅ agent-sdk is React-free.
+✅ agent-core has zero @robota-sdk dependencies
+✅ agent-core has zero @robota-sdk devDependencies
+✅ Checked prepublishOnly hooks on all publishable packages
+✅ check-pnpm-publish.sh exists
+
+✅ Publish safety check passed
+release governance scan passed.
+harness test-plan scan passed.
+test coverage script scan passed.
+harness file-size scan: 33 file(s) exceed 300 lines:
+- [file-too-large] packages/agent-command/src/context/context-command.ts: 516 lines (max 300). Split by responsibility per code-quality.md anti-monolith rule.
+- [file-too-large] packages/agent-command/src/provider/provider-setup-flow.ts: 320 lines (max 300). Split by responsibility per code-quality.md anti-monolith rule.
+- [file-too-large] packages/agent-core/src/abstracts/abstract-ai-provider.ts: 306 lines (max 300). Split by responsibility per code-quality.md anti-monolith rule.
+- [file-too-large] packages/agent-core/src/abstracts/abstract-module.ts: 315 lines (max 300). Split by responsibility per code-quality.md anti-monolith rule.
+- [file-too-large] packages/agent-core/src/abstracts/abstract-workflow-converter.ts: 320 lines (max 300). Split by responsibility per code-quality.md anti-monolith rule.
+- [file-too-large] packages/agent-core/src/interfaces/provider.ts: 318 lines (max 300). Split by responsibility per code-quality.md anti-monolith rule.
+- [file-too-large] packages/agent-core/src/managers/agent-factory.ts: 301 lines (max 300). Split by responsibility per code-quality.md anti-monolith rule.
+- [file-too-large] packages/agent-core/src/services/execution-service.ts: 301 lines (max 300). Split by responsibility per code-quality.md anti-monolith rule.
+- [file-too-large] packages/agent-executor/src/background-tasks/background-task-manager.ts: 310 lines (max 300). Split by responsibility per code-quality.md anti-monolith rule.
+- [file-too-large] packages/agent-executor/src/background-tasks/types.ts: 319 lines (max 300). Split by responsibility per code-quality.md anti-monolith rule.
+- [file-too-large] packages/agent-framework/src/checkpoints/edit-checkpoint-store.ts: 319 lines (max 300). Split by responsibility per code-quality.md anti-monolith rule.
+- [file-too-large] packages/agent-framework/src/index.ts: 680 lines (max 300). Split by responsibility per code-quality.md anti-monolith rule.
+- [file-too-large] packages/agent-framework/src/interactive/interactive-session-base.ts: 343 lines (max 300). Split by responsibility per code-quality.md anti-monolith rule.
+- [file-too-large] packages/agent-framework/src/interactive/interactive-session-execution-controller.ts: 338 lines (max 300). Split by responsibility per code-quality.md anti-monolith rule.
+- [file-too-large] packages/agent-framework/src/interactive/interactive-session-skill-router.ts: 309 lines (max 300). Split by responsibility per code-quality.md anti-monolith rule.
+- [file-too-large] packages/agent-framework/src/interactive/interactive-session.ts: 520 lines (max 300). Split by responsibility per code-quality.md anti-monolith rule.
+- [file-too-large] packages/agent-framework/src/update-check/update-check.ts: 307 lines (max 300). Split by responsibility per code-quality.md anti-monolith rule.
+- [file-too-large] packages/agent-framework/src/user-local/memory.ts: 315 lines (max 300). Split by responsibility per code-quality.md anti-monolith rule.
+- [file-too-large] packages/agent-playground/src/components/playground/assembly-canvas/assembly-canvas.tsx: 305 lines (max 300). Split by responsibility per code-quality.md anti-monolith rule.
+- [file-too-large] packages/agent-playground/src/components/playground/workflow-visualization/events-to-flow.ts: 360 lines (max 300). Split by responsibility per code-quality.md anti-monolith rule.
+- [file-too-large] packages/agent-playground/src/lib/playground/robota-executor/playground-executor.ts: 353 lines (max 300). Split by responsibility per code-quality.md anti-monolith rule.
+- [file-too-large] packages/agent-playground/src/playground/components/PlaygroundApp.tsx: 829 lines (max 300). Split by responsibility per code-quality.md anti-monolith rule.
+- [file-too-large] packages/agent-plugin/src/execution-analytics/execution-analytics-plugin.ts: 327 lines (max 300). Split by responsibility per code-quality.md anti-monolith rule.
+- [file-too-large] packages/agent-provider/src/anthropic/provider.ts: 321 lines (max 300). Split by responsibility per code-quality.md anti-monolith rule.
+- [file-too-large] packages/agent-provider/src/deepseek/provider.ts: 301 lines (max 300). Split by responsibility per code-quality.md anti-monolith rule.
+- [file-too-large] packages/agent-provider/src/gemma/provider.ts: 311 lines (max 300). Split by responsibility per code-quality.md anti-monolith rule.
+- [file-too-large] packages/agent-provider/src/qwen/provider.ts: 301 lines (max 300). Split by responsibility per code-quality.md anti-monolith rule.
+- [file-too-large] packages/agent-provider/src/qwen/responses-parser.ts: 302 lines (max 300). Split by responsibility per code-quality.md anti-monolith rule.
+- [file-too-large] packages/agent-transport/src/tui/App.tsx: 489 lines (max 300). Split by responsibility per code-quality.md anti-monolith rule.
+- [file-too-large] packages/agent-transport/src/tui/InputArea.tsx: 310 lines (max 300). Split by responsibility per code-quality.md anti-monolith rule.
+- [file-too-large] packages/agent-transport/src/tui/TuiInteractionChannel.ts: 484 lines (max 300). Split by responsibility per code-quality.md anti-monolith rule.
+- [file-too-large] apps/agent-server/src/websocket-server.ts: 367 lines (max 300). Split by responsibility per code-quality.md anti-monolith rule.
+- [file-too-large] apps/docs/src/app/[locale]/[[...slug]]/page.tsx: 394 lines (max 300). Split by responsibility per code-quality.md anti-monolith rule.
+Build output contract check passed for 17 package(s).
+[33m⚠️  @robota-sdk/action: no dist/ (app/internal, not blocking)[0m
+[33m⚠️  robota-web: no dist/ (app/internal, not blocking)[0m
+[33m⚠️  robota-docs: no dist/ (app/internal, not blocking)[0m
+[33m⚠️  @robota-sdk/starter-nextjs: no dist/ (app/internal, not blocking)[0m
+[33m⚠️  robota-www: no dist/ (app/internal, not blocking)[0m
+[32m✅ @robota-sdk/agent-cli: dist/ present[0m
+[32m✅ @robota-sdk/agent-command: dist/ present[0m
+[32m✅ @robota-sdk/agent-core: dist/ present[0m
+[32m✅ @robota-sdk/agent-executor: dist/ present[0m
+[32m✅ @robota-sdk/agent-framework: dist/ present[0m
+[32m✅ @robota-sdk/agent-interface-transport: dist/ present[0m
+[32m✅ @robota-sdk/agent-interface-tui: dist/ present[0m
+[32m✅ @robota-sdk/agent-playground: dist/ present[0m
+[32m✅ @robota-sdk/agent-plugin: dist/ present[0m
+[32m✅ @robota-sdk/agent-provider: dist/ present[0m
+[32m✅ @robota-sdk/agent-remote-client: dist/ present[0m
+[32m✅ @robota-sdk/agent-session: dist/ present[0m
+[32m✅ @robota-sdk/agent-subagent-runner: dist/ present[0m
+[32m✅ @robota-sdk/agent-tool-mcp: dist/ present[0m
+[32m✅ @robota-sdk/agent-tools: dist/ present[0m
+[32m✅ @robota-sdk/agent-transport: dist/ present[0m
+[32m✅ @robota-sdk/agent-web-ui: dist/ present[0m
+
+[32mAll 24 buildable packages have dist/. (5 app/internal warnings)[0m
+
+> robota-monorepo@0.1.0 docs:validate-structure /Users/jungyoun/Documents/dev/robota
+> node scripts/docs/validate-package-docs-structure.mjs
+
+docs structure validation passed.
+
+harness scan summary:
+✓ consistency
+✓ document-authority
+✓ commands
+✓ capability-placement
+✓ background-workspace
+✓ agent-server-boundary
+✓ sdk-public-surface
+✓ specs
+✓ spec-paths
+✓ workspace-refs
+✓ stub-markers
+✓ done-evidence
+✓ orphan-exports
+✓ deps
+✓ sdk-react-free
+✓ publish
+✓ release-governance
+✓ test-plans
+✓ coverage-scripts
+✓ file-size
+✓ build-contracts
+✓ dist
+✓ docs-structure
+all 23 scans passed
