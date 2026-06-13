@@ -1,5 +1,5 @@
 ---
-status: draft
+status: approved
 type: BEHAVIOR
 tags: [cli]
 ---
@@ -167,3 +167,12 @@ Architecture Review Checklist: all 4 items `[x]`; sibling scan `[x]` with reuse 
 Completion Criteria: TC-01..TC-10 all TC-N prefixed; covers each distinct feature (module delta, defaultPermissionMode, autonomy mapping act/ask, runtime+dispatch wiring, selfVerification, build); Command/Observable forms; no banned phrases — PASS.
 Test Plan: section present; TC-N count matches (10 criteria ↔ 10 rows TC-01..TC-10); each row non-empty Test Type + Tool/Approach, no TBD; no row uses "manual" Tool so manual-Notes criterion N/A — PASS.
 Structure: Tasks section with placeholder present; Evidence Log present and empty before this run; no `## Status`/`## Classification` body sections — PASS.
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-06-14
+
+**Status upgrade:** review-ready → approved
+Prior-Gate Precondition: GATE-WRITE PASS entry present (2026-06-14); frontmatter `status: review-ready` and file resides in `backlog/` — matches expected input stage — PASS.
+Explicit approval: orchestrator asked "8개를 GATE-APPROVAL까지 올릴까요?" and user replied "다음 진행해" — direct authorization to advance all 8 PRESET specs (PRESET-004 included) to `approved` — PASS.
+Directed at this spec: PRESET-004 is one of the 8 PRESET specs covered by the batch approval — PASS.
+No post-approval mutation: Architecture Review and frontmatter `type: BEHAVIOR` / `tags: [cli]` unchanged after approval — PASS.
+NON-COMPLIANCE trigger (implementation started): no `.agents/tasks/PRESET-004.md`; no `packages/agent-preset/` — no implementation work begun — clear.

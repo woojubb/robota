@@ -1,5 +1,5 @@
 ---
-status: draft
+status: approved
 type: DATA
 tags: [typescript]
 ---
@@ -151,3 +151,13 @@ Type DATA + tags typescript. 검증 = 타입/단위 테스트(vitest) + 빌드·
 - Test Plan: `## Test Plan` present; 12 rows (TC-01..TC-12) — count matches 12 TC criteria; every row has non-empty Test Type and Tool/Approach; no row uses Tool "manual" (cat/rg/vitest/pnpm/node), so manual-Notes justification N/A.
 - Structure: Tasks section present with placeholder; Evidence Log present and empty before this run; no `## Status` or `## Classification` body sections.
 - TC-N count match confirmed: Completion Criteria = 12, Test Plan rows = 12.
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-06-14
+
+**Status upgrade:** review-ready → approved
+
+- Prior-gate precondition: `### [GATE-WRITE] — ✅ PASS | 2026-06-14` entry present in Evidence Log; frontmatter `status: review-ready`, file in `backlog/` — matches expected input stage.
+- Explicit user approval: orchestrator asked "8개를 GATE-APPROVAL까지 올릴까요?"; user replied verbatim "다음 진행해". "진행해" is an explicit-approval phrase per skill criteria; statement authorizes advancing these PRESET specs to approved.
+- Approval directed at this spec: the question targeted advancing all 8 PRESET backlogs (PRESET-001 included) through GATE-APPROVAL — directed, unambiguous, not a clarifying-question answer.
+- No Architecture Review or frontmatter type/tags modified after approval.
+- NON-COMPLIANCE trigger clear: no `.agents/tasks/PRESET-001.md`; no `packages/agent-preset/` directory; `rg "agent-preset" packages` → no match. No implementation started before this gate.

@@ -1,5 +1,5 @@
 ---
-status: draft
+status: approved
 type: BEHAVIOR
 tags: [typescript]
 ---
@@ -138,3 +138,13 @@ Type BEHAVIOR + tags `typescript` → 동작 검증은 unit/integration(요청 �
 - Completion Criteria: TC-01..TC-04 all TC-N prefixed; command/observable form; no banned phrases ("works correctly"/"no errors"/"implemented"/"displays correctly").
 - Test Plan: `## Test Plan` present; 4 rows match 4 TC-N (count matches); each row has non-empty Test Type + Tool/Approach, no "TBD"; no "manual" tool rows requiring Notes justification.
 - Structure: `## Tasks` placeholder present; `## Evidence Log` was empty on this first run; no `## Status`/`## Classification` body sections.
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-06-14
+
+**Status upgrade:** review-ready → approved
+
+- Prior-gate precondition: `### [GATE-WRITE] — ✅ PASS | 2026-06-14` entry present in Evidence Log; frontmatter `status: review-ready` and folder `backlog/` match the expected input stage.
+- Explicit approval: orchestrator asked "8개를 GATE-APPROVAL까지 올릴까요?" and user replied "다음 진행해" — an unambiguous statement authorizing advancement of all 8 PRESET specs (this spec included) to `approved`.
+- Directed at this spec: PRESET-008 is one of the 8 PRESET specs covered by the approval; not a clarifying-question answer or approval of an unrelated item.
+- No Architecture Review or frontmatter type/tags modified after approval.
+- NON-COMPLIANCE trigger clear: no `.agents/tasks/PRESET-008.md` and no `packages/agent-preset/` exist — implementation has not started.

@@ -1,5 +1,5 @@
 ---
-status: draft
+status: approved
 type: FLOW
 tags: [cli]
 ---
@@ -121,3 +121,12 @@ Architecture Review Checklist: all 4 items `[x]`; Sibling scan `[x]` with eviden
 Completion Criteria: TC-01..TC-06 all TC-N prefixed; command/observable form; no banned phrases ("works correctly"/"no errors"/"implemented"/"displays correctly").
 Test Plan: section present; 6 rows (TC-01..TC-06) match 6 TC-N count; every row has non-empty Test Type + Tool/Approach, no "TBD"; no row uses Tool "manual" so Notes-justification criterion is N/A.
 Structure: Tasks section present with placeholder (`.agents/tasks/PRESET-002.md` — 미생성); Evidence Log present and empty before this run; no `## Status` or `## Classification` body sections.
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-06-14
+
+**Status upgrade:** review-ready → approved
+Prior-gate precondition: `### [GATE-WRITE] — ✅ PASS | 2026-06-14` present in Evidence Log; frontmatter `status: review-ready` matches expected input stage for GATE-APPROVAL.
+Explicit approval: orchestrator asked "8개를 GATE-APPROVAL까지 올릴까요?" and user replied "다음 진행해" — direct, unambiguous authorization to advance all 8 PRESET specs (this spec included) to `approved`.
+Directed at this spec: PRESET-002 is one of the 8 PRESET specs covered by the batch approval; no approval of a different unrelated item was substituted.
+No post-approval drift: Architecture Review section and frontmatter `type: FLOW` / `tags: [cli]` unchanged after approval.
+NON-COMPLIANCE trigger clear (implementation not started): `.agents/tasks/PRESET-002.md` absent; `packages/agent-preset/` does not exist; `rg "preset" packages/agent-cli/src/utils/cli-args.ts` → no match.
