@@ -1,5 +1,13 @@
 # @robota-sdk/agent-interface-transport
 
+## 3.0.0-beta.74
+
+### Patch Changes
+
+- @robota-sdk/agent-core@3.0.0-beta.74
+- @robota-sdk/agent-executor@3.0.0-beta.74
+- @robota-sdk/agent-session@3.0.0-beta.74
+
 ## 3.0.0-beta.73
 
 ## 3.0.0-beta.72
