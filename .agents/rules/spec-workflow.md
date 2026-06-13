@@ -185,10 +185,9 @@ Content promotion rules:
 - **Analytic layer:** the [`architecture-conformance-audit`](../skills/architecture-conformance-audit/SKILL.md)
   skill set (dependency-graph-extraction → doc-claim-verification → conformance-finding-report →
   improvement-proposal-authoring) produces the `.design/architecture-audit/<date>/` report + proposal.
-- **Trigger:** on demand, after any cross-package change, and before a `develop → main` release. It is a
-  **standalone gate**, NOT part of the blocking `harness:scan` aggregate, until the INFRA-002 P0/P1
-  doc-correction backlogs (INFRA-004~INFRA-009) clear the existing baseline drift; promote it into the
-  aggregate scan once `pnpm harness:conformance` exits 0.
+- **Trigger:** runs as part of the blocking `harness:scan` aggregate (the `conformance` scan in
+  `run-all-scans.mjs`, promoted in INFRA-007 once `pnpm harness:conformance` reached 0 violations), so it
+  gates every PR and release. Also runnable on demand via `pnpm harness:conformance`.
 - **PASS/FAIL:** PASS when `harness:conformance` exits 0 and no unresolved P0 finding remains; FAIL
   otherwise. Run via [`backlog-gate-guard`](../skills/backlog-gate-guard/SKILL.md).
 
