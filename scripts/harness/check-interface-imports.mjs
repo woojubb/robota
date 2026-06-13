@@ -92,23 +92,26 @@ function collectSourceFiles(srcDir) {
 }
 
 /**
- * Enumerate implementation-package directories under packages/.
+ * Enumerate implementation directories whose `src/` is governed by the rule.
  *
  * The interface-import rule (INFRA-010 layering) governs implementation
- * packages in `packages/*`. agent-framework and agent-interface-* are exempt
- * (the former owns the runtime values; the latter own the contract SSOT).
+ * packages in `packages/*` AND apps in `apps/*` (INFRA-014). agent-framework
+ * and agent-interface-* are exempt (the former owns the runtime values; the
+ * latter own the contract SSOT).
  */
 function findScannablePackages() {
   const result = [];
-  const base = join(ROOT, 'packages');
-  if (!existsSync(base)) return result;
-  for (const entry of readdirSync(base, { withFileTypes: true })) {
-    if (!entry.isDirectory()) continue;
-    const dirName = entry.name;
-    if (isExemptPackage(dirName)) continue;
-    const srcDir = join(base, dirName, 'src');
-    if (existsSync(srcDir) && statSync(srcDir).isDirectory()) {
-      result.push({ dirName, srcDir });
+  for (const baseName of ['packages', 'apps']) {
+    const base = join(ROOT, baseName);
+    if (!existsSync(base)) continue;
+    for (const entry of readdirSync(base, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      const dirName = entry.name;
+      if (isExemptPackage(dirName)) continue;
+      const srcDir = join(base, dirName, 'src');
+      if (existsSync(srcDir) && statSync(srcDir).isDirectory()) {
+        result.push({ dirName: `${baseName}/${dirName}`, srcDir });
+      }
     }
   }
   return result;
