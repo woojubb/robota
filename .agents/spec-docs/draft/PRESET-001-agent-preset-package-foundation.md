@@ -23,7 +23,7 @@ resolver에 의존하는데, 그 기반이 존재하지 않는다.
 
 ### Affected Scope
 
-- 신규 `packages/agent-preset/` — `IPreset` 계약(SSOT), `resolvePreset()`, `listPresets()`, 빌트인 `default` 프리셋
+- 신규 `packages/agent-preset/` — `IPreset` 계약(SSOT), `resolvePreset()`(우선순위 병합 + DEFAULT `agentName` 상수 소유), `listPresets()`, 빌트인 `default` 프리셋. **`agent-cli`는 본 백로그에서 어떤 로직도 소유하지 않는다**(껍데기 — `--preset` 파싱/전달은 PRESET-002 범위).
 - `packages/agent-preset/docs/SPEC.md` (신규 — 패키지 계약)
 - `packages/agent-preset/package.json` — `@robota-sdk/agent-preset`, 의존: `@robota-sdk/agent-framework`(옵션 타입)
 - `.agents/project-structure.md` — 패키지 등재
@@ -64,13 +64,20 @@ resolver에 의존하는데, 그 기반이 존재하지 않는다.
 
 `packages/agent-preset/`를 신설한다.
 
-1. **`IPreset` 계약** (설계 제안서 §5.1): 정체성(`id`/`title`/`description`), 페르소나
-   (`appendSystemPrompt`/`systemPrompt`/`agentName`), 모델/effort(`model`/`effort`/`temperature`/
-   `maxOutputTokens`), 권한 프로파일(`defaultPermissionMode`/`defaultTrustLevel`/`allowedTools`/
-   `deniedTools`), 모듈 선택(`enabledCommandModules`/`disabledCommandModules`), 행동(`autonomy`).
-   권한/옵션 필드 타입은 `agent-framework`에서 import(`TPermissionMode` 등) — 재정의 금지.
-2. **`resolvePreset(id, base?)`**: 프리셋 id를 받아 프레임워크 옵션 부분집합(`TResolvedPresetOptions`)으로
-   변환. `default`는 항등(no-op) — base를 그대로 반환해 무회귀를 보장.
+1. **`IPreset` 계약** (설계 제안서 §5.1, EXACT): 정체성(`id`/`title`/`description`), 페르소나
+   (`appendSystemPrompt`/`systemPrompt`/`agentName`), 모델/effort(`model`/
+   `effort?: 'low' | 'medium' | 'high' | 'xhigh' | 'max'`/`temperature`/`maxOutputTokens`), 권한 프로파일
+   (`defaultPermissionMode`/`defaultTrustLevel`/`allowedTools`/`deniedTools`), 모듈 선택
+   (`enabledCommandModules`/`disabledCommandModules`), 실행 능력(`enableParallelSubagents?: boolean`/
+   `selfVerification?: boolean` — framework/executor seam을 켜는 메커니즘 플래그, 페르소나 텍스트 아님),
+   행동(`autonomy?: 'ask-first' | 'balanced' | 'act-first'`). **`autonomy`는 표시용 메타데이터가 아니라
+   권한 포스처(`defaultPermissionMode`/`defaultTrustLevel`)를 구동하는 MECHANISM 매핑이다.** 권한/옵션
+   필드 타입은 `agent-framework`에서 import(`TPermissionMode` 등) — 재정의 금지.
+2. **`resolvePreset(id, { cliOverrides })`**: 프리셋 id를 받아 프레임워크 옵션 부분집합
+   (`TResolvedPresetOptions`)으로 변환. **우선순위 MERGE를 이 함수가 소유한다**: 명시 옵션 > CLI 오버라이드
+   (`cliOverrides`) > 프리셋 값 > 프레임워크 기본값. **DEFAULT `agentName` 상수도 `agent-preset`가
+   소유한다** — 이 병합·기본값 로직은 어느 것도 `agent-cli`에 두지 않는다(cli는 호출 결과를 전달만 함).
+   `default`는 항등(no-op) — 오버라이드 없는 base를 그대로 반환해 무회귀를 보장.
 3. **`listPresets()`**: 등록된 프리셋의 `{ id, title, description }` 목록 반환(PRESET-006 UX의 데이터원).
 4. **빌트인 `default` 프리셋**: 현재 동작과 동일(오버라이드 없음).
 5. **SPEC.md** 작성, project-structure·publish 레지스트리·dep-direction 등재.
@@ -93,12 +100,15 @@ resolver에 의존하는데, 그 기반이 존재하지 않는다.
 
 ## Completion Criteria
 
-- [x] TC-01: `cat packages/agent-preset/package.json` → `name` 필드가 `@robota-sdk/agent-preset`
+- [ ] TC-01: `cat packages/agent-preset/package.json` → `name` 필드가 `@robota-sdk/agent-preset`
 - [ ] TC-02: `rg "export (interface|type) (IPreset|TResolvedPresetOptions)" packages/agent-preset/src` → 두 export 모두 매치
-- [ ] TC-03: `resolvePreset('default', base)`가 base와 깊은 동등(no-op)임을 단언하는 단위 테스트 통과 (`pnpm --filter @robota-sdk/agent-preset test` → exit 0)
-- [ ] TC-04: `listPresets()` 반환 배열에 `id === 'default'` 항목 존재함을 단언하는 단위 테스트 통과
-- [ ] TC-05: `pnpm --filter @robota-sdk/agent-preset build` → exit 0, 그리고 `node scripts/harness/check-dependency-direction.mjs` → exit 0 (agent-preset의 유일 의존 엣지 = agent-framework)
-- [ ] TC-06: `pnpm harness:scan` → exit 0 (신규 패키지 SPEC/등재/구조 스캔 통과)
+- [ ] TC-03: `rg "'low' \| 'medium' \| 'high' \| 'xhigh' \| 'max'" packages/agent-preset/src` → `IPreset.effort` enum이 `xhigh`/`max`를 포함하며 매치
+- [ ] TC-04: `rg "enableParallelSubagents\?: boolean" packages/agent-preset/src` 와 `rg "selfVerification\?: boolean" packages/agent-preset/src` → 두 실행 능력 필드 모두 매치
+- [ ] TC-05: `resolvePreset('default', base)`가 오버라이드 없는 base와 깊은 동등(no-op)임을 단언하는 단위 테스트 통과 (`pnpm --filter @robota-sdk/agent-preset test` → exit 0)
+- [ ] TC-06: `resolvePreset(id, { cliOverrides })`의 우선순위 병합이 명시 옵션 > cliOverrides > 프리셋 값 > 프레임워크 기본값 순서로 해석됨을 단언하는 단위 테스트 통과 (cliOverrides가 프리셋 값을 덮고, 명시 옵션이 cliOverrides를 덮음)
+- [ ] TC-07: `listPresets()` 반환 배열에 `id === 'default'` 항목 존재함을 단언하는 단위 테스트 통과
+- [ ] TC-08: `pnpm --filter @robota-sdk/agent-preset build` → exit 0, 그리고 `node scripts/harness/check-dependency-direction.mjs` → exit 0 (agent-preset의 유일 의존 엣지 = agent-framework)
+- [ ] TC-09: `pnpm harness:scan` → exit 0 (신규 패키지 SPEC/등재/구조 스캔 통과)
 
 ## Test Plan
 
@@ -108,13 +118,26 @@ Type DATA + tags typescript. 검증 = 타입/단위 테스트(vitest) + 빌드·
 | ----- | ---------------------- | ---------------------------------------------------------------------- | -------- |
 | TC-01 | CI pipeline smoke test | `cat`/`rg` package.json name 단언                                      | 커맨드폼 |
 | TC-02 | DATA (typescript)      | `rg` export 패턴 (IPreset, TResolvedPresetOptions)                     | 커맨드폼 |
-| TC-03 | RULE (unit)            | vitest 단위 테스트 — default resolve no-op 깊은 동등                   |          |
-| TC-04 | RULE (unit)            | vitest 단위 테스트 — listPresets default 포함                          |          |
-| TC-05 | CI pipeline smoke test | `pnpm --filter ... build` + `check-dependency-direction.mjs` exit code | 커맨드폼 |
-| TC-06 | CI pipeline smoke test | `pnpm harness:scan` exit 0                                             | 커맨드폼 |
+| TC-03 | DATA (typescript)      | `rg` effort enum 패턴 (xhigh/max 포함)                                 | 커맨드폼 |
+| TC-04 | DATA (typescript)      | `rg` enableParallelSubagents / selfVerification 필드 패턴              | 커맨드폼 |
+| TC-05 | RULE (unit)            | vitest 단위 테스트 — default resolve no-op 깊은 동등                   |          |
+| TC-06 | RULE (unit)            | vitest 단위 테스트 — resolvePreset cliOverrides 우선순위 병합          |          |
+| TC-07 | RULE (unit)            | vitest 단위 테스트 — listPresets default 포함                          |          |
+| TC-08 | CI pipeline smoke test | `pnpm --filter ... build` + `check-dependency-direction.mjs` exit code | 커맨드폼 |
+| TC-09 | CI pipeline smoke test | `pnpm harness:scan` exit 0                                             | 커맨드폼 |
 
 ## Tasks
 
 - [ ] `.agents/tasks/PRESET-001.md` — 미생성 (GATE-APPROVAL 통과 후 생성)
 
 ## Evidence Log
+
+### [GATE-WRITE] — ✅ PASS | 2026-06-14
+
+**Status upgrade:** draft → review-ready
+Frontmatter: `---` block present; `status: draft`; `type: DATA` (valid 11-prefix value); `tags: [typescript]` present.
+Problem: concrete symptom (`rg "agent-preset" packages` → no match, directory absent) + reproduction condition; no TBD/TODO/vague.
+Architecture Review: all 4 checklist items `[x]`; sibling scan `[x]` with evidence (agent-interface-transport, agent-framework option types); 3 alternatives each with Pro/Con (≥2 required); Decision references trade-off (1 package cost vs framework neutrality/layering/reuse).
+Completion Criteria: TC-01..TC-09 all TC-N prefixed; command/observable form; no banned phrases ("works correctly"/"no errors"/"implemented"/"displays correctly").
+Test Plan: present; 9 rows (TC-01..TC-09) match 9 Completion Criteria count; each has Test Type + Tool/Approach, no TBD; no row uses Tool "manual" so manual-Notes justification rule not triggered.
+Structure: Tasks section with placeholder present; Evidence Log present and empty before this run; no `## Status` or `## Classification` body sections.

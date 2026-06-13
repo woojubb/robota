@@ -94,3 +94,14 @@ Type FLOW + tags cli → 파일 로딩/검증/병합 통합 테스트(임시 디
 - [ ] `.agents/tasks/PRESET-007.md` — 미생성 (GATE-APPROVAL 통과 후 생성)
 
 ## Evidence Log
+
+### [GATE-WRITE] — ✅ PASS | 2026-06-14
+
+**Status upgrade:** draft → review-ready
+Frontmatter: `---` block present, `status: draft`, `type: FLOW` (valid 11-prefix), `tags: [cli]` present — all OK.
+Problem: concrete symptom (`listPresets()` returns built-in only; no loader for `~/.robota/presets/*.{json,md}`) + reproduction condition present; no TBD/TODO/vague — OK.
+Architecture Review Checklist: all 4 items `[x]`; sibling scan `[x]` with evidence (SettingsSchema, extraKnownMarketplaces); 2 alternatives each with Pro/Con; Decision states trade-off (파싱/검증/충돌 정책 비용 vs 낮은 진입 장벽) — OK.
+Completion Criteria: TC-01..TC-05 all TC-N prefixed, Command/Observable form, no banned phrases — OK.
+Test Plan: section present; 5 rows (TC-01..TC-05) match 5 Completion Criteria; each row has Test Type + Tool/Approach, no TBD; no "manual" Tool rows so manual-justification N/A — OK.
+Structure: Tasks section present with placeholder; Evidence Log empty before this entry; no `## Status`/`## Classification` body sections — OK.
+TC-N count match confirmed: Completion Criteria 5 = Test Plan 5.
