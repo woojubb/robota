@@ -95,3 +95,14 @@ Type SCREEN + tags cli → 명령 출력/TUI 렌더 단언 + 빌드 스모크.
 - [ ] `.agents/tasks/PRESET-006.md` — 미생성 (GATE-APPROVAL 통과 후 생성)
 
 ## Evidence Log
+
+### [GATE-WRITE] — ✅ PASS | 2026-06-14
+
+**Status upgrade:** draft → review-ready
+Frontmatter: `---` block present; `status: draft`; `type: SCREEN` (valid 11-prefix value); `tags: [cli]` present.
+Problem: concrete symptom (`/preset` 명령 없음, 상태 표시줄 활성 프리셋 표시 없음) + reproduction condition (TUI 세션); no TBD/TODO/vague.
+Architecture Review Checklist: all 4 items `[x]`; Sibling scan `[x]` with evidence (`/mode`·`/model` + SessionStatusBar patterns confirmed); Alternatives Considered has 2 entries each with Pro/Con; Decision references trade-off (두 곳 수정 비용 감수 ↔ 명령 UX 일관성).
+Completion Criteria: TC-01–TC-05 all TC-N prefixed; ≥1 per feature (list/switch/TUI display/rejection/build); Command + Observable behavior forms; no banned phrases ("works correctly"/"no errors"/"implemented"/"displays correctly").
+Test Plan: `## Test Plan` present; 5 rows (TC-01–TC-05) match 5 Completion Criteria; every row has non-empty Test Type and Tool/Approach, no "TBD"; no row uses "manual" tool so no manual-justification required.
+Structure: Tasks section present with placeholder; Evidence Log empty before this entry; no `## Status` or `## Classification` body sections.
+TC-N count matches between Completion Criteria (5) and Test Plan (5).
