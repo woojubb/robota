@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: OBSERVABILITY
 tags: [cli, typescript, async]
 ---
@@ -138,29 +138,29 @@ _Corrected 2026-06-13 to the real on-disk layout + the two integration fixes:_
 
 ## Completion Criteria
 
-- [ ] TC-01: `robota session analyze` 실행 시 최근 세션 1개의 타이밍 리포트가 stdout에 출력됨
-- [ ] TC-02: `robota session analyze --last 10` 실행 시 최근 10개 세션의 집계 통계가 출력됨
-- [ ] TC-03: 각 history 항목 간 `gap_ms`가 ISO 8601 timestamp 파싱으로 정확히 계산됨 (unit test)
-- [ ] TC-04: `tool-start → tool-end` 구간이 "코드 처리"로, `tool-end → tool-start` 구간이 "LLM 대기"로 올바르게 분류됨 (unit test)
-- [ ] TC-05: 10초 이상 구간은 "Slow intervals" 섹션에 별도 표시됨
-- [ ] TC-06: 세션 파일이 없거나 파싱 실패 시 명확한 오류 메시지 출력 후 exit 1
-- [ ] TC-07: `--session <id>` 플래그로 특정 세션 지정 분석 가능
+- [x] TC-01: `robota session analyze` 실행 시 최근 세션 1개의 타이밍 리포트가 stdout에 출력됨
+- [x] TC-02: `robota session analyze --last 10` 실행 시 최근 10개 세션의 집계 통계가 출력됨
+- [x] TC-03: 각 history 항목 간 `gap_ms`가 ISO 8601 timestamp 파싱으로 정확히 계산됨 (unit test)
+- [x] TC-04: `tool-start → tool-end` 구간이 "코드 처리"로, `tool-end → tool-start` 구간이 "LLM 대기"로 올바르게 분류됨 (unit test)
+- [x] TC-05: 10초 이상 구간은 "Slow intervals" 섹션에 별도 표시됨
+- [x] TC-06: 세션 파일이 없거나 파싱 실패 시 명확한 오류 메시지 출력 후 exit 1
+- [x] TC-07: `--session <id>` 플래그로 특정 세션 지정 분석 가능
 
 ## Test Plan
 
-| TC-ID | Test Type   | Tool / Approach                     | Notes                                |
-| ----- | ----------- | ----------------------------------- | ------------------------------------ |
-| TC-01 | Integration | Process spawn + stdout assertion    | 실제 `~/.robota/sessions/` 파일 사용 |
-| TC-02 | Integration | Process spawn + stdout assertion    | fixture 세션 파일 사용               |
-| TC-03 | Unit        | vitest — timestamp diff 계산 검증   |                                      |
-| TC-04 | Unit        | vitest — 구간 분류 로직 검증        |                                      |
-| TC-05 | Unit        | vitest — slow interval 필터링 검증  |                                      |
-| TC-06 | Integration | Process spawn + exit code assertion | 빈 디렉터리로 테스트                 |
-| TC-07 | Integration | Process spawn + `--session` flag    |                                      |
+| TC-ID | Test Type   | Tool / Approach                     | Test Reference                                                                                                                                                                                    |
+| ----- | ----------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| TC-01 | Integration | Process spawn + stdout assertion    | `src/session-analyzer/__tests__/session-analyze-command.test.ts` > "TC-01: analyzes the most recent PROJECT-level session" + real-binary (exit 0)                                                 |
+| TC-02 | Integration | Process spawn + stdout assertion    | `src/session-analyzer/__tests__/session-analyze-command.test.ts` > "TC-02: --last aggregates multiple sessions" + real-binary "Analyzed 2 sessions" exit 0                                        |
+| TC-03 | Unit        | vitest — timestamp diff 계산 검증   | `src/session-analyzer/__tests__/parser.test.ts` (gap_ms ISO-8601 calc)                                                                                                                            |
+| TC-04 | Unit        | vitest — 구간 분류 로직 검증        | `src/session-analyzer/__tests__/parser.test.ts` (interval classification)                                                                                                                         |
+| TC-05 | Unit        | vitest — slow interval 필터링 검증  | `src/session-analyzer/__tests__/reporter.test.ts` (slow-interval >10s section)                                                                                                                    |
+| TC-06 | Integration | Process spawn + exit code assertion | `src/session-analyzer/__tests__/session-analyze-command.test.ts` > "TC-06: no sessions in either location → stderr error + exit 1" + real-binary exit 1                                           |
+| TC-07 | Integration | Process spawn + `--session` flag    | `src/session-analyzer/__tests__/session-analyze-command.test.ts` > "TC-07: --session <prefix> selects a specific session" / "TC-07b: --session with an unknown id → error + exit 1" + real-binary |
 
 ## Tasks
 
-- [ ] `.agents/tasks/OBS-001.md` — T1~T9 (TC-01~TC-07 매핑 + integration test + wrap-up)
+- [x] `.agents/tasks/completed/OBS-001.md` — archived at GATE-COMPLETE (T1~T9, TC-01~TC-07 매핑)
 
 ## Evidence Log
 
@@ -209,3 +209,70 @@ _Corrected 2026-06-13 to the real on-disk layout + the two integration fixes:_
 - Tasks file path recorded in spec `## Tasks` section: line reads `` `.agents/tasks/OBS-001.md` — T1~T9 (TC-01~TC-07 매핑 + integration test + wrap-up) `` — confirmed.
 - Tasks correspond to Completion Criteria (≥1 task per TC-N): TC-01→T1, TC-02→T2, TC-03→T3, TC-04→T4, TC-05→T5, TC-06→T6, TC-07→T7 — all 7 TCs mapped; plus T8 (new `session-analyze-command.test.ts` integration test for the path-merge + flag-delivery fixes) and T9 (wrap-up: test/typecheck/lint/build + real-binary 7-TC verification + GATE-VERIFY/COMPLETE).
 - NON-COMPLIANCE trigger check (implementation commits exist but no tasks file): not met — `git log develop..HEAD` is empty (no fix-implementation commits), tasks file is present, and the working tree contains only spec/tasks doc changes. The pre-existing broken parser/reporter/command code is the prior implementation, not new fix work for this gate.
+
+### [GATE-VERIFY] — ✅ PASS | 2026-06-13
+
+**Status upgrade:** in-progress → verifying
+
+- Tasks completion state (`.agents/tasks/OBS-001.md`): T1–T8 are `[x]` (TC-01→T1, TC-02→T2, TC-03→T3, TC-04→T4, TC-05→T5, TC-06→T6, TC-07→T7, plus T8 = new `session-analyze-command.test.ts` integration test). T9 (wrap-up: PR to develop + GATE-COMPLETE archival of tasks/spec→done) is intentionally unchecked and adjudicated per the established CLI-063..073/HARNESS precedent: PR creation and GATE-COMPLETE archival are later-gate wrap-up steps, not GATE-VERIFY criteria. The fix is committed: `2aa228f96 fix(cli): make 'session analyze' actually work — project-level sessions + flag delivery (OBS-001)` on branch `fix/obs-001-session-analyze` (`git log develop..HEAD` shows this single commit; the earlier "log empty" notes predate it).
+- No blocked or pending tasks: T9 is deferred wrap-up (GATE-COMPLETE scope), not blocked; no task carries a blocked marker.
+- Build passes (affected package agent-cli): `pnpm --filter @robota-sdk/agent-cli build` → "Build complete" (ESM + CJS bin/index emitted, no errors).
+- Tests pass (affected package agent-cli): `pnpm --filter @robota-sdk/agent-cli test` → Test Files 19 passed (19), Tests 152 passed (152). Includes the new `src/session-analyzer/__tests__/session-analyze-command.test.ts` (6 tests, path-merge + flag delivery for TC-01/02/06/07) and existing regression suites `parser.test.ts` (12) and `reporter.test.ts` (7) for TC-03/04/05.
+- Supporting evidence (substance behind this gate — real-binary verification 2026-06-13): TC-01 prints the most recent project-level session timing report (exit 0); TC-02 `--last 10` aggregates ("Analyzed 2 sessions", exit 0); TC-06 no sessions → "No session files found in <project>/.robota/sessions or <home>/.robota/sessions" + exit 1; TC-07 `--session` flag delivered (no longer "Unknown option"), bogus id → "Session not found" + exit 1. TC-03/04/05 covered by the unchanged parser/reporter unit suites.
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-06-13
+
+- Completion Criteria checkbox: `[x]` confirmed (`robota session analyze` prints the most recent session timing report to stdout).
+- Verification command (cwd `packages/agent-cli`): `npx vitest run src/session-analyzer/__tests__/session-analyze-command.test.ts` — test "TC-01: analyzes the most recent PROJECT-level session (the real storage location)" → PASS (6/6 file). File exit code: 0.
+- Real-binary supporting evidence (substance of the fix, recorded at GATE-VERIFY 2026-06-13): real CLI prints the most-recent project-level session timing report, exit 0.
+- Test reference: `src/session-analyzer/__tests__/session-analyze-command.test.ts > runSessionAnalyze integration (OBS-001) > TC-01: analyzes the most recent PROJECT-level session`.
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-06-13
+
+- Completion Criteria checkbox: `[x]` confirmed (`--last N` aggregate statistics).
+- Verification command (cwd `packages/agent-cli`): `npx vitest run src/session-analyzer/__tests__/session-analyze-command.test.ts` — test "TC-02: --last aggregates multiple sessions (flag is delivered, not rejected)" → PASS. File exit code: 0.
+- Real-binary supporting evidence (GATE-VERIFY 2026-06-13): `robota session analyze --last 10` → "Analyzed 2 sessions", exit 0 (the `--last` flag now reaches the subcommand instead of being rejected by the strict global parser).
+- Test reference: `src/session-analyzer/__tests__/session-analyze-command.test.ts > runSessionAnalyze integration (OBS-001) > TC-02: --last aggregates multiple sessions`.
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-06-13
+
+- Completion Criteria checkbox: `[x]` confirmed (gap_ms via ISO-8601 timestamp parsing).
+- Verification command (cwd `packages/agent-cli`): `npx vitest run src/session-analyzer/__tests__/parser.test.ts` → Test Files 1 passed (1), Tests 12 passed (12). Exit code: 0.
+- Test reference: `src/session-analyzer/__tests__/parser.test.ts` (gap_ms ISO-8601 calculation).
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-06-13
+
+- Completion Criteria checkbox: `[x]` confirmed (`tool-start→tool-end` = code processing, `tool-end→tool-start` = LLM wait classification).
+- Verification command (cwd `packages/agent-cli`): `npx vitest run src/session-analyzer/__tests__/parser.test.ts` → Test Files 1 passed (1), Tests 12 passed (12). Exit code: 0.
+- Test reference: `src/session-analyzer/__tests__/parser.test.ts` (interval classification).
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-06-13
+
+- Completion Criteria checkbox: `[x]` confirmed (>10s intervals shown in a separate "Slow intervals" section).
+- Verification command (cwd `packages/agent-cli`): `npx vitest run src/session-analyzer/__tests__/reporter.test.ts` → Test Files 1 passed (1), Tests 7 passed (7). Exit code: 0.
+- Test reference: `src/session-analyzer/__tests__/reporter.test.ts` (slow-interval >10s section).
+
+### [GATE-COMPLETE: TC-06] — ✅ PASS | 2026-06-13
+
+- Completion Criteria checkbox: `[x]` confirmed (no/unparseable session files → clear error message + exit 1).
+- Verification command (cwd `packages/agent-cli`): `npx vitest run src/session-analyzer/__tests__/session-analyze-command.test.ts` — test "TC-06: no sessions in either location → stderr error + exit 1" → PASS. File exit code: 0.
+- Real-binary supporting evidence (GATE-VERIFY 2026-06-13): no sessions in either location → stderr "No session files found in <project>/.robota/sessions or <home>/.robota/sessions" + exit 1.
+- Test reference: `src/session-analyzer/__tests__/session-analyze-command.test.ts > runSessionAnalyze integration (OBS-001) > TC-06: no sessions in either location → stderr error + exit 1`.
+
+### [GATE-COMPLETE: TC-07] — ✅ PASS | 2026-06-13
+
+- Completion Criteria checkbox: `[x]` confirmed (`--session <id>` selects a specific session).
+- Verification command (cwd `packages/agent-cli`): `npx vitest run src/session-analyzer/__tests__/session-analyze-command.test.ts` — tests "TC-07: --session <prefix> selects a specific session" and "TC-07b: --session with an unknown id → error + exit 1" → both PASS. File exit code: 0.
+- Real-binary supporting evidence (GATE-VERIFY 2026-06-13): `--session` flag delivered (no "Unknown option"); a bogus id → "Session not found" + exit 1.
+- Test reference: `src/session-analyzer/__tests__/session-analyze-command.test.ts > runSessionAnalyze integration (OBS-001) > TC-07: --session <prefix> selects a specific session` / `... > TC-07b: --session with an unknown id → error + exit 1`.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-06-13
+
+**Status upgrade:** verifying → done
+
+- Per-TC evidence: TC-01 through TC-07 each have a `[GATE-COMPLETE: TC-N]` entry above with verification command, observed result, exit code, and a test reference; integration TCs (01/02/06/07) additionally cite the real-binary GATE-VERIFY result.
+- Completion Criteria: all 7 checkboxes (TC-01–TC-07) are `[x]` — confirmed.
+- Test Plan: all 7 rows updated with concrete test references (no remaining "Notes"-only placeholders); every TC-N has a test reference, none silently unaddressed.
+- Test runs this gate (cwd `packages/agent-cli`): `session-analyze-command.test.ts` → 6 passed, exit 0; `parser.test.ts` → 12 passed, exit 0; `reporter.test.ts` → 7 passed, exit 0. All three test files exist on disk.
+- Tasks file archived: `.agents/tasks/completed/OBS-001.md` present (T1–T9). Correction at this gate: T8 ("new integration test `session-analyze-command.test.ts`") was left `[ ]` in the archived file though its deliverable exists and passes 6 tests; checkbox corrected to `[x]` with verification note so the archived record is accurate.
+- `## Tasks` section points at the archived path (`.agents/tasks/completed/OBS-001.md`) — confirmed.
