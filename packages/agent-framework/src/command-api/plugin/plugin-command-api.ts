@@ -1,48 +1,22 @@
 import type { TCommandEffect } from '../effects.js';
 import type { ICommandHostContext } from '../host-context.js';
 import type { ICommand } from '../types.js';
+// Plugin command adapter contracts SSOT relocated to @robota-sdk/agent-interface-transport (DATA-001).
+import type { ICommandPluginAdapter } from '@robota-sdk/agent-interface-transport';
+
+export type {
+  TPluginInstallScope,
+  ICommandInstalledPlugin,
+  ICommandAvailablePlugin,
+  ICommandMarketplaceSource,
+  ICommandPluginReloadResult,
+  ICommandPluginAdapter,
+} from '@robota-sdk/agent-interface-transport';
 
 export const PLUGIN_COMMAND_DESCRIPTION = 'Manage plugins';
 export const PLUGIN_COMMAND_ARGUMENT_HINT =
   'manage | install <name@marketplace> | uninstall <name@marketplace> | enable <name@marketplace> | disable <name@marketplace> | marketplace <action>';
 export const RELOAD_PLUGINS_COMMAND_DESCRIPTION = 'Reload all plugin resources';
-
-export type TPluginInstallScope = 'user' | 'project';
-
-export interface ICommandInstalledPlugin {
-  name: string;
-  description: string;
-  enabled: boolean;
-}
-
-export interface ICommandAvailablePlugin {
-  name: string;
-  description: string;
-  installed: boolean;
-}
-
-export interface ICommandMarketplaceSource {
-  name: string;
-  type: string;
-}
-
-export interface ICommandPluginReloadResult {
-  loadedPluginCount: number;
-}
-
-export interface ICommandPluginAdapter {
-  listInstalled(): Promise<readonly ICommandInstalledPlugin[]>;
-  listAvailablePlugins(marketplace: string): Promise<readonly ICommandAvailablePlugin[]>;
-  install(pluginId: string, scope?: TPluginInstallScope): Promise<void>;
-  uninstall(pluginId: string): Promise<void>;
-  enable(pluginId: string): Promise<void>;
-  disable(pluginId: string): Promise<void>;
-  marketplaceAdd(source: string): Promise<string>;
-  marketplaceRemove(name: string): Promise<void>;
-  marketplaceUpdate(name: string): Promise<void>;
-  marketplaceList(): Promise<readonly ICommandMarketplaceSource[]>;
-  reloadPlugins(): Promise<ICommandPluginReloadResult>;
-}
 
 export function createPluginTuiRequestedEffect(): TCommandEffect {
   return { type: 'plugin-tui-requested' };

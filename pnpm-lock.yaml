@@ -658,6 +658,16 @@ importers:
         version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.22.4)
 
   packages/agent-interface-transport:
+    dependencies:
+      '@robota-sdk/agent-core':
+        specifier: workspace:*
+        version: link:../agent-core
+      '@robota-sdk/agent-executor':
+        specifier: workspace:*
+        version: link:../agent-executor
+      '@robota-sdk/agent-session':
+        specifier: workspace:*
+        version: link:../agent-session
     devDependencies:
       rimraf:
         specifier: ^5.0.10
