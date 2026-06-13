@@ -16,10 +16,10 @@ import type {
   IBackgroundTaskRunner,
   ICommandHostAdapters,
   ICommandModule,
-  IInteractiveSessionStore,
   TSubagentRunnerFactory,
   TShellExecFn,
 } from '@robota-sdk/agent-framework';
+import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-transport';
 
 export interface IHeadlessInteractionChannelOptions {
   cwd: string;

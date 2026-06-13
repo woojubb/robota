@@ -53,8 +53,11 @@ vi.mock('@robota-sdk/agent-framework', async () => {
 import { TuiInteractionChannel } from '../TuiInteractionChannel.js';
 
 import type { IAIProvider } from '@robota-sdk/agent-core';
-import type { IExecutionResult, IInteractiveSession } from '@robota-sdk/agent-framework';
-import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
+import type {
+  IExecutionResult,
+  IInteractiveSession,
+  ITransportRegistryView,
+} from '@robota-sdk/agent-interface-transport';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

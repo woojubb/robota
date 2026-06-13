@@ -3,7 +3,7 @@ import type {
   IExecutionWorkspaceEntry,
   IExecutionWorkspaceSnapshot,
   TExecutionWorkspaceStatus,
-} from '@robota-sdk/agent-framework';
+} from '@robota-sdk/agent-interface-transport';
 
 const ACTIVE_STATUSES: readonly TExecutionWorkspaceStatus[] = [
   'active',

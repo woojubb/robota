@@ -1,4 +1,4 @@
-import type { ICommandInteraction, TCommandEffect } from '@robota-sdk/agent-framework';
+import type { ICommandInteraction, TCommandEffect } from '@robota-sdk/agent-interface-transport';
 
 export type TQueuedCommandState =
   | {

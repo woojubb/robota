@@ -14,7 +14,7 @@ import {
 import type {
   IExecutionWorkspaceEntry,
   IExecutionWorkspaceSnapshot,
-} from '@robota-sdk/agent-framework';
+} from '@robota-sdk/agent-interface-transport';
 
 const MAX_VISIBLE_WORKSPACE_ENTRIES = 8;
 

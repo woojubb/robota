@@ -68,7 +68,7 @@ import {
 import { TuiInteractionChannel } from '../TuiInteractionChannel.js';
 
 import type { IAIProvider, IHistoryEntry } from '@robota-sdk/agent-core';
-import type { IExecutionResult } from '@robota-sdk/agent-framework';
+import type { IExecutionResult } from '@robota-sdk/agent-interface-transport';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

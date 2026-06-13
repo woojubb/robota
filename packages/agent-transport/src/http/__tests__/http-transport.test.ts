@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createHttpTransport } from '../http-transport.js';
-import type { IInteractiveSession } from '@robota-sdk/agent-framework';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
 
 function createMockSession(): IInteractiveSession {
   return {

@@ -1,7 +1,7 @@
 import { Box, Text, useStdout } from 'ink';
 import React, { useState, useEffect } from 'react';
 
-import type { ICommand } from '@robota-sdk/agent-framework';
+import type { ICommand } from '@robota-sdk/agent-interface-transport';
 
 interface IProps {
   /** Filtered list of commands to display */
