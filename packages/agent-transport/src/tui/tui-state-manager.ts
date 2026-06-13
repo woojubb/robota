@@ -10,10 +10,10 @@
 
 import type { IContextWindowState, IHistoryEntry } from '@robota-sdk/agent-core';
 import type {
-  IToolState,
   IExecutionResult,
   IExecutionWorkspaceSnapshot,
-} from '@robota-sdk/agent-framework';
+  IToolState,
+} from '@robota-sdk/agent-interface-transport';
 
 /** Max messages kept in rendering state */
 const MAX_RENDERED_MESSAGES = 100;

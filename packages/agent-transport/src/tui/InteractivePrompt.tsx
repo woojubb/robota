@@ -5,9 +5,9 @@ import ListPicker from './ListPicker.js';
 import TextPrompt from './TextPrompt.js';
 
 import type {
-  TCommandInteractionPrompt as TInteractivePrompt,
   ICommandChoicePromptOption as IChoicePromptOption,
-} from '@robota-sdk/agent-framework';
+  TCommandInteractionPrompt as TInteractivePrompt,
+} from '@robota-sdk/agent-interface-transport';
 
 interface IInteractivePromptProps {
   prompt: TInteractivePrompt;

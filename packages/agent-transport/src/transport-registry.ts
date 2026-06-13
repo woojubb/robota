@@ -11,9 +11,9 @@ import { readSettings, writeSettings, type TSettingsData } from '@robota-sdk/age
 import { WsTransport } from './ws/index.js';
 
 import type { TUniversalValue } from '@robota-sdk/agent-core';
-import type { IInteractiveSession } from '@robota-sdk/agent-framework';
 import type {
   IConfigurableTransport,
+  IInteractiveSession,
   ITransportConfig,
   ITransportEntry,
 } from '@robota-sdk/agent-interface-transport';

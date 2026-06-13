@@ -5,7 +5,7 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import { createAgentRoutes } from '../routes.js';
-import type { IInteractiveSession } from '@robota-sdk/agent-framework';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
 
 function createMockSession(overrides?: Record<string, unknown>) {
   return {

@@ -3,7 +3,10 @@ import { isStatusLineCommandSettingsPatch } from '@robota-sdk/agent-framework';
 
 import type { ITuiCliAdapter } from '../tui-cli-adapter.js';
 import type { IHistoryEntry, TSessionEndReason } from '@robota-sdk/agent-core';
-import type { TCommandEffect, TStatusLineCommandSettingsPatch } from '@robota-sdk/agent-framework';
+import type {
+  TCommandEffect,
+  TStatusLineCommandSettingsPatch,
+} from '@robota-sdk/agent-interface-transport';
 
 export interface ICommandEffectHandlerDeps {
   addEntry: (entry: IHistoryEntry) => void;

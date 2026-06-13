@@ -5,7 +5,8 @@
 
 import React, { useState, useMemo } from 'react';
 
-import type { CommandRegistry, ICommand } from '@robota-sdk/agent-framework';
+import type { CommandRegistry } from '@robota-sdk/agent-framework';
+import type { ICommand } from '@robota-sdk/agent-interface-transport';
 
 /** Parse input to determine autocomplete state */
 function parseSlashInput(value: string): {

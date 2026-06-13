@@ -8,7 +8,7 @@ import React from 'react';
 
 import ListPicker from './ListPicker.js';
 
-import type { IResumableSessionSummary } from '@robota-sdk/agent-framework';
+import type { IResumableSessionSummary } from '@robota-sdk/agent-interface-transport';
 
 const SESSION_ID_DISPLAY_LENGTH = 8;
 const SESSION_PREVIEW_DISPLAY_LENGTH = 60;
