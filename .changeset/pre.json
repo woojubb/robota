@@ -74,6 +74,7 @@
   "changesets": [
     "add-cli-provider-usage-visibility",
     "agent-sandbox-execution",
+    "arch-conformance-beta74",
     "automatic-memory-capture-retrieval",
     "batch-beta-56",
     "bright-status-activity",
