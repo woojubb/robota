@@ -38,6 +38,16 @@ Consult the relevant skill before starting work in its domain. Each entry links 
 | [async-concurrency-patterns](async-concurrency-patterns/SKILL.md)       | Concurrent async with limits, cancellation, backpressure             |
 | [logging-level-guide](logging-level-guide/SKILL.md)                     | When to use each log level, common anti-patterns                     |
 
+## Architecture Conformance
+
+| Skill                                                                     | Description                                                                                    |
+| ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| [architecture-conformance-audit](architecture-conformance-audit/SKILL.md) | Orchestrates a repeatable doc-vs-code architecture conformance audit (GATE-CONFORMANCE)        |
+| [dependency-graph-extraction](dependency-graph-extraction/SKILL.md)       | Extracts the actual agent-\* dependency edge set + runs the mechanical conformance guards      |
+| [doc-claim-verification](doc-claim-verification/SKILL.md)                 | Verifies one architecture document's claims vs code: HOLDS/DRIFT/VIOLATION/CONTRADICTION/STALE |
+| [conformance-finding-report](conformance-finding-report/SKILL.md)         | Assembles verdicts into the AF-NN findings report with severities + counts (INFRA-002 schema)  |
+| [improvement-proposal-authoring](improvement-proposal-authoring/SKILL.md) | Maps findings to remediation + follow-up backlogs + mechanical-guard recommendations           |
+
 ## Testing
 
 | Skill                                                                   | Description                                                     |
