@@ -8,9 +8,9 @@
  */
 
 import { readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 
-import { userPaths } from '@robota-sdk/agent-framework';
+import { projectPaths, userPaths } from '@robota-sdk/agent-framework';
 
 import { analyzeSession, parseSessionFile } from './parser.js';
 import { formatAggregateReport, formatSingleSession } from './reporter.js';
@@ -39,16 +39,32 @@ function parseSessionAnalyzeArgs(argv: string[]): ISessionAnalyzeArgs {
   return { last, sessionId };
 }
 
-function listSessionFiles(sessionsDir: string): string[] {
+function listSessionFilesIn(sessionsDir: string): string[] {
   try {
     return readdirSync(sessionsDir)
       .filter((f) => f.endsWith('.json'))
-      .map((f) => join(sessionsDir, f))
-      .sort();
+      .map((f) => join(sessionsDir, f));
   } catch {
     // allow-fallback: sessions directory may not exist on first run — empty list is correct response
     return [];
   }
+}
+
+/**
+ * OBS-001 fix: sessions are persisted to the PROJECT store (`cwd/.robota/sessions`) by both
+ * print and TUI modes, while older history may live at the USER level. Read both, de-dupe by
+ * file basename (project wins on collision), and sort by basename — session ids are
+ * timestamp-prefixed, so lexical order is chronological.
+ */
+function listSessionFiles(cwd: string): string[] {
+  const byName = new Map<string, string>();
+  for (const path of listSessionFilesIn(userPaths().sessions)) {
+    byName.set(basename(path), path);
+  }
+  for (const path of listSessionFilesIn(projectPaths(cwd).sessions)) {
+    byName.set(basename(path), path);
+  }
+  return [...byName.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([, path]) => path);
 }
 
 function buildAggregateReport(reports: ISessionTimingReport[]): IAggregateReport {
@@ -101,13 +117,17 @@ function buildAggregateReport(reports: ISessionTimingReport[]): IAggregateReport
   };
 }
 
-export async function runSessionAnalyze(argv: string[]): Promise<void> {
+export async function runSessionAnalyze(
+  argv: string[],
+  cwd: string = process.cwd(),
+): Promise<void> {
   const args = parseSessionAnalyzeArgs(argv);
-  const sessionsDir = userPaths().sessions;
-  const allFiles = listSessionFiles(sessionsDir);
+  const allFiles = listSessionFiles(cwd);
 
   if (allFiles.length === 0) {
-    process.stderr.write(`No session files found in ${sessionsDir}\n`);
+    process.stderr.write(
+      `No session files found in ${projectPaths(cwd).sessions} or ${userPaths().sessions}\n`,
+    );
     process.exit(1);
   }
 

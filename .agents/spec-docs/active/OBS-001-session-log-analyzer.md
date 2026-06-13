@@ -8,7 +8,7 @@ tags: [cli, typescript, async]
 
 ## Problem
 
-`~/.robota/sessions/*.json` 세션 로그에는 각 history 항목마다 `timestamp` 필드가 기록되어 있으나, 이를 분석하는 도구가 없다.
+세션 로그에는 각 history 항목마다 `timestamp` 필드가 기록되어 있으나, 이를 분석하는 도구가 없다.
 
 현재 상황:
 
@@ -17,7 +17,26 @@ tags: [cli, typescript, async]
 - 성능 문제 발생 시 어느 구간에서 발생하는지 추적이 불가능
 - 세션별 컨텍스트 토큰 누적이 응답 속도에 미치는 영향 파악 불가
 
-재현 조건: 세션 종료 후 `~/.robota/sessions/` 에 JSON 파일이 생성되어 있을 때, 어느 구간이 느렸는지 확인하려 해도 분석 도구가 없음.
+재현 조건: 세션 종료 후 세션 JSON 파일이 생성되어 있을 때, 어느 구간이 느렸는지 확인하려 해도 분석 도구가 없음.
+
+### Real-binary verification finding (2026-06-13) — the shipped command is broken
+
+An initial implementation shipped (parser/reporter unit tests pass), but a real-binary run of
+the actual CLI revealed it never works in practice — two integration bugs the unit tests
+could not catch:
+
+1. **Session-path mismatch (TC-01/02/07 fail):** every session (print and TUI) is persisted to
+   `cwd/.robota/sessions` via `createProjectSessionStore(cwd)` (`projectPaths`), but
+   `runSessionAnalyze` reads only `userPaths().sessions` (`~/.robota/sessions`). `robota session
+analyze` therefore reports "No session files found" even immediately after creating sessions.
+   (The original spec assumed user-level storage; the session store moved to project-level
+   afterward, leaving the analyzer pointed at the wrong directory.)
+2. **`--last`/`--session` rejected (TC-02/07 fail):** `startCli` runs `parseCliArgs()` (Node
+   `parseArgs`, strict) before the `session analyze` dispatch, so the unknown `--last`/`--session`
+   options throw "Unknown option" and never reach `runSessionAnalyze`.
+
+This is the exact false-done class HARNESS-002 guards against — done evidence (unit tests) was
+real but the user-facing feature was non-functional.
 
 ## Architecture Review
 
@@ -101,12 +120,21 @@ Analyzed 30 sessions (2026-04-01 ~ 2026-05-01)
 
 ## Affected Files
 
-- `packages/agent-cli/src/session-analyzer/parser.ts` — JSON 파싱 + 타이밍 계산
-- `packages/agent-cli/src/session-analyzer/reporter.ts` — 텍스트 리포트 포매터
-- `packages/agent-cli/src/session-analyzer/types.ts` — `ISessionTiming`, `ITimingInterval` 타입
-- `packages/agent-cli/src/session-analyzer/__tests__/parser.test.ts`
-- `packages/agent-cli/src/session-analyzer/__tests__/reporter.test.ts`
-- `packages/agent-cli/src/commands/session-analyze-command.ts` — CLI 진입점
+_Corrected 2026-06-13 to the real on-disk layout + the two integration fixes:_
+
+- `packages/agent-cli/src/session-analyzer/parser.ts` — JSON 파싱 + 타이밍 계산 (unchanged)
+- `packages/agent-cli/src/session-analyzer/reporter.ts` — 텍스트 리포트 포매터 (unchanged)
+- `packages/agent-cli/src/session-analyzer/types.ts` — 타이밍 타입 (unchanged)
+- `packages/agent-cli/src/session-analyzer/session-analyze-command.ts` — **fix:** read sessions
+  from project-level (`projectPaths(cwd).sessions`) AND user-level (`userPaths().sessions`),
+  merged and de-duplicated; this is where the actual command entry lives (the spec's old
+  `commands/session-analyze-command.ts` path was never the real location)
+- `packages/agent-cli/src/cli.ts` — **fix:** intercept `session analyze` BEFORE `parseCliArgs()`
+  so `--last`/`--session` reach the subcommand instead of being rejected by the strict global parser
+- `packages/agent-cli/src/session-analyzer/__tests__/parser.test.ts` (TC-03/04/05, exists)
+- `packages/agent-cli/src/session-analyzer/__tests__/reporter.test.ts` (TC-05, exists)
+- `packages/agent-cli/src/session-analyzer/__tests__/session-analyze-command.test.ts` — **new:**
+  integration tests for the path resolution + flag handling (TC-01/02/06/07)
 
 ## Completion Criteria
 
@@ -132,7 +160,7 @@ Analyzed 30 sessions (2026-04-01 ~ 2026-05-01)
 
 ## Tasks
 
-- [ ] `.agents/tasks/OBS-001.md` — 미생성 (GATE-APPROVAL 통과 후 생성)
+- [ ] `.agents/tasks/OBS-001.md` — T1~T9 (TC-01~TC-07 매핑 + integration test + wrap-up)
 
 ## Evidence Log
 
@@ -163,3 +191,21 @@ Analyzed 30 sessions (2026-04-01 ~ 2026-05-01)
 
 - User explicit approval: No approval statement was found in the current conversation. Required one of: "승인", "진행해", "맞아 진행해", "ok 시작해", "끝까지 책임지고 작업해", or any unambiguous statement confirming the design and authorizing implementation for OBS-001.
   **Required action:** User must provide an explicit approval statement directed at this spec document (OBS-001) before re-running GATE-APPROVAL.
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-06-13
+
+**Status upgrade:** review-ready → approved
+
+- User approval statement (verbatim): "제대로 고쳐서 작동하게 (권장)" — chosen in response to a plain-language summary of the two real-binary bugs, explicitly authorizing the OBS-001 fix to actually work (read project-level + user-level sessions, intercept `session analyze` before parseCliArgs, add integration tests, verify on the real binary against all 7 TCs).
+- Statement is unambiguous and directed at this spec document: it confirms the corrected Problem ("Real-binary verification finding") and Affected Files path corrections and authorizes implementation of the fix. This supersedes the spurious FAIL above (logged by a guard that could not see the prior 2026-05-31 approval).
+- No Architecture Review or frontmatter type/tags modified inappropriately: `type: OBSERVABILITY` and `tags: [cli, typescript, async]` unchanged; Architecture Review Checklist items remain all `[x]`; `status` set to review-ready to reflect the corrected gate state before this approval. The Problem real-binary finding and Affected Files corrections are within the approved fix scope.
+- NON-COMPLIANCE check: no new implementation commits for the fix exist on branch `fix/obs-001-session-analyze` (`git log develop..HEAD` empty; only the spec edit is in the working tree). The pre-existing shipped code is the prior (broken) implementation, not new work for this gate — trigger not met.
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-06-13
+
+**Status upgrade:** approved → in-progress
+
+- Tasks file created: `.agents/tasks/OBS-001.md` exists (untracked in working tree on branch `fix/obs-001-session-analyze`), containing T1–T9.
+- Tasks file path recorded in spec `## Tasks` section: line reads `` `.agents/tasks/OBS-001.md` — T1~T9 (TC-01~TC-07 매핑 + integration test + wrap-up) `` — confirmed.
+- Tasks correspond to Completion Criteria (≥1 task per TC-N): TC-01→T1, TC-02→T2, TC-03→T3, TC-04→T4, TC-05→T5, TC-06→T6, TC-07→T7 — all 7 TCs mapped; plus T8 (new `session-analyze-command.test.ts` integration test for the path-merge + flag-delivery fixes) and T9 (wrap-up: test/typecheck/lint/build + real-binary 7-TC verification + GATE-VERIFY/COMPLETE).
+- NON-COMPLIANCE trigger check (implementation commits exist but no tasks file): not met — `git log develop..HEAD` is empty (no fix-implementation commits), tasks file is present, and the working tree contains only spec/tasks doc changes. The pre-existing broken parser/reporter/command code is the prior implementation, not new fix work for this gate.
