@@ -11,12 +11,11 @@
 - Keeps all provider-specific transport behavior in provider packages. Core must not branch on concrete provider names or model names.
 - Keeps package-specific domain contracts owned once and reused through public surfaces.
 - Does not own workflow visualization or session persistence; session persistence belongs to
-  `@robota-sdk/agent-session`.
+  the session layer.
 - **Zero dependency on other agent-\* packages.** `agent-core` must never import any other
   `@robota-sdk/agent-*` package as a production dependency. This is the foundation of the layered
   assembly architecture: other agent-\* packages register with agent-core through its abstract
-  contracts; agent-core never depends on them. Plugins were externalized to `agent-plugin-*`
-  packages specifically to preserve this constraint.
+  contracts; agent-core never depends on them. Plugins were externalized to external plugin packages specifically to preserve this constraint.
 
 ## Architecture Overview
 
@@ -46,9 +45,9 @@ Robota (Facade)
   │     ├── command-executor.ts     — CommandExecutor: shell command hook execution
   │     ├── http-executor.ts        — HttpExecutor: HTTP request hook execution
   │     └── types.ts                — THookEvent (13 events), THookDefinition (discriminated union), IHookTypeExecutor
-  └── Plugin Layer (1 built-in + 8 external @robota-sdk/agent-plugin-* packages)
+  └── Plugin Layer (1 built-in + 8 external plugin packages)
         ├── EventEmitterPlugin           (built-in — event coordination)
-        └── External plugins (per @robota-sdk/agent-plugin-*):
+        └── External plugins (per external plugin package):
               conversation-history, logging, usage, performance,
               execution-analytics, error-handling, limits, webhook
 ```
@@ -188,7 +187,7 @@ Provider packages import these types. They must not re-declare them.
 
 ### Tools
 
-NOTE: `ToolRegistry`, `FunctionTool`, `createFunctionTool`, `createZodFunctionTool`, and `OpenAPITool` have been moved to `@robota-sdk/agent-tools`. `MCPTool` and `RelayMcpTool` have been moved to `@robota-sdk/agent-tool-mcp`.
+NOTE: `ToolRegistry`, `FunctionTool`, `createFunctionTool`, `createZodFunctionTool`, and `OpenAPITool` have been moved to the tools layer. `MCPTool` and `RelayMcpTool` have been moved to the MCP-tool layer.
 
 ### Permissions
 
@@ -271,7 +270,7 @@ Provider-native web tools are not the same as Robota local function tools:
 - `IChatOptions.nativeWebTools` requests provider-native hosted web behavior for one call. Providers must call `assertProviderNativeWebToolsAvailable()` before transport execution so unsupported or disabled native web requests fail before streaming starts.
 - `IAIProvider.configureNativeWebTools()` is an optional provider hook for session/runtime assembly. Session layers may call it to enable provider-owned native web tools without importing concrete provider classes or checking provider names.
 
-Robota local `WebSearch` and `WebFetch` tools remain ordinary function tools owned by `@robota-sdk/agent-tools`; they are advertised through tool schemas and do not make `nativeWebTools` supported.
+Robota local `WebSearch` and `WebFetch` tools remain ordinary function tools owned by the tools layer; they are advertised through tool schemas and do not make `nativeWebTools` supported.
 
 ### Context Window Tracking
 
@@ -285,7 +284,7 @@ Robota local `WebSearch` and `WebFetch` tools remain ordinary function tools own
 | `estimateSerializedContextTokens`   | function  | Deterministic serialized-history fallback estimate                                                 |
 | `readTokenUsageFromMessage`         | function  | Reads normalized token usage from a single message                                                 |
 
-These types and helpers are consumed by `@robota-sdk/agent-session` to track effective token usage and context window state across conversation turns. When latest provider usage belongs to the terminal message, it is treated as the exact post-response state. When metadata-free user or tool messages follow the latest provider usage, the estimate becomes `max(serialized history estimate, latest provider usage, optional caller floor)`. Historical full-request provider usage is not summed. This prevents previous provider metadata from hiding a large metadata-free prompt and prevents multi-turn provider input counts from being double-counted.
+These types and helpers are consumed by the session layer to track effective token usage and context window state across conversation turns. When latest provider usage belongs to the terminal message, it is treated as the exact post-response state. When metadata-free user or tool messages follow the latest provider usage, the estimate becomes `max(serialized history estimate, latest provider usage, optional caller floor)`. Historical full-request provider usage is not summed. This prevents previous provider metadata from hiding a large metadata-free prompt and prevents multi-turn provider input counts from being double-counted.
 
 Provider response usage is normalized before assistant messages are committed:
 
@@ -327,7 +326,7 @@ Note: `AbstractEventService`, `DefaultEventService`, `StructuredEventService`, a
 | -------------------- | ---------------- | ------------------ |
 | `EventEmitterPlugin` | event_processing | Event coordination |
 
-8 plugins were extracted to `@robota-sdk/agent-plugin-*` packages to comply with the agent-core zero-dependency rule. They extend `AbstractPlugin` (defined here) and are wired by the consuming layer.
+8 plugins were extracted to external plugin packages to comply with the agent-core zero-dependency rule. They extend `AbstractPlugin` (defined here) and are wired by the consuming layer.
 
 ## Plugin Contract
 
@@ -373,7 +372,7 @@ Events are bound to their owner via `bindWithOwnerPath()`.
 
 ## Permission System
 
-The permission module (`src/permissions/`) provides a deterministic, three-step policy evaluation for tool calls. It is consumed by `@robota-sdk/agent-session` to gate tool execution before delegating to the actual tool.
+The permission module (`src/permissions/`) provides a deterministic, three-step policy evaluation for tool calls. It is consumed by the session layer to gate tool execution before delegating to the actual tool.
 
 ### Evaluation Algorithm (`evaluatePermission`)
 
@@ -684,7 +683,7 @@ When the execution loop ends without a final assistant text message (e.g., due t
 
 ### Pre-Send Context Check
 
-Before each `provider.chat()` call in the execution loop, token usage is checked against the model's context window limit using `estimateContextTokensFromMessages()` plus the current round's provider usage floor. This is a hard-capacity guard, not the automatic compaction policy. Automatic compaction remains owned by `@robota-sdk/agent-session` at its configured threshold. The hard guard stops only when the effective estimate exceeds 95% of the context window and emits a diagnostic assistant message with estimated tokens, max tokens, serialized estimate, provider usage floor, and threshold values so UI layers can explain why the prompt was blocked.
+Before each `provider.chat()` call in the execution loop, token usage is checked against the model's context window limit using `estimateContextTokensFromMessages()` plus the current round's provider usage floor. This is a hard-capacity guard, not the automatic compaction policy. Automatic compaction remains owned by the session layer at its configured threshold. The hard guard stops only when the effective estimate exceeds 95% of the context window and emits a diagnostic assistant message with estimated tokens, max tokens, serialized estimate, provider usage floor, and threshold values so UI layers can explain why the prompt was blocked.
 
 ### Provider Error Recovery
 
@@ -778,7 +777,7 @@ When the execution loop starts round 2+ (after tool execution), `execution-round
 | `IEventEmitterMetrics`            | `InMemoryEventEmitterMetrics` | production               | `src/plugins/event-emitter/metrics.ts`         |
 | `ICacheStorage`                   | `MemoryCacheStorage`          | production               | `src/services/cache/memory-cache-storage.ts`   |
 
-NOTE: `FunctionTool`, `ToolRegistry`, `OpenAPITool` moved to `@robota-sdk/agent-tools`. `MCPTool`, `RelayMcpTool` moved to `@robota-sdk/agent-tool-mcp`. Plugin storage implementations (ILogStorage, IUsageStorage, IPerformanceStorage, IHistoryStorage, etc.) moved to their respective `@robota-sdk/agent-plugin-*` packages.
+NOTE: `FunctionTool`, `ToolRegistry`, `OpenAPITool` moved to the tools layer. `MCPTool`, `RelayMcpTool` moved to the MCP-tool layer. Plugin storage implementations (ILogStorage, IUsageStorage, IPerformanceStorage, IHistoryStorage, etc.) moved to their respective external plugin packages.
 
 ### Inheritance Chains (within agent-core)
 
@@ -791,7 +790,7 @@ NOTE: `FunctionTool`, `ToolRegistry`, `OpenAPITool` moved to `@robota-sdk/agent-
 | `AbstractExecutor`     | `LocalExecutor`          | `src/executors/local-executor.ts`     | Local provider execution |
 | `AbstractPlugin`       | `EventEmitterPlugin`     | `src/plugins/event-emitter-plugin.ts` | Event coordination       |
 
-NOTE: Tool implementations (`FunctionTool`, `OpenAPITool`) in `@robota-sdk/agent-tools` implement `IFunctionTool`/`ITool` directly without extending `AbstractTool`. Plugin implementations in `@robota-sdk/agent-plugin-*` extend `AbstractPlugin`.
+NOTE: Tool implementations (`FunctionTool`, `OpenAPITool`) in the tools layer implement `IFunctionTool`/`ITool` directly without extending `AbstractTool`. Plugin implementations in the external plugin packages extend `AbstractPlugin`.
 
 ### Cross-Package Port Consumers
 
@@ -827,7 +826,7 @@ NOTE: Tool implementations (`FunctionTool`, `OpenAPITool`) in `@robota-sdk/agent
 
 - Service edge cases: tool-execution-service, task-events, user-events
 - Utility tests: errors, validation, message-converter
-- NOTE: Plugin tests belong to `@robota-sdk/agent-plugin-*` packages. Tool tests belong to `@robota-sdk/agent-tools`.
+- NOTE: Plugin tests belong to the external plugin packages. Tool tests belong to the tools layer.
 
 ## Dependencies
 
@@ -839,7 +838,7 @@ NOTE: Tool implementations (`FunctionTool`, `OpenAPITool`) in `@robota-sdk/agent
 ### Key Peer Contracts
 
 - Provider packages implement `AbstractAIProvider` and `IAIProvider`
-- `@robota-sdk/agent-session` consumes `Robota`, `runHooks`, `evaluatePermission`, `TUniversalMessage`
-- `@robota-sdk/agent-tools` consumes `AbstractTool`, `IFunctionTool`, `IToolWithEventService`
-- `@robota-sdk/agent-plugin-*` packages extend `AbstractPlugin`
-- `@robota-sdk/agent-team` consumes `Robota`, `IAgentConfig`, event services
+- The session layer consumes `Robota`, `runHooks`, `evaluatePermission`, `TUniversalMessage`
+- The tools layer consumes `AbstractTool`, `IFunctionTool`, `IToolWithEventService`
+- External plugin packages extend `AbstractPlugin`
+- The multi-agent/orchestration layer consumes `Robota`, `IAgentConfig`, event services
