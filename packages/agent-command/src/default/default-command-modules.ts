@@ -12,6 +12,7 @@ import { createPluginCommandModule } from '../plugin/index.js';
 import { createProviderCommandModule } from '../provider/index.js';
 import { createResetCommandModule } from '../reset/index.js';
 import { createRewindCommandModule } from '../rewind/index.js';
+import { createScheduleCommandModule } from '../schedule/index.js';
 import { createSessionCommandModule } from '../session/index.js';
 import { createSettingsCommandModule } from '../settings/index.js';
 import { createSkillsCommandModule } from '../skills/index.js';
@@ -48,6 +49,7 @@ export function createDefaultCommandModules({
     createSessionCommandModule(),
     createResetCommandModule(),
     createRewindCommandModule(),
+    createScheduleCommandModule(),
     createStatusLineCommandModule(),
     createPluginCommandModule(),
     createSettingsCommandModule(),
