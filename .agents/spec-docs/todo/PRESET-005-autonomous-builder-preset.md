@@ -2,88 +2,119 @@
 status: approved
 type: BEHAVIOR
 tags: [cli]
+depends_on: [PRESET-001, PRESET-002, PRESET-003, PRESET-004, PRESET-008]
 ---
 
-# PRESET-005: 첫 프리셋 autonomous-builder (reference profile 작업 스타일 모방)
+# PRESET-005: 첫 프리셋 autonomous-builder (reference profile 작업 스타일 모방 — 페르소나는 적응본)
 
 ## Problem
 
 프리셋 인프라(PRESET-001~004, 008)가 갖춰져도 **출하되는 의견 있는(opinionated) 프리셋이 하나도
 없으면** 기능이 무의미하다. 사용자가 요청한 첫 프리셋은 "reference profile 스타일"이다. 그러나 리서치 결과
-Anthropic은 reference profile의 시스템 프롬프트나 성격 명세를 공개한 적이 없으므로(설계 제안서 §2.1)
-"프롬프트 복제"는 불가능하다. 대신 **문서화된 작업 스타일**(능동·철저·자기검증·고자율·요청 범위 확장
-경향)과 Anthropic "Claude's Character" 원칙을 재현한 generic 프리셋을 만든다. 식별자에는 벤더명을
-쓸 수 없다(`feedback_no_product_names`, `naming-style.md`).
+Anthropic은 reference profile의 **공식** 시스템 프롬프트나 성격 명세를 공개한 적이 없으므로(설계 §2.1)
+"공식 프롬프트 복제"는 불가능하다. 대신 **문서화된 작업 스타일**(능동·철저·자기검증·고자율, 요청
+범위 확장 경향, 고effort에서 범위 제약)과 Anthropic "Claude's Character" 원칙을 재현한 generic
+프리셋을 만든다.
+
+**IP/출처 제약(중요):** 커뮤니티에 **유출된** Reference Conduct Profile 시스템 프롬프트(~14,000단어, 모듈형;
+`REDACTED`)가 존재하지만 이는 Anthropic의 **독점 산출물**이며 프롬프트 자체가 엄격한
+저작권 제한을 명시한다. 우리는 이를 **verbatim 복사해 출하하지 않는다.** 본 프리셋의 persona는
+유출 프롬프트의 *이식 가능한 행동 원칙*을 **우리 말로, 우리 CLI에 맞게 재표현한 적응본(adaptation)**
+이며, 식별자는 generic(`autonomous-builder`, 벤더 토큰 없음 — `feedback_no_product_names`,
+`naming-style.md`). 이는 법적/윤리적 이유인 동시에 **아키텍처 정확성** 이유다: verbatim 임포트는 타
+제품의 잘못된 런타임 가정(도구 스키마·파일 경로·제품 정체성·날짜/cutoff·MCP)을 함께 끌고 들어와
+우리 CLI의 런타임 컨텍스트를 파괴한다(설계 §5.4).
 
 이 프리셋은 **페르소나 텍스트뿐 아니라 실제 메커니즘 설정**이어야 한다(설계 §6.1). 즉
 `autonomous-builder`는 agent-preset의 빌트인 콘텐츠로서 framework/executor 메커니즘을 **구성(CONFIGURE)**
 한다 — agent-cli에 로직을 추가하지 않는다. 페르소나만으로 "스타일"을 흉내 내는 것은 본 백로그의
 완료 조건이 아니다.
 
-**선행 의존성:** PRESET-002(`--preset` 선택 배선) · PRESET-003(페르소나/시스템 프롬프트 합성) ·
-PRESET-004(모듈/권한 번들 + 실행 능력 활성) · PRESET-008(effort → 모델 호출 배선). 이들이 없으면
-`effort`/`autonomy`/`enableParallelSubagents`/`selfVerification` 필드가 실제 호출까지 전달되지 못한다.
+**페르소나 전달 경로(변경점):** persona는 더 이상 작은 `appendSystemPrompt`로 끼워 넣지 않는다.
+PRESET-003이 도입한 **`IPreset.persona`(구조화된 PERSONA 레이어 블록)**으로 전달하며, 프레임워크
+`buildSystemPrompt`가 이를 최상단 PERSONA 슬롯에 놓고 RUNTIME 섹션(작업 디렉터리·도구·권한·응답 언어)을
+그 뒤에 합성한다(설계 §5.4).
+
+**선행 의존성:** PRESET-001(`IPreset` 계약, done) · PRESET-002(`--preset` 선택 배선, done) ·
+PRESET-003(`IPreset.persona` 합성 메커니즘) · PRESET-004(모듈/권한 번들 + 실행 능력 활성) ·
+PRESET-008(effort → 모델 호출 배선). 이들이 없으면 `persona`/`effort`/`autonomy`/
+`enableParallelSubagents`/`selfVerification` 필드가 실제 합성·호출까지 전달되지 못한다.
 
 **재현 조건:** `listPresets()`에 `default` 외 의견 프리셋이 없다. `robota --preset autonomous-builder`
 → PRESET-002의 "알 수 없는 preset" 오류.
 
-설계 근거: [.design/preset-layer/2026-06-14/design-proposal.md](../../../.design/preset-layer/2026-06-14/design-proposal.md) §2.1, §2.2, §5.1, §6, §6.1.
+설계 근거: [.design/preset-layer/2026-06-14/design-proposal.md](../../../.design/preset-layer/2026-06-14/design-proposal.md) §2.1, §2.2, §5.1, §5.4, §6, §6.1.
 
 ## Architecture Review
 
 ### Affected Scope
 
-- `packages/agent-preset/src/presets/autonomous-builder.ts` (NEW — 프리셋 정의)
+- `packages/agent-preset/src/presets/autonomous-builder.ts` (NEW — 프리셋 정의, `persona` 블록 포함)
 - `packages/agent-preset/src/resolve-preset.ts` — 레지스트리에 등록
 - `packages/agent-preset/docs/SPEC.md` — 프리셋 카탈로그 항목 추가
 - 소비(선행 백로그가 제공): PRESET-001 `IPreset` 계약, PRESET-002 `--preset` 선택 배선, PRESET-003
-  페르소나 합성, PRESET-004 모듈/권한 번들 + 실행 능력 활성, PRESET-008 effort 배선
+  `IPreset.persona` PERSONA 레이어 합성, PRESET-004 모듈/권한 번들 + 실행 능력 활성, PRESET-008 effort 배선
 
 ### Alternatives Considered
 
-1. **공개되지 않은 "reference profile 시스템 프롬프트"를 추측해 재현.**
+1. **유출된 reference profile 시스템 프롬프트를 verbatim `systemPrompt`로 출하.**
    - Pro: 사용자의 "reference profile 모방" 요청에 표면적으로 충실.
-   - Con: 1차 출처가 없어 날조가 됨 — 정직성 위반, 검증 불가. Rejected.
+   - Con: (1) IP 위반 — 독점·저작권 제한 명시 산출물의 verbatim 출하. (2) 아키텍처 파괴 — 타 제품의
+     도구 스키마·`/home/claude` 경로·제품 정체성·날짜/cutoff·MCP 가정을 끌고 들어와 우리 CLI 런타임
+     레이어와 충돌(설계 §5.4). Rejected.
 2. **페르소나 텍스트만으로 스타일을 흉내 내고 메커니즘은 손대지 않음.**
    - Pro: agent-preset 한 파일만 추가하면 됨, 선행 의존성 최소.
    - Con: effort/autonomy/병렬 서브에이전트/자기검증이 실제 호출에 전달되지 않아 "스타일"이
      관찰 가능한 동작 차이로 이어지지 않음 — 설계 §6.1(작동원리→메커니즘) 위반. Rejected.
-3. **문서화된 reference profile 작업 스타일 + Claude's Character 원칙으로 페르소나를 구성하고, 동시에
-   framework/executor 메커니즘(effort/autonomy→권한 포스처/병렬 서브에이전트/자기검증)을 SET 하는
-   generic 프리셋.**
-   - Pro: 검증 가능한 출처 기반; 규칙(벤더명 금지) 준수; 실제 행동 차이(고자율·자기검증·병렬)를
-     메커니즘으로 구현; 설계 §6.1 추적 매트릭스 충족.
-   - Con: "reference profile와 똑같은 프롬프트"는 아님(애초에 공개 안 됨) — 사용자에게 이 한계를 명시해야 함.
+3. **유출 프롬프트의 _이식 가능한_ persona/behavior 섹션만 우리 말로 재표현한 구조화 `IPreset.persona`
+   블록 + framework/executor 메커니즘(effort/autonomy→권한 포스처/병렬 서브에이전트/자기검증)을 함께
+   SET 하는 generic 프리셋.**
+   - Pro: IP 안전(적응본·generic 식별자); 규칙(벤더명 금지) 준수; 실제 행동 차이(고자율·자기검증·병렬)를
+     메커니즘으로 구현; persona는 PERSONA 레이어에 올바로 배치되어 RUNTIME 레이어를 침범하지 않음;
+     설계 §5.4·§6.1 충족.
+   - Con: "reference profile와 똑같은 프롬프트"는 아님(공식 미공개 + verbatim 금지) — 사용자에게 이 한계를 명시.
 
 ### Decision
 
-**Alternative 3.** `autonomous-builder`는 페르소나 + 메커니즘 SET을 함께 한다. 페르소나는 문서화된
-작업 스타일(능동·철저·자기검증·고자율, 병렬 서브에이전트 적극) + Claude's Character 원칙(비아첨적
-정직·원칙 기반)으로 구성하고, **동시에** framework/executor seam을 켜는 필드를 설정한다(아래 매핑
-표). 식별자는 generic(`autonomous-builder`), description에 "reference profile 작업 스타일에서 영감" 출처 각주만
-허용(사용자 확인). 트레이드오프: "동일 프롬프트 복제"를 포기(불가능)하고 검증 가능·규칙 준수·
-메커니즘으로 뒷받침되는 실제 행동 차이를 얻는다.
+**Alternative 3.** `autonomous-builder`는 **구조화된 `IPreset.persona` 블록 + 메커니즘 SET**을 함께 한다.
+
+- **persona 출처/범위:** 유출 reference profile 프롬프트의 **이식 가능(portable) persona/behavior 섹션만**
+  derive 한다 — tone_and_formatting, refusal_handling 철학, evenhandedness, user_wellbeing,
+  responding_to_mistakes, output style, proactivity. 이를 **우리 말로, 우리 CLI에 맞게 재표현**한다.
+  더불어 문서화된 reference profile work-style(능동·철저·자기검증·고자율, "다른 모델이 멈춰 묻는 지점에서도 계속
+  진행", 고effort 시 범위 제약)을 같은 블록에 반영한다.
+- **명시적 제외(RUNTIME 콘텐츠 절대 미포함):** 유출 프롬프트의 런타임/환경 섹션은 가져오지 **않는다** —
+  도구 JSON 스키마, `/home/claude`·`/mnt` 류 파일 경로, "Claude Code/Cowork" 제품 정체성,
+  current-date/knowledge-cutoff, MCP 커넥터·search/copyright 도구 규칙. 이는 프레임워크 **RUNTIME
+  레이어의 책임**이고 환경 종속이다(설계 §5.4). persona 블록에는 단 하나도 들어가지 않는다.
+- **메커니즘 SET:** 동시에 framework/executor seam을 켜는 필드를 설정한다(아래 매핑 표).
+- **식별자:** generic(`autonomous-builder`), description에 "reference profile 작업 스타일에서 영감" 출처 각주만
+  허용(사용자 확인). 식별자/페르소나 본문에 벤더 토큰 없음.
+
+트레이드오프: "동일 프롬프트 복제"를 포기(불가능·IP 위반·아키텍처 파괴)하고, IP 안전하고 규칙을 준수하며
+메커니즘으로 뒷받침되는 검증 가능한 실제 행동 차이를 얻는다.
 
 #### reference profile 작동원리 → 본 프리셋의 구체 설정 매핑 (설계 §6.1 참조)
 
-| reference profile 작동원리 (#)                        | 본 프리셋의 구체 설정                                                                      | 재현 수단 / 소유 레이어                             |
-| ------------------------------------------- | ------------------------------------------------------------------------------------------ | --------------------------------------------------- |
-| effort 다이얼, 기본 high (#3)               | `effort: 'high'` (장기작업 시 `'xhigh'`/'ultra' 옵션)                                      | (a) provider/core 호출, 배선=PRESET-008             |
-| 묻지 않고 실행·고자율 (#5·#6)               | `autonomy: 'act-first'` → 권한 포스처(defaultPermissionMode/trust)로 매핑                  | (c) PRESET-004 권한 집행                            |
-| 병렬 서브에이전트 적극 디스패치 (#8)        | `enableParallelSubagents: true`                                                            | (d) agent-executor/subagent-runner, PRESET-004 활성 |
-| 자기검증(작업 후 검증 루프) (#4)            | `selfVerification: true`                                                                   | (e) framework/executor verifier 루프                |
-| 능동성 + 범위 확장(과확장 억제 포함) (#7)   | `appendSystemPrompt`: 능동적이되 **요청 범위를 넘는 과도한 리팩터 금지**(scope-constraint) | (b) 페르소나, framework 합성                        |
-| 출력 스타일(결과 우선·작업 약어 금지) (#12) | `appendSystemPrompt`: outcome-first, "작업 중…" 류 약어 없이 결과 보고                     | (b) 페르소나                                        |
-| 진행 보고 시 도구결과 대조 (#13)            | `appendSystemPrompt`: 진행/완료 주장은 **도구 실행 결과에 근거**해 보고                    | (b) 페르소나                                        |
-| 과지시 스캐폴딩 제거 (#17)                  | 아래 LIGHT-PRESET AUTHORING CONSTRAINT 준수                                                | (b) 프리셋 저자 규칙                                |
+| reference profile 작동원리 (#)                          | 본 프리셋의 구체 설정                                                            | 재현 수단 / 소유 레이어                               |
+| --------------------------------------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| effort 다이얼, 기본 high (#3)                 | `effort: 'high'` (장기작업 시 `'xhigh'`/'ultra' 옵션)                            | (a) provider/core 호출, 배선=PRESET-008               |
+| 묻지 않고 실행·고자율 (#5·#6)                 | `autonomy: 'act-first'` → 권한 포스처(defaultPermissionMode/trust)로 매핑        | (c) PRESET-004 권한 집행                              |
+| 병렬 서브에이전트 적극 디스패치 (#8)          | `enableParallelSubagents: true`                                                  | (d) agent-executor/subagent-runner, PRESET-004 활성   |
+| 자기검증(작업 후 검증 루프) (#4)              | `selfVerification: true`                                                         | (e) framework/executor verifier 루프                  |
+| 능동성 + 범위 확장(과확장 억제 포함) (#7)     | `persona`: 능동적이되 **요청 범위를 넘는 과도한 리팩터 금지**(scope-constraint)  | (b) PERSONA 레이어, framework 합성(PRESET-003)        |
+| 출력 스타일(결과 우선·작업 약어 금지) (#12)   | `persona`: outcome-first, "작업 중…" 류 약어 없이 결과 보고, 저형식·간결         | (b) PERSONA 레이어                                    |
+| 진행 보고 시 도구결과 대조 (#13)              | `persona`: 진행/완료 주장은 **도구 실행 결과에 근거(ground)**해 보고             | (b) PERSONA 레이어                                    |
+| 비아첨 정직·실수 소유·evenhandedness (포터블) | `persona`: 따뜻하되 비아첨적 정직, 자기 실수 인정·소유, 중립적 균형, 주장 근거화 | (b) PERSONA 레이어 (유출 프롬프트 포터블 섹션 적응본) |
+| 과지시 스캐폴딩 제거 (#17)                    | 아래 LIGHT-PRESET AUTHORING CONSTRAINT 준수                                      | (b) 프리셋 저자 규칙                                  |
 
 #### LIGHT-PRESET AUTHORING CONSTRAINT (reference profile 원리 #17)
 
-페르소나는 **가벼워야** 한다:
+persona 블록은 길 수 있으나 **가벼워야** 한다:
 
 - "CRITICAL" / "MUST" 류 강조어를 쌓아 지시를 누적하지 않는다(과지시 스캐폴딩 금지).
 - 모델에게 **raw reasoning을 드러내거나 echo 하라고 지시하지 않는다**("추론을 보여줘"/"show your
-  reasoning"). reference 계열의 `reasoning_extraction` 거부를 유발할 위험이 있다.
+  reasoning"/"reveal your reasoning"). reference 계열의 `reasoning_extraction` 거부를 유발할 위험이 있다.
 - 소수의 지향 특성 + 안내 역할 + 근거 있는 원칙으로 정의한다(Claude's Character §2.2).
 
 #### 정직성 노트 — 프리셋이 만들 수 없는 모델 고유 속성
@@ -97,15 +128,15 @@ PRESET-004(모듈/권한 번들 + 실행 능력 활성) · PRESET-008(effort →
 - 트레이닝된 도구 신뢰성
 - 플랫폼 safety classifier
 
-→ 프리셋은 effort·권한 포스처·병렬 서브에이전트 활성·자기검증 루프·페르소나만 구성한다. 위 속성은
+→ 프리셋은 effort·권한 포스처·병렬 서브에이전트 활성·자기검증 루프·persona만 구성한다. 위 속성은
 정직하게 "재현 불가 — 모델 핀만 가능"으로 표기한다.
 
 ### Architecture Review Checklist
 
 - [x] 영향 패키지/레이어 목록 작성 완료 — agent-preset(정의/등록/SPEC), 메커니즘은 PRESET-002/003/004/008이 소유
-- [x] Sibling scan 완료 — `default` 프리셋 형태(PRESET-001) 확인 후 동일 `IPreset` 형태로 작성
-- [x] 대안 최소 2개 검토 완료 — 3개 검토(추측 복제 / 페르소나 전용 / 페르소나+메커니즘)
-- [x] 결정 근거 문서화 완료 — 정직성 경계 + generic 식별자 + 메커니즘 SET 근거 기록
+- [x] Sibling scan 완료 — `default` 프리셋 형태(PRESET-001) + `IPreset.persona`(PRESET-003) 확인 후 동일 `IPreset` 형태로 작성
+- [x] 대안 최소 2개 검토 완료 — 3개 검토(verbatim 출하 / 페르소나 전용 / 적응 persona+메커니즘)
+- [x] 결정 근거 문서화 완료 — IP/출처 경계 + RUNTIME 콘텐츠 명시 제외 + generic 식별자 + 메커니즘 SET 근거 기록
 
 ## Solution
 
@@ -114,11 +145,17 @@ PRESET-004(모듈/권한 번들 + 실행 능력 활성) · PRESET-008(effort →
    - **모델/effort 메커니즘**: `model` 핀, `effort: 'high'`(장기작업 시 `'xhigh'`/'ultra' 사용 가능 — 주석으로 명시)
    - **자율 메커니즘**: `autonomy: 'act-first'` → PRESET-004가 권한 포스처(defaultPermissionMode/trust)로 매핑
    - **실행 능력 메커니즘**: `enableParallelSubagents: true`, `selfVerification: true`
-   - **페르소나**(`appendSystemPrompt`, 가볍게): 능동성 + scope-constraint(과확장 금지) · outcome-first
-     출력 스타일(작업 약어 금지) · 진행/완료 주장은 도구 결과에 근거. "CRITICAL"/"MUST" 누적 금지,
-     "show your reasoning" 류 지시 금지.
+   - **페르소나**(`persona`, 구조화 블록 — PRESET-003 PERSONA 레이어): 유출 reference profile 프롬프트의 **이식
+     가능한 행동 원칙을 우리 말로 재표현**한 블록. 포함: 따뜻하되 비아첨적 정직(듣고 싶은 말만 하지
+     않음) · 간결·저형식 출력 스타일 · 자기 실수 인정·소유 · 중립적 균형(evenhandedness) · 주장 근거화
+     · 능동성 + scope-constraint(과확장/과도한 리팩터 금지) · outcome-first(작업 약어 금지) · 진행/완료
+     주장은 도구 결과에 근거 · "다른 모델이 멈춰 묻는 지점에서도 계속 진행"하는 고자율·철저·자기검증
+     work-style. **"CRITICAL"/"MUST" 누적 금지, "show your reasoning" 류 지시 금지.**
+   - **명시적 제외**: persona 블록에 RUNTIME 콘텐츠를 넣지 않는다 — 도구 스키마·`/home/claude`·`/mnt`
+     경로·"Claude Code/Cowork" 제품 정체성·current-date/cutoff·MCP/search-copyright 도구 규칙(모두
+     프레임워크 RUNTIME 레이어 소유).
 2. 레지스트리에 등록 → `listPresets()`에 노출.
-3. SPEC.md 카탈로그에 항목 추가(정직성 노트 + 매핑 표 반영).
+3. SPEC.md 카탈로그에 항목 추가(IP/출처 경계 + RUNTIME 제외 + 정직성 노트 + 매핑 표 반영).
 
 ## Affected Files
 
@@ -128,34 +165,36 @@ PRESET-004(모듈/권한 번들 + 실행 능력 활성) · PRESET-008(effort →
 
 ## Completion Criteria
 
-- [ ] TC-01: `resolvePreset('autonomous-builder', base)` 결과가 `effort === 'high'`임을 단언하는 단위 테스트 통과
-- [ ] TC-02: `resolvePreset('autonomous-builder', base)` 결과가 `autonomy === 'act-first'`임을 단언하는 단위 테스트 통과
-- [ ] TC-03: `resolvePreset('autonomous-builder', base)` 결과가 `enableParallelSubagents === true`임을 단언하는 단위 테스트 통과
-- [ ] TC-04: `resolvePreset('autonomous-builder', base)` 결과가 `selfVerification === true`임을 단언하는 단위 테스트 통과
-- [ ] TC-05: `resolvePreset('autonomous-builder', base)` 결과의 `appendSystemPrompt`가 scope-constraint 어구(과확장/과도한 리팩터 억제)와 진행-보고 그라운딩 어구(도구 결과 대조)를 둘 다 포함함을 단언하는 단위 테스트 통과
-- [ ] TC-06: `autonomous-builder.ts`에 대해 `rg -i "show your reasoning|reveal your reasoning|CRITICAL|MUST"` 결과가 0건임(페르소나가 raw reasoning echo 지시와 "CRITICAL"/"MUST" 누적을 포함하지 않음)을 단언하는 커맨드폼 테스트 통과
-- [ ] TC-07: `rg -nE "\bid:\s*['\"]" packages/agent-preset/src/presets/autonomous-builder.ts` 의 식별자 라인에 벤더 토큰(`reference`/`hermes`/`claude`/`anthropic`)이 없음을 단언하는 커맨드폼 테스트 통과(있다면 description 각주 한정)
-- [ ] TC-08: `listPresets()`에 `id === 'autonomous-builder'`(title/description 비어있지 않음) 항목 존재 단언 테스트 통과
-- [ ] TC-09: `robota --preset autonomous-builder -p "ping"` → exit 0 (PRESET-002 경로로 정상 해석)
-- [ ] TC-10: `pnpm --filter @robota-sdk/agent-preset test` + `build` → exit 0
+- [ ] TC-01: `resolvePreset('autonomous-builder', base)` 결과의 `persona`가 비어있지 않고(non-empty), 포터블 행동 가이드 키워드(비아첨/실수 소유/근거화 중 최소 1 + scope-constraint 어구 + 도구결과 그라운딩 어구)를 포함함을 단언하는 단위 테스트 통과
+- [ ] TC-02: `resolvePreset('autonomous-builder', base)` 결과가 `effort === 'high'`임을 단언하는 단위 테스트 통과
+- [ ] TC-03: `resolvePreset('autonomous-builder', base)` 결과가 `autonomy === 'act-first'`임을 단언하는 단위 테스트 통과
+- [ ] TC-04: `resolvePreset('autonomous-builder', base)` 결과가 `enableParallelSubagents === true`임을 단언하는 단위 테스트 통과
+- [ ] TC-05: `resolvePreset('autonomous-builder', base)` 결과가 `selfVerification === true`임을 단언하는 단위 테스트 통과
+- [ ] TC-06: `rg -i "/home/claude|/mnt/|Claude Code|Cowork|\bmcp\b|knowledge cutoff|input_schema|tool_call|json schema" packages/agent-preset/src/presets/autonomous-builder.ts` 결과가 0건임(persona에 RUNTIME 토큰·도구 스키마 단어 부재)을 단언하는 커맨드폼 테스트 통과
+- [ ] TC-07: `rg -i "show your reasoning|reveal your reasoning|CRITICAL|\bMUST\b" packages/agent-preset/src/presets/autonomous-builder.ts` 결과가 0건임(persona에 raw-reasoning echo 지시 + "CRITICAL"/"MUST" 누적 부재)을 단언하는 커맨드폼 테스트 통과
+- [ ] TC-08: `rg -nE "\bid:\s*['\"]" packages/agent-preset/src/presets/autonomous-builder.ts` 의 식별자 라인에 벤더 토큰(`reference`/`hermes`/`claude`/`anthropic`)이 없음을 단언하는 커맨드폼 테스트 통과(출처 각주는 description 한정)
+- [ ] TC-09: `listPresets()`에 `id === 'autonomous-builder'`(title/description 비어있지 않음) 항목 존재 단언 테스트 통과
+- [ ] TC-10: `robota --preset autonomous-builder -p "ping"` → exit 0 (PRESET-002 경로로 정상 해석)
+- [ ] TC-11: `pnpm --filter @robota-sdk/agent-preset test` + `build` → exit 0
 
 ## Test Plan
 
-Type BEHAVIOR + tags cli → 프리셋 resolve 메커니즘 단언(effort/autonomy/병렬/자기검증) + 페르소나
-어구 단언 + grep 부재/식별자 검사 + 프로세스 스모크.
+Type BEHAVIOR + tags cli → 프리셋 resolve 메커니즘 단언(effort/autonomy/병렬/자기검증) + persona
+포터블 어구 단언 + grep RUNTIME-토큰 부재/저자제약 부재/식별자 검사 + 프로세스 스모크.
 
-| TC-ID | Test Type              | Tool / Approach                                                 | Notes    |
-| ----- | ---------------------- | --------------------------------------------------------------- | -------- |
-| TC-01 | RULE (unit)            | vitest — resolvePreset effort === 'high' 단언                   |          |
-| TC-02 | RULE (unit)            | vitest — resolvePreset autonomy === 'act-first' 단언            |          |
-| TC-03 | RULE (unit)            | vitest — resolvePreset enableParallelSubagents 단언             |          |
-| TC-04 | RULE (unit)            | vitest — resolvePreset selfVerification 단언                    |          |
-| TC-05 | RULE (unit)            | vitest — appendSystemPrompt scope-constraint+그라운딩 어구 단언 |          |
-| TC-06 | CI pipeline smoke test | `rg -i` reasoning-echo/CRITICAL/MUST 부재 단언                  | 커맨드폼 |
-| TC-07 | CI pipeline smoke test | `rg -nE` id 라인 벤더 토큰 부재 단언                            | 커맨드폼 |
-| TC-08 | RULE (unit)            | vitest — listPresets 항목 단언                                  |          |
-| TC-09 | FLOW (cli)             | 프로세스 spawn 종료코드                                         | 커맨드폼 |
-| TC-10 | CI pipeline smoke test | `pnpm test` + `build` exit code                                 | 커맨드폼 |
+| TC-ID | Test Type              | Tool / Approach                                                            | Notes    |
+| ----- | ---------------------- | -------------------------------------------------------------------------- | -------- |
+| TC-01 | RULE (unit)            | vitest — resolvePreset persona non-empty + 포터블/scope/그라운딩 어구 단언 |          |
+| TC-02 | RULE (unit)            | vitest — resolvePreset effort === 'high' 단언                              |          |
+| TC-03 | RULE (unit)            | vitest — resolvePreset autonomy === 'act-first' 단언                       |          |
+| TC-04 | RULE (unit)            | vitest — resolvePreset enableParallelSubagents 단언                        |          |
+| TC-05 | RULE (unit)            | vitest — resolvePreset selfVerification 단언                               |          |
+| TC-06 | CI pipeline smoke test | `rg -i` RUNTIME 토큰/도구-스키마 단어 부재 단언                            | 커맨드폼 |
+| TC-07 | CI pipeline smoke test | `rg -i` reasoning-echo/CRITICAL/MUST 부재 단언                             | 커맨드폼 |
+| TC-08 | CI pipeline smoke test | `rg -nE` id 라인 벤더 토큰 부재 단언                                       | 커맨드폼 |
+| TC-09 | RULE (unit)            | vitest — listPresets 항목 단언                                             |          |
+| TC-10 | FLOW (cli)             | 프로세스 spawn 종료코드                                                    | 커맨드폼 |
+| TC-11 | CI pipeline smoke test | `pnpm test` + `build` exit code                                            | 커맨드폼 |
 
 ## User Execution Test Scenarios
 
@@ -178,19 +217,18 @@ Type BEHAVIOR + tags cli → 프리셋 resolve 메커니즘 단언(effort/autono
 **Status upgrade:** draft → review-ready
 
 - Frontmatter: `---` block present; `status: draft`; `type: BEHAVIOR` (valid 11-prefix value); `tags: [cli]` present.
-- Problem: concrete symptom (`robota --preset autonomous-builder` → PRESET-002 "알 수 없는 preset" error) + reproduction (`listPresets()` has no opinionated preset besides `default`); no TBD/TODO/vague descriptions.
-- Architecture Review Checklist: all 4 items `[x]`; sibling scan `[x]` with completion evidence (default/`IPreset` shape checked); Alternatives Considered = 3 entries each with Pro/Con; Decision references trade-off (drops "identical prompt replication" for verifiable, rule-compliant, mechanism-backed behavior).
-- Completion Criteria: TC-01 through TC-10 all TC-N prefixed; each uses command or observable-behavior form; no banned phrases ("works correctly"/"no errors"/"implemented"/"displays correctly").
-- Test Plan: `## Test Plan` present; 10 rows (TC-01..TC-10) — count matches 10 Completion Criteria; each row has non-empty Test Type and Tool/Approach; no row uses "manual" Tool (vitest/`rg`/spawn — no manual-justification gap).
-- Structure: Tasks section present with placeholder; Evidence Log present and empty before this run; no `## Status` or `## Classification` body sections (status/type live in frontmatter).
-- TC-N count match confirmed: Completion Criteria = 10, Test Plan = 10.
+- Problem: concrete symptom (`listPresets()` lacks opinionated preset; `robota --preset autonomous-builder` → "unknown preset" error) + reproduction condition ("재현 조건") present; no TBD/TODO/vague.
+- Architecture Review: all 4 checklist items `[x]`; sibling scan `[x]` with completion evidence; 3 Alternatives Considered each with Pro/Con (≥2 required); Decision references the trade-off ("트레이드오프: 동일 프롬프트 복제를 포기…").
+- Completion Criteria: all 11 items TC-01..TC-11 prefixed; Command/Observable forms; no banned phrases ("works correctly"/"no errors"/"implemented"/"displays correctly").
+- Test Plan: `## Test Plan` present; 11 rows TC-01..TC-11 — count matches Completion Criteria (11=11); each row has non-empty Test Type + Tool/Approach, no "TBD"; no "manual" tool rows (manual-Notes requirement vacuously satisfied).
+- Structure: Tasks section present with placeholder (`.agents/tasks/PRESET-005.md — 미생성`); Evidence Log present and was empty before this run; no `## Status` or `## Classification` body sections.
 
 ### [GATE-APPROVAL] — ✅ PASS | 2026-06-14
 
 **Status upgrade:** review-ready → approved
 
-- Prior-gate precondition: `### [GATE-WRITE] — ✅ PASS | 2026-06-14` present in Evidence Log; frontmatter `status: review-ready`; file in `backlog/` folder — matches expected input stage.
-- Explicit approval: orchestrator asked "8개를 GATE-APPROVAL까지 올릴까요?" and the user replied verbatim "다음 진행해" — an unambiguous statement authorizing advancement of all 8 PRESET specs to `approved`.
-- Directed at this spec: PRESET-005 is one of the 8 PRESET specs covered by the approval scope.
-- No Architecture Review or frontmatter type/tags modified after approval: Architecture Review section and frontmatter (`type: BEHAVIOR`, `tags: [cli]`) unchanged.
-- NON-COMPLIANCE trigger not fired: no `.agents/tasks/PRESET-005.md` and no `packages/agent-preset/` exist — implementation has not started.
+- Prior-Gate Precondition: `### [GATE-WRITE] — ✅ PASS | 2026-06-14` entry present in Evidence Log; frontmatter `status: review-ready` and `/backlog/` folder match the expected GATE-APPROVAL input stage. Prior gate ordering confirmed.
+- Explicit user approval (verbatim): "이거 보고 시스템 프롬프트 제대로 프리셋에 적용하는 구조가 되어야 합니다 정확하게 아키텍쳐 설계해서 백로그 업데이트 하세요" + "아키텍쳐 설계상 이런 부분이 공정하고 공평하고 보편적인 타이밍에 제대로 주입되어야 합니다". Direct directive to design the architecture correctly and finalize/update this backlog — authorizes advancing the revised spec to approved.
+- Directed at this spec: the directive concerns the leaked reference profile system prompt → preset application architecture, which is exactly PRESET-005's subject (autonomous-builder preset, persona via PRESET-003 PERSONA layer, mechanism SET). Approval is unambiguous and targets this document, not a different item.
+- No post-approval drift: frontmatter `type: BEHAVIOR` and `tags: [cli]` unchanged; Architecture Review section (Affected Scope / Alternatives / Decision / Checklist) intact and not modified after approval.
+- NON-COMPLIANCE trigger check: no implementation started — `.agents/tasks/PRESET-005.md` absent (ls exit 1) and `packages/agent-preset/src/presets/autonomous-builder.ts` absent (ls exit 1). No file edits/commits precede this gate.

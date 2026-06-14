@@ -175,6 +175,63 @@ interface IPreset {
 - `settings.json`의 `preset` 기본값 필드(전역/프로젝트)
 - `/preset` 명령(목록·전환, PRESET-006)
 
+### 5.4 시스템 프롬프트 합성 아키텍처 (프리셋이 "제대로" 적용되는 구조)
+
+근거: 공개된(커뮤니티 유출) Reference Conduct Profile 시스템 프롬프트(~14,000단어, 모듈형 — `claude_behavior`/
+`tone_and_formatting`/`refusal_handling`/`search_instructions`/`computer_use`/도구 정의 등 명확히 구분된
+섹션)를 분석하면 두 종류의 콘텐츠가 섞여 있다:
+
+- **이식 가능(persona/behavior)** — tone·formatting, refusal 철학, evenhandedness, user wellbeing,
+  mistake-handling, output style, proactivity. 어떤 에이전트에도 옮길 수 있는 "성격/행동" 규칙.
+- **런타임/환경 종속** — 도구 JSON 스키마, 파일 경로(`/home/claude`, `/mnt/...`), 제품 정체성("Claude
+  Code/Cowork"), 현재 날짜, knowledge cutoff, MCP 커넥터. 우리 CLI에는 **우리 자신의** 런타임 컨텍스트가 있다.
+
+→ 따라서 프리셋의 "올바른 시스템 프롬프트 적용"은 **전체 덮어쓰기(`systemPrompt`)도, 작은 append도, 페르소나
+전용 하드코딩 슬롯도 아니다.** 프레임워크는 **이미 공정·보편적 주입 메커니즘을 갖고 있다** — 이를 그대로 쓴다.
+
+**기존 메커니즘(반드시 재사용):** `packages/agent-framework/src/context/`는 시스템 프롬프트를 **`ISystemPromptSection`
+객체 배열**로 만들고 `composeSystemPrompt`가 **호출 순서가 아니라 각 섹션의 `priority: number`로 정렬**해 합성한다.
+각 섹션은 `source`(`framework`/`project-instructions`/`runtime`/`permissions`/`tool`/...)와 `priority`를 선언한다.
+현재 priority 밴드:
+
+```
+project-instructions: AGENTS.md=10, CLAUDE.md=20, memory/task ~ → runtime: cwd=30, project=40, language=45
+  → permissions=50 → tool=60 → capabilities(상위). (낮을수록 프롬프트 상단)
+```
+
+**페르소나는 특례가 아니라 "또 하나의 섹션"이다.** `TSystemPromptSectionSource`에 `'persona'`를 추가하고,
+`createPersonaSection(persona)`가 `source: 'persona'` + **선언된 priority(예: 5 — 정체성/성격을 먼저 확립하는
+상단 밴드)**를 가진 `ISystemPromptSection`을 반환한다. 이 섹션은 **다른 모든 섹션과 똑같이 `composeSystemPrompt`가
+priority로 정렬**한다. 하드코딩된 위치 없음, 프리셋 전용 분기 없음 — priority 값이 타이밍을 **공정·보편적으로** 선언한다.
+
+```
+주입은 priority-정렬로 보편 결정:
+  persona(5) → project-instructions(10~) → runtime(30~) → permissions(50) → tool(60) → capabilities  → (CLI append: 합성 후 말미)
+```
+
+- **`default`(순정) 프리셋은 `persona`가 비어 있음** → `createPersonaSection`이 섹션을 만들지 않음 → **프롬프트 개입 0,
+  현재 동작과 100% 동일**(무회귀). 즉 순정 에이전트엔 어떤 프롬프트 개입도 추가되지 않는다.
+- 같은 메커니즘이라 향후 plugin 등 다른 기여자도 동일하게 `source`+`priority` 섹션으로 공정하게 주입할 수 있다(특혜 없음).
+- **전체 덮어쓰기(`systemPrompt`)를 기본으로 쓰지 않는 이유:** 원본 프롬프트의 런타임 가정(타 제품 도구 정의,
+  `/home/claude` 경로, 제품 정체성, MCP)을 함께 끌고 들어와 우리 CLI의 런타임 섹션(도구/파일/메모리)을 파괴한다.
+  `systemPrompt`는 고급 escape hatch로만 남기고 권장하지 않는다.
+
+**콘텐츠 규칙(이식 vs 런타임):** 기존 모델 프롬프트에서 프리셋 persona를 derive할 때는 **이식 가능한 persona/
+behavior 섹션만** 가져온다. 런타임/환경 섹션(도구 스키마·파일 경로·제품 정체성·날짜·cutoff·MCP)은 **가져오지
+않는다** — 그건 프레임워크 RUNTIME 레이어의 책임이고 환경 종속이다.
+
+**IP/출처 제약(중요):** 유출된 reference profile 프롬프트는 Anthropic의 **독점·커뮤니티 유출** 산출물이며(프롬프트 자체가
+엄격한 저작권 제한을 명시한다). **verbatim 복사해 출하하지 않는다.** PRESET-005의 persona는 *이식 가능한 행동
+원칙*을 **우리 말로, 우리 CLI에 맞게 재표현한 적응본**이며 식별자는 generic(벤더명 없음, `feedback_no_product_names`).
+이는 법적/윤리적 이유인 동시에 **아키텍처 정확성** 이유다(verbatim은 잘못된 런타임 가정을 import한다).
+
+**IPreset 계약 확장(PRESET-003이 수행):** `persona?: string` 필드 추가 — `composeSystemPrompt`에 주입되는
+**`source: 'persona'` 섹션**의 내용. `appendSystemPrompt?`(CLI append 의미/소량 추가)와 `systemPrompt?`(고급
+전체 대체)는 유지하되, 프리셋의 정상 경로는 `persona`다. 프레임워크 변경은 **최소·일반적**이다: ① `'persona'`를
+`TSystemPromptSectionSource`에 추가, ② `createPersonaSection(persona)` 추가, ③ `buildSystemPrompt`가 `persona`
+param이 있으면 그 섹션을 sections 배열에 포함. 위치는 **priority 값이 선언**하며 `composeSystemPrompt`가 정렬한다
+(전용 슬롯/분기 없음). `persona` 없음 → 섹션 없음 → 무회귀.
+
 ## 6. 프리셋은 개방형 집합 — 순정(vanilla) ↔ 튜닝 대조
 
 **프리셋 시스템은 특정 프리셋(예: reference profile)을 위한 게 아니라, 임의 개수의 "튜닝/비튜닝" 프로파일을 동일한
