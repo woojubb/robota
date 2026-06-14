@@ -1,8 +1,9 @@
 # Agent CLI Commands and Provider Flow
 
-Source-verified against `develop` on 2026-05-15.
+Source-verified against `develop` on 2026-06-14.
 
-Command-layer boundaries, provider setup, profile switching, and model catalog flow.
+Command-layer boundaries, provider setup, profile switching, model catalog flow, and
+preset selection glue.
 
 ## Built-in Command Layer
 
@@ -49,8 +50,8 @@ packages must not know slash commands or TUI behavior.
 ```mermaid
 sequenceDiagram
   participant Args as parseCliArgs()
-  participant Setup as provider-setup.ts
-  participant Factory as provider-factory.ts
+  participant Setup as startup/provider-startup.ts
+  participant Factory as createProviderFromSettings (agent-framework)
   participant Defs as IProviderDefinition[]
   participant SDKCommon as SDK provider common APIs
   participant Command as agent-command (provider module)
@@ -81,3 +82,35 @@ Settings ownership:
 - Provider packages own defaults, setup metadata, validation, aliases, probes, options, and `createProvider()`.
 - Profile identity is the settings profile key — not provider type/model uniqueness.
 - Model catalog refresh: provider packages own `refreshModelCatalog` and `modelCatalogCacheTtlSeconds`; `agent-framework` model command common APIs orchestrate TTL-based auto-refresh; CLI/TUI renders freshness state only.
+
+## Preset Selection Flow
+
+The CLI is a thin shell over `@robota-sdk/agent-preset` (PRESET-002/004/007/011). It selects a
+preset id and forwards CLI-flag overrides; the precedence merge, posture mapping, and external
+preset loading all live in agent-preset, and preset application to a session lives in
+`agent-framework` (`applyPresetToSession`).
+
+```mermaid
+flowchart LR
+  Flags["parseCliArgs()\n--preset, --model, --system-prompt,\n--append-system-prompt, --language,\n--permission-mode"]
+  Settings["user settings.preset\n(readSettings)"]
+  External["agent-preset.loadExternalPresets()\n~/.robota/presets/*.json"]
+  Select["startup/preset-selection.ts\nselectPresetId + resolveCliPreset"]
+  Resolve["agent-preset.resolvePreset(id, { cliOverrides })\nprecedence merge owned here"]
+  CLI["startCli()\nforwards resolved option bundle"]
+
+  Flags --> Select
+  Settings --> Select
+  External --> Resolve
+  Select --> Resolve
+  Resolve --> CLI
+  CLI --> CLI
+```
+
+Preset ownership:
+
+- `agent-cli` owns selection glue only: `selectPresetId(args, settingsPreset)` (`--preset` > `settings.preset` > `'default'`) and forwarding `buildPresetCliOverrides(args)` to `resolvePreset`. It owns no merge, posture, or default logic.
+- `agent-preset` owns preset profile data, `resolvePreset()` precedence merge, `loadExternalPresets()` validation, and `DEFAULT_AGENT_NAME`. Unknown preset ids throw; the CLI surfaces the error and exits.
+- `agent-framework` owns `applyPresetToSession` and applies the resolved option bundle (model, persona, agentName, permissionMode, enable/disable command modules, enableParallelSubagents, selfVerification) to the session.
+- Model precedence: the resolved preset model (`resolvedPreset.model`) overrides `providerSettings.model`; an explicit `--model` flag is folded into the preset overrides upstream, so the preset result is the single model source the CLI forwards.
+- Command-module selection: `resolvedPreset.enabledCommandModules` / `disabledCommandModules` are passed into `buildCommandSetup` so the preset can prune the default module set (deny > allow).

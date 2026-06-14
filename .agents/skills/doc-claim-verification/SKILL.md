@@ -19,8 +19,11 @@ the report (that is `conformance-finding-report`).
 Verify every document in this set (one invocation per document, or batched across documents):
 
 - `ARCHITECTURE.md`, `.agents/project-structure.md`, `.agents/specs/ARCHITECTURE-MAP.md`
-- `.agents/specs/architecture-map/*.md` (all subdocuments)
-- `packages/*/docs/SPEC.md` (every package)
+- `.agents/specs/architecture-map/**/*.md` — **all subdocuments, recursively** (this includes nested
+  subtrees such as `.agents/specs/architecture-map/agent-cli/*.md`; a non-recursive `*.md` glob misses
+  them). Enumerate with `find .agents/specs/architecture-map -name '*.md'`, not a shell `*.md` glob.
+- `packages/*/docs/SPEC.md` — **every package** (enumerate with `ls packages/*/docs/SPEC.md`; do not
+  scope to only recently-changed packages).
 
 ## Verdict Vocabulary
 

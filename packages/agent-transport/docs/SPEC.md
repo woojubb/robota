@@ -429,8 +429,24 @@ interface IRenderOptions {
   transportRegistry?: ITransportRegistryView<IInteractiveSession>;
   reloadPluginCommandSource?: (registry: CommandRegistry) => void;
   agentName?: string;
+  activePresetId?: string; // PRESET-011 runtime state; defaults to 'default', surfaced in the status bar
+  persona?: string; // preset persona block composed as a `source: 'persona'` system-prompt section (priority 5)
+  enableParallelSubagents?: boolean; // preset capability: activate agent runtime + subagent/background dispatch
+  selfVerification?: boolean; // preset capability: run a post-task self-verification step
 }
 ```
 
 `toChannelOptions(options, resumeSessionId?)` maps `IRenderOptions` to the
-`TuiInteractionChannel` constructor options (exported for contract tests).
+`TuiInteractionChannel` constructor options (exported for contract tests). The preset
+fields (`activePresetId`, `persona`, `enableParallelSubagents`, `selfVerification`) are
+forwarded verbatim to `TuiInteractionChannel`; `activePresetId` defaults to `'default'`.
+
+### Status bar (`StatusBar.tsx` / `SessionStatusBar.tsx`)
+
+`App.tsx` reads the active preset id from the session via
+`session.getActivePresetId?.()` and passes it as the `activePresetId` prop down through
+`SessionStatusBar` to `StatusBar`. `StatusBar` renders a `Preset: <id>` segment
+(`PresetText`) only when `shouldShowActivePreset(activePresetId)` is true — i.e. the id is
+defined and not `'default'` (PRESET-011). The headless channel
+(`HeadlessInteractionChannel`) forwards `activePresetId` to its session for parity but does
+not render a status bar.
