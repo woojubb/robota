@@ -1,10 +1,10 @@
 /**
- * Unit tests for session timing reporter — TC-05.
+ * Unit tests for the session timing reporter (ported from agent-cli OBS-001 reporter tests).
  */
 
 import { describe, it, expect } from 'vitest';
 
-import { formatAggregateReport, formatSingleSession } from '../reporter.js';
+import { formatAggregateReport, formatSingleSession } from '../report.js';
 import type { IAggregateReport, ISessionTimingReport } from '../types.js';
 
 function makeReport(overrides: Partial<ISessionTimingReport> = {}): ISessionTimingReport {
@@ -24,7 +24,6 @@ function makeReport(overrides: Partial<ISessionTimingReport> = {}): ISessionTimi
   };
 }
 
-// TC-05: slow intervals appear in output
 describe('formatSingleSession', () => {
   it('TC-05: shows slow intervals section when intervals >= 10s exist', () => {
     const report = makeReport({
@@ -47,49 +46,48 @@ describe('formatSingleSession', () => {
   });
 
   it('omits slow intervals section when none exist', () => {
-    const output = formatSingleSession(makeReport());
-    expect(output).not.toContain('Slow intervals');
+    expect(formatSingleSession(makeReport())).not.toContain('Slow intervals');
   });
 
   it('includes session ID in output', () => {
-    const output = formatSingleSession(makeReport());
-    expect(output).toContain('session_test_001');
+    expect(formatSingleSession(makeReport())).toContain('session_test_001');
   });
 
   it('shows LLM wait stats when present', () => {
-    const report = makeReport({
-      stats: {
-        llmWaitMs: { avg: 23_400, max: 45_000, total: 46_800, count: 2 },
-        toolExecMs: { avg: 0, max: 0, median: 0, count: 0 },
-        userToAssistantMs: { avg: 0, max: 0, count: 0 },
-      },
-    });
-    const output = formatSingleSession(report);
+    const output = formatSingleSession(
+      makeReport({
+        stats: {
+          llmWaitMs: { avg: 23_400, max: 45_000, total: 46_800, count: 2 },
+          toolExecMs: { avg: 0, max: 0, median: 0, count: 0 },
+          userToAssistantMs: { avg: 0, max: 0, count: 0 },
+        },
+      }),
+    );
     expect(output).toContain('LLM API wait');
     expect(output).toContain('23.4s');
   });
 
   it('shows tool exec stats when present', () => {
-    const report = makeReport({
-      stats: {
-        llmWaitMs: { avg: 0, max: 0, total: 0, count: 0 },
-        toolExecMs: { avg: 15, max: 120, median: 15, count: 5 },
-        userToAssistantMs: { avg: 0, max: 0, count: 0 },
-      },
-    });
-    const output = formatSingleSession(report);
+    const output = formatSingleSession(
+      makeReport({
+        stats: {
+          llmWaitMs: { avg: 0, max: 0, total: 0, count: 0 },
+          toolExecMs: { avg: 15, max: 120, median: 15, count: 5 },
+          userToAssistantMs: { avg: 0, max: 0, count: 0 },
+        },
+      }),
+    );
     expect(output).toContain('Tool execution');
     expect(output).toContain('15ms');
   });
 
   it('shows verdict line', () => {
-    const output = formatSingleSession(makeReport());
-    expect(output).toContain('Verdict');
+    expect(formatSingleSession(makeReport())).toContain('Verdict');
   });
 });
 
 describe('formatAggregateReport', () => {
-  it('includes session count', () => {
+  it('includes session count and headline metrics', () => {
     const aggregate: IAggregateReport = {
       sessionCount: 30,
       fromDate: '2026-04-01T00:00:00Z',
