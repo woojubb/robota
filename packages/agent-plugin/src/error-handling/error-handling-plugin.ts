@@ -66,6 +66,8 @@ export class ErrorHandlingPlugin extends AbstractPlugin<
   private failureCount = 0;
   private circuitBreakerOpen = false;
   private lastFailureTime = 0;
+  private totalRetries = 0;
+  private successfulRecoveries = 0;
 
   constructor(options: IErrorHandlingPluginOptions) {
     super();
@@ -180,6 +182,7 @@ export class ErrorHandlingPlugin extends AbstractPlugin<
         if (attempt > 0) {
           this.failureCount = 0;
           this.circuitBreakerOpen = false;
+          this.successfulRecoveries++;
           this.logger.info('Operation succeeded after retry', {
             attempt,
             context,
@@ -192,6 +195,7 @@ export class ErrorHandlingPlugin extends AbstractPlugin<
         attempt++;
 
         if (attempt <= this.pluginOptions.maxRetries) {
+          this.totalRetries++;
           await this.handleError(lastError, { ...context, attempt });
 
           // Calculate delay
@@ -243,8 +247,8 @@ export class ErrorHandlingPlugin extends AbstractPlugin<
       failureCount: this.failureCount,
       circuitBreakerOpen: this.circuitBreakerOpen,
       lastFailureTime: this.lastFailureTime,
-      totalRetries: 0, // TODO: Track total retries
-      successfulRecoveries: 0, // TODO: Track successful recoveries
+      totalRetries: this.totalRetries,
+      successfulRecoveries: this.successfulRecoveries,
     };
   }
 

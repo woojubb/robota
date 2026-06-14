@@ -7,6 +7,7 @@
 
 import {
   CONTEXT_ESTIMATE_CHARS_PER_TOKEN,
+  createLogger,
   createUserMessage,
   getProviderCapabilities,
   runHooks,
@@ -28,6 +29,8 @@ import type {
   TTextDeltaCallback,
 } from '@robota-sdk/agent-core';
 import type { Robota } from '@robota-sdk/agent-core';
+
+const logger = createLogger('SessionRun');
 
 /** Dependencies injected by Session.run() */
 export interface IRunContext {
@@ -199,7 +202,7 @@ export async function executeRun(
         },
       },
       ctx.hookTypeExecutors,
-    ).catch(() => {});
+    ).catch((error) => logger.warn('hook failed', { error }));
     throw error;
   }
 
@@ -258,7 +261,7 @@ export async function executeRun(
       },
     },
     ctx.hookTypeExecutors,
-  ).catch(() => {});
+  ).catch((error) => logger.warn('hook failed', { error }));
 
   if (ctx.getSessionStore()) {
     ctx.persistSession();
