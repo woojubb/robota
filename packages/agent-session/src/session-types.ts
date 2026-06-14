@@ -17,6 +17,7 @@ import type {
   IToolWithEventService,
   TSessionEndReason,
   TPermissionMode,
+  TModelEffort,
   TToolArgs,
 } from '@robota-sdk/agent-core';
 import type { IHookTypeExecutor } from '@robota-sdk/agent-core';
@@ -105,4 +106,9 @@ export interface ISessionOptions {
   agentName?: string;
   /** Request structured output from the provider for this session. */
   responseFormat?: { type: 'text' | 'json_object' };
+  /**
+   * Reasoning-effort dial threaded to the Robota agent config and on to the provider
+   * request builder. When unset, the framework→provider seam defaults it to `'high'`.
+   */
+  effort?: TModelEffort;
 }

@@ -1,6 +1,11 @@
 import type { ICacheOptions } from './cache';
 import type { TUniversalMessageMetadata, TUniversalMessage } from './messages';
-import type { TProviderConfigValue, IAIProvider, TTextDeltaCallback } from './provider';
+import type {
+  TProviderConfigValue,
+  IAIProvider,
+  TTextDeltaCallback,
+  TModelEffort,
+} from './provider';
 import type { TMetadata, TConfigValue } from './types';
 import type { IModule } from '../abstracts/abstract-module';
 import type { IPluginContract, IPluginOptions, IPluginStats } from '../abstracts/abstract-plugin';
@@ -77,6 +82,8 @@ export interface IAgentConfig {
     maxTokens?: number;
     topP?: number;
     systemMessage?: string;
+    /** Reasoning-effort dial threaded to the provider request builder per call. */
+    effort?: TModelEffort;
   };
 
   // Tools and plugins

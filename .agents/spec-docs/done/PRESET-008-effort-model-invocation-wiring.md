@@ -1,5 +1,5 @@
 ---
-status: approved
+status: done
 type: BEHAVIOR
 tags: [typescript]
 ---
@@ -122,7 +122,7 @@ Type BEHAVIOR + tags `typescript` → 동작 검증은 unit/integration(요청 �
 
 ## Tasks
 
-- [ ] `.agents/tasks/PRESET-008.md` — 미생성 (GATE-APPROVAL 통과 후 생성)
+- [`.agents/tasks/PRESET-008.md`](../../tasks/completed/PRESET-008.md) — task breakdown (TC-01..TC-04), created at GATE-IMPLEMENT
 
 > depends_on: PRESET-001 (IPreset.effort 계약 — effort 필드와 resolvePreset 출력이 본 백로그의 입력 계약).
 
@@ -148,3 +148,37 @@ Type BEHAVIOR + tags `typescript` → 동작 검증은 unit/integration(요청 �
 - Directed at this spec: PRESET-008 is one of the 8 PRESET specs covered by the approval; not a clarifying-question answer or approval of an unrelated item.
 - No Architecture Review or frontmatter type/tags modified after approval.
 - NON-COMPLIANCE trigger clear: no `.agents/tasks/PRESET-008.md` and no `packages/agent-preset/` exist — implementation has not started.
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-06-14
+
+**Status upgrade:** approved → in-progress
+
+- Prior-gate precondition: `### [GATE-APPROVAL] — ✅ PASS | 2026-06-14` entry present in Evidence Log; spec at `status: in-progress` in `active/`.
+- Tasks file created: `.agents/tasks/PRESET-008.md` exists.
+- Tasks file path recorded in spec `## Tasks`: `[.agents/tasks/PRESET-008.md](../../tasks/completed/PRESET-008.md)`.
+- One task per TC-N: task file Plan lists TC-01, TC-02, TC-03, TC-04 — matches Completion Criteria TC-01..TC-04 (one per criterion).
+- Test Plan present: task file `## Test Plan` section ≈600 chars (≥50 required) describing thread path, per-provider mapping/no-op, and unit/build verification. [AF-24]
+
+### [GATE-VERIFY] — ✅ PASS | 2026-06-14
+
+**Status upgrade:** in-progress → verifying
+
+- Prior-gate precondition: `### [GATE-IMPLEMENT] — ✅ PASS | 2026-06-14` entry present in Evidence Log; frontmatter `status: in-progress` matches the expected input stage.
+- Task file completion: `.agents/tasks/PRESET-008.md` — all 4 tasks (TC-01, TC-02, TC-03, TC-04) marked `[x]`; none blocked or pending.
+- Build: `pnpm build:deps` → exit 0.
+- Tests: `pnpm --filter @robota-sdk/agent-core --filter @robota-sdk/agent-session --filter @robota-sdk/agent-framework --filter @robota-sdk/agent-provider --filter @robota-sdk/agent-preset test` → exit 0 (agent-core 707/707, agent-session 63/63, agent-provider 554/554, agent-framework 932/932, agent-preset 22/22; all passing).
+- Typecheck: `pnpm typecheck` → exit 0.
+- Harness scan: `pnpm harness:scan` → exit 0.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-06-14
+
+**Status upgrade:** verifying → done
+
+Per-TC verification (Completion Criteria all `[x]`; Test Plan evidence is authoritative — PRESET-008 ships no `## User Execution Test Scenarios` user preset, as effort is a provider-call wiring whose user-facing effect arrives with PRESET-005's preset):
+
+- TC-01 (resolved effort reaches native-effort provider request) — `[x]`. Verified via `pnpm --filter @robota-sdk/agent-provider test` (exit 0). Tests: `packages/agent-core/src/services/execution-round.test.ts:245` ("threads an explicit config.defaultModel.effort into chatOptions", asserts `effort: 'max'`) + `packages/agent-provider/src/openai/reasoning-effort.test.ts:74,89` ("TC-01: threads effort onto the OpenAI Responses reasoning.effort param" / low passthrough). Test Plan TC-01 row maps to these.
+- TC-02 (effort unset → default 'high' applied) — `[x]`. Verified via package test run (exit 0). Tests: `packages/agent-core/src/services/execution-round.test.ts:228` ("defaults effort to high in chatOptions when config.defaultModel.effort is unset", asserts `effort: 'high'`) + `packages/agent-provider/src/openai/reasoning-effort.test.ts:106` ("TC-02: an explicit high effort … yields reasoning.effort === high"). Test Plan TC-02 row maps to these.
+- TC-03 (no-native-effort provider ignores it w/o error + documented no-op) — `[x]`. Runtime half: `packages/agent-provider/src/deepseek/provider.test.ts:240` ("TC-03: ignores per-call effort without error and emits no effort param"; asserts request lacks `effort`/`reasoning_effort`) — package test exit 0. Doc half: `rg -n "Reasoning Effort" packages/agent-provider/docs/SPEC.md` → match at line 95 ("## Reasoning Effort (per-call)"). Test Plan TC-03 row maps to these.
+- TC-04 (build + typecheck exit 0 for changed packages) — `[x]`. `pnpm build:deps` → exit 0; `pnpm typecheck` → exit 0. Test Plan TC-04 row maps to these.
+
+Summary: all TC-01..TC-04 checked with matching Test Plan evidence; build/test/typecheck/harness:scan all exit 0. No User Execution Test Scenarios section applies (provider-call wiring; user-facing effect ships with PRESET-005).
