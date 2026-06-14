@@ -11,6 +11,7 @@ flowchart TD
   ProductShells["Product shells\nagent-cli, apps/agent-web, docs, blog"]
   Playground["Product app\nagent-playground"]
   Assembly["Assembly/API layers\nagent-framework, apps/agent-server"]
+  Preset["Preset/option data\nagent-preset (named option bundles + resolvePreset)"]
   TransportShells["Transport shells\nagent-transport/tui, agent-transport/ws, agent-transport/http,\nagent-transport/headless, agent-transport/mcp"]
   TypeContracts["Type contracts\nagent-interface-transport, agent-interface-tui\n(ZERO runtime deps)"]
   Orchestration["Orchestration\nagent-remote-client"]
@@ -21,6 +22,8 @@ flowchart TD
   OptIn["Optional runners\nagent-subagent-runner (opt-in)"]
 
   ProductShells --> Assembly
+  Preset --> Assembly
+  ProductShells --> Preset
   Assembly --> Sessions
   Assembly --> Executor
   Assembly --> Domain
@@ -53,8 +56,8 @@ See [capability-placement.md](capability-placement.md).
 assembly-level object) which transports consume, while Assembly registers transport adapters.
 
 `agent-subagent-runner` is opt-in: install only when child-process subagent support is needed.
-It depends on agent-framework, agent-executor, and agent-provider but must not import from
-agent-command or agent-cli.
+It depends on agent-core, agent-framework, agent-executor, and agent-provider but must not import
+from agent-command or agent-cli.
 
 Layer rules:
 

@@ -27,8 +27,12 @@ single-responsibility step skills; it does not itself extract graphs, judge clai
    guard) and `pnpm harness:scan`. Capture both verbatim. This is the deterministic floor — no human
    judgement. See [dependency-graph-extraction](../dependency-graph-extraction/SKILL.md).
 2. **Per-document verification.** For each canonical architecture document (the set in
-   `dependency-graph-extraction`), assign every checkable claim a verdict via
-   [doc-claim-verification](../doc-claim-verification/SKILL.md).
+   [doc-claim-verification](../doc-claim-verification/SKILL.md) > Canonical Document Set), assign every
+   checkable claim a verdict via [doc-claim-verification](../doc-claim-verification/SKILL.md).
+   **Enumerate the set mechanically — do not hand-list it.** The architecture-map has nested subtrees
+   (e.g. `agent-cli/`); enumerate with `find .agents/specs/architecture-map -name '*.md'` and
+   `ls packages/*/docs/SPEC.md`, then verify EVERY file. A risk-based pass may _prioritise_ recently
+   changed docs, but must still report which canonical docs were covered vs. deferred (no silent scoping).
 3. **Classify + report.** Turn verdicts into `AF-NN` findings with severity and a counts table via
    [conformance-finding-report](../conformance-finding-report/SKILL.md), written to
    `.design/architecture-audit/<date>/conformance-audit-report.md`.

@@ -1,6 +1,6 @@
 # Transport Architecture
 
-Source-verified against `develop` on 2026-05-18.
+Source-verified against `develop` on 2026-06-14.
 
 `agent-transport` subpaths, protocol semantics, React isolation, MCP roles, and type contract ownership.
 

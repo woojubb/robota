@@ -32,18 +32,26 @@ High-level system architecture for the Robota AI Agent SDK monorepo.
 └──────┬───────────┘
        │
        ▼
-┌──────────────────────────────────────────┐
-│              SDK Packages                │
-│                                          │
-│  agent-core (auth, credits planned)      │
-│  agent-sessions / agent-runtime          │
-│  agent-sdk / agent-command-*             │
-│  agent-tools / agent-tool-mcp            │
-│  agent-transport-* / agent-provider-*    │
-│  agent-plugin-* / agent-team             │
-│  agent-playground / agent-remote-client  │
-│  agent-event-service                     │
-└──────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────┐
+│                    SDK Packages (18)                       │
+│  See .agents/project-structure.md for the SSOT inventory.    │
+│                                                              │
+│  Domain          agent-core (auth, credits planned)         │
+│  Assembly        agent-framework                            │
+│  Runtime/Session agent-session / agent-executor             │
+│  Preset/Options  agent-preset                               │
+│  Commands/CLI    agent-command / agent-cli                  │
+│  Subagents       agent-subagent-runner                      │
+│  Tools           agent-tools / agent-tool-mcp               │
+│  Transports      agent-transport (/tui /headless /ws        │
+│                  /http /mcp)                                 │
+│  Type contracts  agent-interface-transport /                │
+│                  agent-interface-tui                         │
+│  Providers       agent-provider                             │
+│  Plugins         agent-plugin                               │
+│  Playground/Web  agent-playground / agent-web-ui            │
+│  Remote          agent-remote-client                        │
+└────────────────────────────────────────────────────────────┘
 ```
 
 ## Key Architectural Decisions

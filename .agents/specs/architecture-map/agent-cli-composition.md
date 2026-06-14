@@ -1,6 +1,6 @@
 # Agent CLI Composition Architecture Map
 
-Source-verified against `develop` on 2026-05-11.
+Source-verified against `develop` on 2026-06-14.
 
 This file is the stable router for the `@robota-sdk/agent-cli` architecture slice. Detailed CLI
 composition content is split under [agent-cli/](agent-cli/) so readers can load only the relevant
@@ -48,6 +48,7 @@ affects any of these:
 - a new or removed `@robota-sdk/agent-command` module in the default CLI product;
 - provider setup, provider switching, model catalog, or model switching flow;
 - interactive vs non-interactive execution mode flags or transport behavior;
+- preset selection / `--preset` flag / external preset loading in `cli.ts` or `startup/preset-selection.ts`;
 - package dependencies among CLI, `agent-framework`, `agent-command`, `agent-provider`, `agent-executor`, `agent-session`, tools, or core;
 - any future CLI composition of MCP/deployment capabilities.
 
