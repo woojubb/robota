@@ -53,19 +53,31 @@ export interface IAgentLifecycleEvents {
   onDestroy?: (agentId: string) => Promise<void> | void;
 }
 
-/** Resolved (all-required) factory options */
-export type TResolvedFactoryOptions = Required<IAgentFactoryOptions>;
+/**
+ * Resolved factory options.
+ * The infrastructure fields are always populated; `defaultModel`/`defaultProvider` stay exactly as
+ * the caller supplied them — no vendor model/provider default is injected at this foundation layer.
+ */
+export type TResolvedFactoryOptions = Required<
+  Pick<IAgentFactoryOptions, 'maxConcurrentAgents' | 'defaultSystemMessage' | 'strictValidation'>
+> &
+  Pick<IAgentFactoryOptions, 'defaultModel' | 'defaultProvider'>;
 
 /**
- * Build a Required<IAgentFactoryOptions> from partial user input.
+ * Build resolved factory options from partial user input.
+ *
+ * Only vendor-neutral infrastructure defaults are applied here. A model/provider is never
+ * defaulted to a hardcoded vendor name; resolution happens later in {@link applyAgentDefaults}
+ * from the caller's config, and an unresolvable model/provider fails loudly rather than silently
+ * substituting one.
  */
 export function resolveFactoryOptions(options: IAgentFactoryOptions): TResolvedFactoryOptions {
   return {
-    defaultModel: options.defaultModel || 'gpt-4',
-    defaultProvider: options.defaultProvider || 'openai',
     maxConcurrentAgents: options.maxConcurrentAgents || MAX_CONCURRENT_AGENTS,
     defaultSystemMessage: options.defaultSystemMessage || 'You are a helpful AI assistant.',
     strictValidation: options.strictValidation ?? true,
+    ...(options.defaultModel !== undefined && { defaultModel: options.defaultModel }),
+    ...(options.defaultProvider !== undefined && { defaultProvider: options.defaultProvider }),
   };
 }
 
@@ -80,24 +92,38 @@ export function applyAgentDefaults(
     throw new ConfigurationError('At least one AI provider must be specified in aiProviders array');
   }
 
-  const defaultModel = config.defaultModel || {
-    provider: config.aiProviders[0]?.name || options.defaultProvider,
-    model: options.defaultModel,
-    temperature: 0.7,
-    systemMessage: options.defaultSystemMessage,
-  };
+  const baseModel = config.defaultModel;
+
+  // Resolve the model without falling back to a hardcoded vendor model. A missing model is a
+  // configuration error to surface, not something to paper over.
+  const resolvedModel = baseModel?.model ?? options.defaultModel;
+  if (!resolvedModel) {
+    throw new ConfigurationError(
+      'No model specified: set config.defaultModel.model or the AgentFactory defaultModel option',
+    );
+  }
+
+  // Provider resolves from the explicit config, then the first configured provider, then the
+  // factory option — never a hardcoded vendor name.
+  const resolvedProvider =
+    baseModel?.provider ?? config.aiProviders[0]?.name ?? options.defaultProvider;
+  if (!resolvedProvider) {
+    throw new ConfigurationError(
+      'No provider specified: set config.defaultModel.provider, an aiProviders entry, or the AgentFactory defaultProvider option',
+    );
+  }
 
   return {
     id: config.id || generateAgentId(),
     name: config.name || 'Unnamed Agent',
     aiProviders: config.aiProviders,
     defaultModel: {
-      provider: defaultModel.provider,
-      model: defaultModel.model,
-      temperature: defaultModel.temperature ?? DEFAULT_TEMPERATURE,
-      ...(defaultModel.maxTokens !== undefined && { maxTokens: defaultModel.maxTokens }),
-      ...(defaultModel.topP !== undefined && { topP: defaultModel.topP }),
-      systemMessage: defaultModel.systemMessage || options.defaultSystemMessage,
+      provider: resolvedProvider,
+      model: resolvedModel,
+      temperature: baseModel?.temperature ?? DEFAULT_TEMPERATURE,
+      ...(baseModel?.maxTokens !== undefined && { maxTokens: baseModel.maxTokens }),
+      ...(baseModel?.topP !== undefined && { topP: baseModel.topP }),
+      systemMessage: baseModel?.systemMessage || options.defaultSystemMessage,
     },
     tools: config.tools || [],
     plugins: config.plugins || [],
