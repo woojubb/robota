@@ -134,6 +134,8 @@ export const SettingsSchema = z.object({
   defaultTrustLevel: z.enum(['safe', 'moderate', 'full']).optional(),
   /** Response language (e.g., "ko", "en", "ja"). Injected into system prompt. */
   language: z.string().optional(),
+  /** Selected preset id (overridden by --preset). */
+  preset: z.string().optional(),
   /** Active provider profile key from providers. */
   currentProvider: z.string().optional(),
   /** Provider profiles keyed by user-facing profile name. */

@@ -54,6 +54,7 @@
     "@robota-sdk/agent-command": "workspace:*",
     "@robota-sdk/agent-core": "workspace:*",
     "@robota-sdk/agent-framework": "workspace:*",
+    "@robota-sdk/agent-preset": "workspace:*",
     "@robota-sdk/agent-provider": "workspace:*",
     "@robota-sdk/agent-subagent-runner": "workspace:*",
     "@robota-sdk/agent-transport": "workspace:*",

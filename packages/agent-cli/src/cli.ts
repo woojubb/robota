@@ -17,9 +17,13 @@ import {
   formatCliUpdateCheckMessage,
   formatCliUpdateNotice,
   ProviderConfigError,
+  readSettings,
+  getUserSettingsPath,
 } from '@robota-sdk/agent-framework';
 import { parseCliArgs, parseToolList, printHelp } from './utils/cli-args.js';
 import type { IParsedCliArgs } from './utils/cli-args.js';
+import { resolveCliPreset } from './startup/preset-selection.js';
+import type { TResolvedPresetOptions } from '@robota-sdk/agent-preset';
 import {
   ensureConfig,
   handleProviderConfigurationArgs,
@@ -161,11 +165,24 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     process.exit(error instanceof ProviderConfigError && args.printMode ? 3 : 1);
   }
 
+  // PRESET-002: thin shell — select preset id (flag > settings.preset > 'default') and forward
+  // the resolved framework options. The precedence merge lives in agent-preset.resolvePreset.
+  const userSettings = readSettings(getUserSettingsPath());
+  const settingsPreset = typeof userSettings.preset === 'string' ? userSettings.preset : undefined;
+  let resolvedPreset: TResolvedPresetOptions;
+  try {
+    resolvedPreset = resolveCliPreset(args, settingsPreset);
+  } catch (error) {
+    // allow-fallback: unknown preset id is terminal — surface available list, exit
+    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+    process.exit(1);
+  }
+
   const providerOptions = args.provider
     ? { providerOverride: args.provider, providerDefinitions }
     : { providerDefinitions };
   const providerSettings = readProviderSettings(cwd, providerOptions);
-  const modelId = args.model ?? providerSettings.model;
+  const modelId = resolvedPreset.model ?? providerSettings.model;
   if (providerSettings.source === 'env-default' && providerSettings.sourceEnvVar !== undefined) {
     const notice = `Using ${providerSettings.name} (${modelId}) via ${providerSettings.sourceEnvVar} — run \`robota --configure\` to persist a profile.\n`;
     if (args.printMode) {
@@ -174,7 +191,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
       terminal.writeLine(notice.trimEnd());
     }
   }
-  const provider = createProviderFromSettings(cwd, args.model, providerOptions);
+  const provider = createProviderFromSettings(cwd, resolvedPreset.model, providerOptions);
   const backgroundTaskRunners = createDefaultBackgroundTaskRunners();
   const paths = projectPaths(cwd);
   const subagentRunnerFactory = createChildProcessSubagentRunnerFactory({
@@ -251,7 +268,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     transportRegistry: createDefaultTransportRegistry(),
     cliAdapter: createDefaultTuiCliAdapter({ providerDefinitions, reloadPluginCommandSource }),
     reloadPluginCommandSource,
-    agentName: 'robota-cli',
+    agentName: resolvedPreset.agentName ?? 'robota-cli',
   });
   process.exit(0);
 }
