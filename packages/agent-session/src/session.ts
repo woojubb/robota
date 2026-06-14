@@ -63,6 +63,7 @@ export class Session extends SessionBase {
   protected readonly contextTracker: ContextWindowTracker;
   protected permissionMode: TPermissionMode;
   protected activePresetId: string;
+  protected parallelSubagentsEnabled: boolean;
   protected readonly sessionId: string;
   protected aiProvider: IAIProvider;
   protected readonly toolSchemas: IToolSchema[];
@@ -116,6 +117,9 @@ export class Session extends SessionBase {
       (options.defaultTrustLevel ? TRUST_TO_MODE[options.defaultTrustLevel] : undefined) ??
       'default';
     this.activePresetId = options.activePresetId ?? 'default';
+    // PRESET-016: default true preserves the current behavior — subagent dispatch is allowed
+    // unless a preset explicitly disables it.
+    this.parallelSubagentsEnabled = options.enableParallelSubagents ?? true;
     this.transcriptPath = options.sessionStore?.getFilePath?.(this.sessionId);
     this.log('session_init', {
       cwd: this.cwd,

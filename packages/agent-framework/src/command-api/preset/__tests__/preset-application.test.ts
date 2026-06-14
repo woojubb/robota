@@ -18,6 +18,7 @@ interface IRuntimeSpies {
   applyModelOptions?: ReturnType<typeof vi.fn>;
   applyPersona?: ReturnType<typeof vi.fn>;
   applyCommandModuleSelection?: ReturnType<typeof vi.fn>;
+  setParallelSubagentsEnabled?: ReturnType<typeof vi.fn>;
 }
 
 /**
@@ -28,12 +29,15 @@ interface IRuntimeSpies {
  * `includeApplyPersona: false` omits the optional `applyPersona` to exercise the PRESET-014
  * optional path (TC-05). `includeApplyCommandModuleSelection: false` omits the optional
  * `applyCommandModuleSelection` to exercise the PRESET-015 optional path (TC-06).
+ * `includeSetParallelSubagentsEnabled: false` omits the optional `setParallelSubagentsEnabled` to
+ * exercise the PRESET-016 optional path (TC-06).
  */
 function createContext(
   includeActivePreset = true,
   includeApplyModelOptions = true,
   includeApplyPersona = true,
   includeApplyCommandModuleSelection = true,
+  includeSetParallelSubagentsEnabled = true,
 ): {
   context: ICommandHostContext;
   spies: IRuntimeSpies;
@@ -68,6 +72,12 @@ function createContext(
     const applyModelOptions = vi.fn();
     runtime.applyModelOptions = applyModelOptions;
     spies.applyModelOptions = applyModelOptions;
+  }
+
+  if (includeSetParallelSubagentsEnabled) {
+    const setParallelSubagentsEnabled = vi.fn();
+    runtime.setParallelSubagentsEnabled = setParallelSubagentsEnabled;
+    spies.setParallelSubagentsEnabled = setParallelSubagentsEnabled;
   }
 
   const context: ICommandHostContext = {
@@ -232,6 +242,35 @@ describe('applyPresetToSession command-module group (PRESET-015)', () => {
     expect(spies.applyCommandModuleSelection).toBeUndefined();
     expect(() =>
       applyPresetToSession(context, 'careful-reviewer', { enabledCommandModules: ['a'] }),
+    ).not.toThrow();
+  });
+});
+
+describe('applyPresetToSession parallel-subagents gate (PRESET-016)', () => {
+  it('TC-05: enableParallelSubagents:false → setParallelSubagentsEnabled(false), applied lists it', () => {
+    const { context, spies } = createContext();
+    const result = applyPresetToSession(context, 'careful-reviewer', {
+      enableParallelSubagents: false,
+    });
+
+    expect(spies.setParallelSubagentsEnabled).toHaveBeenCalledWith(false);
+    expect(result.applied).toContain('enableParallelSubagents');
+  });
+
+  it('TC-06: omitted → not called, group skipped', () => {
+    const { context, spies } = createContext();
+    const result = applyPresetToSession(context, 'x', {});
+
+    expect(spies.setParallelSubagentsEnabled).not.toHaveBeenCalled();
+    expect(result.skipped).toContain('enableParallelSubagents');
+    expect(result.applied).not.toContain('enableParallelSubagents');
+  });
+
+  it('TC-06b: runtime without setParallelSubagentsEnabled still applies safely (optional chaining)', () => {
+    const { context, spies } = createContext(true, true, true, true, false);
+    expect(spies.setParallelSubagentsEnabled).toBeUndefined();
+    expect(() =>
+      applyPresetToSession(context, 'careful-reviewer', { enableParallelSubagents: true }),
     ).not.toThrow();
   });
 });
