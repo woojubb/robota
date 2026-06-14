@@ -70,7 +70,9 @@
     "robota-web": "0.1.0",
     "@robota-sdk/starter-nextjs": "0.0.1",
     "robota-www": "0.1.0",
-    "@robota-sdk/agent-preset": "3.0.0-beta.74"
+    "@robota-sdk/agent-preset": "3.0.0-beta.74",
+    "@robota-sdk/agent-session-analytics": "3.0.0-beta.75",
+    "@robota-sdk/agent-transport-tui": "3.0.0-beta.75"
   },
   "changesets": [
     "add-cli-provider-usage-visibility",
@@ -91,9 +93,16 @@
     "cmd-display-name-requires-permission",
     "collapse-command-transcripts",
     "context-ssot-token-estimation",
+    "dq-audit-002-ssot",
+    "dq-audit-003-interface-purity",
+    "dq-audit-004-session-analytics",
+    "dq-audit-005-transport-split",
+    "dq-audit-006-error-hygiene",
+    "dq-audit-007-nits",
     "edit-checkpointing",
     "every-aliens-pump",
     "fix-cli-diff-context-hunks",
+    "fix-cold-session-preset-model",
     "fix-context-capacity-guard",
     "fix-context-list-system-files",
     "fix-edit-diff-summary",

@@ -1,5 +1,17 @@
 # @robota-sdk/starter-nextjs
 
+## 0.0.2-beta.8
+
+### Patch Changes
+
+- Updated dependencies [c0a6287]
+- Updated dependencies [9df3a88]
+- Updated dependencies
+- Updated dependencies
+- Updated dependencies [576af62]
+  - @robota-sdk/agent-framework@3.0.0-beta.76
+  - @robota-sdk/agent-provider@3.0.0-beta.76
+
 ## 0.0.2-beta.7
 
 ### Patch Changes
