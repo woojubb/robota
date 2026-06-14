@@ -1,7 +1,7 @@
 import { writeCommandPermissionMode } from '../permissions/permission-mode-command-api.js';
 
-import type { ICommandHostContext } from '../host-context.js';
-import type { TPermissionMode } from '@robota-sdk/agent-core';
+import type { ICommandHostContext, IModelReapplyOptions } from '../host-context.js';
+import type { TModelEffort, TPermissionMode } from '@robota-sdk/agent-core';
 
 /**
  * Resolved-preset option subset that can be re-applied to a *live* session.
@@ -10,13 +10,17 @@ import type { TPermissionMode } from '@robota-sdk/agent-core';
  * structurally, so a consumer can hand a `resolvePreset(...)` result straight to
  * {@link applyPresetToSession} without framework importing agent-preset (no dependency cycle).
  *
- * PRESET-012 carries only the permission/trust group (`permissionMode`). Later layers extend it:
- * - PRESET-013: `model`, `effort`, `temperature`, `maxOutputTokens`
+ * PRESET-012 carries the permission/trust group (`permissionMode`); PRESET-013 adds the model group
+ * (`model`, `effort`, `temperature`, `maxOutputTokens`). Later layers extend it further:
  * - PRESET-014: `persona`, `systemPrompt`, `enabledCommandModules`, `enableParallelSubagents`,
  *   `selfVerification`
  */
 export interface IPresetApplicationOptions {
   permissionMode?: TPermissionMode;
+  model?: string;
+  effort?: TModelEffort;
+  temperature?: number;
+  maxOutputTokens?: number;
 }
 
 /** Outcome of {@link applyPresetToSession}: which option groups were re-applied vs. skipped. */
@@ -33,9 +37,10 @@ export interface IPresetApplicationResult {
  * This is the single entry point for live preset switching. It first records the active preset id
  * (PRESET-011 runtime state) — the runtime's `setActivePresetId` is optional, so it is invoked
  * defensively. It then re-applies each option group it owns; PRESET-012 applies the permission
- * posture via the existing `writeCommandPermissionMode` seam. Groups absent from `options` are
- * left untouched and reported under `skipped`. Later layers (PRESET-013/014) extend the applied
- * groups without changing this contract.
+ * posture via the existing `writeCommandPermissionMode` seam, and PRESET-013 re-applies the model
+ * group (`model`/`effort`/`temperature`/`maxOutputTokens`) via the runtime's optional
+ * `applyModelOptions`. Groups absent from `options` are left untouched and reported under `skipped`.
+ * Later layers (PRESET-014) extend the applied groups without changing this contract.
  */
 export function applyPresetToSession(
   context: ICommandHostContext,
@@ -53,6 +58,24 @@ export function applyPresetToSession(
     applied.push('permissionMode');
   } else {
     skipped.push('permissionMode');
+  }
+
+  // PRESET-013 model group — re-applied via the runtime's optional applyModelOptions seam.
+  const modelOptions: IModelReapplyOptions = {
+    ...(options.model !== undefined && { model: options.model }),
+    ...(options.effort !== undefined && { effort: options.effort }),
+    ...(options.temperature !== undefined && { temperature: options.temperature }),
+    ...(options.maxOutputTokens !== undefined && { maxOutputTokens: options.maxOutputTokens }),
+  };
+  for (const key of ['model', 'effort', 'temperature', 'maxOutputTokens'] as const) {
+    if (options[key] !== undefined) {
+      applied.push(key);
+    } else {
+      skipped.push(key);
+    }
+  }
+  if (Object.keys(modelOptions).length > 0) {
+    context.getSession().applyModelOptions?.(modelOptions);
   }
 
   return { applied, skipped };

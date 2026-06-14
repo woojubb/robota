@@ -14,6 +14,7 @@ export type {
   ICommandResult,
   ICommandSessionReplayValidationReport,
   ICommandSessionRuntime,
+  IModelReapplyOptions,
   ICommandSkillActivationRequest,
   ICommandSettingsAdapter,
   ICommandSettingsDocument,
