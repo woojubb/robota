@@ -719,12 +719,12 @@ beta.76 릴리즈 세션에서 **실제로 발생한** 마찰·실수를 스킬 
 ### Harness Audit Recommendations (rulebased-harness, 2026-06-15)
 
 rulebased-harness 감사(A등급, 55/57) 결과 도출된 보편성 강화 항목. AGENTS.md domain-free 설계를
-유지하면서 범용 에이전트의 발견성을 높이고, 이식 가능한 하네스 패턴을 문서화한다.
+유지하면서 범용 에이전트의 발견성을 높이고, 이식 가능한 하네스 패턴을 문서화한다. 전부 구현 완료 (2026-06-15).
 
-| ID                                                    | 제목                                                          | 우선순위 |
-| ----------------------------------------------------- | ------------------------------------------------------------- | -------- |
-| [HAUDIT-001](HAUDIT-001-agents-arch-tree.md)          | AGENTS.md 최상위 구조 트리 인라인 — ctx-agents-arch hollow    | medium   |
-| [HAUDIT-002](HAUDIT-002-agents-pitfalls-pointer.md)   | AGENTS.md Common Pitfalls 진입점 — ctx-agents-pitfalls hollow | medium   |
-| [HAUDIT-003](HAUDIT-003-claude-md-delegation-note.md) | CLAUDE.md 위임 의도 명시 — ctx-claude-exists 강화             | low      |
-| [HAUDIT-004](HAUDIT-004-memory-discoverability.md)    | 영속 메모리/lessons 발견성 포인터 — auto-memory-system 강화   | low      |
-| [HAUDIT-005](HAUDIT-005-portable-harness-patterns.md) | 이식 가능한 하네스 패턴 문서화 — 보편 강화                    | low      |
+| ID                                                                 | 제목                                                          | 우선순위 |
+| ------------------------------------------------------------------ | ------------------------------------------------------------- | -------- |
+| [HAUDIT-001](completed/HAUDIT-001-agents-arch-tree.md) ✅          | AGENTS.md 최상위 구조 트리 인라인 — ctx-agents-arch hollow    | medium   |
+| [HAUDIT-002](completed/HAUDIT-002-agents-pitfalls-pointer.md) ✅   | AGENTS.md Common Pitfalls 진입점 — ctx-agents-pitfalls hollow | medium   |
+| [HAUDIT-003](completed/HAUDIT-003-claude-md-delegation-note.md) ✅ | CLAUDE.md 위임 의도 명시 — ctx-claude-exists 강화             | low      |
+| [HAUDIT-004](completed/HAUDIT-004-memory-discoverability.md) ✅    | 영속 메모리/lessons 발견성 포인터 — auto-memory-system 강화   | low      |
+| [HAUDIT-005](completed/HAUDIT-005-portable-harness-patterns.md) ✅ | 이식 가능한 하네스 패턴 문서화 — 보편 강화                    | low      |

@@ -1,7 +1,8 @@
 ---
 title: 'HAUDIT-003: CLAUDE.md 위임 의도 명시 — ctx-claude-exists 강화'
-status: todo
+status: done
 created: 2026-06-15
+completed: 2026-06-15
 priority: low
 urgency: later
 area: CLAUDE.md
@@ -23,9 +24,9 @@ CLAUDE.md에 "이 파일은 의도적으로 얇으며 모든 규칙/아키텍처
 
 ## Completion Criteria
 
-- [ ] TC-01: CLAUDE.md에 AGENTS.md로의 의도적 위임 문구가 명시됨
-- [ ] TC-02: 규칙/아키텍처 본문을 CLAUDE.md에 중복 인라인하지 않음(SSOT는 AGENTS.md)
-- [ ] TC-03: `pnpm harness:scan` 통과
+- [x] TC-01: CLAUDE.md에 AGENTS.md로의 의도적 위임 문구가 명시됨
+- [x] TC-02: 규칙/아키텍처 본문을 CLAUDE.md에 중복 인라인하지 않음(SSOT는 AGENTS.md)
+- [x] TC-03: `pnpm harness:scan` 통과
 
 ## Test Plan
 
@@ -41,8 +42,15 @@ Not applicable — 컨텍스트 문서 명확화. 런타임 동작 무변경.
 
 ## Tasks
 
-- [ ] CLAUDE.md 위임 문구 추가 → harness:scan 검증
+- [x] CLAUDE.md 위임 문구 추가 → harness:scan 검증
 
 ## Evidence Log
 
-(구현 후 작성)
+### 구현 완료 — 2026-06-15
+
+- **TC-01/02:** CLAUDE.md에 "This file is intentionally thin. AGENTS.md is the single source of
+  truth ... not duplicated here by design." 문구 추가. 규칙/아키텍처 본문 중복 인라인 없음.
+- **TC-03:** `pnpm harness:scan` **26/26 passed**.
+
+감사 효과: `ctx-claude-exists` 경계선 → 의도 명확화.
+User Execution Test Scenario gate: Not applicable — 컨텍스트 문서 명확화(런타임 무변경).
