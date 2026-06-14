@@ -47,7 +47,10 @@ export class ConversationStore implements IConversationHistory {
   private history: SimpleConversationHistory;
   private pendingAssistant: IStreamingState | null = null;
 
-  constructor(maxMessages: number = 100) {
+  // `maxMessages` defaults to 0 = unbounded (append-only). History records everything; context size
+  // is managed by size-based compaction, never by count-based truncation. A positive value is an
+  // explicit opt-in for a bounded buffer only.
+  constructor(maxMessages: number = 0) {
     this.history = new SimpleConversationHistory({ maxMessages });
   }
 
