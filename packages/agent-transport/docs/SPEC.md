@@ -52,13 +52,6 @@ agent-interface-transport ──────┘
 src/
   index.ts                   ← root re-export of all sub-paths + TransportRegistry
   transport-registry.ts      ← TransportRegistry, createDefaultTransportRegistry
-  headless/
-    headless-transport.ts    ← createHeadlessTransport (ITransportAdapter wrapper)
-    headless-runner.ts       ← createHeadlessRunner (text/json/stream-json modes)
-    headless-stream-json.ts  ← stream-json event subscription helpers
-    print-terminal.ts        ← PrintTerminal utility
-    cli-input.ts             ← promptInput utility
-    index.ts
   http/
     routes.ts                ← createAgentRoutes (Hono router)
     http-transport.ts        ← createHttpTransport
@@ -76,7 +69,7 @@ src/
     index.ts
   headless/
     HeadlessInteractionChannel.ts ← HeadlessInteractionChannel (owns session + runner)
-    headless-transport.ts    ← createHeadlessTransport (legacy ITransportAdapter wrapper)
+    headless-transport.ts    ← createHeadlessTransport (ITransportAdapter wrapper)
     headless-runner.ts       ← createHeadlessRunner (text/json/stream-json modes)
     headless-stream-json.ts  ← stream-json event subscription helpers
     print-terminal.ts        ← PrintTerminal utility
@@ -282,7 +275,7 @@ pnpm --filter @robota-sdk/agent-transport test:coverage
   project session store and asserts restored context `usedTokens > 0`
 - All tests run with Vitest; `--passWithNoTests` allows sub-directories without tests to pass CI
 
-Expected baseline: 51 test files, ~431 tests, all passing.
+Expected baseline: ~61 test files, ~476 tests, all passing.
 
 ## Test Harness Contracts (CLI-074)
 

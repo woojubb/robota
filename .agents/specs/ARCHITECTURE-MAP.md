@@ -13,13 +13,12 @@ architecture lessons without duplicating package-level contract truth.
 2. Read [architecture-map/repository-overview.md](architecture-map/repository-overview.md) for package family orientation.
 3. Read [architecture-map/dependency-direction.md](architecture-map/dependency-direction.md) before adding, removing, or moving a package edge.
 4. Read [architecture-map/capability-placement.md](architecture-map/capability-placement.md) before deciding which package owns a new product-visible capability.
-5. Read [architecture-map/agent-system.md](architecture-map/agent-system.md) before changing agent runtime, SDK, commands, providers, transports, playground, or remote execution.
-6. Read [architecture-map/agent-team.md](architecture-map/agent-team.md) before changing multi-agent delegation, relay tools, template registry, or owner-path propagation.
-7. Read [architecture-map/transport-architecture.md](architecture-map/transport-architecture.md) before changing any transport subpath, protocol adapter, MCP server/tool role boundary, or the `ITransportAdapter`/`IConfigurableTransport` contracts.
-8. Read [architecture-map/agent-cli-composition.md](architecture-map/agent-cli-composition.md) before changing the concrete `agent-cli` startup path, TUI hooks, provider/model flow, or execution modes; it routes to focused files under `architecture-map/agent-cli/`.
-9. Read [architecture-map/apps-and-deployment.md](architecture-map/apps-and-deployment.md) before changing app hosting, docs build, or deploy behavior.
-10. Read [architecture-map/cross-cutting-contracts.md](architecture-map/cross-cutting-contracts.md) before changing shared command, provider, auth, credits, event, session, background, workflow, or verification contracts.
-11. Read [architecture-map/architecture-lessons.md](architecture-map/architecture-lessons.md) before resolving or adding architecture audit findings.
+5. Read [architecture-map/agent-system.md](architecture-map/agent-system.md) before changing agent runtime, SDK, commands, providers, transports, playground, remote execution, or multi-agent delegation, relay tools, template registry, or owner-path propagation.
+6. Read [architecture-map/transport-architecture.md](architecture-map/transport-architecture.md) before changing any transport subpath, protocol adapter, MCP server/tool role boundary, or the `ITransportAdapter`/`IConfigurableTransport` contracts.
+7. Read [architecture-map/agent-cli-composition.md](architecture-map/agent-cli-composition.md) before changing the concrete `agent-cli` startup path, TUI hooks, provider/model flow, or execution modes; it routes to focused files under `architecture-map/agent-cli/`.
+8. Read [architecture-map/apps-and-deployment.md](architecture-map/apps-and-deployment.md) before changing app hosting, docs build, or deploy behavior.
+9. Read [architecture-map/cross-cutting-contracts.md](architecture-map/cross-cutting-contracts.md) before changing shared command, provider, auth, credits, event, session, background, workflow, or verification contracts.
+10. Read [architecture-map/architecture-lessons.md](architecture-map/architecture-lessons.md) before resolving or adding architecture audit findings.
 
 ## Document Tree
 
@@ -31,8 +30,7 @@ architecture lessons without duplicating package-level contract truth.
     ├── repository-overview.md           # package/app family orientation
     ├── dependency-direction.md          # layer ownership and target dependency rules
     ├── capability-placement.md          # owner-first placement rules for new capabilities
-    ├── agent-system.md                  # agent stack and playground boundaries
-    ├── agent-team.md                    # multi-agent delegation, relay tools, owner-path propagation
+    ├── agent-system.md                  # agent stack, playground boundaries, multi-agent delegation
     ├── transport-architecture.md        # transport subpaths, React isolation, MCP disambiguation
     ├── agent-cli-composition.md         # CLI architecture router
     ├── agent-cli/                       # CLI target, composition, command, provider, mode, inventory, and audit slices

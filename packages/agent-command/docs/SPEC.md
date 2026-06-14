@@ -24,7 +24,7 @@ Each command domain lives in its own subdirectory (`src/<command>/`) with a cons
 
 Two cross-cutting subdirectories:
 
-- `src/default/` — `createDefaultCommandModules` assembles all 21 standard command modules into one `readonly ICommandModule[]` array. Consumers pass `cwd`, `providerDefinitions`, `providerSettingsAdapter`, and optional `orgPolicy`.
+- `src/default/` — `createDefaultCommandModules` assembles all 21 standard command modules into one `readonly ICommandModule[]` array. Consumers pass `cwd`, `providerDefinitions`, `providerSettingsAdapter`, and optionally `enabledCommandModules` / `disabledCommandModules` (allow-then-deny module name filters). `orgPolicy` is not an option here — it is wired at the provider-command-module level via `createProviderCommandModule`.
 - `src/plugins/` — provides `createDefaultPluginCommandAdapter` (wires `BundlePluginInstaller`, `BundlePluginLoader`, `MarketplaceClient` into an `ICommandPluginAdapter`) and `reloadPluginCommandSource` (synchronously reloads plugin commands into a `CommandRegistry`).
 
 The `agent` command module sets `sessionRequirements: ['agent-runtime']`, which signals to the session layer that this module must only be registered when an agent runtime is available.
