@@ -19,6 +19,7 @@ import { runManagedAgentBatch } from './agent-tool-batch.js';
 import {
   stringifyAgentError,
   stringifyAgentSuccess,
+  stringifyParallelSubagentsDisabled,
   stringifyUnknownAgentType,
 } from './agent-tool-output.js';
 import { getBuiltInAgent } from '../agents/built-in-agents.js';
@@ -126,6 +127,8 @@ export interface IAgentToolDeps extends IInProcessSubagentRunnerDeps {
   customAgentRegistry?: (name: string) => IAgentDefinition | undefined;
   /** Model-visible and command-visible agent definitions available to this session. */
   agentDefinitions?: IAgentDefinition[];
+  /** PRESET-016 — runtime gate; when present and returns false, subagent dispatch is refused. */
+  isParallelSubagentsEnabled?: () => boolean;
 }
 
 /**
@@ -246,6 +249,11 @@ export function createAgentTool(deps: IAgentToolDeps): ReturnType<typeof createZ
     async (params, context) => {
       const args = params as TAgentArgs;
       const toolCallId = (context as IToolExecutionContext | undefined)?.executionId;
+      // PRESET-016 runtime gate: refuse dispatch without spawning anything when the active preset
+      // has disabled parallel subagents on this (already-constructed) session.
+      if (deps.isParallelSubagentsEnabled !== undefined && !deps.isParallelSubagentsEnabled()) {
+        return stringifyParallelSubagentsDisabled();
+      }
       if (Array.isArray(args.jobs) && args.jobs.length > 0) {
         return runManagedAgentBatch({
           jobs: args.jobs as TAgentJobArgs[],

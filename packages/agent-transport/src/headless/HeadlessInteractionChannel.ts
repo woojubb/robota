@@ -38,6 +38,16 @@ export interface IHeadlessInteractionChannelOptions {
   deniedTools?: string[];
   appendSystemPrompt?: string;
   systemPrompt?: string;
+  /** Name reported to the underlying agent config (resolved by the CLI, e.g. preset agentName). */
+  agentName?: string;
+  /** Active preset id selected at startup (PRESET-011 runtime state). Defaults to 'default'. */
+  activePresetId?: string;
+  /** Preset persona block composed as a `source: 'persona'` system-prompt section (priority 5). */
+  persona?: string;
+  /** Preset execution capability: activate agent runtime + subagent/background dispatch. */
+  enableParallelSubagents?: boolean;
+  /** Preset execution capability: run a post-task self-verification step. */
+  selfVerification?: boolean;
   backgroundTaskRunners?: IBackgroundTaskRunner[];
   subagentRunnerFactory?: TSubagentRunnerFactory;
   commandModules?: readonly ICommandModule[];
@@ -72,13 +82,23 @@ export class HeadlessInteractionChannel {
       allowedTools: this.opts.allowedTools,
       deniedTools: this.opts.deniedTools,
       appendSystemPrompt: this.opts.appendSystemPrompt,
+      ...(this.opts.persona !== undefined ? { persona: this.opts.persona } : {}),
       ...(this.opts.systemPrompt ? { systemPrompt: this.opts.systemPrompt } : {}),
       backgroundTaskRunners: this.opts.backgroundTaskRunners,
       subagentRunnerFactory: this.opts.subagentRunnerFactory,
       commandModules: this.opts.commandModules,
       commandHostAdapters: this.opts.commandHostAdapters,
       shellExec,
-      agentName: 'robota-cli',
+      agentName: this.opts.agentName,
+      ...(this.opts.activePresetId !== undefined
+        ? { activePresetId: this.opts.activePresetId }
+        : {}),
+      ...(this.opts.enableParallelSubagents !== undefined
+        ? { enableParallelSubagents: this.opts.enableParallelSubagents }
+        : {}),
+      ...(this.opts.selfVerification !== undefined
+        ? { selfVerification: this.opts.selfVerification }
+        : {}),
     });
 
     const runner = createHeadlessRunner({ session, outputFormat: this.opts.outputFormat });

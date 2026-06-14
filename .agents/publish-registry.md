@@ -17,6 +17,7 @@ Last audited: 2026-05-25 (pre-release readiness audit, REL-007)
 | `@robota-sdk/agent-provider`        | beta    | Consolidated providers — sub-paths: /anthropic, /openai, /gemini, /deepseek, … |
 | `@robota-sdk/agent-executor`        | —       | **private: true** — internal background-task primitives                        |
 | `@robota-sdk/agent-framework`       | beta    | Assembly layer: InteractiveSession, createQuery(), config/context loading      |
+| `@robota-sdk/agent-preset`          | beta    | Preset contract (IPreset) + resolvePreset + built-in presets                   |
 | `@robota-sdk/agent-command`         | beta    | Slash command modules (/agent, /help, /provider, /skills, …)                   |
 | `@robota-sdk/agent-transport`       | beta    | Consolidated transport: /tui, /headless, /http, /ws, /mcp                      |
 | `@robota-sdk/agent-subagent-runner` | beta    | Opt-in child-process subagent runner                                           |

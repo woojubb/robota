@@ -1,5 +1,7 @@
 export type TSystemPromptSectionSource =
   | 'framework'
+  | 'persona'
+  | 'self-verification'
   | 'project-instructions'
   | 'runtime'
   | 'permissions'

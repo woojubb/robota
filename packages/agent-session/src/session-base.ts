@@ -6,6 +6,7 @@ import type {
   IContextWindowState,
   IHistoryEntry,
   IToolSchema,
+  TModelEffort,
   TPermissionMode,
   TUniversalMessage,
 } from '@robota-sdk/agent-core';
@@ -15,10 +16,12 @@ export abstract class SessionBase {
   protected abstract readonly permissionEnforcer: PermissionEnforcer;
   protected abstract readonly contextTracker: ContextWindowTracker;
   protected abstract permissionMode: TPermissionMode;
+  protected abstract activePresetId: string;
+  protected abstract parallelSubagentsEnabled: boolean;
   protected abstract readonly sessionId: string;
   protected abstract readonly aiProvider: IAIProvider;
   protected abstract readonly toolSchemas: IToolSchema[];
-  protected abstract readonly model: string;
+  protected abstract model: string;
   protected abstract systemMessage: string;
   protected abstract messageCount: number;
   protected abstract abortController: AbortController | null;
@@ -30,6 +33,30 @@ export abstract class SessionBase {
   /** Change the active permission mode — future tool calls will use the new mode. */
   setPermissionMode(mode: TPermissionMode): void {
     this.permissionMode = mode;
+  }
+
+  /** Read the active preset id (PRESET-011 runtime state). */
+  getActivePresetId(): string {
+    return this.activePresetId;
+  }
+
+  /**
+   * Set the active preset id. PURE STATE — this only records which preset is active;
+   * it does not re-apply any preset options (permission/model/persona). Higher layers
+   * own re-application (PRESET-012/013/014).
+   */
+  setActivePresetId(id: string): void {
+    this.activePresetId = id;
+  }
+
+  /** Whether subagent dispatch is currently allowed for this session (PRESET-016 runtime gate). */
+  getParallelSubagentsEnabled(): boolean {
+    return this.parallelSubagentsEnabled;
+  }
+
+  /** Toggle subagent dispatch live. Only effective if the agent runtime was built at assembly. */
+  setParallelSubagentsEnabled(enabled: boolean): void {
+    this.parallelSubagentsEnabled = enabled;
   }
 
   getSessionId(): string {
@@ -48,6 +75,31 @@ export abstract class SessionBase {
       model: this.model,
       systemMessage: newMessage,
     });
+  }
+
+  /**
+   * Re-apply model options to the live session (PRESET-013 model/effort re-application seam).
+   *
+   * Propagates model/effort/temperature/maxOutputTokens to the agent via `robota.setModel` so the
+   * next call reflects them, and updates `this.model` to keep `getModelId()` accurate. The preset
+   * `maxOutputTokens` field maps to the agent's `maxTokens` channel. Absent fields are left untouched.
+   */
+  applyModelOptions(options: {
+    model?: string;
+    effort?: TModelEffort;
+    temperature?: number;
+    maxOutputTokens?: number;
+  }): void {
+    const nextModel = options.model ?? this.model;
+    this.robota.setModel({
+      provider: this.aiProvider.name,
+      model: nextModel,
+      systemMessage: this.systemMessage,
+      ...(options.effort !== undefined && { effort: options.effort }),
+      ...(options.temperature !== undefined && { temperature: options.temperature }),
+      ...(options.maxOutputTokens !== undefined && { maxTokens: options.maxOutputTokens }),
+    });
+    this.model = nextModel;
   }
 
   getToolSchemas(): IToolSchema[] {

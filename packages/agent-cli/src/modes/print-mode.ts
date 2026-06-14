@@ -1,4 +1,4 @@
-import type { IAIProvider } from '@robota-sdk/agent-core';
+import type { IAIProvider, TPermissionMode } from '@robota-sdk/agent-core';
 import type { ICommandHostAdapters, ICommandModule } from '@robota-sdk/agent-framework';
 import type { createProjectSessionStore } from '@robota-sdk/agent-framework';
 import { HeadlessInteractionChannel } from '@robota-sdk/agent-transport/headless';
@@ -15,6 +15,22 @@ export interface IPrintModeSessionResolution {
   forkSession?: boolean;
 }
 
+/** Preset-resolved identity/persona the thin-shell CLI forwards into the headless session. */
+export interface IPrintModePresetOptions {
+  /** Resolved agent name (preset value, else agent-preset DEFAULT_AGENT_NAME). */
+  agentName?: string;
+  /** Active preset id selected at startup (PRESET-011 runtime state). Defaults to 'default'. */
+  activePresetId?: string;
+  /** Resolved preset persona block composed as a `source: 'persona'` system-prompt section. */
+  persona?: string;
+  /** Resolved preset permission mode (overridden by an explicit CLI --permission-mode flag). */
+  permissionMode?: TPermissionMode;
+  /** Preset execution capability: activate agent runtime + subagent/background dispatch. */
+  enableParallelSubagents?: boolean;
+  /** Preset execution capability: run a post-task self-verification step. */
+  selfVerification?: boolean;
+}
+
 export async function runPrintMode(
   cwd: string,
   args: IParsedCliArgs,
@@ -25,6 +41,7 @@ export async function runPrintMode(
   commandModules: readonly ICommandModule[],
   commandHostAdapters: ICommandHostAdapters,
   sessionResolution: IPrintModeSessionResolution = {},
+  presetOptions: IPrintModePresetOptions = {},
 ): Promise<void> {
   let prompt = args.positional.join(' ').trim();
 
@@ -47,7 +64,7 @@ export async function runPrintMode(
     cwd,
     provider,
     outputFormat: args.outputFormat ?? 'text',
-    permissionMode: args.permissionMode ?? 'bypassPermissions',
+    permissionMode: args.permissionMode ?? presetOptions.permissionMode ?? 'bypassPermissions',
     maxTurns: args.maxTurns,
     sessionStore: args.noSessionPersistence ? undefined : sessionStore,
     resumeSessionId: sessionResolution.resumeSessionId,
@@ -57,6 +74,17 @@ export async function runPrintMode(
     allowedTools: parseToolList(args.allowedTools),
     deniedTools: parseToolList(args.deniedTools),
     appendSystemPrompt,
+    ...(presetOptions.persona !== undefined ? { persona: presetOptions.persona } : {}),
+    ...(presetOptions.agentName !== undefined ? { agentName: presetOptions.agentName } : {}),
+    ...(presetOptions.activePresetId !== undefined
+      ? { activePresetId: presetOptions.activePresetId }
+      : {}),
+    ...(presetOptions.enableParallelSubagents !== undefined
+      ? { enableParallelSubagents: presetOptions.enableParallelSubagents }
+      : {}),
+    ...(presetOptions.selfVerification !== undefined
+      ? { selfVerification: presetOptions.selfVerification }
+      : {}),
     ...(args.systemPrompt ? { systemPrompt: args.systemPrompt } : {}),
     backgroundTaskRunners,
     subagentRunnerFactory,

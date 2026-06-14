@@ -14,6 +14,7 @@ export type {
   ICommandResult,
   ICommandSessionReplayValidationReport,
   ICommandSessionRuntime,
+  IModelReapplyOptions,
   ICommandSkillActivationRequest,
   ICommandSettingsAdapter,
   ICommandSettingsDocument,
@@ -69,6 +70,7 @@ export { commandToCapabilityDescriptor } from './capability-descriptors.js';
 export { SkillCommandSource, parseFrontmatter } from './skill-source.js';
 export { PluginCommandSource } from './plugin-source.js';
 export { SystemCommandExecutor, createSystemCommands } from './system-command.js';
+export { selectCommandModules } from './command-module-selection.js';
 export type {
   IProviderCommandModuleOptions,
   IProviderCommandSettingsAdapter,
@@ -179,6 +181,11 @@ export {
   VALID_PERMISSION_MODES,
   writeCommandPermissionMode,
 } from '../command-api/permissions/permission-mode-command-api.js';
+export { applyPresetToSession } from '../command-api/preset/preset-application.js';
+export type {
+  IPresetApplicationOptions,
+  IPresetApplicationResult,
+} from '../command-api/preset/preset-application.js';
 export {
   buildStatusLineCommandSubcommands,
   DEFAULT_STATUS_LINE_COMMAND_SETTINGS,

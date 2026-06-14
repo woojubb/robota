@@ -17,6 +17,7 @@ import type {
   IToolWithEventService,
   TSessionEndReason,
   TPermissionMode,
+  TModelEffort,
   TToolArgs,
 } from '@robota-sdk/agent-core';
 import type { IHookTypeExecutor } from '@robota-sdk/agent-core';
@@ -53,6 +54,13 @@ export interface ISessionOptions {
   permissionMode?: TPermissionMode;
   /** Default trust level — used to derive permissionMode if not given */
   defaultTrustLevel?: 'safe' | 'moderate' | 'full';
+  /** Active preset id selected at startup (PRESET-011 runtime state). Defaults to 'default'. */
+  activePresetId?: string;
+  /**
+   * Whether subagent dispatch is allowed for this session (PRESET-016 runtime gate). Defaults to
+   * true (current behavior). Only meaningful when the agent runtime was built at assembly.
+   */
+  enableParallelSubagents?: boolean;
   /** Model name (for context window sizing and Robota config) */
   model?: string;
   /** Provider idle timeout in milliseconds for each model call */
@@ -105,4 +113,9 @@ export interface ISessionOptions {
   agentName?: string;
   /** Request structured output from the provider for this session. */
   responseFormat?: { type: 'text' | 'json_object' };
+  /**
+   * Reasoning-effort dial threaded to the Robota agent config and on to the provider
+   * request builder. When unset, the framework→provider seam defaults it to `'high'`.
+   */
+  effort?: TModelEffort;
 }

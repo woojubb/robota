@@ -22,6 +22,7 @@ export type {
   ICommandSessionRuntime,
   ICommandSkillActivationRequest,
   ICommandSkillListEntry,
+  IModelReapplyOptions,
   TCommandInvocationSource,
   TAutoCompactThresholdSource,
 } from './host-context.js';
@@ -144,6 +145,11 @@ export type {
 } from '../background-tasks/index.js';
 export type { TRecommendedResponseLanguage } from './language/language-command-api.js';
 export type { IPermissionsCommandState } from './permissions/permission-mode-command-api.js';
+export type {
+  IPresetApplicationOptions,
+  IPresetApplicationResult,
+} from './preset/preset-application.js';
+export { applyPresetToSession } from './preset/preset-application.js';
 export type {
   IStatusLineCommandSettings,
   TStatusLineCommandSettingsPatch,

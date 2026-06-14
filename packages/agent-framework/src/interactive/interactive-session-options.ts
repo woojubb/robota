@@ -49,6 +49,8 @@ export interface IInteractiveSessionStandardOptions {
   model?: string;
   /** Text to append to the system prompt. */
   appendSystemPrompt?: string;
+  /** Preset persona block composed as a `source: 'persona'` system-prompt section (priority 5). */
+  persona?: string;
   /** Replace the entire system prompt with this string. Takes precedence over the default builder. */
   systemPrompt?: string;
   /** Override config language (e.g., "ko", "en"). Injected into system prompt. */
@@ -85,6 +87,12 @@ export interface IInteractiveSessionStandardOptions {
   sandboxSnapshotId?: string;
   /** Name reported to the underlying Robota agent config. Defaults to 'agent'. */
   agentName?: string;
+  /** Active preset id selected at startup (PRESET-011 runtime state). Defaults to 'default'. */
+  activePresetId?: string;
+  /** Preset execution capability: activate agent runtime + subagent/background dispatch. */
+  enableParallelSubagents?: boolean;
+  /** Preset execution capability: run a post-task self-verification step. */
+  selfVerification?: boolean;
   /** Organization policy for enforcing provider restrictions, command blocks, and API key rules. */
   orgPolicy?: IOrgPolicy;
   /** Additional tools registered alongside the default CLI tools. */
@@ -146,6 +154,8 @@ export interface IInitOptions {
   model?: string;
   /** Text to append to the system prompt. */
   appendSystemPrompt?: string;
+  /** Preset persona block composed as a `source: 'persona'` system-prompt section (priority 5). */
+  persona?: string;
   /** Replace the entire system prompt with this string. Takes precedence over the default builder. */
   systemPrompt?: string;
   /** Override config language (e.g., "ko", "en"). Injected into system prompt. */
@@ -178,6 +188,12 @@ export interface IInitOptions {
   sandboxSnapshotId?: string;
   /** Name reported to the underlying Robota agent config. Defaults to 'agent'. */
   agentName?: string;
+  /** Active preset id selected at startup (PRESET-011 runtime state). Defaults to 'default'. */
+  activePresetId?: string;
+  /** Preset execution capability: activate agent runtime + subagent/background dispatch. */
+  enableParallelSubagents?: boolean;
+  /** Preset execution capability: run a post-task self-verification step. */
+  selfVerification?: boolean;
   /** Additional tools registered alongside the default CLI tools. */
   additionalTools?: IToolWithEventService[];
   /** Request structured output from the provider for this session. */

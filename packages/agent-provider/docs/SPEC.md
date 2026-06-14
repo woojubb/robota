@@ -92,6 +92,22 @@ export class MyProvider implements IAIProvider {
 
 Custom providers do not need to depend on `@robota-sdk/agent-provider`.
 
+## Reasoning Effort (per-call)
+
+The framework threads a per-call reasoning-effort dial through `IChatOptions.effort`
+(`TModelEffort` = `'low' | 'medium' | 'high' | 'xhigh' | 'max'`, defaulting to `'high'` at
+the framework→provider seam). Each provider's request builder handles it as follows:
+
+| Provider              | Native effort support | Behavior                                                                                                                                                                            |
+| --------------------- | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| OpenAI (Responses)    | Yes                   | Maps `effort` onto the Responses API `reasoning.effort` parameter. `'low'`/`'medium'`/`'high'` pass through; `'xhigh'`/`'max'` clamp to `'high'` (OpenAI's highest supported tier). |
+| Anthropic             | No (documented no-op) | The Anthropic Messages API exposes no per-request reasoning-effort enum, so `effort` is **ignored without error** — the built request carries no effort parameter.                  |
+| DeepSeek              | No (documented no-op) | Per-call `effort` is **ignored without error**; the built request has no effort parameter. (DeepSeek's static `reasoningEffort` constructor option is a separate, unrelated knob.)  |
+| Qwen / Gemma / Gemini | No (documented no-op) | No native per-request reasoning-effort parameter; `effort` is **ignored without error** (no effort key on the built request).                                                       |
+
+No-op providers must never throw on a populated `effort`; they simply omit it from the
+outgoing request so an effort-setting preset degrades gracefully.
+
 ## Dependencies
 
 | Package                  | Role                                                                  |
