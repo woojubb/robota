@@ -1,5 +1,5 @@
 ---
-status: approved
+status: done
 type: BEHAVIOR
 tags: [cli]
 ---
@@ -105,16 +105,16 @@ seam을 채운다(신규 권한 엔진 만들지 않음). (c) `enableParallelSub
 
 ## Completion Criteria
 
-- [ ] TC-01: `enabledCommandModules: ['help','agent']` 프리셋 적용 시 등록 모듈 집합이 정확히 그 2개임을 단언하는 통합 테스트 통과
-- [ ] TC-02: `disabledCommandModules: ['background']` 프리셋 적용 시 해당 모듈이 등록 집합에서 제외됨을 단언하는 통합 테스트 통과
-- [ ] TC-03: enable과 disable에 동일 모듈을 동시 지정 시 제외됨(deny > allow)을 단언하는 통합 테스트 통과
-- [ ] TC-04: 프리셋 미지정(또는 default) 시 등록 모듈 수가 현재 기본셋과 동일(20개)임을 단언하는 통합 테스트 통과 — 무회귀
-- [ ] TC-05: `defaultPermissionMode`를 가진 프리셋 적용 시(settings 미설정) 세션 권한 모드가 프리셋 값과 일치함을 단언하는 통합 테스트 통과
-- [ ] TC-06: `autonomy: 'act-first'` 프리셋 적용 시(명시 `defaultPermissionMode` 없음) 해석된 세션 권한 모드가 쓰기에 매번 묻지 않는 자율 모드 값과 일치함을 단언하는 통합 테스트 통과
-- [ ] TC-07: `autonomy: 'ask-first'` 프리셋 적용 시(명시 `defaultPermissionMode` 없음) 해석된 세션 권한 모드가 ask-on-write 값과 일치함을 단언하는 통합 테스트 통과
-- [ ] TC-08: `enableParallelSubagents: true` 프리셋 적용 시 프레임워크에 전달되는 조립 옵션에서 `enableAgentRuntime`가 true이고 서브에이전트/백그라운드 디스패치 능력이 활성됨을 단언하는 통합 테스트 통과(배선 단언)
-- [ ] TC-09: `selfVerification: true` 프리셋 적용 시 프레임워크/executor로 전달되는 자기검증 옵션 값이 true로 스레딩됨을 단언하는 통합 테스트 통과
-- [ ] TC-10: `pnpm --filter @robota-sdk/agent-command --filter @robota-sdk/agent-framework --filter @robota-sdk/agent-cli build` + `pnpm typecheck` → exit 0
+- [x] TC-01: `enabledCommandModules: ['help','agent']` 프리셋 적용 시 등록 모듈 집합이 정확히 그 2개임을 단언하는 통합 테스트 통과
+- [x] TC-02: `disabledCommandModules: ['background']` 프리셋 적용 시 해당 모듈이 등록 집합에서 제외됨을 단언하는 통합 테스트 통과
+- [x] TC-03: enable과 disable에 동일 모듈을 동시 지정 시 제외됨(deny > allow)을 단언하는 통합 테스트 통과
+- [x] TC-04: 프리셋 미지정(또는 default) 시 등록 모듈 수가 현재 기본셋과 동일(20개)임을 단언하는 통합 테스트 통과 — 무회귀
+- [x] TC-05: `defaultPermissionMode`를 가진 프리셋 적용 시(settings 미설정) 세션 권한 모드가 프리셋 값과 일치함을 단언하는 통합 테스트 통과
+- [x] TC-06: `autonomy: 'act-first'` 프리셋 적용 시(명시 `defaultPermissionMode` 없음) 해석된 세션 권한 모드가 쓰기에 매번 묻지 않는 자율 모드 값과 일치함을 단언하는 통합 테스트 통과
+- [x] TC-07: `autonomy: 'ask-first'` 프리셋 적용 시(명시 `defaultPermissionMode` 없음) 해석된 세션 권한 모드가 ask-on-write 값과 일치함을 단언하는 통합 테스트 통과
+- [x] TC-08: `enableParallelSubagents: true` 프리셋 적용 시 프레임워크에 전달되는 조립 옵션에서 `enableAgentRuntime`가 true이고 서브에이전트/백그라운드 디스패치 능력이 활성됨을 단언하는 통합 테스트 통과(배선 단언)
+- [x] TC-09: `selfVerification: true` 프리셋 적용 시 프레임워크/executor로 전달되는 자기검증 옵션 값이 true로 스레딩됨을 단언하는 통합 테스트 통과
+- [x] TC-10: `pnpm --filter @robota-sdk/agent-command --filter @robota-sdk/agent-framework --filter @robota-sdk/agent-cli build` + `pnpm typecheck` → exit 0
 
 ## Test Plan
 
@@ -154,7 +154,7 @@ Type BEHAVIOR + tags cli → 등록 모듈 집합/권한 포스처/실행 능력
 
 ## Tasks
 
-- [ ] `.agents/tasks/PRESET-004.md` — 미생성 (GATE-APPROVAL 통과 후 생성)
+- [`.agents/tasks/PRESET-004.md`](../../tasks/completed/PRESET-004.md) — task breakdown (TC-01..TC-10), created at GATE-IMPLEMENT
 
 ## Evidence Log
 
@@ -176,3 +176,46 @@ Explicit approval: orchestrator asked "8개를 GATE-APPROVAL까지 올릴까요?
 Directed at this spec: PRESET-004 is one of the 8 PRESET specs covered by the batch approval — PASS.
 No post-approval mutation: Architecture Review and frontmatter `type: BEHAVIOR` / `tags: [cli]` unchanged after approval — PASS.
 NON-COMPLIANCE trigger (implementation started): no `.agents/tasks/PRESET-004.md`; no `packages/agent-preset/` — no implementation work begun — clear.
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-06-14
+
+**Status upgrade:** approved → in-progress
+Prior-Gate Precondition: GATE-APPROVAL PASS entry present (2026-06-14); spec resides in `active/` (approved stage; repo has no separate `approved/` folder) — matches expected input stage — PASS.
+Task file exists: `.agents/tasks/PRESET-004.md` present — PASS.
+Path recorded in spec `## Tasks`: line links `[`.agents/tasks/PRESET-004.md`](../../tasks/completed/PRESET-004.md)` — PASS.
+One task per TC-N: task file Plan lists TC-01..TC-10 (10 tasks) matching Completion Criteria TC-01..TC-10 — PASS.
+Task file Test Plan: `## Test Plan` section present (agent-command delta / agent-preset autonomy→mode / framework assembly threading / agent-cli forwarding + build smoke), well over 50 chars — PASS.
+
+### [GATE-VERIFY] — ✅ PASS | 2026-06-14
+
+**Status upgrade:** in-progress → verifying
+Prior-Gate Precondition: GATE-IMPLEMENT PASS entry present (2026-06-14); frontmatter `status: in-progress` and spec resides in `active/` — matches expected input stage — PASS.
+All tasks complete: `.agents/tasks/PRESET-004.md` Plan TC-01..TC-10 all `[x]`; no blocked/pending tasks; spec `## Completion Criteria` TC-01..TC-10 all `[x]` — PASS.
+Build: `pnpm build:deps` → exit 0 (`✓ All build:types complete.`) — PASS.
+Tests: `pnpm --filter @robota-sdk/agent-command --filter @robota-sdk/agent-preset --filter @robota-sdk/agent-framework --filter @robota-sdk/agent-cli test` → exit 0 (agent-cli 20 files / 158 tests passed; all four filtered packages green) — PASS.
+Typecheck: `pnpm typecheck` → exit 0 — PASS.
+Harness scan: `pnpm harness:scan` → exit 0 (all 25 scans passed) — PASS.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-06-14
+
+**Status upgrade:** verifying → done
+Prior-Gate Precondition: GATE-VERIFY PASS entry present (2026-06-14); frontmatter `status: verifying` — matches expected input stage — PASS.
+
+**Per-TC verification (re-run `pnpm --filter @robota-sdk/agent-command --filter @robota-sdk/agent-preset --filter @robota-sdk/agent-framework test` → exit 0; `pnpm typecheck` → exit 0):**
+
+- **[GATE-COMPLETE: TC-01]** Checkbox `[x]`. Test: `packages/agent-command/src/default/__tests__/default-command-modules.test.ts > createDefaultCommandModules — PRESET-004 module-selection delta > TC-01: enabledCommandModules whitelist keeps exactly the listed module names`. Suite `default-command-modules.test.ts` (5 tests) passed. Cmd: agent-command test → 24 files / 182 tests passed, exit 0.
+- **[GATE-COMPLETE: TC-02]** Checkbox `[x]`. Test: `default-command-modules.test.ts > TC-02: disabledCommandModules blacklist removes the named module`. Passed within the green suite (exit 0).
+- **[GATE-COMPLETE: TC-03]** Checkbox `[x]`. Test: `default-command-modules.test.ts > TC-03: a name in both enabled and disabled is excluded (deny > allow)`. Passed within the green suite (exit 0).
+- **[GATE-COMPLETE: TC-04]** Checkbox `[x]`. Test: `default-command-modules.test.ts > TC-04: neither enabled nor disabled given → full default set unchanged (no-regression)`. Passed within the green suite (exit 0).
+- **[GATE-COMPLETE: TC-05]** Checkbox `[x]`. Test: `packages/agent-preset/src/__tests__/resolve-preset.test.ts > PRESET-004 autonomy / defaultPermissionMode → permissionMode > TC-05: defaultPermissionMode (no explicit permissionMode) is promoted to permissionMode`. Suite `resolve-preset.test.ts` (22 tests) passed. Cmd: agent-preset test → 1 file / 22 tests passed, exit 0.
+- **[GATE-COMPLETE: TC-06]** Checkbox `[x]`. Test: `resolve-preset.test.ts > TC-06: autonomy "act-first" (no explicit mode) → permissionMode "acceptEdits"`. Passed within the green suite (exit 0).
+- **[GATE-COMPLETE: TC-07]** Checkbox `[x]`. Test: `resolve-preset.test.ts > TC-07: autonomy "ask-first" (no explicit mode) → permissionMode "default" (ask-on-write)`. Passed within the green suite (exit 0).
+- **[GATE-COMPLETE: TC-08]** Checkbox `[x]`. Test: `packages/agent-framework/src/__tests__/create-session-new-options.test.ts > createSession — PRESET-004 execution capabilities > TC-08: enableParallelSubagents activates the agent runtime + subagent dispatch` (+ control case `TC-08 (control): without enableParallelSubagents the runtime stays off`). Suite `create-session-new-options.test.ts` (21 tests) passed. Cmd: agent-framework test → 96 files / 932 tests passed, exit 0.
+- **[GATE-COMPLETE: TC-09]** Checkbox `[x]`. Test: `create-session-new-options.test.ts > TC-09: selfVerification is accepted and threaded onto the assembly options`. Passed within the green suite (exit 0).
+- **[GATE-COMPLETE: TC-10]** Checkbox `[x]`. Build verified at GATE-VERIFY (`pnpm build:deps` → exit 0); `pnpm typecheck` re-run here → exit 0 (all packages incl. agent-command/agent-preset/agent-framework/agent-cli `Done`). CI-pipeline smoke green.
+
+**Test Plan mapping:** all 10 TC rows carry a written-test reference — TC-01..04 → `default-command-modules.test.ts` (module delta); TC-05/06/07 → `resolve-preset.test.ts` (defaultPermissionMode promotion + autonomy→mode mapping); TC-08 → `create-session-new-options.test.ts` (enableAgentRuntime + subagent dispatch wiring); TC-09 → `create-session-new-options.test.ts` (selfVerification threading); TC-10 → build + typecheck smoke. No TC-N silently unaddressed.
+
+**User Execution Test Scenarios:** the 4 scenarios (module-diff `/help`, autonomy permission posture, parallel-subagent dispatch, self-verification) are exercised at the integration/wiring level by the suites above (module set assertion, autonomy→permissionMode resolution, enableAgentRuntime+dispatch activation, selfVerification threading). Full provider-key interactive runs are environment-limited and no shipped preset declares these fields yet (arrives PRESET-005/009/010), so test-level evidence is authoritative for the engineering done-gate.
+
+**Summary:** TC-01..TC-10 all `[x]` with matching written-test references; every Test Plan row has a test reference (no skips); re-run `pnpm --filter @robota-sdk/agent-command --filter @robota-sdk/agent-preset --filter @robota-sdk/agent-framework test` → exit 0 (182 + 22 + 932 tests passed); `pnpm typecheck` → exit 0. GATE-COMPLETE → PASS. (Tasks-file archival + `## Tasks` path update are the orchestrator's responsibility on PASS.)

@@ -87,6 +87,10 @@ export interface IInteractiveSessionStandardOptions {
   sandboxSnapshotId?: string;
   /** Name reported to the underlying Robota agent config. Defaults to 'agent'. */
   agentName?: string;
+  /** Preset execution capability: activate agent runtime + subagent/background dispatch. */
+  enableParallelSubagents?: boolean;
+  /** Preset execution capability: run a post-task self-verification step. */
+  selfVerification?: boolean;
   /** Organization policy for enforcing provider restrictions, command blocks, and API key rules. */
   orgPolicy?: IOrgPolicy;
   /** Additional tools registered alongside the default CLI tools. */
@@ -182,6 +186,10 @@ export interface IInitOptions {
   sandboxSnapshotId?: string;
   /** Name reported to the underlying Robota agent config. Defaults to 'agent'. */
   agentName?: string;
+  /** Preset execution capability: activate agent runtime + subagent/background dispatch. */
+  enableParallelSubagents?: boolean;
+  /** Preset execution capability: run a post-task self-verification step. */
+  selfVerification?: boolean;
   /** Additional tools registered alongside the default CLI tools. */
   additionalTools?: IToolWithEventService[];
   /** Request structured output from the provider for this session. */

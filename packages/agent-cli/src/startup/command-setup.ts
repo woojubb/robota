@@ -26,6 +26,14 @@ export interface IStartCliOptions {
   providerDefinitions?: readonly IProviderDefinition[];
 }
 
+/** Preset-resolved command module selection forwarded by the thin-shell CLI. */
+export interface ICommandModuleSelection {
+  /** Whitelist of module names to keep (omitted → all default modules). */
+  enabledCommandModules?: readonly string[];
+  /** Blacklist of module names to remove after the whitelist (deny > allow). */
+  disabledCommandModules?: readonly string[];
+}
+
 export interface ICliSetup {
   commandHostAdapters: ICommandHostAdapters;
   providerDefinitions: readonly IProviderDefinition[];
@@ -38,6 +46,7 @@ export function buildCommandSetup(
   args: IParsedCliArgs,
   options: IStartCliOptions,
   version: string,
+  moduleSelection: ICommandModuleSelection = {},
 ): ICliSetup {
   const commandHostAdapters: ICommandHostAdapters = {
     settings: {
@@ -55,7 +64,17 @@ export function buildCommandSetup(
       writeSettings(resolveProviderSettingsWriteTargetPath(cwd), settings),
   };
   const commandModules: readonly ICommandModule[] = [
-    ...createDefaultCommandModules({ cwd, providerDefinitions, providerSettingsAdapter }),
+    ...createDefaultCommandModules({
+      cwd,
+      providerDefinitions,
+      providerSettingsAdapter,
+      ...(moduleSelection.enabledCommandModules !== undefined
+        ? { enabledCommandModules: moduleSelection.enabledCommandModules }
+        : {}),
+      ...(moduleSelection.disabledCommandModules !== undefined
+        ? { disabledCommandModules: moduleSelection.disabledCommandModules }
+        : {}),
+    }),
     ...(options.commandModules ?? []),
   ];
   const startupUpdateNoticePromise = shouldRunStartupCliUpdateCheck(args)
