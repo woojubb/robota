@@ -1,4 +1,5 @@
 import { autonomousBuilderPreset } from './presets/autonomous-builder.js';
+import { carefulReviewerPreset } from './presets/careful-reviewer.js';
 import { defaultPreset } from './presets/default.js';
 
 import type {
@@ -29,7 +30,7 @@ const AUTONOMY_TO_PERMISSION_MODE: Record<TPresetAutonomy, TPresetPermissionMode
 export const DEFAULT_AGENT_NAME = 'robota-cli';
 
 /** Registry of built-in presets. */
-const PRESETS: readonly IPreset[] = [defaultPreset, autonomousBuilderPreset];
+const PRESETS: readonly IPreset[] = [defaultPreset, autonomousBuilderPreset, carefulReviewerPreset];
 
 /** Lightweight `{ id, title, description }` view of a preset for discovery/UX. */
 export interface IPresetSummary {
