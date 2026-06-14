@@ -29,10 +29,10 @@ import하면 React+ink+hono가 소비자 그래프로 끌려옴. `agent-web-ui`(
 
 ## Completion Criteria (옵션 확정 시)
 
-- [ ] TC-01: 루트 배럴 import 시 react/ink가 그래프로 끌려오지 않음 (의존 추적 검증)
-- [ ] TC-02: `agent-web-ui`가 ws 타입 서브패스만 의존
-- [ ] TC-03: 기존 transport 소비자(cli TUI, headless, ws server, mcp) 전부 빌드/동작 보존
-- [ ] TC-04: `pnpm harness:scan` + 전체 build 통과
+- [x] TC-01: 루트 배럴 import 시 react/ink가 그래프로 끌려오지 않음 (의존 추적 검증)
+- [x] TC-02: `agent-web-ui`가 ws 타입 서브패스만 의존
+- [x] TC-03: 기존 transport 소비자(cli TUI, headless, ws server, mcp) 전부 빌드/동작 보존
+- [x] TC-04: `pnpm harness:scan` + 전체 build 통과
 
 ## Test Plan
 

@@ -101,12 +101,16 @@ Analyzed 30 sessions (2026-04-01 ~ 2026-05-01)
 
 ## Affected Files
 
-- `packages/agent-cli/src/session-analyzer/parser.ts` — JSON 파싱 + 타이밍 계산
-- `packages/agent-cli/src/session-analyzer/reporter.ts` — 텍스트 리포트 포매터
-- `packages/agent-cli/src/session-analyzer/types.ts` — `ISessionTiming`, `ITimingInterval` 타입
-- `packages/agent-cli/src/session-analyzer/__tests__/parser.test.ts`
-- `packages/agent-cli/src/session-analyzer/__tests__/reporter.test.ts`
-- `packages/agent-cli/src/commands/session-analyze-command.ts` — CLI 진입점
+> **Relocated by DQ-AUDIT-004 (2026-06-14, beta.76).** The analysis logic moved out of the agent-cli
+> thin shell into the new `@robota-sdk/agent-session-analytics` package (thin-shell rule). The
+> `session analyze` command remains in agent-cli as thin wiring. Current locations:
+
+- `packages/agent-session-analytics/src/analyze.ts` — timing computation + aggregation (`analyzeSession`, `computeTimingIntervals`, `aggregateReports`, `gapMs`)
+- `packages/agent-session-analytics/src/report.ts` — text report formatter (`formatSingleSession`, `formatAggregateReport`)
+- `packages/agent-session-analytics/src/types.ts` — analytics types; reuses canonical `IInteractiveSessionRecord`/`IHistoryEntry` (no duplicate record type)
+- `packages/agent-session-analytics/src/__tests__/analyze.test.ts`
+- `packages/agent-session-analytics/src/__tests__/report.test.ts`
+- `packages/agent-cli/src/session-analyzer/session-analyze-command.ts` — CLI entry (thin wiring: loads records via framework session stores, delegates to agent-session-analytics)
 
 ## Completion Criteria
 
