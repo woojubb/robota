@@ -66,7 +66,7 @@ export class Session extends SessionBase {
   protected readonly sessionId: string;
   protected aiProvider: IAIProvider;
   protected readonly toolSchemas: IToolSchema[];
-  protected readonly model: string;
+  protected model: string;
   protected systemMessage: string;
   protected messageCount = 0;
   protected abortController: AbortController | null = null;

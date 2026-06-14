@@ -1,4 +1,5 @@
 import type { IModuleResultData } from '../abstracts/abstract-module';
+import type { TModelEffort } from '../interfaces/provider';
 
 /** Shared model configuration shape used in setModel / getModel. */
 export interface IModelConfig {
@@ -8,6 +9,8 @@ export interface IModelConfig {
   maxTokens?: number;
   topP?: number;
   systemMessage?: string;
+  /** Reasoning effort tier read per-call by the execution round (PRESET-013 live re-application channel). */
+  effort?: TModelEffort;
 }
 
 /** Return shape of getConfiguration(). */

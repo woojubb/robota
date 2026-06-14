@@ -282,6 +282,19 @@ describe('Robota Class - New Configuration API', () => {
       expect(robota.getModel().model).toBe('new-model');
     });
 
+    it('TC-01 (PRESET-013): setModel effort is written to defaultModel.effort', async () => {
+      const robota = new Robota(config);
+      await robota.run('initialize'); // Initialize the agent
+
+      robota.setModel({
+        provider: 'mock-provider',
+        model: 'mock-model',
+        effort: 'high',
+      });
+
+      expect(robota.getConfig().defaultModel.effort).toBe('high');
+    });
+
     it('should preserve other model settings when switching providers', async () => {
       const multiProviderConfig: IAgentConfig = {
         name: 'Multi Provider Test',
