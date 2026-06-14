@@ -1,4 +1,25 @@
 #!/usr/bin/env sh
 . "$(dirname -- "$0")/_/husky.sh"
 
+# Protected-branch commit guard (git-native, defense-in-depth).
+#
+# The Claude PreToolUse hook (.claude/hooks/branch-guard.sh) also blocks commits on
+# protected branches, but it parses the command string and can miss commits whose
+# message breaks its regex extraction (multi-line / embedded quotes). This git-level
+# guard fires for EVERY commit regardless of how it is invoked.
+#
+# Exceptions: a merge in progress (.git/MERGE_HEAD), or ALLOW_PROTECTED_COMMIT=1 for
+# explicitly approved release automation.
+PROTECTED_BRANCH=$(git branch --show-current 2>/dev/null || echo "")
+if [ "${ALLOW_PROTECTED_COMMIT:-0}" != "1" ] && [ ! -f "$(git rev-parse --git-dir)/MERGE_HEAD" ]; then
+  case "$PROTECTED_BRANCH" in
+    main | master | develop)
+      echo "[pre-commit] Blocked: cannot commit directly to protected branch '$PROTECTED_BRANCH'." >&2
+      echo "[pre-commit] Create a feature branch first: git checkout -b <type>/<scope>-<desc>" >&2
+      echo "[pre-commit] Override for approved release automation: ALLOW_PROTECTED_COMMIT=1" >&2
+      exit 1
+      ;;
+  esac
+fi
+
 NODE_OPTIONS="--max-old-space-size=8192" pnpm exec lint-staged

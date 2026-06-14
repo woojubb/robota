@@ -13,14 +13,17 @@ const WORKSPACE_ROOT = process.cwd();
 
 const TEXT_SOURCE_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.mjs', '.json', '.md']);
 
+// FORBIDDEN_PATHS are legacy files that must NOT exist (negative assertions).
 const FORBIDDEN_PATHS = [
   {
+    // harness-config-path-allow-missing: forbidden legacy path
     path: 'packages/agent-cli/src/commands/slash-executor.ts',
     type: 'cli-legacy-slash-executor',
     detail:
       'CLI must not keep a legacy built-in slash command switch; use session.executeCommand() and generic skill/plugin fallback.',
   },
   {
+    // harness-config-path-allow-missing: forbidden legacy path
     path: 'packages/agent-cli/src/commands/plugin-source.ts',
     type: 'cli-legacy-plugin-source',
     detail:
@@ -236,6 +239,7 @@ export async function findCommandLayeringFindings(root = WORKSPACE_ROOT) {
     findings.push(...findPatternFindings(file, await readText(root, file), CLI_FORBIDDEN_PATTERNS));
   }
 
+  // harness-config-path-allow-missing: guarded by pathExists below (optional file)
   const slashRouter = 'packages/agent-cli/src/ui/hooks/useSlashRouting.ts';
   if (await pathExists(path.join(root, slashRouter))) {
     findings.push(
