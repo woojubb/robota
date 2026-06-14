@@ -30,19 +30,76 @@ const AUTONOMY_TO_PERMISSION_MODE: Record<TPresetAutonomy, TPresetPermissionMode
  */
 export const DEFAULT_AGENT_NAME = 'robota-cli';
 
-/** Registry of built-in presets. */
-const PRESETS: readonly IPreset[] = [
+/** Registry of built-in presets. Built-ins always win on id conflict and cannot be overridden. */
+const BUILT_IN_PRESETS: readonly IPreset[] = [
   defaultPreset,
   autonomousBuilderPreset,
   carefulReviewerPreset,
   neutralExecutorPreset,
 ];
 
+/**
+ * Module-level mutable registry of user-authored external presets (PRESET-007).
+ * Populated by {@link registerExternalPresets}; the sync readers iterate
+ * `[...BUILT_IN_PRESETS, ...externalPresets]` so external presets merge with the built-ins.
+ */
+const externalPresets: IPreset[] = [];
+
+/** The merged preset registry: built-ins first, then registered external presets. */
+function allPresets(): readonly IPreset[] {
+  return [...BUILT_IN_PRESETS, ...externalPresets];
+}
+
 /** Lightweight `{ id, title, description }` view of a preset for discovery/UX. */
 export interface IPresetSummary {
   id: string;
   title: string;
   description: string;
+}
+
+/** Outcome of {@link registerExternalPresets}: which ids registered and which were rejected. */
+export interface IPresetRegistrationResult {
+  registered: readonly string[];
+  rejected: readonly { id: string; reason: string }[];
+}
+
+/**
+ * Register user-authored external presets into the module-level registry.
+ *
+ * Conflict policy: an external preset whose id matches a BUILT-IN preset is rejected
+ * (`'collides with built-in preset'`) — built-ins always win. An external preset whose id
+ * matches an already-registered external preset is rejected (`'duplicate preset id'`) — first
+ * registration wins. All other presets are appended and counted as registered.
+ *
+ * @returns the ids that registered and the `{ id, reason }` of each rejection.
+ */
+export function registerExternalPresets(presets: readonly IPreset[]): IPresetRegistrationResult {
+  const builtInIds = new Set(BUILT_IN_PRESETS.map((preset) => preset.id));
+  const registered: string[] = [];
+  const rejected: { id: string; reason: string }[] = [];
+
+  for (const preset of presets) {
+    if (builtInIds.has(preset.id)) {
+      rejected.push({ id: preset.id, reason: 'collides with built-in preset' });
+      continue;
+    }
+    if (externalPresets.some((existing) => existing.id === preset.id)) {
+      rejected.push({ id: preset.id, reason: 'duplicate preset id' });
+      continue;
+    }
+    externalPresets.push(preset);
+    registered.push(preset.id);
+  }
+
+  return { registered, rejected };
+}
+
+/**
+ * Remove every registered external preset, leaving only the built-ins.
+ * Used at startup before a fresh re-load and for test isolation.
+ */
+export function clearExternalPresets(): void {
+  externalPresets.length = 0;
 }
 
 /**
@@ -56,12 +113,12 @@ export interface IResolvePresetContext {
 
 /** Return the `{ id, title, description }` summary of every registered preset. */
 export function listPresets(): readonly IPresetSummary[] {
-  return PRESETS.map(({ id, title, description }) => ({ id, title, description }));
+  return allPresets().map(({ id, title, description }) => ({ id, title, description }));
 }
 
 /** Look up a registered preset by id, or `undefined` if none matches. */
 export function getPreset(id: string): IPreset | undefined {
-  return PRESETS.find((preset) => preset.id === id);
+  return allPresets().find((preset) => preset.id === id);
 }
 
 /** Strip the identity triple from a preset, leaving only resolvable option overrides. */
@@ -101,7 +158,9 @@ export function resolvePreset(
 ): TResolvedPresetOptions {
   const preset = getPreset(id);
   if (!preset) {
-    const available = PRESETS.map((p) => p.id).join(', ');
+    const available = allPresets()
+      .map((p) => p.id)
+      .join(', ');
     throw new Error(`Unknown preset: "${id}". Available presets: ${available}.`);
   }
 

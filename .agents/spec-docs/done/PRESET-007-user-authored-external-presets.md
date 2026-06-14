@@ -1,5 +1,5 @@
 ---
-status: approved
+status: done
 type: FLOW
 tags: [cli]
 ---
@@ -63,11 +63,11 @@ tags: [cli]
 
 ## Completion Criteria
 
-- [ ] TC-01: 임시 디렉터리에 유효한 프리셋 JSON 1개 배치 후 로딩 시 `listPresets()`에 해당 id가 포함됨을 단언하는 통합 테스트 통과
-- [ ] TC-02: 스키마 위반 프리셋 파일은 건너뛰고(해당 id 미등록) 나머지 로딩은 계속됨을 단언하는 통합 테스트 통과
-- [ ] TC-03: 외부 프리셋 id가 빌트인과 충돌 시 정의된 정책(덮어쓰기 또는 거부)대로 동작함을 단언하는 통합 테스트 통과
-- [ ] TC-04: 외부 프리셋이 하나도 없을 때 `listPresets()`가 빌트인만 반환(무회귀)함을 단언하는 통합 테스트 통과
-- [ ] TC-05: `pnpm --filter @robota-sdk/agent-preset test` + `build` → exit 0
+- [x] TC-01: 임시 디렉터리에 유효한 프리셋 JSON 1개 배치 후 로딩 시 `listPresets()`에 해당 id가 포함됨을 단언하는 통합 테스트 통과
+- [x] TC-02: 스키마 위반 프리셋 파일은 건너뛰고(해당 id 미등록) 나머지 로딩은 계속됨을 단언하는 통합 테스트 통과
+- [x] TC-03: 외부 프리셋 id가 빌트인과 충돌 시 정의된 정책(덮어쓰기 또는 거부)대로 동작함을 단언하는 통합 테스트 통과
+- [x] TC-04: 외부 프리셋이 하나도 없을 때 `listPresets()`가 빌트인만 반환(무회귀)함을 단언하는 통합 테스트 통과
+- [x] TC-05: `pnpm --filter @robota-sdk/agent-preset test` + `build` → exit 0
 
 ## Test Plan
 
@@ -91,7 +91,7 @@ Type FLOW + tags cli → 파일 로딩/검증/병합 통합 테스트(임시 디
 
 ## Tasks
 
-- [ ] `.agents/tasks/PRESET-007.md` — 미생성 (GATE-APPROVAL 통과 후 생성)
+- [x] [.agents/tasks/PRESET-007.md](../../tasks/PRESET-007.md) — task breakdown (TC-01..TC-05)
 
 ## Evidence Log
 
@@ -114,3 +114,32 @@ Explicit approval: orchestrator asked "8개를 GATE-APPROVAL까지 올릴까요?
 Directed at this spec: PRESET-007 is one of the 8 PRESET specs covered by the approval — OK.
 No post-approval changes: Architecture Review and frontmatter (type FLOW / tags [cli]) unchanged after approval — OK.
 NON-COMPLIANCE triggers cleared: `.agents/tasks/PRESET-007.md` does not exist; `packages/agent-preset/` does not exist — no implementation work started before this gate ran.
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-06-14
+
+**Status upgrade:** approved → in-progress
+Task file `.agents/tasks/PRESET-007.md` created and linked from `## Tasks`. One task per Completion
+Criterion (TC-01..TC-05) plus registry/validator/loader/cli tasks. Test Plan present (≥50 chars).
+
+### [GATE-VERIFY] — ✅ PASS | 2026-06-14
+
+**Status upgrade:** in-progress → verifying
+All tasks `[x]`. `pnpm --filter @robota-sdk/agent-preset --filter @robota-sdk/agent-cli build` → exit 0.
+`pnpm --filter @robota-sdk/agent-preset --filter @robota-sdk/agent-cli test` → exit 0 (agent-preset 2
+files/55 incl. 10 new external-loading cases; agent-cli 20 files/158). Existing `resolve-preset.test.ts`
+(45) stays green — mutable external registry starts empty and new tests `clearExternalPresets()` for
+isolation, so the exact built-in list + unknown-id message assertions are intact. `pnpm typecheck` →
+exit 0. `pnpm harness:scan` → exit 0, all 25 scans. No package.json/lockfile change, no new dependency
+(manual type-guard validation, not Zod).
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-06-14
+
+**Status upgrade:** verifying → done
+Per-TC:
+
+- [GATE-COMPLETE: TC-01] agent-preset vitest (`load-external-presets.test.ts`) — valid preset JSON in a temp dir → `loadExternalPresetsFromDir` registers it; `listPresets()` includes its id; `loaded` contains it.
+- [GATE-COMPLETE: TC-02] vitest — a schema-violating file is skipped (recorded in `errors`, absent from `listPresets()`); a valid sibling in the same dir still loads.
+- [GATE-COMPLETE: TC-03] vitest — external preset with id `default` (built-in collision) → rejected (`reason: collides with built-in preset`); a single built-in `default` survives.
+- [GATE-COMPLETE: TC-04] vitest — non-existent/empty dir → `loaded` empty, `listPresets()` returns exactly the built-ins (no regression).
+- [GATE-COMPLETE: TC-05] agent-preset build + test exit 0; plus `validateExternalPreset` units (bogus `effort` rejected, minimal valid accepted, missing required field rejected, unknown keys dropped).
+- Boundary note: the validator types untrusted JSON as `unknown` + narrowing (correct strict-TS pattern at a data boundary; same precedent as agent-framework `config-loader.ts`) — eslint emits `unknown` warnings only, no errors, all harness gates pass.
