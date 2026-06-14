@@ -17,6 +17,7 @@ export abstract class SessionBase {
   protected abstract readonly contextTracker: ContextWindowTracker;
   protected abstract permissionMode: TPermissionMode;
   protected abstract activePresetId: string;
+  protected abstract parallelSubagentsEnabled: boolean;
   protected abstract readonly sessionId: string;
   protected abstract readonly aiProvider: IAIProvider;
   protected abstract readonly toolSchemas: IToolSchema[];
@@ -46,6 +47,16 @@ export abstract class SessionBase {
    */
   setActivePresetId(id: string): void {
     this.activePresetId = id;
+  }
+
+  /** Whether subagent dispatch is currently allowed for this session (PRESET-016 runtime gate). */
+  getParallelSubagentsEnabled(): boolean {
+    return this.parallelSubagentsEnabled;
+  }
+
+  /** Toggle subagent dispatch live. Only effective if the agent runtime was built at assembly. */
+  setParallelSubagentsEnabled(enabled: boolean): void {
+    this.parallelSubagentsEnabled = enabled;
   }
 
   getSessionId(): string {

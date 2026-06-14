@@ -56,6 +56,11 @@ export interface ISessionOptions {
   defaultTrustLevel?: 'safe' | 'moderate' | 'full';
   /** Active preset id selected at startup (PRESET-011 runtime state). Defaults to 'default'. */
   activePresetId?: string;
+  /**
+   * Whether subagent dispatch is allowed for this session (PRESET-016 runtime gate). Defaults to
+   * true (current behavior). Only meaningful when the agent runtime was built at assembly.
+   */
+  enableParallelSubagents?: boolean;
   /** Model name (for context window sizing and Robota config) */
   model?: string;
   /** Provider idle timeout in milliseconds for each model call */

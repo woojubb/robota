@@ -89,6 +89,8 @@ export interface ICommandSessionRuntime {
   getActivePresetId?(): string;
   /** Set the active preset id (PRESET-011 runtime state — pure state, no option re-application). */
   setActivePresetId?(id: string): void;
+  /** Toggle subagent dispatch live for the running session (PRESET-016 runtime gate). */
+  setParallelSubagentsEnabled?(enabled: boolean): void;
 }
 
 export interface ICommandSessionReplayValidationReport {
