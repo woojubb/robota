@@ -385,6 +385,17 @@ export class InteractiveSession
     this.getSessionOrThrow().updateSystemMessage(msg);
   }
 
+  /**
+   * PRESET-015: re-apply a preset's command-module selection to the live session by delegating to
+   * the skill router, which re-filters the session-start module set and rebuilds the executor.
+   */
+  applyCommandModuleSelection(
+    enabled: readonly string[] | undefined,
+    disabled: readonly string[] | undefined,
+  ): void {
+    this.skillRouter.reapplyCommandModuleSelection(enabled, disabled);
+  }
+
   getAgentJobCapability(): IAgentJobHostContext {
     return this;
   }

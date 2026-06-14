@@ -104,6 +104,11 @@ export interface ICommandHostContext {
   getSession(): ICommandSessionRuntime;
   /** PRESET-014 — re-apply a preset persona to the live system prompt. */
   applyPersona?(persona: string): void;
+  /** PRESET-015 — re-apply command-module selection to the live session. */
+  applyCommandModuleSelection?(
+    enabled: readonly string[] | undefined,
+    disabled: readonly string[] | undefined,
+  ): void;
   getContextState(): IContextWindowState;
   getAutoCompactThreshold(): TAutoCompactThreshold;
   getAutoCompactThresholdSource?(): TAutoCompactThresholdSource;

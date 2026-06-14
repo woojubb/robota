@@ -12,8 +12,8 @@ import type { TModelEffort, TPermissionMode } from '@robota-sdk/agent-core';
  *
  * PRESET-012 carries the permission/trust group (`permissionMode`); PRESET-013 adds the model group
  * (`model`, `effort`, `temperature`, `maxOutputTokens`); PRESET-014 adds the `persona` block,
- * re-applied to the live system prompt. (Command modules / execution capabilities remain deferred
- * to PRESET-015.)
+ * re-applied to the live system prompt; PRESET-015 adds the command-module selection group
+ * (`enabledCommandModules`/`disabledCommandModules`), re-filtered against the session-start set.
  */
 export interface IPresetApplicationOptions {
   permissionMode?: TPermissionMode;
@@ -23,6 +23,10 @@ export interface IPresetApplicationOptions {
   maxOutputTokens?: number;
   /** PRESET-014 — preset persona re-applied to the live system prompt. */
   persona?: string;
+  /** PRESET-015 — allowlist of command-module names to keep on the live session. */
+  enabledCommandModules?: readonly string[];
+  /** PRESET-015 — denylist of command-module names to remove from the live session. */
+  disabledCommandModules?: readonly string[];
 }
 
 /** Outcome of {@link applyPresetToSession}: which option groups were re-applied vs. skipped. */
@@ -42,7 +46,9 @@ export interface IPresetApplicationResult {
  * posture via the existing `writeCommandPermissionMode` seam, and PRESET-013 re-applies the model
  * group (`model`/`effort`/`temperature`/`maxOutputTokens`) via the runtime's optional
  * `applyModelOptions`. PRESET-014 re-applies the `persona` group via the host context's optional
- * `applyPersona` seam. Groups absent from `options` are left untouched and reported under `skipped`.
+ * `applyPersona` seam. PRESET-015 re-applies the command-module selection group via the host
+ * context's optional `applyCommandModuleSelection` seam. Groups absent from `options` are left
+ * untouched and reported under `skipped`.
  */
 export function applyPresetToSession(
   context: ICommandHostContext,
@@ -86,6 +92,18 @@ export function applyPresetToSession(
     applied.push('persona');
   } else {
     skipped.push('persona');
+  }
+
+  // PRESET-015 command-module group — re-applied via the host context's optional
+  // applyCommandModuleSelection seam (re-filters the session-start module set).
+  if (options.enabledCommandModules !== undefined || options.disabledCommandModules !== undefined) {
+    context.applyCommandModuleSelection?.(
+      options.enabledCommandModules,
+      options.disabledCommandModules,
+    );
+    applied.push('commandModules');
+  } else {
+    skipped.push('commandModules');
   }
 
   return { applied, skipped };
