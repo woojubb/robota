@@ -8,6 +8,7 @@ packages/
 ├── agent-tools/                 # Tool implementations: FunctionTool, built-ins, schema helpers, sandbox ports/manifests
 ├── agent-tool-mcp/              # MCP tool implementations
 ├── agent-framework/             # SDK assembly layer: InteractiveSession, command contracts/common APIs
+├── agent-preset/                # Preset contract (IPreset) + resolvePreset + built-in presets (depends on agent-framework only)
 ├── agent-subagent-runner/       # Optional: child-process subagent runner + worker (depends on agent-framework + agent-provider)
 ├── agent-command/               # Command modules: agent, background, compact, context, exit, help, language, memory, mode, model, permissions, plugin, provider, reset, rewind, session, settings, skills, statusline, user-local
 ├── agent-cli/                   # Terminal UI and local runtime adapters
@@ -77,6 +78,20 @@ Rules:
 - Implementation packages (`agent-transport` with subpaths `/tui`, `/headless`, `/ws`, `/http`, `/mcp`; `agent-provider` with subpaths `/anthropic`, `/openai`, etc.; `agent-command`) depend on the corresponding `agent-interface-*` package, not on `agent-framework`, for interface types. The transport-facing contract types (command, interaction, event, workspace, session, and transport contracts) live in `agent-interface-transport` as their SSOT (per INFRA-010). This is **mechanically enforced** by `scripts/harness/check-interface-imports.mjs` (wired into `pnpm harness:scan` as the `interface-imports` scan): any implementation package that imports an `agent-interface-transport`-exported symbol from `@robota-sdk/agent-framework` fails the gate. Runtime values and framework-owned types (e.g. `TInteractiveSessionOptions`, `ICommandHostContext`, `ICommandModule`, `TSettingsData`) still come from `agent-framework`.
 - `agent-framework` depends on the `agent-interface-transport` package to consume the contracts it needs (it does not depend on `agent-interface-tui`, which only `agent-transport` consumes).
 - Do not place interface packages in `agent-core` — `agent-core` is zero-deps and owns foundational primitives only.
+
+## Preset Package Rule
+
+`agent-preset` owns the `IPreset` contract, the `resolvePreset` precedence merger, and built-in
+preset definitions. It produces option data only — it performs no session assembly and must not
+re-export `agent-framework`.
+
+- Dependency edge: `agent-preset → agent-framework` (consumes option types as SSOT, e.g.
+  `ICreateSessionOptions['permissionMode']`). This is the package's only workspace dependency.
+- `agent-cli` depends on both `agent-preset` (resolver) and `agent-framework` (assembly entry); the
+  reverse edges (`agent-framework → agent-preset`, `agent-preset → agent-cli`) must never exist.
+- The edge is derived dynamically from `package.json` by
+  `scripts/harness/check-dependency-direction.mjs`; keeping the dependency one-way is sufficient for
+  the gate (no separate allowlist entry required).
 
 ## Composition-Root Exemption (Import-Layering Scans)
 

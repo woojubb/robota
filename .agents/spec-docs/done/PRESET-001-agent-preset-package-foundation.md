@@ -1,5 +1,5 @@
 ---
-status: approved
+status: done
 type: DATA
 tags: [typescript]
 ---
@@ -102,18 +102,18 @@ resolver에 의존하는데, 그 기반이 존재하지 않는다.
 
 ## Completion Criteria
 
-- [ ] TC-01: `cat packages/agent-preset/package.json` → `name` 필드가 `@robota-sdk/agent-preset`
-- [ ] TC-02: `rg "export (interface|type) (IPreset|TResolvedPresetOptions)" packages/agent-preset/src` → 두 export 모두 매치
-- [ ] TC-03: `rg "'low' \| 'medium' \| 'high' \| 'xhigh' \| 'max'" packages/agent-preset/src` → `IPreset.effort` enum이 `xhigh`/`max`를 포함하며 매치
-- [ ] TC-04: `rg "enableParallelSubagents\?: boolean" packages/agent-preset/src` 와 `rg "selfVerification\?: boolean" packages/agent-preset/src` → 두 실행 능력 필드 모두 매치
-- [ ] TC-05: `resolvePreset('default', base)`가 오버라이드 없는 base와 깊은 동등(no-op)임을 단언하는 단위 테스트 통과 (`pnpm --filter @robota-sdk/agent-preset test` → exit 0)
-- [ ] TC-06: `resolvePreset(id, { cliOverrides })`의 우선순위 병합이 명시 옵션 > cliOverrides > 프리셋 값 > 프레임워크 기본값 순서로 해석됨을 단언하는 단위 테스트 통과 (cliOverrides가 프리셋 값을 덮고, 명시 옵션이 cliOverrides를 덮음)
-- [ ] TC-07: `listPresets()` 반환 배열에 `id === 'default'` 항목 존재함을 단언하는 단위 테스트 통과
-- [ ] TC-08: `pnpm --filter @robota-sdk/agent-preset build` → exit 0, 그리고 `node scripts/harness/check-dependency-direction.mjs` → exit 0 (agent-preset의 유일 의존 엣지 = agent-framework)
-- [ ] TC-09: `pnpm harness:scan` → exit 0 (신규 패키지 SPEC/등재/구조 스캔 통과)
-- [ ] TC-10: `node -p "require('./packages/agent-preset/package.json').version"` 출력이 `require('./packages/agent-core/package.json').version`과 동일(모노레포 동일 버전 규칙)
-- [ ] TC-11: `rg "@robota-sdk/agent-preset" .changeset/config.json` → `fixed` 그룹에 포함되어 매치
-- [ ] TC-12: `node -p "require('./packages/agent-preset/package.json').publishConfig?.access"` → `public`, 그리고 `private` 필드 부재(published)
+- [x] TC-01: `cat packages/agent-preset/package.json` → `name` 필드가 `@robota-sdk/agent-preset`
+- [x] TC-02: `rg "export (interface|type) (IPreset|TResolvedPresetOptions)" packages/agent-preset/src` → 두 export 모두 매치
+- [x] TC-03: `rg "'low' \| 'medium' \| 'high' \| 'xhigh' \| 'max'" packages/agent-preset/src` → `IPreset.effort` enum이 `xhigh`/`max`를 포함하며 매치
+- [x] TC-04: `rg "enableParallelSubagents\?: boolean" packages/agent-preset/src` 와 `rg "selfVerification\?: boolean" packages/agent-preset/src` → 두 실행 능력 필드 모두 매치
+- [x] TC-05: `resolvePreset('default', base)`가 오버라이드 없는 base와 깊은 동등(no-op)임을 단언하는 단위 테스트 통과 (`pnpm --filter @robota-sdk/agent-preset test` → exit 0)
+- [x] TC-06: `resolvePreset(id, { cliOverrides })`의 우선순위 병합이 명시 옵션 > cliOverrides > 프리셋 값 > 프레임워크 기본값 순서로 해석됨을 단언하는 단위 테스트 통과 (cliOverrides가 프리셋 값을 덮고, 명시 옵션이 cliOverrides를 덮음)
+- [x] TC-07: `listPresets()` 반환 배열에 `id === 'default'` 항목 존재함을 단언하는 단위 테스트 통과
+- [x] TC-08: `pnpm --filter @robota-sdk/agent-preset build` → exit 0, 그리고 `node scripts/harness/check-dependency-direction.mjs` → exit 0 (agent-preset의 유일 의존 엣지 = agent-framework)
+- [x] TC-09: `pnpm harness:scan` → exit 0 (신규 패키지 SPEC/등재/구조 스캔 통과)
+- [x] TC-10: `node -p "require('./packages/agent-preset/package.json').version"` 출력이 `require('./packages/agent-core/package.json').version`과 동일(모노레포 동일 버전 규칙)
+- [x] TC-11: `rg "@robota-sdk/agent-preset" .changeset/config.json` → `fixed` 그룹에 포함되어 매치
+- [x] TC-12: `node -p "require('./packages/agent-preset/package.json').publishConfig?.access"` → `public`, 그리고 `private` 필드 부재(published)
 
 ## Test Plan
 
@@ -136,7 +136,7 @@ Type DATA + tags typescript. 검증 = 타입/단위 테스트(vitest) + 빌드·
 
 ## Tasks
 
-- [ ] `.agents/tasks/PRESET-001.md` — 미생성 (GATE-APPROVAL 통과 후 생성)
+- [`.agents/tasks/PRESET-001.md`](../../tasks/completed/PRESET-001.md) — task breakdown (TC-01..TC-12), created at GATE-IMPLEMENT
 
 ## Evidence Log
 
@@ -161,3 +161,33 @@ Type DATA + tags typescript. 검증 = 타입/단위 테스트(vitest) + 빌드·
 - Approval directed at this spec: the question targeted advancing all 8 PRESET backlogs (PRESET-001 included) through GATE-APPROVAL — directed, unambiguous, not a clarifying-question answer.
 - No Architecture Review or frontmatter type/tags modified after approval.
 - NON-COMPLIANCE trigger clear: no `.agents/tasks/PRESET-001.md`; no `packages/agent-preset/` directory; `rg "agent-preset" packages` → no match. No implementation started before this gate.
+
+### [GATE-VERIFY] — ✅ PASS | 2026-06-14
+
+**Status upgrade:** in-progress → verifying
+
+- Prior-gate precondition: frontmatter `status: in-progress`, file in `active/` — matches expected GATE-VERIFY input stage. GATE-IMPLEMENT evidence carried by task-file existence (`.agents/tasks/PRESET-001.md` present, recorded in `## Tasks`).
+- Tasks completion: all 13 tasks in `.agents/tasks/PRESET-001.md` marked `[x]` (TC-01..TC-12 plus the task header line); none blocked or pending.
+- Build passes: `pnpm --filter @robota-sdk/agent-preset build` → exit 0 (tsdown, ESM+CJS, dist/node/index.{js,cjs,d.ts} emitted; "Build complete").
+- Tests pass: `pnpm --filter @robota-sdk/agent-preset test` → exit 0 (vitest, `src/__tests__/resolve-preset.test.ts`, 9 tests passed / 1 file).
+- Dependency direction: `node scripts/harness/check-dependency-direction.mjs` → exit 0 ("No dependency direction violations found").
+- Harness scan: `pnpm harness:scan` → exit 0 (all 25 scans passed; spec coverage 100%, conformance PASS).
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-06-14
+
+**Status upgrade:** verifying → done
+
+- Prior-gate precondition: `### [GATE-VERIFY] — ✅ PASS | 2026-06-14` entry present; frontmatter `status: verifying` — matches expected GATE-COMPLETE input stage.
+- TC-01: `node -p "require('./packages/agent-preset/package.json').name"` → `@robota-sdk/agent-preset`. ✅
+- TC-02: `rg "export (interface|type) (IPreset|TResolvedPresetOptions)" packages/agent-preset/src` → both matched (`preset-types.ts`: `export interface TResolvedPresetOptions`, `export interface IPreset extends TResolvedPresetOptions`). ✅
+- TC-03: `rg "'low' \| 'medium' \| 'high' \| 'xhigh' \| 'max'" packages/agent-preset/src` → matched (`preset-types.ts`: `export type TPresetEffort = 'low' | 'medium' | 'high' | 'xhigh' | 'max';`); enum includes `xhigh`/`max`. ✅
+- TC-04: `rg "enableParallelSubagents\?: boolean|selfVerification\?: boolean" packages/agent-preset/src` → both matched (`preset-types.ts`: `enableParallelSubagents?: boolean;`, `selfVerification?: boolean;`). ✅
+- TC-05/06/07: `pnpm --filter @robota-sdk/agent-preset test` → exit 0 (vitest, `src/__tests__/resolve-preset.test.ts`, 9 tests passed / 1 file) — covers default resolve no-op deep-equality (TC-05), cliOverrides precedence merge (TC-06), listPresets includes `default` (TC-07). ✅
+- TC-08: `pnpm --filter @robota-sdk/agent-preset build` → exit 0 (tsdown ESM+CJS, `dist/node/index.{js,cjs,d.ts}` emitted, "Build complete"); `node scripts/harness/check-dependency-direction.mjs` → exit 0 ("No dependency direction violations found"). ✅
+- TC-09: `pnpm harness:scan` → exit 0 ("all 25 scans passed"; test-plans/build-contracts/dist/docs-structure/conformance all ✓). ✅
+- TC-10: `node -p` version comparison → agent-preset `3.0.0-beta.74` == agent-core `3.0.0-beta.74`. ✅
+- TC-11: `rg "@robota-sdk/agent-preset" .changeset/config.json` → matched in `fixed` group. ✅
+- TC-12: `node -p` → `publishConfig.access=public`, `private=undefined` (no private field — published). ✅
+- Completion Criteria: all 12 checkboxes (TC-01..TC-12) `[x]`.
+- Test Plan: all 12 rows mapped — TC-05/06/07 → `packages/agent-preset/src/__tests__/resolve-preset.test.ts` (9 tests); TC-01/02/03/04/08/09/10/11/12 → command-form smoke (cat/rg/pnpm/node), each re-run with result above. No `## User Execution Test Scenarios` section (foundation/DATA package) — Test Plan evidence is authoritative.
+- Result: GATE-COMPLETE PASS. (Orchestrator to archive task file to `.agents/tasks/completed/PRESET-001.md`, update `## Tasks` path, and set frontmatter `status: done`.)
