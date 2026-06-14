@@ -281,6 +281,20 @@ describe('PRESET-012 resolved options are live-applicable', () => {
   });
 });
 
+describe('PRESET-013 model group is live-applicable', () => {
+  it('TC-07: a resolvePreset result with model/effort/temperature is assignable to the extended IPresetApplicationOptions', () => {
+    const resolved: TResolvedPresetOptions = resolvePreset('default', {
+      explicit: { model: 'new-model', effort: 'high', temperature: 0.5 },
+    });
+    // Structural compat: the PRESET-013-extended orchestrator option shape accepts the model group
+    // (model/effort/temperature/maxOutputTokens) straight from a resolvePreset result.
+    const applicationOptions: IPresetApplicationOptions = resolved;
+    expect(applicationOptions.model).toBe(resolved.model);
+    expect(applicationOptions.effort).toBe(resolved.effort);
+    expect(applicationOptions.temperature).toBe(resolved.temperature);
+  });
+});
+
 describe('getPreset', () => {
   it('returns the default preset by id', () => {
     expect(getPreset('default')?.id).toBe('default');

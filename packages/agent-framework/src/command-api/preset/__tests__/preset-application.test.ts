@@ -15,14 +15,19 @@ const CONTEXT_STATE: IContextWindowState = {
 interface IRuntimeSpies {
   setPermissionMode: ReturnType<typeof vi.fn>;
   setActivePresetId?: ReturnType<typeof vi.fn>;
+  applyModelOptions?: ReturnType<typeof vi.fn>;
 }
 
 /**
- * Build a minimal ICommandHostContext whose runtime records permission-mode / active-preset
- * writes. `includeActivePreset: false` omits the optional `setActivePresetId` to exercise the
- * defensive optional-chaining path (TC-05).
+ * Build a minimal ICommandHostContext whose runtime records permission-mode / active-preset /
+ * model-option writes. `includeActivePreset: false` omits the optional `setActivePresetId` to
+ * exercise the defensive optional-chaining path (PRESET-012 TC-05). `includeApplyModelOptions:
+ * false` omits the optional `applyModelOptions` to exercise the PRESET-013 optional path (TC-06).
  */
-function createContext(includeActivePreset = true): {
+function createContext(
+  includeActivePreset = true,
+  includeApplyModelOptions = true,
+): {
   context: ICommandHostContext;
   spies: IRuntimeSpies;
 } {
@@ -50,6 +55,12 @@ function createContext(includeActivePreset = true): {
     const setActivePresetId = vi.fn();
     runtime.setActivePresetId = setActivePresetId;
     spies.setActivePresetId = setActivePresetId;
+  }
+
+  if (includeApplyModelOptions) {
+    const applyModelOptions = vi.fn();
+    runtime.applyModelOptions = applyModelOptions;
+    spies.applyModelOptions = applyModelOptions;
   }
 
   const context: ICommandHostContext = {
@@ -110,5 +121,44 @@ describe('applyPresetToSession (PRESET-012)', () => {
       applyPresetToSession(context, 'careful-reviewer', { permissionMode: 'plan' }),
     ).not.toThrow();
     expect(spies.setPermissionMode).toHaveBeenCalledWith('plan');
+  });
+});
+
+describe('applyPresetToSession model group (PRESET-013)', () => {
+  it('TC-04: effort + temperature applied → applyModelOptions called, result.applied lists them', () => {
+    const { context, spies } = createContext();
+    const result = applyPresetToSession(context, 'careful-reviewer', {
+      effort: 'high',
+      temperature: 0.5,
+      maxOutputTokens: 2048,
+    });
+
+    expect(spies.applyModelOptions).toHaveBeenCalledWith({
+      effort: 'high',
+      temperature: 0.5,
+      maxOutputTokens: 2048,
+    });
+    expect(result.applied).toContain('effort');
+    expect(result.applied).toContain('temperature');
+    expect(result.applied).toContain('maxOutputTokens');
+  });
+
+  it('TC-05: only permissionMode → applyModelOptions not called, model groups skipped', () => {
+    const { context, spies } = createContext();
+    const result = applyPresetToSession(context, 'x', { permissionMode: 'default' });
+
+    expect(spies.applyModelOptions).not.toHaveBeenCalled();
+    expect(result.skipped).toContain('model');
+    expect(result.skipped).toContain('effort');
+    expect(result.skipped).toContain('temperature');
+    expect(result.skipped).toContain('maxOutputTokens');
+  });
+
+  it('TC-06: runtime without applyModelOptions still applies safely (optional chaining)', () => {
+    const { context, spies } = createContext(true, false);
+    expect(spies.applyModelOptions).toBeUndefined();
+    expect(() =>
+      applyPresetToSession(context, 'careful-reviewer', { effort: 'high' }),
+    ).not.toThrow();
   });
 });
