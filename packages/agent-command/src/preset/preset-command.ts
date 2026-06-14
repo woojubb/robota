@@ -29,7 +29,10 @@ function formatUnknownPresetMessage(id: string): string {
   return `Unknown preset: ${id}. Available: ${ids}`;
 }
 
-export function executePresetCommand(context: ICommandHostContext, args: string): ICommandResult {
+export async function executePresetCommand(
+  context: ICommandHostContext,
+  args: string,
+): Promise<ICommandResult> {
   const id = args.trim().split(/\s+/)[0];
 
   if (id === undefined || id.length === 0 || id === 'list') {
@@ -49,7 +52,7 @@ export function executePresetCommand(context: ICommandHostContext, args: string)
   }
 
   const resolved = resolvePreset(id);
-  applyPresetToSession(context, id, resolved);
+  await applyPresetToSession(context, id, resolved);
   return {
     message: `Switched to preset: ${id}`,
     success: true,

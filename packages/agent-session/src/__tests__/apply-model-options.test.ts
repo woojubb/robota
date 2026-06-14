@@ -22,6 +22,7 @@ vi.mock('@robota-sdk/agent-core', async () => {
       injectMessage: vi.fn(),
       getFullHistory: vi.fn().mockReturnValue([]),
       addHistoryEntry: vi.fn(),
+      ensureReady: vi.fn().mockResolvedValue(undefined),
       setModel: setModelSpy,
     })),
   };
@@ -60,11 +61,11 @@ function buildSession(): Session {
 }
 
 describe('SessionBase.applyModelOptions (PRESET-013)', () => {
-  it('TC-02: applyModelOptions({ effort }) calls robota.setModel with the effort', () => {
+  it('TC-02: applyModelOptions({ effort }) calls robota.setModel with the effort', async () => {
     setModelSpy.mockClear();
     const session = buildSession();
 
-    session.applyModelOptions({ effort: 'medium' });
+    await session.applyModelOptions({ effort: 'medium' });
 
     expect(setModelSpy).toHaveBeenCalledTimes(1);
     expect(setModelSpy).toHaveBeenCalledWith(
@@ -76,21 +77,21 @@ describe('SessionBase.applyModelOptions (PRESET-013)', () => {
     );
   });
 
-  it('TC-03: applyModelOptions({ model }) updates getModelId()', () => {
+  it('TC-03: applyModelOptions({ model }) updates getModelId()', async () => {
     setModelSpy.mockClear();
     const session = buildSession();
 
-    session.applyModelOptions({ model: 'new-model' });
+    await session.applyModelOptions({ model: 'new-model' });
 
     expect(session.getModelId()).toBe('new-model');
     expect(setModelSpy).toHaveBeenCalledWith(expect.objectContaining({ model: 'new-model' }));
   });
 
-  it('maps maxOutputTokens to the agent maxTokens channel', () => {
+  it('maps maxOutputTokens to the agent maxTokens channel', async () => {
     setModelSpy.mockClear();
     const session = buildSession();
 
-    session.applyModelOptions({ maxOutputTokens: 2048, temperature: 0.5 });
+    await session.applyModelOptions({ maxOutputTokens: 2048, temperature: 0.5 });
 
     expect(setModelSpy).toHaveBeenCalledWith(
       expect.objectContaining({ maxTokens: 2048, temperature: 0.5 }),
