@@ -1,4 +1,4 @@
-import { SilentLogger, type ILogger } from '@robota-sdk/agent-core';
+import { SilentLogger, ConfigurationError, type ILogger } from '@robota-sdk/agent-core';
 
 import { OpenAIResponseParser } from '../parsers/response-parser';
 
@@ -90,6 +90,11 @@ export class OpenAIStreamHandler {
     try {
       // Extract parameters from request payload
       const model = request.model;
+      if (!model) {
+        // The model must be resolved upstream; a missing model is a configuration error, not
+        // something to silently substitute a vendor default for.
+        throw new ConfigurationError('OpenAI streaming request is missing a model');
+      }
       const messages = request.messages || [];
       const temperature = request.temperature;
       const maxTokens = request.max_tokens;
@@ -97,7 +102,7 @@ export class OpenAIStreamHandler {
 
       // Build OpenAI request parameters
       const requestParams: IOpenAIStreamRequestParams = {
-        model: model || 'gpt-4o-mini',
+        model,
         messages,
         temperature,
         max_tokens: maxTokens,

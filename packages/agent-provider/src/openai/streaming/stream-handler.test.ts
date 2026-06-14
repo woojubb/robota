@@ -268,7 +268,7 @@ describe('OpenAIStreamHandler', () => {
       expect(results[0].content).toBe('Response');
     });
 
-    it('should default model to gpt-4o-mini when not specified', async () => {
+    it('should throw when model is not specified (no silent vendor default)', async () => {
       const chunks = [createStreamChunk('Hi', 'stop')];
       mockClient = createMockClient(chunks);
       const handler = new OpenAIStreamHandler(mockClient);
@@ -278,12 +278,13 @@ describe('OpenAIStreamHandler', () => {
         messages: [{ role: 'user', content: 'Hi' }],
       };
 
-      for await (const _msg of handler.generateStreamingResponse(request)) {
-        // consume
-      }
+      await expect(async () => {
+        for await (const _msg of handler.generateStreamingResponse(request)) {
+          // consume
+        }
+      }).rejects.toThrow(/missing a model/);
 
-      const createCall = vi.mocked(mockClient.chat.completions.create);
-      expect(createCall).toHaveBeenCalledWith(expect.objectContaining({ model: 'gpt-4o-mini' }));
+      expect(vi.mocked(mockClient.chat.completions.create)).not.toHaveBeenCalled();
     });
 
     it('should include tools when provided in request', async () => {
