@@ -44,6 +44,7 @@ Consult the relevant skill before starting work in its domain. Each entry links 
 | Skill                                                                     | Description                                                                                    |
 | ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
 | [architecture-conformance-audit](architecture-conformance-audit/SKILL.md) | Orchestrates a repeatable doc-vs-code architecture conformance audit (GATE-CONFORMANCE)        |
+| [design-quality-audit](design-quality-audit/SKILL.md)                     | Repeatable deep design-quality audit — judges whether the design is right (vs doc conformance) |
 | [dependency-graph-extraction](dependency-graph-extraction/SKILL.md)       | Extracts the actual agent-\* dependency edge set + runs the mechanical conformance guards      |
 | [doc-claim-verification](doc-claim-verification/SKILL.md)                 | Verifies one architecture document's claims vs code: HOLDS/DRIFT/VIOLATION/CONTRADICTION/STALE |
 | [conformance-finding-report](conformance-finding-report/SKILL.md)         | Assembles verdicts into the AF-NN findings report with severities + counts (INFRA-002 schema)  |
