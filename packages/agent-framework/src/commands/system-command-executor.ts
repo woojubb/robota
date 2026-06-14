@@ -19,6 +19,12 @@ export class SystemCommandExecutor {
     this.commands.set(command.name, command);
   }
 
+  /** Replace the entire command set (used by live preset command-module re-selection — PRESET-015). */
+  replaceCommands(commands: readonly ISystemCommand[]): void {
+    this.commands.clear();
+    for (const command of commands) this.commands.set(command.name, command);
+  }
+
   /** Execute a command by name. Returns null if command not found. */
   async execute(
     name: string,
