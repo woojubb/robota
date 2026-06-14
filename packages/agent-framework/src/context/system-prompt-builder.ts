@@ -8,6 +8,7 @@ import {
   createProjectMemorySection,
   createProjectSection,
   createResponseLanguageSection,
+  createSelfVerificationSection,
   createTaskContextSection,
   createToolDescriptionSection,
   createWorkingDirectorySection,
@@ -24,6 +25,11 @@ export interface ISystemPromptParams {
    * composed as a `source: 'persona'` section with priority 5; empty/undefined adds no section.
    */
   persona?: string;
+  /**
+   * PRESET-017: when true, a concise verify-before-done directive is composed as a
+   * `source: 'self-verification'` section with priority 6; false/undefined adds no section.
+   */
+  selfVerification?: boolean;
   /** Concatenated AGENTS.md content (may be empty string) */
   agentsMd: string;
   /** Concatenated CLAUDE.md content (may be empty string) */
@@ -98,6 +104,10 @@ export function buildSystemPrompt(params: ISystemPromptParams): string {
     params.persona !== undefined && params.persona.trim().length > 0
       ? createPersonaSection(params.persona)
       : undefined,
+  );
+  appendOptionalSection(
+    sections,
+    params.selfVerification === true ? createSelfVerificationSection() : undefined,
   );
   appendOptionalSection(sections, createAgentsMdSection(params.agentsMd));
   appendOptionalSection(sections, createClaudeMdSection(params.claudeMd));

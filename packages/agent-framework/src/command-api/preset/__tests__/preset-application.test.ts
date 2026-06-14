@@ -19,6 +19,7 @@ interface IRuntimeSpies {
   applyPersona?: ReturnType<typeof vi.fn>;
   applyCommandModuleSelection?: ReturnType<typeof vi.fn>;
   setParallelSubagentsEnabled?: ReturnType<typeof vi.fn>;
+  applySelfVerification?: ReturnType<typeof vi.fn>;
 }
 
 /**
@@ -30,7 +31,8 @@ interface IRuntimeSpies {
  * optional path (TC-05). `includeApplyCommandModuleSelection: false` omits the optional
  * `applyCommandModuleSelection` to exercise the PRESET-015 optional path (TC-06).
  * `includeSetParallelSubagentsEnabled: false` omits the optional `setParallelSubagentsEnabled` to
- * exercise the PRESET-016 optional path (TC-06).
+ * exercise the PRESET-016 optional path (TC-06). `includeApplySelfVerification: false` omits the
+ * optional `applySelfVerification` to exercise the PRESET-017 optional path (TC-05).
  */
 function createContext(
   includeActivePreset = true,
@@ -38,6 +40,7 @@ function createContext(
   includeApplyPersona = true,
   includeApplyCommandModuleSelection = true,
   includeSetParallelSubagentsEnabled = true,
+  includeApplySelfVerification = true,
 ): {
   context: ICommandHostContext;
   spies: IRuntimeSpies;
@@ -111,6 +114,12 @@ function createContext(
     const applyCommandModuleSelection = vi.fn();
     context.applyCommandModuleSelection = applyCommandModuleSelection;
     spies.applyCommandModuleSelection = applyCommandModuleSelection;
+  }
+
+  if (includeApplySelfVerification) {
+    const applySelfVerification = vi.fn();
+    context.applySelfVerification = applySelfVerification;
+    spies.applySelfVerification = applySelfVerification;
   }
 
   return { context, spies };
@@ -271,6 +280,33 @@ describe('applyPresetToSession parallel-subagents gate (PRESET-016)', () => {
     expect(spies.setParallelSubagentsEnabled).toBeUndefined();
     expect(() =>
       applyPresetToSession(context, 'careful-reviewer', { enableParallelSubagents: true }),
+    ).not.toThrow();
+  });
+});
+
+describe('applyPresetToSession self-verification group (PRESET-017)', () => {
+  it('TC-04: selfVerification:true → applySelfVerification(true), applied lists it', () => {
+    const { context, spies } = createContext();
+    const result = applyPresetToSession(context, 'careful-reviewer', { selfVerification: true });
+
+    expect(spies.applySelfVerification).toHaveBeenCalledWith(true);
+    expect(result.applied).toContain('selfVerification');
+  });
+
+  it('TC-05: omitted → not called, group skipped', () => {
+    const { context, spies } = createContext();
+    const result = applyPresetToSession(context, 'x', {});
+
+    expect(spies.applySelfVerification).not.toHaveBeenCalled();
+    expect(result.skipped).toContain('selfVerification');
+    expect(result.applied).not.toContain('selfVerification');
+  });
+
+  it('TC-05: context without applySelfVerification still applies safely (optional chaining)', () => {
+    const { context, spies } = createContext(true, true, true, true, true, false);
+    expect(spies.applySelfVerification).toBeUndefined();
+    expect(() =>
+      applyPresetToSession(context, 'careful-reviewer', { selfVerification: true }),
     ).not.toThrow();
   });
 });
