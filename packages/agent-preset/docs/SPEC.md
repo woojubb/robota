@@ -105,16 +105,24 @@ persona with the portable behaviour-guide keywords, `effort: 'high'`, `autonomy:
 
 ### Built-in preset catalog
 
-| Preset               | Identity            | Resolved overrides                                                                                                                                         |
-| -------------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `default`            | neutral baseline    | none (pure no-op — reproduces standard agent behaviour)                                                                                                    |
-| `autonomous-builder` | opinionated builder | `persona` (portable proactive/self-verifying block) + `effort: 'high'`, `autonomy: 'act-first'`, `enableParallelSubagents: true`, `selfVerification: true` |
+| Preset               | Identity             | Resolved overrides                                                                                                                                         |
+| -------------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `default`            | neutral baseline     | none (pure no-op — reproduces standard agent behaviour)                                                                                                    |
+| `autonomous-builder` | opinionated builder  | `persona` (portable proactive/self-verifying block) + `effort: 'high'`, `autonomy: 'act-first'`, `enableParallelSubagents: true`, `selfVerification: true` |
+| `careful-reviewer`   | opinionated reviewer | `persona` (portable read-first/plan-first block) + `effort: 'high'`, `autonomy: 'ask-first'`, `enableParallelSubagents: false`, `selfVerification: true`   |
 
 The `autonomous-builder` persona carries portable behavioural principles only (proactivity,
 scope-constraint, self-verification, tool-result grounding, non-sycophantic honesty, concise output).
 It holds no runtime/environment content — working directory, tool schemas, product identity, dates,
 and permission text remain the framework RUNTIME layer's responsibility. The identifier is generic; a
 work-style sourcing footnote appears only in `description`.
+
+The `careful-reviewer` preset is the deliberate counterpart to `autonomous-builder` on the autonomy
+axis: `autonomy: 'ask-first'` maps (PRESET-004) onto the ask-on-write permission posture, and the
+portable persona guides read/analyse-first → propose a plan → wait for confirmation, conservative
+scope, and trade-off explanation. It runs focused (`enableParallelSubagents: false`) and self-verifies.
+Like every shipped persona it holds portable behavioural content only — no runtime/environment tokens —
+and its identifier is generic with no work-style attribution in source.
 
 ## Class Contract Registry
 

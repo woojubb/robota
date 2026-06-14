@@ -37,7 +37,7 @@ describe('resolvePreset', () => {
 
   it('throws with the available-preset list for an unknown id', () => {
     expect(() => resolvePreset('does-not-exist')).toThrowError(
-      'Unknown preset: "does-not-exist". Available presets: default, autonomous-builder.',
+      'Unknown preset: "does-not-exist". Available presets: default, autonomous-builder, careful-reviewer.',
     );
   });
 });
@@ -184,6 +184,47 @@ describe('PRESET-005 autonomous-builder', () => {
 
   it('TC-09: listPresets() includes autonomous-builder with non-empty title/description', () => {
     const summary = listPresets().find((preset) => preset.id === 'autonomous-builder');
+    expect(summary).toBeDefined();
+    expect((summary?.title ?? '').length).toBeGreaterThan(0);
+    expect((summary?.description ?? '').length).toBeGreaterThan(0);
+  });
+});
+
+describe('PRESET-009 careful-reviewer', () => {
+  it('TC-01: autonomy === "ask-first"', () => {
+    expect(resolvePreset('careful-reviewer').autonomy).toBe('ask-first');
+  });
+
+  it('TC-02: selfVerification === true', () => {
+    expect(resolvePreset('careful-reviewer').selfVerification).toBe(true);
+  });
+
+  it('TC-03: enableParallelSubagents === false', () => {
+    expect(resolvePreset('careful-reviewer').enableParallelSubagents).toBe(false);
+  });
+
+  it('TC-04: effort is SET (one of the known tiers, not undefined)', () => {
+    const { effort } = resolvePreset('careful-reviewer');
+    expect(effort).toBeDefined();
+    expect(['low', 'medium', 'high', 'xhigh', 'max']).toContain(effort);
+  });
+
+  it('TC-05: persona contains ask-before-write / plan-first and wait-before-change phrasing', () => {
+    const { persona } = resolvePreset('careful-reviewer');
+    expect(persona).toBeDefined();
+    const text = (persona ?? '').toLowerCase();
+    // ask-before-write / plan-first
+    expect(text).toMatch(/read and analyse before you change|lay out a short plan/);
+    // wait before the change lands
+    expect(text).toMatch(/wait for confirmation/);
+  });
+
+  it('ask-first maps to the ask-on-write permission posture (default)', () => {
+    expect(resolvePreset('careful-reviewer').permissionMode).toBe('default');
+  });
+
+  it('TC-08: listPresets() includes careful-reviewer with non-empty title/description', () => {
+    const summary = listPresets().find((preset) => preset.id === 'careful-reviewer');
     expect(summary).toBeDefined();
     expect((summary?.title ?? '').length).toBeGreaterThan(0);
     expect((summary?.description ?? '').length).toBeGreaterThan(0);
