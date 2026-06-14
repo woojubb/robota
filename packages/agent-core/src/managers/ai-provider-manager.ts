@@ -193,25 +193,6 @@ export class AIProviders extends AbstractManager implements IAIProviderManager {
   }
 
   /**
-   * Get available models for a provider
-   * Note: In the new architecture, models are handled by each provider internally
-   */
-  getAvailableModels(providerName: string): string[] {
-    this.ensureInitialized();
-
-    const provider = this.providers.get(providerName);
-    if (!provider) {
-      throw new ConfigurationError(`Provider "${providerName}" is not registered`);
-    }
-
-    // Return empty array since models are now provider-specific and handled internally
-    logger.warn(
-      `getAvailableModels() is deprecated. Models are now handled by providers internally.`,
-    );
-    return [];
-  }
-
-  /**
    * Get current provider instance
    */
   getCurrentProviderInstance(): IAIProvider | undefined {

@@ -124,6 +124,20 @@ describe('AgentFactory', () => {
       expect(stats.currentProvider).toBe('mock-provider');
     });
 
+    it('should throw when no model can be resolved (no vendor fallback)', async () => {
+      // Factory without a defaultModel option + config without defaultModel: the model is
+      // unresolvable. It must fail loudly instead of silently substituting a hardcoded vendor model.
+      const noDefaultsFactory = new AgentFactory();
+      await noDefaultsFactory.initialize();
+
+      await expect(
+        noDefaultsFactory.createAgent(Robota, {
+          name: 'NoModelAgent',
+          aiProviders: [new MockAIProvider()],
+        }),
+      ).rejects.toThrow(ConfigurationError);
+    });
+
     it('should apply default configuration', async () => {
       const agent = await factory.createAgent(Robota, {
         name: 'TestAgent',
