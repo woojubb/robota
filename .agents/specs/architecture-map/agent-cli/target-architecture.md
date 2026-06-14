@@ -109,6 +109,7 @@ flowchart TD
 
   Commands --> Framework
   Commands --> Core
+  Commands --> Preset
 
   Framework --> Session
   Framework --> Tools

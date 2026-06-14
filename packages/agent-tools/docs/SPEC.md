@@ -108,8 +108,6 @@ Types owned by this package (SSOT):
 | `FunctionTool`                          | Class    | JS function tool with Zod schema validation                    |
 | `createFunctionTool`                    | Function | Factory for creating function tools                            |
 | `createZodFunctionTool`                 | Function | Factory with Zod validation and conversion                     |
-| `OpenAPITool`                           | Class    | Tool generated from OpenAPI specification                      |
-| `createOpenAPITool`                     | Function | Factory for creating OpenAPI tools                             |
 | `zodToJsonSchema`                       | Function | Converts Zod schemas to JSON Schema format                     |
 | `TToolResult`                           | Type     | Result shape for CLI tool invocations                          |
 | `E2BSandboxClient`                      | Class    | Adapter for E2B-compatible sandbox instances and snapshots     |
@@ -174,11 +172,9 @@ This is the inner result type used by built-in tools. It is serialized to JSON a
 
 2. **FunctionTool / createZodFunctionTool** -- Consumers create custom tools from plain functions with Zod schemas for parameter validation. Zod object schemas marked with `passthrough()` are converted to root `additionalProperties: true`, and `FunctionTool` validation accepts unknown root parameters for those schemas.
 
-3. **OpenAPITool / createOpenAPITool** -- Consumers create tools from OpenAPI specifications for API integration.
+3. **ISandboxClient** -- Consumers inject provider-backed execution planes into sandbox-aware built-in tool factories. The optional `snapshot()` and `restore(snapshotId)` methods return and hydrate provider-owned resumable workspace references. `E2BSandboxClient` adapts E2B-compatible objects without adding an `e2b` package dependency to `agent-tools`; it supports both `createSnapshot()` style checkpoint references and `pause()`/`connect()` style resumable sandbox IDs. `InMemorySandboxClient` supports deterministic contract tests.
 
-4. **ISandboxClient** -- Consumers inject provider-backed execution planes into sandbox-aware built-in tool factories. The optional `snapshot()` and `restore(snapshotId)` methods return and hydrate provider-owned resumable workspace references. `E2BSandboxClient` adapts E2B-compatible objects without adding an `e2b` package dependency to `agent-tools`; it supports both `createSnapshot()` style checkpoint references and `pause()`/`connect()` style resumable sandbox IDs. `InMemorySandboxClient` supports deterministic contract tests.
-
-5. **IWorkspaceManifest / applyWorkspaceManifest** -- Consumers declare fresh-session sandbox contents using workspace-relative paths. The generic applicator writes inline/local files, creates directories, and clones Git repositories through `ISandboxClient`; provider-specific storage mounts are represented in the contract but return explicit `unsupported` entries until an adapter supplies native mount capability.
+4. **IWorkspaceManifest / applyWorkspaceManifest** -- Consumers declare fresh-session sandbox contents using workspace-relative paths. The generic applicator writes inline/local files, creates directories, and clones Git repositories through `ISandboxClient`; provider-specific storage mounts are represented in the contract but return explicit `unsupported` entries until an adapter supplies native mount capability.
 
 ## Error Taxonomy
 
@@ -199,7 +195,7 @@ This package does not define a custom error hierarchy. Built-in tools return err
 
 ### Inheritance Chains
 
-None. `FunctionTool` and `OpenAPITool` implement their respective interfaces directly (`implements IFunctionTool`, `implements ITool`) without extending `AbstractTool`, to avoid circular runtime dependencies between agent-tools and agent-core.
+None. `FunctionTool` implements its interface directly (`implements IFunctionTool`) without extending `AbstractTool`, to avoid circular runtime dependencies between agent-tools and agent-core.
 
 ### Cross-Package Port Consumers
 
@@ -226,7 +222,6 @@ None. `FunctionTool` and `OpenAPITool` implement their respective interfaces dir
 ### Gaps
 
 - **Built-in tools** -- `globTool` and `grepTool` still need dedicated unit coverage beyond provider-agnostic composition tests.
-- **OpenAPITool** -- No unit tests for OpenAPI tool creation or execution.
 - **TToolResult** -- No tests verifying the result shape contract.
 
 ## Dependencies

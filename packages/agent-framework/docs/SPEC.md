@@ -153,7 +153,6 @@ Core classes and functions exported from `@robota-sdk/agent-framework`:
 | `createSystemCommands`                      | function | SDK core command factory (returns empty list; built-ins are in command modules)                                                                                                |
 | `createBuiltinCommandModule`                | function | SDK core compatibility module factory                                                                                                                                          |
 | `applyPresetToSession`                      | function | Live preset-switching engine: re-applies a resolved preset's option groups to a running session, records the active preset id, returns `{ applied, skipped }` (PRESET-011~017) |
-| `selectCommandModules`                      | function | Pure allow-then-deny filter for live command-module re-selection (PRESET-015)                                                                                                  |
 | `parseFrontmatter`                          | function | YAML frontmatter parser for skill/agent definition files                                                                                                                       |
 | `executeSkill`                              | function | Internal skill execution helper                                                                                                                                                |
 | `loadOrgPolicy`                             | function | Read org policy from `~/.robota/org-policy.json`                                                                                                                               |
@@ -397,7 +396,9 @@ verify-before-done system-prompt section with `source: 'self-verification'` at *
 **`selectCommandModules(modules, enabled, disabled)`** — pure allow-then-deny filter for live
 command-module re-selection (deny wins over allow; neither given returns the input unchanged). It is
 the framework-owned counterpart of agent-command's `applyModuleSelection`, duplicated so the framework
-does not depend on agent-command.
+does not depend on agent-command. This is an **internal helper** consumed by the skill router; it is
+re-exported only from `src/commands/index.ts`, not from the package root (`src/index.ts`), so it is not
+part of the Public API Surface.
 
 ## Provider Resolution Order
 
