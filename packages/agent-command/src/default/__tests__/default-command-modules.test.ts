@@ -40,14 +40,15 @@ describe('createDefaultCommandModules — PRESET-004 module-selection delta', ()
 
   it('TC-04: neither enabled nor disabled given → full default set unchanged (no-regression)', () => {
     const names = moduleNames(baseOptions);
-    // No-regression: the default set length is the documented 20 modules.
-    expect(names).toHaveLength(20);
+    // No-regression: the default set length is the documented 21 modules.
+    expect(names).toHaveLength(21);
     expect(names).toEqual([
       'agent-command-skills',
       'agent-command-help',
       'agent-command-agent',
       'agent-command-permissions',
       'agent-command-mode',
+      'agent-command-preset',
       'agent-command-language',
       'agent-command-background',
       'agent-command-memory',
