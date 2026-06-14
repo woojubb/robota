@@ -550,6 +550,9 @@ importers:
       '@robota-sdk/agent-interface-transport':
         specifier: workspace:*
         version: link:../agent-interface-transport
+      '@robota-sdk/agent-preset':
+        specifier: workspace:*
+        version: link:../agent-preset
     devDependencies:
       '@types/node':
         specifier: ^22.19.21

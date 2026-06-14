@@ -155,4 +155,23 @@ describe('StatusBar', () => {
     const frame = lastFrame()!;
     expect(frame).not.toContain('feat/status-line');
   });
+
+  it('TC-03: shows the active preset id when set and non-default', () => {
+    const { lastFrame } = render(<StatusBar {...baseProps} activePresetId="autonomous-builder" />);
+    const frame = lastFrame()!;
+    expect(frame).toContain('Preset:');
+    expect(frame).toContain('autonomous-builder');
+  });
+
+  it('TC-03: hides the default active preset', () => {
+    const { lastFrame } = render(<StatusBar {...baseProps} activePresetId="default" />);
+    const frame = lastFrame()!;
+    expect(frame).not.toContain('Preset:');
+  });
+
+  it('TC-03: hides the preset label when no active preset is provided', () => {
+    const { lastFrame } = render(<StatusBar {...baseProps} activePresetId={undefined} />);
+    const frame = lastFrame()!;
+    expect(frame).not.toContain('Preset:');
+  });
 });
