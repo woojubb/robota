@@ -37,7 +37,7 @@ describe('resolvePreset', () => {
 
   it('throws with the available-preset list for an unknown id', () => {
     expect(() => resolvePreset('does-not-exist')).toThrowError(
-      'Unknown preset: "does-not-exist". Available presets: default, autonomous-builder, careful-reviewer.',
+      'Unknown preset: "does-not-exist". Available presets: default, autonomous-builder, careful-reviewer, neutral-executor.',
     );
   });
 });
@@ -225,6 +225,45 @@ describe('PRESET-009 careful-reviewer', () => {
 
   it('TC-08: listPresets() includes careful-reviewer with non-empty title/description', () => {
     const summary = listPresets().find((preset) => preset.id === 'careful-reviewer');
+    expect(summary).toBeDefined();
+    expect((summary?.title ?? '').length).toBeGreaterThan(0);
+    expect((summary?.description ?? '').length).toBeGreaterThan(0);
+  });
+});
+
+describe('PRESET-010 neutral-executor', () => {
+  it('TC-01: autonomy === "balanced"', () => {
+    expect(resolvePreset('neutral-executor').autonomy).toBe('balanced');
+  });
+
+  it('TC-02: enableParallelSubagents === false', () => {
+    expect(resolvePreset('neutral-executor').enableParallelSubagents).toBe(false);
+  });
+
+  it('TC-03: selfVerification === false', () => {
+    expect(resolvePreset('neutral-executor').selfVerification).toBe(false);
+  });
+
+  it('TC-04: effort === "medium"', () => {
+    expect(resolvePreset('neutral-executor').effort).toBe('medium');
+  });
+
+  it('TC-05: persona contains literal-instruction-following and minimal-scope phrasing', () => {
+    const { persona } = resolvePreset('neutral-executor');
+    expect(persona).toBeDefined();
+    const text = (persona ?? '').toLowerCase();
+    // literal instruction following
+    expect(text).toMatch(/follow the system and user instructions literally/);
+    // minimal scope — no unrequested expansion
+    expect(text).toMatch(/stay strictly in scope|only the change that was requested/);
+  });
+
+  it('balanced maps to the standard permission posture (default)', () => {
+    expect(resolvePreset('neutral-executor').permissionMode).toBe('default');
+  });
+
+  it('TC-08: listPresets() includes neutral-executor with non-empty title/description', () => {
+    const summary = listPresets().find((preset) => preset.id === 'neutral-executor');
     expect(summary).toBeDefined();
     expect((summary?.title ?? '').length).toBeGreaterThan(0);
     expect((summary?.description ?? '').length).toBeGreaterThan(0);

@@ -28,6 +28,8 @@ agent-framework            ← neutral assembly + option-type SSOT
         ├── preset-types.ts              ← IPreset / TResolvedPresetOptions / enums (SSOT for the preset shape)
         ├── presets/default.ts           ← neutral baseline preset (no overrides — pure no-op)
         ├── presets/autonomous-builder.ts← opinionated preset: persona + effort/autonomy/parallel/self-verify mechanism
+        ├── presets/careful-reviewer.ts  ← opinionated preset: ask-first reviewing posture
+        ├── presets/neutral-executor.ts  ← opinionated preset: thin, steerable, literal-execution posture
         └── resolve-preset.ts            ← registry + listPresets/getPreset/resolvePreset + DEFAULT_AGENT_NAME
 ```
 
@@ -105,11 +107,12 @@ persona with the portable behaviour-guide keywords, `effort: 'high'`, `autonomy:
 
 ### Built-in preset catalog
 
-| Preset               | Identity             | Resolved overrides                                                                                                                                         |
-| -------------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `default`            | neutral baseline     | none (pure no-op — reproduces standard agent behaviour)                                                                                                    |
-| `autonomous-builder` | opinionated builder  | `persona` (portable proactive/self-verifying block) + `effort: 'high'`, `autonomy: 'act-first'`, `enableParallelSubagents: true`, `selfVerification: true` |
-| `careful-reviewer`   | opinionated reviewer | `persona` (portable read-first/plan-first block) + `effort: 'high'`, `autonomy: 'ask-first'`, `enableParallelSubagents: false`, `selfVerification: true`   |
+| Preset               | Identity                | Resolved overrides                                                                                                                                               |
+| -------------------- | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `default`            | neutral baseline        | none (pure no-op — reproduces standard agent behaviour)                                                                                                          |
+| `autonomous-builder` | opinionated builder     | `persona` (portable proactive/self-verifying block) + `effort: 'high'`, `autonomy: 'act-first'`, `enableParallelSubagents: true`, `selfVerification: true`       |
+| `careful-reviewer`   | opinionated reviewer    | `persona` (portable read-first/plan-first block) + `effort: 'high'`, `autonomy: 'ask-first'`, `enableParallelSubagents: false`, `selfVerification: true`         |
+| `neutral-executor`   | thin steerable executor | `persona` (portable literal/minimal-scope/terse block) + `effort: 'medium'`, `autonomy: 'balanced'`, `enableParallelSubagents: false`, `selfVerification: false` |
 
 The `autonomous-builder` persona carries portable behavioural principles only (proactivity,
 scope-constraint, self-verification, tool-result grounding, non-sycophantic honesty, concise output).
@@ -123,6 +126,13 @@ portable persona guides read/analyse-first → propose a plan → wait for confi
 scope, and trade-off explanation. It runs focused (`enableParallelSubagents: false`) and self-verifies.
 Like every shipped persona it holds portable behavioural content only — no runtime/environment tokens —
 and its identifier is generic with no work-style attribution in source.
+
+The `neutral-executor` preset is a thin, steerable counterpart to `default`: where `default` pins
+behaviour in no direction, `neutral-executor` actively pins a terse, literal, minimal-scope posture
+for predictable scripted/automation use. Its portable persona follows the system/user instructions
+literally, editorialises little, stays strictly in scope, and keeps output terse; it turns capability
+_off_ (`enableParallelSubagents: false`, `selfVerification: false`) at `effort: 'medium'` with
+`autonomy: 'balanced'`. Identifier is generic — any work-style attribution is confined to `description`.
 
 ## Class Contract Registry
 
