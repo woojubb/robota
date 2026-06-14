@@ -13,6 +13,17 @@ contracts and no runtime implementation. It defines the standard protocol for tr
   (`import type`); the compiled output carries no `@robota-sdk/*` package at runtime. The package
   imports contract types from `@robota-sdk/agent-core`, `@robota-sdk/agent-executor`, and
   `@robota-sdk/agent-session` (e.g. `TUniversalValue`, `IBackgroundTaskError`, `ICompactEvent`).
+- **Downward type references are contract composition, not coupling (justification).** As the SSOT
+  for transport-facing contracts (INFRA-010), this package's contracts must _reference_ a few
+  domain types owned by lower layers — a session compact event (`ICompactEvent`), background-task
+  status/error (`@robota-sdk/agent-executor`), and core primitives (`TUniversalValue`,
+  `IHistoryEntry`). It does not _own_ or _re-export_ them; the references are `import type` only, so
+  there is no runtime edge and the dependency graph stays acyclic (verified by
+  `harness:conformance`). `@robota-sdk/agent-core` is the zero-dep foundation and is always an
+  acceptable reference. A future full inversion (relocating the referenced domain types up into this
+  package so executor/session import from it) is tracked by backlog REFACTOR-018; it is deliberately
+  deferred because those types are genuine executor/session domain types and the current type-only
+  references carry no runtime cost.
 - Does not depend on `@robota-sdk/agent-framework` or any transport implementation package.
 - Implementation packages (`agent-transport` subpaths: `/tui`, `/headless`, `/ws`, `/http`, `/mcp`)
   depend on this package for interface types, not on `agent-framework`.
