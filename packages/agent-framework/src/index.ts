@@ -5,9 +5,11 @@
 export { InteractiveSession } from './interactive/index.js';
 export {
   createProjectSessionStore,
+  createUserSessionStore,
   listResumableSessionSummaries,
   resolveLatestSessionId,
   resolveSessionIdByIdOrName,
+  generateSessionName,
 } from './interactive/index.js';
 export type {
   IInteractiveSession,

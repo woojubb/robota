@@ -8,7 +8,7 @@ import {
 } from '@robota-sdk/agent-session';
 
 import { NodeFileSystem } from '../adapters/node-file-system.js';
-import { projectPaths } from '../paths.js';
+import { projectPaths, userPaths } from '../paths.js';
 
 import type {
   IBackgroundJobGroupState,
@@ -36,6 +36,16 @@ export function createProjectSessionStore(
 ): IInteractiveSessionStore {
   const paths = projectPaths(cwd);
   return new ProjectSessionStoreFacade(paths.sessions, paths.logs, fs);
+}
+
+/**
+ * User-level session store (`~/.robota/sessions`). Symmetric to {@link createProjectSessionStore};
+ * there is no user-level replay-log directory, so it reads persisted records only.
+ */
+export function createUserSessionStore(
+  fs: IFileSystem = new NodeFileSystem(),
+): IInteractiveSessionStore {
+  return new ProjectSessionStoreFacade(userPaths().sessions, undefined, fs);
 }
 
 export function listResumableSessionSummaries(

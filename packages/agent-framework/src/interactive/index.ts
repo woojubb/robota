@@ -2,10 +2,12 @@ export { InteractiveSession } from './interactive-session.js';
 export type { IInteractiveSession } from './i-interactive-session.js';
 export {
   createProjectSessionStore,
+  createUserSessionStore,
   listResumableSessionSummaries,
   resolveLatestSessionId,
   resolveSessionIdByIdOrName,
 } from './session-persistence.js';
+export { generateSessionName } from './session-naming.js';
 export type {
   TInteractiveSessionOptions,
   IInteractiveSessionShutdownOptions,
