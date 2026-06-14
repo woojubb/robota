@@ -52,13 +52,14 @@ export interface ICreatedInteractiveSession {
   claudeFileEntries: IContextFileEntry[];
   /**
    * Rebuilds the system message given updated agentsMd and claudeMd strings. PRESET-014: an
-   * optional `overrides.persona` re-applies a preset persona to the live prompt and is retained
-   * for subsequent (override-less) rebuilds.
+   * optional `overrides.persona` re-applies a preset persona to the live prompt; PRESET-017: an
+   * optional `overrides.selfVerification` toggles the verify-before-done section. Either override
+   * is retained for subsequent (override-less) rebuilds.
    */
   rebuildSystemMessage: (
     agentsMd: string,
     claudeMd: string,
-    overrides?: { persona?: string },
+    overrides?: { persona?: string; selfVerification?: boolean },
   ) => string;
 }
 
