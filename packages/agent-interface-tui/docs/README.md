@@ -13,7 +13,7 @@ import type {
   ITuiConfirmInteraction,
   TAnyTuiCommandInteraction,
 } from '@robota-sdk/agent-interface-tui';
-import { isPickerInteraction, isConfirmInteraction } from '@robota-sdk/agent-interface-tui';
+// Type contracts only — narrow TAnyTuiCommandInteraction on the `onMissingArgs` discriminant.
 ```
 
 ## Documents

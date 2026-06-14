@@ -44,12 +44,10 @@ agent-command/*
 | `TAnyTuiCommandInteraction` | Union of all interaction variants   |
 | `TOnMissingArgsAction`      | `'picker' \| 'wizard' \| 'confirm'` |
 
-### Type Guards
+### Narrowing
 
-| Export                 | Description                         |
-| ---------------------- | ----------------------------------- |
-| `isPickerInteraction`  | Narrows to `ITuiPickerInteraction`  |
-| `isConfirmInteraction` | Narrows to `ITuiConfirmInteraction` |
+This package exports no runtime functions. `TAnyTuiCommandInteraction` is a discriminated union —
+narrow it directly on the `onMissingArgs` literal (`if (x.onMissingArgs === 'picker')`).
 
 ## Boundaries
 
