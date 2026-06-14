@@ -126,46 +126,46 @@ function createContext(
 }
 
 describe('applyPresetToSession (PRESET-012)', () => {
-  it('TC-01: applies permissionMode to the live runtime', () => {
+  it('TC-01: applies permissionMode to the live runtime', async () => {
     const { context, spies } = createContext();
-    applyPresetToSession(context, 'careful-reviewer', { permissionMode: 'default' });
+    await applyPresetToSession(context, 'careful-reviewer', { permissionMode: 'default' });
     expect(spies.setPermissionMode).toHaveBeenCalledWith('default');
   });
 
-  it('TC-02: records the active preset id', () => {
+  it('TC-02: records the active preset id', async () => {
     const { context, spies } = createContext();
-    applyPresetToSession(context, 'careful-reviewer', { permissionMode: 'default' });
+    await applyPresetToSession(context, 'careful-reviewer', { permissionMode: 'default' });
     expect(spies.setActivePresetId).toHaveBeenCalledWith('careful-reviewer');
   });
 
-  it('TC-03: no permissionMode → setPermissionMode not called, group skipped', () => {
+  it('TC-03: no permissionMode → setPermissionMode not called, group skipped', async () => {
     const { context, spies } = createContext();
-    const result = applyPresetToSession(context, 'x', {});
+    const result = await applyPresetToSession(context, 'x', {});
     expect(spies.setPermissionMode).not.toHaveBeenCalled();
     expect(result.skipped).toContain('permissionMode');
     expect(result.applied).not.toContain('permissionMode');
   });
 
-  it('TC-04: permissionMode present → group reported as applied', () => {
+  it('TC-04: permissionMode present → group reported as applied', async () => {
     const { context } = createContext();
-    const result = applyPresetToSession(context, 'x', { permissionMode: 'acceptEdits' });
+    const result = await applyPresetToSession(context, 'x', { permissionMode: 'acceptEdits' });
     expect(result.applied).toContain('permissionMode');
   });
 
-  it('TC-05: runtime without setActivePresetId still applies safely (optional chaining)', () => {
+  it('TC-05: runtime without setActivePresetId still applies safely (optional chaining)', async () => {
     const { context, spies } = createContext(false);
     expect(spies.setActivePresetId).toBeUndefined();
-    expect(() =>
+    await expect(
       applyPresetToSession(context, 'careful-reviewer', { permissionMode: 'plan' }),
-    ).not.toThrow();
+    ).resolves.toBeDefined();
     expect(spies.setPermissionMode).toHaveBeenCalledWith('plan');
   });
 });
 
 describe('applyPresetToSession model group (PRESET-013)', () => {
-  it('TC-04: effort + temperature applied → applyModelOptions called, result.applied lists them', () => {
+  it('TC-04: effort + temperature applied → applyModelOptions called, result.applied lists them', async () => {
     const { context, spies } = createContext();
-    const result = applyPresetToSession(context, 'careful-reviewer', {
+    const result = await applyPresetToSession(context, 'careful-reviewer', {
       effort: 'high',
       temperature: 0.5,
       maxOutputTokens: 2048,
@@ -181,9 +181,9 @@ describe('applyPresetToSession model group (PRESET-013)', () => {
     expect(result.applied).toContain('maxOutputTokens');
   });
 
-  it('TC-05: only permissionMode → applyModelOptions not called, model groups skipped', () => {
+  it('TC-05: only permissionMode → applyModelOptions not called, model groups skipped', async () => {
     const { context, spies } = createContext();
-    const result = applyPresetToSession(context, 'x', { permissionMode: 'default' });
+    const result = await applyPresetToSession(context, 'x', { permissionMode: 'default' });
 
     expect(spies.applyModelOptions).not.toHaveBeenCalled();
     expect(result.skipped).toContain('model');
@@ -192,44 +192,46 @@ describe('applyPresetToSession model group (PRESET-013)', () => {
     expect(result.skipped).toContain('maxOutputTokens');
   });
 
-  it('TC-06: runtime without applyModelOptions still applies safely (optional chaining)', () => {
+  it('TC-06: runtime without applyModelOptions still applies safely (optional chaining)', async () => {
     const { context, spies } = createContext(true, false);
     expect(spies.applyModelOptions).toBeUndefined();
-    expect(() =>
+    await expect(
       applyPresetToSession(context, 'careful-reviewer', { effort: 'high' }),
-    ).not.toThrow();
+    ).resolves.toBeDefined();
   });
 });
 
 describe('applyPresetToSession persona group (PRESET-014)', () => {
-  it('TC-03: persona present → applyPersona called with it, result.applied lists persona', () => {
+  it('TC-03: persona present → applyPersona called with it, result.applied lists persona', async () => {
     const { context, spies } = createContext();
-    const result = applyPresetToSession(context, 'careful-reviewer', { persona: 'P' });
+    const result = await applyPresetToSession(context, 'careful-reviewer', { persona: 'P' });
 
     expect(spies.applyPersona).toHaveBeenCalledWith('P');
     expect(result.applied).toContain('persona');
   });
 
-  it('TC-04: no persona → applyPersona not called, persona group skipped', () => {
+  it('TC-04: no persona → applyPersona not called, persona group skipped', async () => {
     const { context, spies } = createContext();
-    const result = applyPresetToSession(context, 'x', {});
+    const result = await applyPresetToSession(context, 'x', {});
 
     expect(spies.applyPersona).not.toHaveBeenCalled();
     expect(result.skipped).toContain('persona');
     expect(result.applied).not.toContain('persona');
   });
 
-  it('TC-05: context without applyPersona still applies safely (optional chaining)', () => {
+  it('TC-05: context without applyPersona still applies safely (optional chaining)', async () => {
     const { context, spies } = createContext(true, true, false);
     expect(spies.applyPersona).toBeUndefined();
-    expect(() => applyPresetToSession(context, 'careful-reviewer', { persona: 'P' })).not.toThrow();
+    await expect(
+      applyPresetToSession(context, 'careful-reviewer', { persona: 'P' }),
+    ).resolves.toBeDefined();
   });
 });
 
 describe('applyPresetToSession command-module group (PRESET-015)', () => {
-  it('TC-04: disabledCommandModules → applyCommandModuleSelection called with (undefined, [x]), applied lists commandModules', () => {
+  it('TC-04: disabledCommandModules → applyCommandModuleSelection called with (undefined, [x]), applied lists commandModules', async () => {
     const { context, spies } = createContext();
-    const result = applyPresetToSession(context, 'careful-reviewer', {
+    const result = await applyPresetToSession(context, 'careful-reviewer', {
       disabledCommandModules: ['x'],
     });
 
@@ -237,28 +239,28 @@ describe('applyPresetToSession command-module group (PRESET-015)', () => {
     expect(result.applied).toContain('commandModules');
   });
 
-  it('TC-05: no command-module fields → not called, commandModules group skipped', () => {
+  it('TC-05: no command-module fields → not called, commandModules group skipped', async () => {
     const { context, spies } = createContext();
-    const result = applyPresetToSession(context, 'x', {});
+    const result = await applyPresetToSession(context, 'x', {});
 
     expect(spies.applyCommandModuleSelection).not.toHaveBeenCalled();
     expect(result.skipped).toContain('commandModules');
     expect(result.applied).not.toContain('commandModules');
   });
 
-  it('TC-06: context without applyCommandModuleSelection still applies safely (optional chaining)', () => {
+  it('TC-06: context without applyCommandModuleSelection still applies safely (optional chaining)', async () => {
     const { context, spies } = createContext(true, true, true, false);
     expect(spies.applyCommandModuleSelection).toBeUndefined();
-    expect(() =>
+    await expect(
       applyPresetToSession(context, 'careful-reviewer', { enabledCommandModules: ['a'] }),
-    ).not.toThrow();
+    ).resolves.toBeDefined();
   });
 });
 
 describe('applyPresetToSession parallel-subagents gate (PRESET-016)', () => {
-  it('TC-05: enableParallelSubagents:false → setParallelSubagentsEnabled(false), applied lists it', () => {
+  it('TC-05: enableParallelSubagents:false → setParallelSubagentsEnabled(false), applied lists it', async () => {
     const { context, spies } = createContext();
-    const result = applyPresetToSession(context, 'careful-reviewer', {
+    const result = await applyPresetToSession(context, 'careful-reviewer', {
       enableParallelSubagents: false,
     });
 
@@ -266,47 +268,49 @@ describe('applyPresetToSession parallel-subagents gate (PRESET-016)', () => {
     expect(result.applied).toContain('enableParallelSubagents');
   });
 
-  it('TC-06: omitted → not called, group skipped', () => {
+  it('TC-06: omitted → not called, group skipped', async () => {
     const { context, spies } = createContext();
-    const result = applyPresetToSession(context, 'x', {});
+    const result = await applyPresetToSession(context, 'x', {});
 
     expect(spies.setParallelSubagentsEnabled).not.toHaveBeenCalled();
     expect(result.skipped).toContain('enableParallelSubagents');
     expect(result.applied).not.toContain('enableParallelSubagents');
   });
 
-  it('TC-06b: runtime without setParallelSubagentsEnabled still applies safely (optional chaining)', () => {
+  it('TC-06b: runtime without setParallelSubagentsEnabled still applies safely (optional chaining)', async () => {
     const { context, spies } = createContext(true, true, true, true, false);
     expect(spies.setParallelSubagentsEnabled).toBeUndefined();
-    expect(() =>
+    await expect(
       applyPresetToSession(context, 'careful-reviewer', { enableParallelSubagents: true }),
-    ).not.toThrow();
+    ).resolves.toBeDefined();
   });
 });
 
 describe('applyPresetToSession self-verification group (PRESET-017)', () => {
-  it('TC-04: selfVerification:true → applySelfVerification(true), applied lists it', () => {
+  it('TC-04: selfVerification:true → applySelfVerification(true), applied lists it', async () => {
     const { context, spies } = createContext();
-    const result = applyPresetToSession(context, 'careful-reviewer', { selfVerification: true });
+    const result = await applyPresetToSession(context, 'careful-reviewer', {
+      selfVerification: true,
+    });
 
     expect(spies.applySelfVerification).toHaveBeenCalledWith(true);
     expect(result.applied).toContain('selfVerification');
   });
 
-  it('TC-05: omitted → not called, group skipped', () => {
+  it('TC-05: omitted → not called, group skipped', async () => {
     const { context, spies } = createContext();
-    const result = applyPresetToSession(context, 'x', {});
+    const result = await applyPresetToSession(context, 'x', {});
 
     expect(spies.applySelfVerification).not.toHaveBeenCalled();
     expect(result.skipped).toContain('selfVerification');
     expect(result.applied).not.toContain('selfVerification');
   });
 
-  it('TC-05: context without applySelfVerification still applies safely (optional chaining)', () => {
+  it('TC-05: context without applySelfVerification still applies safely (optional chaining)', async () => {
     const { context, spies } = createContext(true, true, true, true, true, false);
     expect(spies.applySelfVerification).toBeUndefined();
-    expect(() =>
+    await expect(
       applyPresetToSession(context, 'careful-reviewer', { selfVerification: true }),
-    ).not.toThrow();
+    ).resolves.toBeDefined();
   });
 });
