@@ -51,6 +51,28 @@ Runs `scripts/publish/publish-packages.sh`:
 Key: uses `pnpm publish -r` (single command) not `--filter` per package (sequential, minutes).
 No `--tag` flag on publish: npm automatically sets `latest` to the new version. The script explicitly syncs `beta` afterward.
 
+### Release-Time Gotchas (observed in beta.76, 2026-06-14)
+
+1. **`pnpm version` is NOT the bump command.** `pnpm version` runs the pnpm/npm builtin (prints
+   node/package versions, performs no changeset bump). The bump is the repo script
+   **`pnpm run version`** (= `changeset version`). Symptom of the footgun: the command "succeeds"
+   but no `package.json` / `CHANGELOG.md` changes. **Verify the bump**: `git status` must show
+   version + CHANGELOG diffs before committing.
+2. **Every changed public package needs a changeset BEFORE the bump.** With the fixed group all
+   packages bump together, but a package without a changeset gets an empty CHANGELOG entry. If only
+   some packages had changesets, the bump produces an incomplete CHANGELOG — revert the bump, add
+   the missing `.changeset/*.md`, and re-run `pnpm run version`. Checklist before bumping: every
+   package touched since the last release tag is named in some changeset.
+3. **OTP expiry mid-publish is recoverable.** OTPs are short-lived and `pnpm publish -r` across many
+   packages can outlast one. `scripts/publish/publish-packages.sh` is idempotent — already-published
+   packages are skipped — so on `EOTP`/`E401` simply re-run `pnpm publish:beta` with a fresh OTP.
+4. **Registry propagation lag causes false dist-tag mismatches.** The publish script's final
+   verification can report a stale tag (e.g. `beta=...older`) seconds after publish. Confirm
+   directly per package before treating it as a failure:
+   `npm dist-tag ls @robota-sdk/<pkg>` — both `latest` and `beta` should show the new version.
+   (zsh footgun: `for p in $PKGS` does not word-split a string var — use an inline literal list or
+   an array so the loop actually iterates.)
+
 ### Adding a new package:
 
 1. Set version to current monorepo version in package.json
