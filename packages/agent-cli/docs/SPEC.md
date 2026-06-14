@@ -54,6 +54,7 @@ A **thin CLI layer** built on top of agent-sdk, responsible only for the termina
 | `agent-command`         | ✅ Slash-command modules only        | CLI composes default command modules; command behavior is owned by the command package                  |
 | `agent-subagent-runner` | ✅ Subagent/background runner only   | CLI wires the concrete runner at the composition root                                                   |
 | `agent-provider`        | ✅ Provider definition assembly only | CLI composes injected `IProviderDefinition[]`; the provider package owns defaults and factories         |
+| `agent-preset`          | ✅ Preset id selection + resolution  | CLI selects the preset id and forwards CLI-flag overrides; `resolvePreset` owns the precedence merge    |
 
 ## Architecture
 
@@ -306,11 +307,40 @@ agent-cli ─→ agent-framework ─→ agent-session ──→ agent-core
   └──────────────────────────────────────→ agent-transport          (subpaths: /tui, /headless, /ws)
 ```
 
+### Preset Selection
+
+The CLI consumes `@robota-sdk/agent-preset` at startup to resolve a named preset into a framework
+option bundle. The CLI is a **thin shell**: it only selects the preset id and forwards CLI-flag
+overrides. It owns no preset feature logic — the precedence merge that combines preset defaults with
+CLI-flag overrides lives entirely inside agent-preset's `resolvePreset`, not the CLI.
+
+Preset selection surface:
+
+- `--preset <id>` CLI flag (parsed into `IParsedCliArgs.preset` by `parseCliArgs()` in
+  `src/utils/cli-args.ts`).
+- `selectPresetId(args, settingsPreset)` (`src/startup/preset-selection.ts`) — picks the preset id
+  with precedence `--preset` flag > `settings.preset` > `'default'`. Pure selection glue.
+- `resolveCliPreset(args, settingsPreset)` (`src/startup/preset-selection.ts`) — calls
+  `selectPresetId(...)` and hands the selected id plus a CLI-flag override set
+  (`model`, `systemPrompt`, `appendSystemPrompt`, `language`, `permissionMode`) to agent-preset's
+  `resolvePreset`. The override-vs-preset precedence MERGE is owned by `resolvePreset`, not the CLI.
+- Startup `loadExternalPresets()` (`src/cli.ts`) — registers user-authored external presets from
+  `~/.robota/presets/*.json` into the shared registry **before** preset resolution so `--preset <id>`
+  and the `/preset` command can see them. Per-file load errors are surfaced as terminal notices and
+  skipped; they do not abort startup.
+
+The selected preset id is also passed to the session as runtime active-preset state
+(`ISessionOptions.activePresetId`, see the agent-session SPEC). An unknown `--preset <id>` is terminal:
+the CLI surfaces the available preset list and exits.
+
 ### Transport Registry
 
-The CLI assembles a `TransportRegistry` via `createDefaultTransportRegistry()` (owned by `@robota-sdk/agent-transport`, `packages/agent-transport/src/transport-registry.ts`) and passes it to
-`renderApp()`. `renderApp()` creates a `TuiInteractionChannel` which starts all enabled transports
-against the active `InteractiveSession` it owns.
+The CLI assembles a `TransportRegistry` (the generic registry class is owned by
+`@robota-sdk/agent-transport`, `packages/agent-transport/src/transport-registry.ts`) via a local
+composition-root helper `createDefaultTransportRegistry()` in `cli.ts` that registers `WsTransport`
+from `@robota-sdk/agent-transport-ws`, and passes it to `renderApp()` (from
+`@robota-sdk/agent-transport-tui`). `renderApp()` creates a `TuiInteractionChannel` which starts all
+enabled transports against the active `InteractiveSession` it owns.
 
 Registered transports:
 
@@ -694,7 +724,7 @@ Plugin hook merging (resolving `${CLAUDE_PLUGIN_ROOT}` and merging hook groups) 
 
 ### App.tsx
 
-`App.tsx` is owned by `@robota-sdk/agent-transport` (`packages/agent-transport/src/tui/App.tsx`). It is a thin JSX shell that:
+`App.tsx` is owned by `@robota-sdk/agent-transport-tui` (`packages/agent-transport-tui/src/App.tsx`). It is a thin JSX shell that:
 
 - Calls `useTuiChannel` and `usePluginCallbacks`.
 - Applies typed command effects that require the host shell via `ITuiCliAdapter` (injected by `startCli()`).
@@ -858,12 +888,13 @@ src/
 ├── modes/
 │   ├── print-mode.ts                             ← Headless/print mode runner (-p flag); uses HeadlessInteractionChannel
 ├── session-analyzer/
-│   └── session-analyze-command.ts                ← `robota session analyze` — session log analysis report
+│   └── session-analyze-command.ts                ← `robota session analyze` — thin wiring: loads records via framework session stores, delegates analysis/formatting to `@robota-sdk/agent-session-analytics`
 └── startup/
     ├── append-system-prompt.ts                   ← Builds appendSystemPrompt string from session options
     ├── command-setup.ts                           ← buildCommandSetup() — command modules, adapters, provider definitions
     ├── diagnose-command.ts                        ← runDiagnoseCommand() — `robota diagnose` 6-check setup report
     ├── first-run.ts                               ← isFirstRun() / markOnboarded() / printFirstRunWelcome(terminal)
+    ├── preset-selection.ts                        ← selectPresetId() / resolveCliPreset() — thin preset id selection glue over agent-preset
     ├── provider-startup.ts                        ← runInteractiveProviderSetup() — interactive provider config
     ├── reset-config.ts                            ← Deletes user settings file on --reset
     ├── terminal-check.ts                          ← warnIfTerminalAppOnMacOS(terminal) — macOS Terminal.app CJK warning
@@ -1610,6 +1641,7 @@ Tool messages use the `isToolMessage(msg)` type guard for safe access to `msg.na
 | `@robota-sdk/agent-command`            | Default `/rewind` command module composed by the Robota binary                                                                                    |
 | `@robota-sdk/agent-command`            | Default session command module composed by the Robota binary, currently owning `/clear`, `/rename`, `/resume`, and `/cost`                        |
 | `@robota-sdk/agent-command`            | Default `/statusline` command module composed by the Robota binary                                                                                |
+| `@robota-sdk/agent-preset`             | Preset resolution (`resolvePreset`) and external preset loading (`loadExternalPresets`, `DEFAULT_AGENT_NAME`) consumed at startup                 |
 | `@robota-sdk/agent-framework`          | `InteractiveSession`, `CommandRegistry`, command sources, command API common layer, plugin management, re-exported runtime contracts              |
 | `@robota-sdk/agent-core`               | Public types (`TPermissionMode`, `TToolArgs`, `TUniversalMessage`, etc.)                                                                          |
 | `@robota-sdk/agent-provider`           | Default provider definitions contributed by the Robota binary (via sub-paths: `/anthropic`, `/openai`, `/gemini`, `/gemma`, `/qwen`, `/deepseek`) |
@@ -1698,17 +1730,19 @@ Testing rules:
 All behavioral contracts in this package are expressed through interfaces and factory functions, not
 classes. The following table lists the primary runtime constructs with their contracts.
 
-| Construct                               | Kind     | Owner file                        | Contract summary                                                                                                                                     |
-| --------------------------------------- | -------- | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `startCli(options?)`                    | function | `src/cli.ts`                      | Parse args → dispatch pre-session commands inline (`init`, `diagnose`, `session analyze`, `user-local`, flags) → assemble layers → print or TUI mode |
-| `buildCommandSetup(cwd, args, opts, v)` | factory  | `src/startup/command-setup.ts`    | Returns `ICliSetup` with command modules, adapters, provider defs, and startup update notice                                                         |
-| `runDiagnoseCommand(ctx, deps?)`        | function | `src/startup/diagnose-command.ts` | Prints the 6-check diagnostics report via injected `ITerminalOutput`; network check injectable for tests                                             |
-| `runPrintMode(...)`                     | function | `src/modes/print-mode.ts`         | Creates `HeadlessInteractionChannel`, calls `channel.run(prompt)`, exits with channel exit code                                                      |
-| `runInitCommand(cwd, terminal, opts?)`  | function | `src/init/init-command.ts`        | Creates AGENTS.md and `.robota/settings.json`; optionally migrates `.claude/` settings                                                               |
-| `isFirstRun(markerPath?)`               | function | `src/startup/first-run.ts`        | Returns `true` when the onboarded marker file (default `userPaths().onboarded`) is absent                                                            |
-| `markOnboarded(markerPath?)`            | function | `src/startup/first-run.ts`        | Creates the onboarded marker file; idempotent                                                                                                        |
-| `printFirstRunWelcome(terminal)`        | function | `src/startup/first-run.ts`        | Writes welcome banner via injected `ITerminalOutput` using `AGENT_CLI_BIN` constant                                                                  |
-| `warnIfTerminalAppOnMacOS(terminal)`    | function | `src/startup/terminal-check.ts`   | Emits CJK/IME stability warning on darwin + Apple_Terminal via injected `ITerminalOutput`                                                            |
-| `parseCliArgs()`                        | function | `src/utils/cli-args.ts`           | Parses `process.argv` into `IParsedCliArgs`; throws `Error` on invalid input                                                                         |
-| `AGENT_CLI_NAME`                        | constant | `src/constants.ts`                | `'robota-cli'` — internal package name used as `agentName` in session construction                                                                   |
-| `AGENT_CLI_BIN`                         | constant | `src/constants.ts`                | `'robota'` — binary name used in user-facing messages and welcome banner                                                                             |
+| Construct                                | Kind     | Owner file                        | Contract summary                                                                                                                                     |
+| ---------------------------------------- | -------- | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `startCli(options?)`                     | function | `src/cli.ts`                      | Parse args → dispatch pre-session commands inline (`init`, `diagnose`, `session analyze`, `user-local`, flags) → assemble layers → print or TUI mode |
+| `buildCommandSetup(cwd, args, opts, v)`  | factory  | `src/startup/command-setup.ts`    | Returns `ICliSetup` with command modules, adapters, provider defs, and startup update notice                                                         |
+| `runDiagnoseCommand(ctx, deps?)`         | function | `src/startup/diagnose-command.ts` | Prints the 6-check diagnostics report via injected `ITerminalOutput`; network check injectable for tests                                             |
+| `runPrintMode(...)`                      | function | `src/modes/print-mode.ts`         | Creates `HeadlessInteractionChannel`, calls `channel.run(prompt)`, exits with channel exit code                                                      |
+| `runInitCommand(cwd, terminal, opts?)`   | function | `src/init/init-command.ts`        | Creates AGENTS.md and `.robota/settings.json`; optionally migrates `.claude/` settings                                                               |
+| `isFirstRun(markerPath?)`                | function | `src/startup/first-run.ts`        | Returns `true` when the onboarded marker file (default `userPaths().onboarded`) is absent                                                            |
+| `markOnboarded(markerPath?)`             | function | `src/startup/first-run.ts`        | Creates the onboarded marker file; idempotent                                                                                                        |
+| `printFirstRunWelcome(terminal)`         | function | `src/startup/first-run.ts`        | Writes welcome banner via injected `ITerminalOutput` using `AGENT_CLI_BIN` constant                                                                  |
+| `warnIfTerminalAppOnMacOS(terminal)`     | function | `src/startup/terminal-check.ts`   | Emits CJK/IME stability warning on darwin + Apple_Terminal via injected `ITerminalOutput`                                                            |
+| `parseCliArgs()`                         | function | `src/utils/cli-args.ts`           | Parses `process.argv` into `IParsedCliArgs` (including `preset`); throws `Error` on invalid input                                                    |
+| `selectPresetId(args, settingsPreset)`   | function | `src/startup/preset-selection.ts` | Picks the preset id: `--preset` flag > `settings.preset` > `'default'`. Pure selection glue                                                          |
+| `resolveCliPreset(args, settingsPreset)` | function | `src/startup/preset-selection.ts` | Resolves the selected preset via agent-preset `resolvePreset` with CLI-flag overrides; precedence merge owned by agent-preset                        |
+| `AGENT_CLI_NAME`                         | constant | `src/constants.ts`                | `'robota-cli'` — internal package name used as `agentName` in session construction                                                                   |
+| `AGENT_CLI_BIN`                          | constant | `src/constants.ts`                | `'robota'` — binary name used in user-facing messages and welcome banner                                                                             |

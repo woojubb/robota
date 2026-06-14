@@ -9,25 +9,30 @@ Last audited: 2026-05-25 (pre-release readiness audit, REL-007)
 
 ## Published Packages
 
-| Package                             | npm tag | Notes                                                                          |
-| ----------------------------------- | ------- | ------------------------------------------------------------------------------ |
-| `@robota-sdk/agent-core`            | beta    | Foundation — zero @robota-sdk deps. Must stay zero-dep.                        |
-| `@robota-sdk/agent-session`         | beta    | Session lifecycle: permissions, hooks, compaction                              |
-| `@robota-sdk/agent-tools`           | beta    | Tool infrastructure + 8 built-in tools                                         |
-| `@robota-sdk/agent-provider`        | beta    | Consolidated providers — sub-paths: /anthropic, /openai, /gemini, /deepseek, … |
-| `@robota-sdk/agent-executor`        | —       | **private: true** — internal background-task primitives                        |
-| `@robota-sdk/agent-framework`       | beta    | Assembly layer: InteractiveSession, createQuery(), config/context loading      |
-| `@robota-sdk/agent-preset`          | beta    | Preset contract (IPreset) + resolvePreset + built-in presets                   |
-| `@robota-sdk/agent-command`         | beta    | Slash command modules (/agent, /help, /provider, /skills, …)                   |
-| `@robota-sdk/agent-transport`       | beta    | Consolidated transport: /tui, /headless, /http, /ws, /mcp                      |
-| `@robota-sdk/agent-subagent-runner` | beta    | Opt-in child-process subagent runner                                           |
-| `@robota-sdk/agent-cli`             | beta    | CLI binary (`robota` command)                                                  |
-| `@robota-sdk/agent-plugin`          | beta    | Plugin infrastructure for bundle plugins                                       |
-| `@robota-sdk/plugin-github`         | beta    | GitHub integration plugin                                                      |
-| `@robota-sdk/plugin-jira`           | beta    | Jira integration plugin                                                        |
-| `@robota-sdk/plugin-linear`         | beta    | Linear integration plugin                                                      |
-| `@robota-sdk/plugin-notion`         | beta    | Notion integration plugin                                                      |
-| `@robota-sdk/plugin-slack`          | beta    | Slack integration plugin                                                       |
+| Package                               | npm tag | Notes                                                                            |
+| ------------------------------------- | ------- | -------------------------------------------------------------------------------- |
+| `@robota-sdk/agent-core`              | beta    | Foundation — zero @robota-sdk deps. Must stay zero-dep.                          |
+| `@robota-sdk/agent-session`           | beta    | Session lifecycle: permissions, hooks, compaction                                |
+| `@robota-sdk/agent-session-analytics` | beta    | Session-log timing analysis + reporting (pure)                                   |
+| `@robota-sdk/agent-tools`             | beta    | Tool infrastructure + 8 built-in tools                                           |
+| `@robota-sdk/agent-provider`          | beta    | Consolidated providers — sub-paths: /anthropic, /openai, /gemini, /deepseek, …   |
+| `@robota-sdk/agent-executor`          | —       | **private: true** — internal background-task primitives                          |
+| `@robota-sdk/agent-framework`         | beta    | Assembly layer: InteractiveSession, createQuery(), config/context loading        |
+| `@robota-sdk/agent-preset`            | beta    | Preset contract (IPreset) + resolvePreset + built-in presets                     |
+| `@robota-sdk/agent-command`           | beta    | Slash command modules (/agent, /help, /provider, /skills, …)                     |
+| `@robota-sdk/agent-transport`         | beta    | Transport core: headless adapter + registry + scripted-provider testing fixtures |
+| `@robota-sdk/agent-transport-tui`     | beta    | Terminal UI transport (React + Ink)                                              |
+| `@robota-sdk/agent-transport-ws`      | beta    | WebSocket transport + protocol                                                   |
+| `@robota-sdk/agent-transport-http`    | beta    | HTTP transport (Hono)                                                            |
+| `@robota-sdk/agent-transport-mcp`     | beta    | MCP server transport                                                             |
+| `@robota-sdk/agent-subagent-runner`   | beta    | Opt-in child-process subagent runner                                             |
+| `@robota-sdk/agent-cli`               | beta    | CLI binary (`robota` command)                                                    |
+| `@robota-sdk/agent-plugin`            | beta    | Plugin infrastructure for bundle plugins                                         |
+| `@robota-sdk/plugin-github`           | beta    | GitHub integration plugin                                                        |
+| `@robota-sdk/plugin-jira`             | beta    | Jira integration plugin                                                          |
+| `@robota-sdk/plugin-linear`           | beta    | Linear integration plugin                                                        |
+| `@robota-sdk/plugin-notion`           | beta    | Notion integration plugin                                                        |
+| `@robota-sdk/plugin-slack`            | beta    | Slack integration plugin                                                         |
 
 ## Private Packages (must NOT be published)
 

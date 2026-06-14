@@ -64,186 +64,193 @@ Key design rules:
 
 ## Type Ownership
 
-| Type                                 | Location                                              | Purpose                                                                          |
-| ------------------------------------ | ----------------------------------------------------- | -------------------------------------------------------------------------------- |
-| `IInteractiveSession`                | `src/interactive/i-interactive-session.ts`            | Public interface for the event-driven session wrapper                            |
-| `TInteractiveSessionOptions`         | `src/interactive/interactive-session-options.ts`      | Constructor options for `InteractiveSession`                                     |
-| `IInteractiveSessionShutdownOptions` | `src/interactive/interactive-session.ts`              | Options for graceful session shutdown                                            |
-| `IInteractiveSessionEvents`          | `src/interactive/types.ts`                            | Event map for all session events                                                 |
-| `IInteractiveSessionRecord`          | `src/interactive/session-persistence.ts`              | Persisted session record shape                                                   |
-| `IInteractiveSessionStore`           | `src/interactive/session-persistence.ts`              | Session persistence adapter interface                                            |
-| `IResumableSessionSummary`           | `src/interactive/session-persistence.ts`              | Lightweight session summary for session picker                                   |
-| `IToolState`                         | `src/interactive/types.ts`                            | Tool execution state visible to clients                                          |
-| `IDiffLine`                          | `src/interactive/types.ts`                            | One diff line for Edit tool display metadata                                     |
-| `IExecutionResult`                   | `src/interactive/types.ts`                            | Result of a completed prompt execution                                           |
-| `IToolSummary`                       | `src/interactive/types.ts`                            | Summary of a tool call extracted from history                                    |
-| `IUsageSnapshot`                     | `src/interactive/types.ts`                            | Provider-neutral execution usage record                                          |
-| `TPermissionResultValue`             | `src/interactive/types.ts`                            | Permission handler result: `true`, `false`, `'allow-session'`, `'allow-project'` |
-| `TInteractivePermissionHandler`      | `src/interactive/types.ts`                            | Client-provided permission approval callback                                     |
-| `TInteractiveEventName`              | `src/interactive/types.ts`                            | Union of all event names                                                         |
-| `IContextFileRefreshedEvent`         | `src/interactive/types.ts`                            | Event emitted when a context file is refreshed                                   |
-| `ITransportAdapter`                  | `@robota-sdk/agent-interface-transport` (re-exported) | Common interface for transport adapters                                          |
-| `IConfigurableTransport`             | `@robota-sdk/agent-interface-transport` (re-exported) | Transport with configurable options                                              |
-| `ITransportConfig`                   | `@robota-sdk/agent-interface-transport` (re-exported) | Transport configuration shape                                                    |
-| `ISkillActivationEvent`              | `src/commands/skill-activation-events.ts`             | Structured skill activation record                                               |
-| `ISystemCommand`                     | `src/command-api/contracts.ts`                        | Command metadata and execute contract                                            |
-| `ICommandModule`                     | `src/command-api/command-module.ts`                   | Composition unit for command modules                                             |
-| `ICommandHostContext`                | `src/command-api/host-context.ts`                     | Narrow facade for command module implementations                                 |
-| `ICommandHostAdapters`               | `src/command-api/host-adapters.ts`                    | Host-provided adapter bag                                                        |
-| `ICommandResult`                     | `src/command-api/contracts.ts`                        | Command output, effects, and interaction                                         |
-| `TCommandEffect`                     | `src/command-api/contracts.ts`                        | Typed host-applied effect union                                                  |
-| `ICommandInteraction`                | `src/command-api/contracts.ts`                        | Generic command follow-up prompt                                                 |
-| `TCommandInteractionPrompt`          | `src/command-api/contracts.ts`                        | Prompt descriptor for command interactions                                       |
-| `ICapabilityDescriptor`              | `src/capabilities/types.ts`                           | Model-visible command descriptor                                                 |
-| `TCapabilityKind`                    | `src/capabilities/types.ts`                           | Capability kind union                                                            |
-| `TCapabilitySafety`                  | `src/capabilities/types.ts`                           | Capability safety level                                                          |
-| `IOrgPolicy`                         | `src/command-api/org-policy/`                         | Org-level policy constraints                                                     |
-| `IAgentRuntimeConfig`                | `src/runtime/agent-runtime.ts`                        | Configuration for `createAgentRuntime()`                                         |
-| `IAgentRuntime`                      | `src/runtime/agent-runtime.ts`                        | Runtime composition factory interface                                            |
-| `IHeadlessSessionOptions`            | `src/runtime/agent-runtime.ts`                        | Per-session options for headless/multi-session use                               |
-| `IAgentDefinition`                   | `src/agents/index.ts`                                 | Agent definition shape (name, description, systemPrompt, tools)                  |
-| `IEditCheckpointSummary`             | `src/checkpoints/index.ts`                            | Checkpoint summary for list/inspect                                              |
-| `IEditCheckpointInspection`          | `src/checkpoints/index.ts`                            | Full checkpoint inspection with file list                                        |
-| `IEditCheckpointRecorder`            | `src/checkpoints/index.ts`                            | Port for checkpoint capture integration                                          |
-| `IReversibleExecutionOptions`        | `src/reversible-execution/index.ts`                   | Options for reversible execution mode                                            |
-| `IReversibleToolSafetyReport`        | `src/reversible-execution/index.ts`                   | Classification report for a tool call                                            |
-| `ISelfHostingVerificationPlan`       | `src/self-hosting/index.ts`                           | Ordered verification step plan                                                   |
-| `TSelfHostingLoopState`              | `src/self-hosting/index.ts`                           | Self-hosting lifecycle state                                                     |
-| `IBundlePluginManifest`              | `src/plugins/index.ts`                                | Plugin metadata: name, version, description                                      |
-| `ILoadedBundlePlugin`                | `src/plugins/index.ts`                                | Full bundle: manifest + tools, hooks, permissions, systemPrompt                  |
-| `IPluginSettings`                    | `src/plugins/index.ts`                                | Plugin enable/disable settings                                                   |
-| `IResolvedConfig`                    | `src/config/config-types.ts`                          | Fully resolved SDK configuration                                                 |
-| `TSettingsData`                      | `src/config/settings-io.ts`                           | Generic settings document shape                                                  |
-| `TSettingsScope`                     | `src/config/settings-io.ts`                           | `'user'` or `'project-local'`                                                    |
-| `IResetUserConfigResult`             | `src/config/reset-user-config.ts`                     | Result of resetting user configuration                                           |
-| `ITaskContextFile`                   | `src/context/task-context.ts`                         | Discovered task file shape                                                       |
-| `TTaskFileStatus`                    | `src/context/task-context.ts`                         | Task status union                                                                |
-| `IPromptFileReferenceRecord`         | `src/context/prompt-file-references.ts`               | Resolved prompt file reference metadata                                          |
-| `TPromptFileReferenceDiagnosticCode` | `src/context/prompt-file-references.ts`               | Diagnostic code for reference errors                                             |
-| `IUserLocalStorageInspection`        | `src/user-local/index.ts`                             | User-local storage inspection projection                                         |
-| `IUserLocalMemoryItemProjection`     | `src/user-local/index.ts`                             | Memory item with display/navigation metadata                                     |
-| `TUserLocalMemoryCategory`           | `src/user-local/index.ts`                             | Allowed user-local memory category union                                         |
-| `SkillPromptContext`                 | `src/utils/skill-prompt.ts`                           | Variable substitution context for skill prompts                                  |
-| `ICliUpdateNotice`                   | `src/update-check/update-check.ts`                    | CLI update notification data                                                     |
-| `TCliUpdateCheckResult`              | `src/update-check/update-check.ts`                    | Result of a CLI update check                                                     |
+| Type                                 | Location                                              | Purpose                                                                                                             |
+| ------------------------------------ | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `IInteractiveSession`                | `src/interactive/i-interactive-session.ts`            | Public interface for the event-driven session wrapper                                                               |
+| `TInteractiveSessionOptions`         | `src/interactive/interactive-session-options.ts`      | Constructor options for `InteractiveSession`                                                                        |
+| `IInteractiveSessionShutdownOptions` | `src/interactive/interactive-session.ts`              | Options for graceful session shutdown                                                                               |
+| `IInteractiveSessionEvents`          | `src/interactive/types.ts`                            | Event map for all session events                                                                                    |
+| `IInteractiveSessionRecord`          | `src/interactive/session-persistence.ts`              | Persisted session record shape                                                                                      |
+| `IInteractiveSessionStore`           | `src/interactive/session-persistence.ts`              | Session persistence adapter interface                                                                               |
+| `IResumableSessionSummary`           | `src/interactive/session-persistence.ts`              | Lightweight session summary for session picker                                                                      |
+| `IToolState`                         | `src/interactive/types.ts`                            | Tool execution state visible to clients                                                                             |
+| `IDiffLine`                          | `src/interactive/types.ts`                            | One diff line for Edit tool display metadata                                                                        |
+| `IExecutionResult`                   | `src/interactive/types.ts`                            | Result of a completed prompt execution                                                                              |
+| `IToolSummary`                       | `src/interactive/types.ts`                            | Summary of a tool call extracted from history                                                                       |
+| `IUsageSnapshot`                     | `src/interactive/types.ts`                            | Provider-neutral execution usage record                                                                             |
+| `TPermissionResultValue`             | `src/interactive/types.ts`                            | Permission handler result: `true`, `false`, `'allow-session'`, `'allow-project'`                                    |
+| `TInteractivePermissionHandler`      | `src/interactive/types.ts`                            | Client-provided permission approval callback                                                                        |
+| `TInteractiveEventName`              | `src/interactive/types.ts`                            | Union of all event names                                                                                            |
+| `IContextFileRefreshedEvent`         | `src/interactive/types.ts`                            | Event emitted when a context file is refreshed                                                                      |
+| `ITransportAdapter`                  | `@robota-sdk/agent-interface-transport` (re-exported) | Common interface for transport adapters                                                                             |
+| `IConfigurableTransport`             | `@robota-sdk/agent-interface-transport` (re-exported) | Transport with configurable options                                                                                 |
+| `ITransportConfig`                   | `@robota-sdk/agent-interface-transport` (re-exported) | Transport configuration shape                                                                                       |
+| `ISkillActivationEvent`              | `src/commands/skill-activation-events.ts`             | Structured skill activation record                                                                                  |
+| `ISystemCommand`                     | `src/command-api/contracts.ts`                        | Command metadata and execute contract                                                                               |
+| `ICommandModule`                     | `src/command-api/command-module.ts`                   | Composition unit for command modules                                                                                |
+| `ICommandHostContext`                | `src/command-api/host-context.ts`                     | Narrow facade for command module implementations                                                                    |
+| `ICommandHostAdapters`               | `src/command-api/host-adapters.ts`                    | Host-provided adapter bag                                                                                           |
+| `ICommandResult`                     | `src/command-api/contracts.ts`                        | Command output, effects, and interaction                                                                            |
+| `TCommandEffect`                     | `src/command-api/contracts.ts`                        | Typed host-applied effect union                                                                                     |
+| `ICommandInteraction`                | `src/command-api/contracts.ts`                        | Generic command follow-up prompt                                                                                    |
+| `TCommandInteractionPrompt`          | `src/command-api/contracts.ts`                        | Prompt descriptor for command interactions                                                                          |
+| `IPresetApplicationOptions`          | `src/command-api/preset/preset-application.ts`        | Framework-owned resolved-preset option subset re-applied to a live session (PRESET-011~017)                         |
+| `IPresetApplicationResult`           | `src/command-api/preset/preset-application.ts`        | `{ applied, skipped }` report from `applyPresetToSession`                                                           |
+| `IModelReapplyOptions`               | `src/command-api/host-context.ts`                     | Live model group (`model`/`effort`/`temperature`/`maxOutputTokens`) re-applied via `applyModelOptions` (PRESET-013) |
+| `TSystemPromptSectionSource`         | `src/context/system-prompt-types.ts`                  | Source tag for a system-prompt section (`framework`, `persona`, `self-verification`, `runtime`, …)                  |
+| `ICapabilityDescriptor`              | `src/capabilities/types.ts`                           | Model-visible command descriptor                                                                                    |
+| `TCapabilityKind`                    | `src/capabilities/types.ts`                           | Capability kind union                                                                                               |
+| `TCapabilitySafety`                  | `src/capabilities/types.ts`                           | Capability safety level                                                                                             |
+| `IOrgPolicy`                         | `src/command-api/org-policy/`                         | Org-level policy constraints                                                                                        |
+| `IAgentRuntimeConfig`                | `src/runtime/agent-runtime.ts`                        | Configuration for `createAgentRuntime()`                                                                            |
+| `IAgentRuntime`                      | `src/runtime/agent-runtime.ts`                        | Runtime composition factory interface                                                                               |
+| `IHeadlessSessionOptions`            | `src/runtime/agent-runtime.ts`                        | Per-session options for headless/multi-session use                                                                  |
+| `IAgentDefinition`                   | `src/agents/index.ts`                                 | Agent definition shape (name, description, systemPrompt, tools)                                                     |
+| `IEditCheckpointSummary`             | `src/checkpoints/index.ts`                            | Checkpoint summary for list/inspect                                                                                 |
+| `IEditCheckpointInspection`          | `src/checkpoints/index.ts`                            | Full checkpoint inspection with file list                                                                           |
+| `IEditCheckpointRecorder`            | `src/checkpoints/index.ts`                            | Port for checkpoint capture integration                                                                             |
+| `IReversibleExecutionOptions`        | `src/reversible-execution/index.ts`                   | Options for reversible execution mode                                                                               |
+| `IReversibleToolSafetyReport`        | `src/reversible-execution/index.ts`                   | Classification report for a tool call                                                                               |
+| `ISelfHostingVerificationPlan`       | `src/self-hosting/index.ts`                           | Ordered verification step plan                                                                                      |
+| `TSelfHostingLoopState`              | `src/self-hosting/index.ts`                           | Self-hosting lifecycle state                                                                                        |
+| `IBundlePluginManifest`              | `src/plugins/index.ts`                                | Plugin metadata: name, version, description                                                                         |
+| `ILoadedBundlePlugin`                | `src/plugins/index.ts`                                | Full bundle: manifest + tools, hooks, permissions, systemPrompt                                                     |
+| `IPluginSettings`                    | `src/plugins/index.ts`                                | Plugin enable/disable settings                                                                                      |
+| `IResolvedConfig`                    | `src/config/config-types.ts`                          | Fully resolved SDK configuration                                                                                    |
+| `TSettingsData`                      | `src/config/settings-io.ts`                           | Generic settings document shape                                                                                     |
+| `TSettingsScope`                     | `src/config/settings-io.ts`                           | `'user'` or `'project-local'`                                                                                       |
+| `IResetUserConfigResult`             | `src/config/reset-user-config.ts`                     | Result of resetting user configuration                                                                              |
+| `ITaskContextFile`                   | `src/context/task-context.ts`                         | Discovered task file shape                                                                                          |
+| `TTaskFileStatus`                    | `src/context/task-context.ts`                         | Task status union                                                                                                   |
+| `IPromptFileReferenceRecord`         | `src/context/prompt-file-references.ts`               | Resolved prompt file reference metadata                                                                             |
+| `TPromptFileReferenceDiagnosticCode` | `src/context/prompt-file-references.ts`               | Diagnostic code for reference errors                                                                                |
+| `IUserLocalStorageInspection`        | `src/user-local/index.ts`                             | User-local storage inspection projection                                                                            |
+| `IUserLocalMemoryItemProjection`     | `src/user-local/index.ts`                             | Memory item with display/navigation metadata                                                                        |
+| `TUserLocalMemoryCategory`           | `src/user-local/index.ts`                             | Allowed user-local memory category union                                                                            |
+| `SkillPromptContext`                 | `src/utils/skill-prompt.ts`                           | Variable substitution context for skill prompts                                                                     |
+| `ICliUpdateNotice`                   | `src/update-check/update-check.ts`                    | CLI update notification data                                                                                        |
+| `TCliUpdateCheckResult`              | `src/update-check/update-check.ts`                    | Result of a CLI update check                                                                                        |
 
 ## Public API Surface
 
 Core classes and functions exported from `@robota-sdk/agent-framework`:
 
-| Export                                      | Kind     | Description                                                                                                           |
-| ------------------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------- |
-| `InteractiveSession`                        | class    | Primary SDK entry point; event-driven session wrapper                                                                 |
-| `createQuery`                               | function | Single-shot prompt factory (`({ provider }) => (prompt) => result`)                                                   |
-| `createAgentRuntime`                        | function | Headless/multi-session runtime composition factory                                                                    |
-| `createStatelessRuntime`                    | function | Filesystem-free runtime for serverless/embedded contexts (no session store, no-op settings, bare sessions by default) |
-| `createProjectSessionStore`                 | function | Project-local session store facade                                                                                    |
-| `listResumableSessionSummaries`             | function | List saved sessions for session picker UI                                                                             |
-| `resolveLatestSessionId`                    | function | Resolve the most recent session ID                                                                                    |
-| `resolveSessionIdByIdOrName`                | function | Resolve session ID by ID or user-visible name                                                                         |
-| `CommandRegistry`                           | class    | Aggregates `ICommandSource` instances for slash command discovery                                                     |
-| `BuiltinCommandSource`                      | class    | SDK core compatibility command source (currently empty)                                                               |
-| `SkillCommandSource`                        | class    | Discovers SKILL.md files for virtual skill palette metadata                                                           |
-| `PluginCommandSource`                       | class    | Discovers commands exposed by installed bundle plugins                                                                |
-| `SystemCommandExecutor`                     | class    | Registry and executor for `ISystemCommand` instances                                                                  |
-| `createSystemCommands`                      | function | SDK core command factory (returns empty list; built-ins are in command modules)                                       |
-| `createBuiltinCommandModule`                | function | SDK core compatibility module factory                                                                                 |
-| `parseFrontmatter`                          | function | YAML frontmatter parser for skill/agent definition files                                                              |
-| `executeSkill`                              | function | Internal skill execution helper                                                                                       |
-| `loadOrgPolicy`                             | function | Read org policy from `~/.robota/org-policy.json`                                                                      |
-| `formatOrgPolicyViolationMessage`           | function | Format a human-readable org policy violation message                                                                  |
-| `isApiKeyPlaintext`                         | function | Check whether an API key value is a plaintext secret                                                                  |
-| `ProjectMemoryStore`                        | class    | Project memory CRUD store backed by `.robota/memory/`                                                                 |
-| `isMemoryType`                              | function | Type guard for `TMemoryType`                                                                                          |
-| `EditCheckpointStore`                       | class    | Edit checkpoint store backed by `.robota/checkpoints/`                                                                |
-| `wrapEditCheckpointTools`                   | function | Wrap Write/Edit tools to snapshot pre-images before mutation                                                          |
-| `planSelfHostingVerification`               | function | Generate ordered verification steps for self-modifying runs                                                           |
-| `transitionSelfHostingLoop`                 | function | Pure state machine transition for the self-hosting loop                                                               |
-| `evaluateReversibleToolSafety`              | function | Classify a tool call by reversibility and isolation requirements                                                      |
-| `wrapReversibleExecutionTools`              | function | Wrap tools with reversible execution enforcement                                                                      |
-| `PluginSettingsStore`                       | class    | Plugin enable/disable settings store                                                                                  |
-| `BundlePluginLoader`                        | class    | Load a bundle plugin from a directory path                                                                            |
-| `BundlePluginInstaller`                     | class    | Install/uninstall bundle plugins under user or project scope                                                          |
-| `MarketplaceClient`                         | class    | Plugin discovery and install from remote marketplace                                                                  |
-| `BUILT_IN_AGENTS`                           | const    | Array of built-in agent definitions (`general-purpose`, `Explore`, `Plan`)                                            |
-| `getBuiltInAgent`                           | function | Look up a built-in agent by name                                                                                      |
-| `createDefaultTools`                        | function | Assemble default built-in tools (exported for CLI fork composition)                                                   |
-| `createSubagentSession`                     | function | Assemble an isolated child session for subagent execution                                                             |
-| `createSubagentLogger`                      | function | Create an append-only subagent transcript logger                                                                      |
-| `assembleSubagentPrompt`                    | function | Assemble the full system prompt for a subagent session                                                                |
-| `getSubagentSuffix`                         | function | Framework suffix for standard subagent system prompts                                                                 |
-| `getForkWorkerSuffix`                       | function | Framework suffix for fork-worker (skill context: fork) prompts                                                        |
-| `resolveSubagentLogDir`                     | function | Resolve the log directory for a subagent                                                                              |
-| `createAgentTool`                           | function | Create the SDK-specific agent sub-session tool                                                                        |
-| `storeAgentToolDeps`                        | function | Store agent tool runtime dependencies in session context                                                              |
-| `retrieveAgentToolDeps`                     | function | Retrieve stored agent tool runtime dependencies                                                                       |
-| `createCommandExecutionTool`                | function | Legacy model command execution tool factory (compatibility)                                                           |
-| `createModelCommandToolProjection`          | function | Project command descriptors to provider-safe tool definitions                                                         |
-| `createProjectedCommandExecutionTools`      | function | Create projected command tools from descriptors                                                                       |
-| `createProviderSafeModelCommandToolName`    | function | Normalize a command name to a provider-safe tool name                                                                 |
-| `createBackgroundProcessTool`               | function | Create the model-callable `BackgroundProcess` tool                                                                    |
-| `BackgroundJobOrchestrator`                 | class    | SDK grouping/wait layer above `BackgroundTaskManager`                                                                 |
-| `createExecutionWorkspaceSnapshot`          | function | Build a presentation-neutral execution workspace snapshot                                                             |
-| `createExecutionWorkspaceTaskSpawner`       | function | Build an origin-bound task spawning port                                                                              |
-| `createLineDetailPage`                      | function | Build a cursor-based detail page for a task log                                                                       |
-| `createMainThreadDetailPage`                | function | Build a detail page for the main thread transcript                                                                    |
-| `createInProcessSubagentRunner`             | function | Default in-process subagent runner adapter                                                                            |
-| `PromptExecutor`                            | class    | Hook executor: injects a prompt into session context                                                                  |
-| `AgentExecutor`                             | class    | Hook executor: creates a nested agent session for hook input                                                          |
-| `promptForApproval`                         | function | Terminal permission approval prompt                                                                                   |
-| `projectPaths`                              | function | Structured project-local paths under `.robota/`                                                                       |
-| `userPaths`                                 | function | Structured user-local paths under `~/.robota/`                                                                        |
-| `resolveUserLocalStorageRoot`               | function | Validate and resolve the user-local storage root                                                                      |
-| `inspectUserLocalStorage`                   | function | Return a structured inspection of user-local storage                                                                  |
-| `setUserLocalMemoryItem`                    | function | Write a user-local memory item                                                                                        |
-| `listUserLocalMemoryItems`                  | function | List user-local memory items                                                                                          |
-| `readEnabledUserLocalMemoryItem`            | function | Read an enabled memory item (returns `null` when disabled)                                                            |
-| `disableUserLocalMemoryItem`                | function | Disable a user-local memory item                                                                                      |
-| `deleteUserLocalMemoryItem`                 | function | Delete a user-local memory item                                                                                       |
-| `substituteVariables`                       | function | Substitute `$VAR` / `${VAR}` placeholders in a skill prompt                                                           |
-| `preprocessShellCommands`                   | function | Extract shell commands embedded in skill prompt text                                                                  |
-| `discoverTaskFiles`                         | function | Discover active `.agents/tasks/*.md` files                                                                            |
-| `loadTaskContext`                           | function | Load, select, and format task context for the system prompt                                                           |
-| `parseTaskFile`                             | function | Parse a task Markdown file                                                                                            |
-| `selectRelevantTasks`                       | function | Select the most relevant task files for the current session                                                           |
-| `formatTaskContext`                         | function | Format selected tasks as neutral system prompt metadata                                                               |
-| `updateTaskFileStatus`                      | function | Update task status and append a dated progress entry                                                                  |
-| `readCurrentGitBranch`                      | function | Read the current Git branch for task selection                                                                        |
-| `buildPromptWithFileReferences`             | function | Expand `@file` references in a prompt string                                                                          |
-| `resolvePromptFileReferences`               | function | Resolve `@file` reference tokens to file content                                                                      |
-| `parsePromptFileReferences`                 | function | Parse `@file` reference tokens from a prompt string                                                                   |
-| `resolvePromptFileReferencePaths`           | function | Resolve paths for prompt file references                                                                              |
-| `formatPromptFileReferenceDiagnostics`      | function | Format diagnostics for file reference errors                                                                          |
-| `hasBlockingPromptFileReferenceDiagnostics` | function | Check whether any reference diagnostic blocks sending                                                                 |
-| `toPromptFileReferenceRecords`              | function | Convert resolved references to structured records                                                                     |
-| `createPromptFileReferenceHistoryEntry`     | function | Build a history entry for prompt file reference metadata                                                              |
-| `listActiveContextReferences`               | function | List active context references from the inventory                                                                     |
-| `upsertContextReference`                    | function | Add or update a context reference in the inventory                                                                    |
-| `removeContextReference`                    | function | Remove a context reference from the inventory                                                                         |
-| `clearContextReferences`                    | function | Clear all context references from the inventory                                                                       |
-| `createContextReferenceItem`                | function | Build a context reference item shape                                                                                  |
-| `toContextReferenceRecords`                 | function | Convert context references to structured records                                                                      |
-| `createTestInteractiveSession`              | function | Create a stub `IInteractiveSession` for tests                                                                         |
-| `getUserSettingsPath`                       | function | Return the user-global settings file path                                                                             |
-| `resolveSettingsPathForScope`               | function | Resolve settings path for `'user'` or `'project-local'` scope                                                         |
-| `readSettings`                              | function | Read a settings JSON file                                                                                             |
-| `writeSettings`                             | function | Write a settings JSON file                                                                                            |
-| `updateModelInSettings`                     | function | Update the active model in a settings file                                                                            |
-| `deleteSettings`                            | function | Delete a settings file                                                                                                |
-| `resetUserConfig`                           | function | Reset user configuration to defaults                                                                                  |
-| `getProviderSettingsPaths`                  | function | Return the ordered provider settings file paths                                                                       |
-| `resolveGitBranch`                          | function | Resolve the current Git branch name                                                                                   |
-| `compareSemverVersions`                     | function | Compare two semver version strings                                                                                    |
-| `isNewerSemverVersion`                      | function | Check whether a version is newer than another                                                                         |
-| `readPackageVersion`                        | function | Read the package version from `package.json`                                                                          |
-| `checkForCliUpdate`                         | function | Check npm for a newer version of the CLI                                                                              |
-| `formatCliUpdateCheckMessage`               | function | Format a CLI update check result as a string                                                                          |
-| `formatCliUpdateNotice`                     | function | Format a CLI update notice for display                                                                                |
-| `getStartupCliUpdateNotice`                 | function | Get an update notice string for startup display                                                                       |
-| `getUserUpdateCheckCachePath`               | function | Return the path for the CLI update check cache                                                                        |
-| `readUpdateCheckCache`                      | function | Read the CLI update check cache                                                                                       |
-| `writeUpdateCheckCache`                     | function | Write the CLI update check cache                                                                                      |
-| `shouldRunStartupCliUpdateCheck`            | function | Decide whether to run a startup update check                                                                          |
+| Export                                      | Kind     | Description                                                                                                                                                                    |
+| ------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `InteractiveSession`                        | class    | Primary SDK entry point; event-driven session wrapper                                                                                                                          |
+| `createQuery`                               | function | Single-shot prompt factory (`({ provider }) => (prompt) => result`)                                                                                                            |
+| `createAgentRuntime`                        | function | Headless/multi-session runtime composition factory                                                                                                                             |
+| `createStatelessRuntime`                    | function | Filesystem-free runtime for serverless/embedded contexts (no session store, no-op settings, bare sessions by default)                                                          |
+| `createProjectSessionStore`                 | function | Project-local session store facade                                                                                                                                             |
+| `createUserSessionStore`                    | function | User-level session store facade (`~/.robota/sessions`)                                                                                                                         |
+| `listResumableSessionSummaries`             | function | List saved sessions for session picker UI                                                                                                                                      |
+| `generateSessionName`                       | function | LLM-based session auto-naming (prompt/policy owned here; transports invoke + apply via `setName`)                                                                              |
+| `resolveLatestSessionId`                    | function | Resolve the most recent session ID                                                                                                                                             |
+| `resolveSessionIdByIdOrName`                | function | Resolve session ID by ID or user-visible name                                                                                                                                  |
+| `CommandRegistry`                           | class    | Aggregates `ICommandSource` instances for slash command discovery                                                                                                              |
+| `BuiltinCommandSource`                      | class    | SDK core compatibility command source (currently empty)                                                                                                                        |
+| `SkillCommandSource`                        | class    | Discovers SKILL.md files for virtual skill palette metadata                                                                                                                    |
+| `PluginCommandSource`                       | class    | Discovers commands exposed by installed bundle plugins                                                                                                                         |
+| `SystemCommandExecutor`                     | class    | Registry and executor for `ISystemCommand` instances                                                                                                                           |
+| `createSystemCommands`                      | function | SDK core command factory (returns empty list; built-ins are in command modules)                                                                                                |
+| `createBuiltinCommandModule`                | function | SDK core compatibility module factory                                                                                                                                          |
+| `applyPresetToSession`                      | function | Live preset-switching engine: re-applies a resolved preset's option groups to a running session, records the active preset id, returns `{ applied, skipped }` (PRESET-011~017) |
+| `parseFrontmatter`                          | function | YAML frontmatter parser for skill/agent definition files                                                                                                                       |
+| `executeSkill`                              | function | Internal skill execution helper                                                                                                                                                |
+| `loadOrgPolicy`                             | function | Read org policy from `~/.robota/org-policy.json`                                                                                                                               |
+| `formatOrgPolicyViolationMessage`           | function | Format a human-readable org policy violation message                                                                                                                           |
+| `isApiKeyPlaintext`                         | function | Check whether an API key value is a plaintext secret                                                                                                                           |
+| `ProjectMemoryStore`                        | class    | Project memory CRUD store backed by `.robota/memory/`                                                                                                                          |
+| `isMemoryType`                              | function | Type guard for `TMemoryType`                                                                                                                                                   |
+| `EditCheckpointStore`                       | class    | Edit checkpoint store backed by `.robota/checkpoints/`                                                                                                                         |
+| `wrapEditCheckpointTools`                   | function | Wrap Write/Edit tools to snapshot pre-images before mutation                                                                                                                   |
+| `planSelfHostingVerification`               | function | Generate ordered verification steps for self-modifying runs                                                                                                                    |
+| `transitionSelfHostingLoop`                 | function | Pure state machine transition for the self-hosting loop                                                                                                                        |
+| `evaluateReversibleToolSafety`              | function | Classify a tool call by reversibility and isolation requirements                                                                                                               |
+| `wrapReversibleExecutionTools`              | function | Wrap tools with reversible execution enforcement                                                                                                                               |
+| `PluginSettingsStore`                       | class    | Plugin enable/disable settings store                                                                                                                                           |
+| `BundlePluginLoader`                        | class    | Load a bundle plugin from a directory path                                                                                                                                     |
+| `BundlePluginInstaller`                     | class    | Install/uninstall bundle plugins under user or project scope                                                                                                                   |
+| `MarketplaceClient`                         | class    | Plugin discovery and install from remote marketplace                                                                                                                           |
+| `BUILT_IN_AGENTS`                           | const    | Array of built-in agent definitions (`general-purpose`, `Explore`, `Plan`)                                                                                                     |
+| `getBuiltInAgent`                           | function | Look up a built-in agent by name                                                                                                                                               |
+| `createDefaultTools`                        | function | Assemble default built-in tools (exported for CLI fork composition)                                                                                                            |
+| `createSubagentSession`                     | function | Assemble an isolated child session for subagent execution                                                                                                                      |
+| `createSubagentLogger`                      | function | Create an append-only subagent transcript logger                                                                                                                               |
+| `assembleSubagentPrompt`                    | function | Assemble the full system prompt for a subagent session                                                                                                                         |
+| `getSubagentSuffix`                         | function | Framework suffix for standard subagent system prompts                                                                                                                          |
+| `getForkWorkerSuffix`                       | function | Framework suffix for fork-worker (skill context: fork) prompts                                                                                                                 |
+| `resolveSubagentLogDir`                     | function | Resolve the log directory for a subagent                                                                                                                                       |
+| `createAgentTool`                           | function | Create the SDK-specific agent sub-session tool                                                                                                                                 |
+| `storeAgentToolDeps`                        | function | Store agent tool runtime dependencies in session context                                                                                                                       |
+| `retrieveAgentToolDeps`                     | function | Retrieve stored agent tool runtime dependencies                                                                                                                                |
+| `createCommandExecutionTool`                | function | Legacy model command execution tool factory (compatibility)                                                                                                                    |
+| `createModelCommandToolProjection`          | function | Project command descriptors to provider-safe tool definitions                                                                                                                  |
+| `createProjectedCommandExecutionTools`      | function | Create projected command tools from descriptors                                                                                                                                |
+| `createProviderSafeModelCommandToolName`    | function | Normalize a command name to a provider-safe tool name                                                                                                                          |
+| `createBackgroundProcessTool`               | function | Create the model-callable `BackgroundProcess` tool                                                                                                                             |
+| `BackgroundJobOrchestrator`                 | class    | SDK grouping/wait layer above `BackgroundTaskManager`                                                                                                                          |
+| `createExecutionWorkspaceSnapshot`          | function | Build a presentation-neutral execution workspace snapshot                                                                                                                      |
+| `createExecutionWorkspaceTaskSpawner`       | function | Build an origin-bound task spawning port                                                                                                                                       |
+| `createLineDetailPage`                      | function | Build a cursor-based detail page for a task log                                                                                                                                |
+| `createMainThreadDetailPage`                | function | Build a detail page for the main thread transcript                                                                                                                             |
+| `createInProcessSubagentRunner`             | function | Default in-process subagent runner adapter                                                                                                                                     |
+| `PromptExecutor`                            | class    | Hook executor: injects a prompt into session context                                                                                                                           |
+| `AgentExecutor`                             | class    | Hook executor: creates a nested agent session for hook input                                                                                                                   |
+| `promptForApproval`                         | function | Terminal permission approval prompt                                                                                                                                            |
+| `projectPaths`                              | function | Structured project-local paths under `.robota/`                                                                                                                                |
+| `userPaths`                                 | function | Structured user-local paths under `~/.robota/`                                                                                                                                 |
+| `resolveUserLocalStorageRoot`               | function | Validate and resolve the user-local storage root                                                                                                                               |
+| `inspectUserLocalStorage`                   | function | Return a structured inspection of user-local storage                                                                                                                           |
+| `setUserLocalMemoryItem`                    | function | Write a user-local memory item                                                                                                                                                 |
+| `listUserLocalMemoryItems`                  | function | List user-local memory items                                                                                                                                                   |
+| `readEnabledUserLocalMemoryItem`            | function | Read an enabled memory item (returns `null` when disabled)                                                                                                                     |
+| `disableUserLocalMemoryItem`                | function | Disable a user-local memory item                                                                                                                                               |
+| `deleteUserLocalMemoryItem`                 | function | Delete a user-local memory item                                                                                                                                                |
+| `substituteVariables`                       | function | Substitute `$VAR` / `${VAR}` placeholders in a skill prompt                                                                                                                    |
+| `preprocessShellCommands`                   | function | Extract shell commands embedded in skill prompt text                                                                                                                           |
+| `discoverTaskFiles`                         | function | Discover active `.agents/tasks/*.md` files                                                                                                                                     |
+| `loadTaskContext`                           | function | Load, select, and format task context for the system prompt                                                                                                                    |
+| `parseTaskFile`                             | function | Parse a task Markdown file                                                                                                                                                     |
+| `selectRelevantTasks`                       | function | Select the most relevant task files for the current session                                                                                                                    |
+| `formatTaskContext`                         | function | Format selected tasks as neutral system prompt metadata                                                                                                                        |
+| `updateTaskFileStatus`                      | function | Update task status and append a dated progress entry                                                                                                                           |
+| `readCurrentGitBranch`                      | function | Read the current Git branch for task selection                                                                                                                                 |
+| `buildPromptWithFileReferences`             | function | Expand `@file` references in a prompt string                                                                                                                                   |
+| `resolvePromptFileReferences`               | function | Resolve `@file` reference tokens to file content                                                                                                                               |
+| `parsePromptFileReferences`                 | function | Parse `@file` reference tokens from a prompt string                                                                                                                            |
+| `resolvePromptFileReferencePaths`           | function | Resolve paths for prompt file references                                                                                                                                       |
+| `formatPromptFileReferenceDiagnostics`      | function | Format diagnostics for file reference errors                                                                                                                                   |
+| `hasBlockingPromptFileReferenceDiagnostics` | function | Check whether any reference diagnostic blocks sending                                                                                                                          |
+| `toPromptFileReferenceRecords`              | function | Convert resolved references to structured records                                                                                                                              |
+| `createPromptFileReferenceHistoryEntry`     | function | Build a history entry for prompt file reference metadata                                                                                                                       |
+| `listActiveContextReferences`               | function | List active context references from the inventory                                                                                                                              |
+| `upsertContextReference`                    | function | Add or update a context reference in the inventory                                                                                                                             |
+| `removeContextReference`                    | function | Remove a context reference from the inventory                                                                                                                                  |
+| `clearContextReferences`                    | function | Clear all context references from the inventory                                                                                                                                |
+| `createContextReferenceItem`                | function | Build a context reference item shape                                                                                                                                           |
+| `toContextReferenceRecords`                 | function | Convert context references to structured records                                                                                                                               |
+| `createTestInteractiveSession`              | function | Create a stub `IInteractiveSession` for tests                                                                                                                                  |
+| `getUserSettingsPath`                       | function | Return the user-global settings file path                                                                                                                                      |
+| `resolveSettingsPathForScope`               | function | Resolve settings path for `'user'` or `'project-local'` scope                                                                                                                  |
+| `readSettings`                              | function | Read a settings JSON file                                                                                                                                                      |
+| `writeSettings`                             | function | Write a settings JSON file                                                                                                                                                     |
+| `updateModelInSettings`                     | function | Update the active model in a settings file                                                                                                                                     |
+| `deleteSettings`                            | function | Delete a settings file                                                                                                                                                         |
+| `resetUserConfig`                           | function | Reset user configuration to defaults                                                                                                                                           |
+| `getProviderSettingsPaths`                  | function | Return the ordered provider settings file paths                                                                                                                                |
+| `resolveGitBranch`                          | function | Resolve the current Git branch name                                                                                                                                            |
+| `compareSemverVersions`                     | function | Compare two semver version strings                                                                                                                                             |
+| `isNewerSemverVersion`                      | function | Check whether a version is newer than another                                                                                                                                  |
+| `readPackageVersion`                        | function | Read the package version from `package.json`                                                                                                                                   |
+| `checkForCliUpdate`                         | function | Check npm for a newer version of the CLI                                                                                                                                       |
+| `formatCliUpdateCheckMessage`               | function | Format a CLI update check result as a string                                                                                                                                   |
+| `formatCliUpdateNotice`                     | function | Format a CLI update notice for display                                                                                                                                         |
+| `getStartupCliUpdateNotice`                 | function | Get an update notice string for startup display                                                                                                                                |
+| `getUserUpdateCheckCachePath`               | function | Return the path for the CLI update check cache                                                                                                                                 |
+| `readUpdateCheckCache`                      | function | Read the CLI update check cache                                                                                                                                                |
+| `writeUpdateCheckCache`                     | function | Write the CLI update check cache                                                                                                                                               |
+| `shouldRunStartupCliUpdateCheck`            | function | Decide whether to run a startup update check                                                                                                                                   |
 
 ## Extension Points
 
@@ -347,6 +354,53 @@ When a hint is present and the user omits arguments, `createInteractiveRuntime` 
 - Calls `setBusy(true/false)` around AI completions
 
 `agent-framework` does **not** own: Ink rendering, web socket connections, dialog HTML, or any channel implementation. Those live in transport packages.
+
+### Live preset application seams (PRESET-011~017)
+
+`agent-framework` owns the engine that switches a preset on an **already-running** session, plus the
+optional host/runtime contract higher layers implement to receive each re-applied option group. The
+`/preset` command (in `agent-command`) resolves a preset with `agent-preset` and hands the result
+straight to `applyPresetToSession` — no framework → agent-preset dependency.
+
+**`applyPresetToSession(context, presetId, options): IPresetApplicationResult`** — the single
+live-preset-switching entry point. It first records the active preset id (PRESET-011, via the
+runtime's optional `setActivePresetId`), then re-applies each option group it owns and reports which
+groups were `applied` vs. `skipped` (a group absent from `options` is left untouched and listed under
+`skipped`).
+
+**`IPresetApplicationOptions`** is a framework-owned shape that `agent-preset`'s
+`TResolvedPresetOptions` satisfies **structurally** (so the framework never imports agent-preset — no
+dependency cycle). Fields and the group each drives:
+
+| Field                                               | Group / seam used                                                  |
+| --------------------------------------------------- | ------------------------------------------------------------------ |
+| `permissionMode`                                    | PRESET-012 — `writeCommandPermissionMode` seam                     |
+| `model`, `effort`, `temperature`, `maxOutputTokens` | PRESET-013 — runtime `applyModelOptions(IModelReapplyOptions)`     |
+| `persona`                                           | PRESET-014 — host `applyPersona(persona)`                          |
+| `enabledCommandModules`, `disabledCommandModules`   | PRESET-015 — host `applyCommandModuleSelection(enabled, disabled)` |
+| `enableParallelSubagents`                           | PRESET-016 — runtime `setParallelSubagentsEnabled(enabled)`        |
+| `selfVerification`                                  | PRESET-017 — host `applySelfVerification(enabled)`                 |
+
+`IPresetApplicationResult` is `{ applied: readonly string[]; skipped: readonly string[] }`.
+
+**Optional `ICommandSessionRuntime` methods** (the runtime contract higher layers implement):
+`getActivePresetId?()`, `setActivePresetId?(id)`, `applyModelOptions?(opts)`,
+`setParallelSubagentsEnabled?(enabled)` (`src/command-api/host-context.ts`).
+
+**Optional `ICommandHostContext` methods**: `applyPersona?(persona)`,
+`applyCommandModuleSelection?(enabled, disabled)`, `applySelfVerification?(enabled)`.
+
+**`createSelfVerificationSection()`** (`src/context/system-prompt-section-providers.ts`) composes a
+verify-before-done system-prompt section with `source: 'self-verification'` at **priority 6** — between
+`persona` (priority 5) and AGENTS.md project instructions (priority 10) — emitted only when
+`selfVerification` is true. `'self-verification'` is a member of `TSystemPromptSectionSource`.
+
+**`selectCommandModules(modules, enabled, disabled)`** — pure allow-then-deny filter for live
+command-module re-selection (deny wins over allow; neither given returns the input unchanged). It is
+the framework-owned counterpart of agent-command's `applyModuleSelection`, duplicated so the framework
+does not depend on agent-command. This is an **internal helper** consumed by the skill router; it is
+re-exported only from `src/commands/index.ts`, not from the package root (`src/index.ts`), so it is not
+part of the Public API Surface.
 
 ## Provider Resolution Order
 

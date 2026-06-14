@@ -3,7 +3,7 @@
  * and output truncation used by PermissionEnforcer.
  */
 
-import { runHooks } from '@robota-sdk/agent-core';
+import { runHooks, createLogger } from '@robota-sdk/agent-core';
 
 import { MAX_TOOL_OUTPUT_CHARS } from './permission-types.js';
 
@@ -14,6 +14,8 @@ import type {
   IHookInput,
   IHookTypeExecutor,
 } from '@robota-sdk/agent-core';
+
+const logger = createLogger('ToolHookHelpers');
 
 /**
  * Truncate tool result data if it exceeds MAX_TOOL_OUTPUT_CHARS.
@@ -94,5 +96,5 @@ export function firePostToolHook(
     'PostToolUse',
     postHookInput,
     hookTypeExecutors,
-  ).catch(() => {});
+  ).catch((error) => logger.warn('hook failed', { error }));
 }

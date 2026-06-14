@@ -1,6 +1,6 @@
 # Agent CLI Execution Modes
 
-Source-verified against `develop` on 2026-05-15.
+Source-verified against `develop` on 2026-06-14.
 
 Interactive TUI and non-interactive print-mode execution paths.
 
@@ -10,7 +10,7 @@ Interactive TUI and non-interactive print-mode execution paths.
 sequenceDiagram
   participant User
   participant TUI as agent-cli React/Ink
-  participant Bridge as useInteractiveSession
+  participant Bridge as useTuiChannel / TuiInteractionChannel
   participant SDK as InteractiveSession
   participant Session as agent-session Session
   participant Provider as IAIProvider
@@ -40,25 +40,30 @@ See [packages/agent-cli/docs/SPEC.md](../../../../packages/agent-cli/docs/SPEC.m
 ```mermaid
 sequenceDiagram
   participant CLI as cli.ts -p path
-  participant SDK as InteractiveSession
-  participant Transport as agent-transport/headless
+  participant Preset as agent-preset.resolvePreset
+  participant Channel as HeadlessInteractionChannel (agent-transport/headless)
   participant Session as agent-session Session
 
+  CLI->>Preset: resolveCliPreset(args, settings.preset)
+  Preset-->>CLI: resolved options (model, persona, agentName, permissionMode, ...)
   CLI->>CLI: collect positional prompt or piped stdin
-  CLI->>CLI: build appendSystemPrompt from flags
-  CLI->>Runtime: runtime.createSession({ permissionMode, maxTurns, sessionStore, bare, allowedTools, appendSystemPrompt })
-  Runtime-->>CLI: session (IInteractiveSession)
-  CLI->>Transport: createHeadlessTransport({ outputFormat, prompt })
-  CLI->>Session: session.attachTransport(transport)
-  CLI->>Transport: transport.start()
-  Transport->>Session: submit prompt
-  Session->>SessionSvc: run loop
-  SessionSvc-->>Transport: text/json/stream-json output events
-  CLI->>Session: session.shutdown()
+  CLI->>CLI: build appendSystemPrompt from flags + task-file
+  CLI->>Channel: new HeadlessInteractionChannel({ provider, outputFormat, permissionMode, maxTurns, sessionStore, bare, allowedTools, deniedTools, appendSystemPrompt, persona, agentName, activePresetId, commandModules, commandHostAdapters, ... })
+  CLI->>Channel: channel.run(prompt)
+  Channel->>Session: submit prompt
+  Session->>Session: run loop
+  Session-->>Channel: text/json/stream-json output events
+  CLI->>Channel: process.exit(channel.getExitCode())
 ```
 
 Flags: `-p`, piped stdin, `--output-format`, `--permission-mode`, `--max-turns`, `--bare`,
-`--allowed-tools`, `--no-session-persistence`, `--append-system-prompt`, `--json-schema`.
+`--allowed-tools`, `--denied-tools`, `--no-session-persistence`, `--system-prompt`,
+`--append-system-prompt`, `--task-file`, `--model`, `--preset`, `--json-schema`.
+
+Print-mode permission mode resolves as `args.permissionMode ?? presetOptions.permissionMode ??
+'bypassPermissions'`; the model resolves as `resolvedPreset.model ?? providerSettings.model`. The
+CLI forwards the preset's `persona`, `agentName`, `activePresetId`, `enableParallelSubagents`, and
+`selfVerification` into the channel without re-applying any preset logic.
 
 ## WebSocket Sidecar Mode
 
@@ -88,5 +93,7 @@ sequenceDiagram
   end
 ```
 
-Sidecar bind failure is non-fatal. Source: `agent-cli/src/web-sidecar/web-sidecar-server.ts`.
+Sidecar bind failure is intended to be non-fatal. Planned source path:
+`agent-cli/src/web-sidecar/web-sidecar-server.ts` — this file does not exist in the codebase yet
+(verified 2026-06-14; `src/web-sidecar/` is absent). Treat this section as design intent only.
 See [packages/agent-cli/docs/SPEC.md](../../../../packages/agent-cli/docs/SPEC.md) for supported flags.

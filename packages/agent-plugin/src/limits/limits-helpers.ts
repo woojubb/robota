@@ -5,41 +5,39 @@
  * @internal
  */
 
-import { PluginError } from '@robota-sdk/agent-core';
+import {
+  PluginError,
+  estimateBlendedCostPer1000,
+  CONTEXT_ESTIMATE_CHARS_PER_TOKEN,
+} from '@robota-sdk/agent-core';
 
 import type { ILimitWindow, ITokenBucket } from './types';
 import type { TUniversalMessage } from '@robota-sdk/agent-core';
 
 const COST_DECIMAL_PLACES = 4;
-const CHARS_PER_TOKEN = 4;
 const TOKEN_ESTIMATE_BUFFER = 100;
 const TOKENS_PER_COST_UNIT = 1000;
 const MS_PER_SECOND = 1000;
 
-/** Model-specific cost table (per 1000 tokens). @internal */
-const MODEL_COSTS: Record<string, number> = {
-  'gpt-4': 0.03,
-  'gpt-4-turbo': 0.01,
-  'gpt-3.5-turbo': 0.002,
-  'claude-3-opus': 0.015,
-  'claude-3-sonnet': 0.003,
-  'claude-3-haiku': 0.00025,
-};
-
-/** Default cost calculator: uses model-specific rates or falls back to tokenCostPer1000. @internal */
+/**
+ * Default cost calculator: uses the agent-core pricing SSOT for a known model's blended per-1000
+ * rate, falling back to the caller-supplied `tokenCostPer1000` when the model is unknown. @internal
+ */
 export function defaultCostCalculator(
   tokens: number,
   model: string,
   tokenCostPer1000: number,
 ): number {
-  return (tokens / TOKENS_PER_COST_UNIT) * (MODEL_COSTS[model] ?? tokenCostPer1000);
+  const rate = estimateBlendedCostPer1000(model) ?? tokenCostPer1000;
+  return (tokens / TOKENS_PER_COST_UNIT) * rate;
 }
 
 /** Estimate token count from message content lengths. @internal */
 export function estimateTokensFromMessages(messages: TUniversalMessage[]): number {
   return (
-    Math.ceil(messages.reduce((t, m) => t + (m.content?.length || 0), 0) / CHARS_PER_TOKEN) +
-    TOKEN_ESTIMATE_BUFFER
+    Math.ceil(
+      messages.reduce((t, m) => t + (m.content?.length || 0), 0) / CONTEXT_ESTIMATE_CHARS_PER_TOKEN,
+    ) + TOKEN_ESTIMATE_BUFFER
   );
 }
 

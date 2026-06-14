@@ -2,14 +2,14 @@
 
 ## Scope
 
-Owns the CLI session lifecycle for the Robota SDK. This package provides the `Session` class that wraps a `Robota` agent instance with permission-gated tool execution, hook-based lifecycle events, context window tracking, conversation compaction, and optional JSON file persistence via `SessionStore`. It is the primary runtime used by the CLI application (`agent-cli`) via the assembly layer (`agent-sdk`).
+Owns the CLI session lifecycle for the Robota SDK. This package provides the `Session` class that wraps a `Robota` agent instance with permission-gated tool execution, hook-based lifecycle events, context window tracking, conversation compaction, and optional JSON file persistence via `SessionStore`. It is the primary runtime used by the CLI application (`agent-cli`) via the assembly layer (`agent-framework`).
 
 ## Boundaries
 
 - Does not own AI provider creation. Accepts a pre-constructed `IAIProvider` via injection.
 - Does not own tool implementations. Accepts pre-constructed `IToolWithEventService[]` via injection.
 - Does not own system prompt building. Accepts a pre-built `systemMessage` string.
-- Does not own configuration resolution or context loading. Those belong to `agent-sdk`.
+- Does not own configuration resolution or context loading. Those belong to `agent-framework`.
 - Does not own the permission evaluation algorithm or hook execution engine. Those belong to `@robota-sdk/agent-core` (`evaluatePermission`, `runHooks`).
 - **Owns the session persistence port.** `SessionStore` and `ISessionRecord` are the SSOT for
   conversation session persistence contracts. Storage adapters implement these interfaces; the port
@@ -21,7 +21,8 @@ Owns the CLI session lifecycle for the Robota SDK. This package provides the `Se
 The package follows a modular structure with Session delegating to focused sub-components:
 
 ```
-session.ts                -- Session class: orchestrates run loop, delegates to sub-components
+session-base.ts           -- SessionBase: abstract base holding shared session state and methods, incl. preset/model/parallel-subagent live state (getActivePresetId/setActivePresetId, getParallelSubagentsEnabled/setParallelSubagentsEnabled, applyModelOptions)
+session.ts                -- Session class (extends SessionBase): orchestrates run loop, delegates to sub-components
 session-run.ts            -- Per-turn Session.run execution helper and replay-event forwarding
 session-tool-execution-bridge.ts -- Bridges unknown-tool replay events to onToolExecution display callbacks
 permission-enforcer.ts    -- PermissionEnforcer: tool wrapping, permission checks, hooks, truncation
@@ -44,28 +45,27 @@ session-store.ts          -- SessionStore: JSON file persistence for conversatio
 
 - `@robota-sdk/agent-session` depends on `@robota-sdk/agent-core` only.
 - No dependency on `@robota-sdk/agent-tools` or `@robota-sdk/agent-provider/anthropic`.
-- Tool and provider assembly is the responsibility of the consuming layer (`agent-sdk`).
+- Tool and provider assembly is the responsibility of the consuming layer (`agent-framework`).
 
 ## Type Ownership
 
 Types owned by this package (SSOT):
 
-| Type                         | Kind      | File                         | Description                                                                                                                                                                                                   |
-| ---------------------------- | --------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ISession`                   | Interface | `session-interface.ts`       | Minimal session abstraction: `{ readonly sessionId: string }`. Used by `agent-interface-transport` to break the circular dep with `agent-sdk`. `InteractiveSession` in `agent-sdk` implements this interface. |
-| `ISessionOptions`            | Interface | `session.ts`                 | Constructor options for Session (tools, provider, systemMessage, providerTimeout, optional sessionId)                                                                                                         |
-| `ISessionShutdownOptions`    | Interface | `session-types.ts`           | Graceful shutdown options, including Claude-compatible `reason`                                                                                                                                               |
-| `TPermissionHandler`         | Type      | `permission-enforcer.ts`     | Async callback `(toolName, toolArgs) => Promise<TPermissionResult>`                                                                                                                                           |
-| `TPermissionResult`          | Type      | `permission-enforcer.ts`     | `boolean \| 'allow-session'`                                                                                                                                                                                  |
-| `ITerminalOutput`            | Interface | `permission-enforcer.ts`     | Terminal I/O abstraction (write, prompt, select, spinner)                                                                                                                                                     |
-| `ISpinner`                   | Interface | `permission-enforcer.ts`     | Spinner handle returned by `ITerminalOutput.spinner()`                                                                                                                                                        |
-| `IPermissionEnforcerOptions` | Interface | `permission-enforcer.ts`     | Options for constructing PermissionEnforcer                                                                                                                                                                   |
-| `ICompactionOptions`         | Interface | `compaction-orchestrator.ts` | Options for constructing CompactionOrchestrator                                                                                                                                                               |
-| `ISessionLogger`             | Interface | `session-logger.ts`          | Pluggable session event logger interface                                                                                                                                                                      |
-| `TSessionLogData`            | Type      | `session-logger.ts`          | Structured log event data (`Record<string, string \| number \| boolean \| object \| null>`)                                                                                                                   |
-| `IExternalPayloadReference`  | Interface | `session-logger.ts`          | Content-addressed JSON payload reference used when a log field exceeds inline size policy                                                                                                                     |
-| `ISessionReplayRecord`       | Interface | `session-log-replay.ts`      | Reconstructed replay state from append-only JSONL logs                                                                                                                                                        |
-| `ISessionRecord`             | Interface | `session-store.ts`           | Persisted session record (id, cwd, timestamps, messages, history, opaque diagnostic extension fields)                                                                                                         |
+| Type                         | Kind      | File                         | Description                                                                                           |
+| ---------------------------- | --------- | ---------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `ISessionOptions`            | Interface | `session.ts`                 | Constructor options for Session (tools, provider, systemMessage, providerTimeout, optional sessionId) |
+| `ISessionShutdownOptions`    | Interface | `session-types.ts`           | Graceful shutdown options, including Claude-compatible `reason`                                       |
+| `TPermissionHandler`         | Type      | `permission-enforcer.ts`     | Async callback `(toolName, toolArgs) => Promise<TPermissionResult>`                                   |
+| `TPermissionResult`          | Type      | `permission-enforcer.ts`     | `boolean \| 'allow-session'`                                                                          |
+| `ITerminalOutput`            | Interface | `permission-enforcer.ts`     | Terminal I/O abstraction (write, prompt, select, spinner)                                             |
+| `ISpinner`                   | Interface | `permission-enforcer.ts`     | Spinner handle returned by `ITerminalOutput.spinner()`                                                |
+| `IPermissionEnforcerOptions` | Interface | `permission-enforcer.ts`     | Options for constructing PermissionEnforcer                                                           |
+| `ICompactionOptions`         | Interface | `compaction-orchestrator.ts` | Options for constructing CompactionOrchestrator                                                       |
+| `ISessionLogger`             | Interface | `session-logger.ts`          | Pluggable session event logger interface                                                              |
+| `TSessionLogData`            | Type      | `session-logger.ts`          | Structured log event data (`Record<string, string \| number \| boolean \| object \| null>`)           |
+| `IExternalPayloadReference`  | Interface | `session-logger.ts`          | Content-addressed JSON payload reference used when a log field exceeds inline size policy             |
+| `ISessionReplayRecord`       | Interface | `session-log-replay.ts`      | Reconstructed replay state from append-only JSONL logs                                                |
+| `ISessionRecord`             | Interface | `session-store.ts`           | Persisted session record (id, cwd, timestamps, messages, history, opaque diagnostic extension fields) |
 
 Types consumed from other packages (not owned here):
 
@@ -84,12 +84,12 @@ Types consumed from other packages (not owned here):
 | `TRUST_TO_MODE`         | `@robota-sdk/agent-core` |
 | `TUniversalMessage`     | `@robota-sdk/agent-core` |
 | `IHistoryEntry`         | `@robota-sdk/agent-core` |
+| `TModelEffort`          | `@robota-sdk/agent-core` |
 
 ## Public API Surface
 
 | Export                           | Kind                 | Description                                                                                                    |
 | -------------------------------- | -------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `ISession`                       | Interface            | Minimal session abstraction `{ readonly sessionId: string }` used by `agent-interface-transport`               |
 | `Session`                        | Class                | Wraps Robota agent with permissions, hooks, streaming, and persistence                                         |
 | `PermissionEnforcer`             | Class                | Tool permission checking, hook execution, output truncation                                                    |
 | `ContextWindowTracker`           | Class                | Token usage tracking and auto-compact threshold                                                                |
@@ -109,7 +109,6 @@ Types consumed from other packages (not owned here):
 | `TSessionLogData`                | Type                 | Structured log event data                                                                                      |
 | `ISessionRecord`                 | Interface            | Persisted session record shape                                                                                 |
 | `ISessionStore`                  | Interface            | Minimal persistence port consumed by `Session`; implemented by `SessionStore`                                  |
-| `IContextWindowState`            | Type                 | Context window usage state (re-exported from agent-core)                                                       |
 
 ### Session Constructor — sessionId Parameter
 
@@ -125,29 +124,42 @@ Types consumed from other packages (not owned here):
 
 `ISessionOptions.onCompactEvent` receives structured compaction metadata with `trigger`, `before`, and `after` context-window states. Manual `Session.compact()` calls report `trigger: "manual"` by default; auto-compaction from `Session.run()` reports `trigger: "auto"`. The session logger also writes a `context_compact` event with the same before/after state so headless transports and logs can explain what happened without streaming compaction summary text into the normal answer path.
 
+`ISessionOptions.activePresetId` is the runtime active-preset id selected at startup. It is pure
+state surfaced through `getActivePresetId()`/`setActivePresetId()` and is not used to re-apply any
+preset options. The default is `'default'`.
+
+`ISessionOptions.enableParallelSubagents` controls the parallel-subagents dispatch gate surfaced
+through `getParallelSubagentsEnabled()`/`setParallelSubagentsEnabled()`. It is only meaningful when
+the agent runtime was built at assembly. The default is `true`.
+
 ### Key Session Methods
 
-| Method                     | Signature                                                            | Description                                                                                                                             |
-| -------------------------- | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `run`                      | `(message: string) => Promise<string>`                               | Send a message; returns AI response. Persists session if store exists.                                                                  |
-| `getPermissionMode`        | `() => TPermissionMode`                                              | Returns the active permission mode.                                                                                                     |
-| `setPermissionMode`        | `(mode: TPermissionMode) => void`                                    | Changes the permission mode for future tool calls.                                                                                      |
-| `getSessionId`             | `() => string`                                                       | Returns the stable session identifier.                                                                                                  |
-| `getMessageCount`          | `() => number`                                                       | Returns the number of completed `run()` calls.                                                                                          |
-| `clearHistory`             | `() => void`                                                         | Clears the underlying Robota conversation history and resets token usage.                                                               |
-| `getHistory`               | `() => TUniversalMessage[]`                                          | Returns the current conversation history as `TUniversalMessage[]` (chat entries only). Unchanged.                                       |
-| `getFullHistory`           | `() => IHistoryEntry[]`                                              | Returns the full history as `IHistoryEntry[]`, including both chat messages and event entries (e.g., tool summaries).                   |
-| `addHistoryEntry`          | `(entry: IHistoryEntry) => void`                                     | Appends a pre-built `IHistoryEntry` (e.g., a tool-summary event entry) to the session history via `ConversationStore.addEntry()`.       |
-| `getContextState`          | `() => IContextWindowState`                                          | Returns real-time effective context window usage (tokens, percentage) from the shared agent-core estimator.                             |
-| `getAutoCompactThreshold`  | `() => TAutoCompactThreshold`                                        | Returns the configured automatic compaction threshold, or `false` when disabled.                                                        |
-| `setAutoCompactThreshold`  | `(threshold: TAutoCompactThreshold) => void`                         | Updates the automatic compaction threshold for subsequent `run()` calls.                                                                |
-| `compact`                  | `(instructions?: string) => Promise<void>`                           | Compresses conversation via LLM summary. System message is preserved across compaction (see below). Fires PreCompact/PostCompact hooks. |
-| `abort`                    | `() => void`                                                         | Cancels the currently running `run()` call. No-op if not running.                                                                       |
-| `shutdown`                 | `(options?: ISessionShutdownOptions) => Promise<void>`               | Aborts active work, persists the session when a store exists, logs shutdown, and fires `SessionEnd` exactly once.                       |
-| `isRunning`                | `() => boolean`                                                      | Returns true if a `run()` call is in progress.                                                                                          |
-| `getSessionAllowedTools`   | `() => string[]`                                                     | Returns tools that were session-approved ("Allow always").                                                                              |
-| `clearSessionAllowedTools` | `() => void`                                                         | Clears all session-scoped allow rules.                                                                                                  |
-| `injectMessage`            | `(role: 'user' \| 'assistant' \| 'system', content: string) => void` | Injects a message into conversation history without triggering an AI response. Used for restoring context on session resume.            |
+| Method                        | Signature                                                                                                               | Description                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `run`                         | `(message: string) => Promise<string>`                                                                                  | Send a message; returns AI response. Persists session if store exists.                                                                                                                                                                                                                                                                                                                                                                                  |
+| `getPermissionMode`           | `() => TPermissionMode`                                                                                                 | Returns the active permission mode.                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `setPermissionMode`           | `(mode: TPermissionMode) => void`                                                                                       | Changes the permission mode for future tool calls.                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `getSessionId`                | `() => string`                                                                                                          | Returns the stable session identifier.                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `getMessageCount`             | `() => number`                                                                                                          | Returns the number of completed `run()` calls.                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `clearHistory`                | `() => void`                                                                                                            | Clears the underlying Robota conversation history and resets token usage.                                                                                                                                                                                                                                                                                                                                                                               |
+| `getHistory`                  | `() => TUniversalMessage[]`                                                                                             | Returns the current conversation history as `TUniversalMessage[]` (chat entries only). Unchanged.                                                                                                                                                                                                                                                                                                                                                       |
+| `getFullHistory`              | `() => IHistoryEntry[]`                                                                                                 | Returns the full history as `IHistoryEntry[]`, including both chat messages and event entries (e.g., tool summaries).                                                                                                                                                                                                                                                                                                                                   |
+| `addHistoryEntry`             | `(entry: IHistoryEntry) => void`                                                                                        | Appends a pre-built `IHistoryEntry` (e.g., a tool-summary event entry) to the session history via `ConversationStore.addEntry()`.                                                                                                                                                                                                                                                                                                                       |
+| `getContextState`             | `() => IContextWindowState`                                                                                             | Returns real-time effective context window usage (tokens, percentage) from the shared agent-core estimator.                                                                                                                                                                                                                                                                                                                                             |
+| `getAutoCompactThreshold`     | `() => TAutoCompactThreshold`                                                                                           | Returns the configured automatic compaction threshold, or `false` when disabled.                                                                                                                                                                                                                                                                                                                                                                        |
+| `setAutoCompactThreshold`     | `(threshold: TAutoCompactThreshold) => void`                                                                            | Updates the automatic compaction threshold for subsequent `run()` calls.                                                                                                                                                                                                                                                                                                                                                                                |
+| `compact`                     | `(instructions?: string) => Promise<void>`                                                                              | Compresses conversation via LLM summary. System message is preserved across compaction (see below). Fires PreCompact/PostCompact hooks.                                                                                                                                                                                                                                                                                                                 |
+| `abort`                       | `() => void`                                                                                                            | Cancels the currently running `run()` call. No-op if not running.                                                                                                                                                                                                                                                                                                                                                                                       |
+| `shutdown`                    | `(options?: ISessionShutdownOptions) => Promise<void>`                                                                  | Aborts active work, persists the session when a store exists, logs shutdown, and fires `SessionEnd` exactly once.                                                                                                                                                                                                                                                                                                                                       |
+| `isRunning`                   | `() => boolean`                                                                                                         | Returns true if a `run()` call is in progress.                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `getSessionAllowedTools`      | `() => string[]`                                                                                                        | Returns tools that were session-approved ("Allow always").                                                                                                                                                                                                                                                                                                                                                                                              |
+| `clearSessionAllowedTools`    | `() => void`                                                                                                            | Clears all session-scoped allow rules.                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `getActivePresetId`           | `() => string`                                                                                                          | Returns the runtime active-preset id.                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `setActivePresetId`           | `(id: string) => void`                                                                                                  | Sets the runtime active-preset id. PURE STATE — records which preset is active; does not re-apply any preset options (permission/model/persona). Higher layers own re-application.                                                                                                                                                                                                                                                                      |
+| `getParallelSubagentsEnabled` | `() => boolean`                                                                                                         | Returns whether subagent dispatch is currently allowed for this session (the parallel-subagents dispatch gate).                                                                                                                                                                                                                                                                                                                                         |
+| `setParallelSubagentsEnabled` | `(enabled: boolean) => void`                                                                                            | Toggles the subagent dispatch gate live. Only effective when the agent runtime was built at assembly.                                                                                                                                                                                                                                                                                                                                                   |
+| `applyModelOptions`           | `(options: { model?: string; effort?: TModelEffort; temperature?: number; maxOutputTokens?: number }) => Promise<void>` | Re-applies model options to the live session. Awaits `robota.ensureReady()` first so it works on a cold (never-run) session — `setModel` requires full initialization, which otherwise only happens lazily on the first `run()`. Then calls `robota.setModel` so the next call reflects the options. Maps `maxOutputTokens` → the agent's `maxTokens` channel; updates `this.model` so `getModelId()` stays accurate. Absent fields are left untouched. |
+| `injectMessage`               | `(role: 'user' \| 'assistant' \| 'system', content: string) => void`                                                    | Injects a message into conversation history without triggering an AI response. Used for restoring context on session resume.                                                                                                                                                                                                                                                                                                                            |
 
 ### Usage And Context Refresh
 
@@ -187,7 +199,7 @@ records must not become a command source or hidden preference store.
 
 ### Session Data Migration
 
-`scripts/migrate-session-history.mjs` backfills the `history` field for sessions created before this field existed. It converts `messages[]` to `IHistoryEntry[]` format. Safe to run multiple times — skips sessions that already have `history`. Run once after upgrading.
+The repo-root `./scripts/migrate-session-history.mjs` backfills the `history` field for sessions created before this field existed. It converts `messages[]` to `IHistoryEntry[]` format. Safe to run multiple times — skips sessions that already have `history`. Run once after upgrading.
 
 ### Key SessionStore Methods
 
@@ -239,11 +251,11 @@ The session log records structured events to a JSONL file for diagnostics and re
 
 1. **`ISessionOptions.terminal`** (required) -- Inject an `ITerminalOutput` implementation for permission prompts and UI output. The consuming layer provides either a real terminal (CLI print mode) or an Ink-based no-op (TUI mode).
 
-2. **`ISessionOptions.tools`** -- Inject any set of `IToolWithEventService[]`. The consuming layer (agent-sdk) provides the default 8 tools + agent-tool.
+2. **`ISessionOptions.tools`** -- Inject any set of `IToolWithEventService[]`. The consuming layer (agent-framework) provides the default 8 tools + agent-tool.
 
-3. **`ISessionOptions.provider`** -- Inject any `IAIProvider`. The consuming layer (agent-sdk) creates the appropriate provider from config.
+3. **`ISessionOptions.provider`** -- Inject any `IAIProvider`. The consuming layer (agent-framework) creates the appropriate provider from config.
 
-4. **`ISessionOptions.systemMessage`** -- Inject the pre-built system prompt string. The consuming layer (agent-sdk) builds this from AGENTS.md, CLAUDE.md, tool descriptions, and trust level.
+4. **`ISessionOptions.systemMessage`** -- Inject the pre-built system prompt string. The consuming layer (agent-framework) builds this from AGENTS.md, CLAUDE.md, tool descriptions, and trust level.
 
 5. **`ISessionOptions.permissionHandler`** -- Inject a custom permission approval callback (used by Ink-based UI to show approval prompts in React components).
 
@@ -333,11 +345,11 @@ When `run()` encounters an error (e.g., from the execution loop or provider), th
 
 ### Interface Implementations
 
-No formal interface implementations. `Session`, `PermissionEnforcer`, `ContextWindowTracker`, `CompactionOrchestrator`, and `SessionStore` are standalone classes.
+No formal interface implementations. `PermissionEnforcer`, `ContextWindowTracker`, `CompactionOrchestrator`, and `SessionStore` are standalone classes.
 
 ### Inheritance Chains
 
-None. Classes are standalone.
+`Session extends SessionBase`. `SessionBase` (`session-base.ts`) is an abstract base that holds the shared session methods and live state, including the preset/model/parallel-subagent state (`getActivePresetId`/`setActivePresetId`, `getParallelSubagentsEnabled`/`setParallelSubagentsEnabled`, `applyModelOptions`); the concrete `Session` (`session.ts`) supplies the `robota`, `permissionEnforcer`, and other abstract members and adds the run loop. The remaining classes are standalone.
 
 ### Cross-Package Port Consumers
 
@@ -363,7 +375,7 @@ None. Classes are standalone.
 - **PermissionEnforcer** -- `wrapTools()`, `checkPermission()`, session-scoped allow, tool truncation are untested.
 - **ContextWindowTracker** -- `updateFromHistory()`, `shouldAutoCompact()`, metadata vs fallback estimation are untested.
 - **CompactionOrchestrator** -- `compact()`, hook firing, prompt building are untested.
-- **SessionStore** -- Covered by `agent-sdk/src/__tests__/session-store.test.ts` (12 tests: save/load/list/delete/directory creation).
+- **SessionStore** -- Covered by `agent-framework/src/__tests__/session-store.test.ts` (12 tests: save/load/list/delete/directory creation).
 - **FileSessionLogger** -- `log()`, file creation, JSONL formatting, error handling on read-only paths are untested.
 - **SilentSessionLogger** -- No-op behavior untested (trivial, low priority).
 - All classes should be testable with mock `IAIProvider` and mock `ITerminalOutput` injections.

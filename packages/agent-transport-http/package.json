@@ -1,0 +1,61 @@
+{
+  "name": "@robota-sdk/agent-transport-http",
+  "version": "3.0.0-beta.76",
+  "description": "HTTP (Hono) transport for the Robota SDK",
+  "type": "module",
+  "main": "dist/node/index.js",
+  "types": "dist/node/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/node/index.d.ts",
+      "source": "./src/index.ts",
+      "node": {
+        "import": "./dist/node/index.js",
+        "require": "./dist/node/index.cjs"
+      },
+      "default": {
+        "import": "./dist/node/index.js",
+        "require": "./dist/node/index.cjs"
+      }
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/woojubb/robota.git"
+  },
+  "homepage": "https://robota.io/",
+  "bugs": {
+    "url": "https://github.com/woojubb/robota/issues"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "build:js": "tsdown --no-dts",
+    "build:types": "tsdown --dts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "test:coverage": "vitest run --coverage --passWithNoTests",
+    "clean": "rimraf dist",
+    "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
+  },
+  "dependencies": {
+    "@robota-sdk/agent-interface-transport": "workspace:*",
+    "hono": "^4.12.25"
+  },
+  "devDependencies": {
+    "rimraf": "^5.0.10",
+    "tsdown": "^0.22.2",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.6"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  }
+}

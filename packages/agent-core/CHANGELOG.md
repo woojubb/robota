@@ -1,5 +1,14 @@
 # @robota-sdk/agent-core
 
+## 3.0.0-beta.76
+
+### Patch Changes
+
+- DQ-AUDIT-002 — consolidate duplicated domain data onto single owners: one model-pricing SSOT in agent-core (`MODEL_PRICES`/`lookupModelPrice`/`calculateModelCost`/`estimateBlendedCostPer1000`) consumed by agent-command and agent-plugin (drops two embedded/stale price tables); the `len/4` token estimator replaced by core `CONTEXT_ESTIMATE_CHARS_PER_TOKEN`; TUI `IContextState` derived from core `IContextWindowState`; dead pass-through re-exports removed from agent-session.
+- DQ-AUDIT-006 — error/observability hygiene: replace raw `throw new Error()` on core-service and provider hot paths with typed `RobotaError` subclasses (`ConfigurationError`/`ValidationError`) so error-handling can branch on category/recoverable; surface fire-and-forget hook failures via `logger.warn` instead of silent `.catch(() => {})`; wire the error-handling plugin's `totalRetries`/`successfulRecoveries` stats to real counters.
+- DQ-AUDIT-007 — remove the silent `model || 'gpt-4o-mini'` default in the OpenAI streaming handler (a missing model now throws `ConfigurationError` instead of substituting a vendor default); document `IAIProvider`'s universal (`chat`) vs raw (`generateResponse`) dual surface as intentional in the agent-core SPEC.
+- 576af62: Fix `ConfigurationError: Agent must be fully initialized before changing model configuration` when running `/preset` (or any live model re-apply) on a fresh interactive session before the first message. The Robota agent initialized lazily on the first `run()`, but `setModel` requires full initialization. `Session.applyModelOptions` now awaits the new idempotent `Robota.ensureReady()` before `setModel`, and the preset live-switch path (`applyPresetToSession` → `executePresetCommand`) is async end-to-end. Adds a real cold-session regression test (no mocked Robota).
+
 ## 3.0.0-beta.75
 
 ### Patch Changes

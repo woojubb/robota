@@ -45,7 +45,7 @@ Robota (Facade)
   │     ├── command-executor.ts     — CommandExecutor: shell command hook execution
   │     ├── http-executor.ts        — HttpExecutor: HTTP request hook execution
   │     └── types.ts                — THookEvent (13 events), THookDefinition (discriminated union), IHookTypeExecutor
-  └── Plugin Layer (1 built-in + 8 external plugin packages)
+  └── Plugin Layer (1 built-in + 8 plugin modules in the `@robota-sdk/agent-plugin` package)
         ├── EventEmitterPlugin           (built-in — event coordination)
         └── External plugins (per external plugin package):
               conversation-history, logging, usage, performance,
@@ -109,6 +109,7 @@ This package is the single source of truth (SSOT) for the following types:
 | `IOwnerPathSegment`                   | `event-service/interfaces.ts`       | Execution path tracking                                                                                                                                                                                                                                                                                                    |
 | `RobotaError`                         | `utils/errors.ts`                   | Base error hierarchy                                                                                                                                                                                                                                                                                                       |
 | `TTextDeltaCallback`                  | `interfaces/provider.ts`            | Streaming text delta callback `(delta: string) => void`                                                                                                                                                                                                                                                                    |
+| `TModelEffort`                        | `interfaces/provider.ts`            | SSOT reasoning-effort union: `'low' \| 'medium' \| 'high' \| 'xhigh' \| 'max'`. `'high'` is the neutral default applied at the framework→provider seam.                                                                                                                                                                    |
 | `TPermissionMode`                     | `permissions/types.ts`              | Permission modes: plan, default, acceptEdits, bypassPermissions                                                                                                                                                                                                                                                            |
 | `TTrustLevel`                         | `permissions/types.ts`              | Friendly trust aliases: safe, moderate, full                                                                                                                                                                                                                                                                               |
 | `TPermissionDecision`                 | `permissions/types.ts`              | Evaluation outcome: auto, approve, deny                                                                                                                                                                                                                                                                                    |
@@ -150,6 +151,20 @@ Provider packages import these types. They must not re-declare them.
 | `getModelMaxOutput(id)`     | Function  | Get max output tokens for a model ID                 |
 | `getModelName(id)`          | Function  | Get human-readable name (e.g., "Claude Sonnet 4.6")  |
 | `formatTokenCount(tokens)`  | Function  | Format tokens as human-readable (e.g., "200K", "1M") |
+
+### Model Pricing (SSOT)
+
+`context/model-pricing.ts` is the single source of truth for per-model token cost. Consumers that
+compute or estimate cost (cost display, budget/rate limiting) read from here rather than embedding
+their own price tables. Prices are USD per 1,000,000 tokens.
+
+| Export                            | Kind      | Description                                                                             |
+| --------------------------------- | --------- | --------------------------------------------------------------------------------------- |
+| `IModelPrice`                     | Interface | `{ inputPerMillion, outputPerMillion }`                                                 |
+| `MODEL_PRICES`                    | Record    | Exact per-model prices keyed by API model ID                                            |
+| `lookupModelPrice(id)`            | Function  | Resolve price by exact ID, then family pattern; `undefined` if unknown                  |
+| `calculateModelCost(id, in, out)` | Function  | Exact USD cost for an input/output token split; `undefined` if the model is unknown     |
+| `estimateBlendedCostPer1000(id)`  | Function  | Blended USD-per-1000 rate for budget estimation when no input/output split is available |
 
 ## Public API Surface
 
@@ -245,6 +260,34 @@ NOTE: `CommandExecutor` and `HttpExecutor` are exported from `hooks/index.ts` bu
 
 This callback is declared in `IChatOptions.onTextDelta` and `IRunOptions.onTextDelta`. Provider implementations use `IChatOptions.onTextDelta` to emit text chunks during streaming responses. The execution engine (`execution-round.ts`, `execution-pipeline.ts`) uses only `IRunOptions.onTextDelta` (the run-scoped callback) — there is no fallback to a provider instance-level callback. Callers must pass the callback explicitly through the run context. Provider instance-level `onTextDelta` properties (if any) are a provider-internal concern and must not be relied upon by agent-core.
 
+### Reasoning Effort
+
+| Export         | Kind | Description                                                                                                           |
+| -------------- | ---- | --------------------------------------------------------------------------------------------------------------------- |
+| `TModelEffort` | type | SSOT reasoning-effort union: `'low' \| 'medium' \| 'high' \| 'xhigh' \| 'max'`. `'high'` is the neutral default tier. |
+
+`TModelEffort` (declared in `interfaces/provider.ts`) is the single source of truth for the
+reasoning-effort dial. The `effort` value flows through one channel from configuration to provider:
+
+- `IModelConfig.effort` (`src/core/robota-types.ts`) — the shared model-config shape used by
+  `setModel`/`getModel`.
+- `IAgentConfig.defaultModel.effort` (`src/interfaces/agent.ts`) — the agent-config default-model
+  effort threaded into execution.
+- `IChatOptions.effort` (`src/interfaces/provider.ts`) — the per-invocation effort passed to provider
+  `chat()`.
+
+`setModel` writes the effort into agent config (`src/core/robota-config-manager.ts`). At the
+framework→provider seam, `execution-round-provider.ts` defaults it to `'high'`
+(`config.defaultModel.effort ?? 'high'`) so every model call carries an explicit effort. Native-effort
+providers map it to their request parameter; providers without a native effort concept ignore it as a
+documented no-op. Core must not branch on provider names to apply effort.
+
+`setModel` requires the agent to be fully initialized (providers registered + current provider set),
+which otherwise happens lazily on the first `run()`. `Robota.ensureReady()` performs that
+initialization without running a turn (idempotent), so callers that mutate runtime configuration
+before the first turn — e.g. live preset/model switching on a fresh interactive session — call
+`ensureReady()` first instead of hitting the "must be fully initialized" guard.
+
 ### Provider-Native Replay Payloads
 
 `IChatOptions.onProviderNativeRawPayload` is the provider-neutral callback bridge for replay-grade raw payload capture. Provider packages own the native SDK request/response/stream objects and call this callback with `IProviderNativeRawPayloadEvent`:
@@ -257,6 +300,21 @@ This callback is declared in `IChatOptions.onTextDelta` and `IRunOptions.onTextD
 - `metadata`: provider-owned scalar diagnostics only.
 
 `agent-core` must not import concrete provider SDK types, inspect provider names, or choose provider-specific payload fields. During a provider call, core wraps the callback and emits a `provider_native_raw_payload` execution event with the current `executionId`, `conversationId`, and `round`. The existing `provider_response_raw` event remains the provider-normalized Robota message snapshot and is not a substitute for provider-native payload capture.
+
+### Provider Contract — dual surface (intentional)
+
+`IAIProvider` deliberately exposes two request/response surfaces, and every provider implements both:
+
+- **Universal (public):** `chat(messages, options)` / `chatStream(...)` operate on `TUniversalMessage`.
+  This is the provider-neutral surface that generic layers and SDK consumers use.
+- **Raw (internal protocol path):** `generateResponse(payload)` / `generateStreamingResponse(payload)`
+  operate on `IProviderRequest` / `IRawProviderResponse`. These are consumed by the core
+  `conversation-service` to thread provider-native request/response payloads (e.g. for the
+  `provider_native_raw_payload` event). They are **not** the public consumer API.
+
+The two surfaces share one interface because a provider instance is legitimately both a universal and
+a raw provider; the raw methods are an internal-protocol detail, not a parallel public API. Generic
+layers and applications must use `chat`/`chatStream`; only the conversation service drives the raw path.
 
 ### Provider Capabilities
 
@@ -451,7 +509,7 @@ interface IHookTypeExecutor {
 | `CommandExecutor` | `command` | Spawns shell process, passes JSON via stdin, reads exit code |
 | `HttpExecutor`    | `http`    | Sends HTTP request, maps response status to exit code        |
 
-**Extended executors (agent-sdk):**
+**Extended executors (agent-framework):**
 
 | Executor         | Hook Type | Behavior                                                   |
 | ---------------- | --------- | ---------------------------------------------------------- |
@@ -548,6 +606,7 @@ If the partial response includes tool_use blocks (abort during tool call streami
 - **Read-only**: Consumers read history but do not mutate existing messages.
 - **Always committed**: `beginAssistant()` + `commitAssistant()` guarantees an assistant message is always appended, even on abort with empty content.
 - **No fallback**: If a message should be in history, it IS in history. No fallback to alternative data sources.
+- **Unbounded**: `DEFAULT_MAX_MESSAGES_PER_CONVERSATION = 0` (`src/managers/conversation-history-manager.ts`) means no message cap, backing the append-only guarantee — history is never trimmed by count.
 
 ## Message Model
 

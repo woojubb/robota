@@ -1,5 +1,37 @@
 # @robota-sdk/agent-transport
 
+## 3.0.0-beta.76
+
+### Minor Changes
+
+- 9df3a88: Split the consolidated `@robota-sdk/agent-transport` package into per-concern transport packages (DQ-AUDIT-005) so unrelated heavy dependencies (React/Ink, ws, Hono, MCP SDK) no longer share one publishable unit and are not dragged into non-TUI consumers' graphs:
+
+  - `@robota-sdk/agent-transport` — lean core: headless adapter + `TransportRegistry` + scripted-provider testing fixtures (no external runtime deps).
+  - `@robota-sdk/agent-transport-tui` — React + Ink terminal UI.
+  - `@robota-sdk/agent-transport-ws` — WebSocket transport + protocol (`agent-web-ui` now depends only on this for WS types).
+  - `@robota-sdk/agent-transport-http` — Hono HTTP transport.
+  - `@robota-sdk/agent-transport-mcp` — MCP server transport.
+
+  The default transport-registry wiring (pre-registering `WsTransport`) moves to the CLI composition root, removing the core→ws edge.
+
+### Patch Changes
+
+- DQ-AUDIT-002 — consolidate duplicated domain data onto single owners: one model-pricing SSOT in agent-core (`MODEL_PRICES`/`lookupModelPrice`/`calculateModelCost`/`estimateBlendedCostPer1000`) consumed by agent-command and agent-plugin (drops two embedded/stale price tables); the `len/4` token estimator replaced by core `CONTEXT_ESTIMATE_CHARS_PER_TOKEN`; TUI `IContextState` derived from core `IContextWindowState`; dead pass-through re-exports removed from agent-session.
+- c0a6287: Relocate session feature logic out of the CLI shell and the transport (DQ-AUDIT-004):
+
+  - Extract session-log timing analysis into the new `@robota-sdk/agent-session-analytics` package (pure analysis over canonical session records — no duplicate types, no file I/O). `agent-cli`'s `session analyze` command shrinks to thin wiring and loads records via the new `createUserSessionStore()` / existing `createProjectSessionStore()` framework facades.
+  - Move LLM-based session auto-naming (`generateSessionName`) from `agent-transport/tui` into `agent-framework` (session-lifecycle owner); the TUI transport now invokes it through the framework.
+
+- Updated dependencies
+- Updated dependencies [c0a6287]
+- Updated dependencies [9df3a88]
+- Updated dependencies
+- Updated dependencies
+- Updated dependencies [576af62]
+  - @robota-sdk/agent-core@3.0.0-beta.76
+  - @robota-sdk/agent-framework@3.0.0-beta.76
+  - @robota-sdk/agent-interface-transport@3.0.0-beta.76
+
 ## 3.0.0-beta.75
 
 ### Patch Changes

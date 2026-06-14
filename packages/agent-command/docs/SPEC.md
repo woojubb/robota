@@ -24,7 +24,7 @@ Each command domain lives in its own subdirectory (`src/<command>/`) with a cons
 
 Two cross-cutting subdirectories:
 
-- `src/default/` — `createDefaultCommandModules` assembles all 19 standard command modules into one `readonly ICommandModule[]` array. Consumers pass `cwd`, `providerDefinitions`, `providerSettingsAdapter`, and optional `orgPolicy`.
+- `src/default/` — `createDefaultCommandModules` assembles all 21 standard command modules into one `readonly ICommandModule[]` array. Consumers pass `cwd`, `providerDefinitions`, `providerSettingsAdapter`, and optionally `enabledCommandModules` / `disabledCommandModules` (allow-then-deny module name filters). `orgPolicy` is not an option here — it is wired at the provider-command-module level via `createProviderCommandModule`.
 - `src/plugins/` — provides `createDefaultPluginCommandAdapter` (wires `BundlePluginInstaller`, `BundlePluginLoader`, `MarketplaceClient` into an `ICommandPluginAdapter`) and `reloadPluginCommandSource` (synchronously reloads plugin commands into a `CommandRegistry`).
 
 The `agent` command module sets `sessionRequirements: ['agent-runtime']`, which signals to the session layer that this module must only be registered when an agent runtime is available.
@@ -32,8 +32,10 @@ The `agent` command module sets `sessionRequirements: ['agent-runtime']`, which 
 ## Dependencies
 
 ```
-@robota-sdk/agent-core      workspace:*   (IProviderDefinition, ITerminalOutput, IProviderSetupStepDefinition, etc.)
-@robota-sdk/agent-framework workspace:*   (ICommandModule, ICommandSource, ISystemCommand, IOrgPolicy, ICommandPluginAdapter, BundlePluginInstaller, etc.)
+@robota-sdk/agent-core                workspace:*   (IProviderDefinition, ITerminalOutput, IProviderSetupStepDefinition, etc.)
+@robota-sdk/agent-framework           workspace:*   (ICommandModule, ICommandSource, ISystemCommand, IOrgPolicy, ICommandPluginAdapter, BundlePluginInstaller, etc.)
+@robota-sdk/agent-interface-transport workspace:*   (transport-side command/list contracts)
+@robota-sdk/agent-preset              workspace:*   (listPresets, getPreset, resolvePreset — used by the `/preset` command)
 ```
 
 No circular dependencies. This package does not depend on any other `agent-command-*` package.
@@ -71,34 +73,36 @@ Single root entry point: `import { ... } from '@robota-sdk/agent-command'`
 
 | Export                              | Kind     | Description                                                                            |
 | ----------------------------------- | -------- | -------------------------------------------------------------------------------------- |
-| `createDefaultCommandModules`       | function | Assembles all 19 standard command modules into one array                               |
+| `createDefaultCommandModules`       | function | Assembles all 21 standard command modules into one array                               |
 | `IDefaultCommandModulesOptions`     | type     | Options interface for `createDefaultCommandModules`                                    |
 | `createDefaultPluginCommandAdapter` | function | Creates a production `ICommandPluginAdapter` wired to filesystem plugin infrastructure |
 | `reloadPluginCommandSource`         | function | Synchronously reloads plugin commands into a `CommandRegistry`                         |
 
 ### Command module factories and sources
 
-| Module      | Factory                          | Source class                 | Execute function                                                                                                             |
-| ----------- | -------------------------------- | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| agent       | `createAgentCommandModule`       | `AgentCommandSource`         | `executeAgentCommand`                                                                                                        |
-| background  | `createBackgroundCommandModule`  | `BackgroundCommandSource`    | `executeBackgroundCommand`                                                                                                   |
-| compact     | `createCompactCommandModule`     | `CompactCommandSource`       | `executeCompactCommand`                                                                                                      |
-| context     | `createContextCommandModule`     | `ContextCommandSource`       | `executeContextCommand`                                                                                                      |
-| exit        | `createExitCommandModule`        | `ExitCommandSource`          | `executeExitCommand`                                                                                                         |
-| help        | `createHelpCommandModule`        | `HelpCommandSource`          | `executeHelpCommand`                                                                                                         |
-| language    | `createLanguageCommandModule`    | `LanguageCommandSource`      | `executeLanguageCommand`                                                                                                     |
-| memory      | `createMemoryCommandModule`      | `MemoryCommandSource`        | `executeMemoryCommand`                                                                                                       |
-| mode        | `createModeCommandModule`        | `ModeCommandSource`          | `executeModeCommand`                                                                                                         |
-| permissions | `createPermissionsCommandModule` | `PermissionsCommandSource`   | `executePermissionsCommand`                                                                                                  |
-| plugin      | `createPluginCommandModule`      | `PluginManagerCommandSource` | `executePluginCommand`, `executeReloadPluginsCommand`                                                                        |
-| provider    | `createProviderCommandModule`    | `ProviderCommandSource`      | `executeProviderCommand`                                                                                                     |
-| reset       | `createResetCommandModule`       | `ResetCommandSource`         | `executeResetCommand`                                                                                                        |
-| rewind      | `createRewindCommandModule`      | `RewindCommandSource`        | `executeRewindCommand`                                                                                                       |
-| session     | `createSessionCommandModule`     | `SessionCommandSource`       | `executeClearCommand`, `executeCostCommand`, `executeRenameCommand`, `executeResumeCommand`, `executeValidateSessionCommand` |
-| settings    | `createSettingsCommandModule`    | `SettingsCommandSource`      | (inline, no standalone export)                                                                                               |
-| skills      | `createSkillsCommandModule`      | `SkillsCommandSource`        | `executeSkillsCommand`                                                                                                       |
-| statusline  | `createStatusLineCommandModule`  | `StatusLineCommandSource`    | `executeStatusLineCommand`                                                                                                   |
-| user-local  | `createUserLocalCommandModule`   | `UserLocalCommandSource`     | `executeUserLocalCommand`, `executeUserLocalDirectCommand`                                                                   |
+| Module      | Factory                          | Source class                 | Execute function                                                                                                                                                        |
+| ----------- | -------------------------------- | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| agent       | `createAgentCommandModule`       | `AgentCommandSource`         | `executeAgentCommand`                                                                                                                                                   |
+| background  | `createBackgroundCommandModule`  | `BackgroundCommandSource`    | `executeBackgroundCommand`                                                                                                                                              |
+| compact     | `createCompactCommandModule`     | `CompactCommandSource`       | `executeCompactCommand`                                                                                                                                                 |
+| context     | `createContextCommandModule`     | `ContextCommandSource`       | `executeContextCommand`                                                                                                                                                 |
+| exit        | `createExitCommandModule`        | `ExitCommandSource`          | `executeExitCommand`                                                                                                                                                    |
+| help        | `createHelpCommandModule`        | `HelpCommandSource`          | `executeHelpCommand`                                                                                                                                                    |
+| language    | `createLanguageCommandModule`    | `LanguageCommandSource`      | `executeLanguageCommand`                                                                                                                                                |
+| memory      | `createMemoryCommandModule`      | `MemoryCommandSource`        | `executeMemoryCommand`                                                                                                                                                  |
+| mode        | `createModeCommandModule`        | `ModeCommandSource`          | `executeModeCommand`                                                                                                                                                    |
+| permissions | `createPermissionsCommandModule` | `PermissionsCommandSource`   | `executePermissionsCommand`                                                                                                                                             |
+| plugin      | `createPluginCommandModule`      | `PluginManagerCommandSource` | `executePluginCommand`, `executeReloadPluginsCommand`                                                                                                                   |
+| preset      | `createPresetCommandModule`      | `PresetCommandSource`        | `executePresetCommand` (the `/preset` list + live-switch command; calls `agent-preset` `listPresets`/`getPreset`/`resolvePreset` then framework `applyPresetToSession`) |
+| provider    | `createProviderCommandModule`    | `ProviderCommandSource`      | `executeProviderCommand`                                                                                                                                                |
+| reset       | `createResetCommandModule`       | `ResetCommandSource`         | `executeResetCommand`                                                                                                                                                   |
+| rewind      | `createRewindCommandModule`      | `RewindCommandSource`        | `executeRewindCommand`                                                                                                                                                  |
+| schedule    | `createScheduleCommandModule`    | `ScheduleCommandSource`      | `executeScheduleCommand`, `executeMonitorCommand` (recurring/one-shot wake + process-monitor wake; `sessionRequirements: ['agent-runtime']`)                            |
+| session     | `createSessionCommandModule`     | `SessionCommandSource`       | `executeClearCommand`, `executeCostCommand`, `executeRenameCommand`, `executeResumeCommand`, `executeValidateSessionCommand`                                            |
+| settings    | `createSettingsCommandModule`    | `SettingsCommandSource`      | (inline, no standalone export)                                                                                                                                          |
+| skills      | `createSkillsCommandModule`      | `SkillsCommandSource`        | `executeSkillsCommand`                                                                                                                                                  |
+| statusline  | `createStatusLineCommandModule`  | `StatusLineCommandSource`    | `executeStatusLineCommand`                                                                                                                                              |
+| user-local  | `createUserLocalCommandModule`   | `UserLocalCommandSource`     | `executeUserLocalCommand`, `executeUserLocalDirectCommand`                                                                                                              |
 
 ### Provider setup flow (interactive UI helpers)
 
@@ -221,9 +225,11 @@ Coverage gaps: `src/default/` and `src/plugins/` subdirectories have no dedicate
 | `ModeCommandSource`          | `ICommandSource` | `src/mode/mode-command-module.ts`               |
 | `PermissionsCommandSource`   | `ICommandSource` | `src/permissions/permissions-command-module.ts` |
 | `PluginManagerCommandSource` | `ICommandSource` | `src/plugin/plugin-command-module.ts`           |
+| `PresetCommandSource`        | `ICommandSource` | `src/preset/preset-command-module.ts`           |
 | `ProviderCommandSource`      | `ICommandSource` | `src/provider/provider-command-module.ts`       |
 | `ResetCommandSource`         | `ICommandSource` | `src/reset/reset-command-module.ts`             |
 | `RewindCommandSource`        | `ICommandSource` | `src/rewind/rewind-command-module.ts`           |
+| `ScheduleCommandSource`      | `ICommandSource` | `src/schedule/schedule-command-module.ts`       |
 | `SessionCommandSource`       | `ICommandSource` | `src/session/session-command-module.ts`         |
 | `SettingsCommandSource`      | `ICommandSource` | `src/settings/settings-command-module.ts`       |
 | `SkillsCommandSource`        | `ICommandSource` | `src/skills/skills-command-module.ts`           |
