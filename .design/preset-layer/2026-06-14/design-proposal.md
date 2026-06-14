@@ -232,10 +232,13 @@ interface IPreset {
 | PRESET-004 | 번들 — 명령 모듈 선택 + 권한/신뢰 프로파일 per preset                          | BEHAVIOR | medium   | 002             |
 | PRESET-008 | effort → 모델 호출 배선 (low/med/high/xhigh/max를 provider 요청에 전달)        | BEHAVIOR | high     | 001             |
 | PRESET-005 | 첫 프리셋 `autonomous-builder` (Fable 5 작동원리 모방)                         | BEHAVIOR | high     | 002,003,004,008 |
+| PRESET-009 | `careful-reviewer` 프리셋 (읽기 중심·ask-first 검토형)                         | BEHAVIOR | medium   | 001,002,003,004 |
+| PRESET-010 | `neutral-executor` 프리셋 (Hermes식 얇은 페르소나·지시 충실)                   | BEHAVIOR | low      | 001,002,003,004 |
 | PRESET-006 | 프리셋 발견/관리 UX — `/preset` 명령 + 목록 + TUI 활성 표시                    | SCREEN   | medium   | 002,005         |
 | PRESET-007 | 사용자 작성/외부 프리셋 로딩(파일/npm)                                         | FLOW     | low      | 001             |
 
-권장 실행 순서: 001 → 002 → 003 → 004 → 008 → 005 → 006 → (007 선택).
+권장 실행 순서: 001 → 002 → 003 → 004 → 008 → 005 → 006 → (009/010/007 선택, PRESET-005와 동형 콘텐츠).
+PRESET-009/010은 빌트인 튜닝 프리셋(콘텐츠)으로, 시스템(PRESET-001) 변경 없이 추가된다 — 프리셋이 개방형 집합임을 구체화.
 
 **레이어 불변식(모든 백로그 공통):** 기능 로직은 agent-preset/agent-framework/agent-executor/agent-core/agent-command가 소유한다. `agent-cli`는 `--preset` 파싱·`resolvePreset` 호출 결과 전달·활성 표시(껍데기)만 한다. cli에 해석·합성·권한·effort·서브에이전트 로직을 두지 않는다.
 
