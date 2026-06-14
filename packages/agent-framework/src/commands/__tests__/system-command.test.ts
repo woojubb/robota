@@ -5,7 +5,7 @@ import { BuiltinCommandSource, createBuiltinCommandModule } from '../builtin-sou
 import { SystemCommandExecutor, createSystemCommands } from '../system-command.js';
 
 import type { ICommandModule } from '../../command-api/command-module.js';
-import type { ICommandHostContext } from '../../command-api/index.js';
+import type { ICommandHostContext, ISystemCommand } from '../../command-api/index.js';
 
 function createMockSession(overrides?: Record<string, unknown>, cwd = '/workspace') {
   const underlying = {
@@ -202,6 +202,23 @@ describe('SystemCommandExecutor', () => {
     expect(executor.hasCommand('custom')).toBe(true);
     const result = await executor.execute('custom', createMockSession(), '');
     expect(result!.message).toBe('custom result');
+  });
+
+  it('TC-01: replaceCommands swaps the entire command set (prior commands removed)', () => {
+    const executor = new SystemCommandExecutor([
+      { name: 'old', description: 'Old command', execute: () => ({ success: true, message: '' }) },
+    ]);
+    expect(executor.hasCommand('old')).toBe(true);
+
+    const cmdA: ISystemCommand = {
+      name: 'a',
+      description: 'Command A',
+      execute: () => ({ success: true, message: '' }),
+    };
+    executor.replaceCommands([cmdA]);
+
+    expect(executor.listCommands()).toEqual([cmdA]);
+    expect(executor.hasCommand('old')).toBe(false);
   });
 
   it('executes arbitrary injected command modules without knowing their names in SDK core', async () => {

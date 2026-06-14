@@ -4,7 +4,12 @@
  * and all command/skill invocation logic.
  */
 
-import { executeSkill, SkillCommandSource, SystemCommandExecutor } from '../commands/index.js';
+import {
+  executeSkill,
+  selectCommandModules,
+  SkillCommandSource,
+  SystemCommandExecutor,
+} from '../commands/index.js';
 import { createSkillActivationEvent } from '../commands/skill-activation-events.js';
 
 import type { ICommandHostContext } from '../command-api/index.js';
@@ -44,6 +49,8 @@ function getQualifiedSkillName(rawInput?: string): string | undefined {
 
 export class SessionSkillRouter {
   readonly commandExecutor: SystemCommandExecutor;
+  /** Command modules received at construction — retained for live re-selection (PRESET-015). */
+  private readonly allCommandModules: readonly ICommandModule[];
   private readonly skillCommandSource: SkillCommandSource;
   private readonly commandHostAdapters?: ICommandHostAdapters;
   private commandInvocationSource: TCommandInvocationSource = 'user';
@@ -82,11 +89,21 @@ export class SessionSkillRouter {
     ) => Promise<ICommandResult>,
     private readonly shellExec?: TShellExecFn,
   ) {
+    this.allCommandModules = commandModules;
     this.commandExecutor = new SystemCommandExecutor(
       commandModules.flatMap((module) => module.systemCommands ?? []),
     );
     this.skillCommandSource = new SkillCommandSource(cwd);
     this.commandHostAdapters = commandHostAdapters;
+  }
+
+  /** PRESET-015 — re-filter the session's command modules and rebuild the executor live. */
+  reapplyCommandModuleSelection(
+    enabled: readonly string[] | undefined,
+    disabled: readonly string[] | undefined,
+  ): void {
+    const selected = selectCommandModules(this.allCommandModules, enabled, disabled);
+    this.commandExecutor.replaceCommands(selected.flatMap((module) => module.systemCommands ?? []));
   }
 
   getCommandInvocationSource(): TCommandInvocationSource {
