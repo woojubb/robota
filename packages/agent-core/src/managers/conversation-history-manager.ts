@@ -41,7 +41,12 @@ export { ConversationStore } from './conversation-store';
 
 export type { IProviderApiMessage } from './conversation-store';
 
-const DEFAULT_MAX_MESSAGES_PER_CONVERSATION = 100;
+/**
+ * 0 = unbounded (append-only). Conversation history must preserve every message; context size is
+ * managed by size-based compaction (which summarizes), never by count-based truncation. A positive
+ * value is an explicit opt-in for a bounded buffer only.
+ */
+const DEFAULT_MAX_MESSAGES_PER_CONVERSATION = 0;
 const DEFAULT_MAX_CONVERSATIONS = 50;
 
 /** Interface for managing conversation history. @public */
