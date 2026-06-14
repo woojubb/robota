@@ -37,7 +37,7 @@ describe('resolvePreset', () => {
 
   it('throws with the available-preset list for an unknown id', () => {
     expect(() => resolvePreset('does-not-exist')).toThrowError(
-      'Unknown preset: "does-not-exist". Available presets: default.',
+      'Unknown preset: "does-not-exist". Available presets: default, autonomous-builder.',
     );
   });
 });
@@ -146,6 +146,47 @@ describe('PRESET-004 autonomy / defaultPermissionMode → permissionMode', () =>
   it('no-op preset preserves the PRESET-001 cliOverrides-unchanged contract', () => {
     const base: TResolvedPresetOptions = { model: 'm', effort: 'high', agentName: 'a' };
     expect(resolvePreset('default', { cliOverrides: base })).toEqual(base);
+  });
+});
+
+describe('PRESET-005 autonomous-builder', () => {
+  it('TC-01: persona is non-empty and includes the portable behaviour-guide keyword groups', () => {
+    const { persona } = resolvePreset('autonomous-builder');
+    expect(persona).toBeDefined();
+    expect((persona ?? '').length).toBeGreaterThan(0);
+    const text = (persona ?? '').toLowerCase();
+
+    // proactivity / high autonomy
+    expect(text).toMatch(/proceed and|act rather than stop to ask/);
+    // non-sycophantic honesty + own-your-mistakes + even-handedness (at least one of the portable set)
+    expect(text).toMatch(/sycophantic|even-handed|own it|get something wrong/);
+    // scope-constraint phrasing
+    expect(text).toMatch(/do not refactor|expand scope|simplest thing that works/);
+    // tool-result grounding
+    expect(text).toMatch(/tool result|ground your claims|not yet verified/);
+  });
+
+  it('TC-02: effort === "high"', () => {
+    expect(resolvePreset('autonomous-builder').effort).toBe('high');
+  });
+
+  it('TC-03: autonomy === "act-first"', () => {
+    expect(resolvePreset('autonomous-builder').autonomy).toBe('act-first');
+  });
+
+  it('TC-04: enableParallelSubagents === true', () => {
+    expect(resolvePreset('autonomous-builder').enableParallelSubagents).toBe(true);
+  });
+
+  it('TC-05: selfVerification === true', () => {
+    expect(resolvePreset('autonomous-builder').selfVerification).toBe(true);
+  });
+
+  it('TC-09: listPresets() includes autonomous-builder with non-empty title/description', () => {
+    const summary = listPresets().find((preset) => preset.id === 'autonomous-builder');
+    expect(summary).toBeDefined();
+    expect((summary?.title ?? '').length).toBeGreaterThan(0);
+    expect((summary?.description ?? '').length).toBeGreaterThan(0);
   });
 });
 
