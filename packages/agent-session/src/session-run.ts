@@ -5,7 +5,12 @@
  * Stateless: all mutable state is passed in via IRunContext.
  */
 
-import { createUserMessage, getProviderCapabilities, runHooks } from '@robota-sdk/agent-core';
+import {
+  CONTEXT_ESTIMATE_CHARS_PER_TOKEN,
+  createUserMessage,
+  getProviderCapabilities,
+  runHooks,
+} from '@robota-sdk/agent-core';
 
 import {
   createToolExecutionBridge,
@@ -120,7 +125,7 @@ export async function executeRun(
   ctx.log('pre_run', {
     historyLength: history.length,
     historyChars: historyJson.length,
-    historyEstTokens: Math.ceil(historyJson.length / 4),
+    historyEstTokens: Math.ceil(historyJson.length / CONTEXT_ESTIMATE_CHARS_PER_TOKEN),
     input: enrichedMessage,
     history,
     model: ctx.model,
