@@ -179,6 +179,11 @@ export {
   VALID_PERMISSION_MODES,
   writeCommandPermissionMode,
 } from '../command-api/permissions/permission-mode-command-api.js';
+export { applyPresetToSession } from '../command-api/preset/preset-application.js';
+export type {
+  IPresetApplicationOptions,
+  IPresetApplicationResult,
+} from '../command-api/preset/preset-application.js';
 export {
   buildStatusLineCommandSubcommands,
   DEFAULT_STATUS_LINE_COMMAND_SETTINGS,
