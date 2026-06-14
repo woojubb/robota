@@ -37,6 +37,10 @@ const SCAN_COMMANDS = [
   { name: 'sdk-public-surface', command: ['node', 'scripts/harness/check-sdk-public-surface.mjs'] },
   { name: 'specs', command: ['node', 'scripts/harness/audit-spec-coverage.mjs'] },
   { name: 'spec-paths', command: ['node', 'scripts/harness/check-spec-paths.mjs'] },
+  {
+    name: 'harness-config-paths',
+    command: ['node', 'scripts/harness/check-harness-config-paths.mjs'],
+  },
   { name: 'workspace-refs', command: ['node', 'scripts/harness/check-workspace-refs.mjs'] },
   { name: 'stub-markers', command: ['node', 'scripts/harness/check-stub-markers.mjs'] },
   { name: 'done-evidence', command: ['node', 'scripts/harness/check-done-evidence.mjs'] },
