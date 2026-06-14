@@ -335,9 +335,12 @@ the CLI surfaces the available preset list and exits.
 
 ### Transport Registry
 
-The CLI assembles a `TransportRegistry` via `createDefaultTransportRegistry()` (owned by `@robota-sdk/agent-transport`, `packages/agent-transport/src/transport-registry.ts`) and passes it to
-`renderApp()`. `renderApp()` creates a `TuiInteractionChannel` which starts all enabled transports
-against the active `InteractiveSession` it owns.
+The CLI assembles a `TransportRegistry` (the generic registry class is owned by
+`@robota-sdk/agent-transport`, `packages/agent-transport/src/transport-registry.ts`) via a local
+composition-root helper `createDefaultTransportRegistry()` in `cli.ts` that registers `WsTransport`
+from `@robota-sdk/agent-transport-ws`, and passes it to `renderApp()` (from
+`@robota-sdk/agent-transport-tui`). `renderApp()` creates a `TuiInteractionChannel` which starts all
+enabled transports against the active `InteractiveSession` it owns.
 
 Registered transports:
 
@@ -721,7 +724,7 @@ Plugin hook merging (resolving `${CLAUDE_PLUGIN_ROOT}` and merging hook groups) 
 
 ### App.tsx
 
-`App.tsx` is owned by `@robota-sdk/agent-transport` (`packages/agent-transport/src/tui/App.tsx`). It is a thin JSX shell that:
+`App.tsx` is owned by `@robota-sdk/agent-transport-tui` (`packages/agent-transport-tui/src/App.tsx`). It is a thin JSX shell that:
 
 - Calls `useTuiChannel` and `usePluginCallbacks`.
 - Applies typed command effects that require the host shell via `ITuiCliAdapter` (injected by `startCli()`).
