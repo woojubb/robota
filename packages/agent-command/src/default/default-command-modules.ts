@@ -9,6 +9,7 @@ import { createMemoryCommandModule } from '../memory/index.js';
 import { createModeCommandModule } from '../mode/index.js';
 import { createPermissionsCommandModule } from '../permissions/index.js';
 import { createPluginCommandModule } from '../plugin/index.js';
+import { createPresetCommandModule } from '../preset/index.js';
 import { createProviderCommandModule } from '../provider/index.js';
 import { createResetCommandModule } from '../reset/index.js';
 import { createRewindCommandModule } from '../rewind/index.js';
@@ -75,6 +76,7 @@ export function createDefaultCommandModules({
     createAgentCommandModule(),
     createPermissionsCommandModule(),
     createModeCommandModule(),
+    createPresetCommandModule(),
     createLanguageCommandModule(),
     createBackgroundCommandModule(),
     createMemoryCommandModule(),
