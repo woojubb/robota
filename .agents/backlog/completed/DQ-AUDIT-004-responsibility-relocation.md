@@ -32,11 +32,11 @@ depends_on: []
 
 ## Completion Criteria
 
-- [ ] TC-01: agent-cli가 `ISessionRecord`/`IHistoryEntry`를 canonical 오너에서 import (중복 정의 제거)
-- [ ] TC-02: 세션 분석 파서/리포터가 라이브러리 패키지로 이동, agent-cli는 와이어링만 (OBS-001 재검토 결정 반영)
-- [ ] TC-03: 세션 네이밍 로직이 session/framework로 이동, transport는 계약 호출, 프롬프트 config화
-- [ ] TC-04: `robota session analyze` 동작 보존 (기존 OBS-001 시나리오 재실행)
-- [ ] TC-05: 영향 패키지 typecheck/test + `pnpm harness:scan` 통과
+- [x] TC-01: agent-cli가 `ISessionRecord`/`IHistoryEntry`를 canonical 오너에서 import (중복 정의 제거)
+- [x] TC-02: 세션 분석 파서/리포터가 라이브러리 패키지로 이동, agent-cli는 와이어링만 (OBS-001 재검토 결정 반영)
+- [x] TC-03: 세션 네이밍 로직이 session/framework로 이동, transport는 계약 호출, 프롬프트 config화
+- [x] TC-04: `robota session analyze` 동작 보존 (기존 OBS-001 시나리오 재실행)
+- [x] TC-05: 영향 패키지 typecheck/test + `pnpm harness:scan` 통과
 
 ## Test Plan
 
