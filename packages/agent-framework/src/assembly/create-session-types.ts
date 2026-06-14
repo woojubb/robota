@@ -78,6 +78,17 @@ export interface ICreateSessionOptions {
   subagentRunnerFactory?: TSubagentRunnerFactory;
   /** Enable agent tool, agent definitions, and subagent runtime wiring for this session. */
   enableAgentRuntime?: boolean;
+  /**
+   * Preset execution capability: when true the assembly turns on `enableAgentRuntime`
+   * so subagent/background dispatch is active for this session. Threaded from the
+   * preset's `enableParallelSubagents` flag.
+   */
+  enableParallelSubagents?: boolean;
+  /**
+   * Preset execution capability: when true the agent runs a post-task self-verification
+   * step. Threaded onto the assembly options so executor/framework can consume it.
+   */
+  selfVerification?: boolean;
   /** Callback when a tool starts or finishes execution — enables real-time tool display in UI */
   onToolExecution?: (event: {
     type: 'start' | 'end';

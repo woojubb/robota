@@ -42,7 +42,9 @@ export function buildAgentRuntime(
   let agentDefinitions: IAgentDefinition[] = [];
   let backgroundTaskManager: IBackgroundTaskManager;
 
-  if (options.enableAgentRuntime) {
+  // PRESET-004: a preset opting into parallel subagents activates the agent runtime
+  // (subagent/background dispatch) exactly like an explicit enableAgentRuntime.
+  if (options.enableAgentRuntime || options.enableParallelSubagents) {
     const agentLoader = new AgentDefinitionLoader(cwd);
     agentDefinitions = agentLoader.loadAll();
     agentToolDeps = {

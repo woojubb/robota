@@ -26,14 +26,50 @@ export interface IDefaultCommandModulesOptions {
   cwd: string;
   providerDefinitions: readonly IProviderDefinition[];
   providerSettingsAdapter: IProviderCommandSettingsAdapter;
+  /**
+   * Whitelist of module `name`s to keep. When provided, only modules whose `name`
+   * appears here survive. Omitted → all modules kept (no-regression).
+   */
+  enabledCommandModules?: readonly string[];
+  /**
+   * Blacklist of module `name`s to remove. Applied after the whitelist, so a name
+   * present in both is removed (deny > allow). Omitted → no modules removed.
+   */
+  disabledCommandModules?: readonly string[];
+}
+
+/**
+ * Apply the preset module-selection delta to the default module set.
+ *
+ * Rules: if `enabled` is provided, keep only modules whose `name` is in it; then
+ * remove any module whose `name` is in `disabled` (deny > allow). Neither given →
+ * the full default set is returned unchanged (no-regression).
+ */
+function applyModuleSelection(
+  modules: readonly ICommandModule[],
+  enabled: readonly string[] | undefined,
+  disabled: readonly string[] | undefined,
+): readonly ICommandModule[] {
+  let selected = modules;
+  if (enabled !== undefined) {
+    const allow = new Set(enabled);
+    selected = selected.filter((module) => allow.has(module.name));
+  }
+  if (disabled !== undefined) {
+    const deny = new Set(disabled);
+    selected = selected.filter((module) => !deny.has(module.name));
+  }
+  return selected;
 }
 
 export function createDefaultCommandModules({
   cwd,
   providerDefinitions,
   providerSettingsAdapter,
+  enabledCommandModules,
+  disabledCommandModules,
 }: IDefaultCommandModulesOptions): readonly ICommandModule[] {
-  return [
+  const modules: readonly ICommandModule[] = [
     createSkillsCommandModule({ cwd }),
     createHelpCommandModule(),
     createAgentCommandModule(),
@@ -58,4 +94,5 @@ export function createDefaultCommandModules({
       settings: providerSettingsAdapter,
     }),
   ];
+  return applyModuleSelection(modules, enabledCommandModules, disabledCommandModules);
 }

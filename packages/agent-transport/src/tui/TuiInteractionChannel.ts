@@ -72,6 +72,10 @@ export interface ITuiInteractionChannelOptions {
   appendSystemPrompt?: string;
   allowedTools?: string[];
   deniedTools?: string[];
+  /** Preset execution capability: activate agent runtime + subagent/background dispatch. */
+  enableParallelSubagents?: boolean;
+  /** Preset execution capability: run a post-task self-verification step. */
+  selfVerification?: boolean;
 }
 
 export class TuiInteractionChannel implements IInteractionChannel {
@@ -143,6 +147,8 @@ export class TuiInteractionChannel implements IInteractionChannel {
       appendSystemPrompt: opts.appendSystemPrompt,
       allowedTools: opts.allowedTools,
       deniedTools: opts.deniedTools,
+      enableParallelSubagents: opts.enableParallelSubagents,
+      selfVerification: opts.selfVerification,
     });
   }
 

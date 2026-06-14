@@ -1,6 +1,25 @@
 import { defaultPreset } from './presets/default.js';
 
-import type { IPreset, TResolvedPresetOptions } from './preset-types.js';
+import type {
+  IPreset,
+  TPresetAutonomy,
+  TPresetPermissionMode,
+  TResolvedPresetOptions,
+} from './preset-types.js';
+
+/**
+ * Map a behavioural {@link TPresetAutonomy} posture onto a concrete permission mode.
+ *
+ * `act-first` opts into `acceptEdits` (writes are not prompted every time);
+ * `ask-first` and `balanced` stay on `default` (the standard ask-on-write posture).
+ * Only consulted when the resolved options set `autonomy` but no explicit
+ * `permissionMode`/`defaultPermissionMode`.
+ */
+const AUTONOMY_TO_PERMISSION_MODE: Record<TPresetAutonomy, TPresetPermissionMode> = {
+  'ask-first': 'default',
+  balanced: 'default',
+  'act-first': 'acceptEdits',
+};
 
 /**
  * Default agent identity. Owned by `agent-preset` (not baked into `defaultPreset`, which must stay
@@ -81,5 +100,24 @@ export function resolvePreset(
   let resolved = toPresetOptions(preset);
   resolved = mergeDefined(resolved, context.cliOverrides);
   resolved = mergeDefined(resolved, context.explicit);
+  return derivePermissionMode(resolved);
+}
+
+/**
+ * Fill the framework `permissionMode` seam from the preset's posture fields when it
+ * is not already set. Precedence: explicit `permissionMode` (untouched) >
+ * `defaultPermissionMode` > `autonomy` mapping. A no-op preset (no posture fields)
+ * leaves the object unchanged — keeping `resolvePreset('default')` a no-op.
+ */
+function derivePermissionMode(resolved: TResolvedPresetOptions): TResolvedPresetOptions {
+  if (resolved.permissionMode !== undefined) {
+    return resolved;
+  }
+  if (resolved.defaultPermissionMode !== undefined) {
+    return { ...resolved, permissionMode: resolved.defaultPermissionMode };
+  }
+  if (resolved.autonomy !== undefined) {
+    return { ...resolved, permissionMode: AUTONOMY_TO_PERMISSION_MODE[resolved.autonomy] };
+  }
   return resolved;
 }

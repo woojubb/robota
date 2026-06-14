@@ -142,6 +142,12 @@ export async function createInteractiveSession(
     )
       ? { enableAgentRuntime: true }
       : {}),
+    ...(options.enableParallelSubagents !== undefined
+      ? { enableParallelSubagents: options.enableParallelSubagents }
+      : {}),
+    ...(options.selfVerification !== undefined
+      ? { selfVerification: options.selfVerification }
+      : {}),
     ...(options.commandModules || options.commandDescriptors
       ? {
           commandDescriptors: [
@@ -274,6 +280,12 @@ export async function initializeInteractiveSessionAsync(
     ...(options.sandboxWorkspaceRoot ? { sandboxWorkspaceRoot: options.sandboxWorkspaceRoot } : {}),
     ...(deps.sandboxSnapshotId ? { sandboxSnapshotId: deps.sandboxSnapshotId } : {}),
     ...(options.agentName ? { agentName: options.agentName } : {}),
+    ...(options.enableParallelSubagents !== undefined
+      ? { enableParallelSubagents: options.enableParallelSubagents }
+      : {}),
+    ...(options.selfVerification !== undefined
+      ? { selfVerification: options.selfVerification }
+      : {}),
     ...(options.additionalTools ? { additionalTools: options.additionalTools } : {}),
     ...(options.responseFormat ? { responseFormat: options.responseFormat } : {}),
     commandDescriptors: deps.commandDescriptors,

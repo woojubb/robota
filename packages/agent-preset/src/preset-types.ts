@@ -45,7 +45,18 @@ export interface TResolvedPresetOptions {
   maxOutputTokens?: number;
 
   // (4) Permission / trust profile
+  /**
+   * Resolved framework permission-mode seam. The end value the assembly applies.
+   * Populated either directly, from `defaultPermissionMode`, or from the
+   * `autonomy` mapping (precedence: explicit `permissionMode` > `defaultPermissionMode`
+   * > `autonomy` mapping).
+   */
   permissionMode?: TPresetPermissionMode;
+  /**
+   * Coarse permission posture declared by a preset. When set (and no explicit
+   * `permissionMode`), {@link resolvePreset} promotes it to `permissionMode`.
+   */
+  defaultPermissionMode?: TPresetPermissionMode;
   defaultTrustLevel?: TPresetTrustLevel;
   allowedTools?: readonly string[];
   deniedTools?: readonly string[];
