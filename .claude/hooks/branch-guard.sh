@@ -32,8 +32,12 @@ echo "$COMMAND" | grep -qE '^\s*git\s+merge\b' && IS_MERGE=true
 echo "$COMMAND" | grep -qE '^\s*git\s+checkout\s+-b\b' && IS_BRANCH_CREATE=true
 echo "$COMMAND" | grep -qE '^\s*git\s+switch\s+-c\b' && IS_BRANCH_CREATE=true
 # `gh pr merge --delete-branch` is banned (git-branch.md): it once deleted the
-# develop integration branch. Detect the gh-pr-merge + delete-branch flag combo.
-if echo "$COMMAND" | grep -qE 'gh\s+pr\s+merge\b' && echo "$COMMAND" | grep -qE '\-\-delete-branch\b'; then
+# develop integration branch. Match ONLY when --delete-branch is an actual argument
+# of a `gh pr merge` invocation — strip shell comments first, then require the flag
+# to sit in the same command segment as `gh pr merge` (no intervening ; | &). This
+# avoids false positives from the flag mentioned in a comment or a separate echo.
+COMMAND_NO_COMMENTS=$(printf '%s' "$COMMAND" | sed 's/[[:space:]]#[^"]*$//')
+if printf '%s' "$COMMAND_NO_COMMENTS" | grep -qE 'gh[[:space:]]+pr[[:space:]]+merge\b[^|;&]*--delete-branch'; then
   IS_GH_DELETE_BRANCH=true
 fi
 
