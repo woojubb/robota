@@ -1,3 +1,4 @@
+import { CONTEXT_ESTIMATE_CHARS_PER_TOKEN } from '@robota-sdk/agent-core';
 import {
   addCommandContextReference,
   clearCommandContextReferences,
@@ -282,12 +283,11 @@ function formatContextReferenceSummary(references: readonly IContextReferenceIte
   return `References: ${active} active, ${observed} observed`;
 }
 
-// 1 token ≈ 4 chars — same approximation used across the codebase (limits-helpers.ts)
-const CHARS_PER_TOKEN = 4;
+// 1 token ≈ 4 chars — sourced from the agent-core estimation SSOT.
 const TOOL_ARG_MAX_LEN = 60;
 
 function estimateTokens(charLength: number): number {
-  return Math.ceil(charLength / CHARS_PER_TOKEN);
+  return Math.ceil(charLength / CONTEXT_ESTIMATE_CHARS_PER_TOKEN);
 }
 
 function formatContextReferenceLine(reference: IContextReferenceItem): string {
@@ -349,7 +349,7 @@ function computeMessageTokensByRole(rawMessages: TUniversalMessage[]): IMessageT
   let toolCallCount = 0;
 
   for (const msg of rawMessages) {
-    const t = Math.ceil(JSON.stringify(msg).length / CHARS_PER_TOKEN);
+    const t = Math.ceil(JSON.stringify(msg).length / CONTEXT_ESTIMATE_CHARS_PER_TOKEN);
     if (msg.role === 'system') {
       systemTokens += t;
     } else if (msg.role === 'user') {

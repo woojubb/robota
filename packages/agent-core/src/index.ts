@@ -252,6 +252,7 @@ export type {
   IMessageTokenUsage,
 } from './context/index.js';
 export type { IModelDefinition } from './context/index.js';
+export type { IModelPrice } from './context/index.js';
 export {
   CONTEXT_ESTIMATE_CHARS_PER_TOKEN,
   CLAUDE_MODELS,
@@ -265,6 +266,10 @@ export {
   formatTokenCount,
   readTokenUsageFromMessage,
   readTokenUsageFromMetadata,
+  MODEL_PRICES,
+  lookupModelPrice,
+  calculateModelCost,
+  estimateBlendedCostPer1000,
 } from './context/index.js';
 
 // Hooks

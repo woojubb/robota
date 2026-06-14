@@ -1,7 +1,8 @@
 ---
 title: 'DQ-AUDIT-002: SSOT 통합 — 가격/토큰추정/컨텍스트 타입/pass-through re-export'
-status: todo
+status: done
 created: 2026-06-14
+completed: 2026-06-14
 priority: high
 urgency: soon
 area: packages/agent-command, packages/agent-plugin, packages/agent-session, packages/agent-core, packages/agent-transport, packages/agent-framework
@@ -51,7 +52,40 @@ Not applicable — 내부 SSOT 리팩터(동작 보존). 가격/컨텍스트 수
 
 ## Tasks
 
-- [ ] 가격 계약 오너 결정(core provider-metadata vs 전용 모듈) — 설계 컨펌 필요
-- [ ] DQ-04/09/10/12 순차 적용
+- [x] 가격 계약 오너 결정 — agent-core `context/model-pricing.ts` (기존 `context/models.ts` 모델 메타데이터 SSOT 패턴과 동일 위치)
+- [x] DQ-04/09/10/12 순차 적용
 
 ## Evidence Log
+
+### 구현 완료 — 2026-06-14
+
+**오너 결정:** agent-core가 command·plugin·session·transport의 공통 조상이고 이미 `context/models.ts`로
+모델 메타데이터(컨텍스트 윈도우, 벤더 모델 ID 포함) SSOT를 보유 → 가격 SSOT도 `context/model-pricing.ts`에
+배치. 규칙/아키텍처 근거 명확하여 에이전트 직접 결정.
+
+**DQ-04:** `agent-core/src/context/model-pricing.ts` 신설 — `IModelPrice`, `MODEL_PRICES`(정확 per-million),
+`lookupModelPrice`, `calculateModelCost`, `estimateBlendedCostPer1000`. `context/index.ts` + `src/index.ts` export.
+agent-command `model-pricing.ts`는 `calculateCost`를 core `calculateModelCost`에 위임(임베디드 테이블/패턴 삭제,
+formatUsd/formatTokens 디스플레이 헬퍼만 유지). agent-plugin `limits-helpers.ts`는 stale `MODEL_COSTS` 삭제 →
+`estimateBlendedCostPer1000(model) ?? tokenCostPer1000`.
+
+**DQ-09:** `context-command.ts`(3곳)·`session-run.ts`(1곳)·`limits-helpers.ts`(1곳)의 `len/4` 매직넘버를
+core `CONTEXT_ESTIMATE_CHARS_PER_TOKEN`로 교체.
+
+**DQ-10:** `tui-state-manager.ts`의 `IContextState`를 독립 정의 → `Pick<IContextWindowState,'usedTokens'|'maxTokens'>
+& { percentage }`로 파생(공유 필드 core에 구조적 결합, `percentage`는 명시적 디스플레이 미러).
+
+**DQ-12:** dead pass-through re-export 제거 — `session-interface.ts`(ISession backward-compat 셔임, 무하위호환
+규칙 위반) 삭제 + agent-session `index.ts`의 ISession·IContextWindowState re-export 제거(외부 소비자 0건 확인).
+agent-session SPEC.md 3개 행 정리. agent-framework `types.ts`는 이미 "public entrypoint 미포함" 내부 alias로
+문서화되어 유지.
+
+**검증 증거:**
+
+- TC-01~04: grep — 임베디드 가격 테이블 0건(core만), `len/4` 매직넘버 0건, `IContextState` 독립정의 제거,
+  dead re-export 제거. 신규 `model-pricing.test.ts`(8 케이스) 추가.
+- TC-05: agent-core/command/plugin/session/transport typecheck 통과; test **agent-core 720(+8)/command 186/
+  plugin 298/session 72/transport 476 전부 passed**; 빌드 통과; agent-core SPEC.md에 Model Pricing(SSOT) 섹션 +
+  agent-session SPEC.md 정합화. `pnpm harness:scan` **25/25 passed**.
+
+User Execution Test Scenario gate: Not applicable(내부 SSOT 리팩터, 동작 보존 — 가격/컨텍스트 수치 단위 테스트 동치) — done-gate 충족.
