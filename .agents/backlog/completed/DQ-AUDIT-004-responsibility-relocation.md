@@ -1,10 +1,11 @@
 ---
 title: 'DQ-AUDIT-004: 책임 재배치 — agent-cli 세션분석 기능 + agent-transport LLM 네이밍'
-status: todo
+status: done
 created: 2026-06-14
+completed: 2026-06-14
 priority: medium
 urgency: soon
-area: packages/agent-cli, packages/agent-session, packages/agent-transport, packages/agent-framework
+area: packages/agent-cli, packages/agent-session-analytics, packages/agent-transport, packages/agent-framework
 depends_on: []
 ---
 
@@ -58,7 +59,37 @@ DQ-07(세션 네이밍)은 TUI 세션 생성 시 제목 자동 생성이 이동 
 
 ## Tasks
 
-- [ ] OBS-001 재검토 — DQ-06 배치 결정 사용자/설계 컨펌
-- [ ] DQ-05 타입 통합 → DQ-06 이동 → DQ-07 이동
+- [x] OBS-001 재검토 — DQ-06 배치 결정 사용자/설계 컨펌 (제대로 된 아키텍처: 신규 전용 패키지로 승인)
+- [x] DQ-05 타입 통합 → DQ-06 이동 → DQ-07 이동
 
 ## Evidence Log
+
+### 설계 컨펌 — 2026-06-14
+
+`.design/architecture-audit/2026-06-14/dq-004-005-redesign.md` 작성 후 사용자 승인: "둘 다 승인 —
+004→005 순차 구현". OBS-001의 agent-cli 배치는 thin-shell 규칙 위반 → 전용 패키지로 재배치 확정.
+
+### 구현 완료 — 2026-06-14
+
+**DQ-05 + DQ-06 (신규 `@robota-sdk/agent-session-analytics` 패키지):** 세션 로그 타이밍 분석/리포트를
+전용 패키지로 추출. 순수 함수(파일 I/O·process 없음), 입력은 `Pick<IInteractiveSessionRecord,
+'id'|'cwd'|'createdAt'|'history'>`(SSOT 재사용 — 중복 `ISessionRecord`/`ISessionHistoryEntry` 삭제),
+history는 canonical `IHistoryEntry`. agent-cli `session-analyze-command.ts`는 thin wiring으로 축소 —
+agent-framework `createUserSessionStore()`(신규)+`createProjectSessionStore()`로 레코드 로드 후 analytics
+호출·stdout만. parser/reporter/types 및 unit 테스트는 신규 패키지로 이동(20 테스트).
+
+**DQ-07 (세션 네이밍 → agent-framework):** `generateSessionName`(LLM 기반 제목 생성, 하드코딩 프롬프트)을
+agent-transport/tui에서 agent-framework(세션 lifecycle/naming 소유)로 이동. TuiInteractionChannel은
+framework에서 import. 매직넘버는 named const화. 테스트 이동(7 테스트).
+
+**검증 증거:**
+
+- 신규 패키지 typecheck+build+test(20), framework test(977, +7 이동), transport test(469, -7 이동),
+  cli test(139, command 통합 6 포함). frozen-lockfile 통과. `pnpm harness:scan` **25/25**
+  (capability-placement 패턴 추가 + interface-imports 해소), conformance PASS.
+- **User Execution Test Scenario (done-gate):** 빌드된 CLI `node bin/robota.cjs session analyze` 실행 —
+  fixture 세션에 대해 단일 리포트(LLM API wait 7.8s avg/13.7s max, Tool 300ms, Slow intervals turn 1,
+  Verdict 98%/2%) + `--last 5` 집계(Analyzed 1 sessions, Max single delay 13.7s) 정상 출력, **exit 0**.
+  이동 전과 동일 동작 확인.
+
+배치 등록: project-structure.md, publish-registry.md, changeset, capability-placement 가드 패턴.
