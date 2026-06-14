@@ -1,7 +1,8 @@
 ---
 title: 'LESSON-001: 라이브 상태변경 seam의 cold-state 테스트 — mock-the-buggy-collaborator 방지'
-status: todo
+status: done
 created: 2026-06-15
+completed: 2026-06-15
 priority: high
 urgency: soon
 area: .agents/skills/vitest-testing-strategy, scripts/harness
@@ -38,12 +39,12 @@ cold-state(초기화 전) 경로가 한 번도 실제로 실행되지 않았다.
 
 ## Completion Criteria
 
-- [ ] TC-01: `vitest-testing-strategy` 스킬에 "라이브 상태변경 seam의 cold-state 테스트" 절이
+- [x] TC-01: `vitest-testing-strategy` 스킬에 "라이브 상태변경 seam의 cold-state 테스트" 절이
       추가되고 cold-session 회귀 테스트 레퍼런스가 명시됨
-- [ ] TC-02: mock 작성 시 실제 선결조건(init 가드) 반영 규칙이 스킬에 명문화됨
-- [ ] TC-03: live-seam cold-state 커버리지 기계적 검사 추가 여부를 조사하고, 가능하면
+- [x] TC-02: mock 작성 시 실제 선결조건(init 가드) 반영 규칙이 스킬에 명문화됨
+- [x] TC-03: live-seam cold-state 커버리지 기계적 검사 추가 여부를 조사하고, 가능하면
       `harness:scan`에 편입(불가 시 사유와 대안을 스킬에 기록)
-- [ ] TC-04: `pnpm harness:scan` + harness-governance 일관성 검사 통과
+- [x] TC-04: `pnpm harness:scan` + harness-governance 일관성 검사 통과
 
 ## Test Plan
 
@@ -61,8 +62,22 @@ Not applicable — 스킬/하네스 거버넌스 변경. 사용자 대면 런타
 
 ## Tasks
 
-- [ ] vitest-testing-strategy 스킬 업데이트 → 기계적 검사 조사/구현 → harness:scan 검증
+- [x] vitest-testing-strategy 스킬 업데이트 → 기계적 검사 조사/구현 → harness:scan 검증
 
 ## Evidence Log
 
-(구현 후 작성)
+### 구현 완료 — 2026-06-15
+
+- **TC-01/02:** `vitest-testing-strategy/SKILL.md`에 "Live State-Mutation Seams (cold-state
+  coverage)" 절 추가 — warm/cold 상태 구분, 실제 협력자로 cold 경로 검증 의무, mock의 선결조건
+  반영 의무. cold-session 회귀 테스트(`apply-model-options-cold-session.test.ts`)와
+  common-mistakes #60 레퍼런스 명시. Checklist 2항목 + Anti-Patterns 2항목 추가.
+- **TC-03 (기계적 검사 조사 결론):** "init 가드가 있는 협력자를 mock으로 대체"를 일반 탐지하려면
+  가드↔mock 간 데이터플로/의미 분석이 필요해 false-positive 위험이 커 **범용 스캐너는 비현실적**.
+  대안으로 채택한 durable 통제 = (a) 스킬 규칙/체크리스트/안티패턴, (b) common-mistakes #60,
+  (c) 회귀 테스트 `apply-model-options-cold-session.test.ts`(real Robota, never run()). 이 결론을
+  스킬 절에 문서화.
+- **TC-04:** `pnpm harness:scan` **26/26 passed** (consistency 포함). 회귀 테스트 존재 확인.
+
+User Execution Test Scenario gate: Not applicable — 스킬/하네스 거버넌스 변경(런타임 동작 무변경).
+실제 cold-session 버그는 PR #789에서 수정·검증 완료.
