@@ -5,7 +5,7 @@
  * All functions receive their dependencies explicitly.
  */
 
-import { runHooks } from '@robota-sdk/agent-core';
+import { runHooks, createLogger } from '@robota-sdk/agent-core';
 
 import type { TSessionLogData } from './session-logger.js';
 import type { ISessionOptions } from './session-types.js';
@@ -16,6 +16,8 @@ import type {
   IHookInput,
   IHookTypeExecutor,
 } from '@robota-sdk/agent-core';
+
+const logger = createLogger('SessionLifecycle');
 
 /**
  * Configure provider-specific features: streaming, web tools, server tool logging.
@@ -68,7 +70,7 @@ export function fireSessionStartHook(
         onStdout(result.stdout);
       }
     })
-    .catch(() => {});
+    .catch((error) => logger.warn('SessionStart hook failed', { error }));
 }
 
 /** Fire SessionEnd hook and wait for hook completion before process exit. */

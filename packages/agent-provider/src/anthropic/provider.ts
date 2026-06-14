@@ -1,7 +1,13 @@
 import { randomUUID } from 'node:crypto';
 
 import Anthropic from '@anthropic-ai/sdk';
-import { AbstractAIProvider, getModelMaxOutput, RateLimitError } from '@robota-sdk/agent-core';
+import {
+  AbstractAIProvider,
+  getModelMaxOutput,
+  RateLimitError,
+  ConfigurationError,
+  ValidationError,
+} from '@robota-sdk/agent-core';
 
 import { convertToAnthropicFormat, convertToolsToAnthropicFormat } from './message-converter';
 import { streamAndAssemble } from './streaming-handler';
@@ -73,7 +79,7 @@ export class AnthropicProvider extends AbstractAIProvider {
           ...(options.baseURL && { baseURL: options.baseURL }),
         });
       } else {
-        throw new Error('Either Anthropic client, apiKey, or executor is required');
+        throw new ConfigurationError('Either Anthropic client, apiKey, or executor is required');
       }
     }
   }
@@ -304,16 +310,16 @@ export class AnthropicProvider extends AbstractAIProvider {
    */
   protected override validateMessages(messages: TUniversalMessage[]): void {
     if (!Array.isArray(messages)) {
-      throw new Error('Messages must be an array');
+      throw new ValidationError('Messages must be an array', 'messages');
     }
 
     if (messages.length === 0) {
-      throw new Error('Messages array cannot be empty');
+      throw new ValidationError('Messages array cannot be empty', 'messages');
     }
 
     for (const message of messages) {
       if (!message.role || !['user', 'assistant', 'system', 'tool'].includes(message.role)) {
-        throw new Error(`Invalid message role: ${message.role}`);
+        throw new ValidationError(`Invalid message role: ${message.role}`, 'role');
       }
     }
   }
