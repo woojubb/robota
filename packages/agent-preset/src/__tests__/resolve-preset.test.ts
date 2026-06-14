@@ -295,6 +295,17 @@ describe('PRESET-013 model group is live-applicable', () => {
   });
 });
 
+describe('PRESET-014 persona group is live-applicable', () => {
+  it('TC-06: a resolvePreset result carries persona and is assignable to IPresetApplicationOptions', () => {
+    const resolved: TResolvedPresetOptions = resolvePreset('careful-reviewer');
+    expect(resolved.persona).toBeDefined();
+    // Structural compat: the PRESET-014-extended orchestrator option shape accepts the persona
+    // group straight from a resolvePreset result.
+    const applicationOptions: IPresetApplicationOptions = resolved;
+    expect(applicationOptions.persona).toBe(resolved.persona);
+  });
+});
+
 describe('getPreset', () => {
   it('returns the default preset by id', () => {
     expect(getPreset('default')?.id).toBe('default');

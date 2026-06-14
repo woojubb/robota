@@ -50,8 +50,16 @@ export interface ICreatedInteractiveSession {
   agentsFileEntries: IContextFileEntry[];
   /** Per-file entries for CLAUDE.md files loaded at startup. Used for staleness detection. */
   claudeFileEntries: IContextFileEntry[];
-  /** Rebuilds the system message given updated agentsMd and claudeMd strings. */
-  rebuildSystemMessage: (agentsMd: string, claudeMd: string) => string;
+  /**
+   * Rebuilds the system message given updated agentsMd and claudeMd strings. PRESET-014: an
+   * optional `overrides.persona` re-applies a preset persona to the live prompt and is retained
+   * for subsequent (override-less) rebuilds.
+   */
+  rebuildSystemMessage: (
+    agentsMd: string,
+    claudeMd: string,
+    overrides?: { persona?: string },
+  ) => string;
 }
 
 /**
