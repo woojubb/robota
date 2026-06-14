@@ -29,10 +29,10 @@ depends_on: []
 
 ## Completion Criteria
 
-- [ ] TC-01: core 서비스 + provider 핫스팟의 raw `throw new Error`가 적절한 `RobotaError` 서브클래스로 교체
-- [ ] TC-02: 훅 실패가 로그/이벤트로 surface (빈 `.catch(()=>{})` 0건, grep 검증)
-- [ ] TC-03: `IErrorHandlingPluginStats`가 실측값 반환 또는 미구현 필드 제거 (0-고정 + TODO 제거)
-- [ ] TC-04: 영향 패키지 typecheck/test + `pnpm harness:scan` 통과
+- [x] TC-01: core 서비스 + provider 핫스팟의 raw `throw new Error`가 적절한 `RobotaError` 서브클래스로 교체
+- [x] TC-02: 훅 실패가 로그/이벤트로 surface (빈 `.catch(()=>{})` 0건, grep 검증)
+- [x] TC-03: `IErrorHandlingPluginStats`가 실측값 반환 또는 미구현 필드 제거 (0-고정 + TODO 제거)
+- [x] TC-04: 영향 패키지 typecheck/test + `pnpm harness:scan` 통과
 
 ## Test Plan
 

@@ -33,11 +33,11 @@ depends_on: []
 
 ## Completion Criteria
 
-- [ ] TC-01: 모델 가격 테이블이 단일 오너 1곳에만 존재 (다른 두 임베디드 테이블 삭제, grep 검증)
-- [ ] TC-02: `CHARS_PER_TOKEN`/`len/4` 재구현이 core estimator import로 대체 (grep 검증)
-- [ ] TC-03: TUI 상태가 `IContextWindowState` 재사용, `IContextState` 평행정의 제거
-- [ ] TC-04: "for convenience" pass-through re-export 제거 또는 명시 facade로 전환
-- [ ] TC-05: 영향 패키지 typecheck/test + `pnpm harness:scan` 통과
+- [x] TC-01: 모델 가격 테이블이 단일 오너 1곳에만 존재 (다른 두 임베디드 테이블 삭제, grep 검증)
+- [x] TC-02: `CHARS_PER_TOKEN`/`len/4` 재구현이 core estimator import로 대체 (grep 검증)
+- [x] TC-03: TUI 상태가 `IContextWindowState` 재사용, `IContextState` 평행정의 제거
+- [x] TC-04: "for convenience" pass-through re-export 제거 또는 명시 facade로 전환
+- [x] TC-05: 영향 패키지 typecheck/test + `pnpm harness:scan` 통과
 
 ## Test Plan
 
