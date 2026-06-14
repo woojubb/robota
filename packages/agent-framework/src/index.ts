@@ -71,6 +71,7 @@ export type {
   ICommandProcessAdapter,
   ICommandSource,
   ICommandSessionRuntime,
+  IModelReapplyOptions,
   ICommandSettingsAdapter,
   ICommandSettingsDocument,
   ICommandSkillListEntry,

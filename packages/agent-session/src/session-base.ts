@@ -6,6 +6,7 @@ import type {
   IContextWindowState,
   IHistoryEntry,
   IToolSchema,
+  TModelEffort,
   TPermissionMode,
   TUniversalMessage,
 } from '@robota-sdk/agent-core';
@@ -19,7 +20,7 @@ export abstract class SessionBase {
   protected abstract readonly sessionId: string;
   protected abstract readonly aiProvider: IAIProvider;
   protected abstract readonly toolSchemas: IToolSchema[];
-  protected abstract readonly model: string;
+  protected abstract model: string;
   protected abstract systemMessage: string;
   protected abstract messageCount: number;
   protected abstract abortController: AbortController | null;
@@ -63,6 +64,31 @@ export abstract class SessionBase {
       model: this.model,
       systemMessage: newMessage,
     });
+  }
+
+  /**
+   * Re-apply model options to the live session (PRESET-013 model/effort re-application seam).
+   *
+   * Propagates model/effort/temperature/maxOutputTokens to the agent via `robota.setModel` so the
+   * next call reflects them, and updates `this.model` to keep `getModelId()` accurate. The preset
+   * `maxOutputTokens` field maps to the agent's `maxTokens` channel. Absent fields are left untouched.
+   */
+  applyModelOptions(options: {
+    model?: string;
+    effort?: TModelEffort;
+    temperature?: number;
+    maxOutputTokens?: number;
+  }): void {
+    const nextModel = options.model ?? this.model;
+    this.robota.setModel({
+      provider: this.aiProvider.name,
+      model: nextModel,
+      systemMessage: this.systemMessage,
+      ...(options.effort !== undefined && { effort: options.effort }),
+      ...(options.temperature !== undefined && { temperature: options.temperature }),
+      ...(options.maxOutputTokens !== undefined && { maxTokens: options.maxOutputTokens }),
+    });
+    this.model = nextModel;
   }
 
   getToolSchemas(): IToolSchema[] {

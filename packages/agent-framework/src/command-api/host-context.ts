@@ -26,6 +26,7 @@ import type { TAutoCompactThreshold } from './context/context-command-api.js';
 import type {
   IContextWindowState,
   IHistoryEntry,
+  TModelEffort,
   TPermissionMode,
   TUniversalMessage,
 } from '@robota-sdk/agent-core';
@@ -56,6 +57,17 @@ export interface ICommandSkillActivationRequest {
 
 export type TAutoCompactThresholdSource = 'default' | 'settings' | 'session';
 
+/**
+ * Live model re-application options (PRESET-013). Carries the model group a preset switch may
+ * re-apply to a running session; `maxOutputTokens` maps to the agent's `maxTokens` channel.
+ */
+export interface IModelReapplyOptions {
+  model?: string;
+  effort?: TModelEffort;
+  temperature?: number;
+  maxOutputTokens?: number;
+}
+
 export interface ICommandSessionRuntime {
   clearHistory(): void;
   compact(instructions?: string): Promise<void>;
@@ -71,6 +83,8 @@ export interface ICommandSessionRuntime {
   setAutoCompactThreshold?(threshold: TAutoCompactThreshold): void;
   getSessionTokenUsage?(): { inputTokens: number; outputTokens: number } | undefined;
   getModelId?(): string | undefined;
+  /** Re-apply model/effort/temperature/maxOutputTokens to the live session (PRESET-013). */
+  applyModelOptions?(options: IModelReapplyOptions): void;
   /** Read the active preset id (PRESET-011 runtime state). */
   getActivePresetId?(): string;
   /** Set the active preset id (PRESET-011 runtime state — pure state, no option re-application). */
