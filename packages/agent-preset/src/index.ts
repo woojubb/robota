@@ -16,6 +16,29 @@ export { defaultPreset } from './presets/default.js';
 
 export { autonomousBuilderPreset } from './presets/autonomous-builder.js';
 
-export { DEFAULT_AGENT_NAME, resolvePreset, listPresets, getPreset } from './resolve-preset.js';
+export {
+  DEFAULT_AGENT_NAME,
+  resolvePreset,
+  listPresets,
+  getPreset,
+  registerExternalPresets,
+  clearExternalPresets,
+} from './resolve-preset.js';
 
-export type { IPresetSummary, IResolvePresetContext } from './resolve-preset.js';
+export type {
+  IPresetSummary,
+  IResolvePresetContext,
+  IPresetRegistrationResult,
+} from './resolve-preset.js';
+
+export {
+  loadExternalPresets,
+  loadExternalPresetsFromDir,
+  defaultExternalPresetDir,
+} from './load-external-presets.js';
+
+export type { IExternalPresetLoadResult } from './load-external-presets.js';
+
+export { validateExternalPreset } from './preset-validation.js';
+
+export type { TPresetValidationResult } from './preset-validation.js';
