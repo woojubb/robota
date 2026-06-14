@@ -153,6 +153,8 @@ export interface ICreateSessionOptions {
   sandboxClient?: ISandboxClient;
   /** Name reported to the underlying Robota agent config. Defaults to 'agent'. */
   agentName?: string;
+  /** Active preset id selected at startup (PRESET-011 runtime state). Defaults to 'default'. */
+  activePresetId?: string;
   /** Request structured output from the provider for this session. */
   responseFormat?: { type: 'text' | 'json_object' };
 }

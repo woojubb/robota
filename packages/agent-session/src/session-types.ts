@@ -54,6 +54,8 @@ export interface ISessionOptions {
   permissionMode?: TPermissionMode;
   /** Default trust level — used to derive permissionMode if not given */
   defaultTrustLevel?: 'safe' | 'moderate' | 'full';
+  /** Active preset id selected at startup (PRESET-011 runtime state). Defaults to 'default'. */
+  activePresetId?: string;
   /** Model name (for context window sizing and Robota config) */
   model?: string;
   /** Provider idle timeout in milliseconds for each model call */

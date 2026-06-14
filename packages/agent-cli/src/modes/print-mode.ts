@@ -19,6 +19,8 @@ export interface IPrintModeSessionResolution {
 export interface IPrintModePresetOptions {
   /** Resolved agent name (preset value, else agent-preset DEFAULT_AGENT_NAME). */
   agentName?: string;
+  /** Active preset id selected at startup (PRESET-011 runtime state). Defaults to 'default'. */
+  activePresetId?: string;
   /** Resolved preset persona block composed as a `source: 'persona'` system-prompt section. */
   persona?: string;
   /** Resolved preset permission mode (overridden by an explicit CLI --permission-mode flag). */
@@ -74,6 +76,9 @@ export async function runPrintMode(
     appendSystemPrompt,
     ...(presetOptions.persona !== undefined ? { persona: presetOptions.persona } : {}),
     ...(presetOptions.agentName !== undefined ? { agentName: presetOptions.agentName } : {}),
+    ...(presetOptions.activePresetId !== undefined
+      ? { activePresetId: presetOptions.activePresetId }
+      : {}),
     ...(presetOptions.enableParallelSubagents !== undefined
       ? { enableParallelSubagents: presetOptions.enableParallelSubagents }
       : {}),

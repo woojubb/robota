@@ -22,7 +22,7 @@ import {
 } from '@robota-sdk/agent-framework';
 import { parseCliArgs, parseToolList, printHelp } from './utils/cli-args.js';
 import type { IParsedCliArgs } from './utils/cli-args.js';
-import { resolveCliPreset } from './startup/preset-selection.js';
+import { resolveCliPreset, selectPresetId } from './startup/preset-selection.js';
 import { DEFAULT_AGENT_NAME } from '@robota-sdk/agent-preset';
 import type { TResolvedPresetOptions } from '@robota-sdk/agent-preset';
 import {
@@ -142,6 +142,9 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
     process.exit(1);
   }
+  // PRESET-011: the selected preset id (same selection glue as resolveCliPreset) becomes the
+  // session's runtime active-preset state. Pure state — no option re-application here.
+  const selectedPresetId = selectPresetId(args, settingsPreset);
 
   const { commandHostAdapters, providerDefinitions, commandModules, startupUpdateNoticePromise } =
     buildCommandSetup(cwd, args, options, version, {
@@ -241,6 +244,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
       { resumeSessionId, forkSession: args.forkSession },
       {
         agentName: resolvedPreset.agentName ?? DEFAULT_AGENT_NAME,
+        activePresetId: selectedPresetId,
         persona: resolvedPreset.persona,
         ...(resolvedPreset.permissionMode !== undefined
           ? { permissionMode: resolvedPreset.permissionMode }
@@ -292,6 +296,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     cliAdapter: createDefaultTuiCliAdapter({ providerDefinitions, reloadPluginCommandSource }),
     reloadPluginCommandSource,
     agentName: resolvedPreset.agentName ?? DEFAULT_AGENT_NAME,
+    activePresetId: selectedPresetId,
     persona: resolvedPreset.persona,
     ...(resolvedPreset.enableParallelSubagents !== undefined
       ? { enableParallelSubagents: resolvedPreset.enableParallelSubagents }

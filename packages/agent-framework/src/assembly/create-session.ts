@@ -248,6 +248,7 @@ export function createSession(options: ICreateSessionOptions): ICreateSessionRes
     sessionLogger: options.sessionLogger,
     hookTypeExecutors: hookTypeExecutors.length > 0 ? hookTypeExecutors : undefined,
     agentName: options.agentName,
+    ...(options.activePresetId !== undefined ? { activePresetId: options.activePresetId } : {}),
     ...(options.responseFormat ? { responseFormat: options.responseFormat } : {}),
     ...(options.effort !== undefined ? { effort: options.effort } : {}),
   });
