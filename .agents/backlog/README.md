@@ -714,3 +714,4 @@ beta.76 릴리즈 세션에서 **실제로 발생한** 마찰·실수를 스킬 
 | [LESSON-004](completed/LESSON-004-release-publish-runbook.md) ✅         | version-management 스킬에 릴리즈/배포 런북 보강                             | medium   |
 | [LESSON-005](completed/LESSON-005-evals-churn-and-stash-hygiene.md) ✅   | evals lessons pre-push churn 자동 처리 + stash 위생                         | medium   |
 | [LESSON-006](completed/LESSON-006-post-relocation-reference-sweep.md) ✅ | 패키지 재배치 시 다운스트림 참조 일괄 검사 — stale 경로 기계적 탐지         | medium   |
+| [LESSON-007](completed/LESSON-007-gh-delete-branch-guard.md) ✅          | gh pr merge --delete-branch 차단 가드 — branch-guard 훅에 기계적 강제       | high     |

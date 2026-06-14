@@ -25,11 +25,25 @@ IS_COMMIT=false
 IS_PUSH=false
 IS_MERGE=false
 IS_BRANCH_CREATE=false
+IS_GH_DELETE_BRANCH=false
 echo "$COMMAND" | grep -qE '^\s*git\s+commit\b' && IS_COMMIT=true
 echo "$COMMAND" | grep -qE '^\s*git\s+(push|push\s)' && IS_PUSH=true
 echo "$COMMAND" | grep -qE '^\s*git\s+merge\b' && IS_MERGE=true
 echo "$COMMAND" | grep -qE '^\s*git\s+checkout\s+-b\b' && IS_BRANCH_CREATE=true
 echo "$COMMAND" | grep -qE '^\s*git\s+switch\s+-c\b' && IS_BRANCH_CREATE=true
+# `gh pr merge --delete-branch` is banned (git-branch.md): it once deleted the
+# develop integration branch. Detect the gh-pr-merge + delete-branch flag combo.
+if echo "$COMMAND" | grep -qE 'gh\s+pr\s+merge\b' && echo "$COMMAND" | grep -qE '\-\-delete-branch\b'; then
+  IS_GH_DELETE_BRANCH=true
+fi
+
+if [[ "$IS_GH_DELETE_BRANCH" == "true" ]]; then
+  echo "[branch-guard] Blocked: '--delete-branch' is prohibited in 'gh pr merge'. Zero exceptions." >&2
+  echo "[branch-guard] It once deleted the develop integration branch. Merge without it, then delete" >&2
+  echo "[branch-guard] only on explicit user request: git branch -D <name> (local) /" >&2
+  echo "[branch-guard] gh api -X DELETE repos/<owner>/<repo>/git/refs/heads/<name> (remote)." >&2
+  exit 2
+fi
 
 if [[ "$IS_COMMIT" == "false" && "$IS_PUSH" == "false" && "$IS_MERGE" == "false" && "$IS_BRANCH_CREATE" == "false" ]]; then
   exit 0
