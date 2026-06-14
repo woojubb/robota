@@ -20,11 +20,15 @@ const MAX_RENDERED_MESSAGES = 100;
 
 /** Debounce interval for streaming text notify (limits renderMarkdown frequency) */
 const STREAMING_DEBOUNCE_MS = 300;
-export interface IContextState {
+/**
+ * TUI view of the core context-window state. The token fields are derived from the agent-core
+ * SSOT (`IContextWindowState`) via `Pick` so they stay structurally tied to it; `percentage` is an
+ * explicit display-facing mirror of `IContextWindowState.usedPercentage`.
+ */
+export type IContextState = Pick<IContextWindowState, 'usedTokens' | 'maxTokens'> & {
+  /** Mirror of `IContextWindowState.usedPercentage`, named for the TUI display layer. */
   percentage: number;
-  usedTokens: number;
-  maxTokens: number;
-}
+};
 
 /** Create a debounced notify — schedules at most one call per interval. */
 function createDebouncedNotify(

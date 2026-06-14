@@ -152,6 +152,20 @@ Provider packages import these types. They must not re-declare them.
 | `getModelName(id)`          | Function  | Get human-readable name (e.g., "Claude Sonnet 4.6")  |
 | `formatTokenCount(tokens)`  | Function  | Format tokens as human-readable (e.g., "200K", "1M") |
 
+### Model Pricing (SSOT)
+
+`context/model-pricing.ts` is the single source of truth for per-model token cost. Consumers that
+compute or estimate cost (cost display, budget/rate limiting) read from here rather than embedding
+their own price tables. Prices are USD per 1,000,000 tokens.
+
+| Export                            | Kind      | Description                                                                             |
+| --------------------------------- | --------- | --------------------------------------------------------------------------------------- |
+| `IModelPrice`                     | Interface | `{ inputPerMillion, outputPerMillion }`                                                 |
+| `MODEL_PRICES`                    | Record    | Exact per-model prices keyed by API model ID                                            |
+| `lookupModelPrice(id)`            | Function  | Resolve price by exact ID, then family pattern; `undefined` if unknown                  |
+| `calculateModelCost(id, in, out)` | Function  | Exact USD cost for an input/output token split; `undefined` if the model is unknown     |
+| `estimateBlendedCostPer1000(id)`  | Function  | Blended USD-per-1000 rate for budget estimation when no input/output split is available |
+
 ## Public API Surface
 
 ### Core
