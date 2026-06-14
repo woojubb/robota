@@ -24,7 +24,7 @@ graph LR
   end
   subgraph TypeContracts["Type Contract Packages — zero runtime deps"]
     IT["agent-interface-transport SPEC\nITransportAdapter · IConfigurableTransport\nITransportConfig"]
-    IU["agent-interface-tui SPEC\nITuiCommandInteraction · ITuiCliAdapter\nITuiPickerItem"]
+    IU["agent-interface-tui SPEC\nITuiCommandInteraction · ITuiPickerItem"]
   end
   subgraph Functional["Functional Specs"]
     CI["command-inventory.md\ncommand modules + lifecycle"]

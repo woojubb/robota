@@ -34,12 +34,11 @@ flowchart TB
     PLUGIN["agent-plugin"]
   end
   subgraph Orchestration["Orchestration — multi-agent coordination"]
-    TEAM["agent-team\n(placeholder — no exports)"]
     REMOTE["agent-remote-client\nremote HTTP executor"]
   end
   subgraph TypeContracts["Type Contracts — zero runtime deps"]
     IFTRANSPORT["agent-interface-transport\nITransportAdapter · IConfigurableTransport"]
-    IFTUI["agent-interface-tui\nITuiCommandInteraction · ITuiCliAdapter"]
+    IFTUI["agent-interface-tui\nITuiCommandInteraction"]
   end
   subgraph Domain["Domain — ZERO agent-* deps"]
     CORE["agent-core\nprovider · history · permissions · events"]

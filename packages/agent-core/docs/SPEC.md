@@ -45,7 +45,7 @@ Robota (Facade)
   │     ├── command-executor.ts     — CommandExecutor: shell command hook execution
   │     ├── http-executor.ts        — HttpExecutor: HTTP request hook execution
   │     └── types.ts                — THookEvent (13 events), THookDefinition (discriminated union), IHookTypeExecutor
-  └── Plugin Layer (1 built-in + 8 external plugin packages)
+  └── Plugin Layer (1 built-in + 8 plugin modules in the `@robota-sdk/agent-plugin` package)
         ├── EventEmitterPlugin           (built-in — event coordination)
         └── External plugins (per external plugin package):
               conversation-history, logging, usage, performance,
@@ -474,7 +474,7 @@ interface IHookTypeExecutor {
 | `CommandExecutor` | `command` | Spawns shell process, passes JSON via stdin, reads exit code |
 | `HttpExecutor`    | `http`    | Sends HTTP request, maps response status to exit code        |
 
-**Extended executors (agent-sdk):**
+**Extended executors (agent-framework):**
 
 | Executor         | Hook Type | Behavior                                                   |
 | ---------------- | --------- | ---------------------------------------------------------- |
