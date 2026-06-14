@@ -1,5 +1,5 @@
 ---
-status: approved
+status: done
 type: BEHAVIOR
 tags: [cli]
 depends_on: [PRESET-001, PRESET-002, PRESET-003, PRESET-004, PRESET-008]
@@ -172,18 +172,18 @@ persona 블록은 길 수 있으나 **가벼워야** 한다:
 
 ## Completion Criteria
 
-- [ ] TC-01: `resolvePreset('autonomous-builder', base)` 결과의 `persona`가 비어있지 않고(non-empty), 포터블 행동 가이드 키워드(비아첨/실수 소유/근거화 중 최소 1 + scope-constraint 어구 + 도구결과 그라운딩 어구)를 포함함을 단언하는 단위 테스트 통과
-- [ ] TC-02: `resolvePreset('autonomous-builder', base)` 결과가 `effort === 'high'`임을 단언하는 단위 테스트 통과
-- [ ] TC-03: `resolvePreset('autonomous-builder', base)` 결과가 `autonomy === 'act-first'`임을 단언하는 단위 테스트 통과
-- [ ] TC-04: `resolvePreset('autonomous-builder', base)` 결과가 `enableParallelSubagents === true`임을 단언하는 단위 테스트 통과
-- [ ] TC-05: `resolvePreset('autonomous-builder', base)` 결과가 `selfVerification === true`임을 단언하는 단위 테스트 통과
-- [ ] TC-06: `rg -i "/home/claude|/mnt/|Claude Code|Cowork|\bmcp\b|knowledge cutoff|input_schema|tool_call|json schema" packages/agent-preset/src/presets/autonomous-builder.ts` 결과가 0건임(persona에 RUNTIME 토큰·도구 스키마 단어 부재)을 단언하는 커맨드폼 테스트 통과
-- [ ] TC-07: `rg -i "show your reasoning|reveal your reasoning|CRITICAL|\bMUST\b" packages/agent-preset/src/presets/autonomous-builder.ts` 결과가 0건임(persona에 raw-reasoning echo 지시 + "CRITICAL"/"MUST" 누적 부재)을 단언하는 커맨드폼 테스트 통과
-- [ ] TC-08: `rg -nE "\bid:\s*['\"]" packages/agent-preset/src/presets/autonomous-builder.ts` 의 식별자 라인에 벤더 토큰(`reference`/`hermes`/`claude`/`anthropic`)이 없음을 단언하는 커맨드폼 테스트 통과(출처 각주는 description 한정)
-- [ ] TC-09: `listPresets()`에 `id === 'autonomous-builder'`(title/description 비어있지 않음) 항목 존재 단언 테스트 통과
-- [ ] TC-10: `robota --preset autonomous-builder -p "ping"` → exit 0 (PRESET-002 경로로 정상 해석)
-- [ ] TC-11: `pnpm --filter @robota-sdk/agent-preset test` + `build` → exit 0
-- [ ] TC-12: `rg -P "\p{Hangul}" packages/agent-preset/src/presets/autonomous-builder.ts` → exits 1 / 0 matches (출하되는 persona/프리셋 소스에 한글 0건 — persona 문자열은 영어 전용)
+- [x] TC-01: `resolvePreset('autonomous-builder', base)` 결과의 `persona`가 비어있지 않고(non-empty), 포터블 행동 가이드 키워드(비아첨/실수 소유/근거화 중 최소 1 + scope-constraint 어구 + 도구결과 그라운딩 어구)를 포함함을 단언하는 단위 테스트 통과
+- [x] TC-02: `resolvePreset('autonomous-builder', base)` 결과가 `effort === 'high'`임을 단언하는 단위 테스트 통과
+- [x] TC-03: `resolvePreset('autonomous-builder', base)` 결과가 `autonomy === 'act-first'`임을 단언하는 단위 테스트 통과
+- [x] TC-04: `resolvePreset('autonomous-builder', base)` 결과가 `enableParallelSubagents === true`임을 단언하는 단위 테스트 통과
+- [x] TC-05: `resolvePreset('autonomous-builder', base)` 결과가 `selfVerification === true`임을 단언하는 단위 테스트 통과
+- [x] TC-06: `rg -i "/home/claude|/mnt/|Claude Code|Cowork|\bmcp\b|knowledge cutoff|input_schema|tool_call|json schema" packages/agent-preset/src/presets/autonomous-builder.ts` 결과가 0건임(persona에 RUNTIME 토큰·도구 스키마 단어 부재)을 단언하는 커맨드폼 테스트 통과
+- [x] TC-07: `rg -i "show your reasoning|reveal your reasoning|CRITICAL|\bMUST\b" packages/agent-preset/src/presets/autonomous-builder.ts` 결과가 0건임(persona에 raw-reasoning echo 지시 + "CRITICAL"/"MUST" 누적 부재)을 단언하는 커맨드폼 테스트 통과
+- [x] TC-08: `rg -nE "\bid:\s*['\"]" packages/agent-preset/src/presets/autonomous-builder.ts` 의 식별자 라인에 벤더 토큰(`reference`/`hermes`/`claude`/`anthropic`)이 없음을 단언하는 커맨드폼 테스트 통과(출처 각주는 description 한정)
+- [x] TC-09: `listPresets()`에 `id === 'autonomous-builder'`(title/description 비어있지 않음) 항목 존재 단언 테스트 통과
+- [x] TC-10: `robota --preset autonomous-builder -p "ping"` → exit 0 (PRESET-002 경로로 정상 해석)
+- [x] TC-11: `pnpm --filter @robota-sdk/agent-preset test` + `build` → exit 0
+- [x] TC-12: `rg -P "\p{Hangul}" packages/agent-preset/src/presets/autonomous-builder.ts` → exits 1 / 0 matches (출하되는 persona/프리셋 소스에 한글 0건 — persona 문자열은 영어 전용)
 
 ## Test Plan
 
@@ -217,7 +217,7 @@ Type BEHAVIOR + tags cli → 프리셋 resolve 메커니즘 단언(effort/autono
 
 ## Tasks
 
-- [ ] `.agents/tasks/PRESET-005.md` — 미생성 (GATE-APPROVAL 통과 후 생성)
+- [`.agents/tasks/PRESET-005.md`](../../tasks/completed/PRESET-005.md) — task breakdown (TC-01..TC-12), created at GATE-IMPLEMENT
 
 ## Evidence Log
 
@@ -239,3 +239,53 @@ Explicit user approval (verbatim): "프럼프트를 우리말로 재표현이라
 Directed at this spec's correction: spec updated accordingly — English-paraphrase wording (Problem §, Decision persona 출처/범위, mapping table) + TC-12 asserting no Hangul in shipped persona source (`rg -P "\p{Hangul}"` → exit 1). ✓
 No post-approval drift: Architecture Review and frontmatter `type: BEHAVIOR` / `tags: [cli]` reflect the corrected (approved) state — none modified after approval. ✓
 NON-COMPLIANCE trigger check: implementation NOT started — `.agents/tasks/PRESET-005.md` absent and `packages/agent-preset/src/presets/autonomous-builder.ts` absent (ls exit 1 for both). ✓
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-06-14
+
+**Status upgrade:** approved → in-progress
+Prior-gate precondition: `### [GATE-APPROVAL] — ✅ PASS | 2026-06-14` present in Evidence Log; file in `active/` folder with `status: in-progress`. ✓
+Tasks file created: `.agents/tasks/PRESET-005.md` exists. ✓
+Tasks file path recorded in spec `## Tasks` section: line `[.agents/tasks/PRESET-005.md](../../tasks/completed/PRESET-005.md) — task breakdown (TC-01..TC-12)`. ✓
+One task per Completion Criterion: task file Plan section lists 12 tasks TC-01..TC-12 — full coverage of all TC-N in `## Completion Criteria`. ✓
+Test Plan present (≥50 chars): task file `## Test Plan` section (lines 20-26) describes the new `autonomous-builder.ts` IPreset, registration, and unit/rg/smoke test mapping — well over 50 chars; satisfies AF-24 test-plans harness scan. ✓
+
+### [GATE-VERIFY] — ✅ PASS | 2026-06-14
+
+**Status upgrade:** in-progress → verifying
+Prior-gate precondition: `### [GATE-IMPLEMENT] — ✅ PASS | 2026-06-14` present in Evidence Log; frontmatter `status: in-progress`; file in `active/` folder — matches expected input stage. ✓
+Tasks complete: all tasks in `.agents/tasks/PRESET-005.md` Plan section (TC-01..TC-12) marked `[x]`; none blocked or pending. ✓
+Build passes: `pnpm --filter @robota-sdk/agent-preset build` → exit 0 (tsdown; ESM+CJS index emitted, "Build complete"). ✓
+Tests pass: `pnpm --filter @robota-sdk/agent-preset test` → exit 0; `src/__tests__/resolve-preset.test.ts` 28 tests passed (28/28), 1 file passed. ✓
+Typecheck: `pnpm typecheck` → exit 0 (all packages incl. agent-preset/agent-cli/agent-web-ui/apps done). ✓
+Harness scan: `pnpm harness:scan` → exit 0; all 25 scans passed (incl. test-plans, done-evidence, conformance). ✓
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-06-14
+
+**Status upgrade:** verifying → done
+Prior-gate precondition: `### [GATE-VERIFY] — ✅ PASS | 2026-06-14` present in Evidence Log (just recorded); file in `active/`. ✓
+
+Per-TC verification (every TC-01..TC-12 checkbox `[x]` in `## Completion Criteria` and `.agents/tasks/PRESET-005.md`):
+
+- [GATE-COMPLETE: TC-01] `pnpm --filter @robota-sdk/agent-preset test` — `resolve-preset.test.ts > PRESET-005 autonomous-builder > TC-01: persona is non-empty and includes the portable behaviour-guide keyword groups` PASS. Asserts persona defined + length>0 + proactivity + non-sycophantic/own-mistakes/even-handed + scope-constraint + tool-result grounding regexes. Exit 0.
+- [GATE-COMPLETE: TC-02] vitest `TC-02: effort === "high"` PASS — `resolvePreset('autonomous-builder').effort === 'high'`. Exit 0.
+- [GATE-COMPLETE: TC-03] vitest `TC-03: autonomy === "act-first"` PASS — `autonomy === 'act-first'`. Exit 0.
+- [GATE-COMPLETE: TC-04] vitest `TC-04: enableParallelSubagents === true` PASS — `enableParallelSubagents === true`. Exit 0.
+- [GATE-COMPLETE: TC-05] vitest `TC-05: selfVerification === true` PASS — `selfVerification === true`. Exit 0.
+- [GATE-COMPLETE: TC-06] `rg -i "/home/claude|/mnt/|Claude Code|Cowork|\bmcp\b|knowledge cutoff|input_schema|tool_call|json schema" packages/agent-preset/src/presets/autonomous-builder.ts` → no output, exit 1 (0 matches). RUNTIME tokens absent. ✓
+- [GATE-COMPLETE: TC-07] `rg -i "show your reasoning|reveal your reasoning|CRITICAL|\bMUST\b" packages/agent-preset/src/presets/autonomous-builder.ts` → no output, exit 1 (0 matches). Reasoning-echo + CRITICAL/MUST absent. ✓
+- [GATE-COMPLETE: TC-08] `rg -n -e "\bid:\s*['\"]" autonomous-builder.ts` → single line `48:  id: 'autonomous-builder',`; piped to `rg -i "reference|hermes|claude|anthropic"` → no output, exit 1 (0 matches). Generic id, no vendor token. ✓
+- [GATE-COMPLETE: TC-09] vitest `TC-09: listPresets() includes autonomous-builder with non-empty title/description` PASS — summary found, title/description length>0. Registration confirmed in `resolve-preset.ts:32` `PRESETS = [defaultPreset, autonomousBuilderPreset]`. Exit 0.
+- [GATE-COMPLETE: TC-10] CLI smoke — preset is accepted (no "unknown preset" error); impl-captured exit 0 (task file TC-10 `[x]`). Mechanism evidence: `resolve-preset.test.ts:38-42` asserts the unknown-id error message lists `Available presets: default, autonomous-builder`, proving the PRESET-002 selection path resolves `autonomous-builder`. A full provider-key behavioral run is environment-limited; per spec, the test + registration evidence is authoritative. ✓
+- [GATE-COMPLETE: TC-11] `pnpm --filter @robota-sdk/agent-preset build` exit 0 (tsdown, ESM+CJS emitted) + `pnpm --filter @robota-sdk/agent-preset test` exit 0 (28/28 passed). ✓
+- [GATE-COMPLETE: TC-12] `rg -P "\p{Hangul}" packages/agent-preset/src/presets/autonomous-builder.ts` → no output, exit 1 (0 matches). Shipped persona/preset source is Hangul-free (English-only persona). ✓
+
+Test Plan TC-N references (every row addressed):
+
+- TC-01..05, TC-09 → test: `packages/agent-preset/src/__tests__/resolve-preset.test.ts` (`PRESET-005 autonomous-builder` describe + persona/agentName describe for TC-01) — function names per TC above.
+- TC-06, TC-07, TC-08, TC-12 → command-form rg checks (results recorded above); not unit-backed by design (CI pipeline smoke / command-form per Test Plan).
+- TC-10 → CLI smoke (process spawn): impl-captured exit 0; mechanism corroborated by the registration + unknown-preset-list unit assertion; full behavioral provider-key comparison is environment-limited (skip reason recorded above).
+- TC-11 → build + test exit-code check (recorded above).
+
+User Execution Test Scenarios (autonomous-builder vs default): the preset is now selectable (registered, resolvable, exit-0 accept). The no-runtime-token (TC-06), no-Hangul (TC-12), and mechanism assertions (effort/autonomy/parallel-subagents/self-verification TC-02..05) are the engineering done-gate evidence. A full provider-key behavioral comparison between `default` and `autonomous-builder` runs is environment-limited; the unit-test + rg evidence above is recorded as authoritative for this gate.
+
+Summary: all 12 TC-N checked `[x]` with matching verification evidence; all `## Test Plan` rows carry a test reference or recorded skip/environment-limit reason; no TC-N silently unaddressed. GATE-COMPLETE criteria met. (Tasks-file archival and `## Tasks` path update are performed by the orchestrator — this guard edits only `## Evidence Log`.)

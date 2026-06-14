@@ -25,9 +25,10 @@ assembly.
 ```
 agent-framework            ← neutral assembly + option-type SSOT
   └── agent-preset         ← this package: IPreset contract + resolvePreset + built-in presets
-        ├── preset-types.ts   ← IPreset / TResolvedPresetOptions / enums (SSOT for the preset shape)
-        ├── presets/default.ts← neutral baseline preset (no overrides — pure no-op)
-        └── resolve-preset.ts ← registry + listPresets/getPreset/resolvePreset + DEFAULT_AGENT_NAME
+        ├── preset-types.ts              ← IPreset / TResolvedPresetOptions / enums (SSOT for the preset shape)
+        ├── presets/default.ts           ← neutral baseline preset (no overrides — pure no-op)
+        ├── presets/autonomous-builder.ts← opinionated preset: persona + effort/autonomy/parallel/self-verify mechanism
+        └── resolve-preset.ts            ← registry + listPresets/getPreset/resolvePreset + DEFAULT_AGENT_NAME
 ```
 
 `resolvePreset(id, context)` merges three layers by precedence (LOW → HIGH):
@@ -56,21 +57,22 @@ indexed access rather than redefining the permission-mode union.
 
 ## Public API Surface
 
-| Export                   | Kind      | Description                                                      |
-| ------------------------ | --------- | ---------------------------------------------------------------- |
-| `IPreset`                | Interface | Preset definition shape (identity + option overrides)            |
-| `TResolvedPresetOptions` | Interface | Resolved framework-option subset                                 |
-| `TPresetEffort`          | Type      | Effort dial union                                                |
-| `TPresetAutonomy`        | Type      | Autonomy posture union                                           |
-| `TPresetTrustLevel`      | Type      | Trust-level union                                                |
-| `TPresetPermissionMode`  | Type      | Permission-mode union (reused from framework)                    |
-| `IPresetSummary`         | Interface | `{ id, title, description }` summary                             |
-| `IResolvePresetContext`  | Interface | Override layers for resolution                                   |
-| `DEFAULT_AGENT_NAME`     | Const     | Default agent identity (`'robota-cli'`), owned by this package   |
-| `defaultPreset`          | Const     | Built-in neutral baseline preset                                 |
-| `resolvePreset`          | Function  | `(id, context?) => TResolvedPresetOptions`; throws on unknown id |
-| `listPresets`            | Function  | `() => readonly IPresetSummary[]`                                |
-| `getPreset`              | Function  | `(id) => IPreset \| undefined`                                   |
+| Export                    | Kind      | Description                                                                                                                                     |
+| ------------------------- | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `IPreset`                 | Interface | Preset definition shape (identity + option overrides)                                                                                           |
+| `TResolvedPresetOptions`  | Interface | Resolved framework-option subset                                                                                                                |
+| `TPresetEffort`           | Type      | Effort dial union                                                                                                                               |
+| `TPresetAutonomy`         | Type      | Autonomy posture union                                                                                                                          |
+| `TPresetTrustLevel`       | Type      | Trust-level union                                                                                                                               |
+| `TPresetPermissionMode`   | Type      | Permission-mode union (reused from framework)                                                                                                   |
+| `IPresetSummary`          | Interface | `{ id, title, description }` summary                                                                                                            |
+| `IResolvePresetContext`   | Interface | Override layers for resolution                                                                                                                  |
+| `DEFAULT_AGENT_NAME`      | Const     | Default agent identity (`'robota-cli'`), owned by this package                                                                                  |
+| `defaultPreset`           | Const     | Built-in neutral baseline preset                                                                                                                |
+| `autonomousBuilderPreset` | Const     | Opinionated preset: proactive/self-verifying persona + `effort: 'high'`, `autonomy: 'act-first'`, `enableParallelSubagents`, `selfVerification` |
+| `resolvePreset`           | Function  | `(id, context?) => TResolvedPresetOptions`; throws on unknown id                                                                                |
+| `listPresets`             | Function  | `() => readonly IPresetSummary[]`                                                                                                               |
+| `getPreset`               | Function  | `(id) => IPreset \| undefined`                                                                                                                  |
 
 ## Extension Points
 
@@ -96,7 +98,23 @@ listing the available preset ids.
 `src/__tests__/resolve-preset.test.ts` (vitest) covers: default-preset no-op resolution (TC-05),
 precedence merging — `explicit` > `cliOverrides` > preset (TC-06), `listPresets()` containing the
 `default` entry (TC-07), the `{ id, title, description }` summary shape, `getPreset` lookup, and the
-unknown-preset error message. The `test` script runs `vitest run --passWithNoTests`.
+unknown-preset error message. It also covers the `autonomous-builder` preset (PRESET-005): non-empty
+persona with the portable behaviour-guide keywords, `effort: 'high'`, `autonomy: 'act-first'`,
+`enableParallelSubagents`, `selfVerification`, and its `listPresets()` entry. The `test` script runs
+`vitest run --passWithNoTests`.
+
+### Built-in preset catalog
+
+| Preset               | Identity            | Resolved overrides                                                                                                                                         |
+| -------------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `default`            | neutral baseline    | none (pure no-op — reproduces standard agent behaviour)                                                                                                    |
+| `autonomous-builder` | opinionated builder | `persona` (portable proactive/self-verifying block) + `effort: 'high'`, `autonomy: 'act-first'`, `enableParallelSubagents: true`, `selfVerification: true` |
+
+The `autonomous-builder` persona carries portable behavioural principles only (proactivity,
+scope-constraint, self-verification, tool-result grounding, non-sycophantic honesty, concise output).
+It holds no runtime/environment content — working directory, tool schemas, product identity, dates,
+and permission text remain the framework RUNTIME layer's responsibility. The identifier is generic; a
+work-style sourcing footnote appears only in `description`.
 
 ## Class Contract Registry
 
