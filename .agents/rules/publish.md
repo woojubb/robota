@@ -17,7 +17,7 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 - `pnpm publish:beta` runs `scripts/publish/publish-packages.sh` which:
   1. Detects version from agent-core/package.json
   2. Runs `pnpm publish -r --dry-run` (all packages at once, ~4 seconds)
-  3. Prompts for OTP (AFTER dry-run so it doesn't expire before publish)
+  3. Prompts for OTP in an interactive TTY (AFTER dry-run so it doesn't expire before publish). In a non-TTY context (Claude Code's Bash tool) this prompt cannot be answered — `--otp`/`--tag-otp` MUST be passed explicitly; see the OTP Protocol below.
   4. Runs `pnpm publish -r --otp <otp>` (all packages at once, ~4 seconds)
   5. Syncs `beta` dist-tags for all published packages to the same version
   6. Verifies both `latest` and `beta` dist-tags point to the published version
@@ -54,7 +54,7 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 
 **Mandatory sequence — every step must complete before the next:**
 
-1. `pnpm changeset version` → version bump. Note the new version number.
+1. `pnpm run version` → version bump (the repo script; runs `changeset version`). NOT `pnpm version` (the builtin — performs no changeset bump). Verify the bump produced version + CHANGELOG diffs, then note the new version number.
 2. `pnpm build` exits 0 → build confirmed
 3. `pnpm harness:release:init -- --version <version>` → create release-run file if it does not exist
 4. Update the release-run file: set `Gate status: passed`, `Publish ready: yes`, `NPM auth verified: yes`, `Dry run passed: yes`, `OTP requested: yes`
