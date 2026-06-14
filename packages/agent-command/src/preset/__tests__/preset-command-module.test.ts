@@ -78,16 +78,16 @@ function createCommandHostContext(
 }
 
 describe('preset command module', () => {
-  it('exposes a single preset system command (structure)', () => {
+  it('exposes a single preset system command (structure)', async () => {
     const module = createPresetCommandModule();
     expect(module.systemCommands?.map((command) => command.name)).toContain('preset');
   });
 
-  it('TC-01: lists every preset and marks the active one', () => {
+  it('TC-01: lists every preset and marks the active one', async () => {
     const runtime = createSessionRuntime({ getActivePresetId: () => 'autonomous-builder' });
     const context = createCommandHostContext(runtime);
 
-    const result = executePresetCommand(context, '');
+    const result = await executePresetCommand(context, '');
 
     expect(result.success).toBe(true);
     for (const preset of listPresets()) {
@@ -99,7 +99,7 @@ describe('preset command module', () => {
     expect(result.data?.active).toBe('autonomous-builder');
   });
 
-  it('TC-02: switches to a valid preset and drives the live re-apply seams', () => {
+  it('TC-02: switches to a valid preset and drives the live re-apply seams', async () => {
     const setActivePresetId = vi.fn();
     const setPermissionMode = vi.fn();
     const applyModelOptions = vi.fn();
@@ -110,7 +110,7 @@ describe('preset command module', () => {
     });
     const context = createCommandHostContext(runtime);
 
-    const result = executePresetCommand(context, 'careful-reviewer');
+    const result = await executePresetCommand(context, 'careful-reviewer');
 
     expect(result.success).toBe(true);
     expect(result.message).toBe('Switched to preset: careful-reviewer');
@@ -122,12 +122,12 @@ describe('preset command module', () => {
     expect(applyModelOptions).toHaveBeenCalledWith(expect.objectContaining({ effort: 'high' }));
   });
 
-  it('TC-04: rejects an unknown preset id without switching', () => {
+  it('TC-04: rejects an unknown preset id without switching', async () => {
     const setActivePresetId = vi.fn();
     const runtime = createSessionRuntime({ setActivePresetId });
     const context = createCommandHostContext(runtime);
 
-    const result = executePresetCommand(context, '__nope__');
+    const result = await executePresetCommand(context, '__nope__');
 
     expect(result.success).toBe(false);
     for (const preset of listPresets()) {

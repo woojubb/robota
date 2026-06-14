@@ -282,6 +282,12 @@ framework→provider seam, `execution-round-provider.ts` defaults it to `'high'`
 providers map it to their request parameter; providers without a native effort concept ignore it as a
 documented no-op. Core must not branch on provider names to apply effort.
 
+`setModel` requires the agent to be fully initialized (providers registered + current provider set),
+which otherwise happens lazily on the first `run()`. `Robota.ensureReady()` performs that
+initialization without running a turn (idempotent), so callers that mutate runtime configuration
+before the first turn — e.g. live preset/model switching on a fresh interactive session — call
+`ensureReady()` first instead of hitting the "must be fully initialized" guard.
+
 ### Provider-Native Replay Payloads
 
 `IChatOptions.onProviderNativeRawPayload` is the provider-neutral callback bridge for replay-grade raw payload capture. Provider packages own the native SDK request/response/stream objects and call this callback with `IProviderNativeRawPayloadEvent`:
