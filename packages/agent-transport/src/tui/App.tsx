@@ -350,10 +350,12 @@ function AppInner(
   // Session may not be initialized yet
   let permissionMode: TPermissionMode = props.permissionMode ?? 'default';
   let sessionId = '';
+  let activePresetId: string | undefined;
   try {
     // allow-fallback: session initializes asynchronously; use defaults until ready
     const session = interactiveSession.getSession();
     permissionMode = session.getPermissionMode();
+    activePresetId = session.getActivePresetId?.();
     sessionId = session.getSessionId();
   } catch {
     // allow-fallback: session initializes asynchronously; use defaults until ready
@@ -481,6 +483,7 @@ function AppInner(
         sessionName={sessionName}
         settings={statusLineSettings}
         activeAgentLabel={activeAgentLabel}
+        activePresetId={activePresetId}
         gitRefreshToken={gitRefreshToken}
       />
     </Box>

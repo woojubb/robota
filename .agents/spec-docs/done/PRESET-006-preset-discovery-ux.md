@@ -1,5 +1,5 @@
 ---
-status: approved
+status: done
 type: SCREEN
 tags: [cli]
 ---
@@ -55,6 +55,11 @@ tags: [cli]
 2. 기본 명령 모듈에 등록.
 3. TUI `SessionStatusBar`에 활성 프리셋 id 표시(기존 provider/model 표시 옆).
 
+> **재범위(설계 §7.1):** 본 스펙은 PRESET-011~014(라이브 전환 엔진) 착지 후 그 seam 위에 구현된다.
+> `/preset <id>` 전환은 `getPreset(id)` 검증 → `resolvePreset(id)` → `applyPresetToSession(context, id,
+resolved)`(권한·모델/effort·페르소나 라이브 재적용)로 동작하고, 활성 마커/상태표시줄은 PRESET-011
+> `getActivePresetId`를 읽는다. 명령 모듈/실행능력 전환은 PRESET-015(연기)까지 보류.
+
 ## Affected Files
 
 - `packages/agent-command/src/preset/preset-command-module.ts` (NEW)
@@ -64,11 +69,11 @@ tags: [cli]
 
 ## Completion Criteria
 
-- [ ] TC-01: `/preset` 실행 시 출력에 `listPresets()`의 모든 id가 포함되고 활성 프리셋에 마커가 표시됨을 단언하는 통합 테스트 통과
-- [ ] TC-02: `/preset autonomous-builder` 실행 후 활성 프리셋 상태가 `autonomous-builder`로 바뀜을 단언하는 통합 테스트 통과
-- [ ] TC-03: TUI 렌더 스냅샷/단위 테스트에서 상태 표시줄 출력에 활성 프리셋 id 문자열이 포함됨을 단언
-- [ ] TC-04: `/preset __nope__` → 사용 가능한 id 목록과 함께 거부 메시지 출력(전환되지 않음)을 단언하는 통합 테스트 통과
-- [ ] TC-05: `pnpm --filter @robota-sdk/agent-command --filter @robota-sdk/agent-transport build` + `pnpm typecheck` → exit 0
+- [x] TC-01: `/preset` 실행 시 출력에 `listPresets()`의 모든 id가 포함되고 활성 프리셋에 마커가 표시됨을 단언하는 통합 테스트 통과
+- [x] TC-02: `/preset autonomous-builder` 실행 후 활성 프리셋 상태가 `autonomous-builder`로 바뀜을 단언하는 통합 테스트 통과
+- [x] TC-03: TUI 렌더 스냅샷/단위 테스트에서 상태 표시줄 출력에 활성 프리셋 id 문자열이 포함됨을 단언
+- [x] TC-04: `/preset __nope__` → 사용 가능한 id 목록과 함께 거부 메시지 출력(전환되지 않음)을 단언하는 통합 테스트 통과
+- [x] TC-05: `pnpm --filter @robota-sdk/agent-command --filter @robota-sdk/agent-transport build` + `pnpm typecheck` → exit 0
 
 ## Test Plan
 
@@ -94,7 +99,7 @@ Type SCREEN + tags cli → 명령 출력/TUI 렌더 단언 + 빌드 스모크.
 
 ## Tasks
 
-- [ ] `.agents/tasks/PRESET-006.md` — 미생성 (GATE-APPROVAL 통과 후 생성)
+- [x] [.agents/tasks/PRESET-006.md](../../tasks/PRESET-006.md) — task breakdown (TC-01..TC-05)
 
 ## Evidence Log
 
@@ -116,3 +121,33 @@ Explicit approval: orchestrator asked "8개를 GATE-APPROVAL까지 올릴까요?
 Directed at this spec: PRESET-006 is one of the 8 PRESET specs covered by the batch approval.
 No post-approval changes: Architecture Review and frontmatter (`type: SCREEN`, `tags: [cli]`) unchanged after approval.
 NON-COMPLIANCE trigger clear: no `.agents/tasks/PRESET-006.md`, no `packages/agent-preset/`, no `packages/agent-command/src/preset/` — implementation not started.
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-06-14
+
+**Status upgrade:** approved → in-progress
+Task file `.agents/tasks/PRESET-006.md` created and linked from `## Tasks`. One task per Completion
+Criterion (TC-01..TC-05) plus command-module / dependency / TUI tasks. Test Plan present (≥50 chars).
+Built on the merged PRESET-011~014 live-switching engine (re-scope note in Solution).
+
+### [GATE-VERIFY] — ✅ PASS | 2026-06-14
+
+**Status upgrade:** in-progress → verifying
+All tasks `[x]`. `pnpm --filter @robota-sdk/agent-command --filter @robota-sdk/agent-transport build` →
+exit 0. `pnpm --filter @robota-sdk/agent-command --filter @robota-sdk/agent-transport test` → exit 0
+(agent-command 25 files incl. 4 new preset-command cases; agent-transport 61 files incl. TC-03 status
+bar cases). `pnpm typecheck` → exit 0 (monorepo). `pnpm harness:scan` → exit 0, all 25 scans incl. the
+`deps` dependency-direction check (new agent-command → agent-preset edge is one-way, no cycle). The
+`@robota-sdk/agent-preset` dependency + lockfile entry were added surgically (+3 lockfile lines, 0
+deletions; `pnpm install --frozen-lockfile` clean).
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-06-14
+
+**Status upgrade:** verifying → done
+Per-TC:
+
+- [GATE-COMPLETE: TC-01] agent-command vitest (`preset-command-module.test.ts`) — `/preset` output contains every `listPresets()` id with a `*` marker on the active one (mock `getActivePresetId`).
+- [GATE-COMPLETE: TC-02] vitest — `/preset <id>` → `success: true`, drives `applyPresetToSession` (mock `setActivePresetId`/`setPermissionMode` called); `data.preset === id`.
+- [GATE-COMPLETE: TC-03] agent-transport vitest (`status-bar.test.tsx`) — StatusBar shows the active preset id + `Preset:` label when non-default; hidden for `'default'`/undefined.
+- [GATE-COMPLETE: TC-04] vitest — `/preset __nope__` → `success: false`, message lists available ids, no switch (setActivePresetId not called with the bad id).
+- [GATE-COMPLETE: TC-05] agent-command + agent-transport build + `pnpm typecheck` exit 0.
+- Dependency direction: `node scripts/harness/check-dependency-direction.mjs` → exit 0 ("No dependency direction violations found"); agent-command → agent-preset is one-way.
