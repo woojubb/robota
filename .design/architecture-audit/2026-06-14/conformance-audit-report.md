@@ -59,3 +59,32 @@ P1 materially misleading or a significant undocumented contract; P2 minor stalen
   system + CTX-001/HIST-001 are correctly architected and placed in code, but the architecture-map docs and
   6 package SPECs were not updated alongside (a `three_doc_layers_sync` lapse). No release blocker; the
   remediation is documentation-only.
+
+## Coverage completion (post-initial-pass) + skill fix
+
+**Coverage gap found in the initial pass.** The first run verified only 7 of the 10 top-level
+architecture-map subdocs + 6 preset-touched SPECs, and **missed the entire `agent-cli/` subtree**
+(`.agents/specs/architecture-map/agent-cli/*.md`, 7 docs) plus `apps-and-deployment.md`,
+`architecture-lessons.md`, the architecture-map `README.md`, and 12 not-yet-audited package SPECs.
+
+**Root cause — a skill bug (now fixed):** `doc-claim-verification` > Canonical Document Set used a
+non-recursive glob `.agents/specs/architecture-map/*.md` which excludes nested subtrees like `agent-cli/`.
+Fixed to `**/*.md` with an explicit "enumerate with `find`, do not hand-list, no silent scoping"
+instruction; the `architecture-conformance-audit` orchestrator Step 2 now requires mechanical enumeration
+
+- a coverage report. (Files: `.agents/skills/doc-claim-verification/SKILL.md`,
+  `.agents/skills/architecture-conformance-audit/SKILL.md`.)
+
+**Completion pass findings (AF-13 … AF-37):**
+
+| Range              | Document(s)                                                                       | Headline                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| ------------------ | --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| AF-13 … AF-31 (19) | `agent-cli/` subtree (7 docs)                                                     | The most-drifted area. Beyond preset gaps: phantom startup files (`composition-tree`), wrong `cli.ts` line count (196→316), stale ownership paths (`createProviderFromSettings` → agent-framework; `ManagedShellProcessRunner` → agent-executor; AF-22 VIOLATION), removed `useInteractiveSession` hook → `useTuiChannel`/`TuiInteractionChannel`, outdated print/interactive flow (`HeadlessInteractionChannel`/direct `renderApp`), web-sidecar CONTRADICTION. **All 7 docs fixed.** |
+| AF-32 … AF-34 (3)  | `architecture-map/README.md`, `apps-and-deployment.md`, `architecture-lessons.md` | README missed `transport-architecture.md` row (fixed); other two HOLD.                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| AF-35 … AF-37 (3)  | `agent-transport`, `agent-interface-transport`, `agent-playground` SPECs          | AF-35 (beta.75 priority): TUI active-preset status display undocumented → added. AF-36: "zero deps" claim vs 3 type-only deps → reworded. AF-37: playground allowed-list under-enumerated → fixed.                                                                                                                                                                                                                                                                                     |
+| (HOLD)             | 9 of 12 remaining SPECs                                                           | `agent-executor/provider/plugin/tools/tool-mcp/remote-client/interface-tui/subagent-runner/web-ui` — verified, all HOLD.                                                                                                                                                                                                                                                                                                                                                               |
+
+**Final coverage: all canonical docs verified** (ARCHITECTURE.md, project-structure.md, ARCHITECTURE-MAP.md,
+all 10 top-level architecture-map subdocs + the 7-doc `agent-cli/` subtree, all 18 package SPECs).
+**Totals: AF-01 … AF-37 = 37 findings (0 P0, 1 hard VIOLATION [AF-22, doc owner-path wrong], rest P1/P2),
+0 code violations.** All remediation applied to docs in the same change set; `harness:scan` 25/25 stays green.

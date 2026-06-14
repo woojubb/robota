@@ -109,6 +109,7 @@ This package is the single source of truth (SSOT) for the following types:
 | `IOwnerPathSegment`                   | `event-service/interfaces.ts`       | Execution path tracking                                                                                                                                                                                                                                                                                                    |
 | `RobotaError`                         | `utils/errors.ts`                   | Base error hierarchy                                                                                                                                                                                                                                                                                                       |
 | `TTextDeltaCallback`                  | `interfaces/provider.ts`            | Streaming text delta callback `(delta: string) => void`                                                                                                                                                                                                                                                                    |
+| `TModelEffort`                        | `interfaces/provider.ts`            | SSOT reasoning-effort union: `'low' \| 'medium' \| 'high' \| 'xhigh' \| 'max'`. `'high'` is the neutral default applied at the framework→provider seam.                                                                                                                                                                    |
 | `TPermissionMode`                     | `permissions/types.ts`              | Permission modes: plan, default, acceptEdits, bypassPermissions                                                                                                                                                                                                                                                            |
 | `TTrustLevel`                         | `permissions/types.ts`              | Friendly trust aliases: safe, moderate, full                                                                                                                                                                                                                                                                               |
 | `TPermissionDecision`                 | `permissions/types.ts`              | Evaluation outcome: auto, approve, deny                                                                                                                                                                                                                                                                                    |
@@ -244,6 +245,28 @@ NOTE: `CommandExecutor` and `HttpExecutor` are exported from `hooks/index.ts` bu
 | `TTextDeltaCallback` | type | `(delta: string) => void` — streaming text callback |
 
 This callback is declared in `IChatOptions.onTextDelta` and `IRunOptions.onTextDelta`. Provider implementations use `IChatOptions.onTextDelta` to emit text chunks during streaming responses. The execution engine (`execution-round.ts`, `execution-pipeline.ts`) uses only `IRunOptions.onTextDelta` (the run-scoped callback) — there is no fallback to a provider instance-level callback. Callers must pass the callback explicitly through the run context. Provider instance-level `onTextDelta` properties (if any) are a provider-internal concern and must not be relied upon by agent-core.
+
+### Reasoning Effort
+
+| Export         | Kind | Description                                                                                                           |
+| -------------- | ---- | --------------------------------------------------------------------------------------------------------------------- |
+| `TModelEffort` | type | SSOT reasoning-effort union: `'low' \| 'medium' \| 'high' \| 'xhigh' \| 'max'`. `'high'` is the neutral default tier. |
+
+`TModelEffort` (declared in `interfaces/provider.ts`) is the single source of truth for the
+reasoning-effort dial. The `effort` value flows through one channel from configuration to provider:
+
+- `IModelConfig.effort` (`src/core/robota-types.ts`) — the shared model-config shape used by
+  `setModel`/`getModel`.
+- `IAgentConfig.defaultModel.effort` (`src/interfaces/agent.ts`) — the agent-config default-model
+  effort threaded into execution.
+- `IChatOptions.effort` (`src/interfaces/provider.ts`) — the per-invocation effort passed to provider
+  `chat()`.
+
+`setModel` writes the effort into agent config (`src/core/robota-config-manager.ts`). At the
+framework→provider seam, `execution-round-provider.ts` defaults it to `'high'`
+(`config.defaultModel.effort ?? 'high'`) so every model call carries an explicit effort. Native-effort
+providers map it to their request parameter; providers without a native effort concept ignore it as a
+documented no-op. Core must not branch on provider names to apply effort.
 
 ### Provider-Native Replay Payloads
 
@@ -548,6 +571,7 @@ If the partial response includes tool_use blocks (abort during tool call streami
 - **Read-only**: Consumers read history but do not mutate existing messages.
 - **Always committed**: `beginAssistant()` + `commitAssistant()` guarantees an assistant message is always appended, even on abort with empty content.
 - **No fallback**: If a message should be in history, it IS in history. No fallback to alternative data sources.
+- **Unbounded**: `DEFAULT_MAX_MESSAGES_PER_CONVERSATION = 0` (`src/managers/conversation-history-manager.ts`) means no message cap, backing the append-only guarantee — history is never trimmed by count.
 
 ## Message Model
 

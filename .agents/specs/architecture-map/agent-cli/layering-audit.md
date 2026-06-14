@@ -1,6 +1,6 @@
 # Agent CLI Layering Audit
 
-Source-verified against `develop` on 2026-05-15.
+Source-verified against `develop` on 2026-06-14.
 
 Resolved audit findings, durable lessons, and mechanical guard candidates.
 
@@ -57,15 +57,15 @@ Mechanical guard: command-layering harness scans for new CLI command shim files 
 
 Status: resolved.
 
-| File                                                             | Classification                                                            |
-| ---------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| `agent-cli/src/background/managed-shell-process-runner.ts`       | CLI adapter — Node spawn, stdin, cancellation                             |
-| `agent-subagent-runner/src/child-process-subagent-runner.ts`     | Optional package — Node fork, worker path, payload (moved from agent-cli) |
-| `agent-subagent-runner/src/child-process-subagent-ipc.ts`        | Optional package — IPC protocol types                                     |
-| `agent-subagent-runner/src/child-process-subagent-worker.ts`     | Optional package — worker entry point                                     |
-| `agent-subagent-runner/src/worker-path-resolver.ts`              | Optional package — bundled worker path resolver                           |
-| `agent-executor/src/subagents/git-worktree-isolation-adapter.ts` | Executor adapter — worktree port impl                                     |
-| `agent-executor/src/background-tasks/log-pages.ts`               | Runtime primitive — bounded output + pagination                           |
+| File                                                                          | Classification                                                            |
+| ----------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `agent-executor/src/background-tasks/runners/managed-shell-process-runner.ts` | Executor adapter — Node spawn, stdin, cancellation (moved from agent-cli) |
+| `agent-subagent-runner/src/child-process-subagent-runner.ts`                  | Optional package — Node fork, worker path, payload (moved from agent-cli) |
+| `agent-subagent-runner/src/child-process-subagent-ipc.ts`                     | Optional package — IPC protocol types                                     |
+| `agent-subagent-runner/src/child-process-subagent-worker.ts`                  | Optional package — worker entry point                                     |
+| `agent-subagent-runner/src/worker-path-resolver.ts`                           | Optional package — bundled worker path resolver                           |
+| `agent-executor/src/subagents/git-worktree-isolation-adapter.ts`              | Executor adapter — worktree port impl                                     |
+| `agent-executor/src/background-tasks/log-pages.ts`                            | Runtime primitive — bounded output + pagination                           |
 
 ### CLI-AUDIT-007: SDK public exports hide package ownership
 
@@ -120,7 +120,11 @@ All behavior functions extracted:
 - `runPrintMode` → `src/modes/print-mode.ts`
 - `createDefaultTransportRegistry` → `src/transports/transport-registry.ts`
 
-`cli.ts` is now 196 lines, zero function definitions, pure import-and-call.
+`cli.ts` defines no behavior helper functions — all such logic lives in `src/startup/*`, `src/modes/*`,
+and lower packages. As of 2026-06-14 the file is 316 lines (grown from 196 by the PRESET-002/004/007/011
+selection wiring, the first-run/onboarding gate, and the `diagnose` / `session analyze` / `init`
+early-exit gates), but it remains import-and-wire only: `startCli()` sequences gates and assembly inline
+without local helper definitions.
 
 ### CLI-AUDIT-012: `getSettingsPathForScope` belongs in agent-framework
 
@@ -279,3 +283,29 @@ Fix:
 - Created `packages/agent-command/src/plugins/default-plugin-command-source-loader.ts`
 - Exported both from `@robota-sdk/agent-command`
 - `agent-cli` imports both from `@robota-sdk/agent-command`; `plugins/` directory deleted
+
+### CLI-AUDIT-024: preset wiring must stay a thin shell — feature logic belongs in agent-preset/agent-framework
+
+Status: resolved — PRESET-002/004/007/011 (3.0.0-beta.75).
+
+The CLI gained `--preset <id>` (`utils/cli-args.ts`) plus startup preset selection. The risk is that
+preset feature logic (precedence merge, posture mapping, default identity, external preset loading,
+application to a session) leaks into the CLI shell.
+
+Resolution — the CLI owns selection glue only:
+
+- `src/startup/preset-selection.ts` exposes `selectPresetId(args, settingsPreset)` (`--preset` >
+  `settings.preset` > `'default'`) and `resolveCliPreset(args, settingsPreset)`, which only builds the
+  CLI-flag override set and calls `resolvePreset` (agent-preset). The precedence merge lives entirely
+  inside `resolvePreset`, never in the CLI.
+- `cli.ts` calls `loadExternalPresets()` (agent-preset) to register `~/.robota/presets/*.json`; per-file
+  validation errors are surfaced as warnings and are non-fatal.
+- Preset profile data, `resolvePreset`, `loadExternalPresets`, and `DEFAULT_AGENT_NAME` are owned by
+  `@robota-sdk/agent-preset`. Application of the resolved option bundle to a session
+  (`applyPresetToSession`) is owned by `@robota-sdk/agent-framework`.
+- The CLI forwards the resolved bundle (model override, persona, agentName, activePresetId,
+  permissionMode, enabled/disabled command modules, enableParallelSubagents, selfVerification) into
+  `buildCommandSetup`, `runPrintMode`, and `renderApp` without re-applying any preset semantics.
+
+Mechanical guard candidate: scan `packages/agent-cli/src` for preset precedence/merge logic (a
+`resolvePreset`-equivalent merge implemented outside `@robota-sdk/agent-preset`) and reject it.
