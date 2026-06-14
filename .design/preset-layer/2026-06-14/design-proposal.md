@@ -300,6 +300,33 @@ param이 있으면 그 섹션을 sections 배열에 포함. 위치는 **priority
 권장 실행 순서: 001 → 002 → 003 → 004 → 008 → 005 → 006 → (009/010/007 선택, PRESET-005와 동형 콘텐츠).
 PRESET-009/010은 빌트인 튜닝 프리셋(콘텐츠)으로, 시스템(PRESET-001) 변경 없이 추가된다 — 프리셋이 개방형 집합임을 구체화.
 
+### 7.1 라이브 프리셋 전환 분해 (PRESET-006 재범위 + 신규 FLOW 스택)
+
+원래 PRESET-006(SCREEN)은 **세 가지 관심사**를 한 백로그에 묶고 있었다: (1) 런타임 active-preset
+상태, (2) 전환 시 프리셋 옵션의 **라이브 재적용**, (3) 발견/표시 UX. 그러나 현재 시스템에는 런타임
+active-preset 상태 자체가 없다 — 프리셋은 PRESET-002에서 **시작 시 1회** `resolvePreset`로 해석되어
+세션 조립에 구워질 뿐, `ICommandSessionRuntime`에 active id를 보관하거나 변경하는 seam이 없다.
+
+정석(canonical)은 **풀 라이브 적용**이다: `/preset <id>` 전환 시 해당 프리셋의 옵션(권한/모델/effort/
+페르소나/모듈/실행능력)이 실행 중 세션에 재적용된다. 범위가 크므로 **계층적 FLOW 스택**으로 분해해
+아래에서 위로 쌓는다. 각 레이어는 독립적으로 검증 가능하며, 옵션 그룹마다 재적용 메커니즘이 다르다.
+
+| ID         | 제목                                                                | type   | 우선순위 | 선행                         | 소유 seam                                                                                                                                                                                                                         |
+| ---------- | ------------------------------------------------------------------- | ------ | -------- | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PRESET-011 | 런타임 active-preset 상태 seam (`get/setActivePresetId`)            | FLOW   | high     | 001,002                      | agent-framework `ICommandSessionRuntime` 계약 + 런타임 구현. 시작 시 active id를 PRESET-002 해석 결과로 초기화. **순수 상태 추적**(재적용 없음) — 모든 상위 레이어의 토대                                                         |
+| PRESET-012 | 전환 시 권한/신뢰 포스처 라이브 재적용                              | FLOW   | medium   | 011,004                      | active id 변경 시 프리셋의 `permissionMode`/trust를 기존 `setPermissionMode` seam으로 즉시 재적용 (가장 쉬움 — 런타임 setter 존재)                                                                                                |
+| PRESET-013 | 전환 시 모델/effort 라이브 재적용                                   | FLOW   | medium   | 011,008                      | `model`/`effort`/`temperature`/`maxOutputTokens`를 기존 `provider-hot-swap-requested` effect 경로로 재적용                                                                                                                        |
+| PRESET-014 | 전환 시 페르소나/시스템 프롬프트 + 실행능력 라이브 재적용           | FLOW   | low      | 011,003                      | 시스템 프롬프트 재합성(persona 섹션) + `enabledCommandModules`/`enableParallelSubagents`/`selfVerification` 재적용. 세션 mid-flight 재합성 seam 필요 — 가장 복잡                                                                  |
+| PRESET-006 | 프리셋 발견/관리 UX — `/preset` 명령 + 목록 + TUI 활성 표시(재범위) | SCREEN | medium   | 011 (전환 효과: 012,013,014) | `/preset` 목록 + active 마커(`getActivePresetId` 읽기), `/preset <id>` 전환(검증 + `setActivePresetId` → 011~014 엔진 트리거), 상태 표시줄 active 표시. 명령/표시는 011만 있으면 착지 가능; **완전한 라이브 효과는 012~014 필요** |
+
+**라이브 전환 의존 순서:** 011 → {012, 013, 014} → 006. 012/013/014는 011 위에서 서로 독립이며 옵션
+그룹별로 점진 착지한다. PRESET-006의 `/preset` 명령은 011 착지 후 목록/표시/전환-상태변경을 제공하고,
+012~014가 누적될수록 전환의 **관찰 가능한 행동 효과**가 권한 → 모델/effort → 페르소나/능력 순으로 채워진다.
+
+**레이어 불변식 유지:** 모든 신규 seam은 agent-framework/executor/core/command가 소유한다. agent-cli는
+여전히 껍데기 — `/preset` 로직은 agent-command, 상태 표시는 agent-transport TUI, 재적용 엔진은
+framework/executor. cli에는 전환·재적용 로직을 두지 않는다.
+
 **레이어 불변식(모든 백로그 공통):** 기능 로직은 agent-preset/agent-framework/agent-executor/agent-core/agent-command가 소유한다. `agent-cli`는 `--preset` 파싱·`resolvePreset` 호출 결과 전달·활성 표시(껍데기)만 한다. cli에 해석·합성·권한·effort·서브에이전트 로직을 두지 않는다.
 
 ## 8. 영향 패키지 요약

@@ -87,6 +87,8 @@ export interface IInteractiveSessionStandardOptions {
   sandboxSnapshotId?: string;
   /** Name reported to the underlying Robota agent config. Defaults to 'agent'. */
   agentName?: string;
+  /** Active preset id selected at startup (PRESET-011 runtime state). Defaults to 'default'. */
+  activePresetId?: string;
   /** Preset execution capability: activate agent runtime + subagent/background dispatch. */
   enableParallelSubagents?: boolean;
   /** Preset execution capability: run a post-task self-verification step. */
@@ -186,6 +188,8 @@ export interface IInitOptions {
   sandboxSnapshotId?: string;
   /** Name reported to the underlying Robota agent config. Defaults to 'agent'. */
   agentName?: string;
+  /** Active preset id selected at startup (PRESET-011 runtime state). Defaults to 'default'. */
+  activePresetId?: string;
   /** Preset execution capability: activate agent runtime + subagent/background dispatch. */
   enableParallelSubagents?: boolean;
   /** Preset execution capability: run a post-task self-verification step. */

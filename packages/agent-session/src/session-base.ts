@@ -15,6 +15,7 @@ export abstract class SessionBase {
   protected abstract readonly permissionEnforcer: PermissionEnforcer;
   protected abstract readonly contextTracker: ContextWindowTracker;
   protected abstract permissionMode: TPermissionMode;
+  protected abstract activePresetId: string;
   protected abstract readonly sessionId: string;
   protected abstract readonly aiProvider: IAIProvider;
   protected abstract readonly toolSchemas: IToolSchema[];
@@ -30,6 +31,20 @@ export abstract class SessionBase {
   /** Change the active permission mode — future tool calls will use the new mode. */
   setPermissionMode(mode: TPermissionMode): void {
     this.permissionMode = mode;
+  }
+
+  /** Read the active preset id (PRESET-011 runtime state). */
+  getActivePresetId(): string {
+    return this.activePresetId;
+  }
+
+  /**
+   * Set the active preset id. PURE STATE — this only records which preset is active;
+   * it does not re-apply any preset options (permission/model/persona). Higher layers
+   * own re-application (PRESET-012/013/014).
+   */
+  setActivePresetId(id: string): void {
+    this.activePresetId = id;
   }
 
   getSessionId(): string {
