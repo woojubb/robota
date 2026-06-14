@@ -42,6 +42,30 @@ description: Defines a practical testing strategy for TypeScript and JavaScript 
 - Integration: minimal fixture setup, real wiring for one boundary.
 - Type-level: `expectTypeOf` for generic and inference guarantees.
 
+## Live State-Mutation Seams (cold-state coverage)
+
+A "live state-mutation seam" is any path that mutates a collaborator's runtime configuration
+**after construction** — e.g. switching model/effort on a running agent, re-applying a preset,
+hot-swapping a permission mode. These collaborators often **initialize lazily** (the real work
+happens on first use, not in the constructor), so the seam has two distinct states:
+
+- **warm**: the collaborator has been used at least once (fully initialized).
+- **cold**: the collaborator was constructed but never used — initialization has not run yet.
+
+Rules:
+
+- **Always cover the cold path with a real collaborator (no mock).** Build the real object,
+  do NOT trigger its first use, then exercise the seam. The cold path is where lazy-init guards
+  fire, and it is the path users hit (e.g. `/preset` immediately after launch).
+- **If you must mock the collaborator, the mock MUST reproduce the real method's preconditions.**
+  A mock whose `setX()` ignores the real "must be fully initialized" guard turns a red test green —
+  you have replaced the buggy collaborator with a compliant fake and the bug walks straight to
+  production. Mocking the collaborator that owns the bug hides the bug.
+- Reference regression test: `packages/agent-session/src/__tests__/apply-model-options-cold-session.test.ts`
+  (real `Robota`, never calls `run()`, asserts `applyModelOptions` succeeds on a cold session).
+  Incident + fix: `/preset` `ConfigurationError: Agent must be fully initialized before changing
+model configuration` (2026-06-14). See `common-mistakes.md` #60.
+
 ## Worker-Thread Environment Gotchas
 
 - `vi.stubEnv('HOME', …)` (and any `process.env` mutation) does NOT propagate to native APIs
@@ -63,6 +87,8 @@ description: Defines a practical testing strategy for TypeScript and JavaScript 
 - [ ] CLI-reachable behavior has headless integration coverage when applicable.
 - [ ] Public type contracts are validated when changed.
 - [ ] Tests avoid over-mocking implementation details.
+- [ ] Live state-mutation seams have cold-state coverage with a real collaborator.
+- [ ] Mocks of guarded collaborators reproduce the real method's preconditions.
 - [ ] Failure messages are readable and actionable.
 
 ## Anti-Patterns
@@ -71,3 +97,7 @@ description: Defines a practical testing strategy for TypeScript and JavaScript 
 - Massive integration suites replacing all unit tests.
 - Tests tightly coupled to private implementation details.
 - Skipping type-level tests when changing exported generic types.
+- Mocking the very collaborator whose guard owns the bug, so the mock never enforces the
+  precondition that fails in production (mock-the-buggy-collaborator).
+- Testing a post-construction state-mutation seam only on the warm path, never on the cold
+  (never-used / lazy-init-pending) path.
