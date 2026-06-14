@@ -66,10 +66,18 @@ export interface ITuiInteractionChannelOptions {
   language?: string;
   reloadPluginCommandSource?: (registry: CommandRegistry) => void;
   agentName?: string;
+  /** Active preset id selected at startup (PRESET-011 runtime state). Defaults to 'default'. */
+  activePresetId?: string;
+  /** Preset persona block composed as a `source: 'persona'` system-prompt section (priority 5). */
+  persona?: string;
   systemPrompt?: string;
   appendSystemPrompt?: string;
   allowedTools?: string[];
   deniedTools?: string[];
+  /** Preset execution capability: activate agent runtime + subagent/background dispatch. */
+  enableParallelSubagents?: boolean;
+  /** Preset execution capability: run a post-task self-verification step. */
+  selfVerification?: boolean;
 }
 
 export class TuiInteractionChannel implements IInteractionChannel {
@@ -136,10 +144,14 @@ export class TuiInteractionChannel implements IInteractionChannel {
       shellExec: opts.shellExec,
       language: opts.language,
       agentName: opts.agentName,
+      activePresetId: opts.activePresetId,
+      persona: opts.persona,
       systemPrompt: opts.systemPrompt,
       appendSystemPrompt: opts.appendSystemPrompt,
       allowedTools: opts.allowedTools,
       deniedTools: opts.deniedTools,
+      enableParallelSubagents: opts.enableParallelSubagents,
+      selfVerification: opts.selfVerification,
     });
   }
 

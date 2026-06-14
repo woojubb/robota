@@ -10,6 +10,7 @@ import type { IToolWithEventService } from '../abstracts/abstract-tool';
 import type { AbstractTool } from '../abstracts/abstract-tool';
 import type { IAgentConfig, IExecutionContextInjection } from '../interfaces/agent';
 import type { IEventService } from '../interfaces/event-service';
+import type { TModelEffort } from '../interfaces/provider';
 import type { IToolExecutionContext, TToolParameters } from '../interfaces/tool';
 import type { TUniversalValue } from '../interfaces/types';
 import type { AIProviders } from '../managers/ai-provider-manager';
@@ -180,6 +181,7 @@ export class RobotaConfigManager {
     maxTokens?: number;
     topP?: number;
     systemMessage?: string;
+    effort?: TModelEffort;
   }): void {
     if (!modelConfig.provider || !modelConfig.model) {
       throw new ConfigurationError('Both provider and model are required', { component: 'Robota' });
@@ -216,6 +218,7 @@ export class RobotaConfigManager {
         ...(modelConfig.systemMessage !== undefined && {
           systemMessage: modelConfig.systemMessage,
         }),
+        ...(modelConfig.effort !== undefined && { effort: modelConfig.effort }),
       },
     });
 

@@ -76,6 +76,7 @@ export function buildRobota(
       provider: provider.name,
       model,
       systemMessage,
+      ...(options.effort !== undefined && { effort: options.effort }),
     },
     systemMessage,
     tools: wrappedTools,

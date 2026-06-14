@@ -17,6 +17,7 @@ import type {
   IToolWithEventService,
   IHookTypeExecutor,
   TPermissionMode,
+  TModelEffort,
   TToolArgs,
 } from '@robota-sdk/agent-core';
 import type {
@@ -78,6 +79,18 @@ export interface ICreateSessionOptions {
   subagentRunnerFactory?: TSubagentRunnerFactory;
   /** Enable agent tool, agent definitions, and subagent runtime wiring for this session. */
   enableAgentRuntime?: boolean;
+  /**
+   * Preset execution capability: when true the assembly turns on `enableAgentRuntime`
+   * so subagent/background dispatch is active for this session. Threaded from the
+   * preset's `enableParallelSubagents` flag.
+   */
+  enableParallelSubagents?: boolean;
+  /**
+   * Preset execution capability: when true the framework composes a verify-before-done
+   * self-verification section into the system prompt (PRESET-017), as a normal
+   * priority-sorted `source: 'self-verification'` section.
+   */
+  selfVerification?: boolean;
   /** Callback when a tool starts or finishes execution — enables real-time tool display in UI */
   onToolExecution?: (event: {
     type: 'start' | 'end';
@@ -116,8 +129,17 @@ export interface ICreateSessionOptions {
   deniedTools?: string[];
   /** Override the model from config. When set, takes precedence over config.provider.model. */
   model?: string;
+  /**
+   * Reasoning-effort dial for this session, threaded to the provider request builder.
+   * Resolved from a preset's `effort` (PRESET-008). When unset, the framework→provider
+   * seam defaults it to `'high'`. Native-effort providers map it onto their request
+   * parameter; providers without native effort ignore it as a documented no-op.
+   */
+  effort?: TModelEffort;
   /** Text to append to the generated system prompt. */
   appendSystemPrompt?: string;
+  /** Preset persona block composed as a `source: 'persona'` system-prompt section (priority 5). */
+  persona?: string;
   /** Model command execution bridge. */
   modelCommandExecutor?: (command: string, args: string) => Promise<ICommandResult | null>;
   /** Predicate for commands allowed through the model command execution bridge. */
@@ -132,6 +154,8 @@ export interface ICreateSessionOptions {
   sandboxClient?: ISandboxClient;
   /** Name reported to the underlying Robota agent config. Defaults to 'agent'. */
   agentName?: string;
+  /** Active preset id selected at startup (PRESET-011 runtime state). Defaults to 'default'. */
+  activePresetId?: string;
   /** Request structured output from the provider for this session. */
   responseFormat?: { type: 'text' | 'json_object' };
 }
@@ -142,6 +166,13 @@ export interface ICreateSessionResult {
   /**
    * Rebuild the system message using updated context strings.
    * Called by staleness detection when AGENTS.md or CLAUDE.md files change between turns.
+   * PRESET-014: an optional `overrides.persona` re-applies a preset persona to the live prompt;
+   * PRESET-017: an optional `overrides.selfVerification` toggles the verify-before-done section.
+   * Either override is retained for subsequent (override-less) rebuilds.
    */
-  rebuildSystemMessage: (agentsMd: string, claudeMd: string) => string;
+  rebuildSystemMessage: (
+    agentsMd: string,
+    claudeMd: string,
+    overrides?: { persona?: string; selfVerification?: boolean },
+  ) => string;
 }

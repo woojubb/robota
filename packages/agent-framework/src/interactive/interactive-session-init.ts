@@ -50,8 +50,17 @@ export interface ICreatedInteractiveSession {
   agentsFileEntries: IContextFileEntry[];
   /** Per-file entries for CLAUDE.md files loaded at startup. Used for staleness detection. */
   claudeFileEntries: IContextFileEntry[];
-  /** Rebuilds the system message given updated agentsMd and claudeMd strings. */
-  rebuildSystemMessage: (agentsMd: string, claudeMd: string) => string;
+  /**
+   * Rebuilds the system message given updated agentsMd and claudeMd strings. PRESET-014: an
+   * optional `overrides.persona` re-applies a preset persona to the live prompt; PRESET-017: an
+   * optional `overrides.selfVerification` toggles the verify-before-done section. Either override
+   * is retained for subsequent (override-less) rebuilds.
+   */
+  rebuildSystemMessage: (
+    agentsMd: string,
+    claudeMd: string,
+    overrides?: { persona?: string; selfVerification?: boolean },
+  ) => string;
 }
 
 /**
@@ -133,6 +142,7 @@ export async function createInteractiveSession(
     deniedTools: options.deniedTools,
     model: options.model,
     appendSystemPrompt: options.appendSystemPrompt,
+    ...(options.persona !== undefined ? { persona: options.persona } : {}),
     ...(options.systemPrompt ? { systemPromptBuilder: () => options.systemPrompt! } : {}),
     backgroundTaskRunners: options.backgroundTaskRunners,
     subagentRunnerFactory: options.subagentRunnerFactory,
@@ -140,6 +150,12 @@ export async function createInteractiveSession(
       module.sessionRequirements?.includes('agent-runtime'),
     )
       ? { enableAgentRuntime: true }
+      : {}),
+    ...(options.enableParallelSubagents !== undefined
+      ? { enableParallelSubagents: options.enableParallelSubagents }
+      : {}),
+    ...(options.selfVerification !== undefined
+      ? { selfVerification: options.selfVerification }
       : {}),
     ...(options.commandModules || options.commandDescriptors
       ? {
@@ -155,6 +171,7 @@ export async function createInteractiveSession(
     reversibleExecution: options.reversibleExecution,
     sandboxClient: options.sandboxClient,
     agentName: options.agentName,
+    ...(options.activePresetId !== undefined ? { activePresetId: options.activePresetId } : {}),
     ...(options.additionalTools ? { additionalTools: options.additionalTools } : {}),
     ...(options.responseFormat ? { responseFormat: options.responseFormat } : {}),
   });
@@ -260,6 +277,7 @@ export async function initializeInteractiveSessionAsync(
     deniedTools: options.deniedTools,
     model: options.model,
     appendSystemPrompt: options.appendSystemPrompt,
+    ...(options.persona !== undefined ? { persona: options.persona } : {}),
     ...(options.systemPrompt ? { systemPrompt: options.systemPrompt } : {}),
     language: options.language,
     backgroundTaskRunners: options.backgroundTaskRunners,
@@ -272,6 +290,13 @@ export async function initializeInteractiveSessionAsync(
     ...(options.sandboxWorkspaceRoot ? { sandboxWorkspaceRoot: options.sandboxWorkspaceRoot } : {}),
     ...(deps.sandboxSnapshotId ? { sandboxSnapshotId: deps.sandboxSnapshotId } : {}),
     ...(options.agentName ? { agentName: options.agentName } : {}),
+    ...(options.activePresetId !== undefined ? { activePresetId: options.activePresetId } : {}),
+    ...(options.enableParallelSubagents !== undefined
+      ? { enableParallelSubagents: options.enableParallelSubagents }
+      : {}),
+    ...(options.selfVerification !== undefined
+      ? { selfVerification: options.selfVerification }
+      : {}),
     ...(options.additionalTools ? { additionalTools: options.additionalTools } : {}),
     ...(options.responseFormat ? { responseFormat: options.responseFormat } : {}),
     commandDescriptors: deps.commandDescriptors,

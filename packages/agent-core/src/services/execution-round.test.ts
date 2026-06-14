@@ -224,6 +224,43 @@ describe('execution-round helpers', () => {
       expect(resolved.provider.chat).toHaveBeenCalled();
     });
 
+    // TC-02 (PRESET-008): effort defaults to 'high' at the framework→provider seam.
+    it('defaults effort to high in chatOptions when config.defaultModel.effort is unset', async () => {
+      const chat = vi.fn().mockResolvedValue({
+        role: 'assistant',
+        content: 'hi',
+        state: 'complete' as const,
+        timestamp: new Date(),
+      });
+      const resolved = createResolvedProviderInfo({ provider: { chat } });
+      const config = { name: 'test', defaultModel: { provider: 'openai', model: 'gpt-4' } };
+      await callProviderWithCache([], config as any, resolved);
+      expect(chat).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ effort: 'high' }),
+      );
+    });
+
+    // TC-01 (PRESET-008): an explicit effort threads through chatOptions unchanged.
+    it('threads an explicit config.defaultModel.effort into chatOptions', async () => {
+      const chat = vi.fn().mockResolvedValue({
+        role: 'assistant',
+        content: 'hi',
+        state: 'complete' as const,
+        timestamp: new Date(),
+      });
+      const resolved = createResolvedProviderInfo({ provider: { chat } });
+      const config = {
+        name: 'test',
+        defaultModel: { provider: 'openai', model: 'gpt-4', effort: 'max' },
+      };
+      await callProviderWithCache([], config as any, resolved);
+      expect(chat).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ effort: 'max' }),
+      );
+    });
+
     it('uses cached response when available', async () => {
       const config = { name: 'test', defaultModel: { provider: 'openai', model: 'gpt-4' } };
       const resolved = createResolvedProviderInfo();

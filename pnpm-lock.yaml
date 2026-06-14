@@ -477,6 +477,9 @@ importers:
       '@robota-sdk/agent-framework':
         specifier: workspace:*
         version: link:../agent-framework
+      '@robota-sdk/agent-preset':
+        specifier: workspace:*
+        version: link:../agent-preset
       '@robota-sdk/agent-provider':
         specifier: workspace:*
         version: link:../agent-provider
@@ -547,6 +550,9 @@ importers:
       '@robota-sdk/agent-interface-transport':
         specifier: workspace:*
         version: link:../agent-interface-transport
+      '@robota-sdk/agent-preset':
+        specifier: workspace:*
+        version: link:../agent-preset
     devDependencies:
       '@types/node':
         specifier: ^22.19.21
@@ -860,6 +866,25 @@ importers:
       vitest:
         specifier: ^3.2.6
         version: 3.2.6(@types/node@22.19.21)(tsx@4.22.4)
+
+  packages/agent-preset:
+    dependencies:
+      '@robota-sdk/agent-framework':
+        specifier: workspace:*
+        version: link:../agent-framework
+    devDependencies:
+      rimraf:
+        specifier: ^5.0.10
+        version: 5.0.10
+      tsdown:
+        specifier: ^0.22.2
+        version: 0.22.2(tsx@4.22.4)(typescript@5.9.3)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.6
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.22.4)
 
   packages/agent-provider:
     dependencies:

@@ -17,9 +17,14 @@ import {
   formatCliUpdateCheckMessage,
   formatCliUpdateNotice,
   ProviderConfigError,
+  readSettings,
+  getUserSettingsPath,
 } from '@robota-sdk/agent-framework';
 import { parseCliArgs, parseToolList, printHelp } from './utils/cli-args.js';
 import type { IParsedCliArgs } from './utils/cli-args.js';
+import { resolveCliPreset, selectPresetId } from './startup/preset-selection.js';
+import { DEFAULT_AGENT_NAME, loadExternalPresets } from '@robota-sdk/agent-preset';
+import type { TResolvedPresetOptions } from '@robota-sdk/agent-preset';
 import {
   ensureConfig,
   handleProviderConfigurationArgs,
@@ -123,8 +128,40 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     process.exit(1);
   }
 
+  // PRESET-002/004: thin shell — select preset id (flag > settings.preset > 'default') and forward
+  // the resolved framework options. The precedence merge + posture mapping lives in
+  // agent-preset.resolvePreset; the CLI owns none of that logic. Resolved before command setup so
+  // the preset's module-selection delta can reach createDefaultCommandModules.
+  const userSettings = readSettings(getUserSettingsPath());
+  const settingsPreset = typeof userSettings.preset === 'string' ? userSettings.preset : undefined;
+  // PRESET-007: register user-authored external presets (~/.robota/presets/*.json) into the
+  // shared registry before resolution so `--preset <id>` and `/preset` can see them. Per-file
+  // load/validation problems are non-fatal and surfaced as warnings; the run still proceeds.
+  const externalPresetLoad = loadExternalPresets();
+  for (const { file, error } of externalPresetLoad.errors) {
+    terminal.writeError(`Skipped external preset "${file}": ${error}`);
+  }
+  let resolvedPreset: TResolvedPresetOptions;
+  try {
+    resolvedPreset = resolveCliPreset(args, settingsPreset);
+  } catch (error) {
+    // allow-fallback: unknown preset id is terminal — surface available list, exit
+    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+    process.exit(1);
+  }
+  // PRESET-011: the selected preset id (same selection glue as resolveCliPreset) becomes the
+  // session's runtime active-preset state. Pure state — no option re-application here.
+  const selectedPresetId = selectPresetId(args, settingsPreset);
+
   const { commandHostAdapters, providerDefinitions, commandModules, startupUpdateNoticePromise } =
-    buildCommandSetup(cwd, args, options, version);
+    buildCommandSetup(cwd, args, options, version, {
+      ...(resolvedPreset.enabledCommandModules !== undefined
+        ? { enabledCommandModules: resolvedPreset.enabledCommandModules }
+        : {}),
+      ...(resolvedPreset.disabledCommandModules !== undefined
+        ? { disabledCommandModules: resolvedPreset.disabledCommandModules }
+        : {}),
+    });
 
   if (args.positional[0] === 'init') {
     try {
@@ -165,7 +202,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     ? { providerOverride: args.provider, providerDefinitions }
     : { providerDefinitions };
   const providerSettings = readProviderSettings(cwd, providerOptions);
-  const modelId = args.model ?? providerSettings.model;
+  const modelId = resolvedPreset.model ?? providerSettings.model;
   if (providerSettings.source === 'env-default' && providerSettings.sourceEnvVar !== undefined) {
     const notice = `Using ${providerSettings.name} (${modelId}) via ${providerSettings.sourceEnvVar} — run \`robota --configure\` to persist a profile.\n`;
     if (args.printMode) {
@@ -174,7 +211,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
       terminal.writeLine(notice.trimEnd());
     }
   }
-  const provider = createProviderFromSettings(cwd, args.model, providerOptions);
+  const provider = createProviderFromSettings(cwd, resolvedPreset.model, providerOptions);
   const backgroundTaskRunners = createDefaultBackgroundTaskRunners();
   const paths = projectPaths(cwd);
   const subagentRunnerFactory = createChildProcessSubagentRunnerFactory({
@@ -212,6 +249,20 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
       commandModules,
       commandHostAdapters,
       { resumeSessionId, forkSession: args.forkSession },
+      {
+        agentName: resolvedPreset.agentName ?? DEFAULT_AGENT_NAME,
+        activePresetId: selectedPresetId,
+        persona: resolvedPreset.persona,
+        ...(resolvedPreset.permissionMode !== undefined
+          ? { permissionMode: resolvedPreset.permissionMode }
+          : {}),
+        ...(resolvedPreset.enableParallelSubagents !== undefined
+          ? { enableParallelSubagents: resolvedPreset.enableParallelSubagents }
+          : {}),
+        ...(resolvedPreset.selfVerification !== undefined
+          ? { selfVerification: resolvedPreset.selfVerification }
+          : {}),
+      },
     );
     return;
   }
@@ -229,7 +280,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     providerType: providerSettings.name,
     modelId,
     language: args.language,
-    permissionMode: args.permissionMode,
+    permissionMode: args.permissionMode ?? resolvedPreset.permissionMode,
     maxTurns: args.maxTurns,
     allowedTools: parseToolList(args.allowedTools),
     deniedTools: parseToolList(args.deniedTools),
@@ -251,7 +302,15 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     transportRegistry: createDefaultTransportRegistry(),
     cliAdapter: createDefaultTuiCliAdapter({ providerDefinitions, reloadPluginCommandSource }),
     reloadPluginCommandSource,
-    agentName: 'robota-cli',
+    agentName: resolvedPreset.agentName ?? DEFAULT_AGENT_NAME,
+    activePresetId: selectedPresetId,
+    persona: resolvedPreset.persona,
+    ...(resolvedPreset.enableParallelSubagents !== undefined
+      ? { enableParallelSubagents: resolvedPreset.enableParallelSubagents }
+      : {}),
+    ...(resolvedPreset.selfVerification !== undefined
+      ? { selfVerification: resolvedPreset.selfVerification }
+      : {}),
   });
   process.exit(0);
 }

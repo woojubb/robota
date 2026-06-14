@@ -26,6 +26,7 @@ interface IProps {
   gitBranch?: string;
   showGitBranch?: boolean;
   activeAgentLabel?: string;
+  activePresetId?: string;
 }
 
 interface IStatusLeftProps {
@@ -42,6 +43,7 @@ interface IStatusLeftProps {
   sessionName?: string;
   gitBranch?: string;
   showGitBranch: boolean;
+  activePresetId?: string;
 }
 
 /** Return the color for the context percentage indicator */
@@ -106,6 +108,21 @@ function shouldShowPermissionMode(permissionMode: TPermissionMode): boolean {
   return permissionMode !== 'default';
 }
 
+function PresetText({ activePresetId }: { activePresetId: string }): React.ReactElement {
+  return (
+    <>
+      <Text color="cyan" bold>
+        Preset:
+      </Text>{' '}
+      <Text>{activePresetId}</Text>
+    </>
+  );
+}
+
+function shouldShowActivePreset(activePresetId: string | undefined): activePresetId is string {
+  return activePresetId !== undefined && activePresetId !== 'default';
+}
+
 function ProviderText({
   modelName,
   providerDisplayName,
@@ -127,6 +144,8 @@ function StatusLeft(props: IStatusLeftProps): React.ReactElement {
   const shouldShowGitBranch =
     props.showGitBranch && props.gitBranch !== undefined && props.gitBranch.length > 0;
   const showPermissionMode = shouldShowPermissionMode(props.permissionMode);
+  const activePresetId = props.activePresetId;
+  const showActivePreset = shouldShowActivePreset(activePresetId);
   return (
     <Text>
       <StatusActivityText
@@ -139,6 +158,12 @@ function StatusLeft(props: IStatusLeftProps): React.ReactElement {
         <>
           {'  |  '}
           <ModeText permissionMode={props.permissionMode} />
+        </>
+      )}
+      {showActivePreset && (
+        <>
+          {'  |  '}
+          <PresetText activePresetId={activePresetId} />
         </>
       )}
       {props.sessionName && (
@@ -181,6 +206,7 @@ export default function StatusBar({
   gitBranch,
   showGitBranch = true,
   activeAgentLabel,
+  activePresetId,
 }: IProps): React.ReactElement {
   return (
     <Box paddingLeft={1} paddingRight={1} justifyContent="space-between">
@@ -198,6 +224,7 @@ export default function StatusBar({
         sessionName={sessionName}
         gitBranch={gitBranch}
         showGitBranch={showGitBranch}
+        activePresetId={activePresetId}
       />
       {activeAgentLabel !== undefined && (
         <Text color="yellow" bold>

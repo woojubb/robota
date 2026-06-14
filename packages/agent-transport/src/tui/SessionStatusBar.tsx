@@ -20,6 +20,7 @@ interface IProps {
   sessionName?: string;
   settings: IStatusLineCommandSettings;
   activeAgentLabel?: string;
+  activePresetId?: string;
   gitRefreshToken?: number;
 }
 
@@ -37,6 +38,7 @@ export default function SessionStatusBar({
   sessionName,
   settings,
   activeAgentLabel,
+  activePresetId,
   gitRefreshToken,
 }: IProps): React.ReactElement | null {
   const cliAdapter = useTuiCliAdapter();
@@ -65,6 +67,7 @@ export default function SessionStatusBar({
       gitBranch={gitBranch}
       showGitBranch={settings.gitBranch}
       activeAgentLabel={activeAgentLabel}
+      activePresetId={activePresetId}
     />
   );
 }

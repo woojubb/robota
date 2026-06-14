@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-command",
-  "version": "3.0.0-beta.74",
+  "version": "3.0.0-beta.75",
   "description": "Consolidated command module implementations for Robota SDK CLI",
   "type": "module",
   "main": "dist/node/index.js",
@@ -36,7 +36,8 @@
   "dependencies": {
     "@robota-sdk/agent-core": "workspace:*",
     "@robota-sdk/agent-framework": "workspace:*",
-    "@robota-sdk/agent-interface-transport": "workspace:*"
+    "@robota-sdk/agent-interface-transport": "workspace:*",
+    "@robota-sdk/agent-preset": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.19.21",

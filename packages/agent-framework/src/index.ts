@@ -71,6 +71,7 @@ export type {
   ICommandProcessAdapter,
   ICommandSource,
   ICommandSessionRuntime,
+  IModelReapplyOptions,
   ICommandSettingsAdapter,
   ICommandSettingsDocument,
   ICommandSkillListEntry,
@@ -186,6 +187,7 @@ export {
   resolvePermissionModeAdapter,
   VALID_PERMISSION_MODES,
   writeCommandPermissionMode,
+  applyPresetToSession,
   buildStatusLineCommandSubcommands,
   buildPluginCommandSubcommands,
   createPluginRegistryReloadRequestedEffect,
@@ -249,6 +251,8 @@ export type {
   ICommandSessionInfo,
   ICommandSessionReplayValidationReport,
   IPermissionsCommandState,
+  IPresetApplicationOptions,
+  IPresetApplicationResult,
   ICommandMemoryStores,
   ICommandPendingMemoryStore,
   ICommandProjectMemoryStore,
@@ -396,6 +400,7 @@ export {
   resolveSubagentLogDir,
 } from './assembly/index.js';
 export type { ISubagentPromptOptions, ISubagentOptions } from './assembly/index.js';
+export type { ICreateSessionOptions, ICreateSessionResult } from './assembly/index.js';
 export { createAgentTool, storeAgentToolDeps, retrieveAgentToolDeps } from './tools/agent-tool.js';
 export type { IAgentToolDeps } from './tools/agent-tool.js';
 export { createCommandExecutionTool } from './tools/command-execution-tool.js';

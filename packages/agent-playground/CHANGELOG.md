@@ -1,5 +1,15 @@
 # @robota-sdk/agent-playground
 
+## 3.0.0-beta.75
+
+### Patch Changes
+
+- Updated dependencies
+  - @robota-sdk/agent-core@3.0.0-beta.75
+  - @robota-sdk/agent-provider@3.0.0-beta.75
+  - @robota-sdk/agent-remote-client@3.0.0-beta.75
+  - @robota-sdk/agent-tools@3.0.0-beta.75
+
 ## 3.0.0-beta.74
 
 ### Patch Changes

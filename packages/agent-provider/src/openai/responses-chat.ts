@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import { buildOpenAIResponsesTextConfig } from './openai-request-format';
+import { resolveOpenAIReasoningOptions } from './reasoning-effort';
 import {
   convertToOpenAIResponsesInput,
   convertToOpenAIResponsesTools,
@@ -152,6 +153,12 @@ function buildResponsesRequestParams(
     input.providerOptions.strictTools,
   );
   const textConfig = buildOpenAIResponsesTextConfig(input.providerOptions);
+  // Native effort mapping: thread the per-call reasoning-effort dial onto the Responses
+  // API `reasoning.effort` parameter, merged with any static reasoning options.
+  const reasoning = resolveOpenAIReasoningOptions(
+    input.providerOptions.reasoning,
+    input.chatOptions?.effort,
+  );
   return {
     model,
     input: convertToOpenAIResponsesInput(input.messages),
@@ -163,8 +170,8 @@ function buildResponsesRequestParams(
       max_output_tokens: input.chatOptions.maxTokens,
     }),
     ...(textConfig !== undefined && { text: textConfig }),
-    ...(input.providerOptions.reasoning !== undefined && {
-      reasoning: input.providerOptions.reasoning,
+    ...(reasoning !== undefined && {
+      reasoning,
     }),
     ...(input.providerOptions.includeEncryptedReasoning === true && {
       include: ['reasoning.encrypted_content'],

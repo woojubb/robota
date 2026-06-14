@@ -234,6 +234,40 @@ describe('DeepSeekProvider', () => {
     ]);
   });
 
+  // TC-03 (runtime half): DeepSeek has no native per-call reasoning-effort param.
+  // A populated `effort` must complete without throwing AND must not appear on the
+  // built Chat Completions request. (The no-op is documented in agent-provider SPEC.md.)
+  it('TC-03: ignores per-call effort without error and emits no effort param', async () => {
+    const provider = new DeepSeekProvider({ apiKey: 'deepseek-key' });
+    const client = getClient(provider);
+    client.chat.completions.create.mockResolvedValue({
+      id: 'deepseek-effort-noop',
+      object: 'chat.completion',
+      created: 1,
+      model: 'deepseek-v4-flash',
+      choices: [
+        {
+          index: 0,
+          message: { role: 'assistant', content: 'noop', refusal: null },
+          finish_reason: 'stop',
+          logprobs: null,
+        },
+      ],
+    } satisfies OpenAI.Chat.ChatCompletion);
+
+    const result = await provider.chat([createUserMessage('Hello')], {
+      model: 'deepseek-v4-flash',
+      effort: 'max',
+    });
+
+    expect(result.role).toBe('assistant');
+    const [requestParams] = client.chat.completions.create.mock.calls[0] as [
+      Record<string, unknown>,
+    ];
+    expect(requestParams).not.toHaveProperty('effort');
+    expect(requestParams).not.toHaveProperty('reasoning_effort');
+  });
+
   it('uses streaming assembly when text deltas are requested', async () => {
     const provider = new DeepSeekProvider({ apiKey: 'deepseek-key' });
     const client = getClient(provider);
