@@ -157,6 +157,7 @@ export function buildSessionSystemPrompt(
       : defaultToolDescriptions);
 
   const staticPromptParams: ISystemPromptParams = {
+    ...(options.persona !== undefined ? { persona: options.persona } : {}),
     agentsMd: options.context.agentsMd,
     claudeMd: options.context.claudeMd,
     memoryMd: options.context.memoryMd,

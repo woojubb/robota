@@ -2,6 +2,7 @@ import type { TPermissionMode } from '@robota-sdk/agent-core';
 import { describe, it, expect } from 'vitest';
 
 import { buildSystemPrompt } from '../context/system-prompt-builder.js';
+import { createPersonaSection } from '../context/system-prompt-section-providers.js';
 
 import type { ISystemPromptParams } from '../context/system-prompt-builder.js';
 
@@ -142,6 +143,60 @@ describe('buildSystemPrompt', () => {
     });
 
     expect(result.startsWith('## Agent Instructions\nAGENTS_MARKER')).toBe(true);
+  });
+
+  describe('PRESET-003 persona section', () => {
+    it('TC-01: createPersonaSection returns a section with source "persona"', () => {
+      const section = createPersonaSection('x');
+      expect(section.source).toBe('persona');
+      expect(section.content).toBe('x');
+    });
+
+    it('TC-02: persona section priority is 5 and sorts before AGENTS.md band (5 < 10)', () => {
+      const section = createPersonaSection('x');
+      expect(section.priority).toBe(5);
+      expect(section.priority).toBeLessThan(10);
+    });
+
+    it('TC-03/TC-04: composed prompt contains persona text AND a runtime base marker', () => {
+      const result = buildSystemPrompt({
+        ...BASE_PARAMS,
+        persona: 'PERSONA_MARK',
+        cwd: '/tmp/runtime-cwd-marker',
+        toolDescriptions: ['Bash: execute shell commands'],
+      });
+      expect(result).toContain('PERSONA_MARK');
+      // runtime base markers: working directory + tool description
+      expect(result).toContain('/tmp/runtime-cwd-marker');
+      expect(result).toContain('Bash: execute shell commands');
+    });
+
+    it('TC-05: persona text comes before the project-instruction / runtime markers', () => {
+      const result = buildSystemPrompt({
+        ...BASE_PARAMS,
+        persona: 'PERSONA_MARK',
+        agentsMd: 'AGENTS_MARKER',
+        cwd: '/tmp/runtime-cwd-marker',
+      });
+      const personaIdx = result.indexOf('PERSONA_MARK');
+      const agentsIdx = result.indexOf('AGENTS_MARKER');
+      const cwdIdx = result.indexOf('/tmp/runtime-cwd-marker');
+      expect(personaIdx).toBeGreaterThanOrEqual(0);
+      // priority 5 < 10 (AGENTS.md) < 30 (cwd) — ordering is a priority-sort result, not hardcoded
+      expect(personaIdx).toBeLessThan(agentsIdx);
+      expect(personaIdx).toBeLessThan(cwdIdx);
+    });
+
+    it('TC-06: no persona (default) produces a prompt identical to one with no persona field', () => {
+      const withoutField = buildSystemPrompt({ ...BASE_PARAMS });
+      const withUndefined = buildSystemPrompt({ ...BASE_PARAMS, persona: undefined });
+      const withEmpty = buildSystemPrompt({ ...BASE_PARAMS, persona: '' });
+      const withBlank = buildSystemPrompt({ ...BASE_PARAMS, persona: '   ' });
+      expect(withUndefined).toBe(withoutField);
+      expect(withEmpty).toBe(withoutField);
+      expect(withBlank).toBe(withoutField);
+      expect(withoutField).not.toContain('PERSONA_MARK');
+    });
   });
 
   describe('System prompt skill injection', () => {

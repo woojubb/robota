@@ -27,6 +27,12 @@ export type TPresetPermissionMode = ICreateSessionOptions['permissionMode'];
  */
 export interface TResolvedPresetOptions {
   // (2) Persona
+  /**
+   * Portable persona/behaviour block (tone, refusal philosophy, output style, proactivity).
+   * Composed by the framework as a `source: 'persona'` system-prompt section (priority 5) —
+   * never runtime/tool/product-identity text. Empty/undefined adds no section (no regression).
+   */
+  persona?: string;
   systemPrompt?: string;
   appendSystemPrompt?: string;
   agentName?: string;

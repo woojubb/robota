@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import { getPreset, listPresets, resolvePreset } from '../resolve-preset.js';
+import { DEFAULT_AGENT_NAME, getPreset, listPresets, resolvePreset } from '../resolve-preset.js';
 
-import type { TResolvedPresetOptions } from '../preset-types.js';
+import type { IPreset, TResolvedPresetOptions } from '../preset-types.js';
 
 describe('resolvePreset', () => {
   it('TC-05: default preset is a no-op — returns the cliOverrides unchanged', () => {
@@ -56,6 +56,43 @@ describe('listPresets', () => {
       description:
         'Neutral baseline preset — no overrides; reproduces the standard agent behaviour.',
     });
+  });
+});
+
+describe('PRESET-003 agentName ownership + persona', () => {
+  /** Mirrors the thin-shell resolution in cli.ts: `resolvedPreset.agentName ?? DEFAULT_AGENT_NAME`. */
+  function resolveAgentName(resolved: TResolvedPresetOptions): string {
+    return resolved.agentName ?? DEFAULT_AGENT_NAME;
+  }
+
+  it('TC-07: default preset (no agentName) → forwarded agentName equals DEFAULT_AGENT_NAME', () => {
+    const resolved = resolvePreset('default');
+    expect(resolved.agentName).toBeUndefined();
+    expect(resolveAgentName(resolved)).toBe(DEFAULT_AGENT_NAME);
+  });
+
+  it('TC-07: preset with an agentName → forwarded agentName equals the preset value', () => {
+    const resolved = resolvePreset('default', { explicit: { agentName: 'custom-agent' } });
+    expect(resolveAgentName(resolved)).toBe('custom-agent');
+  });
+
+  it('default identity constant is owned by agent-preset and is generic (no vendor literal)', () => {
+    expect(typeof DEFAULT_AGENT_NAME).toBe('string');
+    expect(DEFAULT_AGENT_NAME.length).toBeGreaterThan(0);
+  });
+
+  it('TC-01: IPreset / TResolvedPresetOptions accept an optional persona block', () => {
+    const preset: IPreset = {
+      id: 'with-persona',
+      title: 'With Persona',
+      description: 'carries a persona block',
+      persona: 'Be concise and proactive.',
+    };
+    expect(preset.persona).toBe('Be concise and proactive.');
+  });
+
+  it('default preset carries no persona (empty persona = no section = no regression)', () => {
+    expect(resolvePreset('default').persona).toBeUndefined();
   });
 });
 
