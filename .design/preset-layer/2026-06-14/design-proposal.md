@@ -222,8 +222,11 @@ behavior 섹션만** 가져온다. 런타임/환경 섹션(도구 스키마·파
 
 **IP/출처 제약(중요):** 유출된 reference profile 프롬프트는 Anthropic의 **독점·커뮤니티 유출** 산출물이며(프롬프트 자체가
 엄격한 저작권 제한을 명시한다). **verbatim 복사해 출하하지 않는다.** PRESET-005의 persona는 *이식 가능한 행동
-원칙*을 **우리 말로, 우리 CLI에 맞게 재표현한 적응본**이며 식별자는 generic(벤더명 없음, `feedback_no_product_names`).
+원칙*을 **우리 자신의 표현으로 다시 쓴(재서술한) 적응본**이며 식별자는 generic(벤더명 없음, `feedback_no_product_names`).
 이는 법적/윤리적 이유인 동시에 **아키텍처 정확성** 이유다(verbatim은 잘못된 런타임 가정을 import한다).
+**언어:** persona 콘텐츠(런타임 시스템 프롬프트 문자열)는 **영어로 작성**한다 — 우리 시스템은 영어 기준이다
+(코드·런타임·시스템 프롬프트 영어; `.design/`·사용자 대화만 한국어). "우리 자신의 표현"은 한국어 번역이 아니라
+verbatim이 아닌 영어 패러프레이즈를 뜻한다.
 
 **IPreset 계약 확장(PRESET-003이 수행):** `persona?: string` 필드 추가 — `composeSystemPrompt`에 주입되는
 **`source: 'persona'` 섹션**의 내용. `appendSystemPrompt?`(CLI append 의미/소량 추가)와 `systemPrompt?`(고급
