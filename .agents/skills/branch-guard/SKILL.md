@@ -57,6 +57,23 @@ description: Guard against committing directly to protected branches (main, mast
 - `master`
 - `develop`
 
+## Defense Layers (why two)
+
+Protected-branch commits are blocked at **two** layers — both must stay in place:
+
+1. **Claude PreToolUse hook** (`.claude/hooks/branch-guard.sh`) — blocks `git commit`/`push`/`merge`
+   Bash tool calls before they run. It parses the command string, so a commit whose message breaks
+   its regex extraction (multi-line, embedded quotes) can slip past. This is exactly how a
+   release-record commit landed directly on `main` and had to be reset → branched → re-PR'd
+   (2026-06-14).
+2. **Git-native `.husky/pre-commit`** — runs for EVERY commit regardless of how it is invoked, using
+   `git branch --show-current`. This is the robust backstop the parsing layer can miss.
+
+Exceptions (both layers): a merge in progress (`.git/MERGE_HEAD`), or the explicit overrides
+`ALLOW_PROTECTED_COMMIT=1` (husky) / `BRANCH_GUARD_ALLOW_MAIN_MERGE=1` (Claude hook) for
+user-approved release automation. Branch-first is the rule even for one-line doc commits aimed at
+`main` — always branch → commit → PR.
+
 4. **When merging a branch** (PR or local merge):
 
    **Determine merge target:**
