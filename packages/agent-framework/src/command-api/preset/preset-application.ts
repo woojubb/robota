@@ -57,11 +57,11 @@ export interface IPresetApplicationResult {
  * `applySelfVerification` seam. Groups absent from `options` are left untouched and reported under
  * `skipped`.
  */
-export function applyPresetToSession(
+export async function applyPresetToSession(
   context: ICommandHostContext,
   presetId: string,
   options: IPresetApplicationOptions,
-): IPresetApplicationResult {
+): Promise<IPresetApplicationResult> {
   const applied: string[] = [];
   const skipped: string[] = [];
 
@@ -90,7 +90,7 @@ export function applyPresetToSession(
     }
   }
   if (Object.keys(modelOptions).length > 0) {
-    context.getSession().applyModelOptions?.(modelOptions);
+    await context.getSession().applyModelOptions?.(modelOptions);
   }
 
   // PRESET-014 persona group — re-applied via the host context's optional applyPersona seam.

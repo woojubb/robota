@@ -127,6 +127,17 @@ export class Robota
     emitCreatedEvent(this.config, (t, d) => this.emitAgentEvent(t, d));
   }
 
+  /**
+   * Ensure the agent is fully initialized (providers registered, current provider set, execution
+   * service built) WITHOUT running a turn. Idempotent. Lets callers that mutate runtime
+   * configuration before the first `run()` (e.g. live preset/model switching on a fresh
+   * interactive session) bring the agent to a ready state first, instead of failing the
+   * "must be fully initialized" guard.
+   */
+  async ensureReady(): Promise<void> {
+    await this.ensureFullyInitialized();
+  }
+
   async run(input: string, options: IRunOptions = {}): Promise<string> {
     await this.ensureFullyInitialized();
     return robotaRun(this.executionDeps(), input, options);
