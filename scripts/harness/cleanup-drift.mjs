@@ -5,8 +5,8 @@ import { spawnSync } from 'node:child_process';
 import { listWorkspaceScopes, pathExists, readText } from './shared.mjs';
 
 const WORKSPACE_ROOT = process.cwd();
-const AGENTS_PATH = path.join(WORKSPACE_ROOT, 'AGENTS.md');
 const SKILLS_ROOT = path.join(WORKSPACE_ROOT, '.agents', 'skills');
+const SKILLS_INDEX_PATH = path.join(SKILLS_ROOT, 'index.md');
 const DESIGN_TMP_PATH = path.join(WORKSPACE_ROOT, '.design', 'tmp');
 
 const SPEC_REQUIRED_SECTIONS = [
@@ -43,9 +43,11 @@ async function listSkillDirs() {
     .sort();
 }
 
-function extractSkillsFromAgents(content) {
+function extractSkillsFromIndex(content) {
+  // skills/index.md is the registry SSOT (AGENTS.md delegates to it). Rows use the
+  // markdown link form `[<name>](<name>/SKILL.md)` where link text == directory name.
   const names = new Set();
-  for (const match of content.matchAll(/\|\s*(\S+)\s*\|\s*`\.agents\/skills\/\1\/`\s*\|/g)) {
+  for (const match of content.matchAll(/\[([a-z0-9-]+)\]\(\1\/SKILL\.md\)/g)) {
     names.add(match[1]);
   }
   return names;
@@ -111,8 +113,8 @@ async function checkSpecQuality(findings) {
 }
 
 async function checkUnregisteredSkills(findings) {
-  const agentsContent = await readText(AGENTS_PATH);
-  const registeredSkills = extractSkillsFromAgents(agentsContent);
+  const indexContent = await readText(SKILLS_INDEX_PATH);
+  const registeredSkills = extractSkillsFromIndex(indexContent);
   const skillDirs = await listSkillDirs();
 
   for (const skillDir of skillDirs) {
@@ -120,7 +122,7 @@ async function checkUnregisteredSkills(findings) {
       findings.push({
         file: `.agents/skills/${skillDir}/`,
         type: 'unregistered-skill',
-        detail: `Skill directory exists but is not listed in AGENTS.md Skills Reference table.`,
+        detail: `Skill directory exists but is not listed in .agents/skills/index.md (the skills registry).`,
       });
     }
   }
@@ -128,9 +130,9 @@ async function checkUnregisteredSkills(findings) {
   for (const registered of registeredSkills) {
     if (!skillDirs.includes(registered)) {
       findings.push({
-        file: 'AGENTS.md',
+        file: '.agents/skills/index.md',
         type: 'stale-skill-reference',
-        detail: `AGENTS.md references skill "${registered}" but no directory exists at .agents/skills/${registered}/.`,
+        detail: `.agents/skills/index.md references skill "${registered}" but no directory exists at .agents/skills/${registered}/.`,
       });
     }
   }
