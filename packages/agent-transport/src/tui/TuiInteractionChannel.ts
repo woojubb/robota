@@ -66,6 +66,8 @@ export interface ITuiInteractionChannelOptions {
   language?: string;
   reloadPluginCommandSource?: (registry: CommandRegistry) => void;
   agentName?: string;
+  /** Active preset id selected at startup (PRESET-011 runtime state). Defaults to 'default'. */
+  activePresetId?: string;
   /** Preset persona block composed as a `source: 'persona'` system-prompt section (priority 5). */
   persona?: string;
   systemPrompt?: string;
@@ -142,6 +144,7 @@ export class TuiInteractionChannel implements IInteractionChannel {
       shellExec: opts.shellExec,
       language: opts.language,
       agentName: opts.agentName,
+      activePresetId: opts.activePresetId,
       persona: opts.persona,
       systemPrompt: opts.systemPrompt,
       appendSystemPrompt: opts.appendSystemPrompt,

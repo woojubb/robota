@@ -71,6 +71,10 @@ export interface ICommandSessionRuntime {
   setAutoCompactThreshold?(threshold: TAutoCompactThreshold): void;
   getSessionTokenUsage?(): { inputTokens: number; outputTokens: number } | undefined;
   getModelId?(): string | undefined;
+  /** Read the active preset id (PRESET-011 runtime state). */
+  getActivePresetId?(): string;
+  /** Set the active preset id (PRESET-011 runtime state — pure state, no option re-application). */
+  setActivePresetId?(id: string): void;
 }
 
 export interface ICommandSessionReplayValidationReport {
