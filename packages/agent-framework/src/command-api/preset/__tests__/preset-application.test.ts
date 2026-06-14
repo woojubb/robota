@@ -16,6 +16,7 @@ interface IRuntimeSpies {
   setPermissionMode: ReturnType<typeof vi.fn>;
   setActivePresetId?: ReturnType<typeof vi.fn>;
   applyModelOptions?: ReturnType<typeof vi.fn>;
+  applyPersona?: ReturnType<typeof vi.fn>;
 }
 
 /**
@@ -23,10 +24,13 @@ interface IRuntimeSpies {
  * model-option writes. `includeActivePreset: false` omits the optional `setActivePresetId` to
  * exercise the defensive optional-chaining path (PRESET-012 TC-05). `includeApplyModelOptions:
  * false` omits the optional `applyModelOptions` to exercise the PRESET-013 optional path (TC-06).
+ * `includeApplyPersona: false` omits the optional `applyPersona` to exercise the PRESET-014
+ * optional path (TC-05).
  */
 function createContext(
   includeActivePreset = true,
   includeApplyModelOptions = true,
+  includeApplyPersona = true,
 ): {
   context: ICommandHostContext;
   spies: IRuntimeSpies;
@@ -83,6 +87,12 @@ function createContext(
     cancelBackgroundTask: async () => undefined,
     closeBackgroundTask: async () => undefined,
   };
+
+  if (includeApplyPersona) {
+    const applyPersona = vi.fn();
+    context.applyPersona = applyPersona;
+    spies.applyPersona = applyPersona;
+  }
 
   return { context, spies };
 }
@@ -160,5 +170,30 @@ describe('applyPresetToSession model group (PRESET-013)', () => {
     expect(() =>
       applyPresetToSession(context, 'careful-reviewer', { effort: 'high' }),
     ).not.toThrow();
+  });
+});
+
+describe('applyPresetToSession persona group (PRESET-014)', () => {
+  it('TC-03: persona present → applyPersona called with it, result.applied lists persona', () => {
+    const { context, spies } = createContext();
+    const result = applyPresetToSession(context, 'careful-reviewer', { persona: 'P' });
+
+    expect(spies.applyPersona).toHaveBeenCalledWith('P');
+    expect(result.applied).toContain('persona');
+  });
+
+  it('TC-04: no persona → applyPersona not called, persona group skipped', () => {
+    const { context, spies } = createContext();
+    const result = applyPresetToSession(context, 'x', {});
+
+    expect(spies.applyPersona).not.toHaveBeenCalled();
+    expect(result.skipped).toContain('persona');
+    expect(result.applied).not.toContain('persona');
+  });
+
+  it('TC-05: context without applyPersona still applies safely (optional chaining)', () => {
+    const { context, spies } = createContext(true, true, false);
+    expect(spies.applyPersona).toBeUndefined();
+    expect(() => applyPresetToSession(context, 'careful-reviewer', { persona: 'P' })).not.toThrow();
   });
 });
