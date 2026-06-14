@@ -152,3 +152,44 @@ These scripts are the executable layer of the Robota harness.
 - Local working tree changes take priority; clean checkout flows should pass `--base-ref <git-ref>` when the default base inference is not enough.
 - Scope detection must follow actual workspace ownership, not ad-hoc package discovery.
 - If an invariant matters repeatedly, prefer extending these scripts over adding more prose.
+
+## Portable Harness Patterns
+
+Several guards here started as Robota-specific fixes but encode a **general principle** that ports to
+any repo. For each: the universal idea, the project-specific part, and what to adjust when porting.
+
+### 1. Ghost-path meta-scan (`check-harness-config-paths.mjs`)
+
+- **General principle:** any place that hardcodes a file path (scan configs, codegen manifests, docs)
+  drifts silently when files move. A meta-scan that verifies hardcoded path literals still resolve —
+  with an explicit `allow-missing` marker for negative assertions/fixtures — catches relocation rot.
+- **Project-specific:** scopes to `scripts/harness/*.mjs` and the `packages|apps|scripts` roots.
+- **Porting:** change the scanned glob + path roots; keep the quoted-literal + comment-exempt +
+  marker model. Origin: [`LESSON-006`](../../.agents/backlog/completed/LESSON-006-post-relocation-reference-sweep.md).
+
+### 2. Live-seam cold-state testing (skill: `vitest-testing-strategy`)
+
+- **General principle:** a state-mutation seam on a lazily-initialized collaborator must be tested on
+  the **cold** (never-used) path with a real collaborator; mocking the collaborator that owns the
+  init guard hides the bug.
+- **Project-specific:** the `/preset` → `Robota.setModel` seam.
+- **Porting:** applies to any lazy-init + post-construction mutation. Origin:
+  [`LESSON-001`](../../.agents/backlog/completed/LESSON-001-live-seam-cold-state-testing.md).
+
+### 3. Protected-branch commit guard (`.husky/pre-commit`)
+
+- **General principle:** enforce branch policy at the **git-native** layer, not only at an
+  agent/tool layer whose command parsing can fail. A pre-commit `git branch --show-current` check
+  fires for every commit regardless of how it is invoked.
+- **Project-specific:** protected set `main|master|develop`; `ALLOW_PROTECTED_COMMIT` override.
+- **Porting:** change the protected set. Origin:
+  [`LESSON-003`](../../.agents/backlog/completed/LESSON-003-protected-branch-commit-guard.md).
+
+### 4. Destructive-flag block in the agent hook (`.claude/hooks/branch-guard.sh`)
+
+- **General principle:** a banned-but-tempting flag (here `gh pr merge --delete-branch`, which once
+  deleted an integration branch) should be blocked mechanically at the agent's tool boundary, not
+  left as prose the agent can forget.
+- **Project-specific:** the `gh pr merge` + `--delete-branch` combo.
+- **Porting:** swap the command/flag pair. Origin:
+  [`LESSON-007`](../../.agents/backlog/completed/LESSON-007-gh-delete-branch-guard.md).
