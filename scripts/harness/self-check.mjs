@@ -40,6 +40,7 @@ async function readJsonl(filePath) {
 async function runHookFixtureSelfCheck() {
   const projectDir = await fs.mkdtemp(path.join(tmpdir(), 'robota-hook-self-check-'));
   try {
+    // harness-config-path-allow-missing: fixture path created under a temp projectDir
     const sourcePath = path.join(projectDir, 'packages/example/src/provider.ts');
     const transcriptPath = path.join(projectDir, 'transcript.jsonl');
     await fs.mkdir(path.dirname(sourcePath), { recursive: true });
@@ -49,8 +50,11 @@ async function runHookFixtureSelfCheck() {
       transcriptPath,
       [
         JSON.stringify({ type: 'assistant', message: { content: 'Previous answer' } }),
+        // harness-config-path-allow-missing: fixture transcript content (not a workspace ref)
         JSON.stringify({ tool_input: { file_path: 'packages/example/src/provider.ts' } }),
+        // harness-config-path-allow-missing: fixture transcript content (not a workspace ref)
         JSON.stringify({ tool_input: { file_path: 'packages/example/src/provider.ts' } }),
+        // harness-config-path-allow-missing: fixture transcript content (not a workspace ref)
         JSON.stringify({ tool_input: { file_path: 'packages/example/src/provider.ts' } }),
         JSON.stringify({ is_error: true }),
         JSON.stringify({ is_error: true }),
