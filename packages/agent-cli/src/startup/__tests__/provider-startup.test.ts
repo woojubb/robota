@@ -148,6 +148,7 @@ function baseArgs(): IParsedCliArgs {
     allowedTools: undefined,
     deniedTools: undefined,
     model: undefined,
+    preset: undefined,
     noSessionPersistence: false,
     jsonSchema: undefined,
     configure: false,
