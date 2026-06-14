@@ -23,7 +23,7 @@ import {
 import { parseCliArgs, parseToolList, printHelp } from './utils/cli-args.js';
 import type { IParsedCliArgs } from './utils/cli-args.js';
 import { resolveCliPreset, selectPresetId } from './startup/preset-selection.js';
-import { DEFAULT_AGENT_NAME } from '@robota-sdk/agent-preset';
+import { DEFAULT_AGENT_NAME, loadExternalPresets } from '@robota-sdk/agent-preset';
 import type { TResolvedPresetOptions } from '@robota-sdk/agent-preset';
 import {
   ensureConfig,
@@ -134,6 +134,13 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   // the preset's module-selection delta can reach createDefaultCommandModules.
   const userSettings = readSettings(getUserSettingsPath());
   const settingsPreset = typeof userSettings.preset === 'string' ? userSettings.preset : undefined;
+  // PRESET-007: register user-authored external presets (~/.robota/presets/*.json) into the
+  // shared registry before resolution so `--preset <id>` and `/preset` can see them. Per-file
+  // load/validation problems are non-fatal and surfaced as warnings; the run still proceeds.
+  const externalPresetLoad = loadExternalPresets();
+  for (const { file, error } of externalPresetLoad.errors) {
+    terminal.writeError(`Skipped external preset "${file}": ${error}`);
+  }
   let resolvedPreset: TResolvedPresetOptions;
   try {
     resolvedPreset = resolveCliPreset(args, settingsPreset);
