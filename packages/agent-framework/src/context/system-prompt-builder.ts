@@ -4,6 +4,7 @@ import {
   createCapabilitySections,
   createClaudeMdSection,
   createPermissionSection,
+  createPersonaSection,
   createProjectMemorySection,
   createProjectSection,
   createResponseLanguageSection,
@@ -18,6 +19,11 @@ import type { ICapabilityDescriptor } from '../capabilities/types.js';
 import type { TPermissionMode } from '@robota-sdk/agent-core';
 
 export interface ISystemPromptParams {
+  /**
+   * Preset persona block (portable personality/behaviour). When set and non-blank it is
+   * composed as a `source: 'persona'` section with priority 5; empty/undefined adds no section.
+   */
+  persona?: string;
   /** Concatenated AGENTS.md content (may be empty string) */
   agentsMd: string;
   /** Concatenated CLAUDE.md content (may be empty string) */
@@ -87,6 +93,12 @@ function buildCapabilityDescriptors(params: ISystemPromptParams): ICapabilityDes
 export function buildSystemPrompt(params: ISystemPromptParams): string {
   const sections: ISystemPromptSection[] = [];
 
+  appendOptionalSection(
+    sections,
+    params.persona !== undefined && params.persona.trim().length > 0
+      ? createPersonaSection(params.persona)
+      : undefined,
+  );
   appendOptionalSection(sections, createAgentsMdSection(params.agentsMd));
   appendOptionalSection(sections, createClaudeMdSection(params.claudeMd));
   appendOptionalSection(sections, createProjectMemorySection(params.memoryMd));

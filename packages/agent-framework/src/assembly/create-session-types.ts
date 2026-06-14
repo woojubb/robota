@@ -118,6 +118,8 @@ export interface ICreateSessionOptions {
   model?: string;
   /** Text to append to the generated system prompt. */
   appendSystemPrompt?: string;
+  /** Preset persona block composed as a `source: 'persona'` system-prompt section (priority 5). */
+  persona?: string;
   /** Model command execution bridge. */
   modelCommandExecutor?: (command: string, args: string) => Promise<ICommandResult | null>;
   /** Predicate for commands allowed through the model command execution bridge. */
