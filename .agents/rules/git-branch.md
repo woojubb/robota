@@ -110,15 +110,17 @@ This rule applies even when:
 
 After a branch is merged, follow this exact cycle to start the next feature branch from a correct base:
 
-1. **Stash transient churn first.** Uncommitted churn (e.g. regenerated `.agents/evals/lessons/*`) blocks
-   `git checkout develop` and, if forced or ignored, causes the new branch to fork off the wrong base.
-   Stash it before switching:
+1. **Discard transient churn first.** Auto-generated churn (e.g. regenerated `.agents/evals/lessons/*`)
+   blocks `git checkout develop` and, if forced or ignored, causes the new branch to fork off the wrong
+   base. **Discard it with a scoped `git checkout --`, not a bare stash:**
    ```bash
-   git stash push -u -- .agents/evals/lessons
+   git checkout -- .agents/evals/lessons
    git checkout develop
    git pull
    git checkout -b <type>/<topic>
    ```
+   `pnpm harness:pre-push` already tolerates this specific churn (it does not block a push when the only
+   dirty files are the auto-generated evals lessons), so no stash is needed for the push itself.
 2. **Pull develop** so the new branch is based on the freshly-pulled integration head.
 3. **Create the feature branch** from the updated `develop`.
 4. **Verify the base.** Confirm the new branch forked from the freshly-pulled `develop`, not a previous
@@ -128,8 +130,13 @@ After a branch is merged, follow this exact cycle to start the next feature bran
    ```
 
 **Why:** Branching for a new item once cut from the wrong base because uncommitted evals churn blocked
-`git checkout develop`, so the new branch silently forked off the previous feature branch. Stashing the
-transient churn before checkout prevents the wrong-base fork.
+`git checkout develop`, so the new branch silently forked off the previous feature branch.
+
+**Stash hygiene.** Never reach for a bare `git stash` / blind `git stash pop` to deal with known
+auto-generated churn. Stashes accumulate across sessions (a stack dozens deep was observed), so
+`git stash pop` routinely restores the WRONG entry. For known auto-generated churn, discard with
+`git checkout -- <path>`. If you must preserve real local edits, use a scoped `git stash push -- <path>`
+and pop by explicit ref (`git stash pop stash@{N}`), never the bare top of the stack.
 
 ### Feature Branch Workflow (mandatory)
 

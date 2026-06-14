@@ -98,6 +98,20 @@ function assertLockfileConsistency() {
   }
 }
 
+// Auto-generated evals artifacts regenerate every session and would otherwise
+// block every push, forcing a manual `git checkout -- .agents/evals/lessons/`.
+// They are tracked deliverables (not gitignore candidates), so we tolerate them
+// here: a push is allowed when the ONLY dirty files are these. We never delete
+// them — we just don't block on their churn.
+const EVALS_AUTO_CHURN = new Set([
+  '.agents/evals/lessons/auto-lessons.md',
+  '.agents/evals/lessons/weekly-digest.md',
+]);
+
+function isEvalsAutoChurn(statusLine) {
+  return EVALS_AUTO_CHURN.has(statusLine.slice(3).trim());
+}
+
 function assertCleanWorkingTree() {
   const result = spawnSync('git', ['status', '--porcelain'], {
     cwd: WORKSPACE_ROOT,
@@ -110,7 +124,16 @@ function assertCleanWorkingTree() {
   // XY status codes: first char = staged, second char = unstaged.
   // '??' = untracked. We block on any modified/staged file but not on
   // untracked files (those are handled by .gitignore discipline).
-  const dirty = lines.filter((l) => l.slice(0, 2) !== '??');
+  const tracked = lines.filter((l) => l.slice(0, 2) !== '??');
+  const tolerated = tracked.filter(isEvalsAutoChurn);
+  const dirty = tracked.filter((l) => !isEvalsAutoChurn(l));
+  if (tolerated.length > 0 && dirty.length === 0) {
+    process.stdout.write(
+      '▶ tolerating auto-generated evals churn (not blocking push):\n' +
+        tolerated.map((l) => `  ${l}`).join('\n') +
+        '\n',
+    );
+  }
   if (dirty.length > 0) {
     process.stderr.write(
       '\n[BLOCKED] Uncommitted changes detected — push blocked.\n' +
