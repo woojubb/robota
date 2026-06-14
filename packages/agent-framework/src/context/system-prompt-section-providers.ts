@@ -16,6 +16,16 @@ function createSection(
   return { id, title, priority, content, source };
 }
 
+/**
+ * PRESET-003: a preset persona is a normal section with a declared priority, not a
+ * hardcoded slot. Priority `5` sits in the top band (5 < AGENTS.md=10) so the persona
+ * establishes identity/behaviour before project instructions — the position is decided
+ * by `composeSystemPrompt`'s priority sort, never by array order.
+ */
+export function createPersonaSection(persona: string): ISystemPromptSection {
+  return createSection('preset-persona', undefined, 5, persona, 'persona');
+}
+
 export function createWorkingDirectorySection(cwd?: string): ISystemPromptSection | undefined {
   if (!cwd) return undefined;
   return createSection('runtime-cwd', 'Working Directory', 30, `\`${cwd}\``, 'runtime');

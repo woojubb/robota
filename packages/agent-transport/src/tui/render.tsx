@@ -52,6 +52,8 @@ export interface IRenderOptions {
   cliAdapter: ITuiCliAdapter;
   reloadPluginCommandSource?: (registry: CommandRegistry) => void;
   agentName?: string;
+  /** Preset persona block composed as a `source: 'persona'` system-prompt section (priority 5). */
+  persona?: string;
 }
 
 /** Map render options to TuiInteractionChannel constructor options. */
@@ -79,6 +81,7 @@ export function toChannelOptions(
     language: options.language,
     reloadPluginCommandSource: options.reloadPluginCommandSource,
     agentName: options.agentName,
+    persona: options.persona,
   };
 }
 

@@ -1,5 +1,6 @@
 export type TSystemPromptSectionSource =
   | 'framework'
+  | 'persona'
   | 'project-instructions'
   | 'runtime'
   | 'permissions'

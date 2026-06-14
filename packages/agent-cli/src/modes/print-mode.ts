@@ -15,6 +15,14 @@ export interface IPrintModeSessionResolution {
   forkSession?: boolean;
 }
 
+/** Preset-resolved identity/persona the thin-shell CLI forwards into the headless session. */
+export interface IPrintModePresetOptions {
+  /** Resolved agent name (preset value, else agent-preset DEFAULT_AGENT_NAME). */
+  agentName?: string;
+  /** Resolved preset persona block composed as a `source: 'persona'` system-prompt section. */
+  persona?: string;
+}
+
 export async function runPrintMode(
   cwd: string,
   args: IParsedCliArgs,
@@ -25,6 +33,7 @@ export async function runPrintMode(
   commandModules: readonly ICommandModule[],
   commandHostAdapters: ICommandHostAdapters,
   sessionResolution: IPrintModeSessionResolution = {},
+  presetOptions: IPrintModePresetOptions = {},
 ): Promise<void> {
   let prompt = args.positional.join(' ').trim();
 
@@ -57,6 +66,8 @@ export async function runPrintMode(
     allowedTools: parseToolList(args.allowedTools),
     deniedTools: parseToolList(args.deniedTools),
     appendSystemPrompt,
+    ...(presetOptions.persona !== undefined ? { persona: presetOptions.persona } : {}),
+    ...(presetOptions.agentName !== undefined ? { agentName: presetOptions.agentName } : {}),
     ...(args.systemPrompt ? { systemPrompt: args.systemPrompt } : {}),
     backgroundTaskRunners,
     subagentRunnerFactory,

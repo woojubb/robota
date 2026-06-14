@@ -23,6 +23,7 @@ import {
 import { parseCliArgs, parseToolList, printHelp } from './utils/cli-args.js';
 import type { IParsedCliArgs } from './utils/cli-args.js';
 import { resolveCliPreset } from './startup/preset-selection.js';
+import { DEFAULT_AGENT_NAME } from '@robota-sdk/agent-preset';
 import type { TResolvedPresetOptions } from '@robota-sdk/agent-preset';
 import {
   ensureConfig,
@@ -229,6 +230,10 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
       commandModules,
       commandHostAdapters,
       { resumeSessionId, forkSession: args.forkSession },
+      {
+        agentName: resolvedPreset.agentName ?? DEFAULT_AGENT_NAME,
+        persona: resolvedPreset.persona,
+      },
     );
     return;
   }
@@ -268,7 +273,8 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     transportRegistry: createDefaultTransportRegistry(),
     cliAdapter: createDefaultTuiCliAdapter({ providerDefinitions, reloadPluginCommandSource }),
     reloadPluginCommandSource,
-    agentName: resolvedPreset.agentName ?? 'robota-cli',
+    agentName: resolvedPreset.agentName ?? DEFAULT_AGENT_NAME,
+    persona: resolvedPreset.persona,
   });
   process.exit(0);
 }

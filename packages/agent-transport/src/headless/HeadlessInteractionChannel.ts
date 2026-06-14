@@ -38,6 +38,10 @@ export interface IHeadlessInteractionChannelOptions {
   deniedTools?: string[];
   appendSystemPrompt?: string;
   systemPrompt?: string;
+  /** Name reported to the underlying agent config (resolved by the CLI, e.g. preset agentName). */
+  agentName?: string;
+  /** Preset persona block composed as a `source: 'persona'` system-prompt section (priority 5). */
+  persona?: string;
   backgroundTaskRunners?: IBackgroundTaskRunner[];
   subagentRunnerFactory?: TSubagentRunnerFactory;
   commandModules?: readonly ICommandModule[];
@@ -72,13 +76,14 @@ export class HeadlessInteractionChannel {
       allowedTools: this.opts.allowedTools,
       deniedTools: this.opts.deniedTools,
       appendSystemPrompt: this.opts.appendSystemPrompt,
+      ...(this.opts.persona !== undefined ? { persona: this.opts.persona } : {}),
       ...(this.opts.systemPrompt ? { systemPrompt: this.opts.systemPrompt } : {}),
       backgroundTaskRunners: this.opts.backgroundTaskRunners,
       subagentRunnerFactory: this.opts.subagentRunnerFactory,
       commandModules: this.opts.commandModules,
       commandHostAdapters: this.opts.commandHostAdapters,
       shellExec,
-      agentName: 'robota-cli',
+      agentName: this.opts.agentName,
     });
 
     const runner = createHeadlessRunner({ session, outputFormat: this.opts.outputFormat });
