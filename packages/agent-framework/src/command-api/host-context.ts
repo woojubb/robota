@@ -102,6 +102,8 @@ export interface ICommandHostContext {
   validateCurrentSessionReplayLog?(): ICommandSessionReplayValidationReport;
   getAgentJobCapability?(): IAgentJobHostContext | undefined;
   getSession(): ICommandSessionRuntime;
+  /** PRESET-014 — re-apply a preset persona to the live system prompt. */
+  applyPersona?(persona: string): void;
   getContextState(): IContextWindowState;
   getAutoCompactThreshold(): TAutoCompactThreshold;
   getAutoCompactThresholdSource?(): TAutoCompactThresholdSource;
