@@ -62,6 +62,7 @@ export class Session extends SessionBase {
   protected readonly permissionEnforcer: PermissionEnforcer;
   protected readonly contextTracker: ContextWindowTracker;
   protected permissionMode: TPermissionMode;
+  protected activePresetId: string;
   protected readonly sessionId: string;
   protected aiProvider: IAIProvider;
   protected readonly toolSchemas: IToolSchema[];
@@ -114,6 +115,7 @@ export class Session extends SessionBase {
       options.permissionMode ??
       (options.defaultTrustLevel ? TRUST_TO_MODE[options.defaultTrustLevel] : undefined) ??
       'default';
+    this.activePresetId = options.activePresetId ?? 'default';
     this.transcriptPath = options.sessionStore?.getFilePath?.(this.sessionId);
     this.log('session_init', {
       cwd: this.cwd,

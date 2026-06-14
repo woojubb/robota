@@ -40,6 +40,8 @@ export interface IHeadlessInteractionChannelOptions {
   systemPrompt?: string;
   /** Name reported to the underlying agent config (resolved by the CLI, e.g. preset agentName). */
   agentName?: string;
+  /** Active preset id selected at startup (PRESET-011 runtime state). Defaults to 'default'. */
+  activePresetId?: string;
   /** Preset persona block composed as a `source: 'persona'` system-prompt section (priority 5). */
   persona?: string;
   /** Preset execution capability: activate agent runtime + subagent/background dispatch. */
@@ -88,6 +90,9 @@ export class HeadlessInteractionChannel {
       commandHostAdapters: this.opts.commandHostAdapters,
       shellExec,
       agentName: this.opts.agentName,
+      ...(this.opts.activePresetId !== undefined
+        ? { activePresetId: this.opts.activePresetId }
+        : {}),
       ...(this.opts.enableParallelSubagents !== undefined
         ? { enableParallelSubagents: this.opts.enableParallelSubagents }
         : {}),

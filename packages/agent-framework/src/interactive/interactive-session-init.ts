@@ -162,6 +162,7 @@ export async function createInteractiveSession(
     reversibleExecution: options.reversibleExecution,
     sandboxClient: options.sandboxClient,
     agentName: options.agentName,
+    ...(options.activePresetId !== undefined ? { activePresetId: options.activePresetId } : {}),
     ...(options.additionalTools ? { additionalTools: options.additionalTools } : {}),
     ...(options.responseFormat ? { responseFormat: options.responseFormat } : {}),
   });
@@ -280,6 +281,7 @@ export async function initializeInteractiveSessionAsync(
     ...(options.sandboxWorkspaceRoot ? { sandboxWorkspaceRoot: options.sandboxWorkspaceRoot } : {}),
     ...(deps.sandboxSnapshotId ? { sandboxSnapshotId: deps.sandboxSnapshotId } : {}),
     ...(options.agentName ? { agentName: options.agentName } : {}),
+    ...(options.activePresetId !== undefined ? { activePresetId: options.activePresetId } : {}),
     ...(options.enableParallelSubagents !== undefined
       ? { enableParallelSubagents: options.enableParallelSubagents }
       : {}),
