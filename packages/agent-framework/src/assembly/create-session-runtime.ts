@@ -124,7 +124,57 @@ export function buildBackgroundProcessTool(
 
 export interface ISystemPromptResult {
   finalSystemMessage: string;
-  rebuildSystemMessage: (agentsMd: string, claudeMd: string) => string;
+  rebuildSystemMessage: (
+    agentsMd: string,
+    claudeMd: string,
+    overrides?: { persona?: string },
+  ) => string;
+}
+
+/**
+ * Build the persona-free static system-prompt params shared by the initial build and every
+ * rebuild. Persona is composed separately per-build (PRESET-014) so the mutable persona always
+ * takes precedence over these static params.
+ */
+function buildStaticPromptParams(
+  options: ICreateSessionOptions,
+  cwd: string,
+  resolvedToolDescriptions: string[],
+  modelVisibleSkills: Array<{
+    name: string;
+    description: string;
+    disableModelInvocation?: boolean;
+  }>,
+  agentDefinitions: IAgentDefinition[],
+): Omit<ISystemPromptParams, 'persona'> {
+  return {
+    agentsMd: options.context.agentsMd,
+    claudeMd: options.context.claudeMd,
+    memoryMd: options.context.memoryMd,
+    taskContext: options.context.taskContext,
+    toolDescriptions: resolvedToolDescriptions,
+    // CLI-072: the prompt names the mode the gate enforces — same resolution
+    // as agent-session (explicit mode, else trust-level mapping, else default).
+    permissionMode:
+      options.permissionMode ?? TRUST_TO_MODE[options.config.defaultTrustLevel] ?? 'default',
+    projectInfo: options.projectInfo ?? { type: 'unknown', language: 'unknown' },
+    cwd,
+    language: options.config.language,
+    skills: modelVisibleSkills.map((skill) => ({
+      name: skill.name,
+      description: skill.description,
+      disableModelInvocation: skill.disableModelInvocation,
+    })),
+    ...(agentDefinitions.length > 0
+      ? {
+          agents: agentDefinitions.map((agent) => ({
+            name: agent.name,
+            description: agent.description,
+          })),
+        }
+      : {}),
+    commandDescriptors: options.commandDescriptors ?? [],
+  };
 }
 
 export function buildSessionSystemPrompt(
@@ -158,43 +208,41 @@ export function buildSessionSystemPrompt(
         ]
       : defaultToolDescriptions);
 
-  const staticPromptParams: ISystemPromptParams = {
-    ...(options.persona !== undefined ? { persona: options.persona } : {}),
-    agentsMd: options.context.agentsMd,
-    claudeMd: options.context.claudeMd,
-    memoryMd: options.context.memoryMd,
-    taskContext: options.context.taskContext,
-    toolDescriptions: resolvedToolDescriptions,
-    // CLI-072: the prompt names the mode the gate enforces — same resolution
-    // as agent-session (explicit mode, else trust-level mapping, else default).
-    permissionMode:
-      options.permissionMode ?? TRUST_TO_MODE[options.config.defaultTrustLevel] ?? 'default',
-    projectInfo: options.projectInfo ?? { type: 'unknown', language: 'unknown' },
+  // PRESET-014: persona is mutable for the lifetime of this closure. A live preset switch can
+  // re-apply a new persona mid-session (via `rebuildSystemMessage(..., { persona })`); later
+  // staleness rebuilds (no override) must keep the most recently applied persona.
+  let currentPersona = options.persona;
+
+  // Persona is composed per-build (initial + each rebuild) so the mutable persona always wins;
+  // it is therefore excluded from these static (persona-free) params.
+  const staticPromptParams = buildStaticPromptParams(
+    options,
     cwd,
-    language: options.config.language,
-    skills: modelVisibleSkills.map((skill) => ({
-      name: skill.name,
-      description: skill.description,
-      disableModelInvocation: skill.disableModelInvocation,
-    })),
-    ...(agentDefinitions.length > 0
-      ? {
-          agents: agentDefinitions.map((agent) => ({
-            name: agent.name,
-            description: agent.description,
-          })),
-        }
-      : {}),
-    commandDescriptors: options.commandDescriptors ?? [],
-  };
-  const systemMessage = buildPrompt(staticPromptParams);
+    resolvedToolDescriptions,
+    modelVisibleSkills,
+    agentDefinitions,
+  );
+  const systemMessage = buildPrompt({
+    ...staticPromptParams,
+    ...(currentPersona !== undefined ? { persona: currentPersona } : {}),
+  });
   const finalSystemMessage = options.appendSystemPrompt
     ? `${systemMessage}\n\n${options.appendSystemPrompt}`
     : systemMessage;
 
-  const rebuildSystemMessage = (newAgentsMd: string, newClaudeMd: string): string => {
+  const rebuildSystemMessage = (
+    newAgentsMd: string,
+    newClaudeMd: string,
+    overrides?: { persona?: string },
+  ): string => {
+    // PRESET-014: a persona override mutates the retained persona so subsequent rebuilds
+    // (e.g. staleness refresh, which passes no override) keep the latest applied persona.
+    if (overrides?.persona !== undefined) {
+      currentPersona = overrides.persona;
+    }
     const rebuilt = buildPrompt({
       ...staticPromptParams,
+      ...(currentPersona !== undefined ? { persona: currentPersona } : {}),
       agentsMd: newAgentsMd,
       claudeMd: newClaudeMd,
     });

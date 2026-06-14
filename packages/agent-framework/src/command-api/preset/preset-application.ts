@@ -11,9 +11,9 @@ import type { TModelEffort, TPermissionMode } from '@robota-sdk/agent-core';
  * {@link applyPresetToSession} without framework importing agent-preset (no dependency cycle).
  *
  * PRESET-012 carries the permission/trust group (`permissionMode`); PRESET-013 adds the model group
- * (`model`, `effort`, `temperature`, `maxOutputTokens`). Later layers extend it further:
- * - PRESET-014: `persona`, `systemPrompt`, `enabledCommandModules`, `enableParallelSubagents`,
- *   `selfVerification`
+ * (`model`, `effort`, `temperature`, `maxOutputTokens`); PRESET-014 adds the `persona` block,
+ * re-applied to the live system prompt. (Command modules / execution capabilities remain deferred
+ * to PRESET-015.)
  */
 export interface IPresetApplicationOptions {
   permissionMode?: TPermissionMode;
@@ -21,6 +21,8 @@ export interface IPresetApplicationOptions {
   effort?: TModelEffort;
   temperature?: number;
   maxOutputTokens?: number;
+  /** PRESET-014 — preset persona re-applied to the live system prompt. */
+  persona?: string;
 }
 
 /** Outcome of {@link applyPresetToSession}: which option groups were re-applied vs. skipped. */
@@ -39,8 +41,8 @@ export interface IPresetApplicationResult {
  * defensively. It then re-applies each option group it owns; PRESET-012 applies the permission
  * posture via the existing `writeCommandPermissionMode` seam, and PRESET-013 re-applies the model
  * group (`model`/`effort`/`temperature`/`maxOutputTokens`) via the runtime's optional
- * `applyModelOptions`. Groups absent from `options` are left untouched and reported under `skipped`.
- * Later layers (PRESET-014) extend the applied groups without changing this contract.
+ * `applyModelOptions`. PRESET-014 re-applies the `persona` group via the host context's optional
+ * `applyPersona` seam. Groups absent from `options` are left untouched and reported under `skipped`.
  */
 export function applyPresetToSession(
   context: ICommandHostContext,
@@ -76,6 +78,14 @@ export function applyPresetToSession(
   }
   if (Object.keys(modelOptions).length > 0) {
     context.getSession().applyModelOptions?.(modelOptions);
+  }
+
+  // PRESET-014 persona group — re-applied via the host context's optional applyPersona seam.
+  if (options.persona !== undefined) {
+    context.applyPersona?.(options.persona);
+    applied.push('persona');
+  } else {
+    skipped.push('persona');
   }
 
   return { applied, skipped };
