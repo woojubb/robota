@@ -42,6 +42,10 @@ export interface IHeadlessInteractionChannelOptions {
   agentName?: string;
   /** Preset persona block composed as a `source: 'persona'` system-prompt section (priority 5). */
   persona?: string;
+  /** Preset execution capability: activate agent runtime + subagent/background dispatch. */
+  enableParallelSubagents?: boolean;
+  /** Preset execution capability: run a post-task self-verification step. */
+  selfVerification?: boolean;
   backgroundTaskRunners?: IBackgroundTaskRunner[];
   subagentRunnerFactory?: TSubagentRunnerFactory;
   commandModules?: readonly ICommandModule[];
@@ -84,6 +88,12 @@ export class HeadlessInteractionChannel {
       commandHostAdapters: this.opts.commandHostAdapters,
       shellExec,
       agentName: this.opts.agentName,
+      ...(this.opts.enableParallelSubagents !== undefined
+        ? { enableParallelSubagents: this.opts.enableParallelSubagents }
+        : {}),
+      ...(this.opts.selfVerification !== undefined
+        ? { selfVerification: this.opts.selfVerification }
+        : {}),
     });
 
     const runner = createHeadlessRunner({ session, outputFormat: this.opts.outputFormat });

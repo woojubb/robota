@@ -128,8 +128,30 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     process.exit(1);
   }
 
+  // PRESET-002/004: thin shell — select preset id (flag > settings.preset > 'default') and forward
+  // the resolved framework options. The precedence merge + posture mapping lives in
+  // agent-preset.resolvePreset; the CLI owns none of that logic. Resolved before command setup so
+  // the preset's module-selection delta can reach createDefaultCommandModules.
+  const userSettings = readSettings(getUserSettingsPath());
+  const settingsPreset = typeof userSettings.preset === 'string' ? userSettings.preset : undefined;
+  let resolvedPreset: TResolvedPresetOptions;
+  try {
+    resolvedPreset = resolveCliPreset(args, settingsPreset);
+  } catch (error) {
+    // allow-fallback: unknown preset id is terminal — surface available list, exit
+    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+    process.exit(1);
+  }
+
   const { commandHostAdapters, providerDefinitions, commandModules, startupUpdateNoticePromise } =
-    buildCommandSetup(cwd, args, options, version);
+    buildCommandSetup(cwd, args, options, version, {
+      ...(resolvedPreset.enabledCommandModules !== undefined
+        ? { enabledCommandModules: resolvedPreset.enabledCommandModules }
+        : {}),
+      ...(resolvedPreset.disabledCommandModules !== undefined
+        ? { disabledCommandModules: resolvedPreset.disabledCommandModules }
+        : {}),
+    });
 
   if (args.positional[0] === 'init') {
     try {
@@ -164,19 +186,6 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     // Exit-code contract: provider configuration errors in print mode exit 3 so
     // automation can distinguish "reconfigure" from runtime failures (exit 1).
     process.exit(error instanceof ProviderConfigError && args.printMode ? 3 : 1);
-  }
-
-  // PRESET-002: thin shell — select preset id (flag > settings.preset > 'default') and forward
-  // the resolved framework options. The precedence merge lives in agent-preset.resolvePreset.
-  const userSettings = readSettings(getUserSettingsPath());
-  const settingsPreset = typeof userSettings.preset === 'string' ? userSettings.preset : undefined;
-  let resolvedPreset: TResolvedPresetOptions;
-  try {
-    resolvedPreset = resolveCliPreset(args, settingsPreset);
-  } catch (error) {
-    // allow-fallback: unknown preset id is terminal — surface available list, exit
-    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
-    process.exit(1);
   }
 
   const providerOptions = args.provider
@@ -233,6 +242,15 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
       {
         agentName: resolvedPreset.agentName ?? DEFAULT_AGENT_NAME,
         persona: resolvedPreset.persona,
+        ...(resolvedPreset.permissionMode !== undefined
+          ? { permissionMode: resolvedPreset.permissionMode }
+          : {}),
+        ...(resolvedPreset.enableParallelSubagents !== undefined
+          ? { enableParallelSubagents: resolvedPreset.enableParallelSubagents }
+          : {}),
+        ...(resolvedPreset.selfVerification !== undefined
+          ? { selfVerification: resolvedPreset.selfVerification }
+          : {}),
       },
     );
     return;
@@ -251,7 +269,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     providerType: providerSettings.name,
     modelId,
     language: args.language,
-    permissionMode: args.permissionMode,
+    permissionMode: args.permissionMode ?? resolvedPreset.permissionMode,
     maxTurns: args.maxTurns,
     allowedTools: parseToolList(args.allowedTools),
     deniedTools: parseToolList(args.deniedTools),
@@ -275,6 +293,12 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     reloadPluginCommandSource,
     agentName: resolvedPreset.agentName ?? DEFAULT_AGENT_NAME,
     persona: resolvedPreset.persona,
+    ...(resolvedPreset.enableParallelSubagents !== undefined
+      ? { enableParallelSubagents: resolvedPreset.enableParallelSubagents }
+      : {}),
+    ...(resolvedPreset.selfVerification !== undefined
+      ? { selfVerification: resolvedPreset.selfVerification }
+      : {}),
   });
   process.exit(0);
 }

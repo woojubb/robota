@@ -54,6 +54,10 @@ export interface IRenderOptions {
   agentName?: string;
   /** Preset persona block composed as a `source: 'persona'` system-prompt section (priority 5). */
   persona?: string;
+  /** Preset execution capability: activate agent runtime + subagent/background dispatch. */
+  enableParallelSubagents?: boolean;
+  /** Preset execution capability: run a post-task self-verification step. */
+  selfVerification?: boolean;
 }
 
 /** Map render options to TuiInteractionChannel constructor options. */
@@ -82,6 +86,8 @@ export function toChannelOptions(
     reloadPluginCommandSource: options.reloadPluginCommandSource,
     agentName: options.agentName,
     persona: options.persona,
+    enableParallelSubagents: options.enableParallelSubagents,
+    selfVerification: options.selfVerification,
   };
 }
 
