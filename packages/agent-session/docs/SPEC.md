@@ -2,14 +2,14 @@
 
 ## Scope
 
-Owns the CLI session lifecycle for the Robota SDK. This package provides the `Session` class that wraps a `Robota` agent instance with permission-gated tool execution, hook-based lifecycle events, context window tracking, conversation compaction, and optional JSON file persistence via `SessionStore`. It is the primary runtime used by the CLI application (`agent-cli`) via the assembly layer (`agent-sdk`).
+Owns the CLI session lifecycle for the Robota SDK. This package provides the `Session` class that wraps a `Robota` agent instance with permission-gated tool execution, hook-based lifecycle events, context window tracking, conversation compaction, and optional JSON file persistence via `SessionStore`. It is the primary runtime used by the CLI application (`agent-cli`) via the assembly layer (`agent-framework`).
 
 ## Boundaries
 
 - Does not own AI provider creation. Accepts a pre-constructed `IAIProvider` via injection.
 - Does not own tool implementations. Accepts pre-constructed `IToolWithEventService[]` via injection.
 - Does not own system prompt building. Accepts a pre-built `systemMessage` string.
-- Does not own configuration resolution or context loading. Those belong to `agent-sdk`.
+- Does not own configuration resolution or context loading. Those belong to `agent-framework`.
 - Does not own the permission evaluation algorithm or hook execution engine. Those belong to `@robota-sdk/agent-core` (`evaluatePermission`, `runHooks`).
 - **Owns the session persistence port.** `SessionStore` and `ISessionRecord` are the SSOT for
   conversation session persistence contracts. Storage adapters implement these interfaces; the port
@@ -21,7 +21,8 @@ Owns the CLI session lifecycle for the Robota SDK. This package provides the `Se
 The package follows a modular structure with Session delegating to focused sub-components:
 
 ```
-session.ts                -- Session class: orchestrates run loop, delegates to sub-components
+session-base.ts           -- SessionBase: abstract base holding shared session state and methods, incl. preset/model/parallel-subagent live state (getActivePresetId/setActivePresetId, getParallelSubagentsEnabled/setParallelSubagentsEnabled, applyModelOptions)
+session.ts                -- Session class (extends SessionBase): orchestrates run loop, delegates to sub-components
 session-run.ts            -- Per-turn Session.run execution helper and replay-event forwarding
 session-tool-execution-bridge.ts -- Bridges unknown-tool replay events to onToolExecution display callbacks
 permission-enforcer.ts    -- PermissionEnforcer: tool wrapping, permission checks, hooks, truncation
@@ -44,28 +45,28 @@ session-store.ts          -- SessionStore: JSON file persistence for conversatio
 
 - `@robota-sdk/agent-session` depends on `@robota-sdk/agent-core` only.
 - No dependency on `@robota-sdk/agent-tools` or `@robota-sdk/agent-provider/anthropic`.
-- Tool and provider assembly is the responsibility of the consuming layer (`agent-sdk`).
+- Tool and provider assembly is the responsibility of the consuming layer (`agent-framework`).
 
 ## Type Ownership
 
 Types owned by this package (SSOT):
 
-| Type                         | Kind      | File                         | Description                                                                                                                                                                                                   |
-| ---------------------------- | --------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ISession`                   | Interface | `session-interface.ts`       | Minimal session abstraction: `{ readonly sessionId: string }`. Used by `agent-interface-transport` to break the circular dep with `agent-sdk`. `InteractiveSession` in `agent-sdk` implements this interface. |
-| `ISessionOptions`            | Interface | `session.ts`                 | Constructor options for Session (tools, provider, systemMessage, providerTimeout, optional sessionId)                                                                                                         |
-| `ISessionShutdownOptions`    | Interface | `session-types.ts`           | Graceful shutdown options, including Claude-compatible `reason`                                                                                                                                               |
-| `TPermissionHandler`         | Type      | `permission-enforcer.ts`     | Async callback `(toolName, toolArgs) => Promise<TPermissionResult>`                                                                                                                                           |
-| `TPermissionResult`          | Type      | `permission-enforcer.ts`     | `boolean \| 'allow-session'`                                                                                                                                                                                  |
-| `ITerminalOutput`            | Interface | `permission-enforcer.ts`     | Terminal I/O abstraction (write, prompt, select, spinner)                                                                                                                                                     |
-| `ISpinner`                   | Interface | `permission-enforcer.ts`     | Spinner handle returned by `ITerminalOutput.spinner()`                                                                                                                                                        |
-| `IPermissionEnforcerOptions` | Interface | `permission-enforcer.ts`     | Options for constructing PermissionEnforcer                                                                                                                                                                   |
-| `ICompactionOptions`         | Interface | `compaction-orchestrator.ts` | Options for constructing CompactionOrchestrator                                                                                                                                                               |
-| `ISessionLogger`             | Interface | `session-logger.ts`          | Pluggable session event logger interface                                                                                                                                                                      |
-| `TSessionLogData`            | Type      | `session-logger.ts`          | Structured log event data (`Record<string, string \| number \| boolean \| object \| null>`)                                                                                                                   |
-| `IExternalPayloadReference`  | Interface | `session-logger.ts`          | Content-addressed JSON payload reference used when a log field exceeds inline size policy                                                                                                                     |
-| `ISessionReplayRecord`       | Interface | `session-log-replay.ts`      | Reconstructed replay state from append-only JSONL logs                                                                                                                                                        |
-| `ISessionRecord`             | Interface | `session-store.ts`           | Persisted session record (id, cwd, timestamps, messages, history, opaque diagnostic extension fields)                                                                                                         |
+| Type                         | Kind      | File                         | Description                                                                                                                                                                                                               |
+| ---------------------------- | --------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ISession`                   | Interface | `session-interface.ts`       | Minimal session abstraction: `{ readonly sessionId: string }`. Used by `agent-interface-transport` to break the circular dep with `agent-framework`. `InteractiveSession` in `agent-framework` implements this interface. |
+| `ISessionOptions`            | Interface | `session.ts`                 | Constructor options for Session (tools, provider, systemMessage, providerTimeout, optional sessionId)                                                                                                                     |
+| `ISessionShutdownOptions`    | Interface | `session-types.ts`           | Graceful shutdown options, including Claude-compatible `reason`                                                                                                                                                           |
+| `TPermissionHandler`         | Type      | `permission-enforcer.ts`     | Async callback `(toolName, toolArgs) => Promise<TPermissionResult>`                                                                                                                                                       |
+| `TPermissionResult`          | Type      | `permission-enforcer.ts`     | `boolean \| 'allow-session'`                                                                                                                                                                                              |
+| `ITerminalOutput`            | Interface | `permission-enforcer.ts`     | Terminal I/O abstraction (write, prompt, select, spinner)                                                                                                                                                                 |
+| `ISpinner`                   | Interface | `permission-enforcer.ts`     | Spinner handle returned by `ITerminalOutput.spinner()`                                                                                                                                                                    |
+| `IPermissionEnforcerOptions` | Interface | `permission-enforcer.ts`     | Options for constructing PermissionEnforcer                                                                                                                                                                               |
+| `ICompactionOptions`         | Interface | `compaction-orchestrator.ts` | Options for constructing CompactionOrchestrator                                                                                                                                                                           |
+| `ISessionLogger`             | Interface | `session-logger.ts`          | Pluggable session event logger interface                                                                                                                                                                                  |
+| `TSessionLogData`            | Type      | `session-logger.ts`          | Structured log event data (`Record<string, string \| number \| boolean \| object \| null>`)                                                                                                                               |
+| `IExternalPayloadReference`  | Interface | `session-logger.ts`          | Content-addressed JSON payload reference used when a log field exceeds inline size policy                                                                                                                                 |
+| `ISessionReplayRecord`       | Interface | `session-log-replay.ts`      | Reconstructed replay state from append-only JSONL logs                                                                                                                                                                    |
+| `ISessionRecord`             | Interface | `session-store.ts`           | Persisted session record (id, cwd, timestamps, messages, history, opaque diagnostic extension fields)                                                                                                                     |
 
 Types consumed from other packages (not owned here):
 
@@ -201,7 +202,7 @@ records must not become a command source or hidden preference store.
 
 ### Session Data Migration
 
-`scripts/migrate-session-history.mjs` backfills the `history` field for sessions created before this field existed. It converts `messages[]` to `IHistoryEntry[]` format. Safe to run multiple times — skips sessions that already have `history`. Run once after upgrading.
+The repo-root `./scripts/migrate-session-history.mjs` backfills the `history` field for sessions created before this field existed. It converts `messages[]` to `IHistoryEntry[]` format. Safe to run multiple times — skips sessions that already have `history`. Run once after upgrading.
 
 ### Key SessionStore Methods
 
@@ -253,11 +254,11 @@ The session log records structured events to a JSONL file for diagnostics and re
 
 1. **`ISessionOptions.terminal`** (required) -- Inject an `ITerminalOutput` implementation for permission prompts and UI output. The consuming layer provides either a real terminal (CLI print mode) or an Ink-based no-op (TUI mode).
 
-2. **`ISessionOptions.tools`** -- Inject any set of `IToolWithEventService[]`. The consuming layer (agent-sdk) provides the default 8 tools + agent-tool.
+2. **`ISessionOptions.tools`** -- Inject any set of `IToolWithEventService[]`. The consuming layer (agent-framework) provides the default 8 tools + agent-tool.
 
-3. **`ISessionOptions.provider`** -- Inject any `IAIProvider`. The consuming layer (agent-sdk) creates the appropriate provider from config.
+3. **`ISessionOptions.provider`** -- Inject any `IAIProvider`. The consuming layer (agent-framework) creates the appropriate provider from config.
 
-4. **`ISessionOptions.systemMessage`** -- Inject the pre-built system prompt string. The consuming layer (agent-sdk) builds this from AGENTS.md, CLAUDE.md, tool descriptions, and trust level.
+4. **`ISessionOptions.systemMessage`** -- Inject the pre-built system prompt string. The consuming layer (agent-framework) builds this from AGENTS.md, CLAUDE.md, tool descriptions, and trust level.
 
 5. **`ISessionOptions.permissionHandler`** -- Inject a custom permission approval callback (used by Ink-based UI to show approval prompts in React components).
 
@@ -347,11 +348,11 @@ When `run()` encounters an error (e.g., from the execution loop or provider), th
 
 ### Interface Implementations
 
-No formal interface implementations. `Session`, `PermissionEnforcer`, `ContextWindowTracker`, `CompactionOrchestrator`, and `SessionStore` are standalone classes.
+No formal interface implementations. `PermissionEnforcer`, `ContextWindowTracker`, `CompactionOrchestrator`, and `SessionStore` are standalone classes.
 
 ### Inheritance Chains
 
-None. Classes are standalone.
+`Session extends SessionBase`. `SessionBase` (`session-base.ts`) is an abstract base that holds the shared session methods and live state, including the preset/model/parallel-subagent state (`getActivePresetId`/`setActivePresetId`, `getParallelSubagentsEnabled`/`setParallelSubagentsEnabled`, `applyModelOptions`); the concrete `Session` (`session.ts`) supplies the `robota`, `permissionEnforcer`, and other abstract members and adds the run loop. The remaining classes are standalone.
 
 ### Cross-Package Port Consumers
 
@@ -377,7 +378,7 @@ None. Classes are standalone.
 - **PermissionEnforcer** -- `wrapTools()`, `checkPermission()`, session-scoped allow, tool truncation are untested.
 - **ContextWindowTracker** -- `updateFromHistory()`, `shouldAutoCompact()`, metadata vs fallback estimation are untested.
 - **CompactionOrchestrator** -- `compact()`, hook firing, prompt building are untested.
-- **SessionStore** -- Covered by `agent-sdk/src/__tests__/session-store.test.ts` (12 tests: save/load/list/delete/directory creation).
+- **SessionStore** -- Covered by `agent-framework/src/__tests__/session-store.test.ts` (12 tests: save/load/list/delete/directory creation).
 - **FileSessionLogger** -- `log()`, file creation, JSONL formatting, error handling on read-only paths are untested.
 - **SilentSessionLogger** -- No-op behavior untested (trivial, low priority).
 - All classes should be testable with mock `IAIProvider` and mock `ITerminalOutput` injections.
