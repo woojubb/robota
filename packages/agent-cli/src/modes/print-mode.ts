@@ -1,4 +1,4 @@
-import type { IAIProvider } from '@robota-sdk/agent-core';
+import type { IAIProvider, TPermissionMode } from '@robota-sdk/agent-core';
 import type { ICommandHostAdapters, ICommandModule } from '@robota-sdk/agent-framework';
 import type { createProjectSessionStore } from '@robota-sdk/agent-framework';
 import { HeadlessInteractionChannel } from '@robota-sdk/agent-transport/headless';
@@ -21,6 +21,12 @@ export interface IPrintModePresetOptions {
   agentName?: string;
   /** Resolved preset persona block composed as a `source: 'persona'` system-prompt section. */
   persona?: string;
+  /** Resolved preset permission mode (overridden by an explicit CLI --permission-mode flag). */
+  permissionMode?: TPermissionMode;
+  /** Preset execution capability: activate agent runtime + subagent/background dispatch. */
+  enableParallelSubagents?: boolean;
+  /** Preset execution capability: run a post-task self-verification step. */
+  selfVerification?: boolean;
 }
 
 export async function runPrintMode(
@@ -56,7 +62,7 @@ export async function runPrintMode(
     cwd,
     provider,
     outputFormat: args.outputFormat ?? 'text',
-    permissionMode: args.permissionMode ?? 'bypassPermissions',
+    permissionMode: args.permissionMode ?? presetOptions.permissionMode ?? 'bypassPermissions',
     maxTurns: args.maxTurns,
     sessionStore: args.noSessionPersistence ? undefined : sessionStore,
     resumeSessionId: sessionResolution.resumeSessionId,
@@ -68,6 +74,12 @@ export async function runPrintMode(
     appendSystemPrompt,
     ...(presetOptions.persona !== undefined ? { persona: presetOptions.persona } : {}),
     ...(presetOptions.agentName !== undefined ? { agentName: presetOptions.agentName } : {}),
+    ...(presetOptions.enableParallelSubagents !== undefined
+      ? { enableParallelSubagents: presetOptions.enableParallelSubagents }
+      : {}),
+    ...(presetOptions.selfVerification !== undefined
+      ? { selfVerification: presetOptions.selfVerification }
+      : {}),
     ...(args.systemPrompt ? { systemPrompt: args.systemPrompt } : {}),
     backgroundTaskRunners,
     subagentRunnerFactory,

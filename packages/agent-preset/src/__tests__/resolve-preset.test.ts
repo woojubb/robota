@@ -96,6 +96,59 @@ describe('PRESET-003 agentName ownership + persona', () => {
   });
 });
 
+describe('PRESET-004 autonomy / defaultPermissionMode → permissionMode', () => {
+  it('TC-06: autonomy "act-first" (no explicit mode) → permissionMode "acceptEdits"', () => {
+    const result = resolvePreset('default', { explicit: { autonomy: 'act-first' } });
+    expect(result.permissionMode).toBe('acceptEdits');
+    expect(result.autonomy).toBe('act-first');
+  });
+
+  it('TC-07: autonomy "ask-first" (no explicit mode) → permissionMode "default" (ask-on-write)', () => {
+    const result = resolvePreset('default', { explicit: { autonomy: 'ask-first' } });
+    expect(result.permissionMode).toBe('default');
+  });
+
+  it('TC-06: autonomy "balanced" (no explicit mode) → permissionMode "default"', () => {
+    const result = resolvePreset('default', { explicit: { autonomy: 'balanced' } });
+    expect(result.permissionMode).toBe('default');
+  });
+
+  it('TC-05: defaultPermissionMode (no explicit permissionMode) is promoted to permissionMode', () => {
+    const result = resolvePreset('default', {
+      explicit: { defaultPermissionMode: 'plan' },
+    });
+    expect(result.permissionMode).toBe('plan');
+  });
+
+  it('explicit permissionMode wins over defaultPermissionMode and autonomy mapping', () => {
+    const result = resolvePreset('default', {
+      explicit: {
+        permissionMode: 'bypassPermissions',
+        defaultPermissionMode: 'plan',
+        autonomy: 'ask-first',
+      },
+    });
+    expect(result.permissionMode).toBe('bypassPermissions');
+  });
+
+  it('defaultPermissionMode wins over the autonomy mapping', () => {
+    const result = resolvePreset('default', {
+      explicit: { defaultPermissionMode: 'plan', autonomy: 'act-first' },
+    });
+    expect(result.permissionMode).toBe('plan');
+  });
+
+  it('default preset stays a no-op — no autonomy/mode → result has no permissionMode', () => {
+    expect(resolvePreset('default')).toEqual({});
+    expect(resolvePreset('default').permissionMode).toBeUndefined();
+  });
+
+  it('no-op preset preserves the PRESET-001 cliOverrides-unchanged contract', () => {
+    const base: TResolvedPresetOptions = { model: 'm', effort: 'high', agentName: 'a' };
+    expect(resolvePreset('default', { cliOverrides: base })).toEqual(base);
+  });
+});
+
 describe('getPreset', () => {
   it('returns the default preset by id', () => {
     expect(getPreset('default')?.id).toBe('default');
