@@ -885,7 +885,7 @@ src/
 ├── modes/
 │   ├── print-mode.ts                             ← Headless/print mode runner (-p flag); uses HeadlessInteractionChannel
 ├── session-analyzer/
-│   └── session-analyze-command.ts                ← `robota session analyze` — session log analysis report
+│   └── session-analyze-command.ts                ← `robota session analyze` — thin wiring: loads records via framework session stores, delegates analysis/formatting to `@robota-sdk/agent-session-analytics`
 └── startup/
     ├── append-system-prompt.ts                   ← Builds appendSystemPrompt string from session options
     ├── command-setup.ts                           ← buildCommandSetup() — command modules, adapters, provider definitions

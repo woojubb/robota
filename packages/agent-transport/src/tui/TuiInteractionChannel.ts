@@ -10,12 +10,15 @@ import {
   createUserMessage,
   messageToHistoryEntry,
 } from '@robota-sdk/agent-core';
-import { InteractiveSession, CommandRegistry } from '@robota-sdk/agent-framework';
+import {
+  InteractiveSession,
+  CommandRegistry,
+  generateSessionName,
+} from '@robota-sdk/agent-framework';
 
 import { createSessionInitPoller } from './flows/session-init-poller.js';
 import { CommandEffectQueue, type ICommandEffectQueue } from './hooks/command-effect-queue.js';
 import { applySystemCommandResult } from './hooks/useSlashRouting.js';
-import { generateSessionName } from './session-naming.js';
 import { TuiStateManager } from './tui-state-manager.js';
 
 import type { ISessionInitPoller, TSessionInitFailure } from './flows/session-init-poller.js';

@@ -82,6 +82,10 @@ const DOCUMENTED_WORKSPACE_PATTERNS = [
   { pathPattern: /^packages\/agent-framework$/, textPattern: /agent-framework/ },
   { pathPattern: /^packages\/agent-preset$/, textPattern: /agent-preset/ },
   { pathPattern: /^packages\/agent-session$/, textPattern: /agent-session/ },
+  {
+    pathPattern: /^packages\/agent-session-analytics$/,
+    textPattern: /agent-session-analytics/,
+  },
   { pathPattern: /^packages\/agent-core$/, textPattern: /agent-core/ },
   { pathPattern: /^packages\/agent-cli$/, textPattern: /agent-cli/ },
   { pathPattern: /^packages\/agent-playground$/, textPattern: /agent-playground/ },

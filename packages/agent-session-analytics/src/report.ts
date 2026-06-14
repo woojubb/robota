@@ -1,5 +1,6 @@
 /**
- * Text report formatter for session timing analysis.
+ * Text report formatters for session timing analysis. Pure — every function returns a string;
+ * callers (e.g. a CLI command) own writing to stdout.
  */
 
 import type { IAggregateReport, ISessionTimingReport, ITimingInterval } from './types.js';
