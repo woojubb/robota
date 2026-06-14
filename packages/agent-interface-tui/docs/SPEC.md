@@ -2,15 +2,15 @@
 
 ## Scope
 
-Owns TUI interaction contracts for the Robota SDK. This package contains only type contracts and
-narrow runtime type guards — no implementation, no classes, no React, no Ink.
+Owns TUI interaction contracts for the Robota SDK. This package contains only type contracts —
+no implementation, no classes, no runtime functions, no React, no Ink.
 
 It defines the interaction protocol between command handlers (which may run at any layer) and TUI
 renderers (which live in `agent-transport/tui`).
 
 ## Boundaries
 
-- **Contains only type contracts and narrow type guards — no implementation, no UI, no React.**
+- **Contains only type contracts — no runtime functions, no implementation, no UI, no React.**
 - Depends on nothing (`@robota-sdk/agent-core` is not required; TUI contracts are UI-layer only).
 - Implementation rendering lives in `agent-transport/src/tui`.
 - `agent-framework` uses these contracts to describe TUI interaction requirements for command modules.
@@ -33,16 +33,18 @@ agent-command/*
 
 ## Public API
 
-| Export                      | Kind       | Description                                              |
-| --------------------------- | ---------- | -------------------------------------------------------- |
-| `TOnMissingArgsAction`      | type       | `'picker' \| 'wizard' \| 'confirm'`                      |
-| `ITuiPickerItem`            | interface  | Item in a picker list (`label`, `value`, `description?`) |
-| `ITuiCommandInteraction`    | interface  | Base interaction: optional `onMissingArgs`               |
-| `ITuiPickerInteraction`     | interface  | Picker variant: `getItems()` + `onMissingArgs: 'picker'` |
-| `ITuiConfirmInteraction`    | interface  | Confirm variant: `message` + `onMissingArgs: 'confirm'`  |
-| `TAnyTuiCommandInteraction` | type       | Union of all interaction variants                        |
-| `isPickerInteraction`       | type guard | Narrows to `ITuiPickerInteraction`                       |
-| `isConfirmInteraction`      | type guard | Narrows to `ITuiConfirmInteraction`                      |
+| Export                      | Kind      | Description                                              |
+| --------------------------- | --------- | -------------------------------------------------------- |
+| `TOnMissingArgsAction`      | type      | `'picker' \| 'wizard' \| 'confirm'`                      |
+| `ITuiPickerItem`            | interface | Item in a picker list (`label`, `value`, `description?`) |
+| `ITuiCommandInteraction`    | interface | Base interaction: optional `onMissingArgs`               |
+| `ITuiPickerInteraction`     | interface | Picker variant: `getItems()` + `onMissingArgs: 'picker'` |
+| `ITuiConfirmInteraction`    | interface | Confirm variant: `message` + `onMissingArgs: 'confirm'`  |
+| `TAnyTuiCommandInteraction` | type      | Union of all interaction variants                        |
+
+This package exports no runtime functions. `TAnyTuiCommandInteraction` is a discriminated union —
+narrow it directly on the `onMissingArgs` literal (`if (x.onMissingArgs === 'picker')`); no
+dedicated type-guard functions are provided.
 
 ## Invariants
 
