@@ -78,7 +78,7 @@ The real power is in the transport layer. The same `InteractiveSession` can be e
 - **Headless** — for CI/CD and scripted use cases
 
 ```typescript
-import { HttpTransport } from '@robota-sdk/agent-transport/http';
+import { createHttpTransport } from '@robota-sdk/agent-transport-http';
 import { InteractiveSession } from '@robota-sdk/agent-framework';
 
 const session = new InteractiveSession({ cwd: '/your/project', provider });

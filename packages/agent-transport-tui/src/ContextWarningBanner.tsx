@@ -13,8 +13,8 @@ export function ContextWarningBanner({ percentage }: IProps): React.ReactElement
     return (
       <Box borderStyle="single" borderColor="red" paddingX={1}>
         <Text color="red" bold>
-          ⚠ Context at {Math.round(percentage)}% — window nearly full. Run /compact to summarize
-          the conversation.
+          ⚠ Context at {Math.round(percentage)}% — window nearly full. Run /compact to summarize the
+          conversation.
         </Text>
       </Box>
     );
