@@ -49,6 +49,8 @@ export interface IInteractiveSessionStandardOptions {
   model?: string;
   /** Text to append to the system prompt. */
   appendSystemPrompt?: string;
+  /** Preset persona block composed as a `source: 'persona'` system-prompt section (priority 5). */
+  persona?: string;
   /** Replace the entire system prompt with this string. Takes precedence over the default builder. */
   systemPrompt?: string;
   /** Override config language (e.g., "ko", "en"). Injected into system prompt. */
@@ -146,6 +148,8 @@ export interface IInitOptions {
   model?: string;
   /** Text to append to the system prompt. */
   appendSystemPrompt?: string;
+  /** Preset persona block composed as a `source: 'persona'` system-prompt section (priority 5). */
+  persona?: string;
   /** Replace the entire system prompt with this string. Takes precedence over the default builder. */
   systemPrompt?: string;
   /** Override config language (e.g., "ko", "en"). Injected into system prompt. */
