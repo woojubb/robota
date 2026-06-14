@@ -17,6 +17,7 @@ interface IRuntimeSpies {
   setActivePresetId?: ReturnType<typeof vi.fn>;
   applyModelOptions?: ReturnType<typeof vi.fn>;
   applyPersona?: ReturnType<typeof vi.fn>;
+  applyCommandModuleSelection?: ReturnType<typeof vi.fn>;
 }
 
 /**
@@ -25,12 +26,14 @@ interface IRuntimeSpies {
  * exercise the defensive optional-chaining path (PRESET-012 TC-05). `includeApplyModelOptions:
  * false` omits the optional `applyModelOptions` to exercise the PRESET-013 optional path (TC-06).
  * `includeApplyPersona: false` omits the optional `applyPersona` to exercise the PRESET-014
- * optional path (TC-05).
+ * optional path (TC-05). `includeApplyCommandModuleSelection: false` omits the optional
+ * `applyCommandModuleSelection` to exercise the PRESET-015 optional path (TC-06).
  */
 function createContext(
   includeActivePreset = true,
   includeApplyModelOptions = true,
   includeApplyPersona = true,
+  includeApplyCommandModuleSelection = true,
 ): {
   context: ICommandHostContext;
   spies: IRuntimeSpies;
@@ -92,6 +95,12 @@ function createContext(
     const applyPersona = vi.fn();
     context.applyPersona = applyPersona;
     spies.applyPersona = applyPersona;
+  }
+
+  if (includeApplyCommandModuleSelection) {
+    const applyCommandModuleSelection = vi.fn();
+    context.applyCommandModuleSelection = applyCommandModuleSelection;
+    spies.applyCommandModuleSelection = applyCommandModuleSelection;
   }
 
   return { context, spies };
@@ -195,5 +204,34 @@ describe('applyPresetToSession persona group (PRESET-014)', () => {
     const { context, spies } = createContext(true, true, false);
     expect(spies.applyPersona).toBeUndefined();
     expect(() => applyPresetToSession(context, 'careful-reviewer', { persona: 'P' })).not.toThrow();
+  });
+});
+
+describe('applyPresetToSession command-module group (PRESET-015)', () => {
+  it('TC-04: disabledCommandModules → applyCommandModuleSelection called with (undefined, [x]), applied lists commandModules', () => {
+    const { context, spies } = createContext();
+    const result = applyPresetToSession(context, 'careful-reviewer', {
+      disabledCommandModules: ['x'],
+    });
+
+    expect(spies.applyCommandModuleSelection).toHaveBeenCalledWith(undefined, ['x']);
+    expect(result.applied).toContain('commandModules');
+  });
+
+  it('TC-05: no command-module fields → not called, commandModules group skipped', () => {
+    const { context, spies } = createContext();
+    const result = applyPresetToSession(context, 'x', {});
+
+    expect(spies.applyCommandModuleSelection).not.toHaveBeenCalled();
+    expect(result.skipped).toContain('commandModules');
+    expect(result.applied).not.toContain('commandModules');
+  });
+
+  it('TC-06: context without applyCommandModuleSelection still applies safely (optional chaining)', () => {
+    const { context, spies } = createContext(true, true, true, false);
+    expect(spies.applyCommandModuleSelection).toBeUndefined();
+    expect(() =>
+      applyPresetToSession(context, 'careful-reviewer', { enabledCommandModules: ['a'] }),
+    ).not.toThrow();
   });
 });
