@@ -13,6 +13,7 @@ flowchart TD
   Headless["agent-transport/headless\nprint-mode transport"]
   Commands["agent-command\nuser-visible commands"]
   Framework["agent-framework\nassembly layer — InteractiveSession,\ncommand contracts/common APIs\n(React-free)"]
+  Preset["agent-preset\nnamed preset profiles + resolvePreset\n(option-data layer; depends on framework only)"]
   Sessions["agent-session\nconversation lifecycle"]
   Executor["agent-executor\nbackground task lifecycle"]
   Tools["agent-tools + agent-tool-mcp\ntools + sandbox ports + MCP integration"]
@@ -29,6 +30,9 @@ flowchart TD
   AgentCLI --> Providers
   AgentCLI --> Headless
   AgentCLI --> SubagentRunner
+  AgentCLI --> Preset
+  Commands --> Preset
+  Preset --> Framework
   TuiTransport --> Framework
   AgentCLI -. "consumer opt-in" .-> Plugins
   Headless --> Framework
@@ -54,18 +58,19 @@ flowchart TD
 
 Agent stack ownership:
 
-| Concern                                           | Owner                                | Contract                                                                    |
-| ------------------------------------------------- | ------------------------------------ | --------------------------------------------------------------------------- |
-| Terminal input/rendering                          | `agent-transport/tui`                | I/O adapter only — implements `IConfigurableTransport`.                     |
-| CLI lifecycle + assembly                          | `agent-cli`                          | Composes transports, providers, commands; owns `process.exit()`.            |
-| Framework assembly layer                          | `agent-framework`                    | Composes sessions/executor/tools/core. React-free.                          |
-| Command contracts/common APIs                     | `agent-framework`                    | Command packages consume these as third-party modules.                      |
-| User-visible built-in command behavior            | `agent-command`                      | CLI composes defaults; framework must not import them.                      |
-| Provider defaults, setup metadata, model catalogs | `agent-provider` via `agent-core`    | CLI must not hardcode provider branches.                                    |
-| Session lifecycle and compaction                  | `agent-session`                      | CLI consumes through framework facades only.                                |
-| Background/subagent lifecycle ports               | `agent-executor`                     | CLI keeps concrete local process/worktree adapters.                         |
-| Child-process subagent runner + worker            | `agent-subagent-runner` (opt-in)     | CLI imports factory; pass workerPath from getDefaultSubagentWorkerPath().   |
-| Background workspace/read model                   | `agent-framework` + `agent-executor` | CLI renders framework projections; keeps only ephemeral UI selection state. |
+| Concern                                           | Owner                                                   | Contract                                                                                                                                                                                                                                      |
+| ------------------------------------------------- | ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Terminal input/rendering                          | `agent-transport/tui`                                   | I/O adapter only — implements `IConfigurableTransport`.                                                                                                                                                                                       |
+| CLI lifecycle + assembly                          | `agent-cli`                                             | Composes transports, providers, commands; owns `process.exit()`.                                                                                                                                                                              |
+| Framework assembly layer                          | `agent-framework`                                       | Composes sessions/executor/tools/core. React-free.                                                                                                                                                                                            |
+| Command contracts/common APIs                     | `agent-framework`                                       | Command packages consume these as third-party modules.                                                                                                                                                                                        |
+| User-visible built-in command behavior            | `agent-command`                                         | CLI composes defaults; framework must not import them.                                                                                                                                                                                        |
+| Provider defaults, setup metadata, model catalogs | `agent-provider` via `agent-core`                       | CLI must not hardcode provider branches.                                                                                                                                                                                                      |
+| Session lifecycle and compaction                  | `agent-session`                                         | CLI consumes through framework facades only.                                                                                                                                                                                                  |
+| Background/subagent lifecycle ports               | `agent-executor`                                        | CLI keeps concrete local process/worktree adapters.                                                                                                                                                                                           |
+| Child-process subagent runner + worker            | `agent-subagent-runner` (opt-in)                        | CLI imports factory; pass workerPath from getDefaultSubagentWorkerPath().                                                                                                                                                                     |
+| Background workspace/read model                   | `agent-framework` + `agent-executor`                    | CLI renders framework projections; keeps only ephemeral UI selection state.                                                                                                                                                                   |
+| Named preset profiles / live preset switching     | `agent-preset` (data) + `agent-framework` (application) | Data owner `agent-preset` (`IPreset` + `resolvePreset` + built-in + external presets); application owner `agent-framework` (`applyPresetToSession`); command `agent-command/preset`; runtime state `agent-session`; UI `agent-transport` TUI. |
 
 Provider profile identity is the settings profile key, not provider `type` or model uniqueness. See [commands-and-provider-flow.md](agent-cli/commands-and-provider-flow.md) for profile switching semantics.
 

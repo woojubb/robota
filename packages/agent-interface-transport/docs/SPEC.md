@@ -9,8 +9,11 @@ contracts and no runtime implementation. It defines the standard protocol for tr
 ## Boundaries
 
 - **Contains only type contracts and interfaces — no implementation, no classes, no runtime logic.**
-- **Zero runtime dependencies.** All type parameters use generics (`TSession = unknown`).
-- Does not depend on `@robota-sdk/agent-framework` or any implementation package.
+- **Zero runtime (emitted-JS) dependencies.** All `@robota-sdk/*` imports are type-only
+  (`import type`); the compiled output carries no `@robota-sdk/*` package at runtime. The package
+  imports contract types from `@robota-sdk/agent-core`, `@robota-sdk/agent-executor`, and
+  `@robota-sdk/agent-session` (e.g. `TUniversalValue`, `IBackgroundTaskError`, `ICompactEvent`).
+- Does not depend on `@robota-sdk/agent-framework` or any transport implementation package.
 - Implementation packages (`agent-transport` subpaths: `/tui`, `/headless`, `/ws`, `/http`, `/mcp`)
   depend on this package for interface types, not on `agent-framework`.
 - `agent-framework` depends on this package to consume the transport contracts it wires.
@@ -132,7 +135,8 @@ implementing packages (`agent-transport/*`) and are not part of this package's c
 
 - This package MUST NOT contain classes, runtime functions, or any executable logic.
 - Only `interface` and `type` declarations are allowed (narrow type-guard functions are also prohibited).
-- Zero runtime dependencies — no imports from any `@robota-sdk/*` package.
+- Zero runtime (emitted-JS) dependencies — all `@robota-sdk/*` imports are type-only (`import type`),
+  so no `@robota-sdk/*` package is present in the compiled output.
 - Any new cross-cutting transport contract must be added here, not in `agent-framework` or individual transport packages.
 
 ## Test Strategy
