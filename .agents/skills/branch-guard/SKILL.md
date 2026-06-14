@@ -139,3 +139,6 @@ user-approved release automation. Branch-first is the rule even for one-line doc
 - Creating a new branch for every intermediate commit within a single task.
 - Merging into `main` when the branch was forked from `develop`.
 - Assuming `main` as the default merge/PR target.
+- Passing `--delete-branch` to `gh pr merge` (zero exceptions — it once deleted the `develop`
+  integration branch). Merge without it; delete only on explicit user request via `git branch -D`
+  (local) or `gh api -X DELETE .../git/refs/heads/<name>` (remote). Enforced by `branch-guard.sh`.
