@@ -1177,4 +1177,110 @@ describe('Agent tool', () => {
       expect.not.objectContaining({ isForkWorker: true }),
     );
   });
+
+  // PRESET-016: runtime gate consulted at dispatch time. A spy SubagentManager lets us assert
+  // dispatch is refused (no spawn) when the gate predicate returns false.
+  function makeManagerSpy(): ISubagentManager {
+    return {
+      spawn: vi.fn().mockResolvedValue({
+        id: 'agent_gate_1',
+        type: 'Explore',
+        label: 'Explore',
+        parentSessionId: 'session_parent',
+        status: 'running',
+        mode: 'background',
+        depth: 1,
+        cwd: '/workspace',
+        promptPreview: 'Gate task',
+        updatedAt: '2026-06-14T00:00:00.000Z',
+      }),
+      wait: vi.fn().mockResolvedValue({ jobId: 'agent_gate_1', output: 'gate output' }),
+      list: vi.fn(),
+      get: vi.fn(),
+      cancel: vi.fn(),
+      close: vi.fn(),
+      send: vi.fn(),
+      shutdown: vi.fn(),
+    };
+  }
+
+  it('TC-03: gate disabled → returns disabled result without dispatching', async () => {
+    const subagentManager = makeManagerSpy();
+    const tool = createAgentTool(
+      makeDeps({
+        cwd: '/workspace',
+        parentSessionId: 'session_parent',
+        subagentManager,
+        isParallelSubagentsEnabled: () => false,
+      }),
+    );
+
+    const toolResult = await tool.execute({ prompt: 'Gate task', subagent_type: 'Explore' });
+    const result = parseToolResult(toolResult);
+
+    expect(subagentManager.spawn).not.toHaveBeenCalled();
+    expect(createSubagentSession).not.toHaveBeenCalled();
+    expect(result['success']).toBe(false);
+    expect(result['requestedJobCount']).toBe(0);
+    expect(result['startedJobCount']).toBe(0);
+    expect(result['error']).toContain('Parallel subagents are disabled');
+  });
+
+  it('TC-03b: gate disabled also refuses batch jobs without dispatching', async () => {
+    const subagentManager = makeManagerSpy();
+    const tool = createAgentTool(
+      makeDeps({
+        cwd: '/workspace',
+        parentSessionId: 'session_parent',
+        subagentManager,
+        isParallelSubagentsEnabled: () => false,
+      }),
+    );
+
+    const toolResult = await tool.execute({
+      jobs: [{ prompt: 'Developer analysis', subagent_type: 'Explore' }],
+    });
+    const result = parseToolResult(toolResult);
+
+    expect(subagentManager.spawn).not.toHaveBeenCalled();
+    expect(result['error']).toContain('Parallel subagents are disabled');
+  });
+
+  it('TC-04: gate enabled → dispatch proceeds normally', async () => {
+    const subagentManager = makeManagerSpy();
+    const tool = createAgentTool(
+      makeDeps({
+        cwd: '/workspace',
+        parentSessionId: 'session_parent',
+        subagentManager,
+        isParallelSubagentsEnabled: () => true,
+      }),
+    );
+
+    const toolResult = await tool.execute({ prompt: 'Gate task', subagent_type: 'Explore' });
+    const result = parseToolResult(toolResult);
+
+    expect(subagentManager.spawn).toHaveBeenCalledTimes(1);
+    expect(subagentManager.wait).toHaveBeenCalledWith('agent_gate_1');
+    expect(result['success']).toBe(true);
+    expect(result['output']).toBe('gate output');
+  });
+
+  it('TC-04b: no gate predicate → dispatch proceeds (default behavior unchanged)', async () => {
+    const subagentManager = makeManagerSpy();
+    const tool = createAgentTool(
+      makeDeps({
+        cwd: '/workspace',
+        parentSessionId: 'session_parent',
+        subagentManager,
+        // isParallelSubagentsEnabled intentionally omitted
+      }),
+    );
+
+    const toolResult = await tool.execute({ prompt: 'Gate task', subagent_type: 'Explore' });
+    const result = parseToolResult(toolResult);
+
+    expect(subagentManager.spawn).toHaveBeenCalledTimes(1);
+    expect(result['success']).toBe(true);
+  });
 });
