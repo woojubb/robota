@@ -17,6 +17,7 @@ import type {
   IToolWithEventService,
   IHookTypeExecutor,
   TPermissionMode,
+  TModelEffort,
   TToolArgs,
 } from '@robota-sdk/agent-core';
 import type {
@@ -127,6 +128,13 @@ export interface ICreateSessionOptions {
   deniedTools?: string[];
   /** Override the model from config. When set, takes precedence over config.provider.model. */
   model?: string;
+  /**
+   * Reasoning-effort dial for this session, threaded to the provider request builder.
+   * Resolved from a preset's `effort` (PRESET-008). When unset, the framework→provider
+   * seam defaults it to `'high'`. Native-effort providers map it onto their request
+   * parameter; providers without native effort ignore it as a documented no-op.
+   */
+  effort?: TModelEffort;
   /** Text to append to the generated system prompt. */
   appendSystemPrompt?: string;
   /** Preset persona block composed as a `source: 'persona'` system-prompt section (priority 5). */

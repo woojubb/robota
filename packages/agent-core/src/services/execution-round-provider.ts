@@ -49,6 +49,9 @@ export async function callProviderWithCache(
 
   const chatOptions: IChatOptions = {
     model: config.defaultModel.model,
+    // Default the reasoning-effort dial to 'high' at the framework→provider seam so every
+    // model call carries an explicit effort (design §5.1 — neutral default 'high').
+    effort: config.defaultModel.effort ?? 'high',
     ...(config.defaultModel.maxTokens !== undefined && {
       maxTokens: config.defaultModel.maxTokens,
     }),
