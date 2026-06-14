@@ -29,6 +29,8 @@ export interface IPresetApplicationOptions {
   disabledCommandModules?: readonly string[];
   /** PRESET-016 — runtime gate toggle for subagent dispatch on the live session. */
   enableParallelSubagents?: boolean;
+  /** PRESET-017 — toggle the verify-before-done self-verification section on the live prompt. */
+  selfVerification?: boolean;
 }
 
 /** Outcome of {@link applyPresetToSession}: which option groups were re-applied vs. skipped. */
@@ -50,8 +52,10 @@ export interface IPresetApplicationResult {
  * `applyModelOptions`. PRESET-014 re-applies the `persona` group via the host context's optional
  * `applyPersona` seam. PRESET-015 re-applies the command-module selection group via the host
  * context's optional `applyCommandModuleSelection` seam. PRESET-016 toggles the parallel-subagents
- * runtime gate via the runtime's optional `setParallelSubagentsEnabled` seam. Groups absent from
- * `options` are left untouched and reported under `skipped`.
+ * runtime gate via the runtime's optional `setParallelSubagentsEnabled` seam. PRESET-017 toggles
+ * the verify-before-done self-verification section via the host context's optional
+ * `applySelfVerification` seam. Groups absent from `options` are left untouched and reported under
+ * `skipped`.
  */
 export function applyPresetToSession(
   context: ICommandHostContext,
@@ -116,6 +120,15 @@ export function applyPresetToSession(
     applied.push('enableParallelSubagents');
   } else {
     skipped.push('enableParallelSubagents');
+  }
+
+  // PRESET-017 self-verification group — toggled via the host context's optional
+  // applySelfVerification seam (recomposes the live system prompt).
+  if (options.selfVerification !== undefined) {
+    context.applySelfVerification?.(options.selfVerification);
+    applied.push('selfVerification');
+  } else {
+    skipped.push('selfVerification');
   }
 
   return { applied, skipped };

@@ -86,8 +86,9 @@ export interface ICreateSessionOptions {
    */
   enableParallelSubagents?: boolean;
   /**
-   * Preset execution capability: when true the agent runs a post-task self-verification
-   * step. Threaded onto the assembly options so executor/framework can consume it.
+   * Preset execution capability: when true the framework composes a verify-before-done
+   * self-verification section into the system prompt (PRESET-017), as a normal
+   * priority-sorted `source: 'self-verification'` section.
    */
   selfVerification?: boolean;
   /** Callback when a tool starts or finishes execution — enables real-time tool display in UI */
@@ -166,11 +167,12 @@ export interface ICreateSessionResult {
    * Rebuild the system message using updated context strings.
    * Called by staleness detection when AGENTS.md or CLAUDE.md files change between turns.
    * PRESET-014: an optional `overrides.persona` re-applies a preset persona to the live prompt;
-   * the override is retained for subsequent (override-less) rebuilds.
+   * PRESET-017: an optional `overrides.selfVerification` toggles the verify-before-done section.
+   * Either override is retained for subsequent (override-less) rebuilds.
    */
   rebuildSystemMessage: (
     agentsMd: string,
     claudeMd: string,
-    overrides?: { persona?: string },
+    overrides?: { persona?: string; selfVerification?: boolean },
   ) => string;
 }

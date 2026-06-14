@@ -26,6 +26,30 @@ export function createPersonaSection(persona: string): ISystemPromptSection {
   return createSection('preset-persona', undefined, 5, persona, 'persona');
 }
 
+/**
+ * PRESET-017: a concise verify-before-done directive injected when a preset enables
+ * `selfVerification`. The content must stay English, brief, and avoid heavy emphasis cues.
+ */
+const SELF_VERIFICATION_CONTENT =
+  "Before you report a task complete, verify your work against this session's tool " +
+  'results — re-run the relevant checks and confirm the outcome matches what was asked. ' +
+  'If something is not yet verified, say so plainly rather than implying it is done.';
+
+/**
+ * PRESET-017: when a preset enables selfVerification, inject a concise verify-before-done
+ * section as a normal priority-sorted section (priority 6 = just after persona=5, before
+ * AGENTS.md=10), never a hardcoded slot.
+ */
+export function createSelfVerificationSection(): ISystemPromptSection {
+  return createSection(
+    'preset-self-verification',
+    undefined,
+    6,
+    SELF_VERIFICATION_CONTENT,
+    'self-verification',
+  );
+}
+
 export function createWorkingDirectorySection(cwd?: string): ISystemPromptSection | undefined {
   if (!cwd) return undefined;
   return createSection('runtime-cwd', 'Working Directory', 30, `\`${cwd}\``, 'runtime');

@@ -386,6 +386,22 @@ export class InteractiveSession
   }
 
   /**
+   * PRESET-017: toggle the verify-before-done self-verification section on the live system prompt.
+   * Recomposes the system message from the currently tracked AGENTS.md/CLAUDE.md entries plus the
+   * new selfVerification flag, then propagates it to the session. No-op before init, when the
+   * rebuild closure is not yet available.
+   */
+  applySelfVerification(enabled: boolean): void {
+    if (this.rebuildSystemMessage === null) return;
+    const currentAgents = this.agentsFileEntries.map((e) => e.content).join('\n\n');
+    const currentClaude = this.claudeFileEntries.map((e) => e.content).join('\n\n');
+    const msg = this.rebuildSystemMessage(currentAgents, currentClaude, {
+      selfVerification: enabled,
+    });
+    this.getSessionOrThrow().updateSystemMessage(msg);
+  }
+
+  /**
    * PRESET-015: re-apply a preset's command-module selection to the live session by delegating to
    * the skill router, which re-filters the session-start module set and rebuilds the executor.
    */
