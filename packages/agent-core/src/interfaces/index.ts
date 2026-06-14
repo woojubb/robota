@@ -36,6 +36,7 @@ export type {
   TJSONSchemaEnum,
   TParameterDefaultValue,
   IChatOptions,
+  TModelEffort,
   IProviderCapabilities,
   IProviderFunctionCallingCapability,
   IProviderNativeWebToolCapabilities,

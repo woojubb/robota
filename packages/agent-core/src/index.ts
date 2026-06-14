@@ -13,6 +13,7 @@ export type {
   IToolSchema,
   IProviderOptions,
   IChatOptions,
+  TModelEffort,
   IProviderCapabilities,
   IProviderFunctionCallingCapability,
   IProviderNativeWebToolCapabilities,

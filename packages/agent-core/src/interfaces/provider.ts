@@ -179,6 +179,17 @@ export interface IProviderNativeRawPayloadEvent {
 export type TProviderNativeRawPayloadCallback = (event: IProviderNativeRawPayloadEvent) => void;
 
 /**
+ * Reasoning-effort dial threaded per model invocation.
+ *
+ * Canonical SSOT for the effort union. `'high'` is the neutral default applied when
+ * a caller leaves effort unset; `'xhigh'` is the long-running ("ultra") tier and
+ * `'max'` the most exhaustive tier. Providers with a native reasoning-effort parameter
+ * map this value onto it (clamping to their supported range); providers without a
+ * native effort concept ignore it as a documented no-op.
+ */
+export type TModelEffort = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
+
+/**
  * Options for AI provider chat requests
  */
 export interface IChatOptions extends IProviderSpecificOptions {
@@ -188,6 +199,12 @@ export interface IChatOptions extends IProviderSpecificOptions {
   maxTokens?: number;
   /** Temperature for response randomness (0-1) */
   temperature?: number;
+  /**
+   * Reasoning-effort dial for this invocation. Native-effort providers map it to their
+   * request parameter; providers without native effort ignore it (documented no-op).
+   * Threaded from session/model options; defaults to `'high'` at the framework→provider seam.
+   */
+  effort?: TModelEffort;
   /** Model to use for the request */
   model?: string;
   /** Callback for text deltas during streaming. When provided, the provider
