@@ -36,6 +36,7 @@ export interface IParsedCliArgs {
   allowedTools: string | undefined;
   deniedTools: string | undefined;
   model: string | undefined;
+  preset: string | undefined;
   noSessionPersistence: boolean;
   jsonSchema: string | undefined;
   configure: boolean;
@@ -78,6 +79,7 @@ Options:
   --allowed-tools <list>     Comma-separated tool allowlist (TUI and print mode)
   --denied-tools <list>      Comma-separated tool denylist (TUI and print mode)
   --model <model>            Model override for this run
+  --preset <id>              Preset id to apply (default: settings.preset or "default")
   --json-schema <schema>     Print mode: instruct the model to respond with JSON matching this schema
   --dry-run                  Alias for --permission-mode plan (plan only, no execution)
   --reset                    Delete ~/.robota/settings.json (provider profiles and preferences).
@@ -166,6 +168,7 @@ const PARSE_ARGS_CONFIG = {
     'allowed-tools': { type: 'string' },
     'denied-tools': { type: 'string' },
     model: { type: 'string' },
+    preset: { type: 'string' },
     'no-session-persistence': { type: 'boolean', default: false },
     'json-schema': { type: 'string' },
     configure: { type: 'boolean', default: false },
@@ -212,6 +215,7 @@ function mapParsedValues(
     allowedTools: values['allowed-tools'],
     deniedTools: values['denied-tools'],
     model: values['model'],
+    preset: values['preset'],
     noSessionPersistence: values['no-session-persistence'] ?? false,
     jsonSchema: values['json-schema'],
     configure: values['configure'] ?? false,

@@ -477,6 +477,9 @@ importers:
       '@robota-sdk/agent-framework':
         specifier: workspace:*
         version: link:../agent-framework
+      '@robota-sdk/agent-preset':
+        specifier: workspace:*
+        version: link:../agent-preset
       '@robota-sdk/agent-provider':
         specifier: workspace:*
         version: link:../agent-provider
