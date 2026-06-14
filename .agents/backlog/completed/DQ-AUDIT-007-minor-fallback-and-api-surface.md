@@ -25,9 +25,9 @@ depends_on: []
 
 ## Completion Criteria
 
-- [ ] TC-01: OpenAI stream 핸들러가 모델 누락 시 throw (silent 대체 제거)
-- [ ] TC-02: (DQ-17) provider API 분리 여부 SPEC 결정 후 반영 또는 의도적 단일 계약으로 문서화
-- [ ] TC-03: agent-provider/agent-core typecheck/test + `pnpm harness:scan` 통과
+- [x] TC-01: OpenAI stream 핸들러가 모델 누락 시 throw (silent 대체 제거)
+- [x] TC-02: (DQ-17) provider API 분리 여부 SPEC 결정 후 반영 또는 의도적 단일 계약으로 문서화
+- [x] TC-03: agent-provider/agent-core typecheck/test + `pnpm harness:scan` 통과
 
 ## Test Plan
 
