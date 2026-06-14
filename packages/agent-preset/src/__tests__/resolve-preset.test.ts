@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { DEFAULT_AGENT_NAME, getPreset, listPresets, resolvePreset } from '../resolve-preset.js';
 
 import type { IPreset, TResolvedPresetOptions } from '../preset-types.js';
+import type { IPresetApplicationOptions } from '@robota-sdk/agent-framework';
 
 describe('resolvePreset', () => {
   it('TC-05: default preset is a no-op — returns the cliOverrides unchanged', () => {
@@ -267,6 +268,16 @@ describe('PRESET-010 neutral-executor', () => {
     expect(summary).toBeDefined();
     expect((summary?.title ?? '').length).toBeGreaterThan(0);
     expect((summary?.description ?? '').length).toBeGreaterThan(0);
+  });
+});
+
+describe('PRESET-012 resolved options are live-applicable', () => {
+  it('TC-06: a resolvePreset result is assignable to IPresetApplicationOptions', () => {
+    const resolved: TResolvedPresetOptions = resolvePreset('careful-reviewer');
+    // Structural compat: the framework re-application orchestrator (applyPresetToSession) accepts
+    // a resolvePreset result directly — this is what PRESET-006 wiring relies on.
+    const applicationOptions: IPresetApplicationOptions = resolved;
+    expect(applicationOptions.permissionMode).toBe(resolved.permissionMode);
   });
 });
 
