@@ -27,6 +27,8 @@ export interface IPresetApplicationOptions {
   enabledCommandModules?: readonly string[];
   /** PRESET-015 — denylist of command-module names to remove from the live session. */
   disabledCommandModules?: readonly string[];
+  /** PRESET-016 — runtime gate toggle for subagent dispatch on the live session. */
+  enableParallelSubagents?: boolean;
 }
 
 /** Outcome of {@link applyPresetToSession}: which option groups were re-applied vs. skipped. */
@@ -47,8 +49,9 @@ export interface IPresetApplicationResult {
  * group (`model`/`effort`/`temperature`/`maxOutputTokens`) via the runtime's optional
  * `applyModelOptions`. PRESET-014 re-applies the `persona` group via the host context's optional
  * `applyPersona` seam. PRESET-015 re-applies the command-module selection group via the host
- * context's optional `applyCommandModuleSelection` seam. Groups absent from `options` are left
- * untouched and reported under `skipped`.
+ * context's optional `applyCommandModuleSelection` seam. PRESET-016 toggles the parallel-subagents
+ * runtime gate via the runtime's optional `setParallelSubagentsEnabled` seam. Groups absent from
+ * `options` are left untouched and reported under `skipped`.
  */
 export function applyPresetToSession(
   context: ICommandHostContext,
@@ -104,6 +107,15 @@ export function applyPresetToSession(
     applied.push('commandModules');
   } else {
     skipped.push('commandModules');
+  }
+
+  // PRESET-016 parallel-subagents gate — toggled via the runtime's optional
+  // setParallelSubagentsEnabled seam (live gate on an already-constructed session).
+  if (options.enableParallelSubagents !== undefined) {
+    context.getSession().setParallelSubagentsEnabled?.(options.enableParallelSubagents);
+    applied.push('enableParallelSubagents');
+  } else {
+    skipped.push('enableParallelSubagents');
   }
 
   return { applied, skipped };

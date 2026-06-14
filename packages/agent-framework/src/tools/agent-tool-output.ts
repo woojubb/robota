@@ -18,6 +18,28 @@ export function stringifyUnknownAgentType(agentType: string): string {
   });
 }
 
+/**
+ * PRESET-016 — terminal result returned when the runtime gate refuses subagent dispatch.
+ * No job is started, so all counts are zero and `success` is false.
+ */
+export function stringifyParallelSubagentsDisabled(): string {
+  return JSON.stringify({
+    success: false,
+    mode: 'single',
+    requestedJobCount: 0,
+    startedJobCount: 0,
+    failedJobCount: 0,
+    output: '',
+    error: 'Parallel subagents are disabled for the active preset.',
+    provenance: {
+      source: 'agent-tool-single',
+      requestedJobCount: 0,
+      startedJobCount: 0,
+      failedJobCount: 0,
+    },
+  });
+}
+
 export function stringifyAgentSuccess(result: ISubagentJobResult): string {
   const worktreePath = result.metadata?.['worktreePath'];
   const branchName = result.metadata?.['branchName'];

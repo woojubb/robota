@@ -259,6 +259,11 @@ export function wireSessionDeps(
   backgroundTaskManager: IBackgroundTaskManager,
 ): void {
   if (agentToolDeps) agentToolDeps.parentSessionId = session.getSessionId();
+  // PRESET-016: wire the runtime gate to the session's live flag so a preset switch can
+  // enable/disable subagent dispatch on this already-constructed session.
+  if (agentToolDeps) {
+    agentToolDeps.isParallelSubagentsEnabled = () => session.getParallelSubagentsEnabled();
+  }
   if (backgroundProcessToolDeps) backgroundProcessToolDeps.parentSessionId = session.getSessionId();
   storeSessionBackgroundTaskManager(session, backgroundTaskManager);
   if (agentToolDeps) storeAgentToolDeps(session, agentToolDeps);
