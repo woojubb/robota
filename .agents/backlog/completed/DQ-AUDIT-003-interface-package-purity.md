@@ -28,10 +28,10 @@ depends_on: []
 
 ## Completion Criteria
 
-- [ ] TC-01: `agent-interface-tui/src`에 런타임 함수/값 export 0건 (타입/인터페이스만)
-- [ ] TC-02: 타입가드가 `agent-transport`에서 정상 동작 (TUI 커맨드 분기 단위 테스트)
-- [ ] TC-03: interface-transport 의존 방향 결정 — 역전 또는 명시 정당화 문서화
-- [ ] TC-04: `pnpm harness:scan`의 `interface-imports`/`conformance` 통과
+- [x] TC-01: `agent-interface-tui/src`에 런타임 함수/값 export 0건 (타입/인터페이스만)
+- [x] TC-02: 타입가드가 `agent-transport`에서 정상 동작 (TUI 커맨드 분기 단위 테스트)
+- [x] TC-03: interface-transport 의존 방향 결정 — 역전 또는 명시 정당화 문서화
+- [x] TC-04: `pnpm harness:scan`의 `interface-imports`/`conformance` 통과
 
 ## Test Plan
 
