@@ -1,5 +1,11 @@
 # @robota-sdk/agent-interface-tui
 
+## 3.0.0-beta.76
+
+### Patch Changes
+
+- DQ-AUDIT-003 — restore agent-interface-tui to type-contracts only by removing its runtime type-guards (`isPickerInteraction`/`isConfirmInteraction`, which had zero call sites); narrow `TAnyTuiCommandInteraction` on its `onMissingArgs` discriminant instead. Documented the type-only downward references in agent-interface-transport.
+
 ## 3.0.0-beta.75
 
 ## 3.0.0-beta.74

@@ -1,5 +1,17 @@
 # @robota-sdk/agent-provider
 
+## 3.0.0-beta.76
+
+### Patch Changes
+
+- DQ-AUDIT-006 — error/observability hygiene: replace raw `throw new Error()` on core-service and provider hot paths with typed `RobotaError` subclasses (`ConfigurationError`/`ValidationError`) so error-handling can branch on category/recoverable; surface fire-and-forget hook failures via `logger.warn` instead of silent `.catch(() => {})`; wire the error-handling plugin's `totalRetries`/`successfulRecoveries` stats to real counters.
+- DQ-AUDIT-007 — remove the silent `model || 'gpt-4o-mini'` default in the OpenAI streaming handler (a missing model now throws `ConfigurationError` instead of substituting a vendor default); document `IAIProvider`'s universal (`chat`) vs raw (`generateResponse`) dual surface as intentional in the agent-core SPEC.
+- Updated dependencies
+- Updated dependencies
+- Updated dependencies
+- Updated dependencies [576af62]
+  - @robota-sdk/agent-core@3.0.0-beta.76
+
 ## 3.0.0-beta.75
 
 ### Patch Changes
