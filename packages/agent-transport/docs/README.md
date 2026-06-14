@@ -11,10 +11,10 @@ dependencies from pure-TS consumers.
 import { createHeadlessTransport } from '@robota-sdk/agent-transport/headless';
 
 // TUI transport
-import { TuiTransport } from '@robota-sdk/agent-transport/tui';
+import { TuiTransport } from '@robota-sdk/agent-transport-tui';
 
 // WebSocket transport
-import { WsTransport } from '@robota-sdk/agent-transport/ws';
+import { WsTransport } from '@robota-sdk/agent-transport-ws';
 ```
 
 ## Documents

@@ -31,7 +31,7 @@ const transport = createHeadlessTransport({ format: 'text' });
 ### WebSocket
 
 ```typescript
-import { WsTransport } from '@robota-sdk/agent-transport/ws';
+import { WsTransport } from '@robota-sdk/agent-transport-ws';
 
 const transport = new WsTransport({ port: 3001 });
 ```
@@ -39,7 +39,7 @@ const transport = new WsTransport({ port: 3001 });
 ### HTTP
 
 ```typescript
-import { createHttpTransport } from '@robota-sdk/agent-transport/http';
+import { createHttpTransport } from '@robota-sdk/agent-transport-http';
 
 const transport = createHttpTransport({ port: 8080 });
 ```
@@ -47,7 +47,7 @@ const transport = createHttpTransport({ port: 8080 });
 ### MCP
 
 ```typescript
-import { createMcpTransport } from '@robota-sdk/agent-transport/mcp';
+import { createMcpTransport } from '@robota-sdk/agent-transport-mcp';
 
 const transport = createMcpTransport({ name: 'my-agent' });
 ```
@@ -55,8 +55,8 @@ const transport = createMcpTransport({ name: 'my-agent' });
 ### TUI (Ink/React)
 
 ```typescript
-import { TuiTransport } from '@robota-sdk/agent-transport/tui';
-import type { ITuiCliAdapter } from '@robota-sdk/agent-transport/tui';
+import { TuiTransport } from '@robota-sdk/agent-transport-tui';
+import type { ITuiCliAdapter } from '@robota-sdk/agent-transport-tui';
 
 const transport = new TuiTransport(adapter);
 ```
@@ -70,11 +70,11 @@ Import only what you need to keep bundles small:
 
 ```typescript
 import { createHeadlessTransport } from '@robota-sdk/agent-transport/headless';
-import { WsTransport } from '@robota-sdk/agent-transport/ws';
-import type { TServerMessage } from '@robota-sdk/agent-transport/ws';
-import { createHttpTransport } from '@robota-sdk/agent-transport/http';
-import { createMcpTransport } from '@robota-sdk/agent-transport/mcp';
-import { TuiTransport } from '@robota-sdk/agent-transport/tui';
+import { WsTransport } from '@robota-sdk/agent-transport-ws';
+import type { TServerMessage } from '@robota-sdk/agent-transport-ws';
+import { createHttpTransport } from '@robota-sdk/agent-transport-http';
+import { createMcpTransport } from '@robota-sdk/agent-transport-mcp';
+import { TuiTransport } from '@robota-sdk/agent-transport-tui';
 ```
 
 Root import re-exports all transports:

@@ -1,7 +1,7 @@
 {
-  "name": "@robota-sdk/agent-transport",
+  "name": "@robota-sdk/agent-transport-tui",
   "version": "3.0.0-beta.75",
-  "description": "Core transport package for Robota SDK — headless adapter, scripted-provider testing fixtures, and the transport registry",
+  "description": "Terminal UI (React + Ink) transport for the Robota SDK",
   "type": "module",
   "main": "dist/node/index.js",
   "types": "dist/node/index.d.ts",
@@ -16,30 +16,6 @@
       "default": {
         "import": "./dist/node/index.js",
         "require": "./dist/node/index.cjs"
-      }
-    },
-    "./headless": {
-      "types": "./dist/node/headless/index.d.ts",
-      "source": "./src/headless/index.ts",
-      "node": {
-        "import": "./dist/node/headless/index.js",
-        "require": "./dist/node/headless/index.cjs"
-      },
-      "default": {
-        "import": "./dist/node/headless/index.js",
-        "require": "./dist/node/headless/index.cjs"
-      }
-    },
-    "./testing": {
-      "types": "./dist/node/testing/index.d.ts",
-      "source": "./src/testing/index.ts",
-      "node": {
-        "import": "./dist/node/testing/index.js",
-        "require": "./dist/node/testing/index.cjs"
-      },
-      "default": {
-        "import": "./dist/node/testing/index.js",
-        "require": "./dist/node/testing/index.cjs"
       }
     }
   },
@@ -65,16 +41,31 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
     "test:coverage": "vitest run --coverage --passWithNoTests",
+    "test:pty": "vitest run --config vitest.pty.config.ts",
     "clean": "rimraf dist",
     "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
   },
   "dependencies": {
     "@robota-sdk/agent-core": "workspace:*",
     "@robota-sdk/agent-framework": "workspace:*",
-    "@robota-sdk/agent-interface-transport": "workspace:*"
+    "@robota-sdk/agent-interface-transport": "workspace:*",
+    "@robota-sdk/agent-interface-tui": "workspace:*",
+    "chalk": "^5.6.2",
+    "ink": "^7.0.5",
+    "ink-select-input": "^6.2.0",
+    "ink-spinner": "^5.0.0",
+    "ink-text-input": "^6.0.0",
+    "marked": "^9.1.6",
+    "marked-terminal": "^7.3.0",
+    "react": "19.2.4",
+    "string-width": "^8.2.1"
   },
   "devDependencies": {
+    "@homebridge/node-pty-prebuilt-multiarch": "^0.13.1",
     "@robota-sdk/agent-command": "workspace:*",
+    "@robota-sdk/agent-transport": "workspace:*",
+    "@types/react": "^19.2.17",
+    "ink-testing-library": "^4.0.0",
     "rimraf": "^5.0.10",
     "tsdown": "^0.22.2",
     "tsx": "^4.22.4",
