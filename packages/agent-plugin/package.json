@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-plugin",
-  "version": "3.0.0-beta.75",
+  "version": "3.0.0-beta.76",
   "description": "Consolidated plugin implementations for Robota SDK",
   "type": "module",
   "main": "dist/node/index.js",

@@ -30,8 +30,9 @@ import {
   handleProviderConfigurationArgs,
   runInteractiveProviderSetup,
 } from './startup/provider-startup.js';
-import { renderApp, createDefaultTuiCliAdapter } from '@robota-sdk/agent-transport/tui';
-import { createDefaultTransportRegistry } from '@robota-sdk/agent-transport';
+import { renderApp, createDefaultTuiCliAdapter } from '@robota-sdk/agent-transport-tui';
+import { TransportRegistry } from '@robota-sdk/agent-transport';
+import { WsTransport } from '@robota-sdk/agent-transport-ws';
 import { createDefaultBackgroundTaskRunners } from '@robota-sdk/agent-executor';
 import {
   createChildProcessSubagentRunnerFactory,
@@ -51,6 +52,18 @@ import { buildCommandSetup } from './startup/command-setup.js';
 import { runPrintMode } from './modes/print-mode.js';
 
 export type { IStartCliOptions };
+
+/**
+ * Composition-root wiring of the default transport registry. The generic registry lives in
+ * `@robota-sdk/agent-transport`; choosing which concrete transports to pre-register is an
+ * app-assembly decision, so the CLI (the composition root) wires `WsTransport` here rather than
+ * the transport core depending on the ws package.
+ */
+function createDefaultTransportRegistry(): TransportRegistry {
+  const registry = new TransportRegistry(getUserSettingsPath());
+  registry.register(new WsTransport());
+  return registry;
+}
 
 export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   // OBS-001: `session analyze` carries its own flags (--last/--session) that the strict

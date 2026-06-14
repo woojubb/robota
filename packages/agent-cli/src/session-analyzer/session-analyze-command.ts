@@ -1,20 +1,30 @@
 /**
- * `robota session analyze` command.
+ * `robota session analyze` command — thin CLI wiring around `@robota-sdk/agent-session-analytics`.
  *
  * Usage:
  *   robota session analyze                  — analyze the most recent session
  *   robota session analyze --last <n>       — aggregate the last N sessions
  *   robota session analyze --session <id>   — analyze a specific session by ID prefix
+ *
+ * This file only resolves session stores, parses args, and writes output. All timing analysis and
+ * report formatting lives in the analytics package; record loading lives in agent-session (via the
+ * agent-framework session-store facades). agent-cli stays a thin shell.
  */
 
-import { readdirSync } from 'node:fs';
-import { basename, join } from 'node:path';
+import {
+  createProjectSessionStore,
+  createUserSessionStore,
+  projectPaths,
+  userPaths,
+} from '@robota-sdk/agent-framework';
+import {
+  aggregateReports,
+  analyzeSession,
+  formatAggregateReport,
+  formatSingleSession,
+} from '@robota-sdk/agent-session-analytics';
 
-import { projectPaths, userPaths } from '@robota-sdk/agent-framework';
-
-import { analyzeSession, parseSessionFile } from './parser.js';
-import { formatAggregateReport, formatSingleSession } from './reporter.js';
-import type { IAggregateReport, ISessionTimingReport } from './types.js';
+import type { ISessionAnalysisInput } from '@robota-sdk/agent-session-analytics';
 
 interface ISessionAnalyzeArgs {
   last: number | undefined;
@@ -39,82 +49,20 @@ function parseSessionAnalyzeArgs(argv: string[]): ISessionAnalyzeArgs {
   return { last, sessionId };
 }
 
-function listSessionFilesIn(sessionsDir: string): string[] {
-  try {
-    return readdirSync(sessionsDir)
-      .filter((f) => f.endsWith('.json'))
-      .map((f) => join(sessionsDir, f));
-  } catch {
-    // allow-fallback: sessions directory may not exist on first run — empty list is correct response
-    return [];
-  }
-}
-
 /**
- * OBS-001 fix: sessions are persisted to the PROJECT store (`cwd/.robota/sessions`) by both
- * print and TUI modes, while older history may live at the USER level. Read both, de-dupe by
- * file basename (project wins on collision), and sort by basename — session ids are
- * timestamp-prefixed, so lexical order is chronological.
+ * Load session records from the user store (`~/.robota/sessions`) and the project store
+ * (`cwd/.robota/sessions` + replay logs), de-duped by id (project wins on collision) and sorted by
+ * id ascending — session ids are timestamp-prefixed, so lexical order is chronological.
  */
-function listSessionFiles(cwd: string): string[] {
-  const byName = new Map<string, string>();
-  for (const path of listSessionFilesIn(userPaths().sessions)) {
-    byName.set(basename(path), path);
+function loadSessionRecords(cwd: string): ISessionAnalysisInput[] {
+  const byId = new Map<string, ISessionAnalysisInput>();
+  for (const record of createUserSessionStore().list()) {
+    byId.set(record.id, record);
   }
-  for (const path of listSessionFilesIn(projectPaths(cwd).sessions)) {
-    byName.set(basename(path), path);
+  for (const record of createProjectSessionStore(cwd).list()) {
+    byId.set(record.id, record);
   }
-  return [...byName.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([, path]) => path);
-}
-
-function buildAggregateReport(reports: ISessionTimingReport[]): IAggregateReport {
-  const llmIntervals = reports.flatMap((r) =>
-    r.intervals.filter(
-      (iv) =>
-        iv.kind === 'user_to_first_tool' ||
-        iv.kind === 'user_to_assistant' ||
-        iv.kind === 'llm_between_tools' ||
-        iv.kind === 'llm_final_response',
-    ),
-  );
-  const toolIntervals = reports.flatMap((r) => r.intervals.filter((iv) => iv.kind === 'tool_exec'));
-
-  const avgLlmResponseMs = llmIntervals.length
-    ? Math.round(llmIntervals.reduce((s, iv) => s + iv.durationMs, 0) / llmIntervals.length)
-    : 0;
-  const avgToolExecMs = toolIntervals.length
-    ? Math.round(toolIntervals.reduce((s, iv) => s + iv.durationMs, 0) / toolIntervals.length)
-    : 0;
-
-  let maxSingleDelayMs = 0;
-  let maxSingleDelaySession = '';
-  let maxSingleDelayTurn = 0;
-  let maxSingleDelayKind = '';
-
-  for (const r of reports) {
-    for (const iv of r.intervals) {
-      if (iv.durationMs > maxSingleDelayMs) {
-        maxSingleDelayMs = iv.durationMs;
-        maxSingleDelaySession = r.sessionId;
-        maxSingleDelayTurn = iv.turnIndex;
-        maxSingleDelayKind = iv.kind;
-      }
-    }
-  }
-
-  const dates = reports.map((r) => r.createdAt).sort();
-
-  return {
-    sessionCount: reports.length,
-    fromDate: dates[0] ?? '',
-    toDate: dates[dates.length - 1] ?? '',
-    avgLlmResponseMs,
-    avgToolExecMs,
-    maxSingleDelayMs,
-    maxSingleDelaySession,
-    maxSingleDelayTurn,
-    maxSingleDelayKind,
-  };
+  return [...byId.values()].sort((a, b) => a.id.localeCompare(b.id));
 }
 
 export async function runSessionAnalyze(
@@ -122,9 +70,9 @@ export async function runSessionAnalyze(
   cwd: string = process.cwd(),
 ): Promise<void> {
   const args = parseSessionAnalyzeArgs(argv);
-  const allFiles = listSessionFiles(cwd);
+  const records = loadSessionRecords(cwd);
 
-  if (allFiles.length === 0) {
+  if (records.length === 0) {
     process.stderr.write(
       `No session files found in ${projectPaths(cwd).sessions} or ${userPaths().sessions}\n`,
     );
@@ -132,44 +80,30 @@ export async function runSessionAnalyze(
   }
 
   if (args.sessionId !== undefined) {
-    const matched = allFiles.find((f) => f.includes(args.sessionId!));
+    const matched = records.find((r) => r.id.includes(args.sessionId!));
     if (!matched) {
       process.stderr.write(`Session not found: ${args.sessionId}\n`);
       process.exit(1);
     }
-    const record = parseSessionFile(matched);
-    const report = analyzeSession(record);
-    process.stdout.write(formatSingleSession(report) + '\n');
+    process.stdout.write(formatSingleSession(analyzeSession(matched)) + '\n');
     return;
   }
 
   if (args.last !== undefined) {
-    const files = allFiles.slice(-args.last);
-    const reports: ISessionTimingReport[] = [];
-    for (const f of files) {
-      try {
-        reports.push(analyzeSession(parseSessionFile(f)));
-      } catch {
-        // allow-fallback: corrupted or partial session files are skipped — expected on interrupted writes
-        // skip unreadable session files
-      }
-    }
+    const reports = records.slice(-args.last).map((r) => analyzeSession(r));
     if (reports.length === 0) {
       process.stderr.write('No valid sessions found.\n');
       process.exit(1);
     }
-    const aggregate = buildAggregateReport(reports);
-    process.stdout.write(formatAggregateReport(aggregate) + '\n');
+    process.stdout.write(formatAggregateReport(aggregateReports(reports)) + '\n');
     return;
   }
 
   // Default: analyze the most recent session
-  const latest = allFiles[allFiles.length - 1];
+  const latest = records[records.length - 1];
   if (!latest) {
     process.stderr.write('No sessions found.\n');
     process.exit(1);
   }
-  const record = parseSessionFile(latest);
-  const report = analyzeSession(record);
-  process.stdout.write(formatSingleSession(report) + '\n');
+  process.stdout.write(formatSingleSession(analyzeSession(latest)) + '\n');
 }

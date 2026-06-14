@@ -20,3 +20,12 @@ export {
   getModelName,
   formatTokenCount,
 } from './models.js';
+
+// Model pricing (SSOT)
+export type { IModelPrice } from './model-pricing.js';
+export {
+  MODEL_PRICES,
+  lookupModelPrice,
+  calculateModelCost,
+  estimateBlendedCostPer1000,
+} from './model-pricing.js';

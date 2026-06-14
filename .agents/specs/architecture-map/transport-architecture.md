@@ -1,6 +1,6 @@
 # Transport Architecture
 
-Source-verified against `develop` on 2026-05-18.
+Source-verified against `develop` on 2026-06-14.
 
 `agent-transport` subpaths, protocol semantics, React isolation, MCP roles, and type contract ownership.
 
@@ -33,7 +33,7 @@ flowchart TD
   FW["agent-framework\n(assembly layer)"]
   Transport["agent-transport\n(transport shells)"]
   IfaceTransport["agent-interface-transport\nITransportAdapter · IConfigurableTransport\n(zero runtime deps)"]
-  IfaceTui["agent-interface-tui\nITuiCommandInteraction · ITuiCliAdapter\n(zero runtime deps)"]
+  IfaceTui["agent-interface-tui\nITuiCommandInteraction\n(zero runtime deps)"]
   Core["agent-core"]
 
   CLI --> FW
@@ -89,15 +89,22 @@ use `agent-tool-mcp`. When they need to expose a Robota session to external MCP 
 
 ## Type Contract Ownership
 
-Transport and TUI interface contracts live in dedicated zero-runtime-dep packages. Neither
-`agent-transport` nor `agent-framework` owns these contracts — they consume them.
+Transport and TUI interface contracts live in dedicated interface packages with no emitted-JS
+runtime dependencies. Neither `agent-transport` nor `agent-framework` owns these contracts — they
+consume them.
 
-| Contract package            | Owns                                                                                      | Consumed by                                         |
-| --------------------------- | ----------------------------------------------------------------------------------------- | --------------------------------------------------- |
-| `agent-interface-transport` | `ITransportAdapter`, `IConfigurableTransport`, `ITransportConfig`                         | `agent-transport`, `agent-framework`, `agent-cli`   |
-| `agent-interface-tui`       | `ITuiCommandInteraction`, `ITuiCliAdapter`, `ITuiPickerItem`, `TAnyTuiCommandInteraction` | `agent-transport/tui`, `agent-command`, `agent-cli` |
+| Contract package            | Owns                                                                    | Consumed by                                                                            |
+| --------------------------- | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `agent-interface-transport` | `ITransportAdapter`, `IConfigurableTransport`, `ITransportConfig`       | `agent-transport`, `agent-framework` (transitive: `agent-cli` via `agent-transport`)   |
+| `agent-interface-tui`       | `ITuiCommandInteraction`, `ITuiPickerItem`, `TAnyTuiCommandInteraction` | `agent-transport/tui`, `agent-command` (transitive: `agent-cli` via `agent-transport`) |
 
-Both interface packages have **zero runtime dependencies** — not even `agent-core`. See
+`ITuiCliAdapter` is **not** an interface-package contract — it is owned by `agent-transport`'s tui
+layer (`packages/agent-transport/src/tui/tui-cli-adapter.ts`).
+
+`agent-interface-tui` has **zero workspace dependencies** — not even `agent-core`.
+`agent-interface-transport` has **type-only** dependencies on `agent-core`, `agent-executor`, and
+`agent-session` (zero emitted-JS runtime deps), consistent with the diamond diagram above
+(`IfaceTransport --> Core`). See
 [cross-cutting-contracts.md](cross-cutting-contracts.md) for the full contract index.
 
 ## When to Read This Document

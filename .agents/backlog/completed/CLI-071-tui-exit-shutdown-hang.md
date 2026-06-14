@@ -47,7 +47,7 @@ keystrokes ending in Enter.
 - Evidence: 2026-06-12 — the CLI-074 deterministic PTY harness (node-pty, per-key paced
   input against the built binary) **refutes the hang**: TC-08 sends `/exit` + Enter and the
   process exits with code 0 in ~1.25s (10s deadline), repeatably
-  (`packages/agent-transport/src/tui/__tests__/pty/tui-pty.ptytest.ts`). The original
+  (`packages/agent-transport-tui/src/__tests__/pty/tui-pty.ptytest.ts`). The original
   observation was an expect(1) artifact: its burst input was bundled as a bracketed paste,
   leaving the input in a paste state rather than executing `/exit`. The paste-detection
   secondary observation is likewise explained — human-rate keys (35ms) are never bundled

@@ -1,0 +1,79 @@
+{
+  "name": "@robota-sdk/agent-transport-tui",
+  "version": "3.0.0-beta.76",
+  "description": "Terminal UI (React + Ink) transport for the Robota SDK",
+  "type": "module",
+  "main": "dist/node/index.js",
+  "types": "dist/node/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/node/index.d.ts",
+      "source": "./src/index.ts",
+      "node": {
+        "import": "./dist/node/index.js",
+        "require": "./dist/node/index.cjs"
+      },
+      "default": {
+        "import": "./dist/node/index.js",
+        "require": "./dist/node/index.cjs"
+      }
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/woojubb/robota.git"
+  },
+  "homepage": "https://robota.io/",
+  "bugs": {
+    "url": "https://github.com/woojubb/robota/issues"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "build:js": "tsdown --no-dts",
+    "build:types": "tsdown --dts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "test:coverage": "vitest run --coverage --passWithNoTests",
+    "test:pty": "vitest run --config vitest.pty.config.ts",
+    "clean": "rimraf dist",
+    "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
+  },
+  "dependencies": {
+    "@robota-sdk/agent-core": "workspace:*",
+    "@robota-sdk/agent-framework": "workspace:*",
+    "@robota-sdk/agent-interface-transport": "workspace:*",
+    "@robota-sdk/agent-interface-tui": "workspace:*",
+    "chalk": "^5.6.2",
+    "ink": "^7.0.5",
+    "ink-select-input": "^6.2.0",
+    "ink-spinner": "^5.0.0",
+    "ink-text-input": "^6.0.0",
+    "marked": "^9.1.6",
+    "marked-terminal": "^7.3.0",
+    "react": "19.2.4",
+    "string-width": "^8.2.1"
+  },
+  "devDependencies": {
+    "@homebridge/node-pty-prebuilt-multiarch": "^0.13.1",
+    "@robota-sdk/agent-command": "workspace:*",
+    "@robota-sdk/agent-transport": "workspace:*",
+    "@types/react": "^19.2.17",
+    "ink-testing-library": "^4.0.0",
+    "rimraf": "^5.0.10",
+    "tsdown": "^0.22.2",
+    "tsx": "^4.22.4",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.6"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  }
+}

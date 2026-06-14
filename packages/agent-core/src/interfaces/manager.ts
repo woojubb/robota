@@ -69,11 +69,6 @@ export interface IAIProviderManager {
    * Check if provider is configured
    */
   isConfigured(): boolean;
-
-  /**
-   * Get available models for a provider
-   */
-  getAvailableModels(providerName: string): string[];
 }
 
 /**

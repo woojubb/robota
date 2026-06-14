@@ -8,4 +8,3 @@ export type {
   ITuiConfirmInteraction,
   TAnyTuiCommandInteraction,
 } from './command-interaction.js';
-export { isPickerInteraction, isConfirmInteraction } from './command-interaction.js';

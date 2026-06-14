@@ -5,7 +5,13 @@
  * Stateless: all mutable state is passed in via IRunContext.
  */
 
-import { createUserMessage, getProviderCapabilities, runHooks } from '@robota-sdk/agent-core';
+import {
+  CONTEXT_ESTIMATE_CHARS_PER_TOKEN,
+  createLogger,
+  createUserMessage,
+  getProviderCapabilities,
+  runHooks,
+} from '@robota-sdk/agent-core';
 
 import {
   createToolExecutionBridge,
@@ -23,6 +29,8 @@ import type {
   TTextDeltaCallback,
 } from '@robota-sdk/agent-core';
 import type { Robota } from '@robota-sdk/agent-core';
+
+const logger = createLogger('SessionRun');
 
 /** Dependencies injected by Session.run() */
 export interface IRunContext {
@@ -120,7 +128,7 @@ export async function executeRun(
   ctx.log('pre_run', {
     historyLength: history.length,
     historyChars: historyJson.length,
-    historyEstTokens: Math.ceil(historyJson.length / 4),
+    historyEstTokens: Math.ceil(historyJson.length / CONTEXT_ESTIMATE_CHARS_PER_TOKEN),
     input: enrichedMessage,
     history,
     model: ctx.model,
@@ -194,7 +202,7 @@ export async function executeRun(
         },
       },
       ctx.hookTypeExecutors,
-    ).catch(() => {});
+    ).catch((error) => logger.warn('hook failed', { error }));
     throw error;
   }
 
@@ -253,7 +261,7 @@ export async function executeRun(
       },
     },
     ctx.hookTypeExecutors,
-  ).catch(() => {});
+  ).catch((error) => logger.warn('hook failed', { error }));
 
   if (ctx.getSessionStore()) {
     ctx.persistSession();

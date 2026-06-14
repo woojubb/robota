@@ -12,6 +12,7 @@ and LLM agents can read only the architecture slice relevant to the change.
 | [dependency-direction.md](dependency-direction.md)       | Cross-package dependency direction, layer ownership, target ownership rules        |
 | [capability-placement.md](capability-placement.md)       | Owner-first placement rules for new product-visible capabilities                   |
 | [agent-system.md](agent-system.md)                       | Agent product stack, playground stack, command/provider/runtime boundaries         |
+| [transport-architecture.md](transport-architecture.md)   | Transport subpaths, React isolation, MCP server/tool disambiguation                |
 | [agent-cli-composition.md](agent-cli-composition.md)     | Agent CLI architecture router into focused files under `agent-cli/`                |
 | [apps-and-deployment.md](apps-and-deployment.md)         | Agent app topology and docs deployment flow                                        |
 | [cross-cutting-contracts.md](cross-cutting-contracts.md) | Auth, credits, provider definitions, commands, events, sessions, storage contracts |

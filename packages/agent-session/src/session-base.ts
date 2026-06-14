@@ -84,12 +84,17 @@ export abstract class SessionBase {
    * next call reflects them, and updates `this.model` to keep `getModelId()` accurate. The preset
    * `maxOutputTokens` field maps to the agent's `maxTokens` channel. Absent fields are left untouched.
    */
-  applyModelOptions(options: {
+  async applyModelOptions(options: {
     model?: string;
     effort?: TModelEffort;
     temperature?: number;
     maxOutputTokens?: number;
-  }): void {
+  }): Promise<void> {
+    // `setModel` requires the agent to be fully initialized. On a fresh interactive session the
+    // agent initializes lazily on the first `run()`, so a live model change before any message
+    // (e.g. `/preset` right after launch) would otherwise hit the "must be fully initialized"
+    // guard. Bring the agent to a ready state first — idempotent and side-effect-free.
+    await this.robota.ensureReady();
     const nextModel = options.model ?? this.model;
     this.robota.setModel({
       provider: this.aiProvider.name,

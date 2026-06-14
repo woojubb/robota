@@ -83,8 +83,12 @@ export interface ICommandSessionRuntime {
   setAutoCompactThreshold?(threshold: TAutoCompactThreshold): void;
   getSessionTokenUsage?(): { inputTokens: number; outputTokens: number } | undefined;
   getModelId?(): string | undefined;
-  /** Re-apply model/effort/temperature/maxOutputTokens to the live session (PRESET-013). */
-  applyModelOptions?(options: IModelReapplyOptions): void;
+  /**
+   * Re-apply model/effort/temperature/maxOutputTokens to the live session (PRESET-013).
+   * May be async: the runtime ensures the agent is fully initialized before mutating its model
+   * configuration, so callers must await the result.
+   */
+  applyModelOptions?(options: IModelReapplyOptions): void | Promise<void>;
   /** Read the active preset id (PRESET-011 runtime state). */
   getActivePresetId?(): string;
   /** Set the active preset id (PRESET-011 runtime state — pure state, no option re-application). */

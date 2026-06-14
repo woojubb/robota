@@ -1,8 +1,5 @@
 // @robota-sdk/agent-session
 
-// Session abstraction (used by agent-interface-transport)
-export type { ISession } from './session-interface.js';
-
 // Session
 export { Session } from './session.js';
 export type {
@@ -21,9 +18,6 @@ export type {
 export { PermissionEnforcer } from './permission-enforcer.js';
 export { AUTO_COMPACT_THRESHOLD, ContextWindowTracker } from './context-window-tracker.js';
 export { CompactionOrchestrator } from './compaction-orchestrator.js';
-
-// Context window state (re-exported from agent-core for convenience)
-export type { IContextWindowState } from '@robota-sdk/agent-core';
 
 // Session logging
 export { FileSessionLogger, SilentSessionLogger } from './session-logger.js';
