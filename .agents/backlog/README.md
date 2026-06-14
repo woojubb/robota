@@ -716,6 +716,7 @@ beta.76 릴리즈 세션에서 **실제로 발생한** 마찰·실수를 스킬 
 | [LESSON-006](completed/LESSON-006-post-relocation-reference-sweep.md) ✅ | 패키지 재배치 시 다운스트림 참조 일괄 검사 — stale 경로 기계적 탐지         | medium   |
 | [LESSON-007](completed/LESSON-007-gh-delete-branch-guard.md) ✅          | gh pr merge --delete-branch 차단 가드 — branch-guard 훅에 기계적 강제       | high     |
 | [LESSON-008](completed/LESSON-008-delete-branch-guard-precision.md) ✅   | --delete-branch 가드 정밀화 — 주석/별도 세그먼트 false-positive 제거        | medium   |
+| [LESSON-009](completed/LESSON-009-skill-registry-check-ssot.md) ✅       | unregistered-skill 검사를 skills/index.md(SSOT)로 교정                      | medium   |
 
 ### Harness Audit Recommendations (rulebased-harness, 2026-06-15)
 
