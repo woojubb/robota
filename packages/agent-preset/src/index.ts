@@ -14,6 +14,8 @@ export type {
 
 export { defaultPreset } from './presets/default.js';
 
+export { autonomousBuilderPreset } from './presets/autonomous-builder.js';
+
 export { DEFAULT_AGENT_NAME, resolvePreset, listPresets, getPreset } from './resolve-preset.js';
 
 export type { IPresetSummary, IResolvePresetContext } from './resolve-preset.js';
