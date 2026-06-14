@@ -10,7 +10,7 @@ Parent: [AGENTS.md](../../AGENTS.md) | Index: [rules/index.md](index.md)
 - Never create, use, or reference a git worktree for any task.
 - Never propose worktrees as a solution to any problem.
 - Do all work directly on a normal feature branch in the main clone.
-- If the Claude Code `Agent` tool or any sub-agent requests a worktree, refuse. This includes
+- If the Claude Code `Agent` tool or any subagent requests a worktree, refuse. This includes
   the `isolation: "worktree"` parameter on the `Agent` tool — never pass it.
 - If a leftover worktree is found (`git worktree list` shows more than the main clone), remove it
   immediately: `git worktree remove -f -f <path>`.
@@ -74,7 +74,9 @@ distinguish them automatically.
 ### Branch Policy
 
 - `main` is the production branch. Direct commits, pushes, and merges to `main` are prohibited.
-- `develop` is the integration branch. All feature work branches from `develop`.
+- `develop` is the integration branch. All feature work branches from `develop`. Direct commits to
+  `develop` are also prohibited — branch first, then PR. (Both `main` and `develop` are protected;
+  enforced by `.husky/pre-commit` and the `branch-guard` skill/hook.)
 - Feature branches must be created from `develop` and merged back into `develop`.
 - Merging `develop` into `main` requires explicit user approval and is a release-level action.
 - When merging a branch, always merge back to the branch it was forked from. Verify the fork point before proposing a merge target.

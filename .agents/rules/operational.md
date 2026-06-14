@@ -64,7 +64,7 @@ All task and backlog files use an uppercase prefix ID in both the filename and t
 
 ### Document Size Rule
 
-- Rule files (`.agents/rules/*.md`) and routing documents (`.agents/project-structure.md`, etc.) MUST stay under 80 lines.
-- When a file exceeds 80 lines, split it into focused sub-files and convert the original into a routing file that links to them.
-- Skills (`.agents/skills/*/SKILL.md`) are exempt — they are procedural workflows that agents consume in one pass.
-- Each sub-file must have a `Parent:` link back to the routing file.
+- **Routing/index documents** — `.agents/rules/index.md`, `.agents/project-structure.md`, `AGENTS.md` — MUST stay lean (target under 80 lines). They route to detail; they do not inline it. When one exceeds the target, split detail into a focused sub-file and convert the original into a router; each sub-file keeps a `Parent:` link.
+- **Detail rule documents** — rule catalogs (e.g. `common-mistakes.md`), gate specifications (e.g. `backlog-execution.md`, `spec-workflow.md`), and multi-section rule groups — are content documents consumed for their substance and are NOT bound by the 80-line target (same rationale as the skills exemption below).
+- **Skills** (`.agents/skills/*/SKILL.md`) are exempt — procedural workflows agents consume in one pass.
+- **Production source** size is governed separately by `code-quality.md` (300-line anti-monolith limit, enforced by `harness:scan` file-size).
