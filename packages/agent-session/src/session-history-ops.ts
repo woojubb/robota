@@ -5,7 +5,7 @@
  * Each function receives its dependencies explicitly.
  */
 
-import { runHooks } from '@robota-sdk/agent-core';
+import { runHooks, createLogger } from '@robota-sdk/agent-core';
 
 import type { CompactionOrchestrator } from './compaction-orchestrator.js';
 import type { ContextWindowTracker } from './context-window-tracker.js';
@@ -20,6 +20,8 @@ import type {
   IHookInput,
   IHookTypeExecutor,
 } from '@robota-sdk/agent-core';
+
+const logger = createLogger('SessionHistoryOps');
 
 /** Dependencies for compact() */
 export interface ICompactContext {
@@ -85,7 +87,7 @@ export async function compact(
     'PostCompact',
     postHookInput,
     ctx.hookTypeExecutors,
-  ).catch(() => {});
+  ).catch((error) => logger.warn('hook failed', { error }));
 
   // Notify via callback after compaction is fully complete
   const after = ctx.contextTracker.getContextState();

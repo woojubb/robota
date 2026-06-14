@@ -1,5 +1,6 @@
 import { executeStreamToolCalls } from './execution-stream-tools';
 import { callPluginHook } from './plugin-hook-dispatcher';
+import { ConfigurationError } from '../utils/errors';
 
 import type { ExecutionEventEmitter } from './execution-event-emitter';
 import type { IExecutionContext } from './execution-types';
@@ -83,16 +84,18 @@ export async function* executeStream(
 
     const currentInfo = aiProviders.getCurrentProvider();
     if (!currentInfo) {
-      throw new Error('No AI provider configured');
+      throw new ConfigurationError('No AI provider configured');
     }
 
     const provider = aiProviders.getProvider(currentInfo.provider);
     if (!provider) {
-      throw new Error(`AI provider '${currentInfo.provider}' not found`);
+      throw new ConfigurationError(`AI provider '${currentInfo.provider}' not found`);
     }
 
     if (typeof provider.chatStream !== 'function') {
-      throw new Error('Provider must have chatStream method to support streaming execution');
+      throw new ConfigurationError(
+        'Provider must have chatStream method to support streaming execution',
+      );
     }
 
     logger.debug('ExecutionService calling provider.chatStream');
@@ -135,7 +138,7 @@ export async function* executeStream(
 
     const chatStream = provider.chatStream;
     if (!chatStream) {
-      throw new Error('Provider does not support streaming');
+      throw new ConfigurationError('Provider does not support streaming');
     }
 
     const stream = chatStream.call(provider, conversationMessages, chatOptions);
