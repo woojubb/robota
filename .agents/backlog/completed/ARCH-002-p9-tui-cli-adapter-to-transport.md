@@ -77,7 +77,7 @@ cli.ts 는 이 팩토리를 import해서 호출만 한다.
 
 ## Acceptance Criteria
 
-- `packages/agent-transport/src/tui/` 에 `createDefaultTuiCliAdapter` export됨
+- `packages/agent-transport-tui/src/` 에 `createDefaultTuiCliAdapter` export됨
 - `cli.ts`에 `createTuiCliAdapter` 정의 없음
 - `pnpm --filter @robota-sdk/agent-transport build` 통과
 - `pnpm --filter @robota-sdk/agent-cli typecheck` 통과
@@ -92,8 +92,8 @@ cli.ts 는 이 팩토리를 import해서 호출만 한다.
 
 ## Evidence
 
-- `packages/agent-transport/src/tui/create-default-tui-cli-adapter.ts` 생성 완료
-- `packages/agent-transport/src/tui/index.ts`에 export 추가
+- `packages/agent-transport-tui/src/create-default-tui-cli-adapter.ts` 생성 완료
+- `packages/agent-transport-tui/src/index.ts`에 export 추가
 - `cli.ts`는 `createDefaultTuiCliAdapter` import 후 호출만 함
 - `pnpm --filter @robota-sdk/agent-cli typecheck` 통과 (에러 없음)
 - `pnpm --filter @robota-sdk/agent-cli test` 111/111 통과
