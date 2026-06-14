@@ -27,6 +27,11 @@ function personaOnlyBuilder(params: ISystemPromptParams): string {
   return `PROMPT[persona=${params.persona ?? '<none>'}]`;
 }
 
+/** A stub prompt builder that surfaces the selfVerification flag, so tests assert on it. */
+function selfVerificationOnlyBuilder(params: ISystemPromptParams): string {
+  return `PROMPT[selfVerification=${params.selfVerification ?? '<none>'}]`;
+}
+
 function makeOptions(persona?: string): ICreateSessionOptions {
   return {
     config: {
@@ -40,6 +45,40 @@ function makeOptions(persona?: string): ICreateSessionOptions {
     systemPromptBuilder: personaOnlyBuilder,
     ...(persona !== undefined ? { persona } : {}),
   };
+}
+
+function makeSelfVerificationOptions(selfVerification?: boolean): ICreateSessionOptions {
+  return {
+    config: {
+      defaultTrustLevel: 'safe',
+      provider: { name: 'test', model: 'test-model', apiKey: undefined },
+      permissions: { allow: [], deny: [] },
+      env: {},
+    },
+    context: { agentsMd: 'A0', claudeMd: 'C0' },
+    terminal: NOOP_TERMINAL,
+    systemPromptBuilder: selfVerificationOnlyBuilder,
+    ...(selfVerification !== undefined ? { selfVerification } : {}),
+  };
+}
+
+function buildSelfVerificationRebuilder(
+  selfVerification?: boolean,
+): (
+  agentsMd: string,
+  claudeMd: string,
+  overrides?: { persona?: string; selfVerification?: boolean },
+) => string {
+  const { rebuildSystemMessage } = buildSessionSystemPrompt(
+    makeSelfVerificationOptions(selfVerification),
+    '/workspace',
+    [],
+    undefined,
+    undefined,
+    [],
+    [],
+  );
+  return rebuildSystemMessage;
 }
 
 function buildRebuilder(
@@ -71,5 +110,21 @@ describe('rebuildSystemMessage persona override (PRESET-014)', () => {
     // Staleness refresh passes no override — the latest persona must persist.
     const result = rebuild('A2', 'C2');
     expect(result).toContain('NEW_PERSONA_X');
+  });
+});
+
+describe('rebuildSystemMessage selfVerification override (PRESET-017)', () => {
+  it('TC-03: a selfVerification override is reflected in the rebuilt system message', () => {
+    const rebuild = buildSelfVerificationRebuilder();
+    const result = rebuild('A1', 'C1', { selfVerification: true });
+    expect(result).toContain('selfVerification=true');
+  });
+
+  it('TC-03: a later override-less rebuild retains the previously overridden flag', () => {
+    const rebuild = buildSelfVerificationRebuilder(false);
+    rebuild('A1', 'C1', { selfVerification: true });
+    // Staleness refresh passes no override — the latest flag must persist.
+    const result = rebuild('A2', 'C2');
+    expect(result).toContain('selfVerification=true');
   });
 });

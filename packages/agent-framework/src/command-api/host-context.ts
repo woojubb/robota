@@ -106,6 +106,8 @@ export interface ICommandHostContext {
   getSession(): ICommandSessionRuntime;
   /** PRESET-014 — re-apply a preset persona to the live system prompt. */
   applyPersona?(persona: string): void;
+  /** PRESET-017 — toggle the verify-before-done self-verification section on the live prompt. */
+  applySelfVerification?(enabled: boolean): void;
   /** PRESET-015 — re-apply command-module selection to the live session. */
   applyCommandModuleSelection?(
     enabled: readonly string[] | undefined,

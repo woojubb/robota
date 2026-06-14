@@ -127,14 +127,14 @@ export interface ISystemPromptResult {
   rebuildSystemMessage: (
     agentsMd: string,
     claudeMd: string,
-    overrides?: { persona?: string },
+    overrides?: { persona?: string; selfVerification?: boolean },
   ) => string;
 }
 
 /**
- * Build the persona-free static system-prompt params shared by the initial build and every
- * rebuild. Persona is composed separately per-build (PRESET-014) so the mutable persona always
- * takes precedence over these static params.
+ * Build the static system-prompt params shared by the initial build and every rebuild. Persona
+ * (PRESET-014) and selfVerification (PRESET-017) are composed separately per-build so their mutable
+ * closure values always take precedence over these static params.
  */
 function buildStaticPromptParams(
   options: ICreateSessionOptions,
@@ -146,7 +146,7 @@ function buildStaticPromptParams(
     disableModelInvocation?: boolean;
   }>,
   agentDefinitions: IAgentDefinition[],
-): Omit<ISystemPromptParams, 'persona'> {
+): Omit<ISystemPromptParams, 'persona' | 'selfVerification'> {
   return {
     agentsMd: options.context.agentsMd,
     claudeMd: options.context.claudeMd,
@@ -213,8 +213,14 @@ export function buildSessionSystemPrompt(
   // staleness rebuilds (no override) must keep the most recently applied persona.
   let currentPersona = options.persona;
 
-  // Persona is composed per-build (initial + each rebuild) so the mutable persona always wins;
-  // it is therefore excluded from these static (persona-free) params.
+  // PRESET-017: selfVerification is mutable for the lifetime of this closure, mirroring persona. A
+  // live preset switch can toggle the verify-before-done section mid-session (via
+  // `rebuildSystemMessage(..., { selfVerification })`); later staleness rebuilds (no override) must
+  // keep the most recently applied value.
+  let currentSelfVerification = options.selfVerification;
+
+  // Persona/selfVerification are composed per-build (initial + each rebuild) so the mutable closure
+  // values always win; they are therefore excluded from these static params.
   const staticPromptParams = buildStaticPromptParams(
     options,
     cwd,
@@ -225,6 +231,7 @@ export function buildSessionSystemPrompt(
   const systemMessage = buildPrompt({
     ...staticPromptParams,
     ...(currentPersona !== undefined ? { persona: currentPersona } : {}),
+    ...(currentSelfVerification !== undefined ? { selfVerification: currentSelfVerification } : {}),
   });
   const finalSystemMessage = options.appendSystemPrompt
     ? `${systemMessage}\n\n${options.appendSystemPrompt}`
@@ -233,16 +240,24 @@ export function buildSessionSystemPrompt(
   const rebuildSystemMessage = (
     newAgentsMd: string,
     newClaudeMd: string,
-    overrides?: { persona?: string },
+    overrides?: { persona?: string; selfVerification?: boolean },
   ): string => {
     // PRESET-014: a persona override mutates the retained persona so subsequent rebuilds
     // (e.g. staleness refresh, which passes no override) keep the latest applied persona.
     if (overrides?.persona !== undefined) {
       currentPersona = overrides.persona;
     }
+    // PRESET-017: a selfVerification override mutates the retained flag the same way, so later
+    // override-less rebuilds keep the latest applied value.
+    if (overrides?.selfVerification !== undefined) {
+      currentSelfVerification = overrides.selfVerification;
+    }
     const rebuilt = buildPrompt({
       ...staticPromptParams,
       ...(currentPersona !== undefined ? { persona: currentPersona } : {}),
+      ...(currentSelfVerification !== undefined
+        ? { selfVerification: currentSelfVerification }
+        : {}),
       agentsMd: newAgentsMd,
       claudeMd: newClaudeMd,
     });

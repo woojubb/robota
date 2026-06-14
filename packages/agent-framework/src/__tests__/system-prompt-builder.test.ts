@@ -2,7 +2,10 @@ import type { TPermissionMode } from '@robota-sdk/agent-core';
 import { describe, it, expect } from 'vitest';
 
 import { buildSystemPrompt } from '../context/system-prompt-builder.js';
-import { createPersonaSection } from '../context/system-prompt-section-providers.js';
+import {
+  createPersonaSection,
+  createSelfVerificationSection,
+} from '../context/system-prompt-section-providers.js';
 
 import type { ISystemPromptParams } from '../context/system-prompt-builder.js';
 
@@ -196,6 +199,42 @@ describe('buildSystemPrompt', () => {
       expect(withEmpty).toBe(withoutField);
       expect(withBlank).toBe(withoutField);
       expect(withoutField).not.toContain('PERSONA_MARK');
+    });
+  });
+
+  describe('PRESET-017 self-verification section', () => {
+    it('TC-01: selfVerification:true injects a verify-before-done directive into the prompt', () => {
+      const result = buildSystemPrompt({ ...BASE_PARAMS, selfVerification: true });
+      expect(result).toMatch(/verify/i);
+      expect(result).toMatch(/tool results?/i);
+    });
+
+    it('TC-01: selfVerification false/omitted produces no self-verification section', () => {
+      const omitted = buildSystemPrompt({ ...BASE_PARAMS });
+      const disabled = buildSystemPrompt({ ...BASE_PARAMS, selfVerification: false });
+      const sectionContent = createSelfVerificationSection().content;
+      expect(omitted).not.toContain(sectionContent);
+      expect(disabled).not.toContain(sectionContent);
+      expect(disabled).toBe(omitted);
+    });
+
+    it('TC-02: createSelfVerificationSection has source "self-verification", priority 6, non-empty content', () => {
+      const section = createSelfVerificationSection();
+      expect(section.source).toBe('self-verification');
+      expect(section.priority).toBe(6);
+      expect(section.content.trim().length).toBeGreaterThan(0);
+    });
+
+    it('TC-02: section priority 6 sorts after persona (5) and before AGENTS.md (10)', () => {
+      const section = createSelfVerificationSection();
+      expect(section.priority).toBeGreaterThan(createPersonaSection('x').priority);
+      expect(section.priority).toBeLessThan(10);
+    });
+
+    it('TC-06: section content avoids heavy emphasis cues and contains no Hangul', () => {
+      const { content } = createSelfVerificationSection();
+      expect(content).not.toMatch(/CRITICAL|MUST|show your reasoning/i);
+      expect(content).not.toMatch(/\p{Script=Hangul}/u);
     });
   });
 
