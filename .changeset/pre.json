@@ -69,7 +69,8 @@
     "@robota-sdk/action": "1.0.0",
     "robota-web": "0.1.0",
     "@robota-sdk/starter-nextjs": "0.0.1",
-    "robota-www": "0.1.0"
+    "robota-www": "0.1.0",
+    "@robota-sdk/agent-preset": "3.0.0-beta.74"
   },
   "changesets": [
     "add-cli-provider-usage-visibility",
@@ -101,6 +102,7 @@
     "paste-cursor-fixes",
     "pr69-code-review-fixes",
     "preserve-atomic-write-mode",
+    "preset-system-and-context-history-fixes",
     "refine-cli-background-work-tree",
     "remove-automatic-memory-public-surface",
     "resume-001-context-update-emit",
