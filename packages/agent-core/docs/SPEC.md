@@ -295,6 +295,21 @@ documented no-op. Core must not branch on provider names to apply effort.
 
 `agent-core` must not import concrete provider SDK types, inspect provider names, or choose provider-specific payload fields. During a provider call, core wraps the callback and emits a `provider_native_raw_payload` execution event with the current `executionId`, `conversationId`, and `round`. The existing `provider_response_raw` event remains the provider-normalized Robota message snapshot and is not a substitute for provider-native payload capture.
 
+### Provider Contract — dual surface (intentional)
+
+`IAIProvider` deliberately exposes two request/response surfaces, and every provider implements both:
+
+- **Universal (public):** `chat(messages, options)` / `chatStream(...)` operate on `TUniversalMessage`.
+  This is the provider-neutral surface that generic layers and SDK consumers use.
+- **Raw (internal protocol path):** `generateResponse(payload)` / `generateStreamingResponse(payload)`
+  operate on `IProviderRequest` / `IRawProviderResponse`. These are consumed by the core
+  `conversation-service` to thread provider-native request/response payloads (e.g. for the
+  `provider_native_raw_payload` event). They are **not** the public consumer API.
+
+The two surfaces share one interface because a provider instance is legitimately both a universal and
+a raw provider; the raw methods are an internal-protocol detail, not a parallel public API. Generic
+layers and applications must use `chat`/`chatStream`; only the conversation service drives the raw path.
+
 ### Provider Capabilities
 
 `IAIProvider.getCapabilities()` is an optional provider hook. `AbstractAIProvider` supplies a default implementation reporting function-calling support from `supportsTools()` and provider-native web search/fetch as unsupported. Generic layers must call `getProviderCapabilities(provider)` instead of branching on provider names.
