@@ -9,6 +9,34 @@ User-facing changes, new features, and notable fixes. For full commit history, s
 
 ---
 
+## 2026-06-14 — Beta 68–76
+
+### Breaking (SDK imports)
+
+**Transport packages split out of `agent-transport`** — The protocol transports are now standalone
+packages instead of sub-paths of `@robota-sdk/agent-transport`. Update imports:
+
+- `@robota-sdk/agent-transport/tui` → `@robota-sdk/agent-transport-tui`
+- `@robota-sdk/agent-transport/http` → `@robota-sdk/agent-transport-http`
+- `@robota-sdk/agent-transport/ws` → `@robota-sdk/agent-transport-ws`
+- `@robota-sdk/agent-transport/mcp` → `@robota-sdk/agent-transport-mcp`
+
+`@robota-sdk/agent-transport` is now a lean core keeping only the `/headless` and `/testing` sub-paths.
+
+### New features
+
+**`@robota-sdk/agent-session-analytics`** — A new package that analyzes `~/.robota/sessions/*.json`
+session logs to report timing breakdowns (LLM wait vs. tool/code time, slow intervals). Session-log
+analysis moved out of the `agent-cli` thin shell into this dedicated package.
+
+### Internal
+
+Design-quality audit remediation (SSOT consolidation, package cohesion, error/observability hygiene)
+and a round of harness/rules hardening. No runtime behavior change for existing apps beyond the import
+paths above.
+
+---
+
 ## 2026-05-23 — Beta 67
 
 ### New features

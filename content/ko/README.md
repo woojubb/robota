@@ -4,7 +4,10 @@
 
 ## 빠른 탐색
 
-- [시작하기](/ko/getting-started) — CLI 빠른 시작
-- [가이드](/ko/guide) — 아키텍처, SDK, CLI, 플러그인
-- [예제](/ko/examples) — 실제 코드 예제
-- [패키지](/ko/packages) — SDK 패키지 API 참조
+- [시작하기](/ko/getting-started) — CLI 빠른 시작 (한국어)
+
+> 아래 문서는 아직 한국어 번역이 없어 영어 문서로 연결됩니다.
+
+- [가이드](/guide) — 아키텍처, SDK, CLI, 플러그인 (영어)
+- [예제](/examples) — 실제 코드 예제 (영어)
+- [패키지 API 참조](/) — 영어 문서 참조

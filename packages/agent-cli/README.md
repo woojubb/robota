@@ -132,7 +132,7 @@ robota --max-turns <n>              # Limit agentic turns per interaction
 robota --output-format <fmt>        # text | json | stream-json (print mode)
 robota --system-prompt <text>       # Replace system prompt (print mode)
 robota --append-system-prompt <text> # Append to system prompt (print mode)
-robota --model claude-opus-4-7       # Override provider model for this session
+robota --model claude-sonnet-4-6     # Override provider model for this session
 robota --allowed-tools "Bash,Read"  # Whitelist specific tools
 robota --denied-tools "Bash,Write"  # Blacklist specific tools (denied > allowed)
 robota --reset                      # Delete user settings and exit
@@ -512,7 +512,7 @@ bin.ts → cli.ts (arg parsing)
                     │   ├── InteractiveSession (SDK)
                     │   ├── CommandRegistry    (SDK, re-exported by CLI)
                     │   │   ├── BuiltinCommandSource  (SDK, empty by default)
-                    │   │   ├── agent-command-skills  (/skills command + virtual skill aliases)
+                    │   │   ├── agent-command (./skills)  (/skills command + virtual skill aliases)
                     │   │   ├── PluginCommandSource   (SDK, plugin skills)
                     │   │   └── ICommandModule sources (/help, /compact, ...)
                     │   └── SystemCommandExecutor (SDK)
@@ -531,19 +531,19 @@ bin.ts → cli.ts (arg parsing)
 
 ## Dependencies
 
-| Package                                | Purpose                                    |
-| -------------------------------------- | ------------------------------------------ |
-| `@robota-sdk/agent-framework`          | Session factory, query, config, context    |
-| `@robota-sdk/agent-core`               | Types (TPermissionMode, TToolArgs)         |
-| `@robota-sdk/agent-transport-headless` | Headless runner for print mode (`-p`)      |
-| `ink` 7, `react` 19.2+                 | TUI rendering                              |
-| `ink-select-input`                     | Arrow-key selection (permission prompt)    |
-| `ink-spinner`                          | Loading spinner                            |
-| `chalk`                                | Terminal colors                            |
-| `ink-text-input`                       | Base text input (extended by CjkTextInput) |
-| `marked`, `marked-terminal`            | Markdown parsing and terminal rendering    |
-| `cli-highlight`                        | Syntax highlighting for code blocks        |
-| `string-width`                         | Unicode-aware string width (CJK support)   |
+| Package                                      | Purpose                                    |
+| -------------------------------------------- | ------------------------------------------ |
+| `@robota-sdk/agent-framework`                | Session factory, query, config, context    |
+| `@robota-sdk/agent-core`                     | Types (TPermissionMode, TToolArgs)         |
+| `@robota-sdk/agent-transport` (`./headless`) | Headless runner for print mode (`-p`)      |
+| `ink` 7, `react` 19.2+                       | TUI rendering                              |
+| `ink-select-input`                           | Arrow-key selection (permission prompt)    |
+| `ink-spinner`                                | Loading spinner                            |
+| `chalk`                                      | Terminal colors                            |
+| `ink-text-input`                             | Base text input (extended by CjkTextInput) |
+| `marked`, `marked-terminal`                  | Markdown parsing and terminal rendering    |
+| `cli-highlight`                              | Syntax highlighting for code blocks        |
+| `string-width`                               | Unicode-aware string width (CJK support)   |
 
 ## Documentation
 
