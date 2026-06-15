@@ -6,7 +6,7 @@ Owns TUI interaction contracts for the Robota SDK. This package contains only ty
 no implementation, no classes, no runtime functions, no React, no Ink.
 
 It defines the interaction protocol between command handlers (which may run at any layer) and TUI
-renderers (which live in `agent-transport/tui`).
+renderers (which live in `agent-transport-tui`).
 
 ## Boundaries
 
@@ -24,7 +24,7 @@ agent-interface-tui            ← this package (contracts only)
   ├── ITuiConfirmInteraction   ← requires confirm UI (boolean prompt)
   └── TAnyTuiCommandInteraction ← union of all concrete interaction shapes
 
-agent-transport/tui
+agent-transport-tui
   └── useSideEffects           ← renders TAnyTuiCommandInteraction via ITuiCliAdapter
 
 agent-command/*
