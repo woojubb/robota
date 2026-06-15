@@ -55,27 +55,42 @@ const response = await agent.run('Hello!');
 ## Architecture
 
 ```
-agent-cli              ← Interactive terminal AI coding assistant
+agent-cli                       ← Interactive terminal AI coding assistant
+agent-transport-{tui,http,ws,mcp} ← Standalone transports (split in beta.76); agent-transport = lean core
   ↓
 agent-framework        ← Assembly layer: InteractiveSession, createQuery(), config/context loading
   ↓
 agent-session          ← Session lifecycle: permissions, hooks, compaction
 agent-tools            ← Tool infrastructure + 8 built-in tools
 agent-provider         ← Consolidated AI providers (sub-paths: /anthropic, /openai, /gemini, …)
+agent-plugin           ← 8 consolidated lifecycle plugins
   ↓
-agent-core             ← Foundation: Robota engine, abstractions, plugins
+agent-core             ← Foundation: Robota engine, abstractions, plugin contracts
 ```
 
 ## Packages
 
-| Package                                                                                    | Description                                                                             |
-| ------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------- |
-| [`@robota-sdk/agent-core`](https://www.npmjs.com/package/@robota-sdk/agent-core)           | Core agent runtime, abstractions, and plugin system                                     |
-| [`@robota-sdk/agent-tools`](https://www.npmjs.com/package/@robota-sdk/agent-tools)         | Tool registry, FunctionTool, and 8 built-in tools                                       |
-| [`@robota-sdk/agent-session`](https://www.npmjs.com/package/@robota-sdk/agent-session)     | Session with permissions, hooks, and compaction                                         |
-| [`@robota-sdk/agent-framework`](https://www.npmjs.com/package/@robota-sdk/agent-framework) | Assembly layer with config/context loading and query()                                  |
-| [`@robota-sdk/agent-provider`](https://www.npmjs.com/package/@robota-sdk/agent-provider)   | Consolidated AI providers (Anthropic, OpenAI, Gemini, DeepSeek, Gemma, Qwen, ByteDance) |
-| [`@robota-sdk/agent-cli`](https://www.npmjs.com/package/@robota-sdk/agent-cli)             | Interactive terminal AI coding assistant                                                |
+| Package                                                                                                        | Description                                                                             |
+| -------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| [`@robota-sdk/agent-core`](https://www.npmjs.com/package/@robota-sdk/agent-core)                               | Core agent runtime, abstractions, and plugin system                                     |
+| [`@robota-sdk/agent-tools`](https://www.npmjs.com/package/@robota-sdk/agent-tools)                             | Tool registry, FunctionTool, and 8 built-in tools                                       |
+| [`@robota-sdk/agent-session`](https://www.npmjs.com/package/@robota-sdk/agent-session)                         | Session with permissions, hooks, and compaction                                         |
+| [`@robota-sdk/agent-framework`](https://www.npmjs.com/package/@robota-sdk/agent-framework)                     | Assembly layer with config/context loading and query()                                  |
+| [`@robota-sdk/agent-provider`](https://www.npmjs.com/package/@robota-sdk/agent-provider)                       | Consolidated AI providers (Anthropic, OpenAI, Gemini, DeepSeek, Gemma, Qwen, ByteDance) |
+| [`@robota-sdk/agent-cli`](https://www.npmjs.com/package/@robota-sdk/agent-cli)                                 | Interactive terminal AI coding assistant                                                |
+| [`@robota-sdk/agent-command`](https://www.npmjs.com/package/@robota-sdk/agent-command)                         | Slash command modules (`/agent`, `/help`, `/provider`, `/preset`, `/schedule`, …)       |
+| [`@robota-sdk/agent-plugin`](https://www.npmjs.com/package/@robota-sdk/agent-plugin)                           | 8 consolidated lifecycle plugins (logging, usage, limits, performance, webhook, …)      |
+| [`@robota-sdk/agent-executor`](https://www.npmjs.com/package/@robota-sdk/agent-executor)                       | Execution engine for the agentic loop                                                   |
+| [`@robota-sdk/agent-preset`](https://www.npmjs.com/package/@robota-sdk/agent-preset)                           | Named agent profiles (preset system)                                                    |
+| [`@robota-sdk/agent-subagent-runner`](https://www.npmjs.com/package/@robota-sdk/agent-subagent-runner)         | Subagent dispatch runner                                                                |
+| [`@robota-sdk/agent-session-analytics`](https://www.npmjs.com/package/@robota-sdk/agent-session-analytics)     | Session log timing analysis (new in beta.76)                                            |
+| [`@robota-sdk/agent-interface-transport`](https://www.npmjs.com/package/@robota-sdk/agent-interface-transport) | Transport type contracts (zero deps)                                                    |
+| [`@robota-sdk/agent-interface-tui`](https://www.npmjs.com/package/@robota-sdk/agent-interface-tui)             | TUI interaction type contracts (zero deps)                                              |
+| [`@robota-sdk/agent-transport`](https://www.npmjs.com/package/@robota-sdk/agent-transport)                     | Lean transport core (`/headless`, `/testing`)                                           |
+| [`@robota-sdk/agent-transport-tui`](https://www.npmjs.com/package/@robota-sdk/agent-transport-tui)             | TUI transport (Ink/React) — standalone (split in beta.76)                               |
+| [`@robota-sdk/agent-transport-http`](https://www.npmjs.com/package/@robota-sdk/agent-transport-http)           | HTTP/REST transport — standalone (split in beta.76)                                     |
+| [`@robota-sdk/agent-transport-ws`](https://www.npmjs.com/package/@robota-sdk/agent-transport-ws)               | WebSocket transport — standalone (split in beta.76)                                     |
+| [`@robota-sdk/agent-transport-mcp`](https://www.npmjs.com/package/@robota-sdk/agent-transport-mcp)             | MCP transport — standalone (split in beta.76)                                           |
 
 ## Documentation
 

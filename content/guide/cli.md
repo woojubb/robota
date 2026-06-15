@@ -1,8 +1,8 @@
 # CLI Reference
 
-`@robota-sdk/agent-cli` is a purely CLI entry point that wires providers, transports, and commands into a terminal experience. `InteractiveSession` (from `@robota-sdk/agent-framework`) drives all session logic. The CLI has no session logic of its own: `TuiStateManager` (in `agent-transport/tui`) receives session events and produces an immutable state snapshot consumed by the Ink React component tree. All session logic — command handling, prompt queuing, system commands, skill discovery — lives in the framework layer.
+`@robota-sdk/agent-cli` is a purely CLI entry point that wires providers, transports, and commands into a terminal experience. `InteractiveSession` (from `@robota-sdk/agent-framework`) drives all session logic. The CLI has no session logic of its own: `TuiStateManager` (in `agent-transport-tui`) receives session events and produces an immutable state snapshot consumed by the Ink React component tree. All session logic — command handling, prompt queuing, system commands, skill discovery — lives in the framework layer.
 
-State is managed by `TuiStateManager`, a pure TypeScript class (no React dependency) that receives SDK events and produces an immutable state snapshot. `TuiInteractionChannel` (in `agent-transport/tui`) owns the session lifecycle and drives `TuiStateManager`. The `useTuiChannel` hook bridges channel state into the React component tree.
+State is managed by `TuiStateManager`, a pure TypeScript class (no React dependency) that receives SDK events and produces an immutable state snapshot. `TuiInteractionChannel` (in `agent-transport-tui`) owns the session lifecycle and drives `TuiStateManager`. The `useTuiChannel` hook bridges channel state into the React component tree.
 
 ## Installation
 
@@ -217,7 +217,7 @@ The CLI is intentionally a thin TUI over SDK-owned session state. Recent updates
 
 ### TuiInteractionChannel and useTuiChannel
 
-`TuiInteractionChannel` (in `agent-transport/tui`) is the owner of the `InteractiveSession` lifecycle in TUI mode. It:
+`TuiInteractionChannel` (in `agent-transport-tui`) is the owner of the `InteractiveSession` lifecycle in TUI mode. It:
 
 1. Creates `InteractiveSession` and `CommandRegistry` once (not recreated on re-render).
 2. Subscribes to SDK events (`text_delta`, `tool_start`, `tool_end`, `thinking`, `context_update`, `error`) and drives a `TuiStateManager` instance.
@@ -302,49 +302,40 @@ Navigate with arrow keys, Enter to select, Esc to go back.
 
 Use `/reload-plugins` to reload plugin resources and refresh plugin-provided slash commands without restarting the CLI.
 
-### Official Plugins
+### Built-in Plugins
 
-The Robota SDK ships five first-party plugins for common integrations.
-Each plugin extends `AbstractPlugin` and registers its tools automatically when added to an agent.
+The 8 first-party plugins ship consolidated in a single package, `@robota-sdk/agent-plugin`. They are
+cross-cutting lifecycle plugins (not third-party service integrations), registered via the `Robota`
+constructor `plugins` array — there is no `agent.use()` method.
 
-| Package                     | Plugin class   | Env variable      | Description                      |
-| --------------------------- | -------------- | ----------------- | -------------------------------- |
-| `@robota-sdk/plugin-github` | `GitHubPlugin` | `GITHUB_TOKEN`    | GitHub issues and pull requests  |
-| `@robota-sdk/plugin-slack`  | `SlackPlugin`  | `SLACK_BOT_TOKEN` | Post messages and read history   |
-| `@robota-sdk/plugin-jira`   | `JiraPlugin`   | `JIRA_API_TOKEN`  | Jira issues and project queries  |
-| `@robota-sdk/plugin-linear` | `LinearPlugin` | `LINEAR_API_KEY`  | Linear issues and team queries   |
-| `@robota-sdk/plugin-notion` | `NotionPlugin` | `NOTION_TOKEN`    | Notion pages and database search |
-
-**Quick setup:**
+| Plugin class                | Concern                                          |
+| --------------------------- | ------------------------------------------------ |
+| `ConversationHistoryPlugin` | Persist / restore conversation history           |
+| `ErrorHandlingPlugin`       | Typed error classification, retry/recovery stats |
+| `ExecutionAnalyticsPlugin`  | Per-execution analytics                          |
+| `LimitsPlugin`              | Token / turn / cost limits                       |
+| `LoggingPlugin`             | Structured logging of agent activity             |
+| `PerformancePlugin`         | Timing and performance metrics                   |
+| `UsagePlugin`               | Token usage accounting                           |
+| `WebhookPlugin`             | Emit lifecycle events to a webhook               |
 
 ```bash
-npm install @robota-sdk/plugin-github @robota-sdk/plugin-slack \
-            @robota-sdk/plugin-jira   @robota-sdk/plugin-linear \
-            @robota-sdk/plugin-notion
+npm install @robota-sdk/agent-plugin
 ```
 
 ```typescript
-import { GitHubPlugin } from '@robota-sdk/plugin-github';
-import { SlackPlugin } from '@robota-sdk/plugin-slack';
-import { JiraPlugin } from '@robota-sdk/plugin-jira';
-import { LinearPlugin } from '@robota-sdk/plugin-linear';
-import { NotionPlugin } from '@robota-sdk/plugin-notion';
+import { LoggingPlugin, UsagePlugin, LimitsPlugin } from '@robota-sdk/agent-plugin';
 
-agent
-  .use(new GitHubPlugin({ token: process.env.GITHUB_TOKEN! }))
-  .use(new SlackPlugin({ token: process.env.SLACK_BOT_TOKEN!, defaultChannel: '#alerts' }))
-  .use(
-    new JiraPlugin({
-      baseUrl: process.env.JIRA_URL!,
-      email: process.env.JIRA_EMAIL!,
-      apiToken: process.env.JIRA_API_TOKEN!,
-    }),
-  )
-  .use(new LinearPlugin({ apiKey: process.env.LINEAR_API_KEY! }))
-  .use(new NotionPlugin({ token: process.env.NOTION_TOKEN! }));
+const agent = new Robota({
+  name: 'my-agent',
+  aiProviders: [provider],
+  defaultModel: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
+  plugins: [new LoggingPlugin(), new UsagePlugin(), new LimitsPlugin({ maxTokens: 100_000 })],
+});
 ```
 
-See each package's `README.md` for the full API reference.
+Third-party service integrations (GitHub, Slack, etc.) are not first-party packages; add them as your
+own tools/plugins or via MCP. See [Plugins](./plugins.md) for the full plugin API.
 
 ### Provider Switch (`/provider switch`)
 

@@ -7,7 +7,7 @@ Real-time bidirectional communication with InteractiveSession.
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-framework';
 import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
-import { createWsTransport } from '@robota-sdk/agent-transport/ws';
+import { createWsTransport } from '@robota-sdk/agent-transport-ws';
 import { WebSocketServer } from 'ws';
 
 const wss = new WebSocketServer({ port: 8080 });
@@ -54,7 +54,7 @@ wss.on('connection', async (ws) => {
 For more control, use `createWsHandler` directly:
 
 ```typescript
-import { createWsHandler } from '@robota-sdk/agent-transport/ws';
+import { createWsHandler } from '@robota-sdk/agent-transport-ws';
 
 wss.on('connection', (ws) => {
   const { onMessage, cleanup } = createWsHandler({

@@ -1,7 +1,8 @@
 ---
 title: 'DOCS-002: content 가이드의 존재하지 않는 패키지/API 참조 정리'
-status: todo
+status: done
 created: 2026-06-16
+completed: 2026-06-16
 priority: high
 urgency: soon
 area: content/guide, content/examples, content/quickstart.md
@@ -35,12 +36,12 @@ depends_on: []
 
 ## Completion Criteria
 
-- [ ] TC-01: 위 문서에서 존재하지 않는 패키지명(`plugin-*`, `agent-team`) 및 API(`agent.use`,
+- [x] TC-01: 위 문서에서 존재하지 않는 패키지명(`plugin-*`, `agent-team`) 및 API(`agent.use`,
       `createAgent`, `SessionStore`, `ROBOTA_*` env) 참조 0건
-- [ ] TC-02: 교체된 심볼/옵션이 실제 소스 export와 일치(plugins 배열, createUserSessionStore,
+- [x] TC-02: 교체된 심볼/옵션이 실제 소스 export와 일치(plugins 배열, createUserSessionStore,
       createAgentRuntime cwd, submit void+complete 이벤트)
-- [ ] TC-03: 미구현(team 등)은 "Planned/future"로 표기 또는 제거
-- [ ] TC-04: `pnpm harness:scan` 통과
+- [x] TC-03: 미구현(team 등)은 "Planned/future"로 표기 또는 제거
+- [x] TC-04: `pnpm harness:scan` 통과
 
 ## Test Plan
 
@@ -58,8 +59,18 @@ quickstart.md / session-management.md는 사용자 실행 절차다. 수정 후 
 
 ## Tasks
 
-- [ ] phantom 참조 교체/Planned 표기 → grep 0건 → harness:scan
+- [x] phantom 참조 교체/Planned 표기 → grep 0건 → harness:scan
 
 ## Evidence Log
 
-(구현 후 작성)
+### 구현 완료 — 2026-06-16
+
+- **cli.md:** 가공 `@robota-sdk/plugin-{github,…}` + `agent.use()` 섹션을 실제 8개 플러그인
+  (`@robota-sdk/agent-plugin`, 생성자 `plugins: []` 등록)으로 교체. "there is no `agent.use()`" 명시.
+- **migration.md:** `agent-team`을 "removed"로 표기, 가공 relay-tool 코드·죽은 SPEC 링크 제거,
+  subagent 디스패치 안내로 교체. 요약 표 행 정정.
+- **local-llm.md:** 존재하지 않는 `ROBOTA_*` env 블록 제거 → settings.json/`--configure` 안내.
+- **session-management.md:** `new SessionStore()` → `createUserSessionStore()`(실제 export).
+- **quickstart.md:** `createAgentRuntime`+`session.submit()`(void) → `createQuery({ provider })` 두 블록 교체.
+- **TC-01~04:** 가공 식별자 grep 0건(남은 매치는 "no longer available"/"there is no…" 부정문), 교체 심볼이
+  실제 export와 일치, `pnpm harness:scan` **26/26 passed**.
