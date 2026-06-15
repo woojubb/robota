@@ -186,7 +186,11 @@ agent.setModel({ provider: 'openai', model: 'gpt-4o' });
 ```
 agent-cli              ← Interactive terminal AI coding assistant
 agent-command          ← All slash command modules (/agent, /help, /provider, /skills, /plugin, …)
-agent-transport        ← Consolidated transport package (sub-paths: /tui, /headless, /http, /ws, /mcp)
+agent-transport        ← Lean transport core (sub-paths: /headless, /testing)
+agent-transport-tui    ← TUI transport (Ink/React) — standalone package
+agent-transport-http   ← HTTP/REST transport — standalone package
+agent-transport-ws     ← WebSocket transport — standalone package
+agent-transport-mcp    ← MCP transport — standalone package
   ↓ (product/transport layers consume)
 agent-framework        ← Assembly layer: InteractiveSession, config, context, createQuery()
   ↓
@@ -200,18 +204,19 @@ agent-core             ← Foundation: Robota engine, abstractions, plugins
 
 ## Packages
 
-| Package                                                                  | Description                                                                                                                                                                                      |
-| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| [`@robota-sdk/agent-core`](./packages/agent-core/)                       | Core agent runtime, abstractions, and plugin system                                                                                                                                              |
-| [`@robota-sdk/agent-tools`](./packages/agent-tools/)                     | Tool registry, FunctionTool, built-in tools, sandbox ports/manifests                                                                                                                             |
-| [`@robota-sdk/agent-session`](./packages/agent-session/)                 | Session with permissions, hooks, and compaction                                                                                                                                                  |
-| [`@robota-sdk/agent-executor`](./packages/agent-executor/)               | Background task and subagent lifecycle primitives                                                                                                                                                |
-| [`@robota-sdk/agent-framework`](./packages/agent-framework/)             | Assembly layer with config/context loading, `InteractiveSession`, and `createQuery()`                                                                                                            |
-| [`@robota-sdk/agent-command`](./packages/agent-command/)                 | Consolidated slash command package — all 20 command modules (`/agent`, `/help`, `/provider`, `/skills`, `/plugin`, `/model`, `/mode`, and more)                                                  |
-| [`@robota-sdk/agent-provider`](./packages/agent-provider/)               | Consolidated AI provider package (Anthropic, OpenAI, Gemini, DeepSeek, Gemma, Qwen, ByteDance) — use sub-paths: `/anthropic`, `/openai`, `/gemini`, `/deepseek`, `/gemma`, `/qwen`, `/bytedance` |
-| [`@robota-sdk/agent-cli`](./packages/agent-cli/)                         | Interactive terminal AI coding assistant                                                                                                                                                         |
-| [`@robota-sdk/agent-transport`](./packages/agent-transport/)             | Consolidated transport package — TUI (`/tui`), headless (`/headless`), HTTP (`/http`), WebSocket (`/ws`), MCP (`/mcp`) in one package                                                            |
-| [`@robota-sdk/agent-subagent-runner`](./packages/agent-subagent-runner/) | Opt-in child-process subagent runner — install only when using `/agent` with child-process isolation                                                                                             |
+| Package                                                                      | Description                                                                                                                                                                                                                            |
+| ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`@robota-sdk/agent-core`](./packages/agent-core/)                           | Core agent runtime, abstractions, and plugin system                                                                                                                                                                                    |
+| [`@robota-sdk/agent-tools`](./packages/agent-tools/)                         | Tool registry, FunctionTool, built-in tools, sandbox ports/manifests                                                                                                                                                                   |
+| [`@robota-sdk/agent-session`](./packages/agent-session/)                     | Session with permissions, hooks, and compaction                                                                                                                                                                                        |
+| [`@robota-sdk/agent-session-analytics`](./packages/agent-session-analytics/) | Session log timing analysis (LLM wait vs. tool/code time) — new in beta.76                                                                                                                                                             |
+| [`@robota-sdk/agent-executor`](./packages/agent-executor/)                   | Background task and subagent lifecycle primitives                                                                                                                                                                                      |
+| [`@robota-sdk/agent-framework`](./packages/agent-framework/)                 | Assembly layer with config/context loading, `InteractiveSession`, and `createQuery()`                                                                                                                                                  |
+| [`@robota-sdk/agent-command`](./packages/agent-command/)                     | Consolidated slash command package — all 20 command modules (`/agent`, `/help`, `/provider`, `/skills`, `/plugin`, `/model`, `/mode`, and more)                                                                                        |
+| [`@robota-sdk/agent-provider`](./packages/agent-provider/)                   | Consolidated AI provider package (Anthropic, OpenAI, Gemini, DeepSeek, Gemma, Qwen, ByteDance) — use sub-paths: `/anthropic`, `/openai`, `/gemini`, `/deepseek`, `/gemma`, `/qwen`, `/bytedance`                                       |
+| [`@robota-sdk/agent-cli`](./packages/agent-cli/)                             | Interactive terminal AI coding assistant                                                                                                                                                                                               |
+| [`@robota-sdk/agent-transport`](./packages/agent-transport/)                 | Lean transport core — headless (`/headless`) + testing (`/testing`) sub-paths. Protocol transports are standalone packages (since beta.76): `agent-transport-tui`, `agent-transport-http`, `agent-transport-ws`, `agent-transport-mcp` |
+| [`@robota-sdk/agent-subagent-runner`](./packages/agent-subagent-runner/)     | Opt-in child-process subagent runner — install only when using `/agent` with child-process isolation                                                                                                                                   |
 
 ## Documentation
 

@@ -358,16 +358,16 @@ The Anthropic provider uses `getModelMaxOutput()` to determine the default `max_
 
 | Sub-path                   | Protocol                       | Description                                                      |
 | -------------------------- | ------------------------------ | ---------------------------------------------------------------- |
-| `agent-transport/http`     | HTTP / REST                    | Hono-based adapter; runs on Cloudflare Workers, Node.js, Lambda  |
-| `agent-transport/mcp`      | MCP                            | Exposes the session as an MCP server for Claude and other agents |
-| `agent-transport/ws`       | WebSocket                      | Framework-agnostic real-time adapter (any WS library)            |
+| `agent-transport-http`     | HTTP / REST                    | Hono-based adapter; runs on Cloudflare Workers, Node.js, Lambda  |
+| `agent-transport-mcp`      | MCP                            | Exposes the session as an MCP server for Claude and other agents |
+| `agent-transport-ws`       | WebSocket                      | Framework-agnostic real-time adapter (any WS library)            |
 | `agent-transport/headless` | stdin/stdout (non-interactive) | Non-interactive execution with text/json/stream-json output      |
 
 Each transport wraps an `InteractiveSession` instance and translates protocol messages into `submit()` / `abort()` calls, then forwards emitted events back to the client. No separate gateway interface exists — `InteractiveSession` is the gateway.
 
 All transport adapters implement the `ITransportAdapter` interface (exported from `@robota-sdk/agent-framework`), which defines a common lifecycle: `attach(session)`, `start()`, and `stop()`. Each sub-path provides a factory function (e.g., `createHttpTransport()`, `createWsTransport()`, `createMcpTransport()`, `createHeadlessTransport()`) that returns an `ITransportAdapter`. `createHeadlessTransport()` also accepts a `createHeadlessRunner()` helper for pre-configured non-interactive execution.
 
-`agent-remote-client` is a companion package that provides an HTTP client for calling an agent exposed via `agent-transport/http`. It has no dependency on `agent-framework`.
+`agent-remote-client` is a companion package that provides an HTTP client for calling an agent exposed via `agent-transport-http`. It has no dependency on `agent-framework`.
 
 ## Assembly vs Direct Usage
 

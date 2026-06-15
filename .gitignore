@@ -132,7 +132,5 @@ scripts/audit/output/
 # One-off analysis reports (local-only, regenerated on demand)
 .agents/reports/
 
-# Auto-generated API reference from docs:build (typedoc output)
-content/api-reference/
 .worktrees/
 .claude/worktrees/
