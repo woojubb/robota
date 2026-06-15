@@ -42,12 +42,17 @@ packages/
 ├── agent-core/                 ← Foundation (zero deps)
 ├── agent-tools/                ← Tools + 8 built-in CLI tools
 ├── agent-session/              ← Session with permissions/hooks
+├── agent-session-analytics/    ← Session log timing analysis (new in beta.76)
 ├── agent-executor/             ← Background task and subagent lifecycle
 ├── agent-framework/            ← Assembly layer (InteractiveSession, createQuery)
 ├── agent-command/              ← All slash command modules in one package
 ├── agent-provider/             ← Consolidated AI provider (sub-paths: /anthropic, /openai, /gemini, /google, /gemma, /qwen, /deepseek, /bytedance)
 ├── agent-plugin/               ← Consolidated plugin package
-├── agent-transport/            ← Protocol transports + TUI (sub-paths: /tui, /headless, /http, /ws, /mcp)
+├── agent-transport/            ← Lean transport core (sub-paths: /headless, /testing)
+├── agent-transport-tui/        ← TUI transport (Ink/React) — standalone
+├── agent-transport-http/       ← HTTP/REST transport — standalone
+├── agent-transport-ws/         ← WebSocket transport — standalone
+├── agent-transport-mcp/        ← MCP transport — standalone
 ├── agent-interface-transport/  ← Transport type contracts (zero deps)
 ├── agent-interface-tui/        ← TUI interaction type contracts (zero deps)
 ├── agent-cli/                  ← Terminal AI coding assistant

@@ -40,7 +40,7 @@ const detailedResponse = await queryWithOptions('Analyze the code');
 
 - **InteractiveSession** — Event-driven session wrapper (composition over Session). Central client-facing API for CLI, web, API server, or any other client
 - **SystemCommandExecutor + ISystemCommand** — SDK-level command execution infrastructure for product-composed command modules
-- **CommandRegistry, BuiltinCommandSource, SkillCommandSource** — Command registry and SDK common discovery APIs. User-visible built-ins are composed through `agent-command-*` packages.
+- **CommandRegistry, BuiltinCommandSource, SkillCommandSource** — Command registry and SDK common discovery APIs. User-visible built-ins are composed through `agent-command` packages.
 - **Model Command Common APIs** — Provider-neutral `/model` helpers that resolve active provider catalogs and optionally invoke provider-owned refresh hooks
 - **createQuery()** — Provider-bound factory for one-shot AI agent interactions with streaming support
 - **Session assembly** — Internal factory wires tools, provider, config, and context for `InteractiveSession`
@@ -210,7 +210,7 @@ executor.listCommands(); // ISystemCommand[]
 executor.hasCommand('permissions'); // boolean
 ```
 
-SDK core does not own user-visible built-in commands. Product built-ins are supplied as `agent-command-*` modules. SDK command identity is slash-free (`skills`, `help`, `compact`); UI shells render and parse those commands as slash syntax such as `/skills`, `/help`, and `/compact`.
+SDK core does not own user-visible built-in commands. Product built-ins are supplied as `agent-command` modules. SDK command identity is slash-free (`skills`, `help`, `compact`); UI shells render and parse those commands as slash syntax such as `/skills`, `/help`, and `/compact`.
 
 Command modules may use SDK common APIs for shared provider-neutral behavior. For `/model`, the SDK
 resolves the active provider from settings, reads provider-owned fallback metadata from injected
@@ -235,7 +235,7 @@ These classes provide slash command discovery and aggregation for clients that e
 
 ```typescript
 import { CommandRegistry } from '@robota-sdk/agent-framework';
-import { createSkillsCommandModule } from '@robota-sdk/agent-command-skills';
+import { createSkillsCommandModule } from '@robota-sdk/agent-command';
 
 const registry = new CommandRegistry();
 registry.addModule(createSkillsCommandModule({ cwd: process.cwd() }));
@@ -258,7 +258,7 @@ registry.resolveQualifiedName('audit'); // "my-plugin:audit"
 - `<cwd>/.agents/skills/*/SKILL.md`
 
 Model-invocable skills are exposed to the model as metadata only when the session has a composed
-model-invocable `skills` command descriptor. `@robota-sdk/agent-command-skills` owns `skills` and
+model-invocable `skills` command descriptor. `@robota-sdk/agent-command` owns `skills` and
 activates skills through the SDK host API. Models use the SDK-projected `robota_command_skills`
 tool with skill arguments in `args`. Mentioning a skill in ordinary prose,
 recommending a skill in assistant text, or matching a natural-language phrase in SDK/TUI code does
@@ -340,7 +340,7 @@ const session = new InteractiveSession({
 });
 ```
 
-`E2BSandboxClient` is a structural adapter owned by `agent-tools`, and it does not make `e2b` a dependency of `agent-sdk`. Install and create the concrete provider SDK in the application layer, then pass the adapter into `InteractiveSession`. `workspaceManifest` also uses the `agent-tools` contract; SDK applies it once before constructing the underlying `Session`.
+`E2BSandboxClient` is a structural adapter owned by `agent-tools`, and it does not make `e2b` a dependency of `agent-framework`. Install and create the concrete provider SDK in the application layer, then pass the adapter into `InteractiveSession`. `workspaceManifest` also uses the `agent-tools` contract; SDK applies it once before constructing the underlying `Session`.
 
 When `sessionStore` and a snapshot-capable `sandboxClient` are both provided, `InteractiveSession.shutdown()` stores `sandboxSnapshotId` in the session record. A later non-fork `resumeSessionId` restore calls `sandboxClient.restore(snapshotId)` before saved messages are injected back into the `Session`. Forked sessions intentionally do not hydrate the previous sandbox reference because provider pause/resume references can be one-to-one.
 
@@ -379,7 +379,7 @@ Provider-native payload events are emitted by concrete provider packages through
 
 ## Hook Executors (SDK-Specific)
 
-`agent-sdk` provides two `IHookTypeExecutor` implementations beyond the `command` and `http` executors in `agent-core`:
+`agent-framework` provides two `IHookTypeExecutor` implementations beyond the `command` and `http` executors in `agent-core`:
 
 | Executor         | Hook Type | Description                                                               |
 | ---------------- | --------- | ------------------------------------------------------------------------- |
@@ -411,7 +411,7 @@ Manages plugin installation and uninstallation:
 
 ## Plugins
 
-`agent-plugin-*` packages are **consumer opt-in** — they are not built into the CLI or SDK by default. Application consumers register plugins at composition time by passing plugin instances to the SDK assembly API.
+`@robota-sdk/agent-plugin` plugins are **consumer opt-in** — they are not built into the CLI or SDK by default. Application consumers register plugins at composition time by passing plugin instances to the SDK assembly API.
 
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-framework';
@@ -430,7 +430,7 @@ const session = new InteractiveSession({
 });
 ```
 
-Each plugin implements `AbstractPlugin` from `@robota-sdk/agent-core` and depends only on `agent-core`. Available plugins: `agent-plugin-conversation-history`, `agent-plugin-error-handling`, `agent-plugin-event-emitter`, `agent-plugin-execution-analytics`, `agent-plugin-limits`, `agent-plugin-logging`, `agent-plugin-performance`, `agent-plugin-usage`, `agent-plugin-webhook`.
+Each plugin implements `AbstractPlugin` from `@robota-sdk/agent-core` and depends only on `agent-core`. The 8 plugins ship consolidated in a single package, `@robota-sdk/agent-plugin`: `ConversationHistoryPlugin`, `ErrorHandlingPlugin`, `ExecutionAnalyticsPlugin`, `LimitsPlugin`, `LoggingPlugin`, `PerformancePlugin`, `UsagePlugin`, `WebhookPlugin`.
 
 ## Configuration
 

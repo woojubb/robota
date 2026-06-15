@@ -62,17 +62,18 @@ npm install @robota-sdk/agent-framework @robota-sdk/agent-provider
 Then in your TypeScript or JavaScript file:
 
 ```typescript
-import { createAgentRuntime } from '@robota-sdk/agent-framework';
+import { createQuery } from '@robota-sdk/agent-framework';
 import { createAnthropicProvider } from '@robota-sdk/agent-provider';
 
-const runtime = createAgentRuntime({
+// createQuery returns a prompt-only function. cwd defaults to process.cwd();
+// permissionMode defaults to 'bypassPermissions' for programmatic use.
+const query = createQuery({
   provider: createAnthropicProvider({
     apiKey: process.env.ANTHROPIC_API_KEY,
   }),
 });
 
-const session = runtime.createSession({ permissionMode: 'bypassPermissions' });
-const response = await session.submit('Hello, what can you do?');
+const response = await query('Hello, what can you do?');
 console.log(response);
 ```
 
@@ -83,7 +84,7 @@ Swap `createAnthropicProvider` with any other supported provider — no other co
 ```typescript
 import { createOpenAIProvider } from '@robota-sdk/agent-provider';
 
-const runtime = createAgentRuntime({
+const query = createQuery({
   provider: createOpenAIProvider({ apiKey: process.env.OPENAI_API_KEY }),
 });
 ```
@@ -99,4 +100,4 @@ The starter template includes a one-click Deploy button. Set `ANTHROPIC_API_KEY`
 - [CLI reference](/guide/cli) — full flag and slash command reference
 - [Providers](/guide/providers) — configure multi-provider setups
 - [Permission modes](/guide/permissions-and-hooks) — control what tools the AI can call
-- [SDK API reference](/api-reference) — full TypeScript API docs
+- [Using the SDK](/guide/sdk) — InteractiveSession, transports, sessions, createQuery()
