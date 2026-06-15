@@ -1,9 +1,9 @@
 /**
- * AgentTool — spawn a sub-agent with isolated context.
+ * AgentTool — spawn a subagent with isolated context.
  *
  * Uses `SubagentManager` with an in-process runner to assemble a child Session
  * with filtered tools, model resolution, and framework system prompt. The
- * sub-agent shares the same config and context but has its own conversation
+ * subagent shares the same config and context but has its own conversation
  * history.
  *
  * Each call to `createAgentTool(deps)` returns a fresh tool instance with deps
