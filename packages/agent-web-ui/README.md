@@ -76,7 +76,7 @@ This package is a pure browser UI library. It does not own session lifecycle or 
 agent-web-ui (browser components)
   └── useWsSession(url)
         └── createWsSessionClient  ← reconnects on disconnect
-              └── agent-transport/ws  ← TServerMessage / TClientMessage types
+              └── agent-transport-ws  ← TServerMessage / TClientMessage types
 ```
 
 ## Dependencies

@@ -14,14 +14,14 @@ Reports:
 
 | Theme                                                                  | Backlog  | Priority |
 | ---------------------------------------------------------------------- | -------- | -------- |
-| Transport split: `agent-transport/{tui,http,ws,mcp}` → standalone pkgs | DOCS-001 | high     |
-| Phantom packages / non-existent APIs in content guides                 | DOCS-002 | high     |
-| README accuracy (root + package + apps)                                | DOCS-003 | high     |
-| content/ko v2-era stale + broken links                                 | DOCS-004 | medium   |
-| changelog stale (beta.67→76) + agent-session-analytics undocumented    | DOCS-005 | medium   |
-| api-reference orphaned/stale — retire vs regenerate (decision) + link  | DOCS-006 | medium   |
+| Transport split: `agent-transport/{tui,http,ws,mcp}` → standalone pkgs | DOCS-007 | high     |
+| Phantom packages / non-existent APIs in content guides                 | DOCS-008 | high     |
+| README accuracy (root + package + apps)                                | DOCS-009 | high     |
+| content/ko v2-era stale + broken links                                 | DOCS-010 | medium   |
+| changelog stale (beta.67→76) + agent-session-analytics undocumented    | DOCS-011 | medium   |
+| api-reference orphaned/stale — retire vs regenerate (decision) + link  | DOCS-012 | medium   |
 
 ## Excluded (no action)
 
 - `content/v2.0.0/` — intentional frozen archive, banner-marked, excluded from the live Next.js site.
-- `content/api-reference/*.md` individual files — AUTO-GENERATED; never hand-edit (see DOCS-006).
+- `content/api-reference/*.md` individual files — AUTO-GENERATED; never hand-edit (see DOCS-012).

@@ -1,5 +1,5 @@
 ---
-title: 'DOCS-005: changelog 최신화 + agent-session-analytics 문서화'
+title: 'DOCS-011: changelog 최신화 + agent-session-analytics 문서화'
 status: done
 created: 2026-06-16
 completed: 2026-06-16
@@ -9,7 +9,7 @@ area: content/changelog, content/README.md, content/guide, content/development
 depends_on: []
 ---
 
-# DOCS-005: changelog 최신화 + 신규 패키지 문서화
+# DOCS-011: changelog 최신화 + 신규 패키지 문서화
 
 ## Problem
 
@@ -24,7 +24,7 @@ depends_on: []
 
 changelog에 beta.68~76 핵심 변경(transport split, agent-session-analytics 신설, DQ-AUDIT 리팩터 등)
 요약 추가. 패키지 목록/아키텍처 다이어그램에 agent-session-analytics(세션 로그 분석) 등재.
-(transport split 자체의 본문 갱신은 DOCS-001과 중복되지 않게 changelog/목록 차원만.)
+(transport split 자체의 본문 갱신은 DOCS-007과 중복되지 않게 changelog/목록 차원만.)
 
 ## Completion Criteria
 
