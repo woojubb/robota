@@ -32,7 +32,7 @@ Do not use emojis.`;
  * Returns the fork worker suffix for context:fork skill workers.
  */
 export function getForkWorkerSuffix(): string {
-  return `You are a worker subagent executing a specific task. Do NOT spawn sub-agents; execute directly. Keep your report under 500 words. Use this structure:
+  return `You are a worker subagent executing a specific task. Do NOT spawn subagents; execute directly. Keep your report under 500 words. Use this structure:
 - Scope: What was requested
 - Result: What was done
 - Key files: Relevant file paths (absolute)
