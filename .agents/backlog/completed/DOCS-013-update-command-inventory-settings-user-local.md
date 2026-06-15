@@ -1,5 +1,5 @@
 ---
-title: 'DOCS-001: Add /settings and /user-local to command-inventory.md'
+title: 'DOCS-013: Add /settings and /user-local to command-inventory.md'
 status: done
 created: 2026-05-15
 priority: medium

@@ -19,7 +19,7 @@ agent-interface-tui            ← this package (contracts only)
   ├── ITuiConfirmInteraction   ← requires confirm UI
   └── TAnyTuiCommandInteraction ← union of all interaction shapes
 
-agent-transport/tui
+agent-transport-tui
   └── useSideEffects           ← renders interactions via ITuiCliAdapter
 
 agent-command/*

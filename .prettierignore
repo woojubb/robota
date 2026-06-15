@@ -1,0 +1,10 @@
+# Lockfiles are managed by their package manager — never reformat them.
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+
+# Build output and generated artifacts
+dist/
+**/dist/
+coverage/
+.next/

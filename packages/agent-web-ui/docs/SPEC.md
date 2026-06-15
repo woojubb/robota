@@ -18,11 +18,11 @@ different layers: this package is a library; the app is a deployment.
 
 ## Boundaries
 
-- Does NOT own WebSocket protocol framing — that is `@robota-sdk/agent-transport/ws`
+- Does NOT own WebSocket protocol framing — that is `@robota-sdk/agent-transport-ws`
   (`TServerMessage`, `TClientMessage`).
 - Does NOT own `InteractiveSession` or any SDK/session/runtime contracts — those live in
   `agent-framework`, `agent-session`, `agent-executor`.
-- Does NOT own `agent-core` types directly — message types pass through `agent-transport/ws`.
+- Does NOT own `agent-core` types directly — message types pass through `agent-transport-ws`.
 - Does NOT own the CLI sidecar server — that is `agent-cli` (`startWebSidecarServer`).
 - OWNS: browser WebSocket client lifecycle (`IWsSessionClient`, reconnect logic).
 - OWNS: React state reconstruction from `TServerMessage` events (`useWsSession`).
@@ -37,7 +37,7 @@ agent-web (browser)
   └── useWsSession(url)
         └── createWsSessionClient  ← reconnects on disconnect (max 10 attempts, 2s delay)
               │  onMessage (TServerMessage)
-              └── agent-transport/ws  ← TServerMessage / TClientMessage types only
+              └── agent-transport-ws  ← TServerMessage / TClientMessage types only
 ```
 
 On connect the client sends `{ type: "get-messages" }` to request full history replay from
@@ -55,7 +55,7 @@ WebSocket endpoint. It conditionally renders `AgentActivityPanel` when
 `IActiveTool[]`, `streamingText`, and `isThinking` props from the caller.
 
 `AgentActivityPanel` is a pure rendering component that accepts a `tasks` prop of
-`readonly IExecutionWorkspaceEntry[]` (from `agent-transport/ws`) and renders each agent's
+`readonly IExecutionWorkspaceEntry[]` (from `agent-transport-ws`) and renders each agent's
 status, current action, and preview with animated status indicators.
 
 ## Type Ownership
@@ -70,7 +70,7 @@ status, current action, and preview with animated status indicators.
 | `IWsSessionState`           | `src/hooks/useWsSession.ts`       | Full React hook state: status, messages, activeTools, streamingText, isThinking, executionWorkspace, send |
 
 Note: `IExecutionWorkspaceSnapshot`, `IExecutionWorkspaceEntry`, `TExecutionWorkspaceStatus`, and
-`TExecutionAttention` are consumed from `@robota-sdk/agent-transport/ws` and are not owned by this
+`TExecutionAttention` are consumed from `@robota-sdk/agent-transport-ws` and are not owned by this
 package.
 
 ## Public API Surface
@@ -129,8 +129,8 @@ package.
 
 | Port (Owner)                                                            | Usage                                               |
 | ----------------------------------------------------------------------- | --------------------------------------------------- |
-| `TServerMessage` (agent-transport/ws)                                   | Parsed from WebSocket `onmessage` events            |
-| `TClientMessage` (agent-transport/ws)                                   | Sent to sidecar via `ws.send(JSON.stringify(msg))`  |
-| `IExecutionWorkspaceSnapshot` (agent-transport/ws)                      | Stored in `IWsSessionState.executionWorkspace`      |
-| `IExecutionWorkspaceEntry` (agent-transport/ws)                         | Passed as `tasks` prop to `AgentActivityPanel`      |
-| `TExecutionWorkspaceStatus`, `TExecutionAttention` (agent-transport/ws) | Used in `AgentActivityPanel` status rendering logic |
+| `TServerMessage` (agent-transport-ws)                                   | Parsed from WebSocket `onmessage` events            |
+| `TClientMessage` (agent-transport-ws)                                   | Sent to sidecar via `ws.send(JSON.stringify(msg))`  |
+| `IExecutionWorkspaceSnapshot` (agent-transport-ws)                      | Stored in `IWsSessionState.executionWorkspace`      |
+| `IExecutionWorkspaceEntry` (agent-transport-ws)                         | Passed as `tasks` prop to `AgentActivityPanel`      |
+| `TExecutionWorkspaceStatus`, `TExecutionAttention` (agent-transport-ws) | Used in `AgentActivityPanel` status rendering logic |

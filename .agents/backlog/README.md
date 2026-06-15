@@ -729,12 +729,22 @@ ground truth: 19개 공개 패키지, 3.0.0-beta.76, beta.76 transport split + a
 
 | ID                                                                  | 제목                                                       | 우선순위 |
 | ------------------------------------------------------------------- | ---------------------------------------------------------- | -------- |
-| [DOCS-001](completed/DOCS-001-content-transport-split-refs.md) ✅   | content transport split 참조 갱신 (서브경로 → 독립 패키지) | high     |
-| [DOCS-002](completed/DOCS-002-content-phantom-api-refs.md) ✅       | content 가이드의 존재하지 않는 패키지/API 참조 정리        | high     |
-| [DOCS-003](completed/DOCS-003-readme-accuracy.md) ✅                | README 정확도 갱신 (root + 패키지 + apps)                  | high     |
-| [DOCS-004](completed/DOCS-004-ko-docs-refresh.md) ✅                | content/ko 한국어 문서 최신화 (v2-era 재작성 + 끊긴 링크)  | medium   |
-| [DOCS-005](completed/DOCS-005-changelog-and-new-package-docs.md) ✅ | changelog 최신화 + agent-session-analytics 문서화          | medium   |
-| [DOCS-006](completed/DOCS-006-api-reference-disposition.md) ✅      | api-reference retire + dead link                           | medium   |
+| [DOCS-007](completed/DOCS-007-content-transport-split-refs.md) ✅   | content transport split 참조 갱신 (서브경로 → 독립 패키지) | high     |
+| [DOCS-008](completed/DOCS-008-content-phantom-api-refs.md) ✅       | content 가이드의 존재하지 않는 패키지/API 참조 정리        | high     |
+| [DOCS-009](completed/DOCS-009-readme-accuracy.md) ✅                | README 정확도 갱신 (root + 패키지 + apps)                  | high     |
+| [DOCS-010](completed/DOCS-010-ko-docs-refresh.md) ✅                | content/ko 한국어 문서 최신화 (v2-era 재작성 + 끊긴 링크)  | medium   |
+| [DOCS-011](completed/DOCS-011-changelog-and-new-package-docs.md) ✅ | changelog 최신화 + agent-session-analytics 문서화          | medium   |
+| [DOCS-012](completed/DOCS-012-api-reference-disposition.md) ✅      | api-reference retire + dead link                           | medium   |
+
+### Docs Freshness Follow-ups (2026-06-16)
+
+DOCS-007~012 실행 중 도출된 후속 정리 항목. 전부 구현 완료 (2026-06-16).
+
+| ID                                                                  | 제목                                                            | 우선순위 |
+| ------------------------------------------------------------------- | --------------------------------------------------------------- | -------- |
+| [DOCFIX-001](completed/DOCFIX-001-spec-transport-split-refs.md) ✅  | SPEC.md/README의 transport 서브경로 참조 갱신 (split 반영)      | medium   |
+| [DOCFIX-002](completed/DOCFIX-002-docs-id-collision.md) ✅          | 백로그 DOCS ID 충돌 해소 (DOCS-001 3중복 → 고유화)              | medium   |
+| [DOCFIX-003](completed/DOCFIX-003-remove-unused-typedoc-deps.md) ✅ | 미사용 typedoc devDependencies 제거 (api-reference retire 후속) | low      |
 
 ### Harness Audit Recommendations (rulebased-harness, 2026-06-15)
 
