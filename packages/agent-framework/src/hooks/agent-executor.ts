@@ -1,5 +1,5 @@
 /**
- * Agent hook executor — delegates to a sub-agent session.
+ * Agent hook executor — delegates to a subagent session.
  *
  * Creates a subagent session with maxTurns and timeout limits,
  * runs hook input as the initial prompt, and parses the result.
@@ -18,7 +18,7 @@ import type {
   THookDefinition,
 } from '@robota-sdk/agent-core';
 
-/** Default maximum turns for the sub-agent session. */
+/** Default maximum turns for the subagent session. */
 const DEFAULT_MAX_TURNS = 50;
 
 /** Default timeout in seconds. */
