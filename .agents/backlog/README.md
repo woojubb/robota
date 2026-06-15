@@ -719,6 +719,21 @@ beta.76 릴리즈 세션에서 **실제로 발생한** 마찰·실수를 스킬 
 | [LESSON-009](completed/LESSON-009-skill-registry-check-ssot.md) ✅       | unregistered-skill 검사를 skills/index.md(SSOT)로 교정                      | medium   |
 | [NAMING-001](completed/NAMING-001-subagent-hyphen-cleanup.md) ✅         | production 코드 금지 하이픈형 sub-agent → subagent 정리                     | medium   |
 
+### Docs Freshness Audit (2026-06-16)
+
+병렬 4-에이전트 감사(보고서: `.design/docs-audit/2026-06-16/`)에서 도출된 README·content 최신화 항목.
+ground truth: 19개 공개 패키지, 3.0.0-beta.76, beta.76 transport split + agent-session-analytics 신설.
+`content/v2.0.0/`(동결 아카이브)는 대상 외.
+
+| ID                                                     | 제목                                                            | 우선순위 |
+| ------------------------------------------------------ | --------------------------------------------------------------- | -------- |
+| [DOCS-001](DOCS-001-content-transport-split-refs.md)   | content transport split 참조 갱신 (서브경로 → 독립 패키지)      | high     |
+| [DOCS-002](DOCS-002-content-phantom-api-refs.md)       | content 가이드의 존재하지 않는 패키지/API 참조 정리             | high     |
+| [DOCS-003](DOCS-003-readme-accuracy.md)                | README 정확도 갱신 (root + 패키지 + apps)                       | high     |
+| [DOCS-004](DOCS-004-ko-docs-refresh.md)                | content/ko 한국어 문서 최신화 (v2-era 재작성 + 끊긴 링크)       | medium   |
+| [DOCS-005](DOCS-005-changelog-and-new-package-docs.md) | changelog 최신화 + agent-session-analytics 문서화               | medium   |
+| [DOCS-006](DOCS-006-api-reference-disposition.md)      | api-reference 처리 방향 결정 (retire vs regenerate) + dead link | medium   |
+
 ### Harness Audit Recommendations (rulebased-harness, 2026-06-15)
 
 rulebased-harness 감사(A등급, 55/57) 결과 도출된 보편성 강화 항목. AGENTS.md domain-free 설계를
