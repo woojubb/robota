@@ -40,9 +40,11 @@ const modules = [
 | `/mode`        | Interaction mode switching                     |
 | `/permissions` | Permission management                          |
 | `/plugin`      | Plugin enable/disable                          |
+| `/preset`      | Agent preset selection / switching             |
 | `/provider`    | AI provider configuration                      |
 | `/reset`       | Session reset                                  |
 | `/rewind`      | Conversation history rewind                    |
+| `/schedule`    | Scheduled / deferred task management           |
 | `/session`     | Session lifecycle (rename, resume, fork, list) |
 | `/settings`    | Settings management                            |
 | `/skills`      | Skills management                              |
@@ -60,7 +62,8 @@ const exitCmd = createExitCommandModule(hostAdapters);
 const helpCmd = createHelpCommandModule(hostAdapters);
 ```
 
-All 20 factory functions are re-exported from the root entry point.
+All command factory functions are re-exported from the root entry point (21 command modules plus the
+`createDefaultCommandModules` aggregator).
 
 ## Dependencies
 

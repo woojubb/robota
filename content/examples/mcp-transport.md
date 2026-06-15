@@ -7,7 +7,7 @@ Expose InteractiveSession as a Model Context Protocol server.
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-framework';
 import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
-import { createMcpTransport } from '@robota-sdk/agent-transport/mcp';
+import { createMcpTransport } from '@robota-sdk/agent-transport-mcp';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 
 const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -48,7 +48,7 @@ Other auto-discovered commands, such as `memory`, `rewind`, `provider`, `backgro
 For more control, use `createAgentMcpServer` directly:
 
 ```typescript
-import { createAgentMcpServer } from '@robota-sdk/agent-transport/mcp';
+import { createAgentMcpServer } from '@robota-sdk/agent-transport-mcp';
 
 const server = createAgentMcpServer({
   name: 'robota-agent',

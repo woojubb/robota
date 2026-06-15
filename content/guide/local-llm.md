@@ -61,15 +61,11 @@ When prompted:
 - **Model**: Enter the model name exactly as in `ollama list` (e.g. `llama3.2`, `codellama`)
 - **API key**: Enter any value (e.g. `ollama`) — Ollama does not validate it
 
-Or set via environment variables:
-
-```bash
-ROBOTA_PROVIDER=gemma \
-ROBOTA_BASE_URL=http://localhost:11434/v1 \
-ROBOTA_MODEL=llama3.2 \
-ROBOTA_API_KEY=ollama \
-robota
-```
+The interactive configuration is saved to your Robota settings file (`~/.robota/settings.json`),
+so you only configure it once. Re-run `robota --configure` any time to change the provider, base URL,
+or model. (There are no `ROBOTA_PROVIDER`/`ROBOTA_BASE_URL`/`ROBOTA_MODEL` environment variables;
+provider selection lives in settings, while hosted-provider API keys are read from their standard env
+vars such as `OPENAI_API_KEY`.)
 
 ### Recommended models for coding
 
