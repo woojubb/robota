@@ -1,15 +1,15 @@
 ---
-title: 'DOCS-004: content/ko 한국어 문서 최신화 (v2-era 재작성 + 끊긴 링크)'
+title: 'DOCS-010: content/ko 한국어 문서 최신화 (v2-era 재작성 + 끊긴 링크)'
 status: done
 created: 2026-06-16
 completed: 2026-06-16
 priority: medium
 urgency: later
 area: content/ko
-depends_on: [DOCS-002]
+depends_on: [DOCS-008]
 ---
 
-# DOCS-004: content/ko 한국어 문서 최신화
+# DOCS-010: content/ko 한국어 문서 최신화
 
 ## Problem
 

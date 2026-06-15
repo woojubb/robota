@@ -1,5 +1,5 @@
 ---
-title: 'DOCS-003: README 정확도 갱신 (root + 패키지 + apps)'
+title: 'DOCS-009: README 정확도 갱신 (root + 패키지 + apps)'
 status: done
 created: 2026-06-16
 completed: 2026-06-16
@@ -9,7 +9,7 @@ area: README.md, packages/agent-core, packages/agent-framework, packages/agent-c
 depends_on: []
 ---
 
-# DOCS-003: README 정확도 갱신
+# DOCS-009: README 정확도 갱신
 
 ## Problem
 

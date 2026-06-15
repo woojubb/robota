@@ -39,7 +39,7 @@ agent-interface-transport          ← this package (contracts only, zero deps)
   ├── ITransportEntry              ← (transport, config) pairing for registry storage
   └── ITransportRegistryView       ← read/write registry of IConfigurableTransport instances
 
-agent-transport/tui, /ws, /http, /mcp, /headless
+agent-transport-tui, /ws, /http, /mcp, /headless
   └── implements IConfigurableTransport<TSession>
 
 agent-framework
@@ -158,8 +158,8 @@ This package defines contracts that consumers implement or extend:
 
 | Extension Point          | Kind      | Implementor                                                | Description                                                          |
 | ------------------------ | --------- | ---------------------------------------------------------- | -------------------------------------------------------------------- |
-| `ITransportAdapter`      | Interface | `agent-transport/tui`, `/ws`, `/http`, `/mcp`, `/headless` | Implement to create a transport with attach/start/stop lifecycle     |
-| `IConfigurableTransport` | Interface | `agent-transport/tui`, `/ws`, `/http`, `/mcp`, `/headless` | Extend `ITransportAdapter` to support enable/disable and options     |
+| `ITransportAdapter`      | Interface | `agent-transport-tui`, `/ws`, `/http`, `/mcp`, `/headless` | Implement to create a transport with attach/start/stop lifecycle     |
+| `IConfigurableTransport` | Interface | `agent-transport-tui`, `/ws`, `/http`, `/mcp`, `/headless` | Extend `ITransportAdapter` to support enable/disable and options     |
 | `ITransportRegistryView` | Interface | `agent-framework` (`TransportRegistry`)                    | Implement to provide registry management for configurable transports |
 
 No abstract classes or base classes are exported — all extension is through interface implementation.
