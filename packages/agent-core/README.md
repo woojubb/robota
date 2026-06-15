@@ -100,12 +100,12 @@ Provider-specific SDK payload capture remains provider-owned. Providers may call
 ```
 agent-core (this package — zero workspace dependencies)
   ↑
-agent-sessions    ← Session lifecycle
+agent-session     ← Session lifecycle
 agent-tools       ← Tool implementations
-agent-providers   ← AI provider implementations
-agent-plugins     ← Plugin implementations (8 extracted packages)
+agent-provider    ← AI provider implementations (consolidated, multi-vendor sub-paths)
+agent-plugin      ← Plugin implementations (8 plugins, consolidated)
   ↑
-agent-sdk         ← Assembly layer
+agent-framework   ← Assembly layer
   ↑
 agent-cli         ← Terminal UI
 ```
@@ -130,7 +130,7 @@ agent-cli         ← Terminal UI
 | --------------------------------------------- | ---------------------------- |
 | `FunctionTool`, `ToolRegistry`, `OpenAPITool` | `@robota-sdk/agent-tools`    |
 | `MCPTool`, `RelayMcpTool`                     | `@robota-sdk/agent-tool-mcp` |
-| 8 plugins (logging, usage, performance, etc.) | `@robota-sdk/agent-plugin-*` |
+| 8 plugins (logging, usage, performance, etc.) | `@robota-sdk/agent-plugin`   |
 
 ## License
 

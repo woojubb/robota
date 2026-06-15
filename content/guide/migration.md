@@ -23,7 +23,7 @@ before/after examples for each one.
 | Removed alias  | `FunctionSchema` alias for `ToolSchema` removed                         |
 | Package rename | Provider sub-packages consolidated under `@robota-sdk/agent-provider/*` |
 | agent-session  | Major rewrite — several classes removed                                 |
-| agent-team     | Architecture change to relay-tool model                                 |
+| agent-team     | Package removed — multi-agent work moved to built-in subagent dispatch  |
 
 ---
 
@@ -222,25 +222,21 @@ to the new alternatives:
 Message editing and deletion methods have been removed. Conversation history is now
 append-only, which eliminates a class of state management bugs.
 
-### agent-team package
+### agent-team package (removed)
 
-The `TeamContainer` architecture was replaced with a relay-tool model.
+The v2 `@robota-sdk/agent-team` package and its `TeamContainer`/`createTeam` API were removed in
+3.0.0. There is no `agent-team` package anymore.
 
 ```typescript
-// v2.x
+// v2.x — no longer available
 import { createTeam, TeamContainer } from '@robota-sdk/agent-team';
-
 const team = createTeam({ agents: [...], coordinator: myAgent });
-
-// 3.0.0 — use relay tools
-import { createAssignTaskRelayTool } from '@robota-sdk/agent-team';
-
-const assignTool = createAssignTaskRelayTool({ /* ... */ });
-agent.addTool(assignTool);
 ```
 
-Refer to the [agent-team package SPEC.md](../../packages/agent-team/docs/SPEC.md) for
-the full relay-tool architecture.
+Multi-agent orchestration in 3.0.0 is handled by the built-in **subagent dispatch**: the framework's
+agent tool spawns isolated worker sessions (filtered tools, own conversation history), driven from the
+`agent` command in interactive mode. See [Building Agents](./building-agents.md) and the `agent`
+command for delegating parallel work to subagents.
 
 ---
 
