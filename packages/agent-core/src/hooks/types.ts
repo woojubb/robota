@@ -49,7 +49,7 @@ export interface IPromptHookDefinition {
   model?: string;
 }
 
-/** Agent hook — delegates to a sub-agent */
+/** Agent hook — delegates to a subagent */
 export interface IAgentHookDefinition {
   type: 'agent';
   agent: string;
