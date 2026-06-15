@@ -1,5 +1,5 @@
 ---
-title: 'DOCS-006: content/api-reference 처리 방향 결정 (retire vs regenerate) + dead link 수정'
+title: 'DOCS-012: content/api-reference 처리 방향 결정 (retire vs regenerate) + dead link 수정'
 status: done
 created: 2026-06-16
 completed: 2026-06-16
@@ -9,7 +9,7 @@ area: content/api-reference, scripts/docs, content/quickstart.md, apps/docs
 depends_on: []
 ---
 
-# DOCS-006: api-reference 처리 방향 결정 + dead link
+# DOCS-012: api-reference 처리 방향 결정 + dead link
 
 ## Problem
 

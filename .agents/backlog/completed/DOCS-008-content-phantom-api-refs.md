@@ -1,5 +1,5 @@
 ---
-title: 'DOCS-002: content 가이드의 존재하지 않는 패키지/API 참조 정리'
+title: 'DOCS-008: content 가이드의 존재하지 않는 패키지/API 참조 정리'
 status: done
 created: 2026-06-16
 completed: 2026-06-16
@@ -9,7 +9,7 @@ area: content/guide, content/examples, content/quickstart.md
 depends_on: []
 ---
 
-# DOCS-002: content 존재하지 않는 패키지/API 참조 정리
+# DOCS-008: content 존재하지 않는 패키지/API 참조 정리
 
 ## Problem
 

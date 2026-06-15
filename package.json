@@ -135,8 +135,6 @@
     "marked": "^9.1.6",
     "prettier": "^3.8.4",
     "tsx": "^4.22.4",
-    "typedoc": "^0.25.13",
-    "typedoc-plugin-markdown": "^3.17.1",
     "typescript": "^5.9.3",
     "vitest": "^3.2.6"
   },

@@ -35,7 +35,7 @@ A **thin CLI layer** built on top of agent-sdk, responsible only for the termina
   deterministic workflow hook policy, review/evidence gates, or workflow run lifecycle — these must
   be owned below the CLI by SDK/runtime/harness contracts before TUI screens are added
 - Does NOT own ITerminalOutput/ISpinner — SSOT is `@robota-sdk/agent-core` (domain port); CLI re-exports from `@robota-sdk/agent-core` and must not import `agent-sessions` in production source
-- Does NOT own Ink TUI components, permission-prompt, TUI hooks, TUI flows, or `TuiStateManager` — these are owned by `@robota-sdk/agent-transport/tui`
+- Does NOT own Ink TUI components, permission-prompt, TUI hooks, TUI flows, or `TuiStateManager` — these are owned by `@robota-sdk/agent-transport-tui`
 - OWNS: CLI argument parsing, process lifecycle and assembly, `TransportRegistry`, `ITuiCliAdapter` wiring, provider composition
 - OWNS: CLI package-version update checks and user-level update-check cache
 - OWNS: Concrete local host adapters (background runner, child-process subagent, Git worktree, settings I/O)
@@ -274,11 +274,11 @@ bin.ts → cli.ts (arg parsing + provider definition composition)
               ├── createResetCommandModule()      (from @robota-sdk/agent-command)
               ├── createRewindCommandModule()     (from @robota-sdk/agent-command)
               ├── createStatusLineCommandModule() (from @robota-sdk/agent-command)
-              └── renderApp({ ..., transportRegistry, cliAdapter })  (from @robota-sdk/agent-transport/tui)
+              └── renderApp({ ..., transportRegistry, cliAdapter })  (from @robota-sdk/agent-transport-tui)
                     └── TuiInteractionChannel (owns session lifecycle)
                           ├── InteractiveSession({ cwd, provider })
                           │   (from @robota-sdk/agent-framework; config/context loaded internally)
-                          ├── TuiStateManager    (owned by agent-transport/tui)
+                          ├── TuiStateManager    (owned by agent-transport-tui)
                           │   holds history: IHistoryEntry[]  ← primary state for message list
                           │   syncs from interactiveSession.getFullHistory() on each update
                           ├── CommandRegistry    (from @robota-sdk/agent-framework)
@@ -346,7 +346,7 @@ Registered transports:
 
 | Transport     | Package                          | Default enabled | Purpose                                           |
 | ------------- | -------------------------------- | --------------- | ------------------------------------------------- |
-| `WsTransport` | `@robota-sdk/agent-transport/ws` | false           | Expose session over WebSocket for browser monitor |
+| `WsTransport` | `@robota-sdk/agent-transport-ws` | false           | Expose session over WebSocket for browser monitor |
 
 Transport enabled/disabled state and options are persisted in `settings.json` under the `transports`
 key. The CLI does not own WebSocket protocol framing or browser monitor UI.
@@ -910,7 +910,7 @@ marker) immediately before `renderApp()`.
 **Note:** `print-terminal.ts` and `types.ts` have been removed from `src/`. `ITerminalOutput` and
 `ISpinner` are owned by `@robota-sdk/agent-core`; import them directly from that package. All Ink
 TUI components, hooks, flows, `TuiStateManager`, and TUI-specific utilities are owned by
-`@robota-sdk/agent-transport/tui`. The CLI's `src/` contains only the lifecycle assembly, local host
+`@robota-sdk/agent-transport-tui`. The CLI's `src/` contains only the lifecycle assembly, local host
 adapters, and settings/provider utilities.
 
 **Note:** `CommandRegistry`, `BuiltinCommandSource`, `SkillCommandSource`, `PluginCommandSource`, `SystemCommandExecutor`, `ICommand`, `ICommandSource`, and `executeSkill()` are owned by `@robota-sdk/agent-framework`. The CLI does not use `SystemCommandExecutor` directly; slash command execution goes through `session.executeCommand(name, args)`. The CLI has no `src/commands/` compatibility surface. Plugin command discovery uses the SDK-owned `PluginCommandSource`; plugin command execution lives in `@robota-sdk/agent-command`. The CLI's `src/index.ts` exports only `startCli`.
