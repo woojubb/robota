@@ -3,14 +3,7 @@
   "workspaces": {
     ".": {
       "entry": ["scripts/**/*.{mjs,js,ts}"],
-      "ignoreDependencies": [
-        "@changesets/cli",
-        "husky",
-        "lint-staged",
-        "prettier",
-        "typedoc",
-        "typedoc-plugin-markdown"
-      ]
+      "ignoreDependencies": ["@changesets/cli", "husky", "lint-staged", "prettier"]
     },
     "packages/*": {
       "entry": ["src/index.ts"],

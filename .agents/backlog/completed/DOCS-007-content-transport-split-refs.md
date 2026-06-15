@@ -1,5 +1,5 @@
 ---
-title: 'DOCS-001: content 문서의 transport split 참조 갱신 (agent-transport/{tui,http,ws,mcp} → 독립 패키지)'
+title: 'DOCS-007: content 문서의 transport split 참조 갱신 (agent-transport/{tui,http,ws,mcp} → 독립 패키지)'
 status: done
 created: 2026-06-16
 completed: 2026-06-16
@@ -9,7 +9,7 @@ area: content/guide, content/examples, content/README.md, content/development
 depends_on: []
 ---
 
-# DOCS-001: content transport split 참조 갱신
+# DOCS-007: content transport split 참조 갱신
 
 ## Problem
 
