@@ -510,4 +510,4 @@ See [docs/SPEC.md](./docs/SPEC.md) for the full specification, architecture deta
 
 ## License
 
-MIT
+Robota is dual-licensed under the [GNU AGPL-3.0](../../LICENSE) or a [commercial license](../../LICENSE-COMMERCIAL.md). See [LICENSING.md](../../LICENSING.md).

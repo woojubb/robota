@@ -120,4 +120,4 @@ Node.js 22+ required. See [Development Guide](https://robota.io/development/) fo
 
 ## License
 
-MIT
+Robota is dual-licensed under the [GNU AGPL-3.0](LICENSE) or a [commercial license](LICENSE-COMMERCIAL.md). See [LICENSING.md](LICENSING.md).

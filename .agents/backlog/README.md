@@ -746,6 +746,12 @@ DOCS-007~012 실행 중 도출된 후속 정리 항목. 전부 구현 완료 (20
 | [DOCFIX-002](completed/DOCFIX-002-docs-id-collision.md) ✅          | 백로그 DOCS ID 충돌 해소 (DOCS-001 3중복 → 고유화)              | medium   |
 | [DOCFIX-003](completed/DOCFIX-003-remove-unused-typedoc-deps.md) ✅ | 미사용 typedoc devDependencies 제거 (api-reference retire 후속) | low      |
 
+### Licensing (2026-06-16)
+
+| ID                                                              | 제목                                           | 우선순위 |
+| --------------------------------------------------------------- | ---------------------------------------------- | -------- |
+| [LICENSE-001](completed/LICENSE-001-agpl-commercial-dual.md) ✅ | MIT → AGPL-3.0 + Commercial 듀얼 라이선스 전환 | high     |
+
 ### Harness Audit Recommendations (rulebased-harness, 2026-06-15)
 
 rulebased-harness 감사(A등급, 55/57) 결과 도출된 보편성 강화 항목. AGENTS.md domain-free 설계를
