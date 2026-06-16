@@ -422,6 +422,9 @@ importers:
 
   apps/www:
     dependencies:
+      lucide-react:
+        specifier: ^0.525.0
+        version: 0.525.0(react@19.1.0)
       next:
         specifier: ^15.5.15
         version: 15.5.19(@babel/core@7.29.7)(react-dom@19.1.0)(react@19.1.0)
@@ -12666,6 +12669,14 @@ packages:
     dependencies:
       lodash.clonedeep: 4.5.0
       lru-cache: 6.0.0
+    dev: false
+
+  /lucide-react@0.525.0(react@19.1.0):
+    resolution: {integrity: sha512-Tm1txJ2OkymCGkvwoHt33Y2JpN5xucVq1slHcgE6Lk0WjDfjgKWor5CdVER8U6DvcfMwh4M8XxmpTiyzfmfDYQ==}
+    peerDependencies:
+      react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
+    dependencies:
+      react: 19.1.0
     dev: false
 
   /lucide-react@0.525.0(react@19.2.7):

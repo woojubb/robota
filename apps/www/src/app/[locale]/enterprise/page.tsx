@@ -32,7 +32,7 @@ export default async function EnterprisePage({ params }: { params: Promise<{ loc
         <p className="text-sm text-[var(--muted-foreground)] mb-5">
           {t('contact.responseTime')}{' '}
           <strong className="text-[var(--foreground)]">{t('contact.responseTimeHighlight')}</strong>
-          {'.'}
+          {t('contact.responseTimeSuffix')}
         </p>
         <div className="flex flex-wrap gap-3">
           <a
