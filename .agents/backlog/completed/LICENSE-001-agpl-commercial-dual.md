@@ -21,7 +21,7 @@ depends_on: []
 - 권리자/licensor: **Robota**(기존 브랜딩 일치). 상업 문의: robota.io / GitHub(전용 이메일은 추후 1줄 교체).
 - SPDX: `AGPL-3.0-only OR LicenseRef-Commercial`.
 - `LICENSE` = 듀얼 헤더 + **공식 AGPL-3.0 전문**(gnu.org 원문 661줄).
-- `LICENSE-COMMERCIAL.md`(상업 라이선스 요약·문의) + `LICENSING.md`(듀얼 모델 설명) 신설.
+- `COMMERCIAL.md`(상업 라이선스 요약·문의) + `LICENSING.md`(듀얼 모델 설명) 신설.
 - 전 package.json `license` 필드 + 모든 README License 섹션 + www/docs 마케팅 카피 갱신.
 
 ## Completion Criteria
@@ -54,7 +54,7 @@ Not applicable — 라이선스/문서/메타데이터 변경. 런타임 동작 
 
 - **TC-01:** `LICENSE` = 듀얼 헤더(Copyright Robota, SPDX `AGPL-3.0-only OR LicenseRef-Commercial`,
   상업 라이선스 안내) + gnu.org 공식 **AGPL-3.0 전문**(661줄, curl 검증: 제목·버전·§13 마커). 679줄.
-  `LICENSE-COMMERCIAL.md`·`LICENSING.md` 신설.
+  `COMMERCIAL.md`·`LICENSING.md` 신설.
 - **TC-02:** MIT 23개 surgical 치환 + 미설정 7개 추가 → **31개 전부** `AGPL-3.0-only OR LicenseRef-Commercial`.
 - **TC-03:** README 9개 License 섹션, content/README 배지+표, apps/www en·ko(각 9곳), apps/www
   layout.tsx 메타데이터, apps/docs en·ko 배지, agent-cli README/README-KO, blog 글, CONTRIBUTING,
