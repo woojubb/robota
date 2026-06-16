@@ -2,10 +2,10 @@
 
 Robota is **dual-licensed**:
 
-| License                                                         | Use it when…                                                                                   | Cost |
-| --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ---- |
-| **AGPL-3.0** ([LICENSE](LICENSE))                               | Your project is open source, or you can comply with AGPL-3.0 (incl. network source-disclosure) | Free |
-| **Commercial** ([LICENSE-COMMERCIAL.md](LICENSE-COMMERCIAL.md)) | You build a proprietary/closed-source or SaaS product and cannot meet AGPL-3.0 obligations     | Paid |
+| License                                         | Use it when…                                                                                   | Cost |
+| ----------------------------------------------- | ---------------------------------------------------------------------------------------------- | ---- |
+| **AGPL-3.0** ([LICENSE](LICENSE))               | Your project is open source, or you can comply with AGPL-3.0 (incl. network source-disclosure) | Free |
+| **Commercial** ([COMMERCIAL.md](COMMERCIAL.md)) | You build a proprietary/closed-source or SaaS product and cannot meet AGPL-3.0 obligations     | Paid |
 
 `SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Commercial`
 
@@ -18,7 +18,7 @@ Robota is **dual-licensed**:
 - **Get a commercial license** if you want to embed Robota in a closed-source
   product, or run it as a network service, **without** publishing your source.
 
-See [LICENSE-COMMERCIAL.md](LICENSE-COMMERCIAL.md) for what the commercial license
+See [COMMERCIAL.md](COMMERCIAL.md) for what the commercial license
 grants and how to obtain one.
 
 ## Scope
