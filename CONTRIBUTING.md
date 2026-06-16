@@ -107,4 +107,4 @@ pnpm format
 
 ## License
 
-All contributions are provided under the project's MIT license.
+All contributions are provided under the project's dual license (AGPL-3.0 / Commercial); see LICENSING.md.

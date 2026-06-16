@@ -8,7 +8,7 @@
       "github": "GitHub"
     },
     "footer": {
-      "tagline": "오픈소스 AI 에이전트 SDK 및 CLI. MIT 라이선스.",
+      "tagline": "오픈소스 AI 에이전트 SDK 및 CLI. 듀얼 라이선스: AGPL-3.0 및 상업용.",
       "product": "제품",
       "developers": "개발자",
       "company": "회사",
@@ -25,7 +25,7 @@
         "issues": "이슈",
         "playground": "플레이그라운드"
       },
-      "copyright": "© 2026 Robota. MIT 라이선스."
+      "copyright": "© 2026 Robota. AGPL-3.0 및 상업용."
     },
     "lang": {
       "en": "EN",
@@ -38,7 +38,7 @@
       "title": "진정한 소유권을 갖는 오픈소스 AI 에이전트 SDK",
       "titleHighlight": "당신이 직접 소유하는",
       "description": "멀티 프로바이더 BYOK CLI 및 임베드 가능한 SDK. 설정 한 줄로",
-      "descriptionSuffix": "를 자유롭게 전환하세요. MIT 라이선스.",
+      "descriptionSuffix": "를 자유롭게 전환하세요. AGPL-3.0 및 상업용 라이선스.",
       "getStarted": "시작하기",
       "github": "GitHub",
       "compareTo": "도구 비교",
@@ -68,7 +68,7 @@
       },
       {
         "icon": "🔓",
-        "title": "MIT 라이선스",
+        "title": "AGPL-3.0 및 상업용",
         "description": "모든 코드를 공개적으로 감사할 수 있으며 상업적 제품에 자유롭게 포크, 수정, 사용할 수 있습니다. CLA 불필요."
       },
       {
@@ -88,14 +88,14 @@
   },
   "compare": {
     "title": "왜 Robota인가?",
-    "description": "어떤 프로바이더든 본인의 키를 사용하고, 로컬 모델로 오프라인에서 실행하며, 동일한 엔진을 자신의 앱에 임베드할 수 있는 유일한 AI 코딩 CLI — 모두 MIT 라이선스 하에.",
+    "description": "어떤 프로바이더든 본인의 키를 사용하고, 로컬 모델로 오프라인에서 실행하며, 동일한 엔진을 자신의 앱에 임베드할 수 있는 유일한 AI 코딩 CLI — 모두 AGPL-3.0 오픈소스 라이선스(상업용 라이선스 별도 제공) 하에.",
     "featureComparison": "기능 비교",
     "features": [
       "멀티 프로바이더 (단일 설정)",
       "BYOK — 구독 불필요",
       "로컬 모델 지원 (Ollama/LM Studio)",
       "임베드 가능한 SDK",
-      "오픈소스 (MIT)",
+      "오픈소스 (AGPL-3.0)",
       "TypeScript 우선, 엄격한 타입",
       "터미널 CLI",
       "세션 지속성 및 재개",
@@ -114,7 +114,7 @@
           "body": "@robota-sdk/agent-framework를 통해 동일한 에이전트 런타임을 사용자에게 제공하세요. 다른 AI 코딩 어시스턴트는 이를 제공하지 않습니다 — Claude Code, Cursor, Cline은 모두 클로즈드 제품입니다."
         },
         {
-          "title": "3. 완전한 오픈소스 (MIT)",
+          "title": "3. 완전한 오픈소스 (AGPL-3.0)",
           "body": "모든 코드를 공개적으로 감사할 수 있습니다. 포크, 수정, 자체 호스팅, 상업적 제품 제작 — CLA 불필요."
         },
         {
@@ -193,7 +193,7 @@
       },
       "highlights": [
         {
-          "title": "MIT 라이선스",
+          "title": "AGPL-3.0 및 상업용",
           "body": "github.com/woojubb/robota에서 감사를 위한 전체 소스 코드 제공"
         },
         {
@@ -227,7 +227,7 @@
         },
         {
           "q": "상업적 라이선스 옵션이 있나요?",
-          "a": "Robota는 MIT 라이선스로 제한 없이 상업적으로 무료 사용이 가능합니다. 엔터프라이즈 지원 계약(SLA, 전용 채널, 커스텀 통합)도 제공됩니다 — 자세한 내용은 문의해 주세요."
+          "a": "네. Robota는 듀얼 라이선스입니다: AGPL-3.0으로 무료 사용이 가능하며, AGPL-3.0 의무를 충족할 수 없는 독점/비공개 소스 용도를 위한 상업용 라이선스도 제공됩니다. 엔터프라이즈 지원 계약(SLA, 전용 채널, 커스텀 통합)도 제공됩니다 — 자세한 내용은 문의해 주세요."
         }
       ]
     },

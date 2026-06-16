@@ -8,7 +8,7 @@
       "github": "GitHub"
     },
     "footer": {
-      "tagline": "Open-source AI agent SDK and CLI. MIT licensed.",
+      "tagline": "Open-source AI agent SDK and CLI. Dual-licensed: AGPL-3.0 & commercial.",
       "product": "Product",
       "developers": "Developers",
       "company": "Company",
@@ -25,7 +25,7 @@
         "issues": "Issues",
         "playground": "Playground"
       },
-      "copyright": "© 2026 Robota. MIT License."
+      "copyright": "© 2026 Robota. AGPL-3.0 & Commercial."
     },
     "lang": {
       "en": "EN",
@@ -38,7 +38,7 @@
       "title": "The open-source AI agent SDK",
       "titleHighlight": "that you actually own",
       "description": "Multi-provider BYOK CLI and embeddable SDK. Switch between",
-      "descriptionSuffix": "with one config change. MIT licensed.",
+      "descriptionSuffix": "with one config change. AGPL-3.0 & commercial.",
       "getStarted": "Get Started",
       "github": "GitHub",
       "compareTo": "Compare Tools",
@@ -68,7 +68,7 @@
       },
       {
         "icon": "🔓",
-        "title": "MIT Licensed",
+        "title": "AGPL-3.0 & Commercial",
         "description": "Every line is publicly auditable and free to fork, modify, and use in commercial products — no CLA required."
       },
       {
@@ -88,14 +88,14 @@
   },
   "compare": {
     "title": "Why Robota?",
-    "description": "The only AI coding CLI that lets you bring your own key for any provider, run offline with a local model, and embed the same engine into your own app — all under the MIT license.",
+    "description": "The only AI coding CLI that lets you bring your own key for any provider, run offline with a local model, and embed the same engine into your own app — open source under the AGPL-3.0, with a commercial license available.",
     "featureComparison": "Feature Comparison",
     "features": [
       "Multi-provider (one config)",
       "BYOK — no subscription required",
       "Local model support (Ollama/LM Studio)",
       "Embeddable SDK",
-      "Open source (MIT)",
+      "Open source (AGPL-3.0)",
       "TypeScript-first, strict types",
       "Terminal CLI",
       "Session persistence & resume",
@@ -114,7 +114,7 @@
           "body": "Ship the same agent runtime to your users via @robota-sdk/agent-framework. No other AI coding assistant exposes this — Claude Code, Cursor, and Cline are closed products."
         },
         {
-          "title": "3. Fully Open Source (MIT)",
+          "title": "3. Fully Open Source (AGPL-3.0)",
           "body": "Every line is publicly auditable. Fork it, modify it, self-host it, build commercial products — no CLA required."
         },
         {
@@ -192,7 +192,7 @@
       },
       "highlights": [
         {
-          "title": "MIT License",
+          "title": "AGPL-3.0 & Commercial",
           "body": "Full source code available for audit at github.com/woojubb/robota"
         },
         {
@@ -226,7 +226,7 @@
         },
         {
           "q": "Is there a commercial license option?",
-          "a": "Robota is MIT-licensed and free to use commercially without restriction. Enterprise support contracts (SLA, dedicated channels, custom integrations) are available — contact us for details."
+          "a": "Yes. Robota is dual-licensed: free under the AGPL-3.0, with a commercial license available for proprietary or closed-source use that cannot meet the AGPL-3.0 obligations. Enterprise support contracts (SLA, dedicated channels, custom integrations) are also available — contact us for details."
         }
       ]
     },

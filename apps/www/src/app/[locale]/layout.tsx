@@ -10,7 +10,7 @@ export const metadata: Metadata = {
     template: '%s | Robota',
   },
   description:
-    'Open-source AI agent SDK and CLI. Multi-provider BYOK — Anthropic, OpenAI, DeepSeek, Gemini, or local models. MIT licensed.',
+    'Open-source AI agent SDK and CLI. Multi-provider BYOK — Anthropic, OpenAI, DeepSeek, Gemini, or local models. Dual-licensed: AGPL-3.0 & commercial.',
   metadataBase: new URL('https://www.robota.io'),
   openGraph: {
     type: 'website',
@@ -18,13 +18,13 @@ export const metadata: Metadata = {
     siteName: 'Robota',
     title: 'Robota — Open-Source AI Agent SDK',
     description:
-      'Open-source AI agent SDK and CLI. Multi-provider BYOK — Anthropic, OpenAI, DeepSeek, Gemini, or local models. MIT licensed.',
+      'Open-source AI agent SDK and CLI. Multi-provider BYOK — Anthropic, OpenAI, DeepSeek, Gemini, or local models. Dual-licensed: AGPL-3.0 & commercial.',
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Robota — Open-Source AI Agent SDK',
     description:
-      'Open-source AI agent SDK and CLI. Multi-provider BYOK — Anthropic, OpenAI, DeepSeek, Gemini, or local models. MIT licensed.',
+      'Open-source AI agent SDK and CLI. Multi-provider BYOK — Anthropic, OpenAI, DeepSeek, Gemini, or local models. Dual-licensed: AGPL-3.0 & commercial.',
   },
 };
 

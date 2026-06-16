@@ -10,7 +10,7 @@
     "backToSite": "← robota.io"
   },
   "home": {
-    "badge": "오픈소스 · MIT 라이선스",
+    "badge": "오픈소스 · AGPL-3.0 및 상업용",
     "title": "Robota SDK",
     "titleHighlight": "문서",
     "description": "멀티 프로바이더 AI 에이전트 SDK 및 CLI — TypeScript 네이티브, 자체 호스팅 가능. Anthropic, OpenAI, DeepSeek, Gemini, 로컬 모델을 지원합니다.",

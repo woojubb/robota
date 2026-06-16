@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "version": "0.0.1",
+  "license": "AGPL-3.0-only OR LicenseRef-Commercial",
   "engines": {
     "node": ">=22.12.0"
   },

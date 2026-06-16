@@ -10,7 +10,7 @@
     "backToSite": "← robota.io"
   },
   "home": {
-    "badge": "open-source · MIT licensed",
+    "badge": "open-source · AGPL-3.0 & commercial",
     "title": "Robota SDK",
     "titleHighlight": "Documentation",
     "description": "Multi-provider AI agent SDK and CLI — TypeScript-native, self-hostable. Supports Anthropic, OpenAI, DeepSeek, Gemini, and local models.",

@@ -12,7 +12,7 @@ lang: en-US
 [![npm version](https://img.shields.io/npm/v/@robota-sdk/agent-core?label=npm)](https://www.npmjs.com/package/@robota-sdk/agent-core)
 [![npm downloads](https://img.shields.io/npm/dm/@robota-sdk/agent-cli?label=downloads)](https://www.npmjs.com/package/@robota-sdk/agent-cli)
 [![GitHub stars](https://img.shields.io/github/stars/woojubb/robota?style=social)](https://github.com/woojubb/robota)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
+[![License: AGPL-3.0 OR Commercial](https://img.shields.io/badge/license-AGPL--3.0%20OR%20Commercial-blue)](./LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue)](https://www.typescriptlang.org/)
 
 **[→ 2-minute CLI install](#installation)** &nbsp;|&nbsp; **[→ Build your first agent](./getting-started/)** &nbsp;|&nbsp; **[→ Try Playground](https://play.robota.io/playground)**
@@ -39,7 +39,7 @@ The CLI is built on top of the Assembly Layer. The Assembly Layer is assembled f
 | BYOK — no subscription required        |     ✅     |        ✅         | ❌ subscription |  ✅   |  ✅   |
 | Local model support (Ollama/LM Studio) |     ✅     |        ❌         |       ❌        |  ✅   |  ✅   |
 | Embeddable SDK (use in your own app)   |     ✅     |        ❌         |       ❌        |  ❌   |  ❌   |
-| Open source (MIT)                      |     ✅     |  ❌ proprietary   | ❌ proprietary  |  ✅   |  ✅   |
+| Open source (AGPL-3.0)                 |     ✅     |  ❌ proprietary   | ❌ proprietary  |  ✅   |  ✅   |
 | Terminal CLI                           |     ✅     |        ✅         |   ❌ IDE only   |  ✅   |  ✅   |
 | Session persistence & resume           |     ✅     |        ✅         |       ✅        |  ❌   |  ❌   |
 
@@ -238,4 +238,4 @@ npm install -g @robota-sdk/agent-cli && robota
 
 ## License
 
-MIT
+Robota is dual-licensed under the [GNU AGPL-3.0](../LICENSE) or a [commercial license](../LICENSE-COMMERCIAL.md). See [LICENSING.md](../LICENSING.md).
