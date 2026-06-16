@@ -143,7 +143,7 @@ For complete documentation, visit [https://robota.io/](https://robota.io/)
 
 ## License
 
-MIT
+Dual-licensed under AGPL-3.0 or a commercial license. See LICENSING.md.
 `;
 }
 

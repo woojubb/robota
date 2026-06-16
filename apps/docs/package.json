@@ -1,6 +1,7 @@
 {
   "name": "robota-docs",
   "version": "1.0.25",
+  "license": "AGPL-3.0-only OR LicenseRef-Commercial",
   "private": true,
   "scripts": {
     "dev": "next dev --port 3020",
