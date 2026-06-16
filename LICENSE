@@ -1,20 +1,5 @@
 Copyright (C) 2024-2026 Robota
-
-Robota is dual-licensed. You may use, copy, modify, and distribute this software
-under the terms of EITHER:
-
-  (1) the GNU Affero General Public License, version 3.0 (AGPL-3.0), the full
-      text of which is reproduced below; OR
-
-  (2) a commercial license from Robota, for use in proprietary/closed-source
-      products or where the AGPL-3.0 obligations are not acceptable. See
-      LICENSE-COMMERCIAL.md and LICENSING.md for details and how to obtain one.
-
-If you did not obtain a commercial license, your use is governed by the AGPL-3.0.
-
-SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Commercial
-
-================================================================================
+Dual-licensed: GNU AGPL-3.0 (full text below) OR a commercial license — see LICENSING.md.
 
                     GNU AFFERO GENERAL PUBLIC LICENSE
                        Version 3, 19 November 2007
