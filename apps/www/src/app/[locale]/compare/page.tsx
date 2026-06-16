@@ -53,6 +53,8 @@ export default async function ComparePage({ params }: { params: Promise<{ locale
   setRequestLocale(locale);
   const t = await getTranslations('compare');
   const features = t.raw('features') as string[];
+  const notes = t.raw('notes') as Record<string, string>;
+  const noteLabel = (note?: string) => (note ? (notes[note] ?? note) : undefined);
   const differentiatorItems = t.raw('differentiators.items') as Array<{
     title: string;
     body: string;
@@ -85,7 +87,7 @@ export default async function ComparePage({ params }: { params: Promise<{ locale
             <thead>
               <tr className="border-b border-[var(--border)] bg-[var(--card)]">
                 <th className="px-4 py-3 text-left font-semibold text-[var(--muted-foreground)]">
-                  Feature
+                  {t('featureColumnHeader')}
                 </th>
                 <th className="px-4 py-3 text-center font-semibold text-[var(--primary)]">
                   Robota
@@ -113,13 +115,13 @@ export default async function ComparePage({ params }: { params: Promise<{ locale
                   <td className="px-4 py-3 text-[var(--foreground)]">{row.feature}</td>
                   <td className="px-4 py-3 text-center">{row.robota ? <Check /> : <Cross />}</td>
                   <td className="px-4 py-3 text-center">
-                    {row.claudeCode ? <Check /> : <Cross note={row.claudeCodeNote} />}
+                    {row.claudeCode ? <Check /> : <Cross note={noteLabel(row.claudeCodeNote)} />}
                   </td>
                   <td className="px-4 py-3 text-center">
-                    {row.cursor ? <Check /> : <Cross note={row.cursorNote} />}
+                    {row.cursor ? <Check /> : <Cross note={noteLabel(row.cursorNote)} />}
                   </td>
                   <td className="px-4 py-3 text-center">
-                    {row.aider ? <Check /> : <Cross note={row.aiderNote} />}
+                    {row.aider ? <Check /> : <Cross note={noteLabel(row.aiderNote)} />}
                   </td>
                   <td className="px-4 py-3 text-center">{row.cline ? <Check /> : <Cross />}</td>
                 </tr>

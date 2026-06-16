@@ -1,5 +1,8 @@
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import Link from 'next/link';
+import { KeyRound, Repeat, Package, Server, ShieldCheck, Zap } from 'lucide-react';
+
+const FEATURE_ICONS = [KeyRound, Repeat, Package, Server, ShieldCheck, Zap];
 
 const PROVIDERS = [
   { name: 'Anthropic', color: 'text-orange-400' },
@@ -14,7 +17,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
   setRequestLocale(locale);
   const t = await getTranslations('home');
 
-  const features = t.raw('features') as Array<{ icon: string; title: string; description: string }>;
+  const features = t.raw('features') as Array<{ title: string; description: string }>;
 
   return (
     <>
@@ -87,16 +90,21 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
             {t('featuresTitle')}
           </h2>
           <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {features.map((f) => (
-              <div
-                key={f.title}
-                className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-5"
-              >
-                <div className="text-2xl">{f.icon}</div>
-                <h3 className="mt-3 text-base font-semibold text-[var(--foreground)]">{f.title}</h3>
-                <p className="mt-1.5 text-sm text-[var(--muted-foreground)]">{f.description}</p>
-              </div>
-            ))}
+            {features.map((f, i) => {
+              const Icon = FEATURE_ICONS[i] ?? KeyRound;
+              return (
+                <div
+                  key={f.title}
+                  className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-5"
+                >
+                  <Icon className="h-6 w-6 text-[var(--primary)]" strokeWidth={1.75} />
+                  <h3 className="mt-3 text-base font-semibold text-[var(--foreground)]">
+                    {f.title}
+                  </h3>
+                  <p className="mt-1.5 text-sm text-[var(--muted-foreground)]">{f.description}</p>
+                </div>
+              );
+            })}
           </div>
         </div>
       </section>
