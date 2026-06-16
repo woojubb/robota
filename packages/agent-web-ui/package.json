@@ -63,7 +63,7 @@
     "vite": "^8.0.16",
     "vitest": "^3.2.6"
   },
-  "license": "MIT",
+  "license": "AGPL-3.0-only OR LicenseRef-Commercial",
   "publishConfig": {
     "access": "public"
   },

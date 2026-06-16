@@ -14,7 +14,7 @@ AI coding assistant CLI built on Robota SDK. Loads AGENTS.md/CLAUDE.md for proje
 | Multi-provider (Anthropic, OpenAI, Gemini, Qwen…) |   ✅   |     ❌      |  ✅   |
 | Embed SDK in your own app                         |   ✅   |     ❌      |  ❌   |
 | Local models (LM Studio, Ollama via OpenAI API)   |   ✅   |     ❌      |  ✅   |
-| Open source (MIT)                                 |   ✅   |   partial   |  ✅   |
+| Open source (AGPL-3.0)                            |   ✅   |   partial   |  ✅   |
 | Claude Code config compatible (CLAUDE.md, modes)  |   ✅   |      —      |  ❌   |
 
 ## Embed in Your App
@@ -551,4 +551,4 @@ See [docs/SPEC.md](./docs/SPEC.md) for the full specification, architecture deta
 
 ## License
 
-MIT
+Robota is dual-licensed under the [GNU AGPL-3.0](../../LICENSE) or a [commercial license](../../LICENSE-COMMERCIAL.md). See [LICENSING.md](../../LICENSING.md).

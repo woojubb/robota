@@ -102,4 +102,4 @@ For teams adopting Robota in production codebases, this matters. Code review bec
 
 ---
 
-Robota SDK is open source under MIT. If this approach resonates with you, [try it out](https://robota.io/getting-started/) or [contribute on GitHub](https://github.com/woojubb/robota).
+Robota SDK is open source under the AGPL-3.0 (with a commercial license available). If this approach resonates with you, [try it out](https://robota.io/getting-started/) or [contribute on GitHub](https://github.com/woojubb/robota).
