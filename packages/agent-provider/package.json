@@ -1,6 +1,7 @@
 {
   "name": "@robota-sdk/agent-provider",
   "version": "3.0.0-beta.76",
+  "license": "AGPL-3.0-only OR LicenseRef-Commercial",
   "description": "Consolidated AI provider implementations for Robota SDK",
   "type": "module",
   "publishConfig": {

@@ -52,7 +52,7 @@
     "typescript": "^5.9.3",
     "vitest": "^3.2.6"
   },
-  "license": "MIT",
+  "license": "AGPL-3.0-only OR LicenseRef-Commercial",
   "publishConfig": {
     "access": "public"
   },

@@ -72,7 +72,7 @@
     "ai-integration"
   ],
   "author": "Robota SDK Team",
-  "license": "MIT",
+  "license": "AGPL-3.0-only OR LicenseRef-Commercial",
   "engines": {
     "node": ">=18.0.0"
   },

@@ -115,7 +115,7 @@
     "robota"
   ],
   "author": "Robota SDK Team",
-  "license": "MIT",
+  "license": "AGPL-3.0-only OR LicenseRef-Commercial",
   "devDependencies": {
     "@changesets/changelog-github": "^0.6.0",
     "@changesets/cli": "^2.31.0",
