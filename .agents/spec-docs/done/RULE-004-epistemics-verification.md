@@ -8,12 +8,12 @@ tags: [typescript]
 
 ## Problem
 
-Distilled from the Claude Fable-5 system prompt
-(`.design/fable5-adoption/2026-06-18/_SOURCE-fable5.md`: `### knowledge_cutoff` L156–165,
+Distilled from the external reference conduct profile (RCP)
+(`the external reference conduct profile (not committed)`: `### knowledge_cutoff` L156–165,
 `### core_search_behaviors` / `### search_usage_guidelines` L436–491, `## citation_instructions`
 L1533–1553), scoped to **epistemic discipline & verification** for a coding agent in this repo.
 
-Fable-5's consumer-chat "search the web before asserting changeable facts" maps onto a coding agent
+RCP's consumer-chat "search the web before asserting changeable facts" maps onto a coding agent
 as: **verify current library/API/SDK/CLI behavior against docs or code rather than relying on
 memorized (possibly outdated) knowledge before asserting or writing code; report verification
 outcomes faithfully; cite a source of truth for substantive external claims.**
@@ -27,9 +27,9 @@ layer: don't trust stale memory about external APIs, don't guess at unrecognized
 actual current date when querying, and don't make overconfident claims about findings or their
 absence. RULE-001 lists this only as a "thin C" item — this draft is its dedicated owner.
 
-## Gap Analysis (Fable-5 → coding agent vs current harness)
+## Gap Analysis (RCP → coding agent vs current harness)
 
-| Fable-5 principle (coding mapping)                                                                                                     | Already covered?                                                                                                                                             | Verdict                                   |
+| RCP principle (coding mapping)                                                                                                         | Already covered?                                                                                                                                             | Verdict                                   |
 | -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------- |
 | Verify current API/library/SDK/CLI behavior against docs/code before asserting or coding; don't rely on memorized (stale) knowledge    | `research.md` forces docs-first research **before implementation**; no rule for pre-assertion verification of external behavior. RULE-001(C) is "thin" only. | **NEW (A)**                               |
 | Don't guess at unrecognized entities (package names, flags, symbols, error strings); identify them via repo grep/read or official docs | No rule. no-fallback is about runtime fallback, not "don't guess what you don't know".                                                                       | **NEW (B)**                               |
@@ -39,7 +39,7 @@ absence. RULE-001 lists this only as a "thin C" item — this draft is its dedic
 | Scale effort to complexity                                                                                                             | `research.md` "proportional research" covers it.                                                                                                             | **COVERED**                               |
 
 No direct conflicts with the harness — every harness verification rule reinforces this in the same
-direction (Fable-5 wins on conflict if one arises; "mention cutoff only when relevant" per L460).
+direction (RCP wins on conflict if one arises; "mention cutoff only when relevant" per L460).
 
 ## Proposed additions (the only content to import)
 
@@ -145,7 +145,7 @@ After GATE-APPROVAL picks placement (recommend Alt A) and confirms RULE-001(C/D)
 
 ## Evidence Log
 
-- 2026-06-18 — Source assessed: Fable-5 `knowledge_cutoff` (L156–165), `core_search_behaviors` /
+- 2026-06-18 — Source assessed: RCP `knowledge_cutoff` (L156–165), `core_search_behaviors` /
   `search_usage_guidelines` (L436–491), `citation_instructions` (L1533–1553). Mapped 8 principles
   (F1–F8) to coding-agent verification. Harness cross-checked: `research.md` covers
   research-deliverable docs+citation; `verification.md` + common-mistakes #35/#54/#57 cover
