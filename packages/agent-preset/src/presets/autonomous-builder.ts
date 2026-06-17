@@ -49,7 +49,7 @@ export const autonomousBuilderPreset: IPreset = {
   title: 'Autonomous Builder',
   description:
     'Proactive, self-verifying builder posture — high effort, acts first, dispatches parallel ' +
-    'subagents (persona inspired by the documented reference profile work-style; original English wording).',
+    'subagents (proactive autonomous-builder persona; original English wording).',
   effort: 'high',
   autonomy: 'act-first',
   enableParallelSubagents: true,

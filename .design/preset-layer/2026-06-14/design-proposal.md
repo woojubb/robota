@@ -10,7 +10,7 @@
 
 ### 2.1 reference profile — 검증된 사실과 정직성 경계
 
-- `claude-reference-5`는 실제 Anthropic 모델(2026-06-09 출시). 1M 컨텍스트, 상시 adaptive thinking, raw chain-of-thought 미반환. 자매 모델 `claude-mythos-5`(safety classifier 해제판).
+- `the source reference model`는 실제 Anthropic 모델(2026-06-09 출시). 1M 컨텍스트, 상시 adaptive thinking, raw chain-of-thought 미반환. 자매 모델 `claude-mythos-5`(safety classifier 해제판).
 - 공식 문서가 기술하는 것은 **작업 스타일**: 철저함, 능동성(proactive), 자기 검증(self-validating), 높은 자율성("Opus가 멈춰 묻는 지점에서도 계속 진행"), 병렬 서브에이전트 적극 활용, 요청 범위를 넘어서는 경향.
 - **중요(정직성 경계):** Anthropic은 reference profile의 **시스템 프롬프트나 "성격 명세"를 공개한 적이 없다.** 성격 관련 서술은 2차 출처(리뷰)이며, 일부 주장("질문에 코멘트하는 경향", "접근 차단")은 미검증이다.
 - → **따라서 "reference profile 프롬프트 복제"는 불가능하다.** 우리가 만들 수 있는 것은 _문서화된 작업 스타일_ + Anthropic의 *Claude's Character 설계 원칙*을 재현한 프리셋이다. 이 점을 PRESET-005에 명시한다.
@@ -177,7 +177,7 @@ interface IPreset {
 
 ### 5.4 시스템 프롬프트 합성 아키텍처 (프리셋이 "제대로" 적용되는 구조)
 
-근거: 공개된(커뮤니티 유출) Reference Conduct Profile 시스템 프롬프트(~14,000단어, 모듈형 — `claude_behavior`/
+근거: 공개된(커뮤니티 유출) Claude reference profile 시스템 프롬프트(~14,000단어, 모듈형 — `claude_behavior`/
 `tone_and_formatting`/`refusal_handling`/`search_instructions`/`computer_use`/도구 정의 등 명확히 구분된
 섹션)를 분석하면 두 종류의 콘텐츠가 섞여 있다:
 
@@ -248,22 +248,22 @@ param이 있으면 그 섹션을 sections 배열에 포함. 위치는 **priority
 
 자율성 축(ask-first ↔ act-first) × 페르소나 두께(중립 ↔ 의견) 2축으로 본 v1 빌트인 + 후속 후보(집합은 개방형):
 
-| id                   | 튜닝 여부 | 스타일/행동                                       | 담당                            |
-| -------------------- | --------- | ------------------------------------------------- | ------------------------------- |
-| `default`            | **순정**  | 기존 순정 동작(튜닝 없음) — 모든 프리셋의 대조군  | **PRESET-001 (구현 완료)**      |
+| id                   | 튜닝 여부 | 스타일/행동                                                 | 담당                            |
+| -------------------- | --------- | ----------------------------------------------------------- | ------------------------------- |
+| `default`            | **순정**  | 기존 순정 동작(튜닝 없음) — 모든 프리셋의 대조군            | **PRESET-001 (구현 완료)**      |
 | `autonomous-builder` | 튜닝      | 능동·철저·자기검증·고자율 (reference profile 작동원리 모방) | **PRESET-005 (첫 튜닝 프리셋)** |
-| `careful-reviewer`   | 튜닝      | 읽기 중심, write/exec마다 ask, 근거 장황          | 후속 (PRESET-009 후보)          |
-| `neutral-executor`   | 튜닝      | 얇은 페르소나, 지시에 충실, 최소 편집 (Hermes식)  | 후속 (PRESET-010 후보)          |
-| (사용자 작성)        | 튜닝      | 사용자가 직접 정의한 프로파일                     | PRESET-007 (외부 로딩)          |
+| `careful-reviewer`   | 튜닝      | 읽기 중심, write/exec마다 ask, 근거 장황                    | 후속 (PRESET-009 후보)          |
+| `neutral-executor`   | 튜닝      | 얇은 페르소나, 지시에 충실, 최소 편집 (Hermes식)            | 후속 (PRESET-010 후보)          |
+| (사용자 작성)        | 튜닝      | 사용자가 직접 정의한 프로파일                               | PRESET-007 (외부 로딩)          |
 
 > 빌트인 프리셋 추가는 각각 PRESET-005와 동형의 소형 백로그(콘텐츠만)다 — 시스템(PRESET-001)은 변경 없이 N개를 수용한다.
 > 식별자에 벤더명 없음. `autonomous-builder`의 description/문서에 "reference profile 작동원리에서 영감" 정도의 출처 각주는 허용(사용자 확인됨: generic 식별자).
 
 ## 6.1 reference profile 작동원리 → 기능 추적 매트릭스 (검증 기준)
 
-인터넷에 공개된 reference profile의 작동원리(공식 "Prompting Reference Conduct Profile" 가이드 + 모델/effort/adaptive-thinking 문서, 일부 2차 출처)를 목록화하고, 각 원리를 **CLI 제품에서 재현하는 메커니즘 / 소유 레이어 / 담당 백로그**로 추적한다. "재현 수단" 범례: (a) effort 설정, (b) 페르소나/시스템 프롬프트, (c) 권한/자율성 포스처, (d) 병렬 서브에이전트·백그라운드 디스패치, (e) 자기검증 루프, (f) 모델 고유 — 프리셋으로 재현 불가.
+인터넷에 공개된 reference profile의 작동원리(공식 "Prompting Claude reference profile" 가이드 + 모델/effort/adaptive-thinking 문서, 일부 2차 출처)를 목록화하고, 각 원리를 **CLI 제품에서 재현하는 메커니즘 / 소유 레이어 / 담당 백로그**로 추적한다. "재현 수단" 범례: (a) effort 설정, (b) 페르소나/시스템 프롬프트, (c) 권한/자율성 포스처, (d) 병렬 서브에이전트·백그라운드 디스패치, (e) 자기검증 루프, (f) 모델 고유 — 프리셋으로 재현 불가.
 
-| #         | reference profile 작동원리                                                                         | 재현 수단                                 | 소유 레이어 (cli 아님)                                                           | 담당 백로그                                                        | 상태                                   |
+| #         | reference profile 작동원리                                                               | 재현 수단                                 | 소유 레이어 (cli 아님)                                                           | 담당 백로그                                                        | 상태                                   |
 | --------- | ---------------------------------------------------------------------------------------- | ----------------------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------ | -------------------------------------- |
 | 1         | 상시 adaptive thinking(비활성 불가)                                                      | (f)+(a) 모델 핀 + thinking 비활성 안 보냄 | agent-provider/core(호출), preset가 model 핀                                     | PRESET-001(model), 005                                             | 모델 고유 — 핀만 가능(명시)            |
 | 3         | effort 다이얼(low/med/high/xhigh/max, 기본 high)                                         | (a)                                       | agent-provider/core 호출에 effort 전달; preset가 SET                             | PRESET-001(IPreset.effort), 005(high), **PRESET-008(effort 배선)** | effort 필드 보강 + 배선 백로그 신설    |
@@ -291,7 +291,7 @@ param이 있으면 그 섹션을 sections 배열에 포함. 위치는 **priority
 | PRESET-003 | 페르소나/시스템 프롬프트 합성 — append/replace 계약 + agentName 오버라이드     | BEHAVIOR | high     | 001             |
 | PRESET-004 | 번들 — 명령 모듈 선택 + 권한/신뢰 프로파일 per preset                          | BEHAVIOR | medium   | 002             |
 | PRESET-008 | effort → 모델 호출 배선 (low/med/high/xhigh/max를 provider 요청에 전달)        | BEHAVIOR | high     | 001             |
-| PRESET-005 | 첫 프리셋 `autonomous-builder` (reference profile 작동원리 모방)                         | BEHAVIOR | high     | 002,003,004,008 |
+| PRESET-005 | 첫 프리셋 `autonomous-builder` (reference profile 작동원리 모방)               | BEHAVIOR | high     | 002,003,004,008 |
 | PRESET-009 | `careful-reviewer` 프리셋 (읽기 중심·ask-first 검토형)                         | BEHAVIOR | medium   | 001,002,003,004 |
 | PRESET-010 | `neutral-executor` 프리셋 (Hermes식 얇은 페르소나·지시 충실)                   | BEHAVIOR | low      | 001,002,003,004 |
 | PRESET-006 | 프리셋 발견/관리 UX — `/preset` 명령 + 목록 + TUI 활성 표시                    | SCREEN   | medium   | 002,005         |
