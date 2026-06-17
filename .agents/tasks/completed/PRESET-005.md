@@ -1,4 +1,4 @@
-# PRESET-005 — autonomous-builder 프리셋 (Fable 5 작동원리 모방, 영어 persona)
+# PRESET-005 — autonomous-builder 프리셋 (reference profile 작동원리 모방, 영어 persona)
 
 Spec: `.agents/spec-docs/active/PRESET-005-autonomous-builder-preset.md`
 
@@ -20,7 +20,7 @@ Spec: `.agents/spec-docs/active/PRESET-005-autonomous-builder-preset.md`
 ## Test Plan
 
 New `packages/agent-preset/src/presets/autonomous-builder.ts` exporting an IPreset (English persona via
-`persona` field, sourced from PORTABLE Fable-5 behavior only; effort 'high', autonomy 'act-first',
+`persona` field, sourced from PORTABLE reference profile behavior only; effort 'high', autonomy 'act-first',
 enableParallelSubagents true, selfVerification true; generic id, no vendor/runtime tokens, no Hangul,
 no CRITICAL/MUST/show-reasoning). Register in `resolve-preset.ts` PRESETS array. Unit tests assert
 resolved fields (TC-01..05/09) + rg command-form checks (TC-06/07/08/12) + CLI smoke (TC-10) + build (TC-11).
