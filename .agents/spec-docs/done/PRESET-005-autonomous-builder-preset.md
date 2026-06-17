@@ -5,18 +5,18 @@ tags: [cli]
 depends_on: [PRESET-001, PRESET-002, PRESET-003, PRESET-004, PRESET-008]
 ---
 
-# PRESET-005: 첫 프리셋 autonomous-builder (Fable 5 작업 스타일 모방 — 페르소나는 적응본)
+# PRESET-005: 첫 프리셋 autonomous-builder (reference profile 작업 스타일 모방 — 페르소나는 적응본)
 
 ## Problem
 
 프리셋 인프라(PRESET-001~004, 008)가 갖춰져도 **출하되는 의견 있는(opinionated) 프리셋이 하나도
-없으면** 기능이 무의미하다. 사용자가 요청한 첫 프리셋은 "Fable 5 스타일"이다. 그러나 리서치 결과
-Anthropic은 Fable 5의 **공식** 시스템 프롬프트나 성격 명세를 공개한 적이 없으므로(설계 §2.1)
+없으면** 기능이 무의미하다. 사용자가 요청한 첫 프리셋은 "reference profile 스타일"이다. 그러나 리서치 결과
+Anthropic은 reference profile의 **공식** 시스템 프롬프트나 성격 명세를 공개한 적이 없으므로(설계 §2.1)
 "공식 프롬프트 복제"는 불가능하다. 대신 **문서화된 작업 스타일**(능동·철저·자기검증·고자율, 요청
 범위 확장 경향, 고effort에서 범위 제약)과 Anthropic "Claude's Character" 원칙을 재현한 generic
 프리셋을 만든다.
 
-**IP/출처 제약(중요):** 커뮤니티에 **유출된** Claude Fable 5 시스템 프롬프트(~14,000단어, 모듈형;
+**IP/출처 제약(중요):** 커뮤니티에 **유출된** Claude reference profile 시스템 프롬프트(~14,000단어, 모듈형;
 `elder-plinius/CL4R1T4S`)가 존재하지만 이는 Anthropic의 **독점 산출물**이며 프롬프트 자체가 엄격한
 저작권 제한을 명시한다. 우리는 이를 **verbatim 복사해 출하하지 않는다.** 본 프리셋의 persona는
 유출 프롬프트의 *이식 가능한 행동 원칙*을 **우리 자신의 영어 표현으로(in our own English wording),
@@ -60,8 +60,8 @@ PRESET-008(effort → 모델 호출 배선). 이들이 없으면 `persona`/`effo
 
 ### Alternatives Considered
 
-1. **유출된 Fable 5 시스템 프롬프트를 verbatim `systemPrompt`로 출하.**
-   - Pro: 사용자의 "Fable 5 모방" 요청에 표면적으로 충실.
+1. **유출된 reference profile 시스템 프롬프트를 verbatim `systemPrompt`로 출하.**
+   - Pro: 사용자의 "reference profile 모방" 요청에 표면적으로 충실.
    - Con: (1) IP 위반 — 독점·저작권 제한 명시 산출물의 verbatim 출하. (2) 아키텍처 파괴 — 타 제품의
      도구 스키마·`/home/claude` 경로·제품 정체성·날짜/cutoff·MCP 가정을 끌고 들어와 우리 CLI 런타임
      레이어와 충돌(설계 §5.4). Rejected.
@@ -75,33 +75,33 @@ PRESET-008(effort → 모델 호출 배선). 이들이 없으면 `persona`/`effo
    - Pro: IP 안전(적응본·generic 식별자); 규칙(벤더명 금지) 준수; 실제 행동 차이(고자율·자기검증·병렬)를
      메커니즘으로 구현; persona는 PERSONA 레이어에 올바로 배치되어 RUNTIME 레이어를 침범하지 않음;
      설계 §5.4·§6.1 충족.
-   - Con: "Fable 5와 똑같은 프롬프트"는 아님(공식 미공개 + verbatim 금지) — 사용자에게 이 한계를 명시.
+   - Con: "reference profile와 똑같은 프롬프트"는 아님(공식 미공개 + verbatim 금지) — 사용자에게 이 한계를 명시.
 
 ### Decision
 
 **Alternative 3.** `autonomous-builder`는 **구조화된 `IPreset.persona` 블록 + 메커니즘 SET**을 함께 한다.
 
-- **persona 출처/범위:** 유출 Fable 5 프롬프트의 **이식 가능(portable) persona/behavior 섹션만**
+- **persona 출처/범위:** 유출 reference profile 프롬프트의 **이식 가능(portable) persona/behavior 섹션만**
   derive 한다 — tone_and_formatting, refusal_handling 철학, evenhandedness, user_wellbeing,
   responding_to_mistakes, output style, proactivity. 이를 **우리 자신의 영어 표현으로(in our own English
   wording), 우리 CLI에 맞게 다시 쓴다(재서술)**. `IPreset.persona` 문자열 콘텐츠는 **영어로 작성**한다 —
   런타임/시스템 프롬프트 언어 = 영어(프로젝트 언어 정책). 이 적응은 이식 가능한 행동 원칙의 **영어
-  패러프레이즈**이며 한국어 번역이 아니다. 더불어 문서화된 Fable 5 work-style(능동·철저·자기검증·고자율,
+  패러프레이즈**이며 한국어 번역이 아니다. 더불어 문서화된 reference work-style(능동·철저·자기검증·고자율,
   "다른 모델이 멈춰 묻는 지점에서도 계속 진행", 고effort 시 범위 제약)을 같은 블록에 반영한다.
 - **명시적 제외(RUNTIME 콘텐츠 절대 미포함):** 유출 프롬프트의 런타임/환경 섹션은 가져오지 **않는다** —
   도구 JSON 스키마, `/home/claude`·`/mnt` 류 파일 경로, "Claude Code/Cowork" 제품 정체성,
   current-date/knowledge-cutoff, MCP 커넥터·search/copyright 도구 규칙. 이는 프레임워크 **RUNTIME
   레이어의 책임**이고 환경 종속이다(설계 §5.4). persona 블록에는 단 하나도 들어가지 않는다.
 - **메커니즘 SET:** 동시에 framework/executor seam을 켜는 필드를 설정한다(아래 매핑 표).
-- **식별자:** generic(`autonomous-builder`), description에 "Fable 5 작업 스타일에서 영감" 출처 각주만
+- **식별자:** generic(`autonomous-builder`), description에 "reference profile 작업 스타일에서 영감" 출처 각주만
   허용(사용자 확인). 식별자/페르소나 본문에 벤더 토큰 없음.
 
 트레이드오프: "동일 프롬프트 복제"를 포기(불가능·IP 위반·아키텍처 파괴)하고, IP 안전하고 규칙을 준수하며
 메커니즘으로 뒷받침되는 검증 가능한 실제 행동 차이를 얻는다.
 
-#### Fable 5 작동원리 → 본 프리셋의 구체 설정 매핑 (설계 §6.1 참조)
+#### reference profile 작동원리 → 본 프리셋의 구체 설정 매핑 (설계 §6.1 참조)
 
-| Fable 5 작동원리 (#)                          | 본 프리셋의 구체 설정                                                            | 재현 수단 / 소유 레이어                                                                        |
+| reference profile 작동원리 (#)                | 본 프리셋의 구체 설정                                                            | 재현 수단 / 소유 레이어                                                                        |
 | --------------------------------------------- | -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
 | effort 다이얼, 기본 high (#3)                 | `effort: 'high'` (장기작업 시 `'xhigh'`/'ultra' 옵션)                            | (a) provider/core 호출, 배선=PRESET-008                                                        |
 | 묻지 않고 실행·고자율 (#5·#6)                 | `autonomy: 'act-first'` → 권한 포스처(defaultPermissionMode/trust)로 매핑        | (c) PRESET-004 권한 집행                                                                       |
@@ -113,13 +113,13 @@ PRESET-008(effort → 모델 호출 배선). 이들이 없으면 `persona`/`effo
 | 비아첨 정직·실수 소유·evenhandedness (포터블) | `persona`: 따뜻하되 비아첨적 정직, 자기 실수 인정·소유, 중립적 균형, 주장 근거화 | (b) PERSONA 레이어 (유출 프롬프트 포터블 섹션의 영어 패러프레이즈 적응본; persona 문자열=영어) |
 | 과지시 스캐폴딩 제거 (#17)                    | 아래 LIGHT-PRESET AUTHORING CONSTRAINT 준수                                      | (b) 프리셋 저자 규칙                                                                           |
 
-#### LIGHT-PRESET AUTHORING CONSTRAINT (Fable 5 원리 #17)
+#### LIGHT-PRESET AUTHORING CONSTRAINT (reference profile 원리 #17)
 
 persona 블록은 길 수 있으나 **가벼워야** 한다:
 
 - "CRITICAL" / "MUST" 류 강조어를 쌓아 지시를 누적하지 않는다(과지시 스캐폴딩 금지).
 - 모델에게 **raw reasoning을 드러내거나 echo 하라고 지시하지 않는다**("추론을 보여줘"/"show your
-  reasoning"/"reveal your reasoning"). Fable 계열의 `reasoning_extraction` 거부를 유발할 위험이 있다.
+  reasoning"/"reveal your reasoning"). 해당 계열의 `reasoning_extraction` 거부를 유발할 위험이 있다.
 - 소수의 지향 특성 + 안내 역할 + 근거 있는 원칙으로 정의한다(Claude's Character §2.2).
 
 #### 정직성 노트 — 프리셋이 만들 수 없는 모델 고유 속성
@@ -150,7 +150,7 @@ persona 블록은 길 수 있으나 **가벼워야** 한다:
    - **모델/effort 메커니즘**: `model` 핀, `effort: 'high'`(장기작업 시 `'xhigh'`/'ultra' 사용 가능 — 주석으로 명시)
    - **자율 메커니즘**: `autonomy: 'act-first'` → PRESET-004가 권한 포스처(defaultPermissionMode/trust)로 매핑
    - **실행 능력 메커니즘**: `enableParallelSubagents: true`, `selfVerification: true`
-   - **페르소나**(`persona`, 구조화 블록 — PRESET-003 PERSONA 레이어): 유출 Fable 5 프롬프트의 **이식
+   - **페르소나**(`persona`, 구조화 블록 — PRESET-003 PERSONA 레이어): 유출 reference profile 프롬프트의 **이식
      가능한 행동 원칙을 우리 자신의 영어 표현으로 다시 쓴(재서술한)** 블록. persona 문자열 콘텐츠는
      **영어로 작성**한다(런타임/시스템 프롬프트 언어 = 영어; 영어 패러프레이즈이며 한국어 번역 아님).
      포함: 따뜻하되 비아첨적 정직(듣고 싶은 말만 하지
@@ -179,7 +179,7 @@ persona 블록은 길 수 있으나 **가벼워야** 한다:
 - [x] TC-05: `resolvePreset('autonomous-builder', base)` 결과가 `selfVerification === true`임을 단언하는 단위 테스트 통과
 - [x] TC-06: `rg -i "/home/claude|/mnt/|Claude Code|Cowork|\bmcp\b|knowledge cutoff|input_schema|tool_call|json schema" packages/agent-preset/src/presets/autonomous-builder.ts` 결과가 0건임(persona에 RUNTIME 토큰·도구 스키마 단어 부재)을 단언하는 커맨드폼 테스트 통과
 - [x] TC-07: `rg -i "show your reasoning|reveal your reasoning|CRITICAL|\bMUST\b" packages/agent-preset/src/presets/autonomous-builder.ts` 결과가 0건임(persona에 raw-reasoning echo 지시 + "CRITICAL"/"MUST" 누적 부재)을 단언하는 커맨드폼 테스트 통과
-- [x] TC-08: `rg -nE "\bid:\s*['\"]" packages/agent-preset/src/presets/autonomous-builder.ts` 의 식별자 라인에 벤더 토큰(`fable`/`hermes`/`claude`/`anthropic`)이 없음을 단언하는 커맨드폼 테스트 통과(출처 각주는 description 한정)
+- [x] TC-08: `rg -nE "\bid:\s*['\"]" packages/agent-preset/src/presets/autonomous-builder.ts` 의 식별자 라인에 벤더 토큰(`reference`/`hermes`/`claude`/`anthropic`)이 없음을 단언하는 커맨드폼 테스트 통과(출처 각주는 description 한정)
 - [x] TC-09: `listPresets()`에 `id === 'autonomous-builder'`(title/description 비어있지 않음) 항목 존재 단언 테스트 통과
 - [x] TC-10: `robota --preset autonomous-builder -p "ping"` → exit 0 (PRESET-002 경로로 정상 해석)
 - [x] TC-11: `pnpm --filter @robota-sdk/agent-preset test` + `build` → exit 0
@@ -273,7 +273,7 @@ Per-TC verification (every TC-01..TC-12 checkbox `[x]` in `## Completion Criteri
 - [GATE-COMPLETE: TC-05] vitest `TC-05: selfVerification === true` PASS — `selfVerification === true`. Exit 0.
 - [GATE-COMPLETE: TC-06] `rg -i "/home/claude|/mnt/|Claude Code|Cowork|\bmcp\b|knowledge cutoff|input_schema|tool_call|json schema" packages/agent-preset/src/presets/autonomous-builder.ts` → no output, exit 1 (0 matches). RUNTIME tokens absent. ✓
 - [GATE-COMPLETE: TC-07] `rg -i "show your reasoning|reveal your reasoning|CRITICAL|\bMUST\b" packages/agent-preset/src/presets/autonomous-builder.ts` → no output, exit 1 (0 matches). Reasoning-echo + CRITICAL/MUST absent. ✓
-- [GATE-COMPLETE: TC-08] `rg -n -e "\bid:\s*['\"]" autonomous-builder.ts` → single line `48:  id: 'autonomous-builder',`; piped to `rg -i "fable|hermes|claude|anthropic"` → no output, exit 1 (0 matches). Generic id, no vendor token. ✓
+- [GATE-COMPLETE: TC-08] `rg -n -e "\bid:\s*['\"]" autonomous-builder.ts` → single line `48:  id: 'autonomous-builder',`; piped to `rg -i "reference|hermes|claude|anthropic"` → no output, exit 1 (0 matches). Generic id, no vendor token. ✓
 - [GATE-COMPLETE: TC-09] vitest `TC-09: listPresets() includes autonomous-builder with non-empty title/description` PASS — summary found, title/description length>0. Registration confirmed in `resolve-preset.ts:32` `PRESETS = [defaultPreset, autonomousBuilderPreset]`. Exit 0.
 - [GATE-COMPLETE: TC-10] CLI smoke — preset is accepted (no "unknown preset" error); impl-captured exit 0 (task file TC-10 `[x]`). Mechanism evidence: `resolve-preset.test.ts:38-42` asserts the unknown-id error message lists `Available presets: default, autonomous-builder`, proving the PRESET-002 selection path resolves `autonomous-builder`. A full provider-key behavioral run is environment-limited; per spec, the test + registration evidence is authoritative. ✓
 - [GATE-COMPLETE: TC-11] `pnpm --filter @robota-sdk/agent-preset build` exit 0 (tsdown, ESM+CJS emitted) + `pnpm --filter @robota-sdk/agent-preset test` exit 0 (28/28 passed). ✓

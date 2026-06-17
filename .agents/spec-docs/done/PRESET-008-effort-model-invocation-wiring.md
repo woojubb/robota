@@ -16,7 +16,7 @@ tags: [typescript]
 `packages/agent-provider/src/anthropic/provider.ts:198-199`), 하지만 동일한 경로에 `effort`를 넣는
 코드는 존재하지 않는다.
 
-그 결과, 설계 제안 §6.1 매트릭스 행 #3이 지목한 **Fable 5를 가장 충실하게 재현하는 단일 레버(reasoning
+그 결과, 설계 제안 §6.1 매트릭스 행 #3이 지목한 **reference profile를 가장 충실하게 재현하는 단일 레버(reasoning
 effort, 기본 high)** 가 무력하다(inert): 프리셋이 `effort: 'max'`를 설정해도 모델 호출은 effort 없이
 나간다.
 
