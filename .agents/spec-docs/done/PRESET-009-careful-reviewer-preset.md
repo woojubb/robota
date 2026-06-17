@@ -186,7 +186,7 @@ banned phrases. Persona references aligned to the `persona` field (0 `appendSyst
 **Status upgrade:** review-ready → approved
 Prior gate `### [GATE-WRITE] — ✅ PASS` present. Explicit user approval (verbatim): "계속 끝까지
 진행해" — standing direction to carry every remaining preset backlog through to completion, of which
-PRESET-009 (the ask-first counterpart to `autonomous-builder`, requested in "reference 5와 대조되는 이반
+PRESET-009 (the ask-first counterpart to `autonomous-builder`, requested in "이 프로파일과 대조되는 이반
 프리셋도 있어야함") is one. Persona content authored in English per the prior correction. No
 post-approval drift: implementation not yet started at approval time.
 
