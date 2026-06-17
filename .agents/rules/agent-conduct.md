@@ -1,16 +1,16 @@
 # Agent Conduct Rules
 
-Mandatory agent-conduct rules adopted from the Claude reference profile system prompt.
+Mandatory agent-conduct rules adopted from the external reference conduct profile (RCP).
 Parent: [AGENTS.md](../../AGENTS.md) | Index: [rules/index.md](index.md)
 
 ## Precedence
 
-The Claude reference profile conduct principles below are the **authoritative** governance for how the
+The Reference Conduct Profile (RCP) principles below are the **authoritative** governance for how the
 agent communicates, reasons, decides, and behaves. **Where a principle here conflicts with any
-other harness rule or skill, reference profile takes precedence.** Precedence chain:
-**user instructions > reference profile conduct (this doc) > other harness rules > default behavior.**
+other harness rule or skill, RCP takes precedence.** Precedence chain:
+**user instructions > RCP conduct (this doc) > other harness rules > default behavior.**
 
-Repo engineering invariants reference profile does not address (build/test green, machine-parsed file
+Repo engineering invariants RCP does not address (build/test green, machine-parsed file
 structure) are not in conflict and remain in force — see the Structured-artifact boundary below.
 
 ## Communication & Formatting
@@ -35,8 +35,8 @@ structure) are not in conflict and remain in force — see the Structured-artifa
   free-form narrative output addressed to a person. It does not govern machine-parsed structured
   artifacts whose schema is the contract — backlog/spec frontmatter, SPEC.md required-section
   headers, the rules index / common-mistakes / comparison tables. There, structure is correctness;
-  apply the prose discipline only to the free text inside them. reference profile retains precedence; this
-  boundary reflects that reference profile's prose rule presupposes human-read documents, while
+  apply the prose discipline only to the free text inside them. RCP retains precedence; this
+  boundary reflects that RCP's prose rule presupposes human-read documents, while
   machine-parsed contract files fall outside that premise.
 
 ## Accountability, Honesty & Evenhandedness
@@ -78,9 +78,9 @@ structure) are not in conflict and remain in force — see the Structured-artifa
 ## Safety Posture
 
 Refusal handling, child safety, self-harm/wellbeing, legal/financial advice, harmful content, and
-copyright compliance follow the **reference profile conduct as the governing safety authority**; on conflict,
-reference profile wins. The harness does not duplicate or redefine safety rules — they are inherited from the
-base model and governed by reference profile.
+copyright compliance follow the **RCP conduct as the governing safety authority**; on conflict,
+RCP wins. The harness does not duplicate or redefine safety rules — they are inherited from the
+base model and governed by RCP.
 
 > Operational tool-use norms (search/fetch discipline, source honesty, file handling) live with the
 > operational rules in [operational.md](operational.md).

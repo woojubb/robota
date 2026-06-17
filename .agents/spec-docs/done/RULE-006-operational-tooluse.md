@@ -4,18 +4,18 @@ type: RULE
 tags: [typescript]
 ---
 
-# RULE-006: Distill transferable operational / tool-use behavioral norms from the reference profile system prompt
+# RULE-006: Distill transferable operational / tool-use behavioral norms from the RCP system prompt
 
 ## Problem
 
-The user adopted the **Claude reference profile system prompt** as governing authority with **unlimited
-reference profile precedence on conflict**. This draft covers **one area only: operational / tool-use
+The user adopted the **external reference conduct profile (RCP)** as governing authority with **unlimited
+RCP precedence on conflict**. This draft covers **one area only: operational / tool-use
 behavior** — when to ask the user vs proceed, web_search/web_fetch discipline, file
 creation/handling, MCP/connector usage, and artifact/storage philosophy. **Behavioral norms only;
 claude.ai tool schemas are out of scope** (companion area RULE-001 owns communication/conduct
 style; base-model safety/copyright is out of scope entirely).
 
-reference profile is a **consumer chat-product (claude.ai) prompt**. Its operational sections are tied to
+RCP is a **consumer chat-product (claude.ai) prompt**. Its operational sections are tied to
 product tooling (`create_file`, `present_files`, `window.storage`, `ask_user_input_v0`,
 `search_mcp_registry`, `/mnt/user-data/*`). Importing them wholesale is wrong: most are
 non-portable. Only the **behavioral norms** transfer — and several map onto mechanisms this repo
@@ -24,21 +24,21 @@ already has (pnpm pinning, ToolSearch opt-in, the Bash/Edit/Write toolset, `Send
 This draft proposes importing **only the portable norms not already covered**, expressed
 domain-free (no tool names), restated against this repo's reality.
 
-## Gap Analysis (reference profile operational norms vs current harness)
+## Gap Analysis (RCP operational norms vs current harness)
 
-| reference profile norm                                                                                                                                                     | Repo mapping                                                                                                                                                                                                               | Verdict                                                           |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| **N1** Check context before asking; if request is already specific, proceed and state assumptions inline; one question max; "A or B?" wants analysis not buttons | `operational.md` Option Proposal, `research.md` Recommendation Authority, `feedback_agent_decision_authority`, `feedback_never_ask_user_to_test` — mostly covered; "check context first + inline assumptions" not codified | **conflict→reference profile** (more specific; wins) / largely **covered**  |
-| **N2** web_search discipline: don't search stable facts, search changed/unknown current state, unrecognized-entity rule, scale calls 1/3-5/5-10 to complexity    | `research.md` mandates proportional research + doc-first prior art, but **no search trigger / scaling / unrecognized-entity rule**                                                                                         | **NEW**                                                           |
-| **N3** web_fetch discipline: user names a URL → always fetch it; snippets too brief → fetch full page; only exact provided/returned URLs                         | none                                                                                                                                                                                                                       | **NEW**                                                           |
-| **N4** Tool priority (internal>external), skepticism on SEO/conspiracy topics, **never fabricate attributions**                                                  | `operational.md` No Fallback (single verifiable path); attribution-honesty aligned but unstated; internal>external priority uncodified                                                                                     | **NEW (thin)**                                                    |
-| **N5** Create files only when needed; edit the actual uploaded file on "fix my file"; standalone-artifact vs conversational-answer split                         | This task's system guidance already enforces "never create files unless necessary; prefer editing; no proactive \*.md"; not in harness rule files                                                                          | **conflict→reference profile** (same direction) / operationally **covered** |
-| **N6** Don't fabricate file presence; actually create outputs; share files not folders; don't re-read in-context uploads                                         | aligns with system guidance ("verify with ls; absolute paths"); uncodified                                                                                                                                                 | **NEW (thin)**                                                    |
-| **N7** Package management: verify tool availability before use                                                                                                   | `AGENTS.md` Common Commands pins pnpm as SSOT                                                                                                                                                                              | **COVERED** (pnpm pinned); claude.ai pip bits non-portable        |
-| **N8** MCP/connector opt-in & directory-first; check available MCPs before browser; no fake/mock tool UIs                                                        | ToolSearch already enforces fetch-schema-before-call (structural opt-in); `context7` server instructs docs-over-websearch                                                                                                  | **COVERED** (ToolSearch = opt-in); consumer-app flow irrelevant   |
-| **N9** Artifact KV storage philosophy (try-catch, batch keys, reset option)                                                                                      | no artifact runtime / `window.storage` in repo                                                                                                                                                                             | **NON-PORTABLE** (claude.ai-only)                                 |
+| RCP norm                                                                                                                                                         | Repo mapping                                                                                                                                                                                                               | Verdict                                                         |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| **N1** Check context before asking; if request is already specific, proceed and state assumptions inline; one question max; "A or B?" wants analysis not buttons | `operational.md` Option Proposal, `research.md` Recommendation Authority, `feedback_agent_decision_authority`, `feedback_never_ask_user_to_test` — mostly covered; "check context first + inline assumptions" not codified | **conflict→RCP** (more specific; wins) / largely **covered**    |
+| **N2** web_search discipline: don't search stable facts, search changed/unknown current state, unrecognized-entity rule, scale calls 1/3-5/5-10 to complexity    | `research.md` mandates proportional research + doc-first prior art, but **no search trigger / scaling / unrecognized-entity rule**                                                                                         | **NEW**                                                         |
+| **N3** web_fetch discipline: user names a URL → always fetch it; snippets too brief → fetch full page; only exact provided/returned URLs                         | none                                                                                                                                                                                                                       | **NEW**                                                         |
+| **N4** Tool priority (internal>external), skepticism on SEO/conspiracy topics, **never fabricate attributions**                                                  | `operational.md` No Fallback (single verifiable path); attribution-honesty aligned but unstated; internal>external priority uncodified                                                                                     | **NEW (thin)**                                                  |
+| **N5** Create files only when needed; edit the actual uploaded file on "fix my file"; standalone-artifact vs conversational-answer split                         | This task's system guidance already enforces "never create files unless necessary; prefer editing; no proactive \*.md"; not in harness rule files                                                                          | **conflict→RCP** (same direction) / operationally **covered**   |
+| **N6** Don't fabricate file presence; actually create outputs; share files not folders; don't re-read in-context uploads                                         | aligns with system guidance ("verify with ls; absolute paths"); uncodified                                                                                                                                                 | **NEW (thin)**                                                  |
+| **N7** Package management: verify tool availability before use                                                                                                   | `AGENTS.md` Common Commands pins pnpm as SSOT                                                                                                                                                                              | **COVERED** (pnpm pinned); claude.ai pip bits non-portable      |
+| **N8** MCP/connector opt-in & directory-first; check available MCPs before browser; no fake/mock tool UIs                                                        | ToolSearch already enforces fetch-schema-before-call (structural opt-in); `context7` server instructs docs-over-websearch                                                                                                  | **COVERED** (ToolSearch = opt-in); consumer-app flow irrelevant |
+| **N9** Artifact KV storage philosophy (try-catch, batch keys, reset option)                                                                                      | no artifact runtime / `window.storage` in repo                                                                                                                                                                             | **NON-PORTABLE** (claude.ai-only)                               |
 
-Net: **N2, N3 = NEW**; **N4, N6 = NEW (thin)**; N1/N5 = covered-but-reinforced (reference profile wins on
+Net: **N2, N3 = NEW**; **N4, N6 = NEW (thin)**; N1/N5 = covered-but-reinforced (RCP wins on
 detail); N7/N8 = covered by repo mechanisms; N9 = excluded.
 
 ## Proposed additions (the only content to import)
@@ -90,12 +90,12 @@ available"), restated for this repo.
 
 **Alt A: new rule doc `.agents/rules/agent-conduct.md`** (shared with RULE-001).
 
-- Pro: co-locates all reference profile-derived conduct; RULE-001 already proposes this file.
+- Pro: co-locates all RCP-derived conduct; RULE-001 already proposes this file.
 - Con: P1–P3 are operational tool-use, not communication conduct — different concern from
   RULE-001's A–D; mixing dilutes the doc. Defer: if RULE-001 creates `agent-conduct.md`, revisit
   whether tool-use norms belong there vs `operational.md`.
 
-**Alt B: keep in the reference profile agent-preset package.**
+**Alt B: keep in the RCP agent-preset package.**
 
 - Con: these are general good operational hygiene, not preset-specific; should apply to default
   work too.
@@ -152,7 +152,7 @@ After GATE-APPROVAL picks a placement (recommend `operational.md`):
 
 ## Implementation Risk (non-portable items)
 
-- **create_file / artifacts behavior** — reference profile "file creation" exposes outputs as download
+- **create_file / artifacts behavior** — RCP "file creation" exposes outputs as download
   links / rendered UI (a product behavior). This repo has only Bash/Edit/Write + `SendUserFile`;
   no 1:1 mapping. Import the _principle_ (create only when needed, prefer editing, never fabricate
   presence) — not the mechanism.
@@ -175,10 +175,10 @@ After GATE-APPROVAL picks a placement (recommend `operational.md`):
 
 ## Evidence Log
 
-- 2026-06-18 — Source assessed: `_SOURCE-reference.md` operational sections
+- 2026-06-18 — Source assessed: `the external reference conduct profile (not committed)` operational sections
   (mcp_app_suggestions 252–300, computer_use 301–435, persistent_storage 171–251, ask_user_input_v0
   648, web_fetch 1290 / web_search 1349 / core_search_behaviors 446 / search_usage_guidelines 468).
-  9 norms extracted (N1–N9): N2/N3 NEW, N4/N6 NEW(thin), N1/N5 covered-but-reinforced (reference profile
+  9 norms extracted (N1–N9): N2/N3 NEW, N4/N6 NEW(thin), N1/N5 covered-but-reinforced (RCP
   wins), N7/N8 covered by pnpm/ToolSearch, N9 non-portable. 3 import items (P1–P3). Recommended
   owner: `operational.md`. Draft pending placement decision.
 

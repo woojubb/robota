@@ -1,17 +1,17 @@
-# 05 — 운영/도구 사용 행동 규범 (reference profile head-to-head)
+# 05 — 운영/도구 사용 행동 규범 (RCP head-to-head)
 
 **영역:** 운영/도구 사용 행동 — 언제 사용자에게 물을지, web_search/web_fetch 사용 규율, 파일 생성/처리, MCP/커넥터 사용, 아티팩트/스토리지 행동. **행동 규범(behavioral norms)만 추출하며, claude.ai 도구 스키마는 제외한다.**
 
-**권위:** 사용자가 reference profile를 통치 권위로 채택했으며 **충돌 시 무제한 reference profile 우선(unlimited precedence)**. 재논쟁 금지.
+**권위:** 사용자가 RCP를 통치 권위로 채택했으며 **충돌 시 무제한 RCP 우선(unlimited precedence)**. 재논쟁 금지.
 
 **소스:**
 
-- reference profile: `_SOURCE-reference.md` — `## mcp_app_suggestions`(252–300), `## computer_use`의 `file_creation_advice`/`file_handling_rules`/`producing_outputs`/`sharing_files`/`package_management`(301–435), `## persistent_storage_for_artifacts`(171–251), 그리고 `ask_user_input_v0`(648)·`web_fetch`(1290)·`web_search`(1349)·`core_search_behaviors`(446)·`search_usage_guidelines`(468)에 내장된 사용 규범.
+- RCP: `the external reference conduct profile (not committed)` — `## mcp_app_suggestions`(252–300), `## computer_use`의 `file_creation_advice`/`file_handling_rules`/`producing_outputs`/`sharing_files`/`package_management`(301–435), `## persistent_storage_for_artifacts`(171–251), 그리고 `ask_user_input_v0`(648)·`web_fetch`(1290)·`web_search`(1349)·`core_search_behaviors`(446)·`search_usage_guidelines`(468)에 내장된 사용 규범.
 - 하네스: `AGENTS.md`, `.agents/rules/process.md`, `operational.md`, `research.md`, `api-boundary.md`, `index.md`, `AGENTS.md`의 "Harness Entrypoints"/"Common Commands".
 
 ---
 
-## 1. reference profile에서 추출한 이식 가능(portable) 행동 규범
+## 1. RCP에서 추출한 이식 가능(portable) 행동 규범
 
 도구 스키마가 아닌 **행동 원칙**만 추출한다.
 
@@ -81,25 +81,25 @@
 
 레포 도구: pnpm, 하네스 CLI(`harness:scan/verify/review/record/...`), ToolSearch를 통한 MCP(WebSearch/WebFetch/context7/playwright/vercel 등), Bash/Edit/Write.
 
-| reference profile 규범                                                 | 본 레포 매핑                                                                                                                                                                                                                                       | 분류                                                                                           |
-| ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| **N1** 묻기 전 컨텍스트 확인, 상세 요청은 그대로 진행, 1질문 | `operational.md` Option Proposal(추천+근거), `research.md` Recommendation Authority(증거로 도출 가능하면 안 물음), `feedback_agent_decision_authority`/`feedback_never_ask_user_to_test`와 정렬. "묻기 전 대화 확인 + 가정 인라인 명시"는 미코드화 | **[conflict→reference profile]** (reference profile가 더 구체적 — 우선) / 대부분 [covered]                         |
-| **N2** web_search 규율(언제/스케일/미인식 엔티티)            | `research.md`는 "비례적 리서치, 제품 문서 우선, 소스코드 금거"를 규정하나 **검색 자체의 트리거/스케일/미인식 엔티티 규율은 없음**. ToolSearch로 WebSearch 사용 가능                                                                                | **[new]**                                                                                      |
-| **N3** web_fetch 규율(URL 언급 시 항상 fetch, 전체 읽기)     | 규칙 없음. ToolSearch로 WebFetch 사용 가능                                                                                                                                                                                                         | **[new]**                                                                                      |
-| **N4** 도구 우선순위/출처 신뢰/귀속 날조 금지                | `operational.md` No Fallback(단일 검증 경로), `research.md`(문서 출처 인용, 감사 가능). "귀속 날조 금지"는 정신적으로 정렬되나 미명시. 내부>외부 도구 우선순위는 미코드화                                                                          | **[new]**(thin)                                                                                |
-| **N5** 파일 생성 필요할 때만/기존 편집 우선                  | **본 작업 시스템 지침에 강하게 존재**("NEVER create files unless absolutely necessary; ALWAYS prefer editing"; "no proactive \*.md/README"). 하네스 규칙 파일엔 미코드화                                                                           | **[conflict→reference profile]**(둘이 같은 방향, reference profile의 아티팩트/인라인 구분 추가) / 운영상 [covered] |
-| **N6** 파일 존재 날조 금지                                   | 시스템 지침 "verify with ls; absolute paths"와 정렬. 코드화된 규칙 없음                                                                                                                                                                            | **[new]**(thin)                                                                                |
-| **N7** 패키지 관리 주의(가용성 검증)                         | `AGENTS.md` Common Commands가 pnpm을 SSOT로 고정. "사용 전 가용성 검증"은 일반 위생                                                                                                                                                                | **[covered]** (pnpm 고정) / claude.ai pip 부분 비이식                                          |
-| **N8** MCP 옵트인/디렉터리 우선                              | 본 레포는 ToolSearch로 MCP 스키마를 **명시적 페치 후** 호출(구조적 옵트인). `context7` 서버 지침은 "라이브러리 문서는 web search보다 우선"을 규정. 서드파티 소비자 앱 옵트인/suggest_connectors 흐름은 무관                                        | **[covered]**(ToolSearch가 옵트인 역할) / consumer-app 부분 비이식                             |
-| **N9** 아티팩트/스토리지 철학                                | 본 레포에 아티팩트 런타임/`window.storage` 없음. `.agents/tasks/`·spec-docs 영속성은 파일 기반                                                                                                                                                     | **[non-portable]** (claude.ai 아티팩트 전용)                                                   |
+| RCP 규범                                                     | 본 레포 매핑                                                                                                                                                                                                                                       | 분류                                                                                   |
+| ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| **N1** 묻기 전 컨텍스트 확인, 상세 요청은 그대로 진행, 1질문 | `operational.md` Option Proposal(추천+근거), `research.md` Recommendation Authority(증거로 도출 가능하면 안 물음), `feedback_agent_decision_authority`/`feedback_never_ask_user_to_test`와 정렬. "묻기 전 대화 확인 + 가정 인라인 명시"는 미코드화 | **[conflict→RCP]** (RCP가 더 구체적 — 우선) / 대부분 [covered]                         |
+| **N2** web_search 규율(언제/스케일/미인식 엔티티)            | `research.md`는 "비례적 리서치, 제품 문서 우선, 소스코드 금거"를 규정하나 **검색 자체의 트리거/스케일/미인식 엔티티 규율은 없음**. ToolSearch로 WebSearch 사용 가능                                                                                | **[new]**                                                                              |
+| **N3** web_fetch 규율(URL 언급 시 항상 fetch, 전체 읽기)     | 규칙 없음. ToolSearch로 WebFetch 사용 가능                                                                                                                                                                                                         | **[new]**                                                                              |
+| **N4** 도구 우선순위/출처 신뢰/귀속 날조 금지                | `operational.md` No Fallback(단일 검증 경로), `research.md`(문서 출처 인용, 감사 가능). "귀속 날조 금지"는 정신적으로 정렬되나 미명시. 내부>외부 도구 우선순위는 미코드화                                                                          | **[new]**(thin)                                                                        |
+| **N5** 파일 생성 필요할 때만/기존 편집 우선                  | **본 작업 시스템 지침에 강하게 존재**("NEVER create files unless absolutely necessary; ALWAYS prefer editing"; "no proactive \*.md/README"). 하네스 규칙 파일엔 미코드화                                                                           | **[conflict→RCP]**(둘이 같은 방향, RCP의 아티팩트/인라인 구분 추가) / 운영상 [covered] |
+| **N6** 파일 존재 날조 금지                                   | 시스템 지침 "verify with ls; absolute paths"와 정렬. 코드화된 규칙 없음                                                                                                                                                                            | **[new]**(thin)                                                                        |
+| **N7** 패키지 관리 주의(가용성 검증)                         | `AGENTS.md` Common Commands가 pnpm을 SSOT로 고정. "사용 전 가용성 검증"은 일반 위생                                                                                                                                                                | **[covered]** (pnpm 고정) / claude.ai pip 부분 비이식                                  |
+| **N8** MCP 옵트인/디렉터리 우선                              | 본 레포는 ToolSearch로 MCP 스키마를 **명시적 페치 후** 호출(구조적 옵트인). `context7` 서버 지침은 "라이브러리 문서는 web search보다 우선"을 규정. 서드파티 소비자 앱 옵트인/suggest_connectors 흐름은 무관                                        | **[covered]**(ToolSearch가 옵트인 역할) / consumer-app 부분 비이식                     |
+| **N9** 아티팩트/스토리지 철학                                | 본 레포에 아티팩트 런타임/`window.storage` 없음. `.agents/tasks/`·spec-docs 영속성은 파일 기반                                                                                                                                                     | **[non-portable]** (claude.ai 아티팩트 전용)                                           |
 
 ---
 
-## 3. 무제한 reference profile 우선 적용 + 비이식/구현 리스크
+## 3. 무제한 RCP 우선 적용 + 비이식/구현 리스크
 
-### 적용 (충돌 시 reference profile 우선)
+### 적용 (충돌 시 RCP 우선)
 
-- **N1·N5는 충돌 아님** — 본 레포 시스템 지침/`operational.md`/`research.md`와 같은 방향이며 reference profile가 더 구체적이므로 그 세부(컨텍스트 우선 확인, 상세 요청 그대로 진행, 아티팩트 vs 인라인 구분, 1질문 천장)를 채택해 보강한다.
+- **N1·N5는 충돌 아님** — 본 레포 시스템 지침/`operational.md`/`research.md`와 같은 방향이며 RCP가 더 구체적이므로 그 세부(컨텍스트 우선 확인, 상세 요청 그대로 진행, 아티팩트 vs 인라인 구분, 1질문 천장)를 채택해 보강한다.
 - **N2·N3·N4(thin)·N6(thin)** 은 실질적 갭 → 신규 규범으로 도입(아래 백로그).
 - N7/N8은 본 레포 메커니즘(pnpm 고정, ToolSearch 옵트인)이 이미 충족 → 추가 도입 불필요.
 
@@ -114,7 +114,7 @@
 
 ### Implementation Risks
 
-- **R1.** reference profile의 "파일 생성" 행동(create_file/artifacts)은 산출물을 다운로드 링크/렌더 UI로 노출하는 **제품 행동**이다. 본 레포는 Bash/Edit/Write + `SendUserFile`만 있어 1:1 매핑 불가 — "필요할 때만 생성, 기존 편집 우선, 산출물 존재 날조 금지"라는 **행동 원칙만** 이식하고 메커니즘은 레포 도구로 치환해야 한다.
+- **R1.** RCP의 "파일 생성" 행동(create_file/artifacts)은 산출물을 다운로드 링크/렌더 UI로 노출하는 **제품 행동**이다. 본 레포는 Bash/Edit/Write + `SendUserFile`만 있어 1:1 매핑 불가 — "필요할 때만 생성, 기존 편집 우선, 산출물 존재 날조 금지"라는 **행동 원칙만** 이식하고 메커니즘은 레포 도구로 치환해야 한다.
 - **R2.** web_search/web_fetch 규범은 본 레포에서 **ToolSearch로 스키마를 먼저 페치한 뒤** 호출하는 간접 경로다. 도입 규칙은 특정 도구 이름이 아닌 "검색/페치 도구가 있을 때의 규율"로 도메인-프리하게 써야 `AGENTS.md` 원칙과 충돌하지 않는다.
 - **R3.** N4 "내부>외부 도구 우선순위"는 claude.ai의 gdrive/slack 전제. 본 레포에서는 "레포 내 코드/스펙/문서를 외부 검색보다 우선"으로 재해석해야 의미가 살아난다(`research.md`의 소스코드 근거 금지와 경계 주의).
 - **R4.** N9 스토리지 철학은 비이식 — 도입 시 노이즈만 추가. spec-docs/tasks 영속성과 혼동하지 말 것.

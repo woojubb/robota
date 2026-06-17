@@ -4,14 +4,14 @@ type: RULE
 tags: [typescript]
 ---
 
-# RULE-001: Adopt reference profile as the agent-conduct authority (unlimited precedence)
+# RULE-001: Adopt RCP as the agent-conduct authority (unlimited precedence)
 
 ## Problem
 
-The user has decided to adopt the **Claude reference profile system prompt**
-(`.design/conduct-adoption/2026-06-18/_SOURCE-reference.md`) as the governing authority for agent
-conduct in this repo. The explicit directive is **unlimited reference profile precedence: wherever any
-reference profile principle conflicts with an existing harness rule, reference profile wins — across all areas.**
+The user has decided to adopt the **external reference conduct profile (RCP)**
+(`the external reference conduct profile (not committed)`) as the governing authority for agent
+conduct in this repo. The explicit directive is **unlimited RCP precedence: wherever any
+RCP principle conflicts with an existing harness rule, RCP wins — across all areas.**
 
 This supersedes the earlier conservative scoping (a prior version of RULE-001 proposed keeping
 harness rules on conflict; that stance is withdrawn). This document is the **governance / meta
@@ -26,24 +26,24 @@ rule** that establishes the precedence and indexes the per-area adoption backlog
 Add to `AGENTS.md` (top-level authority section) and `.agents/rules/index.md`:
 
 > **Agent-conduct authority.** For how the agent communicates, reasons, decides, and behaves,
-> the Claude reference profile conduct principles (see `.agents/rules/agent-conduct.md`) are authoritative.
-> Where a reference profile conduct principle conflicts with any other harness rule or skill, **reference profile
-> takes precedence.** (Repo engineering invariants that reference profile does not address — build/test
+> the Reference Conduct Profile (RCP) principles (see `.agents/rules/agent-conduct.md`) are authoritative.
+> Where a RCP conduct principle conflicts with any other harness rule or skill, **RCP
+> takes precedence.** (Repo engineering invariants that RCP does not address — build/test
 > green, machine-parsed file structure — are not in conflict and remain in force; see each
 > area's Implementation Risk.)
 
-This sits in the existing precedence chain as: **user instructions > reference profile conduct > other
+This sits in the existing precedence chain as: **user instructions > RCP conduct > other
 harness rules > default behavior.**
 
 ## Per-area adoption backlogs (this set)
 
-| ID       | Area                                                     | Source report                                            |
-| -------- | -------------------------------------------------------- | -------------------------------------------------------- |
+| ID       | Area                                                     | Source report                                             |
+| -------- | -------------------------------------------------------- | --------------------------------------------------------- |
 | RULE-002 | Communication & formatting                               | `.design/conduct-adoption/2026-06-18/01-communication.md` |
-| RULE-003 | Accountability, honesty, anti-sycophancy, evenhandedness | `02-conduct-honesty.md`                                  |
-| RULE-004 | Epistemics & verification                                | `03-epistemics-verification.md`                          |
-| RULE-005 | Safety posture (authority pointer)                       | `04-safety-wellbeing.md`                                 |
-| RULE-006 | Operational / tool-use behavior                          | `05-operational-tooluse.md`                              |
+| RULE-003 | Accountability, honesty, anti-sycophancy, evenhandedness | `02-conduct-honesty.md`                                   |
+| RULE-004 | Epistemics & verification                                | `03-epistemics-verification.md`                           |
+| RULE-005 | Safety posture (authority pointer)                       | `04-safety-wellbeing.md`                                  |
+| RULE-006 | Operational / tool-use behavior                          | `05-operational-tooluse.md`                               |
 
 ## Architecture Review
 
@@ -60,7 +60,7 @@ harness rules > default behavior.**
 1. **Consolidation:** merge RULE-002/003/004(/005) into one `agent-conduct.md` (recommended) vs
    keep separate docs. The area agents independently recommended a single owner doc.
 2. **RULE-006 placement:** `agent-conduct.md` vs `operational.md`.
-3. **The one hard conflict (from RULE-002):** reference profile's "technical docs in prose, no
+3. **The one hard conflict (from RULE-002):** RCP's "technical docs in prose, no
    bullets/numbered lists" vs the harness's machine-parsed structured artifacts (SPEC.md
    sections, backlog frontmatter, tables consumed by `harness:scan`). Unlimited precedence is
    recorded; the proposed resolution is scope-separation (prose for human-read conversational +
@@ -68,7 +68,7 @@ harness rules > default behavior.**
 
 ### Alternatives Considered
 
-- **Import the whole reference profile doc verbatim** — rejected: ~46% is claude.ai tool schemas, ~40%
+- **Import the whole RCP doc verbatim** — rejected: ~46% is claude.ai tool schemas, ~40%
   product/runtime/base-model-safety; copying violates the domain-free / no-duplication principle
   and would not even be portable. Adopt principles, not mechanisms.
 - **Scoped precedence (conduct layer only, harness wins on engineering)** — rejected by the user
@@ -118,7 +118,7 @@ harness rules > default behavior.**
 
 ## Evidence Log
 
-- 2026-06-18 — User escalated to unlimited reference profile precedence across all areas. Prior conservative
+- 2026-06-18 — User escalated to unlimited RCP precedence across all areas. Prior conservative
   RULE-001 withdrawn; repurposed as governance/meta. 5-area parallel analysis produced
   RULE-002..006 drafts + reports under `.design/conduct-adoption/2026-06-18/`.
 

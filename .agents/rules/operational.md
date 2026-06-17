@@ -71,7 +71,7 @@ All task and backlog files use an uppercase prefix ID in both the filename and t
 
 ### Search / Fetch Discipline
 
-Adopted from the reference profile conduct authority ([agent-conduct.md](agent-conduct.md) holds precedence).
+Adopted from the RCP conduct authority ([agent-conduct.md](agent-conduct.md) holds precedence).
 
 - Do not search/look up stable, well-established facts already known. Search to verify anything
   that may have changed since training (current versions, library APIs, external status) before
