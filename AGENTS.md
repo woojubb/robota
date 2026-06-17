@@ -98,6 +98,8 @@ pnpm harness:run-context -- [--scope <scope>] [--report-file <path>]
 
 All rules below are mandatory, non-negotiable, and domain-free. Each rule group has its own document with full details. See [rules index](.agents/rules/index.md).
 
+**Agent-conduct authority.** For how the agent communicates, reasons, decides, and behaves, the Claude Fable-5 conduct principles in [agent-conduct.md](.agents/rules/agent-conduct.md) are authoritative. Where a Fable-5 conduct principle conflicts with any other harness rule or skill, **Fable-5 takes precedence** (precedence chain: user instructions > Fable-5 conduct > other harness rules > default behavior). Repo engineering invariants Fable-5 does not address — build/test green, machine-parsed file structure — are not in conflict and remain in force.
+
 | Group                | Document                                                       | Key rules                                                                                                                                                                                                   |
 | -------------------- | -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Code Quality         | [code-quality.md](.agents/rules/code-quality.md)               | Strict TS, no `any`, SSOT types, `interface` for shapes                                                                                                                                                     |
@@ -108,6 +110,7 @@ All rules below are mandatory, non-negotiable, and domain-free. Each rule group 
 | Package Dependencies | [`.agents/project-structure.md`](.agents/project-structure.md) | One-way deps, no cycles, no pass-through re-exports                                                                                                                                                         |
 | Frontend             | [frontend.md](.agents/rules/frontend.md)                       | React only, Next.js for SSR, VitePress is the sole Vue exception                                                                                                                                            |
 | Common Mistakes      | [common-mistakes.md](.agents/rules/common-mistakes.md)         | Observed failure patterns with correct approaches                                                                                                                                                           |
+| Agent Conduct        | [agent-conduct.md](.agents/rules/agent-conduct.md)             | Fable-5 conduct authority (precedence on conflict): communication/formatting, accountability & honesty, epistemic discipline, safety posture                                                                |
 
 ## Common Pitfalls
 

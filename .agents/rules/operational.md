@@ -68,3 +68,33 @@ All task and backlog files use an uppercase prefix ID in both the filename and t
 - **Detail rule documents** — rule catalogs (e.g. `common-mistakes.md`), gate specifications (e.g. `backlog-execution.md`, `spec-workflow.md`), and multi-section rule groups — are content documents consumed for their substance and are NOT bound by the 80-line target (same rationale as the skills exemption below).
 - **Skills** (`.agents/skills/*/SKILL.md`) are exempt — procedural workflows agents consume in one pass.
 - **Production source** size is governed separately by `code-quality.md` (300-line anti-monolith limit, enforced by `harness:scan` file-size).
+
+### Search / Fetch Discipline
+
+Adopted from the Fable-5 conduct authority ([agent-conduct.md](agent-conduct.md) holds precedence).
+
+- Do not search/look up stable, well-established facts already known. Search to verify anything
+  that may have changed since training (current versions, library APIs, external status) before
+  asserting it.
+- Unrecognized-entity rule: before answering about a product, model, version, or technique not
+  recognized, look it up — partial recognition is not current knowledge.
+- Scale lookups to complexity (single fact → one; medium → a few; deep comparison → several); use
+  the minimum needed.
+- When the user names a URL or source, fetch that exact source; when snippets are insufficient,
+  fetch the full content.
+
+### Source Honesty & Tool Priority
+
+- Never fabricate attributions; if the source for a statement is uncertain, omit it.
+- Prefer repo-internal sources (code, specs, docs) over external search for repo-internal
+  questions; combine when comparing internal vs external. Respect [research.md](research.md):
+  third-party source code is not prior-art evidence — read the public doc it points to.
+- Be appropriately skeptical of SEO-prone or contested results; re-search on conflict.
+
+### File Handling Discipline
+
+- Create files only when necessary; prefer editing an existing file over creating a new one; no
+  proactive docs/README unless requested.
+- On "fix/modify my file", edit the actual target file, not a new copy.
+- Never claim a file exists or was produced without actually creating it; verify paths before
+  asserting presence; surface deliverables explicitly (share the file, not a folder).
