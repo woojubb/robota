@@ -1,27 +1,27 @@
-# 04 — 안전 태세 (Safety Posture) reference profile 대조 분석
+# 04 — 안전 태세 (Safety Posture) RCP 대조 분석
 
 대상 영역: 거부 처리(refusal handling), 아동 안전(child safety), 자해/웰빙(self-harm/wellbeing),
 법률·금융 자문(legal/financial), 유해 콘텐츠 및 저작권 준수(harmful content & copyright).
 
-전제: 사용자는 reference profile를 통치 권위로 채택하며, **모든 영역에서 충돌 시 reference profile가 무제한 우선**한다.
+전제: 사용자는 RCP를 통치 권위로 채택하며, **모든 영역에서 충돌 시 RCP가 무제한 우선**한다.
 이 문서는 한 영역(안전 태세)만 다룬다.
 
 ## 요약
 
-- reference profile 안전 섹션(`refusal_handling`, `critical_child_safety_instructions`,
+- RCP 안전 섹션(`refusal_handling`, `critical_child_safety_instructions`,
   `legal_and_financial_advice`, `user_wellbeing`, `CRITICAL_COPYRIGHT_COMPLIANCE`,
   `harmful_content_safety`)은 거의 전부 **소비자 채팅 제품(claude.ai)** 을 전제로 작성된
   일반 어시스턴트 안전 규범이다.
 - 현재 하니스(`AGENTS.md`, `.agents/rules/*`)에는 **안전 규칙이 전혀 없다**. 안전은 베이스 모델에서
-  상속된다. 따라서 reference profile와 하니스 사이에 **직접적인 규칙 충돌은 존재하지 않는다.**
-- 충돌이 없으므로 "reference profile 우선" 지시는 안전 영역에서 **새 규칙 추가가 아니라, 안전 권위의 명시적
+  상속된다. 따라서 RCP와 하니스 사이에 **직접적인 규칙 충돌은 존재하지 않는다.**
+- 충돌이 없으므로 "RCP 우선" 지시는 안전 영역에서 **새 규칙 추가가 아니라, 안전 권위의 명시적
   지정**으로 충족하는 것이 옳다. 수백 줄의 채팅 제품 안전 텍스트를 하니스에 복사하면 (1) 베이스
   모델과 중복되고, (2) "domain-free 규칙 / 무중복" 원칙을 위배하며, (3) 채팅 전용 항목(end_conversation,
   thumbs-down, 특정 헬프라인 등)이 코딩 에이전트 맥락에서 작동하지 않는다.
-- 권고: 하니스에 **"안전 태세는 reference profile 행동 규범을 권위로 따른다"** 는 간결한 포인터 한 줄을 두어
+- 권고: 하니스에 **"안전 태세는 RCP 행동 규범을 권위로 따른다"** 는 간결한 포인터 한 줄을 두어
   지시를 존중하되, 본문 복사는 하지 않는다. (구현은 별도 RULE-005 드래프트로 제안.)
 
-## 원칙 추출 (reference profile 안전 원칙)
+## 원칙 추출 (RCP 안전 원칙)
 
 코드 저장소 에이전트 관점에서 의미를 따져 추출한다.
 
@@ -45,7 +45,7 @@
 
 ## 적용 가능성 표
 
-| reference profile 안전 섹션                | 코딩 에이전트 하니스 적용성                                              | 하니스 현황                  | 판정                      |
+| RCP 안전 섹션                    | 코딩 에이전트 하니스 적용성                                              | 하니스 현황                  | 판정                      |
 | -------------------------------- | ------------------------------------------------------------------------ | ---------------------------- | ------------------------- |
 | refusal_handling — 악성코드 거부 | **높음.** 코드 작성 에이전트가 멀웨어/익스플로잇/랜섬웨어를 만들 수 있음 | 규칙 없음 (베이스 모델 상속) | 권위 위임으로 충분        |
 | refusal_handling — 무기/유해물질 | 낮음. 코드 맥락에서 드묾                                                 | 규칙 없음                    | 권위 위임                 |
@@ -56,20 +56,20 @@
 | harmful_content_safety (웹 검색) | 중간. WebSearch/WebFetch 도구 사용 시                                    | 규칙 없음                    | 권위 위임                 |
 
 요지: 적용성이 "높음"인 항목조차 베이스 모델이 이미 강제하고 있어, 하니스가 **새로 정의할 가치는
-거의 없다**. 가치 있는 행동은 "reference profile를 안전 권위로 명시" 한 줄로 확보된다.
+거의 없다**. 가치 있는 행동은 "RCP를 안전 권위로 명시" 한 줄로 확보된다.
 
 ## 권고
 
-1. **본문 복사 금지.** reference profile 안전 섹션(수백 줄)을 `.agents/rules/`에 옮기지 않는다. 베이스 모델과
+1. **본문 복사 금지.** RCP 안전 섹션(수백 줄)을 `.agents/rules/`에 옮기지 않는다. 베이스 모델과
    중복되고 `AGENTS.md`의 "domain-free 규칙 / 무중복" 원칙을 위배한다.
 2. **권위 포인터 1줄 추가(제안).** 하니스에 다음 취지의 간결한 문장을 둔다:
    _"Safety posture: 거부 처리, 아동 안전, 자해/웰빙, 법률·금융, 유해 콘텐츠·저작권 등 안전 행동은
-   reference profile 행동 규범을 권위로 따른다. 충돌 시 reference profile가 우선한다. 하니스는 안전 규칙을 별도로
+   RCP 행동 규범을 권위로 따른다. 충돌 시 RCP가 우선한다. 하니스는 안전 규칙을 별도로
    복제·재정의하지 않는다."_
-   이로써 "모든 영역 / reference profile 우선" 지시를 안전 영역에서도 명시적으로 충족한다.
+   이로써 "모든 영역 / RCP 우선" 지시를 안전 영역에서도 명시적으로 충족한다.
 3. **배치는 별도 결정.** 신규 `.agents/rules/safety-posture.md` 또는 기존 conduct 규칙 확장 중
    GATE-APPROVAL에서 선택. (RULE-005 드래프트에 대안 정리.)
-4. **충돌 없음을 정직하게 기록.** 안전 영역은 경쟁 규칙이 없어 실질 충돌이 없다. "reference profile 우선"은
+4. **충돌 없음을 정직하게 기록.** 안전 영역은 경쟁 규칙이 없어 실질 충돌이 없다. "RCP 우선"은
    여기서 분쟁 해소가 아니라 권위 명문화로 작동한다.
 
 ## 비포터블 항목 (채팅 제품 전용 — 문자 그대로 이식 불가)
