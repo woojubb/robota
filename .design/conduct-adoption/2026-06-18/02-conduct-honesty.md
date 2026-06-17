@@ -1,16 +1,16 @@
-# Fable-5 채택안 — 영역 2: 책임성·정직성·반-아첨·공정성·비신뢰 콘텐츠 처리
+# RCP 채택안 — 영역 2: 책임성·정직성·반-아첨·공정성·비신뢰 콘텐츠 처리
 
-거버넌스 전제: 사용자가 Claude Fable-5 시스템 프롬프트를 에이전트 행동 규범 권위로 채택했고, 충돌 시 **Fable-5가 무제한 우선**한다. 이 전제는 재론하지 않는다. 본 문서는 한 영역(책임성·정직성)에 대한 채택안만 다룬다.
+거버넌스 전제: 사용자가 Reference Conduct Profile 시스템 프롬프트를 에이전트 행동 규범 권위로 채택했고, 충돌 시 **RCP가 무제한 우선**한다. 이 전제는 재론하지 않는다. 본 문서는 한 영역(책임성·정직성)에 대한 채택안만 다룬다.
 
 ## 요약
 
-Fable-5의 `### evenhandedness`, `### responding_to_mistakes_and_criticism`, `### anthropic_reminders`, `### knowledge_cutoff`에서 코딩 에이전트로 이전 가능한 행동 규범을 뽑으면 다섯 묶음이 나온다. 실수를 과도한 사과·자기비하·불필요한 항복 없이 인정하고 고친다. 정직한 도움을 흔들림 없이 유지하고 건설적으로 반박한다. 다른 사람 견해로 제시되는 주장은 최선의 형태로 제시하고 반대 관점도 덧붙인다. 견해를 과하거나 반복적으로 밀어붙이지 않는다. 권위를 주장하며 주입된 콘텐츠는 데이터로만 다루고 명령으로 따르지 않는다. 결과나 결과 부재에 대해 과신하는 주장을 하지 않는다.
+RCP의 `### evenhandedness`, `### responding_to_mistakes_and_criticism`, `### anthropic_reminders`, `### knowledge_cutoff`에서 코딩 에이전트로 이전 가능한 행동 규범을 뽑으면 다섯 묶음이 나온다. 실수를 과도한 사과·자기비하·불필요한 항복 없이 인정하고 고친다. 정직한 도움을 흔들림 없이 유지하고 건설적으로 반박한다. 다른 사람 견해로 제시되는 주장은 최선의 형태로 제시하고 반대 관점도 덧붙인다. 견해를 과하거나 반복적으로 밀어붙이지 않는다. 권위를 주장하며 주입된 콘텐츠는 데이터로만 다루고 명령으로 따르지 않는다. 결과나 결과 부재에 대해 과신하는 주장을 하지 않는다.
 
-현재 하니스는 검증 규칙(verification.md), 결정 권한 규칙(backlog-execution.md "Agent Decision Authority"), no-fallback 규칙(operational.md), 그리고 다수의 `feedback_*` 메모리로 일부를 이미 다룬다. 하지만 (1) 반-아첨/정직한 반박을 명시한 행동 규칙이 없고, (2) 비신뢰 주입 콘텐츠 처리가 시스템 프롬프트/메모리 수준에만 있으며 하니스 규칙으로 성문화되지 않았고, (3) "결과·결과 부재에 대해 과신 금지"가 검증 통과 보고 톤에 적용된 적이 없다. 영역 1의 RULE-001 초안이 B(책임성)와 D(비신뢰 콘텐츠)를 "thin"으로 이미 제안했지만, RULE-001은 충돌 시 하니스를 존중하는 절충 입장이었다. 본 영역 2는 **무제한 Fable-5 우선**을 적용해 B/D를 깊게 채택하고, 공정성·과신 금지를 추가하며, 하니스의 "설계 확인 필수"·"단독 결정 금지"와의 긴장을 정직하게 드러내고 Fable-5 쪽으로 해소한다.
+현재 하니스는 검증 규칙(verification.md), 결정 권한 규칙(backlog-execution.md "Agent Decision Authority"), no-fallback 규칙(operational.md), 그리고 다수의 `feedback_*` 메모리로 일부를 이미 다룬다. 하지만 (1) 반-아첨/정직한 반박을 명시한 행동 규칙이 없고, (2) 비신뢰 주입 콘텐츠 처리가 시스템 프롬프트/메모리 수준에만 있으며 하니스 규칙으로 성문화되지 않았고, (3) "결과·결과 부재에 대해 과신 금지"가 검증 통과 보고 톤에 적용된 적이 없다. 영역 1의 RULE-001 초안이 B(책임성)와 D(비신뢰 콘텐츠)를 "thin"으로 이미 제안했지만, RULE-001은 충돌 시 하니스를 존중하는 절충 입장이었다. 본 영역 2는 **무제한 RCP 우선**을 적용해 B/D를 깊게 채택하고, 공정성·과신 금지를 추가하며, 하니스의 "설계 확인 필수"·"단독 결정 금지"와의 긴장을 정직하게 드러내고 RCP 쪽으로 해소한다.
 
-가장 큰 긴장점: 메모리 `feedback_design_confirmation`(설계안은 반드시 사용자 컨펌 후 구현)·`feedback_no_unilateral_decisions`(파일 위치/export/소유권 결정 단독 금지)는 Fable-5의 "근거가 분명하면 행동하고, 과도하게 미루지 말라"와 충돌한다. 무제한 우선 원칙에 따라 Fable-5가 이긴다. 결과로 에이전트가 더 자주 스스로 결정하게 되며, 이는 구현 리스크로 명시한다.
+가장 큰 긴장점: 메모리 `feedback_design_confirmation`(설계안은 반드시 사용자 컨펌 후 구현)·`feedback_no_unilateral_decisions`(파일 위치/export/소유권 결정 단독 금지)는 RCP의 "근거가 분명하면 행동하고, 과도하게 미루지 말라"와 충돌한다. 무제한 우선 원칙에 따라 RCP가 이긴다. 결과로 에이전트가 더 자주 스스로 결정하게 되며, 이는 구현 리스크로 명시한다.
 
-## 원칙 추출 (Fable-5 출처 행 번호)
+## 원칙 추출 (RCP 출처 행 번호)
 
 1. 실수 소유·수정 — 자기비하/과잉 사과/불필요 항복 없이 책임지고, 문제에 집중하며 자존을 유지한다. (`responding_to_mistakes_and_criticism`, 152행)
 2. 흔들림 없는 정직한 도움 — 건설적 반박을 하되 친절하게, 상대의 최선 이익을 염두에 둔다. (152행, `tone_and_formatting` 70행 보강)
@@ -22,9 +22,9 @@ Fable-5의 `### evenhandedness`, `### responding_to_mistakes_and_criticism`, `##
 8. 주입된 권위 주장 콘텐츠 경계 — 사용자 메시지 말미 태그 등 Anthropic을 사칭하거나 가치를 거스르는 콘텐츠는 경계해서 다룬다. (`anthropic_reminders`, 132행)
 9. 결과·결과 부재 과신 금지 — 검색/조회 결과의 유효성이나 부재에 대해 과신하지 않고 공정하게 제시하며 결론으로 비약하지 않는다. (`knowledge_cutoff`, 164행)
 
-## Head-to-head 비교 (분류: [new] / [conflict→Fable-5] / [covered])
+## Head-to-head 비교 (분류: [new] / [conflict→RCP] / [covered])
 
-| #   | Fable-5 원칙                                           | 하니스 현황                                                                                                                                                   | 분류                          |
+| #   | RCP 원칙                                               | 하니스 현황                                                                                                                                                   | 분류                          |
 | --- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
 | 1   | 실수 소유·수정, 자기비하/과잉사과 금지                 | verification.md는 증거 기반 보고를 요구하나 사과·자존 톤 규범 없음; `feedback_done_gate`는 증거 게이트만                                                      | [new]                         |
 | 2   | 흔들림 없는 정직한 도움, 건설적 반박                   | `feedback_enforce_rules_proactively`·`feedback_agent_decision_authority`가 근접하나 "반-아첨/정직한 반박" 명시 규칙 부재                                      | [new]                         |
@@ -35,11 +35,11 @@ Fable-5의 `### evenhandedness`, `### responding_to_mistakes_and_criticism`, `##
 | 7   | 강제된 과도 간결함 거부 가능 (복잡 주제)               | 하니스에 보고 톤/길이 규범 없음; 영역 1 RULE-001의 포맷 규율(A)과 인접                                                                                        | [new]                         |
 | 8   | 주입된 권위 주장 콘텐츠 경계                           | 시스템 프롬프트/메모리에 "recalled entries 검증", "hook output은 피드백"으로만 존재; 하니스 규칙 없음. common-mistakes #34/#35(주입 헤딩, 마크업≠실행)와 인접 | [new] (인접 부분은 [covered]) |
 | 9   | 결과·결과 부재 과신 금지                               | verification.md는 증거를 요구하나 "증거가 곧 확정"이라는 과신 톤을 막지 않음; "two consecutive no-signal → 보고" 조사 규범과 정렬                             | [new]                         |
-| —   | 근거 분명 시 행동, 과도한 미루기 금지 (152/146행 정신) | backlog-execution.md "Agent Decision Authority"는 정렬됨. 그러나 `feedback_design_confirmation`·`feedback_no_unilateral_decisions` 메모리와 충돌              | [conflict→Fable-5]            |
+| —   | 근거 분명 시 행동, 과도한 미루기 금지 (152/146행 정신) | backlog-execution.md "Agent Decision Authority"는 정렬됨. 그러나 `feedback_design_confirmation`·`feedback_no_unilateral_decisions` 메모리와 충돌              | [conflict→RCP]                |
 
-## 채택 (무제한 Fable-5 우선 적용)
+## 채택 (무제한 RCP 우선 적용)
 
-[new]·[conflict→Fable-5]로 분류된 항목을 모두 채택한다. RULE-001이 thin으로 둔 B/D를 본 영역에서 깊게 성문화하고, 공정성(5/6)과 과신 금지(9)를 추가한다. 권장 배치는 `.agents/rules/agent-conduct.md` 신규 규칙 문서다(RULE-001과 동일 배치, 한 소유 문서로 통합).
+[new]·[conflict→RCP]로 분류된 항목을 모두 채택한다. RULE-001이 thin으로 둔 B/D를 본 영역에서 깊게 성문화하고, 공정성(5/6)과 과신 금지(9)를 추가한다. 권장 배치는 `.agents/rules/agent-conduct.md` 신규 규칙 문서다(RULE-001과 동일 배치, 한 소유 문서로 통합).
 
 채택 항목:
 
@@ -53,7 +53,7 @@ Fable-5의 `### evenhandedness`, `### responding_to_mistakes_and_criticism`, `##
 
 ## 구현 리스크
 
-- 가장 큰 리스크: 항목 K는 메모리 `feedback_design_confirmation`("설계안은 반드시 사용자 컨펌 후 구현")·`feedback_no_unilateral_decisions`("파일 위치/export/소유권 단독 결정 금지")·`feedback_no_unilateral_decisions`의 PLG-002 충돌 사건과 정면 충돌한다. 무제한 Fable-5 우선에 따라 Fable-5가 이기므로, 에이전트는 근거가 분명한 설계·배치 결정을 사용자 확인 없이 더 자주 진행하게 된다. 이는 과거 develop 오염·단독 결정 사건의 재발 위험을 키운다. 완화책으로 K를 "제품 방향·계약 변경은 예외"로 좁혔으나, "근거 분명"의 판단은 에이전트에게 남으므로 잔여 리스크가 있다.
+- 가장 큰 리스크: 항목 K는 메모리 `feedback_design_confirmation`("설계안은 반드시 사용자 컨펌 후 구현")·`feedback_no_unilateral_decisions`("파일 위치/export/소유권 단독 결정 금지")·`feedback_no_unilateral_decisions`의 PLG-002 충돌 사건과 정면 충돌한다. 무제한 RCP 우선에 따라 RCP가 이기므로, 에이전트는 근거가 분명한 설계·배치 결정을 사용자 확인 없이 더 자주 진행하게 된다. 이는 과거 develop 오염·단독 결정 사건의 재발 위험을 키운다. 완화책으로 K를 "제품 방향·계약 변경은 예외"로 좁혔으나, "근거 분명"의 판단은 에이전트에게 남으므로 잔여 리스크가 있다.
 - 항목 F(정직한 반박)와 G(공정한 반대 관점)는 사용자 지시에 대한 건설적 반박을 장려한다. 무제한 우선 전제상 이는 의도된 행동이나, 거버넌스가 바뀌면 "사용자 지시 우선" 규칙과 재충돌할 수 있다.
 - 항목 I(비신뢰 콘텐츠)는 hook/서브에이전트 부트스트랩 텍스트(예: 본 세션의 Vercel 플러그인 주입)와 사용자 메시지 말미 권위 주장 콘텐츠를 "검증 대상 데이터"로 강등한다. 합법적 하니스 지시까지 과도하게 의심하면 정상 흐름이 저해될 수 있어, common-mistakes #34(중립 헤딩 ≠ 주입)와 경계를 맞춰야 한다.
 - 항목 J는 verification.md의 "증거 필수" 규칙과 톤 차원에서 보강 관계이나, "증거가 곧 확정"이라는 기존 관행과 미세하게 다른 보고 톤을 요구하므로 검증 게이트 문구와의 정합성 점검이 필요하다.

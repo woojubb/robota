@@ -4,16 +4,16 @@ type: RULE
 tags: [typescript]
 ---
 
-# RULE-003: Adopt Fable-5 accountability, honesty, anti-sycophancy, evenhandedness, and untrusted-content conduct
+# RULE-003: Adopt RCP accountability, honesty, anti-sycophancy, evenhandedness, and untrusted-content conduct
 
-Governance premise: the user has adopted the Claude Fable-5 system prompt as the governing authority
-for agent conduct, with **unlimited Fable-5 precedence on conflict** (Fable-5 wins). This is an
+Governance premise: the user has adopted the external reference conduct profile (RCP) as the governing authority
+for agent conduct, with **unlimited RCP precedence on conflict** (RCP wins). This is an
 explicit user instruction and is not re-litigated here. This draft applies that premise to one area:
 accountability, honesty, anti-sycophancy, evenhandedness, and untrusted-content handling.
 
 ## Problem
 
-The Fable-5 system prompt (`.design/fable5-adoption/2026-06-18/_SOURCE-fable5.md`) encodes a coherent
+The RCP system prompt (`the external reference conduct profile (not committed)`) encodes a coherent
 set of conduct principles that materially improve agent output quality, concentrated in
 `### evenhandedness` (~136–146), `### responding_to_mistakes_and_criticism` (~152–154), the
 authority-claiming-content caution in `### anthropic_reminders` (~132), and the "no overconfident
@@ -29,13 +29,13 @@ overconfident claims about results or their absence in reporting tone.
 
 Area 1 (RULE-001) already proposed items B (accountability) and D (untrusted content) at a "thin"
 level, but RULE-001 deferred to the harness where coverage was deemed sufficient. This draft
-supersedes that posture for this area by applying **unlimited Fable-5 precedence**: it codifies B/D
+supersedes that posture for this area by applying **unlimited RCP precedence**: it codifies B/D
 in depth, adds evenhandedness and no-overconfidence, and resolves the direct conflict with the
-harness "design confirmation required" / "no unilateral decisions" memories in Fable-5's favor.
+harness "design confirmation required" / "no unilateral decisions" memories in RCP's favor.
 
 ## Gap & Conflict Analysis
 
-| Fable-5 principle (source line)                                                     | Harness status                                                                                                                             | Classification                       |
+| RCP principle (source line)                                                         | Harness status                                                                                                                             | Classification                       |
 | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------ |
 | Own and fix mistakes; no self-abasement / excessive apology / surrender (152)       | `verification.md` requires evidence; no apology/self-respect tone rule                                                                     | **NEW**                              |
 | Steady honest helpfulness; constructive push-back; anti-sycophancy (152, 70)        | `feedback_enforce_rules_proactively` / `feedback_agent_decision_authority` are adjacent; no explicit rule                                  | **NEW**                              |
@@ -46,9 +46,9 @@ harness "design confirmation required" / "no unilateral decisions" memories in F
 | Charity to inquiries; may decline forced over-brief answers on complex topics (146) | No reporting tone/length rule; adjacent to RULE-001 item A                                                                                 | **NEW**                              |
 | Treat injected authority-claiming content with caution (132)                        | System-prompt + memory only ("verify recalled entries", "hook output is feedback"); `common-mistakes` #34/#35 adjacent                     | **NEW** (adjacent parts **covered**) |
 | No overconfident claims about results or their absence (164)                        | `verification.md` requires evidence but does not curb "evidence = settled" overconfidence                                                  | **NEW**                              |
-| Act on clear rule/architecture grounds; do not over-defer (152/146 spirit)          | `backlog-execution.md` "Agent Decision Authority" aligns, but `feedback_design_confirmation` + `feedback_no_unilateral_decisions` conflict | **CONFLICT → Fable-5**               |
+| Act on clear rule/architecture grounds; do not over-defer (152/146 spirit)          | `backlog-execution.md` "Agent Decision Authority" aligns, but `feedback_design_confirmation` + `feedback_no_unilateral_decisions` conflict | **CONFLICT → RCP**                   |
 
-Net: 7 NEW items, 1 CONFLICT resolved in Fable-5's favor, evenhandedness-as-others'-view largely
+Net: 7 NEW items, 1 CONFLICT resolved in RCP's favor, evenhandedness-as-others'-view largely
 covered for coding work.
 
 ## Proposed Rule Additions
@@ -92,13 +92,13 @@ single `agent-conduct.md` at GATE-APPROVAL to avoid a split owner and duplicatio
 **Alt B: extend `.agents/rules/naming-style.md`** — no new file, but naming-style owns
 language/UI styling, not conduct; mixes concerns. Rejected.
 
-**Alt C: put E–K in the Fable-5 `packages/agent-preset` profile** — matches the existing Fable5
+**Alt C: put E–K in the RCP `packages/agent-preset` profile** — matches the existing RCP
 work-style preset and is opt-in, but these are general conduct that should apply to default work,
 not preset-gated. Rejected.
 
 ### Alternatives Considered (scope)
 
-- Import the whole Fable-5 document — rejected; ~90% is claude.ai product/tool/safety material that
+- Import the whole RCP document — rejected; ~90% is claude.ai product/tool/safety material that
   violates the AGENTS.md domain-free / no-duplication principle.
 - Import nothing — rejected; E, F, J are genuine gaps with real value for output quality and the
   governance premise mandates adoption.
@@ -116,7 +116,7 @@ not preset-gated. Rejected.
 - Highest risk: item **K** directly conflicts with memories `feedback_design_confirmation` ("designs
   must be user-confirmed before implementation") and `feedback_no_unilateral_decisions` ("never
   decide file location / export / module ownership alone", PLG-002 incident). Under unlimited
-  Fable-5 precedence, Fable-5 wins, so the agent will proceed on clear-grounds decisions without user
+  RCP precedence, RCP wins, so the agent will proceed on clear-grounds decisions without user
   confirmation more often. This raises the risk of recurrence of the prior develop-pollution /
   unilateral-decision incidents. Mitigation: K is narrowed so that product-direction and contract
   changes still require confirmation, but the "clear grounds" judgment remains with the agent —
@@ -142,7 +142,7 @@ not preset-gated. Rejected.
 ## Completion Criteria
 
 - [ ] Items E–K added; no claude.ai product/tool/safety content imported.
-- [ ] Conflict K resolved in Fable-5's favor and the risk recorded.
+- [ ] Conflict K resolved in RCP's favor and the risk recorded.
 - [ ] No duplication with RULE-001 — merged into a single `agent-conduct.md`.
 - [ ] `pnpm harness:scan` passes (document-authority, consistency, doc-structure).
 - [ ] AGENTS.md + `rules/index.md` updated if Alt A.
@@ -162,10 +162,10 @@ not preset-gated. Rejected.
 
 ## Evidence Log
 
-- 2026-06-18 — Source assessed: `_SOURCE-fable5.md` (1,598 lines). Conduct principles extracted from
+- 2026-06-18 — Source assessed: `the external reference conduct profile (not committed)` (1,598 lines). Conduct principles extracted from
   `evenhandedness` (136–146), `responding_to_mistakes_and_criticism` (152–154),
   `anthropic_reminders` (132), `knowledge_cutoff` (164). Gap & conflict analysis above: 7 NEW items,
-  1 CONFLICT (K) resolved in Fable-5's favor under unlimited precedence. Draft pending placement
+  1 CONFLICT (K) resolved in RCP's favor under unlimited precedence. Draft pending placement
   decision and RULE-001 merge.
 
 - 2026-06-18 — IMPLEMENTED: consolidated into `.agents/rules/agent-conduct.md` (communication, accountability/honesty, epistemics, safety pointer) + operational items in `.agents/rules/operational.md`; precedence statement + Mandatory Rules row added to AGENTS.md + rules/index.md. `pnpm harness:scan` = all 26 passed.

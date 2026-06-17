@@ -4,22 +4,22 @@ type: RULE
 tags: [typescript]
 ---
 
-# RULE-002: Adopt Fable-5 communication & formatting style with unlimited precedence
+# RULE-002: Adopt RCP communication & formatting style with unlimited precedence
 
 ## Problem
 
-The user has decided to adopt the Claude Fable-5 system prompt as the governing authority for
-agent conduct in this harness, with **unlimited Fable-5 precedence**: where any Fable-5 principle
-conflicts with an existing harness rule, Fable-5 wins. This draft covers exactly one area —
-**communication and formatting style** — extracted from the Fable-5 `tone_and_formatting` /
+The user has decided to adopt the external reference conduct profile (RCP) as the governing authority for
+agent conduct in this harness, with **unlimited RCP precedence**: where any RCP principle
+conflicts with an existing harness rule, RCP wins. This draft covers exactly one area —
+**communication and formatting style** — extracted from the RCP `tone_and_formatting` /
 `lists_and_bullets` section and the format-relevant parts of `evenhandedness`.
 
 The current harness has no communication or formatting discipline at all. `naming-style.md` owns
 only language policy (English code, Korean conversation) and Korean prose style; it says nothing
 about prose-vs-bullets, formatting minimalism, question discipline, or tone. So almost every
-Fable-5 communication principle is a clean addition.
+RCP communication principle is a clean addition.
 
-The one genuine conflict is decisive. Fable-5 requires that "reports, documents, technical
+The one genuine conflict is decisive. RCP requires that "reports, documents, technical
 documentation, and explanations" be written as prose without bullets, numbered lists, or excessive
 bolding. But this repo uses markdown structure itself as a machine-parsed contract: SPEC.md
 required sections, backlog frontmatter, and comparison tables are structural invariants checked by
@@ -29,34 +29,34 @@ Risk).
 
 This draft overlaps with the existing `RULE-001-agent-communication-conduct.md`, which takes the
 opposite posture (absorb only the conservative ~8%, harness rules largely win). Per the user
-directive, RULE-002 applies unlimited Fable-5 precedence for the communication/formatting area and
+directive, RULE-002 applies unlimited RCP precedence for the communication/formatting area and
 should supersede RULE-001's communication item (A) on conflict. GATE-APPROVAL must reconcile the
 two.
 
 ## Gap & Conflict Analysis
 
-| Fable-5 principle                                                                                | Harness current state                                                                             | Classification                                                                                    |
-| ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| Warm-but-honest tone; no negative assumptions about ability; constructive pushback               | None (`naming-style.md` is language/UI only)                                                      | Fable-5 adds new                                                                                  |
-| Illustrate with examples, thought experiments, metaphors                                         | None                                                                                              | Fable-5 adds new                                                                                  |
-| Never curse unless user does/asks; even then sparingly                                           | None                                                                                              | Fable-5 adds new                                                                                  |
-| At most one question per response; attempt request / state assumptions before asking             | Adjacent: `feedback_agent_decision_authority` (recommend+rationale first); no question-count rule | Fable-5 adds new                                                                                  |
-| Assume a capable adult; treat them as such                                                       | None                                                                                              | Fable-5 adds new                                                                                  |
-| A prompt implying a file is present does not mean one is; check for it                           | Adjacent: "Read before Edit" agent guidance; not a rule                                           | Fable-5 adds new                                                                                  |
-| Avoid over-formatting (bold/headers/lists); minimum needed for clarity                           | None; AGENTS.md itself uses heavy bold/tables                                                     | Fable-5 adds new                                                                                  |
-| Lists/bullets only when (a) asked or (b) genuinely multifaceted                                  | None                                                                                              | Fable-5 adds new                                                                                  |
-| Bullets are at least 1-2 sentences                                                               | None; common-mistakes table uses one-line cells                                                   | Fable-5 adds new (conversational only)                                                            |
-| Simple questions answered in prose; short is fine                                                | None                                                                                              | Fable-5 adds new                                                                                  |
-| **Reports/documents/technical docs/explanations = prose, no bullets/numbered lists/excess bold** | **Conflict**: SPEC.md required sections, backlog frontmatter, contract tables mandate structure   | **Conflict → adopt Fable-5 for conversational + narrative output; structured artifacts excepted** |
-| Never use bullets when declining a task                                                          | None                                                                                              | Fable-5 adds new                                                                                  |
-| May decline a one-word answer on complex/contested topics; give nuance                           | None; rarely applicable to code work                                                              | Fable-5 adds new                                                                                  |
+| RCP principle                                                                                    | Harness current state                                                                             | Classification                                                                                |
+| ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| Warm-but-honest tone; no negative assumptions about ability; constructive pushback               | None (`naming-style.md` is language/UI only)                                                      | RCP adds new                                                                                  |
+| Illustrate with examples, thought experiments, metaphors                                         | None                                                                                              | RCP adds new                                                                                  |
+| Never curse unless user does/asks; even then sparingly                                           | None                                                                                              | RCP adds new                                                                                  |
+| At most one question per response; attempt request / state assumptions before asking             | Adjacent: `feedback_agent_decision_authority` (recommend+rationale first); no question-count rule | RCP adds new                                                                                  |
+| Assume a capable adult; treat them as such                                                       | None                                                                                              | RCP adds new                                                                                  |
+| A prompt implying a file is present does not mean one is; check for it                           | Adjacent: "Read before Edit" agent guidance; not a rule                                           | RCP adds new                                                                                  |
+| Avoid over-formatting (bold/headers/lists); minimum needed for clarity                           | None; AGENTS.md itself uses heavy bold/tables                                                     | RCP adds new                                                                                  |
+| Lists/bullets only when (a) asked or (b) genuinely multifaceted                                  | None                                                                                              | RCP adds new                                                                                  |
+| Bullets are at least 1-2 sentences                                                               | None; common-mistakes table uses one-line cells                                                   | RCP adds new (conversational only)                                                            |
+| Simple questions answered in prose; short is fine                                                | None                                                                                              | RCP adds new                                                                                  |
+| **Reports/documents/technical docs/explanations = prose, no bullets/numbered lists/excess bold** | **Conflict**: SPEC.md required sections, backlog frontmatter, contract tables mandate structure   | **Conflict → adopt RCP for conversational + narrative output; structured artifacts excepted** |
+| Never use bullets when declining a task                                                          | None                                                                                              | RCP adds new                                                                                  |
+| May decline a one-word answer on complex/contested topics; give nuance                           | None; rarely applicable to code work                                                              | RCP adds new                                                                                  |
 
-Net: 12 new additions, 1 conflict (resolved by scope separation, Fable-5 takes precedence per
+Net: 12 new additions, 1 conflict (resolved by scope separation, RCP takes precedence per
 directive), 0 already-covered.
 
 ## Proposed Rule Additions
 
-The following is the concrete, Fable-5-aligned rule text to add. It is written to be domain-free
+The following is the concrete, RCP-aligned rule text to add. It is written to be domain-free
 and to live under a new `## Communication & Formatting` section.
 
 Tone and engagement. Use a warm tone and treat the person as a capable adult, without negative
@@ -83,8 +83,8 @@ Scope boundary (precedence-preserving). The formatting discipline above applies 
 narrative output addressed to a person. It does not govern machine-parsed structured artifacts
 whose schema is the contract — backlog frontmatter, SPEC.md required-section headers, the rules
 index / common-mistakes / comparison tables, and similar. In those artifacts, structure is
-correctness; apply the prose discipline only to the free-text inside them. Fable-5 retains
-precedence per the user directive; this boundary reflects that Fable-5's prose rule presupposes
+correctness; apply the prose discipline only to the free-text inside them. RCP retains
+precedence per the user directive; this boundary reflects that RCP's prose rule presupposes
 human-read documents, and machine-parsed contract files fall outside that premise.
 
 ## Architecture Review
@@ -108,8 +108,8 @@ Alt B: extend `.agents/rules/naming-style.md` with a "Communication" section. Pr
 naming-style already owns style and language policy. Con: naming-style is about language and UI
 styling, not conversational conduct; mixing them muddies the doc's single responsibility.
 
-Alt C: encode the style in a Fable-5 agent-preset under `packages/agent-preset`. Pro: matches the
-existing Fable-5 work-style preset; opt-in per profile. Con: the user directive makes Fable-5 the
+Alt C: encode the style in a RCP agent-preset under `packages/agent-preset`. Pro: matches the
+existing RCP work-style preset; opt-in per profile. Con: the user directive makes RCP the
 governing authority for the harness, not an opt-in profile, so preset placement would under-apply
 it; also leaves default work uncovered.
 
@@ -125,7 +125,7 @@ owner for agent communication conduct.
 
 ## Implementation Risk / Scope note
 
-The decisive risk is literal application of Fable-5's "reports, documents, technical documentation,
+The decisive risk is literal application of RCP's "reports, documents, technical documentation,
 and explanations are prose without bullets, numbered lists, or excessive bolding" to the whole
 repo. This harness treats markdown structure as a machine-parsed contract rather than human prose
 styling. SPEC.md must carry a fixed set of required section headers (enforced by the
@@ -135,22 +135,22 @@ common-mistakes table, rules index table, and comparison tables convey meaning t
 columns. Dissolving these into prose would break `harness:scan`, make the backlog gate pipeline
 unable to read frontmatter, and destroy the contract tables that humans diff quickly.
 
-Recommended resolution — apply Fable-5 maximally without corrupting structured artifacts by
+Recommended resolution — apply RCP maximally without corrupting structured artifacts by
 splitting the application domain in two. The first domain is free-form narrative prose addressed to
 a person: chat replies, PR descriptions, commit bodies, status/handoff reports, explanations and
-rationale. Fable-5 prose-first and minimal-formatting discipline applies here in full, including
+rationale. RCP prose-first and minimal-formatting discipline applies here in full, including
 the conflicting "reports/documents are prose" rule. The second domain is schema-defined structured
 artifacts: frontmatter, SPEC.md required sections, contract tables, and the rules/AGENTS reference
 docs that humans and agents route through. Structure is correctness there, so the prose mandate
 does not apply; only the free-text inside those files follows the prose discipline.
 
-This exception does not negate Fable-5 precedence. Per the user directive, Fable-5 wins on conflict;
-the boundary is reconciled by observing that Fable-5's rule presupposes human-read documents while
+This exception does not negate RCP precedence. Per the user directive, RCP wins on conflict;
+the boundary is reconciled by observing that RCP's rule presupposes human-read documents while
 machine-parsed contract files fall outside that premise. If the user rejects even this reading and
 wants prose forced onto structured artifacts too, that breaks the harness structural invariants
 (`harness:scan` pass, gate pipeline operation) and is a separate large effort requiring an explicit
 GATE-APPROVAL decision. The recommendation here is the scope-separation resolution, recorded with
-Fable-5 retaining precedence.
+RCP retaining precedence.
 
 ## Affected Files
 
@@ -161,8 +161,8 @@ Fable-5 retaining precedence.
 
 ## Completion Criteria
 
-- [ ] All extracted Fable-5 communication/formatting principles are codified in the chosen doc.
-- [ ] The scope-boundary clause is present so structured artifacts (frontmatter, SPEC sections, contract tables) are excepted while Fable-5 retains stated precedence.
+- [ ] All extracted RCP communication/formatting principles are codified in the chosen doc.
+- [ ] The scope-boundary clause is present so structured artifacts (frontmatter, SPEC sections, contract tables) are excepted while RCP retains stated precedence.
 - [ ] No duplication or conflict with RULE-001 (merged or superseded).
 - [ ] `pnpm harness:scan` passes (document-authority, consistency, doc-structure).
 - [ ] AGENTS.md Mandatory Rules table + `rules/index.md` updated if Alt A.
@@ -183,6 +183,6 @@ Fable-5 retaining precedence.
 
 ## Evidence Log
 
-- 2026-06-18 — Extracted Fable-5 communication/formatting principles from `_SOURCE-fable5.md` `tone_and_formatting` / `lists_and_bullets` (lines 68-91) and `evenhandedness` (lines 134-147). Head-to-head vs harness: 12 new additions, 1 conflict (prose-for-reports vs machine-parsed structured artifacts), 0 already-covered. Conflict resolved by scope separation with Fable-5 retaining precedence per user directive. Overlaps RULE-001; reconciliation pending at GATE-APPROVAL.
+- 2026-06-18 — Extracted RCP communication/formatting principles from `the external reference conduct profile (not committed)` `tone_and_formatting` / `lists_and_bullets` (lines 68-91) and `evenhandedness` (lines 134-147). Head-to-head vs harness: 12 new additions, 1 conflict (prose-for-reports vs machine-parsed structured artifacts), 0 already-covered. Conflict resolved by scope separation with RCP retaining precedence per user directive. Overlaps RULE-001; reconciliation pending at GATE-APPROVAL.
 
 - 2026-06-18 — IMPLEMENTED: consolidated into `.agents/rules/agent-conduct.md` (communication, accountability/honesty, epistemics, safety pointer) + operational items in `.agents/rules/operational.md`; precedence statement + Mandatory Rules row added to AGENTS.md + rules/index.md. `pnpm harness:scan` = all 26 passed.
