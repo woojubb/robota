@@ -5,12 +5,15 @@ Source-verified against `develop` on 2026-06-14.
 This document owns the concrete startup tree from `packages/agent-cli/src/bin.ts` through
 interactive TUI and print-mode composition.
 
-`cli.ts` is a composition root (316 lines, no behavior helper definitions) — it imports
-from startup modules / mode runners / packages and wires them together inline. Early-exit
-gates (`--version`, `--help`, `--check-update`, `--reset`, `diagnose`, `session analyze`,
-`init`, `--configure`), preset id selection, and provider/session/subagent assembly are
-sequenced directly in `startCli()`; extracted helpers live in `src/startup/*`, `src/modes/*`,
-and lower packages.
+`cli.ts` is a composition root (329 lines) — it imports from startup modules / mode runners /
+packages and wires them together inline. It defines one local composition helper,
+`createDefaultTransportRegistry()` (`cli.ts:62-66`), which wires `WsTransport` (from
+`@robota-sdk/agent-transport-ws`) into a `TransportRegistry` (from `@robota-sdk/agent-transport`);
+choosing which concrete transports to pre-register is an app-assembly decision owned by the
+composition root. All other behavior helpers live in `src/startup/*`, `src/modes/*`, and lower
+packages. Early-exit gates (`--version`, `--help`, `--check-update`, `--reset`, `diagnose`,
+`session analyze`, `init`, `--configure`), preset id selection, and provider/session/subagent
+assembly are sequenced directly in `startCli()`.
 
 ## CLI Composition Tree
 
@@ -41,12 +44,13 @@ packages/agent-cli/src/bin.ts
    |  |  |- agent-provider-gemma
    |  |  |- agent-provider-qwen
    |  |  `- agent-provider-deepseek
-   |  |- commandModules (via createDefaultCommandModules() from agent-command)
+   |  |- commandModules (via createDefaultCommandModules() from agent-command — default-command-modules.ts)
    |  |  |- createSkillsCommandModule({ cwd })
    |  |  |- createHelpCommandModule()
    |  |  |- createAgentCommandModule()
-   |  |  |- createModelCommandModule({ providerDefinitions })
    |  |  |- createPermissionsCommandModule()
+   |  |  |- createModeCommandModule()
+   |  |  |- createPresetCommandModule()
    |  |  |- createLanguageCommandModule()
    |  |  |- createBackgroundCommandModule()
    |  |  |- createMemoryCommandModule()
@@ -57,10 +61,13 @@ packages/agent-cli/src/bin.ts
    |  |  |- createSessionCommandModule()
    |  |  |- createResetCommandModule()
    |  |  |- createRewindCommandModule()
+   |  |  |- createScheduleCommandModule()
    |  |  |- createStatusLineCommandModule()
    |  |  |- createPluginCommandModule()
-   |  |  |- createProviderCommandModule({ providerDefinitions, settings adapter })
-   |  |  `- options.commandModules (injected extras)
+   |  |  |- createSettingsCommandModule()
+   |  |  `- createProviderCommandModule({ providerDefinitions, settings adapter })
+   |  |     (the full set is then filtered by the preset enabled/disabled module selection delta)
+   |  |- options.commandModules (injected extras, appended in buildCommandSetup after the defaults)
    |  `- startupUpdateNoticePromise (getStartupCliUpdateNotice from agent-framework)
    |- runInteractiveProviderSetup() / handleProviderConfigurationArgs() / ensureConfig()  (startup/provider-startup.ts)
    |- readProviderSettings() and createProviderFromSettings(cwd, resolvedPreset.model, ...)  (agent-framework)
@@ -79,12 +86,13 @@ packages/agent-cli/src/bin.ts
    |     `- channel.run(prompt); process.exit(channel.getExitCode())
    `- otherwise interactive mode
       `- renderApp({ cwd, provider, ..., transportRegistry, cliAdapter,
-         |           agentName, activePresetId, persona, enableParallelSubagents, selfVerification })  (agent-transport/tui)
-         |  |- transportRegistry = createDefaultTransportRegistry()  (agent-transport)
-         |  |- cliAdapter = createDefaultTuiCliAdapter({ providerDefinitions, reloadPluginCommandSource })  (agent-transport/tui)
+         |           agentName, activePresetId, persona, enableParallelSubagents, selfVerification })  (agent-transport-tui)
+         |  |- transportRegistry = createDefaultTransportRegistry()  (LOCAL helper in cli.ts:62-66 —
+         |  |     new TransportRegistry(...) from agent-transport, registers WsTransport from agent-transport-ws)
+         |  |- cliAdapter = createDefaultTuiCliAdapter({ providerDefinitions, reloadPluginCommandSource })  (agent-transport-tui)
          |  |     `- reloadPluginCommandSource  (agent-command)
          |  `- agentName/activePresetId/persona forwarded from resolvedPreset + selectedPresetId
-         `- App.tsx  (agent-transport/tui)  [createChannel factory -> TuiInteractionChannel]
+         `- App.tsx  (agent-transport-tui)  [createChannel factory -> TuiInteractionChannel]
             |- useTuiChannel()
             |  |- new TuiInteractionChannel({ cwd, provider, commandModules, commandHostAdapters,
             |  |    agentName, activePresetId, persona, ... })
@@ -125,8 +133,8 @@ When reading older branches or PRs, use this map.
 | `agent-providers`      | `agent-provider`                              |
 | `agent-plugins`        | `agent-plugin`                                |
 | `agent-sdk`            | `agent-framework`                             |
-| `agent-transport-ws`   | `agent-transport/ws`                          |
-| `agent-transport-tui`  | `agent-transport/tui`                         |
+| `agent-transport/ws`   | `agent-transport-ws` (separate package)       |
+| `agent-transport/tui`  | `agent-transport-tui` (separate package)      |
 | `agent-command-*`      | `agent-command`                               |
 | `agent-web`            | `agent-web-ui` (pkg) / `apps/agent-web` (app) |
 

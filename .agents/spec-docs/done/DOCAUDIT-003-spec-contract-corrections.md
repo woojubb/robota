@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: INFRA
 tags: [typescript]
 ---
@@ -31,3 +31,5 @@ Two SPECs state contracts that the code contradicts. See the 2026-06-19 audit re
 - `pnpm harness:scan` passes.
 
 ## Evidence Log
+
+- 2026-06-19 — IMPLEMENTED: doc corrections applied + verified; residual stale-path/symbol checks = 0; `pnpm harness:scan` all 26 passed. See `.design/architecture-audit/2026-06-19/`.

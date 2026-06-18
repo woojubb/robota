@@ -119,11 +119,11 @@ package.
 
 ### Components
 
-| Component            | Defined In                              | Notes                                                        |
-| -------------------- | --------------------------------------- | ------------------------------------------------------------ |
-| `SessionMonitor`     | `src/components/SessionMonitor.tsx`     | `'use client'` directive; Tailwind CSS; prop `wsUrl: string` |
-| `ConversationView`   | `src/components/ConversationView.tsx`   | Pure renderer; `'use client'` directive; Tailwind CSS        |
-| `AgentActivityPanel` | `src/components/AgentActivityPanel.tsx` | Pure renderer; not exported from package root; Tailwind CSS  |
+| Component            | Defined In                              | Notes                                                                                                        |
+| -------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `SessionMonitor`     | `src/components/SessionMonitor.tsx`     | `'use client'` directive; Tailwind CSS; prop `wsUrl: string`                                                 |
+| `ConversationView`   | `src/components/ConversationView.tsx`   | Pure renderer; `'use client'` directive; Tailwind CSS                                                        |
+| `AgentActivityPanel` | `src/components/AgentActivityPanel.tsx` | Pure renderer; no `'use client'` directive (server-renderable); not exported from package root; Tailwind CSS |
 
 ### Cross-Package Port Consumers
 

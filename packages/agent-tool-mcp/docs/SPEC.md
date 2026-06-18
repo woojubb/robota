@@ -2,13 +2,13 @@
 
 ## Scope
 
-MCP (Model Context Protocol) tool implementations for Robota SDK. Provides `MCPTool` (a JSON-RPC 2.0 tool executor) and `RelayMcpTool` (a relay adapter that bridges third-party MCP commands into Robota agent flows). The package is published to npm under `@robota-sdk/agent-tool-mcp`.
+MCP (Model Context Protocol) tool implementations for Robota SDK. Provides `MCPTool` (a JSON-RPC 2.0 tool executor) and `RelayMcpTool` (a relay adapter that bridges third-party MCP commands into Robota agent flows). The package is an internal, private (unpublished) workspace package (`"private": true` in `package.json`) named `@robota-sdk/agent-tool-mcp`.
 
 ## Boundaries
 
 - Allowed dependencies: `@robota-sdk/agent-core` (sole peer dependency). The Streamable HTTP client is implemented with the global `fetch` — no protocol SDK dependency.
 - Must not import `agent-sdk`, `agent-sessions`, `agent-cli`, or any other `agent-*` package.
-- `MCPTool` and `RelayMcpTool` both implement `ITool` directly (not via `AbstractTool`) to avoid a circular runtime dependency (`agent-tool-mcp` → `agents` → `tools` → `agents`).
+- `MCPTool` implements `ITool` directly (not via `AbstractTool`) to avoid a circular runtime dependency (`agent-tool-mcp` → `agents` → `tools` → `agents`); `RelayMcpTool` is structurally `ITool`-shaped (no declared `implements` clause).
 - Does not own a tool registry or factory. The consumer (composition root or CLI) selects and wires tools at construction time.
 - Transport: MCP Streamable HTTP (JSON-RPC 2.0 over HTTP POST via global `fetch`). stdio transport is out of scope — `IMCPConfig` has no command/args surface.
 
@@ -86,10 +86,10 @@ Coverage gap: `RelayMcpTool.execute()` remains untested (relay context validatio
 
 ### Interface Implementations
 
-| Interface      | Implementor    | Location                |
-| -------------- | -------------- | ----------------------- |
-| `ITool` (core) | `MCPTool`      | `src/mcp-tool.ts`       |
-| `ITool` (core) | `RelayMcpTool` | `src/relay-mcp-tool.ts` |
+| Interface      | Implementor    | Location                                                                        |
+| -------------- | -------------- | ------------------------------------------------------------------------------- |
+| `ITool` (core) | `MCPTool`      | `src/mcp-tool.ts` (declared `implements ITool`)                                 |
+| `ITool` (core) | `RelayMcpTool` | `src/relay-mcp-tool.ts` (structurally `ITool`-shaped, no declared `implements`) |
 
 ### Cross-Package Port Consumers
 

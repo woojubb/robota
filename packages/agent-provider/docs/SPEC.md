@@ -136,3 +136,7 @@ dist/
 └── browser/
     └── index.js / index.d.ts                 # ESM-only, browser platform
 ```
+
+> Note: the `dist/browser` bundle is built by `tsdown` (`platform: 'browser'`), but `package.json`
+> `exports` currently declares only `node`/`default` conditions — the browser bundle is produced
+> but not yet consumer-resolvable via the exports map.

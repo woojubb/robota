@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: INFRA
 tags: [typescript]
 ---
@@ -43,3 +43,5 @@ reverse). Authority docs actively mislead about package boundaries (P0).
 - `pnpm harness:scan` passes (document-authority, consistency, docs-structure).
 
 ## Evidence Log
+
+- 2026-06-19 — IMPLEMENTED: doc corrections applied + verified; residual stale-path/symbol checks = 0; `pnpm harness:scan` all 26 passed. See `.design/architecture-audit/2026-06-19/`.

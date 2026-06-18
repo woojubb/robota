@@ -25,7 +25,7 @@ Mechanical guard: `scripts/harness/check-command-layering.mjs` flags production 
 
 Status: resolved — `fix/cli-command-effect-boundary`.
 
-`CommandEffectQueue` (`agent-transport/src/tui/command-interaction.ts`) now owns the explicit
+`CommandEffectQueue` (`agent-transport-tui/src/hooks/command-effect-queue.ts`) now owns the explicit
 effect transport. `InteractiveSession` is no longer used as an `ISideEffects` mutable carrier.
 
 Mechanical guard: `scripts/harness/check-command-layering.mjs` flags `_pendingCommandInteraction`,
@@ -104,7 +104,7 @@ framework/executor/command/provider capability first.
 
 Status: resolved — commit c4282565c (refactor/arch-002-slim-agent-cli, 2026-05-17).
 
-`createDefaultTuiCliAdapter` moved to `packages/agent-transport/src/tui/create-default-tui-cli-adapter.ts`.
+`createDefaultTuiCliAdapter` moved to `packages/agent-transport-tui/src/create-default-tui-cli-adapter.ts`.
 `cli.ts` imports and calls it — no local definition.
 
 ### CLI-AUDIT-011: cli.ts contains behavior logic — must be pure composition root
@@ -118,13 +118,19 @@ All behavior functions extracted:
 - `buildAppendSystemPrompt` → `src/startup/append-system-prompt.ts`
 - `buildCommandSetup` → `src/startup/command-setup.ts`
 - `runPrintMode` → `src/modes/print-mode.ts`
-- `createDefaultTransportRegistry` → `src/transports/transport-registry.ts`
 
-`cli.ts` defines no behavior helper functions — all such logic lives in `src/startup/*`, `src/modes/*`,
-and lower packages. As of 2026-06-14 the file is 316 lines (grown from 196 by the PRESET-002/004/007/011
-selection wiring, the first-run/onboarding gate, and the `diagnose` / `session analyze` / `init`
-early-exit gates), but it remains import-and-wire only: `startCli()` sequences gates and assembly inline
-without local helper definitions.
+Exception (composition-root helper): `createDefaultTransportRegistry()` is a **local helper defined in
+`cli.ts:62-66`**, not an extracted behavior module. It is composition-root wiring — it constructs a
+`TransportRegistry` (from `@robota-sdk/agent-transport`) and registers `WsTransport` (from
+`@robota-sdk/agent-transport-ws`). Choosing which concrete transports to pre-register is an
+app-assembly decision, so the composition root owns it rather than the transport core depending on the
+ws package (see CLI-AUDIT-019). The remaining behavior logic lives in `src/startup/*`, `src/modes/*`,
+and lower packages.
+
+As of 2026-06-19 the file is 329 lines (grown from 196 by the PRESET-002/004/007/011 selection wiring,
+the first-run/onboarding gate, and the `diagnose` / `session analyze` / `init` early-exit gates).
+Apart from the `createDefaultTransportRegistry` composition-root helper above, `startCli()` sequences
+gates and assembly inline without local behavior-helper definitions.
 
 ### CLI-AUDIT-012: `getSettingsPathForScope` belongs in agent-framework
 
@@ -198,17 +204,24 @@ Fix: moved to `packages/agent-transport/src/headless/print-terminal.ts`. Exporte
 
 ### CLI-AUDIT-019: `TransportRegistry` — settings-backed transport manager owned by CLI, belongs in agent-transport
 
-Status: resolved — branch refactor/arch-002-slim-agent-cli (2026-05-17).
+Status: resolved (class) — branch refactor/arch-002-slim-agent-cli (2026-05-17).
 
 `packages/agent-cli/src/transports/transport-registry.ts` had zero CLI-specific type dependencies.
 It used only `TUniversalValue` from agent-core, `IInteractiveSession` / settings-io from
 agent-framework, and `IConfigurableTransport` / `ITransportConfig` / `ITransportEntry` from
 agent-interface-transport — all framework-layer contracts.
 
-Fix: moved to `packages/agent-transport/src/transport-registry.ts`. Exported `TransportRegistry`
-and `createDefaultTransportRegistry` from `@robota-sdk/agent-transport` root. `agent-cli/src/cli.ts`
-now imports `createDefaultTransportRegistry` from `@robota-sdk/agent-transport`. Original file and
-`transports/` directory deleted.
+Fix: the `TransportRegistry` class moved to `packages/agent-transport/src/transport-registry.ts` and
+is exported from `@robota-sdk/agent-transport` root. `agent-cli/src/cli.ts` imports `TransportRegistry`
+from `@robota-sdk/agent-transport`. The old `transports/` directory was deleted.
+
+Correction (2026-06-19): `createDefaultTransportRegistry` is **not** exported from
+`@robota-sdk/agent-transport`. It is a local composition-root helper in `cli.ts:62-66`
+(`new TransportRegistry(getUserSettingsPath())` + `registry.register(new WsTransport())`, with
+`WsTransport` from `@robota-sdk/agent-transport-ws`). This is intentional: which concrete transports
+to pre-register is an app-assembly decision the CLI composition root owns — pushing it into
+`agent-transport` would force the transport core to depend on the ws package. Only the generic
+`TransportRegistry` class is owned by `agent-transport`.
 
 ### CLI-AUDIT-020: `DEFAULT_PROVIDER_DEFINITIONS` — default provider set owned by CLI, belongs in agent-provider
 

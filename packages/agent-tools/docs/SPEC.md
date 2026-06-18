@@ -132,17 +132,18 @@ Types owned by this package (SSOT):
 
 ### Built-in CLI Tools
 
-| Export               | Kind     | Tool Name   | Description                                                                              |
-| -------------------- | -------- | ----------- | ---------------------------------------------------------------------------------------- |
-| `bashTool`           | Object   | `Bash`      | Execute shell commands via host process by default                                       |
-| `readTool`           | Object   | `Read`      | Read file contents with line numbers (cat -n)                                            |
-| `writeTool`          | Object   | `Write`     | Write content to a file (creates parent dirs)                                            |
-| `editTool`           | Object   | `Edit`      | Replace a specific string in a file                                                      |
-| `globTool`           | Object   | `Glob`      | Find files matching a glob pattern (fast-glob)                                           |
-| `grepTool`           | Object   | `Grep`      | Regex content search — modes: files_with_matches/content/count; `headLimit` caps results |
-| `webFetchTool`       | Object   | `WebFetch`  | Fetch URL content with HTML-to-text conversion                                           |
-| `webSearchTool`      | Object   | `WebSearch` | Web search via Brave Search API                                                          |
-| `classifyFetchError` | Function | —           | Maps fetch errors to human-readable error strings                                        |
+| Export          | Kind   | Tool Name   | Description                                                                              |
+| --------------- | ------ | ----------- | ---------------------------------------------------------------------------------------- |
+| `bashTool`      | Object | `Bash`      | Execute shell commands via host process by default                                       |
+| `readTool`      | Object | `Read`      | Read file contents with line numbers (cat -n)                                            |
+| `writeTool`     | Object | `Write`     | Write content to a file (creates parent dirs)                                            |
+| `editTool`      | Object | `Edit`      | Replace a specific string in a file                                                      |
+| `globTool`      | Object | `Glob`      | Find files matching a glob pattern (fast-glob)                                           |
+| `grepTool`      | Object | `Grep`      | Regex content search — modes: files_with_matches/content/count; `headLimit` caps results |
+| `webFetchTool`  | Object | `WebFetch`  | Fetch URL content with HTML-to-text conversion                                           |
+| `webSearchTool` | Object | `WebSearch` | Web search via Brave Search API                                                          |
+
+> `classifyFetchError` is **not** part of the package Public API Surface — it is not re-exported from `src/index.ts`. It remains internal, exported only from the builtins barrel (`src/builtins/index.ts`).
 
 Each built-in tool is an `IToolWithEventService`-compatible object with `getName()`, `getDescription()`, `getSchema()`, and `execute()` methods.
 
@@ -199,12 +200,12 @@ None. `FunctionTool` implements its interface directly (`implements IFunctionToo
 
 ### Cross-Package Port Consumers
 
-| Port (Owner)                       | Consumer                                 | Location                                                                     |
-| ---------------------------------- | ---------------------------------------- | ---------------------------------------------------------------------------- |
-| `IFunctionTool` (agent-core)       | `FunctionTool`                           | `src/implementations/function-tool.ts`                                       |
-| `IToolWithEventService` shape      | Built-in CLI tools                       | `src/builtins/*.ts`                                                          |
-| `ISandboxClient` (agent-tools)     | Built-in CLI tool factories              | `src/builtins/bash-tool.ts`, `read-tool.ts`, `write-tool.ts`, `edit-tool.ts` |
-| `IWorkspaceManifest` (agent-tools) | `agent-sdk` interactive session assembly | `packages/agent-framework/src/interactive/interactive-session-init.ts`       |
+| Port (Owner)                       | Consumer                                       | Location                                                                     |
+| ---------------------------------- | ---------------------------------------------- | ---------------------------------------------------------------------------- |
+| `IFunctionTool` (agent-core)       | `FunctionTool`                                 | `src/implementations/function-tool.ts`                                       |
+| `IToolWithEventService` shape      | Built-in CLI tools                             | `src/builtins/*.ts`                                                          |
+| `ISandboxClient` (agent-tools)     | Built-in CLI tool factories                    | `src/builtins/bash-tool.ts`, `read-tool.ts`, `write-tool.ts`, `edit-tool.ts` |
+| `IWorkspaceManifest` (agent-tools) | `agent-framework` interactive session assembly | `packages/agent-framework/src/interactive/interactive-session-options.ts`    |
 
 ## Test Strategy
 
@@ -226,9 +227,10 @@ None. `FunctionTool` implements its interface directly (`implements IFunctionToo
 
 ## Dependencies
 
-### Production (2)
+### Production (3)
 
 - `fast-glob` -- High-performance glob matching for the glob built-in tool
+- `p-limit` -- Concurrency limiting used by the glob built-in tool (`builtins/glob-tool.ts`)
 - `zod` -- Schema validation for function tool parameters
 
 ### Dev (notable)

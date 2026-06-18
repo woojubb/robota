@@ -42,8 +42,9 @@ Robota (Facade)
   │     └── types.ts                — TPermissionMode, TTrustLevel, TPermissionDecision
   ├── Hook Layer
   │     ├── hook-runner.ts          — runHooks(): pluggable hook execution engine (strategy pattern)
-  │     ├── command-executor.ts     — CommandExecutor: shell command hook execution
-  │     ├── http-executor.ts        — HttpExecutor: HTTP request hook execution
+  │     ├── executors/
+  │     │     ├── command-executor.ts — CommandExecutor: shell command hook execution
+  │     │     └── http-executor.ts    — HttpExecutor: HTTP request hook execution
   │     └── types.ts                — THookEvent (13 events), THookDefinition (discriminated union), IHookTypeExecutor
   └── Plugin Layer (1 built-in + 8 plugin modules in the `@robota-sdk/agent-plugin` package)
         ├── EventEmitterPlugin           (built-in — event coordination)

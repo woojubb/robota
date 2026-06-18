@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: INFRA
 tags: [typescript]
 ---
@@ -32,3 +32,5 @@ Minor path/casing/wording defects found by the 2026-06-19 audit. Low-risk, batch
 - `pnpm harness:scan` passes.
 
 ## Evidence Log
+
+- 2026-06-19 — IMPLEMENTED: doc corrections applied + verified; residual stale-path/symbol checks = 0; `pnpm harness:scan` all 26 passed. See `.design/architecture-audit/2026-06-19/`.

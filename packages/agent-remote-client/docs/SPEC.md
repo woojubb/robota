@@ -26,7 +26,7 @@ Single entry point `./` backed by `src/index.ts`.
 
 Utility functions in `src/utils/transformers.ts` are pure functions with no side effects. They handle message conversion, request/response construction, and JSON safety.
 
-`src/server.ts` is an empty stub retained as a placeholder; it exports nothing.
+`src/server.ts` is a stub retained as a placeholder; it contains only a JSDoc header and exports nothing.
 
 ## Type Ownership
 
