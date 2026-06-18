@@ -11,10 +11,10 @@ widget (`SessionMonitor`) that applications can embed without importing from any
 This package sits in the **Product shells** layer. It is a pure browser UI library — it does not
 own session lifecycle, conversation history, or agent runtime state.
 
-**Distinction from `apps/agent-web`:** `packages/agent-web-ui is a published npm package that
-exports reusable browser React components. `apps/agent-web`is a Next.js host application that
-consumes`packages/agent-web-ui and deploys the actual web UI. They share a name prefix but are
-different layers: this package is a library; the app is a deployment.
+**Distinction from `apps/agent-web`:** `packages/agent-web-ui` is a reusable browser React
+component library that exports components for other workspaces to consume. `apps/agent-web` is a
+Next.js host application that consumes `packages/agent-web-ui` and deploys the actual web UI. They
+share a name prefix but are different layers: this package is a library; the app is a deployment.
 
 ## Boundaries
 
