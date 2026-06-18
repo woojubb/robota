@@ -38,6 +38,14 @@ const SCAN_COMMANDS = [
   { name: 'specs', command: ['node', 'scripts/harness/audit-spec-coverage.mjs'] },
   { name: 'spec-paths', command: ['node', 'scripts/harness/check-spec-paths.mjs'] },
   {
+    name: 'arch-map-paths',
+    command: ['node', 'scripts/harness/check-architecture-map-paths.mjs'],
+  },
+  {
+    name: 'spec-public-surface',
+    command: ['node', 'scripts/harness/check-spec-public-surface.mjs'],
+  },
+  {
     name: 'harness-config-paths',
     command: ['node', 'scripts/harness/check-harness-config-paths.mjs'],
   },
@@ -52,6 +60,10 @@ const SCAN_COMMANDS = [
   },
   { name: 'sdk-react-free', command: ['node', 'scripts/harness/check-sdk-react-free.mjs'] },
   { name: 'publish', command: ['node', 'scripts/harness/check-publish-safety.mjs'] },
+  {
+    name: 'spec-publish-claims',
+    command: ['node', 'scripts/harness/check-spec-publish-claims.mjs'],
+  },
   { name: 'release-governance', command: ['node', 'scripts/harness/check-release-governance.mjs'] },
   { name: 'test-plans', command: ['node', 'scripts/harness/scan-test-plan.mjs'] },
   {
