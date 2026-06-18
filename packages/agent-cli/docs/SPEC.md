@@ -707,7 +707,7 @@ Installed plugins contribute skills via `PluginCommandSource`, which discovers s
 
 ## Session Ownership — TuiInteractionChannel
 
-`TuiInteractionChannel` (owned by `@robota-sdk/agent-transport`) is the single owner of the SDK session lifecycle in TUI mode. It:
+`TuiInteractionChannel` (owned by `@robota-sdk/agent-transport-tui`) is the single owner of the SDK session lifecycle in TUI mode. It:
 
 1. Creates `InteractiveSession({ cwd, provider, commandModules, commandHostAdapters })` and `CommandRegistry` once (in the constructor — never recreated). The provider instance is passed in from the caller; `InteractiveSession` handles config/context loading internally. Host adapters are thin CLI-owned services such as settings read/write, not command implementations.
 2. Creates a `TuiStateManager` instance that holds `history: IHistoryEntry[]` as the primary state for the message list and the latest SDK execution workspace snapshot for background/workspace rendering. On each execution update (when `thinking` transitions to `false`, or on `complete`/`interrupted`), delegates to `TuiStateManager` to sync state from `interactiveSession.getFullHistory()` and `interactiveSession.getExecutionWorkspaceSnapshot()`.

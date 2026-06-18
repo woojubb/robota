@@ -9,7 +9,7 @@ Back to [System Architecture Map](../ARCHITECTURE-MAP.md).
 ```mermaid
 flowchart TD
   AgentCLI["agent-cli\nlifecycle owner + assembly"]
-  TuiTransport["agent-transport/tui\nTUI I/O adapter (terminal)"]
+  TuiTransport["agent-transport-tui\nTUI I/O adapter (terminal)"]
   Headless["agent-transport/headless\nprint-mode transport"]
   Commands["agent-command\nuser-visible commands"]
   Framework["agent-framework\nassembly layer — InteractiveSession,\ncommand contracts/common APIs\n(React-free)"]
@@ -38,6 +38,7 @@ flowchart TD
   Headless --> Framework
   Commands --> Framework
   Commands --> Core
+  Commands --> IfaceTransport
   SubagentRunner --> Framework
   SubagentRunner --> Executor
   SubagentRunner --> Providers
@@ -60,7 +61,7 @@ Agent stack ownership:
 
 | Concern                                           | Owner                                                   | Contract                                                                                                                                                                                                                                      |
 | ------------------------------------------------- | ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Terminal input/rendering                          | `agent-transport/tui`                                   | I/O adapter only — implements `IConfigurableTransport`.                                                                                                                                                                                       |
+| Terminal input/rendering                          | `agent-transport-tui`                                   | I/O adapter only — implements `IConfigurableTransport`.                                                                                                                                                                                       |
 | CLI lifecycle + assembly                          | `agent-cli`                                             | Composes transports, providers, commands; owns `process.exit()`.                                                                                                                                                                              |
 | Framework assembly layer                          | `agent-framework`                                       | Composes sessions/executor/tools/core. React-free.                                                                                                                                                                                            |
 | Command contracts/common APIs                     | `agent-framework`                                       | Command packages consume these as third-party modules.                                                                                                                                                                                        |
@@ -70,7 +71,7 @@ Agent stack ownership:
 | Background/subagent lifecycle ports               | `agent-executor`                                        | CLI keeps concrete local process/worktree adapters.                                                                                                                                                                                           |
 | Child-process subagent runner + worker            | `agent-subagent-runner` (opt-in)                        | CLI imports factory; pass workerPath from getDefaultSubagentWorkerPath().                                                                                                                                                                     |
 | Background workspace/read model                   | `agent-framework` + `agent-executor`                    | CLI renders framework projections; keeps only ephemeral UI selection state.                                                                                                                                                                   |
-| Named preset profiles / live preset switching     | `agent-preset` (data) + `agent-framework` (application) | Data owner `agent-preset` (`IPreset` + `resolvePreset` + built-in + external presets); application owner `agent-framework` (`applyPresetToSession`); command `agent-command/preset`; runtime state `agent-session`; UI `agent-transport` TUI. |
+| Named preset profiles / live preset switching     | `agent-preset` (data) + `agent-framework` (application) | Data owner `agent-preset` (`IPreset` + `resolvePreset` + built-in + external presets); application owner `agent-framework` (`applyPresetToSession`); command `agent-command/preset`; runtime state `agent-session`; UI `agent-transport-tui`. |
 
 Provider profile identity is the settings profile key, not provider `type` or model uniqueness. See [commands-and-provider-flow.md](agent-cli/commands-and-provider-flow.md) for profile switching semantics.
 
@@ -134,7 +135,7 @@ See [packages/agent-playground/docs/SPEC.md](../../../packages/agent-playground/
 ## WebSocket Sidecar Mode [Partially implemented]
 
 > **[Partially implemented]** The transport + browser halves exist:
-> `createWsHandler({ session, send })` (`packages/agent-transport/src/ws/ws-handler.ts:51`) and
+> `createWsHandler({ session, send })` (`packages/agent-transport-ws/src/ws-handler.ts:51`) and
 > `useWsSession(url)` (`packages/agent-web-ui/src/hooks/useWsSession.ts:43`), plus the `agent-web-ui`
 > components. **Still pending:** the CLI `--web` / `--web-port` flags and
 > `startWebSidecarServer(interactiveSession, port)` that wire the sidecar server into `agent-cli`.
@@ -144,7 +145,7 @@ Sidecar mode spans four packages:
 | Package              | Role                                                                        | Status  |
 | -------------------- | --------------------------------------------------------------------------- | ------- |
 | `agent-cli`          | Launch `--web` flag; host `startWebSidecarServer(interactiveSession, port)` | pending |
-| `agent-transport/ws` | `createWsHandler({ session, send })` — real-time session event relay        | exists  |
+| `agent-transport-ws` | `createWsHandler({ session, send })` — real-time session event relay        | exists  |
 | `agent-web-ui`       | Browser React components; `useWsSession(url)` hook for WebSocket connection | exists  |
 | `apps/agent-web`     | Deployment host; opens monitor URL in browser                               | exists  |
 

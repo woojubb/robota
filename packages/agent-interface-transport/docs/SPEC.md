@@ -25,8 +25,8 @@ contracts and no runtime implementation. It defines the standard protocol for tr
   deferred because those types are genuine executor/session domain types and the current type-only
   references carry no runtime cost.
 - Does not depend on `@robota-sdk/agent-framework` or any transport implementation package.
-- Implementation packages (`agent-transport` subpaths: `/tui`, `/headless`, `/ws`, `/http`, `/mcp`)
-  depend on this package for interface types, not on `agent-framework`.
+- Implementation packages (the separate `agent-transport-{tui,ws,http,mcp}` packages and
+  `agent-transport` for headless) depend on this package for interface types, not on `agent-framework`.
 - `agent-framework` depends on this package to consume the transport contracts it wires.
 
 ## Architecture Overview
@@ -39,11 +39,11 @@ agent-interface-transport          ← this package (contracts only, zero deps)
   ├── ITransportEntry              ← (transport, config) pairing for registry storage
   └── ITransportRegistryView       ← read/write registry of IConfigurableTransport instances
 
-agent-transport-tui, /ws, /http, /mcp, /headless
+agent-transport-tui, agent-transport-ws, agent-transport-http, agent-transport-mcp, agent-transport (/headless)
   └── implements IConfigurableTransport<TSession>
 
-agent-framework
-  └── TransportRegistry            ← implements ITransportRegistryView
+agent-transport
+  └── TransportRegistry            ← structurally compatible with ITransportRegistryView (no declared implements)
 ```
 
 ## Type Ownership
@@ -156,11 +156,11 @@ export interface ITransportRegistryView<TSession = unknown> {
 
 This package defines contracts that consumers implement or extend:
 
-| Extension Point          | Kind      | Implementor                                                | Description                                                          |
-| ------------------------ | --------- | ---------------------------------------------------------- | -------------------------------------------------------------------- |
-| `ITransportAdapter`      | Interface | `agent-transport-tui`, `/ws`, `/http`, `/mcp`, `/headless` | Implement to create a transport with attach/start/stop lifecycle     |
-| `IConfigurableTransport` | Interface | `agent-transport-tui`, `/ws`, `/http`, `/mcp`, `/headless` | Extend `ITransportAdapter` to support enable/disable and options     |
-| `ITransportRegistryView` | Interface | `agent-framework` (`TransportRegistry`)                    | Implement to provide registry management for configurable transports |
+| Extension Point          | Kind      | Implementor                                                                                 | Description                                                      |
+| ------------------------ | --------- | ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `ITransportAdapter`      | Interface | `agent-transport-{tui,ws,http,mcp}`, `agent-transport` (headless)                           | Implement to create a transport with attach/start/stop lifecycle |
+| `IConfigurableTransport` | Interface | `agent-transport-{tui,ws,http,mcp}`, `agent-transport` (headless)                           | Extend `ITransportAdapter` to support enable/disable and options |
+| `ITransportRegistryView` | Interface | `agent-transport` (`TransportRegistry`, structurally compatible — no declared `implements`) | Provide registry management for configurable transports          |
 
 No abstract classes or base classes are exported — all extension is through interface implementation.
 
@@ -168,7 +168,7 @@ No abstract classes or base classes are exported — all extension is through in
 
 This package defines no error types. It contains only interface and type declarations.
 Errors arising from transport lifecycle (e.g., failed `start()` or `stop()`) are thrown by
-implementing packages (`agent-transport/*`) and are not part of this package's contract.
+implementing packages (the separate `agent-transport-*` packages and `agent-transport`) and are not part of this package's contract.
 
 ## Constraints
 
@@ -189,11 +189,11 @@ so the test script succeeds with zero test files.
 This package contains no classes. The following interfaces are the extension contracts that
 implementors must satisfy:
 
-| Interface                | Implemented By                                            | Package             |
-| ------------------------ | --------------------------------------------------------- | ------------------- |
-| `ITransportAdapter`      | concrete transport classes (via `IConfigurableTransport`) | `agent-transport/*` |
-| `IConfigurableTransport` | `TuiTransport`, `WsTransport`, `HeadlessTransport`, etc.  | `agent-transport/*` |
-| `ITransportRegistryView` | `TransportRegistry`                                       | `agent-framework`   |
+| Interface                | Implemented By                                                          | Package                      |
+| ------------------------ | ----------------------------------------------------------------------- | ---------------------------- |
+| `ITransportAdapter`      | concrete transport classes (via `IConfigurableTransport`)               | `agent-transport-*` packages |
+| `IConfigurableTransport` | `TuiTransport`, `WsTransport`, `HeadlessTransport`, etc.                | `agent-transport-*` packages |
+| `ITransportRegistryView` | `TransportRegistry` (structurally compatible, no declared `implements`) | `agent-transport`            |
 
 No `extends` chains exist within this package — `IConfigurableTransport` extends `ITransportAdapter`
 and is the only intra-package inheritance.

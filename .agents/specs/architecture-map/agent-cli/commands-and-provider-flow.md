@@ -29,17 +29,16 @@ flowchart LR
   HostAdapters --> Module
 ```
 
-| Responsibility                                                         | Owner                                                                |
-| ---------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| Slash prefix detection and unknown-command rendering                   | `agent-cli`                                                          |
-| Command metadata, subcommands, lifecycle policy, interactions, effects | Owning `agent-command` package                                       |
-| Command contracts, registry, executor, effect/interaction types        | `agent-framework`                                                    |
-| Reusable command common APIs and ports                                 | `agent-framework/src/command-api/*`                                  |
-| Prompt `@file` parsing, workspace-bound resolution, diagnostics        | `agent-framework/src/context/prompt-file-reference-*.ts`             |
-| Context reference inventory and manual reference state                 | `agent-framework/src/context/context-reference-inventory.ts`         |
-| Host persistence, local process actions, UI shell actions              | `agent-cli` host adapters and TUI effect handlers                    |
-| Provider setup semantics for `/provider`                               | `agent-command` (provider module) consuming framework provider APIs  |
-| Model-change request semantics for `/model`                            | `agent-command` (model module) consuming framework model common APIs |
+| Responsibility                                                         | Owner                                                               |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| Slash prefix detection and unknown-command rendering                   | `agent-cli`                                                         |
+| Command metadata, subcommands, lifecycle policy, interactions, effects | Owning `agent-command` package                                      |
+| Command contracts, registry, executor, effect/interaction types        | `agent-framework`                                                   |
+| Reusable command common APIs and ports                                 | `agent-framework/src/command-api/*`                                 |
+| Prompt `@file` parsing, workspace-bound resolution, diagnostics        | `agent-framework/src/context/prompt-file-reference-*.ts`            |
+| Context reference inventory and manual reference state                 | `agent-framework/src/context/context-reference-inventory.ts`        |
+| Host persistence, local process actions, UI shell actions              | `agent-cli` host adapters and TUI effect handlers                   |
+| Provider setup semantics for `/provider`                               | `agent-command` (provider module) consuming framework provider APIs |
 
 Forbidden: command packages must not import `agent-cli` or React/Ink code; `agent-framework` must not
 import `agent-command`; CLI hooks must not reimplement command-specific setup flows; provider

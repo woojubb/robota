@@ -12,7 +12,7 @@ flowchart TD
   Playground["Product app\nagent-playground"]
   Assembly["Assembly/API layers\nagent-framework, apps/agent-server"]
   Preset["Preset/option data\nagent-preset (named option bundles + resolvePreset)"]
-  TransportShells["Transport shells\nagent-transport/tui, agent-transport/ws, agent-transport/http,\nagent-transport/headless, agent-transport/mcp"]
+  TransportShells["Transport shells\nagent-transport (+ /headless), agent-transport-tui, agent-transport-ws,\nagent-transport-http, agent-transport-mcp"]
   TypeContracts["Type contracts\nagent-interface-transport, agent-interface-tui\n(ZERO runtime deps)"]
   Orchestration["Orchestration\nagent-remote-client"]
   Sessions["Session services\nagent-session"]
@@ -38,7 +38,6 @@ flowchart TD
   TransportShells --> TypeContracts
   Assembly --> TransportShells
   Orchestration --> Domain
-  Orchestration --> Adapters
   Assembly --> Orchestration
   OptIn --> Assembly
   OptIn --> Executor

@@ -38,9 +38,9 @@ must go through a dedicated backlog item and explicit architectural review.
 
 ## Architecture Overview
 
-Facade-pattern executor (`PlaygroundExecutor`) wraps Robota agent instances for browser-based execution. AI providers are constructed with a `RemoteExecutor` so API keys stay server-side. Executor internals are a directory module under `src/lib/playground/robota-executor/` with `PlaygroundAgentSession`, remote provider construction, tool normalization, plugin factories, result shaping, and statistics recording split from the stateful facade while preserving the previous import path. Two plugins (`PlaygroundHistoryPlugin`, `PlaygroundStatisticsPlugin`) are standalone classes that collect conversation events and UX metrics.
+Facade-pattern executor (`PlaygroundExecutor`) wraps Robota agent instances for browser-based execution. AI providers are constructed with a `RemoteExecutor` so API keys stay server-side. Executor internals are a directory module under `src/lib/playground/robota-executor/` with agent-session construction (`agent-session.ts`), remote provider construction, tool normalization, plugin factories, result shaping, and statistics recording split from the stateful facade while preserving the previous import path. Two plugins (`PlaygroundHistoryPlugin`, `PlaygroundStatisticsPlugin`) are standalone classes that collect conversation events and UX metrics.
 
-React hooks (`usePlaygroundBoot`, `usePlaygroundData`, `useRobotaExecution`, etc.) provide state management; these hooks are used internally by the React components and are not part of the public package API. Playground context internals are a directory module under `src/contexts/playground-context/` with provider composition, split context hooks, executor refs/lifecycle, execution actions, common state actions, event conversion, and result shaping split into internal modules while preserving the previous import path. Chat input hook internals are a directory module under `src/hooks/use-chat-input/` with public hook/type exports preserved through `index.ts` and input-state calculation, explicit validation, focus wiring, and constants split into internal helpers. Robota execution hook internals are a directory module under `src/hooks/use-robota-execution/` with public hook/type exports preserved through `index.ts` and execution state, context synchronization, history metrics, timeout cleanup, action hooks, and configuration helpers split into internal modules. WebSocket connection hook internals are a directory module under `src/hooks/use-websocket-connection/` with public hook/type exports preserved through `index.ts` and state calculation, uptime tracking, constants, and handler registration split into internal helpers. Playground WebSocket client is a directory module under `src/lib/playground/websocket-client/` with connection state isolated in `PlaygroundWebSocketClient` and message constants, guards, builders, auth parsing, and event payload types kept as internal helpers while preserving the previous import path.
+React hooks (`useRobotaExecution`, `useChatInput`, the split playground-context hooks, etc.) provide state management; these hooks are used internally by the React components and are not part of the public package API. Playground context internals are a directory module under `src/contexts/playground-context/` with provider composition, split context hooks, executor refs/lifecycle, execution actions, common state actions, event conversion, and result shaping split into internal modules while preserving the previous import path. Chat input hook internals are a directory module under `src/hooks/use-chat-input/` with public hook/type exports preserved through `index.ts` and input-state calculation, explicit validation, focus wiring, and constants split into internal helpers. Robota execution hook internals are a directory module under `src/hooks/use-robota-execution/` with public hook/type exports preserved through `index.ts` and execution state, context synchronization, history metrics, timeout cleanup, action hooks, and configuration helpers split into internal modules. WebSocket connection hook internals are a directory module under `src/hooks/use-websocket-connection/` with public hook/type exports preserved through `index.ts` and state calculation, uptime tracking, constants, and handler registration split into internal helpers. Playground WebSocket client is a directory module under `src/lib/playground/websocket-client/` with connection state isolated in `PlaygroundWebSocketClient` and message constants, guards, builders, auth parsing, and event payload types kept as internal helpers while preserving the previous import path.
 
 Block-tracking layer (`PlaygroundBlockCollector`, `LLMTracker`, `PlaygroundBlockVisualizationSubscriber`) handles execution block collection and real-time visualization data. Block tracking hooks are a directory module under `src/lib/playground/block-tracking/block-hooks/` with handler and block message creation logic split from the public hook factories while preserving the previous import path. Execution subscriber is a directory module under `src/lib/playground/execution-subscriber/` with SDK event guards, tool/execution handlers, block id generation, and step parsing split from the `ExecutionSubscriber` stateful bridge while preserving the previous import path. Tool catalog (`ToolRegistry`) provides built-in playground tools created via factory functions; it is used internally and is not exported from the public entry point.
 
@@ -66,21 +66,20 @@ This package is SSOT for:
 - `IPlaygroundMetrics` / `IPlaygroundStatisticsOptions` / `IPlaygroundStatisticsStats` -- statistics types.
 - `IPlaygroundAction` -- UI interaction action type.
 - `IPlaygroundExecutionResult` -- statistics execution result.
-- `IPlaygroundBootState` -- boot hook state.
-- `PLAYGROUND_STATISTICS_EVENTS` -- statistics event constants.
+
+`PLAYGROUND_STATISTICS_EVENTS` (`src/types/playground-statistics.ts`) is a module-internal `const` (declared `const`, not `export const`) and is **not** part of the package's owned public exports.
 
 ## Public API Surface
 
-| Export                  | Kind            | Description                                                      |
-| ----------------------- | --------------- | ---------------------------------------------------------------- |
-| `PlaygroundApp`         | React component | Full playground application shell                                |
-| `PlaygroundDemo`        | React component | Demo-mode playground                                             |
-| `PlaygroundExecutor`    | class           | Agent lifecycle and execution facade (re-exported from services) |
-| ~~`usePlaygroundBoot`~~ | hook (internal) | Boot state management — not exported from package entry          |
+| Export               | Kind            | Description                                                      |
+| -------------------- | --------------- | ---------------------------------------------------------------- |
+| `PlaygroundApp`      | React component | Full playground application shell                                |
+| `PlaygroundDemo`     | React component | Demo-mode playground                                             |
+| `PlaygroundExecutor` | class           | Agent lifecycle and execution facade (re-exported from services) |
 
 Browser consumers that only render the React playground must import `PlaygroundApp` and `PlaygroundDemo` from `@robota-sdk/agent-playground/client`. The root entry also exports service-layer APIs for server/runtime consumers and must not be used as the browser page entry.
 
-Note: `usePlaygroundData`, `useRobotaExecution`, `useChatInput`, and `ToolRegistry` are used internally by the package's own components and are not exported from the public entry point (`src/index.ts → src/playground/index.ts`).
+Note: `useRobotaExecution`, `useChatInput`, and `ToolRegistry` are used internally by the package's own components and are not exported from the public entry point (`src/index.ts → src/playground/index.ts`).
 
 ## Extension Points
 

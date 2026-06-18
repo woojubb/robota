@@ -53,13 +53,11 @@ Types owned by this package (SSOT):
 
 | Type                         | Kind      | File                         | Description                                                                                           |
 | ---------------------------- | --------- | ---------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `ISessionOptions`            | Interface | `session.ts`                 | Constructor options for Session (tools, provider, systemMessage, providerTimeout, optional sessionId) |
+| `ISessionOptions`            | Interface | `session-types.ts`           | Constructor options for Session (tools, provider, systemMessage, providerTimeout, optional sessionId) |
 | `ISessionShutdownOptions`    | Interface | `session-types.ts`           | Graceful shutdown options, including Claude-compatible `reason`                                       |
-| `TPermissionHandler`         | Type      | `permission-enforcer.ts`     | Async callback `(toolName, toolArgs) => Promise<TPermissionResult>`                                   |
-| `TPermissionResult`          | Type      | `permission-enforcer.ts`     | `boolean \| 'allow-session'`                                                                          |
-| `ITerminalOutput`            | Interface | `permission-enforcer.ts`     | Terminal I/O abstraction (write, prompt, select, spinner)                                             |
-| `ISpinner`                   | Interface | `permission-enforcer.ts`     | Spinner handle returned by `ITerminalOutput.spinner()`                                                |
-| `IPermissionEnforcerOptions` | Interface | `permission-enforcer.ts`     | Options for constructing PermissionEnforcer                                                           |
+| `TPermissionHandler`         | Type      | `permission-types.ts`        | Async callback `(toolName, toolArgs) => Promise<TPermissionResult>`                                   |
+| `TPermissionResult`          | Type      | `permission-types.ts`        | `boolean \| 'allow-session' \| 'allow-project'`                                                       |
+| `IPermissionEnforcerOptions` | Interface | `permission-types.ts`        | Options for constructing PermissionEnforcer                                                           |
 | `ICompactionOptions`         | Interface | `compaction-orchestrator.ts` | Options for constructing CompactionOrchestrator                                                       |
 | `ISessionLogger`             | Interface | `session-logger.ts`          | Pluggable session event logger interface                                                              |
 | `TSessionLogData`            | Type      | `session-logger.ts`          | Structured log event data (`Record<string, string \| number \| boolean \| object \| null>`)           |
@@ -69,22 +67,24 @@ Types owned by this package (SSOT):
 
 Types consumed from other packages (not owned here):
 
-| Type                    | Source                   |
-| ----------------------- | ------------------------ |
-| `Robota`                | `@robota-sdk/agent-core` |
-| `IAgentConfig`          | `@robota-sdk/agent-core` |
-| `IAIProvider`           | `@robota-sdk/agent-core` |
-| `IToolWithEventService` | `@robota-sdk/agent-core` |
-| `TPermissionMode`       | `@robota-sdk/agent-core` |
-| `TToolArgs`             | `@robota-sdk/agent-core` |
-| `THooksConfig`          | `@robota-sdk/agent-core` |
-| `IHookInput`            | `@robota-sdk/agent-core` |
-| `evaluatePermission`    | `@robota-sdk/agent-core` |
-| `runHooks`              | `@robota-sdk/agent-core` |
-| `TRUST_TO_MODE`         | `@robota-sdk/agent-core` |
-| `TUniversalMessage`     | `@robota-sdk/agent-core` |
-| `IHistoryEntry`         | `@robota-sdk/agent-core` |
-| `TModelEffort`          | `@robota-sdk/agent-core` |
+| Type                    | Source                                                           |
+| ----------------------- | ---------------------------------------------------------------- |
+| `Robota`                | `@robota-sdk/agent-core`                                         |
+| `IAgentConfig`          | `@robota-sdk/agent-core`                                         |
+| `IAIProvider`           | `@robota-sdk/agent-core`                                         |
+| `IToolWithEventService` | `@robota-sdk/agent-core`                                         |
+| `TPermissionMode`       | `@robota-sdk/agent-core`                                         |
+| `TToolArgs`             | `@robota-sdk/agent-core`                                         |
+| `THooksConfig`          | `@robota-sdk/agent-core`                                         |
+| `IHookInput`            | `@robota-sdk/agent-core`                                         |
+| `evaluatePermission`    | `@robota-sdk/agent-core`                                         |
+| `runHooks`              | `@robota-sdk/agent-core`                                         |
+| `TRUST_TO_MODE`         | `@robota-sdk/agent-core`                                         |
+| `TUniversalMessage`     | `@robota-sdk/agent-core`                                         |
+| `IHistoryEntry`         | `@robota-sdk/agent-core`                                         |
+| `TModelEffort`          | `@robota-sdk/agent-core`                                         |
+| `ITerminalOutput`       | `@robota-sdk/agent-core` (re-exported via `permission-types.ts`) |
+| `ISpinner`              | `@robota-sdk/agent-core` (re-exported via `permission-types.ts`) |
 
 ## Public API Surface
 
@@ -109,6 +109,8 @@ Types consumed from other packages (not owned here):
 | `TSessionLogData`                | Type                 | Structured log event data                                                                                      |
 | `ISessionRecord`                 | Interface            | Persisted session record shape                                                                                 |
 | `ISessionStore`                  | Interface            | Minimal persistence port consumed by `Session`; implemented by `SessionStore`                                  |
+| `ICompactEvent`                  | Interface            | Compaction event payload emitted around context compaction                                                     |
+| `TCompactTrigger`                | Type                 | Discriminator for what triggered a compaction (e.g. auto vs manual)                                            |
 
 ### Session Constructor — sessionId Parameter
 
