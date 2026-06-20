@@ -86,11 +86,37 @@ What this task aims to achieve (1-3 sentences).
 
 7. Set status to `completed`.
 8. Fill the Result section with a summary and any follow-up items.
-9. Move the file to `completed/`:
+9. Move the file to `completed/` with `git mv`:
    ```bash
-   mv .agents/tasks/<task-name>.md .agents/tasks/completed/<task-name>.md
+   git mv .agents/tasks/<task-name>.md .agents/tasks/completed/<task-name>.md
    ```
-10. Commit the moved file with the relevant changes.
+10. Commit the move **in the same commit as the work it tracks** — never leave a
+    done task file in the active directory across a commit boundary.
+
+### Archival Timing (when exactly to move) — enforced
+
+A task file is **done and must be archived** the moment **either** holds:
+
+- it carries a `Status: completed` line, **or**
+- every checkbox is checked (zero `- [ ]`) **and** its `Spec:` pointer references
+  `.agents/spec-docs/done/` (the spec has shipped).
+
+Archive in the **same commit** that completes the work. This is enforced by the
+`task-archival` harness scan (`pnpm harness:scan:task-archival`, part of
+`pnpm harness:scan`): a done task file left in `.agents/tasks/` fails the scan.
+The SessionStart/Stop hooks flag the same files as `DONE, needs archival`.
+
+If a complete file must stay active (e.g. blocked on a dependent task), add one
+line to exempt it explicitly — do not silently leave it:
+
+```markdown
+<!-- archival-exempt: blocked on dependent task <ID> -->
+```
+
+> The two task formats — this skill's `Status:` form and the backlog-execution
+> "Task Breakdown" form (a `Spec:` pointer + `## Plan` checkboxes) — are both
+> recognized by the scan and hooks. Whichever you use, the archival signal and
+> timing above apply.
 
 ### Resuming a Task
 
