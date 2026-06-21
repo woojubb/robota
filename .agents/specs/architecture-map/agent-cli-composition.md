@@ -44,7 +44,7 @@ Update the smallest relevant file under [agent-cli/](agent-cli/) in the same PR 
 affects any of these:
 
 - `packages/agent-cli/src/cli.ts` composition of providers, command modules, transports, or runtime adapters;
-- `packages/agent-transport-tui/src/hooks/useInteractiveSession.ts`, `useSlashRouting.ts`, or `useSideEffects.ts`;
+- `packages/agent-transport-tui/src/hooks/useTuiChannel.ts`, `useSlashRouting.ts`, or `useSideEffects.ts`;
 - a new or removed `@robota-sdk/agent-command` module in the default CLI product;
 - provider setup, provider switching, model catalog, or model switching flow;
 - interactive vs non-interactive execution mode flags or transport behavior;
