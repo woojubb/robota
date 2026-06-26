@@ -118,7 +118,7 @@ function HomePage({
             gap: '0.375rem',
             padding: '0.2rem 0.625rem',
             background: 'var(--primary-dim)',
-            border: '1px solid rgba(0,255,136,0.2)',
+            border: '1px solid rgba(45,212,167,0.2)',
             borderRadius: '0.25rem',
             fontSize: '0.72rem',
             fontFamily: 'var(--font-code)',
@@ -143,7 +143,7 @@ function HomePage({
         >
           {title}
           <br />
-          <span style={{ color: 'var(--primary)', textShadow: '0 0 32px rgba(0,255,136,0.25)' }}>
+          <span style={{ color: 'var(--primary)', textShadow: '0 0 32px rgba(45,212,167,0.25)' }}>
             {titleHighlight}
           </span>
         </h1>
@@ -177,7 +177,7 @@ function HomePage({
               fontFamily: 'var(--font-display)',
               textDecoration: 'none',
               letterSpacing: '0.02em',
-              boxShadow: '0 0 24px rgba(0,255,136,0.2)',
+              boxShadow: '0 0 24px rgba(45,212,167,0.2)',
               transition: 'box-shadow 0.2s',
             }}
           >
@@ -239,7 +239,7 @@ function HomePage({
                 right: '0.875rem',
                 fontFamily: 'var(--font-code)',
                 fontSize: '0.65rem',
-                color: 'rgba(0,255,136,0.25)',
+                color: 'rgba(45,212,167,0.25)',
                 letterSpacing: '0.04em',
                 userSelect: 'none',
               }}

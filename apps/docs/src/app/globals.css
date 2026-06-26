@@ -30,21 +30,21 @@
   --card:            #0d0d14;
   --card-foreground: #d4d4d8;
 
-  /* Accents */
-  --primary:            #00ff88;       /* fluorescent green */
-  --primary-dim:        rgba(0,255,136,0.12);
-  --primary-glow:       rgba(0,255,136,0.20);
+  /* Accents — unified brand palette (BRAND-001) */
+  --primary:            #2dd4a7;       /* emerald/teal */
+  --primary-dim:        rgba(45,212,167,0.12);
+  --primary-glow:       rgba(45,212,167,0.20);
   --primary-foreground: #050508;
-  --secondary:          #00d4ff;       /* fluorescent cyan */
-  --secondary-dim:      rgba(0,212,255,0.10);
+  --secondary:          #22b8a0;       /* deeper teal (gradient partner) */
+  --secondary-dim:      rgba(34,184,160,0.10);
 
   /* Muted / UI */
   --muted:            #111118;
   --muted-foreground: #71717a;
   --border:           rgba(255,255,255,0.07);
   --border-strong:    rgba(255,255,255,0.12);
-  --accent:           #00ff88;
-  --accent-dim:       rgba(0,255,136,0.10);
+  --accent:           #2dd4a7;
+  --accent-dim:       rgba(45,212,167,0.10);
 
   /* Layout */
   --sidebar-width:    264px;
@@ -168,7 +168,7 @@
 .prose a {
   color: var(--primary);
   text-decoration: none;
-  border-bottom: 1px solid rgba(0,255,136,0.3);
+  border-bottom: 1px solid rgba(45,212,167,0.3);
   transition: border-color 0.15s, color 0.15s;
 }
 
@@ -259,7 +259,7 @@
   color: var(--foreground);
 }
 
-.prose tr:hover td { background: rgba(0,255,136,0.025); }
+.prose tr:hover td { background: rgba(45,212,167,0.025); }
 
 .prose hr {
   border: none;
