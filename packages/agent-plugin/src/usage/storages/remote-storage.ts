@@ -11,13 +11,20 @@ import { aggregateUsageStats } from '../aggregate-usage-stats';
 
 import type { IUsageStorage, IUsageStats, IAggregatedUsageStats } from '../types';
 
-const SAMPLE_SIZE = 3;
-
 /**
- * Remote storage implementation for usage statistics with batching
+ * Remote storage for usage statistics with batching.
+ *
+ * Uses a generic JSON REST contract against `apiUrl`:
+ * - `POST   {apiUrl}`  body `{ stats }` — persist a flushed batch
+ * - `GET    {apiUrl}?conversationId=&start=&end=` → `{ stats } | IUsageStats[]`
+ * - `DELETE {apiUrl}` — clear
+ * A bearer `apiKey` and extra `headers` are attached when provided.
  */
 export class RemoteUsageStorage implements IUsageStorage {
   private apiUrl: string;
+  private apiKey: string;
+  private timeout: number;
+  private headers: Record<string, string>;
   private batchSize: number;
   private flushInterval: number;
   private batch: IUsageStats[] = [];
@@ -26,13 +33,16 @@ export class RemoteUsageStorage implements IUsageStorage {
 
   constructor(
     apiUrl: string,
-    _apiKey: string,
-    _timeout: number,
-    _headers: Record<string, string> = {},
+    apiKey: string,
+    timeout: number,
+    headers: Record<string, string> = {},
     batchSize: number = 50,
     flushInterval: number = 60000, // 1 minute
   ) {
     this.apiUrl = apiUrl;
+    this.apiKey = apiKey;
+    this.timeout = timeout;
+    this.headers = headers;
     this.batchSize = batchSize;
     this.flushInterval = flushInterval;
     this.logger = createLogger('RemoteUsageStorage');
@@ -44,6 +54,18 @@ export class RemoteUsageStorage implements IUsageStorage {
         await this.flush();
       },
     );
+  }
+
+  private requestHeaders(): Record<string, string> {
+    return {
+      'content-type': 'application/json',
+      ...(this.apiKey ? { authorization: `Bearer ${this.apiKey}` } : {}),
+      ...this.headers,
+    };
+  }
+
+  private signal(): AbortSignal | undefined {
+    return this.timeout > 0 ? AbortSignal.timeout(this.timeout) : undefined;
   }
 
   async save(entry: IUsageStats): Promise<void> {
@@ -59,14 +81,24 @@ export class RemoteUsageStorage implements IUsageStorage {
     timeRange?: { start: Date; end: Date },
   ): Promise<IUsageStats[]> {
     try {
-      // Remote API call would be implemented here
-      this.logger.warn('Remote usage storage not fully implemented yet', {
-        endpoint: this.apiUrl,
-        operation: 'getStats',
-        conversationId,
-        timeRange,
+      const url = new URL(this.apiUrl);
+      if (conversationId) url.searchParams.set('conversationId', conversationId);
+      if (timeRange) {
+        url.searchParams.set('start', timeRange.start.toISOString());
+        url.searchParams.set('end', timeRange.end.toISOString());
+      }
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: this.requestHeaders(),
+        signal: this.signal(),
       });
-      return [];
+      if (!response.ok) {
+        throw new Error(`Remote endpoint returned ${response.status}`);
+      }
+      const body = (await response.json()) as IUsageStats[] | { stats: IUsageStats[] };
+      const stats = Array.isArray(body) ? body : body.stats;
+      for (const stat of stats) stat.timestamp = new Date(stat.timestamp);
+      return stats;
     } catch (error) {
       throw new StorageError('Failed to get usage stats from remote endpoint', {
         endpoint: this.apiUrl,
@@ -90,11 +122,14 @@ export class RemoteUsageStorage implements IUsageStorage {
 
   async clear(): Promise<void> {
     try {
-      // Remote API call would be implemented here
-      this.logger.warn('Remote usage storage not fully implemented yet', {
-        endpoint: this.apiUrl,
-        operation: 'clear',
+      const response = await fetch(this.apiUrl, {
+        method: 'DELETE',
+        headers: this.requestHeaders(),
+        signal: this.signal(),
       });
+      if (!response.ok) {
+        throw new Error(`Remote endpoint returned ${response.status}`);
+      }
     } catch (error) {
       throw new StorageError('Failed to clear usage stats from remote endpoint', {
         endpoint: this.apiUrl,
@@ -110,23 +145,17 @@ export class RemoteUsageStorage implements IUsageStorage {
     this.batch = [];
 
     try {
-      // Remote API call would be implemented here
-      // This is a placeholder for actual HTTP requests
-      this.logger.warn('Remote usage storage not fully implemented yet', {
-        endpoint: this.apiUrl,
-        operation: 'flush',
-        batchSize: statsToSend.length,
-        sample: statsToSend.slice(0, SAMPLE_SIZE).map((stat) => ({
-          timestamp: stat.timestamp.toISOString(),
-          provider: stat.provider,
-          model: stat.model,
-          tokens: stat.tokensUsed.total,
-          cost: stat.cost?.total,
-          success: stat.success,
-        })),
+      const response = await fetch(this.apiUrl, {
+        method: 'POST',
+        headers: this.requestHeaders(),
+        body: JSON.stringify({ stats: statsToSend }),
+        signal: this.signal(),
       });
+      if (!response.ok) {
+        throw new Error(`Remote endpoint returned ${response.status}`);
+      }
     } catch (error) {
-      // Re-add failed batch to the beginning of current batch
+      // Re-queue the failed batch so it is retried on the next flush (no silent loss).
       this.batch = [...statsToSend, ...this.batch];
       throw new StorageError('Failed to send usage stats to remote endpoint', {
         endpoint: this.apiUrl,

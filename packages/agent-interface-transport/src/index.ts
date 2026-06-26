@@ -110,6 +110,7 @@ export type {
   IInteractiveSession,
   IInteractiveSessionEvents,
   TInteractiveEventName,
+  TTurnSource,
   IExecutionResult,
   IToolState,
   IDiffLine,

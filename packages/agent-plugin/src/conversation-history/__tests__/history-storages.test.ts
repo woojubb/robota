@@ -1,4 +1,7 @@
-import { describe, it, expect } from 'vitest';
+import { afterEach, describe, it, expect } from 'vitest';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { DatabaseHistoryStorage } from '../storages/database-storage';
 import { FileHistoryStorage } from '../storages/file-storage';
 import { MemoryHistoryStorage } from '../storages/memory-storage';
@@ -89,27 +92,51 @@ describe('DatabaseHistoryStorage', () => {
   });
 });
 
-describe('FileHistoryStorage', () => {
-  // Placeholder implementation - tests verify it does not throw
-  const storage = new FileHistoryStorage('/tmp/history.json');
+describe('FileHistoryStorage (PLUGIN-001: real persistence)', () => {
+  let dir: string;
+  let storage: FileHistoryStorage;
 
-  it('save does not throw', async () => {
-    await expect(storage.save('conv-1', entry)).resolves.toBeUndefined();
+  function freshStorage(): { dir: string; storage: FileHistoryStorage } {
+    const d = mkdtempSync(join(tmpdir(), 'robota-hist-'));
+    return { dir: d, storage: new FileHistoryStorage(join(d, 'history.json')) };
+  }
+
+  afterEach(() => {
+    if (dir) rmSync(dir, { recursive: true, force: true });
   });
 
-  it('load returns undefined', async () => {
-    expect(await storage.load('conv-1')).toBeUndefined();
+  it('persists and reloads an entry (round-trip with revived Dates)', async () => {
+    ({ dir, storage } = freshStorage());
+    await storage.save('conv-1', entry);
+    const loaded = await storage.load('conv-1');
+    expect(loaded).toBeDefined();
+    expect(loaded!.conversationId).toBe('conv-1');
+    expect(loaded!.startTime).toBeInstanceOf(Date);
+    expect(loaded!.messages[0]!.content).toBe('hello');
   });
 
-  it('list returns empty array', async () => {
+  it('survives a new storage instance pointed at the same file', async () => {
+    ({ dir, storage } = freshStorage());
+    const filePath = join(dir, 'history.json');
+    await new FileHistoryStorage(filePath).save('conv-1', entry);
+    const reopened = new FileHistoryStorage(filePath);
+    expect((await reopened.load('conv-1'))?.conversationId).toBe('conv-1');
+  });
+
+  it('returns undefined for a missing conversation and [] for an absent file', async () => {
+    ({ dir, storage } = freshStorage());
+    expect(await storage.load('missing')).toBeUndefined();
     expect(await storage.list()).toEqual([]);
   });
 
-  it('delete returns false', async () => {
+  it('lists, deletes, and clears', async () => {
+    ({ dir, storage } = freshStorage());
+    await storage.save('conv-1', entry);
+    await storage.save('conv-2', { ...entry, conversationId: 'conv-2' });
+    expect((await storage.list()).sort()).toEqual(['conv-1', 'conv-2']);
+    expect(await storage.delete('conv-1')).toBe(true);
     expect(await storage.delete('conv-1')).toBe(false);
-  });
-
-  it('clear does not throw', async () => {
-    await expect(storage.clear()).resolves.toBeUndefined();
+    await storage.clear();
+    expect(await storage.list()).toEqual([]);
   });
 });

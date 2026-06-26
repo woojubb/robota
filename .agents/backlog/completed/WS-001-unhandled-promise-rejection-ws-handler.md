@@ -1,12 +1,22 @@
 ---
 title: 'WS-001: Handle promise rejections in agent-transport-ws message handler (no silent loss)'
-status: todo
+status: done
+completed: 2026-06-27
 created: 2026-06-27
 priority: high
 urgency: soon
 area: packages/agent-transport-ws
 depends_on: []
 ---
+
+## Evidence Log (2026-06-27)
+
+- `ws-handler.ts`: `session.submit(...)` now `.catch((error: Error) => send protocol_error)`;
+  `session.executeCommand(...)` uses the two-arg `.then(onOk, onErr)` form sending a
+  `protocol_error` on rejection — mirroring `ws-background-messages.ts`.
+- Tests: added "submit rejection → protocol_error" and "command rejection → protocol_error"
+  (WS-001); fixed the mock `submit` to return a promise. `agent-transport-ws` 33 tests pass,
+  typecheck clean.
 
 # Handle promise rejections in the WS message handler
 

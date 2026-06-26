@@ -91,7 +91,14 @@ export function SessionMonitor({ wsUrl, className }: ISessionMonitorProps): Reac
           className={`flex flex-col overflow-hidden min-w-0 ${hasAgents ? 'flex-[2]' : 'flex-1'}`}
         >
           <div className="flex-1 overflow-hidden">
-            {status === 'disconnected' || status === 'connecting' ? (
+            {status === 'connected' ? (
+              <ConversationView
+                messages={messages}
+                activeTools={activeTools}
+                streamingText={streamingText}
+                isThinking={isThinking}
+              />
+            ) : (
               <div className="flex h-full items-center justify-center">
                 <div className="flex flex-col items-center gap-3 text-center px-8">
                   <div className="h-9 w-9 rounded-full border border-border/50 flex items-center justify-center">
@@ -100,17 +107,12 @@ export function SessionMonitor({ wsUrl, className }: ISessionMonitorProps): Reac
                   <p className="text-xs font-mono text-muted-foreground max-w-[260px] leading-relaxed">
                     {status === 'connecting'
                       ? `Connecting to ${url}…`
-                      : `Run robota to start the CLI (WS transport starts automatically).`}
+                      : status === 'error'
+                        ? `Connection error — could not reach ${url}. Check the CLI is running and the URL is correct.`
+                        : `Run robota to start the CLI (WS transport starts automatically).`}
                   </p>
                 </div>
               </div>
-            ) : (
-              <ConversationView
-                messages={messages}
-                activeTools={activeTools}
-                streamingText={streamingText}
-                isThinking={isThinking}
-              />
             )}
           </div>
 

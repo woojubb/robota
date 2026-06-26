@@ -1,12 +1,28 @@
 ---
 title: 'EVENT-001: Add turn_source to the interactive-session event contract (emitted but untyped)'
-status: todo
+status: done
+completed: 2026-06-27
 created: 2026-06-27
 priority: medium
 urgency: soon
 area: packages/agent-interface-transport, packages/agent-framework
 depends_on: []
 ---
+
+## Evidence Log (2026-06-27)
+
+- `agent-interface-transport/session-contracts.ts`: added `export type TTurnSource =
+'user' | 'agent-wakeup'` and `turn_source: (source: TTurnSource) => void` to
+  `IInteractiveSessionEvents`; re-exported `TTurnSource` from the package index.
+- `agent-framework` controller now imports `TTurnSource` from the contract package (SSOT) and
+  re-exports it for compatibility; the local duplicate declaration was removed. The
+  `emit('turn_source', …)` call is now contract-backed, so consumers can `on('turn_source', …)`
+  type-safely.
+- WS forwarding: `turn_source` is intentionally not forwarded to WS clients (consistent with
+  other in-process-only events like `memory_event`/`compact`); the drift was the missing
+  contract entry, now fixed.
+- Verified: `pnpm build:deps` + `pnpm typecheck` PASS; `pnpm harness:scan` 30/30
+  (spec-public-surface + interface-imports PASS).
 
 # Add `turn_source` to the event contract
 

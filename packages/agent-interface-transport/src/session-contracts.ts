@@ -120,6 +120,9 @@ export interface IContextFileRefreshedEvent {
   filePath: string;
 }
 
+/** Origin of a turn — distinguishes a human prompt from an agent-wakeup re-entry (FLOW-002). */
+export type TTurnSource = 'user' | 'agent-wakeup';
+
 /** Events emitted by InteractiveSession. */
 export interface IInteractiveSessionEvents {
   text_delta: (delta: string) => void;
@@ -136,6 +139,8 @@ export interface IInteractiveSessionEvents {
   background_job_group_event: (event: TBackgroundJobGroupEvent) => void;
   execution_workspace_event: (event: IExecutionWorkspaceEvent) => void;
   user_message: (content: string) => void;
+  /** Emitted at the start of each turn with its origin (human prompt vs agent-wakeup, FLOW-002). */
+  turn_source: (source: TTurnSource) => void;
   /** Emitted when a context file (AGENTS.md or CLAUDE.md) is refreshed due to staleness. */
   context_file_refreshed: (event: IContextFileRefreshedEvent) => void;
   /** Emitted for every automatic-memory pipeline event (capture, approval, retrieval). */

@@ -1,0 +1,29 @@
+[
+  {
+    "provider": "openai",
+    "model": "gpt-4",
+    "tokensUsed": { "input": 100, "output": 50, "total": 150 },
+    "requestCount": 1,
+    "duration": 500,
+    "success": true,
+    "timestamp": "2026-06-26T18:22:19.307Z"
+  },
+  {
+    "provider": "openai",
+    "model": "gpt-4",
+    "tokensUsed": { "input": 100, "output": 50, "total": 150 },
+    "requestCount": 1,
+    "duration": 500,
+    "success": true,
+    "timestamp": "2026-06-26T18:23:10.990Z"
+  },
+  {
+    "provider": "openai",
+    "model": "gpt-4",
+    "tokensUsed": { "input": 100, "output": 50, "total": 150 },
+    "requestCount": 1,
+    "duration": 500,
+    "success": true,
+    "timestamp": "2026-06-26T18:24:51.044Z"
+  }
+]
