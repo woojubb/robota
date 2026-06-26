@@ -24,6 +24,24 @@ properties and apply it to both:
 - Express the palette as CSS custom properties / Tailwind theme tokens so both apps
   consume the same source of truth (no scattered hardcoded hex).
 
+### Confirmed palette (user-approved 2026-06-26)
+
+Chosen on intrinsic merit (not docs continuity) and applied to BOTH sites:
+
+| Token             | Value                    | Use                                   |
+| ----------------- | ------------------------ | ------------------------------------- |
+| `--accent`        | `#2DD4A7` (emerald/teal) | primary CTA fill, links, prompt caret |
+| `--accent-hover`  | `#25B492`                | hover/active                          |
+| `--accent-subtle` | `rgba(45,212,167,0.12)`  | tints, badges, focus rings            |
+| `--bg`            | `#0A0A0F`                | page background                       |
+| `--surface`       | `#131320`                | cards/surfaces                        |
+| `--text`          | `#E8E6F0`                | body text                             |
+| `--text-muted`    | `#A7A795`                | secondary text                        |
+| font (sans)       | IBM Plex Sans            | body + display                        |
+| font (mono)       | IBM Plex Mono            | code, CLI snippets                    |
+
+Accent contrast on `#0A0A0F` ≈ 8.9:1 (AAA). Replaces docs `#00FF88` and www `#A78BFA`.
+
 ## Why
 
 The design review (2026-06-26) found the flagship marketing site (`www.robota.io`) reads
