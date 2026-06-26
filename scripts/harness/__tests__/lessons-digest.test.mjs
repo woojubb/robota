@@ -42,7 +42,7 @@ function runHook(scriptPath, input, projectDir) {
     env: {
       ...process.env,
       CLAUDE_PROJECT_DIR: projectDir,
-      ROBOTA_DISABLE_LESSONS_DIGEST: '1',
+      HARNESS_DISABLE_LESSONS_DIGEST: '1',
     },
     encoding: 'utf8',
   });

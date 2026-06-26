@@ -14,9 +14,11 @@
 
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { loadHarnessConfig } from './harness-config.mjs';
 
 const ROOT = resolve(import.meta.dirname, '../..');
 const FORBIDDEN_PRODUCTION_DEPENDENCIES = [];
+const HARNESS = loadHarnessConfig();
 
 function findWorkspacePackages() {
   const packages = new Map();
@@ -135,17 +137,17 @@ function checkForbiddenProductionDeps(packages) {
  */
 function checkAgentCoreZeroDeps(packages) {
   const violations = [];
-  const core = packages.get('@robota-sdk/agent-core');
+  const core = packages.get(HARNESS.corePackage);
   if (!core) return violations;
 
   for (const dep of core.dependencies) {
-    if (dep.startsWith('@robota-sdk/agent-') && dep !== '@robota-sdk/agent-core') {
+    if (dep.startsWith(HARNESS.internalPackagePrefix) && dep !== HARNESS.corePackage) {
       violations.push({
-        package: '@robota-sdk/agent-core',
+        package: HARNESS.corePackage,
         dep,
         message:
-          `agent-core zero-deps violation: @robota-sdk/agent-core must not depend on ${dep}. ` +
-          'agent-core is the foundation layer; other agent-* packages register through its contracts.',
+          `core zero-deps violation: ${HARNESS.corePackage} must not depend on ${dep}. ` +
+          'the core package is the foundation layer; other internal packages register through its contracts.',
       });
     }
   }
@@ -159,19 +161,20 @@ function checkAgentCoreZeroDeps(packages) {
  */
 function checkPluginLayerDeps(packages) {
   const violations = [];
-  const ALLOWED_ROBOTA_DEPS = new Set(['@robota-sdk/agent-core']);
+  const ALLOWED_INTERNAL_DEPS = new Set(HARNESS.internalDeps.pluginLayerAllowed);
+  const pluginPrefix = `${HARNESS.internalPackagePrefix}plugin-`;
 
   for (const [name, pkg] of packages) {
-    if (!name.startsWith('@robota-sdk/agent-plugin-')) continue;
+    if (!name.startsWith(pluginPrefix)) continue;
 
     for (const dep of pkg.dependencies) {
-      if (dep.startsWith('@robota-sdk/') && !ALLOWED_ROBOTA_DEPS.has(dep)) {
+      if (dep.startsWith(HARNESS.npmScopePrefix) && !ALLOWED_INTERNAL_DEPS.has(dep)) {
         violations.push({
           package: name,
           dep,
           message:
             `Plugin layer violation: ${name} must not depend on ${dep}. ` +
-            'agent-plugin-* packages may only depend on @robota-sdk/agent-core.',
+            `plugin packages may only depend on ${[...ALLOWED_INTERNAL_DEPS].join(', ')}.`,
         });
       }
     }
