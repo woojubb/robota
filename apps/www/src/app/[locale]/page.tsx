@@ -1,5 +1,5 @@
 import { getTranslations, setRequestLocale } from 'next-intl/server';
-import Link from 'next/link';
+import { InternalLink } from '@/components/ui';
 import { KeyRound, Repeat, Package, ShieldCheck, Zap } from 'lucide-react';
 
 const FEATURE_ICONS = [KeyRound, Repeat, Package, ShieldCheck, Zap];
@@ -67,13 +67,12 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
             >
               {t('hero.github')} ↗
             </a>
-            <Link
-              prefetch={false}
+            <InternalLink
               href={`/${locale}/compare`}
               className="rounded-lg border border-[var(--border)] bg-transparent px-5 py-3 text-sm font-semibold text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
             >
               {t('hero.compareTo')}
-            </Link>
+            </InternalLink>
           </div>
 
           {/* Install snippet */}
