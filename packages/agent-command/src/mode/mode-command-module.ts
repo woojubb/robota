@@ -9,7 +9,7 @@ import { executeModeCommand } from './mode-command.js';
 import type { ICommandModule, ISystemCommand } from '@robota-sdk/agent-framework';
 import type {
   ICommand,
-  ICommandInteractionHint,
+  TCommandInteractionHint,
   ICommandSource,
 } from '@robota-sdk/agent-interface-transport';
 
@@ -49,7 +49,7 @@ export class ModeCommandSource implements ICommandSource {
   }
 }
 
-const MODE_INTERACTION_HINTS: Record<string, ICommandInteractionHint> = {
+const MODE_INTERACTION_HINTS: Record<string, TCommandInteractionHint> = {
   mode: {
     type: 'pick',
     getItems: () =>

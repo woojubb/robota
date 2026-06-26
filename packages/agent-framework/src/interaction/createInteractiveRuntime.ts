@@ -4,9 +4,9 @@ import { InteractiveSession } from '../interactive/index.js';
 import type { IInteractionChannel } from './IInteractionChannel.js';
 import type { IInteractiveRuntime } from './InteractiveRuntime.js';
 import type {
-  IActionRequest,
-  IActionResponse,
-  ICommandInteractionHint,
+  TActionRequest,
+  TActionResponse,
+  TCommandInteractionHint,
   ICommandInfo,
 } from './types.js';
 import type { ICommandModule } from '../command-api/command-module.js';
@@ -28,7 +28,7 @@ export interface IInteractiveRuntimeOptions {
   _testSession?: IInteractiveSession;
 }
 
-function buildActionRequest(commandName: string, hint: ICommandInteractionHint): IActionRequest {
+function buildActionRequest(commandName: string, hint: TCommandInteractionHint): TActionRequest {
   if (hint.type === 'pick') {
     return {
       type: 'pick',
@@ -45,8 +45,8 @@ function buildActionRequest(commandName: string, hint: ICommandInteractionHint):
 }
 
 function resolveArgsFromResponse(
-  hint: ICommandInteractionHint,
-  response: IActionResponse,
+  hint: TCommandInteractionHint,
+  response: TActionResponse,
 ): string[] | null {
   if (response.type === 'cancelled') return null;
   if (hint.type === 'pick' && response.type === 'pick') return [response.item.value];
@@ -124,7 +124,7 @@ export function createInteractiveRuntime(options: IInteractiveRuntimeOptions): I
   let session: IInteractiveSession | null = null;
   let unwireEvents: (() => void) | null = null;
 
-  const interactionHints: Record<string, ICommandInteractionHint> = {};
+  const interactionHints: Record<string, TCommandInteractionHint> = {};
   for (const mod of commandModules) {
     if (mod.interactionHints) {
       Object.assign(interactionHints, mod.interactionHints);

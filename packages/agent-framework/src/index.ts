@@ -302,7 +302,7 @@ export type {
 
 // ── Skill prompt utilities ───────────────────────────────────
 export { substituteVariables, preprocessShellCommands } from './utils/skill-prompt.js';
-export type { SkillPromptContext, TShellExecFn } from './utils/skill-prompt.js';
+export type { ISkillPromptContext, TShellExecFn } from './utils/skill-prompt.js';
 
 // ── Project memory ─────────────────────────────────────────
 export {
@@ -600,14 +600,14 @@ export type { IInteractionChannel } from './interaction/IInteractionChannel.js';
 export type {
   InteractionEvent,
   IPermissionRequest,
-  IActionRequest,
-  IActionResponse,
+  TActionRequest,
+  TActionResponse,
   IPickItem,
   ICommandInfo,
-  ICommandInteractionHint,
+  TCommandInteractionHint,
 } from './interaction/types.js';
 export { parseInput, isSlashCommand, tokeniseSlashCommand } from './interaction/input-parser.js';
-export type { ParsedInput } from './interaction/input-parser.js';
+export type { TParsedInput } from './interaction/input-parser.js';
 export type { IInteractiveRuntime } from './interaction/InteractiveRuntime.js';
 export { createInteractiveRuntime } from './interaction/createInteractiveRuntime.js';
 export type { IInteractiveRuntimeOptions } from './interaction/createInteractiveRuntime.js';

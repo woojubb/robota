@@ -49,7 +49,7 @@
 
 - `ToolRegistry`, `FunctionTool`, `createFunctionTool`, `createZodFunctionTool`
 - `OpenAPITool`, `createOpenAPITool`
-- `TToolResult`, `zodToJsonSchema`
+- `IToolInvocationResult`, `zodToJsonSchema`
 - 빌트인 도구 8개: bash, read, write, edit, glob, grep, webFetch, webSearch
 
 ### agent-provider-\*

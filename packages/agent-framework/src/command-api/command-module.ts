@@ -1,7 +1,7 @@
 import type { ISystemCommand } from './contracts.js';
 import type { ICommandSource } from './types.js';
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
-import type { ICommandInteractionHint } from '../interaction/types.js';
+import type { TCommandInteractionHint } from '../interaction/types.js';
 
 export type TCommandModuleSessionRequirement = 'agent-runtime';
 
@@ -18,5 +18,5 @@ export interface ICommandModule {
   /** Runtime facilities required by this module. */
   readonly sessionRequirements?: readonly TCommandModuleSessionRequirement[];
   /** Interaction hints consumed by createInteractiveRuntime for disambiguation dialogs. */
-  readonly interactionHints?: Record<string, ICommandInteractionHint>;
+  readonly interactionHints?: Record<string, TCommandInteractionHint>;
 }

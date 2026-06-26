@@ -8,7 +8,7 @@ export type { TPermissionMode, TTrustLevel, TPermissionDecision } from '@robota-
 export { TRUST_TO_MODE } from '@robota-sdk/agent-core';
 
 // Tool result type from agent-tools
-export type { TToolResult } from '@robota-sdk/agent-tools';
+export type { IToolInvocationResult } from '@robota-sdk/agent-tools';
 
 // Terminal types from agent-core (canonical owner)
 export type { ITerminalOutput, ISpinner } from '@robota-sdk/agent-core';

@@ -4,7 +4,7 @@ import type {
   TPresetEffort,
   TPresetPermissionMode,
   TPresetTrustLevel,
-  TResolvedPresetOptions,
+  IResolvedPresetOptions,
 } from './preset-types.js';
 
 /** Result of {@link validateExternalPreset}: the validated preset, or a single error message. */
@@ -40,7 +40,7 @@ function isStringArray(value: unknown): value is string[] {
 /** Validate the string-typed optional fields onto `options`; return the first error, if any. */
 function validateStringFields(
   value: Record<string, unknown>,
-  options: TResolvedPresetOptions,
+  options: IResolvedPresetOptions,
 ): string | undefined {
   const fields: readonly [string, unknown, (v: string) => void][] = [
     ['persona', value.persona, (v) => (options.persona = v)],
@@ -65,7 +65,7 @@ function validateStringFields(
 /** Validate the number- and boolean-typed optional fields onto `options`; return the first error. */
 function validateScalarFields(
   value: Record<string, unknown>,
-  options: TResolvedPresetOptions,
+  options: IResolvedPresetOptions,
 ): string | undefined {
   const numbers: readonly [string, unknown, (v: number) => void][] = [
     ['temperature', value.temperature, (v) => (options.temperature = v)],
@@ -104,7 +104,7 @@ function validateScalarFields(
 /** Validate the enum-typed optional fields onto `options`; return the first error, if any. */
 function validateEnumFields(
   value: Record<string, unknown>,
-  options: TResolvedPresetOptions,
+  options: IResolvedPresetOptions,
 ): string | undefined {
   if (value.effort !== undefined) {
     if (!EFFORT_VALUES.includes(value.effort as TPresetEffort)) {
@@ -150,7 +150,7 @@ function validateEnumFields(
 /** Validate the string-array optional fields onto `options`; return the first error, if any. */
 function validateArrayFields(
   value: Record<string, unknown>,
-  options: TResolvedPresetOptions,
+  options: IResolvedPresetOptions,
 ): string | undefined {
   const arrays: readonly [string, unknown, (v: readonly string[]) => void][] = [
     ['allowedTools', value.allowedTools, (v) => (options.allowedTools = v)],
@@ -204,7 +204,7 @@ export function validateExternalPreset(value: unknown): TPresetValidationResult 
 
   // Accumulate recognised optional fields here, then spread onto the identity triple so the
   // built preset never carries unknown keys.
-  const options: TResolvedPresetOptions = {};
+  const options: IResolvedPresetOptions = {};
   const error =
     validateStringFields(value, options) ??
     validateScalarFields(value, options) ??

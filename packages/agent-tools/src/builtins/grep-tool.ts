@@ -16,7 +16,7 @@ import { z } from 'zod';
 
 import { createZodFunctionTool } from '../implementations/function-tool';
 
-import type { TToolResult } from '../types/tool-result.js';
+import type { IToolInvocationResult } from '../types/tool-result.js';
 
 const GrepSchema = z.object({
   pattern: z.string().describe('The regular expression pattern to search for in file contents'),
@@ -177,7 +177,7 @@ async function grepFileTool(args: TGrepArgs): Promise<string> {
   try {
     regex = new RegExp(pattern);
   } catch (err) {
-    const result: TToolResult = {
+    const result: IToolInvocationResult = {
       success: false,
       output: '',
       error: `Invalid regex pattern: ${pattern}`,
@@ -190,7 +190,7 @@ async function grepFileTool(args: TGrepArgs): Promise<string> {
   try {
     targetStat = await stat(targetPath);
   } catch {
-    const result: TToolResult = {
+    const result: IToolInvocationResult = {
       success: false,
       output: '',
       error: `Path not found: ${targetPath}`,
@@ -239,7 +239,7 @@ async function grepFileTool(args: TGrepArgs): Promise<string> {
     ];
   }
 
-  const result: TToolResult = {
+  const result: IToolInvocationResult = {
     success: true,
     output: outputLines.length > 0 ? outputLines.join('\n') : '(no matches)',
   };

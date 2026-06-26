@@ -3,9 +3,9 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import type { TToolResult } from '../types/tool-result.js';
+import type { IToolInvocationResult } from '../types/tool-result.js';
 
-async function callWebSearch(query: string, limit?: number): Promise<TToolResult> {
+async function callWebSearch(query: string, limit?: number): Promise<IToolInvocationResult> {
   const { webSearchTool } = await import('../builtins/web-search-tool.js');
   const args: Record<string, unknown> = { query };
   if (limit !== undefined) args['limit'] = limit;
@@ -14,7 +14,7 @@ async function callWebSearch(query: string, limit?: number): Promise<TToolResult
     typeof result === 'object' && result !== null && 'data' in result
       ? String((result as { data: unknown }).data)
       : String(result);
-  return JSON.parse(raw) as TToolResult;
+  return JSON.parse(raw) as IToolInvocationResult;
 }
 
 describe('webSearchTool', () => {

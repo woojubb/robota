@@ -9,7 +9,7 @@ import { executeLanguageCommand } from './language-command.js';
 import type { ICommandModule, ISystemCommand } from '@robota-sdk/agent-framework';
 import type {
   ICommand,
-  ICommandInteractionHint,
+  TCommandInteractionHint,
   ICommandSource,
 } from '@robota-sdk/agent-interface-transport';
 
@@ -49,7 +49,7 @@ export class LanguageCommandSource implements ICommandSource {
   }
 }
 
-const LANGUAGE_INTERACTION_HINTS: Record<string, ICommandInteractionHint> = {
+const LANGUAGE_INTERACTION_HINTS: Record<string, TCommandInteractionHint> = {
   language: {
     type: 'pick',
     getItems: () =>

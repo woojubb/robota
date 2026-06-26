@@ -4,7 +4,7 @@
 // file I/O, no process concerns. Composition (loading records, writing output) lives in the caller.
 
 export type {
-  ISessionAnalysisInput,
+  TSessionAnalysisInput,
   TIntervalKind,
   ITimingInterval,
   ITimingStats,

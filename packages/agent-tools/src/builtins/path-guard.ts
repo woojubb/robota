@@ -1,9 +1,9 @@
 import { resolve, sep } from 'node:path';
 
-import type { TToolResult } from '../types/tool-result.js';
+import type { IToolInvocationResult } from '../types/tool-result.js';
 
 /**
- * Returns a JSON-serialized TToolResult error when filePath is outside cwd.
+ * Returns a JSON-serialized IToolInvocationResult error when filePath is outside cwd.
  * Returns undefined when the path is within cwd or cwd is not set.
  */
 export function checkPathWithinCwd(filePath: string, cwd: string | undefined): string | undefined {
@@ -13,7 +13,7 @@ export function checkPathWithinCwd(filePath: string, cwd: string | undefined): s
   const cwdResolved = resolve(cwd);
 
   if (resolved !== cwdResolved && !resolved.startsWith(cwdResolved + sep)) {
-    const result: TToolResult = {
+    const result: IToolInvocationResult = {
       success: false,
       output: '',
       error: `Access denied: "${filePath}" is outside the working directory`,

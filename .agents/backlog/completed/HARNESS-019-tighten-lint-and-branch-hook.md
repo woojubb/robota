@@ -1,11 +1,24 @@
 ---
 title: 'HARNESS-019: Mechanize interface-shape and branch-name rules via ESLint + branch-guard'
-status: todo
+status: done
 created: 2026-06-27
+completed: 2026-06-27
 priority: medium
 urgency: soon
 area: root (.eslintrc.json, .claude/hooks)
 depends_on: []
+---
+
+## Evidence Log (2026-06-27)
+
+- `.eslintrc.json`: added `@typescript-eslint/consistent-type-definitions: ["error","interface"]`
+  scoped to `packages/*/src` (0 existing violations → `pnpm lint` stays 0 errors).
+- `.claude/hooks/branch-guard.sh`: on `git checkout -b` / `git switch -c`, validates the new
+  branch name against `^(feat|fix|chore|docs|refactor|test|perf|build|ci|style|revert|release|hotfix)/<desc>`;
+  long-lived branches (main/master/develop/gh-pages) exempt; override `BRANCH_GUARD_ALLOW_BADNAME=1`.
+- Verified: `bash -n` syntax OK; regex accepts `feat/wave-a`, `chore/latent-backlogs`, exempts
+  `develop`/`main`, blocks `BadName`/`randombranch`/`feature/x`. `pnpm lint` 0 errors.
+
 ---
 
 # Mechanize interface-shape + branch-name rules

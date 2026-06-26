@@ -8,7 +8,7 @@ export type {
   TPresetAutonomy,
   TPresetTrustLevel,
   TPresetPermissionMode,
-  TResolvedPresetOptions,
+  IResolvedPresetOptions,
   IPreset,
 } from './preset-types.js';
 

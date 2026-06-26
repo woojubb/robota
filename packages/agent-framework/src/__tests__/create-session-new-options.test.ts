@@ -15,7 +15,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import type { IResolvedConfig } from '../config/config-types.js';
 import type { IToolWithEventService } from '@robota-sdk/agent-core';
-import type { TToolResult } from '@robota-sdk/agent-tools';
+import type { IToolInvocationResult } from '@robota-sdk/agent-tools';
 
 // Capture all Session constructor calls to inspect the options passed
 const sessionCtorCalls: Array<Record<string, unknown>> = [];
@@ -476,7 +476,7 @@ describe('createSession — sandbox client option', () => {
       { command: 'echo host should not run' },
       { toolName: 'Bash', parameters: { command: 'echo host should not run' } },
     );
-    const result = JSON.parse(rawResult.data as string) as TToolResult;
+    const result = JSON.parse(rawResult.data as string) as IToolInvocationResult;
     expect(result.output).toBe('from sandbox');
   });
 
@@ -502,7 +502,7 @@ describe('createSession — sandbox client option', () => {
       { command: 'touch isolated.txt' },
       { toolName: 'Bash', parameters: { command: 'touch isolated.txt' } },
     );
-    const result = JSON.parse(rawResult.data as string) as TToolResult;
+    const result = JSON.parse(rawResult.data as string) as IToolInvocationResult;
     const rawWriteResult = await writeTool!.execute(
       { filePath: '/workspace/generated.ts', content: 'export const isolated = true;\n' },
       {
@@ -513,7 +513,7 @@ describe('createSession — sandbox client option', () => {
         },
       },
     );
-    const writeResult = JSON.parse(rawWriteResult.data as string) as TToolResult;
+    const writeResult = JSON.parse(rawWriteResult.data as string) as IToolInvocationResult;
 
     expect(result).toMatchObject({
       success: true,

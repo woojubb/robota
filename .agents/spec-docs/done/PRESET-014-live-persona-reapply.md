@@ -96,7 +96,7 @@ mutable 상태를 추가하는 비용을 감수하고, 기존 재합성 seam을 
 - [x] TC-03: `applyPresetToSession(ctx, id, { persona: 'P' })` 호출 시 `ctx.applyPersona`가 `'P'`로 호출되고 결과 `applied`에 `'persona'`가 포함됨을 단언하는 단위 테스트 통과(spy)
 - [x] TC-04: `applyPresetToSession(ctx, id, {})`(persona 없음) 호출 시 `applyPersona`가 호출되지 않고 `skipped`에 `'persona'`가 포함됨을 단언하는 단위 테스트 통과
 - [x] TC-05: `applyPersona`를 미구현(optional)한 컨텍스트에서도 `applyPresetToSession`이 예외 없이 동작함을 단언하는 단위 테스트 통과
-- [x] TC-06: 확장된 `IPresetApplicationOptions`에 agent-preset `TResolvedPresetOptions`(persona 포함)가 구조적으로 대입 가능함을 컴파일-단언(agent-preset 테스트)
+- [x] TC-06: 확장된 `IPresetApplicationOptions`에 agent-preset `IResolvedPresetOptions`(persona 포함)가 구조적으로 대입 가능함을 컴파일-단언(agent-preset 테스트)
 - [x] TC-07: `pnpm --filter @robota-sdk/agent-framework build` + `pnpm --filter @robota-sdk/agent-framework --filter @robota-sdk/agent-preset test` + `pnpm typecheck` → exit 0
 
 ## Test Plan
@@ -111,7 +111,7 @@ optional 안전) + 타입 호환 + 빌드/테스트/타입체크 스모크.
 | TC-03 | RULE (unit)            | vitest — applyPresetToSession persona → applyPersona spy         |          |
 | TC-04 | RULE (unit)            | vitest — persona 없음 → 미호출 + skipped                         |          |
 | TC-05 | RULE (unit)            | vitest — applyPersona 미구현 컨텍스트 안전                       |          |
-| TC-06 | RULE (unit)            | vitest — TResolvedPresetOptions → IPresetApplicationOptions 대입 |          |
+| TC-06 | RULE (unit)            | vitest — IResolvedPresetOptions → IPresetApplicationOptions 대입 |          |
 | TC-07 | CI pipeline smoke test | `pnpm build` + `pnpm test` + `pnpm typecheck` exit code          | 커맨드폼 |
 
 ## User Execution Test Scenarios

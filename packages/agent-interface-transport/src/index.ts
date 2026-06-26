@@ -42,11 +42,11 @@ export type {
   IInteractionChannel,
   InteractionEvent,
   IPermissionRequest,
-  IActionRequest,
-  IActionResponse,
+  TActionRequest,
+  TActionResponse,
   IPickItem,
   ICommandInfo,
-  ICommandInteractionHint,
+  TCommandInteractionHint,
 } from './interaction-contracts.js';
 
 // ── Session-event payload contracts ──────────────────────────

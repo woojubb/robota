@@ -25,7 +25,7 @@ const STREAMING_DEBOUNCE_MS = 300;
  * SSOT (`IContextWindowState`) via `Pick` so they stay structurally tied to it; `percentage` is an
  * explicit display-facing mirror of `IContextWindowState.usedPercentage`.
  */
-export type IContextState = Pick<IContextWindowState, 'usedTokens' | 'maxTokens'> & {
+export type TContextState = Pick<IContextWindowState, 'usedTokens' | 'maxTokens'> & {
   /** Mirror of `IContextWindowState.usedPercentage`, named for the TUI display layer. */
   percentage: number;
 };
@@ -62,7 +62,7 @@ export class TuiStateManager {
   isThinking = false;
   isAborting = false;
   pendingPrompt: string | null = null;
-  contextState: IContextState = { percentage: 0, usedTokens: 0, maxTokens: 0 };
+  contextState: TContextState = { percentage: 0, usedTokens: 0, maxTokens: 0 };
   executionWorkspaceSnapshot: IExecutionWorkspaceSnapshot | null = null;
   selectedExecutionEntryId: string | undefined;
 
@@ -197,7 +197,7 @@ export class TuiStateManager {
   }
 
   /** Update context state */
-  setContextState(state: IContextState): void {
+  setContextState(state: TContextState): void {
     this.contextState = state;
     this.notify();
   }

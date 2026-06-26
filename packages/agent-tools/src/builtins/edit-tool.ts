@@ -15,7 +15,7 @@ import { createZodFunctionTool } from '../implementations/function-tool';
 
 import type { FunctionTool } from '../implementations/function-tool';
 import type { ISandboxToolOptions } from '../sandbox/types.js';
-import type { TToolResult } from '../types/tool-result.js';
+import type { IToolInvocationResult } from '../types/tool-result.js';
 
 const EditSchema = z.object({
   filePath: z.string().describe('The absolute path to the file to modify'),
@@ -47,8 +47,8 @@ async function editFileTool(args: TEditArgs, options: ISandboxToolOptions = {}):
       ? await options.sandboxClient.readFile(filePath)
       : await readFile(filePath, 'utf8');
   } catch (err) {
-    // allow-fallback: read failure before edit → TToolResult error (file not found)
-    const result: TToolResult = {
+    // allow-fallback: read failure before edit → IToolInvocationResult error (file not found)
+    const result: IToolInvocationResult = {
       success: false,
       output: '',
       error: `File not found: ${filePath}`,
@@ -57,7 +57,7 @@ async function editFileTool(args: TEditArgs, options: ISandboxToolOptions = {}):
   }
 
   if (!content.includes(oldString)) {
-    const result: TToolResult = {
+    const result: IToolInvocationResult = {
       success: false,
       output: '',
       error: `oldString not found in file: ${filePath}`,
@@ -71,7 +71,7 @@ async function editFileTool(args: TEditArgs, options: ISandboxToolOptions = {}):
     const lastIdx = content.lastIndexOf(oldString);
     if (firstIdx !== lastIdx) {
       const occurrences = content.split(oldString).length - 1;
-      const result: TToolResult = {
+      const result: IToolInvocationResult = {
         success: false,
         output: '',
         error:
@@ -95,8 +95,8 @@ async function editFileTool(args: TEditArgs, options: ISandboxToolOptions = {}):
       await atomicWriteUtf8File(filePath, updated);
     }
   } catch (err) {
-    // allow-fallback: write failure after edit → TToolResult error
-    const result: TToolResult = {
+    // allow-fallback: write failure after edit → IToolInvocationResult error
+    const result: IToolInvocationResult = {
       success: false,
       output: '',
       error: err instanceof Error ? err.message : String(err),
@@ -108,7 +108,7 @@ async function editFileTool(args: TEditArgs, options: ISandboxToolOptions = {}):
   // Calculate start line number from the original content
   const matchIdx = content.indexOf(oldString);
   const startLine = matchIdx >= 0 ? content.substring(0, matchIdx).split('\n').length : 1;
-  const result: TToolResult = {
+  const result: IToolInvocationResult = {
     success: true,
     output: `Replaced ${count} occurrence(s) in ${filePath}`,
     startLine,

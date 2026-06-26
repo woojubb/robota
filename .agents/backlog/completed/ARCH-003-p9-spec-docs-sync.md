@@ -27,9 +27,9 @@ references. Assess `agent-interface-tui` package for reduction or removal.
 
 Add section: **Interaction Channel Contract**
 
-- Describe `IInteractionChannel`, `IActionRequest`, `IActionResponse`, `InteractionEvent`
+- Describe `IInteractionChannel`, `TActionRequest`, `TActionResponse`, `InteractionEvent`
 - Describe `createInteractiveRuntime` factory and its responsibilities
-- Describe `ICommandInteractionHint` and how command modules declare hints
+- Describe `TCommandInteractionHint` and how command modules declare hints
 - List what `agent-framework` does NOT own (Ink, web sockets, dialog rendering)
 
 ### `packages/agent-transport/docs/SPEC.md`
@@ -58,7 +58,7 @@ List which commands declare hints and what type (pick / confirm).
 
 Audit `packages/agent-interface-tui/src/command-interaction.ts`:
 
-**Finding:** Types are NOT superseded. `ITuiPickerInteraction`, `ITuiConfirmInteraction`, `TAnyTuiCommandInteraction`, and `ITuiPickerItem` are actively used as component prop types in `agent-transport/tui` (`CommandPicker.tsx`, `CommandConfirm.tsx`). They serve as TUI-layer rendering types distinct from `ICommandInteractionHint` (config-layer) and `IActionRequest` (runtime-layer). Package retained as-is.
+**Finding:** Types are NOT superseded. `ITuiPickerInteraction`, `ITuiConfirmInteraction`, `TAnyTuiCommandInteraction`, and `ITuiPickerItem` are actively used as component prop types in `agent-transport/tui` (`CommandPicker.tsx`, `CommandConfirm.tsx`). They serve as TUI-layer rendering types distinct from `TCommandInteractionHint` (config-layer) and `TActionRequest` (runtime-layer). Package retained as-is.
 
 ### `content/` stale API check
 
@@ -69,7 +69,7 @@ All stale references removed:
 
 ### `.agents/project-structure.md`
 
-Added "Interaction Channel Contract" section documenting `IInteractionChannel`, `InteractionEvent`, `IActionRequest`/`IActionResponse`, and `createInteractiveRuntime` ownership.
+Added "Interaction Channel Contract" section documenting `IInteractionChannel`, `InteractionEvent`, `TActionRequest`/`TActionResponse`, and `createInteractiveRuntime` ownership.
 
 ## Done gate
 

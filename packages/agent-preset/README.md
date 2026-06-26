@@ -23,7 +23,7 @@ import {
 } from '@robota-sdk/agent-preset';
 import type {
   IPreset,
-  TResolvedPresetOptions,
+  IResolvedPresetOptions,
   IPresetSummary,
   IResolvePresetContext,
 } from '@robota-sdk/agent-preset';

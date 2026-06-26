@@ -10,7 +10,7 @@ Spec: `.agents/spec-docs/done/PRESET-013-live-model-effort-reapply.md`
 - [x] TC-04: `applyPresetToSession(..., { effort, temperature })` → runtime `applyModelOptions` called + applied
 - [x] TC-05: no model fields → `applyModelOptions` not called + model groups skipped
 - [x] TC-06: runtime without `applyModelOptions` (optional) → no throw
-- [x] TC-07: `TResolvedPresetOptions` (effort/temperature/maxOutputTokens/model) assignable to `IPresetApplicationOptions`
+- [x] TC-07: `IResolvedPresetOptions` (effort/temperature/maxOutputTokens/model) assignable to `IPresetApplicationOptions`
 - [x] TC-08: agent-core/session/framework build + test + `pnpm typecheck` exit 0
 - [x] agent-core: `effort` channel on `IModelConfig` + `setModel`
 - [x] agent-session: `applyModelOptions` seam + mutable `model` + getModelId accuracy

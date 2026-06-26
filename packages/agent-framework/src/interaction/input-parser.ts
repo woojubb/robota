@@ -1,4 +1,4 @@
-export type ParsedInput =
+export type TParsedInput =
   | { type: 'slash-command'; name: string; args: string[] }
   | { type: 'user-message'; text: string };
 
@@ -17,7 +17,7 @@ export function tokeniseSlashCommand(text: string): { name: string; args: string
 }
 
 /** Parse raw user input into a structured command or message. */
-export function parseInput(text: string): ParsedInput {
+export function parseInput(text: string): TParsedInput {
   if (!isSlashCommand(text)) return { type: 'user-message', text };
   const { name, args } = tokeniseSlashCommand(text);
   return { type: 'slash-command', name, args };

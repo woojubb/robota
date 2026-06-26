@@ -42,7 +42,7 @@ This package does NOT own: provider implementations, generic session run loop, t
 
 - `agent-core`: provider interface (`IAIProvider`), engine (`Robota`), history helpers, permissions enforcement (`evaluatePermission`), hook runner (`runHooks`), generic message utilities
 - `agent-session`: `Session` class, `SessionStore`, `PermissionEnforcer`, `ContextWindowTracker`, `CompactionOrchestrator`, terminal output (`ITerminalOutput`)
-- `agent-tools`: built-in tools (`bashTool`, `readTool`, `writeTool`, etc.), tool creation infrastructure, sandbox client (`ISandboxClient`), `TToolResult`
+- `agent-tools`: built-in tools (`bashTool`, `readTool`, `writeTool`, etc.), tool creation infrastructure, sandbox client (`ISandboxClient`), `IToolInvocationResult`
 - `agent-executor`: `BackgroundTaskManager`, `SubagentManager`, `WorktreeSubagentRunner`, lifecycle state machine
 - `agent-provider-*`: provider implementations
 - React/Ink components (belong in `agent-cli`)
@@ -127,7 +127,7 @@ Key design rules:
 | `IUserLocalStorageInspection`        | `src/user-local/index.ts`                             | User-local storage inspection projection                                                                            |
 | `IUserLocalMemoryItemProjection`     | `src/user-local/index.ts`                             | Memory item with display/navigation metadata                                                                        |
 | `TUserLocalMemoryCategory`           | `src/user-local/index.ts`                             | Allowed user-local memory category union                                                                            |
-| `SkillPromptContext`                 | `src/utils/skill-prompt.ts`                           | Variable substitution context for skill prompts                                                                     |
+| `ISkillPromptContext`                | `src/utils/skill-prompt.ts`                           | Variable substitution context for skill prompts                                                                     |
 | `ICliUpdateNotice`                   | `src/update-check/update-check.ts`                    | CLI update notification data                                                                                        |
 | `TCliUpdateCheckResult`              | `src/update-check/update-check.ts`                    | Result of a CLI update check                                                                                        |
 
@@ -311,7 +311,7 @@ When `sandboxClient` is provided to `InteractiveSession`, Bash, Read, Write, and
 interface IInteractionChannel {
   onSubmit(handler: (text: string) => Promise<void>): void;
   write(event: InteractionEvent): void;
-  requestAction(action: IActionRequest): Promise<IActionResponse>;
+  requestAction(action: TActionRequest): Promise<TActionResponse>;
   setAvailableCommands(commands: ICommandInfo[]): void;
   setBusy(busy: boolean): void;
   start(): Promise<void>;
@@ -333,12 +333,12 @@ interface IInteractionChannel {
 | `command-result`      | Slash command executed             |
 | `error`               | Session error                      |
 
-**`IActionRequest` / `IActionResponse`** — disambiguation protocol for slash commands that need user input (pick list or confirm dialog). `createInteractiveRuntime` calls `channel.requestAction()` when a command module declares an `interactionHint` and the user submits the command without arguments.
+**`TActionRequest` / `TActionResponse`** — disambiguation protocol for slash commands that need user input (pick list or confirm dialog). `createInteractiveRuntime` calls `channel.requestAction()` when a command module declares an `interactionHint` and the user submits the command without arguments.
 
-**`ICommandInteractionHint`** — declared per command name in `ICommandModule.interactionHints`:
+**`TCommandInteractionHint`** — declared per command name in `ICommandModule.interactionHints`:
 
 ```typescript
-type ICommandInteractionHint =
+type TCommandInteractionHint =
   | { type: 'pick'; getItems(): IPickItem[] }
   | { type: 'confirm'; message: string };
 ```
@@ -369,7 +369,7 @@ groups were `applied` vs. `skipped` (a group absent from `options` is left untou
 `skipped`).
 
 **`IPresetApplicationOptions`** is a framework-owned shape that `agent-preset`'s
-`TResolvedPresetOptions` satisfies **structurally** (so the framework never imports agent-preset — no
+`IResolvedPresetOptions` satisfies **structurally** (so the framework never imports agent-preset — no
 dependency cycle). Fields and the group each drives:
 
 | Field                                               | Group / seam used                                                  |
@@ -657,7 +657,7 @@ agent-executor (reusable runtime primitives — depends only on agent-core)
 agent-tools
 ├── src/builtins/             ← bash, read, write, edit, glob, grep, web-fetch, web-search tools
 ├── src/sandbox/              ← ISandboxClient, workspace manifest contracts, snapshot ports, E2B structural adapter, and in-memory contract adapter
-├── packages/agent-tools/src/types/tool-result.ts  ← TToolResult
+├── packages/agent-tools/src/types/tool-result.ts  ← IToolInvocationResult
 └── (existing) FunctionTool, createZodFunctionTool, schema conversion
 
 agent-session (generic — depends only on agent-core)
@@ -752,7 +752,7 @@ agent-cli (Ink TUI — CLI-specific)
 - **Built-in tools**: `agent-tools/builtins/` — Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch
 - **Agent runtime deps**: `agent-framework/tools/agent-tool.ts` stores reusable subagent runtime dependencies for `/agent` and `context: fork` skill execution when a composed command module requests `agent-executor`. `createSession()` does not register a separate model-visible `Agent` tool; model and user routing use the built-in command layer such as `/agent`.
 - **Edit checkpoint wrapper**: `agent-framework/checkpoints/edit-checkpoint-tools.ts` wraps `Write` and `Edit` at SDK session assembly time. The underlying tool package stays generic; the SDK wrapper snapshots the target file before the first mutation in each prompt turn.
-- **Tool result type**: `TToolResult` in `agent-tools/types/tool-result.ts`
+- **Tool result type**: `IToolInvocationResult` in `agent-tools/types/tool-result.ts`
 
 ### Sandbox Execution
 
@@ -1770,7 +1770,7 @@ import { evaluatePermission } from '@robota-sdk/agent-core';
 | ------------------------- | -------- | ---------------------------------------------------------------------------------- |
 | `substituteVariables`     | function | Substitutes `$VAR` / `${VAR}` placeholders in a skill prompt string from a context |
 | `preprocessShellCommands` | function | Extracts shell commands embedded in skill prompt text for pre-execution            |
-| `SkillPromptContext`      | type     | Variable substitution context shape for `substituteVariables`                      |
+| `ISkillPromptContext`     | type     | Variable substitution context shape for `substituteVariables`                      |
 
 ### Path Helpers
 
@@ -1846,7 +1846,7 @@ Each module's placement is determined by "Is this used only in the SDK, or is it
 ### Existing Package Refactoring History
 
 - **agent-session**: Removed existing SessionManager/ChatInstance (zero consumers, no-op persistence), replaced with Session/SessionStore from agent-framework
-- **agent-tools**: Added 8 built-in tools in `builtins/` directory (Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch), added `TToolResult` type
+- **agent-tools**: Added 8 built-in tools in `builtins/` directory (Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch), added `IToolInvocationResult` type
 - **agent-core**: Added `permissions/` and `hooks/` directories
 - **agent-provider-anthropic**: Multi-block content handling (text + tool_use), streaming `chatWithStreaming`, `onTextDelta` support
 

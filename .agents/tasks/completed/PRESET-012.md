@@ -9,7 +9,7 @@ Spec: `.agents/spec-docs/done/PRESET-012-live-permission-reapply.md`
 - [x] TC-03: no permissionMode → `setPermissionMode` not called, result.skipped has 'permissionMode'
 - [x] TC-04: permissionMode present → result.applied has 'permissionMode'
 - [x] TC-05: runtime without `setActivePresetId` (optional unimpl) → no throw, permission still applied
-- [x] TC-06: agent-preset `TResolvedPresetOptions` assignable to framework `IPresetApplicationOptions`
+- [x] TC-06: agent-preset `IResolvedPresetOptions` assignable to framework `IPresetApplicationOptions`
 - [x] TC-07: framework build + test + `pnpm typecheck` exit 0
 - [x] `preset-application.ts` orchestrator (applyPresetToSession + IPresetApplicationOptions/Result)
 - [x] Export via command-api/index.ts + commands/index.ts + framework index.ts
@@ -20,7 +20,7 @@ Live re-application orchestrator in agent-framework command-api: `applyPresetToS
 presetId, options)` records the active preset id (PRESET-011 optional state, defensive optional
 chaining) and re-applies the permission posture via the existing `writeCommandPermissionMode` seam,
 reporting applied/skipped option groups. The option param `IPresetApplicationOptions` is a
-framework-owned shape that agent-preset's `TResolvedPresetOptions` satisfies structurally (no
+framework-owned shape that agent-preset's `IResolvedPresetOptions` satisfies structurally (no
 dependency cycle). Verified by framework vitest spies (permission applied, active id recorded,
 skip-when-absent, applied/skipped report, optional-unimpl safety), an agent-preset type-compat
 assertion (valid dep direction), and build/test/typecheck/scan smoke. PRESET-012 owns only the

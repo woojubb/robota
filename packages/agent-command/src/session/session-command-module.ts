@@ -17,7 +17,7 @@ import {
 import type { ICommandModule, ISystemCommand } from '@robota-sdk/agent-framework';
 import type {
   ICommand,
-  ICommandInteractionHint,
+  TCommandInteractionHint,
   ICommandSource,
 } from '@robota-sdk/agent-interface-transport';
 
@@ -155,7 +155,7 @@ export class SessionCommandSource implements ICommandSource {
   }
 }
 
-const SESSION_INTERACTION_HINTS: Record<string, ICommandInteractionHint> = {
+const SESSION_INTERACTION_HINTS: Record<string, TCommandInteractionHint> = {
   clear: { type: 'confirm', message: 'Clear conversation history?' },
 };
 

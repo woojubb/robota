@@ -258,10 +258,10 @@ Hook: SessionEnd
 
 ## Tool Error Contract
 
-All tools return `TToolResult` — a structured result object, never throw. Errors are terminal (no fallback, no retry).
+All tools return `IToolInvocationResult` — a structured result object, never throw. Errors are terminal (no fallback, no retry).
 
 ```typescript
-interface TToolResult {
+interface IToolInvocationResult {
   success: boolean;
   output: string; // Content for LLM consumption
   error?: string; // Human-readable error description (when success=false)

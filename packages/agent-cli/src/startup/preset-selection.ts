@@ -5,7 +5,7 @@
  */
 
 import { resolvePreset } from '@robota-sdk/agent-preset';
-import type { TResolvedPresetOptions } from '@robota-sdk/agent-preset';
+import type { IResolvedPresetOptions } from '@robota-sdk/agent-preset';
 
 import type { IParsedCliArgs } from '../utils/cli-args.js';
 
@@ -18,7 +18,7 @@ export function selectPresetId(
 }
 
 /** Build the CLI-flag override set (highest-but-explicit tier) handed to resolvePreset. */
-function buildPresetCliOverrides(args: IParsedCliArgs): TResolvedPresetOptions {
+function buildPresetCliOverrides(args: IParsedCliArgs): IResolvedPresetOptions {
   return {
     ...(args.model !== undefined ? { model: args.model } : {}),
     ...(args.systemPrompt !== undefined ? { systemPrompt: args.systemPrompt } : {}),
@@ -34,7 +34,7 @@ function buildPresetCliOverrides(args: IParsedCliArgs): TResolvedPresetOptions {
 export function resolveCliPreset(
   args: IParsedCliArgs,
   settingsPreset: string | undefined,
-): TResolvedPresetOptions {
+): IResolvedPresetOptions {
   return resolvePreset(selectPresetId(args, settingsPreset), {
     cliOverrides: buildPresetCliOverrides(args),
   });

@@ -5,7 +5,7 @@ import { executePresetCommand } from './preset-command.js';
 import type { ICommandModule, ISystemCommand } from '@robota-sdk/agent-framework';
 import type {
   ICommand,
-  ICommandInteractionHint,
+  TCommandInteractionHint,
   ICommandSource,
 } from '@robota-sdk/agent-interface-transport';
 
@@ -57,7 +57,7 @@ export class PresetCommandSource implements ICommandSource {
   }
 }
 
-const PRESET_INTERACTION_HINTS: Record<string, ICommandInteractionHint> = {
+const PRESET_INTERACTION_HINTS: Record<string, TCommandInteractionHint> = {
   preset: {
     type: 'pick',
     getItems: () =>

@@ -23,7 +23,7 @@ depends_on: []
 
 ```typescript
 // 현재 — 정보 없음
-const result: TToolResult = { success: false, output: '', error: message };
+const result: IToolInvocationResult = { success: false, output: '', error: message };
 ```
 
 ## Goals

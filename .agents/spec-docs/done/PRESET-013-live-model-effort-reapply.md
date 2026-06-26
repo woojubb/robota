@@ -37,7 +37,7 @@ effort/temperature/maxOutputTokens를 적용하지 못한다. 또한 effort/temp
 - `packages/agent-session/src/session-base.ts` — `model` 필드 mutable화 + `applyModelOptions({model?,effort?,temperature?,maxOutputTokens?})` 구현(`robota.setModel` 호출 + `this.model` 갱신 → `getModelId` 정확도 유지)
 - `packages/agent-framework/src/command-api/host-context.ts` — `ICommandSessionRuntime`에 선택적 `applyModelOptions?(options)` + `IModelReapplyOptions` 추가
 - `packages/agent-framework/src/command-api/preset/preset-application.ts` — `IPresetApplicationOptions`에 `model?/effort?/temperature?/maxOutputTokens?` 추가, `applyPresetToSession`이 모델 그룹을 `applyModelOptions?`로 재적용
-- `packages/agent-preset/src/__tests__/resolve-preset.test.ts` — TC-06 확장(확장된 IPresetApplicationOptions에도 TResolvedPresetOptions 대입 가능)
+- `packages/agent-preset/src/__tests__/resolve-preset.test.ts` — TC-06 확장(확장된 IPresetApplicationOptions에도 IResolvedPresetOptions 대입 가능)
 
 ### Alternatives Considered
 
@@ -91,7 +91,7 @@ maxOutputTokens(→`maxTokens`)를 재적용하고 `this.model`을 갱신. (3) `
 - [x] TC-04: `applyPresetToSession(ctx, id, { effort: 'high', temperature: 0.5 })` 호출 시 런타임 `applyModelOptions`가 `{ effort: 'high', temperature: 0.5 }`(maxOutputTokens 매핑 포함)로 호출되고 결과 `applied`에 `'effort'`,`'temperature'`가 포함됨을 단언하는 단위 테스트 통과
 - [x] TC-05: `applyPresetToSession(ctx, id, { permissionMode: 'default' })`(모델 필드 없음) 호출 시 `applyModelOptions`가 호출되지 않고 `skipped`에 모델 그룹이 포함됨을 단언하는 단위 테스트 통과
 - [x] TC-06: 런타임이 `applyModelOptions`를 미구현(optional)한 컨텍스트에서도 `applyPresetToSession`이 예외 없이 동작함을 단언하는 단위 테스트 통과
-- [x] TC-07: 확장된 `IPresetApplicationOptions`에 agent-preset `TResolvedPresetOptions`(effort/temperature/maxOutputTokens/model 포함)가 구조적으로 대입 가능함을 컴파일-단언(agent-preset 테스트)
+- [x] TC-07: 확장된 `IPresetApplicationOptions`에 agent-preset `IResolvedPresetOptions`(effort/temperature/maxOutputTokens/model 포함)가 구조적으로 대입 가능함을 컴파일-단언(agent-preset 테스트)
 - [x] TC-08: `pnpm --filter @robota-sdk/agent-core --filter @robota-sdk/agent-session --filter @robota-sdk/agent-framework build` + `pnpm --filter @robota-sdk/agent-core --filter @robota-sdk/agent-session --filter @robota-sdk/agent-framework test` + `pnpm typecheck` → exit 0
 
 ## Test Plan
@@ -108,7 +108,7 @@ Type FLOW + tags cli → effort 채널(agent-core) + applyModelOptions(세션, s
 | TC-04 | RULE (unit)            | vitest — applyPresetToSession 모델 그룹 적용 + applied 단언      |          |
 | TC-05 | RULE (unit)            | vitest — 모델 필드 없음 → applyModelOptions 미호출 + skipped     |          |
 | TC-06 | RULE (unit)            | vitest — applyModelOptions 미구현 컨텍스트 안전 단언             |          |
-| TC-07 | RULE (unit)            | vitest — TResolvedPresetOptions → IPresetApplicationOptions 대입 |          |
+| TC-07 | RULE (unit)            | vitest — IResolvedPresetOptions → IPresetApplicationOptions 대입 |          |
 | TC-08 | CI pipeline smoke test | `pnpm build` + `pnpm test` + `pnpm typecheck` exit code          | 커맨드폼 |
 
 ## User Execution Test Scenarios

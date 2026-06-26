@@ -74,7 +74,7 @@ resolver에 의존하는데, 그 기반이 존재하지 않는다.
    권한 포스처(`defaultPermissionMode`/`defaultTrustLevel`)를 구동하는 MECHANISM 매핑이다.** 권한/옵션
    필드 타입은 `agent-framework`에서 import(`TPermissionMode` 등) — 재정의 금지.
 2. **`resolvePreset(id, { cliOverrides })`**: 프리셋 id를 받아 프레임워크 옵션 부분집합
-   (`TResolvedPresetOptions`)으로 변환. **우선순위 MERGE를 이 함수가 소유한다**: 명시 옵션 > CLI 오버라이드
+   (`IResolvedPresetOptions`)으로 변환. **우선순위 MERGE를 이 함수가 소유한다**: 명시 옵션 > CLI 오버라이드
    (`cliOverrides`) > 프리셋 값 > 프레임워크 기본값. **DEFAULT `agentName` 상수도 `agent-preset`가
    소유한다** — 이 병합·기본값 로직은 어느 것도 `agent-cli`에 두지 않는다(cli는 호출 결과를 전달만 함).
    `default`는 항등(no-op) — 오버라이드 없는 base를 그대로 반환해 무회귀를 보장.
@@ -91,7 +91,7 @@ resolver에 의존하는데, 그 기반이 존재하지 않는다.
 
 - `packages/agent-preset/package.json` (NEW)
 - `packages/agent-preset/src/index.ts` (NEW — public surface)
-- `packages/agent-preset/src/preset-types.ts` (NEW — `IPreset`, `TResolvedPresetOptions`)
+- `packages/agent-preset/src/preset-types.ts` (NEW — `IPreset`, `IResolvedPresetOptions`)
 - `packages/agent-preset/src/resolve-preset.ts` (NEW — `resolvePreset`, `listPresets`)
 - `packages/agent-preset/src/presets/default.ts` (NEW — 빌트인 default)
 - `packages/agent-preset/docs/SPEC.md` (NEW)
@@ -103,7 +103,7 @@ resolver에 의존하는데, 그 기반이 존재하지 않는다.
 ## Completion Criteria
 
 - [x] TC-01: `cat packages/agent-preset/package.json` → `name` 필드가 `@robota-sdk/agent-preset`
-- [x] TC-02: `rg "export (interface|type) (IPreset|TResolvedPresetOptions)" packages/agent-preset/src` → 두 export 모두 매치
+- [x] TC-02: `rg "export (interface|type) (IPreset|IResolvedPresetOptions)" packages/agent-preset/src` → 두 export 모두 매치
 - [x] TC-03: `rg "'low' \| 'medium' \| 'high' \| 'xhigh' \| 'max'" packages/agent-preset/src` → `IPreset.effort` enum이 `xhigh`/`max`를 포함하며 매치
 - [x] TC-04: `rg "enableParallelSubagents\?: boolean" packages/agent-preset/src` 와 `rg "selfVerification\?: boolean" packages/agent-preset/src` → 두 실행 능력 필드 모두 매치
 - [x] TC-05: `resolvePreset('default', base)`가 오버라이드 없는 base와 깊은 동등(no-op)임을 단언하는 단위 테스트 통과 (`pnpm --filter @robota-sdk/agent-preset test` → exit 0)
@@ -122,7 +122,7 @@ Type DATA + tags typescript. 검증 = 타입/단위 테스트(vitest) + 빌드·
 | TC-ID | Test Type              | Tool / Approach                                                        | Notes    |
 | ----- | ---------------------- | ---------------------------------------------------------------------- | -------- |
 | TC-01 | CI pipeline smoke test | `cat`/`rg` package.json name 단언                                      | 커맨드폼 |
-| TC-02 | DATA (typescript)      | `rg` export 패턴 (IPreset, TResolvedPresetOptions)                     | 커맨드폼 |
+| TC-02 | DATA (typescript)      | `rg` export 패턴 (IPreset, IResolvedPresetOptions)                     | 커맨드폼 |
 | TC-03 | DATA (typescript)      | `rg` effort enum 패턴 (xhigh/max 포함)                                 | 커맨드폼 |
 | TC-04 | DATA (typescript)      | `rg` enableParallelSubagents / selfVerification 필드 패턴              | 커맨드폼 |
 | TC-05 | RULE (unit)            | vitest 단위 테스트 — default resolve no-op 깊은 동등                   |          |
@@ -179,7 +179,7 @@ Type DATA + tags typescript. 검증 = 타입/단위 테스트(vitest) + 빌드·
 
 - Prior-gate precondition: `### [GATE-VERIFY] — ✅ PASS | 2026-06-14` entry present; frontmatter `status: verifying` — matches expected GATE-COMPLETE input stage.
 - TC-01: `node -p "require('./packages/agent-preset/package.json').name"` → `@robota-sdk/agent-preset`. ✅
-- TC-02: `rg "export (interface|type) (IPreset|TResolvedPresetOptions)" packages/agent-preset/src` → both matched (`preset-types.ts`: `export interface TResolvedPresetOptions`, `export interface IPreset extends TResolvedPresetOptions`). ✅
+- TC-02: `rg "export (interface|type) (IPreset|IResolvedPresetOptions)" packages/agent-preset/src` → both matched (`preset-types.ts`: `export interface IResolvedPresetOptions`, `export interface IPreset extends IResolvedPresetOptions`). ✅
 - TC-03: `rg "'low' \| 'medium' \| 'high' \| 'xhigh' \| 'max'" packages/agent-preset/src` → matched (`preset-types.ts`: `export type TPresetEffort = 'low' | 'medium' | 'high' | 'xhigh' | 'max';`); enum includes `xhigh`/`max`. ✅
 - TC-04: `rg "enableParallelSubagents\?: boolean|selfVerification\?: boolean" packages/agent-preset/src` → both matched (`preset-types.ts`: `enableParallelSubagents?: boolean;`, `selfVerification?: boolean;`). ✅
 - TC-05/06/07: `pnpm --filter @robota-sdk/agent-preset test` → exit 0 (vitest, `src/__tests__/resolve-preset.test.ts`, 9 tests passed / 1 file) — covers default resolve no-op deep-equality (TC-05), cliOverrides precedence merge (TC-06), listPresets includes `default` (TC-07). ✅

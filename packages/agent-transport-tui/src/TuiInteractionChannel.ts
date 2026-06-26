@@ -33,8 +33,8 @@ import type {
   TShellExecFn,
 } from '@robota-sdk/agent-framework';
 import type {
-  IActionRequest,
-  IActionResponse,
+  TActionRequest,
+  TActionResponse,
   ICommandInfo,
   IExecutionDetailPage,
   IExecutionResult,
@@ -93,13 +93,13 @@ export class TuiInteractionChannel implements IInteractionChannel {
 
   private submitHandler: ((text: string) => Promise<void>) | null = null;
   private actionQueue: Array<{
-    action: IActionRequest;
-    resolve: (response: IActionResponse) => void;
+    action: TActionRequest;
+    resolve: (response: TActionResponse) => void;
   }> = [];
   private processingAction = false;
 
   permissionRequest: IPermissionRequest | null = null;
-  pendingAction: IActionRequest | null = null;
+  pendingAction: TActionRequest | null = null;
   availableCommands: ICommandInfo[] = [];
   isShuttingDown = false;
   sessionName: string | undefined;
@@ -180,8 +180,8 @@ export class TuiInteractionChannel implements IInteractionChannel {
     // by createInteractiveRuntime. The two paths are mutually exclusive.
   }
 
-  async requestAction(action: IActionRequest): Promise<IActionResponse> {
-    return new Promise<IActionResponse>((resolve) => {
+  async requestAction(action: TActionRequest): Promise<TActionResponse> {
+    return new Promise<TActionResponse>((resolve) => {
       this.actionQueue.push({ action, resolve });
       this.processNextAction();
     });
@@ -270,7 +270,7 @@ export class TuiInteractionChannel implements IInteractionChannel {
     this.onChange?.();
   }
 
-  resolveAction(response: IActionResponse): void {
+  resolveAction(response: TActionResponse): void {
     const pending = this.actionQueue[0];
     if (!pending) return;
     this.actionQueue.shift();

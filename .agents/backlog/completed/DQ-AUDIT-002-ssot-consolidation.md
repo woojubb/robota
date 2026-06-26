@@ -23,7 +23,7 @@ depends_on: []
 - **DQ-09 (P2) — 토큰추정 `len/4` 4중복.** 오너는 `agent-core/src/context/estimation.ts:5`이나
   `agent-plugin/.../limits-helpers.ts:14`, `agent-session/src/session-run.ts:123`,
   `agent-command/src/context/context-command.ts:286,352`가 재구현(주석이 중복을 자인). → core estimator import.
-- **DQ-10 (P2) — `IContextState` 중복.** `agent-transport/src/tui/tui-state-manager.ts:23`가
+- **DQ-10 (P2) — `TContextState` 중복.** `agent-transport/src/tui/tui-state-manager.ts:23`가
   core `IContextWindowState`(`agent-core/src/context/types.ts:17`)와 동일 데이터를 `usedPercentage→percentage`
   로 rename해 평행 정의. → core 타입 재사용/`Pick`.
 - **DQ-12 (P2) — ad-hoc pass-through re-export.** `agent-session/src/index.ts:26`(`IContextWindowState`),
@@ -35,7 +35,7 @@ depends_on: []
 
 - [x] TC-01: 모델 가격 테이블이 단일 오너 1곳에만 존재 (다른 두 임베디드 테이블 삭제, grep 검증)
 - [x] TC-02: `CHARS_PER_TOKEN`/`len/4` 재구현이 core estimator import로 대체 (grep 검증)
-- [x] TC-03: TUI 상태가 `IContextWindowState` 재사용, `IContextState` 평행정의 제거
+- [x] TC-03: TUI 상태가 `IContextWindowState` 재사용, `TContextState` 평행정의 제거
 - [x] TC-04: "for convenience" pass-through re-export 제거 또는 명시 facade로 전환
 - [x] TC-05: 영향 패키지 typecheck/test + `pnpm harness:scan` 통과
 
@@ -72,7 +72,7 @@ formatUsd/formatTokens 디스플레이 헬퍼만 유지). agent-plugin `limits-h
 **DQ-09:** `context-command.ts`(3곳)·`session-run.ts`(1곳)·`limits-helpers.ts`(1곳)의 `len/4` 매직넘버를
 core `CONTEXT_ESTIMATE_CHARS_PER_TOKEN`로 교체.
 
-**DQ-10:** `tui-state-manager.ts`의 `IContextState`를 독립 정의 → `Pick<IContextWindowState,'usedTokens'|'maxTokens'>
+**DQ-10:** `tui-state-manager.ts`의 `TContextState`를 독립 정의 → `Pick<IContextWindowState,'usedTokens'|'maxTokens'>
 & { percentage }`로 파생(공유 필드 core에 구조적 결합, `percentage`는 명시적 디스플레이 미러).
 
 **DQ-12:** dead pass-through re-export 제거 — `session-interface.ts`(ISession backward-compat 셔임, 무하위호환
@@ -82,7 +82,7 @@ agent-session SPEC.md 3개 행 정리. agent-framework `types.ts`는 이미 "pub
 
 **검증 증거:**
 
-- TC-01~04: grep — 임베디드 가격 테이블 0건(core만), `len/4` 매직넘버 0건, `IContextState` 독립정의 제거,
+- TC-01~04: grep — 임베디드 가격 테이블 0건(core만), `len/4` 매직넘버 0건, `TContextState` 독립정의 제거,
   dead re-export 제거. 신규 `model-pricing.test.ts`(8 케이스) 추가.
 - TC-05: agent-core/command/plugin/session/transport typecheck 통과; test **agent-core 720(+8)/command 186/
   plugin 298/session 72/transport 476 전부 passed**; 빌드 통과; agent-core SPEC.md에 Model Pricing(SSOT) 섹션 +

@@ -3,7 +3,7 @@
 ## Scope
 
 Owns the preset contract for the Robota SDK: the `IPreset` definition shape, the resolved
-framework-option subset (`TResolvedPresetOptions`), the built-in `default` preset, and the
+framework-option subset (`IResolvedPresetOptions`), the built-in `default` preset, and the
 `resolvePreset` / `listPresets` / `getPreset` resolver. A preset is a named, pre-tuned bundle of
 framework option overrides (persona, model/effort, permission posture, command-module selection,
 execution capabilities, autonomy). This package produces option data only; it performs no session
@@ -25,7 +25,7 @@ assembly.
 ```
 agent-framework            ← neutral assembly + option-type SSOT
   └── agent-preset         ← this package: IPreset contract + resolvePreset + built-in presets
-        ├── preset-types.ts              ← IPreset / TResolvedPresetOptions / enums (SSOT for the preset shape)
+        ├── preset-types.ts              ← IPreset / IResolvedPresetOptions / enums (SSOT for the preset shape)
         ├── presets/default.ts           ← neutral baseline preset (no overrides — pure no-op)
         ├── presets/autonomous-builder.ts← opinionated preset: persona + effort/autonomy/parallel/self-verify mechanism
         ├── presets/careful-reviewer.ts  ← opinionated preset: ask-first reviewing posture
@@ -47,8 +47,8 @@ Types owned by this package (SSOT):
 
 | Type                        | Location                   | Purpose                                                                |
 | --------------------------- | -------------------------- | ---------------------------------------------------------------------- |
-| `IPreset`                   | `preset-types.ts`          | Named preset: identity triple + `TResolvedPresetOptions` overrides     |
-| `TResolvedPresetOptions`    | `preset-types.ts`          | Framework-facing option subset a preset resolves into                  |
+| `IPreset`                   | `preset-types.ts`          | Named preset: identity triple + `IResolvedPresetOptions` overrides     |
+| `IResolvedPresetOptions`    | `preset-types.ts`          | Framework-facing option subset a preset resolves into                  |
 | `TPresetEffort`             | `preset-types.ts`          | Effort dial: `'low' \| 'medium' \| 'high' \| 'xhigh' \| 'max'`         |
 | `TPresetAutonomy`           | `preset-types.ts`          | Behaviour posture: `'ask-first' \| 'balanced' \| 'act-first'`          |
 | `TPresetTrustLevel`         | `preset-types.ts`          | Trust profile: `'safe' \| 'moderate' \| 'full'`                        |
@@ -67,7 +67,7 @@ indexed access rather than redefining the permission-mode union.
 | Export                       | Kind      | Description                                                                                                                                      |
 | ---------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `IPreset`                    | Interface | Preset definition shape (identity + option overrides)                                                                                            |
-| `TResolvedPresetOptions`     | Interface | Resolved framework-option subset                                                                                                                 |
+| `IResolvedPresetOptions`     | Interface | Resolved framework-option subset                                                                                                                 |
 | `TPresetEffort`              | Type      | Effort dial union                                                                                                                                |
 | `TPresetAutonomy`            | Type      | Autonomy posture union                                                                                                                           |
 | `TPresetTrustLevel`          | Type      | Trust-level union                                                                                                                                |
@@ -77,7 +77,7 @@ indexed access rather than redefining the permission-mode union.
 | `DEFAULT_AGENT_NAME`         | Const     | Default agent identity (`'robota-cli'`), owned by this package                                                                                   |
 | `defaultPreset`              | Const     | Built-in neutral baseline preset                                                                                                                 |
 | `autonomousBuilderPreset`    | Const     | Opinionated preset: proactive/self-verifying persona + `effort: 'high'`, `autonomy: 'act-first'`, `enableParallelSubagents`, `selfVerification`  |
-| `resolvePreset`              | Function  | `(id, context?) => TResolvedPresetOptions`; throws on unknown id                                                                                 |
+| `resolvePreset`              | Function  | `(id, context?) => IResolvedPresetOptions`; throws on unknown id                                                                                 |
 | `listPresets`                | Function  | `() => readonly IPresetSummary[]` (built-ins + registered external presets)                                                                      |
 | `getPreset`                  | Function  | `(id) => IPreset \| undefined`                                                                                                                   |
 | `registerExternalPresets`    | Function  | `(presets) => IPresetRegistrationResult`; appends external presets to the module-level registry, rejecting built-in id collisions and duplicates |
@@ -97,7 +97,7 @@ The built-in registry holds **4** presets (`default`, `autonomous-builder`, `car
 | Extension Point          | Kind      | How to extend                                                                                |
 | ------------------------ | --------- | -------------------------------------------------------------------------------------------- |
 | `IPreset`                | Interface | Author a new preset object conforming to `IPreset`; add it to the registry                   |
-| `TResolvedPresetOptions` | Interface | Extended by `IPreset`; consumers pass instances as override layers                           |
+| `IResolvedPresetOptions` | Interface | Extended by `IPreset`; consumers pass instances as override layers                           |
 | External preset files    | JSON      | Drop a `*.json` `IPreset` document in `~/.robota/presets/`; loaded via `loadExternalPresets` |
 
 New built-in presets are added to the internal registry in `resolve-preset.ts`.
@@ -170,7 +170,7 @@ _off_ (`enableParallelSubagents: false`, `selfVerification: false`) at `effort: 
 ## Class Contract Registry
 
 This package contains no classes. It exports interfaces, type unions, two constants, and three pure
-functions. The only intra-package inheritance is `IPreset extends TResolvedPresetOptions`. No
+functions. The only intra-package inheritance is `IPreset extends IResolvedPresetOptions`. No
 abstract classes or cross-package port implementations are defined here.
 
 ## Dependencies

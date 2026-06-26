@@ -1,11 +1,25 @@
 ---
 title: 'HARNESS-016: Promote no-explicit-any from warn to error so CI blocks `any`'
-status: todo
+status: done
 created: 2026-06-27
+completed: 2026-06-27
 priority: high
 urgency: now
 area: root (.eslintrc.json)
 depends_on: []
+---
+
+## Evidence Log (2026-06-27)
+
+- `.eslintrc.json:23` `@typescript-eslint/no-explicit-any` flipped `warn` → `error`; test
+  override (`:183`) keeps `off`, so tests stay exempt and `no-restricted-disable` still bars
+  disabling it in `packages/*/src`+`apps/*/src`.
+- The only shipped `any` was 5 mdast traversal sites in `apps/docs/src/lib/remark-fix-links.ts`
+  - `remark-mermaid.ts`. Replaced with a typed `IMdastNode`/`IMdastAttribute` SSOT in new
+    `apps/docs/src/lib/mdast-types.ts` (no new deps, no `any`/`unknown`).
+- Verification: `apps/docs` `tsc --noEmit` clean; `pnpm lint` → **0 errors** (689 pre-existing
+  warnings, none from this change). A planted `const x: any` in shipped src now errors.
+
 ---
 
 # Promote `no-explicit-any` from warn to error

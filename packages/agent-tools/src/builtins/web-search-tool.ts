@@ -9,7 +9,7 @@ import { z } from 'zod';
 
 import { createZodFunctionTool } from '../implementations/function-tool';
 
-import type { TToolResult } from '../types/tool-result.js';
+import type { IToolInvocationResult } from '../types/tool-result.js';
 
 const DEFAULT_LIMIT = 10;
 const DEFAULT_TIMEOUT_MS = 15_000;
@@ -41,7 +41,7 @@ async function runWebSearch(args: TWebSearchArgs): Promise<string> {
   const apiKey = process.env['BRAVE_API_KEY'];
 
   if (!apiKey) {
-    const result: TToolResult = {
+    const result: IToolInvocationResult = {
       success: false,
       output: '',
       error:
@@ -72,7 +72,7 @@ async function runWebSearch(args: TWebSearchArgs): Promise<string> {
     clearTimeout(timeout);
 
     if (!response.ok) {
-      const result: TToolResult = {
+      const result: IToolInvocationResult = {
         success: false,
         output: '',
         error: `Brave Search API error: HTTP ${response.status} ${response.statusText}`,
@@ -87,11 +87,14 @@ async function runWebSearch(args: TWebSearchArgs): Promise<string> {
       snippet: r.description,
     }));
 
-    const result: TToolResult = { success: true, output: JSON.stringify(results, null, 2) };
+    const result: IToolInvocationResult = {
+      success: true,
+      output: JSON.stringify(results, null, 2),
+    };
     return JSON.stringify(result);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    const result: TToolResult = { success: false, output: '', error: message };
+    const result: IToolInvocationResult = { success: false, output: '', error: message };
     return JSON.stringify(result);
   }
 }

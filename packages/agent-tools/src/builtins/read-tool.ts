@@ -14,7 +14,7 @@ import { createZodFunctionTool } from '../implementations/function-tool';
 
 import type { FunctionTool } from '../implementations/function-tool';
 import type { ISandboxToolOptions } from '../sandbox/types.js';
-import type { TToolResult } from '../types/tool-result.js';
+import type { IToolInvocationResult } from '../types/tool-result.js';
 
 const DEFAULT_LIMIT = 2000;
 
@@ -87,7 +87,7 @@ function formatReadResult(
       ? `[File: ${filePath} (lines ${startLine}-${startLine + returnedLines - 1} of ${totalLines})]\n`
       : `[File: ${filePath} (${totalLines} lines)]\n`;
 
-  const result: TToolResult = {
+  const result: IToolInvocationResult = {
     success: true,
     output: header + output,
   };
@@ -103,8 +103,8 @@ async function readFileTool(args: TReadArgs, options: ISandboxToolOptions = {}):
       const content = await options.sandboxClient.readFile(filePath);
       return formatReadResult(filePath, content, startLine, limit);
     } catch (err) {
-      // allow-fallback: sandbox read failure → surface as TToolResult error
-      const result: TToolResult = {
+      // allow-fallback: sandbox read failure → surface as IToolInvocationResult error
+      const result: IToolInvocationResult = {
         success: false,
         output: '',
         error: err instanceof Error ? err.message : String(err),
@@ -120,8 +120,8 @@ async function readFileTool(args: TReadArgs, options: ISandboxToolOptions = {}):
   try {
     fileStats = await stat(filePath);
   } catch (err) {
-    // allow-fallback: stat failure means file not found → TToolResult error
-    const result: TToolResult = {
+    // allow-fallback: stat failure means file not found → IToolInvocationResult error
+    const result: IToolInvocationResult = {
       success: false,
       output: '',
       error: `File not found: ${filePath}`,
@@ -130,7 +130,7 @@ async function readFileTool(args: TReadArgs, options: ISandboxToolOptions = {}):
   }
 
   if (!fileStats.isFile()) {
-    const result: TToolResult = {
+    const result: IToolInvocationResult = {
       success: false,
       output: '',
       error: `Path is not a file: ${filePath}`,
@@ -142,8 +142,8 @@ async function readFileTool(args: TReadArgs, options: ISandboxToolOptions = {}):
   try {
     buffer = await readFile(filePath);
   } catch (err) {
-    // allow-fallback: read failure → TToolResult error (permissions, locks)
-    const result: TToolResult = {
+    // allow-fallback: read failure → IToolInvocationResult error (permissions, locks)
+    const result: IToolInvocationResult = {
       success: false,
       output: '',
       error: err instanceof Error ? err.message : String(err),
@@ -152,7 +152,7 @@ async function readFileTool(args: TReadArgs, options: ISandboxToolOptions = {}):
   }
 
   if (isBinary(buffer)) {
-    const result: TToolResult = {
+    const result: IToolInvocationResult = {
       success: false,
       output: '',
       error: `Binary file not supported: ${filePath}`,
