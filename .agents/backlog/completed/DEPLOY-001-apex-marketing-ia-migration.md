@@ -1,6 +1,7 @@
 ---
 title: 'DEPLOY-001: Serve marketing at apex robota.io, move docs to docs.robota.io'
-status: in-progress
+status: done
+completed: 2026-06-27
 created: 2026-06-26
 priority: high
 urgency: soon
@@ -74,3 +75,10 @@ prefetch/pagefind fixes from WEB-014 / DOCS-002 go live.
    Evidence: _to fill after implementation._
 2. Open `https://docs.robota.io` → docs landing loads; the "back to main site" link goes
    to the marketing apex and does not loop. Evidence: _to fill after implementation._
+
+## Live verification (2026-06-27)
+
+Owner completed the Cloudflare domain rebind. Confirmed live: `https://robota.io`
+(200) serves the marketing site (title "Robota — Open-Source AI Agent SDK",
+"control end to end" hero); `https://docs.robota.io` (200) serves docs with a
+working pagefind index. apex→marketing IA migration complete.

@@ -1,6 +1,7 @@
 ---
 title: 'WEB-013: De-slop the marketing feature section (dedupe cards, break the AI grid)'
-status: in-progress
+status: done
+completed: 2026-06-27
 created: 2026-06-26
 priority: medium
 urgency: soon
@@ -53,3 +54,9 @@ and content redundancy.
 1. Visit `https://www.robota.io` → the feature section shows no duplicate self-hosting
    cards and reads as an intentional composition, not six identical tiles.
    Evidence: _to fill after implementation._
+
+## Live verification (2026-06-27)
+
+Confirmed on `https://robota.io/en`: feature section shows "Self-Hostable &
+Auditable" (×3 markup) and zero "Fully Self-Hostable" — the duplicate card is
+merged and the asymmetric layout is live.

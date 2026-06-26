@@ -1,6 +1,7 @@
 ---
 title: 'BRAND-001: Unified brand palette + typography across web properties'
-status: in-progress
+status: done
+completed: 2026-06-27
 created: 2026-06-26
 priority: high
 urgency: soon
@@ -82,3 +83,9 @@ as a generic dark SaaS template while the docs site has stronger conviction. Two
    Evidence: verified on `apps/docs/out` served locally 2026-06-26 — `--accent`/`--primary`
    = `#2dd4a7`, body `font-family` = "IBM Plex Sans"; "Documentation"/"Get Started"/code
    highlights render emerald (screenshot `docs-after.png`). Live-deploy pending CF publish.
+
+## Live verification (2026-06-27)
+
+Confirmed live after the develop→main release (#830) + CF redeploy: `robota.io`
+and `docs.robota.io` CSS contain `#2dd4a7` (emerald) and `ibm-plex` font refs;
+no `#a78bfa`/`#00ff88` remain. Brand unified on production.

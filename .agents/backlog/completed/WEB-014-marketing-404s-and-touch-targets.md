@@ -1,6 +1,7 @@
 ---
 title: 'WEB-014: Fix marketing-site console 404s and undersized touch targets'
-status: in-progress
+status: done
+completed: 2026-06-27
 created: 2026-06-26
 priority: medium
 urgency: soon
@@ -62,3 +63,8 @@ is not a fat-finger risk and forcing it would distort the label.
 2. On a 375px viewport, primary nav/footer links and buttons are comfortably tappable
    (≥44px). Evidence: sub-44px interactive count 20 → 4 (remaining are the logo + short
    links already ≥44px tall), verified on the production build 2026-06-26.
+
+## Live verification (2026-06-27)
+
+Live after release: internal links carry `prefetch={false}` (no RSC `.txt`
+prefetch 404s on CF); touch-target hit areas (44px) deployed.
