@@ -23,24 +23,27 @@ export function Footer() {
             <ul className="mt-3 space-y-2">
               <li>
                 <Link
+                  prefetch={false}
                   href={`/${locale}/compare`}
-                  className="text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
+                  className="inline-flex min-h-[44px] items-center text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
                 >
                   {t('footer.links.whyRobota')}
                 </Link>
               </li>
               <li>
                 <Link
+                  prefetch={false}
                   href={`/${locale}/showcase`}
-                  className="text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
+                  className="inline-flex min-h-[44px] items-center text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
                 >
                   {t('footer.links.showcase')}
                 </Link>
               </li>
               <li>
                 <Link
+                  prefetch={false}
                   href={`/${locale}/roadmap`}
-                  className="text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
+                  className="inline-flex min-h-[44px] items-center text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
                 >
                   {t('footer.links.roadmap')}
                 </Link>
@@ -67,7 +70,7 @@ export function Footer() {
                     href={href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
+                    className="inline-flex min-h-[44px] items-center text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
                   >
                     {t(`footer.links.${key}` as Parameters<typeof t>[0])}
                   </a>
@@ -83,8 +86,9 @@ export function Footer() {
             <ul className="mt-3 space-y-2">
               <li>
                 <Link
+                  prefetch={false}
                   href={`/${locale}/enterprise`}
-                  className="text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
+                  className="inline-flex min-h-[44px] items-center text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
                 >
                   {t('footer.links.enterprise')}
                 </Link>
@@ -101,7 +105,7 @@ export function Footer() {
                     href={href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
+                    className="inline-flex min-h-[44px] items-center text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
                   >
                     {t(`footer.links.${key}` as Parameters<typeof t>[0])}
                   </a>

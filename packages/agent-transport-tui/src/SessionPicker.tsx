@@ -27,7 +27,7 @@ export default function SessionPicker({
   return (
     <Box flexDirection="column" paddingX={1} marginBottom={1}>
       <Text bold color="cyan">
-        Select a session to resume (ESC to cancel):
+        Select a session to resume:
       </Text>
       <ListPicker<IResumableSessionSummary>
         items={[...sessions]}

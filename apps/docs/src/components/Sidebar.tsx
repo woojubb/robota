@@ -54,6 +54,7 @@ function SidebarSection({ item, depth }: SectionProps) {
           }}
         >
           <Link
+            prefetch={false}
             href={item.href}
             onClick={(e) => e.stopPropagation()}
             style={{ color: 'inherit', textDecoration: 'none', flex: 1 }}
@@ -87,6 +88,7 @@ function SidebarSection({ item, depth }: SectionProps) {
   if (depth === 0 && !hasChildren) {
     return (
       <Link
+        prefetch={false}
         href={item.href}
         style={{
           display: 'block',
@@ -139,6 +141,7 @@ function SidebarSection({ item, depth }: SectionProps) {
           className="sidebar-item-link"
         >
           <Link
+            prefetch={false}
             href={item.href}
             onClick={(e) => e.stopPropagation()}
             style={{ color: 'inherit', textDecoration: 'none', flex: 1 }}
@@ -169,6 +172,7 @@ function SidebarSection({ item, depth }: SectionProps) {
 
   return (
     <Link
+      prefetch={false}
       href={item.href}
       style={{
         display: 'block',

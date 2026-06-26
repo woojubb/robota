@@ -43,9 +43,9 @@ describe('BackgroundTaskPanel', () => {
 
     const frame = lastFrame()!;
     expect(frame).toContain('Background work');
-    expect(frame).toContain('├ □ general-purpose agent');
-    expect(frame).toContain('├ ■ general-purpose agent · completed');
-    expect(frame).toContain('└ ■ general-purpose agent · failed');
+    expect(frame).toContain('├ ⟳ general-purpose agent');
+    expect(frame).toContain('├ ✓ general-purpose agent · completed');
+    expect(frame).toContain('└ ✗ general-purpose agent · failed');
     expect(frame).not.toContain('agent_1');
     expect(frame).not.toContain('agent_2');
     expect(frame).not.toContain('agent_3');

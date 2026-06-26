@@ -118,7 +118,7 @@ function HomePage({
             gap: '0.375rem',
             padding: '0.2rem 0.625rem',
             background: 'var(--primary-dim)',
-            border: '1px solid rgba(0,255,136,0.2)',
+            border: '1px solid rgba(45,212,167,0.2)',
             borderRadius: '0.25rem',
             fontSize: '0.72rem',
             fontFamily: 'var(--font-code)',
@@ -143,7 +143,7 @@ function HomePage({
         >
           {title}
           <br />
-          <span style={{ color: 'var(--primary)', textShadow: '0 0 32px rgba(0,255,136,0.25)' }}>
+          <span style={{ color: 'var(--primary)', textShadow: '0 0 32px rgba(45,212,167,0.25)' }}>
             {titleHighlight}
           </span>
         </h1>
@@ -177,7 +177,7 @@ function HomePage({
               fontFamily: 'var(--font-display)',
               textDecoration: 'none',
               letterSpacing: '0.02em',
-              boxShadow: '0 0 24px rgba(0,255,136,0.2)',
+              boxShadow: '0 0 24px rgba(45,212,167,0.2)',
               transition: 'box-shadow 0.2s',
             }}
           >
@@ -208,69 +208,84 @@ function HomePage({
       </div>
 
       {/* Quick links grid */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))',
-          gap: '0.75rem',
-          marginBottom: '3rem',
-        }}
-      >
-        {QUICK_LINKS.map((card) => (
-          <a
-            key={card.href}
-            href={card.href}
-            style={{
-              display: 'block',
-              padding: '1.125rem',
-              background: 'var(--card)',
-              border: '1px solid var(--border)',
-              borderRadius: '0.375rem',
-              textDecoration: 'none',
-              transition: 'border-color 0.2s, background 0.2s',
-              position: 'relative',
-              overflow: 'hidden',
-            }}
-          >
-            <span
+      <section aria-labelledby="docs-sections-heading" style={{ marginBottom: '3rem' }}>
+        <h2
+          id="docs-sections-heading"
+          style={{
+            fontFamily: 'var(--font-display)',
+            fontSize: '0.7rem',
+            fontWeight: 600,
+            letterSpacing: '0.08em',
+            textTransform: 'uppercase',
+            color: 'var(--muted-foreground)',
+            margin: '0 0 0.875rem',
+          }}
+        >
+          Explore the docs
+        </h2>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))',
+            gap: '0.75rem',
+          }}
+        >
+          {QUICK_LINKS.map((card) => (
+            <a
+              key={card.href}
+              href={card.href}
               style={{
-                position: 'absolute',
-                top: '0.75rem',
-                right: '0.875rem',
-                fontFamily: 'var(--font-code)',
-                fontSize: '0.65rem',
-                color: 'rgba(0,255,136,0.25)',
-                letterSpacing: '0.04em',
-                userSelect: 'none',
+                display: 'block',
+                padding: '1.125rem',
+                background: 'var(--card)',
+                border: '1px solid var(--border)',
+                borderRadius: '0.375rem',
+                textDecoration: 'none',
+                transition: 'border-color 0.2s, background 0.2s',
+                position: 'relative',
+                overflow: 'hidden',
               }}
             >
-              {card.tag}
-            </span>
-            <div
-              style={{
-                fontFamily: 'var(--font-display)',
-                fontWeight: 600,
-                fontSize: '0.875rem',
-                color: 'var(--foreground-hi)',
-                marginBottom: '0.375rem',
-                letterSpacing: '-0.01em',
-              }}
-            >
-              {navLabels[card.key] ?? card.href}
-            </div>
-            <div
-              style={{
-                fontSize: '0.775rem',
-                fontFamily: 'var(--font-body)',
-                color: 'var(--muted-foreground)',
-                lineHeight: 1.55,
-              }}
-            >
-              {QUICK_LINK_DESCS[card.href]}
-            </div>
-          </a>
-        ))}
-      </div>
+              <span
+                style={{
+                  position: 'absolute',
+                  top: '0.75rem',
+                  right: '0.875rem',
+                  fontFamily: 'var(--font-code)',
+                  fontSize: '0.65rem',
+                  color: 'rgba(45,212,167,0.25)',
+                  letterSpacing: '0.04em',
+                  userSelect: 'none',
+                }}
+              >
+                {card.tag}
+              </span>
+              <h3
+                style={{
+                  fontFamily: 'var(--font-display)',
+                  fontWeight: 600,
+                  fontSize: '0.875rem',
+                  color: 'var(--foreground-hi)',
+                  margin: '0 0 0.375rem',
+                  letterSpacing: '-0.01em',
+                }}
+              >
+                {navLabels[card.key] ?? card.href}
+              </h3>
+              <div
+                style={{
+                  fontSize: '0.775rem',
+                  fontFamily: 'var(--font-body)',
+                  color: 'var(--muted-foreground)',
+                  lineHeight: 1.55,
+                }}
+              >
+                {QUICK_LINK_DESCS[card.href]}
+              </div>
+            </a>
+          ))}
+        </div>
+      </section>
 
       {/* Quick install */}
       <div>

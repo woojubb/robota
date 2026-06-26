@@ -47,7 +47,7 @@ export function DocsLayout({ sidebar, toc, children }: DocsLayoutProps) {
             display: 'none',
             alignItems: 'center',
             justifyContent: 'center',
-            boxShadow: '0 4px 16px rgba(167,139,250,0.35)',
+            boxShadow: '0 4px 16px rgba(45,212,167,0.35)',
           }}
         >
           <svg

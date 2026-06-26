@@ -59,12 +59,8 @@
         "description": "Import @robota-sdk/agent-framework and embed the same agent runtime that powers the CLI."
       },
       {
-        "title": "Fully Self-Hostable",
-        "description": "Run on-premises with local LLMs — your prompts and data stay within your own infrastructure."
-      },
-      {
-        "title": "Auditable & Self-Hostable",
-        "description": "The full source is public and auditable. Licensed under AGPL-3.0, with a commercial license available for closed-source use."
+        "title": "Self-Hostable & Auditable",
+        "description": "Run on-premises with local LLMs — prompts and data stay in your own infrastructure. The full source is public and auditable (AGPL-3.0, with a commercial license for closed-source use)."
       },
       {
         "title": "TypeScript-First",

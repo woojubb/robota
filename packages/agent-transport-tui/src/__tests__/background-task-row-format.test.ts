@@ -27,7 +27,7 @@ describe('formatBackgroundTaskRow', () => {
     const row = formatBackgroundTaskRow(makeEntry({ id: 'task:agent_1' }), { isLast: true });
 
     expect(row.connector).toBe('└');
-    expect(row.marker).toBe('□');
+    expect(row.marker).toBe('⟳'); // running → shared status glyph (SCREEN-005)
     expect(row.label).toBe('Explore agent');
     expect(row.segments).toEqual(['running', 'agent · general-purpose']);
     expect(row.preview).toBe('Analyze backlog');
@@ -49,10 +49,10 @@ describe('formatBackgroundTaskRow', () => {
     );
 
     expect(failed.connector).toBe('├');
-    expect(failed.marker).toBe('■');
+    expect(failed.marker).toBe('✗'); // failed → error glyph (SCREEN-005)
     expect(failed.color).toBe('red');
     expect(failed.preview).toBe('Timed out');
-    expect(completed.marker).toBe('■');
+    expect(completed.marker).toBe('✓'); // completed → success glyph (SCREEN-005)
     expect(completed.color).toBe('green');
     expect(completed.preview).toBe('Summary ready');
   });

@@ -2,15 +2,10 @@ import { marked } from 'marked';
 // @ts-expect-error — marked-terminal has no type declarations
 import TerminalRenderer from 'marked-terminal';
 
+import { ANSI } from './tui-ansi-palette.js';
+
 import type { Renderer } from 'marked';
 
-const ANSI_LIGHT_RED = '\u001b[38;5;210m';
-const ANSI_LIGHT_GREEN = '\u001b[38;5;120m';
-const ANSI_CYAN = '\u001b[36m';
-const ANSI_DIM = '\u001b[2m';
-const ANSI_DARK_RED_BACKGROUND = '\u001b[48;5;52m';
-const ANSI_DARK_GREEN_BACKGROUND = '\u001b[48;5;22m';
-const ANSI_RESET = '\u001b[0m';
 const CODE_BLOCK_INDENT = '    ';
 const ZERO_COLOR = '0';
 
@@ -57,10 +52,10 @@ function styleAddedOrRemovedDiffRow(line: string, rowWidth: number, color: boole
     return row.trimEnd();
   }
   if (line.startsWith('+')) {
-    return `${ANSI_DARK_GREEN_BACKGROUND}${ANSI_LIGHT_GREEN}${row}${ANSI_RESET}`;
+    return `${ANSI.darkGreenBackground}${ANSI.lightGreen}${row}${ANSI.reset}`;
   }
   if (line.startsWith('-')) {
-    return `${ANSI_DARK_RED_BACKGROUND}${ANSI_LIGHT_RED}${row}${ANSI_RESET}`;
+    return `${ANSI.darkRedBackground}${ANSI.lightRed}${row}${ANSI.reset}`;
   }
   return row.trimEnd();
 }
@@ -74,10 +69,10 @@ function colorizeDiffLine(line: string, color: boolean, rowWidth: number): strin
     return row;
   }
   if (line.startsWith('@@')) {
-    return `${ANSI_CYAN}${row}${ANSI_RESET}`;
+    return `${ANSI.cyan}${row}${ANSI.reset}`;
   }
   if (line.startsWith('diff ') || line.startsWith('index ')) {
-    return `${ANSI_DIM}${row}${ANSI_RESET}`;
+    return `${ANSI.dim}${row}${ANSI.reset}`;
   }
   return row;
 }

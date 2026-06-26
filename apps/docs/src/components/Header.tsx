@@ -51,6 +51,7 @@ export function Header() {
 
       {/* Logo */}
       <Link
+        prefetch={false}
         href={`/${locale}`}
         style={{
           display: 'flex',
@@ -123,6 +124,7 @@ export function Header() {
             </a>
           ) : (
             <Link
+              prefetch={false}
               key={link.href}
               href={`/${locale}/${link.href}`}
               style={{

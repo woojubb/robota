@@ -134,3 +134,4 @@ scripts/audit/output/
 
 .worktrees/
 .claude/worktrees/
+.gstack/
