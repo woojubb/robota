@@ -91,6 +91,21 @@ if [[ "$IS_BRANCH_CREATE" == "true" && "${BRANCH_GUARD_ALLOW_OPEN_BRANCHES:-0}" 
   fi
 fi
 
+# Enforce feature branch naming convention <type>/<desc> (git-branch.md).
+# Long-lived branches are exempt; override with BRANCH_GUARD_ALLOW_BADNAME=1.
+if [[ "$IS_BRANCH_CREATE" == "true" && "${BRANCH_GUARD_ALLOW_BADNAME:-0}" != "1" ]]; then
+  NEW_BRANCH=$(printf '%s' "$COMMAND" | sed -E 's/.*(checkout[[:space:]]+-b|switch[[:space:]]+-c)[[:space:]]+([^[:space:]]+).*/\2/')
+  BRANCH_NAME_RE='^(feat|fix|chore|docs|refactor|test|perf|build|ci|style|revert|release|hotfix)/[a-z0-9][a-z0-9._/-]*$'
+  EXEMPT_RE='^(main|master|develop|gh-pages)$'
+  if [[ -n "$NEW_BRANCH" && ! "$NEW_BRANCH" =~ $EXEMPT_RE && ! "$NEW_BRANCH" =~ $BRANCH_NAME_RE ]]; then
+    echo "[branch-guard] Blocked: branch name '$NEW_BRANCH' does not match <type>/<desc>." >&2
+    echo "[branch-guard] Expected e.g. feat/x-y, fix/z, chore/w" >&2
+    echo "[branch-guard] (types: feat|fix|chore|docs|refactor|test|perf|build|ci|style|revert|release|hotfix)." >&2
+    echo "[branch-guard] Override: BRANCH_GUARD_ALLOW_BADNAME=1" >&2
+    exit 2
+  fi
+fi
+
 # Block commit on all protected branches
 # Exception: allow merge commits (when .git/MERGE_HEAD exists — completing a git merge)
 if [[ "$IS_COMMIT" == "true" ]]; then
