@@ -60,7 +60,7 @@ const backgroundJobGroup: IBackgroundJobGroupState = {
 function createMockSession() {
   const listeners = new Map<string, Set<(...args: unknown[]) => void>>();
   return {
-    submit: vi.fn(),
+    submit: vi.fn().mockResolvedValue(undefined),
     abort: vi.fn(),
     cancelQueue: vi.fn(),
     getMessages: vi.fn().mockReturnValue([{ role: 'user', content: 'hi' }]),
@@ -316,6 +316,26 @@ describe('WebSocket Transport Handler', () => {
     const { onMessage, sent } = setup();
     onMessage(JSON.stringify({ type: 'submit' }));
     expect(sent[0]).toEqual({ type: 'protocol_error', message: 'prompt is required' });
+  });
+
+  it('submit rejection surfaces a protocol_error (WS-001)', async () => {
+    const { onMessage, sent, session } = setup();
+    (session as unknown as { submit: ReturnType<typeof vi.fn> }).submit.mockRejectedValueOnce(
+      new Error('submit failed'),
+    );
+    onMessage(JSON.stringify({ type: 'submit', prompt: 'hello' }));
+    await new Promise((r) => setTimeout(r, 10));
+    expect(sent).toEqual([{ type: 'protocol_error', message: 'submit failed' }]);
+  });
+
+  it('command rejection surfaces a protocol_error (WS-001)', async () => {
+    const { onMessage, sent, session } = setup();
+    (
+      session as unknown as { executeCommand: ReturnType<typeof vi.fn> }
+    ).executeCommand.mockRejectedValueOnce(new Error('command failed'));
+    onMessage(JSON.stringify({ type: 'command', name: 'clear' }));
+    await new Promise((r) => setTimeout(r, 10));
+    expect(sent).toEqual([{ type: 'protocol_error', message: 'command failed' }]);
   });
 
   it('forwards InteractiveSession events to client', () => {
