@@ -2,12 +2,12 @@ import { marked } from 'marked';
 // @ts-expect-error — marked-terminal has no type declarations
 import TerminalRenderer from 'marked-terminal';
 
+import { isInteractiveColorTerminal } from './terminal-capabilities.js';
 import { ANSI } from './tui-ansi-palette.js';
 
 import type { Renderer } from 'marked';
 
 const CODE_BLOCK_INDENT = '    ';
-const ZERO_COLOR = '0';
 
 interface IRenderMarkdownOptions {
   color?: boolean;
@@ -33,13 +33,7 @@ function shouldUseColor(option: boolean | undefined): boolean {
   if (option !== undefined) {
     return option;
   }
-  if (process.env.NO_COLOR || process.env.FORCE_COLOR === ZERO_COLOR) {
-    return false;
-  }
-  if (process.env.FORCE_COLOR) {
-    return true;
-  }
-  return Boolean(process.stdout.isTTY);
+  return isInteractiveColorTerminal();
 }
 
 function isDiffLanguage(language: string | undefined): boolean {

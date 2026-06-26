@@ -7,6 +7,8 @@
 import { Text } from 'ink';
 import React, { useState, useEffect } from 'react';
 
+import { isInteractiveColorTerminal } from './terminal-capabilities.js';
+
 // Subtle gray tones — minimal contrast, soft wave
 const WAVE_COLORS = ['#666666', '#888888', '#aaaaaa', '#888888'] as const;
 const INTERVAL_MS = 400;
@@ -16,17 +18,11 @@ interface IProps {
   text: string;
 }
 
-/**
- * Animate only on an interactive color terminal. In a non-TTY (piped/redirected
- * output) or when NO_COLOR is set, render static text — no interval, no
- * flicker, no motion (SCREEN-006 accessibility / non-TTY safety).
- */
-function shouldAnimate(): boolean {
-  return Boolean(process.stdout.isTTY) && !process.env.NO_COLOR;
-}
-
 export default function WaveText({ text }: IProps): React.ReactElement {
-  const animate = shouldAnimate();
+  // Animate only on an interactive color terminal (shared with the markdown color
+  // gate via terminal-capabilities). Non-TTY / NO_COLOR / FORCE_COLOR=0 → static,
+  // no interval, no motion (SCREEN-006/008).
+  const animate = isInteractiveColorTerminal();
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
