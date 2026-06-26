@@ -74,6 +74,11 @@ as a generic dark SaaS template while the docs site has stronger conviction. Two
 ## User Execution Test Scenarios
 
 1. Visit `https://www.robota.io` → body/headings render in IBM Plex (not system font);
-   accent matches the confirmed unified color. Evidence: _to fill after implementation._
+   accent matches the confirmed unified color. Evidence: verified on the production
+   build artifact (`apps/www/out`) served locally 2026-06-26 — `--accent` resolves to
+   `#2dd4a7`, body/h1 `font-family` = "IBM Plex Sans", CTA buttons render emerald
+   (screenshot `www-after.png`). Live-deploy confirmation pending CF Pages publish.
 2. Visit the docs site → same typeface and accent token as www (brand-consistent).
-   Evidence: _to fill after implementation._
+   Evidence: verified on `apps/docs/out` served locally 2026-06-26 — `--accent`/`--primary`
+   = `#2dd4a7`, body `font-family` = "IBM Plex Sans"; "Documentation"/"Get Started"/code
+   highlights render emerald (screenshot `docs-after.png`). Live-deploy pending CF publish.
