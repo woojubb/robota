@@ -1,6 +1,6 @@
 ---
 title: 'SCREEN-006: Shared TUI color palette and accessible motion'
-status: todo
+status: in-progress
 created: 2026-06-26
 priority: medium
 urgency: soon
