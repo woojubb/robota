@@ -1,12 +1,32 @@
 ---
 title: 'PLUGIN-001: Resolve exported-but-nonfunctional File*Storage stubs (+ close stub-marker scan gap)'
-status: todo
+status: done
+completed: 2026-06-27
 created: 2026-06-27
 priority: high
 urgency: soon
 area: packages/agent-plugin, scripts/harness
 depends_on: []
 ---
+
+## Evidence Log (2026-06-27)
+
+- Implemented the 3 File storages as write-through fs persistence (no buffered loss):
+  `FileHistoryStorage` (JSON map keyed by conversationId, Date revival), `FileUsageStorage`
+  (JSON array + conversationId/time-range filtering), `FileLogStorage` (append-only lines).
+- Implemented the 2 Remote storages against a generic JSON REST contract via `fetch`
+  (`RemoteUsageStorage` POST/GET/DELETE with bearer apiKey + headers + AbortSignal timeout;
+  `RemoteLogStorage` POST), both re-queueing the batch on failure (no silent loss).
+- Extended `check-stub-markers.mjs` STUB_MARKERS with `'placeholder for actual'` (the exact
+  shipped-stub phrasing); 0 remaining hits, scan passes. Deferred stubs that legitimately need
+  external decisions (DatabaseHistoryStorage → driver, network metrics) keep "not fully
+  implemented" wording and are intentionally not matched; DatabaseHistoryStorage is captured as
+  PLUGIN-002.
+- Tests: rewrote `FileHistoryStorage` tests to real round-trips; added `FileUsageStorage`,
+  `FileLogStorage`, `RemoteUsageStorage` (fetch-mocked) tests; updated `RemoteLogStorage` tests
+  to assert real POST + re-queue. agent-plugin **306 tests pass**.
+- Verified: `build:deps` OK, `typecheck` PASS, `lint` 0 errors, `harness:scan` 30/30. SPEC
+  updated (storage table + coverage gaps).
 
 # Resolve exported-but-nonfunctional File\*Storage stubs
 

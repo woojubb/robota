@@ -19,15 +19,17 @@ export class RemoteLogStorage implements ILogStorage {
   private formatter: ILogFormatter;
   private batchSize: number;
   private flushInterval: number;
+  private timeout: number;
   private pendingLogs: ILogEntry[] = [];
   private flushTimer: TTimerId | undefined;
   private logger: ILogger;
 
-  constructor(url: string, _options: { timeout?: number } = {}) {
+  constructor(url: string, options: { timeout?: number } = {}) {
     this.url = url;
     this.formatter = new JsonLogFormatter();
     this.batchSize = 10;
     this.flushInterval = 5000;
+    this.timeout = options.timeout ?? 0;
     this.logger = createLogger('RemoteLogStorage');
 
     // Start flush timer
@@ -55,14 +57,18 @@ export class RemoteLogStorage implements ILogStorage {
     this.pendingLogs = [];
 
     try {
-      // Remote sending would be implemented here
-      // This is a placeholder for actual HTTP requests
-      this.logger.warn('Remote logging not fully implemented yet', {
-        url: this.url,
-        logCount: logsToSend.length,
-        logs: logsToSend.map((log) => this.formatter.format(log)),
+      const response = await fetch(this.url, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ logs: logsToSend.map((log) => this.formatter.format(log)) }),
+        signal: this.timeout > 0 ? AbortSignal.timeout(this.timeout) : undefined,
       });
+      if (!response.ok) {
+        throw new Error(`Remote endpoint returned ${response.status}`);
+      }
     } catch (error) {
+      // Re-queue the failed batch so it is retried on the next flush (no silent loss).
+      this.pendingLogs = [...logsToSend, ...this.pendingLogs];
       throw new PluginError('Failed to send logs to remote endpoint', 'LoggingPlugin', {
         url: this.url,
         logCount: logsToSend.length,

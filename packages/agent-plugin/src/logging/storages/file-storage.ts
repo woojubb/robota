@@ -1,3 +1,6 @@
+import { appendFile, mkdir } from 'node:fs/promises';
+import { dirname } from 'node:path';
+
 import { createLogger, type ILogger, PluginError } from '@robota-sdk/agent-core';
 
 import { JsonLogFormatter } from '../formatters';
@@ -5,7 +8,10 @@ import { JsonLogFormatter } from '../formatters';
 import type { ILogEntry, ILogStorage, ILogFormatter } from '../types';
 
 /**
- * File log storage (placeholder implementation)
+ * File-backed log storage.
+ *
+ * Each entry is formatted and appended as a single line. Appends are
+ * write-through, so `flush`/`close` have no buffered state to drain.
  */
 export class FileLogStorage implements ILogStorage {
   private filePath: string;
@@ -20,12 +26,8 @@ export class FileLogStorage implements ILogStorage {
 
   async write(entry: ILogEntry): Promise<void> {
     try {
-      // File writing would be implemented here
-      // This is a placeholder for actual file system operations
-      this.logger.warn('File logging not fully implemented yet', {
-        filePath: this.filePath,
-        entry: this.formatter.format(entry),
-      });
+      await mkdir(dirname(this.filePath), { recursive: true });
+      await appendFile(this.filePath, `${this.formatter.format(entry)}\n`, 'utf8');
     } catch (error) {
       throw new PluginError('Failed to write log to file', 'LoggingPlugin', {
         filePath: this.filePath,
@@ -35,12 +37,16 @@ export class FileLogStorage implements ILogStorage {
   }
 
   async flush(): Promise<void> {
-    // File flushing would be implemented here
-    this.logger.warn('File flush not fully implemented yet');
+    // Each write is appended immediately; nothing is buffered.
+    this.logger.debug('FileLogStorage.flush is a no-op (write-through)', {
+      filePath: this.filePath,
+    });
   }
 
   async close(): Promise<void> {
-    // File closing would be implemented here
-    this.logger.warn('File close not fully implemented yet');
+    // No long-lived file handle is held between writes.
+    this.logger.debug('FileLogStorage.close is a no-op (no open handle)', {
+      filePath: this.filePath,
+    });
   }
 }
