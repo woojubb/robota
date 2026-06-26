@@ -1,6 +1,7 @@
 ---
 title: 'DOCS-001: Docs sidebar overlaps content on mobile'
-status: in-progress
+status: done
+completed: 2026-06-27
 created: 2026-06-26
 priority: high
 urgency: now
