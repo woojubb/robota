@@ -1,6 +1,6 @@
 ---
 title: 'DOCS-002: Docs landing structure, nav crowding, and a11y/SEO fixes'
-status: todo
+status: in-progress
 created: 2026-06-26
 priority: medium
 urgency: soon
@@ -52,6 +52,24 @@ tap targets hurt usability.
 
 - Re-audit headings (≥1 h1, h2/h3 present) and `<section>` count.
 - Console shows no resource 404s; touch-target audit count → 0 for primary controls.
+
+## Progress (2026-06-26)
+
+- **Semantic structure (done):** quick-links wrapped in a `<section aria-labelledby>`
+  with an `<h2>` "Explore the docs"; card titles are now `<h3>`. Verified on the build:
+  sections 0→1, h1 1, h2 0→1, h3 0→6 (proper h1→h2→h3 hierarchy).
+- **Console 404s (mostly done):** the RSC `.txt?_rsc` prefetch 404s are removed via
+  `prefetch={false}` on the docs `<Link>` (Header + Sidebar). The remaining
+  `pagefind/pagefind.js` 404 is a **build-pipeline** issue, not source: `postbuild`
+  runs `pagefind --site out`, but the index is not being generated (pagefind step not
+  running in the build/CI). Tracked as a follow-up — needs the docs build to run the
+  pagefind postbuild step.
+- **Empty "Guide" card:** false positive — the card has a description; it was a
+  truncated-viewport artifact in the original review. No change.
+- **GitHub icon:** the SVG is present and renders in the current build; the live
+  "blank box" was a stale deployment.
+- **Touch targets (residual):** docs nav/sidebar still has sub-44px links — deferred as
+  a lower-priority follow-up within this item.
 
 ## User Execution Test Scenarios
 
