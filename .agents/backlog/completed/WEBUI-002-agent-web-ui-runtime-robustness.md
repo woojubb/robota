@@ -1,12 +1,23 @@
 ---
 title: 'WEBUI-002: agent-web-ui runtime robustness — render error state, guard JSON.parse, null-safety'
-status: todo
+status: done
+completed: 2026-06-27
 created: 2026-06-27
 priority: medium
 urgency: soon
 area: packages/agent-web-ui
 depends_on: []
 ---
+
+## Evidence Log (2026-06-27)
+
+- `SessionMonitor.tsx`: render conversation only when `connected`; `error` now shows a
+  reasoned message ("Connection error — could not reach <url>…") instead of a blank view.
+- `ws-session-client.ts`: `JSON.parse` wrapped in try/catch; a malformed frame is surfaced as
+  a synthetic `protocol_error` via `onMessage` (no throw / no UI freeze).
+- `useWsSession.ts`: `user_message` content now uses `?? ''` (parity with the `messages` case).
+- Tests: new `ws-session-client.test.ts` (mocked WebSocket) — malformed frame → protocol_error
+  (no throw), well-formed frame passes through. 2 tests pass; typecheck + build clean.
 
 # agent-web-ui runtime robustness
 

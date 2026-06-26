@@ -66,7 +66,10 @@ export function useWsSession(url: string): IWsSessionState {
         break;
       }
       case 'user_message': {
-        setMessages((prev) => [...prev, { id: nextId(), role: 'user', content: msg.content }]);
+        setMessages((prev) => [
+          ...prev,
+          { id: nextId(), role: 'user', content: msg.content ?? '' },
+        ]);
         break;
       }
       case 'text_delta': {
