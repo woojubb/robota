@@ -1,6 +1,6 @@
 ---
 title: 'DEPLOY-001: Serve marketing at apex robota.io, move docs to docs.robota.io'
-status: todo
+status: in-progress
 created: 2026-06-26
 priority: high
 urgency: soon
@@ -44,6 +44,28 @@ nav also shows a "← robota.io" link that loops to itself.
 
 - Verify custom-domain bindings in Cloudflare Pages.
 - Crawl a sample of known docs deep links post-migration for 200/redirect (no 404).
+
+## Code side (done 2026-06-26)
+
+- `apps/www` `metadataBase` and OpenGraph `url` changed `https://www.robota.io` →
+  `https://robota.io` (the apex is now the marketing canonical). www build passes.
+- The docs "← robota.io" back-link (`apps/docs/.../Header.tsx`) already targets
+  `https://robota.io`; once docs is served from `docs.robota.io` this correctly points
+  docs → marketing (no longer self-referential). No code change needed there.
+
+## Owner action required — Cloudflare Pages (cannot be done from the repo)
+
+The domain bindings must be changed in the Cloudflare dashboard (project owner's account):
+
+1. **robota-www project** → Custom domains → add/point the apex `robota.io` (and keep
+   `www.robota.io` as a redirect to the apex, or remove it). Marketing now serves at the apex.
+2. **docs project** → Custom domains → ensure `docs.robota.io` is bound; remove the apex
+   `robota.io` binding from the docs project so the apex is free for marketing.
+3. Verify: `https://robota.io` → marketing; `https://docs.robota.io` → docs; old docs
+   deep links under the apex redirect (or 404-page) gracefully.
+
+After the binding change, redeploy both projects so the canonical/OG metadata and the
+prefetch/pagefind fixes from WEB-014 / DOCS-002 go live.
 
 ## User Execution Test Scenarios
 

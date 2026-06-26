@@ -26,10 +26,10 @@ export const metadata: Metadata = {
   },
   description:
     'Open-source AI agent SDK and CLI. Multi-provider BYOK — Anthropic, OpenAI, DeepSeek, Gemini, or local models. Dual-licensed: AGPL-3.0 & commercial.',
-  metadataBase: new URL('https://www.robota.io'),
+  metadataBase: new URL('https://robota.io'),
   openGraph: {
     type: 'website',
-    url: 'https://www.robota.io',
+    url: 'https://robota.io',
     siteName: 'Robota',
     title: 'Robota — Open-Source AI Agent SDK',
     description:
