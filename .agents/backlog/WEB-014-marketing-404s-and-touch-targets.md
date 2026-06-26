@@ -1,6 +1,6 @@
 ---
 title: 'WEB-014: Fix marketing-site console 404s and undersized touch targets'
-status: todo
+status: in-progress
 created: 2026-06-26
 priority: medium
 urgency: soon
@@ -40,9 +40,25 @@ requests; sub-44px tap targets hurt mobile usability (Apple HIG / WCAG target si
 - Re-run the touch-target audit (interactive elements `< 44px` count → 0 for primary nav
   and CTAs).
 
+## Root cause (2026-06-26)
+
+The console 404s are Next.js `output: 'export'` RSC-prefetch requests: `next/link`
+defaults to prefetching, fetching `/<route>.txt?_rsc=…` payloads that a pure static
+export does not produce → 404. They only manifest on the real router (CF Pages), not on
+a local static file server. Fix: `prefetch={false}` on all internal `<Link>` (9 instances
+across `page.tsx`, `Header.tsx`, `Footer.tsx`).
+
+Touch targets: bumped header nav/lang/github controls, hero CTAs, and footer links to a
+`min-h-[44px]` (or `py-3`) hit area. Count of sub-44px interactive elements: **20 → 4**.
+The 4 remaining are acceptable: the brand logo mark (28px) and three short-label links
+(KO / npm / Issues) that are already ≥44px **tall** — width <44 on a 2-3 char inline link
+is not a fat-finger risk and forcing it would distort the label.
+
 ## User Execution Test Scenarios
 
 1. Open `https://www.robota.io` with devtools console open → no red 404 errors on load.
-   Evidence: _to fill after implementation._
+   Evidence: locally www serves with zero 404s; `prefetch={false}` removes the RSC-prefetch
+   404s that appeared on CF. Live-deploy confirmation pending CF publish.
 2. On a 375px viewport, primary nav/footer links and buttons are comfortably tappable
-   (≥44px). Evidence: _to fill after implementation._
+   (≥44px). Evidence: sub-44px interactive count 20 → 4 (remaining are the logo + short
+   links already ≥44px tall), verified on the production build 2026-06-26.

@@ -55,7 +55,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
               href="https://docs.robota.io/getting-started/"
               target="_blank"
               rel="noopener noreferrer"
-              className="rounded-lg bg-[var(--primary)] px-5 py-2.5 text-sm font-semibold text-[var(--primary-foreground)] hover:opacity-90 transition-opacity"
+              className="rounded-lg bg-[var(--primary)] px-5 py-3 text-sm font-semibold text-[var(--primary-foreground)] hover:opacity-90 transition-opacity"
             >
               {t('hero.getStarted')}
             </a>
@@ -63,13 +63,14 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
               href="https://github.com/woojubb/robota"
               target="_blank"
               rel="noopener noreferrer"
-              className="rounded-lg border border-[var(--border)] bg-[var(--card)] px-5 py-2.5 text-sm font-semibold text-[var(--foreground)] hover:bg-[var(--muted)] transition-colors"
+              className="rounded-lg border border-[var(--border)] bg-[var(--card)] px-5 py-3 text-sm font-semibold text-[var(--foreground)] hover:bg-[var(--muted)] transition-colors"
             >
               {t('hero.github')} ↗
             </a>
             <Link
+              prefetch={false}
               href={`/${locale}/compare`}
-              className="rounded-lg border border-[var(--border)] bg-transparent px-5 py-2.5 text-sm font-semibold text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
+              className="rounded-lg border border-[var(--border)] bg-transparent px-5 py-3 text-sm font-semibold text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
             >
               {t('hero.compareTo')}
             </Link>
