@@ -1,10 +1,12 @@
+import type { IMdastNode } from './mdast-types';
+
 export function remarkMermaid() {
-  return (tree: any) => {
+  return (tree: IMdastNode) => {
     convertMermaidBlocks(tree);
   };
 }
 
-function convertMermaidBlocks(node: any): void {
+function convertMermaidBlocks(node: IMdastNode): void {
   if (!Array.isArray(node.children)) return;
 
   for (let i = 0; i < node.children.length; i++) {
@@ -17,7 +19,7 @@ function convertMermaidBlocks(node: any): void {
           {
             type: 'mdxJsxAttribute',
             name: 'chart',
-            value: child.value,
+            value: child.value ?? '',
           },
         ],
         children: [],
