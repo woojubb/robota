@@ -1,12 +1,27 @@
 ---
 title: 'HARNESS-018: Mechanize the manual Conflict-Scan / deprecated-marker checks into run-all-scans'
-status: todo
+status: done
+completed: 2026-06-27
 created: 2026-06-27
 priority: medium
 urgency: soon
 area: scripts/harness
 depends_on: []
 ---
+
+## Evidence Log (2026-06-27)
+
+- `scan-conflict-markers.mjs`: scans AGENTS.md + `.agents/skills` + `.agents/rules` for the two
+  AGENTS.md "Conflict Scan" patterns, with a small documented `ALLOW_SUBSTRINGS` allowlist for
+  the legitimate definitional/prohibitional lines (the rg command block, the naming-style
+  prohibition). No early exit.
+- `scan-deprecated-markers.mjs`: scans publishable `packages/*/src` for `@deprecated` (0 hits;
+  enforces the no-deprecated rule).
+- Both registered in `run-all-scans.mjs` (now 32 scans) + `package.json` (`harness:scan:conflict-markers`,
+  `harness:scan:deprecated-markers`). AGENTS.md "Conflict Scan Commands" updated to note the
+  mechanization.
+- Verified: `pnpm harness:scan` → **32/32 passed**; a planted `fallback to` advocacy / `@deprecated`
+  is caught by the respective scan.
 
 # Mechanize manual conflict / deprecated scans
 
