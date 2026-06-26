@@ -23,7 +23,9 @@ export function formatBackgroundTaskRow(
   options: IBackgroundTaskRowOptions = {},
 ): IBackgroundTaskRow {
   const row = formatExecutionWorkspaceEntryRow(entry);
-  const marker = STATUS_GLYPH[workspaceStatusKind(entry.status)].symbol;
+  // Symbol from the same (status, attention) classification that drives row.color,
+  // so the marker's glyph and colour always agree (SCREEN-007).
+  const marker = STATUS_GLYPH[workspaceStatusKind(entry.status, entry.attention)].symbol;
   const segments = [row.statusLabel, row.subtitle].filter(
     (segment): segment is string => typeof segment === 'string' && segment.length > 0,
   );
