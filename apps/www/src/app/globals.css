@@ -14,6 +14,7 @@
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
   --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -25,13 +26,14 @@
   --foreground: #e8e6f0;
   --card: #131320;
   --card-foreground: #e8e6f0;
-  --primary: #a78bfa;
+  --primary: #2dd4a7;
   --primary-foreground: #0a0a0f;
   --muted: #1a1a2e;
   --muted-foreground: #7b7a95;
   --border: #252540;
-  --accent: #a78bfa;
-  --accent-dim: rgba(167, 139, 250, 0.12);
+  --accent: #2dd4a7;
+  --accent-hover: #25b492;
+  --accent-dim: rgba(45, 212, 167, 0.12);
 }
 
 @layer base {
@@ -41,7 +43,13 @@
   body {
     background: var(--background);
     color: var(--foreground);
-    font-family: ui-sans-serif, system-ui, sans-serif;
+    font-family: var(--font-ibm-plex-sans), ui-sans-serif, system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
+  }
+  code,
+  pre,
+  kbd,
+  samp {
+    font-family: var(--font-ibm-plex-mono), ui-monospace, SFMono-Regular, monospace;
   }
 }

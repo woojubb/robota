@@ -1,6 +1,6 @@
 ---
 title: 'BRAND-001: Unified brand palette + typography across web properties'
-status: todo
+status: in-progress
 created: 2026-06-26
 priority: high
 urgency: soon
