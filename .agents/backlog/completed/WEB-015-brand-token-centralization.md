@@ -1,6 +1,7 @@
 ---
 title: 'WEB-015: Centralize brand color tokens; remove dead --accent-hover'
-status: todo
+status: done
+completed: 2026-06-27
 created: 2026-06-27
 priority: low
 urgency: soon
@@ -47,3 +48,17 @@ components drift on the next brand change; the unused hover token is dead surfac
 
 1. Visit www + docs → accent still emerald; (if `--accent-hover` kept) the CTA hover uses
    it. Evidence: _to fill._
+
+## Resolution (2026-06-27)
+
+- Dead `--accent-hover` **wired** (not removed): all primary CTAs swapped
+  `hover:opacity-90` → `hover:bg-[var(--accent-hover)]`, so the token is live.
+- `*-dim`/`*-glow` tokens and component inline-style literals now derive from the
+  accent via `color-mix(in srgb, var(--accent) N%, transparent)` / `var(--accent)`
+  (www + docs globals.css, DocsLayout, PackageManagerTabs, docs/www landing glows).
+  A future brand change is now a single edit to `--accent`/`--primary`.
+- Mermaid `themeVariables` keep literal colors (Mermaid resolves them into the SVG at
+  config time and can't read CSS vars) — documented as an explicit exception.
+
+Both www + docs builds pass; `--accent-dim` resolves to color-mix(var(--accent)); accent
+still renders emerald.

@@ -1,6 +1,7 @@
 ---
 title: 'SCREEN-007: Fix TUI status-glyph consistency regressions'
-status: todo
+status: done
+completed: 2026-06-27
 created: 2026-06-27
 priority: high
 urgency: now
@@ -68,3 +69,18 @@ diverged. These defeat the "same status looks the same everywhere" goal SCREEN-0
 2. Have a running background task while a tool streams → the running glyph is the same
    symbol AND color in both the background panel and the streaming view.
    Evidence: _to fill._
+
+## Resolution (2026-06-27)
+
+- ToolCommandOutput: reverted the `✓ ok` branch to `return null` — MessageList's
+  ToolSummaryEntry already renders a `✓ tool(args)` line per tool, so this removes the
+  duplicate marker.
+- status-glyph: `workspaceStatusKind(status, attention?)` now factors attention;
+  `getEntryColor` derives colour from `STATUS_GLYPH[...]` (single colour source) so the
+  background marker's symbol and colour always agree (running is now yellow everywhere,
+  was cyan in the panel). `cancelled` glyph changed `⊘`→`⊗` (distinct from `denied`).
+- `ACTIVE_STATUSES` (active-count, includes waiting_permission) kept separate from the
+  status-kind classification, with a comment — they answer different questions.
+
+Evidence: regression test added (`background-task-row-format.test.ts` asserts the running
+row colour is `yellow` = the glyph colour). Package build + 379 tests pass.

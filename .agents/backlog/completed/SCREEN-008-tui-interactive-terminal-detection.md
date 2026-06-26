@@ -1,6 +1,7 @@
 ---
 title: 'SCREEN-008: Shared interactive-terminal detection for TUI motion/color'
-status: todo
+status: done
+completed: 2026-06-27
 created: 2026-06-27
 priority: medium
 urgency: soon
@@ -47,3 +48,11 @@ motion-vs-color behavior (e.g. `FORCE_COLOR=0` strips markdown color but not the
 1. Run the CLI with `NO_COLOR=` (empty) → no wave animation. Evidence: _to fill._
 2. Run with `FORCE_COLOR=0` → markdown color and wave motion are both suppressed
    consistently. Evidence: _to fill._
+
+## Resolution (2026-06-27)
+
+New `terminal-capabilities.ts` exports `isInteractiveColorTerminal()` (NO_COLOR
+presence — any value including empty — disables; FORCE_COLOR honored; else isTTY).
+`WaveText.shouldAnimate` and `render-markdown.shouldUseColor` both delegate to it;
+the unused `ZERO_COLOR` constant was removed. Unit test covers NO_COLOR=''/=1,
+FORCE_COLOR=0/1, and the isTTY fallback. Build + 382 tests pass.
