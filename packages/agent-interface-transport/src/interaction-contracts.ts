@@ -31,11 +31,11 @@ export interface IPickItem {
 }
 
 /** Request-response contract for disambiguation dialogs. */
-export type IActionRequest =
+export type TActionRequest =
   | { type: 'pick'; id: string; title: string; items: IPickItem[]; defaultIndex?: number }
   | { type: 'confirm'; id: string; message: string; defaultValue?: boolean };
 
-export type IActionResponse =
+export type TActionResponse =
   | { type: 'pick'; item: IPickItem }
   | { type: 'confirm'; confirmed: boolean }
   | { type: 'cancelled' };
@@ -47,7 +47,7 @@ export interface ICommandInfo {
 }
 
 /** Declared by command modules; consumed by createInteractiveRuntime to call requestAction. */
-export type ICommandInteractionHint =
+export type TCommandInteractionHint =
   | { type: 'pick'; getItems(): IPickItem[] }
   | { type: 'confirm'; message: string };
 
@@ -62,7 +62,7 @@ export interface IInteractionChannel {
    * Framework requests user disambiguation. Channel decides HOW to present it
    * (Ink dialog, web modal, programmatic preset). Resolves when user responds.
    */
-  requestAction(action: IActionRequest): Promise<IActionResponse>;
+  requestAction(action: TActionRequest): Promise<TActionResponse>;
 
   /** Framework provides registered slash commands for autocomplete. */
   setAvailableCommands(commands: ICommandInfo[]): void;

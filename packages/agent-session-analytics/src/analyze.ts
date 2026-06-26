@@ -7,7 +7,7 @@
 
 import type {
   IAggregateReport,
-  ISessionAnalysisInput,
+  TSessionAnalysisInput,
   ISessionTimingReport,
   ITimingInterval,
   ITimingStats,
@@ -225,7 +225,7 @@ function computeStats(intervals: ITimingInterval[]): ITimingStats {
 }
 
 /** Compute the timing report for a single session record. */
-export function analyzeSession(record: ISessionAnalysisInput): ISessionTimingReport {
+export function analyzeSession(record: TSessionAnalysisInput): ISessionTimingReport {
   const history = record.history ?? [];
   const intervals = computeTimingIntervals(history);
   const slowIntervals = intervals.filter((iv) => iv.durationMs >= SLOW_THRESHOLD_MS);

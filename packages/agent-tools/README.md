@@ -113,17 +113,17 @@ Recent file tool updates keep write/edit behavior atomic and make Edit tool resu
 | `OpenAPITool`            | Tool generated from OpenAPI specification                  |
 | `createOpenAPITool`      | Factory for creating OpenAPI tools                         |
 | `zodToJsonSchema`        | Converts Zod schemas to JSON Schema format                 |
-| `TToolResult`            | Result type for built-in CLI tool invocations              |
+| `IToolInvocationResult`  | Result type for built-in CLI tool invocations              |
 | `ISandboxClient`         | Provider-neutral sandbox execution port                    |
 | `IWorkspaceManifest`     | Declarative sandbox workspace setup contract               |
 | `applyWorkspaceManifest` | Generic manifest applicator for sandbox clients            |
 | `E2BSandboxClient`       | Adapter for E2B-compatible sandbox instances and snapshots |
 | `InMemorySandboxClient`  | Deterministic sandbox client for tests                     |
 
-## TToolResult Shape
+## IToolInvocationResult Shape
 
 ```typescript
-interface TToolResult {
+interface IToolInvocationResult {
   success: boolean;
   output: string;
   error?: string;
@@ -132,7 +132,7 @@ interface TToolResult {
 }
 ```
 
-`TToolResult` is the inner result type used by built-in tools. It is serialized to JSON and placed inside the `IToolResult.data` field before being returned to the Robota execution loop.
+`IToolInvocationResult` is the inner result type used by built-in tools. It is serialized to JSON and placed inside the `IToolResult.data` field before being returned to the Robota execution loop.
 
 ## Dependencies
 

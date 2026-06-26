@@ -2,9 +2,9 @@
 export type {
   InteractionEvent,
   IPermissionRequest,
-  IActionRequest,
-  IActionResponse,
+  TActionRequest,
+  TActionResponse,
   IPickItem,
   ICommandInfo,
-  ICommandInteractionHint,
+  TCommandInteractionHint,
 } from '@robota-sdk/agent-interface-transport';

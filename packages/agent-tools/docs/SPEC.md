@@ -28,7 +28,7 @@ implementations/
     parameter-validator.ts -- validateToolParameters / getValidationErrors / validateParameterType
     types.ts            -- FunctionTool-specific types
 types/
-  tool-result.ts        -- TToolResult: result type for CLI tool invocations
+  tool-result.ts        -- IToolInvocationResult: result type for CLI tool invocations
 sandbox/
   index.ts                       -- Re-exports all sandbox symbols
   types.ts                       -- ISandboxClient, IWorkspaceManifest*, TWorkspaceManifestEntry contracts
@@ -65,7 +65,7 @@ Types owned by this package (SSOT):
 
 | Type                                    | Kind      | File                                     | Description                                                         |
 | --------------------------------------- | --------- | ---------------------------------------- | ------------------------------------------------------------------- |
-| `TToolResult`                           | Interface | `types/tool-result.ts`                   | Result shape for CLI tool invocations                               |
+| `IToolInvocationResult`                 | Interface | `types/tool-result.ts`                   | Result shape for CLI tool invocations                               |
 | `IZodSchema`                            | Interface | `implementations/function-tool/types.ts` | Zod schema shape for function tools                                 |
 | `IZodParseResult`                       | Interface | `implementations/function-tool/types.ts` | Zod parse result shape                                              |
 | `IZodSchemaDef`                         | Interface | `implementations/function-tool/types.ts` | Zod schema definition shape                                         |
@@ -109,7 +109,7 @@ Types owned by this package (SSOT):
 | `createFunctionTool`                    | Function | Factory for creating function tools                            |
 | `createZodFunctionTool`                 | Function | Factory with Zod validation and conversion                     |
 | `zodToJsonSchema`                       | Function | Converts Zod schemas to JSON Schema format                     |
-| `TToolResult`                           | Type     | Result shape for CLI tool invocations                          |
+| `IToolInvocationResult`                 | Type     | Result shape for CLI tool invocations                          |
 | `E2BSandboxClient`                      | Class    | Adapter for E2B-compatible sandbox instances and snapshots     |
 | `InMemorySandboxClient`                 | Class    | Deterministic sandbox client for tests                         |
 | `ISandboxClient`                        | Type     | Provider-neutral sandbox execution and hydration port          |
@@ -153,10 +153,10 @@ Each built-in tool is an `IToolWithEventService`-compatible object with `getName
 
 **Atomic write semantics**: `Write` and `Edit` replace UTF-8 file content by writing to a temporary file in the same directory and then renaming it into place. When replacing an existing target, the temporary file is assigned the target's existing mode bits before the rename so executable scripts and other permission-sensitive files keep their permissions. The temporary file is removed after failed writes when possible. This keeps built-in filesystem mutations provider-agnostic while preventing partially written target files during self-hosting edit/build/verify loops.
 
-### TToolResult Shape
+### IToolInvocationResult Shape
 
 ```typescript
-interface TToolResult {
+interface IToolInvocationResult {
   success: boolean;
   output: string;
   error?: string;
@@ -179,9 +179,9 @@ This is the inner result type used by built-in tools. It is serialized to JSON a
 
 ## Error Taxonomy
 
-This package does not define a custom error hierarchy. Built-in tools return errors via the `TToolResult.error` field rather than throwing. Schema conversion errors from `zodToJsonSchema` are thrown as standard `Error` instances.
+This package does not define a custom error hierarchy. Built-in tools return errors via the `IToolInvocationResult.error` field rather than throwing. Schema conversion errors from `zodToJsonSchema` are thrown as standard `Error` instances.
 
-`classifyFetchError` in `web-fetch-tool.ts` maps network-layer errors (Node.js `ErrnoException` codes and `AbortError`) to human-readable strings; it does not throw. Path traversal violations detected by `checkPathWithinCwd` in `path-guard.ts` are returned as a serialized `TToolResult` error string rather than thrown exceptions.
+`classifyFetchError` in `web-fetch-tool.ts` maps network-layer errors (Node.js `ErrnoException` codes and `AbortError`) to human-readable strings; it does not throw. Path traversal violations detected by `checkPathWithinCwd` in `path-guard.ts` are returned as a serialized `IToolInvocationResult` error string rather than thrown exceptions.
 
 ## Class Contract Registry
 
@@ -223,7 +223,7 @@ None. `FunctionTool` implements its interface directly (`implements IFunctionToo
 ### Gaps
 
 - **Built-in tools** -- `globTool` and `grepTool` still need dedicated unit coverage beyond provider-agnostic composition tests.
-- **TToolResult** -- No tests verifying the result shape contract.
+- **IToolInvocationResult** -- No tests verifying the result shape contract.
 
 ## Dependencies
 

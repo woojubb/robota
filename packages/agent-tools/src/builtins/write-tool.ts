@@ -10,7 +10,7 @@ import { createZodFunctionTool } from '../implementations/function-tool';
 
 import type { FunctionTool } from '../implementations/function-tool';
 import type { ISandboxToolOptions } from '../sandbox/types.js';
-import type { TToolResult } from '../types/tool-result.js';
+import type { IToolInvocationResult } from '../types/tool-result.js';
 
 const WriteSchema = z.object({
   filePath: z.string().describe('The absolute path to the file to write'),
@@ -34,14 +34,14 @@ async function writeFileTool(args: TWriteArgs, options: ISandboxToolOptions = {}
       await atomicWriteUtf8File(filePath, content);
     }
 
-    const result: TToolResult = {
+    const result: IToolInvocationResult = {
       success: true,
       output: `Written ${Buffer.byteLength(content, 'utf8')} bytes to ${filePath}`,
     };
     return JSON.stringify(result);
   } catch (err) {
-    // allow-fallback: write failure → TToolResult error (disk full, permissions)
-    const result: TToolResult = {
+    // allow-fallback: write failure → IToolInvocationResult error (disk full, permissions)
+    const result: IToolInvocationResult = {
       success: false,
       output: '',
       error: err instanceof Error ? err.message : String(err),

@@ -65,7 +65,7 @@ groups, each in its own file (all re-exported from `src/index.ts`):
 | ------------------------------ | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
 | Capability descriptors         | `capability-contracts.ts`       | `ICapabilityDescriptor`, `TCapabilityKind`, `TCapabilitySafety`                                                                  |
 | Command system contracts       | `command-contracts.ts`          | `ICommand`, `ICommandSource`, `ICommandResult`, `ICommandInteraction`, plugin-adapter + status-line command settings contracts   |
-| Interaction-channel contracts  | `interaction-contracts.ts`      | `IInteractionChannel`, `InteractionEvent`, `IPermissionRequest`, `IActionRequest`/`IActionResponse`, `IPickItem`, `ICommandInfo` |
+| Interaction-channel contracts  | `interaction-contracts.ts`      | `IInteractionChannel`, `InteractionEvent`, `IPermissionRequest`, `TActionRequest`/`TActionResponse`, `IPickItem`, `ICommandInfo` |
 | Session-event payloads         | `event-contracts.ts`            | Skill-activation, memory, prompt-file-reference, and context-reference event payload contracts                                   |
 | Background job-group contracts | `background-group-contracts.ts` | `IBackgroundJobGroupState`/`Summary`/`CreateRequest`, `IBackgroundJobResultEnvelope`, job-group event + status/wait contracts    |
 | Execution-workspace contracts  | `workspace-contracts.ts`        | `IExecutionWorkspaceEntry`/`Snapshot`/`Event`/`Filter`, execution-detail page/record contracts, and their enum kinds             |
@@ -92,7 +92,7 @@ The package root (`src/index.ts`) additionally re-exports the following contract
 | --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
 | Capability descriptors (`capability-contracts`)     | `ICapabilityDescriptor`, `TCapabilityKind`, `TCapabilitySafety`                                                                  |
 | Command system (`command-contracts`)                | `ICommand`, `ICommandSource`, `ICommandResult`, `ICommandInteraction`, plugin-adapter + status-line command settings contracts   |
-| Interaction channel (`interaction-contracts`)       | `IInteractionChannel`, `InteractionEvent`, `IPermissionRequest`, `IActionRequest`/`IActionResponse`, `IPickItem`, `ICommandInfo` |
+| Interaction channel (`interaction-contracts`)       | `IInteractionChannel`, `InteractionEvent`, `IPermissionRequest`, `TActionRequest`/`TActionResponse`, `IPickItem`, `ICommandInfo` |
 | Session-event payloads (`event-contracts`)          | Skill-activation, memory, prompt-file-reference, and context-reference event payload contracts                                   |
 | Background job-group (`background-group-contracts`) | `IBackgroundJobGroupState`/`Summary`/`CreateRequest`, `IBackgroundJobResultEnvelope`, event + status/wait contracts              |
 | Execution workspace (`workspace-contracts`)         | `IExecutionWorkspaceEntry`/`Snapshot`/`Event`/`Filter`, execution-detail page/record contracts, and their enum kinds             |

@@ -29,7 +29,7 @@ vi.mock('@robota-sdk/agent-framework', async () => {
 import { TuiInteractionChannel } from '../TuiInteractionChannel.js';
 
 import type { IAIProvider } from '@robota-sdk/agent-core';
-import type { IActionRequest } from '@robota-sdk/agent-interface-transport';
+import type { TActionRequest } from '@robota-sdk/agent-interface-transport';
 
 function makeChannel(): TuiInteractionChannel {
   return new TuiInteractionChannel({
@@ -38,7 +38,7 @@ function makeChannel(): TuiInteractionChannel {
   });
 }
 
-const PICK_ACTION: IActionRequest = {
+const PICK_ACTION: TActionRequest = {
   type: 'pick',
   id: 'mode',
   title: '/mode',
@@ -48,7 +48,7 @@ const PICK_ACTION: IActionRequest = {
   ],
 };
 
-const CONFIRM_ACTION: IActionRequest = {
+const CONFIRM_ACTION: TActionRequest = {
   type: 'confirm',
   id: 'exit',
   message: 'Exit the session?',

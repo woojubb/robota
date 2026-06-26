@@ -19,7 +19,7 @@ stay imported from `@robota-sdk/agent-framework`. See spec for the full moved-ty
 - [x] **TC-01** — In every `packages/agent-transport/src/**` file, split each
       `@robota-sdk/agent-framework` import so that moved interface types (e.g. `IInteractiveSession`,
       `ICommand`, `ICommandResult`, `ICommandListEntry`, `ICommandPluginAdapter`, `ICommandInteraction`,
-      `IToolState`, `IUsageSnapshot`, `TPermissionResultValue`, `IInteractionChannel`, `IActionRequest`,
+      `IToolState`, `IUsageSnapshot`, `TPermissionResultValue`, `IInteractionChannel`, `TActionRequest`,
       `IExecutionWorkspaceEntry`/`*Snapshot`/`*Filter`, `IInteractiveSessionStore`,
       `IResumableSessionSummary`, `TCommandEffect`, `IExecutionResult`, and the rest of the L1 closure)
       are imported via `import type { … } from '@robota-sdk/agent-interface-transport'`.

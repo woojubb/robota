@@ -5,7 +5,7 @@ import { executeExitCommand } from './exit-command.js';
 import type { ICommandModule, ISystemCommand } from '@robota-sdk/agent-framework';
 import type {
   ICommand,
-  ICommandInteractionHint,
+  TCommandInteractionHint,
   ICommandSource,
 } from '@robota-sdk/agent-interface-transport';
 
@@ -41,7 +41,7 @@ export class ExitCommandSource implements ICommandSource {
   }
 }
 
-const EXIT_INTERACTION_HINTS: Record<string, ICommandInteractionHint> = {
+const EXIT_INTERACTION_HINTS: Record<string, TCommandInteractionHint> = {
   exit: { type: 'confirm', message: 'Exit the session?' },
 };
 

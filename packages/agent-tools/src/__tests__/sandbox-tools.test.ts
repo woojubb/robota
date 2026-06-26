@@ -8,14 +8,14 @@ import {
   createReadTool,
   createWriteTool,
 } from '../index.js';
-import type { ISandboxRunOptions, TToolResult } from '../index.js';
+import type { ISandboxRunOptions, IToolInvocationResult } from '../index.js';
 
 async function executeTool(
   tool: IToolWithEventService,
   parameters: TToolParameters,
-): Promise<TToolResult> {
+): Promise<IToolInvocationResult> {
   const rawResult = await tool.execute(parameters, { toolName: tool.getName(), parameters });
-  return JSON.parse(rawResult.data as string) as TToolResult;
+  return JSON.parse(rawResult.data as string) as IToolInvocationResult;
 }
 
 describe('sandbox-aware built-in tools', () => {

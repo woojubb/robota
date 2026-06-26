@@ -6,7 +6,7 @@
 import {
   preprocessShellCommands,
   substituteVariables,
-  type SkillPromptContext,
+  type ISkillPromptContext,
   type TShellExecFn,
 } from '../utils/skill-prompt.js';
 
@@ -50,7 +50,7 @@ async function buildProcessedContent(
   skill: ICommand,
   args: string,
   callbacks: ISkillExecutionCallbacks,
-  context?: SkillPromptContext,
+  context?: ISkillPromptContext,
 ): Promise<string | null> {
   if (!skill.skillContent) return null;
   const preprocessed = await preprocessShellCommands(skill.skillContent, callbacks.shellExec);
@@ -65,7 +65,7 @@ async function buildInjectPrompt(
   skill: ICommand,
   args: string,
   callbacks: ISkillExecutionCallbacks,
-  context?: SkillPromptContext,
+  context?: ISkillPromptContext,
 ): Promise<string> {
   const processed = await buildProcessedContent(skill, args, callbacks, context);
   if (processed) {
@@ -87,7 +87,7 @@ export async function executeSkill(
   skill: ICommand,
   args: string,
   callbacks: ISkillExecutionCallbacks,
-  context?: SkillPromptContext,
+  context?: ISkillPromptContext,
 ): Promise<ISkillExecutionResult> {
   // Fork execution: isolated subagent session
   if (skill.context === 'fork') {

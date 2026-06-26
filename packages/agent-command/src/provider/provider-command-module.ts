@@ -8,7 +8,7 @@ import type {
 } from '@robota-sdk/agent-framework';
 import type {
   ICommand,
-  ICommandInteractionHint,
+  TCommandInteractionHint,
   ICommandSource,
 } from '@robota-sdk/agent-interface-transport';
 export type { IProviderCommandModuleOptions, IProviderCommandSettingsAdapter };
@@ -60,7 +60,7 @@ function createProviderSystemCommand(options: IProviderCommandModuleOptions): TS
   };
 }
 
-const PROVIDER_INTERACTION_HINTS: Record<string, ICommandInteractionHint> = {
+const PROVIDER_INTERACTION_HINTS: Record<string, TCommandInteractionHint> = {
   provider: {
     type: 'pick',
     getItems: () =>

@@ -2,12 +2,12 @@ import { describe, expect, it } from 'vitest';
 
 import { DEFAULT_AGENT_NAME, getPreset, listPresets, resolvePreset } from '../resolve-preset.js';
 
-import type { IPreset, TResolvedPresetOptions } from '../preset-types.js';
+import type { IPreset, IResolvedPresetOptions } from '../preset-types.js';
 import type { IPresetApplicationOptions } from '@robota-sdk/agent-framework';
 
 describe('resolvePreset', () => {
   it('TC-05: default preset is a no-op — returns the cliOverrides unchanged', () => {
-    const base: TResolvedPresetOptions = {
+    const base: IResolvedPresetOptions = {
       model: 'base-model',
       effort: 'high',
       agentName: 'tester',
@@ -62,7 +62,7 @@ describe('listPresets', () => {
 
 describe('PRESET-003 agentName ownership + persona', () => {
   /** Mirrors the thin-shell resolution in cli.ts: `resolvedPreset.agentName ?? DEFAULT_AGENT_NAME`. */
-  function resolveAgentName(resolved: TResolvedPresetOptions): string {
+  function resolveAgentName(resolved: IResolvedPresetOptions): string {
     return resolved.agentName ?? DEFAULT_AGENT_NAME;
   }
 
@@ -82,7 +82,7 @@ describe('PRESET-003 agentName ownership + persona', () => {
     expect(DEFAULT_AGENT_NAME.length).toBeGreaterThan(0);
   });
 
-  it('TC-01: IPreset / TResolvedPresetOptions accept an optional persona block', () => {
+  it('TC-01: IPreset / IResolvedPresetOptions accept an optional persona block', () => {
     const preset: IPreset = {
       id: 'with-persona',
       title: 'With Persona',
@@ -145,7 +145,7 @@ describe('PRESET-004 autonomy / defaultPermissionMode → permissionMode', () =>
   });
 
   it('no-op preset preserves the PRESET-001 cliOverrides-unchanged contract', () => {
-    const base: TResolvedPresetOptions = { model: 'm', effort: 'high', agentName: 'a' };
+    const base: IResolvedPresetOptions = { model: 'm', effort: 'high', agentName: 'a' };
     expect(resolvePreset('default', { cliOverrides: base })).toEqual(base);
   });
 });
@@ -273,7 +273,7 @@ describe('PRESET-010 neutral-executor', () => {
 
 describe('PRESET-012 resolved options are live-applicable', () => {
   it('TC-06: a resolvePreset result is assignable to IPresetApplicationOptions', () => {
-    const resolved: TResolvedPresetOptions = resolvePreset('careful-reviewer');
+    const resolved: IResolvedPresetOptions = resolvePreset('careful-reviewer');
     // Structural compat: the framework re-application orchestrator (applyPresetToSession) accepts
     // a resolvePreset result directly — this is what PRESET-006 wiring relies on.
     const applicationOptions: IPresetApplicationOptions = resolved;
@@ -283,7 +283,7 @@ describe('PRESET-012 resolved options are live-applicable', () => {
 
 describe('PRESET-013 model group is live-applicable', () => {
   it('TC-07: a resolvePreset result with model/effort/temperature is assignable to the extended IPresetApplicationOptions', () => {
-    const resolved: TResolvedPresetOptions = resolvePreset('default', {
+    const resolved: IResolvedPresetOptions = resolvePreset('default', {
       explicit: { model: 'new-model', effort: 'high', temperature: 0.5 },
     });
     // Structural compat: the PRESET-013-extended orchestrator option shape accepts the model group
@@ -297,7 +297,7 @@ describe('PRESET-013 model group is live-applicable', () => {
 
 describe('PRESET-014 persona group is live-applicable', () => {
   it('TC-06: a resolvePreset result carries persona and is assignable to IPresetApplicationOptions', () => {
-    const resolved: TResolvedPresetOptions = resolvePreset('careful-reviewer');
+    const resolved: IResolvedPresetOptions = resolvePreset('careful-reviewer');
     expect(resolved.persona).toBeDefined();
     // Structural compat: the PRESET-014-extended orchestrator option shape accepts the persona
     // group straight from a resolvePreset result.

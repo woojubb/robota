@@ -1,7 +1,7 @@
 import { vi } from 'vitest';
 
 import type { IInteractionChannel } from '../IInteractionChannel.js';
-import type { IActionRequest, IActionResponse, ICommandInfo, InteractionEvent } from '../types.js';
+import type { TActionRequest, TActionResponse, ICommandInfo, InteractionEvent } from '../types.js';
 
 export class MockInteractionChannel implements IInteractionChannel {
   readonly events: InteractionEvent[] = [];
@@ -12,7 +12,7 @@ export class MockInteractionChannel implements IInteractionChannel {
   stopped = false;
 
   private submitHandler: ((text: string) => Promise<void>) | null = null;
-  private actionResponse: IActionResponse = { type: 'cancelled' };
+  private actionResponse: TActionResponse = { type: 'cancelled' };
 
   onSubmit(handler: (text: string) => Promise<void>): void {
     this.submitHandler = handler;
@@ -23,7 +23,7 @@ export class MockInteractionChannel implements IInteractionChannel {
     this.writtenEvents.push(event);
   }
 
-  requestAction = vi.fn((_action: IActionRequest): Promise<IActionResponse> => {
+  requestAction = vi.fn((_action: TActionRequest): Promise<TActionResponse> => {
     return Promise.resolve(this.actionResponse);
   });
 
@@ -51,7 +51,7 @@ export class MockInteractionChannel implements IInteractionChannel {
   }
 
   /** Set the response that requestAction will return. */
-  setActionResponse(response: IActionResponse): void {
+  setActionResponse(response: TActionResponse): void {
     this.actionResponse = response;
   }
 }

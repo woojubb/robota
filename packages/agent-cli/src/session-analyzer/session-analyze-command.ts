@@ -24,7 +24,7 @@ import {
   formatSingleSession,
 } from '@robota-sdk/agent-session-analytics';
 
-import type { ISessionAnalysisInput } from '@robota-sdk/agent-session-analytics';
+import type { TSessionAnalysisInput } from '@robota-sdk/agent-session-analytics';
 
 interface ISessionAnalyzeArgs {
   last: number | undefined;
@@ -54,8 +54,8 @@ function parseSessionAnalyzeArgs(argv: string[]): ISessionAnalyzeArgs {
  * (`cwd/.robota/sessions` + replay logs), de-duped by id (project wins on collision) and sorted by
  * id ascending — session ids are timestamp-prefixed, so lexical order is chronological.
  */
-function loadSessionRecords(cwd: string): ISessionAnalysisInput[] {
-  const byId = new Map<string, ISessionAnalysisInput>();
+function loadSessionRecords(cwd: string): TSessionAnalysisInput[] {
+  const byId = new Map<string, TSessionAnalysisInput>();
   for (const record of createUserSessionStore().list()) {
     byId.set(record.id, record);
   }

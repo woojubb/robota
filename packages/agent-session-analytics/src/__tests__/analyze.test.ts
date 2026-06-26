@@ -5,7 +5,7 @@
 import { describe, it, expect } from 'vitest';
 
 import { analyzeSession, computeTimingIntervals, gapMs } from '../analyze.js';
-import type { ISessionAnalysisInput } from '../types.js';
+import type { TSessionAnalysisInput } from '../types.js';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 
 function ts(offsetMs: number): Date {
@@ -124,7 +124,7 @@ describe('computeTimingIntervals', () => {
 // analyzeSession integration
 describe('analyzeSession', () => {
   it('returns slowIntervals for intervals >= 10s', () => {
-    const record: ISessionAnalysisInput = {
+    const record: TSessionAnalysisInput = {
       id: 'test-session',
       cwd: '/tmp',
       createdAt: ts(0).toISOString(),
@@ -137,7 +137,7 @@ describe('analyzeSession', () => {
   });
 
   it('computes stats correctly for LLM-only session', () => {
-    const record: ISessionAnalysisInput = {
+    const record: TSessionAnalysisInput = {
       id: 's2',
       cwd: '/tmp',
       createdAt: ts(0).toISOString(),

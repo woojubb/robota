@@ -52,11 +52,11 @@ agent-cli (wires the two, reads CLI args, resolves provider)
 agent-framework                       agent-transport/tui
 ┌──────────────────────────┐          ┌──────────────────────────┐
 │ IInteractionChannel      │◄─────────│ TuiInteractionChannel     │
-│ IActionRequest           │  impls   │  write()  → React state   │
-│ IActionResponse          │          │  requestAction() → Ink    │
+│ TActionRequest           │  impls   │  write()  → React state   │
+│ TActionResponse          │          │  requestAction() → Ink    │
 │ InteractionEvent         │          │    picker / confirm       │
 │ ICommandInfo / IPickItem │          └──────────────────────────┘
-│ ICommandInteractionHint  │
+│ TCommandInteractionHint  │
 │ input-parser             │          agent-transport/web (future)
 │ createInteractiveRuntime │          ┌──────────────────────────┐
 └──────────────────────────┘          │ WebInteractionChannel     │

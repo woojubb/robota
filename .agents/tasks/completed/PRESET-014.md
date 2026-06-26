@@ -9,7 +9,7 @@ Spec: `.agents/spec-docs/done/PRESET-014-live-persona-reapply.md`
 - [x] TC-03: `applyPresetToSession(..., { persona })` → `ctx.applyPersona` called + applied has 'persona'
 - [x] TC-04: no persona → `applyPersona` not called + 'persona' in skipped
 - [x] TC-05: context without `applyPersona` (optional) → no throw
-- [x] TC-06: `TResolvedPresetOptions` (persona) assignable to `IPresetApplicationOptions`
+- [x] TC-06: `IResolvedPresetOptions` (persona) assignable to `IPresetApplicationOptions`
 - [x] TC-07: framework build + framework/preset test + `pnpm typecheck` exit 0
 - [x] create-session-runtime: mutable currentPersona + 3-arg `rebuildSystemMessage`
 - [x] interactive-session: `applyPersona` method (recompose from tracked entries → updateSystemMessage)

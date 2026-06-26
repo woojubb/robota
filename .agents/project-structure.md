@@ -56,7 +56,7 @@ See [capability-placement.md](specs/architecture-map/capability-placement.md) fo
 
 - `IInteractionChannel` — the interface that all interactive transports implement (TUI, headless, future web/remote)
 - `InteractionEvent` — the union type of one-way display events emitted by the runtime to the channel
-- `IActionRequest` / `IActionResponse` — the disambiguation dialog protocol (permission prompts)
+- `TActionRequest` / `TActionResponse` — the disambiguation dialog protocol (permission prompts)
 - `createInteractiveRuntime` — the factory that wires `IInteractionChannel` ↔ `InteractiveSession`
 
 The transport packages own concrete implementations: `TuiInteractionChannel` (TUI mode, in `agent-transport-tui`) and `HeadlessInteractionChannel` (print mode, in `agent-transport` core). Neither class implements `IInteractionChannel` directly if doing so would lose access to session events outside the `InteractionEvent` union.

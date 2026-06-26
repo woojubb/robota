@@ -79,7 +79,7 @@ type SessionEvent =
   | { kind: 'tool_start'; toolName: string; toolUseId: string; input: unknown }
   | { kind: 'tool_end'; toolUseId: string; result: IToolResult }
   | { kind: 'thinking'; text: string }
-  | { kind: 'context_update'; state: IContextState }
+  | { kind: 'context_update'; state: TContextState }
   | { kind: 'complete'; response: string }
   | { kind: 'error'; error: Error };
 ```

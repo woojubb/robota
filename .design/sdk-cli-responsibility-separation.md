@@ -68,7 +68,7 @@ class InteractiveSession {
   on(event: 'tool_end', handler: (tool: IToolState) => void): void;
   on(event: 'complete', handler: (messages: TUniversalMessage[]) => void): void;
   on(event: 'error', handler: (error: Error) => void): void;
-  on(event: 'context_update', handler: (state: IContextState) => void): void;
+  on(event: 'context_update', handler: (state: TContextState) => void): void;
 
   /** 프롬프트 실행 (큐잉 내장) */
   async submit(input: string): Promise<void>;
@@ -83,7 +83,7 @@ class InteractiveSession {
   getMessages(): TUniversalMessage[];
 
   /** 컨텍스트 상태 */
-  getContextState(): IContextState;
+  getContextState(): TContextState;
 
   /** 실행 중 여부 */
   isExecuting(): boolean;

@@ -246,6 +246,17 @@
         "jsx-a11y/scope": "warn",
         "jsx-a11y/tabindex-no-positive": "warn"
       }
+    },
+    {
+      "files": ["packages/*/src/**/*.ts", "packages/*/src/**/*.tsx"],
+      "excludedFiles": ["**/*.test.ts", "**/*.test.tsx", "**/__tests__/**"],
+      "rules": {
+        "@typescript-eslint/naming-convention": [
+          "error",
+          { "selector": "interface", "format": ["PascalCase"], "prefix": ["I"] },
+          { "selector": "typeAlias", "format": ["PascalCase"], "prefix": ["T"] }
+        ]
+      }
     }
   ],
   "ignorePatterns": [

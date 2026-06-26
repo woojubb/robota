@@ -2,7 +2,7 @@
 export type TShellExecFn = (command: string) => string;
 
 /** Context variables available during skill prompt processing */
-export interface SkillPromptContext {
+export interface ISkillPromptContext {
   /** Current session ID — substituted for ${CLAUDE_SESSION_ID} */
   sessionId?: string;
   /** Directory containing SKILL.md — substituted for ${CLAUDE_SKILL_DIR} */
@@ -22,7 +22,7 @@ export interface SkillPromptContext {
 export function substituteVariables(
   content: string,
   args: string,
-  context?: SkillPromptContext,
+  context?: ISkillPromptContext,
 ): string {
   const argParts = args ? args.split(/\s+/) : [];
 

@@ -83,7 +83,7 @@ Role: Tool infrastructure + built-in tools
 Owns:
 
 - ToolRegistry, FunctionTool, createFunctionTool, createZodFunctionTool
-- TToolResult, zodToJsonSchema
+- IToolInvocationResult, zodToJsonSchema
 - 8 built-in tools: bash, read, write, edit, glob, grep, webFetch, webSearch
 
 ### agent-provider-\*

@@ -43,11 +43,11 @@ export type InteractionEvent =
   | { type: 'error'; error: Error };
 
 /** Request-response contract for disambiguation dialogs. */
-export type IActionRequest =
+export type TActionRequest =
   | { type: 'pick'; id: string; title: string; items: IPickItem[]; defaultIndex?: number }
   | { type: 'confirm'; id: string; message: string; defaultValue?: boolean };
 
-export type IActionResponse =
+export type TActionResponse =
   | { type: 'pick'; item: IPickItem }
   | { type: 'confirm'; confirmed: boolean }
   | { type: 'cancelled' };
@@ -65,7 +65,7 @@ export interface ICommandInfo {
 }
 
 /** Declared by command modules; consumed by createInteractiveRuntime to call requestAction. */
-export type ICommandInteractionHint =
+export type TCommandInteractionHint =
   | { type: 'pick'; getItems(): IPickItem[] }
   | { type: 'confirm'; message: string };
 ```
@@ -84,7 +84,7 @@ export interface IInteractionChannel {
    * Framework requests user disambiguation. Channel decides HOW to present it
    * (Ink dialog, web modal, programmatic preset). Resolves when user responds.
    */
-  requestAction(action: IActionRequest): Promise<IActionResponse>;
+  requestAction(action: TActionRequest): Promise<TActionResponse>;
 
   /** Framework provides registered slash commands for autocomplete. */
   setAvailableCommands(commands: ICommandInfo[]): void;
@@ -102,7 +102,7 @@ export interface IInteractionChannel {
 - `packages/agent-framework/src/index.ts` — export all new symbols
 - `packages/agent-framework/src/command-api/command-module.ts` — add optional field:
   ```typescript
-  interactionHints?: Record<string, ICommandInteractionHint>;
+  interactionHints?: Record<string, TCommandInteractionHint>;
   ```
 
 ## Constraints

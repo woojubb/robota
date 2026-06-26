@@ -7,7 +7,7 @@ import type {
   IPreset,
   TPresetAutonomy,
   TPresetPermissionMode,
-  TResolvedPresetOptions,
+  IResolvedPresetOptions,
 } from './preset-types.js';
 
 /**
@@ -107,8 +107,8 @@ export function clearExternalPresets(): void {
  * `cliOverrides` model CLI flags; `explicit` models programmatic/SDK options.
  */
 export interface IResolvePresetContext {
-  cliOverrides?: TResolvedPresetOptions;
-  explicit?: TResolvedPresetOptions;
+  cliOverrides?: IResolvedPresetOptions;
+  explicit?: IResolvedPresetOptions;
 }
 
 /** Return the `{ id, title, description }` summary of every registered preset. */
@@ -122,21 +122,21 @@ export function getPreset(id: string): IPreset | undefined {
 }
 
 /** Strip the identity triple from a preset, leaving only resolvable option overrides. */
-function toPresetOptions(preset: IPreset): TResolvedPresetOptions {
+function toPresetOptions(preset: IPreset): IResolvedPresetOptions {
   const { id: _id, title: _title, description: _description, ...options } = preset;
   return options;
 }
 
 /** Keep only the entries of `source` whose value is defined. */
-function definedEntries(source: TResolvedPresetOptions): Partial<TResolvedPresetOptions> {
+function definedEntries(source: IResolvedPresetOptions): Partial<IResolvedPresetOptions> {
   return Object.fromEntries(Object.entries(source).filter(([, value]) => value !== undefined));
 }
 
 /** Merge `source` onto `target`, skipping `undefined` values so later layers only override set keys. */
 function mergeDefined(
-  target: TResolvedPresetOptions,
-  source: TResolvedPresetOptions | undefined,
-): TResolvedPresetOptions {
+  target: IResolvedPresetOptions,
+  source: IResolvedPresetOptions | undefined,
+): IResolvedPresetOptions {
   if (!source) {
     return target;
   }
@@ -155,7 +155,7 @@ function mergeDefined(
 export function resolvePreset(
   id: string,
   context: IResolvePresetContext = {},
-): TResolvedPresetOptions {
+): IResolvedPresetOptions {
   const preset = getPreset(id);
   if (!preset) {
     const available = allPresets()
@@ -176,7 +176,7 @@ export function resolvePreset(
  * `defaultPermissionMode` > `autonomy` mapping. A no-op preset (no posture fields)
  * leaves the object unchanged — keeping `resolvePreset('default')` a no-op.
  */
-function derivePermissionMode(resolved: TResolvedPresetOptions): TResolvedPresetOptions {
+function derivePermissionMode(resolved: IResolvedPresetOptions): IResolvedPresetOptions {
   if (resolved.permissionMode !== undefined) {
     return resolved;
   }

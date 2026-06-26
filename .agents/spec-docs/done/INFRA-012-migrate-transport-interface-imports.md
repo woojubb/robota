@@ -38,7 +38,7 @@ stay imported from `@robota-sdk/agent-framework`.
 
 The types exported by `agent-interface-transport/src/index.ts` (the L1 closure), e.g. `IInteractiveSession`,
 `ICommand`, `ICommandResult`, `ICommandListEntry`, `ICommandPluginAdapter`, `ICommandInteraction`,
-`IToolState`, `IUsageSnapshot`, `TPermissionResultValue`, `IInteractionChannel`, `IActionRequest`,
+`IToolState`, `IUsageSnapshot`, `TPermissionResultValue`, `IInteractionChannel`, `TActionRequest`,
 `IExecutionWorkspaceEntry`/`*Snapshot`/`*Filter`, `IInteractiveSessionStore`, `IResumableSessionSummary`,
 `TCommandEffect`, `IExecutionResult`, the background-group + workspace + event + capability contracts, etc.
 

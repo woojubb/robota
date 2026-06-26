@@ -5,7 +5,7 @@ Spec: `.agents/spec-docs/active/PRESET-001-agent-preset-package-foundation.md`
 ## Plan (one task per Completion Criterion)
 
 - [x] TC-01: `packages/agent-preset/package.json` `name` = `@robota-sdk/agent-preset`
-- [x] TC-02: `src` exports `IPreset` + `TResolvedPresetOptions`
+- [x] TC-02: `src` exports `IPreset` + `IResolvedPresetOptions`
 - [x] TC-03: `IPreset.effort` enum includes `'xhigh'`/`'max'`
 - [x] TC-04: `IPreset` has `enableParallelSubagents?: boolean` + `selfVerification?: boolean`
 - [x] TC-05: `resolvePreset('default', base)` deep-equals base (no-op) — unit test

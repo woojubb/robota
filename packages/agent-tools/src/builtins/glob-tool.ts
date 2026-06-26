@@ -14,7 +14,7 @@ import { z } from 'zod';
 
 import { createZodFunctionTool } from '../implementations/function-tool';
 
-import type { TToolResult } from '../types/tool-result.js';
+import type { IToolInvocationResult } from '../types/tool-result.js';
 
 const DEFAULT_MAX_RESULTS = 1000;
 
@@ -56,7 +56,7 @@ async function globFileTool(args: TGlobArgs): Promise<string> {
       absolute: false,
     });
   } catch (err) {
-    const result: TToolResult = {
+    const result: IToolInvocationResult = {
       success: false,
       output: '',
       error: err instanceof Error ? err.message : String(err),
@@ -94,7 +94,7 @@ async function globFileTool(args: TGlobArgs): Promise<string> {
     output += `\n\n[Showing ${maxResults} of ${totalMatches} matches. Use limit parameter to see more.]`;
   }
 
-  const result: TToolResult = {
+  const result: IToolInvocationResult = {
     success: true,
     output,
   };

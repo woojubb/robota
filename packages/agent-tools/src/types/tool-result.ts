@@ -1,7 +1,7 @@
 /**
  * Result returned by a CLI tool invocation
  */
-export interface TToolResult {
+export interface IToolInvocationResult {
   success: boolean;
   output: string;
   error?: string;
