@@ -91,6 +91,7 @@
     "harness:scan:spec-publish-claims": "node scripts/harness/check-spec-publish-claims.mjs",
     "harness:scan:workspace-refs": "node scripts/harness/check-workspace-refs.mjs",
     "harness:scan:stub-markers": "node scripts/harness/check-stub-markers.mjs",
+    "examples:typecheck": "pnpm --filter \"./examples/**\" --filter \"!robota-example-express\" run typecheck",
     "harness:scan:conflict-markers": "node scripts/harness/scan-conflict-markers.mjs",
     "harness:scan:deprecated-markers": "node scripts/harness/scan-deprecated-markers.mjs",
     "harness:scan:orphan-exports": "node scripts/harness/check-orphan-exports.mjs"
@@ -189,7 +190,8 @@
   },
   "workspaces": [
     "packages/*",
-    "apps/*"
+    "apps/*",
+    "examples/*"
   ],
   "volta": {
     "node": "22.14.0"
