@@ -1,6 +1,6 @@
 ---
 title: 'SCREEN-004: Standardize TUI prompt footers, selection symbols, and microcopy'
-status: todo
+status: in-progress
 created: 2026-06-26
 priority: high
 urgency: soon

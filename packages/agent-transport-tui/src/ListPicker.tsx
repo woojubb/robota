@@ -30,7 +30,12 @@ export interface IListPickerProps<T> {
   onCancel: () => void;
   /** Maximum number of items visible at once (default: 10) */
   maxVisible?: number;
+  /** Key-hint footer shown below the list (default: navigate/select/cancel hint) */
+  footerHint?: string;
 }
+
+/** Default affordance footer — Enter always selects and Esc always cancels. */
+const DEFAULT_FOOTER_HINT = ' ↑↓ Navigate  Enter Select  Esc Cancel';
 
 export default function ListPicker<T>({
   items,
@@ -38,6 +43,7 @@ export default function ListPicker<T>({
   onSelect,
   onCancel,
   maxVisible = DEFAULT_MAX_VISIBLE,
+  footerHint = DEFAULT_FOOTER_HINT,
 }: IListPickerProps<T>): React.ReactElement {
   const [state, setState] = useState<ISelectionFlowState>(() => createSelectionFlowState());
   const stateRef = useRef(state);
@@ -90,6 +96,7 @@ export default function ListPicker<T>({
         </Box>
       ))}
       {hasMore && <Text dimColor> ↓ {items.length - scrollOffset - maxVisible} more below</Text>}
+      {footerHint !== '' && <Text dimColor>{footerHint}</Text>}
     </Box>
   );
 }
