@@ -51,6 +51,8 @@ const SCAN_COMMANDS = [
   },
   { name: 'workspace-refs', command: ['node', 'scripts/harness/check-workspace-refs.mjs'] },
   { name: 'stub-markers', command: ['node', 'scripts/harness/check-stub-markers.mjs'] },
+  { name: 'conflict-markers', command: ['node', 'scripts/harness/scan-conflict-markers.mjs'] },
+  { name: 'deprecated-markers', command: ['node', 'scripts/harness/scan-deprecated-markers.mjs'] },
   { name: 'done-evidence', command: ['node', 'scripts/harness/check-done-evidence.mjs'] },
   { name: 'task-archival', command: ['node', 'scripts/harness/check-task-archival.mjs'] },
   { name: 'orphan-exports', command: ['node', 'scripts/harness/check-orphan-exports.mjs'] },

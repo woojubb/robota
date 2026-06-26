@@ -10,11 +10,12 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { loadHarnessConfig } from './harness-config.mjs';
 
 const WORKSPACE_ROOT = process.cwd();
 
 const SOURCE_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.mjs']);
-const PRODUCT_SHELL_DIRS = ['packages/agent-cli', 'apps/agent-web', 'apps/docs', 'apps/blog'];
+const PRODUCT_SHELL_DIRS = loadHarnessConfig().productShellDirs;
 const PROJECT_STRUCTURE_PATH = '.agents/project-structure.md';
 
 const PRODUCT_SHELL_OWNERSHIP_PATTERNS = [

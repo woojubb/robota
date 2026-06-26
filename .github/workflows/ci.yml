@@ -290,3 +290,33 @@ jobs:
 
       - name: Lint PR commit messages
         run: pnpm exec commitlint --from origin/${{ github.base_ref }} --to HEAD --verbose
+
+  examples-typecheck:
+    name: examples-typecheck
+    runs-on: ubuntu-latest
+    if: github.base_ref != 'main'
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 50
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8.15.4
+
+      - name: Use Node.js 22.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build packages (so examples typecheck against local source)
+        run: pnpm build:deps
+
+      - name: Typecheck examples
+        run: pnpm examples:typecheck

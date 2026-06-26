@@ -1,12 +1,27 @@
 ---
 title: 'EXAMPLES-001: Bring examples/ under CI typecheck/build so SDK API drift fails fast'
-status: todo
+status: done
+completed: 2026-06-27
 created: 2026-06-27
 priority: high
 urgency: soon
 area: examples, root (workspaces, ci)
 depends_on: []
 ---
+
+## Evidence Log (2026-06-27)
+
+- Decision (user-approved): examples become **workspace members** (`pnpm-workspace.yaml` +
+  package.json `workspaces` add `examples/*`) so pnpm links `@robota-sdk/*` to local source and
+  NodeNext resolves the real exports (incl. sub-paths like `agent-provider/anthropic`).
+- Excluded examples from harness scans: `listWorkspaceScopes` (shared.mjs) skips the `examples`
+  root, so the 32 scans are unaffected (examples have no SPEC.md / are private).
+- `examples:typecheck` root script + CI job (`examples-typecheck`, build:deps → typecheck).
+- **Proved drift detection**: the gate immediately caught `examples/express` using the removed
+  `createFunctionTool` + an outdated `IAgentConfig`. The 8 other examples pass against current
+  source. express is quarantined (`!robota-example-express`) and tracked by **EXAMPLES-002**.
+- Verified: `examples:typecheck` 8/8 green, `harness:scan` 32/32, `build:deps` OK,
+  `install --frozen-lockfile` OK.
 
 # Bring examples/ under CI typecheck/build
 

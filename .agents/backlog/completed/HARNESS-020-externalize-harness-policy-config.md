@@ -1,12 +1,33 @@
 ---
 title: 'HARNESS-020: Externalize harness policy to .agents/harness.config.json (generic engine + swappable policy)'
-status: todo
+status: done
+completed: 2026-06-27
 created: 2026-06-27
 priority: medium
 urgency: later
 area: scripts/harness, .agents
 depends_on: []
 ---
+
+## Evidence Log (2026-06-27)
+
+- Added `.agents/harness.config.json` (npmScopePrefix, corePackage, internalPackagePrefix,
+  internalDeps.pluginLayerAllowed, productShellDirs, lessonsDigestDisableEnv) + a sync loader
+  `scripts/harness/harness-config.mjs`.
+- Refactored the **reusable-policy** scans to read from config (no inlined product literals):
+  `check-dependency-direction.mjs` (core/plugin rules now use corePackage + internalPackagePrefix +
+  npmScopePrefix + pluginLayerAllowed; `ALLOWED_ROBOTA_DEPS` → `ALLOWED_INTERNAL_DEPS`) and
+  `check-capability-placement.mjs` (`PRODUCT_SHELL_DIRS` from config).
+- Neutralized the product-name env: `ROBOTA_DISABLE_LESSONS_DIGEST` → `HARNESS_DISABLE_LESSONS_DIGEST`
+  (set sites in self-check + test; it has no read site — vestigial). lessons-digest vitest still green.
+- Scope decision: `check-agent-server-boundary.mjs` and `check-command-layering.mjs` encode
+  inherently **project-specific** architecture assertions (which named package may import which) —
+  a different repo replaces these scans wholesale rather than reconfiguring them (the backlog itself
+  notes their rules are project-specific). Their specific package-name rule tables are left inline by
+  design; the _reusable_ engine primitives are now config-driven.
+- Verified: `pnpm harness:scan` → **32/32 passed** (identical results; deps + capability-placement
+  now config-driven). Editing `productShellDirs`/`pluginLayerAllowed` in the JSON changes the
+  corresponding scan with no source edit.
 
 # Externalize harness policy — generic engine + swappable policy
 

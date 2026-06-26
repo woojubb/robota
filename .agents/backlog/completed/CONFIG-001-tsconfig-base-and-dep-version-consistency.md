@@ -1,12 +1,24 @@
 ---
 title: 'CONFIG-001: Align package tsconfig base + resolve rimraf version skew'
-status: todo
+status: done
+completed: 2026-06-27
 created: 2026-06-27
 priority: low
 urgency: later
 area: packages (tsconfig, package.json)
 depends_on: []
 ---
+
+## Evidence Log (2026-06-27)
+
+- Switched 6 packages (agent-interface-transport, agent-interface-tui, agent-preset,
+  agent-remote-client, agent-session-analytics, agent-web-ui) from `extends ../../tsconfig.json`
+  (dev config) to `../../tsconfig.base.json` (library config) → unified typecheck baseline
+  (adds noImplicitReturns/Override, strictFunctionTypes, etc.). `pnpm typecheck` PASS with no
+  newly-surfaced errors.
+- Unified `rimraf` `^6.1.3` → `^5.0.10` in agent-command/agent-plugin/agent-provider/
+  agent-subagent-runner; lockfile regenerated; `pnpm install --frozen-lockfile` passes.
+- Verified: build:deps OK, harness:scan 30/30.
 
 # Align package tsconfig base + resolve dep version skew
 

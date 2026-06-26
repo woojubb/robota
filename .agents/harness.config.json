@@ -1,0 +1,11 @@
+{
+  "$comment": "Externalized harness policy data (HARNESS-020). The scan ENGINE lives in scripts/harness/*; this file holds the project-specific POLICY so the engine is repo-agnostic. Edit values here instead of hardcoding literals in scan scripts.",
+  "npmScopePrefix": "@robota-sdk/",
+  "corePackage": "@robota-sdk/agent-core",
+  "internalPackagePrefix": "@robota-sdk/agent-",
+  "internalDeps": {
+    "pluginLayerAllowed": ["@robota-sdk/agent-core"]
+  },
+  "productShellDirs": ["packages/agent-cli", "apps/agent-web", "apps/docs", "apps/blog"],
+  "lessonsDigestDisableEnv": "HARNESS_DISABLE_LESSONS_DIGEST"
+}
