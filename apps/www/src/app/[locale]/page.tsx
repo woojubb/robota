@@ -1,8 +1,8 @@
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import Link from 'next/link';
-import { KeyRound, Repeat, Package, Server, ShieldCheck, Zap } from 'lucide-react';
+import { KeyRound, Repeat, Package, ShieldCheck, Zap } from 'lucide-react';
 
-const FEATURE_ICONS = [KeyRound, Repeat, Package, Server, ShieldCheck, Zap];
+const FEATURE_ICONS = [KeyRound, Repeat, Package, ShieldCheck, Zap];
 
 const PROVIDERS = [
   { name: 'Anthropic', color: 'text-orange-400' },
@@ -86,22 +86,41 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
       {/* Features grid */}
       <section className="py-16 sm:py-20">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-          <h2 className="text-center text-2xl font-bold text-[var(--foreground)] sm:text-3xl">
+          <h2 className="text-2xl font-bold text-[var(--foreground)] sm:text-3xl">
             {t('featuresTitle')}
           </h2>
           <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {features.map((f, i) => {
               const Icon = FEATURE_ICONS[i] ?? KeyRound;
+              // First feature is the emphasized anchor (spans two columns on
+              // wide screens) so the section reads as a composition, not a
+              // symmetric six-tile AI grid (WEB-013).
+              const emphasized = i === 0;
               return (
                 <div
                   key={f.title}
-                  className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-5"
+                  className={`rounded-xl border border-[var(--border)] bg-[var(--card)] p-5 ${
+                    emphasized ? 'lg:col-span-2 lg:p-7' : ''
+                  }`}
                 >
-                  <Icon className="h-6 w-6 text-[var(--primary)]" strokeWidth={1.75} />
-                  <h3 className="mt-3 text-base font-semibold text-[var(--foreground)]">
+                  <Icon
+                    className={`text-[var(--primary)] ${emphasized ? 'h-8 w-8' : 'h-6 w-6'}`}
+                    strokeWidth={1.75}
+                  />
+                  <h3
+                    className={`mt-3 font-semibold text-[var(--foreground)] ${
+                      emphasized ? 'text-xl' : 'text-base'
+                    }`}
+                  >
                     {f.title}
                   </h3>
-                  <p className="mt-1.5 text-sm text-[var(--muted-foreground)]">{f.description}</p>
+                  <p
+                    className={`mt-1.5 text-[var(--muted-foreground)] ${
+                      emphasized ? 'text-base max-w-xl' : 'text-sm'
+                    }`}
+                  >
+                    {f.description}
+                  </p>
                 </div>
               );
             })}

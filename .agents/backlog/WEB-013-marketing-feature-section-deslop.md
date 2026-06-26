@@ -1,6 +1,6 @@
 ---
 title: 'WEB-013: De-slop the marketing feature section (dedupe cards, break the AI grid)'
-status: todo
+status: in-progress
 created: 2026-06-26
 priority: medium
 urgency: soon
