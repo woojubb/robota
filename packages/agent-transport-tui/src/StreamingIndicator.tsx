@@ -7,6 +7,7 @@ import { Box, Text } from 'ink';
 import React from 'react';
 
 import { renderMarkdown } from './render-markdown.js';
+import { STATUS_GLYPH, toolStateStatusKind } from './status-glyph.js';
 import ToolDiffBlock from './ToolDiffBlock.js';
 
 import type { IToolState } from '@robota-sdk/agent-interface-transport';
@@ -16,10 +17,9 @@ function getToolStyle(t: IToolState): {
   icon: string;
   strikethrough: boolean;
 } {
-  if (t.isRunning) return { color: 'yellow', icon: '⟳', strikethrough: false };
-  if (t.result === 'error') return { color: 'red', icon: '✗', strikethrough: true };
-  if (t.result === 'denied') return { color: 'yellowBright', icon: '⊘', strikethrough: true };
-  return { color: 'green', icon: '✓', strikethrough: false };
+  const kind = toolStateStatusKind(t);
+  const { color, symbol } = STATUS_GLYPH[kind];
+  return { color, icon: symbol, strikethrough: kind === 'error' || kind === 'denied' };
 }
 
 interface IProps {

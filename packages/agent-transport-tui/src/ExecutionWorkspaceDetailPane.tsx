@@ -5,6 +5,7 @@ import {
   formatExecutionDetailRecord,
   formatExecutionWorkspaceEntryRow,
 } from './execution-workspace-view-model.js';
+import { STATUS_GLYPH } from './status-glyph.js';
 
 import type {
   IExecutionDetailPage,
@@ -45,20 +46,33 @@ export default function ExecutionWorkspaceDetailPane({
       {!loading && !error && records.length === 0 ? <Text dimColor>No detail yet</Text> : null}
       {!loading &&
         !error &&
-        records.map((record) => (
-          <Text key={record.id} color={getDetailRecordColor(record.kind)}>
-            {formatExecutionDetailRecord(record)}
-          </Text>
-        ))}
+        records.map((record) => {
+          const { symbol, color } = getDetailRecordGlyph(record.kind);
+          return (
+            <Text key={record.id} color={color}>
+              {symbol ? `${symbol} ` : ''}
+              {formatExecutionDetailRecord(record)}
+            </Text>
+          );
+        })}
       {page?.nextCursor ? <Text dimColor>... more detail available</Text> : null}
     </Box>
   );
 }
 
-function getDetailRecordColor(kind: TExecutionDetailRecordKind): string | undefined {
-  if (kind === 'error') return 'red';
-  if (kind === 'result') return 'green';
-  if (kind === 'process_output') return 'white';
-  if (kind === 'group_summary') return 'cyan';
-  return undefined;
+/**
+ * Symbol + color per detail-record kind. A symbol always accompanies the color
+ * so status is legible without color (SCREEN-005 — no color-only encoding).
+ */
+function getDetailRecordGlyph(kind: TExecutionDetailRecordKind): {
+  symbol: string;
+  color: string | undefined;
+} {
+  if (kind === 'error')
+    return { symbol: STATUS_GLYPH.error.symbol, color: STATUS_GLYPH.error.color };
+  if (kind === 'result')
+    return { symbol: STATUS_GLYPH.success.symbol, color: STATUS_GLYPH.success.color };
+  if (kind === 'group_summary') return { symbol: '▸', color: 'cyan' };
+  if (kind === 'process_output') return { symbol: '·', color: 'white' };
+  return { symbol: '', color: undefined };
 }

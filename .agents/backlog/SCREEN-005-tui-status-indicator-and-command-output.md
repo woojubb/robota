@@ -1,6 +1,6 @@
 ---
 title: 'SCREEN-005: Unify TUI status indicators and fix hidden command output'
-status: todo
+status: in-progress
 created: 2026-06-26
 priority: high
 urgency: soon
