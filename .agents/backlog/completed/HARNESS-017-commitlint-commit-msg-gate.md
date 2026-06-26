@@ -1,11 +1,27 @@
 ---
 title: 'HARNESS-017: Enforce conventional commits mechanically (commitlint + commit-msg hook + CI)'
-status: todo
+status: done
 created: 2026-06-27
+completed: 2026-06-27
 priority: high
 urgency: now
 area: root (husky, package.json, ci)
 depends_on: []
+---
+
+## Evidence Log (2026-06-27)
+
+- Added devDeps `@commitlint/cli` + `@commitlint/config-conventional` (lockfile updated;
+  `pnpm install --frozen-lockfile` passes).
+- `commitlint.config.js` extends `config-conventional`; disables `body-max-line-length` /
+  `footer-max-line-length` (repo commit bodies/footers intentionally exceed 100 cols).
+- `.husky/commit-msg` runs `commitlint --edit "$1"` (matches existing husky.sh sourcing
+  pattern; chmod +x).
+- `.github/workflows/ci.yml`: new `commitlint` job (PRs to non-main) lints the PR commit range
+  `--from origin/<base> --to HEAD`.
+- Verified: `echo "wip random stuff" | commitlint` → exit 1 (2 problems); `feat(x): good` with
+  a 100+ col body → exit 0. YAML validates; frozen-lockfile passes.
+
 ---
 
 # Enforce conventional commits mechanically

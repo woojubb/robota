@@ -260,3 +260,33 @@ jobs:
         # robota-web (apps/agent-web) is a jest-based Next.js app, not a published
         # Node-18 consumer surface; jest cannot parse the vitest coverage flags.
         run: pnpm --filter !@robota-sdk/agent-cli --filter !robota-web run test -- --coverage --coverage.thresholds.lines=80
+
+  commitlint:
+    name: commitlint
+    runs-on: ubuntu-latest
+    if: github.base_ref != 'main'
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8.15.4
+
+      - name: Use Node.js 22.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Fetch base branch
+        run: git fetch origin ${{ github.base_ref }} --depth=50
+
+      - name: Lint PR commit messages
+        run: pnpm exec commitlint --from origin/${{ github.base_ref }} --to HEAD --verbose

@@ -1,0 +1,5 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Conventional-commit message enforcement (HARNESS-017).
+npx --no-install commitlint --edit "$1"
