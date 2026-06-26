@@ -71,7 +71,7 @@ export function Header() {
               href="https://github.com/woojubb/robota"
               target="_blank"
               rel="noopener noreferrer"
-              className="tap-target rounded-md bg-[var(--primary)] px-3 text-sm font-medium text-[var(--primary-foreground)] hover:opacity-90 transition-opacity"
+              className="tap-target rounded-md bg-[var(--primary)] px-3 text-sm font-medium text-[var(--primary-foreground)] hover:bg-[var(--accent-hover)] transition-colors"
             >
               {t('nav.github')}
             </a>

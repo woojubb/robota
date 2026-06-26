@@ -25,7 +25,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
       <section className="relative overflow-hidden py-20 sm:py-28">
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-10%,rgba(45,212,167,0.18),transparent)]"
+          className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-10%,color-mix(in_srgb,var(--accent)_18%,transparent),transparent)]"
         />
         <div className="relative mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 text-center">
           <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--card)] px-3 py-1 text-xs text-[var(--muted-foreground)]">
@@ -55,7 +55,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
               href="https://docs.robota.io/getting-started/"
               target="_blank"
               rel="noopener noreferrer"
-              className="rounded-lg bg-[var(--primary)] px-5 py-3 text-sm font-semibold text-[var(--primary-foreground)] hover:opacity-90 transition-opacity"
+              className="rounded-lg bg-[var(--primary)] px-5 py-3 text-sm font-semibold text-[var(--primary-foreground)] hover:bg-[var(--accent-hover)] transition-colors"
             >
               {t('hero.getStarted')}
             </a>
@@ -162,7 +162,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
             href="https://docs.robota.io/getting-started/"
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-6 inline-block rounded-lg bg-[var(--primary)] px-6 py-3 text-sm font-semibold text-[var(--primary-foreground)] hover:opacity-90 transition-opacity"
+            className="mt-6 inline-block rounded-lg bg-[var(--primary)] px-6 py-3 text-sm font-semibold text-[var(--primary-foreground)] hover:bg-[var(--accent-hover)] transition-colors"
           >
             {t('cta.readGuide')}
           </a>

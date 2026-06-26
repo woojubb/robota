@@ -80,7 +80,7 @@ export default async function ShowcasePage({ params }: { params: Promise<{ local
           href="https://github.com/woojubb/robota/pulls"
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-block rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-[var(--primary-foreground)] hover:opacity-90 transition-opacity"
+          className="inline-block rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-[var(--primary-foreground)] hover:bg-[var(--accent-hover)] transition-colors"
         >
           {t('submitButton')}
         </a>

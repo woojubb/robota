@@ -32,11 +32,11 @@
 
   /* Accents — unified brand palette (BRAND-001) */
   --primary:            #2dd4a7;       /* emerald/teal */
-  --primary-dim:        rgba(45,212,167,0.12);
-  --primary-glow:       rgba(45,212,167,0.20);
+  --primary-dim:        color-mix(in srgb, var(--accent) 12%, transparent);
+  --primary-glow:       color-mix(in srgb, var(--accent) 20%, transparent);
   --primary-foreground: #050508;
   --secondary:          #22b8a0;       /* deeper teal (gradient partner) */
-  --secondary-dim:      rgba(34,184,160,0.10);
+  --secondary-dim:      color-mix(in srgb, var(--secondary) 10%, transparent);
 
   /* Muted / UI */
   --muted:            #111118;
@@ -44,7 +44,7 @@
   --border:           rgba(255,255,255,0.07);
   --border-strong:    rgba(255,255,255,0.12);
   --accent:           #2dd4a7;
-  --accent-dim:       rgba(45,212,167,0.10);
+  --accent-dim:       color-mix(in srgb, var(--accent) 10%, transparent);
 
   /* Layout */
   --sidebar-width:    264px;
@@ -168,7 +168,7 @@
 .prose a {
   color: var(--primary);
   text-decoration: none;
-  border-bottom: 1px solid rgba(45,212,167,0.3);
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
   transition: border-color 0.15s, color 0.15s;
 }
 
@@ -259,7 +259,7 @@
   color: var(--foreground);
 }
 
-.prose tr:hover td { background: rgba(45,212,167,0.025); }
+.prose tr:hover td { background: color-mix(in srgb, var(--accent) 2.5%, transparent); }
 
 .prose hr {
   border: none;
