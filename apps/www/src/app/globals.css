@@ -33,7 +33,7 @@
   --border: #252540;
   --accent: #2dd4a7;
   --accent-hover: #25b492;
-  --accent-dim: rgba(45, 212, 167, 0.12);
+  --accent-dim: color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
 @layer base {

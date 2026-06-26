@@ -30,7 +30,7 @@ export default async function BetaPage({ params }: { params: Promise<{ locale: s
             href="https://docs.robota.io/getting-started/"
             target="_blank"
             rel="noopener noreferrer"
-            className="rounded-lg bg-[var(--primary)] px-5 py-2.5 text-sm font-semibold text-[var(--primary-foreground)] hover:opacity-90 transition-opacity"
+            className="rounded-lg bg-[var(--primary)] px-5 py-2.5 text-sm font-semibold text-[var(--primary-foreground)] hover:bg-[var(--accent-hover)] transition-colors"
           >
             {t('ctaDocs')}
           </a>

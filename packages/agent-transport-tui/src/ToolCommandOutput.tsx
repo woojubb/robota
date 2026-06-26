@@ -14,22 +14,15 @@ export default function ToolCommandOutput({ tool }: IProps): React.ReactElement 
   const summary = formatCommandOutputSummary(tool);
   if (!summary) return null;
 
-  // A successful command that produced no output used to render nothing, so the
-  // user could not tell "ran, no output" from "not shown". Show a minimal
-  // confirmation instead (SCREEN-005).
+  // A successful command with no output renders nothing here: the parent
+  // (MessageList ToolSummaryEntry) already shows a "✓ tool(args)" summary line for
+  // every tool, so a second "✓ ok" line was a duplicate success marker (SCREEN-007).
   if (
     summary.statusLabel === 'ok' &&
     summary.previewLines.length === 0 &&
     !summary.transcriptHint
   ) {
-    const ok = STATUS_GLYPH.success;
-    return (
-      <Box marginLeft={4}>
-        <Text color={ok.color} dimColor>
-          {ok.symbol} ok
-        </Text>
-      </Box>
-    );
+    return null;
   }
   const color = summary.status === 'error' ? STATUS_GLYPH.error.color : 'white';
 

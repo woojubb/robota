@@ -10,7 +10,11 @@
  * terminals and colorblind users).
  */
 
-import type { IToolState, TExecutionWorkspaceStatus } from '@robota-sdk/agent-interface-transport';
+import type {
+  IToolState,
+  TExecutionAttention,
+  TExecutionWorkspaceStatus,
+} from '@robota-sdk/agent-interface-transport';
 
 export type TUiStatusKind =
   | 'running'
@@ -35,7 +39,7 @@ export const STATUS_GLYPH: Record<TUiStatusKind, IStatusGlyph> = {
   error: { symbol: '✗', color: 'red' },
   denied: { symbol: '⊘', color: 'yellowBright' },
   waiting: { symbol: '◴', color: 'yellow' },
-  cancelled: { symbol: '⊘', color: 'yellow' },
+  cancelled: { symbol: '⊗', color: 'yellow' },
   idle: { symbol: '·', color: 'gray' },
 };
 
@@ -54,10 +58,18 @@ const ACTIVE_WORKSPACE_STATUSES: readonly TExecutionWorkspaceStatus[] = [
   'sleeping',
 ];
 
-/** Map an execution-workspace entry status to a semantic status kind. */
-export function workspaceStatusKind(status: TExecutionWorkspaceStatus): TUiStatusKind {
-  if (status === 'failed') return 'error';
-  if (status === 'waiting_permission') return 'waiting';
+/**
+ * Map an execution-workspace entry's status (+ optional attention) to a semantic
+ * status kind. `attention` takes precedence so an entry flagged failed/permission
+ * classifies correctly even when its raw status hasn't caught up — this mirrors the
+ * precedence the workspace color logic uses, so colour + glyph come from one rule.
+ */
+export function workspaceStatusKind(
+  status: TExecutionWorkspaceStatus,
+  attention?: TExecutionAttention,
+): TUiStatusKind {
+  if (attention === 'failed' || status === 'failed') return 'error';
+  if (attention === 'permission' || status === 'waiting_permission') return 'waiting';
   if (status === 'completed') return 'success';
   if (status === 'cancelled') return 'cancelled';
   if (ACTIVE_WORKSPACE_STATUSES.includes(status)) return 'running';

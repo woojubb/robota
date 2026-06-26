@@ -1,3 +1,5 @@
+import { STATUS_GLYPH, workspaceStatusKind } from './status-glyph.js';
+
 import type {
   IExecutionDetailRecord,
   IExecutionWorkspaceEntry,
@@ -5,6 +7,11 @@ import type {
   TExecutionWorkspaceStatus,
 } from '@robota-sdk/agent-interface-transport';
 
+// "Active" for the in-flight COUNT (countActiveBackgroundWorkspaceEntries) —
+// intentionally includes `waiting_permission` (a task awaiting permission is still
+// in flight). This is a different question from the status KIND used for
+// colour/glyph (where `waiting_permission` maps to its own 'waiting' kind via
+// `workspaceStatusKind`), so the two lists differ on purpose.
 const ACTIVE_STATUSES: readonly TExecutionWorkspaceStatus[] = [
   'active',
   'queued',
@@ -101,13 +108,10 @@ function formatStatusLabel(status: TExecutionWorkspaceStatus): string {
   return status.replace(/_/g, ' ');
 }
 
+// Colour comes from the shared status glyph so an entry's colour always matches the
+// glyph/symbol shown for the same status everywhere (SCREEN-007). Single source of truth.
 function getEntryColor(entry: IExecutionWorkspaceEntry): string {
-  if (entry.attention === 'failed' || entry.status === 'failed') return 'red';
-  if (entry.attention === 'permission' || entry.status === 'waiting_permission') return 'yellow';
-  if (entry.status === 'completed') return 'green';
-  if (entry.status === 'cancelled') return 'yellow';
-  if (ACTIVE_STATUSES.includes(entry.status)) return 'cyan';
-  return 'white';
+  return STATUS_GLYPH[workspaceStatusKind(entry.status, entry.attention)].color;
 }
 
 function trimPreview(value: string | undefined): string | undefined {

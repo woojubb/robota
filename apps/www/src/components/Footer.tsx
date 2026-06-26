@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import { InternalLink } from './ui';
 import { useLocale, useTranslations } from 'next-intl';
 
 export function Footer() {
@@ -22,31 +22,28 @@ export function Footer() {
             </p>
             <ul className="mt-3 space-y-2">
               <li>
-                <Link
-                  prefetch={false}
+                <InternalLink
                   href={`/${locale}/compare`}
                   className="inline-flex min-h-[44px] items-center text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
                 >
                   {t('footer.links.whyRobota')}
-                </Link>
+                </InternalLink>
               </li>
               <li>
-                <Link
-                  prefetch={false}
+                <InternalLink
                   href={`/${locale}/showcase`}
                   className="inline-flex min-h-[44px] items-center text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
                 >
                   {t('footer.links.showcase')}
-                </Link>
+                </InternalLink>
               </li>
               <li>
-                <Link
-                  prefetch={false}
+                <InternalLink
                   href={`/${locale}/roadmap`}
                   className="inline-flex min-h-[44px] items-center text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
                 >
                   {t('footer.links.roadmap')}
-                </Link>
+                </InternalLink>
               </li>
             </ul>
           </div>
@@ -85,13 +82,12 @@ export function Footer() {
             </p>
             <ul className="mt-3 space-y-2">
               <li>
-                <Link
-                  prefetch={false}
+                <InternalLink
                   href={`/${locale}/enterprise`}
                   className="inline-flex min-h-[44px] items-center text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
                 >
                   {t('footer.links.enterprise')}
-                </Link>
+                </InternalLink>
               </li>
               {[
                 {

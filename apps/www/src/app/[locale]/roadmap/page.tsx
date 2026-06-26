@@ -121,7 +121,7 @@ export default async function RoadmapPage({ params }: { params: Promise<{ locale
             href="https://github.com/woojubb/robota/discussions"
             target="_blank"
             rel="noopener noreferrer"
-            className="rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-[var(--primary-foreground)] hover:opacity-90 transition-opacity"
+            className="rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-[var(--primary-foreground)] hover:bg-[var(--accent-hover)] transition-colors"
           >
             {t('vote.githubDiscussions')}
           </a>

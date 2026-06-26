@@ -15,6 +15,18 @@ For server-side rendering or any web application that needs routing, data fetchi
 
 Do not build new Express/custom SSR servers for web apps. Next.js is the standard.
 
+## Static Export (`output: 'export'`)
+
+For statically-exported Next.js apps (e.g. `apps/www`):
+
+- A static export never serves the RSC `/<route>.txt?_rsc=…` payloads that `<Link>`
+  prefetch fetches, so default prefetch logs console 404s on the deployed site. Route
+  every internal link through one wrapper that sets `prefetch={false}` (e.g. an
+  `InternalLink` component) rather than repeating the prop per call site.
+- Build output is per-route HTML (`/en.html`, `/en/about.html`), not directories.
+  Verify deployed pages by the real path, and confirm the deploy is the new build —
+  production serves the `main` build, and a domain rebind alone keeps the old one.
+
 ## Styling
 
 Tailwind CSS utility classes only. This rule is shared with [naming-style.md](naming-style.md).
