@@ -1,10 +1,12 @@
 import { formatExecutionWorkspaceEntryRow } from './execution-workspace-view-model.js';
+import { STATUS_GLYPH, workspaceStatusKind } from './status-glyph.js';
 
 import type { IExecutionWorkspaceEntry } from '@robota-sdk/agent-interface-transport';
 
 export interface IBackgroundTaskRow {
   connector: '├' | '└';
-  marker: '□' | '■';
+  /** Shared status glyph (⟳ running, ✓ done, ✗ failed, …) — see status-glyph.ts. */
+  marker: string;
   color: string;
   label: string;
   segments: string[];
@@ -21,7 +23,7 @@ export function formatBackgroundTaskRow(
   options: IBackgroundTaskRowOptions = {},
 ): IBackgroundTaskRow {
   const row = formatExecutionWorkspaceEntryRow(entry);
-  const marker = isActiveEntry(entry) ? '□' : '■';
+  const marker = STATUS_GLYPH[workspaceStatusKind(entry.status)].symbol;
   const segments = [row.statusLabel, row.subtitle].filter(
     (segment): segment is string => typeof segment === 'string' && segment.length > 0,
   );
@@ -40,14 +42,4 @@ export function formatBackgroundTaskRow(
       .filter((part): part is string => typeof part === 'string' && part.length > 0)
       .join(' · '),
   };
-}
-
-function isActiveEntry(entry: IExecutionWorkspaceEntry): boolean {
-  return (
-    entry.status === 'active' ||
-    entry.status === 'queued' ||
-    entry.status === 'running' ||
-    entry.status === 'waiting_permission' ||
-    entry.status === 'sleeping'
-  );
 }

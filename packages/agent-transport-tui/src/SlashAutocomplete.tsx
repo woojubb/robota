@@ -49,7 +49,7 @@ function CommandRow(props: {
   nameColWidth: number;
 }): React.ReactElement {
   const { cmd, isSelected, showSlash, rowWidth, nameColWidth } = props;
-  const indicator = isSelected ? '▸ ' : '  ';
+  const indicator = isSelected ? '> ' : '  ';
   const nameColor = isSelected ? 'cyan' : undefined;
   const dimmed = !isSelected;
   const namePart = capName(cmd.name, nameColWidth);
@@ -97,6 +97,7 @@ export default function SlashAutocomplete({
           nameColWidth={nameColWidth}
         />
       ))}
+      <Text dimColor> ↑↓ Navigate Tab Complete Enter Select Esc Close</Text>
     </Box>
   );
 }

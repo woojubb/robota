@@ -16,15 +16,30 @@ interface IProps {
   text: string;
 }
 
+/**
+ * Animate only on an interactive color terminal. In a non-TTY (piped/redirected
+ * output) or when NO_COLOR is set, render static text — no interval, no
+ * flicker, no motion (SCREEN-006 accessibility / non-TTY safety).
+ */
+function shouldAnimate(): boolean {
+  return Boolean(process.stdout.isTTY) && !process.env.NO_COLOR;
+}
+
 export default function WaveText({ text }: IProps): React.ReactElement {
+  const animate = shouldAnimate();
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
+    if (!animate) return undefined;
     const timer = setInterval(() => {
       setTick((prev) => prev + 1);
     }, INTERVAL_MS);
     return () => clearInterval(timer);
-  }, []);
+  }, [animate]);
+
+  if (!animate) {
+    return <Text color={WAVE_COLORS[2]}>{text}</Text>;
+  }
 
   const chars = [...text];
 

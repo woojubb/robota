@@ -26,7 +26,7 @@ export function MermaidDiagram({ chart }: MermaidDiagramProps) {
             theme: 'dark',
             themeVariables: {
               background: '#0a0a0f',
-              primaryColor: '#a78bfa',
+              primaryColor: '#2dd4a7',
               primaryTextColor: '#e8e6f0',
               primaryBorderColor: '#252540',
               lineColor: '#7b7a95',
