@@ -58,12 +58,13 @@ tap targets hurt usability.
 - **Semantic structure (done):** quick-links wrapped in a `<section aria-labelledby>`
   with an `<h2>` "Explore the docs"; card titles are now `<h3>`. Verified on the build:
   sections 0→1, h1 1, h2 0→1, h3 0→6 (proper h1→h2→h3 hierarchy).
-- **Console 404s (mostly done):** the RSC `.txt?_rsc` prefetch 404s are removed via
-  `prefetch={false}` on the docs `<Link>` (Header + Sidebar). The remaining
-  `pagefind/pagefind.js` 404 is a **build-pipeline** issue, not source: `postbuild`
-  runs `pagefind --site out`, but the index is not being generated (pagefind step not
-  running in the build/CI). Tracked as a follow-up — needs the docs build to run the
-  pagefind postbuild step.
+- **Console 404s (done):** the RSC `.txt?_rsc` prefetch 404s are removed via
+  `prefetch={false}` on the docs `<Link>` (Header + Sidebar). The
+  `pagefind/pagefind.js` 404 is also fixed: pagefind was never a dependency and the
+  `postbuild` hook never ran (pnpm disables pre/post scripts by default). Added
+  `pagefind` as a devDependency and chained it into `build`
+  (`next build && pagefind --site out`); the build now indexes the site (175 pages,
+  17.4k words) and emits `out/pagefind/pagefind.js`.
 - **Empty "Guide" card:** false positive — the card has a description; it was a
   truncated-viewport artifact in the original review. No change.
 - **GitHub icon:** the SVG is present and renders in the current build; the live
