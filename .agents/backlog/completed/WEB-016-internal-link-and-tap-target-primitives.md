@@ -1,6 +1,7 @@
 ---
 title: 'WEB-016: InternalLink + tap-target primitives (de-duplicate www)'
-status: todo
+status: done
+completed: 2026-06-27
 created: 2026-06-27
 priority: low
 urgency: soon
@@ -46,3 +47,16 @@ the policy/constant lives in many strings instead of one source, inviting drift.
 
 1. Open www with devtools → no RSC `.txt?_rsc` prefetch 404s; nav/footer tap targets
    ≥44px. Evidence: _to fill._
+
+## Resolution (2026-06-27)
+
+- `apps/www/src/components/ui.tsx` adds `InternalLink` (a `next/link` wrapper that
+  bakes in `prefetch={false}`). All internal links in Header/Footer/page.tsx now use it;
+  zero scattered `prefetch={false}` literals remain.
+- Tap-target dedup: an initial Tailwind v4 `@utility tap-target` was **reverted** because
+  it conflicts with [frontend.md](../../rules/frontend.md) — "use Tailwind utilities
+  directly in JSX, not custom globals.css utility classes" (Common Mistakes). The repeated
+  `inline-flex min-h-[44px] items-center` in JSX is the intended project convention
+  (styling stays visible in `className`); the review's "duplication" finding does not
+  apply here. Only the `InternalLink` part of WEB-016 (a React component, not styling)
+  stands. www build passes.

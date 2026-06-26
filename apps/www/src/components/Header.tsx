@@ -33,19 +33,19 @@ export function Header() {
           <nav className="hidden items-center gap-1 md:flex">
             <InternalLink
               href={`/${locale}/compare`}
-              className="tap-target rounded-md px-3 text-sm text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
+              className="inline-flex min-h-[44px] items-center rounded-md px-3 text-sm text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
             >
               {t('nav.whyRobota')}
             </InternalLink>
             <InternalLink
               href={`/${locale}/showcase`}
-              className="tap-target rounded-md px-3 text-sm text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
+              className="inline-flex min-h-[44px] items-center rounded-md px-3 text-sm text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
             >
               {t('nav.showcase')}
             </InternalLink>
             <InternalLink
               href={`/${locale}/roadmap`}
-              className="tap-target rounded-md px-3 text-sm text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
+              className="inline-flex min-h-[44px] items-center rounded-md px-3 text-sm text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
             >
               {t('nav.roadmap')}
             </InternalLink>
@@ -54,7 +54,7 @@ export function Header() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => switchLocale(otherLocale)}
-              className="tap-target rounded-md border border-[var(--border)] px-2.5 text-xs font-semibold text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
+              className="inline-flex min-h-[44px] items-center rounded-md border border-[var(--border)] px-2.5 text-xs font-semibold text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
               aria-label={`Switch to ${otherLocale}`}
             >
               {t(`lang.${otherLocale}`)}
@@ -63,7 +63,7 @@ export function Header() {
               href="https://docs.robota.io"
               target="_blank"
               rel="noopener noreferrer"
-              className="tap-target rounded-md px-3 text-sm text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
+              className="inline-flex min-h-[44px] items-center rounded-md px-3 text-sm text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
             >
               {t('nav.docs')} ↗
             </a>
@@ -71,7 +71,7 @@ export function Header() {
               href="https://github.com/woojubb/robota"
               target="_blank"
               rel="noopener noreferrer"
-              className="tap-target rounded-md bg-[var(--primary)] px-3 text-sm font-medium text-[var(--primary-foreground)] hover:bg-[var(--accent-hover)] transition-colors"
+              className="inline-flex min-h-[44px] items-center rounded-md bg-[var(--primary)] px-3 text-sm font-medium text-[var(--primary-foreground)] hover:bg-[var(--accent-hover)] transition-colors"
             >
               {t('nav.github')}
             </a>

@@ -3,14 +3,6 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* Minimum 44px tap-target hit area (WCAG target size) — one source of truth for
-   interactive controls instead of repeating the utilities per element (WEB-016). */
-@utility tap-target {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-}
-
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

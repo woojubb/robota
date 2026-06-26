@@ -24,7 +24,7 @@ export function Footer() {
               <li>
                 <InternalLink
                   href={`/${locale}/compare`}
-                  className="tap-target text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
+                  className="inline-flex min-h-[44px] items-center text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
                 >
                   {t('footer.links.whyRobota')}
                 </InternalLink>
@@ -32,7 +32,7 @@ export function Footer() {
               <li>
                 <InternalLink
                   href={`/${locale}/showcase`}
-                  className="tap-target text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
+                  className="inline-flex min-h-[44px] items-center text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
                 >
                   {t('footer.links.showcase')}
                 </InternalLink>
@@ -40,7 +40,7 @@ export function Footer() {
               <li>
                 <InternalLink
                   href={`/${locale}/roadmap`}
-                  className="tap-target text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
+                  className="inline-flex min-h-[44px] items-center text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
                 >
                   {t('footer.links.roadmap')}
                 </InternalLink>
@@ -67,7 +67,7 @@ export function Footer() {
                     href={href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="tap-target text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
+                    className="inline-flex min-h-[44px] items-center text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
                   >
                     {t(`footer.links.${key}` as Parameters<typeof t>[0])}
                   </a>
@@ -84,7 +84,7 @@ export function Footer() {
               <li>
                 <InternalLink
                   href={`/${locale}/enterprise`}
-                  className="tap-target text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
+                  className="inline-flex min-h-[44px] items-center text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
                 >
                   {t('footer.links.enterprise')}
                 </InternalLink>
@@ -101,7 +101,7 @@ export function Footer() {
                     href={href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="tap-target text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
+                    className="inline-flex min-h-[44px] items-center text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
                   >
                     {t(`footer.links.${key}` as Parameters<typeof t>[0])}
                   </a>
