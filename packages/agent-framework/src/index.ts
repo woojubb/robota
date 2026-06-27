@@ -631,7 +631,9 @@ export type { IInteractiveRuntimeOptions } from './interaction/createInteractive
 export { promptForApproval } from './permissions/permission-prompt.js';
 
 // ── Testing utilities ────────────────────────────────────────
-export { createTestInteractiveSession } from './testing/create-test-interactive-session.js';
+// Test-only fixtures (the functional session harness + stub session) are exported from the
+// `@robota-sdk/agent-framework/testing` subpath, not the runtime entry, so they stay out of the
+// runtime bundle (TEST-003).
 
 // ── Settings I/O ─────────────────────────────────────────────
 export {

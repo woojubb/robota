@@ -70,6 +70,10 @@ const SCAN_COMMANDS = [
   { name: 'release-governance', command: ['node', 'scripts/harness/check-release-governance.mjs'] },
   { name: 'test-plans', command: ['node', 'scripts/harness/scan-test-plan.mjs'] },
   {
+    name: 'functional-coverage',
+    command: ['node', 'scripts/harness/check-functional-coverage.mjs'],
+  },
+  {
     name: 'coverage-scripts',
     command: ['node', 'scripts/harness/check-test-coverage-scripts.mjs'],
   },

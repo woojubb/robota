@@ -59,6 +59,7 @@
     "harness:scan:sdk-public-surface": "node scripts/harness/check-sdk-public-surface.mjs",
     "harness:scan:specs": "node scripts/harness/audit-spec-coverage.mjs",
     "harness:scan:test-plans": "node scripts/harness/scan-test-plan.mjs",
+    "harness:scan:functional-coverage": "node scripts/harness/check-functional-coverage.mjs",
     "harness:scan:coverage-scripts": "node scripts/harness/check-test-coverage-scripts.mjs",
     "harness:scan:file-size": "node scripts/harness/scan-file-size.mjs",
     "harness:scan:build-contracts": "node scripts/harness/check-build-output-contracts.mjs",

@@ -865,6 +865,15 @@ NOTE: Tool implementations (`FunctionTool`, `OpenAPITool`) in the tools layer im
 
 ## Test Strategy
 
+### Test-only fixtures — `@robota-sdk/agent-core/testing` (TEST-003)
+
+A node-only `./testing` subpath (excluded from the browser build and the runtime bundle) owns the
+deterministic scripted provider SSOT: `createScriptedProvider(turns)` returns an `IAIProvider` that
+replays declared assistant turns (text or tool calls) through the **real** agent loop and records
+every request. It is the lowest layer that can own this fixture because it implements only
+agent-core contracts; higher layers (`agent-framework/testing`, `agent-transport/testing`) re-export
+it. Never import it from runtime code.
+
 ### Current Coverage
 
 | Layer         | Test Files                                                                              | Coverage                                       |

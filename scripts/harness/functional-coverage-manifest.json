@@ -1,0 +1,21 @@
+{
+  "$comment": "TEST-003 functional-coverage manifest. Each framework capability that the CLI exposes must have a kit-based functional test (driving a real InteractiveSession via @robota-sdk/agent-framework/testing). The functional-coverage harness scan fails when a listed test is missing or does not use the harness. Add a row whenever you add a framework capability (see .agents/rules/testing-layering.md).",
+  "markers": ["scriptedSession", "ScriptedSessionHarness"],
+  "capabilities": [
+    {
+      "id": "functional-harness",
+      "description": "The scriptedSession functional harness drives a real InteractiveSession (self-test / reference).",
+      "test": "packages/agent-framework/src/testing/__tests__/scripted-session-harness.test.ts"
+    },
+    {
+      "id": "goal-pursuit",
+      "description": "GOAL-001 autonomous objective loop: multi-turn pursuit, satisfied + max-iterations stop.",
+      "test": "packages/agent-framework/src/goal/__tests__/goal-functional.test.ts"
+    },
+    {
+      "id": "permission-gate",
+      "description": "Denied tools are blocked end to end (side effect prevented, denial reported).",
+      "test": "packages/agent-framework/src/testing/__tests__/permission-gate-functional.test.ts"
+    }
+  ]
+}

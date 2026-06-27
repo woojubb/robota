@@ -52,13 +52,14 @@ Consult the relevant skill before starting work in its domain. Each entry links 
 
 ## Testing
 
-| Skill                                                                   | Description                                                     |
-| ----------------------------------------------------------------------- | --------------------------------------------------------------- |
-| [vitest-testing-strategy](vitest-testing-strategy/SKILL.md)             | Practical unit, integration, and type-level testing with Vitest |
-| [pre-refactor-test-harness](pre-refactor-test-harness/SKILL.md)         | Characterization tests before refactoring monolithic files      |
-| [contract-testing](contract-testing/SKILL.md)                           | Consumer-driven contract testing for API boundaries             |
-| [scenario-verification-harness](scenario-verification-harness/SKILL.md) | Scenario verification loop for example flows                    |
-| [contract-audit](contract-audit/SKILL.md)                               | Class contract registry audit and SPEC.md update                |
+| Skill                                                                   | Description                                                                                  |
+| ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| [vitest-testing-strategy](vitest-testing-strategy/SKILL.md)             | Practical unit, integration, and type-level testing with Vitest                              |
+| [pre-refactor-test-harness](pre-refactor-test-harness/SKILL.md)         | Characterization tests before refactoring monolithic files                                   |
+| [contract-testing](contract-testing/SKILL.md)                           | Consumer-driven contract testing for API boundaries                                          |
+| [framework-functional-testing](framework-functional-testing/SKILL.md)   | Functionally verify a feature via a real InteractiveSession (scripted provider), not the CLI |
+| [scenario-verification-harness](scenario-verification-harness/SKILL.md) | Scenario verification loop for example flows                                                 |
+| [contract-audit](contract-audit/SKILL.md)                               | Class contract registry audit and SPEC.md update                                             |
 
 ## Build & Repository
 
