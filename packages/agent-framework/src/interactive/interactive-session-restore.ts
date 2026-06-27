@@ -17,6 +17,7 @@ import type { ISkillActivationEvent } from '../commands/skill-activation-events.
 import type { IContextReferenceItem } from '../context/context-reference-inventory.js';
 import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
 import type { TUniversalMessage, IHistoryEntry } from '@robota-sdk/agent-core';
+import type { IGoalState } from '@robota-sdk/agent-interface-transport';
 import type { Session } from '@robota-sdk/agent-session';
 
 /** Inject a saved message into a session, preserving all fields including toolCalls. */
@@ -45,6 +46,7 @@ export function loadSessionRecord(
   usedMemoryReferences: IMemoryReference[];
   contextReferences: IContextReferenceItem[];
   sandboxSnapshotId: string | undefined;
+  goal: IGoalState | undefined;
 } {
   const record = sessionStore.load(resumeSessionId);
   if (!record) {
@@ -61,6 +63,7 @@ export function loadSessionRecord(
       usedMemoryReferences: [],
       contextReferences: [],
       sandboxSnapshotId: undefined,
+      goal: undefined,
     };
   }
 
@@ -106,6 +109,7 @@ export function loadSessionRecord(
     usedMemoryReferences,
     contextReferences,
     sandboxSnapshotId,
+    goal: record.goal,
   };
 }
 

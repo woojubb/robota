@@ -133,6 +133,8 @@ function baseArgs(): IParsedCliArgs {
     language: undefined,
     permissionMode: undefined,
     maxTurns: undefined,
+    goal: undefined,
+    goalMaxIterations: undefined,
     forkSession: false,
     sessionName: undefined,
     outputFormat: undefined,

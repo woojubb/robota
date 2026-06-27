@@ -3,6 +3,7 @@ import { createBackgroundCommandModule } from '../background/index.js';
 import { createCompactCommandModule } from '../compact/index.js';
 import { createContextCommandModule } from '../context/index.js';
 import { createExitCommandModule } from '../exit/index.js';
+import { createGoalCommandModule } from '../goal/index.js';
 import { createHelpCommandModule } from '../help/index.js';
 import { createLanguageCommandModule } from '../language/index.js';
 import { createMemoryCommandModule } from '../memory/index.js';
@@ -79,6 +80,7 @@ export function createDefaultCommandModules({
     createPresetCommandModule(),
     createLanguageCommandModule(),
     createBackgroundCommandModule(),
+    createGoalCommandModule(),
     createMemoryCommandModule(),
     createUserLocalCommandModule(),
     createCompactCommandModule(),

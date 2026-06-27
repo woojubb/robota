@@ -68,6 +68,8 @@ function makeArgs(overrides: Partial<IParsedCliArgs> = {}): IParsedCliArgs {
     language: undefined,
     permissionMode: undefined,
     maxTurns: 1,
+    goal: undefined,
+    goalMaxIterations: undefined,
     forkSession: false,
     sessionName: undefined,
     outputFormat: 'text',

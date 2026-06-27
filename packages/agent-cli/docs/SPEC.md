@@ -933,6 +933,8 @@ robota --model <model>               # Model override
 robota --language <lang>             # Response language (ko, en, ja, zh)
 robota --permission-mode <mode>      # plan | default | acceptEdits | bypassPermissions
 robota --max-turns <n>               # Limit turns
+robota --goal <objective>            # GOAL-001: pursue an autonomous goal headlessly until satisfied or a bound fires
+robota --goal-max-iterations <n>     # GOAL-001: per-goal turn budget (default 25)
 robota --allowed-tools <list>        # Comma-separated tool allowlist (TUI and print mode)
 robota --denied-tools <list>         # Comma-separated tool denylist (TUI and print mode)
 robota --json-schema <schema>        # Print mode: require JSON output matching this schema

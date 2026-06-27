@@ -290,4 +290,73 @@ describe('scripted agent-loop E2E (CLI-074)', () => {
     expect(bareRun.exitCode).toBe(0);
     expect(bareRun.stdout.trim()).toBe('CONTRACT_BARE');
   });
+
+  it('GOAL-001: --goal pursues an objective autonomously across turns until satisfied', async () => {
+    const target = join(project, 'GOAL.txt');
+    // Two goal-driven submits: the first writes the file and signals "continue", the second
+    // signals "satisfied" — the loop then stops on its own.
+    const scripted = createScriptedProvider([
+      { toolCalls: [{ name: 'Write', args: { filePath: target, content: '2026-06-27\n' } }] },
+      {
+        toolCalls: [
+          {
+            name: 'report_goal_status',
+            args: { status: 'continue', reason: 'file written, verifying' },
+          },
+        ],
+      },
+      { text: 'made progress' },
+      {
+        toolCalls: [
+          { name: 'report_goal_status', args: { status: 'satisfied', reason: 'GOAL.txt exists' } },
+        ],
+      },
+      { text: 'goal complete' },
+    ]);
+
+    const result = await runScripted(
+      project,
+      ['--goal', 'create GOAL.txt containing the date, then stop', '--no-session-persistence'],
+      scripted,
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(readFileSync(target, 'utf8')).toBe('2026-06-27\n');
+    expect(result.stdout).toContain('Goal satisfied');
+  });
+
+  it('GOAL-001: --goal stops cleanly at the iteration bound (exit 2) when never satisfied', async () => {
+    // The agent does real work each turn (so the no-progress guard never trips) but only ever
+    // signals "continue"; the loop must therefore stop at --goal-max-iterations.
+    const iteration = (): TScriptedTurn[] => [
+      { toolCalls: [{ name: 'Bash', args: { command: 'echo working' } }] },
+      {
+        toolCalls: [
+          { name: 'report_goal_status', args: { status: 'continue', reason: 'more to do' } },
+        ],
+      },
+      { text: 'iterating' },
+    ];
+    const scripted = createScriptedProvider([
+      ...iteration(),
+      ...iteration(),
+      ...iteration(),
+      ...iteration(),
+    ]);
+
+    const result = await runScripted(
+      project,
+      [
+        '--goal',
+        'an unbounded objective',
+        '--goal-max-iterations',
+        '2',
+        '--no-session-persistence',
+      ],
+      scripted,
+    );
+
+    expect(result.exitCode).toBe(2);
+    expect(result.stderr).toContain('max-iterations');
+  });
 });

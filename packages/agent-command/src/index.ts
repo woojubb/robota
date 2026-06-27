@@ -1,6 +1,7 @@
 export * from './agent/index.js';
 export * from './default/index.js';
 export * from './background/index.js';
+export * from './goal/index.js';
 export * from './compact/index.js';
 export * from './context/index.js';
 export * from './exit/index.js';
