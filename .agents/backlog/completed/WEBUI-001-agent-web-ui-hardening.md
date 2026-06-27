@@ -1,12 +1,28 @@
 ---
 title: 'WEBUI-001: agent-web-ui hardening — tests, a11y, public surface'
-status: todo
+status: done
+completed: 2026-06-27
 created: 2026-06-27
 priority: medium
 urgency: soon
 area: packages/agent-web-ui
 depends_on: []
 ---
+
+## Evidence Log (2026-06-27)
+
+- **Public surface**: `AgentActivityPanel` is now exported from `src/index.ts` (was documented
+  but not re-exported); SPEC updated (table + component list say "exported from root").
+- **Build-output**: the browser bundle is consumer-resolvable via the `./client` export
+  (`dist/browser/index.js` present after build).
+- **a11y**: `SessionMonitor` interactive elements now have accessible names — `aria-label` on the
+  WebSocket-URL input and the message textarea, and `role="status"` on the connection-status
+  label.
+- **Tests**: `createWsSessionClient` is unit-tested (malformed-frame guard from WEBUI-002 +
+  reconnect-after-unintentional-close and no-reconnect-after-intentional-disconnect). 4 tests
+  pass. (useWsSession reconstruction + ConversationView render tests need a jsdom harness — noted
+  in SPEC as remaining recommended.)
+- Verified: typecheck + build pass; `pnpm harness:scan` 32/32 (public-surface aligned).
 
 # agent-web-ui hardening — tests, a11y, public surface
 

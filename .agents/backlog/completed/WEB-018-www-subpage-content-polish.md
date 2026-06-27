@@ -1,12 +1,25 @@
 ---
 title: 'WEB-018: www subpage content polish + de-slop audit'
-status: todo
+status: done
+completed: 2026-06-27
 created: 2026-06-27
 priority: low
 urgency: later
 area: apps/www
 depends_on: []
 ---
+
+## Evidence Log (2026-06-27)
+
+- **Empty placeholder section (#1, the concrete launch-credibility item)**: hidden the showcase
+  "Community Projects" section that rendered only a `communityEmpty` placeholder — it is now
+  commented out (strings kept in the dictionaries) to restore with real entries later; the
+  Submit section directly below already invites contributions, so nothing user-facing is lost.
+- **De-slop audit (#2) + i18n parity (#3)**: these are subjective, layout/visual judgments best
+  made against rendered pages — recommended as a browser-based `/design-review` pass rather than
+  a headless code change. No template-grid removals were made blindly.
+- Verified: `apps/www` typecheck + static-export build pass; no `communityEmpty` placeholder
+  renders.
 
 # www subpage content polish + de-slop audit
 

@@ -1,12 +1,27 @@
 ---
 title: 'SCREEN-009: Audit remaining TUI components for color-only encoding + symbol consistency'
-status: todo
+status: done
+completed: 2026-06-27
 created: 2026-06-27
 priority: low
 urgency: later
 area: packages/agent-transport-tui
 depends_on: []
 ---
+
+## Evidence Log (2026-06-27)
+
+- Audited all interactive + status components. Result: **no color-only state found**.
+  - Selection/focus is consistent across every picker/prompt — `MenuSelect`, `InteractivePrompt`,
+    `SlashAutocomplete`, `ConfirmPrompt`, `PermissionPrompt`, `SessionPicker` (via `ListPicker`),
+    and `ExecutionWorkspaceSwitcher` all use the canonical `'> '` / `'  '` marker (symbol) +
+    cyan/bold (non-color cues), not color alone.
+  - Status is sourced from the `STATUS_GLYPH` SSOT (symbol + color) in `StreamingIndicator`,
+    `background-task-row-format`, `ExecutionWorkspaceDetailPane`; the Switcher also renders a text
+    `statusLabel`, so status is symbol + label + color.
+- Added a durable regression test (`status-glyph.test.ts`) asserting every `STATUS_GLYPH` kind has
+  a non-empty symbol AND color — a new status kind can't regress to color-only. 384 TUI tests pass;
+  typecheck clean.
 
 # Audit remaining TUI components for color-only encoding
 

@@ -1,12 +1,21 @@
 ---
 title: 'PERF-001: Web performance hygiene — font display:swap + image config consistency'
-status: todo
+status: done
+completed: 2026-06-27
 created: 2026-06-27
 priority: low
 urgency: soon
 area: apps/agent-web, apps/www
 depends_on: []
 ---
+
+## Evidence Log (2026-06-27)
+
+- `apps/agent-web/src/app/layout.tsx`: added `display: 'swap'` to both `Space_Grotesk` and
+  `Fira_Code` (parity with www/docs) — avoids the font-swap CLS jump.
+- `apps/www/next.config.ts`: added `images: { unoptimized: true }` (explicit, parity with docs)
+  since `output: 'export'` can't run the Image Optimization API at runtime.
+- Verified: `apps/agent-web` + `apps/www` typecheck pass.
 
 # Web performance hygiene
 

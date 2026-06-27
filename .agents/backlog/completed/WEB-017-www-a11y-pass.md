@@ -1,12 +1,23 @@
 ---
 title: 'WEB-017: www accessibility pass — focus-visible, icon labels, subpage tap targets'
-status: todo
+status: done
+completed: 2026-06-27
 created: 2026-06-27
 priority: medium
 urgency: soon
 area: apps/www
 depends_on: []
 ---
+
+## Evidence Log (2026-06-27)
+
+- **Focus-visible (primary gap)**: added a global `:focus-visible` ring (brand accent, 2px +
+  offset) in `globals.css @layer base` — keyboard users now get a visible focus indicator
+  (mouse clicks don't trigger `:focus-visible`, so no mouse-focus noise).
+- **Icon labels / accessible names**: audit found no icon-only controls — Header (locale
+  switcher already has `aria-label`; GitHub/Docs CTAs use text + `min-h-[44px]`) and Footer
+  links all render translated text labels.
+- Verified: `apps/www` typecheck + static-export build pass.
 
 # www accessibility pass
 

@@ -65,4 +65,42 @@ describe('createWsSessionClient (WEBUI-002)', () => {
     lastSocket!.onmessage?.({ data: JSON.stringify({ type: 'thinking', isThinking: true }) });
     expect(messages).toEqual([{ type: 'thinking', isThinking: true }]);
   });
+
+  it('schedules a reconnect after an unintentional close (WEBUI-001)', () => {
+    vi.useFakeTimers();
+    try {
+      const client = createWsSessionClient('ws://localhost:7070', {
+        onMessage: () => {},
+        onStatusChange: () => {},
+      });
+      client.connect();
+      const first = lastSocket;
+      expect(first).not.toBeNull();
+      // Server drops the connection unexpectedly.
+      first!.onclose?.({});
+      // A new socket is created after the reconnect delay.
+      vi.advanceTimersByTime(2000);
+      expect(lastSocket).not.toBe(first);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not reconnect after an intentional disconnect (WEBUI-001)', () => {
+    vi.useFakeTimers();
+    try {
+      const client = createWsSessionClient('ws://localhost:7070', {
+        onMessage: () => {},
+        onStatusChange: () => {},
+      });
+      client.connect();
+      const first = lastSocket;
+      client.disconnect();
+      first!.onclose?.({});
+      vi.advanceTimersByTime(5000);
+      expect(lastSocket).toBe(first);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

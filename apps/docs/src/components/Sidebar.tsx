@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import { InternalLink } from './InternalLink';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import type { SidebarItem } from '@/lib/sidebar';
@@ -31,12 +31,14 @@ function SidebarSection({ item, depth }: SectionProps) {
       <div style={{ marginBottom: '0.125rem' }}>
         {/* Section header — clickable toggle */}
         <button
+          aria-expanded={open}
           onClick={() => setOpen((o) => !o)}
           style={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
             width: '100%',
+            minHeight: '2.25rem',
             padding: '0.3rem 0.75rem',
             background: 'transparent',
             border: 'none',
@@ -53,14 +55,13 @@ function SidebarSection({ item, depth }: SectionProps) {
             marginTop: '1rem',
           }}
         >
-          <Link
-            prefetch={false}
+          <InternalLink
             href={item.href}
             onClick={(e) => e.stopPropagation()}
             style={{ color: 'inherit', textDecoration: 'none', flex: 1 }}
           >
             {item.title}
-          </Link>
+          </InternalLink>
           <span
             style={{
               fontSize: '0.6rem',
@@ -87,11 +88,12 @@ function SidebarSection({ item, depth }: SectionProps) {
 
   if (depth === 0 && !hasChildren) {
     return (
-      <Link
-        prefetch={false}
+      <InternalLink
         href={item.href}
         style={{
-          display: 'block',
+          display: 'flex',
+          alignItems: 'center',
+          minHeight: '2.25rem',
           padding: '0.3rem 0.75rem',
           borderRadius: '0.25rem',
           color: isActive ? 'var(--primary)' : 'var(--muted-foreground)',
@@ -109,7 +111,7 @@ function SidebarSection({ item, depth }: SectionProps) {
         className="sidebar-item-link"
       >
         {item.title}
-      </Link>
+      </InternalLink>
     );
   }
 
@@ -119,12 +121,14 @@ function SidebarSection({ item, depth }: SectionProps) {
     return (
       <div>
         <button
+          aria-expanded={open}
           onClick={() => setOpen((o) => !o)}
           style={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
             width: '100%',
+            minHeight: '2.25rem',
             padding: '0.275rem 0.75rem 0.275rem 1.25rem',
             background: isActive ? 'var(--primary-dim)' : 'transparent',
             border: 'none',
@@ -140,14 +144,13 @@ function SidebarSection({ item, depth }: SectionProps) {
           }}
           className="sidebar-item-link"
         >
-          <Link
-            prefetch={false}
+          <InternalLink
             href={item.href}
             onClick={(e) => e.stopPropagation()}
             style={{ color: 'inherit', textDecoration: 'none', flex: 1 }}
           >
             {item.title}
-          </Link>
+          </InternalLink>
           <span
             style={{
               fontSize: '0.6rem',
@@ -171,11 +174,12 @@ function SidebarSection({ item, depth }: SectionProps) {
   }
 
   return (
-    <Link
-      prefetch={false}
+    <InternalLink
       href={item.href}
       style={{
-        display: 'block',
+        display: 'flex',
+        alignItems: 'center',
+        minHeight: '2.25rem',
         padding: '0.275rem 0.75rem 0.275rem 1.25rem',
         borderRadius: '0 0.25rem 0.25rem 0',
         borderLeft: isActive ? '2px solid var(--primary)' : '2px solid transparent',
@@ -190,7 +194,7 @@ function SidebarSection({ item, depth }: SectionProps) {
       className="sidebar-item-link"
     >
       {item.title}
-    </Link>
+    </InternalLink>
   );
 }
 

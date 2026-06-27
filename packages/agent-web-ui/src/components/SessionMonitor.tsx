@@ -63,10 +63,13 @@ export function SessionMonitor({ wsUrl, className }: ISessionMonitorProps): Reac
             CLI Monitor
           </span>
           <span className="text-border/60 font-mono text-xs">·</span>
-          <span className={`text-[11px] font-mono ${cfg.text}`}>{cfg.label}</span>
+          <span role="status" className={`text-[11px] font-mono ${cfg.text}`}>
+            {cfg.label}
+          </span>
         </div>
         <div className="ml-auto flex items-center gap-2">
           <input
+            aria-label="WebSocket URL"
             className="h-7 rounded-lg border border-border/60 bg-background/60 px-2.5 text-[11px] font-mono text-foreground/70 placeholder:text-muted-foreground/35 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/15 w-52 transition-all"
             value={inputUrl}
             onChange={(e) => setInputUrl(e.target.value)}
@@ -153,6 +156,7 @@ function SessionInput({
   return (
     <div className="border-t border-border/50 px-3 py-2.5 flex gap-2 items-end bg-card/20 flex-shrink-0">
       <textarea
+        aria-label="Message"
         className="flex-1 resize-none rounded-xl border border-border/60 bg-background/50 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/35 focus:outline-none focus:border-primary/45 focus:ring-1 focus:ring-primary/15 min-h-[36px] max-h-[120px] transition-all font-[inherit] leading-relaxed"
         rows={1}
         placeholder={enabled ? 'Send a message…' : 'Connect to send messages'}

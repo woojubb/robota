@@ -82,6 +82,8 @@ export function MermaidDiagram({ chart }: MermaidDiagramProps) {
   return (
     <div
       ref={ref}
+      role="img"
+      aria-label="Mermaid diagram"
       style={{
         background: '#131320',
         border: '1px solid #252540',

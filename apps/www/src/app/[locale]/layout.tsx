@@ -43,6 +43,20 @@ export const metadata: Metadata = {
   },
 };
 
+// SEO-001: structured data so search engines understand the product.
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: 'Robota',
+  applicationCategory: 'DeveloperApplication',
+  operatingSystem: 'Cross-platform',
+  description:
+    'Open-source AI agent SDK and CLI with multi-provider BYOK support (Anthropic, OpenAI, DeepSeek, Gemini, local models).',
+  url: 'https://robota.io',
+  license: 'https://www.gnu.org/licenses/agpl-3.0.html',
+  offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+};
+
 export function generateStaticParams() {
   return [{ locale: 'en' }, { locale: 'ko' }];
 }
@@ -65,6 +79,10 @@ export default async function LocaleLayout({
       suppressHydrationWarning
     >
       <body>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
         <NextIntlClientProvider messages={messages}>
           <Header />
           <main>{children}</main>

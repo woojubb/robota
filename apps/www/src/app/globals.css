@@ -40,6 +40,12 @@
   * {
     @apply border-[var(--border)];
   }
+  /* WEB-017: a visible keyboard-focus ring (mouse clicks don't trigger :focus-visible). */
+  :focus-visible {
+    outline: 2px solid var(--accent, var(--primary));
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
   body {
     background: var(--background);
     color: var(--foreground);

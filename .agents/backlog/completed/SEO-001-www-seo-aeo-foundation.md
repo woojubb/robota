@@ -1,12 +1,25 @@
 ---
 title: 'SEO-001: www SEO/AEO foundation — sitemap, robots, structured data, OG, per-page metadata'
-status: todo
+status: done
+completed: 2026-06-27
 created: 2026-06-27
 priority: medium
 urgency: soon
 area: apps/www
 depends_on: []
 ---
+
+## Evidence Log (2026-06-27)
+
+- The metadata/OG/Twitter foundation already existed in `[locale]/layout.tsx` (title template,
+  description, `metadataBase`, openGraph, twitter). Added the missing pieces:
+  - `app/robots.ts` → emits `/robots.txt` (allow all + sitemap + host).
+  - `app/sitemap.ts` → emits `/sitemap.xml` enumerating locales (en/ko) × routes (/, beta,
+    enterprise, roadmap, compare, showcase).
+  - JSON-LD `SoftwareApplication` structured data injected in the locale layout.
+  - Per-page `metadata` (distinct titles → `%s | Robota`) on the 5 subpages.
+- Verified: `apps/www` typecheck passes; `next build` (static export) compiles and emits
+  `/robots.txt` + `/sitemap.xml` (both static).
 
 # www SEO/AEO foundation
 

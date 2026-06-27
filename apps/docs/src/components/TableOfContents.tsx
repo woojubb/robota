@@ -73,6 +73,7 @@ export function TableOfContents({ entries }: TableOfContentsProps) {
             <li key={entry.id} style={{ marginBottom: '0.1rem' }}>
               <a
                 href={`#${entry.id}`}
+                aria-current={isActive ? 'location' : undefined}
                 style={{
                   display: 'flex',
                   alignItems: 'flex-start',
@@ -90,9 +91,10 @@ export function TableOfContents({ entries }: TableOfContentsProps) {
                   position: 'relative',
                 }}
               >
-                {/* Active indicator dot */}
+                {/* Active indicator dot (decorative; state is conveyed via aria-current) */}
                 {isActive && (
                   <span
+                    aria-hidden="true"
                     style={{
                       position: 'absolute',
                       left: entry.level === 3 ? '0.25rem' : '-0.75rem',

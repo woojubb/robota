@@ -1,12 +1,23 @@
 ---
 title: 'BRAND-002: Unify apps/agent-web to the brand system (IBM Plex + emerald)'
-status: todo
+status: done
+completed: 2026-06-27
 created: 2026-06-27
 priority: medium
 urgency: soon
 area: apps/agent-web
 depends_on: [BRAND-001]
 ---
+
+## Evidence Log (2026-06-27)
+
+- `apps/agent-web/src/app/globals.css`: all 9 `#a78bfa` (purple) → `#2dd4a7` (unified emerald);
+  the violet dim `rgba(167,139,250,…)` → emerald `rgba(45,212,167,…)`; renamed the misnamed
+  `--studio-accent-violet` token (and its `-dim`) to `--studio-accent` across its 7 usages.
+- `apps/agent-web/src/app/layout.tsx`: fonts `Space_Grotesk`/`Fira_Code` →
+  `IBM_Plex_Sans`/`IBM_Plex_Mono` (unified brand typography), with explicit weights and the
+  existing `display: 'swap'`; updated the `--font-sans`/`--font-mono` variable bindings.
+- Verified: no residual purple hex/var; `apps/agent-web` typecheck passes.
 
 # Unify apps/agent-web to the brand system
 

@@ -1,12 +1,25 @@
 ---
 title: 'DOCS-003: docs sidebar tap targets + InternalLink wrapper'
-status: todo
+status: done
+completed: 2026-06-27
 created: 2026-06-27
 priority: low
 urgency: soon
 area: apps/docs
 depends_on: []
 ---
+
+## Evidence Log (2026-06-27)
+
+- **InternalLink wrapper**: new `apps/docs/src/components/InternalLink.tsx` bakes in
+  `prefetch={false}` (mirrors apps/www). `Sidebar.tsx` + `Header.tsx` converted from bare
+  `<Link prefetch={false}>` to `<InternalLink>`; 0 scattered `prefetch={false}` remain — the
+  static-export prefetch policy is now one source of truth.
+- **Tap targets**: sidebar nav rows (both leaf `InternalLink`s and the section/`depth>=1`
+  toggle buttons) now have `minHeight: 2.25rem` (36px) with flex vertical-centering — a
+  deliberate dense-docs-nav compromise above the prior ~24-25px (the 44px floor is the
+  marketing standard; docs nav is intentionally denser).
+- Verified: `apps/docs` typecheck passes.
 
 # docs sidebar tap targets + InternalLink wrapper
 

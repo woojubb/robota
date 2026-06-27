@@ -1,4 +1,7 @@
 import { getTranslations, setRequestLocale } from 'next-intl/server';
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = { title: 'Beta Program' };
 
 export default async function BetaPage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
