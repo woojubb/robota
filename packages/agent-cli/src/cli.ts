@@ -251,7 +251,8 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     }
   }
 
-  if (args.printMode) {
+  // GOAL-001: --goal runs an autonomous headless goal even without an explicit -p.
+  if (args.printMode || args.goal) {
     await runPrintMode(
       cwd,
       args,

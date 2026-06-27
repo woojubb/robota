@@ -21,6 +21,10 @@ export interface IParsedCliArgs {
   language: string | undefined;
   permissionMode: TPermissionMode | undefined;
   maxTurns: number | undefined;
+  /** GOAL-001: autonomous objective to pursue headlessly (--goal). */
+  goal: string | undefined;
+  /** GOAL-001: per-goal turn budget (--goal-max-iterations). */
+  goalMaxIterations: number | undefined;
   forkSession: boolean;
   sessionName: string | undefined;
   outputFormat: TOutputFormat | undefined;
@@ -153,6 +157,8 @@ const PARSE_ARGS_CONFIG = {
     language: { type: 'string' },
     'permission-mode': { type: 'string' },
     'max-turns': { type: 'string' },
+    goal: { type: 'string' },
+    'goal-max-iterations': { type: 'string' },
     'fork-session': { type: 'boolean', default: false },
     name: { type: 'string', short: 'n' },
     'output-format': { type: 'string' },
@@ -200,6 +206,8 @@ function mapParsedValues(
     language: values['language'],
     permissionMode: parsePermissionMode(values['permission-mode']),
     maxTurns: parseMaxTurns(values['max-turns']),
+    goal: values['goal'],
+    goalMaxIterations: parseMaxTurns(values['goal-max-iterations']),
     forkSession: values['fork-session'] ?? false,
     sessionName: values['name'],
     outputFormat: parseOutputFormat(values['output-format']),

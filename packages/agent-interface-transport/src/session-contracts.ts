@@ -162,6 +162,14 @@ export interface IInteractiveSession {
   cancelQueue(): void;
   shutdown(options?: { reason?: string; message?: string }): Promise<void>;
 
+  // Autonomous goal pursuit (GOAL-001)
+  setGoal(
+    objective: string,
+    options?: { maxIterations?: number; noProgressLimit?: number },
+  ): Promise<IGoalState>;
+  getGoalState(): IGoalState | null;
+  cancelGoal(): IGoalState | null;
+
   // State
   isExecuting(): boolean;
   getPendingPrompt(): string | null;
