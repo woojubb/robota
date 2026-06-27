@@ -29,7 +29,7 @@ import {
 import { getDefaultSubagentWorkerPath } from './worker-path-resolver.js';
 
 import type { ISubagentWorkerStartPayload } from './child-process-subagent-ipc.js';
-import type { IProviderConfig } from '@robota-sdk/agent-core';
+import type { IProviderDefinitionConfig } from '@robota-sdk/agent-core';
 import type {
   IAgentDefinition,
   IInProcessSubagentRunnerDeps,
@@ -40,7 +40,7 @@ const DEFAULT_KILL_GRACE_MS = 2_000;
 
 export interface IChildProcessSubagentRunnerOptions {
   workerPath: string;
-  providerConfig?: IProviderConfig;
+  providerConfig?: IProviderDefinitionConfig;
   execArgv?: string[];
   killGraceMs?: number;
   env?: NodeJS.ProcessEnv;
@@ -68,7 +68,7 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
   private readonly workerPath: string;
   private readonly execArgv?: string[];
   private readonly killGraceMs: number;
-  private readonly providerConfig?: IProviderConfig;
+  private readonly providerConfig?: IProviderDefinitionConfig;
   private readonly env?: NodeJS.ProcessEnv;
   private readonly logsDir?: string;
 
@@ -170,7 +170,7 @@ function applyRequestOverrides(
 }
 
 function createProviderProfile(
-  providerConfig: IProviderConfig | undefined,
+  providerConfig: IProviderDefinitionConfig | undefined,
   deps: IInProcessSubagentRunnerDeps,
   job: ISubagentJobStart,
 ): ISerializableProviderProfile {

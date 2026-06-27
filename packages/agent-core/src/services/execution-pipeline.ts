@@ -6,7 +6,7 @@ import { buildFinalResult } from './execution-service-helpers';
 import {
   type IResolvedProviderInfo,
   type IExecutionContext,
-  type IExecutionResult,
+  type ICoreExecutionResult,
   type IExecutionRoundState,
   PREVIEW_LENGTH,
 } from './execution-types';
@@ -209,7 +209,7 @@ export async function finalizeExecution(
   plugins: TPluginWithHooks[],
   logger: ILogger,
   eventEmitter: ExecutionEventEmitter,
-): Promise<IExecutionResult> {
+): Promise<ICoreExecutionResult> {
   const result = {
     ...buildFinalResult(conversationStore, executionId, startTime, roundState.toolsExecuted),
     interrupted,

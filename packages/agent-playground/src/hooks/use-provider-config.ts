@@ -4,14 +4,14 @@ import { useState } from 'react';
 
 export type TProviderName = 'anthropic' | 'openai' | 'gemini' | 'deepseek';
 
-export interface IProviderConfig {
+export interface IPlaygroundProviderConfig {
   provider: TProviderName;
   apiKey: string;
 }
 
 const STORAGE_KEY = 'robota-playground-provider';
 
-function readStoredConfig(): IProviderConfig | null {
+function readStoredConfig(): IPlaygroundProviderConfig | null {
   if (typeof window === 'undefined') return null;
   try {
     // allow-fallback: localStorage throws SecurityError in private browser mode
@@ -26,7 +26,7 @@ function readStoredConfig(): IProviderConfig | null {
       typeof (parsed as Record<string, unknown>).provider === 'string' &&
       typeof (parsed as Record<string, unknown>).apiKey === 'string'
     ) {
-      return parsed as IProviderConfig;
+      return parsed as IPlaygroundProviderConfig;
     }
     return null;
   } catch {
@@ -36,9 +36,11 @@ function readStoredConfig(): IProviderConfig | null {
 }
 
 export function useProviderConfig() {
-  const [config, setConfigState] = useState<IProviderConfig | null>(() => readStoredConfig());
+  const [config, setConfigState] = useState<IPlaygroundProviderConfig | null>(() =>
+    readStoredConfig(),
+  );
 
-  const setConfig = (newConfig: IProviderConfig) => {
+  const setConfig = (newConfig: IPlaygroundProviderConfig) => {
     try {
       // allow-fallback: localStorage unavailable in restricted environments
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(newConfig));

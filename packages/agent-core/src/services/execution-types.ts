@@ -122,7 +122,7 @@ export interface IExecutionContext {
 /**
  * Execution result containing the response and execution metadata
  */
-export interface IExecutionResult {
+export interface ICoreExecutionResult {
   response: string;
   messages: TUniversalMessage[];
   executionId: string;

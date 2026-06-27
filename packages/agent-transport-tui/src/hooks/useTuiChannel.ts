@@ -9,7 +9,7 @@ import { useState, useEffect } from 'react';
 
 import type { TuiInteractionChannel } from '../TuiInteractionChannel.js';
 import type { ICommandEffectQueue } from './command-effect-queue.js';
-import type { IPermissionRequest } from '../types.js';
+import type { IPendingPermissionRequest } from '../types.js';
 import type { IHistoryEntry, TSessionEndReason } from '@robota-sdk/agent-core';
 import type { InteractiveSession, CommandRegistry } from '@robota-sdk/agent-framework';
 import type {
@@ -32,7 +32,7 @@ export interface IInteractiveSessionState {
   pendingPrompt: string | null;
   executionWorkspaceSnapshot: IExecutionWorkspaceSnapshot | null;
   selectedExecutionEntryId?: string;
-  permissionRequest: IPermissionRequest | null;
+  permissionRequest: IPendingPermissionRequest | null;
   contextState: { percentage: number; usedTokens: number; maxTokens: number };
   handleSubmit: (input: string) => Promise<void>;
   handleAbort: () => void;
