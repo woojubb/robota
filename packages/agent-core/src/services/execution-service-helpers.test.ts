@@ -76,9 +76,10 @@ describe('initializeConversationStore restore robustness (CORE-008)', () => {
 
   it('restores conversation history even when a system prompt was pre-seeded before first run', () => {
     const store = new ConversationStore();
-    // Simulate Robota.updateSystemPrompt() called before the first run: a system head already exists,
-    // which used to make the `getMessageCount() === 0` restore guard false and drop the history.
-    store.setSystemPrompt('OLD SYSTEM');
+    // Simulate Robota.updateSystemPrompt('LIVE SYSTEM') before the first run: it sets config AND the
+    // store head to the same value. A pre-seeded system head used to make the `getMessageCount() === 0`
+    // restore guard false and silently drop the history (CORE-008).
+    store.setSystemPrompt('LIVE SYSTEM');
     const conversationHistory = { getConversationStore: () => store };
     const messages: TUniversalMessage[] = [
       msg('user', 'previous question'),
@@ -93,10 +94,32 @@ describe('initializeConversationStore restore robustness (CORE-008)', () => {
         .getMessages()
         .filter((m) => m.role === role)
         .map((m) => String(m.content));
-    // Restored user/assistant survive; exactly one system head = the live config.systemMessage.
+    // Restored user/assistant survive; the already-injected system head is reused (single message).
     expect(messagesByRole('user')).toEqual(['previous question']);
     expect(messagesByRole('assistant')).toEqual(['previous answer']);
     expect(messagesByRole('system')).toEqual(['LIVE SYSTEM']);
+  });
+
+  it('CORE-010: injects the system prompt once, then reuses the log (no re-attach across turns)', () => {
+    const store = new ConversationStore();
+    const conversationHistory = { getConversationStore: () => store };
+    const config = { systemMessage: 'SYS' } as unknown as IAgentConfig;
+
+    // Turn 1: empty log → inject the system prompt once.
+    initializeConversationStore(conversationHistory, 'conv-3', [], config, 'exec-1');
+    store.addUserMessage('turn 1');
+    // Turn 2+: the log already has the system head → it is reused as-is, never re-attached.
+    initializeConversationStore(conversationHistory, 'conv-3', [], config, 'exec-2');
+    store.addUserMessage('turn 2');
+    initializeConversationStore(conversationHistory, 'conv-3', [], config, 'exec-3');
+
+    expect(
+      store
+        .getMessages()
+        .filter((m) => m.role === 'system')
+        .map((m) => String(m.content)),
+    ).toEqual(['SYS']);
+    expect(store.getMessages().map((m) => m.role)).toEqual(['system', 'user', 'user']);
   });
 
   it('CORE-009: on resume the live config.systemMessage replaces a differing persisted system prompt', () => {

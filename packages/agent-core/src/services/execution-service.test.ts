@@ -568,13 +568,13 @@ describe('ExecutionService', () => {
       expect(addUserMessageSpy).toHaveBeenCalledWith(inputMsg, expect.any(Object));
     });
 
-    it('should handle messages with system role', async () => {
+    it('does not restore persisted system messages; the system prompt comes from config (CORE-010)', async () => {
       const userInput = 'Hello';
       const messagesList: TUniversalMessage[] = [
         {
           id: 'msg-1',
           role: 'system',
-          content: 'You are a helpful assistant',
+          content: 'STALE persisted system',
           state: 'complete' as const,
           timestamp: new Date(),
         },
@@ -593,24 +593,26 @@ describe('ExecutionService', () => {
           provider: 'openai',
           model: 'gpt-4',
         },
+        systemMessage: 'FRESH live system',
       };
 
       const session = conversationHistory.getConversationStore('test-agent');
-      const addSystemMessageSpy = vi.spyOn(session, 'addSystemMessage');
       const addUserMessageSpy = vi.spyOn(session, 'addUserMessage');
 
       await executionService.execute(userInput, messagesList, testConfig, {
         conversationId: 'test-agent',
       });
 
-      // Verify system message was added
-      expect(addSystemMessageSpy).toHaveBeenCalledWith(
-        'You are a helpful assistant',
-        undefined,
-        undefined,
-      );
+      // Restored user content is preserved.
       expect(addUserMessageSpy).toHaveBeenCalledWith('Previous question', undefined, undefined);
       expect(addUserMessageSpy).toHaveBeenCalledWith(userInput, expect.any(Object));
+      // The stale persisted system message is NOT restored; the single system head is the fresh
+      // config.systemMessage, injected once into the session log.
+      const systemContents = session
+        .getMessages()
+        .filter((m) => m.role === 'system')
+        .map((m) => m.content);
+      expect(systemContents).toEqual(['FRESH live system']);
     });
 
     it('should handle no AI provider available', async () => {

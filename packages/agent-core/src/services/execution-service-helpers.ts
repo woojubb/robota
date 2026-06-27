@@ -76,10 +76,11 @@ export function initializeConversationStore(
   executionId: string,
 ): ConversationStore {
   const session = conversationHistory.getConversationStore(conversationId);
-  // Restore when there is no CONVERSATION content yet (user/assistant/tool). A live
-  // `updateSystemPrompt` before the first run can pre-seed a system head, which would make a plain
-  // `getMessageCount() === 0` check false and silently skip restore (CORE-008); ignoring the system
-  // head fixes that. The system prompt itself is re-asserted below from config.systemMessage.
+  // Restore prior CONVERSATION content (user/assistant/tool) when this store has none yet. Keying off
+  // conversation content (not getMessageCount) lets a system prompt injected before the first run
+  // coexist with restore (CORE-008). Persisted `system` messages are intentionally NOT restored: the
+  // system prompt is injected fresh from config.systemMessage below, which is a resume-time staleness
+  // refresh (the rebuilt prompt reflects the current cwd/AGENTS.md/CLAUDE.md and tools — CORE-009).
   const hasConversationContent = session.getMessages().some((m) => m.role !== 'system');
   if (!hasConversationContent && messages.length > 0) {
     for (const msg of messages) {
@@ -92,8 +93,6 @@ export function initializeConversationStore(
           msg.metadata,
           msg.parts,
         );
-      } else if (msg.role === 'system') {
-        session.addSystemMessage(msg.content, msg.metadata, msg.parts);
       } else if (msg.role === 'tool') {
         const toolName = msg.metadata?.['toolName'];
         if (typeof toolName !== 'string' || toolName.length === 0) {
@@ -107,12 +106,17 @@ export function initializeConversationStore(
           msg.parts,
         );
       }
+      // `system` messages are skipped — the system prompt is established below from config, not the
+      // restored log (CORE-009/CORE-010).
     }
   }
-  if (config.systemMessage) {
-    // System prompt is the agent's live instruction state, not append-only content. Set it as the
-    // single head message (idempotent) so re-running this every turn cannot accumulate duplicate
-    // system messages. config.systemMessage is the single source of truth (see agent-core SPEC).
+  // Inject the system prompt into the session log ONCE — only when the log has no system message yet
+  // (session start, or the first turn after resume). Thereafter the log is reused as-is; the prompt
+  // is never re-attached per turn. Live changes (persona, self-verification, AGENTS.md/CLAUDE.md
+  // staleness refresh) update the head in place via Robota.updateSystemPrompt, which keeps
+  // config.systemMessage and the log head in sync (CORE-010; see agent-core SPEC → System Prompt).
+  const hasSystemMessage = session.getMessages().some((m) => m.role === 'system');
+  if (config.systemMessage && !hasSystemMessage) {
     session.setSystemPrompt(config.systemMessage, { executionId });
   }
   return session;

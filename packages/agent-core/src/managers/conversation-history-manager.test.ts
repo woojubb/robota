@@ -92,7 +92,7 @@ describe('ConversationStore setSystemPrompt (system-prompt SSOT)', () => {
     expect(systemMessages(store)).toEqual(['SYS']);
   });
 
-  it('fast-path: re-seeding an unchanged head prompt is a no-op (single message, preserved)', () => {
+  it('is idempotent: setting the same prompt repeatedly keeps a single head message', () => {
     const store = new ConversationStore();
     store.setSystemPrompt('SYS-A');
     store.addUserMessage('turn 1');
