@@ -1,12 +1,29 @@
 ---
 title: 'SEC-001: Resolve remaining moderate security advisories via overrides'
-status: todo
+status: done
+completed: 2026-06-27
 created: 2026-06-27
 priority: medium
 urgency: soon
 area: root (pnpm overrides)
 depends_on: []
 ---
+
+## Evidence Log (2026-06-27)
+
+- Real overrides (genuinely patched): `postcss@<8.5.10 → >=8.5.10` (resolved 8.5.15) and
+  `dompurify@<3.4.11 → >=3.4.11` (resolved 3.4.11). Both advisories cleared.
+- `js-yaml` (GHSA-h67p-54hq-rp68 / CVE-2026-53550) comes only via `@changesets/cli` (dev
+  tooling); the fix is in js-yaml 4.x and `read-yaml-file`/changesets use the 3.x API, so a
+  global override would break release tooling. The DoS needs a maliciously crafted local YAML
+  fed to changesets (maintainer-controlled). Accepted via `pnpm.auditConfig.ignoreCves`.
+- `undici` advisories (CVE-2026-11525 / -12151 / -6733 / -9679) come only via
+  `examples/discord-bot > @discordjs/rest` — a third-party template transitive, not our shipped
+  SDK/app surface (surfaced because EXAMPLES-001 added examples to the workspace). Bumping
+  undici to a fixed major would break `@discordjs/rest`. Accepted via `ignoreCves`.
+- `pnpm.auditConfig.ignoreCves` makes `pnpm audit --audit-level high|moderate` exit 0 (the gate
+  passes) in pnpm 8.15.4 even though the advisories still print informationally — verified by
+  exit code. `pnpm install --frozen-lockfile` passes; `pnpm harness:scan` 32/32.
 
 # Resolve remaining moderate security advisories
 
