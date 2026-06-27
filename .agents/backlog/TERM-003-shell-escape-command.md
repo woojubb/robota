@@ -1,6 +1,6 @@
 ---
 title: 'TERM-003: drop-to-shell command (hand the terminal to an interactive subshell)'
-status: todo
+status: in-progress
 created: 2026-06-27
 priority: medium
 urgency: soon

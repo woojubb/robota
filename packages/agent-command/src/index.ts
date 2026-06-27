@@ -12,6 +12,7 @@ export * from './mode/index.js';
 export * from './permissions/index.js';
 export * from './plugin/index.js';
 export * from './preset/index.js';
+export * from './shell/index.js';
 export * from './provider/index.js';
 export * from './reset/index.js';
 export * from './rewind/index.js';

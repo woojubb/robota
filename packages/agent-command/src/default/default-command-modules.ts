@@ -17,6 +17,7 @@ import { createRewindCommandModule } from '../rewind/index.js';
 import { createScheduleCommandModule } from '../schedule/index.js';
 import { createSessionCommandModule } from '../session/index.js';
 import { createSettingsCommandModule } from '../settings/index.js';
+import { createShellCommandModule } from '../shell/index.js';
 import { createSkillsCommandModule } from '../skills/index.js';
 import { createStatusLineCommandModule } from '../statusline/index.js';
 import { createUserLocalCommandModule } from '../user-local/index.js';
@@ -81,6 +82,7 @@ export function createDefaultCommandModules({
     createLanguageCommandModule(),
     createBackgroundCommandModule(),
     createGoalCommandModule(),
+    createShellCommandModule(),
     createMemoryCommandModule(),
     createUserLocalCommandModule(),
     createCompactCommandModule(),

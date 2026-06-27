@@ -46,6 +46,11 @@
       "id": "terminal-handoff",
       "description": "TERM-001: the session orchestrates a transport terminal handoff (suspend→fn→restore), restores on throw, is exclusive, and fast-fails when no interactive terminal is available.",
       "test": "packages/agent-framework/src/testing/__tests__/terminal-handoff-functional.test.ts"
+    },
+    {
+      "id": "shell-command",
+      "description": "TERM-003: /shell routes a one-shot command through the terminal handoff (suspend→spawn shell→restore), reports its exit code, and is unavailable with no interactive terminal.",
+      "test": "packages/agent-command/src/shell/__tests__/shell-command-functional.test.ts"
     }
   ]
 }
