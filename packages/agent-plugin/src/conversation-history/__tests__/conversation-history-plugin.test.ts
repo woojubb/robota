@@ -69,10 +69,10 @@ describe('ConversationHistoryPlugin', () => {
       );
     });
 
-    it('throws when database storage is missing connectionString', () => {
-      expect(
-        () => new ConversationHistoryPlugin({ storage: 'database', connectionString: '' }),
-      ).toThrow(ConfigurationError);
+    it('throws when database storage is missing a databaseDriver (PLUGIN-002)', () => {
+      expect(() => new ConversationHistoryPlugin({ storage: 'database' })).toThrow(
+        ConfigurationError,
+      );
     });
   });
 

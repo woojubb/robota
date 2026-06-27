@@ -2,7 +2,6 @@ import { afterEach, describe, it, expect } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { DatabaseHistoryStorage } from '../storages/database-storage';
 import { FileHistoryStorage } from '../storages/file-storage';
 import { MemoryHistoryStorage } from '../storages/memory-storage';
 import type { IConversationHistoryEntry } from '../types';
@@ -67,30 +66,8 @@ describe('MemoryHistoryStorage', () => {
   });
 });
 
-describe('DatabaseHistoryStorage', () => {
-  // Placeholder implementation - tests verify it does not throw
-  const storage = new DatabaseHistoryStorage('postgres://user:pass@host/db');
-
-  it('save does not throw', async () => {
-    await expect(storage.save('conv-1', entry)).resolves.toBeUndefined();
-  });
-
-  it('load returns undefined', async () => {
-    expect(await storage.load('conv-1')).toBeUndefined();
-  });
-
-  it('list returns empty array', async () => {
-    expect(await storage.list()).toEqual([]);
-  });
-
-  it('delete returns false', async () => {
-    expect(await storage.delete('conv-1')).toBe(false);
-  });
-
-  it('clear does not throw', async () => {
-    await expect(storage.clear()).resolves.toBeUndefined();
-  });
-});
+// DatabaseHistoryStorage now requires an injected IDatabaseDriver (PLUGIN-002); its real
+// round-trip behavior is covered in storages/__tests__/database-storage.test.ts.
 
 describe('FileHistoryStorage (PLUGIN-001: real persistence)', () => {
   let dir: string;
