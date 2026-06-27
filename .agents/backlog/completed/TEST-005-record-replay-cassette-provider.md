@@ -1,7 +1,8 @@
 ---
 title: 'TEST-005: Record-replay (cassette) provider — deterministic real-model functional tests'
-status: todo
+status: done
 created: 2026-06-27
+completed: 2026-06-27
 priority: high
 urgency: soon
 area: packages/agent-core, packages/agent-framework, .agents/skills
@@ -67,3 +68,31 @@ requestPreview, response }] }`, committed under the test that uses it.
 Not applicable — agent-facing internal test infrastructure; validated by its self-tests and the
 `functional-coverage` scan, recorded as Test Plan evidence. (A real-model cassette capture, when
 done, is the product-relevant evidence.)
+
+## Evidence Log (completed 2026-06-27)
+
+- **Cassette provider** (`agent-core/testing/cassette-provider.ts`): `createRecordingProvider`
+  (wraps a real provider, writes interactions to a cassette) + `createReplayProvider` (replays with
+  request-hash staleness detection over a workspace-scrubbed projection, clear exhaustion errors,
+  and `recordCwd → rewriteCwd` rewrite so recorded absolute tool paths land in the replay workspace).
+  4 self-tests (round-trip, staleness, exhaustion, cwd rewrite) — deterministic, no key/network.
+- **Harness cassette mode**: `scriptedSession({ cassette })` builds the session with a replay
+  provider (scrub/rewrite set to the workspace), so a recorded real-model run drives the real loop.
+  Requests are captured uniformly in both modes; an option guard requires exactly one of
+  `turns`/`cassette`.
+- **Session-log leverage** (per the directive to use the system's own logs): the harness exposes the
+  REAL transcript the framework writes — `transcript()` / `logEntries()` / `logsDir()` /
+  `transcriptPath()` reading `{cwd}/.robota/logs/{sessionId}.jsonl` (`session_init`,
+  `provider_request`, `tool_call`, `tool_result`, `assistant`, …). A new
+  `session-log-functional.test.ts` asserts a feature against the durable log, not only in-memory
+  state. This completes the single-session self-verification surface (in-memory + session record +
+  transcript + workspace files + provider requests).
+- Skill (`framework-functional-testing`) and SPECs (agent-core, agent-framework) updated: scripted
+  vs. cassette modes, the durable-artifact inspectors, and the record workflow.
+
+**Verification:** agent-core 728 tests, agent-framework 1005 tests, full monorepo typecheck exit 0,
+`pnpm harness:scan` 33/33; lint 0 errors; no layering violation.
+
+**Follow-up (needs an API key):** record a real-model goal cassette and add a cassette-backed
+GOAL-001 functional test (real prompts + real `report_goal_status` decisions) to the
+functional-coverage manifest — the payoff that requires a one-off keyed record run.

@@ -488,15 +488,19 @@ The `./testing` subpath (kept out of the runtime bundle) is the agent's standard
 verify a feature at the framework level** — the CLI is a thin wrapper and must not be where feature
 behaviour is verified.
 
-- `scriptedSession({ turns, files?, persistence?, commandModules?, ... })` / `ScriptedSessionHarness`
-  builds a **real** `InteractiveSession` (real agent loop, builtin tools, persistence, events) in an
-  isolated temp workspace, driven by the deterministic scripted provider
-  (`createScriptedProvider`, SSOT in `@robota-sdk/agent-core/testing`). No CLI, no network, no live LLM.
+- `scriptedSession({ turns | cassette, files?, persistence?, commandModules?, ... })` /
+  `ScriptedSessionHarness` builds a **real** `InteractiveSession` (real agent loop, builtin tools,
+  persistence, events) in an isolated temp workspace. Provider modes: **scripted** (`turns`, hand-written,
+  SSOT `createScriptedProvider`) or **cassette** (`cassette: path`, a recorded real-model run replayed
+  deterministically, TEST-005). No CLI, no network, no live LLM.
 - Drivers: `submit(prompt)` → awaits the completed turn; `runGoal(objective, opts)` → awaits the
-  stopped goal; `awaitEvent(name, predicate?)`. Inspectors: `history()`, `sessionRecord()`,
-  `toolCalls()`, `emittedEvents(name)`, `readFile()`/`exists()`/`files()`, `requests`. Lifecycle:
-  `dispose()` tears down the workspace. Scripted tool-call args may use the `{{cwd}}` placeholder to
-  reference absolute workspace paths.
+  stopped goal; `awaitEvent(name, predicate?)`.
+- Inspectors — in-memory: `history()`, `toolCalls()`, `emittedEvents(name)`, `requests`. Durable
+  artifacts the system itself writes (leverage these): `sessionRecord()` (the persisted session JSON),
+  `transcript()` / `logEntries()` (the real `{cwd}/.robota/logs/{sessionId}.jsonl` transcript —
+  `session_init` / `provider_request` / `tool_call` / `tool_result` / `assistant` records), and
+  `readFile()`/`exists()`/`files()` (workspace side effects). Lifecycle: `dispose()` tears down the
+  workspace. Scripted tool-call args may use the `{{cwd}}` placeholder for absolute workspace paths.
 - `createTestInteractiveSession()` (same subpath) remains a lightweight **stub** for wiring/type tests
   that do not need the real loop.
 

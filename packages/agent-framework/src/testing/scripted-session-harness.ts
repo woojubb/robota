@@ -25,13 +25,13 @@ import {
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, sep } from 'node:path';
 
-import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
+import { createScriptedProvider, createReplayProvider } from '@robota-sdk/agent-core/testing';
 
 import { InteractiveSession } from '../interactive/index.js';
 import { createProjectSessionStore } from '../interactive/index.js';
 
 import type { ICommandModule } from '../command-api/index.js';
-import type { TPermissionMode, TUniversalMessage } from '@robota-sdk/agent-core';
+import type { IAIProvider, TPermissionMode, TUniversalMessage } from '@robota-sdk/agent-core';
 import type { TScriptedTurn } from '@robota-sdk/agent-core/testing';
 import type {
   IExecutionResult,
@@ -43,10 +43,15 @@ import type {
   TInteractiveEventName,
 } from '@robota-sdk/agent-interface-transport';
 
-/** Options for {@link scriptedSession}. */
+/** Options for {@link scriptedSession}. Provide exactly one of `turns` or `cassette`. */
 export interface IScriptedSessionOptions {
-  /** The scripted assistant turns replayed deterministically through the real loop. */
-  turns: readonly TScriptedTurn[];
+  /** Scripted assistant turns replayed deterministically through the real loop. */
+  turns?: readonly TScriptedTurn[];
+  /**
+   * Path to a recorded cassette (TEST-005). Replays a real model's captured prompts + tool-use
+   * deterministically through the real loop. The workspace path is rewritten/scrubbed automatically.
+   */
+  cassette?: string;
   /** Seed files written into the workspace before the session starts (workspace-relative paths). */
   files?: Record<string, string>;
   /** Persist sessions to a real store in the workspace (enables resume/record assertions). */
@@ -104,14 +109,31 @@ export class ScriptedSessionHarness {
       writeFileSync(abs, content, 'utf8');
     }
 
-    const scripted = createScriptedProvider(this.substituteWorkspacePath(options.turns));
-    this.requests = scripted.requests;
+    if ((options.turns === undefined) === (options.cassette === undefined)) {
+      throw new Error('scriptedSession requires exactly one of `turns` or `cassette`.');
+    }
+    const base: IAIProvider = options.cassette
+      ? createReplayProvider({
+          cassettePath: options.cassette,
+          scrub: [this.cwd],
+          rewriteCwd: this.cwd,
+        })
+      : createScriptedProvider(this.substituteWorkspacePath(options.turns ?? [])).provider;
+    // Capture every request uniformly (works for both scripted and cassette providers).
+    this.requests = [];
+    const provider: IAIProvider = {
+      ...base,
+      chat: (messages, chatOptions) => {
+        this.requests.push([...messages]);
+        return base.chat(messages, chatOptions);
+      },
+    };
 
     this.sessionStore = options.persistence ? createProjectSessionStore(this.cwd) : undefined;
 
     this.session = new InteractiveSession({
       cwd: this.cwd,
-      provider: scripted.provider,
+      provider,
       bare: options.bare ?? true,
       permissionMode: options.permissionMode ?? 'bypassPermissions',
       ...(options.allowedTools ? { allowedTools: options.allowedTools } : {}),
@@ -244,6 +266,34 @@ export class ScriptedSessionHarness {
   sessionRecord(): IInteractiveSessionRecord | undefined {
     if (!this.sessionStore) return undefined;
     return this.sessionStore.load(this.session.getSession().getSessionId());
+  }
+
+  /** The real session-log directory the framework writes to (`{cwd}/.robota/logs`). */
+  logsDir(): string {
+    return join(this.cwd, '.robota', 'logs');
+  }
+
+  /** Path of the real JSONL transcript the framework writes for this session. */
+  transcriptPath(): string {
+    return join(this.logsDir(), `${this.session.getSession().getSessionId()}.jsonl`);
+  }
+
+  /** Raw contents of the real session transcript (`''` if none was written). */
+  transcript(): string {
+    const path = this.transcriptPath();
+    return existsSync(path) ? readFileSync(path, 'utf8') : '';
+  }
+
+  /**
+   * The real session transcript parsed into structured log entries — the durable record the
+   * framework itself writes (`{ timestamp, sessionId, event, ... }` per line). Leverages the
+   * system's own logging as a verification surface, not just in-memory state.
+   */
+  logEntries(): Array<Record<string, unknown>> {
+    return this.transcript()
+      .split('\n')
+      .filter((line) => line.trim().length > 0)
+      .map((line) => JSON.parse(line) as Record<string, unknown>);
   }
 
   /** Every tool call the agent made across all completed turns, in order. */

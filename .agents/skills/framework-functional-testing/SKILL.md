@@ -33,9 +33,27 @@ loop deterministically, so functional verification is automatable and mandatory 
   driven by `createScriptedProvider` (SSOT in `@robota-sdk/agent-core/testing`).
 - **Drivers:** `await h.submit(prompt)` → the completed turn; `await h.runGoal(objective, opts)` →
   the stopped goal; `await h.awaitEvent(name, predicate?)`.
-- **Inspectors:** `h.history()`, `h.sessionRecord()` (needs `persistence: true`), `h.toolCalls()`,
-  `h.emittedEvents(name)`, `h.readFile(rel)` / `h.exists(rel)` / `h.files()`, `h.requests`.
+- **Inspectors (in-memory):** `h.history()`, `h.toolCalls()`, `h.emittedEvents(name)`, `h.requests`.
+- **Inspectors (durable artifacts the system itself writes — leverage these):**
+  - `h.sessionRecord()` — the persisted session record (`{cwd}/.robota/sessions/…`; needs `persistence: true`).
+  - `h.transcript()` / `h.logEntries()` — the real JSONL transcript the framework writes
+    (`{cwd}/.robota/logs/{sessionId}.jsonl`): ordered `{ timestamp, sessionId, event, … }` records of
+    `session_init`, `provider_request`/`provider_response_*`, `tool_call`/`tool_result`, `assistant`, …
+    Assert against what the system actually recorded, not only in-memory state — it is the same
+    artifact a real run produces.
+  - `h.readFile(rel)` / `h.exists(rel)` / `h.files()` — workspace side effects.
 - **Lifecycle:** always `await h.dispose()` in `afterEach`.
+
+## Two provider modes
+
+- **Scripted** (`turns`) — hand-write the assistant turns. Fast, fully deterministic. Verifies the
+  machinery (wiring, tools, events, persistence) but NOT the prompts or the model's real tool-use.
+- **Cassette** (`cassette: path`) — replay a recorded **real** model run (real prompts + real
+  tool-use), deterministically. Record once with `createRecordingProvider({ provider, cassettePath,
+recordCwd })` against a real provider (one-off, needs an API key), commit the cassette, then
+  `scriptedSession({ cassette })`. Staleness is detected: if a prompt changes, replay fails with a
+  "re-record" error. Use a cassette to test the part scripted can't — that a real model actually
+  drives the feature.
 - `turns` are scripted assistant turns: `{ text }` or `{ toolCalls: [{ name, args }] }`. Use the
   `{{cwd}}` placeholder inside tool args to reference absolute workspace paths (e.g.
   `{ filePath: '{{cwd}}/out.txt' }`), since the workspace path is unknown until the harness is built.
