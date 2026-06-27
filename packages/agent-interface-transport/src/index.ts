@@ -40,6 +40,7 @@ export type {
 // ── Interaction-channel contracts ────────────────────────────
 export type {
   IInteractionChannel,
+  ITerminalHandoff,
   InteractionEvent,
   IPermissionRequest,
   TActionRequest,

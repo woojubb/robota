@@ -1,7 +1,8 @@
 ---
 title: 'TERM-001: terminal-handoff capability (transport contract + framework orchestration)'
-status: todo
+status: done
 created: 2026-06-27
+completed: 2026-06-28
 priority: high
 urgency: soon
 area: packages/agent-interface-transport, packages/agent-framework

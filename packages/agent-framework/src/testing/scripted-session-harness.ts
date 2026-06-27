@@ -44,6 +44,7 @@ import type {
   IInteractiveSessionEvents,
   IInteractiveSessionRecord,
   IInteractiveSessionStore,
+  ITerminalHandoff,
   IToolSummary,
   TInteractiveEventName,
 } from '@robota-sdk/agent-interface-transport';
@@ -90,6 +91,8 @@ export interface IScriptedSessionOptions {
   maxTurns?: number;
   /** Model override (e.g. when recording against a real provider whose model differs). */
   model?: string;
+  /** TERM-001: inject a (fake) terminal-handoff capability to exercise the handoff orchestration. */
+  terminalHandoff?: ITerminalHandoff;
 }
 
 const COLLECTED_EVENTS: readonly TInteractiveEventName[] = [
@@ -182,6 +185,7 @@ export class ScriptedSessionHarness {
       ...(options.commandModules ? { commandModules: options.commandModules } : {}),
       ...(options.maxTurns !== undefined ? { maxTurns: options.maxTurns } : {}),
       ...(options.model !== undefined ? { model: options.model } : {}),
+      ...(options.terminalHandoff ? { terminalHandoff: options.terminalHandoff } : {}),
     });
 
     for (const name of COLLECTED_EVENTS) {

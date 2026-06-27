@@ -41,6 +41,11 @@
       "id": "background-wake",
       "description": "A background-task completion / scheduled fire injects an agent-wakeup turn that reaches the provider (FLOW-002/003); repeated wakes for one task id coalesce.",
       "test": "packages/agent-framework/src/testing/__tests__/background-wake-functional.test.ts"
+    },
+    {
+      "id": "terminal-handoff",
+      "description": "TERM-001: the session orchestrates a transport terminal handoff (suspend→fn→restore), restores on throw, is exclusive, and fast-fails when no interactive terminal is available.",
+      "test": "packages/agent-framework/src/testing/__tests__/terminal-handoff-functional.test.ts"
     }
   ]
 }
