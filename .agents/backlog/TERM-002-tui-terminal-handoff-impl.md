@@ -1,12 +1,18 @@
 ---
 title: 'TERM-002: TUI implements the terminal-handoff port (thin suspend/resume)'
-status: todo
+status: in-progress
 created: 2026-06-27
 priority: high
 urgency: soon
 area: packages/agent-transport-tui
 depends_on: [TERM-001]
 ---
+
+> Implementation landed (TerminalHandoffController + App suspend gate + render/channel wiring;
+> controller logic unit-tested). **Not done**: the real Ink raw-mode release + child TTY handoff +
+> restore can only be validated on a live interactive terminal, which the CI/sandbox cannot drive.
+> The User Execution smoke (manual restore-after-handoff, no stale frame / raw-mode artifact) is the
+> remaining gate — evidence pending a manual run on a real terminal.
 
 # TUI implementation of the terminal-handoff port
 
