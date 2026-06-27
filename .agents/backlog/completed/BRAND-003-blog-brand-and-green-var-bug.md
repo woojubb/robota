@@ -1,12 +1,25 @@
 ---
 title: 'BRAND-003: Unify apps/blog brand + fix undefined --green CSS variable'
-status: todo
+status: done
+completed: 2026-06-27
 created: 2026-06-27
 priority: medium
 urgency: soon
 area: apps/blog
 depends_on: [BRAND-001]
 ---
+
+## Evidence Log (2026-06-27)
+
+- **Bug fix**: `--green` (used in 10+ places across `BlogPost.astro` + `Base.astro`) was never
+  defined → those colors silently failed. Defined `--green` + `--green-bg` for both themes in
+  `styles/global.css` (dark `#2dd4a7`, light `#0d9668`).
+- **Brand**: blog `--brand`/`--brand-dim`/`--brand-glow` moved from purple (`#a78bfa`/`#6355e8`)
+  to the unified emerald (`#2dd4a7` dark / `#0d9668` light).
+- **Toggle a11y**: the theme switcher (Base + BlogPost) now has `role="group"` + `aria-label`,
+  each option `role="button"` + `tabindex="0"` + `aria-label` (Light/Dark theme), and the
+  separator `aria-hidden`.
+- Verified: `robota-blog` astro typecheck passes; `--green` defined (dark + light).
 
 # Unify apps/blog brand + fix undefined --green CSS variable
 
