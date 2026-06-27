@@ -20,6 +20,7 @@ import type {
   IContextReferenceItem,
   IContextReferenceRemoveResult,
 } from '../context/context-reference-inventory.js';
+import type { IGoalStartOptions } from '../goal/index.js';
 import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
 import type { ISubagentJobState } from '../subagents/index.js';
 import type { TAutoCompactThreshold } from './context/context-command-api.js';
@@ -30,7 +31,7 @@ import type {
   TPermissionMode,
   TUniversalMessage,
 } from '@robota-sdk/agent-core';
-import type { ICommandListEntry } from '@robota-sdk/agent-interface-transport';
+import type { ICommandListEntry, IGoalState } from '@robota-sdk/agent-interface-transport';
 import type { ISessionReplayValidationResult } from '@robota-sdk/agent-session';
 // ICommandListEntry SSOT relocated to @robota-sdk/agent-interface-transport (DATA-001).
 
@@ -152,6 +153,12 @@ export interface ICommandHostContext {
   ): Promise<IBackgroundTaskLogPage>;
   cancelBackgroundTask(taskId: string, reason?: string): Promise<void>;
   closeBackgroundTask(taskId: string): Promise<void>;
+  /** GOAL-001 — assign and begin pursuing an autonomous goal. */
+  setGoal?(objective: string, options?: IGoalStartOptions): Promise<IGoalState>;
+  /** GOAL-001 — the current goal state, or null when no goal has been set. */
+  getGoalState?(): IGoalState | null;
+  /** GOAL-001 — cancel an in-flight goal; returns the stopped state or null. */
+  cancelGoal?(): IGoalState | null;
 }
 
 export interface IAgentJobHostContext {
