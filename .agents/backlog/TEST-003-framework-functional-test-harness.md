@@ -62,31 +62,58 @@ written through `startCli` because no framework-level functional harness exists.
 3. **A skill** documenting the harness so future agent sessions discover and use it by default.
 4. **A reference functional test**: port GOAL-001's behaviour down to a framework-level functional
    test using the harness (the canonical example), proving the harness covers a non-trivial feature.
-5. **(Optional, to confirm) mechanical enforcement**: a `harness:scan` check that flags a new
-   framework capability lacking a functional test, so the skip-E2E regression can't recur silently.
+5. **Mechanical enforcement**: a `harness:scan` capability-manifest check that fails when a
+   manifested framework capability lacks a kit-based functional test, so the skip-E2E regression
+   can't recur silently.
 
-## Design decisions to confirm (BEFORE implementation)
+## Design decisions (confirmed 2026-06-27)
 
-1. **Harness location & layering.** The harness belongs at the framework level, but the scripted
-   provider currently lives in `agent-transport/testing`, and `agent-framework` must not depend on
-   `agent-transport` (wrong direction). Options:
-   - (a) **Relocate the deterministic scripted-provider SSOT to a framework-reachable testing module**
-     (e.g. `agent-framework/testing` or an `agent-core/testing` subpath, since the provider only
-     implements `IAIProvider`), and have `agent-transport/testing` re-export it. The harness then
-     lives in `agent-framework/testing` with no reverse dep. _(recommended)_
-   - (b) Keep the provider in `agent-transport` and put the harness in a separate test-only package.
-   - (c) Duplicate a minimal scripted provider in framework testing (rejected — SSOT violation).
-2. **Harness API shape.** A single factory (e.g. `createScriptedInteractiveSession({ turns, cwd?,
-files?, ... })`) returning the real session plus an assertions facade, vs. a small set of
-   composable helpers. Confirm the surface so it is ergonomic for agent-authored tests.
-3. **Enforcement strictness.** Add a mechanical scan now (flag framework capabilities without a
-   functional test), rely on the rule + skill only, or both. Confirm.
-4. **Retrofit scope.** Port GOAL-001 as the reference now; decide whether to retrofit other recent
-   framework features in this item or open follow-ups.
+User direction: do it **properly** even if larger; the harness must be a **reusable, extensible,
+long-term structure** the agent keeps using as the framework grows — brevity is not a goal; correct
+layering and architecture are. Enforce mechanically. Retrofit recent features, not just GOAL-001.
 
-**Process gate:** the concrete design note (chosen location, the exact harness API, the rule text,
-and the enforcement decision) is confirmed before implementation, per the spec-before-code and
-design-confirmation rules. Relevant SPEC.md (agent-framework `testing` surface) is updated as SSOT.
+1. **Layering & ownership (architecturally-correct placement).** The deterministic scripted provider
+   imports only `@robota-sdk/agent-core` contracts (`IAIProvider`/`IRawProviderResponse`/
+   `TUniversalMessage`), so its SSOT belongs at the **lowest** layer that owns the abstraction:
+   - **`@robota-sdk/agent-core` `./testing` subpath** owns the deterministic scripted provider
+     (`createScriptedProvider`) — new test-only subpath export. `agent-transport/testing` re-exports
+     it (existing consumers unchanged); its current copy is removed (no duplication, one SSOT).
+   - **`@robota-sdk/agent-framework` `./testing` subpath** owns the **functional session harness**
+     (builds a real `InteractiveSession`), consuming the agent-core scripted provider. No reverse
+     dependency on `agent-transport`. This is the proper home because `agent-framework` owns
+     `InteractiveSession` (the product surface under test).
+2. **Harness architecture (extensible, not a one-off factory).** A structured **session test kit**
+   in `agent-framework/testing`, designed for long-term growth:
+   - a **builder** (`scriptedSession()` / `ScriptedSessionHarness`) that constructs a real
+     `InteractiveSession` in an **isolated** temp workspace (own `cwd` + home, seed files, optional
+     command modules, persistence on/off), backed by a scripted provider;
+   - composable **drivers**: `submit(prompt)` → await `complete` and return the result;
+     `runGoal(objective, opts)` → await `goal_stopped`; `awaitEvent(name)`; a low-level `drive()`;
+   - composable **inspectors/assertions**: `history()`, `sessionRecord()`, `readFile()`/`files()`,
+     `toolCalls()`, `events(name)`;
+   - **lifecycle**: `dispose()` tears down the temp workspace; helpers isolate state per test.
+     The kit is module-organized (builder / drivers / inspectors) so new capability drivers and
+     assertions are added without breaking callers.
+3. **Enforcement = rule + skill + mechanical scan (all three).**
+   - **Rule** (`.agents/rules/`): the testing-layering policy (CLI = thin-wrapper/TUI tests only;
+     feature behaviour MUST have a framework-level functional test via the kit; "CLI can't be
+     E2E'd" is rejected). Linked from the rules index.
+   - **Skill** (`.agents/skills/`): how to author a functional test with the kit; the default the
+     agent reaches for.
+   - **Mechanical scan** (`harness:scan`): a **capability manifest** lists each framework capability
+     and its functional-test file; the scan fails when a manifested capability has no kit-based
+     functional test, and the rule requires new capabilities to be added to the manifest. (Manifest
+     chosen over fragile auto-detection of "what is a capability".)
+4. **Retrofit scope.** Port **GOAL-001** as the reference functional test, then retrofit the recent
+   framework capabilities that currently lack a framework-level functional test (e.g. background
+   tasks / schedule wake, preset application, resume/fork) — seeding the capability manifest. Any
+   capability that proves disproportionately large to retrofit is split into a tracked follow-up
+   (logged, not silently dropped).
+
+**Process gate:** this concrete design is confirmed; implementation proceeds in layered phases
+(agent-core scripted-provider SSOT → framework session kit → rule+skill → manifest scan →
+GOAL-001 reference + retrofit). Relevant SPEC.md (`agent-core` and `agent-framework` `testing`
+surfaces) is updated as SSOT first.
 
 ## Done When
 
