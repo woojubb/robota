@@ -1,4 +1,7 @@
 import { getTranslations, setRequestLocale } from 'next-intl/server';
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = { title: 'Compare' };
 
 const FEATURE_ROW_DATA = [
   { robota: true, claudeCode: false, cursor: false, aider: true, cline: true },
