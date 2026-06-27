@@ -1848,7 +1848,7 @@ Each module's placement is determined by "Is this used only in the SDK, or is it
 - **agent-session**: Removed existing SessionManager/ChatInstance (zero consumers, no-op persistence), replaced with Session/SessionStore from agent-framework
 - **agent-tools**: Added 8 built-in tools in `builtins/` directory (Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch), added `IToolInvocationResult` type
 - **agent-core**: Added `permissions/` and `hooks/` directories
-- **agent-provider-anthropic**: Multi-block content handling (text + tool_use), streaming `chatWithStreaming`, `onTextDelta` support
+- **agent-provider (`./anthropic` sub-path)**: Multi-block content handling (text + tool_use), streaming `chatWithStreaming`, `onTextDelta` support
 
 ## Hook Type Executors (SDK-Specific)
 
@@ -2285,10 +2285,10 @@ Subagent transcript logs must include session initialization, prompts, tool call
 
 ## Unconnected Packages (Future Integration Targets)
 
-| Package                                    | Current State | Integration Direction                                               |
-| ------------------------------------------ | ------------- | ------------------------------------------------------------------- |
-| **agent-tool-mcp**                         | Unconnected   | Connect when MCP server is configured in InteractiveSession options |
-| **agent-team**                             | Unconnected   | Replace agent-tool.ts with agent-team delegation pattern            |
-| **agent-event-service**                    | Unconnected   | Publish Session lifecycle events                                    |
-| **agent-plugin-\***                        | Unconnected   | Inject plugins during Session/Robota creation                       |
-| **agent-provider-openai/google/bytedance** | Unconnected   | Consumer passes provider to InteractiveSession({ cwd, provider })   |
+| Package                                                              | Current State | Integration Direction                                               |
+| -------------------------------------------------------------------- | ------------- | ------------------------------------------------------------------- |
+| **agent-tool-mcp**                                                   | Unconnected   | Connect when MCP server is configured in InteractiveSession options |
+| **agent-team**                                                       | Unconnected   | Replace agent-tool.ts with agent-team delegation pattern            |
+| **agent-event-service**                                              | Unconnected   | Publish Session lifecycle events                                    |
+| **agent-plugin-\***                                                  | Unconnected   | Inject plugins during Session/Robota creation                       |
+| **agent-provider (`./openai`, `./gemini`, `./bytedance` sub-paths)** | Unconnected   | Consumer passes provider to InteractiveSession({ cwd, provider })   |

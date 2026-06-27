@@ -79,13 +79,14 @@ console.log(response);
 
 ## Switch providers
 
-Swap `createAnthropicProvider` with any other supported provider — no other code changes required:
+Swap `createAnthropicProvider` with any other supported provider — no other code changes required.
+OpenAI is constructed directly via its provider class:
 
 ```typescript
-import { createOpenAIProvider } from '@robota-sdk/agent-provider';
+import { OpenAIProvider } from '@robota-sdk/agent-provider';
 
 const query = createQuery({
-  provider: createOpenAIProvider({ apiKey: process.env.OPENAI_API_KEY }),
+  provider: new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY }),
 });
 ```
 
