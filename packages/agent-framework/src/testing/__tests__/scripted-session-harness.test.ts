@@ -91,4 +91,11 @@ describe('ScriptedSessionHarness (TEST-003)', () => {
     },
     TEST_TIMEOUT,
   );
+
+  it('requires exactly one of `turns` or `cassette`', () => {
+    expect(() => scriptedSession({})).toThrow(/exactly one/i);
+    expect(() => scriptedSession({ turns: [{ text: 'x' }], cassette: '/tmp/x.json' })).toThrow(
+      /exactly one/i,
+    );
+  });
 });

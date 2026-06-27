@@ -865,14 +865,21 @@ NOTE: Tool implementations (`FunctionTool`, `OpenAPITool`) in the tools layer im
 
 ## Test Strategy
 
-### Test-only fixtures — `@robota-sdk/agent-core/testing` (TEST-003)
+### Test-only fixtures — `@robota-sdk/agent-core/testing` (TEST-003 / TEST-005)
 
 A node-only `./testing` subpath (excluded from the browser build and the runtime bundle) owns the
-deterministic scripted provider SSOT: `createScriptedProvider(turns)` returns an `IAIProvider` that
-replays declared assistant turns (text or tool calls) through the **real** agent loop and records
-every request. It is the lowest layer that can own this fixture because it implements only
-agent-core contracts; higher layers (`agent-framework/testing`, `agent-transport/testing`) re-export
-it. Never import it from runtime code.
+deterministic test providers (SSOT). It is the lowest layer that can own these fixtures because they
+implement only agent-core contracts; higher layers (`agent-framework/testing`,
+`agent-transport/testing`) re-export them. Never import from runtime code.
+
+- **Scripted provider** — `createScriptedProvider(turns)` returns an `IAIProvider` that replays
+  declared assistant turns (text or tool calls) through the **real** agent loop and records every
+  request. Tests the machinery; ignores the prompt.
+- **Record-replay (cassette) provider (TEST-005)** — `createRecordingProvider({ provider,
+cassettePath, recordCwd? })` wraps a real provider and writes each interaction to a cassette;
+  `createReplayProvider({ cassettePath, rewriteCwd? })` replays it deterministically with staleness
+  detection (request hash over a workspace-scrubbed projection) and clear exhaustion errors. Lets a
+  real model's prompts + tool-use be captured once and replayed in CI at zero per-run cost.
 
 ### Current Coverage
 

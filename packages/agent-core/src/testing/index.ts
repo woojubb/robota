@@ -7,3 +7,11 @@
 
 export { createScriptedProvider } from './scripted-provider.js';
 export type { IScriptedProvider, TScriptedTurn } from './scripted-provider.js';
+
+export { createRecordingProvider, createReplayProvider } from './cassette-provider.js';
+export type {
+  ICassette,
+  ICassetteInteraction,
+  IRecordingProviderOptions,
+  IReplayProviderOptions,
+} from './cassette-provider.js';
