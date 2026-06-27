@@ -6,13 +6,11 @@
 import { readFileSync } from 'node:fs';
 
 import type { TUniversalValue } from '@robota-sdk/agent-core';
+// TYPE-001: IDiffLine is owned by the contract package (single SSOT); re-export it here so
+// the existing `./edit-diff` consumers keep their import path.
+import type { IDiffLine } from '@robota-sdk/agent-interface-transport';
 
-export interface IDiffLine {
-  type: 'add' | 'remove' | 'context' | 'hunk';
-  text: string;
-  /** Absolute line number in the file */
-  lineNumber: number;
-}
+export type { IDiffLine };
 
 /** Number of context lines to show before and after the change */
 const CONTEXT_LINES = 3;
