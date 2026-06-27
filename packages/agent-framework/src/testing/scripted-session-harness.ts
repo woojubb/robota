@@ -55,6 +55,10 @@ export interface IScriptedSessionOptions {
   commandModules?: readonly ICommandModule[];
   /** Permission posture. Defaults to `bypassPermissions` so tools run unattended. */
   permissionMode?: TPermissionMode;
+  /** Pre-approved tool names. */
+  allowedTools?: string[];
+  /** Denied tool names (deny wins over allow). */
+  deniedTools?: string[];
   /** Skip AGENTS.md/CLAUDE.md and plugin discovery for determinism. Defaults to `true`. */
   bare?: boolean;
   /** Cap on agentic rounds per submit. */
@@ -110,6 +114,8 @@ export class ScriptedSessionHarness {
       provider: scripted.provider,
       bare: options.bare ?? true,
       permissionMode: options.permissionMode ?? 'bypassPermissions',
+      ...(options.allowedTools ? { allowedTools: options.allowedTools } : {}),
+      ...(options.deniedTools ? { deniedTools: options.deniedTools } : {}),
       ...(this.sessionStore ? { sessionStore: this.sessionStore } : {}),
       ...(options.commandModules ? { commandModules: options.commandModules } : {}),
       ...(options.maxTurns !== undefined ? { maxTurns: options.maxTurns } : {}),

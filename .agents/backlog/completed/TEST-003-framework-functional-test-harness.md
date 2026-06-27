@@ -1,7 +1,8 @@
 ---
 title: "TEST-003: Framework-level functional test harness — the agent's standard E2E for any feature"
-status: todo
+status: done
 created: 2026-06-27
+completed: 2026-06-27
 priority: high
 urgency: soon
 area: packages/agent-framework, packages/agent-transport, .agents/rules, .agents/skills
@@ -140,3 +141,35 @@ surfaces) is updated as SSOT first.
 Not applicable — this is agent-facing internal test infrastructure with no user-facing product
 behaviour. The deliverable is validated by its own reference functional test passing (recorded as
 Test Plan evidence), not by a product-surface scenario.
+
+## Evidence Log (completed 2026-06-27)
+
+Built in five layered phases (one commit each):
+
+- **P1 — provider SSOT.** `createScriptedProvider` relocated to a new `@robota-sdk/agent-core/testing`
+  subpath (lowest layer that owns `IAIProvider`); `agent-transport/testing` re-exports it; no
+  duplication. CLI scripted E2E unchanged (8 tests pass through the re-export).
+- **P2 — functional session kit.** `@robota-sdk/agent-framework/testing` `scriptedSession()` /
+  `ScriptedSessionHarness` builds a REAL `InteractiveSession` in an isolated temp workspace driven by
+  the scripted provider, with drivers (`submit`/`runGoal`/`awaitEvent`) and inspectors
+  (`history`/`sessionRecord`/`toolCalls`/`emittedEvents`/`files`/`requests`) and `dispose()`. The
+  `{{cwd}}` placeholder lets scripted tool args reference absolute workspace paths. 4 self-tests prove
+  the kit drives the real loop (real Bash writes a real file), persists, and isolates state. Test
+  fixtures moved to the `./testing` subpath (out of the runtime bundle); framework tsconfig switched
+  to `moduleResolution: bundler` (matches the transport family; build uses tsdown).
+- **P3 — rule + skill.** `.agents/rules/testing-layering.md` (CLI = thin-wrapper/TUI tests only;
+  feature behaviour MUST have a framework-level functional test; "CLI can't be E2E'd"/"needs a live
+  LLM" rejected) linked from the rules and process indexes; `framework-functional-testing` skill.
+- **P4 — mechanical enforcement.** `functional-coverage-manifest.json` + `check-functional-coverage.mjs`
+  fail `pnpm harness:scan` when a manifested capability's test is missing or does not use the harness
+  (negative + positive paths verified). Wired in — 33 scans.
+- **P5 — reference + retrofit.** GOAL-001 ported to a framework-level functional test
+  (`goal/__tests__/goal-functional.test.ts`: multi-turn pursuit → satisfied; bound → max-iterations)
+  with NO CLI and NO live LLM; permission-gate retrofit (`deniedTools` blocks the side effect and
+  reports the denial). Both seeded into the manifest. Heavier retrofits (resume/fork, background/
+  schedule wake, preset application) split into **TEST-004** (logged, not dropped).
+
+**Verification:** touched packages typecheck + lint (0 errors) + tests green (agent-framework 1002,
+including the 8 new functional tests); full monorepo typecheck green; `pnpm harness:scan` 33/33; no
+layering violation — `agent-framework` gained no dependency on `agent-transport` (the scripted
+provider SSOT sits below both).
