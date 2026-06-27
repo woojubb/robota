@@ -173,6 +173,9 @@ export async function createInteractiveSession(
     agentName: options.agentName,
     ...(options.activePresetId !== undefined ? { activePresetId: options.activePresetId } : {}),
     ...(options.additionalTools ? { additionalTools: options.additionalTools } : {}),
+    // GOAL-001: every interactive session exposes the goal completion-signal tool so /goal and
+    // --goal can drive autonomous pursuit. It is inert unless a goal is active.
+    includeGoalTool: true,
     ...(options.responseFormat ? { responseFormat: options.responseFormat } : {}),
   });
 

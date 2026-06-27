@@ -73,6 +73,8 @@ export interface ICreateSessionOptions {
   ) => Promise<TPermissionResult>;
   /** Additional tools to register beyond the defaults (e.g. agent-tool) */
   additionalTools?: IToolWithEventService[];
+  /** GOAL-001: include the `report_goal_status` completion-signal tool (interactive sessions). */
+  includeGoalTool?: boolean;
   /** Additional background task runners composed by the runtime shell. */
   backgroundTaskRunners?: IBackgroundTaskRunner[];
   /** Runtime shell override for subagent execution. Defaults to the SDK in-process runner. */

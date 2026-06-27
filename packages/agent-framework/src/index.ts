@@ -3,6 +3,21 @@
 
 // ── InteractiveSession (primary API) ────────────────────────
 export { InteractiveSession } from './interactive/index.js';
+
+// ── Autonomous goal pursuit (GOAL-001) ──────────────────────
+export {
+  GoalController,
+  extractGoalSignal,
+  createGoalStatusTool,
+  GOAL_SIGNAL_TOOL_NAME,
+  DEFAULT_GOAL_MAX_ITERATIONS,
+  DEFAULT_GOAL_NO_PROGRESS_LIMIT,
+  buildGoalStartPrompt,
+  buildGoalContinuationPrompt,
+  type IGoalSignal,
+  type TGoalDecision,
+  type IGoalStartOptions,
+} from './goal/index.js';
 export {
   createProjectSessionStore,
   createUserSessionStore,

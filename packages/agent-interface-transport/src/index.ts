@@ -122,4 +122,9 @@ export type {
   IInteractiveSessionRecord,
   IInteractiveSessionStore,
   IResumableSessionSummary,
+  IGoalState,
+  IGoalEvent,
+  IGoalProgressEntry,
+  TGoalStatus,
+  TGoalStopReason,
 } from './session-contracts.js';

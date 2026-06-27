@@ -2283,6 +2283,31 @@ Assembles the full system prompt for a subagent session:
 
 Subagent transcript logs must include session initialization, prompts, tool calls/results, streaming `text_delta` chunks, final assistant output, context state, and errors. Parent sessions may store only transcript paths and task snapshots in `.robota/sessions/*.json`; the transcript JSONL remains the source of truth for high-frequency streaming data.
 
+## Autonomous Goal Pursuit (GOAL-001)
+
+A user-assigned high-level objective that the agent pursues autonomously across multiple turns until it is satisfied or a bound fires. The capability is owned by `agent-framework`; surfaces (the `/goal` slash command and the `--goal` headless flag) delegate to it. Naming is vendor-neutral throughout.
+
+### Contract types (SSOT)
+
+`IGoalState`, `IGoalEvent`, `IGoalProgressEntry`, `TGoalStatus`, and `TGoalStopReason` are defined in `@robota-sdk/agent-interface-transport` (the persistence/transport SSOT) and re-exported through the session contracts. `IGoalState` is persisted in `IInteractiveSessionRecord.goal` so an in-flight goal survives `--resume`.
+
+### Completion signal (deterministic, not heuristic)
+
+While a goal is active the agent reports its assessment by calling the built-in `report_goal_status({ status: 'continue' | 'satisfied', reason })` tool (`GOAL_SIGNAL_TOOL_NAME`). The tool is schema-validated and stateless; the loop reads the LAST such call from the completed turn's `toolSummaries` via `extractGoalSignal`. There is no prose/keyword parsing — a missing or malformed signal is treated as "no signal", never as satisfaction. The tool is included in every interactive session (`includeGoalTool: true`) and is inert when no goal is active.
+
+### Controller and loop
+
+`GoalController` (`src/goal/`) is pure decision logic (no IO), unit-tested in isolation. `onTurnComplete(result)` advances the goal and returns either `{ action: 'continue', prompt }` or `{ action: 'stop', reason }`. `InteractiveSession` drives the loop: `setGoal(objective, options)` seeds the goal and schedules the first agent-driven turn through the FLOW-002 `requestWakeup` primitive (tagged `agent-wakeup`); each completed agent-driven turn advances the controller and either schedules the next wakeup or stops. `getGoalState()` and `cancelGoal()` expose state and cancellation.
+
+### Stop conditions (all mandatory)
+
+- `satisfied` — the agent signalled completion.
+- `max-iterations` — the per-goal turn budget (`maxIterations`, default `DEFAULT_GOAL_MAX_ITERATIONS = 25`) was reached.
+- `no-progress` — consecutive idle turns (no non-signal tool calls) reached the convergence limit (`DEFAULT_GOAL_NO_PROGRESS_LIMIT = 2`).
+- `cancelled` — the user cancelled via `cancelGoal()`.
+
+Headless runs are fully autonomous until a stop condition fires; interactive (TUI) sessions auto-continue while the user may cancel at any time. Only `agent-wakeup` turns advance the goal — a user's own interjected message is not counted as a goal iteration.
+
 ## Unconnected Packages (Future Integration Targets)
 
 | Package                                                              | Current State | Integration Direction                                               |

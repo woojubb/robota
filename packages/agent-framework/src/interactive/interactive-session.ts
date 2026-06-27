@@ -16,6 +16,7 @@ import {
   createProviderFromSettings,
   readProviderSettings,
 } from '../command-api/provider/provider-factory.js';
+import { GoalController, buildGoalContinuationPrompt } from '../goal/index.js';
 import { retrieveAgentToolDeps } from '../tools/agent-tool.js';
 
 import type { IInteractiveSession } from './i-interactive-session.js';
@@ -26,7 +27,11 @@ import type {
   IInteractiveSessionStandardOptions,
 } from './interactive-session-options.js';
 import type { IInteractiveSessionStore } from './session-persistence.js';
-import type { TInteractiveEventName, IInteractiveSessionEvents } from './types.js';
+import type {
+  TInteractiveEventName,
+  IInteractiveSessionEvents,
+  IExecutionResult,
+} from './types.js';
 import type { IBackgroundTaskManager } from '../background-tasks/index.js';
 import type { ICommandHostContext } from '../command-api/index.js';
 import type {
@@ -36,13 +41,18 @@ import type {
   TAutoCompactThreshold,
 } from '../commands/index.js';
 import type { IContextFileEntry } from '../context/context-file-tracker.js';
+import type { IGoalStartOptions } from '../goal/index.js';
 import type {
   TUniversalMessage,
   TSessionEndReason,
   IProviderDefinition,
 } from '@robota-sdk/agent-core';
 import type { ISession } from '@robota-sdk/agent-core';
-import type { ITransportAdapter } from '@robota-sdk/agent-interface-transport';
+import type {
+  ITransportAdapter,
+  IGoalState,
+  TTurnSource,
+} from '@robota-sdk/agent-interface-transport';
 import type { Session } from '@robota-sdk/agent-session';
 import type { ISandboxClient } from '@robota-sdk/agent-tools';
 export type { TInteractiveSessionOptions } from './interactive-session-options.js';
@@ -80,6 +90,10 @@ export class InteractiveSession
   protected readonly histTracker: SessionHistoryTracker;
   protected readonly skillRouter: SessionSkillRouter;
   protected readonly execCtrl: SessionExecutionController;
+  /** GOAL-001: autonomous objective-pursuit controller (inert until a goal is set). */
+  private readonly goalController = new GoalController();
+  /** GOAL-001: origin of the most recently started turn — gates goal-loop advancement. */
+  private currentTurnSource: TTurnSource = 'user';
 
   constructor(options: TInteractiveSessionOptions) {
     super();
@@ -168,12 +182,19 @@ export class InteractiveSession
       this.orgPolicy = (options as IInteractiveSessionStandardOptions).orgPolicy ?? null;
     }
 
+    // GOAL-001: observe turn origin and completion to drive the autonomous goal loop.
+    this.on('turn_source', (source) => {
+      this.currentTurnSource = source;
+    });
+    this.on('complete', (result) => this.handleGoalTurnComplete(result));
+
     const hasInjectedSession = this.configureInjectedSession(options);
     this.restoreSessionRecordIfNeeded(options);
     this.startAsyncInitializationIfNeeded(options, hasInjectedSession);
 
     if (this.initialized) this.bgTracker.subscribe(this.session!);
     if (this.initialized) this.persistCurrentSession();
+    this.resumeGoalIfActive();
   }
 
   private configureInjectedSession(options: TInteractiveSessionOptions): boolean {
@@ -203,6 +224,8 @@ export class InteractiveSession
     });
     this.pendingRestoreMessages = restored.pendingRestoreMessages;
     this.sandboxSnapshotId = this.forkSession ? undefined : restored.sandboxSnapshotId;
+    // GOAL-001: a fork starts fresh; a true resume restores any in-flight goal so pursuit continues.
+    if (!this.forkSession && restored.goal) this.goalController.restore(restored.goal);
     if (this.session && restored.pendingRestoreMessages === null) {
       // Injected-session path: messages were injected immediately — sync context estimate.
       this.session.syncContextFromHistory();
@@ -499,7 +522,72 @@ export class InteractiveSession
       { events: histState.skillActivationEvents },
       { references: histState.contextReferences },
       { snapshotId: this.sandboxSnapshotId },
+      this.goalController.getState() ?? undefined,
     );
+  }
+
+  /**
+   * GOAL-001: assign an autonomous goal and begin pursuing it. The agent takes follow-up turns
+   * on its own until it signals the goal satisfied or a bound fires (max iterations, no-progress,
+   * or {@link cancelGoal}). Returns the seeded goal state. Throws on an empty objective.
+   */
+  async setGoal(objective: string, options: IGoalStartOptions = {}): Promise<IGoalState> {
+    await this.ensureInitialized();
+    const { goal, prompt } = this.goalController.start(objective, options);
+    this.emit('goal_event', { type: 'goal_started', goal });
+    this.persistCurrentSession();
+    this.scheduleGoalTurn(prompt, goal);
+    return goal;
+  }
+
+  /** GOAL-001: the current goal state, or `null` when no goal has been set. */
+  getGoalState(): IGoalState | null {
+    return this.goalController.getState();
+  }
+
+  /** GOAL-001: cancel an in-flight goal. Returns the stopped state, or `null` when none is active. */
+  cancelGoal(): IGoalState | null {
+    const stopped = this.goalController.cancel();
+    if (stopped) {
+      this.emit('goal_event', { type: 'goal_stopped', goal: stopped });
+      this.persistCurrentSession();
+    }
+    return stopped;
+  }
+
+  /** GOAL-001: schedule the next goal-driven turn via the FLOW-002 wakeup primitive. */
+  private scheduleGoalTurn(prompt: string, goal: IGoalState): void {
+    if (this.execCtrl.shuttingDown) return;
+    const wakeId = `goal:${goal.id}:${goal.iterations}`;
+    // Defer past the current turn's finalization so the wakeup is not coalesced away and the
+    // just-completed turn's bookkeeping (executing flag, wake ids) has settled.
+    setTimeout(() => this.requestWakeup(prompt, wakeId), 0);
+  }
+
+  /** GOAL-001: advance the goal loop after an agent-driven turn completes. */
+  private handleGoalTurnComplete(result: IExecutionResult): void {
+    if (!this.goalController.isActive()) return;
+    // Only agent-driven turns advance the goal; a user's own message is not a goal iteration.
+    if (this.currentTurnSource !== 'agent-wakeup') return;
+    const decision = this.goalController.onTurnComplete(result);
+    if (!decision) return;
+    this.persistCurrentSession();
+    if (decision.action === 'continue') {
+      this.emit('goal_event', { type: 'goal_progress', goal: decision.goal });
+      this.scheduleGoalTurn(decision.prompt, decision.goal);
+    } else {
+      this.emit('goal_event', { type: 'goal_stopped', goal: decision.goal });
+    }
+  }
+
+  /** GOAL-001: after a resume, continue pursuing a restored active goal once initialized. */
+  private resumeGoalIfActive(): void {
+    const goal = this.goalController.getState();
+    if (!goal || goal.status !== 'active') return;
+    void this.ensureInitialized().then(() => {
+      if (!this.goalController.isActive() || this.execCtrl.shuttingDown) return;
+      this.scheduleGoalTurn(buildGoalContinuationPrompt(goal), goal);
+    });
   }
 
   private async switchProvider(profileName: string): Promise<void> {

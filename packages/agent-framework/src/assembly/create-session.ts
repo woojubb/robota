@@ -17,6 +17,7 @@ import { createDefaultTools, DEFAULT_TOOL_DESCRIPTIONS } from './create-tools.js
 import { wrapEditCheckpointTools } from '../checkpoints/edit-checkpoint-tools.js';
 import { SkillCommandSource } from '../commands/skill-source.js';
 import { readSettings, writeSettings } from '../config/settings-io.js';
+import { createGoalStatusTool } from '../goal/index.js';
 import { AgentExecutor } from '../hooks/agent-executor.js';
 import { PromptExecutor } from '../hooks/prompt-executor.js';
 import { wrapReversibleExecutionTools } from '../reversible-execution/index.js';
@@ -100,7 +101,11 @@ export function createSession(options: ICreateSessionOptions): ICreateSessionRes
     shouldWrapHostEditCheckpoints && options.editCheckpointRecorder
       ? wrapEditCheckpointTools(baseDefaultTools, options.editCheckpointRecorder)
       : baseDefaultTools;
-  const assembledTools = [...defaultTools, ...(options.additionalTools ?? [])];
+  const assembledTools = [
+    ...defaultTools,
+    ...(options.additionalTools ?? []),
+    ...(options.includeGoalTool ? [createGoalStatusTool()] : []),
+  ];
   const reversibleExecution = options.reversibleExecution
     ? {
         ...options.reversibleExecution,
