@@ -49,16 +49,23 @@ function createFakeSession(
   } as unknown as IInteractiveSession;
 }
 
-let stdout: ReturnType<typeof vi.spyOn>;
-let stderr: ReturnType<typeof vi.spyOn>;
+const stdoutChunks: string[] = [];
+const stderrChunks: string[] = [];
 
 beforeEach(() => {
-  stdout = vi.spyOn(process.stdout, 'write').mockReturnValue(true);
-  stderr = vi.spyOn(process.stderr, 'write').mockReturnValue(true);
+  stdoutChunks.length = 0;
+  stderrChunks.length = 0;
+  vi.spyOn(process.stdout, 'write').mockImplementation(((chunk: unknown) => {
+    stdoutChunks.push(String(chunk));
+    return true;
+  }) as never);
+  vi.spyOn(process.stderr, 'write').mockImplementation(((chunk: unknown) => {
+    stderrChunks.push(String(chunk));
+    return true;
+  }) as never);
 });
 afterEach(() => {
-  stdout.mockRestore();
-  stderr.mockRestore();
+  vi.restoreAllMocks();
 });
 
 describe('headless runGoal', () => {
@@ -76,7 +83,8 @@ describe('headless runGoal', () => {
     });
     const code = await createHeadlessRunner({ session, outputFormat: 'text' }).runGoal('do it');
     expect(code).toBe(0);
-    expect(stdout).toHaveBeenCalledWith('did step 1\n');
+    expect(stdoutChunks).toContain('did step 1\n');
+    expect(stdoutChunks.join('')).toContain('Goal satisfied');
   });
 
   it('exits GOAL_NOT_SATISFIED_EXIT_CODE when stopped at a bound', async () => {

@@ -13,6 +13,16 @@ const EMPTY_EXECUTION_WORKSPACE = {
   entries: [] as [],
 };
 
+const EMPTY_GOAL_STATE = {
+  id: 'test-goal',
+  objective: 'test goal',
+  status: 'active' as const,
+  iterations: 0,
+  maxIterations: 25,
+  startedAt: new Date().toISOString(),
+  progress: [] as [],
+};
+
 const EMPTY_BACKGROUND_GROUP = {
   id: '',
   parentSessionId: 'test-session-id',
@@ -73,6 +83,9 @@ export function createTestInteractiveSession(
     sendAgentJob: () => Promise.resolve(),
     cancelAgentJob: () => Promise.resolve(),
     closeAgentJob: () => Promise.resolve(),
+    setGoal: () => Promise.resolve({ ...EMPTY_GOAL_STATE }),
+    getGoalState: () => null,
+    cancelGoal: () => null,
     ...overrides,
   };
   return base;
