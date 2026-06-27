@@ -1,7 +1,8 @@
 ---
 title: 'CORE-008: updateSystemPrompt before first run can drop restored conversation history'
-status: todo
+status: done
 created: 2026-06-27
+completed: 2026-06-27
 priority: medium
 urgency: soon
 area: packages/agent-core

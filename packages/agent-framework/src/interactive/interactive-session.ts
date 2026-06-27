@@ -346,14 +346,15 @@ export class InteractiveSession
    * (a scheduled fire or, later, a monitor match). Coalesces by source task id so repeated
    * wakes for the same task while one is still in flight collapse to a single turn.
    */
-  requestWakeup(instruction: string, sourceTaskId: string): void {
-    if (this.execCtrl.shuttingDown) return;
-    if (this.execCtrl.wakeTaskIds.has(sourceTaskId)) return;
+  requestWakeup(instruction: string, sourceTaskId: string): boolean {
+    if (this.execCtrl.shuttingDown) return false;
+    if (this.execCtrl.wakeTaskIds.has(sourceTaskId)) return false;
     this.execCtrl.wakeTaskIds.add(sourceTaskId);
     void this.submit(instruction, undefined, undefined, {
       turnSource: 'agent-wakeup',
       wakeTaskId: sourceTaskId,
     });
+    return true;
   }
 
   abort(): void {

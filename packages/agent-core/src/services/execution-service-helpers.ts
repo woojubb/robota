@@ -76,7 +76,12 @@ export function initializeConversationStore(
   executionId: string,
 ): ConversationStore {
   const session = conversationHistory.getConversationStore(conversationId);
-  if (session.getMessageCount() === 0 && messages.length > 0) {
+  // Restore when there is no CONVERSATION content yet (user/assistant/tool). A live
+  // `updateSystemPrompt` before the first run can pre-seed a system head, which would make a plain
+  // `getMessageCount() === 0` check false and silently skip restore (CORE-008); ignoring the system
+  // head fixes that. The system prompt itself is re-asserted below from config.systemMessage.
+  const hasConversationContent = session.getMessages().some((m) => m.role !== 'system');
+  if (!hasConversationContent && messages.length > 0) {
     for (const msg of messages) {
       if (msg.role === 'user') {
         session.addUserMessage(msg.content, msg.metadata, msg.parts);

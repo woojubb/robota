@@ -54,4 +54,22 @@ describe('background / scheduled wake (framework functional)', () => {
     },
     TEST_TIMEOUT,
   );
+
+  it(
+    'wake() resolves null (does not hang) when the wake is coalesced',
+    async () => {
+      h = scriptedSession({ turns: [{ text: 'user-turn' }, { text: 'wake-turn' }] });
+      await h.submit('hello');
+
+      // First wake queues the turn; a second wake for the same id (still in flight) is a no-op and
+      // must resolve to null promptly rather than awaiting a turn that never runs.
+      const firstSettled = h.wake('queued', 'task-coalesce');
+      const coalesced = await h.wake('dropped', 'task-coalesce');
+      expect(coalesced).toBeNull();
+
+      await firstSettled;
+      expect(h.requests).toHaveLength(2);
+    },
+    TEST_TIMEOUT,
+  );
 });

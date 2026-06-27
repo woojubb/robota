@@ -268,11 +268,15 @@ export class ScriptedSessionHarness {
    * FLOW-002: inject a background/scheduled wake (a non-user `agent-wakeup` turn) and resolve once
    * that turn settles. Mirrors a background task completion or a scheduled fire re-entering the
    * agent loop. Coalesces by `sourceTaskId` exactly as the real wake path does.
+   *
+   * Returns `null` when the wake was a no-op (coalesced because `sourceTaskId` is already in flight,
+   * or the session is shutting down) — no turn runs, so callers must not await one. This prevents the
+   * driver from hanging until the test timeout when the wake is dropped.
    */
-  async wake(instruction: string, sourceTaskId: string): Promise<IExecutionResult> {
-    const settled = this.nextSettledTurn();
-    this.session.requestWakeup(instruction, sourceTaskId);
-    return settled;
+  async wake(instruction: string, sourceTaskId: string): Promise<IExecutionResult | null> {
+    const queued = this.session.requestWakeup(instruction, sourceTaskId);
+    if (!queued) return null;
+    return this.nextSettledTurn();
   }
 
   /** Resolve with the args of the next `event` (optionally matching `predicate`). */
@@ -398,8 +402,11 @@ export class ScriptedSessionHarness {
     this.disposed = true;
     await this.session.shutdown({ reason: 'other', message: 'functional test complete' });
     // Only remove a workspace this harness created — a shared/injected `cwd` (resume/fork) is the
-    // caller's to clean up.
-    if (this.ownsWorkspace) rmSync(this.cwd, { recursive: true, force: true });
+    // caller's to clean up. `maxRetries` rides out the occasional ENOTEMPTY race when a just-written
+    // file (e.g. a tool wrote into the workspace) is still settling at teardown.
+    if (this.ownsWorkspace) {
+      rmSync(this.cwd, { recursive: true, force: true, maxRetries: 5, retryDelay: 20 });
+    }
   }
 }
 

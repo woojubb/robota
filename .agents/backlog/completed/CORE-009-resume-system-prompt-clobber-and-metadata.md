@@ -1,7 +1,8 @@
 ---
 title: 'CORE-009: define resume semantics for the system prompt (clobber + metadata loss)'
-status: todo
+status: done
 created: 2026-06-27
+completed: 2026-06-27
 priority: medium
 urgency: soon
 area: packages/agent-core
@@ -53,10 +54,10 @@ falling out of an incidental truthiness guard.
 
 ## User Execution Test Scenarios
 
-Resume is reachable from the CLI/headless API. Scenario (to finalize during implementation):
-
-- Prereq: a persisted session with a known system prompt; the environment then changes AGENTS.md.
-- Steps: resume the session and run one turn; inspect the provider_request transcript system content.
-- Expected: the documented rule holds (current `config.systemMessage` is delivered, single system
-  message), evidence captured from the session transcript.
-- Evidence: _to be filled after implementation._
+Not applicable — the resume rule (live `config.systemMessage` is authoritative; conversation content
+preserved) was already the implemented behavior. This item only **documented** that rule in the
+agent-core SPEC ("System Prompt (single source of truth)" → Resume semantics) and added a unit
+regression test (`execution-service-helpers.test.ts` → CORE-009). No user-facing behavior changed, so
+the Test Plan unit test is the evidence. The metadata-preservation question was resolved as
+intentional: the system head carries the current turn's `{ executionId }`, since the system prompt is
+live instruction state, not persisted provenance.

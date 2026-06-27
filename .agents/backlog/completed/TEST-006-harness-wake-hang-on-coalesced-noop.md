@@ -1,7 +1,8 @@
 ---
 title: 'TEST-006: functional harness wake() hangs when requestWakeup is a no-op'
-status: todo
+status: done
 created: 2026-06-27
+completed: 2026-06-27
 priority: medium
 urgency: soon
 area: packages/agent-framework
