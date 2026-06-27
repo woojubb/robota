@@ -1,12 +1,21 @@
 ---
 title: 'README-001: Flesh out stub READMEs for published transport packages'
-status: todo
+status: done
+completed: 2026-06-27
 created: 2026-06-27
 priority: low
 urgency: later
 area: packages/agent-transport-http, packages/agent-transport-mcp
 depends_on: []
 ---
+
+## Evidence Log (2026-06-27)
+
+- `agent-transport-http/README.md` + `agent-transport-mcp/README.md` expanded from 9-line stubs
+  to full READMEs: purpose, install, a runnable usage snippet using only real exports
+  (`createAgentRoutes({ sessionFactory })`, `createAgentMcpServer({ name, version, session })`),
+  and an exports table verified against `src/index.ts` + the option interfaces.
+- Verified: docs structure validation passes; snippets use existing exports only.
 
 # Flesh out stub READMEs for published transport packages
 

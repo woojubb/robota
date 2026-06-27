@@ -1,12 +1,28 @@
 ---
 title: 'DOCAUDIT-005: Fix stale provider API references in docs/SPEC after provider consolidation'
-status: todo
+status: done
+completed: 2026-06-27
 created: 2026-06-27
 priority: medium
 urgency: soon
 area: content, packages/agent-framework, packages/agent-provider
 depends_on: []
 ---
+
+## Evidence Log (2026-06-27)
+
+- `content/quickstart.md`: the broken `createOpenAIProvider` import/usage replaced with
+  `new OpenAIProvider({ apiKey })` (OpenAI ships a class, not a convenience factory). The
+  Anthropic snippet (`createAnthropicProvider`) was already correct (re-exported from root).
+- `agent-framework/docs/SPEC.md`: 2 stale `agent-provider-anthropic` / `agent-provider-openai/
+google/bytedance` references updated to the consolidated package + sub-paths (lines 1851, 2294).
+- `agent-provider/docs/SPEC.md`: added an "Other provider sub-paths" section documenting each
+  sub-path's real exports (class + `create*ProviderDefinition`; only Anthropic has a convenience
+  factory) — removing the false implication that all expose an Anthropic-style factory.
+- Left untouched (intentional, NOT stale): `content/guide/migration.md` and the release notes,
+  which legitimately reference the old `agent-provider-*` names to document the migration/history.
+- Verified: factories named in the new table all exist; `pnpm harness:scan` 32/32
+  (spec-public-surface + docs-structure pass); `createOpenAIProvider` gone from the quickstart.
 
 # Fix stale provider API references after provider consolidation
 

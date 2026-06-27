@@ -1,12 +1,23 @@
 ---
 title: 'DOCSYNC-001: Reconcile agent-framework SPEC↔README public-API drift (createAgentRuntime)'
-status: todo
+status: done
+completed: 2026-06-27
 created: 2026-06-27
 priority: low
 urgency: later
 area: packages/agent-framework
 depends_on: []
 ---
+
+## Evidence Log (2026-06-27)
+
+- `agent-framework/README.md`: added `createAgentRuntime()` to the intro summary and a new
+  "Headless / multi-session runtime" Quick-Start subsection with a minimal example
+  (`createAgentRuntime({ cwd, provider }).createSession({})`), matching the SPEC's "primary
+  public API" claim. README references: 0 → present.
+- Confirmed the API against source: `createAgentRuntime(config: IAgentRuntimeConfig): IAgentRuntime`
+  with `createSession()` composing `InteractiveSession`s.
+- Verified: docs structure validation passes.
 
 # Reconcile agent-framework SPEC ↔ README public-API drift
 

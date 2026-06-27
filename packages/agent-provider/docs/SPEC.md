@@ -49,6 +49,24 @@ Re-exports all provider classes, factory functions, and types from all providers
 
 `createAnthropicProvider` returns `IAIProvider` (typed as `AnthropicProvider` at runtime). This is the recommended way to instantiate the provider when a concrete class reference is not required.
 
+### Other provider sub-paths
+
+Unlike Anthropic, the remaining providers do **not** ship a `create<Name>Provider` convenience
+factory — instantiate them with `new <Name>Provider({ apiKey })`. Each sub-path exports its
+provider class plus a `create<Name>ProviderDefinition()` for use with provider registries, and
+provider-specific `DEFAULT_*` constants.
+
+| Sub-path      | Class (instantiate via `new`) | Definition factory                 | Notes                                          |
+| ------------- | ----------------------------- | ---------------------------------- | ---------------------------------------------- |
+| `./openai`    | `OpenAIProvider`              | `createOpenAIProviderDefinition`   | OpenAI-compatible base; `./openai/loggers` too |
+| `./deepseek`  | `DeepSeekProvider`            | `createDeepSeekProviderDefinition` | OpenAI-compatible endpoint                     |
+| `./gemini`    | `GeminiProvider`              | `createGeminiProviderDefinition`   | also implements `IImageGenerationProvider`     |
+| `./gemma`     | `GemmaProvider`               | `createGemmaProviderDefinition`    | local models (LM Studio / OpenAI-compatible)   |
+| `./qwen`      | `QwenProvider`                | `createQwenProviderDefinition`     | OpenAI-compatible endpoint                     |
+| `./bytedance` | `BytedanceProvider`           | —                                  | `IVideoGenerationProvider` (video, internal)   |
+
+`./google` is a deprecated compatibility alias re-exporting `./gemini`.
+
 ### Internal (not exported)
 
 `src/shared/openai-compatible/` contains the OpenAI-compatible protocol implementation used by openai, deepseek, gemma, and qwen sub-modules. It is not a public export.

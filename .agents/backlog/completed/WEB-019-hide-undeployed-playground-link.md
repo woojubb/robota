@@ -1,12 +1,23 @@
 ---
 title: 'WEB-019: Hide undeployed playground link in docs; reconcile playground subdomain'
-status: todo
+status: done
+completed: 2026-06-27
 created: 2026-06-27
 priority: medium
 urgency: soon
 area: apps/docs, apps/www
 depends_on: []
 ---
+
+## Evidence Log (2026-06-27)
+
+- `apps/docs/src/components/Header.tsx`: the live `Playground → https://playground.robota.io`
+  nav item (undeployed subdomain) is commented out with a note to restore alongside WEB-005
+  using the canonical `play.robota.io` (matching the marketing site), resolving the
+  playground/play subdomain inconsistency.
+- Added an explicit `external?: boolean` type to `NAV_LINKS` so the `.external` branch still
+  typechecks with no external entry present.
+- Verified: `apps/docs` typecheck passes; no live `playground.robota.io` link remains in docs.
 
 # Hide undeployed playground link in docs; reconcile playground subdomain
 
