@@ -8,7 +8,7 @@ import {
 import type { ISerializableProviderProfile } from '../background-tasks/types.js';
 import type {
   IAIProvider,
-  IProviderConfig,
+  IProviderDefinitionConfig,
   IProviderCredentialRequirement,
   IProviderDefinition,
   TProviderCredentialField,
@@ -25,7 +25,7 @@ export function normalizeProviderConfig(
     options?: Record<string, TUniversalValue>;
   },
   providerDefinitions: readonly IProviderDefinition[],
-): IProviderConfig {
+): IProviderDefinitionConfig {
   const defaults = findProviderDefinition(providerDefinitions, settings.name)?.defaults ?? {};
   const model = settings.model ?? defaults.model;
   if (!model) {
@@ -54,7 +54,7 @@ export function resolveProfileApiKey(profile: ISerializableProviderProfile): str
 }
 
 export function createProviderFromConfig(
-  settings: IProviderConfig,
+  settings: IProviderDefinitionConfig,
   providerDefinitions: readonly IProviderDefinition[],
 ): IAIProvider {
   const definition = findProviderDefinition(providerDefinitions, settings.name);
@@ -97,14 +97,14 @@ export function createProviderFromProfile(
 }
 
 function hasRequiredProviderCredential(
-  settings: IProviderConfig,
+  settings: IProviderDefinitionConfig,
   requirement: IProviderCredentialRequirement,
 ): boolean {
   return requirement.anyOf.some((field) => hasProviderCredentialValue(settings, field));
 }
 
 function hasProviderCredentialValue(
-  settings: IProviderConfig,
+  settings: IProviderDefinitionConfig,
   field: TProviderCredentialField,
 ): boolean {
   const value = settings[field];

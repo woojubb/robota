@@ -10,7 +10,7 @@ import {
   MOCK_MINUTE_LIMIT,
   MOCK_MINUTE_RESET_MS,
 } from './constants';
-import type { IRateLimitWindow, IUsageSnapshot } from './types';
+import type { IRateLimitWindow, IPlaygroundUsageSnapshot } from './types';
 
 function createRateLimitWindow(limit: number, resetOffsetMs: number): IRateLimitWindow {
   return {
@@ -20,7 +20,7 @@ function createRateLimitWindow(limit: number, resetOffsetMs: number): IRateLimit
   };
 }
 
-export function createMockUsageSnapshot(): IUsageSnapshot {
+export function createMockUsageSnapshot(): IPlaygroundUsageSnapshot {
   return {
     usage: {
       dailyExecutions: MOCK_MAX_DAILY_EXECUTIONS,

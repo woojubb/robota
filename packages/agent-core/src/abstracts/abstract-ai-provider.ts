@@ -43,7 +43,7 @@ export type TProviderLoggingData = Record<string, string | number | boolean | Da
 /**
  * Provider configuration base interface
  */
-export interface IProviderConfig {
+export interface IProviderRuntimeConfig {
   apiKey?: string;
   baseUrl?: string;
   timeout?: number;
@@ -75,7 +75,7 @@ export interface IExecutorAwareProviderConfig {
  *
  * @template TConfig - Provider configuration type
  */
-export abstract class AbstractAIProvider<TConfig = IProviderConfig> implements IAIProvider {
+export abstract class AbstractAIProvider<TConfig = IProviderRuntimeConfig> implements IAIProvider {
   abstract readonly name: string;
   abstract readonly version: string;
   protected config?: TConfig;

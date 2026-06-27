@@ -41,7 +41,7 @@ import { CreateAgentModal, AddToolModal } from './playground-modals';
 import { AssemblyCanvas } from '../../components/playground/assembly-canvas';
 import { CodeExportPanel } from '../../components/playground/code-export/code-export-panel';
 import { useProviderConfig } from '../../hooks/use-provider-config';
-import type { IProviderConfig } from '../../hooks/use-provider-config';
+import type { IPlaygroundProviderConfig } from '../../hooks/use-provider-config';
 import { ProviderSetupScreen } from './ProviderSetupScreen';
 
 export type TToolDraft = { name: string; description: string };
@@ -137,7 +137,7 @@ type TByokMessage = { role: string; content: string };
 
 async function sendByokMessage(
   message: string,
-  config: IProviderConfig,
+  config: IPlaygroundProviderConfig,
   baseUrl: string,
   historyRef: React.MutableRefObject<TByokMessage[]>,
 ): Promise<string> {

@@ -8,4 +8,5 @@ export type {
   IConversationHistoryPluginOptions,
   IConversationHistoryPluginStats,
   IHistoryStorage,
+  IDatabaseDriver,
 } from './types';

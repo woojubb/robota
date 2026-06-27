@@ -1,7 +1,8 @@
 ---
 title: 'PLUGIN-002: DatabaseHistoryStorage is a consumed, nonfunctional stub (silent data loss)'
-status: todo
+status: done
 created: 2026-06-27
+completed: 2026-06-27
 priority: medium
 urgency: soon
 area: packages/agent-plugin
@@ -58,4 +59,32 @@ app/CLI own the concrete driver. Confirm before implementing.
 
 1. Configure a plugin with `database` history, write and reload a conversation → it persists
    (or the user gets an explicit "not available" error instead of silent loss). Evidence:
-   _to fill._
+   `database-storage.test.ts` "round-trips an entry through the driver with revived Dates" — an
+   in-memory `IDatabaseDriver` fake saves and reloads a conversation (with `startTime`/`lastUpdated`
+   Dates revived). Selecting `storage: 'database'` without a `databaseDriver` now throws a
+   `ConfigurationError` (`conversation-history-plugin.test.ts` "throws when database storage is
+   missing a databaseDriver (PLUGIN-002)") — no silent no-op path remains.
+
+## Evidence Log (completed 2026-06-27)
+
+**Decision:** Option 2 — adapter interface (user-confirmed: "어댑터 인터페이스 (권장)"). Keeps
+agent-plugin driver-free; the app/CLI injects a concrete `IDatabaseDriver`.
+
+**Changes:**
+
+- `types.ts` — added `IDatabaseDriver` interface (`get`/`set`/`delete`/`list`/`clear`) and
+  `databaseDriver?: IDatabaseDriver` option on `IConversationHistoryPluginOptions`; exported from
+  `index.ts`.
+- `storages/database-storage.ts` — rewritten to persist through the injected driver
+  (`driver.set(key, JSON.stringify(entry))`, `driver.get` + `reviveHistoryEntry`, keyed by
+  `conversation:` prefix). No more "not fully implemented yet" stub markers.
+- `conversation-history-helpers.ts` — `storage: 'database'` without a `databaseDriver` now throws
+  `ConfigurationError` instead of returning a silent stub; `createHistoryStorage` injects the driver.
+- `conversation-history-plugin.ts` — threads `databaseDriver` through defaults
+  (`Required<Omit<…,'databaseDriver'>> & { databaseDriver?: IDatabaseDriver }`).
+- Tests: new `storages/__tests__/database-storage.test.ts` (in-memory driver round-trip + list/
+  delete/clear); old silent-stub describe block removed from `history-storages.test.ts`.
+- `docs/SPEC.md` updated to describe the injected-driver contract.
+
+**Verification:** `agent-plugin` typecheck clean, build clean, 303 tests pass (21 files),
+`pnpm harness:scan` 32/32 green.

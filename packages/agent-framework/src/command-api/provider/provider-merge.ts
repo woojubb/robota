@@ -5,7 +5,7 @@ import { SettingsParseError } from '../../config/settings-parse-error.js';
 
 import type { IProviderProfileSettings, TProviderSettingsDocument } from './provider-settings.js';
 import type { IFileSystem } from '@robota-sdk/agent-core';
-import type { IProviderConfig, IProviderDefinition } from '@robota-sdk/agent-core';
+import type { IProviderDefinitionConfig, IProviderDefinition } from '@robota-sdk/agent-core';
 
 export function readMergedProviderSettingsFromPaths(
   paths: readonly string[],
@@ -73,7 +73,7 @@ export function resolveActiveProvider(
   settings: TProviderSettingsDocument,
   providerOverride: string | undefined,
   providerDefinitions: readonly IProviderDefinition[],
-): IProviderConfig | undefined {
+): IProviderDefinitionConfig | undefined {
   const activeProvider = providerOverride ?? settings.currentProvider;
   if (activeProvider !== undefined) {
     const profile = settings.providers?.[activeProvider];

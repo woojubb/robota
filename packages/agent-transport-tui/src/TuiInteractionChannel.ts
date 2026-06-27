@@ -22,7 +22,7 @@ import { applySystemCommandResult } from './hooks/useSlashRouting.js';
 import { TuiStateManager } from './tui-state-manager.js';
 
 import type { ISessionInitPoller, TSessionInitFailure } from './flows/session-init-poller.js';
-import type { IPermissionRequest } from './types.js';
+import type { IPendingPermissionRequest } from './types.js';
 import type { IAIProvider, TPermissionMode, TSessionEndReason } from '@robota-sdk/agent-core';
 import type { TToolArgs } from '@robota-sdk/agent-core';
 import type {
@@ -98,7 +98,7 @@ export class TuiInteractionChannel implements IInteractionChannel {
   }> = [];
   private processingAction = false;
 
-  permissionRequest: IPermissionRequest | null = null;
+  permissionRequest: IPendingPermissionRequest | null = null;
   pendingAction: TActionRequest | null = null;
   availableCommands: ICommandInfo[] = [];
   isShuttingDown = false;

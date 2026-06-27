@@ -1,12 +1,32 @@
 ---
 title: 'TYPE-002: Disambiguate same-name, different-shape interfaces across packages'
-status: todo
+status: done
+completed: 2026-06-27
 created: 2026-06-27
 priority: low
 urgency: later
 area: packages (agent-core, agent-interface-transport, agent-playground, agent-transport-tui)
 depends_on: []
 ---
+
+## Evidence Log (2026-06-27) — user decision: "전부 정리" (rename all)
+
+Disambiguated every same-name collision; the canonical contract types
+(agent-interface-transport) keep their names, the others are renamed by import source:
+
+- `IUsageSnapshot`: agent-playground → `IPlaygroundUsageSnapshot`.
+- `IPermissionRequest`: agent-transport-tui → `IPendingPermissionRequest`.
+- `IExecutionResult`: **agent-core** (public) → `ICoreExecutionResult` (the session-contract
+  `IExecutionResult` is the canonical one). Internal-only — no external consumers broke.
+- `IProviderConfig` (three): agent-playground → `IPlaygroundProviderConfig`;
+  agent-core abstract-ai-provider → `IProviderRuntimeConfig`; agent-core provider-definition
+  (public, exported) → `IProviderDefinitionConfig` (consumers in agent-framework,
+  agent-subagent-runner, agent-executor updated).
+- agent-core SPEC updated for the public renames; agent-framework SPEC left as-is (its
+  `IExecutionResult` is the unchanged contract type).
+- Verified: `pnpm build:deps` + `pnpm typecheck` clean (only the pre-existing EXAMPLES-002
+  express drift remains); `pnpm harness:scan` 32/32 (public-surface + interface-imports PASS);
+  agent-core + agent-interface-transport tests pass.
 
 # Disambiguate same-name, different-shape interfaces
 

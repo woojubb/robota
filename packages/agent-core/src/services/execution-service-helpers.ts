@@ -2,7 +2,7 @@ import { EXECUTION_EVENTS } from './execution-constants';
 import {
   type IResolvedProviderInfo,
   type IExecutionContext,
-  type IExecutionResult,
+  type ICoreExecutionResult,
   ID_RADIX,
   ID_RANDOM_LENGTH,
 } from './execution-types';
@@ -111,14 +111,14 @@ export function initializeConversationStore(
 }
 
 /**
- * Build the final IExecutionResult from the completed conversation store.
+ * Build the final ICoreExecutionResult from the completed conversation store.
  */
 export function buildFinalResult(
   conversationStore: ConversationStore,
   executionId: string,
   startTime: Date,
   toolsExecuted: string[],
-): IExecutionResult {
+): ICoreExecutionResult {
   const finalMessages = conversationStore.getMessages();
   // Find last assistant message with actual content (skip stripped tool-round messages)
   const lastAssistantMessage = finalMessages

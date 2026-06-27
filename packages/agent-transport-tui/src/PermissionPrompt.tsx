@@ -9,11 +9,11 @@ import {
 } from './flows/permission-prompt-flow.js';
 import { createSelectionFlowState, type ISelectionFlowState } from './flows/selection-flow.js';
 
-import type { IPermissionRequest } from './types.js';
+import type { IPendingPermissionRequest } from './types.js';
 import type { TToolArgs } from '@robota-sdk/agent-core';
 
 interface IProps {
-  request: IPermissionRequest;
+  request: IPendingPermissionRequest;
 }
 
 function formatArgs(args: TToolArgs): string {

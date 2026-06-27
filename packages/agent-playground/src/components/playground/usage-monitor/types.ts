@@ -32,7 +32,7 @@ export interface IUsageMonitorProps {
   onClose?: () => void;
 }
 
-export interface IUsageSnapshot {
+export interface IPlaygroundUsageSnapshot {
   usage: IPlaygroundUsageStats;
   rateLimit: IRateLimitInfo;
 }

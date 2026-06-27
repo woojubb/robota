@@ -4,10 +4,10 @@ import React, { useState } from 'react';
 import { ChevronDown, Key } from 'lucide-react';
 
 import { Button } from '../../components/ui/button';
-import type { IProviderConfig, TProviderName } from '../../hooks/use-provider-config';
+import type { IPlaygroundProviderConfig, TProviderName } from '../../hooks/use-provider-config';
 
 type TProviderSetupScreenProps = {
-  onConnect: (config: IProviderConfig) => void;
+  onConnect: (config: IPlaygroundProviderConfig) => void;
 };
 
 const PROVIDERS: Array<{ id: TProviderName; label: string; placeholder: string }> = [
