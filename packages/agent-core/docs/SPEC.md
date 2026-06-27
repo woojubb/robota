@@ -609,6 +609,15 @@ If the partial response includes tool_use blocks (abort during tool call streami
 - **No fallback**: If a message should be in history, it IS in history. No fallback to alternative data sources.
 - **Unbounded**: `DEFAULT_MAX_MESSAGES_PER_CONVERSATION = 0` (`src/managers/conversation-history-manager.ts`) means no message cap, backing the append-only guarantee — history is never trimmed by count.
 
+## System Prompt (single source of truth)
+
+The system prompt is the agent's **live instruction state** — not conversation content. The append-only/read-only principles above govern user/assistant/tool messages; they do **not** govern the system prompt, which is replaceable.
+
+- **Single owner**: the top-level `config.systemMessage` is the sole source of the system prompt. There is no `defaultModel.systemMessage`; the system prompt is an agent-level concern, not a model-config field, so `IModelConfig`/`setModel` do not carry it.
+- **One head message**: each conversation store holds **exactly one** system message, at the head. `ConversationStore.setSystemPrompt(content)` enforces this — it replaces the existing head system message in place (removing any duplicates) or prepends one when absent. It is idempotent and never appends.
+- **Per-turn seeding is idempotent**: `initializeConversationStore` calls `setSystemPrompt(config.systemMessage)` each turn (not `addSystemMessage`). This guarantees the live prompt is present and current without accumulating duplicate system messages across turns.
+- **Live updates reach the model**: `Robota.updateSystemPrompt(content)` updates `config.systemMessage` **and** the live conversation store head, so the very next provider request carries the change. This is the path that propagates a session's persona, self-verification toggle, and AGENTS.md/CLAUDE.md staleness refresh to the model. Updating only a config field (without the store head) is insufficient because providers read the system prompt from the messages array, never from a separate config field.
+
 ## Message Model
 
 `IBaseMessage` is the foundation for all message types in the conversation history.

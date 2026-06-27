@@ -160,8 +160,8 @@ describe('ExecutionService', () => {
         defaultModel: {
           provider: 'openai',
           model: 'gpt-4',
-          systemMessage: 'You are a helpful assistant.',
         },
+        systemMessage: 'You are a helpful assistant.',
       };
 
       const session = conversationHistory.getConversationStore('test-agent');
@@ -202,8 +202,8 @@ describe('ExecutionService', () => {
         defaultModel: {
           provider: 'openai',
           model: 'gpt-4',
-          systemMessage: 'You are a helpful assistant.',
         },
+        systemMessage: 'You are a helpful assistant.',
       };
 
       // Mock provider to return tool calls
@@ -382,8 +382,8 @@ describe('ExecutionService', () => {
         defaultModel: {
           provider: 'openai',
           model: 'gpt-4',
-          systemMessage: 'You are a helpful assistant.',
         },
+        systemMessage: 'You are a helpful assistant.',
       };
 
       mockProvider.chat = vi
@@ -739,8 +739,8 @@ describe('ExecutionService', () => {
         defaultModel: {
           provider: 'openai',
           model: 'gpt-4',
-          systemMessage: 'You are a helpful assistant.',
         },
+        systemMessage: 'You are a helpful assistant.',
       };
     }
 
@@ -858,8 +858,8 @@ describe('ExecutionService', () => {
           defaultModel: {
             provider: 'openai',
             model: 'gpt-4',
-            systemMessage: 'You are a helpful assistant.',
           },
+          systemMessage: 'You are a helpful assistant.',
           timeout: 10,
         },
         {
@@ -905,8 +905,8 @@ describe('ExecutionService', () => {
           defaultModel: {
             provider: 'openai',
             model: 'gpt-4',
-            systemMessage: 'You are a helpful assistant.',
           },
+          systemMessage: 'You are a helpful assistant.',
           timeout: 30,
         },
         {

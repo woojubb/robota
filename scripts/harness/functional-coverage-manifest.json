@@ -26,6 +26,21 @@
       "id": "goal-pursuit-cassette",
       "description": "Real recorded Qwen run drives goal pursuit to satisfied (real prompts + tool-use, replayed).",
       "test": "packages/agent-framework/src/testing/__tests__/goal-cassette-functional.test.ts"
+    },
+    {
+      "id": "slash-command",
+      "description": "A composed /command runs through the real session command pipeline and returns its result.",
+      "test": "packages/agent-framework/src/testing/__tests__/slash-command-functional.test.ts"
+    },
+    {
+      "id": "preset-application",
+      "description": "Live preset persona/self-verification updates reach the REAL provider request (system-prompt SSOT) as a single, non-duplicated system message.",
+      "test": "packages/agent-framework/src/testing/__tests__/preset-application-functional.test.ts"
+    },
+    {
+      "id": "background-wake",
+      "description": "A background-task completion / scheduled fire injects an agent-wakeup turn that reaches the provider (FLOW-002/003); repeated wakes for one task id coalesce.",
+      "test": "packages/agent-framework/src/testing/__tests__/background-wake-functional.test.ts"
     }
   ]
 }

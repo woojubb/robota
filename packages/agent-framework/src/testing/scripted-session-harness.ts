@@ -38,6 +38,7 @@ import type { ICommandModule } from '../command-api/index.js';
 import type { IAIProvider, TPermissionMode, TUniversalMessage } from '@robota-sdk/agent-core';
 import type { TScriptedTurn } from '@robota-sdk/agent-core/testing';
 import type {
+  ICommandResult,
   IExecutionResult,
   IGoalState,
   IInteractiveSessionEvents,
@@ -256,6 +257,22 @@ export class ScriptedSessionHarness {
       options.maxIterations ? { maxIterations: options.maxIterations } : {},
     );
     return stopped;
+  }
+
+  /** Run a slash command through the real session command pipeline. */
+  command(name: string, args = ''): Promise<ICommandResult | null> {
+    return this.session.executeCommand(name, args);
+  }
+
+  /**
+   * FLOW-002: inject a background/scheduled wake (a non-user `agent-wakeup` turn) and resolve once
+   * that turn settles. Mirrors a background task completion or a scheduled fire re-entering the
+   * agent loop. Coalesces by `sourceTaskId` exactly as the real wake path does.
+   */
+  async wake(instruction: string, sourceTaskId: string): Promise<IExecutionResult> {
+    const settled = this.nextSettledTurn();
+    this.session.requestWakeup(instruction, sourceTaskId);
+    return settled;
   }
 
   /** Resolve with the args of the next `event` (optionally matching `predicate`). */

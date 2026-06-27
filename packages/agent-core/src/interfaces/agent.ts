@@ -81,7 +81,6 @@ export interface IAgentConfig {
     temperature?: number;
     maxTokens?: number;
     topP?: number;
-    systemMessage?: string;
     /** Reasoning-effort dial threaded to the provider request builder per call. */
     effort?: TModelEffort;
   };

@@ -128,7 +128,7 @@ export class RobotaConfigManager {
     this.emitAgentEvent(AGENT_EVENTS.CONFIG_UPDATED, {
       parameters: {
         tools: toolNames,
-        systemMessage: config.defaultModel.systemMessage,
+        systemMessage: config.systemMessage,
         provider: config.defaultModel.provider,
         model: config.defaultModel.model,
         temperature: config.defaultModel.temperature,
@@ -180,7 +180,6 @@ export class RobotaConfigManager {
     temperature?: number;
     maxTokens?: number;
     topP?: number;
-    systemMessage?: string;
     effort?: TModelEffort;
   }): void {
     if (!modelConfig.provider || !modelConfig.model) {
@@ -215,9 +214,6 @@ export class RobotaConfigManager {
         ...(modelConfig.temperature !== undefined && { temperature: modelConfig.temperature }),
         ...(modelConfig.maxTokens !== undefined && { maxTokens: modelConfig.maxTokens }),
         ...(modelConfig.topP !== undefined && { topP: modelConfig.topP }),
-        ...(modelConfig.systemMessage !== undefined && {
-          systemMessage: modelConfig.systemMessage,
-        }),
         ...(modelConfig.effort !== undefined && { effort: modelConfig.effort }),
       },
     });
@@ -232,7 +228,6 @@ export class RobotaConfigManager {
     temperature?: number;
     maxTokens?: number;
     topP?: number;
-    systemMessage?: string;
   } {
     if (!this.isReady()) {
       throw new ConfigurationError(
@@ -257,10 +252,25 @@ export class RobotaConfigManager {
         maxTokens: config.defaultModel.maxTokens,
       }),
       ...(config.defaultModel.topP !== undefined && { topP: config.defaultModel.topP }),
-      ...(config.defaultModel.systemMessage !== undefined && {
-        systemMessage: config.defaultModel.systemMessage,
-      }),
     };
+  }
+
+  /**
+   * Live system-prompt update (SSOT). Sets the top-level `config.systemMessage` — the single source
+   * of the system prompt. The conversation store head is updated separately by `Robota`; together
+   * they ensure the next provider request carries the change. The system prompt is an agent-level
+   * concern, not model config, so it is intentionally not part of `setModel`.
+   */
+  setSystemMessage(content: string): void {
+    const config = this.getConfig();
+    config.systemMessage = content;
+    this.setConfig(config);
+    this.setConfigUpdatedAt(Date.now());
+  }
+
+  /** Current live system prompt (top-level `config.systemMessage`). */
+  getSystemMessage(): string | undefined {
+    return this.getConfig().systemMessage;
   }
 
   /** Register a new tool for function calling. */

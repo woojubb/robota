@@ -105,7 +105,10 @@ export function initializeConversationStore(
     }
   }
   if (config.systemMessage) {
-    session.addSystemMessage(config.systemMessage, { executionId });
+    // System prompt is the agent's live instruction state, not append-only content. Set it as the
+    // single head message (idempotent) so re-running this every turn cannot accumulate duplicate
+    // system messages. config.systemMessage is the single source of truth (see agent-core SPEC).
+    session.setSystemPrompt(config.systemMessage, { executionId });
   }
   return session;
 }
