@@ -25,7 +25,11 @@ import {
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, sep } from 'node:path';
 
-import { createScriptedProvider, createReplayProvider } from '@robota-sdk/agent-core/testing';
+import {
+  createScriptedProvider,
+  createReplayProvider,
+  createRecordingProvider,
+} from '@robota-sdk/agent-core/testing';
 
 import { InteractiveSession } from '../interactive/index.js';
 import { createProjectSessionStore } from '../interactive/index.js';
@@ -43,7 +47,7 @@ import type {
   TInteractiveEventName,
 } from '@robota-sdk/agent-interface-transport';
 
-/** Options for {@link scriptedSession}. Provide exactly one of `turns` or `cassette`. */
+/** Options for {@link scriptedSession}. Provide exactly one of `turns`, `cassette`, or `record`. */
 export interface IScriptedSessionOptions {
   /** Scripted assistant turns replayed deterministically through the real loop. */
   turns?: readonly TScriptedTurn[];
@@ -52,10 +56,25 @@ export interface IScriptedSessionOptions {
    * deterministically through the real loop. The workspace path is rewritten/scrubbed automatically.
    */
   cassette?: string;
+  /**
+   * Record mode (TEST-005): drive the session with a REAL provider and capture every interaction to
+   * `toCassette` for later deterministic replay. Used in a one-off keyed record run, not in CI.
+   */
+  record?: { provider: IAIProvider; toCassette: string };
   /** Seed files written into the workspace before the session starts (workspace-relative paths). */
   files?: Record<string, string>;
   /** Persist sessions to a real store in the workspace (enables resume/record assertions). */
   persistence?: boolean;
+  /**
+   * Reuse an existing workspace directory instead of a fresh temp one. Required for multi-session
+   * resume/fork (the resumed session must read the same store). The harness does not delete a
+   * workspace it did not create.
+   */
+  cwd?: string;
+  /** Resume a persisted session by id (multi-session). Requires `persistence` + the same `cwd`. */
+  resumeSessionId?: string;
+  /** Fork the resumed session into a new id while restoring its context (multi-session). */
+  forkSession?: boolean;
   /** Command modules composed into the session (e.g. the `/goal` module). */
   commandModules?: readonly ICommandModule[];
   /** Permission posture. Defaults to `bypassPermissions` so tools run unattended. */
@@ -68,6 +87,8 @@ export interface IScriptedSessionOptions {
   bare?: boolean;
   /** Cap on agentic rounds per submit. */
   maxTurns?: number;
+  /** Model override (e.g. when recording against a real provider whose model differs). */
+  model?: string;
 }
 
 const COLLECTED_EVENTS: readonly TInteractiveEventName[] = [
@@ -99,26 +120,42 @@ export class ScriptedSessionHarness {
   private readonly events = new Map<TInteractiveEventName, unknown[][]>();
   private readonly completions: IExecutionResult[] = [];
   private readonly sessionStore?: IInteractiveSessionStore;
+  private readonly ownsWorkspace: boolean;
   private disposed = false;
 
   constructor(options: IScriptedSessionOptions) {
-    this.cwd = mkdtempSync(join(tmpdir(), 'robota-fxn-'));
-    for (const [relPath, content] of Object.entries(options.files ?? {})) {
-      const abs = join(this.cwd, relPath);
-      mkdirSync(dirname(abs), { recursive: true });
-      writeFileSync(abs, content, 'utf8');
+    this.ownsWorkspace = options.cwd === undefined;
+    this.cwd = options.cwd ?? mkdtempSync(join(tmpdir(), 'robota-fxn-'));
+    if (this.ownsWorkspace) {
+      for (const [relPath, content] of Object.entries(options.files ?? {})) {
+        const abs = join(this.cwd, relPath);
+        mkdirSync(dirname(abs), { recursive: true });
+        writeFileSync(abs, content, 'utf8');
+      }
     }
 
-    if ((options.turns === undefined) === (options.cassette === undefined)) {
-      throw new Error('scriptedSession requires exactly one of `turns` or `cassette`.');
+    const modes = [options.turns, options.cassette, options.record].filter(
+      (mode) => mode !== undefined,
+    );
+    if (modes.length !== 1) {
+      throw new Error('scriptedSession requires exactly one of `turns`, `cassette`, or `record`.');
     }
-    const base: IAIProvider = options.cassette
-      ? createReplayProvider({
-          cassettePath: options.cassette,
-          scrub: [this.cwd],
-          rewriteCwd: this.cwd,
-        })
-      : createScriptedProvider(this.substituteWorkspacePath(options.turns ?? [])).provider;
+    let base: IAIProvider;
+    if (options.cassette) {
+      base = createReplayProvider({
+        cassettePath: options.cassette,
+        scrub: [this.cwd],
+        rewriteCwd: this.cwd,
+      });
+    } else if (options.record) {
+      base = createRecordingProvider({
+        provider: options.record.provider,
+        cassettePath: options.record.toCassette,
+        recordCwd: this.cwd,
+      });
+    } else {
+      base = createScriptedProvider(this.substituteWorkspacePath(options.turns ?? [])).provider;
+    }
     // Capture every request uniformly (works for both scripted and cassette providers).
     this.requests = [];
     const provider: IAIProvider = {
@@ -139,8 +176,11 @@ export class ScriptedSessionHarness {
       ...(options.allowedTools ? { allowedTools: options.allowedTools } : {}),
       ...(options.deniedTools ? { deniedTools: options.deniedTools } : {}),
       ...(this.sessionStore ? { sessionStore: this.sessionStore } : {}),
+      ...(options.resumeSessionId ? { resumeSessionId: options.resumeSessionId } : {}),
+      ...(options.forkSession ? { forkSession: options.forkSession } : {}),
       ...(options.commandModules ? { commandModules: options.commandModules } : {}),
       ...(options.maxTurns !== undefined ? { maxTurns: options.maxTurns } : {}),
+      ...(options.model !== undefined ? { model: options.model } : {}),
     });
 
     for (const name of COLLECTED_EVENTS) {
@@ -340,7 +380,9 @@ export class ScriptedSessionHarness {
     if (this.disposed) return;
     this.disposed = true;
     await this.session.shutdown({ reason: 'other', message: 'functional test complete' });
-    rmSync(this.cwd, { recursive: true, force: true });
+    // Only remove a workspace this harness created — a shared/injected `cwd` (resume/fork) is the
+    // caller's to clean up.
+    if (this.ownsWorkspace) rmSync(this.cwd, { recursive: true, force: true });
   }
 }
 
