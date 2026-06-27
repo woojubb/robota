@@ -1,13 +1,16 @@
 /**
- * Deterministic scripted provider for E2E tests (CLI-074).
+ * Deterministic scripted provider for functional tests (TEST-003 SSOT).
  *
- * Replays a declared sequence of assistant turns through the REAL agent loop —
- * tool execution, permission gate, session persistence, and output transports all
- * run unmocked. Test-only: exported via the `@robota-sdk/agent-transport/testing`
- * subpath and never imported by runtime code.
+ * Replays a declared sequence of assistant turns through the REAL agent loop — tool execution,
+ * permission gate, persistence, and output all run unmocked. It implements only the agent-core
+ * `IAIProvider` contract, so it lives at the lowest layer that owns that abstraction; higher
+ * layers (`agent-framework`, `agent-transport`) re-export it through their `./testing` subpaths.
+ *
+ * Test-only: exported via the `@robota-sdk/agent-core/testing` subpath and never imported by
+ * runtime code.
  */
 
-import type { IAIProvider, IRawProviderResponse, TUniversalMessage } from '@robota-sdk/agent-core';
+import type { IAIProvider, IRawProviderResponse, TUniversalMessage } from '../index.js';
 
 /** One scripted assistant turn: plain text or tool invocations. */
 export type TScriptedTurn =
