@@ -1,12 +1,21 @@
 ---
 title: 'TERM-005: framework-level interactive (TTY-requiring) command execution'
-status: todo
+status: superseded
 created: 2026-06-27
+completed: 2026-06-28
 priority: medium
 urgency: later
 area: packages/agent-framework
 depends_on: [TERM-001, TERM-002]
 ---
+
+> **Superseded by TERM-003.** The user-in-the-loop interactive TTY-requiring command path is
+> delivered by `/shell <command>`: it runs any command through the terminal handoff with inherited
+> stdio, so TTY-only flows (`gh auth login`, `npm login`, `sudo`, interactive installers) complete
+> exactly as this item intended. The remaining hypothetical — the AGENT autonomously seizing the
+> terminal for a full-screen program — was intentionally excluded (safety + the agent-tools zero-dep
+> boundary; see the layer-placement note below). An agent-initiated, user-approved handoff belongs to
+> TERM-006 (request-via-wake), not here. No separate code is warranted.
 
 # Interactive (TTY-requiring) command execution
 

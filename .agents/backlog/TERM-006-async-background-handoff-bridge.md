@@ -2,11 +2,21 @@
 title: 'TERM-006: bridge async background children to a foreground terminal handoff (request via wake)'
 status: todo
 created: 2026-06-28
-priority: medium
-urgency: later
+priority: low
+urgency: backlog
 area: packages/agent-executor, packages/agent-framework
-depends_on: [TERM-001, TERM-002]
+depends_on: [TERM-001, TERM-002, TERM-007]
 ---
+
+> **Deferred — blocked on the PTY decision (TERM-007).** The distinctive value here is handing a
+> child that is **already running in the background** to the terminal mid-flight (so the user can
+> answer a late prompt), then detaching. Attaching a live, already-spawned process to the real TTY
+> requires a pseudo-terminal (node-pty / ConPTY), which the macOS/Linux-first scope deferred to
+> TERM-007. Without a PTY there is no working body for the handoff request — a child must be spawned
+> attached from the start, which is just the foreground `/shell <command>` path (TERM-003) and not
+> "background". Building the event plumbing now would be dead code with no consumer, so this waits for
+> the PTY evaluation in TERM-007. The event-seam design (a runner emits
+> `background_task_handoff_requested` → tracker → `runWithTerminal`) is captured below for when PTY lands.
 
 # Async background → foreground handoff bridge
 
