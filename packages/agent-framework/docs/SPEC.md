@@ -488,11 +488,18 @@ The `./testing` subpath (kept out of the runtime bundle) is the agent's standard
 verify a feature at the framework level** — the CLI is a thin wrapper and must not be where feature
 behaviour is verified.
 
-- `scriptedSession({ turns | cassette, files?, persistence?, commandModules?, ... })` /
-  `ScriptedSessionHarness` builds a **real** `InteractiveSession` (real agent loop, builtin tools,
-  persistence, events) in an isolated temp workspace. Provider modes: **scripted** (`turns`, hand-written,
-  SSOT `createScriptedProvider`) or **cassette** (`cassette: path`, a recorded real-model run replayed
-  deterministically, TEST-005). No CLI, no network, no live LLM.
+- `scriptedSession({ turns | cassette | record, files?, persistence?, cwd?, resumeSessionId?,
+forkSession?, model?, commandModules?, ... })` / `ScriptedSessionHarness` builds a **real**
+  `InteractiveSession` (real agent loop, builtin tools, persistence, events) in an isolated temp
+  workspace. Provider modes (exactly one): **scripted** (`turns`, hand-written, SSOT
+  `createScriptedProvider`), **cassette** (`cassette: path`, a recorded real-model run replayed
+  deterministically — TEST-005; a committed real Qwen goal run is at
+  `__fixtures__/goal-satisfied.cassette.json`, recorded by
+  `packages/agent-cli/scripts/record-goal-cassette.mts`), or **record**
+  (`record: { provider, toCassette }`, capture a real provider run). Multi-session: `cwd` +
+  `resumeSessionId` (+ `forkSession`) open a second harness over the same workspace store to
+  resume/fork a persisted session; the harness only deletes a workspace it created. No CLI, no
+  network, no live LLM (replay/scripted).
 - Drivers: `submit(prompt)` → awaits the completed turn; `runGoal(objective, opts)` → awaits the
   stopped goal; `awaitEvent(name, predicate?)`.
 - Inspectors — in-memory: `history()`, `toolCalls()`, `emittedEvents(name)`, `requests`. Durable

@@ -44,16 +44,26 @@ loop deterministically, so functional verification is automatable and mandatory 
   - `h.readFile(rel)` / `h.exists(rel)` / `h.files()` — workspace side effects.
 - **Lifecycle:** always `await h.dispose()` in `afterEach`.
 
-## Two provider modes
+## Provider modes (exactly one)
 
 - **Scripted** (`turns`) — hand-write the assistant turns. Fast, fully deterministic. Verifies the
   machinery (wiring, tools, events, persistence) but NOT the prompts or the model's real tool-use.
 - **Cassette** (`cassette: path`) — replay a recorded **real** model run (real prompts + real
-  tool-use), deterministically. Record once with `createRecordingProvider({ provider, cassettePath,
-recordCwd })` against a real provider (one-off, needs an API key), commit the cassette, then
-  `scriptedSession({ cassette })`. Staleness is detected: if a prompt changes, replay fails with a
-  "re-record" error. Use a cassette to test the part scripted can't — that a real model actually
-  drives the feature.
+  tool-use), deterministically, with no key/network. Staleness is detected (a changed prompt fails
+  with a "re-record" error). Use a cassette to test the part scripted can't — that a real model
+  actually drives the feature. Reference: `goal-cassette-functional.test.ts` (a real Qwen goal run).
+- **Record** (`record: { provider, toCassette }`) — drive the session with a REAL provider and
+  capture the run to a cassette. One-off, needs a key; see
+  `packages/agent-cli/scripts/record-goal-cassette.mts`. Build the objective/prompt via a SHARED
+  fixture so record and replay hash-match.
+
+## Multi-session (resume / fork)
+
+Persist (`persistence: true`), capture `h.session.getSession().getSessionId()` and `h.cwd`, then open
+a second harness sharing that workspace: `scriptedSession({ cwd, resumeSessionId, persistence: true })`
+(add `forkSession: true` for a fork). The harness does not delete a `cwd` it did not create — the
+caller cleans up the shared workspace. Reference: `multi-session-functional.test.ts`.
+
 - `turns` are scripted assistant turns: `{ text }` or `{ toolCalls: [{ name, args }] }`. Use the
   `{{cwd}}` placeholder inside tool args to reference absolute workspace paths (e.g.
   `{ filePath: '{{cwd}}/out.txt' }`), since the workspace path is unknown until the harness is built.

@@ -16,6 +16,16 @@
       "id": "permission-gate",
       "description": "Denied tools are blocked end to end (side effect prevented, denial reported).",
       "test": "packages/agent-framework/src/testing/__tests__/permission-gate-functional.test.ts"
+    },
+    {
+      "id": "multi-session",
+      "description": "Resume restores a persisted conversation; fork restores context into a new session id.",
+      "test": "packages/agent-framework/src/testing/__tests__/multi-session-functional.test.ts"
+    },
+    {
+      "id": "goal-pursuit-cassette",
+      "description": "Real recorded Qwen run drives goal pursuit to satisfied (real prompts + tool-use, replayed).",
+      "test": "packages/agent-framework/src/testing/__tests__/goal-cassette-functional.test.ts"
     }
   ]
 }

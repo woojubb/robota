@@ -21,9 +21,11 @@ For each capability below, add a framework-level functional test using
 `@robota-sdk/agent-framework/testing` (`scriptedSession()` / `runGoal` / `submit` / `awaitEvent`),
 then add a row to `scripts/harness/functional-coverage-manifest.json`:
 
-- **Resume / fork** — a persisted session resumes its prior conversation into the next request; a
-  fork starts a fresh id but restores context. Requires a small kit extension to build a second
-  harness resuming a prior workspace/session id (or a `resumeFrom` helper).
+- **Resume / fork — DONE (2026-06-27).** Kit extended with `cwd` / `resumeSessionId` /
+  `forkSession`; `multi-session-functional.test.ts` proves resume restores the prior conversation
+  and fork restores context into a new id. Manifest: `multi-session`. (The real-model goal cassette
+  — TEST-005 follow-up — also landed: `goal-cassette-functional.test.ts`, manifest
+  `goal-pursuit-cassette`.)
 - **Background tasks / scheduled wake (FLOW-002/003)** — a background task completion (or a
   scheduled wake) injects an `agent-wakeup` turn; assert via `awaitEvent('turn_source')` /
   `emittedEvents('background_task_event')`. Requires composing background task runners into the kit.
