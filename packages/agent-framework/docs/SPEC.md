@@ -32,7 +32,9 @@ This package does NOT own: provider implementations, generic session run loop, t
 - Permission prompt: `promptForApproval()`
 - Path helpers: `projectPaths()`, `userPaths()`
 - User-local storage: `resolveUserLocalStorageRoot()`, user-local memory APIs
-- Testing utilities: `createTestInteractiveSession()`
+- Testing utilities: exported from the `@robota-sdk/agent-framework/testing` subpath (not the
+  runtime entry) — `scriptedSession()` / `ScriptedSessionHarness` (functional harness) and
+  `createTestInteractiveSession()` (stub). See Test Strategy → Functional test harness.
 - Update check: `checkForCliUpdate()`, related helpers
 - Git utilities: `resolveGitBranch()`
 - Semver utilities: `compareSemverVersions()`, `isNewerSemverVersion()`
@@ -230,7 +232,7 @@ Core classes and functions exported from `@robota-sdk/agent-framework`:
 | `clearContextReferences`                    | function | Clear all context references from the inventory                                                                                                                                |
 | `createContextReferenceItem`                | function | Build a context reference item shape                                                                                                                                           |
 | `toContextReferenceRecords`                 | function | Convert context references to structured records                                                                                                                               |
-| `createTestInteractiveSession`              | function | Create a stub `IInteractiveSession` for tests                                                                                                                                  |
+| `createTestInteractiveSession`              | function | (moved to the `./testing` subpath) Create a stub `IInteractiveSession` for tests                                                                                               |
 | `getUserSettingsPath`                       | function | Return the user-global settings file path                                                                                                                                      |
 | `resolveSettingsPathForScope`               | function | Resolve settings path for `'user'` or `'project-local'` scope                                                                                                                  |
 | `readSettings`                              | function | Read a settings JSON file                                                                                                                                                      |
@@ -480,10 +482,28 @@ All errors from `session.run()` are caught by `InteractiveSession` and emitted a
   - `provider-settings.test.ts` — provider profile merge and validation
   - `skill-prompt.test.ts` — variable substitution and shell command preprocessing
 
+### Functional test harness — `@robota-sdk/agent-framework/testing` (TEST-003)
+
+The `./testing` subpath (kept out of the runtime bundle) is the agent's standard way to **functionally
+verify a feature at the framework level** — the CLI is a thin wrapper and must not be where feature
+behaviour is verified.
+
+- `scriptedSession({ turns, files?, persistence?, commandModules?, ... })` / `ScriptedSessionHarness`
+  builds a **real** `InteractiveSession` (real agent loop, builtin tools, persistence, events) in an
+  isolated temp workspace, driven by the deterministic scripted provider
+  (`createScriptedProvider`, SSOT in `@robota-sdk/agent-core/testing`). No CLI, no network, no live LLM.
+- Drivers: `submit(prompt)` → awaits the completed turn; `runGoal(objective, opts)` → awaits the
+  stopped goal; `awaitEvent(name, predicate?)`. Inspectors: `history()`, `sessionRecord()`,
+  `toolCalls()`, `emittedEvents(name)`, `readFile()`/`exists()`/`files()`, `requests`. Lifecycle:
+  `dispose()` tears down the workspace. Scripted tool-call args may use the `{{cwd}}` placeholder to
+  reference absolute workspace paths.
+- `createTestInteractiveSession()` (same subpath) remains a lightweight **stub** for wiring/type tests
+  that do not need the real loop.
+
 ### Approach
 
 - Unit tests use a mock `IAIProvider` from `@robota-sdk/agent-core` test utilities; no real API calls
-- `createTestInteractiveSession()` provides a stub `IInteractiveSession` for command module tests
+- Functional/feature tests use the `./testing` harness above against a real session (no CLI)
 - Integration tests (`cross-package-hooks.test.ts`, `cross-package-skills.test.ts`) use real `createSession()` with mock providers to verify hook wiring and skill routing
 - Public API surface test (`public-api.test.ts`) acts as a regression guard: it asserts that lower-package symbols are not accidentally re-exported
 

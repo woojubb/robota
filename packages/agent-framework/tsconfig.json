@@ -3,6 +3,9 @@
   "compilerOptions": {
     "outDir": "dist",
     "rootDir": "src",
+    // Resolve package "exports" subpaths (e.g. @robota-sdk/agent-core/testing), matching the
+    // transport family and agent-cli. The runtime build uses tsdown, so this only affects tsc.
+    "moduleResolution": "bundler",
     "composite": false,
     "declaration": true,
     "declarationMap": true,
