@@ -1,12 +1,25 @@
 ---
 title: 'EXAMPLES-002: Rewrite the express example against the current SDK API (quarantined from CI)'
-status: todo
+status: done
+completed: 2026-06-27
 created: 2026-06-27
 priority: medium
 urgency: soon
 area: examples/express
 depends_on: []
 ---
+
+## Evidence Log (2026-06-27)
+
+- Rewrote `examples/express/src/server.ts` against the current API: custom function tools via
+  `createZodFunctionTool` (zod schemas) from `@robota-sdk/agent-tools`, registered through
+  `createQuery({ provider, additionalTools, onTextDelta })`; SSE streams `onTextDelta` chunks
+  and sends `done`/`error`. Replaced the removed `createFunctionTool` + `Robota` config shape.
+- Updated `examples/express/package.json` deps (`@robota-sdk/agent-framework` + `agent-tools` +
+  `zod`, dropped the direct `agent-core` dep).
+- Removed the `!robota-example-express` quarantine from `examples:typecheck` (EXAMPLES-001).
+- Verified: `pnpm --filter robota-example-express typecheck` clean; `pnpm examples:typecheck`
+  9/9 green (express included); full `pnpm typecheck` passes; frozen-lockfile + harness 32/32.
 
 # Rewrite the express example against the current SDK API
 
