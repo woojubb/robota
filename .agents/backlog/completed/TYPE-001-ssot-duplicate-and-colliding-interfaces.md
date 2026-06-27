@@ -1,12 +1,27 @@
 ---
 title: 'TYPE-001: Resolve duplicate IDiffLine + same-name colliding interfaces (Type SSOT)'
-status: todo
+status: done
+completed: 2026-06-27
 created: 2026-06-27
 priority: medium
 urgency: soon
 area: packages/agent-interface-transport, packages/agent-transport-tui, packages/agent-core, packages/agent-playground
 depends_on: []
 ---
+
+## Evidence Log (2026-06-27)
+
+- **IDiffLine true duplicate fixed** (the actual SSOT violation): `agent-transport-tui/utils/
+edit-diff.ts` no longer redeclares the identical interface — it imports `IDiffLine` from
+  `@robota-sdk/agent-interface-transport` (the owner, already a tui dependency) and re-exports it
+  so the 5 local consumers keep their import path. Only one declaration remains repo-wide;
+  agent-transport-tui typecheck + 382 tests pass.
+- **Same-name collisions split to TYPE-002**: IExecutionResult (29 files, public in agent-core),
+  IPermissionRequest (9), IProviderConfig (11, incl. public agent-core), IUsageSnapshot (10) are
+  confirmed **distinct** types in distinct modules (not SSOT violations — TS resolves them by
+  import path). Disambiguating them is a cross-package rename touching public surfaces that needs
+  a deliberate naming decision, so it is tracked separately as TYPE-002.
+- Verified: `pnpm build:deps`, agent-transport-tui typecheck + tests (382) pass.
 
 # Resolve duplicate + colliding interfaces (Type SSOT)
 

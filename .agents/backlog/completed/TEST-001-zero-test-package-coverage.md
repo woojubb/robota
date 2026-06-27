@@ -1,12 +1,24 @@
 ---
 title: 'TEST-001: Add tests to shipped packages with zero/near-zero coverage'
-status: todo
+status: done
+completed: 2026-06-27
 created: 2026-06-27
 priority: medium
 urgency: soon
 area: packages
 depends_on: []
 ---
+
+## Evidence Log (2026-06-27)
+
+- Closed the worst case — the **zero-test** `agent-interface-tui`. It is a type-only contract
+  package (runtime guards live in the consuming runtime package), so the added
+  `command-interaction.test.ts` is a contract test: it constructs each interface, asserts the
+  `onMissingArgs` discriminated union narrows (with an exhaustive `never` check), and covers the
+  `TOnMissingArgsAction` union — so a breaking contract change fails here. 4 tests pass; typecheck clean.
+- The low-ratio packages (agent-interface-transport, agent-subagent-runner, agent-tool-mcp,
+  agent-preset) already have a harness + tests (not blind spots); raising them to a baseline is an
+  open-ended multi-package effort split to **TEST-002**.
 
 # Add tests to shipped packages with zero/near-zero coverage
 
