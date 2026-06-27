@@ -80,6 +80,27 @@ describe('ConversationStore setSystemPrompt (system-prompt SSOT)', () => {
     store.setSystemPrompt('SYS-NEW');
     expect(systemMessages(store)).toEqual(['SYS-NEW']);
   });
+
+  it('always moves the system message to the head, even when it was not first', () => {
+    const store = new ConversationStore();
+    // A system message that is NOT at the head (e.g. an unusual restore ordering).
+    store.addUserMessage('first');
+    store.addSystemMessage('OLD');
+    store.setSystemPrompt('SYS');
+    const roles = store.getMessages().map((m) => m.role);
+    expect(roles).toEqual(['system', 'user']);
+    expect(systemMessages(store)).toEqual(['SYS']);
+  });
+
+  it('fast-path: re-seeding an unchanged head prompt is a no-op (single message, preserved)', () => {
+    const store = new ConversationStore();
+    store.setSystemPrompt('SYS-A');
+    store.addUserMessage('turn 1');
+    store.setSystemPrompt('SYS-A');
+    store.setSystemPrompt('SYS-A');
+    expect(store.getMessages().map((m) => m.role)).toEqual(['system', 'user']);
+    expect(systemMessages(store)).toEqual(['SYS-A']);
+  });
 });
 
 describe('ConversationStore', () => {

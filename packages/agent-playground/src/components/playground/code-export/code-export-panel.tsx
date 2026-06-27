@@ -42,7 +42,7 @@ export function CodeExportPanel({
             agent: {
               provider: agentConfig.defaultModel.provider,
               model: agentConfig.defaultModel.model,
-              systemPrompt: agentConfig.defaultModel.systemMessage ?? '',
+              systemPrompt: agentConfig.systemMessage ?? '',
             },
             tools: activeTools.map((t) => t.id),
             skills: activeSkills.map((s) => s.id),

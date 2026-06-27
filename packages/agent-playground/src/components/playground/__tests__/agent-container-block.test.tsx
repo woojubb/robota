@@ -22,8 +22,8 @@ const agent: IPlaygroundAgentConfig = {
   defaultModel: {
     provider: 'openai',
     model: 'gpt-4o',
-    systemMessage: 'Plan the team response.',
   },
+  systemMessage: 'Plan the team response.',
   tools: [
     {
       name: 'search',

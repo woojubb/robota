@@ -9,8 +9,8 @@ export function getDefaultAgentConfig(): IPlaygroundAgentConfig {
       model: 'gpt-4o-mini',
       temperature: 0.6,
       maxTokens: 2000,
-      systemMessage: '',
     },
+    systemMessage: '',
     tools: [],
     plugins: [],
   };

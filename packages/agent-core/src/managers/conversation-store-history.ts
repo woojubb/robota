@@ -94,8 +94,8 @@ export class SimpleConversationHistory implements IConversationHistory {
    * Set the single head system prompt (the agent's live instruction state).
    *
    * The system prompt is not append-only conversation content: it is replaceable agent config. This
-   * enforces exactly one system message, at the head, replacing any existing one(s) in place. It is
-   * idempotent and never appends, so per-turn re-seeding cannot accumulate duplicate system messages.
+   * enforces exactly one system message, AT THE HEAD, replacing any existing one(s). It is idempotent
+   * and never appends, so per-turn re-seeding cannot accumulate duplicate system messages.
    */
   setSystemPrompt(
     content: string,
@@ -104,13 +104,32 @@ export class SimpleConversationHistory implements IConversationHistory {
   ): void {
     const isSystemChatEntry = (entry: IHistoryEntry): boolean =>
       isChatEntry(entry) && isSystemMessage(chatEntryToMessage(entry));
-    const firstSystemIndex = this.entries.findIndex(isSystemChatEntry);
+
+    // Fast path for the steady state (per-turn re-seed of an unchanged prompt): the head already
+    // holds exactly this content and no other system message exists. Skip rebuilding the entries
+    // array entirely — a plain scan with no allocation.
+    const head = this.entries[0];
+    if (
+      head !== undefined &&
+      isSystemChatEntry(head) &&
+      chatEntryToMessage(head).content === content
+    ) {
+      let hasOtherSystem = false;
+      for (let i = 1; i < this.entries.length; i++) {
+        if (isSystemChatEntry(this.entries[i]!)) {
+          hasOtherSystem = true;
+          break;
+        }
+      }
+      if (!hasOtherSystem) return;
+    }
+
+    // Otherwise rebuild: drop every system message, then place exactly one at the head.
     const withoutSystem = this.entries.filter((entry) => !isSystemChatEntry(entry));
     const entry = messageToHistoryEntry(
       createSystemMessage(content, { ...(metadata && { metadata }), ...(parts && { parts }) }),
     );
-    const insertAt = firstSystemIndex >= 0 ? Math.min(firstSystemIndex, withoutSystem.length) : 0;
-    withoutSystem.splice(insertAt, 0, entry);
+    withoutSystem.unshift(entry);
     this.entries = withoutSystem;
   }
 

@@ -18,9 +18,9 @@ const robota = new Robota({
     })],
     defaultModel: {
         provider: 'openai',
-        model: 'gpt-3.5-turbo',
-        systemMessage: 'You are a creative storyteller.'
-    }
+        model: 'gpt-3.5-turbo'
+    },
+    systemMessage: 'You are a creative storyteller.'
 })
 
 // Streaming output:
