@@ -61,8 +61,8 @@
   --studio-text: #e4e4ef;
   --studio-text-secondary: #8b8ba3;
   --studio-text-muted: #5c5c7a;
-  --studio-accent-violet: #a78bfa;
-  --studio-accent-violet-dim: rgba(167, 139, 250, 0.15);
+  --studio-accent: #2dd4a7;
+  --studio-accent-dim: rgba(45, 212, 167, 0.15);
   --studio-accent-amber: #fbbf24;
   --studio-accent-amber-dim: rgba(251, 191, 36, 0.15);
   --studio-accent-rose: #fb7185;
@@ -81,7 +81,7 @@
   --popover: #262637;
   --popover-foreground: #e4e4ef;
 
-  --primary: #a78bfa;
+  --primary: #2dd4a7;
   --primary-foreground: #1e1e2e;
 
   --secondary: #2a2a3d;
@@ -90,7 +90,7 @@
   --muted: #2a2a3d;
   --muted-foreground: #8b8ba3;
 
-  --accent: #a78bfa;
+  --accent: #2dd4a7;
   --accent-foreground: #1e1e2e;
 
   --destructive: #fb7185;
@@ -98,9 +98,9 @@
 
   --border: #363650;
   --input: #363650;
-  --ring: #a78bfa;
+  --ring: #2dd4a7;
 
-  --chart-1: #a78bfa;
+  --chart-1: #2dd4a7;
   --chart-2: #22d3ee;
   --chart-3: #fb7185;
   --chart-4: #34d399;
@@ -108,12 +108,12 @@
 
   --sidebar: #1e1e2e;
   --sidebar-foreground: #e4e4ef;
-  --sidebar-primary: #a78bfa;
+  --sidebar-primary: #2dd4a7;
   --sidebar-primary-foreground: #1e1e2e;
   --sidebar-accent: #2a2a3d;
   --sidebar-accent-foreground: #e4e4ef;
   --sidebar-border: #363650;
-  --sidebar-ring: #a78bfa;
+  --sidebar-ring: #2dd4a7;
 }
 
 @layer base {
@@ -151,8 +151,8 @@
   textarea:focus,
   select:focus {
     outline: none;
-    border-color: var(--studio-accent-violet);
-    box-shadow: 0 0 0 1px var(--studio-accent-violet);
+    border-color: var(--studio-accent);
+    box-shadow: 0 0 0 1px var(--studio-accent);
   }
 
   input::placeholder,
@@ -238,7 +238,7 @@
 
 /* === USER INPUT === */
 .react-flow__node-user_message {
-  border: 2px solid #a78bfa;
+  border: 2px solid #2dd4a7;
 }
 
 /* === AGENT NODES === */
@@ -275,7 +275,7 @@
 
 /* === MERGE POINTS === */
 .react-flow__node-tool_result {
-  border: 2px solid #a78bfa;
+  border: 2px solid #2dd4a7;
 }
 
 /* === COMPATIBILITY NODE TYPES (camelCase) === */
@@ -337,8 +337,8 @@
 .react-flow__node.selected,
 .react-flow__node:focus {
   box-shadow:
-    0 0 0 2px var(--studio-accent-violet),
-    0 0 24px rgba(167, 139, 250, 0.25);
+    0 0 0 2px var(--studio-accent),
+    0 0 24px rgba(45, 212, 167, 0.25);
 }
 
 /* === EDGES === */
@@ -348,7 +348,7 @@
 }
 
 .react-flow__edge.selected .react-flow__edge-path {
-  stroke: var(--studio-accent-violet);
+  stroke: var(--studio-accent);
 }
 
 /* === HANDLES === */
@@ -360,7 +360,7 @@
 }
 
 .react-flow__handle:hover {
-  background: var(--studio-accent-violet);
+  background: var(--studio-accent);
 }
 
 /* === MINIMAP === */
