@@ -85,44 +85,41 @@ Verified by reading `agent-framework`, `agent-executor`, `agent-session`, `agent
   stop logic must live in `agent-framework`** (SDK-owned); the `/goal` command lives in
   `agent-command`; `agent-cli` only wires the flag and must not reach below the framework.
 
-## Design decisions to confirm (BEFORE implementation)
+## Design decisions (confirmed 2026-06-27)
 
-These are genuine contract/product decisions — they must be confirmed, not chosen unilaterally:
+User-confirmed answers to the core contract/product questions:
 
-1. **Satisfaction judgment** — how does the loop decide the goal is met? Candidates:
-   - (a) **Structured completion signal** — the agent emits an explicit, schema-validated signal
-     (e.g. a dedicated tool/intent `goal_status: satisfied|continue` with a reason). Deterministic,
-     testable, no fragile string-matching. _(recommended)_
-   - (b) **Separate evaluator turn** — a dedicated judge sub-turn scores satisfaction each round.
-     More robust but doubles cost per iteration.
-   - (c) **Heuristic output parsing** — match phrases in the response. Cheapest, but fragile and
-     non-deterministic; conflicts with the no-fallback / no-fragile-heuristic posture.
-2. **Surface** — slash command `/goal <objective>` (TUI) **plus** a headless flag (e.g.
-   `--goal <text>`) for scriptable autonomous runs. (Recommended: both — mirrors how existing
-   features expose interactive + headless surfaces.)
-3. **Stop conditions / bounds** — required: max iterations and/or token budget cap, user-interrupt,
-   and a no-progress/convergence guard. Confirm defaults and whether headless is fully autonomous
-   while TUI asks for confirmation before each continuation (or runs until interrupted).
-4. **Persistence** — should an in-progress goal survive `--resume` (persisted in the session
-   record) or be session-volatile? Confirm.
-5. **Naming** — feature surface name. "goal" is a generic English term (not a vendor mark) and is
-   acceptable; confirm the public command/flag/type names so they stay vendor-neutral.
+1. **Satisfaction judgment → structured completion signal.** The agent emits an explicit,
+   schema-validated signal each round (`status: 'satisfied' | 'continue'` + a `reason`); the loop
+   decision is deterministic and testable. No fragile string-matching / heuristic parsing.
+2. **Surface → both.** A `/goal <objective>` slash command for the TUI **and** a headless flag for
+   scriptable autonomous runs; both delegate to the framework-owned goal controller.
+3. **Autonomy / stop → headless fully autonomous; TUI auto-continues, user can cancel anytime.**
+   Headless runs unattended until satisfied or a bound fires. The TUI takes autonomous follow-up
+   turns (tagged `agent-wakeup`, not user turns) and the user can cancel an in-flight goal at any
+   time. Mandatory bounds on **every** path: max iterations, token/budget cap, user-interrupt, and a
+   no-progress/convergence guard.
+4. **Persistence → persisted in the session record.** An in-progress goal (objective + iteration
+   progress) is stored in the session record and restored on `--resume`, so long-running goals
+   survive a session restart.
+5. **Naming → vendor-neutral "goal".** "goal" is a generic English term (not a vendor mark);
+   public command/flag/type names stay generic with no product references.
 
-**Process gate:** a short design note (the confirmed answers to the above + the chosen attach point
-— extend `requestWakeup`/background-task wake vs. a dedicated goal controller in
-`InteractiveSession`) will be written and **confirmed by the user before code is written**, per the
-spec-before-code and design-confirmation rules. The package SPEC.md (agent-framework, and
-agent-command if a command is added) is the SSOT and will be updated first.
+**Process gate:** the concrete design note (contract type shapes, the goal-controller state machine,
+exact command/flag names, and the SPEC.md change plan) is presented for a final review before any
+implementation code is written, per the spec-before-code and design-confirmation rules. The package
+SPEC.md (agent-framework, and agent-command for the new command) is the SSOT and is updated first.
 
-## Proposed approach (recommendation, pending confirmation)
+## Approach (per confirmed decisions)
 
 - Model goal state + the satisfaction/stop policy as an `agent-framework` concern attached to
   `InteractiveSession` (owner of `submit`/`requestWakeup`/events), driving continuation through the
   existing wakeup primitive tagged with a goal-scoped `wakeTaskId`.
-- Prefer **structured completion signal (1a)** for satisfaction — deterministic and testable.
+- Satisfaction via a **structured completion signal** (deterministic, testable).
 - Expose via **both** a `/goal` slash command (agent-command) and a headless flag (agent-cli),
   both delegating to the framework-owned goal controller.
-- Hard bounds (max iterations + budget + interrupt + no-progress) are mandatory, not optional.
+- Persist goal state in the session record (survives `--resume`).
+- Hard bounds (max iterations + budget + interrupt + no-progress) are mandatory on every path.
 
 ## Done When
 
