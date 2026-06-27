@@ -31,6 +31,7 @@ function SidebarSection({ item, depth }: SectionProps) {
       <div style={{ marginBottom: '0.125rem' }}>
         {/* Section header — clickable toggle */}
         <button
+          aria-expanded={open}
           onClick={() => setOpen((o) => !o)}
           style={{
             display: 'flex',
@@ -119,6 +120,7 @@ function SidebarSection({ item, depth }: SectionProps) {
     return (
       <div>
         <button
+          aria-expanded={open}
           onClick={() => setOpen((o) => !o)}
           style={{
             display: 'flex',

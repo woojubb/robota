@@ -1,12 +1,24 @@
 ---
 title: 'A11Y-001: Accessible names + non-color state on docs interactive components'
-status: todo
+status: done
+completed: 2026-06-27
 created: 2026-06-27
 priority: medium
 urgency: soon
 area: apps/docs
 depends_on: []
 ---
+
+## Evidence Log (2026-06-27)
+
+- `Sidebar.tsx`: both section-toggle `<button>`s now expose `aria-expanded={open}` (accessible
+  name comes from the section text they contain).
+- `TableOfContents.tsx`: the active link carries `aria-current="location"`; the colored dot is
+  marked `aria-hidden="true"` (decorative) so active state is no longer color-only.
+- `mdx/PackageManagerTabs.tsx`: tab bar is `role="tablist"`; each button is `role="tab"` with
+  `aria-selected`.
+- `mdx/MermaidDiagram.tsx`: the rendered-SVG container is `role="img"` with an `aria-label`.
+- Verified: `apps/docs` typecheck passes.
 
 # Accessible names + non-color state on docs interactive components
 
