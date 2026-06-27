@@ -51,6 +51,11 @@
       "id": "shell-command",
       "description": "TERM-003: /shell routes a one-shot command through the terminal handoff (suspend→spawn shell→restore), reports its exit code, and is unavailable with no interactive terminal.",
       "test": "packages/agent-command/src/shell/__tests__/shell-command-functional.test.ts"
+    },
+    {
+      "id": "editor-command",
+      "description": "TERM-004: /editor opens $EDITOR via the terminal handoff, captures the saved text round-trip, and is unavailable with no interactive terminal.",
+      "test": "packages/agent-command/src/editor/__tests__/editor-command-functional.test.ts"
     }
   ]
 }

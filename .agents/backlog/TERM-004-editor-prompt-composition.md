@@ -1,6 +1,6 @@
 ---
 title: 'TERM-004: compose prompts/messages in $EDITOR via terminal handoff'
-status: todo
+status: in-progress
 created: 2026-06-27
 priority: medium
 urgency: later

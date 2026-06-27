@@ -4,6 +4,7 @@ export * from './background/index.js';
 export * from './goal/index.js';
 export * from './compact/index.js';
 export * from './context/index.js';
+export * from './editor/index.js';
 export * from './exit/index.js';
 export * from './help/index.js';
 export * from './language/index.js';
