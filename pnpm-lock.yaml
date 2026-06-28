@@ -774,6 +774,9 @@ importers:
       '@robota-sdk/agent-executor':
         specifier: workspace:*
         version: link:../agent-executor
+      '@robota-sdk/agent-interface-transport':
+        specifier: workspace:*
+        version: link:../agent-interface-transport
       '@types/marked':
         specifier: ^6.0.0
         version: 6.0.0
