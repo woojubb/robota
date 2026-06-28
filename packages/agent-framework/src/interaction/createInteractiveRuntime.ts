@@ -63,19 +63,14 @@ function commandsToCommandInfo(
 }
 
 function wireSessionEvents(session: IInteractiveSession, channel: IInteractionChannel): () => void {
-  let fullText = '';
-
   const onDelta: IInteractiveSessionEvents['text_delta'] = (delta) => {
-    fullText += delta;
     channel.write({ type: 'assistant-chunk', chunk: delta });
   };
 
   const onComplete: IInteractiveSessionEvents['complete'] = (result) => {
-    // Prefer the authoritative final response from the execution result; fall back to the
-    // accumulated stream deltas (e.g. if a result is unavailable). This keeps assistant-done
-    // correct for both streaming and non-streaming providers.
-    channel.write({ type: 'assistant-done', fullText: result?.response ?? fullText });
-    fullText = '';
+    // `result.response` is the authoritative final assistant text (non-optional in IExecutionResult),
+    // correct for both streaming and non-streaming providers — no delta re-accumulation needed.
+    channel.write({ type: 'assistant-done', fullText: result.response });
     channel.setBusy(false);
   };
 

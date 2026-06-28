@@ -35,9 +35,13 @@ export interface ICreateProgrammaticAgentOptions {
 export interface IProgrammaticAgent {
   /** The structured event stream pushed by the framework, in order. */
   readonly events: readonly InteractionEvent[];
-  /** Start the runtime and bind a real `InteractiveSession`. */
+  /** Start the runtime and bind a real `InteractiveSession`. Idempotent — a second call is a no-op. */
   start(): Promise<void>;
-  /** Push a user message and await the turn to completion. */
+  /**
+   * Push a user message and await the turn. When called serially (await each `send`), this resolves
+   * after the whole turn completes. A `send` issued while a turn is still executing is queued by the
+   * session and resolves immediately; its reply lands in `events` once that queued turn runs.
+   */
   send(text: string): Promise<void>;
   /** Pre-answer the next disambiguation `requestAction`. */
   queueAction(response: TActionResponse): void;
@@ -62,39 +66,33 @@ export function createProgrammaticAgent(
     commandModules: options.commandModules ?? [],
     provider: options.provider,
     cwd: options.cwd,
-    ...(options.sessionStore ? { sessionStore: options.sessionStore } : {}),
-    ...(options.permissionMode ? { permissionMode: options.permissionMode } : {}),
+    sessionStore: options.sessionStore,
+    permissionMode: options.permissionMode,
   });
+
+  /** Events of a given type, narrowed to the matching member of the InteractionEvent union. */
+  const byType = <T extends InteractionEvent['type']>(
+    type: T,
+  ): Array<Extract<InteractionEvent, { type: T }>> =>
+    channel.events.filter((e): e is Extract<InteractionEvent, { type: T }> => e.type === type);
+
+  let started = false;
+  const assistantReplies = (): string[] => byType('assistant-done').map((e) => e.fullText);
 
   return {
     events: channel.events,
-    start: (): Promise<void> => runtime.start(),
+    start: async (): Promise<void> => {
+      if (started) return;
+      started = true;
+      await runtime.start();
+    },
     send: (text: string): Promise<void> => channel.submit(text),
     queueAction: (response: TActionResponse): void => channel.queueAction(response),
-    assistantReplies: (): string[] =>
-      channel.events
-        .filter(
-          (e): e is Extract<InteractionEvent, { type: 'assistant-done' }> =>
-            e.type === 'assistant-done',
-        )
-        .map((e) => e.fullText),
-    lastAssistantText: (): string | undefined => {
-      const replies = channel.events.filter(
-        (e): e is Extract<InteractionEvent, { type: 'assistant-done' }> =>
-          e.type === 'assistant-done',
-      );
-      return replies.at(-1)?.fullText;
-    },
+    assistantReplies,
+    lastAssistantText: (): string | undefined => assistantReplies().at(-1),
     toolCalls: (): Array<{ id: string; name: string; args: unknown }> =>
-      channel.events
-        .filter(
-          (e): e is Extract<InteractionEvent, { type: 'tool-call' }> => e.type === 'tool-call',
-        )
-        .map((e) => ({ id: e.id, name: e.name, args: e.args })),
-    errors: (): Error[] =>
-      channel.events
-        .filter((e): e is Extract<InteractionEvent, { type: 'error' }> => e.type === 'error')
-        .map((e) => e.error),
+      byType('tool-call').map((e) => ({ id: e.id, name: e.name, args: e.args })),
+    errors: (): Error[] => byType('error').map((e) => e.error),
     stop: (): Promise<void> => runtime.stop(),
   };
 }
