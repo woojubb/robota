@@ -19,6 +19,7 @@ import { useTuiChannel } from './hooks/useTuiChannel.js';
 import InputArea from './InputArea.js';
 import InteractivePrompt from './InteractivePrompt.js';
 import { EntryItem } from './MessageList.js';
+import PendingActionPrompt from './PendingActionPrompt.js';
 import PermissionPrompt from './PermissionPrompt.js';
 import PluginTUI from './PluginTUI.js';
 import SessionPicker from './SessionPicker.js';
@@ -129,6 +130,7 @@ function AppInner(
     selectExecutionWorkspaceEntry,
     readExecutionWorkspaceDetail,
     permissionRequest,
+    pendingUserAction,
     contextState,
     handleSubmit: baseHandleSubmit,
     handleAbort,
@@ -274,6 +276,7 @@ function AppInner(
     if (!key.escape || !isThinking) return;
     if (
       permissionRequest ||
+      pendingUserAction ||
       showPluginTUI ||
       showTransportTUI ||
       showSessionPicker ||
@@ -287,7 +290,14 @@ function AppInner(
   // Ctrl+B toggles the execution workspace switcher.
   useInput((input: string, key: { ctrl?: boolean }) => {
     if (!key.ctrl || input !== 'b') return;
-    if (permissionRequest || showPluginTUI || showSessionPicker || isShuttingDown) return;
+    if (
+      permissionRequest ||
+      pendingUserAction ||
+      showPluginTUI ||
+      showSessionPicker ||
+      isShuttingDown
+    )
+      return;
     setShowExecutionWorkspaceSwitcher((shown) => !shown);
   });
 
@@ -296,6 +306,7 @@ function AppInner(
     if (!key.escape || isThinking) return;
     if (
       permissionRequest ||
+      pendingUserAction ||
       showPluginTUI ||
       showTransportTUI ||
       showSessionPicker ||
@@ -451,6 +462,12 @@ function AppInner(
               onCancel={handleInteractionCancel}
             />
           )}
+          {pendingUserAction && (
+            <PendingActionPrompt
+              request={pendingUserAction}
+              onAnswer={(response) => channel.resolveUserAction(response)}
+            />
+          )}
           {showPluginTUI && (
             <PluginTUI
               callbacks={pluginCallbacks}
@@ -485,6 +502,7 @@ function AppInner(
             onCancelQueue={handleCancelQueue}
             isDisabled={
               !!permissionRequest ||
+              !!pendingUserAction ||
               showPluginTUI ||
               showTransportTUI ||
               showSessionPicker ||

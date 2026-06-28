@@ -10,7 +10,7 @@ import { useState, useEffect } from 'react';
 import type { TuiInteractionChannel } from '../TuiInteractionChannel.js';
 import type { ICommandEffectQueue } from './command-effect-queue.js';
 import type { IPendingPermissionRequest } from '../types.js';
-import type { IHistoryEntry, TSessionEndReason } from '@robota-sdk/agent-core';
+import type { IActionRequest, IHistoryEntry, TSessionEndReason } from '@robota-sdk/agent-core';
 import type { InteractiveSession, CommandRegistry } from '@robota-sdk/agent-framework';
 import type {
   IExecutionDetailPage,
@@ -33,6 +33,8 @@ export interface IInteractiveSessionState {
   executionWorkspaceSnapshot: IExecutionWorkspaceSnapshot | null;
   selectedExecutionEntryId?: string;
   permissionRequest: IPendingPermissionRequest | null;
+  /** CMD-004: the unified action awaiting a user answer, or null. */
+  pendingUserAction: IActionRequest | null;
   contextState: { percentage: number; usedTokens: number; maxTokens: number };
   handleSubmit: (input: string) => Promise<void>;
   handleAbort: () => void;
@@ -84,6 +86,7 @@ export function useTuiChannel(channel: TuiInteractionChannel): IInteractiveSessi
     executionWorkspaceSnapshot: manager.executionWorkspaceSnapshot,
     selectedExecutionEntryId: manager.selectedExecutionEntryId,
     permissionRequest: channel.permissionRequest,
+    pendingUserAction: channel.pendingUserAction ?? null,
     contextState: manager.contextState,
     handleSubmit: (input) => channel.handleInput(input),
     handleAbort: () => channel.abort(),

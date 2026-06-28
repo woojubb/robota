@@ -56,6 +56,7 @@ interface IFakeChannel {
   onChange: (() => void) | null;
   isShuttingDown: boolean;
   permissionRequest: null;
+  pendingUserAction: null;
   start: ReturnType<typeof vi.fn>;
   stop: ReturnType<typeof vi.fn>;
   handleInput: ReturnType<typeof vi.fn>;
@@ -95,6 +96,7 @@ function createFakeChannel(createdFor: string | undefined): IFakeChannel {
     onChange: null,
     isShuttingDown: false,
     permissionRequest: null,
+    pendingUserAction: null,
     start: vi.fn(async () => {}),
     stop: vi.fn(async () => {}),
     handleInput: vi.fn(async () => {}),

@@ -26,6 +26,12 @@ import type { TerminalHandoffController } from './terminal-handoff-controller.js
 import type { IPendingPermissionRequest } from './types.js';
 import type { IAIProvider, TPermissionMode, TSessionEndReason } from '@robota-sdk/agent-core';
 import type { TToolArgs } from '@robota-sdk/agent-core';
+// CMD-004 unified action contract (SSOT in agent-core). Aliased to avoid clashing with the legacy
+// interface-transport `TActionResponse` still used by the (dead, removed in PR-H) requestAction path.
+import type {
+  IActionRequest,
+  TActionResponse as TUserActionResponse,
+} from '@robota-sdk/agent-core';
 import type {
   IBackgroundTaskRunner,
   ICommandHostAdapters,
@@ -101,8 +107,18 @@ export class TuiInteractionChannel implements IInteractionChannel {
   }> = [];
   private processingAction = false;
 
+  // CMD-004 unified ask path (parallel to the legacy actionQueue above; that legacy path is removed
+  // in PR-H). Backs askHandler → InteractiveSession; rendered by App's PendingActionPrompt.
+  private userActionQueue: Array<{
+    request: IActionRequest;
+    resolve: (response: TUserActionResponse) => void;
+  }> = [];
+  private processingUserAction = false;
+
   permissionRequest: IPendingPermissionRequest | null = null;
   pendingAction: TActionRequest | null = null;
+  /** CMD-004: the action currently awaiting a user answer, or null. Read by App to render the dialog. */
+  pendingUserAction: IActionRequest | null = null;
   availableCommands: ICommandInfo[] = [];
   isShuttingDown = false;
   sessionName: string | undefined;
@@ -144,6 +160,7 @@ export class TuiInteractionChannel implements IInteractionChannel {
       permissionMode: opts.permissionMode,
       maxTurns: opts.maxTurns,
       permissionHandler: (toolName, toolArgs) => this.handlePermissionRequest(toolName, toolArgs),
+      askHandler: (request) => this.askUser(request),
       sessionStore: opts.sessionStore,
       resumeSessionId: opts.resumeSessionId,
       forkSession: opts.forkSession,
@@ -242,17 +259,20 @@ export class TuiInteractionChannel implements IInteractionChannel {
 
   abort(): void {
     this.stateManager.setAborting(true);
+    this.cancelAllUserActions();
     this.interactiveSession.abort();
   }
 
   cancelQueue(): void {
     this.interactiveSession.cancelQueue();
+    this.cancelAllUserActions();
     this.stateManager.setPendingPrompt(null);
   }
 
   async shutdown(options?: { reason?: TSessionEndReason }): Promise<void> {
     if (this.isShuttingDown) return;
     this.isShuttingDown = true;
+    this.cancelAllUserActions();
     this.stateManager.addEntry(messageToHistoryEntry(createSystemMessage('Shutting down...')));
     this.onChange?.();
     await this.interactiveSession.shutdown({
@@ -288,6 +308,53 @@ export class TuiInteractionChannel implements IInteractionChannel {
     this.onChange?.();
     pending.resolve(response);
     this.processNextAction();
+  }
+
+  // ── CMD-004 unified ask path ─────────────────────────────────
+
+  /** Framework's `askHandler` entry point: queue the request and resolve when the user answers. */
+  async askUser(request: IActionRequest): Promise<TUserActionResponse> {
+    return new Promise<TUserActionResponse>((resolve) => {
+      this.userActionQueue.push({ request, resolve });
+      this.processNextUserAction();
+    });
+  }
+
+  /** Called by App's PendingActionPrompt when the user answers (or cancels) the pending action. */
+  resolveUserAction(response: TUserActionResponse): void {
+    const pending = this.userActionQueue[0];
+    if (!pending) return;
+    this.userActionQueue.shift();
+    this.processingUserAction = false;
+    this.pendingUserAction = null;
+    this.onChange?.();
+    pending.resolve(response);
+    this.processNextUserAction();
+  }
+
+  private processNextUserAction(): void {
+    if (this.processingUserAction) return;
+    const next = this.userActionQueue[0];
+    if (!next) {
+      this.pendingUserAction = null;
+      this.onChange?.();
+      return;
+    }
+    this.processingUserAction = true;
+    this.pendingUserAction = next.request;
+    this.onChange?.();
+  }
+
+  /** Resolve every queued/in-flight ask as cancelled (abort, shutdown). */
+  private cancelAllUserActions(): void {
+    const queued = this.userActionQueue;
+    this.userActionQueue = [];
+    this.processingUserAction = false;
+    this.pendingUserAction = null;
+    for (const pending of queued) {
+      pending.resolve({ type: 'cancelled' });
+    }
+    this.onChange?.();
   }
 
   async handleInput(input: string): Promise<void> {
