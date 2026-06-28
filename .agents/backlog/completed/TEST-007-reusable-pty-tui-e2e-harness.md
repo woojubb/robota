@@ -1,7 +1,8 @@
 ---
 title: 'TEST-007: reusable PTY-driven TUI E2E harness (terminal-handoff scenarios + consolidation)'
-status: in-progress
+status: done
 created: 2026-06-28
+completed: 2026-06-28
 priority: high
 urgency: soon
 area: packages/agent-transport-tui
@@ -133,6 +134,13 @@ first new consumers. The `python3`-based exploration is deleted (node-pty is the
 - **Throwaway removed:** `scripts/verify-handoff-pty.{tsx,py}` deleted (node-pty is the repo standard).
 - Gates: TUI typecheck clean; full TUI suite 393 tests pass; `test:pty` 3 tests pass;
   `pnpm harness:scan` 33/33 green.
+
+### Closure note (2026-06-28)
+
+All "Done When" criteria met. Follow-up **INFRA-016** later relocated the shared harness from
+`agent-transport-tui/src/__tests__/pty/spawn-pty.ts` into the published `@robota-sdk/agent-testing`
+package (`spawnPty`/`spawnPtyFixture`); `agent-transport-tui` now consumes it as a devDependency. The
+re-pointed PTY suites stay green (`test:pty` 6, pty-e2e 5). Marking done.
 
 ## User Execution Test Scenarios
 
