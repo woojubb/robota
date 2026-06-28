@@ -5,6 +5,13 @@
  * SSOT shared by agent-framework (createInteractiveRuntime) and agent-transport channels.
  */
 
+// CMD-004 unified action contract (SSOT in agent-core). Aliased so the new `TActionResponse` does not
+// clash with this module's legacy `TActionResponse` (removed once all channels migrate, PR-H).
+import type {
+  IActionRequest,
+  TActionResponse as TUserActionResponse,
+} from '@robota-sdk/agent-core';
+
 /** Framework-level permission request (id used to correlate with permission-resolved). */
 export interface IPermissionRequest {
   id: string;
@@ -63,6 +70,13 @@ export interface IInteractionChannel {
    * (Ink dialog, web modal, programmatic preset). Resolves when user responds.
    */
   requestAction(action: TActionRequest): Promise<TActionResponse>;
+
+  /**
+   * CMD-004 unified ask: request a structured answer (confirm/select/multi/text). Optional during the
+   * additive migration; the channel renders it per-environment and resolves when the user answers (or
+   * cancels). The legacy `requestAction` above is removed once every channel implements this (PR-H).
+   */
+  askUser?(request: IActionRequest): Promise<TUserActionResponse>;
 
   /** Framework provides registered slash commands for autocomplete. */
   setAvailableCommands(commands: ICommandInfo[]): void;

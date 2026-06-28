@@ -178,6 +178,10 @@ export function createInteractiveRuntime(options: IInteractiveRuntimeOptions): I
           sessionStore,
           commandModules,
           permissionMode,
+          // CMD-004: route command asks to the channel's unified renderer when it implements one;
+          // otherwise resolve cancelled (never block a non-interactive run on an un-answered ask).
+          askHandler: (request) =>
+            channel.askUser?.(request) ?? Promise.resolve({ type: 'cancelled' as const }),
         });
       }
 

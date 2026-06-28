@@ -91,6 +91,8 @@ export class HeadlessInteractionChannel {
       cwd: this.opts.cwd,
       provider: this.opts.provider,
       permissionMode: this.opts.permissionMode ?? 'bypassPermissions',
+      // CMD-004: headless has no interactive renderer — an ask resolves cancelled (never a silent guess).
+      askHandler: () => Promise.resolve({ type: 'cancelled' as const }),
       maxTurns: this.opts.maxTurns,
       sessionStore: this.opts.sessionStore,
       resumeSessionId: this.opts.resumeSessionId,
