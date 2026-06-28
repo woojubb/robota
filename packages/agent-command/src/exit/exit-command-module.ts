@@ -3,11 +3,7 @@ import { EXIT_COMMAND_DESCRIPTION } from '@robota-sdk/agent-framework';
 import { executeExitCommand } from './exit-command.js';
 
 import type { ICommandModule, ISystemCommand } from '@robota-sdk/agent-framework';
-import type {
-  ICommand,
-  TCommandInteractionHint,
-  ICommandSource,
-} from '@robota-sdk/agent-interface-transport';
+import type { ICommand, ICommandSource } from '@robota-sdk/agent-interface-transport';
 
 export function createExitCommandEntry(): ICommand {
   return {
@@ -41,15 +37,10 @@ export class ExitCommandSource implements ICommandSource {
   }
 }
 
-const EXIT_INTERACTION_HINTS: Record<string, TCommandInteractionHint> = {
-  exit: { type: 'confirm', message: 'Exit the session?' },
-};
-
 export function createExitCommandModule(): ICommandModule {
   return {
     name: 'agent-command-exit',
     commandSources: [new ExitCommandSource()],
     systemCommands: [createExitSystemCommand()],
-    interactionHints: EXIT_INTERACTION_HINTS,
   };
 }
