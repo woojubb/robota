@@ -108,6 +108,23 @@ This rule applies even when:
 
 **The only exception:** The user explicitly says "create a new branch anyway" or "abandon the old branch."
 
+### Delete Merged Branches (mandatory)
+
+After a PR merges, delete its now-merged feature branch so only `develop` and `main` remain as standing
+branches. **Never** use `gh pr merge --delete-branch` (see the ban above) — delete explicitly, only
+after confirming the branch is merged:
+
+- **Local:** `git branch -d <branch>` (the `-d` form refuses an unmerged branch — a built-in guard).
+- **Remote:** confirm merged, then `gh api -X DELETE repos/<owner>/<repo>/git/refs/heads/<branch>`.
+- **Verify before remote deletion:** `git merge-base --is-ancestor origin/<branch> origin/main` (or
+  `origin/develop` for non-release merges) must succeed.
+
+**Never delete `develop` or `main`.**
+
+**Why:** stale merged branches accumulate on the remote and obscure the active set; cleaning each cycle
+keeps `develop`/`main` the only standing branches. The safe per-branch delete (never the merge-time
+`--delete-branch`) avoids the incident that deleted the `develop` integration branch.
+
 ### Post-Merge Branch Cycle (mandatory)
 
 After a branch is merged, follow this exact cycle to start the next feature branch from a correct base:
