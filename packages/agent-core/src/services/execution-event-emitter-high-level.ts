@@ -39,7 +39,7 @@ export function emitExecutionStartEvent(
         availableTools: resolved.toolsInfo,
         toolCount: resolved.toolsInfo.length,
         hasTools: resolved.toolsInfo.length > 0,
-        systemMessage: config.defaultModel.systemMessage,
+        systemMessage: config.systemMessage,
         provider: config.defaultModel.provider,
         model: config.defaultModel.model,
         temperature: config.defaultModel.temperature,

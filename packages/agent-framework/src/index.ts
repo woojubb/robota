@@ -3,6 +3,21 @@
 
 // ── InteractiveSession (primary API) ────────────────────────
 export { InteractiveSession } from './interactive/index.js';
+
+// ── Autonomous goal pursuit (GOAL-001) ──────────────────────
+export {
+  GoalController,
+  extractGoalSignal,
+  createGoalStatusTool,
+  GOAL_SIGNAL_TOOL_NAME,
+  DEFAULT_GOAL_MAX_ITERATIONS,
+  DEFAULT_GOAL_NO_PROGRESS_LIMIT,
+  buildGoalStartPrompt,
+  buildGoalContinuationPrompt,
+  type IGoalSignal,
+  type TGoalDecision,
+  type IGoalStartOptions,
+} from './goal/index.js';
 export {
   createProjectSessionStore,
   createUserSessionStore,
@@ -302,7 +317,7 @@ export type {
 
 // ── Skill prompt utilities ───────────────────────────────────
 export { substituteVariables, preprocessShellCommands } from './utils/skill-prompt.js';
-export type { SkillPromptContext, TShellExecFn } from './utils/skill-prompt.js';
+export type { ISkillPromptContext, TShellExecFn } from './utils/skill-prompt.js';
 
 // ── Project memory ─────────────────────────────────────────
 export {
@@ -600,14 +615,14 @@ export type { IInteractionChannel } from './interaction/IInteractionChannel.js';
 export type {
   InteractionEvent,
   IPermissionRequest,
-  IActionRequest,
-  IActionResponse,
+  TActionRequest,
+  TActionResponse,
   IPickItem,
   ICommandInfo,
-  ICommandInteractionHint,
+  TCommandInteractionHint,
 } from './interaction/types.js';
 export { parseInput, isSlashCommand, tokeniseSlashCommand } from './interaction/input-parser.js';
-export type { ParsedInput } from './interaction/input-parser.js';
+export type { TParsedInput } from './interaction/input-parser.js';
 export type { IInteractiveRuntime } from './interaction/InteractiveRuntime.js';
 export { createInteractiveRuntime } from './interaction/createInteractiveRuntime.js';
 export type { IInteractiveRuntimeOptions } from './interaction/createInteractiveRuntime.js';
@@ -616,7 +631,9 @@ export type { IInteractiveRuntimeOptions } from './interaction/createInteractive
 export { promptForApproval } from './permissions/permission-prompt.js';
 
 // ── Testing utilities ────────────────────────────────────────
-export { createTestInteractiveSession } from './testing/create-test-interactive-session.js';
+// Test-only fixtures (the functional session harness + stub session) are exported from the
+// `@robota-sdk/agent-framework/testing` subpath, not the runtime entry, so they stay out of the
+// runtime bundle (TEST-003).
 
 // ── Settings I/O ─────────────────────────────────────────────
 export {

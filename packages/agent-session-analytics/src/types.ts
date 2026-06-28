@@ -9,7 +9,7 @@
 import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-transport';
 
 /** Minimal session-record projection the analyzer reads — SSOT-derived, not a duplicate. */
-export type ISessionAnalysisInput = Pick<
+export type TSessionAnalysisInput = Pick<
   IInteractiveSessionRecord,
   'id' | 'cwd' | 'createdAt' | 'history'
 >;

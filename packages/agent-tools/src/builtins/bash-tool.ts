@@ -1,7 +1,7 @@
 /**
  * BashTool — execute shell commands via child_process.spawn
  *
- * Returns TToolResult JSON string. Non-zero exit is returned as success:true
+ * Returns IToolInvocationResult JSON string. Non-zero exit is returned as success:true
  * with exitCode set, matching Claude Code behaviour (the command ran, it just
  * exited non-zero — the LLM can decide what to do with that information).
  */
@@ -14,7 +14,7 @@ import { createZodFunctionTool } from '../implementations/function-tool';
 
 import type { FunctionTool } from '../implementations/function-tool';
 import type { ISandboxToolOptions } from '../sandbox/types.js';
-import type { TToolResult } from '../types/tool-result.js';
+import type { IToolInvocationResult } from '../types/tool-result.js';
 
 const DEFAULT_TIMEOUT_MS = 120_000; // 2 minutes
 
@@ -34,7 +34,7 @@ type TBashArgs = z.infer<typeof BashSchema>;
 
 /**
  * Run a shell command and return stdout + stderr.
- * Resolves with the TToolResult JSON string.
+ * Resolves with the IToolInvocationResult JSON string.
  */
 async function runBash(args: TBashArgs, options: ISandboxToolOptions = {}): Promise<string> {
   const { command, timeout: rawTimeout = DEFAULT_TIMEOUT_MS, workingDirectory } = args;
@@ -48,14 +48,14 @@ async function runBash(args: TBashArgs, options: ISandboxToolOptions = {}): Prom
       const output = sandboxResult.stderr
         ? `${sandboxResult.stdout}\nstderr:\n${sandboxResult.stderr}`
         : sandboxResult.stdout;
-      const result: TToolResult = {
+      const result: IToolInvocationResult = {
         success: true,
         output,
         exitCode: sandboxResult.exitCode,
       };
       return JSON.stringify(result);
     } catch (err) {
-      const result: TToolResult = {
+      const result: IToolInvocationResult = {
         success: false,
         output: '',
         error: err instanceof Error ? err.message : String(err),
@@ -97,7 +97,7 @@ async function runBash(args: TBashArgs, options: ISandboxToolOptions = {}): Prom
       });
     }, timeout);
 
-    function settle(result: TToolResult): void {
+    function settle(result: IToolInvocationResult): void {
       if (settled) return;
       settled = true;
       clearTimeout(timer);

@@ -1,7 +1,7 @@
 import type { IAIProvider } from './provider';
 import type { TUniversalValue } from './types';
 
-export interface IProviderConfig {
+export interface IProviderDefinitionConfig {
   name: string;
   model: string;
   apiKey?: string;
@@ -124,7 +124,7 @@ export interface IProviderDefinition {
   setupSteps?: readonly IProviderSetupStepDefinition[];
   credentialRequirement?: IProviderCredentialRequirement;
   requiresApiKey?: boolean;
-  createProvider: (config: IProviderConfig) => IAIProvider;
+  createProvider: (config: IProviderDefinitionConfig) => IAIProvider;
   probeProfile?: (profile: IProviderProfileConfig) => Promise<IProviderProbeResult>;
 }
 

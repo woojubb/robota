@@ -67,14 +67,17 @@ export abstract class SessionBase {
     return this.systemMessage;
   }
 
-  /** Replace the active system message and propagate to the agent (used by staleness detection). */
+  /**
+   * Replace the active system message and propagate it so the next provider request carries it.
+   * Records the live value on `this.systemMessage` (re-injected on compaction) and delegates to
+   * `Robota.updateSystemPrompt`, which updates the single-source `config.systemMessage` and the live
+   * conversation store head. The system prompt is an agent-level concern, not model config, so this
+   * does not route through `setModel`. Used by persona application, the self-verification toggle, and
+   * AGENTS.md/CLAUDE.md staleness refresh.
+   */
   updateSystemMessage(newMessage: string): void {
     this.systemMessage = newMessage;
-    this.robota.setModel({
-      provider: this.aiProvider.name,
-      model: this.model,
-      systemMessage: newMessage,
-    });
+    this.robota.updateSystemPrompt(newMessage);
   }
 
   /**
@@ -96,10 +99,10 @@ export abstract class SessionBase {
     // guard. Bring the agent to a ready state first — idempotent and side-effect-free.
     await this.robota.ensureReady();
     const nextModel = options.model ?? this.model;
+    // The system prompt is not model config; it is updated independently via updateSystemMessage.
     this.robota.setModel({
       provider: this.aiProvider.name,
       model: nextModel,
-      systemMessage: this.systemMessage,
       ...(options.effort !== undefined && { effort: options.effort }),
       ...(options.temperature !== undefined && { temperature: options.temperature }),
       ...(options.maxOutputTokens !== undefined && { maxTokens: options.maxOutputTokens }),

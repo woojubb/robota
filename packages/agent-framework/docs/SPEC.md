@@ -32,7 +32,9 @@ This package does NOT own: provider implementations, generic session run loop, t
 - Permission prompt: `promptForApproval()`
 - Path helpers: `projectPaths()`, `userPaths()`
 - User-local storage: `resolveUserLocalStorageRoot()`, user-local memory APIs
-- Testing utilities: `createTestInteractiveSession()`
+- Testing utilities: exported from the `@robota-sdk/agent-framework/testing` subpath (not the
+  runtime entry) — `scriptedSession()` / `ScriptedSessionHarness` (functional harness) and
+  `createTestInteractiveSession()` (stub). See Test Strategy → Functional test harness.
 - Update check: `checkForCliUpdate()`, related helpers
 - Git utilities: `resolveGitBranch()`
 - Semver utilities: `compareSemverVersions()`, `isNewerSemverVersion()`
@@ -42,7 +44,7 @@ This package does NOT own: provider implementations, generic session run loop, t
 
 - `agent-core`: provider interface (`IAIProvider`), engine (`Robota`), history helpers, permissions enforcement (`evaluatePermission`), hook runner (`runHooks`), generic message utilities
 - `agent-session`: `Session` class, `SessionStore`, `PermissionEnforcer`, `ContextWindowTracker`, `CompactionOrchestrator`, terminal output (`ITerminalOutput`)
-- `agent-tools`: built-in tools (`bashTool`, `readTool`, `writeTool`, etc.), tool creation infrastructure, sandbox client (`ISandboxClient`), `TToolResult`
+- `agent-tools`: built-in tools (`bashTool`, `readTool`, `writeTool`, etc.), tool creation infrastructure, sandbox client (`ISandboxClient`), `IToolInvocationResult`
 - `agent-executor`: `BackgroundTaskManager`, `SubagentManager`, `WorktreeSubagentRunner`, lifecycle state machine
 - `agent-provider-*`: provider implementations
 - React/Ink components (belong in `agent-cli`)
@@ -127,7 +129,7 @@ Key design rules:
 | `IUserLocalStorageInspection`        | `src/user-local/index.ts`                             | User-local storage inspection projection                                                                            |
 | `IUserLocalMemoryItemProjection`     | `src/user-local/index.ts`                             | Memory item with display/navigation metadata                                                                        |
 | `TUserLocalMemoryCategory`           | `src/user-local/index.ts`                             | Allowed user-local memory category union                                                                            |
-| `SkillPromptContext`                 | `src/utils/skill-prompt.ts`                           | Variable substitution context for skill prompts                                                                     |
+| `ISkillPromptContext`                | `src/utils/skill-prompt.ts`                           | Variable substitution context for skill prompts                                                                     |
 | `ICliUpdateNotice`                   | `src/update-check/update-check.ts`                    | CLI update notification data                                                                                        |
 | `TCliUpdateCheckResult`              | `src/update-check/update-check.ts`                    | Result of a CLI update check                                                                                        |
 
@@ -230,7 +232,7 @@ Core classes and functions exported from `@robota-sdk/agent-framework`:
 | `clearContextReferences`                    | function | Clear all context references from the inventory                                                                                                                                |
 | `createContextReferenceItem`                | function | Build a context reference item shape                                                                                                                                           |
 | `toContextReferenceRecords`                 | function | Convert context references to structured records                                                                                                                               |
-| `createTestInteractiveSession`              | function | Create a stub `IInteractiveSession` for tests                                                                                                                                  |
+| `createTestInteractiveSession`              | function | (moved to the `./testing` subpath) Create a stub `IInteractiveSession` for tests                                                                                               |
 | `getUserSettingsPath`                       | function | Return the user-global settings file path                                                                                                                                      |
 | `resolveSettingsPathForScope`               | function | Resolve settings path for `'user'` or `'project-local'` scope                                                                                                                  |
 | `readSettings`                              | function | Read a settings JSON file                                                                                                                                                      |
@@ -311,7 +313,7 @@ When `sandboxClient` is provided to `InteractiveSession`, Bash, Read, Write, and
 interface IInteractionChannel {
   onSubmit(handler: (text: string) => Promise<void>): void;
   write(event: InteractionEvent): void;
-  requestAction(action: IActionRequest): Promise<IActionResponse>;
+  requestAction(action: TActionRequest): Promise<TActionResponse>;
   setAvailableCommands(commands: ICommandInfo[]): void;
   setBusy(busy: boolean): void;
   start(): Promise<void>;
@@ -333,12 +335,12 @@ interface IInteractionChannel {
 | `command-result`      | Slash command executed             |
 | `error`               | Session error                      |
 
-**`IActionRequest` / `IActionResponse`** — disambiguation protocol for slash commands that need user input (pick list or confirm dialog). `createInteractiveRuntime` calls `channel.requestAction()` when a command module declares an `interactionHint` and the user submits the command without arguments.
+**`TActionRequest` / `TActionResponse`** — disambiguation protocol for slash commands that need user input (pick list or confirm dialog). `createInteractiveRuntime` calls `channel.requestAction()` when a command module declares an `interactionHint` and the user submits the command without arguments.
 
-**`ICommandInteractionHint`** — declared per command name in `ICommandModule.interactionHints`:
+**`TCommandInteractionHint`** — declared per command name in `ICommandModule.interactionHints`:
 
 ```typescript
-type ICommandInteractionHint =
+type TCommandInteractionHint =
   | { type: 'pick'; getItems(): IPickItem[] }
   | { type: 'confirm'; message: string };
 ```
@@ -369,7 +371,7 @@ groups were `applied` vs. `skipped` (a group absent from `options` is left untou
 `skipped`).
 
 **`IPresetApplicationOptions`** is a framework-owned shape that `agent-preset`'s
-`TResolvedPresetOptions` satisfies **structurally** (so the framework never imports agent-preset — no
+`IResolvedPresetOptions` satisfies **structurally** (so the framework never imports agent-preset — no
 dependency cycle). Fields and the group each drives:
 
 | Field                                               | Group / seam used                                                  |
@@ -480,10 +482,39 @@ All errors from `session.run()` are caught by `InteractiveSession` and emitted a
   - `provider-settings.test.ts` — provider profile merge and validation
   - `skill-prompt.test.ts` — variable substitution and shell command preprocessing
 
+### Functional test harness — `@robota-sdk/agent-framework/testing` (TEST-003)
+
+The `./testing` subpath (kept out of the runtime bundle) is the agent's standard way to **functionally
+verify a feature at the framework level** — the CLI is a thin wrapper and must not be where feature
+behaviour is verified.
+
+- `scriptedSession({ turns | cassette | record, files?, persistence?, cwd?, resumeSessionId?,
+forkSession?, model?, commandModules?, ... })` / `ScriptedSessionHarness` builds a **real**
+  `InteractiveSession` (real agent loop, builtin tools, persistence, events) in an isolated temp
+  workspace. Provider modes (exactly one): **scripted** (`turns`, hand-written, SSOT
+  `createScriptedProvider`), **cassette** (`cassette: path`, a recorded real-model run replayed
+  deterministically — TEST-005; a committed real Qwen goal run is at
+  `__fixtures__/goal-satisfied.cassette.json`, recorded by
+  `packages/agent-cli/scripts/record-goal-cassette.mts`), or **record**
+  (`record: { provider, toCassette }`, capture a real provider run). Multi-session: `cwd` +
+  `resumeSessionId` (+ `forkSession`) open a second harness over the same workspace store to
+  resume/fork a persisted session; the harness only deletes a workspace it created. No CLI, no
+  network, no live LLM (replay/scripted).
+- Drivers: `submit(prompt)` → awaits the completed turn; `runGoal(objective, opts)` → awaits the
+  stopped goal; `awaitEvent(name, predicate?)`.
+- Inspectors — in-memory: `history()`, `toolCalls()`, `emittedEvents(name)`, `requests`. Durable
+  artifacts the system itself writes (leverage these): `sessionRecord()` (the persisted session JSON),
+  `transcript()` / `logEntries()` (the real `{cwd}/.robota/logs/{sessionId}.jsonl` transcript —
+  `session_init` / `provider_request` / `tool_call` / `tool_result` / `assistant` records), and
+  `readFile()`/`exists()`/`files()` (workspace side effects). Lifecycle: `dispose()` tears down the
+  workspace. Scripted tool-call args may use the `{{cwd}}` placeholder for absolute workspace paths.
+- `createTestInteractiveSession()` (same subpath) remains a lightweight **stub** for wiring/type tests
+  that do not need the real loop.
+
 ### Approach
 
 - Unit tests use a mock `IAIProvider` from `@robota-sdk/agent-core` test utilities; no real API calls
-- `createTestInteractiveSession()` provides a stub `IInteractiveSession` for command module tests
+- Functional/feature tests use the `./testing` harness above against a real session (no CLI)
 - Integration tests (`cross-package-hooks.test.ts`, `cross-package-skills.test.ts`) use real `createSession()` with mock providers to verify hook wiring and skill routing
 - Public API surface test (`public-api.test.ts`) acts as a regression guard: it asserts that lower-package symbols are not accidentally re-exported
 
@@ -657,7 +688,7 @@ agent-executor (reusable runtime primitives — depends only on agent-core)
 agent-tools
 ├── src/builtins/             ← bash, read, write, edit, glob, grep, web-fetch, web-search tools
 ├── src/sandbox/              ← ISandboxClient, workspace manifest contracts, snapshot ports, E2B structural adapter, and in-memory contract adapter
-├── packages/agent-tools/src/types/tool-result.ts  ← TToolResult
+├── packages/agent-tools/src/types/tool-result.ts  ← IToolInvocationResult
 └── (existing) FunctionTool, createZodFunctionTool, schema conversion
 
 agent-session (generic — depends only on agent-core)
@@ -752,7 +783,7 @@ agent-cli (Ink TUI — CLI-specific)
 - **Built-in tools**: `agent-tools/builtins/` — Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch
 - **Agent runtime deps**: `agent-framework/tools/agent-tool.ts` stores reusable subagent runtime dependencies for `/agent` and `context: fork` skill execution when a composed command module requests `agent-executor`. `createSession()` does not register a separate model-visible `Agent` tool; model and user routing use the built-in command layer such as `/agent`.
 - **Edit checkpoint wrapper**: `agent-framework/checkpoints/edit-checkpoint-tools.ts` wraps `Write` and `Edit` at SDK session assembly time. The underlying tool package stays generic; the SDK wrapper snapshots the target file before the first mutation in each prompt turn.
-- **Tool result type**: `TToolResult` in `agent-tools/types/tool-result.ts`
+- **Tool result type**: `IToolInvocationResult` in `agent-tools/types/tool-result.ts`
 
 ### Sandbox Execution
 
@@ -1770,7 +1801,7 @@ import { evaluatePermission } from '@robota-sdk/agent-core';
 | ------------------------- | -------- | ---------------------------------------------------------------------------------- |
 | `substituteVariables`     | function | Substitutes `$VAR` / `${VAR}` placeholders in a skill prompt string from a context |
 | `preprocessShellCommands` | function | Extracts shell commands embedded in skill prompt text for pre-execution            |
-| `SkillPromptContext`      | type     | Variable substitution context shape for `substituteVariables`                      |
+| `ISkillPromptContext`     | type     | Variable substitution context shape for `substituteVariables`                      |
 
 ### Path Helpers
 
@@ -1846,9 +1877,9 @@ Each module's placement is determined by "Is this used only in the SDK, or is it
 ### Existing Package Refactoring History
 
 - **agent-session**: Removed existing SessionManager/ChatInstance (zero consumers, no-op persistence), replaced with Session/SessionStore from agent-framework
-- **agent-tools**: Added 8 built-in tools in `builtins/` directory (Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch), added `TToolResult` type
+- **agent-tools**: Added 8 built-in tools in `builtins/` directory (Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch), added `IToolInvocationResult` type
 - **agent-core**: Added `permissions/` and `hooks/` directories
-- **agent-provider-anthropic**: Multi-block content handling (text + tool_use), streaming `chatWithStreaming`, `onTextDelta` support
+- **agent-provider (`./anthropic` sub-path)**: Multi-block content handling (text + tool_use), streaming `chatWithStreaming`, `onTextDelta` support
 
 ## Hook Type Executors (SDK-Specific)
 
@@ -2283,12 +2314,37 @@ Assembles the full system prompt for a subagent session:
 
 Subagent transcript logs must include session initialization, prompts, tool calls/results, streaming `text_delta` chunks, final assistant output, context state, and errors. Parent sessions may store only transcript paths and task snapshots in `.robota/sessions/*.json`; the transcript JSONL remains the source of truth for high-frequency streaming data.
 
+## Autonomous Goal Pursuit (GOAL-001)
+
+A user-assigned high-level objective that the agent pursues autonomously across multiple turns until it is satisfied or a bound fires. The capability is owned by `agent-framework`; surfaces (the `/goal` slash command and the `--goal` headless flag) delegate to it. Naming is vendor-neutral throughout.
+
+### Contract types (SSOT)
+
+`IGoalState`, `IGoalEvent`, `IGoalProgressEntry`, `TGoalStatus`, and `TGoalStopReason` are defined in `@robota-sdk/agent-interface-transport` (the persistence/transport SSOT) and re-exported through the session contracts. `IGoalState` is persisted in `IInteractiveSessionRecord.goal` so an in-flight goal survives `--resume`.
+
+### Completion signal (deterministic, not heuristic)
+
+While a goal is active the agent reports its assessment by calling the built-in `report_goal_status({ status: 'continue' | 'satisfied', reason })` tool (`GOAL_SIGNAL_TOOL_NAME`). The tool is schema-validated and stateless; the loop reads the LAST such call from the completed turn's `toolSummaries` via `extractGoalSignal`. There is no prose/keyword parsing — a missing or malformed signal is treated as "no signal", never as satisfaction. The tool is included in every interactive session (`includeGoalTool: true`) and is inert when no goal is active.
+
+### Controller and loop
+
+`GoalController` (`src/goal/`) is pure decision logic (no IO), unit-tested in isolation. `onTurnComplete(result)` advances the goal and returns either `{ action: 'continue', prompt }` or `{ action: 'stop', reason }`. `InteractiveSession` drives the loop: `setGoal(objective, options)` seeds the goal and schedules the first agent-driven turn through the FLOW-002 `requestWakeup` primitive (tagged `agent-wakeup`); each completed agent-driven turn advances the controller and either schedules the next wakeup or stops. `getGoalState()` and `cancelGoal()` expose state and cancellation.
+
+### Stop conditions (all mandatory)
+
+- `satisfied` — the agent signalled completion.
+- `max-iterations` — the per-goal turn budget (`maxIterations`, default `DEFAULT_GOAL_MAX_ITERATIONS = 25`) was reached.
+- `no-progress` — consecutive idle turns (no non-signal tool calls) reached the convergence limit (`DEFAULT_GOAL_NO_PROGRESS_LIMIT = 2`).
+- `cancelled` — the user cancelled via `cancelGoal()`.
+
+Headless runs are fully autonomous until a stop condition fires; interactive (TUI) sessions auto-continue while the user may cancel at any time. Only `agent-wakeup` turns advance the goal — a user's own interjected message is not counted as a goal iteration.
+
 ## Unconnected Packages (Future Integration Targets)
 
-| Package                                    | Current State | Integration Direction                                               |
-| ------------------------------------------ | ------------- | ------------------------------------------------------------------- |
-| **agent-tool-mcp**                         | Unconnected   | Connect when MCP server is configured in InteractiveSession options |
-| **agent-team**                             | Unconnected   | Replace agent-tool.ts with agent-team delegation pattern            |
-| **agent-event-service**                    | Unconnected   | Publish Session lifecycle events                                    |
-| **agent-plugin-\***                        | Unconnected   | Inject plugins during Session/Robota creation                       |
-| **agent-provider-openai/google/bytedance** | Unconnected   | Consumer passes provider to InteractiveSession({ cwd, provider })   |
+| Package                                                              | Current State | Integration Direction                                               |
+| -------------------------------------------------------------------- | ------------- | ------------------------------------------------------------------- |
+| **agent-tool-mcp**                                                   | Unconnected   | Connect when MCP server is configured in InteractiveSession options |
+| **agent-team**                                                       | Unconnected   | Replace agent-tool.ts with agent-team delegation pattern            |
+| **agent-event-service**                                              | Unconnected   | Publish Session lifecycle events                                    |
+| **agent-plugin-\***                                                  | Unconnected   | Inject plugins during Session/Robota creation                       |
+| **agent-provider (`./openai`, `./gemini`, `./bytedance` sub-paths)** | Unconnected   | Consumer passes provider to InteractiveSession({ cwd, provider })   |

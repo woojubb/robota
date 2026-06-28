@@ -37,8 +37,8 @@ const agentConfig: IPlaygroundAgentConfig = {
     model: 'gpt-4o',
     temperature: 0.7,
     maxTokens: 2000,
-    systemMessage: 'Plan the response.',
   },
+  systemMessage: 'Plan the response.',
   tools: [searchTool],
   plugins: [new HistoryPlugin()],
 };
@@ -88,9 +88,7 @@ describe('AgentConfigurationBlock', () => {
 
     expect(onConfigChange).toHaveBeenLastCalledWith(
       expect.objectContaining({
-        defaultModel: expect.objectContaining({
-          systemMessage: 'Updated system message',
-        }),
+        systemMessage: 'Updated system message',
       }),
     );
 

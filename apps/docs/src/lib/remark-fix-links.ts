@@ -9,13 +9,15 @@
  *
  * External links (http/https) and anchor-only links (#) are left unchanged.
  */
+import type { IMdastNode } from './mdast-types';
+
 export function remarkFixLinks() {
-  return (tree: any) => {
+  return (tree: IMdastNode) => {
     walkLinks(tree);
   };
 }
 
-function walkLinks(node: any): void {
+function walkLinks(node: IMdastNode): void {
   if (node.type === 'link') {
     fixHref(node);
   }
@@ -24,7 +26,7 @@ function walkLinks(node: any): void {
   }
 }
 
-function fixHref(node: any): void {
+function fixHref(node: IMdastNode): void {
   const href: string = node.url ?? '';
 
   // Skip: external, anchor-only, or no .md

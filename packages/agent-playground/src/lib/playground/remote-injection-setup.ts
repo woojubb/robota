@@ -23,8 +23,8 @@ if (typeof window !== 'undefined') {
           }
         }
         setSystemMessage(message) {
-          if (this.options?.defaultModel) {
-            this.options.defaultModel.systemMessage = message;
+          if (this.options) {
+            this.options.systemMessage = message;
           }
           return this;
         }

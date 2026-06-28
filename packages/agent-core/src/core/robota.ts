@@ -200,6 +200,23 @@ export class Robota
   getModel(): IModelConfig {
     return this.configManager.getModel();
   }
+
+  /**
+   * Live system-prompt update (SSOT). Updates the agent's `config.systemMessage` and the active
+   * conversation store's single head system message, so the next provider request carries the
+   * change. This is the propagation path for a session's persona, self-verification toggle, and
+   * AGENTS.md/CLAUDE.md staleness refresh. See agent-core SPEC → System Prompt (single source of
+   * truth).
+   */
+  updateSystemPrompt(content: string): void {
+    this.configManager.setSystemMessage(content);
+    this.conversationHistory.getConversationStore(this.conversationId).setSystemPrompt(content);
+  }
+
+  /** Current live system prompt. */
+  getSystemPrompt(): string | undefined {
+    return this.configManager.getSystemMessage();
+  }
   registerTool(tool: AbstractTool): void {
     this.configManager.registerTool(tool, this.tools);
   }

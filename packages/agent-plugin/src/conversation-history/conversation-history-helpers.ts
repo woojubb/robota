@@ -13,6 +13,7 @@ import type {
   IConversationHistoryPluginOptions,
   IHistoryStorage,
   IConversationHistoryEntry,
+  IDatabaseDriver,
 } from './types';
 
 /** Validate ConversationHistoryPlugin constructor options. @internal */
@@ -34,8 +35,11 @@ export function validateConversationHistoryOptions(
     throw new ConfigurationError('File path is required for file storage strategy');
   }
 
-  if (options.storage === 'database' && !options.connectionString) {
-    throw new ConfigurationError('Connection string is required for database storage strategy');
+  if (options.storage === 'database' && !options.databaseDriver) {
+    throw new ConfigurationError(
+      'A `databaseDriver` is required for the database storage strategy — agent-plugin does not ' +
+        'bundle a DB driver; inject an IDatabaseDriver implementation.',
+    );
   }
 
   if (options.maxConversations !== undefined && options.maxConversations <= 0) {
@@ -107,7 +111,7 @@ export function createHistoryStorage(
   strategy: string,
   maxConversations: number,
   filePath: string,
-  connectionString: string,
+  databaseDriver?: IDatabaseDriver,
 ): IHistoryStorage {
   switch (strategy) {
     case 'memory':
@@ -115,7 +119,12 @@ export function createHistoryStorage(
     case 'file':
       return new FileHistoryStorage(filePath);
     case 'database':
-      return new DatabaseHistoryStorage(connectionString);
+      if (!databaseDriver) {
+        throw new ConfigurationError(
+          'A `databaseDriver` is required for the database storage strategy.',
+        );
+      }
+      return new DatabaseHistoryStorage(databaseDriver);
     default:
       throw new ConfigurationError('Unknown storage strategy', { strategy });
   }

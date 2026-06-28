@@ -1,7 +1,7 @@
 // @robota-sdk/agent-tools
 
 // Tool result type
-export type { TToolResult } from './types/tool-result';
+export type { IToolInvocationResult } from './types/tool-result';
 export { E2BSandboxClient, InMemorySandboxClient } from './sandbox/index';
 export type {
   IE2BSandboxAdapter,

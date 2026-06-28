@@ -2,7 +2,7 @@
 // Excludes Node.js-only tools (bash, read, write, edit, glob, grep, web-fetch, web-search)
 // and the sandbox clients that depend on Node.js APIs.
 
-export type { TToolResult } from './types/tool-result';
+export type { IToolInvocationResult } from './types/tool-result';
 
 export { ToolRegistry } from './registry/tool-registry';
 

@@ -9,6 +9,7 @@ import type { ISkillActivationEvent } from '../commands/skill-activation-events.
 import type { IContextReferenceItem } from '../context/context-reference-inventory.js';
 import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
+import type { IGoalState } from '@robota-sdk/agent-interface-transport';
 import type { Session } from '@robota-sdk/agent-session';
 
 /**
@@ -40,6 +41,7 @@ export function persistSession(
   sandboxState?: {
     snapshotId?: string;
   },
+  goalState?: IGoalState,
 ): void {
   try {
     const sessionId = session.getSessionId();
@@ -58,10 +60,11 @@ export function persistSession(
         skillActivationState,
         contextReferenceState,
         ...(sandboxSnapshotId !== undefined ? { sandboxSnapshotId } : {}),
+        ...(goalState !== undefined ? { goalState } : {}),
       }),
     );
   } catch {
-    // Persistence is best-effort for interactive execution.
+    // allow-fallback: persistence is best-effort for interactive execution and must not break a turn
   }
 }
 
@@ -89,6 +92,7 @@ interface IBuildInteractiveSessionRecordInput {
     references: readonly IContextReferenceItem[];
   };
   sandboxSnapshotId?: string;
+  goalState?: IGoalState;
 }
 
 function buildInteractiveSessionRecord(
@@ -96,6 +100,7 @@ function buildInteractiveSessionRecord(
 ): IInteractiveSessionRecord {
   return {
     id: input.sessionId,
+    ...(input.goalState !== undefined ? { goal: input.goalState } : {}),
     ...(input.sessionName !== undefined ? { name: input.sessionName } : {}),
     cwd: input.cwd,
     createdAt: input.createdAt ?? new Date().toISOString(),

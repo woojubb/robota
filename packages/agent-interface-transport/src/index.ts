@@ -40,13 +40,14 @@ export type {
 // ── Interaction-channel contracts ────────────────────────────
 export type {
   IInteractionChannel,
+  ITerminalHandoff,
   InteractionEvent,
   IPermissionRequest,
-  IActionRequest,
-  IActionResponse,
+  TActionRequest,
+  TActionResponse,
   IPickItem,
   ICommandInfo,
-  ICommandInteractionHint,
+  TCommandInteractionHint,
 } from './interaction-contracts.js';
 
 // ── Session-event payload contracts ──────────────────────────
@@ -110,6 +111,7 @@ export type {
   IInteractiveSession,
   IInteractiveSessionEvents,
   TInteractiveEventName,
+  TTurnSource,
   IExecutionResult,
   IToolState,
   IDiffLine,
@@ -121,4 +123,9 @@ export type {
   IInteractiveSessionRecord,
   IInteractiveSessionStore,
   IResumableSessionSummary,
+  IGoalState,
+  IGoalEvent,
+  IGoalProgressEntry,
+  TGoalStatus,
+  TGoalStopReason,
 } from './session-contracts.js';

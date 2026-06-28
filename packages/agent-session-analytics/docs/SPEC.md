@@ -11,7 +11,7 @@ session lifecycle/persistence (`agent-session`) and from any CLI shell.
 
 - **Pure functions only — no file I/O, no `process.*`, no CLI/transport concerns.** Callers load
   records and write output.
-- Operates on the canonical `IInteractiveSessionRecord` projection (`ISessionAnalysisInput`) and
+- Operates on the canonical `IInteractiveSessionRecord` projection (`TSessionAnalysisInput`) and
   canonical `IHistoryEntry` — owns **no** duplicate session-record or history-entry type.
 - Depends only on `@robota-sdk/agent-interface-transport` (record contract) and
   `@robota-sdk/agent-core` (history-entry contract). No dependency on `agent-session`,
@@ -43,7 +43,7 @@ Types owned by this package (SSOT):
 | `ISessionTimingReport` | interface | `types.ts` | Per-session report: intervals, slow intervals, stats               |
 | `IAggregateReport`     | interface | `types.ts` | Fleet-level summary across sessions                                |
 
-Reused (not owned): `ISessionAnalysisInput` is `Pick<IInteractiveSessionRecord, 'id' | 'cwd' |
+Reused (not owned): `TSessionAnalysisInput` is `Pick<IInteractiveSessionRecord, 'id' | 'cwd' |
 'createdAt' | 'history'>` (agent-interface-transport SSOT); history entries are `IHistoryEntry`
 (agent-core SSOT).
 
@@ -57,7 +57,7 @@ Reused (not owned): `ISessionAnalysisInput` is `Pick<IInteractiveSessionRecord, 
 | `gapMs(from, to)`               | function | Millisecond gap between two timestamps (string or Date)     |
 | `formatSingleSession(report)`   | function | Render a single-session report as text (returns string)     |
 | `formatAggregateReport(agg)`    | function | Render an aggregate report as text (returns string)         |
-| `ISessionAnalysisInput` + types | types    | See Type Ownership                                          |
+| `TSessionAnalysisInput` + types | types    | See Type Ownership                                          |
 
 ## Extension Points
 

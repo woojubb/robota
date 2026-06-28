@@ -62,7 +62,7 @@ export {
 } from './provider-capabilities';
 
 export type {
-  IProviderConfig,
+  IProviderDefinitionConfig,
   IProviderCredentialRequirement,
   IProviderDefinition,
   IProviderModelCatalog,

@@ -8,7 +8,7 @@ import type { TToolArgs } from '@robota-sdk/agent-core';
  */
 export type TPermissionResult = boolean | 'allow-session' | 'allow-project';
 
-export interface IPermissionRequest {
+export interface IPendingPermissionRequest {
   toolName: string;
   toolArgs: TToolArgs;
   resolve: (result: TPermissionResult) => void;

@@ -6,7 +6,7 @@ import type { TModelEffort, TPermissionMode } from '@robota-sdk/agent-core';
 /**
  * Resolved-preset option subset that can be re-applied to a *live* session.
  *
- * This is a framework-owned shape. The agent-preset package's `TResolvedPresetOptions` satisfies it
+ * This is a framework-owned shape. The agent-preset package's `IResolvedPresetOptions` satisfies it
  * structurally, so a consumer can hand a `resolvePreset(...)` result straight to
  * {@link applyPresetToSession} without framework importing agent-preset (no dependency cycle).
  *

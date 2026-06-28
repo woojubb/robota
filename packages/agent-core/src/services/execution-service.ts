@@ -13,7 +13,7 @@ import { executeStream as executeStreamFn } from './execution-stream';
 import {
   type IExecutionRoundState,
   type IExecutionContext,
-  type IExecutionResult,
+  type ICoreExecutionResult,
   type IExecutionServicePluginStats,
 } from './execution-types';
 import { callPluginHook, type TPluginWithHooks } from './plugin-hook-dispatcher';
@@ -106,7 +106,7 @@ export class ExecutionService {
     messages: TUniversalMessage[],
     config: IAgentConfig,
     context?: Partial<IExecutionContext>,
-  ): Promise<IExecutionResult> {
+  ): Promise<ICoreExecutionResult> {
     const executionId = generateExecutionId();
     const startTime = new Date();
     const conversationId = requireConversationId(context, 'execute');

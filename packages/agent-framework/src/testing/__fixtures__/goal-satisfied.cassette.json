@@ -1,0 +1,72 @@
+{
+  "version": 1,
+  "provider": "qwen",
+  "recordCwd": "/var/folders/78/9lnqy12x2bn8x5c17zmvrsnr0000gn/T/robota-fxn-YUA5CV",
+  "interactions": [
+    {
+      "requestHash": "48b63b24353dc7b7",
+      "requestPreview": "2 msg(s); last user: You have been assigned an autonomous goal to pursue across multiple turns:\n\nGOAL",
+      "response": {
+        "id": "ab6cd9e3-5338-45c3-8a42-620ca8f68dad",
+        "role": "assistant",
+        "content": "",
+        "state": "complete",
+        "timestamp": "2026-06-27T07:23:00.506Z",
+        "toolCalls": [
+          {
+            "id": "call_0",
+            "type": "function",
+            "function": {
+              "name": "Bash",
+              "arguments": "{\"command\": \"printf 'done' > \\\"/var/folders/78/9lnqy12x2bn8x5c17zmvrsnr0000gn/T/robota-fxn-YUA5CV/GOAL.txt\\\"\"}"
+            }
+          }
+        ],
+        "metadata": {
+          "model": "qwen-plus",
+          "finishReason": "tool_calls"
+        }
+      }
+    },
+    {
+      "requestHash": "d08ff1181ec1d270",
+      "requestPreview": "4 msg(s); last tool: {\"success\":true,\"output\":\"\",\"exitCode\":0}",
+      "response": {
+        "id": "7c0e1a27-7e57-4f91-9b63-095e8004575c",
+        "role": "assistant",
+        "content": "",
+        "state": "complete",
+        "timestamp": "2026-06-27T07:23:01.968Z",
+        "toolCalls": [
+          {
+            "id": "call_0",
+            "type": "function",
+            "function": {
+              "name": "report_goal_status",
+              "arguments": "{\"status\": \"satisfied\", \"reason\": \"GOAL.txt 파일이 지정된 경로에 'done' 내용으로 성공적으로 생성됨.\"}"
+            }
+          }
+        ],
+        "metadata": {
+          "model": "qwen-plus",
+          "finishReason": "tool_calls"
+        }
+      }
+    },
+    {
+      "requestHash": "fde926b0ec266fd2",
+      "requestPreview": "6 msg(s); last tool: {\"acknowledged\":true,\"status\":\"satisfied\"}",
+      "response": {
+        "id": "dd3f657e-9c56-4147-905c-eb0856649390",
+        "role": "assistant",
+        "content": "목표가 성공적으로 달성되었습니다: `/var/folders/78/9lnqy12x2bn8x5c17zmvrsnr0000gn/T/robota-fxn-YUA5CV/GOAL.txt` 파일이 정확히 `\"done\"`이라는 텍스트를 포함하여 생성되었습니다.",
+        "state": "complete",
+        "timestamp": "2026-06-27T07:23:03.778Z",
+        "metadata": {
+          "model": "qwen-plus",
+          "finishReason": "stop"
+        }
+      }
+    }
+  ]
+}

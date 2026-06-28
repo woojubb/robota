@@ -19,7 +19,14 @@ import path from 'node:path';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
-const STUB_MARKERS = ['TODO: Implement', 'Not implemented', 'NotImplementedError'];
+// "placeholder for actual" caught shipped, consumed storage classes that only
+// logged a warning and returned a stub value (silent data loss) — PLUGIN-001.
+const STUB_MARKERS = [
+  'TODO: Implement',
+  'Not implemented',
+  'NotImplementedError',
+  'placeholder for actual',
+];
 
 function walkSources(dir) {
   const files = [];

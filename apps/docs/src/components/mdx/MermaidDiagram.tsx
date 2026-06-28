@@ -24,6 +24,10 @@ export function MermaidDiagram({ chart }: MermaidDiagramProps) {
           mermaid.initialize({
             startOnLoad: false,
             theme: 'dark',
+            // Mermaid resolves themeVariables at config time into the generated SVG and
+            // does not read CSS custom properties, so these must be literal colors. They
+            // intentionally mirror the brand design tokens (--background/--accent/etc.);
+            // keep them in sync if the palette changes (WEB-015 exception).
             themeVariables: {
               background: '#0a0a0f',
               primaryColor: '#2dd4a7',
@@ -78,6 +82,8 @@ export function MermaidDiagram({ chart }: MermaidDiagramProps) {
   return (
     <div
       ref={ref}
+      role="img"
+      aria-label="Mermaid diagram"
       style={{
         background: '#131320',
         border: '1px solid #252540',

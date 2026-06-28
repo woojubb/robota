@@ -23,6 +23,7 @@ import type {
   IConversationHistoryPluginStats,
   IConversationHistoryEntry,
   IHistoryStorage,
+  IDatabaseDriver,
 } from './types';
 
 const DEFAULT_MAX_CONVERSATIONS = 100;
@@ -59,7 +60,9 @@ export class ConversationHistoryPlugin extends AbstractPlugin<
   version = '1.0.0';
 
   private storage: IHistoryStorage;
-  private pluginOptions: Required<IConversationHistoryPluginOptions>;
+  private pluginOptions: Required<Omit<IConversationHistoryPluginOptions, 'databaseDriver'>> & {
+    databaseDriver?: IDatabaseDriver;
+  };
   private logger: ILogger;
   private currentConversationId?: string;
   private batchSaveTimer?: TTimerId;
@@ -84,6 +87,7 @@ export class ConversationHistoryPlugin extends AbstractPlugin<
       maxMessagesPerConversation: options.maxMessagesPerConversation ?? DEFAULT_MAX_MESSAGES,
       filePath: options.filePath ?? './conversations.json',
       connectionString: options.connectionString ?? '',
+      databaseDriver: options.databaseDriver,
       autoSave: options.autoSave ?? true,
       saveInterval: options.saveInterval ?? DEFAULT_SAVE_INTERVAL_MS,
       // Add plugin options defaults
@@ -98,7 +102,7 @@ export class ConversationHistoryPlugin extends AbstractPlugin<
       this.pluginOptions.storage,
       this.pluginOptions.maxConversations,
       this.pluginOptions.filePath,
-      this.pluginOptions.connectionString,
+      this.pluginOptions.databaseDriver,
     );
 
     // Setup batch saving if not auto-saving

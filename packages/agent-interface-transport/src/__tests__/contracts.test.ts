@@ -1,7 +1,7 @@
 import { describe, expectTypeOf, it } from 'vitest';
 
 import type {
-  IActionRequest,
+  TActionRequest,
   ICapabilityDescriptor,
   ICommand,
   ICommandInteraction,
@@ -46,7 +46,7 @@ describe('agent-interface-transport contract surface', () => {
 
   it('exports the interaction-channel contracts', () => {
     expectTypeOf<IInteractionChannel>().toHaveProperty('requestAction');
-    expectTypeOf<IActionRequest>().not.toBeNever();
+    expectTypeOf<TActionRequest>().not.toBeNever();
   });
 
   it('exports the interactive-session contracts', () => {

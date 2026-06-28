@@ -43,9 +43,10 @@ export async function runPrintMode(
   sessionResolution: IPrintModeSessionResolution = {},
   presetOptions: IPrintModePresetOptions = {},
 ): Promise<void> {
+  const goalObjective = args.goal?.trim();
   let prompt = args.positional.join(' ').trim();
 
-  if (!prompt && !process.stdin.isTTY) {
+  if (!goalObjective && !prompt && !process.stdin.isTTY) {
     const chunks: Buffer[] = [];
     for await (const chunk of process.stdin) {
       chunks.push(chunk as Buffer);
@@ -53,8 +54,8 @@ export async function runPrintMode(
     prompt = Buffer.concat(chunks).toString('utf-8').trim();
   }
 
-  if (!prompt) {
-    process.stderr.write('Print mode (-p) requires a prompt argument.\n');
+  if (!goalObjective && !prompt) {
+    process.stderr.write('Print mode (-p) requires a prompt argument (or --goal <objective>).\n');
     process.exit(1);
   }
 
@@ -92,6 +93,13 @@ export async function runPrintMode(
     commandHostAdapters,
   });
 
-  await channel.run(prompt);
+  if (goalObjective) {
+    await channel.runGoal(
+      goalObjective,
+      args.goalMaxIterations ? { maxIterations: args.goalMaxIterations } : {},
+    );
+  } else {
+    await channel.run(prompt);
+  }
   process.exit(channel.getExitCode());
 }

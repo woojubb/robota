@@ -120,6 +120,9 @@ export interface IContextFileRefreshedEvent {
   filePath: string;
 }
 
+/** Origin of a turn — distinguishes a human prompt from an agent-wakeup re-entry (FLOW-002). */
+export type TTurnSource = 'user' | 'agent-wakeup';
+
 /** Events emitted by InteractiveSession. */
 export interface IInteractiveSessionEvents {
   text_delta: (delta: string) => void;
@@ -136,10 +139,14 @@ export interface IInteractiveSessionEvents {
   background_job_group_event: (event: TBackgroundJobGroupEvent) => void;
   execution_workspace_event: (event: IExecutionWorkspaceEvent) => void;
   user_message: (content: string) => void;
+  /** Emitted at the start of each turn with its origin (human prompt vs agent-wakeup, FLOW-002). */
+  turn_source: (source: TTurnSource) => void;
   /** Emitted when a context file (AGENTS.md or CLAUDE.md) is refreshed due to staleness. */
   context_file_refreshed: (event: IContextFileRefreshedEvent) => void;
   /** Emitted for every automatic-memory pipeline event (capture, approval, retrieval). */
   memory_event: (event: IMemoryEvent) => void;
+  /** Emitted on every autonomous goal lifecycle transition (start, per-iteration, stop) — GOAL-001. */
+  goal_event: (event: IGoalEvent) => void;
 }
 
 export type TInteractiveEventName = keyof IInteractiveSessionEvents;
@@ -154,6 +161,14 @@ export interface IInteractiveSession {
   abort(): void;
   cancelQueue(): void;
   shutdown(options?: { reason?: string; message?: string }): Promise<void>;
+
+  // Autonomous goal pursuit (GOAL-001)
+  setGoal(
+    objective: string,
+    options?: { maxIterations?: number; noProgressLimit?: number },
+  ): Promise<IGoalState>;
+  getGoalState(): IGoalState | null;
+  cancelGoal(): IGoalState | null;
 
   // State
   isExecuting(): boolean;
@@ -211,6 +226,47 @@ export interface IInteractiveSession {
   closeAgentJob(jobId: string): Promise<void>;
 }
 
+/**
+ * Lifecycle status of an autonomous goal (GOAL-001).
+ * `active` while the agent is pursuing it; terminal otherwise.
+ */
+export type TGoalStatus = 'active' | 'satisfied' | 'stopped';
+
+/**
+ * Why an autonomous goal stopped (GOAL-001). `satisfied` = the agent signalled completion;
+ * `max-iterations` = the turn budget was exhausted; `cancelled` = the user stopped it;
+ * `no-progress` = consecutive idle turns detected a stall (convergence guard).
+ */
+export type TGoalStopReason = 'satisfied' | 'max-iterations' | 'cancelled' | 'no-progress';
+
+/** One recorded iteration of goal pursuit (GOAL-001). */
+export interface IGoalProgressEntry {
+  iteration: number;
+  signal: 'continue' | 'satisfied';
+  reason: string;
+}
+
+/**
+ * Persisted state of an autonomous objective-pursuit loop (GOAL-001). Stored in the session
+ * record so an in-flight goal survives `--resume`.
+ */
+export interface IGoalState {
+  id: string;
+  objective: string;
+  status: TGoalStatus;
+  stopReason?: TGoalStopReason;
+  iterations: number;
+  maxIterations: number;
+  startedAt: string;
+  progress: IGoalProgressEntry[];
+}
+
+/** Observability event for the goal loop (GOAL-001). */
+export interface IGoalEvent {
+  type: 'goal_started' | 'goal_progress' | 'goal_stopped';
+  goal: IGoalState;
+}
+
 /** Persisted record for a resumable interactive session. */
 export interface IInteractiveSessionRecord {
   id: string;
@@ -231,6 +287,8 @@ export interface IInteractiveSessionRecord {
   usedMemoryReferences?: IMemoryReference[];
   contextReferences?: IContextReferenceItem[];
   sandboxSnapshotId?: string;
+  /** In-flight autonomous goal, persisted so it survives resume (GOAL-001). */
+  goal?: IGoalState;
 }
 
 /** Persistence port for resumable interactive sessions. */

@@ -1,19 +1,22 @@
 'use client';
 
-import Link from 'next/link';
+import { InternalLink } from './InternalLink';
 import { usePathname, useRouter } from 'next/navigation';
 import { useLocale } from 'next-intl';
 import { ThemeToggle } from './ThemeToggle';
 import { SearchButton } from './SearchButton';
 
-const NAV_LINKS = [
+const NAV_LINKS: { labelKey: string; href: string; external?: boolean }[] = [
   { labelKey: 'Getting Started', href: 'getting-started' },
   { labelKey: 'Guide', href: 'guide' },
   { labelKey: 'Examples', href: 'examples' },
   { labelKey: 'Packages', href: 'packages' },
   { labelKey: 'Changelog', href: 'changelog' },
   { labelKey: 'Development', href: 'development' },
-  { labelKey: 'Playground', href: 'https://playground.robota.io', external: true },
+  // WEB-019: Playground is temporarily hidden until the hosted playground ships (the
+  // subdomain is not yet deployed). Restore alongside WEB-005 using the canonical
+  // `play.robota.io` subdomain (matching the marketing site), not `playground.robota.io`.
+  // { labelKey: 'Playground', href: 'https://play.robota.io', external: true },
 ];
 
 export function Header() {
@@ -50,8 +53,7 @@ export function Header() {
       <div className="docs-header-line" />
 
       {/* Logo */}
-      <Link
-        prefetch={false}
+      <InternalLink
         href={`/${locale}`}
         style={{
           display: 'flex',
@@ -87,7 +89,7 @@ export function Header() {
         >
           docs
         </span>
-      </Link>
+      </InternalLink>
 
       {/* Center nav */}
       <nav
@@ -123,8 +125,7 @@ export function Header() {
               <span style={{ fontSize: '0.65rem', marginLeft: '0.2rem', opacity: 0.5 }}>↗</span>
             </a>
           ) : (
-            <Link
-              prefetch={false}
+            <InternalLink
               key={link.href}
               href={`/${locale}/${link.href}`}
               style={{
@@ -140,7 +141,7 @@ export function Header() {
               className="nav-link"
             >
               {link.labelKey}
-            </Link>
+            </InternalLink>
           ),
         )}
       </nav>

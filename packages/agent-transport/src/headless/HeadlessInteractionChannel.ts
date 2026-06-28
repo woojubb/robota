@@ -64,12 +64,30 @@ export class HeadlessInteractionChannel {
   }
 
   async run(prompt: string): Promise<void> {
+    const session = this.createSession();
+    const runner = createHeadlessRunner({ session, outputFormat: this.opts.outputFormat });
+    this.exitCode = await runner.run(prompt);
+    await session.shutdown({ reason: 'prompt_input_exit', message: 'Headless transport complete' });
+  }
+
+  /**
+   * GOAL-001: run an autonomous goal to completion (or a stop condition) in headless mode.
+   * Mirrors {@link run} but drives the framework goal loop instead of a single prompt.
+   */
+  async runGoal(objective: string, options: { maxIterations?: number } = {}): Promise<void> {
+    const session = this.createSession();
+    const runner = createHeadlessRunner({ session, outputFormat: this.opts.outputFormat });
+    this.exitCode = await runner.runGoal(objective, options);
+    await session.shutdown({ reason: 'prompt_input_exit', message: 'Headless goal complete' });
+  }
+
+  private createSession(): InteractiveSession {
     const shellExec: TShellExecFn =
       this.opts.shellExec ??
       ((command: string) =>
         execSync(command, { timeout: 5000, encoding: 'utf-8', stdio: 'pipe' }).trimEnd());
 
-    const session = new InteractiveSession({
+    return new InteractiveSession({
       cwd: this.opts.cwd,
       provider: this.opts.provider,
       permissionMode: this.opts.permissionMode ?? 'bypassPermissions',
@@ -100,10 +118,6 @@ export class HeadlessInteractionChannel {
         ? { selfVerification: this.opts.selfVerification }
         : {}),
     });
-
-    const runner = createHeadlessRunner({ session, outputFormat: this.opts.outputFormat });
-    this.exitCode = await runner.run(prompt);
-    await session.shutdown({ reason: 'prompt_input_exit', message: 'Headless transport complete' });
   }
 
   getExitCode(): number {

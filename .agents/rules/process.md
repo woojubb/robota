@@ -10,6 +10,7 @@ This file routes to detailed rule documents. Each linked file contains the full 
 | [spec-workflow.md](spec-workflow.md)           | Spec-first development, HARD GATE (no immediate implementation), conformance verification, document authority, structural docs |
 | [tdd-and-planning.md](tdd-and-planning.md)     | TDD red-green-refactor, planning requirements, plan documentation                                                              |
 | [verification.md](verification.md)             | Build requirements, browser verification, harness verification                                                                 |
+| [testing-layering.md](testing-layering.md)     | CLI = thin-wrapper/TUI tests only; feature behaviour must have a framework-level functional test (harness)                     |
 | [publish.md](publish.md)                       | Foundation dependency rule, publish safety gate, publish scope approval                                                        |
 | [release-operations.md](release-operations.md) | Release state machine, CI triage, long-running gate discipline, publish boundary                                               |
 | [documentation-sync.md](documentation-sync.md) | Document role sync, package README, and robota.io source update requirements                                                   |

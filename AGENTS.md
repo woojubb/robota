@@ -148,6 +148,10 @@ Persistent learning assets — consult them so prior incidents are not repeated:
 
 ## Conflict Scan Commands
 
+The first two checks below are mechanized as `conflict-markers` in `pnpm harness:scan`
+(`scripts/harness/scan-conflict-markers.mjs`, with a documented allowlist); they no longer
+rely on a human running `rg`. The manual commands remain for ad-hoc inspection:
+
 ```bash
 rg -n "any/unknown may|fallback to|temporary workaround" .agents/skills .agents/rules AGENTS.md
 rg -n "main agent|sub-agent|parent-agent|child-agent" .agents/skills .agents/rules AGENTS.md

@@ -11,7 +11,7 @@ First npm publish for the Robota SDK. Only packages in the agent-sdk/cli depende
 | #   | Package                                | Version    | Status      | Reason                                               |
 | --- | -------------------------------------- | ---------- | ----------- | ---------------------------------------------------- |
 | 1   | `@robota-sdk/agent-core`               | 3.0.0-rc.1 | **PUBLISH** | Foundation — permissions, hooks, context types added |
-| 2   | `@robota-sdk/agent-tools`              | 3.0.0-rc.1 | **PUBLISH** | 6 built-in tools, TToolResult, tool infra            |
+| 2   | `@robota-sdk/agent-tools`              | 3.0.0-rc.1 | **PUBLISH** | 6 built-in tools, IToolInvocationResult, tool infra  |
 | 3   | `@robota-sdk/agent-provider-anthropic` | 3.0.0-rc.1 | **PUBLISH** | Streaming, multi-block content support               |
 | 4   | `@robota-sdk/agent-session`            | 3.0.0-rc.1 | **PUBLISH** | Session, SessionStore, context management            |
 | 5   | `@robota-sdk/agent-framework`          | 3.0.0-rc.1 | **PUBLISH** | query() entry point, config/context loading          |

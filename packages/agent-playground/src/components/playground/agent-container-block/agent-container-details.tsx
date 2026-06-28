@@ -31,7 +31,7 @@ export function AgentContainerDetails(props: IAgentContainerDetailsProps) {
           onPriorityChange={props.onPriorityChange}
         />
         <CapabilitiesSection agent={props.agent} />
-        <SystemMessageSection systemMessage={props.agent.defaultModel.systemMessage} />
+        <SystemMessageSection systemMessage={props.agent.systemMessage} />
         <AgentActionRow
           isEditing={props.isEditing}
           isLeader={props.isLeader}

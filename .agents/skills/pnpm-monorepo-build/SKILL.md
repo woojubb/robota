@@ -29,6 +29,18 @@ pnpm build
 - Build core packages first (agents), then dependents.
 - Use `--filter` to limit scope when possible.
 
+## Lifecycle Scripts (`pre`/`post`)
+
+pnpm does **not** run npm-style `pre<script>`/`post<script>` hooks by default
+(`enable-pre-post-scripts` is off). A `postbuild` will silently never run from
+`pnpm build`, so any index/asset step defined that way is missing from the output.
+
+- Chain the step explicitly in the script instead: `"build": "next build && <step>"`.
+- Make the step's tool a real `devDependency` (not an ambient/`npx`-fetched binary),
+  so it resolves in CI.
+- Verify the produced artifact exists (e.g. the generated file in `out/`), not just a
+  zero exit code — a missing pre/post step does not fail the build.
+
 ## Adding a Workspace Dependency
 
 When adding (or removing) a `workspace:*` dependency between packages, edit the lockfile **surgically** —

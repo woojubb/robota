@@ -134,25 +134,25 @@ All types below are defined in `@robota-sdk/agent-plugin` and re-exported from `
 
 ### Storage / Utility Classes
 
-| Export                       | Kind  | Description                                      |
-| ---------------------------- | ----- | ------------------------------------------------ |
-| `MemoryHistoryStorage`       | class | In-memory `IHistoryStorage` implementation       |
-| `FileHistoryStorage`         | class | File-backed `IHistoryStorage` implementation     |
-| `DatabaseHistoryStorage`     | class | Database-backed `IHistoryStorage` implementation |
-| `ConsoleLogStorage`          | class | Console `ILogStorage` implementation             |
-| `FileLogStorage`             | class | File-backed `ILogStorage` implementation         |
-| `RemoteLogStorage`           | class | HTTP remote `ILogStorage` implementation         |
-| `SilentLogStorage`           | class | No-op `ILogStorage` implementation               |
-| `ConsoleLogFormatter`        | class | Console-style `ILogFormatter`                    |
-| `JsonLogFormatter`           | class | JSON `ILogFormatter`                             |
-| `MemoryUsageStorage`         | class | In-memory `IUsageStorage` implementation         |
-| `FileUsageStorage`           | class | File-backed `IUsageStorage` implementation       |
-| `RemoteUsageStorage`         | class | HTTP remote `IUsageStorage` implementation       |
-| `SilentUsageStorage`         | class | No-op `IUsageStorage` implementation             |
-| `MemoryPerformanceStorage`   | class | In-memory `IPerformanceStorage` implementation   |
-| `NodeSystemMetricsCollector` | class | Node.js `ISystemMetricsCollector` implementation |
-| `WebhookTransformer`         | class | Transforms agent events into `IWebhookPayload`   |
-| `WebhookHttpClient`          | class | Sends webhook requests with retry logic          |
+| Export                       | Kind  | Description                                                                      |
+| ---------------------------- | ----- | -------------------------------------------------------------------------------- |
+| `MemoryHistoryStorage`       | class | In-memory `IHistoryStorage` implementation                                       |
+| `FileHistoryStorage`         | class | File-backed `IHistoryStorage` implementation                                     |
+| `DatabaseHistoryStorage`     | class | Database-backed `IHistoryStorage` via an injected `IDatabaseDriver` (PLUGIN-002) |
+| `ConsoleLogStorage`          | class | Console `ILogStorage` implementation                                             |
+| `FileLogStorage`             | class | File-backed `ILogStorage` implementation                                         |
+| `RemoteLogStorage`           | class | HTTP remote `ILogStorage` implementation                                         |
+| `SilentLogStorage`           | class | No-op `ILogStorage` implementation                                               |
+| `ConsoleLogFormatter`        | class | Console-style `ILogFormatter`                                                    |
+| `JsonLogFormatter`           | class | JSON `ILogFormatter`                                                             |
+| `MemoryUsageStorage`         | class | In-memory `IUsageStorage` implementation                                         |
+| `FileUsageStorage`           | class | File-backed `IUsageStorage` implementation                                       |
+| `RemoteUsageStorage`         | class | HTTP remote `IUsageStorage` implementation                                       |
+| `SilentUsageStorage`         | class | No-op `IUsageStorage` implementation                                             |
+| `MemoryPerformanceStorage`   | class | In-memory `IPerformanceStorage` implementation                                   |
+| `NodeSystemMetricsCollector` | class | Node.js `ISystemMetricsCollector` implementation                                 |
+| `WebhookTransformer`         | class | Transforms agent events into `IWebhookPayload`                                   |
+| `WebhookHttpClient`          | class | Sends webhook requests with retry logic                                          |
 
 ### Utility Functions
 
@@ -296,8 +296,11 @@ should catch `PluginError` at the agent execution boundary.
 ### Coverage Gaps
 
 - No tests for `WebhookTransformer` or `WebhookHttpClient` in isolation.
-- `FileUsageStorage` and `RemoteUsageStorage` lack dedicated test files.
 - `PerformancePlugin` file/remote/prometheus strategy paths are untested (not yet implemented).
+- `DatabaseHistoryStorage` persists via an injected `IDatabaseDriver` (PLUGIN-002 — agent-plugin
+  bundles no DB driver; selecting `storage: 'database'` without a `databaseDriver` throws a clear
+  `ConfigurationError` instead of silently dropping data). The File/Remote `*Storage` classes are functional
+  with dedicated tests (PLUGIN-001).
 
 ## Class Contract Registry
 

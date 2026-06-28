@@ -59,6 +59,7 @@
     "harness:scan:sdk-public-surface": "node scripts/harness/check-sdk-public-surface.mjs",
     "harness:scan:specs": "node scripts/harness/audit-spec-coverage.mjs",
     "harness:scan:test-plans": "node scripts/harness/scan-test-plan.mjs",
+    "harness:scan:functional-coverage": "node scripts/harness/check-functional-coverage.mjs",
     "harness:scan:coverage-scripts": "node scripts/harness/check-test-coverage-scripts.mjs",
     "harness:scan:file-size": "node scripts/harness/scan-file-size.mjs",
     "harness:scan:build-contracts": "node scripts/harness/check-build-output-contracts.mjs",
@@ -91,6 +92,9 @@
     "harness:scan:spec-publish-claims": "node scripts/harness/check-spec-publish-claims.mjs",
     "harness:scan:workspace-refs": "node scripts/harness/check-workspace-refs.mjs",
     "harness:scan:stub-markers": "node scripts/harness/check-stub-markers.mjs",
+    "examples:typecheck": "pnpm --filter \"./examples/**\" run typecheck",
+    "harness:scan:conflict-markers": "node scripts/harness/scan-conflict-markers.mjs",
+    "harness:scan:deprecated-markers": "node scripts/harness/scan-deprecated-markers.mjs",
     "harness:scan:orphan-exports": "node scripts/harness/check-orphan-exports.mjs"
   },
   "keywords": [
@@ -123,6 +127,8 @@
   "devDependencies": {
     "@changesets/changelog-github": "^0.6.0",
     "@changesets/cli": "^2.31.0",
+    "@commitlint/cli": "^21.1.0",
+    "@commitlint/config-conventional": "^21.1.0",
     "@types/jest": "^30.0.0",
     "@types/node": "^20.19.43",
     "@typescript-eslint/eslint-plugin": "^6.21.0",
@@ -180,12 +186,24 @@
       "uuid@<11.1.1": ">=11.1.1",
       "esbuild@<0.28.1": ">=0.28.1",
       "form-data@<2.5.6": "^2.5.6",
-      "form-data@^4.0.0": "^4.0.6"
+      "form-data@^4.0.0": "^4.0.6",
+      "postcss@<8.5.10": ">=8.5.10",
+      "dompurify@<3.4.11": ">=3.4.11"
+    },
+    "auditConfig": {
+      "ignoreCves": [
+        "CVE-2026-53550",
+        "CVE-2026-11525",
+        "CVE-2026-12151",
+        "CVE-2026-6733",
+        "CVE-2026-9679"
+      ]
     }
   },
   "workspaces": [
     "packages/*",
-    "apps/*"
+    "apps/*",
+    "examples/*"
   ],
   "volta": {
     "node": "22.14.0"

@@ -1,6 +1,7 @@
 import express from 'express';
-import { Robota, createFunctionTool } from '@robota-sdk/agent-core';
-import type { TToolParameters } from '@robota-sdk/agent-core';
+import { z } from 'zod';
+import { createQuery } from '@robota-sdk/agent-framework';
+import { createZodFunctionTool } from '@robota-sdk/agent-tools';
 import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 
 const app = express();
@@ -12,31 +13,17 @@ if (!apiKey) {
   process.exit(1);
 }
 
-const calculatorTool = createFunctionTool(
+// Custom function tools are created once and registered per request via `additionalTools`.
+const calculatorTool = createZodFunctionTool(
   'calculate',
   'Perform basic arithmetic: add, subtract, multiply, divide',
-  {
-    type: 'object',
-    properties: {
-      operation: {
-        type: 'string',
-        enum: ['add', 'subtract', 'multiply', 'divide'],
-        description: 'The arithmetic operation',
-      },
-      a: { type: 'number', description: 'First operand' },
-      b: { type: 'number', description: 'Second operand' },
-    },
-    required: ['operation', 'a', 'b'],
-  },
-  async (params: TToolParameters) => {
-    const operation = String(params['operation']);
-    const a = Number(params['a']);
-    const b = Number(params['b']);
-
-    if (Number.isNaN(a) || Number.isNaN(b)) {
-      throw new Error('a and b must be numbers');
-    }
-
+  z.object({
+    operation: z.enum(['add', 'subtract', 'multiply', 'divide']),
+    a: z.number(),
+    b: z.number(),
+  }),
+  async (params) => {
+    const { operation, a, b } = params as { operation: string; a: number; b: number };
     switch (operation) {
       case 'add':
         return { result: a + b };
@@ -53,28 +40,12 @@ const calculatorTool = createFunctionTool(
   },
 );
 
-const currentTimeTool = createFunctionTool(
+const currentTimeTool = createZodFunctionTool(
   'get_current_time',
   'Return the current UTC date and time',
-  {
-    type: 'object',
-    properties: {},
-    required: [],
-  },
+  z.object({}),
   async () => ({ utc: new Date().toISOString() }),
 );
-
-const agentConfig = {
-  name: 'ToolAgent',
-  aiProviders: [new AnthropicProvider({ apiKey })],
-  defaultModel: {
-    provider: 'anthropic',
-    model: 'claude-3-5-haiku-20241022',
-    systemMessage:
-      'You are a helpful assistant. Use the provided tools when needed and give clear, concise answers.',
-  },
-  tools: [calculatorTool, currentTimeTool],
-} as const;
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok' });
@@ -98,25 +69,23 @@ app.post('/api/chat', (req, res) => {
     res.write(`data: ${JSON.stringify(data)}\n\n`);
   };
 
-  (async () => {
-    // Create a new Robota instance per request so conversation history
-    // does not bleed between users.
-    const robota = new Robota(agentConfig);
-    try {
-      for await (const chunk of robota.runStream(message.trim())) {
-        send({ type: 'text_delta', text: chunk });
-      }
-      send({ type: 'done' });
-    } catch (error) {
-      send({ type: 'error', message: error instanceof Error ? error.message : String(error) });
-    } finally {
-      await robota.destroy();
-      res.end();
-    }
-  })().catch((error: unknown) => {
-    console.error('Unhandled error in /api/chat:', error);
-    res.end();
+  // A fresh query per request so conversation history does not bleed between users.
+  const query = createQuery({
+    provider: new AnthropicProvider({ apiKey }),
+    additionalTools: [calculatorTool, currentTimeTool],
+    onTextDelta: (delta) => send({ type: 'text_delta', text: delta }),
   });
+
+  query(message.trim())
+    .then(() => {
+      send({ type: 'done' });
+    })
+    .catch((error: unknown) => {
+      send({ type: 'error', message: error instanceof Error ? error.message : String(error) });
+    })
+    .finally(() => {
+      res.end();
+    });
 });
 
 const PORT = process.env.PORT ?? '3001';

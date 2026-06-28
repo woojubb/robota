@@ -129,6 +129,8 @@ robota -r <session-id>              # Resume session by ID
 robota --language <lang>            # Response language (ko, en, ja, zh)
 robota --permission-mode <mode>     # plan | default | acceptEdits | bypassPermissions
 robota --max-turns <n>              # Limit agentic turns per interaction
+robota --goal "<objective>"         # Pursue an autonomous goal headlessly until satisfied or a bound
+robota --goal-max-iterations <n>    # Per-goal turn budget (default 25)
 robota --output-format <fmt>        # text | json | stream-json (print mode)
 robota --system-prompt <text>       # Replace system prompt (print mode)
 robota --append-system-prompt <text> # Append to system prompt (print mode)
@@ -371,13 +373,14 @@ Typing `/` in the TUI opens an autocomplete popup. Arrow keys navigate, Tab inse
 
 ### Tools & Memory
 
-| Command                | Description                                    |
-| ---------------------- | ---------------------------------------------- |
-| `/memory [subcommand]` | Inspect, add, or review project memory entries |
-| `/background`          | List and control background tasks              |
-| `/agent`               | Run and manage background subagent jobs        |
-| `/skills [name]`       | List registered skills or activate one by name |
-| `/plugin [subcommand]` | Plugin management                              |
+| Command                | Description                                                          |
+| ---------------------- | -------------------------------------------------------------------- |
+| `/memory [subcommand]` | Inspect, add, or review project memory entries                       |
+| `/background`          | List and control background tasks                                    |
+| `/goal <objective>`    | Assign an autonomous goal pursued across turns (`status` / `cancel`) |
+| `/agent`               | Run and manage background subagent jobs                              |
+| `/skills [name]`       | List registered skills or activate one by name                       |
+| `/plugin [subcommand]` | Plugin management                                                    |
 
 ### Utility
 

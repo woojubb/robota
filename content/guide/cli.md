@@ -24,6 +24,7 @@ robota -c                           # Continue last session
 robota -r <session-id>              # Resume specific session
 robota --permission-mode plan       # Permission mode override
 robota --max-turns 10               # Limit agentic turns
+robota --goal "ship the feature"    # Autonomous goal: pursue across turns until satisfied or a bound
 robota --output-format json         # Output format (text/json/stream-json)
 robota --append-system-prompt "..." # Append to system prompt
 robota --configure                  # Interactive provider setup
@@ -95,6 +96,24 @@ git diff | robota -p "Review this diff" --output-format json
 robota -p "query" --append-system-prompt "Focus on security issues"
 robota -p "query" --json-schema '{"type":"object"}'
 ```
+
+### Autonomous Goals
+
+Assign a high-level objective and let the agent pursue it on its own across multiple turns until
+it is achieved or a bound fires:
+
+```bash
+robota --goal "add a health-check endpoint and a test, then stop"
+robota --goal "refactor the utils module" --goal-max-iterations 10
+```
+
+The agent works toward the goal turn after turn without further input, reporting completion through a
+structured signal. It stops when the goal is satisfied, the iteration budget (`--goal-max-iterations`,
+default 25) is reached, or it detects no further progress. Interactively, use `/goal <objective>`
+(and `/goal status` / `/goal cancel`).
+
+Headless exit codes for `--goal`: `0` when satisfied, `2` when it stopped cleanly at a bound, `1` on
+an error.
 
 ### Exit Codes
 

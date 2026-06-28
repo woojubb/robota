@@ -61,7 +61,18 @@ export function createWsSessionClient(
     ws.onmessage = (event: MessageEvent): void => {
       const data = event.data;
       if (typeof data !== 'string') return;
-      const msg = JSON.parse(data) as TServerMessage;
+      let msg: TServerMessage;
+      try {
+        msg = JSON.parse(data) as TServerMessage;
+      } catch {
+        // A malformed frame must not throw inside the handler (it would break the
+        // socket's message pump and freeze the UI). Surface it via the normal path.
+        callbacks.onMessage({
+          type: 'protocol_error',
+          message: 'Malformed message from server (invalid JSON)',
+        });
+        return;
+      }
       callbacks.onMessage(msg);
     };
 

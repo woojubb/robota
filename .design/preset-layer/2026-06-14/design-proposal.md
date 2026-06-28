@@ -158,7 +158,7 @@ interface IPreset {
 }
 ```
 
-`resolvePreset(id, base): TResolvedPresetOptions` — 프리셋을 프레임워크 옵션으로 변환. 변환 결과는 기존 `buildCommandSetup`/세션 옵션 seam에 주입된다.
+`resolvePreset(id, base): IResolvedPresetOptions` — 프리셋을 프레임워크 옵션으로 변환. 변환 결과는 기존 `buildCommandSetup`/세션 옵션 seam에 주입된다.
 
 ### 5.2 우선순위 (무회귀 보장)
 

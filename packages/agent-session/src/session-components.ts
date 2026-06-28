@@ -75,9 +75,9 @@ export function buildRobota(
     defaultModel: {
       provider: provider.name,
       model,
-      systemMessage,
       ...(options.effort !== undefined && { effort: options.effort }),
     },
+    // Single source of truth for the system prompt (agent-level, not model config).
     systemMessage,
     tools: wrappedTools,
     logging: { enabled: false },

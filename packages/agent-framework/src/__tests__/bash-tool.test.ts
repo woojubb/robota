@@ -6,12 +6,12 @@ import { bashTool } from '@robota-sdk/agent-tools';
 import { describe, it, expect } from 'vitest';
 
 import type { TToolParameters } from '@robota-sdk/agent-core';
-import type { TToolResult } from '@robota-sdk/agent-tools';
+import type { IToolInvocationResult } from '@robota-sdk/agent-tools';
 
-async function run(params: TToolParameters): Promise<TToolResult> {
+async function run(params: TToolParameters): Promise<IToolInvocationResult> {
   const rawResult = await bashTool.execute(params);
   // rawResult.data is the JSON string returned by the handler
-  return JSON.parse(rawResult.data as string) as TToolResult;
+  return JSON.parse(rawResult.data as string) as IToolInvocationResult;
 }
 
 describe('BashTool', () => {

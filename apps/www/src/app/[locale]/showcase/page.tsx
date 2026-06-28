@@ -1,4 +1,7 @@
 import { getTranslations, setRequestLocale } from 'next-intl/server';
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = { title: 'Showcase' };
 
 export default async function ShowcasePage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
@@ -47,11 +50,15 @@ export default async function ShowcasePage({ params }: { params: Promise<{ local
         </div>
       </section>
 
-      {/* Community Projects */}
+      {/* WEB-018: the Community Projects section is hidden until there are real entries — an
+          empty "no projects yet" placeholder undercuts launch credibility, and the Submit
+          section below already invites contributions. Restore (with real entries) when content
+          exists; the `communityTitle`/`communityEmpty` strings are kept in the dictionaries.
       <section className="mb-14">
         <h2 className="text-xl font-bold text-[var(--foreground)] mb-4">{t('communityTitle')}</h2>
         <p className="text-sm text-[var(--muted-foreground)] italic">{t('communityEmpty')}</p>
       </section>
+      */}
 
       {/* Submit */}
       <section className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
@@ -80,7 +87,7 @@ export default async function ShowcasePage({ params }: { params: Promise<{ local
           href="https://github.com/woojubb/robota/pulls"
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-block rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-[var(--primary-foreground)] hover:opacity-90 transition-opacity"
+          className="inline-block rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-[var(--primary-foreground)] hover:bg-[var(--accent-hover)] transition-colors"
         >
           {t('submitButton')}
         </a>

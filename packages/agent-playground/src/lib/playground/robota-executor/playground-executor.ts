@@ -73,7 +73,7 @@ export class PlaygroundExecutor {
       provider: config.defaultModel.provider,
       model: config.defaultModel.model,
       apiKey: config.apiKey,
-      systemPrompt: config.defaultModel.systemMessage ?? config.systemMessage,
+      systemPrompt: config.systemMessage,
       toolIds: [],
     };
     this.executionToken++;

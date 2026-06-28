@@ -9,7 +9,7 @@ import { z } from 'zod';
 
 import { createZodFunctionTool } from '../implementations/function-tool';
 
-import type { TToolResult } from '../types/tool-result.js';
+import type { IToolInvocationResult } from '../types/tool-result.js';
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 const MAX_RESPONSE_BYTES = 5_000_000; // 5 MB max download
@@ -71,7 +71,7 @@ async function runWebFetch(args: TWebFetchArgs): Promise<string> {
     new URL(url);
   } catch {
     // allow-fallback: URL parse failure is a structured tool result, not a thrown error
-    const result: TToolResult = {
+    const result: IToolInvocationResult = {
       success: false,
       output: '',
       error: `Invalid URL: "${url}". Fix the URL format before retrying.`,
@@ -99,7 +99,7 @@ async function runWebFetch(args: TWebFetchArgs): Promise<string> {
         response.status >= 500
           ? ' The server is temporarily unavailable — retrying may help.'
           : ' Do not retry with the same URL.';
-      const result: TToolResult = {
+      const result: IToolInvocationResult = {
         success: false,
         output: '',
         error: `HTTP ${response.status} ${response.statusText}.${retryHint}`,
@@ -111,7 +111,7 @@ async function runWebFetch(args: TWebFetchArgs): Promise<string> {
     const buffer = await response.arrayBuffer();
 
     if (buffer.byteLength > MAX_RESPONSE_BYTES) {
-      const result: TToolResult = {
+      const result: IToolInvocationResult = {
         success: false,
         output: '',
         error: `Response too large: ${buffer.byteLength} bytes (max ${MAX_RESPONSE_BYTES}). Consider fetching a more specific URL or a paginated endpoint.`,
@@ -126,11 +126,15 @@ async function runWebFetch(args: TWebFetchArgs): Promise<string> {
       text = htmlToText(text);
     }
 
-    const result: TToolResult = { success: true, output: text };
+    const result: IToolInvocationResult = { success: true, output: text };
     return JSON.stringify(result);
   } catch (err) {
     // allow-fallback: fetch errors are structured tool results returned to the LLM, not thrown
-    const result: TToolResult = { success: false, output: '', error: classifyFetchError(err) };
+    const result: IToolInvocationResult = {
+      success: false,
+      output: '',
+      error: classifyFetchError(err),
+    };
     return JSON.stringify(result);
   }
 }

@@ -1,17 +1,22 @@
-import { Space_Grotesk, Fira_Code } from 'next/font/google';
+import { IBM_Plex_Sans, IBM_Plex_Mono } from 'next/font/google';
 
 import type { Metadata } from 'next';
 import type { ReactElement, ReactNode } from 'react';
 import './globals.css';
 
-const spaceGrotesk = Space_Grotesk({
+// BRAND-002: unified Robota brand uses IBM Plex Sans/Mono (was Space Grotesk / Fira Code).
+const ibmPlexSans = IBM_Plex_Sans({
   subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
   variable: '--font-sans',
+  display: 'swap',
 });
 
-const firaCode = Fira_Code({
+const ibmPlexMono = IBM_Plex_Mono({
   subsets: ['latin'],
+  weight: ['400', '500', '600'],
   variable: '--font-mono',
+  display: 'swap',
 });
 
 export const metadata: Metadata = {
@@ -26,7 +31,7 @@ export default function RootLayout({
 }>): ReactElement {
   return (
     <html lang="en" className="h-full">
-      <body className={`h-full ${spaceGrotesk.variable} ${firaCode.variable}`}>
+      <body className={`h-full ${ibmPlexSans.variable} ${ibmPlexMono.variable}`}>
         <main className="h-full">{children}</main>
       </body>
     </html>

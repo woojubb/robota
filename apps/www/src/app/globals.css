@@ -33,12 +33,18 @@
   --border: #252540;
   --accent: #2dd4a7;
   --accent-hover: #25b492;
-  --accent-dim: rgba(45, 212, 167, 0.12);
+  --accent-dim: color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
 @layer base {
   * {
     @apply border-[var(--border)];
+  }
+  /* WEB-017: a visible keyboard-focus ring (mouse clicks don't trigger :focus-visible). */
+  :focus-visible {
+    outline: 2px solid var(--accent, var(--primary));
+    outline-offset: 2px;
+    border-radius: 2px;
   }
   body {
     background: var(--background);

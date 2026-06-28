@@ -100,7 +100,7 @@ This package is the single source of truth (SSOT) for the following types:
 | `TProviderModelCatalogStatus`         | `interfaces/provider-definition.ts` | Catalog freshness status union: `live`, `generated`, `fallback`, or `unavailable`.                                                                                                                                                                                                                                         |
 | `TProviderModelLifecycle`             | `interfaces/provider-definition.ts` | Provider model lifecycle union used by command UX to avoid presenting unavailable models as selectable subcommands.                                                                                                                                                                                                        |
 | `TProviderModelCapability`            | `interfaces/provider-definition.ts` | Minimal provider-owned model capability labels for display and filtering.                                                                                                                                                                                                                                                  |
-| `IProviderConfig`                     | `interfaces/provider-definition.ts` | Normalized provider configuration consumed by provider definitions, including `apiKey` and a provider-owned `options` bag that generic layers pass through without interpreting.                                                                                                                                           |
+| `IProviderDefinitionConfig`           | `interfaces/provider-definition.ts` | Normalized provider configuration consumed by provider definitions, including `apiKey` and a provider-owned `options` bag that generic layers pass through without interpreting.                                                                                                                                           |
 | `IProviderProbeResult`                | `interfaces/provider-definition.ts` | Generic provider profile probe result used by CLI and setup flows without provider-specific branching.                                                                                                                                                                                                                     |
 | `TMessageFormatConverter`             | `utils/message-converter.ts`        | Optional injected provider message conversion function. Concrete message conversion belongs to provider packages, not core.                                                                                                                                                                                                |
 | `TMessageConverterRegistry`           | `utils/message-converter.ts`        | Optional converter registry keyed by caller-owned identifiers. Core treats all keys uniformly and never recognizes provider names internally.                                                                                                                                                                              |
@@ -551,8 +551,8 @@ The execution loop supports cooperative cancellation via the standard `AbortSign
 | `IExecutionContext`          | `onExecutionEvent?: TExecutionEventCallback` | Internal replay event callback forwarded to provider/tool rounds                                                                                                                                                                                                                       |
 | `IExecutionContext`          | `maxExecutionRounds?: number`                | Run-scoped override for execution round limit                                                                                                                                                                                                                                          |
 | `IExecutionContext`          | `maxSameToolInputs?: number`                 | Run-scoped override for the identical-tool-input abort threshold.                                                                                                                                                                                                                      |
-| `IExecutionResult`           | `interrupted?: boolean`                      | Indicates the execution was aborted before natural completion                                                                                                                                                                                                                          |
-| `IExecutionResult`           | `success` / `error` on provider failure      | A round ending in a provider failure records the error as an assistant message with `providerError` metadata; `buildFinalResult` must mark that result `success: false` with `error` set (never a successful response), so `robotaRun`'s failed-result throw surfaces it to transports |
+| `ICoreExecutionResult`       | `interrupted?: boolean`                      | Indicates the execution was aborted before natural completion                                                                                                                                                                                                                          |
+| `ICoreExecutionResult`       | `success` / `error` on provider failure      | A round ending in a provider failure records the error as an assistant message with `providerError` metadata; `buildFinalResult` must mark that result `success: false` with `error` set (never a successful response), so `robotaRun`'s failed-result throw surfaces it to transports |
 | `IToolExecutionBatchContext` | `signal?: AbortSignal`                       | Allows skipping queued tool executions when abort is signalled                                                                                                                                                                                                                         |
 | `IToolExecutionBatchContext` | `maxConcurrency?: number`                    | Bounds active tool executions when batch mode is `parallel`                                                                                                                                                                                                                            |
 
@@ -608,6 +608,16 @@ If the partial response includes tool_use blocks (abort during tool call streami
 - **Always committed**: `beginAssistant()` + `commitAssistant()` guarantees an assistant message is always appended, even on abort with empty content.
 - **No fallback**: If a message should be in history, it IS in history. No fallback to alternative data sources.
 - **Unbounded**: `DEFAULT_MAX_MESSAGES_PER_CONVERSATION = 0` (`src/managers/conversation-history-manager.ts`) means no message cap, backing the append-only guarantee — history is never trimmed by count.
+
+## System Prompt (single source of truth)
+
+The system prompt is the agent's **live instruction state** — not conversation content. The append-only/read-only principles above govern user/assistant/tool messages; they do **not** govern the system prompt, which is replaceable.
+
+- **Single owner**: the top-level `config.systemMessage` is the sole source of the system prompt. There is no `defaultModel.systemMessage`; the system prompt is an agent-level concern, not a model-config field, so `IModelConfig`/`setModel` do not carry it.
+- **One head message**: each conversation store holds **exactly one** system message, at the head. `ConversationStore.setSystemPrompt(content)` enforces this — it removes any existing system messages and prepends exactly one at the head.
+- **Injected once, then the log is reused**: the system prompt belongs to the session log. `initializeConversationStore` injects it (`setSystemPrompt(config.systemMessage)`) **only when the log has no system message yet** — at session start, or the first turn after resume. On subsequent turns the log is **reused as-is**; the prompt is never re-attached or re-derived per turn. This is the correct model: once a prompt has been sent in a session it is part of that session's record.
+- **Live updates reach the model**: `Robota.updateSystemPrompt(content)` updates `config.systemMessage` **and** the live conversation store head **in place**, so the very next provider request carries the change. This is the path that propagates a session's persona, self-verification toggle, and AGENTS.md/CLAUDE.md staleness refresh to the model — a real, infrequent mutation, not a per-turn rewrite. Updating only a config field (without the store head) is insufficient because providers read the system prompt from the messages array, never from a separate config field.
+- **Resume semantics**: persisted `system` messages are **not** restored into the log; instead the system prompt is injected fresh from the live `config.systemMessage` on the first turn after resume (a staleness refresh — the rebuilt prompt reflects the current cwd/AGENTS.md/CLAUDE.md and tool inventory). The restored conversation's user/assistant/tool messages are always preserved; restore keys off the presence of conversation content, not the system head (so a system prompt applied before the first turn does not block restore).
 
 ## Message Model
 
@@ -692,7 +702,7 @@ Rules:
 - If the tool is not registered, core must not execute anything or alias the request to another tool.
 - The skipped result is recorded as `success: false` with `metadata.errorCode: "unknown_tool"`, `metadata.requestedTool`, and `metadata.availableTools`.
 - The corresponding tool message content must explicitly say that the tool call was not executed because the tool is not registered.
-- Skipped unknown tools must not be counted as executed tools in `IExecutionResult.toolsExecuted`.
+- Skipped unknown tools must not be counted as executed tools in `ICoreExecutionResult.toolsExecuted`.
 - `tool_execution_result` replay events must include the same metadata so session logs and transports can explain the skipped call.
 - If unavailable tool calls repeat for consecutive model/tool rounds, the loop guard stops normal tool rounds and performs one final provider call without tools. The forced instruction tells the model which tool names were unavailable and that those calls were not executed because they are not registered.
 - Provider packages must not implement ad hoc aliases such as `agent` -> `robota_command_agent`; command and tool selection must be corrected by model-visible descriptors, schemas, and the normal tool-result feedback loop.
@@ -864,6 +874,22 @@ NOTE: Tool implementations (`FunctionTool`, `OpenAPITool`) in the tools layer im
 | `IExecutor` (agent-core)          | `SimpleRemoteExecutor` (agent-remote-client) | `packages/agent-remote-client/src/client/remote-executor-simple.ts` |
 
 ## Test Strategy
+
+### Test-only fixtures — `@robota-sdk/agent-core/testing` (TEST-003 / TEST-005)
+
+A node-only `./testing` subpath (excluded from the browser build and the runtime bundle) owns the
+deterministic test providers (SSOT). It is the lowest layer that can own these fixtures because they
+implement only agent-core contracts; higher layers (`agent-framework/testing`,
+`agent-transport/testing`) re-export them. Never import from runtime code.
+
+- **Scripted provider** — `createScriptedProvider(turns)` returns an `IAIProvider` that replays
+  declared assistant turns (text or tool calls) through the **real** agent loop and records every
+  request. Tests the machinery; ignores the prompt.
+- **Record-replay (cassette) provider (TEST-005)** — `createRecordingProvider({ provider,
+cassettePath, recordCwd? })` wraps a real provider and writes each interaction to a cassette;
+  `createReplayProvider({ cassettePath, rewriteCwd? })` replays it deterministically with staleness
+  detection (request hash over a workspace-scrubbed projection) and clear exhaustion errors. Lets a
+  real model's prompts + tool-use be captured once and replayed in CI at zero per-run cost.
 
 ### Current Coverage
 

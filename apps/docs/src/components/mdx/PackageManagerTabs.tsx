@@ -31,6 +31,8 @@ export function PackageManagerTabs({ npm, pnpm, yarn }: PackageManagerTabsProps)
     >
       {/* Tab bar */}
       <div
+        role="tablist"
+        aria-label="Package manager"
         style={{
           display: 'flex',
           borderBottom: '1px solid #252540',
@@ -40,6 +42,8 @@ export function PackageManagerTabs({ npm, pnpm, yarn }: PackageManagerTabsProps)
         {tabs.map((tab) => (
           <button
             key={tab.key}
+            role="tab"
+            aria-selected={active === tab.key}
             onClick={() => setActive(tab.key)}
             style={{
               padding: '0.4rem 1rem',
@@ -47,8 +51,9 @@ export function PackageManagerTabs({ npm, pnpm, yarn }: PackageManagerTabsProps)
               fontWeight: 500,
               background: 'transparent',
               border: 'none',
-              borderBottom: active === tab.key ? '2px solid #2dd4a7' : '2px solid transparent',
-              color: active === tab.key ? '#2dd4a7' : '#7b7a95',
+              borderBottom:
+                active === tab.key ? '2px solid var(--accent)' : '2px solid transparent',
+              color: active === tab.key ? 'var(--accent)' : '#7b7a95',
               cursor: 'pointer',
               transition: 'color 0.15s, border-color 0.15s',
               fontFamily: 'ui-monospace, monospace',

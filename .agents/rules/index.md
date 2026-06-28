@@ -23,6 +23,7 @@ All rules are mandatory and non-negotiable. Domain-specific rules live in
 | [spec-workflow.md](spec-workflow.md)           | Spec-first development, document authority, structural docs                      |
 | [tdd-and-planning.md](tdd-and-planning.md)     | TDD red-green-refactor, planning requirements                                    |
 | [verification.md](verification.md)             | Build, browser, harness, and pre-push verification gates                         |
+| [testing-layering.md](testing-layering.md)     | CLI = thin-wrapper/TUI tests only; feature behaviour = framework functional test |
 | [publish.md](publish.md)                       | Package publish safety gate and scope approval                                   |
 | [release-operations.md](release-operations.md) | Release state machine, CI triage, long-running gates, publish flow               |
 | [documentation-sync.md](documentation-sync.md) | Document role, package README, and robota.io documentation gates                 |

@@ -40,7 +40,7 @@ packages/agent-transport/src/tui/TuiInteractionChannel.ts
 export class TuiInteractionChannel implements IInteractionChannel {
   private submitHandler?: (text: string) => Promise<void>;
   private stateUpdater?: (event: InteractionEvent) => void;
-  private actionResolver?: (response: IActionResponse) => void;
+  private actionResolver?: (response: TActionResponse) => void;
 
   onSubmit(handler: (text: string) => Promise<void>) {
     this.submitHandler = handler;
@@ -50,7 +50,7 @@ export class TuiInteractionChannel implements IInteractionChannel {
     this.stateUpdater?.(event);
   }
 
-  async requestAction(action: IActionRequest): Promise<IActionResponse> {
+  async requestAction(action: TActionRequest): Promise<TActionResponse> {
     // 1. signal App.tsx to mount the appropriate dialog
     // 2. return a Promise that resolves when user picks/confirms/cancels
     return new Promise((resolve) => {

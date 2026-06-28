@@ -43,6 +43,66 @@ describe('ConversationStore append-only retention (HIST-001)', () => {
   });
 });
 
+describe('ConversationStore setSystemPrompt (system-prompt SSOT)', () => {
+  const systemMessages = (store: ConversationStore): string[] =>
+    store
+      .getMessages()
+      .filter((m) => m.role === 'system')
+      .map((m) => String(m.content));
+
+  it('prepends a single system message when none exists', () => {
+    const store = new ConversationStore();
+    store.addUserMessage('hello');
+    store.setSystemPrompt('SYS-A');
+    expect(systemMessages(store)).toEqual(['SYS-A']);
+    // System prompt is at the head, before the user message.
+    expect(store.getMessages()[0].role).toBe('system');
+    expect(store.getMessages()[1].content).toBe('hello');
+  });
+
+  it('replaces in place and never duplicates across repeated calls', () => {
+    const store = new ConversationStore();
+    store.setSystemPrompt('SYS-A');
+    store.addUserMessage('turn 1');
+    // Re-seeding every turn (as initializeConversationStore does) must not accumulate duplicates.
+    store.setSystemPrompt('SYS-A');
+    store.addUserMessage('turn 2');
+    store.setSystemPrompt('SYS-B');
+    expect(systemMessages(store)).toEqual(['SYS-B']);
+    expect(store.getMessages().map((m) => m.role)).toEqual(['system', 'user', 'user']);
+  });
+
+  it('self-heals pre-existing duplicate system messages down to one', () => {
+    const store = new ConversationStore();
+    store.addSystemMessage('OLD-1');
+    store.addUserMessage('hi');
+    store.addSystemMessage('OLD-2');
+    store.setSystemPrompt('SYS-NEW');
+    expect(systemMessages(store)).toEqual(['SYS-NEW']);
+  });
+
+  it('always moves the system message to the head, even when it was not first', () => {
+    const store = new ConversationStore();
+    // A system message that is NOT at the head (e.g. an unusual restore ordering).
+    store.addUserMessage('first');
+    store.addSystemMessage('OLD');
+    store.setSystemPrompt('SYS');
+    const roles = store.getMessages().map((m) => m.role);
+    expect(roles).toEqual(['system', 'user']);
+    expect(systemMessages(store)).toEqual(['SYS']);
+  });
+
+  it('is idempotent: setting the same prompt repeatedly keeps a single head message', () => {
+    const store = new ConversationStore();
+    store.setSystemPrompt('SYS-A');
+    store.addUserMessage('turn 1');
+    store.setSystemPrompt('SYS-A');
+    store.setSystemPrompt('SYS-A');
+    expect(store.getMessages().map((m) => m.role)).toEqual(['system', 'user']);
+    expect(systemMessages(store)).toEqual(['SYS-A']);
+  });
+});
+
 describe('ConversationStore', () => {
   describe('addToolMessageWithId', () => {
     it('should add tool message successfully with unique toolCallId', () => {

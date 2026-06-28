@@ -6,7 +6,6 @@ const outExtensions = ({ format }: { format: string }) => ({
 });
 
 const shared = {
-  entry: ['src/index.ts'],
   sourcemap: false,
   treeshake: true,
   minify: true,
@@ -18,6 +17,8 @@ const shared = {
 export default defineConfig([
   {
     ...shared,
+    // Node build also emits the test-only ./testing subpath (TEST-003 scripted-provider SSOT).
+    entry: { index: 'src/index.ts', 'testing/index': 'src/testing/index.ts' },
     format: ['esm', 'cjs'],
     outDir: 'dist/node',
     platform: 'node',
@@ -25,6 +26,8 @@ export default defineConfig([
   },
   {
     ...shared,
+    // Browser build excludes test-only fixtures.
+    entry: ['src/index.ts'],
     format: ['esm'],
     outDir: 'dist/browser',
     platform: 'browser',

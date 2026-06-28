@@ -1,10 +1,11 @@
 /**
  * Tests that Session correctly delivers the system prompt to the AI provider.
  *
- * Root cause this prevents: Session was setting systemMessage only in
- * agentConfig.defaultModel, but execution-service reads from
- * config.systemMessage (top-level). Without both, AGENTS.md content
- * was loaded but never reached the API.
+ * Root cause this prevents: the system prompt must reach the model. The single source of truth is
+ * the top-level `config.systemMessage` (execution-service seeds the conversation store from it).
+ * The system prompt is an agent-level concern, not model config — it is intentionally NOT placed on
+ * `defaultModel`. Live changes propagate via `Robota.updateSystemPrompt` (see agent-core SPEC →
+ * System Prompt (single source of truth)).
  */
 
 import { beforeEach, describe, it, expect, vi } from 'vitest';
@@ -126,7 +127,7 @@ describe('Session — system prompt delivery', () => {
     expect(topLevel).toContain('TypeScript strict mode');
   });
 
-  it('should set systemMessage at BOTH top-level and defaultModel', () => {
+  it('should set systemMessage as the single-source top-level field, not on defaultModel', () => {
     const systemMessage = 'test agents content\ntest claude content\nAvailable tools: Bash';
 
     new Session({
@@ -139,10 +140,9 @@ describe('Session — system prompt delivery', () => {
     const topLevel = capturedConfig!['systemMessage'] as string;
     const defaultModel = capturedConfig!['defaultModel'] as { systemMessage?: string };
 
-    // Both must exist and be identical
-    expect(topLevel).toBeDefined();
-    expect(defaultModel.systemMessage).toBeDefined();
-    expect(topLevel).toBe(defaultModel.systemMessage);
+    // Single source of truth: top-level only. The system prompt is not a model-config field.
+    expect(topLevel).toBe(systemMessage);
+    expect(defaultModel.systemMessage).toBeUndefined();
   });
 
   it('should pass system message through to Robota config', () => {

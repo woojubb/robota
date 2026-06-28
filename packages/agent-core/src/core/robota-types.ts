@@ -1,14 +1,17 @@
 import type { IModuleResultData } from '../abstracts/abstract-module';
 import type { TModelEffort } from '../interfaces/provider';
 
-/** Shared model configuration shape used in setModel / getModel. */
+/**
+ * Shared model configuration shape used in setModel / getModel. The system prompt is intentionally
+ * absent: it is an agent-level concern (top-level `config.systemMessage`), updated live via
+ * `Robota.updateSystemPrompt`, not part of model config.
+ */
 export interface IModelConfig {
   provider: string;
   model: string;
   temperature?: number;
   maxTokens?: number;
   topP?: number;
-  systemMessage?: string;
   /** Reasoning effort tier read per-call by the execution round (PRESET-013 live re-application channel). */
   effort?: TModelEffort;
 }

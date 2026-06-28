@@ -39,7 +39,7 @@ packages:
 - [x] **S-06** sdk: `webFetchTool`, `webSearchTool` re-export 누락 반영
 - [x] **S-07** provider-anthropic: `api-types.ts` SPEC에서 public export 주장 제거
 - [x] **S-08** provider-google: `api-types.ts` dead code SPEC 반영, 테스트 섹션 업데이트
-- [x] **S-09** tools: `TToolResult.startLine` SPEC에 추가
+- [x] **S-09** tools: `IToolInvocationResult.startLine` SPEC에 추가
 - [x] **S-10** cli: 파일 구조 테이블에서 `visual-line.ts` 제거 + 누락 파일 추가
 - [x] **S-11** sessions: `IPermissionEnforcerOptions` export 여부 결정 및 SPEC 반영
 - [x] **S-12** event-service: SPEC 최소 내용 작성 (현재 거의 비어있음)
@@ -125,12 +125,12 @@ packages:
 
 ### agent-tools (v3.0.0-beta.33)
 
-| 카테고리  | 발견                             | 심각도 |
-| --------- | -------------------------------- | ------ |
-| 의존 방향 | 위반 없음 (core만)               | OK     |
-| SPEC      | `TToolResult.startLine` 미문서화 | Low    |
-| 번들      | 정상                             | OK     |
-| 번들 크기 | ESM 46KB, CJS 50KB, DTS 11KB     | —      |
+| 카테고리  | 발견                                       | 심각도 |
+| --------- | ------------------------------------------ | ------ |
+| 의존 방향 | 위반 없음 (core만)                         | OK     |
+| SPEC      | `IToolInvocationResult.startLine` 미문서화 | Low    |
+| 번들      | 정상                                       | OK     |
+| 번들 크기 | ESM 46KB, CJS 50KB, DTS 11KB               | —      |
 
 ### agent-event-service (v3.0.0-beta.24)
 

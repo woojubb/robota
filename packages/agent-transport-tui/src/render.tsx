@@ -6,6 +6,7 @@ import { render } from 'ink';
 import React from 'react';
 
 import App from './App.js';
+import { TerminalHandoffController } from './terminal-handoff-controller.js';
 import { TuiInteractionChannel } from './TuiInteractionChannel.js';
 
 import type { ITuiCliAdapter } from './tui-cli-adapter.js';
@@ -102,10 +103,17 @@ export async function renderApp(options: IRenderOptions): Promise<void> {
     }
   });
 
+  // TERM-002: one terminal-handoff controller per process (one Ink instance / App). Shared across
+  // channel re-creations (session switch) so the handoff capability survives a session swap.
+  const handoffController = new TerminalHandoffController();
+
   // Single-owner lifecycle (CLI-B12): render.tsx supplies only the factory;
   // App creates, replaces, and stops channels exclusively through React state.
   const createChannel = (resumeSessionId?: string): TuiInteractionChannel =>
-    new TuiInteractionChannel(toChannelOptions(options, resumeSessionId));
+    new TuiInteractionChannel({
+      ...toChannelOptions(options, resumeSessionId),
+      terminalHandoff: handoffController,
+    });
 
   const instance = render(
     <App
@@ -125,5 +133,7 @@ export async function renderApp(options: IRenderOptions): Promise<void> {
     />,
     { exitOnCtrlC: false },
   );
+  // The controller needs the Ink instance to clear the frame before a handoff.
+  handoffController.setInkInstance(instance);
   await instance.waitUntilExit();
 }

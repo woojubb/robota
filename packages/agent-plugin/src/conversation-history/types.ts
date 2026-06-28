@@ -6,6 +6,25 @@ import type { TUniversalMessage, IPluginOptions, IPluginStats } from '@robota-sd
 export type THistoryStorageStrategy = 'memory' | 'file' | 'database';
 
 /**
+ * Minimal key/value persistence contract a database backend must satisfy (PLUGIN-002).
+ *
+ * agent-plugin stays driver-free: the consumer injects a concrete `IDatabaseDriver`
+ * (Postgres, SQLite, Redis, …) so no specific DB dependency is bundled here.
+ */
+export interface IDatabaseDriver {
+  /** Return the stored value for `key`, or `undefined` if absent. */
+  get(key: string): Promise<string | undefined>;
+  /** Persist `value` under `key`. */
+  set(key: string, value: string): Promise<void>;
+  /** Delete `key`; resolve `true` if it existed. */
+  delete(key: string): Promise<boolean>;
+  /** Return all keys beginning with `prefix`. */
+  list(prefix: string): Promise<string[]>;
+  /** Delete all keys beginning with `prefix`. */
+  clear(prefix: string): Promise<void>;
+}
+
+/**
  * Configuration options for conversation history plugin
  */
 export interface IConversationHistoryPluginOptions extends IPluginOptions {
@@ -17,8 +36,10 @@ export interface IConversationHistoryPluginOptions extends IPluginOptions {
   maxMessagesPerConversation?: number;
   /** File path for file storage strategy */
   filePath?: string;
-  /** Database connection string for database storage */
+  /** Database connection string for database storage (informational; the driver owns the connection) */
   connectionString?: string;
+  /** Injected database driver — required when `storage: 'database'` (PLUGIN-002). */
+  databaseDriver?: IDatabaseDriver;
   /** Whether to auto-save after each message */
   autoSave?: boolean;
   /** Save interval in milliseconds for batch saving */

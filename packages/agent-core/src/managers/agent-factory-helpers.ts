@@ -123,8 +123,9 @@ export function applyAgentDefaults(
       temperature: baseModel?.temperature ?? DEFAULT_TEMPERATURE,
       ...(baseModel?.maxTokens !== undefined && { maxTokens: baseModel.maxTokens }),
       ...(baseModel?.topP !== undefined && { topP: baseModel.topP }),
-      systemMessage: baseModel?.systemMessage || options.defaultSystemMessage,
     },
+    // System prompt is agent-level (single source of truth), not model config.
+    systemMessage: config.systemMessage || options.defaultSystemMessage,
     tools: config.tools || [],
     plugins: config.plugins || [],
     metadata: config.metadata || {},

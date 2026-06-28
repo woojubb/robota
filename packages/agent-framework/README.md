@@ -1,6 +1,6 @@
 # @robota-sdk/agent-framework
 
-Programmatic SDK for building AI agents with Robota. Provides `InteractiveSession` as the central client-facing API, `createQuery()` for one-shot use, session management, SDK-owned command/common APIs, permissions, hooks, streaming, context loading, bounded prompt file references, and context reference inventory.
+Programmatic SDK for building AI agents with Robota. Provides `InteractiveSession` as the central client-facing API, `createQuery()` for one-shot use, `createAgentRuntime()` as a composition factory for headless and multi-session consumers, session management, SDK-owned command/common APIs, permissions, hooks, streaming, context loading, bounded prompt file references, and context reference inventory.
 
 This is the **assembly layer** of the Robota ecosystem — it composes lower-level packages (`agent-core`, `agent-tools`, `agent-session`, `agent-provider`) into a cohesive SDK.
 
@@ -34,6 +34,25 @@ const queryWithOptions = createQuery({
 });
 
 const detailedResponse = await queryWithOptions('Analyze the code');
+```
+
+### Headless / multi-session runtime
+
+For headless or multi-session consumers, `createAgentRuntime()` builds a composition root that
+spawns `InteractiveSession`s sharing one configuration (provider, cwd, command modules, session
+store, transports):
+
+```typescript
+import { createAgentRuntime } from '@robota-sdk/agent-framework';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+
+const runtime = createAgentRuntime({
+  cwd: process.cwd(),
+  provider: new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY }),
+});
+
+// Each call composes a fresh InteractiveSession that inherits the runtime config.
+const session = runtime.createSession({});
 ```
 
 ## Features

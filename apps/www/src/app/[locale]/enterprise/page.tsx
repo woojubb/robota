@@ -1,4 +1,7 @@
 import { getTranslations, setRequestLocale } from 'next-intl/server';
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = { title: 'Enterprise' };
 
 export default async function EnterprisePage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
@@ -39,7 +42,7 @@ export default async function EnterprisePage({ params }: { params: Promise<{ loc
             href="https://github.com/woojubb/robota/discussions"
             target="_blank"
             rel="noopener noreferrer"
-            className="rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-[var(--primary-foreground)] hover:opacity-90 transition-opacity"
+            className="rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-[var(--primary-foreground)] hover:bg-[var(--accent-hover)] transition-colors"
           >
             {t('contact.githubDiscussions')}
           </a>

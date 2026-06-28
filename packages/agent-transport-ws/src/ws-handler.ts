@@ -226,21 +226,28 @@ function handleSessionControlMessage(
       send({ type: 'protocol_error', message: 'prompt is required' });
       return;
     }
-    session.submit(msg.prompt);
+    session.submit(msg.prompt).catch((error: Error) => {
+      send({ type: 'protocol_error', message: error.message });
+    });
   } else if (msg.type === 'command') {
     if (!msg.name) {
       send({ type: 'protocol_error', message: 'name is required' });
       return;
     }
-    session.executeCommand(msg.name, msg.args ?? '').then((result) => {
-      send({
-        type: 'command_result',
-        name: msg.name,
-        message: result?.message ?? `Unknown command: ${msg.name}`,
-        success: result?.success ?? false,
-        data: result?.data,
-      });
-    });
+    session.executeCommand(msg.name, msg.args ?? '').then(
+      (result) => {
+        send({
+          type: 'command_result',
+          name: msg.name,
+          message: result?.message ?? `Unknown command: ${msg.name}`,
+          success: result?.success ?? false,
+          data: result?.data,
+        });
+      },
+      (error: Error) => {
+        send({ type: 'protocol_error', message: error.message });
+      },
+    );
   } else if (msg.type === 'abort') {
     session.abort();
   } else {

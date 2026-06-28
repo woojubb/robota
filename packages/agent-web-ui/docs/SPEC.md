@@ -75,16 +75,16 @@ package.
 
 ## Public API Surface
 
-| Export                 | Kind      | Description                                                                                                     |
-| ---------------------- | --------- | --------------------------------------------------------------------------------------------------------------- |
-| `SessionMonitor`       | component | Self-contained monitor widget; accepts `wsUrl` prop for the CLI sidecar WebSocket                               |
-| `ConversationView`     | component | Pure conversation renderer; accepts messages, activeTools, streamingText, isThinking                            |
-| `AgentActivityPanel`   | component | Background-task monitor panel; accepts `tasks: readonly IExecutionWorkspaceEntry[]` (not re-exported from root) |
-| `useWsSession`         | hook      | React hook managing WebSocket connection and reconstructing session state                                       |
-| `IConversationMessage` | type      | Reconstructed message shape for display                                                                         |
-| `IActiveTool`          | type      | Active tool call display state                                                                                  |
-| `IWsSessionState`      | type      | Full hook return type including `executionWorkspace: IExecutionWorkspaceSnapshot \| null`                       |
-| `TConnectionStatus`    | type      | WebSocket lifecycle status enum                                                                                 |
+| Export                 | Kind      | Description                                                                                              |
+| ---------------------- | --------- | -------------------------------------------------------------------------------------------------------- |
+| `SessionMonitor`       | component | Self-contained monitor widget; accepts `wsUrl` prop for the CLI sidecar WebSocket                        |
+| `ConversationView`     | component | Pure conversation renderer; accepts messages, activeTools, streamingText, isThinking                     |
+| `AgentActivityPanel`   | component | Background-task monitor panel; accepts `tasks: readonly IExecutionWorkspaceEntry[]` (exported from root) |
+| `useWsSession`         | hook      | React hook managing WebSocket connection and reconstructing session state                                |
+| `IConversationMessage` | type      | Reconstructed message shape for display                                                                  |
+| `IActiveTool`          | type      | Active tool call display state                                                                           |
+| `IWsSessionState`      | type      | Full hook return type including `executionWorkspace: IExecutionWorkspaceSnapshot \| null`                |
+| `TConnectionStatus`    | type      | WebSocket lifecycle status enum                                                                          |
 
 ## Extension Points
 
@@ -103,8 +103,9 @@ package.
 
 ## Test Strategy
 
-- No test files exist currently. Recommended:
-  - Unit tests for `createWsSessionClient` reconnect logic with a mock WebSocket.
+- `createWsSessionClient` is unit-tested with a mock WebSocket (malformed-frame guard +
+  reconnect / intentional-disconnect logic — WEBUI-001/002). Still recommended:
+  - Unit tests for `createWsSessionClient` reconnect logic with a mock WebSocket. _(done)_
   - Unit tests for `useWsSession` message reconstruction logic (mocking `createWsSessionClient`).
   - Render tests for `ConversationView` with representative message arrays.
 
@@ -119,11 +120,11 @@ package.
 
 ### Components
 
-| Component            | Defined In                              | Notes                                                                                                        |
-| -------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `SessionMonitor`     | `src/components/SessionMonitor.tsx`     | `'use client'` directive; Tailwind CSS; prop `wsUrl: string`                                                 |
-| `ConversationView`   | `src/components/ConversationView.tsx`   | Pure renderer; `'use client'` directive; Tailwind CSS                                                        |
-| `AgentActivityPanel` | `src/components/AgentActivityPanel.tsx` | Pure renderer; no `'use client'` directive (server-renderable); not exported from package root; Tailwind CSS |
+| Component            | Defined In                              | Notes                                                                                                    |
+| -------------------- | --------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `SessionMonitor`     | `src/components/SessionMonitor.tsx`     | `'use client'` directive; Tailwind CSS; prop `wsUrl: string`                                             |
+| `ConversationView`   | `src/components/ConversationView.tsx`   | Pure renderer; `'use client'` directive; Tailwind CSS                                                    |
+| `AgentActivityPanel` | `src/components/AgentActivityPanel.tsx` | Pure renderer; no `'use client'` directive (server-renderable); exported from package root; Tailwind CSS |
 
 ### Cross-Package Port Consumers
 

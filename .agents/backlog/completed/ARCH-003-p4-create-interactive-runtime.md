@@ -84,7 +84,7 @@ handleSubmit(text):
 export class MockInteractionChannel implements IInteractionChannel {
   private submitHandler?: (text: string) => Promise<void>;
   readonly events: InteractionEvent[] = [];
-  readonly actionQueue: IActionResponse[] = [];
+  readonly actionQueue: TActionResponse[] = [];
 
   onSubmit(h: (text: string) => Promise<void>) {
     this.submitHandler = h;
@@ -92,7 +92,7 @@ export class MockInteractionChannel implements IInteractionChannel {
   write(e: InteractionEvent) {
     this.events.push(e);
   }
-  async requestAction(_: IActionRequest): Promise<IActionResponse> {
+  async requestAction(_: TActionRequest): Promise<TActionResponse> {
     return this.actionQueue.shift() ?? { type: 'cancelled' };
   }
   setAvailableCommands() {}

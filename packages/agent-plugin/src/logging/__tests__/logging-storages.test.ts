@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ConsoleLogStorage } from '../storages/console-storage';
 import { SilentLogStorage } from '../storages/silent-storage';
 import { RemoteLogStorage } from '../storages/remote-storage';
@@ -68,18 +68,28 @@ describe('SilentLogStorage', () => {
 
 describe('RemoteLogStorage', () => {
   let storage: RemoteLogStorage;
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200 });
+    vi.stubGlobal('fetch', fetchMock);
+  });
 
   afterEach(async () => {
     if (storage) await storage.close();
+    vi.unstubAllGlobals();
   });
 
-  it('batches logs and flushes when batch size reached', async () => {
+  it('POSTs the batch to the endpoint on flush', async () => {
     storage = new RemoteLogStorage('http://example.com/logs');
-    // Write entries below batch size (10)
     for (let i = 0; i < 5; i++) {
       await storage.write({ ...entry, message: `log-${i}` });
     }
-    // No error thrown
+    await storage.flush();
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://example.com/logs',
+      expect.objectContaining({ method: 'POST' }),
+    );
   });
 
   it('flushes on close', async () => {
@@ -88,8 +98,18 @@ describe('RemoteLogStorage', () => {
     await expect(storage.close()).resolves.toBeUndefined();
   });
 
-  it('flush with no pending logs is no-op', async () => {
+  it('flush with no pending logs is a no-op (no request)', async () => {
     storage = new RemoteLogStorage('http://example.com/logs');
+    await expect(storage.flush()).resolves.toBeUndefined();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('re-queues the batch when the endpoint fails', async () => {
+    fetchMock.mockResolvedValueOnce({ ok: false, status: 500 });
+    storage = new RemoteLogStorage('http://example.com/logs');
+    await storage.write(entry);
+    await expect(storage.flush()).rejects.toThrow('Failed to send logs to remote endpoint');
+    // batch was re-queued, so a subsequent (now-ok) flush succeeds and sends it
     await expect(storage.flush()).resolves.toBeUndefined();
   });
 });

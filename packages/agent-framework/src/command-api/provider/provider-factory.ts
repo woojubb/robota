@@ -5,7 +5,11 @@ import { readMergedProviderSettingsFromPaths, resolveActiveProvider } from './pr
 import { getProviderSettingsPaths } from '../../config/provider-paths.js';
 
 import type { TProviderSettingsDocument } from './provider-settings.js';
-import type { IAIProvider, IProviderConfig, IProviderDefinition } from '@robota-sdk/agent-core';
+import type {
+  IAIProvider,
+  IProviderDefinitionConfig,
+  IProviderDefinition,
+} from '@robota-sdk/agent-core';
 
 export interface IReadProviderSettingsOptions {
   providerOverride?: string;
@@ -38,7 +42,7 @@ export function readMergedProviderSettings(cwd: string): TProviderSettingsDocume
 export function resolveEnvDefaultProvider(
   providerDefinitions: readonly IProviderDefinition[],
   env: Record<string, string | undefined> = process.env,
-): IProviderConfig | undefined {
+): IProviderDefinitionConfig | undefined {
   for (const definition of providerDefinitions) {
     const defaults = definition.defaults;
     if (defaults?.apiKey === undefined || defaults.model === undefined) continue;
@@ -67,7 +71,7 @@ export function resolveEnvDefaultProvider(
 export function readProviderSettings(
   cwd: string,
   options: IReadProviderSettingsOptions = {},
-): IProviderConfig {
+): IProviderDefinitionConfig {
   const merged = readMergedProviderSettings(cwd);
   const providerConfig = resolveActiveProvider(
     merged,

@@ -116,6 +116,12 @@ export async function listWorkspaceScopes() {
   const rootNames = Array.from(new Set(patterns.map((pattern) => pattern.split('/')[0])));
 
   for (const rootName of rootNames) {
+    // `examples/*` are workspace members only so pnpm links @robota-sdk/* to local
+    // source for drift-detecting typecheck. They are NOT scannable scopes (no SPEC.md,
+    // not published), so the harness scans skip them.
+    if (rootName === 'examples') {
+      continue;
+    }
     if (!(await pathExists(path.join(WORKSPACE_ROOT, rootName)))) {
       continue;
     }

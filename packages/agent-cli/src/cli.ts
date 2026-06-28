@@ -24,7 +24,7 @@ import { parseCliArgs, parseToolList, printHelp } from './utils/cli-args.js';
 import type { IParsedCliArgs } from './utils/cli-args.js';
 import { resolveCliPreset, selectPresetId } from './startup/preset-selection.js';
 import { DEFAULT_AGENT_NAME, loadExternalPresets } from '@robota-sdk/agent-preset';
-import type { TResolvedPresetOptions } from '@robota-sdk/agent-preset';
+import type { IResolvedPresetOptions } from '@robota-sdk/agent-preset';
 import {
   ensureConfig,
   handleProviderConfigurationArgs,
@@ -154,7 +154,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   for (const { file, error } of externalPresetLoad.errors) {
     terminal.writeError(`Skipped external preset "${file}": ${error}`);
   }
-  let resolvedPreset: TResolvedPresetOptions;
+  let resolvedPreset: IResolvedPresetOptions;
   try {
     resolvedPreset = resolveCliPreset(args, settingsPreset);
   } catch (error) {
@@ -251,7 +251,8 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     }
   }
 
-  if (args.printMode) {
+  // GOAL-001: --goal runs an autonomous headless goal even without an explicit -p.
+  if (args.printMode || args.goal) {
     await runPrintMode(
       cwd,
       args,

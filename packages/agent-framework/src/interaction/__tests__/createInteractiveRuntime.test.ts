@@ -48,6 +48,17 @@ function createMockSession(overrides: Partial<IInteractiveSession> = {}): IInter
         if (idx !== -1) arr.splice(idx, 1);
       }
     }),
+    setGoal: vi.fn().mockResolvedValue({
+      id: 'g',
+      objective: 'o',
+      status: 'active',
+      iterations: 0,
+      maxIterations: 25,
+      startedAt: new Date().toISOString(),
+      progress: [],
+    }),
+    getGoalState: vi.fn().mockReturnValue(null),
+    cancelGoal: vi.fn().mockReturnValue(null),
     listBackgroundTasks: vi.fn().mockReturnValue([]),
     getBackgroundTask: vi.fn().mockReturnValue(undefined),
     cancelBackgroundTask: vi.fn().mockResolvedValue(undefined),

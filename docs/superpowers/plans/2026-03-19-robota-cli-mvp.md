@@ -27,7 +27,7 @@ packages/agent-cli/
 │   ├── cli.ts                      # Arg parsing, startup orchestration
 │   ├── session.ts                  # Session class (Robota instance + context + state)
 │   ├── session-store.ts            # Session persistence (save/load/list)
-│   ├── types.ts                    # Shared types (TToolResult, ITerminalOutput, etc.)
+│   ├── types.ts                    # Shared types (IToolInvocationResult, ITerminalOutput, etc.)
 │   ├── config/
 │   │   ├── config-types.ts         # Zod schemas for settings
 │   │   └── config-loader.ts        # Settings file discovery + merge + validation
@@ -138,7 +138,7 @@ Standard monorepo configs (same pattern as other packages).
 - [ ] **Step 3: Create src/types.ts**
 
 ```typescript
-export interface TToolResult {
+export interface IToolInvocationResult {
   success: boolean;
   output: string;
   error?: string;
@@ -179,7 +179,12 @@ export type TPermissionDecision = 'auto' | 'approve' | 'deny';
 
 ```typescript
 export { Session } from './session';
-export type { TToolResult, ITerminalOutput, TTrustLevel, TPermissionDecision } from './types';
+export type {
+  IToolInvocationResult,
+  ITerminalOutput,
+  TTrustLevel,
+  TPermissionDecision,
+} from './types';
 ```
 
 - [ ] **Step 5: Run pnpm install and verify build**

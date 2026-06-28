@@ -24,7 +24,7 @@ PRESET-011은 `setActivePresetId`를 **순수 상태**로 정의했으므로(재
 **레이어 소유:** 재적용은 **agent-framework**가 소유한다 — 옵션을 런타임에 적용하는 것은 framework의
 기존 역할(`writeCommandPermissionMode` → runtime, `createSession` 옵션 적용)이다. agent-preset은
 "옵션 데이터만 생산"(SPEC 명시)하므로 재적용을 소유하지 않는다. 재적용 함수의 옵션 파라미터는
-framework 옵션 타입으로 정의하고, agent-preset의 `TResolvedPresetOptions`가 **구조적으로 충족**한다
+framework 옵션 타입으로 정의하고, agent-preset의 `IResolvedPresetOptions`가 **구조적으로 충족**한다
 (사이클 없음 — framework는 agent-preset을 import 하지 않음).
 
 설계 근거: [.design/preset-layer/2026-06-14/design-proposal.md](../../../.design/preset-layer/2026-06-14/design-proposal.md) §7.1 (L2a).
@@ -94,7 +94,7 @@ framework 옵션 타입으로 정의하고, agent-preset의 `TResolvedPresetOpti
 - [x] TC-03: `applyPresetToSession(ctx, 'x', {})`(permissionMode 미지정) 호출 시 `setPermissionMode`가 호출되지 않고 결과 `skipped`에 `'permissionMode'`가 포함됨을 단언하는 단위 테스트 통과
 - [x] TC-04: `permissionMode`가 지정된 호출의 결과 `applied`에 `'permissionMode'`가 포함됨을 단언하는 단위 테스트 통과
 - [x] TC-05: 런타임이 `setActivePresetId`를 구현하지 않은(optional 미구현) 컨텍스트에서도 `applyPresetToSession`이 예외 없이 동작함을 단언하는 단위 테스트 통과(옵셔널 체이닝)
-- [x] TC-06: agent-preset의 `TResolvedPresetOptions`가 `IPresetApplicationOptions`에 구조적으로 대입 가능함을 컴파일-단언(타입 호환 — resolvePreset 결과를 applyPresetToSession에 전달하는 함수가 typecheck 통과)
+- [x] TC-06: agent-preset의 `IResolvedPresetOptions`가 `IPresetApplicationOptions`에 구조적으로 대입 가능함을 컴파일-단언(타입 호환 — resolvePreset 결과를 applyPresetToSession에 전달하는 함수가 typecheck 통과)
 - [x] TC-07: `pnpm --filter @robota-sdk/agent-framework build` + `pnpm --filter @robota-sdk/agent-framework test` + `pnpm typecheck` → exit 0
 
 ## Test Plan
@@ -109,7 +109,7 @@ Type FLOW + tags cli → 재적용 오케스트레이터 단언(권한 적용/ac
 | TC-03 | RULE (unit)            | vitest — permissionMode 미지정 → 미호출 + skipped 단언           |          |
 | TC-04 | RULE (unit)            | vitest — applied에 permissionMode 단언                           |          |
 | TC-05 | RULE (unit)            | vitest — setActivePresetId 미구현 컨텍스트 안전 단언             |          |
-| TC-06 | RULE (unit)            | vitest — TResolvedPresetOptions → IPresetApplicationOptions 대입 |          |
+| TC-06 | RULE (unit)            | vitest — IResolvedPresetOptions → IPresetApplicationOptions 대입 |          |
 | TC-07 | CI pipeline smoke test | `pnpm build` + `pnpm test` + `pnpm typecheck` exit code          | 커맨드폼 |
 
 ## User Execution Test Scenarios

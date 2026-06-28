@@ -34,10 +34,10 @@ const koUrl = lang === 'ko' ? '' : translationUrl;
         <span class="sep">/</span>
         {koUrl ? <a href={koUrl}>KO</a> : <span class="active">KO</span>}
       </span>
-      <span class="switcher" id="theme-toggle">
-        <span data-theme-opt="light" class="theme-opt">☀</span>
-        <span class="sep">/</span>
-        <span data-theme-opt="dark" class="theme-opt">☾</span>
+      <span class="switcher" id="theme-toggle" role="group" aria-label="Theme">
+        <span data-theme-opt="light" class="theme-opt" role="button" tabindex="0" aria-label="Light theme">☀</span>
+        <span class="sep" aria-hidden="true">/</span>
+        <span data-theme-opt="dark" class="theme-opt" role="button" tabindex="0" aria-label="Dark theme">☾</span>
       </span>
       <a href={lang === 'en' ? '/' : '/ko/'}>{lang === 'en' ? 'blog' : '블로그'}</a>
     </nav>

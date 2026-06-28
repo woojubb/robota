@@ -4,7 +4,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { classifyFetchError } from '../builtins/web-fetch-tool.js';
-import type { TToolResult } from '../types/tool-result.js';
+import type { IToolInvocationResult } from '../types/tool-result.js';
 
 // ---------------------------------------------------------------------------
 // TC-03: classifyFetchError — error classification
@@ -92,7 +92,10 @@ describe('webFetchTool — fetch behaviour', () => {
     globalThis.fetch = originalFetch;
   });
 
-  async function callWebFetch(url: string, headers?: Record<string, string>): Promise<TToolResult> {
+  async function callWebFetch(
+    url: string,
+    headers?: Record<string, string>,
+  ): Promise<IToolInvocationResult> {
     const { webFetchTool } = await import('../builtins/web-fetch-tool.js');
     const args: Record<string, unknown> = { url };
     if (headers !== undefined) args['headers'] = headers;
@@ -101,7 +104,7 @@ describe('webFetchTool — fetch behaviour', () => {
       typeof result === 'object' && result !== null && 'data' in result
         ? String((result as { data: unknown }).data)
         : String(result);
-    return JSON.parse(raw) as TToolResult;
+    return JSON.parse(raw) as IToolInvocationResult;
   }
 
   it('returns success result for a 200 response with plain text', async () => {

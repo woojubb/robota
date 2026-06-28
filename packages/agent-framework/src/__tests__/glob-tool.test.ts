@@ -10,11 +10,11 @@ import { globTool } from '@robota-sdk/agent-tools';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
 import type { TToolParameters } from '@robota-sdk/agent-core';
-import type { TToolResult } from '@robota-sdk/agent-tools';
+import type { IToolInvocationResult } from '@robota-sdk/agent-tools';
 
-async function run(params: TToolParameters): Promise<TToolResult> {
+async function run(params: TToolParameters): Promise<IToolInvocationResult> {
   const rawResult = await globTool.execute(params);
-  return JSON.parse(rawResult.data as string) as TToolResult;
+  return JSON.parse(rawResult.data as string) as IToolInvocationResult;
 }
 
 let tmpDir: string;

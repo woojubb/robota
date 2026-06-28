@@ -29,7 +29,7 @@ export type TPresetPermissionMode = ICreateSessionOptions['permissionMode'];
  * The framework-facing option subset a preset resolves into. Every field maps to an
  * existing `agent-framework` session/assembly seam; presets never introduce new option types.
  */
-export interface TResolvedPresetOptions {
+export interface IResolvedPresetOptions {
   // (2) Persona
   /**
    * Portable persona/behaviour block (tone, refusal philosophy, output style, proactivity).
@@ -79,9 +79,9 @@ export interface TResolvedPresetOptions {
 
 /**
  * A named, pre-tuned bundle of framework option overrides plus display identity.
- * Extends `TResolvedPresetOptions` (type SSOT) and adds the identity triple.
+ * Extends `IResolvedPresetOptions` (type SSOT) and adds the identity triple.
  */
-export interface IPreset extends TResolvedPresetOptions {
+export interface IPreset extends IResolvedPresetOptions {
   id: string;
   title: string;
   description: string;

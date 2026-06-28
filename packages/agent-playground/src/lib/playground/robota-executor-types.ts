@@ -38,10 +38,13 @@ export interface IPlaygroundAgentConfig {
     model: string;
     temperature?: number;
     maxTokens?: number;
-    systemMessage?: string;
   };
   tools?: IPlaygroundTool[];
   plugins?: IPlaygroundPlugin[];
+  /**
+   * Agent system prompt (single source of truth). Agent-level, not model config — mirrors
+   * agent-core's `config.systemMessage`. The UI, code generation, and executor all use this field.
+   */
   systemMessage?: string;
   metadata?: Record<string, TUniversalValue>;
   /** Skills to activate in the server-side InteractiveSession. */

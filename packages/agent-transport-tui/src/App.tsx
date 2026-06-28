@@ -14,6 +14,7 @@ import ExecutionWorkspaceSwitcher from './ExecutionWorkspaceSwitcher.js';
 import { usePluginCallbacks } from './hooks/usePluginCallbacks.js';
 import { useSideEffects } from './hooks/useSideEffects.js';
 import { useStatusLineSettings } from './hooks/useStatusLineSettings.js';
+import { useTerminalHandoffSuspension } from './hooks/useTerminalHandoffSuspension.js';
 import { useTuiChannel } from './hooks/useTuiChannel.js';
 import InputArea from './InputArea.js';
 import InteractivePrompt from './InteractivePrompt.js';
@@ -99,6 +100,8 @@ function AppInner(
 ): React.ReactElement {
   const cwd = props.cwd;
   const { channel } = props;
+  // TERM-002: terminal-handoff suspension gate (renders nothing while a child owns the terminal).
+  const handoffSuspended = useTerminalHandoffSuspension(channel.terminalHandoffController);
 
   const {
     interactiveSession,
@@ -360,6 +363,13 @@ function AppInner(
   } catch {
     // allow-fallback: session initializes asynchronously; use defaults until ready
     // Not yet initialized
+  }
+
+  // TERM-002: while a terminal handoff is active, render nothing so Ink unmounts its input hooks and
+  // releases raw mode, handing the real terminal to the child process. Session/UI state is preserved
+  // (the component stays mounted); the App re-renders when the handoff completes.
+  if (handoffSuspended) {
+    return <Box />;
   }
 
   return (

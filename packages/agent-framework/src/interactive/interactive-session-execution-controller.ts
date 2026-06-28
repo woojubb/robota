@@ -36,8 +36,11 @@ import type { ICommand, ICommandResult, ISkillExecutionResult } from '../command
 import type { ISkillActivationEvent } from '../commands/skill-activation-events.js';
 import type { IContextFileEntry } from '../context/context-file-tracker.js';
 import type { IContextWindowState, TToolArgs } from '@robota-sdk/agent-core';
+import type { TTurnSource } from '@robota-sdk/agent-interface-transport';
 import type { ICompactEvent } from '@robota-sdk/agent-session';
 import type { Session } from '@robota-sdk/agent-session';
+
+export type { TTurnSource };
 
 export interface IExecutionControllerCallbacks {
   getSession: () => Session;
@@ -48,9 +51,6 @@ export interface IExecutionControllerCallbacks {
   emit: <E extends string>(event: E, ...args: unknown[]) => void;
   persistSession: () => void;
 }
-
-/** Origin of a turn — distinguishes a human prompt from an agent-wakeup (FLOW-002). */
-export type TTurnSource = 'user' | 'agent-wakeup';
 
 /** Options threaded through submit/executePrompt for non-user turns (FLOW-002). */
 export interface ITurnOptions {
