@@ -1,7 +1,8 @@
 ---
 title: 'TEST-008: programmatic agent-control driver — fully drive the real CLI agent (north star)'
-status: largely-done
+status: done
 created: 2026-06-28
+completed: 2026-06-28
 priority: high
 urgency: later
 area: packages/agent-cli, packages/agent-provider (assembly factory + programmatic adapter + replay provider; consumed by the testing package)
@@ -176,4 +177,29 @@ transport-agnostic assembly factory + CLI opt-in.
   back through the committed conversation.
 - Expected: the conversation runs deterministically end-to-end with no network/model key; committed
   turns sit in scrollback, input pinned; matches a real session's behavior.
-- Evidence: _to be filled after implementation._
+- Evidence (2026-06-28): delivered and verified across all three axes; the scenario's automated form
+  is INFRA-018's PTY E2E `replay-conversation.ptytest.ts` — it boots the **built** CLI with
+  `--session-log <fixture>` (replay provider, no model key), sends a message, and asserts the recorded
+  assistant reply renders then **commits to `<Static>` scrollback** while the input stays pinned
+  (`lastIndexOf('Type a message') > indexOf('REPLAYED_ANSWER_42')`) — exactly this scenario. The
+  in-process axis is covered by INFRA-019's `createProgrammaticAgent` (`programmatic-driver.test.ts`,
+  3 tests) driving the real framework loop with structured event capture. Spec docs:
+  `.agents/spec-docs/done/INFRA-017/018/019`.
+
+## Closure (2026-06-28)
+
+North star reached. All three enabling axes shipped and merged to `main`:
+
+- **INFRA-017** — `@robota-sdk/agent-provider-replay` / `ReplayProvider` (provider axis).
+- **INFRA-018** — `robota --session-log <path>` deterministic conversation through the built binary
+  (CLI axis; closed SCREEN-010 TC-02/03 on the real binary).
+- **INFRA-019** — `createProgrammaticAgent` + `ProgrammaticInteractionChannel` in
+  `@robota-sdk/agent-transport/programmatic` (in-process transport axis).
+
+The recording substrate is the session log (resume-complete ⟹ replay-complete; no parallel cassette
+format). The one remaining bullet from "What" — a shared `createCliAgent` assembly factory — was
+**explicitly cancelled by the user** ([[feedback_no_shared_cli_factory]]): `agent-cli` is just one
+assembled product among many (agent-cli-2, embedded hosts), so its preset/provider/command wiring is
+that product's internal concern, not a reusable factory. The reusable layer already exists in
+`agent-framework` (`createInteractiveRuntime`) + `agent-transport` (`createProgrammaticAgent`).
+Nothing outstanding — marking done.
