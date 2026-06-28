@@ -1,3 +1,7 @@
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { UsagePlugin } from '../usage-plugin';
 import { ConfigurationError, PluginError } from '@robota-sdk/agent-core';
@@ -246,10 +250,25 @@ describe('UsagePlugin', () => {
   });
 
   describe('file strategy', () => {
+    // Write to an isolated temp dir, never a relative path: `./usage.json` resolves to the package
+    // cwd and is a git-tracked artifact, so recording into it dirties the working tree and trips the
+    // pre-push clean-tree gate. See common-mistakes.md (tests must not write to tracked files).
+    let fileDir: string;
+    let filePath: string;
+
+    beforeEach(() => {
+      fileDir = mkdtempSync(join(tmpdir(), 'robota-usage-'));
+      filePath = join(fileDir, 'usage.json');
+    });
+
+    afterEach(() => {
+      rmSync(fileDir, { recursive: true, force: true });
+    });
+
     it('creates plugin with file strategy and valid filePath', () => {
       plugin = new UsagePlugin({
         strategy: 'file',
-        filePath: './usage.json',
+        filePath,
         aggregateStats: false,
       });
       expect(plugin.name).toBe('UsagePlugin');
@@ -258,7 +277,7 @@ describe('UsagePlugin', () => {
     it('records usage with file strategy', async () => {
       plugin = new UsagePlugin({
         strategy: 'file',
-        filePath: './usage.json',
+        filePath,
         aggregateStats: false,
       });
       await expect(
