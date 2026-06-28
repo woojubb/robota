@@ -104,4 +104,28 @@ describe('PendingActionPrompt (CMD-004 unified action renderer)', () => {
     await delay();
     expect(onAnswer).toHaveBeenCalledWith({ type: 'cancelled' });
   });
+
+  it('single-select + allowFreeText: "type a custom answer" opens text; Esc returns to picker (not cancel)', async () => {
+    const onAnswer = vi.fn();
+    const request: IActionRequest = {
+      id: 'provider',
+      title: 'Select provider',
+      options: [{ value: 'openai', label: 'OpenAI' }],
+      maxSelect: 1,
+      allowFreeText: true,
+    };
+    const { stdin, lastFrame } = render(
+      <PendingActionPrompt request={request} onAnswer={onAnswer} />,
+    );
+    expect(lastFrame()).toContain('Type a custom answer');
+
+    stdin.write(DOWN); // move to the synthetic "type a custom answer" entry
+    await delay();
+    stdin.write(ENTER); // enter free-text mode
+    await delay();
+    stdin.write(ESC); // Esc here returns to the picker, does NOT cancel the request
+    await delay();
+    expect(onAnswer).not.toHaveBeenCalled();
+    expect(lastFrame()).toContain('OpenAI'); // back at the picker
+  });
 });

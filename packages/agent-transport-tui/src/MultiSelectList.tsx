@@ -2,6 +2,10 @@
  * Multi-select checklist (CMD-004): arrow-key navigation, Space toggles, Enter confirms once the
  * selection count is within [minSelect, maxSelect], Esc cancels. Used by PendingActionPrompt for an
  * IActionRequest whose `maxSelect` > 1.
+ *
+ * Note: unlike ListPicker, this renders all options without a scroll viewport — `IActionRequest`'s
+ * optional `maxVisible` hint is not yet honored here (multi-select lists are typically short). Adding a
+ * viewport is a follow-up if long multi-select lists appear.
  */
 
 import { Box, Text, useInput } from 'ink';

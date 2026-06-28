@@ -23,8 +23,11 @@ interface IPendingActionPromptProps {
   onAnswer: (response: TActionResponse) => void;
 }
 
-/** Synthetic option value for the "type a custom answer" affordance on a single-select with free text. */
-const FREE_TEXT_VALUE = '__free_text__';
+/**
+ * Synthetic "type a custom answer" entry for a single-select with free text. Routed by object identity
+ * (reference equality), not by a magic value — so it can never collide with a real option's `value`.
+ */
+const FREE_TEXT_OPTION: IActionOption = { value: '', label: 'Type a custom answer…' };
 
 export default function PendingActionPrompt({
   request,
@@ -69,9 +72,9 @@ export default function PendingActionPrompt({
     );
   }
 
-  // Single-select, optionally with a "type your own" entry.
+  // Single-select, optionally with a "type your own" entry (routed by identity, see FREE_TEXT_OPTION).
   const pickerItems: IActionOption[] = request.allowFreeText
-    ? [...options, { value: FREE_TEXT_VALUE, label: 'Type a custom answer…' }]
+    ? [...options, FREE_TEXT_OPTION]
     : [...options];
 
   return (
@@ -90,7 +93,7 @@ export default function PendingActionPrompt({
           </Text>
         )}
         onSelect={(option) => {
-          if (option.value === FREE_TEXT_VALUE) {
+          if (option === FREE_TEXT_OPTION) {
             setFreeTextMode(true);
           } else {
             onAnswer({ type: 'answer', values: [option.value] });
