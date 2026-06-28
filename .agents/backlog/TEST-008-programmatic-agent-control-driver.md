@@ -1,6 +1,6 @@
 ---
 title: 'TEST-008: programmatic agent-control driver — fully drive the real CLI agent (north star)'
-status: todo
+status: largely-done
 created: 2026-06-28
 priority: high
 urgency: later
@@ -9,6 +9,23 @@ depends_on: [TEST-007]
 ---
 
 # Programmatic agent-control driver (final target shape)
+
+> **Status update (2026-06-28): north star reached.** All three enabling axes shipped:
+>
+> - **Replay provider** (provider axis) — `@robota-sdk/agent-provider-replay` / `ReplayProvider`
+>   (INFRA-017, done).
+> - **CLI replay flag** — `robota --session-log <path>` drives a deterministic conversation through the
+>   built binary (INFRA-018, done; unblocked SCREEN-010 TC-02/03).
+> - **Programmatic in-process driver** (transport axis) — `createProgrammaticAgent` +
+>   `ProgrammaticInteractionChannel` in `@robota-sdk/agent-transport/programmatic` (INFRA-019, done):
+>   `start`/`send`/`stop` drives a real `InteractiveSession` and reads assistant replies / tool calls /
+>   errors as data, no terminal.
+>
+> **Remaining (optional follow-up, not required for the north star):** the transport-agnostic CLI
+> **assembly factory** `createCliAgent(...)` — extract the CLI's exact preset/provider/command wiring so
+> the programmatic driver can run with production-parity composition (today it wires session +
+> commandModules directly). Invasive CLI-startup refactor; sequence when production-parity in-process
+> driving is actually needed (e.g. INFRA-016 testing-package scenarios). Tracked below under "What" #1.
 
 **North star (user-set, 2026-06-28):** the agent (Claude) must be able to **directly control and freely
 drive the real robota CLI agent at will** — boot it, send messages, run any command, observe streamed

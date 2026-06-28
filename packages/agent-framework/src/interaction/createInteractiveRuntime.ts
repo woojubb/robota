@@ -13,7 +13,7 @@ import type { ICommandModule } from '../command-api/command-module.js';
 import type { IInteractiveSession } from '../interactive/i-interactive-session.js';
 import type { IInteractiveSessionStore } from '../interactive/session-persistence.js';
 import type { IInteractiveSessionEvents } from '../interactive/types.js';
-import type { IAIProvider } from '@robota-sdk/agent-core';
+import type { IAIProvider, TPermissionMode } from '@robota-sdk/agent-core';
 
 export interface IInteractiveRuntimeOptions {
   channel: IInteractionChannel;
@@ -24,6 +24,8 @@ export interface IInteractiveRuntimeOptions {
   cwd?: string;
   /** Session store for persistence. */
   sessionStore?: IInteractiveSessionStore;
+  /** Permission mode for tool execution (parity with the TUI/headless channels). */
+  permissionMode?: TPermissionMode;
   /** Test escape hatch — skips session creation when supplied. */
   _testSession?: IInteractiveSession;
 }
@@ -68,8 +70,11 @@ function wireSessionEvents(session: IInteractiveSession, channel: IInteractionCh
     channel.write({ type: 'assistant-chunk', chunk: delta });
   };
 
-  const onComplete: IInteractiveSessionEvents['complete'] = () => {
-    channel.write({ type: 'assistant-done', fullText });
+  const onComplete: IInteractiveSessionEvents['complete'] = (result) => {
+    // Prefer the authoritative final response from the execution result; fall back to the
+    // accumulated stream deltas (e.g. if a result is unavailable). This keeps assistant-done
+    // correct for both streaming and non-streaming providers.
+    channel.write({ type: 'assistant-done', fullText: result?.response ?? fullText });
     fullText = '';
     channel.setBusy(false);
   };
@@ -169,10 +174,16 @@ export function createInteractiveRuntime(options: IInteractiveRuntimeOptions): I
       if (_testSession) {
         session = _testSession;
       } else {
-        const { provider, cwd, sessionStore } = options;
+        const { provider, cwd, sessionStore, permissionMode } = options;
         if (!provider) throw new Error('createInteractiveRuntime: provider is required');
         if (!cwd) throw new Error('createInteractiveRuntime: cwd is required');
-        session = new InteractiveSession({ provider, cwd, sessionStore, commandModules });
+        session = new InteractiveSession({
+          provider,
+          cwd,
+          sessionStore,
+          commandModules,
+          permissionMode,
+        });
       }
 
       unwireEvents = wireSessionEvents(session, channel);
