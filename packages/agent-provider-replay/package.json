@@ -1,0 +1,47 @@
+{
+  "name": "@robota-sdk/agent-provider-replay",
+  "version": "3.0.0-beta.76",
+  "description": "Deterministic AI provider that replays a recorded Robota session log (offline, no model key)",
+  "type": "module",
+  "main": "dist/node/index.js",
+  "types": "dist/node/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/node/index.d.ts",
+      "node": {
+        "import": "./dist/node/index.js",
+        "require": "./dist/node/index.cjs"
+      },
+      "default": {
+        "import": "./dist/node/index.js",
+        "require": "./dist/node/index.cjs"
+      }
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "build:js": "tsdown --no-dts",
+    "build:types": "tsdown --dts",
+    "test": "vitest run --passWithNoTests",
+    "test:coverage": "vitest run --coverage --passWithNoTests",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src/ --ext .ts",
+    "clean": "rimraf dist"
+  },
+  "dependencies": {
+    "@robota-sdk/agent-core": "workspace:*",
+    "@robota-sdk/agent-session": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.43",
+    "rimraf": "^5.0.10",
+    "tsdown": "^0.22.2",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.6"
+  },
+  "license": "AGPL-3.0-only OR LicenseRef-Commercial",
+  "private": true
+}

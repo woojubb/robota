@@ -108,6 +108,23 @@ context and continue. Replay rides on that same data:
 > **Enrichment rule (user, 2026-06-28):** if the log lacks anything replay needs, **enrich the log** —
 > never add a parallel format. Secrets stay redacted; model outputs are loggable.
 
+### Replay-coverage audit result (2026-06-28): log is already replay-complete — no enrichment needed
+
+`FileSessionLogger` already records the full provider output stream (`session-run.ts`,
+`permission-enforcer.ts`):
+
+- `user { content }` — input
+- `text_delta { delta }` — **streaming deltas** (byte-exact streaming replay possible, not just synth)
+- `tool_call { tool, args }` + `tool_result { … }` — tool execution
+- `assistant { content, history: postHistory }` — final response + the **full post-turn history**
+  (the resume substrate)
+- `context` / `error` / provider events
+
+So a replay provider can re-emit each turn (`text_delta → tool_call → assistant`) verbatim from the
+log. **No session-log enrichment is required.** Remaining TEST-008 work narrows to: the replay
+provider (reads the log JSONL), the programmatic `IInteractionChannel` adapter + driver, and the
+transport-agnostic assembly factory + CLI opt-in.
+
 ## Open design questions (resolve before GATE-WRITE)
 
 - **CLI opt-in for the replay provider:** `--provider replay --session-log <path>` (replay from a
