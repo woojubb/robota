@@ -15,6 +15,7 @@ packages/
 ├── agent-cli/                   # Terminal UI and local runtime adapters
 ├── agent-web-ui/                # Browser React component library for monitoring a CLI session over WebSocket (product shell, browser-only)
 ├── agent-provider/              # Provider packages: anthropic, openai, openai-compatible, deepseek, gemma, qwen, gemini, google, bytedance
+├── agent-provider-*/            # Provider-family variants (e.g. agent-provider-replay: deterministic session-log replay provider; depends on agent-core + agent-session)
 ├── agent-playground/            # Playground UI package
 ├── agent-remote-client/         # Remote execution client
 ├── agent-interface-*/           # Interface/contract packages: pure type contracts with no implementation (e.g. agent-interface-transport)
