@@ -53,4 +53,27 @@ describe('terminal handoff through the real binary (TERM-003)', () => {
     // The TUI reclaims the screen: the prompt frame redraws (clean resume, no hang).
     await session.waitFor(/Type a message or \/help/, 20_000);
   }, 60_000);
+
+  it('TC-04/TC-01: committed history (Static) is not re-printed after a /shell handoff (SCREEN-010 × TERM-002)', async () => {
+    session = spawnTui({ projectDir, homeDir: join(projectDir, 'home') });
+
+    await session.waitFor(/Type a message or \/help/);
+    await session.waitFor(/Idle/);
+
+    // The startup banner is committed to the terminal scrollback via a single Ink <Static> (TC-01).
+    // Count its version line; if the handoff resume re-emitted committed history, it would re-print.
+    const versionRe = /v\d+\.\d+\.\d+/g;
+    const beforeCount = (session.snapshot().match(versionRe) ?? []).length;
+    expect(beforeCount).toBeGreaterThanOrEqual(1);
+
+    await session.sendKeys('/shell echo HANDOFF_OK');
+    await session.pressEnter();
+    await session.waitFor(/HANDOFF_OK/, 20_000);
+    await session.waitFor(/Type a message or \/help/, 20_000);
+
+    // SCREEN-010 keeps <Static> mounted at a stable tree position across suspend/resume, so the
+    // committed banner is NOT re-printed on return (TC-04).
+    const afterCount = (session.snapshot().match(versionRe) ?? []).length;
+    expect(afterCount).toBe(beforeCount);
+  }, 60_000);
 });

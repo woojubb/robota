@@ -156,7 +156,7 @@ describe('TuiStateManager', () => {
     expect(mgr.history).toHaveLength(2);
   });
 
-  it('addEntry windows to MAX_RENDERED_MESSAGES', () => {
+  it('addEntry is append-only — no windowing (SCREEN-010)', () => {
     const mgr = new TuiStateManager();
     for (let i = 0; i < 110; i++) {
       mgr.addEntry({
@@ -167,18 +167,33 @@ describe('TuiStateManager', () => {
         data: { content: `msg ${i}` },
       } as never);
     }
-    expect(mgr.history).toHaveLength(100);
+    // No front-slicing: committed history must stay append-only so Ink <Static> can render it.
+    expect(mgr.history).toHaveLength(110);
+    expect(mgr.history[0]!.id).toBe('0');
   });
 
-  it('syncMessages replaces all messages', () => {
+  it('syncHistory replaces with the authoritative session history — no windowing (SCREEN-010)', () => {
     const mgr = new TuiStateManager();
-    mgr.addEntry({ role: 'user', content: 'old' } as never);
+    mgr.addEntry({ id: 'old', timestamp: new Date(), category: 'chat', type: 'user' } as never);
+    // syncHistory is the SSOT replace: the session's full (growing) history becomes the committed list.
     mgr.syncHistory([
-      { role: 'user', content: 'new1' } as never,
-      { role: 'assistant', content: 'new2' } as never,
+      { id: 'new1', timestamp: new Date(), category: 'chat', type: 'user' } as never,
+      { id: 'new2', timestamp: new Date(), category: 'chat', type: 'assistant' } as never,
     ]);
-    expect(mgr.history).toHaveLength(2);
-    expect((mgr.history[0]! as unknown as { content: string }).content).toBe('new1');
+    expect(mgr.history.map((e) => e.id)).toEqual(['new1', 'new2']);
+  });
+
+  it('TC-09: syncHistory keeps the full session history without front-truncation', () => {
+    const mgr = new TuiStateManager();
+    const entries = Array.from(
+      { length: 250 },
+      (_, i) => ({ id: `${i}`, timestamp: new Date(), category: 'chat', type: 'user' }) as never,
+    );
+    mgr.syncHistory(entries);
+    // No MAX cap: the committed list must keep every entry so Ink <Static> renders the growing tail.
+    expect(mgr.history).toHaveLength(250);
+    expect(mgr.history[0]!.id).toBe('0');
+    expect(mgr.history[249]!.id).toBe('249');
   });
 
   // ── onChange notification ──────────────────────────────────────

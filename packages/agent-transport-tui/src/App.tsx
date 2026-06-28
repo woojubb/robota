@@ -18,7 +18,7 @@ import { useTerminalHandoffSuspension } from './hooks/useTerminalHandoffSuspensi
 import { useTuiChannel } from './hooks/useTuiChannel.js';
 import InputArea from './InputArea.js';
 import InteractivePrompt from './InteractivePrompt.js';
-import MessageList from './MessageList.js';
+import { EntryItem } from './MessageList.js';
 import PermissionPrompt from './PermissionPrompt.js';
 import PluginTUI from './PluginTUI.js';
 import SessionPicker from './SessionPicker.js';
@@ -30,6 +30,7 @@ import UpdateNotice from './UpdateNotice.js';
 
 import type { ITuiCliAdapter } from './tui-cli-adapter.js';
 import type { TuiInteractionChannel } from './TuiInteractionChannel.js';
+import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type { TPermissionMode } from '@robota-sdk/agent-core';
 import type {
   IExecutionDetailPage,
@@ -37,6 +38,14 @@ import type {
   IInteractiveSessionStore,
   ITransportRegistryView,
 } from '@robota-sdk/agent-interface-transport';
+
+/**
+ * SCREEN-010: items committed to the terminal scrollback via a single Ink `<Static>` — the startup
+ * banner followed by the append-only conversation history. Static renders each item exactly once.
+ */
+type TStaticItem =
+  | { readonly kind: 'banner'; readonly version: string }
+  | { readonly kind: 'entry'; readonly entry: IHistoryEntry };
 
 interface IProps {
   cwd: string;
@@ -365,137 +374,151 @@ function AppInner(
     // Not yet initialized
   }
 
-  // TERM-002: while a terminal handoff is active, render nothing so Ink unmounts its input hooks and
-  // releases raw mode, handing the real terminal to the child process. Session/UI state is preserved
-  // (the component stays mounted); the App re-renders when the handoff completes.
-  if (handoffSuspended) {
-    return <Box />;
-  }
+  // SCREEN-010: banner + append-only conversation history are committed to the terminal scrollback
+  // via a single Ink <Static> (each item rendered exactly once). The live region below is the only
+  // dynamic part. During a terminal handoff (handoffSuspended) the live region is omitted so Ink
+  // unmounts its input hooks and releases raw mode (TERM-002) — but <Static> stays mounted at the
+  // same tree position, so it does NOT re-print the whole history on resume.
+  const staticItems: TStaticItem[] = useMemo(
+    () => [
+      { kind: 'banner', version: props.version ?? '0.0.0' },
+      ...history.map((entry): TStaticItem => ({ kind: 'entry', entry })),
+    ],
+    [history, props.version],
+  );
 
   return (
     <Box flexDirection="column">
-      <Static items={[{ version: props.version ?? '0.0.0' }]}>
-        {(item) => (
-          <Box key="logo" flexDirection="column" paddingX={1} marginBottom={1}>
-            <Text color="cyan" bold>{`
+      <Static items={staticItems}>
+        {(item) =>
+          item.kind === 'banner' ? (
+            <Box key="logo" flexDirection="column" paddingX={1} marginBottom={1}>
+              <Text color="cyan" bold>{`
   ____   ___  ____   ___ _____  _
  |  _ \\ / _ \\| __ ) / _ \\_   _|/ \\
  | |_) | | | |  _ \\| | | || | / _ \\
  |  _ <| |_| | |_) | |_| || |/ ___ \\
  |_| \\_\\\\___/|____/ \\___/ |_/_/   \\_\\
 `}</Text>
-            <Text dimColor> v{item.version}</Text>
-          </Box>
-        )}
-      </Static>
-      {updateNotice && <UpdateNotice message={updateNotice} />}
-      <Box flexDirection="column" paddingX={1} flexGrow={1}>
-        {selectedExecutionEntry && selectedExecutionEntry.kind !== 'main_thread' ? (
-          <ExecutionWorkspaceDetailPane
-            entry={selectedExecutionEntry}
-            page={executionDetailPage}
-            loading={isExecutionDetailLoading}
-            error={executionDetailError}
-          />
-        ) : (
-          <MessageList history={history} />
-        )}
-        {isShuttingDown && (
-          <Box marginBottom={1}>
-            <Text color="yellow">Shutting down...</Text>
-          </Box>
-        )}
-        {(isThinking || activeTools.length > 0) && (
-          <Box flexDirection="column" marginBottom={1}>
-            <StreamingIndicator
-              text={streamingText}
-              activeTools={activeTools}
-              isThinking={isThinking}
-            />
-          </Box>
-        )}
-        <BackgroundTaskPanel entries={backgroundWorkspaceEntries} />
-      </Box>
-      {showExecutionWorkspaceSwitcher && (
-        <ExecutionWorkspaceSwitcher
-          snapshot={executionWorkspaceSnapshot}
-          selectedEntryId={selectedExecutionEntryId}
-          onSelect={selectExecutionWorkspaceEntry}
-          onClose={() => setShowExecutionWorkspaceSwitcher(false)}
-        />
-      )}
-      {permissionRequest && <PermissionPrompt request={permissionRequest} />}
-      {pendingInteractionPrompt && (
-        <InteractivePrompt
-          prompt={pendingInteractionPrompt}
-          onSubmit={handleInteractionSubmit}
-          onCancel={handleInteractionCancel}
-        />
-      )}
-      {showPluginTUI && (
-        <PluginTUI
-          callbacks={pluginCallbacks}
-          onClose={() => setShowPluginTUI(false)}
-          addMessage={(msg) => addEntry(messageToHistoryEntry(createSystemMessage(msg.content)))}
-        />
-      )}
-      {showTransportTUI && props.transportRegistry && (
-        <TransportTUI
-          registry={props.transportRegistry}
-          onClose={() => setShowTransportTUI(false)}
-        />
-      )}
-      {showSessionPicker && (
-        <SessionPicker
-          sessions={listResumableSessionSummaries(props.sessionStore, props.cwd)}
-          onSelect={(id) => {
-            setShowSessionPicker(false);
-            props.onSessionSwitch(id);
-          }}
-          onCancel={() => {
-            setShowSessionPicker(false);
-            addEntry(messageToHistoryEntry(createSystemMessage('Session resume cancelled.')));
-          }}
-        />
-      )}
-      <ContextWarningBanner percentage={contextState.percentage} />
-      <InputArea
-        onSubmit={handleSubmitWithGitRefresh}
-        onCancelQueue={handleCancelQueue}
-        isDisabled={
-          !!permissionRequest ||
-          showPluginTUI ||
-          showTransportTUI ||
-          showSessionPicker ||
-          showExecutionWorkspaceSwitcher ||
-          isShuttingDown ||
-          pendingInteractionPrompt !== null ||
-          (isThinking && !!pendingPrompt) ||
-          !isSelectedEntryInteractive
+              <Text dimColor> v{item.version}</Text>
+            </Box>
+          ) : (
+            <EntryItem key={item.entry.id} entry={item.entry} />
+          )
         }
-        isAborting={isAborting}
-        pendingPrompt={pendingPrompt}
-        registry={registry}
-        sessionName={sessionName}
-        history={history}
-      />
-      <SessionStatusBar
-        cwd={cwd}
-        permissionMode={permissionMode}
-        modelId={props.modelId}
-        providerType={props.providerType}
-        sessionId={sessionId}
-        isThinking={isThinking}
-        activeToolCount={activeTools.length}
-        activeBackgroundTaskCount={activeBackgroundTaskCount}
-        hasPendingPrompt={pendingPrompt !== null}
-        contextState={contextState}
-        sessionName={sessionName}
-        settings={statusLineSettings}
-        activeAgentLabel={activeAgentLabel}
-        activePresetId={activePresetId}
-        gitRefreshToken={gitRefreshToken}
-      />
+      </Static>
+      {!handoffSuspended && (
+        <>
+          {updateNotice && <UpdateNotice message={updateNotice} />}
+          <Box flexDirection="column" paddingX={1} flexGrow={1}>
+            {selectedExecutionEntry && selectedExecutionEntry.kind !== 'main_thread' && (
+              <ExecutionWorkspaceDetailPane
+                entry={selectedExecutionEntry}
+                page={executionDetailPage}
+                loading={isExecutionDetailLoading}
+                error={executionDetailError}
+              />
+            )}
+            {isShuttingDown && (
+              <Box marginBottom={1}>
+                <Text color="yellow">Shutting down...</Text>
+              </Box>
+            )}
+            {(isThinking || activeTools.length > 0) && (
+              <Box flexDirection="column" marginBottom={1}>
+                <StreamingIndicator
+                  text={streamingText}
+                  activeTools={activeTools}
+                  isThinking={isThinking}
+                />
+              </Box>
+            )}
+            <BackgroundTaskPanel entries={backgroundWorkspaceEntries} />
+          </Box>
+          {showExecutionWorkspaceSwitcher && (
+            <ExecutionWorkspaceSwitcher
+              snapshot={executionWorkspaceSnapshot}
+              selectedEntryId={selectedExecutionEntryId}
+              onSelect={selectExecutionWorkspaceEntry}
+              onClose={() => setShowExecutionWorkspaceSwitcher(false)}
+            />
+          )}
+          {permissionRequest && <PermissionPrompt request={permissionRequest} />}
+          {pendingInteractionPrompt && (
+            <InteractivePrompt
+              prompt={pendingInteractionPrompt}
+              onSubmit={handleInteractionSubmit}
+              onCancel={handleInteractionCancel}
+            />
+          )}
+          {showPluginTUI && (
+            <PluginTUI
+              callbacks={pluginCallbacks}
+              onClose={() => setShowPluginTUI(false)}
+              addMessage={(msg) =>
+                addEntry(messageToHistoryEntry(createSystemMessage(msg.content)))
+              }
+            />
+          )}
+          {showTransportTUI && props.transportRegistry && (
+            <TransportTUI
+              registry={props.transportRegistry}
+              onClose={() => setShowTransportTUI(false)}
+            />
+          )}
+          {showSessionPicker && (
+            <SessionPicker
+              sessions={listResumableSessionSummaries(props.sessionStore, props.cwd)}
+              onSelect={(id) => {
+                setShowSessionPicker(false);
+                props.onSessionSwitch(id);
+              }}
+              onCancel={() => {
+                setShowSessionPicker(false);
+                addEntry(messageToHistoryEntry(createSystemMessage('Session resume cancelled.')));
+              }}
+            />
+          )}
+          <ContextWarningBanner percentage={contextState.percentage} />
+          <InputArea
+            onSubmit={handleSubmitWithGitRefresh}
+            onCancelQueue={handleCancelQueue}
+            isDisabled={
+              !!permissionRequest ||
+              showPluginTUI ||
+              showTransportTUI ||
+              showSessionPicker ||
+              showExecutionWorkspaceSwitcher ||
+              isShuttingDown ||
+              pendingInteractionPrompt !== null ||
+              (isThinking && !!pendingPrompt) ||
+              !isSelectedEntryInteractive
+            }
+            isAborting={isAborting}
+            pendingPrompt={pendingPrompt}
+            registry={registry}
+            sessionName={sessionName}
+            history={history}
+          />
+          <SessionStatusBar
+            cwd={cwd}
+            permissionMode={permissionMode}
+            modelId={props.modelId}
+            providerType={props.providerType}
+            sessionId={sessionId}
+            isThinking={isThinking}
+            activeToolCount={activeTools.length}
+            activeBackgroundTaskCount={activeBackgroundTaskCount}
+            hasPendingPrompt={pendingPrompt !== null}
+            contextState={contextState}
+            sessionName={sessionName}
+            settings={statusLineSettings}
+            activeAgentLabel={activeAgentLabel}
+            activePresetId={activePresetId}
+            gitRefreshToken={gitRefreshToken}
+          />
+        </>
+      )}
     </Box>
   );
 }
