@@ -41,6 +41,18 @@
         "import": "./dist/node/testing/index.js",
         "require": "./dist/node/testing/index.cjs"
       }
+    },
+    "./programmatic": {
+      "types": "./dist/node/programmatic/index.d.ts",
+      "source": "./src/programmatic/index.ts",
+      "node": {
+        "import": "./dist/node/programmatic/index.js",
+        "require": "./dist/node/programmatic/index.cjs"
+      },
+      "default": {
+        "import": "./dist/node/programmatic/index.js",
+        "require": "./dist/node/programmatic/index.cjs"
+      }
     }
   },
   "repository": {

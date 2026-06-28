@@ -7,6 +7,10 @@ split by concern; this package owns only the **dependency-free core**:
 
 - Headless transport (`/headless`): non-interactive print/JSON/stream-json runner — `HeadlessInteractionChannel`, `createHeadlessRunner`, `PrintTerminal`, `promptInput`, `createHeadlessTransport`.
 - Transport registry (root): `TransportRegistry` — settings-backed enable/disable of `IConfigurableTransport` instances.
+- Programmatic driver (`/programmatic`): an in-process `IInteractionChannel` adapter
+  (`ProgrammaticInteractionChannel`) + `createProgrammaticAgent` driver — drive the real agent
+  structurally (`start`/`send`/`stop`, read assistant replies / tool calls / errors as data) with no
+  terminal, no PTY, no scraping.
 - Testing fixtures (`/testing`): `createScriptedProvider` deterministic provider for transport/CLI tests.
 
 The per-concern transport implementations live in their own packages: `@robota-sdk/agent-transport-tui`
@@ -36,7 +40,20 @@ agent-transport/src
     print-terminal.ts           ← PrintTerminal, promptInput
   testing/
     scripted-provider.ts        ← createScriptedProvider (test-only, via /testing subpath)
+  programmatic/
+    ProgrammaticInteractionChannel.ts ← in-process IInteractionChannel adapter (event buffer + action queue)
+    createProgrammaticAgent.ts  ← driver over createInteractiveRuntime (start/send/stop + accessors)
 ```
+
+### Programmatic driving
+
+`createProgrammaticAgent({ provider, cwd, commandModules?, sessionStore?, permissionMode? })` wires a
+`ProgrammaticInteractionChannel` to a real `InteractiveSession` via `createInteractiveRuntime`.
+`send(text)` pushes a user submission and awaits the whole turn; the channel records the framework's
+one-way `InteractionEvent` stream into `events`, which the driver exposes as `assistantReplies()`,
+`lastAssistantText()`, `toolCalls()`, and `errors()`. `queueAction(response)` pre-answers a
+disambiguation `requestAction` (an empty queue resolves `{ type: 'cancelled' }`, so a run never
+deadlocks). This is the in-process form of "drive the agent at will" (TEST-008).
 
 ### Headless lifecycle
 
@@ -46,12 +63,14 @@ is selected by the runner options.
 
 ## 4. Type Ownership
 
-| Type                                 | File                                         | Description                                  |
-| ------------------------------------ | -------------------------------------------- | -------------------------------------------- |
-| `IHeadlessInteractionChannelOptions` | `src/headless/HeadlessInteractionChannel.ts` | Constructor options for the headless channel |
-| `IHeadlessRunnerOptions`             | `src/headless/headless-runner.ts`            | Options for `createHeadlessRunner`           |
-| `TOutputFormat`                      | `src/headless/headless-runner.ts`            | `'text' \| 'json' \| 'stream-json'`          |
-| `IHeadlessTransportOptions`          | `src/headless/headless-transport.ts`         | Options for `createHeadlessTransport`        |
+| Type                                 | File                                          | Description                                  |
+| ------------------------------------ | --------------------------------------------- | -------------------------------------------- |
+| `IHeadlessInteractionChannelOptions` | `src/headless/HeadlessInteractionChannel.ts`  | Constructor options for the headless channel |
+| `IHeadlessRunnerOptions`             | `src/headless/headless-runner.ts`             | Options for `createHeadlessRunner`           |
+| `TOutputFormat`                      | `src/headless/headless-runner.ts`             | `'text' \| 'json' \| 'stream-json'`          |
+| `IHeadlessTransportOptions`          | `src/headless/headless-transport.ts`          | Options for `createHeadlessTransport`        |
+| `ICreateProgrammaticAgentOptions`    | `src/programmatic/createProgrammaticAgent.ts` | Options for `createProgrammaticAgent`        |
+| `IProgrammaticAgent`                 | `src/programmatic/createProgrammaticAgent.ts` | The in-process driver surface                |
 
 ## 5. Public API Surface
 
@@ -69,6 +88,15 @@ is selected by the runner options.
 | `createHeadlessTransport`            | function   | Returns `ITransportAdapter & { getExitCode(): number }` wrapping `createHeadlessRunner`                  |
 | `IHeadlessTransportOptions`          | interface  | Options for `createHeadlessTransport`                                                                    |
 
+### `/programmatic`
+
+| Export                            | Kind      | Description                                                                                       |
+| --------------------------------- | --------- | ------------------------------------------------------------------------------------------------- |
+| `ProgrammaticInteractionChannel`  | class     | In-process `IInteractionChannel` adapter: buffers `InteractionEvent`s, FIFO action-response queue |
+| `createProgrammaticAgent`         | function  | Driver over `createInteractiveRuntime`: `start`/`send`/`stop` + structured accessors              |
+| `ICreateProgrammaticAgentOptions` | interface | `{ provider, cwd, commandModules?, sessionStore?, permissionMode? }`                              |
+| `IProgrammaticAgent`              | interface | Driver surface: `events`, `send`, `assistantReplies`, `lastAssistantText`, `toolCalls`, `errors`  |
+
 ### `/testing`
 
 | Export                                | Kind     | Description                                                      |
@@ -78,10 +106,10 @@ is selected by the runner options.
 
 ### Root (`@robota-sdk/agent-transport`)
 
-| Export                        | Kind  | Description                                                          |
-| ----------------------------- | ----- | -------------------------------------------------------------------- |
-| `TransportRegistry`           | class | Settings-backed enable/disable registry of `IConfigurableTransport`s |
-| (plus `/headless` re-exports) |       | The root barrel also re-exports the headless surface                 |
+| Export                                          | Kind  | Description                                                          |
+| ----------------------------------------------- | ----- | -------------------------------------------------------------------- |
+| `TransportRegistry`                             | class | Settings-backed enable/disable registry of `IConfigurableTransport`s |
+| (plus `/headless` + `/programmatic` re-exports) |       | The root barrel also re-exports the headless + programmatic surfaces |
 
 ## 6. Extension Points
 
