@@ -135,4 +135,40 @@ describe('preset command module', () => {
     }
     expect(setActivePresetId).not.toHaveBeenCalled();
   });
+
+  it('CMD-004: asks the user to pick a preset when none is given, then switches', async () => {
+    const setActivePresetId = vi.fn();
+    const setPermissionMode = vi.fn();
+    const applyModelOptions = vi.fn();
+    const runtime = createSessionRuntime({
+      setActivePresetId,
+      setPermissionMode,
+      applyModelOptions,
+    });
+    const context = createCommandHostContext(runtime, {
+      getUserInteraction: () => ({
+        ask: async () => ({ type: 'answer', values: ['careful-reviewer'] }),
+      }),
+    });
+
+    const result = await executePresetCommand(context, '');
+
+    expect(result.success).toBe(true);
+    expect(result.message).toBe('Switched to preset: careful-reviewer');
+    expect(setActivePresetId).toHaveBeenCalledWith('careful-reviewer');
+  });
+
+  it('CMD-004: shows the preset list when the pick is cancelled', async () => {
+    const setActivePresetId = vi.fn();
+    const runtime = createSessionRuntime({ setActivePresetId });
+    const context = createCommandHostContext(runtime, {
+      getUserInteraction: () => ({ ask: async () => ({ type: 'cancelled' }) }),
+    });
+
+    const result = await executePresetCommand(context, '');
+
+    expect(result.success).toBe(true);
+    expect(result.message).toContain('Available presets:');
+    expect(setActivePresetId).not.toHaveBeenCalled();
+  });
 });
