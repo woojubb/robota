@@ -9,10 +9,13 @@ depends_on: [TERM-001]
 ---
 
 > Implementation landed (TerminalHandoffController + App suspend gate + render/channel wiring;
-> controller logic unit-tested). **Not done**: the real Ink raw-mode release + child TTY handoff +
-> restore can only be validated on a live interactive terminal, which the CI/sandbox cannot drive.
-> The User Execution smoke (manual restore-after-handoff, no stale frame / raw-mode artifact) is the
-> remaining gate — evidence pending a manual run on a real terminal.
+> controller logic unit-tested). The real Ink raw-mode release + child TTY handoff + restore are now
+> validated by an automated PTY E2E (TEST-007), which also **surfaced and fixed a real product bug**:
+> the controller's empty-render suspend did not release the parent's stdin TTY handle, so a lingering
+> raw-mode read both stole the child's input and starved the parent event loop — the inherited child's
+> exit was never observed and `runWithTerminal` hung forever (the TUI would never resume after
+> `/shell`). Fixed in `terminal-handoff-controller.ts` by explicitly dropping raw mode + pausing the
+> parent stdin around the handoff (Ink re-grabs it on resume). See "Evidence" below.
 
 # TUI implementation of the terminal-handoff port
 
@@ -88,4 +91,20 @@ release and reclaim the screen on request. Headless/plain transports implement t
 ## User Execution Test Scenarios
 
 Covered by the consumer items (TERM-003/004/005). This item's own evidence is the TUI test plus a
-manual restore-after-handoff smoke (no leftover alternate-screen / raw-mode state).
+restore-after-handoff smoke (no leftover alternate-screen / raw-mode state), now automated by the
+TEST-007 PTY harness.
+
+## Evidence (2026-06-28)
+
+- **Real bug found + fixed.** A PTY repro (`terminal-handoff-pty-e2e.test.ts` via TEST-007) showed
+  `runWithTerminal` never returning after the child exited (≈30s hang). Root cause isolated: the
+  parent process kept a raw-mode TTY read on stdin (empty-render suspend only unmounts Ink's React
+  input hooks; it does not pause the underlying stdin handle), which stole the child's input and
+  starved the parent event loop so the child's `exit` was never observed. Fix:
+  `terminal-handoff-controller.ts` now `setRawMode(false)` + `stdin.pause()` before the handoff and
+  relies on Ink re-grabbing stdin on resume.
+- **Automated proof on a real TTY:** `src/__tests__/terminal-handoff-pty-e2e.test.ts` — under a
+  pseudo-terminal, `canHandoffTerminal === true`, the inherited child receives the driver's
+  keystrokes (`CHILD_GOT:[hello-from-pty]`), `runWithTerminal` returns, and the App resumes
+  (`RESUMED exit=0`); full cycle ≈1.3s. Controller unit tests (`terminal-handoff-controller.test.ts`,
+  4 tests) and the full TUI suite (393 tests) stay green; `pnpm harness:scan` green.

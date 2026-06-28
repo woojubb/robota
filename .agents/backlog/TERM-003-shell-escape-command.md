@@ -51,4 +51,15 @@ agent should not drive) without killing the session. Today there is no way to do
 - Expected: the subshell shows the session cwd and is fully interactive; on `exit` the TUI restores
   cleanly (no stale frame / raw-mode / cursor artifacts) and the session continues.
 - Cleanup: exit the TUI.
-- Evidence: _to be filled after implementation._
+- Evidence (2026-06-28): automated real-TTY proof via the TEST-007 PTY harness —
+  `src/__tests__/command-handoff-pty-e2e.test.ts` ("/shell runs a one-shot command on the real
+  terminal and returns its exit code") drives the real `executeShellCommand` through the real
+  `TerminalHandoffController` under a pseudo-terminal: the subshell receives the driver's keystrokes
+  (`SHELL_GOT:[shell-input]`), exits 0, and the App resumes (no hang — see the TERM-002 controller
+  fix). Framework functional test (fake handoff) + this PTY E2E + `pnpm harness:scan` green.
+- **Real-binary user-execution evidence:** `src/__tests__/pty/terminal-handoff.ptytest.ts` (TC-09,
+  `test:pty` project) boots the **built** robota CLI in a PTY, types `/shell echo HANDOFF_REAL_OK`
+  like a user, and asserts the child's output appears on the real terminal **and** the TUI prompt
+  frame redraws (clean resume, no hang) — the whole path: CLI → command pipeline → injected
+  `TerminalHandoffController` → handoff. (A user-typed command is not permission-gated; that gate is
+  for model/agent-invoked actions.)

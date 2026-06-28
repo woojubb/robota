@@ -42,4 +42,10 @@ standard solution and reuses TERM-001.
 - Expected: the editor opens with the real terminal, the saved text becomes the prompt/message, the
   TUI restores cleanly; canceling (quit without save / empty) leaves the buffer unchanged.
 - Cleanup: temp file removed; exit the TUI.
-- Evidence: _to be filled after implementation._
+- Evidence (2026-06-28): automated real-TTY proof via the TEST-007 PTY harness —
+  `src/__tests__/command-handoff-pty-e2e.test.ts` ("/editor opens $EDITOR on the real terminal and
+  round-trips the composed text") drives the real `executeEditorCommand` through the real
+  `TerminalHandoffController` under a pseudo-terminal with a scripted `$EDITOR` that reads a line from
+the inherited TTY: the typed text (`composed-in-editor`) round-trips back as the command result and
+the App resumes cleanly. Framework functional test (fake handoff/editor) + this PTY E2E +
+`pnpm harness:scan` green.

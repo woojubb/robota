@@ -58,10 +58,19 @@ export class TerminalHandoffController implements ITerminalHandoff {
     }
     await hooks.suspend();
     this.instance?.clear();
+    // Releasing Ink's React input hooks (empty render) is not enough: the parent process still holds
+    // a raw-mode TTY read on stdin, which (a) steals input from the inherited child and (b) starves
+    // the parent event loop so the child's exit is never observed — the handoff would hang forever.
+    // Explicitly hand stdin to the child by dropping raw mode and pausing the parent's reader; Ink
+    // re-grabs stdin (raw mode + resume) when its input hooks re-mount on resume.
+    const stdin = process.stdin;
+    if (stdin.isTTY && typeof stdin.setRawMode === 'function') stdin.setRawMode(false);
+    stdin.pause();
     try {
       return await fn();
     } finally {
-      // Always reclaim the screen, even when the child failed.
+      // Always reclaim the screen, even when the child failed. Re-rendering re-mounts the input
+      // hooks, which is what restores raw mode and resumes the parent's stdin reader.
       hooks.resume();
     }
   }
