@@ -22,9 +22,9 @@ import type {
   IAIProvider,
   IContextWindowState,
   IToolWithEventService,
+  IUserInteraction,
   TToolArgs,
 } from '@robota-sdk/agent-core';
-import type { IUserInteraction } from '@robota-sdk/agent-core';
 import type { ITerminalHandoff } from '@robota-sdk/agent-interface-transport';
 import type { ICompactEvent } from '@robota-sdk/agent-session';
 import type { Session } from '@robota-sdk/agent-session';
