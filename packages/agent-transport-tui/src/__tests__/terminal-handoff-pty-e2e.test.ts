@@ -18,9 +18,9 @@ import { fileURLToPath } from 'node:url';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { spawnPtyFixture } from './pty/spawn-pty.js';
+import { spawnPtyFixture } from '@robota-sdk/agent-testing';
 
-import type { IPtyRunSession } from './pty/spawn-pty.js';
+import type { IPtyRunSession } from '@robota-sdk/agent-testing';
 
 const FIXTURE = fileURLToPath(new URL('./fixtures/terminal-handoff-driver.tsx', import.meta.url));
 const PACKAGE_DIR = fileURLToPath(new URL('../..', import.meta.url));

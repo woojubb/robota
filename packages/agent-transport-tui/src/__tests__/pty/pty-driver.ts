@@ -10,9 +10,9 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
-import { spawnPty } from './spawn-pty.js';
+import { spawnPty } from '@robota-sdk/agent-testing';
 
-import type { IPtyRunSession } from './spawn-pty.js';
+import type { IPtyRunSession } from '@robota-sdk/agent-testing';
 
 const REPO_ROOT = resolve(__dirname, '../../../../..');
 const ROBOTA_BIN = join(REPO_ROOT, 'packages/agent-cli/bin/robota.cjs');

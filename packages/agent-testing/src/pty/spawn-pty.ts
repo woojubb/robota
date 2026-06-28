@@ -1,14 +1,14 @@
 /**
- * TEST-007: shared PTY harness.
+ * Shared PTY harness (TEST-007; relocated to @robota-sdk/agent-testing by INFRA-016).
  *
- * One reusable pseudo-terminal driver for TUI end-to-end tests. Spawns a process in a real PTY (via
+ * One reusable pseudo-terminal driver for end-to-end tests. Spawns a process in a real PTY (via
  * the prebuilt `@homebridge/node-pty-prebuilt-multiarch`, so Ink renders and reads input exactly as
  * in a user terminal) and exposes per-key paced input plus marker/exit waiting. Two convenience
  * spawners build on the core:
  *
  * - `spawnPty` — drive any command (e.g. the built robota CLI binary).
  * - `spawnPtyFixture` — drive a TSX fixture through the `tsx/esm` import hook (no build step),
- *   the pattern used for focused source-level E2E (see `provider-setup-pty-e2e`).
+ *   the pattern used for focused source-level E2E.
  *
  * Per-key pacing matters: a burst write is bundled by the terminal as a bracketed paste, which is the
  * exact failure mode this harness exists to avoid.
@@ -136,6 +136,7 @@ export function spawnPty(options: IPtyRunOptions): IPtyRunSession {
         pty.kill();
       } catch {
         // allow-fallback: process already exited — kill on a dead pty is a no-op by design
+        /* no-op */
       }
     },
   };
