@@ -3,11 +3,7 @@ import { listPresets } from '@robota-sdk/agent-preset';
 import { executePresetCommand } from './preset-command.js';
 
 import type { ICommandModule, ISystemCommand } from '@robota-sdk/agent-framework';
-import type {
-  ICommand,
-  TCommandInteractionHint,
-  ICommandSource,
-} from '@robota-sdk/agent-interface-transport';
+import type { ICommand, ICommandSource } from '@robota-sdk/agent-interface-transport';
 
 const PRESET_COMMAND_DESCRIPTION = 'List presets or switch the active preset';
 const PRESET_ARGUMENT_HINT = 'list | <preset-id>';
@@ -57,23 +53,10 @@ export class PresetCommandSource implements ICommandSource {
   }
 }
 
-const PRESET_INTERACTION_HINTS: Record<string, TCommandInteractionHint> = {
-  preset: {
-    type: 'pick',
-    getItems: () =>
-      buildPresetSubcommands().map((sub) => ({
-        label: sub.name,
-        value: sub.name,
-        description: sub.description,
-      })),
-  },
-};
-
 export function createPresetCommandModule(): ICommandModule {
   return {
     name: 'agent-command-preset',
     commandSources: [new PresetCommandSource()],
     systemCommands: [createPresetSystemCommand()],
-    interactionHints: PRESET_INTERACTION_HINTS,
   };
 }
