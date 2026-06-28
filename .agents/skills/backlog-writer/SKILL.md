@@ -179,6 +179,11 @@ Minimum 2 alternatives. For each: one-line description + Pro + Con.
 
 Which alternative was chosen and why. Reference the trade-off.
 
+For a **contract-boundary or wide-blast-radius** change, the Decision must also record that the chosen
+design was **validated** before approval — reachability by every consumer (incl. dependent/planned),
+capability preservation vs. any replaced contract, and an adversarial pass over its failure modes. See
+[spec-workflow.md](../../rules/spec-workflow.md) "Validated Recommendation Before Approval".
+
 #### `### Architecture Review Checklist`
 
 All 4 items must be `[x]` before GATE-WRITE can pass:
