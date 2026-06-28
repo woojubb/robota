@@ -1,18 +1,18 @@
 /**
- * TEST-007: self-test for the shared PTY harness.
+ * TEST-007: self-test for the shared PTY harness (relocated to @robota-sdk/agent-testing by INFRA-016).
  *
  * Drives a trivial process (no fixture needed) through `spawnPty` to pin the harness contract:
  * `waitFor` resolves on a printed marker, `expectExit` returns the real exit code, and
- * `snapshot()`/`raw()` capture output. The terminal-handoff suites are the harness's real-world
- * consumers; this guards the harness itself.
+ * `snapshot()`/`raw()` capture output. The terminal-handoff suites (in agent-transport-tui) are the
+ * harness's real-world consumers; this guards the harness itself.
  */
 import { fileURLToPath } from 'node:url';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { spawnPty } from './spawn-pty.js';
+import { spawnPty } from '../spawn-pty.js';
 
-import type { IPtyRunSession } from './spawn-pty.js';
+import type { IPtyRunSession } from '../spawn-pty.js';
 
 const PACKAGE_DIR = fileURLToPath(new URL('../../..', import.meta.url));
 const sessions: IPtyRunSession[] = [];
