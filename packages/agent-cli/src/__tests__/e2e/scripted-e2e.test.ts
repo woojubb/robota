@@ -359,4 +359,107 @@ describe('scripted agent-loop E2E (CLI-074)', () => {
     expect(result.exitCode).toBe(2);
     expect(result.stderr).toContain('max-iterations');
   });
+
+  // ── TEST-009 Phase 1: headless flag matrix ──────────────────────────────────────────
+  // All content the model "sees" for a turn (system + history) flattened from the first request.
+  function firstRequestText(scripted: IScriptedProvider): string {
+    return (scripted.requests[0] ?? [])
+      .map(
+        (m) => `${m.role}:${typeof m.content === 'string' ? m.content : JSON.stringify(m.content)}`,
+      )
+      .join('\n');
+  }
+
+  it('TEST-009: --system-prompt injects the custom system instruction into the model request', async () => {
+    const scripted = createScriptedProvider([{ text: 'ack' }]);
+    const result = await runScripted(
+      project,
+      ['-p', 'hello', '--system-prompt', 'SYS_MARKER_42', '--no-session-persistence'],
+      scripted,
+    );
+    expect(result.exitCode).toBe(0);
+    expect(firstRequestText(scripted)).toContain('SYS_MARKER_42');
+  });
+
+  it('TEST-009: --append-system-prompt appends (does not replace) the system instruction', async () => {
+    const scripted = createScriptedProvider([{ text: 'ack' }]);
+    const result = await runScripted(
+      project,
+      ['-p', 'hello', '--append-system-prompt', 'APPENDED_MARKER_7', '--no-session-persistence'],
+      scripted,
+    );
+    expect(result.exitCode).toBe(0);
+    const text = firstRequestText(scripted);
+    // The appended marker is present AND the base system prompt was not wiped (some system text remains).
+    expect(text).toContain('APPENDED_MARKER_7');
+    expect(text).toMatch(/system:/);
+  });
+
+  it('TEST-009: --task-file appends the file content to the system prompt', async () => {
+    const taskFile = join(project, 'TASK.md');
+    writeFileSync(taskFile, 'TASK_FILE_MARKER: do the thing\n', 'utf8');
+    const scripted = createScriptedProvider([{ text: 'ack' }]);
+    const result = await runScripted(
+      project,
+      ['-p', 'hello', '--task-file', taskFile, '--no-session-persistence'],
+      scripted,
+    );
+    expect(result.exitCode).toBe(0);
+    expect(firstRequestText(scripted)).toContain('TASK_FILE_MARKER');
+  });
+
+  it('TEST-009: --allowed-tools auto-approves listed tools under the default permission mode', async () => {
+    // Semantics (confirmed against create-session: allowedTools → `Name(*)` auto-approve patterns):
+    // `--allowed-tools` is an AUTO-APPROVE list, not a hard allowlist; `--denied-tools` is the hard
+    // block. Under `--permission-mode default` (no interactive approver in print mode), an
+    // auto-approved tool proceeds while a non-approved one is denied.
+    const editTurn = (target: string): TScriptedTurn[] => [
+      {
+        toolCalls: [
+          { name: 'Edit', args: { filePath: target, oldString: 'Hello', newString: 'Goodbye' } },
+        ],
+      },
+      { text: 'done' },
+    ];
+
+    // (a) Edit IS auto-approved → it runs, file changes.
+    const allowedTarget = join(project, 'allowed.txt');
+    writeFileSync(allowedTarget, 'Hello, world\n', 'utf8');
+    const allowed = createScriptedProvider(editTurn(allowedTarget));
+    const allowedRun = await runScripted(
+      project,
+      [
+        '-p',
+        'edit it',
+        '--permission-mode',
+        'default',
+        '--allowed-tools',
+        'Edit',
+        '--no-session-persistence',
+      ],
+      allowed,
+    );
+    expect(allowedRun.exitCode).toBe(0);
+    expect(readFileSync(allowedTarget, 'utf8')).toBe('Goodbye, world\n');
+
+    // (b) Edit is NOT auto-approved (only Read) → denied, file untouched.
+    const deniedTarget = join(project, 'notallowed.txt');
+    writeFileSync(deniedTarget, 'Hello, world\n', 'utf8');
+    const notAllowed = createScriptedProvider(editTurn(deniedTarget));
+    const notAllowedRun = await runScripted(
+      project,
+      [
+        '-p',
+        'edit it',
+        '--permission-mode',
+        'default',
+        '--allowed-tools',
+        'Read',
+        '--no-session-persistence',
+      ],
+      notAllowed,
+    );
+    expect(notAllowedRun.exitCode).toBe(0);
+    expect(readFileSync(deniedTarget, 'utf8')).toBe('Hello, world\n');
+  });
 });
