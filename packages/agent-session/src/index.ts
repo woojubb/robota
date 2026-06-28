@@ -21,6 +21,13 @@ export { CompactionOrchestrator } from './compaction-orchestrator.js';
 
 // Session logging
 export { FileSessionLogger, SilentSessionLogger } from './session-logger.js';
+export { SESSION_LOG_EVENT, isSessionLogEvent } from './session-log-events.js';
+export type {
+  TSessionLogEventName,
+  ISessionLogLine,
+  IProviderEventKey,
+  IToolEventKey,
+} from './session-log-events.js';
 export type {
   IExternalPayloadReference,
   IFileSessionLoggerOptions,
