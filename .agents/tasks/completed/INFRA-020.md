@@ -16,7 +16,7 @@ Spec: `.agents/spec-docs/active/INFRA-020-test-architecture-foundation.md`
 ## Phase 2 — agent-cli built-binary driver + cross-fidelity (PR 2)
 
 - [ ] T5 (TC-04): built-binary `IAgentDriver` in agent-cli (agent-testing PTY runner + `--output-format
-  stream-json` parse → `InteractionEvent`s); one shared scenario passes identically on the
+stream-json` parse → `InteractionEvent`s); one shared scenario passes identically on the
       programmatic AND binary drivers.
 - [ ] T6 (TC-05): relocate whole-binary CLI E2E into agent-cli; agent-transport-tui rendering PTY tests
       stay green consuming agent-testing.

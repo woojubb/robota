@@ -44,6 +44,7 @@
     "dev": "tsx src/bin.ts",
     "start": "node dist/node/bin.js",
     "test": "vitest run --passWithNoTests",
+    "test:bin": "vitest run --config vitest.bin.config.ts",
     "test:coverage": "vitest run --coverage --passWithNoTests",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src/ --ext .ts,.tsx",
@@ -73,6 +74,7 @@
   "devDependencies": {
     "@homebridge/node-pty-prebuilt-multiarch": "^0.13.1",
     "@robota-sdk/agent-executor": "workspace:*",
+    "@robota-sdk/agent-interface-transport": "workspace:*",
     "@types/marked": "^6.0.0",
     "@types/ws": "^8.18.1",
     "rimraf": "^5.0.10",

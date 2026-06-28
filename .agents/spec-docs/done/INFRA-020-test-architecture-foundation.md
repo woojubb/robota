@@ -154,16 +154,18 @@ rule for where each kind of test artifact lives.
 
 ## Completion Criteria
 
-- [ ] TC-01: `IAgentDriver` + pure accessors exported from `agent-interface-transport`; an accessor
-      unit test over a synthetic `InteractionEvent[]` passes; typecheck green.
-- [ ] TC-02: `createProgrammaticAgent` returns `IAgentDriver`; `IProgrammaticAgent` removed; accessors
-      delegate to the shared helpers (no per-adapter filter duplication); agent-transport suite green.
-- [ ] TC-03: `agent-testing/docs/SPEC.md` states the general-framework charter + placement rule; the
-      PTY runner stays; `harness:scan` specs/docs-structure green.
-- [ ] TC-04: a built-binary `IAgentDriver` in agent-cli drives the real robota binary via stream-json;
-      one shared scenario passes identically on the programmatic AND binary drivers (cross-fidelity).
-- [ ] TC-05: `agent-transport-tui` rendering PTY tests stay green consuming agent-testing.
-- [ ] TC-06: repo-wide typecheck + `pnpm harness:scan` 33/33; no dependency cycle introduced.
+- [x] TC-01: `IAgentDriver` + pure accessors exported from `agent-interface-transport`; accessor unit
+      test (`interaction-accessors.test.ts`, 5) passes; typecheck green. (Phase 1)
+- [x] TC-02: `createProgrammaticAgent` returns `IAgentDriver`; `IProgrammaticAgent` removed; accessors
+      delegate to the shared helpers; agent-transport suite 38 pass. (Phase 1)
+- [x] TC-03: `agent-testing/docs/SPEC.md` states the general-framework charter + placement-rule table;
+      PTY runner stays; project-structure updated; `harness:scan` green. (Phase 1)
+- [x] TC-04: `createBinaryAgentDriver` (agent-cli) drives the real robota binary in print/stream-json;
+      `cross-fidelity.bintest.ts` runs one scenario on the programmatic AND binary drivers — both
+      observe `CROSS_FIDELITY_OK` identically. (Phase 2)
+- [x] TC-05: `agent-transport-tui` `test:pty` 6 pass; agent-cli default suite 141 pass — no regression.
+      (Phase 2)
+- [x] TC-06: repo-wide typecheck green; `pnpm harness:scan` 33/33; no dependency cycle. (both phases)
 
 ## Test Plan
 
@@ -181,11 +183,14 @@ rule for where each kind of test artifact lives.
 Foundational test architecture; product value is a scalable, drift-free test surface. Validated by the
 conformance + cross-fidelity tests running green — the same scenario observed identically in-process and
 against the built binary is the executable proof the contract is real and the foundation holds.
-Evidence: _per-phase, filled as each PR lands._
+Evidence: `cross-fidelity.bintest.ts` (Phase 2) drives the **real robota binary** (print/stream-json,
+deterministic via `--session-log`) and the in-process programmatic driver through one `IAgentDriver`
+scenario; both observe `CROSS_FIDELITY_OK` identically — the executable proof. Phase 1 contract/accessor
+unit tests + agent-transport conformance back it.
 
 ## Tasks
 
-- [ ] `.agents/tasks/INFRA-020.md` — created at GATE-IMPLEMENT.
+- [x] `.agents/tasks/completed/INFRA-020.md` — archived (GATE-COMPLETE).
 
 ## Evidence Log
 
@@ -223,4 +228,40 @@ Evidence: _per-phase, filled as each PR lands._
 - **TC-03**: `agent-testing/docs/SPEC.md` rewritten with the general-framework charter + placement-rule
   table; project-structure.md description updated. No re-export hub.
 - **TC-06**: full monorepo build + repo-wide typecheck green; `pnpm harness:scan` 33/33.
-- Phase 2 (TC-04/05 — agent-cli binary driver + cross-fidelity) follows in the next PR.
+- Merged to develop via PR #860.
+
+### Phase 2 — ✅ complete | 2026-06-28
+
+- **TC-04**: `createBinaryAgentDriver` (`agent-cli/src/testing/binary-agent-driver.ts`) implements
+  `IAgentDriver` by running the built robota binary in print mode with `--output-format stream-json`
+  (deterministic via `--session-log`), parsing the event stream. `cross-fidelity.bintest.ts`
+  (build-gated `test:bin` project) runs ONE `IAgentDriver` scenario against both the programmatic and
+  binary drivers — both observe `CROSS_FIDELITY_OK` identically. 1 test pass.
+- **TC-05**: agent-transport-tui `test:pty` 6 pass; agent-cli default suite 141 pass — no regression.
+- Scope note: the existing whole-binary `*.ptytest.ts` stay in agent-transport-tui (they assert TUI
+  rendering — that module's domain). agent-cli gains its OWN binary driver (behavior, print/stream-json)
+  rather than relocating the rendering suites; this is the correct placement, so the "relocate" task was
+  resolved as "agent-cli owns a binary driver; rendering stays in TUI" — nothing dropped.
+- Mechanism note: the binary driver uses a piped child process (print mode is non-interactive), NOT the
+  PTY runner; the PTY runner remains for interactive TUI rendering.
+- agent-cli gains `@robota-sdk/agent-interface-transport` as a devDependency (interface types imported
+  from their SSOT — interface-imports rule) + a `test:bin` vitest project.
+
+### [GATE-VERIFY] — ✅ PASS | 2026-06-28
+
+- Prior gate: GATE-IMPLEMENT ✅ PASS; status `in-progress` in `active/`.
+- All TC-01–06 satisfied across the two phases; interface-transport 10 + agent-transport 38 + agent-cli
+  141 + tui `test:pty` 6 + `cross-fidelity.bintest.ts` 1 pass; repo typecheck green; `harness:scan` 33/33.
+- Result: PASS → `in-progress` → `verifying`.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-06-28
+
+- All Completion Criteria `[x]`; every Test Plan row has a test reference. The cross-fidelity test is the
+  executable proof that `IAgentDriver` is a real contract (identical observation in-process and on the
+  real binary). Tasks archived to `.agents/tasks/completed/INFRA-020.md`.
+- Result: PASS → `verifying` → `done`; `active/` → `done/`.
+
+**Foundation laid.** The interaction seam now has both sides modeled (`IInteractionChannel` +
+`IAgentDriver`); test doubles live with their contract owners; agent-testing is the disciplined general
+test framework (charter + placement rule); agent-cli owns its binary driver. TEST-009 (agent-cli feature
+coverage) is rewritten on this foundation as the next item.
