@@ -1,30 +1,38 @@
-import { findProviderDefinition, formatSupportedProviderTypes } from '@robota-sdk/agent-core';
+import {
+  findProviderDefinition,
+  formatSupportedProviderTypes,
+  selectAction,
+} from '@robota-sdk/agent-core';
 import { testProviderProfileCommand } from '@robota-sdk/agent-framework';
 
 import { buildProviderSwitch } from './provider-command-profile-operations.js';
-import { createProviderProfileSelectionInteraction } from './provider-command-profile.js';
-import { createSetupFlow, createProviderSetupInteraction } from './provider-command-setup.js';
+import { askProviderProfileSelection } from './provider-command-profile.js';
+import { createSetupFlow, runProviderAddSetup } from './provider-command-setup.js';
 import { formatProviderSetupChoiceLabel } from './provider-setup-flow.js';
 
+import type { IUserInteraction } from '@robota-sdk/agent-core';
 import type {
+  ICommandHostContext,
   IProviderCommandModuleOptions,
   IProviderProfileSettings,
 } from '@robota-sdk/agent-framework';
-import type { ICommandInteraction, ICommandResult } from '@robota-sdk/agent-interface-transport';
+import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
 
 export async function executeProviderCommand(
+  context: ICommandHostContext,
   args: string,
   options: IProviderCommandModuleOptions,
 ): Promise<ICommandResult> {
+  const ui = context.getUserInteraction?.();
   const settings = options.settings.readMergedSettings();
   const trimmedArgs = args.trim();
   if (trimmedArgs.length === 0) {
-    return buildProviderProfilePicker(settings.currentProvider, settings.providers, options);
+    return buildProviderProfilePicker(ui, settings.currentProvider, settings.providers, options);
   }
   const [subcommand = 'current', profileArg] = trimmedArgs.split(/\s+/);
 
   if (subcommand === 'list') {
-    return buildProviderProfilePicker(settings.currentProvider, settings.providers, options);
+    return buildProviderProfilePicker(ui, settings.currentProvider, settings.providers, options);
   }
   if (subcommand === 'current' || subcommand === '') {
     return {
@@ -36,7 +44,7 @@ export async function executeProviderCommand(
     return buildProviderSwitch(settings.providers, profileArg, options);
   }
   if (subcommand === 'test') {
-    return await testProviderProfileCommand(
+    return testProviderProfileCommand(
       settings.currentProvider,
       settings.providers,
       profileArg,
@@ -44,7 +52,7 @@ export async function executeProviderCommand(
     );
   }
   if (subcommand === 'add') {
-    return buildProviderSetup(profileArg, options);
+    return buildProviderSetup(ui, profileArg, options);
   }
 
   return {
@@ -53,20 +61,20 @@ export async function executeProviderCommand(
   };
 }
 
+/**
+ * List the provider profiles. With an interactive renderer attached, drive the inline profile picker
+ * (CMD-004); without one (headless/automation) or with no profiles, return the formatted list as text.
+ */
 function buildProviderProfilePicker(
+  ui: IUserInteraction | undefined,
   currentProvider: string | undefined,
   providers: Record<string, IProviderProfileSettings> | undefined,
   options: IProviderCommandModuleOptions,
-): ICommandResult {
-  const message = formatProviderList(currentProvider, providers);
-  if (Object.keys(providers ?? {}).length === 0) {
-    return { message, success: true };
+): Promise<ICommandResult> | ICommandResult {
+  if (!ui || Object.keys(providers ?? {}).length === 0) {
+    return { message: formatProviderList(currentProvider, providers), success: true };
   }
-  return {
-    message,
-    success: true,
-    interaction: createProviderProfileSelectionInteraction(currentProvider, providers, options),
-  };
+  return askProviderProfileSelection(ui, currentProvider, providers, options);
 }
 
 function formatProviderList(
@@ -104,16 +112,24 @@ function formatCurrentProvider(
   ].join('\n');
 }
 
+/**
+ * Configure a provider profile. With an explicit `type`, run the setup wizard directly; without one,
+ * ask the user to pick a provider type first (CMD-004). Without an interactive renderer, setup cannot
+ * proceed — return usage text instead of a silent guess.
+ */
 function buildProviderSetup(
+  ui: IUserInteraction | undefined,
   type: string | undefined,
   options: IProviderCommandModuleOptions,
-): ICommandResult {
+): Promise<ICommandResult> | ICommandResult {
   if (type === undefined || type.length === 0) {
-    return {
-      message: 'Provider setup requested. Select a provider to continue.',
-      success: true,
-      interaction: createProviderSelectionInteraction(options),
-    };
+    if (!ui) {
+      return {
+        message: `Usage: provider add <type>. Supported: ${formatSupportedProviderTypes(options.providerDefinitions)}`,
+        success: false,
+      };
+    }
+    return askProviderSetupType(ui, options);
   }
   if (findProviderDefinition(options.providerDefinitions, type) === undefined) {
     return {
@@ -121,34 +137,35 @@ function buildProviderSetup(
       success: false,
     };
   }
-  return {
-    message: `Provider setup requested: ${type}`,
-    success: true,
-    interaction: createProviderSetupInteraction(createSetupFlow(type, options), options),
-  };
+  if (!ui) {
+    return {
+      message: `Provider setup for "${type}" requires an interactive session.`,
+      success: false,
+    };
+  }
+  return runProviderAddSetup(ui, createSetupFlow(type, options), options);
 }
 
-function createProviderSelectionInteraction(
+async function askProviderSetupType(
+  ui: IUserInteraction,
   options: IProviderCommandModuleOptions,
-): ICommandInteraction {
-  return {
-    prompt: {
-      kind: 'choice' as const,
-      title: 'Select provider',
-      options: options.providerDefinitions.map((definition) => ({
-        value: definition.type,
-        label: formatProviderSetupChoiceLabel(definition),
-      })),
-      maxVisible: 6,
-    },
-    submit: (value: string) => {
-      const flow = createSetupFlow(value, options);
-      return {
-        message: `Provider setup requested: ${value}`,
-        success: true,
-        interaction: createProviderSetupInteraction(flow, options),
-      };
-    },
-    cancel: () => ({ message: 'Provider setup cancelled.', success: true }),
-  };
+): Promise<ICommandResult> {
+  const typeOptions = options.providerDefinitions.map((definition) => ({
+    value: definition.type,
+    label: formatProviderSetupChoiceLabel(definition),
+  }));
+  const response = await ui.ask(
+    selectAction('provider-type', 'Select provider', typeOptions, { maxVisible: 6 }),
+  );
+  if (response.type !== 'answer' || response.values[0] === undefined) {
+    return { message: 'Provider setup cancelled.', success: true };
+  }
+  const type = response.values[0];
+  if (findProviderDefinition(options.providerDefinitions, type) === undefined) {
+    return {
+      message: `Usage: provider add <type>. Supported: ${formatSupportedProviderTypes(options.providerDefinitions)}`,
+      success: false,
+    };
+  }
+  return runProviderAddSetup(ui, createSetupFlow(type, options), options);
 }
