@@ -177,17 +177,17 @@ Implemented approach (minimal, contract-preserving):
 Test strategy derived from type=SCREEN, tags=[cli]: ink-testing-library output assertions + PTY E2E
 (TEST-007 harness) + visual smoke for the parts only a human can certify.
 
-| TC-ID | Test Type | Tool / Approach                                                                                | Notes                                                                  |
-| ----- | --------- | ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| TC-01 | automated | PTY E2E (`terminal-handoff.ptytest.ts`): banner committed via `<Static>` appears in scrollback | Real-terminal evidence (Static writes to real stdout) — DONE           |
-| TC-02 | deferred  | record/replay cassette driver (needs a model response) → INFRA-016 harness                     | Streaming→commit timing; manager units pin the replace/no-window basis |
-| TC-03 | deferred  | record/replay cassette driver (needs a model response) → INFRA-016 harness                     | Streaming→commit single-copy; deferred with TC-02                      |
-| TC-04 | automated | PTY E2E (`terminal-handoff.ptytest.ts`): `/shell` handoff, banner count unchanged on resume    | No re-print; ties SCREEN-010 to TERM-002 — DONE                        |
-| TC-05 | manual    | `pnpm cli:dev`, multi-message convo, scroll back via terminal                                  | Native-scrollback feel cannot be fully asserted in vitest              |
-| TC-06 | automated | `pnpm typecheck`                                                                               | Must exit 0                                                            |
-| TC-07 | automated | `pnpm test` (vitest)                                                                           | No regressions                                                         |
-| TC-08 | automated | `pnpm build` + `pnpm harness:scan`                                                             | Must exit 0 / all scans green                                          |
-| TC-09 | automated | vitest on `TuiStateManager`: interleave addEntry/syncHistory, assert monotonic + no dup        | Foundation for Static append-only correctness                          |
+| TC-ID | Test Type | Tool / Approach                                                                                 | Notes                                                                           |
+| ----- | --------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| TC-01 | automated | PTY E2E (`terminal-handoff.ptytest.ts`): banner committed via `<Static>` appears in scrollback  | Real-terminal evidence (Static writes to real stdout) — DONE                    |
+| TC-02 | deferred  | record/replay cassette driver (needs a model response) → INFRA-016 harness                      | Streaming→commit timing; manager units pin the replace/no-window basis          |
+| TC-03 | deferred  | record/replay cassette driver (needs a model response) → INFRA-016 harness                      | Streaming→commit single-copy; deferred with TC-02                               |
+| TC-04 | automated | PTY E2E (`terminal-handoff.ptytest.ts`): `/shell` handoff, banner count unchanged on resume     | No re-print; ties SCREEN-010 to TERM-002 — DONE                                 |
+| TC-05 | automated | PTY E2E (`screen-010-scrollback.ptytest.ts`): 16-row viewport, `/help` > viewport, input pinned | Committed→scrollback + pinned input; native scroll is the terminal's job — DONE |
+| TC-06 | automated | `pnpm typecheck`                                                                                | Must exit 0                                                                     |
+| TC-07 | automated | `pnpm test` (vitest)                                                                            | No regressions                                                                  |
+| TC-08 | automated | `pnpm build` + `pnpm harness:scan`                                                              | Must exit 0 / all scans green                                                   |
+| TC-09 | automated | vitest on `TuiStateManager`: interleave addEntry/syncHistory, assert monotonic + no dup         | Foundation for Static append-only correctness                                   |
 
 ## User Execution Test Scenarios
 
@@ -260,9 +260,16 @@ already exists.
   committed via `<Static>`, runs `/shell` (handoff), and asserts the banner count is unchanged after
   resume (committed history not re-emitted). Passes on the real terminal.
 
+- **TC-05 (scrollback layout): DONE — automated, not manual.** `screen-010-scrollback.ptytest.ts`
+  boots the built CLI in a small (16-row) viewport, runs `/help` (commits a >viewport command list to
+  scrollback via `<Static>`), and asserts the committed content is emitted while the input prompt +
+  status bar stay pinned at the bottom (their last occurrence is below the committed output). Once
+  content is in scrollback and the input is pinned, native terminal scroll-back is the terminal's own
+  behavior, so this is the automatable essence of TC-05 (per the never-ask-the-user-to-test rule).
+
 Pending before GATE-VERIFY / done:
 
-- **TC-02/03 (streaming → commit transition):** require a model response, so a record/replay cassette
-  driver is needed (TEST-005-style). Deferred to the INFRA-016 testing-harness work; the manager
-  unit tests already pin the underlying replace/no-window semantics.
-- **TC-05 (manual real-terminal scrollback smoke):** pending.
+- **TC-02/03 (streaming → commit transition):** require a model response. Needs a CLI-loadable
+  replay/test provider so a deterministic conversation can run in the real binary — captured as the
+  north-star driver work (see TEST-008); the manager unit tests already pin the underlying
+  replace/no-window semantics.
