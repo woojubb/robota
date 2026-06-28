@@ -13,6 +13,7 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
   - `.agents/skills/` for procedural workflow;
   - `packages/*/docs/SPEC.md` for package contracts;
   - harness or hook code when the invariant can be checked mechanically.
+- **The repo is the single source of truth for persistent lessons, preferences, and project facts; memory-only recording is prohibited.** Session/agent memory may hold a copy, but any persistent item MUST also live in the repo (`.agents/`, `AGENTS.md`, package SPECs) — these load as session context, so the lesson applies without memory. If the agent records a lesson/preference in memory, it must record it in the repo in the same change.
 
 ### Enforcement Preference
 
