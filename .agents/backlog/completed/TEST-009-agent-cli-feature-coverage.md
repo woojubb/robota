@@ -1,7 +1,8 @@
 ---
 title: 'TEST-009: agent-cli feature coverage on the INFRA-020 test foundation'
-status: in-progress
+status: done
 created: 2026-06-28
+completed: 2026-06-28
 priority: high
 urgency: soon
 area: packages/agent-cli, packages/agent-transport, packages/agent-testing
@@ -90,7 +91,36 @@ Headless flag matrix via `startCli` + scripted provider (`scripted-e2e.test.ts`)
 - (`--goal` / `--goal-max-iterations`, output formats, `-c`/`--fork-session` resume already covered.)
 - Evidence: agent-cli suite 145 pass (+4); typecheck + `pnpm harness:scan` 33/33.
 
-Phases 2–4 follow as separate PRs.
+### Phase 2 — ✅ done | 2026-06-28
+
+Conversation + slash flows via `IAgentDriver` (`programmatic-flows.test.ts`, agent-transport, 3 tests):
+
+- multi-turn conversation context carried across `send`s (second request carries the prior turn).
+- a slash command (`/ping`, inline module) surfaces a `command-result` event through the driver.
+- the full `requestAction` → `queueAction` path: a hinted `/danger` runs when confirmed via
+  `queueAction`, and is cancelled when the queue is empty — the end-to-end disambiguation path the
+  unit test only covered at the channel level.
+
+### Phase 3 — ✅ done | 2026-06-28
+
+Interactive-TUI flag effect via PTY (`flag-tui.ptytest.ts`, agent-transport-tui, 2 tests):
+
+- `--permission-mode plan` / `acceptEdits` render in the status bar — a CLI flag's _rendered_ effect,
+  complementing Phase 1's request/output assertions. (Boot/help/exit/handoff/replay/scrollback remain
+  covered by the existing `*.ptytest.ts`.)
+
+### Phase 4 — feedback loop | 2026-06-28
+
+One finding surfaced and was resolved in-loop without an in-test hack: `--allowed-tools` is an
+auto-approve list (not a hard allowlist) — the test asserts the correct semantics; no framework change
+needed. No further enrichment outstanding.
+
+## Closure (2026-06-28)
+
+Representative coverage delivered across all four phase areas, validating the INFRA-020 foundation is
+ergonomic for real feature tests (headless flag matrix, in-process conversation/slash flows,
+cross-fidelity, and interactive-TUI rendering). Per-flag / per-command coverage can grow incrementally
+using these established patterns; the foundation + patterns are the durable deliverable. Marking done.
 
 ## Test Plan
 
