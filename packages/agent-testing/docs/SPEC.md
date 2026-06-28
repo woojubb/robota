@@ -2,19 +2,37 @@
 
 ## Scope
 
-Cross-cutting test harness for the Robota SDK. Owns test infrastructure that is genuinely shared across
-packages and has no natural home in any single package's `./testing` contract surface.
+The general **test framework / environment** for the Robota SDK (INFRA-020). It owns domain-free
+test-environment tooling that has no other home — currently the PTY runner, and future shared scenario
+helpers. Cohesion comes from the **placement rule** below (a written charter), not from the broad word
+"testing": this package is deliberately NOT a catch-all bucket.
 
 Current surface:
 
-- **PTY harness** (TEST-007): `spawnPty` / `spawnPtyFixture` — drive any command (or a TSX fixture) in
+- **PTY runner** (TEST-007): `spawnPty` / `spawnPtyFixture` — drive any command (or a TSX fixture) in
   a real pseudo-terminal so Ink renders and reads input exactly as in a user terminal. Per-key paced
   input, marker/exit waiting, ANSI-stripped snapshots.
 
 This package is published (`@robota-sdk/*` scope) so any package — or an external consumer — can import
-the harness as a `devDependency`. It deliberately does **not** absorb the per-package `./testing`
-contract surfaces (`agent-core/testing`, `agent-framework/testing`, `agent-transport/testing`), which
-remain each package's own SSOT.
+the tooling as a `devDependency`.
+
+## Charter & placement rule (INFRA-020)
+
+What lives **here**: domain-free test-environment tooling with no single-package owner (the PTY runner;
+future cross-cutting scenario helpers). Zero `@robota-sdk` runtime deps, so any package can depend down
+onto it without a cycle.
+
+What lives **elsewhere** (and must NOT move here):
+
+| Artifact                                                      | Home                                     | Example                                                                                        |
+| ------------------------------------------------------------- | ---------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Contracts / interfaces (incl. the client-side `IAgentDriver`) | the relevant `agent-interface-*` package | `IAgentDriver` → `agent-interface-transport`                                                   |
+| Test doubles for a contract X                                 | X's owning package `./testing`           | scripted provider → `agent-core/testing`; scripted-session → `agent-framework/testing`         |
+| Driver adapters (implement `IAgentDriver`)                    | the module owning what they drive        | in-process → `agent-transport`; built CLI binary → `agent-cli`; remote → `agent-remote-client` |
+| A module's own feature tests                                  | that module                              | agent-cli features → `agent-cli`                                                               |
+
+**No re-export hub**: this package does not re-export the doubles/adapters above; authors import those
+from their owners directly (avoids a pass-through layer).
 
 ## Boundaries
 

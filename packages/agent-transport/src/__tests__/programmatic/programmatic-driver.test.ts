@@ -17,12 +17,13 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   createProgrammaticAgent,
   ProgrammaticInteractionChannel,
-  type IProgrammaticAgent,
 } from '../../programmatic/index.js';
+
+import type { IAgentDriver } from '@robota-sdk/agent-interface-transport';
 
 describe('programmatic in-process agent driver (INFRA-019)', () => {
   let cwd: string;
-  let driver: IProgrammaticAgent | undefined;
+  let driver: IAgentDriver | undefined;
 
   beforeEach(() => {
     cwd = mkdtempSync(join(tmpdir(), 'robota-programmatic-'));
