@@ -11,12 +11,18 @@
  */
 
 import type {
+  IActionRequest,
+  TActionResponse as TUserActionResponse,
+} from '@robota-sdk/agent-core';
+import type {
   IInteractionChannel,
   ICommandInfo,
   InteractionEvent,
   TActionRequest,
   TActionResponse,
 } from '@robota-sdk/agent-interface-transport';
+// CMD-004 unified action contract (SSOT in agent-core). Aliased to avoid clashing with the legacy
+// interface-transport TActionRequest/TActionResponse used by the requestAction path above.
 
 export class ProgrammaticInteractionChannel implements IInteractionChannel {
   /** Full structured event stream pushed by the framework, in order. */
@@ -29,6 +35,7 @@ export class ProgrammaticInteractionChannel implements IInteractionChannel {
 
   private submitHandler: ((text: string) => Promise<void>) | null = null;
   private readonly actionResponses: TActionResponse[] = [];
+  private readonly userActionResponses: TUserActionResponse[] = [];
 
   // ── IInteractionChannel ──────────────────────────────────────
 
@@ -47,6 +54,14 @@ export class ProgrammaticInteractionChannel implements IInteractionChannel {
    */
   async requestAction(_action: TActionRequest): Promise<TActionResponse> {
     return this.actionResponses.shift() ?? { type: 'cancelled' };
+  }
+
+  /**
+   * CMD-004 unified ask. Resolves from the pre-supplied queue (FIFO); an empty queue resolves
+   * `{ type: 'cancelled' }` so a programmatic run never blocks on an un-answered question.
+   */
+  async askUser(_request: IActionRequest): Promise<TUserActionResponse> {
+    return this.userActionResponses.shift() ?? { type: 'cancelled' };
   }
 
   setAvailableCommands(commands: ICommandInfo[]): void {
@@ -80,5 +95,10 @@ export class ProgrammaticInteractionChannel implements IInteractionChannel {
   /** Pre-answer the next `requestAction` disambiguation. */
   queueAction(response: TActionResponse): void {
     this.actionResponses.push(response);
+  }
+
+  /** Pre-answer the next `askUser` (CMD-004 unified ask). */
+  queueUserAction(response: TUserActionResponse): void {
+    this.userActionResponses.push(response);
   }
 }
