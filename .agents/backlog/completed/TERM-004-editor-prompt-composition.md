@@ -1,7 +1,8 @@
 ---
 title: 'TERM-004: compose prompts/messages in $EDITOR via terminal handoff'
-status: in-progress
+status: done
 created: 2026-06-27
+completed: 2026-06-28
 priority: medium
 urgency: later
 area: packages/agent-framework, packages/agent-cli
@@ -49,3 +50,8 @@ standard solution and reuses TERM-001.
 the inherited TTY: the typed text (`composed-in-editor`) round-trips back as the command result and
 the App resumes cleanly. Framework functional test (fake handoff/editor) + this PTY E2E +
 `pnpm harness:scan` green.
+
+### Closure (2026-06-28)
+
+Done-gate satisfied. Re-ran the scenario at closure: `command-handoff-pty-e2e.test.ts` `/editor`
+(real TTY, scripted `$EDITOR` round-trip) ✓. Marking done.
