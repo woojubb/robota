@@ -4,6 +4,7 @@
  */
 
 import { execSync } from 'node:child_process';
+import { createReplayProviderFromLogFile } from '@robota-sdk/agent-provider-replay';
 import { PrintTerminal, promptInput } from '@robota-sdk/agent-transport/headless';
 import {
   createProjectSessionStore,
@@ -224,7 +225,12 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
       terminal.writeLine(notice.trimEnd());
     }
   }
-  const provider = createProviderFromSettings(cwd, resolvedPreset.model, providerOptions);
+  // INFRA-018: when a session log is supplied, replay it deterministically instead of calling a
+  // model. Provider settings/model still come from the configured profile (no key is ever used —
+  // the ReplayProvider answers every call from the recorded log).
+  const provider = args.sessionLog
+    ? createReplayProviderFromLogFile(args.sessionLog)
+    : createProviderFromSettings(cwd, resolvedPreset.model, providerOptions);
   const backgroundTaskRunners = createDefaultBackgroundTaskRunners();
   const paths = projectPaths(cwd);
   const subagentRunnerFactory = createChildProcessSubagentRunnerFactory({

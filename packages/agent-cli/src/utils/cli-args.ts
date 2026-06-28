@@ -46,6 +46,8 @@ export interface IParsedCliArgs {
   configure: boolean;
   configureProvider: string | undefined;
   provider: string | undefined;
+  /** INFRA-018: replay a recorded session log instead of calling a model (offline/deterministic). */
+  sessionLog: string | undefined;
   providerType: string | undefined;
   baseURL: string | undefined;
   apiKey: string | undefined;
@@ -180,6 +182,7 @@ const PARSE_ARGS_CONFIG = {
     configure: { type: 'boolean', default: false },
     'configure-provider': { type: 'string' },
     provider: { type: 'string' },
+    'session-log': { type: 'string' },
     type: { type: 'string' },
     'base-url': { type: 'string' },
     'api-key': { type: 'string' },
@@ -229,6 +232,7 @@ function mapParsedValues(
     configure: values['configure'] ?? false,
     configureProvider: values['configure-provider'],
     provider: values['provider'],
+    sessionLog: values['session-log'],
     providerType: values['type'],
     baseURL: values['base-url'],
     apiKey: values['api-key'],

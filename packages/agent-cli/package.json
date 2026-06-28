@@ -56,6 +56,7 @@
     "@robota-sdk/agent-framework": "workspace:*",
     "@robota-sdk/agent-preset": "workspace:*",
     "@robota-sdk/agent-provider": "workspace:*",
+    "@robota-sdk/agent-provider-replay": "workspace:*",
     "@robota-sdk/agent-session-analytics": "workspace:*",
     "@robota-sdk/agent-subagent-runner": "workspace:*",
     "@robota-sdk/agent-transport": "workspace:*",

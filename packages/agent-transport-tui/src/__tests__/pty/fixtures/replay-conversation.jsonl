@@ -1,0 +1,4 @@
+{"timestamp":"2026-06-28T00:00:00.000Z","sessionId":"replay-fixture","event":"provider_request","executionId":"e1","round":0}
+{"timestamp":"2026-06-28T00:00:01.000Z","sessionId":"replay-fixture","event":"provider_response_normalized","executionId":"e1","round":0,"response":{"role":"assistant","content":"REPLAYED_ANSWER_42","id":"a1","timestamp":"2026-06-28T00:00:01.000Z"}}
+{"timestamp":"2026-06-28T00:00:02.000Z","sessionId":"replay-fixture","event":"provider_response_normalized","executionId":"e2","round":0,"response":{"role":"assistant","content":"REPLAYED_ANSWER_42","id":"a2","timestamp":"2026-06-28T00:00:02.000Z"}}
+{"timestamp":"2026-06-28T00:00:03.000Z","sessionId":"replay-fixture","event":"provider_response_normalized","executionId":"e3","round":0,"response":{"role":"assistant","content":"REPLAYED_ANSWER_42","id":"a3","timestamp":"2026-06-28T00:00:03.000Z"}}
