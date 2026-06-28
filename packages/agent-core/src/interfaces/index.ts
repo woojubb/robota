@@ -131,6 +131,25 @@ export type {
 
 export type { IToolFactory, IOpenAPIToolConfig, IMCPToolConfig } from './tool-integration';
 
+// Interaction action contract + ask port (CMD-004) — SSOT in agent-core so command and tool sources
+// both reach it.
+export type {
+  IActionOption,
+  IActionDefault,
+  IActionRequest,
+  TActionResponse,
+  IUserInteraction,
+} from './interaction';
+export {
+  confirmAction,
+  selectAction,
+  multiSelectAction,
+  textAction,
+  isConfirmed,
+  CONFIRM_YES,
+  CONFIRM_NO,
+} from './interaction-builders';
+
 export type {
   IEventService,
   IEventContext,
