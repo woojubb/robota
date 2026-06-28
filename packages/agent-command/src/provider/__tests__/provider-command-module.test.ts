@@ -317,13 +317,16 @@ describe('createProviderCommandModule', () => {
       },
     );
 
-    const { context } = scriptedContext([
+    const { context, requests } = scriptedContext([
       { type: 'answer', values: ['anthropic'] },
       { type: 'answer', values: ['delete'] },
       { type: 'answer', values: ['yes'] },
     ]);
     const completed = await createExecutor(adapter).execute('provider', context, 'list');
 
+    // The confirm prompt must actually be issued — guards against a silent drop of the
+    // confirmation step that would still "delete and pass".
+    expect(requests[2]?.title).toBe('Delete provider profile anthropic?');
     expect(completed?.message).toBe('Provider profile deleted: anthropic.');
     expect(readTarget()).toEqual({
       currentProvider: 'openai',
@@ -359,6 +362,8 @@ describe('createProviderCommandModule', () => {
     ]);
     const completed = await createExecutor(adapter).execute('provider', context, 'list');
 
+    // The confirm precedes the replacement picker — assert both so neither step can be dropped silently.
+    expect(requests[2]?.title).toBe('Delete provider profile anthropic?');
     expect(requests[3]?.title).toBe('Replacement provider for anthropic');
     expect(readTarget()).toEqual({
       currentProvider: 'openai',
@@ -413,6 +418,13 @@ describe('createProviderCommandModule', () => {
     );
     expect(requests[0]?.placeholder).toBe('http://localhost:1234/v1');
     expect(requests[0]?.allowEmpty).toBe(true);
+    // All three setup steps must be asked in order — a dropped step would otherwise be hidden by the
+    // scripted double returning the surplus answers to whatever remains.
+    expect(requests.map((request) => request.title)).toEqual([
+      'OpenAI-compatible base URL',
+      'OpenAI-compatible model',
+      'OpenAI-compatible API key',
+    ]);
 
     expect(readTarget()).toMatchObject({
       currentProvider: 'openai',
