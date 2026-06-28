@@ -162,6 +162,34 @@ and pop by explicit ref (`git stash pop stash@{N}`), never the bare top of the s
 
 **Branch naming:** `<type>/<topic>` (e.g., `feat/blog-i18n`, `fix/header-switcher`, `chore/cleanup-tasks`).
 
+### Pre-Merge Code-Review Gate (mandatory, zero exceptions)
+
+**Every PR the agent opens must pass a `/code-review` before it is merged. Merging a PR that has not
+been code-reviewed and had all findings resolved is prohibited.**
+
+Sequence for every PR (no merge — admin or otherwise — may happen before step 4 completes):
+
+1. **Open the PR** and wait for its checks (CI) to be green.
+2. **Run the `/code-review` skill** scoped to the PR's diff (the branch vs. its base).
+3. **Resolve every finding.** A finding is "resolved" when one of these is true, recorded in a PR
+   comment (or the PR description):
+   - it is **fixed** with a follow-up commit on the same branch (then re-run the relevant
+     tests/typecheck/`harness:scan` so the fix is verified), **or**
+   - it is **refuted** with an explicit, written reason why it is not a real problem (a false positive
+     or out-of-scope), **or**
+   - it is **deferred** by filing a backlog item and linking it, only when the finding is real but
+     genuinely out of the PR's scope (must be justified, not a convenience).
+     No CONFIRMED/PLAUSIBLE finding may be left silently unaddressed.
+4. **Only after all findings are resolved** may the PR be merged.
+
+**Scope:** required for any PR that changes code (`.ts`/`.tsx`/`.js`/`.mjs`/`.cjs`). A
+documentation/spec/backlog-only PR (markdown/JSON config only, no code diff) is exempt — running
+`/code-review` on it yields no code findings — but a PR that mixes code and docs is in scope.
+
+**Why:** code review is the last gate before code reaches `develop`/`main`. Resolving findings
+pre-merge keeps defects out of the integration branch instead of chasing them afterward. This applies
+to the agent's own admin merges to `develop` exactly as to `main`.
+
 ### Deployment
 
 - **Cloudflare Pages** (blog, docs) deploys automatically when `main` is updated.
