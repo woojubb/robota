@@ -94,11 +94,8 @@ export type {
   ICommandSkillListEntry,
   ISystemCommand,
   ICommandResult,
-  ICommandInteraction,
-  ICommandChoicePromptOption,
   ICommandListEntry,
   TCommandEffect,
-  TCommandInteractionPrompt,
   TCommandResultDataValue,
   TSystemCommandLifecycle,
   ICommandPermissionModeAdapter,
@@ -612,15 +609,7 @@ export type {
 
 // ── Interaction channel contracts ────────────────────────────
 export type { IInteractionChannel } from './interaction/IInteractionChannel.js';
-export type {
-  InteractionEvent,
-  IPermissionRequest,
-  TActionRequest,
-  TActionResponse,
-  IPickItem,
-  ICommandInfo,
-  TCommandInteractionHint,
-} from './interaction/types.js';
+export type { InteractionEvent, ICommandInfo } from './interaction/types.js';
 export { parseInput, isSlashCommand, tokeniseSlashCommand } from './interaction/input-parser.js';
 export type { TParsedInput } from './interaction/input-parser.js';
 export type { IInteractiveRuntime } from './interaction/InteractiveRuntime.js';

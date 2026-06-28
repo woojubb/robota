@@ -29,14 +29,4 @@ describe('ProgrammaticInteractionChannel.askUser', () => {
     expect(await channel.askUser(REQUEST)).toEqual({ type: 'cancelled' });
     expect(await channel.askUser(REQUEST)).toEqual({ type: 'cancelled' });
   });
-
-  it('keeps the legacy requestAction queue independent of the ask queue', async () => {
-    const channel = new ProgrammaticInteractionChannel();
-    channel.queueUserAction({ type: 'answer', values: ['a'] });
-    // legacy requestAction has its own (empty) queue → cancelled, unaffected by queueUserAction
-    expect(await channel.requestAction({ type: 'confirm', id: 'x', message: 'ok?' })).toEqual({
-      type: 'cancelled',
-    });
-    expect(await channel.askUser(REQUEST)).toEqual({ type: 'answer', values: ['a'] });
-  });
 });

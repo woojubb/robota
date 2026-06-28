@@ -26,8 +26,7 @@ import type { TerminalHandoffController } from './terminal-handoff-controller.js
 import type { IPendingPermissionRequest } from './types.js';
 import type { IAIProvider, TPermissionMode, TSessionEndReason } from '@robota-sdk/agent-core';
 import type { TToolArgs } from '@robota-sdk/agent-core';
-// CMD-004 unified action contract (SSOT in agent-core). Aliased to avoid clashing with the legacy
-// interface-transport `TActionResponse` still used by the (dead, removed in PR-H) requestAction path.
+// CMD-004 unified action contract (SSOT in agent-core).
 import type {
   IActionRequest,
   TActionResponse as TUserActionResponse,
@@ -40,8 +39,6 @@ import type {
   TShellExecFn,
 } from '@robota-sdk/agent-framework';
 import type {
-  TActionRequest,
-  TActionResponse,
   ICommandInfo,
   IExecutionDetailPage,
   IExecutionResult,
@@ -101,14 +98,9 @@ export class TuiInteractionChannel implements IInteractionChannel {
   private readonly opts: ITuiInteractionChannelOptions;
 
   private submitHandler: ((text: string) => Promise<void>) | null = null;
-  private actionQueue: Array<{
-    action: TActionRequest;
-    resolve: (response: TActionResponse) => void;
-  }> = [];
-  private processingAction = false;
 
-  // CMD-004 unified ask path (parallel to the legacy actionQueue above; that legacy path is removed
-  // in PR-H). Backs askHandler → InteractiveSession; rendered by App's PendingActionPrompt.
+  // CMD-004 unified ask path. Backs askHandler → InteractiveSession; rendered by App's
+  // PendingActionPrompt.
   private userActionQueue: Array<{
     request: IActionRequest;
     resolve: (response: TUserActionResponse) => void;
@@ -116,7 +108,6 @@ export class TuiInteractionChannel implements IInteractionChannel {
   private processingUserAction = false;
 
   permissionRequest: IPendingPermissionRequest | null = null;
-  pendingAction: TActionRequest | null = null;
   /** CMD-004: the action currently awaiting a user answer, or null. Read by App to render the dialog. */
   pendingUserAction: IActionRequest | null = null;
   availableCommands: ICommandInfo[] = [];
@@ -206,13 +197,6 @@ export class TuiInteractionChannel implements IInteractionChannel {
     // by createInteractiveRuntime. The two paths are mutually exclusive.
   }
 
-  async requestAction(action: TActionRequest): Promise<TActionResponse> {
-    return new Promise<TActionResponse>((resolve) => {
-      this.actionQueue.push({ action, resolve });
-      this.processNextAction();
-    });
-  }
-
   setAvailableCommands(commands: ICommandInfo[]): void {
     this.availableCommands = commands;
     this.onChange?.();
@@ -299,17 +283,6 @@ export class TuiInteractionChannel implements IInteractionChannel {
     this.onChange?.();
   }
 
-  resolveAction(response: TActionResponse): void {
-    const pending = this.actionQueue[0];
-    if (!pending) return;
-    this.actionQueue.shift();
-    this.processingAction = false;
-    this.pendingAction = null;
-    this.onChange?.();
-    pending.resolve(response);
-    this.processNextAction();
-  }
-
   // ── CMD-004 unified ask path ─────────────────────────────────
 
   /** Framework's `askHandler` entry point: queue the request and resolve when the user answers. */
@@ -394,19 +367,6 @@ export class TuiInteractionChannel implements IInteractionChannel {
   }
 
   // ── Private helpers ──────────────────────────────────────────
-
-  private processNextAction(): void {
-    if (this.processingAction) return;
-    const next = this.actionQueue[0];
-    if (!next) {
-      this.pendingAction = null;
-      this.onChange?.();
-      return;
-    }
-    this.processingAction = true;
-    this.pendingAction = next.action;
-    this.onChange?.();
-  }
 
   private handlePermissionRequest(
     toolName: string,

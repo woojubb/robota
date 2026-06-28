@@ -235,7 +235,7 @@ Provider slash commands are command-module interactions rendered through generic
 
 Selecting a profile opens a provider-command-owned action menu with switch, edit, test, duplicate, delete, and cancel. Edit uses provider setup metadata with masked current values hidden from the prompt display. Delete confirms the action, blocks the last profile, and requires a replacement before deleting the active profile. Non-interactive/headless slash execution never blocks on these interactions; it prints the deterministic command message and exits.
 
-Provider changes must follow the SDK command contract: the provider command module owns provider setup/edit/delete state, settings patch construction, writes through the injected settings adapter, and returns a generic `session-restart-requested` effect. The CLI/TUI only renders `ICommandInteractionPrompt` values including generic prompt descriptions, submits prompt values back to the active command interaction, and applies typed command effects.
+Provider changes must follow the SDK command contract: the provider command module owns provider setup/edit/delete state, settings patch construction, writes through the injected settings adapter, and returns a generic `session-restart-requested` effect. The provider command solicits each step inline via the CMD-004 ask seam (`context.getUserInteraction()?.ask(IActionRequest)`); the CLI/TUI only renders those `IActionRequest` dialogs (via the channel's `askUser`) and applies typed command effects.
 
 The TUI status area must show enough active profile identity for users to verify the selected
 runtime profile. When profile metadata is available, it renders profile key, provider type, and
@@ -713,7 +713,7 @@ Installed plugins contribute skills via `PluginCommandSource`, which discovers s
 2. Creates a `TuiStateManager` instance that holds `history: IHistoryEntry[]` as the primary state for the message list and the latest SDK execution workspace snapshot for background/workspace rendering. On each execution update (when `thinking` transitions to `false`, or on `complete`/`interrupted`), delegates to `TuiStateManager` to sync state from `interactiveSession.getFullHistory()` and `interactiveSession.getExecutionWorkspaceSnapshot()`.
 3. Subscribes to `InteractiveSession` events (`text_delta`, `tool_start`, `tool_end`, `thinking`, `complete`, `interrupted`, `error`, `execution_workspace_event`) and converts them to channel state.
 4. Exposes `handleSubmit`, `handleAbort`, `handleCancelQueue`, and `handleShutdown` as stable callbacks to the TUI via `useTuiChannel`.
-5. Routes slash commands via `session.executeCommand(name, args)` — no `SystemCommandExecutor` is instantiated directly by the CLI. Command-specific follow-up prompts are handled by `ICommandInteraction` and command-specific host actions are handled by typed `TCommandEffect` values.
+5. Routes slash commands via `session.executeCommand(name, args)` — no `SystemCommandExecutor` is instantiated directly by the CLI. Commands that need input ask inline via the CMD-004 seam (rendered by the channel's `askUser` → `PendingActionPrompt`); command-specific host actions are handled by typed `TCommandEffect` values.
 6. Manages the permission queue (serialises concurrent permission requests).
 
 `useTuiChannel` is the React hook that subscribes to `TuiInteractionChannel.onChange` and exposes its state/callbacks to `App.tsx`. No component interacts with `InteractiveSession` directly.

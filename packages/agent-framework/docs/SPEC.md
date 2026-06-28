@@ -16,7 +16,7 @@ This package does NOT own: provider implementations, generic session run loop, t
 - `createQuery()` — convenience single-shot factory
 - `createAgentRuntime()` — runtime composition factory for headless and multi-session consumers
 - Command infrastructure: `CommandRegistry`, `BuiltinCommandSource`, `SkillCommandSource`, `PluginCommandSource`, `SystemCommandExecutor`, `createSystemCommands()`
-- Command API contracts: `ISystemCommand`, `ICommandModule`, `ICommandHostContext`, `ICommandResult`, `TCommandEffect`, `ICommandInteraction`
+- Command API contracts: `ISystemCommand`, `ICommandModule`, `ICommandHostContext`, `ICommandResult`, `TCommandEffect`
 - All `command-api/` sub-namespaces: provider, org-policy, context, compact, language, memory, background, help, permissions, statusline, plugin, session, effects, checkpoint
 - Config loading: `loadConfig()` (internal), `readSettings()`, `writeSettings()`, settings I/O utilities
 - Context loading: `loadContext()` (internal), task context helpers, prompt file reference resolver, context reference inventory
@@ -92,10 +92,8 @@ Key design rules:
 | `ICommandModule`                     | `src/command-api/command-module.ts`                   | Composition unit for command modules                                                                                |
 | `ICommandHostContext`                | `src/command-api/host-context.ts`                     | Narrow facade for command module implementations                                                                    |
 | `ICommandHostAdapters`               | `src/command-api/host-adapters.ts`                    | Host-provided adapter bag                                                                                           |
-| `ICommandResult`                     | `src/command-api/contracts.ts`                        | Command output, effects, and interaction                                                                            |
+| `ICommandResult`                     | `src/command-api/contracts.ts`                        | Command output and typed host effects                                                                               |
 | `TCommandEffect`                     | `src/command-api/contracts.ts`                        | Typed host-applied effect union                                                                                     |
-| `ICommandInteraction`                | `src/command-api/contracts.ts`                        | Generic command follow-up prompt                                                                                    |
-| `TCommandInteractionPrompt`          | `src/command-api/contracts.ts`                        | Prompt descriptor for command interactions                                                                          |
 | `IPresetApplicationOptions`          | `src/command-api/preset/preset-application.ts`        | Framework-owned resolved-preset option subset re-applied to a live session (PRESET-011~017)                         |
 | `IPresetApplicationResult`           | `src/command-api/preset/preset-application.ts`        | `{ applied, skipped }` report from `applyPresetToSession`                                                           |
 | `IModelReapplyOptions`               | `src/command-api/host-context.ts`                     | Live model group (`model`/`effort`/`temperature`/`maxOutputTokens`) re-applied via `applyModelOptions` (PRESET-013) |
@@ -313,7 +311,7 @@ When `sandboxClient` is provided to `InteractiveSession`, Bash, Read, Write, and
 interface IInteractionChannel {
   onSubmit(handler: (text: string) => Promise<void>): void;
   write(event: InteractionEvent): void;
-  requestAction(action: TActionRequest): Promise<TActionResponse>;
+  askUser(request: IActionRequest): Promise<TActionResponse>;
   setAvailableCommands(commands: ICommandInfo[]): void;
   setBusy(busy: boolean): void;
   start(): Promise<void>;
@@ -330,28 +328,17 @@ interface IInteractionChannel {
 | `assistant-done`      | Streaming complete, with full text |
 | `tool-call`           | Tool invocation started            |
 | `tool-result`         | Tool invocation finished           |
-| `permission-request`  | Tool requires user permission      |
 | `permission-resolved` | Permission granted or denied       |
 | `command-result`      | Slash command executed             |
 | `error`               | Session error                      |
 
-**`TActionRequest` / `TActionResponse`** — disambiguation protocol for slash commands that need user input (pick list or confirm dialog). `createInteractiveRuntime` calls `channel.requestAction()` when a command module declares an `interactionHint` and the user submits the command without arguments.
-
-**`TCommandInteractionHint`** — declared per command name in `ICommandModule.interactionHints`:
-
-```typescript
-type TCommandInteractionHint =
-  | { type: 'pick'; getItems(): IPickItem[] }
-  | { type: 'confirm'; message: string };
-```
-
-When a hint is present and the user omits arguments, `createInteractiveRuntime` calls `requestAction` to show a picker or confirm dialog before executing the command.
+**`askUser(IActionRequest)` (CMD-004)** — the sole "ask the user" seam. The unified action contract (`IActionRequest`/`TActionResponse`) is owned by `agent-core` and reaches both command execution and tool execution. The channel renders the request per-environment (Ink dialog, web modal, programmatic preset) and resolves when the user answers or cancels. `createInteractiveRuntime` injects it into the session as `askHandler`, so a command reaches it via `context.getUserInteraction()?.ask(request)`; the runtime itself does **not** disambiguate commands — each command solicits any input it needs.
 
 **`createInteractiveRuntime`** — factory that wires a channel to a session:
 
 - Registers command modules and exposes their commands via `setAvailableCommands`
 - Routes user messages → `session.submit()`
-- Routes slash commands → optional `requestAction()` → `session.executeCommand()`
+- Routes slash commands → `session.executeCommand()` (commands self-ask via the injected `askHandler`)
 - Forwards session events → `channel.write(InteractionEvent)`
 - Calls `setBusy(true/false)` around AI completions
 
@@ -884,9 +871,9 @@ agent-cli (Ink TUI — CLI-specific)
   - `ISystemCommand` — command metadata, lifecycle, model/user visibility, and execute function.
   - `ICommandModule` — composition unit contributing command sources, executable commands, descriptors, and session requirements.
   - `ICommandHostContext` — narrow command-facing facade over session/context/runtime capabilities. Command modules must not require `InteractiveSession`, React state, CLI settings files, or TUI hooks directly.
-  - `ICommandResult` — command output, structured diagnostics, typed host effects, and generic interactions.
+  - `ICommandResult` — command output, structured diagnostics, and typed host effects.
   - `TCommandEffect` — typed host-applied effects such as model/language change, restart, exit, session picker, plugin UI, plugin registry reload, rename, and statusline patch.
-  - `ICommandInteraction` / `TCommandInteractionPrompt` — generic command-owned follow-up prompts rendered by host UIs. Prompt descriptors may include a provider-neutral `description` string for host-rendered help text.
+  - User-facing prompts are not part of `ICommandResult`. A command that needs input asks for it inline via `context.getUserInteraction()?.ask(IActionRequest)` (CMD-004), the unified action seam owned by `agent-core`.
 - **Provider common APIs**: `agent-framework/command-api/provider/` owns provider settings document types, provider profile merge/validation/delete helpers, environment reference helpers, setup-flow primitives including fixed-profile edit defaults, provider-owned setup help link projection, provider profile name suggestion helpers, provider command settings adapter contracts, and provider probe defaults. `provider` command behavior lives in `@robota-sdk/agent-command` and consumes these APIs as an external command module.
 - **Org-policy common APIs**: `agent-framework/command-api/org-policy/` owns `IOrgPolicy` (allowedProviders, blockedCommands, requireApiKeyFromEnv, adminContact), `loadOrgPolicy()` (reads `~/.robota/org-policy.json`), `formatOrgPolicyViolationMessage()`, and `isApiKeyPlaintext()`. Enforcement is split: `InteractiveSession.executeCommand()` blocks `blockedCommands` before dispatch and blocks `allowedProviders` violations after a `provider-hot-swap-requested` effect is observed. `IProviderCommandModuleOptions.orgPolicy` passes the policy to provider command module so `buildProviderSwitch` and `completeProviderEdit` can enforce `allowedProviders` and `requireApiKeyFromEnv` within command boundaries. `IAgentRuntimeConfig.orgPolicy` carries the policy through runtime construction to session creation.
 - **Context/compact common APIs**: `agent-framework/command-api/context/` owns command-facing context-state reads, automatic compact policy reads, active-session policy updates, settings-adapter persistence helpers, and manual compact host-facade helpers. `context` and `compact` command behavior lives in `@robota-sdk/agent-command` and `@robota-sdk/agent-command`; both consume these APIs as external command modules.
@@ -995,7 +982,7 @@ reusing broad context-loading internals for repository interpretation.
   - `SystemCommandExecutor` — registry + executor for `ISystemCommand` instances (internal to InteractiveSession)
   - `createSystemCommands()` — SDK core executable command factory; currently returns an empty list because user-visible built-ins live in `agent-command-*`
   - `createBuiltinCommandModule()` — SDK core compatibility module; currently empty
-- **Design**: Commands return `ICommandResult` with `message`, `success`, and optional SDK-owned `effects` and `interaction` contracts. `data` remains available for command-specific diagnostic payloads, but callers must not invent command-specific side-effect keys. User-facing follow-up prompts are represented by `ICommandInteraction`, and host actions such as restart, shutdown, plugin UI, plugin registry reload, session picker, model/language changes, session rename, and status-line updates are represented by typed `TCommandEffect` values.
+- **Design**: Commands return `ICommandResult` with `message`, `success`, and optional SDK-owned `effects`. `data` remains available for command-specific diagnostic payloads, but callers must not invent command-specific side-effect keys. User-facing prompts are solicited inline via the CMD-004 ask seam (`context.getUserInteraction()?.ask`), not returned in the result; host actions such as restart, shutdown, plugin UI, plugin registry reload, session picker, model/language changes, session rename, and status-line updates are represented by typed `TCommandEffect` values.
 - **Single owner rule**: SDK-default built-in command metadata is derived from executable `ISystemCommand` records. A built-in command must not be added to autocomplete/help metadata without an executable owner module.
 - **Lifecycle policy**: `ISystemCommand` may declare command lifecycle metadata. Blocking foreground commands share the same `InteractiveSession` execution guard and `thinking` events as prompt execution. Inline commands execute immediately and must not call model-backed long-running operations.
 - **Command identity**: `ICommand.name`, `ISystemCommand.name`, `ICapabilityDescriptor.name`, and projected model-command reverse mappings use slash-free canonical command ids such as `skills`, `agent`, and `memory`. Slash syntax such as `/skills` or `/agent` belongs only to UI/transport input parsing and display.
@@ -1637,7 +1624,6 @@ interface ICommandResult {
   success: boolean;
   data?: Record<string, TCommandResultDataValue>;
   effects?: readonly TCommandEffect[];
-  interaction?: ICommandInteraction;
 }
 
 type TCommandEffect =
@@ -1655,15 +1641,9 @@ type TCommandEffect =
   | { type: 'session-execution-started' }
   | { type: 'statusline-settings-patch'; patch: TStatusLineCommandSettingsPatch }
   | { type: 'agent-switcher-requested' };
-
-interface ICommandInteraction {
-  prompt: ICommandInteractionPrompt;
-  submit(value: string): Promise<ICommandResult> | ICommandResult;
-  cancel?(): Promise<ICommandResult> | ICommandResult;
-}
 ```
 
-`ICommandInteractionPrompt` is the generic prompt descriptor used by UI hosts. It supports choice and text prompts with optional description text, masked text, and validation metadata. Hosts render the prompt and pass submitted values back to the interaction; they do not inspect command-specific state.
+A command that needs user input does not return a continuation in `ICommandResult`. It asks inline via the CMD-004 unified seam — `context.getUserInteraction()?.ask(IActionRequest)` — which is owned by `agent-core`, reaches both command and tool execution, and is rendered per-environment by the active channel's `askUser`. See the Interaction Channel Contract section.
 
 ### CommandRegistry, BuiltinCommandSource, SkillCommandSource, PluginCommandSource
 

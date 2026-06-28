@@ -3,12 +3,7 @@ import { InteractiveSession } from '../interactive/index.js';
 
 import type { IInteractionChannel } from './IInteractionChannel.js';
 import type { IInteractiveRuntime } from './InteractiveRuntime.js';
-import type {
-  TActionRequest,
-  TActionResponse,
-  TCommandInteractionHint,
-  ICommandInfo,
-} from './types.js';
+import type { ICommandInfo } from './types.js';
 import type { ICommandModule } from '../command-api/command-module.js';
 import type { IInteractiveSession } from '../interactive/i-interactive-session.js';
 import type { IInteractiveSessionStore } from '../interactive/session-persistence.js';
@@ -28,32 +23,6 @@ export interface IInteractiveRuntimeOptions {
   permissionMode?: TPermissionMode;
   /** Test escape hatch — skips session creation when supplied. */
   _testSession?: IInteractiveSession;
-}
-
-function buildActionRequest(commandName: string, hint: TCommandInteractionHint): TActionRequest {
-  if (hint.type === 'pick') {
-    return {
-      type: 'pick',
-      id: commandName,
-      title: `/${commandName}`,
-      items: hint.getItems(),
-    };
-  }
-  return {
-    type: 'confirm',
-    id: commandName,
-    message: hint.message,
-  };
-}
-
-function resolveArgsFromResponse(
-  hint: TCommandInteractionHint,
-  response: TActionResponse,
-): string[] | null {
-  if (response.type === 'cancelled') return null;
-  if (hint.type === 'pick' && response.type === 'pick') return [response.item.value];
-  if (hint.type === 'confirm' && response.type === 'confirm') return [];
-  return null;
 }
 
 function commandsToCommandInfo(
@@ -124,13 +93,6 @@ export function createInteractiveRuntime(options: IInteractiveRuntimeOptions): I
   let session: IInteractiveSession | null = null;
   let unwireEvents: (() => void) | null = null;
 
-  const interactionHints: Record<string, TCommandInteractionHint> = {};
-  for (const mod of commandModules) {
-    if (mod.interactionHints) {
-      Object.assign(interactionHints, mod.interactionHints);
-    }
-  }
-
   async function handleSubmit(text: string): Promise<void> {
     if (!session) return;
     const parsed = parseInput(text);
@@ -142,18 +104,10 @@ export function createInteractiveRuntime(options: IInteractiveRuntimeOptions): I
       return;
     }
 
+    // CMD-004: commands solicit any needed input themselves via the injected ask seam
+    // (getUserInteraction → channel.askUser); the runtime just dispatches with the typed args.
     const { name, args } = parsed;
-    const hint = interactionHints[name];
-
-    let resolvedArgs = args;
-    if (hint && args.length === 0) {
-      const response = await channel.requestAction(buildActionRequest(name, hint));
-      const fromResponse = resolveArgsFromResponse(hint, response);
-      if (fromResponse === null) return; // cancelled
-      resolvedArgs = fromResponse;
-    }
-
-    const result = await session.executeCommand(name, resolvedArgs.join(' '));
+    const result = await session.executeCommand(name, args.join(' '));
     if (result) {
       channel.write({ type: 'command-result', name, output: result.message });
     } else {
