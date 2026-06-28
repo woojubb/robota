@@ -73,6 +73,7 @@ const DOCUMENTED_WORKSPACE_PATTERNS = [
   { pathPattern: /^packages\/agent-provider-[^/]+$/, textPattern: /agent-provider-\*/ },
   { pathPattern: /^packages\/agent-transport$/, textPattern: /agent-transport\// },
   { pathPattern: /^packages\/agent-transport-[^/]+$/, textPattern: /agent-transport-\*/ },
+  { pathPattern: /^packages\/agent-testing$/, textPattern: /agent-testing/ },
   { pathPattern: /^packages\/agent-plugin$/, textPattern: /agent-plugin\// },
   { pathPattern: /^packages\/agent-plugin-[^/]+$/, textPattern: /agent-plugin-\*/ },
   { pathPattern: /^packages\/agent-interface-[^/]+$/, textPattern: /agent-interface-\*/ },

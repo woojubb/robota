@@ -4,9 +4,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { spawnPtyFixture } from './pty/spawn-pty.js';
+import { spawnPtyFixture } from '@robota-sdk/agent-testing';
 
-import type { IPtyRunSession } from './pty/spawn-pty.js';
+import type { IPtyRunSession } from '@robota-sdk/agent-testing';
 
 const openaiDefaults = {
   model: 'gpt-4o',
