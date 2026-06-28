@@ -17,6 +17,7 @@ import {
   readProviderSettings,
 } from '../command-api/provider/provider-factory.js';
 import { GoalController, buildGoalContinuationPrompt } from '../goal/index.js';
+import { createUserInteractionPort } from '../interaction/user-interaction-port.js';
 import { retrieveAgentToolDeps } from '../tools/agent-tool.js';
 
 import type { IInteractiveSession } from './i-interactive-session.js';
@@ -46,6 +47,7 @@ import type {
   TUniversalMessage,
   TSessionEndReason,
   IProviderDefinition,
+  IUserInteraction,
 } from '@robota-sdk/agent-core';
 import type { ISession } from '@robota-sdk/agent-core';
 import type {
@@ -97,6 +99,8 @@ export class InteractiveSession
   private currentTurnSource: TTurnSource = 'user';
   /** TERM-001: transport-provided terminal-handoff capability (undefined when none). */
   private readonly terminalHandoff?: ITerminalHandoff;
+  /** CMD-004: transport-provided "ask the user" handler (undefined when no interactive renderer). */
+  private readonly askHandler?: IUserInteraction['ask'];
   /** TERM-001: guards handoff exclusivity (one handoff at a time). */
   private terminalHandoffActive = false;
 
@@ -105,6 +109,7 @@ export class InteractiveSession
     this.sessionStore = options.sessionStore;
     this.sessionName = options.sessionName;
     this.terminalHandoff = options.terminalHandoff;
+    this.askHandler = options.askHandler;
     this.cwd = ('cwd' in options ? options.cwd : undefined) ?? '';
     this.resumeSessionId = options.resumeSessionId;
     this.forkSession = options.forkSession ?? false;
@@ -444,6 +449,15 @@ export class InteractiveSession
 
   getAgentJobCapability(): IAgentJobHostContext {
     return this;
+  }
+
+  /**
+   * CMD-004: the injected "ask the user" port, or undefined when no interactive renderer is attached
+   * (headless/automation) — a command must treat absence as "no human available", never a silent
+   * guess. The model-invocation guard lives in {@link createUserInteractionPort}.
+   */
+  getUserInteraction(): IUserInteraction | undefined {
+    return createUserInteractionPort(this.askHandler, () => this.getCommandInvocationSource());
   }
 
   /**
