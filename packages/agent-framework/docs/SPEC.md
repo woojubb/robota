@@ -390,7 +390,20 @@ dependency cycle). Fields and the group each drives:
 `setParallelSubagentsEnabled?(enabled)` (`src/command-api/host-context.ts`).
 
 **Optional `ICommandHostContext` methods**: `applyPersona?(persona)`,
-`applyCommandModuleSelection?(enabled, disabled)`, `applySelfVerification?(enabled)`.
+`applyCommandModuleSelection?(enabled, disabled)`, `applySelfVerification?(enabled)`,
+`getUserInteraction?()`.
+
+**Ask seam (CMD-004)**: consumers provide an `askHandler` callback (`IUserInteraction['ask']`, SSOT in
+`@robota-sdk/agent-core`) to `InteractiveSession` options — the interaction sibling of
+`permissionHandler`. The session exposes it to command modules as a narrow capability via
+`ICommandHostContext.getUserInteraction(): IUserInteraction | undefined`, which returns `undefined`
+when no interactive renderer is attached (headless/automation) — a command treats absence as "no human
+available", never a silent guess. `createUserInteractionPort()`
+(`src/interaction/user-interaction-port.ts`) wraps the handler with the model-invocation guard: a
+command invoked by the model runs inside an executing turn, so the port resolves `cancelled` instead of
+blocking on a human prompt (a model-issued interactive ask is CMD-005's separate turn-suspension
+design). Transports render the `IActionRequest` per-environment; the contract carries no function-valued
+fields (serialization-safe for remote transports).
 
 **`createSelfVerificationSection()`** (`src/context/system-prompt-section-providers.ts`) composes a
 verify-before-done system-prompt section with `source: 'self-verification'` at **priority 6** — between

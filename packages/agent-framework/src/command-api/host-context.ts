@@ -27,6 +27,7 @@ import type { TAutoCompactThreshold } from './context/context-command-api.js';
 import type {
   IContextWindowState,
   IHistoryEntry,
+  IUserInteraction,
   TModelEffort,
   TPermissionMode,
   TUniversalMessage,
@@ -108,6 +109,13 @@ export interface ICommandHostContext {
   clearConversationHistory?(): void;
   validateCurrentSessionReplayLog?(): ICommandSessionReplayValidationReport;
   getAgentJobCapability?(): IAgentJobHostContext | undefined;
+  /**
+   * CMD-004: the injected "ask the user" port, or undefined when no interactive renderer is attached.
+   * A command solicits a structured answer via `getUserInteraction()?.ask(request)`; absence means no
+   * human is available (headless/automation, or a model-invoked command) — the command must handle it
+   * as a cancellation, never a silent guess.
+   */
+  getUserInteraction?(): IUserInteraction | undefined;
   getSession(): ICommandSessionRuntime;
   /** PRESET-014 — re-apply a preset persona to the live system prompt. */
   applyPersona?(persona: string): void;
