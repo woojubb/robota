@@ -15,9 +15,6 @@ import type {
   IToolState,
 } from '@robota-sdk/agent-interface-transport';
 
-/** Max messages kept in rendering state */
-const MAX_RENDERED_MESSAGES = 100;
-
 /** Debounce interval for streaming text notify (limits renderMarkdown frequency) */
 const STREAMING_DEBOUNCE_MS = 300;
 /**
@@ -159,19 +156,20 @@ export class TuiStateManager {
 
   // ── State updates from external sources ───────────────────────
 
-  /** Sync history from InteractiveSession */
+  /**
+   * Sync history from InteractiveSession — authoritative SSOT replace (SCREEN-010: no front-windowing).
+   * The session history grows monotonically during a session, so Ink `<Static>` (count-based) renders
+   * only the newly-appended tail; committed lines already in terminal scrollback are never re-printed.
+   */
   syncHistory(entries: IHistoryEntry[]): void {
     if (entries.length === 0) return;
-    this.history =
-      entries.length > MAX_RENDERED_MESSAGES ? entries.slice(-MAX_RENDERED_MESSAGES) : [...entries];
+    this.history = [...entries];
     this.notify();
   }
 
-  /** Add a single history entry */
+  /** Add a single history entry (append; e.g. the immediate user-message echo before the sync). */
   addEntry(entry: IHistoryEntry): void {
-    const updated = [...this.history, entry];
-    this.history =
-      updated.length > MAX_RENDERED_MESSAGES ? updated.slice(-MAX_RENDERED_MESSAGES) : updated;
+    this.history = [...this.history, entry];
     this.notify();
   }
 

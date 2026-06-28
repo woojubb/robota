@@ -250,7 +250,7 @@ function EventEntry({ entry }: { entry: IHistoryEntry }): React.ReactElement {
   );
 }
 
-function EntryItem({ entry }: { entry: IHistoryEntry }): React.ReactElement {
+export function EntryItem({ entry }: { entry: IHistoryEntry }): React.ReactElement {
   if (entry.category === 'chat') {
     const message = entry.data as TUniversalMessage;
     return <MessageItem message={message} />;
