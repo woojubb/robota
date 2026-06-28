@@ -37,6 +37,8 @@ export interface ISpawnTuiOptions {
   homeDir: string;
   cols?: number;
   rows?: number;
+  /** Extra CLI args appended after the binary (e.g. `['--session-log', path]`). */
+  args?: readonly string[];
 }
 
 export function writeTuiProviderSettings(projectDir: string): void {
@@ -60,7 +62,7 @@ export function spawnTui(options: ISpawnTuiOptions): IPtySession {
 
   const session: IPtyRunSession = spawnPty({
     command: process.execPath,
-    args: [ROBOTA_BIN],
+    args: [ROBOTA_BIN, ...(options.args ?? [])],
     cwd: options.projectDir,
     env: {
       PATH: process.env['PATH'] ?? '',
