@@ -54,9 +54,9 @@ export function ModelConfigurationTab({
       />
 
       <SystemMessageField
-        value={config.defaultModel.systemMessage || ''}
+        value={config.systemMessage || ''}
         isExecuting={isExecuting}
-        onChange={(value) => updateDefaultModel({ systemMessage: value })}
+        onChange={(value) => onConfigUpdate({ systemMessage: value })}
       />
     </div>
   );

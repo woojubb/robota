@@ -37,7 +37,7 @@ export function emitCreatedEvent(
   emitFn(AGENT_EVENTS.CREATED, {
     parameters: {
       tools: toolNames,
-      systemMessage: config.defaultModel.systemMessage,
+      systemMessage: config.systemMessage,
       provider: config.defaultModel.provider,
       model: config.defaultModel.model,
       temperature: config.defaultModel.temperature,

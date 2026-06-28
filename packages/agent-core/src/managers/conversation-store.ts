@@ -80,6 +80,18 @@ export class ConversationStore implements IConversationHistory {
     this.history.addSystemMessage(content, metadata, parts);
   }
 
+  /**
+   * Set the single head system prompt (live instruction state). Replaces any existing system
+   * message in place; idempotent and never appends. See agent-core SPEC → System Prompt (SSOT).
+   */
+  setSystemPrompt(
+    content: string,
+    metadata?: TUniversalMessageMetadata,
+    parts?: TUniversalMessagePart[],
+  ): void {
+    this.history.setSystemPrompt(content, metadata, parts);
+  }
+
   addToolMessage(
     content: string,
     toolCallId: string,

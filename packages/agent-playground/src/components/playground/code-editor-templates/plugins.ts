@@ -50,9 +50,9 @@ const robota = new Robota({
     })],
     defaultModel: {
         provider: 'openai',
-        model: 'gpt-3.5-turbo',
-        systemMessage: 'You are a helpful assistant with time and analytics capabilities.'
+        model: 'gpt-3.5-turbo'
     },
+    systemMessage: 'You are a helpful assistant with time and analytics capabilities.',
     tools: [timeTool],
     plugins: [
         // Logging plugin for detailed logs

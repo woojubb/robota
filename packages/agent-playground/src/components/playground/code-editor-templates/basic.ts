@@ -26,9 +26,9 @@ const robota = new Robota({
     aiProviders: [openaiProvider],
     defaultModel: {
         provider: 'openai',
-        model: 'gpt-3.5-turbo',
-        systemMessage: 'You are a helpful AI assistant.'
-    }
+        model: 'gpt-3.5-turbo'
+    },
+    systemMessage: 'You are a helpful AI assistant.'
 })
 
 // Simple conversation

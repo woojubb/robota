@@ -609,6 +609,16 @@ If the partial response includes tool_use blocks (abort during tool call streami
 - **No fallback**: If a message should be in history, it IS in history. No fallback to alternative data sources.
 - **Unbounded**: `DEFAULT_MAX_MESSAGES_PER_CONVERSATION = 0` (`src/managers/conversation-history-manager.ts`) means no message cap, backing the append-only guarantee — history is never trimmed by count.
 
+## System Prompt (single source of truth)
+
+The system prompt is the agent's **live instruction state** — not conversation content. The append-only/read-only principles above govern user/assistant/tool messages; they do **not** govern the system prompt, which is replaceable.
+
+- **Single owner**: the top-level `config.systemMessage` is the sole source of the system prompt. There is no `defaultModel.systemMessage`; the system prompt is an agent-level concern, not a model-config field, so `IModelConfig`/`setModel` do not carry it.
+- **One head message**: each conversation store holds **exactly one** system message, at the head. `ConversationStore.setSystemPrompt(content)` enforces this — it removes any existing system messages and prepends exactly one at the head.
+- **Injected once, then the log is reused**: the system prompt belongs to the session log. `initializeConversationStore` injects it (`setSystemPrompt(config.systemMessage)`) **only when the log has no system message yet** — at session start, or the first turn after resume. On subsequent turns the log is **reused as-is**; the prompt is never re-attached or re-derived per turn. This is the correct model: once a prompt has been sent in a session it is part of that session's record.
+- **Live updates reach the model**: `Robota.updateSystemPrompt(content)` updates `config.systemMessage` **and** the live conversation store head **in place**, so the very next provider request carries the change. This is the path that propagates a session's persona, self-verification toggle, and AGENTS.md/CLAUDE.md staleness refresh to the model — a real, infrequent mutation, not a per-turn rewrite. Updating only a config field (without the store head) is insufficient because providers read the system prompt from the messages array, never from a separate config field.
+- **Resume semantics**: persisted `system` messages are **not** restored into the log; instead the system prompt is injected fresh from the live `config.systemMessage` on the first turn after resume (a staleness refresh — the rebuilt prompt reflects the current cwd/AGENTS.md/CLAUDE.md and tool inventory). The restored conversation's user/assistant/tool messages are always preserved; restore keys off the presence of conversation content, not the system head (so a system prompt applied before the first turn does not block restore).
+
 ## Message Model
 
 `IBaseMessage` is the foundation for all message types in the conversation history.

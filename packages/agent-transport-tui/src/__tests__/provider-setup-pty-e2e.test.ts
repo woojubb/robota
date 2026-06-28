@@ -1,13 +1,12 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
-import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import * as pty from '@homebridge/node-pty-prebuilt-multiarch';
 
-const require = createRequire(import.meta.url);
-const TSX_ESM_HOOK_PATH: string = require.resolve('tsx/esm');
+import { spawnPtyFixture } from './pty/spawn-pty.js';
+
+import type { IPtyRunSession } from './pty/spawn-pty.js';
 
 const openaiDefaults = {
   model: 'gpt-4o',
@@ -17,10 +16,10 @@ const openaiDefaults = {
 const DRIVER_PATH = fileURLToPath(
   new URL('./fixtures/provider-setup-prompt-driver.tsx', import.meta.url),
 );
+const REPO_ROOT = fileURLToPath(new URL('../../../../..', import.meta.url));
 const TEST_TIMEOUT_MS = 30000;
 const WAIT_TIMEOUT_MS = 15000;
 const INPUT_SETTLE_MS = 75;
-const OUTPUT_TAIL_LENGTH = 2000;
 
 interface IPtyHarness {
   submit(input?: string): Promise<void>;
@@ -30,11 +29,11 @@ interface IPtyHarness {
 }
 
 const tempDirs: string[] = [];
-const activeHarnesses: IPtyHarness[] = [];
+const activeSessions: IPtyRunSession[] = [];
 
 afterEach(() => {
-  for (const harness of activeHarnesses.splice(0)) {
-    harness.dispose();
+  for (const session of activeSessions.splice(0)) {
+    session.dispose();
   }
   for (const dir of tempDirs.splice(0)) {
     rmSync(dir, { recursive: true, force: true });
@@ -97,66 +96,35 @@ function spawnProviderSetupDriver(type: 'openai' | 'anthropic'): {
   const dir = mkdtempSync(join(tmpdir(), 'robota-provider-pty-'));
   tempDirs.push(dir);
   const outputPath = join(dir, 'result.json');
-  const proc = pty.spawn(
-    process.execPath,
-    ['--import', TSX_ESM_HOOK_PATH, DRIVER_PATH, outputPath, type],
-    {
-      cols: 120,
-      rows: 40,
-      cwd: fileURLToPath(new URL('../../../../..', import.meta.url)),
-      env: createPtyEnv(),
-    },
-  );
-  const harness = createHarness(proc);
-  activeHarnesses.push(harness);
-  return { harness, outputPath };
+  const session = spawnPtyFixture(DRIVER_PATH, {
+    argv: [outputPath, type],
+    cwd: REPO_ROOT,
+    env: createPtyEnv(),
+    cols: 120,
+    rows: 40,
+  });
+  activeSessions.push(session);
+  return { harness: createHarness(session), outputPath };
 }
 
-function createHarness(proc: pty.IPty): IPtyHarness {
-  let output = '';
-  let exitCode: number | undefined;
-  const waiters: Array<() => void> = [];
-
-  proc.onData((data) => {
-    output += data;
-    notifyWaiters(waiters);
-  });
-  proc.onExit((event) => {
-    exitCode = event.exitCode;
-    notifyWaiters(waiters);
-  });
-
+function createHarness(session: IPtyRunSession): IPtyHarness {
   return {
     async submit(input = '') {
       await sleep(INPUT_SETTLE_MS);
       if (input) {
-        proc.write(input);
+        session.write(input);
         await sleep(INPUT_SETTLE_MS);
       }
-      proc.write('\r');
+      session.write('\r');
     },
     waitFor(text: string) {
-      return waitUntil(
-        () => output.includes(text),
-        waiters,
-        () => {
-          return new Error(`Timed out waiting for "${text}". Output:\n${tail(output)}`);
-        },
-      );
+      return session.waitFor(text, WAIT_TIMEOUT_MS);
     },
     waitForExit() {
-      return waitUntil(
-        () => exitCode !== undefined,
-        waiters,
-        () => {
-          return new Error(`Timed out waiting for PTY exit. Output:\n${tail(output)}`);
-        },
-      ).then(() => exitCode ?? -1);
+      return session.expectExit(WAIT_TIMEOUT_MS);
     },
     dispose() {
-      if (exitCode === undefined) {
-        proc.kill();
-      }
+      session.dispose();
     },
   };
 }
@@ -177,57 +145,7 @@ function createPtyEnv(): NodeJS.ProcessEnv {
   return env;
 }
 
-function waitUntil(
-  predicate: () => boolean,
-  waiters: Array<() => void>,
-  createTimeoutError: () => Error,
-): Promise<void> {
-  if (predicate()) {
-    return Promise.resolve();
-  }
-  return new Promise((resolve, reject) => {
-    let settled = false;
-    const removeWaiter = (waiter: () => void): void => {
-      const index = waiters.indexOf(waiter);
-      if (index >= 0) {
-        waiters.splice(index, 1);
-      }
-    };
-    const check = () => {
-      if (settled) {
-        return;
-      }
-      if (!predicate()) {
-        return;
-      }
-      settled = true;
-      clearTimeout(deadline);
-      removeWaiter(check);
-      resolve();
-    };
-    const deadline = setTimeout(() => {
-      if (settled) {
-        return;
-      }
-      settled = true;
-      removeWaiter(check);
-      reject(createTimeoutError());
-    }, WAIT_TIMEOUT_MS);
-    waiters.push(check);
-  });
-}
-
-function notifyWaiters(waiters: Array<() => void>): void {
-  for (const waiter of [...waiters]) {
-    waiter();
-  }
-}
-
 function readResult(outputPath: string): Record<string, string | boolean> {
   expect(existsSync(outputPath)).toBe(true);
   return JSON.parse(readFileSync(outputPath, 'utf8')) as Record<string, string | boolean>;
-}
-
-function tail(output: string): string {
-  return output.slice(-OUTPUT_TAIL_LENGTH);
 }

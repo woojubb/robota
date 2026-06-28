@@ -257,7 +257,11 @@ The session log records structured events to a JSONL file for diagnostics and re
 
 3. **`ISessionOptions.provider`** -- Inject any `IAIProvider`. The consuming layer (agent-framework) creates the appropriate provider from config.
 
-4. **`ISessionOptions.systemMessage`** -- Inject the pre-built system prompt string. The consuming layer (agent-framework) builds this from AGENTS.md, CLAUDE.md, tool descriptions, and trust level.
+4. **`ISessionOptions.systemMessage`** -- Inject the pre-built system prompt string. The consuming layer (agent-framework) builds this from AGENTS.md, CLAUDE.md, tool descriptions, and trust level. `Session.systemMessage` is the session's live record of the current system prompt and is the value re-injected on compaction.
+
+### Live system prompt updates
+
+`Session.updateSystemMessage(content)` replaces the live system prompt and propagates it so the **next provider request reflects it**. It (1) updates `Session.systemMessage` and (2) calls `Robota.updateSystemPrompt(content)`, which updates the agent's `config.systemMessage` and the live conversation store's single head system message (see agent-core SPEC → _System Prompt (single source of truth)_). It does **not** route through `setModel`: the system prompt is an agent-level concern, not model config, and a config-only update never reaches the model because providers read the system prompt from the messages array. This is the propagation path for persona application, the self-verification toggle, and AGENTS.md/CLAUDE.md staleness refresh.
 
 5. **`ISessionOptions.permissionHandler`** -- Inject a custom permission approval callback (used by Ink-based UI to show approval prompts in React components).
 
@@ -368,7 +372,7 @@ No formal interface implementations. `PermissionEnforcer`, `ContextWindowTracker
 
 ### Current Test Coverage
 
-- **Session system prompt delivery** -- 6 tests verifying system prompt is passed to Robota at both top-level and defaultModel.
+- **Session system prompt delivery** -- tests verifying the system prompt is passed to Robota as the single-source top-level `config.systemMessage`, and that `updateSystemMessage` propagates a live change to the next provider request via `Robota.updateSystemPrompt`.
 - **Session provider callback isolation** -- 1 regression test verifying two sessions sharing one provider keep `onTextDelta` output isolated per run.
 
 ### Gaps

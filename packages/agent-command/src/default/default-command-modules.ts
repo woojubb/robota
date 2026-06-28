@@ -2,6 +2,7 @@ import { createAgentCommandModule } from '../agent/index.js';
 import { createBackgroundCommandModule } from '../background/index.js';
 import { createCompactCommandModule } from '../compact/index.js';
 import { createContextCommandModule } from '../context/index.js';
+import { createEditorCommandModule } from '../editor/index.js';
 import { createExitCommandModule } from '../exit/index.js';
 import { createGoalCommandModule } from '../goal/index.js';
 import { createHelpCommandModule } from '../help/index.js';
@@ -17,6 +18,7 @@ import { createRewindCommandModule } from '../rewind/index.js';
 import { createScheduleCommandModule } from '../schedule/index.js';
 import { createSessionCommandModule } from '../session/index.js';
 import { createSettingsCommandModule } from '../settings/index.js';
+import { createShellCommandModule } from '../shell/index.js';
 import { createSkillsCommandModule } from '../skills/index.js';
 import { createStatusLineCommandModule } from '../statusline/index.js';
 import { createUserLocalCommandModule } from '../user-local/index.js';
@@ -81,6 +83,8 @@ export function createDefaultCommandModules({
     createLanguageCommandModule(),
     createBackgroundCommandModule(),
     createGoalCommandModule(),
+    createShellCommandModule(),
+    createEditorCommandModule(),
     createMemoryCommandModule(),
     createUserLocalCommandModule(),
     createCompactCommandModule(),

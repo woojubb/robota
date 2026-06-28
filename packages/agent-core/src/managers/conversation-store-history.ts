@@ -90,6 +90,30 @@ export class SimpleConversationHistory implements IConversationHistory {
     );
   }
 
+  /**
+   * Set the single head system prompt (the agent's live instruction state).
+   *
+   * The system prompt is not append-only conversation content: it is replaceable agent config. This
+   * enforces exactly one system message, AT THE HEAD, replacing any existing one(s). It is injected
+   * once per session and updated in place only when the prompt actually changes (persona, etc.); it
+   * is not called per turn, so a fast path is unnecessary.
+   */
+  setSystemPrompt(
+    content: string,
+    metadata?: TUniversalMessageMetadata,
+    parts?: TUniversalMessagePart[],
+  ): void {
+    const isSystemChatEntry = (entry: IHistoryEntry): boolean =>
+      isChatEntry(entry) && isSystemMessage(chatEntryToMessage(entry));
+    // Drop every existing system message, then place exactly one at the head.
+    const withoutSystem = this.entries.filter((entry) => !isSystemChatEntry(entry));
+    const entry = messageToHistoryEntry(
+      createSystemMessage(content, { ...(metadata && { metadata }), ...(parts && { parts }) }),
+    );
+    withoutSystem.unshift(entry);
+    this.entries = withoutSystem;
+  }
+
   addToolMessageWithId(
     content: string,
     toolCallId: string,

@@ -10,8 +10,8 @@ const mockAgentConfig: IPlaygroundAgentConfig = {
   defaultModel: {
     provider: 'openai',
     model: 'gpt-4o-mini',
-    systemMessage: 'You are helpful.',
   },
+  systemMessage: 'You are helpful.',
 };
 
 describe('CodeExportPanel', () => {

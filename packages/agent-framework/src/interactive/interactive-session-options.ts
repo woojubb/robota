@@ -24,6 +24,7 @@ import type {
   IToolWithEventService,
   TToolArgs,
 } from '@robota-sdk/agent-core';
+import type { ITerminalHandoff } from '@robota-sdk/agent-interface-transport';
 import type { ICompactEvent } from '@robota-sdk/agent-session';
 import type { Session } from '@robota-sdk/agent-session';
 import type { ISandboxClient, IWorkspaceManifest } from '@robota-sdk/agent-tools';
@@ -65,6 +66,12 @@ export interface IInteractiveSessionStandardOptions {
   commandHostAdapters?: ICommandHostAdapters;
   /** Shell exec function for preprocessing `` !`cmd` `` patterns in skills — injected from composition root. */
   shellExec?: TShellExecFn;
+  /**
+   * TERM-001: transport-provided terminal-handoff capability. When present, the session can hand the
+   * real terminal to a child process (e.g. `/shell`, `$EDITOR`) and restore the display. Absent /
+   * `canHandoffTerminal === false` for transports with no interactive TTY (headless).
+   */
+  terminalHandoff?: ITerminalHandoff;
   /** Model-visible command descriptors derived from the composed command executor. */
   commandDescriptors?: readonly ICapabilityDescriptor[];
   /** Provider definitions for hot-swap via /provider switch. */
@@ -117,6 +124,8 @@ export interface IInteractiveSessionInjectedOptions {
   commandModules?: readonly ICommandModule[];
   /** Host adapters available to composed command modules. */
   commandHostAdapters?: ICommandHostAdapters;
+  /** TERM-001: transport-provided terminal-handoff capability (see standard options). */
+  terminalHandoff?: ITerminalHandoff;
 }
 
 /** Union of standard and injected construction options. */

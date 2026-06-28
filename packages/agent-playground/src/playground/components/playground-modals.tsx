@@ -102,10 +102,7 @@ export function CreateAgentModal({
                     if (value && systemPromptTemplates[value]) {
                       setAgentDraft({
                         ...agentDraft,
-                        defaultModel: {
-                          ...agentDraft.defaultModel,
-                          systemMessage: systemPromptTemplates[value],
-                        },
+                        systemMessage: systemPromptTemplates[value],
                       });
                     }
                   }}
@@ -124,11 +121,11 @@ export function CreateAgentModal({
                 </Select>
               </div>
               <Textarea
-                value={agentDraft.defaultModel.systemMessage || ''}
+                value={agentDraft.systemMessage || ''}
                 onChange={(e) =>
                   setAgentDraft({
                     ...agentDraft,
-                    defaultModel: { ...agentDraft.defaultModel, systemMessage: e.target.value },
+                    systemMessage: e.target.value,
                   })
                 }
                 className="min-h-[100px] text-xs resize-none"

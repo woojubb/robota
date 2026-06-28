@@ -51,6 +51,7 @@ import type { ISession } from '@robota-sdk/agent-core';
 import type {
   ITransportAdapter,
   IGoalState,
+  ITerminalHandoff,
   TTurnSource,
 } from '@robota-sdk/agent-interface-transport';
 import type { Session } from '@robota-sdk/agent-session';
@@ -94,11 +95,16 @@ export class InteractiveSession
   private readonly goalController = new GoalController();
   /** GOAL-001: origin of the most recently started turn — gates goal-loop advancement. */
   private currentTurnSource: TTurnSource = 'user';
+  /** TERM-001: transport-provided terminal-handoff capability (undefined when none). */
+  private readonly terminalHandoff?: ITerminalHandoff;
+  /** TERM-001: guards handoff exclusivity (one handoff at a time). */
+  private terminalHandoffActive = false;
 
   constructor(options: TInteractiveSessionOptions) {
     super();
     this.sessionStore = options.sessionStore;
     this.sessionName = options.sessionName;
+    this.terminalHandoff = options.terminalHandoff;
     this.cwd = ('cwd' in options ? options.cwd : undefined) ?? '';
     this.resumeSessionId = options.resumeSessionId;
     this.forkSession = options.forkSession ?? false;
@@ -346,14 +352,15 @@ export class InteractiveSession
    * (a scheduled fire or, later, a monitor match). Coalesces by source task id so repeated
    * wakes for the same task while one is still in flight collapse to a single turn.
    */
-  requestWakeup(instruction: string, sourceTaskId: string): void {
-    if (this.execCtrl.shuttingDown) return;
-    if (this.execCtrl.wakeTaskIds.has(sourceTaskId)) return;
+  requestWakeup(instruction: string, sourceTaskId: string): boolean {
+    if (this.execCtrl.shuttingDown) return false;
+    if (this.execCtrl.wakeTaskIds.has(sourceTaskId)) return false;
     this.execCtrl.wakeTaskIds.add(sourceTaskId);
     void this.submit(instruction, undefined, undefined, {
       turnSource: 'agent-wakeup',
       wakeTaskId: sourceTaskId,
     });
+    return true;
   }
 
   abort(): void {
@@ -437,6 +444,38 @@ export class InteractiveSession
 
   getAgentJobCapability(): IAgentJobHostContext {
     return this;
+  }
+
+  /**
+   * TERM-001: whether the active transport can hand the real terminal to a child process. False
+   * when no handoff capability was injected or its `canHandoffTerminal` is false (e.g. headless).
+   */
+  canHandoffTerminal(): boolean {
+    return this.terminalHandoff?.canHandoffTerminal === true;
+  }
+
+  /**
+   * TERM-001: suspend the display, run `fn` (which spawns a child with inherited stdio), then
+   * restore. The framework owns the ORCHESTRATION: it enforces exclusivity (one handoff at a time)
+   * and fast-fails when no interactive terminal is available, instead of hanging. The transport
+   * implements the underlying suspend/resume; the caller's `fn` spawns whatever child it wants — the
+   * framework stays platform-neutral and never spawns a shell.
+   */
+  async runWithTerminal<T>(fn: () => Promise<T>): Promise<T> {
+    if (!this.canHandoffTerminal() || this.terminalHandoff === undefined) {
+      throw new Error(
+        'Terminal handoff is unavailable: no interactive terminal (headless or non-TTY output).',
+      );
+    }
+    if (this.terminalHandoffActive) {
+      throw new Error('A terminal handoff is already in progress.');
+    }
+    this.terminalHandoffActive = true;
+    try {
+      return await this.terminalHandoff.runWithTerminal(fn);
+    } finally {
+      this.terminalHandoffActive = false;
+    }
   }
 
   setAutoCompactThreshold(

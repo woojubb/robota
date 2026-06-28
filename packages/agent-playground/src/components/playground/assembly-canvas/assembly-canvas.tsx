@@ -123,7 +123,7 @@ function AssemblyCanvasContent({
         name: agentConfig.name,
         provider: agentConfig.defaultModel.provider,
         model: agentConfig.defaultModel.model,
-        systemMessage: agentConfig.defaultModel.systemMessage,
+        systemMessage: agentConfig.systemMessage,
         toolCount: activeTools.length,
       },
     };

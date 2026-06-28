@@ -73,3 +73,24 @@ export interface IInteractionChannel {
   start(): Promise<void>;
   stop(): Promise<void>;
 }
+
+/**
+ * Terminal-handoff capability — a transport may optionally hand the real terminal to a child process
+ * (interactive input + output via the real TTY) and restore its display afterward.
+ *
+ * Implemented by interactive transports (e.g. the TUI suspends/resumes its rendering); a headless
+ * transport reports `canHandoffTerminal === false`. The contract is **platform-neutral** and never
+ * spawns a shell itself — the caller's `fn` spawns whatever child it wants with inherited stdio.
+ * (SSOT for the transport contract; agent-framework orchestrates and surfaces it to commands.)
+ */
+export interface ITerminalHandoff {
+  /** Whether an interactive terminal handoff is actually possible (an interactive TTY is present). */
+  readonly canHandoffTerminal: boolean;
+
+  /**
+   * Suspend the display, run `fn` (the caller spawns its child with inherited stdio), then restore
+   * the display — including when `fn` throws. Rejects without running `fn` when
+   * `canHandoffTerminal` is `false`.
+   */
+  runWithTerminal<T>(fn: () => Promise<T>): Promise<T>;
+}

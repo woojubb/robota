@@ -17,31 +17,31 @@ Do not promote entries to `.agents/rules/common-mistakes.md` without human revie
 
 ## user-correction
 
-- Frequency: 5 events in the last 7 days
+- Frequency: 7 events in the last 7 days
 - Sources: corrections
 - Example paths: (none)
-- First seen: 2026-06-04T11:53:25.000Z
-- Last seen: 2026-06-10T16:21:13.000Z
+- First seen: 2026-06-27T05:30:36.000Z
+- Last seen: 2026-06-27T23:33:50.000Z
 - Status: candidate; human review is required before promotion.
 <!-- auto-lesson:same-file-edited-3-times -->
 
 ## same-file-edited-3-times
 
-- Frequency: 5429 events in the last 7 days
+- Frequency: 15680 events in the last 7 days
 - Sources: reverts
-- Example paths: `/Users/jungyoun/Documents/dev/robota/.agents/backlog/CLI-063-print-mode-session-resume-broken.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/CLI-064-exit-code-contract-violations.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/CLI-073-fork-session-context-semantics.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/README.md`, `/Users/jungyoun/Documents/dev/robota/.agents/release-runs/3.0.0-beta.72.md`
-- First seen: 2026-06-08T13:10:40.000Z
-- Last seen: 2026-06-13T14:06:15.000Z
+- Example paths: `/Users/jungyoun/.claude/projects/-Users-jungyoun-Documents-dev-robota/memory/MEMORY.md`, `/Users/jungyoun/.claude/projects/-Users-jungyoun-Documents-dev-robota/memory/project_architecture_conformance.md`, `/Users/jungyoun/.claude/projects/-Users-jungyoun-Documents-dev-robota/memory/project_preset_system.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/BRAND-001-unified-web-brand-palette.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/CLI-063-print-mode-session-resume-broken.md`
+- First seen: 2026-06-21T16:50:23.000Z
+- Last seen: 2026-06-27T23:43:31.000Z
 - Status: candidate; human review is required before promotion.
 <!-- auto-lesson:repeated-tool-errors -->
 
 ## repeated-tool-errors
 
-- Frequency: 184 events in the last 7 days
+- Frequency: 57 events in the last 7 days
 - Sources: reverts
 - Example paths: (none)
-- First seen: 2026-06-08T13:10:40.000Z
-- Last seen: 2026-06-13T14:06:15.000Z
+- First seen: 2026-06-21T16:50:23.000Z
+- Last seen: 2026-06-27T23:43:31.000Z
 - Status: candidate; human review is required before promotion.
 <!-- auto-lesson:try-catch-fallback -->
 

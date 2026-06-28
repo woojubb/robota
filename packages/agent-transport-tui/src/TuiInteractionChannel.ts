@@ -22,6 +22,7 @@ import { applySystemCommandResult } from './hooks/useSlashRouting.js';
 import { TuiStateManager } from './tui-state-manager.js';
 
 import type { ISessionInitPoller, TSessionInitFailure } from './flows/session-init-poller.js';
+import type { TerminalHandoffController } from './terminal-handoff-controller.js';
 import type { IPendingPermissionRequest } from './types.js';
 import type { IAIProvider, TPermissionMode, TSessionEndReason } from '@robota-sdk/agent-core';
 import type { TToolArgs } from '@robota-sdk/agent-core';
@@ -81,6 +82,8 @@ export interface ITuiInteractionChannelOptions {
   enableParallelSubagents?: boolean;
   /** Preset execution capability: run a post-task self-verification step. */
   selfVerification?: boolean;
+  /** TERM-002: process-shared terminal-handoff controller (the TUI implementation of ITerminalHandoff). */
+  terminalHandoff?: TerminalHandoffController;
 }
 
 export class TuiInteractionChannel implements IInteractionChannel {
@@ -107,6 +110,11 @@ export class TuiInteractionChannel implements IInteractionChannel {
   private autoNameTriggered = false;
   private sessionStarted = false;
   private initPoller: ISessionInitPoller | null = null;
+
+  /** TERM-002: the App registers its Ink suspend/resume hooks into this controller. */
+  get terminalHandoffController(): TerminalHandoffController | undefined {
+    return this.opts.terminalHandoff;
+  }
   private permissionQueue: Array<{
     toolName: string;
     toolArgs: TToolArgs;
@@ -155,6 +163,7 @@ export class TuiInteractionChannel implements IInteractionChannel {
       deniedTools: opts.deniedTools,
       enableParallelSubagents: opts.enableParallelSubagents,
       selfVerification: opts.selfVerification,
+      terminalHandoff: opts.terminalHandoff,
     });
   }
 

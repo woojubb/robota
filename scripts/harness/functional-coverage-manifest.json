@@ -26,6 +26,36 @@
       "id": "goal-pursuit-cassette",
       "description": "Real recorded Qwen run drives goal pursuit to satisfied (real prompts + tool-use, replayed).",
       "test": "packages/agent-framework/src/testing/__tests__/goal-cassette-functional.test.ts"
+    },
+    {
+      "id": "slash-command",
+      "description": "A composed /command runs through the real session command pipeline and returns its result.",
+      "test": "packages/agent-framework/src/testing/__tests__/slash-command-functional.test.ts"
+    },
+    {
+      "id": "preset-application",
+      "description": "Live preset persona/self-verification updates reach the REAL provider request (system-prompt SSOT) as a single, non-duplicated system message.",
+      "test": "packages/agent-framework/src/testing/__tests__/preset-application-functional.test.ts"
+    },
+    {
+      "id": "background-wake",
+      "description": "A background-task completion / scheduled fire injects an agent-wakeup turn that reaches the provider (FLOW-002/003); repeated wakes for one task id coalesce.",
+      "test": "packages/agent-framework/src/testing/__tests__/background-wake-functional.test.ts"
+    },
+    {
+      "id": "terminal-handoff",
+      "description": "TERM-001: the session orchestrates a transport terminal handoff (suspend→fn→restore), restores on throw, is exclusive, and fast-fails when no interactive terminal is available.",
+      "test": "packages/agent-framework/src/testing/__tests__/terminal-handoff-functional.test.ts"
+    },
+    {
+      "id": "shell-command",
+      "description": "TERM-003: /shell routes a one-shot command through the terminal handoff (suspend→spawn shell→restore), reports its exit code, and is unavailable with no interactive terminal.",
+      "test": "packages/agent-command/src/shell/__tests__/shell-command-functional.test.ts"
+    },
+    {
+      "id": "editor-command",
+      "description": "TERM-004: /editor opens $EDITOR via the terminal handoff, captures the saved text round-trip, and is unavailable with no interactive terminal.",
+      "test": "packages/agent-command/src/editor/__tests__/editor-command-functional.test.ts"
     }
   ]
 }

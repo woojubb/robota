@@ -159,6 +159,18 @@ export interface ICommandHostContext {
   getGoalState?(): IGoalState | null;
   /** GOAL-001 — cancel an in-flight goal; returns the stopped state or null. */
   cancelGoal?(): IGoalState | null;
+  /**
+   * TERM-001 — whether the active transport can hand the real terminal to a child process. `false`
+   * (or `runWithTerminal` absent) when there is no interactive TTY (e.g. headless).
+   */
+  canHandoffTerminal?(): boolean;
+  /**
+   * TERM-001 — suspend the display, run `fn` (which spawns a child with inherited stdio), then
+   * restore the display. Exclusive (one handoff at a time) and abort-safe; rejects without running
+   * `fn` when a handoff is not possible. The framework owns this orchestration; the transport
+   * implements the underlying suspend/resume.
+   */
+  runWithTerminal?<T>(fn: () => Promise<T>): Promise<T>;
 }
 
 export interface IAgentJobHostContext {

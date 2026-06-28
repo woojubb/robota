@@ -38,11 +38,13 @@ import type { ICommandModule } from '../command-api/index.js';
 import type { IAIProvider, TPermissionMode, TUniversalMessage } from '@robota-sdk/agent-core';
 import type { TScriptedTurn } from '@robota-sdk/agent-core/testing';
 import type {
+  ICommandResult,
   IExecutionResult,
   IGoalState,
   IInteractiveSessionEvents,
   IInteractiveSessionRecord,
   IInteractiveSessionStore,
+  ITerminalHandoff,
   IToolSummary,
   TInteractiveEventName,
 } from '@robota-sdk/agent-interface-transport';
@@ -89,6 +91,8 @@ export interface IScriptedSessionOptions {
   maxTurns?: number;
   /** Model override (e.g. when recording against a real provider whose model differs). */
   model?: string;
+  /** TERM-001: inject a (fake) terminal-handoff capability to exercise the handoff orchestration. */
+  terminalHandoff?: ITerminalHandoff;
 }
 
 const COLLECTED_EVENTS: readonly TInteractiveEventName[] = [
@@ -181,6 +185,7 @@ export class ScriptedSessionHarness {
       ...(options.commandModules ? { commandModules: options.commandModules } : {}),
       ...(options.maxTurns !== undefined ? { maxTurns: options.maxTurns } : {}),
       ...(options.model !== undefined ? { model: options.model } : {}),
+      ...(options.terminalHandoff ? { terminalHandoff: options.terminalHandoff } : {}),
     });
 
     for (const name of COLLECTED_EVENTS) {
@@ -256,6 +261,26 @@ export class ScriptedSessionHarness {
       options.maxIterations ? { maxIterations: options.maxIterations } : {},
     );
     return stopped;
+  }
+
+  /** Run a slash command through the real session command pipeline. */
+  command(name: string, args = ''): Promise<ICommandResult | null> {
+    return this.session.executeCommand(name, args);
+  }
+
+  /**
+   * FLOW-002: inject a background/scheduled wake (a non-user `agent-wakeup` turn) and resolve once
+   * that turn settles. Mirrors a background task completion or a scheduled fire re-entering the
+   * agent loop. Coalesces by `sourceTaskId` exactly as the real wake path does.
+   *
+   * Returns `null` when the wake was a no-op (coalesced because `sourceTaskId` is already in flight,
+   * or the session is shutting down) — no turn runs, so callers must not await one. This prevents the
+   * driver from hanging until the test timeout when the wake is dropped.
+   */
+  async wake(instruction: string, sourceTaskId: string): Promise<IExecutionResult | null> {
+    const queued = this.session.requestWakeup(instruction, sourceTaskId);
+    if (!queued) return null;
+    return this.nextSettledTurn();
   }
 
   /** Resolve with the args of the next `event` (optionally matching `predicate`). */
@@ -381,8 +406,11 @@ export class ScriptedSessionHarness {
     this.disposed = true;
     await this.session.shutdown({ reason: 'other', message: 'functional test complete' });
     // Only remove a workspace this harness created — a shared/injected `cwd` (resume/fork) is the
-    // caller's to clean up.
-    if (this.ownsWorkspace) rmSync(this.cwd, { recursive: true, force: true });
+    // caller's to clean up. `maxRetries` rides out the occasional ENOTEMPTY race when a just-written
+    // file (e.g. a tool wrote into the workspace) is still settling at teardown.
+    if (this.ownsWorkspace) {
+      rmSync(this.cwd, { recursive: true, force: true, maxRetries: 5, retryDelay: 20 });
+    }
   }
 }
 

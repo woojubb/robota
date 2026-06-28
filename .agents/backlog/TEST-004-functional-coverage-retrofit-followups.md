@@ -1,7 +1,8 @@
 ---
 title: 'TEST-004: Retrofit remaining framework capabilities into the functional-coverage manifest'
-status: todo
+status: done
 created: 2026-06-27
+completed: 2026-06-27
 priority: medium
 urgency: later
 area: packages/agent-framework
@@ -26,13 +27,36 @@ then add a row to `scripts/harness/functional-coverage-manifest.json`:
   and fork restores context into a new id. Manifest: `multi-session`. (The real-model goal cassette
   — TEST-005 follow-up — also landed: `goal-cassette-functional.test.ts`, manifest
   `goal-pursuit-cassette`.)
-- **Background tasks / scheduled wake (FLOW-002/003)** — a background task completion (or a
-  scheduled wake) injects an `agent-wakeup` turn; assert via `awaitEvent('turn_source')` /
-  `emittedEvents('background_task_event')`. Requires composing background task runners into the kit.
-- **Preset application (PRESET-014/015/017)** — applying a preset persona / self-verification /
-  command-module selection changes the live session; assert the observable effect.
-- **Slash-command execution** — a `/command` runs through the real session command pipeline (the kit
-  already accepts `commandModules`).
+- **Background tasks / scheduled wake (FLOW-002/003) — DONE (2026-06-27).** Kit extended with a
+  `wake(instruction, taskId)` driver (`requestWakeup` + settle). `background-wake-functional.test.ts`
+  proves a wake injects an `agent-wakeup` turn that reaches the provider and that same-task-id wakes
+  coalesce. Manifest: `background-wake`.
+- **Preset application (PRESET-014/015/017) — DONE (2026-06-27).** `preset-application-functional.test.ts`
+  asserts a live persona / self-verification update reaches the REAL provider request as a single,
+  non-duplicated system message. Manifest: `preset-application`. **This test surfaced two real
+  shipped bugs** — see "System-prompt SSOT fix" below.
+- **Slash-command execution — DONE (2026-06-27).** Kit extended with a `command(name, args)` driver.
+  `slash-command-functional.test.ts` runs a composed `/command` through the real session pipeline.
+  Manifest: `slash-command`.
+
+## System-prompt SSOT fix (surfaced by the preset functional test)
+
+Building the preset functional test exposed two real bugs the existing tests missed — the exact
+"passes the seam but does not actually work" pattern functional testing is meant to catch:
+
+1. **Live system-prompt updates never reached the model.** `Session.updateSystemMessage` →
+   `setModel` updated `config.defaultModel.systemMessage`, but the request path seeds the
+   conversation store from the top-level `config.systemMessage` and providers read the system prompt
+   from the messages array — so persona, self-verification, and AGENTS.md/CLAUDE.md staleness refresh
+   were silently dropped.
+2. **A duplicate system message accumulated every turn** (`initializeConversationStore` re-added
+   `config.systemMessage` unconditionally), bloating context linearly.
+
+Fixed by single-sourcing the system prompt (agent-core + agent-session SPEC → _System Prompt (single
+source of truth)_): top-level `config.systemMessage` is the sole owner; the store holds exactly one
+in-place-updatable head system message (`ConversationStore.setSystemPrompt`); `Robota.updateSystemPrompt`
+propagates a live change to both, so the next request carries it. The vestigial
+`defaultModel.systemMessage` / `IModelConfig.systemMessage` fields were removed.
 
 ## Why
 
