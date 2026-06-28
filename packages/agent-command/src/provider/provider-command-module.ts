@@ -6,11 +6,7 @@ import type {
   IProviderCommandSettingsAdapter,
   ISystemCommand as TSystemCommand,
 } from '@robota-sdk/agent-framework';
-import type {
-  ICommand,
-  TCommandInteractionHint,
-  ICommandSource,
-} from '@robota-sdk/agent-interface-transport';
+import type { ICommand, ICommandSource } from '@robota-sdk/agent-interface-transport';
 export type { IProviderCommandModuleOptions, IProviderCommandSettingsAdapter };
 
 function buildProviderSubcommands(): ICommand[] {
@@ -56,21 +52,10 @@ function createProviderSystemCommand(options: IProviderCommandModuleOptions): TS
     modelInvocable: false,
     argumentHint: entry.argumentHint,
     subcommands: entry.subcommands,
-    execute: async (_session, args) => executeProviderCommand(args, options),
+    lifecycle: 'inline',
+    execute: (context, args) => executeProviderCommand(context, args, options),
   };
 }
-
-const PROVIDER_INTERACTION_HINTS: Record<string, TCommandInteractionHint> = {
-  provider: {
-    type: 'pick',
-    getItems: () =>
-      buildProviderSubcommands().map((sub) => ({
-        label: sub.name,
-        value: sub.name,
-        description: sub.description,
-      })),
-  },
-};
 
 export function createProviderCommandModule(
   options: IProviderCommandModuleOptions,
@@ -79,6 +64,5 @@ export function createProviderCommandModule(
     name: 'agent-command-provider',
     commandSources: [new ProviderCommandSource()],
     systemCommands: [createProviderSystemCommand(options)],
-    interactionHints: PROVIDER_INTERACTION_HINTS,
   };
 }

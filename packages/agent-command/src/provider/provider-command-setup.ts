@@ -1,3 +1,4 @@
+import { textAction } from '@robota-sdk/agent-core';
 import { buildProviderSetupPatch, mergeProviderPatch } from '@robota-sdk/agent-framework';
 
 import {
@@ -5,19 +6,15 @@ import {
   formatProviderSetupHelpLinks,
   getProviderSetupStep,
   submitProviderSetupValue,
-  validateProviderSetupValue,
 } from './provider-setup-flow.js';
 
 import type { IProviderSetupFlowState } from './provider-setup-flow.js';
+import type { IActionRequest, IUserInteraction } from '@robota-sdk/agent-core';
 import type {
   IProviderCommandModuleOptions,
   IProviderSetupInput,
 } from '@robota-sdk/agent-framework';
-import type {
-  ICommandInteraction,
-  ICommandResult,
-  TCommandInteractionPrompt,
-} from '@robota-sdk/agent-interface-transport';
+import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
 
 const PROVIDER_RESTART_EFFECT = {
   type: 'session-restart-requested',
@@ -33,62 +30,70 @@ export function createSetupFlow(
   });
 }
 
-export function createProviderSetupInteraction(
+/** Build the per-step `IActionRequest` for the current setup step (CMD-004 inline ask). */
+function toProviderSetupStepRequest(
   flow: IProviderSetupFlowState,
-  options: IProviderCommandModuleOptions,
-): ICommandInteraction {
-  return {
-    prompt: toProviderSetupStepPrompt(flow),
-    submit: (value) => submitProviderSetupInteractionValue(flow, value, options),
-    cancel: () => ({ message: 'Provider setup cancelled.', success: true }),
-  };
-}
-
-export function toProviderSetupStepPrompt(
-  flow: IProviderSetupFlowState,
-): TCommandInteractionPrompt {
+  errorMessage?: string,
+): IActionRequest {
   const step = getProviderSetupStep(flow);
   const placeholder =
     step.masked === true && step.defaultValue !== undefined ? '(unchanged)' : step.defaultValue;
-  return {
-    kind: 'text',
-    title: step.title,
-    ...toProviderSetupPromptDescription(flow),
-    ...(placeholder !== undefined ? { placeholder } : {}),
-    ...(step.defaultValue !== undefined ? { allowEmpty: true } : {}),
-    ...(step.masked !== undefined ? { masked: step.masked } : {}),
-    validate: (value) => validateProviderSetupValue(step, value),
-  };
+  const helpLinks = formatProviderSetupHelpLinks(flow.setupHelpLinks);
+  const description =
+    [errorMessage, helpLinks.length > 0 ? helpLinks : undefined]
+      .filter((part): part is string => part !== undefined && part.length > 0)
+      .join('\n') || undefined;
+  return textAction(`provider-setup-${step.key}`, step.title, {
+    description,
+    placeholder,
+    allowEmpty: step.defaultValue !== undefined,
+    masked: step.masked,
+  });
 }
 
-function toProviderSetupPromptDescription(
+/**
+ * Drive the setup-step engine through inline `ui.ask` calls (CMD-004), re-asking the same step when a
+ * step fails validation (the error is surfaced in the request description). The `complete` sink differs
+ * between the add and edit paths.
+ */
+export async function runProviderSetupAsk(
+  ui: IUserInteraction,
   flow: IProviderSetupFlowState,
-): { description: string } | Record<string, never> {
-  const description = formatProviderSetupHelpLinks(flow.setupHelpLinks);
-  return description.length > 0 ? { description } : {};
+  complete: (input: IProviderSetupInput) => ICommandResult,
+  cancelMessage: string,
+): Promise<ICommandResult> {
+  let state = flow;
+  let errorMessage: string | undefined;
+  for (;;) {
+    const response = await ui.ask(toProviderSetupStepRequest(state, errorMessage));
+    if (response.type === 'cancelled') {
+      return { message: cancelMessage, success: true };
+    }
+    const result = submitProviderSetupValue(state, response.text ?? '');
+    if (result.status === 'error') {
+      errorMessage = result.message;
+      continue;
+    }
+    if (result.status === 'complete') {
+      return complete(result.input);
+    }
+    state = result.state;
+    errorMessage = undefined;
+  }
 }
 
-function submitProviderSetupInteractionValue(
+/** Run the `/provider add` setup wizard inline. */
+export function runProviderAddSetup(
+  ui: IUserInteraction,
   flow: IProviderSetupFlowState,
-  value: string,
   options: IProviderCommandModuleOptions,
-): ICommandResult {
-  const result = submitProviderSetupValue(flow, value);
-  if (result.status === 'error') {
-    return {
-      message: result.message,
-      success: false,
-      interaction: createProviderSetupInteraction(flow, options),
-    };
-  }
-  if (result.status === 'complete') {
-    return completeProviderSetup(result.input, options);
-  }
-  return {
-    message: '',
-    success: true,
-    interaction: createProviderSetupInteraction(result.state, options),
-  };
+): Promise<ICommandResult> {
+  return runProviderSetupAsk(
+    ui,
+    flow,
+    (input) => completeProviderSetup(input, options),
+    'Provider setup cancelled.',
+  );
 }
 
 function completeProviderSetup(

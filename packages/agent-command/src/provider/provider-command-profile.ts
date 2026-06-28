@@ -1,3 +1,4 @@
+import { selectAction } from '@robota-sdk/agent-core';
 import { testProviderProfileCommand } from '@robota-sdk/agent-framework';
 
 import {
@@ -10,11 +11,12 @@ import {
   formatProviderChoiceLabel,
 } from './provider-command-profile-operations.js';
 
+import type { IUserInteraction } from '@robota-sdk/agent-core';
 import type {
   IProviderCommandModuleOptions,
   IProviderProfileSettings,
 } from '@robota-sdk/agent-framework';
-import type { ICommandInteraction, ICommandResult } from '@robota-sdk/agent-interface-transport';
+import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
 
 const ACTION_SWITCH = 'switch';
 const ACTION_EDIT = 'edit';
@@ -23,64 +25,57 @@ const ACTION_DUPLICATE = 'duplicate';
 const ACTION_DELETE = 'delete';
 const ACTION_CANCEL = 'cancel';
 
-export function createProviderProfileSelectionInteraction(
+/**
+ * Ask the user to pick a provider profile, then drive its action menu (CMD-004 inline ask). Replaces
+ * the legacy `ICommandInteraction` choice→submit continuation chain — the picker's own option list is
+ * the rendered profile list, so the caller no longer prepends a separate list message.
+ */
+export async function askProviderProfileSelection(
+  ui: IUserInteraction,
   currentProvider: string | undefined,
   providers: Record<string, IProviderProfileSettings> | undefined,
   options: IProviderCommandModuleOptions,
-): ICommandInteraction {
-  return {
-    prompt: {
-      kind: 'choice',
-      title: 'Select provider profile',
-      options: Object.entries(providers ?? {}).map(([name, profile]) => ({
-        value: name,
-        label: formatProviderChoiceLabel(name, profile, currentProvider),
-      })),
-      maxVisible: 8,
-    },
-    submit: (value) => buildProviderProfileActionMenu(value, options),
-    cancel: () => ({ message: 'Provider profile selection cancelled.', success: true }),
-  };
+): Promise<ICommandResult> {
+  const profileOptions = Object.entries(providers ?? {}).map(([name, profile]) => ({
+    value: name,
+    label: formatProviderChoiceLabel(name, profile, currentProvider),
+  }));
+  const response = await ui.ask(
+    selectAction('provider-profile', 'Select provider profile', profileOptions, { maxVisible: 8 }),
+  );
+  if (response.type !== 'answer' || response.values[0] === undefined) {
+    return { message: 'Provider profile selection cancelled.', success: true };
+  }
+  return askProviderProfileAction(ui, response.values[0], options);
 }
 
-function buildProviderProfileActionMenu(
+async function askProviderProfileAction(
+  ui: IUserInteraction,
   profileName: string,
   options: IProviderCommandModuleOptions,
-): ICommandResult {
+): Promise<ICommandResult> {
   const settings = options.settings.readMergedSettings();
   if (!settings.providers?.[profileName]) {
     return { message: `Provider profile "${profileName}" was not found.`, success: false };
   }
-  return {
-    message: `Provider profile selected: ${profileName}`,
-    success: true,
-    interaction: createProviderProfileActionInteraction(profileName, options),
-  };
-}
-
-function createProviderProfileActionInteraction(
-  profileName: string,
-  options: IProviderCommandModuleOptions,
-): ICommandInteraction {
-  return {
-    prompt: {
-      kind: 'choice',
-      title: `Provider profile: ${profileName}`,
-      options: [
-        { value: ACTION_SWITCH, label: 'Switch' },
-        { value: ACTION_EDIT, label: 'Edit' },
-        { value: ACTION_TEST, label: 'Test' },
-        { value: ACTION_DUPLICATE, label: 'Duplicate' },
-        { value: ACTION_DELETE, label: 'Delete' },
-        { value: ACTION_CANCEL, label: 'Cancel' },
-      ],
-    },
-    submit: (value) => executeProviderProfileAction(profileName, value, options),
-    cancel: () => ({ message: 'Provider profile action cancelled.', success: true }),
-  };
+  const response = await ui.ask(
+    selectAction('provider-profile-action', `Provider profile: ${profileName}`, [
+      { value: ACTION_SWITCH, label: 'Switch' },
+      { value: ACTION_EDIT, label: 'Edit' },
+      { value: ACTION_TEST, label: 'Test' },
+      { value: ACTION_DUPLICATE, label: 'Duplicate' },
+      { value: ACTION_DELETE, label: 'Delete' },
+      { value: ACTION_CANCEL, label: 'Cancel' },
+    ]),
+  );
+  if (response.type !== 'answer' || response.values[0] === undefined) {
+    return { message: 'Provider profile action cancelled.', success: true };
+  }
+  return executeProviderProfileAction(ui, profileName, response.values[0], options);
 }
 
 async function executeProviderProfileAction(
+  ui: IUserInteraction,
   profileName: string,
   action: string,
   options: IProviderCommandModuleOptions,
@@ -90,18 +85,18 @@ async function executeProviderProfileAction(
     case ACTION_SWITCH:
       return buildProviderSwitch(settings.providers, profileName, options);
     case ACTION_EDIT:
-      return buildProviderEdit(profileName, options);
+      return buildProviderEdit(ui, profileName, options);
     case ACTION_TEST:
-      return await testProviderProfileCommand(
+      return testProviderProfileCommand(
         settings.currentProvider,
         settings.providers,
         profileName,
         options,
       );
     case ACTION_DUPLICATE:
-      return buildProviderDuplicate(profileName, options);
+      return buildProviderDuplicate(ui, profileName, options);
     case ACTION_DELETE:
-      return buildProviderDelete(profileName, options);
+      return buildProviderDelete(ui, profileName, options);
     case ACTION_CANCEL:
       return { message: 'Provider profile action cancelled.', success: true };
     default:
