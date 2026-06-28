@@ -1,5 +1,5 @@
 ---
-status: review-ready
+status: in-progress
 type: FLOW
 tags: [cli, typescript, websocket, async]
 ---
@@ -294,7 +294,7 @@ PTY for TUI render incl. masked + abort; harness scan for repo gates.
 
 ## Tasks
 
-- [ ] `.agents/tasks/CMD-004.md` — 미생성 (GATE-APPROVAL 통과 후 생성)
+- [x] `.agents/tasks/CMD-004.md` — created (GATE-IMPLEMENT). Tasks decomposed into PR-A…PR-D mapped to TC-01…TC-09.
 
 ## Evidence Log
 
@@ -311,3 +311,20 @@ PTY for TUI render incl. masked + abort; harness scan for repo gates.
 - Test Plan: `## Test Plan` present; one row per TC-N (TC-01..TC-09); each row has non-empty Test Type + Tool; manual row TC-09 carries a Notes justification (real-terminal render correctness not fully assertable headlessly).
 - Structure: `## Tasks` present with placeholder; `## Evidence Log` present and empty prior to this entry; no `## Status` or `## Classification` body sections.
 - TC-N count match: Completion Criteria = 9, Test Plan = 9 (9 = 9).
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-06-28
+
+**Status upgrade:** review-ready → approved
+
+- Prior gate: GATE-WRITE ✅ PASS above; input status `review-ready` (backlog/) matches the expected stage.
+- User explicit approval (verbatim): "2부터 하고 1도 바로 이어서 작업해" — answering the two-item prompt where item 1 was "approve Phase 1 implementation start (PR-A onward)"; the directive to execute item 1 authorizes implementation of this spec.
+- No Architecture Review, frontmatter `type`, or `tags` modified after approval.
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-06-28
+
+**Status upgrade:** approved → in-progress
+
+- Prior gate: GATE-APPROVAL ✅ PASS above; input status `approved` (todo/) matches the expected stage.
+- Tasks file created: `.agents/tasks/CMD-004.md`, recorded in the `## Tasks` section.
+- Tasks correspond to Completion Criteria: PR-A→TC-01; PR-B→TC-05/06/07 + TC-04(part); PR-C→TC-04(masked/re-ask); PR-D→TC-02/03; final TC-08/TC-09 — ≥1 task per TC-N.
+- Tasks file includes a `## Test Plan / 검증` section (>50 chars) — satisfies the `test-plans` harness scan [AF-24].
