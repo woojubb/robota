@@ -201,6 +201,44 @@ describe('createSessionCommandModule', () => {
     });
   });
 
+  it('CMD-004: confirms before clearing and proceeds on yes', async () => {
+    const clearConversationHistory = vi.fn();
+    const context = {
+      ...createCommandContext(),
+      clearConversationHistory,
+      getUserInteraction: () => ({
+        ask: async () => ({ type: 'answer' as const, values: ['yes'] }),
+      }),
+    };
+    const executor = new SystemCommandExecutor([
+      ...(createSessionCommandModule().systemCommands ?? []),
+    ]);
+
+    const result = await executor.execute('clear', context, '');
+
+    expect(clearConversationHistory).toHaveBeenCalledTimes(1);
+    expect(result?.effects).toEqual([{ type: 'conversation-history-cleared' }]);
+  });
+
+  it('CMD-004: cancels the clear when the user declines', async () => {
+    const clearConversationHistory = vi.fn();
+    const context = {
+      ...createCommandContext(),
+      clearConversationHistory,
+      getUserInteraction: () => ({
+        ask: async () => ({ type: 'answer' as const, values: ['no'] }),
+      }),
+    };
+    const executor = new SystemCommandExecutor([
+      ...(createSessionCommandModule().systemCommands ?? []),
+    ]);
+
+    const result = await executor.execute('clear', context, '');
+
+    expect(clearConversationHistory).not.toHaveBeenCalled();
+    expect(result?.message).toBe('Clear cancelled.');
+  });
+
   it('falls back to runtime clearHistory when the host has not implemented the richer API', async () => {
     const runtime = createRuntime();
     const context = {

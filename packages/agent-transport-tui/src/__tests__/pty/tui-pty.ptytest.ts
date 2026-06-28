@@ -48,11 +48,15 @@ describe('TUI through a real PTY (CLI-074)', () => {
     expect(session.snapshot()).not.toContain('[Pasted text');
   }, 60_000);
 
-  it('TC-08: /exit reaches process exit within 10s', async () => {
+  it('TC-08: /exit confirms then reaches process exit within 10s', async () => {
     session = spawnTui({ projectDir, homeDir: join(projectDir, 'home') });
     await session.waitFor(/Type a message or \/help/);
 
     await session.sendKeys('/exit');
+    await session.pressEnter();
+
+    // CMD-004: /exit now asks for confirmation; answer Yes (the default-highlighted option).
+    await session.waitFor(/Exit the session\?/);
     await session.pressEnter();
 
     const exitCode = await session.expectExit(10_000);

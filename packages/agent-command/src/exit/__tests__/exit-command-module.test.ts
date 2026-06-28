@@ -1,10 +1,17 @@
 import { describe, expect, it } from 'vitest';
+import type { ICommandHostContext } from '@robota-sdk/agent-framework';
 import {
   ExitCommandSource,
   createExitCommandEntry,
   createExitCommandModule,
   executeExitCommand,
 } from '../index.js';
+
+function contextWithAnswer(value: string): ICommandHostContext {
+  return {
+    getUserInteraction: () => ({ ask: async () => ({ type: 'answer', values: [value] }) }),
+  } as unknown as ICommandHostContext;
+}
 
 describe('exit command module', () => {
   it('provides command metadata and executable registration from one module', () => {
@@ -23,13 +30,25 @@ describe('exit command module', () => {
     expect(module.commandSources?.flatMap((source) => source.getCommands())).toEqual([entry]);
   });
 
-  it('returns the session exit effect without owning process exit', () => {
-    const result = executeExitCommand({} as never, '');
+  it('proceeds to exit with no renderer attached (no human to confirm)', async () => {
+    const result = await executeExitCommand({} as never, '');
 
     expect(result).toEqual({
       success: true,
       message: 'Exit requested.',
       effects: [{ type: 'session-exit-requested' }],
     });
+  });
+
+  it('confirms before exiting and proceeds on yes (CMD-004)', async () => {
+    const result = await executeExitCommand(contextWithAnswer('yes'), '');
+    expect(result.effects).toEqual([{ type: 'session-exit-requested' }]);
+  });
+
+  it('cancels the exit when the user declines (CMD-004)', async () => {
+    const result = await executeExitCommand(contextWithAnswer('no'), '');
+    expect(result.success).toBe(true);
+    expect(result.message).toBe('Exit cancelled.');
+    expect(result.effects).toBeUndefined();
   });
 });
