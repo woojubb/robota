@@ -24,6 +24,8 @@ const ROBOTA_BIN = join(REPO_ROOT, 'packages/agent-cli/bin/robota.cjs');
 export interface IPtySession {
   sendKeys(text: string, perKeyDelayMs?: number): Promise<void>;
   pressEnter(): Promise<void>;
+  /** Send a raw Escape keystroke (cancels a pending Ink prompt). */
+  pressEscape(): void;
   waitFor(pattern: RegExp, timeoutMs?: number): Promise<void>;
   snapshot(): string;
   expectExit(timeoutMs?: number): Promise<number>;
@@ -77,6 +79,7 @@ export function spawnTui(options: ISpawnTuiOptions): IPtySession {
   return {
     sendKeys: (text, perKeyDelayMs): Promise<void> => session.sendKeys(text, perKeyDelayMs),
     pressEnter: (): Promise<void> => session.pressEnter(),
+    pressEscape: (): void => session.write('\x1b'),
     waitFor: (pattern, timeoutMs): Promise<void> => session.waitFor(pattern, timeoutMs),
     snapshot: (): string => session.snapshot(),
     expectExit: (timeoutMs): Promise<number> => session.expectExit(timeoutMs),

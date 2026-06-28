@@ -27,8 +27,8 @@ const ACTION_CANCEL = 'cancel';
 
 /**
  * Ask the user to pick a provider profile, then drive its action menu (CMD-004 inline ask). Replaces
- * the legacy `ICommandInteraction` choice→submit continuation chain — the picker's own option list is
- * the rendered profile list, so the caller no longer prepends a separate list message.
+ * the former returned choice→submit continuation chain — the picker's own option list is the rendered
+ * profile list, so the caller no longer prepends a separate list message.
  */
 export async function askProviderProfileSelection(
   ui: IUserInteraction,
