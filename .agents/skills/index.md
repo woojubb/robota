@@ -63,14 +63,15 @@ Consult the relevant skill before starting work in its domain. Each entry links 
 
 ## Build & Repository
 
-| Skill                                               | Description                                                      |
-| --------------------------------------------------- | ---------------------------------------------------------------- |
-| [pnpm-monorepo-build](pnpm-monorepo-build/SKILL.md) | pnpm workspace build commands and order                          |
-| [repo-writing](repo-writing/SKILL.md)               | `.design/` docs, ADRs, conventional commit messages              |
-| [harness-governance](harness-governance/SKILL.md)   | Rule-skill consistency, undefined terminology, mechanical checks |
-| [branch-guard](branch-guard/SKILL.md)               | Guard against direct commits to protected branches               |
-| [execution-caching](execution-caching/SKILL.md)     | Caching workflows, invalidation, cache system operations         |
-| [semver-api-surface](semver-api-surface/SKILL.md)   | Semver impact of API surface changes across packages             |
+| Skill                                               | Description                                                                                     |
+| --------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| [pnpm-monorepo-build](pnpm-monorepo-build/SKILL.md) | pnpm workspace build commands and order                                                         |
+| [repo-writing](repo-writing/SKILL.md)               | `.design/` docs, ADRs, conventional commit messages                                             |
+| [harness-governance](harness-governance/SKILL.md)   | Rule-skill consistency, undefined terminology, mechanical checks                                |
+| [lesson-to-harness](lesson-to-harness/SKILL.md)     | Mine repeated user corrections → approve → institutionalize as neutral repo rules + enforcement |
+| [branch-guard](branch-guard/SKILL.md)               | Guard against direct commits to protected branches                                              |
+| [execution-caching](execution-caching/SKILL.md)     | Caching workflows, invalidation, cache system operations                                        |
+| [semver-api-surface](semver-api-surface/SKILL.md)   | Semver impact of API surface changes across packages                                            |
 
 ## Package-Specific
 
