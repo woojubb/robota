@@ -5,6 +5,7 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 
 ### Lesson Capture
 
+- The procedural "how" for turning repeated user corrections/preferences into enforced repo rules is the [lesson-to-harness](../skills/lesson-to-harness/SKILL.md) skill (mine → approve → normalize → wire every touchpoint → enforce → ship). Invoke it on a repeated correction or an explicit "from now on …" principle.
 - When a problem, review comment, CI failure, user correction, or debugging pattern repeats, do not leave it only in chat, PR notes, or a task file.
 - Extract the general invariant behind the event. The rule must be domain-neutral unless the invariant belongs to a package SPEC.
 - Record the invariant in the narrowest owner document:
