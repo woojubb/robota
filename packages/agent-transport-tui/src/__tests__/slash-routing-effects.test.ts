@@ -42,7 +42,7 @@ describe('applySystemCommandResult', () => {
     return new CommandRegistry();
   }
 
-  function legacyCommandField(suffix: 'Interaction' | 'Effects'): string {
+  function legacyCommandField(suffix: 'Effects'): string {
     return `_pendingCommand${suffix}`;
   }
 
@@ -66,7 +66,6 @@ describe('applySystemCommandResult', () => {
     );
 
     expect(queue.drain()).toEqual({
-      type: 'effects',
       effects: [{ type: 'statusline-settings-patch', patch: { enabled: false } }],
     });
     expect(Object.hasOwn(session, legacyCommandField('Effects'))).toBe(false);
@@ -92,7 +91,6 @@ describe('applySystemCommandResult', () => {
     );
 
     expect(queue.drain()).toEqual({
-      type: 'effects',
       effects: [{ type: 'plugin-tui-requested' }],
     });
     expect(Object.hasOwn(session, legacyCommandField('Effects'))).toBe(false);
