@@ -4,7 +4,7 @@ status: todo
 created: 2026-06-28
 priority: high
 urgency: later
-area: packages/agent-transport-tui, packages/agent-cli, packages/agent-provider
+area: packages/agent-cli, packages/agent-provider (assembly factory + programmatic adapter + replay provider; consumed by the testing package)
 depends_on: [TEST-007]
 ---
 
@@ -25,37 +25,74 @@ deepseek), so there is no deterministic way to script a turn without a live API 
 - SCREEN-010 TC-02/03 (streaming → commit transition needs a model response).
 - Any automated end-to-end test or autonomous operation of the real agent's conversation loop.
 
+## Architecture (grounded in code — ports & adapters)
+
+`IInteractionChannel` (SSOT: `agent-interface-transport/interaction-contracts.ts`) is the **port**
+between the **assembly layer** and **transport channels**. Its own doc reserves a programmatic
+adapter: `requestAction` — _"Channel decides HOW to present it (Ink dialog, web modal, **programmatic
+preset**)."_ So:
+
+- **Port:** `IInteractionChannel` — small contract (`onSubmit` / `write(InteractionEvent)` /
+  `requestAction` / `setAvailableCommands` / `setBusy` / `start` / `stop`).
+- **Adapters (= transports = 창구):** TUI (Ink), HTTP, WS, MCP — implement the port per medium.
+- **Core:** the assembly layer / `InteractiveSession`.
+
+Correction to an earlier note in this doc: a programmatic control adapter is **NOT duplication** and
+should **not** "reuse headless" — the headless/print transport is one-shot output, not an interactive
+structured-capture channel. A programmatic adapter is the **slot the port explicitly reserved**.
+
+### Two orthogonal axes
+
+- **Transport axis (the north star):** a **programmatic `IInteractionChannel` adapter** — `write()`
+  pushes structured events into a buffer the driver reads; `requestAction()` answers from a script;
+  the driver calls the registered `onSubmit` directly. In-process, no terminal/network/rendering.
+  Drives a **real** model agent.
+- **Provider axis (optional, for reproducibility):** a replay/test provider makes model output
+  deterministic — only needed for reproducible runs (e.g. SCREEN-010 TC-02/03). Orthogonal to the 창구.
+
+## Ownership & dependency direction (DECIDED 2026-06-28, user)
+
+**The assembly factory is production and must NOT depend on testing. Dependency flows test →
+production only — never the reverse.**
+
+- **Assembly factory = production, owned by `agent-cli`.** Extract the CLI's transport-agnostic agent
+  assembly (session + command modules + preset + provider wiring) into an exported factory, e.g.
+  `createCliAgent(...) → { session, bind(channel) }`. The CLI's own entry point binds it to the TUI
+  adapter; `print` mode binds headless; programmatic control binds the programmatic adapter. No
+  `transport-cli` package — the CLI is the **application** that assembles and selects an adapter; TUI
+  is just one adapter.
+- **Programmatic adapter = production** (a real automation/embedding capability, not test-only), so it
+  too carries no test dependency.
+- **Replay provider = production** (provider axis), consumed by tests; not test-dependent.
+- **Testing package (INFRA-016) only CONSUMES** the assembly factory + programmatic adapter + replay
+  provider to build scenarios. It depends on them; they never depend on it.
+
 ## What (capability)
 
-1. **CLI-loadable replay/test provider.** A provider the built CLI can select via settings
-   (`type: 'replay'` or similar) that plays back a scripted/recorded transcript (cassette) instead of
-   calling a network model — the deterministic counterpart of the framework's existing record/replay
-   testing provider (TEST-005), but reachable from the **real binary**. Honors streaming
-   (text deltas), tool calls, and completion so the real TUI renders a genuine turn.
-   - Respect the provider boundary / naming rules ([[feedback_no_product_names]],
-     [[feedback_scoped_package_naming]]) and the API/orchestrator separation.
-2. **Agent-control driver API** (on top of the TEST-007 `spawnPty`/`spawnTui` harness): a high-level
-   surface to drive the agent — `boot()`, `send(message)`, `command(name, args)`, `awaitResponse()`,
-   `snapshot()`, `expectExit()` — so a test or the agent itself can operate the real CLI like a user.
-3. **Unlock SCREEN-010 TC-02/03**: with a replay provider, drive a scripted turn and assert the
-   streaming message renders in the live region then commits once to `<Static>` scrollback.
+1. **Transport-agnostic assembly factory** in `agent-cli` (production) — the core enabler.
+2. **Programmatic `IInteractionChannel` adapter** (production) + a thin driver API on top
+   (`boot()` / `send()` / `command()` / `awaitResponse()` / `snapshot()` / `expectExit()`).
+3. **CLI-loadable replay/test provider** (production, provider axis) for deterministic turns; honors
+   streaming deltas / tool calls / completion. Respect provider-boundary & naming rules
+   ([[feedback_no_product_names]], [[feedback_scoped_package_naming]], API/orchestrator separation).
+4. **Unlock SCREEN-010 TC-02/03** by driving a scripted turn through the programmatic adapter +
+   replay provider.
 
 ## Open design questions (resolve before GATE-WRITE)
 
-- **Where does the replay provider live?** A published provider vs. a test-only artifact loaded by the
-  CLI in a test/dev mode. Interacts with INFRA-016 (dedicated testing package) — the driver + cassette
-  tooling likely belong there.
-- **How does the CLI opt in?** Settings `type`, an env flag, or a `--provider replay --cassette <path>`
-  CLI flag. Must not weaken production provider selection.
-- **Cassette format / source**: reuse TEST-005's recorded format, or a simpler scripted format for
-  hand-authored turns.
-- **Safety**: the driver must never enable destructive autonomous actions without the normal permission
-  gates; "drive at will" is for authorized testing/automation, not bypassing safety.
+- **CLI opt-in for the replay provider:** `--provider replay --cassette <path>` flag vs. settings
+  `type`. Must not weaken production provider selection.
+- **Cassette format:** reuse TEST-005's recorded format vs. a simpler hand-authored script format.
+- **Adapter/driver package home:** the programmatic adapter is production — does it live in
+  `agent-cli`, `agent-transport`, or its own small package? (The _driver/scenario_ layer that wraps it
+  for tests lives in INFRA-016.)
+- **Safety:** the driver must honor the normal permission gates; "drive at will" is for authorized
+  automation, not bypassing safety.
 
 ## Relationship to other items
 
-- Builds on **TEST-007** (PTY harness) — the foundation.
-- Likely **homed in / co-designed with INFRA-016** (dedicated testing package).
+- Builds on **TEST-007** (PTY harness — kept for TUI-rendering tests like SCREEN-010).
+- **INFRA-016** (testing package) CONSUMES this (one-way dependency).
 - Directly unblocks **SCREEN-010 TC-02/03**.
 
 ## Test Plan
