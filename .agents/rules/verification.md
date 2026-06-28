@@ -19,6 +19,12 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 - If the dev server is not running, start it and wait for it to be ready before checking.
 - This is non-negotiable — do NOT claim UI changes work without browser verification.
 
+### Pre-Merge Code-Review Gate
+
+- Every PR that changes code must pass a `/code-review` with all findings resolved **before** it is
+  merged (including the agent's own admin merges to `develop`). This gate is owned by
+  [git-branch.md → Pre-Merge Code-Review Gate](git-branch.md); see it for the exact sequence and scope.
+
 ### Pre-Push Local Verification Requirement
 
 - **NEVER push new repository content without first running the affected local checks.** Remote CI failure after a local-only fix is a preventable waste.
