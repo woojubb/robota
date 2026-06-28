@@ -1,7 +1,8 @@
 ---
 title: 'TERM-002: TUI implements the terminal-handoff port (thin suspend/resume)'
-status: in-progress
+status: done
 created: 2026-06-27
+completed: 2026-06-28
 priority: high
 urgency: soon
 area: packages/agent-transport-tui
@@ -108,3 +109,11 @@ TEST-007 PTY harness.
   keystrokes (`CHILD_GOT:[hello-from-pty]`), `runWithTerminal` returns, and the App resumes
   (`RESUMED exit=0`); full cycle ≈1.3s. Controller unit tests (`terminal-handoff-controller.test.ts`,
   4 tests) and the full TUI suite (393 tests) stay green; `pnpm harness:scan` green.
+
+### Closure (2026-06-28)
+
+Done-gate satisfied — own evidence is the automated restore-after-handoff PTY smoke, and the consumer
+user-execution scenarios are now closed (TERM-003 `/shell`, TERM-004 `/editor`). Re-ran at closure:
+`terminal-handoff-pty-e2e.test.ts` (resume, no hang) ✓ and `terminal-handoff.ptytest.ts` TC-04/TC-01
+(committed `<Static>` history not re-printed after a `/shell` handoff) ✓. Marking done. The further
+async-background bridge (TERM-005) and Windows support (TERM-007) remain as separate future items.

@@ -1,7 +1,8 @@
 ---
 title: 'TERM-003: drop-to-shell command (hand the terminal to an interactive subshell)'
-status: in-progress
+status: done
 created: 2026-06-27
+completed: 2026-06-28
 priority: medium
 urgency: soon
 area: packages/agent-framework, packages/agent-cli
@@ -63,3 +64,9 @@ agent should not drive) without killing the session. Today there is no way to do
   frame redraws (clean resume, no hang) — the whole path: CLI → command pipeline → injected
   `TerminalHandoffController` → handoff. (A user-typed command is not permission-gated; that gate is
   for model/agent-invoked actions.)
+
+### Closure (2026-06-28)
+
+Done-gate satisfied. Re-ran the scenarios at closure: `command-handoff-pty-e2e.test.ts` `/shell`
+(real TTY) ✓ and `terminal-handoff.ptytest.ts` TC-09 (built binary `/shell` on the real terminal) ✓.
+Marking done.
