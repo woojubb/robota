@@ -38,6 +38,7 @@ function makeArgs(overrides: Partial<IParsedCliArgs> = {}): IParsedCliArgs {
     configure: false,
     configureProvider: undefined,
     provider: undefined,
+    sessionLog: undefined,
     providerType: undefined,
     baseURL: undefined,
     apiKey: undefined,

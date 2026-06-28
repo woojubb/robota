@@ -728,6 +728,9 @@ importers:
       '@robota-sdk/agent-provider':
         specifier: workspace:*
         version: link:../agent-provider
+      '@robota-sdk/agent-provider-replay':
+        specifier: workspace:*
+        version: link:../agent-provider-replay
       '@robota-sdk/agent-session-analytics':
         specifier: workspace:*
         version: link:../agent-session-analytics
