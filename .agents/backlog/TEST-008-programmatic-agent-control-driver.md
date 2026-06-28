@@ -72,17 +72,46 @@ production only — never the reverse.**
 1. **Transport-agnostic assembly factory** in `agent-cli` (production) — the core enabler.
 2. **Programmatic `IInteractionChannel` adapter** (production) + a thin driver API on top
    (`boot()` / `send()` / `command()` / `awaitResponse()` / `snapshot()` / `expectExit()`).
-3. **CLI-loadable replay/test provider** (production, provider axis) for deterministic turns; honors
+3. **Session-log-driven replay provider** (production, provider axis) for deterministic turns; honors
    streaming deltas / tool calls / completion. Respect provider-boundary & naming rules
    ([[feedback_no_product_names]], [[feedback_scoped_package_naming]], API/orchestrator separation).
 4. **Unlock SCREEN-010 TC-02/03** by driving a scripted turn through the programmatic adapter +
    replay provider.
 
+## Recording substrate = the session log (DECIDED 2026-06-28, user)
+
+**Design direction: the session log is the single recording substrate — no separate cassette format.**
+The CLI already writes a JSONL session log (`FileSessionLogger`: `{timestamp, sessionId, event,
+...data}`, with external-payload offload + secret redaction) and already has replay-validation
+(`validateCurrentSessionReplayLog` / `ISessionReplayValidationResult`). So:
+
+- The **replay provider reads the session log** and re-emits each recorded turn; recording = just
+  running a session and keeping its log.
+- **Converge TEST-005's bespoke cassette format into the session log** — one substrate for session
+  persistence + replay-validation + record/replay testing.
+
+### Resume-completeness ⟹ replay substrate (user, 2026-06-28)
+
+The session log is **designed for perfect session resume**, i.e. it already captures the full
+conversation state — user inputs, assistant outputs, and tool calls/results — enough to restore
+context and continue. Replay rides on that same data:
+
+- **The replay provider re-emits the recorded assistant turns** (assistant message + tool calls) from
+  the resume-capable log, acting as the model. Streaming deltas for the TUI can be **synthesized**
+  from the final assistant message (chunked) — they need not be byte-identical to the original to
+  exercise the streaming→commit path (SCREEN-010 TC-02/03).
+- So **resume-completeness largely implies replay-completeness.** The first task is a
+  **replay-coverage audit**: confirm the resume-level data lets the provider re-emit turns
+  deterministically; only add a log event if something genuinely required is missing (enrichment, not
+  a new format). `validateCurrentSessionReplayLog` is the completeness gate.
+
+> **Enrichment rule (user, 2026-06-28):** if the log lacks anything replay needs, **enrich the log** —
+> never add a parallel format. Secrets stay redacted; model outputs are loggable.
+
 ## Open design questions (resolve before GATE-WRITE)
 
-- **CLI opt-in for the replay provider:** `--provider replay --cassette <path>` flag vs. settings
-  `type`. Must not weaken production provider selection.
-- **Cassette format:** reuse TEST-005's recorded format vs. a simpler hand-authored script format.
+- **CLI opt-in for the replay provider:** `--provider replay --session-log <path>` (replay from a
+  recorded session log) vs. settings `type`. Must not weaken production provider selection.
 - **Adapter/driver package home:** the programmatic adapter is production — does it live in
   `agent-cli`, `agent-transport`, or its own small package? (The _driver/scenario_ layer that wraps it
   for tests lives in INFRA-016.)
@@ -97,14 +126,18 @@ production only — never the reverse.**
 
 ## Test Plan
 
-- Replay provider unit test: scripted cassette produces deterministic streamed deltas + completion.
-- PTY E2E: boot the real CLI with the replay provider, `send("hi")`, assert the streamed response
-  renders live then commits to scrollback; a multi-turn conversation scrolls as committed history.
+- Replay-coverage audit + (if needed) session-log enrichment, gated by
+  `validateCurrentSessionReplayLog` proving a log is replay-complete.
+- Replay provider unit test: a recorded session log replays deterministic turns (re-emitted assistant
+  message + tool calls; streaming synthesized from the final message).
+- PTY E2E: boot the real CLI with the replay provider over a session log, `send("hi")`, assert the
+  streamed response renders live then commits to scrollback; a multi-turn conversation scrolls as
+  committed history.
 - typecheck / lint / `pnpm harness:scan` green; no provider-boundary or naming-rule violations.
 
 ## User Execution Test Scenarios
 
-- Prereq: built CLI configured with the replay provider + a cassette.
+- Prereq: built CLI configured to replay from a recorded session log.
 - Steps: launch the TUI; send a message; observe the scripted streamed response; send another; scroll
   back through the committed conversation.
 - Expected: the conversation runs deterministically end-to-end with no network/model key; committed
