@@ -1,21 +1,29 @@
 /**
- * createProgrammaticAgent — a thin in-process driver over the real framework session (INFRA-019).
+ * createProgrammaticAgent — the in-process implementation of the client-side agent contract
+ * (`IAgentDriver`, INFRA-020; introduced as the programmatic driver in INFRA-019).
  *
  * Wraps `createInteractiveRuntime` with a {@link ProgrammaticInteractionChannel} so a caller can drive
  * the real agent structurally: `start()`, `send(text)` (awaits the whole turn), then read assistant
- * replies / tool calls / errors as data — no terminal, no PTY, no scraping. This is the in-process
- * form of "drive the agent at will" (TEST-008).
+ * replies / tool calls / errors as data — no terminal, no PTY, no scraping. The observation accessors
+ * delegate to the shared `read*` helpers in `@robota-sdk/agent-interface-transport`, so the
+ * filter/derivation logic is not re-implemented here.
  */
 
 import { createInteractiveRuntime } from '@robota-sdk/agent-framework';
+import {
+  readAssistantReplies,
+  readErrors,
+  readLastAssistantText,
+  readToolCalls,
+} from '@robota-sdk/agent-interface-transport';
 
 import { ProgrammaticInteractionChannel } from './ProgrammaticInteractionChannel.js';
 
 import type { IAIProvider, TPermissionMode } from '@robota-sdk/agent-core';
 import type { ICommandModule, IInteractiveRuntime } from '@robota-sdk/agent-framework';
 import type {
+  IAgentDriver,
   IInteractiveSessionStore,
-  InteractionEvent,
   TActionResponse,
 } from '@robota-sdk/agent-interface-transport';
 
@@ -32,34 +40,11 @@ export interface ICreateProgrammaticAgentOptions {
   permissionMode?: TPermissionMode;
 }
 
-export interface IProgrammaticAgent {
-  /** The structured event stream pushed by the framework, in order. */
-  readonly events: readonly InteractionEvent[];
-  /** Start the runtime and bind a real `InteractiveSession`. Idempotent — a second call is a no-op. */
-  start(): Promise<void>;
-  /**
-   * Push a user message and await the turn. When called serially (await each `send`), this resolves
-   * after the whole turn completes. A `send` issued while a turn is still executing is queued by the
-   * session and resolves immediately; its reply lands in `events` once that queued turn runs.
-   */
-  send(text: string): Promise<void>;
-  /** Pre-answer the next disambiguation `requestAction`. */
-  queueAction(response: TActionResponse): void;
-  /** Every completed assistant reply (`assistant-done` fullTexts), in order. */
-  assistantReplies(): string[];
-  /** The most recent completed assistant reply, or `undefined` if none yet. */
-  lastAssistantText(): string | undefined;
-  /** Tool-call events captured during the run. */
-  toolCalls(): Array<{ id: string; name: string; args: unknown }>;
-  /** Errors surfaced by the framework during the run. */
-  errors(): Error[];
-  /** Stop the runtime and shut down the session. */
-  stop(): Promise<void>;
-}
-
-export function createProgrammaticAgent(
-  options: ICreateProgrammaticAgentOptions,
-): IProgrammaticAgent {
+/**
+ * Construct an in-process {@link IAgentDriver} bound to a real `InteractiveSession`. The returned
+ * driver's accessors are the shared `read*` helpers applied to the captured event stream.
+ */
+export function createProgrammaticAgent(options: ICreateProgrammaticAgentOptions): IAgentDriver {
   const channel = new ProgrammaticInteractionChannel();
   const runtime: IInteractiveRuntime = createInteractiveRuntime({
     channel,
@@ -70,14 +55,7 @@ export function createProgrammaticAgent(
     permissionMode: options.permissionMode,
   });
 
-  /** Events of a given type, narrowed to the matching member of the InteractionEvent union. */
-  const byType = <T extends InteractionEvent['type']>(
-    type: T,
-  ): Array<Extract<InteractionEvent, { type: T }>> =>
-    channel.events.filter((e): e is Extract<InteractionEvent, { type: T }> => e.type === type);
-
   let started = false;
-  const assistantReplies = (): string[] => byType('assistant-done').map((e) => e.fullText);
 
   return {
     events: channel.events,
@@ -88,11 +66,10 @@ export function createProgrammaticAgent(
     },
     send: (text: string): Promise<void> => channel.submit(text),
     queueAction: (response: TActionResponse): void => channel.queueAction(response),
-    assistantReplies,
-    lastAssistantText: (): string | undefined => assistantReplies().at(-1),
-    toolCalls: (): Array<{ id: string; name: string; args: unknown }> =>
-      byType('tool-call').map((e) => ({ id: e.id, name: e.name, args: e.args })),
-    errors: (): Error[] => byType('error').map((e) => e.error),
+    assistantReplies: (): string[] => readAssistantReplies(channel.events),
+    lastAssistantText: (): string | undefined => readLastAssistantText(channel.events),
+    toolCalls: () => readToolCalls(channel.events),
+    errors: (): Error[] => readErrors(channel.events),
     stop: (): Promise<void> => runtime.stop(),
   };
 }

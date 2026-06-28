@@ -40,6 +40,8 @@ export type {
 // ── Interaction-channel contracts ────────────────────────────
 export type {
   IInteractionChannel,
+  IAgentDriver,
+  IToolCallObservation,
   ITerminalHandoff,
   InteractionEvent,
   IPermissionRequest,
@@ -48,6 +50,13 @@ export type {
   IPickItem,
   ICommandInfo,
   TCommandInteractionHint,
+} from './interaction-contracts.js';
+// Shared pure accessors over an InteractionEvent stream (values, not types).
+export {
+  readAssistantReplies,
+  readLastAssistantText,
+  readToolCalls,
+  readErrors,
 } from './interaction-contracts.js';
 
 // ── Session-event payload contracts ──────────────────────────

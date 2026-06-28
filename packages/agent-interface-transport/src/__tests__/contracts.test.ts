@@ -11,6 +11,7 @@ import type {
   IConfigurableTransport,
   IExecutionResult,
   IExecutionWorkspaceEntry,
+  IAgentDriver,
   IInteractionChannel,
   IInteractiveSession,
   IInteractiveSessionStore,
@@ -46,6 +47,8 @@ describe('agent-interface-transport contract surface', () => {
 
   it('exports the interaction-channel contracts', () => {
     expectTypeOf<IInteractionChannel>().toHaveProperty('requestAction');
+    expectTypeOf<IAgentDriver>().toHaveProperty('send');
+    expectTypeOf<IAgentDriver>().toHaveProperty('events');
     expectTypeOf<TActionRequest>().not.toBeNever();
   });
 
