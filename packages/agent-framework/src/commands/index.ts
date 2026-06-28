@@ -1,10 +1,8 @@
 export type {
   IAgentJobHostContext,
   ICommand,
-  ICommandChoicePromptOption,
   ICommandHostAdapters,
   ICommandHostContext,
-  ICommandInteraction,
   ICommandListEntry,
   ICommandModule,
   ICommandPermissionModeAdapter,
@@ -24,7 +22,6 @@ export type {
   TAutoCompactThresholdSource,
   TCommandInvocationSource,
   TCommandEffect,
-  TCommandInteractionPrompt,
   TCommandModuleSessionRequirement,
   TCommandResultDataValue,
   TSystemCommandLifecycle,

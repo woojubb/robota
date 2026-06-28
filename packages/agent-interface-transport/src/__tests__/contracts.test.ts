@@ -1,10 +1,8 @@
 import { describe, expectTypeOf, it } from 'vitest';
 
 import type {
-  TActionRequest,
   ICapabilityDescriptor,
   ICommand,
-  ICommandInteraction,
   ICommandListEntry,
   ICommandPluginAdapter,
   ICommandResult,
@@ -38,7 +36,6 @@ describe('agent-interface-transport contract surface', () => {
   it('exports the command-system contracts', () => {
     expectTypeOf<ICommand>().toHaveProperty('name');
     expectTypeOf<ICommandResult>().toHaveProperty('success');
-    expectTypeOf<ICommandInteraction>().toHaveProperty('prompt');
     expectTypeOf<ICommandListEntry>().toHaveProperty('name');
     expectTypeOf<ICommandPluginAdapter>().toHaveProperty('reloadPlugins');
     expectTypeOf<ICapabilityDescriptor>().toHaveProperty('kind');
@@ -46,10 +43,10 @@ describe('agent-interface-transport contract surface', () => {
   });
 
   it('exports the interaction-channel contracts', () => {
-    expectTypeOf<IInteractionChannel>().toHaveProperty('requestAction');
+    expectTypeOf<IInteractionChannel>().toHaveProperty('askUser');
     expectTypeOf<IAgentDriver>().toHaveProperty('send');
     expectTypeOf<IAgentDriver>().toHaveProperty('events');
-    expectTypeOf<TActionRequest>().not.toBeNever();
+    expectTypeOf<IAgentDriver>().toHaveProperty('queueUserAction');
   });
 
   it('exports the interactive-session contracts', () => {

@@ -1,14 +1,12 @@
 import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
 import { useApp } from 'ink';
-import { useState, useRef, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 
 import { applyCommandEffects } from './command-effect-handler.js';
 import { useTuiCliAdapter } from '../tui-cli-adapter-context.js';
 
 import type { IUseSideEffectsOptions, IUseSideEffectsResult } from './side-effects-types.js';
-import type { TInteractivePrompt } from './side-effects-types.js';
 import type { TSessionEndReason } from '@robota-sdk/agent-core';
-import type { ICommandInteraction, ICommandResult } from '@robota-sdk/agent-interface-transport';
 
 const EXIT_DELAY_MS = 500;
 
@@ -26,9 +24,6 @@ export function useSideEffects({
 }: IUseSideEffectsOptions): IUseSideEffectsResult {
   const { exit } = useApp();
   const cliAdapter = useTuiCliAdapter();
-  const [pendingInteractionPrompt, setPendingInteractionPrompt] =
-    useState<TInteractivePrompt | null>(null);
-  const commandInteractionRef = useRef<ICommandInteraction | null>(null);
   const [showPluginTUI, setShowPluginTUI] = useState(false);
   const [showSessionPicker, setShowSessionPicker] = useState(showSessionPickerOnStart ?? false);
   const [showTransportTUI, setShowTransportTUI] = useState(false);
@@ -74,35 +69,10 @@ export function useSideEffects({
     ],
   );
 
-  const applyCommandResult = useCallback(
-    (result: ICommandResult): void => {
-      if (result.message.length > 0) {
-        addEntry(messageToHistoryEntry(createSystemMessage(result.message)));
-      }
-      if (result.interaction !== undefined) {
-        commandInteractionRef.current = result.interaction;
-        setPendingInteractionPrompt(result.interaction.prompt);
-        return;
-      }
-      commandInteractionRef.current = null;
-      setPendingInteractionPrompt(null);
-      if (result.effects !== undefined && result.effects.length > 0) {
-        applyEffects(result.effects);
-      }
-    },
-    [addEntry, applyEffects],
-  );
-
   const applyQueuedCommandState = useCallback((): boolean => {
     const queued = commandEffectQueue.drain();
     if (queued === undefined) {
       return false;
-    }
-    if (queued.type === 'interaction') {
-      const { interaction } = queued;
-      commandInteractionRef.current = interaction;
-      setPendingInteractionPrompt(interaction.prompt);
-      return true;
     }
     return applyEffects(queued.effects);
   }, [applyEffects, commandEffectQueue]);
@@ -115,61 +85,13 @@ export function useSideEffects({
     [baseHandleSubmit, applyQueuedCommandState],
   );
 
-  const handleInteractionSubmit = useCallback(
-    async (value: string): Promise<void> => {
-      const interaction = commandInteractionRef.current;
-      if (interaction === null) {
-        setPendingInteractionPrompt(null);
-        return;
-      }
-      try {
-        // allow-fallback: user-facing error display for plugin interaction submit
-        const result = await interaction.submit(value);
-        applyCommandResult(result);
-      } catch (err) {
-        // allow-fallback: user-facing error display for plugin interaction submit
-        commandInteractionRef.current = null;
-        setPendingInteractionPrompt(null);
-        addEntry(
-          messageToHistoryEntry(
-            createSystemMessage(`Failed: ${err instanceof Error ? err.message : String(err)}`),
-          ),
-        );
-      }
-    },
-    [addEntry, applyCommandResult],
-  );
-
-  const handleInteractionCancel = useCallback(() => {
-    const interaction = commandInteractionRef.current;
-    commandInteractionRef.current = null;
-    setPendingInteractionPrompt(null);
-    if (interaction?.cancel === undefined) {
-      addEntry(messageToHistoryEntry(createSystemMessage('Command interaction cancelled.')));
-      return;
-    }
-    Promise.resolve(interaction.cancel())
-      .then((result) => applyCommandResult(result))
-      .catch((err) => {
-        // allow-fallback: user-facing error display for interaction cancel
-        addEntry(
-          messageToHistoryEntry(
-            createSystemMessage(`Failed: ${err instanceof Error ? err.message : String(err)}`),
-          ),
-        );
-      });
-  }, [addEntry, applyCommandResult]);
-
   return {
     handleSubmit,
-    pendingInteractionPrompt,
     showPluginTUI,
     showSessionPicker,
     showTransportTUI,
     setShowPluginTUI,
     setShowSessionPicker,
     setShowTransportTUI,
-    handleInteractionSubmit,
-    handleInteractionCancel,
   };
 }

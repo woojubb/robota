@@ -78,9 +78,6 @@ export function applySystemCommandResult(
   );
   manager.addEntry(messageToHistoryEntry(createSystemMessage(result.message)));
 
-  if (result.interaction !== undefined) {
-    commandEffectQueue.enqueueInteraction(result.interaction);
-  }
   if (pendingEffects.length > 0) {
     commandEffectQueue.enqueueEffects(pendingEffects);
   }

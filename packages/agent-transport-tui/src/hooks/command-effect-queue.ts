@@ -1,17 +1,11 @@
-import type { ICommandInteraction, TCommandEffect } from '@robota-sdk/agent-interface-transport';
+import type { TCommandEffect } from '@robota-sdk/agent-interface-transport';
 
-export type TQueuedCommandState =
-  | {
-      type: 'interaction';
-      interaction: ICommandInteraction;
-    }
-  | {
-      type: 'effects';
-      effects: readonly TCommandEffect[];
-    };
+/** A queued batch of host effects awaiting application after the current submit settles. */
+export interface TQueuedCommandState {
+  effects: readonly TCommandEffect[];
+}
 
 export interface ICommandEffectQueue {
-  enqueueInteraction(interaction: ICommandInteraction): void;
   enqueueEffects(effects: readonly TCommandEffect[]): void;
   drain(): TQueuedCommandState | undefined;
   clear(): void;
@@ -20,13 +14,9 @@ export interface ICommandEffectQueue {
 export class CommandEffectQueue implements ICommandEffectQueue {
   private readonly queue: TQueuedCommandState[] = [];
 
-  enqueueInteraction(interaction: ICommandInteraction): void {
-    this.queue.push({ type: 'interaction', interaction });
-  }
-
   enqueueEffects(effects: readonly TCommandEffect[]): void {
     if (effects.length === 0) return;
-    this.queue.push({ type: 'effects', effects: [...effects] });
+    this.queue.push({ effects: [...effects] });
   }
 
   drain(): TQueuedCommandState | undefined {

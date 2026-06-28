@@ -2,15 +2,16 @@
  * TEST-009 Phase 2: conversation + slash-command flows driven through `IAgentDriver`.
  *
  * Exercises the in-process driver (`createProgrammaticAgent`) against the REAL framework loop with the
- * scripted provider: multi-turn context, a slash command producing a `command-result`, and the full
- * `requestAction` → `queueAction` disambiguation path (which the unit test only covered at the channel
- * level). All assertions read the shared `InteractionEvent` stream the contract exposes.
+ * scripted provider: multi-turn context, a slash command producing a `command-result`, and the CMD-004
+ * ask seam (a command self-asks via `getUserInteraction()`, pre-answered through `queueUserAction`).
+ * All assertions read the shared `InteractionEvent` stream the contract exposes.
  */
 
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { confirmAction, isConfirmed } from '@robota-sdk/agent-core';
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -45,7 +46,7 @@ const PING_MODULE: ICommandModule = {
   ],
 };
 
-/** A `/danger` command gated by a confirm interaction hint — drives the requestAction path. */
+/** A `/danger` command that self-asks for confirmation via the CMD-004 ask seam. */
 const CONFIRM_MODULE: ICommandModule = {
   name: 'danger',
   systemCommands: [
@@ -55,10 +56,17 @@ const CONFIRM_MODULE: ICommandModule = {
       userInvocable: true,
       safety: 'read-only',
       requiresPermission: false,
-      execute: () => ({ message: 'DANGER_RAN', success: true }),
+      lifecycle: 'inline',
+      execute: async (context) => {
+        const ui = context.getUserInteraction?.();
+        const response = ui ? await ui.ask(confirmAction('danger', 'Are you sure?')) : undefined;
+        if (!response || !isConfirmed(response)) {
+          return { message: 'DANGER_CANCELLED', success: true };
+        }
+        return { message: 'DANGER_RAN', success: true };
+      },
     },
   ],
-  interactionHints: { danger: { type: 'confirm', message: 'Are you sure?' } },
 };
 
 describe('IAgentDriver conversation + slash flows (TEST-009 Phase 2)', () => {
@@ -105,7 +113,7 @@ describe('IAgentDriver conversation + slash flows (TEST-009 Phase 2)', () => {
     expect(commandResults(driver.events)).toEqual([{ name: 'ping', output: 'PONG' }]);
   });
 
-  it('drives the requestAction path: queueAction confirms a hinted command; empty queue cancels it', async () => {
+  it('drives the ask seam: queueUserAction confirms a self-asking command; empty queue cancels it', async () => {
     const scripted = createScriptedProvider([{ text: 'unused' }, { text: 'unused' }]);
     driver = createProgrammaticAgent({
       provider: scripted.provider,
@@ -114,14 +122,19 @@ describe('IAgentDriver conversation + slash flows (TEST-009 Phase 2)', () => {
     });
     await driver.start();
 
-    // Confirmed → the command runs (requestAction resolved from the queue).
-    driver.queueAction({ type: 'confirm', confirmed: true });
+    // Confirmed → the command runs (askUser resolved from the pre-supplied queue).
+    driver.queueUserAction({ type: 'answer', values: ['yes'] });
     await driver.send('/danger');
-    expect(commandResults(driver.events).some((c) => c.output === 'DANGER_RAN')).toBe(true);
+    const ranAfterConfirm = commandResults(driver.events).filter(
+      (c) => c.output === 'DANGER_RAN',
+    ).length;
+    expect(ranAfterConfirm).toBe(1);
 
-    // Empty queue → requestAction resolves `cancelled` → the command does NOT run again.
-    const before = commandResults(driver.events).length;
+    // Empty queue → askUser resolves `cancelled` → the command takes its cancel path (does NOT run).
     await driver.send('/danger');
-    expect(commandResults(driver.events).length).toBe(before);
+    expect(commandResults(driver.events).filter((c) => c.output === 'DANGER_RAN').length).toBe(
+      ranAfterConfirm,
+    );
+    expect(commandResults(driver.events).some((c) => c.output === 'DANGER_CANCELLED')).toBe(true);
   });
 });

@@ -17,7 +17,6 @@ import { useStatusLineSettings } from './hooks/useStatusLineSettings.js';
 import { useTerminalHandoffSuspension } from './hooks/useTerminalHandoffSuspension.js';
 import { useTuiChannel } from './hooks/useTuiChannel.js';
 import InputArea from './InputArea.js';
-import InteractivePrompt from './InteractivePrompt.js';
 import { EntryItem } from './MessageList.js';
 import PendingActionPrompt from './PendingActionPrompt.js';
 import PermissionPrompt from './PermissionPrompt.js';
@@ -167,15 +166,12 @@ function AppInner(
 
   const {
     handleSubmit,
-    pendingInteractionPrompt,
     showPluginTUI,
     showSessionPicker,
     showTransportTUI,
     setShowPluginTUI,
     setShowSessionPicker,
     setShowTransportTUI,
-    handleInteractionSubmit,
-    handleInteractionCancel,
   } = useSideEffects({
     cwd,
     providerOverride: props.providerOverride,
@@ -455,13 +451,6 @@ function AppInner(
             />
           )}
           {permissionRequest && <PermissionPrompt request={permissionRequest} />}
-          {pendingInteractionPrompt && (
-            <InteractivePrompt
-              prompt={pendingInteractionPrompt}
-              onSubmit={handleInteractionSubmit}
-              onCancel={handleInteractionCancel}
-            />
-          )}
           {pendingUserAction && (
             <PendingActionPrompt
               request={pendingUserAction}
@@ -508,7 +497,6 @@ function AppInner(
               showSessionPicker ||
               showExecutionWorkspaceSwitcher ||
               isShuttingDown ||
-              pendingInteractionPrompt !== null ||
               (isThinking && !!pendingPrompt) ||
               !isSelectedEntryInteractive
             }

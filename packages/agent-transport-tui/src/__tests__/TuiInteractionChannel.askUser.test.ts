@@ -1,6 +1,6 @@
 /**
- * Unit tests for TuiInteractionChannel.askUser() — the CMD-004 unified ask path (parallel to the
- * legacy requestAction path). Queue resolution + abort cancellation in isolation; no Ink render.
+ * Unit tests for TuiInteractionChannel.askUser() — the CMD-004 unified ask path (the sole
+ * "ask the user" seam). Queue resolution + abort cancellation in isolation; no Ink render.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 

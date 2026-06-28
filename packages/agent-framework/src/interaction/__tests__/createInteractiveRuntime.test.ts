@@ -92,14 +92,8 @@ function createMockSession(overrides: Partial<IInteractiveSession> = {}): IInter
   });
 }
 
-function makeCommandModule(
-  name: string,
-  hints?: ICommandModule['interactionHints'],
-): ICommandModule {
-  return {
-    name,
-    interactionHints: hints,
-  };
+function makeCommandModule(name: string): ICommandModule {
+  return { name };
 }
 
 describe('createInteractiveRuntime', () => {
@@ -175,16 +169,10 @@ describe('createInteractiveRuntime', () => {
     expect(channel.events[0]).toEqual({ type: 'command-result', name: 'help', output: 'ok' });
   });
 
-  it('Given slash command with pick hint When submitted Then requestAction called and arg resolved', async () => {
-    channel.setActionResponse({ type: 'pick', item: { label: 'Plan', value: 'plan' } });
+  it('Given slash command with no args When submitted Then executeCommand called directly (CMD-004: command self-asks)', async () => {
     vi.mocked(session.executeCommand).mockResolvedValue({ message: 'switched', success: true });
 
-    const mod = makeCommandModule('mode', {
-      mode: {
-        type: 'pick',
-        getItems: () => [{ label: 'Plan', value: 'plan' }],
-      },
-    });
+    const mod = makeCommandModule('mode');
 
     const runtime = createInteractiveRuntime({
       channel,
@@ -195,41 +183,15 @@ describe('createInteractiveRuntime', () => {
 
     await channel.simulateSubmit('/mode');
 
-    expect(channel.requestAction).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'pick', id: 'mode' }),
-    );
-    expect(session.executeCommand).toHaveBeenCalledWith('mode', 'plan');
+    // The runtime no longer disambiguates via a channel prompt — the command resolves any needed
+    // input itself through the injected ask seam (session askHandler → channel.askUser).
+    expect(session.executeCommand).toHaveBeenCalledWith('mode', '');
   });
 
-  it('Given slash command with confirm hint cancelled When submitted Then executeCommand not called', async () => {
-    channel.setActionResponse({ type: 'cancelled' });
-
-    const mod = makeCommandModule('exit', {
-      exit: { type: 'confirm', message: 'Exit?' },
-    });
-
-    const runtime = createInteractiveRuntime({
-      channel,
-      commandModules: [mod],
-      _testSession: session,
-    });
-    await runtime.start();
-
-    await channel.simulateSubmit('/exit');
-
-    expect(session.executeCommand).not.toHaveBeenCalled();
-  });
-
-  it('Given slash command with args already present When submitted Then no requestAction, direct execute', async () => {
-    channel.setActionResponse({ type: 'cancelled' });
+  it('Given slash command with args When submitted Then args passed through to executeCommand', async () => {
     vi.mocked(session.executeCommand).mockResolvedValue({ message: 'ok', success: true });
 
-    const mod = makeCommandModule('mode', {
-      mode: {
-        type: 'pick',
-        getItems: () => [{ label: 'Plan', value: 'plan' }],
-      },
-    });
+    const mod = makeCommandModule('mode');
 
     const runtime = createInteractiveRuntime({
       channel,
@@ -240,7 +202,6 @@ describe('createInteractiveRuntime', () => {
 
     await channel.simulateSubmit('/mode plan');
 
-    expect(channel.requestAction).not.toHaveBeenCalled();
     expect(session.executeCommand).toHaveBeenCalledWith('mode', 'plan');
   });
 

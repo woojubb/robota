@@ -9,10 +9,7 @@ import {
   BundlePluginLoader,
   PluginCommandSource,
 } from '@robota-sdk/agent-framework';
-import type {
-  ICommandInteraction,
-  IInteractiveSession,
-} from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
 import { TuiStateManager } from '../tui-state-manager.js';
 import { applySystemCommandResult } from '../hooks/useSlashRouting.js';
 import { CommandEffectQueue } from '../hooks/command-effect-queue.js';
@@ -45,7 +42,7 @@ describe('applySystemCommandResult', () => {
     return new CommandRegistry();
   }
 
-  function legacyCommandField(suffix: 'Interaction' | 'Effects'): string {
+  function legacyCommandField(suffix: 'Effects'): string {
     return `_pendingCommand${suffix}`;
   }
 
@@ -69,44 +66,9 @@ describe('applySystemCommandResult', () => {
     );
 
     expect(queue.drain()).toEqual({
-      type: 'effects',
       effects: [{ type: 'statusline-settings-patch', patch: { enabled: false } }],
     });
     expect(Object.hasOwn(session, legacyCommandField('Effects'))).toBe(false);
-  });
-
-  it('stores generic command interactions without interpreting command-specific data', () => {
-    const session = {
-      getContextState: () => ({ usedPercentage: 0, usedTokens: 0, maxTokens: 0 }),
-    } as unknown as IInteractiveSession;
-    const manager = new TuiStateManager();
-    const queue = new CommandEffectQueue();
-    const interaction: ICommandInteraction = {
-      prompt: {
-        kind: 'choice',
-        title: 'Change provider?',
-        options: [
-          { value: 'yes', label: 'Yes' },
-          { value: 'no', label: 'No' },
-        ],
-      },
-      submit: () => ({ success: true, message: 'done' }),
-    };
-
-    applySystemCommandResult(
-      {
-        success: true,
-        message: 'Switch provider?',
-        interaction,
-      },
-      session,
-      createRegistry(),
-      manager,
-      queue,
-    );
-
-    expect(queue.drain()).toEqual({ type: 'interaction', interaction });
-    expect(Object.hasOwn(session, legacyCommandField('Interaction'))).toBe(false);
   });
 
   it('stores host command side effects', () => {
@@ -129,7 +91,6 @@ describe('applySystemCommandResult', () => {
     );
 
     expect(queue.drain()).toEqual({
-      type: 'effects',
       effects: [{ type: 'plugin-tui-requested' }],
     });
     expect(Object.hasOwn(session, legacyCommandField('Effects'))).toBe(false);

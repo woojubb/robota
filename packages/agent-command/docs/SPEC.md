@@ -151,7 +151,7 @@ Single root entry point: `import { ... } from '@robota-sdk/agent-command'`
 - **`ICommandPluginAdapter`** (from `agent-framework`): `createDefaultPluginCommandAdapter` returns a production implementation. Consumers may supply a different adapter (e.g., in tests) that satisfies the same interface.
 - **`IProviderCommandSettingsAdapter`** (from `agent-framework`): consumers implement this interface to connect provider command operations to their settings backend.
 - **`IOrgPolicy`** (from `agent-framework`): passed to `createProviderCommandModule` and `createDefaultCommandModules`; gates provider switching and API key configuration per org policy.
-- **`interactionHints`** on `ICommandModule` (from `agent-framework`): optional map of `commandName → TCommandInteractionHint`. When present, the TUI layer reads the hint for a given command and opens the appropriate interaction dialog (`picker` or `confirm`) before executing the command. Command modules that require disambiguation (e.g., `/mode`, `/provider switch`) declare their hints here; the CLI does not hard-code command-specific dialog logic.
+- **CMD-004 ask seam** (`context.getUserInteraction()?.ask(IActionRequest)`, contract owned by `agent-core`): a command that needs input (mode/preset/language selection, the provider setup/edit/duplicate/delete wizard, exit/clear confirmation) asks for it inline at the top of `execute`. The host renders the `IActionRequest` per-environment; with no interactive renderer attached (headless/automation), `getUserInteraction()` returns `undefined` and the command takes its explicit no-human path. The CLI does not hard-code command-specific dialog logic.
 
 ### Org-policy enforcement in `provider`
 

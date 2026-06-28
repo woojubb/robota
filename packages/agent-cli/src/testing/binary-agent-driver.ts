@@ -122,8 +122,8 @@ export function createBinaryAgentDriver(options: ICreateBinaryAgentDriverOptions
       /* no persistent process — each send runs the binary once */
     },
     send: (text: string): Promise<void> => runPrint(text),
-    queueAction: (): void => {
-      /* print mode is non-interactive — there is no requestAction to pre-answer */
+    queueUserAction: (): void => {
+      /* print mode is non-interactive — there is no ask to pre-answer */
     },
     assistantReplies: (): string[] => readAssistantReplies(events),
     lastAssistantText: (): string | undefined => readLastAssistantText(events),
