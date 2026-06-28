@@ -50,6 +50,29 @@ detected, schedule a SPEC catch-up as a dedicated backlog item before continuing
 - See [`spec-first-development`](../skills/spec-first-development/SKILL.md) skill for the procedural workflow.
 - For any new gap, fix, or improvement: write a spec document to `.agents/spec-docs/draft/` first using [`backlog-writer`](../skills/backlog-writer/SKILL.md), then run [`backlog-pipeline`](../skills/backlog-pipeline/SKILL.md).
 
+### Validated Recommendation Before Approval (mandatory)
+
+Before requesting design sign-off (GATE-APPROVAL, or any design-confirmation), the agent must present a
+**validated recommendation** — not the first internally-coherent design. A design that merely looks
+proper can still contain invalidating defects; presenting it for approval before verification wastes the
+approval and risks shipping the defect.
+
+For any change crossing a **contract boundary** or with **wide blast radius** (cross-package contract,
+shared port, multi-consumer migration), the Architecture Review must explicitly verify the design
+survives contact with the code — at minimum:
+
+- **Reachability** — the chosen placement is reachable by every intended consumer, including
+  dependent/planned items (see [code-quality.md](code-quality.md) Type System).
+- **Capability preservation** — when replacing/unifying a contract, every capability of the replaced
+  contract is preserved or consciously dropped with rationale; a presence/absence grep is not proof
+  (see [common-mistakes.md](common-mistakes.md)).
+- **Adversarial pass** — an independent critical/red-team review of the design's strongest failure modes,
+  with each finding fixed, refuted, or recorded before approval.
+
+Record the verification in the spec's Architecture Review (Alternatives/Decision) before GATE-APPROVAL.
+Presenting an unvalidated design for approval — one a basic reachability/capability/adversarial check
+would have invalidated — is a process violation.
+
 ### User Request Implementation Gate (mandatory, zero exceptions)
 
 When the user sends any message requesting implementation, code changes, feature additions, fixes,
