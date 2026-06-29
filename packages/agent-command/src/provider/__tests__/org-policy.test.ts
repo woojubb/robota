@@ -8,6 +8,7 @@ import type {
   TProviderSettingsDocument,
 } from '@robota-sdk/agent-framework';
 import { createProviderCommandModule } from '../provider-command-module.js';
+import { scriptedContext } from './scripted-interaction.js';
 
 const providerDefinitions: readonly IProviderDefinition[] = [
   {
@@ -62,7 +63,8 @@ function createExecutor(
   return new SystemCommandExecutor([...(module.systemCommands ?? [])]);
 }
 
-const session = {} as ICommandHostContext;
+/** Context with no interactive renderer attached (headless/automation). */
+const headlessContext = {} as ICommandHostContext;
 
 describe('org policy enforcement in provider commands', () => {
   afterEach(() => {
@@ -83,7 +85,7 @@ describe('org policy enforcement in provider commands', () => {
 
     const result = await createExecutor(adapter, orgPolicy).execute(
       'provider',
-      session,
+      headlessContext,
       'switch openai',
     );
 
@@ -105,7 +107,7 @@ describe('org policy enforcement in provider commands', () => {
 
     const result = await createExecutor(adapter, orgPolicy).execute(
       'provider',
-      session,
+      headlessContext,
       'switch openai',
     );
 
@@ -128,12 +130,14 @@ describe('org policy enforcement in provider commands', () => {
     });
     const orgPolicy: IOrgPolicy = { requireApiKeyFromEnv: true, adminContact: 'sec@example.com' };
 
-    const listed = await createExecutor(adapter, orgPolicy).execute('provider', session, 'list');
-    const selected = await listed?.interaction?.submit('anthropic');
-    const editRequested = await selected?.interaction?.submit('edit');
     // Anthropic has 2 setup steps: apiKey then model
-    const modelPrompt = await editRequested?.interaction?.submit('sk-plaintext-key');
-    const completed = await modelPrompt?.interaction?.submit('claude-sonnet-4-6');
+    const { context } = scriptedContext([
+      { type: 'answer', values: ['anthropic'] },
+      { type: 'answer', values: ['edit'] },
+      { type: 'answer', values: [], text: 'sk-plaintext-key' },
+      { type: 'answer', values: [], text: 'claude-sonnet-4-6' },
+    ]);
+    const completed = await createExecutor(adapter, orgPolicy).execute('provider', context, 'list');
 
     expect(completed?.success).toBe(false);
     expect(completed?.message).toContain('environment variable references');
@@ -154,11 +158,13 @@ describe('org policy enforcement in provider commands', () => {
     });
     const orgPolicy: IOrgPolicy = { requireApiKeyFromEnv: true };
 
-    const listed = await createExecutor(adapter, orgPolicy).execute('provider', session, 'list');
-    const selected = await listed?.interaction?.submit('anthropic');
-    const editRequested = await selected?.interaction?.submit('edit');
-    const modelPrompt = await editRequested?.interaction?.submit('$ENV:ORG_TEST_KEY');
-    const completed = await modelPrompt?.interaction?.submit('claude-opus-4-5');
+    const { context } = scriptedContext([
+      { type: 'answer', values: ['anthropic'] },
+      { type: 'answer', values: ['edit'] },
+      { type: 'answer', values: [], text: '$ENV:ORG_TEST_KEY' },
+      { type: 'answer', values: [], text: 'claude-opus-4-5' },
+    ]);
+    const completed = await createExecutor(adapter, orgPolicy).execute('provider', context, 'list');
 
     expect(completed?.success).toBe(true);
   });

@@ -7,6 +7,7 @@ import type {
   TProviderSettingsDocument,
 } from '@robota-sdk/agent-framework';
 import { createProviderCommandModule } from '../provider-command-module.js';
+import { scriptedContext } from './scripted-interaction.js';
 
 const providerDefinitions: readonly IProviderDefinition[] = [
   {
@@ -93,7 +94,8 @@ function createExecutor(adapter: IProviderCommandSettingsAdapter): SystemCommand
   return new SystemCommandExecutor([...(module.systemCommands ?? [])]);
 }
 
-const session = {} as ICommandHostContext;
+/** Context with no interactive renderer attached (headless/automation). */
+const headlessContext = {} as ICommandHostContext;
 
 describe('createProviderCommandModule', () => {
   it('contributes /provider metadata and executable command from the provider package', () => {
@@ -107,7 +109,7 @@ describe('createProviderCommandModule', () => {
     expect(module.systemCommands?.map((command) => command.name)).toEqual(['provider']);
   });
 
-  it('lists provider profiles from injected merged settings', async () => {
+  it('asks the user to pick a provider profile from injected merged settings', async () => {
     const { adapter } = createSettingsAdapter({
       currentProvider: 'openai',
       providers: {
@@ -116,18 +118,37 @@ describe('createProviderCommandModule', () => {
       },
     });
 
-    const result = await createExecutor(adapter).execute('provider', session, 'list');
+    const { context, requests } = scriptedContext([{ type: 'cancelled' }]);
+    const result = await createExecutor(adapter).execute('provider', context, 'list');
+
+    expect(result?.success).toBe(true);
+    const picker = requests[0];
+    expect(picker?.title).toBe('Select provider profile');
+    expect(picker?.options?.map((option) => option.label)).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('* openai'),
+        expect.stringContaining('anthropic'),
+      ]),
+    );
+  });
+
+  it('returns a plain text list when no interactive renderer is attached', async () => {
+    const { adapter } = createSettingsAdapter({
+      currentProvider: 'openai',
+      providers: {
+        openai: { type: 'openai', model: 'supergemma4-26b-uncensored-v2' },
+        anthropic: { type: 'anthropic', model: 'claude-sonnet-4-6' },
+      },
+    });
+
+    const result = await createExecutor(adapter).execute('provider', headlessContext, 'list');
 
     expect(result?.success).toBe(true);
     expect(result?.message).toContain('* openai');
     expect(result?.message).toContain('anthropic');
-    expect(result?.interaction?.prompt).toMatchObject({
-      kind: 'choice',
-      title: 'Select provider profile',
-    });
   });
 
-  it('opens a provider profile picker from /provider without CLI-owned routing', async () => {
+  it('opens a provider profile action menu from /provider after picking a profile', async () => {
     const { adapter } = createSettingsAdapter({
       currentProvider: 'openai',
       providers: {
@@ -136,14 +157,15 @@ describe('createProviderCommandModule', () => {
       },
     });
 
-    const result = await createExecutor(adapter).execute('provider', session, '');
-    const selected = await result?.interaction?.submit('anthropic');
+    const { context, requests } = scriptedContext([
+      { type: 'answer', values: ['anthropic'] },
+      { type: 'cancelled' },
+    ]);
+    const result = await createExecutor(adapter).execute('provider', context, '');
 
-    expect(result?.message).toContain('* openai');
-    expect(selected?.interaction?.prompt).toMatchObject({
-      kind: 'choice',
-      title: 'Provider profile: anthropic',
-    });
+    expect(result?.success).toBe(true);
+    expect(requests[0]?.title).toBe('Select provider profile');
+    expect(requests[1]?.title).toBe('Provider profile: anthropic');
   });
 
   it('switches provider immediately via /provider switch without confirmation dialog', async () => {
@@ -158,9 +180,12 @@ describe('createProviderCommandModule', () => {
       {},
     );
 
-    const result = await createExecutor(adapter).execute('provider', session, 'switch openai');
+    const result = await createExecutor(adapter).execute(
+      'provider',
+      headlessContext,
+      'switch openai',
+    );
 
-    expect(result?.interaction).toBeUndefined();
     expect(result?.message).toBe(
       'Switched to openai (supergemma4-26b-uncensored-v2). History preserved.',
     );
@@ -182,16 +207,17 @@ describe('createProviderCommandModule', () => {
       {},
     );
 
-    const listed = await createExecutor(adapter).execute('provider', session, 'list');
-    const selected = await listed?.interaction?.submit('openai');
-    const switchRequested = await selected?.interaction?.submit('switch');
+    const { context } = scriptedContext([
+      { type: 'answer', values: ['openai'] },
+      { type: 'answer', values: ['switch'] },
+    ]);
+    const result = await createExecutor(adapter).execute('provider', context, 'list');
 
-    expect(switchRequested?.message).toBe(
+    expect(result?.message).toBe(
       'Switched to openai (supergemma4-26b-uncensored-v2). History preserved.',
     );
-    expect(switchRequested?.interaction).toBeUndefined();
     expect(readTarget().currentProvider).toBe('openai');
-    expect(switchRequested?.effects).toEqual([
+    expect(result?.effects).toEqual([
       { type: 'provider-hot-swap-requested', profileName: 'openai' },
     ]);
   });
@@ -211,19 +237,19 @@ describe('createProviderCommandModule', () => {
       {},
     );
 
-    const listed = await createExecutor(adapter).execute('provider', session, 'list');
-    const selected = await listed?.interaction?.submit('anthropic');
-    const editRequested = await selected?.interaction?.submit('edit');
+    const { context, requests } = scriptedContext([
+      { type: 'answer', values: ['anthropic'] },
+      { type: 'answer', values: ['edit'] },
+      { type: 'answer', values: [], text: '' },
+      { type: 'answer', values: [], text: 'claude-opus-4-5' },
+    ]);
+    const completed = await createExecutor(adapter).execute('provider', context, 'list');
 
-    expect(editRequested?.interaction?.prompt).toMatchObject({
-      kind: 'text',
-      title: 'anthropic API key',
-      placeholder: '(unchanged)',
-      masked: true,
-    });
-
-    const modelPrompt = await editRequested?.interaction?.submit('');
-    const completed = await modelPrompt?.interaction?.submit('claude-opus-4-5');
+    const apiKeyRequest = requests[2];
+    expect(apiKeyRequest?.title).toBe('anthropic API key');
+    expect(apiKeyRequest?.allowFreeText).toBe(true);
+    expect(apiKeyRequest?.placeholder).toBe('(unchanged)');
+    expect(apiKeyRequest?.masked).toBe(true);
 
     expect(readTarget()).toMatchObject({
       providers: {
@@ -252,16 +278,15 @@ describe('createProviderCommandModule', () => {
       },
     });
 
-    const listed = await createExecutor(adapter).execute('provider', session, 'list');
-    const selected = await listed?.interaction?.submit('openai');
-    const duplicateRequested = await selected?.interaction?.submit('duplicate');
-    const completed = await duplicateRequested?.interaction?.submit('');
+    const { context, requests } = scriptedContext([
+      { type: 'answer', values: ['openai'] },
+      { type: 'answer', values: ['duplicate'] },
+      { type: 'answer', values: [], text: '' },
+    ]);
+    const completed = await createExecutor(adapter).execute('provider', context, 'list');
 
-    expect(duplicateRequested?.interaction?.prompt).toMatchObject({
-      kind: 'text',
-      title: 'Duplicate openai as',
-      placeholder: 'openai-copy',
-    });
+    expect(requests[2]?.title).toBe('Duplicate openai as');
+    expect(requests[2]?.placeholder).toBe('openai-copy');
     expect(readTarget()).toMatchObject({
       providers: {
         'openai-copy': {
@@ -292,11 +317,16 @@ describe('createProviderCommandModule', () => {
       },
     );
 
-    const listed = await createExecutor(adapter).execute('provider', session, 'list');
-    const selected = await listed?.interaction?.submit('anthropic');
-    const deleteRequested = await selected?.interaction?.submit('delete');
-    const completed = await deleteRequested?.interaction?.submit('yes');
+    const { context, requests } = scriptedContext([
+      { type: 'answer', values: ['anthropic'] },
+      { type: 'answer', values: ['delete'] },
+      { type: 'answer', values: ['yes'] },
+    ]);
+    const completed = await createExecutor(adapter).execute('provider', context, 'list');
 
+    // The confirm prompt must actually be issued — guards against a silent drop of the
+    // confirmation step that would still "delete and pass".
+    expect(requests[2]?.title).toBe('Delete provider profile anthropic?');
     expect(completed?.message).toBe('Provider profile deleted: anthropic.');
     expect(readTarget()).toEqual({
       currentProvider: 'openai',
@@ -324,16 +354,17 @@ describe('createProviderCommandModule', () => {
       },
     );
 
-    const listed = await createExecutor(adapter).execute('provider', session, 'list');
-    const selected = await listed?.interaction?.submit('anthropic');
-    const deleteRequested = await selected?.interaction?.submit('delete');
-    const replacementPrompt = await deleteRequested?.interaction?.submit('yes');
-    const completed = await replacementPrompt?.interaction?.submit('openai');
+    const { context, requests } = scriptedContext([
+      { type: 'answer', values: ['anthropic'] },
+      { type: 'answer', values: ['delete'] },
+      { type: 'answer', values: ['yes'] },
+      { type: 'answer', values: ['openai'] },
+    ]);
+    const completed = await createExecutor(adapter).execute('provider', context, 'list');
 
-    expect(replacementPrompt?.interaction?.prompt).toMatchObject({
-      kind: 'choice',
-      title: 'Replacement provider for anthropic',
-    });
+    // The confirm precedes the replacement picker — assert both so neither step can be dropped silently.
+    expect(requests[2]?.title).toBe('Delete provider profile anthropic?');
+    expect(requests[3]?.title).toBe('Replacement provider for anthropic');
     expect(readTarget()).toEqual({
       currentProvider: 'openai',
       providers: {
@@ -361,30 +392,39 @@ describe('createProviderCommandModule', () => {
       {},
     );
 
-    const listed = await createExecutor(adapter).execute('provider', session, 'list');
-    const selected = await listed?.interaction?.submit('anthropic');
-    const deleteRequested = await selected?.interaction?.submit('delete');
+    const { context } = scriptedContext([
+      { type: 'answer', values: ['anthropic'] },
+      { type: 'answer', values: ['delete'] },
+    ]);
+    const result = await createExecutor(adapter).execute('provider', context, 'list');
 
-    expect(deleteRequested?.success).toBe(false);
-    expect(deleteRequested?.message).toContain('not stored in the active write target');
+    expect(result?.success).toBe(false);
+    expect(result?.message).toContain('not stored in the active write target');
   });
 
   it('owns provider setup flow and writes settings after generic prompt submissions', async () => {
     const { adapter, readTarget } = createSettingsAdapter({}, {});
-    const first = await createExecutor(adapter).execute('provider', session, 'add openai');
 
-    expect(first?.interaction?.prompt).toMatchObject({
-      kind: 'text',
-      title: 'OpenAI-compatible base URL',
-      description:
-        '  Setup help: Official: OpenAI-compatible local server docs - https://lmstudio.ai/docs/developer',
-      placeholder: 'http://localhost:1234/v1',
-      allowEmpty: true,
-    });
+    const { context, requests } = scriptedContext([
+      { type: 'answer', values: [], text: '' },
+      { type: 'answer', values: [], text: '' },
+      { type: 'answer', values: [], text: '' },
+    ]);
+    const completed = await createExecutor(adapter).execute('provider', context, 'add openai');
 
-    const second = await first?.interaction?.submit('');
-    const third = await second?.interaction?.submit('');
-    const completed = await third?.interaction?.submit('');
+    expect(requests[0]?.title).toBe('OpenAI-compatible base URL');
+    expect(requests[0]?.description).toBe(
+      '  Setup help: Official: OpenAI-compatible local server docs - https://lmstudio.ai/docs/developer',
+    );
+    expect(requests[0]?.placeholder).toBe('http://localhost:1234/v1');
+    expect(requests[0]?.allowEmpty).toBe(true);
+    // All three setup steps must be asked in order — a dropped step would otherwise be hidden by the
+    // scripted double returning the surplus answers to whatever remains.
+    expect(requests.map((request) => request.title)).toEqual([
+      'OpenAI-compatible base URL',
+      'OpenAI-compatible model',
+      'OpenAI-compatible API key',
+    ]);
 
     expect(readTarget()).toMatchObject({
       currentProvider: 'openai',
@@ -406,6 +446,35 @@ describe('createProviderCommandModule', () => {
     ]);
   });
 
+  it('asks the user to pick a provider type when /provider add is called without one', async () => {
+    const { adapter, readTarget } = createSettingsAdapter({}, {});
+
+    const { context, requests } = scriptedContext([
+      { type: 'answer', values: ['openai'] },
+      { type: 'answer', values: [], text: '' },
+      { type: 'answer', values: [], text: '' },
+      { type: 'answer', values: [], text: '' },
+    ]);
+    const completed = await createExecutor(adapter).execute('provider', context, 'add');
+
+    expect(requests[0]?.title).toBe('Select provider');
+    expect(requests[0]?.options?.map((option) => option.value)).toEqual(['openai', 'anthropic']);
+    expect(readTarget()).toMatchObject({
+      currentProvider: 'openai',
+      providers: { openai: { type: 'openai' } },
+    });
+    expect(completed?.success).toBe(true);
+  });
+
+  it('reports usage for /provider add without a type when no renderer is attached', async () => {
+    const { adapter } = createSettingsAdapter({}, {});
+
+    const result = await createExecutor(adapter).execute('provider', headlessContext, 'add');
+
+    expect(result?.success).toBe(false);
+    expect(result?.message).toContain('Usage: provider add <type>');
+  });
+
   it('creates another profile when provider type already exists', async () => {
     const { adapter, readTarget } = createSettingsAdapter(
       {
@@ -421,11 +490,13 @@ describe('createProviderCommandModule', () => {
       },
       {},
     );
-    const first = await createExecutor(adapter).execute('provider', session, 'add openai');
-    const second = await first?.interaction?.submit('');
-    const third = await second?.interaction?.submit('');
 
-    await third?.interaction?.submit('');
+    const { context } = scriptedContext([
+      { type: 'answer', values: [], text: '' },
+      { type: 'answer', values: [], text: '' },
+      { type: 'answer', values: [], text: '' },
+    ]);
+    await createExecutor(adapter).execute('provider', context, 'add openai');
 
     expect(readTarget()).toMatchObject({
       currentProvider: 'openai-2',
@@ -465,7 +536,7 @@ describe('createProviderCommandModule', () => {
     });
     const result = await new SystemCommandExecutor([...(module.systemCommands ?? [])]).execute(
       'provider',
-      session,
+      headlessContext,
       'test openai',
     );
 

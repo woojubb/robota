@@ -89,6 +89,8 @@ model configuration` (2026-06-14). See `common-mistakes.md` #60.
 - [ ] Tests avoid over-mocking implementation details.
 - [ ] Live state-mutation seams have cold-state coverage with a real collaborator.
 - [ ] Mocks of guarded collaborators reproduce the real method's preconditions.
+- [ ] Multi-step interaction tests assert the expected prompts/requests were issued (count + order + each one's shape), not only the final outcome — a scripted input double that resolves `cancelled` once exhausted otherwise hides a dropped intermediate step. See `common-mistakes.md` #71.
+- [ ] Tests that write files target an isolated temp dir (`mkdtempSync`), never a relative/tracked path (a relative `./x.json` resolves to the package cwd and can dirty a tracked artifact, tripping the pre-push clean-tree gate).
 - [ ] Failure messages are readable and actionable.
 
 ## Anti-Patterns

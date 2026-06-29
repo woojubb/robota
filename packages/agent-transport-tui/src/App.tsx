@@ -17,8 +17,8 @@ import { useStatusLineSettings } from './hooks/useStatusLineSettings.js';
 import { useTerminalHandoffSuspension } from './hooks/useTerminalHandoffSuspension.js';
 import { useTuiChannel } from './hooks/useTuiChannel.js';
 import InputArea from './InputArea.js';
-import InteractivePrompt from './InteractivePrompt.js';
 import { EntryItem } from './MessageList.js';
+import PendingActionPrompt from './PendingActionPrompt.js';
 import PermissionPrompt from './PermissionPrompt.js';
 import PluginTUI from './PluginTUI.js';
 import SessionPicker from './SessionPicker.js';
@@ -129,6 +129,7 @@ function AppInner(
     selectExecutionWorkspaceEntry,
     readExecutionWorkspaceDetail,
     permissionRequest,
+    pendingUserAction,
     contextState,
     handleSubmit: baseHandleSubmit,
     handleAbort,
@@ -165,15 +166,12 @@ function AppInner(
 
   const {
     handleSubmit,
-    pendingInteractionPrompt,
     showPluginTUI,
     showSessionPicker,
     showTransportTUI,
     setShowPluginTUI,
     setShowSessionPicker,
     setShowTransportTUI,
-    handleInteractionSubmit,
-    handleInteractionCancel,
   } = useSideEffects({
     cwd,
     providerOverride: props.providerOverride,
@@ -274,6 +272,7 @@ function AppInner(
     if (!key.escape || !isThinking) return;
     if (
       permissionRequest ||
+      pendingUserAction ||
       showPluginTUI ||
       showTransportTUI ||
       showSessionPicker ||
@@ -287,7 +286,14 @@ function AppInner(
   // Ctrl+B toggles the execution workspace switcher.
   useInput((input: string, key: { ctrl?: boolean }) => {
     if (!key.ctrl || input !== 'b') return;
-    if (permissionRequest || showPluginTUI || showSessionPicker || isShuttingDown) return;
+    if (
+      permissionRequest ||
+      pendingUserAction ||
+      showPluginTUI ||
+      showSessionPicker ||
+      isShuttingDown
+    )
+      return;
     setShowExecutionWorkspaceSwitcher((shown) => !shown);
   });
 
@@ -296,6 +302,7 @@ function AppInner(
     if (!key.escape || isThinking) return;
     if (
       permissionRequest ||
+      pendingUserAction ||
       showPluginTUI ||
       showTransportTUI ||
       showSessionPicker ||
@@ -444,11 +451,10 @@ function AppInner(
             />
           )}
           {permissionRequest && <PermissionPrompt request={permissionRequest} />}
-          {pendingInteractionPrompt && (
-            <InteractivePrompt
-              prompt={pendingInteractionPrompt}
-              onSubmit={handleInteractionSubmit}
-              onCancel={handleInteractionCancel}
+          {pendingUserAction && (
+            <PendingActionPrompt
+              request={pendingUserAction}
+              onAnswer={(response) => channel.resolveUserAction(response)}
             />
           )}
           {showPluginTUI && (
@@ -485,12 +491,12 @@ function AppInner(
             onCancelQueue={handleCancelQueue}
             isDisabled={
               !!permissionRequest ||
+              !!pendingUserAction ||
               showPluginTUI ||
               showTransportTUI ||
               showSessionPicker ||
               showExecutionWorkspaceSwitcher ||
               isShuttingDown ||
-              pendingInteractionPrompt !== null ||
               (isThinking && !!pendingPrompt) ||
               !isSelectedEntryInteractive
             }

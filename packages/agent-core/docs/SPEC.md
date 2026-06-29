@@ -135,6 +135,10 @@ This package is the single source of truth (SSOT) for the following types:
 | `IContextTokenEstimateOptions`        | `context/estimation.ts`             | Options for `estimateContextTokensFromMessages()`: optional `providerUsage` floor and `callerFloor`                                                                                                                                                                                                                        |
 | `IMessageTokenUsage`                  | `context/token-usage.ts`            | Normalized token usage read from message metadata or provider usage payloads                                                                                                                                                                                                                                               |
 | `IHistoryEntry`                       | `interfaces/messages.ts`            | Rich history entry that wraps a message with category, type, and structured data fields. Fields: `id` (string), `timestamp` (Date), `category` ('chat' \| 'event'), `type` (string), `data` (varies by category/type)                                                                                                      |
+| `IActionRequest`                      | `interfaces/interaction.ts`         | UI-agnostic "ask the user" request (CMD-004). One shape covers confirm/single/multi/free-text/secret via `options` × `minSelect`/`maxSelect` × `allowFreeText` × `masked`. No function-valued fields (serialization-safe). SSOT lives in core so both command and tool sources reach it.                                   |
+| `IActionOption` / `IActionDefault`    | `interfaces/interaction.ts`         | One selectable option, and the pre-selected values / prefilled text for an action request.                                                                                                                                                                                                                                 |
+| `TActionResponse`                     | `interfaces/interaction.ts`         | Answer to an `IActionRequest`: `{ type: 'answer'; values; text? }` or `{ type: 'cancelled' }`.                                                                                                                                                                                                                             |
+| `IUserInteraction`                    | `interfaces/interaction.ts`         | Injected ask port — `ask(IActionRequest): Promise<TActionResponse>`. The single seam every interaction source uses; concurrency (broadcast, first-answer-wins, idempotent resolve) is owned by the implementation.                                                                                                         |
 
 Provider packages import these types. They must not re-declare them.
 
@@ -204,6 +208,25 @@ their own price tables. Prices are USD per 1,000,000 tokens.
 ### Tools
 
 NOTE: `ToolRegistry`, `FunctionTool`, `createFunctionTool`, `createZodFunctionTool`, and `OpenAPITool` have been moved to the tools layer. `MCPTool` and `RelayMcpTool` have been moved to the MCP-tool layer.
+
+### Interaction (CMD-004)
+
+UI-agnostic "ask the user" contract. The SSOT lives here so every interaction source reaches it:
+command execution (`ICommandHostContext`, agent-framework) and tool execution
+(`IToolExecutionContext.ask`, this package — model-issued questions, CMD-005). Transports render the
+request per-environment; the contract carries no function-valued fields (serialization-safe).
+
+| Export                                                                | Kind      | Description                                                                               |
+| --------------------------------------------------------------------- | --------- | ----------------------------------------------------------------------------------------- |
+| `IActionRequest` / `IActionOption` / `IActionDefault`                 | interface | The single action request shape, its options, and pre-selection/prefill                   |
+| `TActionResponse`                                                     | type      | `{ type: 'answer'; values; text? }` or `{ type: 'cancelled' }`                            |
+| `IUserInteraction`                                                    | interface | Injected ask port: `ask(IActionRequest): Promise<TActionResponse>`                        |
+| `confirmAction` / `selectAction` / `multiSelectAction` / `textAction` | function  | Ergonomic constructors for confirm / single / multi / free-text (incl. `masked`) requests |
+| `isConfirmed`                                                         | function  | Read a `confirmAction` answer as a boolean                                                |
+| `CONFIRM_YES` / `CONFIRM_NO`                                          | const     | Option values used by `confirmAction` / `isConfirmed`                                     |
+
+`IToolExecutionContext` gains an optional `ask?: IUserInteraction['ask']` — present when an interactive
+renderer is attached; a tool treats absence as "no human available" (never a silent guess).
 
 ### Permissions
 

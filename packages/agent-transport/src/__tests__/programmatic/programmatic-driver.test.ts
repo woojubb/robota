@@ -88,20 +88,20 @@ describe('programmatic in-process agent driver (INFRA-019)', () => {
     expect(driver.lastAssistantText()).toBe('edit done');
   });
 
-  it('TC-04: queueAction pre-answers a requestAction; empty queue resolves to cancelled', async () => {
+  it('TC-04: queueUserAction pre-answers an askUser; empty queue resolves to cancelled', async () => {
     const scripted = createScriptedProvider([{ text: 'noop' }]);
     driver = createProgrammaticAgent({ provider: scripted.provider, cwd });
     await driver.start();
 
-    // Exercise the request/response contract in isolation (the framework only calls requestAction
-    // for command interaction hints — the same FIFO queue the driver's queueAction feeds).
+    // Exercise the unified ask contract in isolation (the FIFO queue the driver's queueUserAction feeds).
     const channel = new ProgrammaticInteractionChannel();
+    const request = { id: 'x', title: 'ok?', options: [{ value: 'a', label: 'A' }], maxSelect: 1 };
 
-    channel.queueAction({ type: 'confirm', confirmed: true });
-    const answered = await channel.requestAction({ type: 'confirm', id: 'x', message: 'ok?' });
-    expect(answered).toEqual({ type: 'confirm', confirmed: true });
+    channel.queueUserAction({ type: 'answer', values: ['a'] });
+    const answered = await channel.askUser(request);
+    expect(answered).toEqual({ type: 'answer', values: ['a'] });
 
-    const defaulted = await channel.requestAction({ type: 'confirm', id: 'y', message: 'ok?' });
+    const defaulted = await channel.askUser(request);
     expect(defaulted).toEqual({ type: 'cancelled' });
   });
 });

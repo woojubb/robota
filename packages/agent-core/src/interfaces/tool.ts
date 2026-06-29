@@ -1,4 +1,5 @@
 import type { IEventService, IOwnerPathSegment } from './event-service';
+import type { IUserInteraction } from './interaction';
 import type { IToolSchema } from './provider';
 import type { TContextData, TLoggerData, TToolParameters, TUniversalValue } from './types';
 
@@ -131,6 +132,14 @@ export interface IToolExecutionContext {
    * Owner-bound instances must not be layered across different owners.
    */
   baseEventService?: IEventService;
+
+  /**
+   * Injected "ask the user" port (CMD-004). Present when an interactive renderer is attached, letting
+   * a tool solicit a structured answer from the user (the model-issued question seam consumed by
+   * CMD-005). Absent in non-interactive contexts; a tool that asks must treat absence as "no human
+   * available" (never a silent guess).
+   */
+  ask?: IUserInteraction['ask'];
 }
 
 /**

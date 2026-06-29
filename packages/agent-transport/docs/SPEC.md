@@ -51,8 +51,8 @@ agent-transport/src
 `ProgrammaticInteractionChannel` to a real `InteractiveSession` via `createInteractiveRuntime`.
 `send(text)` pushes a user submission and awaits the whole turn; the channel records the framework's
 one-way `InteractionEvent` stream into `events`, which the driver exposes as `assistantReplies()`,
-`lastAssistantText()`, `toolCalls()`, and `errors()`. `queueAction(response)` pre-answers a
-disambiguation `requestAction` (an empty queue resolves `{ type: 'cancelled' }`, so a run never
+`lastAssistantText()`, `toolCalls()`, and `errors()`. `queueUserAction(response)` pre-answers the next
+CMD-004 `askUser` a command may issue (an empty queue resolves `{ type: 'cancelled' }`, so a run never
 deadlocks). This is the in-process form of "drive the agent at will" (TEST-008).
 
 ### Headless lifecycle

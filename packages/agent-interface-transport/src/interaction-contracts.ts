@@ -5,12 +5,8 @@
  * SSOT shared by agent-framework (createInteractiveRuntime) and agent-transport channels.
  */
 
-/** Framework-level permission request (id used to correlate with permission-resolved). */
-export interface IPermissionRequest {
-  id: string;
-  toolName: string;
-  toolArgs: unknown;
-}
+// CMD-004 unified action contract (SSOT in agent-core).
+import type { IActionRequest, TActionResponse } from '@robota-sdk/agent-core';
 
 /** One-way display events pushed by the framework to the channel. */
 export type InteractionEvent =
@@ -19,37 +15,15 @@ export type InteractionEvent =
   | { type: 'assistant-done'; fullText: string }
   | { type: 'tool-call'; id: string; name: string; args: unknown }
   | { type: 'tool-result'; id: string; name: string; result: unknown }
-  | { type: 'permission-request'; request: IPermissionRequest }
   | { type: 'permission-resolved'; id: string; granted: boolean }
   | { type: 'command-result'; name: string; output: string }
   | { type: 'error'; error: Error };
-
-export interface IPickItem {
-  label: string;
-  value: string;
-  description?: string;
-}
-
-/** Request-response contract for disambiguation dialogs. */
-export type TActionRequest =
-  | { type: 'pick'; id: string; title: string; items: IPickItem[]; defaultIndex?: number }
-  | { type: 'confirm'; id: string; message: string; defaultValue?: boolean };
-
-export type TActionResponse =
-  | { type: 'pick'; item: IPickItem }
-  | { type: 'confirm'; confirmed: boolean }
-  | { type: 'cancelled' };
 
 export interface ICommandInfo {
   name: string;
   description: string;
   subcommands?: ICommandInfo[];
 }
-
-/** Declared by command modules; consumed by createInteractiveRuntime to call requestAction. */
-export type TCommandInteractionHint =
-  | { type: 'pick'; getItems(): IPickItem[] }
-  | { type: 'confirm'; message: string };
 
 export interface IInteractionChannel {
   /** Framework registers input handler. Channel calls it when user submits text. */
@@ -59,10 +33,11 @@ export interface IInteractionChannel {
   write(event: InteractionEvent): void;
 
   /**
-   * Framework requests user disambiguation. Channel decides HOW to present it
-   * (Ink dialog, web modal, programmatic preset). Resolves when user responds.
+   * CMD-004 unified ask: request a structured answer (confirm/select/multi/text). The channel renders
+   * it per-environment (Ink dialog, web modal, programmatic preset) and resolves when the user answers
+   * or cancels. This is the sole "ask the user" seam; commands reach it via the session's ask handler.
    */
-  requestAction(action: TActionRequest): Promise<TActionResponse>;
+  askUser(request: IActionRequest): Promise<TActionResponse>;
 
   /** Framework provides registered slash commands for autocomplete. */
   setAvailableCommands(commands: ICommandInfo[]): void;
@@ -101,8 +76,8 @@ export interface IAgentDriver {
    * completes; a `send` issued mid-turn is queued and resolves once that queued turn runs.
    */
   send(text: string): Promise<void>;
-  /** Pre-answer the next disambiguation `requestAction`. */
-  queueAction(response: TActionResponse): void;
+  /** Pre-answer the next `askUser` (CMD-004 unified ask). */
+  queueUserAction(response: TActionResponse): void;
   /** The structured event stream observed from the agent, in order. */
   readonly events: readonly InteractionEvent[];
   /** Every completed assistant reply (`assistant-done` fullTexts), in order. */

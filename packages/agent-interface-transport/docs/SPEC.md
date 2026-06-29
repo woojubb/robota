@@ -61,15 +61,15 @@ Types owned by this package (SSOT):
 In addition to the transport-adapter contracts above, the package owns several further contract
 groups, each in its own file (all re-exported from `src/index.ts`):
 
-| Contract group                 | File                            | Owns                                                                                                                             |
-| ------------------------------ | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| Capability descriptors         | `capability-contracts.ts`       | `ICapabilityDescriptor`, `TCapabilityKind`, `TCapabilitySafety`                                                                  |
-| Command system contracts       | `command-contracts.ts`          | `ICommand`, `ICommandSource`, `ICommandResult`, `ICommandInteraction`, plugin-adapter + status-line command settings contracts   |
-| Interaction-channel contracts  | `interaction-contracts.ts`      | `IInteractionChannel`, `InteractionEvent`, `IPermissionRequest`, `TActionRequest`/`TActionResponse`, `IPickItem`, `ICommandInfo` |
-| Session-event payloads         | `event-contracts.ts`            | Skill-activation, memory, prompt-file-reference, and context-reference event payload contracts                                   |
-| Background job-group contracts | `background-group-contracts.ts` | `IBackgroundJobGroupState`/`Summary`/`CreateRequest`, `IBackgroundJobResultEnvelope`, job-group event + status/wait contracts    |
-| Execution-workspace contracts  | `workspace-contracts.ts`        | `IExecutionWorkspaceEntry`/`Snapshot`/`Event`/`Filter`, execution-detail page/record contracts, and their enum kinds             |
-| Interactive-session contracts  | `session-contracts.ts`          | `IInteractiveSession`, `IInteractiveSessionEvents`, `IExecutionResult`, `IToolState`/`Summary`, `IInteractiveSessionStore`       |
+| Contract group                 | File                            | Owns                                                                                                                          |
+| ------------------------------ | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Capability descriptors         | `capability-contracts.ts`       | `ICapabilityDescriptor`, `TCapabilityKind`, `TCapabilitySafety`                                                               |
+| Command system contracts       | `command-contracts.ts`          | `ICommand`, `ICommandSource`, `ICommandResult`, plugin-adapter + status-line command settings contracts                       |
+| Interaction-channel contracts  | `interaction-contracts.ts`      | `IInteractionChannel` (CMD-004 `askUser`), `IAgentDriver`, `InteractionEvent`, `ICommandInfo`                                 |
+| Session-event payloads         | `event-contracts.ts`            | Skill-activation, memory, prompt-file-reference, and context-reference event payload contracts                                |
+| Background job-group contracts | `background-group-contracts.ts` | `IBackgroundJobGroupState`/`Summary`/`CreateRequest`, `IBackgroundJobResultEnvelope`, job-group event + status/wait contracts |
+| Execution-workspace contracts  | `workspace-contracts.ts`        | `IExecutionWorkspaceEntry`/`Snapshot`/`Event`/`Filter`, execution-detail page/record contracts, and their enum kinds          |
+| Interactive-session contracts  | `session-contracts.ts`          | `IInteractiveSession`, `IInteractiveSessionEvents`, `IExecutionResult`, `IToolState`/`Summary`, `IInteractiveSessionStore`    |
 
 These contract interfaces use generic type parameters where applicable. The package does import a
 small number of contract types from `@robota-sdk/agent-core`, `@robota-sdk/agent-executor`, and

@@ -15,11 +15,7 @@ import {
 } from './session-command.js';
 
 import type { ICommandModule, ISystemCommand } from '@robota-sdk/agent-framework';
-import type {
-  ICommand,
-  TCommandInteractionHint,
-  ICommandSource,
-} from '@robota-sdk/agent-interface-transport';
+import type { ICommand, ICommandSource } from '@robota-sdk/agent-interface-transport';
 
 export function createClearCommandEntry(): ICommand {
   return {
@@ -155,10 +151,6 @@ export class SessionCommandSource implements ICommandSource {
   }
 }
 
-const SESSION_INTERACTION_HINTS: Record<string, TCommandInteractionHint> = {
-  clear: { type: 'confirm', message: 'Clear conversation history?' },
-};
-
 export function createSessionCommandModule(): ICommandModule {
   return {
     name: 'agent-command-session',
@@ -170,6 +162,5 @@ export function createSessionCommandModule(): ICommandModule {
       createCostSystemCommand(),
       createValidateSessionSystemCommand(),
     ],
-    interactionHints: SESSION_INTERACTION_HINTS,
   };
 }

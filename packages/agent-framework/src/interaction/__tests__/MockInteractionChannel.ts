@@ -1,7 +1,8 @@
 import { vi } from 'vitest';
 
 import type { IInteractionChannel } from '../IInteractionChannel.js';
-import type { TActionRequest, TActionResponse, ICommandInfo, InteractionEvent } from '../types.js';
+import type { ICommandInfo, InteractionEvent } from '../types.js';
+import type { IActionRequest, TActionResponse } from '@robota-sdk/agent-core';
 
 export class MockInteractionChannel implements IInteractionChannel {
   readonly events: InteractionEvent[] = [];
@@ -23,7 +24,7 @@ export class MockInteractionChannel implements IInteractionChannel {
     this.writtenEvents.push(event);
   }
 
-  requestAction = vi.fn((_action: TActionRequest): Promise<TActionResponse> => {
+  askUser = vi.fn((_request: IActionRequest): Promise<TActionResponse> => {
     return Promise.resolve(this.actionResponse);
   });
 
@@ -50,7 +51,7 @@ export class MockInteractionChannel implements IInteractionChannel {
     await this.submitHandler(text);
   }
 
-  /** Set the response that requestAction will return. */
+  /** Set the response that askUser will return. */
   setActionResponse(response: TActionResponse): void {
     this.actionResponse = response;
   }

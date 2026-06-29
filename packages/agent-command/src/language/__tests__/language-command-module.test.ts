@@ -102,4 +102,20 @@ describe('createLanguageCommandModule', () => {
     expect(result?.success).toBe(false);
     expect(result?.message).toBe('Usage: language <code> (e.g., ko, en, ja, zh)');
   });
+
+  it('asks the user to pick a language when none is provided (CMD-004)', async () => {
+    const executor = new SystemCommandExecutor([
+      ...(createLanguageCommandModule().systemCommands ?? []),
+    ]);
+    const contextWithAsk: ICommandHostContext = {
+      ...commandHostContext,
+      getUserInteraction: () => ({ ask: async () => ({ type: 'answer', values: ['ko'] }) }),
+    };
+
+    const result = await executor.execute('language', contextWithAsk, '');
+
+    expect(result?.success).toBe(true);
+    expect(result?.data?.language).toBe('ko');
+    expect(result?.effects).toEqual([{ type: 'language-change-requested', language: 'ko' }]);
+  });
 });

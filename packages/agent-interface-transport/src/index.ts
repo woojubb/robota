@@ -22,9 +22,6 @@ export type {
   ICommandSource,
   ICommandResult,
   TCommandResultDataValue,
-  ICommandInteraction,
-  ICommandChoicePromptOption,
-  TCommandInteractionPrompt,
   ICommandListEntry,
   TCommandEffect,
   ICommandPluginAdapter,
@@ -44,12 +41,7 @@ export type {
   IToolCallObservation,
   ITerminalHandoff,
   InteractionEvent,
-  IPermissionRequest,
-  TActionRequest,
-  TActionResponse,
-  IPickItem,
   ICommandInfo,
-  TCommandInteractionHint,
 } from './interaction-contracts.js';
 // Shared pure accessors over an InteractionEvent stream (values, not types).
 export {

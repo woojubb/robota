@@ -1,3 +1,4 @@
+import { selectAction } from '@robota-sdk/agent-core';
 import { applyPresetToSession } from '@robota-sdk/agent-framework';
 import { getPreset, listPresets, resolvePreset } from '@robota-sdk/agent-preset';
 
@@ -29,19 +30,47 @@ function formatUnknownPresetMessage(id: string): string {
   return `Unknown preset: ${id}. Available: ${ids}`;
 }
 
+/** The `/preset` (or `/preset list`) listing result. */
+function presetListResult(context: ICommandHostContext): ICommandResult {
+  const active = readActivePresetId(context);
+  return {
+    message: formatPresetList(active),
+    success: true,
+    data: { presets: listPresets(), active },
+  };
+}
+
+/**
+ * Ask the user to pick a preset (CMD-004 inline ask). Returns the chosen id, or `undefined` when no
+ * interactive renderer is attached or the user cancelled — the caller then shows the preset list.
+ */
+async function resolvePresetViaAsk(context: ICommandHostContext): Promise<string | undefined> {
+  const ui = context.getUserInteraction?.();
+  if (!ui) return undefined;
+  const options = listPresets().map((preset) => ({
+    value: preset.id,
+    label: preset.id,
+    description: preset.description,
+  }));
+  const response = await ui.ask(selectAction('preset', 'Select a preset', options));
+  return response.type === 'answer' ? response.values[0] : undefined;
+}
+
 export async function executePresetCommand(
   context: ICommandHostContext,
   args: string,
 ): Promise<ICommandResult> {
-  const id = args.trim().split(/\s+/)[0];
+  let id: string | undefined = args.trim().split(/\s+/)[0];
 
-  if (id === undefined || id.length === 0 || id === 'list') {
-    const active = readActivePresetId(context);
-    return {
-      message: formatPresetList(active),
-      success: true,
-      data: { presets: listPresets(), active },
-    };
+  if (id === 'list') {
+    return presetListResult(context);
+  }
+
+  if (id === undefined || id.length === 0) {
+    id = await resolvePresetViaAsk(context);
+    if (id === undefined) {
+      return presetListResult(context);
+    }
   }
 
   if (getPreset(id) === undefined) {

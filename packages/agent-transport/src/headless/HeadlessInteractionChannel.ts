@@ -91,6 +91,9 @@ export class HeadlessInteractionChannel {
       cwd: this.opts.cwd,
       provider: this.opts.provider,
       permissionMode: this.opts.permissionMode ?? 'bypassPermissions',
+      // CMD-004: headless has no interactive renderer, so it injects no askHandler — the session's
+      // getUserInteraction() returns undefined and each command applies its explicit no-human path
+      // (e.g. /mode reports current, /exit and /clear proceed — never a silent guess).
       maxTurns: this.opts.maxTurns,
       sessionStore: this.opts.sessionStore,
       resumeSessionId: this.opts.resumeSessionId,

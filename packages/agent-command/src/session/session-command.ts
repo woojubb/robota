@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { confirmAction, isConfirmed } from '@robota-sdk/agent-core';
 import {
   RENAME_COMMAND_USAGE,
   clearConversationHistory,
@@ -19,7 +20,19 @@ import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
 
 export const CLEAR_COMMAND_MESSAGE = 'Conversation cleared.';
 
-export function executeClearCommand(context: ICommandHostContext, _args: string): ICommandResult {
+export async function executeClearCommand(
+  context: ICommandHostContext,
+  _args: string,
+): Promise<ICommandResult> {
+  // Confirm only when an interactive renderer is attached; with no human the explicit /clear proceeds.
+  const ui = context.getUserInteraction?.();
+  if (ui) {
+    const response = await ui.ask(confirmAction('clear', 'Clear conversation history?'));
+    if (!isConfirmed(response)) {
+      return { success: true, message: 'Clear cancelled.' };
+    }
+  }
+
   clearConversationHistory(context);
   return {
     success: true,

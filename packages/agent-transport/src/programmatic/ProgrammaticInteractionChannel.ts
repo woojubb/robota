@@ -10,12 +10,11 @@
  * depends on test code.
  */
 
+import type { IActionRequest, TActionResponse } from '@robota-sdk/agent-core';
 import type {
   IInteractionChannel,
   ICommandInfo,
   InteractionEvent,
-  TActionRequest,
-  TActionResponse,
 } from '@robota-sdk/agent-interface-transport';
 
 export class ProgrammaticInteractionChannel implements IInteractionChannel {
@@ -28,7 +27,7 @@ export class ProgrammaticInteractionChannel implements IInteractionChannel {
   stopped = false;
 
   private submitHandler: ((text: string) => Promise<void>) | null = null;
-  private readonly actionResponses: TActionResponse[] = [];
+  private readonly userActionResponses: TActionResponse[] = [];
 
   // ── IInteractionChannel ──────────────────────────────────────
 
@@ -41,12 +40,11 @@ export class ProgrammaticInteractionChannel implements IInteractionChannel {
   }
 
   /**
-   * Resolves from the pre-supplied response queue (FIFO). With an empty queue it resolves
-   * `{ type: 'cancelled' }` — a safe default the framework already handles — so a programmatic run
-   * never blocks on an un-answered disambiguation.
+   * CMD-004 unified ask. Resolves from the pre-supplied queue (FIFO); an empty queue resolves
+   * `{ type: 'cancelled' }` so a programmatic run never blocks on an un-answered question.
    */
-  async requestAction(_action: TActionRequest): Promise<TActionResponse> {
-    return this.actionResponses.shift() ?? { type: 'cancelled' };
+  async askUser(_request: IActionRequest): Promise<TActionResponse> {
+    return this.userActionResponses.shift() ?? { type: 'cancelled' };
   }
 
   setAvailableCommands(commands: ICommandInfo[]): void {
@@ -77,8 +75,8 @@ export class ProgrammaticInteractionChannel implements IInteractionChannel {
     await this.submitHandler(text);
   }
 
-  /** Pre-answer the next `requestAction` disambiguation. */
-  queueAction(response: TActionResponse): void {
-    this.actionResponses.push(response);
+  /** Pre-answer the next `askUser` (CMD-004 unified ask). */
+  queueUserAction(response: TActionResponse): void {
+    this.userActionResponses.push(response);
   }
 }

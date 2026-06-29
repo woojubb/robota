@@ -26,6 +26,11 @@ import type { TerminalHandoffController } from './terminal-handoff-controller.js
 import type { IPendingPermissionRequest } from './types.js';
 import type { IAIProvider, TPermissionMode, TSessionEndReason } from '@robota-sdk/agent-core';
 import type { TToolArgs } from '@robota-sdk/agent-core';
+// CMD-004 unified action contract (SSOT in agent-core).
+import type {
+  IActionRequest,
+  TActionResponse as TUserActionResponse,
+} from '@robota-sdk/agent-core';
 import type {
   IBackgroundTaskRunner,
   ICommandHostAdapters,
@@ -34,8 +39,6 @@ import type {
   TShellExecFn,
 } from '@robota-sdk/agent-framework';
 import type {
-  TActionRequest,
-  TActionResponse,
   ICommandInfo,
   IExecutionDetailPage,
   IExecutionResult,
@@ -95,14 +98,18 @@ export class TuiInteractionChannel implements IInteractionChannel {
   private readonly opts: ITuiInteractionChannelOptions;
 
   private submitHandler: ((text: string) => Promise<void>) | null = null;
-  private actionQueue: Array<{
-    action: TActionRequest;
-    resolve: (response: TActionResponse) => void;
+
+  // CMD-004 unified ask path. Backs askHandler → InteractiveSession; rendered by App's
+  // PendingActionPrompt.
+  private userActionQueue: Array<{
+    request: IActionRequest;
+    resolve: (response: TUserActionResponse) => void;
   }> = [];
-  private processingAction = false;
+  private processingUserAction = false;
 
   permissionRequest: IPendingPermissionRequest | null = null;
-  pendingAction: TActionRequest | null = null;
+  /** CMD-004: the action currently awaiting a user answer, or null. Read by App to render the dialog. */
+  pendingUserAction: IActionRequest | null = null;
   availableCommands: ICommandInfo[] = [];
   isShuttingDown = false;
   sessionName: string | undefined;
@@ -144,6 +151,7 @@ export class TuiInteractionChannel implements IInteractionChannel {
       permissionMode: opts.permissionMode,
       maxTurns: opts.maxTurns,
       permissionHandler: (toolName, toolArgs) => this.handlePermissionRequest(toolName, toolArgs),
+      askHandler: (request) => this.askUser(request),
       sessionStore: opts.sessionStore,
       resumeSessionId: opts.resumeSessionId,
       forkSession: opts.forkSession,
@@ -187,13 +195,6 @@ export class TuiInteractionChannel implements IInteractionChannel {
     // TuiInteractionChannel subscribes to session events directly via start() →
     // wireSessionEvents(), not through the IInteractionChannel event protocol used
     // by createInteractiveRuntime. The two paths are mutually exclusive.
-  }
-
-  async requestAction(action: TActionRequest): Promise<TActionResponse> {
-    return new Promise<TActionResponse>((resolve) => {
-      this.actionQueue.push({ action, resolve });
-      this.processNextAction();
-    });
   }
 
   setAvailableCommands(commands: ICommandInfo[]): void {
@@ -242,17 +243,20 @@ export class TuiInteractionChannel implements IInteractionChannel {
 
   abort(): void {
     this.stateManager.setAborting(true);
+    this.cancelAllUserActions();
     this.interactiveSession.abort();
   }
 
   cancelQueue(): void {
     this.interactiveSession.cancelQueue();
+    this.cancelAllUserActions();
     this.stateManager.setPendingPrompt(null);
   }
 
   async shutdown(options?: { reason?: TSessionEndReason }): Promise<void> {
     if (this.isShuttingDown) return;
     this.isShuttingDown = true;
+    this.cancelAllUserActions();
     this.stateManager.addEntry(messageToHistoryEntry(createSystemMessage('Shutting down...')));
     this.onChange?.();
     await this.interactiveSession.shutdown({
@@ -279,15 +283,51 @@ export class TuiInteractionChannel implements IInteractionChannel {
     this.onChange?.();
   }
 
-  resolveAction(response: TActionResponse): void {
-    const pending = this.actionQueue[0];
+  // ── CMD-004 unified ask path ─────────────────────────────────
+
+  /** Framework's `askHandler` entry point: queue the request and resolve when the user answers. */
+  async askUser(request: IActionRequest): Promise<TUserActionResponse> {
+    return new Promise<TUserActionResponse>((resolve) => {
+      this.userActionQueue.push({ request, resolve });
+      this.processNextUserAction();
+    });
+  }
+
+  /** Called by App's PendingActionPrompt when the user answers (or cancels) the pending action. */
+  resolveUserAction(response: TUserActionResponse): void {
+    const pending = this.userActionQueue[0];
     if (!pending) return;
-    this.actionQueue.shift();
-    this.processingAction = false;
-    this.pendingAction = null;
+    this.userActionQueue.shift();
+    this.processingUserAction = false;
+    this.pendingUserAction = null;
     this.onChange?.();
     pending.resolve(response);
-    this.processNextAction();
+    this.processNextUserAction();
+  }
+
+  private processNextUserAction(): void {
+    if (this.processingUserAction) return;
+    const next = this.userActionQueue[0];
+    if (!next) {
+      this.pendingUserAction = null;
+      this.onChange?.();
+      return;
+    }
+    this.processingUserAction = true;
+    this.pendingUserAction = next.request;
+    this.onChange?.();
+  }
+
+  /** Resolve every queued/in-flight ask as cancelled (abort, shutdown). */
+  private cancelAllUserActions(): void {
+    const queued = this.userActionQueue;
+    this.userActionQueue = [];
+    this.processingUserAction = false;
+    this.pendingUserAction = null;
+    for (const pending of queued) {
+      pending.resolve({ type: 'cancelled' });
+    }
+    this.onChange?.();
   }
 
   async handleInput(input: string): Promise<void> {
@@ -327,19 +367,6 @@ export class TuiInteractionChannel implements IInteractionChannel {
   }
 
   // ── Private helpers ──────────────────────────────────────────
-
-  private processNextAction(): void {
-    if (this.processingAction) return;
-    const next = this.actionQueue[0];
-    if (!next) {
-      this.pendingAction = null;
-      this.onChange?.();
-      return;
-    }
-    this.processingAction = true;
-    this.pendingAction = next.action;
-    this.onChange?.();
-  }
 
   private handlePermissionRequest(
     toolName: string,

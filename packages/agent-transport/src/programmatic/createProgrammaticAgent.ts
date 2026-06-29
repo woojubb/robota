@@ -19,13 +19,9 @@ import {
 
 import { ProgrammaticInteractionChannel } from './ProgrammaticInteractionChannel.js';
 
-import type { IAIProvider, TPermissionMode } from '@robota-sdk/agent-core';
+import type { IAIProvider, TActionResponse, TPermissionMode } from '@robota-sdk/agent-core';
 import type { ICommandModule, IInteractiveRuntime } from '@robota-sdk/agent-framework';
-import type {
-  IAgentDriver,
-  IInteractiveSessionStore,
-  TActionResponse,
-} from '@robota-sdk/agent-interface-transport';
+import type { IAgentDriver, IInteractiveSessionStore } from '@robota-sdk/agent-interface-transport';
 
 export interface ICreateProgrammaticAgentOptions {
   /** Provider that answers the agent loop (e.g. a real provider, or the scripted provider in tests). */
@@ -65,7 +61,7 @@ export function createProgrammaticAgent(options: ICreateProgrammaticAgentOptions
       await runtime.start();
     },
     send: (text: string): Promise<void> => channel.submit(text),
-    queueAction: (response: TActionResponse): void => channel.queueAction(response),
+    queueUserAction: (response: TActionResponse): void => channel.queueUserAction(response),
     assistantReplies: (): string[] => readAssistantReplies(channel.events),
     lastAssistantText: (): string | undefined => readLastAssistantText(channel.events),
     toolCalls: () => readToolCalls(channel.events),

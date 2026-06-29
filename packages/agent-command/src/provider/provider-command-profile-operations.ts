@@ -6,19 +6,16 @@ import {
   upsertProviderProfile,
 } from '@robota-sdk/agent-framework';
 
-import {
-  createProviderSetupInteraction,
-  toProviderSetupStepPrompt,
-} from './provider-command-setup.js';
-import { createProviderSetupFlow, submitProviderSetupValue } from './provider-setup-flow.js';
+import { runProviderSetupAsk } from './provider-command-setup.js';
+import { createProviderSetupFlow } from './provider-setup-flow.js';
 
-import type { IProviderSetupFlowState } from './provider-setup-flow.js';
+import type { IUserInteraction } from '@robota-sdk/agent-core';
 import type {
   IProviderCommandModuleOptions,
   IProviderProfileSettings,
   IProviderSetupInput,
 } from '@robota-sdk/agent-framework';
-import type { ICommandInteraction, ICommandResult } from '@robota-sdk/agent-interface-transport';
+import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
 
 export function formatProviderChoiceLabel(
   name: string,
@@ -69,10 +66,11 @@ export function buildProviderSwitch(
   };
 }
 
-export function buildProviderEdit(
+export async function buildProviderEdit(
+  ui: IUserInteraction,
   profileName: string,
   options: IProviderCommandModuleOptions,
-): ICommandResult {
+): Promise<ICommandResult> {
   const settings = options.settings.readMergedSettings();
   const profile = settings.providers?.[profileName];
   if (!profile) {
@@ -81,20 +79,22 @@ export function buildProviderEdit(
   if (!profile.type) {
     return { message: `Provider profile "${profileName}" is missing type.`, success: false };
   }
+  let flow;
   try {
-    const flow = createProviderSetupFlow(profile.type, options.providerDefinitions, {
+    flow = createProviderSetupFlow(profile.type, options.providerDefinitions, {
       profileName,
       setCurrent: false,
       initialValues: getProviderProfileSetupValues(profile),
     });
-    return {
-      message: `Provider edit requested: ${profileName}`,
-      success: true,
-      interaction: createProviderEditInteraction(flow, profileName, options),
-    };
   } catch (error) {
     return { message: error instanceof Error ? error.message : String(error), success: false };
   }
+  return runProviderSetupAsk(
+    ui,
+    flow,
+    (input) => completeProviderEdit(input, profileName, options),
+    'Provider edit cancelled.',
+  );
 }
 
 function getProviderProfileSetupValues(profile: IProviderProfileSettings): {
@@ -106,42 +106,6 @@ function getProviderProfileSetupValues(profile: IProviderProfileSettings): {
     ...(typeof profile.model === 'string' ? { model: profile.model } : {}),
     ...(typeof profile.apiKey === 'string' ? { apiKey: profile.apiKey } : {}),
     ...(typeof profile.baseURL === 'string' ? { baseURL: profile.baseURL } : {}),
-  };
-}
-
-function createProviderEditInteraction(
-  flow: IProviderSetupFlowState,
-  profileName: string,
-  options: IProviderCommandModuleOptions,
-): ICommandInteraction {
-  return {
-    prompt: toProviderSetupStepPrompt(flow),
-    submit: (value) => submitProviderEditInteractionValue(flow, profileName, value, options),
-    cancel: () => ({ message: 'Provider edit cancelled.', success: true }),
-  };
-}
-
-function submitProviderEditInteractionValue(
-  flow: IProviderSetupFlowState,
-  profileName: string,
-  value: string,
-  options: IProviderCommandModuleOptions,
-): ICommandResult {
-  const result = submitProviderSetupValue(flow, value);
-  if (result.status === 'error') {
-    return {
-      message: result.message,
-      success: false,
-      interaction: createProviderEditInteraction(flow, profileName, options),
-    };
-  }
-  if (result.status === 'complete') {
-    return completeProviderEdit(result.input, profileName, options);
-  }
-  return {
-    message: '',
-    success: true,
-    interaction: createProviderEditInteraction(result.state, profileName, options),
   };
 }
 

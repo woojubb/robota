@@ -140,4 +140,38 @@ describe('createModeCommandModule', () => {
     );
     expect(context.setPermissionMode).not.toHaveBeenCalled();
   });
+
+  it('asks the user to pick a mode when no arg is given and a renderer is attached (CMD-004)', async () => {
+    const executor = new SystemCommandExecutor([
+      ...(createModeCommandModule().systemCommands ?? []),
+    ]);
+    const context = createCommandHostContext();
+    const contextWithAsk: ICommandHostContext = {
+      ...context,
+      getUserInteraction: () => ({ ask: async () => ({ type: 'answer', values: ['plan'] }) }),
+    };
+
+    const result = await executor.execute('mode', contextWithAsk, '');
+
+    expect(result?.success).toBe(true);
+    expect(result?.message).toBe('Permission mode set to: plan');
+    expect(context.setPermissionMode).toHaveBeenCalledWith('plan');
+  });
+
+  it('reports the current mode when the user cancels the pick (CMD-004)', async () => {
+    const executor = new SystemCommandExecutor([
+      ...(createModeCommandModule().systemCommands ?? []),
+    ]);
+    const context = createCommandHostContext();
+    const contextWithAsk: ICommandHostContext = {
+      ...context,
+      getUserInteraction: () => ({ ask: async () => ({ type: 'cancelled' }) }),
+    };
+
+    const result = await executor.execute('mode', contextWithAsk, '');
+
+    expect(result?.success).toBe(true);
+    expect(result?.message).toBe('Current mode: default');
+    expect(context.setPermissionMode).not.toHaveBeenCalled();
+  });
 });

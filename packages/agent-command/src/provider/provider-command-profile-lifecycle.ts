@@ -1,3 +1,4 @@
+import { confirmAction, isConfirmed, selectAction, textAction } from '@robota-sdk/agent-core';
 import {
   deleteProviderProfile,
   sanitizeProviderProfileName,
@@ -6,48 +7,47 @@ import {
 
 import { formatProviderChoiceLabel } from './provider-command-profile-operations.js';
 
+import type { IUserInteraction } from '@robota-sdk/agent-core';
 import type { IProviderCommandModuleOptions } from '@robota-sdk/agent-framework';
-import type { ICommandInteraction, ICommandResult } from '@robota-sdk/agent-interface-transport';
+import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
 
-const YES = 'yes';
 const MAX_DUPLICATE_PROFILE_SUFFIX = 1000;
 const PROVIDER_RESTART_EFFECT = {
   type: 'session-restart-requested',
   reason: 'other',
 } as const;
 
-export function buildProviderDuplicate(
+export async function buildProviderDuplicate(
+  ui: IUserInteraction,
   profileName: string,
   options: IProviderCommandModuleOptions,
-): ICommandResult {
+): Promise<ICommandResult> {
   const settings = options.settings.readMergedSettings();
   if (!settings.providers?.[profileName]) {
     return { message: `Provider profile "${profileName}" was not found.`, success: false };
   }
   const defaultName = suggestDuplicateProfileName(profileName, Object.keys(settings.providers));
-  return {
-    message: `Provider duplicate requested: ${profileName}`,
-    success: true,
-    interaction: createProviderDuplicateInteraction(profileName, defaultName, options),
-  };
-}
-
-function createProviderDuplicateInteraction(
-  profileName: string,
-  defaultName: string,
-  options: IProviderCommandModuleOptions,
-): ICommandInteraction {
-  return {
-    prompt: {
-      kind: 'text',
-      title: `Duplicate ${profileName} as`,
-      placeholder: defaultName,
-      allowEmpty: true,
-      validate: (value) => validateDuplicateProfileName(value, defaultName, options),
-    },
-    submit: (value) => completeProviderDuplicate(profileName, value, defaultName, options),
-    cancel: () => ({ message: 'Provider duplicate cancelled.', success: true }),
-  };
+  let errorMessage: string | undefined;
+  for (;;) {
+    const response = await ui.ask(
+      textAction('provider-duplicate', `Duplicate ${profileName} as`, {
+        description: errorMessage,
+        placeholder: defaultName,
+        allowEmpty: true,
+      }),
+    );
+    if (response.type === 'cancelled') {
+      return { message: 'Provider duplicate cancelled.', success: true };
+    }
+    const value = response.text ?? '';
+    // Re-ask on validation failure, surfacing the reason (CMD-004 re-ask loop replaces the closure).
+    const validationMessage = validateDuplicateProfileName(value, defaultName, options);
+    if (validationMessage !== undefined) {
+      errorMessage = validationMessage;
+      continue;
+    }
+    return completeProviderDuplicate(profileName, value, defaultName, options);
+  }
 }
 
 function validateDuplicateProfileName(
@@ -90,10 +90,11 @@ function completeProviderDuplicate(
   };
 }
 
-export function buildProviderDelete(
+export async function buildProviderDelete(
+  ui: IUserInteraction,
   profileName: string,
   options: IProviderCommandModuleOptions,
-): ICommandResult {
+): Promise<ICommandResult> {
   const settings = options.settings.readMergedSettings();
   const providers = settings.providers ?? {};
   if (!providers[profileName]) {
@@ -108,40 +109,20 @@ export function buildProviderDelete(
       success: false,
     };
   }
-  return {
-    message: `Provider delete requested: ${profileName}`,
-    success: true,
-    interaction: createProviderDeleteConfirmationInteraction(profileName, options),
-  };
+  const response = await ui.ask(
+    confirmAction('provider-delete', `Delete provider profile ${profileName}?`),
+  );
+  if (!isConfirmed(response)) {
+    return { message: 'Provider delete cancelled.', success: true };
+  }
+  return confirmProviderDelete(ui, profileName, options);
 }
 
-function createProviderDeleteConfirmationInteraction(
+async function confirmProviderDelete(
+  ui: IUserInteraction,
   profileName: string,
   options: IProviderCommandModuleOptions,
-): ICommandInteraction {
-  return {
-    prompt: {
-      kind: 'choice',
-      title: `Delete provider profile ${profileName}?`,
-      options: [
-        { value: YES, label: 'Yes' },
-        { value: 'no', label: 'No' },
-      ],
-    },
-    submit: (value) => {
-      if (value !== YES) {
-        return { message: 'Provider delete cancelled.', success: true };
-      }
-      return confirmProviderDelete(profileName, options);
-    },
-    cancel: () => ({ message: 'Provider delete cancelled.', success: true }),
-  };
-}
-
-function confirmProviderDelete(
-  profileName: string,
-  options: IProviderCommandModuleOptions,
-): ICommandResult {
+): Promise<ICommandResult> {
   const settings = options.settings.readMergedSettings();
   if (settings.currentProvider !== profileName) {
     options.settings.writeTargetSettings(
@@ -155,21 +136,20 @@ function confirmProviderDelete(
       value: name,
       label: formatProviderChoiceLabel(name, profile, settings.currentProvider),
     }));
-  return {
-    message: `Select a replacement provider before deleting ${profileName}.`,
-    success: true,
-    interaction: {
-      prompt: {
-        kind: 'choice',
-        title: `Replacement provider for ${profileName}`,
-        options: replacementOptions,
+  const response = await ui.ask(
+    selectAction(
+      'provider-delete-replacement',
+      `Replacement provider for ${profileName}`,
+      replacementOptions,
+      {
         maxVisible: 8,
       },
-      submit: (replacementName) =>
-        completeActiveProviderDelete(profileName, replacementName, options),
-      cancel: () => ({ message: 'Provider delete cancelled.', success: true }),
-    },
-  };
+    ),
+  );
+  if (response.type !== 'answer' || response.values[0] === undefined) {
+    return { message: 'Provider delete cancelled.', success: true };
+  }
+  return completeActiveProviderDelete(profileName, response.values[0], options);
 }
 
 function completeActiveProviderDelete(
