@@ -1,0 +1,99 @@
+{
+  "name": "@robota-sdk/dag-framework",
+  "version": "0.1.0-beta.0",
+  "description": "Embeddable in-process DAG runtime — runtime + worker + adapters + default nodes",
+  "type": "module",
+  "main": "dist/node/index.js",
+  "types": "dist/node/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/node/index.d.ts",
+      "node": {
+        "import": "./dist/node/index.js",
+        "require": "./dist/node/index.cjs"
+      },
+      "default": {
+        "import": "./dist/node/index.js",
+        "require": "./dist/node/index.cjs"
+      }
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "build:js": "tsdown --no-dts",
+    "build:types": "tsdown --dts",
+    "test": "vitest run --passWithNoTests",
+    "test:coverage": "vitest run --coverage --passWithNoTests",
+    "lint": "eslint src --ext .ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "clean": "rimraf dist",
+    "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
+  },
+  "keywords": [
+    "robota",
+    "dag",
+    "framework",
+    "orchestration"
+  ],
+  "author": "Robota SDK Team",
+  "license": "AGPL-3.0-only OR LicenseRef-Commercial",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@robota-sdk/dag-adapters-local": "workspace:*",
+    "@robota-sdk/dag-api": "workspace:*",
+    "@robota-sdk/dag-builder": "workspace:*",
+    "@robota-sdk/dag-core": "workspace:*",
+    "@robota-sdk/dag-cost": "workspace:*",
+    "@robota-sdk/dag-node": "workspace:*",
+    "@robota-sdk/dag-node-image-loader": "workspace:*",
+    "@robota-sdk/dag-node-image-source": "workspace:*",
+    "@robota-sdk/dag-node-input": "workspace:*",
+    "@robota-sdk/dag-node-multi-input": "workspace:*",
+    "@robota-sdk/dag-node-ok-emitter": "workspace:*",
+    "@robota-sdk/dag-node-text-output": "workspace:*",
+    "@robota-sdk/dag-node-text-template": "workspace:*",
+    "@robota-sdk/dag-node-transform": "workspace:*",
+    "@robota-sdk/dag-node-utility-text": "workspace:3.0.0-beta.60",
+    "@robota-sdk/dag-orchestration-client": "workspace:*",
+    "@robota-sdk/dag-projection": "workspace:*",
+    "@robota-sdk/dag-runtime": "workspace:*",
+    "@robota-sdk/dag-worker": "workspace:*"
+  },
+  "optionalDependencies": {
+    "@robota-sdk/dag-node-gemini-image-edit": "workspace:*",
+    "@robota-sdk/dag-node-llm-text-anthropic": "workspace:*",
+    "@robota-sdk/dag-node-llm-text-deepseek": "workspace:*",
+    "@robota-sdk/dag-node-llm-text-gemini": "workspace:*",
+    "@robota-sdk/dag-node-llm-text-openai": "workspace:*",
+    "@robota-sdk/dag-node-llm-text-qwen": "workspace:*"
+  },
+  "peerDependencies": {
+    "@anthropic-ai/sdk": "^0.80.0",
+    "@google/genai": "^1.51.0",
+    "openai": "^4.98.0"
+  },
+  "peerDependenciesMeta": {
+    "@anthropic-ai/sdk": {
+      "optional": true
+    },
+    "openai": {
+      "optional": true
+    },
+    "@google/genai": {
+      "optional": true
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "private": false,
+  "devDependencies": {
+    "tsdown": "^0.22.2"
+  }
+}

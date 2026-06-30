@@ -1,0 +1,51 @@
+{
+  "name": "@robota-sdk/dag-cost",
+  "version": "3.0.0-beta.60",
+  "description": "Cost evaluation service for DAG orchestration using CEL formulas",
+  "type": "module",
+  "main": "dist/node/index.js",
+  "types": "dist/node/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/node/index.d.ts",
+      "node": {
+        "import": "./dist/node/index.js",
+        "require": "./dist/node/index.cjs"
+      },
+      "default": {
+        "import": "./dist/node/index.js",
+        "require": "./dist/node/index.cjs"
+      }
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "build:js": "tsdown --no-dts",
+    "build:types": "tsdown --dts",
+    "test": "vitest run --passWithNoTests",
+    "test:coverage": "vitest run --coverage --passWithNoTests",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src/ --ext .ts,.tsx",
+    "lint:fix": "eslint src/ --ext .ts,.tsx --fix",
+    "clean": "rimraf dist",
+    "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
+  },
+  "dependencies": {
+    "@marcbachmann/cel-js": "^7.5.3",
+    "@robota-sdk/dag-core": "workspace:*"
+  },
+  "devDependencies": {
+    "rimraf": "^5.0.5",
+    "tsdown": "^0.22.2",
+    "typescript": "^5.3.3",
+    "vitest": "^1.6.1"
+  },
+  "license": "AGPL-3.0-only OR LicenseRef-Commercial",
+  "publishConfig": {
+    "access": "public"
+  },
+  "private": false
+}

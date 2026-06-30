@@ -37,6 +37,13 @@ const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 export const ORPHAN_EXPORT_ALLOWLIST = new Set([
   'collections', // Astro content.config.ts convention export — loaded by the framework by path (apps/blog)
   'generateMetadata', // Next.js app-router convention export — called by the framework (apps/docs)
+  // Absorbed dag-cli internals (WORKFLOW-001) — exported but currently only consumed in-package;
+  // baseline-allowlisted on absorption, burndown tracked as a follow-up (un-export or wire).
+  'GLOBAL_CATALOG_DIR', // dag-cli catalog-scanner
+  'ALIASES_FILE', // dag-cli alias command
+  'resolveAliasRef', // dag-cli alias command
+  'loadSavedInstantNodes', // dag-cli instant-nodes handler
+  'RunStore', // dag-cli run-store (consumers use the getRunStore factory)
 ]);
 
 const ENTRY_BASENAMES = new Set(['index.ts', 'index.tsx', 'browser.ts', 'bin.ts', 'node.ts']);
