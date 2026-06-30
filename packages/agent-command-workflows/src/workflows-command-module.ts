@@ -1,5 +1,7 @@
+import { executeWorkflowsCatalog } from './catalog-command.js';
 import { executeWorkflowsList } from './list-command.js';
 import { executeWorkflowsRun } from './run-command.js';
+import { executeWorkflowsValidate } from './validate-command.js';
 
 import type {
   ICommandModule,
@@ -12,14 +14,27 @@ import type {
   ICommandSource,
 } from '@robota-sdk/agent-interface-transport';
 
-const WORKFLOWS_DESCRIPTION = 'Build and run DAG workflows on the in-process runtime';
-const WORKFLOWS_ARGUMENT_HINT = '<list|run> [args]';
+const WORKFLOWS_DESCRIPTION = 'List, validate, and run DAG workflows on the in-process runtime';
+const WORKFLOWS_ARGUMENT_HINT = '<list|catalog|validate|run> [args]';
 
 const SUBCOMMANDS: ICommand[] = [
   {
     name: 'list',
     description: 'List available workflow nodes',
     source: 'workflows',
+    modelInvocable: false,
+  },
+  {
+    name: 'catalog',
+    description: 'List workflow files in the local .dag/workflows catalog',
+    source: 'workflows',
+    modelInvocable: false,
+  },
+  {
+    name: 'validate',
+    description: 'Validate a .dag.json workflow file against the node catalog',
+    source: 'workflows',
+    argumentHint: '<file.dag.json>',
     modelInvocable: false,
   },
   {
@@ -32,9 +47,11 @@ const SUBCOMMANDS: ICommand[] = [
 ];
 
 const USAGE = [
-  'Usage: /workflows <list|run>',
-  '  list            List available workflow nodes',
-  '  run <file>      Run a .dag.json workflow file',
+  'Usage: /workflows <list|catalog|validate|run>',
+  '  list             List available workflow nodes',
+  '  catalog          List workflow files in .dag/workflows',
+  '  validate <file>  Validate a .dag.json workflow file',
+  '  run <file>       Run a .dag.json workflow file',
 ].join('\n');
 
 /** Parse the leading subcommand token + remaining argument string. */
@@ -56,6 +73,10 @@ async function executeWorkflowsCommand(
       return { success: true, message: USAGE };
     case 'list':
       return executeWorkflowsList();
+    case 'catalog':
+      return executeWorkflowsCatalog(process.cwd());
+    case 'validate':
+      return executeWorkflowsValidate(rest, process.cwd());
     case 'run':
       return executeWorkflowsRun(rest, process.cwd());
     default:

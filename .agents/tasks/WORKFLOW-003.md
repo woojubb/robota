@@ -1,7 +1,7 @@
 # WORKFLOW-003 — `/workflows` agent-cli command
 
 Spec: .agents/spec-docs/active/WORKFLOW-003-workflows-command.md
-Status: done (core: list/run) — bridge package + agent-cli wiring landed, committed 4d69349b6; harness 38/38 green. Follow-on subcommands build/validate/catalog tracked separately.
+Status: done (list/catalog/validate/run) — build subcommand deferred (needs LLM-integration design: how a command module reaches the session provider). Committed incrementally; harness green.
 
 ## Decision (recorded)
 

@@ -82,7 +82,7 @@ via existing command-prompt host effects. (D) tests (module dispatch + agent-cli
 
 ## Completion Criteria
 
-- [x] TC-01: a `workflows` `ICommandModule` exists (`packages/agent-command-workflows`) with canonical name `workflows` (no leading slash) and the **core subcommands `list` + `run`** delivered. Verified 2026-06-30. (Scope note: `build`/`validate`/`catalog` are tracked as **follow-on subcommands** — `list`+`run` prove the in-process integration end-to-end; `build` needs an LLM path, `validate`/`catalog` need more DAG logic, added incrementally without re-architecting.)
+- [x] TC-01: a `workflows` `ICommandModule` exists (`packages/agent-command-workflows`) with canonical name `workflows` (no leading slash) and the subcommands `list`, `catalog`, `validate`, `run` delivered (validate composes `dag-builder` format detection/conversion + the `dag-framework` node catalog; catalog is a pure `.dag/workflows` fs scan). Verified 2026-06-30. (Scope note: `build` remains a tracked **follow-on** — it needs an LLM-integration path, i.e. how a command module reaches the session's model provider; deferred as a design decision, added incrementally without re-architecting.)
 - [x] TC-02: the module composes `dag-framework` (`LocalDagRuntimeProvider`) and does NOT import `@robota-sdk/dag-cli` — `grep -rl "@robota-sdk/dag-cli" packages/agent-*` → 0.
 - [x] TC-03: `agent-cli` registers the module in its default composition (`command-setup.ts`); `/workflows list` dispatches to the in-process catalog (4 dispatch tests pass).
 - [x] TC-04: `pnpm --filter @robota-sdk/agent-command-workflows typecheck` + `@robota-sdk/agent-cli typecheck`/`test` (145) exit 0.

@@ -875,6 +875,9 @@ importers:
       '@robota-sdk/agent-interface-transport':
         specifier: workspace:*
         version: link:../agent-interface-transport
+      '@robota-sdk/dag-builder':
+        specifier: workspace:*
+        version: link:../dag-builder
       '@robota-sdk/dag-core':
         specifier: workspace:*
         version: link:../dag-core
