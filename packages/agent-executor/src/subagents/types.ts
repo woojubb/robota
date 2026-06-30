@@ -79,6 +79,8 @@ export interface ISubagentJobResult {
   jobId: string;
   output: string;
   metadata?: Record<string, TBackgroundPrimitive>;
+  /** ANALYTICS-001 (Phase 2): total token usage of the subagent run. */
+  usage?: { promptTokens: number; completionTokens: number; totalTokens: number };
 }
 
 export interface ISubagentJobStart {

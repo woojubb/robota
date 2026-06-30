@@ -24,6 +24,7 @@ import type { IContextReferenceItem } from '../context/context-reference-invento
 import type { IPromptFileReferenceRecord } from '../context/prompt-file-references.js';
 import type { IContextWindowState, TUniversalMessage } from '@robota-sdk/agent-core';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
+import type { IUsageSource } from '@robota-sdk/agent-interface-transport';
 
 export interface IPreparedPromptInput {
   modelInput: string;
@@ -121,6 +122,29 @@ export function createUsageSummaryEntry(usage: IUsageSnapshot): IHistoryEntry<IU
     type: 'usage-summary',
     data: usage,
   };
+}
+
+/**
+ * ANALYTICS-001 (Phase 2): build a usage-summary entry attributed to a non-main source (a subagent /
+ * background task) so the parent session log can report token usage per source. Context fields are
+ * not meaningful for a child run and are left at 0; the usage reducer only reads the token totals.
+ */
+export function createSourceUsageSummaryEntry(
+  totals: { promptTokens: number; completionTokens: number; totalTokens: number },
+  source: IUsageSource,
+): IHistoryEntry<IUsageSnapshot> {
+  return createUsageSummaryEntry({
+    kind: 'exact',
+    scope: 'turn',
+    totalTokens: totals.totalTokens,
+    promptTokens: totals.promptTokens,
+    completionTokens: totals.completionTokens,
+    contextUsedTokens: 0,
+    contextMaxTokens: 0,
+    contextUsedPercentage: 0,
+    costStatus: 'exact',
+    source,
+  });
 }
 
 export async function preparePromptInput(

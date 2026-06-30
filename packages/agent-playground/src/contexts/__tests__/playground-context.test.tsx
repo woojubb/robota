@@ -80,7 +80,8 @@ vi.mock('../../lib/playground/robota-executor', () => ({
   PlaygroundExecutor: executorMocks.MockPlaygroundExecutor,
 }));
 
-vi.mock('@robota-sdk/agent-core', () => ({
+vi.mock('@robota-sdk/agent-core', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@robota-sdk/agent-core')>()),
   DefaultEventService: eventServiceMocks.DefaultEventService,
   SilentLogger: loggerMocks,
 }));

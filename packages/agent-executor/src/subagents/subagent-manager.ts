@@ -231,5 +231,6 @@ function toBackgroundResult(result: ISubagentJobResult): IBackgroundTaskResult {
     kind: 'agent',
     output: result.output,
     metadata: result.metadata,
+    ...(result.usage ? { usage: result.usage } : {}),
   };
 }

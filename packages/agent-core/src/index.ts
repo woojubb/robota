@@ -158,7 +158,9 @@ export { AgentTemplates, type ITemplateApplicationResult } from './managers/agen
 export { ConversationHistory, ConversationStore } from './managers/conversation-history-manager';
 export {
   collectAssistantUsageMetadata,
+  sumHistoryUsage,
   type IAssistantUsageMetadata,
+  type ISessionUsageTotals,
 } from './services/execution-usage';
 
 // Core types

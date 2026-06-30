@@ -130,6 +130,7 @@ export class InteractiveSession
       () => this.persistCurrentSession(),
       (instruction, taskId) => this.requestWakeup(instruction, taskId),
       (message) => this.histTracker.append(messageToHistoryEntry(createSystemMessage(message))),
+      (entry) => this.histTracker.append(entry),
     );
 
     this.histTracker = new SessionHistoryTracker(
