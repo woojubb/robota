@@ -34,7 +34,9 @@ Subcommands:
   submit <file>                 Submit a workflow for execution
 
 Options:
-  --provider <local>            Runtime provider (default: from env or 'local')
+  --provider <local|http>       Runtime provider (default: from env or 'local')
+  --server-url <url>            Native runtime server URL for --provider http
+                                (overrides DAG_RUNTIME_SERVER_URL)
   --phase <phase>               Filter list by phase (queued|running|completed|failed|cancelled)
   --limit <n>                   Maximum number of entries to return
   --output <json|pretty>        Output format (default: pretty)

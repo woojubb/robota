@@ -7,10 +7,10 @@ describe('resolveDagMcpConfig', () => {
     expect(config.mode).toBe('embedded');
   });
 
-  it('returns http mode when ROBOTA_DAG_SERVER_URL is set', () => {
-    const config = resolveDagMcpConfig([], { ROBOTA_DAG_SERVER_URL: 'http://localhost:3012' });
+  it('returns http mode when DAG_RUNTIME_SERVER_URL is set', () => {
+    const config = resolveDagMcpConfig([], { DAG_RUNTIME_SERVER_URL: 'http://localhost:3939' });
     expect(config.mode).toBe('http');
-    expect(config.serverUrl).toBe('http://localhost:3012');
+    expect(config.serverUrl).toBe('http://localhost:3939');
   });
 
   it('returns http mode when --server-url flag is provided', () => {
@@ -21,14 +21,14 @@ describe('resolveDagMcpConfig', () => {
 
   it('--server-url flag takes precedence over env var', () => {
     const config = resolveDagMcpConfig(['--server-url', 'http://flag:1111'], {
-      ROBOTA_DAG_SERVER_URL: 'http://env:2222',
+      DAG_RUNTIME_SERVER_URL: 'http://env:2222',
     });
     expect(config.mode).toBe('http');
     expect(config.serverUrl).toBe('http://flag:1111');
   });
 
-  it('ignores empty ROBOTA_DAG_SERVER_URL and uses embedded mode', () => {
-    const config = resolveDagMcpConfig([], { ROBOTA_DAG_SERVER_URL: '   ' });
+  it('ignores empty DAG_RUNTIME_SERVER_URL and uses embedded mode', () => {
+    const config = resolveDagMcpConfig([], { DAG_RUNTIME_SERVER_URL: '   ' });
     expect(config.mode).toBe('embedded');
   });
 });

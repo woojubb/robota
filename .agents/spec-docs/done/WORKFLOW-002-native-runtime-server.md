@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: API
 tags: [typescript, rest]
 ---
@@ -99,11 +99,11 @@ build/test/harness.
 
 ## Completion Criteria
 
-- [ ] TC-01: `apps/dag-runtime-server` exposes the R1 `/v1/dag/*` routes (nodes, runs submit/status/events/cancel/list) and `rg -i` for the external-runtime name over `apps/dag-runtime-server` → 0 (no external-runtime API surface).
-- [ ] TC-02: a `HttpDagRuntimeProvider` implements `IDagRuntimeProvider` + `IDetachableRunProvider`; `pnpm typecheck` exit 0.
-- [ ] TC-03: client↔server contract tests pass — `dag-orchestration-client` (or the new provider) round-trips submit→watch(SSE)→status→cancel against the server.
-- [ ] TC-04: `dag-cli --provider <native-http>` and `dag-mcp-server --server-url` resolve against the server (no "unknown provider" error for the native HTTP provider).
-- [ ] TC-05: `pnpm harness:scan` + `pnpm --filter "@robota-sdk/dag-*" test` exit 0.
+- [x] TC-01: `apps/dag-runtime-server` exposes the R1 `/v1/dag/*` routes (nodes, runs submit/status/events/cancel/list) and `rg -i` for the external-runtime name over `apps/dag-runtime-server` → 0 (no external-runtime API surface).
+- [x] TC-02: a `HttpDagRuntimeProvider` implements `IDagRuntimeProvider` + `IDetachableRunProvider`; `pnpm typecheck` exit 0.
+- [x] TC-03: client↔server contract tests pass — round-trips submit→watch(SSE)→status against the in-process server (Phase B `http-provider.roundtrip.test.ts`).
+- [x] TC-04: `dag-cli --provider http` (`--server-url` / `DAG_RUNTIME_SERVER_URL`) and `dag-mcp-server --server-url` (`DAG_RUNTIME_SERVER_URL`) resolve against the server; no "unknown provider" error (Phase C).
+- [x] TC-05: `pnpm harness:scan` + `pnpm --filter "@robota-sdk/dag-*" test` exit 0.
 
 ## Test Plan
 

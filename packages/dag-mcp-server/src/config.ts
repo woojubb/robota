@@ -12,8 +12,8 @@ export interface IDagMcpResolvedConfig {
  * Resolves MCP connection mode from CLI args and environment variables.
  *
  * Mode resolution precedence:
- * 1. `--server-url <url>` flag → HTTP mode with that URL
- * 2. `ROBOTA_DAG_SERVER_URL` env var set → HTTP mode with that URL
+ * 1. `--server-url <url>` flag → HTTP mode against that native runtime server (flag wins)
+ * 2. `DAG_RUNTIME_SERVER_URL` env var set → HTTP mode with that URL
  * 3. Everything else (default) → Embedded in-process mode
  */
 export function resolveDagMcpConfig(
@@ -29,8 +29,8 @@ export function resolveDagMcpConfig(
   }
 
   const envUrl =
-    typeof env.ROBOTA_DAG_SERVER_URL === 'string' && env.ROBOTA_DAG_SERVER_URL.trim().length > 0
-      ? env.ROBOTA_DAG_SERVER_URL
+    typeof env.DAG_RUNTIME_SERVER_URL === 'string' && env.DAG_RUNTIME_SERVER_URL.trim().length > 0
+      ? env.DAG_RUNTIME_SERVER_URL
       : undefined;
 
   if (envUrl) {

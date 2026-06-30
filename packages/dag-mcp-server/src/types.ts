@@ -4,10 +4,12 @@ import type {
 } from '@robota-sdk/dag-orchestration-client';
 import type { CallToolResult, Tool } from '@modelcontextprotocol/sdk/types.js';
 
-export const DEFAULT_DAG_SERVER_URL = 'http://localhost:3012';
+// Native DAG runtime server default (apps/dag-runtime-server binds 3939 by default).
+export const DEFAULT_DAG_SERVER_URL = 'http://localhost:3939';
 
 export interface IDagMcpEnvironment {
-  readonly ROBOTA_DAG_SERVER_URL?: string;
+  /** Native DAG runtime-server base URL (WORKFLOW-002). Overridden by the `--server-url` flag. */
+  readonly DAG_RUNTIME_SERVER_URL?: string;
   readonly ROBOTA_DAG_EMBEDDED?: string;
 }
 
