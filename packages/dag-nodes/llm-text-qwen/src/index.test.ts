@@ -9,7 +9,7 @@ vi.mock('@robota-sdk/agent-core', () => ({
   })),
 }));
 
-vi.mock('@robota-sdk/agent-provider-qwen', () => ({
+vi.mock('@robota-sdk/agent-provider/qwen', () => ({
   QwenProvider: vi.fn(),
 }));
 

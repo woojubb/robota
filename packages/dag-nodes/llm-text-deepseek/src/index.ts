@@ -10,7 +10,7 @@ import {
   type TPortPayload,
 } from '@robota-sdk/dag-core';
 import { Robota } from '@robota-sdk/agent-core';
-import { DeepSeekProvider } from '@robota-sdk/agent-provider-deepseek';
+import { DeepSeekProvider } from '@robota-sdk/agent-provider/deepseek';
 import { z } from 'zod';
 
 const DEFAULT_DEEPSEEK_LLM_MODEL = 'deepseek-v4-flash';

@@ -10,11 +10,11 @@ import {
   type TResult,
 } from '@robota-sdk/dag-core';
 import { Robota } from '@robota-sdk/agent-core';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
-import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
-import { GoogleProvider } from '@robota-sdk/agent-provider-google';
-import { DeepSeekProvider } from '@robota-sdk/agent-provider-deepseek';
-import { QwenProvider } from '@robota-sdk/agent-provider-qwen';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { OpenAIProvider } from '@robota-sdk/agent-provider/openai';
+import { GoogleProvider } from '@robota-sdk/agent-provider/google';
+import { DeepSeekProvider } from '@robota-sdk/agent-provider/deepseek';
+import { QwenProvider } from '@robota-sdk/agent-provider/qwen';
 import { z } from 'zod';
 
 export type TInstantNodeProvider = 'anthropic' | 'openai' | 'gemini' | 'deepseek' | 'qwen';

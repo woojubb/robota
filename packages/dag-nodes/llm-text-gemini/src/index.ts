@@ -10,7 +10,7 @@ import {
   type TPortPayload,
 } from '@robota-sdk/dag-core';
 import { Robota } from '@robota-sdk/agent-core';
-import { GoogleProvider } from '@robota-sdk/agent-provider-google';
+import { GoogleProvider } from '@robota-sdk/agent-provider/google';
 import { z } from 'zod';
 
 const DEFAULT_GEMINI_LLM_MODEL = 'gemini-2.0-flash';
