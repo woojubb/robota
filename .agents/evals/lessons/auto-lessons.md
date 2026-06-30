@@ -17,41 +17,41 @@ Do not promote entries to `.agents/rules/common-mistakes.md` without human revie
 
 ## user-correction
 
-- Frequency: 7 events in the last 7 days
+- Frequency: 18 events in the last 7 days
 - Sources: corrections
 - Example paths: (none)
 - First seen: 2026-06-27T05:30:36.000Z
-- Last seen: 2026-06-27T23:33:50.000Z
+- Last seen: 2026-06-29T16:30:18.000Z
 - Status: candidate; human review is required before promotion.
 <!-- auto-lesson:same-file-edited-3-times -->
 
 ## same-file-edited-3-times
 
-- Frequency: 15680 events in the last 7 days
+- Frequency: 56053 events in the last 7 days
 - Sources: reverts
-- Example paths: `/Users/jungyoun/.claude/projects/-Users-jungyoun-Documents-dev-robota/memory/MEMORY.md`, `/Users/jungyoun/.claude/projects/-Users-jungyoun-Documents-dev-robota/memory/project_architecture_conformance.md`, `/Users/jungyoun/.claude/projects/-Users-jungyoun-Documents-dev-robota/memory/project_preset_system.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/BRAND-001-unified-web-brand-palette.md`, `/Users/jungyoun/Documents/dev/robota/.agents/backlog/CLI-063-print-mode-session-resume-broken.md`
-- First seen: 2026-06-21T16:50:23.000Z
-- Last seen: 2026-06-27T23:43:31.000Z
+- Example paths: `.agents/backlog/BRAND-001-unified-web-brand-palette.md`, `.agents/backlog/CLI-063-print-mode-session-resume-broken.md`, `.agents/backlog/CLI-064-exit-code-contract-violations.md`, `.agents/backlog/CLI-073-fork-session-context-semantics.md`, `.agents/backlog/CORE-009-resume-system-prompt-clobber-and-metadata.md`
+- First seen: 2026-06-26T13:10:32.000Z
+- Last seen: 2026-06-30T05:57:37.000Z
 - Status: candidate; human review is required before promotion.
 <!-- auto-lesson:repeated-tool-errors -->
 
 ## repeated-tool-errors
 
-- Frequency: 57 events in the last 7 days
+- Frequency: 158 events in the last 7 days
 - Sources: reverts
 - Example paths: (none)
-- First seen: 2026-06-21T16:50:23.000Z
-- Last seen: 2026-06-27T23:43:31.000Z
+- First seen: 2026-06-26T13:10:32.000Z
+- Last seen: 2026-06-30T05:57:37.000Z
 - Status: candidate; human review is required before promotion.
 <!-- auto-lesson:try-catch-fallback -->
 
 ## try-catch-fallback
 
-- Frequency: 10 events in the last 7 days
+- Frequency: 8 events in the last 7 days
 - Sources: blocks
-- Example paths: `packages/agent-cli/src/cli.ts`, `packages/agent-cli/src/session-analyzer/session-analyze-command.ts`, `packages/agent-cli/src/startup/diagnose-command.ts`, `packages/agent-framework/src/interactive/interactive-session-execution-controller.ts`, `packages/agent-transport/src/tui/flows/session-init-poller.ts`
-- First seen: 2026-06-10T14:30:02.000Z
-- Last seen: 2026-06-13T09:20:15.000Z
+- Example paths: `packages/agent-cli/src/testing/binary-agent-driver.ts`, `packages/agent-command-workflows/src/run-command.ts`, `packages/agent-framework/src/goal/goal-controller.ts`, `packages/agent-framework/src/interactive/interactive-session-persistence.ts`, `packages/agent-testing/src/pty/spawn-pty.ts`
+- First seen: 2026-06-27T04:36:01.000Z
+- Last seen: 2026-06-30T02:25:45.000Z
 - Status: candidate; human review is required before promotion.
 <!-- auto-lesson:console-usage -->
 
