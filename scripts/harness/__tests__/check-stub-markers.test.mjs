@@ -52,4 +52,16 @@ describe('check-stub-markers', () => {
     });
     expect(await findStubMarkerFindings(root)).toHaveLength(0);
   });
+
+  it('covers nested package-group members (e.g. packages/dag-nodes/<name>)', async () => {
+    const root = await createFixture({
+      // The group container itself has no package.json — only its members do.
+      'packages/group/member/package.json': pkg('@robota-sdk/member'),
+      'packages/group/member/src/wip.ts':
+        "// TODO: Implement actual logic\nthrow new Error('Not implemented: member is unavailable');\n",
+    });
+    const findings = await findStubMarkerFindings(root);
+    expect(findings.length).toBeGreaterThanOrEqual(1);
+    expect(findings[0].file).toContain(path.join('group', 'member', 'src', 'wip.ts'));
+  });
 });

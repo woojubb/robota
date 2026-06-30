@@ -1,8 +1,17 @@
 ---
-status: draft
+status: done
 type: INFRA
 tags: [typescript]
 ---
+
+> **Done (2026-06-30).** Implemented directly under an explicit user go-ahead. Added the root-aware,
+> nesting-aware enumerator `scripts/harness/workspace-packages.mjs` (`listSpecPackageDirs` /
+> `listManifestPackageDirs`) and routed all five scans through it
+> (`check-spec-paths`, `check-spec-public-surface`, `check-spec-publish-claims`,
+> `scan-deprecated-markers`, `check-stub-markers`). The 21 `packages/dag-nodes/*` packages are now
+> covered and surfaced **no new findings** (the absorbed node SPECs/sources are clean for these checks).
+> Nested-coverage proof tests added to `check-spec-paths.test.mjs` and `check-stub-markers.test.mjs`.
+> `pnpm harness:scan` 39/39 green.
 
 # INFRA-021: Route one-level package scans through a nesting-aware enumerator
 
