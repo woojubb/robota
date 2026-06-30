@@ -28,3 +28,9 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 - Convert incidents into reusable language: trigger, invariant, correct behavior, and verification method.
 - If the same correction has occurred more than once, treat it as a candidate for `common-mistakes.md` or automated harness enforcement.
 - When fixing a repeated failure, update the governing rule or check in the same PR whenever feasible.
+
+### Contract Before Automation
+
+- Before building a generator pipeline, a validation gate, or a skill on top of an artifact type, that type MUST publish a precise **required-contents contract**: required sections, a machine-checkable completeness definition, source integrity, and ownership. No contract → no automation.
+- Why: a generator produces toward a target and a gate validates against one. With no defined contract, both are arbitrary and drift; the contract is the single source the pipeline and the gate share.
+- How to apply: when an artifact type lacks a contract, define the contract first, then derive the pipeline/gate/skill from it. For document artifacts, the per-type contracts and their router live in the document-standards index (see `.agents/spec-docs/` `RULE-007`). Hand-making a few instances without a contract is a shortcut — the contract is what makes the output repeatable and enforceable.

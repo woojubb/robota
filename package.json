@@ -52,6 +52,11 @@
     "harness:scan:sdk-react-free": "node scripts/harness/check-sdk-react-free.mjs",
     "harness:scan:consistency": "node scripts/harness/scan-consistency.mjs",
     "harness:scan:document-authority": "node scripts/harness/check-document-authority.mjs",
+    "harness:scan:document-standards": "node scripts/harness/check-document-standards-index.mjs",
+    "harness:scan:arch-map-completeness": "node scripts/harness/check-architecture-map-completeness.mjs",
+    "harness:scan:design-doc": "node scripts/harness/check-design-doc-completeness.mjs",
+    "harness:scan:adr": "node scripts/harness/check-adr-completeness.mjs",
+    "harness:scan:spec-doc-frontmatter": "node scripts/harness/check-spec-doc-frontmatter.mjs",
     "harness:scan:commands": "node scripts/harness/check-command-layering.mjs",
     "harness:scan:capability-placement": "node scripts/harness/check-capability-placement.mjs",
     "harness:scan:background-workspace": "node scripts/harness/check-background-workspace-conformance.mjs",
@@ -202,6 +207,7 @@
   },
   "workspaces": [
     "packages/*",
+    "packages/dag-nodes/*",
     "apps/*",
     "examples/*"
   ],

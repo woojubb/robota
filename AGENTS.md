@@ -23,23 +23,24 @@ This file contains only domain-free rules and routing. It does not contain packa
 
 **Document tree:**
 
-| Document                                                                 | Purpose                                                                                                           |
-| ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
-| [.agents/rules/index.md](.agents/rules/index.md)                         | Rule group listing and routing                                                                                    |
-| [.agents/rules/code-quality.md](.agents/rules/code-quality.md)           | Type system, imports, dev patterns                                                                                |
-| [.agents/rules/process.md](.agents/rules/process.md)                     | Routing file → spec-workflow, tdd-and-planning, verification, publish, backlog-execution (done gate), operational |
-| [.agents/rules/api-boundary.md](.agents/rules/api-boundary.md)           | API specs and application lifecycle                                                                               |
-| [.agents/rules/naming-style.md](.agents/rules/naming-style.md)           | Language policy, agent identity, styling                                                                          |
-| [.agents/rules/git-branch.md](.agents/rules/git-branch.md)               | Git ops and branch policy                                                                                         |
-| [.agents/rules/common-mistakes.md](.agents/rules/common-mistakes.md)     | Observed failure patterns                                                                                         |
-| [.agents/project-structure.md](.agents/project-structure.md)             | Package listing and dependency rules                                                                              |
-| [.agents/skills/index.md](.agents/skills/index.md)                       | All procedural workflow skills                                                                                    |
-| [.agents/backlog/README.md](.agents/backlog/README.md)                   | Future work items and backlog process                                                                             |
-| `.agents/spec-docs/`                                                     | Gate-pipeline spec documents — draft/backlog/todo/active/done/rejected lifecycle                                  |
-| [.agents/templates/spec-template.md](.agents/templates/spec-template.md) | SPEC.md authoring template                                                                                        |
-| [.agents/specs/README.md](.agents/specs/README.md)                       | Cross-cutting specs that span multiple packages                                                                   |
-| [.agents/evals/README.md](.agents/evals/README.md)                       | Agent quality evaluation datasets and metrics                                                                     |
-| `packages/*/docs/SPEC.md`                                                | Package-level contracts (SSOT) — one per package                                                                  |
+| Document                                                                               | Purpose                                                                                                             |
+| -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| [.agents/rules/index.md](.agents/rules/index.md)                                       | Rule group listing and routing                                                                                      |
+| [.agents/rules/code-quality.md](.agents/rules/code-quality.md)                         | Type system, imports, dev patterns                                                                                  |
+| [.agents/rules/process.md](.agents/rules/process.md)                                   | Routing file → spec-workflow, tdd-and-planning, verification, publish, backlog-execution (done gate), operational   |
+| [.agents/rules/api-boundary.md](.agents/rules/api-boundary.md)                         | API specs and application lifecycle                                                                                 |
+| [.agents/rules/naming-style.md](.agents/rules/naming-style.md)                         | Language policy, agent identity, styling                                                                            |
+| [.agents/rules/git-branch.md](.agents/rules/git-branch.md)                             | Git ops and branch policy                                                                                           |
+| [.agents/rules/common-mistakes.md](.agents/rules/common-mistakes.md)                   | Observed failure patterns                                                                                           |
+| [.agents/project-structure.md](.agents/project-structure.md)                           | Package listing and dependency rules                                                                                |
+| [.agents/skills/index.md](.agents/skills/index.md)                                     | All procedural workflow skills                                                                                      |
+| [.agents/backlog/README.md](.agents/backlog/README.md)                                 | Future work items and backlog process                                                                               |
+| `.agents/spec-docs/`                                                                   | Gate-pipeline spec documents — draft/backlog/todo/active/done/rejected lifecycle                                    |
+| [.agents/templates/spec-template.md](.agents/templates/spec-template.md)               | SPEC.md authoring template                                                                                          |
+| [.agents/specs/README.md](.agents/specs/README.md)                                     | Cross-cutting specs that span multiple packages                                                                     |
+| [.agents/specs/document-standards/index.md](.agents/specs/document-standards/index.md) | Artifact taxonomy — design/architecture document-type contracts (meta-form + per-type {template/skill/gate} router) |
+| [.agents/evals/README.md](.agents/evals/README.md)                                     | Agent quality evaluation datasets and metrics                                                                       |
+| `packages/*/docs/SPEC.md`                                                              | Package-level contracts (SSOT) — one per package                                                                    |
 
 ## Project Overview
 

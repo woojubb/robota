@@ -1,5 +1,5 @@
 ---
-status: backlog
+status: review-ready
 type: BEHAVIOR
 tags: [infra]
 ---
