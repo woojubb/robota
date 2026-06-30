@@ -230,14 +230,22 @@ function matchesExecutionWorkspaceFilter(
   return true;
 }
 
+// SCREEN-010: order by a STABLE key (creation/start order), not by `lastActivityAt`. Sorting by
+// last activity made every running task jump to the top on each activity tick, so the list churned
+// constantly. `startedAt` is fixed once a task starts, so ascending order keeps each row in its slot
+// once it appears; new tasks append. `id` is the deterministic tiebreaker for not-yet-started tasks.
 function sortTasks(tasks: readonly IBackgroundTaskState[]): IBackgroundTaskState[] {
-  return [...tasks].sort((left, right) =>
-    (right.lastActivityAt ?? right.updatedAt).localeCompare(left.lastActivityAt ?? left.updatedAt),
-  );
+  return [...tasks].sort((left, right) => {
+    const leftKey = left.startedAt ?? left.updatedAt;
+    const rightKey = right.startedAt ?? right.updatedAt;
+    const byStart = leftKey.localeCompare(rightKey);
+    return byStart !== 0 ? byStart : left.id.localeCompare(right.id);
+  });
 }
 
 function sortGroups(groups: readonly IBackgroundJobGroupState[]): IBackgroundJobGroupState[] {
-  return [...groups].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+  // Stable order too (SCREEN-010): groups carry no start time, so order by their creation id.
+  return [...groups].sort((left, right) => left.id.localeCompare(right.id));
 }
 
 function trimPreview(value: string | undefined): string | undefined {
