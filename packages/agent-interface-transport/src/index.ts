@@ -118,6 +118,7 @@ export type {
   IDiffLine,
   IToolSummary,
   IUsageSnapshot,
+  IUsageSource,
   TPermissionResultValue,
   TInteractivePermissionHandler,
   IContextFileRefreshedEvent,

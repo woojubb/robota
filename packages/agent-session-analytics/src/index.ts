@@ -13,4 +13,8 @@ export type {
 } from './types.js';
 
 export { analyzeSession, aggregateReports, computeTimingIntervals, gapMs } from './analyze.js';
-export { formatSingleSession, formatAggregateReport } from './report.js';
+export { formatSingleSession, formatAggregateReport, formatUsageReport } from './report.js';
+
+// ANALYTICS-001: source-attributed token-usage analysis.
+export { summarizeUsageBySource } from './usage.js';
+export type { TUsageAnalysisInput, IUsageSourceTotals, IUsageBySourceReport } from './usage.js';

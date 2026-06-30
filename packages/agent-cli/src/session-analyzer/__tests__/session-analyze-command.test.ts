@@ -142,4 +142,54 @@ describe('runSessionAnalyze integration (OBS-001)', () => {
     const out = stdout.join('');
     expect(out).toMatch(/Analyzed 2 session/i);
   });
+
+  // ANALYTICS-001: --usage reports token usage broken down by source.
+  it('--usage reports per-source token usage with a top consumer', async () => {
+    const id = 'session_1781000005000_use';
+    const usageSnapshot = (total: number, source?: Record<string, unknown>): unknown => ({
+      kind: 'exact',
+      scope: 'turn',
+      totalTokens: total,
+      promptTokens: Math.round(total * 0.6),
+      completionTokens: total - Math.round(total * 0.6),
+      contextUsedTokens: total,
+      contextMaxTokens: 200_000,
+      contextUsedPercentage: 0,
+      costStatus: 'exact',
+      ...(source ? { source } : {}),
+    });
+    const record = {
+      id,
+      cwd: project,
+      createdAt: new Date(1_781_000_005_000).toISOString(),
+      updatedAt: new Date(1_781_000_006_000).toISOString(),
+      history: [
+        {
+          id: 'u1',
+          timestamp: new Date(1).toISOString(),
+          category: 'event',
+          type: 'usage-summary',
+          data: usageSnapshot(100),
+        },
+        {
+          id: 'u2',
+          timestamp: new Date(2).toISOString(),
+          category: 'event',
+          type: 'usage-summary',
+          data: usageSnapshot(400, { scope: 'background', id: 'bg-1', label: 'HARNESS-AND-CI' }),
+        },
+      ],
+    };
+    const dir = join(project, '.robota', 'sessions');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, `${id}.json`), JSON.stringify(record), 'utf8');
+
+    await run(['--usage']);
+
+    const out = stdout.join('');
+    expect(out).toContain('Token usage');
+    expect(out).toContain('HARNESS-AND-CI');
+    expect(out).toContain('main thread');
+    expect(out).toMatch(/top consumer: HARNESS-AND-CI/);
+  });
 });

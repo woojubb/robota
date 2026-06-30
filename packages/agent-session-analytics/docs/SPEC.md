@@ -49,15 +49,17 @@ Reused (not owned): `TSessionAnalysisInput` is `Pick<IInteractiveSessionRecord, 
 
 ## Public API Surface
 
-| Export                          | Kind     | Description                                                 |
-| ------------------------------- | -------- | ----------------------------------------------------------- |
-| `analyzeSession(record)`        | function | Compute the timing report for one session record            |
-| `aggregateReports(reports)`     | function | Aggregate multiple single-session reports                   |
-| `computeTimingIntervals(hist)`  | function | Lower-level: classify a history array into timing intervals |
-| `gapMs(from, to)`               | function | Millisecond gap between two timestamps (string or Date)     |
-| `formatSingleSession(report)`   | function | Render a single-session report as text (returns string)     |
-| `formatAggregateReport(agg)`    | function | Render an aggregate report as text (returns string)         |
-| `TSessionAnalysisInput` + types | types    | See Type Ownership                                          |
+| Export                          | Kind     | Description                                                                                    |
+| ------------------------------- | -------- | ---------------------------------------------------------------------------------------------- |
+| `analyzeSession(record)`        | function | Compute the timing report for one session record                                               |
+| `aggregateReports(reports)`     | function | Aggregate multiple single-session reports                                                      |
+| `computeTimingIntervals(hist)`  | function | Lower-level: classify a history array into timing intervals                                    |
+| `gapMs(from, to)`               | function | Millisecond gap between two timestamps (string or Date)                                        |
+| `formatSingleSession(report)`   | function | Render a single-session report as text (returns string)                                        |
+| `formatAggregateReport(agg)`    | function | Render an aggregate report as text (returns string)                                            |
+| `summarizeUsageBySource(input)` | function | ANALYTICS-001: per-source token-usage breakdown from `usage-summary` history entries           |
+| `formatUsageReport(report)`     | function | Render the usage breakdown as text (returns string)                                            |
+| `TSessionAnalysisInput` + types | types    | See Type Ownership (incl. `TUsageAnalysisInput`, `IUsageBySourceReport`, `IUsageSourceTotals`) |
 
 ## Extension Points
 

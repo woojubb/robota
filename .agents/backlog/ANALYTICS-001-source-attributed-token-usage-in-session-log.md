@@ -1,12 +1,20 @@
 ---
 title: 'ANALYTICS-001: Record source-attributed token usage in the session log + reporting + test assertions'
-status: todo
+status: in-progress
 created: 2026-07-01
 priority: medium
 urgency: soon
-area: packages/agent-core, packages/agent-framework, packages/agent-session-analytics
+area: packages/agent-core, packages/agent-framework, packages/agent-session-analytics, packages/agent-interface-transport, packages/agent-cli
 depends_on: []
 ---
+
+> **Phase 1 delivered (2026-07-01):** the usage type + reducer + report + CLI + harness assertions, with
+> main-thread usage attributed today. **Phase 2 (remaining):** record _live_ subagent/background-task
+> usage into the main session log with its source so multi-source attribution is populated end-to-end
+> (the reducer/CLI/harness already consume it). Confirmed decisions: D1 minimal `IUsageSource` in
+> agent-interface-transport (the framework's `IExecutionOrigin` is a layer up and can't be imported into
+> the contract package); D2 single usage stream in the main session log; D3 `robota session analyze
+--usage` report; D4 harness `usageReport()`/`totalUsage()`.
 
 # Source-attributed token usage in the session log
 
@@ -72,4 +80,10 @@ framework can assert usage budgets so regressions in token consumption are caugh
   `/usage` or the documented report command) against the session.
 - Expected: the report lists token usage broken down by source (main thread vs each agent/background
   task) with totals and a clear "top consumer", matching what was run.
-- Evidence: _to be filled after implementation._
+- Evidence (Phase 1, agent-run): `agent-session-analytics` reducer unit tests (per-source breakdown,
+  percentages, top consumer, empty); `agent-cli` `session analyze --usage` integration test (prints the
+  source breakdown + top consumer); `agent-framework` `usage-assertion-functional` drives a REAL session
+  whose scripted provider reports usage and asserts `harness.usageReport()`/`totalUsage()` + a budget.
+  All green; lint 0 errors; `pnpm harness:scan` 39/39. **Live multi-source attribution (subagent /
+  background task usage written to the main log) is Phase 2** — until then a real session's report shows
+  main-thread usage (the subagent/background rows populate once Phase 2 records them).
