@@ -8,6 +8,7 @@
     "declarationMap": true,
     "downlevelIteration": true,
     "lib": ["ES2022"],
+    "moduleResolution": "bundler",
     "types": ["node"]
   },
   "include": ["src/**/*"],

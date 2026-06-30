@@ -43,8 +43,8 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "@robota-sdk/agent-core": "3.0.0-beta.61",
-    "@robota-sdk/agent-provider-deepseek": "3.0.0-beta.61",
+    "@robota-sdk/agent-core": "workspace:*",
+    "@robota-sdk/agent-provider": "workspace:*",
     "@robota-sdk/dag-core": "workspace:*",
     "@robota-sdk/dag-node": "workspace:*",
     "zod": "^3.24.4"

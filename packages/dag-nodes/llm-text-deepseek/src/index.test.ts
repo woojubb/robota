@@ -9,7 +9,7 @@ vi.mock('@robota-sdk/agent-core', () => ({
   })),
 }));
 
-vi.mock('@robota-sdk/agent-provider-deepseek', () => ({
+vi.mock('@robota-sdk/agent-provider/deepseek', () => ({
   DeepSeekProvider: vi.fn(),
 }));
 

@@ -35,7 +35,6 @@ overrides:
   form-data@^4.0.0: ^4.0.6
   postcss@<8.5.10: '>=8.5.10'
   dompurify@<3.4.11: '>=3.4.11'
-  '@anthropic-ai/sdk@<0.91.1': '>=0.91.1'
 
 importers:
 
@@ -2088,11 +2087,11 @@ importers:
   packages/dag-nodes/gemini-image-edit:
     dependencies:
       '@robota-sdk/agent-core':
-        specifier: 3.0.0-beta.61
-        version: 3.0.0-beta.61
-      '@robota-sdk/agent-provider-google':
-        specifier: 3.0.0-beta.61
-        version: 3.0.0-beta.61(@modelcontextprotocol/sdk@1.29.0)(@robota-sdk/agent-core@3.0.0-beta.61)
+        specifier: workspace:*
+        version: link:../../agent-core
+      '@robota-sdk/agent-provider':
+        specifier: workspace:*
+        version: link:../../agent-provider
       '@robota-sdk/dag-core':
         specifier: workspace:*
         version: link:../../dag-core
@@ -2240,23 +2239,11 @@ importers:
   packages/dag-nodes/instant-node:
     dependencies:
       '@robota-sdk/agent-core':
-        specifier: 3.0.0-beta.61
-        version: 3.0.0-beta.61
-      '@robota-sdk/agent-provider-anthropic':
-        specifier: 3.0.0-beta.61
-        version: 3.0.0-beta.61(@robota-sdk/agent-core@3.0.0-beta.61)(zod@3.25.76)
-      '@robota-sdk/agent-provider-deepseek':
-        specifier: 3.0.0-beta.61
-        version: 3.0.0-beta.61(@robota-sdk/agent-core@3.0.0-beta.61)(zod@3.25.76)
-      '@robota-sdk/agent-provider-google':
-        specifier: 3.0.0-beta.61
-        version: 3.0.0-beta.61(@modelcontextprotocol/sdk@1.29.0)(@robota-sdk/agent-core@3.0.0-beta.61)
-      '@robota-sdk/agent-provider-openai':
-        specifier: 3.0.0-beta.61
-        version: 3.0.0-beta.61(@robota-sdk/agent-core@3.0.0-beta.61)(zod@3.25.76)
-      '@robota-sdk/agent-provider-qwen':
-        specifier: 3.0.0-beta.61
-        version: 3.0.0-beta.61(@robota-sdk/agent-core@3.0.0-beta.61)(zod@3.25.76)
+        specifier: workspace:*
+        version: link:../../agent-core
+      '@robota-sdk/agent-provider':
+        specifier: workspace:*
+        version: link:../../agent-provider
       '@robota-sdk/dag-core':
         specifier: workspace:*
         version: link:../../dag-core
@@ -2289,11 +2276,11 @@ importers:
   packages/dag-nodes/llm-text-anthropic:
     dependencies:
       '@robota-sdk/agent-core':
-        specifier: 3.0.0-beta.61
-        version: 3.0.0-beta.61
-      '@robota-sdk/agent-provider-anthropic':
-        specifier: 3.0.0-beta.61
-        version: 3.0.0-beta.61(@robota-sdk/agent-core@3.0.0-beta.61)(zod@3.25.76)
+        specifier: workspace:*
+        version: link:../../agent-core
+      '@robota-sdk/agent-provider':
+        specifier: workspace:*
+        version: link:../../agent-provider
       '@robota-sdk/dag-core':
         specifier: workspace:*
         version: link:../../dag-core
@@ -2326,11 +2313,11 @@ importers:
   packages/dag-nodes/llm-text-deepseek:
     dependencies:
       '@robota-sdk/agent-core':
-        specifier: 3.0.0-beta.61
-        version: 3.0.0-beta.61
-      '@robota-sdk/agent-provider-deepseek':
-        specifier: 3.0.0-beta.61
-        version: 3.0.0-beta.61(@robota-sdk/agent-core@3.0.0-beta.61)(zod@3.25.76)
+        specifier: workspace:*
+        version: link:../../agent-core
+      '@robota-sdk/agent-provider':
+        specifier: workspace:*
+        version: link:../../agent-provider
       '@robota-sdk/dag-core':
         specifier: workspace:*
         version: link:../../dag-core
@@ -2363,11 +2350,11 @@ importers:
   packages/dag-nodes/llm-text-gemini:
     dependencies:
       '@robota-sdk/agent-core':
-        specifier: 3.0.0-beta.61
-        version: 3.0.0-beta.61
-      '@robota-sdk/agent-provider-google':
-        specifier: 3.0.0-beta.61
-        version: 3.0.0-beta.61(@modelcontextprotocol/sdk@1.29.0)(@robota-sdk/agent-core@3.0.0-beta.61)
+        specifier: workspace:*
+        version: link:../../agent-core
+      '@robota-sdk/agent-provider':
+        specifier: workspace:*
+        version: link:../../agent-provider
       '@robota-sdk/dag-core':
         specifier: workspace:*
         version: link:../../dag-core
@@ -2400,11 +2387,11 @@ importers:
   packages/dag-nodes/llm-text-openai:
     dependencies:
       '@robota-sdk/agent-core':
-        specifier: 3.0.0-beta.61
-        version: 3.0.0-beta.61
-      '@robota-sdk/agent-provider-openai':
-        specifier: 3.0.0-beta.61
-        version: 3.0.0-beta.61(@robota-sdk/agent-core@3.0.0-beta.61)(zod@3.25.76)
+        specifier: workspace:*
+        version: link:../../agent-core
+      '@robota-sdk/agent-provider':
+        specifier: workspace:*
+        version: link:../../agent-provider
       '@robota-sdk/dag-core':
         specifier: workspace:*
         version: link:../../dag-core
@@ -2437,11 +2424,11 @@ importers:
   packages/dag-nodes/llm-text-qwen:
     dependencies:
       '@robota-sdk/agent-core':
-        specifier: 3.0.0-beta.61
-        version: 3.0.0-beta.61
-      '@robota-sdk/agent-provider-qwen':
-        specifier: 3.0.0-beta.61
-        version: 3.0.0-beta.61(@robota-sdk/agent-core@3.0.0-beta.61)(zod@3.25.76)
+        specifier: workspace:*
+        version: link:../../agent-core
+      '@robota-sdk/agent-provider':
+        specifier: workspace:*
+        version: link:../../agent-provider
       '@robota-sdk/dag-core':
         specifier: workspace:*
         version: link:../../dag-core
@@ -6772,107 +6759,6 @@ packages:
 
   /@radix-ui/rect@1.1.2:
     resolution: {integrity: sha512-xnXE7wG13PI+cxieVssYXlQJuYVRhH9NBoxt3KNwzghDIA69GMm7d4wXRouHIYjE+KvS6U/MsMO73NdS2MH9ZA==}
-    dev: false
-
-  /@robota-sdk/agent-core@3.0.0-beta.61:
-    resolution: {integrity: sha512-34CL4d5z7zM1taNGZRdHsDU2EWpXm8XPWUTVuH9Q9XlY1gPDT8+Z32GNkr+Jwyg7GbrR8h56ROzmZXnaLve8ig==}
-    dependencies:
-      jssha: 3.3.1
-      zod: 3.25.76
-    dev: false
-
-  /@robota-sdk/agent-provider-anthropic@3.0.0-beta.61(@robota-sdk/agent-core@3.0.0-beta.61)(zod@3.25.76):
-    resolution: {integrity: sha512-WJ4jHYKHLUIaZH5uTCpCUvJ/hkrS8w9+0oH9xt0koIkC4XttCUH/i2aDvzSXaKyOnP4HB/zhxTC95x0RVJbLxw==}
-    peerDependencies:
-      '@robota-sdk/agent-core': 3.0.0-beta.61
-    dependencies:
-      '@anthropic-ai/sdk': 0.91.1(zod@3.25.76)
-      '@robota-sdk/agent-core': 3.0.0-beta.61
-    transitivePeerDependencies:
-      - zod
-    dev: false
-
-  /@robota-sdk/agent-provider-deepseek@3.0.0-beta.61(@robota-sdk/agent-core@3.0.0-beta.61)(zod@3.25.76):
-    resolution: {integrity: sha512-s4ASRfU5PFom7lEKV+MnIThMQ19af5v1qTHgg8uSfM3zAEr3ztNonYEIxSxaiunzslUqD4iqdPaHX+l27bbXQw==}
-    peerDependencies:
-      '@robota-sdk/agent-core': 3.0.0-beta.61
-    dependencies:
-      '@robota-sdk/agent-core': 3.0.0-beta.61
-      '@robota-sdk/agent-provider-openai-compatible': 3.0.0-beta.61(@robota-sdk/agent-core@3.0.0-beta.61)(zod@3.25.76)
-      openai: 4.104.0(zod@3.25.76)
-    transitivePeerDependencies:
-      - encoding
-      - ws
-      - zod
-    dev: false
-
-  /@robota-sdk/agent-provider-gemini@3.0.0-beta.61(@modelcontextprotocol/sdk@1.29.0)(@robota-sdk/agent-core@3.0.0-beta.61):
-    resolution: {integrity: sha512-cyXgoYkF9qIB5ZrANap7DZ1dejsHCG4+cY2COd2q6rH/WjzmSvyYVajxZeRLK+3Bk2mx0UqS/xnHrBfycfkfQA==}
-    peerDependencies:
-      '@robota-sdk/agent-core': 3.0.0-beta.61
-    dependencies:
-      '@google/genai': 1.52.0(@modelcontextprotocol/sdk@1.29.0)
-      '@robota-sdk/agent-core': 3.0.0-beta.61
-    transitivePeerDependencies:
-      - '@modelcontextprotocol/sdk'
-      - bufferutil
-      - supports-color
-      - utf-8-validate
-    dev: false
-
-  /@robota-sdk/agent-provider-google@3.0.0-beta.61(@modelcontextprotocol/sdk@1.29.0)(@robota-sdk/agent-core@3.0.0-beta.61):
-    resolution: {integrity: sha512-7S6QiTl7SV1wcJxtzvAuqJcq2s6hUaGgrpMDIqHobAIKezp6eV9BLJ2YrDhURBgg9kE5E+qT8sS0A7MpMgDm+g==}
-    peerDependencies:
-      '@robota-sdk/agent-core': 3.0.0-beta.61
-    dependencies:
-      '@robota-sdk/agent-core': 3.0.0-beta.61
-      '@robota-sdk/agent-provider-gemini': 3.0.0-beta.61(@modelcontextprotocol/sdk@1.29.0)(@robota-sdk/agent-core@3.0.0-beta.61)
-    transitivePeerDependencies:
-      - '@modelcontextprotocol/sdk'
-      - bufferutil
-      - supports-color
-      - utf-8-validate
-    dev: false
-
-  /@robota-sdk/agent-provider-openai-compatible@3.0.0-beta.61(@robota-sdk/agent-core@3.0.0-beta.61)(zod@3.25.76):
-    resolution: {integrity: sha512-Hl2LFF9HCBzCVpwuJu/8aCQDskGiZ7m33mVeDeqkGgDu1yAyhWzb2rfZ3GEdWIEjFGL/Hnfjur/jtEryeJ8Hqg==}
-    peerDependencies:
-      '@robota-sdk/agent-core': 3.0.0-beta.61
-    dependencies:
-      '@robota-sdk/agent-core': 3.0.0-beta.61
-      openai: 4.104.0(zod@3.25.76)
-    transitivePeerDependencies:
-      - encoding
-      - ws
-      - zod
-    dev: false
-
-  /@robota-sdk/agent-provider-openai@3.0.0-beta.61(@robota-sdk/agent-core@3.0.0-beta.61)(zod@3.25.76):
-    resolution: {integrity: sha512-f/r8ruz7A5JstOuvyqYQjw2VymYj0mgG9qVLwNH3ckVEXDlmL/yBU2FVqqgUz9FFAeB2mTA6JRluYIyhMAi2Vw==}
-    peerDependencies:
-      '@robota-sdk/agent-core': 3.0.0-beta.61
-    dependencies:
-      '@robota-sdk/agent-core': 3.0.0-beta.61
-      '@robota-sdk/agent-provider-openai-compatible': 3.0.0-beta.61(@robota-sdk/agent-core@3.0.0-beta.61)(zod@3.25.76)
-      openai: 4.104.0(zod@3.25.76)
-    transitivePeerDependencies:
-      - encoding
-      - ws
-      - zod
-    dev: false
-
-  /@robota-sdk/agent-provider-qwen@3.0.0-beta.61(@robota-sdk/agent-core@3.0.0-beta.61)(zod@3.25.76):
-    resolution: {integrity: sha512-p87RF1r/HRfrXOFbzMWny71NeV411FBVxaDwABH9EgFtn5/7FwklGhFDzOXaitQlBmqpJriI9DC4xLQnH/XTkw==}
-    peerDependencies:
-      '@robota-sdk/agent-core': 3.0.0-beta.61
-    dependencies:
-      '@robota-sdk/agent-core': 3.0.0-beta.61
-      '@robota-sdk/agent-provider-openai-compatible': 3.0.0-beta.61(@robota-sdk/agent-core@3.0.0-beta.61)(zod@3.25.76)
-      openai: 4.104.0(zod@3.25.76)
-    transitivePeerDependencies:
-      - encoding
-      - ws
-      - zod
     dev: false
 
   /@rolldown/binding-android-arm64@1.0.3:
