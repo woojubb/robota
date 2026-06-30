@@ -30,6 +30,7 @@ import {
   createReplayProvider,
   createRecordingProvider,
 } from '@robota-sdk/agent-core/testing';
+import { summarizeUsageBySource } from '@robota-sdk/agent-session-analytics';
 
 import { InteractiveSession } from '../interactive/index.js';
 import { createProjectSessionStore } from '../interactive/index.js';
@@ -48,6 +49,7 @@ import type {
   IToolSummary,
   TInteractiveEventName,
 } from '@robota-sdk/agent-interface-transport';
+import type { IUsageBySourceReport } from '@robota-sdk/agent-session-analytics';
 
 /** Options for {@link scriptedSession}. Provide exactly one of `turns`, `cassette`, or `record`. */
 export interface IScriptedSessionOptions {
@@ -331,6 +333,23 @@ export class ScriptedSessionHarness {
   sessionRecord(): IInteractiveSessionRecord | undefined {
     if (!this.sessionStore) return undefined;
     return this.sessionStore.load(this.session.getSession().getSessionId());
+  }
+
+  /**
+   * ANALYTICS-001: per-source token-usage breakdown for this session, computed from the recorded
+   * `usage-summary` history entries. Lets a test assert budgets — e.g. total usage ≤ N, or no single
+   * background task exceeds M — turning wrong/excessive token usage into a failing test.
+   */
+  usageReport(): IUsageBySourceReport {
+    return summarizeUsageBySource({
+      id: this.session.getSession().getSessionId(),
+      history: this.session.getFullHistory(),
+    });
+  }
+
+  /** Total tokens consumed across the whole session (ANALYTICS-001). */
+  totalUsage(): number {
+    return this.usageReport().totalTokens;
   }
 
   /** The real session-log directory the framework writes to (`{cwd}/.robota/logs`). */

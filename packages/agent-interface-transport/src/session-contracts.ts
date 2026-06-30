@@ -81,6 +81,20 @@ export interface IToolState {
   executionId?: string;
 }
 
+/**
+ * ANALYTICS-001: the execution unit a usage snapshot is attributed to, so session-log usage can be
+ * reported and asserted per source (main thread vs a specific subagent / background task). A minimal
+ * contract-layer descriptor — the framework's `IExecutionOrigin` lives a layer up and cannot be
+ * imported here; the two stay aligned by `scope`/`id`.
+ */
+export interface IUsageSource {
+  scope: 'main' | 'subagent' | 'background' | 'tool' | 'command' | 'skill';
+  /** Stable id of the source (e.g. the subagent / background-task id); omitted for the main thread. */
+  id?: string;
+  /** Human label for reports (e.g. the agent type or task title). */
+  label?: string;
+}
+
 export interface IUsageSnapshot {
   kind: 'exact' | 'estimated';
   scope: 'turn';
@@ -91,6 +105,8 @@ export interface IUsageSnapshot {
   contextMaxTokens: number;
   contextUsedPercentage: number;
   costStatus: 'unknown' | 'estimated' | 'exact';
+  /** ANALYTICS-001: which execution unit consumed these tokens. Defaults to the main thread. */
+  source?: IUsageSource;
 }
 
 /** Summary of a tool call extracted from history. */
