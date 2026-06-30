@@ -3,6 +3,7 @@ import { Box, Text } from 'ink';
 import React from 'react';
 
 import { formatCommandOutputSummary } from './command-output-summary.js';
+import { humanizeToolName } from './humanize-tool-name.js';
 import { renderMarkdown } from './render-markdown.js';
 import ToolCommandOutput from './ToolCommandOutput.js';
 import ToolDiffBlock from './ToolDiffBlock.js';
@@ -40,7 +41,7 @@ function getToolSummaryColor(tool: TToolSummaryItem): string {
 }
 
 function getToolSummaryLabel(tool: TToolSummaryItem): string {
-  return `${getToolSummaryStatus(tool)} ${tool.toolName}${tool.firstArg ? `(${tool.firstArg})` : ''}`;
+  return `${getToolSummaryStatus(tool)} ${humanizeToolName(tool.toolName)}${tool.firstArg ? `(${tool.firstArg})` : ''}`;
 }
 
 function RoleLabel({ role }: { role: TUniversalMessage['role'] }): React.ReactElement {
@@ -99,7 +100,7 @@ function ToolMessage({ message }: { message: TUniversalMessage }): React.ReactEl
           </Text>
           {toolName && (
             <Text color="white" dimColor>
-              [{toolName}]
+              [{humanizeToolName(toolName)}]
             </Text>
           )}
         </Box>
