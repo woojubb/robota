@@ -5,7 +5,7 @@
  * changes are minimal.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 import type { TuiInteractionChannel } from '../TuiInteractionChannel.js';
 import type { ICommandEffectQueue } from './command-effect-queue.js';
@@ -71,6 +71,19 @@ export function useTuiChannel(channel: TuiInteractionChannel): IInteractiveSessi
 
   const manager = channel.stateManager;
 
+  // SCREEN-014 fix: these are consumed in `useEffect` dependency arrays in App. `channel` is stable
+  // (created once), so memoize them — a fresh closure each render made the detail-loading effect
+  // re-run every render and `setState`-loop ("Maximum update depth exceeded") whenever a background
+  // entry was selected.
+  const selectExecutionWorkspaceEntry = useCallback(
+    (id: string) => channel.selectExecutionWorkspaceEntry(id),
+    [channel],
+  );
+  const readExecutionWorkspaceDetail = useCallback(
+    (id: string) => channel.readExecutionWorkspaceDetail(id),
+    [channel],
+  );
+
   return {
     interactiveSession: channel.getSession(),
     registry: channel.getRegistry(),
@@ -92,7 +105,7 @@ export function useTuiChannel(channel: TuiInteractionChannel): IInteractiveSessi
     handleAbort: () => channel.abort(),
     handleCancelQueue: () => channel.cancelQueue(),
     handleShutdown: (reason) => channel.shutdown({ reason }),
-    selectExecutionWorkspaceEntry: (id) => channel.selectExecutionWorkspaceEntry(id),
-    readExecutionWorkspaceDetail: (id) => channel.readExecutionWorkspaceDetail(id),
+    selectExecutionWorkspaceEntry,
+    readExecutionWorkspaceDetail,
   };
 }
