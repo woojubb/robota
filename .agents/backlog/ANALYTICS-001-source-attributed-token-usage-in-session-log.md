@@ -9,9 +9,13 @@ depends_on: []
 ---
 
 > **Phase 1 delivered (2026-07-01):** the usage type + reducer + report + CLI + harness assertions, with
-> main-thread usage attributed today. **Phase 2 (remaining):** record _live_ subagent/background-task
-> usage into the main session log with its source so multi-source attribution is populated end-to-end
-> (the reducer/CLI/harness already consume it). Confirmed decisions: D1 minimal `IUsageSource` in
+> main-thread usage attributed today. **Phase 2 wired (2026-07-01):** a finished subagent/background
+> agent task's total usage (`sumHistoryUsage`) flows `ISubagentJobResult.usage` →
+> `IBackgroundTaskResult.usage` → the session background tracker, which on completion appends a
+> **source-attributed `usage-summary`** (`scope: 'background'`, the task id/label) to the parent log —
+> so `--usage` / `harness.usageReport()` attribute those tokens to that task, not the main thread.
+> Remaining: a live end-to-end run (spawn a real background agent, see its row) for the User Execution
+> gate — the chain is unit-tested at each end + full suites green. Confirmed decisions: D1 minimal `IUsageSource` in
 > agent-interface-transport (the framework's `IExecutionOrigin` is a layer up and can't be imported into
 > the contract package); D2 single usage stream in the main session log; D3 `robota session analyze
 --usage` report; D4 harness `usageReport()`/`totalUsage()`.

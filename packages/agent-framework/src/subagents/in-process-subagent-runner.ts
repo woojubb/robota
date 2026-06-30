@@ -1,3 +1,5 @@
+import { sumHistoryUsage } from '@robota-sdk/agent-core';
+
 import { getBuiltInAgent } from '../agents/built-in-agents.js';
 import { createSubagentSession } from '../assembly/create-subagent-session.js';
 
@@ -102,6 +104,18 @@ function emitToolExecutionEvent(job: ISubagentJobStart, event: TSubagentToolExec
   });
 }
 
+/** Best-effort total token usage of a finished subagent session; never throws. */
+function readSubagentUsage(
+  session: ReturnType<typeof createSubagentSession>,
+): ReturnType<typeof sumHistoryUsage> {
+  try {
+    return sumHistoryUsage(session.getFullHistory());
+  } catch {
+    // allow-fallback: usage capture is auxiliary — a failure to read history must not fail the subagent run
+    return undefined;
+  }
+}
+
 export function createInProcessSubagentRunner(deps: IInProcessSubagentRunnerDeps): ISubagentRunner {
   return {
     start(job: ISubagentJobStart): ISubagentJobHandle {
@@ -130,10 +144,12 @@ export function createInProcessSubagentRunner(deps: IInProcessSubagentRunnerDeps
 
       return {
         jobId: job.jobId,
-        result: session.run(job.request.prompt).then((output) => ({
-          jobId: job.jobId,
-          output,
-        })),
+        result: session.run(job.request.prompt).then((output) => {
+          // ANALYTICS-001 (Phase 2): capture the subagent's total token usage so the parent log can
+          // attribute it to this agent as a source. Best-effort — never let usage capture fail the run.
+          const usage = readSubagentUsage(session);
+          return { jobId: job.jobId, output, ...(usage ? { usage } : {}) };
+        }),
         cancel: () => {
           session.abort();
           return Promise.resolve();

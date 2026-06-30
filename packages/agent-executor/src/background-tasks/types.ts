@@ -135,6 +135,13 @@ export type TBackgroundTaskRequest =
   | IProcessBackgroundTaskRequest
   | IScheduledBackgroundTaskRequest;
 
+/** ANALYTICS-001 (Phase 2): token usage a completed task/subagent consumed, for source attribution. */
+export interface IBackgroundTaskUsage {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+}
+
 export interface IBackgroundTaskResult {
   taskId: string;
   kind: TBackgroundTaskKind;
@@ -142,6 +149,8 @@ export interface IBackgroundTaskResult {
   exitCode?: number;
   signalCode?: string;
   metadata?: Record<string, TBackgroundPrimitive>;
+  /** ANALYTICS-001 (Phase 2): total token usage of an agent task, attributed to it in the parent log. */
+  usage?: IBackgroundTaskUsage;
 }
 
 export interface IBackgroundTaskState {

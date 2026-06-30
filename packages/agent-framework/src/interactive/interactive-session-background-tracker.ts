@@ -4,6 +4,7 @@
  * integration without owning the session or store directly.
  */
 
+import { createSourceUsageSummaryEntry } from './interactive-session-execution.js';
 import {
   BackgroundJobOrchestrator,
   createBackgroundGroupExecutionEntryId,
@@ -29,6 +30,7 @@ import type {
   TBackgroundTaskEvent,
   TExecutionWorkspaceUpdateCause,
 } from '../background-tasks/index.js';
+import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type { Session } from '@robota-sdk/agent-session';
 
 export interface IBackgroundTrackerState {
@@ -57,6 +59,8 @@ export class SessionBackgroundTaskTracker {
     private readonly onWake?: (instruction: string, taskId: string) => void,
     // FLOW-003: append a user-visible system note (e.g. a missed-wake notice) to history.
     private readonly appendSystemNote?: (message: string) => void,
+    // ANALYTICS-001 (Phase 2): append a structured history entry (a source-attributed usage summary).
+    private readonly appendHistoryEntry?: (entry: IHistoryEntry) => void,
   ) {}
 
   subscribe(session: Session): void {
@@ -263,8 +267,27 @@ export class SessionBackgroundTaskTracker {
   private recordTaskEvent(event: TBackgroundTaskEvent): void {
     this.backgroundTasks = this.getTaskSnapshots();
     this.backgroundTaskEvents.push(event);
+    this.recordCompletedTaskUsage(event);
     this.persistSession();
     this.onChanged('background_task', getTaskEventEntryId(event));
+  }
+
+  /**
+   * ANALYTICS-001 (Phase 2): when a background agent task completes with token usage, append a
+   * source-attributed usage-summary to the parent history so the usage report attributes those tokens
+   * to that task (not the main thread).
+   */
+  private recordCompletedTaskUsage(event: TBackgroundTaskEvent): void {
+    if (event.type !== 'background_task_completed') return;
+    const usage = event.task.result?.usage;
+    if (!usage || usage.totalTokens <= 0) return;
+    this.appendHistoryEntry?.(
+      createSourceUsageSummaryEntry(usage, {
+        scope: 'background',
+        id: event.task.id,
+        label: event.task.agentType ?? event.task.label,
+      }),
+    );
   }
 
   private recordGroupEvent(event: TBackgroundJobGroupEvent, _sessionId: string): void {
