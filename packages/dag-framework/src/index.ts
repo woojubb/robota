@@ -17,6 +17,9 @@ export type {
 export { LocalDagRuntimeProvider } from './local-dag-runtime-provider.js';
 export type { ILocalDagRuntimeProviderOptions } from './local-dag-runtime-provider.js';
 
+export { HttpDagRuntimeProvider } from './http-dag-runtime-provider.js';
+export type { IHttpDagRuntimeProviderOptions } from './http-dag-runtime-provider.js';
+
 export { DagPromptBackend } from './adapters/prompt-backend.js';
 export { LocalFsAssetStore } from './adapters/local-fs-asset-store.js';
 export { createExecutionComposition } from './composition/create-execution-composition.js';
