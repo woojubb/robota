@@ -86,6 +86,42 @@ describe('auto lessons digest', () => {
     expect(readFileSync(commonMistakesPath, 'utf8')).toBe('human-curated\n');
   });
 
+  it('drops non-repo events (agent memory) and never leaks absolute home paths', async () => {
+    const root = createTempRoot();
+    // An absolute path OUTSIDE the workspace root — e.g. agent memory under a home dir.
+    const outsidePath = path.join(tmpdir(), 'home-user', '.claude', 'memory', 'MEMORY.md');
+    writeJsonl(root, 'blocks.jsonl', [
+      // 6 repo-relative events for the pattern → counted (>= PROMOTION_THRESHOLD).
+      ...Array.from({ length: 6 }, (_, index) => ({
+        timestamp: `2026-05-03T0${index}:00:00.000Z`,
+        session_id: 'session-c',
+        pattern: 'any-type',
+        file: `packages/example/src/file-${index}.ts`,
+        escape_attempted: false,
+      })),
+      // 4 non-repo (absolute, outside workspace) events for the same pattern → must be dropped.
+      ...Array.from({ length: 4 }, (_, index) => ({
+        timestamp: `2026-05-03T1${index}:00:00.000Z`,
+        session_id: 'session-c',
+        pattern: 'any-type',
+        file: outsidePath,
+        escape_attempted: false,
+      })),
+    ]);
+
+    await runLessonsDigest({ workspaceRoot: root, now: NOW });
+
+    const autoLessons = readText(root, '.agents/evals/lessons/auto-lessons.md');
+    const digest = readText(root, '.agents/evals/lessons/weekly-digest.md');
+
+    // The absolute non-repo path must never appear in the generated, committed lessons files.
+    expect(autoLessons).not.toContain(outsidePath);
+    expect(digest).not.toContain(outsidePath);
+    expect(autoLessons).not.toContain('/.claude/');
+    // Only the 6 repo events are counted; the 4 non-repo events are excluded from frequency.
+    expect(autoLessons).toContain('Frequency: 6 events in the last 7 days');
+  });
+
   it('collects block, correction, revert, and session aggregate hook signals', () => {
     const root = createTempRoot();
     const sourcePath = path.join(root, 'packages/example/src/provider.ts');

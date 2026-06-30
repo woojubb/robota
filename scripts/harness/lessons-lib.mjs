@@ -61,6 +61,20 @@ function getExamplePath(record) {
   return null;
 }
 
+/**
+ * Normalize an example path to a repository-relative form. Returns null for paths outside the
+ * workspace (e.g. agent memory under `~/.claude`). Such paths are not repo lessons and must never
+ * leak absolute home paths into the generated, committed lessons files — and counting them inflates
+ * path-keyed metrics (the same-file-edited signal) with non-repo churn.
+ */
+function normalizeRepoPath(examplePath, workspaceRoot) {
+  if (!examplePath) return null;
+  if (!path.isAbsolute(examplePath)) return examplePath; // already repo-relative
+  const relative = path.relative(workspaceRoot, examplePath);
+  if (relative === '' || relative.startsWith('..') || path.isAbsolute(relative)) return null;
+  return relative;
+}
+
 function toTimestamp(record) {
   if (typeof record.timestamp !== 'string') {
     return null;
@@ -100,12 +114,19 @@ export async function summarizeLessonSignals({
         continue;
       }
 
+      const examplePath = getExamplePath(record);
+      const repoPath = normalizeRepoPath(examplePath, workspaceRoot);
+      // A path-bearing event outside the repo (e.g. agent memory under ~/.claude) is not a repo
+      // lesson — drop it so it neither inflates frequency nor leaks an absolute home path.
+      if (examplePath !== null && repoPath === null) {
+        continue;
+      }
+
       const group = ensureGroup(groups, getPattern(record, metricFile.source));
       group.frequency += 1;
       group.sources.add(metricFile.source);
-      const examplePath = getExamplePath(record);
-      if (examplePath) {
-        group.examples.add(examplePath);
+      if (repoPath) {
+        group.examples.add(repoPath);
       }
       const isoTimestamp = new Date(timestamp).toISOString();
       group.firstSeen =
