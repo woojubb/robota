@@ -1,9 +1,10 @@
 import { Hono } from 'hono';
+import { streamSSE } from 'hono/streaming';
 
 import type { IDagBuildInput } from '@robota-sdk/dag-builder';
 import type { Context } from 'hono';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
-import type { IDagDefinition } from '@robota-sdk/dag-core';
+import type { IDagDefinition, TRunProgressEvent } from '@robota-sdk/dag-core';
 import type {
   IDagOrchestrationAssetUploadRequest,
   IDagOrchestrationCostMetaPreviewRequest,
@@ -23,12 +24,28 @@ function reply(c: Context, response: IDagOrchestrationHttpResponse): Response {
   return c.json(response.payload, response.status as ContentfulStatusCode);
 }
 
+/** A run-progress source the SSE stream subscribes to (structurally the framework's progress bus). */
+export interface IRunProgressSource {
+  subscribe(listener: (event: TRunProgressEvent) => void): () => void;
+}
+
+/** A run progress event is terminal when the whole execution has finished (success or failure). */
+function isTerminalProgressEvent(event: TRunProgressEvent): boolean {
+  return event.eventType === 'execution.completed' || event.eventType === 'execution.failed';
+}
+
 /**
  * Native DAG runtime HTTP server (WORKFLOW-002). Maps the `/v1/dag/*` route surface onto an
  * `IDagOrchestrationPort` — typically `createDagFramework().client` (the in-process implementation).
  * No external-runtime API surface; every handler is a uniform route → port-method → JSON-response mapping.
+ *
+ * When a `progressSource` is supplied, `GET /v1/dag/runs/:id/events` streams that run's progress as
+ * Server-Sent Events; without one, that route answers 501.
  */
-export function createDagRuntimeServer(port: IDagOrchestrationPort): Hono {
+export function createDagRuntimeServer(
+  port: IDagOrchestrationPort,
+  progressSource?: IRunProgressSource,
+): Hono {
   const app = new Hono();
 
   // --- Node catalog ---
@@ -82,6 +99,39 @@ export function createDagRuntimeServer(port: IDagOrchestrationPort): Hono {
   app.get('/v1/dag/runs/:id/result', async (c) =>
     reply(c, await port.getRunResult(c.req.param('id'))),
   );
+
+  // --- Run progress stream (SSE) ---
+  app.get('/v1/dag/runs/:id/events', (c) => {
+    const runId = c.req.param('id');
+    if (!progressSource) {
+      return c.json({ error: 'progress streaming is not available on this server' }, 501);
+    }
+    return streamSSE(c, async (stream) => {
+      // Serialize writes so the terminal event flushes before the stream closes.
+      let writeChain = stream.writeSSE({
+        event: 'open',
+        data: JSON.stringify({ dagRunId: runId }),
+      });
+      await new Promise<void>((resolve) => {
+        // `unsubscribe` is assigned synchronously; the listener only runs on later events.
+        const unsubscribe = progressSource.subscribe((event) => {
+          if (event.dagRunId !== runId) return;
+          writeChain = writeChain.then(() =>
+            stream.writeSSE({ event: event.eventType, data: JSON.stringify(event) }),
+          );
+          if (isTerminalProgressEvent(event)) {
+            unsubscribe();
+            writeChain.then(resolve, resolve);
+          }
+        });
+        stream.onAbort(() => {
+          unsubscribe();
+          resolve();
+        });
+      });
+      await writeChain;
+    });
+  });
 
   // --- Published-workflow run (start a published definition directly) ---
   app.post('/v1/dag/definitions/:dagId/start', async (c) => {
