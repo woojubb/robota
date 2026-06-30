@@ -323,13 +323,13 @@ jobs:
 
   # TERM-007 item 2 / TERM-008: verify cross-platform shell execution on real Windows.
   # The resolver + Shell tool spawn PowerShell here, so these tests exercise the win32 path
-  # that the macOS/Linux jobs (and mocked-platform unit tests) cannot. Soft-launch
-  # (continue-on-error) while the Windows toolchain stabilizes; flip to blocking once green.
+  # that the macOS/Linux jobs (and mocked-platform unit tests) cannot. Blocking: first run
+  # passed green on windows-latest (PR #900, 1m34s), so Windows shell execution is now a
+  # maintained, every-PR gate rather than a one-off pass.
   windows-shell:
     name: windows-shell
     runs-on: windows-latest
     if: github.base_ref != 'main'
-    continue-on-error: true
 
     steps:
       - uses: actions/checkout@v4

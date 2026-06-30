@@ -16,10 +16,11 @@ is audited clean, and item 2's handoff is platform-neutral/Windows-capable by co
 left to change without Windows runtime introspection. A **`windows-shell` CI job** (`.github/workflows/ci.yml`,
 `windows-latest`) now runs the resolver + Shell-tool tests on every PR — the Shell tool actually spawns
 `powershell.exe` there, giving **durable, maintained Windows shell-execution verification** (not a one-off
-pass). It is soft-launched (`continue-on-error`) while the Windows toolchain proves stable, then flips to
-blocking. The remaining gap is the **interactive TUI handoff** on real Windows Terminal (full-screen
-suspend/resume, IME) which CI cannot exercise — that still needs a manual Windows-Terminal pass. Item 3
-(PTY) is a deferred non-goal.
+pass). Its **first run passed green** (PR #900, 1m34s: `pnpm install` + agent-core build succeeded on
+Windows, the resolver tests ran, and the Shell tool spawned PowerShell and executed), so it is a
+**blocking** every-PR gate. The remaining gap is the **interactive TUI handoff** on real Windows Terminal
+(full-screen suspend/resume, IME) which CI cannot exercise — that still needs a manual Windows-Terminal
+pass. Item 3 (PTY) is a deferred non-goal.
 
 The terminal-handoff feature group ships macOS/Linux-first. The framework handoff (TERM-001) and the
 TUI suspend/resume (TERM-002) are platform-neutral by construction, so Windows work is confined to

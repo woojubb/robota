@@ -116,7 +116,8 @@ shell + syntax hint) is the mitigation. Tracked here so the tradeoff is visible.
 - **POSIX (now, this host):** built CLI — invoke the `Shell` tool with a command (e.g. `echo hi`),
   confirm stdout + exit code; run a hook `command`; run `/shell` and confirm drop-to-shell. Evidence
   recorded from the local run.
-- **Windows (deferred to a Windows pass / CI):** on Windows Terminal, the `Shell` tool runs a
-  PowerShell command, a hook `command` runs, and `/shell` drops to PowerShell. Evidence: _to be filled
-  on a Windows pass_ (this slice removes the hard `sh` failure; full Windows sign-off stays under
-  TERM-007).
+- **Windows (CI-verified for shell exec):** the `windows-shell` CI job (`windows-latest`, added in
+  TERM-007) builds agent-core and runs the resolver + Shell-tool tests on every PR — the Shell tool
+  actually spawns `powershell.exe` and executes. Evidence: **first run green** (PR #900, 1m34s). The
+  interactive `/shell` drop-to-shell + IME on real Windows Terminal is not CI-exercisable and remains a
+  manual Windows-Terminal pass tracked under TERM-007.
