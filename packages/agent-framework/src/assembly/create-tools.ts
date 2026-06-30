@@ -3,6 +3,7 @@
  */
 
 import {
+  createShellTool,
   createBashTool,
   createReadTool,
   createWriteTool,
@@ -18,7 +19,8 @@ import type { ISandboxClient } from '@robota-sdk/agent-tools';
 
 /** Human-readable descriptions of the built-in tools (for system prompt) */
 export const DEFAULT_TOOL_DESCRIPTIONS = [
-  'Bash — execute shell commands',
+  'Shell — execute host shell commands (OS-aware: bash/PowerShell)',
+  'Bash — alias of Shell (model-familiar name)',
   'Read — read file contents with line numbers',
   'Write — write content to a file',
   'Edit — replace a string in a file',
@@ -41,6 +43,7 @@ export function createDefaultTools(
   options: ICreateDefaultToolsOptions = {},
 ): IToolWithEventService[] {
   return [
+    createShellTool(options) as IToolWithEventService,
     createBashTool(options) as IToolWithEventService,
     createReadTool(options) as IToolWithEventService,
     createWriteTool(options) as IToolWithEventService,

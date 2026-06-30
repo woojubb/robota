@@ -14,6 +14,7 @@ import type { TPermissionMode, TPermissionDecision } from './types.js';
  * Tool names known to the permission system
  */
 export type TKnownToolName =
+  | 'Shell'
   | 'Bash'
   | 'Read'
   | 'Write'
@@ -29,6 +30,7 @@ export type TKnownToolName =
  */
 export const MODE_POLICY: Record<TPermissionMode, Record<TKnownToolName, TPermissionDecision>> = {
   plan: {
+    Shell: 'deny',
     Bash: 'deny',
     Read: 'auto',
     Write: 'deny',
@@ -39,6 +41,7 @@ export const MODE_POLICY: Record<TPermissionMode, Record<TKnownToolName, TPermis
     WebSearch: 'auto',
   },
   default: {
+    Shell: 'approve',
     Bash: 'approve',
     Read: 'auto',
     Write: 'approve',
@@ -49,6 +52,7 @@ export const MODE_POLICY: Record<TPermissionMode, Record<TKnownToolName, TPermis
     WebSearch: 'auto',
   },
   acceptEdits: {
+    Shell: 'approve',
     Bash: 'approve',
     Read: 'auto',
     Write: 'auto',
@@ -59,6 +63,7 @@ export const MODE_POLICY: Record<TPermissionMode, Record<TKnownToolName, TPermis
     WebSearch: 'auto',
   },
   bypassPermissions: {
+    Shell: 'auto',
     Bash: 'auto',
     Read: 'auto',
     Write: 'auto',

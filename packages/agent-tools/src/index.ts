@@ -49,7 +49,7 @@ export type {
 } from './implementations/function-tool/types';
 
 // Built-in CLI tools
-export { bashTool, createBashTool } from './builtins/bash-tool';
+export { shellTool, createShellTool, bashTool, createBashTool } from './builtins/shell-tool';
 export { readTool, createReadTool } from './builtins/read-tool';
 export { writeTool, createWriteTool } from './builtins/write-tool';
 export { editTool, createEditTool } from './builtins/edit-tool';

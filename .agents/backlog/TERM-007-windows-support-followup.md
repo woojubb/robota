@@ -17,10 +17,7 @@ framework.
 
 ## What
 
-1. **Shell selection (`resolveShell()` win32)** — implement the Windows branch of the
-   `resolveShell()` seam introduced in TERM-003/005: `%ComSpec%` (cmd.exe) or PowerShell instead of
-   `sh`. This also fixes the pre-existing gap where `BashTool` and the background runners hardcode
-   `sh` (broken on Windows today). Decide command quoting/`-c` equivalents per shell.
+1. **Shell selection (`resolveShell()` win32)** — ✅ **DONE in [TERM-008](../spec-docs/active/TERM-008-cross-platform-shell-execution.md)** (carved out and implemented): the cross-platform SSOT `resolvePlatformShell()` (agent-core) now backs the `Shell`/`Bash` tool, the hook `command` executor, and the interactive `resolveShell()` seam — POSIX `sh`/`bash` and Windows PowerShell (cmd via `ROBOTA_SHELL`), with per-OS quoting/`-c` equivalents and OS-aware command-syntax hints. The hard `sh`-only failure on Windows is removed.
 2. **Terminal capabilities (TERM-002 on Windows)** — verify the manual suspend/resume on modern
    Windows Terminal / ConPTY (Win10 1809+): VT processing enabled, cursor / alternate-screen restore
    correct, and the "only undo what was enabled" rule keeps kitty-keyboard/bracketed-paste no-ops
