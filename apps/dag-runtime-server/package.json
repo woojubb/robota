@@ -1,0 +1,52 @@
+{
+  "name": "@robota-sdk/dag-runtime-server",
+  "version": "3.0.0-beta.0",
+  "private": true,
+  "description": "Native DAG runtime HTTP server (/v1/dag/*) over Hono — native runtime surface",
+  "type": "module",
+  "main": "dist/node/index.js",
+  "types": "dist/node/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/node/index.d.ts",
+      "source": "./src/index.ts",
+      "node": {
+        "import": "./dist/node/index.js",
+        "require": "./dist/node/index.cjs"
+      },
+      "default": {
+        "import": "./dist/node/index.js",
+        "require": "./dist/node/index.cjs"
+      }
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "build:js": "tsdown --no-dts",
+    "build:types": "tsdown --dts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "clean": "rimraf dist"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.13.7",
+    "@robota-sdk/dag-builder": "workspace:*",
+    "@robota-sdk/dag-core": "workspace:*",
+    "@robota-sdk/dag-framework": "workspace:*",
+    "@robota-sdk/dag-orchestration-client": "workspace:*",
+    "hono": "^4.12.25"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.21",
+    "rimraf": "^5.0.10",
+    "tsdown": "^0.22.2",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.6"
+  },
+  "license": "AGPL-3.0-only OR LicenseRef-Commercial"
+}

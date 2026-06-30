@@ -18,16 +18,16 @@ All rules are mandatory and non-negotiable. Domain-specific rules live in
 
 ## Process Sub-Rules (linked from process.md)
 
-| Document                                       | Scope                                                                            |
-| ---------------------------------------------- | -------------------------------------------------------------------------------- |
-| [spec-workflow.md](spec-workflow.md)           | Spec-first development, document authority, structural docs                      |
-| [tdd-and-planning.md](tdd-and-planning.md)     | TDD red-green-refactor, planning requirements                                    |
-| [verification.md](verification.md)             | Build, browser, harness, and pre-push verification gates                         |
-| [testing-layering.md](testing-layering.md)     | CLI = thin-wrapper/TUI tests only; feature behaviour = framework functional test |
-| [publish.md](publish.md)                       | Package publish safety gate and scope approval                                   |
-| [release-operations.md](release-operations.md) | Release state machine, CI triage, long-running gates, publish flow               |
-| [documentation-sync.md](documentation-sync.md) | Document role, package README, and robota.io documentation gates                 |
-| [research.md](research.md)                     | Research-first implementation and recommendation authority                       |
-| [backlog-execution.md](backlog-execution.md)   | Backlog recommendation gates, user execution test scenario gates, initiative PRs |
-| [operational.md](operational.md)               | No fallback policy, idea capture, feature documentation                          |
-| [learning-loop.md](learning-loop.md)           | Lesson capture and mechanical enforcement preference                             |
+| Document                                       | Scope                                                                             |
+| ---------------------------------------------- | --------------------------------------------------------------------------------- |
+| [spec-workflow.md](spec-workflow.md)           | Spec-first development, document authority, structural docs                       |
+| [tdd-and-planning.md](tdd-and-planning.md)     | TDD red-green-refactor, planning requirements                                     |
+| [verification.md](verification.md)             | Build, browser, harness, and pre-push verification gates                          |
+| [testing-layering.md](testing-layering.md)     | CLI = thin-wrapper/TUI tests only; feature behaviour = framework functional test  |
+| [publish.md](publish.md)                       | Package publish safety gate and scope approval                                    |
+| [release-operations.md](release-operations.md) | Release state machine, CI triage, long-running gates, publish flow                |
+| [documentation-sync.md](documentation-sync.md) | Document role, package README, and robota.io documentation gates                  |
+| [research.md](research.md)                     | Research-first implementation and recommendation authority                        |
+| [backlog-execution.md](backlog-execution.md)   | Backlog recommendation gates, user execution test scenario gates, initiative PRs  |
+| [operational.md](operational.md)               | No fallback policy, idea capture, feature documentation                           |
+| [learning-loop.md](learning-loop.md)           | Lesson capture, contract-before-automation, and mechanical enforcement preference |

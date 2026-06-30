@@ -1,0 +1,82 @@
+{
+  "name": "@robota-sdk/dag-mcp-server",
+  "version": "3.0.0-beta.60",
+  "description": "MCP server for robota-dag — AI agents build and run DAG workflows",
+  "type": "module",
+  "bin": {
+    "robota-dag-mcp": "./dist/node/bin.js"
+  },
+  "main": "dist/node/index.js",
+  "types": "dist/node/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/node/index.d.ts",
+      "node": {
+        "import": "./dist/node/index.js",
+        "require": "./dist/node/index.cjs"
+      },
+      "default": {
+        "import": "./dist/node/index.js",
+        "require": "./dist/node/index.cjs"
+      }
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsdown && rm -f dist/node/bin.cjs dist/node/bin.d.cts",
+    "build:js": "tsdown --no-dts && rm -f dist/node/bin.cjs",
+    "build:types": "tsdown --dts && rm -f dist/node/bin.cjs dist/node/bin.d.cts",
+    "test": "vitest run --passWithNoTests",
+    "test:coverage": "vitest run --coverage --passWithNoTests",
+    "lint": "eslint src --ext .ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "clean": "rimraf dist",
+    "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
+  },
+  "keywords": [
+    "robota",
+    "dag",
+    "mcp",
+    "orchestration",
+    "model-context-protocol",
+    "ai-agent",
+    "agent-workflow",
+    "workflow-orchestration",
+    "llm-pipeline",
+    "claude",
+    "anthropic",
+    "openai",
+    "gemini",
+    "typescript"
+  ],
+  "author": "Robota SDK Team",
+  "license": "AGPL-3.0-only OR LicenseRef-Commercial",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@robota-sdk/dag-core": "workspace:*",
+    "@robota-sdk/dag-orchestration-client": "workspace:*",
+    "@robota-sdk/dag-builder": "workspace:*"
+  },
+  "peerDependencies": {
+    "@robota-sdk/dag-framework": "workspace:*"
+  },
+  "peerDependenciesMeta": {
+    "@robota-sdk/dag-framework": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@robota-sdk/dag-framework": "workspace:*",
+    "tsdown": "^0.22.2"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "private": false
+}

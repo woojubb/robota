@@ -1,5 +1,7 @@
 # Agent CLI Execution Modes
 
+Part of the [agent-cli composition map](../agent-cli-composition.md).
+
 Source-verified against `develop` on 2026-06-14.
 
 Interactive TUI and non-interactive print-mode execution paths.

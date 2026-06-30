@@ -1,0 +1,94 @@
+{
+  "name": "@robota-sdk/dag-cli",
+  "version": "3.0.0-beta.60",
+  "description": "DAG for AI agents — build and run AI pipelines via MCP or CLI",
+  "type": "module",
+  "bin": {
+    "robota-dag": "./dist/node/bin.js"
+  },
+  "main": "dist/node/index.js",
+  "types": "dist/node/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/node/index.d.ts",
+      "node": {
+        "import": "./dist/node/index.js",
+        "require": "./dist/node/index.cjs"
+      },
+      "default": {
+        "import": "./dist/node/index.js",
+        "require": "./dist/node/index.cjs"
+      }
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsdown && rm -f dist/node/bin.cjs dist/node/bin.d.cts",
+    "build:js": "tsdown --no-dts && rm -f dist/node/bin.cjs",
+    "build:types": "tsdown --dts && rm -f dist/node/bin.cjs dist/node/bin.d.cts",
+    "test": "vitest run --passWithNoTests",
+    "test:coverage": "vitest run --coverage --passWithNoTests",
+    "lint": "eslint src --ext .ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "clean": "rimraf dist",
+    "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
+  },
+  "keywords": [
+    "robota",
+    "dag",
+    "cli",
+    "orchestration",
+    "mcp",
+    "model-context-protocol",
+    "ai-agent",
+    "agent-workflow",
+    "workflow-orchestration",
+    "llm-pipeline",
+    "claude",
+    "anthropic",
+    "openai",
+    "gemini",
+    "typescript"
+  ],
+  "author": "Robota SDK Team",
+  "license": "AGPL-3.0-only OR LicenseRef-Commercial",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@anthropic-ai/sdk": "^0.91.1",
+    "openai": "^4.104.0",
+    "@google/genai": "^1.52.0",
+    "zod": "^3.24.4"
+  },
+  "devDependencies": {
+    "@robota-sdk/dag-adapters-local": "workspace:*",
+    "@robota-sdk/dag-api": "workspace:*",
+    "@robota-sdk/dag-builder": "workspace:*",
+    "@robota-sdk/dag-core": "workspace:*",
+    "@robota-sdk/dag-framework": "workspace:*",
+    "@robota-sdk/dag-node": "workspace:*",
+    "@robota-sdk/dag-node-file-read": "workspace:*",
+    "@robota-sdk/dag-node-file-write": "workspace:*",
+    "@robota-sdk/dag-node-gemini-image-edit": "workspace:*",
+    "@robota-sdk/dag-node-http-request": "workspace:*",
+    "@robota-sdk/dag-node-instant-node": "workspace:*",
+    "@robota-sdk/dag-node-llm-text-anthropic": "workspace:*",
+    "@robota-sdk/dag-node-llm-text-deepseek": "workspace:*",
+    "@robota-sdk/dag-node-llm-text-gemini": "workspace:*",
+    "@robota-sdk/dag-node-llm-text-openai": "workspace:*",
+    "@robota-sdk/dag-node-llm-text-qwen": "workspace:*",
+    "@robota-sdk/dag-node-llm-text-router": "workspace:*",
+    "@robota-sdk/dag-node-mcp-tool": "workspace:*",
+    "@robota-sdk/dag-orchestration-client": "workspace:*",
+    "tsdown": "^0.22.2"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "private": false
+}

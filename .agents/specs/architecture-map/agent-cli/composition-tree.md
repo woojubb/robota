@@ -1,5 +1,7 @@
 # Agent CLI Composition Tree
 
+Part of the [agent-cli composition map](../agent-cli-composition.md).
+
 Source-verified against `develop` on 2026-06-14.
 
 This document owns the concrete startup tree from `packages/agent-cli/src/bin.ts` through

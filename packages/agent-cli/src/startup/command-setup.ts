@@ -18,6 +18,7 @@ import {
   createDefaultCommandModules,
   createDefaultPluginCommandAdapter,
 } from '@robota-sdk/agent-command';
+import { createWorkflowsCommandModule } from '@robota-sdk/agent-command-workflows';
 import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider';
 import type { IParsedCliArgs } from '../utils/cli-args.js';
 
@@ -75,6 +76,8 @@ export function buildCommandSetup(
         ? { disabledCommandModules: moduleSelection.disabledCommandModules }
         : {}),
     }),
+    // DAG workflow engine surfaced as `/workflows` (WORKFLOW-003); composes dag-framework, not dag-cli.
+    createWorkflowsCommandModule(),
     ...(options.commandModules ?? []),
   ];
   const startupUpdateNoticePromise = shouldRunStartupCliUpdateCheck(args)

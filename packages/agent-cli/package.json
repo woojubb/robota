@@ -53,6 +53,7 @@
   },
   "dependencies": {
     "@robota-sdk/agent-command": "workspace:*",
+    "@robota-sdk/agent-command-workflows": "workspace:*",
     "@robota-sdk/agent-core": "workspace:*",
     "@robota-sdk/agent-framework": "workspace:*",
     "@robota-sdk/agent-preset": "workspace:*",

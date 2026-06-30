@@ -79,10 +79,10 @@ Provider profile identity is the settings profile key, not provider `type` or mo
 
 ## API Boundary
 
-| Surface          | Owner    | Mutability | Purpose                                              |
-| ---------------- | -------- | ---------- | ---------------------------------------------------- |
-| Runtime API      | External | Immutable  | ComfyUI-compatible prompt API. Must not be modified. |
-| Orchestrator API | Robota   | Modifiable | Cost, auth, retry, and routing policies live here.   |
+| Surface          | Owner  | Mutability | Purpose                                                                                                                           |
+| ---------------- | ------ | ---------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Runtime API      | Robota | Stable     | Native execution contract (in-process provider + native `/v1/dag/*` server). Evolved deliberately, not pinned to an external API. |
+| Orchestrator API | Robota | Modifiable | Cost, auth, retry, and routing policies live here.                                                                                |
 
 ## Agent CLI Detail Map
 

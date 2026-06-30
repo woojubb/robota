@@ -27,6 +27,10 @@ const SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/check-capability-placement.mjs'],
   },
   {
+    name: 'nested-package-glob-coverage',
+    command: ['node', 'scripts/harness/check-nested-package-glob-coverage.mjs'],
+  },
+  {
     name: 'background-workspace',
     command: ['node', 'scripts/harness/check-background-workspace-conformance.mjs'],
   },
@@ -40,6 +44,26 @@ const SCAN_COMMANDS = [
   {
     name: 'arch-map-paths',
     command: ['node', 'scripts/harness/check-architecture-map-paths.mjs'],
+  },
+  {
+    name: 'arch-map-completeness',
+    command: ['node', 'scripts/harness/check-architecture-map-completeness.mjs'],
+  },
+  {
+    name: 'document-standards',
+    command: ['node', 'scripts/harness/check-document-standards-index.mjs'],
+  },
+  {
+    name: 'design-doc',
+    command: ['node', 'scripts/harness/check-design-doc-completeness.mjs'],
+  },
+  {
+    name: 'adr',
+    command: ['node', 'scripts/harness/check-adr-completeness.mjs'],
+  },
+  {
+    name: 'spec-doc-frontmatter',
+    command: ['node', 'scripts/harness/check-spec-doc-frontmatter.mjs'],
   },
   {
     name: 'spec-public-surface',

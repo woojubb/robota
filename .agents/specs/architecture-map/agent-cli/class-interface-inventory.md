@@ -1,5 +1,7 @@
 # Agent CLI Class and Interface Inventory
 
+Part of the [agent-cli composition map](../agent-cli-composition.md).
+
 Source-verified against `develop` on 2026-06-14.
 
 LLM-scannable inventory of CLI composition classes, hooks, interfaces, command modules, provider

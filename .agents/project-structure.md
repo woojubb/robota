@@ -12,6 +12,7 @@ packages/
 ├── agent-preset/                # Preset contract (IPreset) + resolvePreset + built-in presets (depends on agent-framework only)
 ├── agent-subagent-runner/       # Optional: child-process subagent runner + worker (depends on agent-framework + agent-provider)
 ├── agent-command/               # Command modules: agent, background, compact, context, exit, help, language, memory, mode, model, permissions, plugin, provider, reset, rewind, session, settings, skills, statusline, user-local
+├── agent-command-*/             # Command-module bridge packages to other subsystems (e.g. agent-command-workflows: surfaces the DAG engine as `/workflows`, composing dag-framework)
 ├── agent-cli/                   # Terminal UI and local runtime adapters
 ├── agent-web-ui/                # Browser React component library for monitoring a CLI session over WebSocket (product shell, browser-only)
 ├── agent-provider/              # Provider packages: anthropic, openai, openai-compatible, deepseek, gemma, qwen, gemini, google, bytedance
@@ -22,7 +23,25 @@ packages/
 ├── agent-transport/             # Transport core: headless adapter + transport registry + scripted-provider testing fixtures (pure TS)
 ├── agent-transport-*/           # Per-concern transport implementations: agent-transport-tui (React/Ink), -ws (WebSocket), -http (Hono), -mcp (MCP)
 ├── agent-testing/               # General test framework: domain-free test-environment tooling (PTY runner spawnPty/spawnPtyFixture); zero @robota-sdk deps, devDependency. Charter+placement rule in its SPEC (contracts→agent-interface-*, doubles→owner /testing, drivers→owning module)
-└── agent-plugin/                # Plugins: conversation-history, logging, usage, performance, execution-analytics, error-handling, limits, event-emitter, webhook
+├── agent-plugin/                # Plugins: conversation-history, logging, usage, performance, execution-analytics, error-handling, limits, event-emitter, webhook
+│
+│   # DAG subsystem (workflow engine; absorbed via WORKFLOW-001, decoupled from the external workflow runtime)
+├── dag-core/                    # DAG foundation: runtime-provider + workflow-file contracts, engine types, lifecycle services
+├── dag-framework/               # DAG assembly: createDagFramework, local in-process runtime provider, default node registry
+├── dag-runtime/                 # DAG run orchestration services: create/start/query/cancel run lifecycle
+├── dag-worker/                  # DAG worker-loop driver and in-process execution
+├── dag-node/                    # DAG node-definition assembly + manifests
+├── dag-builder/                 # DAG definition ↔ `.dag.json` workflow-file conversion
+├── dag-projection/              # DAG run projection / read models
+├── dag-cost/                    # DAG cost-metadata domain types
+├── dag-orchestration-client/    # Thin HTTP client + contracts for DAG orchestration endpoints
+├── dag-api/                     # DAG server-side API response mapping/contracts
+├── dag-cli/                     # DAG command-line product (`robota-dag`): run/validate/build/catalog/mcp
+├── dag-mcp-server/              # Standalone MCP server exposing DAG orchestration tools
+├── dag-scheduler/               # DAG scheduled-run triggering
+├── dag-adapters-local/          # DAG in-memory persistence/queue/clock adapters
+├── dag-adapters-sqlite/         # DAG SQLite persistence adapter
+└── dag-nodes/*/                 # DAG node-family packages (`@robota-sdk/dag-node-*`): llm-text providers, image edit, http, file r/w, mcp-tool, router, instant-node
 apps/
 ├── action/                 # Official GitHub Action wrapper for the CLI (robota-sdk/action)
 ├── agent-web/              # Web application (Agent Playground)
@@ -30,7 +49,8 @@ apps/
 ├── docs/                   # Documentation site
 ├── starter-nextjs/         # Next.js SDK starter template (PM-029)
 ├── www/                    # Marketing site (robota.io)
-└── agent-server/           # AI provider proxy + Playground WebSocket
+├── agent-server/           # AI provider proxy + Playground WebSocket
+└── dag-runtime-server/     # Native DAG runtime HTTP server (`/v1/dag/*` over Hono); serves dag-framework's IDagOrchestrationPort, native runtime surface, no external-runtime API (WORKFLOW-002)
 ```
 
 ## Planned Packages (Not Yet Created)

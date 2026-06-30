@@ -1,5 +1,7 @@
 # Agent CLI Target Architecture and Dependencies
 
+Part of the [agent-cli composition map](../agent-cli-composition.md).
+
 Source-verified against `develop` on 2026-06-14.
 
 Target CLI ownership model and dependency graph.

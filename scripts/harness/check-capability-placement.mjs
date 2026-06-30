@@ -95,8 +95,12 @@ const DOCUMENTED_WORKSPACE_PATTERNS = [
   { pathPattern: /^packages\/agent-team$/, textPattern: /agent-team/ },
   { pathPattern: /^packages\/agent-subagent-runner$/, textPattern: /agent-subagent-runner/ },
   { pathPattern: /^packages\/agent-event-service$/, textPattern: /agent-event-service/ },
+  // DAG subsystem (WORKFLOW-001): top-level engine/surface packages + node-family packages.
+  { pathPattern: /^packages\/dag-[^/]+$/, textPattern: /dag-core\// },
+  { pathPattern: /^packages\/dag-nodes\/[^/]+$/, textPattern: /dag-nodes\/\*/ },
   { pathPattern: /^apps\/agent-web$/, textPattern: /agent-web/ },
   { pathPattern: /^apps\/agent-server$/, textPattern: /agent-server/ },
+  { pathPattern: /^apps\/dag-runtime-server$/, textPattern: /dag-runtime-server/ },
   { pathPattern: /^apps\/docs$/, textPattern: /(?:apps\/)?docs\// },
   { pathPattern: /^apps\/blog$/, textPattern: /(?:apps\/)?blog\// },
   { pathPattern: /^apps\/action$/, textPattern: /(?:apps\/)?action\// },

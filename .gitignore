@@ -114,6 +114,9 @@ apps/**/README.md
 apps/api-server/.local-assets/
 apps/api-server/.dag-storage/
 
+# dag-cli runtime working directory (catalog/nodes/runs.db/run-history) — never commit local run state
+.dag/
+
 # Lock files from other package managers
 bun.lock
 

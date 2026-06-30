@@ -53,10 +53,18 @@ basis, tag derivation, and test strategy mapping.
 
 ## File Naming
 
-`<TYPE-PREFIX>-<NNN>-<kebab-slug>.md` — e.g., `BEHAVIOR-001-session-abort.md`,
-`API-003-playground-catalog.md`.
+`<NAMESPACE>-<NNN>-<kebab-slug>.md` — e.g., `CLI-035-path-traversal-protection.md`,
+`PM-025-cost-accuracy.md`, `WORKFLOW-001-absorb-dag.md`.
 
-Each number is unique within its prefix group. The prefix comes from the `type` frontmatter field.
+The filename **`<NAMESPACE>`** is an initiative / domain label (`CLI`, `PM`, `PRESET`, `HARNESS`,
+`SITE`, `WORKFLOW`, …) — it groups related work. It is **orthogonal to the `type` frontmatter**, which
+is the SDLC classification (one of the 11 below). The two answer different questions: the namespace says
+_which initiative_, `type` says _which SDLC category_. So `CLI-035` may be `type: SECURITY` and
+`CLI-042` may be `type: PERF`. A namespace MAY coincide with a type name (`RULE-001` is `type: RULE`),
+but that is not required. `<NNN>` should be unique within its namespace.
+
+Frontmatter validity (`status`, `type` ∈ 11, `tags` present) is enforced by
+`scripts/harness/check-spec-doc-frontmatter.mjs` (`RULE-011`).
 
 ## Process
 

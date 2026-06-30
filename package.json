@@ -52,8 +52,14 @@
     "harness:scan:sdk-react-free": "node scripts/harness/check-sdk-react-free.mjs",
     "harness:scan:consistency": "node scripts/harness/scan-consistency.mjs",
     "harness:scan:document-authority": "node scripts/harness/check-document-authority.mjs",
+    "harness:scan:document-standards": "node scripts/harness/check-document-standards-index.mjs",
+    "harness:scan:arch-map-completeness": "node scripts/harness/check-architecture-map-completeness.mjs",
+    "harness:scan:design-doc": "node scripts/harness/check-design-doc-completeness.mjs",
+    "harness:scan:adr": "node scripts/harness/check-adr-completeness.mjs",
+    "harness:scan:spec-doc-frontmatter": "node scripts/harness/check-spec-doc-frontmatter.mjs",
     "harness:scan:commands": "node scripts/harness/check-command-layering.mjs",
     "harness:scan:capability-placement": "node scripts/harness/check-capability-placement.mjs",
+    "harness:scan:nested-package-glob-coverage": "node scripts/harness/check-nested-package-glob-coverage.mjs",
     "harness:scan:background-workspace": "node scripts/harness/check-background-workspace-conformance.mjs",
     "harness:scan:agent-server-boundary": "node scripts/harness/check-agent-server-boundary.mjs",
     "harness:scan:sdk-public-surface": "node scripts/harness/check-sdk-public-surface.mjs",
@@ -188,7 +194,8 @@
       "form-data@<2.5.6": "^2.5.6",
       "form-data@^4.0.0": "^4.0.6",
       "postcss@<8.5.10": ">=8.5.10",
-      "dompurify@<3.4.11": ">=3.4.11"
+      "dompurify@<3.4.11": ">=3.4.11",
+      "@anthropic-ai/sdk@<0.91.1": ">=0.91.1"
     },
     "auditConfig": {
       "ignoreCves": [
@@ -202,6 +209,7 @@
   },
   "workspaces": [
     "packages/*",
+    "packages/dag-nodes/*",
     "apps/*",
     "examples/*"
   ],
