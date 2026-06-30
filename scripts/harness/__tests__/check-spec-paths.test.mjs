@@ -61,4 +61,15 @@ describe('check-spec-paths', () => {
     expect(findings).toHaveLength(1);
     expect(findings[0].detail).toContain('packages/bar/src/gone.ts');
   });
+
+  it('covers nested package-group members (e.g. packages/dag-nodes/<name>)', async () => {
+    const root = await createFixture({
+      // The group container itself owns no SPEC.md — only its members do.
+      'packages/group/member/docs/SPEC.md': '- `src/ghost.ts` — deleted\n',
+    });
+    const findings = await findSpecPathFindings(root);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].detail).toContain('src/ghost.ts');
+    expect(findings[0].file).toContain(path.join('group', 'member'));
+  });
 });

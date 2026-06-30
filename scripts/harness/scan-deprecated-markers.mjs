@@ -17,6 +17,8 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
+import { listManifestPackageDirs } from './workspace-packages.mjs';
+
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
 const DEPRECATED_MARKER = '@deprecated';
@@ -40,14 +42,10 @@ function walkSources(dir) {
 
 export function findDeprecatedMarkerFindings(root = WORKSPACE_ROOT) {
   const findings = [];
-  const packagesDir = path.join(root, 'packages');
-  if (!existsSync(packagesDir)) return findings;
 
-  for (const entry of readdirSync(packagesDir, { withFileTypes: true })) {
-    if (!entry.isDirectory()) continue;
-    const packageDir = path.join(packagesDir, entry.name);
+  // Nesting-aware: covers depth-1 packages and nested group members (e.g. packages/dag-nodes/<name>).
+  for (const packageDir of listManifestPackageDirs(root)) {
     const pkgPath = path.join(packageDir, 'package.json');
-    if (!existsSync(pkgPath)) continue;
     const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
     if (pkg.private === true) continue;
 

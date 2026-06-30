@@ -14,8 +14,10 @@
  * Exit code 0 = clean, 1 = findings.
  */
 
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
+
+import { listSpecPackageDirs } from './workspace-packages.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
@@ -24,17 +26,11 @@ const REPO_PATH_PATTERN =
   /packages\/[\w-]+\/(?:src|scripts|bin)\/[\w\-./]+\.(?:tsx|ts|mjs|cjs)(?!\w)/g;
 
 function listSpecFiles(root) {
-  const packagesDir = path.join(root, 'packages');
-  if (!existsSync(packagesDir)) return [];
-  const specs = [];
-  for (const entry of readdirSync(packagesDir, { withFileTypes: true })) {
-    if (!entry.isDirectory()) continue;
-    const specPath = path.join(packagesDir, entry.name, 'docs', 'SPEC.md');
-    if (existsSync(specPath)) {
-      specs.push({ packageDir: path.join(packagesDir, entry.name), specPath });
-    }
-  }
-  return specs;
+  // Nesting-aware: covers depth-1 packages and nested group members (e.g. packages/dag-nodes/<name>).
+  return listSpecPackageDirs(root).map((packageDir) => ({
+    packageDir,
+    specPath: path.join(packageDir, 'docs', 'SPEC.md'),
+  }));
 }
 
 export async function findSpecPathFindings(root = WORKSPACE_ROOT) {
