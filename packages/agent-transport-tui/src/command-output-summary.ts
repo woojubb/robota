@@ -2,7 +2,7 @@ import type { TUniversalValue } from '@robota-sdk/agent-core';
 
 const MAX_PREVIEW_LINES = 4;
 const SUCCESS_EXIT_CODE = 0;
-const COMMAND_TOOL_NAMES = new Set(['Bash', 'BackgroundProcess']);
+const COMMAND_TOOL_NAMES = new Set(['Shell', 'Bash', 'BackgroundProcess']);
 
 export interface ICommandOutputInput {
   toolName: string;

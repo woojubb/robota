@@ -10,7 +10,7 @@ import type {
 } from '@robota-sdk/agent-core';
 
 const FILE_MUTATION_TOOLS = new Set(['Write', 'Edit']);
-const HOST_SHELL_TOOLS = new Set(['Bash', 'BackgroundProcess']);
+const HOST_SHELL_TOOLS = new Set(['Shell', 'Bash', 'BackgroundProcess']);
 const READ_ONLY_TOOLS = new Set(['Read', 'Glob', 'Grep', 'WebFetch', 'WebSearch']);
 
 export type TReversibleExecutionIsolation = 'none' | 'worktree' | 'provider-sandbox';

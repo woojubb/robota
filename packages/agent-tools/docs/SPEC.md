@@ -36,10 +36,10 @@ sandbox/
   e2b-sandbox-client.ts          -- structural adapter for E2B-compatible sandboxes
   workspace-manifest.ts          -- workspace manifest validation and generic sandbox application
 builtins/
-  index.ts              -- Re-exports all 8 built-in CLI tools + classifyFetchError
+  index.ts              -- Re-exports all built-in CLI tools + classifyFetchError
   atomic-file-write.ts  -- Same-directory temp write + atomic rename helper for UTF-8 file replacement
   path-guard.ts         -- checkPathWithinCwd: path traversal guard for host-local tool operations
-  bash-tool.ts          -- Bash: execute shell commands
+  shell-tool.ts         -- Shell + Bash (alias): execute host shell commands; OS-aware (PowerShell on Windows) via agent-core resolvePlatformShell
   read-tool.ts          -- Read: read file contents with line numbers
   write-tool.ts         -- Write: write content to a file
   edit-tool.ts          -- Edit: replace a string in a file
@@ -134,7 +134,8 @@ Types owned by this package (SSOT):
 
 | Export          | Kind   | Tool Name   | Description                                                                              |
 | --------------- | ------ | ----------- | ---------------------------------------------------------------------------------------- |
-| `bashTool`      | Object | `Bash`      | Execute shell commands via host process by default                                       |
+| `shellTool`     | Object | `Shell`     | Execute host shell commands; OS-aware (POSIX `sh`/`bash`, Windows PowerShell)            |
+| `bashTool`      | Object | `Bash`      | Model-familiar alias of `Shell` — same OS-aware implementation                           |
 | `readTool`      | Object | `Read`      | Read file contents with line numbers (cat -n)                                            |
 | `writeTool`     | Object | `Write`     | Write content to a file (creates parent dirs)                                            |
 | `editTool`      | Object | `Edit`      | Replace a specific string in a file                                                      |
@@ -147,7 +148,7 @@ Types owned by this package (SSOT):
 
 Each built-in tool is an `IToolWithEventService`-compatible object with `getName()`, `getDescription()`, `getSchema()`, and `execute()` methods.
 
-`createBashTool`, `createReadTool`, `createWriteTool`, and `createEditTool` create sandbox-aware tool instances. When an `ISandboxClient` is supplied, Bash command execution plus Read/Write/Edit filesystem operations are routed through the sandbox client. When no sandbox client is supplied, the singleton exports keep existing host-local behavior.
+`createShellTool` (and its alias `createBashTool`), `createReadTool`, `createWriteTool`, and `createEditTool` create sandbox-aware tool instances. When an `ISandboxClient` is supplied, shell command execution plus Read/Write/Edit filesystem operations are routed through the sandbox client. When no sandbox client is supplied, the singleton exports keep host-local behavior, resolving the shell per-OS through agent-core's `resolvePlatformShell` (POSIX `sh`/`bash`, Windows PowerShell). The `Shell` tool's description is built dynamically from the resolved shell so the model writes syntax the host shell can run.
 
 **WriteTool output**: Reports actual UTF-8 byte count via `Buffer.byteLength(content, 'utf8')`, not JS `content.length` (which is character count and differs for multibyte content).
 
@@ -200,12 +201,12 @@ None. `FunctionTool` implements its interface directly (`implements IFunctionToo
 
 ### Cross-Package Port Consumers
 
-| Port (Owner)                       | Consumer                                       | Location                                                                     |
-| ---------------------------------- | ---------------------------------------------- | ---------------------------------------------------------------------------- |
-| `IFunctionTool` (agent-core)       | `FunctionTool`                                 | `src/implementations/function-tool.ts`                                       |
-| `IToolWithEventService` shape      | Built-in CLI tools                             | `src/builtins/*.ts`                                                          |
-| `ISandboxClient` (agent-tools)     | Built-in CLI tool factories                    | `src/builtins/bash-tool.ts`, `read-tool.ts`, `write-tool.ts`, `edit-tool.ts` |
-| `IWorkspaceManifest` (agent-tools) | `agent-framework` interactive session assembly | `packages/agent-framework/src/interactive/interactive-session-options.ts`    |
+| Port (Owner)                       | Consumer                                       | Location                                                                      |
+| ---------------------------------- | ---------------------------------------------- | ----------------------------------------------------------------------------- |
+| `IFunctionTool` (agent-core)       | `FunctionTool`                                 | `src/implementations/function-tool.ts`                                        |
+| `IToolWithEventService` shape      | Built-in CLI tools                             | `src/builtins/*.ts`                                                           |
+| `ISandboxClient` (agent-tools)     | Built-in CLI tool factories                    | `src/builtins/shell-tool.ts`, `read-tool.ts`, `write-tool.ts`, `edit-tool.ts` |
+| `IWorkspaceManifest` (agent-tools) | `agent-framework` interactive session assembly | `packages/agent-framework/src/interactive/interactive-session-options.ts`     |
 
 ## Test Strategy
 

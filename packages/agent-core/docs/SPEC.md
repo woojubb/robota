@@ -256,6 +256,21 @@ canonical location for env-ref logic; all higher layers import from here.
 | `resolveEnvReference`      | function | Resolve `$ENV:<name>` → `process.env[name]`; return value or `undefined`  |
 | `hasUsableSecretReference` | function | Return true when the value is a non-empty string that resolves to a value |
 
+### Cross-platform Shell Resolution
+
+Zero-dependency SSOT (TERM-008) for "which shell to spawn, and how". Pure function of `(env, platform)`
+so every per-OS branch is testable without touching the host. Consumed by every shell-running site:
+the `Shell`/`Bash` tool (agent-tools), the hook `command` executor, and the interactive drop-to-shell
+(agent-command). Resolution: `ROBOTA_SHELL` override wins on any platform; **win32** → PowerShell (cmd
+via override); **posix** → `$SHELL` else `/bin/sh`. The returned `syntaxHint`/`label` name the OS family
+(macOS BSD vs Linux GNU vs Windows PowerShell) so an LLM authoring commands avoids cross-OS flag mistakes.
+
+| Export                 | Kind      | Description                                                                                 |
+| ---------------------- | --------- | ------------------------------------------------------------------------------------------- |
+| `resolvePlatformShell` | function  | Resolve the active shell for `(env, platform)` → `IPlatformShell`                           |
+| `IPlatformShell`       | interface | `command`, `kind`, `platform`, `commandArgs(cmd)`, `interactiveArgs`, `label`, `syntaxHint` |
+| `TShellKind`           | type      | `'bash' \| 'sh' \| 'powershell' \| 'cmd'`                                                   |
+
 ### Hooks
 
 | Export                   | Kind      | Description                                                                                                                                                                             |

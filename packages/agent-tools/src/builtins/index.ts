@@ -1,5 +1,5 @@
 // Built-in CLI tools
-export { bashTool, createBashTool } from './bash-tool.js';
+export { shellTool, createShellTool, bashTool, createBashTool } from './shell-tool.js';
 export { readTool, createReadTool } from './read-tool.js';
 export { writeTool, createWriteTool } from './write-tool.js';
 export { editTool, createEditTool } from './edit-tool.js';

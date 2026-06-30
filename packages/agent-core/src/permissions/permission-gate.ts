@@ -66,7 +66,7 @@ function parsePattern(pattern: string): { toolName: string; argPattern: string |
 /**
  * Return the "primary" argument value for a tool to match against argument patterns.
  * The matching argument depends on the tool:
- *   Bash → args.command
+ *   Shell/Bash → args.command
  *   Read → args.filePath
  *   Write → args.filePath
  *   Edit → args.filePath
@@ -75,6 +75,7 @@ function parsePattern(pattern: string): { toolName: string; argPattern: string |
  */
 function primaryArg(toolName: string, args: TToolArgs): string | undefined {
   switch (toolName) {
+    case 'Shell':
     case 'Bash':
       return typeof args['command'] === 'string' ? args['command'] : undefined;
     case 'Read':

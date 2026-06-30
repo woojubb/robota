@@ -44,18 +44,21 @@ const agent = new Robota({
 });
 ```
 
-## Built-in Tools (8)
+## Built-in Tools
 
-| Export          | Tool Name | Description                                               |
-| --------------- | --------- | --------------------------------------------------------- |
-| `bashTool`      | Bash      | Execute shell commands via host process or sandbox client |
-| `readTool`      | Read      | Read file contents with line numbers (cat -n)             |
-| `writeTool`     | Write     | Write content to a file (creates parent dirs)             |
-| `editTool`      | Edit      | Replace a specific string in a file                       |
-| `globTool`      | Glob      | Find files matching a glob pattern (fast-glob)            |
-| `grepTool`      | Grep      | Search file contents with regex patterns                  |
-| `webFetchTool`  | WebFetch  | Fetch URL content (HTML-to-text conversion)               |
-| `webSearchTool` | WebSearch | Web search via Brave Search API                           |
+| Export          | Tool Name | Description                                                                   |
+| --------------- | --------- | ----------------------------------------------------------------------------- |
+| `shellTool`     | Shell     | Execute host shell commands; OS-aware (POSIX `sh`/`bash`, Windows PowerShell) |
+| `bashTool`      | Bash      | Model-familiar alias of `Shell` — same OS-aware implementation                |
+| `readTool`      | Read      | Read file contents with line numbers (cat -n)                                 |
+| `writeTool`     | Write     | Write content to a file (creates parent dirs)                                 |
+| `editTool`      | Edit      | Replace a specific string in a file                                           |
+| `globTool`      | Glob      | Find files matching a glob pattern (fast-glob)                                |
+| `grepTool`      | Grep      | Search file contents with regex patterns                                      |
+| `webFetchTool`  | WebFetch  | Fetch URL content (HTML-to-text conversion)                                   |
+| `webSearchTool` | WebSearch | Web search via Brave Search API                                               |
+
+`Shell` and `Bash` are two registered names for one OS-aware implementation: the shell is resolved per-OS and the tool description names the active OS/shell so the model writes the right syntax (e.g. macOS BSD vs Linux GNU utilities differ).
 
 Factory exports (`createBashTool`, `createReadTool`, `createWriteTool`, `createEditTool`) accept an optional `sandboxClient`. The default singleton exports keep host-local behavior.
 
