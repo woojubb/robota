@@ -51,11 +51,26 @@ describe('BackgroundTaskPanel', () => {
     expect(frame).not.toContain('agent_3');
   });
 
-  it('advertises the Ctrl+B drill-in (SCREEN-013)', () => {
+  it('advertises the keyboard drill-in when not focused (SCREEN-013/014)', () => {
     const { lastFrame } = render(
       <BackgroundTaskPanel entries={[makeEntry({ id: 'task:agent_1' })]} />,
     );
-    expect(lastFrame()!).toContain('Ctrl+B');
+    const frame = lastFrame()!;
+    // Entry affordance: ↓ to select, Ctrl+B for the full switcher.
+    expect(frame).toContain('select');
+    expect(frame).toContain('Ctrl+B');
+  });
+
+  it('shows the move/open affordance when a row is focused (SCREEN-014)', () => {
+    const { lastFrame } = render(
+      <BackgroundTaskPanel
+        entries={[makeEntry({ id: 'task:agent_1' }), makeEntry({ id: 'task:agent_2' })]}
+        focusedIndex={0}
+      />,
+    );
+    const frame = lastFrame()!;
+    expect(frame).toContain('Enter open');
+    expect(frame).toContain('Esc back');
   });
 
   it('keeps a long-preview row on a single line (SCREEN-011)', () => {

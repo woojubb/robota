@@ -11,6 +11,7 @@ import {
 } from './execution-workspace-view-model.js';
 import ExecutionWorkspaceDetailPane from './ExecutionWorkspaceDetailPane.js';
 import ExecutionWorkspaceSwitcher from './ExecutionWorkspaceSwitcher.js';
+import { resolveBackgroundFocusKey } from './flows/background-focus-flow.js';
 import { usePluginCallbacks } from './hooks/usePluginCallbacks.js';
 import { useSideEffects } from './hooks/useSideEffects.js';
 import { useStatusLineSettings } from './hooks/useStatusLineSettings.js';
@@ -151,10 +152,22 @@ function AppInner(
   const [isExecutionDetailLoading, setIsExecutionDetailLoading] = useState(false);
   const [statusLineSettings, setStatusLineSettings] = useStatusLineSettings();
   const [gitRefreshToken, setGitRefreshToken] = useState(0);
+  // SCREEN-014: index of the keyboard-focused background-work row, or null when the prompt input is
+  // focused. Drives the inline arrow-key navigation into the background list.
+  const [backgroundFocusIndex, setBackgroundFocusIndex] = useState<number | null>(null);
   const backgroundWorkspaceEntries = useMemo(
     () => getDefaultBackgroundWorkspaceEntries(executionWorkspaceSnapshot),
     [executionWorkspaceSnapshot],
   );
+  const isBackgroundListFocused = backgroundFocusIndex !== null;
+  // Keep the focused index in range as tasks appear/finish; drop focus when the list empties.
+  useEffect(() => {
+    setBackgroundFocusIndex((index) => {
+      if (index === null) return null;
+      if (backgroundWorkspaceEntries.length === 0) return null;
+      return Math.min(index, backgroundWorkspaceEntries.length - 1);
+    });
+  }, [backgroundWorkspaceEntries.length]);
   const activeBackgroundTaskCount = countActiveBackgroundWorkspaceEntries(
     executionWorkspaceSnapshot,
   );
@@ -319,6 +332,39 @@ function AppInner(
     }
   });
 
+  // SCREEN-014: inline keyboard navigation of the background-work list (the primary drill-in path).
+  // Active only while the list holds focus (entered via ↓ from the input). ↑/↓ move the highlight,
+  // ↑ past the top returns to the input, Enter opens the task's inline detail, Esc returns to input.
+  useInput(
+    (
+      _input: string,
+      key: { upArrow: boolean; downArrow: boolean; return: boolean; escape: boolean },
+    ) => {
+      if (backgroundFocusIndex === null) return;
+      const entries = backgroundWorkspaceEntries;
+      const action = resolveBackgroundFocusKey(backgroundFocusIndex, entries.length, key);
+      if (action.type === 'move') {
+        setBackgroundFocusIndex(action.index);
+      } else if (action.type === 'open') {
+        const entry = entries[action.index];
+        if (entry) selectExecutionWorkspaceEntry(entry.id);
+        setBackgroundFocusIndex(null);
+      } else if (action.type === 'exit') {
+        setBackgroundFocusIndex(null);
+      }
+    },
+    {
+      isActive:
+        isBackgroundListFocused &&
+        !permissionRequest &&
+        !pendingUserAction &&
+        !showPluginTUI &&
+        !showTransportTUI &&
+        !showSessionPicker &&
+        !showExecutionWorkspaceSwitcher,
+    },
+  );
+
   // Ctrl+C graceful shutdown
   useInput((input: string, key: { ctrl?: boolean }) => {
     if (!key.ctrl || input !== 'c' || isShuttingDown) return;
@@ -440,7 +486,10 @@ function AppInner(
                 />
               </Box>
             )}
-            <BackgroundTaskPanel entries={backgroundWorkspaceEntries} />
+            <BackgroundTaskPanel
+              entries={backgroundWorkspaceEntries}
+              focusedIndex={backgroundFocusIndex}
+            />
           </Box>
           {showExecutionWorkspaceSwitcher && (
             <ExecutionWorkspaceSwitcher
@@ -498,13 +547,17 @@ function AppInner(
               showExecutionWorkspaceSwitcher ||
               isShuttingDown ||
               (isThinking && !!pendingPrompt) ||
-              !isSelectedEntryInteractive
+              !isSelectedEntryInteractive ||
+              isBackgroundListFocused
             }
             isAborting={isAborting}
             pendingPrompt={pendingPrompt}
             registry={registry}
             sessionName={sessionName}
             history={history}
+            onRequestFocusBackgroundList={() => {
+              if (backgroundWorkspaceEntries.length > 0) setBackgroundFocusIndex(0);
+            }}
           />
           <SessionStatusBar
             cwd={cwd}
