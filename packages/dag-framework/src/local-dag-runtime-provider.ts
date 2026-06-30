@@ -37,6 +37,12 @@ import { fromDagWorkflowFile } from '@robota-sdk/dag-builder';
 
 import { createDefaultNodeRegistrySync } from './default-node-registry.js';
 import { createExecutionComposition } from './composition/create-execution-composition.js';
+import {
+  collectOutputsFromTaskRuns,
+  extractFinalText,
+  extractRunError,
+  isTerminalStatus,
+} from './run-result-mapping.js';
 
 const LOCAL_WORKER_ID = 'local-dag-runtime-provider';
 const LOCAL_LEASE_DURATION_MS = 60_000;
@@ -45,12 +51,6 @@ const LOCAL_MAX_ATTEMPTS = 1;
 const LOCAL_DEFAULT_TIMEOUT_MS = 300_000;
 const WORKER_IDLE_POLL_DELAY_MS = 10;
 const MAX_WORKER_ITERATIONS = 10_000;
-
-const TERMINAL_STATUSES = new Set(['success', 'failed', 'cancelled']);
-
-function isTerminalStatus(status: string): boolean {
-  return TERMINAL_STATUSES.has(status);
-}
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => {
@@ -302,54 +302,6 @@ async function runDagOnce(
   } finally {
     unsubscribe();
   }
-}
-
-function collectOutputsFromTaskRuns(taskRuns: ITaskRun[]): Record<string, unknown> {
-  const outputs: Record<string, unknown> = {};
-  for (const taskRun of taskRuns) {
-    const snapshot = parseOutputSnapshot(taskRun.outputSnapshot);
-    for (const [k, v] of Object.entries(snapshot)) {
-      outputs[`${taskRun.nodeId}.${k}`] = v;
-    }
-  }
-  return outputs;
-}
-
-function parseOutputSnapshot(snapshot: string | undefined): Record<string, unknown> {
-  if (!snapshot) return {};
-  try {
-    const parsed = JSON.parse(snapshot) as unknown;
-    if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
-      return parsed as Record<string, unknown>;
-    }
-    return {};
-  } catch {
-    // allow-fallback: outputSnapshot is advisory display data; malformed JSON is skipped gracefully
-    return {};
-  }
-}
-
-function extractFinalText(taskRuns: ITaskRun[]): string | undefined {
-  for (let i = taskRuns.length - 1; i >= 0; i--) {
-    const taskRun = taskRuns[i];
-    if (!taskRun || taskRun.status !== 'success') continue;
-    const snapshot = parseOutputSnapshot(taskRun.outputSnapshot);
-    for (const val of Object.values(snapshot)) {
-      if (typeof val === 'string') return val;
-    }
-  }
-  return undefined;
-}
-
-function extractRunError(taskRuns: ITaskRun[]): string | undefined {
-  for (let i = taskRuns.length - 1; i >= 0; i--) {
-    const taskRun = taskRuns[i];
-    if (!taskRun) continue;
-    if (taskRun.status === 'failed' && taskRun.errorMessage) {
-      return `${taskRun.nodeId}: ${taskRun.errorMessage}`;
-    }
-  }
-  return undefined;
 }
 
 // ---------------------------------------------------------------------------
