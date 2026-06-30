@@ -17,10 +17,25 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 
 ### Enforcement Preference
 
-- Prefer mechanical enforcement over prose when a repeated issue can be detected with reasonable signal.
-- Acceptable enforcement paths include harness scans, pre-commit/pre-push hooks, unit tests, scenario records, or package-local contract tests.
-- If mechanical enforcement is not practical yet, document the rule and add the missing automation as backlog or task work.
-- Any new mechanical enforcement must include its own test coverage and must not broaden checks beyond the changed or owned scope without a documented reason.
+- **A prose rule alone does not close a lesson.** Every institutionalized lesson MUST reach one of exactly
+  two terminal states: (a) **mechanized** — a harness scan FAIL, a hook check, a unit/scenario test, or a
+  package-local contract test that trips on the violation; or (b) **infeasible-now** — a written, concrete
+  reason mechanization is not yet practical PLUS a tracked backlog/task item to add it. "Will be careful,"
+  "documented in the rule," "when practical," and untracked follow-ups are NOT terminal states.
+- Mechanize **by default**: reach for a check whenever the violation is detectable with reasonable signal.
+  The burden is to justify NOT mechanizing (a specific obstacle), never to justify mechanizing.
+- **Fix the class, not the instance.** When a lesson comes from a concrete defect, name the invariant
+  (the class), enumerate every current instance of it in the repo, fix them all in the same change, and
+  make the mechanism catch the whole class so a future sibling instance fails. Fixing only the triggering
+  instance leaves the lesson open.
+- **Prove the check.** A new check must demonstrably FAIL on the triggering incident (or a fixture that
+  reproduces it) and PASS after the fix; a check that would not have caught the original event is not
+  enforcement. Record the before/after result.
+- Any new mechanical enforcement must include its own test coverage and must not broaden checks beyond the
+  changed or owned scope without a documented reason.
+- A recurring auto-lesson candidate (e.g. in `.agents/evals/lessons/`) that keeps accruing frequency with
+  no mechanism is an **open** lesson — promote it to a mechanism or record why it cannot be, do not let it
+  sit as a perpetual candidate.
 
 ### Pattern Generalization
 

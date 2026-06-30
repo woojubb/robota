@@ -59,6 +59,7 @@
     "harness:scan:spec-doc-frontmatter": "node scripts/harness/check-spec-doc-frontmatter.mjs",
     "harness:scan:commands": "node scripts/harness/check-command-layering.mjs",
     "harness:scan:capability-placement": "node scripts/harness/check-capability-placement.mjs",
+    "harness:scan:nested-package-glob-coverage": "node scripts/harness/check-nested-package-glob-coverage.mjs",
     "harness:scan:background-workspace": "node scripts/harness/check-background-workspace-conformance.mjs",
     "harness:scan:agent-server-boundary": "node scripts/harness/check-agent-server-boundary.mjs",
     "harness:scan:sdk-public-surface": "node scripts/harness/check-sdk-public-surface.mjs",

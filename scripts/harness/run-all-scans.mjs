@@ -27,6 +27,10 @@ const SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/check-capability-placement.mjs'],
   },
   {
+    name: 'nested-package-glob-coverage',
+    command: ['node', 'scripts/harness/check-nested-package-glob-coverage.mjs'],
+  },
+  {
     name: 'background-workspace',
     command: ['node', 'scripts/harness/check-background-workspace-conformance.mjs'],
   },
