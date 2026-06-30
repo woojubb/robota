@@ -56,9 +56,9 @@ worker loop, and serves the app via `@hono/node-server`.
 | `POST /v1/dag/run-drafts/:draftId/nodes/:nodeId/reset` | `resetRunDraftNodeResult`                       |
 | `PUT /v1/dag/run-drafts/:draftId/nodes/:nodeId/result` | `overwriteRunDraftNodeResult`                   |
 
-A `GET /v1/dag/runs/:id/events` SSE stream + an `HttpDagRuntimeProvider` (for the `--provider http`
-path) are tracked follow-on surface (the streaming endpoint needs a run-progress source beyond
-`IDagOrchestrationPort`).
+| `GET /v1/dag/runs/:id/events` (SSE) | `progressSource` run-progress stream |
+
+An `HttpDagRuntimeProvider` (for the `--provider http` path) is the remaining follow-on surface.
 
 ## Type Ownership
 

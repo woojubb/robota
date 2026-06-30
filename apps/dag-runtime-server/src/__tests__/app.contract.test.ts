@@ -4,6 +4,8 @@ import { createDagFramework } from '@robota-sdk/dag-framework';
 
 import { createDagRuntimeServer } from '../app.js';
 
+import type { IRunProgressSource } from '../app.js';
+import type { TRunProgressEvent } from '@robota-sdk/dag-core';
 import type { IDagFramework } from '@robota-sdk/dag-framework';
 import type { Hono } from 'hono';
 
@@ -60,8 +62,66 @@ describe('dag-runtime-server contract', () => {
     expect(res.status).not.toBe(404);
   });
 
+  it('GET /v1/dag/runs/:id/events is 501 when no progress source is wired', async () => {
+    const res = await app.request('/v1/dag/runs/run-1/events');
+    expect(res.status).toBe(501);
+  });
+
   it('unknown route is a 404 (no external-runtime surface)', async () => {
     const res = await app.request('/external-runtime-unknown');
     expect(res.status).toBe(404);
+  });
+});
+
+describe('dag-runtime-server SSE progress stream', () => {
+  it('streams a run’s progress events and closes on a terminal event', async () => {
+    // A fake progress source that, once subscribed, emits one matching terminal event next tick.
+    const source: IRunProgressSource = {
+      subscribe(listener: (event: TRunProgressEvent) => void): () => void {
+        queueMicrotask(() => {
+          listener({
+            dagRunId: 'run-1',
+            eventType: 'execution.completed',
+            occurredAt: '2026-06-30T00:00:00.000Z',
+          });
+        });
+        return () => undefined;
+      },
+    };
+    const app = createDagRuntimeServer({} as never, source);
+
+    const res = await app.request('/v1/dag/runs/run-1/events');
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type') ?? '').toContain('text/event-stream');
+    const body = await res.text();
+    expect(body).toContain('event: open');
+    expect(body).toContain('event: execution.completed');
+  });
+
+  it('ignores progress events for other runs', async () => {
+    const source: IRunProgressSource = {
+      subscribe(listener: (event: TRunProgressEvent) => void): () => void {
+        queueMicrotask(() => {
+          // An event for a DIFFERENT run, then the terminal event for ours.
+          listener({
+            dagRunId: 'other-run',
+            eventType: 'task.started',
+            occurredAt: '2026-06-30T00:00:00.000Z',
+            taskRunId: 't1',
+            nodeId: 'n1',
+          });
+          listener({
+            dagRunId: 'run-1',
+            eventType: 'execution.completed',
+            occurredAt: '2026-06-30T00:00:01.000Z',
+          });
+        });
+        return () => undefined;
+      },
+    };
+    const app = createDagRuntimeServer({} as never, source);
+    const body = await (await app.request('/v1/dag/runs/run-1/events')).text();
+    expect(body).not.toContain('other-run');
+    expect(body).toContain('event: execution.completed');
   });
 });
