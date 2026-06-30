@@ -358,3 +358,36 @@ jobs:
 
       - name: Verify the Shell tool actually spawns PowerShell on Windows
         run: pnpm --filter @robota-sdk/agent-tools test -- --run shell-tool
+
+  # TEST-010: run the TUI PTY E2E suite (`*.ptytest.ts`) against the BUILT robota binary on every PR,
+  # so the live-TUI behaviours — the SCREEN-013 Ctrl+B drill-in entry point and the existing
+  # flag/scrollback/handoff PTY checks — are maintained, not bit-rotting outside CI.
+  tui-e2e:
+    name: tui-e2e
+    runs-on: ubuntu-latest
+    if: github.base_ref != 'main'
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 50
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8.15.4
+
+      - name: Use Node.js 22.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build packages (provides the built robota binary the PTY suite drives)
+        run: pnpm build:deps
+
+      - name: Run the TUI PTY E2E suite against the real binary
+        run: pnpm --filter @robota-sdk/agent-transport-tui test:pty
