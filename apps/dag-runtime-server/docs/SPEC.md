@@ -24,23 +24,41 @@ worker loop, and serves the app via `@hono/node-server`.
 
 ## Route Surface (R1)
 
-| Route                                      | Port method          |
-| ------------------------------------------ | -------------------- |
-| `GET /v1/dag/nodes`                        | `listNodes`          |
-| `GET /v1/dag/definitions`                  | `listDefinitions`    |
-| `GET /v1/dag/definitions/:dagId`           | `getDefinition`      |
-| `POST /v1/dag/definitions`                 | `createDefinition`   |
-| `PUT /v1/dag/definitions/:dagId/draft`     | `updateDraft`        |
-| `POST /v1/dag/definitions/:dagId/validate` | `validateDefinition` |
-| `POST /v1/dag/definitions/:dagId/publish`  | `publishDefinition`  |
-| `POST /v1/dag/runs`                        | `createRun`          |
-| `POST /v1/dag/runs/:id/start`              | `startRun`           |
-| `GET /v1/dag/runs/:id`                     | `getRunStatus`       |
-| `GET /v1/dag/runs/:id/result`              | `getRunResult`       |
+| Route                                                  | Port method                                     |
+| ------------------------------------------------------ | ----------------------------------------------- |
+| `GET /v1/dag/nodes`                                    | `listNodes`                                     |
+| `GET /v1/dag/definitions`                              | `listDefinitions`                               |
+| `GET /v1/dag/definitions/:dagId`                       | `getDefinition`                                 |
+| `POST /v1/dag/definitions`                             | `createDefinition`                              |
+| `PUT /v1/dag/definitions/:dagId/draft`                 | `updateDraft`                                   |
+| `POST /v1/dag/definitions/:dagId/validate`             | `validateDefinition`                            |
+| `POST /v1/dag/definitions/:dagId/publish`              | `publishDefinition`                             |
+| `POST /v1/dag/runs`                                    | `createRun`                                     |
+| `POST /v1/dag/runs/:id/start`                          | `startRun`                                      |
+| `GET /v1/dag/runs/:id`                                 | `getRunStatus`                                  |
+| `GET /v1/dag/runs/:id/result`                          | `getRunResult`                                  |
+| `POST /v1/dag/definitions/:dagId/start`                | `startPublishedWorkflowRun`                     |
+| `POST /v1/dag/build`                                   | `buildDag`                                      |
+| `POST /v1/dag/validate`                                | `validateDag`                                   |
+| `POST /v1/dag/assets`                                  | `uploadAsset`                                   |
+| `GET /v1/dag/assets/:assetId`                          | `getAssetMetadata`                              |
+| `GET /v1/dag/assets/:assetId/content`                  | `getAssetContentDownloadInfo` (sync descriptor) |
+| `GET /v1/dag/cost-meta`                                | `listCostMeta`                                  |
+| `GET /v1/dag/cost-meta/:nodeType`                      | `getCostMeta`                                   |
+| `POST /v1/dag/cost-meta`                               | `createCostMeta`                                |
+| `PUT /v1/dag/cost-meta/:nodeType`                      | `updateCostMeta`                                |
+| `DELETE /v1/dag/cost-meta/:nodeType`                   | `deleteCostMeta`                                |
+| `POST /v1/dag/cost-meta/validate`                      | `validateCostMetaFormula`                       |
+| `POST /v1/dag/cost-meta/preview`                       | `previewCostMetaFormula`                        |
+| `POST /v1/dag/run-drafts`                              | `createRunDraft`                                |
+| `GET /v1/dag/run-drafts/:draftId`                      | `getRunDraft`                                   |
+| `PUT /v1/dag/run-drafts/:draftId`                      | `replaceRunDraft`                               |
+| `POST /v1/dag/run-drafts/:draftId/nodes/:nodeId/reset` | `resetRunDraftNodeResult`                       |
+| `PUT /v1/dag/run-drafts/:draftId/nodes/:nodeId/result` | `overwriteRunDraftNodeResult`                   |
 
-Assets, cost-meta, run-drafts, and a `GET /v1/dag/runs/:id/events` SSE stream + an
-`HttpDagRuntimeProvider` (for the `--provider http` path) are tracked follow-on surface; they follow
-the same uniform mapping.
+A `GET /v1/dag/runs/:id/events` SSE stream + an `HttpDagRuntimeProvider` (for the `--provider http`
+path) are tracked follow-on surface (the streaming endpoint needs a run-progress source beyond
+`IDagOrchestrationPort`).
 
 ## Type Ownership
 

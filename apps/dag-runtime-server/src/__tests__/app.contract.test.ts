@@ -35,6 +35,31 @@ describe('dag-runtime-server contract', () => {
     expect(payload).toBeDefined();
   });
 
+  it('GET /v1/dag/cost-meta is wired to the port (route exists; port may return 501)', async () => {
+    const res = await app.request('/v1/dag/cost-meta');
+    // The route reaches the port (not a 404). The in-process framework may not
+    // implement cost-meta and can answer 501 — that is the port's response, forwarded verbatim.
+    expect(res.status).not.toBe(404);
+  });
+
+  it('GET /v1/dag/assets/:id/content returns a download descriptor (no binary in the port)', async () => {
+    const res = await app.request('/v1/dag/assets/missing/content');
+    expect(res.status).toBe(200);
+    const payload = (await res.json()) as { assetId?: string; url?: string };
+    expect(payload.assetId).toBe('missing');
+    expect(typeof payload.url).toBe('string');
+  });
+
+  it('POST /v1/dag/run-drafts is routed to the port (run-draft surface)', async () => {
+    const res = await app.request('/v1/dag/run-drafts', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    // The route exists and reaches the port (not a 404); the port decides the status.
+    expect(res.status).not.toBe(404);
+  });
+
   it('unknown route is a 404 (no external-runtime surface)', async () => {
     const res = await app.request('/external-runtime-unknown');
     expect(res.status).toBe(404);

@@ -1,7 +1,7 @@
 # WORKFLOW-002 — Native DAG runtime-server
 
 Spec: .agents/spec-docs/active/WORKFLOW-002-native-runtime-server.md
-Status: done (TC-04 HttpDagRuntimeProvider provider-resolution deferred as tracked follow-on)
+Status: done (full uniform route surface: definitions/runs/published/build/validate/assets/cost-meta/run-drafts). SSE events + HttpDagRuntimeProvider + provider-resolution (TC-04) remain as tracked follow-on (streaming needs a run-progress source beyond IDagOrchestrationPort).
 
 ## Decision (recorded)
 
