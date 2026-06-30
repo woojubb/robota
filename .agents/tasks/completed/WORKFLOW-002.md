@@ -1,7 +1,7 @@
 # WORKFLOW-002 — Native DAG runtime-server
 
-Spec: .agents/spec-docs/active/WORKFLOW-002-native-runtime-server.md
-Status: in progress. Server surface done (definitions/runs/published/build/validate/assets/cost-meta/run-drafts) + SSE events (Phase A, #896) + HttpDagRuntimeProvider (Phase B). Provider-resolution wiring (Phase C / TC-04: dag-cli `--provider http` + dag-mcp-server `--server-url`) remains the only tracked follow-on.
+Spec: .agents/spec-docs/done/WORKFLOW-002-native-runtime-server.md
+Status: **done**. Server surface + SSE events (Phase A, #896) + HttpDagRuntimeProvider (Phase B, #897) + provider resolution (Phase C). All TC-01..05 met.
 
 ## Decision (recorded)
 
@@ -48,10 +48,20 @@ Status: in progress. Server surface done (definitions/runs/published/build/valid
       `app.request` fetch — listNodes, full execute (submit→watch→result), terminal status, unsupported-op rejects.
 - [x] typecheck + build + lint (0 errors) + tests (13 server / 110 framework) green; `pnpm harness:scan` 39/39 green.
 
-### Phase C — Provider resolution (follow-on, TC-04)
+### Phase C — Provider resolution (TC-04)
 
-- [ ] dag-cli `--provider http` + dag-mcp-server `--server-url`; URL from `DAG_RUNTIME_SERVER_URL` env with
-      `--server-url` flag override (flag wins).
+- [x] dag-cli `resolve-provider` gained the `http` branch → `HttpDagRuntimeProvider({ baseUrl })`; URL from
+      `--server-url` (wins) else `DAG_RUNTIME_SERVER_URL`; errors if `http` with no URL. `listAvailableProviders` + `runs` help updated. Unit-tested (`resolve-provider.test.ts`).
+- [x] dag-mcp-server HTTP mode keyed on the canonical `DAG_RUNTIME_SERVER_URL` (was `ROBOTA_DAG_SERVER_URL`);
+      `--server-url` flag still wins. Default aligned to the native server (:3939). Config tests updated.
+- [x] typecheck + tests green (dag-cli 992, dag-mcp-server 14).
+
+#### Follow-up (out of Phase C scope)
+
+- dag-cli's **legacy generic server dispatch** (`runner.ts` `parseGlobalConfig` + `runs` server-dispatch +
+  studio) still reads `ROBOTA_DAG_SERVER_URL` (default :3012) — a distinct orchestration-dispatch path.
+  Consolidating it onto `DAG_RUNTIME_SERVER_URL` (+ default-port decision :3012 vs :3939) touches
+  out-of-box behavior and is left as a separate naming-consolidation task, not folded into Phase C.
 
 ## TC Coverage Map
 

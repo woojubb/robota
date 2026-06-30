@@ -42,7 +42,7 @@ export async function runDagMcpServer(
   const config = resolveDagMcpConfig(
     args,
     options.env ?? {
-      ROBOTA_DAG_SERVER_URL: process.env.ROBOTA_DAG_SERVER_URL,
+      DAG_RUNTIME_SERVER_URL: process.env.DAG_RUNTIME_SERVER_URL,
       ROBOTA_DAG_EMBEDDED: process.env.ROBOTA_DAG_EMBEDDED,
     },
   );
