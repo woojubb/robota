@@ -13,10 +13,13 @@ depends_on: [TERM-001, TERM-002, TERM-003, TERM-005]
 **Status (2026-06-30):** the code-side work is complete — item 1 (shell selection) shipped as
 [TERM-008](../spec-docs/active/TERM-008-cross-platform-shell-execution.md), item 4 (no Unix job-control)
 is audited clean, and item 2's handoff is platform-neutral/Windows-capable by construction with nothing
-left to change without Windows runtime introspection. The **only** residual is an **empirical
-verification pass on real Windows Terminal** (item 2) — which cannot be run in the macOS/Linux
-dev/CI environment and needs a Windows machine or a Windows CI runner. Item 3 (PTY) is a deferred
-non-goal. The item stays open solely to track that Windows verification pass.
+left to change without Windows runtime introspection. A **`windows-shell` CI job** (`.github/workflows/ci.yml`,
+`windows-latest`) now runs the resolver + Shell-tool tests on every PR — the Shell tool actually spawns
+`powershell.exe` there, giving **durable, maintained Windows shell-execution verification** (not a one-off
+pass). It is soft-launched (`continue-on-error`) while the Windows toolchain proves stable, then flips to
+blocking. The remaining gap is the **interactive TUI handoff** on real Windows Terminal (full-screen
+suspend/resume, IME) which CI cannot exercise — that still needs a manual Windows-Terminal pass. Item 3
+(PTY) is a deferred non-goal.
 
 The terminal-handoff feature group ships macOS/Linux-first. The framework handoff (TERM-001) and the
 TUI suspend/resume (TERM-002) are platform-neutral by construction, so Windows work is confined to

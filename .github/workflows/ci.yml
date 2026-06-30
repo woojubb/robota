@@ -320,3 +320,41 @@ jobs:
 
       - name: Typecheck examples
         run: pnpm examples:typecheck
+
+  # TERM-007 item 2 / TERM-008: verify cross-platform shell execution on real Windows.
+  # The resolver + Shell tool spawn PowerShell here, so these tests exercise the win32 path
+  # that the macOS/Linux jobs (and mocked-platform unit tests) cannot. Soft-launch
+  # (continue-on-error) while the Windows toolchain stabilizes; flip to blocking once green.
+  windows-shell:
+    name: windows-shell
+    runs-on: windows-latest
+    if: github.base_ref != 'main'
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 50
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8.15.4
+
+      - name: Use Node.js 22.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build agent-core (shell resolver SSOT) for dependent tests
+        run: pnpm --filter @robota-sdk/agent-core build
+
+      - name: Verify the cross-platform shell resolver on Windows
+        run: pnpm --filter @robota-sdk/agent-core test -- --run platform-shell
+
+      - name: Verify the Shell tool actually spawns PowerShell on Windows
+        run: pnpm --filter @robota-sdk/agent-tools test -- --run shell-tool
