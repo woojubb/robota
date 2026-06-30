@@ -35,6 +35,7 @@ overrides:
   form-data@^4.0.0: ^4.0.6
   postcss@<8.5.10: '>=8.5.10'
   dompurify@<3.4.11: '>=3.4.11'
+  '@anthropic-ai/sdk@<0.91.1': '>=0.91.1'
 
 importers:
 
@@ -1757,16 +1758,16 @@ importers:
   packages/dag-cli:
     dependencies:
       '@anthropic-ai/sdk':
-        specifier: ^0.80.0
-        version: 0.80.0(zod@3.25.76)
+        specifier: ^0.91.1
+        version: 0.91.1(zod@3.25.76)
       '@google/genai':
-        specifier: ^1.51.0
+        specifier: ^1.52.0
         version: 1.52.0(@modelcontextprotocol/sdk@1.29.0)
       '@modelcontextprotocol/sdk':
         specifier: ^1.29.0
         version: 1.29.0(zod@3.25.76)
       openai:
-        specifier: ^4.98.0
+        specifier: ^4.104.0
         version: 4.104.0(zod@3.25.76)
       zod:
         specifier: ^3.24.4
@@ -1883,10 +1884,10 @@ importers:
   packages/dag-framework:
     dependencies:
       '@anthropic-ai/sdk':
-        specifier: ^0.80.0
-        version: 0.80.0(zod@3.25.76)
+        specifier: ^0.91.1
+        version: 0.91.1(zod@3.25.76)
       '@google/genai':
-        specifier: ^1.51.0
+        specifier: ^1.52.0
         version: 1.52.0(@modelcontextprotocol/sdk@1.29.0)
       '@robota-sdk/dag-adapters-local':
         specifier: workspace:*
@@ -1946,7 +1947,7 @@ importers:
         specifier: workspace:*
         version: link:../dag-worker
       openai:
-        specifier: ^4.98.0
+        specifier: ^4.104.0
         version: 4.104.0(zod@3.25.76)
     optionalDependencies:
       '@robota-sdk/dag-node-gemini-image-edit':
@@ -2908,19 +2909,6 @@ packages:
     dependencies:
       package-manager-detector: 1.6.0
       tinyexec: 1.2.4
-    dev: false
-
-  /@anthropic-ai/sdk@0.80.0(zod@3.25.76):
-    resolution: {integrity: sha512-WeXLn7zNVk3yjeshn+xZHvld6AoFUOR3Sep6pSoHho5YbSi6HwcirqgPA5ccFuW8QTVJAAU7N8uQQC6Wa9TG+g==}
-    hasBin: true
-    peerDependencies:
-      zod: ^3.25.0 || ^4.0.0
-    peerDependenciesMeta:
-      zod:
-        optional: true
-    dependencies:
-      json-schema-to-ts: 3.1.1
-      zod: 3.25.76
     dev: false
 
   /@anthropic-ai/sdk@0.91.1(zod@3.25.76):
@@ -6805,7 +6793,7 @@ packages:
     peerDependencies:
       '@robota-sdk/agent-core': 3.0.0-beta.61
     dependencies:
-      '@anthropic-ai/sdk': 0.80.0(zod@3.25.76)
+      '@anthropic-ai/sdk': 0.91.1(zod@3.25.76)
       '@robota-sdk/agent-core': 3.0.0-beta.61
     transitivePeerDependencies:
       - zod
@@ -9177,7 +9165,7 @@ packages:
       '@vitest/spy': 3.2.6
       estree-walker: 3.0.3
       magic-string: 0.30.21
-      vite: 8.0.16(@types/node@20.19.43)(tsx@4.22.4)
+      vite: 8.0.16(@types/node@22.19.21)(tsx@4.22.4)
     dev: true
 
   /@vitest/pretty-format@3.2.6:

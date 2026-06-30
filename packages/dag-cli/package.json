@@ -60,9 +60,9 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
-    "@anthropic-ai/sdk": "^0.80.0",
-    "openai": "^4.98.0",
-    "@google/genai": "^1.51.0",
+    "@anthropic-ai/sdk": "^0.91.1",
+    "openai": "^4.104.0",
+    "@google/genai": "^1.52.0",
     "zod": "^3.24.4"
   },
   "devDependencies": {

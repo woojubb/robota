@@ -74,9 +74,9 @@
     "@robota-sdk/dag-node-llm-text-qwen": "workspace:*"
   },
   "peerDependencies": {
-    "@anthropic-ai/sdk": "^0.80.0",
-    "@google/genai": "^1.51.0",
-    "openai": "^4.98.0"
+    "@anthropic-ai/sdk": "^0.91.1",
+    "@google/genai": "^1.52.0",
+    "openai": "^4.104.0"
   },
   "peerDependenciesMeta": {
     "@anthropic-ai/sdk": {
