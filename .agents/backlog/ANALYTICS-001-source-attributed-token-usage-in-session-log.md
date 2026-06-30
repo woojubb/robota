@@ -14,10 +14,16 @@ depends_on: []
 > `IBackgroundTaskResult.usage` → the session background tracker, which on completion appends a
 > **source-attributed `usage-summary`** (`scope: 'background'`, the task id/label) to the parent log —
 > so `--usage` / `harness.usageReport()` attribute those tokens to that task, not the main thread.
-> Remaining: a live end-to-end run (spawn a real background agent, see its row) for the User Execution
-> gate — the chain is unit-tested at each end + full suites green. Confirmed decisions: D1 minimal `IUsageSource` in
-> agent-interface-transport (the framework's `IExecutionOrigin` is a layer up and can't be imported into
-> the contract package); D2 single usage stream in the main session log; D3 `robota session analyze
+> **Phase 2 end-to-end verified (2026-07-01):** an integration test drives a REAL `InteractiveSession`
+>
+> - `BackgroundTaskManager`; a completed background agent task reports `usage` and the test asserts the
+>   parent log gains a `scope:'background'` `usage-summary` and that `summarizeUsageBySource` attributes
+>   the full total to `background:<taskId>` (label = agentType) as the top consumer — the production
+>   chain, not a mock of it (`interactive-session-background-tasks.test.ts`). Remaining only: a keyed
+>   live CLI run against a real provider (no API keys in this env) — the code path is now exercised
+>   end-to-end by the regression test. Confirmed decisions: D1 minimal `IUsageSource` in
+>   agent-interface-transport (the framework's `IExecutionOrigin` is a layer up and can't be imported into
+>   the contract package); D2 single usage stream in the main session log; D3 `robota session analyze
 --usage` report; D4 harness `usageReport()`/`totalUsage()`.
 
 # Source-attributed token usage in the session log
