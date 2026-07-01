@@ -1,3 +1,4 @@
+import { sumHistoryUsage } from '@robota-sdk/agent-core';
 import { createProviderFromProfile } from '@robota-sdk/agent-executor';
 import {
   createDefaultTools,
@@ -41,6 +42,18 @@ function sendChildMessage(message: TSubagentWorkerChildMessage): void {
   }
 }
 
+/** Best-effort total token usage of the finished subagent session; never throws. */
+function readSessionUsage(
+  finishedSession: ReturnType<typeof createSubagentSession>,
+): ReturnType<typeof sumHistoryUsage> {
+  try {
+    return sumHistoryUsage(finishedSession.getFullHistory());
+  } catch {
+    // allow-fallback: usage capture is auxiliary — history read failure must not fail the subagent run
+    return undefined;
+  }
+}
+
 async function runInitialPrompt(payload: ISubagentWorkerStartPayload): Promise<void> {
   try {
     const provider = createProviderFromProfile(
@@ -70,7 +83,10 @@ async function runInitialPrompt(payload: ISubagentWorkerStartPayload): Promise<v
       sendChildMessage({ type: 'cancelled', reason: 'Subagent worker cancelled' });
       return;
     }
-    sendChildMessage({ type: 'result', output });
+    // ANALYTICS-001 (Phase 2): forward the subagent's total token usage so the parent log can
+    // attribute it to this agent as a source. Best-effort — usage capture must never fail the run.
+    const usage = readSessionUsage(session);
+    sendChildMessage({ type: 'result', output, ...(usage ? { usage } : {}) });
   } catch (error) {
     // allow-fallback: child process must report errors to parent via IPC, not crash silently
     if (cancelled) {

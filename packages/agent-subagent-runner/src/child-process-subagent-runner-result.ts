@@ -6,6 +6,7 @@ import {
 
 import {
   isSubagentWorkerChildMessage,
+  type ISubagentWorkerResultMessage,
   type ISubagentWorkerStartPayload,
   type TSubagentWorkerWireValue,
 } from './child-process-subagent-ipc.js';
@@ -89,13 +90,13 @@ class ChildProcessSubagentResultController {
     this.rejectOnce(new BackgroundTaskError('crash', formatEarlyExitMessage(code, signal)));
   };
 
-  private readonly resolveOnce = (output: string): void => {
+  private readonly resolveOnce = (result: ISubagentWorkerResultMessage): void => {
     if (this.settled) return;
     this.settled = true;
     this.clearTimers();
     this.cleanup();
     const { runtime, resolveTranscriptPath } = this.options;
-    this.resolve(toSubagentResult(runtime.job, output, resolveTranscriptPath));
+    this.resolve(toSubagentResult(runtime.job, result, resolveTranscriptPath));
   };
 
   private readonly rejectOnce = (error: Error): void => {
@@ -148,14 +149,17 @@ function createTimeoutTimer(
 
 function toSubagentResult(
   job: ISubagentJobStart,
-  output: string,
+  result: ISubagentWorkerResultMessage,
   resolveTranscriptPath: (job: ISubagentJobStart) => string | undefined,
 ): ISubagentJobResult {
   const transcriptPath = resolveTranscriptPath(job);
   return {
     jobId: job.jobId,
-    output,
+    output: result.output,
     ...(transcriptPath ? { metadata: { transcriptPath, logPath: transcriptPath } } : {}),
+    // ANALYTICS-001 (Phase 2): carry the subagent's forwarded token usage so the background-task
+    // tracker can attribute it to this agent as a source in the parent log.
+    ...(result.usage ? { usage: result.usage } : {}),
   };
 }
 
