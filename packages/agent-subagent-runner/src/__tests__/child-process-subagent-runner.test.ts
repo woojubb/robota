@@ -98,6 +98,25 @@ describe('ChildProcessSubagentRunner', () => {
   );
 
   it(
+    'propagates the child worker token usage into the subagent result (ANALYTICS-001 P2)',
+    async () => {
+      const runner = new ChildProcessSubagentRunner(createDeps(), {
+        workerPath: FIXTURE_WORKER,
+        execArgv: [],
+        env: { ROBOTA_FIXTURE_MODE: 'usage' },
+      });
+
+      const handle = runner.start(createJob());
+      const result = await handle.result;
+
+      // The worker forwards sumHistoryUsage(...) over IPC; the runner must carry it onto the result
+      // so the background-task tracker can attribute those tokens to this subagent's source.
+      expect(result.usage).toEqual({ promptTokens: 300, completionTokens: 120, totalTokens: 420 });
+    },
+    TEST_TIMEOUT_MS,
+  );
+
+  it(
     'emits text and tool progress messages from the child worker',
     async () => {
       const events: TBackgroundTaskRunnerEvent[] = [];

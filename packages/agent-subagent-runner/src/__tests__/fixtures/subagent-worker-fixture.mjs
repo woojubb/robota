@@ -16,6 +16,15 @@ process.on('message', (message) => {
       process.send?.({ type: 'text_delta', delta: 'partial ' });
       process.send?.({ type: 'tool_end', toolName: 'Read', success: true });
     }
+    if (process.env.ROBOTA_FIXTURE_MODE === 'usage') {
+      process.send?.({
+        type: 'result',
+        output: `completed:${jobId}`,
+        usage: { promptTokens: 300, completionTokens: 120, totalTokens: 420 },
+      });
+      setTimeout(() => process.exit(0), 0);
+      return;
+    }
     process.send?.({ type: 'result', output: `completed:${jobId}` });
     setTimeout(() => process.exit(0), 0);
     return;

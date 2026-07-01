@@ -5,6 +5,7 @@ import {
 } from '@robota-sdk/agent-executor';
 
 import type {
+  ISubagentWorkerResultMessage,
   TSubagentWorkerChildMessage,
   TSubagentWorkerParentMessage,
 } from './child-process-subagent-ipc.js';
@@ -21,7 +22,7 @@ export interface IChildProcessRuntime {
 export function handleWorkerMessage(
   message: TSubagentWorkerChildMessage,
   startWorker: () => void,
-  resolveOnce: (output: string) => void,
+  resolveOnce: (result: ISubagentWorkerResultMessage) => void,
   rejectOnce: (error: Error) => void,
   emit?: (event: TBackgroundTaskRunnerEvent) => void,
 ): void {
@@ -30,7 +31,7 @@ export function handleWorkerMessage(
       startWorker();
       break;
     case 'result':
-      resolveOnce(message.output);
+      resolveOnce(message);
       break;
     case 'error':
       rejectOnce(new BackgroundTaskError('runner', message.message));

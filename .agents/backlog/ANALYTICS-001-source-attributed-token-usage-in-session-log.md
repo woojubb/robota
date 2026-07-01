@@ -1,6 +1,6 @@
 ---
 title: 'ANALYTICS-001: Record source-attributed token usage in the session log + reporting + test assertions'
-status: in-progress
+status: done
 created: 2026-07-01
 priority: medium
 urgency: soon
@@ -19,11 +19,20 @@ depends_on: []
 > - `BackgroundTaskManager`; a completed background agent task reports `usage` and the test asserts the
 >   parent log gains a `scope:'background'` `usage-summary` and that `summarizeUsageBySource` attributes
 >   the full total to `background:<taskId>` (label = agentType) as the top consumer — the production
->   chain, not a mock of it (`interactive-session-background-tasks.test.ts`). Remaining only: a keyed
->   live CLI run against a real provider (no API keys in this env) — the code path is now exercised
->   end-to-end by the regression test. Confirmed decisions: D1 minimal `IUsageSource` in
->   agent-interface-transport (the framework's `IExecutionOrigin` is a layer up and can't be imported into
->   the contract package); D2 single usage stream in the main session log; D3 `robota session analyze
+>   chain, not a mock of it (`interactive-session-background-tasks.test.ts`).
+>
+> **Phase 2 gap found + fixed by a LIVE CLI run (2026-07-02):** a real `robota -p … --preset
+autonomous-builder` run (Anthropic claude-sonnet-4-6) that spawned a `general-purpose` subagent showed
+> `session analyze --usage` attributing 100% to the main thread — the subagent's tokens were missing.
+> Root cause: the CLI uses the **child-process** subagent runner (`agent-subagent-runner`), whose worker
+> only sent `output` over IPC and dropped usage; only the in-process runner captured it. Fix: the worker
+> now forwards `sumHistoryUsage(session.getFullHistory())` in the `result` IPC message → the runner
+> carries it onto `ISubagentJobResult.usage` → the existing tracker chain attributes it. Re-run proof:
+> `main thread 87.1% (32.5K) · general-purpose 12.9% (4.8K)`. Regression-guarded by a fixture usage-mode
+> test (`child-process-subagent-runner.test.ts`). **User Execution gate: satisfied by this live run.**
+> Confirmed decisions: D1 minimal `IUsageSource` in
+> agent-interface-transport (the framework's `IExecutionOrigin` is a layer up and can't be imported into
+> the contract package); D2 single usage stream in the main session log; D3 `robota session analyze
 --usage` report; D4 harness `usageReport()`/`totalUsage()`.
 
 # Source-attributed token usage in the session log
@@ -94,6 +103,13 @@ framework can assert usage budgets so regressions in token consumption are caugh
   percentages, top consumer, empty); `agent-cli` `session analyze --usage` integration test (prints the
   source breakdown + top consumer); `agent-framework` `usage-assertion-functional` drives a REAL session
   whose scripted provider reports usage and asserts `harness.usageReport()`/`totalUsage()` + a budget.
-  All green; lint 0 errors; `pnpm harness:scan` 39/39. **Live multi-source attribution (subagent /
-  background task usage written to the main log) is Phase 2** — until then a real session's report shows
-  main-thread usage (the subagent/background rows populate once Phase 2 records them).
+  All green; lint 0 errors; `pnpm harness:scan` 39/39.
+- Evidence (Phase 2, LIVE agent-run 2026-07-02): `robota -p "Use the Agent tool … spawn a general-purpose
+subagent …" --preset autonomous-builder` against a real Anthropic provider (claude-sonnet-4-6) in a
+  throwaway cwd, then `robota session analyze --usage` on that session. First run exposed a real gap
+  (report showed `main thread 100%` — subagent tokens dropped by the child-process runner's IPC). After
+  fixing the worker to forward `sumHistoryUsage(...)` over IPC, the re-run report read:
+  `main thread 87.1% (32.5K, 1 turn) · general-purpose 12.9% (4.8K, 1 turn) · top consumer: main thread`
+  — i.e. the subagent's tokens are now attributed to its own source, matching what was run. **User
+  Execution gate satisfied.** Guarded against regression by the child-process runner usage-mode fixture
+  test.

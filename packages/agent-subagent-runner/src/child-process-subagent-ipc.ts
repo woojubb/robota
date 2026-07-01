@@ -1,4 +1,4 @@
-import type { TPermissionMode, TToolArgs } from '@robota-sdk/agent-core';
+import type { ISessionUsageTotals, TPermissionMode, TToolArgs } from '@robota-sdk/agent-core';
 import type {
   ISerializableProviderProfile,
   ISubagentSpawnRequest,
@@ -64,6 +64,8 @@ export interface ISubagentWorkerToolEndMessage {
 export interface ISubagentWorkerResultMessage {
   type: 'result';
   output: string;
+  /** ANALYTICS-001 (Phase 2): total token usage of the subagent run, forwarded to the parent. */
+  usage?: ISessionUsageTotals;
 }
 
 export interface ISubagentWorkerErrorMessage {
