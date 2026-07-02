@@ -1,6 +1,7 @@
 ---
 title: 'ANALYTICS-001: Record source-attributed token usage in the session log + reporting + test assertions'
 status: done
+completed: 2026-07-02
 created: 2026-07-01
 priority: medium
 urgency: soon

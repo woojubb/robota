@@ -26,9 +26,32 @@ describe('classifyTaskFile', () => {
     expect(classifyTaskFile(content).archivable).toBe(false);
   });
 
-  it('does not flag an all-checked file whose spec is still in todo/active', () => {
+  it('classifies an all-checked file whose spec is still in todo/active as gates-overdue', () => {
+    // Lesson (2026-07-02): fully-checked tasks sat invisible while their specs never left active/ —
+    // the archivable rule required the spec to already be in done/, which is exactly what was overdue.
     const content = ['Spec: `.agents/spec-docs/active/X-001.md`', '- [x] TC-01'].join('\n');
-    expect(classifyTaskFile(content).archivable).toBe(false);
+    const result = classifyTaskFile(content);
+    expect(result.archivable).toBe(false);
+    expect(result.gatesOverdue).toBe(true);
+    expect(result.reason).toContain('not reached spec-docs/done/');
+  });
+
+  it('does not classify gates-overdue while a checkbox is still open', () => {
+    const content = ['Spec: `.agents/spec-docs/active/X-001.md`', '- [x] a', '- [ ] b'].join('\n');
+    const result = classifyTaskFile(content);
+    expect(result.archivable).toBe(false);
+    expect(result.gatesOverdue).toBe(false);
+  });
+
+  it('honors archival-exempt for a gates-overdue file', () => {
+    const content = [
+      'Spec: `.agents/spec-docs/active/X-001.md`',
+      '<!-- archival-exempt: verification blocked on external dependency -->',
+      '- [x] TC-01',
+    ].join('\n');
+    const result = classifyTaskFile(content);
+    expect(result.gatesOverdue).toBe(true);
+    expect(result.exemptReason).toBe('verification blocked on external dependency');
   });
 
   it('flags via an explicit Status: completed line even without checkboxes', () => {

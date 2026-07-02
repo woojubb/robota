@@ -1,6 +1,7 @@
 ---
 title: 'CMD-005: model-invocable question dialog tool (single-select + free-text, multi-select) on the CMD-004 action layer'
 status: done
+completed: 2026-07-02
 created: 2026-06-28
 priority: high
 urgency: soon

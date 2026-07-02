@@ -1,6 +1,7 @@
 ---
 title: 'SCREEN-010: Background work list keeps reordering — give it a stable order'
 status: done
+completed: 2026-07-02
 created: 2026-06-30
 priority: medium
 urgency: soon

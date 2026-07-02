@@ -1,6 +1,7 @@
 ---
 title: 'SCREEN-013: No way to select or enter a background task from the TUI'
 status: done
+completed: 2026-07-02
 created: 2026-06-30
 priority: high
 urgency: soon
