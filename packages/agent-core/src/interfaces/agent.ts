@@ -126,6 +126,10 @@ export interface IAgentConfig {
 
   // Performance and limits
   timeout?: number;
+  /**
+   * Default maximum execution rounds per run (round = one model call + its requested tool
+   * executions; see `IRunOptions.maxExecutionRounds` for the full semantics). 0 = no cap.
+   */
   maxExecutionRounds?: number;
   maxSameToolInputs?: number;
   retryAttempts?: number;
@@ -186,8 +190,12 @@ export interface IRunOptions {
   /** Per-run replay event callback for provider/tool execution boundaries. */
   onExecutionEvent?: TExecutionEventCallback;
   /**
-   * Maximum model/tool rounds for this run.
-   * Use 0 for no core round cap.
+   * Maximum execution rounds for this run. A **round** is one provider (model) call plus the
+   * execution of every tool call that reply requested; a reply with no tool calls ends the loop,
+   * so a plain Q&A turn is exactly 1 round. This caps model/tool cycles within ONE `run()` — it is
+   * not a tool-count limit and not a multi-turn conversation limit. When the cap is hit the run
+   * stops after the current round. Use 0 for no core round cap. Defaults to
+   * `IAgentConfig.maxExecutionRounds`.
    */
   maxExecutionRounds?: number;
   /** Max times the same tool may be called with identical input before aborting. Unset = no limit. */

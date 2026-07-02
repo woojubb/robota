@@ -235,6 +235,46 @@ const response = await agent.run(
 
 These are used by `agent-framework` to assemble the CLI agent, but can also be used independently.
 
+### Decision agents — the tool call IS the answer
+
+For router/orchestrator/classifier agents, the useful output is a tool call, not prose. By default
+a turn that ends in tool calls triggers one extra model call to produce a text summary; set
+`allowToolOnlyCompletion: true` to make the tool call itself a valid completion and skip that
+one-call tax. Read the decision from your tool's executor (or the run's execution events) — the
+returned text may be empty.
+
+```typescript
+import { z } from 'zod';
+import { Robota } from '@robota-sdk/agent-core';
+import { createZodFunctionTool } from '@robota-sdk/agent-tools';
+
+let decision: string | undefined;
+const routeTool = createZodFunctionTool(
+  'route',
+  'Choose the team that should handle the ticket',
+  z.object({ team: z.enum(['billing', 'bugs', 'sales']) }),
+  async (args) => {
+    decision = String(args.team);
+    return { success: true, data: `routed to ${String(args.team)}` };
+  },
+);
+
+const router = new Robota({
+  name: 'Router',
+  aiProviders: [provider],
+  defaultModel: { provider: 'anthropic', model: 'claude-haiku-4-5' },
+  tools: [routeTool],
+});
+
+await router.run('Ticket: "I was charged twice this month."', {
+  allowToolOnlyCompletion: true,
+});
+// decision === 'billing' — no summary call was made
+```
+
+For a fixed-schema JSON answer (rather than a routing decision), prefer structured output:
+`run(prompt, { output: schema })` returns a validated typed object directly.
+
 ## Plugins
 
 Plugins hook into the agent lifecycle to add cross-cutting concerns.
@@ -332,6 +372,17 @@ const history = agent.getHistory(); // TUniversalMessage[]
 agent.clearHistory();
 ```
 
+### History lifetime & cost
+
+History **accumulates for the lifetime of the instance and the full history is sent to the
+provider on every call** — token cost grows with every turn until you act:
+
+- `clearHistory()` resets the conversation. The `systemMessage` from config is not lost — it is
+  re-applied as the log head on the next run.
+- One `Robota` instance = one conversation. For independent requests (for example one per HTTP
+  request), create an instance per conversation instead of sharing one.
+- History is append-only and read-only: there is no edit/delete API by design.
+
 ### Message State
 
 Messages have a `state` field that tracks completion:
@@ -352,6 +403,36 @@ During streaming, `ConversationStore` manages a streaming buffer internally:
 3. `commitAssistant(state, metadata)` — commits the buffer to history as a confirmed message
 
 This is a single path — both normal completion (`'complete'`) and abort (`'interrupted'`) use the same `commitAssistant` call with different state values. History is append-only and read-only; text content is always preserved. The CLI's `onTextDelta` callback is preserved as a passthrough for real-time display.
+
+## Execution Contracts
+
+Behavior guarantees of `run()`/`runStream()` that matter in production hosts.
+
+### Execution rounds
+
+A **round** is one model call plus the execution of every tool call that reply requested; a reply
+with no tool calls ends the loop (a plain Q&A turn is exactly 1 round). `maxExecutionRounds` caps
+rounds within one `run()` — it is not a tool-count limit and not a conversation-turn limit. Set it
+per run or as a config default; `0` means no cap.
+
+```typescript
+await agent.run('Research this topic and summarize.', { maxExecutionRounds: 5 });
+```
+
+### Concurrency
+
+One instance owns one conversation history, so concurrent `run()`/`runStream()` calls on the same
+instance are **serialized on an internal FIFO queue** — fire-and-forget calls are safe and always
+produce sequential history, never interleaved messages. A queued call whose `AbortSignal` fires
+while waiting throws without touching the provider or history. `runStream()` holds its queue slot
+until the stream is fully consumed. Separate instances are fully concurrent.
+
+### destroy()
+
+`destroy()` disposes modules, plugin subscriptions, and event emitters **sequentially, and throws
+on the first failing step** — steps after the failure do not run. Call it when the instance's
+lifecycle ends (server shutdown, session close); after a throw the instance should be considered
+unusable and discarded.
 
 ## Error Handling
 
