@@ -1,6 +1,7 @@
 ---
 title: 'DOCS-014: adoption-path docs — gateway quickstart, decision-agent pattern, execution/history contracts, agent-testing positioning'
-status: todo
+status: done
+completed: 2026-07-03
 created: 2026-07-03
 priority: medium
 urgency: soon
@@ -49,4 +50,25 @@ Positioning:
 - Prereq: a fresh consumer following only the new gateway quickstart.
 - Steps: set up baseURL + non-OpenAI slug per the doc; run the snippet.
 - Expected: first-try streaming + tool call success without reading source.
-- Evidence: _to fill at implementation._
+- Evidence: **PASS (live, 2026-07-03).** All seven items landed with one owner each:
+  (1) gateway quickstart — `content/quickstart.md` "Through an AI gateway" block + cross-link to
+  the providers guide section (DOCS-016 landed the reference section; the quickstart now surfaces
+  it on the adoption path); (2) decision-agent pattern — `content/guide/building-agents.md`
+  "Decision agents — the tool call IS the answer" section documenting CORE-011
+  `allowToolOnlyCompletion` as the intended pattern (supersedes the execute-callback workaround)
+  with a structured-output cross-pointer; (3) `maxExecutionRounds` semantics — JSDoc on
+  `IRunOptions` (round = one model call + its requested tool executions; not a tool-count or
+  conversation limit; 0 = uncapped) + `IAgentConfig` mirror + guide "Execution rounds" section;
+  (4) run/runStream concurrency contract — guide "Concurrency" section (JSDoc/SPEC landed with
+  CORE-012); (5) history lifetime & cost — guide "History lifetime & cost" section (accumulates,
+  full history sent every call, `clearHistory()` + CORE-010 systemMessage re-injection,
+  instance-per-conversation guidance, append-only/no-edit by design); (6) `destroy()` —
+  guide "destroy()" section documenting the CURRENT sequential/throw-on-first-failure contract
+  (CORE-013 will update it when it lands); (7) `@robota-sdk/agent-testing` README created
+  (none existed): what-layer-it-tests positioning table (unit fakes vs provider-replay vs
+  real-PTY E2E), spawnPty example with the outputOffset/waitForSince cumulative-transcript
+  pitfall baked in. Live User Execution (TEST_QWEN_KEY): (A) gateway quickstart recipe —
+  OpenAI provider + compatible endpoint + non-OpenAI slug → first-try streaming (7 deltas) +
+  tool call PASS; (B) the guide's decision-agent snippet → `decision='billing'` via tool-only
+  completion PASS. doc-examples scan 52 blocks (incl. new agent-testing README), docs:build,
+  42 harness scans green.
