@@ -269,6 +269,9 @@ export function buildFullExecutionContext(
     ...(context?.maxSameToolInputs !== undefined && {
       maxSameToolInputs: context.maxSameToolInputs,
     }),
+    ...(context?.allowToolOnlyCompletion !== undefined && {
+      allowToolOnlyCompletion: context.allowToolOnlyCompletion,
+    }),
   };
 }
 

@@ -117,6 +117,8 @@ export interface IExecutionContext {
   maxExecutionRounds?: number;
   /** Max times the same tool may be called with identical input before aborting. Unset = no limit. */
   maxSameToolInputs?: number;
+  /** Tool-only turn ending counts as completion — skip the forced summary call (CORE-011). */
+  allowToolOnlyCompletion?: boolean;
 }
 
 /**
