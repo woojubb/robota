@@ -1,6 +1,6 @@
 ---
 title: 'SCREEN-011: Background work rows wrap to two lines, orphaning the tree connector'
-status: in-progress
+status: done
 created: 2026-06-30
 priority: medium
 urgency: soon
@@ -44,4 +44,9 @@ Render each background row as exactly **one terminal line**: set the row `<Text>
   with `…` rather than wrapping onto an unconnected second line.
 - Evidence: Engineering — `background-task-panel.test.tsx` › "keeps a long-preview row on a single
   line (SCREEN-011)" passes: a row with a >1-width preview renders exactly one line that still begins
-  with `└ ⟳`. Live-TUI confirmation in an 80-col terminal pending a user run.
+  with `└ ⟳`.
+- Evidence (LIVE, agent-run 2026-07-02): real TUI in an 80-column PTY (real Anthropic provider); one
+  background agent was given a >200-char prompt. Every panel row rendered as exactly one line —
+  `├ ⟳ A1 agent · running · agent · general-purpose · Write one very long senten…` — truncated with
+  `…` at the terminal edge; no row wrapped onto an unconnected second line. Scenario executed as
+  written (long prompt, 80-col terminal).

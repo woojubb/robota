@@ -1,7 +1,9 @@
 # TERM-008 — Cross-platform shell execution (Shell tool + shared resolver)
 
-Spec: .agents/spec-docs/active/TERM-008-cross-platform-shell-execution.md
-Status: implemented; verifying. Carved from TERM-007 item 1 (shell selection / hardcoded `sh`).
+Spec: .agents/spec-docs/done/TERM-008-cross-platform-shell-execution.md
+Status: completed — GATE-VERIFY + GATE-COMPLETE passed 2026-07-02 (TC-01..04 evidence in the spec
+Evidence Log; suites re-run green on develop; `windows-shell` CI gate blocking on every PR). Carved
+from TERM-007 item 1 (shell selection / hardcoded `sh`).
 
 ## Decision (recorded)
 

@@ -1,6 +1,6 @@
 # WORKFLOW-003 — `/workflows` agent-cli command
 
-Spec: .agents/spec-docs/active/WORKFLOW-003-workflows-command.md
+Spec: .agents/spec-docs/done/WORKFLOW-003-workflows-command.md
 Status: done (list/catalog/validate/run) — build subcommand deferred (needs LLM-integration design: how a command module reaches the session provider). Committed incrementally; harness green.
 
 ## Decision (recorded)

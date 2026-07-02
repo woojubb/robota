@@ -1,6 +1,6 @@
 ---
 title: 'SCREEN-013: No way to select or enter a background task from the TUI'
-status: in-progress
+status: done
 created: 2026-06-30
 priority: high
 urgency: soon
@@ -48,5 +48,10 @@ Use the same stable order as SCREEN-010 so the switcher selection is predictable
   `Enter` opens its detail view showing the task's status/output; `Esc` returns to the main thread.
 - Evidence: Engineering — `background-task-panel.test.tsx` › "advertises the Ctrl+B drill-in
   (SCREEN-013)" passes: the panel renders the `Ctrl+B` hint. The `Ctrl+B` handler + switcher +
-  `ExecutionWorkspaceDetailPane` already exist and are wired in `App.tsx`. Live-TUI confirmation
-  (Ctrl+B → ↑↓ → Enter → detail) pending a user run.
+  `ExecutionWorkspaceDetailPane` already exist and are wired in `App.tsx`.
+- Evidence (LIVE, agent-run 2026-07-02): real TUI in a PTY (real Anthropic provider) with 3 live
+  background agents. `Ctrl+B` opened the "Execution workspace" switcher listing main thread + A1/A2/A3
+  with the `Ctrl+B Close ↑↓ Navigate Enter Switch Esc Close` footer; `↓↓` moved the `>` selection to
+  `> ● A1 agent · running…`; `Enter` switched to A1 — the status bar showed `[A1]` and the main pane
+  rendered A1's live transcript; `Esc` returned to the prompt. Notably this worked **mid-turn** (while
+  the parent turn was still streaming). Scenario executed as written.
