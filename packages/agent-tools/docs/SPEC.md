@@ -24,7 +24,6 @@ implementations/
   function-tool.ts      -- FunctionTool: JS function tool with Zod schema validation
   function-tool/
     index.ts            -- Re-exports FunctionTool, createFunctionTool, createZodFunctionTool
-    schema-converter.ts -- zodToJsonSchema: converts Zod schemas to JSON Schema
     parameter-validator.ts -- validateToolParameters / getValidationErrors / validateParameterType
     types.ts            -- FunctionTool-specific types
 types/
@@ -54,7 +53,7 @@ builtins/
 
 - **Registry** -- `ToolRegistry` provides central tool registration, lookup, and schema management.
 - **Factory** -- `createFunctionTool` and `createZodFunctionTool` provide ergonomic tool construction.
-- **Adapter** -- `zodToJsonSchema` adapts Zod schemas into the JSON Schema format expected by AI providers; `E2BSandboxClient` adapts E2B-compatible sandbox instances to `ISandboxClient`.
+- **Adapter** -- `E2BSandboxClient` adapts E2B-compatible sandbox instances to `ISandboxClient`. (Zod-to-JSON-schema conversion is owned by the core package as the schema SSOT; this package imports it.)
 - **Ports and adapters** -- `ISandboxClient` separates tool execution intent, workspace preparation, and provider-owned snapshot hydration from the concrete execution plane.
 - **Declarative workspace setup** -- `IWorkspaceManifest` describes fresh-session sandbox files, directories, Git repositories, and future ephemeral storage mounts without putting manifest algorithms in SDK or CLI layers.
 
@@ -109,7 +108,6 @@ Types owned by this package (SSOT):
 | `FunctionTool`                          | Class    | JS function tool with Zod schema validation                    |
 | `createFunctionTool`                    | Function | Factory for creating function tools                            |
 | `createZodFunctionTool`                 | Function | Factory with Zod validation and conversion                     |
-| `zodToJsonSchema`                       | Function | Converts Zod schemas to JSON Schema format                     |
 | `IToolInvocationResult`                 | Type     | Result shape for CLI tool invocations                          |
 | `E2BSandboxClient`                      | Class    | Adapter for E2B-compatible sandbox instances and snapshots     |
 | `InMemorySandboxClient`                 | Class    | Deterministic sandbox client for tests                         |
@@ -187,7 +185,7 @@ This is the inner result type used by built-in tools. It is serialized to JSON a
 
 ## Error Taxonomy
 
-This package does not define a custom error hierarchy. Built-in tools return errors via the `IToolInvocationResult.error` field rather than throwing. Schema conversion errors from `zodToJsonSchema` are thrown as standard `Error` instances.
+This package does not define a custom error hierarchy. Built-in tools return errors via the `IToolInvocationResult.error` field rather than throwing.
 
 `classifyFetchError` in `web-fetch-tool.ts` maps network-layer errors (Node.js `ErrnoException` codes and `AbortError`) to human-readable strings; it does not throw. Path traversal violations detected by `checkPathWithinCwd` in `path-guard.ts` are returned as a serialized `IToolInvocationResult` error string rather than thrown exceptions.
 
@@ -225,7 +223,6 @@ None. `FunctionTool` implements its interface directly (`implements IFunctionToo
 | `src/__tests__/sandbox-tools.test.ts`      | Unit  | Sandbox client contracts, sandbox-aware tools, E2B adapter behavior, and snapshot/restore paths |
 | `src/__tests__/workspace-manifest.test.ts` | Unit  | Workspace manifest path validation and generic sandbox application                              |
 | `src/__tests__/function-tool.test.ts`      | Unit  | FunctionTool creation, execution, schema validation                                             |
-| `src/__tests__/schema-converter.test.ts`   | Unit  | Zod-to-JSON-Schema conversion                                                                   |
 | `src/__tests__/tool-registry.test.ts`      | Unit  | ToolRegistry registration, lookup, listing                                                      |
 
 ### Gaps

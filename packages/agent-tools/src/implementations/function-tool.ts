@@ -1,9 +1,8 @@
-import { ToolExecutionError, ValidationError } from '@robota-sdk/agent-core';
+import { ToolExecutionError, ValidationError, zodToJsonSchema } from '@robota-sdk/agent-core';
 
 import { getValidationErrors, validateToolParameters } from './function-tool/parameter-validator';
-import { zodToJsonSchema } from './function-tool/schema-converter';
 
-import type { IZodSchema } from './function-tool/types';
+import type { IZodSchema } from '@robota-sdk/agent-core';
 import type {
   IFunctionTool,
   IToolResult,

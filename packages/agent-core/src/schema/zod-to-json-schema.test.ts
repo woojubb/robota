@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import type { IZodSchema, IZodSchemaDef } from '../implementations/function-tool/types';
+import type { IZodSchema, IZodSchemaDef } from './zod-schema-types';
 import {
   zodToJsonSchema,
   extractEnumValues,
   hasValidationConstraints,
   getSchemaTypeName,
-} from '../implementations/function-tool/schema-converter';
+} from './zod-to-json-schema';
 
 /**
  * Create a mock Zod schema definition.

@@ -1,3 +1,4 @@
+import { buildChatResponseFormat } from './execution-service-helpers';
 import { executeStreamToolCalls } from './execution-stream-tools';
 import { callPluginHook } from './plugin-hook-dispatcher';
 import { ConfigurationError } from '../utils/errors';
@@ -121,9 +122,10 @@ export async function* executeStream(
     const chatOptions: IChatOptions = {
       model: config.defaultModel.model,
       ...(config.tools && config.tools.length > 0 && { tools: tools.getTools() }),
-      ...(config.responseFormat?.type
-        ? { responseFormat: { type: config.responseFormat.type } }
-        : {}),
+      ...(() => {
+        const responseFormat = buildChatResponseFormat(config.responseFormat);
+        return responseFormat ? { responseFormat } : {};
+      })(),
     };
 
     logger.debug('[EXECUTION-SERVICE] Final chatOptions has tools:', {

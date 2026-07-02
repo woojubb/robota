@@ -1,23 +1,15 @@
 /**
- * FunctionTool - Schema conversion utilities for Facade pattern
+ * Zod → JSON Schema conversion (SSOT).
  *
- * REASON: Complex Zod to JSON schema conversion requires isolated utility functions
- * ALTERNATIVES_CONSIDERED:
- * 1. Keep conversion logic in main class (violates single responsibility)
- * 2. Use third-party library (adds external dependency)
- * 3. Manual conversion each time (code duplication)
- * 4. Runtime type checking only (loses compile-time safety)
- * 5. Remove Zod support (breaks backward compatibility)
- * TODO: Consider caching conversion results for performance
+ * Owned by agent-core (CORE-015): the structured-output run pipeline and the
+ * tools package both convert Zod schemas to the universal JSON-schema subset
+ * (`IToolSchema['parameters']`), so the single converter lives at the bottom of
+ * the dependency graph. The tools package imports these functions from core.
  */
 
-import type { IZodSchema, ISchemaConversionOptions } from './types';
-import type {
-  IToolSchema,
-  IParameterSchema,
-  TJSONSchemaEnum,
-  TUniversalValue,
-} from '@robota-sdk/agent-core';
+import type { IZodSchema, ISchemaConversionOptions } from './zod-schema-types';
+import type { IToolSchema, IParameterSchema, TJSONSchemaEnum } from '../interfaces/provider';
+import type { TUniversalValue } from '../interfaces/types';
 
 /**
  * Convert Zod schema to JSON Schema format with safe undefined handling

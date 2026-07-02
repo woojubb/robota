@@ -131,6 +131,7 @@ export class AnthropicProvider extends AbstractAIProvider {
       ...(systemPrompt && { system: systemPrompt }),
       ...(options?.temperature !== undefined && { temperature: options.temperature }),
       ...(allTools.length > 0 && { tools: allTools }),
+      ...buildOutputConfig(options),
     };
 
     // Always use streaming to avoid Anthropic SDK's 10-minute non-streaming timeout.
@@ -199,6 +200,7 @@ export class AnthropicProvider extends AbstractAIProvider {
       messages: anthropicMessages,
       max_tokens: options?.maxTokens || getModelMaxOutput(options.model as string),
       stream: true,
+      ...buildOutputConfig(options),
     };
 
     if (options?.temperature !== undefined) {
@@ -323,4 +325,62 @@ export class AnthropicProvider extends AbstractAIProvider {
       }
     }
   }
+}
+
+/**
+ * Map a `json_schema` response format onto Anthropic's native structured-output
+ * surface (`output_config.format`, CORE-015). Other formats have no Anthropic
+ * equivalent and rely on the core-side validation loop.
+ */
+function buildOutputConfig(
+  options: IChatOptions | undefined,
+): Pick<Anthropic.MessageCreateParams, 'output_config'> | Record<string, never> {
+  if (options?.responseFormat?.type !== 'json_schema') {
+    return {};
+  }
+  return {
+    output_config: {
+      format: {
+        type: 'json_schema',
+        schema: closeObjectSchemas(options.responseFormat.schema) as Record<string, unknown>,
+      },
+    },
+  };
+}
+
+/**
+ * Anthropic's structured-output surface rejects open-world objects: every
+ * `object` node must carry an explicit `additionalProperties: false`. The
+ * universal schema subset leaves it unset (closed by convention), so close
+ * every object node recursively at this SDK seam. The consumer's original
+ * schema still governs core-side validation.
+ */
+function closeObjectSchemas(node: unknown): unknown {
+  if (Array.isArray(node)) {
+    return node.map(closeObjectSchemas);
+  }
+  if (typeof node !== 'object' || node === null) {
+    return node;
+  }
+  const record = node as Record<string, unknown>;
+  const closed: Record<string, unknown> = { ...record };
+  if (record.properties && typeof record.properties === 'object') {
+    closed.properties = Object.fromEntries(
+      Object.entries(record.properties as Record<string, unknown>).map(([key, value]) => [
+        key,
+        closeObjectSchemas(value),
+      ]),
+    );
+  }
+  if (record.items && typeof record.items === 'object') {
+    closed.items = closeObjectSchemas(record.items);
+  }
+  if (record.additionalProperties && typeof record.additionalProperties === 'object') {
+    // Schema-valued additionalProperties (record types) pass through recursed;
+    // Anthropic may reject them — surfaced as a provider error, not masked here.
+    closed.additionalProperties = closeObjectSchemas(record.additionalProperties);
+  } else if (record.type === 'object') {
+    closed.additionalProperties = false;
+  }
+  return closed;
 }

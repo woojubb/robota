@@ -5,6 +5,8 @@
 
 import { randomUUID } from 'node:crypto';
 
+import { buildChatResponseFormat } from './execution-service-helpers';
+
 import type { IResolvedProviderInfo, IExecutionRoundState } from './execution-types';
 import type { IAgentConfig, IAssistantMessage } from '../interfaces/agent';
 import type { IToolCall, TUniversalMessage } from '../interfaces/messages';
@@ -59,9 +61,10 @@ export async function callProviderWithCache(
       temperature: config.defaultModel.temperature,
     }),
     ...(resolved.availableTools.length > 0 && { tools: resolved.availableTools }),
-    ...(config.responseFormat?.type
-      ? { responseFormat: { type: config.responseFormat.type } }
-      : {}),
+    ...(() => {
+      const responseFormat = buildChatResponseFormat(config.responseFormat);
+      return responseFormat ? { responseFormat } : {};
+    })(),
     ...overrides,
   };
   const providerChat = resolved.provider.chat.bind(resolved.provider) as TProviderChat;

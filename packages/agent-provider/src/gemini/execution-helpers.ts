@@ -131,6 +131,13 @@ function buildGenerateContentRequest(
   if (systemInstruction) {
     config.systemInstruction = systemInstruction;
   }
+  // CORE-015: map json_schema onto Gemini's native structured-output surface.
+  if (options?.responseFormat?.type === 'json_schema') {
+    config.responseMimeType = 'application/json';
+    config.responseSchema = options.responseFormat.schema;
+  } else if (options?.responseFormat?.type === 'json_object') {
+    config.responseMimeType = 'application/json';
+  }
   return {
     model,
     contents,

@@ -69,6 +69,47 @@ agent.clearHistory();
 agent.setModel({ provider: 'openai', model: 'gpt-4o' });
 ```
 
+### Structured Output
+
+`run(input, { output })` returns a schema-validated object instead of a string. Zod schemas give a
+typed result; the schema is forwarded to the provider's native structured-output surface where one
+exists, and the response is always validated core-side with a bounded retry on violation
+(`outputRetries`, default 2). Exhausted retries throw `StructuredOutputError`.
+
+```typescript
+import { z } from 'zod';
+import { Robota } from '@robota-sdk/agent-core';
+import type { IAgentConfig } from '@robota-sdk/agent-core';
+
+declare const config: IAgentConfig;
+const agent = new Robota(config);
+
+const reportSchema = z.object({
+  title: z.string(),
+  score: z.number(),
+  summary: z.string(),
+});
+
+// Typed result: { title: string; score: number; summary: string }
+const report = await agent.run('Summarize the meeting as a report.', {
+  output: reportSchema,
+});
+
+// Streaming variant: deltas stream as usual; the validated object is the
+// generator's return value (the final { done: true, value } iterator result).
+const stream = agent.runStream('Summarize again.', { output: reportSchema });
+const iterator = stream[Symbol.asyncIterator]();
+let next = await iterator.next();
+while (!next.done) {
+  process.stdout.write(next.value);
+  next = await iterator.next();
+}
+const streamedReport = next.value;
+console.log(streamedReport.title);
+```
+
+A raw JSON-schema wrapper is also accepted: `{ output: { jsonSchema: { type: 'object', properties: { answer: { type: 'string' } }, required: ['answer'] } } }`.
+
 ### Execution Boundary Events
 
 `run()` accepts `onExecutionEvent` in run options. The execution loop emits provider-neutral events that higher layers can persist as append-only session provenance:

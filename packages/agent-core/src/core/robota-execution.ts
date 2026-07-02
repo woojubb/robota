@@ -4,9 +4,13 @@
  * Extracted from robota.ts to keep the main class under 300 lines.
  */
 import { AGENT_EVENTS } from '../agents/constants';
+import { parseStructuredResponseText } from '../schema/structured-output';
+import { StructuredOutputError } from '../utils/errors';
 
 import type { TUniversalMessage, IAgentConfig, IRunOptions } from '../interfaces/agent';
 import type { IAgentEventData } from '../interfaces/event-service';
+import type { TConfigValue } from '../interfaces/types';
+import type { IStructuredOutputSpec } from '../schema/structured-output';
 import type { ExecutionService } from '../services/execution-service';
 import type { IExecutionContext } from '../services/execution-types';
 import type { ILogger } from '../utils/logger';
@@ -50,6 +54,7 @@ export async function robotaRun(
   deps: IRobotaExecutionDeps,
   input: string,
   options: IRunOptions = {},
+  configOverrides?: Partial<IAgentConfig>,
 ): Promise<string> {
   try {
     deps.emitAgentEvent(AGENT_EVENTS.EXECUTION_START, {});
@@ -63,7 +68,7 @@ export async function robotaRun(
     });
 
     const messages = deps.getHistory();
-    const executionConfig: IAgentConfig = { ...deps.config };
+    const executionConfig: IAgentConfig = { ...deps.config, ...configOverrides };
 
     const result = await deps
       .getExecutionService()
@@ -105,6 +110,7 @@ export async function* robotaRunStream(
   deps: IRobotaExecutionDeps,
   input: string,
   options: IRunOptions = {},
+  configOverrides?: Partial<IAgentConfig>,
 ): AsyncGenerator<string, void, undefined> {
   try {
     deps.emitAgentEvent(AGENT_EVENTS.EXECUTION_START, {});
@@ -118,7 +124,7 @@ export async function* robotaRunStream(
     });
 
     const messages = deps.getHistory();
-    const executionConfig: IAgentConfig = { ...deps.config };
+    const executionConfig: IAgentConfig = { ...deps.config, ...configOverrides };
 
     const stream = deps.getExecutionService().executeStream(input, messages, executionConfig, {
       conversationId: deps.conversationId,
@@ -142,4 +148,128 @@ export async function* robotaRunStream(
   } finally {
     deps.emitAgentEvent(AGENT_EVENTS.EXECUTION_COMPLETE, {});
   }
+}
+
+/** Config override that routes the structured-output schema to the provider surface. */
+function structuredConfigOverrides(spec: IStructuredOutputSpec): Partial<IAgentConfig> {
+  return {
+    responseFormat: {
+      type: 'json_schema',
+      // The universal JSON-schema subset is plain JSON data; the interface merely
+      // lacks an index signature, hence the widening cast.
+      schema: spec.jsonSchema as unknown as Record<string, TConfigValue>,
+      name: spec.name,
+    },
+  };
+}
+
+function buildRetryFeedbackInput(spec: IStructuredOutputSpec, issues: string[]): string {
+  return [
+    'Your previous response did not match the required JSON schema.',
+    'Validation issues:',
+    ...issues.map((issue) => `- ${issue}`),
+    '',
+    'Respond with ONLY a JSON object (no prose, no code fences) matching this JSON schema:',
+    JSON.stringify(spec.jsonSchema),
+  ].join('\n');
+}
+
+/**
+ * Execute a schema-enforced structured turn (CORE-015). Each attempt is a full
+ * conversation turn (history stays append-only); a validation failure feeds the
+ * issues back as the next attempt's input, bounded by `outputRetries`.
+ * @internal
+ */
+export async function robotaRunStructured(
+  deps: IRobotaExecutionDeps,
+  input: string,
+  options: IRunOptions,
+  spec: IStructuredOutputSpec,
+): Promise<unknown> {
+  const maxAttempts = (options.outputRetries ?? 2) + 1;
+  const overrides = structuredConfigOverrides(spec);
+  let attemptInput = input;
+  let lastIssues: string[] = [];
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const responseText = await robotaRun(deps, attemptInput, options, overrides);
+    const outcome = validateStructuredText(spec, responseText);
+    if (outcome.success) {
+      return outcome.value;
+    }
+    lastIssues = outcome.issues;
+    deps.logger.debug('Structured output validation failed', {
+      attempt,
+      maxAttempts,
+      issues: lastIssues,
+    });
+    if (attempt < maxAttempts) {
+      attemptInput = buildRetryFeedbackInput(spec, lastIssues);
+    }
+  }
+
+  throw new StructuredOutputError(
+    `response failed schema validation after ${maxAttempts} attempt(s)`,
+    lastIssues,
+    maxAttempts,
+  );
+}
+
+/**
+ * Streaming variant of the structured turn: text deltas stream as usual (retried
+ * attempts stream too) and the validated object is the generator's return value.
+ * @internal
+ */
+export async function* robotaRunStreamStructured(
+  deps: IRobotaExecutionDeps,
+  input: string,
+  options: IRunOptions,
+  spec: IStructuredOutputSpec,
+): AsyncGenerator<string, unknown, undefined> {
+  const maxAttempts = (options.outputRetries ?? 2) + 1;
+  const overrides = structuredConfigOverrides(spec);
+  let attemptInput = input;
+  let lastIssues: string[] = [];
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    let responseText = '';
+    for await (const chunk of robotaRunStream(deps, attemptInput, options, overrides)) {
+      responseText += chunk;
+      yield chunk;
+    }
+    const outcome = validateStructuredText(spec, responseText);
+    if (outcome.success) {
+      return outcome.value;
+    }
+    lastIssues = outcome.issues;
+    deps.logger.debug('Structured output validation failed (stream)', {
+      attempt,
+      maxAttempts,
+      issues: lastIssues,
+    });
+    if (attempt < maxAttempts) {
+      attemptInput = buildRetryFeedbackInput(spec, lastIssues);
+    }
+  }
+
+  throw new StructuredOutputError(
+    `response failed schema validation after ${maxAttempts} attempt(s)`,
+    lastIssues,
+    maxAttempts,
+  );
+}
+
+function validateStructuredText(
+  spec: IStructuredOutputSpec,
+  responseText: string,
+): { success: true; value: unknown } | { success: false; issues: string[] } {
+  const parsed = parseStructuredResponseText(responseText);
+  if (!parsed.success) {
+    return { success: false, issues: [parsed.issue] };
+  }
+  const validated = spec.validate(parsed.value);
+  if (validated.success) {
+    return { success: true, value: validated.value };
+  }
+  return { success: false, issues: validated.issues };
 }

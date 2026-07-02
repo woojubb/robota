@@ -205,6 +205,20 @@ their own price tables. Prices are USD per 1,000,000 tokens.
 | `findProviderDefinition`                | function       | Resolve an injected provider definition by canonical type or alias                                                                                                                                                                                      |
 | `formatSupportedProviderTypes`          | function       | Format injected provider types and aliases for generic errors                                                                                                                                                                                           |
 
+### Schema (CORE-015)
+
+| Export                                                                                                    | Kind     | Description                                                                                                               |
+| --------------------------------------------------------------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `zodToJsonSchema`                                                                                         | function | Zod → universal JSON-schema subset conversion (SSOT; moved from the tools package, which now imports it from core)        |
+| `extractEnumValues`                                                                                       | function | Safe Zod enum value extraction                                                                                            |
+| `hasValidationConstraints`                                                                                | function | Whether a Zod schema carries validation checks                                                                            |
+| `getSchemaTypeName`                                                                                       | function | Safe Zod type-name extraction                                                                                             |
+| `IZodSchema` / `IZodSchemaDef` / `IZodParseResult` / `ISchemaConversionOptions`                           | types    | Structural Zod compatibility types (no hard Zod version coupling in signatures)                                           |
+| `normalizeStructuredOutput`                                                                               | function | Normalize `IRunOptions.output` (Zod schema or `IJsonSchemaOutput`) into `IStructuredOutputSpec`                           |
+| `validateAgainstJsonSchema`                                                                               | function | Structural validation of a value against the universal JSON-schema subset                                                 |
+| `parseStructuredResponseText`                                                                             | function | Parse a model's final text into JSON (tolerates one fenced json code block; value is still strictly validated afterwards) |
+| `IJsonSchemaOutput` / `IStructuredOutputSpec` / `TStructuredOutputSchema` / `TStructuredOutputValidation` | types    | Structured output contract types                                                                                          |
+
 ### Tools
 
 NOTE: `ToolRegistry`, `FunctionTool`, `createFunctionTool`, `createZodFunctionTool`, and `OpenAPITool` have been moved to the tools layer. `MCPTool` and `RelayMcpTool` have been moved to the MCP-tool layer.
@@ -578,10 +592,13 @@ The execution loop supports cooperative cancellation via the standard `AbortSign
 | `IRunOptions`                | `signal?: AbortSignal`                       | Allows callers to cancel execution of `Robota.run()`                                                                                                                                                                                                                                   |
 | `IRunOptions`                | `onTextDelta?: TTextDeltaCallback`           | Per-run streaming callback forwarded through execution context                                                                                                                                                                                                                         |
 | `IRunOptions`                | `allowToolOnlyCompletion?: boolean`          | CORE-011: a turn ending in tool calls is a valid completion — skips the forced summary call (decision-agent pattern); the forced-summary path also honors an aborted signal                                                                                                            |
+| `IRunOptions`                | `output?: TStructuredOutputSchema`           | CORE-015: schema-enforced structured output — `run` resolves to the validated typed object instead of a string (see Structured Output Contract)                                                                                                                                        |
+| `IRunOptions`                | `outputRetries?: number`                     | CORE-015: validation-retry budget after the first attempt (default 2); only meaningful with `output`                                                                                                                                                                                   |
 | `IRunOptions`                | `onExecutionEvent?: TExecutionEventCallback` | Per-run replay event callback for provider/tool boundaries                                                                                                                                                                                                                             |
 | `IRunOptions`                | `maxExecutionRounds?: number`                | Maximum model/tool rounds for one run. `0` means unlimited.                                                                                                                                                                                                                            |
 | `IRunOptions`                | `maxSameToolInputs?: number`                 | Abort if the same tool is called with identical inputs N or more times in one run.                                                                                                                                                                                                     |
 | `IChatOptions`               | `signal?: AbortSignal`                       | Passed to provider `chat()` / `chatStream()` for cancelling calls                                                                                                                                                                                                                      |
+| `IChatOptions`               | `responseFormat` `json_schema` variant       | CORE-015: `{ type: 'json_schema', name?, schema }` carries the structured-output schema to provider native surfaces                                                                                                                                                                    |
 | `IAgentConfig`               | `timeout?: number`                           | Provider idle timeout in milliseconds for a model call                                                                                                                                                                                                                                 |
 | `IAgentConfig`               | `maxExecutionRounds?: number`                | Default maximum model/tool rounds for each run. `0` means unlimited.                                                                                                                                                                                                                   |
 | `IAgentConfig`               | `maxSameToolInputs?: number`                 | Config-level default for the identical-tool-input abort threshold.                                                                                                                                                                                                                     |
@@ -631,6 +648,33 @@ When `IToolExecutionBatchContext.mode` is `parallel`, `ToolExecutionService` enf
 ### Partial Content Preservation on Abort
 
 When abort occurs during provider streaming, the provider uses `streamWithAbort` which breaks out of the iteration loop on `signal.aborted`. The provider then returns partial content collected so far with `stopReason: 'aborted'`. `executeRound` commits this partial response via `commitAssistant('interrupted')` through the standard single commit path. The execution loop then exits via the `signal.aborted` check in ExecutionService. `robota.run()` always returns normally on abort — it does not throw.
+
+## Structured Output Contract (CORE-015)
+
+`run(input, { output })` returns a schema-validated object instead of a string; `runStream` streams
+text deltas as usual and delivers the validated object as the generator's **return value** (read it
+from the final `{ done: true, value }` iterator result).
+
+- **Accepted schemas**: a Zod schema (validated via `safeParse`, return typed `z.infer<S>` on the
+  `Robota` class surface) or an explicit `IJsonSchemaOutput` wrapper carrying the universal
+  JSON-schema subset (validated structurally by `validateAgainstJsonSchema`). Both normalize to
+  `IStructuredOutputSpec` — one internal representation (SSOT).
+- **Provider mapping**: the schema is forwarded as `IChatOptions.responseFormat =
+{ type: 'json_schema', name, schema }`. Providers with a native structured-output surface map it
+  natively (OpenAI `response_format.json_schema`, Anthropic `output_config.format`, Gemini
+  `responseSchema` + JSON mime type); providers without one ignore it — the core-side enforcement
+  loop below is the universal contract either way.
+- **Enforcement loop**: the final response text is parsed (`parseStructuredResponseText`, tolerant
+  of one fenced json block) and validated core-side on every run. A violation triggers a retry
+  turn whose input contains the validation issues plus the schema, bounded by `outputRetries`
+  (default 2 retries after the first attempt). Exhaustion throws `StructuredOutputError`
+  (`issues`, `attempts`).
+- **History**: every attempt — including retry feedback turns — is a real conversation turn
+  committed through the standard append-only history path. Structured output never edits history.
+- **Tools**: tools may run within a structured turn; validation applies to the final assistant
+  text after tool rounds complete.
+- **Interface note**: the structured overloads are visible on `Robota` directly; through the
+  generic `IAgent` interface `run` remains `Promise<string>`-typed.
 
 ## Run Concurrency Contract (CORE-012)
 

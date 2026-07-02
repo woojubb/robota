@@ -1,7 +1,7 @@
 import { RateLimitError } from '@robota-sdk/agent-core';
 
 import { convertToOpenAIMessages, convertToOpenAITools } from './message-converter';
-import { buildOpenAIChatResponseFormat } from './openai-request-format';
+import { buildOpenAIChatResponseFormat, mergeChatResponseFormat } from './openai-request-format';
 import { assembleOpenAIStream } from './streaming/stream-assembler';
 import { observeProviderNativeRawPayloadStream } from '../shared/openai-compatible/index.js';
 
@@ -127,9 +127,7 @@ function buildChatRequestParams(
   }
 
   const responseFormat = buildOpenAIChatResponseFormat(
-    input.chatOptions?.responseFormat?.type !== undefined
-      ? { ...input.providerOptions, responseFormat: input.chatOptions.responseFormat.type }
-      : input.providerOptions,
+    mergeChatResponseFormat(input.providerOptions, input.chatOptions?.responseFormat),
   );
   return {
     model,
