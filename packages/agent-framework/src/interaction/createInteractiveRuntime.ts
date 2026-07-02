@@ -147,8 +147,15 @@ export function createInteractiveRuntime(options: IInteractiveRuntimeOptions): I
     },
 
     async stop(): Promise<void> {
-      unwireEvents?.();
-      await channel.stop();
+      // Best-effort disposal (CORE-013 convention): a channel stop failure must not skip the
+      // session shutdown, and stop() itself never rejects for cleanup errors.
+      try {
+        unwireEvents?.();
+        await channel.stop();
+      } catch {
+        // allow-fallback: best-effort disposal IS the contract — session shutdown below must still run (CORE-013 convention)
+        /* collected nowhere to log here; session shutdown still runs */
+      }
       await session?.shutdown();
       session = null;
     },

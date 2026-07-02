@@ -712,12 +712,41 @@ describe('Robota Core', () => {
       const robota = new Robota(createConfig());
       await robota.run('test');
 
-      await expect(robota.destroy()).resolves.not.toThrow();
+      const result = await robota.destroy();
+      expect(result.errors).toEqual([]);
     });
 
     it('should be safe to call destroy before any run', async () => {
       const robota = new Robota(createConfig());
-      await expect(robota.destroy()).resolves.not.toThrow();
+      await expect(robota.destroy()).resolves.toEqual({ errors: [] });
+    });
+
+    it('resolves with collected errors when a cleanup step fails (best-effort, CORE-013)', async () => {
+      class FailingCleanupPlugin extends AbstractPlugin {
+        override readonly name = 'failing-cleanup-plugin';
+        override readonly version = '1.0.0';
+        override async unsubscribeFromModuleEvents(): Promise<void> {
+          throw new Error('cleanup boom');
+        }
+      }
+      class HealthyCleanupPlugin extends AbstractPlugin {
+        override readonly name = 'healthy-cleanup-plugin';
+        override readonly version = '1.0.0';
+        unsubscribed = false;
+        override async unsubscribeFromModuleEvents(): Promise<void> {
+          this.unsubscribed = true;
+        }
+      }
+      const healthy = new HealthyCleanupPlugin();
+      const robota = new Robota(createConfig({ plugins: [new FailingCleanupPlugin(), healthy] }));
+      await robota.run('test');
+
+      // Never rejects — safe to fire-and-forget; the failure comes back in the result.
+      const result = await robota.destroy();
+      expect(result.errors).toHaveLength(1);
+      expect(result.errors[0].message).toBe('cleanup boom');
+      // Remaining cleanup steps still ran (no early abort of the disposal sequence).
+      expect(healthy.unsubscribed).toBe(true);
     });
   });
 

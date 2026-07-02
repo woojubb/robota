@@ -429,10 +429,20 @@ until the stream is fully consumed. Separate instances are fully concurrent.
 
 ### destroy()
 
-`destroy()` disposes modules, plugin subscriptions, and event emitters **sequentially, and throws
-on the first failing step** — steps after the failure do not run. Call it when the instance's
-lifecycle ends (server shutdown, session close); after a throw the instance should be considered
-unusable and discarded.
+`destroy()` is **best-effort and never rejects for cleanup failures** — `void agent.destroy()` is
+safe to fire-and-forget. Every cleanup step (modules, plugin subscriptions, event emitters) runs
+even if an earlier one fails; failures are logged and returned as
+`Promise<{ errors: Error[] }>` for callers that want a hard signal:
+
+```typescript
+const { errors } = await agent.destroy();
+if (errors.length > 0) {
+  // cleanup failures — already logged; decide whether to alert
+}
+```
+
+The same disposal convention applies across the stack: `Session.shutdown()` and transport
+`stopAll()` never reject for cleanup errors either.
 
 ## Error Handling
 

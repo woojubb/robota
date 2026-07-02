@@ -23,7 +23,7 @@ import {
   injectRawMessage,
 } from './robota-history';
 import { performDoAsyncInit } from './robota-initializer';
-import { buildAgentStats, destroyAgent } from './robota-lifecycle';
+import { buildAgentStats, destroyAgent, type IDestroyResult } from './robota-lifecycle';
 import { DEFAULT_ABSTRACT_EVENT_SERVICE, bindWithOwnerPath } from '../event-service/index';
 import { AgentFactory } from '../managers/agent-factory';
 import { AIProviders } from '../managers/ai-provider-manager';
@@ -331,8 +331,14 @@ export class Robota
     });
   }
 
-  async destroy(): Promise<void> {
-    await destroyAgent({
+  /**
+   * Best-effort disposal (CORE-013): never rejects for cleanup failures, so
+   * `void agent.destroy()` is safe to fire-and-forget. Every cleanup step runs even if an
+   * earlier one fails; failures are logged and returned in `errors` for callers that want a
+   * hard signal.
+   */
+  async destroy(): Promise<IDestroyResult> {
+    return destroyAgent({
       name: this.name,
       isFullyInitialized: this.isFullyInitialized,
       moduleRegistry: this.moduleRegistry,
