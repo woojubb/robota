@@ -1,4 +1,5 @@
 import type { ICacheOptions } from './cache';
+import type { IUserInteraction } from './interaction';
 import type { TUniversalMessageMetadata, TUniversalMessage } from './messages';
 import type {
   TProviderConfigValue,
@@ -141,6 +142,13 @@ export interface IAgentConfig {
 
   // Execution caching
   cache?: ICacheOptions;
+
+  /**
+   * Injected "ask the user" port (CMD-005). When present, tool executions receive it as
+   * `IToolExecutionContext.ask` so a model-invoked tool (AskUserQuestion) can solicit a structured
+   * answer. Absent in headless/automation contexts.
+   */
+  ask?: IUserInteraction['ask'];
 }
 
 /**

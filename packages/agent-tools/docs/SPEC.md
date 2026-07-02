@@ -47,6 +47,7 @@ builtins/
   grep-tool.ts          -- Grep: regex content search (files_with_matches/content/count, headLimit)
   web-fetch-tool.ts     -- WebFetch: fetch URL content (HTML→text conversion); classifyFetchError exported
   web-search-tool.ts    -- WebSearch: web search via Brave Search API
+  ask-user-question-tool.ts -- AskUserQuestion: model asks the user structured questions via the CMD-004 ask port
 ```
 
 **Design patterns used:**
@@ -132,17 +133,23 @@ Types owned by this package (SSOT):
 
 ### Built-in CLI Tools
 
-| Export          | Kind   | Tool Name   | Description                                                                              |
-| --------------- | ------ | ----------- | ---------------------------------------------------------------------------------------- |
-| `shellTool`     | Object | `Shell`     | Execute host shell commands; OS-aware (POSIX `sh`/`bash`, Windows PowerShell)            |
-| `bashTool`      | Object | `Bash`      | Model-familiar alias of `Shell` — same OS-aware implementation                           |
-| `readTool`      | Object | `Read`      | Read file contents with line numbers (cat -n)                                            |
-| `writeTool`     | Object | `Write`     | Write content to a file (creates parent dirs)                                            |
-| `editTool`      | Object | `Edit`      | Replace a specific string in a file                                                      |
-| `globTool`      | Object | `Glob`      | Find files matching a glob pattern (fast-glob)                                           |
-| `grepTool`      | Object | `Grep`      | Regex content search — modes: files_with_matches/content/count; `headLimit` caps results |
-| `webFetchTool`  | Object | `WebFetch`  | Fetch URL content with HTML-to-text conversion                                           |
-| `webSearchTool` | Object | `WebSearch` | Web search via Brave Search API                                                          |
+| Export                | Kind   | Tool Name         | Description                                                                                                  |
+| --------------------- | ------ | ----------------- | ------------------------------------------------------------------------------------------------------------ |
+| `shellTool`           | Object | `Shell`           | Execute host shell commands; OS-aware (POSIX `sh`/`bash`, Windows PowerShell)                                |
+| `bashTool`            | Object | `Bash`            | Model-familiar alias of `Shell` — same OS-aware implementation                                               |
+| `readTool`            | Object | `Read`            | Read file contents with line numbers (cat -n)                                                                |
+| `writeTool`           | Object | `Write`           | Write content to a file (creates parent dirs)                                                                |
+| `editTool`            | Object | `Edit`            | Replace a specific string in a file                                                                          |
+| `globTool`            | Object | `Glob`            | Find files matching a glob pattern (fast-glob)                                                               |
+| `grepTool`            | Object | `Grep`            | Regex content search — modes: files_with_matches/content/count; `headLimit` caps results                     |
+| `webFetchTool`        | Object | `WebFetch`        | Fetch URL content with HTML-to-text conversion                                                               |
+| `webSearchTool`       | Object | `WebSearch`       | Web search via Brave Search API                                                                              |
+| `askUserQuestionTool` | Object | `AskUserQuestion` | Model-issued structured questions (options/multi-select/free text) via `IToolExecutionContext.ask` (CMD-005) |
+
+`AskUserQuestion` (CMD-005) consumes the injected `IToolExecutionContext.ask` port (CMD-004): each of
+its 1–4 questions maps onto the `IActionRequest` SSOT and is rendered by the attached environment; a
+dismissed question cancels the remaining unasked ones; without an ask port (headless) the tool returns
+a structured `{ unavailable: true }` result — never a silent guess, never a thrown error.
 
 > `classifyFetchError` is **not** part of the package Public API Surface — it is not re-exported from `src/index.ts`. It remains internal, exported only from the builtins barrel (`src/builtins/index.ts`).
 

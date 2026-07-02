@@ -132,6 +132,8 @@ export async function createInteractiveSession(
     terminal: NOOP_TERMINAL,
     sessionLogger: new FileSessionLogger(paths.logs),
     permissionHandler: options.permissionHandler,
+    // CMD-005: the channel's unified ask renderer doubles as the model-question seam for tools.
+    ...(options.askHandler ? { ask: options.askHandler } : {}),
     provider: options.provider,
     onTextDelta: options.onTextDelta,
     onContextUpdate: options.onContextUpdate,
@@ -269,6 +271,7 @@ export async function initializeInteractiveSessionAsync(
     permissionMode: options.permissionMode,
     maxTurns: options.maxTurns,
     permissionHandler: options.permissionHandler,
+    ...(options.askHandler ? { askHandler: options.askHandler } : {}),
     resumeSessionId: deps.resumeSessionId,
     forkSession: options.forkSession,
     onTextDelta: deps.onTextDelta,

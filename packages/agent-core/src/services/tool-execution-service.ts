@@ -3,6 +3,7 @@ import { ValidationError } from '../utils/errors';
 import { SilentLogger, type ILogger } from '../utils/logger';
 
 import type { IOwnerPathSegment, IToolEventData } from '../interfaces/event-service';
+import type { IUserInteraction } from '../interfaces/interaction';
 import type { IToolManager } from '../interfaces/manager';
 import type { IToolExecutionRequest } from '../interfaces/service';
 import type {
@@ -45,10 +46,19 @@ export interface IToolExecutionBatchContext {
 export class ToolExecutionService {
   private tools: IToolManager;
   private logger: ILogger;
+  private askHandler?: IUserInteraction['ask'];
 
   constructor(tools: IToolManager, logger: ILogger = SilentLogger) {
     this.tools = tools;
     this.logger = logger;
+  }
+
+  /**
+   * Session-scoped "ask the user" port (CMD-005). When set, every execution request built by
+   * `createExecutionRequestsWithContext` carries it into the tool's `IToolExecutionContext.ask`.
+   */
+  setAskHandler(ask: IUserInteraction['ask'] | undefined): void {
+    this.askHandler = ask;
   }
 
   /**
@@ -205,6 +215,7 @@ export class ToolExecutionService {
         ownerId: toolCall.id,
         ownerPath: [...context.ownerPathBase, { type: 'tool', id: toolCall.id }],
         metadata: context.metadataFactory ? context.metadataFactory(toolCall) : undefined,
+        ...(this.askHandler ? { ask: this.askHandler } : {}),
       };
     });
   }

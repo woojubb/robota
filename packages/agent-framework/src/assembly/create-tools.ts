@@ -3,6 +3,7 @@
  */
 
 import {
+  createAskUserQuestionTool,
   createShellTool,
   createBashTool,
   createReadTool,
@@ -28,11 +29,12 @@ export const DEFAULT_TOOL_DESCRIPTIONS = [
   'Grep — search file contents with regex',
   'WebFetch — fetch URL content as text',
   'WebSearch — search the internet through the configured local tool',
+  'AskUserQuestion — ask the user structured questions (options/multi-select/free text) mid-task',
 ];
 
 /**
  * Create the default set of CLI tools.
- * Returns the 8 standard tools as IToolWithEventService[].
+ * Returns the standard tools as IToolWithEventService[].
  */
 export interface ICreateDefaultToolsOptions {
   sandboxClient?: ISandboxClient;
@@ -52,5 +54,6 @@ export function createDefaultTools(
     grepTool as IToolWithEventService,
     webFetchTool as IToolWithEventService,
     webSearchTool as IToolWithEventService,
+    createAskUserQuestionTool() as IToolWithEventService,
   ];
 }
