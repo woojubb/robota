@@ -1,0 +1,40 @@
+# Robota SDK
+
+> A composable TypeScript **library collection** for building AI agents — strict types,
+> multi-provider, plugin/event architecture. It is not a coding-agent product:
+> `@robota-sdk/agent-cli` is a reference app assembled FROM these libraries, and you embed the
+> libraries directly the same way.
+
+This file is a map for agent consumers evaluating or embedding robota. Facts live in their owner
+documents — follow the links; do not infer capabilities from package counts or quickstart defaults.
+(`AGENTS.md`/`CLAUDE.md` are contributor-harness docs, not consumer docs.)
+
+## Minimal embedding set
+
+Three packages; the other `@robota-sdk/*` packages are optional assembly on top of them.
+
+- [packages/agent-core/README.md](packages/agent-core/README.md): `Robota` class — `run`/`runStream`, conversation history, plugins, structured output
+- [packages/agent-provider/README.md](packages/agent-provider/README.md): providers as protocol clients (OpenAI / Anthropic Messages / Google GenAI surfaces)
+- [packages/agent-tools/README.md](packages/agent-tools/README.md): zod-validated function tools + built-in CLI tools
+
+## Capabilities
+
+- **OpenAI-compatible gateway via `baseURL`** — any gateway (Vercel AI Gateway, LiteLLM, OpenRouter), Azure, vLLM, Ollama, LM Studio; non-OpenAI model slugs pass through verbatim; streaming + tool calling included. Owner JSDoc: [packages/agent-provider/src/openai/types.ts](packages/agent-provider/src/openai/types.ts); guide: [content/guide/providers.md](content/guide/providers.md)
+- **Streaming** — `runStream()` or per-run `onTextDelta`: [content/guide/building-agents.md](content/guide/building-agents.md)
+- **Schema-enforced structured output** — `run(prompt, { output: zodSchema })` returns a validated typed object with provider-native mapping + bounded retry: [packages/agent-core/docs/SPEC.md](packages/agent-core/docs/SPEC.md) § Structured Output Contract
+- **Runtime tool validation** — zod schemas validate tool args before executors run: [packages/agent-tools/README.md](packages/agent-tools/README.md)
+- **Step control** — `maxExecutionRounds` (a round = one model call + its requested tool executions): [content/guide/building-agents.md](content/guide/building-agents.md) § Execution Contracts
+- **Real-terminal E2E testing** — PTY runner: [packages/agent-testing/README.md](packages/agent-testing/README.md)
+
+## Behavior contracts
+
+- **Run concurrency** — per-instance FIFO serialization; concurrent `run()` calls never interleave history: [packages/agent-core/docs/SPEC.md](packages/agent-core/docs/SPEC.md) § Run Concurrency Contract
+- **History lifetime & cost** — append-only, full history sent every call; `clearHistory()` resets, systemMessage re-applies: [content/guide/building-agents.md](content/guide/building-agents.md) § History lifetime & cost
+- **`destroy()`** — sequential cleanup, throws on first failing step: [content/guide/building-agents.md](content/guide/building-agents.md) § Execution Contracts
+- **Tool-only turns** — `allowToolOnlyCompletion: true` makes a tool call a valid completion (decision agents, no summary-call tax): [content/guide/building-agents.md](content/guide/building-agents.md) § Decision agents
+
+## Types & examples
+
+- Type declarations ship inside each npm package (`dist/**/*.d.ts`) — the hover docs above are in them. Repo sources: [packages/agent-core/src/index.ts](packages/agent-core/src/index.ts), [packages/agent-provider/src/index.ts](packages/agent-provider/src/index.ts), [packages/agent-tools/src/index.ts](packages/agent-tools/src/index.ts)
+- Quickstart: [content/quickstart.md](content/quickstart.md) (includes the AI-gateway path)
+- Runnable examples: [examples/express](examples/express), [examples/discord-bot](examples/discord-bot), [examples/batch-processor](examples/batch-processor)
