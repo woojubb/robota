@@ -447,6 +447,64 @@ describe('Robota Core', () => {
   });
 
   // ----------------------------------------------------------------
+  // Run-isolated (stateless) mode (CORE-014)
+  // ----------------------------------------------------------------
+  describe('retainHistory: false', () => {
+    it('sends only system + current prompt on every consecutive run (no accumulation)', async () => {
+      const provider = new TrackingProvider();
+      const robota = new Robota(
+        createConfig({
+          aiProviders: [provider],
+          systemMessage: 'You are terse.',
+          retainHistory: false,
+        }),
+      );
+
+      await robota.run('First');
+      await robota.run('Second');
+      await robota.run('Third');
+
+      expect(provider.chatCalls).toHaveLength(3);
+      for (const [index, call] of provider.chatCalls.entries()) {
+        const roles = call.messages.map((m) => m.role);
+        expect(roles).toEqual(['system', 'user']);
+        expect(call.messages[1].content).toBe(['First', 'Second', 'Third'][index]);
+      }
+      // Nothing accumulates on the instance either.
+      expect(robota.getHistory()).toEqual([]);
+    });
+
+    it('keeps the default accumulating behavior when retainHistory is unset', async () => {
+      const provider = new TrackingProvider();
+      const robota = new Robota(createConfig({ aiProviders: [provider] }));
+
+      await robota.run('First');
+      await robota.run('Second');
+
+      const secondCall = provider.chatCalls[1];
+      expect(secondCall.messages.filter((m) => m.role === 'user')).toHaveLength(2);
+      expect(robota.getHistory()).toHaveLength(4);
+    });
+
+    it('a pre-run injected message is visible to that run and reset afterwards', async () => {
+      const provider = new TrackingProvider();
+      const robota = new Robota(createConfig({ aiProviders: [provider], retainHistory: false }));
+
+      robota.injectMessage('user', 'Context: order #42 is delayed.');
+      await robota.run('Summarize the context.');
+
+      const call = provider.chatCalls[0];
+      expect(call.messages.some((m) => String(m.content).includes('order #42'))).toBe(true);
+      expect(robota.getHistory()).toEqual([]);
+
+      // Next run starts clean — the injected context does not leak forward.
+      await robota.run('What do you know?');
+      const roles = provider.chatCalls[1].messages.map((m) => m.role);
+      expect(roles.filter((r) => r === 'user')).toHaveLength(1);
+    });
+  });
+
+  // ----------------------------------------------------------------
   // Structured output (CORE-015)
   // ----------------------------------------------------------------
   describe('structured output', () => {

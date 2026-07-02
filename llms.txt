@@ -29,7 +29,7 @@ Three packages; the other `@robota-sdk/*` packages are optional assembly on top 
 ## Behavior contracts
 
 - **Run concurrency** — per-instance FIFO serialization; concurrent `run()` calls never interleave history: [packages/agent-core/docs/SPEC.md](packages/agent-core/docs/SPEC.md) § Run Concurrency Contract
-- **History lifetime & cost** — append-only, full history sent every call; `clearHistory()` resets, systemMessage re-applies: [content/guide/building-agents.md](content/guide/building-agents.md) § History lifetime & cost
+- **History lifetime & cost** — append-only, full history sent every call; `clearHistory()` resets, systemMessage re-applies; `retainHistory: false` = run-isolated (stateless) mode: [content/guide/building-agents.md](content/guide/building-agents.md) § History lifetime & cost
 - **`destroy()`** — best-effort: never rejects, safe to fire-and-forget, failures returned as `{ errors }`: [content/guide/building-agents.md](content/guide/building-agents.md) § Execution Contracts
 - **Tool-only turns** — `allowToolOnlyCompletion: true` makes a tool call a valid completion (decision agents, no summary-call tax): [content/guide/building-agents.md](content/guide/building-agents.md) § Decision agents
 
