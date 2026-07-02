@@ -25,7 +25,7 @@ npm install @robota-sdk/agent-transport
 ```typescript
 import { createHeadlessTransport } from '@robota-sdk/agent-transport/headless';
 
-const transport = createHeadlessTransport({ format: 'text' });
+const transport = createHeadlessTransport({ outputFormat: 'text', prompt: 'Hello!' });
 ```
 
 ### WebSocket
@@ -41,7 +41,7 @@ const transport = new WsTransport({ port: 3001 });
 ```typescript
 import { createHttpTransport } from '@robota-sdk/agent-transport-http';
 
-const transport = createHttpTransport({ port: 8080 });
+const transport = createHttpTransport({ basePath: '/agent' }); // mount on your own server
 ```
 
 ### MCP
@@ -49,16 +49,17 @@ const transport = createHttpTransport({ port: 8080 });
 ```typescript
 import { createMcpTransport } from '@robota-sdk/agent-transport-mcp';
 
-const transport = createMcpTransport({ name: 'my-agent' });
+const transport = createMcpTransport({ name: 'my-agent', version: '1.0.0' });
 ```
 
 ### TUI (Ink/React)
 
 ```typescript
 import { TuiTransport } from '@robota-sdk/agent-transport-tui';
-import type { ITuiCliAdapter } from '@robota-sdk/agent-transport-tui';
+import type { IRenderOptions } from '@robota-sdk/agent-transport-tui';
 
-const transport = new TuiTransport(adapter);
+declare const options: IRenderOptions;
+const transport = new TuiTransport(options);
 ```
 
 > React and Ink dependencies are confined to the `./tui` sub-path. Importing from
@@ -78,6 +79,8 @@ import { TuiTransport } from '@robota-sdk/agent-transport-tui';
 ```
 
 Root import re-exports all transports:
+
+<!-- doc-example-skip: intentional ellipsis fragment (import surface overview, not runnable) -->
 
 ```typescript
 import { createHeadlessTransport, WsTransport, TuiTransport, ... } from '@robota-sdk/agent-transport';

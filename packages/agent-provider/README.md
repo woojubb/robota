@@ -58,7 +58,7 @@ const provider = new DeepSeekProvider({ apiKey: process.env.DEEPSEEK_API_KEY });
 ```typescript
 import { GeminiProvider } from '@robota-sdk/agent-provider/gemini';
 
-const provider = new GeminiProvider({ apiKey: process.env.GOOGLE_API_KEY });
+const provider = new GeminiProvider({ apiKey: process.env.GOOGLE_API_KEY ?? '' });
 ```
 
 ### Local / OpenAI-compatible

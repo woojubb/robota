@@ -56,6 +56,7 @@ React hook that manages the WebSocket connection and reconstructs conversation s
 ```typescript
 import { useWsSession } from '@robota-sdk/agent-web-ui';
 
+declare const url: string;
 const { status, messages, activeTools, streamingText, isThinking, send } = useWsSession(url);
 ```
 

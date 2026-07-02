@@ -24,6 +24,7 @@ import { createAgentRuntime } from '@robota-sdk/agent-framework';
 import { createAnthropicProvider } from '@robota-sdk/agent-provider';
 
 const runtime = createAgentRuntime({
+  cwd: process.cwd(),
   provider: createAnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY }),
 });
 const session = runtime.createSession({ permissionMode: 'bypassPermissions' });

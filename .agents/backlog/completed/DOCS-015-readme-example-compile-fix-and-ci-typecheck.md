@@ -1,6 +1,7 @@
 ---
 title: 'DOCS-015: README quickstart does not compile (defaultModel.systemMessage) — fix + CI typecheck for doc examples'
-status: todo
+status: done
+completed: 2026-07-03
 created: 2026-07-03
 priority: high
 urgency: now
@@ -38,4 +39,20 @@ of drift — the front-door example confirming the distrust is the worst possibl
 - Prereq: fresh consumer project with strict TS.
 - Steps: paste the root README Core quickstart verbatim; compile.
 - Expected: compiles and runs without edits.
-- Evidence: _to fill at implementation._
+- Evidence (agent-run 2026-07-03): the new `doc-examples` scan (registered in `pnpm harness:scan`,
+  which CI's quality gate runs) extracts every ts block from the root README + all packages/x
+  READMEs and typechecks them against workspace SOURCE types (strict, es2023, jsx). Initial run
+  exposed **29 broken blocks beyond the reported one** (first pass showed only 1 — a syntax error was
+  suppressing all semantic diagnostics): nonexistent option fields (`LoggingPlugin backend→strategy`,
+  `UsagePlugin storage→strategy`, `createHeadlessTransport format→outputFormat+prompt`,
+  `createHttpTransport port→basePath`, `LimitsPlugin maxTokensPerMinute→strategy/maxTokens`),
+  wrong arities (`createZodFunctionTool` object→4 positional args, command-module factories
+  hostAdapters→0 args / provider module 1 required options arg), wrong type names
+  (`IInteractiveSessionOptions→TInteractiveSessionOptions`), wrong ctor param
+  (`TuiTransport(adapter)→IRenderOptions`), fictional APIs (`createSubagentSession({parentSession})`,
+  `WebhookPlugin({url,secret})→endpoints[]`), missing required fields (`createAgentRuntime cwd`,
+  streaming `stream: true`), and the reported `defaultModel.systemMessage` (3 spots). All fixed to
+  the real contracts; 5 intentional fragments carry explicit `doc-example-skip` markers (reported,
+  never silent). Final: **49 blocks typechecked green, 5 skips**. Root-README paste-compile scenario
+  is exactly what the gate executes on every scan. Scope note: content/ (517 blocks / 70 files) split
+  to DOCS-019 — the mechanism is ready; onboarding that corpus is its own effort.
