@@ -1,6 +1,7 @@
 ---
 title: 'DOCS-017: root llms.txt — a consumer-agent map (identity, minimal set, capability matrix, behavior contracts)'
-status: todo
+status: done
+completed: 2026-07-03
 created: 2026-07-03
 priority: medium
 urgency: soon
@@ -45,4 +46,20 @@ listed paths exist (same class as the done-evidence path check) prevents rot.
 - Steps: let it read llms.txt first; record its conclusions.
 - Expected: no O1/O2-class misunderstanding — it identifies the library-collection identity, the
   3-package minimal set, and gateway support without user correction.
-- Evidence: _to fill at implementation._
+- Evidence: **PASS (live fresh-agent run, 2026-07-03).** Root `llms.txt` written per the report's
+  outline as a thin index (identity one-liner killing O2; 3-package minimal embedding set;
+  capability matrix with owner-doc links incl. gateway-via-baseURL, structured output,
+  maxExecutionRounds; behavior contracts linking SPEC/guide sections from CORE-011/012 +
+  DOCS-014; type/example paths — facts stay in owner docs, no duplication). Rot prevention
+  mechanized: new `llms-txt` harness scan (`scripts/harness/check-llms-txt.mjs`) fails on a
+  missing file or any dangling repo-relative markdown link (21 links resolve; registered in
+  run-all-scans — 43 scans total — + verify-change test selection + 4 unit tests). User
+  Execution: a FRESH agent session (no prior repo knowledge, AGENTS.md/CLAUDE.md forbidden)
+  was given the report's exact task class ("evaluate robota for embedded orchestration via
+  Vercel AI Gateway with anthropic/\* slugs") with llms.txt as the entry point — its recorded
+  conclusions: identity = "not a coding-agent product... library collection; agent-cli is
+  merely a reference app" (no O2), minimal set = the exact 3 packages, gateway = "yes —
+  protocol client, not a vendor lock" citing the baseURL JSDoc + providers guide (no O1),
+  verdict "Suitable". Zero misunderstandings, zero user corrections. Side discovery filed
+  separately: HARNESS-021 (background-workspace-conformance unit tests 5/5 failing on clean
+  develop — pre-existing, out of this item's scope).
