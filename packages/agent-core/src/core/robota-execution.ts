@@ -39,6 +39,9 @@ function buildRunContext(
     ...(options.maxSameToolInputs !== undefined && {
       maxSameToolInputs: options.maxSameToolInputs,
     }),
+    ...(options.allowToolOnlyCompletion !== undefined && {
+      allowToolOnlyCompletion: options.allowToolOnlyCompletion,
+    }),
   };
 }
 

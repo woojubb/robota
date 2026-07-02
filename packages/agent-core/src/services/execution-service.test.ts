@@ -746,6 +746,72 @@ describe('ExecutionService', () => {
       };
     }
 
+    it('completes a tool-only run in exactly one call with allowToolOnlyCompletion (CORE-011)', async () => {
+      setupToolMocks();
+      const config = makeConfig();
+
+      const chatSpy = vi.fn();
+      chatSpy.mockResolvedValueOnce(makeToolCallResponse(1));
+      mockProvider.chat = chatSpy;
+
+      const result = await executionService.execute('Record the decision', [], config, {
+        conversationId: 'test-agent',
+        maxExecutionRounds: 1,
+        allowToolOnlyCompletion: true,
+      });
+
+      // The decision-agent pattern: the tool call IS the answer — no forced summary call.
+      expect(result.success).toBe(true);
+      expect(chatSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('still forces the summary call for the same run WITHOUT allowToolOnlyCompletion (CORE-011 contrast)', async () => {
+      setupToolMocks();
+      const config = makeConfig();
+
+      const chatSpy = vi.fn();
+      chatSpy.mockResolvedValueOnce(makeToolCallResponse(1));
+      chatSpy.mockResolvedValueOnce({
+        id: 'msg-summary',
+        role: 'assistant',
+        content: 'Summary.',
+        state: 'complete' as const,
+        timestamp: new Date(),
+      });
+      mockProvider.chat = chatSpy;
+
+      const result = await executionService.execute('Record the decision', [], config, {
+        conversationId: 'test-agent',
+        maxExecutionRounds: 1,
+      });
+
+      expect(result.success).toBe(true);
+      expect(chatSpy).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not enter the forced summary call when the signal is already aborted (CORE-011)', async () => {
+      setupToolMocks();
+      const config = makeConfig();
+      const controller = new AbortController();
+
+      const chatSpy = vi.fn();
+      chatSpy.mockImplementationOnce(async () => {
+        controller.abort(); // caller extracted its decision and aborts mid-run
+        return makeToolCallResponse(1);
+      });
+      mockProvider.chat = chatSpy;
+
+      await executionService
+        .execute('Record the decision', [], config, {
+          conversationId: 'test-agent',
+          maxExecutionRounds: 1,
+          signal: controller.signal,
+        })
+        .catch(() => undefined);
+
+      expect(chatSpy).toHaveBeenCalledTimes(1);
+    });
+
     it('should honor config maxExecutionRounds before forcing summary', async () => {
       setupToolMocks();
       const config = {

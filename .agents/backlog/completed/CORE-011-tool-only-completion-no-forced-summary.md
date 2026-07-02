@@ -1,6 +1,7 @@
 ---
 title: 'CORE-011: allow tool-only turn completion — the forced summary call cannot be disabled (decision-agent tax)'
-status: todo
+status: done
+completed: 2026-07-03
 created: 2026-07-03
 priority: high
 urgency: soon
@@ -48,4 +49,9 @@ with `maxExecutionRounds` semantics and streaming.
   provider call count and latency vs default.
 - Expected: one provider call (no summary call), the tool result retrievable, latency drop
   observable.
-- Evidence: _to fill at implementation._
+- Evidence (agent-run 2026-07-03): consumer script assembling a REAL `Robota` with one zod decision
+  tool (scripted provider): `allowToolOnlyCompletion: true` → **1 provider call**, decision extracted
+  (`persona-B`); same run without the option → 2 calls (summary fired). Options 1+3 both delivered:
+  `IRunOptions.allowToolOnlyCompletion` threads run → context → pipeline, and the forced-summary path
+  now returns early on `signal?.aborted`. Unit tests: 3 new cases in `execution-service.test.ts`
+  (1-call completion, 2-call contrast, abort guard); agent-core 755/54 green; lint 0; SPEC updated.

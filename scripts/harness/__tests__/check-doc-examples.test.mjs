@@ -16,6 +16,11 @@ describe('extractBlocks', () => {
     expect(extractBlocks(md)[0].skipReason).toBe('needs optional dep');
   });
 
+  it('honors a skip marker separated from the fence by blank lines (prettier formatting)', () => {
+    const md = 'x\n<!-- doc-example-skip: fragment -->\n\n```ts\nbroken(\n```\n';
+    expect(extractBlocks(md)[0].skipReason).toBe('fragment');
+  });
+
   it('ignores non-ts fences and markers not adjacent to a fence', () => {
     const md =
       '<!-- doc-example-skip: far away -->\n\nprose\n```bash\nls\n```\n```ts\nconst x = 1;\n```\n';

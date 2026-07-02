@@ -12,7 +12,7 @@
  * This scan extracts every ```ts / ```typescript fenced block from the root README and each
  * packages/x/README.md and typechecks them against the WORKSPACE SOURCE types (strict). A block
  * that is intentionally a fragment (pseudo-code, elided context) must carry an explicit opt-out
- * marker on the line directly above its fence:
+ * marker on the nearest non-blank line above its fence:
  *
  *   <!-- doc-example-skip: <reason> -->
  *
@@ -30,7 +30,8 @@ import { globSync } from 'node:fs';
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const OUT_DIR = path.join(WORKSPACE_ROOT, 'node_modules/.cache/doc-examples');
 
-const FENCE_PATTERN = /(^|\n)([^\n]*)\n```(ts|typescript)\n([\s\S]*?)```/g;
+// The marker may be separated from its fence by blank lines (prettier reformats it that way).
+const FENCE_PATTERN = /(^|\n)([^\n]*)\n(?:[ \t]*\n)*```(ts|typescript)\n([\s\S]*?)```/g;
 const SKIP_PATTERN = /<!--\s*doc-example-skip:\s*(.+?)\s*-->/;
 
 /** README files under scan: root + every packages/x/README.md. */

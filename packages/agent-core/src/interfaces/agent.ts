@@ -191,6 +191,13 @@ export interface IRunOptions {
   maxExecutionRounds?: number;
   /** Max times the same tool may be called with identical input before aborting. Unset = no limit. */
   maxSameToolInputs?: number;
+  /**
+   * Treat a turn that ends in tool calls (no trailing text) as a valid completion instead of
+   * forcing one extra provider call to generate a summary (CORE-011). For decision-agent patterns
+   * (router/orchestrator/classifier) the tool call IS the answer — this removes the one-call tax.
+   * The run result's content may be empty; consumers read the outcome from the tool results.
+   */
+  allowToolOnlyCompletion?: boolean;
 }
 
 export type TExecutionEventData = Record<string, unknown>;
