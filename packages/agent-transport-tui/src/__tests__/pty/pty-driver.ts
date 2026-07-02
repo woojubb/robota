@@ -27,6 +27,16 @@ export interface IPtySession {
   /** Send a raw Escape keystroke (cancels a pending Ink prompt). */
   pressEscape(): void;
   waitFor(pattern: RegExp, timeoutMs?: number): Promise<void>;
+  /**
+   * Mark for `waitForSince`/`snapshotSince`. `snapshot()` is a CUMULATIVE transcript (old frames +
+   * the echo of your own typed input included) — take a mark before acting and assert on what
+   * arrived after it, or a pattern can match stale frames / your own prompt text.
+   */
+  outputOffset(): number;
+  /** Like `waitFor`, but only matches output that arrived after the `since` mark. */
+  waitForSince(since: number, pattern: RegExp, timeoutMs?: number): Promise<void>;
+  /** ANSI-stripped output that arrived after the `since` mark. */
+  snapshotSince(since: number): string;
   snapshot(): string;
   expectExit(timeoutMs?: number): Promise<number>;
   kill(): void;
@@ -62,9 +72,15 @@ export function writeTuiProviderSettings(projectDir: string): void {
 export function spawnTui(options: ISpawnTuiOptions): IPtySession {
   mkdirSync(options.homeDir, { recursive: true });
 
+  // An explicit session name suppresses LLM auto-naming, which fires a provider call on the first
+  // user message — with a replay/scripted provider that call silently CONSUMES the next recorded
+  // response and desyncs the fixture (lesson 2026-07-02). Tests that assert naming pass their own.
+  const args = options.args ?? [];
+  const defaultedArgs = args.includes('--name') ? args : [...args, '--name', 'pty-fixture'];
+
   const session: IPtyRunSession = spawnPty({
     command: process.execPath,
-    args: [ROBOTA_BIN, ...(options.args ?? [])],
+    args: [ROBOTA_BIN, ...defaultedArgs],
     cwd: options.projectDir,
     env: {
       PATH: process.env['PATH'] ?? '',
@@ -81,6 +97,10 @@ export function spawnTui(options: ISpawnTuiOptions): IPtySession {
     pressEnter: (): Promise<void> => session.pressEnter(),
     pressEscape: (): void => session.write('\x1b'),
     waitFor: (pattern, timeoutMs): Promise<void> => session.waitFor(pattern, timeoutMs),
+    outputOffset: (): number => session.outputOffset(),
+    waitForSince: (since, pattern, timeoutMs): Promise<void> =>
+      session.waitForSince(since, pattern, timeoutMs),
+    snapshotSince: (since): string => session.snapshotSince(since),
     snapshot: (): string => session.snapshot(),
     expectExit: (timeoutMs): Promise<number> => session.expectExit(timeoutMs),
     kill: (): void => session.dispose(),

@@ -1,6 +1,7 @@
 ---
 title: 'SCREEN-011: Background work rows wrap to two lines, orphaning the tree connector'
 status: done
+completed: 2026-07-02
 created: 2026-06-30
 priority: medium
 urgency: soon

@@ -45,6 +45,17 @@ export interface IPtyRunSession {
   pressEnter(): Promise<void>;
   /** Wait until the ANSI-stripped output matches; throws with a snapshot on timeout. */
   waitFor(pattern: RegExp | string, timeoutMs?: number): Promise<void>;
+  /**
+   * Current length of the ANSI-stripped output — a mark for `waitForSince`/`snapshotSince`.
+   * The stripped output is CUMULATIVE (a transcript, not the current screen): a plain `waitFor`
+   * also matches old frames and the echo of your own typed input. Take a mark before acting, then
+   * assert only on what arrived after it.
+   */
+  outputOffset(): number;
+  /** Like `waitFor`, but matches only output that arrived after the `since` mark. */
+  waitForSince(since: number, pattern: RegExp | string, timeoutMs?: number): Promise<void>;
+  /** ANSI-stripped output that arrived after the `since` mark. */
+  snapshotSince(since: number): string;
   /** Current ANSI-stripped output. */
   snapshot(): string;
   /** Current raw (un-stripped) output. */
@@ -117,6 +128,27 @@ export function spawnPty(options: IPtyRunOptions): IPtyRunSession {
       throw new Error(
         `PTY waitFor timeout (${timeoutMs}ms) for ${String(regex)}\n--- snapshot ---\n${stripped().slice(-OUTPUT_TAIL_LENGTH)}`,
       );
+    },
+    outputOffset(): number {
+      return stripped().length;
+    },
+    async waitForSince(
+      since: number,
+      pattern: RegExp | string,
+      timeoutMs = DEFAULT_WAIT_TIMEOUT_MS,
+    ): Promise<void> {
+      const regex = toRegExp(pattern);
+      const deadline = Date.now() + timeoutMs;
+      while (Date.now() < deadline) {
+        if (regex.test(stripped().slice(since))) return;
+        await sleep(50);
+      }
+      throw new Error(
+        `PTY waitForSince timeout (${timeoutMs}ms) for ${String(regex)} after offset ${since}\n--- snapshot since mark ---\n${stripped().slice(since).slice(-OUTPUT_TAIL_LENGTH)}`,
+      );
+    },
+    snapshotSince(since: number): string {
+      return stripped().slice(since);
     },
     snapshot: stripped,
     raw: (): string => output,

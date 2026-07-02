@@ -1,6 +1,7 @@
 ---
 title: 'SCREEN-012: Tool display shows internal robota_command_* id instead of the command name'
 status: done
+completed: 2026-07-02
 created: 2026-06-30
 priority: medium
 urgency: soon

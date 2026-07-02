@@ -1,6 +1,7 @@
 ---
 title: 'TEST-010: CI-maintained TUI PTY E2E gate (background-work drill-in self-verification)'
 status: done
+completed: 2026-07-02
 created: 2026-06-30
 priority: high
 urgency: soon

@@ -221,6 +221,13 @@ All three checkboxes must be `[x]` for the gate to pass.
 Gate passes by exception only when execution is genuinely impossible AND a valid, specific reason
 is stated explicitly under the scenario that could not be executed.
 
+**Capability-absence claims require a probe.** "The environment lacks X" (an API key, credential,
+tool, or device) is not a valid exception reason unless the agent actually probed for it and records
+the probe as evidence (e.g. which env vars / `.env` files / settings surfaces were checked and what
+they contained). An unprobed absence claim is a guess, not a reason — the one time it was written
+without a probe, the capability existed and the skipped live run would have caught a real bug that
+every unit and integration test missed (ANALYTICS-001, 2026-07-02).
+
 **The following are NEVER valid exception reasons and must not be cited as gate evidence:**
 
 - Build succeeds
@@ -289,6 +296,13 @@ When all gates pass and the work is fully done, follow these steps **in order**:
 - `status: done` must not be set before the User Execution Test Scenario gate passes (Stage 2).
 - `wontfix`, `skipped`, and `superseded` are valid terminal statuses for items that were
   deliberately not implemented.
+- **Mechanized:** the `backlog-placement` scan (`scripts/harness/check-backlog-placement.mjs`, in
+  `pnpm harness:scan`) fails on a terminal-status file in the root, an open-status file in
+  `completed/`, or `status: done` without a `completed:` date. The `task-archival` scan additionally
+  fails a fully-checked task file whose spec never reached `spec-docs/done/` (gates overdue). These
+  invariants held only as prose until 2026-07-02, when 8 shipped items were found with stale
+  placement — closing the loop (evidence, status, move, gates) happens in the SAME change as the
+  work, and a "tracked as follow-on" claim must name an existing backlog/task file.
 
 ### Common Mistakes to Avoid
 

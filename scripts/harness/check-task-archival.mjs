@@ -36,11 +36,12 @@ const UNCHECKED_PATTERN = /^\s*[-*]\s+\[ \]/;
 const CHECKED_PATTERN = /^\s*[-*]\s+\[[xX]\]/;
 const STATUS_COMPLETED_PATTERN = /status\*{0,2}\s*:\s*completed/i;
 const SPEC_POINTER_PATTERN = /^\s*Spec:.*spec-docs\/done\//i;
+const UNDONE_SPEC_POINTER_PATTERN = /^\s*Spec:.*spec-docs\/(draft|backlog|todo|active)\//i;
 const EXEMPT_PATTERN = /<!--\s*archival-exempt:\s*(.+?)\s*-->/;
 
 /**
  * Classify a single task-file body.
- * @returns {{ archivable: boolean, reason: string, exemptReason: string | null }}
+ * @returns {{ archivable: boolean, gatesOverdue: boolean, reason: string, exemptReason: string | null }}
  */
 export function classifyTaskFile(content) {
   const lines = content.split(/\r?\n/);
@@ -49,6 +50,7 @@ export function classifyTaskFile(content) {
   let checked = 0;
   let hasStatusCompleted = false;
   let hasDoneSpecPointer = false;
+  let hasUndoneSpecPointer = false;
   let exemptReason = null;
 
   for (const line of lines) {
@@ -56,12 +58,14 @@ export function classifyTaskFile(content) {
     else if (CHECKED_PATTERN.test(line)) checked += 1;
     if (STATUS_COMPLETED_PATTERN.test(line)) hasStatusCompleted = true;
     if (SPEC_POINTER_PATTERN.test(line)) hasDoneSpecPointer = true;
+    if (UNDONE_SPEC_POINTER_PATTERN.test(line)) hasUndoneSpecPointer = true;
     const exemptMatch = EXEMPT_PATTERN.exec(line);
     if (exemptMatch) exemptReason = exemptMatch[1];
   }
 
   const allChecked = checked > 0 && unchecked === 0;
   let archivable = false;
+  let gatesOverdue = false;
   let reason = '';
   if (hasStatusCompleted) {
     archivable = true;
@@ -69,9 +73,17 @@ export function classifyTaskFile(content) {
   } else if (allChecked && hasDoneSpecPointer) {
     archivable = true;
     reason = `all ${checked} checkbox(es) checked, spec in spec-docs/done/`;
+  } else if (allChecked && hasUndoneSpecPointer) {
+    // Lesson (2026-07-02): TERM-008/WORKFLOW-003 sat fully-checked for days while their specs
+    // stayed in active/ — invisible to the archivable rule above because that rule requires the
+    // spec to ALREADY be in done/ (circular). A fully-checked task whose spec has not passed its
+    // gates means GATE-VERIFY/GATE-COMPLETE are overdue: closing the loop (gates + spec move +
+    // archival) is part of the work, not a separate chore.
+    gatesOverdue = true;
+    reason = `all ${checked} checkbox(es) checked but the spec has not reached spec-docs/done/`;
   }
 
-  return { archivable, reason, exemptReason };
+  return { archivable, gatesOverdue, reason, exemptReason };
 }
 
 export async function findTaskArchivalFindings(root = WORKSPACE_ROOT) {
@@ -91,13 +103,13 @@ export async function findTaskArchivalFindings(root = WORKSPACE_ROOT) {
     .sort()) {
     const taskFile = path.join(TASKS_DIR, entry);
     const content = await fs.readFile(path.join(root, taskFile), 'utf8');
-    const { archivable, reason, exemptReason } = classifyTaskFile(content);
-    if (!archivable) continue;
+    const { archivable, gatesOverdue, reason, exemptReason } = classifyTaskFile(content);
+    if (!archivable && !gatesOverdue) continue;
     if (exemptReason) {
       exemptions.push({ taskFile, reason: exemptReason });
       continue;
     }
-    findings.push({ taskFile, reason });
+    findings.push({ taskFile, reason, gatesOverdue });
   }
 
   return { findings, exemptions };
@@ -118,14 +130,17 @@ export async function main() {
   }
 
   process.stdout.write(
-    'task-archival scan failed — done task files still in the active directory:\n',
+    'task-archival scan failed — done or gate-overdue task files in the active directory:\n',
   );
   for (const finding of findings) {
-    process.stdout.write(`  - ${finding.taskFile} (${finding.reason})\n`);
+    process.stdout.write(
+      `  - ${finding.taskFile} (${finding.reason})${finding.gatesOverdue ? ' — run GATE-VERIFY/GATE-COMPLETE, move the spec to done/, then archive' : ''}\n`,
+    );
   }
   process.stdout.write(
-    'Move each to .agents/tasks/completed/ (git mv) in the same commit as the work, ' +
-      'or annotate it with <!-- archival-exempt: <reason> --> if it must stay active.\n',
+    'Archive done tasks to .agents/tasks/completed/ (git mv) in the same change as the work; ' +
+      'for fully-checked tasks whose spec is not yet done/, run the remaining gates first. ' +
+      'Annotate with <!-- archival-exempt: <reason> --> only when the file must stay active.\n',
   );
   process.exitCode = 1;
 }
