@@ -382,6 +382,25 @@ provider on every call** — token cost grows with every turn until you act:
 - One `Robota` instance = one conversation. For independent requests (for example one per HTTP
   request), create an instance per conversation instead of sharing one.
 - History is append-only and read-only: there is no edit/delete API by design.
+- **Run-isolated mode**: set `retainHistory: false` in the config to make the store ephemeral per
+  run — each run sees the system prompt (+ any context you inject before the run) and the prompt,
+  and the store resets after the run settles. Declared once, immune to a missed `clearHistory()`;
+  the natural fit for coordinator patterns that reconstruct context per call. For a
+  "provider + system prompt + stream, nothing else" thin path, this on a plain `Robota` is all you
+  need — `createQuery` (agent-framework) is the larger assembly that adds CLI tools and permissions.
+
+```typescript
+const stateless = new Robota({
+  name: 'Coordinator',
+  aiProviders: [provider],
+  defaultModel: { provider: 'anthropic', model: 'claude-haiku-4-5' },
+  systemMessage: 'Answer in one sentence.',
+  retainHistory: false,
+});
+
+await stateless.run('First');
+await stateless.run('Second'); // sends system + "Second" only — flat token profile
+```
 
 ### Message State
 

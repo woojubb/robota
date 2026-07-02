@@ -170,11 +170,15 @@ export class Robota
   async run(input: string, options: IRunOptions = {}): Promise<unknown> {
     return this.enqueueRun(options.signal, async () => {
       await this.ensureFullyInitialized();
-      if (options.output) {
-        const spec = normalizeStructuredOutput(options.output);
-        return robotaRunStructured(this.executionDeps(), input, options, spec);
+      try {
+        if (options.output) {
+          const spec = normalizeStructuredOutput(options.output);
+          return await robotaRunStructured(this.executionDeps(), input, options, spec);
+        }
+        return await robotaRun(this.executionDeps(), input, options);
+      } finally {
+        this.resetEphemeralHistory();
       }
-      return robotaRun(this.executionDeps(), input, options);
     });
   }
 
@@ -204,7 +208,19 @@ export class Robota
       yield* robotaRunStream(this.executionDeps(), input, options);
       return undefined;
     } finally {
+      this.resetEphemeralHistory();
       release();
+    }
+  }
+
+  /**
+   * Run-isolated mode (CORE-014): with `retainHistory: false` the conversation store is
+   * ephemeral per run — reset after every run settles (success, abort, or error) so nothing
+   * accumulates across runs. The system prompt re-applies on the next run (CORE-010).
+   */
+  private resetEphemeralHistory(): void {
+    if (this.config.retainHistory === false) {
+      this.clearHistory();
     }
   }
 

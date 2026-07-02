@@ -1,6 +1,7 @@
 ---
 title: 'CORE-014: run-isolated (stateless) mode — retainHistory: false + a zero-assembly lightweight call path'
-status: todo
+status: done
+completed: 2026-07-03
 created: 2026-07-03
 priority: medium
 urgency: later
@@ -44,4 +45,21 @@ Two converging external signals (speech project):
 - Prereq: consumer script running 3 sequential prompts with the mode on, request sizes logged.
 - Steps: run; compare per-call prompt token counts against default mode.
 - Expected: flat token profile (no growth), identical single-turn answers.
-- Evidence: _to fill at implementation._
+- Evidence: **PASS (live, 2026-07-03).** (1) `IAgentConfig.retainHistory` implemented (default
+  `true`; `false` = run-isolated mode). Semantics chosen and documented: the store is _ephemeral
+  per run_ — a run executes on system prompt + any pre-run injected context + the prompt, and the
+  store resets in the run's `finally` (success/abort/error alike; also after a fully-consumed
+  `runStream`), so injected context is visible to that run only and nothing leaks forward; the
+  system prompt re-applies via CORE-010. (2) Cost-relevant accumulation default documented at the
+  owner surfaces: `retainHistory` JSDoc (ships in `.d.ts`), SPEC interface row, guide "History
+  lifetime & cost" extension with a runnable pattern, llms.txt contract line. (3) `createQuery`
+  evaluation recorded: it shares ONE `InteractiveSession` across calls and assembles CLI tools +
+  permissions — it is the framework-level assembly, not the thin block; with `retainHistory:
+false`, a plain `Robota` IS the "provider + system prompt + stream, nothing else" path, so no
+  new entry point is warranted (SSOT kept: one lightweight path, positioning line added to the
+  guide). Unit (provider payload asserted): 3 consecutive isolated runs each send exactly
+  `[system, user(current)]` + instance history stays empty; default unchanged (2nd call carries
+  both user turns); pre-run `injectMessage` visible to that run, gone after. agent-core 805/805
+  green. Live User Execution (real Anthropic, per-call `inputTokens` from response metadata):
+  run-isolated `17, 18, 17` (flat, max spread 1); default `17, 30, 43` (linear per-call growth =
+  the O(n²) total the feedback measured). Identical single-turn answers. PASS.

@@ -102,6 +102,17 @@ export interface IAgentConfig {
   conversationId?: string;
   sessionId?: string;
   userId?: string;
+  /**
+   * Run-isolated (stateless) mode (CORE-014). Default `true`: history accumulates for the
+   * instance's lifetime and the FULL history is sent to the provider on EVERY call — token cost
+   * grows every turn. Set `false` to make the conversation store ephemeral per run: a run executes
+   * on whatever is currently in the store (system prompt + any injected context + the prompt), and
+   * the store resets after the run settles, so nothing accumulates across runs (the system prompt
+   * re-applies on the next run). Equivalent to calling `clearHistory()` around every run, but
+   * declared once and immune to a missed clear. `getHistory()` after a run returns empty in this
+   * mode — read the response from the run's return value or execution events.
+   */
+  retainHistory?: boolean;
 
   // Metadata and context
   metadata?: TUniversalMessageMetadata;
