@@ -37,13 +37,9 @@ export {
   createFunctionTool,
   createZodFunctionTool,
 } from './implementations/function-tool';
-export { zodToJsonSchema } from './implementations/function-tool/schema-converter';
+// zodToJsonSchema and the Zod compatibility types moved to @robota-sdk/agent-core (CORE-015 SSOT).
 export type {
-  IZodSchema,
-  IZodParseResult,
-  IZodSchemaDef,
   IFunctionToolValidationOptions,
-  ISchemaConversionOptions,
   IFunctionToolExecutionMetadata,
   IFunctionToolResult,
 } from './implementations/function-tool/types';

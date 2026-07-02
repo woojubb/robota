@@ -36,7 +36,7 @@ import type {
   ISubagentSpawnRequest,
 } from '../subagents/index.js';
 import type { IToolExecutionContext } from '@robota-sdk/agent-core';
-import type { IZodSchema } from '@robota-sdk/agent-tools';
+import type { IZodSchema } from '@robota-sdk/agent-core';
 
 export const AGENT_TOOL_DESCRIPTION = [
   'Creates delegated subagent jobs in isolated contexts.',

@@ -8,7 +8,7 @@ import {
 
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
 import type { ICommandResult } from '../commands/index.js';
-import type { IZodSchema } from '@robota-sdk/agent-tools';
+import type { IZodSchema } from '@robota-sdk/agent-core';
 
 interface ICommandExecutionArgs {
   command: string;

@@ -3,23 +3,14 @@
  *
  * This module provides a clean interface for function tool functionality
  * with proper separation of concerns and type safety.
+ *
+ * Zod compatibility types and schema conversion utilities moved to
+ * @robota-sdk/agent-core (CORE-015 SSOT) — import them from core.
  */
 
 // Core types
 export type {
-  IZodSchema,
-  IZodParseResult,
-  IZodSchemaDef,
   IFunctionToolValidationOptions,
-  ISchemaConversionOptions,
   IFunctionToolExecutionMetadata,
   IFunctionToolResult,
 } from './types';
-
-// Schema conversion utilities
-export {
-  zodToJsonSchema,
-  extractEnumValues,
-  hasValidationConstraints,
-  getSchemaTypeName,
-} from './schema-converter';

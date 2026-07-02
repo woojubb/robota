@@ -12,6 +12,7 @@ import type { IModule } from '../abstracts/abstract-module';
 import type { IPluginContract, IPluginOptions, IPluginStats } from '../abstracts/abstract-plugin';
 import type { IToolWithEventService } from '../abstracts/abstract-tool';
 import type { IEventService, IOwnerPathSegment } from '../interfaces/event-service';
+import type { TStructuredOutputSchema } from '../schema/structured-output';
 import type { TUtilLogLevel } from '../utils/logger';
 
 export type {
@@ -198,7 +199,30 @@ export interface IRunOptions {
    * The run result's content may be empty; consumers read the outcome from the tool results.
    */
   allowToolOnlyCompletion?: boolean;
+  /**
+   * Schema-enforced structured output (CORE-015). Accepts a Zod schema or an explicit
+   * `{ jsonSchema }` wrapper. `run` then resolves to the validated, typed object instead of a
+   * string: the schema is forwarded to the provider's native structured-output surface where one
+   * exists, and the final response is always parsed and validated core-side; a violation triggers
+   * a bounded retry with the validation issues fed back as the next turn's input. Every attempt is
+   * a real conversation turn (history stays append-only). Exhausted retries throw
+   * `StructuredOutputError`.
+   */
+  output?: TStructuredOutputSchema;
+  /**
+   * Retry budget for structured output validation failures — the number of additional attempts
+   * after the first (default 2). Only meaningful with `output` set.
+   */
+  outputRetries?: number;
 }
+
+/**
+ * Run options whose `output` is pinned to a concrete schema type (CORE-015).
+ * Built with `Omit` rather than an intersection on `output` because Zod v3 object
+ * schemas are not assignable to intersections containing themselves (deepPartial
+ * variance), which would silently knock out the typed overloads.
+ */
+export type TRunOptionsWithOutput<TOutput> = Omit<IRunOptions, 'output'> & { output: TOutput };
 
 export type TExecutionEventData = Record<string, unknown>;
 
@@ -275,8 +299,11 @@ export interface IExtendedRunContext {
  * Response format configuration
  */
 export interface IResponseFormatConfig {
-  type?: 'text' | 'json_object';
+  type?: 'text' | 'json_object' | 'json_schema';
+  /** JSON schema payload; required when `type` is `'json_schema'` (CORE-015). */
   schema?: Record<string, TConfigValue>;
+  /** Schema name forwarded to provider native structured-output surfaces. */
+  name?: string;
 }
 
 /**

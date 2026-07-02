@@ -7,7 +7,13 @@ import {
   buildOwnerPath,
   createModuleEventEmitter,
 } from './robota-events';
-import { robotaRun, robotaRunStream, type IRobotaExecutionDeps } from './robota-execution';
+import {
+  robotaRun,
+  robotaRunStream,
+  robotaRunStructured,
+  robotaRunStreamStructured,
+  type IRobotaExecutionDeps,
+} from './robota-execution';
 import {
   getHistory,
   getFullHistory,
@@ -24,17 +30,26 @@ import { AIProviders } from '../managers/ai-provider-manager';
 import { ConversationHistory } from '../managers/conversation-history-manager';
 import { ModuleRegistry } from '../managers/module-registry';
 import { Tools } from '../managers/tool-manager';
+import { normalizeStructuredOutput } from '../schema/structured-output';
 import { createLogger, setGlobalLogLevel, type ILogger } from '../utils/logger';
 
 import type { RobotaConfigManager } from './robota-config-manager';
 import type { IModelConfig, IConfigurationSnapshot } from './robota-types';
 import type { AbstractTool, IToolWithEventService } from '../abstracts/abstract-tool';
-import type { TUniversalMessage, IAgentConfig, IRunOptions, IAgent } from '../interfaces/agent';
+import type {
+  TUniversalMessage,
+  IAgentConfig,
+  IRunOptions,
+  IAgent,
+  TRunOptionsWithOutput,
+} from '../interfaces/agent';
 import type { IEventService, IAgentEventData } from '../interfaces/event-service';
 import type { IHistoryEntry } from '../interfaces/messages';
 import type { IAIProvider } from '../interfaces/provider';
 import type { EventEmitterPlugin } from '../plugins/event-emitter-plugin';
+import type { IJsonSchemaOutput } from '../schema/structured-output';
 import type { ExecutionService } from '../services/execution-service';
+import type { ZodType, TypeOf } from 'zod';
 
 const ID_RADIX = 36;
 const ID_RANDOM_LENGTH = 9;
@@ -143,24 +158,51 @@ export class Robota
    * concurrent `run`/`runStream` calls on the same instance are serialized on an internal queue —
    * a call issued while another is in flight waits its turn (its `signal` is honored while queued).
    * Interleaved histories are therefore impossible by construction.
+   *
+   * Structured output (CORE-015): with `options.output` set the promise resolves to the validated
+   * object (typed `z.infer<S>` for a Zod schema) instead of a string. Note the structured typing
+   * is visible on `Robota` directly; through the generic `IAgent` interface the return type stays
+   * `Promise<string>`.
    */
-  async run(input: string, options: IRunOptions = {}): Promise<string> {
+  run<S extends ZodType>(input: string, options: TRunOptionsWithOutput<S>): Promise<TypeOf<S>>;
+  run(input: string, options: TRunOptionsWithOutput<IJsonSchemaOutput>): Promise<unknown>;
+  run(input: string, options?: IRunOptions): Promise<string>;
+  async run(input: string, options: IRunOptions = {}): Promise<unknown> {
     return this.enqueueRun(options.signal, async () => {
       await this.ensureFullyInitialized();
+      if (options.output) {
+        const spec = normalizeStructuredOutput(options.output);
+        return robotaRunStructured(this.executionDeps(), input, options, spec);
+      }
       return robotaRun(this.executionDeps(), input, options);
     });
   }
 
+  runStream<S extends ZodType>(
+    input: string,
+    options: TRunOptionsWithOutput<S>,
+  ): AsyncGenerator<string, TypeOf<S>, undefined>;
+  runStream(
+    input: string,
+    options: TRunOptionsWithOutput<IJsonSchemaOutput>,
+  ): AsyncGenerator<string, unknown, undefined>;
+  runStream(input: string, options?: IRunOptions): AsyncGenerator<string, void, undefined>;
   async *runStream(
     input: string,
     options: IRunOptions = {},
-  ): AsyncGenerator<string, void, undefined> {
+  ): AsyncGenerator<string, unknown, undefined> {
     // Serialized like run(): the queue slot is held until the stream is fully consumed
     // (return or throw), because the conversation history is being written throughout.
     const release = await this.acquireRunSlot(options.signal);
     try {
       await this.ensureFullyInitialized();
+      if (options.output) {
+        const spec = normalizeStructuredOutput(options.output);
+        // The validated object is the generator's return value (CORE-015).
+        return yield* robotaRunStreamStructured(this.executionDeps(), input, options, spec);
+      }
       yield* robotaRunStream(this.executionDeps(), input, options);
+      return undefined;
     } finally {
       release();
     }

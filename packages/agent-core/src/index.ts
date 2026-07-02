@@ -8,6 +8,31 @@ export * from './interfaces';
 export * from './abstracts';
 export * from './utils';
 
+// Schema utilities: Zod→JSON-schema conversion (SSOT) + structured output (CORE-015)
+export {
+  zodToJsonSchema,
+  extractEnumValues,
+  hasValidationConstraints,
+  getSchemaTypeName,
+} from './schema/zod-to-json-schema';
+export type {
+  IZodSchema,
+  IZodSchemaDef,
+  IZodParseResult,
+  ISchemaConversionOptions,
+} from './schema/zod-schema-types';
+export {
+  normalizeStructuredOutput,
+  validateAgainstJsonSchema,
+  parseStructuredResponseText,
+} from './schema/structured-output';
+export type {
+  IJsonSchemaOutput,
+  IStructuredOutputSpec,
+  TStructuredOutputSchema,
+  TStructuredOutputValidation,
+} from './schema/structured-output';
+
 // Provider integration types
 export type {
   IToolSchema,

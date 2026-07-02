@@ -5,7 +5,7 @@ import { z } from 'zod';
 
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
 import type { ICommandResult } from '../commands/index.js';
-import type { IZodSchema } from '@robota-sdk/agent-tools';
+import type { IZodSchema } from '@robota-sdk/agent-core';
 
 export const MODEL_COMMAND_TOOL_PREFIX = 'robota_command_' as const;
 export const PROVIDER_SAFE_TOOL_NAME_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;

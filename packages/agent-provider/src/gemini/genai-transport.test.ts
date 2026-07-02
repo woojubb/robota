@@ -102,6 +102,34 @@ describe('GeminiProvider @google/genai transport', () => {
     });
   });
 
+  it('maps json_schema responseFormat onto responseSchema + JSON mime type (CORE-015)', async () => {
+    generateContentMock.mockResolvedValue({
+      candidates: [{ content: { parts: [{ text: '{"title": "ok"}' }] } }],
+    });
+    const { GeminiProvider } = await import('./provider');
+
+    const provider = new GeminiProvider({ apiKey: 'test-key' });
+    const schema = {
+      type: 'object',
+      properties: { title: { type: 'string' } },
+      required: ['title'],
+    };
+    await provider.chat([createUserMessage('report please')], {
+      model: 'gemini-3-flash-preview',
+      responseFormat: { type: 'json_schema', name: 'report', schema },
+    });
+
+    expect(generateContentMock).toHaveBeenCalledWith({
+      model: 'gemini-3-flash-preview',
+      contents: [{ role: 'user', parts: [{ text: 'report please' }] }],
+      config: {
+        responseModalities: ['TEXT'],
+        responseMimeType: 'application/json',
+        responseSchema: schema,
+      },
+    });
+  });
+
   it('uses provider defaultModel when chat options omit model', async () => {
     generateContentMock.mockResolvedValue({
       candidates: [{ content: { parts: [{ text: 'done' }] } }],

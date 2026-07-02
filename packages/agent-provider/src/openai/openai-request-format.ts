@@ -3,6 +3,7 @@ import type {
   IOpenAIResponsesTextFormatJsonSchema,
 } from './responses-types';
 import type { IOpenAIProviderOptions, TOpenAIProviderOptionValue } from './types';
+import type { IChatOptions } from '@robota-sdk/agent-core';
 
 export interface IOpenAIChatTextFormatText {
   type: 'text';
@@ -26,6 +27,31 @@ export type TOpenAIChatResponseFormat =
   | IOpenAIChatTextFormatText
   | IOpenAIChatTextFormatJsonObject
   | IOpenAIChatTextFormatJsonSchema;
+
+/**
+ * Merge a per-call `IChatOptions.responseFormat` onto the provider options (CORE-015).
+ * A `json_schema` chat option carries its schema payload into `jsonSchema`; the
+ * provider-level `jsonSchema` option remains as-is for `text`/`json_object`.
+ */
+export function mergeChatResponseFormat(
+  providerOptions: IOpenAIProviderOptions,
+  responseFormat: IChatOptions['responseFormat'],
+): IOpenAIProviderOptions {
+  if (responseFormat?.type === undefined) {
+    return providerOptions;
+  }
+  if (responseFormat.type === 'json_schema') {
+    return {
+      ...providerOptions,
+      responseFormat: 'json_schema',
+      jsonSchema: {
+        name: responseFormat.name ?? 'structured_output',
+        schema: responseFormat.schema as Record<string, TOpenAIProviderOptionValue>,
+      },
+    };
+  }
+  return { ...providerOptions, responseFormat: responseFormat.type };
+}
 
 export function buildOpenAIChatResponseFormat(
   options: IOpenAIProviderOptions,

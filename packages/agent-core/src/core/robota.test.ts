@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
+import { z } from 'zod';
 import { Robota } from './robota';
 import type { IAgentConfig, IRunOptions } from '../interfaces/agent';
 import { AbstractAIProvider } from '../abstracts/abstract-ai-provider';
@@ -7,7 +8,7 @@ import { AbstractTool } from '../abstracts/abstract-tool';
 import type { IToolSchema, IChatOptions } from '../interfaces/provider';
 import type { IToolExecutionContext, IToolResult, TToolParameters } from '../interfaces/tool';
 import type { TUniversalMessage } from '../interfaces/messages';
-import { ConfigurationError } from '../utils/errors';
+import { ConfigurationError, StructuredOutputError } from '../utils/errors';
 
 // Mock AI Provider that tracks calls
 class TrackingProvider extends AbstractAIProvider {
@@ -442,6 +443,134 @@ describe('Robota Core', () => {
       }
 
       await expect(queuedRun).resolves.toBe('Response to: Queued behind stream');
+    });
+  });
+
+  // ----------------------------------------------------------------
+  // Structured output (CORE-015)
+  // ----------------------------------------------------------------
+  describe('structured output', () => {
+    // Provider that returns scripted response texts in order, recording chat options.
+    class ScriptedTextProvider extends TrackingProvider {
+      constructor(private readonly responses: string[]) {
+        super();
+      }
+
+      override async chat(
+        messages: TUniversalMessage[],
+        options?: IChatOptions,
+      ): Promise<TUniversalMessage> {
+        this.chatCalls.push({ messages, options });
+        const content = this.responses[this.chatCalls.length - 1];
+        if (content === undefined) {
+          throw new Error('ScriptedTextProvider ran out of scripted responses');
+        }
+        return {
+          id: `scripted-${this.chatCalls.length}`,
+          role: 'assistant',
+          content,
+          state: 'complete' as const,
+          timestamp: new Date(),
+        };
+      }
+    }
+
+    const reportSchema = z.object({ title: z.string(), score: z.number() });
+
+    it('returns the validated typed object and forwards json_schema to the provider', async () => {
+      const provider = new ScriptedTextProvider(['{"title": "ok", "score": 42}']);
+      const robota = new Robota(createConfig({ aiProviders: [provider] }));
+
+      const report = await robota.run('Give me a report.', { output: reportSchema });
+
+      expect(report).toEqual({ title: 'ok', score: 42 });
+      const chatOptions = provider.chatCalls[0].options;
+      expect(chatOptions?.responseFormat).toEqual(expect.objectContaining({ type: 'json_schema' }));
+    });
+
+    it('retries with validation feedback and succeeds on the second attempt', async () => {
+      const provider = new ScriptedTextProvider([
+        '{"title": "missing score"}',
+        '{"title": "ok", "score": 7}',
+      ]);
+      const robota = new Robota(createConfig({ aiProviders: [provider] }));
+
+      const report = await robota.run('Give me a report.', { output: reportSchema });
+
+      expect(report).toEqual({ title: 'ok', score: 7 });
+      expect(provider.chatCalls).toHaveLength(2);
+      // The retry turn feeds the validation issues back to the model.
+      const retryMessages = provider.chatCalls[1].messages;
+      const retryInput = retryMessages[retryMessages.length - 1];
+      expect(String(retryInput.content)).toContain('did not match the required JSON schema');
+      expect(String(retryInput.content)).toContain('score');
+    });
+
+    it('throws StructuredOutputError when the retry budget is exhausted', async () => {
+      const provider = new ScriptedTextProvider(['not json', 'still not json']);
+      const robota = new Robota(createConfig({ aiProviders: [provider] }));
+
+      await expect(
+        robota.run('Give me a report.', { output: reportSchema, outputRetries: 1 }),
+      ).rejects.toThrow(StructuredOutputError);
+      expect(provider.chatCalls).toHaveLength(2);
+    });
+
+    it('accepts an explicit JSON-schema wrapper', async () => {
+      const provider = new ScriptedTextProvider(['{"answer": "yes"}']);
+      const robota = new Robota(createConfig({ aiProviders: [provider] }));
+
+      const result = await robota.run('Answer.', {
+        output: {
+          jsonSchema: {
+            type: 'object',
+            properties: { answer: { type: 'string' } },
+            required: ['answer'],
+          },
+          name: 'answer_schema',
+        },
+      });
+
+      expect(result).toEqual({ answer: 'yes' });
+    });
+
+    it('returns the validated object as the runStream generator return value', async () => {
+      class ScriptedStreamProvider extends TrackingProvider {
+        override async *chatStream(
+          messages: TUniversalMessage[],
+          options?: IChatOptions,
+        ): AsyncIterable<TUniversalMessage> {
+          this.chatCalls.push({ messages, options });
+          yield {
+            id: 'chunk-1',
+            role: 'assistant',
+            content: '{"title": "streamed",',
+            state: 'complete' as const,
+            timestamp: new Date(),
+          };
+          yield {
+            id: 'chunk-2',
+            role: 'assistant',
+            content: ' "score": 3}',
+            state: 'complete' as const,
+            timestamp: new Date(),
+          };
+        }
+      }
+      const provider = new ScriptedStreamProvider();
+      const robota = new Robota(createConfig({ aiProviders: [provider] }));
+
+      const stream = robota.runStream('Give me a report.', { output: reportSchema });
+      const iterator = stream[Symbol.asyncIterator]();
+      const chunks: string[] = [];
+      let next = await iterator.next();
+      while (!next.done) {
+        chunks.push(next.value);
+        next = await iterator.next();
+      }
+
+      expect(chunks.join('')).toBe('{"title": "streamed", "score": 3}');
+      expect(next.value).toEqual({ title: 'streamed', score: 3 });
     });
   });
 

@@ -11,11 +11,40 @@ import { type ConversationStore } from '../managers/conversation-history-manager
 
 import type { ExecutionEventEmitter } from './execution-event-emitter';
 import type { TPluginWithHooks } from './plugin-hook-dispatcher';
-import type { IAgentConfig, IAssistantMessage, IToolMessage } from '../interfaces/agent';
+import type {
+  IAgentConfig,
+  IAssistantMessage,
+  IResponseFormatConfig,
+  IToolMessage,
+} from '../interfaces/agent';
 import type { IAIProviderManager } from '../interfaces/manager';
 import type { IToolManager } from '../interfaces/manager';
 import type { TUniversalMessage } from '../interfaces/messages';
+import type { IChatOptions } from '../interfaces/provider';
 import type { ILogger } from '../utils/logger';
+
+/**
+ * Map the config-level response format onto provider chat options (CORE-015:
+ * `json_schema` requires the schema payload; `text`/`json_object` carry type only).
+ */
+export function buildChatResponseFormat(
+  responseFormat: IResponseFormatConfig | undefined,
+): IChatOptions['responseFormat'] | undefined {
+  if (!responseFormat?.type) {
+    return undefined;
+  }
+  if (responseFormat.type === 'json_schema') {
+    if (!responseFormat.schema) {
+      throw new Error("responseFormat.schema is required when type is 'json_schema'.");
+    }
+    return {
+      type: 'json_schema',
+      schema: responseFormat.schema,
+      ...(responseFormat.name && { name: responseFormat.name }),
+    };
+  }
+  return { type: responseFormat.type };
+}
 
 /**
  * Resolve the current AI provider and available tools from managers.

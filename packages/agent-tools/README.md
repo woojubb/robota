@@ -124,7 +124,6 @@ Recent file tool updates keep write/edit behavior atomic and make Edit tool resu
 | `createZodFunctionTool`  | Factory with Zod validation and JSON Schema conversion     |
 | `OpenAPITool`            | Tool generated from OpenAPI specification                  |
 | `createOpenAPITool`      | Factory for creating OpenAPI tools                         |
-| `zodToJsonSchema`        | Converts Zod schemas to JSON Schema format                 |
 | `IToolInvocationResult`  | Result type for built-in CLI tool invocations              |
 | `ISandboxClient`         | Provider-neutral sandbox execution port                    |
 | `IWorkspaceManifest`     | Declarative sandbox workspace setup contract               |
