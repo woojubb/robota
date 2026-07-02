@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: INFRA
 tags: [typescript, cross-platform, windows, shell, tools]
 ---
@@ -121,3 +121,50 @@ shell + syntax hint) is the mitigation. Tracked here so the tradeoff is visible.
   actually spawns `powershell.exe` and executes. Evidence: **first run green** (PR #900, 1m34s). The
   interactive `/shell` drop-to-shell + IME on real Windows Terminal is not CI-exercisable and remains a
   manual Windows-Terminal pass tracked under TERM-007.
+
+## Tasks
+
+Archived: `.agents/tasks/completed/TERM-008.md` (all phases `[x]`).
+
+## Evidence Log
+
+### [GATE-VERIFY] — ✅ PASS | 2026-07-02
+
+Tasks file: all phases/checkboxes `[x]` (Phase 1 resolver SSOT + tests; Phase 2 three-site rewire +
+permission/TUI/assembly extension; Phase 3 functional coverage; Phase 4 verify) — none blocked.
+Build: `pnpm --filter agent-core --filter agent-tools --filter agent-command --filter
+agent-command-workflows --filter agent-cli build` → 0 errors. Tests (same filters, 2026-07-02 on
+develop): agent-core 752/54, agent-tools 163/12, agent-command 210/28, agent-cli 146/18 — all pass.
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-07-02
+
+Resolver per-platform correctness. Test: `packages/agent-core/src/utils/platform-shell.test.ts`
+(posix `$SHELL`/`/bin/sh`/bash-vs-sh kind; win32 PowerShell default + `cmd.exe`/`pwsh.exe` overrides;
+`ROBOTA_SHELL` precedence; OS-family naming). Ran in the agent-core suite above — pass. Windows is
+additionally executed for real on `windows-latest` by the blocking `windows-shell` CI job (green since
+PR #900 and on every PR after).
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-07-02
+
+Shell tool OS-aware description. Test: `packages/agent-tools/src/builtins/__tests__` shell-tool suite —
+registers `Shell` + `Bash` alias, description embeds resolved `label` + `syntaxHint`, POSIX exec
+round-trip (`echo` → stdout + exit code). Ran in the agent-tools suite above — pass.
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-07-02
+
+Three sites consume the one resolver. Verified by tests over each site: shell tool (agent-tools),
+hook `command-executor` (agent-core hooks suite), interactive `resolveShell()` (agent-command suite —
+delegates to the core resolver). All in the suites above — pass.
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-07-02
+
+POSIX behavior unchanged. Exec round-trip (agent-tools) + agent-command drop-to-shell regression both
+pass in the suites above; `agent-framework` `shell-tool-functional.test.ts` drives a REAL
+InteractiveSession through both `Shell` and the `Bash` alias end-to-end (framework suite 1031/115
+green, 2026-07-01).
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-07-02
+
+All 4 TCs verified with test references (no skips). Tasks archived to
+`.agents/tasks/completed/TERM-008.md`; spec `active/` → `done/`; frontmatter `status: done`.
+`pnpm harness:scan` 39/39 green.

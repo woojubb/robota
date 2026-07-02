@@ -1,6 +1,6 @@
 ---
 title: 'TEST-010: CI-maintained TUI PTY E2E gate (background-work drill-in self-verification)'
-status: in-progress
+status: done
 created: 2026-06-30
 priority: high
 urgency: soon
@@ -48,5 +48,7 @@ workspace`), then `Esc` closes it. This verifies the SCREEN-013 App-level `Ctrl+
   `test:pty` run + the green `tui-e2e` CI job, recorded below.
 - Evidence: Agent ran `pnpm --filter @robota-sdk/agent-transport-tui test:pty` locally — **10 tests /
   7 files green**, including the new `background-work-switcher.ptytest.ts` which drives `Ctrl+B` in the
-  real binary and asserts the execution-workspace switcher opens. CI evidence: the new `tui-e2e` job's
-  green run on the PR (recorded after merge).
+  real binary and asserts the execution-workspace switcher opens.
+- CI evidence (recorded 2026-07-02): the `tui-e2e` job has run green as a **blocking** check on every
+  PR since it landed — PR #902 (first run) through #903, #904, #905, #906, #907, #908, #909 (e.g.
+  2m46s–3m14s per run). The gate is live and maintained.

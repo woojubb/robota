@@ -1,12 +1,22 @@
 ---
 title: 'CMD-004: separate command interaction ACTION from UI (environment-agnostic, multi-transport)'
-status: todo
+status: in-progress
 created: 2026-06-28
 priority: high
 urgency: soon
 area: packages/agent-interface-transport, packages/agent-framework, packages/agent-command, packages/agent-transport-tui, packages/agent-transport, packages/agent-cli, packages/agent-web-ui
 depends_on: []
 ---
+
+> **Phase 1 delivered (2026-06-28 ~ 2026-06-30)** via the CMD-004 spec/task pipeline (task archived at
+> `.agents/tasks/completed/CMD-004.md`, spec at `.agents/spec-docs/done/CMD-004-*.md`): PRs A–I + the
+> final legacy deletion (#887, removing `IInteractionChannel.requestAction` / `ICommandResult.interaction`
+> across 5 packages) + TC-09 real-binary PTY evidence (#888). `askUser` is now the single UI-agnostic
+> action seam; TUI + programmatic channels render it per-environment; TC-01..TC-09 evidence is in the
+> spec's Evidence Log. **CMD-005 is unblocked.**
+>
+> **This item stays open for Phase 2 only:** the WS + web-ui **multi-environment broadcast** (two
+> attached environments rendering the same ask simultaneously) — per the completed task's closing note.
 
 # Separate command interaction ACTION from UI
 

@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: FLOW
 tags: [cli]
 ---
@@ -103,7 +103,7 @@ No manual rows.
 
 ## Tasks
 
-- [x] `.agents/tasks/WORKFLOW-003.md` — 작성 완료.
+- [x] Archived: `.agents/tasks/completed/WORKFLOW-003.md` (all phases `[x]`).
 
 ## Evidence Log
 
@@ -118,3 +118,42 @@ review-ready → approved. User approved the direction verbatim: "당연히 /wor
 ### [GATE-IMPLEMENT] — ✅ PASS | 2026-06-30
 
 approved → in-progress. `.agents/tasks/WORKFLOW-003.md` created; spec Tasks updated; spec pointer in tasks file; phased tasks cover TC-01..TC-05; Test Plan in tasks file.
+
+### [GATE-VERIFY] — ✅ PASS | 2026-07-02
+
+Tasks file: all phases `[x]` (bridge package skeleton, command module + subcommand executors, agent-cli
+composition, verify) — none blocked. Build: `pnpm --filter agent-command-workflows --filter agent-cli
+build` (with siblings) → 0 errors. Tests (2026-07-02, develop): agent-command-workflows 9/1, agent-cli
+146/18 — pass.
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-07-02
+
+`workflows` `ICommandModule` in `packages/agent-command-workflows` with canonical slash-free name and
+`list`/`catalog`/`validate`/`run` subcommands. Test: the module suite (9 tests) covers presence +
+dispatch. The deferred `build` subcommand follow-on is now tracked as
+`backlog/WORKFLOW-004-workflows-build-subcommand.md` (was noted as "tracked" but had no item).
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-07-02
+
+`rg -rln "@robota-sdk/dag-cli" packages/agent-*/src` → 0 files; `rg '"@robota-sdk/dag-cli"'
+packages/agent-*/package.json` → 0 (the only textual hit is the package's own SPEC.md sentence stating
+it does NOT depend on dag-cli).
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-07-02
+
+agent-cli registers the module in `command-setup.ts`; the 4 dispatch tests pass inside the
+agent-command-workflows/agent-cli suites run at GATE-VERIFY.
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-07-02
+
+`pnpm --filter @robota-sdk/agent-command-workflows typecheck` and `pnpm --filter
+@robota-sdk/agent-cli typecheck` both exit 0 (run 2026-07-02); agent-cli test 146 pass.
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-07-02
+
+`pnpm harness:scan` → all 39 scans pass (was 38 at authoring; the scan count grew since — still exit 0).
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-07-02
+
+All 5 TCs verified with test references (no skips). Tasks archived to
+`.agents/tasks/completed/WORKFLOW-003.md`; spec `active/` → `done/`; frontmatter `status: done`.

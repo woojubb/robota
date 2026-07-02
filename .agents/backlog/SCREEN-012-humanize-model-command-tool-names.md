@@ -1,6 +1,6 @@
 ---
 title: 'SCREEN-012: Tool display shows internal robota_command_* id instead of the command name'
-status: in-progress
+status: done
 created: 2026-06-30
 priority: medium
 urgency: soon
@@ -48,4 +48,9 @@ so the value stays SSOT. Display becomes `⟳ agent(parallel --wait "…")`.
 - Expected: the row reads `⟳ agent(...)` (the command name), not `robota_command_agent(...)`.
 - Evidence: Engineering — `humanize-tool-name.test.ts` passes (`robota_command_agent` → `agent`,
   hash-suffixed → body, non-command names unchanged); `StreamingIndicator`/`MessageList` now call
-  `humanizeToolName`. Live-TUI confirmation (model invokes a command-tool) pending a user run.
+  `humanizeToolName`.
+- Evidence (LIVE, agent-run 2026-07-02): real TUI in a PTY (real Anthropic provider); the model
+  invoked the projected `agent` command tool. The `Tools:` list read
+  `⟳ agent(parallel --wait A1=general-purpose:"Write one v...")` — the humanized command name; the
+  raw `robota_command_agent…` id never appeared in the rendered tool row (it appeared only inside the
+  user's own echoed prompt text). Scenario executed as written.

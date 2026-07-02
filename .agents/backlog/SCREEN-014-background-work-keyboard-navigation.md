@@ -1,6 +1,6 @@
 ---
 title: 'SCREEN-014: Define + implement arrow-key navigation into the inline background-work list'
-status: in-progress
+status: done
 created: 2026-06-30
 priority: high
 urgency: now
@@ -77,7 +77,11 @@ The order shown is the stable order from SCREEN-010 so the highlight is predicta
   ↑/↓/Enter/Esc/empty navigation reducer; `input-area-focus-handoff.test.tsx` (2) proves ↓ on an
   empty input requests list focus (and not while disabled); `background-task-panel.test.tsx` covers
   the focus highlight + focus-aware hint. Full TUI suite green (392), real-binary PTY smoke green.
-  **Remaining gate:** the full live ↓ → ↑↓ → Enter → inline-detail flow against _real seeded
-  background tasks_ in the binary needs the deterministic background-task seed (TEST-010 Phase 3);
-  tracked there. Until then the integrated flow is covered by the unit/component pieces above, not a
-  single end-to-end run.
+- Evidence (LIVE end-to-end, agent-run 2026-07-02): real TUI in a PTY (real Anthropic provider) with
+  a real background agent spawned by the model — no seed needed. On the idle empty input, **↓**
+  flipped the panel hint to `↑↓ select · Enter open · Esc back` (focus entered the inline list);
+  **Enter** opened that entry inline — the status bar showed `[tides]` and the main pane rendered the
+  task's live transcript (`… Tides are the periodic rise and fall of sea levels …`); **Esc/↑**
+  restored the prompt and the unfocused `↓ select · Ctrl+B all` hint. The full live
+  ↓ → highlight → Enter → inline-detail → back flow ran as a single end-to-end session — the
+  previously-remaining gate is closed.
