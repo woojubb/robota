@@ -217,6 +217,11 @@ export interface IQwenProviderOptions {
   [key: string]: TQwenProviderOptionValue;
 
   apiKey?: string;
+  /**
+   * API base URL (default: DashScope's OpenAI-compatible endpoint).
+   * Any OpenAI-compatible server works — gateways (LiteLLM, OpenRouter), vLLM,
+   * Ollama, LM Studio; model ids are passed through verbatim.
+   */
   baseURL?: string;
   responsesBaseURL?: string;
   timeout?: number;

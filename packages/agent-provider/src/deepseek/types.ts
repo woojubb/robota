@@ -26,6 +26,11 @@ export interface IDeepSeekProviderOptions {
   [key: string]: TDeepSeekProviderOptionValue;
 
   apiKey?: string;
+  /**
+   * API base URL (default: DeepSeek's OpenAI-compatible endpoint).
+   * Any OpenAI-compatible server works — gateways (LiteLLM, OpenRouter), vLLM,
+   * Ollama, LM Studio; model ids are passed through verbatim.
+   */
   baseURL?: string;
   timeout?: number;
   defaultModel?: string;

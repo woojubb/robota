@@ -39,7 +39,11 @@ export interface IAnthropicProviderOptions {
   timeout?: number;
 
   /**
-   * API base URL
+   * API base URL (default: Anthropic's official endpoint).
+   * Point this at any Anthropic-Messages-API-compatible endpoint — e.g. a
+   * proxy/gateway that speaks the Messages protocol. For OpenAI-protocol
+   * gateways (Vercel AI Gateway, LiteLLM, OpenRouter) use the OpenAI provider's
+   * `baseURL` with a gateway model slug instead.
    */
   baseURL?: string;
 

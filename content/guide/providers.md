@@ -16,15 +16,23 @@ All providers implement the same `IAIProvider` interface. You can pass any provi
 
 ## Provider Overview
 
-| Provider                  | Import path                            | Extra install       | Auth method         | Representative model |
-| ------------------------- | -------------------------------------- | ------------------- | ------------------- | -------------------- |
-| Anthropic                 | `@robota-sdk/agent-provider/anthropic` | `@anthropic-ai/sdk` | `ANTHROPIC_API_KEY` | `claude-sonnet-4-6`  |
-| OpenAI                    | `@robota-sdk/agent-provider/openai`    | `openai`            | `OPENAI_API_KEY`    | `gpt-4o`             |
-| Gemini                    | `@robota-sdk/agent-provider/gemini`    | `@google/genai`     | `GEMINI_API_KEY`    | `gemini-2.0-flash`   |
-| DeepSeek                  | `@robota-sdk/agent-provider/deepseek`  | `openai`            | `DEEPSEEK_API_KEY`  | `deepseek-v4-flash`  |
-| Qwen (Alibaba)            | `@robota-sdk/agent-provider/qwen`      | `openai`            | `DASHSCOPE_API_KEY` | `qwen-plus`          |
-| Gemma / OpenAI-compatible | `@robota-sdk/agent-provider/gemma`     | `openai`            | varies              | any local model      |
+Each provider is a **protocol client**, not a model-vendor lock: it speaks an API surface, and any
+endpoint speaking that surface works via `baseURL` — AI gateways (Vercel AI Gateway, LiteLLM,
+OpenRouter), Azure, vLLM, Ollama, LM Studio. Model slugs pass through verbatim, so routing
+`anthropic/claude-*` or `meta-llama/*` through an OpenAI-protocol gateway is a one-line config.
 
+| Provider                  | Import path                            | API surface it speaks                                                           | Auth method                       |
+| ------------------------- | -------------------------------------- | ------------------------------------------------------------------------------- | --------------------------------- |
+| OpenAI                    | `@robota-sdk/agent-provider/openai`    | OpenAI API — official or ANY compatible endpoint (gateways, Azure, vLLM, local) | `OPENAI_API_KEY` (or gateway key) |
+| Anthropic                 | `@robota-sdk/agent-provider/anthropic` | Anthropic Messages API                                                          | `ANTHROPIC_API_KEY`               |
+| Gemini                    | `@robota-sdk/agent-provider/gemini`    | Google GenAI API                                                                | `GEMINI_API_KEY`                  |
+| DeepSeek                  | `@robota-sdk/agent-provider/deepseek`  | OpenAI-compatible (DeepSeek endpoint default)                                   | `DEEPSEEK_API_KEY`                |
+| Qwen (Alibaba)            | `@robota-sdk/agent-provider/qwen`      | OpenAI-compatible (DashScope endpoint default)                                  | `DASHSCOPE_API_KEY`               |
+| Gemma / OpenAI-compatible | `@robota-sdk/agent-provider/gemma`     | OpenAI-compatible (bring your own endpoint)                                     | varies                            |
+
+> **AI gateways (Vercel AI Gateway, LiteLLM, OpenRouter):** Use the `OpenAIProvider` with the
+> gateway's `baseURL` and a gateway model slug — see [Through an AI gateway](#through-an-ai-gateway).
+>
 > **Local models (Ollama, LM Studio, llama.cpp):** Use the `GemmaProvider` with a custom
 > `baseURL`. See [Local LLM Setup](./local-llm.md) for a step-by-step guide.
 
@@ -52,13 +60,13 @@ const provider = new AnthropicProvider({
 
 ### Configuration options
 
-| Option     | Type        | Required                       | Description                       |
-| ---------- | ----------- | ------------------------------ | --------------------------------- |
-| `apiKey`   | `string`    | Yes (unless `client` provided) | Anthropic API key                 |
-| `client`   | `Anthropic` | No                             | Pre-built Anthropic SDK client    |
-| `baseURL`  | `string`    | No                             | Custom API endpoint               |
-| `timeout`  | `number`    | No                             | Request timeout in milliseconds   |
-| `executor` | `IExecutor` | No                             | Remote or local executor override |
+| Option     | Type        | Required                       | Description                                                    |
+| ---------- | ----------- | ------------------------------ | -------------------------------------------------------------- |
+| `apiKey`   | `string`    | Yes (unless `client` provided) | Anthropic API key                                              |
+| `client`   | `Anthropic` | No                             | Pre-built Anthropic SDK client                                 |
+| `baseURL`  | `string`    | No                             | Any Anthropic-Messages-API-compatible endpoint (proxy/gateway) |
+| `timeout`  | `number`    | No                             | Request timeout in milliseconds                                |
+| `executor` | `IExecutor` | No                             | Remote or local executor override                              |
 
 ### With a pre-built client
 
@@ -78,8 +86,9 @@ const provider = new AnthropicProvider({ client });
 
 ## OpenAI
 
-GPT and o-series models. Native support for JSON mode, structured outputs, and
-the Responses API.
+The OpenAI **protocol** client. Official OpenAI models (GPT and o-series) with native JSON mode,
+structured outputs, and the Responses API — and, via `baseURL`, any OpenAI-compatible endpoint:
+AI gateways, Azure OpenAI, vLLM, Ollama, LM Studio.
 
 ### Install
 
@@ -104,13 +113,34 @@ const provider = new OpenAIProvider({
 | `apiKey`         | `string`                                   | Yes (unless `client` provided) | OpenAI API key                                                                                |
 | `client`         | `OpenAI`                                   | No                             | Pre-built OpenAI SDK client                                                                   |
 | `organization`   | `string`                                   | No                             | OpenAI organization ID                                                                        |
-| `baseURL`        | `string`                                   | No                             | Custom endpoint (e.g. Azure, proxies)                                                         |
+| `baseURL`        | `string`                                   | No                             | Any OpenAI-compatible endpoint — gateways, Azure, vLLM, local                                 |
 | `timeout`        | `number`                                   | No                             | Request timeout in milliseconds                                                               |
 | `apiSurface`     | `'responses' \| 'chat-completions'`        | No                             | API surface to use (default: `responses` for OpenAI, `chat-completions` for custom endpoints) |
 | `responseFormat` | `'text' \| 'json_object' \| 'json_schema'` | No                             | Response format                                                                               |
 | `reasoning`      | `IOpenAIResponsesReasoningOptions`         | No                             | Reasoning effort for o-series models                                                          |
 | `strictTools`    | `boolean`                                  | No                             | Enable strict function parameter validation                                                   |
 | `executor`       | `IExecutor`                                | No                             | Remote or local executor override                                                             |
+
+### Through an AI gateway
+
+Point `baseURL` at any OpenAI-compatible gateway and use the gateway's model slug — non-OpenAI
+models route through the same provider. Streaming and tool calling work unchanged; the slug is
+passed to the endpoint verbatim.
+
+```typescript
+import { OpenAIProvider } from '@robota-sdk/agent-provider/openai';
+
+// Vercel AI Gateway serving an Anthropic model
+const provider = new OpenAIProvider({
+  apiKey: process.env.AI_GATEWAY_API_KEY!,
+  baseURL: 'https://ai-gateway.vercel.sh/v1',
+  defaultModel: 'anthropic/claude-sonnet-4-5',
+});
+```
+
+The same pattern covers LiteLLM (`http://localhost:4000/v1`), OpenRouter
+(`https://openrouter.ai/api/v1`), and Azure OpenAI deployments. Setting `baseURL` switches the
+default `apiSurface` to `chat-completions` for endpoint compatibility.
 
 ### JSON output
 
