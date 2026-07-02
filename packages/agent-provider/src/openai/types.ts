@@ -66,7 +66,31 @@ export interface IOpenAIProviderOptions {
   timeout?: number;
 
   /**
-   * API base URL (default: 'https://api.openai.com/v1')
+   * API base URL (default: `'https://api.openai.com/v1'`).
+   *
+   * Point this at ANY OpenAI-compatible endpoint — this provider is a protocol
+   * client, not an OpenAI-vendor lock:
+   *
+   * - AI gateways: Vercel AI Gateway, LiteLLM, OpenRouter, …
+   * - Hosted compatibles: Azure OpenAI, Groq, Together, …
+   * - Local/self-hosted: vLLM, Ollama, LM Studio, …
+   *
+   * Setting `baseURL` switches the default {@link apiSurface} to
+   * `'chat-completions'` for broad endpoint compatibility (official OpenAI calls
+   * default to the Responses API). Model slugs are passed through verbatim, so
+   * gateway-namespaced ids like `anthropic/claude-sonnet-4-5` or
+   * `meta-llama/llama-3.1-70b` work as `defaultModel`/`model` values — streaming
+   * and tool calling ride the same chat-completions protocol.
+   *
+   * @example
+   * ```ts
+   * // Vercel AI Gateway with a non-OpenAI model slug
+   * createOpenAIProvider({
+   *   apiKey: process.env.AI_GATEWAY_API_KEY,
+   *   baseURL: 'https://ai-gateway.vercel.sh/v1',
+   *   defaultModel: 'anthropic/claude-sonnet-4-5',
+   * });
+   * ```
    */
   baseURL?: string;
 

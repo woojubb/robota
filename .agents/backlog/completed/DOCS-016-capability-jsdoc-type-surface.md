@@ -1,6 +1,7 @@
 ---
 title: 'DOCS-016: adoption-critical capabilities on the type surface — baseURL gateway JSDoc + provider table reframing'
-status: todo
+status: done
+completed: 2026-07-03
 created: 2026-07-03
 priority: high
 urgency: soon
@@ -44,4 +45,23 @@ never goes stale for the consumer.
 - Steps: in an IDE, hover `baseURL` on `OpenAIProvider` options; follow only that JSDoc to configure
   a gateway endpoint with a non-OpenAI slug.
 - Expected: gateway streaming + tool calling works from the hover text alone.
-- Evidence: _to fill at implementation._
+- Evidence: **PASS (live, 2026-07-03).** `IOpenAIProviderOptions.baseURL` now carries
+  adoption-decision-grade JSDoc (gateways/Azure/vLLM/Ollama/LM Studio, apiSurface switch to
+  chat-completions, verbatim slug pass-through, Vercel AI Gateway @example) — verified present in
+  the built package `.d.ts` (`dist/node` + `dist/browser`), which is what a consumer's IDE hover
+  reads. Mirrored on gemma/qwen/deepseek `baseURL` (OpenAI-compatible framing) and anthropic
+  `baseURL` (Messages-protocol framing + pointer to the OpenAI provider for OpenAI-protocol
+  gateways). Provider tables reframed to protocol/endpoint-surface in
+  `packages/agent-provider/README.md` (+ new "AI Gateway / any OpenAI-compatible endpoint"
+  example; fixed the Gemma example's wrong option names `baseUrl`/`model` →
+  `baseURL`/`defaultModel`, masked from the doc scan by the options index signature) and
+  `content/guide/providers.md` (protocol-client narrative, "Through an AI gateway" section,
+  gateway pointer in the overview callout). Live User Execution: temp consumer script in
+  `packages/agent-playground` following ONLY the new JSDoc recipe — `OpenAIProvider` +
+  OpenAI-compatible endpoint baseURL (DashScope compatible-mode, same protocol class as a
+  gateway) + non-OpenAI slug `qwen-plus` (TEST_QWEN_KEY) → PASS: streaming (7 deltas) + tool
+  call (`get_weather` executed) + final answer. doc-examples scan 51 blocks green;
+  `pnpm docs:build` green — required fixing a pre-existing breakage absorbed into scope:
+  `scripts/docs/prepare-docs.js` still checked the removed `.vitepress/dist` path after the
+  docs app's VitePress→Next.js migration (now checks `apps/docs/out`). DOCS-014 owns the
+  run/runStream behavior-contract JSDoc (cross-referenced, not duplicated).
