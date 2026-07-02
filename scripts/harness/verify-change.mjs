@@ -66,6 +66,7 @@ function runRepositoryCheck(check, dryRun) {
           'scripts/harness/__tests__/check-task-archival.test.mjs',
           'scripts/harness/__tests__/check-test-module-mocks.test.mjs',
           'scripts/harness/__tests__/check-backlog-placement.test.mjs',
+          'scripts/harness/__tests__/check-doc-examples.test.mjs',
         ],
         WORKSPACE_ROOT,
         dryRun,

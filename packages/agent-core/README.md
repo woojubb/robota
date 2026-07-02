@@ -22,8 +22,8 @@ const agent = new Robota({
   defaultModel: {
     provider: 'anthropic',
     model: 'claude-sonnet-4-6',
-    systemMessage: 'You are a helpful assistant.',
   },
+  systemMessage: 'You are a helpful assistant.',
 });
 
 const response = await agent.run('Hello, world!');
@@ -52,6 +52,10 @@ console.log(response);
 ## Robota API
 
 ```typescript
+import { Robota } from '@robota-sdk/agent-core';
+import type { IAgentConfig } from '@robota-sdk/agent-core';
+
+declare const config: IAgentConfig;
 const agent = new Robota(config);
 
 // Send a message (executes tool calls automatically)
@@ -85,15 +89,15 @@ Provider-specific SDK payload capture remains provider-owned. Providers may call
 
 ## IAgentConfig
 
-| Field                        | Type                       | Description                    |
-| ---------------------------- | -------------------------- | ------------------------------ |
-| `name`                       | `string`                   | Agent name                     |
-| `aiProviders`                | `IAIProvider[]`            | One or more provider instances |
-| `defaultModel.provider`      | `string`                   | Provider name                  |
-| `defaultModel.model`         | `string`                   | Model identifier               |
-| `defaultModel.systemMessage` | `string?`                  | System prompt                  |
-| `tools`                      | `IToolWithEventService[]?` | Tools the agent can call       |
-| `plugins`                    | `IPluginContract[]?`       | Plugins for lifecycle hooks    |
+| Field                   | Type                       | Description                    |
+| ----------------------- | -------------------------- | ------------------------------ |
+| `name`                  | `string`                   | Agent name                     |
+| `aiProviders`           | `IAIProvider[]`            | One or more provider instances |
+| `defaultModel.provider` | `string`                   | Provider name                  |
+| `defaultModel.model`    | `string`                   | Model identifier               |
+| `systemMessage`         | `string?`                  | System prompt (top-level)      |
+| `tools`                 | `IToolWithEventService[]?` | Tools the agent can call       |
+| `plugins`               | `IPluginContract[]?`       | Plugins for lifecycle hooks    |
 
 ## Architecture
 

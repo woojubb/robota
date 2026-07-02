@@ -26,13 +26,15 @@ npm install @robota-sdk/agent-plugin
 ```typescript
 import { Robota } from '@robota-sdk/agent-core';
 import { ConversationHistoryPlugin, LoggingPlugin, UsagePlugin } from '@robota-sdk/agent-plugin';
+import type { IAgentConfig } from '@robota-sdk/agent-core';
 
+declare const base: IAgentConfig; // name, aiProviders, defaultModel, …
 const agent = new Robota({
-  // ...provider config...
+  ...base,
   plugins: [
     new ConversationHistoryPlugin({ storage: 'memory' }),
-    new LoggingPlugin({ backend: 'console', level: 'info' }),
-    new UsagePlugin({ storage: 'memory' }),
+    new LoggingPlugin({ strategy: 'console', level: 'info' }),
+    new UsagePlugin({ strategy: 'memory' }),
   ],
 });
 ```
@@ -44,7 +46,10 @@ const agent = new Robota({
 Persists conversation history across sessions.
 
 ```typescript
-new ConversationHistoryPlugin({ storage: 'memory' | 'file' | 'database' });
+import { ConversationHistoryPlugin } from '@robota-sdk/agent-plugin';
+
+// storage: 'memory' | 'file' | 'database'
+new ConversationHistoryPlugin({ storage: 'memory' });
 ```
 
 ### LoggingPlugin
@@ -52,10 +57,10 @@ new ConversationHistoryPlugin({ storage: 'memory' | 'file' | 'database' });
 Logs agent activity to one or more backends.
 
 ```typescript
-new LoggingPlugin({
-  backend: 'console' | 'file' | 'remote' | 'silent',
-  level: 'info' | 'debug' | 'warn' | 'error',
-});
+import { LoggingPlugin } from '@robota-sdk/agent-plugin';
+
+// strategy: 'console' | 'file' | 'remote' | 'silent'
+new LoggingPlugin({ strategy: 'console', level: 'info' });
 ```
 
 ### UsagePlugin
@@ -63,7 +68,10 @@ new LoggingPlugin({
 Tracks token usage and estimates cost.
 
 ```typescript
-new UsagePlugin({ storage: 'memory' | 'file' | 'remote' | 'silent' });
+import { UsagePlugin } from '@robota-sdk/agent-plugin';
+
+// strategy: 'memory' | 'file' | 'remote' | 'silent'
+new UsagePlugin({ strategy: 'memory' });
 ```
 
 ### LimitsPlugin
@@ -71,7 +79,10 @@ new UsagePlugin({ storage: 'memory' | 'file' | 'remote' | 'silent' });
 Enforces rate limits and usage quotas.
 
 ```typescript
-new LimitsPlugin({ maxTokensPerMinute: 100000, maxRequestsPerMinute: 60 });
+import { LimitsPlugin } from '@robota-sdk/agent-plugin';
+
+// strategy: 'token-bucket' | 'sliding-window' | 'fixed-window' | 'none'
+new LimitsPlugin({ strategy: 'token-bucket', maxTokens: 100000, maxRequests: 60 });
 ```
 
 ### WebhookPlugin
@@ -79,7 +90,9 @@ new LimitsPlugin({ maxTokensPerMinute: 100000, maxRequestsPerMinute: 60 });
 Fires HTTP webhooks on agent lifecycle events with optional HMAC signing.
 
 ```typescript
-new WebhookPlugin({ url: 'https://example.com/hook', secret: 'my-secret' });
+import { WebhookPlugin } from '@robota-sdk/agent-plugin';
+
+new WebhookPlugin({ endpoints: [{ url: 'https://example.com/hook' }] });
 ```
 
 ## Dependencies

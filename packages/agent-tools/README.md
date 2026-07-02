@@ -18,16 +18,14 @@ Peer dependency: `@robota-sdk/agent-core`
 import { createZodFunctionTool } from '@robota-sdk/agent-tools';
 import { z } from 'zod';
 
-const weatherTool = createZodFunctionTool({
-  name: 'get_weather',
-  description: 'Get current weather for a city',
-  schema: z.object({
+const weatherTool = createZodFunctionTool(
+  'get_weather',
+  'Get current weather for a city',
+  z.object({
     city: z.string().describe('City name'),
   }),
-  handler: async ({ city }) => ({
-    data: JSON.stringify({ city, temperature: 22, condition: 'sunny' }),
-  }),
-});
+  async (args) => JSON.stringify({ city: args['city'], temperature: 22, condition: 'sunny' }),
+);
 ```
 
 ### Use Built-in Tools
@@ -35,7 +33,9 @@ const weatherTool = createZodFunctionTool({
 ```typescript
 import { bashTool, readTool, globTool, grepTool } from '@robota-sdk/agent-tools';
 import { Robota } from '@robota-sdk/agent-core';
+import type { IAIProvider } from '@robota-sdk/agent-core';
 
+declare const provider: IAIProvider;
 const agent = new Robota({
   name: 'DevAgent',
   aiProviders: [provider],
@@ -71,6 +71,8 @@ Factory exports (`createBashTool`, `createReadTool`, `createWriteTool`, `createE
 
 `ISandboxClient` is the provider-neutral execution-plane port used by sandbox-aware built-in tools:
 
+<!-- doc-example-skip: requires the optional e2b dependency -->
+
 ```typescript
 import { E2BSandboxClient, createBashTool, createReadTool } from '@robota-sdk/agent-tools';
 import { Sandbox } from 'e2b';
@@ -87,6 +89,8 @@ The package does not depend on E2B directly. `E2BSandboxClient` adapts an E2B-co
 ### Workspace Manifests
 
 `IWorkspaceManifest` declares the fresh sandbox workspace before a session starts. Paths are workspace-relative and cannot escape the target root.
+
+<!-- doc-example-skip: requires the optional e2b dependency -->
 
 ```typescript
 import { applyWorkspaceManifest, E2BSandboxClient } from '@robota-sdk/agent-tools';

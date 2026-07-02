@@ -12,6 +12,7 @@ This package is used internally within the Robota monorepo via workspace referen
 
 ```typescript
 import { RemoteExecutor } from '@robota-sdk/agent-remote-client';
+import { createUserMessage } from '@robota-sdk/agent-core';
 
 const executor = new RemoteExecutor({
   serverUrl: 'https://my-agent-server.example.com',
@@ -23,14 +24,15 @@ const executor = new RemoteExecutor({
 const response = await executor.executeChat({
   provider: 'anthropic',
   model: 'claude-opus-4-5',
-  messages: [{ role: 'user', content: 'Hello' }],
+  messages: [createUserMessage('Hello')],
 });
 
 // Streaming (SSE)
 for await (const chunk of executor.executeChatStream({
   provider: 'anthropic',
   model: 'claude-opus-4-5',
-  messages: [{ role: 'user', content: 'Hello' }],
+  messages: [createUserMessage('Hello')],
+  stream: true,
 })) {
   process.stdout.write(chunk.content ?? '');
 }

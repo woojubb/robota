@@ -24,12 +24,18 @@ agent-cli
 ## Usage
 
 ```typescript
-import { createChildProcessSubagentRunnerFactory } from '@robota-sdk/agent-subagent-runner';
+import {
+  createChildProcessSubagentRunnerFactory,
+  getDefaultSubagentWorkerPath,
+} from '@robota-sdk/agent-subagent-runner';
+import type { IProviderDefinitionConfig } from '@robota-sdk/agent-core';
+
+declare const providerConfig: IProviderDefinitionConfig;
 
 const factory = createChildProcessSubagentRunnerFactory({
+  workerPath: getDefaultSubagentWorkerPath(), // the bundled worker entry point
   providerConfig,
-  logsDir,
-  // workerPath is optional — defaults to the bundled worker entry point
+  logsDir: '.robota/logs',
 });
 ```
 

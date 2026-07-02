@@ -12,6 +12,11 @@ npm install @robota-sdk/agent-session @robota-sdk/agent-core
 
 ```typescript
 import { Session } from '@robota-sdk/agent-session';
+import type { IAIProvider, IToolWithEventService, ITerminalOutput } from '@robota-sdk/agent-core';
+
+declare const tools: IToolWithEventService[];
+declare const provider: IAIProvider;
+declare const terminal: ITerminalOutput;
 
 const session = new Session({
   tools,

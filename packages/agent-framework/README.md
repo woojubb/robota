@@ -114,22 +114,20 @@ The SDK is **pure TypeScript with no React dependency**. The CLI is a thin TUI-o
 
 ```typescript
 import { InteractiveSession, createProjectSessionStore } from '@robota-sdk/agent-framework';
-import type { IInteractiveSessionOptions } from '@robota-sdk/agent-framework';
+import type { IAIProvider } from '@robota-sdk/agent-core';
 
+declare const provider: IAIProvider;
 const cwd = process.cwd();
 const sessionStore = createProjectSessionStore(cwd);
 
 const session = new InteractiveSession({
-  config,
-  context,
-  projectInfo,
+  cwd,
+  provider,
   sessionStore, // SDK-owned project-local persistence facade
-  resumeSessionId, // Session ID to restore, including sandbox snapshot when available
-  forkSession, // Session ID to fork from (optional)
+  resumeSessionId: 'sess_123', // Session ID to restore, incl. sandbox snapshot (optional)
+  forkSession: false, // Fork the resumed session into a new one (optional)
   permissionMode: 'default',
   maxTurns: 10,
-  cwd,
-  permissionHandler: async (toolName, toolArgs) => ({ allowed: true }),
 });
 
 // Subscribe to events
@@ -166,7 +164,7 @@ await session.submit('Explain this code');
 await session.submit('Explain @AGENTS.md and @docs/SPEC.md');
 
 // Submit with display override (shown in UI) and raw input (for hook matching)
-await session.submit(fullPrompt, '/audit', '/rulebased-harness:audit');
+await session.submit('full expanded prompt…', '/audit', '/rulebased-harness:audit');
 
 // Execute slash commands through the command layer. With the skills command module composed,
 // `/audit src/index.ts` is normalized by SDK to command "skills" with args "audit src/index.ts".
@@ -207,8 +205,9 @@ session.getSession(); // Session
 
 ```typescript
 import { SystemCommandExecutor, createSystemCommands } from '@robota-sdk/agent-framework';
-import type { ICommandResult } from '@robota-sdk/agent-framework';
+import type { ICommandResult, ICommandHostContext } from '@robota-sdk/agent-framework';
 
+declare const session: ICommandHostContext;
 const executor = new SystemCommandExecutor(); // starts empty unless commands are supplied
 
 // Execute a command
@@ -333,6 +332,8 @@ import {
 
 SDK sessions can receive a provider-neutral sandbox client. When provided, Bash, Read, Write, and Edit use the sandbox execution plane instead of the host process/filesystem:
 
+<!-- doc-example-skip: requires the optional e2b dependency -->
+
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-framework';
 import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
@@ -369,13 +370,12 @@ When `sessionStore` and a snapshot-capable `sandboxClient` are both provided, `I
 
 ```typescript
 import { createSubagentSession } from '@robota-sdk/agent-framework';
+import type { ISubagentOptions } from '@robota-sdk/agent-framework';
 
-const subSession = createSubagentSession({
-  parentSession: session,
-  agentDefinition: 'explore',
-  prompt: 'Analyze the test coverage gaps',
-});
-const result = await subSession.run();
+// agentDefinition, parentConfig/parentContext/parentTools, provider, terminal, …
+declare const options: ISubagentOptions;
+const subSession = createSubagentSession(options);
+const result = await subSession.run('Analyze the test coverage gaps');
 ```
 
 ### Agent Definitions
@@ -433,18 +433,16 @@ Manages plugin installation and uninstallation:
 `@robota-sdk/agent-plugin` plugins are **consumer opt-in** — they are not built into the CLI or SDK by default. Application consumers register plugins at composition time by passing plugin instances to the SDK assembly API.
 
 ```typescript
-import { InteractiveSession } from '@robota-sdk/agent-framework';
-import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
-import { ConversationHistoryPlugin } from '@robota-sdk/agent-plugin';
-import { LoggingPlugin } from '@robota-sdk/agent-plugin';
+import { Robota } from '@robota-sdk/agent-core';
+import { ConversationHistoryPlugin, LoggingPlugin } from '@robota-sdk/agent-plugin';
+import type { IAgentConfig } from '@robota-sdk/agent-core';
 
-const session = new InteractiveSession({
-  cwd: process.cwd(),
-  config,
-  context,
+declare const base: IAgentConfig;
+const agent = new Robota({
+  ...base,
   plugins: [
-    new ConversationHistoryPlugin({ maxMessages: 100 }),
-    new LoggingPlugin({ level: 'info' }),
+    new ConversationHistoryPlugin({ storage: 'memory' }),
+    new LoggingPlugin({ strategy: 'console', level: 'info' }),
   ],
 });
 ```
