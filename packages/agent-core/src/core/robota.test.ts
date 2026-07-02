@@ -345,6 +345,107 @@ describe('Robota Core', () => {
   });
 
   // ----------------------------------------------------------------
+  // Run concurrency contract (CORE-012)
+  // ----------------------------------------------------------------
+  describe('run concurrency', () => {
+    it('should serialize concurrent run() calls into strictly sequential history', async () => {
+      class SlowProvider extends TrackingProvider {
+        override async chat(
+          messages: TUniversalMessage[],
+          options?: IChatOptions,
+        ): Promise<TUniversalMessage> {
+          await new Promise((resolve) => setTimeout(resolve, 10));
+          return super.chat(messages, options);
+        }
+      }
+      const provider = new SlowProvider();
+      const robota = new Robota(createConfig({ aiProviders: [provider] }));
+
+      const [first, second] = await Promise.all([
+        robota.run('First concurrent'),
+        robota.run('Second concurrent'),
+      ]);
+
+      expect(first).toBe('Response to: First concurrent');
+      expect(second).toBe('Response to: Second concurrent');
+
+      const history = robota.getHistory();
+      expect(history.map((message) => ({ role: message.role, content: message.content }))).toEqual([
+        { role: 'user', content: 'First concurrent' },
+        { role: 'assistant', content: 'Response to: First concurrent' },
+        { role: 'user', content: 'Second concurrent' },
+        { role: 'assistant', content: 'Response to: Second concurrent' },
+      ]);
+
+      // The queued run must see the completed first exchange, not a partial one.
+      const secondCall = provider.chatCalls[1];
+      expect(
+        secondCall.messages.some(
+          (message) =>
+            message.role === 'assistant' && message.content === 'Response to: First concurrent',
+        ),
+      ).toBe(true);
+    });
+
+    it('should reject a queued run whose signal aborts while waiting', async () => {
+      let releaseFirst!: () => void;
+      const firstGate = new Promise<void>((resolve) => {
+        releaseFirst = resolve;
+      });
+      class GatedProvider extends TrackingProvider {
+        override async chat(
+          messages: TUniversalMessage[],
+          options?: IChatOptions,
+        ): Promise<TUniversalMessage> {
+          await firstGate;
+          return super.chat(messages, options);
+        }
+      }
+      const provider = new GatedProvider();
+      const robota = new Robota(createConfig({ aiProviders: [provider] }));
+
+      const firstRun = robota.run('Holds the slot');
+      const controller = new AbortController();
+      const queuedRun = robota.run('Aborted while queued', { signal: controller.signal });
+      const queuedFailure = expect(queuedRun).rejects.toThrow('Run aborted while queued');
+
+      controller.abort();
+      releaseFirst();
+
+      await expect(firstRun).resolves.toBe('Response to: Holds the slot');
+      await queuedFailure;
+      // The aborted run must never reach the provider.
+      expect(provider.chatCalls).toHaveLength(1);
+    });
+
+    it('should hold the run slot until runStream is fully consumed', async () => {
+      const provider = new TrackingProvider();
+      const robota = new Robota(createConfig({ aiProviders: [provider] }));
+
+      const iterator = robota.runStream('Stream first')[Symbol.asyncIterator]();
+      await iterator.next(); // stream is now mid-consumption and owns the slot
+
+      let queuedCompleted = false;
+      const queuedRun = robota.run('Queued behind stream').then((response) => {
+        queuedCompleted = true;
+        return response;
+      });
+
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(queuedCompleted).toBe(false);
+      expect(provider.chatCalls).toHaveLength(1);
+
+      // Drain the stream — completion releases the slot to the queued run.
+      let next = await iterator.next();
+      while (!next.done) {
+        next = await iterator.next();
+      }
+
+      await expect(queuedRun).resolves.toBe('Response to: Queued behind stream');
+    });
+  });
+
+  // ----------------------------------------------------------------
   // Streaming
   // ----------------------------------------------------------------
   describe('runStream', () => {

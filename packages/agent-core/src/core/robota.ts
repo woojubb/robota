@@ -138,17 +138,59 @@ export class Robota
     await this.ensureFullyInitialized();
   }
 
+  /**
+   * Concurrency contract (CORE-012): a Robota instance owns ONE conversation history, so
+   * concurrent `run`/`runStream` calls on the same instance are serialized on an internal queue —
+   * a call issued while another is in flight waits its turn (its `signal` is honored while queued).
+   * Interleaved histories are therefore impossible by construction.
+   */
   async run(input: string, options: IRunOptions = {}): Promise<string> {
-    await this.ensureFullyInitialized();
-    return robotaRun(this.executionDeps(), input, options);
+    return this.enqueueRun(options.signal, async () => {
+      await this.ensureFullyInitialized();
+      return robotaRun(this.executionDeps(), input, options);
+    });
   }
 
   async *runStream(
     input: string,
     options: IRunOptions = {},
   ): AsyncGenerator<string, void, undefined> {
-    await this.ensureFullyInitialized();
-    yield* robotaRunStream(this.executionDeps(), input, options);
+    // Serialized like run(): the queue slot is held until the stream is fully consumed
+    // (return or throw), because the conversation history is being written throughout.
+    const release = await this.acquireRunSlot(options.signal);
+    try {
+      await this.ensureFullyInitialized();
+      yield* robotaRunStream(this.executionDeps(), input, options);
+    } finally {
+      release();
+    }
+  }
+
+  /** Tail of the internal run queue (CORE-012). */
+  private runQueueTail: Promise<void> = Promise.resolve();
+
+  /** Wait for the previous run to settle, then hold the slot until `release` is called. */
+  private async acquireRunSlot(signal: AbortSignal | undefined): Promise<() => void> {
+    const previous = this.runQueueTail;
+    let release: () => void = () => {};
+    this.runQueueTail = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await previous;
+    if (signal?.aborted) {
+      release();
+      throw new Error('Run aborted while queued behind another run on this instance');
+    }
+    return release;
+  }
+
+  private async enqueueRun<T>(signal: AbortSignal | undefined, task: () => Promise<T>): Promise<T> {
+    const release = await this.acquireRunSlot(signal);
+    try {
+      return await task();
+    } finally {
+      release();
+    }
   }
 
   private executionDeps(): IRobotaExecutionDeps {

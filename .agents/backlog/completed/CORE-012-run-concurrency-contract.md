@@ -1,7 +1,8 @@
 ---
 title: 'CORE-012: Robota.run() concurrency contract — serialize concurrent runs or state the contract'
-status: todo
+status: done
 created: 2026-07-03
+completed: 2026-07-03
 priority: high
 urgency: soon
 area: packages/agent-core
@@ -43,4 +44,15 @@ double-queue).
 - Steps: run it; inspect the resulting history order.
 - Expected: strictly sequential turn blocks (or a documented thrown error), never interleaved
   messages.
-- Evidence: _to fill at implementation._
+- Evidence: **PASS (live, 2026-07-03).** Implemented option 1 (internal FIFO run queue, approved
+  design). Temp consumer script (`tsx --conditions=source`, script placed in `packages/agent-cli`
+  because agent-core has zero agent-package deps) fired two un-awaited `run()` calls on one
+  `Robota` instance against the real Anthropic provider (`claude-haiku-4-5`, key from
+  `packages/agent-cli/.env`). Output: responses `"ALPHA"`/`"BETA"`, history order
+  `user(ALPHA ask), assistant(ALPHA), user(BETA ask), assistant(BETA)` — strictly sequential,
+  script's own role-order + queue-order assertions passed. Unit: 3 new tests in
+  `packages/agent-core/src/core/robota.test.ts` (`run concurrency` describe: sequential history +
+  queued run sees prior exchange; queued-abort throws `Run aborted while queued` without a provider
+  call; `runStream` holds the slot until fully consumed) — agent-core 758/758 green. Regression:
+  agent-framework suite 1033/1033 green (InteractiveSession queueing, no double-queue deadlock).
+  Contract documented in JSDoc (`run`/`runStream`) + SPEC.md "Run Concurrency Contract (CORE-012)".

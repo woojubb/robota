@@ -632,6 +632,27 @@ When `IToolExecutionBatchContext.mode` is `parallel`, `ToolExecutionService` enf
 
 When abort occurs during provider streaming, the provider uses `streamWithAbort` which breaks out of the iteration loop on `signal.aborted`. The provider then returns partial content collected so far with `stopReason: 'aborted'`. `executeRound` commits this partial response via `commitAssistant('interrupted')` through the standard single commit path. The execution loop then exits via the `signal.aborted` check in ExecutionService. `robota.run()` always returns normally on abort — it does not throw.
 
+## Run Concurrency Contract (CORE-012)
+
+One `Robota` instance owns one conversation history, so concurrent executions on the same instance
+would interleave history writes. The instance therefore serializes runs internally:
+
+- `run()` and `runStream()` share a single FIFO run slot per instance. A call made while another
+  run is in flight waits for the earlier run to complete, then executes — callers may fire
+  concurrent calls without external locking and still get strictly sequential history
+  (`user₁, assistant₁, user₂, assistant₂ …`). The queued run's provider request includes the
+  completed earlier exchange.
+- `runStream()` acquires the slot when iteration starts and holds it until the stream is fully
+  consumed (or the generator is closed early via `return()`/`break`, which releases through the
+  same `finally` path). An abandoned, never-consumed generator does not hold the slot because the
+  generator body has not started.
+- If a queued call's `IRunOptions.signal` is already aborted when its turn arrives, it throws
+  `Run aborted while queued behind another run on this instance` without touching the provider or
+  history. An abort during an in-flight run keeps the existing abort semantics above (returns
+  normally, never throws).
+- The queue is per-instance. Cross-instance coordination is out of scope; separate instances remain
+  fully concurrent.
+
 This ensures:
 
 - The partial response is saved in conversation history for the next turn
