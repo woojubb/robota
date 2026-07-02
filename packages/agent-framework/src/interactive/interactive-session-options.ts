@@ -147,6 +147,8 @@ export interface IInitOptions {
   cwd: string;
   provider: IAIProvider;
   permissionMode?: ICreateSessionOptions['permissionMode'];
+  /** CMD-005: unified ask renderer, forwarded into the session as the model-question tool seam. */
+  askHandler?: IUserInteraction['ask'];
   maxTurns?: number;
   permissionHandler?: TInteractivePermissionHandler;
   resumeSessionId?: string;

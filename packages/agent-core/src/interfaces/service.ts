@@ -4,6 +4,7 @@
  */
 
 import type { IOwnerPathSegment, IEventService } from './event-service';
+import type { IUserInteraction } from './interaction';
 import type { TUniversalMessage } from './messages';
 import type { IToolCall } from './messages';
 import type { IToolSchema, IAIProvider } from './provider';
@@ -57,6 +58,8 @@ export interface IToolExecutionRequest {
   ownerPath?: IOwnerPathSegment[];
   eventService?: IEventService;
   baseEventService?: IEventService;
+  /** Injected "ask the user" port propagated into the tool's execution context (CMD-005). */
+  ask?: IUserInteraction['ask'];
 }
 
 /**

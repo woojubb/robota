@@ -67,6 +67,7 @@ function createExecutionContext(request: IToolExecutionRequest): IToolExecutionC
     metadata: request.metadata,
     eventService: request.eventService,
     baseEventService: request.baseEventService,
+    ...(request.ask ? { ask: request.ask } : {}),
   };
 }
 

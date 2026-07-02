@@ -196,7 +196,7 @@ agent-framework        ← Assembly layer: InteractiveSession, config, context, 
   ↓
 agent-session          ← Session lifecycle: permissions, hooks, compaction
 agent-executor         ← Background task and subagent lifecycle primitives
-agent-tools            ← Tool infrastructure + 8 built-in tools + sandbox ports/manifests
+agent-tools            ← Tool infrastructure + built-in tools (Shell/Read/Write/Edit/Glob/Grep/Web*/AskUserQuestion) + sandbox ports/manifests
 agent-provider         ← Consolidated AI provider package (sub-paths: /anthropic, /openai, /gemini, /google, /gemma, /qwen, /deepseek, /bytedance)
   ↓
 agent-core             ← Foundation: Robota engine, abstractions, plugins

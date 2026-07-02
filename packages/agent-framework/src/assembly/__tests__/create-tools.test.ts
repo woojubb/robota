@@ -15,6 +15,7 @@ describe('createDefaultTools', () => {
       'Grep',
       'WebFetch',
       'WebSearch',
+      'AskUserQuestion',
     ]);
 
     expect(DEFAULT_TOOL_DESCRIPTIONS).toContain('WebFetch — fetch URL content as text');
@@ -36,6 +37,7 @@ describe('createDefaultTools', () => {
       'Grep',
       'WebFetch',
       'WebSearch',
+      'AskUserQuestion',
     ]);
   });
 });

@@ -22,7 +22,8 @@ export type TKnownToolName =
   | 'Glob'
   | 'Grep'
   | 'WebFetch'
-  | 'WebSearch';
+  | 'WebSearch'
+  | 'AskUserQuestion';
 
 /**
  * Permission mode → tool policy matrix
@@ -39,6 +40,7 @@ export const MODE_POLICY: Record<TPermissionMode, Record<TKnownToolName, TPermis
     Grep: 'auto',
     WebFetch: 'auto',
     WebSearch: 'auto',
+    AskUserQuestion: 'auto',
   },
   default: {
     Shell: 'approve',
@@ -50,6 +52,7 @@ export const MODE_POLICY: Record<TPermissionMode, Record<TKnownToolName, TPermis
     Grep: 'auto',
     WebFetch: 'auto',
     WebSearch: 'auto',
+    AskUserQuestion: 'auto',
   },
   acceptEdits: {
     Shell: 'approve',
@@ -61,6 +64,7 @@ export const MODE_POLICY: Record<TPermissionMode, Record<TKnownToolName, TPermis
     Grep: 'auto',
     WebFetch: 'auto',
     WebSearch: 'auto',
+    AskUserQuestion: 'auto',
   },
   bypassPermissions: {
     Shell: 'auto',
@@ -72,6 +76,7 @@ export const MODE_POLICY: Record<TPermissionMode, Record<TKnownToolName, TPermis
     Grep: 'auto',
     WebFetch: 'auto',
     WebSearch: 'auto',
+    AskUserQuestion: 'auto',
   },
 };
 

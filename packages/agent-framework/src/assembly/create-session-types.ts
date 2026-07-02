@@ -19,6 +19,7 @@ import type {
   TPermissionMode,
   TModelEffort,
   TToolArgs,
+  IUserInteraction,
 } from '@robota-sdk/agent-core';
 import type {
   Session,
@@ -61,6 +62,11 @@ export interface ICreateSessionOptions {
   provider?: IAIProvider;
   /** Custom permission handler (overrides terminal-based prompts, used by Ink UI) */
   permissionHandler?: TPermissionHandler;
+  /**
+   * Injected "ask the user" port (CMD-005): forwarded into the session/agent so model-invoked tools
+   * (AskUserQuestion) can solicit a structured answer. Absent headless.
+   */
+  ask?: IUserInteraction['ask'];
   /** Callback for text deltas — enables streaming text to the UI in real-time */
   onTextDelta?: (delta: string) => void;
   /** Callback when context window usage is refreshed */

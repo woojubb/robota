@@ -388,9 +388,16 @@ when no interactive renderer is attached (headless/automation) — a command tre
 available", never a silent guess. `createUserInteractionPort()`
 (`src/interaction/user-interaction-port.ts`) wraps the handler with the model-invocation guard: a
 command invoked by the model runs inside an executing turn, so the port resolves `cancelled` instead of
-blocking on a human prompt (a model-issued interactive ask is CMD-005's separate turn-suspension
-design). Transports render the `IActionRequest` per-environment; the contract carries no function-valued
-fields (serialization-safe for remote transports).
+blocking on a human prompt. Transports render the `IActionRequest` per-environment; the contract carries
+no function-valued fields (serialization-safe for remote transports).
+
+**Model-question seam (CMD-005)**: the same `askHandler` is additionally threaded — session assembly
+(`createSession` `ask` option) → agent-session `ISessionOptions.ask` → `IAgentConfig.ask` — into every
+per-tool-call `IToolExecutionContext.ask`, which the `AskUserQuestion` built-in tool (agent-tools)
+consumes to let the model ask the user structured questions mid-turn (the channel's queued ask renderer
+already works while a turn is executing, like permission prompts). The command-path model-invocation
+guard above is unchanged — the tool is the one model path. Headless sessions inject no handler, so the
+tool resolves a structured `unavailable` result.
 
 **`createSelfVerificationSection()`** (`src/context/system-prompt-section-providers.ts`) composes a
 verify-before-done system-prompt section with `source: 'self-verification'` at **priority 6** — between

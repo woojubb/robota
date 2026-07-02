@@ -67,6 +67,14 @@ export class ExecutionService {
     this.cacheService = cacheService;
   }
 
+  /**
+   * Session-scoped "ask the user" port (CMD-005) — delegates to the tool execution layer so every
+   * tool call's context carries `ask` when an interactive user is attached.
+   */
+  setAskHandler(ask: Parameters<ToolExecutionService['setAskHandler']>[0]): void {
+    this.toolExecutionService.setAskHandler(ask);
+  }
+
   /** Register a plugin */
   registerPlugin(plugin: TPluginWithHooks): void {
     const pluginPriority = plugin.priority ?? 0;

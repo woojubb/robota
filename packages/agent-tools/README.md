@@ -46,17 +46,22 @@ const agent = new Robota({
 
 ## Built-in Tools
 
-| Export          | Tool Name | Description                                                                   |
-| --------------- | --------- | ----------------------------------------------------------------------------- |
-| `shellTool`     | Shell     | Execute host shell commands; OS-aware (POSIX `sh`/`bash`, Windows PowerShell) |
-| `bashTool`      | Bash      | Model-familiar alias of `Shell` — same OS-aware implementation                |
-| `readTool`      | Read      | Read file contents with line numbers (cat -n)                                 |
-| `writeTool`     | Write     | Write content to a file (creates parent dirs)                                 |
-| `editTool`      | Edit      | Replace a specific string in a file                                           |
-| `globTool`      | Glob      | Find files matching a glob pattern (fast-glob)                                |
-| `grepTool`      | Grep      | Search file contents with regex patterns                                      |
-| `webFetchTool`  | WebFetch  | Fetch URL content (HTML-to-text conversion)                                   |
-| `webSearchTool` | WebSearch | Web search via Brave Search API                                               |
+| Export                | Tool Name       | Description                                                                   |
+| --------------------- | --------------- | ----------------------------------------------------------------------------- |
+| `shellTool`           | Shell           | Execute host shell commands; OS-aware (POSIX `sh`/`bash`, Windows PowerShell) |
+| `bashTool`            | Bash            | Model-familiar alias of `Shell` — same OS-aware implementation                |
+| `readTool`            | Read            | Read file contents with line numbers (cat -n)                                 |
+| `writeTool`           | Write           | Write content to a file (creates parent dirs)                                 |
+| `editTool`            | Edit            | Replace a specific string in a file                                           |
+| `globTool`            | Glob            | Find files matching a glob pattern (fast-glob)                                |
+| `grepTool`            | Grep            | Search file contents with regex patterns                                      |
+| `webFetchTool`        | WebFetch        | Fetch URL content (HTML-to-text conversion)                                   |
+| `webSearchTool`       | WebSearch       | Web search via Brave Search API                                               |
+| `askUserQuestionTool` | AskUserQuestion | Model asks the user structured questions (options/multi-select/free text)     |
+
+`AskUserQuestion` lets the model ask the user 1–4 structured questions mid-turn through the injected
+ask port (CMD-004); each environment renders it its own way (Ink dialog, web modal, programmatic
+pre-answer), and headless runs get a structured `unavailable` result instead of a hang or a guess.
 
 `Shell` and `Bash` are two registered names for one OS-aware implementation: the shell is resolved per-OS and the tool description names the active OS/shell so the model writes the right syntax (e.g. macOS BSD vs Linux GNU utilities differ).
 

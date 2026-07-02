@@ -241,6 +241,8 @@ export function createSession(options: ICreateSessionOptions): ICreateSessionRes
     sessionStore: options.sessionStore,
     sessionId,
     permissionHandler: options.permissionHandler,
+    // CMD-005: model-invoked tools solicit structured answers through this port.
+    ...(options.ask ? { ask: options.ask } : {}),
     onProjectAllowTool,
     onTextDelta: options.onTextDelta,
     onContextUpdate: options.onContextUpdate,

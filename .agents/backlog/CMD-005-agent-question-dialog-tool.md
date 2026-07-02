@@ -1,12 +1,21 @@
 ---
 title: 'CMD-005: model-invocable question dialog tool (single-select + free-text, multi-select) on the CMD-004 action layer'
-status: todo
+status: done
 created: 2026-06-28
 priority: high
 urgency: soon
 area: packages/agent-interface-transport, packages/agent-framework, packages/agent-tools, packages/agent-cli, packages/agent-transport-tui, packages/agent-web-ui
 depends_on: [CMD-004]
 ---
+
+> **Delivered (2026-07-02)** via the CMD-005 spec pipeline (spec:
+> `.agents/spec-docs/done/CMD-005-model-question-tool.md`, task archived). `AskUserQuestion` built-in
+> tool (agent-tools) over the CMD-004 `IToolExecutionContext.ask` port; askHandler threaded
+> framework → session → `IAgentConfig.ask` → per-tool-call context; default-registered,
+> permission-free; 1–4 question batch, single/multi/free-text; headless → structured `unavailable`.
+> Evidence: 9 unit + 2 functional + real-binary PTY (tui-e2e gate) + LIVE run (real model invoked the
+> tool, Ink dialog mid-turn, Enter → "Great choice! You've selected **Crimson**…"). Migration scope
+> (Q5) was already empty — legacy `requestAction` fully deleted by CMD-004 (#887).
 
 # Model-invocable question dialog tool
 

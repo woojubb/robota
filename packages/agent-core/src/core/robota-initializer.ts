@@ -124,6 +124,11 @@ async function performAsyncInitialization(ctx: IRobotaInitContext): Promise<Exec
     cacheService,
   );
 
+  // CMD-005: forward the injected "ask the user" port into tool execution contexts.
+  if (config.ask) {
+    executionService.setAskHandler(config.ask);
+  }
+
   // Register plugins with ExecutionService
   if (config.plugins) {
     for (const plugin of config.plugins) {
