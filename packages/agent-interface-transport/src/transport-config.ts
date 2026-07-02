@@ -3,6 +3,7 @@
  */
 
 import type { ITransportAdapter } from './transport-adapter.js';
+import type { IDestroyResult } from '@robota-sdk/agent-core';
 
 export interface ITransportConfig {
   enabled: boolean;
@@ -24,5 +25,6 @@ export interface ITransportRegistryView<TSession = unknown> {
   getAll(): ITransportEntry<TSession>[];
   setEnabled(name: string, enabled: boolean): Promise<void>;
   startAll(session: TSession): Promise<void>;
-  stopAll(): Promise<void>;
+  /** Best-effort: never rejects; per-transport stop failures come back in the result (CORE-013). */
+  stopAll(): Promise<IDestroyResult>;
 }

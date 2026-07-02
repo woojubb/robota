@@ -7,7 +7,7 @@
 
 import { readSettings, writeSettings, type TSettingsData } from '@robota-sdk/agent-framework';
 
-import type { TUniversalValue } from '@robota-sdk/agent-core';
+import type { IDestroyResult, TUniversalValue } from '@robota-sdk/agent-core';
 import type {
   IConfigurableTransport,
   IInteractiveSession,
@@ -67,10 +67,22 @@ export class TransportRegistry {
     }
   }
 
-  async stopAll(): Promise<void> {
+  /**
+   * Stop every registered transport — **best-effort** (CORE-013 disposal convention): one
+   * transport's stop failure must not skip the others or reject a fire-and-forget caller.
+   * Failures are collected into the returned result.
+   */
+  async stopAll(): Promise<IDestroyResult> {
+    const errors: Error[] = [];
     for (const transport of this.entries.values()) {
-      await transport.stop();
+      try {
+        await transport.stop();
+      } catch (error) {
+        // allow-fallback: best-effort disposal IS the contract — the failure is collected into the returned result and the remaining transports still stop (CORE-013 convention)
+        errors.push(error instanceof Error ? error : new Error(String(error)));
+      }
     }
+    return { errors };
   }
 
   private resolveConfig(

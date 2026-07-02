@@ -89,42 +89,71 @@ export interface IRobotaDestroyDeps {
   resetState(): void;
 }
 
-/** Destroy and clean up the agent instance. @internal */
-export async function destroyAgent(deps: IRobotaDestroyDeps): Promise<void> {
+/** Result of a best-effort destroy: cleanup failures are collected, never thrown (CORE-013). */
+export interface IDestroyResult {
+  errors: Error[];
+}
+
+/**
+ * Destroy and clean up the agent instance — **best-effort** (CORE-013).
+ *
+ * Disposal must be safe to fire-and-forget (`void agent.destroy()`): a rejection here becomes an
+ * unhandled rejection that kills the host process on Node 20+. Every cleanup step therefore runs
+ * regardless of earlier failures; each failure is logged and collected into the returned
+ * `IDestroyResult.errors` instead of being thrown. State is always reset.
+ * @internal
+ */
+export async function destroyAgent(deps: IRobotaDestroyDeps): Promise<IDestroyResult> {
   deps.logger.debug('Destroying Robota instance', { name: deps.name });
+  const errors: Error[] = [];
 
-  try {
-    if (deps.isFullyInitialized && deps.moduleRegistry) {
-      await deps.moduleRegistry.disposeAllModules();
-      deps.logger.debug('All modules disposed');
+  const step = async (label: string, run: () => Promise<void> | void): Promise<void> => {
+    try {
+      await run();
+      deps.logger.debug(label);
+    } catch (error) {
+      // allow-fallback: best-effort disposal IS the contract — failure is logged, collected into the returned result, and remaining steps still run (CORE-013)
+      const wrapped = error instanceof Error ? error : new Error(String(error));
+      errors.push(wrapped);
+      deps.logger.error('Error during Robota destruction step', {
+        step: label,
+        error: wrapped.message,
+      });
     }
+  };
 
-    if (deps.executionService) {
-      const plugins = deps.executionService.getPlugins();
-      for (const plugin of plugins) {
-        if (plugin.unsubscribeFromModuleEvents && deps.eventEmitter) {
-          await plugin.unsubscribeFromModuleEvents(deps.eventEmitter);
-        }
-      }
-      deps.logger.debug('ExecutionService plugins cleaned up');
-    }
-
-    if (deps.moduleRegistry) {
-      deps.moduleRegistry.clearAllModules();
-      deps.logger.debug('ModuleRegistry cleared');
-    }
-
-    if (deps.eventEmitter) {
-      await deps.eventEmitter.destroy();
-      deps.logger.debug('EventEmitter disposed');
-    }
-
-    deps.resetState();
-    deps.logger.info('Robota instance destroyed successfully', { name: deps.name });
-  } catch (error) {
-    deps.logger.error('Error during Robota destruction', {
-      error: error instanceof Error ? error.message : String(error),
-    });
-    throw error;
+  if (deps.isFullyInitialized && deps.moduleRegistry) {
+    await step('All modules disposed', () => deps.moduleRegistry.disposeAllModules());
   }
+
+  if (deps.executionService) {
+    const plugins = deps.executionService.getPlugins();
+    for (const plugin of plugins) {
+      if (plugin.unsubscribeFromModuleEvents && deps.eventEmitter) {
+        await step(`Plugin unsubscribed: ${plugin.name}`, () =>
+          plugin.unsubscribeFromModuleEvents?.(deps.eventEmitter),
+        );
+      }
+    }
+    deps.logger.debug('ExecutionService plugins cleaned up');
+  }
+
+  if (deps.moduleRegistry) {
+    await step('ModuleRegistry cleared', () => deps.moduleRegistry.clearAllModules());
+  }
+
+  if (deps.eventEmitter) {
+    await step('EventEmitter disposed', () => deps.eventEmitter.destroy());
+  }
+
+  deps.resetState();
+  if (errors.length === 0) {
+    deps.logger.info('Robota instance destroyed successfully', { name: deps.name });
+  } else {
+    deps.logger.warn('Robota instance destroyed with cleanup failures', {
+      name: deps.name,
+      failureCount: errors.length,
+    });
+  }
+  return { errors };
 }

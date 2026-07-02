@@ -194,22 +194,40 @@ export class Session extends SessionBase {
     });
   }
 
-  /** Gracefully end the session and fire SessionEnd hooks once. */
+  /**
+   * Gracefully end the session and fire SessionEnd hooks once — **best-effort** (CORE-013
+   * disposal convention): never rejects, so `void session.shutdown()` cannot become an
+   * unhandled rejection. Step failures are recorded to the session log and remaining steps
+   * still run.
+   */
   shutdown(options: ISessionShutdownOptions = {}): Promise<void> {
     if (this.shutdownPromise) return this.shutdownPromise;
     const reason = options.reason ?? 'other';
+    const step = async (label: string, run: () => Promise<void> | void): Promise<void> => {
+      try {
+        await run();
+      } catch (error) {
+        // allow-fallback: best-effort disposal IS the contract — the failure is logged and remaining shutdown steps still run (CORE-013 convention)
+        this.log('session_shutdown_step_error', {
+          step: label,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    };
     this.shutdownPromise = (async () => {
-      this.abort();
+      await step('abort', () => this.abort());
       this.log('session_shutdown', { reason });
-      this.persistSessionInternal();
-      await fireSessionEndHook(
-        this.sessionId,
-        this.cwd,
-        reason,
-        this.hooks,
-        this.hookTypeExecutors,
-        this.permissionMode,
-        this.transcriptPath,
+      await step('persist', () => this.persistSessionInternal());
+      await step('session-end-hook', () =>
+        fireSessionEndHook(
+          this.sessionId,
+          this.cwd,
+          reason,
+          this.hooks,
+          this.hookTypeExecutors,
+          this.permissionMode,
+          this.transcriptPath,
+        ),
       );
     })();
     return this.shutdownPromise;

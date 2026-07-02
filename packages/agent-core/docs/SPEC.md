@@ -676,6 +676,22 @@ from the final `{ done: true, value }` iterator result).
 - **Interface note**: the structured overloads are visible on `Robota` directly; through the
   generic `IAgent` interface `run` remains `Promise<string>`-typed.
 
+## Disposal Contract (CORE-013)
+
+`Robota.destroy()` is **best-effort**: it never rejects for cleanup failures, so
+`void agent.destroy()` is always safe to fire-and-forget (a rejection would be an unhandled
+rejection that kills the host process on Node 20+). Every cleanup step — module disposal, plugin
+event unsubscription, module-registry clear, event-emitter disposal — runs regardless of earlier
+failures; each failure is logged and collected into the returned `IDestroyResult`
+(`Promise<{ errors: Error[] }>`). State is always reset.
+
+The same convention applies to the other disposal surfaces in the stack (one convention,
+applied everywhere): `Session.shutdown()` (agent-session) resolves with step failures recorded to
+the session log; `TransportRegistry.stopAll()` (agent-transport / `ITransportRegistryView`) stops
+every transport and returns collected errors as `IDestroyResult`. Operation-style closes that a
+caller acts on (e.g. background-task `closeTask`) intentionally keep throwing — their errors are
+answers, not cleanup noise.
+
 ## Run Concurrency Contract (CORE-012)
 
 One `Robota` instance owns one conversation history, so concurrent executions on the same instance

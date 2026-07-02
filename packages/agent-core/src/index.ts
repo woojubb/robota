@@ -171,6 +171,7 @@ export {
 
 // Core agent
 export { Robota } from './core/robota';
+export type { IDestroyResult } from './core/robota-lifecycle';
 
 // Managers
 export {
