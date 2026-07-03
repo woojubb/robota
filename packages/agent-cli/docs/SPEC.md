@@ -1675,6 +1675,18 @@ passing values into the public entry point rather than by subclassing or monkey-
 The CLI does not expose plugin hooks at the binary level. Plugin lifecycle is owned by
 `@robota-sdk/agent-framework` through the plugin command adapter.
 
+## Process Survival Boundary (ERR-001 G1)
+
+Interactive TUI mode must never die on a transient failure. `src/process-guards.ts`
+(product-owned per the Library Neutrality Rule — transports install no process policy) installs
+last-resort `unhandledRejection`/`uncaughtException` handlers when the TUI starts: errors route
+into the live session via `InteractiveSession.reportBackgroundError` (humanized, styled error
+block, session log) and the process stays alive; if routing itself fails, stderr is the final
+surface. `bin.ts`'s IME-aware `uncaughtException` fallback defers to these guards when active
+(`areTuiProcessGuardsActive`). Headless/print mode installs nothing and keeps the fail-fast
+exit-code contract. Each async subsystem still owns terminating its promises — the guards are the
+boundary of last resort, not the primary handler.
+
 ## Error Taxonomy
 
 | Error class           | Trigger                                                                           | Handling                                                                                                                                                                                                              | Exit code     |

@@ -442,6 +442,21 @@ non-error (skipped / empty defaults), but an EXISTING file that fails to parse t
 Callers can detect `source === 'env-default'` and read `sourceEnvVar` to render a one-line
 startup notice naming provider/model/env-var — never the key value.
 
+## Turn Error Surfacing & Liveness (ERR-001)
+
+Layered contract: classification lives in the provider (typed errors), humanization in this
+package (`humanizeApiError`, SSOT), turn recovery in the interactive controller, rendering in each
+transport, and process survival in the product assembly.
+
+- A failed turn commits any partially streamed answer to history as an **interrupted assistant
+  entry** before the stream state clears — a mid-stream failure never evaporates the partial text.
+- The error history entry is humanized and machine-marked with `metadata.kind: 'error'` so
+  transports can render a styled error block instead of a plain system note.
+- `InteractiveSession.reportBackgroundError(error, source?)` surfaces errors from OUTSIDE the turn
+  boundary (background tasks, catalog refresh, un-caught promises) through the same humanize →
+  marked-entry → `'error'` event path; the session stays fully usable. Product assemblies route
+  process-level guards here (agent-cli SPEC → Process Survival Boundary).
+
 ## Error Taxonomy
 
 The package defines two named `Error` subclasses: `ProviderConfigError` (missing/unusable

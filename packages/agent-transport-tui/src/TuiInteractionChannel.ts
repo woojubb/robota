@@ -413,8 +413,8 @@ export class TuiInteractionChannel implements IInteractionChannel {
       manager.onComplete(result);
       manager.syncHistory(session.getFullHistory());
     };
-    const onError = (): void => {
-      manager.onError();
+    const onError = (error: Error): void => {
+      manager.onError(error);
       manager.syncHistory(session.getFullHistory());
     };
     const onCompact = (): void => {

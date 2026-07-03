@@ -19,6 +19,7 @@ import {
 import { GoalController, buildGoalContinuationPrompt } from '../goal/index.js';
 import { createUserInteractionPort } from '../interaction/user-interaction-port.js';
 import { retrieveAgentToolDeps } from '../tools/agent-tool.js';
+import { humanizeApiError } from '../utils/error-humanizer.js';
 
 import type { IInteractiveSession } from './i-interactive-session.js';
 import type { ITurnOptions } from './interactive-session-execution-controller.js';
@@ -541,6 +542,22 @@ export class InteractiveSession
       retrieveSessionBackgroundTaskManager(this.session) ??
       retrieveAgentToolDeps(this.session)?.backgroundTaskManager
     );
+  }
+
+  /**
+   * Surface an error that happened OUTSIDE the turn boundary (background task, catalog
+   * refresh, persistence, un-caught promise) into the conversation (ERR-001 G1). The entry
+   * carries `metadata.kind: 'error'` so transports render it as a styled error block, and the
+   * 'error' event drives transport error state. The session stays fully usable.
+   */
+  reportBackgroundError(error: Error, source = 'background'): void {
+    const message = humanizeApiError(error);
+    this.histTracker.append(
+      messageToHistoryEntry(
+        createSystemMessage(`Error: ${message}`, { metadata: { kind: 'error', source } }),
+      ),
+    );
+    this.emit('error', error);
   }
 
   private async captureSandboxSnapshot(): Promise<void> {
