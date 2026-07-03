@@ -143,5 +143,5 @@ export const webFetchTool = createZodFunctionTool(
   'WebFetch',
   'Fetch a URL and return its content as text. HTML pages are converted to plain text.',
   WebFetchSchema,
-  async (params) => runWebFetch(params as TWebFetchArgs),
+  async (params) => runWebFetch(params),
 );

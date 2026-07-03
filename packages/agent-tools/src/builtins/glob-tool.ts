@@ -109,6 +109,6 @@ export const globTool = createZodFunctionTool(
   "Fast file pattern matching tool that works with any codebase size.\n\nSupports glob patterns like '**/*.js' or 'src/**/*.ts'. Returns matching file paths sorted by modification time.\n\nUse this tool when you need to find files by name patterns. When doing an open-ended search that may require multiple rounds, use the Agent tool instead.\n\nDefault limit is 1000 results. Use the limit parameter if you need fewer results to save context space.",
   GlobSchema,
   async (params) => {
-    return globFileTool(params as TGlobArgs);
+    return globFileTool(params);
   },
 );

@@ -173,7 +173,7 @@ export function createReadTool(options: ISandboxToolOptions = {}): FunctionTool 
     'Reads a file from the local filesystem.\n\nBy default, reads up to 2000 lines from the beginning of the file. You can optionally specify offset and limit for partial reads.\n\nResults are returned using cat -n format, with line numbers starting at 1.\n\nThe file_path parameter must be an absolute path, not a relative path.',
     ReadSchema,
     async (params) => {
-      return readFileTool(params as TReadArgs, options);
+      return readFileTool(params, options);
     },
   );
 }

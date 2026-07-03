@@ -189,8 +189,7 @@ function createHostShellTool(name: string, options: ISandboxToolOptions): Functi
     buildShellToolDescription(resolvePlatformShell()),
     ShellSchema,
     async (params) => {
-      // createZodFunctionTool passes validated params; cast is safe
-      return runShell(params as TShellArgs, options);
+      return runShell(params, options);
     },
   );
 }

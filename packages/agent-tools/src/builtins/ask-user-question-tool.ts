@@ -154,7 +154,7 @@ export function createAskUserQuestionTool(): FunctionTool {
     ASK_USER_QUESTION_DESCRIPTION,
     AskUserQuestionSchema,
     async (params, context) => {
-      const args = params as TAskUserQuestionArgs;
+      const args = params;
       const ask = context?.ask;
       const output: TAskUserQuestionOutput = ask
         ? await askQuestions(args, ask)

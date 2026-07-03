@@ -59,7 +59,7 @@ export function createWriteTool(options: ISandboxToolOptions = {}): FunctionTool
     'Writes a file to the local filesystem. This will overwrite an existing file if one exists.\n\nALWAYS prefer the Edit tool for modifying existing files — it only sends the diff. Only use this tool to create new files or for complete rewrites.\n\nNEVER create documentation files (*.md) or README files unless explicitly requested by the user.',
     WriteSchema,
     async (params) => {
-      return writeFileTool(params as TWriteArgs, options);
+      return writeFileTool(params, options);
     },
   );
 }

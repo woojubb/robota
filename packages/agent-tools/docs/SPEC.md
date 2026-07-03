@@ -102,32 +102,32 @@ Types owned by this package (SSOT):
 
 ### Tool Infrastructure
 
-| Export                                  | Kind     | Description                                                    |
-| --------------------------------------- | -------- | -------------------------------------------------------------- |
-| `ToolRegistry`                          | Class    | Central tool registration and schema lookup                    |
-| `FunctionTool`                          | Class    | JS function tool with Zod schema validation                    |
-| `createFunctionTool`                    | Function | Factory for creating function tools                            |
-| `createZodFunctionTool`                 | Function | Factory with Zod validation and conversion                     |
-| `IToolInvocationResult`                 | Type     | Result shape for CLI tool invocations                          |
-| `E2BSandboxClient`                      | Class    | Adapter for E2B-compatible sandbox instances and snapshots     |
-| `InMemorySandboxClient`                 | Class    | Deterministic sandbox client for tests                         |
-| `ISandboxClient`                        | Type     | Provider-neutral sandbox execution and hydration port          |
-| `IWorkspaceManifest`                    | Type     | Provider-neutral sandbox workspace manifest                    |
-| `IWorkspaceManifestFileEntry`           | Type     | Inline file entry type                                         |
-| `IWorkspaceManifestDirectoryEntry`      | Type     | Directory creation entry type                                  |
-| `IWorkspaceManifestLocalFileEntry`      | Type     | Host-local file copy entry type                                |
-| `IWorkspaceManifestLocalDirectoryEntry` | Type     | Host-local directory copy entry type                           |
-| `IWorkspaceManifestGitRepositoryEntry`  | Type     | Git repository clone entry type                                |
-| `IWorkspaceManifestS3MountEntry`        | Type     | AWS S3 bucket mount entry type                                 |
-| `IWorkspaceManifestGcsMountEntry`       | Type     | GCS bucket mount entry type                                    |
-| `IWorkspaceManifestR2MountEntry`        | Type     | Cloudflare R2 bucket mount entry type                          |
-| `IWorkspaceManifestAzureBlobMountEntry` | Type     | Azure Blob Storage mount entry type                            |
-| `IWorkspaceManifestPermissions`         | Type     | Read/write path permission lists for a workspace manifest      |
-| `TWorkspaceManifestEntry`               | Type     | Union of all manifest entry types                              |
-| `TWorkspaceManifestApplyStatus`         | Type     | `'applied' \| 'unsupported'` status per applied manifest entry |
-| `TInMemorySandboxRunHandler`            | Type     | Custom run handler type for `InMemorySandboxClient`            |
-| `applyWorkspaceManifest`                | Function | Applies a workspace manifest through an `ISandboxClient`       |
-| `validateWorkspaceManifestPath`         | Function | Validates and normalizes manifest entry paths                  |
+| Export                                  | Kind     | Description                                                                                                                                                |
+| --------------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ToolRegistry`                          | Class    | Central tool registration and schema lookup                                                                                                                |
+| `FunctionTool`                          | Class    | JS function tool with Zod schema validation                                                                                                                |
+| `createFunctionTool`                    | Function | Factory for creating function tools                                                                                                                        |
+| `createZodFunctionTool`                 | Function | Generic factory (`<S extends ZodType>`): runtime `safeParse` validation AND `z.infer<S>`-typed executor args (SDK-009); executor receives the parsed value |
+| `IToolInvocationResult`                 | Type     | Result shape for CLI tool invocations                                                                                                                      |
+| `E2BSandboxClient`                      | Class    | Adapter for E2B-compatible sandbox instances and snapshots                                                                                                 |
+| `InMemorySandboxClient`                 | Class    | Deterministic sandbox client for tests                                                                                                                     |
+| `ISandboxClient`                        | Type     | Provider-neutral sandbox execution and hydration port                                                                                                      |
+| `IWorkspaceManifest`                    | Type     | Provider-neutral sandbox workspace manifest                                                                                                                |
+| `IWorkspaceManifestFileEntry`           | Type     | Inline file entry type                                                                                                                                     |
+| `IWorkspaceManifestDirectoryEntry`      | Type     | Directory creation entry type                                                                                                                              |
+| `IWorkspaceManifestLocalFileEntry`      | Type     | Host-local file copy entry type                                                                                                                            |
+| `IWorkspaceManifestLocalDirectoryEntry` | Type     | Host-local directory copy entry type                                                                                                                       |
+| `IWorkspaceManifestGitRepositoryEntry`  | Type     | Git repository clone entry type                                                                                                                            |
+| `IWorkspaceManifestS3MountEntry`        | Type     | AWS S3 bucket mount entry type                                                                                                                             |
+| `IWorkspaceManifestGcsMountEntry`       | Type     | GCS bucket mount entry type                                                                                                                                |
+| `IWorkspaceManifestR2MountEntry`        | Type     | Cloudflare R2 bucket mount entry type                                                                                                                      |
+| `IWorkspaceManifestAzureBlobMountEntry` | Type     | Azure Blob Storage mount entry type                                                                                                                        |
+| `IWorkspaceManifestPermissions`         | Type     | Read/write path permission lists for a workspace manifest                                                                                                  |
+| `TWorkspaceManifestEntry`               | Type     | Union of all manifest entry types                                                                                                                          |
+| `TWorkspaceManifestApplyStatus`         | Type     | `'applied' \| 'unsupported'` status per applied manifest entry                                                                                             |
+| `TInMemorySandboxRunHandler`            | Type     | Custom run handler type for `InMemorySandboxClient`                                                                                                        |
+| `applyWorkspaceManifest`                | Function | Applies a workspace manifest through an `ISandboxClient`                                                                                                   |
+| `validateWorkspaceManifestPath`         | Function | Validates and normalizes manifest entry paths                                                                                                              |
 
 ### Built-in CLI Tools
 

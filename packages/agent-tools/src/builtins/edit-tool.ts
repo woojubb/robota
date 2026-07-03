@@ -125,7 +125,7 @@ export function createEditTool(options: ISandboxToolOptions = {}): FunctionTool 
     'Performs exact string replacements in files.\n\nYou must use the Read tool at least once before editing. When editing text from Read output, preserve the exact indentation.\n\nThe edit will FAIL if old_string is not unique in the file. Either provide more surrounding context to make it unique, or use replace_all to change every instance.\n\nALWAYS prefer editing existing files over creating new ones.',
     EditSchema,
     async (params) => {
-      return editFileTool(params as TEditArgs, options);
+      return editFileTool(params, options);
     },
   );
 }

@@ -2,7 +2,6 @@ import { ToolExecutionError, ValidationError, zodToJsonSchema } from '@robota-sd
 
 import { getValidationErrors, validateToolParameters } from './function-tool/parameter-validator';
 
-import type { IZodSchema } from '@robota-sdk/agent-core';
 import type {
   IFunctionTool,
   IToolResult,
@@ -14,6 +13,7 @@ import type {
 } from '@robota-sdk/agent-core';
 import type { IToolSchema } from '@robota-sdk/agent-core';
 import type { TUniversalValue } from '@robota-sdk/agent-core';
+import type { TypeOf, ZodType } from 'zod';
 
 // Import from Facade pattern modules for type safety
 
@@ -177,11 +177,11 @@ export function createFunctionTool(
 /**
  * Helper function to create a function tool from Zod schema
  */
-export function createZodFunctionTool(
+export function createZodFunctionTool<S extends ZodType>(
   name: string,
   description: string,
-  zodSchema: IZodSchema,
-  fn: TToolExecutor,
+  zodSchema: S,
+  fn: TToolExecutor<TypeOf<S>>,
 ): FunctionTool {
   // Use comprehensive Zod to JSON schema conversion
   const parameters = zodToJsonSchema(zodSchema);
@@ -197,13 +197,14 @@ export function createZodFunctionTool(
     parameters: TToolParameters,
     context?: IToolExecutionContext,
   ): Promise<TUniversalValue> => {
-    // Use Zod for runtime validation
+    // Use Zod for runtime validation — the executor receives the PARSED, schema-typed value
+    // (SDK-009): the runtime guarantee and the compile-time type now flow together.
     const parseResult = zodSchema.safeParse(parameters);
     if (!parseResult.success) {
       throw new ValidationError(`Zod validation failed: ${parseResult.error}`);
     }
 
-    const result = await fn((parseResult.data as TToolParameters) || parameters, context);
+    const result = await fn(parseResult.data as TypeOf<S>, context);
     // Ensure result is always a string for consistency with core package
     return typeof result === 'string' ? result : JSON.stringify(result);
   };
