@@ -103,5 +103,5 @@ export const webSearchTool = createZodFunctionTool(
   'WebSearch',
   'Search the web and return results with title, URL, and snippet.',
   WebSearchSchema,
-  async (params) => runWebSearch(params as TWebSearchArgs),
+  async (params) => runWebSearch(params),
 );
