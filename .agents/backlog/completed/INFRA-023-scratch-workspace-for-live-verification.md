@@ -61,6 +61,7 @@ numbered files inside libraries.
   (scenario as written): a `scratch/src/` script constructing a Robota with the REAL Anthropic
   key resolved all `@robota-sdk/*` imports and answered `SCRATCH-OK`; `git status` showed zero
   scratch/src entries with the script present; a planted
+  <!-- evidence-superseded: deliberately transient probe file planted to prove the scan fires, removed in the same run; the durable guard is scripts/harness/__tests__/check-temp-script-placement.test.mjs -->
   `packages/agent-core/x-099-user-execution.ts` failed the scan (exit 1) and full
   `pnpm harness:scan` is green after removal. Lockfile stable (committed skeleton deps —
   `pnpm install` no-churn).
