@@ -53,6 +53,28 @@ apps/
 └── dag-runtime-server/     # Native DAG runtime HTTP server (`/v1/dag/*` over Hono); serves dag-framework's IDagOrchestrationPort, native runtime surface, no external-runtime API (WORKFLOW-002)
 ```
 
+## Library Neutrality Rule (packages/ vs apps/)
+
+Everything under `packages/` is a **library and must be universal and neutral** — usable by any
+consumer for any payload/application domain:
+
+- No app main loops: a library must not own the consumer's orchestration loop. If a class "runs
+  the show" and the app merely configures it, it is a finished product imitating an ingredient
+  (ROOM-001 withdrawal, 2026-07-03).
+- No library-authored prompt content: model-facing text in `packages/` is limited to
+  mechanism-level enforcement strings (schema-violation feedback, round-limit notices). Anything
+  that shapes an application's voice, persona, or conversation style belongs to the consumer.
+- No application-domain concepts in library types: fields/interfaces like persona, room, topic,
+  STT/TTS adapters are app-domain contracts (TRANS-001 rescope) — libraries ship content-neutral
+  mechanics that any domain can carry.
+- `apps/` is the product tier and plays by product rules (opinionated UX, domain concepts, its own
+  prompts). `examples/` may likewise be full products — that is their job. `packages/agent-cli` is
+  the sanctioned reference product assembled FROM the libraries (its preset/persona surface is
+  product behavior, not library behavior).
+
+When a use case seems to need a domain feature in a library, the answer is: verify the neutral
+ingredients exist, then show the assembly in `examples/` or a guide.
+
 ## Planned Packages (Not Yet Created)
 
 The following packages are planned but do not yet exist on disk. Do not attempt to import from them.
