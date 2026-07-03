@@ -1,6 +1,7 @@
 ---
 title: 'HARNESS-021: check-background-workspace-conformance unit tests drifted — 5/5 failing on develop'
-status: todo
+status: done
+completed: 2026-07-03
 created: 2026-07-03
 priority: medium
 urgency: soon
@@ -38,4 +39,14 @@ files listed for the touched scan — a full-suite run of this directory is not 
 
 - Not applicable beyond the mechanical suite run (dev-tooling fix); evidence = green run recorded
   at implementation.
-- Evidence: _to fill at implementation._
+- Evidence: **PASS (2026-07-03).** Diagnosis: the SCAN was correct and passing against the real
+  tree; the TEST FIXTURES had drifted — the beta.76 transport split moved the TUI channel to
+  `packages/agent-transport-tui/`, the scan's expected paths were updated, but `baselineFiles`
+  in the test still created the files at the old `packages/agent-transport/src/tui/` paths, so
+  every fixture run produced 4 extra "missing-cli-\*" findings (5/5 assertions failed). Fix:
+  fixture paths updated to the post-split layout — 5/5 green, scan behavior unchanged (contract
+  intact; the tests were stale, not the scan). Mechanism against recurrence (item 3): new root
+  `harness:test` script runs the FULL `scripts/harness/__tests__/` suite (27 files / 221 tests
+  green) and a blocking step was added to the CI quality job — per-scan test selection
+  (verify-change) remains for local speed, but suite-wide drift can no longer sit silent.
+  43 harness scans green.

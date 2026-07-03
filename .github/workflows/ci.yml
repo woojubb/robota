@@ -148,6 +148,12 @@ jobs:
         if: github.base_ref != 'main'
         run: pnpm harness:verify -- --base-ref origin/${{ github.base_ref }} --skip-build --skip-record-check
 
+      # HARNESS-021: the harness scans' own unit suite runs in full — per-scan test selection
+      # (verify-change) cannot see suite-wide drift, which let 5 stale fixtures sit silent.
+      - name: Harness scan test suite
+        if: github.base_ref != 'main'
+        run: pnpm harness:test
+
   security-audit:
     name: security audit
     runs-on: ubuntu-latest

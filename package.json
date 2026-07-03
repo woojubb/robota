@@ -43,6 +43,7 @@
     "readme:cleanup": "node scripts/docs/copy-readme.cjs cleanup",
     "readme:validate": "node scripts/docs/validate-readmes.js",
     "harness:scan": "node scripts/harness/run-all-scans.mjs",
+    "harness:test": "vitest run scripts/harness/__tests__",
     "harness:conformance": "node scripts/harness/check-architecture-conformance.mjs",
     "harness:scan:done-evidence": "node scripts/harness/check-done-evidence.mjs",
     "harness:scan:task-archival": "node scripts/harness/check-task-archival.mjs",
