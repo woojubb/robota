@@ -1,5 +1,5 @@
 ---
-title: 'TRANS-001: payload-agnostic transport — binary/audio frames + custom event types (voice/multimodal direction)'
+title: 'TRANS-001: payload-agnostic transport — binary/opaque frames + custom event types'
 status: todo
 created: 2026-07-03
 priority: low
@@ -8,7 +8,7 @@ area: packages/agent-interface-transport, packages/agent-transport-ws
 depends_on: []
 ---
 
-# Payload-agnostic transport (+ audio adapter contracts follow-on)
+# Payload-agnostic transport
 
 Gap analysis G2/G5 (`.design/gap-analysis-realtime-voice-agent-app.md`, P1/P2 in its roadmap): the
 speech app's realtime channel carries mic audio chunks (up), TTS clips (down), captions, coaching
@@ -27,12 +27,16 @@ design pass must first re-verify what `agent-interface-transport` actually suppo
    that flow through the channel with type safety, instead of forking the protocol.
 3. **Separation**: the text-delta agent protocol becomes one profile ON the generic transport, not
    the transport itself (CMD-004 precedent: contracts below, per-environment behavior above).
-4. **Follow-on (G5, separate scope once 1–3 exist)**: `ISttAdapter`/`ITtsAdapter` contracts +
-   streaming audio types, so voice implementations (Deepgram/ElevenLabs class) can plug in as
-   community blocks — together these open the voice-agent app class on robota.
 
-Product-direction note: this is the "voice/multimodal direction" investment — confirm at
-GATE-APPROVAL before design.
+**Rescoped 2026-07-03 (owner decision, ROOM-001 principle)**: the former item 4 — G5
+`ISttAdapter`/`ITtsAdapter` contracts + streaming audio types ("open the voice-agent app class")
+— is REMOVED from robota scope. Voice/STT/TTS are app-domain contracts; putting them in the
+library is the same "finished product imitating an ingredient" class that withdrew ROOM-001.
+Items 1–3 remain: binary/opaque frames and consumer-declared event types are content-neutral
+carrier mechanics (a WebSocket-class ingredient) usable by ANY payload domain (files, images,
+audio, app events). Voice apps assemble their own adapters on top.
+
+Product-direction note: confirm scope/priority at GATE-APPROVAL before design.
 
 ## Test Plan
 
@@ -42,7 +46,8 @@ GATE-APPROVAL before design.
 
 ## User Execution Test Scenarios
 
-- Prereq: example app (or test rig) streaming an audio file as binary frames alongside a text turn.
-- Steps: run it over the ws transport; verify playback-side reassembly.
-- Expected: audio arrives intact and ordered alongside text events on one connection.
+- Prereq: example app (or test rig) streaming an arbitrary binary file as opaque frames alongside a
+  text turn (any payload domain — the transport must not know or care what the bytes are).
+- Steps: run it over the ws transport; verify receiver-side reassembly (byte-identical, ordered).
+- Expected: binary frames arrive intact and ordered alongside text events on one connection.
 - Evidence: _to fill at implementation._
