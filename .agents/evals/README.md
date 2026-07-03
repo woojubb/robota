@@ -53,6 +53,14 @@ The `eval-log-stop.sh` hook runs on every session Stop and appends to `local-met
 
 Run `pnpm harness:lessons:digest` to regenerate `lessons/weekly-digest.md` and upsert threshold-crossing candidates into `lessons/auto-lessons.md`. Automated scripts must never write `.agents/rules/common-mistakes.md`; promotion from auto-lessons to common mistakes requires human review.
 
+Signal hygiene (LESSON-010): detector hooks emit each signal at most once per
+(pattern, file, session) and exclude workflow-required multi-edit paths
+(`.agents/backlog/`, `.agents/tasks/`, `.agents/evals/`); correction events require a real
+user session (agent/subagent prompts are skipped). The digest run also compacts
+`local-metrics/*.jsonl` in place — per-Stop duplicates collapse to the latest record,
+records older than 30 days and legacy false positives are purged — and drops auto-lessons
+sections that fell below threshold in the current window instead of leaving stale data.
+
 ## Scenarios
 
 Each scenario defines:

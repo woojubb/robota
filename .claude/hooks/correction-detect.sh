@@ -21,6 +21,14 @@ if [ -z "$PROMPT" ]; then
   exit 0
 fi
 
+# LESSON-010: only REAL user turns are correction signals. Subagent/eval prompts (session ids
+# like "agent_1") and events with no session id are agent-authored text — counting them
+# inflated the one genuinely useful metric with false positives.
+SESSION_ID=$(read_json '.session_id')
+case "$SESSION_ID" in
+  '' | agent*) exit 0 ;;
+esac
+
 # Nudge the lesson-to-harness skill on strong preference/principle signals (going-forward rules,
 # explicit do/don't, "make it a rule/lesson"). Repeated corrections or explicit principles belong in
 # the repo harness (.agents/rules + AGENTS.md + enforcement), not chat or memory-only. Printed to
@@ -35,7 +43,6 @@ if [ -z "$KEYWORD" ]; then
   exit 0
 fi
 
-SESSION_ID=$(read_json '.session_id')
 TRANSCRIPT_PATH=$(read_json '.transcript_path')
 TRANSCRIPT_PATH="${TRANSCRIPT_PATH/#\~/$HOME}"
 PREVIOUS_ASSISTANT_HASH=""
