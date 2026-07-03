@@ -6,3 +6,4 @@ packages:
   # (drift detection via typecheck). They are excluded from harness scans — see
   # scripts/harness/shared.mjs listWorkspaceScopes — and are private (never published).
   - 'examples/*'
+  - 'examples/capabilities/*'
