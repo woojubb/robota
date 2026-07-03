@@ -1,6 +1,7 @@
 ---
 title: 'DOCS-018: root README restructure — library identity first, layered package table, resolve the dag scope contradiction'
-status: todo
+status: done
+completed: 2026-07-03
 created: 2026-07-03
 priority: medium
 urgency: later
@@ -39,4 +40,19 @@ user correction to reverse). Verified contradiction: README:108 still says the D
 - Prereq: a fresh evaluator (agent session or person) given only the root README's first screen.
 - Steps: ask "what is robota and what is the minimal package set to embed it?"
 - Expected: answers "library collection / core+provider+tools", not "a coding CLI product".
-- Evidence: _to fill at implementation._
+- Evidence: **PASS (fresh-agent run, 2026-07-03).** README restructured library-identity-first:
+  (1) first sentence = composable TypeScript library collection; agent-cli explicitly framed as
+  a reference app built FROM the libraries (aligned with the Library Neutrality Rule
+  institutionalized the same day in project-structure.md); llms.txt pointer added for agent
+  evaluators; embed quickstart (3-package minimal set) now leads, createQuery next, CLI +
+  screenshot moved below. (2) Package table split into three layers — "Start here (embedding)"
+  (core/provider/tools first, same fact source as llms.txt), "App assembly", "Products &
+  transports" (agent-testing added; provider row reframed to protocol clients per DOCS-016).
+  (3) Stale DAG sentence fixed: repository scope now states dag-_/dag-node-_ live HERE (engine
+  absorbed back, external-runtime-decoupled) — the "moved to a separate robota-dag repository"
+  contradiction removed. (4) Gateway variant cross-referenced to the quickstart (DOCS-014 owner),
+  one line only — no duplication. Verified: doc-examples scan 52 blocks (README ts blocks
+  compile), llms-txt scan, 43 harness scans, docs:build all green. User Execution: a FRESH agent
+  session shown ONLY the README's first ~60 lines answered "not a coding-CLI product — composable
+  TypeScript library collection… agent-cli serving only as a reference app" and named exactly
+  `agent-core + agent-provider + agent-tools` — the O2 misunderstanding does not reproduce.

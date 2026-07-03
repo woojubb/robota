@@ -1,39 +1,16 @@
-# Robota - AI Agent Framework
+# Robota — Composable AI Agent Libraries
 
-A TypeScript framework for building AI agents with multi-provider support, tool calling, and extensible plugin architecture.
+Robota is a **composable TypeScript library collection for building AI agents** — strict types,
+multi-provider, tool calling, and an extensible plugin/event architecture. You assemble agents
+from neutral building blocks; `@robota-sdk/agent-cli` (an AI coding assistant) is a **reference
+app built from these same libraries**, not the product itself.
 
-![Robota CLI](https://raw.githubusercontent.com/woojubb/robota/main/content/images/cli-demo.png)
+> Evaluating with an AI agent? Start at [`llms.txt`](./llms.txt) — the consumer map (identity,
+> minimal package set, capability matrix, behavior contracts).
 
-## Quick Start
+## Quick Start — Embed the Library
 
-### CLI — AI Coding Assistant
-
-```bash
-# Try it now (no install needed)
-npx @robota-sdk/agent-cli
-
-# Or install globally for persistent use
-npm install -g @robota-sdk/agent-cli
-robota
-```
-
-> **Beta**: Robota is currently `3.0.0-beta`. Core features are stable but APIs may change before 1.0. See [CHANGELOG.md](./CHANGELOG.md) for upgrade notes.
-
-> **macOS users**: Korean/CJK IME input may crash macOS Terminal.app. Use **[iTerm2](https://iterm2.com/)** instead. This is a known Ink + Terminal.app issue shared with Claude Code.
-
-### SDK — Programmatic Usage
-
-```typescript
-import { createQuery } from '@robota-sdk/agent-framework';
-import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
-
-const query = createQuery({
-  provider: new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY }),
-});
-const response = await query('List all TypeScript files in src/');
-```
-
-### Core — Build Custom Agents
+The minimal set is three packages: `agent-core` + `agent-provider` + `agent-tools`.
 
 ```typescript
 import { Robota } from '@robota-sdk/agent-core';
@@ -52,17 +29,54 @@ const agent = new Robota({
 const response = await agent.run('Hello!');
 ```
 
+Any OpenAI-compatible endpoint works too — AI gateways, Azure, vLLM, local servers — via the
+OpenAI provider's `baseURL` (see the [quickstart's gateway section](./content/quickstart.md)).
+
+### Higher-level assembly — `createQuery`
+
+`agent-framework` assembles CLI tools, permissions, and config/context loading on top:
+
+```typescript
+import { createQuery } from '@robota-sdk/agent-framework';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+
+const query = createQuery({
+  provider: new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY }),
+});
+const response = await query('List all TypeScript files in src/');
+```
+
+### Reference app — the CLI coding assistant
+
+```bash
+# Try the reference product built from these libraries (no install needed)
+npx @robota-sdk/agent-cli
+
+# Or install globally
+npm install -g @robota-sdk/agent-cli
+robota
+```
+
+![Robota CLI](https://raw.githubusercontent.com/woojubb/robota/main/content/images/cli-demo.png)
+
+> **Beta**: Robota is currently `3.0.0-beta`. Core features are stable but APIs may change before 1.0. See [CHANGELOG.md](./CHANGELOG.md) for upgrade notes.
+
+> **macOS users**: Korean/CJK IME input may crash macOS Terminal.app. Use **[iTerm2](https://iterm2.com/)** instead. This is a known Ink + Terminal.app issue shared with Claude Code.
+
 ## Architecture
 
+Libraries below, products on top. Everything under `packages/` is universal and neutral; apps and
+the reference CLI are opinionated assemblies OF the libraries.
+
 ```
-agent-cli                       ← Interactive terminal AI coding assistant
-agent-transport-{tui,http,ws,mcp} ← Standalone transports (split in beta.76); agent-transport = lean core
+agent-cli                       ← Reference product: terminal AI coding assistant
+agent-transport-{tui,http,ws,mcp} ← Standalone transports; agent-transport = lean core
   ↓
 agent-framework        ← Assembly layer: InteractiveSession, createQuery(), config/context loading
   ↓
 agent-session          ← Session lifecycle: permissions, hooks, compaction
 agent-tools            ← Tool infrastructure + 8 built-in tools
-agent-provider         ← Consolidated AI providers (sub-paths: /anthropic, /openai, /gemini, …)
+agent-provider         ← Protocol clients (sub-paths: /anthropic, /openai, /gemini, …)
 agent-plugin           ← 8 consolidated lifecycle plugins
   ↓
 agent-core             ← Foundation: Robota engine, abstractions, plugin contracts
@@ -70,27 +84,40 @@ agent-core             ← Foundation: Robota engine, abstractions, plugin contr
 
 ## Packages
 
-| Package                                                                                                        | Description                                                                             |
-| -------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| [`@robota-sdk/agent-core`](https://www.npmjs.com/package/@robota-sdk/agent-core)                               | Core agent runtime, abstractions, and plugin system                                     |
-| [`@robota-sdk/agent-tools`](https://www.npmjs.com/package/@robota-sdk/agent-tools)                             | Tool registry, FunctionTool, and 8 built-in tools                                       |
-| [`@robota-sdk/agent-session`](https://www.npmjs.com/package/@robota-sdk/agent-session)                         | Session with permissions, hooks, and compaction                                         |
-| [`@robota-sdk/agent-framework`](https://www.npmjs.com/package/@robota-sdk/agent-framework)                     | Assembly layer with config/context loading and query()                                  |
-| [`@robota-sdk/agent-provider`](https://www.npmjs.com/package/@robota-sdk/agent-provider)                       | Consolidated AI providers (Anthropic, OpenAI, Gemini, DeepSeek, Gemma, Qwen, ByteDance) |
-| [`@robota-sdk/agent-cli`](https://www.npmjs.com/package/@robota-sdk/agent-cli)                                 | Interactive terminal AI coding assistant                                                |
-| [`@robota-sdk/agent-command`](https://www.npmjs.com/package/@robota-sdk/agent-command)                         | Slash command modules (`/agent`, `/help`, `/provider`, `/preset`, `/schedule`, …)       |
-| [`@robota-sdk/agent-plugin`](https://www.npmjs.com/package/@robota-sdk/agent-plugin)                           | 8 consolidated lifecycle plugins (logging, usage, limits, performance, webhook, …)      |
-| [`@robota-sdk/agent-executor`](https://www.npmjs.com/package/@robota-sdk/agent-executor)                       | Execution engine for the agentic loop                                                   |
-| [`@robota-sdk/agent-preset`](https://www.npmjs.com/package/@robota-sdk/agent-preset)                           | Named agent profiles (preset system)                                                    |
-| [`@robota-sdk/agent-subagent-runner`](https://www.npmjs.com/package/@robota-sdk/agent-subagent-runner)         | Subagent dispatch runner                                                                |
-| [`@robota-sdk/agent-session-analytics`](https://www.npmjs.com/package/@robota-sdk/agent-session-analytics)     | Session log timing analysis (new in beta.76)                                            |
-| [`@robota-sdk/agent-interface-transport`](https://www.npmjs.com/package/@robota-sdk/agent-interface-transport) | Transport type contracts (zero deps)                                                    |
-| [`@robota-sdk/agent-interface-tui`](https://www.npmjs.com/package/@robota-sdk/agent-interface-tui)             | TUI interaction type contracts (zero deps)                                              |
-| [`@robota-sdk/agent-transport`](https://www.npmjs.com/package/@robota-sdk/agent-transport)                     | Lean transport core (`/headless`, `/testing`)                                           |
-| [`@robota-sdk/agent-transport-tui`](https://www.npmjs.com/package/@robota-sdk/agent-transport-tui)             | TUI transport (Ink/React) — standalone (split in beta.76)                               |
-| [`@robota-sdk/agent-transport-http`](https://www.npmjs.com/package/@robota-sdk/agent-transport-http)           | HTTP/REST transport — standalone (split in beta.76)                                     |
-| [`@robota-sdk/agent-transport-ws`](https://www.npmjs.com/package/@robota-sdk/agent-transport-ws)               | WebSocket transport — standalone (split in beta.76)                                     |
-| [`@robota-sdk/agent-transport-mcp`](https://www.npmjs.com/package/@robota-sdk/agent-transport-mcp)             | MCP transport — standalone (split in beta.76)                                           |
+**Start here (embedding)** — the minimal set:
+
+| Package                                                                                  | Description                                                                                                              |
+| ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| [`@robota-sdk/agent-core`](https://www.npmjs.com/package/@robota-sdk/agent-core)         | `Robota` engine: run/runStream, history, structured output, plugins                                                      |
+| [`@robota-sdk/agent-provider`](https://www.npmjs.com/package/@robota-sdk/agent-provider) | Provider protocol clients (Anthropic, OpenAI + any OpenAI-compatible endpoint, Gemini, DeepSeek, Gemma, Qwen, ByteDance) |
+| [`@robota-sdk/agent-tools`](https://www.npmjs.com/package/@robota-sdk/agent-tools)       | Tool registry, zod-validated function tools, 8 built-in tools                                                            |
+
+**App assembly** — add when you need sessions, permissions, or plugins:
+
+| Package                                                                                                    | Description                                                                        |
+| ---------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| [`@robota-sdk/agent-framework`](https://www.npmjs.com/package/@robota-sdk/agent-framework)                 | Assembly layer with config/context loading and `createQuery()`                     |
+| [`@robota-sdk/agent-session`](https://www.npmjs.com/package/@robota-sdk/agent-session)                     | Session with permissions, hooks, and compaction                                    |
+| [`@robota-sdk/agent-plugin`](https://www.npmjs.com/package/@robota-sdk/agent-plugin)                       | 8 consolidated lifecycle plugins (logging, usage, limits, performance, webhook, …) |
+| [`@robota-sdk/agent-executor`](https://www.npmjs.com/package/@robota-sdk/agent-executor)                   | Execution engine for the agentic loop                                              |
+| [`@robota-sdk/agent-subagent-runner`](https://www.npmjs.com/package/@robota-sdk/agent-subagent-runner)     | Subagent dispatch runner                                                           |
+| [`@robota-sdk/agent-session-analytics`](https://www.npmjs.com/package/@robota-sdk/agent-session-analytics) | Session log timing analysis                                                        |
+| [`@robota-sdk/agent-testing`](https://www.npmjs.com/package/@robota-sdk/agent-testing)                     | Real-PTY E2E test harness                                                          |
+
+**Products & transports** — the reference CLI and its interaction surfaces:
+
+| Package                                                                                                        | Description                                                                       |
+| -------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| [`@robota-sdk/agent-cli`](https://www.npmjs.com/package/@robota-sdk/agent-cli)                                 | Reference product: interactive terminal AI coding assistant                       |
+| [`@robota-sdk/agent-command`](https://www.npmjs.com/package/@robota-sdk/agent-command)                         | Slash command modules (`/agent`, `/help`, `/provider`, `/preset`, `/schedule`, …) |
+| [`@robota-sdk/agent-preset`](https://www.npmjs.com/package/@robota-sdk/agent-preset)                           | Named agent profiles (preset system)                                              |
+| [`@robota-sdk/agent-interface-transport`](https://www.npmjs.com/package/@robota-sdk/agent-interface-transport) | Transport type contracts (zero deps)                                              |
+| [`@robota-sdk/agent-interface-tui`](https://www.npmjs.com/package/@robota-sdk/agent-interface-tui)             | TUI interaction type contracts (zero deps)                                        |
+| [`@robota-sdk/agent-transport`](https://www.npmjs.com/package/@robota-sdk/agent-transport)                     | Lean transport core (`/headless`, `/testing`)                                     |
+| [`@robota-sdk/agent-transport-tui`](https://www.npmjs.com/package/@robota-sdk/agent-transport-tui)             | TUI transport (Ink/React)                                                         |
+| [`@robota-sdk/agent-transport-http`](https://www.npmjs.com/package/@robota-sdk/agent-transport-http)           | HTTP/REST transport                                                               |
+| [`@robota-sdk/agent-transport-ws`](https://www.npmjs.com/package/@robota-sdk/agent-transport-ws)               | WebSocket transport                                                               |
+| [`@robota-sdk/agent-transport-mcp`](https://www.npmjs.com/package/@robota-sdk/agent-transport-mcp)             | MCP transport                                                                     |
 
 ## Documentation
 
@@ -104,9 +131,10 @@ Full documentation at **[robota.io](https://robota.io)**
 
 ## Repository Scope
 
-This repository now owns the Robota agent SDK, CLI, providers, transports, playground, and related
-apps. The DAG product line has moved to a separate `robota-dag` repository; use that repository for
-DAG source, issues, docs, and releases once its remote URL is published.
+This repository owns the Robota agent SDK, providers, transports, the reference CLI, related apps —
+and the **DAG orchestration line** (`packages/dag-*`, `@robota-sdk/dag-node-*`): the DAG engine was
+absorbed back into this monorepo (external-runtime-decoupled) and is developed here alongside the
+agent libraries.
 
 ## Development
 
