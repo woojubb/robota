@@ -301,6 +301,8 @@ export function buildFullExecutionContext(
     ...(context?.allowToolOnlyCompletion !== undefined && {
       allowToolOnlyCompletion: context.allowToolOnlyCompletion,
     }),
+    ...(context?.maxTokens !== undefined && { maxTokens: context.maxTokens }),
+    ...(context?.temperature !== undefined && { temperature: context.temperature }),
   };
 }
 

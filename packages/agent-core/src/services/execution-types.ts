@@ -119,6 +119,10 @@ export interface IExecutionContext {
   maxSameToolInputs?: number;
   /** Tool-only turn ending counts as completion — skip the forced summary call (CORE-011). */
   allowToolOnlyCompletion?: boolean;
+  /** Run-scoped max output tokens override — wins over `defaultModel.maxTokens` (CORE-016). */
+  maxTokens?: number;
+  /** Run-scoped temperature override — wins over `defaultModel.temperature` (CORE-016). */
+  temperature?: number;
 }
 
 /**
