@@ -107,6 +107,51 @@ Note: `IPermissionEnforcerOptions` is an internal type and is not exported from 
 
 - **`Robota`** (agent-core): Raw agent — conversation + tools + plugins. No permissions, no hooks.
 - **`Session`** (this package): Wraps Robota with permissions, hooks, compaction, and persistence. Used by the CLI and SDK.
+- **`Room`** (this package): The multi-agent sibling — see below.
+
+## Room — shared-transcript multi-agent primitive
+
+N agents contribute **sequentially to one shared append-only transcript**, with a pluggable
+"who speaks next" policy — the opposite composition from subagents (isolation/parallel). Per-agent
+execution stays `Robota`; the room owns transcript fan-in and turn scheduling. Pair members with
+`retainHistory: false` — the room re-renders the transcript into every turn's input.
+
+```typescript
+import { Robota } from '@robota-sdk/agent-core';
+import { Room, createDirectorSelector, createRoundRobinSelector } from '@robota-sdk/agent-session';
+import type { IAIProvider } from '@robota-sdk/agent-core';
+
+declare const provider: IAIProvider;
+
+const makePersona = (name: string, persona: string) =>
+  new Robota({
+    name,
+    aiProviders: [provider],
+    defaultModel: { provider: provider.name, model: 'claude-haiku-4-5' },
+    systemMessage: persona,
+    retainHistory: false,
+  });
+
+const room = new Room({ topic: 'Should tests run before or after review?' });
+room.join({ name: 'optimist', agent: makePersona('optimist', 'You argue for benefits.') });
+room.join({ name: 'skeptic', agent: makePersona('skeptic', 'You probe for risks.') });
+
+// Deterministic policy…
+const transcript = await room.run({ selector: createRoundRobinSelector(2) });
+
+// …or a Director agent that picks the next speaker via structured output (or ends the talk)
+const director = makePersona('director', 'You moderate the debate.');
+await room.run({ selector: createDirectorSelector(director), maxTurns: 6 });
+
+for (const turn of transcript) {
+  console.log(`${turn.speaker}: ${turn.content}`);
+}
+```
+
+Selectors: `createRoundRobinSelector(rounds)` (join order; external `room.say()` turns do not
+consume rounds), `createCallbackSelector(fn)`, `createDirectorSelector(directorAgent)`. The
+selector returning `null` ends the run; `maxTurns` (default 20) is a safety cap. An unknown
+speaker name throws. See `docs/SPEC.md` § Room Contract for the full behavior contract.
 
 ### ISessionRecord
 

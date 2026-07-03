@@ -2,7 +2,16 @@
 
 ## Scope
 
-Owns the CLI session lifecycle for the Robota SDK. This package provides the `Session` class that wraps a `Robota` agent instance with permission-gated tool execution, hook-based lifecycle events, context window tracking, conversation compaction, and optional JSON file persistence via `SessionStore`. It is the primary runtime used by the CLI application (`agent-cli`) via the assembly layer (`agent-framework`).
+Owns the **conversation primitives** for the Robota SDK — two siblings:
+
+1. **`Session`** (single-agent): wraps a `Robota` agent instance with permission-gated tool
+   execution, hook-based lifecycle events, context window tracking, conversation compaction, and
+   optional JSON file persistence via `SessionStore`. The primary runtime used by the CLI
+   application (`agent-cli`) via the assembly layer (`agent-framework`).
+2. **`Room`** (multi-agent, ROOM-001): N agents contributing sequentially to ONE shared
+   append-only transcript with a pluggable turn-selection policy — the opposite composition from
+   subagents (isolation/parallel). A sibling primitive, not a rewrite: per-agent execution stays
+   `Robota`; the room owns transcript fan-in and turn scheduling. See the Room Contract section.
 
 ## Boundaries
 
@@ -367,6 +376,30 @@ No formal interface implementations. `PermissionEnforcer`, `ContextWindowTracker
 | `runHooks` (agent-core)           | `PermissionEnforcer`     | `src/permission-enforcer.ts`     |
 | `runHooks` (agent-core)           | `Session`                | `src/session.ts` (PostCompact)   |
 | `runHooks` (agent-core)           | `CompactionOrchestrator` | `src/compaction-orchestrator.ts` |
+
+## Room Contract (ROOM-001)
+
+Shared-transcript multi-agent primitive (`src/room/`). Minimal core; transport fan-out,
+transcript persistence, mid-run join/leave, and parallel rooms are tracked follow-ons.
+
+- **Transcript**: a core `ConversationStore` (append-only rule applies). Every committed turn is
+  an assistant message with `metadata.speaker` attribution; `getTranscript()` returns the
+  attributed view (`IRoomTranscriptEntry[]`), `getTranscriptMessages()` the raw store messages.
+- **Members**: unique names; `join` on an existing name and `leave` of an absent name throw.
+  Leaving keeps past turns (append-only).
+- **Turn loop** (`run`): strictly sequential — `selector.next(view)` picks a member name or
+  `null` to end; the room renders the transcript into the speaker's run input (persona + topic +
+  `name: content` log + speak-as instruction) and commits the response with attribution.
+  `maxTurns` (default 20) is a safety cap over the selector's termination; `signal` is checked
+  before each turn; an unknown speaker from the selector throws (no fallback). One `run` at a
+  time per room; `say(speaker, content)` appends an externally-produced turn (e.g. human input).
+- **Selectors**: `createRoundRobinSelector(rounds)` (join order), `createCallbackSelector(fn)`,
+  `createDirectorSelector(directorAgent)` — the director decides via CORE-015 schema-enforced
+  structured output constrained to member names + `END` (supersedes the CORE-011 tool-call
+  decision workaround referenced in the original backlog).
+- **Composition**: pair member/director agents with `retainHistory: false` (CORE-014) — the room
+  re-renders the shared transcript into every turn input, so instance history would duplicate it.
+  CORE-012's per-instance run queue keeps an agent reused across rooms serialized.
 
 ## Test Strategy
 

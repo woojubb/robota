@@ -50,3 +50,20 @@ export type {
 // Session persistence
 export { SessionStore } from './session-store.js';
 export type { ISessionRecord, ISessionStore } from './session-store.js';
+
+// Room — shared-transcript multi-agent primitive (ROOM-001)
+export { Room } from './room/room.js';
+export {
+  createRoundRobinSelector,
+  createCallbackSelector,
+  createDirectorSelector,
+} from './room/turn-selector.js';
+export type {
+  IRoomMember,
+  IRoomOptions,
+  IRoomRunOptions,
+  IRoomTranscriptEntry,
+  IRoomView,
+  ITurnSelector,
+} from './room/types.js';
+export type { IDirectorSelectorOptions } from './room/turn-selector.js';
