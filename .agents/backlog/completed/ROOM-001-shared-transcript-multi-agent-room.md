@@ -1,6 +1,7 @@
 ---
 title: 'ROOM-001: shared-transcript multi-agent Room primitive with a turn-selection hook'
-status: todo
+status: wontfix
+completed: 2026-07-03
 created: 2026-07-03
 priority: medium
 urgency: later
@@ -49,3 +50,23 @@ scope/priority at GATE-APPROVAL before design.
 - Steps: run a 3-round exchange; dump the shared transcript.
 - Expected: one coherent transcript with correctly attributed speakers in director-chosen order.
 - Evidence: _to fill at implementation._
+
+## Resolution: wontfix (2026-07-03, architectural decision by owner)
+
+Implemented once (PR #925, closed unmerged) and **withdrawn on owner review**: a `Room` class
+owning the turn loop — with persona fields, a Director selector, and library-rendered prompts —
+is not a building block; it is _a finished product imitating an ingredient_ ("재료를 흉내낸
+완제품"). robota is an assembly system: the app owns its main loop and its prompts.
+
+The raw ingredients this use case needs ALREADY exist and are each neutral:
+
+- standalone `ConversationStore` (agent-core, exported) + `metadata.speaker` attribution — the
+  shared append-only transcript;
+- `retainHistory: false` (CORE-014) — per-call context reconstruction;
+- structured output (CORE-015) — a director-style decision, when an app wants one;
+- per-instance run serialization (CORE-012) — transcript integrity.
+
+The speech project assembling exactly these into their own room loop is the composition working
+as intended, not a gap. If anything ships later, it is an **example/guide showing the assembly**
+(examples are allowed to be products) — to be proposed as its own backlog item, not revived as a
+library primitive.
