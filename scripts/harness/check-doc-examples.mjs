@@ -16,8 +16,9 @@
  *
  *   <!-- doc-example-skip: <reason> -->
  *
- * Silent skips do not exist; the marker count is reported. content/ guide pages are a tracked
- * follow-on (larger corpus, same mechanism) — see the DOCS-015 backlog evidence.
+ * Silent skips do not exist; the marker count is reported. The content/ corpus (guide,
+ * getting-started, examples, integrations + root pages) was onboarded by DOCS-019; content/v2.0.0
+ * (preserved historical docs), content/ko (translations), and content/images stay excluded.
  *
  * Exit code 0 = all doc examples typecheck, 1 = drift found.
  */
@@ -39,6 +40,21 @@ export function listReadmeFiles(root = WORKSPACE_ROOT) {
   const files = ['README.md'];
   for (const entry of globSync('packages/*/README.md', { cwd: root })) {
     files.push(entry);
+  }
+  // DOCS-019: the content/ guide corpus is in scope. Excluded by design: content/v2.0.0
+  // (preserved historical docs), content/ko (translations mirror en), content/images.
+  for (const pattern of [
+    'content/*.md',
+    'content/guide/*.md',
+    'content/getting-started/*.md',
+    'content/examples/*.md',
+    'content/integrations/*.md',
+    'content/development/*.md',
+    'content/plugins/*.md',
+  ]) {
+    for (const entry of globSync(pattern, { cwd: root })) {
+      files.push(entry);
+    }
   }
   return files.sort();
 }

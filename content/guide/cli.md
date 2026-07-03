@@ -343,13 +343,20 @@ npm install @robota-sdk/agent-plugin
 ```
 
 ```typescript
+import { Robota, type IAIProvider } from '@robota-sdk/agent-core';
 import { LoggingPlugin, UsagePlugin, LimitsPlugin } from '@robota-sdk/agent-plugin';
+
+declare const provider: IAIProvider;
 
 const agent = new Robota({
   name: 'my-agent',
   aiProviders: [provider],
   defaultModel: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
-  plugins: [new LoggingPlugin(), new UsagePlugin(), new LimitsPlugin({ maxTokens: 100_000 })],
+  plugins: [
+    new LoggingPlugin({ strategy: 'console' }),
+    new UsagePlugin({ strategy: 'memory' }),
+    new LimitsPlugin({ strategy: 'token-bucket', maxTokens: 100_000 }),
+  ],
 });
 ```
 

@@ -31,8 +31,8 @@ const agent = new Robota({
   defaultModel: {
     provider: 'anthropic',
     model: 'claude-sonnet-4-6',
-    systemMessage: 'You are a math assistant. Use the calculator tool for calculations.',
   },
+  systemMessage: 'You are a math assistant. Use the calculator tool for calculations.',
   tools: [calculatorTool],
 });
 
@@ -44,15 +44,23 @@ console.log(response);
 ## Multiple Tools
 
 ```typescript
+import { Robota, type IAIProvider } from '@robota-sdk/agent-core';
+import { createZodFunctionTool } from '@robota-sdk/agent-tools';
+import { z } from 'zod';
+
+declare const provider: IAIProvider;
+
 const fileSearchTool = createZodFunctionTool(
   'search_files',
   'Search for files by name pattern',
   z.object({
-    pattern: z.string().describe('Glob pattern'),
+    pattern: z.string().describe('Filename pattern to match'),
   }),
   async ({ pattern }) => {
-    const { glob } = await import('fast-glob');
-    const files = await glob(pattern);
+    const { readdirSync } = await import('node:fs');
+    const files = readdirSync('.', { recursive: true })
+      .map(String)
+      .filter((file) => file.includes(pattern));
     return { data: JSON.stringify(files) };
   },
 );
@@ -83,7 +91,10 @@ const response = await agent.run('Find all .ts files in src/ and show me the sma
 ## Using Built-in Tools
 
 ```typescript
+import { Robota, type IAIProvider } from '@robota-sdk/agent-core';
 import { bashTool, readTool, globTool, grepTool } from '@robota-sdk/agent-tools';
+
+declare const provider: IAIProvider;
 
 const agent = new Robota({
   name: 'DevAgent',
@@ -98,6 +109,8 @@ const response = await agent.run('Find all TODO comments in the project');
 ## Sandbox-Aware Built-in Tools
 
 Use factory exports when Bash or file tools should run inside a provider sandbox instead of the host workspace:
+
+<!-- doc-example-skip: requires the optional e2b dependency -->
 
 ```typescript
 import {

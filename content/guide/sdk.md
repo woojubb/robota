@@ -50,7 +50,10 @@ session.cancelQueue();
 `InteractiveSession` maintains a universal history as `IHistoryEntry[]`. Each entry represents either a chat message (user or assistant turn) or a session event (tool call, system event, etc.). This unified timeline is the source of truth for display and persistence.
 
 ```typescript
+import type { InteractiveSession } from '@robota-sdk/agent-framework';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
+
+declare const session: InteractiveSession;
 
 // Retrieve the full history
 const history: IHistoryEntry[] = session.getFullHistory();
@@ -111,6 +114,11 @@ const response = await query('List all TypeScript files in this project');
 ### Options
 
 ```typescript
+import { createQuery } from '@robota-sdk/agent-framework';
+import type { IAIProvider } from '@robota-sdk/agent-core';
+
+declare const provider: IAIProvider;
+
 const query = createQuery({
   provider,
   cwd: '/path/to/project',
@@ -190,6 +198,11 @@ The `$ENV:` prefix resolves environment variables at load time.
 - **Compact Instructions** — Extracted from CLAUDE.md for use during context compaction
 
 ```typescript
+import { InteractiveSession } from '@robota-sdk/agent-framework';
+import type { IAIProvider } from '@robota-sdk/agent-core';
+
+declare const provider: IAIProvider;
+
 const session = new InteractiveSession({
   cwd: '/path/to/project',
   provider,
@@ -203,6 +216,11 @@ Use `bare: true` when you need a session without AGENTS.md/CLAUDE.md loading or 
 The SDK assembles the system prompt internally from loaded project context, tool descriptions, command descriptors, trust level, active task context, and optional appended instructions.
 
 ```typescript
+import { InteractiveSession } from '@robota-sdk/agent-framework';
+import type { IAIProvider } from '@robota-sdk/agent-core';
+
+declare const provider: IAIProvider;
+
 const session = new InteractiveSession({
   cwd: process.cwd(),
   provider,
@@ -232,6 +250,8 @@ const session = new InteractiveSession({
 ## Sandbox Execution
 
 `InteractiveSession` accepts `sandboxClient?: ISandboxClient`. When present, the SDK creates sandbox-aware Bash, Read, Write, and Edit tools. This keeps the CLI/TUI thin: hosts choose whether to supply a sandbox, while tool command/file behavior remains in `agent-tools`.
+
+<!-- doc-example-skip: imports the external `e2b` SDK, which consumers install at their composition root -->
 
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-framework';
@@ -269,19 +289,28 @@ If the injected sandbox client implements `snapshot()` and `restore(snapshotId)`
 
 ```typescript
 import { createSubagentSession } from '@robota-sdk/agent-framework';
+import type { ISubagentOptions } from '@robota-sdk/agent-framework';
+
+// Parent-derived wiring: resolved config, loaded context, tools, provider, terminal
+declare const parentOptions: ISubagentOptions;
 
 const subSession = createSubagentSession({
-  parentSession: session,
-  agentDefinition: 'explore', // built-in agent type
-  prompt: 'Find all usages of the deprecated API',
+  ...parentOptions,
+  agentDefinition: {
+    name: 'explore', // built-in agent type
+    description: 'Lightweight codebase exploration',
+    systemPrompt: 'Explore the codebase and report findings.',
+  },
 });
 
-const result = await subSession.run();
+const result = await subSession.run('Find all usages of the deprecated API');
 ```
 
 ### Agent Command Batch Jobs
 
 The `agent` command module, rendered as `/agent` by CLI/headless shells, supports batch `jobs` input for explicit parallel requests through the standard command route:
+
+<!-- doc-example-skip: JSON payload shape, not a ts program -->
 
 ```typescript
 {

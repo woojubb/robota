@@ -16,6 +16,11 @@ console.log(response);
 ## With Options
 
 ```typescript
+import { createQuery } from '@robota-sdk/agent-framework';
+import type { IAIProvider } from '@robota-sdk/agent-core';
+
+declare const provider: IAIProvider;
+
 const query = createQuery({
   provider,
   cwd: '/path/to/project',
