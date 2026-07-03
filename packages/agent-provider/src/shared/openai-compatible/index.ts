@@ -4,3 +4,4 @@ export * from './response-parser';
 export * from './stream-assembler';
 export * from './native-payload-observer';
 export * from './endpoint-probe';
+export * from './tool-choice';

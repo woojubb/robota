@@ -141,3 +141,23 @@ export function convertToolsToAnthropicFormat(tools: IToolSchema[]): Anthropic.T
     input_schema: tool.parameters as Anthropic.Tool.InputSchema,
   }));
 }
+
+/**
+ * Map the provider-agnostic tool-invocation directive onto Anthropic's `tool_choice`
+ * parameter (CORE-017). `'required'` maps to Anthropic's `{ type: 'any' }` (the model must
+ * call some tool); a named directive maps to `{ type: 'tool', name }`.
+ */
+export function toAnthropicToolChoice(
+  toolChoice: 'auto' | 'none' | 'required' | { tool: string },
+): Anthropic.Messages.ToolChoice {
+  if (toolChoice === 'auto') {
+    return { type: 'auto' };
+  }
+  if (toolChoice === 'none') {
+    return { type: 'none' };
+  }
+  if (toolChoice === 'required') {
+    return { type: 'any' };
+  }
+  return { type: 'tool', name: toolChoice.tool };
+}

@@ -6,6 +6,7 @@ import type {
   IAIProvider,
   TTextDeltaCallback,
   TModelEffort,
+  TToolChoice,
 } from './provider';
 import type { TMetadata, TConfigValue } from './types';
 import type { IModule } from '../abstracts/abstract-module';
@@ -85,6 +86,8 @@ export interface IAgentConfig {
     topP?: number;
     /** Reasoning-effort dial threaded to the provider request builder per call. */
     effort?: TModelEffort;
+    /** Default tool-invocation directive for every run (CORE-017). `IRunOptions.toolChoice` wins. */
+    toolChoice?: TToolChoice;
   };
 
   // Tools and plugins
@@ -130,8 +133,6 @@ export interface IAgentConfig {
   providerConfig?: IAgentProviderConfig;
 
   // Execution options
-  stream?: boolean;
-  toolChoice?: 'auto' | 'none' | string;
   responseFormat?: IResponseFormatConfig;
   safetySettings?: ISafetySetting[];
 
@@ -191,8 +192,14 @@ export interface IRunOptions {
   temperature?: number;
   /** Run-scoped max output tokens override — wins over `defaultModel.maxTokens` (CORE-016). */
   maxTokens?: number;
-  stream?: boolean;
-  toolChoice?: 'auto' | 'none' | string;
+  /**
+   * Run-scoped tool-invocation directive — wins over `defaultModel.toolChoice` (CORE-017).
+   * `'auto'` (model decides), `'none'` (suppress tool calls), `'required'` (must call some
+   * tool), or `{ tool: name }` (must call the named tool; the name is validated against the
+   * run's tool list and a miss throws). Forcing applies to the run's first model call only;
+   * rounds after tool results revert to `'auto'` (see `TToolChoice`).
+   */
+  toolChoice?: TToolChoice;
   sessionId?: string;
   userId?: string;
   metadata?: TMetadata;
@@ -288,35 +295,6 @@ export interface IAgent<
 }
 
 /**
- * Extended run context with provider-agnostic options
- * Supports dynamic provider configurations without hardcoding specific providers
- */
-export interface IExtendedRunContext {
-  temperature?: number;
-  maxTokens?: number;
-  stream?: boolean;
-  toolChoice?: 'auto' | 'none' | string;
-  maxExecutionRounds?: number;
-  sessionId?: string;
-  userId?: string;
-  metadata?: TMetadata;
-
-  // Provider-agnostic options that can be used by any provider
-  providerOptions?: Record<string, TConfigValue>;
-
-  // Common provider options (provider-agnostic naming)
-  stopSequences?: string[];
-  topK?: number;
-  topP?: number;
-  seed?: number;
-
-  // Advanced configuration with specific types
-  responseFormat?: IResponseFormatConfig;
-  safetySettings?: ISafetySetting[];
-  generationConfig?: IGenerationConfig;
-}
-
-/**
  * Response format configuration
  */
 export interface IResponseFormatConfig {
@@ -333,16 +311,5 @@ export interface IResponseFormatConfig {
 export interface ISafetySetting {
   category: string;
   threshold: string;
-  [key: string]: TConfigValue;
-}
-
-/**
- * Generation configuration
- */
-export interface IGenerationConfig {
-  temperature?: number;
-  maxTokens?: number;
-  topP?: number;
-  topK?: number;
   [key: string]: TConfigValue;
 }

@@ -48,6 +48,7 @@ function buildRunContext(
     }),
     ...(options.maxTokens !== undefined && { maxTokens: options.maxTokens }),
     ...(options.temperature !== undefined && { temperature: options.temperature }),
+    ...(options.toolChoice !== undefined && { toolChoice: options.toolChoice }),
   };
 }
 
@@ -135,6 +136,7 @@ export async function* robotaRunStream(
       ...(options.metadata && { metadata: options.metadata }),
       ...(options.maxTokens !== undefined && { maxTokens: options.maxTokens }),
       ...(options.temperature !== undefined && { temperature: options.temperature }),
+      ...(options.toolChoice !== undefined && { toolChoice: options.toolChoice }),
     });
 
     for await (const chunk of stream) {

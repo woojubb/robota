@@ -5,7 +5,7 @@
 
 import { randomUUID } from 'node:crypto';
 
-import { buildChatResponseFormat } from './execution-service-helpers';
+import { assertToolChoiceValid, buildChatResponseFormat } from './execution-service-helpers';
 
 import type { IResolvedProviderInfo, IExecutionRoundState } from './execution-types';
 import type { IAgentConfig, IAssistantMessage } from '../interfaces/agent';
@@ -60,6 +60,9 @@ export async function callProviderWithCache(
     ...(config.defaultModel.temperature !== undefined && {
       temperature: config.defaultModel.temperature,
     }),
+    ...(config.defaultModel.toolChoice !== undefined && {
+      toolChoice: config.defaultModel.toolChoice,
+    }),
     ...(resolved.availableTools.length > 0 && { tools: resolved.availableTools }),
     ...(() => {
       const responseFormat = buildChatResponseFormat(config.responseFormat);
@@ -67,6 +70,7 @@ export async function callProviderWithCache(
     })(),
     ...overrides,
   };
+  assertToolChoiceValid(chatOptions.toolChoice, chatOptions.tools);
   const providerChat = resolved.provider.chat.bind(resolved.provider) as TProviderChat;
 
   if (cacheService) {

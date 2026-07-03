@@ -6,6 +6,7 @@ import {
   assembleOpenAICompatibleStream,
   convertToOpenAICompatibleMessages,
   convertToOpenAICompatibleTools,
+  toOpenAICompatibleToolChoice,
   observeProviderNativeRawPayloadStream,
   OpenAICompatibleResponseParser,
 } from '../shared/openai-compatible/index.js';
@@ -233,7 +234,7 @@ export class DeepSeekProvider extends AbstractAIProvider {
       ...(options?.maxTokens !== undefined && { max_tokens: options.maxTokens }),
       ...(options?.tools && {
         tools: convertToOpenAICompatibleTools(options.tools),
-        tool_choice: 'auto' as const,
+        tool_choice: toOpenAICompatibleToolChoice(options.toolChoice),
       }),
       ...(this.options.thinking !== undefined && {
         thinking: { type: this.options.thinking },

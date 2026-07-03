@@ -39,6 +39,7 @@ export type {
   IProviderOptions,
   IChatOptions,
   TModelEffort,
+  TToolChoice,
   IProviderCapabilities,
   IProviderFunctionCallingCapability,
   IProviderNativeWebToolCapabilities,

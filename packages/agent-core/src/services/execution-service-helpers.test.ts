@@ -10,7 +10,12 @@ import { describe, expect, it } from 'vitest';
 
 import { ConversationStore } from '../managers/conversation-history-manager';
 
-import { buildFinalResult, initializeConversationStore } from './execution-service-helpers';
+import {
+  assertToolChoiceValid,
+  buildFinalResult,
+  initializeConversationStore,
+  resolveToolChoiceForRound,
+} from './execution-service-helpers';
 
 import type { IAgentConfig } from '../interfaces/agent';
 import type { TUniversalMessage } from '../interfaces/messages';
@@ -142,5 +147,55 @@ describe('initializeConversationStore restore robustness (CORE-008)', () => {
     // Single head system = the fresh live prompt (staleness refresh); conversation preserved.
     expect(contentByRole('system')).toEqual(['FRESH live prompt']);
     expect(contentByRole('user')).toEqual(['earlier turn']);
+  });
+});
+
+describe('assertToolChoiceValid (CORE-017)', () => {
+  const tools = [
+    {
+      name: 'get_weather',
+      description: 'w',
+      parameters: { type: 'object' as const, properties: {} },
+    },
+  ];
+
+  it('accepts unset/auto/none regardless of the tool list', () => {
+    expect(() => assertToolChoiceValid(undefined, undefined)).not.toThrow();
+    expect(() => assertToolChoiceValid('auto', undefined)).not.toThrow();
+    expect(() => assertToolChoiceValid('none', undefined)).not.toThrow();
+  });
+
+  it("accepts 'required' and a known named tool when tools exist", () => {
+    expect(() => assertToolChoiceValid('required', tools)).not.toThrow();
+    expect(() => assertToolChoiceValid({ tool: 'get_weather' }, tools)).not.toThrow();
+  });
+
+  it("throws for 'required' with no tools", () => {
+    expect(() => assertToolChoiceValid('required', [])).toThrow(/needs at least one tool/);
+    expect(() => assertToolChoiceValid('required', undefined)).toThrow(/needs at least one tool/);
+  });
+
+  it('throws for a named tool missing from the list, naming the miss and the options', () => {
+    expect(() => assertToolChoiceValid({ tool: 'nope' }, tools)).toThrow(/"nope"/);
+    expect(() => assertToolChoiceValid({ tool: 'nope' }, tools)).toThrow(/get_weather/);
+  });
+});
+
+describe('resolveToolChoiceForRound (CORE-017)', () => {
+  it('passes everything through on round 1', () => {
+    expect(resolveToolChoiceForRound('required', 1)).toBe('required');
+    expect(resolveToolChoiceForRound({ tool: 'x' }, 1)).toEqual({ tool: 'x' });
+    expect(resolveToolChoiceForRound('none', 1)).toBe('none');
+  });
+
+  it("reverts forcing directives to 'auto' after round 1 so the run can finish", () => {
+    expect(resolveToolChoiceForRound('required', 2)).toBe('auto');
+    expect(resolveToolChoiceForRound({ tool: 'x' }, 3)).toBe('auto');
+  });
+
+  it('persists auto/none/unset across rounds', () => {
+    expect(resolveToolChoiceForRound('auto', 2)).toBe('auto');
+    expect(resolveToolChoiceForRound('none', 2)).toBe('none');
+    expect(resolveToolChoiceForRound(undefined, 2)).toBeUndefined();
   });
 });

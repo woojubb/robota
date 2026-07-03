@@ -82,7 +82,7 @@ export interface IOpenAIResponsesRequestBase {
   model: string;
   input: TOpenAIResponsesInputItem[];
   tools?: TOpenAIResponsesTool[];
-  tool_choice?: 'auto' | 'none' | 'required';
+  tool_choice?: 'auto' | 'none' | 'required' | { type: 'function'; name: string };
   text?: IOpenAIResponsesTextConfig;
   temperature?: number;
   max_output_tokens?: number;

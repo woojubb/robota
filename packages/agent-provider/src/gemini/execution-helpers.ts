@@ -11,6 +11,7 @@ import {
   convertFromGeminiResponse,
   convertToolsToGeminiFormat,
 } from './message-converter';
+import { toGeminiFunctionCallingConfig } from './tool-schema-converter';
 
 import type { IGeminiProviderOptions } from './types';
 import type { GoogleGenAI } from '@google/genai';
@@ -127,6 +128,11 @@ function buildGenerateContentRequest(
   const config: GenerateContentParameters['config'] = { ...generationOptions };
   if (options?.tools && options.tools.length > 0) {
     config.tools = [{ functionDeclarations: convertToolsToGeminiFormat(options.tools) }];
+    if (options.toolChoice !== undefined) {
+      config.toolConfig = {
+        functionCallingConfig: toGeminiFunctionCallingConfig(options.toolChoice),
+      };
+    }
   }
   if (systemInstruction) {
     config.systemInstruction = systemInstruction;

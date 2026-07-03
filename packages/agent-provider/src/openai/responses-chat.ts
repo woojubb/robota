@@ -7,7 +7,10 @@ import {
   convertToOpenAIResponsesTools,
 } from './responses-converter';
 import { assembleOpenAIResponsesStream, parseOpenAIResponsesResponse } from './responses-parser';
-import { observeProviderNativeRawPayloadStream } from '../shared/openai-compatible/index.js';
+import {
+  observeProviderNativeRawPayloadStream,
+  toOpenAIResponsesToolChoice,
+} from '../shared/openai-compatible/index.js';
 
 import type {
   IOpenAIResponsesRequestNonStreaming,
@@ -162,7 +165,10 @@ function buildResponsesRequestParams(
   return {
     model,
     input: convertToOpenAIResponsesInput(input.messages),
-    ...(tools !== undefined && { tools, tool_choice: 'auto' }),
+    ...(tools !== undefined && {
+      tools,
+      tool_choice: toOpenAIResponsesToolChoice(input.chatOptions?.toolChoice),
+    }),
     ...(input.chatOptions?.temperature !== undefined && {
       temperature: input.chatOptions.temperature,
     }),
