@@ -32,6 +32,7 @@ import {
   runInteractiveProviderSetup,
 } from './startup/provider-startup.js';
 import { renderApp, createDefaultTuiCliAdapter } from '@robota-sdk/agent-transport-tui';
+import { installTuiProcessGuards, setLiveChannel } from './process-guards.js';
 import { TransportRegistry } from '@robota-sdk/agent-transport';
 import { WsTransport } from '@robota-sdk/agent-transport-ws';
 import { createDefaultBackgroundTaskRunners } from '@robota-sdk/agent-executor';
@@ -288,12 +289,15 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   }
 
   warnIfTerminalAppOnMacOS(terminal);
+  // ERR-001 G1: interactive mode only — the process must survive transient failures.
+  installTuiProcessGuards();
   if (isFirstRun()) {
     printFirstRunWelcome(terminal);
     markOnboarded();
   }
 
   await renderApp({
+    onChannelReady: (channel) => setLiveChannel(channel),
     cwd,
     provider,
     providerOverride: args.provider,

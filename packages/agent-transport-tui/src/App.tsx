@@ -122,6 +122,8 @@ function AppInner(
     streamingText,
     activeTools,
     isThinking,
+    lastErrorMessage,
+    isStalled,
     isAborting,
     isShuttingDown,
     pendingPrompt,
@@ -484,6 +486,18 @@ function AppInner(
                   activeTools={activeTools}
                   isThinking={isThinking}
                 />
+                {isStalled && (
+                  <Text color="yellow">
+                    ⚠ Still waiting on the provider — the network may be stalled. Esc to interrupt.
+                  </Text>
+                )}
+              </Box>
+            )}
+            {!isThinking && lastErrorMessage && (
+              <Box marginBottom={1}>
+                <Text color="red">
+                  ✖ Last turn failed — the session is alive; type your next prompt when ready.
+                </Text>
               </Box>
             )}
             <BackgroundTaskPanel

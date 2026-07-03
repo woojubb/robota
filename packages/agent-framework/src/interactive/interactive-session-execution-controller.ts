@@ -218,6 +218,7 @@ export class SessionExecutionController {
         beginEditCheckpointTurn: (p) => this.histTracker.beginEditCheckpointTurn(p),
         flushStreaming: () => this.flushStreaming(),
         clearStreaming: () => this.clearStreaming(),
+        getStreamingText: () => this.streamingText,
         onWorkspaceUpdated: () => this.emitExecutionWorkspaceUpdated('main_thread'),
         onComplete: (result: IExecutionResult) => {
           this.callbacks.emit('complete', result);

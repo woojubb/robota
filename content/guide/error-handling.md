@@ -257,6 +257,19 @@ the key when multiple providers are registered.
 
 ---
 
+## Interactive Failures: What the User Sees (ERR-001)
+
+In the interactive TUI a failed turn is surfaced, never swallowed and never fatal:
+
+- Any partially streamed answer stays visible, marked _(interrupted)_ — it is committed to
+  history before stream state clears.
+- The failure renders as a styled error block (humanized message — e.g. network failures say so
+  plainly) plus a note that the session is still alive; the input prompt is immediately usable.
+- If the provider goes silent mid-turn, the status area hints after ~15s that the connection may
+  be stalled (Esc interrupts); the 120s provider idle timeout remains the hard stop.
+- Errors outside the turn boundary (background tasks, un-caught promises) route through the same
+  path — in interactive mode the process itself never exits on them.
+
 ## The error Event Footgun
 
 `InteractiveSession` extends Node.js `EventEmitter`. In Node.js, an `'error'` event

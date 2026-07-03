@@ -1,6 +1,7 @@
 ---
 title: 'ERR-001: transient network errors — surface clearly to the user, never kill or freeze the TUI'
-status: todo
+status: done
+completed: 2026-07-03
 created: 2026-07-03
 priority: high
 urgency: soon
@@ -83,4 +84,28 @@ layer's job.
 - Expected: a clearly-styled error explains the network failure (not a silent stop, not a stack
   trace, not a dead UI); any partial answer stays visible marked interrupted; the input prompt is
   immediately usable; the post-restore prompt round-trips normally; the process never exits.
-- Evidence: _to fill at implementation (live run — capability-absence claims require a probe)._
+- Evidence: **PASS (live PTY run, real binary + real provider + real mid-stream cut,
+  2026-07-03).** Implementation per the reviewed design, G1–G3 (G4 auto-retry stays out of
+  scope): **G1** — `agent-cli/src/process-guards.ts` (product-owned per the Library Neutrality
+  Rule): TUI-mode-only `unhandledRejection` + `uncaughtException` guards routing into the live
+  session via new `InteractiveSession.reportBackgroundError` (humanize → `metadata.kind:'error'`
+  entry → `'error'` event), stderr as final surface; `bin.ts` IME fallback defers via
+  `areTuiProcessGuardsActive`; headless keeps fail-fast; the library-level `unhandledRejection`
+  handler previously hiding in `render.tsx` was REMOVED (neutrality violation — raw stderr writes
+  corrupting the Ink frame) and replaced with a neutral `onChannelReady` seam the product wires.
+  **G2** — framework commits partial streamed text as an interrupted assistant entry before
+  clearing stream state (new `getStreamingText` ctx capability) and marks error entries
+  `metadata.kind:'error'`; TUI renders a styled ✖ error block (humanized message + "session is
+  still alive" affordance, no stack trace) + transient post-error strip; channel now passes the
+  Error object into state. **G3** — 15s dead-air stall hint ("network may be stalled — Esc to
+  interrupt") driven by a provider-activity-reset timer, cleared on turn end. Tests: TUI reducer
+  5 (error lifecycle + fake-timer stall), framework functional 2 (mid-stream ECONNRESET → partial
+  preserved + humanized marked entry + NEXT submit succeeds; reportBackgroundError → marked entry
+  - event + session usable), process-guards 4 (idempotent install, session routing, stderr last
+    resort, headless-inactive) — full repo suite + 43 scans + doc-examples green. **User Execution
+    (live)**: local RST proxy in front of the real Anthropic API; real built binary in a PTY with an
+    isolated HOME profile; turn 1's stream cut mid-answer → `styled block: true | humanized: true |
+no stack trace: true`; proxy restored → turn 2 "RECOVERED" round-tripped; process alive
+    throughout. Guide (`error-handling.md`), framework SPEC (Turn Error Surfacing & Liveness), CLI
+    SPEC (Process Survival Boundary) synced. Follow-on G4 (bounded auto-retry) intentionally not
+    filed here — capture on demand per the backlog's own note.

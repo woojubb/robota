@@ -61,6 +61,11 @@ export interface IRenderOptions {
   enableParallelSubagents?: boolean;
   /** Preset execution capability: run a post-task self-verification step. */
   selfVerification?: boolean;
+  /**
+   * Called with each live channel (including session-switch re-creations). Lets the embedding
+   * product wire process-level concerns (ERR-001 G1: error routing into the live session).
+   */
+  onChannelReady?: (channel: TuiInteractionChannel) => void;
 }
 
 /** Map render options to TuiInteractionChannel constructor options. */
@@ -96,12 +101,8 @@ export function toChannelOptions(
 }
 
 export async function renderApp(options: IRenderOptions): Promise<void> {
-  process.on('unhandledRejection', (reason) => {
-    process.stderr.write(`\n[UNHANDLED REJECTION] ${reason}\n`);
-    if (reason instanceof Error) {
-      process.stderr.write(`${reason.stack}\n`);
-    }
-  });
+  // ERR-001 / Library Neutrality Rule: NO process-level error policy here — process survival
+  // is the product assembly's boundary (agent-cli installs the guards via onChannelReady).
 
   // TERM-002: one terminal-handoff controller per process (one Ink instance / App). Shared across
   // channel re-creations (session switch) so the handoff capability survives a session swap.
@@ -109,11 +110,16 @@ export async function renderApp(options: IRenderOptions): Promise<void> {
 
   // Single-owner lifecycle (CLI-B12): render.tsx supplies only the factory;
   // App creates, replaces, and stops channels exclusively through React state.
-  const createChannel = (resumeSessionId?: string): TuiInteractionChannel =>
-    new TuiInteractionChannel({
+  const createChannel = (resumeSessionId?: string): TuiInteractionChannel => {
+    const channel = new TuiInteractionChannel({
       ...toChannelOptions(options, resumeSessionId),
       terminalHandoff: handoffController,
     });
+    // Expose each live channel (incl. session-switch re-creations) to the embedding product,
+    // e.g. for process-level error routing (ERR-001 G1).
+    options.onChannelReady?.(channel);
+    return channel;
+  };
 
   const instance = render(
     <App

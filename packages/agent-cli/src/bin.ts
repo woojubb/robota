@@ -8,6 +8,7 @@
  * tsdown.config.ts and runs before any module imports are loaded.
  */
 import { startCli } from './cli.js';
+import { areTuiProcessGuardsActive } from './process-guards.js';
 
 // Last-resort crash prevention for IME-related errors only.
 // Korean IME in raw mode can cause errors that escape React/Ink.
@@ -28,7 +29,10 @@ process.on('uncaughtException', (err) => {
     );
     return;
   }
-  // Re-throw non-IME errors — let them crash normally
+  // ERR-001 G1: in interactive TUI mode the product-level guards own process survival —
+  // they render the error into the live session; re-throwing here would kill the TUI.
+  if (areTuiProcessGuardsActive()) return;
+  // Re-throw non-IME errors — headless/print mode keeps normal crash behavior
   throw err;
 });
 

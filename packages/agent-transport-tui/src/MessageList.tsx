@@ -145,6 +145,28 @@ function ToolMessage({ message }: { message: TUniversalMessage }): React.ReactEl
   );
 }
 
+/** ERR-001 G2: a failed turn renders as a styled error block, not a plain system note. */
+function ErrorEntryBlock({ message }: { message: TUniversalMessage }): React.ReactElement {
+  const content = (message.content ?? '').replace(/^Error:\s*/, '');
+  return (
+    <Box flexDirection="column" marginBottom={1}>
+      <Box>
+        <Text color="red" bold>
+          ✖ Error:{' '}
+        </Text>
+      </Box>
+      <Box marginLeft={2} flexDirection="column">
+        <Text color="red" wrap="wrap">
+          {content}
+        </Text>
+        <Text dimColor wrap="wrap">
+          The session is still alive — type your next prompt when ready.
+        </Text>
+      </Box>
+    </Box>
+  );
+}
+
 const MessageItem = React.memo(function MessageItem({
   message,
 }: {
@@ -152,6 +174,10 @@ const MessageItem = React.memo(function MessageItem({
 }): React.ReactElement {
   if (isToolMessage(message)) {
     return <ToolMessage message={message} />;
+  }
+
+  if (message.role === 'system' && message.metadata?.kind === 'error') {
+    return <ErrorEntryBlock message={message} />;
   }
 
   const content = message.content ?? '';

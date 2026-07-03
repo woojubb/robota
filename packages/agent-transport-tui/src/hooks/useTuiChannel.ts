@@ -28,6 +28,10 @@ export interface IInteractiveSessionState {
   activeTools: IToolState[];
   isThinking: boolean;
   isAborting: boolean;
+  /** ERR-001 G2: humanized message of the last failed turn (null once the next turn starts). */
+  lastErrorMessage: string | null;
+  /** ERR-001 G3: no provider activity for a while during a turn — connection may be stalled. */
+  isStalled: boolean;
   isShuttingDown: boolean;
   pendingPrompt: string | null;
   executionWorkspaceSnapshot: IExecutionWorkspaceSnapshot | null;
@@ -94,6 +98,8 @@ export function useTuiChannel(channel: TuiInteractionChannel): IInteractiveSessi
     activeTools: manager.activeTools,
     isThinking: manager.isThinking,
     isAborting: manager.isAborting,
+    lastErrorMessage: manager.lastErrorMessage,
+    isStalled: manager.isStalled,
     isShuttingDown: channel.isShuttingDown,
     pendingPrompt: manager.pendingPrompt,
     executionWorkspaceSnapshot: manager.executionWorkspaceSnapshot,
