@@ -102,6 +102,11 @@ Every backlog that changes runnable user-facing behavior, command behavior, TUI/
 workflow behavior must include a `## User Execution Test Scenarios` section before implementation
 starts.
 
+**Script home (INFRA-023)**: disposable live-verification scripts (evidence runs, repro probes)
+live in `scratch/src/` — a gitignored workspace home whose committed skeleton resolves
+`@robota-sdk/*` imports. Never park them inside `packages/` or `apps/`; the
+`temp-script-placement` harness scan blocks temp-pattern files there.
+
 User execution test scenarios are separate from the agent's engineering test plan:
 
 - The engineering test plan covers unit, integration, type, harness, CI, build, and internal

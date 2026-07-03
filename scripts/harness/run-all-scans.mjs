@@ -83,6 +83,10 @@ const SCAN_COMMANDS = [
   { name: 'backlog-placement', command: ['node', 'scripts/harness/check-backlog-placement.mjs'] },
   { name: 'doc-examples', command: ['node', 'scripts/harness/check-doc-examples.mjs'] },
   { name: 'llms-txt', command: ['node', 'scripts/harness/check-llms-txt.mjs'] },
+  {
+    name: 'temp-script-placement',
+    command: ['node', 'scripts/harness/check-temp-script-placement.mjs'],
+  },
   { name: 'orphan-exports', command: ['node', 'scripts/harness/check-orphan-exports.mjs'] },
   { name: 'deps', command: ['node', 'scripts/harness/check-dependency-direction.mjs'] },
   {

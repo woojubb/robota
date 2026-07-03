@@ -7,3 +7,5 @@ packages:
   # scripts/harness/shared.mjs listWorkspaceScopes — and are private (never published).
   - 'examples/*'
   - 'examples/capabilities/*'
+  # dev-tooling tier: disposable live-verification scripts (src/ gitignored)
+  - 'scratch'
