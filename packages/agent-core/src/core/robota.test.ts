@@ -447,6 +447,78 @@ describe('Robota Core', () => {
   });
 
   // ----------------------------------------------------------------
+  // Model option threading (CORE-016)
+  // ----------------------------------------------------------------
+  describe('maxTokens/temperature threading', () => {
+    it('run(): defaultModel.maxTokens reaches the provider request', async () => {
+      const provider = new TrackingProvider();
+      const robota = new Robota(
+        createConfig({
+          aiProviders: [provider],
+          defaultModel: {
+            provider: 'tracking-provider',
+            model: 'test-model',
+            temperature: 0.5,
+            maxTokens: 50,
+          },
+        }),
+      );
+
+      await robota.run('hello');
+
+      expect(provider.chatCalls[0].options?.maxTokens).toBe(50);
+      expect(provider.chatCalls[0].options?.temperature).toBe(0.5);
+    });
+
+    it('run(): per-run maxTokens/temperature override defaultModel', async () => {
+      const provider = new TrackingProvider();
+      const robota = new Robota(createConfig({ aiProviders: [provider] }));
+
+      await robota.run('hello', { maxTokens: 25, temperature: 0.9 });
+
+      expect(provider.chatCalls[0].options?.maxTokens).toBe(25);
+      expect(provider.chatCalls[0].options?.temperature).toBe(0.9);
+    });
+
+    it('runStream(): defaultModel.maxTokens/temperature reach the provider request', async () => {
+      const provider = new TrackingProvider();
+      const robota = new Robota(
+        createConfig({
+          aiProviders: [provider],
+          defaultModel: {
+            provider: 'tracking-provider',
+            model: 'test-model',
+            temperature: 0.5,
+            maxTokens: 50,
+          },
+        }),
+      );
+
+      for await (const _chunk of robota.runStream('hello')) {
+        // consume
+      }
+
+      expect(provider.chatCalls[0].options?.maxTokens).toBe(50);
+      expect(provider.chatCalls[0].options?.temperature).toBe(0.5);
+    });
+
+    it('runStream(): per-run maxTokens/temperature override defaultModel', async () => {
+      const provider = new TrackingProvider();
+      const robota = new Robota(createConfig({ aiProviders: [provider] }));
+
+      for await (const _chunk of robota.runStream('hello', {
+        maxTokens: 25,
+        temperature: 0.9,
+      })) {
+        // consume
+      }
+
+      expect(provider.chatCalls[0].options?.maxTokens).toBe(25);
+      expect(provider.chatCalls[0].options?.temperature).toBe(0.9);
+    });
+  });
+
+  // ----------------------------------------------------------------
   // Run-isolated (stateless) mode (CORE-014)
   // ----------------------------------------------------------------
   describe('retainHistory: false', () => {

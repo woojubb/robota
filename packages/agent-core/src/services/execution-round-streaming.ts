@@ -83,6 +83,9 @@ export async function callRoundProviderWithEvents(
         signal: fullContext.signal,
         onTextDelta: wrappedOnTextDelta,
         onProviderNativeRawPayload: wrappedOnProviderNativeRawPayload,
+        // CORE-016: run-scoped model option overrides win over defaultModel.
+        ...(fullContext.maxTokens !== undefined && { maxTokens: fullContext.maxTokens }),
+        ...(fullContext.temperature !== undefined && { temperature: fullContext.temperature }),
       },
     );
     fullContext.onExecutionEvent?.('provider_response_raw', {

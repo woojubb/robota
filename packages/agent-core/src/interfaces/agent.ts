@@ -187,7 +187,9 @@ export interface IAgentTemplate {
  * Agent run options - type-safe interface for all agent execution options
  */
 export interface IRunOptions {
+  /** Run-scoped temperature override — wins over `defaultModel.temperature` (CORE-016). */
   temperature?: number;
+  /** Run-scoped max output tokens override — wins over `defaultModel.maxTokens` (CORE-016). */
   maxTokens?: number;
   stream?: boolean;
   toolChoice?: 'auto' | 'none' | string;
