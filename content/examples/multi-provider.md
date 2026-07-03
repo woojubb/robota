@@ -21,7 +21,7 @@ const agent = new Robota({
       defaultModel: 'deepseek-v4-flash',
     }),
     new GeminiProvider({
-      apiKey: process.env.GEMINI_API_KEY,
+      apiKey: process.env.GEMINI_API_KEY!,
       defaultModel: 'gemini-3-flash-preview',
     }),
     new GemmaProvider({
@@ -37,8 +37,8 @@ const agent = new Robota({
   defaultModel: {
     provider: 'anthropic',
     model: 'claude-sonnet-4-6',
-    systemMessage: 'You are a helpful assistant.',
   },
+  systemMessage: 'You are a helpful assistant.',
 });
 
 // Start with Claude

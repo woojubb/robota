@@ -4,6 +4,8 @@ Real-time bidirectional communication with InteractiveSession.
 
 ## Basic Setup
 
+<!-- doc-example-skip: requires the host app's ws dependency -->
+
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-framework';
 import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
@@ -52,6 +54,8 @@ wss.on('connection', async (ws) => {
 ## Advanced: Direct Handler
 
 For more control, use `createWsHandler` directly:
+
+<!-- doc-example-skip: continues the ws server example above (requires the host app's ws dependency) -->
 
 ```typescript
 import { createWsHandler } from '@robota-sdk/agent-transport-ws';

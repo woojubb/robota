@@ -21,8 +21,8 @@ const agent = new Robota({
   defaultModel: {
     provider: 'anthropic',
     model: 'claude-sonnet-4-6',
-    systemMessage: 'You are a creative writer.',
   },
+  systemMessage: 'You are a creative writer.',
 });
 
 // Text appears in real-time via onTextDelta
@@ -36,6 +36,9 @@ console.log(response);
 
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-framework';
+import type { IAIProvider } from '@robota-sdk/agent-core';
+
+declare const provider: IAIProvider;
 
 const session = new InteractiveSession({
   cwd: process.cwd(),

@@ -70,6 +70,8 @@ const provider = new AnthropicProvider({
 
 ### With a pre-built client
 
+<!-- doc-example-skip: imports the external `@anthropic-ai/sdk` package, which consumers install themselves -->
+
 ```typescript
 import Anthropic from '@anthropic-ai/sdk';
 import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
@@ -145,6 +147,8 @@ default `apiSurface` to `chat-completions` for endpoint compatibility.
 ### JSON output
 
 ```typescript
+import { OpenAIProvider } from '@robota-sdk/agent-provider/openai';
+
 const provider = new OpenAIProvider({
   apiKey: process.env.OPENAI_API_KEY!,
   responseFormat: 'json_object',
@@ -154,6 +158,8 @@ const provider = new OpenAIProvider({
 ### o-series reasoning
 
 ```typescript
+import { OpenAIProvider } from '@robota-sdk/agent-provider/openai';
+
 const provider = new OpenAIProvider({
   apiKey: process.env.OPENAI_API_KEY!,
   reasoning: { effort: 'high', summary: 'auto' },
@@ -311,6 +317,8 @@ const provider = new QwenProvider({
 ### Native web tools
 
 ```typescript
+import { QwenProvider } from '@robota-sdk/agent-provider/qwen';
+
 const provider = new QwenProvider({
   apiKey: process.env.DASHSCOPE_API_KEY!,
   builtInWebTools: { webSearch: true, webFetch: true },
@@ -361,6 +369,8 @@ const provider = new GemmaProvider({
 ### LM Studio
 
 ```typescript
+import { GemmaProvider } from '@robota-sdk/agent-provider/gemma';
+
 const provider = new GemmaProvider({
   apiKey: 'lm-studio',
   baseURL: 'http://localhost:1234/v1',
@@ -394,8 +404,8 @@ const agent = new Robota({
   defaultModel: {
     provider: 'anthropic',
     model: 'claude-sonnet-4-6',
-    systemMessage: 'You are a helpful assistant.',
   },
+  systemMessage: 'You are a helpful assistant.',
 });
 
 // Use default provider

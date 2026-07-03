@@ -132,8 +132,8 @@ const agent = new Robota({
   defaultModel: {
     provider: 'anthropic',
     model: 'claude-sonnet-4-6',
-    systemMessage: 'You are a helpful assistant.',
   },
+  systemMessage: 'You are a helpful assistant.',
 });
 
 const response = await agent.run('Explain TypeScript generics.');
@@ -155,6 +155,7 @@ const response = await query('List all TypeScript files in src/');
 ### Switch Providers — No Code Changes
 
 ```typescript
+import { Robota } from '@robota-sdk/agent-core';
 import { OpenAIProvider } from '@robota-sdk/agent-provider/openai';
 import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 

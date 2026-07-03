@@ -44,6 +44,8 @@ const answer = await query('What files are in the project?');
 
 With custom tools:
 
+<!-- doc-example-skip: fragment — elided parameters object -->
+
 ```typescript
 import { createFunctionTool } from '@robota-sdk/agent-tools';
 
@@ -64,6 +66,9 @@ Use when you need real-time text streaming or tool execution events.
 
 ```typescript
 import { createAgentRuntime } from '@robota-sdk/agent-framework';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+
+declare const apiKey: string;
 
 const runtime = createAgentRuntime({
   cwd: process.cwd(),
@@ -109,6 +114,13 @@ export async function POST(request: Request): Promise<Response> {
 `additionalTools` is available on `createSession`:
 
 ```typescript
+import type { IAgentRuntime } from '@robota-sdk/agent-framework';
+import type { IToolWithEventService } from '@robota-sdk/agent-core';
+
+declare const runtime: IAgentRuntime;
+declare const calculatorTool: IToolWithEventService;
+declare const dbLookupTool: IToolWithEventService;
+
 const session = runtime.createSession({
   permissionMode: 'bypassPermissions',
   bare: true,
@@ -116,7 +128,7 @@ const session = runtime.createSession({
 });
 
 session.on('tool_start', ({ toolName }) => console.log('calling', toolName));
-session.on('tool_end', ({ toolName, success }) => console.log('done', toolName, success));
+session.on('tool_end', ({ toolName, result }) => console.log('done', toolName, result));
 session.on('complete', (result) => console.log(result.response));
 
 await session.submit('What is 10% of our Q4 revenue?');
@@ -130,6 +142,9 @@ to continue the same conversation across requests.
 ```typescript
 import { createAgentRuntime } from '@robota-sdk/agent-framework';
 import { createProjectSessionStore } from '@robota-sdk/agent-framework';
+import type { IAIProvider } from '@robota-sdk/agent-core';
+
+declare const provider: IAIProvider;
 
 const runtime = createAgentRuntime({
   cwd: process.cwd(),
@@ -150,7 +165,7 @@ async function handleMessage(channelId: string, text: string): Promise<string> {
   return new Promise<string>((resolve) => {
     session.on('complete', (result) => {
       // Save the session ID for next message
-      const id = result.sessionId;
+      const id = session.sessionId;
       if (id) sessions.set(channelId, id);
       resolve(result.response);
     });
@@ -166,6 +181,9 @@ is restricted or undesirable.
 
 ```typescript
 import { createStatelessRuntime } from '@robota-sdk/agent-framework';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+
+declare const apiKey: string;
 
 const runtime = createStatelessRuntime({
   provider: new AnthropicProvider({ apiKey }),
@@ -186,6 +204,10 @@ export const handler = async (event: { prompt: string }) => {
 per-session if you need context loading:
 
 ```typescript
+import type { IAgentRuntime } from '@robota-sdk/agent-framework';
+
+declare const runtime: IAgentRuntime;
+
 runtime.createSession({ bare: false, permissionMode: 'bypassPermissions' });
 ```
 
@@ -207,6 +229,11 @@ Always call `session.shutdown()` when done to release internal timers and cleanu
 background tracking:
 
 ```typescript
+import type { IAgentRuntime } from '@robota-sdk/agent-framework';
+
+declare const runtime: IAgentRuntime;
+declare const prompt: string;
+
 const session = runtime.createSession({ permissionMode: 'bypassPermissions' });
 try {
   await new Promise<void>((resolve, reject) => {
@@ -228,6 +255,11 @@ pass `responseFormat: { type: 'json_object' }`. This is wired end-to-end from th
 through to the provider's native JSON mode.
 
 ```typescript
+import { createQuery } from '@robota-sdk/agent-framework';
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+
+declare const apiKey: string;
+
 const query = createQuery({
   provider: new AnthropicProvider({ apiKey }),
   responseFormat: { type: 'json_object' },
@@ -241,6 +273,10 @@ const result = JSON.parse(raw);
 Works with `createSession` and `createAgentRuntime.createSession` too:
 
 ```typescript
+import type { IAgentRuntime } from '@robota-sdk/agent-framework';
+
+declare const runtime: IAgentRuntime;
+
 const session = runtime.createSession({
   permissionMode: 'bypassPermissions',
   bare: true,
@@ -256,6 +292,8 @@ capabilities before relying on machine-parseable output.
 
 `createAgentRuntime` sessions map naturally to WebSocket connections — one session
 per connection, events forwarded as JSON messages.
+
+<!-- doc-example-skip: imports the external `ws` package, which is not a workspace dependency -->
 
 ```typescript
 import { WebSocketServer } from 'ws';
@@ -332,6 +370,10 @@ For rate-limited providers, chunk the array and process sequentially or with a c
 Configure provider-level retry via the provider options:
 
 ```typescript
+import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+
+declare const apiKey: string;
+
 const provider = new AnthropicProvider({
   apiKey,
   maxRetries: 3, // retry up to 3 times on 429 / 529
@@ -350,6 +392,11 @@ each `submit` call if the context is full.
 Calling `session.submit()` after `session.shutdown()` throws. Guard with a flag:
 
 ```typescript
+import type { InteractiveSession } from '@robota-sdk/agent-framework';
+
+declare const session: InteractiveSession;
+declare const nextPrompt: string;
+
 let alive = true;
 
 session.on('complete', async () => {

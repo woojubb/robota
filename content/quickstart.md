@@ -83,6 +83,7 @@ Swap `createAnthropicProvider` with any other supported provider — no other co
 OpenAI is constructed directly via its provider class:
 
 ```typescript
+import { createQuery } from '@robota-sdk/agent-framework';
 import { OpenAIProvider } from '@robota-sdk/agent-provider';
 
 const query = createQuery({
@@ -97,6 +98,7 @@ gateway's `baseURL` and a gateway model slug — non-OpenAI models included. Str
 calling work first-try over the same protocol:
 
 ```typescript
+import { createQuery } from '@robota-sdk/agent-framework';
 import { OpenAIProvider } from '@robota-sdk/agent-provider';
 
 const query = createQuery({

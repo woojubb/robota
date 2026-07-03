@@ -8,6 +8,9 @@ This guide covers building AI agents with `@robota-sdk/agent-core` — the found
 
 ```typescript
 import { Robota } from '@robota-sdk/agent-core';
+import type { IAIProvider } from '@robota-sdk/agent-core';
+
+declare const provider: IAIProvider;
 
 const agent = new Robota({
   name: 'MyAgent',
@@ -15,8 +18,8 @@ const agent = new Robota({
   defaultModel: {
     provider: 'anthropic',
     model: 'claude-sonnet-4-6',
-    systemMessage: 'You are a helpful assistant.',
   },
+  systemMessage: 'You are a helpful assistant.',
 });
 
 const response = await agent.run('Hello!');
@@ -77,7 +80,7 @@ const provider = new OpenAIProvider({
 import { GeminiProvider } from '@robota-sdk/agent-provider/gemini';
 
 const provider = new GeminiProvider({
-  apiKey: process.env.GEMINI_API_KEY,
+  apiKey: process.env.GEMINI_API_KEY!,
   defaultModel: 'gemini-3-flash-preview',
 });
 ```
@@ -131,6 +134,16 @@ profile options can enable thinking controls such as `thinking: 'enabled'` and
 ### Switching Providers
 
 ```typescript
+import { Robota } from '@robota-sdk/agent-core';
+import type { IAIProvider } from '@robota-sdk/agent-core';
+
+declare const anthropicProvider: IAIProvider;
+declare const openaiProvider: IAIProvider;
+declare const geminiProvider: IAIProvider;
+declare const gemmaProvider: IAIProvider;
+declare const qwenProvider: IAIProvider;
+declare const deepSeekProvider: IAIProvider;
+
 const agent = new Robota({
   name: 'FlexAgent',
   aiProviders: [
@@ -162,6 +175,9 @@ Tools let agents call functions during a conversation. The agent decides when to
 ```typescript
 import { createZodFunctionTool } from '@robota-sdk/agent-tools';
 import { z } from 'zod';
+
+// Any glob implementation works here (e.g. the `glob` npm package)
+declare function glob(pattern: string, options?: { cwd?: string }): Promise<string[]>;
 
 const searchTool = createZodFunctionTool(
   'search_files',
@@ -204,6 +220,14 @@ const timeTool = new FunctionTool(
 ### Registering Tools with an Agent
 
 ```typescript
+import { Robota } from '@robota-sdk/agent-core';
+import type { IAIProvider } from '@robota-sdk/agent-core';
+import type { FunctionTool } from '@robota-sdk/agent-tools';
+
+declare const provider: IAIProvider;
+declare const searchTool: FunctionTool;
+declare const timeTool: FunctionTool;
+
 const agent = new Robota({
   name: 'ToolAgent',
   aiProviders: [provider],
@@ -246,7 +270,10 @@ returned text may be empty.
 ```typescript
 import { z } from 'zod';
 import { Robota } from '@robota-sdk/agent-core';
+import type { IAIProvider } from '@robota-sdk/agent-core';
 import { createZodFunctionTool } from '@robota-sdk/agent-tools';
+
+declare const provider: IAIProvider;
 
 let decision: string | undefined;
 const routeTool = createZodFunctionTool(
@@ -283,6 +310,9 @@ Plugins hook into the agent lifecycle to add cross-cutting concerns.
 
 ```typescript
 import { Robota, EventEmitterPlugin } from '@robota-sdk/agent-core';
+import type { IAIProvider } from '@robota-sdk/agent-core';
+
+declare const provider: IAIProvider;
 
 const agent = new Robota({
   name: 'PluginAgent',
@@ -327,8 +357,8 @@ class MyPlugin extends AbstractPlugin {
   name = 'my-plugin';
   version = '1.0.0';
 
-  async afterRun(context) {
-    console.log(`Agent responded with ${context.response.length} characters`);
+  async afterRun(input: string, response: string): Promise<void> {
+    console.log(`Agent responded with ${response.length} characters`);
   }
 }
 ```
@@ -338,6 +368,11 @@ class MyPlugin extends AbstractPlugin {
 ### Text Delta Streaming
 
 ```typescript
+import { Robota } from '@robota-sdk/agent-core';
+import type { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+
+declare const provider: AnthropicProvider;
+
 const agent = new Robota({
   name: 'StreamAgent',
   aiProviders: [provider],
@@ -356,9 +391,12 @@ const response = await agent.run('Write a poem about coding');
 Robota maintains conversation history across `run()` calls. Every message has a unique `id` and a `state` (`'complete'` or `'interrupted'`).
 
 ```typescript
-const agent = new Robota({
-  /* config */
-});
+import { Robota } from '@robota-sdk/agent-core';
+import type { IAgentConfig } from '@robota-sdk/agent-core';
+
+declare const config: IAgentConfig;
+
+const agent = new Robota(config);
 
 await agent.run('My name is Alice.');
 const response = await agent.run('What is my name?');
@@ -390,6 +428,11 @@ provider on every call** — token cost grows with every turn until you act:
   need — `createQuery` (agent-framework) is the larger assembly that adds CLI tools and permissions.
 
 ```typescript
+import { Robota } from '@robota-sdk/agent-core';
+import type { IAIProvider } from '@robota-sdk/agent-core';
+
+declare const provider: IAIProvider;
+
 const stateless = new Robota({
   name: 'Coordinator',
   aiProviders: [provider],
@@ -435,6 +478,10 @@ rounds within one `run()` — it is not a tool-count limit and not a conversatio
 per run or as a config default; `0` means no cap.
 
 ```typescript
+import type { Robota } from '@robota-sdk/agent-core';
+
+declare const agent: Robota;
+
 await agent.run('Research this topic and summarize.', { maxExecutionRounds: 5 });
 ```
 
@@ -454,6 +501,10 @@ even if an earlier one fails; failures are logged and returned as
 `Promise<{ errors: Error[] }>` for callers that want a hard signal:
 
 ```typescript
+import type { Robota } from '@robota-sdk/agent-core';
+
+declare const agent: Robota;
+
 const { errors } = await agent.destroy();
 if (errors.length > 0) {
   // cleanup failures — already logged; decide whether to alert
@@ -469,6 +520,9 @@ All errors extend `RobotaError` with `code`, `category`, and `recoverable` prope
 
 ```typescript
 import { ProviderError, RateLimitError } from '@robota-sdk/agent-core';
+import type { Robota } from '@robota-sdk/agent-core';
+
+declare const agent: Robota;
 
 try {
   const response = await agent.run('Hello');

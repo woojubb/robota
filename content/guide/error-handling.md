@@ -204,6 +204,10 @@ You can use `ErrorUtils.isRecoverable(error)` instead of an `instanceof` check i
 want a single condition that covers all recoverable error classes:
 
 ```typescript
+import { ErrorUtils } from '@robota-sdk/agent-core';
+
+declare const error: unknown;
+
 if (error instanceof Error && ErrorUtils.isRecoverable(error)) {
   // safe to retry
 }
@@ -276,6 +280,8 @@ In the interactive TUI a failed turn is surfaced, never swallowed and never fata
 with no listener throws an uncaught exception and crashes the process.
 
 **Always attach the `error` listener before calling `submit()`:**
+
+<!-- doc-example-skip: fragment — bad/good pattern contrast with elided options -->
 
 ```typescript
 // BAD — if 'error' fires before .on('error') is attached the process crashes

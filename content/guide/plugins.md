@@ -78,6 +78,8 @@ export class MyPlugin extends AbstractPlugin<IMyPluginOptions, IMyPluginStats> {
 
 ### Register with Robota
 
+<!-- doc-example-skip: imports the local my-plugin.js module defined in the previous example -->
+
 ```typescript
 import { Robota } from '@robota-sdk/agent-core';
 import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
@@ -96,6 +98,8 @@ const agent = new Robota({
 ## AbstractPlugin Lifecycle Hooks
 
 Override any of these optional methods in your plugin:
+
+<!-- doc-example-skip: hook signature listing, not runnable code -->
 
 ```typescript
 // Before the agent processes a message
@@ -121,6 +125,8 @@ cleanup(): Promise<void>
 
 `AbstractPlugin` tracks basic stats automatically. Use these protected helpers and fields:
 
+<!-- doc-example-skip: protected-member fragment inside a plugin class body, not runnable code -->
+
 ```typescript
 this.updateCallStats(); // increments this.stats.calls
 this.updateErrorStats(); // increments this.stats.errors
@@ -136,7 +142,10 @@ this.stats.lastActivity; // Date of last call
 For simpler use cases, subscribe to named events without subclassing:
 
 ```typescript
-import { EventEmitterPlugin, EVENT_EMITTER_EVENTS } from '@robota-sdk/agent-core';
+import { Robota, EventEmitterPlugin, EVENT_EMITTER_EVENTS } from '@robota-sdk/agent-core';
+import type { IAIProvider } from '@robota-sdk/agent-core';
+
+declare const provider: IAIProvider;
 
 const events = new EventEmitterPlugin();
 
@@ -154,7 +163,9 @@ events.on(EVENT_EMITTER_EVENTS.EXECUTION_COMPLETE, (data) => {
 });
 
 const agent = new Robota({
-  // ...
+  name: 'EventAgent',
+  aiProviders: [provider],
+  defaultModel: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
   plugins: [events],
 });
 ```
@@ -292,6 +303,8 @@ Community plugins should follow the naming convention:
 ```
 
 ### Testing your plugin
+
+<!-- doc-example-skip: imports the local my-plugin.js module defined in the earlier example -->
 
 ```typescript
 import { describe, it, expect, vi } from 'vitest';
