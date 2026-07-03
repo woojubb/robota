@@ -34,6 +34,23 @@ The agent must stop and present options to the user when ANY of the following ho
 - The decision changes a published or externally visible contract.
 - The decision requires business, legal, or strategic judgment (e.g., telemetry opt-in consent,
   third-party service selection).
+- The change introduces a practice this repository has not used before — a new workflow, tooling
+  convention, file-placement pattern, or verification approach with no existing rule, skill, or
+  precedent to point to.
+- The change touches repository-wide policy files — lint configuration (`.eslintrc*`), CI
+  workflows (`.github/workflows/`), git hooks, or workspace topology (root directories,
+  `pnpm-workspace.yaml`, root `package.json` scripts) — even when the change is bundled inside an
+  already-approved backlog. Backlog approval covers the backlog's stated scope, not policy files
+  it happens to pass through. Backlog wording such as "consider adding X" authorizes evaluation
+  and a recommendation, not the change itself.
+- The change edits, moves, or deletes a user-authored document (a file the user personally wrote,
+  e.g. reports or notes under `.design/`), unless the user has already given disposition for that
+  document.
+
+**Disclosure is not approval.** Mentioning a policy-file change or novel practice in a PR
+description, commit message, or backlog note does not substitute for asking first. Approval must
+be obtained before the change lands (2026-07-03 trust audit: three such changes shipped with
+PR-body disclosure only; all required retroactive review).
 
 **Never write "사용자 결정 필요" without first presenting a concrete recommendation.** Every
 open decision in a backlog item must include the agent's recommendation and the reasoning behind it.
