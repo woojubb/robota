@@ -9,7 +9,11 @@ import {
   ValidationError,
 } from '@robota-sdk/agent-core';
 
-import { convertToAnthropicFormat, convertToolsToAnthropicFormat } from './message-converter';
+import {
+  convertToAnthropicFormat,
+  convertToolsToAnthropicFormat,
+  toAnthropicToolChoice,
+} from './message-converter';
 import { streamAndAssemble } from './streaming-handler';
 
 import type { IAnthropicProviderOptions } from './types';
@@ -131,6 +135,10 @@ export class AnthropicProvider extends AbstractAIProvider {
       ...(systemPrompt && { system: systemPrompt }),
       ...(options?.temperature !== undefined && { temperature: options.temperature }),
       ...(allTools.length > 0 && { tools: allTools }),
+      ...(allTools.length > 0 &&
+        options?.toolChoice !== undefined && {
+          tool_choice: toAnthropicToolChoice(options.toolChoice),
+        }),
       ...buildOutputConfig(options),
     };
 
@@ -215,6 +223,9 @@ export class AnthropicProvider extends AbstractAIProvider {
 
     if (allTools.length > 0) {
       requestParams.tools = allTools;
+      if (options?.toolChoice !== undefined) {
+        requestParams.tool_choice = toAnthropicToolChoice(options.toolChoice);
+      }
     }
 
     options?.onProviderNativeRawPayload?.({

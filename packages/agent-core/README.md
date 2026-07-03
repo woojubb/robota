@@ -110,6 +110,39 @@ console.log(streamedReport.title);
 
 A raw JSON-schema wrapper is also accepted: `{ output: { jsonSchema: { type: 'object', properties: { answer: { type: 'string' } }, required: ['answer'] } } }`.
 
+### Model Options per Run
+
+`run`/`runStream` accept run-scoped model options that win over `defaultModel.*`:
+`maxTokens`, `temperature`, and `toolChoice`. `toolChoice` directs tool invocation —
+`'auto'` (model decides), `'none'` (suppress tool calls), `'required'` (must call some
+tool), or `{ tool: name }` (must call the named tool). A named tool missing from the run's
+tool list throws immediately; nothing is silently ignored. Forcing directives apply to the
+run's first model call only — rounds after tool results revert to `'auto'` so the model can
+consume the results and finish.
+
+```typescript
+import { Robota } from '@robota-sdk/agent-core';
+import type { IAgentConfig } from '@robota-sdk/agent-core';
+
+declare const config: IAgentConfig;
+const agent = new Robota(config);
+
+// Force the model to answer via the router tool (decision-agent pattern)
+const decision = await agent.run('Route this request.', {
+  toolChoice: { tool: 'route-request' },
+  allowToolOnlyCompletion: true,
+});
+
+// Suppress tools for a plain-text turn, capped at 100 output tokens
+const summary = await agent.run('Summarize the discussion.', {
+  toolChoice: 'none',
+  maxTokens: 100,
+});
+console.log(decision, summary);
+```
+
+The same directive can be set agent-wide via `defaultModel.toolChoice`.
+
 ### Execution Boundary Events
 
 `run()` accepts `onExecutionEvent` in run options. The execution loop emits provider-neutral events that higher layers can persist as append-only session provenance:

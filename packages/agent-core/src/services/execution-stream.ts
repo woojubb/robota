@@ -1,4 +1,4 @@
-import { buildChatResponseFormat } from './execution-service-helpers';
+import { assertToolChoiceValid, buildChatResponseFormat } from './execution-service-helpers';
 import { executeStreamToolCalls } from './execution-stream-tools';
 import { callPluginHook } from './plugin-hook-dispatcher';
 import { ConfigurationError } from '../utils/errors';
@@ -119,21 +119,24 @@ export async function* executeStream(
       hasTools: config.tools && config.tools.length > 0,
     });
 
-    // CORE-016: the streaming path must carry the same model options as the round path —
+    // CORE-016/017: the streaming path must carry the same model options as the round path —
     // defaultModel values first, run-scoped context overrides win.
     const maxTokens = context?.maxTokens ?? config.defaultModel.maxTokens;
     const temperature = context?.temperature ?? config.defaultModel.temperature;
+    const toolChoice = context?.toolChoice ?? config.defaultModel.toolChoice;
     const chatOptions: IChatOptions = {
       model: config.defaultModel.model,
       effort: config.defaultModel.effort ?? 'high',
       ...(maxTokens !== undefined && { maxTokens }),
       ...(temperature !== undefined && { temperature }),
+      ...(toolChoice !== undefined && { toolChoice }),
       ...(config.tools && config.tools.length > 0 && { tools: tools.getTools() }),
       ...(() => {
         const responseFormat = buildChatResponseFormat(config.responseFormat);
         return responseFormat ? { responseFormat } : {};
       })(),
     };
+    assertToolChoiceValid(chatOptions.toolChoice, chatOptions.tools);
 
     logger.debug('[EXECUTION-SERVICE] Final chatOptions has tools:', {
       hasTools: !!chatOptions.tools,

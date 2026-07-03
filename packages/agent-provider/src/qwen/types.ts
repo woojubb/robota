@@ -63,6 +63,7 @@ export interface IQwenResponsesRequestBase {
   model: string;
   input: TQwenResponsesInputItem[];
   tools?: TQwenResponsesTool[];
+  tool_choice?: OpenAI.Responses.ResponseCreateParams['tool_choice'];
   temperature?: number;
   max_output_tokens?: number;
   enable_thinking?: boolean;

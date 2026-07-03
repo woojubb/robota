@@ -20,7 +20,7 @@ import type {
 import type { IAIProviderManager } from '../interfaces/manager';
 import type { IToolManager } from '../interfaces/manager';
 import type { TUniversalMessage } from '../interfaces/messages';
-import type { IChatOptions } from '../interfaces/provider';
+import type { IChatOptions, IToolSchema, TToolChoice } from '../interfaces/provider';
 import type { ILogger } from '../utils/logger';
 
 /**
@@ -44,6 +44,53 @@ export function buildChatResponseFormat(
     };
   }
   return { type: responseFormat.type };
+}
+
+/**
+ * Resolve the effective tool-invocation directive for a given execution round (CORE-017).
+ * Forcing directives (`'required'` / `{ tool }`) apply to the run's FIRST model call only;
+ * follow-up rounds (after tool results) revert to `'auto'` so the model can consume the
+ * results and finish — a persistent force would re-trigger the tool every round and the run
+ * could never produce a final answer. `'auto'`/`'none'` persist across rounds.
+ */
+export function resolveToolChoiceForRound(
+  toolChoice: TToolChoice | undefined,
+  round: number,
+): TToolChoice | undefined {
+  if (toolChoice === undefined || round <= 1) {
+    return toolChoice;
+  }
+  if (toolChoice === 'required' || typeof toolChoice === 'object') {
+    return 'auto';
+  }
+  return toolChoice;
+}
+
+/**
+ * Validate a tool-invocation directive against the invocation's tool list (CORE-017).
+ * Forcing semantics (`'required'` / `{ tool: name }`) demand tools to force — a missing
+ * tool list or an unknown name is a caller contract violation and throws immediately.
+ */
+export function assertToolChoiceValid(
+  toolChoice: TToolChoice | undefined,
+  tools: IToolSchema[] | undefined,
+): void {
+  if (toolChoice === undefined || toolChoice === 'auto' || toolChoice === 'none') {
+    return;
+  }
+  const names = (tools ?? []).map((tool) => tool.name);
+  if (toolChoice === 'required') {
+    if (names.length === 0) {
+      throw new Error("toolChoice 'required' needs at least one tool, but the run has none.");
+    }
+    return;
+  }
+  if (!names.includes(toolChoice.tool)) {
+    throw new Error(
+      `toolChoice requests tool "${toolChoice.tool}" which is not available for this run. ` +
+        `Available tools: ${names.length > 0 ? names.join(', ') : '(none)'}`,
+    );
+  }
 }
 
 /**
@@ -303,6 +350,7 @@ export function buildFullExecutionContext(
     }),
     ...(context?.maxTokens !== undefined && { maxTokens: context.maxTokens }),
     ...(context?.temperature !== undefined && { temperature: context.temperature }),
+    ...(context?.toolChoice !== undefined && { toolChoice: context.toolChoice }),
   };
 }
 

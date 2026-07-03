@@ -519,6 +519,174 @@ describe('Robota Core', () => {
   });
 
   // ----------------------------------------------------------------
+  // Tool-choice threading (CORE-017)
+  // ----------------------------------------------------------------
+  describe('toolChoice threading', () => {
+    it('run(): defaultModel.toolChoice reaches the provider request', async () => {
+      const provider = new TrackingProvider();
+      const robota = new Robota(
+        createConfig({
+          aiProviders: [provider],
+          tools: [new TrackingTool()],
+          defaultModel: {
+            provider: 'tracking-provider',
+            model: 'test-model',
+            toolChoice: 'none',
+          },
+        }),
+      );
+
+      await robota.run('hello');
+
+      expect(provider.chatCalls[0].options?.toolChoice).toBe('none');
+    });
+
+    it('run(): per-run toolChoice overrides defaultModel', async () => {
+      const provider = new TrackingProvider();
+      const robota = new Robota(
+        createConfig({
+          aiProviders: [provider],
+          tools: [new TrackingTool()],
+          defaultModel: {
+            provider: 'tracking-provider',
+            model: 'test-model',
+            toolChoice: 'none',
+          },
+        }),
+      );
+
+      await robota.run('hello', { toolChoice: { tool: 'tracking-tool' } });
+
+      expect(provider.chatCalls[0].options?.toolChoice).toEqual({ tool: 'tracking-tool' });
+    });
+
+    it('runStream(): defaultModel.toolChoice reaches the provider request', async () => {
+      const provider = new TrackingProvider();
+      const robota = new Robota(
+        createConfig({
+          aiProviders: [provider],
+          tools: [new TrackingTool()],
+          defaultModel: {
+            provider: 'tracking-provider',
+            model: 'test-model',
+            toolChoice: 'required',
+          },
+        }),
+      );
+
+      for await (const _chunk of robota.runStream('hello')) {
+        // consume
+      }
+
+      expect(provider.chatCalls[0].options?.toolChoice).toBe('required');
+    });
+
+    it('runStream(): per-run toolChoice overrides defaultModel', async () => {
+      const provider = new TrackingProvider();
+      const robota = new Robota(
+        createConfig({
+          aiProviders: [provider],
+          tools: [new TrackingTool()],
+          defaultModel: {
+            provider: 'tracking-provider',
+            model: 'test-model',
+            toolChoice: 'required',
+          },
+        }),
+      );
+
+      for await (const _chunk of robota.runStream('hello', { toolChoice: 'none' })) {
+        // consume
+      }
+
+      expect(provider.chatCalls[0].options?.toolChoice).toBe('none');
+    });
+
+    it('run(): a named toolChoice missing from the tool list throws (no silent ignore)', async () => {
+      const provider = new TrackingProvider();
+      const robota = new Robota(
+        createConfig({ aiProviders: [provider], tools: [new TrackingTool()] }),
+      );
+
+      await expect(robota.run('hello', { toolChoice: { tool: 'missing-tool' } })).rejects.toThrow(
+        /missing-tool/,
+      );
+      expect(provider.chatCalls).toHaveLength(0);
+    });
+
+    it("run(): toolChoice 'required' with no tools throws", async () => {
+      const provider = new TrackingProvider();
+      const robota = new Robota(createConfig({ aiProviders: [provider] }));
+
+      await expect(robota.run('hello', { toolChoice: 'required' })).rejects.toThrow(
+        /needs at least one tool/,
+      );
+      expect(provider.chatCalls).toHaveLength(0);
+    });
+
+    it('runStream(): a named toolChoice missing from the tool list throws', async () => {
+      const provider = new TrackingProvider();
+      const robota = new Robota(
+        createConfig({ aiProviders: [provider], tools: [new TrackingTool()] }),
+      );
+
+      await expect(async () => {
+        for await (const _chunk of robota.runStream('hello', {
+          toolChoice: { tool: 'missing-tool' },
+        })) {
+          // consume
+        }
+      }).rejects.toThrow(/missing-tool/);
+      expect(provider.chatCalls).toHaveLength(0);
+    });
+
+    it("run(): a forced named tool applies to round 1 only — round 2 reverts to 'auto'", async () => {
+      // Provider that requests the tool on the first call, then answers in prose.
+      class ToolOnceProvider extends TrackingProvider {
+        override async chat(
+          messages: TUniversalMessage[],
+          options?: IChatOptions,
+        ): Promise<TUniversalMessage> {
+          this.chatCalls.push({ messages, options });
+          if (this.chatCalls.length === 1) {
+            return {
+              id: 'tool-call-round',
+              role: 'assistant',
+              content: '',
+              toolCalls: [
+                {
+                  id: 'call-1',
+                  type: 'function',
+                  function: { name: 'tracking-tool', arguments: '{"query":"q"}' },
+                },
+              ],
+              state: 'complete' as const,
+              timestamp: new Date(),
+            };
+          }
+          return {
+            id: 'final',
+            role: 'assistant',
+            content: 'done',
+            state: 'complete' as const,
+            timestamp: new Date(),
+          };
+        }
+      }
+      const provider = new ToolOnceProvider();
+      const robota = new Robota(
+        createConfig({ aiProviders: [provider], tools: [new TrackingTool()] }),
+      );
+
+      await robota.run('hello', { toolChoice: { tool: 'tracking-tool' } });
+
+      expect(provider.chatCalls.length).toBeGreaterThanOrEqual(2);
+      expect(provider.chatCalls[0].options?.toolChoice).toEqual({ tool: 'tracking-tool' });
+      expect(provider.chatCalls[1].options?.toolChoice).toBe('auto');
+    });
+  });
+
+  // ----------------------------------------------------------------
   // Run-isolated (stateless) mode (CORE-014)
   // ----------------------------------------------------------------
   describe('retainHistory: false', () => {

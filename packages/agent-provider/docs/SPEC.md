@@ -126,6 +126,22 @@ the framework→provider seam). Each provider's request builder handles it as fo
 No-op providers must never throw on a populated `effort`; they simply omit it from the
 outgoing request so an effort-setting preset degrades gracefully.
 
+## Tool Choice (per-call)
+
+The framework threads a per-call tool-invocation directive through `IChatOptions.toolChoice`
+(`TToolChoice` = `'auto' | 'none' | 'required' | { tool: name }`; agent-core validates named
+directives against the run's tool list before the provider is called). Every chat adapter
+maps it onto its wire format when tools are present; an unset directive keeps the wire
+default (`'auto'` for OpenAI-shaped surfaces, parameter omitted for Anthropic/Gemini/Qwen
+Responses):
+
+| Provider surface                                             | Wire mapping                                                                                                        |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
+| OpenAI Chat Completions + compatible (Qwen, DeepSeek, Gemma) | `tool_choice`: `'auto'` / `'none'` / `'required'` / `{ type: 'function', function: { name } }` (shared mapper)      |
+| OpenAI Responses (+ Qwen Responses)                          | `tool_choice`: `'auto'` / `'none'` / `'required'` / flat `{ type: 'function', name }`                               |
+| Anthropic                                                    | `tool_choice`: `{ type: 'auto' }` / `{ type: 'none' }` / `{ type: 'any' }` (required) / `{ type: 'tool', name }`    |
+| Gemini (Google inherits)                                     | `toolConfig.functionCallingConfig`: mode `AUTO` / `NONE` / `ANY` (required); named = `ANY` + `allowedFunctionNames` |
+
 ## Dependencies
 
 | Package                  | Role                                                                  |

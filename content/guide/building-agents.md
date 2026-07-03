@@ -295,9 +295,16 @@ const router = new Robota({
 
 await router.run('Ticket: "I was charged twice this month."', {
   allowToolOnlyCompletion: true,
+  toolChoice: { tool: 'route' },
 });
 // decision === 'billing' — no summary call was made
 ```
+
+`toolChoice` directs tool invocation per run (or agent-wide via `defaultModel.toolChoice`):
+`'auto'` lets the model decide, `'none'` suppresses tool calls, `'required'` forces some
+tool call, and `{ tool: name }` forces the named tool — here it guarantees the router
+actually routes instead of replying in prose. Forcing applies to the run's first model call
+only; follow-up rounds revert to `'auto'` so the model can consume tool results and finish.
 
 For a fixed-schema JSON answer (rather than a routing decision), prefer structured output:
 `run(prompt, { output: schema })` returns a validated typed object directly.

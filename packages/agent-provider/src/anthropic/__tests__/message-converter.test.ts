@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { TUniversalMessage } from '@robota-sdk/agent-core';
-import { convertToAnthropicFormat } from '../message-converter';
+import { convertToAnthropicFormat, toAnthropicToolChoice } from '../message-converter';
 
 describe('convertToAnthropicFormat', () => {
   it('converts plain text user message', () => {
@@ -77,5 +77,23 @@ describe('convertToAnthropicFormat', () => {
     ];
     const result = convertToAnthropicFormat(messages);
     expect(result[0].content).toBe('no parts');
+  });
+});
+
+describe('toAnthropicToolChoice (CORE-017)', () => {
+  it('maps auto/none to the typed Anthropic shapes', () => {
+    expect(toAnthropicToolChoice('auto')).toEqual({ type: 'auto' });
+    expect(toAnthropicToolChoice('none')).toEqual({ type: 'none' });
+  });
+
+  it("maps 'required' to Anthropic's { type: 'any' }", () => {
+    expect(toAnthropicToolChoice('required')).toEqual({ type: 'any' });
+  });
+
+  it('maps a named directive to { type: tool, name }', () => {
+    expect(toAnthropicToolChoice({ tool: 'get_weather' })).toEqual({
+      type: 'tool',
+      name: 'get_weather',
+    });
   });
 });

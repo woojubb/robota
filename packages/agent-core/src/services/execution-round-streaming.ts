@@ -1,4 +1,5 @@
 import { callProviderWithCache } from './execution-round-provider';
+import { resolveToolChoiceForRound } from './execution-service-helpers';
 
 import type { IExecutionContext, IResolvedProviderInfo } from './execution-types';
 import type { IAgentConfig, TExecutionEventData } from '../interfaces/agent';
@@ -83,9 +84,18 @@ export async function callRoundProviderWithEvents(
         signal: fullContext.signal,
         onTextDelta: wrappedOnTextDelta,
         onProviderNativeRawPayload: wrappedOnProviderNativeRawPayload,
-        // CORE-016: run-scoped model option overrides win over defaultModel.
+        // CORE-016/017: run-scoped model option overrides win over defaultModel.
         ...(fullContext.maxTokens !== undefined && { maxTokens: fullContext.maxTokens }),
         ...(fullContext.temperature !== undefined && { temperature: fullContext.temperature }),
+        // Forcing directives apply to round 1 only — later rounds revert to 'auto' so the
+        // model can consume tool results and finish (resolved against run-then-default).
+        ...(() => {
+          const effectiveToolChoice = resolveToolChoiceForRound(
+            fullContext.toolChoice ?? config.defaultModel.toolChoice,
+            currentRound,
+          );
+          return effectiveToolChoice !== undefined ? { toolChoice: effectiveToolChoice } : {};
+        })(),
       },
     );
     fullContext.onExecutionEvent?.('provider_response_raw', {

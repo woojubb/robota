@@ -3,7 +3,10 @@ import { RateLimitError } from '@robota-sdk/agent-core';
 import { convertToOpenAIMessages, convertToOpenAITools } from './message-converter';
 import { buildOpenAIChatResponseFormat, mergeChatResponseFormat } from './openai-request-format';
 import { assembleOpenAIStream } from './streaming/stream-assembler';
-import { observeProviderNativeRawPayloadStream } from '../shared/openai-compatible/index.js';
+import {
+  observeProviderNativeRawPayloadStream,
+  toOpenAICompatibleToolChoice,
+} from '../shared/openai-compatible/index.js';
 
 import type { IPayloadLogger } from './interfaces/payload-logger';
 import type { OpenAIResponseParser } from './parsers/response-parser';
@@ -138,7 +141,7 @@ function buildChatRequestParams(
     ...(input.chatOptions?.maxTokens !== undefined && { max_tokens: input.chatOptions.maxTokens }),
     ...(input.chatOptions?.tools && {
       tools: convertToOpenAITools(input.chatOptions.tools),
-      tool_choice: 'auto',
+      tool_choice: toOpenAICompatibleToolChoice(input.chatOptions.toolChoice),
     }),
     ...(responseFormat !== undefined && { response_format: responseFormat }),
   } as OpenAI.Chat.ChatCompletionCreateParamsNonStreaming;

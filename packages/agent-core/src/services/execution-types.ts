@@ -2,7 +2,7 @@ import type { IAgentConfig, IAssistantMessage, TExecutionEventCallback } from '.
 import type { IAIProviderManager } from '../interfaces/manager';
 import type { IToolManager } from '../interfaces/manager';
 import type { TUniversalMessage } from '../interfaces/messages';
-import type { IChatOptions, TTextDeltaCallback } from '../interfaces/provider';
+import type { IChatOptions, TTextDeltaCallback, TToolChoice } from '../interfaces/provider';
 import type { TMetadata } from '../interfaces/types';
 
 /** Preview length for general content truncation */
@@ -123,6 +123,8 @@ export interface IExecutionContext {
   maxTokens?: number;
   /** Run-scoped temperature override — wins over `defaultModel.temperature` (CORE-016). */
   temperature?: number;
+  /** Run-scoped tool-invocation directive — wins over `defaultModel.toolChoice` (CORE-017). */
+  toolChoice?: TToolChoice;
 }
 
 /**
