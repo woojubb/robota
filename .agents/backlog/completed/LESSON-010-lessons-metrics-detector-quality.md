@@ -1,6 +1,7 @@
 ---
 title: 'LESSON-010: lessons metrics detector quality — 4 of 5 auto-lesson signals are noise'
-status: todo
+status: done
+completed: 2026-07-04
 created: 2026-07-04
 priority: medium
 urgency: soon
@@ -62,3 +63,24 @@ they are drowned by counter bugs.
 
 Not applicable — harness/metrics tooling only; no runnable user-facing product behavior.
 Verification evidence lands in the Test Plan (fixture tests + a before/after digest diff).
+
+## Evidence (engineering verification, 2026-07-04)
+
+- Fixes: `.claude/hooks/revert-detect.sh` (once-per (pattern,file,session) emission via
+  fast grep identity check; workflow-path exclusion; repeated-tool-errors now joins error
+  tool_results back to tool_use names — `failing tools: Bash(3)`; fix-or-revert dedupe by
+  subject), `.claude/hooks/correction-detect.sh` (real-user-session guard: empty/`agent*`
+  session ids skipped), `scripts/harness/lessons-lib.mjs` (`compactMetrics` — per-identity
+  collapse + 30-day retention + legacy false-positive purge, run by every digest; stale
+  auto-lessons sections below threshold dropped; path-less signals surface `detail` as the
+  digest example).
+- Fixture tests: 8 new cases in `scripts/harness/__tests__/lessons-digest.test.mjs`
+  (triple-Stop rescan emits once; backlog-path 4x edit emits nothing; failing-tool context
+  captured; agent/session-less corrections skipped; compaction collapse + retention;
+  legacy false-positive purge; stale-section drop; detail-as-example) — harness suite
+  231 green.
+- Before/after on real local metrics: `reverts.jsonl` 301,562 → 509 lines;
+  `corrections.jsonl` 123 → 30 (user-correction 23 → 17 after agent/dup purge);
+  digest table now human-reviewable — stale May sections (`fix-or-revert-commit`,
+  `console-usage`) gone, `repeated-tool-errors` carries a detail example instead of
+  `(none)`, same-file examples are real source/docs paths instead of backlog files.
