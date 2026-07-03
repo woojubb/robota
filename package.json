@@ -210,7 +210,8 @@
     "packages/*",
     "packages/dag-nodes/*",
     "apps/*",
-    "examples/*"
+    "examples/*",
+    "examples/capabilities/*"
   ],
   "volta": {
     "node": "22.14.0"

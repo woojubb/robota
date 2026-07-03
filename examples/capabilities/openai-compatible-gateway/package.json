@@ -1,0 +1,23 @@
+{
+  "name": "robota-capability-openai-compatible-gateway",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Robota capability demo — any OpenAI-compatible endpoint via baseURL (gateways, Azure, vLLM, local)",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@robota-sdk/agent-core": "^3.0.0-beta.67",
+    "@robota-sdk/agent-provider": "^3.0.0-beta.67"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.6.0",
+    "typescript": "^5.5.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

@@ -536,6 +536,91 @@ importers:
         specifier: ^5.5.0
         version: 5.9.3
 
+  examples/capabilities/decision-agent:
+    dependencies:
+      '@robota-sdk/agent-core':
+        specifier: ^3.0.0-beta.67
+        version: link:../../../packages/agent-core
+      '@robota-sdk/agent-provider':
+        specifier: ^3.0.0-beta.67
+        version: link:../../../packages/agent-provider
+      '@robota-sdk/agent-tools':
+        specifier: ^3.0.0-beta.67
+        version: link:../../../packages/agent-tools
+      zod:
+        specifier: ^3.25.76
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.19.21
+      tsx:
+        specifier: ^4.6.0
+        version: 4.22.4
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.3
+
+  examples/capabilities/openai-compatible-gateway:
+    dependencies:
+      '@robota-sdk/agent-core':
+        specifier: ^3.0.0-beta.67
+        version: link:../../../packages/agent-core
+      '@robota-sdk/agent-provider':
+        specifier: ^3.0.0-beta.67
+        version: link:../../../packages/agent-provider
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.19.21
+      tsx:
+        specifier: ^4.6.0
+        version: 4.22.4
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.3
+
+  examples/capabilities/stateless-turns:
+    dependencies:
+      '@robota-sdk/agent-core':
+        specifier: ^3.0.0-beta.67
+        version: link:../../../packages/agent-core
+      '@robota-sdk/agent-provider':
+        specifier: ^3.0.0-beta.67
+        version: link:../../../packages/agent-provider
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.19.21
+      tsx:
+        specifier: ^4.6.0
+        version: 4.22.4
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.3
+
+  examples/capabilities/streaming:
+    dependencies:
+      '@robota-sdk/agent-core':
+        specifier: ^3.0.0-beta.67
+        version: link:../../../packages/agent-core
+      '@robota-sdk/agent-provider':
+        specifier: ^3.0.0-beta.67
+        version: link:../../../packages/agent-provider
+      zod:
+        specifier: ^3.25.76
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.19.21
+      tsx:
+        specifier: ^4.6.0
+        version: 4.22.4
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.3
+
   examples/cli:
     dependencies:
       '@robota-sdk/agent-framework':
