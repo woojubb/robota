@@ -17,6 +17,18 @@ import type {
   IHookTypeExecutor,
 } from '@robota-sdk/agent-core';
 
+/**
+ * Thrown when a compaction summary is invalid (non-string or empty provider content).
+ * Conversation history is append-only source data — callers must not clear or replace
+ * it when this is thrown (see SPEC § Compaction Failure Contract).
+ */
+export class CompactionError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'CompactionError';
+  }
+}
+
 export interface ICompactionOptions {
   sessionId: string;
   cwd: string;
@@ -49,7 +61,9 @@ export class CompactionOrchestrator {
    * @param provider - The AI provider to use for summarization
    * @param history - Current conversation history
    * @param instructions - Optional focus instructions for the summary
-   * @returns The generated summary string
+   * @returns The generated summary string (always a non-empty string)
+   * @throws {CompactionError} when the provider returns a non-string or empty summary —
+   *   callers must leave the conversation history untouched in that case
    */
   async compact(
     provider: IAIProvider,
@@ -90,10 +104,13 @@ export class CompactionOrchestrator {
       ],
       { model: this.model },
     );
-    const summary =
-      typeof summaryMessage.content === 'string' ? summaryMessage.content : '(compaction failed)';
+    if (typeof summaryMessage.content !== 'string' || summaryMessage.content.trim() === '') {
+      throw new CompactionError(
+        `Compaction produced an invalid summary (provider=${provider.name}, content type=${typeof summaryMessage.content}); conversation history preserved untouched`,
+      );
+    }
 
-    return summary;
+    return summaryMessage.content;
   }
 
   /** Build the compaction prompt from conversation history */

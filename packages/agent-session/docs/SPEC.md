@@ -94,6 +94,7 @@ Types consumed from other packages (not owned here):
 | `PermissionEnforcer`             | Class                | Tool permission checking, hook execution, output truncation                                                                                       |
 | `ContextWindowTracker`           | Class                | Token usage tracking and auto-compact threshold                                                                                                   |
 | `CompactionOrchestrator`         | Class                | Conversation compaction via LLM summary                                                                                                           |
+| `CompactionError`                | Class                | Thrown when a compaction summary is invalid — history is preserved untouched (see Compaction Failure Contract)                                    |
 | `SessionStore`                   | Class                | JSON file persistence for session records (`~/.robota/sessions/`)                                                                                 |
 | `FileSessionLogger`              | Class                | JSONL file-based session event logger                                                                                                             |
 | `SilentSessionLogger`            | Class                | No-op session logger                                                                                                                              |
@@ -205,12 +206,12 @@ The repo-root `./scripts/migrate-session-history.mjs` backfills the `history` fi
 
 ### Key SessionStore Methods
 
-| Method   | Signature                                     | Description                                                    |
-| -------- | --------------------------------------------- | -------------------------------------------------------------- |
-| `save`   | `(session: ISessionRecord) => void`           | Persist a session record to disk. Creates directory if needed. |
-| `load`   | `(id: string) => ISessionRecord \| undefined` | Load a session by ID. Returns undefined if not found.          |
-| `list`   | `() => ISessionRecord[]`                      | List all sessions, sorted by updatedAt descending.             |
-| `delete` | `(id: string) => void`                        | Delete a session file. No-ops if not found.                    |
+| Method   | Signature                                     | Description                                                                                                                                                            |
+| -------- | --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `save`   | `(session: ISessionRecord) => void`           | Persist a session record to disk atomically (same-directory temp file + rename, so a crash mid-write never corrupts the previous record). Creates directory if needed. |
+| `load`   | `(id: string) => ISessionRecord \| undefined` | Load a session by ID. Returns undefined if not found.                                                                                                                  |
+| `list`   | `() => ISessionRecord[]`                      | List all sessions, sorted by updatedAt descending.                                                                                                                     |
+| `delete` | `(id: string) => void`                        | Delete a session file. No-ops if not found.                                                                                                                            |
 
 ## Session Logging
 
@@ -319,6 +320,21 @@ Post-compaction history:
 
 This ensures the AI retains project context (working directory, coding rules, available tools) after compaction. Without this, the AI loses awareness of the project environment.
 
+### Compaction Failure Contract
+
+Conversation history is append-only source data; a compaction that cannot produce a valid summary
+must never destroy it. The contract:
+
+1. **Validate before clearing.** A summary is valid only when the provider returns a non-empty
+   string (whitespace-only is invalid). `CompactionOrchestrator.compact()` throws
+   `CompactionError` on an invalid summary — it never substitutes a placeholder marker.
+2. **History untouched on failure.** `clearHistory()` runs only after a valid summary exists.
+   When compaction throws, the conversation history, context tracker state, and persisted session
+   file are exactly as they were before the attempt.
+3. **Errors propagate.** Manual `Session.compact()` rejects with the `CompactionError`.
+   Auto-compaction failure inside `run()` propagates to the `run()` caller the same way — the
+   session surfaces the failure instead of silently continuing toward context overflow.
+
 ### Auto-Compaction
 
 Auto-compaction triggers at the **start** of `run()` (before processing the user message) when `ContextWindowTracker.shouldAutoCompact()` returns true. This prevents compaction from interfering with the current response stream. The trigger defaults to 83.5% of the context window and can be configured per session or disabled with `autoCompactThreshold: false`.
@@ -327,14 +343,17 @@ Auto-compaction triggers at the **start** of `run()` (before processing the user
 
 ## Error Taxonomy
 
-This package does not define a custom error hierarchy. All errors are thrown as standard `Error` instances. Error scenarios include:
+This package defines one custom error class: `CompactionError` (thrown when a compaction summary
+is invalid — see Compaction Failure Contract). All other errors are thrown as standard `Error`
+instances. Error scenarios include:
 
-| Error Condition        | Thrown By            | Message Pattern                                                                                       |
-| ---------------------- | -------------------- | ----------------------------------------------------------------------------------------------------- |
-| Tool permission denied | `PermissionEnforcer` | Returns `IToolResult` with `"Permission denied"` (no throw)                                           |
-| Hook blocked tool      | `PermissionEnforcer` | Returns `IToolResult` with `"Blocked by hook: {reason}"`                                              |
-| Tool execution error   | `PermissionEnforcer` | Returns `IToolResult` with error message (never throws)                                               |
-| Unknown tool call      | `ExecutionService`   | Returns a failed tool result with `errorCode: "unknown_tool"` and explains that execution was skipped |
+| Error Condition         | Thrown By                | Message Pattern                                                                                       |
+| ----------------------- | ------------------------ | ----------------------------------------------------------------------------------------------------- |
+| Invalid compact summary | `CompactionOrchestrator` | Throws `CompactionError`; conversation history is preserved untouched                                 |
+| Tool permission denied  | `PermissionEnforcer`     | Returns `IToolResult` with `"Permission denied"` (no throw)                                           |
+| Hook blocked tool       | `PermissionEnforcer`     | Returns `IToolResult` with `"Blocked by hook: {reason}"`                                              |
+| Tool execution error    | `PermissionEnforcer`     | Returns `IToolResult` with error message (never throws)                                               |
+| Unknown tool call       | `ExecutionService`       | Returns a failed tool result with `errorCode: "unknown_tool"` and explains that execution was skipped |
 
 The permission wrapper deliberately catches all errors and returns them as `IToolResult` objects to avoid corrupting the conversation history with unmatched tool_use/tool_result pairs.
 
