@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/dag-node-instant-node",
-  "version": "3.0.0-beta.60",
+  "version": "3.0.0-beta.61",
   "private": true,
   "description": "Prompt-backed instant DAG node for Robota — create custom nodes at runtime from a system prompt template",
   "type": "module",

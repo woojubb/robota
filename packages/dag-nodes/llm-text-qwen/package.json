@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/dag-node-llm-text-qwen",
-  "version": "3.0.0-beta.60",
+  "version": "3.0.0-beta.61",
   "private": true,
   "description": "DAG Qwen llm-text node for Robota",
   "type": "module",
