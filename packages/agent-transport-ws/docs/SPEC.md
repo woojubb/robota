@@ -10,7 +10,7 @@ without pulling React, Ink, or Hono.
 ## Boundaries
 
 - Owns the `ws`-based transport adapter and the `TClientMessage`/`TServerMessage` protocol.
-- Depends on `agent-interface-transport`, `agent-framework`, and `agent-core`.
+- Depends on `agent-interface-transport` and `agent-core` only (INFRA-025: the framework edge was deleted — every consumed type is an interface-transport contract).
 - No other transport package depends on this one. The default transport-registry wiring that
   pre-registers `WsTransport` lives in the composition root (the CLI), not in the transport core.
 
@@ -27,7 +27,7 @@ agent-transport-ws
 ## Type Ownership
 
 Owns `IWsHandlerOptions`, `IWsTransportOptions`, `IWsTransportConfig`, `TClientMessage`,
-`TServerMessage`. Re-exports execution-workspace snapshot types from `agent-framework` at the WS
+`TServerMessage`. Consumers import execution-workspace contract types from `@robota-sdk/agent-interface-transport` directly (INFRA-025: no pass-through re-exports).
 boundary for browser consumers.
 
 ## Public API Surface
@@ -53,5 +53,5 @@ Protocol + handler unit tests under `src/__tests__`.
 
 ## Dependencies
 
-- `@robota-sdk/agent-interface-transport`, `@robota-sdk/agent-framework`, `@robota-sdk/agent-core`.
+- `@robota-sdk/agent-interface-transport`, `@robota-sdk/agent-core`.
 - External: `ws`.

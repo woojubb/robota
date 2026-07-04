@@ -1,6 +1,7 @@
 ---
 title: 'INFRA-025: interface-transport contract SSOT — stop type-importing from implementation packages'
-status: in-progress
+status: done
+completed: 2026-07-04
 created: 2026-07-04
 priority: high
 urgency: now
@@ -80,3 +81,28 @@ final PR to develop left to the user):
 
 Not applicable — type-ownership relocation with no runnable behavior change; evidence is
 the Test Plan (typecheck + suites + scans).
+
+## Evidence (engineering verification, 2026-07-04)
+
+Initiative `feat/infra-025-contract-ssot`, child PRs #943 (P1) / #944 (P2) / #945 (P3) / P4.
+
+- **Target state reached**: `agent-interface-transport` deps 3 → **1 (agent-core only)**;
+  owns `background-task-contracts` (25 decls) / `subagent-contracts` / `compact-contracts`.
+  `agent-executor`/`agent-session` edges REVERSED (they now import the contracts; public
+  indexes no longer re-export them). `transport-ws` deps = core + interface-transport + ws —
+  the framework edge is deleted; `-ws`/`-http`/`-mcp` are all contract-pure. `agent-framework`
+  public index: 78 pass-through re-exports removed; session-analytics demoted to
+  devDependencies (harness exposes neutral `sessionLog()`; `usageReport()` deleted).
+- **Mechanized + proven (red/green)**: ① `INTERFACE-DEPS` rule in the deps scan — planting
+  the pre-fix `interface-transport → executor` dep fails the scan, clean state passes;
+  ② `interface-imports` scan now also matches `export … from` pass-throughs — planting the
+  exact pre-P2 transport-ws re-export fails, clean state passes. Fixture tests:
+  `scripts/harness/__tests__/check-interface-package-deps.test.mjs` (harness suite 238).
+- **Docs**: SPECs updated (interface-transport, executor, session, framework, transport-ws,
+  session-analytics), `project-structure.md` (Interface Package Rule invariant, Interaction
+  Channel Contract ownership drift fixed, transport-family purity), README examples
+  (framework, transport-mcp). REFACTOR-018 (done 2026-05-16, deferred inversion) annotated
+  as completed by this work.
+- **Suites**: repo typecheck 0 errors; full build green; full test suite green (framework
+  1035, incl. agent-definition-loader isolation fix absorbed in P1); 45 harness scans;
+  lint 0 errors.
