@@ -27,6 +27,7 @@ export async function* executeStreamToolCalls(
   toolExecutionService: ToolExecutionService,
   eventEmitter: ExecutionEventEmitter,
   logger: ILogger,
+  signal?: AbortSignal,
 ): AsyncGenerator<IStreamChunk> {
   logger.debug('[EXECUTION-SERVICE-STREAM] Executing tools:', {
     tools: toolCalls.map((tc) => tc.function.name),
@@ -46,6 +47,8 @@ export async function* executeStreamToolCalls(
     mode: 'parallel',
     maxConcurrency: 5,
     continueOnError: true,
+    // CORE-018: the stream path's tool batch must honor the run signal like the round path.
+    ...(signal ? { signal } : {}),
   };
 
   const toolSummary = await toolExecutionService.executeTools(toolContext);

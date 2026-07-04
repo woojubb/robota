@@ -50,7 +50,7 @@ export class MCPTool implements ITool {
    */
   async execute(
     parameters: TToolParameters,
-    _context?: IToolExecutionContext,
+    context?: IToolExecutionContext,
   ): Promise<IToolResult> {
     const toolName = this.schema.name;
     const startTime = Date.now();
@@ -69,6 +69,7 @@ export class MCPTool implements ITool {
         mcpRequest,
         this.mcpConfig,
         this.sessionId,
+        context?.signal,
       );
       this.sessionId = sessionId ?? this.sessionId;
       if (mcpResponse === null) {
