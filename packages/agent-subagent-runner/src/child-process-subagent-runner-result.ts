@@ -109,7 +109,6 @@ class ChildProcessSubagentResultController {
 
   private clearTimers(): void {
     if (this.timeoutTimer) clearTimeout(this.timeoutTimer);
-    if (this.options.runtime.killTimer) clearTimeout(this.options.runtime.killTimer);
   }
 
   private cleanup(): void {

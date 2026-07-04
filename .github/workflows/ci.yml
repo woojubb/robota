@@ -365,8 +365,10 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build agent-core (shell resolver SSOT) for dependent tests
-        run: pnpm --filter @robota-sdk/agent-core build
+      - name: Build agent-core + agent-process for dependent tests
+        # CORE-023: shell-tool now imports @robota-sdk/agent-process (killProcessTree); this
+        # minimal job resolves workspace deps from built dist, so agent-process must be built too.
+        run: pnpm --filter @robota-sdk/agent-core --filter @robota-sdk/agent-process build
 
       - name: Verify the cross-platform shell resolver on Windows
         run: pnpm --filter @robota-sdk/agent-core test -- --run platform-shell
