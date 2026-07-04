@@ -45,14 +45,19 @@ import type {
   IExecutionWorkspaceEvent,
   IInteractionChannel,
   IInteractiveSession,
+  IInteractiveSessionEvents,
   IInteractiveSessionStore,
   ITransportRegistryView,
   InteractionEvent,
+  TInteractiveEventName,
   TPermissionResultValue,
 } from '@robota-sdk/agent-interface-transport';
 
 const SESSION_INIT_POLL_MS = 200;
 const SESSION_INIT_TIMEOUT_MS = 15000;
+/** Upper bound on the graceful session shutdown so a wedged subsystem cannot block process exit
+ * (CLI-075 / RUNTIME-33; api-boundary "safely cancelled within a configurable timeout"). */
+const SHUTDOWN_TIMEOUT_MS = 5000;
 
 export interface ITuiInteractionChannelOptions {
   cwd: string;
@@ -128,6 +133,14 @@ export class TuiInteractionChannel implements IInteractionChannel {
     resolve: (result: TPermissionResultValue) => void;
   }> = [];
   private processingPermission = false;
+
+  /** Retained session-event bindings so stop() can unwire every listener (CLI-075 RUNTIME-31). */
+  private sessionEventBindings: Array<{
+    event: TInteractiveEventName;
+    handler: (...args: never[]) => void;
+  }> = [];
+  /** Idempotency guard for the full channel teardown (CLI-075). */
+  private stopped = false;
 
   /** Set by React hook to trigger re-render on state change */
   onChange: (() => void) | null = null;
@@ -218,12 +231,27 @@ export class TuiInteractionChannel implements IInteractionChannel {
     }
   }
 
+  /**
+   * Full, idempotent channel teardown (CLI-075). Unwires every session listener, drains both
+   * request queues, stops the init poller, disposes the render-state manager, stops transports, and
+   * — unless a graceful `shutdown()` already ran — shuts the underlying session down so a discarded
+   * or switched-away channel releases its background tasks, subagent processes, and timers.
+   */
   async stop(): Promise<void> {
-    this.onChange = null;
+    if (this.stopped) return;
+    this.stopped = true;
     this.sessionStarted = false;
+    this.unwireSessionEvents();
+    this.cancelAllPermissions();
+    this.cancelAllUserActions();
     this.stopInitCheck();
+    this.onChange = null;
+    this.stateManager.dispose();
     if (this.opts.transportRegistry) {
       await this.opts.transportRegistry.stopAll();
+    }
+    if (!this.isShuttingDown) {
+      await this.shutdownSessionBounded('other', 'channel stopped', SHUTDOWN_TIMEOUT_MS);
     }
   }
 
@@ -244,25 +272,52 @@ export class TuiInteractionChannel implements IInteractionChannel {
   abort(): void {
     this.stateManager.setAborting(true);
     this.cancelAllUserActions();
+    this.cancelAllPermissions();
     this.interactiveSession.abort();
   }
 
   cancelQueue(): void {
     this.interactiveSession.cancelQueue();
     this.cancelAllUserActions();
+    this.cancelAllPermissions();
     this.stateManager.setPendingPrompt(null);
   }
 
-  async shutdown(options?: { reason?: TSessionEndReason }): Promise<void> {
+  async shutdown(options?: { reason?: TSessionEndReason; timeoutMs?: number }): Promise<void> {
     if (this.isShuttingDown) return;
     this.isShuttingDown = true;
     this.cancelAllUserActions();
+    this.cancelAllPermissions();
     this.stateManager.addEntry(messageToHistoryEntry(createSystemMessage('Shutting down...')));
     this.onChange?.();
-    await this.interactiveSession.shutdown({
-      reason: options?.reason ?? 'prompt_input_exit',
-      message: 'CLI shutdown',
+    await this.shutdownSessionBounded(
+      options?.reason ?? 'prompt_input_exit',
+      'CLI shutdown',
+      options?.timeoutMs ?? SHUTDOWN_TIMEOUT_MS,
+    );
+  }
+
+  /**
+   * Await the SDK-owned session shutdown, but never longer than `timeoutMs`. A hung subsystem
+   * (unresolved background task, stuck child process) must not wedge process exit — a second
+   * Ctrl+C force-quits (RUNTIME-33), and this bound guarantees the first one still completes.
+   * Best-effort: shutdown errors are swallowed here (the process is exiting regardless).
+   */
+  private async shutdownSessionBounded(
+    reason: TSessionEndReason,
+    message: string,
+    timeoutMs: number,
+  ): Promise<void> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<void>((resolve) => {
+      timer = setTimeout(resolve, timeoutMs);
+      timer.unref?.();
     });
+    await Promise.race([
+      this.interactiveSession.shutdown({ reason, message }).catch(() => undefined), // allow-fallback: best-effort shutdown — process is exiting; a shutdown error must not block exit
+      timeout,
+    ]);
+    if (timer) clearTimeout(timer);
   }
 
   selectExecutionWorkspaceEntry(entryId: string): void {
@@ -401,6 +456,22 @@ export class TuiInteractionChannel implements IInteractionChannel {
     this.onChange?.();
   }
 
+  /**
+   * Resolve every queued/in-flight permission request as `false` (deny) — abort, cancelQueue,
+   * shutdown, stop. Symmetric to `cancelAllUserActions()`: tearing down must neither leave a tool's
+   * permission promise dangling (the tool would hang) nor silently grant it (CLI-075 RUNTIME-32).
+   */
+  private cancelAllPermissions(): void {
+    const queued = this.permissionQueue;
+    this.permissionQueue = [];
+    this.processingPermission = false;
+    this.permissionRequest = null;
+    for (const pending of queued) {
+      pending.resolve(false);
+    }
+    this.onChange?.();
+  }
+
   private wireSessionEvents(): void {
     const session = this.interactiveSession;
     const manager = this.stateManager;
@@ -430,19 +501,36 @@ export class TuiInteractionChannel implements IInteractionChannel {
       manager.syncExecutionWorkspaceSnapshot(event.snapshot);
     };
 
-    session.on('user_message', onUserMessage);
-    session.on('text_delta', manager.onTextDelta);
-    session.on('tool_start', manager.onToolStart);
-    session.on('tool_end', manager.onToolEnd);
-    session.on('thinking', manager.onThinking);
-    session.on('complete', onComplete);
-    session.on('interrupted', manager.onInterrupted);
-    session.on('error', onError);
-    session.on('context_update', manager.onContextUpdate);
-    session.on('compact', onCompact);
-    session.on('skill_activation', onSkillActivation);
-    session.on('memory_event', onMemoryEvent);
-    session.on('execution_workspace_event', onExecutionWorkspaceEvent);
+    this.bindSession('user_message', onUserMessage);
+    this.bindSession('text_delta', manager.onTextDelta);
+    this.bindSession('tool_start', manager.onToolStart);
+    this.bindSession('tool_end', manager.onToolEnd);
+    this.bindSession('thinking', manager.onThinking);
+    this.bindSession('complete', onComplete);
+    this.bindSession('interrupted', manager.onInterrupted);
+    this.bindSession('error', onError);
+    this.bindSession('context_update', manager.onContextUpdate);
+    this.bindSession('compact', onCompact);
+    this.bindSession('skill_activation', onSkillActivation);
+    this.bindSession('memory_event', onMemoryEvent);
+    this.bindSession('execution_workspace_event', onExecutionWorkspaceEvent);
+  }
+
+  /** Register a session listener and retain the binding so `unwireSessionEvents()` can remove it. */
+  private bindSession<E extends TInteractiveEventName>(
+    event: E,
+    handler: IInteractiveSessionEvents[E],
+  ): void {
+    this.interactiveSession.on(event, handler);
+    this.sessionEventBindings.push({ event, handler: handler as (...args: never[]) => void });
+  }
+
+  /** Detach every session listener registered by `wireSessionEvents()` (CLI-075 RUNTIME-31). */
+  private unwireSessionEvents(): void {
+    for (const { event, handler } of this.sessionEventBindings) {
+      this.interactiveSession.off(event, handler as IInteractiveSessionEvents[typeof event]);
+    }
+    this.sessionEventBindings = [];
   }
 
   private handleAutoNaming(content: string): void {

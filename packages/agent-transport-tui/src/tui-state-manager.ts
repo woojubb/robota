@@ -112,7 +112,9 @@ export class TuiStateManager {
   };
 
   onToolStart = (state: IToolState): void => {
-    if (this.isThinking) this.armStallTimer();
+    // RUNTIME-39: a running tool is legitimate activity, not a stalled provider connection —
+    // suppress the dead-air hint for the duration of the tool run (re-armed in onToolEnd).
+    this.clearStallTimer();
     this.activeTools = [...this.activeTools, state];
     this.notify();
   };
@@ -124,6 +126,11 @@ export class TuiStateManager {
       const updated = [...this.activeTools];
       updated[idx] = state;
       this.activeTools = updated;
+    }
+    // RUNTIME-39: re-arm the dead-air watch only once no tool is still running and the turn is
+    // still in progress — otherwise the provider is again the thing we're waiting on.
+    if (this.isThinking && !this.activeTools.some((t) => t.isRunning)) {
+      this.armStallTimer();
     }
     this.notify();
   };
@@ -262,5 +269,16 @@ export class TuiStateManager {
       selectedEntryId: entryId,
     };
     this.notify();
+  }
+
+  /**
+   * RUNTIME-52: release every timer this manager owns and detach the render callback. Called by the
+   * channel's teardown (`stop()`); after dispose the manager must never fire `onChange` or trip the
+   * stall hint on a discarded session.
+   */
+  dispose(): void {
+    this.clearStallTimer();
+    this.debouncedStreamNotify.flush();
+    this.onChange = null;
   }
 }

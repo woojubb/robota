@@ -979,11 +979,12 @@ If both stdin and a positional argument are provided, stdin content is prepended
 This is the single authoritative exit-code table. The error-handling table in §Error
 Handling maps each error class onto one of these codes.
 
-| Code | Meaning                                                                                                         |
-| ---- | --------------------------------------------------------------------------------------------------------------- |
-| 0    | Success or user interruption                                                                                    |
-| 1    | Error during execution — argument parse errors, provider API failures (network/auth), user-local command errors |
-| 3    | Provider configuration error at print-mode session start (`ProviderConfigError`) — reconfigure, do not retry    |
+| Code | Meaning                                                                                                                                                                                 |
+| ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0    | Success or user interruption                                                                                                                                                            |
+| 1    | Error during execution — argument parse errors, provider API failures (network/auth), user-local command errors                                                                         |
+| 3    | Provider configuration error at print-mode session start (`ProviderConfigError`) — reconfigure, do not retry                                                                            |
+| 130  | Interactive TUI force-quit — a second Ctrl+C / signal (`SIGINT`/`SIGTERM`) received while a graceful shutdown is already in progress (128 + `SIGINT`). See §Ctrl+C — Graceful Shutdown. |
 
 Provider API failures during a model call must never exit 0: the execution layer marks the
 result failed (`success: false` + `error` when the final assistant message carries
@@ -1274,7 +1275,9 @@ System: Interrupted by user.   ← MessageList (abort only)
 
 ### Ctrl+C — Graceful Shutdown
 
-Ink render uses `exitOnCtrlC: false`. The first Ctrl+C is handled by `App.tsx`, renders `Shutting down...`, and calls `channel.handleShutdown('prompt_input_exit')` (exposed by `useTuiChannel`). That delegates to `InteractiveSession.shutdown()` inside `TuiInteractionChannel`, so foreground abort, managed background task cancellation, session persistence, and `SessionEnd` hooks run in the SDK-owned lifecycle before the TUI exits.
+Ink render uses `exitOnCtrlC: false`. The first Ctrl+C is handled by `App.tsx`, renders `Shutting down...`, and calls `channel.handleShutdown('prompt_input_exit')` (exposed by `useTuiChannel`). That delegates to `InteractiveSession.shutdown()` inside `TuiInteractionChannel`, so foreground abort, managed background task cancellation, session persistence, and `SessionEnd` hooks run in the SDK-owned lifecycle before the TUI exits. The channel bounds that session shutdown with a timeout (`SHUTDOWN_TIMEOUT_MS`) so a wedged subsystem cannot block exit — a timed-out graceful shutdown still unmounts and exits 0.
+
+`SIGINT`/`SIGTERM` are handled with the same graceful path (a single `App.tsx` effect registers both). A **second** Ctrl+C or signal received while `isShuttingDown` is already set is treated as force-quit: the handler calls `process.exit(130)` immediately (128 + `SIGINT`) rather than a no-op, so a user can always escape a hung shutdown. This is the only path that produces exit code 130 (see §Exit Codes).
 
 Slash-command restarts and exits (`/exit`, language restart, reset) also call `InteractiveSession.shutdown()` before `useApp().exit()`. The CLI owns only signal/UI wiring; it must not enumerate or kill SDK-managed background work directly.
 

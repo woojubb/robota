@@ -24,6 +24,7 @@ import PermissionPrompt from './PermissionPrompt.js';
 import PluginTUI from './PluginTUI.js';
 import SessionPicker from './SessionPicker.js';
 import SessionStatusBar from './SessionStatusBar.js';
+import { handleInterrupt } from './shutdown-signal.js';
 import StreamingIndicator from './StreamingIndicator.js';
 import TransportTUI from './TransportTUI.js';
 import { TuiCliAdapterProvider } from './tui-cli-adapter-context.js';
@@ -367,22 +368,30 @@ function AppInner(
     },
   );
 
-  // Ctrl+C graceful shutdown
+  // Ctrl+C: first press → graceful shutdown; a second press while already shutting down force-quits
+  // with 130 so a wedged shutdown can always be escaped (CLI-075 / RUNTIME-33).
   useInput((input: string, key: { ctrl?: boolean }) => {
-    if (!key.ctrl || input !== 'c' || isShuttingDown) return;
-    void handleShutdown('prompt_input_exit').finally(() => exit());
+    if (!key.ctrl || input !== 'c') return;
+    handleInterrupt({
+      isShuttingDown,
+      graceful: () => void handleShutdown('prompt_input_exit').finally(() => exit()),
+    });
   });
 
   useEffect(() => {
-    const onSigterm = (): void => {
-      if (isShuttingDown) return;
-      void handleShutdown('other').finally(() => exit());
+    const onSignal = (): void => {
+      handleInterrupt({
+        isShuttingDown,
+        graceful: () => void handleShutdown('other').finally(() => exit()),
+      });
     };
-    process.once('SIGINT', onSigterm);
-    process.once('SIGTERM', onSigterm);
+    // `process.on` (not `once`): the effect re-registers with fresh `isShuttingDown` on each change,
+    // so a second signal during shutdown reaches the force-quit branch instead of the default action.
+    process.on('SIGINT', onSignal);
+    process.on('SIGTERM', onSignal);
     return () => {
-      process.off('SIGINT', onSigterm);
-      process.off('SIGTERM', onSigterm);
+      process.off('SIGINT', onSignal);
+      process.off('SIGTERM', onSignal);
     };
   }, [handleShutdown, exit, isShuttingDown]);
 
