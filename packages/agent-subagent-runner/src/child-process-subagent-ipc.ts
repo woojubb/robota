@@ -93,6 +93,22 @@ function hasString(value: TSubagentWorkerWireRecord, key: string): boolean {
   return typeof value[key] === 'string';
 }
 
+/**
+ * CORE-024 (RUNTIME-47): validate the optional `usage` payload on a `result` message so a
+ * malformed object cannot be spread verbatim into the parent's token/cost accounting. Absent is
+ * valid (usage is optional); present must be an `ISessionUsageTotals` with three numeric fields.
+ */
+function hasValidOptionalUsage(value: TSubagentWorkerWireRecord): boolean {
+  if (value.usage === undefined) return true;
+  const usage = value.usage;
+  if (!isRecord(usage)) return false;
+  return (
+    typeof usage.promptTokens === 'number' &&
+    typeof usage.completionTokens === 'number' &&
+    typeof usage.totalTokens === 'number'
+  );
+}
+
 function isStartPayload(value: TSubagentWorkerWireValue): value is ISubagentWorkerStartPayload {
   if (!isRecord(value)) return false;
   if (!hasString(value, 'jobId')) return false;
@@ -139,7 +155,7 @@ export function isSubagentWorkerChildMessage(
     case 'tool_end':
       return hasString(value, 'toolName') && typeof value.success === 'boolean';
     case 'result':
-      return hasString(value, 'output');
+      return hasString(value, 'output') && hasValidOptionalUsage(value);
     case 'error':
       return hasString(value, 'message');
     case 'cancelled':

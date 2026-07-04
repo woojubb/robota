@@ -87,6 +87,12 @@ export class SessionExecutionController {
   ) {}
 
   clearPendingQueue(): void {
+    // CORE-024 (RUNTIME-19): a queued wake that is dropped here (abort/shutdown/re-queue) must
+    // release its wake-tracking id — otherwise the `wakeTaskIds` gate rejects every future wake
+    // for that task forever, since the id is only cleared on a wake that runs to a completed turn.
+    if (this.pendingTurnOptions.wakeTaskId !== undefined) {
+      this.wakeTaskIds.delete(this.pendingTurnOptions.wakeTaskId);
+    }
     this.pendingPrompt = null;
     this.pendingDisplayInput = undefined;
     this.pendingRawInput = undefined;

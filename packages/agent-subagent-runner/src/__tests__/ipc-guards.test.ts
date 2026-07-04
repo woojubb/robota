@@ -60,6 +60,14 @@ describe('isSubagentWorkerChildMessage', () => {
       isSubagentWorkerChildMessage({ type: 'tool_end', toolName: 'Read', success: true }),
     ).toBe(true);
     expect(isSubagentWorkerChildMessage({ type: 'result', output: 'done' })).toBe(true);
+    // CORE-024 (RUNTIME-47): a well-formed usage payload is accepted.
+    expect(
+      isSubagentWorkerChildMessage({
+        type: 'result',
+        output: 'done',
+        usage: { promptTokens: 10, completionTokens: 5, totalTokens: 15 },
+      }),
+    ).toBe(true);
     expect(isSubagentWorkerChildMessage({ type: 'error', message: 'boom' })).toBe(true);
     expect(isSubagentWorkerChildMessage({ type: 'cancelled' })).toBe(true);
     expect(isSubagentWorkerChildMessage({ type: 'cancelled', reason: 'stop' })).toBe(true);
@@ -73,6 +81,25 @@ describe('isSubagentWorkerChildMessage', () => {
     expect(isSubagentWorkerChildMessage({ type: 'error' })).toBe(false);
     expect(isSubagentWorkerChildMessage({ type: 'cancelled', reason: 7 })).toBe(false);
     expect(isSubagentWorkerChildMessage({ type: 'unknown' })).toBe(false);
+  });
+
+  it('rejects a result message with a malformed usage payload (CORE-024 RUNTIME-47)', () => {
+    // Missing fields, wrong types, and non-object usage must all be rejected so a bad payload
+    // cannot be spread verbatim into the parent's token/cost accounting.
+    expect(
+      isSubagentWorkerChildMessage({ type: 'result', output: 'done', usage: { promptTokens: 1 } }),
+    ).toBe(false);
+    expect(
+      isSubagentWorkerChildMessage({
+        type: 'result',
+        output: 'done',
+        usage: { promptTokens: '1', completionTokens: 2, totalTokens: 3 },
+      }),
+    ).toBe(false);
+    expect(isSubagentWorkerChildMessage({ type: 'result', output: 'done', usage: 42 })).toBe(false);
+    expect(isSubagentWorkerChildMessage({ type: 'result', output: 'done', usage: null })).toBe(
+      false,
+    );
   });
 });
 

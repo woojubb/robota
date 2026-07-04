@@ -302,6 +302,18 @@ Events contain cloned task snapshots or primitive progress data. Consumers may p
 
 `IBackgroundTaskManager.shutdown(reason?)` is the runtime-owned graceful shutdown API. It is idempotent, rejects new spawns after shutdown starts, cancels all queued/running tasks through their handles, emits terminal events before resolving when possible, and never deletes terminal records.
 
+## Concurrency and Slot Accounting (CORE-024)
+
+The manager admits at most `maxConcurrent` (default 4) **actively-executing** tasks; the rest queue. A slot is held only while a task is doing work, never while it merely exists:
+
+- A task acquires a slot when it starts executing and releases it when it transitions to a non-executing state — terminal (`completed`/`failed`/`cancelled`) **or `sleeping`**.
+- **Scheduled tasks must release their slot while sleeping.** A cron task spends nearly all its life in `sleeping` between fires; holding a slot there permanently wedges the budget (RUNTIME-17: four sleeping schedules starved every other spawn). It re-acquires a slot when it wakes to fire, and releases it again when the fire completes and it returns to `sleeping`.
+- Slot accounting is idempotent and keyed by task id (a set of slot-holders), so a release for a task that already released is a no-op — sleep/wake cycles and a terminal transition from either state stay consistent. Releasing a slot drains the queue.
+
+### Scheduled Fire Watchdog (CORE-024)
+
+The scheduled runner uses croner `protect: true`, which skips a fire while the previous one is still running. A fire that hangs therefore starves **every** subsequent fire (RUNTIME-18). Each fire is bounded by a per-fire timeout: when a fired child exceeds it, the child is killed (`killProcessTree`, process-group) and the schedule returns to `sleeping` so the next fire can run. The timeout is the request's `timeoutMs` when set; the fire watchdog is independent of the manager-level agent watchdogs.
+
 ## Worktree Runner Contract
 
 `WorktreeSubagentRunner` depends on:

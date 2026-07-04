@@ -54,7 +54,12 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
   private readonly eventSink?: TBackgroundTaskEventListener;
   private readonly tasks = new Map<string, ITrackedBackgroundTask>();
   private readonly queue: string[] = [];
-  private activeCount = 0;
+  /**
+   * CORE-024: task ids currently holding a concurrency slot. Keyed by id (not a count) so
+   * acquire/release are idempotent — a scheduled task releases on `sleeping` and re-acquires on
+   * `waking` without ever double-counting, and a terminal transition from either state is safe.
+   */
+  private readonly slotHolders = new Set<string>();
   private sequence = 0;
   private shuttingDown = false;
   private shutdownPromise?: Promise<void>;
@@ -180,8 +185,17 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
     };
   }
 
+  /** CORE-024: acquire/release a concurrency slot for a task (idempotent, set-keyed by id). */
+  private acquireSlot(taskId: string): void {
+    this.slotHolders.add(taskId);
+  }
+
+  private releaseSlot(taskId: string): void {
+    this.slotHolders.delete(taskId);
+  }
+
   private drainQueue(): void {
-    while (this.activeCount < this.maxConcurrent) {
+    while (this.slotHolders.size < this.maxConcurrent) {
       const taskId = this.queue.shift();
       if (!taskId) return;
       const task = this.tasks.get(taskId);
@@ -198,7 +212,7 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
     }
 
     const started = markBackgroundTaskStarted(task, this.now());
-    this.activeCount += 1;
+    this.acquireSlot(task.state.id);
     this.emit({ type: 'background_task_started', task: started });
 
     startBackgroundTaskRunner({
@@ -217,7 +231,7 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
     if (isTerminalBackgroundTaskStatus(task.state.status)) return;
     this.watchdogs.clear(task);
     const completed = markBackgroundTaskCompleted(task, result, this.now());
-    this.activeCount -= 1;
+    this.releaseSlot(task.state.id);
     task.resolve(result);
     this.emit({ type: 'background_task_completed', task: completed });
     if (!this.shuttingDown) this.drainQueue();
@@ -227,7 +241,7 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
     if (isTerminalBackgroundTaskStatus(task.state.status)) return;
     this.watchdogs.clear(task);
     const failed = markBackgroundTaskFailed(task, error, this.now());
-    this.activeCount -= 1;
+    this.releaseSlot(task.state.id);
     task.reject(createRunnerError(toBackgroundTaskErrorMessage(error)));
     this.emit({ type: 'background_task_failed', task: failed });
     if (!this.shuttingDown) this.drainQueue();
@@ -237,7 +251,9 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
     if (isTerminalBackgroundTaskStatus(task.state.status)) return;
     this.watchdogs.clear(task);
     const cancelled = markBackgroundTaskCancelled(task, reason, this.now());
-    if (cancelled.wasActive) this.activeCount -= 1;
+    // CORE-024: releaseSlot is idempotent — safe whether the task held a slot (running/waking) or
+    // not (queued/sleeping), replacing the wasActive count guard.
+    this.releaseSlot(task.state.id);
     task.reject(createRunnerError(task.state.error?.message ?? 'Background task cancelled'));
     this.emit({ type: 'background_task_cancelled', task: cancelled.task });
     if (!this.shuttingDown) this.drainQueue();
@@ -247,10 +263,17 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
     if (isTerminalBackgroundTaskStatus(task.state.status)) return;
     this.applyRunnerEventToState(task, event);
     if (event.type === 'background_task_sleeping') {
+      // CORE-024 (RUNTIME-17): a sleeping schedule spawns nothing — release its slot so other
+      // tasks can drain. Without this, maxConcurrent sleeping schedules wedge the budget forever.
       // The status/nextFireAt change is already surfaced via background_task_updated.
+      this.releaseSlot(task.state.id);
+      if (!this.shuttingDown) this.drainQueue();
       return;
     }
     if (event.type === 'background_task_waking') {
+      // CORE-024: re-acquire a slot for the in-flight fire (idempotent; a wake may briefly push
+      // the holder count over maxConcurrent, which only pauses queue draining until it sleeps).
+      this.acquireSlot(task.state.id);
       // FLOW-001: propagate a manager-level wake so an upper layer can re-enter the agent loop.
       this.emit({
         type: 'background_task_waking',

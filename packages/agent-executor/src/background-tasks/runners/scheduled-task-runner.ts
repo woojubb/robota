@@ -144,6 +144,24 @@ function runOneFire(state: IScheduledTaskState): void {
   });
   state.currentChild = child;
 
+  // CORE-024 (RUNTIME-18): croner `protect: true` skips a fire while the previous one still runs,
+  // so a hung fire starves EVERY future fire. A per-fire timeout kills the hung child (process
+  // group) so `close` fires, the schedule re-sleeps, and the next cron tick runs.
+  const fireTimeout =
+    state.request.timeoutMs !== undefined
+      ? setTimeout(() => {
+          appendPrefixedLogLines(
+            state.logs,
+            'system',
+            `fire timed out after ${state.request.timeoutMs}ms — killing`,
+          );
+          void killProcessTree(child, { processGroup: SPAWN_DETACHED });
+        }, state.request.timeoutMs)
+      : undefined;
+  const clearFireTimeout = (): void => {
+    if (fireTimeout) clearTimeout(fireTimeout);
+  };
+
   child.stdout?.on('data', (chunk: Buffer) => {
     const text = chunk.toString('utf8');
     capture.appendOutput(text);
@@ -157,6 +175,7 @@ function runOneFire(state: IScheduledTaskState): void {
   });
 
   child.on('close', () => {
+    clearFireTimeout();
     if (state.currentChild === child) state.currentChild = undefined;
     if (!state.cancelled) {
       emitSleeping(state);
@@ -164,6 +183,7 @@ function runOneFire(state: IScheduledTaskState): void {
   });
 
   child.on('error', (error) => {
+    clearFireTimeout();
     if (state.currentChild === child) state.currentChild = undefined;
     appendPrefixedLogLines(state.logs, 'system', error.message);
     if (!state.cancelled) {
