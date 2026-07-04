@@ -55,6 +55,7 @@
     "@robota-sdk/agent-command": "workspace:*",
     "@robota-sdk/agent-command-workflows": "workspace:*",
     "@robota-sdk/agent-core": "workspace:*",
+    "@robota-sdk/agent-executor": "workspace:*",
     "@robota-sdk/agent-framework": "workspace:*",
     "@robota-sdk/agent-preset": "workspace:*",
     "@robota-sdk/agent-provider": "workspace:*",
@@ -74,7 +75,6 @@
   },
   "devDependencies": {
     "@homebridge/node-pty-prebuilt-multiarch": "^0.13.1",
-    "@robota-sdk/agent-executor": "workspace:*",
     "@robota-sdk/agent-interface-transport": "workspace:*",
     "@types/marked": "^6.0.0",
     "@types/ws": "^8.18.1",

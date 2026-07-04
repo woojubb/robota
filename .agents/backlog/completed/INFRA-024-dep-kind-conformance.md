@@ -1,6 +1,7 @@
 ---
 title: 'INFRA-024: dep-kind conformance — runtime value imports must be dependencies/peerDependencies, never devDependencies-only'
-status: todo
+status: done
+completed: 2026-07-04
 created: 2026-07-04
 priority: high
 urgency: now
@@ -49,3 +50,24 @@ Not applicable — packaging/harness-tooling change with no user-facing behavior
 (the CLI already resolves the module in this workspace; the defect only manifests at
 isolated install time, which is not reachable pre-publish). Engineering evidence: the
 prove-the-mechanism red/green run in the Test Plan.
+
+## Evidence (engineering verification, 2026-07-04)
+
+- **Prove (red → green)**: the new scan run against the PRE-fix tree failed with exit 1,
+  naming the audit finding — `@robota-sdk/agent-cli imports @robota-sdk/agent-executor
+(packages/agent-cli/src/cli.ts)` — **and swept the class**: 49 additional findings in
+  `@robota-sdk/dag-cli`, which declared ALL 19 of its runtime `@robota-sdk/dag-*` imports
+  as devDependencies (`private: false`, ships a `robota-dag` bin — same latent break at
+  publish time). After moving agent-executor (agent-cli) and the 18 flagged dag modules
+  (dag-cli) to `dependencies` (dag-api stays devDeps — type-only), the scan passes with
+  exit 0. Lockfile refreshed (`pnpm install`, workspace-field moves only).
+- Mechanism: `scripts/harness/check-dep-kind.mjs`, wired as the `dep-kind` scan (45 scans
+  total); allowlist requires reason strings and reports on every run (empty today).
+- Fixture tests: 4 cases in `scripts/harness/__tests__/check-dep-kind.test.mjs`
+  (devDeps-only value import flagged; type-only + peerDeps clean; JSDoc/string-literal/
+  test-surface exclusions; undeclared imports left to the deps scan) — harness suite 235
+  green.
+- Builds + smoke: both CLI binaries build and execute post-move (`robota 3.0.0-beta.76`;
+  `robota-dag` loads and reports its structured usage error — all runtime imports
+  resolve). agent-cli 150 / dag-cli 992 tests green; repo typecheck 0 errors; lint 0
+  errors; 45 harness scans green.

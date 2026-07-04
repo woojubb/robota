@@ -59,15 +59,10 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.29.0",
     "@anthropic-ai/sdk": "^0.91.1",
-    "openai": "^4.104.0",
     "@google/genai": "^1.52.0",
-    "zod": "^3.24.4"
-  },
-  "devDependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "@robota-sdk/dag-adapters-local": "workspace:*",
-    "@robota-sdk/dag-api": "workspace:*",
     "@robota-sdk/dag-builder": "workspace:*",
     "@robota-sdk/dag-core": "workspace:*",
     "@robota-sdk/dag-framework": "workspace:*",
@@ -85,6 +80,11 @@
     "@robota-sdk/dag-node-llm-text-router": "workspace:*",
     "@robota-sdk/dag-node-mcp-tool": "workspace:*",
     "@robota-sdk/dag-orchestration-client": "workspace:*",
+    "openai": "^4.104.0",
+    "zod": "^3.24.4"
+  },
+  "devDependencies": {
+    "@robota-sdk/dag-api": "workspace:*",
     "tsdown": "^0.22.2"
   },
   "publishConfig": {
