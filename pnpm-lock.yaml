@@ -1037,6 +1037,9 @@ importers:
       '@robota-sdk/agent-interface-transport':
         specifier: workspace:*
         version: link:../agent-interface-transport
+      '@robota-sdk/agent-process':
+        specifier: workspace:*
+        version: link:../agent-process
       croner:
         specifier: ^10.0.1
         version: 10.0.1
@@ -1305,6 +1308,24 @@ importers:
         specifier: ^3.2.6
         version: 3.2.6(@types/node@20.19.43)(tsx@4.22.4)
 
+  packages/agent-process:
+    devDependencies:
+      '@types/node':
+        specifier: ^20.19.43
+        version: 20.19.43
+      rimraf:
+        specifier: ^5.0.10
+        version: 5.0.10
+      tsdown:
+        specifier: ^0.22.2
+        version: 0.22.2(tsx@4.22.4)(typescript@5.9.3)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.6
+        version: 3.2.6(@types/node@20.19.43)(tsx@4.22.4)
+
   packages/agent-provider:
     dependencies:
       '@anthropic-ai/sdk':
@@ -1444,6 +1465,9 @@ importers:
       '@robota-sdk/agent-interface-transport':
         specifier: workspace:*
         version: link:../agent-interface-transport
+      '@robota-sdk/agent-process':
+        specifier: workspace:*
+        version: link:../agent-process
       '@robota-sdk/agent-provider':
         specifier: workspace:*
         version: link:../agent-provider
@@ -1512,6 +1536,9 @@ importers:
 
   packages/agent-tools:
     dependencies:
+      '@robota-sdk/agent-process':
+        specifier: workspace:*
+        version: link:../agent-process
       fast-glob:
         specifier: ^3.3.3
         version: 3.3.3

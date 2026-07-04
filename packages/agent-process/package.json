@@ -1,7 +1,7 @@
 {
-  "name": "@robota-sdk/agent-subagent-runner",
+  "name": "@robota-sdk/agent-process",
   "version": "3.0.0-beta.76",
-  "description": "Child-process subagent runner for Robota SDK — optional package for running subagents in isolated child processes",
+  "description": "Domain-free child-process termination primitives for the Robota SDK — killProcessTree (SIGTERM→grace→SIGKILL, process-group aware)",
   "type": "module",
   "main": "dist/node/index.js",
   "types": "dist/node/index.d.ts",
@@ -27,8 +27,12 @@
   "bugs": {
     "url": "https://github.com/woojubb/robota/issues"
   },
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "files": [
-    "dist"
+    "dist",
+    "src"
   ],
   "scripts": {
     "build": "tsdown",
@@ -41,16 +45,9 @@
     "clean": "rimraf dist",
     "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
   },
-  "dependencies": {
-    "@robota-sdk/agent-core": "workspace:*",
-    "@robota-sdk/agent-executor": "workspace:*",
-    "@robota-sdk/agent-framework": "workspace:*",
-    "@robota-sdk/agent-interface-transport": "workspace:*",
-    "@robota-sdk/agent-process": "workspace:*",
-    "@robota-sdk/agent-provider": "workspace:*"
-  },
+  "dependencies": {},
   "devDependencies": {
-    "@types/node": "^22.19.21",
+    "@types/node": "^20.19.43",
     "rimraf": "^5.0.10",
     "tsdown": "^0.22.2",
     "typescript": "^5.9.3",

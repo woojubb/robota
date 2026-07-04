@@ -26,6 +26,8 @@ const DEFAULT_PER_KEY_DELAY_MS = 35;
 const DEFAULT_WAIT_TIMEOUT_MS = 15_000;
 const DEFAULT_EXIT_TIMEOUT_MS = 10_000;
 const OUTPUT_TAIL_LENGTH = 2000;
+/** CORE-023: grace before escalating a lingering PTY child from SIGTERM to SIGKILL. */
+const PTY_KILL_GRACE_MS = 2000;
 
 export interface IPtyRunOptions {
   command: string;
@@ -168,8 +170,20 @@ export function spawnPty(options: IPtyRunOptions): IPtyRunSession {
         pty.kill();
       } catch {
         // allow-fallback: process already exited — kill on a dead pty is a no-op by design
-        /* no-op */
       }
+      // CORE-023: mirror the killProcessTree escalation pattern — a child that ignores SIGTERM
+      // is force-killed after the grace window (agent-testing keeps zero @robota-sdk deps, so the
+      // pattern is inlined rather than importing @robota-sdk/agent-process).
+      const graceTimer = setTimeout(() => {
+        if (exitCode === undefined) {
+          try {
+            pty.kill('SIGKILL');
+          } catch {
+            // allow-fallback: process exited during the grace window — SIGKILL is a no-op
+          }
+        }
+      }, PTY_KILL_GRACE_MS);
+      graceTimer.unref?.();
     },
   };
 }

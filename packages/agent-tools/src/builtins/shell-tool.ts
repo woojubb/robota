@@ -12,7 +12,11 @@
 import { spawn } from 'node:child_process';
 
 import { resolvePlatformShell } from '@robota-sdk/agent-core';
+import { killProcessTree } from '@robota-sdk/agent-process';
 import { z } from 'zod';
+
+/** POSIX children are spawned detached so a process-group kill reaps grandchildren (CORE-023). */
+const SPAWN_DETACHED = process.platform !== 'win32';
 
 import { createZodFunctionTool } from '../implementations/function-tool';
 
@@ -122,7 +126,12 @@ async function runShell(
       cwd: workingDirectory ?? process.cwd(),
       env: process.env,
       stdio: ['pipe', 'pipe', 'pipe'],
+      detached: SPAWN_DETACHED,
     });
+
+    // RUNTIME-31: the command inherits an open stdin pipe it can block reading on; close it
+    // so commands that read stdin (e.g. `cat`) terminate instead of hanging until timeout.
+    child.stdin?.end();
 
     child.stdout.on('data', (chunk: Buffer) => {
       stdoutChunks.push(chunk);
@@ -134,9 +143,9 @@ async function runShell(
 
     const timer = setTimeout(() => {
       timedOut = true;
-      child.kill('SIGTERM');
-      // Resolve immediately on timeout — don't wait for close event.
-      // The child process cleanup happens in the background.
+      // CORE-023: kill the whole process group with SIGTERM→grace→SIGKILL so grandchildren
+      // are reaped, not just the shell. Fire-and-forget: settle promptly, escalate in background.
+      void killProcessTree(child, { processGroup: SPAWN_DETACHED });
       settle({
         success: false,
         output: Buffer.concat(stdoutChunks).toString('utf8'),
@@ -153,9 +162,10 @@ async function runShell(
     }
 
     // CORE-018: the run-scoped signal must terminate the underlying work — completing
-    // silently after an abort is a cancellation-contract violation.
+    // silently after an abort is a cancellation-contract violation. CORE-023: process-group
+    // kill reaps grandchildren the bare SIGTERM left orphaned.
     function onAbort(): void {
-      child.kill('SIGTERM');
+      void killProcessTree(child, { processGroup: SPAWN_DETACHED });
       settle({
         success: false,
         output: Buffer.concat(stdoutChunks).toString('utf8'),

@@ -1,5 +1,7 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 
+import { DEFAULT_KILL_GRACE_MS, killProcessTree } from '@robota-sdk/agent-process';
+
 import {
   appendPrefixedLogLines,
   createBackgroundTaskLogPage,
@@ -21,7 +23,9 @@ import {
 import { createLineWakeMatcher, type ILineWakeMatcher } from './line-wake-matcher.js';
 
 const DEFAULT_OUTPUT_LIMIT_BYTES = 30_000;
-const DEFAULT_KILL_GRACE_MS = 2_000;
+
+/** POSIX children are spawned detached so a process-group kill reaps grandchildren (CORE-023). */
+const SPAWN_DETACHED = process.platform !== 'win32';
 
 export interface IManagedShellProcessRunnerOptions {
   killGraceMs?: number;
@@ -34,7 +38,6 @@ interface IProcessTaskRuntime {
   logs: string[];
   capture: ILimitedOutputCapture;
   killGraceMs: number;
-  killTimer?: ReturnType<typeof setTimeout>;
   /** FLOW-004: present when the process is a monitor (matchPattern + agentInstruction set). */
   wakeMatcher?: ILineWakeMatcher;
 }
@@ -103,6 +106,7 @@ function startProcessTask(
       cwd: request.cwd,
       env: { ...process.env, ...(request.env ?? {}) },
       stdio: ['pipe', 'pipe', 'pipe'],
+      detached: SPAWN_DETACHED,
     }),
     logs: [],
     capture: createLimitedOutputCapture({
@@ -125,14 +129,18 @@ function createProcessResult(runtime: IProcessTaskRuntime): Promise<IBackgroundT
             'system',
             `timed out after ${runtime.request.timeoutMs}ms`,
           );
-          runtime.child.kill('SIGTERM');
+          // CORE-023: escalate SIGTERM→grace→SIGKILL over the process group (reaps grandchildren)
+          // instead of a bare SIGTERM. Fire-and-forget: reject the result now, escalate in background.
+          void killProcessTree(runtime.child, {
+            processGroup: SPAWN_DETACHED,
+            graceMs: runtime.killGraceMs,
+          });
           rejectOnceLocal(new BackgroundTaskError('timeout', 'Background process timed out'));
         }, runtime.request.timeoutMs)
       : undefined;
 
     function clearTimers(): void {
       if (timeoutTimer) clearTimeout(timeoutTimer);
-      if (runtime.killTimer) clearTimeout(runtime.killTimer);
     }
 
     function resolveOnce(exitCode: number | undefined, signalCode: string | undefined): void {
@@ -164,9 +172,14 @@ function createProcessResult(runtime: IProcessTaskRuntime): Promise<IBackgroundT
       resolveOnce(code ?? undefined, signal ?? undefined);
     });
 
-    if (runtime.request.stdin) {
-      runtime.child.stdin.write(runtime.request.stdin);
-      runtime.child.stdin.end();
+    // RUNTIME-48: the initial write must have an error listener (an EPIPE here would otherwise
+    // throw unhandled); sendInput attaches one and ends stdin. With no initial stdin we leave
+    // the pipe OPEN — this runner streams interactive input via handle.send(); closing it here
+    // would break processes (e.g. `cat`) that read stdin after start.
+    if (runtime.request.stdin !== undefined) {
+      sendInput(runtime.child, runtime.request.stdin).catch((error: Error) => {
+        appendPrefixedLogLines(runtime.logs, 'system', `stdin write failed: ${error.message}`);
+      });
     }
   });
 }
@@ -180,7 +193,7 @@ function createProcessHandle(
     ...(runtime.child.pid !== undefined ? { pid: runtime.child.pid } : {}),
     result,
     cancel: async (reason?: string) => {
-      cancelProcess(runtime, reason);
+      await cancelProcess(runtime, reason);
     },
     send: async (input: IBackgroundTaskInput) => {
       if (!input.stdin) return;
@@ -206,16 +219,19 @@ function attachOutputListeners(runtime: IProcessTaskRuntime): void {
   });
 }
 
-function cancelProcess(runtime: IProcessTaskRuntime, reason?: string): void {
+async function cancelProcess(runtime: IProcessTaskRuntime, reason?: string): Promise<void> {
   appendPrefixedLogLines(
     runtime.logs,
     'system',
     reason ? `cancel requested: ${reason}` : 'cancel requested',
   );
-  if (!runtime.child.killed) runtime.child.kill('SIGTERM');
-  runtime.killTimer = setTimeout(() => {
-    if (!runtime.child.killed) runtime.child.kill('SIGKILL');
-  }, runtime.killGraceMs);
+  // CORE-023: SIGTERM→grace→SIGKILL over the process group, settling on the real exit event —
+  // replaces the `child.killed` dead-guard (which only means "a signal was delivered", not
+  // "process is dead"). Awaiting means the handle's cancel() resolves once the tree is truly gone.
+  await killProcessTree(runtime.child, {
+    processGroup: SPAWN_DETACHED,
+    graceMs: runtime.killGraceMs,
+  });
 }
 
 function readProcessLog(
