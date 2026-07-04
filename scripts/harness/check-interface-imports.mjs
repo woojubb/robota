@@ -118,13 +118,16 @@ function findScannablePackages() {
 }
 
 /**
- * Extract the named specifiers of every import statement that targets
- * `@robota-sdk/agent-framework` (single or multi-line, type or value).
+ * Extract the named specifiers of every import OR re-export statement that targets
+ * `@robota-sdk/agent-framework` (single or multi-line, type or value). `export … from`
+ * pass-throughs previously evaded this scan (INFRA-025 P2 finding: transport-ws
+ * re-exported four workspace contract types via framework undetected).
  * Returns array of { names: string[], snippet: string }.
  */
-function extractFrameworkImports(source) {
+export function extractFrameworkImports(source) {
   const imports = [];
-  const re = /import\s+(?:type\s+)?\{([^}]*)\}\s*from\s*['"]@robota-sdk\/agent-framework['"]\s*;?/g;
+  const re =
+    /(?:import|export)\s+(?:type\s+)?\{([^}]*)\}\s*from\s*['"]@robota-sdk\/agent-framework['"]\s*;?/g;
   let match;
   while ((match = re.exec(source)) !== null) {
     const names = match[1]
@@ -194,4 +197,8 @@ function main() {
   process.exit(0);
 }
 
-main();
+const isDirectExecution =
+  process.argv[1] !== undefined && resolve(process.argv[1]) === resolve(import.meta.filename);
+if (isDirectExecution) {
+  main();
+}

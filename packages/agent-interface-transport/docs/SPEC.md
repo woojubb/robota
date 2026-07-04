@@ -9,21 +9,14 @@ contracts and no runtime implementation. It defines the standard protocol for tr
 ## Boundaries
 
 - **Contains only type contracts and interfaces — no implementation, no classes, no runtime logic.**
-- **Zero runtime (emitted-JS) dependencies.** All `@robota-sdk/*` imports are type-only
-  (`import type`); the compiled output carries no `@robota-sdk/*` package at runtime. The package
-  imports contract types from `@robota-sdk/agent-core`, `@robota-sdk/agent-executor`, and
-  `@robota-sdk/agent-session` (e.g. `TUniversalValue`, `IBackgroundTaskError`, `ICompactEvent`).
-- **Downward type references are contract composition, not coupling (justification).** As the SSOT
-  for transport-facing contracts (INFRA-010), this package's contracts must _reference_ a few
-  domain types owned by lower layers — a session compact event (`ICompactEvent`), background-task
-  status/error (`@robota-sdk/agent-executor`), and core primitives (`TUniversalValue`,
-  `IHistoryEntry`). It does not _own_ or _re-export_ them; the references are `import type` only, so
-  there is no runtime edge and the dependency graph stays acyclic (verified by
-  `harness:conformance`). `@robota-sdk/agent-core` is the zero-dep foundation and is always an
-  acceptable reference. A future full inversion (relocating the referenced domain types up into this
-  package so executor/session import from it) is tracked by backlog REFACTOR-018; it is deliberately
-  deferred because those types are genuine executor/session domain types and the current type-only
-  references carry no runtime cost.
+- **Dependencies: `@robota-sdk/agent-core` only (INFRA-025).** The full inversion formerly
+  tracked by REFACTOR-018 is DONE: the background-task data contracts, subagent job state
+  family, and compaction event contract now live HERE (`background-task-contracts.ts`,
+  `subagent-contracts.ts`, `compact-contracts.ts`) and `agent-executor`/`agent-session`
+  import them from this package. The only remaining upstream reference is the zero-dep
+  foundation `@robota-sdk/agent-core` (`TUniversalValue`, `IHistoryEntry`,
+  `IContextWindowState`, …). Mechanized: the `deps` scan fails any `agent-interface-*`
+  package whose internal dependencies exceed `{agent-core}`.
 - Does not depend on `@robota-sdk/agent-framework` or any transport implementation package.
 - Implementation packages (the separate `agent-transport-{tui,ws,http,mcp}` packages and
   `agent-transport` for headless) depend on this package for interface types, not on `agent-framework`.
@@ -71,10 +64,9 @@ groups, each in its own file (all re-exported from `src/index.ts`):
 | Execution-workspace contracts  | `workspace-contracts.ts`        | `IExecutionWorkspaceEntry`/`Snapshot`/`Event`/`Filter`, execution-detail page/record contracts, and their enum kinds          |
 | Interactive-session contracts  | `session-contracts.ts`          | `IInteractiveSession`, `IInteractiveSessionEvents`, `IExecutionResult`, `IToolState`/`Summary`, `IInteractiveSessionStore`    |
 
-These contract interfaces use generic type parameters where applicable. The package does import a
-small number of contract types from `@robota-sdk/agent-core`, `@robota-sdk/agent-executor`, and
-`@robota-sdk/agent-session` as documented in the Boundaries section; all such imports are type-only
-(`import type`), so the package still emits zero runtime (`@robota-sdk/*`) dependencies.
+These contract interfaces use generic type parameters where applicable. The package imports a
+small number of foundation types from `@robota-sdk/agent-core` only (INFRA-025); all such imports
+are type-only (`import type`), so the package emits zero runtime (`@robota-sdk/*`) dependencies.
 
 ## Public API Surface
 

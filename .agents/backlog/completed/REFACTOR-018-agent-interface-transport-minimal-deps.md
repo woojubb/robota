@@ -41,3 +41,7 @@ Option C: transport adapter contract에서 `ISession`을 제거하고 generic pa
 ## User Execution Test Scenarios
 
 Not applicable — 패키지 의존 재구성이며 사용자 관찰 가능한 동작 변화 없음.
+
+> Update (2026-07-04, INFRA-025): the deferred full inversion shipped — contracts relocated
+> into agent-interface-transport, deps reduced to agent-core only, invariant mechanized in
+> the deps scan (`checkInterfacePackageDeps`).

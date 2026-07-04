@@ -82,3 +82,11 @@ loaded).
 
 - `@robota-sdk/agent-interface-transport` — `IInteractiveSessionRecord` (input projection SSOT).
 - `@robota-sdk/agent-core` — `IHistoryEntry` (history-entry SSOT).
+
+## Consumption Posture (INFRA-025)
+
+`agent-framework` no longer carries this package as a runtime dependency: the scripted
+session harness exposes a neutral `sessionLog()` accessor and tests compose
+`summarizeUsageBySource` themselves. Runtime consumers today: `agent-cli`
+(`session-analyze-command`). This package stays a leaf analysis library — it must not be
+re-absorbed into assembly-layer runtime dependencies for convenience helpers.
