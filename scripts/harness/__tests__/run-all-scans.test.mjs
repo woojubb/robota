@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { runScans } from '../run-all-scans.mjs';
+import { parseSkips, runScans } from '../run-all-scans.mjs';
 
 function stubScan(name, exitCode) {
   return {
@@ -47,5 +47,15 @@ describe('run-all-scans', () => {
     );
     expect(exitCode).toBe(1);
     expect(lines.join('\n')).toContain('2 of 3 scans failed');
+  });
+});
+
+describe('parseSkips (INFRA-026)', () => {
+  it('collects repeatable --skip names', () => {
+    expect([...parseSkips(['--skip', 'dist', '--skip', 'deps'])]).toEqual(['dist', 'deps']);
+  });
+
+  it('returns empty set without --skip', () => {
+    expect(parseSkips([]).size).toBe(0);
   });
 });

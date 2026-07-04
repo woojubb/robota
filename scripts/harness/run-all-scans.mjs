@@ -159,8 +159,36 @@ export async function runScans(scans, write = (line) => process.stdout.write(`${
   return 1;
 }
 
+/**
+ * Parse `--skip <name>` occurrences (repeatable). Skips are REPORTED, never silent
+ * (INFRA-026: CI runs the suite on a fresh checkout, where the `dist` freshness scan —
+ * a local pre-CI check by charter — has nothing to measure).
+ */
+export function parseSkips(argv) {
+  const skips = new Set();
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === '--skip' && argv[i + 1]) {
+      skips.add(argv[i + 1]);
+      i++;
+    }
+  }
+  return skips;
+}
+
 export async function main() {
-  const scans = SCAN_COMMANDS.map(({ name, command }) => ({
+  const skips = parseSkips(process.argv.slice(2));
+  const unknownSkips = [...skips].filter(
+    (name) => !SCAN_COMMANDS.some((scan) => scan.name === name),
+  );
+  if (unknownSkips.length > 0) {
+    process.stderr.write(`unknown --skip scan name(s): ${unknownSkips.join(', ')}\n`);
+    process.exitCode = 1;
+    return;
+  }
+  for (const name of skips) {
+    process.stdout.write(`skipped: ${name} (--skip)\n`);
+  }
+  const scans = SCAN_COMMANDS.filter(({ name }) => !skips.has(name)).map(({ name, command }) => ({
     name,
     run: () => spawnScan(command),
   }));
