@@ -1688,9 +1688,6 @@ importers:
       '@robota-sdk/agent-core':
         specifier: workspace:*
         version: link:../agent-core
-      '@robota-sdk/agent-framework':
-        specifier: workspace:*
-        version: link:../agent-framework
       '@robota-sdk/agent-interface-transport':
         specifier: workspace:*
         version: link:../agent-interface-transport
@@ -1716,6 +1713,9 @@ importers:
 
   packages/agent-web-ui:
     dependencies:
+      '@robota-sdk/agent-interface-transport':
+        specifier: workspace:*
+        version: link:../agent-interface-transport
       '@robota-sdk/agent-transport-ws':
         specifier: workspace:*
         version: link:../agent-transport-ws

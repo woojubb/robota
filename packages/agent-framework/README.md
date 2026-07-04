@@ -205,7 +205,8 @@ session.getSession(); // Session
 
 ```typescript
 import { SystemCommandExecutor, createSystemCommands } from '@robota-sdk/agent-framework';
-import type { ICommandResult, ICommandHostContext } from '@robota-sdk/agent-framework';
+import type { ICommandHostContext } from '@robota-sdk/agent-framework';
+import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
 
 declare const session: ICommandHostContext;
 const executor = new SystemCommandExecutor(); // starts empty unless commands are supplied
