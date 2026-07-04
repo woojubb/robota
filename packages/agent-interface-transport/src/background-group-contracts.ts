@@ -6,7 +6,7 @@
  * these declarations.
  */
 
-import type { IBackgroundTaskError, TBackgroundTaskStatus } from '@robota-sdk/agent-executor';
+import type { IBackgroundTaskError, TBackgroundTaskStatus } from './background-task-contracts';
 
 export type TBackgroundJobWaitPolicy = 'detached' | 'wait_all' | 'wait_any' | 'manual';
 

@@ -1,9 +1,6 @@
 import {
   isTerminalBackgroundTaskStatus,
   type IBackgroundTaskManager,
-  type IBackgroundTaskState,
-  type TBackgroundTaskEvent,
-  type TBackgroundTaskStatus,
 } from '@robota-sdk/agent-executor';
 
 // Background job-group contracts SSOT relocated to @robota-sdk/agent-interface-transport (DATA-001).
@@ -27,6 +24,11 @@ export type {
   TBackgroundJobGroupEvent,
   TBackgroundJobGroupEventListener,
   TBackgroundJobGroupIdFactory,
+} from '@robota-sdk/agent-interface-transport';
+import type {
+  IBackgroundTaskState,
+  TBackgroundTaskEvent,
+  TBackgroundTaskStatus,
 } from '@robota-sdk/agent-interface-transport';
 
 const DEFAULT_SUMMARY_LENGTH = 1_000;

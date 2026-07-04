@@ -13,11 +13,8 @@ export type {
   ISubagentJobHandle,
   ISubagentJobResult,
   ISubagentJobStart,
-  ISubagentJobState,
   ISubagentManager,
   ISubagentManagerOptions,
   ISubagentRunner,
   ISubagentSpawnRequest,
-  TSubagentJobMode,
-  TSubagentJobStatus,
 } from '@robota-sdk/agent-executor';

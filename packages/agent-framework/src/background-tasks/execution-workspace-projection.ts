@@ -18,7 +18,10 @@ import {
 } from './execution-workspace-types.js';
 
 import type { IBackgroundJobGroupState } from './background-job-orchestrator.js';
-import type { IBackgroundTaskState, TBackgroundPrimitive } from '@robota-sdk/agent-executor';
+import type {
+  IBackgroundTaskState,
+  TBackgroundPrimitive,
+} from '@robota-sdk/agent-interface-transport';
 
 const PREVIEW_MAX_LENGTH = 120;
 const SUCCESS_EXIT_CODE = 0;

@@ -1,15 +1,17 @@
 import type { IInteractiveSessionRecord, IInteractiveSessionStore } from './session-persistence.js';
 import type {
   IBackgroundJobGroupState,
-  IBackgroundTaskState,
   TBackgroundJobGroupEvent,
-  TBackgroundTaskEvent,
 } from '../background-tasks/index.js';
 import type { ISkillActivationEvent } from '../commands/skill-activation-events.js';
 import type { IContextReferenceItem } from '../context/context-reference-inventory.js';
 import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type { IGoalState } from '@robota-sdk/agent-interface-transport';
+import type {
+  IBackgroundTaskState,
+  TBackgroundTaskEvent,
+} from '@robota-sdk/agent-interface-transport';
 import type { Session } from '@robota-sdk/agent-session';
 
 /**

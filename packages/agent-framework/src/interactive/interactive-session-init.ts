@@ -32,7 +32,6 @@ import type { ICommandResult } from '../commands/index.js';
 import type { IResolvedConfig } from '../config/config-types.js';
 import type { IContextFileEntry } from '../context/context-loader.js';
 import type { IContextWindowState, TToolArgs, TUniversalMessage } from '@robota-sdk/agent-core';
-import type { ICompactEvent } from '@robota-sdk/agent-session';
 import type { Session } from '@robota-sdk/agent-session';
 
 export type {
@@ -41,6 +40,7 @@ export type {
   TInteractiveSessionOptions,
   IInitOptions,
 } from './interactive-session-options.js';
+import type { ICompactEvent } from '@robota-sdk/agent-interface-transport';
 export { injectSavedMessage, loadSessionRecord } from './interactive-session-restore.js';
 
 /** Return value of createInteractiveSession — session plus staleness tracking data. */

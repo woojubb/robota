@@ -6,14 +6,14 @@
  * entry-id helpers live in agent-framework and import these declarations.
  */
 
-import type { IBackgroundJobGroupState } from './session-contracts.js';
-import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type {
   IBackgroundTaskLogCursor,
   IBackgroundTaskState,
   TBackgroundTaskKind,
   TBackgroundTaskStatus,
-} from '@robota-sdk/agent-executor';
+} from './background-task-contracts';
+import type { IBackgroundJobGroupState } from './session-contracts.js';
+import type { IHistoryEntry } from '@robota-sdk/agent-core';
 
 export type TExecutionEntryKind = 'main_thread' | 'background_task' | 'background_group';
 export type TExecutionWorkspaceStatus = 'active' | 'idle' | TBackgroundTaskStatus;

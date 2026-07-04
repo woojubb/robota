@@ -1,7 +1,7 @@
 import { getSession } from '../../session/playground-session-store.js';
 
-import type { TBackgroundTaskEvent } from '@robota-sdk/agent-framework';
 import type { IToolState } from '@robota-sdk/agent-interface-transport';
+import type { TBackgroundTaskEvent } from '@robota-sdk/agent-interface-transport';
 import type { Request, Response } from 'express';
 
 interface ISessionSubmitBody {

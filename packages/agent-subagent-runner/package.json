@@ -45,6 +45,7 @@
     "@robota-sdk/agent-core": "workspace:*",
     "@robota-sdk/agent-executor": "workspace:*",
     "@robota-sdk/agent-framework": "workspace:*",
+    "@robota-sdk/agent-interface-transport": "workspace:*",
     "@robota-sdk/agent-provider": "workspace:*"
   },
   "devDependencies": {

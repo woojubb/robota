@@ -1,12 +1,12 @@
 import { randomUUID } from 'node:crypto';
 
-import type { TBackgroundTaskEvent } from '@robota-sdk/agent-framework';
 import type {
   ICommandResult,
   IExecutionResult,
   IInteractiveSession,
   TBackgroundJobGroupEvent,
 } from '@robota-sdk/agent-interface-transport';
+import type { TBackgroundTaskEvent } from '@robota-sdk/agent-interface-transport';
 
 type TSlashCommandExecution =
   | { readonly kind: 'not-slash' }

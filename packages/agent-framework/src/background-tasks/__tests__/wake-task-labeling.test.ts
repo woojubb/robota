@@ -8,8 +8,8 @@ import { describe, expect, it } from 'vitest';
 
 import { createExecutionWorkspaceSnapshot } from '../index.js';
 
-import type { IBackgroundTaskState } from '../index.js';
 import type { IExecutionWorkspaceEntry } from '../index.js';
+import type { IBackgroundTaskState } from '@robota-sdk/agent-interface-transport';
 
 function scheduledTask(overrides: Partial<IBackgroundTaskState>): IBackgroundTaskState {
   return {

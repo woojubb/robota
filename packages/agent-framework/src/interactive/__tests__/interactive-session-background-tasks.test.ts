@@ -7,15 +7,17 @@ import { InteractiveSession } from '../interactive-session.js';
 
 import type {
   IBackgroundTaskHandle,
-  IBackgroundTaskLogPage,
-  IBackgroundTaskResult,
   IBackgroundTaskRunner,
   IBackgroundTaskStart,
   IExecutionWorkspaceEvent,
-  TBackgroundTaskEvent,
 } from '../../background-tasks/index.js';
 import type { IAgentToolDeps } from '../../tools/agent-tool.js';
 import type { Session } from '@robota-sdk/agent-session';
+import type {
+  IBackgroundTaskLogPage,
+  IBackgroundTaskResult,
+  TBackgroundTaskEvent,
+} from '@robota-sdk/agent-interface-transport';
 
 function createSessionStub(): Session {
   return {

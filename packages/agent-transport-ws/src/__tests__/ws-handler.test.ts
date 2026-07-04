@@ -17,7 +17,7 @@ import type {
   IBackgroundTaskLogPage,
   IBackgroundTaskState,
   TBackgroundTaskEvent,
-} from '@robota-sdk/agent-framework';
+} from '@robota-sdk/agent-interface-transport';
 
 const backgroundTask: IBackgroundTaskState = {
   id: 'task_1',

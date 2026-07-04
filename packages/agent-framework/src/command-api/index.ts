@@ -132,12 +132,7 @@ export {
   parseCommandBackgroundLogCursor,
   readCommandBackgroundTaskLog,
 } from './background/background-command-api.js';
-export type {
-  IBackgroundTaskListFilter,
-  IBackgroundTaskLogCursor,
-  IBackgroundTaskLogPage,
-  IBackgroundTaskState,
-} from '../background-tasks/index.js';
+export type {} from '../background-tasks/index.js';
 export type { TRecommendedResponseLanguage } from './language/language-command-api.js';
 export type { IPermissionsCommandState } from './permissions/permission-mode-command-api.js';
 export type {

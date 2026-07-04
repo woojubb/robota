@@ -3,11 +3,6 @@ import type { ICommandHostAdapters } from './host-adapters.js';
 import type {
   IBackgroundJobGroupCreateRequest,
   IBackgroundJobGroupState,
-  IBackgroundTaskListFilter,
-  IBackgroundTaskLogCursor,
-  IBackgroundTaskLogPage,
-  IBackgroundTaskState,
-  TBackgroundTaskIsolation,
 } from '../background-tasks/index.js';
 import type {
   IEditCheckpointInspection,
@@ -22,7 +17,6 @@ import type {
 } from '../context/context-reference-inventory.js';
 import type { IGoalStartOptions } from '../goal/index.js';
 import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
-import type { ISubagentJobState } from '../subagents/index.js';
 import type { TAutoCompactThreshold } from './context/context-command-api.js';
 import type {
   IContextWindowState,
@@ -33,6 +27,14 @@ import type {
   TUniversalMessage,
 } from '@robota-sdk/agent-core';
 import type { ICommandListEntry, IGoalState } from '@robota-sdk/agent-interface-transport';
+import type {
+  IBackgroundTaskListFilter,
+  IBackgroundTaskLogCursor,
+  IBackgroundTaskLogPage,
+  IBackgroundTaskState,
+  ISubagentJobState,
+  TBackgroundTaskIsolation,
+} from '@robota-sdk/agent-interface-transport';
 import type { ISessionReplayValidationResult } from '@robota-sdk/agent-session';
 // ICommandListEntry SSOT relocated to @robota-sdk/agent-interface-transport (DATA-001).
 

@@ -7,9 +7,6 @@ import {
   createBackgroundTaskLogPage,
   createGitWorktreeIsolationAdapter,
   createWorktreeSubagentRunner,
-  type IBackgroundTaskLogCursor,
-  type IBackgroundTaskLogPage,
-  type ISerializableProviderProfile,
   type ISubagentJobHandle,
   type ISubagentJobStart,
   type ISubagentRunner,
@@ -35,6 +32,11 @@ import type {
   IInProcessSubagentRunnerDeps,
   TSubagentRunnerFactory,
 } from '@robota-sdk/agent-framework';
+import type {
+  IBackgroundTaskLogCursor,
+  IBackgroundTaskLogPage,
+  ISerializableProviderProfile,
+} from '@robota-sdk/agent-interface-transport';
 
 const DEFAULT_KILL_GRACE_MS = 2_000;
 

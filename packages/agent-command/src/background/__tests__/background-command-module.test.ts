@@ -1,15 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
-import type {
-  IBackgroundTaskState,
-  ICommandHostContext,
-  ICommandSessionRuntime,
-} from '@robota-sdk/agent-framework';
+import type { ICommandHostContext, ICommandSessionRuntime } from '@robota-sdk/agent-framework';
 import {
   BackgroundCommandSource,
   createBackgroundCommandEntry,
   createBackgroundCommandModule,
   executeBackgroundCommand,
 } from '../index.js';
+import type { IBackgroundTaskState } from '@robota-sdk/agent-interface-transport';
 
 function createSessionRuntime(): ICommandSessionRuntime {
   return {
