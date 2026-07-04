@@ -133,7 +133,8 @@ re-export `agent-framework`.
 
 - Dependency edge: `agent-preset → agent-framework` (consumes option types as SSOT, e.g.
   `ICreateSessionOptions['permissionMode']`). This is the package's only workspace dependency.
-- `agent-cli` depends on both `agent-preset` (resolver) and `agent-framework` (assembly entry); the
+- Consumers: `agent-cli` depends on both `agent-preset` (resolver) and `agent-framework` (assembly
+  entry); `agent-command` consumes the resolver/list surface for the `/preset` command module. The
   reverse edges (`agent-framework → agent-preset`, `agent-preset → agent-cli`) must never exist.
 - The edge is derived dynamically from `package.json` by
   `scripts/harness/check-dependency-direction.mjs`; keeping the dependency one-way is sufficient for
