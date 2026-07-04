@@ -1,6 +1,6 @@
 {
   "name": "robota-scratch",
-  "version": "0.0.0",
+  "version": "0.0.1-beta.0",
   "private": true,
   "description": "Disposable live-verification (User Execution) scripts. src/ contents are gitignored — nothing here is ever committed or published.",
   "type": "module",

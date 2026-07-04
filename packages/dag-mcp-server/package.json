@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/dag-mcp-server",
-  "version": "3.0.0-beta.60",
+  "version": "3.0.0-beta.61",
   "private": true,
   "description": "MCP server for robota-dag — AI agents build and run DAG workflows",
   "type": "module",
