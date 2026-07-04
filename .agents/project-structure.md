@@ -75,6 +75,21 @@ consumer for any payload/application domain:
 When a use case seems to need a domain feature in a library, the answer is: verify the neutral
 ingredients exist, then show the assembly in `examples/` or a guide.
 
+## Forward-Provisioned Surface Rule
+
+A public surface in `packages/` with zero in-repo consumers is **not dead code**. Libraries and
+frameworks ship surfaces FOR external consumers; deliberate forward-provisioning ("built ahead so
+it is available when needed") is a legitimate product state (owner decision, 2026-07-04 re-audit).
+
+- Removal of an unconsumed public surface is a PRODUCT decision — never a grep-based cleanup.
+  Propose it as a user decision item with options; do not file it as "dead code".
+- Forward-provisioned surfaces carry the same first-class quality bar as consumed ones: accurate
+  SPEC/README, tests, and bug fixes are unconditional — "nobody uses it yet" never downgrades a
+  defect on such a surface.
+- Consumption-based detectors (orphan-export style scans) must not treat in-repo non-consumption
+  of `packages/` public surfaces as a violation. (Pass-through re-exports remain banned — that
+  rule is about ownership, not consumption.)
+
 ## Planned Packages (Not Yet Created)
 
 The following packages are planned but do not yet exist on disk. Do not attempt to import from them.
