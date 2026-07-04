@@ -56,6 +56,24 @@ A **thin CLI layer** built on top of agent-sdk, responsible only for the termina
 | `agent-provider`        | ✅ Provider definition assembly only | CLI composes injected `IProviderDefinition[]`; the provider package owns defaults and factories         |
 | `agent-preset`          | ✅ Preset id selection + resolution  | CLI selects the preset id and forwards CLI-flag overrides; `resolvePreset` owns the precedence merge    |
 
+### Optional (dev-only) modules — must not enter the published dependency graph
+
+Some capabilities are backed by packages deliberately kept **unpublished / `private`** (an in-progress
+track, or an internal test utility). agent-cli must **not** declare a runtime `dependencies` edge to
+any such package — a `workspace:*` edge would resolve, at publish time, to a version that is not on npm
+and break `npm install @robota-sdk/agent-cli`. These packages are `devDependencies` and loaded through
+a guarded `createRequire`, so the command/feature is present in the monorepo (and for anyone who
+installs the optional package) and cleanly absent (never a crash) in the default published CLI:
+
+| Feature                | Optional package                      | Loader                          | Absent behavior                            |
+| ---------------------- | ------------------------------------- | ------------------------------- | ------------------------------------------ |
+| `/workflows` command   | `@robota-sdk/agent-command-workflows` | `command-setup.ts` guarded load | command omitted                            |
+| `--session-log` replay | `@robota-sdk/agent-provider-replay`   | `cli.ts` `loadReplayProvider`   | clear error only when `--session-log` used |
+
+Rule: a runtime `dependencies` entry of agent-cli must be a package that is published in the same
+release. The published dependency closure is verified to contain no `private`/unpublished package (see
+CLI-077).
+
 ## Architecture
 
 For an LLM-scannable source-verified composition map, dependency graph, execution-mode diagrams,

@@ -1,6 +1,7 @@
 {
   "name": "@robota-sdk/dag-node-mcp-tool",
   "version": "3.0.0-beta.60",
+  "private": true,
   "description": "MCP Tool node for Robota DAG — execute a single MCP server tool as a DAG step (Phase A: stateless)",
   "type": "module",
   "main": "dist/node/index.js",
@@ -58,6 +59,5 @@
   },
   "publishConfig": {
     "access": "public"
-  },
-  "private": false
+  }
 }

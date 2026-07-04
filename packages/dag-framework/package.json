@@ -1,6 +1,7 @@
 {
   "name": "@robota-sdk/dag-framework",
   "version": "0.1.0-beta.0",
+  "private": true,
   "description": "Embeddable in-process DAG runtime — runtime + worker + adapters + default nodes",
   "type": "module",
   "main": "dist/node/index.js",
@@ -92,7 +93,6 @@
   "publishConfig": {
     "access": "public"
   },
-  "private": false,
   "devDependencies": {
     "tsdown": "^0.22.2"
   }

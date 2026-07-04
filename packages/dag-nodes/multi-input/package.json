@@ -1,6 +1,7 @@
 {
   "name": "@robota-sdk/dag-node-multi-input",
   "version": "3.0.0-beta.60",
+  "private": true,
   "description": "DAG multi-input node for Robota — emits multiple named ports from runtime inputs",
   "type": "module",
   "main": "dist/node/index.js",
@@ -56,6 +57,5 @@
   },
   "publishConfig": {
     "access": "public"
-  },
-  "private": false
+  }
 }

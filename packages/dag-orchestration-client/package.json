@@ -1,6 +1,7 @@
 {
   "name": "@robota-sdk/dag-orchestration-client",
   "version": "3.0.0-beta.60",
+  "private": true,
   "description": "Thin client contracts for Robota DAG orchestration APIs",
   "type": "module",
   "main": "dist/node/index.js",
@@ -60,6 +61,5 @@
   },
   "publishConfig": {
     "access": "public"
-  },
-  "private": false
+  }
 }

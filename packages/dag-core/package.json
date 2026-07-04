@@ -1,6 +1,7 @@
 {
   "name": "@robota-sdk/dag-core",
   "version": "3.0.0-beta.60",
+  "private": true,
   "description": "Core types and interfaces for robota-dag AI workflow orchestration",
   "type": "module",
   "main": "dist/node/index.js",
@@ -74,6 +75,5 @@
   },
   "publishConfig": {
     "access": "public"
-  },
-  "private": false
+  }
 }

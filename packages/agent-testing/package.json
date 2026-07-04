@@ -1,6 +1,7 @@
 {
   "name": "@robota-sdk/agent-testing",
   "version": "3.0.0-beta.76",
+  "private": true,
   "description": "Cross-cutting test harness for the Robota SDK — a real-PTY end-to-end driver (spawnPty/spawnPtyFixture)",
   "type": "module",
   "main": "dist/node/index.js",
