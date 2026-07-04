@@ -28,8 +28,15 @@ import { WORKSPACE_ROOT } from './shared.mjs';
 /** Allowlist: `${packageName}:${importedModule}` → reason. Empty today by design. */
 export const DEP_KIND_ALLOWLIST = new Map();
 
-const VALUE_IMPORT_RE = /^import\s+(?!type\b)[^;]*?from\s+['"](@robota-sdk\/[a-z0-9-]+)['"]/gm;
-const SIDE_EFFECT_IMPORT_RE = /^import\s+['"](@robota-sdk\/[a-z0-9-]+)['"]/gm;
+// HARNESS-022 (STRUCT-02): subpath specifiers (`@robota-sdk/<pkg>/headless`) and runtime
+// `export … from` re-exports are value dependencies too — the original patterns missed
+// both, re-opening the exact class INFRA-024 closed. The captured group is the PACKAGE
+// (subpath stripped) since package.json declares packages, not subpaths.
+const VALUE_IMPORT_RE =
+  /^import\s+(?!type\b)[^;]*?from\s+['"](@robota-sdk\/[a-z0-9-]+)(?:\/[^'"]*)?['"]/gm;
+const VALUE_REEXPORT_RE =
+  /^export\s+(?!type\b)(?:\*(?:\s+as\s+\w+)?|\{[^}]*\})\s*from\s+['"](@robota-sdk\/[a-z0-9-]+)(?:\/[^'"]*)?['"]/gm;
+const SIDE_EFFECT_IMPORT_RE = /^import\s+['"](@robota-sdk\/[a-z0-9-]+)(?:\/[^'"]*)?['"]/gm;
 
 function isTestSurface(filePath) {
   return (
@@ -61,7 +68,7 @@ async function listSourceFiles(dir) {
 
 function collectValueImports(source) {
   const modules = new Set();
-  for (const re of [VALUE_IMPORT_RE, SIDE_EFFECT_IMPORT_RE]) {
+  for (const re of [VALUE_IMPORT_RE, VALUE_REEXPORT_RE, SIDE_EFFECT_IMPORT_RE]) {
     re.lastIndex = 0;
     for (const match of source.matchAll(re)) {
       modules.add(match[1]);

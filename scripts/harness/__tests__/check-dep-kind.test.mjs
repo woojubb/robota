@@ -121,3 +121,44 @@ describe('findDevDepOnlyRuntimeImports (INFRA-024)', () => {
     expect(findings).toEqual([]);
   });
 });
+
+describe('HARNESS-022 blind-spot extensions', () => {
+  it('flags a SUBPATH value import declared only in devDependencies', async () => {
+    const root = await createFixture([
+      {
+        dir: 'subpath',
+        manifest: {
+          name: '@robota-sdk/subpath',
+          devDependencies: { '@robota-sdk/agent-transport': 'workspace:*' },
+        },
+        files: {
+          'src/main.ts': "import { createHeadless } from '@robota-sdk/agent-transport/headless';\n",
+        },
+      },
+    ]);
+
+    const { findings } = await findDevDepOnlyRuntimeImports(root);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].module).toBe('@robota-sdk/agent-transport');
+  });
+
+  it('flags a runtime export…from re-export against devDeps, but not export type', async () => {
+    const root = await createFixture([
+      {
+        dir: 'reexport',
+        manifest: {
+          name: '@robota-sdk/reexport',
+          devDependencies: { '@robota-sdk/agent-executor': 'workspace:*' },
+        },
+        files: {
+          'src/value.ts': "export { createRunners } from '@robota-sdk/agent-executor';\n",
+          'src/types.ts': "export type { IRunner } from '@robota-sdk/agent-executor';\n",
+        },
+      },
+    ]);
+
+    const { findings } = await findDevDepOnlyRuntimeImports(root);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].file).toContain('value.ts');
+  });
+});
