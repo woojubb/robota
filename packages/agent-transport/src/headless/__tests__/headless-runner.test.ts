@@ -4,8 +4,9 @@ import type {
   IInteractiveSession,
   TBackgroundJobGroupEvent,
 } from '@robota-sdk/agent-interface-transport';
-import type { TBackgroundTaskEvent } from '@robota-sdk/agent-framework';
+
 import { createHeadlessRunner } from '../headless-runner.js';
+import type { TBackgroundTaskEvent } from '@robota-sdk/agent-interface-transport';
 
 function createMockSession(behavior: 'complete' | 'interrupted' | 'error', response = '') {
   const listeners = new Map<string, Array<(...args: unknown[]) => void>>();

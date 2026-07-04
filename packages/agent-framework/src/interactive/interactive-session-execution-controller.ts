@@ -37,7 +37,7 @@ import type { ISkillActivationEvent } from '../commands/skill-activation-events.
 import type { IContextFileEntry } from '../context/context-file-tracker.js';
 import type { IContextWindowState, TToolArgs } from '@robota-sdk/agent-core';
 import type { TTurnSource } from '@robota-sdk/agent-interface-transport';
-import type { ICompactEvent } from '@robota-sdk/agent-session';
+import type { ICompactEvent } from '@robota-sdk/agent-interface-transport';
 import type { Session } from '@robota-sdk/agent-session';
 
 export type { TTurnSource };

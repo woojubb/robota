@@ -18,19 +18,21 @@ import { retrieveAgentToolDeps } from '../tools/agent-tool.js';
 import type {
   IBackgroundJobGroupCreateRequest,
   IBackgroundJobGroupState,
+  IBackgroundTaskManager,
+  IExecutionDetailCursor,
+  IExecutionDetailPage,
+  TBackgroundJobGroupEvent,
+  TExecutionWorkspaceUpdateCause,
+} from '../background-tasks/index.js';
+import type { IHistoryEntry } from '@robota-sdk/agent-core';
+import type {
   IBackgroundTaskInput,
   IBackgroundTaskListFilter,
   IBackgroundTaskLogCursor,
   IBackgroundTaskLogPage,
-  IBackgroundTaskManager,
   IBackgroundTaskState,
-  IExecutionDetailCursor,
-  IExecutionDetailPage,
-  TBackgroundJobGroupEvent,
   TBackgroundTaskEvent,
-  TExecutionWorkspaceUpdateCause,
-} from '../background-tasks/index.js';
-import type { IHistoryEntry } from '@robota-sdk/agent-core';
+} from '@robota-sdk/agent-interface-transport';
 import type { Session } from '@robota-sdk/agent-session';
 
 export interface IBackgroundTrackerState {

@@ -5,8 +5,6 @@ export { Session } from './session.js';
 export type {
   ISessionOptions,
   ISessionShutdownOptions,
-  ICompactEvent,
-  TCompactTrigger,
   TAutoCompactThreshold,
   TPermissionHandler,
   TPermissionResult,

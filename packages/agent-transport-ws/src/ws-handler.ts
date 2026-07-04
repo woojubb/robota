@@ -14,7 +14,6 @@ import {
 } from './ws-background-messages.js';
 
 import type { TClientMessage, TServerMessage } from './ws-protocol.js';
-import type { TBackgroundTaskEvent } from '@robota-sdk/agent-framework';
 import type {
   IExecutionResult,
   IExecutionWorkspaceEvent,
@@ -22,6 +21,7 @@ import type {
   IToolState,
   TBackgroundJobGroupEvent,
 } from '@robota-sdk/agent-interface-transport';
+import type { TBackgroundTaskEvent } from '@robota-sdk/agent-interface-transport';
 
 export interface IWsHandlerOptions {
   /** IInteractiveSession to expose. */

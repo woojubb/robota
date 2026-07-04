@@ -9,7 +9,7 @@ import {
 } from '../index.js';
 
 import type { IBackgroundJobGroupState } from '../background-job-orchestrator.js';
-import type { IBackgroundTaskState } from '../index.js';
+import type { IBackgroundTaskState } from '@robota-sdk/agent-interface-transport';
 
 function createTask(overrides: Partial<IBackgroundTaskState> = {}): IBackgroundTaskState {
   return {

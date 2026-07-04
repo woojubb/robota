@@ -8,15 +8,15 @@ import type {
   IBackgroundJobGroupCreateRequest,
   IBackgroundJobGroupState,
 } from './background-job-orchestrator.js';
+import type { IBackgroundTaskManager } from '@robota-sdk/agent-executor';
 import type {
   IAgentBackgroundTaskRequest,
-  IBackgroundTaskManager,
   IBackgroundTaskState,
   IProcessBackgroundTaskRequest,
   TBackgroundPermissionPolicy,
   TBackgroundTaskIsolation,
   TBackgroundTaskMode,
-} from '@robota-sdk/agent-executor';
+} from '@robota-sdk/agent-interface-transport';
 
 export interface ISpawnAgentTaskRequest {
   readonly label: string;

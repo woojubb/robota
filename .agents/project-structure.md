@@ -21,7 +21,7 @@ packages/
 ├── agent-remote-client/         # Remote execution client
 ├── agent-interface-*/           # Interface/contract packages: pure type contracts with no implementation (e.g. agent-interface-transport)
 ├── agent-transport/             # Transport core: headless adapter + transport registry + scripted-provider testing fixtures (pure TS)
-├── agent-transport-*/           # Per-concern transport implementations: agent-transport-tui (React/Ink), -ws (WebSocket), -http (Hono), -mcp (MCP)
+├── agent-transport-*/           # Per-concern transport implementations: agent-transport-tui (React/Ink), -ws (WebSocket), -http (Hono), -mcp (MCP); -ws/-http/-mcp are contract-pure (deps: interface-transport + core only)
 ├── agent-testing/               # General test framework: domain-free test-environment tooling (PTY runner spawnPty/spawnPtyFixture); zero @robota-sdk deps, devDependency. Charter+placement rule in its SPEC (contracts→agent-interface-*, doubles→owner /testing, drivers→owning module)
 ├── agent-plugin/                # Plugins: conversation-history, logging, usage, performance, execution-analytics, error-handling, limits, event-emitter, webhook
 │
@@ -96,9 +96,11 @@ See [capability-placement.md](specs/architecture-map/capability-placement.md) fo
 
 ## Interaction Channel Contract
 
-`agent-framework` owns the `IInteractionChannel` interface and `createInteractiveRuntime` factory. These define the contract between the session runtime and transport implementations.
+`agent-interface-transport` owns the `IInteractionChannel` contract (INFRA-010/025);
+`agent-framework` owns the `createInteractiveRuntime` factory that wires it. Together they define
+the contract between the session runtime and transport implementations.
 
-- `IInteractionChannel` — the interface that all interactive transports implement (TUI, headless, future web/remote)
+- `IInteractionChannel` — the interface that all interactive transports implement (TUI, headless, future web/remote); SSOT in `agent-interface-transport`
 - `InteractionEvent` — the union type of one-way display events emitted by the runtime to the channel
 - `TActionRequest` / `TActionResponse` — the disambiguation dialog protocol (permission prompts)
 - `createInteractiveRuntime` — the factory that wires `IInteractionChannel` ↔ `InteractiveSession`
@@ -121,6 +123,11 @@ They are the SSOT for cross-cutting contracts shared between implementation fami
 Rules:
 
 - An `agent-interface-*` package must not contain classes or runtime logic.
+- An `agent-interface-*` package's internal dependencies are a subset of `{agent-core}` —
+  contracts never depend on implementation packages (INFRA-025; mechanized as the
+  `INTERFACE-DEPS` rule in the `deps` scan). `agent-interface-transport` owns the
+  background-task/subagent/compaction data contracts; `agent-executor`/`agent-session` import
+  them and keep only runtime SPI.
 - Implementation packages (`agent-transport` with subpath `/headless`; the per-concern `agent-transport-tui` / `-ws` / `-http` / `-mcp` packages; `agent-provider` with subpaths `/anthropic`, `/openai`, etc.; `agent-command`) depend on the corresponding `agent-interface-*` package, not on `agent-framework`, for interface types. The transport-facing contract types (command, interaction, event, workspace, session, and transport contracts) live in `agent-interface-transport` as their SSOT (per INFRA-010). This is **mechanically enforced** by `scripts/harness/check-interface-imports.mjs` (wired into `pnpm harness:scan` as the `interface-imports` scan): any implementation package that imports an `agent-interface-transport`-exported symbol from `@robota-sdk/agent-framework` fails the gate. Runtime values and framework-owned types (e.g. `TInteractiveSessionOptions`, `ICommandHostContext`, `ICommandModule`, `TSettingsData`) still come from `agent-framework`.
 - `agent-framework` depends on the `agent-interface-transport` package to consume the contracts it needs (it does not depend on `agent-interface-tui`, which only `agent-transport-tui` consumes).
 - Do not place interface packages in `agent-core` — `agent-core` is zero-deps and owns foundational primitives only.

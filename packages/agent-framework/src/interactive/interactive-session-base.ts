@@ -29,11 +29,6 @@ import type { SessionSkillRouter } from './interactive-session-skill-router.js';
 import type {
   IBackgroundJobGroupCreateRequest,
   IBackgroundJobGroupState,
-  IBackgroundTaskInput,
-  IBackgroundTaskListFilter,
-  IBackgroundTaskLogCursor,
-  IBackgroundTaskLogPage,
-  IBackgroundTaskState,
   IExecutionDetailCursor,
   IExecutionDetailPage,
   IExecutionOrigin,
@@ -63,8 +58,16 @@ import type {
   IContextReferenceRemoveResult,
 } from '../context/context-reference-inventory.js';
 import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
-import type { ISubagentJobResult, ISubagentJobState } from '../subagents/index.js';
+import type { ISubagentJobResult } from '../subagents/index.js';
 import type { IHistoryEntry, TUniversalMessage, IContextWindowState } from '@robota-sdk/agent-core';
+import type {
+  IBackgroundTaskInput,
+  IBackgroundTaskListFilter,
+  IBackgroundTaskLogCursor,
+  IBackgroundTaskLogPage,
+  IBackgroundTaskState,
+  ISubagentJobState,
+} from '@robota-sdk/agent-interface-transport';
 import type { Session } from '@robota-sdk/agent-session';
 
 export abstract class InteractiveSessionBase {
