@@ -154,6 +154,13 @@ jobs:
         if: github.base_ref != 'main'
         run: pnpm harness:test
 
+      # INFRA-026: the full scan suite is a develop-merge gate, not a release-only one.
+      # Before this step existed, ~42 of the scans (incl. dep-kind and interface-imports)
+      # were only enforced on main-base PRs — the re-audit's gate-blind-spot root cause.
+      - name: Harness scan suite
+        if: github.base_ref != 'main'
+        run: pnpm harness:scan
+
   security-audit:
     name: security audit
     runs-on: ubuntu-latest
