@@ -58,11 +58,11 @@
     "@robota-sdk/agent-executor": "workspace:*",
     "@robota-sdk/agent-interface-transport": "workspace:*",
     "@robota-sdk/agent-session": "workspace:*",
-    "@robota-sdk/agent-session-analytics": "workspace:*",
     "@robota-sdk/agent-tools": "workspace:*",
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@robota-sdk/agent-session-analytics": "workspace:*",
     "rimraf": "^5.0.10",
     "tsdown": "^0.22.2",
     "typescript": "^5.9.3",
