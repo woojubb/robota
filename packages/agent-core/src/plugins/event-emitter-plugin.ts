@@ -95,8 +95,15 @@ export class EventEmitterPlugin extends AbstractPlugin<
     };
 
     if (this.pluginOptions.buffer.enabled) {
+      // CORE-021: the scheduled flush must never float — with catchErrors: false a
+      // handler error rejects flushBuffer(), and an unhandled rejection kills the
+      // process on Node 20+. The timer is a last-resort surface: log, never rethrow.
       this.bufferTimer = setInterval(() => {
-        this.flushBuffer();
+        this.flushBuffer().catch((error: unknown) => {
+          this.logger.error('Buffered flush failed', {
+            error: error instanceof Error ? error.message : String(error),
+          });
+        });
       }, this.pluginOptions.buffer.flushInterval);
     }
   }
@@ -253,7 +260,9 @@ export class EventEmitterPlugin extends AbstractPlugin<
     this.metrics.incrementEmitted();
     if (this.pluginOptions.buffer.enabled) {
       this.eventBuffer.push(event);
-      if (this.eventBuffer.length >= this.pluginOptions.buffer.maxSize) this.flushBuffer();
+      // CORE-021: overflow flush is awaited — emit() is async and its caller owns the
+      // rejection path (a floating call here was the second unhandled-rejection source).
+      if (this.eventBuffer.length >= this.pluginOptions.buffer.maxSize) await this.flushBuffer();
       return;
     }
     await this.processEvent(event);

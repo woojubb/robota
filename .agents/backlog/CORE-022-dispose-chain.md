@@ -10,6 +10,11 @@ depends_on: []
 
 # dispose 체인 단일 계약: shutdown→destroy→plugin dispose + destroyed 가드
 
+> **Live re-confirmation (2026-07-04, CORE-021 UE):** `agent.destroy()` does not dispose
+> registered plugins — a buffered `EventEmitterPlugin`'s flush `setInterval` kept the event
+> loop alive and the probe process hung indefinitely until an explicit `plugin.destroy()`
+> was added (`scratch/src/core-021-user-execution.ts` handoff note).
+
 Re-audit P1-7 (RUNTIME-09/10/22 병합). destroy가 플러그인 미dispose(usage setInterval 생존),
 Session.shutdown이 destroy 미호출(저장소 전체 호출 0건 실측), destroyed 플래그 부재로 파괴된
 에이전트 부활. SPEC 확정 선행(라이프사이클 계약).

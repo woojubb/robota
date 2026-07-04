@@ -473,6 +473,17 @@ Plugins extend `AbstractPlugin` and implement lifecycle hooks:
 
 Plugins declare `category` (PluginCategory) and `priority` (PluginPriority) for execution ordering.
 
+### EventEmitterPlugin Error Containment (CORE-021)
+
+Handler failures must never take down the process:
+
+1. **`catchErrors: true` (default)** — a throwing handler is recorded in metrics and
+   structured-logged, and the error is **swallowed** (never rethrown to the emitter caller).
+   `catchErrors: false` rethrows to the caller after recording metrics.
+2. **No floating flush.** The buffered-mode flush timer must attach a rejection handler to
+   every `flushBuffer()` it schedules — a handler error surfacing through a floating flush
+   promise is an unhandled rejection (process death on Node 20+), which violates item 1.
+
 ## Event Architecture
 
 ### Event Naming
