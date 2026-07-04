@@ -82,4 +82,6 @@ Provider profile saved to /Users/jungyoun/.robota/settings.json
 EXIT: 0
 ```
 
+  <!-- evidence-superseded: dist/node/bin.js is a build output, not a tracked file — the durable artifact is the source entry packages/agent-cli/src/bin.ts -->
+
 (빌드된 CLI: packages/agent-cli/dist/node/bin.js, 테스트 후 ~/.robota/settings.json 삭제 완료)
