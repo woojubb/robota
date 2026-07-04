@@ -1071,9 +1071,6 @@ importers:
       '@robota-sdk/agent-session':
         specifier: workspace:*
         version: link:../agent-session
-      '@robota-sdk/agent-session-analytics':
-        specifier: workspace:*
-        version: link:../agent-session-analytics
       '@robota-sdk/agent-tools':
         specifier: workspace:*
         version: link:../agent-tools
@@ -1081,6 +1078,9 @@ importers:
         specifier: ^3.25.76
         version: 3.25.76
     devDependencies:
+      '@robota-sdk/agent-session-analytics':
+        specifier: workspace:*
+        version: link:../agent-session-analytics
       rimraf:
         specifier: ^5.0.10
         version: 5.0.10
