@@ -127,6 +127,7 @@ export async function* executeStream(
     const chatOptions: IChatOptions = {
       model: config.defaultModel.model,
       effort: config.defaultModel.effort ?? 'high',
+      ...(context?.signal && { signal: context.signal }),
       ...(maxTokens !== undefined && { maxTokens }),
       ...(temperature !== undefined && { temperature }),
       ...(toolChoice !== undefined && { toolChoice }),
@@ -247,6 +248,7 @@ export async function* executeStream(
         toolExecutionService,
         eventEmitter,
         logger,
+        context?.signal,
       );
     }
 

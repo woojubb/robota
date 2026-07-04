@@ -94,7 +94,11 @@ async function runInSandbox(
  * Run a shell command and return stdout + stderr.
  * Resolves with the IToolInvocationResult JSON string.
  */
-async function runShell(args: TShellArgs, options: ISandboxToolOptions = {}): Promise<string> {
+async function runShell(
+  args: TShellArgs,
+  options: ISandboxToolOptions = {},
+  signal?: AbortSignal,
+): Promise<string> {
   const { command, timeout: rawTimeout = DEFAULT_TIMEOUT_MS, workingDirectory } = args;
   const timeout = Math.min(rawTimeout, 600_000);
   if (options.sandboxClient) {
@@ -102,6 +106,10 @@ async function runShell(args: TShellArgs, options: ISandboxToolOptions = {}): Pr
   }
 
   const shell = resolvePlatformShell();
+
+  if (signal?.aborted) {
+    return JSON.stringify({ success: false, output: '', error: 'Aborted before start' });
+  }
 
   return new Promise<string>((resolve) => {
     const stdoutChunks: Buffer[] = [];
@@ -140,8 +148,21 @@ async function runShell(args: TShellArgs, options: ISandboxToolOptions = {}): Pr
       if (settled) return;
       settled = true;
       clearTimeout(timer);
+      signal?.removeEventListener('abort', onAbort);
       resolve(JSON.stringify(result));
     }
+
+    // CORE-018: the run-scoped signal must terminate the underlying work — completing
+    // silently after an abort is a cancellation-contract violation.
+    function onAbort(): void {
+      child.kill('SIGTERM');
+      settle({
+        success: false,
+        output: Buffer.concat(stdoutChunks).toString('utf8'),
+        error: 'Aborted',
+      });
+    }
+    signal?.addEventListener('abort', onAbort, { once: true });
 
     child.on('error', (err: Error) => {
       settle({
@@ -188,8 +209,8 @@ function createHostShellTool(name: string, options: ISandboxToolOptions): Functi
     name,
     buildShellToolDescription(resolvePlatformShell()),
     ShellSchema,
-    async (params) => {
-      return runShell(params, options);
+    async (params, context) => {
+      return runShell(params, options, context?.signal);
     },
   );
 }

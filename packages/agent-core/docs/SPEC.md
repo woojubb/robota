@@ -313,6 +313,25 @@ NOTE: `CommandExecutor` and `HttpExecutor` are exported from `hooks/index.ts` bu
 
 This callback is declared in `IChatOptions.onTextDelta` and `IRunOptions.onTextDelta`. Provider implementations use `IChatOptions.onTextDelta` to emit text chunks during streaming responses. The execution engine (`execution-round.ts`, `execution-pipeline.ts`) uses only `IRunOptions.onTextDelta` (the run-scoped callback) — there is no fallback to a provider instance-level callback. Callers must pass the callback explicitly through the run context. Provider instance-level `onTextDelta` properties (if any) are a provider-internal concern and must not be relied upon by agent-core.
 
+### Cancellation Contract (CORE-018)
+
+`IRunOptions.signal` is the single cancellation source for a run. The contract:
+
+1. **run path**: the signal gates the run queue (`enqueueRun`), every provider call
+   (`IChatOptions.signal`), and every tool execution.
+2. **runStream path (parity)**: the streaming context is built by the SAME `buildRunContext`
+   as the round path — the historical inline construction dropped `signal` (and every other
+   run option added after it), which made the public streaming API uncancellable. The
+   `executeStream` chat options carry `context.signal`.
+3. **Tool executions**: `IToolExecutionContext.signal` carries the run signal into every
+   tool call. The batch executor threads it; long-running built-ins MUST honor it —
+   `shell` kills the child process, `web_fetch`/`web_search` abort the network request,
+   MCP tool calls abort the in-flight HTTP request. A tool observing an abort terminates
+   its work and returns an interrupted/failed result — silently completing after abort is
+   a contract violation.
+4. **Abort classification**: an aborted run resolves as `interrupted`, never as a provider
+   error and never as a successful completion.
+
 ### Reasoning Effort
 
 | Export         | Kind | Description                                                                                                           |

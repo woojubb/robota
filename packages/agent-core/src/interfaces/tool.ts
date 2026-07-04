@@ -71,6 +71,12 @@ export interface IToolExecutionResult {
 export interface IToolExecutionContext {
   toolName: string;
   parameters: TToolParameters;
+  /**
+   * Run-scoped cancellation signal (CORE-018). Long-running tools MUST honor it: terminate
+   * the underlying work (kill the child process, abort the network request) and return an
+   * interrupted/failed result. Completing silently after an abort is a contract violation.
+   */
+  signal?: AbortSignal;
   executionId?: string; // Tool execution ID (typically tool call ID)
   userId?: string;
   sessionId?: string;

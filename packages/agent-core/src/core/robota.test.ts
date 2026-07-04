@@ -687,6 +687,84 @@ describe('Robota Core', () => {
   });
 
   // ----------------------------------------------------------------
+  // Cancellation contract (CORE-018)
+  // ----------------------------------------------------------------
+  describe('cancellation contract', () => {
+    it('runStream(): the run signal reaches provider chatOptions (parity with run)', async () => {
+      const provider = new TrackingProvider();
+      const robota = new Robota(createConfig({ aiProviders: [provider] }));
+      const controller = new AbortController();
+
+      for await (const _chunk of robota.runStream('hello', { signal: controller.signal })) {
+        // consume
+      }
+
+      expect(provider.chatCalls[0].options?.signal).toBe(controller.signal);
+    });
+
+    it('run(): the run signal reaches IToolExecutionContext of executed tools', async () => {
+      // Provider requests the tool once, then finishes — capture the tool context.
+      let capturedSignal: AbortSignal | undefined;
+      class SignalProbeTool extends AbstractTool {
+        override get schema(): IToolSchema {
+          return {
+            name: 'signal-probe',
+            description: 'captures the execution-context signal',
+            parameters: { type: 'object' as const, properties: {} },
+          };
+        }
+        protected override async executeImpl(
+          _parameters: TToolParameters,
+          context: IToolExecutionContext,
+        ): Promise<IToolResult> {
+          capturedSignal = context.signal;
+          return { success: true, data: 'ok' };
+        }
+      }
+      class ToolOnceProvider extends TrackingProvider {
+        override async chat(
+          messages: TUniversalMessage[],
+          options?: IChatOptions,
+        ): Promise<TUniversalMessage> {
+          this.chatCalls.push({ messages, options });
+          if (this.chatCalls.length === 1) {
+            return {
+              id: 'tc',
+              role: 'assistant',
+              content: '',
+              toolCalls: [
+                {
+                  id: 'call-1',
+                  type: 'function',
+                  function: { name: 'signal-probe', arguments: '{}' },
+                },
+              ],
+              state: 'complete' as const,
+              timestamp: new Date(),
+            };
+          }
+          return {
+            id: 'final',
+            role: 'assistant',
+            content: 'done',
+            state: 'complete' as const,
+            timestamp: new Date(),
+          };
+        }
+      }
+      const provider = new ToolOnceProvider();
+      const robota = new Robota(
+        createConfig({ aiProviders: [provider], tools: [new SignalProbeTool()] }),
+      );
+      const controller = new AbortController();
+
+      await robota.run('hello', { signal: controller.signal });
+
+      expect(capturedSignal).toBe(controller.signal);
+    });
+  });
+
+  // ----------------------------------------------------------------
   // Run-isolated (stateless) mode (CORE-014)
   // ----------------------------------------------------------------
   describe('retainHistory: false', () => {

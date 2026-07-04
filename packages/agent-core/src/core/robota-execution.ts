@@ -129,15 +129,12 @@ export async function* robotaRunStream(
     const messages = deps.getHistory();
     const executionConfig: IAgentConfig = { ...deps.config, ...configOverrides };
 
-    const stream = deps.getExecutionService().executeStream(input, messages, executionConfig, {
-      conversationId: deps.conversationId,
-      ...(options.sessionId && { sessionId: options.sessionId }),
-      ...(options.userId && { userId: options.userId }),
-      ...(options.metadata && { metadata: options.metadata }),
-      ...(options.maxTokens !== undefined && { maxTokens: options.maxTokens }),
-      ...(options.temperature !== undefined && { temperature: options.temperature }),
-      ...(options.toolChoice !== undefined && { toolChoice: options.toolChoice }),
-    });
+    // CORE-018: the streaming context is built by the SAME buildRunContext as the round
+    // path — the historical inline construction dropped signal/onTextDelta/onExecutionEvent
+    // (and every run option added after it), making the public streaming API uncancellable.
+    const stream = deps
+      .getExecutionService()
+      .executeStream(input, messages, executionConfig, buildRunContext(deps, options));
 
     for await (const chunk of stream) {
       yield chunk.chunk;
