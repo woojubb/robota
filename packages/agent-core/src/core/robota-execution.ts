@@ -90,8 +90,15 @@ export async function robotaRun(
       return result.response;
     }
 
-    if (!result.success && result.error) {
-      throw result.error;
+    if (!result.success) {
+      // CORE-020: every failed result must carry its error (SPEC invariant); a missing
+      // error here is a contract violation, not a reason to fall through to the response.
+      throw (
+        result.error ??
+        new Error(
+          '[STRICT-POLICY] Failed execution result missing error field — every success:false result must carry error',
+        )
+      );
     }
 
     deps.emitAgentEvent(AGENT_EVENTS.EXECUTION_COMPLETE, {});

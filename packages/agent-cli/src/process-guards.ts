@@ -28,6 +28,37 @@ export function areTuiProcessGuardsActive(): boolean {
   return guardsInstalled;
 }
 
+/** What bin.ts should do with an uncaught exception. */
+export type TUncaughtExceptionDecision = 'ime-hint' | 'guard-owned' | 'rethrow';
+
+/** Message signatures of raw-mode CJK/IME errors that escape React/Ink in the TUI. */
+const IME_ERROR_SIGNATURES = [
+  'string-width',
+  'setCursorPosition',
+  'getStringWidth',
+  'slice',
+  'charCodeAt',
+];
+
+/**
+ * Classify an uncaught exception for bin.ts (CORE-020, RUNTIME-34).
+ *
+ * The IME allowlist applies ONLY while the interactive TUI guards are active — raw-mode
+ * IME errors cannot occur outside the TUI, and generic signatures like 'slice'/'charCodeAt'
+ * match arbitrary crashes. Headless/print mode therefore always rethrows (fail-fast
+ * exit-code contract); in interactive mode non-IME errors are guard-owned (routed into
+ * the live session by the installed guards).
+ */
+export function classifyUncaughtException(
+  err: Error,
+  tuiGuardsActive: boolean,
+): TUncaughtExceptionDecision {
+  if (!tuiGuardsActive) return 'rethrow';
+  const msg = err.message ?? '';
+  const isLikelyIME = IME_ERROR_SIGNATURES.some((signature) => msg.includes(signature));
+  return isLikelyIME ? 'ime-hint' : 'guard-owned';
+}
+
 /** Track the current live channel (session switches re-create it). */
 export function setLiveChannel(channel: IGuardableChannel): void {
   liveChannel = channel;

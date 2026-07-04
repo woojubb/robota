@@ -156,10 +156,14 @@ export async function* executeStream(
 
     const stream = chatStream.call(provider, conversationMessages, chatOptions);
     let fullResponse = '';
+    let sawAssistantContent = false;
     const toolCalls: IToolCall[] = [];
     let currentToolCallIndex = -1;
 
     for await (const chunk of stream) {
+      if (typeof chunk.content === 'string') {
+        sawAssistantContent = true;
+      }
       if (chunk.content) {
         fullResponse += chunk.content;
         yield { chunk: chunk.content, isComplete: false };
@@ -234,6 +238,12 @@ export async function* executeStream(
 
     if (typeof fullResponse !== 'string') {
       throw new Error('[EXECUTION] Streaming response content is required');
+    }
+    // CORE-020: parity with the run-path response validation — a stream that delivered
+    // neither string content nor tool calls is a malformed provider response, not a
+    // silently-complete empty answer (empty-string content remains valid).
+    if (!sawAssistantContent && toolCalls.length === 0) {
+      throw new Error('[EXECUTION] Provider response must have content or tool calls');
     }
     conversationStore.addAssistantMessage(fullResponse, toolCalls, {
       executionId,

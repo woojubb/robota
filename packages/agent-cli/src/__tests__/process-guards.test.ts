@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   areTuiProcessGuardsActive,
+  classifyUncaughtException,
   installTuiProcessGuards,
   setLiveChannel,
 } from '../process-guards.js';
@@ -76,5 +77,36 @@ describe('process guards (ERR-001 G1)', () => {
 
     expect(stderrSpy).toHaveBeenCalled();
     expect(String(stderrSpy.mock.calls[0][0])).toContain('uncaught exception: boom');
+  });
+});
+
+/**
+ * CORE-020 (RUNTIME-34) — the IME crash-swallow heuristic must be scoped to interactive
+ * TUI mode. Previously any error whose message contained 'slice'/'charCodeAt' was
+ * swallowed BEFORE the guard check, masking real crashes in headless mode.
+ */
+describe('classifyUncaughtException (CORE-020)', () => {
+  it('headless (guards inactive): every error rethrows — including IME-looking ones', () => {
+    expect(classifyUncaughtException(new Error('Cannot read slice of undefined'), false)).toBe(
+      'rethrow',
+    );
+    expect(classifyUncaughtException(new Error('x.charCodeAt is not a function'), false)).toBe(
+      'rethrow',
+    );
+    expect(classifyUncaughtException(new Error('string-width overflow'), false)).toBe('rethrow');
+    expect(classifyUncaughtException(new Error('ENOENT: no such file'), false)).toBe('rethrow');
+  });
+
+  it('interactive (guards active): IME-signature errors get the hint, others are guard-owned', () => {
+    expect(classifyUncaughtException(new Error('string-width overflow'), true)).toBe('ime-hint');
+    expect(classifyUncaughtException(new Error('setCursorPosition failed'), true)).toBe('ime-hint');
+    expect(classifyUncaughtException(new Error('bad slice input'), true)).toBe('ime-hint');
+    expect(classifyUncaughtException(new Error('socket hang up'), true)).toBe('guard-owned');
+  });
+
+  it('handles errors without a message', () => {
+    const bare = new Error();
+    expect(classifyUncaughtException(bare, false)).toBe('rethrow');
+    expect(classifyUncaughtException(bare, true)).toBe('guard-owned');
   });
 });
