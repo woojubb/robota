@@ -299,9 +299,11 @@ export class EventEmitterPlugin extends AbstractPlugin<
     this.handlers.clear();
   }
 
-  async destroy(): Promise<void> {
+  /** CORE-022: dispose() is the single disposal entry point — releases the flush timer. */
+  override async dispose(): Promise<void> {
     if (this.bufferTimer) clearInterval(this.bufferTimer);
     await this.flushBuffer();
     this.clearAllListeners();
+    await super.dispose();
   }
 }

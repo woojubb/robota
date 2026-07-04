@@ -7,7 +7,7 @@ describe('PerformancePlugin', () => {
 
   afterEach(async () => {
     if (plugin) {
-      await plugin.destroy();
+      await plugin.dispose();
     }
   });
 

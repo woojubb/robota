@@ -77,6 +77,8 @@ export class Robota
   private conversationId: string;
   private logger: ILogger;
   private initializationPromise?: Promise<void> | undefined;
+  /** Terminal state (CORE-022): once destroyed, run/runStream reject and re-init is impossible. */
+  private destroyed = false;
   private isFullyInitialized = false;
   private startTime: number;
   private configVersion: number = 1;
@@ -168,6 +170,7 @@ export class Robota
   run(input: string, options: TRunOptionsWithOutput<IJsonSchemaOutput>): Promise<unknown>;
   run(input: string, options?: IRunOptions): Promise<string>;
   async run(input: string, options: IRunOptions = {}): Promise<unknown> {
+    this.assertNotDestroyed();
     return this.enqueueRun(options.signal, async () => {
       await this.ensureFullyInitialized();
       try {
@@ -195,6 +198,7 @@ export class Robota
     input: string,
     options: IRunOptions = {},
   ): AsyncGenerator<string, unknown, undefined> {
+    this.assertNotDestroyed();
     // Serialized like run(): the queue slot is held until the stream is fully consumed
     // (return or throw), because the conversation history is being written throughout.
     const release = await this.acquireRunSlot(options.signal);
@@ -354,6 +358,11 @@ export class Robota
    * hard signal.
    */
   async destroy(): Promise<IDestroyResult> {
+    // CORE-022: idempotent terminal operation — new runs are rejected from this point,
+    // and in-flight/queued runs settle before disposal begins (queue tail await).
+    if (this.destroyed) return { errors: [] };
+    this.destroyed = true;
+    await this.runQueueTail;
     return destroyAgent({
       name: this.name,
       isFullyInitialized: this.isFullyInitialized,
@@ -368,13 +377,29 @@ export class Robota
     });
   }
 
+  /** CORE-022: a destroyed agent never revives — reject before touching the run queue. */
+  private assertNotDestroyed(): void {
+    if (this.destroyed) {
+      throw new Error(
+        `[LIFECYCLE] Agent "${this.name}" has been destroyed — create a new instance`,
+      );
+    }
+  }
+
   protected override async initialize(): Promise<void> {
     await this.ensureFullyInitialized();
   }
 
   private async ensureFullyInitialized(): Promise<void> {
+    this.assertNotDestroyed();
     if (this.isFullyInitialized) return;
-    if (!this.initializationPromise) this.initializationPromise = this.doAsyncInit();
+    if (!this.initializationPromise) {
+      // CORE-022: a failed init must not be cached — clear so a later call can retry.
+      this.initializationPromise = this.doAsyncInit().catch((error: unknown) => {
+        this.initializationPromise = undefined;
+        throw error;
+      });
+    }
     await this.initializationPromise;
   }
 

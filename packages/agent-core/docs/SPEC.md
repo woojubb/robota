@@ -473,6 +473,32 @@ Plugins extend `AbstractPlugin` and implement lifecycle hooks:
 
 Plugins declare `category` (PluginCategory) and `priority` (PluginPriority) for execution ordering.
 
+### Disposal Chain Contract (CORE-022)
+
+Component-level disposal has exactly one entry point; agent-level destruction drives it:
+
+1. **`dispose()` is the component contract.** `AbstractPlugin.dispose()` is the single
+   disposal entry point for plugins (matching modules, providers, and executors, which
+   already use `dispose()`). A plugin owning resources — timers, sockets, storage handles —
+   MUST override `dispose()` and release them (calling `super.dispose()` to unsubscribe
+   module events). `destroy()` methods on plugins are not part of the contract and do not
+   exist.
+2. **`Robota.destroy()` is the agent-level terminal operation.** It awaits the run-queue
+   tail (in-flight and already-queued runs settle first), disposes every registered plugin
+   via `dispose()`, disposes modules and the internal event emitter, resets state, and
+   marks the instance destroyed. Best-effort per CORE-013: step failures are collected,
+   never thrown.
+3. **`destroyed` is terminal.** Once `destroy()` is initiated, new `run()` / `runStream()`
+   calls reject with a `[LIFECYCLE]` error and re-initialization is impossible — a
+   destroyed agent never revives. Repeated `destroy()` is idempotent.
+4. **Failed initialization is not cached.** When async initialization rejects, the cached
+   init promise is cleared so a subsequent call can retry (before destruction); the
+   original failure propagates to the awaiting caller.
+
+After the owning runtime's shutdown completes, the agent must hold no live timers or
+listeners — a process kept alive by an undisposed plugin resource is a contract violation
+(live-confirmed: an undisposed flush interval hung the CORE-021 probe indefinitely).
+
 ### EventEmitterPlugin Error Containment (CORE-021)
 
 Handler failures must never take down the process:

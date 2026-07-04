@@ -11,7 +11,7 @@ describe('UsagePlugin', () => {
 
   afterEach(async () => {
     if (plugin) {
-      await plugin.destroy();
+      await plugin.dispose();
     }
   });
 
@@ -226,7 +226,7 @@ describe('UsagePlugin', () => {
   describe('destroy', () => {
     it('destroys the plugin without error', async () => {
       plugin = new UsagePlugin({ strategy: 'memory', aggregateStats: false });
-      await expect(plugin.destroy()).resolves.toBeUndefined();
+      await expect(plugin.dispose()).resolves.toBeUndefined();
     });
   });
 

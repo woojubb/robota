@@ -268,7 +268,9 @@ export class ExecutionAnalyticsPlugin extends AbstractPlugin<
     };
   }
 
-  async destroy(): Promise<void> {
+  // CORE-022: dispose() is the single disposal entry point (SPEC § Disposal Chain Contract).
+  override async dispose(): Promise<void> {
+    await super.dispose();
     this.clearStats();
   }
   getExecutionData(): IExecutionStats[] {
