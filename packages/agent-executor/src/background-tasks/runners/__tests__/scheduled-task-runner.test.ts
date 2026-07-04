@@ -12,6 +12,7 @@ function makeScheduledTask(
   cronExpression: string,
   command: string,
   emit?: (event: TBackgroundTaskRunnerEvent) => void,
+  extra?: { timeoutMs?: number },
 ): IBackgroundTaskStart {
   return {
     taskId: 'sched_1',
@@ -24,6 +25,7 @@ function makeScheduledTask(
       parentSessionId: 'session_1',
       depth: 0,
       cwd: process.cwd(),
+      ...(extra?.timeoutMs !== undefined ? { timeoutMs: extra.timeoutMs } : {}),
     },
     emit,
   };
@@ -111,6 +113,33 @@ describe('createScheduledTaskRunner', () => {
       expect(wakingEvents.length).toBeGreaterThanOrEqual(1);
       // Initial sleeping + at least one post-run sleeping
       expect(sleepingEvents.length).toBeGreaterThanOrEqual(2);
+    },
+    TEST_TIMEOUT_MS,
+  );
+
+  it(
+    'kills a hung fire after timeoutMs so subsequent fires still run (CORE-024 RUNTIME-18)',
+    async () => {
+      const runner = createScheduledTaskRunner();
+      const emittedEvents: TBackgroundTaskRunnerEvent[] = [];
+      // A fire that hangs forever (sleeps 60s). With protect:true a hung fire would starve every
+      // future fire; the per-fire timeout must kill it so the schedule resumes.
+      const command = nodeCommand('setTimeout(() => {}, 60000);');
+      const task = makeScheduledTask('* * * * * *', command, (e) => emittedEvents.push(e), {
+        timeoutMs: 700,
+      });
+
+      const handle = runner.start(task);
+      // Enough wall-clock for: fire #1 (hangs) → timeout-kill → sleep → fire #2 → timeout-kill → sleep.
+      await new Promise((r) => setTimeout(r, 4000));
+      await handle.cancel();
+
+      const waking = emittedEvents.filter((e) => e.type === 'background_task_waking');
+      const sleeping = emittedEvents.filter((e) => e.type === 'background_task_sleeping');
+      // A hung fire that was killed still lets the NEXT fire happen → at least two wakes.
+      expect(waking.length).toBeGreaterThanOrEqual(2);
+      // Initial sleep + a post-kill sleep after each timed-out fire.
+      expect(sleeping.length).toBeGreaterThanOrEqual(2);
     },
     TEST_TIMEOUT_MS,
   );

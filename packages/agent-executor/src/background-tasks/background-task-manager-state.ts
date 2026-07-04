@@ -90,8 +90,9 @@ export function markBackgroundTaskCancelled(
   task: ITrackedBackgroundTask,
   reason: string | undefined,
   now: string,
-): { task: IBackgroundTaskState; wasActive: boolean } {
-  const wasActive = task.state.status !== 'queued';
+): { task: IBackgroundTaskState } {
+  // CORE-024: `wasActive` was dropped — slot accounting is now id-keyed and idempotent
+  // (releaseSlot), so the caller no longer needs a was-it-active flag to decide the decrement.
   task.state.status = transitionBackgroundTaskStatus(task.state.status, 'CANCEL');
   task.state.error = {
     category: 'runner',
@@ -100,7 +101,7 @@ export function markBackgroundTaskCancelled(
   };
   task.state.completedAt = now;
   task.state.updatedAt = now;
-  return { task: cloneBackgroundTaskState(task.state), wasActive };
+  return { task: cloneBackgroundTaskState(task.state) };
 }
 
 export function applyBackgroundTaskRunnerStateEvent(

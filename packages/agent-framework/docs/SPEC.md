@@ -2088,6 +2088,19 @@ SDK runtime facade barrels also re-export runtime-owned helper primitives for bo
 capture and cursor-based log pagination so runtime shells can implement process adapters through
 the documented SDK facade instead of importing `agent-executor` directly.
 
+### Agent Wake Dedup & Eviction (FLOW-002 / CORE-024)
+
+`InteractiveSession.requestWakeup(instruction, sourceTaskId)` injects an agent-driven turn and
+tracks `sourceTaskId` in a live set so a background task cannot enqueue overlapping wakes for the
+same source. That tracking set must be cleaned up on **every** exit path, not only on a wake that
+runs to a completed turn:
+
+- The id is removed when its wake turn completes (the normal path).
+- It is **also** removed when the wake is evicted before completing — session `abort()`,
+  `shutdown()`, or a pending-queue drop. Otherwise the `sourceTaskId` lingers in the set and every
+  future wake for that task is silently rejected forever (RUNTIME-19). Clearing the pending queue
+  clears the corresponding wake-tracking ids.
+
 `InteractiveSession` exposes background task controls:
 
 | Method                         | Behavior                                      |
