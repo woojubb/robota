@@ -89,6 +89,7 @@ const SCAN_COMMANDS = [
   },
   { name: 'orphan-exports', command: ['node', 'scripts/harness/check-orphan-exports.mjs'] },
   { name: 'deps', command: ['node', 'scripts/harness/check-dependency-direction.mjs'] },
+  { name: 'dep-kind', command: ['node', 'scripts/harness/check-dep-kind.mjs'] },
   {
     name: 'interface-imports',
     command: ['node', 'scripts/harness/check-interface-imports.mjs'],
