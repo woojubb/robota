@@ -82,4 +82,4 @@ Provider profile saved to /Users/jungyoun/.robota/settings.json
 EXIT: 0
 ```
 
-(빌드된 CLI: packages/agent-cli/dist/node/bin.js, 테스트 후 ~/.robota/settings.json 삭제 완료)
+(빌드된 CLI: packages/agent-cli/dist/node/bin.js <!-- evidence-superseded: build output, not a tracked file — durable artifact is packages/agent-cli/src/bin.ts -->, 테스트 후 ~/.robota/settings.json 삭제 완료)

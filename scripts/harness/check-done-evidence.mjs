@@ -15,6 +15,8 @@
  * references found.
  */
 
+import { execFileSync } from 'node:child_process';
+import fsSync from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
@@ -38,9 +40,30 @@ function extractCandidates(line) {
   return candidates;
 }
 
-async function pathExists(root, relativePath) {
+/**
+ * INFRA-026: durable artifacts are GIT-TRACKED files, not filesystem entries — fs.access
+ * passed locally for build outputs (dist/) and secret files (.env) that do not exist in a
+ * CI checkout, so the scan was green locally and red in CI the moment it was wired there.
+ * Falls back to fs existence when git is unavailable (fixture roots in unit tests).
+ */
+let trackedFilesCache = null;
+function pathExists(root, relativePath) {
+  if (trackedFilesCache === null) {
+    try {
+      const output = execFileSync('git', ['-C', root, 'ls-files'], {
+        encoding: 'utf8',
+        maxBuffer: 64 * 1024 * 1024,
+      });
+      trackedFilesCache = new Set(output.split('\n').filter(Boolean));
+    } catch {
+      trackedFilesCache = false; // not a git checkout — fall back to fs existence
+    }
+  }
+  if (trackedFilesCache !== false) {
+    return trackedFilesCache.has(relativePath);
+  }
   try {
-    await fs.access(path.join(root, relativePath));
+    fsSync.accessSync(path.join(root, relativePath));
     return true;
   } catch {
     return false;
@@ -83,7 +106,7 @@ export async function findDoneEvidenceFindings(root = WORKSPACE_ROOT) {
         SUPERSEDED_PATTERN.exec(lines[i]) ?? (i > 0 ? SUPERSEDED_PATTERN.exec(lines[i - 1]) : null);
 
       for (const candidate of candidates) {
-        if (await pathExists(root, candidate)) continue;
+        if (pathExists(root, candidate)) continue;
         if (supersededHere) {
           exemptions.push({ backlogFile, path: candidate, reason: supersededHere[1] });
           continue;

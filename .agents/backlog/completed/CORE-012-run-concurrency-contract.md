@@ -48,6 +48,7 @@ double-queue).
   design). Temp consumer script (`tsx --conditions=source`, script placed in `packages/agent-cli`
   because agent-core has zero agent-package deps) fired two un-awaited `run()` calls on one
   `Robota` instance against the real Anthropic provider (`claude-haiku-4-5`, key from
+  <!-- evidence-superseded: packages/agent-cli/.env is a local secrets file, deliberately untracked — the evidence artifact is the committed test suite referenced alongside -->
   `packages/agent-cli/.env`). Output: responses `"ALPHA"`/`"BETA"`, history order
   `user(ALPHA ask), assistant(ALPHA), user(BETA ask), assistant(BETA)` — strictly sequential,
   script's own role-order + queue-order assertions passed. Unit: 3 new tests in
