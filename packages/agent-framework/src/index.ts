@@ -503,9 +503,9 @@ export type {
   IContextReferenceUpsertResult,
 } from './context/context-reference-inventory.js';
 
-// ── Interaction channel contracts ────────────────────────────
-export type { IInteractionChannel } from './interaction/IInteractionChannel.js';
-export type { InteractionEvent, ICommandInfo } from './interaction/types.js';
+// ── Interaction channel contracts: SSOT is @robota-sdk/agent-interface-transport ─────
+// (HARNESS-022 / CONTRACT-013: the residual type-only pass-through re-exports were removed;
+// consumers import IInteractionChannel/InteractionEvent/ICommandInfo from the SSOT.)
 export { parseInput, isSlashCommand, tokeniseSlashCommand } from './interaction/input-parser.js';
 export type { TParsedInput } from './interaction/input-parser.js';
 export type { IInteractiveRuntime } from './interaction/InteractiveRuntime.js';

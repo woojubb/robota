@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { checkInterfacePackageDeps } from '../check-dependency-direction.mjs';
+import { checkFullGraphCycles, checkInterfacePackageDeps } from '../check-dependency-direction.mjs';
 import { extractFrameworkImports } from '../check-interface-imports.mjs';
 
 describe('checkInterfacePackageDeps (INFRA-025)', () => {
@@ -56,5 +56,44 @@ describe('extractFrameworkImports export-from detection (INFRA-025 P2 gap)', () 
     const names = found.flatMap((entry) => entry.names);
     expect(names).toContain('IExecutionWorkspaceSnapshot');
     expect(names).toContain('ICommandHostContext');
+  });
+});
+
+describe('checkFullGraphCycles (HARNESS-022)', () => {
+  it('detects a cycle that only exists through devDependencies', () => {
+    const packages = new Map([
+      [
+        '@robota-sdk/a',
+        {
+          name: '@robota-sdk/a',
+          path: '/x',
+          dependencies: ['@robota-sdk/b'],
+          allDependencies: ['@robota-sdk/b'],
+        },
+      ],
+      [
+        '@robota-sdk/b',
+        { name: '@robota-sdk/b', path: '/x', dependencies: [], allDependencies: ['@robota-sdk/a'] },
+      ],
+    ]);
+
+    const violations = checkFullGraphCycles(packages);
+    expect(violations).toHaveLength(1);
+    expect(violations[0].message).toContain('@robota-sdk/a -> @robota-sdk/b -> @robota-sdk/a');
+  });
+
+  it('passes an acyclic full graph', () => {
+    const packages = new Map([
+      [
+        '@robota-sdk/a',
+        { name: '@robota-sdk/a', path: '/x', dependencies: [], allDependencies: ['@robota-sdk/b'] },
+      ],
+      [
+        '@robota-sdk/b',
+        { name: '@robota-sdk/b', path: '/x', dependencies: [], allDependencies: [] },
+      ],
+    ]);
+
+    expect(checkFullGraphCycles(packages)).toEqual([]);
   });
 });
