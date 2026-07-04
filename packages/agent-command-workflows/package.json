@@ -1,6 +1,7 @@
 {
   "name": "@robota-sdk/agent-command-workflows",
   "version": "3.0.0-beta.0",
+  "private": true,
   "description": "agent-cli /workflows command module — surfaces the DAG workflow engine by composing dag-framework",
   "type": "module",
   "main": "dist/node/index.js",

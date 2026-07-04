@@ -838,9 +838,6 @@ importers:
       '@robota-sdk/agent-command':
         specifier: workspace:*
         version: link:../agent-command
-      '@robota-sdk/agent-command-workflows':
-        specifier: workspace:*
-        version: link:../agent-command-workflows
       '@robota-sdk/agent-core':
         specifier: workspace:*
         version: link:../agent-core
@@ -856,9 +853,6 @@ importers:
       '@robota-sdk/agent-provider':
         specifier: workspace:*
         version: link:../agent-provider
-      '@robota-sdk/agent-provider-replay':
-        specifier: workspace:*
-        version: link:../agent-provider-replay
       '@robota-sdk/agent-session-analytics':
         specifier: workspace:*
         version: link:../agent-session-analytics
@@ -899,9 +893,15 @@ importers:
       '@homebridge/node-pty-prebuilt-multiarch':
         specifier: ^0.13.1
         version: 0.13.1
+      '@robota-sdk/agent-command-workflows':
+        specifier: workspace:*
+        version: link:../agent-command-workflows
       '@robota-sdk/agent-interface-transport':
         specifier: workspace:*
         version: link:../agent-interface-transport
+      '@robota-sdk/agent-provider-replay':
+        specifier: workspace:*
+        version: link:../agent-provider-replay
       '@types/marked':
         specifier: ^6.0.0
         version: 6.0.0

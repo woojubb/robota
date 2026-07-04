@@ -53,13 +53,11 @@
   },
   "dependencies": {
     "@robota-sdk/agent-command": "workspace:*",
-    "@robota-sdk/agent-command-workflows": "workspace:*",
     "@robota-sdk/agent-core": "workspace:*",
     "@robota-sdk/agent-executor": "workspace:*",
     "@robota-sdk/agent-framework": "workspace:*",
     "@robota-sdk/agent-preset": "workspace:*",
     "@robota-sdk/agent-provider": "workspace:*",
-    "@robota-sdk/agent-provider-replay": "workspace:*",
     "@robota-sdk/agent-session-analytics": "workspace:*",
     "@robota-sdk/agent-subagent-runner": "workspace:*",
     "@robota-sdk/agent-transport": "workspace:*",
@@ -75,7 +73,9 @@
   },
   "devDependencies": {
     "@homebridge/node-pty-prebuilt-multiarch": "^0.13.1",
+    "@robota-sdk/agent-command-workflows": "workspace:*",
     "@robota-sdk/agent-interface-transport": "workspace:*",
+    "@robota-sdk/agent-provider-replay": "workspace:*",
     "@types/marked": "^6.0.0",
     "@types/ws": "^8.18.1",
     "rimraf": "^5.0.10",

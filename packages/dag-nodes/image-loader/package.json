@@ -1,6 +1,7 @@
 {
   "name": "@robota-sdk/dag-node-image-loader",
   "version": "3.0.0-beta.60",
+  "private": true,
   "description": "DAG image-loader node for Robota",
   "type": "module",
   "main": "dist/node/index.js",
@@ -56,6 +57,5 @@
   },
   "publishConfig": {
     "access": "public"
-  },
-  "private": false
+  }
 }

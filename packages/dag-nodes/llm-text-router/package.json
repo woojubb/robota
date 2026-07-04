@@ -1,6 +1,7 @@
 {
   "name": "@robota-sdk/dag-node-llm-text-router",
   "version": "0.1.0",
+  "private": true,
   "description": "DAG LLM text router node — priority-fallback across multiple LLM providers",
   "type": "module",
   "main": "dist/node/index.js",
@@ -62,6 +63,5 @@
   },
   "publishConfig": {
     "access": "public"
-  },
-  "private": false
+  }
 }

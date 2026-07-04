@@ -1,6 +1,7 @@
 {
   "name": "@robota-sdk/dag-builder",
   "version": "0.1.0-beta.0",
+  "private": true,
   "description": "Declarative pipeline-to-DAG-definition builder and validator",
   "type": "module",
   "main": "dist/node/index.js",
@@ -52,6 +53,5 @@
   },
   "publishConfig": {
     "access": "public"
-  },
-  "private": false
+  }
 }

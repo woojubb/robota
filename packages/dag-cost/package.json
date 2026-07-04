@@ -1,6 +1,7 @@
 {
   "name": "@robota-sdk/dag-cost",
   "version": "3.0.0-beta.60",
+  "private": true,
   "description": "Cost evaluation service for DAG orchestration using CEL formulas",
   "type": "module",
   "main": "dist/node/index.js",
@@ -46,6 +47,5 @@
   "license": "AGPL-3.0-only OR LicenseRef-Commercial",
   "publishConfig": {
     "access": "public"
-  },
-  "private": false
+  }
 }
