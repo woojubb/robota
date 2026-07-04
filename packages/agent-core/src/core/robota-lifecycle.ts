@@ -129,11 +129,11 @@ export async function destroyAgent(deps: IRobotaDestroyDeps): Promise<IDestroyRe
   if (deps.executionService) {
     const plugins = deps.executionService.getPlugins();
     for (const plugin of plugins) {
-      if (plugin.unsubscribeFromModuleEvents && deps.eventEmitter) {
-        await step(`Plugin unsubscribed: ${plugin.name}`, () =>
-          plugin.unsubscribeFromModuleEvents?.(deps.eventEmitter),
-        );
-      }
+      // CORE-022 (SPEC § Disposal Chain Contract): dispose() is the SINGLE component-level
+      // entry point — the base implementation unsubscribes module events, and overrides
+      // release owned resources (timers/sockets/storage). Without this a plugin's resources
+      // outlive the agent and keep the process event loop alive (RUNTIME-09).
+      await step(`Plugin disposed: ${plugin.name}`, () => plugin.dispose());
     }
     deps.logger.debug('ExecutionService plugins cleaned up');
   }
@@ -143,7 +143,7 @@ export async function destroyAgent(deps: IRobotaDestroyDeps): Promise<IDestroyRe
   }
 
   if (deps.eventEmitter) {
-    await step('EventEmitter disposed', () => deps.eventEmitter.destroy());
+    await step('EventEmitter disposed', () => deps.eventEmitter.dispose());
   }
 
   deps.resetState();

@@ -144,6 +144,12 @@ export interface IPluginContract<
   category: PluginCategory;
   priority: number;
   initialize(options?: TOptions): Promise<void>;
+  /**
+   * CORE-022: the single component-level disposal entry point. The base implementation
+   * unsubscribes module events; overrides release owned resources (timers, sockets,
+   * storage) — always calling `super.dispose()`. Driven by `Robota.destroy()`.
+   */
+  dispose(): Promise<void>;
   cleanup?(): Promise<void>;
   getData?(): IPluginData;
   getStats?(): TStats;

@@ -266,7 +266,9 @@ export class ConversationHistoryPlugin extends AbstractPlugin<
   /**
    * Stops the batch-save timer and flushes any pending conversation saves.
    */
-  async destroy(): Promise<void> {
+  // CORE-022: dispose() is the single disposal entry point (SPEC § Disposal Chain Contract).
+  override async dispose(): Promise<void> {
+    await super.dispose();
     try {
       stopPeriodicTask(this.batchSaveTimer);
       this.batchSaveTimer = undefined;

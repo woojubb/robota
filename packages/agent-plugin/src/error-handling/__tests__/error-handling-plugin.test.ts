@@ -195,7 +195,7 @@ describe('ErrorHandlingPlugin', () => {
   describe('destroy', () => {
     it('completes without error', async () => {
       const plugin = new ErrorHandlingPlugin({ strategy: 'simple' });
-      await expect(plugin.destroy()).resolves.not.toThrow();
+      await expect(plugin.dispose()).resolves.not.toThrow();
     });
   });
 });

@@ -216,7 +216,7 @@ describe('ExecutionAnalyticsPlugin', () => {
       await plugin.beforeRun('test');
       await plugin.afterRun('test', 'response');
 
-      await plugin.destroy();
+      await plugin.dispose();
 
       expect(plugin.getExecutionStats()).toHaveLength(0);
     });

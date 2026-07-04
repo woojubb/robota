@@ -229,6 +229,11 @@ export class Session extends SessionBase {
           this.transcriptPath,
         ),
       );
+      // CORE-022 (SPEC § Disposal Chain Contract): shutdown drives agent destruction —
+      // plugins are disposed so no timers/listeners survive and the process can exit.
+      await step('destroy-agent', async () => {
+        await this.robota.destroy();
+      });
     })();
     return this.shutdownPromise;
   }

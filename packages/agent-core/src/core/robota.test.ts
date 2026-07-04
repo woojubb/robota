@@ -824,6 +824,81 @@ describe('Robota Core', () => {
     });
   });
 
+  describe('disposal chain contract (CORE-022)', () => {
+    it('run() after destroy() rejects with a terminal [LIFECYCLE] error', async () => {
+      const robota = new Robota(createConfig({ aiProviders: [new TrackingProvider()] }));
+      await robota.run('warm up');
+
+      await robota.destroy();
+
+      await expect(robota.run('after death')).rejects.toThrow(/\[LIFECYCLE\]/);
+    });
+
+    it('runStream() after destroy() rejects with a terminal [LIFECYCLE] error', async () => {
+      const robota = new Robota(createConfig({ aiProviders: [new TrackingProvider()] }));
+      await robota.destroy();
+
+      const consume = async (): Promise<void> => {
+        for await (const _chunk of robota.runStream('after death')) {
+          // consume
+        }
+      };
+      await expect(consume()).rejects.toThrow(/\[LIFECYCLE\]/);
+    });
+
+    it('destroy() is idempotent', async () => {
+      const robota = new Robota(createConfig({ aiProviders: [new TrackingProvider()] }));
+
+      const first = await robota.destroy();
+      const second = await robota.destroy();
+
+      expect(first.errors).toEqual([]);
+      expect(second.errors).toEqual([]);
+    });
+
+    it('destroy() disposes every registered plugin via dispose()', async () => {
+      const disposed: string[] = [];
+      class ResourcePlugin extends AbstractPlugin {
+        override name = 'resource-plugin';
+        override version = '1.0.0';
+        override async dispose(): Promise<void> {
+          disposed.push(this.name);
+          await super.dispose();
+        }
+      }
+      const robota = new Robota(
+        createConfig({ aiProviders: [new TrackingProvider()], plugins: [new ResourcePlugin()] }),
+      );
+      await robota.run('warm up');
+
+      await robota.destroy();
+
+      expect(disposed).toEqual(['resource-plugin']);
+    });
+
+    it('destroy() awaits the run-queue tail (in-flight run settles first)', async () => {
+      const order: string[] = [];
+      class SlowProvider extends TrackingProvider {
+        override async chat(
+          messages: TUniversalMessage[],
+          options?: IChatOptions,
+        ): Promise<TUniversalMessage> {
+          await new Promise((r) => setTimeout(r, 60));
+          order.push('run-settled');
+          return super.chat(messages, options);
+        }
+      }
+      const robota = new Robota(createConfig({ aiProviders: [new SlowProvider()] }));
+
+      const running = robota.run('slow');
+      await new Promise((r) => setTimeout(r, 10));
+      await robota.destroy().then(() => order.push('destroy-settled'));
+      await running;
+
+      expect(order).toEqual(['run-settled', 'destroy-settled']);
+    });
+  });
+
   // ----------------------------------------------------------------
   // Run-isolated (stateless) mode (CORE-014)
   // ----------------------------------------------------------------

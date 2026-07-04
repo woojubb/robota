@@ -255,7 +255,9 @@ export class ErrorHandlingPlugin extends AbstractPlugin<
   /**
    * Cleanup resources
    */
-  async destroy(): Promise<void> {
+  // CORE-022: dispose() is the single disposal entry point (SPEC § Disposal Chain Contract).
+  override async dispose(): Promise<void> {
+    await super.dispose();
     this.logger.info('ErrorHandlingPlugin destroyed');
   }
 

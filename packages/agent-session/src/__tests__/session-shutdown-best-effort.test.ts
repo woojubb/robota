@@ -51,6 +51,19 @@ describe('Session.shutdown — best-effort disposal (CORE-013)', () => {
     await expect(session.shutdown({ reason: 'other' })).resolves.toBeUndefined();
   });
 
+  it('destroys the wrapped agent — run() after shutdown rejects with [LIFECYCLE] (CORE-022)', async () => {
+    const session = new Session({
+      tools: [] as never,
+      provider: MOCK_PROVIDER as never,
+      systemMessage: 'test',
+      terminal: MOCK_TERMINAL,
+    });
+
+    await session.shutdown({ reason: 'other' });
+
+    await expect(session.run('after shutdown')).rejects.toThrow(/\[LIFECYCLE\]/);
+  });
+
   it('returns the same cached promise on repeated shutdown calls', async () => {
     const session = new Session({
       tools: [] as never,

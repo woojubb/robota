@@ -34,7 +34,7 @@ describe('EventEmitterPlugin error containment (CORE-021)', () => {
 
     await expect(plugin.emit(EVENT, {})).resolves.toBeUndefined();
     expect(plugin.getStats().totalErrors).toBe(1);
-    await plugin.destroy();
+    await plugin.dispose();
   });
 
   it('catchErrors: false — the handler error rethrows to the emitter caller', async () => {
@@ -45,7 +45,7 @@ describe('EventEmitterPlugin error containment (CORE-021)', () => {
 
     await expect(plugin.emit(EVENT, {})).rejects.toThrow('handler exploded');
     expect(plugin.getStats().totalErrors).toBe(1);
-    await plugin.destroy();
+    await plugin.dispose();
   });
 
   it('buffered flush timer never floats an unhandled rejection (process survival)', async () => {
@@ -58,7 +58,7 @@ describe('EventEmitterPlugin error containment (CORE-021)', () => {
 
     await plugin.emit(EVENT, {});
     await new Promise((resolve) => setTimeout(resolve, 80));
-    await plugin.destroy();
+    await plugin.dispose();
     // one macrotask so any floating rejection would have surfaced
     await new Promise((resolve) => setTimeout(resolve, 0));
 
@@ -76,7 +76,7 @@ describe('EventEmitterPlugin error containment (CORE-021)', () => {
 
     await plugin.emit(EVENT, {});
     await new Promise((resolve) => setTimeout(resolve, 20));
-    await plugin.destroy();
+    await plugin.dispose();
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(unhandled).toEqual([]);
