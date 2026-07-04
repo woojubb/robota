@@ -25,13 +25,8 @@ import type { IHookTypeExecutor } from '@robota-sdk/agent-core';
 
 export type { TPermissionHandler, TPermissionResult, ITerminalOutput, ISpinner };
 
-export type TCompactTrigger = 'manual' | 'auto';
-
-export interface ICompactEvent {
-  trigger: TCompactTrigger;
-  before: IContextWindowState;
-  after: IContextWindowState;
-}
+export type { ICompactEvent, TCompactTrigger } from '@robota-sdk/agent-interface-transport';
+import type { ICompactEvent } from '@robota-sdk/agent-interface-transport';
 
 /** Options for graceful session shutdown. */
 export interface ISessionShutdownOptions {

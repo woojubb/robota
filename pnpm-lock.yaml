@@ -1034,6 +1034,9 @@ importers:
       '@robota-sdk/agent-core':
         specifier: workspace:*
         version: link:../agent-core
+      '@robota-sdk/agent-interface-transport':
+        specifier: workspace:*
+        version: link:../agent-interface-transport
       croner:
         specifier: ^10.0.1
         version: 10.0.1
@@ -1096,12 +1099,6 @@ importers:
       '@robota-sdk/agent-core':
         specifier: workspace:*
         version: link:../agent-core
-      '@robota-sdk/agent-executor':
-        specifier: workspace:*
-        version: link:../agent-executor
-      '@robota-sdk/agent-session':
-        specifier: workspace:*
-        version: link:../agent-session
     devDependencies:
       rimraf:
         specifier: ^5.0.10
@@ -1391,6 +1388,9 @@ importers:
       '@robota-sdk/agent-core':
         specifier: workspace:*
         version: link:../agent-core
+      '@robota-sdk/agent-interface-transport':
+        specifier: workspace:*
+        version: link:../agent-interface-transport
     devDependencies:
       eslint:
         specifier: ^8.57.1
@@ -1441,6 +1441,9 @@ importers:
       '@robota-sdk/agent-framework':
         specifier: workspace:*
         version: link:../agent-framework
+      '@robota-sdk/agent-interface-transport':
+        specifier: workspace:*
+        version: link:../agent-interface-transport
       '@robota-sdk/agent-provider':
         specifier: workspace:*
         version: link:../agent-provider

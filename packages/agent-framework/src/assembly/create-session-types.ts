@@ -21,11 +21,11 @@ import type {
   TToolArgs,
   IUserInteraction,
 } from '@robota-sdk/agent-core';
+import type { ICompactEvent } from '@robota-sdk/agent-interface-transport';
 import type {
   Session,
   ISessionOptions,
   ITerminalOutput,
-  ICompactEvent,
   TPermissionHandler,
   TPermissionResult,
   ISessionLogger,

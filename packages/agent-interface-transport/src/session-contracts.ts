@@ -11,7 +11,17 @@ import type {
   IBackgroundJobGroupState,
   TBackgroundJobGroupEvent,
 } from './background-group-contracts.js';
+import type {
+  IBackgroundTaskInput,
+  IBackgroundTaskListFilter,
+  IBackgroundTaskLogCursor,
+  IBackgroundTaskLogPage,
+  IBackgroundTaskState,
+  TBackgroundTaskEvent,
+  TBackgroundTaskIsolation,
+} from './background-task-contracts';
 import type { ICommandListEntry, ICommandResult } from './command-contracts.js';
+import type { ICompactEvent } from './compact-contracts';
 import type {
   IContextReferenceItem,
   IMemoryEvent,
@@ -19,6 +29,7 @@ import type {
   IPromptFileReferenceRecord,
   ISkillActivationEvent,
 } from './event-contracts.js';
+import type { ISubagentJobState } from './subagent-contracts';
 import type {
   IExecutionWorkspaceEvent,
   IExecutionWorkspaceSnapshot,
@@ -31,17 +42,6 @@ import type {
   TToolArgs,
   TUniversalMessage,
 } from '@robota-sdk/agent-core';
-import type {
-  IBackgroundTaskInput,
-  IBackgroundTaskListFilter,
-  IBackgroundTaskLogCursor,
-  IBackgroundTaskLogPage,
-  IBackgroundTaskState,
-  ISubagentJobState,
-  TBackgroundTaskEvent,
-  TBackgroundTaskIsolation,
-} from '@robota-sdk/agent-executor';
-import type { ICompactEvent } from '@robota-sdk/agent-session';
 
 // Re-export the background job-group contracts referenced by the session surface so
 // that this module stays the single import hub for session-facing types.

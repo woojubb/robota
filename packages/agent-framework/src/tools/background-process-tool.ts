@@ -1,7 +1,8 @@
 import { createZodFunctionTool } from '@robota-sdk/agent-tools';
 import { z } from 'zod';
 
-import type { IBackgroundTaskManager, TBackgroundPrimitive } from '../background-tasks/index.js';
+import type { IBackgroundTaskManager } from '../background-tasks/index.js';
+import type { TBackgroundPrimitive } from '@robota-sdk/agent-interface-transport';
 
 const DEFAULT_PROCESS_TIMEOUT_MS = 120_000;
 

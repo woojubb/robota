@@ -77,7 +77,8 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "@robota-sdk/agent-core": "workspace:*"
+    "@robota-sdk/agent-core": "workspace:*",
+    "@robota-sdk/agent-interface-transport": "workspace:*"
   },
   "devDependencies": {
     "@robota-sdk/agent-core": "workspace:*",

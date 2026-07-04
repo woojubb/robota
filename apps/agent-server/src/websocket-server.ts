@@ -1,14 +1,14 @@
-import { WebSocket, WebSocketServer } from 'ws';
-import { IncomingMessage } from 'http';
-import { Server } from 'http';
+import { createLogger } from '@robota-sdk/agent-core';
 import * as jwt from 'jsonwebtoken';
+import { WebSocket, WebSocketServer } from 'ws';
 
+import type { ILogger, TUniversalValue } from '@robota-sdk/agent-core';
 import type {
   IPlaygroundWebSocketMessage,
   TPlaygroundWebSocketMessageKind,
 } from '@robota-sdk/agent-playground';
-import type { ILogger, TUniversalValue } from '@robota-sdk/agent-core';
-import { createLogger } from '@robota-sdk/agent-core';
+import type { Server } from 'http';
+import type { IncomingMessage } from 'http';
 
 const JWT_PART_COUNT = 3;
 const CLEANUP_INTERVAL_MS = 30000;

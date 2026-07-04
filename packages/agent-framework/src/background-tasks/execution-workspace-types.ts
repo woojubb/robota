@@ -1,4 +1,3 @@
-import type { TBackgroundPrimitive } from '@robota-sdk/agent-executor';
 // Execution-workspace contracts SSOT relocated to @robota-sdk/agent-interface-transport (DATA-001).
 import type {
   IExecutionOrigin,
@@ -29,6 +28,7 @@ export type {
   ICreateMainThreadDetailPageInput,
   ICreateLineDetailPageInput,
 } from '@robota-sdk/agent-interface-transport';
+import type { TBackgroundPrimitive } from '@robota-sdk/agent-interface-transport';
 
 export const MAIN_THREAD_ENTRY_PREFIX = 'main';
 export const BACKGROUND_TASK_ENTRY_PREFIX = 'task';

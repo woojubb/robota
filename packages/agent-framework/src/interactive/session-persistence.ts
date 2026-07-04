@@ -12,9 +12,7 @@ import { projectPaths, userPaths } from '../paths.js';
 
 import type {
   IBackgroundJobGroupState,
-  IBackgroundTaskState,
   TBackgroundJobGroupEvent,
-  TBackgroundTaskEvent,
 } from '../background-tasks/index.js';
 import type { ISkillActivationEvent } from '../commands/skill-activation-events.js';
 import type { IContextReferenceItem } from '../context/context-reference-inventory.js';
@@ -26,6 +24,10 @@ import type {
   IInteractiveSessionRecord,
   IInteractiveSessionStore,
   IResumableSessionSummary,
+} from '@robota-sdk/agent-interface-transport';
+import type {
+  IBackgroundTaskState,
+  TBackgroundTaskEvent,
 } from '@robota-sdk/agent-interface-transport';
 
 export type { IInteractiveSessionRecord, IInteractiveSessionStore, IResumableSessionSummary };

@@ -1,11 +1,11 @@
+import type { ICommandHostContext } from '../host-context.js';
+import type { ICommand } from '../types.js';
 import type {
   IBackgroundTaskListFilter,
   IBackgroundTaskLogCursor,
   IBackgroundTaskLogPage,
   IBackgroundTaskState,
-} from '../../background-tasks/index.js';
-import type { ICommandHostContext } from '../host-context.js';
-import type { ICommand } from '../types.js';
+} from '@robota-sdk/agent-interface-transport';
 
 const DECIMAL_RADIX = 10;
 const INLINE_METADATA_LIMIT = 160;

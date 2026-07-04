@@ -14,13 +14,14 @@ import { formatProjectedModelCommandToolPromptDescription } from '../tools/model
 
 import type { ICreateSessionOptions } from './create-session-types.js';
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
-import type { IBackgroundTaskManager, TBackgroundTaskEvent } from '../background-tasks/index.js';
+import type { IBackgroundTaskManager } from '../background-tasks/index.js';
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
 import type { ISystemPromptParams } from '../context/system-prompt-builder.js';
 import type { IAgentToolDeps } from '../tools/agent-tool.js';
 import type { IBackgroundProcessToolDeps } from '../tools/background-process-tool.js';
 import type { createModelCommandToolProjection } from '../tools/model-command-tool-projection.js';
 import type { IAIProvider, IToolWithEventService, IHookTypeExecutor } from '@robota-sdk/agent-core';
+import type { TBackgroundTaskEvent } from '@robota-sdk/agent-interface-transport';
 import type { ISessionLogger } from '@robota-sdk/agent-session';
 import type { Session } from '@robota-sdk/agent-session';
 

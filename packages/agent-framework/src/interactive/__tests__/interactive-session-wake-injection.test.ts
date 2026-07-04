@@ -15,11 +15,11 @@ import type {
   IBackgroundTaskHandle,
   IBackgroundTaskRunner,
   IBackgroundTaskStart,
-  IScheduledBackgroundTaskRequest,
 } from '@robota-sdk/agent-executor';
 import type { SessionExecutionController } from '../interactive-session-execution-controller.js';
 import type { IAgentToolDeps } from '../../tools/agent-tool.js';
 import type { Session } from '@robota-sdk/agent-session';
+import type { IScheduledBackgroundTaskRequest } from '@robota-sdk/agent-interface-transport';
 
 function createSessionStub(): Session {
   return {

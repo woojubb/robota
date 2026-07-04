@@ -9,9 +9,12 @@ import { createExecutionOriginMetadata } from '../background-tasks/index.js';
 import { retrieveAgentToolDeps } from '../tools/agent-tool.js';
 
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
-import type { TBackgroundTaskIsolation } from '../background-tasks/index.js';
 import type { TCommandInvocationSource } from '../commands/index.js';
-import type { ISubagentJobResult, ISubagentJobState } from '../subagents/index.js';
+import type { ISubagentJobResult } from '../subagents/index.js';
+import type {
+  ISubagentJobState,
+  TBackgroundTaskIsolation,
+} from '@robota-sdk/agent-interface-transport';
 import type { Session } from '@robota-sdk/agent-session';
 
 /** Retrieve agent tool deps or throw. */
