@@ -1682,10 +1682,13 @@ Interactive TUI mode must never die on a transient failure. `src/process-guards.
 last-resort `unhandledRejection`/`uncaughtException` handlers when the TUI starts: errors route
 into the live session via `InteractiveSession.reportBackgroundError` (humanized, styled error
 block, session log) and the process stays alive; if routing itself fails, stderr is the final
-surface. `bin.ts`'s IME-aware `uncaughtException` fallback defers to these guards when active
-(`areTuiProcessGuardsActive`). Headless/print mode installs nothing and keeps the fail-fast
-exit-code contract. Each async subsystem still owns terminating its promises — the guards are the
-boundary of last resort, not the primary handler.
+surface. `bin.ts` classifies uncaught exceptions via `classifyUncaughtException` (CORE-020,
+RUNTIME-34): the CJK/IME allowlist ('string-width', 'setCursorPosition', 'getStringWidth',
+'slice', 'charCodeAt' message signatures) applies ONLY while the TUI guards are active — raw-mode
+IME errors cannot occur outside the TUI, and those generic signatures would otherwise mask real
+crashes. Headless/print mode installs nothing and always rethrows (fail-fast exit-code contract).
+Each async subsystem still owns terminating its promises — the guards are the boundary of last
+resort, not the primary handler.
 
 ## Error Taxonomy
 

@@ -764,6 +764,66 @@ describe('Robota Core', () => {
     });
   });
 
+  describe('failed execution contract (CORE-020)', () => {
+    // Failures that escape the round-level provider catch (e.g. a malformed provider
+    // response failing response validation) must reach run() callers as a rejection,
+    // never as a normal-looking "Error: ..." response string.
+    class MalformedResponseProvider extends TrackingProvider {
+      override async chat(): Promise<TUniversalMessage> {
+        return {
+          id: 'bad',
+          role: 'assistant',
+          content: null as unknown as string,
+          state: 'complete' as const,
+          timestamp: new Date(),
+        };
+      }
+      override async *chatStream(): AsyncIterable<TUniversalMessage> {
+        yield {
+          id: 'bad',
+          role: 'assistant',
+          content: null as unknown as string,
+          state: 'complete' as const,
+          timestamp: new Date(),
+        };
+      }
+    }
+
+    it('run() rejects on execution failure — never resolves with an "Error: ..." response string', async () => {
+      const robota = new Robota(createConfig({ aiProviders: [new MalformedResponseProvider()] }));
+
+      await expect(robota.run('hello')).rejects.toThrow(
+        '[EXECUTION] Provider response must have content or tool calls',
+      );
+    });
+
+    it('run() throws provider stream failures too (parity via provider-error structuring)', async () => {
+      class ThrowingChatProvider extends TrackingProvider {
+        override async chat(): Promise<TUniversalMessage> {
+          throw new Error('provider exploded (CORE-020 probe)');
+        }
+        override async *chatStream(): AsyncIterable<TUniversalMessage> {
+          yield* [];
+          throw new Error('provider exploded (CORE-020 probe)');
+        }
+      }
+      const robota = new Robota(createConfig({ aiProviders: [new ThrowingChatProvider()] }));
+
+      await expect(robota.run('hello')).rejects.toThrow(/exploded \(CORE-020 probe\)/);
+    });
+
+    it('runStream() propagates execution failure as a rejection', async () => {
+      const robota = new Robota(createConfig({ aiProviders: [new MalformedResponseProvider()] }));
+
+      const consume = async (): Promise<void> => {
+        for await (const _chunk of robota.runStream('hello')) {
+          // consume
+        }
+      };
+      await expect(consume()).rejects.toThrow();
+    });
+  });
+
   // ----------------------------------------------------------------
   // Run-isolated (stateless) mode (CORE-014)
   // ----------------------------------------------------------------
