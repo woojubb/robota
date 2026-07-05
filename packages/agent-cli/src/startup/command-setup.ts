@@ -14,34 +14,22 @@ import type {
   ICommandModule,
   TProviderSettingsDocument,
 } from '@robota-sdk/agent-framework';
-import { createRequire } from 'node:module';
-
 import {
   createDefaultCommandModules,
   createDefaultPluginCommandAdapter,
 } from '@robota-sdk/agent-command';
 import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider';
+import { createWorkflowsCommandModule } from '@robota-sdk/agent-command-workflows';
 import type { IParsedCliArgs } from '../utils/cli-args.js';
 
 /**
- * Load the optional `/workflows` command module (WORKFLOW-003). The DAG/workflow subsystem is an
- * in-progress track kept out of the published dependency graph, so agent-cli must NOT hard-depend on
- * it — otherwise the published package's `workspace:*` edge resolves to an unpublished version and
- * `npm install @robota-sdk/agent-cli` breaks. `@robota-sdk/agent-command-workflows` is therefore a
- * devDependency, loaded through a guarded `createRequire`: present in the monorepo (and for any user
- * who installs it) → `/workflows` is registered; absent in the default published install → omitted.
+ * Build the `/workflows` command module (WORKFLOW-003). INFRA-028: the DAG/workflow subsystem is
+ * **bundled** into agent-cli's published artifact (it is a build-time devDependency, compiled into
+ * `dist`, NOT a runtime `@robota-sdk` edge). It is therefore statically imported and always present —
+ * in the monorepo and in a packed/published install alike.
  */
-function loadOptionalWorkflowsCommandModule(): ICommandModule | undefined {
-  try {
-    const requireFrom = createRequire(import.meta.url);
-    const mod = requireFrom('@robota-sdk/agent-command-workflows') as {
-      createWorkflowsCommandModule: () => ICommandModule;
-    };
-    return mod.createWorkflowsCommandModule();
-  } catch {
-    // allow-fallback: the workflow subsystem is an optional, unpublished track — its absence just means no /workflows command
-    return undefined;
-  }
+function loadWorkflowsCommandModule(): ICommandModule {
+  return createWorkflowsCommandModule();
 }
 
 export interface IStartCliOptions {
@@ -86,9 +74,9 @@ export function buildCommandSetup(
     writeTargetSettings: (settings: TProviderSettingsDocument) =>
       writeSettings(resolveProviderSettingsWriteTargetPath(cwd), settings),
   };
-  // DAG workflow engine surfaced as `/workflows` (WORKFLOW-003) — optional; omitted from the published
-  // CLI whose dependency graph must not include the unpublished DAG chain (see loader doc above).
-  const workflowsModule = loadOptionalWorkflowsCommandModule();
+  // DAG workflow engine surfaced as `/workflows` (WORKFLOW-003) — INFRA-028: bundled into the
+  // self-contained CLI, so it is always present (statically imported, no runtime `@robota-sdk` edge).
+  const workflowsModule = loadWorkflowsCommandModule();
   const commandModules: readonly ICommandModule[] = [
     ...createDefaultCommandModules({
       cwd,
@@ -101,7 +89,7 @@ export function buildCommandSetup(
         ? { disabledCommandModules: moduleSelection.disabledCommandModules }
         : {}),
     }),
-    ...(workflowsModule ? [workflowsModule] : []),
+    workflowsModule,
     ...(options.commandModules ?? []),
   ];
   const startupUpdateNoticePromise = shouldRunStartupCliUpdateCheck(args)

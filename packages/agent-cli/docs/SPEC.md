@@ -56,23 +56,33 @@ A **thin CLI layer** built on top of agent-sdk, responsible only for the termina
 | `agent-provider`        | ✅ Provider definition assembly only | CLI composes injected `IProviderDefinition[]`; the provider package owns defaults and factories         |
 | `agent-preset`          | ✅ Preset id selection + resolution  | CLI selects the preset id and forwards CLI-flag overrides; `resolvePreset` owns the precedence merge    |
 
-### Optional (dev-only) modules — must not enter the published dependency graph
+### Self-contained bundle (INFRA-028)
 
-Some capabilities are backed by packages deliberately kept **unpublished / `private`** (an in-progress
-track, or an internal test utility). agent-cli must **not** declare a runtime `dependencies` edge to
-any such package — a `workspace:*` edge would resolve, at publish time, to a version that is not on npm
-and break `npm install @robota-sdk/agent-cli`. These packages are `devDependencies` and loaded through
-a guarded `createRequire`, so the command/feature is present in the monorepo (and for anyone who
-installs the optional package) and cleanly absent (never a crash) in the default published CLI:
+`@robota-sdk/agent-cli` publishes as a **completely self-contained bundle**, independent of any other
+package's publish state. Every `@robota-sdk/*` workspace package it uses — including the `/workflows`
+command module (`@robota-sdk/agent-command-workflows`) and its entire private `dag-*` chain — is
+**compiled into `dist`** by tsdown. Those siblings are declared as **`devDependencies`** (build-time
+only, bundled), so the published package's runtime **`dependencies` contain zero `@robota-sdk`
+packages** — only the third-party npm libraries the bundle imports (kept external, installed from the
+public registry).
 
-| Feature                | Optional package                      | Loader                          | Absent behavior                            |
-| ---------------------- | ------------------------------------- | ------------------------------- | ------------------------------------------ |
-| `/workflows` command   | `@robota-sdk/agent-command-workflows` | `command-setup.ts` guarded load | command omitted                            |
-| `--session-log` replay | `@robota-sdk/agent-provider-replay`   | `cli.ts` `loadReplayProvider`   | clear error only when `--session-log` used |
+Consequences:
 
-Rule: a runtime `dependencies` entry of agent-cli must be a package that is published in the same
-release. The published dependency closure is verified to contain no `private`/unpublished package (see
-CLI-077).
+- `npm install @robota-sdk/agent-cli` / `npx @robota-sdk/agent-cli` never resolves an `@robota-sdk`
+  sibling — a clean install has zero `@robota-sdk/*` in `node_modules` except agent-cli itself.
+- `/workflows` is **bundled and always present** (statically imported in `command-setup.ts`), including
+  in published installs — the DAG subsystem stays unpublished as its own packages, but its code ships
+  inside agent-cli.
+
+Bundling policy lives in `tsdown.config.ts` (no `@robota-sdk` externalization). The invariant "agent-cli
+runtime `dependencies` have zero `@robota-sdk`" is enforced by `scripts/harness/check-publish-safety.mjs`
+(check #4), and `dep-kind` exempts agent-cli's `@robota-sdk` devDep value-imports as bundled
+(`BUNDLED_WORKSPACE_PACKAGES`).
+
+**Remaining dev-only guarded hook:** `--session-log` replay (`@robota-sdk/agent-provider-replay`,
+INFRA-017) is an internal test-harness provider loaded via a guarded `createRequire` in `cli.ts`. It is
+NOT bundled (not an end-user feature); absent in published installs it yields a clear error only when
+`--session-log` is used.
 
 ## Architecture
 

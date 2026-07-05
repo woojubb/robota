@@ -5,6 +5,8 @@
  * 1. agent-core has zero @robota-sdk dependencies
  * 2. All publishable packages have prepublishOnly hook blocking npm publish
  * 3. All publishable packages have workspace:* deps (not hardcoded versions in source)
+ * 4. agent-cli publishes as a SELF-CONTAINED bundle — zero @robota-sdk runtime `dependencies`
+ *    (INFRA-028: all @robota-sdk workspace code is bundled into dist; siblings are devDeps).
  */
 
 import { readFileSync, existsSync, readdirSync } from 'fs';
@@ -62,6 +64,19 @@ if (!existsSync(join(ROOT, 'scripts/check-pnpm-publish.sh'))) {
   error('scripts/check-pnpm-publish.sh not found');
 } else {
   ok('check-pnpm-publish.sh exists');
+}
+
+// 4. INFRA-028: agent-cli must publish as a self-contained bundle — zero @robota-sdk runtime deps.
+const cliPkg = JSON.parse(readFileSync(join(ROOT, 'packages/agent-cli/package.json'), 'utf-8'));
+const cliRuntimeRobota = Object.keys(cliPkg.dependencies || {}).filter((d) =>
+  d.startsWith('@robota-sdk/'),
+);
+if (cliRuntimeRobota.length > 0) {
+  error(
+    `agent-cli must be a self-contained bundle (INFRA-028): move these to devDependencies (bundled): ${cliRuntimeRobota.join(', ')}`,
+  );
+} else {
+  ok('agent-cli publishes self-contained — zero @robota-sdk runtime dependencies (INFRA-028)');
 }
 
 // Summary
