@@ -7,6 +7,7 @@ import { TextOutputNodeDefinition } from '@robota-sdk/dag-node-text-output';
 import { ImageLoaderNodeDefinition } from '@robota-sdk/dag-node-image-loader';
 import { ImageSourceNodeDefinition } from '@robota-sdk/dag-node-image-source';
 import { OkEmitterNodeDefinition } from '@robota-sdk/dag-node-ok-emitter';
+import { ToolNodeDefinition } from '@robota-sdk/dag-node-tool';
 import {
   StringToNumberNodeDefinition,
   NumberToStringNodeDefinition,
@@ -39,6 +40,8 @@ export function createDefaultNodeRegistrySync(): IDagNodeDefinition[] {
     new ImageLoaderNodeDefinition(),
     new ImageSourceNodeDefinition(),
     new OkEmitterNodeDefinition(),
+    // in-process tool node (agent-tools builtins; no optional provider SDK)
+    new ToolNodeDefinition(),
     // utility text/data nodes (tier-1)
     new StringToNumberNodeDefinition(),
     new NumberToStringNodeDefinition(),

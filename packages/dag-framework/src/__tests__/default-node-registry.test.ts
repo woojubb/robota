@@ -16,13 +16,15 @@ describe('createDefaultNodeRegistrySync', () => {
     expect(types).toContain('text-join');
     expect(types).toContain('json-extract');
     expect(types).toContain('conditional-text');
+    // in-process tool node (agent-tools builtins) is in the sync registry
+    expect(types).toContain('tool');
     // LLM nodes are NOT included in the sync registry
     expect(types).not.toContain('llm-text-anthropic');
   });
 
-  it('returns 22 or more nodes (base 8 + 14 utility-text)', () => {
+  it('returns 23 or more nodes (base 9 + 14 utility-text)', () => {
     const nodes = createDefaultNodeRegistrySync();
-    expect(nodes.length).toBeGreaterThanOrEqual(22);
+    expect(nodes.length).toBeGreaterThanOrEqual(23);
   });
 });
 
