@@ -1,8 +1,8 @@
 # BEHAVIOR-005: expose token usage on the streaming execution path
 
-- **Status:** in-progress
-- **Spec:** `.agents/spec-docs/draft/BEHAVIOR-005-streaming-token-usage-exposure.md`
-- **Branch:** `fix/streaming-usage-exposure`
+- **Status:** done (merged via PR #969, `develop`)
+- **Spec:** `.agents/spec-docs/done/BEHAVIOR-005-streaming-token-usage-exposure.md`
+- **Branch:** `fix/streaming-usage-exposure` (merged, deleted)
 - **Approved:** 2026-07-05 (user sign-off "좋아")
 
 ## Goal
@@ -19,7 +19,7 @@ the usage analytics work unchanged for `run()` and `runStream()`.
 - [x] SPEC-first: updated `packages/agent-provider/docs/SPEC.md` (Streaming Token Usage).
 - [x] TDD: assembler + request-builder + runStream regression tests (red → green).
 - [x] Live UE: bug-report reproduction stub shows usage populated for run()/runStream().
-- [ ] PR → develop, CI green, merge.
+- [x] PR → develop, CI green, merge (PR #969, squash `6f308d10`).
 
 ## Test Plan
 

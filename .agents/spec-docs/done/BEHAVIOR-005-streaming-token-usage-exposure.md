@@ -1,5 +1,5 @@
 ---
-status: verifying
+status: done
 type: BEHAVIOR
 tags: [streaming, async, typescript]
 ---
@@ -226,3 +226,9 @@ and request builder.
 123, outputTokens: 45 }`; `runStream()` committed metadata `{ inputTokens:123, outputTokens:45,
 usage:{ totalTokens:168, inputTokens:123, outputTokens:45 } }` and `readTokenUsageFromMessage =
 { inputTokens:123, outputTokens:45 }`.
+- **GATE-COMPLETE — PASS (2026-07-05).** Merged to `develop` via **PR #969** (squash `6f308d10`);
+  SPEC (`packages/agent-provider/docs/SPEC.md` Streaming Token Usage) + changeset
+  (`.changeset/fix-streaming-token-usage.md`, agent-core/agent-provider patch) landed. CI green
+  (the single `tui-e2e` failure was an unrelated pre-existing teardown flake — `rmSync` `ENOTEMPTY`
+  race; passed on a zero-change re-run; tracked separately as **INFRA-026**). Spec-doc promoted
+  `draft/ → done/`; task archived to `.agents/tasks/completed/`.
