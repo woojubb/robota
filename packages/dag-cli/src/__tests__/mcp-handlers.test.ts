@@ -1030,6 +1030,100 @@ describe('handleDagInstantNodeCreateComposite', () => {
   });
 });
 
+describe('BEHAVIOR-006: composite instant node save → reload', () => {
+  const VALID_COMPOSITE = {
+    nodeType: 'my-composite',
+    displayName: 'My Composite',
+    innerDag: MINIMAL_DAG,
+    exposedInputPort: { key: 'text', mapsTo: { nodeId: 'in', portKey: 'text' } },
+    exposedOutputPorts: [{ key: 'result', mapsTo: { nodeId: 'out', portKey: 'text' } }],
+  };
+
+  async function lastWrittenRecord(): Promise<Record<string, unknown>> {
+    const fs = await import('node:fs/promises');
+    const call = vi.mocked(fs.writeFile).mock.calls.at(-1);
+    return JSON.parse(call![1] as string) as Record<string, unknown>;
+  }
+
+  it('persists a composite with kind/innerDag/exposed ports, no taskCode (TC-01)', async () => {
+    const { handleDagInstantNodeCreateComposite } =
+      await import('../mcp/handlers/instant-nodes.js');
+    const ctx = makeContext();
+    const result = await handleDagInstantNodeCreateComposite(
+      ctx,
+      { ...VALID_COMPOSITE },
+      undefined,
+    );
+    expect(result.isError).toBeFalsy();
+
+    const written = await lastWrittenRecord();
+    expect(written['kind']).toBe('composite');
+    expect(written['innerDag']).toBeTruthy();
+    expect((written['exposedInputPort'] as { key: string }).key).toBe('text');
+    expect(written['exposedOutputPorts']).toHaveLength(1);
+    expect(written['taskCode']).toBeUndefined();
+  });
+
+  it('reloads a persisted composite instead of dropping it (TC-02)', async () => {
+    const { loadSavedInstantNodes } = await import('../mcp/handlers/instant-nodes.js');
+    const fs = await import('node:fs/promises');
+    const record = { kind: 'composite', ...VALID_COMPOSITE };
+    vi.mocked(fs.readdir).mockResolvedValueOnce([
+      'my-composite.instant-node.json',
+    ] as unknown as Awaited<ReturnType<typeof fs.readdir>>);
+    vi.mocked(fs.readFile).mockResolvedValueOnce(JSON.stringify(record));
+
+    const liveDefs: ILocalMcpServerContext['instantNodeDefinitions'] = [];
+    await loadSavedInstantNodes('/proj', liveDefs);
+    expect(liveDefs.map((n) => n.nodeType)).toContain('my-composite');
+  });
+
+  it('round-trips a composite: create → save → reload (TC-03)', async () => {
+    const { handleDagInstantNodeCreateComposite, loadSavedInstantNodes } =
+      await import('../mcp/handlers/instant-nodes.js');
+    const fs = await import('node:fs/promises');
+    const ctx = makeContext();
+    await handleDagInstantNodeCreateComposite(ctx, { ...VALID_COMPOSITE }, undefined);
+    const written = await lastWrittenRecord();
+
+    // Simulate restart: a fresh registry reloads from the exact written record.
+    vi.mocked(fs.readdir).mockResolvedValueOnce([
+      'my-composite.instant-node.json',
+    ] as unknown as Awaited<ReturnType<typeof fs.readdir>>);
+    vi.mocked(fs.readFile).mockResolvedValueOnce(JSON.stringify(written));
+    const reloaded: ILocalMcpServerContext['instantNodeDefinitions'] = [];
+    await loadSavedInstantNodes('/proj', reloaded);
+    expect(reloaded.some((n) => n.nodeType === written['nodeType'])).toBe(true);
+  });
+
+  it('back-compat: legacy prompt reloads; a composite with no innerDag is skipped (TC-04)', async () => {
+    const { loadSavedInstantNodes } = await import('../mcp/handlers/instant-nodes.js');
+    const fs = await import('node:fs/promises');
+    vi.mocked(fs.readdir).mockResolvedValueOnce([
+      'legacy-prompt.instant-node.json',
+      'old-composite.instant-node.json',
+    ] as unknown as Awaited<ReturnType<typeof fs.readdir>>);
+    vi.mocked(fs.readFile)
+      .mockResolvedValueOnce(
+        JSON.stringify({
+          nodeType: 'legacy-prompt',
+          displayName: 'Legacy',
+          taskCode: 'Say hi to {{text}}',
+          inputs: [{ key: 'text' }],
+          outputs: [{ key: 'text' }],
+        }),
+      )
+      .mockResolvedValueOnce(
+        JSON.stringify({ nodeType: 'old-composite', displayName: 'Old', taskCode: null }),
+      );
+
+    const defs: ILocalMcpServerContext['instantNodeDefinitions'] = [];
+    await loadSavedInstantNodes('/proj', defs);
+    expect(defs.map((n) => n.nodeType)).toContain('legacy-prompt');
+    expect(defs.map((n) => n.nodeType)).not.toContain('old-composite');
+  });
+});
+
 describe('handleInstantNodeListSaved', () => {
   beforeEach(() => {
     vi.clearAllMocks();

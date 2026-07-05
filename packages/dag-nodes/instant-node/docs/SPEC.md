@@ -18,7 +18,61 @@ Enables AI agents to create custom DAG node types at runtime without writing Typ
 ```typescript
 export type { ICreatePromptNodeInput };
 export { PromptBackedNodeDefinition, createPromptBackedNodeDefinition };
+export type {
+  ICreateCompositeNodeInput,
+  IExposedInputPort,
+  IExposedOutputPort,
+  ICompositeSubRunner,
+};
+export { CompositeInstantNodeDefinition, createCompositeInstantNodeDefinition };
+// Persistence view (BEHAVIOR-006)
+export type {
+  IPersistableInstantNode,
+  IPersistedPromptNode,
+  IPersistedCompositeNode,
+  TPersistedInstantNode,
+};
 ```
+
+## Persistence View (BEHAVIOR-006)
+
+Each instant-node definition owns the serializable data needed to reload it, exposed via
+`IPersistableInstantNode.toPersisted(): TPersistedInstantNode`. This lets a persistence layer
+serialize a node from its `IDagNodeDefinition` alone (at any save call site) and reconstruct it
+later — the `runner` of a composite is behavioral and is **rebuilt on reload**, never serialized.
+
+```typescript
+interface IPersistableInstantNode {
+  toPersisted(): TPersistedInstantNode;
+}
+
+type TPersistedInstantNode = IPersistedPromptNode | IPersistedCompositeNode;
+
+interface IPersistedPromptNode {
+  readonly kind: 'prompt';
+  readonly nodeType: string;
+  readonly displayName: string;
+  readonly systemPromptTemplate: string;
+  readonly inputPorts: ReadonlyArray<{ readonly key: string; readonly description?: string }>;
+  readonly outputPort: { readonly key: string; readonly description?: string };
+  readonly provider?: 'anthropic' | 'openai' | 'gemini' | 'deepseek' | 'qwen';
+  readonly model?: string;
+}
+
+interface IPersistedCompositeNode {
+  readonly kind: 'composite';
+  readonly nodeType: string;
+  readonly displayName: string;
+  readonly innerDag: IDagDefinition; // from @robota-sdk/dag-core
+  readonly exposedInputPort: IExposedInputPort;
+  readonly exposedOutputPorts: ReadonlyArray<IExposedOutputPort>;
+  readonly maxDepth?: number;
+}
+```
+
+Both `PromptBackedNodeDefinition` and `CompositeInstantNodeDefinition` implement
+`IPersistableInstantNode`. Reconstruction: a prompt record → `createPromptBackedNodeDefinition`; a
+composite record → `createCompositeInstantNodeDefinition` with a caller-supplied rebuilt `runner`.
 
 ## ICreatePromptNodeInput
 

@@ -127,9 +127,10 @@ function resolveProviderInstance(
   return { agent };
 }
 
-export class PromptBackedNodeDefinition extends AbstractNodeDefinition<
-  typeof PromptBackedConfigSchema
-> {
+export class PromptBackedNodeDefinition
+  extends AbstractNodeDefinition<typeof PromptBackedConfigSchema>
+  implements IPersistableInstantNode
+{
   public readonly nodeType: string;
   public readonly displayName: string;
   public readonly category = 'Instant';
@@ -166,6 +167,19 @@ export class PromptBackedNodeDefinition extends AbstractNodeDefinition<
     ];
     this.defaultInputPort = spec.inputPorts[0]?.key;
     this.defaultOutputPort = spec.outputPort.key;
+  }
+
+  public toPersisted(): IPersistedPromptNode {
+    return {
+      kind: 'prompt',
+      nodeType: this.spec.nodeType,
+      displayName: this.spec.displayName,
+      systemPromptTemplate: this.spec.systemPromptTemplate,
+      inputPorts: this.spec.inputPorts,
+      outputPort: this.spec.outputPort,
+      ...(this.spec.provider !== undefined ? { provider: this.spec.provider } : {}),
+      ...(this.spec.model !== undefined ? { model: this.spec.model } : {}),
+    };
   }
 
   public override async estimateCostWithConfig(): Promise<TResult<ICostEstimate, IDagError>> {
@@ -260,11 +274,45 @@ export interface ICreateCompositeNodeInput {
   readonly maxDepth?: number;
 }
 
+// ── Persistence view (BEHAVIOR-006) ─────────────────────────────────────────
+
+export interface IPersistedPromptNode {
+  readonly kind: 'prompt';
+  readonly nodeType: string;
+  readonly displayName: string;
+  readonly systemPromptTemplate: string;
+  readonly inputPorts: ReadonlyArray<{ readonly key: string; readonly description?: string }>;
+  readonly outputPort: { readonly key: string; readonly description?: string };
+  readonly provider?: TInstantNodeProvider;
+  readonly model?: string;
+}
+
+export interface IPersistedCompositeNode {
+  readonly kind: 'composite';
+  readonly nodeType: string;
+  readonly displayName: string;
+  readonly innerDag: import('@robota-sdk/dag-core').IDagDefinition;
+  readonly exposedInputPort: IExposedInputPort;
+  readonly exposedOutputPorts: ReadonlyArray<IExposedOutputPort>;
+  readonly maxDepth?: number;
+}
+
+export type TPersistedInstantNode = IPersistedPromptNode | IPersistedCompositeNode;
+
+/**
+ * An instant-node definition that can serialize itself for a save→reload round-trip.
+ * The `runner` of a composite is behavioral and is rebuilt on reload — never serialized.
+ */
+export interface IPersistableInstantNode {
+  toPersisted(): TPersistedInstantNode;
+}
+
 const MAX_COMPOSITE_DEPTH = 3;
 
-export class CompositeInstantNodeDefinition extends AbstractNodeDefinition<
-  typeof PromptBackedConfigSchema
-> {
+export class CompositeInstantNodeDefinition
+  extends AbstractNodeDefinition<typeof PromptBackedConfigSchema>
+  implements IPersistableInstantNode
+{
   public readonly nodeType: string;
   public readonly displayName: string;
   public readonly category = 'Instant';
@@ -307,6 +355,18 @@ export class CompositeInstantNodeDefinition extends AbstractNodeDefinition<
     }));
     this.defaultInputPort = spec.exposedInputPort.key;
     this.defaultOutputPort = spec.exposedOutputPorts[0]?.key ?? 'output';
+  }
+
+  public toPersisted(): IPersistedCompositeNode {
+    return {
+      kind: 'composite',
+      nodeType: this.spec.nodeType,
+      displayName: this.spec.displayName,
+      innerDag: this.spec.innerDag,
+      exposedInputPort: this.spec.exposedInputPort,
+      exposedOutputPorts: this.spec.exposedOutputPorts,
+      ...(this.spec.maxDepth !== undefined ? { maxDepth: this.spec.maxDepth } : {}),
+    };
   }
 
   public override async estimateCostWithConfig(): Promise<TResult<ICostEstimate, IDagError>> {
