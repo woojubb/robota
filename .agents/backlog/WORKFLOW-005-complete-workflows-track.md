@@ -143,4 +143,37 @@ Then repeat the pattern for the remaining P1 nodes: **skill node** (wrap a Robot
   - Boundary: CLI-077 holds — `agent-cli` published closure still has 0 dag/workflow deps
     (`dag-node-tool` and `dag-framework` are private and not in agent-cli's graph); capability-placement
     and agent-server-boundary scans pass. `dag-nodes/*` family rule auto-covers the new package.
-  - Branch: `feat/workflow-005-p1-tool-node`.
+  - Branch: `feat/workflow-005-p1-tool-node`. Merged via PR #965 → develop.
+
+- **skill node — research done, DEFERRED (2026-07-05).** Investigation found a "Robota skill" is NOT a
+  pure in-process function like a tool: a skill is a `SKILL.md` parsed into an `ICommand`; there is no
+  `Skill` executor class. `executeSkill()` (in `@robota-sdk/agent-framework`) returns a **prompt string**
+  in `inject` mode (default) — only an agent LLM turn produces a result — and only `fork`-context skills
+  yield a standalone `result`, via `runSkillInFork` → `createSubagentSession` → `Session.run()` (a full
+  LLM loop needing a provider + agent runtime deps). So a skill node is an **LLM-backed agent node**, not
+  a tool-node clone. Owner (2026-07-05) chose to do text-to-image/video first and design the skill node
+  as an explicit LLM-backed node later. Do NOT model it as a cheap deterministic step.
+
+- **node #2 — text-to-image node — DONE (2026-07-05).** Package `@robota-sdk/dag-node-text-to-image`
+  (`packages/dag-nodes/text-to-image`, `private: true`), mirroring the `gemini-image-edit` skeleton but
+  pure generation (no input image). `TextToImageNodeDefinition` (nodeType `text-to-image`, category `AI`):
+  single `text` input port, single binary `image` output port (`IMAGE_COMMON`); config `{ model,
+baseCredits(=0.02) }`. `TextToImageRuntime.generateImage({prompt,model})` → `@robota-sdk/agent-provider/google`
+  `GoogleProvider.generateImage` (already a required provider method); creds `GEMINI_API_KEY`, default model
+  `DAG_TEXT_TO_IMAGE_DEFAULT_MODEL`, allowlist `DAG_TEXT_TO_IMAGE_ALLOWED_MODELS`; output normalized to an
+  `IPortBinaryValue`. Registered in the **async/optional** loader list in `default-node-registry.ts` (Gemini
+  SDK optional). SPEC at `packages/dag-nodes/text-to-image/docs/SPEC.md`.
+  - Tests: 12 node-definition tests (mock runtime) + 7 runtime tests (mock `GoogleProvider`, incl. success
+    normalization / missing-model / missing-key / model-not-allowed / provider-failure / empty-outputs /
+    config-model-override) + registry test asserts `text-to-image` in the async registry. Full suites green:
+    text-to-image 19, dag-framework 112. typecheck + lint clean (0 problems).
+  - Live UE (no `GEMINI_API_KEY` available; real generation needs credentials + network — same constraint as
+    gemini-image-edit, whose tests also mock the provider): built an `input → text-to-image` workflow and ran
+    it through `LocalDagRuntimeProvider.execute` with the async registry. Evidence: `text-to-image in runtime
+catalog: true`; the node is reached, resolves config, and returns the graceful validation error
+    `GEMINI_API_KEY must be configured for text-to-image node runtime` (deepest reachable point without creds).
+    Note: like `gemini-image-edit`, the runtime requires `DAG_TEXT_TO_IMAGE_DEFAULT_MODEL` even when
+    `config.model` is set (mirrored behavior).
+  - Boundary: CLI-077 holds (agent-cli still 0 dag/workflow deps); capability-placement + agent-server-boundary
+    scans pass.
+  - Branch: `feat/workflow-005-p1-text-to-image`.

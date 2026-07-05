@@ -35,6 +35,11 @@ describe('createDefaultNodeRegistry — optional loading', () => {
     expect(nodes.length).toBeGreaterThanOrEqual(syncNodes.length);
   });
 
+  it('loads the text-to-image node (optional, Gemini-backed)', async () => {
+    const nodes = await createDefaultNodeRegistry();
+    expect(nodes.map((n) => n.nodeType)).toContain('text-to-image');
+  });
+
   it('handles import failure gracefully (tryImport catch)', async () => {
     // tryImport catches errors from import() — simulate a missing module scenario
     // by verifying that createDefaultNodeRegistry completes even when LLM modules

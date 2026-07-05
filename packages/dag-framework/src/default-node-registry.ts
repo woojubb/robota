@@ -106,6 +106,10 @@ export async function createDefaultNodeRegistry(): Promise<IDagNodeDefinition[]>
         (mod) => new (mod.GeminiImageComposeNodeDefinition as new () => IDagNodeDefinition)(),
       ],
     },
+    {
+      modulePath: '@robota-sdk/dag-node-text-to-image',
+      factories: [(mod) => new (mod.TextToImageNodeDefinition as new () => IDagNodeDefinition)()],
+    },
   ];
 
   const loadedGroups = await Promise.all(optionalLoaders.map(loadOptionalNodes));
