@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/dag-node-seedance-video",
-  "version": "3.0.0-beta.61",
+  "version": "3.0.0-beta.62",
   "private": true,
   "description": "DAG seedance-video node for Robota — generate a video from a text prompt via the ByteDance/Seedance video API",
   "type": "module",

@@ -1,5 +1,11 @@
 # @robota-sdk/agent-preset
 
+## 3.0.0-beta.78
+
+### Patch Changes
+
+- @robota-sdk/agent-framework@3.0.0-beta.78
+
 ## 3.0.0-beta.77
 
 ### Patch Changes

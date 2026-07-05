@@ -1,0 +1,9 @@
+# @robota-sdk/dag-node-text-to-image
+
+## 3.0.0-beta.62
+
+### Patch Changes
+
+- Updated dependencies [6f308d1]
+  - @robota-sdk/agent-core@3.0.0-beta.78
+  - @robota-sdk/agent-provider@3.0.0-beta.78
