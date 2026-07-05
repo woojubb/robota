@@ -47,7 +47,7 @@ function writeCodeNode(
   manifest: Record<string, unknown>,
   companion: string | null,
 ): void {
-  const dir = join(projectDir, '.dag', 'nodes');
+  const dir = join(projectDir, '.workflows', 'nodes');
   mkdirSync(dir, { recursive: true });
   writeFileSync(
     join(dir, `${nodeType}.node.json`),
@@ -140,11 +140,11 @@ describe('DATA-002 P2 — code node persistence', () => {
     expect(JSON.parse(shout!.outputSnapshot!)).toMatchObject({ text: 'HELLO' });
   });
 
-  it('P3: a workflow under .dag/workflows/ resolves a .dag/nodes/ code node (projectDir walk-up)', async () => {
+  it('P3: a workflow under .workflows/ resolves a .workflows/nodes/ code node (projectDir walk-up)', async () => {
     writeCodeNode(projectDir, 'upshout', {}, UPPER);
-    const wfDir = join(projectDir, '.dag', 'workflows');
+    const wfDir = join(projectDir, '.workflows');
     mkdirSync(wfDir, { recursive: true });
-    const dagFile = join(wfDir, 'shoutflow.dag.json');
+    const dagFile = join(wfDir, 'shoutflow.json');
     writeFileSync(
       dagFile,
       JSON.stringify({

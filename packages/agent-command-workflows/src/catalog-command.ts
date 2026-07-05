@@ -1,16 +1,18 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 
-import type { IDagWorkflowFile } from '@robota-sdk/dag-core';
+import { DEFAULT_WORKSPACE_LAYOUT, type IDagWorkflowFile } from '@robota-sdk/dag-core';
 import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
 
-/** Default local catalog directory for workflow files (relative to the working directory). */
-const DEFAULT_CATALOG_DIR = '.dag/workflows';
+/** Default workspace directory for workflow files (relative to the working directory). FLOW-007. */
+const DEFAULT_CATALOG_DIR = DEFAULT_WORKSPACE_LAYOUT.root; // '.workflows'
+const WORKFLOW_EXT = DEFAULT_WORKSPACE_LAYOUT.workflowExt; // '.json'
+const NODE_MANIFEST_SUFFIX = '.node.json';
 
 /**
- * `/workflows catalog` — list the workflow files in the local catalog directory
- * (`.dag/workflows`). A pure filesystem scan over `*.dag.json` files; no dependency on the
- * `dag-cli` product.
+ * `/workflows catalog` — list the workflow definition files flat under the workspace root
+ * (default `.workflows/`, `<name>.json`). A pure filesystem scan; no dependency on the `dag-cli`
+ * product. Node manifests (`.node.json`) that share the root are skipped.
  */
 export async function executeWorkflowsCatalog(
   cwd: string,
@@ -26,9 +28,11 @@ export async function executeWorkflowsCatalog(
     };
   }
 
-  const files = entries.filter((name) => name.endsWith('.dag.json')).sort();
+  const files = entries
+    .filter((name) => name.endsWith(WORKFLOW_EXT) && !name.endsWith(NODE_MANIFEST_SUFFIX))
+    .sort();
   if (files.length === 0) {
-    return { success: true, message: `No workflow files (*.dag.json) in ${dir}.` };
+    return { success: true, message: `No workflow files (*${WORKFLOW_EXT}) in ${dir}.` };
   }
 
   const lines: string[] = [];

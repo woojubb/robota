@@ -1,15 +1,21 @@
 /**
  * Persistence store (DATA-002, WORKFLOW-005 P2).
  *
- * Single owner of `.dag/` save + load. Every node is a `.node.json` manifest (metadata SSOT,
- * discriminated by `kind`). Data nodes (prompt/composite) are the manifest alone; a code node
- * additionally has a supplementary `.dag.node.js` (added in Phase 2). Workflows live in
- * `.dag/workflows/*.dag.json` (data-only) and are managed here too. Centralizes the `.dag/` path +
- * readdir-skip boilerplate that was duplicated across handlers/context/commands.
+ * Single owner of the workspace save + load. Every node is a `.node.json` manifest (metadata SSOT,
+ * discriminated by `kind`) under `<root>/nodes/`; a code node additionally has a supplementary
+ * `.dag.node.js` companion. Workflow definitions live flat under the workspace `<root>` (data-only).
+ * The workspace `<root>` + workflow extension are injected via an `IWorkspaceLayout` (FLOW-007),
+ * defaulting to `.workflows/` + `.json`. Centralizes the path + readdir-skip boilerplate.
  */
 import { mkdir, writeFile, readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { IDagDefinition, IDagNodeDefinition, TPortPayload } from '@robota-sdk/dag-core';
+import {
+  DEFAULT_WORKSPACE_LAYOUT,
+  type IDagDefinition,
+  type IDagNodeDefinition,
+  type IWorkspaceLayout,
+  type TPortPayload,
+} from '@robota-sdk/dag-core';
 import {
   createPromptBackedNodeDefinition,
   createCompositeInstantNodeDefinition,
@@ -21,7 +27,7 @@ import {
 } from '@robota-sdk/dag-node-instant-node';
 import { LocalDagRunner, createCliNodeRegistry } from '../index.js';
 import { parseCodeManifest, reconstructCodeNode } from '../code-node-adapter.js';
-import { NODE_MANIFEST_EXT, WORKFLOW_EXT, nodesDir, workflowsDir } from './paths.js';
+import { NODE_MANIFEST_EXT, nodesDir, workflowsDir } from './paths.js';
 import { safeParseJson } from '../../mcp/utils.js';
 
 /** Narrow an arbitrary node definition to one that can serialize itself for reload. */
@@ -35,10 +41,14 @@ function asPersistable(nodeDef: IDagNodeDefinition): IPersistableInstantNode | u
  * Persist a node from its own serializable manifest view. Prompt AND composite nodes; the composite
  * `runner` is behavioral and is rebuilt on reload, never serialized.
  */
-export async function saveNode(nodeDef: IDagNodeDefinition, projectDir: string): Promise<void> {
+export async function saveNode(
+  nodeDef: IDagNodeDefinition,
+  projectDir: string,
+  layout: IWorkspaceLayout = DEFAULT_WORKSPACE_LAYOUT,
+): Promise<void> {
   const persistable = asPersistable(nodeDef);
   if (!persistable) return;
-  const dir = nodesDir(projectDir);
+  const dir = nodesDir(projectDir, layout);
   await mkdir(dir, { recursive: true });
   const record = { ...persistable.toPersisted(), createdAt: new Date().toISOString() };
   await writeFile(
@@ -178,8 +188,12 @@ function reconstructNode(
  * manifest alone; `code` combines the manifest metadata with its companion `.dag.node.js` behavior.
  * Composite runners close over `liveDefs` so nested nodes resolve regardless of load order.
  */
-export async function loadNodes(projectDir: string, liveDefs: IDagNodeDefinition[]): Promise<void> {
-  const dir = nodesDir(projectDir);
+export async function loadNodes(
+  projectDir: string,
+  liveDefs: IDagNodeDefinition[],
+  layout: IWorkspaceLayout = DEFAULT_WORKSPACE_LAYOUT,
+): Promise<void> {
+  const dir = nodesDir(projectDir, layout);
   let files: string[];
   try {
     files = await readdir(dir);
@@ -208,43 +222,50 @@ export async function loadNodes(projectDir: string, liveDefs: IDagNodeDefinition
   }
 }
 
-// --- Workflows (data-only `.dag.json` under `.dag/workflows/`) ---
+// --- Workflows (data-only definitions, flat under the workspace root) ---
 
-/** Persist a workflow definition to `.dag/workflows/<name>.dag.json`. Returns the written path. */
+/** Persist a workflow definition to `<root>/<name><workflowExt>`. Returns the written path. */
 export async function saveWorkflow(
   name: string,
   definition: IDagDefinition,
   projectDir: string,
+  layout: IWorkspaceLayout = DEFAULT_WORKSPACE_LAYOUT,
 ): Promise<string> {
-  const dir = workflowsDir(projectDir);
+  const dir = workflowsDir(projectDir, layout);
   await mkdir(dir, { recursive: true });
-  const outputPath = join(dir, `${name}${WORKFLOW_EXT}`);
+  const outputPath = join(dir, `${name}${layout.workflowExt}`);
   await writeFile(outputPath, `${JSON.stringify(definition, null, 2)}\n`, 'utf-8');
   return outputPath;
 }
 
 /**
- * Load workflow definitions from `.dag/workflows/*.dag.json` (data-only parse). Malformed/unreadable
- * files are skipped. Returns `{ name, definition }` per valid file.
+ * Load workflow definitions from the workspace root (flat `<name><workflowExt>`). Node manifests
+ * (`.node.json`, which also end in `.json`) and non-DAG JSON (aux state that shares the root) are
+ * skipped. Malformed/unreadable files are skipped. Returns `{ name, definition }` per valid file.
  */
 export async function loadWorkflows(
   projectDir: string,
+  layout: IWorkspaceLayout = DEFAULT_WORKSPACE_LAYOUT,
 ): Promise<Array<{ name: string; definition: IDagDefinition }>> {
-  const dir = workflowsDir(projectDir);
+  const dir = workflowsDir(projectDir, layout);
   let files: string[];
   try {
     files = await readdir(dir);
   } catch {
-    // allow-fallback: .dag/workflows/ may not exist yet
+    // allow-fallback: the workspace root may not exist yet
     return [];
   }
+  const ext = layout.workflowExt;
   const workflows: Array<{ name: string; definition: IDagDefinition }> = [];
-  for (const file of files.filter((f) => f.endsWith(WORKFLOW_EXT))) {
+  for (const file of files.filter((f) => f.endsWith(ext) && !f.endsWith(NODE_MANIFEST_EXT))) {
     try {
       const parsed = JSON.parse(await readFile(join(dir, file), 'utf-8')) as unknown;
+      // Only keep DAG-shaped objects — skip aux JSON (aliases/history/…) that shares the root.
       if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) continue;
+      const r = parsed as Record<string, unknown>;
+      if (!Array.isArray(r['nodes']) && typeof r['dagId'] !== 'string') continue;
       workflows.push({
-        name: file.slice(0, -WORKFLOW_EXT.length),
+        name: file.slice(0, -ext.length),
         definition: parsed as IDagDefinition,
       });
     } catch {

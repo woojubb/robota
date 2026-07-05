@@ -2,6 +2,7 @@ import { readFile, writeFile, mkdir, stat } from 'node:fs/promises';
 import { watch } from 'node:fs';
 import { join, dirname, resolve, parse as parsePath } from 'node:path';
 import { homedir } from 'node:os';
+import { DEFAULT_WORKSPACE_LAYOUT } from '@robota-sdk/dag-core';
 import type {
   IDagDefinition,
   IDagEdgeDefinition,
@@ -1876,18 +1877,19 @@ async function printAliases(io: IDagCliIo): Promise<void> {
 
 /**
 /**
- * DATA-002 P3: resolve the project root for local-node discovery. Walks up from `startDir` and
- * returns the nearest ancestor containing a `.dag/` directory (so a workflow inside
- * `<root>/.dag/workflows/` still finds code nodes in `<root>/.dag/nodes/`). Falls back to `startDir`.
+ * DATA-002 P3 / FLOW-007: resolve the project root for local-node discovery. Walks up from `startDir`
+ * and returns the nearest ancestor containing the workspace root directory (default `.workflows/`), so
+ * a workflow file still finds code nodes in `<root>/nodes/`. Falls back to `startDir`.
  */
 async function findDagProjectRoot(startDir: string): Promise<string> {
+  const workspaceRoot = DEFAULT_WORKSPACE_LAYOUT.root;
   let dir = resolve(startDir);
   const { root } = parsePath(dir);
   for (;;) {
     try {
-      if ((await stat(join(dir, '.dag'))).isDirectory()) return dir;
+      if ((await stat(join(dir, workspaceRoot))).isDirectory()) return dir;
     } catch {
-      // allow-fallback: no `.dag/` here; keep walking up
+      // allow-fallback: no workspace root here; keep walking up
     }
     if (dir === root) return startDir;
     dir = dirname(dir);

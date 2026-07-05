@@ -82,7 +82,7 @@ describe('saveCommand', () => {
     expect(exitCode).toBe(2);
   });
 
-  it('saves pipeline to .dag/workflows/<name>.dag.json', async () => {
+  it('saves pipeline to .workflows/<name>.json', async () => {
     const mockMkdir = mkdir as unknown as ReturnType<typeof vi.fn>;
     const mockWriteFile = writeFile as unknown as ReturnType<typeof vi.fn>;
     mockMkdir.mockClear();
@@ -98,7 +98,7 @@ describe('saveCommand', () => {
     expect(exitCode).toBe(0);
     const output = getOutput(options);
     expect(output).toContain('Saved:');
-    expect(output).toContain('my-pipeline.dag.json');
+    expect(output).toContain('my-pipeline.json');
     expect(output).toContain('dag catalog run my-pipeline');
 
     expect(mockMkdir).toHaveBeenCalledWith(
@@ -106,7 +106,7 @@ describe('saveCommand', () => {
       expect.objectContaining({ recursive: true }),
     );
     expect(mockWriteFile).toHaveBeenCalledWith(
-      expect.stringContaining('my-pipeline.dag.json'),
+      expect.stringContaining('my-pipeline.json'),
       expect.stringContaining('"dagId": "my-pipeline"'),
       'utf-8',
     );

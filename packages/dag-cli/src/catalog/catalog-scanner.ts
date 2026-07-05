@@ -1,7 +1,7 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
-import type { IDagDefinition } from '@robota-sdk/dag-core';
+import { DEFAULT_WORKSPACE_LAYOUT, type IDagDefinition } from '@robota-sdk/dag-core';
 import { parseDagMd, DAG_MD_SUFFIX } from '../dag-md-parser/parse-dag-md.js';
 
 export interface ICatalogMeta {
@@ -17,10 +17,12 @@ export interface ICatalogEntry {
   readonly meta: ICatalogMeta;
 }
 
-const DAG_FILE_SUFFIX = '.dag.json';
+// FLOW-007: workflow definitions live flat under the workspace root as `<name><workflowExt>`.
+const DAG_FILE_SUFFIX = DEFAULT_WORKSPACE_LAYOUT.workflowExt; // '.json'
+const NODE_MANIFEST_SUFFIX = '.node.json'; // node manifests share the `.json` tail — never a workflow
 
-export const DEFAULT_CATALOG_DIR = '.dag/workflows';
-export const GLOBAL_CATALOG_DIR = join(homedir(), '.dag', 'workflows');
+export const DEFAULT_CATALOG_DIR = DEFAULT_WORKSPACE_LAYOUT.root; // '.workflows'
+export const GLOBAL_CATALOG_DIR = join(homedir(), DEFAULT_WORKSPACE_LAYOUT.root);
 
 function extractId(fileName: string): string {
   if (fileName.endsWith(DAG_MD_SUFFIX)) return fileName.slice(0, -DAG_MD_SUFFIX.length);
@@ -54,6 +56,7 @@ export async function scanCatalogDir(dir: string): Promise<ICatalogEntry[]> {
 
   const entries: ICatalogEntry[] = [];
   for (const fileName of fileNames) {
+    if (fileName.endsWith(NODE_MANIFEST_SUFFIX)) continue; // node manifest, not a workflow
     const isDagJson = fileName.endsWith(DAG_FILE_SUFFIX);
     const isDagMd = fileName.endsWith(DAG_MD_SUFFIX);
     if (!isDagJson && !isDagMd) continue;
