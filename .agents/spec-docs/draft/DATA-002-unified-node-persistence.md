@@ -158,16 +158,16 @@ displayName, category?, inputs, outputs, defaultInputPort?, defaultOutputPort?, 
 
 ## Completion Criteria
 
-- [ ] TC-01: `PersistenceStore.loadNodes` over `.dag/nodes/` containing a `kind:'code'` `.node.json`
+- [x] TC-01: `PersistenceStore.loadNodes` over `.dag/nodes/` containing a `kind:'code'` `.node.json`
       manifest + its supplementary `.dag.node.js` reconstructs a runnable `IDagNodeDefinition` (manifest
-      metadata + imported `execute` via `adaptSimpleNode`).
-- [ ] TC-02: prompt + composite `.node.json` round-trip through the store unchanged (BEHAVIOR-006 record
-      logic, `.node.json` extension).
-- [ ] TC-03: a workflow round-trips through the store (`saveWorkflow` → `loadWorkflows` → identical `IDagDefinition`).
-- [ ] TC-04: a `code` manifest whose `.dag.node.js` is missing/unimportable is skipped with a log (no
-      crash); a manifest-vs-export `nodeType` mismatch resolves to the manifest (logged).
-- [ ] TC-05: end-to-end — a code node (manifest + `.dag.node.js`) in `.dag/nodes/`, loaded via the store
-      into a fresh registry, runs through `LocalDagRunner` (real fs, no mocks).
+      metadata + imported `execute`). — P2 `code-node-persistence.test.ts`.
+- [x] TC-02: prompt + composite `.node.json` round-trip through the store unchanged (BEHAVIOR-006 record
+      logic, `.node.json` extension). — P1 `mcp-handlers.test.ts` / `composite-reload-real.test.ts`.
+- [x] TC-03: a workflow round-trips through the store (`saveWorkflow` → `loadWorkflows` → identical `IDagDefinition`). — P1 `persistence-store.test.ts`.
+- [x] TC-04: a `code` manifest whose `.dag.node.js` is missing/unimportable is skipped with a log (no
+      crash); a manifest-vs-export `nodeType` mismatch resolves to the manifest (logged). — P2 `code-node-persistence.test.ts`.
+- [x] TC-05: end-to-end — a code node (manifest + `.dag.node.js`) in `.dag/nodes/`, loaded via the store
+      into a fresh registry, runs through `LocalDagRunner` (real fs, no mocks). — P2 `code-node-persistence.test.ts`.
 
 ## Test Plan
 
@@ -190,3 +190,5 @@ unit tests for the store path/scan helpers and the record discrimination.
 
 - **GATE-WRITE — PASS (2026-07-05).** All sections present; TC-01…TC-05 command/observable; checklist all [x]; test-plan row per TC.
 - **GATE-APPROVAL — PASS (2026-07-05).** Design iterated with owner: no legacy/migration (feature unreleased); manifest-always `.node.json` as metadata SSOT; code behavior is a supplementary `.dag.node.js` (runtime-`import()`able, `.ts` needs a transform → excluded, types via `.d.ts`/JSDoc). Owner sign-offs, verbatim: model — "나 선택"; metadata-in-json — "메타정보는 .json 이 가지고 있는거지"; code format — ".js" ("좋아"); final — **"좋아"**. Implementation authorized (size-phased).
+- **Phase 1 — SHIPPED (2026-07-05).** PersistenceStore over `.dag/`; `.instant-node.json`→`.node.json`; prompt/composite manifests; workflows via `saveWorkflow`/`loadWorkflows`. PR #975→develop; develop→main #976. TC-02/TC-03 green; live CLI UE (`dag save`→`catalog run`).
+- **Phase 2 — SHIPPED (2026-07-05).** `kind:'code'` manifest + supplementary `.dag.node.js`; code discovery moved into `.dag/nodes/` (store `loadNodes` + `loadLocalNodeDefinitions`); whole-project scatter-scan removed. Shared `code-node-adapter.ts` + leaf `persistence/paths.ts` (no import cycle). TC-01/04/05 green; live UE (`dag run` over a `.dag/nodes/` code node → `HELLO CODE NODE`). Owner chose "SPEC 단계 그대로" for phase sequencing (scaffold/save cutover deferred to Phase 3, accepting the documented intermediate).

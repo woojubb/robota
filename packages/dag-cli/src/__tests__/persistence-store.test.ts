@@ -7,12 +7,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { IDagDefinition } from '@robota-sdk/dag-core';
-import {
-  saveWorkflow,
-  loadWorkflows,
-  workflowsDir,
-  WORKFLOW_EXT,
-} from '../local-runner/persistence/store.js';
+import { saveWorkflow, loadWorkflows } from '../local-runner/persistence/store.js';
+import { workflowsDir, WORKFLOW_EXT } from '../local-runner/persistence/paths.js';
 
 const WORKFLOW: IDagDefinition = {
   dagId: 'my-flow',

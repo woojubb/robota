@@ -20,15 +20,9 @@ import {
   type TPersistedInstantNode,
 } from '@robota-sdk/dag-node-instant-node';
 import { LocalDagRunner, createCliNodeRegistry } from '../index.js';
+import { parseCodeManifest, reconstructCodeNode } from '../code-node-adapter.js';
+import { NODE_MANIFEST_EXT, WORKFLOW_EXT, nodesDir, workflowsDir } from './paths.js';
 import { safeParseJson } from '../../mcp/utils.js';
-
-/** Universal node manifest extension (DATA-002 — generalized from `.instant-node.json`). */
-export const NODE_MANIFEST_EXT = '.node.json';
-
-/** The `.dag/nodes/` directory for a project. */
-export function nodesDir(projectDir: string): string {
-  return join(projectDir, '.dag', 'nodes');
-}
 
 /** Narrow an arbitrary node definition to one that can serialize itself for reload. */
 function asPersistable(nodeDef: IDagNodeDefinition): IPersistableInstantNode | undefined {
@@ -180,8 +174,9 @@ function reconstructNode(
 
 /**
  * Load persisted node manifests from `.dag/nodes/*.node.json` into `liveDefs`, skipping
- * already-registered/malformed records. Composite runners close over `liveDefs` so nested nodes
- * resolve regardless of load order.
+ * already-registered/malformed records. Per manifest `kind`: prompt/composite reconstruct from the
+ * manifest alone; `code` combines the manifest metadata with its companion `.dag.node.js` behavior.
+ * Composite runners close over `liveDefs` so nested nodes resolve regardless of load order.
  */
 export async function loadNodes(projectDir: string, liveDefs: IDagNodeDefinition[]): Promise<void> {
   const dir = nodesDir(projectDir);
@@ -194,7 +189,15 @@ export async function loadNodes(projectDir: string, liveDefs: IDagNodeDefinition
   }
   for (const file of files.filter((f) => f.endsWith(NODE_MANIFEST_EXT))) {
     try {
-      const record = parsePersistedRecord(JSON.parse(await readFile(join(dir, file), 'utf-8')));
+      const raw = JSON.parse(await readFile(join(dir, file), 'utf-8')) as unknown;
+      const codeManifest = parseCodeManifest(raw);
+      if (codeManifest) {
+        if (liveDefs.some((n) => n.nodeType === codeManifest.nodeType)) continue;
+        const def = await reconstructCodeNode(dir, codeManifest);
+        if (def) liveDefs.push(def);
+        continue;
+      }
+      const record = parsePersistedRecord(raw);
       if (!record) continue;
       if (liveDefs.some((n) => n.nodeType === record.nodeType)) continue;
       liveDefs.push(reconstructNode(record, liveDefs));
@@ -206,14 +209,6 @@ export async function loadNodes(projectDir: string, liveDefs: IDagNodeDefinition
 }
 
 // --- Workflows (data-only `.dag.json` under `.dag/workflows/`) ---
-
-/** Workflow file extension. */
-export const WORKFLOW_EXT = '.dag.json';
-
-/** The `.dag/workflows/` directory for a project. */
-export function workflowsDir(projectDir: string): string {
-  return join(projectDir, '.dag', 'workflows');
-}
 
 /** Persist a workflow definition to `.dag/workflows/<name>.dag.json`. Returns the written path. */
 export async function saveWorkflow(
