@@ -45,6 +45,11 @@ describe('createDefaultNodeRegistry — optional loading', () => {
     expect(nodes.map((n) => n.nodeType)).toContain('seedance-video');
   });
 
+  it('loads the skill node (optional, agent-framework-backed)', async () => {
+    const nodes = await createDefaultNodeRegistry();
+    expect(nodes.map((n) => n.nodeType)).toContain('skill');
+  });
+
   it('handles import failure gracefully (tryImport catch)', async () => {
     // tryImport catches errors from import() — simulate a missing module scenario
     // by verifying that createDefaultNodeRegistry completes even when LLM modules
