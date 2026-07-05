@@ -203,5 +203,32 @@ aspectRatio?, pollIntervalMs(=5000), maxWaitMs(=300000) }`. Backend: `@robota-sd
   - Boundary: CLI-077 holds; capability-placement + agent-server-boundary + test-module-mocks scans pass.
   - Branch: `feat/workflow-005-p1-video`.
 
-**P1 status: node-kind completion — tool ✅, text-to-image ✅, seedance-video ✅; skill node remaining
-(deferred as an LLM-backed agent node — see the skill-node research entry above).**
+- **node #4 — skill node — DONE (2026-07-05).** Package `@robota-sdk/dag-node-skill`
+  (`packages/dag-nodes/skill`, `private: true`). Owner decision (2026-07-05): build it as a **prompt
+  resolver**, not an LLM executor — the resolver approach chosen over the self-contained fork-executor
+  (which would embed a whole subagent LLM loop). `SkillNodeDefinition` (nodeType `skill`, category
+  `Integration`): optional `args` input, `prompt` + `mode` outputs; config `{ skillName, args, cwd,
+sessionId, baseCredits(=0) }`. `SkillResolverRuntime` loads skills via `@robota-sdk/agent-framework`
+  `SkillCommandSource` and resolves the inject prompt via `executeSkill` (no `shellExec` → shell
+  interpolations are stripped, never executed; no LLM, no provider). Fork-context skills are rejected
+  (`DAG_VALIDATION_SKILL_FORK_UNSUPPORTED`) — a pure resolver has no subagent runtime. Deps
+  (`loadCommands`/`executeSkillFn`) are **injected** so tests use fakes + the real `executeSkill` — no
+  module mocking. Emits the `<skill>` prompt for a downstream LLM node to execute (`skill → llm-text → …`).
+  Registered in the async/optional loader (lazy import of the agent-framework-backed node). SPEC at
+  `packages/dag-nodes/skill/docs/SPEC.md`.
+  - Tests: 7 runtime tests (inject fixtures + real `executeSkill`: resolve, not-found, fork-reject,
+    discovery-failure, executeSkill-failure, non-inject result, 0-based positional `$N`/`$ARGUMENTS`) +
+    7 node tests (metadata/ports, config, args-input-over-config precedence, not-found/fork propagation).
+    Full suites green: skill 14, dag-framework 114. typecheck + lint + mock scan clean.
+  - Live UE (**fully real — no credentials needed**): created a temp `.agents/skills/greet/SKILL.md` and
+    ran `input('World') → skill('greet')` through `LocalDagRuntimeProvider.execute`. Evidence: `run ok: true`;
+    `node-2.prompt = "<skill name=\"greet\">…Say hello to World in a friendly, upbeat tone.…</skill>\n\nExecute the \"greet\" skill: World"`, `node-2.mode = "inject"`.
+  - Boundary: CLI-077 holds (agent-cli still 0 dag/workflow deps); capability-placement (incl. the new
+    dag-nodes → agent-framework edge) + agent-server-boundary + test-module-mocks scans pass.
+  - Branch: `feat/workflow-005-p1-skill`.
+
+**P1 status: node-kind completion COMPLETE — tool ✅, text-to-image ✅, seedance-video ✅, skill ✅
+(skill built as an inject-prompt resolver; a self-contained fork/LLM skill-executor node remains a
+possible future addition).** Next phases per the phasing plan: P2 (dynamic authoring — instant-node
+Phase C + unified persistence + composite reload fix), P3 (surface unification — expose create/save/build
+through `/workflows` + WORKFLOW-004 build).

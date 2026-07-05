@@ -2042,6 +2042,9 @@ importers:
       '@robota-sdk/dag-node-seedance-video':
         specifier: workspace:*
         version: link:../dag-nodes/seedance-video
+      '@robota-sdk/dag-node-skill':
+        specifier: workspace:*
+        version: link:../dag-nodes/skill
       '@robota-sdk/dag-node-text-output':
         specifier: workspace:*
         version: link:../dag-nodes/text-output
@@ -2729,6 +2732,43 @@ importers:
       '@robota-sdk/agent-provider':
         specifier: workspace:*
         version: link:../../agent-provider
+      '@robota-sdk/dag-core':
+        specifier: workspace:*
+        version: link:../../dag-core
+      '@robota-sdk/dag-node':
+        specifier: workspace:*
+        version: link:../../dag-node
+      zod:
+        specifier: ^3.24.4
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^20.10.0
+        version: 20.19.43
+      eslint:
+        specifier: ^8.56.0
+        version: 8.57.1
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      tsdown:
+        specifier: ^0.22.2
+        version: 0.22.2(tsx@4.22.4)(typescript@5.9.3)
+      typescript:
+        specifier: ^5.3.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.6
+        version: 3.2.6(@types/node@20.19.43)(tsx@4.22.4)
+
+  packages/dag-nodes/skill:
+    dependencies:
+      '@robota-sdk/agent-framework':
+        specifier: workspace:*
+        version: link:../../agent-framework
+      '@robota-sdk/agent-interface-transport':
+        specifier: workspace:*
+        version: link:../../agent-interface-transport
       '@robota-sdk/dag-core':
         specifier: workspace:*
         version: link:../../dag-core
