@@ -7,7 +7,7 @@ import type {
 import { buildNodeDefinitionAssembly } from '@robota-sdk/dag-node';
 import type { IDagCliIo } from '../types.js';
 import { FAILURE_EXIT_CODE, SUCCESS_EXIT_CODE, USAGE_ERROR_EXIT_CODE } from '../types.js';
-import { createCliNodeRegistry } from '../local-runner/index.js';
+import { createCliNodeRegistryWithLocalNodes } from '../local-runner/index.js';
 import { parsePipelineSpec } from '../pipeline-parser.js';
 import { saveWorkflow } from '../local-runner/persistence/store.js';
 
@@ -258,7 +258,8 @@ export async function saveCommand(
 
   const { pipeline, name, nodeConfigs } = parseResult.value;
 
-  const nodeDefinitions = createCliNodeRegistry();
+  // DATA-002 P3: local-aware registry so pipelines can reference `.dag/nodes/` code nodes.
+  const nodeDefinitions = await createCliNodeRegistryWithLocalNodes(process.cwd());
   const assemblyResult = buildNodeDefinitionAssembly(nodeDefinitions);
   if (!assemblyResult.ok) {
     io.write(`Error: Failed to build node registry: ${assemblyResult.error.message}\n`);

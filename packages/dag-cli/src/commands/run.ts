@@ -1,6 +1,6 @@
-import { readFile, writeFile, mkdir } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, stat } from 'node:fs/promises';
 import { watch } from 'node:fs';
-import { join, dirname, resolve } from 'node:path';
+import { join, dirname, resolve, parse as parsePath } from 'node:path';
 import { homedir } from 'node:os';
 import type {
   IDagDefinition,
@@ -1875,6 +1875,26 @@ async function printAliases(io: IDagCliIo): Promise<void> {
 }
 
 /**
+/**
+ * DATA-002 P3: resolve the project root for local-node discovery. Walks up from `startDir` and
+ * returns the nearest ancestor containing a `.dag/` directory (so a workflow inside
+ * `<root>/.dag/workflows/` still finds code nodes in `<root>/.dag/nodes/`). Falls back to `startDir`.
+ */
+async function findDagProjectRoot(startDir: string): Promise<string> {
+  let dir = resolve(startDir);
+  const { root } = parsePath(dir);
+  for (;;) {
+    try {
+      if ((await stat(join(dir, '.dag'))).isDirectory()) return dir;
+    } catch {
+      // allow-fallback: no `.dag/` here; keep walking up
+    }
+    if (dir === root) return startDir;
+    dir = dirname(dir);
+  }
+}
+
+/**
  * Execute the `robota-dag run <file>` subcommand.
  *
  * @param args - The argv slice starting after the `run` keyword.
@@ -1958,10 +1978,13 @@ export async function runCommand(
   let dagDefinition: IDagDefinition;
 
   // Resolve project directory from the DAG file path (or CWD for pipeline/stdin modes).
-  const projectDir =
+  // DATA-002 P3: prefer the nearest ancestor holding a `.dag/` dir so a workflow living in
+  // `<root>/.dag/workflows/` still discovers code nodes in `<root>/.dag/nodes/`.
+  const fileBasedDir =
     typeof file === 'string' && !file.startsWith('http://') && !file.startsWith('https://')
       ? dirname(resolve(file))
       : process.cwd();
+  const projectDir = await findDagProjectRoot(fileBasedDir);
 
   // Collect companion nodeFiles (relative to dag file) + explicit --node-file flags.
   const companionNodeFiles: string[] =
