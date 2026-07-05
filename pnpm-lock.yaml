@@ -2045,6 +2045,9 @@ importers:
       '@robota-sdk/dag-node-text-template':
         specifier: workspace:*
         version: link:../dag-nodes/text-template
+      '@robota-sdk/dag-node-tool':
+        specifier: workspace:*
+        version: link:../dag-nodes/tool
       '@robota-sdk/dag-node-transform':
         specifier: workspace:*
         version: link:../dag-nodes/transform
@@ -2752,6 +2755,40 @@ importers:
         specifier: ^3.24.4
         version: 3.25.76
     devDependencies:
+      eslint:
+        specifier: ^8.56.0
+        version: 8.57.1
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      tsdown:
+        specifier: ^0.22.2
+        version: 0.22.2(tsx@4.22.4)(typescript@5.9.3)
+      typescript:
+        specifier: ^5.3.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.6
+        version: 3.2.6(@types/node@20.19.43)(tsx@4.22.4)
+
+  packages/dag-nodes/tool:
+    dependencies:
+      '@robota-sdk/agent-tools':
+        specifier: workspace:*
+        version: link:../../agent-tools
+      '@robota-sdk/dag-core':
+        specifier: workspace:*
+        version: link:../../dag-core
+      '@robota-sdk/dag-node':
+        specifier: workspace:*
+        version: link:../../dag-node
+      zod:
+        specifier: ^3.24.4
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^20.10.0
+        version: 20.19.43
       eslint:
         specifier: ^8.56.0
         version: 8.57.1

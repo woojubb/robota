@@ -124,3 +124,23 @@ Design confirmed by research; ready to implement (SPEC-first → TDD → live UE
 Then repeat the pattern for the remaining P1 nodes: **skill node** (wrap a Robota skill), **text-to-image**
 (extend the gemini-image pattern with a from-scratch generate), **video** (new generative node;
 `binaryKind: 'video'` payload already supported).
+
+## P1 progress log
+
+- **node #1 — in-process tool node — DONE (2026-07-05).** Package `@robota-sdk/dag-node-tool`
+  (`packages/dag-nodes/tool`, `private: true`). `ToolNodeDefinition` (nodeType `tool`) wraps the
+  `@robota-sdk/agent-tools` builtins (`read`/`write`/`edit`/`shell`/`bash`/`glob`/`grep`/`web-fetch`/
+  `web-search`) as a DAG step via a static allowlist (`TOOL_NODE_ALLOWED_TOOLS`). Config `toolName` +
+  `params` (input port merged over config) + `cwd` + `baseCredits`; ports `output`/`isError`.
+  Registered in `createDefaultNodeRegistrySync` (sync tier — no optional provider SDK). SPEC at
+  `packages/dag-nodes/tool/docs/SPEC.md`.
+  - Tests: 12 unit tests (lifecycle/config/unknown-tool/invalid-params/read/merge/soft-error) +
+    1 functional integration test in dag-framework running a 1-node `tool` workflow through
+    `LocalDagRuntimeProvider.execute` (`tool-node-run.test.ts`) + registry test asserts `tool` present.
+    Full suites green: dag-node-tool 12, dag-framework 111.
+  - Live UE evidence: `read` builtin via the provider path returned
+    `{ ok: true, "node-1.output": "[File: …/note.txt (2 lines)]\n1\thello from the tool node\n2\tsecond line", "node-1.isError": false }`.
+  - Boundary: CLI-077 holds — `agent-cli` published closure still has 0 dag/workflow deps
+    (`dag-node-tool` and `dag-framework` are private and not in agent-cli's graph); capability-placement
+    and agent-server-boundary scans pass. `dag-nodes/*` family rule auto-covers the new package.
+  - Branch: `feat/workflow-005-p1-tool-node`.
