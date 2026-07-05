@@ -15,7 +15,7 @@ Workflows in `.dag/workflows/` via the same store. No legacy/migration (feature 
 
 - [x] Phase 1: PersistenceStore + `.node.json` for data nodes (prompt/composite) + workflow routing.
 - [x] Phase 2: `kind:'code'` manifest + supplementary `.dag.node.js`; code discovery in `.dag/nodes/`; remove scatter-scan.
-- [ ] Phase 3: remaining command call sites (validate/node/studio + scaffold + save) cut over.
+- [x] Phase 3: command call sites cut over — `scaffold` writes `.dag/nodes/` manifest+companion; `save`/`validate` use the local-aware registry; `run`/`catalog run` resolve `projectDir` by `.dag/` walk-up.
 
 ## Test Plan
 

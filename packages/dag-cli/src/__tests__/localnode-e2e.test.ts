@@ -43,11 +43,15 @@ afterEach(async () => {
 });
 
 // ---------------------------------------------------------------------------
-// LOCALNODE-005: dag node scaffold --local
+// LOCALNODE-005 / DATA-002 P3: dag node scaffold writes .dag/nodes/ manifest + companion
 // ---------------------------------------------------------------------------
 
-describe('LOCALNODE-005: dag node scaffold --local', () => {
-  it('creates a .dag.node.js file with plain class template', async () => {
+function nodesPath(dir: string, file: string): string {
+  return join(dir, '.dag', 'nodes', file);
+}
+
+describe('LOCALNODE-005 / DATA-002 P3: dag node scaffold', () => {
+  it('writes a .node.json manifest (metadata) + a .dag.node.js companion (execute only)', async () => {
     const { options, written } = makeIo();
     const exitCode = await nodeCommand(
       [
@@ -67,20 +71,30 @@ describe('LOCALNODE-005: dag node scaffold --local', () => {
     const output = written.join('');
     expect(exitCode).toBe(0);
     expect(output).toContain('Created');
+    expect(output).toContain('my-transform.node.json');
     expect(output).toContain('my-transform.dag.node.js');
 
-    const filePath = join(tmpDir, 'my-transform.dag.node.js');
-    const content = await readFile(filePath, 'utf8');
-    expect(content).toContain("nodeType: 'my-transform'"); // NODEDX-004: object format, not class property
-    expect(content).not.toContain('defineDagNode');
-    expect(content).not.toContain('import {');
-    expect(content).toContain("key: 'text'");
-    expect(content).toContain("key: 'result'");
+    // Manifest holds metadata (SSOT): kind, nodeType, ports.
+    const manifest = JSON.parse(
+      await readFile(nodesPath(tmpDir, 'my-transform.node.json'), 'utf8'),
+    );
+    expect(manifest.kind).toBe('code');
+    expect(manifest.nodeType).toBe('my-transform');
+    expect(manifest.codeFile).toBe('my-transform.dag.node.js');
+    expect(manifest.inputs.map((p: { key: string }) => p.key)).toContain('text');
+    expect(manifest.outputs.map((p: { key: string }) => p.key)).toContain('result');
+
+    // Companion holds behavior only — no metadata (no nodeType/inputs/outputs).
+    const companion = await readFile(nodesPath(tmpDir, 'my-transform.dag.node.js'), 'utf8');
+    expect(companion).toContain('export const node');
+    expect(companion).toContain('execute');
+    expect(companion).not.toContain("nodeType: 'my-transform'");
+    expect(companion).not.toContain('import {');
   });
 
-  it('rejects if the file already exists', async () => {
-    const filePath = join(tmpDir, 'existing.dag.node.js');
-    await writeFile(filePath, '// existing', 'utf8');
+  it('rejects if a target file already exists', async () => {
+    await mkdir(join(tmpDir, '.dag', 'nodes'), { recursive: true });
+    await writeFile(nodesPath(tmpDir, 'existing.node.json'), '{}', 'utf8');
 
     const { options, written } = makeIo();
     const exitCode = await nodeCommand(
@@ -92,7 +106,7 @@ describe('LOCALNODE-005: dag node scaffold --local', () => {
     expect(written.join('')).toContain('already exists');
   });
 
-  it('generates config access via context when --config is given', async () => {
+  it('generates config access via context in the companion when --config is given', async () => {
     const { options } = makeIo();
     const exitCode = await nodeCommand(
       ['scaffold', 'cfg-node', '--local', '--dir', tmpDir, '--config', 'lang:string'],
@@ -100,19 +114,20 @@ describe('LOCALNODE-005: dag node scaffold --local', () => {
     );
     expect(exitCode).toBe(0);
 
-    const content = await readFile(join(tmpDir, 'cfg-node.dag.node.js'), 'utf8');
-    expect(content).not.toContain('z.object');
-    expect(content).toContain('context?.nodeDefinition?.config');
-    expect(content).toContain('lang');
+    const companion = await readFile(nodesPath(tmpDir, 'cfg-node.dag.node.js'), 'utf8');
+    expect(companion).not.toContain('z.object');
+    expect(companion).toContain('context?.nodeDefinition?.config');
+    expect(companion).toContain('lang');
   });
 
-  it('uses default ports when none are specified', async () => {
+  it('uses default ports (text) in the manifest when none are specified', async () => {
     const { options } = makeIo();
     await nodeCommand(['scaffold', 'simple-node', '--local', '--dir', tmpDir], options);
 
-    const content = await readFile(join(tmpDir, 'simple-node.dag.node.js'), 'utf8');
-    // NODEDX-006: default output port is now 'text' (unified with built-in node convention)
-    expect(content).toContain("key: 'text'");
+    const manifest = JSON.parse(await readFile(nodesPath(tmpDir, 'simple-node.node.json'), 'utf8'));
+    // NODEDX-006: default input/output port key is 'text'.
+    expect(manifest.inputs.map((p: { key: string }) => p.key)).toEqual(['text']);
+    expect(manifest.outputs.map((p: { key: string }) => p.key)).toEqual(['text']);
   });
 });
 

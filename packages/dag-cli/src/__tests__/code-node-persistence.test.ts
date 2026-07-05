@@ -2,7 +2,7 @@
  * DATA-002 P2 — code-node persistence: `.dag/nodes/<type>.node.json` (kind:'code') manifest +
  * supplementary `<type>.dag.node.js` companion. Real filesystem, no mocks.
  */
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -13,6 +13,20 @@ import type {
 } from '@robota-sdk/dag-core';
 import { loadNodes } from '../local-runner/persistence/store.js';
 import { LocalDagRunner, createCliNodeRegistry } from '../local-runner/index.js';
+import { runCommand } from '../commands/run.js';
+
+function collectingIo(): { io: Parameters<typeof runCommand>[1]['io']; written: string[] } {
+  const written: string[] = [];
+  return {
+    written,
+    io: {
+      write: (t: string) => written.push(t),
+      writeError: (t: string) => written.push(t),
+      readTextFile: async (path: string) => readFileSync(path, 'utf8'),
+      writeBinaryStream: async () => {},
+    },
+  };
+}
 
 function makeExecContext(nodeType: string): INodeExecutionContext {
   return {
@@ -124,5 +138,31 @@ describe('DATA-002 P2 — code node persistence', () => {
     const shout = result.taskRuns.find((t) => t.nodeId === 'shout');
     expect(shout?.outputSnapshot).toBeDefined();
     expect(JSON.parse(shout!.outputSnapshot!)).toMatchObject({ text: 'HELLO' });
+  });
+
+  it('P3: a workflow under .dag/workflows/ resolves a .dag/nodes/ code node (projectDir walk-up)', async () => {
+    writeCodeNode(projectDir, 'upshout', {}, UPPER);
+    const wfDir = join(projectDir, '.dag', 'workflows');
+    mkdirSync(wfDir, { recursive: true });
+    const dagFile = join(wfDir, 'shoutflow.dag.json');
+    writeFileSync(
+      dagFile,
+      JSON.stringify({
+        dagId: 'shoutflow',
+        version: 1,
+        status: 'draft',
+        nodes: [
+          { nodeId: 'in', nodeType: 'input', dependsOn: [], config: { text: 'hi' } },
+          { nodeId: 'shout', nodeType: 'upshout', dependsOn: ['in'], config: {} },
+        ],
+        edges: [{ from: 'in', to: 'shout', bindings: [{ outputKey: 'text', inputKey: 'text' }] }],
+      }),
+      'utf8',
+    );
+
+    const { io, written } = collectingIo();
+    const exit = await runCommand([dagFile], { io });
+    expect(exit).toBe(0);
+    expect(written.join('')).toContain('HI');
   });
 });
