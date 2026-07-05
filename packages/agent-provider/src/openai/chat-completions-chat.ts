@@ -37,6 +37,7 @@ export async function chatWithOpenAIChatCompletions(
       return await chatWithStreamingAssembly(client, input, {
         ...requestParams,
         stream: true,
+        ...buildStreamOptions(input),
       });
     }
 
@@ -79,6 +80,7 @@ export async function* chatStreamWithOpenAIChatCompletions(
     const requestParams: OpenAI.Chat.ChatCompletionCreateParamsStreaming = {
       ...buildChatRequestParams(input),
       stream: true,
+      ...buildStreamOptions(input),
     };
 
     await logPayload(input, requestParams, 'stream');
@@ -116,6 +118,19 @@ export async function* chatStreamWithOpenAIChatCompletions(
     const errorMessage = openaiError.message || 'OpenAI API request failed';
     throw new Error(`OpenAI stream failed: ${errorMessage}`);
   }
+}
+
+/**
+ * Streaming requests opt into token usage via `stream_options: { include_usage: true }`
+ * unless the provider sets `includeStreamUsage: false`. Only ever sent on streaming requests.
+ */
+function buildStreamOptions(
+  input: IOpenAIChatCompletionsOptions,
+): { stream_options: { include_usage: true } } | Record<string, never> {
+  if (input.providerOptions.includeStreamUsage === false) {
+    return {};
+  }
+  return { stream_options: { include_usage: true } };
 }
 
 function buildChatRequestParams(
