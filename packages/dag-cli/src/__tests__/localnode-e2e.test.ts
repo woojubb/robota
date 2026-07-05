@@ -117,39 +117,62 @@ describe('LOCALNODE-005: dag node scaffold --local', () => {
 });
 
 // ---------------------------------------------------------------------------
-// LOCALNODE-002: loadLocalNodeDefinitions auto-scan
+// LOCALNODE-002 / DATA-002 P2: loadLocalNodeDefinitions discovers `.dag/nodes/` code manifests
 // ---------------------------------------------------------------------------
 
-describe('LOCALNODE-002: loadLocalNodeDefinitions auto-scan', () => {
-  it('returns empty array when no node files are present', async () => {
+async function writeCodeNode(
+  dir: string,
+  nodeType: string,
+  manifestExtra: Record<string, unknown>,
+  companion: string | null,
+): Promise<void> {
+  const nodesDir = join(dir, '.dag', 'nodes');
+  await mkdir(nodesDir, { recursive: true });
+  await writeFile(
+    join(nodesDir, `${nodeType}.node.json`),
+    JSON.stringify({
+      kind: 'code',
+      nodeType,
+      displayName: nodeType,
+      inputs: [{ key: 'text', type: 'string', required: true }],
+      outputs: [{ key: 'text', type: 'string', required: false }],
+      codeFile: `${nodeType}.dag.node.js`,
+      ...manifestExtra,
+    }),
+    'utf8',
+  );
+  if (companion !== null) {
+    await writeFile(join(nodesDir, `${nodeType}.dag.node.js`), companion, 'utf8');
+  }
+}
+
+describe('LOCALNODE-002 / DATA-002 P2: loadLocalNodeDefinitions from .dag/nodes/', () => {
+  it('returns empty array when .dag/nodes/ is absent', async () => {
     const nodes = await loadLocalNodeDefinitions({ projectDir: tmpDir });
     expect(nodes).toHaveLength(0);
   });
 
-  it('skips .dag.node.ts files (TypeScript not loadable without tsx)', async () => {
-    await writeFile(join(tmpDir, 'my.dag.node.ts'), '// ts file', 'utf8');
-    const nodes = await loadLocalNodeDefinitions({ projectDir: tmpDir });
-    expect(nodes).toHaveLength(0);
-  });
-
-  it('ignores node_modules directory during scan', async () => {
-    const nmDir = join(tmpDir, 'node_modules', 'some-pkg');
-    await mkdir(nmDir, { recursive: true });
-    await writeFile(
-      join(nmDir, 'index.dag.node.js'),
-      `export default class N { nodeType = 'should-not-load'; }\n`,
-      'utf8',
+  it('discovers a code node (manifest + companion) in .dag/nodes/', async () => {
+    await writeCodeNode(
+      tmpDir,
+      'upshout',
+      {},
+      `export const node = { execute: (i) => ({ text: String(i.text).toUpperCase() }) };\n`,
     );
     const nodes = await loadLocalNodeDefinitions({ projectDir: tmpDir });
+    expect(nodes.map((n) => n.nodeType)).toEqual(['upshout']);
+  });
+
+  it('skips a code manifest whose companion .dag.node.js is missing', async () => {
+    await writeCodeNode(tmpDir, 'orphan', {}, null);
+    const nodes = await loadLocalNodeDefinitions({ projectDir: tmpDir });
     expect(nodes).toHaveLength(0);
   });
 
-  it('ignores dist directory during scan', async () => {
-    const distDir = join(tmpDir, 'dist');
-    await mkdir(distDir, { recursive: true });
+  it('does NOT scatter-scan .dag.node.js elsewhere in the project (removed in P2)', async () => {
     await writeFile(
-      join(distDir, 'compiled.dag.node.js'),
-      `export default class N { nodeType = 'should-not-load'; }\n`,
+      join(tmpDir, 'stray.dag.node.js'),
+      `export const node = { nodeType: 'stray', execute: () => ({ text: 'x' }) };\n`,
       'utf8',
     );
     const nodes = await loadLocalNodeDefinitions({ projectDir: tmpDir });
