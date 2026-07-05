@@ -110,6 +110,10 @@ export async function createDefaultNodeRegistry(): Promise<IDagNodeDefinition[]>
       modulePath: '@robota-sdk/dag-node-text-to-image',
       factories: [(mod) => new (mod.TextToImageNodeDefinition as new () => IDagNodeDefinition)()],
     },
+    {
+      modulePath: '@robota-sdk/dag-node-seedance-video',
+      factories: [(mod) => new (mod.SeedanceVideoNodeDefinition as new () => IDagNodeDefinition)()],
+    },
   ];
 
   const loadedGroups = await Promise.all(optionalLoaders.map(loadOptionalNodes));

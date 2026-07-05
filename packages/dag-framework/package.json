@@ -57,6 +57,7 @@
     "@robota-sdk/dag-node-input": "workspace:*",
     "@robota-sdk/dag-node-multi-input": "workspace:*",
     "@robota-sdk/dag-node-ok-emitter": "workspace:*",
+    "@robota-sdk/dag-node-seedance-video": "workspace:*",
     "@robota-sdk/dag-node-text-output": "workspace:*",
     "@robota-sdk/dag-node-text-template": "workspace:*",
     "@robota-sdk/dag-node-text-to-image": "workspace:*",

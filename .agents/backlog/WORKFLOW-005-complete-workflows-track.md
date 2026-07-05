@@ -176,4 +176,32 @@ catalog: true`; the node is reached, resolves config, and returns the graceful v
     `config.model` is set (mirrored behavior).
   - Boundary: CLI-077 holds (agent-cli still 0 dag/workflow deps); capability-placement + agent-server-boundary
     scans pass.
-  - Branch: `feat/workflow-005-p1-text-to-image`.
+  - Branch: `feat/workflow-005-p1-text-to-image`. Merged via PR #966 → develop.
+
+- **node #3 — seedance-video node — DONE (2026-07-05).** Filled the existing empty stub
+  `packages/dag-nodes/seedance-video` → `@robota-sdk/dag-node-seedance-video` (`private: true`). NodeType
+  `seedance-video` (matches pre-authored `.dag-storage` fixtures and the planned node in
+  `packages/dag-nodes/docs/SPEC.md`). `SeedanceVideoNodeDefinition` (category `AI`): single `text` input,
+  single binary `video` output (`VIDEO_MP4`); config `{ model, baseCredits(=0.5), durationSeconds?,
+aspectRatio?, pollIntervalMs(=5000), maxWaitMs(=300000) }`. Backend: `@robota-sdk/agent-provider/bytedance`
+  `BytedanceProvider` (implements `IVideoGenerationProvider`). Video generation is an **async job** —
+  `SeedanceVideoRuntime.generateVideo` calls `createVideo` then **polls `getVideoJob`** every
+  `pollIntervalMs` until `succeeded`/`failed`/`cancelled` or `maxWaitMs` (best-effort `cancelVideoJob` on
+  timeout). Creds `SEEDANCE_API_KEY` + `SEEDANCE_BASE_URL` (both required); default model
+  `DAG_SEEDANCE_VIDEO_DEFAULT_MODEL`; allowlist `DAG_SEEDANCE_VIDEO_ALLOWED_MODELS`. `seed` intentionally
+  not exposed (provider rejects it). New `video-output-normalizer` (lenient: missing mime → `video/mp4`).
+  Registered in the async/optional loader list. SPEC at `packages/dag-nodes/seedance-video/docs/SPEC.md`.
+  - Tests: 13 node tests (mock runtime) + 11 runtime tests (mock `BytedanceProvider`; incl. poll-until-
+    succeeded, running→succeeded, failed/cancelled, poll-failure, timeout+cancel, output-missing, seed-omitted,
+    mime-default) with an injected instant `sleep` + registry assertion. Full suites green: seedance-video 24,
+    dag-framework 113. typecheck + lint + mock scan clean.
+  - Live UE (no `SEEDANCE_API_KEY`/`SEEDANCE_BASE_URL`): `input → seedance-video` workflow run through
+    `LocalDagRuntimeProvider.execute` (async registry). Evidence: `seedance-video in runtime catalog: true`;
+    node reached, resolves config, returns graceful
+    `SEEDANCE_API_KEY and SEEDANCE_BASE_URL must both be configured` validation error. The poll/success paths
+    are covered deterministically by the mocked-provider runtime tests.
+  - Boundary: CLI-077 holds; capability-placement + agent-server-boundary + test-module-mocks scans pass.
+  - Branch: `feat/workflow-005-p1-video`.
+
+**P1 status: node-kind completion — tool ✅, text-to-image ✅, seedance-video ✅; skill node remaining
+(deferred as an LLM-backed agent node — see the skill-node research entry above).**
