@@ -40,6 +40,11 @@ describe('createDefaultNodeRegistry — optional loading', () => {
     expect(nodes.map((n) => n.nodeType)).toContain('text-to-image');
   });
 
+  it('loads the seedance-video node (optional, ByteDance-backed)', async () => {
+    const nodes = await createDefaultNodeRegistry();
+    expect(nodes.map((n) => n.nodeType)).toContain('seedance-video');
+  });
+
   it('handles import failure gracefully (tryImport catch)', async () => {
     // tryImport catches errors from import() — simulate a missing module scenario
     // by verifying that createDefaultNodeRegistry completes even when LLM modules
