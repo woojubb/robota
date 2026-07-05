@@ -14,8 +14,8 @@ Workflows in `.dag/workflows/` via the same store. No legacy/migration (feature 
 ## Phases (size only — each independently green)
 
 - [x] Phase 1: PersistenceStore + `.node.json` for data nodes (prompt/composite) + workflow routing.
-- [ ] Phase 2: `kind:'code'` manifest + supplementary `.dag.node.js`; code discovery in `.dag/nodes/`; remove scatter-scan.
-- [ ] Phase 3: remaining command call sites (validate/node/studio) cut over.
+- [x] Phase 2: `kind:'code'` manifest + supplementary `.dag.node.js`; code discovery in `.dag/nodes/`; remove scatter-scan.
+- [ ] Phase 3: remaining command call sites (validate/node/studio + scaffold + save) cut over.
 
 ## Test Plan
 

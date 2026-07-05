@@ -11,13 +11,8 @@ import {
   type ICreateCompositeNodeInput,
   type TInstantNodeProvider,
 } from '@robota-sdk/dag-node-instant-node';
-import {
-  saveNode,
-  loadNodes,
-  buildCompositeRunner,
-  nodesDir,
-  NODE_MANIFEST_EXT,
-} from '../../local-runner/persistence/store.js';
+import { saveNode, loadNodes, buildCompositeRunner } from '../../local-runner/persistence/store.js';
+import { nodesDir, NODE_MANIFEST_EXT } from '../../local-runner/persistence/paths.js';
 import type { ILocalMcpServerContext } from '../context.js';
 import { makeTextResult, makeErrorResult } from '../utils.js';
 
