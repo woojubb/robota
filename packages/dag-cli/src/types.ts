@@ -1,3 +1,4 @@
+import type { IWorkspaceLayout } from '@robota-sdk/dag-core';
 import type {
   IOrchestrationProblemDetails,
   TDagOrchestrationFetch,
@@ -33,6 +34,8 @@ export interface IDagCliRunOptions {
   readonly env?: IDagCliEnvironment;
   readonly io?: IDagCliIo;
   readonly fetch?: TDagCliFetch;
+  /** FLOW-007: workspace layout, resolved by the dispatch root (a `--workspace <dir>` flag / default). */
+  readonly workspace?: IWorkspaceLayout;
 }
 
 export interface IDagCliFailure {

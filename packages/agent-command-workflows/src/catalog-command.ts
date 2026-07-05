@@ -1,46 +1,36 @@
-import { readdir, readFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { resolve } from 'node:path';
 
-import type { IDagWorkflowFile } from '@robota-sdk/dag-core';
+import { DEFAULT_WORKSPACE_LAYOUT, type IWorkspaceLayout } from '@robota-sdk/dag-core';
+import { scanWorkspaceCatalog } from '@robota-sdk/dag-framework';
 import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
 
-/** Default local catalog directory for workflow files (relative to the working directory). */
-const DEFAULT_CATALOG_DIR = '.dag/workflows';
-
 /**
- * `/workflows catalog` — list the workflow files in the local catalog directory
- * (`.dag/workflows`). A pure filesystem scan over `*.dag.json` files; no dependency on the
- * `dag-cli` product.
+ * `/workflows catalog` — list the workflow definitions flat under the injected workspace root (default
+ * `.workflows/`, `<name>.json`) via the shared `scanWorkspaceCatalog` reader (FLOW-007 C3 — one reader
+ * across dag-cli's `catalog` and this command). Node manifests + non-DAG JSON are skipped.
  */
 export async function executeWorkflowsCatalog(
   cwd: string,
-  dir: string = DEFAULT_CATALOG_DIR,
+  layout: IWorkspaceLayout = DEFAULT_WORKSPACE_LAYOUT,
 ): Promise<ICommandResult> {
-  const catalogDir = resolve(cwd, dir);
-  // A missing catalog directory is a normal empty state, not an error.
-  const entries = await readdir(catalogDir).catch(() => null);
-  if (entries === null) {
-    return {
-      success: true,
-      message: `No workflow catalog at ${dir} (build or save a workflow to populate it).`,
+  const dir = layout.root;
+  const ext = layout.workflowExt;
+  const entries = await scanWorkspaceCatalog(resolve(cwd, dir), layout);
+  if (entries.length === 0) {
+    return { success: true, message: `No workflow files (*${ext}) in ${dir}.` };
+  }
+  const lines = entries.map((e) => {
+    const raw = e.definition as unknown as {
+      nodes?: unknown[];
+      edges?: unknown[];
+      links?: unknown[];
     };
-  }
-
-  const files = entries.filter((name) => name.endsWith('.dag.json')).sort();
-  if (files.length === 0) {
-    return { success: true, message: `No workflow files (*.dag.json) in ${dir}.` };
-  }
-
-  const lines: string[] = [];
-  for (const file of files) {
-    const summary = await readFile(join(catalogDir, file), 'utf-8')
-      .then((raw) => JSON.parse(raw) as IDagWorkflowFile)
-      .then((wf) => `${wf.nodes?.length ?? 0} node(s), ${wf.links?.length ?? 0} link(s)`)
-      .catch(() => 'unreadable');
-    lines.push(`  ${file} — ${summary}`);
-  }
+    const nodeCount = raw.nodes?.length ?? 0;
+    const linkCount = raw.edges?.length ?? raw.links?.length ?? 0;
+    return `  ${e.id}${ext} — ${nodeCount} node(s), ${linkCount} link(s)`;
+  });
   return {
     success: true,
-    message: `Workflows in ${dir} (${files.length}):\n${lines.join('\n')}`,
+    message: `Workflows in ${dir} (${entries.length}):\n${lines.join('\n')}`,
   };
 }

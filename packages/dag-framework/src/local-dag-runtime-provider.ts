@@ -19,6 +19,7 @@ import type {
   TRunProgressEvent,
   IDagRun,
   ITaskRun,
+  IWorkspaceLayout,
 } from '@robota-sdk/dag-core';
 import { LifecycleTaskExecutorPort } from '@robota-sdk/dag-core';
 import {
@@ -69,6 +70,11 @@ export interface ILocalDagRuntimeProviderOptions {
   nodeRegistry?: IDagNodeDefinition[];
   /** DAG project directory — reserved for future local node-file scanning. */
   projectDir?: string;
+  /**
+   * FLOW-007: injected workspace layout (root dir + workflow ext). Reserved for local node discovery
+   * from `<root>/nodes/` when running authored workflows that reference local prompt/code nodes.
+   */
+  workspace?: IWorkspaceLayout;
   /** Instant nodes (typically injected from an MCP session context). */
   instantNodes?: IDagNodeDefinition[];
   /** Extra nodes appended at the end (test/special-purpose). */

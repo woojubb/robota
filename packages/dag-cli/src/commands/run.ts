@@ -2,6 +2,7 @@ import { readFile, writeFile, mkdir, stat } from 'node:fs/promises';
 import { watch } from 'node:fs';
 import { join, dirname, resolve, parse as parsePath } from 'node:path';
 import { homedir } from 'node:os';
+import { DEFAULT_WORKSPACE_LAYOUT } from '@robota-sdk/dag-core';
 import type {
   IDagDefinition,
   IDagEdgeDefinition,
@@ -10,6 +11,7 @@ import type {
   IDagRobotaCompanion,
   INodeConfigObject,
   INodeManifest,
+  IWorkspaceLayout,
   TPortPayload,
 } from '@robota-sdk/dag-core';
 import type { IDagCliIo } from '../types.js';
@@ -45,6 +47,8 @@ export interface IRunCommandOptions {
   readonly io: IDagCliIo;
   /** Optional factory override for testing. Defaults to LocalDagRunner with default registry. */
   readonly createRunner?: () => LocalDagRunner;
+  /** FLOW-007: injected workspace layout (default `.workflows/`). */
+  readonly workspace?: IWorkspaceLayout;
 }
 
 /** Parsed options from argv for the `run` subcommand. */
@@ -1876,18 +1880,22 @@ async function printAliases(io: IDagCliIo): Promise<void> {
 
 /**
 /**
- * DATA-002 P3: resolve the project root for local-node discovery. Walks up from `startDir` and
- * returns the nearest ancestor containing a `.dag/` directory (so a workflow inside
- * `<root>/.dag/workflows/` still finds code nodes in `<root>/.dag/nodes/`). Falls back to `startDir`.
+ * DATA-002 P3 / FLOW-007: resolve the project root for local-node discovery. Walks up from `startDir`
+ * and returns the nearest ancestor containing the workspace root directory (default `.workflows/`), so
+ * a workflow file still finds code nodes in `<root>/nodes/`. Falls back to `startDir`.
  */
-async function findDagProjectRoot(startDir: string): Promise<string> {
+async function findDagProjectRoot(
+  startDir: string,
+  layout: IWorkspaceLayout = DEFAULT_WORKSPACE_LAYOUT,
+): Promise<string> {
+  const workspaceRoot = layout.root;
   let dir = resolve(startDir);
   const { root } = parsePath(dir);
   for (;;) {
     try {
-      if ((await stat(join(dir, '.dag'))).isDirectory()) return dir;
+      if ((await stat(join(dir, workspaceRoot))).isDirectory()) return dir;
     } catch {
-      // allow-fallback: no `.dag/` here; keep walking up
+      // allow-fallback: no workspace root here; keep walking up
     }
     if (dir === root) return startDir;
     dir = dirname(dir);
@@ -1984,7 +1992,8 @@ export async function runCommand(
     typeof file === 'string' && !file.startsWith('http://') && !file.startsWith('https://')
       ? dirname(resolve(file))
       : process.cwd();
-  const projectDir = await findDagProjectRoot(fileBasedDir);
+  const layout = options.workspace ?? DEFAULT_WORKSPACE_LAYOUT;
+  const projectDir = await findDagProjectRoot(fileBasedDir, layout);
 
   // Collect companion nodeFiles (relative to dag file) + explicit --node-file flags.
   const companionNodeFiles: string[] =
@@ -2022,7 +2031,9 @@ export async function runCommand(
   }
 
   // Auto-scan local nodes (unless --no-auto-nodes).
-  const autoNodes = noAutoNodes ? [] : await loadLocalNodeDefinitions({ projectDir });
+  const autoNodes = noAutoNodes
+    ? []
+    : await loadLocalNodeDefinitions({ projectDir, workspace: layout });
 
   // Merge: explicit > auto > built-in (later entries win on nodeType conflict).
   const builtIn = createCliNodeRegistry();

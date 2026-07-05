@@ -1,4 +1,4 @@
-import type { IDagNodeDefinition } from '@robota-sdk/dag-core';
+import type { IDagNodeDefinition, IWorkspaceLayout } from '@robota-sdk/dag-core';
 import { createDefaultNodeRegistrySync } from '@robota-sdk/dag-framework';
 import { LlmTextOpenAiNodeDefinition } from '@robota-sdk/dag-node-llm-text-openai';
 import { LlmTextAnthropicNodeDefinition } from '@robota-sdk/dag-node-llm-text-anthropic';
@@ -40,11 +40,15 @@ export function createCliNodeRegistry(): IDagNodeDefinition[] {
  */
 export async function createCliNodeRegistryWithLocalNodes(
   projectDir: string,
-  options?: { verbose?: boolean },
+  options?: { verbose?: boolean; workspace?: IWorkspaceLayout },
 ): Promise<IDagNodeDefinition[]> {
   const [builtIn, local] = await Promise.all([
     Promise.resolve(createCliNodeRegistry()),
-    loadLocalNodeDefinitions({ projectDir, verbose: options?.verbose }),
+    loadLocalNodeDefinitions({
+      projectDir,
+      verbose: options?.verbose,
+      ...(options?.workspace ? { workspace: options.workspace } : {}),
+    }),
   ]);
 
   if (local.length === 0) return builtIn;

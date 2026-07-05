@@ -103,19 +103,19 @@ describe('workflows validate', () => {
 });
 
 describe('workflows catalog', () => {
-  it('reports an empty state when no catalog directory exists', async () => {
+  it('reports an empty state when no workflows exist', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'wf-catalog-'));
     const result = await executeWorkflowsCatalog(dir);
     expect(result.success).toBe(true);
-    expect(result.message).toContain('No workflow catalog');
+    expect(result.message).toContain('No workflow files');
   });
 
-  it('lists workflow files present in .dag/workflows', async () => {
+  it('lists workflow files flat under the workspace root (.workflows/)', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'wf-catalog-'));
-    const catalogDir = join(dir, '.dag', 'workflows');
-    await mkdir(catalogDir, { recursive: true });
+    const catalogDir = join(dir, '.workflows');
+    await mkdir(join(catalogDir, 'nodes'), { recursive: true });
     await writeFile(
-      join(catalogDir, 'sample.dag.json'),
+      join(catalogDir, 'sample.json'),
       JSON.stringify({
         last_node_id: 1,
         last_link_id: 0,
@@ -124,9 +124,12 @@ describe('workflows catalog', () => {
         version: 0.4,
       }),
     );
+    // a node manifest sharing the root must NOT be listed as a workflow.
+    await writeFile(join(catalogDir, 'nodes', 'greet.node.json'), JSON.stringify({ kind: 'code' }));
     const result = await executeWorkflowsCatalog(dir);
     expect(result.success).toBe(true);
-    expect(result.message).toContain('sample.dag.json');
+    expect(result.message).toContain('sample.json');
     expect(result.message).toContain('1 node(s)');
+    expect(result.message).not.toContain('greet');
   });
 });

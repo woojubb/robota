@@ -87,8 +87,8 @@ describe('catalogCommand', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     setupCatalog({
-      '.dag/workflows/hello.dag.json': HELLO_DAG,
-      '.dag/workflows/summarize.dag.json': SUMMARIZE_DAG,
+      '.workflows/hello.json': HELLO_DAG,
+      '.workflows/summarize.json': SUMMARIZE_DAG,
     });
   });
 
@@ -105,7 +105,7 @@ describe('catalogCommand', () => {
   describe('list', () => {
     it('lists workflows from catalog dir', async () => {
       const { io, lines } = makeIo();
-      const code = await catalogCommand(['list', '--catalog', '.dag/workflows'], { io });
+      const code = await catalogCommand(['list', '--catalog', '.workflows'], { io });
       expect(code).toBe(0);
       const out = lines.join('');
       expect(out).toContain('hello');
@@ -140,7 +140,7 @@ describe('catalogCommand', () => {
   describe('info', () => {
     it('shows info for a known workflow', async () => {
       const { io, lines } = makeIo();
-      const code = await catalogCommand(['info', 'hello', '--catalog', '.dag/workflows'], { io });
+      const code = await catalogCommand(['info', 'hello', '--catalog', '.workflows'], { io });
       expect(code).toBe(0);
       const out = lines.join('');
       expect(out).toContain('hello');
@@ -150,14 +150,14 @@ describe('catalogCommand', () => {
     it('returns 1 for unknown id', async () => {
       const { io } = makeIo();
       expect(
-        await catalogCommand(['info', 'does-not-exist', '--catalog', '.dag/workflows'], { io }),
+        await catalogCommand(['info', 'does-not-exist', '--catalog', '.workflows'], { io }),
       ).toBe(1);
     });
 
     it('returns json format when --output json', async () => {
       const { io, lines } = makeIo();
       const code = await catalogCommand(
-        ['info', 'hello', '--catalog', '.dag/workflows', '--output', 'json'],
+        ['info', 'hello', '--catalog', '.workflows', '--output', 'json'],
         { io },
       );
       expect(code).toBe(0);
@@ -169,7 +169,7 @@ describe('catalogCommand', () => {
   describe('search', () => {
     it('returns matching workflows by id', async () => {
       const { io, lines } = makeIo();
-      const code = await catalogCommand(['search', 'summarize', '--catalog', '.dag/workflows'], {
+      const code = await catalogCommand(['search', 'summarize', '--catalog', '.workflows'], {
         io,
       });
       expect(code).toBe(0);
@@ -178,14 +178,14 @@ describe('catalogCommand', () => {
 
     it('returns matching by tag', async () => {
       const { io, lines } = makeIo();
-      const code = await catalogCommand(['search', 'demo', '--catalog', '.dag/workflows'], { io });
+      const code = await catalogCommand(['search', 'demo', '--catalog', '.workflows'], { io });
       expect(code).toBe(0);
       expect(lines.join('')).toContain('hello');
     });
 
     it('returns 0 with no matches', async () => {
       const { io, lines } = makeIo();
-      const code = await catalogCommand(['search', 'zzz-no-match', '--catalog', '.dag/workflows'], {
+      const code = await catalogCommand(['search', 'zzz-no-match', '--catalog', '.workflows'], {
         io,
       });
       expect(code).toBe(0);
@@ -194,7 +194,7 @@ describe('catalogCommand', () => {
 
     it('returns 2 for missing query', async () => {
       const { io } = makeIo();
-      expect(await catalogCommand(['search', '--catalog', '.dag/workflows'], { io })).toBe(2);
+      expect(await catalogCommand(['search', '--catalog', '.workflows'], { io })).toBe(2);
     });
   });
 
@@ -206,8 +206,8 @@ describe('catalogCommand', () => {
           return Promise.reject(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
         }
         const content = {
-          '.dag/workflows/hello.dag.json': HELLO_DAG,
-          '.dag/workflows/summarize.dag.json': SUMMARIZE_DAG,
+          '.workflows/hello.json': HELLO_DAG,
+          '.workflows/summarize.json': SUMMARIZE_DAG,
         }[filePath as string];
         if (content !== undefined) return Promise.resolve(content);
         return Promise.reject(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
@@ -221,12 +221,12 @@ describe('catalogCommand', () => {
     it('lists run history entries when history file exists', async () => {
       const history = JSON.stringify([
         {
-          file: '.dag/workflows/hello.dag.json',
+          file: '.workflows/hello.json',
           date: '2026-05-20T10:00:00.000Z',
           status: 'success',
         },
         {
-          file: '.dag/workflows/summarize.dag.json',
+          file: '.workflows/summarize.json',
           date: '2026-05-21T08:30:00.000Z',
           status: 'failed',
         },
@@ -236,8 +236,8 @@ describe('catalogCommand', () => {
           return Promise.resolve(history);
         }
         const content = {
-          '.dag/workflows/hello.dag.json': HELLO_DAG,
-          '.dag/workflows/summarize.dag.json': SUMMARIZE_DAG,
+          '.workflows/hello.json': HELLO_DAG,
+          '.workflows/summarize.json': SUMMARIZE_DAG,
         }[filePath as string];
         if (content !== undefined) return Promise.resolve(content);
         return Promise.reject(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
@@ -246,7 +246,7 @@ describe('catalogCommand', () => {
       const code = await catalogCommand(['history'], { io });
       expect(code).toBe(0);
       const out = lines.join('');
-      expect(out).toContain('hello.dag.json');
+      expect(out).toContain('hello.json');
     });
   });
 
@@ -262,7 +262,7 @@ describe('catalogCommand', () => {
         run: mockRun,
       };
       const code = await catalogCommand(
-        ['run', 'hello', '--catalog', '.dag/workflows', '--output', 'json'],
+        ['run', 'hello', '--catalog', '.workflows', '--output', 'json'],
         { io, createRunner: () => mockRunner as never },
       );
       expect(code).toBe(0);
@@ -272,13 +272,13 @@ describe('catalogCommand', () => {
     it('returns 1 for unknown id', async () => {
       const { io } = makeIo();
       expect(
-        await catalogCommand(['run', 'does-not-exist', '--catalog', '.dag/workflows'], { io }),
+        await catalogCommand(['run', 'does-not-exist', '--catalog', '.workflows'], { io }),
       ).toBe(1);
     });
 
     it('returns 2 for missing id', async () => {
       const { io } = makeIo();
-      expect(await catalogCommand(['run', '--catalog', '.dag/workflows'], { io })).toBe(2);
+      expect(await catalogCommand(['run', '--catalog', '.workflows'], { io })).toBe(2);
     });
   });
 });

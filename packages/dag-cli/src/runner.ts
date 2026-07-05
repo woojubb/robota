@@ -3,7 +3,8 @@ import { readFile } from 'node:fs/promises';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import type { ReadableStream as NodeReadableStream } from 'node:stream/web';
-import type { IDagDefinition, TPortPayload } from '@robota-sdk/dag-core';
+import { DEFAULT_WORKSPACE_LAYOUT } from '@robota-sdk/dag-core';
+import type { IDagDefinition, IWorkspaceLayout, TPortPayload } from '@robota-sdk/dag-core';
 import { DagOrchestrationHttpClient } from '@robota-sdk/dag-orchestration-client';
 import { parseGlobalConfig } from './arguments.js';
 import { dispatchDagCliCommand } from './runner-dispatch.js';
@@ -194,11 +195,25 @@ Version: dag --version
 `;
 
 export async function runDagCli(
-  args: readonly string[],
+  rawArgs: readonly string[],
   options: IDagCliRunOptions = {},
 ): Promise<number> {
   const io = options.io ?? defaultIo;
   const fetchImpl = options.fetch ?? defaultFetch;
+
+  // FLOW-007: resolve the workspace layout from injected options or a leading `--workspace <dir>`
+  // global flag, then strip the flag so subcommand dispatch sees the same argv shape as before.
+  let workspace: IWorkspaceLayout = options.workspace ?? DEFAULT_WORKSPACE_LAYOUT;
+  let args = rawArgs;
+  if (args[0] === '--workspace') {
+    const dir = args[1];
+    if (typeof dir !== 'string' || dir.startsWith('--')) {
+      io.write('Error: --workspace requires a directory value.\n');
+      return USAGE_ERROR_EXIT_CODE;
+    }
+    workspace = { root: dir, workflowExt: workspace.workflowExt };
+    args = args.slice(2);
+  }
 
   // Top-level help: no args, --help, or -h
   if (args.length === 0 || args[0] === '--help' || args[0] === '-h') {
@@ -217,7 +232,7 @@ export async function runDagCli(
 
   // Route `run` to local execution when no --server flag is present.
   if (args[0] === RUN_SUBCOMMAND && !args.includes(SERVER_FLAG)) {
-    return runCommand(args.slice(1), { io: wrappedIo });
+    return runCommand(args.slice(1), { io: wrappedIo, workspace });
   }
 
   // Route `validate` to local validation.
@@ -240,7 +255,7 @@ export async function runDagCli(
 
   // Route `node` subcommands to local node registry inspection.
   if (args[0] === NODE_SUBCOMMAND) {
-    return nodeCommand(args.slice(1), { io: wrappedIo });
+    return nodeCommand(args.slice(1), { io: wrappedIo, workspace });
   }
 
   // Route `init` to project scaffolding.
@@ -255,7 +270,7 @@ export async function runDagCli(
 
   // Route `catalog` to local file catalog commands.
   if (args[0] === CATALOG_SUBCOMMAND) {
-    return catalogCommand(args.slice(1), { io: wrappedIo });
+    return catalogCommand(args.slice(1), { io: wrappedIo, workspace });
   }
 
   // Route `template` to built-in topology templates.
@@ -362,7 +377,7 @@ export async function runDagCli(
 
   // Route `save` to pipeline → catalog file.
   if (args[0] === SAVE_SUBCOMMAND) {
-    return saveCommand(args.slice(1), { io: wrappedIo });
+    return saveCommand(args.slice(1), { io: wrappedIo, workspace });
   }
 
   // Route `alias` to alias management (add/list/remove).
