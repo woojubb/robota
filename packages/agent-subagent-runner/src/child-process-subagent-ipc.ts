@@ -1,9 +1,7 @@
-import type { TPermissionMode, TToolArgs } from '@robota-sdk/agent-core';
-import type {
-  ISerializableProviderProfile,
-  ISubagentSpawnRequest,
-} from '@robota-sdk/agent-executor';
+import type { ISessionUsageTotals, TPermissionMode, TToolArgs } from '@robota-sdk/agent-core';
+import type { ISubagentSpawnRequest } from '@robota-sdk/agent-executor';
 import type { IAgentDefinition, IInProcessSubagentRunnerDeps } from '@robota-sdk/agent-framework';
+import type { ISerializableProviderProfile } from '@robota-sdk/agent-interface-transport';
 
 export type TSubagentWorkerWireValue = string | number | boolean | null | undefined | object;
 
@@ -64,6 +62,8 @@ export interface ISubagentWorkerToolEndMessage {
 export interface ISubagentWorkerResultMessage {
   type: 'result';
   output: string;
+  /** ANALYTICS-001 (Phase 2): total token usage of the subagent run, forwarded to the parent. */
+  usage?: ISessionUsageTotals;
 }
 
 export interface ISubagentWorkerErrorMessage {
@@ -91,6 +91,22 @@ function isRecord(value: TSubagentWorkerWireValue): value is TSubagentWorkerWire
 
 function hasString(value: TSubagentWorkerWireRecord, key: string): boolean {
   return typeof value[key] === 'string';
+}
+
+/**
+ * CORE-024 (RUNTIME-47): validate the optional `usage` payload on a `result` message so a
+ * malformed object cannot be spread verbatim into the parent's token/cost accounting. Absent is
+ * valid (usage is optional); present must be an `ISessionUsageTotals` with three numeric fields.
+ */
+function hasValidOptionalUsage(value: TSubagentWorkerWireRecord): boolean {
+  if (value.usage === undefined) return true;
+  const usage = value.usage;
+  if (!isRecord(usage)) return false;
+  return (
+    typeof usage.promptTokens === 'number' &&
+    typeof usage.completionTokens === 'number' &&
+    typeof usage.totalTokens === 'number'
+  );
 }
 
 function isStartPayload(value: TSubagentWorkerWireValue): value is ISubagentWorkerStartPayload {
@@ -139,7 +155,7 @@ export function isSubagentWorkerChildMessage(
     case 'tool_end':
       return hasString(value, 'toolName') && typeof value.success === 'boolean';
     case 'result':
-      return hasString(value, 'output');
+      return hasString(value, 'output') && hasValidOptionalUsage(value);
     case 'error':
       return hasString(value, 'message');
     case 'cancelled':

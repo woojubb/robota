@@ -19,14 +19,21 @@ function findPackages() {
     if (!fs.existsSync(dir)) return;
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
       if (!entry.isDirectory()) continue;
-      const pkgPath = path.join(dir, entry.name, 'package.json');
-      if (!fs.existsSync(pkgPath)) continue;
+      if (entry.name === 'node_modules' || entry.name === 'dist') continue;
+      const childDir = path.join(dir, entry.name);
+      const pkgPath = path.join(childDir, 'package.json');
+      if (!fs.existsSync(pkgPath)) {
+        // Package-group container (e.g. packages/dag-nodes/) — recurse one level
+        // so nested members (packages/dag-nodes/*) get their types built too.
+        scanDir(childDir);
+        continue;
+      }
       const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
       if (!pkg.name || !pkg.scripts?.['build:types']) continue;
       if (results.has(pkg.name)) continue; // skip duplicates
       results.set(pkg.name, {
         name: pkg.name,
-        dir: path.join(dir, entry.name),
+        dir: childDir,
         deps: Object.keys(pkg.dependencies ?? {}).filter((d) => d.startsWith('@robota-sdk/')),
       });
     }

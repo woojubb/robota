@@ -74,6 +74,8 @@ npm install
 
 ### Anthropic provider
 
+<!-- doc-example-skip: v2.x/3.0.0 before/after contrast — v2 package no longer exists -->
+
 ```typescript
 // v2.x
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
@@ -83,6 +85,8 @@ import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 ```
 
 ### OpenAI provider
+
+<!-- doc-example-skip: v2.x/3.0.0 before/after contrast — v2 package no longer exists -->
 
 ```typescript
 // v2.x
@@ -94,6 +98,8 @@ import { OpenAIProvider } from '@robota-sdk/agent-provider/openai';
 
 ### Gemini / Google provider
 
+<!-- doc-example-skip: v2.x/3.0.0 before/after contrast — v2 package no longer exists -->
+
 ```typescript
 // v2.x
 import { GeminiProvider } from '@robota-sdk/agent-provider-google';
@@ -103,6 +109,8 @@ import { GeminiProvider } from '@robota-sdk/agent-provider/gemini';
 ```
 
 ### DeepSeek provider
+
+<!-- doc-example-skip: v2.x/3.0.0 before/after contrast — v2 package no longer exists -->
 
 ```typescript
 // v2.x
@@ -139,6 +147,8 @@ The TypeScript compiler will flag every usage at build time.
 
 Example:
 
+<!-- doc-example-skip: v2.x/3.0.0 before/after contrast — v2 type names were removed -->
+
 ```typescript
 // v2.x
 import type { ToolSchema, UniversalMessage, AgentConfig } from '@robota-sdk/agent-core';
@@ -157,6 +167,8 @@ function buildTool(schema: IToolSchema): void {
 
 ### Provider options interface
 
+<!-- doc-example-skip: v2.x/3.0.0 before/after contrast — v2 package and type name no longer exist -->
+
 ```typescript
 // v2.x
 import type { AnthropicProviderOptions } from '@robota-sdk/agent-provider-anthropic';
@@ -172,6 +184,8 @@ const options: IAnthropicProviderOptions = { apiKey: '...' };
 ### AbstractAIProvider (custom provider authors only)
 
 If you wrote a custom provider that extends `BaseAIProvider`:
+
+<!-- doc-example-skip: v2.x/3.0.0 before/after contrast — BaseAIProvider was removed -->
 
 ```typescript
 // v2.x
@@ -192,6 +206,8 @@ export class MyProvider extends AbstractAIProvider {
 ### Removed alias: FunctionSchema
 
 The `FunctionSchema` alias for `IToolSchema` was removed:
+
+<!-- doc-example-skip: v2.x/3.0.0 before/after contrast — v2 alias no longer exists -->
 
 ```typescript
 // v2.x — still worked
@@ -226,6 +242,8 @@ append-only, which eliminates a class of state management bugs.
 
 The v2 `@robota-sdk/agent-team` package and its `TeamContainer`/`createTeam` API were removed in
 3.0.0. There is no `agent-team` package anymore.
+
+<!-- doc-example-skip: intentionally-removed v2 API shown for contrast -->
 
 ```typescript
 // v2.x — no longer available

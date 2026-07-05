@@ -1,7 +1,11 @@
 packages:
   - 'packages/*'
+  - 'packages/dag-nodes/*'
   - 'apps/*'
   # examples are workspace members so they resolve @robota-sdk/* against local source
   # (drift detection via typecheck). They are excluded from harness scans — see
   # scripts/harness/shared.mjs listWorkspaceScopes — and are private (never published).
   - 'examples/*'
+  - 'examples/capabilities/*'
+  # dev-tooling tier: disposable live-verification scripts (src/ gitignored)
+  - 'scratch'

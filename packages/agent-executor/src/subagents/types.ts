@@ -9,17 +9,13 @@ import type {
   TBackgroundTaskIsolation,
   TBackgroundTaskTimeoutReason,
 } from '../background-tasks/index.js';
+import type {
+  ISubagentJobState,
+  TSubagentJobMode,
+  TSubagentJobStatus,
+} from '@robota-sdk/agent-interface-transport';
 
-export type TSubagentJobStatus =
-  | 'queued'
-  | 'running'
-  | 'waiting_permission'
-  | 'sleeping'
-  | 'completed'
-  | 'failed'
-  | 'cancelled';
-
-export type TSubagentJobMode = 'foreground' | 'background';
+export type { ISubagentJobState, TSubagentJobMode, TSubagentJobStatus };
 
 export interface ISubagentSpawnRequest {
   type: string;
@@ -45,40 +41,12 @@ export interface ISubagentSpawnRequest {
   metadata?: Record<string, TBackgroundPrimitive>;
 }
 
-export interface ISubagentJobState {
-  id: string;
-  type: string;
-  label: string;
-  parentSessionId: string;
-  status: TSubagentJobStatus;
-  mode: TSubagentJobMode;
-  depth: number;
-  pid?: number;
-  cwd: string;
-  isolation?: TBackgroundTaskIsolation;
-  worktreePath?: string;
-  branchName?: string;
-  worktreeStatus?: string;
-  worktreeNextAction?: string;
-  worktreeBaseRevision?: string;
-  parentWorktreeStatus?: string;
-  promptPreview: string;
-  currentTool?: string;
-  logPath?: string;
-  transcriptPath?: string;
-  startedAt?: string;
-  updatedAt: string;
-  completedAt?: string;
-  timeoutReason?: TBackgroundTaskTimeoutReason;
-  result?: string;
-  error?: string;
-  metadata?: Record<string, TBackgroundPrimitive>;
-}
-
 export interface ISubagentJobResult {
   jobId: string;
   output: string;
   metadata?: Record<string, TBackgroundPrimitive>;
+  /** ANALYTICS-001 (Phase 2): total token usage of the subagent run. */
+  usage?: { promptTokens: number; completionTokens: number; totalTokens: number };
 }
 
 export interface ISubagentJobStart {

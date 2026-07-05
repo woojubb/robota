@@ -38,13 +38,13 @@ This package does NOT own: provider implementations, generic session run loop, t
 - Update check: `checkForCliUpdate()`, related helpers
 - Git utilities: `resolveGitBranch()`
 - Semver utilities: `compareSemverVersions()`, `isNewerSemverVersion()`
-- Runtime re-exports (explicit SDK facades): background task types from `agent-executor`, subagent types from `agent-executor`
+- Runtime re-exports: NONE for contract types (INFRA-025) — background-task/subagent data contracts live in `@robota-sdk/agent-interface-transport` and are not re-exported here; the internal `background-tasks/`/`subagents/` barrels re-export only executor runtime SPI for intra-package organization.
 
 ### What does NOT live here
 
 - `agent-core`: provider interface (`IAIProvider`), engine (`Robota`), history helpers, permissions enforcement (`evaluatePermission`), hook runner (`runHooks`), generic message utilities
 - `agent-session`: `Session` class, `SessionStore`, `PermissionEnforcer`, `ContextWindowTracker`, `CompactionOrchestrator`, terminal output (`ITerminalOutput`)
-- `agent-tools`: built-in tools (`bashTool`, `readTool`, `writeTool`, etc.), tool creation infrastructure, sandbox client (`ISandboxClient`), `IToolInvocationResult`
+- `agent-tools`: built-in tools (`shellTool`/`bashTool`, `readTool`, `writeTool`, etc.), tool creation infrastructure, sandbox client (`ISandboxClient`), `IToolInvocationResult`
 - `agent-executor`: `BackgroundTaskManager`, `SubagentManager`, `WorktreeSubagentRunner`, lifecycle state machine
 - `agent-provider-*`: provider implementations
 - React/Ink components (belong in `agent-cli`)
@@ -62,74 +62,74 @@ Key design rules:
 - **Assembly first**: all features are implemented by composing existing packages.
 - **Provider-neutral**: the consumer (CLI, server, worker) creates the provider and passes it in.
 - **React-free**: no React or Ink dependency; those belong in `agent-cli`.
-- **No pass-through re-exports**: general-purpose symbols are imported from their owner packages; only explicit SDK facade barrels (`background-tasks/`, `subagents/`) may re-export runtime contracts.
+- **No pass-through re-exports** (INFRA-025): the public index exposes framework-OWNED symbols only. Interface-transport-owned contract names (78 removed 2026-07-04) must be imported from `@robota-sdk/agent-interface-transport`; the `interface-imports` scan also catches `export … from` pass-throughs.
 
 ## Type Ownership
 
-| Type                                 | Location                                              | Purpose                                                                                                             |
-| ------------------------------------ | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `IInteractiveSession`                | `src/interactive/i-interactive-session.ts`            | Public interface for the event-driven session wrapper                                                               |
-| `TInteractiveSessionOptions`         | `src/interactive/interactive-session-options.ts`      | Constructor options for `InteractiveSession`                                                                        |
-| `IInteractiveSessionShutdownOptions` | `src/interactive/interactive-session.ts`              | Options for graceful session shutdown                                                                               |
-| `IInteractiveSessionEvents`          | `src/interactive/types.ts`                            | Event map for all session events                                                                                    |
-| `IInteractiveSessionRecord`          | `src/interactive/session-persistence.ts`              | Persisted session record shape                                                                                      |
-| `IInteractiveSessionStore`           | `src/interactive/session-persistence.ts`              | Session persistence adapter interface                                                                               |
-| `IResumableSessionSummary`           | `src/interactive/session-persistence.ts`              | Lightweight session summary for session picker                                                                      |
-| `IToolState`                         | `src/interactive/types.ts`                            | Tool execution state visible to clients                                                                             |
-| `IDiffLine`                          | `src/interactive/types.ts`                            | One diff line for Edit tool display metadata                                                                        |
-| `IExecutionResult`                   | `src/interactive/types.ts`                            | Result of a completed prompt execution                                                                              |
-| `IToolSummary`                       | `src/interactive/types.ts`                            | Summary of a tool call extracted from history                                                                       |
-| `IUsageSnapshot`                     | `src/interactive/types.ts`                            | Provider-neutral execution usage record                                                                             |
-| `TPermissionResultValue`             | `src/interactive/types.ts`                            | Permission handler result: `true`, `false`, `'allow-session'`, `'allow-project'`                                    |
-| `TInteractivePermissionHandler`      | `src/interactive/types.ts`                            | Client-provided permission approval callback                                                                        |
-| `TInteractiveEventName`              | `src/interactive/types.ts`                            | Union of all event names                                                                                            |
-| `IContextFileRefreshedEvent`         | `src/interactive/types.ts`                            | Event emitted when a context file is refreshed                                                                      |
-| `ITransportAdapter`                  | `@robota-sdk/agent-interface-transport` (re-exported) | Common interface for transport adapters                                                                             |
-| `IConfigurableTransport`             | `@robota-sdk/agent-interface-transport` (re-exported) | Transport with configurable options                                                                                 |
-| `ITransportConfig`                   | `@robota-sdk/agent-interface-transport` (re-exported) | Transport configuration shape                                                                                       |
-| `ISkillActivationEvent`              | `src/commands/skill-activation-events.ts`             | Structured skill activation record                                                                                  |
-| `ISystemCommand`                     | `src/command-api/contracts.ts`                        | Command metadata and execute contract                                                                               |
-| `ICommandModule`                     | `src/command-api/command-module.ts`                   | Composition unit for command modules                                                                                |
-| `ICommandHostContext`                | `src/command-api/host-context.ts`                     | Narrow facade for command module implementations                                                                    |
-| `ICommandHostAdapters`               | `src/command-api/host-adapters.ts`                    | Host-provided adapter bag                                                                                           |
-| `ICommandResult`                     | `src/command-api/contracts.ts`                        | Command output and typed host effects                                                                               |
-| `TCommandEffect`                     | `src/command-api/contracts.ts`                        | Typed host-applied effect union                                                                                     |
-| `IPresetApplicationOptions`          | `src/command-api/preset/preset-application.ts`        | Framework-owned resolved-preset option subset re-applied to a live session (PRESET-011~017)                         |
-| `IPresetApplicationResult`           | `src/command-api/preset/preset-application.ts`        | `{ applied, skipped }` report from `applyPresetToSession`                                                           |
-| `IModelReapplyOptions`               | `src/command-api/host-context.ts`                     | Live model group (`model`/`effort`/`temperature`/`maxOutputTokens`) re-applied via `applyModelOptions` (PRESET-013) |
-| `TSystemPromptSectionSource`         | `src/context/system-prompt-types.ts`                  | Source tag for a system-prompt section (`framework`, `persona`, `self-verification`, `runtime`, …)                  |
-| `ICapabilityDescriptor`              | `src/capabilities/types.ts`                           | Model-visible command descriptor                                                                                    |
-| `TCapabilityKind`                    | `src/capabilities/types.ts`                           | Capability kind union                                                                                               |
-| `TCapabilitySafety`                  | `src/capabilities/types.ts`                           | Capability safety level                                                                                             |
-| `IOrgPolicy`                         | `src/command-api/org-policy/`                         | Org-level policy constraints                                                                                        |
-| `IAgentRuntimeConfig`                | `src/runtime/agent-runtime.ts`                        | Configuration for `createAgentRuntime()`                                                                            |
-| `IAgentRuntime`                      | `src/runtime/agent-runtime.ts`                        | Runtime composition factory interface                                                                               |
-| `IHeadlessSessionOptions`            | `src/runtime/agent-runtime.ts`                        | Per-session options for headless/multi-session use                                                                  |
-| `IAgentDefinition`                   | `src/agents/index.ts`                                 | Agent definition shape (name, description, systemPrompt, tools)                                                     |
-| `IEditCheckpointSummary`             | `src/checkpoints/index.ts`                            | Checkpoint summary for list/inspect                                                                                 |
-| `IEditCheckpointInspection`          | `src/checkpoints/index.ts`                            | Full checkpoint inspection with file list                                                                           |
-| `IEditCheckpointRecorder`            | `src/checkpoints/index.ts`                            | Port for checkpoint capture integration                                                                             |
-| `IReversibleExecutionOptions`        | `src/reversible-execution/index.ts`                   | Options for reversible execution mode                                                                               |
-| `IReversibleToolSafetyReport`        | `src/reversible-execution/index.ts`                   | Classification report for a tool call                                                                               |
-| `ISelfHostingVerificationPlan`       | `src/self-hosting/index.ts`                           | Ordered verification step plan                                                                                      |
-| `TSelfHostingLoopState`              | `src/self-hosting/index.ts`                           | Self-hosting lifecycle state                                                                                        |
-| `IBundlePluginManifest`              | `src/plugins/index.ts`                                | Plugin metadata: name, version, description                                                                         |
-| `ILoadedBundlePlugin`                | `src/plugins/index.ts`                                | Full bundle: manifest + tools, hooks, permissions, systemPrompt                                                     |
-| `IPluginSettings`                    | `src/plugins/index.ts`                                | Plugin enable/disable settings                                                                                      |
-| `IResolvedConfig`                    | `src/config/config-types.ts`                          | Fully resolved SDK configuration                                                                                    |
-| `TSettingsData`                      | `src/config/settings-io.ts`                           | Generic settings document shape                                                                                     |
-| `TSettingsScope`                     | `src/config/settings-io.ts`                           | `'user'` or `'project-local'`                                                                                       |
-| `IResetUserConfigResult`             | `src/config/reset-user-config.ts`                     | Result of resetting user configuration                                                                              |
-| `ITaskContextFile`                   | `src/context/task-context.ts`                         | Discovered task file shape                                                                                          |
-| `TTaskFileStatus`                    | `src/context/task-context.ts`                         | Task status union                                                                                                   |
-| `IPromptFileReferenceRecord`         | `src/context/prompt-file-references.ts`               | Resolved prompt file reference metadata                                                                             |
-| `TPromptFileReferenceDiagnosticCode` | `src/context/prompt-file-references.ts`               | Diagnostic code for reference errors                                                                                |
-| `IUserLocalStorageInspection`        | `src/user-local/index.ts`                             | User-local storage inspection projection                                                                            |
-| `IUserLocalMemoryItemProjection`     | `src/user-local/index.ts`                             | Memory item with display/navigation metadata                                                                        |
-| `TUserLocalMemoryCategory`           | `src/user-local/index.ts`                             | Allowed user-local memory category union                                                                            |
-| `ISkillPromptContext`                | `src/utils/skill-prompt.ts`                           | Variable substitution context for skill prompts                                                                     |
-| `ICliUpdateNotice`                   | `src/update-check/update-check.ts`                    | CLI update notification data                                                                                        |
-| `TCliUpdateCheckResult`              | `src/update-check/update-check.ts`                    | Result of a CLI update check                                                                                        |
+| Type                                 | Location                                                                           | Purpose                                                                                                             |
+| ------------------------------------ | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `IInteractiveSession`                | `src/interactive/i-interactive-session.ts`                                         | Public interface for the event-driven session wrapper                                                               |
+| `TInteractiveSessionOptions`         | `src/interactive/interactive-session-options.ts`                                   | Constructor options for `InteractiveSession`                                                                        |
+| `IInteractiveSessionShutdownOptions` | `src/interactive/interactive-session.ts`                                           | Options for graceful session shutdown                                                                               |
+| `IInteractiveSessionEvents`          | `src/interactive/types.ts`                                                         | Event map for all session events                                                                                    |
+| `IInteractiveSessionRecord`          | `src/interactive/session-persistence.ts`                                           | Persisted session record shape                                                                                      |
+| `IInteractiveSessionStore`           | `src/interactive/session-persistence.ts`                                           | Session persistence adapter interface                                                                               |
+| `IResumableSessionSummary`           | `src/interactive/session-persistence.ts`                                           | Lightweight session summary for session picker                                                                      |
+| `IToolState`                         | `src/interactive/types.ts`                                                         | Tool execution state visible to clients                                                                             |
+| `IDiffLine`                          | `src/interactive/types.ts`                                                         | One diff line for Edit tool display metadata                                                                        |
+| `IExecutionResult`                   | `src/interactive/types.ts`                                                         | Result of a completed prompt execution                                                                              |
+| `IToolSummary`                       | `src/interactive/types.ts`                                                         | Summary of a tool call extracted from history                                                                       |
+| `IUsageSnapshot`                     | `src/interactive/types.ts`                                                         | Provider-neutral execution usage record                                                                             |
+| `TPermissionResultValue`             | `src/interactive/types.ts`                                                         | Permission handler result: `true`, `false`, `'allow-session'`, `'allow-project'`                                    |
+| `TInteractivePermissionHandler`      | `src/interactive/types.ts`                                                         | Client-provided permission approval callback                                                                        |
+| `TInteractiveEventName`              | `src/interactive/types.ts`                                                         | Union of all event names                                                                                            |
+| `IContextFileRefreshedEvent`         | `src/interactive/types.ts`                                                         | Event emitted when a context file is refreshed                                                                      |
+| `ITransportAdapter`                  | `@robota-sdk/agent-interface-transport` (import from SSOT; no longer re-exported)  | Common interface for transport adapters                                                                             |
+| `IConfigurableTransport`             | `@robota-sdk/agent-interface-transport` (no longer re-exported — import from SSOT) | Transport with configurable options                                                                                 |
+| `ITransportConfig`                   | `@robota-sdk/agent-interface-transport` (no longer re-exported — import from SSOT) | Transport configuration shape                                                                                       |
+| `ISkillActivationEvent`              | `src/commands/skill-activation-events.ts`                                          | Structured skill activation record                                                                                  |
+| `ISystemCommand`                     | `src/command-api/contracts.ts`                                                     | Command metadata and execute contract                                                                               |
+| `ICommandModule`                     | `src/command-api/command-module.ts`                                                | Composition unit for command modules                                                                                |
+| `ICommandHostContext`                | `src/command-api/host-context.ts`                                                  | Narrow facade for command module implementations                                                                    |
+| `ICommandHostAdapters`               | `src/command-api/host-adapters.ts`                                                 | Host-provided adapter bag                                                                                           |
+| `ICommandResult`                     | `src/command-api/contracts.ts`                                                     | Command output and typed host effects                                                                               |
+| `TCommandEffect`                     | `src/command-api/contracts.ts`                                                     | Typed host-applied effect union                                                                                     |
+| `IPresetApplicationOptions`          | `src/command-api/preset/preset-application.ts`                                     | Framework-owned resolved-preset option subset re-applied to a live session (PRESET-011~017)                         |
+| `IPresetApplicationResult`           | `src/command-api/preset/preset-application.ts`                                     | `{ applied, skipped }` report from `applyPresetToSession`                                                           |
+| `IModelReapplyOptions`               | `src/command-api/host-context.ts`                                                  | Live model group (`model`/`effort`/`temperature`/`maxOutputTokens`) re-applied via `applyModelOptions` (PRESET-013) |
+| `TSystemPromptSectionSource`         | `src/context/system-prompt-types.ts`                                               | Source tag for a system-prompt section (`framework`, `persona`, `self-verification`, `runtime`, …)                  |
+| `ICapabilityDescriptor`              | `src/capabilities/types.ts`                                                        | Model-visible command descriptor                                                                                    |
+| `TCapabilityKind`                    | `src/capabilities/types.ts`                                                        | Capability kind union                                                                                               |
+| `TCapabilitySafety`                  | `src/capabilities/types.ts`                                                        | Capability safety level                                                                                             |
+| `IOrgPolicy`                         | `src/command-api/org-policy/`                                                      | Org-level policy constraints                                                                                        |
+| `IAgentRuntimeConfig`                | `src/runtime/agent-runtime.ts`                                                     | Configuration for `createAgentRuntime()`                                                                            |
+| `IAgentRuntime`                      | `src/runtime/agent-runtime.ts`                                                     | Runtime composition factory interface                                                                               |
+| `IHeadlessSessionOptions`            | `src/runtime/agent-runtime.ts`                                                     | Per-session options for headless/multi-session use                                                                  |
+| `IAgentDefinition`                   | `src/agents/index.ts`                                                              | Agent definition shape (name, description, systemPrompt, tools)                                                     |
+| `IEditCheckpointSummary`             | `src/checkpoints/index.ts`                                                         | Checkpoint summary for list/inspect                                                                                 |
+| `IEditCheckpointInspection`          | `src/checkpoints/index.ts`                                                         | Full checkpoint inspection with file list                                                                           |
+| `IEditCheckpointRecorder`            | `src/checkpoints/index.ts`                                                         | Port for checkpoint capture integration                                                                             |
+| `IReversibleExecutionOptions`        | `src/reversible-execution/index.ts`                                                | Options for reversible execution mode                                                                               |
+| `IReversibleToolSafetyReport`        | `src/reversible-execution/index.ts`                                                | Classification report for a tool call                                                                               |
+| `ISelfHostingVerificationPlan`       | `src/self-hosting/index.ts`                                                        | Ordered verification step plan                                                                                      |
+| `TSelfHostingLoopState`              | `src/self-hosting/index.ts`                                                        | Self-hosting lifecycle state                                                                                        |
+| `IBundlePluginManifest`              | `src/plugins/index.ts`                                                             | Plugin metadata: name, version, description                                                                         |
+| `ILoadedBundlePlugin`                | `src/plugins/index.ts`                                                             | Full bundle: manifest + tools, hooks, permissions, systemPrompt                                                     |
+| `IPluginSettings`                    | `src/plugins/index.ts`                                                             | Plugin enable/disable settings                                                                                      |
+| `IResolvedConfig`                    | `src/config/config-types.ts`                                                       | Fully resolved SDK configuration                                                                                    |
+| `TSettingsData`                      | `src/config/settings-io.ts`                                                        | Generic settings document shape                                                                                     |
+| `TSettingsScope`                     | `src/config/settings-io.ts`                                                        | `'user'` or `'project-local'`                                                                                       |
+| `IResetUserConfigResult`             | `src/config/reset-user-config.ts`                                                  | Result of resetting user configuration                                                                              |
+| `ITaskContextFile`                   | `src/context/task-context.ts`                                                      | Discovered task file shape                                                                                          |
+| `TTaskFileStatus`                    | `src/context/task-context.ts`                                                      | Task status union                                                                                                   |
+| `IPromptFileReferenceRecord`         | `src/context/prompt-file-references.ts`                                            | Resolved prompt file reference metadata                                                                             |
+| `TPromptFileReferenceDiagnosticCode` | `src/context/prompt-file-references.ts`                                            | Diagnostic code for reference errors                                                                                |
+| `IUserLocalStorageInspection`        | `src/user-local/index.ts`                                                          | User-local storage inspection projection                                                                            |
+| `IUserLocalMemoryItemProjection`     | `src/user-local/index.ts`                                                          | Memory item with display/navigation metadata                                                                        |
+| `TUserLocalMemoryCategory`           | `src/user-local/index.ts`                                                          | Allowed user-local memory category union                                                                            |
+| `ISkillPromptContext`                | `src/utils/skill-prompt.ts`                                                        | Variable substitution context for skill prompts                                                                     |
+| `ICliUpdateNotice`                   | `src/update-check/update-check.ts`                                                 | CLI update notification data                                                                                        |
+| `TCliUpdateCheckResult`              | `src/update-check/update-check.ts`                                                 | Result of a CLI update check                                                                                        |
 
 ## Public API Surface
 
@@ -388,9 +388,16 @@ when no interactive renderer is attached (headless/automation) — a command tre
 available", never a silent guess. `createUserInteractionPort()`
 (`src/interaction/user-interaction-port.ts`) wraps the handler with the model-invocation guard: a
 command invoked by the model runs inside an executing turn, so the port resolves `cancelled` instead of
-blocking on a human prompt (a model-issued interactive ask is CMD-005's separate turn-suspension
-design). Transports render the `IActionRequest` per-environment; the contract carries no function-valued
-fields (serialization-safe for remote transports).
+blocking on a human prompt. Transports render the `IActionRequest` per-environment; the contract carries
+no function-valued fields (serialization-safe for remote transports).
+
+**Model-question seam (CMD-005)**: the same `askHandler` is additionally threaded — session assembly
+(`createSession` `ask` option) → agent-session `ISessionOptions.ask` → `IAgentConfig.ask` — into every
+per-tool-call `IToolExecutionContext.ask`, which the `AskUserQuestion` built-in tool (agent-tools)
+consumes to let the model ask the user structured questions mid-turn (the channel's queued ask renderer
+already works while a turn is executing, like permission prompts). The command-path model-invocation
+guard above is unchanged — the tool is the one model path. Headless sessions inject no handler, so the
+tool resolves a structured `unavailable` result.
 
 **`createSelfVerificationSection()`** (`src/context/system-prompt-section-providers.ts`) composes a
 verify-before-done system-prompt section with `source: 'self-verification'` at **priority 6** — between
@@ -434,6 +441,21 @@ non-error (skipped / empty defaults), but an EXISTING file that fails to parse t
 
 Callers can detect `source === 'env-default'` and read `sourceEnvVar` to render a one-line
 startup notice naming provider/model/env-var — never the key value.
+
+## Turn Error Surfacing & Liveness (ERR-001)
+
+Layered contract: classification lives in the provider (typed errors), humanization in this
+package (`humanizeApiError`, SSOT), turn recovery in the interactive controller, rendering in each
+transport, and process survival in the product assembly.
+
+- A failed turn commits any partially streamed answer to history as an **interrupted assistant
+  entry** before the stream state clears — a mid-stream failure never evaporates the partial text.
+- The error history entry is humanized and machine-marked with `metadata.kind: 'error'` so
+  transports can render a styled error block instead of a plain system note.
+- `InteractiveSession.reportBackgroundError(error, source?)` surfaces errors from OUTSIDE the turn
+  boundary (background tasks, catalog refresh, un-caught promises) through the same humanize →
+  marked-entry → `'error'` event path; the session stays fully usable. Product assemblies route
+  process-level guards here (agent-cli SPEC → Process Survival Boundary).
 
 ## Error Taxonomy
 
@@ -2065,6 +2087,19 @@ The manager does not create providers, sessions, child processes, worktrees, or 
 SDK runtime facade barrels also re-export runtime-owned helper primitives for bounded output
 capture and cursor-based log pagination so runtime shells can implement process adapters through
 the documented SDK facade instead of importing `agent-executor` directly.
+
+### Agent Wake Dedup & Eviction (FLOW-002 / CORE-024)
+
+`InteractiveSession.requestWakeup(instruction, sourceTaskId)` injects an agent-driven turn and
+tracks `sourceTaskId` in a live set so a background task cannot enqueue overlapping wakes for the
+same source. That tracking set must be cleaned up on **every** exit path, not only on a wake that
+runs to a completed turn:
+
+- The id is removed when its wake turn completes (the normal path).
+- It is **also** removed when the wake is evicted before completing — session `abort()`,
+  `shutdown()`, or a pending-queue drop. Otherwise the `sourceTaskId` lingers in the set and every
+  future wake for that task is silently rejected forever (RUNTIME-19). Clearing the pending queue
+  clears the corresponding wake-tracking ids.
 
 `InteractiveSession` exposes background task controls:
 

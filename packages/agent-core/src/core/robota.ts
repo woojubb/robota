@@ -7,7 +7,13 @@ import {
   buildOwnerPath,
   createModuleEventEmitter,
 } from './robota-events';
-import { robotaRun, robotaRunStream, type IRobotaExecutionDeps } from './robota-execution';
+import {
+  robotaRun,
+  robotaRunStream,
+  robotaRunStructured,
+  robotaRunStreamStructured,
+  type IRobotaExecutionDeps,
+} from './robota-execution';
 import {
   getHistory,
   getFullHistory,
@@ -17,24 +23,33 @@ import {
   injectRawMessage,
 } from './robota-history';
 import { performDoAsyncInit } from './robota-initializer';
-import { buildAgentStats, destroyAgent } from './robota-lifecycle';
+import { buildAgentStats, destroyAgent, type IDestroyResult } from './robota-lifecycle';
 import { DEFAULT_ABSTRACT_EVENT_SERVICE, bindWithOwnerPath } from '../event-service/index';
 import { AgentFactory } from '../managers/agent-factory';
 import { AIProviders } from '../managers/ai-provider-manager';
 import { ConversationHistory } from '../managers/conversation-history-manager';
 import { ModuleRegistry } from '../managers/module-registry';
 import { Tools } from '../managers/tool-manager';
+import { normalizeStructuredOutput } from '../schema/structured-output';
 import { createLogger, setGlobalLogLevel, type ILogger } from '../utils/logger';
 
 import type { RobotaConfigManager } from './robota-config-manager';
 import type { IModelConfig, IConfigurationSnapshot } from './robota-types';
 import type { AbstractTool, IToolWithEventService } from '../abstracts/abstract-tool';
-import type { TUniversalMessage, IAgentConfig, IRunOptions, IAgent } from '../interfaces/agent';
+import type {
+  TUniversalMessage,
+  IAgentConfig,
+  IRunOptions,
+  IAgent,
+  TRunOptionsWithOutput,
+} from '../interfaces/agent';
 import type { IEventService, IAgentEventData } from '../interfaces/event-service';
 import type { IHistoryEntry } from '../interfaces/messages';
 import type { IAIProvider } from '../interfaces/provider';
 import type { EventEmitterPlugin } from '../plugins/event-emitter-plugin';
+import type { IJsonSchemaOutput } from '../schema/structured-output';
 import type { ExecutionService } from '../services/execution-service';
+import type { ZodType, TypeOf } from 'zod';
 
 const ID_RADIX = 36;
 const ID_RANDOM_LENGTH = 9;
@@ -62,6 +77,8 @@ export class Robota
   private conversationId: string;
   private logger: ILogger;
   private initializationPromise?: Promise<void> | undefined;
+  /** Terminal state (CORE-022): once destroyed, run/runStream reject and re-init is impossible. */
+  private destroyed = false;
   private isFullyInitialized = false;
   private startTime: number;
   private configVersion: number = 1;
@@ -138,17 +155,104 @@ export class Robota
     await this.ensureFullyInitialized();
   }
 
-  async run(input: string, options: IRunOptions = {}): Promise<string> {
-    await this.ensureFullyInitialized();
-    return robotaRun(this.executionDeps(), input, options);
+  /**
+   * Concurrency contract (CORE-012): a Robota instance owns ONE conversation history, so
+   * concurrent `run`/`runStream` calls on the same instance are serialized on an internal queue —
+   * a call issued while another is in flight waits its turn (its `signal` is honored while queued).
+   * Interleaved histories are therefore impossible by construction.
+   *
+   * Structured output (CORE-015): with `options.output` set the promise resolves to the validated
+   * object (typed `z.infer<S>` for a Zod schema) instead of a string. Note the structured typing
+   * is visible on `Robota` directly; through the generic `IAgent` interface the return type stays
+   * `Promise<string>`.
+   */
+  run<S extends ZodType>(input: string, options: TRunOptionsWithOutput<S>): Promise<TypeOf<S>>;
+  run(input: string, options: TRunOptionsWithOutput<IJsonSchemaOutput>): Promise<unknown>;
+  run(input: string, options?: IRunOptions): Promise<string>;
+  async run(input: string, options: IRunOptions = {}): Promise<unknown> {
+    this.assertNotDestroyed();
+    return this.enqueueRun(options.signal, async () => {
+      await this.ensureFullyInitialized();
+      try {
+        if (options.output) {
+          const spec = normalizeStructuredOutput(options.output);
+          return await robotaRunStructured(this.executionDeps(), input, options, spec);
+        }
+        return await robotaRun(this.executionDeps(), input, options);
+      } finally {
+        this.resetEphemeralHistory();
+      }
+    });
   }
 
+  runStream<S extends ZodType>(
+    input: string,
+    options: TRunOptionsWithOutput<S>,
+  ): AsyncGenerator<string, TypeOf<S>, undefined>;
+  runStream(
+    input: string,
+    options: TRunOptionsWithOutput<IJsonSchemaOutput>,
+  ): AsyncGenerator<string, unknown, undefined>;
+  runStream(input: string, options?: IRunOptions): AsyncGenerator<string, void, undefined>;
   async *runStream(
     input: string,
     options: IRunOptions = {},
-  ): AsyncGenerator<string, void, undefined> {
-    await this.ensureFullyInitialized();
-    yield* robotaRunStream(this.executionDeps(), input, options);
+  ): AsyncGenerator<string, unknown, undefined> {
+    this.assertNotDestroyed();
+    // Serialized like run(): the queue slot is held until the stream is fully consumed
+    // (return or throw), because the conversation history is being written throughout.
+    const release = await this.acquireRunSlot(options.signal);
+    try {
+      await this.ensureFullyInitialized();
+      if (options.output) {
+        const spec = normalizeStructuredOutput(options.output);
+        // The validated object is the generator's return value (CORE-015).
+        return yield* robotaRunStreamStructured(this.executionDeps(), input, options, spec);
+      }
+      yield* robotaRunStream(this.executionDeps(), input, options);
+      return undefined;
+    } finally {
+      this.resetEphemeralHistory();
+      release();
+    }
+  }
+
+  /**
+   * Run-isolated mode (CORE-014): with `retainHistory: false` the conversation store is
+   * ephemeral per run — reset after every run settles (success, abort, or error) so nothing
+   * accumulates across runs. The system prompt re-applies on the next run (CORE-010).
+   */
+  private resetEphemeralHistory(): void {
+    if (this.config.retainHistory === false) {
+      this.clearHistory();
+    }
+  }
+
+  /** Tail of the internal run queue (CORE-012). */
+  private runQueueTail: Promise<void> = Promise.resolve();
+
+  /** Wait for the previous run to settle, then hold the slot until `release` is called. */
+  private async acquireRunSlot(signal: AbortSignal | undefined): Promise<() => void> {
+    const previous = this.runQueueTail;
+    let release: () => void = () => {};
+    this.runQueueTail = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await previous;
+    if (signal?.aborted) {
+      release();
+      throw new Error('Run aborted while queued behind another run on this instance');
+    }
+    return release;
+  }
+
+  private async enqueueRun<T>(signal: AbortSignal | undefined, task: () => Promise<T>): Promise<T> {
+    const release = await this.acquireRunSlot(signal);
+    try {
+      return await task();
+    } finally {
+      release();
+    }
   }
 
   private executionDeps(): IRobotaExecutionDeps {
@@ -247,8 +351,19 @@ export class Robota
     });
   }
 
-  async destroy(): Promise<void> {
-    await destroyAgent({
+  /**
+   * Best-effort disposal (CORE-013): never rejects for cleanup failures, so
+   * `void agent.destroy()` is safe to fire-and-forget. Every cleanup step runs even if an
+   * earlier one fails; failures are logged and returned in `errors` for callers that want a
+   * hard signal.
+   */
+  async destroy(): Promise<IDestroyResult> {
+    // CORE-022: idempotent terminal operation — new runs are rejected from this point,
+    // and in-flight/queued runs settle before disposal begins (queue tail await).
+    if (this.destroyed) return { errors: [] };
+    this.destroyed = true;
+    await this.runQueueTail;
+    return destroyAgent({
       name: this.name,
       isFullyInitialized: this.isFullyInitialized,
       moduleRegistry: this.moduleRegistry,
@@ -262,13 +377,29 @@ export class Robota
     });
   }
 
+  /** CORE-022: a destroyed agent never revives — reject before touching the run queue. */
+  private assertNotDestroyed(): void {
+    if (this.destroyed) {
+      throw new Error(
+        `[LIFECYCLE] Agent "${this.name}" has been destroyed — create a new instance`,
+      );
+    }
+  }
+
   protected override async initialize(): Promise<void> {
     await this.ensureFullyInitialized();
   }
 
   private async ensureFullyInitialized(): Promise<void> {
+    this.assertNotDestroyed();
     if (this.isFullyInitialized) return;
-    if (!this.initializationPromise) this.initializationPromise = this.doAsyncInit();
+    if (!this.initializationPromise) {
+      // CORE-022: a failed init must not be cached — clear so a later call can retry.
+      this.initializationPromise = this.doAsyncInit().catch((error: unknown) => {
+        this.initializationPromise = undefined;
+        throw error;
+      });
+    }
     await this.initializationPromise;
   }
 

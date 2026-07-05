@@ -9,6 +9,8 @@
 
 import { spawn } from 'node:child_process';
 
+import { resolvePlatformShell } from '../../utils/platform-shell.js';
+
 import type {
   ICommandHookDefinition,
   IHookInput,
@@ -32,7 +34,8 @@ export class CommandExecutor implements IHookTypeExecutor {
       const stderrChunks: Buffer[] = [];
       let settled = false;
 
-      const child = spawn('sh', ['-c', definition.command], {
+      const shell = resolvePlatformShell();
+      const child = spawn(shell.command, shell.commandArgs(definition.command), {
         cwd: input.cwd,
         env: { ...process.env, ...input.env },
       });

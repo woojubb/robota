@@ -9,7 +9,7 @@ import {
 } from '../index.js';
 
 import type { IBackgroundJobGroupState } from '../background-job-orchestrator.js';
-import type { IBackgroundTaskState } from '../index.js';
+import type { IBackgroundTaskState } from '@robota-sdk/agent-interface-transport';
 
 function createTask(overrides: Partial<IBackgroundTaskState> = {}): IBackgroundTaskState {
   return {
@@ -139,5 +139,58 @@ describe('execution workspace projection', () => {
     expect(taskById['agent_1'].controls).toContain('send');
     expect(taskById['proc_1'].controls).not.toContain('send');
     expect(taskById['agent_done'].controls).not.toContain('send');
+  });
+
+  // SCREEN-010: order must be stable (creation/start order), not churn by lastActivityAt.
+  it('orders background tasks by startedAt, not by lastActivityAt', () => {
+    const build = (lastActivity: { a: string; b: string; c: string }) =>
+      createExecutionWorkspaceSnapshot({
+        sessionId: 'session_parent',
+        mainThread: {
+          sessionId: 'session_parent',
+          isExecuting: false,
+          hasPendingPrompt: false,
+          historyLength: 0,
+          updatedAt: '2026-05-09T00:00:00.000Z',
+        },
+        groups: [],
+        // Started a → b → c. lastActivityAt is varied to try to reshuffle them.
+        tasks: [
+          createTask({
+            id: 'task_b',
+            startedAt: '2026-05-09T00:00:02.000Z',
+            lastActivityAt: lastActivity.b,
+          }),
+          createTask({
+            id: 'task_c',
+            startedAt: '2026-05-09T00:00:03.000Z',
+            lastActivityAt: lastActivity.c,
+          }),
+          createTask({
+            id: 'task_a',
+            startedAt: '2026-05-09T00:00:01.000Z',
+            lastActivityAt: lastActivity.a,
+          }),
+        ],
+      });
+
+    const order = (snap: ReturnType<typeof build>) =>
+      snap.entries.filter((e) => e.kind === 'background_task').map((e) => e.sourceId);
+
+    // First render: ascending startedAt regardless of input array order.
+    const first = build({
+      a: '2026-05-09T00:00:10.000Z',
+      b: '2026-05-09T00:00:11.000Z',
+      c: '2026-05-09T00:00:12.000Z',
+    });
+    expect(order(first)).toEqual(['task_a', 'task_b', 'task_c']);
+
+    // Later render where activity order is reversed (c most recent): order must NOT change.
+    const later = build({
+      a: '2026-05-09T00:00:99.000Z',
+      b: '2026-05-09T00:00:50.000Z',
+      c: '2026-05-09T00:00:20.000Z',
+    });
+    expect(order(later)).toEqual(['task_a', 'task_b', 'task_c']);
   });
 });

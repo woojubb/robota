@@ -6,6 +6,7 @@ import { createDefaultTools, DEFAULT_TOOL_DESCRIPTIONS } from '../create-tools';
 describe('createDefaultTools', () => {
   it('assembles all default local tools and describes web tools as local tools', () => {
     expect(createDefaultTools().map((tool) => tool.getName())).toEqual([
+      'Shell',
       'Bash',
       'Read',
       'Write',
@@ -14,6 +15,7 @@ describe('createDefaultTools', () => {
       'Grep',
       'WebFetch',
       'WebSearch',
+      'AskUserQuestion',
     ]);
 
     expect(DEFAULT_TOOL_DESCRIPTIONS).toContain('WebFetch — fetch URL content as text');
@@ -26,6 +28,7 @@ describe('createDefaultTools', () => {
     const sandboxClient = new InMemorySandboxClient();
 
     expect(createDefaultTools({ sandboxClient }).map((tool) => tool.getName())).toEqual([
+      'Shell',
       'Bash',
       'Read',
       'Write',
@@ -34,6 +37,7 @@ describe('createDefaultTools', () => {
       'Grep',
       'WebFetch',
       'WebSearch',
+      'AskUserQuestion',
     ]);
   });
 });

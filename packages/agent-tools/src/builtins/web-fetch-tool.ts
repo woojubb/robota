@@ -64,7 +64,7 @@ export function classifyFetchError(err: unknown): string {
   return `Network error: ${err.message} Check that the URL is correct and the server is reachable.`;
 }
 
-async function runWebFetch(args: TWebFetchArgs): Promise<string> {
+async function runWebFetch(args: TWebFetchArgs, signal?: AbortSignal): Promise<string> {
   const { url, headers } = args;
 
   try {
@@ -82,13 +82,15 @@ async function runWebFetch(args: TWebFetchArgs): Promise<string> {
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
+    // CORE-018: the run-scoped signal aborts the in-flight request alongside the timeout.
+    const fetchSignal = signal ? AbortSignal.any([controller.signal, signal]) : controller.signal;
 
     const response = await fetch(url, {
       headers: {
         'User-Agent': 'Robota-CLI/3.0',
         ...(headers ?? {}),
       },
-      signal: controller.signal,
+      signal: fetchSignal,
       redirect: 'follow',
     });
 
@@ -143,5 +145,5 @@ export const webFetchTool = createZodFunctionTool(
   'WebFetch',
   'Fetch a URL and return its content as text. HTML pages are converted to plain text.',
   WebFetchSchema,
-  async (params) => runWebFetch(params as TWebFetchArgs),
+  async (params, context) => runWebFetch(params, context?.signal),
 );

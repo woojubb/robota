@@ -67,6 +67,14 @@ export class ExecutionService {
     this.cacheService = cacheService;
   }
 
+  /**
+   * Session-scoped "ask the user" port (CMD-005) — delegates to the tool execution layer so every
+   * tool call's context carries `ask` when an interactive user is attached.
+   */
+  setAskHandler(ask: Parameters<ToolExecutionService['setAskHandler']>[0]): void {
+    this.toolExecutionService.setAskHandler(ask);
+  }
+
   /** Register a plugin */
   registerPlugin(plugin: TPluginWithHooks): void {
     const pluginPriority = plugin.priority ?? 0;
@@ -249,15 +257,17 @@ export class ExecutionService {
         this.logger,
         this.eventEmitter,
       );
-      const errMsg = error instanceof Error ? error.message : String(error);
+      // CORE-020: a failed result carries the error itself — never error text disguised
+      // as a response. robotaRun throws result.error so callers receive a rejection.
       return {
-        response: `Error: ${errMsg}`,
+        response: '',
         messages: [],
         tokensUsed: 0,
         toolsExecuted: [],
         duration: Date.now() - startTime.getTime(),
         executionId,
         success: false,
+        error: error instanceof Error ? error : new Error(String(error)),
       };
     } finally {
       this.eventEmitter.resetOwnerPathBases();

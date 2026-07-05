@@ -94,6 +94,11 @@ export async function runExecutionLoop(
     lastMsg.content.length > 0 &&
     (!('toolCalls' in lastMsg) || (lastMsg.toolCalls as unknown[]).length === 0);
 
+  // CORE-011: a caller that already extracted its tool outcome can abort away the summary call,
+  // and a decision-agent run can declare tool-only endings valid completions outright.
+  if (signal?.aborted) return;
+  if (fullContext.allowToolOnlyCompletion === true) return;
+
   if (!hasTextResponse) {
     await forceSummaryCall(
       conversationStore,

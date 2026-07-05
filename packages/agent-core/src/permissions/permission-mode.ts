@@ -14,6 +14,7 @@ import type { TPermissionMode, TPermissionDecision } from './types.js';
  * Tool names known to the permission system
  */
 export type TKnownToolName =
+  | 'Shell'
   | 'Bash'
   | 'Read'
   | 'Write'
@@ -21,7 +22,8 @@ export type TKnownToolName =
   | 'Glob'
   | 'Grep'
   | 'WebFetch'
-  | 'WebSearch';
+  | 'WebSearch'
+  | 'AskUserQuestion';
 
 /**
  * Permission mode → tool policy matrix
@@ -29,6 +31,7 @@ export type TKnownToolName =
  */
 export const MODE_POLICY: Record<TPermissionMode, Record<TKnownToolName, TPermissionDecision>> = {
   plan: {
+    Shell: 'deny',
     Bash: 'deny',
     Read: 'auto',
     Write: 'deny',
@@ -37,8 +40,10 @@ export const MODE_POLICY: Record<TPermissionMode, Record<TKnownToolName, TPermis
     Grep: 'auto',
     WebFetch: 'auto',
     WebSearch: 'auto',
+    AskUserQuestion: 'auto',
   },
   default: {
+    Shell: 'approve',
     Bash: 'approve',
     Read: 'auto',
     Write: 'approve',
@@ -47,8 +52,10 @@ export const MODE_POLICY: Record<TPermissionMode, Record<TKnownToolName, TPermis
     Grep: 'auto',
     WebFetch: 'auto',
     WebSearch: 'auto',
+    AskUserQuestion: 'auto',
   },
   acceptEdits: {
+    Shell: 'approve',
     Bash: 'approve',
     Read: 'auto',
     Write: 'auto',
@@ -57,8 +64,10 @@ export const MODE_POLICY: Record<TPermissionMode, Record<TKnownToolName, TPermis
     Grep: 'auto',
     WebFetch: 'auto',
     WebSearch: 'auto',
+    AskUserQuestion: 'auto',
   },
   bypassPermissions: {
+    Shell: 'auto',
     Bash: 'auto',
     Read: 'auto',
     Write: 'auto',
@@ -67,6 +76,7 @@ export const MODE_POLICY: Record<TPermissionMode, Record<TKnownToolName, TPermis
     Grep: 'auto',
     WebFetch: 'auto',
     WebSearch: 'auto',
+    AskUserQuestion: 'auto',
   },
 };
 

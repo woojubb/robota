@@ -1,0 +1,51 @@
+{
+  "name": "@robota-sdk/dag-adapters-sqlite",
+  "version": "3.0.0-beta.60",
+  "private": true,
+  "description": "SQLite persistent storage adapter for DAG ports",
+  "type": "module",
+  "main": "dist/node/index.js",
+  "types": "dist/node/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/node/index.d.ts",
+      "node": {
+        "import": "./dist/node/index.js",
+        "require": "./dist/node/index.cjs"
+      },
+      "default": {
+        "import": "./dist/node/index.js",
+        "require": "./dist/node/index.cjs"
+      }
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "build:js": "tsdown --no-dts",
+    "build:types": "tsdown --dts",
+    "test": "vitest run --passWithNoTests",
+    "test:coverage": "vitest run --coverage --passWithNoTests",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src/ --ext .ts",
+    "clean": "rimraf dist",
+    "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
+  },
+  "dependencies": {
+    "@robota-sdk/dag-core": "workspace:*",
+    "better-sqlite3": "^11.0.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
+    "rimraf": "^5.0.5",
+    "tsdown": "^0.22.2",
+    "typescript": "^5.3.3",
+    "vitest": "^3.2.6"
+  },
+  "license": "AGPL-3.0-only OR LicenseRef-Commercial",
+  "publishConfig": {
+    "access": "public"
+  }
+}

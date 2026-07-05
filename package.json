@@ -43,6 +43,7 @@
     "readme:cleanup": "node scripts/docs/copy-readme.cjs cleanup",
     "readme:validate": "node scripts/docs/validate-readmes.js",
     "harness:scan": "node scripts/harness/run-all-scans.mjs",
+    "harness:test": "vitest run scripts/harness/__tests__",
     "harness:conformance": "node scripts/harness/check-architecture-conformance.mjs",
     "harness:scan:done-evidence": "node scripts/harness/check-done-evidence.mjs",
     "harness:scan:task-archival": "node scripts/harness/check-task-archival.mjs",
@@ -52,8 +53,14 @@
     "harness:scan:sdk-react-free": "node scripts/harness/check-sdk-react-free.mjs",
     "harness:scan:consistency": "node scripts/harness/scan-consistency.mjs",
     "harness:scan:document-authority": "node scripts/harness/check-document-authority.mjs",
+    "harness:scan:document-standards": "node scripts/harness/check-document-standards-index.mjs",
+    "harness:scan:arch-map-completeness": "node scripts/harness/check-architecture-map-completeness.mjs",
+    "harness:scan:design-doc": "node scripts/harness/check-design-doc-completeness.mjs",
+    "harness:scan:adr": "node scripts/harness/check-adr-completeness.mjs",
+    "harness:scan:spec-doc-frontmatter": "node scripts/harness/check-spec-doc-frontmatter.mjs",
     "harness:scan:commands": "node scripts/harness/check-command-layering.mjs",
     "harness:scan:capability-placement": "node scripts/harness/check-capability-placement.mjs",
+    "harness:scan:nested-package-glob-coverage": "node scripts/harness/check-nested-package-glob-coverage.mjs",
     "harness:scan:background-workspace": "node scripts/harness/check-background-workspace-conformance.mjs",
     "harness:scan:agent-server-boundary": "node scripts/harness/check-agent-server-boundary.mjs",
     "harness:scan:sdk-public-surface": "node scripts/harness/check-sdk-public-surface.mjs",
@@ -202,8 +209,11 @@
   },
   "workspaces": [
     "packages/*",
+    "packages/dag-nodes/*",
     "apps/*",
-    "examples/*"
+    "examples/*",
+    "examples/capabilities/*",
+    "scratch"
   ],
   "volta": {
     "node": "22.14.0"

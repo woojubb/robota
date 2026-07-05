@@ -1,6 +1,6 @@
 ---
 title: 'TERM-007: Windows support for the terminal-handoff feature group (shell selection + terminal capabilities)'
-status: todo
+status: in-progress
 created: 2026-06-28
 priority: low
 urgency: backlog
@@ -10,6 +10,18 @@ depends_on: [TERM-001, TERM-002, TERM-003, TERM-005]
 
 # Windows support follow-up
 
+**Status (2026-06-30):** the code-side work is complete — item 1 (shell selection) shipped as
+[TERM-008](../spec-docs/active/TERM-008-cross-platform-shell-execution.md), item 4 (no Unix job-control)
+is audited clean, and item 2's handoff is platform-neutral/Windows-capable by construction with nothing
+left to change without Windows runtime introspection. A **`windows-shell` CI job** (`.github/workflows/ci.yml`,
+`windows-latest`) now runs the resolver + Shell-tool tests on every PR — the Shell tool actually spawns
+`powershell.exe` there, giving **durable, maintained Windows shell-execution verification** (not a one-off
+pass). Its **first run passed green** (PR #900, 1m34s: `pnpm install` + agent-core build succeeded on
+Windows, the resolver tests ran, and the Shell tool spawned PowerShell and executed), so it is a
+**blocking** every-PR gate. The remaining gap is the **interactive TUI handoff** on real Windows Terminal
+(full-screen suspend/resume, IME) which CI cannot exercise — that still needs a manual Windows-Terminal
+pass. Item 3 (PTY) is a deferred non-goal.
+
 The terminal-handoff feature group ships macOS/Linux-first. The framework handoff (TERM-001) and the
 TUI suspend/resume (TERM-002) are platform-neutral by construction, so Windows work is confined to
 the **shell-selecting consumer modules** and a few **terminal-capability** edge cases — not the
@@ -17,18 +29,22 @@ framework.
 
 ## What
 
-1. **Shell selection (`resolveShell()` win32)** — implement the Windows branch of the
-   `resolveShell()` seam introduced in TERM-003/005: `%ComSpec%` (cmd.exe) or PowerShell instead of
-   `sh`. This also fixes the pre-existing gap where `BashTool` and the background runners hardcode
-   `sh` (broken on Windows today). Decide command quoting/`-c` equivalents per shell.
-2. **Terminal capabilities (TERM-002 on Windows)** — verify the manual suspend/resume on modern
-   Windows Terminal / ConPTY (Win10 1809+): VT processing enabled, cursor / alternate-screen restore
-   correct, and the "only undo what was enabled" rule keeps kitty-keyboard/bracketed-paste no-ops
-   where unsupported. Legacy `conhost` is an explicit non-goal; degrade via `canHandoffTerminal`.
-3. **PTY evaluation (optional)** — if full-screen interactivity or mid-run detach/reattach
-   (TERM-006) proves insufficient with `stdio: 'inherit'` on Windows, evaluate `node-pty` (ConPTY)
-   with its native-build/packaging cost. Only adopt on a concrete, demonstrated need.
-4. **No Unix job-control assumptions** — confirm nothing in the handoff relies on SIGTSTP/SIGCONT.
+1. **Shell selection (`resolveShell()` win32)** — ✅ **DONE in [TERM-008](../spec-docs/active/TERM-008-cross-platform-shell-execution.md)** (carved out and implemented): the cross-platform SSOT `resolvePlatformShell()` (agent-core) now backs the `Shell`/`Bash` tool, the hook `command` executor, and the interactive `resolveShell()` seam — POSIX `sh`/`bash` and Windows PowerShell (cmd via `ROBOTA_SHELL`), with per-OS quoting/`-c` equivalents and OS-aware command-syntax hints. The hard `sh`-only failure on Windows is removed.
+2. **Terminal capabilities (TERM-002 on Windows)** — ⏳ **code-ready; needs a Windows hardware pass.**
+   Audit (2026-06-30) confirms the handoff is **platform-neutral by construction**: `TerminalHandoffController`
+   uses only Node TTY APIs (`stdin.setRawMode`/`pause`, `isTTY`) + Ink rendering and `spawn(stdio:'inherit')`
+   — all ConPTY-capable on Win10 1809+. `canHandoffTerminal` already degrades to `false` on a non-TTY, and
+   alternate-screen/kitty/bracketed-paste emission + "only undo what was enabled" are owned by Ink, not us.
+   No reliable code change remains without Windows runtime introspection (legacy `conhost` detection is
+   unreliable via env and is an explicit non-goal). **Remaining: empirical verification on real Windows
+   Terminal — cannot be executed in the macOS/Linux dev/CI environment; requires a Windows machine or
+   Windows CI runner.**
+3. **PTY evaluation (optional)** — ⏸️ **deferred non-goal.** `stdio: 'inherit'` (+ ConPTY) is sufficient;
+   `node-pty` is already a dependency for the TEST-007 PTY e2e harness but is **not** needed for the
+   runtime handoff. Adopt only on a concrete, demonstrated need (none today).
+4. **No Unix job-control assumptions** — ✅ **DONE (audited 2026-06-30).** Repo-wide grep finds **zero**
+   `SIGTSTP`/`SIGCONT`/`SIGWINCH` handlers; the handoff suspends/resumes purely via Ink unmount + raw-mode
+   release, with no Unix job-control reliance. Nothing to change.
 
 ## Why
 
@@ -50,4 +66,8 @@ mostly module-local addition rather than a cross-cutting rewrite.
 - Steps: run `/shell` (expect cmd/pwsh), run an interactive command, edit via `$EDITOR`.
 - Expected: each hands the real console to the child, input works, and the TUI restores without stale
   frames or mode artifacts.
-- Evidence: _to be filled after implementation._
+- Evidence: ⛔ **pending a Windows pass.** The macOS/Linux unit + functional coverage for the shell
+  resolver (TERM-008 `platform-shell.test.ts` covers the win32 PowerShell/cmd branches via mocked
+  `process.platform`) is green, but the on-Windows-Terminal handoff/IME behaviour can only be captured
+  on real Windows hardware — not available in this environment. This scenario stays unfilled until a
+  Windows machine or Windows CI runner runs it.

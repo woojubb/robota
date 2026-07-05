@@ -408,7 +408,7 @@ describe('WebhookPlugin', () => {
       const stats = plugin.getStats();
       expect(stats.batchQueueLength).toBe(2);
 
-      await plugin.destroy();
+      await plugin.dispose();
     });
 
     it('should auto-flush when batch reaches maxSize', async () => {
@@ -425,7 +425,7 @@ describe('WebhookPlugin', () => {
       // Should have flushed since we hit maxSize of 2
       expect(fetch).toHaveBeenCalledTimes(2);
 
-      await plugin.destroy();
+      await plugin.dispose();
     });
   });
 
@@ -494,7 +494,7 @@ describe('WebhookPlugin', () => {
       expect(stats.queueLength).toBe(0);
       expect(stats.batchQueueLength).toBe(0);
 
-      await plugin.destroy();
+      await plugin.dispose();
     });
   });
 
@@ -513,7 +513,7 @@ describe('WebhookPlugin', () => {
       await plugin.sendWebhook('custom', { executionId: '1' });
       expect(fetch).not.toHaveBeenCalled();
 
-      await plugin.destroy();
+      await plugin.dispose();
       expect(fetch).toHaveBeenCalled();
     });
 
@@ -522,7 +522,7 @@ describe('WebhookPlugin', () => {
         endpoints: [createEndpoint()],
       });
 
-      await expect(plugin.destroy()).resolves.not.toThrow();
+      await expect(plugin.dispose()).resolves.not.toThrow();
     });
   });
 

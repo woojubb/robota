@@ -1,3 +1,4 @@
+import { assertToolChoiceValid, buildChatResponseFormat } from './execution-service-helpers';
 import { executeStreamToolCalls } from './execution-stream-tools';
 import { callPluginHook } from './plugin-hook-dispatcher';
 import { ConfigurationError } from '../utils/errors';
@@ -118,13 +119,25 @@ export async function* executeStream(
       hasTools: config.tools && config.tools.length > 0,
     });
 
+    // CORE-016/017: the streaming path must carry the same model options as the round path —
+    // defaultModel values first, run-scoped context overrides win.
+    const maxTokens = context?.maxTokens ?? config.defaultModel.maxTokens;
+    const temperature = context?.temperature ?? config.defaultModel.temperature;
+    const toolChoice = context?.toolChoice ?? config.defaultModel.toolChoice;
     const chatOptions: IChatOptions = {
       model: config.defaultModel.model,
+      effort: config.defaultModel.effort ?? 'high',
+      ...(context?.signal && { signal: context.signal }),
+      ...(maxTokens !== undefined && { maxTokens }),
+      ...(temperature !== undefined && { temperature }),
+      ...(toolChoice !== undefined && { toolChoice }),
       ...(config.tools && config.tools.length > 0 && { tools: tools.getTools() }),
-      ...(config.responseFormat?.type
-        ? { responseFormat: { type: config.responseFormat.type } }
-        : {}),
+      ...(() => {
+        const responseFormat = buildChatResponseFormat(config.responseFormat);
+        return responseFormat ? { responseFormat } : {};
+      })(),
     };
+    assertToolChoiceValid(chatOptions.toolChoice, chatOptions.tools);
 
     logger.debug('[EXECUTION-SERVICE] Final chatOptions has tools:', {
       hasTools: !!chatOptions.tools,
@@ -143,10 +156,14 @@ export async function* executeStream(
 
     const stream = chatStream.call(provider, conversationMessages, chatOptions);
     let fullResponse = '';
+    let sawAssistantContent = false;
     const toolCalls: IToolCall[] = [];
     let currentToolCallIndex = -1;
 
     for await (const chunk of stream) {
+      if (typeof chunk.content === 'string') {
+        sawAssistantContent = true;
+      }
       if (chunk.content) {
         fullResponse += chunk.content;
         yield { chunk: chunk.content, isComplete: false };
@@ -222,6 +239,12 @@ export async function* executeStream(
     if (typeof fullResponse !== 'string') {
       throw new Error('[EXECUTION] Streaming response content is required');
     }
+    // CORE-020: parity with the run-path response validation — a stream that delivered
+    // neither string content nor tool calls is a malformed provider response, not a
+    // silently-complete empty answer (empty-string content remains valid).
+    if (!sawAssistantContent && toolCalls.length === 0) {
+      throw new Error('[EXECUTION] Provider response must have content or tool calls');
+    }
     conversationStore.addAssistantMessage(fullResponse, toolCalls, {
       executionId,
     });
@@ -235,6 +258,7 @@ export async function* executeStream(
         toolExecutionService,
         eventEmitter,
         logger,
+        context?.signal,
       );
     }
 

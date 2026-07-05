@@ -1,14 +1,10 @@
 import { createZodFunctionTool } from '@robota-sdk/agent-tools';
 import { z } from 'zod';
 
-import type { IBackgroundTaskManager, TBackgroundPrimitive } from '../background-tasks/index.js';
-import type { IZodSchema } from '@robota-sdk/agent-tools';
+import type { IBackgroundTaskManager } from '../background-tasks/index.js';
+import type { TBackgroundPrimitive } from '@robota-sdk/agent-interface-transport';
 
 const DEFAULT_PROCESS_TIMEOUT_MS = 120_000;
-
-function asZodSchema(schema: z.ZodType): IZodSchema {
-  return schema as IZodSchema;
-}
 
 const BackgroundProcessSchema = z.object({
   command: z.string().describe('The shell command to start in the background'),
@@ -83,7 +79,7 @@ export function createBackgroundProcessTool(
   return createZodFunctionTool(
     'BackgroundProcess',
     'Start a shell command as a managed background task. Use this for long-running commands that should not block the current conversation. Use /background list, /background read <taskId>, /background cancel <taskId>, or /background close <taskId> to inspect or control it.',
-    asZodSchema(BackgroundProcessSchema),
+    BackgroundProcessSchema,
     async (params) => startBackgroundProcess(params as TBackgroundProcessArgs, deps),
   );
 }

@@ -6,7 +6,15 @@
  * The store directory is created on first write if it does not exist.
  */
 
-import { readFileSync, writeFileSync, existsSync, mkdirSync, unlinkSync, readdirSync } from 'fs';
+import {
+  readFileSync,
+  writeFileSync,
+  existsSync,
+  mkdirSync,
+  unlinkSync,
+  readdirSync,
+  renameSync,
+} from 'fs';
 import { join } from 'path';
 
 import type { IToolSchema } from '@robota-sdk/agent-core';
@@ -99,12 +107,25 @@ export class SessionStore implements ISessionStore {
   }
 
   /**
-   * Persist a session record to disk.
+   * Persist a session record to disk atomically (CORE-019).
    * Creates the storage directory if needed.
+   *
+   * Bytes go to a same-directory temp file first, then move into place with rename —
+   * a crash mid-write can therefore never leave a truncated JSON where the previous
+   * record used to be. Same-directory is load-bearing: cross-device rename is a copy.
    */
   save(session: ISessionRecord): void {
     this.ensureDir();
-    writeFileSync(this.filePath(session.id), JSON.stringify(session, null, 2), 'utf-8');
+    const finalPath = this.filePath(session.id);
+    const tempPath = `${finalPath}.${process.pid}.tmp`;
+    const serialized = JSON.stringify(session, null, 2);
+    writeFileSync(tempPath, serialized, 'utf-8');
+    try {
+      renameSync(tempPath, finalPath);
+    } catch (error) {
+      unlinkSync(tempPath);
+      throw error;
+    }
   }
 
   /**

@@ -122,6 +122,11 @@ export async function listWorkspaceScopes() {
     if (rootName === 'examples') {
       continue;
     }
+    // `scratch` is the dev-tooling home for disposable live-verification scripts
+    // (INFRA-023): committed skeleton only, src/ gitignored — not a scannable scope.
+    if (rootName === 'scratch') {
+      continue;
+    }
     if (!(await pathExists(path.join(WORKSPACE_ROOT, rootName)))) {
       continue;
     }

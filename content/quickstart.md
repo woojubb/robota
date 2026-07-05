@@ -83,6 +83,7 @@ Swap `createAnthropicProvider` with any other supported provider — no other co
 OpenAI is constructed directly via its provider class:
 
 ```typescript
+import { createQuery } from '@robota-sdk/agent-framework';
 import { OpenAIProvider } from '@robota-sdk/agent-provider';
 
 const query = createQuery({
@@ -91,6 +92,26 @@ const query = createQuery({
 ```
 
 Supported providers: Anthropic, OpenAI, Google Gemini, DeepSeek, Qwen, and any OpenAI-compatible endpoint (LM Studio, Ollama).
+
+**Through an AI gateway** (Vercel AI Gateway, LiteLLM, OpenRouter): use the OpenAI provider with the
+gateway's `baseURL` and a gateway model slug — non-OpenAI models included. Streaming and tool
+calling work first-try over the same protocol:
+
+```typescript
+import { createQuery } from '@robota-sdk/agent-framework';
+import { OpenAIProvider } from '@robota-sdk/agent-provider';
+
+const query = createQuery({
+  provider: new OpenAIProvider({
+    apiKey: process.env.AI_GATEWAY_API_KEY,
+    baseURL: 'https://ai-gateway.vercel.sh/v1',
+    defaultModel: 'anthropic/claude-sonnet-4-5',
+  }),
+});
+```
+
+See [Providers Reference — Through an AI gateway](./guide/providers.md#through-an-ai-gateway) for
+LiteLLM/OpenRouter/Azure variants.
 
 ## Deploy to Vercel
 

@@ -83,6 +83,8 @@ export function buildRobota(
     logging: { enabled: false },
     ...(options.providerTimeout !== undefined && { timeout: options.providerTimeout }),
     ...(options.responseFormat ? { responseFormat: options.responseFormat } : {}),
+    // CMD-005: the "ask the user" port rides the agent config into tool execution contexts.
+    ...(options.ask ? { ask: options.ask } : {}),
   };
   return new Robota(agentConfig);
 }

@@ -4,6 +4,39 @@
  */
 
 import type { IAggregateReport, ISessionTimingReport, ITimingInterval } from './types.js';
+import type { IUsageBySourceReport } from './usage.js';
+
+function fmtTokens(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  return `${n}`;
+}
+
+/**
+ * ANALYTICS-001: render a per-source token-usage breakdown — which part of the session burned the
+ * most tokens. Pure; the caller owns writing it.
+ */
+export function formatUsageReport(report: IUsageBySourceReport): string {
+  const lines: string[] = [];
+  lines.push(`Token usage — session ${report.sessionId}`);
+  lines.push(
+    `  total ${fmtTokens(report.totalTokens)} (prompt ${fmtTokens(report.promptTokens)} · completion ${fmtTokens(report.completionTokens)})`,
+  );
+  if (report.bySource.length === 0) {
+    lines.push('  (no usage recorded)');
+    return lines.join('\n');
+  }
+  lines.push('  by source (most tokens first):');
+  for (const s of report.bySource) {
+    lines.push(
+      `    ${s.label.padEnd(24)} ${String(s.percentage).padStart(5)}%  ${fmtTokens(s.totalTokens).padStart(7)}  (${s.turns} turn${s.turns === 1 ? '' : 's'})`,
+    );
+  }
+  if (report.topConsumer) {
+    lines.push(`  top consumer: ${report.topConsumer.label} (${report.topConsumer.percentage}%)`);
+  }
+  return lines.join('\n');
+}
 
 function fmtMs(ms: number): string {
   if (ms >= 1000) return `${(ms / 1000).toFixed(1)}s`;

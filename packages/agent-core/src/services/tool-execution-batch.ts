@@ -55,11 +55,15 @@ function requireExecutionRequestFields(request: {
   };
 }
 
-function createExecutionContext(request: IToolExecutionRequest): IToolExecutionContext {
+function createExecutionContext(
+  request: IToolExecutionRequest,
+  signal?: AbortSignal,
+): IToolExecutionContext {
   const required = requireExecutionRequestFields(request);
   return {
     toolName: request.toolName,
     parameters: request.parameters,
+    ...(signal ? { signal } : {}),
     executionId: required.executionId,
     ownerType: required.ownerType,
     ownerId: required.ownerId,
@@ -67,6 +71,7 @@ function createExecutionContext(request: IToolExecutionRequest): IToolExecutionC
     metadata: request.metadata,
     eventService: request.eventService,
     baseEventService: request.baseEventService,
+    ...(request.ask ? { ask: request.ask } : {}),
   };
 }
 
@@ -137,7 +142,7 @@ async function executeParallelRequest(
       : await executor.executeTool(
           request.toolName,
           request.parameters,
-          createExecutionContext(request),
+          createExecutionContext(request, batchContext.signal),
         );
     state.resultsByIndex[index] = result;
     if (!result.success) {
@@ -207,11 +212,13 @@ async function executeSequential(
 
   for (const request of batchContext.requests) {
     try {
-      const result = await executor.executeTool(
-        request.toolName,
-        request.parameters,
-        createExecutionContext(request),
-      );
+      const result = batchContext.signal?.aborted
+        ? createInterruptedResult(request)
+        : await executor.executeTool(
+            request.toolName,
+            request.parameters,
+            createExecutionContext(request, batchContext.signal),
+          );
       results.push(result);
       if (!result.success) {
         errors.push(createToolFailureError(result));

@@ -16,8 +16,8 @@ const agent = new Robota({
   defaultModel: {
     provider: 'anthropic',
     model: 'claude-sonnet-4-6',
-    systemMessage: 'You are a friendly conversational assistant.',
   },
+  systemMessage: 'You are a friendly conversational assistant.',
 });
 
 // Multi-turn conversation — history is maintained automatically

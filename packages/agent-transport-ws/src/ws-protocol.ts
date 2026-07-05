@@ -1,12 +1,4 @@
-import type {
-  InteractiveSession,
-  IBackgroundTaskInput,
-  IBackgroundTaskListFilter,
-  IBackgroundTaskLogCursor,
-  IBackgroundTaskLogPage,
-  IBackgroundTaskState,
-  TBackgroundTaskEvent,
-} from '@robota-sdk/agent-framework';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
 import type {
   IBackgroundJobGroupState,
   ICommandResult,
@@ -14,6 +6,14 @@ import type {
   IExecutionWorkspaceSnapshot,
   IToolState,
   TBackgroundJobGroupEvent,
+} from '@robota-sdk/agent-interface-transport';
+import type {
+  IBackgroundTaskInput,
+  IBackgroundTaskListFilter,
+  IBackgroundTaskLogCursor,
+  IBackgroundTaskLogPage,
+  IBackgroundTaskState,
+  TBackgroundTaskEvent,
 } from '@robota-sdk/agent-interface-transport';
 
 export type TBackgroundControlAction = 'cancel' | 'close' | 'send';
@@ -56,8 +56,8 @@ export type TServerMessage =
       success: boolean;
       data?: ICommandResult['data'];
     }
-  | { type: 'messages'; messages: ReturnType<InteractiveSession['getMessages']> }
-  | { type: 'context'; state: ReturnType<InteractiveSession['getContextState']> }
+  | { type: 'messages'; messages: ReturnType<IInteractiveSession['getMessages']> }
+  | { type: 'context'; state: ReturnType<IInteractiveSession['getContextState']> }
   | { type: 'executing'; executing: boolean }
   | { type: 'pending'; pending: string | null }
   | { type: 'execution_workspace_event'; snapshot: IExecutionWorkspaceSnapshot }

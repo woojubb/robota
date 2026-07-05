@@ -8,7 +8,6 @@ import {
 
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
 import type { ICommandResult } from '../commands/index.js';
-import type { IZodSchema } from '@robota-sdk/agent-tools';
 
 interface ICommandExecutionArgs {
   command: string;
@@ -22,10 +21,6 @@ export interface ICommandExecutionToolDeps {
   execute: (command: string, args: string) => Promise<ICommandResult | null>;
   commandNames?: readonly string[];
   commandDescriptors?: readonly TModelCommandDescriptor[];
-}
-
-function asZodSchema(schema: z.ZodType): IZodSchema {
-  return schema as IZodSchema;
 }
 
 function toNonEmptyCommandNames(
@@ -84,7 +79,7 @@ export function createCommandExecutionTool(
   return createZodFunctionTool(
     'ExecuteCommand',
     createToolDescription(deps.commandDescriptors),
-    asZodSchema(commandExecutionSchema),
+    commandExecutionSchema,
     async (params) => {
       const args: ICommandExecutionArgs = commandExecutionSchema.parse(params);
       const command = normalizeModelCommandName(args.command);

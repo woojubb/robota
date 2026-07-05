@@ -18,16 +18,14 @@ Peer dependency: `@robota-sdk/agent-core`
 import { createZodFunctionTool } from '@robota-sdk/agent-tools';
 import { z } from 'zod';
 
-const weatherTool = createZodFunctionTool({
-  name: 'get_weather',
-  description: 'Get current weather for a city',
-  schema: z.object({
+const weatherTool = createZodFunctionTool(
+  'get_weather',
+  'Get current weather for a city',
+  z.object({
     city: z.string().describe('City name'),
   }),
-  handler: async ({ city }) => ({
-    data: JSON.stringify({ city, temperature: 22, condition: 'sunny' }),
-  }),
-});
+  async (args) => JSON.stringify({ city: args['city'], temperature: 22, condition: 'sunny' }),
+);
 ```
 
 ### Use Built-in Tools
@@ -35,7 +33,9 @@ const weatherTool = createZodFunctionTool({
 ```typescript
 import { bashTool, readTool, globTool, grepTool } from '@robota-sdk/agent-tools';
 import { Robota } from '@robota-sdk/agent-core';
+import type { IAIProvider } from '@robota-sdk/agent-core';
 
+declare const provider: IAIProvider;
 const agent = new Robota({
   name: 'DevAgent',
   aiProviders: [provider],
@@ -44,24 +44,34 @@ const agent = new Robota({
 });
 ```
 
-## Built-in Tools (8)
+## Built-in Tools
 
-| Export          | Tool Name | Description                                               |
-| --------------- | --------- | --------------------------------------------------------- |
-| `bashTool`      | Bash      | Execute shell commands via host process or sandbox client |
-| `readTool`      | Read      | Read file contents with line numbers (cat -n)             |
-| `writeTool`     | Write     | Write content to a file (creates parent dirs)             |
-| `editTool`      | Edit      | Replace a specific string in a file                       |
-| `globTool`      | Glob      | Find files matching a glob pattern (fast-glob)            |
-| `grepTool`      | Grep      | Search file contents with regex patterns                  |
-| `webFetchTool`  | WebFetch  | Fetch URL content (HTML-to-text conversion)               |
-| `webSearchTool` | WebSearch | Web search via Brave Search API                           |
+| Export                | Tool Name       | Description                                                                   |
+| --------------------- | --------------- | ----------------------------------------------------------------------------- |
+| `shellTool`           | Shell           | Execute host shell commands; OS-aware (POSIX `sh`/`bash`, Windows PowerShell) |
+| `bashTool`            | Bash            | Model-familiar alias of `Shell` — same OS-aware implementation                |
+| `readTool`            | Read            | Read file contents with line numbers (cat -n)                                 |
+| `writeTool`           | Write           | Write content to a file (creates parent dirs)                                 |
+| `editTool`            | Edit            | Replace a specific string in a file                                           |
+| `globTool`            | Glob            | Find files matching a glob pattern (fast-glob)                                |
+| `grepTool`            | Grep            | Search file contents with regex patterns                                      |
+| `webFetchTool`        | WebFetch        | Fetch URL content (HTML-to-text conversion)                                   |
+| `webSearchTool`       | WebSearch       | Web search via Brave Search API                                               |
+| `askUserQuestionTool` | AskUserQuestion | Model asks the user structured questions (options/multi-select/free text)     |
+
+`AskUserQuestion` lets the model ask the user 1–4 structured questions mid-turn through the injected
+ask port (CMD-004); each environment renders it its own way (Ink dialog, web modal, programmatic
+pre-answer), and headless runs get a structured `unavailable` result instead of a hang or a guess.
+
+`Shell` and `Bash` are two registered names for one OS-aware implementation: the shell is resolved per-OS and the tool description names the active OS/shell so the model writes the right syntax (e.g. macOS BSD vs Linux GNU utilities differ).
 
 Factory exports (`createBashTool`, `createReadTool`, `createWriteTool`, `createEditTool`) accept an optional `sandboxClient`. The default singleton exports keep host-local behavior.
 
 ## Sandbox Execution
 
 `ISandboxClient` is the provider-neutral execution-plane port used by sandbox-aware built-in tools:
+
+<!-- doc-example-skip: requires the optional e2b dependency -->
 
 ```typescript
 import { E2BSandboxClient, createBashTool, createReadTool } from '@robota-sdk/agent-tools';
@@ -79,6 +89,8 @@ The package does not depend on E2B directly. `E2BSandboxClient` adapts an E2B-co
 ### Workspace Manifests
 
 `IWorkspaceManifest` declares the fresh sandbox workspace before a session starts. Paths are workspace-relative and cannot escape the target root.
+
+<!-- doc-example-skip: requires the optional e2b dependency -->
 
 ```typescript
 import { applyWorkspaceManifest, E2BSandboxClient } from '@robota-sdk/agent-tools';
@@ -112,7 +124,6 @@ Recent file tool updates keep write/edit behavior atomic and make Edit tool resu
 | `createZodFunctionTool`  | Factory with Zod validation and JSON Schema conversion     |
 | `OpenAPITool`            | Tool generated from OpenAPI specification                  |
 | `createOpenAPITool`      | Factory for creating OpenAPI tools                         |
-| `zodToJsonSchema`        | Converts Zod schemas to JSON Schema format                 |
 | `IToolInvocationResult`  | Result type for built-in CLI tool invocations              |
 | `ISandboxClient`         | Provider-neutral sandbox execution port                    |
 | `IWorkspaceManifest`     | Declarative sandbox workspace setup contract               |

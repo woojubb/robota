@@ -56,6 +56,24 @@ A **thin CLI layer** built on top of agent-sdk, responsible only for the termina
 | `agent-provider`        | ✅ Provider definition assembly only | CLI composes injected `IProviderDefinition[]`; the provider package owns defaults and factories         |
 | `agent-preset`          | ✅ Preset id selection + resolution  | CLI selects the preset id and forwards CLI-flag overrides; `resolvePreset` owns the precedence merge    |
 
+### Optional (dev-only) modules — must not enter the published dependency graph
+
+Some capabilities are backed by packages deliberately kept **unpublished / `private`** (an in-progress
+track, or an internal test utility). agent-cli must **not** declare a runtime `dependencies` edge to
+any such package — a `workspace:*` edge would resolve, at publish time, to a version that is not on npm
+and break `npm install @robota-sdk/agent-cli`. These packages are `devDependencies` and loaded through
+a guarded `createRequire`, so the command/feature is present in the monorepo (and for anyone who
+installs the optional package) and cleanly absent (never a crash) in the default published CLI:
+
+| Feature                | Optional package                      | Loader                          | Absent behavior                            |
+| ---------------------- | ------------------------------------- | ------------------------------- | ------------------------------------------ |
+| `/workflows` command   | `@robota-sdk/agent-command-workflows` | `command-setup.ts` guarded load | command omitted                            |
+| `--session-log` replay | `@robota-sdk/agent-provider-replay`   | `cli.ts` `loadReplayProvider`   | clear error only when `--session-log` used |
+
+Rule: a runtime `dependencies` entry of agent-cli must be a package that is published in the same
+release. The published dependency closure is verified to contain no `private`/unpublished package (see
+CLI-077).
+
 ## Architecture
 
 For an LLM-scannable source-verified composition map, dependency graph, execution-mode diagrams,
@@ -979,11 +997,12 @@ If both stdin and a positional argument are provided, stdin content is prepended
 This is the single authoritative exit-code table. The error-handling table in §Error
 Handling maps each error class onto one of these codes.
 
-| Code | Meaning                                                                                                         |
-| ---- | --------------------------------------------------------------------------------------------------------------- |
-| 0    | Success or user interruption                                                                                    |
-| 1    | Error during execution — argument parse errors, provider API failures (network/auth), user-local command errors |
-| 3    | Provider configuration error at print-mode session start (`ProviderConfigError`) — reconfigure, do not retry    |
+| Code | Meaning                                                                                                                                                                                 |
+| ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0    | Success or user interruption                                                                                                                                                            |
+| 1    | Error during execution — argument parse errors, provider API failures (network/auth), user-local command errors                                                                         |
+| 3    | Provider configuration error at print-mode session start (`ProviderConfigError`) — reconfigure, do not retry                                                                            |
+| 130  | Interactive TUI force-quit — a second Ctrl+C / signal (`SIGINT`/`SIGTERM`) received while a graceful shutdown is already in progress (128 + `SIGINT`). See §Ctrl+C — Graceful Shutdown. |
 
 Provider API failures during a model call must never exit 0: the execution layer marks the
 result failed (`success: false` + `error` when the final assistant message carries
@@ -1274,7 +1293,9 @@ System: Interrupted by user.   ← MessageList (abort only)
 
 ### Ctrl+C — Graceful Shutdown
 
-Ink render uses `exitOnCtrlC: false`. The first Ctrl+C is handled by `App.tsx`, renders `Shutting down...`, and calls `channel.handleShutdown('prompt_input_exit')` (exposed by `useTuiChannel`). That delegates to `InteractiveSession.shutdown()` inside `TuiInteractionChannel`, so foreground abort, managed background task cancellation, session persistence, and `SessionEnd` hooks run in the SDK-owned lifecycle before the TUI exits.
+Ink render uses `exitOnCtrlC: false`. The first Ctrl+C is handled by `App.tsx`, renders `Shutting down...`, and calls `channel.handleShutdown('prompt_input_exit')` (exposed by `useTuiChannel`). That delegates to `InteractiveSession.shutdown()` inside `TuiInteractionChannel`, so foreground abort, managed background task cancellation, session persistence, and `SessionEnd` hooks run in the SDK-owned lifecycle before the TUI exits. The channel bounds that session shutdown with a timeout (`SHUTDOWN_TIMEOUT_MS`) so a wedged subsystem cannot block exit — a timed-out graceful shutdown still unmounts and exits 0.
+
+`SIGINT`/`SIGTERM` are handled with the same graceful path (a single `App.tsx` effect registers both). A **second** Ctrl+C or signal received while `isShuttingDown` is already set is treated as force-quit: the handler calls `process.exit(130)` immediately (128 + `SIGINT`) rather than a no-op, so a user can always escape a hung shutdown. This is the only path that produces exit code 130 (see §Exit Codes).
 
 Slash-command restarts and exits (`/exit`, language restart, reset) also call `InteractiveSession.shutdown()` before `useApp().exit()`. The CLI owns only signal/UI wiring; it must not enumerate or kill SDK-managed background work directly.
 
@@ -1674,6 +1695,21 @@ passing values into the public entry point rather than by subclassing or monkey-
 
 The CLI does not expose plugin hooks at the binary level. Plugin lifecycle is owned by
 `@robota-sdk/agent-framework` through the plugin command adapter.
+
+## Process Survival Boundary (ERR-001 G1)
+
+Interactive TUI mode must never die on a transient failure. `src/process-guards.ts`
+(product-owned per the Library Neutrality Rule — transports install no process policy) installs
+last-resort `unhandledRejection`/`uncaughtException` handlers when the TUI starts: errors route
+into the live session via `InteractiveSession.reportBackgroundError` (humanized, styled error
+block, session log) and the process stays alive; if routing itself fails, stderr is the final
+surface. `bin.ts` classifies uncaught exceptions via `classifyUncaughtException` (CORE-020,
+RUNTIME-34): the CJK/IME allowlist ('string-width', 'setCursorPosition', 'getStringWidth',
+'slice', 'charCodeAt' message signatures) applies ONLY while the TUI guards are active — raw-mode
+IME errors cannot occur outside the TUI, and those generic signatures would otherwise mask real
+crashes. Headless/print mode installs nothing and always rethrows (fail-fast exit-code contract).
+Each async subsystem still owns terminating its promises — the guards are the boundary of last
+resort, not the primary handler.
 
 ## Error Taxonomy
 

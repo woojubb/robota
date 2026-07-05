@@ -49,6 +49,10 @@ For more control, use `createAgentMcpServer` directly:
 
 ```typescript
 import { createAgentMcpServer } from '@robota-sdk/agent-transport-mcp';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
+
+declare const interactiveSession: IInteractiveSession;
 
 const server = createAgentMcpServer({
   name: 'robota-agent',

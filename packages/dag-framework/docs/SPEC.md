@@ -1,0 +1,175 @@
+# dag-framework SPEC
+
+**Package:** `@robota-sdk/dag-framework`  
+**Version:** `0.1.0-beta.*`  
+**Status:** Active
+
+---
+
+## Purpose
+
+`dag-framework` is the embeddable in-process DAG runtime composition package. It assembles
+`dag-runtime`, `dag-worker`, `dag-adapters-local`, and default node definitions into a single
+factory call. Consumers get a fully wired `IDagFramework` without managing individual
+infrastructure objects.
+
+Primary use case: `dag-cli mcp` and `dag-mcp-server` embedded mode — boot a DAG server
+with zero external process dependencies.
+
+---
+
+## Public API
+
+### Factory
+
+```typescript
+import { createDagFramework } from '@robota-sdk/dag-framework';
+
+const framework = await createDagFramework(options?: IDagFrameworkOptions);
+await framework.start();
+// … use framework.client (IDagOrchestrationPort)
+await framework.stop();
+```
+
+### `IDagFramework`
+
+```typescript
+interface IDagFramework {
+  client: IDagOrchestrationPort; // 25-method transport-neutral orchestration port
+  internals: {
+    controllers: IDagControllerComposition;
+    execution: IDagExecutionComposition;
+    storage: IStoragePort;
+    promptBackend: IPromptBackendPort & { getPromptIdForDagRun(id: string): string | undefined };
+    assetStore: IAssetStore;
+  };
+  start(): Promise<void>; // Start background worker loop. Idempotent.
+  stop(): Promise<void>; // Stop + drain. Idempotent.
+}
+```
+
+### `IDagFrameworkOptions`
+
+| Field                   | Type                       | Default                          | Description                       |
+| ----------------------- | -------------------------- | -------------------------------- | --------------------------------- |
+| `nodes`                 | `IDagNodeDefinition[]`     | `createDefaultNodeRegistry()`    | Node definitions to register      |
+| `ports.storage`         | `IStoragePort`             | `JsonFileStoragePort` (XDG path) | Persistent storage                |
+| `ports.queue`           | `IQueuePort`               | `InMemoryQueuePort`              | Task queue                        |
+| `ports.deadLetterQueue` | `IQueuePort`               | `InMemoryQueuePort`              | DLQ                               |
+| `ports.lease`           | `ILeasePort`               | `InMemoryLeasePort`              | Distributed lease                 |
+| `ports.clock`           | `IClockPort`               | `SystemClockPort`                | Time source                       |
+| `ports.executor`        | `ITaskExecutorPort`        | `DirectTaskExecutorPort`         | Task executor                     |
+| `ports.assetStore`      | `IAssetStore`              | `LocalFsAssetStore`              | File asset store                  |
+| `ports.runDraftStore`   | `IRunDraftStore`           | `InMemoryRunDraftStore`          | Run draft persistence             |
+| `paths.storageRoot`     | `string`                   | XDG / homedir                    | Root for JSON storage             |
+| `paths.assetRoot`       | `string`                   | `<storageRoot>/assets`           | Root for file assets              |
+| `worker`                | `IWorkerLoopPolicyOptions` | defaults                         | Worker backoff/poll settings      |
+| `autoStart`             | `boolean`                  | `false`                          | Auto-start worker loop in factory |
+| `logger`                | `IDagFrameworkLogger`      | no-op                            | Log info + error messages         |
+
+### Node Registries
+
+```typescript
+// Core nodes only (7 nodes, sync, no optional peer deps)
+createDefaultNodeRegistrySync(): IDagNodeDefinition[]
+
+// Core + optional LLM nodes (async, silently skips unavailable SDKs)
+createDefaultNodeRegistry(): Promise<IDagNodeDefinition[]>
+```
+
+**Core nodes (always available):** `input`, `transform`, `text-template`, `text-output`,
+`image-loader`, `image-source`, `ok-emitter`.
+
+**Optional LLM nodes (loaded if SDK installed):** `llm-text-openai`, `llm-text-anthropic`,
+`llm-text-gemini`, `llm-text-deepseek`, `llm-text-qwen`, `gemini-image-edit`,
+`gemini-image-compose`.
+
+### Infrastructure Adapters (re-exported)
+
+```typescript
+import {
+  DagPromptBackend,
+  LocalFsAssetStore,
+  createExecutionComposition,
+} from '@robota-sdk/dag-framework';
+import type { IWorkerLoopDriverLogger } from '@robota-sdk/dag-framework';
+```
+
+---
+
+## Lifecycle
+
+```
+createDagFramework(options)
+  → resolves storage root path
+  → creates infrastructure ports (storage, queue, lease, clock, etc.)
+  → builds node assembly (manifests)
+  → creates controller composition (design, run, observability, cost)
+  → creates execution composition (workerLoop, runOrchestrator)
+  → creates DagFrameworkOrchestrationAdapter (the IDagOrchestrationPort impl)
+  → creates WorkerLoopDriver (AbortController-based background loop)
+  → returns IDagFramework (not yet started)
+
+framework.start()
+  → WorkerLoopDriver.start()
+  → background loop calls workerLoop.processOnce() with exponential backoff
+  → MIN_IDLE_DELAY=25ms, MAX_IDLE_DELAY=500ms
+
+framework.stop()
+  → AbortController.abort()
+  → awaits loop drain
+  → state returns to 'idle'
+```
+
+---
+
+## Internal Components
+
+### `WorkerLoopDriver`
+
+Drives `IRuntimeWorkerLoopPort.processOnce()` in a background loop with exponential idle backoff. Uses `AbortController` for cancellation. Timers are `unref()`'d to prevent process hang.
+
+- `start()`: idempotent (double-start is no-op)
+- `stop()`: idempotent (stop-when-idle is no-op)
+- Error on iteration → logs via `IWorkerLoopDriverLogger`, backs off to `MAX_IDLE_DELAY`
+- Processed work → resets delay to `MIN_IDLE_DELAY`
+
+### `DagFrameworkOrchestrationAdapter`
+
+In-process implementation of all 25 `IDagOrchestrationPort` methods. Wraps the controller composition directly (no HTTP). Response envelope format mirrors the HTTP client so `dag-mcp-tools` consumers are reused unchanged.
+
+Uses `IClockPort.nowIso()` for all timestamp generation (deterministic in tests).
+
+Not-yet-implemented methods return `{ status: 501, ... NOT_IMPLEMENTED_IN_FRAMEWORK ... }`.
+
+---
+
+## Extension Points
+
+1. **Custom node registry**: pass `options.nodes` to `createDagFramework`
+2. **Custom storage**: inject `options.ports.storage` (e.g. SQLite adapter)
+3. **Custom run draft store**: inject `options.ports.runDraftStore` for persistent drafts
+4. **Custom asset store**: inject `options.ports.assetStore`
+5. **Custom clock**: inject `options.ports.clock` for test determinism
+6. **Logger**: inject `options.logger` to forward logs to your logging system
+
+---
+
+## Dependency Rules
+
+- `dag-framework` MAY import from: `dag-core`, `dag-api`, `dag-runtime`, `dag-worker`,
+  `dag-adapters-local`, `dag-orchestration-client`, `dag-cost`, `dag-node`, and the
+  default node packages (`dag-node-*`).
+- `dag-framework` MUST NOT import `@robota-sdk/agent-*` packages.
+- LLM node packages (`dag-node-llm-text-*`, `dag-node-gemini-*`) are declared as
+  `optionalDependencies` — loaded via dynamic import with silent skip on missing SDK.
+
+---
+
+## Peer Dependencies (optional)
+
+| Package             | Required version | When needed                   |
+| ------------------- | ---------------- | ----------------------------- |
+| `openai`            | `^4.98.0`        | LLM text OpenAI node          |
+| `@anthropic-ai/sdk` | `^0.80.0`        | LLM text Anthropic node       |
+| `@google/genai`     | `^1.51.0`        | LLM text Gemini + image nodes |

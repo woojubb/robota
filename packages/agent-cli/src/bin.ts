@@ -8,19 +8,16 @@
  * tsdown.config.ts and runs before any module imports are loaded.
  */
 import { startCli } from './cli.js';
+import { areTuiProcessGuardsActive, classifyUncaughtException } from './process-guards.js';
 
-// Last-resort crash prevention for IME-related errors only.
-// Korean IME in raw mode can cause errors that escape React/Ink.
-// Non-IME errors are re-thrown to preserve normal crash behavior.
+// Last-resort crash policy (CORE-020, RUNTIME-34): the IME allowlist is scoped to
+// interactive TUI mode only — headless/print mode always rethrows (fail-fast exit-code
+// contract), so generic signatures like 'slice' can never mask a real headless crash.
+// ERR-001 G1: with the TUI guards active, non-IME errors are guard-owned — the guards
+// render them into the live session; re-throwing here would kill the TUI.
 process.on('uncaughtException', (err) => {
-  const msg = err.message ?? '';
-  const isLikelyIME =
-    msg.includes('string-width') ||
-    msg.includes('setCursorPosition') ||
-    msg.includes('getStringWidth') ||
-    msg.includes('slice') ||
-    msg.includes('charCodeAt');
-  if (isLikelyIME) {
+  const decision = classifyUncaughtException(err, areTuiProcessGuardsActive());
+  if (decision === 'ime-hint') {
     process.stderr.write(
       '\n[robota] CJK/IME input error — this is a known issue with macOS Terminal.app.\n' +
         '  Workaround: use iTerm2 (https://iterm2.com) or input your prompt in English.\n' +
@@ -28,7 +25,7 @@ process.on('uncaughtException', (err) => {
     );
     return;
   }
-  // Re-throw non-IME errors — let them crash normally
+  if (decision === 'guard-owned') return;
   throw err;
 });
 

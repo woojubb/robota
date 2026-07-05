@@ -37,6 +37,11 @@ interface IProps {
   registry?: CommandRegistry;
   sessionName?: string;
   history?: readonly IHistoryEntry[];
+  /**
+   * SCREEN-014: called when ↓ is pressed on an empty input at the bottom of prompt history, so the
+   * parent can move focus into the background-work list (a no-op for the input today).
+   */
+  onRequestFocusBackgroundList?: () => void;
 }
 
 /**
@@ -68,6 +73,7 @@ export default function InputArea({
   registry,
   sessionName,
   history,
+  onRequestFocusBackgroundList,
 }: IProps): React.ReactElement {
   const [value, setValue] = useState('');
   const [cursorHint, setCursorHint] = useState<number | null>(null);
@@ -205,6 +211,13 @@ export default function InputArea({
     (_input, key) => {
       const action = getPromptHistoryInputAction(key);
       if (!action) return;
+      // SCREEN-014: ↓ on an empty input that is not browsing history falls through into the
+      // background-work list (where it is a no-op for the input today). The parent decides whether
+      // there is a list to focus.
+      if (action === 'next' && historyState.selectedIndex === null && value.length === 0) {
+        onRequestFocusBackgroundList?.();
+        return;
+      }
       const result = navigatePromptHistory(value, promptHistory, historyState, action);
       setValue(result.value);
       setCursorHint(result.cursorHint);

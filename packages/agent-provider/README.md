@@ -10,15 +10,20 @@ npm install @robota-sdk/agent-provider
 
 ## Available Providers
 
-| Provider  | Sub-path      | Models                              |
-| --------- | ------------- | ----------------------------------- |
-| Anthropic | `./anthropic` | Claude 3.5, Claude 4.x              |
-| OpenAI    | `./openai`    | GPT-4o, GPT-4, o1, o3               |
-| DeepSeek  | `./deepseek`  | DeepSeek-V3, DeepSeek-R1            |
-| Google    | `./gemini`    | Gemini 2.0, Gemini 1.5              |
-| Gemma     | `./gemma`     | Gemma 3 (local / OpenAI-compatible) |
-| Qwen      | `./qwen`      | Qwen 2.5, QwQ                       |
-| Bytedance | `./bytedance` | Doubao                              |
+Providers are protocol clients, not model-vendor locks: each one speaks an API surface, and any
+endpoint that speaks the same surface works via `baseURL` — AI gateways (Vercel AI Gateway,
+LiteLLM, OpenRouter), Azure, vLLM, Ollama, LM Studio. Gateway model slugs (e.g.
+`anthropic/claude-*` through an OpenAI-protocol gateway) pass through verbatim.
+
+| Provider  | Sub-path      | API surface it speaks                                                                                                                   |
+| --------- | ------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| OpenAI    | `./openai`    | OpenAI API (Responses + Chat Completions) — official OpenAI or ANY OpenAI-compatible endpoint: gateways, Azure, vLLM, Ollama, LM Studio |
+| Anthropic | `./anthropic` | Anthropic Messages API (Claude models; Messages-compatible proxies via `baseURL`)                                                       |
+| Google    | `./gemini`    | Google GenAI API (Gemini models)                                                                                                        |
+| DeepSeek  | `./deepseek`  | OpenAI-compatible (DeepSeek endpoint by default; any compatible endpoint via `baseURL`)                                                 |
+| Qwen      | `./qwen`      | OpenAI-compatible (DashScope endpoint by default; any compatible endpoint via `baseURL`)                                                |
+| Gemma     | `./gemma`     | OpenAI-compatible (bring your own endpoint — local or hosted)                                                                           |
+| Bytedance | `./bytedance` | OpenAI-compatible (Doubao/Ark endpoint by default)                                                                                      |
 
 ## Quick Start
 
@@ -45,6 +50,21 @@ import { OpenAIProvider } from '@robota-sdk/agent-provider/openai';
 const provider = new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY });
 ```
 
+### AI Gateway / any OpenAI-compatible endpoint
+
+Set `baseURL` on the OpenAI provider to route through a gateway or a self-hosted server. Non-OpenAI
+model slugs pass through verbatim; streaming and tool calling work over the same protocol.
+
+```typescript
+import { OpenAIProvider } from '@robota-sdk/agent-provider/openai';
+
+const provider = new OpenAIProvider({
+  apiKey: process.env.AI_GATEWAY_API_KEY,
+  baseURL: 'https://ai-gateway.vercel.sh/v1',
+  defaultModel: 'anthropic/claude-sonnet-4-5',
+});
+```
+
 ### DeepSeek
 
 ```typescript
@@ -58,7 +78,7 @@ const provider = new DeepSeekProvider({ apiKey: process.env.DEEPSEEK_API_KEY });
 ```typescript
 import { GeminiProvider } from '@robota-sdk/agent-provider/gemini';
 
-const provider = new GeminiProvider({ apiKey: process.env.GOOGLE_API_KEY });
+const provider = new GeminiProvider({ apiKey: process.env.GOOGLE_API_KEY ?? '' });
 ```
 
 ### Local / OpenAI-compatible
@@ -66,7 +86,10 @@ const provider = new GeminiProvider({ apiKey: process.env.GOOGLE_API_KEY });
 ```typescript
 import { GemmaProvider } from '@robota-sdk/agent-provider/gemma';
 
-const provider = new GemmaProvider({ baseUrl: 'http://localhost:11434/v1', model: 'gemma3' });
+const provider = new GemmaProvider({
+  baseURL: 'http://localhost:11434/v1',
+  defaultModel: 'gemma3',
+});
 ```
 
 ## Root Export

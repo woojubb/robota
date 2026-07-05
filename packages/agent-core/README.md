@@ -22,8 +22,8 @@ const agent = new Robota({
   defaultModel: {
     provider: 'anthropic',
     model: 'claude-sonnet-4-6',
-    systemMessage: 'You are a helpful assistant.',
   },
+  systemMessage: 'You are a helpful assistant.',
 });
 
 const response = await agent.run('Hello, world!');
@@ -52,6 +52,10 @@ console.log(response);
 ## Robota API
 
 ```typescript
+import { Robota } from '@robota-sdk/agent-core';
+import type { IAgentConfig } from '@robota-sdk/agent-core';
+
+declare const config: IAgentConfig;
 const agent = new Robota(config);
 
 // Send a message (executes tool calls automatically)
@@ -64,6 +68,80 @@ agent.clearHistory();
 // Switch provider/model mid-conversation
 agent.setModel({ provider: 'openai', model: 'gpt-4o' });
 ```
+
+### Structured Output
+
+`run(input, { output })` returns a schema-validated object instead of a string. Zod schemas give a
+typed result; the schema is forwarded to the provider's native structured-output surface where one
+exists, and the response is always validated core-side with a bounded retry on violation
+(`outputRetries`, default 2). Exhausted retries throw `StructuredOutputError`.
+
+```typescript
+import { z } from 'zod';
+import { Robota } from '@robota-sdk/agent-core';
+import type { IAgentConfig } from '@robota-sdk/agent-core';
+
+declare const config: IAgentConfig;
+const agent = new Robota(config);
+
+const reportSchema = z.object({
+  title: z.string(),
+  score: z.number(),
+  summary: z.string(),
+});
+
+// Typed result: { title: string; score: number; summary: string }
+const report = await agent.run('Summarize the meeting as a report.', {
+  output: reportSchema,
+});
+
+// Streaming variant: deltas stream as usual; the validated object is the
+// generator's return value (the final { done: true, value } iterator result).
+const stream = agent.runStream('Summarize again.', { output: reportSchema });
+const iterator = stream[Symbol.asyncIterator]();
+let next = await iterator.next();
+while (!next.done) {
+  process.stdout.write(next.value);
+  next = await iterator.next();
+}
+const streamedReport = next.value;
+console.log(streamedReport.title);
+```
+
+A raw JSON-schema wrapper is also accepted: `{ output: { jsonSchema: { type: 'object', properties: { answer: { type: 'string' } }, required: ['answer'] } } }`.
+
+### Model Options per Run
+
+`run`/`runStream` accept run-scoped model options that win over `defaultModel.*`:
+`maxTokens`, `temperature`, and `toolChoice`. `toolChoice` directs tool invocation —
+`'auto'` (model decides), `'none'` (suppress tool calls), `'required'` (must call some
+tool), or `{ tool: name }` (must call the named tool). A named tool missing from the run's
+tool list throws immediately; nothing is silently ignored. Forcing directives apply to the
+run's first model call only — rounds after tool results revert to `'auto'` so the model can
+consume the results and finish.
+
+```typescript
+import { Robota } from '@robota-sdk/agent-core';
+import type { IAgentConfig } from '@robota-sdk/agent-core';
+
+declare const config: IAgentConfig;
+const agent = new Robota(config);
+
+// Force the model to answer via the router tool (decision-agent pattern)
+const decision = await agent.run('Route this request.', {
+  toolChoice: { tool: 'route-request' },
+  allowToolOnlyCompletion: true,
+});
+
+// Suppress tools for a plain-text turn, capped at 100 output tokens
+const summary = await agent.run('Summarize the discussion.', {
+  toolChoice: 'none',
+  maxTokens: 100,
+});
+console.log(decision, summary);
+```
+
+The same directive can be set agent-wide via `defaultModel.toolChoice`.
 
 ### Execution Boundary Events
 
@@ -85,15 +163,15 @@ Provider-specific SDK payload capture remains provider-owned. Providers may call
 
 ## IAgentConfig
 
-| Field                        | Type                       | Description                    |
-| ---------------------------- | -------------------------- | ------------------------------ |
-| `name`                       | `string`                   | Agent name                     |
-| `aiProviders`                | `IAIProvider[]`            | One or more provider instances |
-| `defaultModel.provider`      | `string`                   | Provider name                  |
-| `defaultModel.model`         | `string`                   | Model identifier               |
-| `defaultModel.systemMessage` | `string?`                  | System prompt                  |
-| `tools`                      | `IToolWithEventService[]?` | Tools the agent can call       |
-| `plugins`                    | `IPluginContract[]?`       | Plugins for lifecycle hooks    |
+| Field                   | Type                       | Description                    |
+| ----------------------- | -------------------------- | ------------------------------ |
+| `name`                  | `string`                   | Agent name                     |
+| `aiProviders`           | `IAIProvider[]`            | One or more provider instances |
+| `defaultModel.provider` | `string`                   | Provider name                  |
+| `defaultModel.model`    | `string`                   | Model identifier               |
+| `systemMessage`         | `string?`                  | System prompt (top-level)      |
+| `tools`                 | `IToolWithEventService[]?` | Tools the agent can call       |
+| `plugins`               | `IPluginContract[]?`       | Plugins for lifecycle hooks    |
 
 ## Architecture
 

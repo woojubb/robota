@@ -205,6 +205,20 @@ their own price tables. Prices are USD per 1,000,000 tokens.
 | `findProviderDefinition`                | function       | Resolve an injected provider definition by canonical type or alias                                                                                                                                                                                      |
 | `formatSupportedProviderTypes`          | function       | Format injected provider types and aliases for generic errors                                                                                                                                                                                           |
 
+### Schema (CORE-015)
+
+| Export                                                                                                    | Kind     | Description                                                                                                               |
+| --------------------------------------------------------------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `zodToJsonSchema`                                                                                         | function | Zod → universal JSON-schema subset conversion (SSOT; moved from the tools package, which now imports it from core)        |
+| `extractEnumValues`                                                                                       | function | Safe Zod enum value extraction                                                                                            |
+| `hasValidationConstraints`                                                                                | function | Whether a Zod schema carries validation checks                                                                            |
+| `getSchemaTypeName`                                                                                       | function | Safe Zod type-name extraction                                                                                             |
+| `IZodSchema` / `IZodSchemaDef` / `IZodParseResult` / `ISchemaConversionOptions`                           | types    | Structural Zod compatibility types (no hard Zod version coupling in signatures)                                           |
+| `normalizeStructuredOutput`                                                                               | function | Normalize `IRunOptions.output` (Zod schema or `IJsonSchemaOutput`) into `IStructuredOutputSpec`                           |
+| `validateAgainstJsonSchema`                                                                               | function | Structural validation of a value against the universal JSON-schema subset                                                 |
+| `parseStructuredResponseText`                                                                             | function | Parse a model's final text into JSON (tolerates one fenced json code block; value is still strictly validated afterwards) |
+| `IJsonSchemaOutput` / `IStructuredOutputSpec` / `TStructuredOutputSchema` / `TStructuredOutputValidation` | types    | Structured output contract types                                                                                          |
+
 ### Tools
 
 NOTE: `ToolRegistry`, `FunctionTool`, `createFunctionTool`, `createZodFunctionTool`, and `OpenAPITool` have been moved to the tools layer. `MCPTool` and `RelayMcpTool` have been moved to the MCP-tool layer.
@@ -230,18 +244,18 @@ renderer is attached; a tool treats absence as "no human available" (never a sil
 
 ### Permissions
 
-| Export                  | Kind     | Description                                                                |
-| ----------------------- | -------- | -------------------------------------------------------------------------- |
-| `evaluatePermission`    | function | 3-step deterministic policy: deny list, allow list, mode                   |
-| `MODE_POLICY`           | const    | Permission mode to tool decision matrix                                    |
-| `TRUST_TO_MODE`         | const    | Maps TTrustLevel to TPermissionMode                                        |
-| `UNKNOWN_TOOL_FALLBACK` | const    | Fallback decisions for unknown tools per mode                              |
-| `TPermissionMode`       | type     | `'plan' \| 'default' \| 'acceptEdits' \| 'bypassPermissions'`              |
-| `TTrustLevel`           | type     | `'safe' \| 'moderate' \| 'full'`                                           |
-| `TPermissionDecision`   | type     | `'auto' \| 'approve' \| 'deny'`                                            |
-| `TToolArgs`             | type     | Tool arguments record for permission matching                              |
-| `IPermissionLists`      | type     | Allow/deny pattern lists                                                   |
-| `TKnownToolName`        | type     | Known tool names: Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch |
+| Export                  | Kind     | Description                                                                                        |
+| ----------------------- | -------- | -------------------------------------------------------------------------------------------------- |
+| `evaluatePermission`    | function | 3-step deterministic policy: deny list, allow list, mode                                           |
+| `MODE_POLICY`           | const    | Permission mode to tool decision matrix                                                            |
+| `TRUST_TO_MODE`         | const    | Maps TTrustLevel to TPermissionMode                                                                |
+| `UNKNOWN_TOOL_FALLBACK` | const    | Fallback decisions for unknown tools per mode                                                      |
+| `TPermissionMode`       | type     | `'plan' \| 'default' \| 'acceptEdits' \| 'bypassPermissions'`                                      |
+| `TTrustLevel`           | type     | `'safe' \| 'moderate' \| 'full'`                                                                   |
+| `TPermissionDecision`   | type     | `'auto' \| 'approve' \| 'deny'`                                                                    |
+| `TToolArgs`             | type     | Tool arguments record for permission matching                                                      |
+| `IPermissionLists`      | type     | Allow/deny pattern lists                                                                           |
+| `TKnownToolName`        | type     | Known tool names: Shell, Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch, AskUserQuestion |
 
 ### Environment Reference Utilities
 
@@ -255,6 +269,21 @@ canonical location for env-ref logic; all higher layers import from here.
 | `formatEnvReference`       | function | Return the `$ENV:<name>` formatted string for the given variable name     |
 | `resolveEnvReference`      | function | Resolve `$ENV:<name>` → `process.env[name]`; return value or `undefined`  |
 | `hasUsableSecretReference` | function | Return true when the value is a non-empty string that resolves to a value |
+
+### Cross-platform Shell Resolution
+
+Zero-dependency SSOT (TERM-008) for "which shell to spawn, and how". Pure function of `(env, platform)`
+so every per-OS branch is testable without touching the host. Consumed by every shell-running site:
+the `Shell`/`Bash` tool (agent-tools), the hook `command` executor, and the interactive drop-to-shell
+(agent-command). Resolution: `ROBOTA_SHELL` override wins on any platform; **win32** → PowerShell (cmd
+via override); **posix** → `$SHELL` else `/bin/sh`. The returned `syntaxHint`/`label` name the OS family
+(macOS BSD vs Linux GNU vs Windows PowerShell) so an LLM authoring commands avoids cross-OS flag mistakes.
+
+| Export                 | Kind      | Description                                                                                 |
+| ---------------------- | --------- | ------------------------------------------------------------------------------------------- |
+| `resolvePlatformShell` | function  | Resolve the active shell for `(env, platform)` → `IPlatformShell`                           |
+| `IPlatformShell`       | interface | `command`, `kind`, `platform`, `commandArgs(cmd)`, `interactiveArgs`, `label`, `syntaxHint` |
+| `TShellKind`           | type      | `'bash' \| 'sh' \| 'powershell' \| 'cmd'`                                                   |
 
 ### Hooks
 
@@ -283,6 +312,25 @@ NOTE: `CommandExecutor` and `HttpExecutor` are exported from `hooks/index.ts` bu
 | `TTextDeltaCallback` | type | `(delta: string) => void` — streaming text callback |
 
 This callback is declared in `IChatOptions.onTextDelta` and `IRunOptions.onTextDelta`. Provider implementations use `IChatOptions.onTextDelta` to emit text chunks during streaming responses. The execution engine (`execution-round.ts`, `execution-pipeline.ts`) uses only `IRunOptions.onTextDelta` (the run-scoped callback) — there is no fallback to a provider instance-level callback. Callers must pass the callback explicitly through the run context. Provider instance-level `onTextDelta` properties (if any) are a provider-internal concern and must not be relied upon by agent-core.
+
+### Cancellation Contract (CORE-018)
+
+`IRunOptions.signal` is the single cancellation source for a run. The contract:
+
+1. **run path**: the signal gates the run queue (`enqueueRun`), every provider call
+   (`IChatOptions.signal`), and every tool execution.
+2. **runStream path (parity)**: the streaming context is built by the SAME `buildRunContext`
+   as the round path — the historical inline construction dropped `signal` (and every other
+   run option added after it), which made the public streaming API uncancellable. The
+   `executeStream` chat options carry `context.signal`.
+3. **Tool executions**: `IToolExecutionContext.signal` carries the run signal into every
+   tool call. The batch executor threads it; long-running built-ins MUST honor it —
+   `shell` kills the child process, `web_fetch`/`web_search` abort the network request,
+   MCP tool calls abort the in-flight HTTP request. A tool observing an abort terminates
+   its work and returns an interrupted/failed result — silently completing after abort is
+   a contract violation.
+4. **Abort classification**: an aborted run resolves as `interrupted`, never as a provider
+   error and never as a successful completion.
 
 ### Reasoning Effort
 
@@ -425,6 +473,43 @@ Plugins extend `AbstractPlugin` and implement lifecycle hooks:
 
 Plugins declare `category` (PluginCategory) and `priority` (PluginPriority) for execution ordering.
 
+### Disposal Chain Contract (CORE-022)
+
+Component-level disposal has exactly one entry point; agent-level destruction drives it:
+
+1. **`dispose()` is the component contract.** `AbstractPlugin.dispose()` is the single
+   disposal entry point for plugins (matching modules, providers, and executors, which
+   already use `dispose()`). A plugin owning resources — timers, sockets, storage handles —
+   MUST override `dispose()` and release them (calling `super.dispose()` to unsubscribe
+   module events). `destroy()` methods on plugins are not part of the contract and do not
+   exist.
+2. **`Robota.destroy()` is the agent-level terminal operation.** It awaits the run-queue
+   tail (in-flight and already-queued runs settle first), disposes every registered plugin
+   via `dispose()`, disposes modules and the internal event emitter, resets state, and
+   marks the instance destroyed. Best-effort per CORE-013: step failures are collected,
+   never thrown.
+3. **`destroyed` is terminal.** Once `destroy()` is initiated, new `run()` / `runStream()`
+   calls reject with a `[LIFECYCLE]` error and re-initialization is impossible — a
+   destroyed agent never revives. Repeated `destroy()` is idempotent.
+4. **Failed initialization is not cached.** When async initialization rejects, the cached
+   init promise is cleared so a subsequent call can retry (before destruction); the
+   original failure propagates to the awaiting caller.
+
+After the owning runtime's shutdown completes, the agent must hold no live timers or
+listeners — a process kept alive by an undisposed plugin resource is a contract violation
+(live-confirmed: an undisposed flush interval hung the CORE-021 probe indefinitely).
+
+### EventEmitterPlugin Error Containment (CORE-021)
+
+Handler failures must never take down the process:
+
+1. **`catchErrors: true` (default)** — a throwing handler is recorded in metrics and
+   structured-logged, and the error is **swallowed** (never rethrown to the emitter caller).
+   `catchErrors: false` rethrows to the caller after recording metrics.
+2. **No floating flush.** The buffered-mode flush timer must attach a rejection handler to
+   every `flushBuffer()` it schedules — a handler error surfacing through a floating flush
+   promise is an unhandled rejection (process death on Node 20+), which violates item 1.
+
 ## Event Architecture
 
 ### Event Naming
@@ -558,26 +643,34 @@ The execution loop supports cooperative cancellation via the standard `AbortSign
 
 ### Interface Changes
 
-| Interface                    | Field                                        | Description                                                                                                                                                                                                                                                                            |
-| ---------------------------- | -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `IRunOptions`                | `signal?: AbortSignal`                       | Allows callers to cancel execution of `Robota.run()`                                                                                                                                                                                                                                   |
-| `IRunOptions`                | `onTextDelta?: TTextDeltaCallback`           | Per-run streaming callback forwarded through execution context                                                                                                                                                                                                                         |
-| `IRunOptions`                | `onExecutionEvent?: TExecutionEventCallback` | Per-run replay event callback for provider/tool boundaries                                                                                                                                                                                                                             |
-| `IRunOptions`                | `maxExecutionRounds?: number`                | Maximum model/tool rounds for one run. `0` means unlimited.                                                                                                                                                                                                                            |
-| `IRunOptions`                | `maxSameToolInputs?: number`                 | Abort if the same tool is called with identical inputs N or more times in one run.                                                                                                                                                                                                     |
-| `IChatOptions`               | `signal?: AbortSignal`                       | Passed to provider `chat()` / `chatStream()` for cancelling calls                                                                                                                                                                                                                      |
-| `IAgentConfig`               | `timeout?: number`                           | Provider idle timeout in milliseconds for a model call                                                                                                                                                                                                                                 |
-| `IAgentConfig`               | `maxExecutionRounds?: number`                | Default maximum model/tool rounds for each run. `0` means unlimited.                                                                                                                                                                                                                   |
-| `IAgentConfig`               | `maxSameToolInputs?: number`                 | Config-level default for the identical-tool-input abort threshold.                                                                                                                                                                                                                     |
-| `IExecutionContext`          | `signal?: AbortSignal`                       | Threaded through the execution context for round-level checks                                                                                                                                                                                                                          |
-| `IExecutionContext`          | `onTextDelta?: TTextDeltaCallback`           | Run-scoped callback used before provider-level callback fallback                                                                                                                                                                                                                       |
-| `IExecutionContext`          | `onExecutionEvent?: TExecutionEventCallback` | Internal replay event callback forwarded to provider/tool rounds                                                                                                                                                                                                                       |
-| `IExecutionContext`          | `maxExecutionRounds?: number`                | Run-scoped override for execution round limit                                                                                                                                                                                                                                          |
-| `IExecutionContext`          | `maxSameToolInputs?: number`                 | Run-scoped override for the identical-tool-input abort threshold.                                                                                                                                                                                                                      |
-| `ICoreExecutionResult`       | `interrupted?: boolean`                      | Indicates the execution was aborted before natural completion                                                                                                                                                                                                                          |
-| `ICoreExecutionResult`       | `success` / `error` on provider failure      | A round ending in a provider failure records the error as an assistant message with `providerError` metadata; `buildFinalResult` must mark that result `success: false` with `error` set (never a successful response), so `robotaRun`'s failed-result throw surfaces it to transports |
-| `IToolExecutionBatchContext` | `signal?: AbortSignal`                       | Allows skipping queued tool executions when abort is signalled                                                                                                                                                                                                                         |
-| `IToolExecutionBatchContext` | `maxConcurrency?: number`                    | Bounds active tool executions when batch mode is `parallel`                                                                                                                                                                                                                            |
+| Interface                    | Field                                        | Description                                                                                                                                                                                                                                                                                                                                                                                                 |
+| ---------------------------- | -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `IRunOptions`                | `signal?: AbortSignal`                       | Allows callers to cancel execution of `Robota.run()`                                                                                                                                                                                                                                                                                                                                                        |
+| `IRunOptions`                | `onTextDelta?: TTextDeltaCallback`           | Per-run streaming callback forwarded through execution context                                                                                                                                                                                                                                                                                                                                              |
+| `IRunOptions`                | `allowToolOnlyCompletion?: boolean`          | CORE-011: a turn ending in tool calls is a valid completion — skips the forced summary call (decision-agent pattern); the forced-summary path also honors an aborted signal                                                                                                                                                                                                                                 |
+| `IRunOptions`                | `maxTokens?` / `temperature?`                | CORE-016: run-scoped model option overrides — win over `defaultModel.*`; threaded to BOTH the run round path and the runStream path (the streaming path previously dropped them)                                                                                                                                                                                                                            |
+| `IRunOptions`                | `toolChoice?: TToolChoice`                   | CORE-017: run-scoped tool-invocation directive (`'auto' \| 'none' \| 'required' \| { tool }`) — wins over `defaultModel.toolChoice`; threaded to both paths; a named tool missing from the run's tool list (or `'required'`/named with no tools) throws instead of degrading silently; forcing applies to the run's FIRST model call only — later rounds revert to `'auto'` so tool results can be consumed |
+| `IRunOptions`                | `output?: TStructuredOutputSchema`           | CORE-015: schema-enforced structured output — `run` resolves to the validated typed object instead of a string (see Structured Output Contract)                                                                                                                                                                                                                                                             |
+| `IRunOptions`                | `outputRetries?: number`                     | CORE-015: validation-retry budget after the first attempt (default 2); only meaningful with `output`                                                                                                                                                                                                                                                                                                        |
+| `IRunOptions`                | `onExecutionEvent?: TExecutionEventCallback` | Per-run replay event callback for provider/tool boundaries                                                                                                                                                                                                                                                                                                                                                  |
+| `IRunOptions`                | `maxExecutionRounds?: number`                | Maximum model/tool rounds for one run. `0` means unlimited.                                                                                                                                                                                                                                                                                                                                                 |
+| `IRunOptions`                | `maxSameToolInputs?: number`                 | Abort if the same tool is called with identical inputs N or more times in one run.                                                                                                                                                                                                                                                                                                                          |
+| `IChatOptions`               | `signal?: AbortSignal`                       | Passed to provider `chat()` / `chatStream()` for cancelling calls                                                                                                                                                                                                                                                                                                                                           |
+| `IChatOptions`               | `responseFormat` `json_schema` variant       | CORE-015: `{ type: 'json_schema', name?, schema }` carries the structured-output schema to provider native surfaces                                                                                                                                                                                                                                                                                         |
+| `IAgentConfig`               | `timeout?: number`                           | Provider idle timeout in milliseconds for a model call                                                                                                                                                                                                                                                                                                                                                      |
+| `IAgentConfig`               | `retainHistory?: boolean`                    | CORE-014: default `true` (history accumulates; full history sent every call). `false` = run-isolated mode: the conversation store resets after every run settles (success/abort/error), system prompt re-applies next run (CORE-010); pre-run injected context is visible to that run only                                                                                                                  |
+| `IAgentConfig`               | `maxExecutionRounds?: number`                | Default maximum model/tool rounds for each run. `0` means unlimited.                                                                                                                                                                                                                                                                                                                                        |
+| `IAgentConfig`               | `maxSameToolInputs?: number`                 | Config-level default for the identical-tool-input abort threshold.                                                                                                                                                                                                                                                                                                                                          |
+| `IExecutionContext`          | `signal?: AbortSignal`                       | Threaded through the execution context for round-level checks                                                                                                                                                                                                                                                                                                                                               |
+| `IExecutionContext`          | `onTextDelta?: TTextDeltaCallback`           | Run-scoped callback used before provider-level callback fallback                                                                                                                                                                                                                                                                                                                                            |
+| `IExecutionContext`          | `onExecutionEvent?: TExecutionEventCallback` | Internal replay event callback forwarded to provider/tool rounds                                                                                                                                                                                                                                                                                                                                            |
+| `IExecutionContext`          | `maxExecutionRounds?: number`                | Run-scoped override for execution round limit                                                                                                                                                                                                                                                                                                                                                               |
+| `IExecutionContext`          | `maxSameToolInputs?: number`                 | Run-scoped override for the identical-tool-input abort threshold.                                                                                                                                                                                                                                                                                                                                           |
+| `ICoreExecutionResult`       | `interrupted?: boolean`                      | Indicates the execution was aborted before natural completion                                                                                                                                                                                                                                                                                                                                               |
+| `ICoreExecutionResult`       | `success` / `error` on provider failure      | A round ending in a provider failure records the error as an assistant message with `providerError` metadata; `buildFinalResult` must mark that result `success: false` with `error` set (never a successful response), so `robotaRun`'s failed-result throw surfaces it to transports                                                                                                                      |
+| `ICoreExecutionResult`       | `error` REQUIRED on every failed result      | CORE-020: every `success: false` result carries `error: Error`, and `response` never carries error text (no `"Error: ..."` injection) — a failure must reach `run()` callers as a rejection, never as a normal-looking response string. `robotaRun` throws `result.error` for any non-interrupted failed result                                                                                             |
+| `IToolExecutionBatchContext` | `signal?: AbortSignal`                       | Allows skipping queued tool executions when abort is signalled                                                                                                                                                                                                                                                                                                                                              |
+| `IToolExecutionBatchContext` | `maxConcurrency?: number`                    | Bounds active tool executions when batch mode is `parallel`                                                                                                                                                                                                                                                                                                                                                 |
 
 ### Replay Boundary Events
 
@@ -615,6 +708,70 @@ When `IToolExecutionBatchContext.mode` is `parallel`, `ToolExecutionService` enf
 ### Partial Content Preservation on Abort
 
 When abort occurs during provider streaming, the provider uses `streamWithAbort` which breaks out of the iteration loop on `signal.aborted`. The provider then returns partial content collected so far with `stopReason: 'aborted'`. `executeRound` commits this partial response via `commitAssistant('interrupted')` through the standard single commit path. The execution loop then exits via the `signal.aborted` check in ExecutionService. `robota.run()` always returns normally on abort — it does not throw.
+
+## Structured Output Contract (CORE-015)
+
+`run(input, { output })` returns a schema-validated object instead of a string; `runStream` streams
+text deltas as usual and delivers the validated object as the generator's **return value** (read it
+from the final `{ done: true, value }` iterator result).
+
+- **Accepted schemas**: a Zod schema (validated via `safeParse`, return typed `z.infer<S>` on the
+  `Robota` class surface) or an explicit `IJsonSchemaOutput` wrapper carrying the universal
+  JSON-schema subset (validated structurally by `validateAgainstJsonSchema`). Both normalize to
+  `IStructuredOutputSpec` — one internal representation (SSOT).
+- **Provider mapping**: the schema is forwarded as `IChatOptions.responseFormat =
+{ type: 'json_schema', name, schema }`. Providers with a native structured-output surface map it
+  natively (OpenAI `response_format.json_schema`, Anthropic `output_config.format`, Gemini
+  `responseSchema` + JSON mime type); providers without one ignore it — the core-side enforcement
+  loop below is the universal contract either way.
+- **Enforcement loop**: the final response text is parsed (`parseStructuredResponseText`, tolerant
+  of one fenced json block) and validated core-side on every run. A violation triggers a retry
+  turn whose input contains the validation issues plus the schema, bounded by `outputRetries`
+  (default 2 retries after the first attempt). Exhaustion throws `StructuredOutputError`
+  (`issues`, `attempts`).
+- **History**: every attempt — including retry feedback turns — is a real conversation turn
+  committed through the standard append-only history path. Structured output never edits history.
+- **Tools**: tools may run within a structured turn; validation applies to the final assistant
+  text after tool rounds complete.
+- **Interface note**: the structured overloads are visible on `Robota` directly; through the
+  generic `IAgent` interface `run` remains `Promise<string>`-typed.
+
+## Disposal Contract (CORE-013)
+
+`Robota.destroy()` is **best-effort**: it never rejects for cleanup failures, so
+`void agent.destroy()` is always safe to fire-and-forget (a rejection would be an unhandled
+rejection that kills the host process on Node 20+). Every cleanup step — module disposal, plugin
+event unsubscription, module-registry clear, event-emitter disposal — runs regardless of earlier
+failures; each failure is logged and collected into the returned `IDestroyResult`
+(`Promise<{ errors: Error[] }>`). State is always reset.
+
+The same convention applies to the other disposal surfaces in the stack (one convention,
+applied everywhere): `Session.shutdown()` (agent-session) resolves with step failures recorded to
+the session log; `TransportRegistry.stopAll()` (agent-transport / `ITransportRegistryView`) stops
+every transport and returns collected errors as `IDestroyResult`. Operation-style closes that a
+caller acts on (e.g. background-task `closeTask`) intentionally keep throwing — their errors are
+answers, not cleanup noise.
+
+## Run Concurrency Contract (CORE-012)
+
+One `Robota` instance owns one conversation history, so concurrent executions on the same instance
+would interleave history writes. The instance therefore serializes runs internally:
+
+- `run()` and `runStream()` share a single FIFO run slot per instance. A call made while another
+  run is in flight waits for the earlier run to complete, then executes — callers may fire
+  concurrent calls without external locking and still get strictly sequential history
+  (`user₁, assistant₁, user₂, assistant₂ …`). The queued run's provider request includes the
+  completed earlier exchange.
+- `runStream()` acquires the slot when iteration starts and holds it until the stream is fully
+  consumed (or the generator is closed early via `return()`/`break`, which releases through the
+  same `finally` path). An abandoned, never-consumed generator does not hold the slot because the
+  generator body has not started.
+- If a queued call's `IRunOptions.signal` is already aborted when its turn arrives, it throws
+  `Run aborted while queued behind another run on this instance` without touching the provider or
+  history. An abort during an in-flight run keeps the existing abort semantics above (returns
+  normally, never throws).
+- The queue is per-instance. Cross-instance coordination is out of scope; separate instances remain
+  fully concurrent.
 
 This ensures:
 

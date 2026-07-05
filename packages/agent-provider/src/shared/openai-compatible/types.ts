@@ -7,12 +7,14 @@ export interface IOpenAICompatibleChatRequestParams {
   temperature?: number | undefined;
   max_tokens?: number | undefined;
   tools?: OpenAI.Chat.ChatCompletionTool[] | undefined;
-  tool_choice?: 'auto' | 'none' | OpenAI.Chat.ChatCompletionNamedToolChoice | undefined;
+  tool_choice?: OpenAI.Chat.ChatCompletionToolChoiceOption | undefined;
   stream?: boolean | undefined;
 }
 
-export interface IOpenAICompatibleStreamRequestParams
-  extends Omit<IOpenAICompatibleChatRequestParams, 'stream'> {
+export interface IOpenAICompatibleStreamRequestParams extends Omit<
+  IOpenAICompatibleChatRequestParams,
+  'stream'
+> {
   stream: true;
 }
 

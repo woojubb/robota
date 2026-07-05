@@ -1,3 +1,4 @@
+import { sumHistoryUsage } from '@robota-sdk/agent-core';
 import { createProviderFromProfile } from '@robota-sdk/agent-executor';
 import {
   createDefaultTools,
@@ -16,6 +17,8 @@ import {
 import type { ITerminalOutput } from '@robota-sdk/agent-core';
 
 const CANCEL_EXIT_CODE = 130;
+/** Force-exit fallback if the IPC flush callback never fires (broken channel). */
+const FLUSH_EXIT_FALLBACK_MS = 2000;
 
 const NOOP_TERMINAL: ITerminalOutput = {
   write: (): void => {},
@@ -38,6 +41,44 @@ let running: Promise<void> = Promise.resolve();
 function sendChildMessage(message: TSubagentWorkerChildMessage): void {
   if (process.send) {
     process.send(message);
+  }
+}
+
+/**
+ * CORE-024 (RUNTIME-20): send the terminal message and exit ONLY after the IPC write has drained.
+ * `process.send` is asynchronous; exiting from a `finally` before the write flushes made the
+ * parent's `onExit` fire before the `result` arrived — a successful run was misreported as a crash
+ * and its `usage` payload was lost. Exit from the flush callback; a fallback timer guards a broken
+ * channel so the worker never hangs.
+ */
+function sendTerminalMessageAndExit(message: TSubagentWorkerChildMessage, exitCode: number): void {
+  let exited = false;
+  const exitOnce = (): void => {
+    if (exited) return;
+    exited = true;
+    process.exit(exitCode);
+  };
+  if (process.send) {
+    const fallback = setTimeout(exitOnce, FLUSH_EXIT_FALLBACK_MS);
+    fallback.unref?.();
+    process.send(message, undefined, undefined, () => {
+      clearTimeout(fallback);
+      exitOnce();
+    });
+  } else {
+    exitOnce();
+  }
+}
+
+/** Best-effort total token usage of the finished subagent session; never throws. */
+function readSessionUsage(
+  finishedSession: ReturnType<typeof createSubagentSession>,
+): ReturnType<typeof sumHistoryUsage> {
+  try {
+    return sumHistoryUsage(finishedSession.getFullHistory());
+  } catch {
+    // allow-fallback: usage capture is auxiliary — history read failure must not fail the subagent run
+    return undefined;
   }
 }
 
@@ -67,20 +108,29 @@ async function runInitialPrompt(payload: ISubagentWorkerStartPayload): Promise<v
     });
     const output = await session.run(payload.request.prompt);
     if (cancelled) {
-      sendChildMessage({ type: 'cancelled', reason: 'Subagent worker cancelled' });
+      sendTerminalMessageAndExit(
+        { type: 'cancelled', reason: 'Subagent worker cancelled' },
+        CANCEL_EXIT_CODE,
+      );
       return;
     }
-    sendChildMessage({ type: 'result', output });
+    // ANALYTICS-001 (Phase 2): forward the subagent's total token usage so the parent log can
+    // attribute it to this agent as a source. Best-effort — usage capture must never fail the run.
+    const usage = readSessionUsage(session);
+    // CORE-024 (RUNTIME-20): exit only after this result (with usage) has flushed over IPC, so the
+    // parent settles on the result instead of racing a crash-projection from an early exit.
+    sendTerminalMessageAndExit({ type: 'result', output, ...(usage ? { usage } : {}) }, 0);
   } catch (error) {
-    // allow-fallback: child process must report errors to parent via IPC, not crash silently
+    // allow-fallback: child process must report errors to parent via IPC, not crash silently; exit follows the IPC flush (CORE-024 RUNTIME-20)
     if (cancelled) {
-      sendChildMessage({ type: 'cancelled', reason: 'Subagent worker cancelled' });
+      sendTerminalMessageAndExit(
+        { type: 'cancelled', reason: 'Subagent worker cancelled' },
+        CANCEL_EXIT_CODE,
+      );
       return;
     }
     const message = error instanceof Error ? error.message : String(error);
-    sendChildMessage({ type: 'error', message });
-  } finally {
-    setImmediate(() => process.exit(cancelled ? CANCEL_EXIT_CODE : 0));
+    sendTerminalMessageAndExit({ type: 'error', message }, 0);
   }
 }
 

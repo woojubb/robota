@@ -201,6 +201,47 @@ describe('BackgroundTaskManager', () => {
     expect(manager.get(created.id)?.metadata).toEqual(created.metadata);
   });
 
+  it('a sleeping scheduled task releases its concurrency slot (CORE-024 RUNTIME-17)', async () => {
+    // A scheduled runner that goes to sleep immediately after start (like the real cron runner).
+    const scheduledStarted: IStartedTask[] = [];
+    const scheduledRunner: IBackgroundTaskRunner = {
+      kind: 'scheduled',
+      start(task: IBackgroundTaskStart): IBackgroundTaskHandle {
+        const deferred = createTestDeferred();
+        scheduledStarted.push({ taskId: task.taskId, deferred, emit: task.emit });
+        // Emit sleeping on the next tick, as the real scheduled runner does.
+        queueMicrotask(() =>
+          task.emit?.({ type: 'background_task_sleeping', nextFireAt: 'later' }),
+        );
+        return { taskId: task.taskId, result: deferred.promise, cancel: () => Promise.resolve() };
+      },
+    };
+    const controlled = createControllableRunner();
+    const manager = new BackgroundTaskManager({
+      runners: [scheduledRunner, controlled.runner],
+      maxConcurrent: 1,
+    });
+
+    const scheduled = await manager.spawn({
+      kind: 'scheduled' as const,
+      label: 'nightly',
+      parentSessionId: 'session_parent',
+      mode: 'background' as const,
+      depth: 1,
+      cwd: '/workspace',
+      cronExpression: '0 0 * * *',
+      permissionPolicy: 'inherit-allowlist' as const,
+    });
+    await flushMicrotasks();
+    await flushMicrotasks();
+
+    // The scheduled task is sleeping — it must NOT hold the single slot, so an agent task runs.
+    expect(manager.get(scheduled.id)?.status).toBe('sleeping');
+    const agent = await manager.spawn(createAgentRequest('Runs despite the sleeping schedule'));
+    expect(agent.status).toBe('running');
+    expect(controlled.started).toHaveLength(1);
+  });
+
   it('queues tasks when maxConcurrent capacity is full', async () => {
     const controlled = createControllableRunner();
     const manager = new BackgroundTaskManager({

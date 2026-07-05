@@ -16,12 +16,15 @@ import {
   createModeCommandModule,
   createProviderCommandModule,
 } from '@robota-sdk/agent-command';
+import type { IProviderCommandModuleOptions } from '@robota-sdk/agent-command';
+
+declare const providerOptions: IProviderCommandModuleOptions;
 
 // Register commands with a CommandRegistry (owned by agent-framework)
 const modules = [
-  createAgentCommandModule(hostAdapters),
-  createModeCommandModule(hostAdapters),
-  createProviderCommandModule(hostAdapters),
+  createAgentCommandModule(),
+  createModeCommandModule(),
+  createProviderCommandModule(providerOptions),
 ];
 ```
 
@@ -58,8 +61,8 @@ Each command is exposed via a factory function that returns an `ICommandModule`:
 ```typescript
 import { createExitCommandModule, createHelpCommandModule } from '@robota-sdk/agent-command';
 
-const exitCmd = createExitCommandModule(hostAdapters);
-const helpCmd = createHelpCommandModule(hostAdapters);
+const exitCmd = createExitCommandModule();
+const helpCmd = createHelpCommandModule();
 ```
 
 All command factory functions are re-exported from the root entry point (21 command modules plus the

@@ -1,7 +1,12 @@
-import { Type } from '@google/genai';
+import { FunctionCallingConfigMode, Type } from '@google/genai';
 
-import type { FunctionDeclaration, Schema } from '@google/genai';
-import type { IParameterSchema, IToolSchema, TJSONSchemaKind } from '@robota-sdk/agent-core';
+import type { FunctionCallingConfig, FunctionDeclaration, Schema } from '@google/genai';
+import type {
+  IParameterSchema,
+  IToolSchema,
+  TJSONSchemaKind,
+  TToolChoice,
+} from '@robota-sdk/agent-core';
 
 const GOOGLE_SCHEMA_TYPE_BY_JSON_KIND: Record<Exclude<TJSONSchemaKind, 'null'>, Type> = {
   string: Type.STRING,
@@ -23,6 +28,24 @@ export function convertToolsToGeminiFormat(tools: IToolSchema[]): FunctionDeclar
       required: tool.parameters.required,
     },
   }));
+}
+
+/**
+ * Map the provider-agnostic tool-invocation directive onto Gemini's
+ * `functionCallingConfig` (CORE-017). `'required'` maps to mode `ANY` (the model must call
+ * some declared function); a named directive maps to `ANY` constrained to that one name.
+ */
+export function toGeminiFunctionCallingConfig(toolChoice: TToolChoice): FunctionCallingConfig {
+  if (toolChoice === 'auto') {
+    return { mode: FunctionCallingConfigMode.AUTO };
+  }
+  if (toolChoice === 'none') {
+    return { mode: FunctionCallingConfigMode.NONE };
+  }
+  if (toolChoice === 'required') {
+    return { mode: FunctionCallingConfigMode.ANY };
+  }
+  return { mode: FunctionCallingConfigMode.ANY, allowedFunctionNames: [toolChoice.tool] };
 }
 
 function convertParameterProperties(

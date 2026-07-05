@@ -12,10 +12,19 @@
 
 import type { IAIProvider, IRawProviderResponse, TUniversalMessage } from '../index.js';
 
-/** One scripted assistant turn: plain text or tool invocations. */
+/** ANALYTICS-001: optional token usage a scripted turn reports, so usage-based tests are possible. */
+export interface IScriptedTurnUsage {
+  inputTokens: number;
+  outputTokens: number;
+}
+
+/** One scripted assistant turn: plain text or tool invocations, optionally reporting token usage. */
 export type TScriptedTurn =
-  | { text: string }
-  | { toolCalls: ReadonlyArray<{ name: string; args: Record<string, unknown> }> };
+  | { text: string; usage?: IScriptedTurnUsage }
+  | {
+      toolCalls: ReadonlyArray<{ name: string; args: Record<string, unknown> }>;
+      usage?: IScriptedTurnUsage;
+    };
 
 export interface IScriptedProvider {
   provider: IAIProvider;
@@ -39,6 +48,16 @@ export function createScriptedProvider(turns: readonly TScriptedTurn[]): IScript
         );
       }
       cursor += 1;
+      // ANALYTICS-001: surface declared usage in metadata so the real usage pipeline records it.
+      const usageMetadata = turn.usage
+        ? {
+            metadata: {
+              inputTokens: turn.usage.inputTokens,
+              outputTokens: turn.usage.outputTokens,
+              totalTokens: turn.usage.inputTokens + turn.usage.outputTokens,
+            },
+          }
+        : {};
       if ('text' in turn) {
         return {
           id: `scripted-${cursor}`,
@@ -46,6 +65,7 @@ export function createScriptedProvider(turns: readonly TScriptedTurn[]): IScript
           content: turn.text,
           state: 'complete',
           timestamp: new Date(),
+          ...usageMetadata,
         };
       }
       return {
@@ -54,6 +74,7 @@ export function createScriptedProvider(turns: readonly TScriptedTurn[]): IScript
         content: null,
         state: 'complete',
         timestamp: new Date(),
+        ...usageMetadata,
         toolCalls: turn.toolCalls.map((call, index) => ({
           id: `scripted-call-${cursor}-${index}`,
           type: 'function' as const,

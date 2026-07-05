@@ -3,6 +3,7 @@ import { Box, Text } from 'ink';
 import React from 'react';
 
 import { formatCommandOutputSummary } from './command-output-summary.js';
+import { humanizeToolName } from './humanize-tool-name.js';
 import { renderMarkdown } from './render-markdown.js';
 import ToolCommandOutput from './ToolCommandOutput.js';
 import ToolDiffBlock from './ToolDiffBlock.js';
@@ -40,7 +41,7 @@ function getToolSummaryColor(tool: TToolSummaryItem): string {
 }
 
 function getToolSummaryLabel(tool: TToolSummaryItem): string {
-  return `${getToolSummaryStatus(tool)} ${tool.toolName}${tool.firstArg ? `(${tool.firstArg})` : ''}`;
+  return `${getToolSummaryStatus(tool)} ${humanizeToolName(tool.toolName)}${tool.firstArg ? `(${tool.firstArg})` : ''}`;
 }
 
 function RoleLabel({ role }: { role: TUniversalMessage['role'] }): React.ReactElement {
@@ -99,7 +100,7 @@ function ToolMessage({ message }: { message: TUniversalMessage }): React.ReactEl
           </Text>
           {toolName && (
             <Text color="white" dimColor>
-              [{toolName}]
+              [{humanizeToolName(toolName)}]
             </Text>
           )}
         </Box>
@@ -144,6 +145,28 @@ function ToolMessage({ message }: { message: TUniversalMessage }): React.ReactEl
   );
 }
 
+/** ERR-001 G2: a failed turn renders as a styled error block, not a plain system note. */
+function ErrorEntryBlock({ message }: { message: TUniversalMessage }): React.ReactElement {
+  const content = (message.content ?? '').replace(/^Error:\s*/, '');
+  return (
+    <Box flexDirection="column" marginBottom={1}>
+      <Box>
+        <Text color="red" bold>
+          ✖ Error:{' '}
+        </Text>
+      </Box>
+      <Box marginLeft={2} flexDirection="column">
+        <Text color="red" wrap="wrap">
+          {content}
+        </Text>
+        <Text dimColor wrap="wrap">
+          The session is still alive — type your next prompt when ready.
+        </Text>
+      </Box>
+    </Box>
+  );
+}
+
 const MessageItem = React.memo(function MessageItem({
   message,
 }: {
@@ -151,6 +174,10 @@ const MessageItem = React.memo(function MessageItem({
 }): React.ReactElement {
   if (isToolMessage(message)) {
     return <ToolMessage message={message} />;
+  }
+
+  if (message.role === 'system' && message.metadata?.kind === 'error') {
+    return <ErrorEntryBlock message={message} />;
   }
 
   const content = message.content ?? '';

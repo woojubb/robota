@@ -44,6 +44,9 @@
       }
     ],
     "no-unused-vars": "off",
+    // ✅ TS method overloads are legal duplicate names; use the TS-aware rule instead
+    "no-dupe-class-members": "off",
+    "@typescript-eslint/no-dupe-class-members": "error",
     // ✅ 완화: 모듈 경계 타입을 선택적으로 변경
     "@typescript-eslint/explicit-module-boundary-types": "off", // 유지
     // ✅ 완화: TS 코멘트를 에러에서 경고로

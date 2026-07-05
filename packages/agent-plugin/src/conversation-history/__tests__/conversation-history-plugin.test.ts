@@ -29,7 +29,7 @@ describe('ConversationHistoryPlugin', () => {
 
   afterEach(async () => {
     if (plugin) {
-      await plugin.destroy();
+      await plugin.dispose();
     }
   });
 
@@ -209,13 +209,13 @@ describe('ConversationHistoryPlugin', () => {
   describe('destroy', () => {
     it('completes without error', async () => {
       plugin = new ConversationHistoryPlugin({ storage: 'memory' });
-      await expect(plugin.destroy()).resolves.not.toThrow();
+      await expect(plugin.dispose()).resolves.not.toThrow();
     });
 
     it('completes without error in batch mode', async () => {
       plugin = new ConversationHistoryPlugin({ storage: 'memory', autoSave: false });
       await plugin.startConversation('conv-1');
-      await expect(plugin.destroy()).resolves.not.toThrow();
+      await expect(plugin.dispose()).resolves.not.toThrow();
     });
   });
 });

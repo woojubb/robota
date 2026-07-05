@@ -3,8 +3,33 @@ import {
   type ISubagentJobStart,
   type TBackgroundTaskRunnerEvent,
 } from '@robota-sdk/agent-executor';
+import { killProcessTree } from '@robota-sdk/agent-process';
+
+/** POSIX children are forked detached so a process-group kill reaps grandchildren (CORE-023). */
+const SPAWN_DETACHED = process.platform !== 'win32';
+
+/** Resolve when the child exits or after `ms` — lets the graceful IPC cancel land before signalling. */
+function waitForExitOrTimeout(child: ChildProcess, ms: number): Promise<void> {
+  return new Promise<void>((resolve) => {
+    if (child.exitCode !== null || child.signalCode !== null) {
+      resolve();
+      return;
+    }
+    const timer = setTimeout(() => {
+      child.removeListener('exit', onExit);
+      resolve();
+    }, ms);
+    timer.unref?.();
+    const onExit = (): void => {
+      clearTimeout(timer);
+      resolve();
+    };
+    child.once('exit', onExit);
+  });
+}
 
 import type {
+  ISubagentWorkerResultMessage,
   TSubagentWorkerChildMessage,
   TSubagentWorkerParentMessage,
 } from './child-process-subagent-ipc.js';
@@ -15,13 +40,12 @@ export interface IChildProcessRuntime {
   job: ISubagentJobStart;
   child: ChildProcess;
   killGraceMs: number;
-  killTimer?: ReturnType<typeof setTimeout>;
 }
 
 export function handleWorkerMessage(
   message: TSubagentWorkerChildMessage,
   startWorker: () => void,
-  resolveOnce: (output: string) => void,
+  resolveOnce: (result: ISubagentWorkerResultMessage) => void,
   rejectOnce: (error: Error) => void,
   emit?: (event: TBackgroundTaskRunnerEvent) => void,
 ): void {
@@ -30,7 +54,7 @@ export function handleWorkerMessage(
       startWorker();
       break;
     case 'result':
-      resolveOnce(message.output);
+      resolveOnce(message);
       break;
     case 'error':
       rejectOnce(new BackgroundTaskError('runner', message.message));
@@ -90,12 +114,17 @@ export async function cancelChildProcess(
   runtime: IChildProcessRuntime,
   reason?: string,
 ): Promise<void> {
-  if (runtime.child.connected) {
-    await sendWorkerMessage(runtime.child, { type: 'cancel', reason }).catch(() => undefined);
-  }
-  runtime.killTimer = setTimeout(() => {
-    if (!runtime.child.killed) {
-      runtime.child.kill('SIGTERM');
-    }
-  }, runtime.killGraceMs);
+  // CORE-023: graceful IPC cancel first (preKill), then SIGTERM→grace→SIGKILL over the process
+  // group — the previous path signalled SIGTERM only and never escalated, so a worker ignoring
+  // SIGTERM survived forever.
+  await killProcessTree(runtime.child, {
+    graceMs: runtime.killGraceMs,
+    processGroup: SPAWN_DETACHED,
+    preKill: async () => {
+      if (!runtime.child.connected) return;
+      await sendWorkerMessage(runtime.child, { type: 'cancel', reason }).catch(() => undefined);
+      // Give the worker the grace window to shut down cleanly on the IPC cancel before signalling.
+      await waitForExitOrTimeout(runtime.child, runtime.killGraceMs);
+    },
+  });
 }

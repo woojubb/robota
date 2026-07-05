@@ -8,6 +8,7 @@ import {
 import { assembleQwenResponsesStream, parseQwenResponsesResponse } from './responses-parser';
 import {
   observeProviderNativeRawPayloadStream,
+  toOpenAIResponsesToolChoice,
   type IOpenAICompatibleError,
 } from '../shared/openai-compatible/index.js';
 
@@ -160,6 +161,10 @@ function buildResponsesRequestParams(
     model,
     input: convertToQwenResponsesInput(input.messages),
     ...(tools !== undefined && { tools }),
+    ...(tools !== undefined &&
+      input.chatOptions?.toolChoice !== undefined && {
+        tool_choice: toOpenAIResponsesToolChoice(input.chatOptions.toolChoice),
+      }),
     ...(input.chatOptions?.temperature !== undefined && {
       temperature: input.chatOptions.temperature,
     }),

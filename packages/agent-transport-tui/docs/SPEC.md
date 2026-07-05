@@ -23,6 +23,47 @@ agent-transport-tui
   └── createDefaultTuiCliAdapter ← wires command/provider UX into the renderer
 ```
 
+## Channel Lifecycle & Teardown
+
+`TuiInteractionChannel` owns the interactive session and its render state; its teardown contract is
+authoritative for how the TUI releases resources on session switch and process exit.
+
+- **`start()`** wires the session event listeners (13 `session.on(...)` bindings) and begins the
+  init poller. It is idempotent (a `sessionStarted` guard).
+- **`stop()`** is the full, idempotent channel teardown (a `stopped` guard makes repeat calls
+  no-ops). It **unwires every session listener** it registered (each binding is retained and removed
+  with `session.off(...)` — no handler may stay bound to a discarded session), drains the permission
+  and user-action queues (see below), stops the init poller, disposes the `TuiStateManager`, stops
+  transports, and — unless the channel was already gracefully shut down — **shuts the underlying
+  session down** (bounded by `SHUTDOWN_TIMEOUT_MS`) so a discarded or switched-away channel releases
+  its background tasks, subagent child processes, and timers. A channel that leaves listeners bound
+  or its session running after `stop()` is a defect.
+- **`shutdown({ reason, timeoutMs? })`** is the graceful process-exit path (first Ctrl+C, `/exit`,
+  signal). It marks `isShuttingDown`, drains both queues, renders `Shutting down...`, then awaits the
+  session shutdown **bounded by a timeout** (`SHUTDOWN_TIMEOUT_MS`, overridable) so a wedged subsystem
+  can never block process exit. It is idempotent (`isShuttingDown` guard).
+- **Session switch policy.** The old channel is `stop()`-ed _before_ the new channel becomes active,
+  so it can never receive events addressed to the new session and its session is shut down as part of
+  that teardown. This is the single owner of old-session shutdown on switch.
+
+### Queue drain on abort / shutdown
+
+The channel serves two independent request queues. Both must be drained on `abort()`, `cancelQueue()`,
+`shutdown()`, and `stop()` so no promise dangles:
+
+- `cancelAllUserActions()` — resolves every queued/in-flight CMD-004 ask as `{ type: 'cancelled' }`.
+- `cancelAllPermissions()` — resolves every queued/in-flight permission request as `false` (deny):
+  aborting or shutting down must never leave a tool's permission promise unresolved (the tool would
+  hang) nor grant it. The two drains are symmetric; a permission queue with no cancel path is a defect.
+
+### Stall-hint suppression during tool execution (ERR-001 G3)
+
+`TuiStateManager` arms a dead-air hint (`isStalled`) after `STALL_HINT_MS` of no provider activity
+while thinking. A running tool is legitimate activity, not a stalled connection, so the hint is
+**suppressed while any tool is running**: `onToolStart` clears the stall timer, and it is re-armed
+only when the last running tool ends and the turn is still thinking. `TuiStateManager.dispose()`
+releases the stall timer and the streaming-debounce timer and nulls `onChange`.
+
 ## Type Ownership
 
 Owns the TUI rendering/adapter types (`IRenderOptions`, `ITuiCliAdapter`,

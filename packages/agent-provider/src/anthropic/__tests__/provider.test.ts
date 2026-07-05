@@ -342,6 +342,67 @@ describe('AnthropicProvider', () => {
       expect(result.metadata?.outputTokens).toBe(20);
     });
 
+    it('maps json_schema responseFormat onto output_config.format (CORE-015)', async () => {
+      const apiResponse = makeTextResponse('{"title": "ok"}');
+      mockClient.messages.create.mockResolvedValue(makeStreamEvents(apiResponse));
+
+      const messages: TUniversalMessage[] = [
+        {
+          id: 'msg-1',
+          state: 'complete' as const,
+          role: 'user',
+          content: 'Report please',
+          timestamp: new Date(),
+        },
+      ];
+      const schema = {
+        type: 'object',
+        properties: { title: { type: 'string' } },
+        required: ['title'],
+      };
+      await provider.chat(messages, {
+        model: 'claude-3-opus-20240229',
+        responseFormat: { type: 'json_schema', name: 'report', schema },
+      });
+
+      // Anthropic requires closed-world objects: additionalProperties is forced false.
+      expect(mockClient.messages.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          output_config: {
+            format: {
+              type: 'json_schema',
+              schema: {
+                type: 'object',
+                properties: { title: { type: 'string' } },
+                required: ['title'],
+                additionalProperties: false,
+              },
+            },
+          },
+        }),
+        undefined,
+      );
+    });
+
+    it('omits output_config for non-json_schema response formats', async () => {
+      const apiResponse = makeTextResponse('plain');
+      mockClient.messages.create.mockResolvedValue(makeStreamEvents(apiResponse));
+
+      const messages: TUniversalMessage[] = [
+        {
+          id: 'msg-1',
+          state: 'complete' as const,
+          role: 'user',
+          content: 'Hi',
+          timestamp: new Date(),
+        },
+      ];
+      await provider.chat(messages, { model: 'claude-3-opus-20240229' });
+
+      const params = mockClient.messages.create.mock.calls[0][0] as Record<string, unknown>;
+      expect(params).not.toHaveProperty('output_config');
+    });
+
     it('emits native Anthropic request and ordered stream event payloads', async () => {
       const apiResponse = makeTextResponse('Hello there!');
       mockClient.messages.create.mockResolvedValue(makeStreamEvents(apiResponse));

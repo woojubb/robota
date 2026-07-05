@@ -2,7 +2,7 @@ import type { IAgentConfig, IAssistantMessage, TExecutionEventCallback } from '.
 import type { IAIProviderManager } from '../interfaces/manager';
 import type { IToolManager } from '../interfaces/manager';
 import type { TUniversalMessage } from '../interfaces/messages';
-import type { IChatOptions, TTextDeltaCallback } from '../interfaces/provider';
+import type { IChatOptions, TTextDeltaCallback, TToolChoice } from '../interfaces/provider';
 import type { TMetadata } from '../interfaces/types';
 
 /** Preview length for general content truncation */
@@ -117,6 +117,14 @@ export interface IExecutionContext {
   maxExecutionRounds?: number;
   /** Max times the same tool may be called with identical input before aborting. Unset = no limit. */
   maxSameToolInputs?: number;
+  /** Tool-only turn ending counts as completion — skip the forced summary call (CORE-011). */
+  allowToolOnlyCompletion?: boolean;
+  /** Run-scoped max output tokens override — wins over `defaultModel.maxTokens` (CORE-016). */
+  maxTokens?: number;
+  /** Run-scoped temperature override — wins over `defaultModel.temperature` (CORE-016). */
+  temperature?: number;
+  /** Run-scoped tool-invocation directive — wins over `defaultModel.toolChoice` (CORE-017). */
+  toolChoice?: TToolChoice;
 }
 
 /**

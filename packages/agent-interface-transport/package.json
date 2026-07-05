@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-interface-transport",
-  "version": "3.0.0-beta.76",
+  "version": "3.0.0-beta.77",
   "description": "Transport contract interfaces for the Robota SDK (ITransportAdapter, IConfigurableTransport, ITransportConfig)",
   "type": "module",
   "main": "dist/node/index.js",
@@ -42,9 +42,7 @@
     "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
   },
   "dependencies": {
-    "@robota-sdk/agent-core": "workspace:*",
-    "@robota-sdk/agent-executor": "workspace:*",
-    "@robota-sdk/agent-session": "workspace:*"
+    "@robota-sdk/agent-core": "workspace:*"
   },
   "devDependencies": {
     "rimraf": "^5.0.10",

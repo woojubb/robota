@@ -1,0 +1,3 @@
+# Everything under src/ is disposable live-verification tooling — never committed.
+src/*
+!src/.gitkeep

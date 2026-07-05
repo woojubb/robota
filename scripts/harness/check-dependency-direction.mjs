@@ -42,6 +42,13 @@ function findWorkspacePackages() {
               name: pkg.name,
               path: join(nestedDir, nested.name),
               dependencies: Object.keys(pkg.dependencies || {}),
+              allDependencies: [
+                ...new Set([
+                  ...Object.keys(pkg.dependencies || {}),
+                  ...Object.keys(pkg.devDependencies || {}),
+                  ...Object.keys(pkg.peerDependencies || {}),
+                ]),
+              ],
             });
           }
         }
@@ -52,6 +59,13 @@ function findWorkspacePackages() {
         name: pkg.name,
         path: join(base, entry.name),
         dependencies: Object.keys(pkg.dependencies || {}),
+        allDependencies: [
+          ...new Set([
+            ...Object.keys(pkg.dependencies || {}),
+            ...Object.keys(pkg.devDependencies || {}),
+            ...Object.keys(pkg.peerDependencies || {}),
+          ]),
+        ],
       });
     }
   }
@@ -183,40 +197,125 @@ function checkPluginLayerDeps(packages) {
   return violations;
 }
 
-const packages = findWorkspacePackages();
-const biDirViolations = checkBidirectionalDeps(packages);
-const reexportViolations = checkPassthroughReexports(packages);
-const forbiddenDepViolations = checkForbiddenProductionDeps(packages);
-const coreZeroDepViolations = checkAgentCoreZeroDeps(packages);
-const pluginLayerViolations = checkPluginLayerDeps(packages);
+/**
+ * Rule 5 (INFRA-025): agent-interface-* packages are pure contract SSOTs — their production
+ * dependencies must be a subset of {agent-core}. Depending on an implementation package
+ * reverses the contract direction (the inversion that let executor/session types leak into
+ * agent-interface-transport until 2026-07-04).
+ */
+export function checkInterfacePackageDeps(packages) {
+  const violations = [];
+  const interfacePrefix = `${HARNESS.internalPackagePrefix}interface-`;
 
-const hasViolations =
-  biDirViolations.length > 0 ||
-  reexportViolations.length > 0 ||
-  forbiddenDepViolations.length > 0 ||
-  coreZeroDepViolations.length > 0 ||
-  pluginLayerViolations.length > 0;
+  for (const [name, pkg] of packages) {
+    if (!name.startsWith(interfacePrefix)) continue;
+    for (const dep of pkg.dependencies) {
+      if (dep.startsWith(HARNESS.npmScopePrefix) && dep !== HARNESS.corePackage) {
+        violations.push({
+          package: name,
+          dep,
+          message:
+            `Interface-package violation: ${name} must not depend on ${dep}. ` +
+            `agent-interface-* packages own contracts; implementations depend on them, ` +
+            `never the reverse (deps ⊆ {${HARNESS.corePackage}}).`,
+        });
+      }
+    }
+  }
 
-if (hasViolations) {
-  console.error('❌ Dependency direction violations found:\n');
-  for (const v of biDirViolations) {
-    console.error(`  [CYCLE] ${v.message}`);
+  return violations;
+}
+
+function runScan() {
+  const packages = findWorkspacePackages();
+  const biDirViolations = checkBidirectionalDeps(packages);
+  const reexportViolations = checkPassthroughReexports(packages);
+  const forbiddenDepViolations = checkForbiddenProductionDeps(packages);
+  const coreZeroDepViolations = checkAgentCoreZeroDeps(packages);
+  const pluginLayerViolations = checkPluginLayerDeps(packages);
+  const interfacePackageViolations = checkInterfacePackageDeps(packages);
+  const fullGraphCycleViolations = checkFullGraphCycles(packages);
+
+  const hasViolations =
+    biDirViolations.length > 0 ||
+    reexportViolations.length > 0 ||
+    forbiddenDepViolations.length > 0 ||
+    coreZeroDepViolations.length > 0 ||
+    pluginLayerViolations.length > 0 ||
+    interfacePackageViolations.length > 0 ||
+    fullGraphCycleViolations.length > 0;
+
+  if (hasViolations) {
+    console.error('❌ Dependency direction violations found:\n');
+    for (const v of biDirViolations) {
+      console.error(`  [CYCLE] ${v.message}`);
+    }
+    for (const v of reexportViolations) {
+      console.error(`  [RE-EXPORT] ${v.message}`);
+    }
+    for (const v of forbiddenDepViolations) {
+      console.error(`  [FORBIDDEN-DEP] ${v.message}`);
+    }
+    for (const v of coreZeroDepViolations) {
+      console.error(`  [CORE-ZERO-DEPS] ${v.message}`);
+    }
+    for (const v of pluginLayerViolations) {
+      console.error(`  [PLUGIN-LAYER] ${v.message}`);
+    }
+    for (const v of interfacePackageViolations) {
+      console.error(`  [INTERFACE-DEPS] ${v.message}`);
+    }
+    for (const v of fullGraphCycleViolations) {
+      console.error(`  [DEV-CYCLE] ${v.message}`);
+    }
+    console.error('');
+    process.exit(1);
+  } else {
+    console.log('✅ No dependency direction violations found.');
+    process.exit(0);
   }
-  for (const v of reexportViolations) {
-    console.error(`  [RE-EXPORT] ${v.message}`);
+}
+
+/**
+ * Rule 6 (HARNESS-022 / STRUCT-03): the FULL dependency graph (prod+dev+peer) must stay
+ * acyclic. Direction rules stay prod-scoped, but a dev-edge cycle (e.g. transport ->
+ * command devDep meeting a future command -> transport edge) would deadlock installs and
+ * break topological builds while every prod-only check stays green.
+ */
+export function checkFullGraphCycles(packages) {
+  const violations = [];
+  const names = new Set(packages.keys());
+  const WHITE = 0;
+  const GRAY = 1;
+  const BLACK = 2;
+  const color = new Map([...names].map((name) => [name, WHITE]));
+
+  function dfs(name, stack) {
+    color.set(name, GRAY);
+    stack.push(name);
+    for (const dep of packages.get(name).allDependencies ?? []) {
+      if (dep === name || !names.has(dep)) continue;
+      if (color.get(dep) === GRAY) {
+        const cycleStart = stack.indexOf(dep);
+        violations.push({
+          message: `Full-graph cycle (prod+dev+peer): ${[...stack.slice(cycleStart), dep].join(' -> ')}`,
+        });
+        continue;
+      }
+      if (color.get(dep) === WHITE) dfs(dep, stack);
+    }
+    stack.pop();
+    color.set(name, BLACK);
   }
-  for (const v of forbiddenDepViolations) {
-    console.error(`  [FORBIDDEN-DEP] ${v.message}`);
+
+  for (const name of names) {
+    if (color.get(name) === WHITE) dfs(name, []);
   }
-  for (const v of coreZeroDepViolations) {
-    console.error(`  [CORE-ZERO-DEPS] ${v.message}`);
-  }
-  for (const v of pluginLayerViolations) {
-    console.error(`  [PLUGIN-LAYER] ${v.message}`);
-  }
-  console.error('');
-  process.exit(1);
-} else {
-  console.log('✅ No dependency direction violations found.');
-  process.exit(0);
+  return violations;
+}
+
+const isDirectExecution =
+  process.argv[1] !== undefined && resolve(process.argv[1]) === resolve(import.meta.filename);
+if (isDirectExecution) {
+  runScan();
 }

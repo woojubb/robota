@@ -1,12 +1,12 @@
 import { runHooks } from '@robota-sdk/agent-core';
 
-import type { TBackgroundTaskEvent } from '../background-tasks/index.js';
 import type {
   IHookInput,
   IHookTypeExecutor,
   THooksConfig,
   THookEvent,
 } from '@robota-sdk/agent-core';
+import type { TBackgroundTaskEvent } from '@robota-sdk/agent-interface-transport';
 
 function getSubagentHookEvent(event: TBackgroundTaskEvent): THookEvent | undefined {
   if (event.type === 'background_task_started' && event.task.kind === 'agent') {

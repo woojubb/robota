@@ -15,6 +15,7 @@ import type {
   IAIProvider,
   IContextWindowState,
   IToolWithEventService,
+  IUserInteraction,
   TSessionEndReason,
   TPermissionMode,
   TModelEffort,
@@ -24,13 +25,8 @@ import type { IHookTypeExecutor } from '@robota-sdk/agent-core';
 
 export type { TPermissionHandler, TPermissionResult, ITerminalOutput, ISpinner };
 
-export type TCompactTrigger = 'manual' | 'auto';
-
-export interface ICompactEvent {
-  trigger: TCompactTrigger;
-  before: IContextWindowState;
-  after: IContextWindowState;
-}
+export type { ICompactEvent, TCompactTrigger } from '@robota-sdk/agent-interface-transport';
+import type { ICompactEvent } from '@robota-sdk/agent-interface-transport';
 
 /** Options for graceful session shutdown. */
 export interface ISessionShutdownOptions {
@@ -52,6 +48,11 @@ export interface ISessionOptions {
   hooks?: Record<string, unknown>;
   /** Initial permission mode */
   permissionMode?: TPermissionMode;
+  /**
+   * Injected "ask the user" port (CMD-005): forwarded into the agent config so model-invoked tools
+   * (AskUserQuestion) can solicit a structured answer. Absent in headless/automation sessions.
+   */
+  ask?: IUserInteraction['ask'];
   /** Default trust level — used to derive permissionMode if not given */
   defaultTrustLevel?: 'safe' | 'moderate' | 'full';
   /** Active preset id selected at startup (PRESET-011 runtime state). Defaults to 'default'. */

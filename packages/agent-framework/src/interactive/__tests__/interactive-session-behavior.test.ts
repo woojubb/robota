@@ -270,6 +270,94 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     expect(errorMsg).toBeDefined();
   });
 
+  // ── Scenario: ERR-001 — mid-stream failure surfacing + liveness ─
+
+  it('ERR-001: mid-stream failure preserves the partial answer, marks a styled error entry, and the next submit succeeds', async () => {
+    const mockSession = createMockSession();
+    const controllableRun = createControllableRun();
+    mockSession.run.mockImplementationOnce(controllableRun.run);
+
+    const session = new InteractiveSession({
+      session: mockSession as never,
+      cwd: '/tmp',
+    });
+    let errorReceived: Error | null = null;
+    session.on('error', (err) => {
+      errorReceived = err;
+    });
+
+    const exec = session.submit('first');
+    await controllableRun.started;
+    // Stream a partial answer, then drop the connection mid-stream.
+    (
+      session as unknown as { execCtrl: { handleTextDelta(delta: string): void } }
+    ).execCtrl.handleTextDelta('partial answ');
+    controllableRun.reject(new Error('read ECONNRESET'));
+    await exec;
+
+    expect(errorReceived!.message).toBe('read ECONNRESET');
+    const history = session.getFullHistory();
+    // (1) The partial answer is preserved as an interrupted assistant entry — not evaporated.
+    const partial = history.find(
+      (e) =>
+        e.category === 'chat' &&
+        (e.data as { role?: string }).role === 'assistant' &&
+        (e.data as { content?: string }).content === 'partial answ',
+    );
+    expect(partial).toBeDefined();
+    expect((partial!.data as { state?: string }).state).toBe('interrupted');
+    // (2) The error entry is humanized AND machine-marked for styled rendering.
+    const errorEntry = history.find(
+      (e) =>
+        e.category === 'chat' &&
+        (e.data as { metadata?: { kind?: string } }).metadata?.kind === 'error',
+    );
+    expect(errorEntry).toBeDefined();
+    expect((errorEntry!.data as { content?: string }).content).toContain(
+      'Network connection failed',
+    );
+    // (3) Liveness: the session accepts and completes the NEXT prompt.
+    await session.submit('second');
+    const assistant = session
+      .getMessages()
+      .filter((m) => m.role === 'assistant')
+      .map((m) => m.content);
+    expect(assistant).toContain('mock response');
+  });
+
+  it('ERR-001 G1: reportBackgroundError surfaces an out-of-turn error into history and events', async () => {
+    const session = new InteractiveSession({
+      session: createMockSession() as never,
+      cwd: '/tmp',
+    });
+    let errorReceived: Error | null = null;
+    session.on('error', (err) => {
+      errorReceived = err;
+    });
+
+    session.reportBackgroundError(
+      new Error('getaddrinfo ENOTFOUND api.example.com'),
+      'background task',
+    );
+
+    expect(errorReceived!.message).toContain('ENOTFOUND');
+    const entry = session
+      .getFullHistory()
+      .find(
+        (e) =>
+          e.category === 'chat' &&
+          (e.data as { metadata?: { kind?: string } }).metadata?.kind === 'error',
+      );
+    expect(entry).toBeDefined();
+    expect((entry!.data as { content?: string }).content).toContain('Network connection failed');
+    expect((entry!.data as { metadata?: { source?: string } }).metadata?.source).toBe(
+      'background task',
+    );
+    // Session stays usable.
+    await session.submit('after');
+    expect(session.getMessages().some((m) => m.content === 'mock response')).toBe(true);
+  });
+
   // ── Scenario: Tool execution tracking ─────────────────────────
 
   it('getActiveTools returns empty array after execution completes', async () => {

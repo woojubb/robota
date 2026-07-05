@@ -27,6 +27,10 @@ const SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/check-capability-placement.mjs'],
   },
   {
+    name: 'nested-package-glob-coverage',
+    command: ['node', 'scripts/harness/check-nested-package-glob-coverage.mjs'],
+  },
+  {
     name: 'background-workspace',
     command: ['node', 'scripts/harness/check-background-workspace-conformance.mjs'],
   },
@@ -42,6 +46,26 @@ const SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/check-architecture-map-paths.mjs'],
   },
   {
+    name: 'arch-map-completeness',
+    command: ['node', 'scripts/harness/check-architecture-map-completeness.mjs'],
+  },
+  {
+    name: 'document-standards',
+    command: ['node', 'scripts/harness/check-document-standards-index.mjs'],
+  },
+  {
+    name: 'design-doc',
+    command: ['node', 'scripts/harness/check-design-doc-completeness.mjs'],
+  },
+  {
+    name: 'adr',
+    command: ['node', 'scripts/harness/check-adr-completeness.mjs'],
+  },
+  {
+    name: 'spec-doc-frontmatter',
+    command: ['node', 'scripts/harness/check-spec-doc-frontmatter.mjs'],
+  },
+  {
     name: 'spec-public-surface',
     command: ['node', 'scripts/harness/check-spec-public-surface.mjs'],
   },
@@ -55,8 +79,17 @@ const SCAN_COMMANDS = [
   { name: 'deprecated-markers', command: ['node', 'scripts/harness/scan-deprecated-markers.mjs'] },
   { name: 'done-evidence', command: ['node', 'scripts/harness/check-done-evidence.mjs'] },
   { name: 'task-archival', command: ['node', 'scripts/harness/check-task-archival.mjs'] },
+  { name: 'test-module-mocks', command: ['node', 'scripts/harness/check-test-module-mocks.mjs'] },
+  { name: 'backlog-placement', command: ['node', 'scripts/harness/check-backlog-placement.mjs'] },
+  { name: 'doc-examples', command: ['node', 'scripts/harness/check-doc-examples.mjs'] },
+  { name: 'llms-txt', command: ['node', 'scripts/harness/check-llms-txt.mjs'] },
+  {
+    name: 'temp-script-placement',
+    command: ['node', 'scripts/harness/check-temp-script-placement.mjs'],
+  },
   { name: 'orphan-exports', command: ['node', 'scripts/harness/check-orphan-exports.mjs'] },
   { name: 'deps', command: ['node', 'scripts/harness/check-dependency-direction.mjs'] },
+  { name: 'dep-kind', command: ['node', 'scripts/harness/check-dep-kind.mjs'] },
   {
     name: 'interface-imports',
     command: ['node', 'scripts/harness/check-interface-imports.mjs'],
@@ -126,8 +159,36 @@ export async function runScans(scans, write = (line) => process.stdout.write(`${
   return 1;
 }
 
+/**
+ * Parse `--skip <name>` occurrences (repeatable). Skips are REPORTED, never silent
+ * (INFRA-026: CI runs the suite on a fresh checkout, where the `dist` freshness scan —
+ * a local pre-CI check by charter — has nothing to measure).
+ */
+export function parseSkips(argv) {
+  const skips = new Set();
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === '--skip' && argv[i + 1]) {
+      skips.add(argv[i + 1]);
+      i++;
+    }
+  }
+  return skips;
+}
+
 export async function main() {
-  const scans = SCAN_COMMANDS.map(({ name, command }) => ({
+  const skips = parseSkips(process.argv.slice(2));
+  const unknownSkips = [...skips].filter(
+    (name) => !SCAN_COMMANDS.some((scan) => scan.name === name),
+  );
+  if (unknownSkips.length > 0) {
+    process.stderr.write(`unknown --skip scan name(s): ${unknownSkips.join(', ')}\n`);
+    process.exitCode = 1;
+    return;
+  }
+  for (const name of skips) {
+    process.stdout.write(`skipped: ${name} (--skip)\n`);
+  }
+  const scans = SCAN_COMMANDS.filter(({ name }) => !skips.has(name)).map(({ name, command }) => ({
     name,
     run: () => spawnScan(command),
   }));

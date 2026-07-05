@@ -5,6 +5,8 @@
  *   robota session analyze                  — analyze the most recent session
  *   robota session analyze --last <n>       — aggregate the last N sessions
  *   robota session analyze --session <id>   — analyze a specific session by ID prefix
+ *   robota session analyze --usage          — token usage broken down by source (which agent /
+ *                                             background task burned the most tokens)
  *
  * This file only resolves session stores, parses args, and writes output. All timing analysis and
  * report formatting lives in the analytics package; record loading lives in agent-session (via the
@@ -22,6 +24,8 @@ import {
   analyzeSession,
   formatAggregateReport,
   formatSingleSession,
+  formatUsageReport,
+  summarizeUsageBySource,
 } from '@robota-sdk/agent-session-analytics';
 
 import type { TSessionAnalysisInput } from '@robota-sdk/agent-session-analytics';
@@ -29,11 +33,13 @@ import type { TSessionAnalysisInput } from '@robota-sdk/agent-session-analytics'
 interface ISessionAnalyzeArgs {
   last: number | undefined;
   sessionId: string | undefined;
+  usage: boolean;
 }
 
 function parseSessionAnalyzeArgs(argv: string[]): ISessionAnalyzeArgs {
   let last: number | undefined;
   let sessionId: string | undefined;
+  let usage = false;
 
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--last' && argv[i + 1]) {
@@ -43,10 +49,12 @@ function parseSessionAnalyzeArgs(argv: string[]): ISessionAnalyzeArgs {
     } else if (argv[i] === '--session' && argv[i + 1]) {
       sessionId = argv[i + 1];
       i++;
+    } else if (argv[i] === '--usage') {
+      usage = true;
     }
   }
 
-  return { last, sessionId };
+  return { last, sessionId, usage };
 }
 
 /**
@@ -77,6 +85,19 @@ export async function runSessionAnalyze(
       `No session files found in ${projectPaths(cwd).sessions} or ${userPaths().sessions}\n`,
     );
     process.exit(1);
+  }
+
+  if (args.usage) {
+    const target =
+      args.sessionId !== undefined
+        ? records.find((r) => r.id.includes(args.sessionId!))
+        : records[records.length - 1];
+    if (!target) {
+      process.stderr.write(`Session not found${args.sessionId ? `: ${args.sessionId}` : ''}\n`);
+      process.exit(1);
+    }
+    process.stdout.write(formatUsageReport(summarizeUsageBySource(target)) + '\n');
+    return;
   }
 
   if (args.sessionId !== undefined) {

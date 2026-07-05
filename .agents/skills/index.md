@@ -26,18 +26,20 @@ Consult the relevant skill before starting work in its domain. Each entry links 
 
 ## Code Quality & Architecture
 
-| Skill                                                                   | Description                                                          |
-| ----------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| [architecture-patterns](architecture-patterns/SKILL.md)                 | Functional core/imperative shell, ports-and-adapters, DI composition |
-| [architecture-decision-records](architecture-decision-records/SKILL.md) | ADR format for recording significant design decisions                |
-| [type-boundary-and-ssot](type-boundary-and-ssot/SKILL.md)               | Trust-boundary validation, SSOT type ownership                       |
-| [effect-style-error-modeling](effect-style-error-modeling/SKILL.md)     | Explicit error modeling with Result/Either patterns                  |
-| [api-error-standard](api-error-standard/SKILL.md)                       | RFC 7807 Problem Details error response format                       |
-| [state-machine-design](state-machine-design/SKILL.md)                   | Pure declarative state machines with guards and actions              |
-| [ddd-tactical-patterns](ddd-tactical-patterns/SKILL.md)                 | Aggregate, Bounded Context, Value Object, Domain Event               |
-| [cqrs-event-projection-basics](cqrs-event-projection-basics/SKILL.md)   | CQRS and event projection for read/write separation                  |
-| [async-concurrency-patterns](async-concurrency-patterns/SKILL.md)       | Concurrent async with limits, cancellation, backpressure             |
-| [logging-level-guide](logging-level-guide/SKILL.md)                     | When to use each log level, common anti-patterns                     |
+| Skill                                                                   | Description                                                                        |
+| ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| [architecture-patterns](architecture-patterns/SKILL.md)                 | Functional core/imperative shell, ports-and-adapters, DI composition               |
+| [architecture-decision-records](architecture-decision-records/SKILL.md) | ADR format for recording significant design decisions                              |
+| [architecture-map-authoring](architecture-map-authoring/SKILL.md)       | Author/update an architecture-map doc to the RULE-008 contract + completeness gate |
+| [design-doc-authoring](design-doc-authoring/SKILL.md)                   | Author a component design/LLD doc to the RULE-009 contract + completeness gate     |
+| [type-boundary-and-ssot](type-boundary-and-ssot/SKILL.md)               | Trust-boundary validation, SSOT type ownership                                     |
+| [effect-style-error-modeling](effect-style-error-modeling/SKILL.md)     | Explicit error modeling with Result/Either patterns                                |
+| [api-error-standard](api-error-standard/SKILL.md)                       | RFC 7807 Problem Details error response format                                     |
+| [state-machine-design](state-machine-design/SKILL.md)                   | Pure declarative state machines with guards and actions                            |
+| [ddd-tactical-patterns](ddd-tactical-patterns/SKILL.md)                 | Aggregate, Bounded Context, Value Object, Domain Event                             |
+| [cqrs-event-projection-basics](cqrs-event-projection-basics/SKILL.md)   | CQRS and event projection for read/write separation                                |
+| [async-concurrency-patterns](async-concurrency-patterns/SKILL.md)       | Concurrent async with limits, cancellation, backpressure                           |
+| [logging-level-guide](logging-level-guide/SKILL.md)                     | When to use each log level, common anti-patterns                                   |
 
 ## Architecture Conformance
 

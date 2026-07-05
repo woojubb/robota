@@ -154,12 +154,16 @@ export async function sendMCPRequest(
   request: IMCPRequest,
   config: IMCPConfig,
   sessionId?: string,
+  signal?: AbortSignal,
 ): Promise<IMCPSendResult> {
   const timeoutMs = config.timeout ?? DEFAULT_TIMEOUT_MS;
   const maxAttempts = (config.retries ?? DEFAULT_RETRIES) + 1;
   let lastError: Error | undefined;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    if (signal?.aborted) {
+      throw lastError ?? new Error('MCP request aborted');
+    }
     if (attempt > 1) {
       await new Promise((resolve) => setTimeout(resolve, RETRY_BACKOFF_MS * (attempt - 1)));
     }
@@ -170,7 +174,10 @@ export async function sendMCPRequest(
         method: 'POST',
         headers: buildHeaders(config, sessionId),
         body: JSON.stringify(request),
-        signal: AbortSignal.timeout(timeoutMs),
+        // CORE-018: the run-scoped signal aborts the in-flight request alongside the timeout.
+        signal: signal
+          ? AbortSignal.any([AbortSignal.timeout(timeoutMs), signal])
+          : AbortSignal.timeout(timeoutMs),
       });
     } catch (raw) {
       // allow-fallback: network-level failures feed the bounded retry loop and are rethrown when exhausted

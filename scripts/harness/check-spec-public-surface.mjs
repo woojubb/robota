@@ -23,6 +23,8 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
+import { listSpecPackageDirs } from './workspace-packages.mjs';
+
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
 const IDENTIFIER = /^[A-Za-z_$][\w$]*$/;
@@ -72,15 +74,12 @@ function publicApiIdentifiers(specText) {
 
 export async function findPublicSurfaceFindings(root = WORKSPACE_ROOT) {
   const findings = [];
-  const packagesDir = path.join(root, 'packages');
-  if (!existsSync(packagesDir)) return findings;
 
-  for (const entry of readdirSync(packagesDir, { withFileTypes: true })) {
-    if (!entry.isDirectory()) continue;
-    const pkgDir = path.join(packagesDir, entry.name);
+  // Nesting-aware: covers depth-1 packages and nested group members (e.g. packages/dag-nodes/<name>).
+  for (const pkgDir of listSpecPackageDirs(root)) {
     const specPath = path.join(pkgDir, 'docs', 'SPEC.md');
     const srcDir = path.join(pkgDir, 'src');
-    if (!existsSync(specPath) || !existsSync(srcDir)) continue;
+    if (!existsSync(srcDir)) continue;
 
     const idents = publicApiIdentifiers(readFileSync(specPath, 'utf8'));
     if (idents.length === 0) continue;

@@ -68,6 +68,45 @@ export type {
   TContextReferenceStatus,
 } from './event-contracts.js';
 
+// ── Background-task data contracts (INFRA-025 SSOT) ─────────
+export type {
+  TBackgroundTaskKind,
+  TBackgroundTaskMode,
+  TBackgroundTaskIsolation,
+  TBackgroundTaskStatus,
+  TBackgroundPermissionPolicy,
+  TBackgroundTaskTimeoutReason,
+  TBackgroundTaskErrorCategory,
+  TBackgroundPrimitive,
+  IBackgroundTaskError,
+  ISerializableProviderProfile,
+  IBaseBackgroundTaskRequest,
+  IAgentBackgroundTaskRequest,
+  IProcessBackgroundTaskRequest,
+  IScheduledBackgroundTaskRequest,
+  TBackgroundTaskRequest,
+  IBackgroundTaskUsage,
+  IBackgroundTaskResult,
+  IBackgroundTaskState,
+  IBackgroundTaskSchedule,
+  IBackgroundTaskInput,
+  IBackgroundTaskLogCursor,
+  IBackgroundTaskLogPage,
+  IBackgroundTaskListFilter,
+  TBackgroundTaskEvent,
+  TBackgroundTaskEventListener,
+} from './background-task-contracts.js';
+
+// ── Subagent job data contracts (INFRA-025 SSOT) ─────────────
+export type {
+  TSubagentJobStatus,
+  TSubagentJobMode,
+  ISubagentJobState,
+} from './subagent-contracts.js';
+
+// ── Context-compaction contracts (INFRA-025 SSOT) ────────────
+export type { TCompactTrigger, ICompactEvent } from './compact-contracts.js';
+
 // ── Background job-group contracts ───────────────────────────
 export type {
   IBackgroundJobGroupState,
@@ -118,6 +157,7 @@ export type {
   IDiffLine,
   IToolSummary,
   IUsageSnapshot,
+  IUsageSource,
   TPermissionResultValue,
   TInteractivePermissionHandler,
   IContextFileRefreshedEvent,

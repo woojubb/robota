@@ -24,10 +24,17 @@ vi.mock('@robota-sdk/agent-framework', async () => {
           if (!handlers.has(event)) handlers.set(event, []);
           handlers.get(event)!.push(handler);
         }),
-        off: vi.fn(),
+        off: vi.fn().mockImplementation((event: string, handler: (...args: unknown[]) => void) => {
+          const arr = handlers.get(event);
+          if (!arr) return;
+          const i = arr.indexOf(handler);
+          if (i !== -1) arr.splice(i, 1);
+        }),
         emit: (event: string, ...args: unknown[]) => {
           (handlers.get(event) ?? []).forEach((h) => h(...args));
         },
+        _listenerCount: (): number =>
+          [...handlers.values()].reduce((total, arr) => total + arr.length, 0),
         submit: vi.fn().mockResolvedValue(undefined),
         executeCommand: vi.fn().mockResolvedValue(null),
         getPendingPrompt: vi.fn().mockReturnValue(null),
@@ -66,7 +73,10 @@ type MockSession = {
   submit: ReturnType<typeof vi.fn>;
   executeCommand: ReturnType<typeof vi.fn>;
   on: ReturnType<typeof vi.fn>;
+  off: ReturnType<typeof vi.fn>;
+  shutdown: ReturnType<typeof vi.fn>;
   emit: (event: string, ...args: unknown[]) => void;
+  _listenerCount: () => number;
 };
 
 function getMockSession(channel: TuiInteractionChannel): MockSession {
@@ -75,6 +85,19 @@ function getMockSession(channel: TuiInteractionChannel): MockSession {
 
 function emitSessionEvent(channel: TuiInteractionChannel, event: string, ...args: unknown[]): void {
   getMockSession(channel).emit(event, ...args);
+}
+
+/** Drive the channel's private permission handler (what the session's permissionHandler invokes). */
+function requestPermission(
+  channel: TuiInteractionChannel,
+  toolName: string,
+  toolArgs: unknown,
+): Promise<unknown> {
+  return (
+    channel as unknown as {
+      handlePermissionRequest: (n: string, a: unknown) => Promise<unknown>;
+    }
+  ).handlePermissionRequest(toolName, toolArgs);
 }
 
 function makeMockTransportRegistry(): {
@@ -293,5 +316,96 @@ describe('Group C — onChange propagation invariant', () => {
     emitSessionEvent(channel, 'text_delta', 'hello');
 
     expect(onChange).not.toHaveBeenCalled();
+  });
+});
+
+// ── Group D: teardown hygiene (CLI-075) ───────────────────────────────────────
+
+describe('Group D — teardown hygiene (CLI-075)', () => {
+  it('D1: stop() unwires every session listener', async () => {
+    const channel = makeChannel();
+    await channel.start();
+    const session = getMockSession(channel);
+    expect(session._listenerCount()).toBeGreaterThan(0);
+
+    await channel.stop();
+
+    expect(session._listenerCount()).toBe(0);
+    // A post-stop emit reaches no handler — state must not mutate.
+    emitSessionEvent(channel, 'text_delta', 'ghost');
+    expect(channel.stateManager.streamingText).toBe('');
+  });
+
+  it('D2: stop() shuts the underlying session down on discard/switch', async () => {
+    const channel = makeChannel();
+    await channel.start();
+    const session = getMockSession(channel);
+
+    await channel.stop();
+
+    expect(session.shutdown).toHaveBeenCalledTimes(1);
+  });
+
+  it('D3: stop() after a graceful shutdown() does not shut the session down twice', async () => {
+    const channel = makeChannel();
+    await channel.start();
+    const session = getMockSession(channel);
+
+    await channel.shutdown();
+    await channel.stop();
+
+    expect(session.shutdown).toHaveBeenCalledTimes(1);
+  });
+
+  it('D4: stop() is idempotent — a second stop() does not repeat teardown', async () => {
+    const { registry, stopAll } = makeMockTransportRegistry();
+    const channel = makeChannel({ transportRegistry: registry });
+    await channel.start();
+
+    await channel.stop();
+    await channel.stop();
+
+    expect(stopAll).toHaveBeenCalledOnce();
+  });
+
+  it('D5: shutdown() drains a pending permission as deny (false)', async () => {
+    const channel = makeChannel();
+    await channel.start();
+    const pending = requestPermission(channel, 'bash', {});
+    expect(channel.permissionRequest).not.toBeNull();
+
+    await channel.shutdown();
+
+    await expect(pending).resolves.toBe(false);
+    expect(channel.permissionRequest).toBeNull();
+  });
+
+  it('D6: abort() drains a pending permission as deny (false)', async () => {
+    const channel = makeChannel();
+    await channel.start();
+    const pending = requestPermission(channel, 'bash', {});
+
+    channel.abort();
+
+    await expect(pending).resolves.toBe(false);
+    expect(channel.permissionRequest).toBeNull();
+  });
+
+  it('D7: shutdown() resolves even if the session shutdown hangs (timeout-bounded)', async () => {
+    const channel = makeChannel();
+    await channel.start();
+    const session = getMockSession(channel);
+    session.shutdown.mockReturnValue(new Promise<void>(() => undefined)); // never resolves
+
+    let resolved = false;
+    const done = channel.shutdown({ timeoutMs: 5_000 }).then(() => {
+      resolved = true;
+    });
+    await Promise.resolve();
+    expect(resolved).toBe(false);
+
+    await vi.advanceTimersByTimeAsync(5_000);
+    await done;
+    expect(resolved).toBe(true);
   });
 });

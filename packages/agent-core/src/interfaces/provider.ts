@@ -190,6 +190,19 @@ export type TProviderNativeRawPayloadCallback = (event: IProviderNativeRawPayloa
 export type TModelEffort = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
 
 /**
+ * Tool-invocation directive threaded per model invocation (CORE-017).
+ *
+ * Canonical SSOT for the union. `'auto'` lets the model decide (provider default),
+ * `'none'` suppresses tool calls for the invocation, `'required'` forces the model to call
+ * some tool, and `{ tool: name }` forces a call to the named tool. Core validates that a
+ * named tool exists in the invocation's tool list and that `'required'`/named forcing is
+ * only used when tools are present — a violation throws instead of degrading silently.
+ * Within a multi-round run, forcing directives apply to the FIRST model call only; rounds
+ * after tool results revert to `'auto'` so the model can consume the results and finish.
+ */
+export type TToolChoice = 'auto' | 'none' | 'required' | { tool: string };
+
+/**
  * Options for AI provider chat requests
  */
 export interface IChatOptions extends IProviderSpecificOptions {
@@ -215,10 +228,17 @@ export interface IChatOptions extends IProviderSpecificOptions {
   onProviderNativeRawPayload?: TProviderNativeRawPayloadCallback;
   /** AbortSignal for cancelling the provider call */
   signal?: AbortSignal;
+  /**
+   * Tool-invocation directive for this call. Adapters map it onto their wire format
+   * (`tool_choice` / `functionCallingConfig`); omitted = provider default ('auto').
+   */
+  toolChoice?: TToolChoice;
   /** Provider-native hosted web tools requested for this call */
   nativeWebTools?: IProviderNativeWebToolRequest;
-  /** Request structured output from the provider. */
-  responseFormat?: { type: 'text' | 'json_object' };
+  /** Request structured output from the provider (CORE-015: `json_schema` carries the schema). */
+  responseFormat?:
+    | { type: 'text' | 'json_object' }
+    | { type: 'json_schema'; name?: string; schema: Record<string, unknown> };
 }
 
 /**

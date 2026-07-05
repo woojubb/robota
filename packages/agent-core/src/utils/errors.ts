@@ -73,6 +73,29 @@ export class ValidationError extends RobotaError {
 }
 
 /**
+ * Structured output validation exhausted its retry budget (CORE-015).
+ *
+ * Thrown by `run(input, { output })` when the model's final response still fails
+ * schema validation after the configured number of retries. `issues` holds the
+ * validation messages from the last attempt; `attempts` is the total number of
+ * provider turns spent (initial + retries).
+ */
+export class StructuredOutputError extends RobotaError {
+  readonly code = 'STRUCTURED_OUTPUT_ERROR';
+  readonly category = 'provider' as const;
+  readonly recoverable = true;
+
+  constructor(
+    message: string,
+    public readonly issues: string[],
+    public readonly attempts: number,
+    context?: TErrorContextData,
+  ) {
+    super(`Structured Output Error: ${message}`, context);
+  }
+}
+
+/**
  * Provider related errors
  */
 export class ProviderError extends RobotaError {

@@ -7,15 +7,13 @@ import {
   createBackgroundTaskLogPage,
   createGitWorktreeIsolationAdapter,
   createWorktreeSubagentRunner,
-  type IBackgroundTaskLogCursor,
-  type IBackgroundTaskLogPage,
-  type ISerializableProviderProfile,
   type ISubagentJobHandle,
   type ISubagentJobStart,
   type ISubagentRunner,
   type ISubagentWorktreeAdapter,
 } from '@robota-sdk/agent-executor';
 import { getBuiltInAgent } from '@robota-sdk/agent-framework';
+import { DEFAULT_KILL_GRACE_MS } from '@robota-sdk/agent-process';
 
 import {
   createCancellationResult,
@@ -35,8 +33,14 @@ import type {
   IInProcessSubagentRunnerDeps,
   TSubagentRunnerFactory,
 } from '@robota-sdk/agent-framework';
+import type {
+  IBackgroundTaskLogCursor,
+  IBackgroundTaskLogPage,
+  ISerializableProviderProfile,
+} from '@robota-sdk/agent-interface-transport';
 
-const DEFAULT_KILL_GRACE_MS = 2_000;
+/** POSIX children are forked detached so a process-group kill reaps grandchildren (CORE-023). */
+const SPAWN_DETACHED = process.platform !== 'win32';
 
 export interface IChildProcessSubagentRunnerOptions {
   workerPath: string;
@@ -90,6 +94,7 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
       env: { ...process.env, ...(this.env ?? {}) },
       execArgv: this.execArgv ?? resolveExecArgv(this.workerPath),
       stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
+      detached: SPAWN_DETACHED,
     });
     const runtime: IChildProcessRuntime = {
       job,
@@ -105,6 +110,10 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
     const cancellation = createCancellationResult(job.jobId);
     void workerResult.catch(() => undefined);
     const result = Promise.race([workerResult, cancellation.promise]);
+    // CORE-023: cancel() now awaits the SIGTERM→grace→SIGKILL escalation, so it settles later
+    // than the synchronous cancellation.reject(). Guard `result` so its rejection is never
+    // "unhandled" during that window; real consumers still await it and receive the rejection.
+    void result.catch(() => undefined);
     const transcriptPath = this.resolveTranscriptPath(job);
 
     return {

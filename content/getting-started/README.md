@@ -111,8 +111,8 @@ const agent = new Robota({
   defaultModel: {
     provider: 'anthropic',
     model: 'claude-sonnet-4-6',
-    systemMessage: 'You are a helpful coding assistant.',
   },
+  systemMessage: 'You are a helpful coding assistant.',
 });
 
 const response = await agent.run('What is a TypeScript generic?');
@@ -148,8 +148,8 @@ const agent = new Robota({
   defaultModel: {
     provider: 'anthropic',
     model: 'claude-sonnet-4-6',
-    systemMessage: 'You help users check the weather.',
   },
+  systemMessage: 'You help users check the weather.',
   tools: [weatherTool],
 });
 
@@ -161,6 +161,7 @@ console.log(response);
 ### 3. Switch providers dynamically
 
 ```typescript
+import { Robota } from '@robota-sdk/agent-core';
 import { OpenAIProvider } from '@robota-sdk/agent-provider/openai';
 import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 

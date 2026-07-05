@@ -40,6 +40,8 @@ export interface IPromptTurnContext {
   beginEditCheckpointTurn: (prompt: string) => Promise<void>;
   flushStreaming: () => void;
   clearStreaming: () => void;
+  /** Accumulated streamed text of the in-flight turn (ERR-001: preserved on error). */
+  getStreamingText: () => string;
   onComplete: (result: IExecutionResult) => void;
   onInterrupted: (result: IExecutionResult) => void;
   onError: (err: Error) => void;
@@ -109,10 +111,23 @@ export async function executePromptTurn(
       ctx.onInterrupted(result);
     } else {
       pushToolSummaryToHistory({ activeTools: ctx.getActiveTools(), history });
+      // ERR-001: a mid-stream failure must not evaporate the partial answer — commit it
+      // to history marked interrupted before clearing the stream buffer.
+      const partial = ctx.getStreamingText();
       ctx.clearStreaming();
+      if (partial.trim().length > 0) {
+        const partialMessage = createAssistantMessage(partial);
+        partialMessage.state = 'interrupted';
+        history.push(messageToHistoryEntry(partialMessage));
+      }
       const errObj = err instanceof Error ? err : new Error(String(err));
       const errMsg = humanizeApiError(errObj);
-      history.push(messageToHistoryEntry(createSystemMessage(`Error: ${errMsg}`)));
+      // metadata.kind lets transports render a styled error block instead of a plain system note.
+      history.push(
+        messageToHistoryEntry(
+          createSystemMessage(`Error: ${errMsg}`, { metadata: { kind: 'error' } }),
+        ),
+      );
       ctx.onError(errObj);
     }
   }

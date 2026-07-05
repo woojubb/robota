@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-executor",
-  "version": "3.0.0-beta.76",
+  "version": "3.0.0-beta.77",
   "description": "Composable runtime primitives for Robota background tasks and subagent orchestration",
   "type": "module",
   "main": "dist/node/index.js",
@@ -58,6 +58,8 @@
   "license": "AGPL-3.0-only OR LicenseRef-Commercial",
   "dependencies": {
     "@robota-sdk/agent-core": "workspace:*",
+    "@robota-sdk/agent-interface-transport": "workspace:*",
+    "@robota-sdk/agent-process": "workspace:*",
     "croner": "^10.0.1"
   },
   "devDependencies": {

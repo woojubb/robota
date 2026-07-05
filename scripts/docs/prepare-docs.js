@@ -34,12 +34,12 @@ function executeCommand(command, options = {}) {
 async function main() {
   log('🚀 Starting documentation build preparation...');
 
-  // 1. Build documentation (copy-docs.js + vitepress build + copy-public.js)
+  // 1. Build documentation (next build + pagefind index)
   log('🔨 Building documentation...');
   executeCommand('pnpm run build', { cwd: DOCS_DIR });
 
-  // 2. Check build results
-  const distDir = path.join(DOCS_DIR, '.vitepress/dist');
+  // 2. Check build results (Next.js static export output)
+  const distDir = path.join(DOCS_DIR, 'out');
   const files = fs.readdirSync(distDir);
   log(`📁 Generated files: ${files.join(', ')}`);
 

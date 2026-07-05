@@ -5,6 +5,10 @@
 `ContextWindowTracker` (in `agent-session`) reads the shared `agent-core` context estimator. Terminal provider usage is treated as the exact post-response state. If new user or tool messages appear after the latest provider usage, the estimator uses the maximum of serialized history, latest provider usage metadata, and any caller-provided usage floor, so previous metadata cannot hide a large prompt that has not been sent yet.
 
 ```typescript
+import type { InteractiveSession } from '@robota-sdk/agent-framework';
+
+declare const session: InteractiveSession;
+
 const state = session.getContextState();
 // { maxTokens: 200000, usedTokens: 85000, usedPercentage: 42.5, remainingPercentage: 57.5 }
 ```
@@ -36,7 +40,11 @@ Core also has a last-resort hard-capacity guard before provider calls. That guar
 ### Manual Compaction
 
 ```typescript
-await session.compact('Focus on the API design decisions');
+import type { InteractiveSession } from '@robota-sdk/agent-framework';
+
+declare const session: InteractiveSession;
+
+await session.compactContext('Focus on the API design decisions');
 ```
 
 CLI: `/compact focus on API changes`
@@ -70,6 +78,10 @@ Provider-side web tools are distinct from Robota local tools. Anthropic supports
 Cancel a running `InteractiveSession.submit()` via AbortSignal:
 
 ```typescript
+import type { InteractiveSession } from '@robota-sdk/agent-framework';
+
+declare const session: InteractiveSession;
+
 session.abort(); // Triggers AbortSignal, cancels streaming
 ```
 

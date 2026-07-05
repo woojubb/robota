@@ -1,0 +1,61 @@
+{
+  "name": "@robota-sdk/dag-node",
+  "version": "3.0.0-beta.60",
+  "private": true,
+  "description": "AbstractNodeDefinition base class for robota-dag AI workflow nodes",
+  "type": "module",
+  "main": "dist/node/index.js",
+  "module": "dist/node/index.mjs",
+  "types": "dist/node/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/node/index.d.ts",
+      "import": "./dist/node/index.js",
+      "require": "./dist/node/index.cjs"
+    }
+  },
+  "scripts": {
+    "build": "tsdown",
+    "build:js": "tsdown --no-dts",
+    "build:types": "tsdown --dts",
+    "dev": "tsdown --dts --watch",
+    "clean": "rimraf dist",
+    "test": "vitest run --passWithNoTests",
+    "test:coverage": "vitest run --coverage --passWithNoTests",
+    "lint": "eslint src --ext .ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
+  },
+  "keywords": [
+    "robota",
+    "dag",
+    "node",
+    "mcp",
+    "model-context-protocol",
+    "ai-agent",
+    "agent-workflow",
+    "workflow-orchestration",
+    "llm-pipeline",
+    "claude",
+    "anthropic",
+    "openai",
+    "gemini",
+    "typescript"
+  ],
+  "dependencies": {
+    "@robota-sdk/dag-core": "workspace:*",
+    "zod": "^3.24.4",
+    "zod-to-json-schema": "^3.24.5"
+  },
+  "devDependencies": {
+    "eslint": "^8.56.0",
+    "rimraf": "^5.0.5",
+    "tsdown": "^0.22.2",
+    "typescript": "^5.3.3",
+    "vitest": "^3.2.6"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "license": "AGPL-3.0-only OR LicenseRef-Commercial"
+}

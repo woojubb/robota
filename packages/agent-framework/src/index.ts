@@ -27,26 +27,8 @@ export {
   generateSessionName,
 } from './interactive/index.js';
 export type {
-  IInteractiveSession,
   TInteractiveSessionOptions,
   IInteractiveSessionShutdownOptions,
-  ISkillActivationEvent,
-  IInteractiveSessionRecord,
-  IInteractiveSessionStore,
-  IResumableSessionSummary,
-  IToolState,
-  IDiffLine,
-  IExecutionResult,
-  IToolSummary,
-  IUsageSnapshot,
-  TPermissionResultValue,
-  TInteractivePermissionHandler,
-  TInteractiveEventName,
-  IInteractiveSessionEvents,
-  IContextFileRefreshedEvent,
-  ITransportAdapter,
-  IConfigurableTransport,
-  ITransportConfig,
 } from './interactive/index.js';
 
 // ── createQuery() factory (convenience API) ─────────────────
@@ -65,11 +47,7 @@ export {
   parseFrontmatter,
   executeSkill,
 } from './commands/index.js';
-export type {
-  ICapabilityDescriptor,
-  TCapabilityKind,
-  TCapabilitySafety,
-} from './capabilities/types.js';
+export type {} from './capabilities/types.js';
 export type { IOrgPolicy } from './command-api/org-policy/index.js';
 export {
   loadOrgPolicy,
@@ -78,35 +56,23 @@ export {
 } from './command-api/org-policy/index.js';
 export type {
   IAgentJobHostContext,
-  ICommand,
   ICommandHostAdapters,
   ICommandHostContext,
   ICommandModule,
   ICommandPickerAdapter,
-  ICommandPluginAdapter,
-  ICommandPluginReloadResult,
   ICommandProcessAdapter,
-  ICommandSource,
   ICommandSessionRuntime,
   IModelReapplyOptions,
   ICommandSettingsAdapter,
   ICommandSettingsDocument,
   ICommandSkillListEntry,
   ISystemCommand,
-  ICommandResult,
-  ICommandListEntry,
-  TCommandEffect,
-  TCommandResultDataValue,
   TSystemCommandLifecycle,
   ICommandPermissionModeAdapter,
   IForkExecutionOptions,
   ISkillExecutionCallbacks,
   ISkillExecutionResult,
   ISkillActivationHistoryData,
-  TSkillActivationInvocation,
-  TSkillActivationMode,
-  TSkillActivationSource,
-  TSkillActivationStatus,
   TCommandModuleSessionRequirement,
   IProviderCommandModuleOptions,
   IProviderCommandSettingsAdapter,
@@ -117,7 +83,6 @@ export type {
   IProviderSettingsBuildOptions,
   IProviderSetupInput,
   IProviderSetupPatch,
-  IStatusLineCommandSettings,
   TProviderSettingsDocument,
   TSettingsCheck,
   IProviderSwitchOptions,
@@ -125,14 +90,8 @@ export type {
   IActiveModelChangeResult,
   IProviderSettingsWriteTargetOptions,
   IReadProviderSettingsOptions,
-  TStatusLineCommandSettingsPatch,
-  ICommandAvailablePlugin,
-  ICommandInstalledPlugin,
-  ICommandMarketplaceSource,
-  TPluginInstallScope,
   IContextReferenceAddResult,
   IContextReferenceClearResult,
-  IContextReferenceItem,
   IContextReferenceRemoveResult,
 } from './commands/index.js';
 export {
@@ -271,9 +230,7 @@ export type {
   ICommandPendingMemoryStore,
   ICommandProjectMemoryStore,
   IMemoryCandidate,
-  IMemoryEvent,
   IMemoryPendingRecord,
-  IMemoryReference,
   TAutoCompactThreshold,
   TAutoCompactThresholdSource,
   TMemoryCandidateStatus,
@@ -328,7 +285,6 @@ export type {
   IAppendMemoryResult,
   IProjectMemorySummary,
   IStartupMemory,
-  TMemoryType,
 } from './memory/project-memory-store.js';
 // ── Edit checkpointing ─────────────────────────────────────
 export { EditCheckpointStore, wrapEditCheckpointTools } from './checkpoints/index.js';
@@ -452,75 +408,22 @@ export {
   summarizeBackgroundJobGroup,
 } from './background-tasks/index.js';
 export type {
-  IAgentBackgroundTaskRequest,
-  IBaseBackgroundTaskRequest,
-  IBackgroundTaskError,
   IBackgroundTaskHandle,
-  IBackgroundTaskInput,
-  IBackgroundTaskListFilter,
-  IBackgroundTaskLogCursor,
-  IBackgroundTaskLogPage,
   IBackgroundTaskManager,
   IBackgroundTaskManagerOptions,
-  TBackgroundTaskRequest,
-  IBackgroundTaskResult,
   IBackgroundTaskRunner,
   IBackgroundTaskStart,
-  IBackgroundTaskState,
-  IBackgroundJobGroupCreateRequest,
-  IBackgroundJobGroupSummary,
-  IBackgroundJobGroupState,
   IBackgroundJobOrchestratorOptions,
-  IBackgroundJobResultEnvelope,
   IBackgroundTaskSpawnerGroupRequest,
-  ICreateExecutionWorkspaceSnapshotInput,
   ICreateExecutionWorkspaceTaskSpawnerOptions,
-  ICreateLineDetailPageInput,
-  IProcessBackgroundTaskRequest,
-  ICreateMainThreadDetailPageInput,
-  ICreateMainThreadEntryInput,
-  IExecutionDetailCursor,
-  IExecutionDetailPage,
-  IExecutionDetailRecord,
-  IExecutionOrigin,
-  IExecutionWorkspaceEntry,
-  IExecutionWorkspaceEntryRef,
-  IExecutionWorkspaceEvent,
-  IExecutionWorkspaceFilter,
-  IExecutionWorkspaceSnapshot,
-  IExecutionWorkspaceSnapshotOptions,
   IExecutionWorkspaceTaskSpawner,
-  ISerializableProviderProfile,
   ISpawnAgentTaskRequest,
   ISpawnProcessTaskRequest,
   TBackgroundTaskIdFactory,
-  TBackgroundPermissionPolicy,
-  TBackgroundPrimitive,
-  TBackgroundTaskErrorCategory,
-  TBackgroundTaskEvent,
-  TBackgroundTaskEventListener,
-  TBackgroundTaskKind,
-  TBackgroundTaskIsolation,
-  TBackgroundTaskMode,
   TBackgroundTaskRunnerEvent,
-  TBackgroundTaskStatus,
-  TBackgroundTaskTimeoutReason,
   TBackgroundTaskTransitionEvent,
   ICreateLimitedOutputCaptureOptions,
   ILimitedOutputCapture,
-  TBackgroundJobGroupEvent,
-  TBackgroundJobGroupEventListener,
-  TBackgroundJobGroupIdFactory,
-  TBackgroundJobGroupStatus,
-  TBackgroundJobWaitPolicy,
-  TExecutionAttention,
-  TExecutionControl,
-  TExecutionDetailRecordKind,
-  TExecutionEntryKind,
-  TExecutionOriginKind,
-  TExecutionWorkspaceStatus,
-  TExecutionWorkspaceUpdateCause,
-  TExecutionWorkspaceVisibility,
 } from './background-tasks/index.js';
 
 // ── Subagent process manager contracts ─────────────────────
@@ -531,7 +434,6 @@ export type {
   ISubagentJobHandle,
   ISubagentJobResult,
   ISubagentJobStart,
-  ISubagentJobState,
   ISubagentManager,
   ISubagentManagerOptions,
   ISubagentRunner,
@@ -540,8 +442,6 @@ export type {
   ISubagentWorktreePrepareRequest,
   IWorktreeSubagentRunnerOptions,
   TSubagentRunnerFactory,
-  TSubagentJobMode,
-  TSubagentJobStatus,
 } from './subagents/index.js';
 
 // ── Hook executors ──────────────────────────────────────────
@@ -592,24 +492,20 @@ export type {
   IPromptFileReferenceDiagnostic,
   IPromptFileReferenceHistoryData,
   IPromptFileReferenceLimits,
-  IPromptFileReferenceRecord,
   IPromptFileReferenceResolveOptions,
   IPromptFileReferenceToken,
   IResolvedPromptFileReference,
   IResolvedPromptFileReferences,
   TPromptFileReferenceDiagnosticCode,
-  TPromptFileReferenceReason,
 } from './context/prompt-file-references.js';
 export type {
   IContextReferenceInventoryLimits,
   IContextReferenceUpsertResult,
-  TContextReferenceLoadType,
-  TContextReferenceStatus,
 } from './context/context-reference-inventory.js';
 
-// ── Interaction channel contracts ────────────────────────────
-export type { IInteractionChannel } from './interaction/IInteractionChannel.js';
-export type { InteractionEvent, ICommandInfo } from './interaction/types.js';
+// ── Interaction channel contracts: SSOT is @robota-sdk/agent-interface-transport ─────
+// (HARNESS-022 / CONTRACT-013: the residual type-only pass-through re-exports were removed;
+// consumers import IInteractionChannel/InteractionEvent/ICommandInfo from the SSOT.)
 export { parseInput, isSlashCommand, tokeniseSlashCommand } from './interaction/input-parser.js';
 export type { TParsedInput } from './interaction/input-parser.js';
 export type { IInteractiveRuntime } from './interaction/InteractiveRuntime.js';

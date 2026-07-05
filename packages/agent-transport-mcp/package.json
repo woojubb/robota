@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-transport-mcp",
-  "version": "3.0.0-beta.76",
+  "version": "3.0.0-beta.77",
   "description": "Model Context Protocol (MCP) server transport for the Robota SDK",
   "type": "module",
   "main": "dist/node/index.js",

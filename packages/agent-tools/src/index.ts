@@ -37,19 +37,15 @@ export {
   createFunctionTool,
   createZodFunctionTool,
 } from './implementations/function-tool';
-export { zodToJsonSchema } from './implementations/function-tool/schema-converter';
+// zodToJsonSchema and the Zod compatibility types moved to @robota-sdk/agent-core (CORE-015 SSOT).
 export type {
-  IZodSchema,
-  IZodParseResult,
-  IZodSchemaDef,
   IFunctionToolValidationOptions,
-  ISchemaConversionOptions,
   IFunctionToolExecutionMetadata,
   IFunctionToolResult,
 } from './implementations/function-tool/types';
 
 // Built-in CLI tools
-export { bashTool, createBashTool } from './builtins/bash-tool';
+export { shellTool, createShellTool, bashTool, createBashTool } from './builtins/shell-tool';
 export { readTool, createReadTool } from './builtins/read-tool';
 export { writeTool, createWriteTool } from './builtins/write-tool';
 export { editTool, createEditTool } from './builtins/edit-tool';
@@ -57,3 +53,4 @@ export { globTool } from './builtins/glob-tool';
 export { grepTool } from './builtins/grep-tool';
 export { webFetchTool } from './builtins/web-fetch-tool';
 export { webSearchTool } from './builtins/web-search-tool';
+export { askUserQuestionTool, createAskUserQuestionTool } from './builtins/ask-user-question-tool';

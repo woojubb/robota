@@ -82,7 +82,7 @@ jobs:
 
       - name: Archive package build output
         if: github.base_ref != 'main' && steps.build_requirement.outputs.required == 'true'
-        run: tar -czf package-dist.tgz packages/*/dist
+        run: tar -czf package-dist.tgz packages/*/dist packages/dag-nodes/*/dist
 
       - name: Upload package build output
         if: github.base_ref != 'main' && steps.build_requirement.outputs.required == 'true'
@@ -147,6 +147,21 @@ jobs:
       - name: Verify affected quality checks
         if: github.base_ref != 'main'
         run: pnpm harness:verify -- --base-ref origin/${{ github.base_ref }} --skip-build --skip-record-check
+
+      # HARNESS-021: the harness scans' own unit suite runs in full — per-scan test selection
+      # (verify-change) cannot see suite-wide drift, which let 5 stale fixtures sit silent.
+      - name: Harness scan test suite
+        if: github.base_ref != 'main'
+        run: pnpm harness:test
+
+      # INFRA-026: the full scan suite is a develop-merge gate, not a release-only one.
+      # Before this step existed, ~42 of the scans (incl. dep-kind and interface-imports)
+      # were only enforced on main-base PRs — the re-audit's gate-blind-spot root cause.
+      # `dist` is skipped by charter: it is a LOCAL pre-CI freshness check and a fresh CI
+      # checkout has no build outputs to measure (the skip is printed, never silent).
+      - name: Harness scan suite
+        if: github.base_ref != 'main'
+        run: pnpm harness:scan -- --skip dist
 
   security-audit:
     name: security audit
@@ -320,3 +335,76 @@ jobs:
 
       - name: Typecheck examples
         run: pnpm examples:typecheck
+
+  # TERM-007 item 2 / TERM-008: verify cross-platform shell execution on real Windows.
+  # The resolver + Shell tool spawn PowerShell here, so these tests exercise the win32 path
+  # that the macOS/Linux jobs (and mocked-platform unit tests) cannot. Blocking: first run
+  # passed green on windows-latest (PR #900, 1m34s), so Windows shell execution is now a
+  # maintained, every-PR gate rather than a one-off pass.
+  windows-shell:
+    name: windows-shell
+    runs-on: windows-latest
+    if: github.base_ref != 'main'
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 50
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8.15.4
+
+      - name: Use Node.js 22.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build agent-core + agent-process for dependent tests
+        # CORE-023: shell-tool now imports @robota-sdk/agent-process (killProcessTree); this
+        # minimal job resolves workspace deps from built dist, so agent-process must be built too.
+        run: pnpm --filter @robota-sdk/agent-core --filter @robota-sdk/agent-process build
+
+      - name: Verify the cross-platform shell resolver on Windows
+        run: pnpm --filter @robota-sdk/agent-core test -- --run platform-shell
+
+      - name: Verify the Shell tool actually spawns PowerShell on Windows
+        run: pnpm --filter @robota-sdk/agent-tools test -- --run shell-tool
+
+  # TEST-010: run the TUI PTY E2E suite (`*.ptytest.ts`) against the BUILT robota binary on every PR,
+  # so the live-TUI behaviours — the SCREEN-013 Ctrl+B drill-in entry point and the existing
+  # flag/scrollback/handoff PTY checks — are maintained, not bit-rotting outside CI.
+  tui-e2e:
+    name: tui-e2e
+    runs-on: ubuntu-latest
+    if: github.base_ref != 'main'
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 50
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8.15.4
+
+      - name: Use Node.js 22.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build packages (provides the built robota binary the PTY suite drives)
+        run: pnpm build:deps
+
+      - name: Run the TUI PTY E2E suite against the real binary
+        run: pnpm --filter @robota-sdk/agent-transport-tui test:pty

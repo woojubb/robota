@@ -18,6 +18,8 @@ pnpm add @robota-sdk/agent-transport-http
 `IInteractiveSession` per request (e.g. by auth token or session id). `createHttpTransport`
 wraps them as a mountable transport with an optional `basePath`.
 
+<!-- doc-example-skip: requires the host app's hono dependency -->
+
 ```typescript
 import { createAgentRoutes } from '@robota-sdk/agent-transport-http';
 import { Hono } from 'hono';

@@ -254,6 +254,6 @@ export const grepTool = createZodFunctionTool(
   "A powerful search tool built on regex matching.\n\nSupports full regex syntax (e.g., 'log.*Error', 'function\\\\s+\\\\w+'). Filter files with glob parameter (e.g., '*.js', '**/*.tsx').\n\nOutput modes: 'content' shows matching lines with context, 'files_with_matches' shows only file paths (default), 'count' shows per-file match counts.\n\nUse this tool for ALL search tasks. NEVER invoke grep or rg as a Bash command.\n\nUse headLimit to control result size and save context space.",
   GrepSchema,
   async (params) => {
-    return grepFileTool(params as TGrepArgs);
+    return grepFileTool(params);
   },
 );

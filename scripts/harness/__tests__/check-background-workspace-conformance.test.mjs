@@ -25,9 +25,9 @@ const baselineFiles = {
     'export class BackgroundTaskManager {}\n',
   'packages/agent-framework/src/background-tasks/execution-workspace-projection.ts':
     'export function createExecutionWorkspaceSnapshot() { return { entries: [] }; }\n',
-  'packages/agent-transport/src/tui/TuiInteractionChannel.ts':
+  'packages/agent-transport-tui/src/TuiInteractionChannel.ts':
     'session.getExecutionWorkspaceSnapshot(); session.on("execution_workspace_event", () => {}); session.readExecutionWorkspaceDetail("main");\n',
-  'packages/agent-transport/src/tui/tui-state-manager.ts':
+  'packages/agent-transport-tui/src/tui-state-manager.ts':
     'export class TuiStateManager { syncExecutionWorkspaceSnapshot() {} }\n',
   '.agents/specs/architecture-map/agent-system.md':
     '| Background workspace/read model                   | `agent-framework` + `agent-executor`              | CLI renders projections only. |\n',
@@ -104,7 +104,7 @@ describe('findBackgroundWorkspaceConformanceFindings', () => {
   it('flags missing SDK snapshot consumption in the TUI channel', async () => {
     const root = await createFixture({
       ...baselineFiles,
-      'packages/agent-transport/src/tui/TuiInteractionChannel.ts':
+      'packages/agent-transport-tui/src/TuiInteractionChannel.ts':
         'session.getFullHistory(); session.readExecutionWorkspaceDetail("main");\n',
     });
 

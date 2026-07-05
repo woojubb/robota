@@ -14,12 +14,35 @@ import type {
   ICommandModule,
   TProviderSettingsDocument,
 } from '@robota-sdk/agent-framework';
+import { createRequire } from 'node:module';
+
 import {
   createDefaultCommandModules,
   createDefaultPluginCommandAdapter,
 } from '@robota-sdk/agent-command';
 import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider';
 import type { IParsedCliArgs } from '../utils/cli-args.js';
+
+/**
+ * Load the optional `/workflows` command module (WORKFLOW-003). The DAG/workflow subsystem is an
+ * in-progress track kept out of the published dependency graph, so agent-cli must NOT hard-depend on
+ * it — otherwise the published package's `workspace:*` edge resolves to an unpublished version and
+ * `npm install @robota-sdk/agent-cli` breaks. `@robota-sdk/agent-command-workflows` is therefore a
+ * devDependency, loaded through a guarded `createRequire`: present in the monorepo (and for any user
+ * who installs it) → `/workflows` is registered; absent in the default published install → omitted.
+ */
+function loadOptionalWorkflowsCommandModule(): ICommandModule | undefined {
+  try {
+    const requireFrom = createRequire(import.meta.url);
+    const mod = requireFrom('@robota-sdk/agent-command-workflows') as {
+      createWorkflowsCommandModule: () => ICommandModule;
+    };
+    return mod.createWorkflowsCommandModule();
+  } catch {
+    // allow-fallback: the workflow subsystem is an optional, unpublished track — its absence just means no /workflows command
+    return undefined;
+  }
+}
 
 export interface IStartCliOptions {
   commandModules?: readonly ICommandModule[];
@@ -63,6 +86,9 @@ export function buildCommandSetup(
     writeTargetSettings: (settings: TProviderSettingsDocument) =>
       writeSettings(resolveProviderSettingsWriteTargetPath(cwd), settings),
   };
+  // DAG workflow engine surfaced as `/workflows` (WORKFLOW-003) — optional; omitted from the published
+  // CLI whose dependency graph must not include the unpublished DAG chain (see loader doc above).
+  const workflowsModule = loadOptionalWorkflowsCommandModule();
   const commandModules: readonly ICommandModule[] = [
     ...createDefaultCommandModules({
       cwd,
@@ -75,6 +101,7 @@ export function buildCommandSetup(
         ? { disabledCommandModules: moduleSelection.disabledCommandModules }
         : {}),
     }),
+    ...(workflowsModule ? [workflowsModule] : []),
     ...(options.commandModules ?? []),
   ];
   const startupUpdateNoticePromise = shouldRunStartupCliUpdateCheck(args)

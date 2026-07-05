@@ -36,7 +36,7 @@ interface IBraveResponse {
   };
 }
 
-async function runWebSearch(args: TWebSearchArgs): Promise<string> {
+async function runWebSearch(args: TWebSearchArgs, signal?: AbortSignal): Promise<string> {
   const { query, limit = DEFAULT_LIMIT } = args;
   const apiKey = process.env['BRAVE_API_KEY'];
 
@@ -54,6 +54,8 @@ async function runWebSearch(args: TWebSearchArgs): Promise<string> {
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
+    // CORE-018: run-scoped signal aborts the in-flight request alongside the timeout.
+    const fetchSignal = signal ? AbortSignal.any([controller.signal, signal]) : controller.signal;
 
     const params = new URLSearchParams({
       q: query,
@@ -66,7 +68,7 @@ async function runWebSearch(args: TWebSearchArgs): Promise<string> {
         'Accept-Encoding': 'gzip',
         'X-Subscription-Token': apiKey,
       },
-      signal: controller.signal,
+      signal: fetchSignal,
     });
 
     clearTimeout(timeout);
@@ -103,5 +105,5 @@ export const webSearchTool = createZodFunctionTool(
   'WebSearch',
   'Search the web and return results with title, URL, and snippet.',
   WebSearchSchema,
-  async (params) => runWebSearch(params as TWebSearchArgs),
+  async (params, context) => runWebSearch(params, context?.signal),
 );

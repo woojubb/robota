@@ -24,7 +24,6 @@ implementations/
   function-tool.ts      -- FunctionTool: JS function tool with Zod schema validation
   function-tool/
     index.ts            -- Re-exports FunctionTool, createFunctionTool, createZodFunctionTool
-    schema-converter.ts -- zodToJsonSchema: converts Zod schemas to JSON Schema
     parameter-validator.ts -- validateToolParameters / getValidationErrors / validateParameterType
     types.ts            -- FunctionTool-specific types
 types/
@@ -36,10 +35,10 @@ sandbox/
   e2b-sandbox-client.ts          -- structural adapter for E2B-compatible sandboxes
   workspace-manifest.ts          -- workspace manifest validation and generic sandbox application
 builtins/
-  index.ts              -- Re-exports all 8 built-in CLI tools + classifyFetchError
+  index.ts              -- Re-exports all built-in CLI tools + classifyFetchError
   atomic-file-write.ts  -- Same-directory temp write + atomic rename helper for UTF-8 file replacement
   path-guard.ts         -- checkPathWithinCwd: path traversal guard for host-local tool operations
-  bash-tool.ts          -- Bash: execute shell commands
+  shell-tool.ts         -- Shell + Bash (alias): execute host shell commands; OS-aware (PowerShell on Windows) via agent-core resolvePlatformShell
   read-tool.ts          -- Read: read file contents with line numbers
   write-tool.ts         -- Write: write content to a file
   edit-tool.ts          -- Edit: replace a string in a file
@@ -47,13 +46,14 @@ builtins/
   grep-tool.ts          -- Grep: regex content search (files_with_matches/content/count, headLimit)
   web-fetch-tool.ts     -- WebFetch: fetch URL content (HTML→text conversion); classifyFetchError exported
   web-search-tool.ts    -- WebSearch: web search via Brave Search API
+  ask-user-question-tool.ts -- AskUserQuestion: model asks the user structured questions via the CMD-004 ask port
 ```
 
 **Design patterns used:**
 
 - **Registry** -- `ToolRegistry` provides central tool registration, lookup, and schema management.
 - **Factory** -- `createFunctionTool` and `createZodFunctionTool` provide ergonomic tool construction.
-- **Adapter** -- `zodToJsonSchema` adapts Zod schemas into the JSON Schema format expected by AI providers; `E2BSandboxClient` adapts E2B-compatible sandbox instances to `ISandboxClient`.
+- **Adapter** -- `E2BSandboxClient` adapts E2B-compatible sandbox instances to `ISandboxClient`. (Zod-to-JSON-schema conversion is owned by the core package as the schema SSOT; this package imports it.)
 - **Ports and adapters** -- `ISandboxClient` separates tool execution intent, workspace preparation, and provider-owned snapshot hydration from the concrete execution plane.
 - **Declarative workspace setup** -- `IWorkspaceManifest` describes fresh-session sandbox files, directories, Git repositories, and future ephemeral storage mounts without putting manifest algorithms in SDK or CLI layers.
 
@@ -102,52 +102,58 @@ Types owned by this package (SSOT):
 
 ### Tool Infrastructure
 
-| Export                                  | Kind     | Description                                                    |
-| --------------------------------------- | -------- | -------------------------------------------------------------- |
-| `ToolRegistry`                          | Class    | Central tool registration and schema lookup                    |
-| `FunctionTool`                          | Class    | JS function tool with Zod schema validation                    |
-| `createFunctionTool`                    | Function | Factory for creating function tools                            |
-| `createZodFunctionTool`                 | Function | Factory with Zod validation and conversion                     |
-| `zodToJsonSchema`                       | Function | Converts Zod schemas to JSON Schema format                     |
-| `IToolInvocationResult`                 | Type     | Result shape for CLI tool invocations                          |
-| `E2BSandboxClient`                      | Class    | Adapter for E2B-compatible sandbox instances and snapshots     |
-| `InMemorySandboxClient`                 | Class    | Deterministic sandbox client for tests                         |
-| `ISandboxClient`                        | Type     | Provider-neutral sandbox execution and hydration port          |
-| `IWorkspaceManifest`                    | Type     | Provider-neutral sandbox workspace manifest                    |
-| `IWorkspaceManifestFileEntry`           | Type     | Inline file entry type                                         |
-| `IWorkspaceManifestDirectoryEntry`      | Type     | Directory creation entry type                                  |
-| `IWorkspaceManifestLocalFileEntry`      | Type     | Host-local file copy entry type                                |
-| `IWorkspaceManifestLocalDirectoryEntry` | Type     | Host-local directory copy entry type                           |
-| `IWorkspaceManifestGitRepositoryEntry`  | Type     | Git repository clone entry type                                |
-| `IWorkspaceManifestS3MountEntry`        | Type     | AWS S3 bucket mount entry type                                 |
-| `IWorkspaceManifestGcsMountEntry`       | Type     | GCS bucket mount entry type                                    |
-| `IWorkspaceManifestR2MountEntry`        | Type     | Cloudflare R2 bucket mount entry type                          |
-| `IWorkspaceManifestAzureBlobMountEntry` | Type     | Azure Blob Storage mount entry type                            |
-| `IWorkspaceManifestPermissions`         | Type     | Read/write path permission lists for a workspace manifest      |
-| `TWorkspaceManifestEntry`               | Type     | Union of all manifest entry types                              |
-| `TWorkspaceManifestApplyStatus`         | Type     | `'applied' \| 'unsupported'` status per applied manifest entry |
-| `TInMemorySandboxRunHandler`            | Type     | Custom run handler type for `InMemorySandboxClient`            |
-| `applyWorkspaceManifest`                | Function | Applies a workspace manifest through an `ISandboxClient`       |
-| `validateWorkspaceManifestPath`         | Function | Validates and normalizes manifest entry paths                  |
+| Export                                  | Kind     | Description                                                                                                                                                |
+| --------------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ToolRegistry`                          | Class    | Central tool registration and schema lookup                                                                                                                |
+| `FunctionTool`                          | Class    | JS function tool with Zod schema validation                                                                                                                |
+| `createFunctionTool`                    | Function | Factory for creating function tools                                                                                                                        |
+| `createZodFunctionTool`                 | Function | Generic factory (`<S extends ZodType>`): runtime `safeParse` validation AND `z.infer<S>`-typed executor args (SDK-009); executor receives the parsed value |
+| `IToolInvocationResult`                 | Type     | Result shape for CLI tool invocations                                                                                                                      |
+| `E2BSandboxClient`                      | Class    | Adapter for E2B-compatible sandbox instances and snapshots                                                                                                 |
+| `InMemorySandboxClient`                 | Class    | Deterministic sandbox client for tests                                                                                                                     |
+| `ISandboxClient`                        | Type     | Provider-neutral sandbox execution and hydration port                                                                                                      |
+| `IWorkspaceManifest`                    | Type     | Provider-neutral sandbox workspace manifest                                                                                                                |
+| `IWorkspaceManifestFileEntry`           | Type     | Inline file entry type                                                                                                                                     |
+| `IWorkspaceManifestDirectoryEntry`      | Type     | Directory creation entry type                                                                                                                              |
+| `IWorkspaceManifestLocalFileEntry`      | Type     | Host-local file copy entry type                                                                                                                            |
+| `IWorkspaceManifestLocalDirectoryEntry` | Type     | Host-local directory copy entry type                                                                                                                       |
+| `IWorkspaceManifestGitRepositoryEntry`  | Type     | Git repository clone entry type                                                                                                                            |
+| `IWorkspaceManifestS3MountEntry`        | Type     | AWS S3 bucket mount entry type                                                                                                                             |
+| `IWorkspaceManifestGcsMountEntry`       | Type     | GCS bucket mount entry type                                                                                                                                |
+| `IWorkspaceManifestR2MountEntry`        | Type     | Cloudflare R2 bucket mount entry type                                                                                                                      |
+| `IWorkspaceManifestAzureBlobMountEntry` | Type     | Azure Blob Storage mount entry type                                                                                                                        |
+| `IWorkspaceManifestPermissions`         | Type     | Read/write path permission lists for a workspace manifest                                                                                                  |
+| `TWorkspaceManifestEntry`               | Type     | Union of all manifest entry types                                                                                                                          |
+| `TWorkspaceManifestApplyStatus`         | Type     | `'applied' \| 'unsupported'` status per applied manifest entry                                                                                             |
+| `TInMemorySandboxRunHandler`            | Type     | Custom run handler type for `InMemorySandboxClient`                                                                                                        |
+| `applyWorkspaceManifest`                | Function | Applies a workspace manifest through an `ISandboxClient`                                                                                                   |
+| `validateWorkspaceManifestPath`         | Function | Validates and normalizes manifest entry paths                                                                                                              |
 
 ### Built-in CLI Tools
 
-| Export          | Kind   | Tool Name   | Description                                                                              |
-| --------------- | ------ | ----------- | ---------------------------------------------------------------------------------------- |
-| `bashTool`      | Object | `Bash`      | Execute shell commands via host process by default                                       |
-| `readTool`      | Object | `Read`      | Read file contents with line numbers (cat -n)                                            |
-| `writeTool`     | Object | `Write`     | Write content to a file (creates parent dirs)                                            |
-| `editTool`      | Object | `Edit`      | Replace a specific string in a file                                                      |
-| `globTool`      | Object | `Glob`      | Find files matching a glob pattern (fast-glob)                                           |
-| `grepTool`      | Object | `Grep`      | Regex content search — modes: files_with_matches/content/count; `headLimit` caps results |
-| `webFetchTool`  | Object | `WebFetch`  | Fetch URL content with HTML-to-text conversion                                           |
-| `webSearchTool` | Object | `WebSearch` | Web search via Brave Search API                                                          |
+| Export                | Kind   | Tool Name         | Description                                                                                                  |
+| --------------------- | ------ | ----------------- | ------------------------------------------------------------------------------------------------------------ |
+| `shellTool`           | Object | `Shell`           | Execute host shell commands; OS-aware (POSIX `sh`/`bash`, Windows PowerShell)                                |
+| `bashTool`            | Object | `Bash`            | Model-familiar alias of `Shell` — same OS-aware implementation                                               |
+| `readTool`            | Object | `Read`            | Read file contents with line numbers (cat -n)                                                                |
+| `writeTool`           | Object | `Write`           | Write content to a file (creates parent dirs)                                                                |
+| `editTool`            | Object | `Edit`            | Replace a specific string in a file                                                                          |
+| `globTool`            | Object | `Glob`            | Find files matching a glob pattern (fast-glob)                                                               |
+| `grepTool`            | Object | `Grep`            | Regex content search — modes: files_with_matches/content/count; `headLimit` caps results                     |
+| `webFetchTool`        | Object | `WebFetch`        | Fetch URL content with HTML-to-text conversion                                                               |
+| `webSearchTool`       | Object | `WebSearch`       | Web search via Brave Search API                                                                              |
+| `askUserQuestionTool` | Object | `AskUserQuestion` | Model-issued structured questions (options/multi-select/free text) via `IToolExecutionContext.ask` (CMD-005) |
+
+`AskUserQuestion` (CMD-005) consumes the injected `IToolExecutionContext.ask` port (CMD-004): each of
+its 1–4 questions maps onto the `IActionRequest` SSOT and is rendered by the attached environment; a
+dismissed question cancels the remaining unasked ones; without an ask port (headless) the tool returns
+a structured `{ unavailable: true }` result — never a silent guess, never a thrown error.
 
 > `classifyFetchError` is **not** part of the package Public API Surface — it is not re-exported from `src/index.ts`. It remains internal, exported only from the builtins barrel (`src/builtins/index.ts`).
 
 Each built-in tool is an `IToolWithEventService`-compatible object with `getName()`, `getDescription()`, `getSchema()`, and `execute()` methods.
 
-`createBashTool`, `createReadTool`, `createWriteTool`, and `createEditTool` create sandbox-aware tool instances. When an `ISandboxClient` is supplied, Bash command execution plus Read/Write/Edit filesystem operations are routed through the sandbox client. When no sandbox client is supplied, the singleton exports keep existing host-local behavior.
+`createShellTool` (and its alias `createBashTool`), `createReadTool`, `createWriteTool`, and `createEditTool` create sandbox-aware tool instances. When an `ISandboxClient` is supplied, shell command execution plus Read/Write/Edit filesystem operations are routed through the sandbox client. When no sandbox client is supplied, the singleton exports keep host-local behavior, resolving the shell per-OS through agent-core's `resolvePlatformShell` (POSIX `sh`/`bash`, Windows PowerShell). The `Shell` tool's description is built dynamically from the resolved shell so the model writes syntax the host shell can run.
 
 **WriteTool output**: Reports actual UTF-8 byte count via `Buffer.byteLength(content, 'utf8')`, not JS `content.length` (which is character count and differs for multibyte content).
 
@@ -179,7 +185,7 @@ This is the inner result type used by built-in tools. It is serialized to JSON a
 
 ## Error Taxonomy
 
-This package does not define a custom error hierarchy. Built-in tools return errors via the `IToolInvocationResult.error` field rather than throwing. Schema conversion errors from `zodToJsonSchema` are thrown as standard `Error` instances.
+This package does not define a custom error hierarchy. Built-in tools return errors via the `IToolInvocationResult.error` field rather than throwing.
 
 `classifyFetchError` in `web-fetch-tool.ts` maps network-layer errors (Node.js `ErrnoException` codes and `AbortError`) to human-readable strings; it does not throw. Path traversal violations detected by `checkPathWithinCwd` in `path-guard.ts` are returned as a serialized `IToolInvocationResult` error string rather than thrown exceptions.
 
@@ -200,12 +206,12 @@ None. `FunctionTool` implements its interface directly (`implements IFunctionToo
 
 ### Cross-Package Port Consumers
 
-| Port (Owner)                       | Consumer                                       | Location                                                                     |
-| ---------------------------------- | ---------------------------------------------- | ---------------------------------------------------------------------------- |
-| `IFunctionTool` (agent-core)       | `FunctionTool`                                 | `src/implementations/function-tool.ts`                                       |
-| `IToolWithEventService` shape      | Built-in CLI tools                             | `src/builtins/*.ts`                                                          |
-| `ISandboxClient` (agent-tools)     | Built-in CLI tool factories                    | `src/builtins/bash-tool.ts`, `read-tool.ts`, `write-tool.ts`, `edit-tool.ts` |
-| `IWorkspaceManifest` (agent-tools) | `agent-framework` interactive session assembly | `packages/agent-framework/src/interactive/interactive-session-options.ts`    |
+| Port (Owner)                       | Consumer                                       | Location                                                                      |
+| ---------------------------------- | ---------------------------------------------- | ----------------------------------------------------------------------------- |
+| `IFunctionTool` (agent-core)       | `FunctionTool`                                 | `src/implementations/function-tool.ts`                                        |
+| `IToolWithEventService` shape      | Built-in CLI tools                             | `src/builtins/*.ts`                                                           |
+| `ISandboxClient` (agent-tools)     | Built-in CLI tool factories                    | `src/builtins/shell-tool.ts`, `read-tool.ts`, `write-tool.ts`, `edit-tool.ts` |
+| `IWorkspaceManifest` (agent-tools) | `agent-framework` interactive session assembly | `packages/agent-framework/src/interactive/interactive-session-options.ts`     |
 
 ## Test Strategy
 
@@ -217,7 +223,6 @@ None. `FunctionTool` implements its interface directly (`implements IFunctionToo
 | `src/__tests__/sandbox-tools.test.ts`      | Unit  | Sandbox client contracts, sandbox-aware tools, E2B adapter behavior, and snapshot/restore paths |
 | `src/__tests__/workspace-manifest.test.ts` | Unit  | Workspace manifest path validation and generic sandbox application                              |
 | `src/__tests__/function-tool.test.ts`      | Unit  | FunctionTool creation, execution, schema validation                                             |
-| `src/__tests__/schema-converter.test.ts`   | Unit  | Zod-to-JSON-Schema conversion                                                                   |
 | `src/__tests__/tool-registry.test.ts`      | Unit  | ToolRegistry registration, lookup, listing                                                      |
 
 ### Gaps

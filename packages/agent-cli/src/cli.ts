@@ -4,7 +4,8 @@
  */
 
 import { execSync } from 'node:child_process';
-import { createReplayProviderFromLogFile } from '@robota-sdk/agent-provider-replay';
+import { createRequire } from 'node:module';
+
 import { PrintTerminal, promptInput } from '@robota-sdk/agent-transport/headless';
 import {
   createProjectSessionStore,
@@ -23,6 +24,7 @@ import {
 } from '@robota-sdk/agent-framework';
 import { parseCliArgs, parseToolList, printHelp } from './utils/cli-args.js';
 import type { IParsedCliArgs } from './utils/cli-args.js';
+import type { IAIProvider } from '@robota-sdk/agent-core';
 import { resolveCliPreset, selectPresetId } from './startup/preset-selection.js';
 import { DEFAULT_AGENT_NAME, loadExternalPresets } from '@robota-sdk/agent-preset';
 import type { IResolvedPresetOptions } from '@robota-sdk/agent-preset';
@@ -32,6 +34,7 @@ import {
   runInteractiveProviderSetup,
 } from './startup/provider-startup.js';
 import { renderApp, createDefaultTuiCliAdapter } from '@robota-sdk/agent-transport-tui';
+import { installTuiProcessGuards, setLiveChannel } from './process-guards.js';
 import { TransportRegistry } from '@robota-sdk/agent-transport';
 import { WsTransport } from '@robota-sdk/agent-transport-ws';
 import { createDefaultBackgroundTaskRunners } from '@robota-sdk/agent-executor';
@@ -60,6 +63,25 @@ export type { IStartCliOptions };
  * app-assembly decision, so the CLI (the composition root) wires `WsTransport` here rather than
  * the transport core depending on the ws package.
  */
+/**
+ * Load the optional session-log replay provider (INFRA-017). `@robota-sdk/agent-provider-replay` is a
+ * dev/test-only package deliberately kept out of the published dependency graph, so `--session-log`
+ * replay is a development capability: resolvable in the monorepo (and for anyone who installs the
+ * package), and reported as unavailable — never a hard crash — in the default published CLI.
+ */
+function loadReplayProvider(logFile: string): IAIProvider {
+  let mod: { createReplayProviderFromLogFile: (file: string) => IAIProvider };
+  try {
+    const requireFrom = createRequire(import.meta.url);
+    mod = requireFrom('@robota-sdk/agent-provider-replay') as typeof mod;
+  } catch {
+    throw new Error(
+      '--session-log replay requires @robota-sdk/agent-provider-replay, a dev-only package that is not bundled in the published CLI.',
+    );
+  }
+  return mod.createReplayProviderFromLogFile(logFile);
+}
+
 function createDefaultTransportRegistry(): TransportRegistry {
   const registry = new TransportRegistry(getUserSettingsPath());
   registry.register(new WsTransport());
@@ -229,7 +251,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   // model. Provider settings/model still come from the configured profile (no key is ever used —
   // the ReplayProvider answers every call from the recorded log).
   const provider = args.sessionLog
-    ? createReplayProviderFromLogFile(args.sessionLog)
+    ? loadReplayProvider(args.sessionLog)
     : createProviderFromSettings(cwd, resolvedPreset.model, providerOptions);
   const backgroundTaskRunners = createDefaultBackgroundTaskRunners();
   const paths = projectPaths(cwd);
@@ -288,12 +310,15 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   }
 
   warnIfTerminalAppOnMacOS(terminal);
+  // ERR-001 G1: interactive mode only — the process must survive transient failures.
+  installTuiProcessGuards();
   if (isFirstRun()) {
     printFirstRunWelcome(terminal);
     markOnboarded();
   }
 
   await renderApp({
+    onChannelReady: (channel) => setLiveChannel(channel),
     cwd,
     provider,
     providerOverride: args.provider,

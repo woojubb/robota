@@ -15,11 +15,11 @@ import type {
   IBackgroundTaskHandle,
   IBackgroundTaskRunner,
   IBackgroundTaskStart,
-  IScheduledBackgroundTaskRequest,
 } from '@robota-sdk/agent-executor';
 import type { SessionExecutionController } from '../interactive-session-execution-controller.js';
 import type { IAgentToolDeps } from '../../tools/agent-tool.js';
 import type { Session } from '@robota-sdk/agent-session';
+import type { IScheduledBackgroundTaskRequest } from '@robota-sdk/agent-interface-transport';
 
 function createSessionStub(): Session {
   return {
@@ -144,5 +144,29 @@ describe('FLOW-002 session wake injection', () => {
 
     expect(execCtrl.pendingPrompt).toBe('queued instruction');
     expect(execCtrl.pendingTurnOptions.turnSource).toBe('agent-wakeup');
+  });
+
+  it('RUNTIME-19: aborting a queued wake evicts its id so a future wake is not locked out', async () => {
+    const { session, manager, started } = await setupSession();
+    const execCtrl = getExecCtrl(session);
+    execCtrl.executing = true; // a turn is in flight, so the wake queues instead of running
+
+    const created = await manager.spawn(scheduledWakeRequest('follow up'));
+    await Promise.resolve();
+    fire(started[0]?.emit, { type: 'background_task_waking', instruction: 'follow up' });
+    await Promise.resolve();
+
+    // The wake is queued and its id tracked.
+    expect(execCtrl.pendingPrompt).toBe('follow up');
+    expect(execCtrl.wakeTaskIds.has(created.id)).toBe(true);
+
+    // Abort drops the queued wake — its id MUST be evicted, or every future wake for this task
+    // is silently rejected forever (RUNTIME-19).
+    session.abort();
+    expect(execCtrl.wakeTaskIds.has(created.id)).toBe(false);
+
+    // A brand-new wake for the same task id is now accepted (not locked out).
+    execCtrl.executing = false;
+    expect(session.requestWakeup('later', created.id)).toBe(true);
   });
 });

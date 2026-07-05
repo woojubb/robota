@@ -17,6 +17,9 @@ import type {
 
 /** Debounce interval for streaming text notify (limits renderMarkdown frequency) */
 const STREAMING_DEBOUNCE_MS = 300;
+/** ERR-001 G3: with no provider activity for this long while thinking, hint that the
+ * connection may be stalled (well under the 120s provider idle timeout). */
+const STALL_HINT_MS = 15_000;
 /**
  * TUI view of the core context-window state. The token fields are derived from the agent-core
  * SSOT (`IContextWindowState`) via `Pick` so they stay structurally tied to it; `percentage` is an
@@ -62,6 +65,10 @@ export class TuiStateManager {
   contextState: TContextState = { percentage: 0, usedTokens: 0, maxTokens: 0 };
   executionWorkspaceSnapshot: IExecutionWorkspaceSnapshot | null = null;
   selectedExecutionEntryId: string | undefined;
+  /** ERR-001 G2: humanized message of the last failed turn; cleared when the next turn starts. */
+  lastErrorMessage: string | null = null;
+  /** ERR-001 G3: no stream/tool activity for STALL_HINT_MS while thinking. */
+  isStalled = false;
 
   /** Called after any state change. React hook sets this to trigger re-render. */
   onChange: (() => void) | null = null;
@@ -69,6 +76,27 @@ export class TuiStateManager {
   // ── Internal ──────────────────────────────────────────────────
   private streamBuf = '';
   private debouncedStreamNotify = createDebouncedNotify(() => this.notify(), STREAMING_DEBOUNCE_MS);
+  private stallTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /** (Re)start the dead-air timer — any provider activity proves the connection is alive. */
+  private armStallTimer(): void {
+    this.clearStallTimer();
+    this.stallTimer = setTimeout(() => {
+      this.stallTimer = null;
+      this.isStalled = true;
+      this.notify();
+    }, STALL_HINT_MS);
+  }
+
+  private clearStallTimer(): void {
+    if (this.stallTimer) {
+      clearTimeout(this.stallTimer);
+      this.stallTimer = null;
+    }
+    if (this.isStalled) {
+      this.isStalled = false;
+    }
+  }
 
   private notify(): void {
     this.onChange?.();
@@ -77,12 +105,16 @@ export class TuiStateManager {
   // ── Event handlers (InteractiveSession → state) ───────────────
 
   onTextDelta = (delta: string): void => {
+    if (this.isThinking) this.armStallTimer();
     this.streamBuf += delta;
     this.streamingText = this.streamBuf;
     this.debouncedStreamNotify.schedule();
   };
 
   onToolStart = (state: IToolState): void => {
+    // RUNTIME-39: a running tool is legitimate activity, not a stalled provider connection —
+    // suppress the dead-air hint for the duration of the tool run (re-armed in onToolEnd).
+    this.clearStallTimer();
     this.activeTools = [...this.activeTools, state];
     this.notify();
   };
@@ -95,6 +127,11 @@ export class TuiStateManager {
       updated[idx] = state;
       this.activeTools = updated;
     }
+    // RUNTIME-39: re-arm the dead-air watch only once no tool is still running and the turn is
+    // still in progress — otherwise the provider is again the thing we're waiting on.
+    if (this.isThinking && !this.activeTools.some((t) => t.isRunning)) {
+      this.armStallTimer();
+    }
     this.notify();
   };
 
@@ -106,9 +143,12 @@ export class TuiStateManager {
       this.streamBuf = '';
       this.streamingText = '';
       this.activeTools = [];
+      this.lastErrorMessage = null;
+      this.armStallTimer();
     } else {
       this.isAborting = false;
       this.activeTools = [];
+      this.clearStallTimer();
     }
     this.notify();
   };
@@ -116,6 +156,7 @@ export class TuiStateManager {
   onComplete = (result: IExecutionResult): void => {
     // Tool summary is now in messages (pushed by InteractiveSession)
     // Clear streaming display
+    this.clearStallTimer();
     this.debouncedStreamNotify.flush();
     this.streamBuf = '';
     this.streamingText = '';
@@ -130,6 +171,7 @@ export class TuiStateManager {
 
   onInterrupted = (): void => {
     // Tool summary is now in messages
+    this.clearStallTimer();
     this.debouncedStreamNotify.flush();
     this.streamBuf = '';
     this.streamingText = '';
@@ -137,8 +179,11 @@ export class TuiStateManager {
     this.notify();
   };
 
-  onError = (): void => {
-    // Tool summary is now in messages
+  onError = (error?: Error): void => {
+    // The partial answer is preserved as an interrupted history entry by the framework
+    // (ERR-001); clearing the local stream buffer here no longer loses it.
+    this.clearStallTimer();
+    this.lastErrorMessage = error?.message ?? 'Unknown error';
     this.debouncedStreamNotify.flush();
     this.streamBuf = '';
     this.streamingText = '';
@@ -224,5 +269,16 @@ export class TuiStateManager {
       selectedEntryId: entryId,
     };
     this.notify();
+  }
+
+  /**
+   * RUNTIME-52: release every timer this manager owns and detach the render callback. Called by the
+   * channel's teardown (`stop()`); after dispose the manager must never fire `onChange` or trip the
+   * stall hint on a discarded session.
+   */
+  dispose(): void {
+    this.clearStallTimer();
+    this.debouncedStreamNotify.flush();
+    this.onChange = null;
   }
 }

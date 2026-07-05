@@ -36,7 +36,6 @@ import type {
   ISubagentSpawnRequest,
 } from '../subagents/index.js';
 import type { IToolExecutionContext } from '@robota-sdk/agent-core';
-import type { IZodSchema } from '@robota-sdk/agent-tools';
 
 export const AGENT_TOOL_DESCRIPTION = [
   'Creates delegated subagent jobs in isolated contexts.',
@@ -73,11 +72,6 @@ export function createAgentToolPromptDescription(
     .join(' ')
     .replace(/\s+/g, ' ')
     .trim();
-}
-
-/** Cast a Zod schema to the IZodSchema interface expected by createZodFunctionTool */
-function asZodSchema(schema: z.ZodType): IZodSchema {
-  return schema as IZodSchema;
 }
 
 const AgentSchema = z
@@ -245,7 +239,7 @@ export function createAgentTool(deps: IAgentToolDeps): ReturnType<typeof createZ
   return createZodFunctionTool(
     'Agent',
     AGENT_TOOL_DESCRIPTION,
-    asZodSchema(AgentSchema),
+    AgentSchema,
     async (params, context) => {
       const args = params as TAgentArgs;
       const toolCallId = (context as IToolExecutionContext | undefined)?.executionId;

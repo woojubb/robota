@@ -132,8 +132,8 @@ const agent = new Robota({
   defaultModel: {
     provider: 'anthropic',
     model: 'claude-sonnet-4-6',
-    systemMessage: 'You are a helpful assistant.',
   },
+  systemMessage: 'You are a helpful assistant.',
 });
 
 const response = await agent.run('Explain TypeScript generics.');
@@ -155,6 +155,7 @@ const response = await query('List all TypeScript files in src/');
 ### Switch Providers — No Code Changes
 
 ```typescript
+import { Robota } from '@robota-sdk/agent-core';
 import { OpenAIProvider } from '@robota-sdk/agent-provider/openai';
 import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 
@@ -196,7 +197,7 @@ agent-framework        ← Assembly layer: InteractiveSession, config, context, 
   ↓
 agent-session          ← Session lifecycle: permissions, hooks, compaction
 agent-executor         ← Background task and subagent lifecycle primitives
-agent-tools            ← Tool infrastructure + 8 built-in tools + sandbox ports/manifests
+agent-tools            ← Tool infrastructure + built-in tools (Shell/Read/Write/Edit/Glob/Grep/Web*/AskUserQuestion) + sandbox ports/manifests
 agent-provider         ← Consolidated AI provider package (sub-paths: /anthropic, /openai, /gemini, /google, /gemma, /qwen, /deepseek, /bytedance)
   ↓
 agent-core             ← Foundation: Robota engine, abstractions, plugins

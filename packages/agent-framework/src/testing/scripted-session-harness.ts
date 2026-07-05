@@ -35,7 +35,12 @@ import { InteractiveSession } from '../interactive/index.js';
 import { createProjectSessionStore } from '../interactive/index.js';
 
 import type { ICommandModule } from '../command-api/index.js';
-import type { IAIProvider, TPermissionMode, TUniversalMessage } from '@robota-sdk/agent-core';
+import type {
+  IAIProvider,
+  IUserInteraction,
+  TPermissionMode,
+  TUniversalMessage,
+} from '@robota-sdk/agent-core';
 import type { TScriptedTurn } from '@robota-sdk/agent-core/testing';
 import type {
   ICommandResult,
@@ -53,6 +58,11 @@ import type {
 export interface IScriptedSessionOptions {
   /** Scripted assistant turns replayed deterministically through the real loop. */
   turns?: readonly TScriptedTurn[];
+  /**
+   * CMD-005: answer model-issued questions (AskUserQuestion) programmatically. When set, tool
+   * executions receive it as `context.ask`; absent ⇒ the tool reports `unavailable` (headless).
+   */
+  askHandler?: IUserInteraction['ask'];
   /**
    * Path to a recorded cassette (TEST-005). Replays a real model's captured prompts + tool-use
    * deterministically through the real loop. The workspace path is rewritten/scrubbed automatically.
@@ -186,6 +196,7 @@ export class ScriptedSessionHarness {
       ...(options.maxTurns !== undefined ? { maxTurns: options.maxTurns } : {}),
       ...(options.model !== undefined ? { model: options.model } : {}),
       ...(options.terminalHandoff ? { terminalHandoff: options.terminalHandoff } : {}),
+      ...(options.askHandler ? { askHandler: options.askHandler } : {}),
     });
 
     for (const name of COLLECTED_EVENTS) {
@@ -331,6 +342,19 @@ export class ScriptedSessionHarness {
   sessionRecord(): IInteractiveSessionRecord | undefined {
     if (!this.sessionStore) return undefined;
     return this.sessionStore.load(this.session.getSession().getSessionId());
+  }
+
+  /**
+   * Neutral session-log accessor (INFRA-025): the id + full history in the shape analysis
+   * tooling consumes. Usage assertions compose it with `summarizeUsageBySource` from
+   * `@robota-sdk/agent-session-analytics` in the TEST — the harness itself carries no
+   * analytics dependency.
+   */
+  sessionLog(): { id: string; history: ReturnType<InteractiveSession['getFullHistory']> } {
+    return {
+      id: this.session.getSession().getSessionId(),
+      history: this.session.getFullHistory(),
+    };
   }
 
   /** The real session-log directory the framework writes to (`{cwd}/.robota/logs`). */

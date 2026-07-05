@@ -1,0 +1,275 @@
+import { AbstractNodeDefinition, NodeIoAccessor } from '@robota-sdk/dag-node';
+import {
+  buildTaskExecutionError,
+  buildValidationError,
+  type ICostEstimate,
+  type IDagError,
+  type IDagNodeDefinition,
+  type INodeExecutionContext,
+  type TResult,
+  type TPortPayload,
+} from '@robota-sdk/dag-core';
+import { Robota } from '@robota-sdk/agent-core';
+import { OpenAIProvider } from '@robota-sdk/agent-provider/openai';
+import { z } from 'zod';
+
+const DEFAULT_OPENAI_LLM_MODEL = 'gpt-4o-mini';
+const DEFAULT_TEMPERATURE = 0.2;
+const CHARS_PER_TOKEN_ESTIMATE = 4;
+const COST_PER_TOKEN_USD = 0.001;
+
+const API_KEY_PATTERN = /\b(sk-[A-Za-z0-9\-_]{10,}|[A-Za-z0-9]{32,})\b/g;
+
+function sanitizeErrorMessage(message: string): string {
+  return message.replace(API_KEY_PATTERN, '[REDACTED]');
+}
+
+type TLlmErrorCode =
+  | 'MISSING_API_KEY'
+  | 'RATE_LIMITED'
+  | 'CONTEXT_TOO_LONG'
+  | 'BILLING_ERROR'
+  | 'SERVER_ERROR'
+  | 'UNKNOWN';
+
+function classifyLlmError(error: unknown): { code: TLlmErrorCode; retryable: boolean } {
+  const status =
+    (error as { status?: number })?.status ?? (error as { statusCode?: number })?.statusCode;
+  const message = ((error as { message?: string })?.message ?? '').toLowerCase();
+
+  if (
+    status === 401 ||
+    message.includes('authentication') ||
+    message.includes('api_key') ||
+    message.includes('invalid key')
+  ) {
+    return { code: 'MISSING_API_KEY', retryable: false };
+  }
+  if (status === 429 || message.includes('rate limit') || message.includes('too many requests')) {
+    return { code: 'RATE_LIMITED', retryable: true };
+  }
+  if (
+    message.includes('context_length_exceeded') ||
+    message.includes('too long') ||
+    message.includes('maximum context')
+  ) {
+    return { code: 'CONTEXT_TOO_LONG', retryable: false };
+  }
+  if (status === 402 || message.includes('billing') || message.includes('quota')) {
+    return { code: 'BILLING_ERROR', retryable: false };
+  }
+  if (status !== undefined && status >= 500) {
+    return { code: 'SERVER_ERROR', retryable: true };
+  }
+  return { code: 'UNKNOWN', retryable: false };
+}
+
+const LlmTextOpenAiConfigSchema = z.object({
+  model: z.string().default(DEFAULT_OPENAI_LLM_MODEL),
+  temperature: z.number().default(DEFAULT_TEMPERATURE),
+  maxTokens: z.number().int().positive().optional(),
+  baseCredits: z.number().default(0),
+});
+
+/** Options for constructing a {@link LlmTextOpenAiNodeDefinition}, including model restrictions. */
+export interface ILlmTextOpenAiNodeDefinitionOptions {
+  defaultModel?: string;
+  allowedModels?: string[];
+}
+
+/**
+ * DAG node that generates text completions using the OpenAI API.
+ *
+ * Accepts a text prompt and produces a completion via a Robota agent backed by {@link OpenAIProvider}.
+ * Model, temperature, and max tokens are configurable.
+ *
+ * @extends AbstractNodeDefinition
+ */
+export class LlmTextOpenAiNodeDefinition extends AbstractNodeDefinition<
+  typeof LlmTextOpenAiConfigSchema
+> {
+  public readonly nodeType = 'llm-text-openai';
+  public readonly displayName = 'LLM Text OpenAI';
+  public readonly category = 'AI';
+  public readonly inputs: IDagNodeDefinition['inputs'] = [
+    { key: 'text', label: 'Text', order: 0, type: 'string', required: true },
+  ];
+  public readonly outputs: IDagNodeDefinition['outputs'] = [
+    { key: 'text', label: 'Text', order: 0, type: 'string', required: true },
+  ];
+  public override readonly defaultInputPort = 'text';
+  public override readonly defaultOutputPort = 'text';
+  public readonly configSchemaDefinition = LlmTextOpenAiConfigSchema;
+
+  private readonly apiKeyEnvName = 'OPENAI_API_KEY';
+  private readonly explicitApiKey?: string;
+  private readonly defaultModel: string;
+  private readonly allowedModels: string[];
+
+  public constructor(options?: ILlmTextOpenAiNodeDefinitionOptions) {
+    super();
+    this.explicitApiKey = undefined;
+    this.defaultModel =
+      typeof options?.defaultModel === 'string' && options.defaultModel.trim().length > 0
+        ? options.defaultModel.trim()
+        : DEFAULT_OPENAI_LLM_MODEL;
+    this.allowedModels =
+      Array.isArray(options?.allowedModels) && options.allowedModels.length > 0
+        ? options.allowedModels
+        : [this.defaultModel];
+  }
+
+  private resolveProvider(): OpenAIProvider | undefined {
+    const apiKey = this.explicitApiKey ?? process.env[this.apiKeyEnvName];
+    if (typeof apiKey === 'string' && apiKey.trim().length > 0) {
+      return new OpenAIProvider({ apiKey: apiKey.trim() });
+    }
+    return undefined;
+  }
+
+  private resolveModel(modelFromConfig: string): TResult<string, IDagError> {
+    const selectedModel =
+      modelFromConfig.trim().length > 0 ? modelFromConfig.trim() : this.defaultModel;
+    if (this.allowedModels.length > 0 && !this.allowedModels.includes(selectedModel)) {
+      return {
+        ok: false,
+        error: buildValidationError(
+          'DAG_VALIDATION_LLM_MODEL_NOT_ALLOWED',
+          'Selected model is not allowed for llm-text-openai node',
+          { model: selectedModel },
+        ),
+      };
+    }
+    return {
+      ok: true,
+      value: selectedModel,
+    };
+  }
+
+  protected override async validateInputWithConfig(
+    input: TPortPayload,
+    context: INodeExecutionContext,
+    config: z.output<typeof LlmTextOpenAiConfigSchema>,
+  ): Promise<TResult<void, IDagError>> {
+    if (typeof input.text !== 'string' || input.text.trim().length === 0) {
+      return {
+        ok: false,
+        error: buildValidationError(
+          'DAG_VALIDATION_LLM_PROMPT_REQUIRED',
+          'LLM node requires a non-empty text input',
+          { nodeId: context.nodeDefinition.nodeId },
+        ),
+      };
+    }
+    const modelResult = this.resolveModel(config.model);
+    if (!modelResult.ok) {
+      return modelResult;
+    }
+    return { ok: true, value: undefined };
+  }
+
+  public override async estimateCostWithConfig(
+    input: TPortPayload,
+    context: INodeExecutionContext,
+    config: z.output<typeof LlmTextOpenAiConfigSchema>,
+  ): Promise<TResult<ICostEstimate, IDagError>> {
+    const text = input.text;
+    if (typeof text !== 'string') {
+      return {
+        ok: false,
+        error: buildValidationError(
+          'DAG_VALIDATION_LLM_PROMPT_INVALID',
+          'text must be string for cost estimation',
+          { nodeId: context.nodeDefinition.nodeId },
+        ),
+      };
+    }
+    const estimatedCredits =
+      config.baseCredits + (text.length / CHARS_PER_TOKEN_ESTIMATE) * COST_PER_TOKEN_USD;
+    return {
+      ok: true,
+      value: { estimatedCredits },
+    };
+  }
+
+  protected override async executeWithConfig(
+    input: TPortPayload,
+    context: INodeExecutionContext,
+    config: z.output<typeof LlmTextOpenAiConfigSchema>,
+  ): Promise<TResult<TPortPayload, IDagError>> {
+    const provider = this.resolveProvider();
+    if (!provider) {
+      return {
+        ok: false,
+        error: buildValidationError(
+          'DAG_VALIDATION_OPENAI_API_KEY_REQUIRED',
+          [
+            'OPENAI_API_KEY is not set.',
+            "Fix: echo 'OPENAI_API_KEY=sk-...' >> .env",
+            'Then: dag run <file> --env-file .env',
+            'Get key: https://platform.openai.com/api-keys',
+          ].join('\n'),
+          {},
+          { action: 'set_env_var', suggestion: 'export OPENAI_API_KEY=sk-...' },
+          {
+            code: 'MISSING_API_KEY',
+            retryable: false,
+            action: 'SET_ENV_VAR',
+            actionDetail: 'Add OPENAI_API_KEY to .env and reload the process',
+          },
+        ),
+      };
+    }
+    const io = new NodeIoAccessor(input, context.nodeDefinition.nodeId);
+    const textResult = io.requireInputString('text');
+    if (!textResult.ok || textResult.value.trim().length === 0) {
+      return {
+        ok: false,
+        error: buildValidationError(
+          'DAG_VALIDATION_LLM_PROMPT_REQUIRED',
+          'LLM node requires a non-empty text input',
+          { nodeId: context.nodeDefinition.nodeId },
+        ),
+      };
+    }
+    const modelResult = this.resolveModel(config.model);
+    if (!modelResult.ok) {
+      return modelResult;
+    }
+
+    const agent = new Robota({
+      name: 'DagLlmTextOpenAiNodeAgent',
+      aiProviders: [provider],
+      defaultModel: {
+        provider: 'openai',
+        model: modelResult.value,
+        ...(typeof config.temperature === 'number' ? { temperature: config.temperature } : {}),
+        ...(typeof config.maxTokens === 'number' ? { maxTokens: config.maxTokens } : {}),
+      },
+    });
+
+    try {
+      const completion = await agent.run(textResult.value);
+      io.setOutput('text', completion);
+      const wordCount = typeof completion === 'string' ? completion.split(' ').length : 0;
+      io.setOutput('_agentSummary', `Generated ${wordCount} words. Model: ${modelResult.value}.`);
+      return {
+        ok: true,
+        value: io.toOutput(),
+      };
+    } catch (error) {
+      // allow-fallback: catches provider API errors and converts to structured Result
+      const { code, retryable } = classifyLlmError(error);
+      const rawMessage = error instanceof Error ? error.message : 'LLM generation failed';
+      return {
+        ok: false,
+        error: buildTaskExecutionError(
+          'DAG_TASK_EXECUTION_LLM_GENERATION_FAILED',
+          sanitizeErrorMessage(rawMessage),
+          retryable,
+          { provider: 'openai', model: modelResult.value, errorCode: code },
+        ),
+      };
+    }
+  }
+}

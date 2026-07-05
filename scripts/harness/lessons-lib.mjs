@@ -61,6 +61,32 @@ function getExamplePath(record) {
   return null;
 }
 
+/**
+ * Path-less events (repeated-tool-errors, fix-or-revert-commit) still carry context in
+ * `detail` (LESSON-010) — surface it as the example so the digest never shows an
+ * unactionable "(none)" for a signal that has context.
+ */
+function getExampleDetail(record) {
+  if (typeof record.detail === 'string' && record.detail.trim()) {
+    return record.detail.trim();
+  }
+  return null;
+}
+
+/**
+ * Normalize an example path to a repository-relative form. Returns null for paths outside the
+ * workspace (e.g. agent memory under `~/.claude`). Such paths are not repo lessons and must never
+ * leak absolute home paths into the generated, committed lessons files — and counting them inflates
+ * path-keyed metrics (the same-file-edited signal) with non-repo churn.
+ */
+function normalizeRepoPath(examplePath, workspaceRoot) {
+  if (!examplePath) return null;
+  if (!path.isAbsolute(examplePath)) return examplePath; // already repo-relative
+  const relative = path.relative(workspaceRoot, examplePath);
+  if (relative === '' || relative.startsWith('..') || path.isAbsolute(relative)) return null;
+  return relative;
+}
+
 function toTimestamp(record) {
   if (typeof record.timestamp !== 'string') {
     return null;
@@ -100,12 +126,24 @@ export async function summarizeLessonSignals({
         continue;
       }
 
+      const examplePath = getExamplePath(record);
+      const repoPath = normalizeRepoPath(examplePath, workspaceRoot);
+      // A path-bearing event outside the repo (e.g. agent memory under ~/.claude) is not a repo
+      // lesson — drop it so it neither inflates frequency nor leaks an absolute home path.
+      if (examplePath !== null && repoPath === null) {
+        continue;
+      }
+
       const group = ensureGroup(groups, getPattern(record, metricFile.source));
       group.frequency += 1;
       group.sources.add(metricFile.source);
-      const examplePath = getExamplePath(record);
-      if (examplePath) {
-        group.examples.add(examplePath);
+      if (repoPath) {
+        group.examples.add(repoPath);
+      } else {
+        const exampleDetail = getExampleDetail(record);
+        if (exampleDetail) {
+          group.examples.add(exampleDetail);
+        }
       }
       const isoTimestamp = new Date(timestamp).toISOString();
       group.firstSeen =
@@ -214,21 +252,107 @@ async function writeAutoLessons(workspaceRoot, groups) {
   }
 
   let nextContent = content;
-  for (const group of groups.filter((item) => item.frequency >= PROMOTION_THRESHOLD)) {
+  const candidates = groups.filter((item) => item.frequency >= PROMOTION_THRESHOLD);
+  for (const group of candidates) {
     const marker = `<!-- auto-lesson:${group.pattern} -->`;
     nextContent = upsertSection(nextContent, marker, renderAutoLessonEntry(group));
   }
 
-  await fs.writeFile(
-    autoLessonsPath,
-    nextContent.endsWith('\n') ? nextContent : `${nextContent}\n`,
+  // LESSON-010: drop sections whose pattern fell below threshold in the CURRENT window —
+  // upsert-only left May data sitting under a "last 7 days" label indefinitely.
+  const currentPatterns = new Set(candidates.map((group) => group.pattern));
+  const stalePattern = /<!-- auto-lesson:([^>]*?) -->[\s\S]*?(?=\n<!-- auto-lesson:|$)/g;
+  nextContent = nextContent.replace(stalePattern, (section, pattern) =>
+    currentPatterns.has(pattern.trim()) ? section : '',
   );
+  nextContent = `${nextContent.replace(/\n{3,}/g, '\n\n').trimEnd()}\n`;
+
+  await fs.writeFile(autoLessonsPath, nextContent);
+}
+
+const DEDUPE_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
+
+// Mirrors the detector rules (LESSON-010) so legacy records that the fixed hooks would no
+// longer emit are purged instead of polluting the window until they age out.
+const WORKFLOW_MULTI_EDIT_PATH_RE = /\.agents\/(backlog|tasks|evals)\//;
+
+function isLegacyFalsePositive(record, source) {
+  if (
+    source === 'reverts' &&
+    getPattern(record, source) === 'same-file-edited-3-times' &&
+    WORKFLOW_MULTI_EDIT_PATH_RE.test(String(record.file ?? ''))
+  ) {
+    return true;
+  }
+  if (source === 'corrections') {
+    const sessionId = String(record.session_id ?? '');
+    if (sessionId === '' || sessionId.startsWith('agent')) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Compact the append-only metric logs (LESSON-010): the Stop hook historically re-emitted
+ * the same signal on every session Stop, growing reverts.jsonl unboundedly (297k lines).
+ * Compaction keeps ONE record per (pattern, file, session_id) — the last, which carries the
+ * highest count — plus drops records older than the retention window and unparseable lines.
+ * Runs as part of the digest; logs are local-only (gitignored), so this never touches
+ * committed history.
+ */
+export async function compactMetrics({
+  workspaceRoot = WORKSPACE_ROOT,
+  now = createStableDigestWindowEnd(),
+  retentionMs = DEDUPE_RETENTION_MS,
+} = {}) {
+  const cutoff = now.getTime() - retentionMs;
+  const results = [];
+  for (const metricFile of METRIC_FILES) {
+    const filePath = path.join(workspaceRoot, LOCAL_METRICS_DIR, metricFile.file);
+    const records = await readJsonl(filePath);
+    if (records.length === 0) {
+      results.push({ file: metricFile.file, before: records.length, after: records.length });
+      continue;
+    }
+    const byIdentity = new Map();
+    for (const record of records) {
+      const timestamp = toTimestamp(record);
+      if (timestamp === null || timestamp < cutoff) {
+        continue;
+      }
+      if (isLegacyFalsePositive(record, metricFile.source)) {
+        continue;
+      }
+      const identity = JSON.stringify([
+        getPattern(record, metricFile.source),
+        record.file ?? record.file_path ?? '',
+        record.session_id ?? '',
+        // Corrections are per-utterance, not per-session — keep each distinct prompt.
+        record.prompt_excerpt ?? '',
+        record.detail ?? '',
+      ]);
+      byIdentity.set(identity, record); // last write wins (highest running count)
+    }
+    const compacted = Array.from(byIdentity.values());
+    if (compacted.length < records.length) {
+      await fs.writeFile(
+        filePath,
+        compacted.length > 0
+          ? `${compacted.map((record) => JSON.stringify(record)).join('\n')}\n`
+          : '',
+      );
+    }
+    results.push({ file: metricFile.file, before: records.length, after: compacted.length });
+  }
+  return results;
 }
 
 export async function runLessonsDigest({
   workspaceRoot = WORKSPACE_ROOT,
   now = createStableDigestWindowEnd(),
 } = {}) {
+  await compactMetrics({ workspaceRoot, now });
   const groups = await summarizeLessonSignals({ workspaceRoot, now });
   const digestPath = path.join(workspaceRoot, WEEKLY_DIGEST_FILE);
   await fs.mkdir(path.dirname(digestPath), { recursive: true });

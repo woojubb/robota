@@ -1,0 +1,116 @@
+---
+title: 'ANALYTICS-001: Record source-attributed token usage in the session log + reporting + test assertions'
+status: done
+completed: 2026-07-02
+created: 2026-07-01
+priority: medium
+urgency: soon
+area: packages/agent-core, packages/agent-framework, packages/agent-session-analytics, packages/agent-interface-transport, packages/agent-cli
+depends_on: []
+---
+
+> **Phase 1 delivered (2026-07-01):** the usage type + reducer + report + CLI + harness assertions, with
+> main-thread usage attributed today. **Phase 2 wired (2026-07-01):** a finished subagent/background
+> agent task's total usage (`sumHistoryUsage`) flows `ISubagentJobResult.usage` →
+> `IBackgroundTaskResult.usage` → the session background tracker, which on completion appends a
+> **source-attributed `usage-summary`** (`scope: 'background'`, the task id/label) to the parent log —
+> so `--usage` / `harness.usageReport()` attribute those tokens to that task, not the main thread.
+> **Phase 2 end-to-end verified (2026-07-01):** an integration test drives a REAL `InteractiveSession`
+>
+> - `BackgroundTaskManager`; a completed background agent task reports `usage` and the test asserts the
+>   parent log gains a `scope:'background'` `usage-summary` and that `summarizeUsageBySource` attributes
+>   the full total to `background:<taskId>` (label = agentType) as the top consumer — the production
+>   chain, not a mock of it (`interactive-session-background-tasks.test.ts`).
+>
+> **Phase 2 gap found + fixed by a LIVE CLI run (2026-07-02):** a real `robota -p … --preset
+autonomous-builder` run (Anthropic claude-sonnet-4-6) that spawned a `general-purpose` subagent showed
+> `session analyze --usage` attributing 100% to the main thread — the subagent's tokens were missing.
+> Root cause: the CLI uses the **child-process** subagent runner (`agent-subagent-runner`), whose worker
+> only sent `output` over IPC and dropped usage; only the in-process runner captured it. Fix: the worker
+> now forwards `sumHistoryUsage(session.getFullHistory())` in the `result` IPC message → the runner
+> carries it onto `ISubagentJobResult.usage` → the existing tracker chain attributes it. Re-run proof:
+> `main thread 87.1% (32.5K) · general-purpose 12.9% (4.8K)`. Regression-guarded by a fixture usage-mode
+> test (`child-process-subagent-runner.test.ts`). **User Execution gate: satisfied by this live run.**
+> Confirmed decisions: D1 minimal `IUsageSource` in
+> agent-interface-transport (the framework's `IExecutionOrigin` is a layer up and can't be imported into
+> the contract package); D2 single usage stream in the main session log; D3 `robota session analyze
+--usage` report; D4 harness `usageReport()`/`totalUsage()`.
+
+# Source-attributed token usage in the session log
+
+## Problem / goal
+
+Token usage exists per assistant message (`agent-core` `token-usage.ts` / `execution-usage.ts` →
+`IAssistantUsageMetadata`), but it is **not attributed to a source** and **not recorded in the session
+log** in a way that can be queried later. So we cannot answer "in this session, which part burned the
+most tokens — the main thread, a specific subagent, or a background task?", and the testing framework
+cannot assert on token usage to catch wrong/excessive consumption (e.g. a runaway background agent).
+
+Goal: every token-consuming unit of work records its usage **attributed to its source** into the
+session log, a reporter can re-read a session log and break usage down by source, and the testing
+framework can assert usage budgets so regressions in token consumption are caught.
+
+## What
+
+1. **Source-attributed usage records (SSOT).** Define a usage record that carries the existing
+   `IAssistantUsageMetadata` (input/output/total tokens) plus a **source descriptor** reusing the
+   existing execution-origin model (`IExecutionOrigin`: main_thread / subagent+id / background task+id
+   / tool_call / command / skill) so attribution is not a new parallel taxonomy. One owner type; no
+   duplicate token shapes (extend, don't fork).
+2. **Persist into the session log.** Append these usage records to the session log alongside history
+   entries (main thread) and the subagent/background-task loggers (`assembly/subagent-logger.ts`,
+   `background-tasks/*`), so a completed session log is self-describing for usage. Append-only,
+   read-only (consistent with history).
+3. **Reporting / query API.** In `agent-session-analytics`, add a reducer over a session log/record
+   that returns a per-source usage breakdown (totals + top consumers, e.g. "background task <id>:
+   X tokens (Y% of session)"), plus a CLI/printed report surface so a user can see where tokens went.
+4. **Testing-framework assertions.** Expose the breakdown through the scripted-session / PTY harness
+   (TEST-003 / TEST-010) so a test can assert "total session usage ≤ N", "no single background task
+   exceeds M", or "main-thread vs subagent split is within bounds" — turning wrong token usage into a
+   failing test / CI gate.
+
+## Design notes / decisions to confirm before implementation
+
+- **D1 — attribution key:** reuse `IExecutionOrigin` (recommended — one taxonomy already drives the
+  execution workspace) vs a new usage-only source enum.
+- **D2 — record location:** one usage stream in the main session log (recommended) vs per-subagent
+  logs aggregated at read time. Trade-off: single log is simplest to report; per-subagent matches the
+  existing subagent-logger split.
+- **D3 — report surface:** a `/usage` (or `dag`-style) CLI report + a programmatic reducer
+  (recommended) vs reducer-only (tests/SDK only).
+- **D4 — test assertion API:** harness helper like `harness.usageBySource()` / `harness.totalUsage()`
+  returning the breakdown for `expect(...)`.
+
+(Confirm these — and the exact budgets/thresholds the tests should enforce — before building, per the
+"define the scenario properly first" rule.)
+
+## Test Plan
+
+- Unit: the usage reducer aggregates a fixture session log into the correct per-source totals and
+  percentages; ties/empty/zero-usage handled.
+- Functional (TEST-003 scripted-session): a scripted run with a subagent + a background task produces
+  a session log whose usage breakdown attributes tokens to each source; `harness.usageBySource()`
+  returns them; an over-budget run fails an assertion.
+- typecheck / lint / `pnpm harness:scan` green; reuse, don't fork, the token-usage SSOT.
+
+## User Execution Test Scenarios
+
+- Prereq: built CLI; a session that runs the main thread + spawns ≥1 subagent/background task.
+- Steps: run `robota`, do work that spawns a background agent, then run the usage report (e.g.
+  `/usage` or the documented report command) against the session.
+- Expected: the report lists token usage broken down by source (main thread vs each agent/background
+  task) with totals and a clear "top consumer", matching what was run.
+- Evidence (Phase 1, agent-run): `agent-session-analytics` reducer unit tests (per-source breakdown,
+  percentages, top consumer, empty); `agent-cli` `session analyze --usage` integration test (prints the
+  source breakdown + top consumer); `agent-framework` `usage-assertion-functional` drives a REAL session
+  whose scripted provider reports usage and asserts `harness.usageReport()`/`totalUsage()` + a budget.
+  All green; lint 0 errors; `pnpm harness:scan` 39/39.
+- Evidence (Phase 2, LIVE agent-run 2026-07-02): `robota -p "Use the Agent tool … spawn a general-purpose
+subagent …" --preset autonomous-builder` against a real Anthropic provider (claude-sonnet-4-6) in a
+  throwaway cwd, then `robota session analyze --usage` on that session. First run exposed a real gap
+  (report showed `main thread 100%` — subagent tokens dropped by the child-process runner's IPC). After
+  fixing the worker to forward `sumHistoryUsage(...)` over IPC, the re-run report read:
+  `main thread 87.1% (32.5K, 1 turn) · general-purpose 12.9% (4.8K, 1 turn) · top consumer: main thread`
+  — i.e. the subagent's tokens are now attributed to its own source, matching what was run. **User
+  Execution gate satisfied.** Guarded against regression by the child-process runner usage-mode fixture
+  test.

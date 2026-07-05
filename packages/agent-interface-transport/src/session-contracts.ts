@@ -11,7 +11,17 @@ import type {
   IBackgroundJobGroupState,
   TBackgroundJobGroupEvent,
 } from './background-group-contracts.js';
+import type {
+  IBackgroundTaskInput,
+  IBackgroundTaskListFilter,
+  IBackgroundTaskLogCursor,
+  IBackgroundTaskLogPage,
+  IBackgroundTaskState,
+  TBackgroundTaskEvent,
+  TBackgroundTaskIsolation,
+} from './background-task-contracts';
 import type { ICommandListEntry, ICommandResult } from './command-contracts.js';
+import type { ICompactEvent } from './compact-contracts';
 import type {
   IContextReferenceItem,
   IMemoryEvent,
@@ -19,6 +29,7 @@ import type {
   IPromptFileReferenceRecord,
   ISkillActivationEvent,
 } from './event-contracts.js';
+import type { ISubagentJobState } from './subagent-contracts';
 import type {
   IExecutionWorkspaceEvent,
   IExecutionWorkspaceSnapshot,
@@ -31,17 +42,6 @@ import type {
   TToolArgs,
   TUniversalMessage,
 } from '@robota-sdk/agent-core';
-import type {
-  IBackgroundTaskInput,
-  IBackgroundTaskListFilter,
-  IBackgroundTaskLogCursor,
-  IBackgroundTaskLogPage,
-  IBackgroundTaskState,
-  ISubagentJobState,
-  TBackgroundTaskEvent,
-  TBackgroundTaskIsolation,
-} from '@robota-sdk/agent-executor';
-import type { ICompactEvent } from '@robota-sdk/agent-session';
 
 // Re-export the background job-group contracts referenced by the session surface so
 // that this module stays the single import hub for session-facing types.
@@ -81,6 +81,20 @@ export interface IToolState {
   executionId?: string;
 }
 
+/**
+ * ANALYTICS-001: the execution unit a usage snapshot is attributed to, so session-log usage can be
+ * reported and asserted per source (main thread vs a specific subagent / background task). A minimal
+ * contract-layer descriptor — the framework's `IExecutionOrigin` lives a layer up and cannot be
+ * imported here; the two stay aligned by `scope`/`id`.
+ */
+export interface IUsageSource {
+  scope: 'main' | 'subagent' | 'background' | 'tool' | 'command' | 'skill';
+  /** Stable id of the source (e.g. the subagent / background-task id); omitted for the main thread. */
+  id?: string;
+  /** Human label for reports (e.g. the agent type or task title). */
+  label?: string;
+}
+
 export interface IUsageSnapshot {
   kind: 'exact' | 'estimated';
   scope: 'turn';
@@ -91,6 +105,8 @@ export interface IUsageSnapshot {
   contextMaxTokens: number;
   contextUsedPercentage: number;
   costStatus: 'unknown' | 'estimated' | 'exact';
+  /** ANALYTICS-001: which execution unit consumed these tokens. Defaults to the main thread. */
+  source?: IUsageSource;
 }
 
 /** Summary of a tool call extracted from history. */

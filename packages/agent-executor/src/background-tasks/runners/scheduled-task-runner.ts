@@ -1,6 +1,10 @@
-import { spawn } from 'node:child_process';
+import { spawn, type ChildProcess } from 'node:child_process';
 
+import { killProcessTree } from '@robota-sdk/agent-process';
 import { Cron, type CronOptions } from 'croner';
+
+/** POSIX children are spawned detached so a process-group kill reaps grandchildren (CORE-023). */
+const SPAWN_DETACHED = process.platform !== 'win32';
 
 import {
   appendPrefixedLogLines,
@@ -33,6 +37,8 @@ interface IScheduledTaskState {
   job: Cron;
   emit: (event: TBackgroundTaskRunnerEvent) => void;
   resolve: (result: IBackgroundTaskResult) => void;
+  /** CORE-023: the in-flight fired child, tracked so cancel can kill it instead of orphaning it. */
+  currentChild?: ChildProcess;
 }
 
 export function createScheduledTaskRunner(
@@ -92,6 +98,11 @@ function startScheduledTask(
     cancel: async () => {
       state.cancelled = true;
       state.job.stop();
+      // CORE-023: kill an in-flight fired child instead of orphaning it (the child was
+      // previously a local var with no reference held anywhere).
+      if (state.currentChild) {
+        await killProcessTree(state.currentChild, { processGroup: SPAWN_DETACHED });
+      }
       resolveResult({
         taskId,
         kind: 'scheduled',
@@ -129,27 +140,51 @@ function runOneFire(state: IScheduledTaskState): void {
     cwd: state.request.cwd,
     env: { ...process.env, ...(state.request.env ?? {}) },
     stdio: ['ignore', 'pipe', 'pipe'],
+    detached: SPAWN_DETACHED,
   });
+  state.currentChild = child;
 
-  child.stdout.on('data', (chunk: Buffer) => {
+  // CORE-024 (RUNTIME-18): croner `protect: true` skips a fire while the previous one still runs,
+  // so a hung fire starves EVERY future fire. A per-fire timeout kills the hung child (process
+  // group) so `close` fires, the schedule re-sleeps, and the next cron tick runs.
+  const fireTimeout =
+    state.request.timeoutMs !== undefined
+      ? setTimeout(() => {
+          appendPrefixedLogLines(
+            state.logs,
+            'system',
+            `fire timed out after ${state.request.timeoutMs}ms — killing`,
+          );
+          void killProcessTree(child, { processGroup: SPAWN_DETACHED });
+        }, state.request.timeoutMs)
+      : undefined;
+  const clearFireTimeout = (): void => {
+    if (fireTimeout) clearTimeout(fireTimeout);
+  };
+
+  child.stdout?.on('data', (chunk: Buffer) => {
     const text = chunk.toString('utf8');
     capture.appendOutput(text);
     appendPrefixedLogLines(state.logs, 'stdout', text);
   });
 
-  child.stderr.on('data', (chunk: Buffer) => {
+  child.stderr?.on('data', (chunk: Buffer) => {
     const text = chunk.toString('utf8');
     capture.appendOutput(text);
     appendPrefixedLogLines(state.logs, 'stderr', text);
   });
 
   child.on('close', () => {
+    clearFireTimeout();
+    if (state.currentChild === child) state.currentChild = undefined;
     if (!state.cancelled) {
       emitSleeping(state);
     }
   });
 
   child.on('error', (error) => {
+    clearFireTimeout();
+    if (state.currentChild === child) state.currentChild = undefined;
     appendPrefixedLogLines(state.logs, 'system', error.message);
     if (!state.cancelled) {
       emitSleeping(state);

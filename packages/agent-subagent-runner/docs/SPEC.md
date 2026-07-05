@@ -120,6 +120,19 @@ in `createWorktreeSubagentRunner` (from `agent-executor`) by default. Pass
 - **Kill grace period**: `killGraceMs` (default 2000ms) controls how long the runner waits for a
   graceful shutdown before sending SIGTERM.
 
+## Worker Lifecycle & IPC Integrity (CORE-024)
+
+- **Result flush before exit.** The worker must not `process.exit()` until the IPC channel has
+  drained the `result` / `error` / `cancelled` message it just sent. `process.send` is
+  asynchronous; exiting before the write flushes makes the parent's `onExit` fire before the
+  result arrives, so a **successful** run is misreported as a `crash` and its `usage` payload is
+  lost (RUNTIME-20). The worker sends the terminal message with a completion callback (or awaits
+  the drain) and exits only from that callback.
+- **`usage` is schema-validated at the IPC boundary.** The child→parent `result` message guard
+  validates the `usage` field (numeric token/cost shape) when present, not just `output`
+  (RUNTIME-47). A malformed `usage` object is rejected as a malformed message rather than spread
+  verbatim into the parent's token/cost accounting.
+
 ## Error Taxonomy
 
 | Error scenario                         | Behavior                                                                                                                                                                                     |

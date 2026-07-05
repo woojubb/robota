@@ -50,6 +50,17 @@ for (const scope of buildable) {
   const distPath = join(ROOT, scope.relativeDir, 'dist');
   const pkg = await readJson(join(ROOT, scope.relativeDir, 'package.json'));
 
+  // Private packages are never published, so their dist freshness is a dev concern, not a
+  // release/publish gate. This is what "apps that don't publish" below intends — but a private
+  // package can still carry dist-based `exports`/`main` (e.g. a private server app), so key the
+  // skip on `private`, not just the absence of dist exports.
+  if (pkg.private === true) {
+    if (!isNonEmptyDir(distPath)) {
+      warn(`${scope.workspaceName}: no dist/ (private, not published — not blocking)`);
+    }
+    continue;
+  }
+
   // Skip packages with no exports pointing to dist (e.g. apps that don't publish)
   const hasDistExport =
     pkg.main?.includes('dist') || pkg.exports

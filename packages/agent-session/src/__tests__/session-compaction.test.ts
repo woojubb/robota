@@ -324,6 +324,30 @@ describe('Session compaction', () => {
     expect(mockRunCalls).toContain('next question');
   });
 
+  it('compact() preserves history untouched and propagates when the summary is invalid (CORE-019)', async () => {
+    const session = createSession();
+    // Fault injection: provider returns non-string content for the compaction call
+    (mockProvider as { chat: unknown }).chat = vi.fn().mockResolvedValue({
+      role: 'assistant',
+      content: [{ type: 'tool_use' }],
+      timestamp: new Date(),
+    });
+    mockHistory = [
+      { role: 'user', content: 'precious original' },
+      { role: 'assistant', content: 'irreplaceable answer' },
+    ];
+
+    await expect(session.compact()).rejects.toThrow(/summary/i);
+
+    // History must be exactly as before: no clear, no marker injection
+    expect(mockClearCount).toBe(0);
+    expect(mockInjectCalls.length).toBe(0);
+    expect(mockHistory).toEqual([
+      { role: 'user', content: 'precious original' },
+      { role: 'assistant', content: 'irreplaceable answer' },
+    ]);
+  });
+
   it('run() logs error and re-throws when robota.run() fails', async () => {
     // Create a session with a provider whose chat will work for compaction
     const session = createSession();

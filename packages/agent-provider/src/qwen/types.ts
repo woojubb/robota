@@ -63,6 +63,7 @@ export interface IQwenResponsesRequestBase {
   model: string;
   input: TQwenResponsesInputItem[];
   tools?: TQwenResponsesTool[];
+  tool_choice?: OpenAI.Responses.ResponseCreateParams['tool_choice'];
   temperature?: number;
   max_output_tokens?: number;
   enable_thinking?: boolean;
@@ -217,6 +218,11 @@ export interface IQwenProviderOptions {
   [key: string]: TQwenProviderOptionValue;
 
   apiKey?: string;
+  /**
+   * API base URL (default: DashScope's OpenAI-compatible endpoint).
+   * Any OpenAI-compatible server works — gateways (LiteLLM, OpenRouter), vLLM,
+   * Ollama, LM Studio; model ids are passed through verbatim.
+   */
   baseURL?: string;
   responsesBaseURL?: string;
   timeout?: number;

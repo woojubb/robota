@@ -34,6 +34,23 @@ The agent must stop and present options to the user when ANY of the following ho
 - The decision changes a published or externally visible contract.
 - The decision requires business, legal, or strategic judgment (e.g., telemetry opt-in consent,
   third-party service selection).
+- The change introduces a practice this repository has not used before — a new workflow, tooling
+  convention, file-placement pattern, or verification approach with no existing rule, skill, or
+  precedent to point to.
+- The change touches repository-wide policy files — lint configuration (`.eslintrc*`), CI
+  workflows (`.github/workflows/`), git hooks, or workspace topology (root directories,
+  `pnpm-workspace.yaml`, root `package.json` scripts) — even when the change is bundled inside an
+  already-approved backlog. Backlog approval covers the backlog's stated scope, not policy files
+  it happens to pass through. Backlog wording such as "consider adding X" authorizes evaluation
+  and a recommendation, not the change itself.
+- The change edits, moves, or deletes a user-authored document (a file the user personally wrote,
+  e.g. reports or notes under `.design/`), unless the user has already given disposition for that
+  document.
+
+**Disclosure is not approval.** Mentioning a policy-file change or novel practice in a PR
+description, commit message, or backlog note does not substitute for asking first. Approval must
+be obtained before the change lands (2026-07-03 trust audit: three such changes shipped with
+PR-body disclosure only; all required retroactive review).
 
 **Never write "사용자 결정 필요" without first presenting a concrete recommendation.** Every
 open decision in a backlog item must include the agent's recommendation and the reasoning behind it.
@@ -101,6 +118,11 @@ startup. Any push with modified or staged uncommitted files is blocked with exit
 Every backlog that changes runnable user-facing behavior, command behavior, TUI/browser behavior, or
 workflow behavior must include a `## User Execution Test Scenarios` section before implementation
 starts.
+
+**Script home (INFRA-023)**: disposable live-verification scripts (evidence runs, repro probes)
+live in `scratch/src/` — a gitignored workspace home whose committed skeleton resolves
+`@robota-sdk/*` imports. Never park them inside `packages/` or `apps/`; the
+`temp-script-placement` harness scan blocks temp-pattern files there.
 
 User execution test scenarios are separate from the agent's engineering test plan:
 
@@ -221,6 +243,13 @@ All three checkboxes must be `[x]` for the gate to pass.
 Gate passes by exception only when execution is genuinely impossible AND a valid, specific reason
 is stated explicitly under the scenario that could not be executed.
 
+**Capability-absence claims require a probe.** "The environment lacks X" (an API key, credential,
+tool, or device) is not a valid exception reason unless the agent actually probed for it and records
+the probe as evidence (e.g. which env vars / `.env` files / settings surfaces were checked and what
+they contained). An unprobed absence claim is a guess, not a reason — the one time it was written
+without a probe, the capability existed and the skipped live run would have caught a real bug that
+every unit and integration test missed (ANALYTICS-001, 2026-07-02).
+
 **The following are NEVER valid exception reasons and must not be cited as gate evidence:**
 
 - Build succeeds
@@ -289,6 +318,13 @@ When all gates pass and the work is fully done, follow these steps **in order**:
 - `status: done` must not be set before the User Execution Test Scenario gate passes (Stage 2).
 - `wontfix`, `skipped`, and `superseded` are valid terminal statuses for items that were
   deliberately not implemented.
+- **Mechanized:** the `backlog-placement` scan (`scripts/harness/check-backlog-placement.mjs`, in
+  `pnpm harness:scan`) fails on a terminal-status file in the root, an open-status file in
+  `completed/`, or `status: done` without a `completed:` date. The `task-archival` scan additionally
+  fails a fully-checked task file whose spec never reached `spec-docs/done/` (gates overdue). These
+  invariants held only as prose until 2026-07-02, when 8 shipped items were found with stale
+  placement — closing the loop (evidence, status, move, gates) happens in the SAME change as the
+  work, and a "tracked as follow-on" claim must name an existing backlog/task file.
 
 ### Common Mistakes to Avoid
 

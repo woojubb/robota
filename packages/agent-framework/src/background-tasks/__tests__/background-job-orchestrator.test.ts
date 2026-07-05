@@ -8,12 +8,14 @@ import {
 
 import type {
   IBackgroundTaskHandle,
-  TBackgroundTaskRequest,
-  IBackgroundTaskResult,
   IBackgroundTaskRunner,
   IBackgroundTaskStart,
   TBackgroundJobGroupEvent,
 } from '../index.js';
+import type {
+  IBackgroundTaskResult,
+  TBackgroundTaskRequest,
+} from '@robota-sdk/agent-interface-transport';
 
 interface IControlledTask {
   taskId: string;

@@ -1,4 +1,5 @@
 import { BackgroundTaskManager } from '@robota-sdk/agent-executor';
+import { summarizeUsageBySource } from '@robota-sdk/agent-session-analytics';
 import { describe, expect, it, vi } from 'vitest';
 
 import { storeAgentToolDeps } from '../../tools/agent-tool.js';
@@ -6,15 +7,17 @@ import { InteractiveSession } from '../interactive-session.js';
 
 import type {
   IBackgroundTaskHandle,
-  IBackgroundTaskLogPage,
-  IBackgroundTaskResult,
   IBackgroundTaskRunner,
   IBackgroundTaskStart,
   IExecutionWorkspaceEvent,
-  TBackgroundTaskEvent,
 } from '../../background-tasks/index.js';
 import type { IAgentToolDeps } from '../../tools/agent-tool.js';
 import type { Session } from '@robota-sdk/agent-session';
+import type {
+  IBackgroundTaskLogPage,
+  IBackgroundTaskResult,
+  TBackgroundTaskEvent,
+} from '@robota-sdk/agent-interface-transport';
 
 function createSessionStub(): Session {
   return {
@@ -352,5 +355,53 @@ describe('InteractiveSession background task integration', () => {
       type: 'background_task_failed',
       task: { id: 'agent_stale' },
     });
+  });
+
+  it("attributes a completed background agent task's token usage to its source in the parent log (ANALYTICS-001 P2)", async () => {
+    const runner: IBackgroundTaskRunner = {
+      kind: 'agent',
+      start(task: IBackgroundTaskStart): IBackgroundTaskHandle {
+        return {
+          taskId: task.taskId,
+          result: Promise.resolve({
+            taskId: task.taskId,
+            kind: 'agent',
+            output: 'done',
+            usage: { promptTokens: 300, completionTokens: 120, totalTokens: 420 },
+          }),
+          cancel: () => Promise.resolve(),
+        };
+      },
+    };
+    const manager = new BackgroundTaskManager({ runners: [runner] });
+    const sessionStub = createSessionStub();
+    storeAgentToolDeps(sessionStub, {
+      backgroundTaskManager: manager,
+    } as unknown as IAgentToolDeps);
+    const interactiveSession = new InteractiveSession({ session: sessionStub });
+
+    const created = await manager.spawn(createAgentRequest('Find files'));
+    await manager.wait(created.id);
+
+    // Phase 2: the completed task's usage is appended to the parent log as a source-attributed
+    // usage-summary, so the usage report attributes those tokens to the task (not the main thread).
+    const history = interactiveSession.getFullHistory();
+    const backgroundUsage = history.find(
+      (entry) =>
+        entry.type === 'usage-summary' &&
+        (entry.data as { source?: { scope?: string } } | undefined)?.source?.scope === 'background',
+    );
+    expect(backgroundUsage).toBeDefined();
+
+    const report = summarizeUsageBySource({ id: 'session_parent', history });
+    expect(report.totalTokens).toBe(420);
+    expect(report.bySource).toHaveLength(1);
+    expect(report.bySource[0]).toMatchObject({
+      key: `background:${created.id}`,
+      label: 'Explore',
+      totalTokens: 420,
+      percentage: 100,
+    });
+    expect(report.topConsumer?.label).toBe('Explore');
   });
 });

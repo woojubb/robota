@@ -52,18 +52,11 @@ function runRepositoryCheck(check, dryRun) {
       runCommand('pnpm', ['harness:scan:publish'], WORKSPACE_ROOT, dryRun);
       break;
     case 'harness-tests':
+      // INFRA-026: run the WHOLE harness test directory — a hardcoded file list silently
+      // excluded every test added after it was written (18 of 29 files by 2026-07-04).
       runCommand(
         'pnpm',
-        [
-          'exec',
-          'vitest',
-          'run',
-          'scripts/harness/__tests__/harness-scripts.test.mjs',
-          'scripts/harness/__tests__/lessons-digest.test.mjs',
-          'scripts/harness/__tests__/check-plan.test.mjs',
-          'scripts/harness/__tests__/scan-test-plan.test.mjs',
-          'scripts/harness/__tests__/harness-smoke.test.mjs',
-        ],
+        ['exec', 'vitest', 'run', 'scripts/harness/__tests__'],
         WORKSPACE_ROOT,
         dryRun,
       );

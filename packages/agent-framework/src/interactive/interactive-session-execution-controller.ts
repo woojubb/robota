@@ -37,7 +37,7 @@ import type { ISkillActivationEvent } from '../commands/skill-activation-events.
 import type { IContextFileEntry } from '../context/context-file-tracker.js';
 import type { IContextWindowState, TToolArgs } from '@robota-sdk/agent-core';
 import type { TTurnSource } from '@robota-sdk/agent-interface-transport';
-import type { ICompactEvent } from '@robota-sdk/agent-session';
+import type { ICompactEvent } from '@robota-sdk/agent-interface-transport';
 import type { Session } from '@robota-sdk/agent-session';
 
 export type { TTurnSource };
@@ -87,6 +87,12 @@ export class SessionExecutionController {
   ) {}
 
   clearPendingQueue(): void {
+    // CORE-024 (RUNTIME-19): a queued wake that is dropped here (abort/shutdown/re-queue) must
+    // release its wake-tracking id — otherwise the `wakeTaskIds` gate rejects every future wake
+    // for that task forever, since the id is only cleared on a wake that runs to a completed turn.
+    if (this.pendingTurnOptions.wakeTaskId !== undefined) {
+      this.wakeTaskIds.delete(this.pendingTurnOptions.wakeTaskId);
+    }
     this.pendingPrompt = null;
     this.pendingDisplayInput = undefined;
     this.pendingRawInput = undefined;
@@ -218,6 +224,7 @@ export class SessionExecutionController {
         beginEditCheckpointTurn: (p) => this.histTracker.beginEditCheckpointTurn(p),
         flushStreaming: () => this.flushStreaming(),
         clearStreaming: () => this.clearStreaming(),
+        getStreamingText: () => this.streamingText,
         onWorkspaceUpdated: () => this.emitExecutionWorkspaceUpdated('main_thread'),
         onComplete: (result: IExecutionResult) => {
           this.callbacks.emit('complete', result);

@@ -24,6 +24,8 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 
 Architecture map files (`.agents/specs/architecture-map/`) own _relationships_ between layers and elements, and the brief contract at each boundary. They do not own verbose explanations, rationale, ownership rationale, or capability inventories.
 
+This section owns the **content** policy (what belongs in these files). The **structural** contract for the architecture-map document type — required sections, completeness criteria, and its gate — is owned by the document-standards index ([`.agents/specs/document-standards/index.md`](../specs/document-standards/index.md)) and its architecture-map document-type contract follow-on (`RULE-007`). Keep the two concerns distinct: structure there, content here.
+
 **Content rules — what belongs:**
 
 - Each entry states: what the element is, what it connects to, and the brief contract at that boundary. Nothing more.

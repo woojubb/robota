@@ -32,7 +32,6 @@ import type { ICommandResult } from '../commands/index.js';
 import type { IResolvedConfig } from '../config/config-types.js';
 import type { IContextFileEntry } from '../context/context-loader.js';
 import type { IContextWindowState, TToolArgs, TUniversalMessage } from '@robota-sdk/agent-core';
-import type { ICompactEvent } from '@robota-sdk/agent-session';
 import type { Session } from '@robota-sdk/agent-session';
 
 export type {
@@ -41,6 +40,7 @@ export type {
   TInteractiveSessionOptions,
   IInitOptions,
 } from './interactive-session-options.js';
+import type { ICompactEvent } from '@robota-sdk/agent-interface-transport';
 export { injectSavedMessage, loadSessionRecord } from './interactive-session-restore.js';
 
 /** Return value of createInteractiveSession — session plus staleness tracking data. */
@@ -132,6 +132,8 @@ export async function createInteractiveSession(
     terminal: NOOP_TERMINAL,
     sessionLogger: new FileSessionLogger(paths.logs),
     permissionHandler: options.permissionHandler,
+    // CMD-005: the channel's unified ask renderer doubles as the model-question seam for tools.
+    ...(options.askHandler ? { ask: options.askHandler } : {}),
     provider: options.provider,
     onTextDelta: options.onTextDelta,
     onContextUpdate: options.onContextUpdate,
@@ -269,6 +271,7 @@ export async function initializeInteractiveSessionAsync(
     permissionMode: options.permissionMode,
     maxTurns: options.maxTurns,
     permissionHandler: options.permissionHandler,
+    ...(options.askHandler ? { askHandler: options.askHandler } : {}),
     resumeSessionId: deps.resumeSessionId,
     forkSession: options.forkSession,
     onTextDelta: deps.onTextDelta,

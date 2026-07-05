@@ -12,6 +12,7 @@ packages/
 ├── agent-preset/                # Preset contract (IPreset) + resolvePreset + built-in presets (depends on agent-framework only)
 ├── agent-subagent-runner/       # Optional: child-process subagent runner + worker (depends on agent-framework + agent-provider)
 ├── agent-command/               # Command modules: agent, background, compact, context, exit, help, language, memory, mode, model, permissions, plugin, provider, reset, rewind, session, settings, skills, statusline, user-local
+├── agent-command-*/             # Command-module bridge packages to other subsystems (e.g. agent-command-workflows: surfaces the DAG engine as `/workflows`, composing dag-framework)
 ├── agent-cli/                   # Terminal UI and local runtime adapters
 ├── agent-web-ui/                # Browser React component library for monitoring a CLI session over WebSocket (product shell, browser-only)
 ├── agent-provider/              # Provider packages: anthropic, openai, openai-compatible, deepseek, gemma, qwen, gemini, google, bytedance
@@ -20,9 +21,28 @@ packages/
 ├── agent-remote-client/         # Remote execution client
 ├── agent-interface-*/           # Interface/contract packages: pure type contracts with no implementation (e.g. agent-interface-transport)
 ├── agent-transport/             # Transport core: headless adapter + transport registry + scripted-provider testing fixtures (pure TS)
-├── agent-transport-*/           # Per-concern transport implementations: agent-transport-tui (React/Ink), -ws (WebSocket), -http (Hono), -mcp (MCP)
+├── agent-transport-*/           # Per-concern transport implementations: agent-transport-tui (React/Ink), -ws (WebSocket), -http (Hono), -mcp (MCP); -ws/-http/-mcp are contract-pure (deps: interface-transport + core only)
 ├── agent-testing/               # General test framework: domain-free test-environment tooling (PTY runner spawnPty/spawnPtyFixture); zero @robota-sdk deps, devDependency. Charter+placement rule in its SPEC (contracts→agent-interface-*, doubles→owner /testing, drivers→owning module)
-└── agent-plugin/                # Plugins: conversation-history, logging, usage, performance, execution-analytics, error-handling, limits, event-emitter, webhook
+├── agent-process/               # Domain-free child-process termination primitives (killProcessTree: SIGTERM→grace→SIGKILL, process-group aware); zero @robota-sdk deps, leaf. Consumed by agent-executor/agent-tools/agent-subagent-runner (CORE-023)
+├── agent-plugin/                # Plugins: conversation-history, logging, usage, performance, execution-analytics, error-handling, limits, event-emitter, webhook
+│
+│   # DAG subsystem (workflow engine; absorbed via WORKFLOW-001, decoupled from the external workflow runtime)
+├── dag-core/                    # DAG foundation: runtime-provider + workflow-file contracts, engine types, lifecycle services
+├── dag-framework/               # DAG assembly: createDagFramework, local in-process runtime provider, default node registry
+├── dag-runtime/                 # DAG run orchestration services: create/start/query/cancel run lifecycle
+├── dag-worker/                  # DAG worker-loop driver and in-process execution
+├── dag-node/                    # DAG node-definition assembly + manifests
+├── dag-builder/                 # DAG definition ↔ `.dag.json` workflow-file conversion
+├── dag-projection/              # DAG run projection / read models
+├── dag-cost/                    # DAG cost-metadata domain types
+├── dag-orchestration-client/    # Thin HTTP client + contracts for DAG orchestration endpoints
+├── dag-api/                     # DAG server-side API response mapping/contracts
+├── dag-cli/                     # DAG command-line product (`robota-dag`): run/validate/build/catalog/mcp
+├── dag-mcp-server/              # Standalone MCP server exposing DAG orchestration tools
+├── dag-scheduler/               # DAG scheduled-run triggering
+├── dag-adapters-local/          # DAG in-memory persistence/queue/clock adapters
+├── dag-adapters-sqlite/         # DAG SQLite persistence adapter
+└── dag-nodes/*/                 # DAG node-family packages (`@robota-sdk/dag-node-*`): llm-text providers, image edit, http, file r/w, mcp-tool, router, instant-node
 apps/
 ├── action/                 # Official GitHub Action wrapper for the CLI (robota-sdk/action)
 ├── agent-web/              # Web application (Agent Playground)
@@ -30,8 +50,46 @@ apps/
 ├── docs/                   # Documentation site
 ├── starter-nextjs/         # Next.js SDK starter template (PM-029)
 ├── www/                    # Marketing site (robota.io)
-└── agent-server/           # AI provider proxy + Playground WebSocket
+├── agent-server/           # AI provider proxy + Playground WebSocket
+└── dag-runtime-server/     # Native DAG runtime HTTP server (`/v1/dag/*` over Hono); serves dag-framework's IDagOrchestrationPort, native runtime surface, no external-runtime API (WORKFLOW-002)
 ```
+
+## Library Neutrality Rule (packages/ vs apps/)
+
+Everything under `packages/` is a **library and must be universal and neutral** — usable by any
+consumer for any payload/application domain:
+
+- No app main loops: a library must not own the consumer's orchestration loop. If a class "runs
+  the show" and the app merely configures it, it is a finished product imitating an ingredient
+  (ROOM-001 withdrawal, 2026-07-03).
+- No library-authored prompt content: model-facing text in `packages/` is limited to
+  mechanism-level enforcement strings (schema-violation feedback, round-limit notices). Anything
+  that shapes an application's voice, persona, or conversation style belongs to the consumer.
+- No application-domain concepts in library types: fields/interfaces like persona, room, topic,
+  STT/TTS adapters are app-domain contracts (TRANS-001 rescope) — libraries ship content-neutral
+  mechanics that any domain can carry.
+- `apps/` is the product tier and plays by product rules (opinionated UX, domain concepts, its own
+  prompts). `examples/` may likewise be full products — that is their job. `packages/agent-cli` is
+  the sanctioned reference product assembled FROM the libraries (its preset/persona surface is
+  product behavior, not library behavior).
+
+When a use case seems to need a domain feature in a library, the answer is: verify the neutral
+ingredients exist, then show the assembly in `examples/` or a guide.
+
+## Forward-Provisioned Surface Rule
+
+A public surface in `packages/` with zero in-repo consumers is **not dead code**. Libraries and
+frameworks ship surfaces FOR external consumers; deliberate forward-provisioning ("built ahead so
+it is available when needed") is a legitimate product state (owner decision, 2026-07-04 re-audit).
+
+- Removal of an unconsumed public surface is a PRODUCT decision — never a grep-based cleanup.
+  Propose it as a user decision item with options; do not file it as "dead code".
+- Forward-provisioned surfaces carry the same first-class quality bar as consumed ones: accurate
+  SPEC/README, tests, and bug fixes are unconditional — "nobody uses it yet" never downgrades a
+  defect on such a surface.
+- Consumption-based detectors (orphan-export style scans) must not treat in-repo non-consumption
+  of `packages/` public surfaces as a violation. (Pass-through re-exports remain banned — that
+  rule is about ownership, not consumption.)
 
 ## Planned Packages (Not Yet Created)
 
@@ -54,9 +112,11 @@ See [capability-placement.md](specs/architecture-map/capability-placement.md) fo
 
 ## Interaction Channel Contract
 
-`agent-framework` owns the `IInteractionChannel` interface and `createInteractiveRuntime` factory. These define the contract between the session runtime and transport implementations.
+`agent-interface-transport` owns the `IInteractionChannel` contract (INFRA-010/025);
+`agent-framework` owns the `createInteractiveRuntime` factory that wires it. Together they define
+the contract between the session runtime and transport implementations.
 
-- `IInteractionChannel` — the interface that all interactive transports implement (TUI, headless, future web/remote)
+- `IInteractionChannel` — the interface that all interactive transports implement (TUI, headless, future web/remote); SSOT in `agent-interface-transport`
 - `InteractionEvent` — the union type of one-way display events emitted by the runtime to the channel
 - `TActionRequest` / `TActionResponse` — the disambiguation dialog protocol (permission prompts)
 - `createInteractiveRuntime` — the factory that wires `IInteractionChannel` ↔ `InteractiveSession`
@@ -79,6 +139,11 @@ They are the SSOT for cross-cutting contracts shared between implementation fami
 Rules:
 
 - An `agent-interface-*` package must not contain classes or runtime logic.
+- An `agent-interface-*` package's internal dependencies are a subset of `{agent-core}` —
+  contracts never depend on implementation packages (INFRA-025; mechanized as the
+  `INTERFACE-DEPS` rule in the `deps` scan). `agent-interface-transport` owns the
+  background-task/subagent/compaction data contracts; `agent-executor`/`agent-session` import
+  them and keep only runtime SPI.
 - Implementation packages (`agent-transport` with subpath `/headless`; the per-concern `agent-transport-tui` / `-ws` / `-http` / `-mcp` packages; `agent-provider` with subpaths `/anthropic`, `/openai`, etc.; `agent-command`) depend on the corresponding `agent-interface-*` package, not on `agent-framework`, for interface types. The transport-facing contract types (command, interaction, event, workspace, session, and transport contracts) live in `agent-interface-transport` as their SSOT (per INFRA-010). This is **mechanically enforced** by `scripts/harness/check-interface-imports.mjs` (wired into `pnpm harness:scan` as the `interface-imports` scan): any implementation package that imports an `agent-interface-transport`-exported symbol from `@robota-sdk/agent-framework` fails the gate. Runtime values and framework-owned types (e.g. `TInteractiveSessionOptions`, `ICommandHostContext`, `ICommandModule`, `TSettingsData`) still come from `agent-framework`.
 - `agent-framework` depends on the `agent-interface-transport` package to consume the contracts it needs (it does not depend on `agent-interface-tui`, which only `agent-transport-tui` consumes).
 - Do not place interface packages in `agent-core` — `agent-core` is zero-deps and owns foundational primitives only.
@@ -91,7 +156,8 @@ re-export `agent-framework`.
 
 - Dependency edge: `agent-preset → agent-framework` (consumes option types as SSOT, e.g.
   `ICreateSessionOptions['permissionMode']`). This is the package's only workspace dependency.
-- `agent-cli` depends on both `agent-preset` (resolver) and `agent-framework` (assembly entry); the
+- Consumers: `agent-cli` depends on both `agent-preset` (resolver) and `agent-framework` (assembly
+  entry); `agent-command` consumes the resolver/list surface for the `/preset` command module. The
   reverse edges (`agent-framework → agent-preset`, `agent-preset → agent-cli`) must never exist.
 - The edge is derived dynamically from `package.json` by
   `scripts/harness/check-dependency-direction.mjs`; keeping the dependency one-way is sufficient for

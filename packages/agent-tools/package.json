@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-tools",
-  "version": "3.0.0-beta.76",
+  "version": "3.0.0-beta.77",
   "description": "Tool registry and implementations for Robota SDK",
   "type": "module",
   "main": "dist/node/index.js",
@@ -46,6 +46,7 @@
     "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
   },
   "dependencies": {
+    "@robota-sdk/agent-process": "workspace:*",
     "fast-glob": "^3.3.3",
     "p-limit": "^7.3.0",
     "zod": "^3.25.76"

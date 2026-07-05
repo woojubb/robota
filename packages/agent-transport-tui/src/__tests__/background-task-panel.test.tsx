@@ -50,4 +50,41 @@ describe('BackgroundTaskPanel', () => {
     expect(frame).not.toContain('agent_2');
     expect(frame).not.toContain('agent_3');
   });
+
+  it('advertises the keyboard drill-in when not focused (SCREEN-013/014)', () => {
+    const { lastFrame } = render(
+      <BackgroundTaskPanel entries={[makeEntry({ id: 'task:agent_1' })]} />,
+    );
+    const frame = lastFrame()!;
+    // Entry affordance: ↓ to select, Ctrl+B for the full switcher.
+    expect(frame).toContain('select');
+    expect(frame).toContain('Ctrl+B');
+  });
+
+  it('shows the move/open affordance when a row is focused (SCREEN-014)', () => {
+    const { lastFrame } = render(
+      <BackgroundTaskPanel
+        entries={[makeEntry({ id: 'task:agent_1' }), makeEntry({ id: 'task:agent_2' })]}
+        focusedIndex={0}
+      />,
+    );
+    const frame = lastFrame()!;
+    expect(frame).toContain('Enter open');
+    expect(frame).toContain('Esc back');
+  });
+
+  it('keeps a long-preview row on a single line (SCREEN-011)', () => {
+    const longPreview =
+      'Read each of the following backlog files and analyze the current status, implementation ' +
+      'difficulty, dependencies, and estimated effort for every item; output a structured summary';
+    const { lastFrame } = render(
+      <BackgroundTaskPanel entries={[makeEntry({ id: 'task:agent_1', preview: longPreview })]} />,
+    );
+    const frame = lastFrame()!;
+    // The row with the connector must be exactly one line — no wrapped continuation line.
+    const rowLines = frame.split('\n').filter((line) => line.includes('⟳'));
+    expect(rowLines).toHaveLength(1);
+    // The connector + glyph still lead the single row line.
+    expect(rowLines[0]).toMatch(/└ ⟳ general-purpose agent/);
+  });
 });

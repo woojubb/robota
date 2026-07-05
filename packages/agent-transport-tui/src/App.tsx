@@ -11,6 +11,7 @@ import {
 } from './execution-workspace-view-model.js';
 import ExecutionWorkspaceDetailPane from './ExecutionWorkspaceDetailPane.js';
 import ExecutionWorkspaceSwitcher from './ExecutionWorkspaceSwitcher.js';
+import { resolveBackgroundFocusKey } from './flows/background-focus-flow.js';
 import { usePluginCallbacks } from './hooks/usePluginCallbacks.js';
 import { useSideEffects } from './hooks/useSideEffects.js';
 import { useStatusLineSettings } from './hooks/useStatusLineSettings.js';
@@ -23,6 +24,7 @@ import PermissionPrompt from './PermissionPrompt.js';
 import PluginTUI from './PluginTUI.js';
 import SessionPicker from './SessionPicker.js';
 import SessionStatusBar from './SessionStatusBar.js';
+import { handleInterrupt } from './shutdown-signal.js';
 import StreamingIndicator from './StreamingIndicator.js';
 import TransportTUI from './TransportTUI.js';
 import { TuiCliAdapterProvider } from './tui-cli-adapter-context.js';
@@ -121,6 +123,8 @@ function AppInner(
     streamingText,
     activeTools,
     isThinking,
+    lastErrorMessage,
+    isStalled,
     isAborting,
     isShuttingDown,
     pendingPrompt,
@@ -151,10 +155,22 @@ function AppInner(
   const [isExecutionDetailLoading, setIsExecutionDetailLoading] = useState(false);
   const [statusLineSettings, setStatusLineSettings] = useStatusLineSettings();
   const [gitRefreshToken, setGitRefreshToken] = useState(0);
+  // SCREEN-014: index of the keyboard-focused background-work row, or null when the prompt input is
+  // focused. Drives the inline arrow-key navigation into the background list.
+  const [backgroundFocusIndex, setBackgroundFocusIndex] = useState<number | null>(null);
   const backgroundWorkspaceEntries = useMemo(
     () => getDefaultBackgroundWorkspaceEntries(executionWorkspaceSnapshot),
     [executionWorkspaceSnapshot],
   );
+  const isBackgroundListFocused = backgroundFocusIndex !== null;
+  // Keep the focused index in range as tasks appear/finish; drop focus when the list empties.
+  useEffect(() => {
+    setBackgroundFocusIndex((index) => {
+      if (index === null) return null;
+      if (backgroundWorkspaceEntries.length === 0) return null;
+      return Math.min(index, backgroundWorkspaceEntries.length - 1);
+    });
+  }, [backgroundWorkspaceEntries.length]);
   const activeBackgroundTaskCount = countActiveBackgroundWorkspaceEntries(
     executionWorkspaceSnapshot,
   );
@@ -319,22 +335,63 @@ function AppInner(
     }
   });
 
-  // Ctrl+C graceful shutdown
+  // SCREEN-014: inline keyboard navigation of the background-work list (the primary drill-in path).
+  // Active only while the list holds focus (entered via ↓ from the input). ↑/↓ move the highlight,
+  // ↑ past the top returns to the input, Enter opens the task's inline detail, Esc returns to input.
+  useInput(
+    (
+      _input: string,
+      key: { upArrow: boolean; downArrow: boolean; return: boolean; escape: boolean },
+    ) => {
+      if (backgroundFocusIndex === null) return;
+      const entries = backgroundWorkspaceEntries;
+      const action = resolveBackgroundFocusKey(backgroundFocusIndex, entries.length, key);
+      if (action.type === 'move') {
+        setBackgroundFocusIndex(action.index);
+      } else if (action.type === 'open') {
+        const entry = entries[action.index];
+        if (entry) selectExecutionWorkspaceEntry(entry.id);
+        setBackgroundFocusIndex(null);
+      } else if (action.type === 'exit') {
+        setBackgroundFocusIndex(null);
+      }
+    },
+    {
+      isActive:
+        isBackgroundListFocused &&
+        !permissionRequest &&
+        !pendingUserAction &&
+        !showPluginTUI &&
+        !showTransportTUI &&
+        !showSessionPicker &&
+        !showExecutionWorkspaceSwitcher,
+    },
+  );
+
+  // Ctrl+C: first press → graceful shutdown; a second press while already shutting down force-quits
+  // with 130 so a wedged shutdown can always be escaped (CLI-075 / RUNTIME-33).
   useInput((input: string, key: { ctrl?: boolean }) => {
-    if (!key.ctrl || input !== 'c' || isShuttingDown) return;
-    void handleShutdown('prompt_input_exit').finally(() => exit());
+    if (!key.ctrl || input !== 'c') return;
+    handleInterrupt({
+      isShuttingDown,
+      graceful: () => void handleShutdown('prompt_input_exit').finally(() => exit()),
+    });
   });
 
   useEffect(() => {
-    const onSigterm = (): void => {
-      if (isShuttingDown) return;
-      void handleShutdown('other').finally(() => exit());
+    const onSignal = (): void => {
+      handleInterrupt({
+        isShuttingDown,
+        graceful: () => void handleShutdown('other').finally(() => exit()),
+      });
     };
-    process.once('SIGINT', onSigterm);
-    process.once('SIGTERM', onSigterm);
+    // `process.on` (not `once`): the effect re-registers with fresh `isShuttingDown` on each change,
+    // so a second signal during shutdown reaches the force-quit branch instead of the default action.
+    process.on('SIGINT', onSignal);
+    process.on('SIGTERM', onSignal);
     return () => {
-      process.off('SIGINT', onSigterm);
-      process.off('SIGTERM', onSigterm);
+      process.off('SIGINT', onSignal);
+      process.off('SIGTERM', onSignal);
     };
   }, [handleShutdown, exit, isShuttingDown]);
 
@@ -438,9 +495,24 @@ function AppInner(
                   activeTools={activeTools}
                   isThinking={isThinking}
                 />
+                {isStalled && (
+                  <Text color="yellow">
+                    ⚠ Still waiting on the provider — the network may be stalled. Esc to interrupt.
+                  </Text>
+                )}
               </Box>
             )}
-            <BackgroundTaskPanel entries={backgroundWorkspaceEntries} />
+            {!isThinking && lastErrorMessage && (
+              <Box marginBottom={1}>
+                <Text color="red">
+                  ✖ Last turn failed — the session is alive; type your next prompt when ready.
+                </Text>
+              </Box>
+            )}
+            <BackgroundTaskPanel
+              entries={backgroundWorkspaceEntries}
+              focusedIndex={backgroundFocusIndex}
+            />
           </Box>
           {showExecutionWorkspaceSwitcher && (
             <ExecutionWorkspaceSwitcher
@@ -498,13 +570,17 @@ function AppInner(
               showExecutionWorkspaceSwitcher ||
               isShuttingDown ||
               (isThinking && !!pendingPrompt) ||
-              !isSelectedEntryInteractive
+              !isSelectedEntryInteractive ||
+              isBackgroundListFocused
             }
             isAborting={isAborting}
             pendingPrompt={pendingPrompt}
             registry={registry}
             sessionName={sessionName}
             history={history}
+            onRequestFocusBackgroundList={() => {
+              if (backgroundWorkspaceEntries.length > 0) setBackgroundFocusIndex(0);
+            }}
           />
           <SessionStatusBar
             cwd={cwd}

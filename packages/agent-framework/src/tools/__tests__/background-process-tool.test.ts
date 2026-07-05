@@ -2,12 +2,12 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { createBackgroundProcessTool } from '../background-process-tool.js';
 
-import type {
-  IBackgroundTaskManager,
-  TBackgroundTaskRequest,
-  IBackgroundTaskState,
-} from '../../background-tasks/index.js';
+import type { IBackgroundTaskManager } from '../../background-tasks/index.js';
 import type { IToolResult } from '@robota-sdk/agent-core';
+import type {
+  IBackgroundTaskState,
+  TBackgroundTaskRequest,
+} from '@robota-sdk/agent-interface-transport';
 
 function parseToolResult(toolResult: IToolResult): Record<string, unknown> {
   return JSON.parse(toolResult.data as string);

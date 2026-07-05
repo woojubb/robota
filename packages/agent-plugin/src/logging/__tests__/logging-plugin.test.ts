@@ -435,7 +435,7 @@ describe('LoggingPlugin', () => {
       const plugin = new LoggingPlugin({ strategy: 'silent' });
       const spy = injectSpyStorage(plugin);
 
-      await plugin.destroy();
+      await plugin.dispose();
 
       expect(spy.closeCount).toBe(1);
     });
