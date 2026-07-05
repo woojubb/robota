@@ -1,5 +1,5 @@
 ---
-status: verifying
+status: done
 type: BEHAVIOR
 tags: [async, typescript]
 ---
@@ -219,3 +219,6 @@ BEHAVIOR + async → save→reload round-trip integration test (fs-mocked) + uni
     `result === 'from-inner-dag'`. Before the fix the composite was dropped on reload (unknown-node-type).
   - dag-cli **997 tests** green; typecheck clean; 0 lint errors; test-module-mocks + capability-placement
     scans pass; CLI-077 holds (agent-cli published closure unchanged).
+- **GATE-COMPLETE — PASS (2026-07-05).** Merged to `develop` via **PR #972** (squash `76d5e88b`;
+  one follow-up commit unexported `buildCompositeRunner` for the orphan-exports scan). Private DAG
+  only — no publish/changeset; CLI-077 held. Spec-doc promoted `draft/ → done/`; task archived.

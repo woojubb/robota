@@ -1,6 +1,6 @@
 # BEHAVIOR-006: composite instant nodes survive save → reload (WORKFLOW-005 P2)
 
-- **Status:** in-progress
+- **Status:** done (merged via PR #972)
 - **Spec:** `.agents/spec-docs/draft/BEHAVIOR-006-composite-instant-node-reload.md`
 - **Branch:** `fix/dag-composite-instant-reload`
 - **Approved:** 2026-07-05 (user sign-off "승인함")
