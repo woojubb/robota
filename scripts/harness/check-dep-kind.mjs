@@ -28,6 +28,20 @@ import { WORKSPACE_ROOT } from './shared.mjs';
 /** Allowlist: `${packageName}:${importedModule}` → reason. Empty today by design. */
 export const DEP_KIND_ALLOWLIST = new Map();
 
+/**
+ * INFRA-028: packages that publish as a SELF-CONTAINED bundle. Their `@robota-sdk/*` workspace deps
+ * are compiled INTO the published artifact (declared as devDependencies, bundled by tsdown), so a
+ * devDeps-only VALUE import is CORRECT — there is no runtime module resolution for a published
+ * consumer (verified: a clean install has zero `@robota-sdk` siblings in node_modules). The
+ * "breaks under isolated installs" rationale does not apply to a bundled dep.
+ */
+export const BUNDLED_WORKSPACE_PACKAGES = new Map([
+  [
+    '@robota-sdk/agent-cli',
+    'INFRA-028: agent-cli bundles all @robota-sdk into dist; 0 @robota-sdk runtime dependencies',
+  ],
+]);
+
 // HARNESS-022 (STRUCT-02): subpath specifiers (`@robota-sdk/<pkg>/headless`) and runtime
 // `export … from` re-exports are value dependencies too — the original patterns missed
 // both, re-opening the exact class INFRA-024 closed. The captured group is the PACKAGE
@@ -106,6 +120,7 @@ export async function findDevDepOnlyRuntimeImports(root = WORKSPACE_ROOT) {
       ...Object.keys(manifest.peerDependencies ?? {}),
     ]);
     const devDeclared = new Set(Object.keys(manifest.devDependencies ?? {}));
+    const bundlesWorkspace = BUNDLED_WORKSPACE_PACKAGES.has(manifest.name);
 
     for (const filePath of await listSourceFiles(path.join(pkgDir, 'src'))) {
       if (isTestSurface(filePath)) continue;
@@ -114,6 +129,11 @@ export async function findDevDepOnlyRuntimeImports(root = WORKSPACE_ROOT) {
         if (module === manifest.name || runtimeDeclared.has(module)) continue;
         if (!devDeclared.has(module)) continue; // undeclared entirely → owned by the deps scan
         const key = `${manifest.name}:${module}`;
+        if (bundlesWorkspace) {
+          // INFRA-028: bundled workspace dep — devDeps-only value import is correct (compiled in).
+          exemptions.push({ key, reason: BUNDLED_WORKSPACE_PACKAGES.get(manifest.name) });
+          continue;
+        }
         if (DEP_KIND_ALLOWLIST.has(key)) {
           exemptions.push({ key, reason: DEP_KIND_ALLOWLIST.get(key) });
           continue;
