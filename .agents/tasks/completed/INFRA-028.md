@@ -1,7 +1,8 @@
 # INFRA-028: self-contained `@robota-sdk/agent-cli` published bundle
 
-- **Status:** in-progress
-- **Spec:** `.agents/spec-docs/draft/INFRA-028-self-contained-agent-cli-bundle.md`
+- **Status:** completed
+- **Completed:** 2026-07-05 (#983 → develop → main #984)
+- **Spec:** `.agents/spec-docs/done/INFRA-028-self-contained-agent-cli-bundle.md`
 - **Branch:** `feat/agent-cli-self-contained-bundle`
 - **Approved:** 2026-07-05 (owner "@robota-sdk만 번들 (추천)")
 
