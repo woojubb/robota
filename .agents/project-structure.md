@@ -42,7 +42,7 @@ packages/
 ├── dag-scheduler/               # DAG scheduled-run triggering
 ├── dag-adapters-local/          # DAG in-memory persistence/queue/clock adapters
 ├── dag-adapters-sqlite/         # DAG SQLite persistence adapter
-└── dag-nodes/*/                 # DAG node-family packages (`@robota-sdk/dag-node-*`): llm-text providers, image edit, http, file r/w, mcp-tool, in-process tool, router, instant-node
+└── dag-nodes/*/                 # DAG node-family packages (`@robota-sdk/dag-node-*`): llm-text providers, image edit, text-to-image, http, file r/w, mcp-tool, in-process tool, router, instant-node
 apps/
 ├── action/                 # Official GitHub Action wrapper for the CLI (robota-sdk/action)
 ├── agent-web/              # Web application (Agent Playground)
