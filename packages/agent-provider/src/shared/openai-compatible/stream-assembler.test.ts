@@ -71,6 +71,64 @@ describe('assembleOpenAICompatibleStream', () => {
     expect(onTextDelta).toHaveBeenNthCalledWith(2, 'world');
   });
 
+  function readUsage(
+    message: Awaited<ReturnType<typeof assembleOpenAICompatibleStream>>,
+  ): { promptTokens: number; completionTokens: number; totalTokens: number } | undefined {
+    return (
+      message as {
+        usage?: { promptTokens: number; completionTokens: number; totalTokens: number };
+      }
+    ).usage;
+  }
+
+  function createUsageChunk(usage: OpenAI.CompletionUsage): OpenAI.Chat.ChatCompletionChunk {
+    return {
+      id: 'chunk-usage',
+      object: 'chat.completion.chunk',
+      created: 1,
+      model: 'local-model',
+      choices: [],
+      usage,
+    };
+  }
+
+  it('captures usage from the final empty-choices usage chunk', async () => {
+    const result = await assembleOpenAICompatibleStream({
+      stream: asyncIterableFrom([
+        createChunk('Hi'),
+        createChunk('', 'stop'),
+        createUsageChunk({ prompt_tokens: 123, completion_tokens: 45, total_tokens: 168 }),
+      ]),
+    });
+
+    expect(result.content).toBe('Hi');
+    expect(readUsage(result)).toEqual({
+      promptTokens: 123,
+      completionTokens: 45,
+      totalTokens: 168,
+    });
+  });
+
+  it('leaves usage absent when no usage chunk arrives', async () => {
+    const result = await assembleOpenAICompatibleStream({
+      stream: asyncIterableFrom([createChunk('Hi'), createChunk('', 'stop')]),
+    });
+
+    expect(readUsage(result)).toBeUndefined();
+  });
+
+  it('ignores null usage on non-final chunks', async () => {
+    const nullUsageChunk = {
+      ...createChunk('Hi'),
+      usage: null,
+    } as OpenAI.Chat.ChatCompletionChunk;
+    const result = await assembleOpenAICompatibleStream({
+      stream: asyncIterableFrom([nullUsageChunk, createChunk('', 'stop')]),
+    });
+
+    expect(readUsage(result)).toBeUndefined();
+  });
+
   it('assembles streamed tool call deltas by index', async () => {
     const stream = asyncIterableFrom<OpenAI.Chat.ChatCompletionChunk>([
       {

@@ -101,8 +101,21 @@ export class OpenAICompatibleResponseParser {
 
   parseStreamingChunk(chunk: OpenAI.Chat.ChatCompletionChunk): TUniversalMessage | null {
     try {
+      const usage = chunk.usage ? this.parseUsage(chunk.usage) : undefined;
       const choice = chunk.choices?.[0];
       if (!choice) {
+        // Final usage chunk (choices: []) when stream_options.include_usage is set.
+        if (usage) {
+          return {
+            id: randomUUID(),
+            state: 'complete',
+            role: 'assistant',
+            content: '',
+            timestamp: new Date(),
+            ...{ usage },
+            metadata: { isStreamChunk: true, isComplete: true },
+          };
+        }
         return null;
       }
 
@@ -124,6 +137,7 @@ export class OpenAICompatibleResponseParser {
           content: '',
           timestamp: new Date(),
           toolCalls,
+          ...(usage && { usage }),
           metadata: {
             isStreamChunk: true,
             isComplete: finishReason === 'stop' || finishReason === 'tool_calls',
@@ -137,6 +151,7 @@ export class OpenAICompatibleResponseParser {
         role: 'assistant',
         content: this.projectText(choice.delta.content || ''),
         timestamp: new Date(),
+        ...(usage && { usage }),
         metadata: {
           isStreamChunk: true,
           isComplete: finishReason === 'stop' || finishReason === 'tool_calls',
