@@ -72,7 +72,7 @@ describe('BEHAVIOR-006 composite reload — real fs + runner', () => {
   });
 
   it('creates → persists → reloads → runs a composite after a simulated restart', async () => {
-    // 1. Create + persist the composite (writes .dag/nodes/echo-composite.instant-node.json).
+    // 1. Create + persist the composite (writes .dag/nodes/echo-composite.node.json).
     const createCtx = makeRealContext(projectDir);
     const created = await handleDagInstantNodeCreateComposite(
       createCtx,

@@ -108,7 +108,7 @@ describe('saveCommand', () => {
     expect(mockWriteFile).toHaveBeenCalledWith(
       expect.stringContaining('my-pipeline.dag.json'),
       expect.stringContaining('"dagId": "my-pipeline"'),
-      'utf8',
+      'utf-8',
     );
   });
 
