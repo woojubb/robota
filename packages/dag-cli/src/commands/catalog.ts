@@ -1,5 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { DEFAULT_WORKSPACE_LAYOUT } from '@robota-sdk/dag-core';
+import type { IWorkspaceLayout } from '@robota-sdk/dag-core';
 import type { IDagCliIo } from '../types.js';
 import { FAILURE_EXIT_CODE, USAGE_ERROR_EXIT_CODE, SUCCESS_EXIT_CODE } from '../types.js';
 import {
@@ -17,6 +19,8 @@ const JSON_INDENT_SPACES = 2;
 export interface ICatalogCommandOptions {
   readonly io: IDagCliIo;
   readonly createRunner?: () => LocalDagRunner;
+  /** FLOW-007: injected workspace layout (default `.workflows/`). */
+  readonly workspace?: IWorkspaceLayout;
 }
 
 type TCatalogSubcommand = 'list' | 'run' | 'info' | 'search' | 'history';
@@ -67,10 +71,13 @@ function parseCatalogArgv(args: readonly string[]): TParseResult {
   return { ok: true, subcommand, rest: args.slice(1) };
 }
 
-async function loadEntries(dirs: string[]): Promise<ICatalogEntry[]> {
+async function loadEntries(
+  dirs: string[],
+  layout: IWorkspaceLayout = DEFAULT_WORKSPACE_LAYOUT,
+): Promise<ICatalogEntry[]> {
   const allEntries: ICatalogEntry[] = [];
   for (const dir of dirs) {
-    const entries = await scanCatalogDir(dir);
+    const entries = await scanCatalogDir(dir, layout);
     for (const entry of entries) {
       if (!allEntries.some((e) => e.id === entry.id)) {
         allEntries.push(entry);
@@ -93,16 +100,17 @@ async function handleListCommand(
     return USAGE_ERROR_EXIT_CODE;
   }
 
+  const layout = options.workspace ?? DEFAULT_WORKSPACE_LAYOUT;
   const globalFlag = catalogResult.remaining.includes('--global');
   const allFlag = catalogResult.remaining.includes('--all');
 
   const dirs = resolveCatalogDirs({
-    catalogDir: catalogResult.value,
+    catalogDir: catalogResult.value ?? layout.root,
     global: globalFlag,
     all: allFlag,
   });
 
-  const entries = await loadEntries(dirs);
+  const entries = await loadEntries(dirs, layout);
   const dirLabel = dirs[0] ?? DEFAULT_CATALOG_DIR;
 
   if (entries.length === 0) {
@@ -133,7 +141,8 @@ async function handleRunCommand(
     return USAGE_ERROR_EXIT_CODE;
   }
 
-  const dirs = resolveCatalogDirs({ catalogDir: catalogResult.value });
+  const layout = options.workspace ?? DEFAULT_WORKSPACE_LAYOUT;
+  const dirs = resolveCatalogDirs({ catalogDir: catalogResult.value ?? layout.root });
 
   // The positional id must be first in remaining; everything after is forwarded to runCommand.
   const argsWithoutCatalog = catalogResult.remaining;
@@ -151,7 +160,7 @@ async function handleRunCommand(
     ...argsWithoutCatalog.slice(firstNonFlag + 1),
   ];
 
-  const entries = await loadEntries(dirs);
+  const entries = await loadEntries(dirs, layout);
   const entry = entries.find((e) => e.id === id);
   if (!entry) {
     io.write(`Error: No workflow found with id "${id}".\n`);
@@ -163,7 +172,11 @@ async function handleRunCommand(
   }
 
   // Delegate to runCommand with the resolved file path
-  return runCommand([entry.filePath, ...forwardArgs], { io, createRunner: options.createRunner });
+  return runCommand([entry.filePath, ...forwardArgs], {
+    io,
+    createRunner: options.createRunner,
+    workspace: layout,
+  });
 }
 
 async function handleInfoCommand(
@@ -178,7 +191,8 @@ async function handleInfoCommand(
     return USAGE_ERROR_EXIT_CODE;
   }
 
-  const dirs = resolveCatalogDirs({ catalogDir: catalogResult.value });
+  const layout = options.workspace ?? DEFAULT_WORKSPACE_LAYOUT;
+  const dirs = resolveCatalogDirs({ catalogDir: catalogResult.value ?? layout.root });
   const positional = catalogResult.remaining.filter((a) => !a.startsWith('--'));
 
   const id = positional[0];
@@ -190,7 +204,7 @@ async function handleInfoCommand(
   const outputResult = takeSingleOption(catalogResult.remaining, '--output');
   const outputFormat = outputResult.value ?? 'pretty';
 
-  const entries = await loadEntries(dirs);
+  const entries = await loadEntries(dirs, layout);
   const entry = entries.find((e) => e.id === id);
   if (!entry) {
     io.write(`Error: No workflow found with id "${id}".\n`);
@@ -241,10 +255,11 @@ async function handleSearchCommand(
     return USAGE_ERROR_EXIT_CODE;
   }
 
+  const layout = options.workspace ?? DEFAULT_WORKSPACE_LAYOUT;
   const globalFlag = catalogResult.remaining.includes('--global');
   const allFlag = catalogResult.remaining.includes('--all');
   const dirs = resolveCatalogDirs({
-    catalogDir: catalogResult.value,
+    catalogDir: catalogResult.value ?? layout.root,
     global: globalFlag,
     all: allFlag,
   });
@@ -256,7 +271,7 @@ async function handleSearchCommand(
     return USAGE_ERROR_EXIT_CODE;
   }
 
-  const entries = await loadEntries(dirs);
+  const entries = await loadEntries(dirs, layout);
   const matches = entries.filter((e) => matchesCatalogQuery(e, query));
 
   if (matches.length === 0) {

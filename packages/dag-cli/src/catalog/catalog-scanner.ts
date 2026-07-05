@@ -1,7 +1,11 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
-import { DEFAULT_WORKSPACE_LAYOUT, type IDagDefinition } from '@robota-sdk/dag-core';
+import {
+  DEFAULT_WORKSPACE_LAYOUT,
+  type IDagDefinition,
+  type IWorkspaceLayout,
+} from '@robota-sdk/dag-core';
 import { scanWorkspaceCatalog } from '@robota-sdk/dag-framework';
 import { parseDagMd, DAG_MD_SUFFIX } from '../dag-md-parser/parse-dag-md.js';
 
@@ -28,11 +32,14 @@ function extractId(fileName: string): string {
 }
 
 /** Scan a directory for workflow definitions (shared JSON reader + `.dag.md`). */
-export async function scanCatalogDir(dir: string): Promise<ICatalogEntry[]> {
+export async function scanCatalogDir(
+  dir: string,
+  layout: IWorkspaceLayout = DEFAULT_WORKSPACE_LAYOUT,
+): Promise<ICatalogEntry[]> {
   // FLOW-007 C3: JSON workflow definitions come from the shared workspace-catalog reader (one reader
   // for all consumers). dag-cli additionally supports the `.dag.md` markdown workflow format, layered
   // on top here.
-  const jsonEntries: ICatalogEntry[] = await scanWorkspaceCatalog(dir, DEFAULT_WORKSPACE_LAYOUT);
+  const jsonEntries: ICatalogEntry[] = await scanWorkspaceCatalog(dir, layout);
 
   let fileNames: string[];
   try {

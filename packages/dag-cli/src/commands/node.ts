@@ -2,7 +2,8 @@ import { writeFile, unlink, mkdir, access } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import type { INodeManifest, IExternalNodePackage } from '@robota-sdk/dag-core';
+import { DEFAULT_WORKSPACE_LAYOUT } from '@robota-sdk/dag-core';
+import type { INodeManifest, IExternalNodePackage, IWorkspaceLayout } from '@robota-sdk/dag-core';
 import { buildNodeDefinitionAssembly } from '@robota-sdk/dag-node';
 import { discoverExternalNodePackages } from '../marketplace/external-node-scanner.js';
 import type { IDagCliIo } from '../types.js';
@@ -22,6 +23,7 @@ const JSON_INDENT_SPACES = 2;
 
 export interface INodeCommandOptions {
   readonly io: IDagCliIo;
+  readonly workspace?: IWorkspaceLayout;
 }
 
 type TNodeSubcommand = 'list' | 'info' | 'schema' | 'example' | 'scaffold' | 'validate';
@@ -918,6 +920,7 @@ export async function nodeCommand(
   options: INodeCommandOptions,
 ): Promise<number> {
   const { io } = options;
+  const layout = options.workspace ?? DEFAULT_WORKSPACE_LAYOUT;
 
   const parseResult = parseNodeArgv(args);
   if (!parseResult.ok) {
@@ -946,7 +949,9 @@ export async function nodeCommand(
   const noLocal = parseResult.noLocal === true;
   const localDefs =
     !noLocal && (subcommand === 'list' || subcommand === 'info')
-      ? await loadLocalNodeDefinitions({ projectDir: process.cwd() }).catch(() => [])
+      ? await loadLocalNodeDefinitions({ projectDir: process.cwd(), workspace: layout }).catch(
+          () => [],
+        )
       : [];
   const nodeDefinitions = [...createCliNodeRegistry(), ...localDefs];
 
@@ -1035,6 +1040,7 @@ export async function nodeCommand(
         parseResult.localScaffold,
         io,
         parseResult.dryRun === true,
+        layout,
       );
     }
     return handleScaffoldCommand(scaffoldName, io, parseResult.jsFlag === true);
@@ -1418,13 +1424,14 @@ ${returnFields}
 `;
 }
 
-// NODEDX-008 / DATA-002 P3: dryRun prints both files; otherwise writes the manifest + companion into
-// `.dag/nodes/` (the unified node location), replacing the former standalone `.dag.node.js` layout.
+// NODEDX-008 / DATA-002 P3 / FLOW-007: dryRun prints both files; otherwise writes the manifest +
+// companion into the workspace `<root>/nodes/` (default `.workflows/nodes/`).
 async function handleScaffoldLocalCommand(
   nodeType: string,
   opts: ILocalScaffoldOptions,
   io: IDagCliIo,
   dryRun = false,
+  layout: IWorkspaceLayout = DEFAULT_WORKSPACE_LAYOUT,
 ): Promise<number> {
   const ports = computeScaffoldPorts(nodeType, opts);
   const manifestContent = buildCodeNodeManifest(nodeType, ports);
@@ -1437,7 +1444,7 @@ async function handleScaffoldLocalCommand(
     return SUCCESS_EXIT_CODE;
   }
 
-  const dir = nodesDir(opts.dir);
+  const dir = nodesDir(opts.dir, layout);
   const manifestPath = join(dir, manifestFile);
   const companionPath = join(dir, companionFile);
 
@@ -1472,7 +1479,7 @@ async function handleScaffoldLocalCommand(
   if (opts.configs.length > 0) {
     io.write(`  config:   ${opts.configs.join(', ')}\n`);
   }
-  io.write(`\nRun (auto-discovered from .dag/nodes/):\n`);
+  io.write(`\nRun (auto-discovered from ${join(layout.root, 'nodes')}/):\n`);
   io.write(`  dag run --pipeline "input | ${nodeType} | text-output" --input text="Hello"\n`);
 
   return SUCCESS_EXIT_CODE;

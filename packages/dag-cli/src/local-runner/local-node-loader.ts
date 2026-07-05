@@ -1,13 +1,16 @@
 import { stat } from 'node:fs/promises';
 import { extname } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import type { IDagNodeDefinition } from '@robota-sdk/dag-core';
+import { DEFAULT_WORKSPACE_LAYOUT } from '@robota-sdk/dag-core';
+import type { IDagNodeDefinition, IWorkspaceLayout } from '@robota-sdk/dag-core';
 import { adaptSimpleNode, isSimpleNodeExport, loadCodeNodesFromDir } from './code-node-adapter.js';
 import { nodesDir } from './persistence/paths.js';
 
 export interface LocalNodeLoaderOptions {
   projectDir: string;
   verbose?: boolean;
+  /** FLOW-007: injected workspace layout (default `.workflows/`). */
+  workspace?: IWorkspaceLayout;
 }
 
 /**
@@ -74,8 +77,8 @@ export async function loadNodeFileExplicit(filePath: string): Promise<IDagNodeDe
 export async function loadLocalNodeDefinitions(
   options: LocalNodeLoaderOptions,
 ): Promise<IDagNodeDefinition[]> {
-  const { projectDir, verbose = false } = options;
-  const dir = nodesDir(projectDir);
+  const { projectDir, verbose = false, workspace = DEFAULT_WORKSPACE_LAYOUT } = options;
+  const dir = nodesDir(projectDir, workspace);
   const results = await loadCodeNodesFromDir(dir);
   if (verbose) {
     process.stderr.write(`[local-node-loader] loaded ${results.length} code node(s) from ${dir}\n`);
