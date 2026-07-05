@@ -4,7 +4,8 @@
 
 Provides the agent-cli `/workflows` command module — a bridge that surfaces the DAG workflow engine
 inside the agent CLI by composing `@robota-sdk/dag-framework` in-process. Owns the `workflows`
-`ICommandModule`, its subcommand dispatch, and the per-subcommand executors (`list`, `run`).
+`ICommandModule`, its subcommand dispatch, the per-subcommand executors (`create`, `list`, `catalog`,
+`validate`, `run`), and the **natural-language authoring pipeline** behind `create` (FLOW-007).
 
 ## Boundaries
 
@@ -17,10 +18,31 @@ inside the agent CLI by composing `@robota-sdk/dag-framework` in-process. Owns t
 
 ## Architecture Overview
 
-A thin bridge package. `createWorkflowsCommandModule()` returns an `ICommandModule` whose
-`ISystemCommand.execute` parses a leading subcommand token and dispatches to an executor. Each executor
-constructs a `LocalDagRuntimeProvider` (default node registry) from `dag-framework` and returns an
-`ICommandResult`. No state is held; providers are created per invocation.
+A bridge package. `createWorkflowsCommandModule({ workspace?, providerDefinitions? })` returns an
+`ICommandModule` whose `ISystemCommand.execute` parses a leading subcommand token and dispatches to an
+executor. Read/run executors construct a `LocalDagRuntimeProvider` (default node registry) from
+`dag-framework` and return an `ICommandResult`. No state is held; providers are created per invocation.
+
+### NL authoring pipeline (`create`, FLOW-007)
+
+`/workflows create "<description>" [--input k=v] [--name <name>]` runs a deterministic pipeline where
+the LLM only **authors** and the runtime **executes**:
+
+1. **Node catalog** — `createDefaultNodeRegistrySync()` (+ any prompt nodes already saved under
+   `<root>/nodes/`) → `INodeManifest[]` via `buildNodeDefinitionAssembly` (`@robota-sdk/dag-node`).
+2. **Author** — the ACTIVE provider (resolved with `createProviderFromSettings` +
+   injected `providerDefinitions`) is prompted with the catalog and must return a JSON-only workflow
+   spec (`authoring/spec.ts` validates it).
+3. **Instant nodes (Phase 3)** — any `newNodes` become prompt-backed nodes
+   (`createPromptBackedNodeDefinition`, `@robota-sdk/dag-node-instant-node`), saved to
+   `<root>/nodes/<type>.node.json` and reusable on later `create`s.
+4. **Assemble** — `buildDagFromPipeline` (`@robota-sdk/dag-builder`) → `IDagDefinition`; the resolved
+   run input is baked into the `input` node so the artifact is self-contained.
+5. **Save + run** — the legible `IDagDefinition` is written flat to `<root>/<name><ext>` and executed
+   in-process; `run`/`create` convert it to the runtime workflow-file format via `toDagWorkflowFile`.
+
+The `workflows` command is **model-invocable** (FLOW-007 Phase 4): the agent can author + run a
+workflow from a chat request.
 
 ## Type Ownership
 
@@ -30,14 +52,18 @@ constructs a `LocalDagRuntimeProvider` (default node registry) from `dag-framewo
 
 ## Public API Surface
 
-| Export                                 | Kind     | Description                                                         |
-| -------------------------------------- | -------- | ------------------------------------------------------------------- |
-| `createWorkflowsCommandModule`         | function | Returns the `workflows` `ICommandModule` for agent-cli composition. |
-| `createWorkflowsCommandEntry`          | function | Returns the `workflows` `ICommand` metadata entry.                  |
-| `WorkflowsCommandSource`               | class    | `ICommandSource` exposing the `workflows` command.                  |
-| `executeWorkflowsList`                 | function | Executor for `/workflows list`.                                     |
-| `executeWorkflowsRun`                  | function | Executor for `/workflows run <file>`.                               |
-| `AGENT_COMMAND_WORKFLOWS_PACKAGE_NAME` | const    | Package-name constant.                                              |
+| Export                                 | Kind      | Description                                                                    |
+| -------------------------------------- | --------- | ------------------------------------------------------------------------------ |
+| `createWorkflowsCommandModule`         | function  | Returns the `workflows` `ICommandModule` for agent-cli composition.            |
+| `IWorkflowsCommandModuleDeps`          | interface | Injected deps: `workspace?`, `providerDefinitions?`.                           |
+| `createWorkflowsCommandEntry`          | function  | Returns the `workflows` `ICommand` metadata entry.                             |
+| `WorkflowsCommandSource`               | class     | `ICommandSource` exposing the `workflows` command.                             |
+| `executeWorkflowsCreate`               | function  | Executor for `/workflows create` (NL authoring + run).                         |
+| `IWorkflowsCreateDeps`                 | interface | Create seam: `workspace?`, `providerDefinitions?`, `resolveProvider?`, `now?`. |
+| `parseCreateArgs`                      | function  | Parse `create` args (description + `--input`/`--name`).                        |
+| `executeWorkflowsList`                 | function  | Executor for `/workflows list`.                                                |
+| `executeWorkflowsRun`                  | function  | Executor for `/workflows run <file>`.                                          |
+| `AGENT_COMMAND_WORKFLOWS_PACKAGE_NAME` | const     | Package-name constant.                                                         |
 
 ## Extension Points
 
@@ -52,8 +78,15 @@ swallowed; no fallback to a default workflow.
 
 ## Test Strategy
 
-`src/__tests__/workflows-command-module.test.ts` covers: module shape + slash-free name + subcommands;
-`list` dispatch against the in-process catalog; usage/unknown-subcommand handling; `run` usage error.
+`src/__tests__/workflows-command-module.test.ts` covers: module shape + slash-free name + subcommands
+(incl. `create`); model-invocability (Phase 4); `list` dispatch; usage/unknown-subcommand handling;
+`run` usage error; catalog/validate.
+
+`src/__tests__/create-command.test.ts` covers the authoring pipeline with an **injected provider
+stub** (deterministic): arg parsing; spec validation; TC-02 author→save→run (uppercased output);
+`--input` precedence over `sampleInput`; TC-03 self-contained re-run reproduces the result; TC-04
+no-provider → actionable error + no write; TC-05 prompt-node create/save/reuse. The live LLM call is
+exercised out-of-band (one live UE per phase) since unit tests must stay deterministic.
 
 ## Class Contract Registry
 
@@ -70,7 +103,11 @@ None.
 
 ### Cross-Package Port Consumers
 
-| Owner                                     | Consumer    | Location                                    |
-| ----------------------------------------- | ----------- | ------------------------------------------- |
-| `agent-framework` command contracts       | this module | `src/`                                      |
-| `dag-framework` `LocalDagRuntimeProvider` | executors   | `src/list-command.ts`, `src/run-command.ts` |
+| Owner                                                              | Consumer       | Location                                                                         |
+| ------------------------------------------------------------------ | -------------- | -------------------------------------------------------------------------------- |
+| `agent-framework` command contracts + `createProviderFromSettings` | this module    | `src/`                                                                           |
+| `agent-core` `IAIProvider` + message factories                     | authoring      | `src/authoring/author.ts`                                                        |
+| `dag-framework` `LocalDagRuntimeProvider` + registry               | executors      | `src/list-command.ts`, `src/run-command.ts`, `src/authoring/execute-workflow.ts` |
+| `dag-builder` `buildDagFromPipeline` / converters                  | assembly + run | `src/authoring/assemble.ts`, `src/run-command.ts`                                |
+| `dag-node` `buildNodeDefinitionAssembly`                           | node catalog   | `src/authoring/node-catalog.ts`                                                  |
+| `dag-node-instant-node` prompt-node factory                        | Phase 3 nodes  | `src/create-command.ts`, `src/persistence/instant-node-loader.ts`                |

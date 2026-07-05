@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
 import { LocalDagRuntimeProvider } from '@robota-sdk/dag-framework';
+import { isLegacyDefinitionFormat, toDagWorkflowFile } from '@robota-sdk/dag-builder';
 
 import {
   DEFAULT_WORKSPACE_LAYOUT,
@@ -9,10 +10,20 @@ import {
   type IWorkspaceLayout,
 } from '@robota-sdk/dag-core';
 import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
+import { loadInstantNodes } from './persistence/instant-node-loader.js';
 
+/**
+ * Read a workflow file in either supported on-disk format and return the runtime workflow-file shape.
+ * Legible legacy `IDagDefinition` files (what `create`/dag-cli save) are converted; ComfyUI-style
+ * workflow files are used as-is.
+ */
 async function readDagFile(absPath: string): Promise<IDagWorkflowFile> {
   const raw = await readFile(absPath, 'utf-8');
-  return JSON.parse(raw) as IDagWorkflowFile;
+  const parsed = JSON.parse(raw) as unknown;
+  if (isLegacyDefinitionFormat(parsed)) {
+    return toDagWorkflowFile(parsed).workflowFile;
+  }
+  return parsed as IDagWorkflowFile;
 }
 
 /**
@@ -37,7 +48,13 @@ export async function executeWorkflowsRun(
     return { success: false, message: dag.message };
   }
 
-  const provider = new LocalDagRuntimeProvider({ workspace, projectDir: cwd });
+  // Reload any prompt-backed nodes from `<root>/nodes/` so workflows referencing them can run.
+  const instantNodes = await loadInstantNodes(cwd, workspace);
+  const provider = new LocalDagRuntimeProvider({
+    workspace,
+    projectDir: cwd,
+    ...(instantNodes.length > 0 ? { instantNodes } : {}),
+  });
   const result = await provider.execute(dag, {});
   if (!result.ok) {
     return {

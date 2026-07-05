@@ -28,8 +28,12 @@ import type { IParsedCliArgs } from '../utils/cli-args.js';
  * `dist`, NOT a runtime `@robota-sdk` edge). It is therefore statically imported and always present —
  * in the monorepo and in a packed/published install alike.
  */
-function loadWorkflowsCommandModule(): ICommandModule {
-  return createWorkflowsCommandModule();
+function loadWorkflowsCommandModule(
+  providerDefinitions: readonly IProviderDefinition[],
+): ICommandModule {
+  // FLOW-007: pass the provider definitions so `/workflows create` can resolve the ACTIVE provider
+  // to author a workflow from natural language. Workspace layout defaults to `.workflows/`.
+  return createWorkflowsCommandModule({ providerDefinitions });
 }
 
 export interface IStartCliOptions {
@@ -76,7 +80,7 @@ export function buildCommandSetup(
   };
   // DAG workflow engine surfaced as `/workflows` (WORKFLOW-003) — INFRA-028: bundled into the
   // self-contained CLI, so it is always present (statically imported, no runtime `@robota-sdk` edge).
-  const workflowsModule = loadWorkflowsCommandModule();
+  const workflowsModule = loadWorkflowsCommandModule(providerDefinitions);
   const commandModules: readonly ICommandModule[] = [
     ...createDefaultCommandModules({
       cwd,
