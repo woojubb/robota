@@ -26,9 +26,13 @@ vi.mock('@robota-sdk/agent-provider/qwen', () => ({
   QwenProvider: vi.fn().mockImplementation(() => ({})),
 }));
 
-import { createPromptBackedNodeDefinition, PromptBackedNodeDefinition } from '../index.js';
+import {
+  createPromptBackedNodeDefinition,
+  PromptBackedNodeDefinition,
+  createCompositeInstantNodeDefinition,
+} from '../index.js';
 import type { ICreatePromptNodeInput } from '../index.js';
-import type { INodeExecutionContext, TPortPayload } from '@robota-sdk/dag-core';
+import type { IDagDefinition, INodeExecutionContext, TPortPayload } from '@robota-sdk/dag-core';
 
 const MOCK_CONTEXT: INodeExecutionContext = {
   dagId: 'test-dag',
@@ -165,5 +169,57 @@ describe('PromptBackedNodeDefinition.taskHandler.execute', () => {
       { ...MOCK_CONTEXT, nodeDefinition: { ...MOCK_CONTEXT.nodeDefinition, nodeId: 'multi' } },
     );
     expect(result.ok).toBe(true);
+  });
+});
+
+describe('persistence view (BEHAVIOR-006)', () => {
+  it('PromptBackedNodeDefinition.toPersisted() returns a prompt record', () => {
+    const node = createPromptBackedNodeDefinition({
+      nodeType: 'p',
+      displayName: 'P',
+      systemPromptTemplate: 'Hi {{text}}',
+      inputPorts: [{ key: 'text' }],
+      outputPort: { key: 'out' },
+      provider: 'openai',
+      model: 'gpt',
+    });
+    expect(node.toPersisted()).toEqual({
+      kind: 'prompt',
+      nodeType: 'p',
+      displayName: 'P',
+      systemPromptTemplate: 'Hi {{text}}',
+      inputPorts: [{ key: 'text' }],
+      outputPort: { key: 'out' },
+      provider: 'openai',
+      model: 'gpt',
+    });
+  });
+
+  it('CompositeInstantNodeDefinition.toPersisted() returns a composite record without the runner', () => {
+    const innerDag = {
+      dagId: 'd',
+      version: 1,
+      status: 'draft',
+      nodes: [],
+      edges: [],
+    } as unknown as IDagDefinition;
+    const node = createCompositeInstantNodeDefinition({
+      nodeType: 'c',
+      displayName: 'C',
+      innerDag,
+      exposedInputPort: { key: 'text', mapsTo: { nodeId: 'in', portKey: 'text' } },
+      exposedOutputPorts: [{ key: 'result', mapsTo: { nodeId: 'out', portKey: 'text' } }],
+      runner: { run: async () => ({ ok: true, outputs: {} }) },
+    });
+    const persisted = node.toPersisted();
+    expect(persisted.kind).toBe('composite');
+    expect('runner' in persisted).toBe(false);
+    expect(persisted).toMatchObject({
+      kind: 'composite',
+      nodeType: 'c',
+      innerDag,
+      exposedInputPort: { key: 'text', mapsTo: { nodeId: 'in', portKey: 'text' } },
+      exposedOutputPorts: [{ key: 'result', mapsTo: { nodeId: 'out', portKey: 'text' } }],
+    });
   });
 });
