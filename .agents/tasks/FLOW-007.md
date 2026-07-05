@@ -13,7 +13,9 @@ creating prompt-backed nodes on the fly; model-invocable; active provider. Stora
 
 ## Phases (each independently green)
 
-- [ ] Phase 1: storage layout `.dag/` → `.workflows/` (flat `.json` workflows, `nodes/`). No migration.
+- [x] Phase 1: storage layout `.dag/` → `.workflows/` (flat `.json` workflows, `nodes/`). No migration. - 1a: layout parameterization (`IWorkspaceLayout`, default `.workflows/`). SHIPPED. - 1b: injection wiring — C1 `--workspace`/`workspace` option through dag-cli + `/workflows`
+      composition roots, C2 receivers (`LocalDagRuntimeProvider`), C3 unify 3 readers via
+      `scanWorkspaceCatalog`. DONE (live UE: custom `.myws` workspace round-trip).
 - [ ] Phase 2: `/workflows create "<desc>"` — active-provider LLM → validated spec → assemble → save → run.
 - [ ] Phase 3: on-the-fly prompt-node creation (saved to `.workflows/nodes/`, reusable).
 - [ ] Phase 4: model-invocable (agent authors + runs from chat).
