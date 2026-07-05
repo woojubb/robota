@@ -9,7 +9,10 @@ import type {
 import { buildNodeDefinitionAssembly } from '@robota-sdk/dag-node';
 import type { IDagCliIo } from '../types.js';
 import { FAILURE_EXIT_CODE, USAGE_ERROR_EXIT_CODE, SUCCESS_EXIT_CODE } from '../types.js';
-import { createCliNodeRegistry, loadNodeFileExplicit } from '../local-runner/index.js';
+import {
+  createCliNodeRegistryWithLocalNodes,
+  loadNodeFileExplicit,
+} from '../local-runner/index.js';
 import { resolveProvider } from '../providers/index.js';
 
 const OUTPUT_FORMAT_PRETTY = 'pretty';
@@ -651,9 +654,9 @@ export async function validateCommand(
     return USAGE_ERROR_EXIT_CODE;
   }
 
-  // Build assembly to get manifests
-  const builtInNodeDefinitions = createCliNodeRegistry();
-  const nodeDefinitions = [...builtInNodeDefinitions];
+  // Build assembly to get manifests. DATA-002 P3: local-aware so DAGs using `.dag/nodes/` code
+  // nodes validate without a manual `--node-file`.
+  const nodeDefinitions = [...(await createCliNodeRegistryWithLocalNodes(process.cwd()))];
   if (nodeFile !== undefined) {
     let localDef;
     try {

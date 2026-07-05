@@ -1,6 +1,6 @@
 import { writeFile, unlink, mkdir, access } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import type { INodeManifest, IExternalNodePackage } from '@robota-sdk/dag-core';
 import { buildNodeDefinitionAssembly } from '@robota-sdk/dag-node';
@@ -12,6 +12,7 @@ import {
   loadLocalNodeDefinitions,
   loadNodeFileExplicit,
 } from '../local-runner/index.js';
+import { nodesDir } from '../local-runner/persistence/paths.js';
 import { runCommand } from './run.js';
 
 const OUTPUT_FORMAT_JSON = 'json';
@@ -120,7 +121,7 @@ function parseNodeArgv(args: readonly string[]): TParseResult {
         '  info <type>             Show ports and config for a node type',
         '  schema <type>           Print the JSON schema for a node type',
         '  example <type>          Generate a minimal runnable .dag.json',
-        '  scaffold <name>         Create a custom local node (.dag.node.js)',
+        '  scaffold <name>         Create a custom local node (.dag/nodes/ manifest + companion)',
         '  validate <file>         Validate a local node file and print its manifest',
         '',
         'Examples:',
@@ -167,14 +168,15 @@ function parseNodeArgv(args: readonly string[]): TParseResult {
         message: [
           'Usage: dag node scaffold <name> [flags]',
           '',
-          'Generate a local .dag.node.js file (default) or an npm-publish TypeScript scaffold.',
+          'Generate a local code node — a .dag/nodes/<name>.node.json manifest (metadata) plus a',
+          '<name>.dag.node.js companion (execute only) — or an npm-publish TypeScript scaffold.',
           '',
           'Flags (local mode, default):',
-          '  --dir <path>          Output directory (default: current directory)',
+          '  --dir <path>          Project directory (writes into <dir>/.dag/nodes/; default: cwd)',
           '  --input <key:type>    Declare an input port (repeatable)',
           '  --output <key:type>   Declare an output port (repeatable)',
           '  --config <key:type>   Declare a config field (repeatable)',
-          '  --dry-run             Print the generated file to stdout without writing it',
+          '  --dry-run             Print the generated manifest + companion to stdout without writing',
           '',
           'Flags (npm-publish mode):',
           '  --publish             Generate a TypeScript scaffold for npm package publishing',
@@ -1320,76 +1322,94 @@ function parsePortSpec(spec: string): { key: string; portType: string } {
 
 // NODEDX-004: new `export const node` format — no class boilerplate, no result envelope
 // NODEDX-006: defaultOutputPort defaults to 'text' (unified across all scaffold modes)
-function buildLocalNodeTemplate(nodeType: string, opts: ILocalScaffoldOptions): string {
+interface IScaffoldPorts {
+  readonly displayName: string;
+  readonly inputs: ReadonlyArray<{ key: string; portType: string }>;
+  readonly outputs: ReadonlyArray<{ key: string; portType: string }>;
+  readonly configFields: ReadonlyArray<{ key: string; portType: string }>;
+  readonly firstInput: string;
+  readonly firstOutput: string;
+}
+
+function computeScaffoldPorts(nodeType: string, opts: ILocalScaffoldOptions): IScaffoldPorts {
   const displayName = nodeType
     .split(/[-_]/)
     .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
     .join(' ');
-
   const inputs =
     opts.inputs.length > 0 ? opts.inputs.map(parsePortSpec) : [{ key: 'text', portType: 'string' }];
-
   // NODEDX-006: default output key is 'text', matching built-in node convention
   const outputs =
     opts.outputs.length > 0
       ? opts.outputs.map(parsePortSpec)
       : [{ key: 'text', portType: 'string' }];
-
   const configFields = opts.configs.map(parsePortSpec);
+  return {
+    displayName,
+    inputs,
+    outputs,
+    configFields,
+    firstInput: inputs[0]?.key ?? 'text',
+    firstOutput: outputs[0]?.key ?? 'text',
+  };
+}
 
-  const inputsCode = inputs
-    .map(
-      ({ key, portType }, i) =>
-        `  { key: '${key}', label: '${key.charAt(0).toUpperCase() + key.slice(1)}', order: ${i}, type: '${portType}', required: true }`,
-    )
-    .join(',\n');
+/** DATA-002 P2/P3: the `.node.json` manifest — metadata SSOT, `kind:'code'`, pointing to the companion. */
+function buildCodeNodeManifest(nodeType: string, p: IScaffoldPorts): string {
+  const cap = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
+  const manifest = {
+    kind: 'code',
+    nodeType,
+    displayName: p.displayName,
+    category: 'Custom',
+    defaultInputPort: p.firstInput,
+    defaultOutputPort: p.firstOutput,
+    inputs: p.inputs.map(({ key, portType }, i) => ({
+      key,
+      label: cap(key),
+      order: i,
+      type: portType,
+      required: true,
+    })),
+    outputs: p.outputs.map(({ key, portType }, i) => ({
+      key,
+      label: cap(key),
+      order: i,
+      type: portType,
+      required: false,
+    })),
+    codeFile: `${nodeType}.dag.node.js`,
+  };
+  return `${JSON.stringify(manifest, null, JSON_INDENT_SPACES)}\n`;
+}
 
-  const outputsCode = outputs
-    .map(
-      ({ key, portType }, i) =>
-        `  { key: '${key}', label: '${key.charAt(0).toUpperCase() + key.slice(1)}', order: ${i}, type: '${portType}' }`,
-    )
-    .join(',\n');
-
-  const firstInput = inputs[0]?.key ?? 'text';
-  const firstOutput = outputs[0]?.key ?? 'text';
-
+/** DATA-002 P2/P3: the supplementary `.dag.node.js` companion — behavior (`execute`) only. */
+function buildCodeNodeCompanion(nodeType: string, p: IScaffoldPorts): string {
+  const executeArgs =
+    p.inputs.length === 1
+      ? `{ ${p.firstInput} }`
+      : `{ ${p.inputs.map(({ key }) => key).join(', ')} }`;
   const configAccessLines =
-    configFields.length > 0
-      ? configFields
+    p.configFields.length > 0
+      ? p.configFields
           .map(({ key, portType }) => {
             const camel = key.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase());
             const defaultVal = portType === 'number' ? '0' : `''`;
-            return `  const ${camel} = typeof context?.nodeDefinition?.config?.${camel} === '${portType}'\n    ? context.nodeDefinition.config.${camel}\n    : ${defaultVal};`;
+            return `    const ${camel} = typeof context?.nodeDefinition?.config?.${camel} === '${portType}'\n      ? context.nodeDefinition.config.${camel}\n      : ${defaultVal};`;
           })
           .join('\n') + '\n'
       : '';
-
-  const executeArgs =
-    inputs.length === 1 ? `{ ${firstInput} }` : `{ ${inputs.map(({ key }) => key).join(', ')} }`;
-
-  const returnFields = outputs
-    .map(({ key }) => `    ${key}: String(${firstInput} ?? ''), // TODO: implement`)
+  const returnFields = p.outputs
+    .map(({ key }) => `      ${key}: String(${p.firstInput} ?? ''), // TODO: implement`)
     .join('\n');
 
-  return `// ${nodeType}.dag.node.js — auto-loaded when placed anywhere in your project directory
+  return `// ${nodeType}.dag.node.js — behavior for the "${nodeType}" code node.
+// Metadata (nodeType, ports) lives in ${nodeType}.node.json (the manifest); this file provides only execute().
 // Run:  dag run --pipeline "input | ${nodeType} | text-output" --input text="Hello"
-// Alt:  dag run --pipeline "..." --node-file ./${nodeType}.dag.node.js  (if running from a different dir)
 
 export const node = {
-  nodeType: '${nodeType}',
-  displayName: '${displayName}',
-  category: 'Custom',
-  defaultInputPort: '${firstInput}',
-  defaultOutputPort: '${firstOutput}',
-  inputs: [
-${inputsCode},
-  ],
-  outputs: [
-${outputsCode},
-  ],
-  async execute(${executeArgs}) {
-    ${configAccessLines}// TODO: implement your node logic here
+  async execute(${executeArgs}, context) {
+${configAccessLines}    // TODO: implement your node logic here
     return {
 ${returnFields}
     };
@@ -1398,60 +1418,62 @@ ${returnFields}
 `;
 }
 
-// NODEDX-008: dryRun flag prints template to stdout without writing
+// NODEDX-008 / DATA-002 P3: dryRun prints both files; otherwise writes the manifest + companion into
+// `.dag/nodes/` (the unified node location), replacing the former standalone `.dag.node.js` layout.
 async function handleScaffoldLocalCommand(
   nodeType: string,
   opts: ILocalScaffoldOptions,
   io: IDagCliIo,
   dryRun = false,
 ): Promise<number> {
-  const fileName = `${nodeType}.dag.node.js`;
-  const content = buildLocalNodeTemplate(nodeType, opts);
+  const ports = computeScaffoldPorts(nodeType, opts);
+  const manifestContent = buildCodeNodeManifest(nodeType, ports);
+  const companionContent = buildCodeNodeCompanion(nodeType, ports);
+  const manifestFile = `${nodeType}.node.json`;
+  const companionFile = `${nodeType}.dag.node.js`;
 
   if (dryRun) {
-    io.write(content);
+    io.write(`// ${manifestFile}\n${manifestContent}\n// ${companionFile}\n${companionContent}`);
     return SUCCESS_EXIT_CODE;
   }
 
-  const outputPath = resolve(opts.dir, fileName);
+  const dir = nodesDir(opts.dir);
+  const manifestPath = join(dir, manifestFile);
+  const companionPath = join(dir, companionFile);
 
-  let exists = false;
-  try {
-    await access(outputPath);
-    exists = true;
-  } catch {
-    // allow-fallback: access() failing means file does not exist — expected case
-    exists = false;
+  for (const p of [manifestPath, companionPath]) {
+    let exists = false;
+    try {
+      await access(p);
+      exists = true;
+    } catch {
+      // allow-fallback: access() failing means file does not exist — expected case
+      exists = false;
+    }
+    if (exists) {
+      io.write(`Error: file already exists: ${p}\n`);
+      return USAGE_ERROR_EXIT_CODE;
+    }
   }
-  if (exists) {
-    io.write(`Error: file already exists: ${outputPath}\n`);
-    return USAGE_ERROR_EXIT_CODE;
-  }
 
-  await mkdir(opts.dir, { recursive: true });
-  await writeFile(outputPath, content, 'utf8');
+  await mkdir(dir, { recursive: true });
+  await writeFile(manifestPath, manifestContent, 'utf8');
+  await writeFile(companionPath, companionContent, 'utf8');
 
-  const inputs =
-    opts.inputs.length > 0 ? opts.inputs.map(parsePortSpec) : [{ key: 'text', portType: 'string' }];
-  // NODEDX-006: default output key unified to 'text'
-  const outputs =
-    opts.outputs.length > 0
-      ? opts.outputs.map(parsePortSpec)
-      : [{ key: 'text', portType: 'string' }];
-
-  io.write(`✓ Created ${outputPath}\n`);
+  io.write(`✓ Created ${manifestPath}\n`);
+  io.write(`✓ Created ${companionPath}\n`);
   io.write(`  nodeType: ${nodeType}\n`);
-  io.write(`  inputs:   ${inputs.map(({ key, portType }) => `${key} (${portType})`).join(', ')}\n`);
   io.write(
-    `  outputs:  ${outputs.map(({ key, portType }) => `${key} (${portType})`).join(', ')}\n`,
+    `  inputs:   ${ports.inputs.map(({ key, portType }) => `${key} (${portType})`).join(', ')}\n`,
+  );
+  io.write(
+    `  outputs:  ${ports.outputs.map(({ key, portType }) => `${key} (${portType})`).join(', ')}\n`,
   );
   if (opts.configs.length > 0) {
     io.write(`  config:   ${opts.configs.join(', ')}\n`);
   }
-  io.write(`\nRun:\n`);
-  io.write(`  dag run --pipeline "input | ${nodeType} | text-output" \\\n`);
-  io.write(`    --node-file ./${fileName} \\\n`);
-  io.write(`    --input text="Hello"\n`);
+  io.write(`\nRun (auto-discovered from .dag/nodes/):\n`);
+  io.write(`  dag run --pipeline "input | ${nodeType} | text-output" --input text="Hello"\n`);
 
   return SUCCESS_EXIT_CODE;
 }
