@@ -116,6 +116,8 @@ apps/api-server/.dag-storage/
 
 # dag-cli runtime working directory (catalog/nodes/runs.db/run-history) — never commit local run state
 .dag/
+# FLOW-007 workspace layout: local workflow catalog + code nodes (test/dev working dir) — never commit
+.workflows/
 
 # Lock files from other package managers
 bun.lock

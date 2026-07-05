@@ -1,8 +1,10 @@
+import { DEFAULT_WORKSPACE_LAYOUT } from '@robota-sdk/dag-core';
 import type {
   IDagDefinition,
   IDagEdgeDefinition,
   IDagNode,
   INodeConfigObject,
+  IWorkspaceLayout,
 } from '@robota-sdk/dag-core';
 import { buildNodeDefinitionAssembly } from '@robota-sdk/dag-node';
 import type { IDagCliIo } from '../types.js';
@@ -30,6 +32,7 @@ Examples:
 
 export interface ISaveCommandOptions {
   readonly io: IDagCliIo;
+  readonly workspace?: IWorkspaceLayout;
 }
 
 interface IParsedSaveOptions {
@@ -244,6 +247,7 @@ export async function saveCommand(
   options: ISaveCommandOptions,
 ): Promise<number> {
   const { io } = options;
+  const layout = options.workspace ?? DEFAULT_WORKSPACE_LAYOUT;
 
   if (args.includes('--help') || args.includes('-h')) {
     io.write(SAVE_HELP);
@@ -258,8 +262,10 @@ export async function saveCommand(
 
   const { pipeline, name, nodeConfigs } = parseResult.value;
 
-  // DATA-002 P3: local-aware registry so pipelines can reference `.dag/nodes/` code nodes.
-  const nodeDefinitions = await createCliNodeRegistryWithLocalNodes(process.cwd());
+  // DATA-002 P3: local-aware registry so pipelines can reference local code nodes.
+  const nodeDefinitions = await createCliNodeRegistryWithLocalNodes(process.cwd(), {
+    workspace: layout,
+  });
   const assemblyResult = buildNodeDefinitionAssembly(nodeDefinitions);
   if (!assemblyResult.ok) {
     io.write(`Error: Failed to build node registry: ${assemblyResult.error.message}\n`);
@@ -277,7 +283,7 @@ export async function saveCommand(
 
   let outputPath: string;
   try {
-    outputPath = await saveWorkflow(name, definition, process.cwd());
+    outputPath = await saveWorkflow(name, definition, process.cwd(), layout);
   } catch (writeErr) {
     // allow-fallback: directory/file write failure reported as structured error and non-zero exit
     const msg = writeErr instanceof Error ? writeErr.message : String(writeErr);

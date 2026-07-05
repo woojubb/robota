@@ -3,7 +3,11 @@ import { resolve } from 'node:path';
 
 import { LocalDagRuntimeProvider } from '@robota-sdk/dag-framework';
 
-import type { IDagWorkflowFile } from '@robota-sdk/dag-core';
+import {
+  DEFAULT_WORKSPACE_LAYOUT,
+  type IDagWorkflowFile,
+  type IWorkspaceLayout,
+} from '@robota-sdk/dag-core';
 import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
 
 async function readDagFile(absPath: string): Promise<IDagWorkflowFile> {
@@ -15,9 +19,13 @@ async function readDagFile(absPath: string): Promise<IDagWorkflowFile> {
  * `/workflows run <file.dag.json>` — execute a workflow file on the in-process DAG runtime.
  * Composes `dag-framework`'s local provider; no dependency on the `dag-cli` product.
  */
-export async function executeWorkflowsRun(filePath: string, cwd: string): Promise<ICommandResult> {
+export async function executeWorkflowsRun(
+  filePath: string,
+  cwd: string,
+  workspace: IWorkspaceLayout = DEFAULT_WORKSPACE_LAYOUT,
+): Promise<ICommandResult> {
   if (!filePath) {
-    return { success: false, message: 'Usage: /workflows run <file.dag.json>' };
+    return { success: false, message: 'Usage: /workflows run <file.json>' };
   }
 
   // The read/parse error is surfaced as a failed command result, not silently swallowed.
@@ -29,7 +37,7 @@ export async function executeWorkflowsRun(filePath: string, cwd: string): Promis
     return { success: false, message: dag.message };
   }
 
-  const provider = new LocalDagRuntimeProvider();
+  const provider = new LocalDagRuntimeProvider({ workspace, projectDir: cwd });
   const result = await provider.execute(dag, {});
   if (!result.ok) {
     return {

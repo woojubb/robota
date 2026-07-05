@@ -3,6 +3,7 @@ import { executeWorkflowsList } from './list-command.js';
 import { executeWorkflowsRun } from './run-command.js';
 import { executeWorkflowsValidate } from './validate-command.js';
 
+import { DEFAULT_WORKSPACE_LAYOUT, type IWorkspaceLayout } from '@robota-sdk/dag-core';
 import type {
   ICommandModule,
   ICommandHostContext,
@@ -66,6 +67,7 @@ function splitSubcommand(args: string): { sub: string; rest: string } {
 async function executeWorkflowsCommand(
   _context: ICommandHostContext,
   args: string,
+  workspace: IWorkspaceLayout,
 ): Promise<ICommandResult> {
   const { sub, rest } = splitSubcommand(args);
   switch (sub) {
@@ -74,11 +76,11 @@ async function executeWorkflowsCommand(
     case 'list':
       return executeWorkflowsList();
     case 'catalog':
-      return executeWorkflowsCatalog(process.cwd());
+      return executeWorkflowsCatalog(process.cwd(), workspace);
     case 'validate':
       return executeWorkflowsValidate(rest, process.cwd());
     case 'run':
-      return executeWorkflowsRun(rest, process.cwd());
+      return executeWorkflowsRun(rest, process.cwd(), workspace);
     default:
       return { success: false, message: `Unknown subcommand "${sub}".\n${USAGE}` };
   }
@@ -96,7 +98,7 @@ export function createWorkflowsCommandEntry(): ICommand {
   };
 }
 
-function createWorkflowsSystemCommand(): ISystemCommand {
+function createWorkflowsSystemCommand(workspace: IWorkspaceLayout): ISystemCommand {
   const entry = createWorkflowsCommandEntry();
   return {
     name: entry.name,
@@ -108,7 +110,7 @@ function createWorkflowsSystemCommand(): ISystemCommand {
     argumentHint: entry.argumentHint,
     subcommands: entry.subcommands,
     lifecycle: 'inline',
-    execute: executeWorkflowsCommand,
+    execute: (context, args) => executeWorkflowsCommand(context, args, workspace),
   };
 }
 
@@ -120,10 +122,19 @@ export class WorkflowsCommandSource implements ICommandSource {
   }
 }
 
-export function createWorkflowsCommandModule(): ICommandModule {
+/** Dependencies injected by the composition root (agent-cli's `command-setup`). FLOW-007 C1. */
+export interface IWorkflowsCommandModuleDeps {
+  /** Workspace layout for on-disk workflow/node paths. Defaults to `.workflows/`. */
+  readonly workspace?: IWorkspaceLayout;
+}
+
+export function createWorkflowsCommandModule(
+  deps: IWorkflowsCommandModuleDeps = {},
+): ICommandModule {
+  const workspace = deps.workspace ?? DEFAULT_WORKSPACE_LAYOUT;
   return {
     name: 'agent-command-workflows',
     commandSources: [new WorkflowsCommandSource()],
-    systemCommands: [createWorkflowsSystemCommand()],
+    systemCommands: [createWorkflowsSystemCommand(workspace)],
   };
 }

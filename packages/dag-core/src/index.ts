@@ -53,6 +53,7 @@ export type {
 export * from './types/run-result.js';
 export * from './types/marketplace.js';
 export * from './types/workflow-file.js';
+export * from './types/workspace-layout.js';
 export type {
   IDagNodeManifest,
   INodePortSpec,

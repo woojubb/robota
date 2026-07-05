@@ -43,11 +43,11 @@ afterEach(async () => {
 });
 
 // ---------------------------------------------------------------------------
-// LOCALNODE-005 / DATA-002 P3: dag node scaffold writes .dag/nodes/ manifest + companion
+// LOCALNODE-005 / DATA-002 P3: dag node scaffold writes .workflows/nodes/ manifest + companion
 // ---------------------------------------------------------------------------
 
 function nodesPath(dir: string, file: string): string {
-  return join(dir, '.dag', 'nodes', file);
+  return join(dir, '.workflows', 'nodes', file);
 }
 
 describe('LOCALNODE-005 / DATA-002 P3: dag node scaffold', () => {
@@ -93,7 +93,7 @@ describe('LOCALNODE-005 / DATA-002 P3: dag node scaffold', () => {
   });
 
   it('rejects if a target file already exists', async () => {
-    await mkdir(join(tmpDir, '.dag', 'nodes'), { recursive: true });
+    await mkdir(join(tmpDir, '.workflows', 'nodes'), { recursive: true });
     await writeFile(nodesPath(tmpDir, 'existing.node.json'), '{}', 'utf8');
 
     const { options, written } = makeIo();
@@ -132,7 +132,7 @@ describe('LOCALNODE-005 / DATA-002 P3: dag node scaffold', () => {
 });
 
 // ---------------------------------------------------------------------------
-// LOCALNODE-002 / DATA-002 P2: loadLocalNodeDefinitions discovers `.dag/nodes/` code manifests
+// LOCALNODE-002 / DATA-002 P2: loadLocalNodeDefinitions discovers `.workflows/nodes/` code manifests
 // ---------------------------------------------------------------------------
 
 async function writeCodeNode(
@@ -141,7 +141,7 @@ async function writeCodeNode(
   manifestExtra: Record<string, unknown>,
   companion: string | null,
 ): Promise<void> {
-  const nodesDir = join(dir, '.dag', 'nodes');
+  const nodesDir = join(dir, '.workflows', 'nodes');
   await mkdir(nodesDir, { recursive: true });
   await writeFile(
     join(nodesDir, `${nodeType}.node.json`),
@@ -161,13 +161,13 @@ async function writeCodeNode(
   }
 }
 
-describe('LOCALNODE-002 / DATA-002 P2: loadLocalNodeDefinitions from .dag/nodes/', () => {
-  it('returns empty array when .dag/nodes/ is absent', async () => {
+describe('LOCALNODE-002 / DATA-002 P2: loadLocalNodeDefinitions from .workflows/nodes/', () => {
+  it('returns empty array when .workflows/nodes/ is absent', async () => {
     const nodes = await loadLocalNodeDefinitions({ projectDir: tmpDir });
     expect(nodes).toHaveLength(0);
   });
 
-  it('discovers a code node (manifest + companion) in .dag/nodes/', async () => {
+  it('discovers a code node (manifest + companion) in .workflows/nodes/', async () => {
     await writeCodeNode(
       tmpDir,
       'upshout',

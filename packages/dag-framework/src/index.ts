@@ -23,6 +23,8 @@ export type { IHttpDagRuntimeProviderOptions } from './http-dag-runtime-provider
 export { DagPromptBackend } from './adapters/prompt-backend.js';
 export { LocalFsAssetStore } from './adapters/local-fs-asset-store.js';
 export { createExecutionComposition } from './composition/create-execution-composition.js';
+export { scanWorkspaceCatalog } from './workspace-catalog.js';
+export type { IWorkspaceCatalogEntry, IWorkspaceCatalogMeta } from './workspace-catalog.js';
 export type { IWorkerLoopDriverLogger } from './runtime/worker-loop-driver.js';
 
 export const DAG_FRAMEWORK_PACKAGE_NAME = '@robota-sdk/dag-framework';
