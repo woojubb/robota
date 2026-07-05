@@ -101,10 +101,19 @@ visibility.
 
 Phased; each phase independently green.
 
-- **Phase 1 — workspace layout parameterization.** Make the workspace root + workflow-ext configurable
-  options (default root `.workflows/`, ext `.json`, flat `<root>/<name>.json`, `<root>/nodes/`); update
-  path helpers (optional `root`), walk-up, catalog scan, save/scaffold, and the `/workflows` catalog dir,
-  plus tests. Shared machinery; each product sets its root. No migration.
+- **Phase 1a — workspace layout parameterization (DONE).** Layout as a configurable option (default
+  `.workflows/` flat `.json` + `.workflows/nodes/`); persistence/catalog/walk-up consume it. Verified.
+- **Phase 1b — injection wiring + catalog unification (architecture-reviewed; scope "b").** Given
+  dag-cli's **functional, decentralized** composition (thin `runDagCli` dispatcher; pure-function
+  commands that build their own runtime and read `process.cwd()`), the canonical injection is
+  options-threading with a **single resolution point per product** — not a DI container:
+  (C1) `runDagCli` resolves the layout once (a `--workspace <dir>` global flag / default) and threads
+  `{ io, workspace }` into every command; `createWorkflowsCommandModule({ workspace })` receives it and
+  agent-cli's `command-setup.ts` provides it. (C2) production callers pass the resolved layout to the
+  persistence/catalog functions (which keep the optional default for standalone use); `LocalDagRuntime
+Provider` options gain `workspace?` + local-node discovery. (C3) **unify the three workflow-read paths**
+  (DATA-002 `loadWorkflows`, dag-cli `catalog-scanner`, `/workflows` inline scan) behind **one shared
+  workspace-catalog reader in `dag-framework`**, layout-injected, consumed by all.
 - **Phase 2 — NL authoring (existing nodes).** `/workflows create "<description>"`: gather node-catalog
   context → call the active provider → parse + **validate** the emitted workflow spec → assemble
   `IDagDefinition` → save `.workflows/<name>.json` → run in-process → print outputs.
@@ -126,7 +135,7 @@ Phased; each phase independently green.
 ## Completion Criteria
 
 - [ ] TC-01: after Phase 1, with the default workspace root, `dag save`/`run`/scaffold + `/workflows
-  catalog|run` operate on `.workflows/` (flat `.json` workflows, `.workflows/nodes/`); passing a custom
+catalog|run` operate on `.workflows/` (flat `.json` workflows, `.workflows/nodes/`); passing a custom
       root option redirects all reads/writes to that dir (unit test asserts both default and override);
       `pnpm --filter @robota-sdk/dag-cli test` green.
 - [ ] TC-02: `/workflows create "uppercase the input text"` (active provider configured) →
@@ -163,3 +172,5 @@ with a stubbed/injected provider (deterministic response) for unit/integration; 
 
 - **GATE-WRITE — PASS (2026-07-06).** All sections present; Problem has concrete symptom (only `list/catalog/validate/run`, `modelInvocable:false`) + reproduction; Architecture Review has 3 alternatives + validated Decision; checklist all [x]; TC-01…TC-06 command/observable; one Test Plan row per TC (no `manual`). No third-party product named (prior-art reviewed conceptually only).
 - **GATE-APPROVAL — PASS (2026-07-06).** Design iterated with owner across the session: NL create-and-run in one step (re-run optional), existing nodes + on-the-fly prompt nodes, model-invocable, active provider; fresh design (dag-cli `describe` is a reference not a template); prior-art concepts adopted without naming the product; storage de-jargoned to `.workflows/` (flat `.json` + `nodes/`). Owner sign-off, verbatim: **"승인함"**. Implementation authorized (phased).
+- **Phase 1a — SHIPPED (2026-07-06, commit 3e4ae929b).** Workspace layout parameterized (default `.workflows/`); persistence/catalog/walk-up consume it. dag-cli 1007 + agent-command-workflows 9 tests, 45 scans, live UE (`save`→`catalog run`, `scaffold`→`run` incl. subdir walk-up) all consistent on `.workflows/`.
+- **ARCHITECTURE REVIEW — PASS (2026-07-06).** Audited existing dag-\* (clean layering; functional/decentralized composition — thin `runDagCli` dispatcher, pure-function commands; **fragmentation: 3 workflow-read paths**) and the Phase-1a impl (parameterized/injectable but not yet threaded from composition roots; default repeated per-function). Re-proposed the canonical injection (options-threading + single per-product resolution root + shared reader). Owner chose scope **"b"** — C1 injection wiring + C2 receivers + C3 unify the 3 readers into one `dag-framework` workspace-catalog. Verbatim: **"b"**. Phase 1b authorized.

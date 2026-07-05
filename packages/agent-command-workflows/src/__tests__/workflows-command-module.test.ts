@@ -103,11 +103,11 @@ describe('workflows validate', () => {
 });
 
 describe('workflows catalog', () => {
-  it('reports an empty state when no catalog directory exists', async () => {
+  it('reports an empty state when no workflows exist', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'wf-catalog-'));
     const result = await executeWorkflowsCatalog(dir);
     expect(result.success).toBe(true);
-    expect(result.message).toContain('No workflow catalog');
+    expect(result.message).toContain('No workflow files');
   });
 
   it('lists workflow files flat under the workspace root (.workflows/)', async () => {

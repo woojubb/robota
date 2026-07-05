@@ -25,6 +25,7 @@ import {
   type IPersistableInstantNode,
   type TPersistedInstantNode,
 } from '@robota-sdk/dag-node-instant-node';
+import { scanWorkspaceCatalog } from '@robota-sdk/dag-framework';
 import { LocalDagRunner, createCliNodeRegistry } from '../index.js';
 import { parseCodeManifest, reconstructCodeNode } from '../code-node-adapter.js';
 import { NODE_MANIFEST_EXT, nodesDir, workflowsDir } from './paths.js';
@@ -239,39 +240,13 @@ export async function saveWorkflow(
 }
 
 /**
- * Load workflow definitions from the workspace root (flat `<name><workflowExt>`). Node manifests
- * (`.node.json`, which also end in `.json`) and non-DAG JSON (aux state that shares the root) are
- * skipped. Malformed/unreadable files are skipped. Returns `{ name, definition }` per valid file.
+ * Load workflow definitions from the workspace root via the shared `scanWorkspaceCatalog` reader
+ * (FLOW-007 C3 — one reader for all consumers). Returns `{ name, definition }` per valid file.
  */
 export async function loadWorkflows(
   projectDir: string,
   layout: IWorkspaceLayout = DEFAULT_WORKSPACE_LAYOUT,
 ): Promise<Array<{ name: string; definition: IDagDefinition }>> {
-  const dir = workflowsDir(projectDir, layout);
-  let files: string[];
-  try {
-    files = await readdir(dir);
-  } catch {
-    // allow-fallback: the workspace root may not exist yet
-    return [];
-  }
-  const ext = layout.workflowExt;
-  const workflows: Array<{ name: string; definition: IDagDefinition }> = [];
-  for (const file of files.filter((f) => f.endsWith(ext) && !f.endsWith(NODE_MANIFEST_EXT))) {
-    try {
-      const parsed = JSON.parse(await readFile(join(dir, file), 'utf-8')) as unknown;
-      // Only keep DAG-shaped objects — skip aux JSON (aliases/history/…) that shares the root.
-      if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) continue;
-      const r = parsed as Record<string, unknown>;
-      if (!Array.isArray(r['nodes']) && typeof r['dagId'] !== 'string') continue;
-      workflows.push({
-        name: file.slice(0, -ext.length),
-        definition: parsed as IDagDefinition,
-      });
-    } catch {
-      // allow-fallback: unreadable/unparseable workflow file skipped
-      continue;
-    }
-  }
-  return workflows;
+  const entries = await scanWorkspaceCatalog(workflowsDir(projectDir, layout), layout);
+  return entries.map((e) => ({ name: e.id, definition: e.definition }));
 }
