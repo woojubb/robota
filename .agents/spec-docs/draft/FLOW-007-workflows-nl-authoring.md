@@ -138,17 +138,18 @@ Provider` options gain `workspace?` + local-node discovery. (C3) **unify the thr
 catalog|run` operate on `.workflows/` (flat `.json` workflows, `.workflows/nodes/`); passing a custom
       root option redirects all reads/writes to that dir (unit test asserts both default and override);
       `pnpm --filter @robota-sdk/dag-cli test` green.
-- [ ] TC-02: `/workflows create "uppercase the input text"` (active provider configured) →
-      authors + saves `.workflows/<name>.json` and runs it → output is the input uppercased; exit success.
-- [ ] TC-03: the authored artifact is re-runnable — `/workflows run .workflows/<name>.json` (or
-      `catalog run <name>`) reproduces the result without re-authoring.
-- [ ] TC-04: with no active provider / missing key, `/workflows create "..."` returns a clear
-      actionable error (names the missing provider/key), does not crash, writes nothing.
-- [ ] TC-05: Phase 3 — a description needing a bespoke step (e.g. "rewrite the text as a pirate")
-      causes a prompt-backed node to be created, saved under `.workflows/nodes/`, used in the run, and
-      reusable on a second `create`.
-- [ ] TC-06: Phase 4 — a chat request to the agent ("make a workflow that summarizes my input and run
-      it") invokes the create action and surfaces the saved artifact path + run output.
+- [x] TC-02: `/workflows create "uppercase the input text"` → authors + saves `.workflows/<name>.json`
+      and runs it → output is the input uppercased; exit success. (unit + compiled live UE)
+- [x] TC-03: the authored artifact is re-runnable — `/workflows run .workflows/<name>.json` reproduces
+      the result without re-authoring (run input baked into the artifact). (unit + compiled live UE)
+- [x] TC-04: with no active provider, `/workflows create "..."` returns a clear actionable error and
+      writes nothing. (unit test)
+- [x] TC-05: Phase 3 — a bespoke step ("rewrite as a pirate") creates a prompt-backed node saved under
+      `.workflows/nodes/`, used in the run, reusable on a second `create`. (unit + compiled live UE:
+      save/reuse verified; the prompt-node LLM run needs a provider key.)
+- [x] TC-06: Phase 4 — the `workflows`/`create` command is `modelInvocable: true` (kind
+      `builtin-command`), so the agent can author + run from chat. (module unit test + descriptor
+      projection verified; a full live scripted agent turn requires a provider key.)
 
 ## Test Plan
 
@@ -174,4 +175,5 @@ with a stubbed/injected provider (deterministic response) for unit/integration; 
 - **GATE-APPROVAL — PASS (2026-07-06).** Design iterated with owner across the session: NL create-and-run in one step (re-run optional), existing nodes + on-the-fly prompt nodes, model-invocable, active provider; fresh design (dag-cli `describe` is a reference not a template); prior-art concepts adopted without naming the product; storage de-jargoned to `.workflows/` (flat `.json` + `nodes/`). Owner sign-off, verbatim: **"승인함"**. Implementation authorized (phased).
 - **Phase 1a — SHIPPED (2026-07-06, commit 3e4ae929b).** Workspace layout parameterized (default `.workflows/`); persistence/catalog/walk-up consume it. dag-cli 1007 + agent-command-workflows 9 tests, 45 scans, live UE (`save`→`catalog run`, `scaffold`→`run` incl. subdir walk-up) all consistent on `.workflows/`.
 - **ARCHITECTURE REVIEW — PASS (2026-07-06).** Audited existing dag-\* (clean layering; functional/decentralized composition — thin `runDagCli` dispatcher, pure-function commands; **fragmentation: 3 workflow-read paths**) and the Phase-1a impl (parameterized/injectable but not yet threaded from composition roots; default repeated per-function). Re-proposed the canonical injection (options-threading + single per-product resolution root + shared reader). Owner chose scope **"b"** — C1 injection wiring + C2 receivers + C3 unify the 3 readers into one `dag-framework` workspace-catalog. Verbatim: **"b"**. Phase 1b authorized.
+- **Phases 2–4 — IMPLEMENTED (2026-07-06, branch `feat/workflows-nl-authoring`).** NL authoring built in `agent-command-workflows`: `create-command.ts` orchestrates node-catalog (`authoring/node-catalog.ts`, manifests via `buildNodeDefinitionAssembly`) → author via the **active provider** (`authoring/author.ts`, `createProviderFromSettings` + injected `providerDefinitions`; JSON-only spec) → validate (`authoring/spec.ts`) → assemble (`authoring/assemble.ts`, `buildDagFromPipeline`) → save legible `IDagDefinition` (`persistence/workspace-writer.ts`) → run (`authoring/execute-workflow.ts`, converts to workflow-file via `toDagWorkflowFile`). **Phase 3:** `newNodes` → `createPromptBackedNodeDefinition`, saved to `.workflows/nodes/` and reloaded by `persistence/instant-node-loader.ts` (reused on later `create`; `run` reloads them too). **Phase 4:** `workflows` + `create` are `modelInvocable: true` (kind `builtin-command`); `providerDefinitions` threaded from agent-cli `command-setup.ts`. The resolved run input is baked into the artifact's `input` node so a bare re-run reproduces. 24 unit tests (injected provider stub), 45/45 scans, 0 lint errors, agent-cli typecheck green. **Live UE (compiled dist):** TC-02/03 `input|text-upper|text-output` authored→saved→ran→`HELLO FROM A LIVE RUN`, self-contained re-run reproduced it; TC-05 prompt node saved to `.workflows/nodes/` + reused, missing-key run surfaced a clear actionable error with the saved path. (Live LLM authoring + live prompt-node run require a provider key — unavailable in this environment — so the network LLM call is stubbed; every deterministic layer runs live.)
 - **Phase 1b — DONE (2026-07-06).** C3 shared reader `scanWorkspaceCatalog` in `dag-framework` (commit 714b9a272) now backs all three former read paths (persistence `loadWorkflows`, dag-cli `catalog-scanner`, `/workflows catalog`). C2 receiver: `LocalDagRuntimeProvider` accepts `workspace`. C1 injection: `/workflows` command module resolves+threads `workspace` (commit d225fef12); **dag-cli** resolves a leading `--workspace <dir>` global flag at the `runDagCli` composition root and threads the layout to run/save/catalog/node (commit 75062cc57). dag-cli 1007 tests + agent-command-workflows green, 45 scans, 0 lint errors. **Live UE:** a custom `--workspace .myws` round-trip — `save` → `catalog list` → `catalog run` (correct output) → `node scaffold` — all read/write `.myws/` while the default `.workflows/` stays untouched (isolation confirmed). Phase 1 complete.

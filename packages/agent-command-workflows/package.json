@@ -35,11 +35,14 @@
     "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
   },
   "dependencies": {
+    "@robota-sdk/agent-core": "workspace:*",
     "@robota-sdk/agent-framework": "workspace:*",
     "@robota-sdk/agent-interface-transport": "workspace:*",
     "@robota-sdk/dag-builder": "workspace:*",
     "@robota-sdk/dag-core": "workspace:*",
-    "@robota-sdk/dag-framework": "workspace:*"
+    "@robota-sdk/dag-framework": "workspace:*",
+    "@robota-sdk/dag-node": "workspace:*",
+    "@robota-sdk/dag-node-instant-node": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.19.21",
