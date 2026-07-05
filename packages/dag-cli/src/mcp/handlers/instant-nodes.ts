@@ -48,7 +48,7 @@ async function saveInstantNodeToDisk(
  * instant nodes registered before OR after are visible at run time (Finding C). Shared by
  * create-time and reload.
  */
-export function buildCompositeRunner(liveDefs: IDagNodeDefinition[]): ICompositeSubRunner {
+function buildCompositeRunner(liveDefs: IDagNodeDefinition[]): ICompositeSubRunner {
   return {
     async run(dag, input) {
       const subRunner = new LocalDagRunner([...createCliNodeRegistry(), ...liveDefs]);
