@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/dag-node-skill",
-  "version": "3.0.0-beta.61",
+  "version": "3.0.0-beta.62",
   "private": true,
   "description": "DAG skill node for Robota — resolve a Robota skill to its inject-mode prompt as a DAG step",
   "type": "module",

@@ -127,7 +127,11 @@
     "@robota-sdk/dag-runtime": "3.0.0-beta.60",
     "@robota-sdk/dag-scheduler": "3.0.0-beta.60",
     "@robota-sdk/dag-worker": "3.0.0-beta.60",
-    "robota-scratch": "0.0.0"
+    "robota-scratch": "0.0.0",
+    "@robota-sdk/dag-node-seedance-video": "3.0.0-beta.61",
+    "@robota-sdk/dag-node-skill": "3.0.0-beta.61",
+    "@robota-sdk/dag-node-text-to-image": "3.0.0-beta.61",
+    "@robota-sdk/dag-node-tool": "3.0.0-beta.61"
   },
   "changesets": [
     "add-cli-provider-usage-visibility",
@@ -162,6 +166,7 @@
     "fix-context-capacity-guard",
     "fix-context-list-system-files",
     "fix-edit-diff-summary",
+    "fix-streaming-token-usage",
     "ink-7-cjk-tui-followups",
     "memory-command-driven-orchestration",
     "paste-cursor-fixes",

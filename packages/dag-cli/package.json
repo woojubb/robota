@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/dag-cli",
-  "version": "3.0.0-beta.61",
+  "version": "3.0.0-beta.62",
   "private": true,
   "description": "DAG for AI agents — build and run AI pipelines via MCP or CLI",
   "type": "module",
