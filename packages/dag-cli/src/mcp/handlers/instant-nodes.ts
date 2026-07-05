@@ -11,29 +11,70 @@ import {
   type ICreateCompositeNodeInput,
   type ICompositeSubRunner,
   type TInstantNodeProvider,
+  type IPersistableInstantNode,
+  type TPersistedInstantNode,
 } from '@robota-sdk/dag-node-instant-node';
 import { LocalDagRunner, createCliNodeRegistry } from '../../local-runner/index.js';
 import type { ILocalMcpServerContext } from '../context.js';
 import { makeTextResult, makeErrorResult, safeParseJson } from '../utils.js';
 
+/** Narrow an arbitrary node definition to one that can serialize itself for reload. */
+function asPersistable(nodeDef: IDagNodeDefinition): IPersistableInstantNode | undefined {
+  return typeof (nodeDef as Partial<IPersistableInstantNode>).toPersisted === 'function'
+    ? (nodeDef as unknown as IPersistableInstantNode)
+    : undefined;
+}
+
+/**
+ * Persist an instant node from its own serializable view (BEHAVIOR-006). Works for prompt AND
+ * composite nodes at every call site — the node owns its persisted data; the composite `runner`
+ * is behavioral and is rebuilt on reload, never serialized.
+ */
 async function saveInstantNodeToDisk(
   nodeDef: IDagNodeDefinition,
-  taskCode: string | null,
   ctx: ILocalMcpServerContext,
 ): Promise<void> {
+  const persistable = asPersistable(nodeDef);
+  if (!persistable) return;
   const nodesDir = join(ctx.options.projectDir ?? process.cwd(), '.dag', 'nodes');
   await mkdir(nodesDir, { recursive: true });
-  const record = {
-    nodeType: nodeDef.nodeType,
-    displayName: nodeDef.displayName ?? nodeDef.nodeType,
-    category: nodeDef.category ?? 'Instant',
-    createdAt: new Date().toISOString(),
-    inputs: nodeDef.inputs ?? [],
-    outputs: nodeDef.outputs ?? [],
-    taskCode: taskCode ?? null,
-  };
+  const record = { ...persistable.toPersisted(), createdAt: new Date().toISOString() };
   const filePath = join(nodesDir, `${nodeDef.nodeType}.instant-node.json`);
   await writeFile(filePath, JSON.stringify(record, null, 2), 'utf-8');
+}
+
+/**
+ * Build a composite sub-runner that closes over the **live** definitions array so nested/other
+ * instant nodes registered before OR after are visible at run time (Finding C). Shared by
+ * create-time and reload.
+ */
+export function buildCompositeRunner(liveDefs: IDagNodeDefinition[]): ICompositeSubRunner {
+  return {
+    async run(dag, input) {
+      const subRunner = new LocalDagRunner([...createCliNodeRegistry(), ...liveDefs]);
+      try {
+        // allow-fallback: inner DAG errors are returned as structured result
+        const subResult = await subRunner.run(dag, input);
+        const outputs: Record<string, import('@robota-sdk/dag-core').TPortPayload> = {};
+        for (const tr of subResult.taskRuns) {
+          if (tr.outputSnapshot) {
+            const parsed = safeParseJson(tr.outputSnapshot);
+            if (typeof parsed === 'object' && parsed !== null) {
+              outputs[tr.nodeId] = parsed as import('@robota-sdk/dag-core').TPortPayload;
+            }
+          }
+        }
+        return { ok: subResult.dagRun.status === 'success', outputs };
+      } catch (err) {
+        // allow-fallback: inner DAG errors are returned as structured result
+        return {
+          ok: false,
+          outputs: {},
+          error: err instanceof Error ? err.message : 'Inner DAG run failed',
+        };
+      }
+    },
+  };
 }
 
 export async function handleDagInstantNodeCreate(
@@ -120,7 +161,7 @@ export async function handleDagInstantNodeCreate(
   const nodeDef = createPromptBackedNodeDefinition(spec);
   ctx.invalidateNodeCache();
   ctx.instantNodeDefinitions.push(nodeDef);
-  await saveInstantNodeToDisk(nodeDef, systemPromptTemplate.trim(), ctx);
+  await saveInstantNodeToDisk(nodeDef, ctx);
 
   const manifests = ctx.getManifests();
   const manifest = manifests.find((m) => m.nodeType === spec.nodeType);
@@ -177,36 +218,7 @@ export async function handleDagInstantNodeCreateComposite(
     );
   }
 
-  const capturedInstantNodeDefinitions = ctx.instantNodeDefinitions;
-  const runner: ICompositeSubRunner = {
-    async run(dag, input) {
-      const subRunner = new LocalDagRunner([
-        ...createCliNodeRegistry(),
-        ...capturedInstantNodeDefinitions,
-      ]);
-      try {
-        // allow-fallback: inner DAG errors are returned as structured result
-        const subResult = await subRunner.run(dag, input);
-        const outputs: Record<string, import('@robota-sdk/dag-core').TPortPayload> = {};
-        for (const tr of subResult.taskRuns) {
-          if (tr.outputSnapshot) {
-            const parsed = safeParseJson(tr.outputSnapshot);
-            if (typeof parsed === 'object' && parsed !== null) {
-              outputs[tr.nodeId] = parsed as import('@robota-sdk/dag-core').TPortPayload;
-            }
-          }
-        }
-        return { ok: subResult.dagRun.status === 'success', outputs };
-      } catch (err) {
-        // allow-fallback: inner DAG errors are returned as structured result
-        return {
-          ok: false,
-          outputs: {},
-          error: err instanceof Error ? err.message : 'Inner DAG run failed',
-        };
-      }
-    },
-  };
+  const runner = buildCompositeRunner(ctx.instantNodeDefinitions);
 
   const spec: ICreateCompositeNodeInput = {
     nodeType: nodeType.trim(),
@@ -220,7 +232,7 @@ export async function handleDagInstantNodeCreateComposite(
   const nodeDef = createCompositeInstantNodeDefinition(spec);
   ctx.invalidateNodeCache();
   ctx.instantNodeDefinitions.push(nodeDef);
-  await saveInstantNodeToDisk(nodeDef, null, ctx);
+  await saveInstantNodeToDisk(nodeDef, ctx);
 
   const manifests = ctx.getManifests();
   const manifest = manifests.find((m) => m.nodeType === spec.nodeType);
@@ -260,7 +272,7 @@ export async function handleInstantNodeSave(
       content: [{ type: 'text', text: `Error: instant node "${nodeType}" not found in memory.` }],
     };
   }
-  await saveInstantNodeToDisk(nodeDef, null, ctx);
+  await saveInstantNodeToDisk(nodeDef, ctx);
   return {
     content: [
       {
@@ -271,68 +283,138 @@ export async function handleInstantNodeSave(
   };
 }
 
+function toRecordObject(value: unknown): Record<string, unknown> | null {
+  return typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : null;
+}
+
+function parsePortKeys(value: unknown): Array<{ key: string; description?: string }> | null {
+  if (!Array.isArray(value)) return null;
+  const ports = value
+    .map((p) => toRecordObject(p))
+    .filter((p): p is Record<string, unknown> => p !== null && typeof p['key'] === 'string')
+    .map((p) => ({ key: p['key'] as string }));
+  return ports.length > 0 ? ports : null;
+}
+
 /**
- * Load saved instant nodes from `.dag/nodes/*.instant-node.json` and reconstruct
- * them as IDagNodeDefinition using createPromptBackedNodeDefinition.
- * Composite nodes (taskCode === null) cannot be reconstructed and are skipped.
+ * Parse an on-disk record into a discriminated persisted node (BEHAVIOR-006), with back-compat for
+ * pre-fix files (no `kind`): a string `taskCode` → prompt; `taskCode:null` + `innerDag` → composite;
+ * a `taskCode:null` with no `innerDag` (old composite) is unrecoverable → null (skipped).
  */
-export async function loadSavedInstantNodes(projectDir: string): Promise<IDagNodeDefinition[]> {
+function parsePersistedRecord(raw: unknown): TPersistedInstantNode | null {
+  const r = toRecordObject(raw);
+  if (!r || typeof r['nodeType'] !== 'string') return null;
+  const nodeType = r['nodeType'];
+  const displayName = typeof r['displayName'] === 'string' ? r['displayName'] : nodeType;
+  const kind = r['kind'];
+
+  const isComposite =
+    kind === 'composite' ||
+    (kind === undefined && r['taskCode'] === null && toRecordObject(r['innerDag']) !== null);
+  if (isComposite) {
+    const innerDag = toRecordObject(r['innerDag']);
+    const exposedInputPort = toRecordObject(r['exposedInputPort']);
+    if (
+      !innerDag ||
+      !exposedInputPort ||
+      typeof exposedInputPort['key'] !== 'string' ||
+      !Array.isArray(r['exposedOutputPorts']) ||
+      r['exposedOutputPorts'].length === 0
+    ) {
+      return null;
+    }
+    return {
+      kind: 'composite',
+      nodeType,
+      displayName,
+      innerDag: innerDag as unknown as import('@robota-sdk/dag-core').IDagDefinition,
+      exposedInputPort:
+        exposedInputPort as unknown as ICreateCompositeNodeInput['exposedInputPort'],
+      exposedOutputPorts: r[
+        'exposedOutputPorts'
+      ] as unknown as ICreateCompositeNodeInput['exposedOutputPorts'],
+      ...(typeof r['maxDepth'] === 'number' ? { maxDepth: r['maxDepth'] } : {}),
+    };
+  }
+
+  // prompt — new (`kind:'prompt'` + `systemPromptTemplate`) or legacy (`taskCode` string).
+  const template = kind === 'prompt' ? r['systemPromptTemplate'] : r['taskCode'];
+  if (typeof template !== 'string') return null;
+  const inputPorts = parsePortKeys(r['inputPorts']) ??
+    parsePortKeys(r['inputs']) ?? [{ key: 'text' }];
+  const outputPorts =
+    parsePortKeys(r['outputPort'] !== undefined ? [r['outputPort']] : undefined) ??
+    parsePortKeys(r['outputs']);
+  return {
+    kind: 'prompt',
+    nodeType,
+    displayName,
+    systemPromptTemplate: template,
+    inputPorts,
+    outputPort: outputPorts ? { key: outputPorts[0].key } : { key: 'text' },
+    ...(typeof r['provider'] === 'string'
+      ? { provider: r['provider'] as TInstantNodeProvider }
+      : {}),
+    ...(typeof r['model'] === 'string' ? { model: r['model'] } : {}),
+  };
+}
+
+function reconstructInstantNode(
+  record: TPersistedInstantNode,
+  liveDefs: IDagNodeDefinition[],
+): IDagNodeDefinition {
+  if (record.kind === 'composite') {
+    return createCompositeInstantNodeDefinition({
+      nodeType: record.nodeType,
+      displayName: record.displayName,
+      innerDag: record.innerDag,
+      exposedInputPort: record.exposedInputPort,
+      exposedOutputPorts: record.exposedOutputPorts,
+      runner: buildCompositeRunner(liveDefs),
+      ...(record.maxDepth !== undefined ? { maxDepth: record.maxDepth } : {}),
+    });
+  }
+  return createPromptBackedNodeDefinition({
+    nodeType: record.nodeType,
+    displayName: record.displayName,
+    systemPromptTemplate: record.systemPromptTemplate,
+    inputPorts: record.inputPorts,
+    outputPort: record.outputPort,
+    ...(record.provider !== undefined ? { provider: record.provider } : {}),
+    ...(record.model !== undefined ? { model: record.model } : {}),
+  });
+}
+
+/**
+ * Load saved instant nodes from `.dag/nodes/*.instant-node.json` and reconstruct them (prompt AND
+ * composite — BEHAVIOR-006) into `liveDefs`, skipping already-registered/malformed records. Composite
+ * runners close over `liveDefs` so nested instant nodes resolve regardless of load order.
+ */
+export async function loadSavedInstantNodes(
+  projectDir: string,
+  liveDefs: IDagNodeDefinition[],
+): Promise<void> {
   const nodesDir = join(projectDir, '.dag', 'nodes');
   let files: string[];
   try {
     files = await readdir(nodesDir);
-  } catch (_err) {
-    // allow-fallback: .dag/nodes/ may not exist; return empty
-    return [];
+  } catch {
+    // allow-fallback: .dag/nodes/ may not exist yet
+    return;
   }
-  const definitions: IDagNodeDefinition[] = [];
   for (const file of files.filter((f) => f.endsWith('.instant-node.json'))) {
-    let raw: string;
     try {
-      raw = await readFile(join(nodesDir, file), 'utf-8');
-    } catch (_err) {
-      // allow-fallback: unreadable file skipped
-      continue;
-    }
-    let record: unknown;
-    try {
-      record = JSON.parse(raw);
-    } catch (_err) {
-      // allow-fallback: unparseable JSON skipped
-      continue;
-    }
-    if (
-      typeof record !== 'object' ||
-      record === null ||
-      typeof (record as Record<string, unknown>)['nodeType'] !== 'string' ||
-      typeof (record as Record<string, unknown>)['taskCode'] !== 'string'
-    ) {
-      continue; // composite nodes (taskCode === null) cannot be reconstructed
-    }
-    const r = record as Record<string, unknown>;
-    try {
-      // allow-fallback: malformed spec causes skip
-      const spec: ICreatePromptNodeInput = {
-        nodeType: r['nodeType'] as string,
-        displayName:
-          typeof r['displayName'] === 'string' ? r['displayName'] : (r['nodeType'] as string),
-        systemPromptTemplate: r['taskCode'] as string,
-        inputPorts:
-          Array.isArray(r['inputs']) && (r['inputs'] as unknown[]).length > 0
-            ? (r['inputs'] as Array<{ key: string }>).map((p) => ({ key: p.key }))
-            : [{ key: 'text' }],
-        outputPort:
-          Array.isArray(r['outputs']) && (r['outputs'] as unknown[]).length > 0
-            ? { key: (r['outputs'] as Array<{ key: string }>)[0].key }
-            : { key: 'text' },
-      };
-      definitions.push(createPromptBackedNodeDefinition(spec));
-    } catch (_err) {
-      // allow-fallback: construction failure causes skip
+      const record = parsePersistedRecord(
+        JSON.parse(await readFile(join(nodesDir, file), 'utf-8')),
+      );
+      if (!record) continue;
+      if (liveDefs.some((n) => n.nodeType === record.nodeType)) continue;
+      liveDefs.push(reconstructInstantNode(record, liveDefs));
+    } catch {
+      // allow-fallback: unreadable/unparseable/unconstructable record skipped
       continue;
     }
   }
-  return definitions;
 }
 
 export async function handleInstantNodeListSaved(

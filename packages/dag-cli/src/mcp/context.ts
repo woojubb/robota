@@ -1,13 +1,8 @@
 /** ILocalMcpServerContext: shared mutable state and accessors for MCP tool handlers. */
 
-import { readdir, readFile } from 'node:fs/promises';
-import { join } from 'node:path';
 import type { IDagNodeDefinition, INodeManifest } from '@robota-sdk/dag-core';
-import {
-  createPromptBackedNodeDefinition,
-  type ICreatePromptNodeInput,
-} from '@robota-sdk/dag-node-instant-node';
 import { createCliNodeRegistry } from '../local-runner/index.js';
+import { loadSavedInstantNodes } from './handlers/instant-nodes.js';
 import type { IMcpCommandOptions, IRunRecord } from './types.js';
 import { buildManifests } from './utils.js';
 import { getRunStore } from '../run-store.js';
@@ -41,52 +36,11 @@ export function createMcpServerContext(options: IMcpCommandOptions): ILocalMcpSe
   // Ephemeral instant node registry — cleared on process restart
   const instantNodeDefinitions: IDagNodeDefinition[] = [];
 
-  // Load persisted instant nodes on startup using createPromptBackedNodeDefinition (non-blocking)
+  // Load persisted instant nodes (prompt AND composite — BEHAVIOR-006) on startup via the single
+  // shared loader (non-blocking). Composite runners close over `instantNodeDefinitions`.
   async function loadPersistedInstantNodes(): Promise<void> {
-    const nodesDir = join(options.projectDir ?? process.cwd(), '.dag', 'nodes');
-    let files: string[];
-    try {
-      files = await readdir(nodesDir);
-    } catch {
-      // allow-fallback: .dag/nodes/ doesn't exist yet; no nodes to load
-      return;
-    }
-    for (const file of files.filter((f) => f.endsWith('.instant-node.json'))) {
-      try {
-        const raw = await readFile(join(nodesDir, file), 'utf-8');
-        const record = JSON.parse(raw) as Record<string, unknown>;
-
-        // Skip composite nodes (taskCode === null) — cannot be reconstructed without inner DAG runner
-        if (typeof record['taskCode'] !== 'string') continue;
-        // Skip if nodeType is missing
-        if (typeof record['nodeType'] !== 'string') continue;
-
-        // Skip if nodeType already registered (session-created nodes take priority)
-        if (instantNodeDefinitions.some((n) => n.nodeType === record['nodeType'])) continue;
-
-        const spec: ICreatePromptNodeInput = {
-          nodeType: record['nodeType'] as string,
-          displayName:
-            typeof record['displayName'] === 'string'
-              ? record['displayName']
-              : (record['nodeType'] as string),
-          systemPromptTemplate: record['taskCode'] as string,
-          inputPorts:
-            Array.isArray(record['inputs']) && (record['inputs'] as unknown[]).length > 0
-              ? (record['inputs'] as Array<{ key: string }>).map((p) => ({ key: p.key }))
-              : [{ key: 'text' }],
-          outputPort:
-            Array.isArray(record['outputs']) && (record['outputs'] as unknown[]).length > 0
-              ? { key: (record['outputs'] as Array<{ key: string }>)[0].key }
-              : { key: 'text' },
-        };
-        const nodeDef: IDagNodeDefinition = createPromptBackedNodeDefinition(spec);
-        instantNodeDefinitions.push(nodeDef);
-      } catch {
-        // allow-fallback: individual unreadable/malformed file is skipped
-        continue;
-      }
-    }
+    await loadSavedInstantNodes(options.projectDir ?? process.cwd(), instantNodeDefinitions);
+    invalidateNodeCache();
   }
 
   void loadPersistedInstantNodes();
