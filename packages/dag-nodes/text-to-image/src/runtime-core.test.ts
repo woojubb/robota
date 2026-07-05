@@ -3,19 +3,25 @@ import type { IImageGenerationResult, TProviderMediaResult } from '@robota-sdk/a
 import { TextToImageRuntime } from './runtime-core.js';
 import { GoogleProvider } from '@robota-sdk/agent-provider/google';
 
-// A shared generateImage mock so every constructed GoogleProvider instance uses the
-// same fn — lets us set the return value before the runtime constructs the provider.
-const { sharedGenerateImage } = vi.hoisted(() => ({ sharedGenerateImage: vi.fn() }));
+// A shared generateImage mock so every constructed GoogleProvider instance uses the same fn —
+// lets us set the return value before the runtime constructs the provider. The factory lives in
+// vi.hoisted so the vi.mock() call stays a single line (keeps the allow-module-mock escape attached).
+const { sharedGenerateImage, googleMockFactory } = vi.hoisted(() => {
+  const sharedGenerateImage = vi.fn();
+  const googleMockFactory = (): { GoogleProvider: unknown } => ({
+    GoogleProvider: vi
+      .fn()
+      .mockImplementation((options: { apiKey: string; imageCapableModels: string[] }) => ({
+        _apiKey: options.apiKey,
+        _imageCapableModels: options.imageCapableModels,
+        generateImage: sharedGenerateImage,
+      })),
+  });
+  return { sharedGenerateImage, googleMockFactory };
+});
 
-vi.mock('@robota-sdk/agent-provider/google', () => ({
-  GoogleProvider: vi
-    .fn()
-    .mockImplementation((options: { apiKey: string; imageCapableModels: string[] }) => ({
-      _apiKey: options.apiKey,
-      _imageCapableModels: options.imageCapableModels,
-      generateImage: sharedGenerateImage,
-    })),
-}));
+// Full replacement avoids loading the @google/genai SDK; only ctor + generateImage are exercised.
+vi.mock('@robota-sdk/agent-provider/google', googleMockFactory); // allow-module-mock: GoogleProvider hits the real Gemini API
 
 const TEST_MODEL = 'test-image-model';
 
