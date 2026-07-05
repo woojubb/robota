@@ -1,5 +1,3 @@
-import { mkdir, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
 import type {
   IDagDefinition,
   IDagEdgeDefinition,
@@ -11,9 +9,8 @@ import type { IDagCliIo } from '../types.js';
 import { FAILURE_EXIT_CODE, SUCCESS_EXIT_CODE, USAGE_ERROR_EXIT_CODE } from '../types.js';
 import { createCliNodeRegistry } from '../local-runner/index.js';
 import { parsePipelineSpec } from '../pipeline-parser.js';
-import { DEFAULT_CATALOG_DIR } from '../catalog/catalog-scanner.js';
+import { saveWorkflow } from '../local-runner/persistence/store.js';
 
-const JSON_INDENT_SPACES = 2;
 const NODE_X_SPACING = 300;
 
 const SAVE_HELP = `Usage: dag save --pipeline "<spec>" --name <name> [--node-config <nodeId.key=value>]
@@ -277,22 +274,11 @@ export async function saveCommand(
 
   const definition = applyNodeConfigs(buildResult.definition, nodeConfigs, io);
 
-  const workflowsDir = DEFAULT_CATALOG_DIR;
+  let outputPath: string;
   try {
-    await mkdir(workflowsDir, { recursive: true });
-  } catch (mkdirErr) {
-    // allow-fallback: directory creation failure reported as structured error
-    const msg = mkdirErr instanceof Error ? mkdirErr.message : String(mkdirErr);
-    io.write(`Error: Failed to create workflows directory: ${msg}\n`);
-    return FAILURE_EXIT_CODE;
-  }
-
-  const outputPath = join(workflowsDir, `${name}.dag.json`);
-  const dagJson = JSON.stringify(definition, null, JSON_INDENT_SPACES);
-  try {
-    await writeFile(outputPath, dagJson + '\n', 'utf8');
+    outputPath = await saveWorkflow(name, definition, process.cwd());
   } catch (writeErr) {
-    // allow-fallback: file write failure reported as structured error and non-zero exit
+    // allow-fallback: directory/file write failure reported as structured error and non-zero exit
     const msg = writeErr instanceof Error ? writeErr.message : String(writeErr);
     io.write(`Error: Failed to write workflow file: ${msg}\n`);
     return FAILURE_EXIT_CODE;

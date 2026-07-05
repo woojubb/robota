@@ -1068,9 +1068,9 @@ describe('BEHAVIOR-006: composite instant node save → reload', () => {
     const { loadSavedInstantNodes } = await import('../mcp/handlers/instant-nodes.js');
     const fs = await import('node:fs/promises');
     const record = { kind: 'composite', ...VALID_COMPOSITE };
-    vi.mocked(fs.readdir).mockResolvedValueOnce([
-      'my-composite.instant-node.json',
-    ] as unknown as Awaited<ReturnType<typeof fs.readdir>>);
+    vi.mocked(fs.readdir).mockResolvedValueOnce(['my-composite.node.json'] as unknown as Awaited<
+      ReturnType<typeof fs.readdir>
+    >);
     vi.mocked(fs.readFile).mockResolvedValueOnce(JSON.stringify(record));
 
     const liveDefs: ILocalMcpServerContext['instantNodeDefinitions'] = [];
@@ -1087,40 +1087,41 @@ describe('BEHAVIOR-006: composite instant node save → reload', () => {
     const written = await lastWrittenRecord();
 
     // Simulate restart: a fresh registry reloads from the exact written record.
-    vi.mocked(fs.readdir).mockResolvedValueOnce([
-      'my-composite.instant-node.json',
-    ] as unknown as Awaited<ReturnType<typeof fs.readdir>>);
+    vi.mocked(fs.readdir).mockResolvedValueOnce(['my-composite.node.json'] as unknown as Awaited<
+      ReturnType<typeof fs.readdir>
+    >);
     vi.mocked(fs.readFile).mockResolvedValueOnce(JSON.stringify(written));
     const reloaded: ILocalMcpServerContext['instantNodeDefinitions'] = [];
     await loadSavedInstantNodes('/proj', reloaded);
     expect(reloaded.some((n) => n.nodeType === written['nodeType'])).toBe(true);
   });
 
-  it('back-compat: legacy prompt reloads; a composite with no innerDag is skipped (TC-04)', async () => {
+  it('reloads a valid prompt manifest; an unrecoverable record is skipped (TC-04)', async () => {
     const { loadSavedInstantNodes } = await import('../mcp/handlers/instant-nodes.js');
     const fs = await import('node:fs/promises');
     vi.mocked(fs.readdir).mockResolvedValueOnce([
-      'legacy-prompt.instant-node.json',
-      'old-composite.instant-node.json',
+      'good-prompt.node.json',
+      'bad-composite.node.json',
     ] as unknown as Awaited<ReturnType<typeof fs.readdir>>);
     vi.mocked(fs.readFile)
       .mockResolvedValueOnce(
         JSON.stringify({
-          nodeType: 'legacy-prompt',
-          displayName: 'Legacy',
-          taskCode: 'Say hi to {{text}}',
-          inputs: [{ key: 'text' }],
-          outputs: [{ key: 'text' }],
+          kind: 'prompt',
+          nodeType: 'good-prompt',
+          displayName: 'Good',
+          systemPromptTemplate: 'Say hi to {{text}}',
+          inputPorts: [{ key: 'text' }],
+          outputPort: { key: 'text' },
         }),
       )
       .mockResolvedValueOnce(
-        JSON.stringify({ nodeType: 'old-composite', displayName: 'Old', taskCode: null }),
+        JSON.stringify({ kind: 'composite', nodeType: 'bad-composite', displayName: 'Bad' }),
       );
 
     const defs: ILocalMcpServerContext['instantNodeDefinitions'] = [];
     await loadSavedInstantNodes('/proj', defs);
-    expect(defs.map((n) => n.nodeType)).toContain('legacy-prompt');
-    expect(defs.map((n) => n.nodeType)).not.toContain('old-composite');
+    expect(defs.map((n) => n.nodeType)).toContain('good-prompt');
+    expect(defs.map((n) => n.nodeType)).not.toContain('bad-composite');
   });
 });
 
@@ -1138,24 +1139,22 @@ describe('handleInstantNodeListSaved', () => {
     const { handleInstantNodeListSaved } = await import('../mcp/handlers/instant-nodes.js');
     const ctx = makeContext();
     const result = await handleInstantNodeListSaved({}, ctx);
-    expect(getText(result.content, 0)).toContain('No saved instant nodes');
+    expect(getText(result.content, 0)).toContain('No saved nodes');
   });
 
-  it('returns empty message when dir exists but no instant-node files', async () => {
+  it('returns empty message when dir exists but no node manifest files', async () => {
     const fsModule = await import('node:fs/promises');
     vi.mocked(fsModule.readdir).mockResolvedValueOnce(['other-file.json'] as unknown as never);
 
     const { handleInstantNodeListSaved } = await import('../mcp/handlers/instant-nodes.js');
     const ctx = makeContext();
     const result = await handleInstantNodeListSaved({}, ctx);
-    expect(getText(result.content, 0)).toContain('No saved instant nodes');
+    expect(getText(result.content, 0)).toContain('No saved nodes');
   });
 
-  it('returns list of saved instant nodes', async () => {
+  it('returns list of saved nodes', async () => {
     const fsModule = await import('node:fs/promises');
-    vi.mocked(fsModule.readdir).mockResolvedValueOnce([
-      'my-node.instant-node.json',
-    ] as unknown as never);
+    vi.mocked(fsModule.readdir).mockResolvedValueOnce(['my-node.node.json'] as unknown as never);
     vi.mocked(fsModule.readFile).mockResolvedValueOnce(
       JSON.stringify({
         nodeType: 'my-node',

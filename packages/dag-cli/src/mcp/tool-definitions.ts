@@ -335,7 +335,7 @@ export const TOOL_DEFINITIONS = [
   {
     name: 'dag_instant_node_save',
     description:
-      'Persist an in-memory instant node to disk as .dag/nodes/<nodeType>.instant-node.json so it is automatically restored on the next MCP server startup.',
+      'Persist an in-memory instant node to disk as .dag/nodes/<nodeType>.node.json so it is automatically restored on the next MCP server startup.',
     inputSchema: {
       type: 'object',
       properties: {
