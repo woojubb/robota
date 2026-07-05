@@ -11,7 +11,7 @@ import { createWorkflowsCommandModule } from '../workflows-command-module.js';
 
 import type { ICommandHostContext, ISystemCommand } from '@robota-sdk/agent-framework';
 
-const FAKE_CONTEXT = {} as ICommandHostContext;
+const FAKE_CONTEXT = { getCwd: () => process.cwd() } as unknown as ICommandHostContext;
 
 function workflowsCommand(): ISystemCommand {
   const cmd = createWorkflowsCommandModule().systemCommands?.[0];
@@ -27,16 +27,24 @@ async function knownNodeType(): Promise<string> {
 }
 
 describe('workflows command module', () => {
-  it('exposes a slash-free `workflows` command with list/catalog/validate/run subcommands', () => {
+  it('exposes a slash-free `workflows` command with create/list/catalog/validate/run subcommands', () => {
     const mod = createWorkflowsCommandModule();
     expect(mod.name).toBe('agent-command-workflows');
     const cmd = workflowsCommand();
     expect(cmd.name).toBe('workflows'); // canonical name has no leading slash
     const subs = (cmd.subcommands ?? []).map((s) => s.name);
+    expect(subs).toContain('create');
     expect(subs).toContain('list');
     expect(subs).toContain('catalog');
     expect(subs).toContain('validate');
     expect(subs).toContain('run');
+  });
+
+  it('is model-invocable so the agent can author + run a workflow from chat (FLOW-007 Phase 4)', () => {
+    const cmd = workflowsCommand();
+    expect(cmd.modelInvocable).toBe(true);
+    const create = (cmd.subcommands ?? []).find((s) => s.name === 'create');
+    expect(create?.modelInvocable).toBe(true);
   });
 
   it('dispatches `list` to the in-process node catalog', async () => {
