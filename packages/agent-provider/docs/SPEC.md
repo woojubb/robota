@@ -142,6 +142,28 @@ Responses):
 | Anthropic                                                    | `tool_choice`: `{ type: 'auto' }` / `{ type: 'none' }` / `{ type: 'any' }` (required) / `{ type: 'tool', name }`    |
 | Gemini (Google inherits)                                     | `toolConfig.functionCallingConfig`: mode `AUTO` / `NONE` / `ANY` (required); named = `ANY` + `allowedFunctionNames` |
 
+## Streaming Token Usage
+
+OpenAI-compatible surfaces (openai, openai-compatible, qwen, deepseek, gemma) request token
+usage on streaming turns and expose it on the assembled assistant message so that the
+streaming path carries the **same** usage contract as the non-streaming path.
+
+- **Request.** Streaming requests (both the `onTextDelta` assembly path and the `chatStream`
+  generator) include `stream_options: { include_usage: true }`. It is only sent on streaming
+  requests — never on the non-streaming `create`. Endpoints emit a final chunk (with
+  `choices: []`) carrying `usage` only when this is present.
+- **Assembly.** The shared stream assembler
+  (`shared/openai-compatible/stream-assembler.ts`) captures that final-chunk `usage` (including
+  the empty-`choices` chunk) and attaches a top-level
+  `usage: { promptTokens, completionTokens, totalTokens }` to the assembled `TUniversalMessage`
+  — byte-for-byte the shape the non-streaming `response-parser.ts` `parseUsage` produces. The
+  `chatStream` generator attaches the same shape via `parseStreamingChunk`. Consumers
+  (`readTokenUsageFromMessage`, `collectAssistantUsageMetadata` in agent-core) read it unchanged.
+  When a provider sends no usage, the field is simply absent (treated as "no usage", as before).
+- **Opt-out.** `IOpenAIProviderOptions.includeStreamUsage?: boolean` (default `true`) disables
+  sending `stream_options` for OpenAI-compatible endpoints that reject it; usage is then absent
+  on streaming turns for that provider.
+
 ## Dependencies
 
 | Package                  | Role                                                                  |

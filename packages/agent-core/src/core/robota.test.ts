@@ -79,6 +79,41 @@ class SecondProvider extends AbstractAIProvider {
   }
 }
 
+// A provider whose stream ends with a usage-bearing chunk (stream_options.include_usage parity)
+class UsageStreamProvider extends AbstractAIProvider {
+  readonly name = 'usage-stream-provider';
+  readonly version = '1.0.0';
+
+  async chat(messages: TUniversalMessage[]): Promise<TUniversalMessage> {
+    return {
+      id: 'x',
+      role: 'assistant',
+      content: `Response to: ${messages[messages.length - 1]?.content ?? ''}`,
+      state: 'complete' as const,
+      timestamp: new Date(),
+    };
+  }
+
+  override async *chatStream(): AsyncIterable<TUniversalMessage> {
+    yield {
+      id: 'c1',
+      role: 'assistant',
+      content: 'Hi',
+      state: 'complete' as const,
+      timestamp: new Date(),
+    };
+    // Final usage chunk: empty content, carries top-level provider usage.
+    yield {
+      id: 'c2',
+      role: 'assistant',
+      content: '',
+      state: 'complete' as const,
+      timestamp: new Date(),
+      usage: { promptTokens: 123, completionTokens: 45, totalTokens: 168 },
+    } as TUniversalMessage;
+  }
+}
+
 // Mock Tool with schema and execution tracking
 class TrackingTool extends AbstractTool {
   executionCount = 0;
@@ -1098,6 +1133,30 @@ describe('Robota Core', () => {
       }
 
       expect(chunks.length).toBeGreaterThan(0);
+    });
+
+    it('exposes token usage on the committed assistant message from the final usage chunk', async () => {
+      const robota = new Robota(
+        createConfig({
+          aiProviders: [new UsageStreamProvider()],
+          defaultModel: { provider: 'usage-stream-provider', model: 'm' },
+        }),
+      );
+
+      for await (const _chunk of robota.runStream('hi')) {
+        // drain the stream
+      }
+
+      const history = robota.getHistory();
+      const last = history[history.length - 1];
+      expect(last?.role).toBe('assistant');
+      expect(last?.metadata?.['inputTokens']).toBe(123);
+      expect(last?.metadata?.['outputTokens']).toBe(45);
+      expect(last?.metadata?.['usage']).toEqual({
+        totalTokens: 168,
+        inputTokens: 123,
+        outputTokens: 45,
+      });
     });
   });
 

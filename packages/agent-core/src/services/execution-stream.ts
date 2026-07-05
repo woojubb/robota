@@ -1,5 +1,6 @@
 import { assertToolChoiceValid, buildChatResponseFormat } from './execution-service-helpers';
 import { executeStreamToolCalls } from './execution-stream-tools';
+import { collectAssistantUsageMetadata } from './execution-usage';
 import { callPluginHook } from './plugin-hook-dispatcher';
 import { ConfigurationError } from '../utils/errors';
 
@@ -159,8 +160,15 @@ export async function* executeStream(
     let sawAssistantContent = false;
     const toolCalls: IToolCall[] = [];
     let currentToolCallIndex = -1;
+    let usageMetadata: ReturnType<typeof collectAssistantUsageMetadata>;
 
     for await (const chunk of stream) {
+      // The final usage chunk (stream_options.include_usage) carries token usage; collect it
+      // so the committed assistant message exposes usage like the non-streaming round path.
+      const chunkUsage = collectAssistantUsageMetadata(chunk);
+      if (chunkUsage) {
+        usageMetadata = chunkUsage;
+      }
       if (typeof chunk.content === 'string') {
         sawAssistantContent = true;
       }
@@ -247,6 +255,7 @@ export async function* executeStream(
     }
     conversationStore.addAssistantMessage(fullResponse, toolCalls, {
       executionId,
+      ...(usageMetadata ?? {}),
     });
 
     if (toolCalls.length > 0) {

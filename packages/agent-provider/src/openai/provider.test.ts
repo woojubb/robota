@@ -1112,6 +1112,103 @@ describe('OpenAIProvider', () => {
       );
     });
 
+    async function* createUsageStream() {
+      yield {
+        id: 'chunk-1',
+        object: 'chat.completion.chunk',
+        created: Date.now(),
+        model: 'gpt-4',
+        choices: [{ index: 0, delta: { content: 'Hi' }, finish_reason: null, logprobs: null }],
+      };
+      yield {
+        id: 'chunk-2',
+        object: 'chat.completion.chunk',
+        created: Date.now(),
+        model: 'gpt-4',
+        choices: [{ index: 0, delta: {}, finish_reason: 'stop', logprobs: null }],
+      };
+      yield {
+        id: 'chunk-usage',
+        object: 'chat.completion.chunk',
+        created: Date.now(),
+        model: 'gpt-4',
+        choices: [],
+        usage: { prompt_tokens: 123, completion_tokens: 45, total_tokens: 168 },
+      };
+    }
+
+    function getCreateMock(provider: OpenAIProvider): ReturnType<typeof vi.fn> {
+      return (
+        provider as unknown as {
+          client: { chat: { completions: { create: ReturnType<typeof vi.fn> } } };
+        }
+      ).client.chat.completions.create;
+    }
+
+    it('sends stream_options include_usage on streaming requests', async () => {
+      const provider = new OpenAIProvider({ apiKey: 'sk-test', apiSurface: 'chat-completions' });
+      getCreateMock(provider).mockResolvedValue(createTextStream());
+
+      await provider.chat([createUserMessage('Hello')], { model: 'gpt-4', onTextDelta: () => {} });
+
+      expect(getCreateMock(provider)).toHaveBeenCalledWith(
+        expect.objectContaining({ stream: true, stream_options: { include_usage: true } }),
+        undefined,
+      );
+    });
+
+    it('omits stream_options when includeStreamUsage is false', async () => {
+      const provider = new OpenAIProvider({
+        apiKey: 'sk-test',
+        apiSurface: 'chat-completions',
+        includeStreamUsage: false,
+      });
+      getCreateMock(provider).mockResolvedValue(createTextStream());
+
+      await provider.chat([createUserMessage('Hello')], { model: 'gpt-4', onTextDelta: () => {} });
+
+      const params = getCreateMock(provider).mock.calls[0]?.[0] as Record<string, unknown>;
+      expect(params['stream']).toBe(true);
+      expect(params['stream_options']).toBeUndefined();
+    });
+
+    it('does not send stream_options on non-streaming requests', async () => {
+      const provider = new OpenAIProvider({ apiKey: 'sk-test', apiSurface: 'chat-completions' });
+      getCreateMock(provider).mockResolvedValue({
+        id: 'r',
+        object: 'chat.completion',
+        created: 0,
+        model: 'gpt-4',
+        choices: [
+          { index: 0, message: { role: 'assistant', content: 'ok' }, finish_reason: 'stop' },
+        ],
+        usage: { prompt_tokens: 1, completion_tokens: 2, total_tokens: 3 },
+      });
+
+      await provider.chat([createUserMessage('Hello')], { model: 'gpt-4' });
+
+      const params = getCreateMock(provider).mock.calls[0]?.[0] as Record<string, unknown>;
+      expect(params['stream']).toBeUndefined();
+      expect(params['stream_options']).toBeUndefined();
+    });
+
+    it('attaches usage from the final usage chunk to the assembled message', async () => {
+      const provider = new OpenAIProvider({ apiKey: 'sk-test', apiSurface: 'chat-completions' });
+      getCreateMock(provider).mockResolvedValue(createUsageStream());
+
+      const result = await provider.chat([createUserMessage('Hello')], {
+        model: 'gpt-4',
+        onTextDelta: () => {},
+      });
+
+      const usage = (
+        result as {
+          usage?: { promptTokens: number; completionTokens: number; totalTokens: number };
+        }
+      ).usage;
+      expect(usage).toEqual({ promptTokens: 123, completionTokens: 45, totalTokens: 168 });
+    });
+
     it('emits ordered native Chat Completions stream chunks', async () => {
       const provider = new OpenAIProvider({ apiKey: 'sk-test', apiSurface: 'chat-completions' });
       const client = (

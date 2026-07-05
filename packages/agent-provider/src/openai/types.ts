@@ -66,6 +66,14 @@ export interface IOpenAIProviderOptions {
   timeout?: number;
 
   /**
+   * Whether to request token usage on streaming turns via
+   * `stream_options: { include_usage: true }` (default `true`). Set `false` for
+   * OpenAI-compatible endpoints that reject `stream_options`; usage is then absent
+   * on streaming turns for this provider.
+   */
+  includeStreamUsage?: boolean;
+
+  /**
    * API base URL (default: `'https://api.openai.com/v1'`).
    *
    * Point this at ANY OpenAI-compatible endpoint — this provider is a protocol

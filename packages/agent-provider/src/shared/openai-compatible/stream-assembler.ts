@@ -14,6 +14,12 @@ interface IToolCallPart {
   arguments: string;
 }
 
+interface IStreamUsage {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+}
+
 interface IAssemblyState {
   textParts: string[];
   toolCallParts: Map<number, IToolCallPart>;
@@ -22,6 +28,7 @@ interface IAssemblyState {
   toolCallTextProjected: boolean;
   model: string;
   finishReason: string | null;
+  usage?: IStreamUsage;
 }
 
 export async function assembleOpenAICompatibleStream(
@@ -52,6 +59,16 @@ function applyChunk(
 ): void {
   if (chunk.model) {
     state.model = chunk.model;
+  }
+
+  // Usage arrives on the final chunk (choices: []) when stream_options.include_usage is set.
+  // Capture it before the empty-choices early return; non-final chunks carry usage: null.
+  if (chunk.usage) {
+    state.usage = {
+      promptTokens: chunk.usage.prompt_tokens,
+      completionTokens: chunk.usage.completion_tokens,
+      totalTokens: chunk.usage.total_tokens,
+    };
   }
 
   const choice = chunk.choices?.[0];
@@ -182,6 +199,7 @@ function buildMessage(
     state: 'complete',
     timestamp: new Date(),
     ...(toolCalls.length > 0 && { toolCalls }),
+    ...(state.usage && { usage: state.usage }),
     ...(Object.keys(resultMetadata).length > 0 && { metadata: resultMetadata }),
   };
 }

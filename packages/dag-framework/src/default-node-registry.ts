@@ -7,6 +7,7 @@ import { TextOutputNodeDefinition } from '@robota-sdk/dag-node-text-output';
 import { ImageLoaderNodeDefinition } from '@robota-sdk/dag-node-image-loader';
 import { ImageSourceNodeDefinition } from '@robota-sdk/dag-node-image-source';
 import { OkEmitterNodeDefinition } from '@robota-sdk/dag-node-ok-emitter';
+import { ToolNodeDefinition } from '@robota-sdk/dag-node-tool';
 import {
   StringToNumberNodeDefinition,
   NumberToStringNodeDefinition,
@@ -39,6 +40,8 @@ export function createDefaultNodeRegistrySync(): IDagNodeDefinition[] {
     new ImageLoaderNodeDefinition(),
     new ImageSourceNodeDefinition(),
     new OkEmitterNodeDefinition(),
+    // in-process tool node (agent-tools builtins; no optional provider SDK)
+    new ToolNodeDefinition(),
     // utility text/data nodes (tier-1)
     new StringToNumberNodeDefinition(),
     new NumberToStringNodeDefinition(),
@@ -102,6 +105,18 @@ export async function createDefaultNodeRegistry(): Promise<IDagNodeDefinition[]>
         (mod) => new (mod.GeminiImageEditNodeDefinition as new () => IDagNodeDefinition)(),
         (mod) => new (mod.GeminiImageComposeNodeDefinition as new () => IDagNodeDefinition)(),
       ],
+    },
+    {
+      modulePath: '@robota-sdk/dag-node-text-to-image',
+      factories: [(mod) => new (mod.TextToImageNodeDefinition as new () => IDagNodeDefinition)()],
+    },
+    {
+      modulePath: '@robota-sdk/dag-node-seedance-video',
+      factories: [(mod) => new (mod.SeedanceVideoNodeDefinition as new () => IDagNodeDefinition)()],
+    },
+    {
+      modulePath: '@robota-sdk/dag-node-skill',
+      factories: [(mod) => new (mod.SkillNodeDefinition as new () => IDagNodeDefinition)()],
     },
   ];
 
