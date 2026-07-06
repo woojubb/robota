@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-transport",
-  "version": "3.0.0-beta.78",
+  "version": "3.0.0-beta.79",
   "description": "Core transport package for Robota SDK — headless adapter, scripted-provider testing fixtures, and the transport registry",
   "type": "module",
   "main": "dist/node/index.js",

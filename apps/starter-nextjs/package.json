@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/starter-nextjs",
-  "version": "0.0.2-beta.10",
+  "version": "0.0.2-beta.11",
   "license": "AGPL-3.0-only OR LicenseRef-Commercial",
   "private": true,
   "description": "Robota SDK — Next.js AI Chat starter template",

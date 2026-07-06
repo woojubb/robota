@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-session-analytics",
-  "version": "3.0.0-beta.78",
+  "version": "3.0.0-beta.79",
   "description": "Session-log timing analysis and reporting for the Robota SDK (analyzeSession, aggregateReports, report formatters)",
   "type": "module",
   "main": "dist/node/index.js",

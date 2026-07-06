@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/dag-node-text-to-image",
-  "version": "3.0.0-beta.62",
+  "version": "3.0.0-beta.63",
   "private": true,
   "description": "DAG text-to-image node for Robota — generate an image from a text prompt via the Gemini image API",
   "type": "module",
