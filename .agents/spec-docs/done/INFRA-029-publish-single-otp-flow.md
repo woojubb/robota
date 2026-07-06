@@ -1,5 +1,5 @@
 ---
-status: draft
+status: done
 type: INFRA
 tags: [ci]
 ---
@@ -134,3 +134,13 @@ detection assertion + code-review of the ordering/parallelism cover the criteria
   `latest === beta === VERSION` verification is unchanged. `bash -n` clean; 45/45 harness scans. Full
   end-to-end is only provable at the next real release (per the Test Plan); the detection assertion +
   `--skip-build` trace + code review cover TC-01…TC-04 without publishing.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-07-07
+
+Implemented + merged (#1012 → #1013). TC-01/04 (version-scoped detection excludes off-version
+`agent-process`, targets exactly the 19 release packages), TC-02 (build-before-OTP preflight +
+`--skip-build`), TC-03 (parallel beta dist-tag sync; final `latest === beta === VERSION` verify intact)
+verified via the detection assertion, the `--skip-build` trace, `bash -n`, and the harness
+characterization test (78 tests, +3 new invariants), 45/45 scans. Full end-to-end is only provable at
+the next real release (per the Test Plan). Spec `draft/` → `done/`, `status: done`; task at
+`.agents/tasks/completed/INFRA-029.md`.

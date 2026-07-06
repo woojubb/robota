@@ -1,7 +1,7 @@
 # FLOW-007: natural-language workflow authoring & run via `/workflows`
 
-- **Status:** in-progress (Phases 2–4 implemented; PR pending)
-- **Spec:** `.agents/spec-docs/draft/FLOW-007-workflows-nl-authoring.md`
+- **Status:** completed (all phases shipped to main + released in 3.0.0-beta.79)
+- **Spec:** `.agents/spec-docs/done/FLOW-007-workflows-nl-authoring.md`
 - **Branch:** `feat/workflows-storage-layout` (Phase 1, merged) → `feat/workflows-nl-authoring` (Phases 2–4)
 - **Approved:** 2026-07-06 (owner "승인함")
 
