@@ -1,5 +1,5 @@
 ---
-status: draft
+status: done
 type: DATA
 tags: [typescript, json-schema]
 ---
@@ -171,3 +171,13 @@ Zod/JSON round-trip tests for the persistence symmetry, plus a consumer-refactor
   scenarios (incl. a deterministic DATA-003 reload-round-trip that stubs authoring but runs the prompt
   node against the real LLM) green; 45/45 scans; 0 lint errors. SPECs updated. dag-cli's private
   reconstruction copy remains a documented follow-up.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-07-07
+
+Implemented + merged (#1005 → #1006) and released in `3.0.0-beta.79`. TC-01 (provider runtime SSOT;
+zero duplicated arrays), TC-02 (prompt round-trip), TC-03 (composite round-trip in owner / write-reject
+in consumer — no silent orphan), TC-04 (`isPersistableInstantNode` guard replaces the `as unknown as`
+double-cast), TC-05 (consumer unit + opt-in live suites green) all verified: 7 owner round-trip tests
+(no module mocks) + 3 consumer writer tests + 28 consumer unit + a deterministic real-LLM reload
+round-trip; 45/45 scans, 0 lint errors. dag-cli's private reconstruction copy remains a documented
+follow-up. Spec `draft/` → `done/`, `status: done`; task at `.agents/tasks/completed/DATA-003.md`.
