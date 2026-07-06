@@ -116,20 +116,20 @@ Phased; each phase independently green.
 
 ## Completion Criteria
 
-- [ ] TC-01: `@robota-sdk/dag-node-instant-node` exports `INSTANT_NODE_PROVIDERS` and
+- [x] TC-01: `@robota-sdk/dag-node-instant-node` exports `INSTANT_NODE_PROVIDERS` and
       `isInstantNodeProvider`, and `TInstantNodeProvider` is derived from the const; the consumer
       literal arrays (`PROVIDER_VALUES`, `PROVIDERS`, test copy) are deleted — `rg "'anthropic', 'openai', 'gemini'"`
       returns zero source matches; typecheck + the affected suites are green.
-- [ ] TC-02: a prompt node round-trips — `createPromptBackedNodeDefinition(spec).toPersisted()` →
+- [x] TC-02: a prompt node round-trips — `createPromptBackedNodeDefinition(spec).toPersisted()` →
       `rehydrateInstantNode(record)` yields a definition with the same `nodeType`, ports, `provider`,
       and `model`; asserted by a JSON round-trip test.
-- [ ] TC-03: a **composite** instant node either round-trips (write manifest → `rehydrateInstantNode`
+- [x] TC-03: a **composite** instant node either round-trips (write manifest → `rehydrateInstantNode`
       reconstructs it with an injected runner and it is present in `loadInstantNodes` output) OR, if
       composite reload is intentionally unsupported, `saveInstantNodeFile` returns/raises a clear
       "composite not supported" error — in neither case is it silently dropped.
-- [ ] TC-04: `workspace-writer.asPersistable` uses `isPersistableInstantNode` (no `as unknown as`
+- [x] TC-04: `workspace-writer.asPersistable` uses `isPersistableInstantNode` (no `as unknown as`
       double-cast remains in the file); asserted by a type/behavior test.
-- [ ] TC-05: `agent-command-workflows` default unit suite (`vi.stubEnv` no-key path intact) and the
+- [x] TC-05: `agent-command-workflows` default unit suite (`vi.stubEnv` no-key path intact) and the
       opt-in `test:live` suite remain green after the consumer refactor.
 
 ## Test Plan
@@ -154,4 +154,20 @@ Zod/JSON round-trip tests for the persistence symmetry, plus a consumer-refactor
 - **Origin (2026-07-06).** Drafted from the `architecture-auditor` pass on the FLOW-007 authoring
   module (findings F1 provider-list-no-SSOT, F2 asymmetric prompt/composite persistence, F4
   double-cast probe). Auditor recommended these as one owner-package backlog item; captured here as
-  DATA-003. Status: draft — awaiting GATE-WRITE, then GATE-APPROVAL before implementation.
+  DATA-003.
+- **GATE-WRITE — PASS (2026-07-06).** All sections present; Problem has concrete symptoms (3 duplicated
+  provider literals; composite write-but-no-read orphan) + reproduction (`rg` the literal; persist a
+  composite → absent on reload); Architecture Review has 3 alternatives + validated Decision; checklist
+  all [x]; TC-01…TC-05 observable; one Test Plan row per TC. 45/45 harness scans pass.
+- **GATE-APPROVAL — PASS (2026-07-06).** Owner approved immediate implementation. Verbatim: **"1"**
+  (the offered option "지금 승인 → 바로 구현"). Implementation authorized.
+- **IMPLEMENTED — DONE (2026-07-06).** Owner `@robota-sdk/dag-node-instant-node` now exports
+  `INSTANT_NODE_PROVIDERS` (const, `TInstantNodeProvider` derived), `isInstantNodeProvider`,
+  `isPersistableInstantNode`, `parsePersistedInstantNode`, `rehydrateInstantNode` (both kinds;
+  composite requires an injected runner else throws) — 7 new owner tests (no module mocks). Consumer
+  `agent-command-workflows` deleted both duplicated provider arrays + the `as unknown as` double-cast
+  and delegates parse/rehydrate to the owner; `saveInstantNodeFile` refuses composites so no orphan is
+  written; `loadInstantNodes` surfaces a composite skip non-silently. 28 unit tests + 4 opt-in live
+  scenarios (incl. a deterministic DATA-003 reload-round-trip that stubs authoring but runs the prompt
+  node against the real LLM) green; 45/45 scans; 0 lint errors. SPECs updated. dag-cli's private
+  reconstruction copy remains a documented follow-up.
