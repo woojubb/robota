@@ -146,9 +146,17 @@ function toInstantProvider(value: string | undefined): TInstantNodeProvider | un
     : undefined;
 }
 
-/** Build a prompt-backed node definition from an authored `newNodes` entry. */
-function buildPromptNode(spec: IAuthoredPromptNode): IDagNodeDefinition {
-  const provider = toInstantProvider(spec.provider);
+/**
+ * Build a prompt-backed node definition from an authored `newNodes` entry. When the spec omits a
+ * provider (the common case — the LLM rarely sets one), inherit the ACTIVE provider used for
+ * authoring so the node doesn't silently hardcode-default to anthropic and fail for other providers.
+ * The chosen provider is persisted in the node manifest for a deterministic reload.
+ */
+function buildPromptNode(
+  spec: IAuthoredPromptNode,
+  fallbackProvider: TInstantNodeProvider | undefined,
+): IDagNodeDefinition {
+  const provider = toInstantProvider(spec.provider) ?? fallbackProvider;
   return createPromptBackedNodeDefinition({
     nodeType: spec.nodeType,
     displayName: spec.displayName ?? spec.nodeType,
@@ -213,12 +221,15 @@ export async function executeWorkflowsCreate(
   const providerDefinitions = deps.providerDefinitions ?? [];
   let provider: IAIProvider;
   let model = deps.model;
+  let activeProvider: TInstantNodeProvider | undefined;
   try {
     if (deps.resolveProvider) {
       provider = deps.resolveProvider(cwd);
     } else {
       provider = createProviderFromSettings(cwd, undefined, { providerDefinitions });
-      model = model ?? readProviderSettings(cwd, { providerDefinitions }).model;
+      const settings = readProviderSettings(cwd, { providerDefinitions });
+      model = model ?? settings.model;
+      activeProvider = toInstantProvider(settings.name);
     }
   } catch (err) {
     const detail =
@@ -262,7 +273,7 @@ export async function executeWorkflowsCreate(
   const existingTypes = new Set(baseNodeDefs.map((n) => n.nodeType));
   for (const nodeSpec of spec.newNodes ?? []) {
     if (existingTypes.has(nodeSpec.nodeType)) continue; // reuse existing; do not clobber
-    authoredNodes.push(buildPromptNode(nodeSpec));
+    authoredNodes.push(buildPromptNode(nodeSpec, activeProvider));
     existingTypes.add(nodeSpec.nodeType);
   }
 
