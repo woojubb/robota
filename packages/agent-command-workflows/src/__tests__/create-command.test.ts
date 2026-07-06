@@ -1,7 +1,7 @@
 import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createAssistantMessage } from '@robota-sdk/agent-core';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 import {
@@ -201,22 +201,42 @@ describe('executeWorkflowsCreate (TC-05: on-the-fly prompt node)', () => {
     sampleInput: { text: 'hello' },
   });
 
-  it('creates + saves the prompt node under .workflows/nodes/ and reuses it on a second create', async () => {
+  // This test executes a real key-using prompt node. To keep it deterministic and free of any
+  // network call, force the no-key path by clearing every provider key — regardless of what is in
+  // the ambient environment. The missing key MUST then surface as a detected error (asserted below),
+  // never a silent pass and never a real LLM call.
+  beforeEach(() => {
+    for (const key of [
+      'ANTHROPIC_API_KEY',
+      'OPENAI_API_KEY',
+      'GEMINI_API_KEY',
+      'DEEPSEEK_API_KEY',
+      'DASHSCOPE_API_KEY',
+    ]) {
+      vi.stubEnv(key, '');
+    }
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('saves the prompt node + workflow, surfaces the missing-key error, and reuses the node', async () => {
     const first = await executeWorkflowsCreate('"rewrite as a pirate"', dir, baseDeps(PIRATE_SPEC));
-    // The prompt node has no ANTHROPIC_API_KEY in the test env, so the RUN may fail — but the node
-    // and workflow must still be authored and saved (create saves before running).
+
+    // Author-before-run: the node + workflow are persisted even though the run cannot complete.
     const nodePath = join(dir, '.workflows', 'nodes', 'pirate-speak.node.json');
-    await expect(stat(nodePath)).resolves.toBeDefined();
     const nodeManifest = JSON.parse(await readFile(nodePath, 'utf-8')) as {
       kind: string;
       nodeType: string;
     };
     expect(nodeManifest.kind).toBe('prompt');
     expect(nodeManifest.nodeType).toBe('pirate-speak');
-
-    const wfPath = join(dir, '.workflows', 'pirate-rewrite.json');
-    await expect(stat(wfPath)).resolves.toBeDefined();
+    await expect(stat(join(dir, '.workflows', 'pirate-rewrite.json'))).resolves.toBeDefined();
     expect(first.message).toContain('pirate-speak.node.json');
+
+    // Key-using code ran without a key → the failure MUST be detected and surfaced, not swallowed.
+    expect(first.success).toBe(false);
+    expect(first.message).toMatch(/ANTHROPIC_API_KEY|api key|required|is not set/i);
 
     // Second create reuses the already-saved node (it is loaded and present in the catalog).
     const second = await executeWorkflowsCreate(
