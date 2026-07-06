@@ -22,6 +22,7 @@ import {
 } from '@robota-sdk/dag-core';
 import {
   createPromptBackedNodeDefinition,
+  isInstantNodeProvider,
   type TInstantNodeProvider,
 } from '@robota-sdk/dag-node-instant-node';
 import type { IAIProvider, IProviderDefinition } from '@robota-sdk/agent-core';
@@ -52,14 +53,6 @@ interface IParsedCreateArgs {
   readonly nameOverride?: string;
   readonly inputs: Record<string, string>;
 }
-
-const PROVIDER_VALUES: readonly TInstantNodeProvider[] = [
-  'anthropic',
-  'openai',
-  'gemini',
-  'deepseek',
-  'qwen',
-];
 
 /**
  * Split an argument string into tokens shell-style: unquoted whitespace separates tokens, and
@@ -140,12 +133,6 @@ export function parseCreateArgs(
   return { ok: true, value: { description, ...(nameOverride ? { nameOverride } : {}), inputs } };
 }
 
-function toInstantProvider(value: string | undefined): TInstantNodeProvider | undefined {
-  return value !== undefined && (PROVIDER_VALUES as readonly string[]).includes(value)
-    ? (value as TInstantNodeProvider)
-    : undefined;
-}
-
 /**
  * Build a prompt-backed node definition from an authored `newNodes` entry. When the spec omits a
  * provider (the common case — the LLM rarely sets one), inherit the ACTIVE provider used for
@@ -156,7 +143,7 @@ function buildPromptNode(
   spec: IAuthoredPromptNode,
   fallbackProvider: TInstantNodeProvider | undefined,
 ): IDagNodeDefinition {
-  const provider = toInstantProvider(spec.provider) ?? fallbackProvider;
+  const provider = isInstantNodeProvider(spec.provider) ? spec.provider : fallbackProvider;
   return createPromptBackedNodeDefinition({
     nodeType: spec.nodeType,
     displayName: spec.displayName ?? spec.nodeType,
@@ -229,7 +216,7 @@ export async function executeWorkflowsCreate(
       provider = createProviderFromSettings(cwd, undefined, { providerDefinitions });
       const settings = readProviderSettings(cwd, { providerDefinitions });
       model = model ?? settings.model;
-      activeProvider = toInstantProvider(settings.name);
+      activeProvider = isInstantNodeProvider(settings.name) ? settings.name : undefined;
     }
   } catch (err) {
     const detail =

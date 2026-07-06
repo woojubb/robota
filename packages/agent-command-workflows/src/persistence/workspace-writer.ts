@@ -8,7 +8,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { DEFAULT_WORKSPACE_LAYOUT, type IWorkspaceLayout } from '@robota-sdk/dag-core';
 import type { IDagDefinition, IDagNodeDefinition } from '@robota-sdk/dag-core';
-import type { IPersistableInstantNode } from '@robota-sdk/dag-node-instant-node';
+import { isPersistableInstantNode } from '@robota-sdk/dag-node-instant-node';
 
 const NODE_MANIFEST_EXT = '.node.json';
 const JSON_INDENT = 2;
@@ -27,16 +27,11 @@ export async function saveWorkflowFile(
   return path;
 }
 
-function asPersistable(node: IDagNodeDefinition): IPersistableInstantNode | null {
-  const candidate = node as unknown as { toPersisted?: unknown };
-  return typeof candidate.toPersisted === 'function'
-    ? (node as unknown as IPersistableInstantNode)
-    : null;
-}
-
 /**
  * Persist a prompt-backed / instant node to `<cwd>/<root>/nodes/<type>.node.json`. Nodes without a
- * `toPersisted()` (built-ins) are skipped and return `null`.
+ * `toPersisted()` (built-ins) are skipped and return `null`. Composite nodes are refused (this
+ * workspace cannot rebuild their sub-runner on reload, so writing one would create an orphan the
+ * loader can never reconstruct — see `loadInstantNodes`); they return `null` too.
  */
 export async function saveInstantNodeFile(
   cwd: string,
@@ -44,12 +39,12 @@ export async function saveInstantNodeFile(
   createdAt: string,
   layout: IWorkspaceLayout = DEFAULT_WORKSPACE_LAYOUT,
 ): Promise<string | null> {
-  const persistable = asPersistable(node);
-  if (!persistable) return null;
+  if (!isPersistableInstantNode(node)) return null;
+  const record = { ...node.toPersisted(), createdAt };
+  if (record.kind === 'composite') return null;
   const dir = resolve(cwd, join(layout.root, 'nodes'));
   await mkdir(dir, { recursive: true });
   const path = join(dir, `${node.nodeType}${NODE_MANIFEST_EXT}`);
-  const record = { ...persistable.toPersisted(), createdAt };
   await writeFile(path, `${JSON.stringify(record, null, JSON_INDENT)}\n`, 'utf-8');
   return path;
 }

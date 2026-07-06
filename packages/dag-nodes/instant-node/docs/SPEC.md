@@ -71,8 +71,25 @@ interface IPersistedCompositeNode {
 ```
 
 Both `PromptBackedNodeDefinition` and `CompositeInstantNodeDefinition` implement
-`IPersistableInstantNode`. Reconstruction: a prompt record → `createPromptBackedNodeDefinition`; a
-composite record → `createCompositeInstantNodeDefinition` with a caller-supplied rebuilt `runner`.
+`IPersistableInstantNode`. This package owns **both halves** of the round-trip (DATA-003):
+
+- `isPersistableInstantNode(node): node is IPersistableInstantNode` — runtime guard (replaces
+  duck-typed `as unknown as` probes at call sites).
+- `parsePersistedInstantNode(raw: unknown): TPersistedInstantNode | null` — validate/narrow an
+  untrusted parsed manifest into a typed record (both kinds); never throws.
+- `rehydrateInstantNode(record, { compositeRunner? }): IDagNodeDefinition` — the read half of
+  `toPersisted()`. Prompt → `createPromptBackedNodeDefinition`; composite →
+  `createCompositeInstantNodeDefinition` with the injected `compositeRunner` (its runner is behavioral
+  and never serialized). A composite record **without** a runner throws — never a half-built node.
+
+Consumers no longer hand-roll deserialization; they parse + rehydrate through the owner.
+
+## Provider SSOT (DATA-003)
+
+`INSTANT_NODE_PROVIDERS` is the single runtime source of truth for the supported providers, and
+`TInstantNodeProvider` is **derived** from it (`typeof INSTANT_NODE_PROVIDERS[number]`) — so adding a
+provider is a one-line change here. `isInstantNodeProvider(x): x is TInstantNodeProvider` is the
+runtime guard consumers use instead of re-declaring the literal list.
 
 ## ICreatePromptNodeInput
 

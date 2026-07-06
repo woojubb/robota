@@ -3,6 +3,7 @@ import {
   buildTaskExecutionError,
   buildValidationError,
   type ICostEstimate,
+  type IDagDefinition,
   type IDagError,
   type IDagNodeDefinition,
   type INodeExecutionContext,
@@ -17,7 +18,24 @@ import { DeepSeekProvider } from '@robota-sdk/agent-provider/deepseek';
 import { QwenProvider } from '@robota-sdk/agent-provider/qwen';
 import { z } from 'zod';
 
-export type TInstantNodeProvider = 'anthropic' | 'openai' | 'gemini' | 'deepseek' | 'qwen';
+/**
+ * The single runtime source of truth for the supported instant-node providers. The `TInstantNodeProvider`
+ * type is derived from it, so adding a provider is a one-line change here (DATA-003 F1).
+ */
+export const INSTANT_NODE_PROVIDERS = [
+  'anthropic',
+  'openai',
+  'gemini',
+  'deepseek',
+  'qwen',
+] as const;
+
+export type TInstantNodeProvider = (typeof INSTANT_NODE_PROVIDERS)[number];
+
+/** Runtime guard for the provider set — the type alone carries no runtime members. */
+export function isInstantNodeProvider(value: unknown): value is TInstantNodeProvider {
+  return typeof value === 'string' && (INSTANT_NODE_PROVIDERS as readonly string[]).includes(value);
+}
 
 export interface ICreatePromptNodeInput {
   readonly nodeType: string;
@@ -434,4 +452,136 @@ export function createCompositeInstantNodeDefinition(
   spec: ICreateCompositeNodeInput,
 ): CompositeInstantNodeDefinition {
   return new CompositeInstantNodeDefinition(spec);
+}
+
+// ── Persistence round-trip (DATA-003) ───────────────────────────────────────
+// The write half (`IPersistableInstantNode.toPersisted()`) lives on the node classes above; this is
+// the matching read half — parse an untrusted manifest into a typed record, then reconstruct a live
+// definition — so consumers no longer hand-roll (an incomplete) deserialization.
+
+/** Runtime guard: does this value implement the persistable instant-node contract? (DATA-003 F4) */
+export function isPersistableInstantNode(node: unknown): node is IPersistableInstantNode {
+  return (
+    typeof node === 'object' &&
+    node !== null &&
+    typeof (node as { toPersisted?: unknown }).toPersisted === 'function'
+  );
+}
+
+function asPersistedRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function parsePersistedPorts(value: unknown): Array<{ key: string; description?: string }> | null {
+  if (!Array.isArray(value)) return null;
+  const ports: Array<{ key: string; description?: string }> = [];
+  for (const raw of value) {
+    const r = asPersistedRecord(raw);
+    if (!r || typeof r['key'] !== 'string') return null;
+    ports.push(
+      typeof r['description'] === 'string'
+        ? { key: r['key'], description: r['description'] }
+        : { key: r['key'] },
+    );
+  }
+  return ports.length > 0 ? ports : null;
+}
+
+/**
+ * Validate a raw parsed manifest (untrusted JSON) into a typed `TPersistedInstantNode`, or `null` if
+ * it is not a well-formed prompt/composite record. Covers both kinds (DATA-003 F2). Never throws.
+ */
+export function parsePersistedInstantNode(raw: unknown): TPersistedInstantNode | null {
+  const r = asPersistedRecord(raw);
+  if (!r || typeof r['nodeType'] !== 'string') return null;
+  const nodeType = r['nodeType'];
+  const displayName = typeof r['displayName'] === 'string' ? r['displayName'] : nodeType;
+
+  if (r['kind'] === 'composite') {
+    const innerDag = asPersistedRecord(r['innerDag']);
+    const exposedInputPort = asPersistedRecord(r['exposedInputPort']);
+    if (
+      !innerDag ||
+      !exposedInputPort ||
+      typeof exposedInputPort['key'] !== 'string' ||
+      !Array.isArray(r['exposedOutputPorts']) ||
+      r['exposedOutputPorts'].length === 0
+    ) {
+      return null;
+    }
+    return {
+      kind: 'composite',
+      nodeType,
+      displayName,
+      innerDag: innerDag as unknown as IDagDefinition,
+      exposedInputPort: exposedInputPort as unknown as IExposedInputPort,
+      exposedOutputPorts: r['exposedOutputPorts'] as unknown as ReadonlyArray<IExposedOutputPort>,
+      ...(typeof r['maxDepth'] === 'number' ? { maxDepth: r['maxDepth'] } : {}),
+    };
+  }
+
+  // prompt (default kind)
+  if (typeof r['systemPromptTemplate'] !== 'string') return null;
+  const inputPorts = parsePersistedPorts(r['inputPorts']);
+  const outputPort = asPersistedRecord(r['outputPort']);
+  if (!inputPorts || !outputPort || typeof outputPort['key'] !== 'string') return null;
+  return {
+    kind: 'prompt',
+    nodeType,
+    displayName,
+    systemPromptTemplate: r['systemPromptTemplate'],
+    inputPorts,
+    outputPort:
+      typeof outputPort['description'] === 'string'
+        ? { key: outputPort['key'], description: outputPort['description'] }
+        : { key: outputPort['key'] },
+    ...(isInstantNodeProvider(r['provider']) ? { provider: r['provider'] } : {}),
+    ...(typeof r['model'] === 'string' ? { model: r['model'] } : {}),
+  };
+}
+
+export interface IRehydrateInstantNodeDeps {
+  /**
+   * Sub-runner for a composite node — behavioral, never serialized, so it must be supplied on reload.
+   * Required for `kind: 'composite'`; ignored for prompt nodes.
+   */
+  readonly compositeRunner?: ICompositeSubRunner;
+}
+
+/**
+ * Reconstruct a live instant-node definition from a typed persisted record (DATA-003 F2) — the read
+ * half of `toPersisted()`. A composite node requires an injected `compositeRunner`; omitting it throws
+ * rather than returning a half-built node (no silent partial).
+ */
+export function rehydrateInstantNode(
+  record: TPersistedInstantNode,
+  deps: IRehydrateInstantNodeDeps = {},
+): IDagNodeDefinition {
+  if (record.kind === 'composite') {
+    if (!deps.compositeRunner) {
+      throw new Error(
+        `rehydrateInstantNode: composite node "${record.nodeType}" requires a compositeRunner (its runner is not serialized).`,
+      );
+    }
+    return createCompositeInstantNodeDefinition({
+      nodeType: record.nodeType,
+      displayName: record.displayName,
+      innerDag: record.innerDag,
+      exposedInputPort: record.exposedInputPort,
+      exposedOutputPorts: record.exposedOutputPorts,
+      runner: deps.compositeRunner,
+      ...(record.maxDepth !== undefined ? { maxDepth: record.maxDepth } : {}),
+    });
+  }
+  return createPromptBackedNodeDefinition({
+    nodeType: record.nodeType,
+    displayName: record.displayName,
+    systemPromptTemplate: record.systemPromptTemplate,
+    inputPorts: record.inputPorts,
+    outputPort: record.outputPort,
+    ...(record.provider !== undefined ? { provider: record.provider } : {}),
+    ...(record.model !== undefined ? { model: record.model } : {}),
+  });
 }

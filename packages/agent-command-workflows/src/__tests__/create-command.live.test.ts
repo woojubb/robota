@@ -19,9 +19,15 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider';
-import type { IProviderDefinition } from '@robota-sdk/agent-core';
+import { createAssistantMessage } from '@robota-sdk/agent-core';
+import type { IAIProvider, IProviderDefinition } from '@robota-sdk/agent-core';
 import { executeWorkflowsCreate } from '../create-command.js';
 import { executeWorkflowsRun } from '../run-command.js';
+
+/** Provider stub whose `chat` returns a fixed authoring spec (used to remove authoring nondeterminism). */
+function stubAuthoringProvider(specJson: string): IAIProvider {
+  return { chat: async () => createAssistantMessage(specJson) } as unknown as IAIProvider;
+}
 
 const OPT_IN = process.env['RUN_LIVE_LLM'] === '1';
 const HAS_KEY = Boolean(
@@ -117,16 +123,41 @@ describe.skipIf(!RUN_LIVE)(
     );
 
     it(
-      'the saved Phase-3 artifact re-runs from disk (reloads the persisted prompt node)',
+      'reloads a persisted prompt node from disk and runs it live (DATA-003 round-trip)',
       async () => {
-        // Author one whose name we control, then re-run it purely from disk.
-        const created = await create(
-          'rephrase the input as an enthusiastic startup pitch',
-          '--name pitch-live --input text="We store files."',
-        );
+        // Deterministic structure — the AUTHORING call is stubbed with a fixed spec (so the test
+        // does not flake on the model's workflow design), but the prompt node still executes against
+        // the REAL provider (env key) and the re-run reloads it from disk via
+        // loadInstantNodes → parsePersistedInstantNode → rehydrateInstantNode. If reload failed, the
+        // node type would be unknown and the run would fail — so `rerun.success` proves the round-trip.
+        const fixedSpec = JSON.stringify({
+          name: 'shout-flow',
+          pipeline: [{ nodeType: 'input' }, { nodeType: 'shouter' }, { nodeType: 'text-output' }],
+          newNodes: [
+            {
+              nodeType: 'shouter',
+              displayName: 'Shouter',
+              systemPromptTemplate: 'Rewrite the text in ALL CAPS. Text: {{text}}',
+              inputPorts: [{ key: 'text' }],
+              outputPort: { key: 'text' },
+              provider: 'anthropic',
+            },
+          ],
+          sampleInput: { text: 'hello there' },
+        });
+        const created = await executeWorkflowsCreate('"shout it"', dir, {
+          resolveProvider: () => stubAuthoringProvider(fixedSpec),
+        });
         expect(created.success).toBe(true);
+        // The prompt-node manifest was persisted with its provider.
+        const manifest = JSON.parse(
+          await readFile(join(dir, '.workflows', 'nodes', 'shouter.node.json'), 'utf-8'),
+        ) as { kind: string; provider?: string };
+        expect(manifest.kind).toBe('prompt');
+        expect(manifest.provider).toBe('anthropic');
 
-        const rerun = await executeWorkflowsRun('.workflows/pitch-live.json', dir);
+        // Re-run purely from disk — reloads the persisted node and executes it live.
+        const rerun = await executeWorkflowsRun('.workflows/shout-flow.json', dir);
         expect(rerun.success).toBe(true);
         expect(rerun.message).toContain('completed');
       },
