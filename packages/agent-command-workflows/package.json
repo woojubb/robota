@@ -30,6 +30,7 @@
     "build:types": "tsdown --dts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:live": "RUN_LIVE_LLM=1 vitest run src/__tests__/create-command.live.test.ts",
     "test:coverage": "vitest run --coverage",
     "clean": "rimraf dist",
     "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
@@ -45,6 +46,7 @@
     "@robota-sdk/dag-node-instant-node": "workspace:*"
   },
   "devDependencies": {
+    "@robota-sdk/agent-provider": "workspace:*",
     "@types/node": "^22.19.21",
     "rimraf": "^5.0.10",
     "tsdown": "^0.22.2",
