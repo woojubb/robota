@@ -1,5 +1,14 @@
 # @robota-sdk/agent-playground
 
+## 3.0.0-beta.79
+
+### Patch Changes
+
+- @robota-sdk/agent-core@3.0.0-beta.79
+- @robota-sdk/agent-provider@3.0.0-beta.79
+- @robota-sdk/agent-tools@3.0.0-beta.79
+- @robota-sdk/agent-remote-client@3.0.0-beta.79
+
 ## 3.0.0-beta.78
 
 ### Patch Changes

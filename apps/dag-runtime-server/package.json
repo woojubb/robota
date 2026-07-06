@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/dag-runtime-server",
-  "version": "3.0.0-beta.2",
+  "version": "3.0.0-beta.3",
   "private": true,
   "description": "Native DAG runtime HTTP server (/v1/dag/*) over Hono — native runtime surface",
   "type": "module",

@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/dag-node-tool",
-  "version": "3.0.0-beta.62",
+  "version": "3.0.0-beta.63",
   "private": true,
   "description": "In-process tool node for Robota DAG — execute a single @robota-sdk/agent-tools builtin as a DAG step",
   "type": "module",
