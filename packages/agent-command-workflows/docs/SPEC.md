@@ -86,7 +86,9 @@ swallowed; no fallback to a default workflow.
 stub** (deterministic): arg parsing; spec validation (incl. Markdown code-fence tolerance); TC-02
 author→save→run (uppercased output); `--input` precedence over `sampleInput`; TC-03 self-contained
 re-run reproduces the result; TC-04 no-provider → actionable error + no write; TC-05 prompt-node
-create/save/reuse.
+create/save/reuse — which **clears all provider keys** (`vi.stubEnv`) so the key-using node run is
+deterministic and free of any network call, and **explicitly asserts** the missing-key failure is
+detected/surfaced (never silently tolerated, never a real LLM call in the unit suite).
 
 `src/__tests__/create-command.live.test.ts` is an **opt-in live suite** hitting a REAL provider — it
 runs only when `RUN_LIVE_LLM=1` AND a provider key are both present, so normal `pnpm test` / CI skip
