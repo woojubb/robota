@@ -203,10 +203,22 @@ describe('publish workflow', () => {
     expect(script).toContain('command+=(--otp "$OTP")');
     expect(script).toContain('Already published packages will be skipped on retry.');
     expect(script).toContain('Syncing beta dist-tags');
-    expect(script).toContain('npm dist-tag add "$package_name@$VERSION" beta');
+    expect(script).toContain('npm dist-tag add "$1@$VERSION" beta');
     expect(script).toContain('Verifying npm dist-tags');
     expect(script).toContain('dist-tags.latest');
     expect(script).toContain('dist-tags.beta');
+  });
+
+  it('scopes the release to packages at VERSION and prepares before the OTP (INFRA-029)', () => {
+    const script = readFileSync('scripts/publish/publish-packages.sh', 'utf8');
+
+    // Version-scoped detection: only packages at THIS release's version publish.
+    expect(script).toContain('packageInfo.version === version');
+    // Build preflight runs before the OTP prompt, with an opt-out.
+    expect(script).toContain('--skip-build');
+    // The beta dist-tag sync is issued concurrently (background jobs + wait), not sequentially.
+    expect(script).toContain('Syncing beta dist-tags (parallel)');
+    expect(script).toContain('TAG_PIDS+=');
   });
 
   it('documents beta dist-tag sync in publish rules and version management', () => {
