@@ -3,17 +3,21 @@
 # publish-packages.sh — Publish all @robota-sdk packages in one shot.
 #
 # Usage:
-#   pnpm publish:beta              # interactive (prompts for OTP)
+#   pnpm publish:beta              # interactive (builds, checks, then prompts for OTP)
 #   pnpm publish:beta --otp=123456 --tag-otp=654321 # non-interactive
+#   pnpm publish:beta --skip-build # skip the build preflight (dist already current, e.g. from CI)
 #
 # Key design decisions:
 #   - Uses `pnpm publish -r` (single command, ~4 seconds) instead of
 #     per-package `pnpm publish --filter` (sequential, minutes).
 #   - Publishes without --tag so npm sets `latest`, then explicitly syncs
-#     the `beta` dist-tag to the same version.
-#   - OTP is prompted AFTER dry-run so it doesn't expire before publish.
-#   - A fresh OTP may be prompted for dist-tag sync because publish can consume
-#     most of the previous OTP window.
+#     the `beta` dist-tag to the same version (in parallel, to fit one OTP window).
+#   - ALL slow, OTP-free work (build, release-run check, auth, dry-run) runs BEFORE
+#     the OTP prompt, so entering the OTP runs the publish to completion at once.
+#   - Only packages at THIS release's VERSION are targeted (independently-versioned
+#     packages are excluded), so the exposure-wait never hangs on a version that
+#     will not publish.
+#   - A fresh OTP may still be prompted for dist-tag sync if the publish window closes.
 #
 set -euo pipefail
 
@@ -23,8 +27,10 @@ cd "$ROOT_DIR"
 # ── Parse arguments ───────────────────────────────────────────
 OTP=""
 TAG_OTP=""
+SKIP_BUILD="false"
 while [ "$#" -gt 0 ]; do
   case "$1" in
+    --skip-build) SKIP_BUILD="true" ;;
     --otp=*) OTP="${1#--otp=}" ;;
     --otp)
       if [ -z "${2:-}" ]; then
@@ -57,25 +63,43 @@ VERSION=$(node -p "require('./packages/agent-core/package.json').version")
 echo "📦 Version: $VERSION"
 echo ""
 
+# ── Build preflight (before any OTP, so the OTP → publish step is immediate) ──
+# All slow, OTP-free work happens here; entering the OTP later should run to completion at once.
+if [ "$SKIP_BUILD" = "true" ]; then
+  echo "🛠️  Skipping build (--skip-build); assuming dist is already current."
+else
+  echo "🛠️  Building all packages (turbo-cached)..."
+  pnpm build
+fi
+echo ""
+
 # ── Release-run preflight ─────────────────────────────────────
 echo "🧾 Checking release-run publish state..."
 pnpm harness:release:check -- --version "$VERSION" --publish
 echo ""
 
 # ── Detect publishable packages ───────────────────────────────
+# Target ONLY packages at THIS release's VERSION. Independently-versioned packages (e.g.
+# agent-process at an older beta) are private:false but not part of this lockstep release; including
+# them made the exposure-wait hang on a `<pkg>@VERSION` that never publishes (INFRA-029).
 PUBLISHABLE_PACKAGES=()
 while IFS= read -r PACKAGE_NAME; do
   PUBLISHABLE_PACKAGES+=("$PACKAGE_NAME")
 done < <(
-  pnpm -r --depth -1 --json list | node -e '
+  pnpm -r --depth -1 --json list | RELEASE_VERSION="$VERSION" node -e '
 let input = "";
 process.stdin.on("data", (chunk) => {
   input += chunk;
 });
 process.stdin.on("end", () => {
+  const version = process.env.RELEASE_VERSION;
   const packages = JSON.parse(input);
   for (const packageInfo of packages) {
-    if (packageInfo.name?.startsWith("@robota-sdk/") && packageInfo.private === false) {
+    if (
+      packageInfo.name?.startsWith("@robota-sdk/") &&
+      packageInfo.private === false &&
+      packageInfo.version === version
+    ) {
       console.log(packageInfo.name);
     }
   }
@@ -256,31 +280,42 @@ if [ -z "$TAG_OTP" ]; then
   exit 1
 fi
 
-sync_beta_tag() {
-  local package_name="$1"
-  local output
-
-  if output=$(npm dist-tag add "$package_name@$VERSION" beta --otp "$TAG_OTP" --registry https://registry.npmjs.org/ 2>&1); then
-    echo "$output"
-    return 0
-  fi
-
-  if printf '%s\n' "$output" | grep -q 'EOTP' && [ -t 0 ]; then
-    echo "$output"
-    read -rp "🔑 OTP expired while syncing $package_name. Enter fresh npm OTP: " TAG_OTP
-    npm dist-tag add "$package_name@$VERSION" beta --otp "$TAG_OTP" --registry https://registry.npmjs.org/
-    return 0
-  fi
-
-  echo "$output"
-  return 1
+add_beta_tag() {
+  npm dist-tag add "$1@$VERSION" beta --otp "$TAG_OTP" --registry https://registry.npmjs.org/
 }
 
+# Issue all dist-tag adds concurrently so publish + tag sync finish inside one OTP window
+# (sequential ~19 calls alone could outlast a 30s window and demand another OTP). INFRA-029.
 echo ""
-echo "🏷️  Syncing beta dist-tags..."
+echo "🏷️  Syncing beta dist-tags (parallel)..."
+TAG_PIDS=()
 for PACKAGE_NAME in "${PUBLISHABLE_PACKAGES[@]}"; do
-  sync_beta_tag "$PACKAGE_NAME"
+  add_beta_tag "$PACKAGE_NAME" >/dev/null 2>&1 &
+  TAG_PIDS+=("$!")
 done
+
+FAILED_TAGS=()
+IDX=0
+for PACKAGE_NAME in "${PUBLISHABLE_PACKAGES[@]}"; do
+  if ! wait "${TAG_PIDS[$IDX]}"; then
+    FAILED_TAGS+=("$PACKAGE_NAME")
+  fi
+  IDX=$((IDX + 1))
+done
+
+# Retry any failures (typically an expired OTP) with a fresh OTP when interactive.
+if [ "${#FAILED_TAGS[@]}" -gt 0 ]; then
+  echo "⚠️  ${#FAILED_TAGS[@]} dist-tag(s) failed: ${FAILED_TAGS[*]}"
+  if [ -t 0 ]; then
+    read -rp "🔑 Enter fresh npm OTP to retry the failed dist-tag(s): " TAG_OTP
+    for PACKAGE_NAME in "${FAILED_TAGS[@]}"; do
+      add_beta_tag "$PACKAGE_NAME"
+    done
+  else
+    echo "❌ dist-tag sync failed (pass a fresh --tag-otp, or run interactively to retry)."
+    exit 1
+  fi
+fi
 
 echo ""
 echo "🔎 Verifying npm dist-tags..."
