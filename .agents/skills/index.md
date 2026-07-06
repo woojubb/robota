@@ -54,9 +54,10 @@ Consult the relevant skill before starting work in its domain. Each entry links 
 
 > **Spawnable auditor.** For an independent, read-only review dispatchable from the main loop, a
 > `/command`, a Workflow fan-out, or another agent, use the `architecture-auditor` subagent
-> (`.claude/agents/architecture-auditor.md`) — it delegates methodology to the skills above (they stay
-> the SSOT) and returns severity-classified findings. Spawn via the Agent tool / Workflow `agentType`
-> `architecture-auditor` (available after a session restart once the def is committed).
+> (`.claude/agents/architecture-auditor.md`). It judges by **universal, neutral** design principles
+> (portable to any codebase) and returns severity-classified findings; it treats the skills above and
+> the repo's rules/specs as **optional drift-check context**, not as its criteria. Spawn via the Agent
+> tool / Workflow `agentType` `architecture-auditor` (available after a session restart once committed).
 
 ## Testing
 
