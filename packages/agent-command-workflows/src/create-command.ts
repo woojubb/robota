@@ -8,7 +8,11 @@
  * FLOW-007 Phase 2 (existing nodes) + Phase 3 (on-the-fly prompt nodes).
  */
 import { createDefaultNodeRegistrySync } from '@robota-sdk/dag-framework';
-import { createProviderFromSettings, ProviderConfigError } from '@robota-sdk/agent-framework';
+import {
+  createProviderFromSettings,
+  ProviderConfigError,
+  readProviderSettings,
+} from '@robota-sdk/agent-framework';
 import {
   DEFAULT_WORKSPACE_LAYOUT,
   type IDagDefinition,
@@ -37,6 +41,8 @@ export interface IWorkflowsCreateDeps {
   readonly providerDefinitions?: readonly IProviderDefinition[];
   /** Override provider resolution (tests inject a stub). Default: the active provider from settings. */
   readonly resolveProvider?: (cwd: string) => IAIProvider;
+  /** Model passed to the authoring chat call. Default path resolves it from settings. */
+  readonly model?: string;
   /** Override the createdAt timestamp for persisted nodes (tests inject a fixed value). */
   readonly now?: () => string;
 }
@@ -154,12 +160,6 @@ function buildPromptNode(spec: IAuthoredPromptNode): IDagNodeDefinition {
   });
 }
 
-function defaultResolveProvider(
-  providerDefinitions: readonly IProviderDefinition[],
-): (cwd: string) => IAIProvider {
-  return (cwd) => createProviderFromSettings(cwd, undefined, { providerDefinitions });
-}
-
 function formatOutputs(outputs: Record<string, unknown>): string {
   return JSON.stringify(outputs, null, 2);
 }
@@ -208,11 +208,18 @@ export async function executeWorkflowsCreate(
   const { description, nameOverride, inputs } = parsed.value;
 
   // Resolve the ACTIVE provider FIRST — before writing anything (TC-04: no provider → clean error).
-  const resolveProvider =
-    deps.resolveProvider ?? defaultResolveProvider(deps.providerDefinitions ?? []);
+  // The provider's chat call needs an explicit model, so the default path also resolves it from
+  // settings; the injected test seam supplies a stub (model optional).
+  const providerDefinitions = deps.providerDefinitions ?? [];
   let provider: IAIProvider;
+  let model = deps.model;
   try {
-    provider = resolveProvider(cwd);
+    if (deps.resolveProvider) {
+      provider = deps.resolveProvider(cwd);
+    } else {
+      provider = createProviderFromSettings(cwd, undefined, { providerDefinitions });
+      model = model ?? readProviderSettings(cwd, { providerDefinitions }).model;
+    }
   } catch (err) {
     const detail =
       err instanceof ProviderConfigError || err instanceof Error ? err.message : String(err);
@@ -238,6 +245,7 @@ export async function executeWorkflowsCreate(
     provider,
     description,
     renderCatalogForPrompt(baseCatalog.manifests),
+    model,
   );
   if (!authored.ok) {
     return { success: false, message: `Authoring failed: ${authored.error}` };

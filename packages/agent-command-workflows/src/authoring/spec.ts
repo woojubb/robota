@@ -104,10 +104,23 @@ function parseSampleInput(value: unknown): Record<string, string> | undefined {
  * Parse + validate a raw JSON string (the provider's response) into an `IAuthoredWorkflowSpec`.
  * Returns a structured error (never throws) so the caller can surface it and write nothing.
  */
+/**
+ * Strip a Markdown code fence (```` ```json … ``` ````) the LLM may wrap its JSON in despite being
+ * asked not to — a common provider behavior even under a JSON response format.
+ */
+function stripCodeFence(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed.startsWith('```')) return trimmed;
+  return trimmed
+    .replace(/^```[a-zA-Z0-9]*\s*\n?/, '')
+    .replace(/\n?```\s*$/, '')
+    .trim();
+}
+
 export function parseAuthoredSpec(raw: string): TParseSpecResult {
   let parsed: unknown;
   try {
-    parsed = JSON.parse(raw);
+    parsed = JSON.parse(stripCodeFence(raw));
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err);
     return { ok: false, error: `provider did not return valid JSON: ${detail}` };

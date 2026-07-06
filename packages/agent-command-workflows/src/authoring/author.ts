@@ -47,6 +47,7 @@ export async function authorWorkflowSpec(
   provider: IAIProvider,
   description: string,
   catalogText: string,
+  model?: string,
 ): Promise<TAuthorResult> {
   let response;
   try {
@@ -55,7 +56,11 @@ export async function authorWorkflowSpec(
         createSystemMessage(buildAuthoringSystemPrompt(catalogText)),
         createUserMessage(description),
       ],
-      { maxTokens: MAX_AUTHORING_TOKENS, responseFormat: { type: 'json_object' } },
+      {
+        maxTokens: MAX_AUTHORING_TOKENS,
+        responseFormat: { type: 'json_object' },
+        ...(model ? { model } : {}),
+      },
     );
   } catch (err) {
     // allow-fallback: provider/transport failure surfaced as a structured authoring error

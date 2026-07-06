@@ -84,6 +84,13 @@ describe('parseAuthoredSpec', () => {
     expect(r.ok).toBe(false);
   });
 
+  it('tolerates a Markdown ```json code fence around the JSON (real LLM behavior)', () => {
+    const r = parseAuthoredSpec('```json\n' + UPPERCASE_SPEC + '\n```');
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.spec.name).toBe('uppercase-it');
+  });
+
   it('rejects an invalid name', () => {
     const r = parseAuthoredSpec(
       JSON.stringify({ name: 'bad name!', pipeline: [{ nodeType: 'x' }] }),
