@@ -52,6 +52,12 @@ Consult the relevant skill before starting work in its domain. Each entry links 
 | [conformance-finding-report](conformance-finding-report/SKILL.md)         | Assembles verdicts into the AF-NN findings report with severities + counts (INFRA-002 schema)  |
 | [improvement-proposal-authoring](improvement-proposal-authoring/SKILL.md) | Maps findings to remediation + follow-up backlogs + mechanical-guard recommendations           |
 
+> **Spawnable auditor.** For an independent, read-only review dispatchable from the main loop, a
+> `/command`, a Workflow fan-out, or another agent, use the `architecture-auditor` subagent
+> (`.claude/agents/architecture-auditor.md`) — it delegates methodology to the skills above (they stay
+> the SSOT) and returns severity-classified findings. Spawn via the Agent tool / Workflow `agentType`
+> `architecture-auditor` (available after a session restart once the def is committed).
+
 ## Testing
 
 | Skill                                                                   | Description                                                                                  |
