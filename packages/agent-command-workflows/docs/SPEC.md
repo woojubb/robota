@@ -83,10 +83,18 @@ swallowed; no fallback to a default workflow.
 `run` usage error; catalog/validate.
 
 `src/__tests__/create-command.test.ts` covers the authoring pipeline with an **injected provider
-stub** (deterministic): arg parsing; spec validation; TC-02 author→save→run (uppercased output);
-`--input` precedence over `sampleInput`; TC-03 self-contained re-run reproduces the result; TC-04
-no-provider → actionable error + no write; TC-05 prompt-node create/save/reuse. The live LLM call is
-exercised out-of-band (one live UE per phase) since unit tests must stay deterministic.
+stub** (deterministic): arg parsing; spec validation (incl. Markdown code-fence tolerance); TC-02
+author→save→run (uppercased output); `--input` precedence over `sampleInput`; TC-03 self-contained
+re-run reproduces the result; TC-04 no-provider → actionable error + no write; TC-05 prompt-node
+create/save/reuse.
+
+`src/__tests__/create-command.live.test.ts` is an **opt-in live suite** hitting a REAL provider — it
+runs only when `RUN_LIVE_LLM=1` AND a provider key are both present, so normal `pnpm test` / CI skip
+it (no network, cost, or key). Run it with `pnpm --filter @robota-sdk/agent-command-workflows
+test:live` (key from the environment; see the `provider-keys-local-run` note). It automates the
+per-phase live UEs: existing-node authoring (uppercase), a model-composed multi-step pipeline
+(trim→uppercase), a Phase-3 prompt node created + persisted with the active provider + executed, and a
+re-run-from-disk round-trip. A guard test fails loudly if `RUN_LIVE_LLM=1` is set without a key.
 
 ## Class Contract Registry
 

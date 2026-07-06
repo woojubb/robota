@@ -1030,6 +1030,9 @@ importers:
         specifier: workspace:*
         version: link:../dag-nodes/instant-node
     devDependencies:
+      '@robota-sdk/agent-provider':
+        specifier: workspace:*
+        version: link:../agent-provider
       '@types/node':
         specifier: ^22.19.21
         version: 22.19.21
