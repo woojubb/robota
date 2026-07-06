@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: FLOW
 tags: [cli, agent]
 ---
@@ -179,3 +179,14 @@ with a stubbed/injected provider (deterministic response) for unit/integration; 
 - **Live LLM verification — DONE (2026-07-06).** Ran `/workflows create` against a real Anthropic provider (`claude-sonnet-4-6`) across 5 scenarios: uppercase, lowercase, **2-step trim→uppercase** (the LLM composed the multi-node pipeline itself), repeat, and a **Phase-3 bespoke prompt node** ("rewrite as a pirate") — the LLM authored a `pirate-rewriter` prompt node, saved it to `.workflows/nodes/`, and **ran it live** producing real pirate text (~1.8s node call). 5/5 passed. The live run caught two real bugs a stubbed test could not: (1) the authoring `chat` call omitted the model → `readProviderSettings(...).model` is now threaded into the chat options; (2) the provider wrapped its JSON in a ` ```json ` fence → `parseAuthoredSpec` now strips code fences. Both fixed + unit-tested (25 tests); fixes on branch `fix/workflows-create-live-llm`.
 - **Live tests automated — DONE (2026-07-06).** The per-phase live UEs are now a repeatable opt-in suite: `src/__tests__/create-command.live.test.ts`, run via `pnpm --filter @robota-sdk/agent-command-workflows test:live`. Gated on `RUN_LIVE_LLM=1` + a provider key, so normal `pnpm test`/CI skip it (no network/cost/key). 4 real-LLM scenarios pass (uppercase, model-composed trim→uppercase, Phase-3 prompt node persisted-with-provider + executed, re-run-from-disk); a guard test fails loudly if opted-in without a key. Also fixed: authored prompt nodes now inherit + persist the active provider (was defaulting to anthropic).
 - **Phase 1b — DONE (2026-07-06).** C3 shared reader `scanWorkspaceCatalog` in `dag-framework` (commit 714b9a272) now backs all three former read paths (persistence `loadWorkflows`, dag-cli `catalog-scanner`, `/workflows catalog`). C2 receiver: `LocalDagRuntimeProvider` accepts `workspace`. C1 injection: `/workflows` command module resolves+threads `workspace` (commit d225fef12); **dag-cli** resolves a leading `--workspace <dir>` global flag at the `runDagCli` composition root and threads the layout to run/save/catalog/node (commit 75062cc57). dag-cli 1007 tests + agent-command-workflows green, 45 scans, 0 lint errors. **Live UE:** a custom `--workspace .myws` round-trip — `save` → `catalog list` → `catalog run` (correct output) → `node scaffold` — all read/write `.myws/` while the default `.workflows/` stays untouched (isolation confirmed). Phase 1 complete.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-07-07
+
+All four phases shipped to `main` and released in `3.0.0-beta.79` (bundled into agent-cli). TC-01
+(`.workflows/` storage + injectable workspace) — Phase 1, live `--workspace .myws` round-trip. TC-02/03
+(author→save→run + self-contained re-run) — unit + real-LLM live (uppercase, model-composed
+trim→uppercase). TC-04 (no-provider → actionable error, no write) — unit. TC-05 (prompt node
+create/save/reuse) — unit + real-LLM pirate/sonnet node. TC-06 (model-invocable) — module test +
+`builtin-command` descriptor projection. Opt-in real-LLM suite (`test:live`) 4/4; 28 unit; 45/45 scans;
+clean-room `npx @robota-sdk/agent-cli@3.0.0-beta.79` install verified. Spec `draft/` → `done/`,
+`status: done`; task archived to `.agents/tasks/completed/FLOW-007.md`.
