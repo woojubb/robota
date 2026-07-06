@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-command",
-  "version": "3.0.0-beta.78",
+  "version": "3.0.0-beta.79",
   "description": "Consolidated command module implementations for Robota SDK CLI",
   "type": "module",
   "main": "dist/node/index.js",

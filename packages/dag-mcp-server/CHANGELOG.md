@@ -1,5 +1,11 @@
 # @robota-sdk/dag-mcp-server
 
+## 3.0.0-beta.63
+
+### Patch Changes
+
+- @robota-sdk/dag-framework@0.1.0-beta.3
+
 ## 3.0.0-beta.62
 
 ### Patch Changes
