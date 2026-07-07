@@ -29,8 +29,8 @@ describe('terminal handoff through the real binary (TERM-003)', () => {
     writeTuiProviderSettings(projectDir);
   });
 
-  afterEach(() => {
-    session?.kill();
+  afterEach(async () => {
+    await session?.disposeAsync();
     session = undefined;
     rmSync(projectDir, { recursive: true, force: true });
   });

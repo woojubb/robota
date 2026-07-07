@@ -34,8 +34,8 @@ describe('AskUserQuestion dialog through the real binary (CMD-005)', () => {
     writeTuiProviderSettings(projectDir); // dummy provider profile; replay answers every call
   });
 
-  afterEach(() => {
-    session?.kill();
+  afterEach(async () => {
+    await session?.disposeAsync();
     session = undefined;
     rmSync(projectDir, { recursive: true, force: true });
   });

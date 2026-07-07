@@ -26,8 +26,8 @@ describe('CLI flag → TUI rendering through a real PTY (TEST-009 Phase 3)', () 
     writeTuiProviderSettings(projectDir);
   });
 
-  afterEach(() => {
-    session?.kill();
+  afterEach(async () => {
+    await session?.disposeAsync();
     session = undefined;
     rmSync(projectDir, { recursive: true, force: true });
   });

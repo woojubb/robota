@@ -24,8 +24,8 @@ describe('TUI through a real PTY (CLI-074)', () => {
     writeTuiProviderSettings(projectDir);
   });
 
-  afterEach(() => {
-    session?.kill();
+  afterEach(async () => {
+    await session?.disposeAsync();
     session = undefined;
     rmSync(projectDir, { recursive: true, force: true });
   });

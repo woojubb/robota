@@ -30,8 +30,8 @@ describe('Background-work drill-in entry point through a real PTY (TEST-010 / SC
     writeTuiProviderSettings(projectDir);
   });
 
-  afterEach(() => {
-    session?.kill();
+  afterEach(async () => {
+    await session?.disposeAsync();
     session = undefined;
     rmSync(projectDir, { recursive: true, force: true });
   });

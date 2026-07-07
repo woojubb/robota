@@ -28,8 +28,8 @@ describe('SCREEN-010 chat-window scrollback layout (real binary)', () => {
     writeTuiProviderSettings(projectDir);
   });
 
-  afterEach(() => {
-    session?.kill();
+  afterEach(async () => {
+    await session?.disposeAsync();
     session = undefined;
     rmSync(projectDir, { recursive: true, force: true });
   });
