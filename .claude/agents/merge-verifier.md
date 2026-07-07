@@ -2,6 +2,7 @@
 name: merge-verifier
 description: Independent, read-only verifier that a merge / PR actually LANDED correctly on its target branch. Given a PR number (or a merge and its target branch), it confirms the PR is truly merged, the target branch's REMOTE head contains the merge, the changes the PR claimed are actually present on the remote target (not just locally), CI was green, and no unrelated drift was swept in — then reports a clear verdict with evidence. Never merges, edits, or pushes. Use after any merge, and after each hop of a multi-step flow (e.g. feature→develop→main). Universal/neutral — works with any git/GitHub repo.
 tools: Read, Grep, Glob, Bash
+signal: MERGE VERIFIED
 ---
 
 # Merge Verifier
