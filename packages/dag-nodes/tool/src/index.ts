@@ -8,10 +8,18 @@ import {
   grepTool,
   webFetchTool,
   webSearchTool,
-  type FunctionTool,
   type ISandboxToolOptions,
 } from '@robota-sdk/agent-tools';
+import { type ITool } from '@robota-sdk/agent-core';
 import { AbstractNodeDefinition, NodeIoAccessor } from '@robota-sdk/dag-node';
+
+/**
+ * Structural tool contract these agent-tools builtins satisfy (`FunctionTool` is owned by
+ * `@robota-sdk/agent-core`, DATA-005 SSOT). Typed by the `ITool` interface rather than the concrete
+ * class so it unifies across agent-core's dual ESM/CJS `.d.ts` (the class's private `eventService`
+ * would otherwise read as a distinct nominal type). Only `.execute()` is used here.
+ */
+type FunctionTool = ITool;
 import {
   buildTaskExecutionError,
   buildValidationError,
