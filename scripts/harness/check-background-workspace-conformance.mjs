@@ -75,6 +75,8 @@ const CLI_FORBIDDEN_PATTERNS = [
     exemptions: {
       'packages/agent-cli/src/cli.ts': 'composition root — concrete runner wiring',
       'packages/agent-cli/src/modes/print-mode.ts': 'composition root — type-only runner contract',
+      'packages/agent-cli/src/subagents/git-worktree-isolation-adapter.ts':
+        'composition root — concrete worktree adapter wiring',
     },
   },
   {

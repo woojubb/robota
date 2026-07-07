@@ -52,8 +52,7 @@ agent-executor
   └── subagents/
       ├── types.ts                              -- subagent job contracts and runner port
       ├── subagent-manager.ts                   -- compatibility facade over BackgroundTaskManager
-      ├── git-worktree-isolation-adapter.ts     -- concrete ISubagentWorktreeAdapter using Git CLI
-      └── worktree-subagent-runner.ts           -- runner decorator using injected worktree adapter
+      └── worktree-subagent-runner.ts           -- runner decorator using injected worktree adapter (port only; concrete Git adapter lives in agent-cli)
 ```
 
 Design rules:
@@ -113,23 +112,22 @@ Design rules:
 
 ### Subagent Types
 
-| Type                                  | Location                                                                                   | Purpose                                                     |
-| ------------------------------------- | ------------------------------------------------------------------------------------------ | ----------------------------------------------------------- |
-| `TSubagentJobStatus`                  | `@robota-sdk/agent-interface-transport` (SSOT; re-exported at `src/subagents/types.ts:18`) | Subagent job status union (mirrors `TBackgroundTaskStatus`) |
-| `TSubagentJobMode`                    | `@robota-sdk/agent-interface-transport` (SSOT; re-exported at `src/subagents/types.ts:18`) | `'foreground' \| 'background'`                              |
-| `ISubagentSpawnRequest`               | `src/subagents/types.ts:20` (owned)                                                        | Subagent spawn request                                      |
-| `ISubagentJobState`                   | `@robota-sdk/agent-interface-transport` (SSOT; re-exported at `src/subagents/types.ts:18`) | Subagent job state projection                               |
-| `ISubagentJobResult`                  | `src/subagents/types.ts:44` (owned)                                                        | Subagent completion output and metadata                     |
-| `ISubagentJobStart`                   | `src/subagents/types.ts:52` (owned)                                                        | Argument passed from manager to runner `start()` call       |
-| `ISubagentJobHandle`                  | `src/subagents/types.ts:58` (owned)                                                        | Cancellable handle returned by `ISubagentRunner.start()`    |
-| `ISubagentRunner`                     | `src/subagents/types.ts:69` (owned)                                                        | Port for executing one subagent job                         |
-| `ISubagentManager`                    | `src/subagents/types.ts:73` (owned)                                                        | Subagent job compatibility facade                           |
-| `ISubagentManagerOptions`             | `src/subagents/types.ts:84` (owned)                                                        | Constructor options for `SubagentManager`                   |
-| `ISubagentWorktreeAdapter`            | `src/subagents/worktree-subagent-runner.ts`                                                | Port for concrete worktree I/O                              |
-| `ISubagentWorktreePrepareRequest`     | `src/subagents/worktree-subagent-runner.ts`                                                | Request passed to `ISubagentWorktreeAdapter.prepare()`      |
-| `IPreparedSubagentWorktree`           | `src/subagents/worktree-subagent-runner.ts`                                                | Prepared worktree handoff data                              |
-| `IWorktreeSubagentRunnerOptions`      | `src/subagents/worktree-subagent-runner.ts`                                                | Constructor options for `WorktreeSubagentRunner`            |
-| `IGitWorktreeIsolationAdapterOptions` | `src/subagents/git-worktree-isolation-adapter.ts`                                          | Options for `createGitWorktreeIsolationAdapter()`           |
+| Type                              | Location                                                                                   | Purpose                                                     |
+| --------------------------------- | ------------------------------------------------------------------------------------------ | ----------------------------------------------------------- |
+| `TSubagentJobStatus`              | `@robota-sdk/agent-interface-transport` (SSOT; re-exported at `src/subagents/types.ts:18`) | Subagent job status union (mirrors `TBackgroundTaskStatus`) |
+| `TSubagentJobMode`                | `@robota-sdk/agent-interface-transport` (SSOT; re-exported at `src/subagents/types.ts:18`) | `'foreground' \| 'background'`                              |
+| `ISubagentSpawnRequest`           | `src/subagents/types.ts:20` (owned)                                                        | Subagent spawn request                                      |
+| `ISubagentJobState`               | `@robota-sdk/agent-interface-transport` (SSOT; re-exported at `src/subagents/types.ts:18`) | Subagent job state projection                               |
+| `ISubagentJobResult`              | `src/subagents/types.ts:44` (owned)                                                        | Subagent completion output and metadata                     |
+| `ISubagentJobStart`               | `src/subagents/types.ts:52` (owned)                                                        | Argument passed from manager to runner `start()` call       |
+| `ISubagentJobHandle`              | `src/subagents/types.ts:58` (owned)                                                        | Cancellable handle returned by `ISubagentRunner.start()`    |
+| `ISubagentRunner`                 | `src/subagents/types.ts:69` (owned)                                                        | Port for executing one subagent job                         |
+| `ISubagentManager`                | `src/subagents/types.ts:73` (owned)                                                        | Subagent job compatibility facade                           |
+| `ISubagentManagerOptions`         | `src/subagents/types.ts:84` (owned)                                                        | Constructor options for `SubagentManager`                   |
+| `ISubagentWorktreeAdapter`        | `src/subagents/worktree-subagent-runner.ts`                                                | Port for concrete worktree I/O                              |
+| `ISubagentWorktreePrepareRequest` | `src/subagents/worktree-subagent-runner.ts`                                                | Request passed to `ISubagentWorktreeAdapter.prepare()`      |
+| `IPreparedSubagentWorktree`       | `src/subagents/worktree-subagent-runner.ts`                                                | Prepared worktree handoff data                              |
+| `IWorktreeSubagentRunnerOptions`  | `src/subagents/worktree-subagent-runner.ts`                                                | Constructor options for `WorktreeSubagentRunner`            |
 
 Hook event types and hook execution are owned by `agent-core`.
 
@@ -166,18 +164,19 @@ bindings and is safe for any Node.js runtime target.
 
 ### Subagents
 
-| Export                              | Kind     | Description                                                        |
-| ----------------------------------- | -------- | ------------------------------------------------------------------ |
-| `SubagentManager`                   | class    | Subagent facade over `BackgroundTaskManager`                       |
-| `WorktreeSubagentRunner`            | class    | Decorates an `ISubagentRunner` with worktree isolation behavior    |
-| `createWorktreeSubagentRunner`      | function | Factory for `WorktreeSubagentRunner`                               |
-| `GitWorktreeIsolationAdapter`       | class    | Concrete `ISubagentWorktreeAdapter` using `execFileSync` + Git CLI |
-| `createGitWorktreeIsolationAdapter` | function | Factory for `GitWorktreeIsolationAdapter`                          |
+| Export                         | Kind     | Description                                                     |
+| ------------------------------ | -------- | --------------------------------------------------------------- |
+| `SubagentManager`              | class    | Subagent facade over `BackgroundTaskManager`                    |
+| `WorktreeSubagentRunner`       | class    | Decorates an `ISubagentRunner` with worktree isolation behavior |
+| `createWorktreeSubagentRunner` | function | Factory for `WorktreeSubagentRunner`                            |
 
-**Note on `GitWorktreeIsolationAdapter`**: This is a concrete CLI adapter (calls
-`execFileSync`, performs Git operations) that lives in `agent-executor` for historical
-reasons. CLI-AUDIT-006 classified it as a CLI adapter; it should eventually move to
-`agent-cli/src/subagents/` when ARCH-FIX-024 is executed.
+**Note on the concrete worktree adapter (ARCH-FIX-024 — DONE)**: The concrete
+`GitWorktreeIsolationAdapter` (calls `execFileSync`, performs Git operations) has been moved out of
+this package to `agent-cli/src/subagents/git-worktree-isolation-adapter.ts` (the composition root),
+completing ARCH-FIX-024 (INFRA-031). `agent-executor` now owns only the `ISubagentWorktreeAdapter`
+port and the pure `WorktreeSubagentRunner` decorator — its "does not create Git worktrees" boundary is
+literally true. (This package still legitimately uses `node:child_process`/`fs` for its managed-shell
+and scheduled task runners; that usage is documented above and is unrelated to worktree creation.)
 
 The package entrypoint exports these symbols explicitly from `src/index.ts`. SDK compatibility barrels may re-export the same symbols, but they must not redefine the contracts.
 
@@ -355,13 +354,12 @@ Adapter packages or shells must add integration tests for concrete side effects 
 
 ## Class Contract Registry
 
-| Class                         | Implements                 | Depends on                                                                                      |
-| ----------------------------- | -------------------------- | ----------------------------------------------------------------------------------------------- |
-| `BackgroundTaskManager`       | `IBackgroundTaskManager`   | `IBackgroundTaskRunner`, `TBackgroundTaskEventListener`, pure transition helpers, watchdog ctrl |
-| `BackgroundTaskError`         | `IBackgroundTaskError`     | none (plain Error subclass)                                                                     |
-| `SubagentManager`             | `ISubagentManager`         | `IBackgroundTaskManager`, `IBackgroundTaskRunner`, `ISubagentRunner`                            |
-| `WorktreeSubagentRunner`      | `ISubagentRunner`          | inner `ISubagentRunner`, `ISubagentWorktreeAdapter`, agent-core hook runner                     |
-| `GitWorktreeIsolationAdapter` | `ISubagentWorktreeAdapter` | `node:child_process.execFileSync`, Git CLI (concrete adapter — see note in Public API Surface)  |
+| Class                    | Implements               | Depends on                                                                                      |
+| ------------------------ | ------------------------ | ----------------------------------------------------------------------------------------------- |
+| `BackgroundTaskManager`  | `IBackgroundTaskManager` | `IBackgroundTaskRunner`, `TBackgroundTaskEventListener`, pure transition helpers, watchdog ctrl |
+| `BackgroundTaskError`    | `IBackgroundTaskError`   | none (plain Error subclass)                                                                     |
+| `SubagentManager`        | `ISubagentManager`       | `IBackgroundTaskManager`, `IBackgroundTaskRunner`, `ISubagentRunner`                            |
+| `WorktreeSubagentRunner` | `ISubagentRunner`        | inner `ISubagentRunner`, `ISubagentWorktreeAdapter`, agent-core hook runner                     |
 
 Pure helper contracts:
 

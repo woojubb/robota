@@ -42,6 +42,7 @@ import {
   createChildProcessSubagentRunnerFactory,
   getDefaultSubagentWorkerPath,
 } from '@robota-sdk/agent-subagent-runner';
+import { createGitWorktreeIsolationAdapter } from './subagents/git-worktree-isolation-adapter.js';
 import { reloadPluginCommandSource } from '@robota-sdk/agent-command';
 import { runUserLocalDirectCommandIfRequested } from './user-local-direct-command.js';
 import { runSessionAnalyze } from './session-analyzer/session-analyze-command.js';
@@ -259,6 +260,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     workerPath: getDefaultSubagentWorkerPath(),
     providerConfig: { ...providerSettings, model: modelId },
     logsDir: paths.logs,
+    worktreeAdapter: createGitWorktreeIsolationAdapter(),
   });
 
   const sessionStore = createProjectSessionStore(cwd);

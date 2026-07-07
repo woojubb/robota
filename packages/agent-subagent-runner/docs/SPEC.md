@@ -66,14 +66,17 @@ and passes the factory to `createAgentRuntime()`. The `agent-framework` runtime 
 as an optional port (`TSubagentRunnerFactory`); no default is injected.
 
 **Worktree wrapping**: `createChildProcessSubagentRunnerFactory` wraps `ChildProcessSubagentRunner`
-in `createWorktreeSubagentRunner` (from `agent-executor`) by default. Pass
-`worktreeIsolation: false` to skip the wrapper and use the runner directly.
+in `createWorktreeSubagentRunner` (from `agent-executor`) by default, injecting the **required**
+`worktreeAdapter` option into the wrapper. Pass `worktreeIsolation: false` to skip the wrapper and use
+the runner directly. This package no longer hard-defaults a concrete git adapter (INFRA-031): the
+`ISubagentWorktreeAdapter` port is required and supplied by the composition root (`agent-cli`), so the
+package carries no concrete git/filesystem dependency.
 
 ## Type Ownership
 
 | Type / Interface                          | Kind              | Owner           | Description                                                                                                                             |
 | ----------------------------------------- | ----------------- | --------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `IChildProcessSubagentRunnerOptions`      | interface (local) | this pkg        | Constructor options: workerPath, providerConfig, execArgv, killGraceMs, env, worktreeIsolation, worktreeAdapter, logsDir                |
+| `IChildProcessSubagentRunnerOptions`      | interface (local) | this pkg        | Constructor options: workerPath, providerConfig, execArgv, killGraceMs, env, worktreeIsolation, **required** worktreeAdapter, logsDir   |
 | `ISubagentWorkerStartPayload`             | interface (local) | this pkg        | IPC payload for `start` message: jobId, request, agentDefinition, parentConfig, parentContext, providerProfile, permissionMode, logsDir |
 | `IChildProcessRuntime`                    | interface (local) | this pkg        | Internal runtime context passed between transport helpers: job, child, killGraceMs, killTimer                                           |
 | `ICancellationResult`                     | interface (local) | this pkg        | Cancellable promise wrapper: promise + reject(reason?)                                                                                  |
@@ -111,8 +114,10 @@ in `createWorktreeSubagentRunner` (from `agent-executor`) by default. Pass
 
 - **Custom worker path**: Pass `workerPath` in `IChildProcessSubagentRunnerOptions` to use a
   non-default worker script (e.g., for testing or extended worker behavior).
-- **Custom worktree adapter**: Pass `worktreeAdapter` to override the default git worktree
-  isolation adapter. Useful for environments without git or for test doubles.
+- **Worktree adapter (required)**: `worktreeAdapter` is a **required** option — the concrete
+  `ISubagentWorktreeAdapter` (git/filesystem I/O) is injected by the composition root, not defaulted
+  here (INFRA-031). Supply a git-backed adapter for real isolation, or a test double / no-git double
+  for environments without git.
 - **Custom provider config**: Pass `providerConfig` to override the parent provider configuration
   serialized into the start payload.
 - **Log directory**: Pass `logsDir` to enable transcript logging per job; reads are exposed through
@@ -179,18 +184,18 @@ in `createWorktreeSubagentRunner` (from `agent-executor`) by default. Pass
 
 ### Cross-Package Port Consumers
 
-| Port (Owner)                                     | Consumer                                  | Notes                                                                      |
-| ------------------------------------------------ | ----------------------------------------- | -------------------------------------------------------------------------- |
-| `ISubagentRunner` (agent-executor)               | `ChildProcessSubagentRunner`              | Interface implemented by this package                                      |
-| `ISubagentJobStart` (agent-executor)             | `runner.start()`                          | Input job descriptor                                                       |
-| `ISubagentJobHandle` (agent-executor)            | return of `runner.start()`                | Lifecycle handle returned to caller                                        |
-| `ISubagentJobResult` (agent-executor)            | `createChildProcessSubagentResult`        | Resolved value of the result promise                                       |
-| `ISubagentSpawnRequest` (agent-executor)         | `ISubagentWorkerStartPayload.request`     | Spawn request embedded in IPC start payload                                |
-| `ISerializableProviderProfile` (agent-executor)  | `ISubagentWorkerStartPayload`             | Provider profile serialized into IPC start payload                         |
-| `ISubagentWorktreeAdapter` (agent-executor)      | `options.worktreeAdapter`                 | Injected adapter; defaults to `createGitWorktreeIsolationAdapter()` output |
-| `createWorktreeSubagentRunner` (agent-executor)  | `createChildProcessSubagentRunnerFactory` | Wraps runner with worktree isolation when `worktreeIsolation !== false`    |
-| `createProviderFromProfile` (agent-executor)     | `child-process-subagent-worker.ts`        | Reconstructs provider in worker from serialized profile                    |
-| `BackgroundTaskError` (agent-executor)           | transport, result, worker                 | Error class used throughout for typed rejection                            |
-| `TSubagentRunnerFactory` (agent-framework)       | `createChildProcessSubagentRunnerFactory` | Factory type accepted by `createAgentRuntime()`                            |
-| `IInProcessSubagentRunnerDeps` (agent-framework) | `ChildProcessSubagentRunner` constructor  | Dependency bag provided by runtime at factory invocation                   |
-| `IAgentDefinition` (agent-framework)             | `ISubagentWorkerStartPayload`             | Agent definition resolved from registry and sent to worker                 |
+| Port (Owner)                                     | Consumer                                  | Notes                                                                                 |
+| ------------------------------------------------ | ----------------------------------------- | ------------------------------------------------------------------------------------- |
+| `ISubagentRunner` (agent-executor)               | `ChildProcessSubagentRunner`              | Interface implemented by this package                                                 |
+| `ISubagentJobStart` (agent-executor)             | `runner.start()`                          | Input job descriptor                                                                  |
+| `ISubagentJobHandle` (agent-executor)            | return of `runner.start()`                | Lifecycle handle returned to caller                                                   |
+| `ISubagentJobResult` (agent-executor)            | `createChildProcessSubagentResult`        | Resolved value of the result promise                                                  |
+| `ISubagentSpawnRequest` (agent-executor)         | `ISubagentWorkerStartPayload.request`     | Spawn request embedded in IPC start payload                                           |
+| `ISerializableProviderProfile` (agent-executor)  | `ISubagentWorkerStartPayload`             | Provider profile serialized into IPC start payload                                    |
+| `ISubagentWorktreeAdapter` (agent-executor)      | `options.worktreeAdapter`                 | Required injected adapter (no concrete-git default; supplied by the composition root) |
+| `createWorktreeSubagentRunner` (agent-executor)  | `createChildProcessSubagentRunnerFactory` | Wraps runner with worktree isolation when `worktreeIsolation !== false`               |
+| `createProviderFromProfile` (agent-executor)     | `child-process-subagent-worker.ts`        | Reconstructs provider in worker from serialized profile                               |
+| `BackgroundTaskError` (agent-executor)           | transport, result, worker                 | Error class used throughout for typed rejection                                       |
+| `TSubagentRunnerFactory` (agent-framework)       | `createChildProcessSubagentRunnerFactory` | Factory type accepted by `createAgentRuntime()`                                       |
+| `IInProcessSubagentRunnerDeps` (agent-framework) | `ChildProcessSubagentRunner` constructor  | Dependency bag provided by runtime at factory invocation                              |
+| `IAgentDefinition` (agent-framework)             | `ISubagentWorkerStartPayload`             | Agent definition resolved from registry and sent to worker                            |

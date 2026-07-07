@@ -5,7 +5,6 @@ import { join } from 'node:path';
 import {
   BackgroundTaskError,
   createBackgroundTaskLogPage,
-  createGitWorktreeIsolationAdapter,
   createWorktreeSubagentRunner,
   type ISubagentJobHandle,
   type ISubagentJobStart,
@@ -49,7 +48,7 @@ export interface IChildProcessSubagentRunnerOptions {
   killGraceMs?: number;
   env?: NodeJS.ProcessEnv;
   worktreeIsolation?: boolean;
-  worktreeAdapter?: ISubagentWorktreeAdapter;
+  worktreeAdapter: ISubagentWorktreeAdapter;
   logsDir?: string;
 }
 
@@ -61,7 +60,7 @@ export function createChildProcessSubagentRunnerFactory(
     if (options.worktreeIsolation === false) return runner;
     return createWorktreeSubagentRunner({
       runner,
-      worktreeAdapter: options.worktreeAdapter ?? createGitWorktreeIsolationAdapter(),
+      worktreeAdapter: options.worktreeAdapter,
       hooks: deps.config.hooks,
       hookTypeExecutors: deps.hookTypeExecutors,
     });

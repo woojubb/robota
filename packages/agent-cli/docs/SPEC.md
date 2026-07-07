@@ -1458,7 +1458,7 @@ Child-process subagent runner responsibilities:
 Subagent transcript pagination uses the same runtime-owned log page helper as process background
 tasks. The CLI remains responsible for locating and reading the append-only transcript file.
 
-When an agent request sets `isolation: 'worktree'`, the CLI composes the runtime-owned `WorktreeSubagentRunner` exposed through SDK contracts around the child-process runner and injects a CLI-owned `GitWorktreeIsolationAdapter`.
+When an agent request sets `isolation: 'worktree'`, the CLI composes the runtime-owned `WorktreeSubagentRunner` exposed through SDK contracts around the child-process runner and injects a CLI-owned `GitWorktreeIsolationAdapter`. The concrete adapter (git CLI + filesystem I/O) is owned by the CLI at `src/subagents/git-worktree-isolation-adapter.ts` and injected as the required `worktreeAdapter` at the `createChildProcessSubagentRunnerFactory` call in `cli.ts` (INFRA-031 / ARCH-FIX-024). `agent-executor` owns only the `ISubagentWorktreeAdapter` port and the pure `WorktreeSubagentRunner` decorator; `agent-subagent-runner` no longer hard-defaults a concrete git adapter.
 
 The runtime worktree runner owns worktree lifecycle orchestration:
 

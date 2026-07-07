@@ -4,7 +4,11 @@ import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import type { IInProcessSubagentRunnerDeps } from '@robota-sdk/agent-framework';
-import type { ISubagentJobStart, TBackgroundTaskRunnerEvent } from '@robota-sdk/agent-executor';
+import type {
+  ISubagentJobStart,
+  ISubagentWorktreeAdapter,
+  TBackgroundTaskRunnerEvent,
+} from '@robota-sdk/agent-executor';
 import {
   ChildProcessSubagentRunner,
   isSubagentWorkerChildMessage,
@@ -15,6 +19,16 @@ const FIXTURE_WORKER = fileURLToPath(
   new URL('./fixtures/subagent-worker-fixture.mjs', import.meta.url),
 );
 const TEST_TIMEOUT_MS = 20_000;
+
+// The direct-constructor path never enables worktree isolation (that wrapping lives in the factory),
+// so a no-op adapter satisfies the now-required option without affecting behavior.
+const STUB_WORKTREE_ADAPTER: ISubagentWorktreeAdapter = {
+  prepare: () => {
+    throw new Error('not used');
+  },
+  isClean: () => true,
+  remove: () => {},
+};
 
 function createDeps(): IInProcessSubagentRunnerDeps {
   return {
@@ -86,6 +100,7 @@ describe('ChildProcessSubagentRunner', () => {
       const runner = new ChildProcessSubagentRunner(createDeps(), {
         workerPath: FIXTURE_WORKER,
         execArgv: [],
+        worktreeAdapter: STUB_WORKTREE_ADAPTER,
       });
 
       const handle = runner.start(createJob());
@@ -104,6 +119,7 @@ describe('ChildProcessSubagentRunner', () => {
         workerPath: FIXTURE_WORKER,
         execArgv: [],
         env: { ROBOTA_FIXTURE_MODE: 'usage' },
+        worktreeAdapter: STUB_WORKTREE_ADAPTER,
       });
 
       const handle = runner.start(createJob());
@@ -124,6 +140,7 @@ describe('ChildProcessSubagentRunner', () => {
         workerPath: FIXTURE_WORKER,
         execArgv: [],
         env: { ROBOTA_FIXTURE_MODE: 'progress' },
+        worktreeAdapter: STUB_WORKTREE_ADAPTER,
       });
 
       const handle = runner.start(createJobWithEvents(events));
@@ -155,6 +172,7 @@ describe('ChildProcessSubagentRunner', () => {
         workerPath: FIXTURE_WORKER,
         execArgv: [],
         logsDir,
+        worktreeAdapter: STUB_WORKTREE_ADAPTER,
       });
 
       const handle = runner.start(createJob());
@@ -175,6 +193,7 @@ describe('ChildProcessSubagentRunner', () => {
         workerPath: FIXTURE_WORKER,
         execArgv: [],
         env: { ROBOTA_FIXTURE_MODE: 'wait' },
+        worktreeAdapter: STUB_WORKTREE_ADAPTER,
       });
 
       const handle = runner.start(createJob());
@@ -194,6 +213,7 @@ describe('ChildProcessSubagentRunner', () => {
         execArgv: [],
         env: { ROBOTA_FIXTURE_MODE: 'wait' },
         killGraceMs: 1_000,
+        worktreeAdapter: STUB_WORKTREE_ADAPTER,
       });
 
       const handle = runner.start(createJob());

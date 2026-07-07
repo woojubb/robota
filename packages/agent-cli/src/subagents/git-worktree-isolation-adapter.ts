@@ -3,13 +3,12 @@ import { randomUUID } from 'node:crypto';
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { BackgroundTaskError } from '../background-tasks/types.js';
-
-import type {
-  IPreparedSubagentWorktree,
-  ISubagentWorktreeAdapter,
-  ISubagentWorktreePrepareRequest,
-} from './worktree-subagent-runner.js';
+import {
+  BackgroundTaskError,
+  type IPreparedSubagentWorktree,
+  type ISubagentWorktreeAdapter,
+  type ISubagentWorktreePrepareRequest,
+} from '@robota-sdk/agent-executor';
 
 const WORKTREE_DIR = '.robota/worktrees';
 const BRANCH_PREFIX = 'robota';
