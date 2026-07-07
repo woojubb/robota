@@ -29,13 +29,17 @@ import {
   getDefaultSubagentWorkerPath,
 } from '@robota-sdk/agent-subagent-runner';
 import type { IProviderDefinitionConfig } from '@robota-sdk/agent-core';
+import type { ISubagentWorktreeAdapter } from '@robota-sdk/agent-executor';
 
 declare const providerConfig: IProviderDefinitionConfig;
+// The concrete worktree adapter (git/fs I/O) is owned and injected by the composition root.
+declare const worktreeAdapter: ISubagentWorktreeAdapter;
 
 const factory = createChildProcessSubagentRunnerFactory({
   workerPath: getDefaultSubagentWorkerPath(), // the bundled worker entry point
   providerConfig,
   logsDir: '.robota/logs',
+  worktreeAdapter, // required: no concrete git default — inject the port at the composition root
 });
 ```
 
