@@ -14,8 +14,11 @@ import { join, resolve } from 'node:path';
 
 import { z } from 'zod';
 
+import { checkPathWithinCwd } from './path-guard.js';
 import { createZodFunctionTool } from '../implementations/function-tool';
 
+import type { FunctionTool } from '../implementations/function-tool';
+import type { ISandboxToolOptions } from '../sandbox/types.js';
 import type { IToolInvocationResult } from '../types/tool-result.js';
 
 const GrepSchema = z.object({
@@ -162,7 +165,15 @@ function searchFile(
   return outputLines;
 }
 
-async function grepFileTool(args: TGrepArgs): Promise<string> {
+function resolveSearchPath(searchPath: string | undefined, cwd: string | undefined): string {
+  const root = cwd ?? process.cwd();
+  return searchPath ? resolve(root, searchPath) : resolve(root);
+}
+
+async function grepFileTool(
+  args: TGrepArgs,
+  options: ISandboxToolOptions = {},
+): Promise<string> {
   const {
     pattern,
     path: searchPath,
@@ -171,7 +182,9 @@ async function grepFileTool(args: TGrepArgs): Promise<string> {
     outputMode = 'files_with_matches',
     headLimit,
   } = args;
-  const targetPath = searchPath ? resolve(searchPath) : process.cwd();
+  const targetPath = resolveSearchPath(searchPath, options.cwd);
+  const pathError = checkPathWithinCwd(targetPath, options.cwd);
+  if (pathError !== undefined) return pathError;
 
   let regex: RegExp;
   try {
@@ -247,13 +260,20 @@ async function grepFileTool(args: TGrepArgs): Promise<string> {
 }
 
 /**
+ * Create a GrepTool instance — register with Robota agent tools registry.
+ */
+export function createGrepTool(options: ISandboxToolOptions = {}): FunctionTool {
+  return createZodFunctionTool(
+    'Grep',
+    "A powerful search tool built on regex matching.\n\nSupports full regex syntax (e.g., 'log.*Error', 'function\\\\s+\\\\w+'). Filter files with glob parameter (e.g., '*.js', '**/*.tsx').\n\nOutput modes: 'content' shows matching lines with context, 'files_with_matches' shows only file paths (default), 'count' shows per-file match counts.\n\nUse this tool for ALL search tasks. NEVER invoke grep or rg as a Bash command.\n\nUse headLimit to control result size and save context space.",
+    GrepSchema,
+    async (params) => {
+      return grepFileTool(params, options);
+    },
+  );
+}
+
+/**
  * GrepTool instance — register with Robota agent tools registry.
  */
-export const grepTool = createZodFunctionTool(
-  'Grep',
-  "A powerful search tool built on regex matching.\n\nSupports full regex syntax (e.g., 'log.*Error', 'function\\\\s+\\\\w+'). Filter files with glob parameter (e.g., '*.js', '**/*.tsx').\n\nOutput modes: 'content' shows matching lines with context, 'files_with_matches' shows only file paths (default), 'count' shows per-file match counts.\n\nUse this tool for ALL search tasks. NEVER invoke grep or rg as a Bash command.\n\nUse headLimit to control result size and save context space.",
-  GrepSchema,
-  async (params) => {
-    return grepFileTool(params);
-  },
-);
+export const grepTool = createGrepTool();

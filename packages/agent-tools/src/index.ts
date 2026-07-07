@@ -49,8 +49,8 @@ export { shellTool, createShellTool, bashTool, createBashTool } from './builtins
 export { readTool, createReadTool } from './builtins/read-tool';
 export { writeTool, createWriteTool } from './builtins/write-tool';
 export { editTool, createEditTool } from './builtins/edit-tool';
-export { globTool } from './builtins/glob-tool';
-export { grepTool } from './builtins/grep-tool';
+export { globTool, createGlobTool } from './builtins/glob-tool';
+export { grepTool, createGrepTool } from './builtins/grep-tool';
 export { webFetchTool } from './builtins/web-fetch-tool';
 export { webSearchTool } from './builtins/web-search-tool';
 export { askUserQuestionTool, createAskUserQuestionTool } from './builtins/ask-user-question-tool';
