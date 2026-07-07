@@ -2953,6 +2953,9 @@ importers:
 
   packages/dag-nodes/tool:
     dependencies:
+      '@robota-sdk/agent-core':
+        specifier: workspace:*
+        version: link:../../agent-core
       '@robota-sdk/agent-tools':
         specifier: workspace:*
         version: link:../../agent-tools
