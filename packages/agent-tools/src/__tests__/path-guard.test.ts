@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { mkdtempSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -49,5 +50,45 @@ describe('checkPathWithinCwd', () => {
     expect(result).not.toBeUndefined();
     const parsed = JSON.parse(result!);
     expect(parsed.success).toBe(false);
+  });
+
+  it('blocks symlinked files that resolve outside cwd', () => {
+    const root = mkdtempSync(join(tmpdir(), 'robota-path-guard-root-'));
+    const outside = mkdtempSync(join(tmpdir(), 'robota-path-guard-outside-'));
+
+    try {
+      const secretPath = join(outside, 'secret.txt');
+      const linkPath = join(root, 'secret-link.txt');
+      writeFileSync(secretPath, 'secret\n', 'utf8');
+      symlinkSync(secretPath, linkPath);
+
+      const result = checkPathWithinCwd(linkPath, root);
+      expect(result).not.toBeUndefined();
+      const parsed = JSON.parse(result!);
+      expect(parsed.success).toBe(false);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+      rmSync(outside, { recursive: true, force: true });
+    }
+  });
+
+  it('blocks paths below symlinked directories that resolve outside cwd', () => {
+    const root = mkdtempSync(join(tmpdir(), 'robota-path-guard-root-'));
+    const outside = mkdtempSync(join(tmpdir(), 'robota-path-guard-outside-'));
+
+    try {
+      const outsideDir = join(outside, 'target');
+      const linkDir = join(root, 'linked-dir');
+      mkdirSync(outsideDir, { recursive: true });
+      symlinkSync(outsideDir, linkDir, 'dir');
+
+      const result = checkPathWithinCwd(join(linkDir, 'generated.txt'), root);
+      expect(result).not.toBeUndefined();
+      const parsed = JSON.parse(result!);
+      expect(parsed.success).toBe(false);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+      rmSync(outside, { recursive: true, force: true });
+    }
   });
 });
