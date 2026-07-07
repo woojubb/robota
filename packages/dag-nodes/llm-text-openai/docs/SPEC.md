@@ -8,7 +8,7 @@
 
 ## Boundaries
 
-- Extends `AbstractNodeDefinition` from `dag-core`. Does not redefine core DAG contracts.
+- Extends `AbstractNodeDefinition` from `@robota-sdk/dag-node`. Does not redefine core DAG contracts.
 - Delegates AI provider calls to `@robota-sdk/agent-provider` (subpath `/openai`, `OpenAIProvider`) via `@robota-sdk/agent-core` (`Robota`).
 - Does not own provider or agent implementation.
 - Input validation uses `NodeIoAccessor.requireInputString`.

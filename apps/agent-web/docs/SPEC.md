@@ -30,8 +30,7 @@ Next.js App Router application with the following route structure:
   output. Implemented by `MonitorClient` (`src/app/monitor/MonitorClient.tsx`), which uses
   `SessionMonitor` from `@robota-sdk/agent-web-ui/client` (the published browser component library).
 
-The app composes workspace packages as React components and configures API access via `API_CONFIG`
-(versioned base URL, timeout, retry, rate limiting). Client-side caching is provided by
+The app composes workspace packages as React components. Client-side caching is provided by
 `src/lib/cache.ts`. Browser builds explicitly disable Node builtin polyfills in `next.config.ts` so
 Node-only optional exports from workspace packages do not enter the client bundle.
 
@@ -48,7 +47,6 @@ This app is SSOT for:
 - `IBrandConfig` -- brand configuration type. `src/types/index.ts`
 - `ILayoutProps` -- layout component props. `src/types/index.ts`
 - `IApiResponse<T>` -- generic API response wrapper. `src/types/index.ts`
-- `API_CONFIG` -- API configuration constants (version, baseUrl, timeout, retry, rateLimit). `src/config/api.ts`
 
 ## Public API Surface
 
@@ -56,19 +54,14 @@ This is a private app (`"private": true`); it has no published API surface. Inte
 
 | Export          | Kind             | Location                            | Description                                |
 | --------------- | ---------------- | ----------------------------------- | ------------------------------------------ |
-| `API_CONFIG`    | const            | `src/config/api.ts`                 | API endpoint configuration                 |
 | `SimpleCache`   | class            | `src/lib/cache.ts`                  | Generic in-memory TTL cache                |
 | `cache`         | instance         | `src/lib/cache.ts`                  | Default cache instance                     |
-| `userCache`     | instance         | `src/lib/cache.ts`                  | Cache instance for user data               |
-| `apiCache`      | instance         | `src/lib/cache.ts`                  | Cache instance for API responses           |
-| `cacheKeys`     | const            | `src/lib/cache.ts`                  | Cache key generator helpers                |
 | `randomUUID`    | function         | `src/lib/crypto-browser.ts`         | Browser-safe `crypto.randomUUID()` wrapper |
 | `MonitorClient` | React component  | `src/app/monitor/MonitorClient.tsx` | CLI second-screen monitor (client-only)    |
 | Page components | React components | `src/app/`                          | Next.js route pages                        |
 
 ## Extension Points
 
-- `API_CONFIG` -- API version configurable via `NEXT_PUBLIC_API_VERSION` environment variable.
 - `NEXT_PUBLIC_PLAYGROUND_WS_URL` -- overrides the default WebSocket URL passed to `PlaygroundApp`.
 - `NEXT_PUBLIC_CLI_WS_URL` -- overrides the CLI monitor WebSocket URL passed to `SessionMonitor` (default `ws://localhost:7070`).
 - Layout composition -- `src/app/layout.tsx` provides the root layout shell (fonts, metadata).

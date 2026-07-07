@@ -2,7 +2,7 @@
 
 ## Scope
 
-Command-line client for the Robota DAG orchestration HTTP API. This package is an operational tool for humans and AI agents that need to inspect definitions, list runtime nodes, manage cost metadata, create runs, start runs, and fetch run status/results from `dag-orchestrator-server`.
+Local-first command-line workflow tool for building, running, and inspecting Robota DAG workflows. This package is an operational tool for humans and AI agents that author, validate, execute, and inspect DAG workflows locally (no server required) via an in-process runner, plus supporting commands for cost estimation, MCP serving, node inspection, cataloging, sharing, and diagnostics. When a server URL is configured it can additionally delegate the orchestration command groups (definitions, runs, run-drafts, cost metadata, assets, published workflows) to `dag-orchestrator-server` over HTTP.
 
 ## Boundaries
 
@@ -10,17 +10,64 @@ Command-line client for the Robota DAG orchestration HTTP API. This package is a
 - Does not own operational HTTP client contracts. Those belong to `@robota-sdk/dag-orchestration-client`.
 - Does not own server-side API problem detail mapping. That belongs to `@robota-sdk/dag-api`.
 - Does not import or extend `@robota-sdk/agent-cli`; the agent TUI remains a separate thin UI.
-- Supports local execution mode (default) that embeds `dag-runtime`, `dag-worker`, and `dag-adapters-local` in-process, requiring no server.
+- Supports local execution mode (default) that runs DAGs in-process via a composition built by `createExecutionComposition` from `@robota-sdk/dag-framework` over `dag-adapters-local` in-memory adapters, requiring no server.
 - HTTP server mode is available via `--server <url>` for compatibility with `dag-orchestrator-server`.
 
 ## Architecture Overview
 
 - `bin.ts` is the executable entrypoint for `robota-dag`.
-- `runner.ts` parses argv, applies environment/default config, dispatches commands, and writes JSON output.
-- `@robota-sdk/dag-orchestration-client` owns the shared `DagOrchestrationHttpClient` used for HTTP calls.
+- `runner.ts` parses argv, applies environment/default config, dispatches the local-first top-level commands, and writes JSON output.
+- `src/commands/` holds one handler module per top-level command (see Command Surface).
+- `src/local-runner/` executes DAGs in-process by composing a runtime via `createExecutionComposition` from `@robota-sdk/dag-framework` over `dag-adapters-local` adapters; `createCliNodeRegistry()` supplies the built-in node definitions.
+- `@robota-sdk/dag-builder` supplies pipeline/spec build and workflow-file conversion helpers (`buildDagFromPipeline`, `fromDagWorkflowFile`, `isWorkflowFileFormat`) used by the build/convert/explain/view/migrate/cost commands.
+- `@robota-sdk/dag-orchestration-client` owns the shared `DagOrchestrationHttpClient` used for HTTP server-mode calls.
 - `json.ts` owns JSON parsing, file input decoding, and JSON output formatting.
 
 ## Command Surface
+
+The CLI is local-first: `runner.ts` dispatches the following top-level commands to in-process
+handlers under `src/commands/`, none of which require a server. A global `--workspace <dir>` flag
+(FLOW-007) and a `--server`/`--server-url` flag (HTTP server mode) may precede a command.
+
+Local-first top-level commands (`src/commands/`):
+
+- `run <file>` — execute a workflow locally (routes to HTTP server mode when `--server` is present)
+- `runs` — detached-run provider management (PROVIDER-011); falls through to the server runs API when a server URL is configured
+- `validate <file>` — validate a DAG without executing
+- `node <subcommand>` — inspect the local node registry
+- `init` — scaffold a new DAG project
+- `mcp` — start the local MCP server (also `mcp schema`, `--inspect`)
+- `catalog <subcommand>` — manage the local workflow catalog
+- `template <subcommand>` — built-in topology templates
+- `migrate` — migrate DAG file formats
+- `doctor` — environment diagnostics
+- `build` — generate a DAG file from a simplified spec
+- `convert` — convert spec formats (linear, mermaid → IBuildSpec JSON)
+- `diff` — structural diff between two DAG files
+- `cost <subcommand>` — cost estimation
+- `share` — share a DAG via GitHub Gist
+- `demo` — run a local demo (no API key required)
+- `explain <file>` — describe a DAG's structure
+- `compare` — compare providers
+- `tutorial` — interactive onboarding walkthrough
+- `lock <subcommand>` — lockfile management
+- `telemetry <subcommand>` — telemetry opt-in/out management
+- `lint <file>` — lint a DAG file
+- `keys <subcommand>` — API key management
+- `benchmark` — multi-run latency/cost benchmarking (ECO-011)
+- `perf` — in-process execution overhead measurement (PERF-010)
+- `aav` — Agent Authoring Velocity benchmark (COMPOSE-006)
+- `pipe` — stdin text → pipeline → stdout
+- `save` — save a pipeline to a catalog file
+- `alias <subcommand>` — alias management (add/list/remove)
+- `from-mermaid` — convert Mermaid → DAG JSON
+- `describe` — natural-language → DAG generation (requires `ANTHROPIC_API_KEY`)
+- `fix <file>` — analyze and repair a broken DAG
+- `studio` — start the local web UI server
+- `view <file>` — ASCII flow diagram viewer
+- `session <subcommand>` — bounded agent session management
+
+### HTTP server mode
 
 Server URL resolution:
 
@@ -28,32 +75,15 @@ Server URL resolution:
 2. `ROBOTA_DAG_SERVER_URL`
 3. `http://localhost:3012`
 
-Commands:
+When a server URL is configured, unmatched commands fall through to `dispatchDagCliCommand`, which
+proxies the orchestration command groups to `dag-orchestrator-server` over HTTP:
 
-- `assets upload --json <json|@file>`
-- `assets get <assetId>`
-- `assets download <assetId> --output <path>`
-- `cost-meta list`
-- `cost-meta get <nodeType>`
-- `cost-meta create --json <json|@file>`
-- `cost-meta update <nodeType> --json <json|@file>`
-- `cost-meta delete <nodeType>`
-- `cost-meta validate --json <json|@file>`
-- `cost-meta preview --json <json|@file>`
-- `definitions list`
-- `definitions get <dagId> [--version <version>]`
-- `definitions create --file <definition.json>`
-- `definitions publish <dagId> [--version <version>]`
+- `assets upload|get|download`
+- `cost-meta list|get|create|update|delete|validate|preview`
+- `definitions list|get|create|publish`
 - `nodes list`
-- `runs create --file <definition.json> [--input <json|@file>] [--partial-start <nodeId>]`
-- `runs start <preparationId>`
-- `runs status <dagRunId>`
-- `runs result <dagRunId>`
-- `run-drafts create --json <json|@file>`
-- `run-drafts get <draftId>`
-- `run-drafts replace <draftId> --json <json|@file>`
-- `run-drafts reset <draftId> <nodeId>`
-- `run-drafts overwrite <draftId> <nodeId> --json <json|@file>`
+- `runs create|start|status|result`
+- `run-drafts create|get|replace|reset|overwrite`
 - `workflows start <dagId> [--version <version>] [--json <json|@file>]`
 
 Output is JSON. Success responses are printed as returned by the server. CLI validation failures use a JSON envelope with `ok: false`, `status: 2`, and a single problem entry.
@@ -96,9 +126,9 @@ Imported from other packages:
 - `IDagDefinition`, `IPartialRunRequest`, `TPortPayload`, `IDagNodeDefinition`, `LifecycleTaskExecutorPort`, `IWorkspaceLayout` from `@robota-sdk/dag-core`
 - `parsePersistedInstantNode`, `rehydrateInstantNode` from `@robota-sdk/dag-node-instant-node` (instant-node reload, DATA-004)
 - `IOrchestrationProblemDetails`, `DagOrchestrationHttpClient`, asset request aliases, cost metadata request aliases, run draft request aliases, `IDagOrchestrationPublishedWorkflowRunRequest`, and orchestrator HTTP response types from `@robota-sdk/dag-orchestration-client`
-- `IDagExecutionComposition`, `RunProgressEventBus` from `@robota-sdk/dag-api`
-- `RunOrchestratorService`, `RunQueryService`, `RunCancelService` from `@robota-sdk/dag-runtime`
-- `createWorkerLoopService` from `@robota-sdk/dag-worker`
+- `IDagExecutionComposition`, `IRuntimeRunProgressEventBusPort` from `@robota-sdk/dag-api`
+- `createExecutionComposition` (in-process run composition), `createDefaultNodeRegistrySync`, `scanWorkspaceCatalog`, `HttpDagRuntimeProvider`, `LocalDagRuntimeProvider` from `@robota-sdk/dag-framework`
+- `buildDagFromPipeline`, `fromDagWorkflowFile`, `isWorkflowFileFormat`, `IDagBuildInput`, `IPipelineNodeSpec` from `@robota-sdk/dag-builder`
 - `InMemoryStoragePort`, `InMemoryQueuePort`, `InMemoryLeasePort`, `SystemClockPort` from `@robota-sdk/dag-adapters-local`
 - `buildNodeDefinitionAssembly`, `StaticNodeLifecycleFactory`, `StaticNodeManifestRegistry`, `StaticNodeTaskHandlerRegistry` from `@robota-sdk/dag-node`
 - Node definition classes from `@robota-sdk/dag-node-*` packages
@@ -124,7 +154,7 @@ The barrel (`src/index.ts`) exports exactly:
 The following are **package-internal** (not exported by the barrel):
 
 - `LocalDagRunner` — in-process DAG runner that embeds the runtime, worker, and adapters without a server (`src/local-runner/`).
-- `createDefaultNodeRegistry()` — returns all built-in node definitions for use with `LocalDagRunner` (`src/local-runner/`).
+- `createCliNodeRegistry()` — returns all built-in node definitions for use with `LocalDagRunner` (`src/local-runner/`).
 - `computeLineDiff(before, after, options?)` — LCS-based line diff utility (`src/lib/line-diff.ts`).
 - `getMainOutput(result)` — extracts primary string output from a run result for diff comparison.
 
@@ -160,8 +190,8 @@ None.
 | `dag-core` domain types                             | CLI runner     | `src/`              |
 | `dag-orchestration-client` HTTP client and payloads | CLI runner     | `src/`              |
 | `dag-api` composition and event bus                 | LocalDagRunner | `src/local-runner/` |
-| `dag-runtime` orchestration services                | LocalDagRunner | `src/local-runner/` |
-| `dag-worker` worker loop service                    | LocalDagRunner | `src/local-runner/` |
+| `dag-framework` `createExecutionComposition`        | LocalDagRunner | `src/local-runner/` |
+| `dag-builder` build/workflow-file helpers           | CLI commands   | `src/commands/`     |
 | `dag-adapters-local` in-memory adapters             | LocalDagRunner | `src/local-runner/` |
 | `dag-node` lifecycle and registry                   | LocalDagRunner | `src/local-runner/` |
 | `dag-node-*` node definitions                       | node-registry  | `src/local-runner/` |

@@ -87,6 +87,8 @@ const storage =
 
 ### `task_queue`
 
+Owned by `SqliteQueueAdapter`. Its `CREATE TABLE` DDL lives in the queue adapter constructor, not in `runMigrations()`.
+
 | Column                             | Type    | Description                             |
 | ---------------------------------- | ------- | --------------------------------------- |
 | message_id                         | TEXT    | Message identifier (PK)                 |
@@ -97,13 +99,15 @@ const storage =
 
 ## SQLite Configuration
 
-- `PRAGMA journal_mode = WAL` — better concurrent read performance
-- `PRAGMA foreign_keys = ON` — enforces referential integrity
+- `PRAGMA journal_mode = WAL` — better concurrent read performance (set by both `SqliteStorageAdapter` and `SqliteQueueAdapter`).
+- `PRAGMA foreign_keys = ON` — enforces referential integrity (set by `SqliteStorageAdapter` only; `SqliteQueueAdapter` sets only `journal_mode = WAL`).
 
 ## Migrations
 
-Schema migrations run automatically on construction via `runMigrations()`.
-Each migration is numbered and idempotent. Current schema version: **1**.
+`runMigrations()` runs automatically on `SqliteStorageAdapter` construction and creates the three
+storage tables (`dag_definitions`, `dag_runs`, `task_runs`) plus the `schema_migrations` tracking
+table. The `task_queue` table is not migrated here — `SqliteQueueAdapter` creates it in its own
+constructor. Each migration is numbered and idempotent. Current schema version: **1**.
 
 ## Dependencies
 

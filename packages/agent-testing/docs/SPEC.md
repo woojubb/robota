@@ -57,7 +57,8 @@ agent-testing/src
 The harness spawns a process in a real PTY via `@homebridge/node-pty-prebuilt-multiarch`. `spawnPty`
 drives any command (e.g. a built CLI binary); `spawnPtyFixture` runs a TSX fixture through the
 `tsx/esm` import hook (no build step). The returned `IPtyRunSession` exposes `sendKeys` (per-key
-paced), `write`, `pressEnter`, `waitFor`, `snapshot`/`raw`, `expectExit`, and `dispose`.
+paced), `write`, `pressEnter`, `waitFor`, `waitForSince`, `snapshot`/`snapshotSince`/`raw`,
+`expectExit`, and `dispose`.
 
 ## Type Ownership
 
@@ -69,13 +70,13 @@ paced), `write`, `pressEnter`, `waitFor`, `snapshot`/`raw`, `expectExit`, and `d
 
 ## Public API Surface
 
-| Export                 | Kind     | Description                                                                                        |
-| ---------------------- | -------- | -------------------------------------------------------------------------------------------------- |
-| `spawnPty`             | function | Spawn any command in a real PTY; returns an `IPtyRunSession`                                       |
-| `spawnPtyFixture`      | function | Spawn a TSX fixture in a PTY via the `tsx/esm` import hook                                         |
-| `IPtyRunOptions`       | type     | `spawnPty` options                                                                                 |
-| `IPtyRunSession`       | type     | Driving session: `sendKeys`/`write`/`pressEnter`/`waitFor`/`snapshot`/`raw`/`expectExit`/`dispose` |
-| `ISpawnFixtureOptions` | type     | `spawnPtyFixture` options                                                                          |
+| Export                 | Kind     | Description                                                                                                                       |
+| ---------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `spawnPty`             | function | Spawn any command in a real PTY; returns an `IPtyRunSession`                                                                      |
+| `spawnPtyFixture`      | function | Spawn a TSX fixture in a PTY via the `tsx/esm` import hook                                                                        |
+| `IPtyRunOptions`       | type     | `spawnPty` options                                                                                                                |
+| `IPtyRunSession`       | type     | Driving session: `sendKeys`/`write`/`pressEnter`/`waitFor`/`waitForSince`/`snapshot`/`snapshotSince`/`raw`/`expectExit`/`dispose` |
+| `ISpawnFixtureOptions` | type     | `spawnPtyFixture` options                                                                                                         |
 
 ## Extension Points
 

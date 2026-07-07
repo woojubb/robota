@@ -16,9 +16,11 @@ Model Context Protocol server that exposes the Robota DAG orchestration HTTP API
 ## Architecture Overview
 
 - `bin.ts` — stdio entrypoint; parses args, resolves mode, starts server.
-- `runner.ts` — `resolveDagMcpConfig()` determines HTTP vs embedded mode; lazy-imports `dag-framework` in embedded mode.
+- `config.ts` — `resolveDagMcpConfig()` determines HTTP vs embedded mode.
+- `runner.ts` — resolves config via `resolveDagMcpConfig()`; lazy-imports `dag-framework` in embedded mode; starts the server.
 - `mcp-server.ts` — creates the low-level MCP `Server`, registers `tools/list` and `tools/call` handlers.
-- `dag-mcp-tools.ts` — owns all 25 Tier 1 tool definitions and dispatch via `IDagOrchestrationPort`.
+- `tool-definitions.ts` — owns all 29 Tier 1 tool definitions (`DAG_MCP_TOOL_DEFINITIONS`).
+- `dag-mcp-tools.ts` — owns tool dispatch via `IDagOrchestrationPort` (`callDagMcpTool`).
 - `@robota-sdk/dag-orchestration-client` — provides `DagOrchestrationHttpClient` (HTTP mode) and `IDagOrchestrationPort` (both modes).
 - `@robota-sdk/dag-framework` — lazy-imported for embedded mode; provides in-process `IDagOrchestrationPort` implementation.
 
@@ -36,12 +38,12 @@ In embedded mode the server boots with no external dependencies. In HTTP mode it
 
 The Robota DAG ecosystem has two MCP server entry points. Each exposes a different tool surface:
 
-| Entry point                     | Server name  | Tools                | Mode            |
-| ------------------------------- | ------------ | -------------------- | --------------- |
-| `npx @robota-sdk/dag-cli mcp`   | `robota-dag` | ~17 CLI-native tools | Embedded only   |
-| `dag-mcp-server` (this package) | `robota-dag` | 25 standard tools    | HTTP + Embedded |
+| Entry point                     | Server name  | Tools               | Mode            |
+| ------------------------------- | ------------ | ------------------- | --------------- |
+| `npx @robota-sdk/dag-cli mcp`   | `robota-dag` | 26 CLI-native tools | Embedded only   |
+| `dag-mcp-server` (this package) | `robota-dag` | 29 standard tools   | HTTP + Embedded |
 
-### Tier 1 — Standard Orchestration Tools (25 tools, this package)
+### Tier 1 — Standard Orchestration Tools (29 tools, this package)
 
 Available in both HTTP and embedded modes via `IDagOrchestrationPort`. These tools mirror
 the full runtime server HTTP API surface:
@@ -73,38 +75,48 @@ the full runtime server HTTP API surface:
 - `dag_run_drafts_reset_node_result`
 - `dag_run_drafts_overwrite_node_result`
 - `dag_workflows_start_run`
+- `dag_build`
+- `dag_validate`
 
-These 25 tools are available in this package only.
+These 29 tools are available in this package only. `dag_build` (`client.buildDag`) and
+`dag_validate` (`client.validateDag`) are registered and dispatched here via `IDagOrchestrationPort`.
 
-### Tier 2 — CLI-Native Tools (~17 tools, dag-cli mcp only)
+### Tier 2 — CLI-Native Tools (26 tools, dag-cli mcp only)
 
 Tools that require direct filesystem access — only available via `npx @robota-sdk/dag-cli mcp`:
 
-| Tool                                | Description                                         |
-| ----------------------------------- | --------------------------------------------------- |
-| `dag_nodes_list`                    | List all available node manifests                   |
-| `dag_node_packages_list`            | Discover third-party node packages in node_modules  |
-| `dag_nodes_info`                    | Full manifest for a specific node type              |
-| `dag_run_definition`                | Execute a DAG definition object directly            |
-| `dag_runs_poll_progress`            | Poll a completed run by dagRunId                    |
-| `dag_runs_cancel`                   | Cancel a running DAG                                |
-| `dag_run_file`                      | Execute a `.dag.json` or `.dag.md` file             |
-| `dag_validate`                      | Validate a DAG definition without execution         |
-| `dag_build`                         | Build a DAG definition from a natural-language spec |
-| `dag_catalog_list`                  | List DAGs in the local `.dag/` catalog              |
-| `dag_catalog_search`                | Search catalog by keyword                           |
-| `dag_catalog_run`                   | Run a cataloged DAG by name                         |
-| `dag_instant_node_create`           | Create a prompt-backed node in the current session  |
-| `dag_instant_node_create_composite` | Create a composite instant node                     |
-| `dag_instant_node_list`             | List instant nodes in the current session           |
-| `dag_templates_list`                | List available DAG templates                        |
-| `dag_build_from_template`           | Build a DAG from a named template                   |
+| Tool                                | Description                                                              |
+| ----------------------------------- | ------------------------------------------------------------------------ |
+| `dag_nodes_list`                    | List all available node manifests                                        |
+| `dag_node_packages_list`            | Discover third-party node packages in node_modules                       |
+| `dag_nodes_info`                    | Full manifest for a specific node type                                   |
+| `dag_run_definition`                | Execute a DAG definition object directly                                 |
+| `dag_runs_poll_progress`            | Poll a completed run by dagRunId                                         |
+| `dag_runs_cancel`                   | Cancel a running DAG                                                     |
+| `dag_run_file`                      | Execute a `.dag.json` or `.dag.md` file                                  |
+| `dag_validate`                      | Validate a DAG definition without execution                              |
+| `dag_build`                         | Build a DAG definition from a natural-language spec                      |
+| `dag_catalog_list`                  | List DAGs in the local `.dag/` catalog                                   |
+| `dag_catalog_search`                | Search catalog by keyword                                                |
+| `dag_catalog_run`                   | Run a cataloged DAG by name                                              |
+| `dag_instant_node_create`           | Create a prompt-backed node in the current session                       |
+| `dag_instant_node_create_composite` | Create a composite instant node                                          |
+| `dag_instant_node_list`             | List instant nodes in the current session                                |
+| `dag_templates_list`                | List available DAG templates                                             |
+| `dag_build_from_template`           | Build a DAG from a named template                                        |
+| `dag_export`                        | Convert an `IDagDefinition` to the `.dag.json` workflow file format pair |
+| `dag_import`                        | Convert a `.dag.json` workflow file back to an `IDagDefinition`          |
+| `dag_instant_node_save`             | Persist an in-memory instant node to `.dag/nodes/` on disk               |
+| `dag_instant_node_list_saved`       | List instant nodes persisted to `.dag/nodes/` on disk                    |
+| `dag_provider_list`                 | List runtime providers plus the active provider for the session          |
+| `dag_provider_set`                  | Set the active runtime provider for the current MCP session              |
+| `dag_provider_nodes`                | List the node catalog for a provider                                     |
+| `dag_provider_refresh`              | Invalidate the cached node catalog for a provider                        |
+| `dag_runs_list`                     | List recent local DAG run history from `.dag/runs.db`                    |
 
-### Tier 3 — Promoted Tools (future)
-
-`dag_build` and `dag_validate` are currently Tier 2 (CLI-native). They are candidates for
-promotion to Tier 1 (IDagOrchestrationPort methods) once the transport-neutral interface
-is extended. See ARCH-005 in `.agents/backlog/README.md`.
+`dag_build` and `dag_validate` also appear as Tier 1 tools (this package) — they are registered
+and dispatched via `IDagOrchestrationPort` in `dag-mcp-server`, so they are available in both
+surfaces.
 
 ### Which tier should I use?
 
@@ -126,11 +138,13 @@ Imported from other packages:
 
 - `DagOrchestrationHttpClient`, asset request aliases, cost metadata request aliases, run draft request aliases, `IDagOrchestrationPublishedWorkflowRunRequest`, and response payload types from `@robota-sdk/dag-orchestration-client`
 - `IDagDefinition`, `IPartialRunRequest`, `TPortPayload` from `@robota-sdk/dag-core`
+- `IDagBuildInput` from `@robota-sdk/dag-builder` (input shape for the `dag_build` tool)
 
 ## Public API Surface
 
 - `createDagMcpServer(options)` — factory for a configured MCP `Server`.
 - `runDagMcpServer(args, options)` — stdio executable runner.
+- `resolveDagMcpConfig(args, env)` — resolves HTTP vs embedded mode from CLI args and environment.
 - `createDagMcpToolDefinitions()` — returns the registered MCP tool metadata.
 - `callDagMcpTool(name, args, client)` — pure tool dispatcher used by tests and the MCP handler.
 
@@ -150,6 +164,7 @@ None.
 | -------------------------------------- | -------------------- | -------- |
 | `dag-orchestration-client` HTTP client | MCP server and tools | `src/`   |
 | `dag-core` DAG types                   | MCP tool arguments   | `src/`   |
+| `dag-builder` `IDagBuildInput`         | `dag_build` tool     | `src/`   |
 
 ## Test Strategy
 

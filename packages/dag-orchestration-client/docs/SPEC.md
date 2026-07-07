@@ -11,7 +11,7 @@ This package is consumed by command-line and MCP clients that call `dag-orchestr
 - Does not own API controller composition. That belongs to `@robota-sdk/dag-api`.
 - Does not own server route implementations. Those belong to `dag-orchestrator-server`.
 - Does not render UI or own CLI/MCP command behavior.
-- Depends on `@robota-sdk/dag-core` and `@robota-sdk/dag-cost` for request payload domain types.
+- Depends on `@robota-sdk/dag-core` and `@robota-sdk/dag-cost` for request payload domain types, and on `@robota-sdk/dag-builder` for the `IDagBuildInput` build request type.
 
 ## Architecture Overview
 
@@ -25,18 +25,19 @@ This package is consumed by command-line and MCP clients that call `dag-orchestr
 `DagOrchestrationHttpClient` exposes only endpoint groups whose operational request/response
 contracts are already package-owned.
 
-| Endpoint Group                   | Status  | Contract Owner                              | Notes                                      |
-| -------------------------------- | ------- | ------------------------------------------- | ------------------------------------------ |
-| Definition CRUD/publish/validate | active  | `dag-api` + this package                    | Current CLI/MCP surface.                   |
-| Node catalog list                | active  | `dag-api` + this package                    | Current CLI/MCP surface.                   |
-| Run create/start/status/result   | active  | `dag-orchestrator` + this package           | Current CLI/MCP surface.                   |
-| Run drafts                       | active  | `dag-core` domain types + this package      | Current package contract surface.          |
-| Published workflow runs          | active  | `dag-core` definition types + this package  | Current package contract surface.          |
-| Asset upload/metadata/content    | active  | `dag-core` asset store types + this package | Binary content remains transport-specific. |
-| Cost metadata                    | active  | `dag-cost` domain types + this package      | Current package contract surface.          |
-| Admin bootstrap                  | local   | `dag-orchestrator-server`                   | Not planned for operational clients.       |
-| Runtime asset proxy              | local   | Backend-native shape                        | Not wrapped by this package.               |
-| Run progress WebSocket           | blocked | `dag-core` event type, route-local envelope | Add bridge contract tests before clients.  |
+| Endpoint Group                   | Status  | Contract Owner                              | Notes                                                    |
+| -------------------------------- | ------- | ------------------------------------------- | -------------------------------------------------------- |
+| Definition CRUD/publish/validate | active  | `dag-api` + this package                    | Current CLI/MCP surface.                                 |
+| DAG build/validate               | active  | `dag-builder` + `dag-core` + this package   | Build from `IDagBuildInput` / validate `IDagDefinition`. |
+| Node catalog list                | active  | `dag-api` + this package                    | Current CLI/MCP surface.                                 |
+| Run create/start/status/result   | active  | `dag-orchestrator` + this package           | Current CLI/MCP surface.                                 |
+| Run drafts                       | active  | `dag-core` domain types + this package      | Current package contract surface.                        |
+| Published workflow runs          | active  | `dag-core` definition types + this package  | Current package contract surface.                        |
+| Asset upload/metadata/content    | active  | `dag-core` asset store types + this package | Binary content remains transport-specific.               |
+| Cost metadata                    | active  | `dag-cost` domain types + this package      | Current package contract surface.                        |
+| Admin bootstrap                  | local   | `dag-orchestrator-server`                   | Not planned for operational clients.                     |
+| Runtime asset proxy              | local   | Backend-native shape                        | Not wrapped by this package.                             |
+| Run progress WebSocket           | blocked | `dag-core` event type, route-local envelope | Add bridge contract tests before clients.                |
 
 Client expansion rule: CLI and MCP packages may add a command or tool only after the endpoint group
 is `active` in this table.
@@ -88,10 +89,13 @@ Imported from other packages:
 
 - `IDagDefinition`, `IPartialRunRequest`, `IRunDraft`, `ISaveRunDraftInput`, `TNodeConfigRecord`, and `TPortPayload` from `@robota-sdk/dag-core`
 - `ICostMeta` from `@robota-sdk/dag-cost`
+- `IDagBuildInput` from `@robota-sdk/dag-builder`
 
 ## Public API Surface
 
 - `DagOrchestrationHttpClient` -- shared HTTP client for definition, node catalog, run lifecycle, and run draft endpoints.
+- `buildDag(input)` -- `POST /v1/dag/build`.
+- `validateDag(definition)` -- `POST /v1/dag/validate`.
 - `createRunDraft(input)` -- `POST /v1/dag/run-drafts`.
 - `getRunDraft(draftId)` -- `GET /v1/dag/run-drafts/:draftId`.
 - `replaceRunDraft(draftId, input)` -- `PUT /v1/dag/run-drafts/:draftId`.
