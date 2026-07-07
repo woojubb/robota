@@ -74,6 +74,25 @@ FINDINGS: <n>`.
 > Spawn via the Agent tool / Workflow `agentType` (available after a session restart once committed). The
 > `architecture-refresh` skill is only the loop that sequences them.
 
+> **Spawnable review, verification & discovery agents (they hold the policy).** Three more
+> universal/neutral subagents, each ending its output with a terminal machine-signal so an orchestration
+> loop can react mechanically:
+>
+> - `proposal-reviewer` (`.claude/agents/proposal-reviewer.md`, read-only) — skeptical outside sign-off
+>   on a change proposal / spec decision; ends with `REVIEW VERDICT: <ENDORSE|REVISE|REJECT>`.
+> - `merge-verifier` (`.claude/agents/merge-verifier.md`, read-only) — confirms a merge/PR truly landed
+>   on its target's remote head; ends with `MERGE VERIFIED: <PASS|FAIL>`.
+> - `capability-scout` (`.claude/agents/capability-scout.md`, read-only) — proposes the role
+>   decomposition for a described workflow (which roles → agents vs thin-skill steps, sequencing,
+>   per-role signal, tool scope) and flags over-scoped/duplicate roles; ends with `DECOMPOSITION: <n>
+roles …`. It is the discovery specialization `lesson-to-harness` dispatches for a "new recurring role."
+>
+> The **agent-definition convention** these agents follow (frontmatter `name`/`description`/`tools`,
+> read-only tool-scope, a closed-vocabulary terminal `signal:`, index registration) is a document-type
+> contract in [`document-standards/index.md`](../specs/document-standards/index.md) and is mechanically
+> enforced by `scripts/harness/check-agent-def-convention.mjs` (`pnpm harness:scan` →
+> `agent-def-convention`).
+
 ## Documentation
 
 | Skill                                                   | Description                                                                                              |

@@ -47,13 +47,15 @@ element is itself incomplete.
 `Status` is exactly one of: **defined** (all four quartet elements exist), **partial** (some exist,
 gaps named), **gap** (type not yet defined).
 
-| Document type           | Altitude           | Location                                                   | Status  | Template / Authoring skill / Gate                                                                                                                                                        | Follow-on       |
-| ----------------------- | ------------------ | ---------------------------------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------- |
-| Package `SPEC.md`       | package contract   | `packages/*/docs/SPEC.md`                                  | defined | — / [`spec-writing-standard`](../../skills/spec-writing-standard/SKILL.md) / `harness:scan:specs`                                                                                        | —               |
-| Backlog spec-doc        | work item          | `.agents/spec-docs/**`                                     | defined | [`spec-template.md`](../../templates/spec-template.md) / [`backlog-writer`](../../skills/backlog-writer/SKILL.md) / GATE-WRITE..COMPLETE + `spec-doc-frontmatter`                        | RULE-011 (done) |
-| ADR                     | decision record    | `.design/decisions/`                                       | defined | (template in skill) / [`architecture-decision-records`](../../skills/architecture-decision-records/SKILL.md) / `adr`                                                                     | RULE-010 (done) |
-| Architecture-map subdoc | system structure   | [`.agents/specs/architecture-map/*`](../architecture-map/) | defined | [template](../../templates/architecture-map-template.md) / [`architecture-map-authoring`](../../skills/architecture-map-authoring/SKILL.md) / `arch-map-paths` + `arch-map-completeness` | RULE-008 (done) |
-| Design / LLD            | component-internal | `packages/*/docs/design/` · cross-cutting `.agents/specs/` | defined | [template](../../templates/design-doc-template.md) / [`design-doc-authoring`](../../skills/design-doc-authoring/SKILL.md) / `design-doc`                                                 | RULE-009 (done) |
+| Document type            | Altitude           | Location                                                   | Status  | Template / Authoring skill / Gate                                                                                                                                                        | Follow-on                                                                                          |
+| ------------------------ | ------------------ | ---------------------------------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Package `SPEC.md`        | package contract   | `packages/*/docs/SPEC.md`                                  | defined | — / [`spec-writing-standard`](../../skills/spec-writing-standard/SKILL.md) / `harness:scan:specs`                                                                                        | —                                                                                                  |
+| Backlog spec-doc         | work item          | `.agents/spec-docs/**`                                     | defined | [`spec-template.md`](../../templates/spec-template.md) / [`backlog-writer`](../../skills/backlog-writer/SKILL.md) / GATE-WRITE..COMPLETE + `spec-doc-frontmatter`                        | RULE-011 (done)                                                                                    |
+| ADR                      | decision record    | `.design/decisions/`                                       | defined | (template in skill) / [`architecture-decision-records`](../../skills/architecture-decision-records/SKILL.md) / `adr`                                                                     | RULE-010 (done)                                                                                    |
+| Architecture-map subdoc  | system structure   | [`.agents/specs/architecture-map/*`](../architecture-map/) | defined | [template](../../templates/architecture-map-template.md) / [`architecture-map-authoring`](../../skills/architecture-map-authoring/SKILL.md) / `arch-map-paths` + `arch-map-completeness` | RULE-008 (done)                                                                                    |
+| Design / LLD             | component-internal | `packages/*/docs/design/` · cross-cutting `.agents/specs/` | defined | [template](../../templates/design-doc-template.md) / [`design-doc-authoring`](../../skills/design-doc-authoring/SKILL.md) / `design-doc`                                                 | RULE-009 (done)                                                                                    |
+| Agent definition         | harness asset      | `.claude/agents/*.md`                                      | partial | — / agent-skill-author (follow-on) / `agent-def-convention` (`check-agent-def-convention.mjs`)                                                                                           | agent-skill-author + agent-definition template (not yet built, gated behind the guard — INFRA-030) |
+| Thin orchestration skill | harness asset      | `.agents/skills/*/SKILL.md`                                | partial | — / [`harness-governance`](../../skills/harness-governance/SKILL.md) (shape guidance) / no dedicated gate yet                                                                            | thin-skill shape guard (deferred follow-on)                                                        |
 
 ### Status notes
 
@@ -76,6 +78,19 @@ gaps named), **gap** (type not yet defined).
   (Context & Goal · Constraints · Internal Structure · Key Flows · Test Approach) enforced by
   `check-design-doc-completeness.mjs` over docs that exist; "when required" is process guidance in
   `design-doc-authoring` (structure-gated, existence-guided).
+- **Agent definition → partial** (`INFRA-030`). **Identity/Altitude:** a harness-asset contract (a
+  reusable, universal/neutral subagent that holds policy), NOT a design/architecture document. Living;
+  created when a recurring role is institutionalized (via `lesson-to-harness` → `capability-scout`).
+  Required frontmatter (`name`/`description`/`tools`), read-only-vs-edit tool-scope consistency, and a
+  closed-vocabulary terminal `signal:` whose token the body's output-contract enforces, plus skills-index
+  registration, are mechanized by `check-agent-def-convention.mjs` (`harness:scan` → `agent-def-convention`).
+  Partial: the `agent-skill-author` write-agent + an authoring template are deferred follow-ons, gated
+  behind this guard.
+- **Thin orchestration skill → partial** (`INFRA-030`). **Identity/Altitude:** a harness-asset contract
+  for a `SKILL.md` that is PURE PIPELINE — it only sequences agents and reacts to their terminal
+  machine-signal, holding no domain judgement itself (that lives in the agents). NOT a design doc.
+  Living. Shape guidance lives in [`harness-governance`](../../skills/harness-governance/SKILL.md); a
+  dedicated shape guard is a deferred follow-on.
 
 ## Follow-on contracts (each conforms to the Meta-Form; depends on RULE-007)
 

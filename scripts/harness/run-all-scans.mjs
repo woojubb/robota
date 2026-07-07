@@ -54,6 +54,10 @@ const SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/check-document-standards-index.mjs'],
   },
   {
+    name: 'agent-def-convention',
+    command: ['node', 'scripts/harness/check-agent-def-convention.mjs'],
+  },
+  {
     name: 'design-doc',
     command: ['node', 'scripts/harness/check-design-doc-completeness.mjs'],
   },
@@ -93,6 +97,10 @@ const SCAN_COMMANDS = [
   {
     name: 'interface-imports',
     command: ['node', 'scripts/harness/check-interface-imports.mjs'],
+  },
+  {
+    name: 'interface-runtime',
+    command: ['node', 'scripts/harness/scan-interface-runtime.mjs'],
   },
   { name: 'sdk-react-free', command: ['node', 'scripts/harness/check-sdk-react-free.mjs'] },
   { name: 'publish', command: ['node', 'scripts/harness/check-publish-safety.mjs'] },

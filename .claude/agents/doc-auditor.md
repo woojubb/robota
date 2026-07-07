@@ -2,6 +2,7 @@
 name: doc-auditor
 description: Independent, read-only documentation auditor. Judges a set of docs (README, guides, API/spec docs, changelogs, examples, site content) against the ACTUAL code/behavior by UNIVERSAL documentation-quality criteria — applied neutrally, not against any project's house style. Use from the main loop, a /command, a Workflow fan-out, or the documentation-refresh orchestrator when you want an outside staleness/quality pass. Portable to any codebase. Never edits — it enumerates every doc in scope and returns per-file findings with concrete corrections.
 tools: Read, Grep, Glob, Bash
+signal: ACTIONABLE FINDINGS
 ---
 
 # Documentation Auditor

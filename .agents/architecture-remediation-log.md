@@ -16,11 +16,15 @@ _None — all pass-1 code-side items are Resolved (below)._
 
 ### Design alternatives (not defects — decision items)
 
-- **agent-interface-transport pure accessors.** The package ships four pure derivation accessors
-  (`readAssistantReplies`, `readLastAssistantText`, `readToolCalls`, `readErrors`). The doc side was
-  reconciled to allow "contracts + pure accessors". The alternative is to **relocate** them to a runtime
-  package (`agent-transport`) to keep the interface package strictly type-only + add a mechanical "no
-  runtime code in interface packages" guard. Decide which model the repo wants.
+- **agent-interface-transport pure accessors — DECIDED (A-keep), mechanized by INFRA-035.** The package
+  ships four pure derivation accessors (`readAssistantReplies`, `readLastAssistantText`, `readToolCalls`,
+  `readErrors`). A neutral `architecture-auditor` pass recommended **keep** the "contracts + pure
+  derivations" model (the accessors are verifiably pure, single-owned, used by only two consumers;
+  relocating them to `agent-transport` would push contract-pure `-ws`/`-http` siblings toward a runtime
+  dependency on the heavier transport or duplicated filters — an SSOT/coupling regression). The invariant
+  that matters (zero runtime dependency edges / no runtime constructs) is now enforced mechanically by
+  `scripts/harness/scan-interface-runtime.mjs` (`harness:scan` → `interface-runtime`, INFRA-035), not by
+  standing prose. No relocation. Closed.
 
 ## Resolved
 
