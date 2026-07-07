@@ -48,7 +48,7 @@ packages/
 ├── agent-command/              ← All slash command modules in one package
 ├── agent-provider/             ← Consolidated AI provider (sub-paths: /anthropic, /openai, /gemini, /google, /gemma, /qwen, /deepseek, /bytedance)
 ├── agent-plugin/               ← Consolidated plugin package
-├── agent-transport/            ← Lean transport core (sub-paths: /headless, /testing)
+├── agent-transport/            ← Lean transport core (sub-paths: /headless, /testing, /programmatic)
 ├── agent-transport-tui/        ← TUI transport (Ink/React) — standalone
 ├── agent-transport-http/       ← HTTP/REST transport — standalone
 ├── agent-transport-ws/         ← WebSocket transport — standalone

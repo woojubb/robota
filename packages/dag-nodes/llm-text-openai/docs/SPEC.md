@@ -9,14 +9,14 @@
 ## Boundaries
 
 - Extends `AbstractNodeDefinition` from `dag-core`. Does not redefine core DAG contracts.
-- Delegates AI provider calls to `@robota-sdk/agent-provider-openai` (`OpenAIProvider`) via `@robota-sdk/agent-core` (`Robota`).
+- Delegates AI provider calls to `@robota-sdk/agent-provider` (subpath `/openai`, `OpenAIProvider`) via `@robota-sdk/agent-core` (`Robota`).
 - Does not own provider or agent implementation.
 - Input validation uses `NodeIoAccessor.requireInputString`.
 - Config validation through Zod schema (`LlmTextOpenAiConfigSchema`).
 
 ## Architecture Overview
 
-- `LlmTextOpenAiNodeDefinition` — node that accepts a `prompt` string input and produces a `completion` string output.
+- `LlmTextOpenAiNodeDefinition` — node that accepts a single `text` string input port and produces a `text` string output port.
 - Constructor reads `OPENAI_API_KEY` from environment and instantiates `OpenAIProvider`.
 - Model allowlist validation via `resolveModel` private method.
 - Overrides `validateInputWithConfig` for early prompt and model validation before execution.

@@ -231,7 +231,7 @@ versioned independently. Entries below summarize the 3.0 beta line to date.
 
    ```typescript
    // Old
-   import { Robota } from '@robota-sdk/agent-core';
+   import { Robota } from '@robota-sdk/core';
 
    // New
    import { Robota } from '@robota-sdk/agent-core';

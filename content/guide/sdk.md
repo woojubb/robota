@@ -385,8 +385,8 @@ The Anthropic provider uses `getModelMaxOutput()` to determine the default `max_
 
 `InteractiveSession` is the single entry point for all interactive use cases. Transport adapters
 consume it to expose the session over different protocols. Since beta.76 the protocol transports are
-standalone packages; `@robota-sdk/agent-transport` itself is a lean core that keeps only the
-`/headless` and `/testing` sub-paths:
+standalone packages; `@robota-sdk/agent-transport` itself is a lean core that keeps the
+`/headless`, `/testing`, and `/programmatic` sub-paths:
 
 | Package / sub-path         | Protocol                       | Description                                                      |
 | -------------------------- | ------------------------------ | ---------------------------------------------------------------- |

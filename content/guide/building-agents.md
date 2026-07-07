@@ -545,13 +545,13 @@ try {
 
 ## Changes from v2.0.0
 
-| v2.0.0                                     | v3.0.0                                                             |
-| ------------------------------------------ | ------------------------------------------------------------------ |
-| Plugins built into `agent-core`            | 8 plugins available in `@robota-sdk/agent-plugin`                  |
-| `FunctionTool` in `agent-core`             | Moved to `@robota-sdk/agent-tools`                                 |
-| `ToolRegistry` in `agent-core`             | Moved to `@robota-sdk/agent-tools`                                 |
-| `MCPTool` / `RelayMcpTool` in `agent-core` | Moved to `@robota-sdk/agent-tool-mcp`                              |
-| No permission/hook system                  | Permission evaluation + shell hook system in `agent-core`          |
-| No session management                      | `InteractiveSession` in `agent-framework` with compaction          |
-| No CLI                                     | `agent-cli` with Ink TUI                                           |
-| No SDK layer                               | `agent-framework` with runtime assembly and `createAgentRuntime()` |
+| v2.0.0                                     | v3.0.0                                                                 |
+| ------------------------------------------ | ---------------------------------------------------------------------- |
+| Plugins built into `agent-core`            | 8 plugins available in `@robota-sdk/agent-plugin`                      |
+| `FunctionTool` in `agent-core`             | Moved to `@robota-sdk/agent-tools`                                     |
+| `ToolRegistry` in `agent-core`             | Moved to `@robota-sdk/agent-tools`                                     |
+| `MCPTool` / `RelayMcpTool` in `agent-core` | Moved to `@robota-sdk/agent-tool-mcp` (internal, not published on npm) |
+| No permission/hook system                  | Permission evaluation + shell hook system in `agent-core`              |
+| No session management                      | `InteractiveSession` in `agent-framework` with compaction              |
+| No CLI                                     | `agent-cli` with Ink TUI                                               |
+| No SDK layer                               | `agent-framework` with runtime assembly and `createAgentRuntime()`     |

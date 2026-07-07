@@ -9,14 +9,14 @@
 ## Boundaries
 
 - Extends `AbstractNodeDefinition` from `dag-node`. Does not redefine core DAG contracts.
-- Delegates AI provider calls to `@robota-sdk/agent-provider-deepseek` (`DeepSeekProvider`) via `@robota-sdk/agent-core` (`Robota`).
+- Delegates AI provider calls to `@robota-sdk/agent-provider` (subpath `/deepseek`, `DeepSeekProvider`) via `@robota-sdk/agent-core` (`Robota`).
 - Does not own provider or agent implementation.
 - Input validation uses `NodeIoAccessor.requireInputString`.
 - Config validation through Zod schema (`LlmTextDeepSeekConfigSchema`).
 
 ## Architecture Overview
 
-- `LlmTextDeepSeekNodeDefinition` — node that accepts a `prompt` string input and produces a `completion` string output.
+- `LlmTextDeepSeekNodeDefinition` — node that accepts a single `text` string input port and produces a `text` string output port.
 - Reads `DEEPSEEK_API_KEY` from environment at call time and instantiates `DeepSeekProvider`.
 - Model allowlist validation via `resolveModel` private method.
 - Overrides `validateInputWithConfig` for early prompt and model validation before execution.
