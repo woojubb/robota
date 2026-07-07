@@ -126,11 +126,11 @@ All state transitions are delegated to `DagRunStateMachine` and `TaskRunStateMac
 
 ## Extension Points
 
-1. **Storage port** -- Any implementation of `IStoragePort` can be injected. The package ships no storage implementation; tests use `InMemoryStoragePort` from `dag-core`.
+1. **Storage port** -- Any implementation of `IStoragePort` can be injected. The package ships no storage implementation; tests use `InMemoryStoragePort` from `@robota-sdk/dag-adapters-local`.
 
-2. **Queue port** -- Any implementation of `IQueuePort` can be injected. Tests use `InMemoryQueuePort` from `dag-core`.
+2. **Queue port** -- Any implementation of `IQueuePort` can be injected. Tests use `InMemoryQueuePort` from `@robota-sdk/dag-adapters-local`.
 
-3. **Clock port** -- Any implementation of `IClockPort` can be injected. Tests use `FakeClockPort` from `dag-core`.
+3. **Clock port** -- Any implementation of `IClockPort` can be injected. Tests use `FakeClockPort` from `@robota-sdk/dag-adapters-local`.
 
 4. **Run progress event reporter** -- Optional `IRunProgressEventReporter` can be provided to the orchestrator to receive execution progress events. When omitted, no events are published.
 
@@ -217,7 +217,7 @@ Tests are located in `packages/dag-runtime/src/__tests__/` and executed via `vit
 
 ### Test infrastructure
 
-All tests use in-memory fakes from `dag-core`:
+All tests use in-memory fakes from `@robota-sdk/dag-adapters-local`:
 
 - `InMemoryStoragePort` -- in-memory storage implementation
 - `InMemoryQueuePort` -- in-memory queue implementation

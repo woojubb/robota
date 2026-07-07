@@ -7,7 +7,7 @@
 
 ## Boundaries
 
-- Extends `AbstractNodeDefinition` from `dag-core`. Does not redefine core DAG contracts.
+- Extends `AbstractNodeDefinition` from `@robota-sdk/dag-node`. Does not redefine core DAG contracts.
 - Uses `NodeIoAccessor.requireInputMediaReference` for input validation.
 - Uses `createBinaryPortDefinition` with `BINARY_PORT_PRESETS.IMAGE_COMMON` for the output port.
 - No external provider dependencies. Pure data transformation node.

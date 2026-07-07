@@ -19,7 +19,7 @@ There is no shared `packages/dag-nodes/src/`. Each node ships as its own package
 `<slug>/src/`. All node definitions extend `AbstractNodeDefinition` from `@robota-sdk/dag-node`
 (previously in `dag-core`).
 
-Across the ~25 child packages there are 40+ `*NodeDefinition` classes; a single package may export
+Across the 25 child packages there are 40 `*NodeDefinition` classes; a single package may export
 several (e.g. `utility-text`, `instant-node`, `gemini-image-edit`). The table below is a
 representative subset — each node package documents its own definitions in its `docs/SPEC.md`:
 
@@ -39,7 +39,7 @@ representative subset — each node package documents its own definitions in its
 
 ### Cross-Package Port Consumers
 
-| Port (Owner)                        | Consumer                 | Notes                                                            |
-| ----------------------------------- | ------------------------ | ---------------------------------------------------------------- |
-| `AbstractNodeDefinition` (dag-node) | All 40+ node definitions | Each implements `executeWithConfig` and `estimateCostWithConfig` |
-| `NodeIoAccessor` (dag-node)         | All 40+ node definitions | Used for input reading and output assembly                       |
+| Port (Owner)                        | Consumer                | Notes                                                            |
+| ----------------------------------- | ----------------------- | ---------------------------------------------------------------- |
+| `AbstractNodeDefinition` (dag-node) | All 40 node definitions | Each implements `executeWithConfig` and `estimateCostWithConfig` |
+| `NodeIoAccessor` (dag-node)         | All 40 node definitions | Used for input reading and output assembly                       |

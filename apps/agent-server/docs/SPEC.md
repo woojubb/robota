@@ -35,7 +35,7 @@ Machine-readable API contract: [`openapi.yaml`](../openapi.yaml) (OpenAPI 3.1).
 
 ## Architecture Overview
 
-`createApp()` composes Express with helmet, CORS, rate limiting, and body parsing. Registers AI providers (OpenAI, Anthropic, Google, DeepSeek) based on environment API keys. Inlines provider chat/health routes and a BYOK endpoint. Creates `PlaygroundWebSocketServer` on the HTTP server.
+`createApp()` composes Express with helmet, CORS, rate limiting, and body parsing. Registers AI providers (OpenAI, Anthropic, Google) based on environment API keys. Inlines provider chat/health routes and a BYOK endpoint (whose inline `switch` additionally supports DeepSeek per request). Creates `PlaygroundWebSocketServer` on the HTTP server.
 
 Playground routes are delegated to `playgroundRouter` (`src/routes/playground.ts`), which applies the `byokKeySanitizer` middleware and mounts catalog endpoints, stateless execute, and session lifecycle routes.
 
@@ -94,7 +94,7 @@ This is a private app with no published package surface. Internal exports:
 
 ## Extension Points
 
-- **Provider registration**: Add new AI providers by checking for additional `*_API_KEY` environment variables in `createApp()` and adding a `case` branch in `createProvider()`.
+- **Provider registration**: In `createApp()`, server-key providers are registered by inline `if` blocks that check `*_API_KEY` environment variables, and the BYOK endpoint selects a per-request provider via an inline `switch` on the caller's provider name — add a new provider by extending both. Playground routes construct providers through `createProvider()` in `src/routes/handlers/playground-session-create.ts` and `playground-execute.ts`.
 - **Tool catalog**: Add entries to `TOOL_REGISTRY` in `src/catalog/tools.ts`.
 - **Skill catalog**: Add entries to `SKILL_CATALOG` in `src/catalog/skills.ts`.
 - **Environment configuration**: `CORS_ORIGINS`, `RATE_LIMIT_MAX`, `PORT`, `API_DOCS_ENABLED`, `JWT_SECRET`.

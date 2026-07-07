@@ -7,7 +7,7 @@
 
 ## Boundaries
 
-- Extends `AbstractNodeDefinition` from `dag-core`. Does not redefine core DAG contracts.
+- Extends `AbstractNodeDefinition` from `@robota-sdk/dag-node`. Does not redefine core DAG contracts.
 - Uses `NodeIoAccessor` for input access and output construction.
 - Overrides `validateInputWithConfig` for early empty-input detection.
 - No external provider dependencies. Category: `Core`.
