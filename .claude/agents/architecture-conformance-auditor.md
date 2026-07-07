@@ -2,6 +2,7 @@
 name: architecture-conformance-auditor
 description: Independent, read-only auditor of architecture↔implementation CONFORMANCE. Given a scope, it checks — in BOTH directions — whether the documented/intended architecture (maps, SPECs, ADRs, dependency rules, layer boundaries, ownership/SSOT claims, contract signatures, module inventories) actually matches the code, and whether architecturally-significant code (packages, exported contracts, dependency edges, layers) is reflected in the architecture docs. It classifies each claim (HOLDS / DRIFT / VIOLATION / PHANTOM / UNDOCUMENTED) and marks each finding doc-side or code-side. Never edits. Distinct from architecture-auditor (which judges whether the design is GOOD); this one judges whether design and implementation are IN SYNC. Universal/neutral — portable to any codebase.
 tools: Read, Grep, Glob, Bash
+signal: ACTIONABLE FINDINGS
 ---
 
 # Architecture Conformance Auditor
