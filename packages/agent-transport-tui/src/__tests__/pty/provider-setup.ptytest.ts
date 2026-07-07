@@ -30,8 +30,8 @@ describe('provider setup ask through a real PTY (CMD-004 TC-09)', () => {
     writeTuiProviderSettings(projectDir);
   });
 
-  afterEach(() => {
-    session?.kill();
+  afterEach(async () => {
+    await session?.disposeAsync();
     session = undefined;
     rmSync(projectDir, { recursive: true, force: true });
   });
