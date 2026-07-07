@@ -75,7 +75,7 @@ agent-transport-{tui,http,ws,mcp} ← Standalone transports; agent-transport = l
 agent-framework        ← Assembly layer: InteractiveSession, createQuery(), config/context loading
   ↓
 agent-session          ← Session lifecycle: permissions, hooks, compaction
-agent-tools            ← Tool infrastructure + 8 built-in tools
+agent-tools            ← Tool infrastructure + 9 built-in tools
 agent-provider         ← Protocol clients (sub-paths: /anthropic, /openai, /gemini, …)
 agent-plugin           ← 8 consolidated lifecycle plugins
   ↓
@@ -90,7 +90,7 @@ agent-core             ← Foundation: Robota engine, abstractions, plugin contr
 | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | [`@robota-sdk/agent-core`](https://www.npmjs.com/package/@robota-sdk/agent-core)         | `Robota` engine: run/runStream, history, structured output, plugins                                                      |
 | [`@robota-sdk/agent-provider`](https://www.npmjs.com/package/@robota-sdk/agent-provider) | Provider protocol clients (Anthropic, OpenAI + any OpenAI-compatible endpoint, Gemini, DeepSeek, Gemma, Qwen, ByteDance) |
-| [`@robota-sdk/agent-tools`](https://www.npmjs.com/package/@robota-sdk/agent-tools)       | Tool registry, zod-validated function tools, 8 built-in tools                                                            |
+| [`@robota-sdk/agent-tools`](https://www.npmjs.com/package/@robota-sdk/agent-tools)       | Tool registry, zod-validated function tools, 9 built-in tools                                                            |
 
 **App assembly** — add when you need sessions, permissions, or plugins:
 
@@ -113,7 +113,7 @@ agent-core             ← Foundation: Robota engine, abstractions, plugin contr
 | [`@robota-sdk/agent-preset`](https://www.npmjs.com/package/@robota-sdk/agent-preset)                           | Named agent profiles (preset system)                                                                                                                                                                                                                     |
 | [`@robota-sdk/agent-interface-transport`](https://www.npmjs.com/package/@robota-sdk/agent-interface-transport) | Transport type contracts (zero deps)                                                                                                                                                                                                                     |
 | [`@robota-sdk/agent-interface-tui`](https://www.npmjs.com/package/@robota-sdk/agent-interface-tui)             | TUI interaction type contracts (zero deps)                                                                                                                                                                                                               |
-| [`@robota-sdk/agent-transport`](https://www.npmjs.com/package/@robota-sdk/agent-transport)                     | Lean transport core (`/headless`, `/testing`)                                                                                                                                                                                                            |
+| [`@robota-sdk/agent-transport`](https://www.npmjs.com/package/@robota-sdk/agent-transport)                     | Lean transport core (`/headless`, `/testing`, `/programmatic`)                                                                                                                                                                                           |
 | [`@robota-sdk/agent-transport-tui`](https://www.npmjs.com/package/@robota-sdk/agent-transport-tui)             | TUI transport (Ink/React)                                                                                                                                                                                                                                |
 | [`@robota-sdk/agent-transport-http`](https://www.npmjs.com/package/@robota-sdk/agent-transport-http)           | HTTP/REST transport                                                                                                                                                                                                                                      |
 | [`@robota-sdk/agent-transport-ws`](https://www.npmjs.com/package/@robota-sdk/agent-transport-ws)               | WebSocket transport                                                                                                                                                                                                                                      |

@@ -87,8 +87,8 @@ const agent = new Robota({
   defaultModel: {
     provider: 'anthropic',
     model: 'claude-sonnet-4-6',
-    systemMessage: 'You are a helpful coding assistant.',
   },
+  systemMessage: 'You are a helpful coding assistant.',
 });
 
 const response = await agent.run('TypeScript 제네릭이 무엇인가요?');
@@ -124,8 +124,8 @@ const agent = new Robota({
   defaultModel: {
     provider: 'anthropic',
     model: 'claude-sonnet-4-6',
-    systemMessage: 'You help users check the weather.',
   },
+  systemMessage: 'You help users check the weather.',
   tools: [weatherTool],
 });
 
@@ -137,6 +137,7 @@ console.log(response);
 ### 3. 프로바이더 동적 전환
 
 ```typescript
+import { Robota } from '@robota-sdk/agent-core';
 import { OpenAIProvider } from '@robota-sdk/agent-provider/openai';
 import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 
@@ -209,6 +210,8 @@ robota --model claude-sonnet-4-6
 - [Using the SDK](/guide/sdk) — InteractiveSession, 트랜스포트, 세션, createQuery()
 - [CLI Reference](/guide/cli) — 전체 CLI 사용 가이드. [`/workflows create`](/guide/cli#workflows-workflows) 자연어 워크플로우 작성 포함
 - [Architecture](/guide/architecture) — 패키지 계층과 설계
+- [Providers Reference](/guide/providers) — 전체 프로바이더, 설정 옵션, 모델 이름
+- [Error Handling](/guide/error-handling) — 에러 타입, 재시도 패턴, 모범 사례
 - [Migration Guide](/guide/migration) — v2.x → 3.0.0 업그레이드
 
 ## 문제 해결

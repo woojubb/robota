@@ -30,12 +30,12 @@ Robota is a pnpm monorepo. The main packages are:
 - `packages/agent-core` — Core agent runtime, abstractions, and plugin system
 - `packages/agent-framework` — Assembly layer: `InteractiveSession`, `createQuery()`, config/context loading
 - `packages/agent-session` — Session lifecycle: permissions, hooks, context-window compaction
-- `packages/agent-tools` — Tool infrastructure + 8 built-in tools (Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch)
+- `packages/agent-tools` — Tool infrastructure + 9 built-in tools (Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch, AskUserQuestion)
 - `packages/agent-provider` — Consolidated AI providers (Anthropic, OpenAI, Gemini, DeepSeek, Gemma, Qwen, ByteDance)
 - `packages/agent-cli` — Interactive terminal AI coding assistant
 - `packages/agent-command` — Slash command modules (/agent, /help, /provider, /skills, /plugin, /workflows, …)
-- `packages/agent-transport` — Transport adapters (TUI, headless, HTTP, WebSocket, MCP)
-- `apps/docs` — VitePress documentation site
+- `packages/agent-transport` — Transport core (headless, testing); TUI, HTTP, WebSocket, and MCP are standalone `agent-transport-{tui,http,ws,mcp}` packages
+- `apps/docs` — Next.js documentation site
 - `apps/www` — Marketing website
 - `apps/agent-web` — Web playground
 
