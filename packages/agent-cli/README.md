@@ -28,7 +28,12 @@ const runtime = createAgentRuntime({
   provider: createAnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY }),
 });
 const session = runtime.createSession({ permissionMode: 'bypassPermissions' });
-const response = await session.submit('Explain this codebase');
+
+// submit() is event-driven and resolves to void — drive output via listeners
+session.on('text_delta', (delta) => process.stdout.write(delta));
+session.on('complete', (result) => console.log(result.response));
+
+await session.submit('Explain this codebase');
 ```
 
 ## Prerequisites

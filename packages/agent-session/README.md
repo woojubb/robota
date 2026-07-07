@@ -136,7 +136,7 @@ A migration script is available for upgrading session records from older formats
 
 ## Assembly
 
-Most users should use `createSession()` from `@robota-sdk/agent-framework` instead of constructing `Session` directly. The SDK factory wires tools, provider, and system prompt automatically from config and context.
+Most users should use `InteractiveSession` or `createQuery()` from `@robota-sdk/agent-framework` — or `createAgentRuntime().createSession()` for multi-session runtimes — instead of constructing `Session` directly. (`createSession()` itself is an internal assembly factory and is not part of the public entry.) The SDK wires tools, provider, and system prompt automatically from config and context.
 
 ## Dependencies
 

@@ -63,7 +63,7 @@ const session = runtime.createSession({});
 - **Model Command Common APIs** — Provider-neutral `/model` helpers that resolve active provider catalogs and optionally invoke provider-owned refresh hooks
 - **createQuery()** — Provider-bound factory for one-shot AI agent interactions with streaming support
 - **Session assembly** — Internal factory wires tools, provider, config, and context for `InteractiveSession`
-- **Built-in Tools** — Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch are assembled for SDK sessions; direct tool usage imports from `@robota-sdk/agent-tools`
+- **Built-in Tools** — Shell/Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch, AskUserQuestion are assembled for SDK sessions; direct tool usage imports from `@robota-sdk/agent-tools`
 - **Sandbox Execution** — Optional `sandboxClient` injection routes Bash and core file tools through a provider-backed execution plane; `workspaceManifest` can prepare a fresh sandbox workspace before session creation
 - **Sandbox Hydration** — Snapshot-capable sandbox clients persist `sandboxSnapshotId` on shutdown and restore it before saved message replay on non-fork resume
 - **Agent Tool** — Sub-agent session creation for multi-agent workflows
@@ -76,7 +76,7 @@ const session = runtime.createSession({});
 - **Config Loading** — 6-file settings merge with provider profiles, legacy provider compatibility, and `$ENV:VAR` substitution for provider credentials
 - **Context Window Management** — Token tracking, configurable auto-compaction (default ~83.5%), manual `session.compact()`
 - **Background Jobs** — Runtime-managed subagent tasks with transcripts and task snapshots
-- **Agent Batch Jobs** — `Agent({ jobs: [...] })` starts explicit parallel subagent requests deterministically
+- **Agent Batch Jobs** — the model-facing Agent tool's `jobs` argument (`Agent` invoked with `{ jobs: [...] }`) starts explicit parallel subagent requests deterministically
 - **Edit Checkpoints** — Checkpoint/rewind support for safer edit workflows
 - **Project Memory** — Command-driven memory capture and retrieval surfaces
 - **Replay Events** — Session execution can forward provider/tool boundary events and provider-native raw payload events into append-only logs
@@ -96,7 +96,7 @@ agent-framework (assembly layer)
   ├── createSession()     ← internal assembly factory
   └── deps:
         agent-session   (Session, SessionStore)
-        agent-tools     (tool infrastructure + 8 built-in tools)
+        agent-tools     (tool infrastructure + 9 built-in tools)
         agent-provider  (consolidated AI providers: /anthropic, /openai, /gemini, …)
         agent-core      (Robota engine, providers, permissions, hooks)
 
@@ -318,6 +318,7 @@ from the owner package:
 
 ```typescript
 import {
+  shellTool,
   bashTool,
   editTool,
   globTool,
@@ -326,6 +327,7 @@ import {
   webFetchTool,
   webSearchTool,
   writeTool,
+  askUserQuestionTool,
 } from '@robota-sdk/agent-tools';
 ```
 

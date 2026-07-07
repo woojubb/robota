@@ -16,6 +16,18 @@ Fully-typed TypeScript examples showing how to embed `@robota-sdk` into your own
 | [`telegram-bot/`](./telegram-bot/)             | grammy                | Per-chat sessions, `resumeSessionId`, session persistence   |
 | [`discord-bot/`](./discord-bot/)               | discord.js v14        | Slash commands, deferred replies, response chunking         |
 
+## Capability examples
+
+Focused, runnable examples under [`capabilities/`](./capabilities/) that each isolate one SDK
+capability. Each has its own README and `npm run dev` (`tsx src/index.ts`) script.
+
+| Directory                                                                              | Highlights                                            |
+| -------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| [`capabilities/decision-agent/`](./capabilities/decision-agent/)                       | Structured decision output from an agent turn         |
+| [`capabilities/streaming/`](./capabilities/streaming/)                                 | Token-level streaming of assistant text               |
+| [`capabilities/stateless-turns/`](./capabilities/stateless-turns/)                     | Independent, stateless single-turn queries            |
+| [`capabilities/openai-compatible-gateway/`](./capabilities/openai-compatible-gateway/) | Routing through an OpenAI-compatible gateway endpoint |
+
 ## Prerequisites
 
 - Node.js 18+

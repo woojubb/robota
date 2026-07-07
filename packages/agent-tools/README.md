@@ -1,6 +1,6 @@
 # @robota-sdk/agent-tools
 
-Tool registry, tool creation infrastructure, 8 built-in CLI tools, sandbox execution ports, and sandbox workspace manifests for the Robota SDK.
+Tool registry, tool creation infrastructure, 9 built-in CLI tools, sandbox execution ports, and sandbox workspace manifests for the Robota SDK.
 
 ## Installation
 
@@ -122,8 +122,6 @@ Recent file tool updates keep write/edit behavior atomic and make Edit tool resu
 | `FunctionTool`           | JS function tool with Zod schema validation                |
 | `createFunctionTool`     | Factory for creating function tools                        |
 | `createZodFunctionTool`  | Factory with Zod validation and JSON Schema conversion     |
-| `OpenAPITool`            | Tool generated from OpenAPI specification                  |
-| `createOpenAPITool`      | Factory for creating OpenAPI tools                         |
 | `IToolInvocationResult`  | Result type for built-in CLI tool invocations              |
 | `ISandboxClient`         | Provider-neutral sandbox execution port                    |
 | `IWorkspaceManifest`     | Declarative sandbox workspace setup contract               |

@@ -36,7 +36,9 @@ const modules = [
 | `/background`  | Background task execution                      |
 | `/compact`     | Conversation compaction                        |
 | `/context`     | Context window management                      |
+| `/editor`      | Compose a message in `$EDITOR`, then return it |
 | `/exit`        | Session exit / quit                            |
+| `/goal`        | Assign an autonomous goal pursued across turns |
 | `/help`        | Help display                                   |
 | `/language`    | Language switching                             |
 | `/memory`      | Memory read/write                              |
@@ -50,6 +52,7 @@ const modules = [
 | `/schedule`    | Scheduled / deferred task management           |
 | `/session`     | Session lifecycle (rename, resume, fork, list) |
 | `/settings`    | Settings management                            |
+| `/shell`       | Drop to an interactive shell, then return      |
 | `/skills`      | Skills management                              |
 | `/statusline`  | Status bar configuration                       |
 | `/user-local`  | User-local command storage                     |
@@ -65,8 +68,8 @@ const exitCmd = createExitCommandModule();
 const helpCmd = createHelpCommandModule();
 ```
 
-All command factory functions are re-exported from the root entry point (21 command modules plus the
-`createDefaultCommandModules` aggregator).
+All command factory functions are re-exported from the root entry point. `createDefaultCommandModules`
+registers 24 default command modules.
 
 ## Dependencies
 
