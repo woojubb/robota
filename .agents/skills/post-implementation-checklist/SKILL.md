@@ -44,6 +44,7 @@ This is a **repeating cycle** that runs until zero issues are found.
 
 - [ ] Verify every SPEC claim has matching code (file:line)
 - [ ] Verify `src/index.ts` exports match SPEC's Public API Surface
+- [ ] A public `src/index.ts` change MUST sync the `docs/SPEC.md` Public API table (every runtime export listed) — the reverse-edge `check-spec-public-surface` guard enforces this; this is the backstop reminder
 - [ ] Verify `package.json` dependencies match SPEC's Dependencies
 - [ ] Verify architecture diagrams are current
 - [ ] Fix any code that doesn't match SPEC

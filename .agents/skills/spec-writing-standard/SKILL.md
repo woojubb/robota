@@ -36,7 +36,7 @@ Use when no `docs/SPEC.md` exists for the package.
    - **Boundaries**: What the package does NOT own and where those responsibilities live.
    - **Architecture Overview**: Layer structure, key components, design patterns used.
    - **Type Ownership**: SSOT types this package defines. Table: Type | Location | Purpose.
-   - **Public API Surface**: Exported classes, functions, types. Table: Export | Kind | Description.
+   - **Public API Surface**: Exported classes, functions, types. Table: Export | Kind | Description. The table MUST list every runtime export of the package entry (`src/index.ts`) — the reverse-edge `check-spec-public-surface` gate enforces this completeness contract.
    - **Extension Points**: How consumers extend behavior (abstract classes, interfaces, strategies).
    - **Error Taxonomy**: Error types with codes, categories, recoverability. Table if applicable.
    - **Test Strategy**: Current test files, scenario verification, coverage gaps.
