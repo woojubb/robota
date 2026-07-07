@@ -1,6 +1,5 @@
-import { FunctionTool } from '@robota-sdk/agent-tools';
+import { FunctionTool, SilentLogger } from '@robota-sdk/agent-core';
 import type { IToolSchema, TToolExecutor, ILogger, TUniversalValue } from '@robota-sdk/agent-core';
-import { SilentLogger } from '@robota-sdk/agent-core';
 import { WebLogger } from '../web-logger';
 import type { IBlockDataCollector } from './block-tracking';
 

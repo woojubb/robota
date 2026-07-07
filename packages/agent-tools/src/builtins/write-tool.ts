@@ -8,9 +8,9 @@ import { atomicWriteUtf8File } from './atomic-file-write.js';
 import { checkPathWithinCwd } from './path-guard.js';
 import { createZodFunctionTool } from '../implementations/function-tool';
 
-import type { FunctionTool } from '../implementations/function-tool';
 import type { ISandboxToolOptions } from '../sandbox/types.js';
 import type { IToolInvocationResult } from '../types/tool-result.js';
+import type { FunctionTool } from '@robota-sdk/agent-core';
 
 const WriteSchema = z.object({
   filePath: z.string().describe('The absolute path to the file to write'),

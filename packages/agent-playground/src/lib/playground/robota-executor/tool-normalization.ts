@@ -1,5 +1,5 @@
+import { FunctionTool } from '@robota-sdk/agent-core';
 import type { IToolSchema, TToolParameters, TUniversalValue } from '@robota-sdk/agent-core';
-import { FunctionTool } from '@robota-sdk/agent-tools';
 
 import type { IPlaygroundTool } from '../robota-executor-types';
 

@@ -20,10 +20,9 @@ const SPAWN_DETACHED = process.platform !== 'win32';
 
 import { createZodFunctionTool } from '../implementations/function-tool';
 
-import type { FunctionTool } from '../implementations/function-tool';
 import type { ISandboxToolOptions } from '../sandbox/types.js';
 import type { IToolInvocationResult } from '../types/tool-result.js';
-import type { IPlatformShell } from '@robota-sdk/agent-core';
+import type { FunctionTool, IPlatformShell } from '@robota-sdk/agent-core';
 
 const DEFAULT_TIMEOUT_MS = 120_000; // 2 minutes
 
