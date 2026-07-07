@@ -43,21 +43,30 @@ Consult the relevant skill before starting work in its domain. Each entry links 
 
 ## Architecture Conformance
 
-| Skill                                                                     | Description                                                                                    |
-| ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| [architecture-conformance-audit](architecture-conformance-audit/SKILL.md) | Orchestrates a repeatable doc-vs-code architecture conformance audit (GATE-CONFORMANCE)        |
-| [design-quality-audit](design-quality-audit/SKILL.md)                     | Repeatable deep design-quality audit — judges whether the design is right (vs doc conformance) |
-| [dependency-graph-extraction](dependency-graph-extraction/SKILL.md)       | Extracts the actual agent-\* dependency edge set + runs the mechanical conformance guards      |
-| [doc-claim-verification](doc-claim-verification/SKILL.md)                 | Verifies one architecture document's claims vs code: HOLDS/DRIFT/VIOLATION/CONTRADICTION/STALE |
-| [conformance-finding-report](conformance-finding-report/SKILL.md)         | Assembles verdicts into the AF-NN findings report with severities + counts (INFRA-002 schema)  |
-| [improvement-proposal-authoring](improvement-proposal-authoring/SKILL.md) | Maps findings to remediation + follow-up backlogs + mechanical-guard recommendations           |
+| Skill                                                                     | Description                                                                                                                           |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| [architecture-refresh](architecture-refresh/SKILL.md)                     | Thin pipeline that re-calls architecture-auditor→architecture-fixer until an audit round is materially clean (agents hold all policy) |
+| [architecture-conformance-audit](architecture-conformance-audit/SKILL.md) | Orchestrates a repeatable doc-vs-code architecture conformance audit (GATE-CONFORMANCE)                                               |
+| [design-quality-audit](design-quality-audit/SKILL.md)                     | Repeatable deep design-quality audit — judges whether the design is right (vs doc conformance)                                        |
+| [dependency-graph-extraction](dependency-graph-extraction/SKILL.md)       | Extracts the actual agent-\* dependency edge set + runs the mechanical conformance guards                                             |
+| [doc-claim-verification](doc-claim-verification/SKILL.md)                 | Verifies one architecture document's claims vs code: HOLDS/DRIFT/VIOLATION/CONTRADICTION/STALE                                        |
+| [conformance-finding-report](conformance-finding-report/SKILL.md)         | Assembles verdicts into the AF-NN findings report with severities + counts (INFRA-002 schema)                                         |
+| [improvement-proposal-authoring](improvement-proposal-authoring/SKILL.md) | Maps findings to remediation + follow-up backlogs + mechanical-guard recommendations                                                  |
 
-> **Spawnable auditor.** For an independent, read-only review dispatchable from the main loop, a
-> `/command`, a Workflow fan-out, or another agent, use the `architecture-auditor` subagent
-> (`.claude/agents/architecture-auditor.md`). It judges by **universal, neutral** design principles
-> (portable to any codebase) and returns severity-classified findings; it treats the skills above and
-> the repo's rules/specs as **optional drift-check context**, not as its criteria. Spawn via the Agent
-> tool / Workflow `agentType` `architecture-auditor` (available after a session restart once committed).
+> **Spawnable architecture agents (they hold the policy).** For an independent review dispatchable from
+> the main loop, a `/command`, a Workflow fan-out, or the `architecture-refresh` orchestrator, use two
+> universal/neutral subagents (portable to any codebase; they judge by timeless design principles, not
+> house style):
+>
+> - `architecture-auditor` (`.claude/agents/architecture-auditor.md`, read-only) — judges by universal
+>   design/conformance criteria, treats the skills above and the repo's rules/specs as **optional
+>   drift-check context**, and returns severity-classified findings ending with `ACTIONABLE FINDINGS: <n>`.
+> - `architecture-fixer` (`.claude/agents/architecture-fixer.md`, edits artifacts only) — applies the
+>   auditor's findings, correcting architecture docs/SPECs/maps to match code and **escalating** genuine
+>   code-side design violations as gated remediation items rather than silently rewriting code.
+>
+> Spawn via the Agent tool / Workflow `agentType` `architecture-auditor` / `architecture-fixer`
+> (available after a session restart once committed). The `architecture-refresh` skill is only the loop.
 
 ## Documentation
 
