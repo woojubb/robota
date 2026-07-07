@@ -2,13 +2,13 @@
 
 ## Scope
 
-Owns the client-side remote execution layer for Robota SDK. Provides `RemoteExecutor` (implements `IExecutor`) to proxy AI provider calls to a remote server over HTTP, plus the low-level `HttpClient` used by the executor. Server-side code has been extracted into separate packages (`agent-transport-http`, `agent-transport-ws`) and is no longer part of this package.
+Owns the client-side remote execution layer for Robota SDK. Provides `RemoteExecutor` (implements `IExecutor`) to proxy AI provider calls to a remote server over HTTP (`POST /chat`, `POST /stream`), plus the low-level `HttpClient` used by the executor. The server it calls is an external provider-gateway (out-of-repo), not part of this monorepo. It is NOT `agent-transport-http`/`agent-transport-ws`: those packages serve a different, session-oriented protocol (`/submit`, `/command`, `/messages`) and are not this client's server counterpart.
 
 ## Boundaries
 
 - Does not own core agent/provider contracts (`IExecutor`, `IAIProvider`, `IAssistantMessage`); imports from `@robota-sdk/agent-core`.
-- Does not own server-side hosting logic; that belongs to `agent-transport-http` and downstream server packages.
-- Does not own WebSocket transport; that belongs to `agent-transport-ws`.
+- Does not own server-side hosting logic; the server it calls is an external provider-gateway (out-of-repo), not part of this monorepo and not `agent-transport-http` (which serves a different `/submit`,`/command`,`/messages` protocol).
+- Does not own WebSocket transport; the in-repo WebSocket transport contract belongs to `agent-transport-ws`.
 - Has a single production dependency: `@robota-sdk/agent-core`.
 - Package is `private: true`; it is not published to npm.
 

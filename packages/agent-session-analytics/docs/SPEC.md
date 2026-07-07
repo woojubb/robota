@@ -77,6 +77,7 @@ loaded).
 - `analyze.test.ts` — interval classification (TC-04a–e), `gapMs` precision (TC-03), `analyzeSession`
   slow-interval + stats integration.
 - `report.test.ts` — single-session and aggregate formatting (TC-05), section presence/omission.
+- `usage.test.ts` — `summarizeUsageBySource` per-source token aggregation (ANALYTICS-001); `formatUsageReport` output.
 
 ## Dependencies
 

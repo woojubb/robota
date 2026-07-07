@@ -92,6 +92,30 @@ indexed access rather than redefining the permission-mode union.
 
 The built-in registry holds **4** presets (`default`, `autonomous-builder`, `careful-reviewer`, `neutral-executor`), but only `defaultPreset` and `autonomousBuilderPreset` are exported as individual consts — `careful-reviewer` and `neutral-executor` are registry-only (reachable via `listPresets`/`getPreset`/`resolvePreset`, not as named exports).
 
+### Command-module selection fields (`enabledCommandModules` / `disabledCommandModules`)
+
+`IResolvedPresetOptions` carries two optional command-module filters that a preset (or a `cliOverrides` /
+`explicit` override layer) can set to narrow the default command set:
+
+- `enabledCommandModules?: readonly string[]` — allow-list: keep only modules whose name matches.
+- `disabledCommandModules?: readonly string[]` — deny-list: applied after the allow-list (deny > allow).
+
+This package only produces the field values; the actual filtering is applied downstream by
+`agent-command`'s `createDefaultCommandModules` (`applyModuleSelection`). Both fields match against
+`ICommandModule.name`, whose canonical values are the **long `agent-command-*` form** —
+`agent-command-editor`, `agent-command-provider`, etc. — **not** the short slash-command name
+(`editor`, `provider`). The full vocabulary (owned by `agent-command`, one entry per assembled module):
+
+`agent-command-agent`, `agent-command-background`, `agent-command-compact`, `agent-command-context`,
+`agent-command-editor`, `agent-command-exit`, `agent-command-goal`, `agent-command-help`,
+`agent-command-language`, `agent-command-memory`, `agent-command-mode`, `agent-command-permissions`,
+`agent-command-plugin`, `agent-command-preset`, `agent-command-provider`, `agent-command-reset`,
+`agent-command-rewind`, `agent-command-schedule`, `agent-command-session`, `agent-command-settings`,
+`agent-command-shell`, `agent-command-skills`, `agent-command-statusline`, `agent-command-user-local`.
+
+A name that does not match any assembled module's `name` is currently silently ignored (no error is
+raised for an unknown module name).
+
 ## Extension Points
 
 | Extension Point          | Kind      | How to extend                                                                                |

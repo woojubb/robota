@@ -57,7 +57,7 @@ builtins/
 - **Ports and adapters** -- `ISandboxClient` separates tool execution intent, workspace preparation, and provider-owned snapshot hydration from the concrete execution plane.
 - **Declarative workspace setup** -- `IWorkspaceManifest` describes fresh-session sandbox files, directories, Git repositories, and future ephemeral storage mounts without putting manifest algorithms in SDK or CLI layers.
 
-**Dependency direction:** `@robota-sdk/agent-tools` has a peer dependency on `@robota-sdk/agent-core`. No reverse dependency exists.
+**Dependency direction:** `@robota-sdk/agent-tools` has a peer dependency on `@robota-sdk/agent-core` and a production dependency on `@robota-sdk/agent-process` (process-tree termination in the shell built-in). No reverse dependency exists.
 
 ## Type Ownership
 
@@ -66,11 +66,7 @@ Types owned by this package (SSOT):
 | Type                                    | Kind      | File                                     | Description                                                         |
 | --------------------------------------- | --------- | ---------------------------------------- | ------------------------------------------------------------------- |
 | `IToolInvocationResult`                 | Interface | `types/tool-result.ts`                   | Result shape for CLI tool invocations                               |
-| `IZodSchema`                            | Interface | `implementations/function-tool/types.ts` | Zod schema shape for function tools                                 |
-| `IZodParseResult`                       | Interface | `implementations/function-tool/types.ts` | Zod parse result shape                                              |
-| `IZodSchemaDef`                         | Interface | `implementations/function-tool/types.ts` | Zod schema definition shape                                         |
 | `IFunctionToolValidationOptions`        | Interface | `implementations/function-tool/types.ts` | Validation options for function tools                               |
-| `ISchemaConversionOptions`              | Interface | `implementations/function-tool/types.ts` | Options for Zod-to-JSON-Schema conversion                           |
 | `IFunctionToolExecutionMetadata`        | Interface | `implementations/function-tool/types.ts` | Metadata returned by function tool execution                        |
 | `IFunctionToolResult`                   | Interface | `implementations/function-tool/types.ts` | Extended result type for function tool execution                    |
 | `ISandboxClient`                        | Interface | `sandbox/types.ts`                       | Provider-neutral command, file, manifest, and snapshot sandbox port |
@@ -232,8 +228,9 @@ None. `FunctionTool` implements its interface directly (`implements IFunctionToo
 
 ## Dependencies
 
-### Production (3)
+### Production (4)
 
+- `@robota-sdk/agent-process` -- Process-tree termination (`killProcessTree`) for the shell built-in tool (`builtins/shell-tool.ts`)
 - `fast-glob` -- High-performance glob matching for the glob built-in tool
 - `p-limit` -- Concurrency limiting used by the glob built-in tool (`builtins/glob-tool.ts`)
 - `zod` -- Schema validation for function tool parameters

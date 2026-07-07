@@ -54,19 +54,25 @@ Consult the relevant skill before starting work in its domain. Each entry links 
 | [improvement-proposal-authoring](improvement-proposal-authoring/SKILL.md) | Maps findings to remediation + follow-up backlogs + mechanical-guard recommendations                                                  |
 
 > **Spawnable architecture agents (they hold the policy).** For an independent review dispatchable from
-> the main loop, a `/command`, a Workflow fan-out, or the `architecture-refresh` orchestrator, use two
+> the main loop, a `/command`, a Workflow fan-out, or the `architecture-refresh` orchestrator, use four
 > universal/neutral subagents (portable to any codebase; they judge by timeless design principles, not
-> house style):
+> house style) — two read-only auditors and two appliers:
 >
-> - `architecture-auditor` (`.claude/agents/architecture-auditor.md`, read-only) — judges by universal
->   design/conformance criteria, treats the skills above and the repo's rules/specs as **optional
->   drift-check context**, and returns severity-classified findings ending with `ACTIONABLE FINDINGS: <n>`.
-> - `architecture-fixer` (`.claude/agents/architecture-fixer.md`, edits artifacts only) — applies the
->   auditor's findings, correcting architecture docs/SPECs/maps to match code and **escalating** genuine
->   code-side design violations as gated remediation items rather than silently rewriting code.
+> - `architecture-auditor` (`.claude/agents/architecture-auditor.md`, read-only) — judges whether the
+>   **design is good** by universal principles; returns severity-classified findings ending with
+>   `ACTIONABLE FINDINGS: <n>`.
+> - `architecture-conformance-auditor` (`.claude/agents/architecture-conformance-auditor.md`, read-only)
+>   — judges whether the **design and the code are in sync** (both directions), classifying each finding
+>   `doc-side` or `code-side` (HOLDS/DRIFT/VIOLATION/PHANTOM/UNDOCUMENTED); also ends with `ACTIONABLE
+FINDINGS: <n>`.
+> - `architecture-fixer` (`.claude/agents/architecture-fixer.md`, edits docs only) — resolves **doc-side**
+>   findings: brings architecture docs/SPECs/maps in line with the code.
+> - `architecture-implementer` (`.claude/agents/architecture-implementer.md`, edits code) — resolves
+>   **code-side** findings: brings the code in line with the intended architecture, verified (build/tests
+>   green), following the repo's change process; stops-and-plans when a change is too large to make safely.
 >
-> Spawn via the Agent tool / Workflow `agentType` `architecture-auditor` / `architecture-fixer`
-> (available after a session restart once committed). The `architecture-refresh` skill is only the loop.
+> Spawn via the Agent tool / Workflow `agentType` (available after a session restart once committed). The
+> `architecture-refresh` skill is only the loop that sequences them.
 
 ## Documentation
 

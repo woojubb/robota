@@ -65,6 +65,12 @@ workflow from a chat request.
 | `executeWorkflowsRun`                  | function  | Executor for `/workflows run <file>`.                                          |
 | `AGENT_COMMAND_WORKFLOWS_PACKAGE_NAME` | const     | Package-name constant.                                                         |
 
+The `workflows` command dispatches five first-class subcommands (in `workflows-command-module.ts`):
+`create`, `list`, `catalog`, `validate`, and `run`. The `catalog` and `validate` executors
+(`executeWorkflowsCatalog`, `executeWorkflowsValidate`) are **internal** — dispatched inside the module
+but not re-exported from the package root (`src/index.ts`) — so they are part of the command surface,
+not the public API. Only `create`/`list`/`run` executors are root-exported (above).
+
 ## Extension Points
 
 New subcommands are added by extending the dispatch in `workflows-command-module.ts` and adding an
