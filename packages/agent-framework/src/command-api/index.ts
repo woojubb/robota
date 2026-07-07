@@ -18,6 +18,7 @@ export type {
   ICommandSkillActivationRequest,
   ICommandSkillListEntry,
   IModelReapplyOptions,
+  IUnknownCommandModuleName,
   TCommandInvocationSource,
   TAutoCompactThresholdSource,
 } from './host-context.js';

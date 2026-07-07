@@ -13,6 +13,7 @@ export type {
   ICommandSessionReplayValidationReport,
   ICommandSessionRuntime,
   IModelReapplyOptions,
+  IUnknownCommandModuleName,
   ICommandSkillActivationRequest,
   ICommandSettingsAdapter,
   ICommandSettingsDocument,
@@ -67,7 +68,7 @@ export { commandToCapabilityDescriptor } from './capability-descriptors.js';
 export { SkillCommandSource, parseFrontmatter } from './skill-source.js';
 export { PluginCommandSource } from './plugin-source.js';
 export { SystemCommandExecutor, createSystemCommands } from './system-command.js';
-export { selectCommandModules } from './command-module-selection.js';
+export { selectCommandModules, findUnknownModuleNames } from './command-module-selection.js';
 export type {
   IProviderCommandModuleOptions,
   IProviderCommandSettingsAdapter,

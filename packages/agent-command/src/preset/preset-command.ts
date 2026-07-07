@@ -81,10 +81,16 @@ export async function executePresetCommand(
   }
 
   const resolved = resolvePreset(id);
-  await applyPresetToSession(context, id, resolved);
+  const result = await applyPresetToSession(context, id, resolved);
+  // INFRA-032: surface any preset command-module name that matched no live module as a non-fatal
+  // notice — an in-session `/preset` switch is no longer silent about a short form / typo.
+  const noticeLines = result.unknownCommandModules.map(
+    ({ name, kind }) =>
+      `Preset command-module "${name}" (${kind}) matched no module — expected the agent-command-* form; ignored.`,
+  );
   return {
-    message: `Switched to preset: ${id}`,
+    message: [`Switched to preset: ${id}`, ...noticeLines].join('\n'),
     success: true,
-    data: { preset: id },
+    data: { preset: id, unknownCommandModules: result.unknownCommandModules },
   };
 }

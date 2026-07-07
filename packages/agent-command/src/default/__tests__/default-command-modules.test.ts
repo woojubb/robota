@@ -29,7 +29,7 @@ const providerSettingsAdapter: IProviderCommandSettingsAdapter = {
 const baseOptions = { cwd: '/tmp', providerDefinitions, providerSettingsAdapter } as const;
 
 function moduleNames(opts: Parameters<typeof createDefaultCommandModules>[0]): string[] {
-  return createDefaultCommandModules(opts).map((module) => module.name);
+  return createDefaultCommandModules(opts).modules.map((module) => module.name);
 }
 
 describe('createDefaultCommandModules — PRESET-004 module-selection delta', () => {
@@ -93,8 +93,34 @@ describe('createDefaultCommandModules — PRESET-004 module-selection delta', ()
     expect(names).not.toContain(AGENT);
   });
 
-  it('whitelist with an unknown name simply yields no module for it', () => {
-    const names = moduleNames({ ...baseOptions, enabledCommandModules: [HELP, 'does-not-exist'] });
-    expect(names).toEqual([HELP]);
+  it('INFRA-032: an unknown whitelist name yields no module for it AND is reported as unknown', () => {
+    const result = createDefaultCommandModules({
+      ...baseOptions,
+      enabledCommandModules: [HELP, 'does-not-exist'],
+    });
+    // Known-name filtering is unchanged — only the matched module survives.
+    expect(result.modules.map((module) => module.name)).toEqual([HELP]);
+    // The unmatched name is surfaced (no longer silently dropped).
+    expect(result.unknownModuleNames).toEqual([{ name: 'does-not-exist', kind: 'enabled' }]);
+  });
+
+  it('INFRA-032: an unknown disabled name (short form) is reported as unknown', () => {
+    const result = createDefaultCommandModules({
+      ...baseOptions,
+      disabledCommandModules: ['editor'],
+    });
+    // The short form "editor" matches no module name (agent-command-editor stays enabled)…
+    expect(result.modules.map((module) => module.name)).toContain('agent-command-editor');
+    // …and is surfaced rather than silently ignored.
+    expect(result.unknownModuleNames).toEqual([{ name: 'editor', kind: 'disabled' }]);
+  });
+
+  it('INFRA-032: all names matching → unknownModuleNames is empty', () => {
+    const result = createDefaultCommandModules({
+      ...baseOptions,
+      enabledCommandModules: [HELP, AGENT],
+      disabledCommandModules: [AGENT],
+    });
+    expect(result.unknownModuleNames).toEqual([]);
   });
 });

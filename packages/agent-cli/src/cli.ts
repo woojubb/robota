@@ -190,15 +190,28 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   // session's runtime active-preset state. Pure state — no option re-application here.
   const selectedPresetId = selectPresetId(args, settingsPreset);
 
-  const { commandHostAdapters, providerDefinitions, commandModules, startupUpdateNoticePromise } =
-    buildCommandSetup(cwd, args, options, version, {
-      ...(resolvedPreset.enabledCommandModules !== undefined
-        ? { enabledCommandModules: resolvedPreset.enabledCommandModules }
-        : {}),
-      ...(resolvedPreset.disabledCommandModules !== undefined
-        ? { disabledCommandModules: resolvedPreset.disabledCommandModules }
-        : {}),
-    });
+  const {
+    commandHostAdapters,
+    providerDefinitions,
+    commandModules,
+    unknownModuleNames,
+    startupUpdateNoticePromise,
+  } = buildCommandSetup(cwd, args, options, version, {
+    ...(resolvedPreset.enabledCommandModules !== undefined
+      ? { enabledCommandModules: resolvedPreset.enabledCommandModules }
+      : {}),
+    ...(resolvedPreset.disabledCommandModules !== undefined
+      ? { disabledCommandModules: resolvedPreset.disabledCommandModules }
+      : {}),
+  });
+  // INFRA-032: a preset command-module name that matched no module (a short form like "editor"
+  // instead of agent-command-editor, or a typo) is surfaced as a non-fatal notice — never a silent
+  // drop, never an abort — mirroring the external-preset skip reporting above.
+  for (const { name, kind } of unknownModuleNames) {
+    terminal.writeError(
+      `Preset command-module "${name}" (${kind}) matched no module — expected the agent-command-* form; ignored.`,
+    );
+  }
 
   if (args.positional[0] === 'init') {
     try {

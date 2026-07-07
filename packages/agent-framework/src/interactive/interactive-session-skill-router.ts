@@ -6,6 +6,7 @@
 
 import {
   executeSkill,
+  findUnknownModuleNames,
   selectCommandModules,
   SkillCommandSource,
   SystemCommandExecutor,
@@ -22,6 +23,7 @@ import type {
   ISkillExecutionResult,
   IForkExecutionOptions,
   ICommandSkillActivationRequest,
+  IUnknownCommandModuleName,
   TCommandInvocationSource,
   ISystemCommand,
 } from '../commands/index.js';
@@ -97,13 +99,22 @@ export class SessionSkillRouter {
     this.commandHostAdapters = commandHostAdapters;
   }
 
-  /** PRESET-015 — re-filter the session's command modules and rebuild the executor live. */
+  /**
+   * PRESET-015 — re-filter the session's command modules and rebuild the executor live. INFRA-032:
+   * also returns any `enabled`/`disabled` names that matched no live command module, so the
+   * `/preset` command can surface them as a non-fatal notice instead of dropping them silently.
+   */
   reapplyCommandModuleSelection(
     enabled: readonly string[] | undefined,
     disabled: readonly string[] | undefined,
-  ): void {
+  ): readonly IUnknownCommandModuleName[] {
     const selected = selectCommandModules(this.allCommandModules, enabled, disabled);
     this.commandExecutor.replaceCommands(selected.flatMap((module) => module.systemCommands ?? []));
+    return findUnknownModuleNames(
+      this.allCommandModules.map((module) => module.name),
+      enabled,
+      disabled,
+    );
   }
 
   getCommandInvocationSource(): TCommandInvocationSource {

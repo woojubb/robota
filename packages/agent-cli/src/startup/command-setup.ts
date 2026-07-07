@@ -12,6 +12,7 @@ import type {
   ICliUpdateNotice,
   ICommandHostAdapters,
   ICommandModule,
+  IUnknownCommandModuleName,
   TProviderSettingsDocument,
 } from '@robota-sdk/agent-framework';
 import {
@@ -53,6 +54,11 @@ export interface ICliSetup {
   commandHostAdapters: ICommandHostAdapters;
   providerDefinitions: readonly IProviderDefinition[];
   commandModules: readonly ICommandModule[];
+  /**
+   * INFRA-032: preset `enabledCommandModules`/`disabledCommandModules` names that matched no built
+   * command module. Forwarded to `cli.ts`, which writes a non-fatal terminal notice per unknown.
+   */
+  unknownModuleNames: readonly IUnknownCommandModuleName[];
   startupUpdateNoticePromise: Promise<ICliUpdateNotice | undefined> | undefined;
 }
 
@@ -81,23 +87,30 @@ export function buildCommandSetup(
   // DAG workflow engine surfaced as `/workflows` (WORKFLOW-003) — INFRA-028: bundled into the
   // self-contained CLI, so it is always present (statically imported, no runtime `@robota-sdk` edge).
   const workflowsModule = loadWorkflowsCommandModule(providerDefinitions);
+  const { modules: defaultModules, unknownModuleNames } = createDefaultCommandModules({
+    cwd,
+    providerDefinitions,
+    providerSettingsAdapter,
+    ...(moduleSelection.enabledCommandModules !== undefined
+      ? { enabledCommandModules: moduleSelection.enabledCommandModules }
+      : {}),
+    ...(moduleSelection.disabledCommandModules !== undefined
+      ? { disabledCommandModules: moduleSelection.disabledCommandModules }
+      : {}),
+  });
   const commandModules: readonly ICommandModule[] = [
-    ...createDefaultCommandModules({
-      cwd,
-      providerDefinitions,
-      providerSettingsAdapter,
-      ...(moduleSelection.enabledCommandModules !== undefined
-        ? { enabledCommandModules: moduleSelection.enabledCommandModules }
-        : {}),
-      ...(moduleSelection.disabledCommandModules !== undefined
-        ? { disabledCommandModules: moduleSelection.disabledCommandModules }
-        : {}),
-    }),
+    ...defaultModules,
     workflowsModule,
     ...(options.commandModules ?? []),
   ];
   const startupUpdateNoticePromise = shouldRunStartupCliUpdateCheck(args)
     ? getStartupCliUpdateNotice({ currentVersion: version })
     : undefined;
-  return { commandHostAdapters, providerDefinitions, commandModules, startupUpdateNoticePromise };
+  return {
+    commandHostAdapters,
+    providerDefinitions,
+    commandModules,
+    unknownModuleNames,
+    startupUpdateNoticePromise,
+  };
 }
