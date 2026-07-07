@@ -44,15 +44,24 @@ Push to the connected branch triggers automatic build and deploy.
 
 ## Adding a New Post
 
-Create a markdown file in `src/pages/blog/`:
+Posts live in the Astro content collection at `src/content/blog/{en,ko}/` (defined in
+`src/content.config.ts`). Add a `.md` or `.mdx` file under the folder for its locale — `en/` for
+English, `ko/` for Korean — with frontmatter that satisfies the collection schema:
 
 ```md
 ---
-layout: ../../layouts/BlogPost.astro
 title: "Post Title"
 subtitle: "Optional subtitle"
 date: "2026-01-01"
+author: "Author Name"       # optional
+authorUrl: "https://..."     # optional
+image: "https://..."         # optional
+lang: "en"                    # required — must be "en" or "ko"
 ---
 
 Content here...
 ```
+
+Required fields: `title`, `date`, `lang`. The `lang` value must match the folder (`en` or `ko`) and
+is what the listing pages (`src/pages/index.astro`, `src/pages/ko/index.astro`) filter on. No
+`layout` field is needed — rendering is handled by the collection's route template.

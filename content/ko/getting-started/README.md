@@ -46,16 +46,28 @@ robota
 
 처음 실행 시 안내에 따라 프로바이더 선택과 API 키 설정을 진행합니다.
 
+**한 줄로 워크플로우 작성하기.** 설정을 마친 뒤에는 여러 단계로 이루어진 작업을 평범한 자연어로
+설명하면 CLI가 이를 만들어 바로 실행합니다:
+
+```bash
+robota
+> /workflows create "열린 이슈를 가져와 각각 요약한 뒤 다이제스트를 작성해줘"
+```
+
+`/workflows create`는 활성 프로바이더에게 워크플로우 설계를 요청하고, 이를
+`.workflows/<name>.json`에 저장한 다음 즉시 실행합니다. 자세한 내용은
+[CLI 레퍼런스](/guide/cli#workflows-workflows)를 참고하세요.
+
 ### 지원 프로바이더
 
-| 프로바이더         | 모델 예시                      | API 키                                                   |
-| ------------------ | ------------------------------ | -------------------------------------------------------- |
-| Anthropic (Claude) | claude-opus-4, claude-sonnet-4 | [console.anthropic.com](https://console.anthropic.com)   |
-| OpenAI             | gpt-4o, gpt-4-turbo            | [platform.openai.com](https://platform.openai.com)       |
-| DeepSeek           | deepseek-chat                  | [platform.deepseek.com](https://platform.deepseek.com)   |
-| Qwen (Alibaba)     | qwen-max                       | [dashscope.aliyuncs.com](https://dashscope.aliyuncs.com) |
-| Gemini             | gemini-2.0-flash               | [aistudio.google.com](https://aistudio.google.com)       |
-| LM Studio (로컬)   | 모든 로컬 모델                 | localhost — 키 불필요                                    |
+| 프로바이더         | 모델 예시                          | API 키                                                   |
+| ------------------ | ---------------------------------- | -------------------------------------------------------- |
+| Anthropic (Claude) | claude-opus-4-6, claude-sonnet-4-6 | [console.anthropic.com](https://console.anthropic.com)   |
+| OpenAI             | gpt-4o                             | [platform.openai.com](https://platform.openai.com)       |
+| DeepSeek           | deepseek-chat                      | [platform.deepseek.com](https://platform.deepseek.com)   |
+| Qwen (Alibaba)     | qwen-plus                          | [dashscope.aliyuncs.com](https://dashscope.aliyuncs.com) |
+| Gemini             | gemini-2.0-flash                   | [aistudio.google.com](https://aistudio.google.com)       |
+| LM Studio (로컬)   | 모든 로컬 모델                     | localhost — 키 불필요                                    |
 
 ## 첫 번째 에이전트
 
@@ -195,7 +207,7 @@ robota --model claude-sonnet-4-6
 
 - [Building Agents](/guide/building-agents) — agent-core 에이전트 패턴
 - [Using the SDK](/guide/sdk) — InteractiveSession, 트랜스포트, 세션, createQuery()
-- [CLI Reference](/guide/cli) — 전체 CLI 사용 가이드
+- [CLI Reference](/guide/cli) — 전체 CLI 사용 가이드. [`/workflows create`](/guide/cli#workflows-workflows) 자연어 워크플로우 작성 포함
 - [Architecture](/guide/architecture) — 패키지 계층과 설계
 - [Migration Guide](/guide/migration) — v2.x → 3.0.0 업그레이드
 

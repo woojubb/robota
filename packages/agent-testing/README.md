@@ -18,11 +18,8 @@ harness exists to catch).
 
 If you are not spawning a process that draws to a terminal, you do not need this package.
 
-## Installation
-
-```bash
-npm install -D @robota-sdk/agent-testing
-```
+> This package is **private** and not published to npm. It is internal to the Robota monorepo and
+> used via workspace references.
 
 ## Usage
 
@@ -65,5 +62,4 @@ pattern used for focused source-level E2E of Ink components.
 
 ## Links
 
-- [npm](https://www.npmjs.com/package/@robota-sdk/agent-testing)
 - [GitHub](https://github.com/woojubb/robota)

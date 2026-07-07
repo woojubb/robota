@@ -24,14 +24,15 @@
 
 ## Type Ownership
 
-| Type                         | Location                         | Purpose                                      |
-| ---------------------------- | -------------------------------- | -------------------------------------------- |
-| `TextToImageNodeDefinition`  | `src/index.ts`                   | Node definition class                        |
-| `TextToImageConfigSchema`    | `src/index.ts`                   | Zod config schema                            |
-| `TextToImageRuntime`         | `src/runtime-core.ts`            | Provider/model resolution + API call         |
-| `ITextToImageRequest`        | `src/runtime-core.ts`            | `{ prompt, model }` runtime request          |
-| `ITextToImageRuntimeOptions` | `src/runtime-core.ts`            | `{ apiKey?, defaultModel?, allowedModels? }` |
-| `normalizeImageOutput`       | `src/image-output-normalizer.ts` | `IMediaOutputRef` → `IPortBinaryValue`       |
+| Type                                | Location                         | Purpose                                                        |
+| ----------------------------------- | -------------------------------- | -------------------------------------------------------------- |
+| `TextToImageNodeDefinition`         | `src/index.ts`                   | Node definition class                                          |
+| `TextToImageConfigSchema`           | `src/index.ts`                   | Zod config schema                                              |
+| `TextToImageRuntime`                | `src/runtime-core.ts`            | Provider/model resolution + API call                           |
+| `ITextToImageRequest`               | `src/runtime-core.ts`            | `{ prompt, model }` runtime request                            |
+| `ITextToImageRuntimeOptions`        | `src/runtime-core.ts`            | `{ apiKey?, defaultModel?, allowedModels? }`                   |
+| `ITextToImageNodeDefinitionOptions` | `src/index.ts`                   | Node definition options (extends `ITextToImageRuntimeOptions`) |
+| `normalizeImageOutput`              | `src/image-output-normalizer.ts` | `IMediaOutputRef` → `IPortBinaryValue`                         |
 
 ## Public API Surface
 
@@ -39,6 +40,7 @@
 - `createTextToImageNodeDefinition()` — factory function
 - `TextToImageConfigSchema` — Zod schema
 - `TTextToImageConfig` — inferred config type
+- `ITextToImageNodeDefinitionOptions` — node definition options
 - `TextToImageRuntime`, `ITextToImageRequest`, `ITextToImageRuntimeOptions` — re-exported from the node module
 
 ## Extension Points

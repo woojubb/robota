@@ -2,7 +2,7 @@
 
 ## Scope
 
-Owns the tool registry, tool implementations, tool result types, sandbox execution ports, and sandbox workspace manifest contracts for the Robota SDK. This package provides both the infrastructure for defining and managing tools (`ToolRegistry`, `FunctionTool`, `createZodFunctionTool`) and a set of 8 built-in CLI tools (`bash`, `read`, `write`, `edit`, `glob`, `grep`, `webFetch`, `webSearch`) used by the agent CLI.
+Owns the tool registry, tool implementations, tool result types, sandbox execution ports, and sandbox workspace manifest contracts for the Robota SDK. This package provides both the infrastructure for defining and managing tools (`ToolRegistry`, `FunctionTool`, `createZodFunctionTool`) and a set of 10 built-in CLI tools (`shell`, `bash`, `read`, `write`, `edit`, `glob`, `grep`, `webFetch`, `webSearch`, `askUserQuestion`) used by the agent CLI.
 
 ## Boundaries
 
@@ -153,7 +153,7 @@ a structured `{ unavailable: true }` result — never a silent guess, never a th
 
 Each built-in tool is an `IToolWithEventService`-compatible object with `getName()`, `getDescription()`, `getSchema()`, and `execute()` methods.
 
-`createShellTool` (and its alias `createBashTool`), `createReadTool`, `createWriteTool`, and `createEditTool` create sandbox-aware tool instances. When an `ISandboxClient` is supplied, shell command execution plus Read/Write/Edit filesystem operations are routed through the sandbox client. When no sandbox client is supplied, the singleton exports keep host-local behavior, resolving the shell per-OS through agent-core's `resolvePlatformShell` (POSIX `sh`/`bash`, Windows PowerShell). The `Shell` tool's description is built dynamically from the resolved shell so the model writes syntax the host shell can run.
+`createShellTool` (and its alias `createBashTool`), `createReadTool`, `createWriteTool`, `createEditTool`, and `createAskUserQuestionTool` create tool instances (the first four are sandbox-aware; `createAskUserQuestionTool` binds the ask port). When an `ISandboxClient` is supplied, shell command execution plus Read/Write/Edit filesystem operations are routed through the sandbox client. When no sandbox client is supplied, the singleton exports keep host-local behavior, resolving the shell per-OS through agent-core's `resolvePlatformShell` (POSIX `sh`/`bash`, Windows PowerShell). The `Shell` tool's description is built dynamically from the resolved shell so the model writes syntax the host shell can run.
 
 **WriteTool output**: Reports actual UTF-8 byte count via `Buffer.byteLength(content, 'utf8')`, not JS `content.length` (which is character count and differs for multibyte content).
 

@@ -14,8 +14,8 @@ High-level system architecture for the Robota AI Agent SDK monorepo.
 ┌──────────────────┐ ┌───────────────────────┐
 │  apps/agent-web  │ │   apps/docs           │
 │  Agent           │ │   Documentation site  │
-│  Playground      │ │   (Cloudflare Pages)  │
-│  (Next.js)       │ │                       │
+│  Playground      │ │   (Next.js static     │
+│  (Next.js)       │ │   export)             │
 └──────┬───────────┘ └───────────────────────┘
        │
        │              ┌───────────────────────┐
@@ -33,7 +33,7 @@ High-level system architecture for the Robota AI Agent SDK monorepo.
        │
        ▼
 ┌────────────────────────────────────────────────────────────┐
-│                    SDK Packages (18)                       │
+│                       SDK Packages                          │
 │  See .agents/project-structure.md for the SSOT inventory.    │
 │                                                              │
 │  Domain          agent-core (auth, credits planned)         │
@@ -53,6 +53,11 @@ High-level system architecture for the Robota AI Agent SDK monorepo.
 │  Remote          agent-remote-client                        │
 └────────────────────────────────────────────────────────────┘
 ```
+
+> **DAG / workflow subsystem.** The `dag-*` and `agent-command-workflows` packages are private and
+> not published on their own. They are bundled into `@robota-sdk/agent-cli` (INFRA-028) and surfaced
+> to users through the `/workflows` command (e.g. `/workflows create "<natural language>"`). The
+> diagram above stays agent-SDK-focused; the workflow engine ships as part of the CLI bundle.
 
 ## Key Architectural Decisions
 

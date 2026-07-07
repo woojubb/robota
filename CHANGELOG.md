@@ -5,7 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [3.0.0] - 2026-03-08
+## [3.0.0-beta] — in progress (latest: 3.0.0-beta.79)
+
+Robota 3.0 ships as a rolling `3.0.0-beta.N` prerelease cadence — the current published line is
+`3.0.0-beta.79`. **A final `3.0.0` has not been released.** All published `@robota-sdk/agent-*`
+packages version together at `3.0.0-beta.79`, except `@robota-sdk/agent-process`, which is
+versioned independently. Entries below summarize the 3.0 beta line to date.
+
+### ✨ Recent highlights (through beta.79)
+
+- **FLOW-007 — `/workflows create`**: `agent-cli` gained `/workflows create "<natural language>"`,
+  which authors a workflow from a natural-language description using the CLI's **active provider**,
+  runs it immediately in-process, and saves it as a reusable, model-invocable
+  `.workflows/<name>.json` artifact (with any prompt-backed nodes under `.workflows/nodes/`).
+- **`.workflows/` storage**: workspace-local workflow and node artifacts persist under `.workflows/`
+  (default workspace layout), so authored workflows can be re-run and shared.
+- **INFRA-028 — self-contained `agent-cli` bundle**: `@robota-sdk/agent-cli` now publishes as a
+  self-contained bundle. The entire private DAG/workflow subsystem (`dag-*`,
+  `agent-command-workflows`) is bundled into its `dist` rather than published as separate packages;
+  runtime `dependencies` contain only third-party npm packages.
+- **DATA-003 — instant-node provider SSOT + persistence round-trip**: a single source of truth for
+  instant-node providers with symmetric save/load persistence, so authored nodes round-trip cleanly
+  through `.workflows/`.
 
 ### 🚨 Breaking Changes
 
@@ -36,12 +57,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed: `TeamContainer`, `createTeam`, `TeamOptions`, `TeamContainerOptions`
 - Added: Relay tool-based architecture (`listTemplateCategoriesTool`, `createAssignTaskRelayTool`, etc.)
 
-#### @robota-sdk/agent-provider-openai
+#### @robota-sdk/agent-provider (`/openai` sub-path)
+
+> Providers are consolidated into the single `@robota-sdk/agent-provider` package and exposed as
+> sub-paths (`/openai`, `/anthropic`, `/google`, `/bytedance`, `/gemma`, …). There are no standalone
+> `@robota-sdk/agent-provider-openai` / `-anthropic` / `-bytedance` packages.
 
 - Removed: `PayloadLogger` class export
 - Added: `IPayloadLogger`, `IPayloadLoggerOptions` type-only exports
 
-#### @robota-sdk/agent-provider-anthropic
+#### @robota-sdk/agent-provider (`/anthropic` sub-path)
 
 - `AnthropicProviderOptions` → `IAnthropicProviderOptions`
 
@@ -49,22 +74,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 #### New Packages
 
-- **@robota-sdk/agent-provider-bytedance**: ByteDance AI provider (Doubao model support)
-- **@robota-sdk/agent-remote**: Remote executor with HTTP client and WebSocket transport
-- **@robota-sdk/agent-remote-server-core**: Server-side routes for remote execution
-- **@robota-sdk/agent-playground**: Interactive AI playground
+- **@robota-sdk/agent-provider**: consolidated multi-provider package. ByteDance (Doubao) support is
+  added via the `/bytedance` sub-path — there is no standalone `@robota-sdk/agent-provider-bytedance`.
+- **@robota-sdk/agent-remote-client** _(private, bundled)_: remote executor client with HTTP client
+  and WebSocket transport. (There is no `@robota-sdk/agent-remote` or `agent-remote-server-core`.)
+- **@robota-sdk/agent-playground** _(private)_: interactive AI playground.
 
-#### DAG Workflow Engine (9 packages)
+#### DAG / Workflow Engine — internal (bundled into agent-cli, not published)
 
-- **@robota-sdk/dag-core**: Core contracts, state machines, node lifecycle, definition services
-- **@robota-sdk/dag-runtime**: Run orchestration, query, and cancellation services
-- **@robota-sdk/dag-worker**: Worker loop service, DLQ reinject service
-- **@robota-sdk/dag-scheduler**: Scheduler trigger service
-- **@robota-sdk/dag-projection**: Projection read-model service
-- **@robota-sdk/dag-api**: REST API controllers and composition roots
-- **@robota-sdk/dag-server-core**: Server bootstrap, asset store, OpenAPI spec
-- **@robota-sdk/dag-designer**: Designer UI components, hooks, and API client
-- **@robota-sdk/dag-node-\***: 10 node type implementations (gemini-image-edit, image-loader, image-source, input, llm-text-openai, ok-emitter, seedance-video, text-output, text-template, transform)
+> These packages are **private** (`private: true`) and are **not** released to npm as
+> `@robota-sdk/dag-*`. They ship bundled inside `@robota-sdk/agent-cli` (INFRA-028) and are surfaced
+> to users through the `/workflows` command. Listed here for changelog completeness only.
+
+- **dag-core / dag-runtime / dag-worker / dag-scheduler / dag-projection**: orchestration, run,
+  worker, scheduler, and projection services.
+- **dag-api / dag-mcp-server / dag-cli**: REST, MCP, and CLI surfaces.
+- **dag-node / dag-nodes**: node contracts and built-in node-type implementations.
+- **agent-command-workflows**: the `/workflows` command module (also private/bundled).
 
 #### @robota-sdk/agent-core — New Features
 
@@ -214,8 +240,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 2. **Provider Implementation**:
 
    ```typescript
-   // All providers must now extend BaseAIProvider
-   export class MyProvider extends BaseAIProvider {
+   // All providers must now extend AbstractAIProvider
+   // (renamed from BaseAIProvider in the 3.0 line — see Breaking Changes above)
+   export class MyProvider extends AbstractAIProvider {
      // Implementation
    }
    ```
@@ -228,7 +255,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
    - Remove all `any` types and replace with specific types
    - Update `unknown` types to proper type definitions
 
-For detailed migration instructions, see the [Migration Guide](./docs/migration-guide.md).
+For detailed migration instructions, see the [Migration Guide](./content/guide/migration.md).
 
 ---
 

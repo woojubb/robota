@@ -26,12 +26,16 @@
 
 ## Type Ownership
 
-| Type                    | Location              | Purpose                                    |
-| ----------------------- | --------------------- | ------------------------------------------ |
-| `SkillNodeDefinition`   | `src/index.ts`        | Node definition class                      |
-| `SkillNodeConfigSchema` | `src/index.ts`        | Zod config schema                          |
-| `SkillResolverRuntime`  | `src/runtime-core.ts` | Skill discovery + inject-prompt resolution |
-| `ISkillResolverOptions` | `src/runtime-core.ts` | Injected deps + `cwd`/`home`/`sessionId`   |
+| Type                          | Location              | Purpose                                                   |
+| ----------------------------- | --------------------- | --------------------------------------------------------- |
+| `SkillNodeDefinition`         | `src/index.ts`        | Node definition class                                     |
+| `SkillNodeConfigSchema`       | `src/index.ts`        | Zod config schema                                         |
+| `SkillResolverRuntime`        | `src/runtime-core.ts` | Skill discovery + inject-prompt resolution                |
+| `ISkillResolverOptions`       | `src/runtime-core.ts` | Injected deps + `cwd`/`home`/`sessionId`                  |
+| `ISkillResolveRequest`        | `src/runtime-core.ts` | Resolve-call request shape                                |
+| `ISkillResolveResult`         | `src/runtime-core.ts` | Resolve-call result shape                                 |
+| `TLoadSkillCommands`          | `src/runtime-core.ts` | Injected skill-command loader signature                   |
+| `ISkillNodeDefinitionOptions` | `src/index.ts`        | Node definition options (extends `ISkillResolverOptions`) |
 
 ## Public API Surface
 
@@ -39,7 +43,8 @@
 - `createSkillNodeDefinition()` — factory function
 - `SkillNodeConfigSchema` — Zod schema
 - `TSkillNodeConfig` — inferred config type
-- `SkillResolverRuntime`, `ISkillResolverOptions` — re-exported from the node module
+- `ISkillNodeDefinitionOptions` — node definition options
+- `SkillResolverRuntime`, `ISkillResolverOptions`, `ISkillResolveRequest`, `ISkillResolveResult`, `TLoadSkillCommands` — re-exported from the node module
 
 ## Extension Points
 

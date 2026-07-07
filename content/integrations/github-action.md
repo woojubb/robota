@@ -30,33 +30,27 @@ const result = await query('Review the changed files in this PR for potential is
 console.log(result);
 ```
 
-## Planned Usage (future)
+## Planned (future)
 
-Once released, the action will support:
-
-```yaml
-- name: Run Robota (future)
-  uses: robota-sdk/action@v1
-  with:
-    task: 'Review the changed files in this PR for potential issues'
-    api-key: ${{ secrets.ANTHROPIC_API_KEY }}
-```
+> Everything below describes the **planned** `robota-sdk/action@v1` interface. It is **not yet
+> published** — the blocks are a design preview, not usable steps today. Until the action ships, use
+> the CLI workaround above.
 
 [Open an issue](https://github.com/woojubb/robota/issues) to request prioritization.
 
-## Quick Start
+### Planned Quick Start
 
-Add the following step to your workflow:
+Once released, add the following step to your workflow:
 
 ```yaml
-- name: Run Robota
+- name: Run Robota (planned — not yet available)
   uses: robota-sdk/action@v1
   with:
     task: 'Review the changed files in this PR for potential issues'
     api-key: ${{ secrets.ANTHROPIC_API_KEY }}
 ```
 
-## Inputs
+### Planned Inputs
 
 | Input       | Required | Default | Description                                      |
 | ----------- | -------- | ------- | ------------------------------------------------ |
@@ -66,15 +60,17 @@ Add the following step to your workflow:
 | `output`    | no       | `text`  | Output format: `text` \| `json` \| `stream-json` |
 | `max-turns` | no       | —       | Maximum agent turns before stopping              |
 
-## Outputs
+### Planned Outputs
 
 | Output   | Description             |
 | -------- | ----------------------- |
 | `result` | The agent response text |
 
-## Examples
+### Planned Examples
 
-### PR Review
+These examples are illustrative of the planned interface and do not run until the action is published.
+
+#### PR Review
 
 ```yaml
 name: AI PR Review
@@ -109,7 +105,7 @@ jobs:
             })
 ```
 
-### Commit Message Analysis
+#### Commit Message Analysis
 
 ```yaml
 - name: Analyze recent commits
@@ -120,8 +116,10 @@ jobs:
     max-turns: '3'
 ```
 
-## Security
+### Planned Security
 
 - Always pass the API key via `${{ secrets.ANTHROPIC_API_KEY }}`, never hardcode it.
-- The action never collects file contents, paths, or user identifiers.
+- The action will not collect file contents, paths, or user identifiers.
 - Set `ANTHROPIC_API_KEY` as a repository or organization secret in GitHub Settings.
+
+These same practices apply to the CLI workaround above.

@@ -58,18 +58,43 @@ Commands:
 
 Output is JSON. Success responses are printed as returned by the server. CLI validation failures use a JSON envelope with `ok: false`, `status: 2`, and a single problem entry.
 
+## Workspace (FLOW-007)
+
+A global `--workspace <dir>` flag selects the on-disk workspace root. When set, the dispatch root
+resolves an `IWorkspaceLayout` (root dir + workflow extension) and threads it through as
+`IDagCliRunOptions.workspace`. The default layout is `.workflows/` under the working directory.
+Authored workflows and their local prompt/code node files are read from this workspace layout.
+
+## Instant-Node Persistence (DATA-004)
+
+The local runner's instant-node reload path
+(`src/local-runner/persistence/store.ts`) delegates parsing and rehydration to
+`@robota-sdk/dag-node-instant-node` via `parsePersistedInstantNode` (parse the persisted record)
+and `rehydrateInstantNode` (rebuild the live definition, injecting a `compositeRunner`). The CLI
+no longer owns the instant-node persistence schema.
+
 ## Type Ownership
 
 This package is SSOT for:
 
 - `IDagCliEnvironment`
 - `IDagCliIo`
-- `IDagCliRunOptions`
-- `TDagCliCommandResult`
+- `IDagCliRunOptions` — carries the FLOW-007 `workspace?: IWorkspaceLayout` field.
+- `IDagCliFailure`
+- `IDagCliCommandResult`
+- `TDagCliFetch`
+- `TDagCliServerResponse`
+- `TDagCliOutputPayload`
+- `TDagCliValueResult<TValue>`
+
+Only `runDagCli` and the types re-exported by the barrel (`IDagCliEnvironment`, `IDagCliIo`,
+`IDagCliRunOptions`, `TDagCliFetch`, `TDagCliOutputPayload`, `TDagCliServerResponse`) are part of
+the public surface. Remaining types in `src/types.ts` are package-internal.
 
 Imported from other packages:
 
-- `IDagDefinition`, `IPartialRunRequest`, `TPortPayload`, `IDagNodeDefinition`, `LifecycleTaskExecutorPort` from `@robota-sdk/dag-core`
+- `IDagDefinition`, `IPartialRunRequest`, `TPortPayload`, `IDagNodeDefinition`, `LifecycleTaskExecutorPort`, `IWorkspaceLayout` from `@robota-sdk/dag-core`
+- `parsePersistedInstantNode`, `rehydrateInstantNode` from `@robota-sdk/dag-node-instant-node` (instant-node reload, DATA-004)
 - `IOrchestrationProblemDetails`, `DagOrchestrationHttpClient`, asset request aliases, cost metadata request aliases, run draft request aliases, `IDagOrchestrationPublishedWorkflowRunRequest`, and orchestrator HTTP response types from `@robota-sdk/dag-orchestration-client`
 - `IDagExecutionComposition`, `RunProgressEventBus` from `@robota-sdk/dag-api`
 - `RunOrchestratorService`, `RunQueryService`, `RunCancelService` from `@robota-sdk/dag-runtime`
@@ -90,9 +115,16 @@ When `--no-diff` is not set, each re-run prints only the lines that changed vs. 
 
 ## Public API Surface
 
+The barrel (`src/index.ts`) exports exactly:
+
 - `runDagCli(args, options)` — programmatic command runner used by the bin entrypoint and tests.
-- `LocalDagRunner` — in-process DAG runner that embeds the runtime, worker, and adapters without a server.
-- `createDefaultNodeRegistry()` — returns all built-in node definitions for use with `LocalDagRunner`.
+- Types: `IDagCliEnvironment`, `IDagCliIo`, `IDagCliRunOptions`, `TDagCliFetch`,
+  `TDagCliOutputPayload`, `TDagCliServerResponse`.
+
+The following are **package-internal** (not exported by the barrel):
+
+- `LocalDagRunner` — in-process DAG runner that embeds the runtime, worker, and adapters without a server (`src/local-runner/`).
+- `createDefaultNodeRegistry()` — returns all built-in node definitions for use with `LocalDagRunner` (`src/local-runner/`).
 - `computeLineDiff(before, after, options?)` — LCS-based line diff utility (`src/lib/line-diff.ts`).
 - `getMainOutput(result)` — extracts primary string output from a run result for diff comparison.
 

@@ -112,6 +112,12 @@ Types consumed from other packages (not owned here):
 | `ISessionStore`                  | Interface            | Minimal persistence port consumed by `Session`; implemented by `SessionStore`                                                                     |
 | `ICompactEvent`                  | Interface            | Compaction event payload — SSOT moved to `@robota-sdk/agent-interface-transport` (INFRA-025); this package imports it and no longer re-exports it |
 | `TCompactTrigger`                | Type                 | Discriminator for what triggered a compaction (e.g. auto vs manual)                                                                               |
+| `AUTO_COMPACT_THRESHOLD`         | Constant             | Default auto-compact threshold fraction of the context window (exported from `context-window-tracker.ts`)                                         |
+| `SESSION_LOG_EVENT`              | Constant             | Session log event-name enum object (`session-log-events.ts`)                                                                                      |
+| `isSessionLogEvent`              | Function             | Type guard for a `TSessionLogEventName`                                                                                                           |
+| `loadSessionLogEntries`          | Function             | Loads and parses persisted session log entries from a JSONL file                                                                                  |
+| `ISessionLogEntry`               | Interface            | One parsed session log entry (`session-log-replay.ts`)                                                                                            |
+| `ISessionReplayValidationResult` | Interface            | Result of validating a session replay log for integrity                                                                                           |
 
 ### Session Constructor — sessionId Parameter
 

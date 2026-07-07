@@ -72,12 +72,15 @@ convenience at the transport boundary.
 
 ## Public API Surface
 
-| Export                          | Kind     | Description                             |
-| ------------------------------- | -------- | --------------------------------------- |
-| `TuiTransport`                  | class    | Ink-based interactive transport adapter |
-| `renderApp`                     | function | Mount the Ink application               |
-| `createDefaultTuiCliAdapter`    | function | Default CLI adapter for the renderer    |
-| `ITuiCliAdapter` + option types | types    | Adapter contracts                       |
+| Export                                                                      | Kind     | Description                                                             |
+| --------------------------------------------------------------------------- | -------- | ----------------------------------------------------------------------- |
+| `TuiTransport`                                                              | class    | Ink-based interactive transport adapter                                 |
+| `renderApp`                                                                 | function | Mount the Ink application                                               |
+| `createDefaultTuiCliAdapter`                                                | function | Default CLI adapter for the renderer                                    |
+| `ITuiCliAdapter` + option types                                             | types    | Adapter contracts                                                       |
+| `ITuiPickerItem`                                                            | type     | One selectable item in a TUI picker interaction                         |
+| `ITuiCommandInteraction`, `ITuiPickerInteraction`, `ITuiConfirmInteraction` | types    | Command/picker/confirm interaction contracts (`command-interaction.ts`) |
+| `TAnyTuiCommandInteraction`, `TOnMissingArgsAction`                         | types    | Union of interaction contracts; missing-args action discriminator       |
 
 ## Extension Points
 

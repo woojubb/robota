@@ -383,9 +383,12 @@ The Anthropic provider uses `getModelMaxOutput()` to determine the default `max_
 
 ## Transport Adapters
 
-`InteractiveSession` is the single entry point for all interactive use cases. Transport adapters in `@robota-sdk/agent-transport` consume it to expose the session over different protocols:
+`InteractiveSession` is the single entry point for all interactive use cases. Transport adapters
+consume it to expose the session over different protocols. Since beta.76 the protocol transports are
+standalone packages; `@robota-sdk/agent-transport` itself is a lean core that keeps only the
+`/headless` and `/testing` sub-paths:
 
-| Sub-path                   | Protocol                       | Description                                                      |
+| Package / sub-path         | Protocol                       | Description                                                      |
 | -------------------------- | ------------------------------ | ---------------------------------------------------------------- |
 | `agent-transport-http`     | HTTP / REST                    | Hono-based adapter; runs on Cloudflare Workers, Node.js, Lambda  |
 | `agent-transport-mcp`      | MCP                            | Exposes the session as an MCP server for Claude and other agents |
@@ -394,7 +397,7 @@ The Anthropic provider uses `getModelMaxOutput()` to determine the default `max_
 
 Each transport wraps an `InteractiveSession` instance and translates protocol messages into `submit()` / `abort()` calls, then forwards emitted events back to the client. No separate gateway interface exists — `InteractiveSession` is the gateway.
 
-All transport adapters implement the `ITransportAdapter` interface (exported from `@robota-sdk/agent-framework`), which defines a common lifecycle: `attach(session)`, `start()`, and `stop()`. Each sub-path provides a factory function (e.g., `createHttpTransport()`, `createWsTransport()`, `createMcpTransport()`, `createHeadlessTransport()`) that returns an `ITransportAdapter`. `createHeadlessTransport()` also accepts a `createHeadlessRunner()` helper for pre-configured non-interactive execution.
+All transport adapters implement the `ITransportAdapter` interface (exported from `@robota-sdk/agent-framework`), which defines a common lifecycle: `attach(session)`, `start()`, and `stop()`. Each transport package (or `agent-transport` sub-path) provides a factory function (e.g., `createHttpTransport()`, `createWsTransport()`, `createMcpTransport()`, `createHeadlessTransport()`) that returns an `ITransportAdapter`. `createHeadlessTransport()` also accepts a `createHeadlessRunner()` helper for pre-configured non-interactive execution.
 
 `agent-remote-client` is a companion package that provides an HTTP client for calling an agent exposed via `agent-transport-http`. It has no dependency on `agent-framework`.
 
@@ -404,7 +407,7 @@ All transport adapters implement the `ITransportAdapter` interface (exported fro
 | ------------------------------ | ------------------------------------------------------------------------ |
 | Quick one-shot                 | `createQuery({ provider })` — creates an `InteractiveSession` internally |
 | Interactive CLI / web / server | `InteractiveSession` — event-driven, queuing, command handling           |
-| Expose over HTTP / MCP / WS    | `agent-transport/{http,mcp,ws}` wrapping `InteractiveSession`            |
+| Expose over HTTP / MCP / WS    | `agent-transport-{http,mcp,ws}` wrapping `InteractiveSession`            |
 | Non-interactive / headless     | `agent-transport/headless` — text, JSON, or stream-JSON output           |
 | Call a remote agent over HTTP  | `agent-remote-client` — standalone HTTP client                           |
 | Custom agent (no SDK)          | `new Robota()` from `agent-core` directly                                |

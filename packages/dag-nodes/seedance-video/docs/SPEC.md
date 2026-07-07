@@ -28,14 +28,15 @@
 
 ## Type Ownership
 
-| Type                           | Location                         | Purpose                                                                        |
-| ------------------------------ | -------------------------------- | ------------------------------------------------------------------------------ |
-| `SeedanceVideoNodeDefinition`  | `src/index.ts`                   | Node definition class                                                          |
-| `SeedanceVideoConfigSchema`    | `src/index.ts`                   | Zod config schema                                                              |
-| `SeedanceVideoRuntime`         | `src/runtime-core.ts`            | Provider/model resolution + poll loop                                          |
-| `ISeedanceVideoRequest`        | `src/runtime-core.ts`            | `{ prompt, model, durationSeconds?, aspectRatio?, pollIntervalMs, maxWaitMs }` |
-| `ISeedanceVideoRuntimeOptions` | `src/runtime-core.ts`            | `{ apiKey?, baseUrl?, defaultModel?, allowedModels?, sleep? }`                 |
-| `normalizeVideoOutput`         | `src/video-output-normalizer.ts` | `IMediaOutputRef` → `IPortBinaryValue` (video)                                 |
+| Type                                  | Location                         | Purpose                                                                        |
+| ------------------------------------- | -------------------------------- | ------------------------------------------------------------------------------ |
+| `SeedanceVideoNodeDefinition`         | `src/index.ts`                   | Node definition class                                                          |
+| `SeedanceVideoConfigSchema`           | `src/index.ts`                   | Zod config schema                                                              |
+| `SeedanceVideoRuntime`                | `src/runtime-core.ts`            | Provider/model resolution + poll loop                                          |
+| `ISeedanceVideoRequest`               | `src/runtime-core.ts`            | `{ prompt, model, durationSeconds?, aspectRatio?, pollIntervalMs, maxWaitMs }` |
+| `ISeedanceVideoRuntimeOptions`        | `src/runtime-core.ts`            | `{ apiKey?, baseUrl?, defaultModel?, allowedModels?, sleep? }`                 |
+| `ISeedanceVideoNodeDefinitionOptions` | `src/index.ts`                   | Node definition options (extends `ISeedanceVideoRuntimeOptions`)               |
+| `normalizeVideoOutput`                | `src/video-output-normalizer.ts` | `IMediaOutputRef` → `IPortBinaryValue` (video)                                 |
 
 ## Public API Surface
 
@@ -43,6 +44,7 @@
 - `createSeedanceVideoNodeDefinition()` — factory function
 - `SeedanceVideoConfigSchema` — Zod schema
 - `TSeedanceVideoConfig` — inferred config type
+- `ISeedanceVideoNodeDefinitionOptions` — node definition options
 - `SeedanceVideoRuntime`, `ISeedanceVideoRequest`, `ISeedanceVideoRuntimeOptions` — re-exported from the node module
 
 ## Extension Points
