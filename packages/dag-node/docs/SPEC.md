@@ -88,6 +88,12 @@ Types imported from `@robota-sdk/dag-core` (not owned):
 | `buildNodeDefinitionAssembly`      | Function       | Builds manifests and handler registry from an array of `IDagNodeDefinition`                                 |
 | `buildConfigSchema`                | Function       | Converts a Zod schema to JSON Schema 7 for node config                                                      |
 | `createStaticNodeLifecycleFactory` | Function       | Factory function that creates a `StaticNodeLifecycleFactory` from a handler map                             |
+| `defineDagNode`                    | Function       | Declarative helper that builds a node definition from options without subclassing `AbstractNodeDefinition`  |
+| `DefineDagNodeOptions`             | Interface      | Options accepted by `defineDagNode`                                                                         |
+| `IMediaReferenceCandidate`         | Interface      | Loosely-typed input for creating a `MediaReference`                                                         |
+| `IParsedBinaryValue`               | Interface      | Validated binary port value with kind, MIME type, and URI                                                   |
+| `IBinaryPortPreset`                | Interface      | Pre-configured binary kind and MIME type combination                                                        |
+| `IBinaryPortDefinitionInput`       | Interface      | Input for the `createBinaryPortDefinition` factory                                                          |
 
 ## Extension Points
 
