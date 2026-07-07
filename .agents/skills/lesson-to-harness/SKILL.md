@@ -79,12 +79,13 @@ When an approved lesson is **"a new recurring role"** (the session kept hand-bui
 focused, universal/neutral subagent + a thin orchestration skill that only sequences it), the
 institutionalization is a **specialization of this loop**, not a parallel one: dispatch
 capability-extraction — `capability-scout` proposes the role decomposition → `proposal-reviewer` signs
-it off → an author writes the role(s) to the **agent-definition convention** (document type in
+it off → `agent-skill-author` writes the role(s) to the **agent-definition convention** (document type in
 [`document-standards/index.md`](../../specs/document-standards/index.md)) → the
 `check-agent-def-convention.mjs` guard (`harness:scan` → `agent-def-convention`) gates it. Reuse this
 skill's approve→institutionalize→**enforce** discipline; the guard is the mechanism terminal state
-(step 8) for a role lesson. (The `agent-skill-author` write-agent + a standalone capability-extraction
-orchestration skill are deferred behind the guard — INFRA-030.)
+(step 8) for a role lesson. This exact sequence is the thin
+[`capability-extraction`](../capability-extraction/SKILL.md) skill (scout → proposal-reviewer →
+`agent-skill-author` → `agent-def-convention` re-audit) — dispatch it; do not hand-roll the loop.
 
 ## Single source = the repo (default sink)
 

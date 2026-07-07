@@ -78,6 +78,10 @@ const SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/check-harness-config-paths.mjs'],
   },
   { name: 'workspace-refs', command: ['node', 'scripts/harness/check-workspace-refs.mjs'] },
+  {
+    name: 'ghost-package-refs',
+    command: ['node', 'scripts/harness/check-ghost-package-refs.mjs'],
+  },
   { name: 'stub-markers', command: ['node', 'scripts/harness/check-stub-markers.mjs'] },
   { name: 'conflict-markers', command: ['node', 'scripts/harness/scan-conflict-markers.mjs'] },
   { name: 'deprecated-markers', command: ['node', 'scripts/harness/scan-deprecated-markers.mjs'] },
