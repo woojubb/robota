@@ -117,9 +117,10 @@ is extended. See ARCH-005 in `.agents/backlog/README.md`.
 This package is SSOT for:
 
 - `IDagMcpEnvironment`
+- `IDagMcpRunOptions`
 - `IDagMcpServerOptions`
 - `IDagMcpToolDefinition`
-- `TDagMcpToolCallResult`
+- `IDagMcpToolCallResult`
 
 Imported from other packages:
 

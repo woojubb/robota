@@ -42,11 +42,12 @@ npx tsx src/index.ts "Hello, world!"
 
 ## SDK packages used
 
-| Package                       | Purpose                                                     |
-| ----------------------------- | ----------------------------------------------------------- |
-| `@robota-sdk/agent-framework` | `createAgentRuntime`, `createQuery` — high-level runtime    |
-| `@robota-sdk/agent-core`      | `Robota`, `createFunctionTool` — low-level agent with tools |
-| `@robota-sdk/agent-provider`  | `AnthropicProvider`, `OpenAIProvider`, …                    |
+| Package                       | Purpose                                                  |
+| ----------------------------- | -------------------------------------------------------- |
+| `@robota-sdk/agent-framework` | `createAgentRuntime`, `createQuery` — high-level runtime |
+| `@robota-sdk/agent-core`      | `Robota` — low-level agent                               |
+| `@robota-sdk/agent-tools`     | `createZodFunctionTool` — Zod-schema function tools      |
+| `@robota-sdk/agent-provider`  | `AnthropicProvider`, `OpenAIProvider`, …                 |
 
 ## Supported providers
 

@@ -16,6 +16,10 @@ npx @robota-sdk/agent-cli
 
 The CLI prompts you to select a provider and enter your API key, then opens an interactive chat REPL. That's it.
 
+Tip: once you're in the REPL, `/workflows create "<describe a multi-step task>"` authors a DAG
+workflow from your description, saves it to `.workflows/`, and runs it immediately. See the
+[CLI reference](/guide/cli#workflows-workflows).
+
 ## Option B — Embed the SDK in a Next.js app
 
 ### 1. Clone the starter template

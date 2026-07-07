@@ -2,26 +2,26 @@
 
 Command-line tool for running, validating, and managing Robota DAG workflows — no server required.
 
-## Installation
+> This package is **private** and not published to npm. It is an internal product shell used within
+> the Robota monorepo via workspace references; the `/workflows` command surface it powers ships
+> inside `@robota-sdk/agent-cli`.
 
-```bash
-# npx (no install)
-npx @robota-sdk/dag-cli run workflow.dag.json
+## Usage
 
-# Global install
-npm install -g @robota-sdk/dag-cli
-robota-dag run workflow.dag.json
-```
+The `robota-dag` binary is available within the monorepo via workspace references.
 
 ## Commands
+
+Commands operate against the current workspace layout, which defaults to `.workflows/`. Pass a
+leading `--workspace <dir>` to point at a different workspace root.
 
 ### `run` — Execute a DAG locally
 
 ```bash
-robota-dag run <file.dag.json> [--env .dag/.env] [--timeout 120000]
+robota-dag run <file> [--env .env] [--timeout 120000]
 ```
 
-Runs a DAG definition in-process. Uses `.dag/.env` by default for API keys.
+Runs a DAG definition in-process — no server required.
 
 ### `validate` — Validate a DAG definition
 
@@ -40,13 +40,18 @@ robota-dag node info <nodeType>         # full manifest for one node type
 robota-dag node schema <nodeType>       # JSON schema for node config
 ```
 
-### `init` — Scaffold a new DAG project
+### `catalog` — Browse the workspace workflow catalog
 
 ```bash
-robota-dag init
+robota-dag catalog list                 # list saved workflows in the workspace
+robota-dag catalog info <name>          # show one workflow's details
+robota-dag catalog search <query>       # search saved workflows
+robota-dag catalog run <name>           # run a saved workflow by name
+robota-dag catalog history              # show recent run history
 ```
 
-Creates `.dag/workflows/hello-world.dag.json`, `.dag/.env.example`, and `README-DAG.md`.
+Operates on the workspace layout (default `.workflows/`), the FLOW-007 on-disk format for
+authored workflows.
 
 ### `mcp` — Start an MCP server
 
@@ -66,22 +71,6 @@ robota-dag runs status <dagRunId>
 ```
 
 Server URL resolution order: `--server-url` → `ROBOTA_DAG_SERVER_URL` → `http://localhost:3012`.
-
-## Use with GitHub Actions
-
-Run DAG workflows in CI/CD with `npx` — no custom Action needed:
-
-```yaml
-- name: Run AI code review DAG
-  env:
-    ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-  run: |
-    npx @robota-sdk/dag-cli run .dag/workflows/code-review.dag.json \
-      --input code="$(git diff origin/main...HEAD)" \
-      --output json > result.json
-```
-
-See [docs/github-actions.md](docs/github-actions.md) for full examples (PR review, release notes, scheduling).
 
 ## Documentation
 

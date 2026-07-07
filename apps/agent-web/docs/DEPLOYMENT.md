@@ -1,38 +1,63 @@
 # Deployment Guide
 
+This app (`robota-web`) is a minimal Next.js 15 host for the Robota Agent Playground and the CLI
+second-screen monitor. It ships no authentication, database, or Firebase integration — deployment is
+limited to building the Next.js app and pointing it at the WebSocket endpoints it talks to. See
+[`SPEC.md`](./SPEC.md) for the authoritative scope and route list.
+
+## Routes
+
+- `/` — redirects to `/playground`.
+- `/playground` — Playground main page (`PlaygroundApp` from `@robota-sdk/agent-playground/client`).
+- `/playground/demo` — Playground demo mode.
+- `/monitor` — CLI second-screen browser monitor (`SessionMonitor` from `@robota-sdk/agent-web-ui/client`).
+
 ## Environment Variables
 
-### Required Environment Variables
+All runtime configuration is optional and public (`NEXT_PUBLIC_*`); there are no secrets. Add any you
+need to `.env.local` (local) or your host's environment configuration (production).
 
-Create a `.env.local` file in the root directory with the following variables:
+| Variable                        | Consumed by                         | Default                | Description                                                       |
+| ------------------------------- | ----------------------------------- | ---------------------- | ----------------------------------------------------------------- |
+| `NEXT_PUBLIC_PLAYGROUND_WS_URL` | `src/app/playground/page.tsx`       | Playground app default | WebSocket URL passed to `PlaygroundApp` as `defaultServerUrl`.    |
+| `NEXT_PUBLIC_CLI_WS_URL`        | `src/app/monitor/MonitorClient.tsx` | `ws://localhost:7070`  | WebSocket URL the CLI monitor connects to via `SessionMonitor`.   |
+| `NEXT_PUBLIC_API_VERSION`       | `API_CONFIG` (`src/config/api.ts`)  | app default            | API version used to build the versioned base URL in `API_CONFIG`. |
+
+Example `.env.local`:
 
 ```env
-# Firebase Configuration
-NEXT_PUBLIC_FIREBASE_API_KEY=your_api_key_here
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=123456789
-NEXT_PUBLIC_FIREBASE_APP_ID=1:123456789:web:abcdef123456
-NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=G-ABCDEF123
-
-# Authentication Providers
-NEXT_PUBLIC_GITHUB_CLIENT_ID=your_github_client_id
-NEXT_PUBLIC_GOOGLE_CLIENT_ID=your_google_client_id
-
-# API Configuration
-NEXT_PUBLIC_API_BASE_URL=https://api.robota.dev
-NEXT_PUBLIC_PLAYGROUND_API_URL=https://playground-api.robota.dev
-
-# Analytics and Monitoring
-NEXT_PUBLIC_GA_MEASUREMENT_ID=G-ABCDEF123
-
-# Environment
-NODE_ENV=production
-NEXT_PUBLIC_APP_ENV=production
-NEXT_PUBLIC_APP_VERSION=1.0.0
-
-# Security
-NEXTAUTH_SECRET=your_nextauth_secret_here
-NEXTAUTH_URL=https://robota.dev
+NEXT_PUBLIC_PLAYGROUND_WS_URL=wss://playground.example.com
+NEXT_PUBLIC_CLI_WS_URL=wss://cli.example.com
+NEXT_PUBLIC_API_VERSION=v1
 ```
+
+## Build and Run
+
+```bash
+# Install dependencies (from the monorepo root)
+pnpm install
+
+# Build workspace dependencies, then this app
+pnpm --filter robota-web... build
+pnpm --filter robota-web build
+
+# Local development (serves on port 7071)
+pnpm --filter robota-web dev
+
+# Production
+pnpm --filter robota-web build
+pnpm --filter robota-web start
+```
+
+`next.config.ts` disables Node builtin polyfills for the browser bundle so Node-only optional exports
+from workspace packages never enter the client build. Type errors fail the build; ESLint is enforced
+separately in CI, not during the build.
+
+## Deployment Notes
+
+- The app is stateless. It renders the Playground and Monitor UIs and connects to WebSocket endpoints
+  at runtime — point `NEXT_PUBLIC_PLAYGROUND_WS_URL` and `NEXT_PUBLIC_CLI_WS_URL` at the reachable
+  playground/CLI servers for your environment.
+- Any standard Next.js 15 host (Node server or a platform with Next.js support) works. Run
+  `pnpm --filter robota-web build` followed by `pnpm --filter robota-web start`, or use your
+  platform's Next.js build integration.

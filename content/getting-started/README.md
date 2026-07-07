@@ -77,16 +77,27 @@ robota
 
 On first run, you'll be guided through provider selection and API key configuration.
 
+**Author a workflow in one line.** Once configured, describe a multi-step task in plain English and
+let the CLI build and run it:
+
+```bash
+robota
+> /workflows create "fetch open issues, summarize each, then write a digest"
+```
+
+`/workflows create` asks your active provider to design the workflow, saves it to
+`.workflows/<name>.json`, and runs it immediately. See the [CLI Reference](../guide/cli.md#workflows-workflows).
+
 ### Supported Providers
 
-| Provider           | Model Examples                 | API Key                                                  |
-| ------------------ | ------------------------------ | -------------------------------------------------------- |
-| Anthropic (Claude) | claude-opus-4, claude-sonnet-4 | [console.anthropic.com](https://console.anthropic.com)   |
-| OpenAI             | gpt-4o, gpt-4-turbo            | [platform.openai.com](https://platform.openai.com)       |
-| DeepSeek           | deepseek-chat                  | [platform.deepseek.com](https://platform.deepseek.com)   |
-| Qwen (Alibaba)     | qwen-max                       | [dashscope.aliyuncs.com](https://dashscope.aliyuncs.com) |
-| Gemini             | gemini-2.0-flash               | [aistudio.google.com](https://aistudio.google.com)       |
-| LM Studio (local)  | any local model                | localhost — no key needed                                |
+| Provider           | Model Examples                     | API Key                                                  |
+| ------------------ | ---------------------------------- | -------------------------------------------------------- |
+| Anthropic (Claude) | claude-opus-4-6, claude-sonnet-4-6 | [console.anthropic.com](https://console.anthropic.com)   |
+| OpenAI             | gpt-4o                             | [platform.openai.com](https://platform.openai.com)       |
+| DeepSeek           | deepseek-chat                      | [platform.deepseek.com](https://platform.deepseek.com)   |
+| Qwen (Alibaba)     | qwen-plus                          | [dashscope.aliyuncs.com](https://dashscope.aliyuncs.com) |
+| Gemini             | gemini-2.0-flash                   | [aistudio.google.com](https://aistudio.google.com)       |
+| LM Studio (local)  | any local model                    | localhost — no key needed                                |
 
 ### System Requirements
 
@@ -230,7 +241,7 @@ robota --model claude-opus-4-6
 
 - [Building Agents](../guide/building-agents.md) — Agent patterns with agent-core
 - [Using the SDK](../guide/sdk.md) — InteractiveSession, transports, sessions, createQuery()
-- [CLI Reference](../guide/cli.md) — Full CLI usage guide
+- [CLI Reference](../guide/cli.md) — Full CLI usage guide, including [`/workflows create`](../guide/cli.md#workflows-workflows) natural-language workflow authoring
 - [Architecture](../guide/architecture.md) — Package layers and design
 - [Providers Reference](../guide/providers.md) — All providers, config options, and model names
 - [Error Handling](../guide/error-handling.md) — Error types, retry patterns, best practices

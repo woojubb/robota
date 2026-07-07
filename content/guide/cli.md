@@ -254,7 +254,7 @@ The CLI contains no session management logic. Session execution lives in `Intera
 
 Type `/` to trigger the autocomplete popup. Arrow keys to navigate, Tab to insert into input (without executing), Enter to execute immediately.
 
-The available command list is built from the consolidated `@robota-sdk/agent-command` package, which bundles all 20 command modules. The CLI renders this list but does not own the command definitions.
+The available command list is built from the consolidated `@robota-sdk/agent-command` package, which bundles the core command modules, plus the separate `@robota-sdk/agent-command-workflows` package that contributes `/workflows`. Both are compiled into the CLI's self-contained bundle. The CLI renders this list but does not own the command definitions.
 
 | Command                   | Description                                         |
 | ------------------------- | --------------------------------------------------- |
@@ -278,11 +278,32 @@ The available command list is built from the consolidated `@robota-sdk/agent-com
 | `/language [lang]`        | Show or change UI language                          |
 | `/settings`               | Open transport settings (enable/disable transports) |
 | `/statusline`             | Show, hide, or reset status line fields             |
+| `/workflows`              | Author, list, validate, and run DAG workflows       |
 | `/reset`                  | Delete settings and exit                            |
 
 `/permissions` shows a nested submenu for permission mode selection.
 
 `/provider` and `/provider list` show configured provider profiles. In the interactive TUI, selecting a profile opens provider actions for switch, edit, test, duplicate, delete, and cancel. `/provider switch <profile>` hot-swaps the provider immediately without restarting — conversation history is preserved. In print/headless mode, provider commands keep deterministic text output and do not wait for interactive prompts.
+
+### Workflows (`/workflows`)
+
+`/workflows` authors and runs DAG workflows. It ships in the separate
+`@robota-sdk/agent-command-workflows` package, bundled into the CLI (the DAG/workflow subsystem is
+private and not published on its own).
+
+```bash
+/workflows create "<description>" [--input key=value] [--name <name>]
+/workflows list                # List available workflow node kinds
+/workflows catalog             # List saved workflow files in .workflows/
+/workflows validate <file.json>
+/workflows run <file.json>
+```
+
+`create` is the natural-language authoring path: it asks the **active provider** to design a workflow
+from your description, saves it as a reusable `.workflows/<name>.json` file (with any prompt-backed
+nodes written under `.workflows/nodes/`), then runs it immediately and reports the saved path and
+outputs. `create` is model-invocable, so the agent can build and run a workflow on your behalf during
+a conversation; `list`, `catalog`, `validate`, and `run` are user-invoked only.
 
 ### Plugin Management
 

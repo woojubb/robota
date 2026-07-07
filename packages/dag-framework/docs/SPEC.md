@@ -95,6 +95,64 @@ import {
 import type { IWorkerLoopDriverLogger } from '@robota-sdk/dag-framework';
 ```
 
+### Runtime Providers
+
+Transport-neutral runtime providers used by the CLI/MCP layers to run DAGs either in-process
+or against a native DAG runtime server.
+
+```typescript
+import { LocalDagRuntimeProvider, HttpDagRuntimeProvider } from '@robota-sdk/dag-framework';
+import type {
+  ILocalDagRuntimeProviderOptions,
+  IHttpDagRuntimeProviderOptions,
+} from '@robota-sdk/dag-framework';
+```
+
+- `LocalDagRuntimeProvider` — embeds the runtime, worker, and adapters in-process (no server).
+- `HttpDagRuntimeProvider` — talks to a native DAG runtime server over HTTP.
+
+#### `ILocalDagRuntimeProviderOptions`
+
+| Field          | Type                   | Default                           | Description                                                                                 |
+| -------------- | ---------------------- | --------------------------------- | ------------------------------------------------------------------------------------------- |
+| `nodeRegistry` | `IDagNodeDefinition[]` | `createDefaultNodeRegistrySync()` | Base node registry. CLI typically passes a registry including LLM/provider-backed nodes.    |
+| `projectDir`   | `string`               | —                                 | DAG project directory (reserved for future local node-file scanning).                       |
+| `workspace`    | `IWorkspaceLayout`     | —                                 | **FLOW-007**: injected workspace layout (root dir + workflow ext) for local node discovery. |
+| `instantNodes` | `IDagNodeDefinition[]` | —                                 | Instant nodes (typically injected from an MCP session context).                             |
+| `extraNodes`   | `IDagNodeDefinition[]` | —                                 | Extra nodes appended at the end (test/special-purpose).                                     |
+
+#### `IHttpDagRuntimeProviderOptions`
+
+| Field     | Type           | Default        | Description                                 |
+| --------- | -------------- | -------------- | ------------------------------------------- |
+| `baseUrl` | `string`       | (required)     | Base URL of the native DAG runtime server.  |
+| `fetch`   | `typeof fetch` | global `fetch` | Fetch implementation; injectable for tests. |
+
+### Workspace Catalog Reader
+
+`scanWorkspaceCatalog` is the shared workspace-catalog reader (**FLOW-007 C3**) — it scans a
+workspace directory for authored workflow definition files and returns their metadata.
+
+```typescript
+import { scanWorkspaceCatalog } from '@robota-sdk/dag-framework';
+import type { IWorkspaceCatalogEntry, IWorkspaceCatalogMeta } from '@robota-sdk/dag-framework';
+
+scanWorkspaceCatalog(
+  dir: string,
+  layout?: IWorkspaceLayout, // defaults to DEFAULT_WORKSPACE_LAYOUT
+): Promise<IWorkspaceCatalogEntry[]>
+```
+
+- `IWorkspaceCatalogEntry` — `{ id, filePath, definition: IDagDefinition, meta }` for one discovered workflow (a missing/unreadable root yields an empty catalog).
+- `IWorkspaceCatalogMeta` — optional `{ description?, displayName?, tags? }` sidecar metadata.
+
+### Package Identity
+
+```typescript
+import { DAG_FRAMEWORK_PACKAGE_NAME } from '@robota-sdk/dag-framework';
+// '@robota-sdk/dag-framework'
+```
+
 ---
 
 ## Lifecycle

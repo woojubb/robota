@@ -55,9 +55,11 @@ This package is SSOT for:
 - `DagRuntimeController` -- trigger, query, cancel runs
 - `DagObservabilityController` -- run/lineage/dashboard projection queries
 - `DagDiagnosticsController` -- failure analysis, rerun, DLQ reinject
+- `PromptApiController` -- prompt-backed node API controller
 - `createDagControllerComposition(deps, options?)` -- wires all controllers from explicit service ports
 - `IDagExecutionComposition` -- interface-only execution composition contract; implementations live in runtime composition roots
 - `RunProgressEventBus` -- in-memory pub/sub for run progress events
+- `DAG_API_PACKAGE_NAME` -- package name constant `@robota-sdk/dag-api`
 
 ## Extension Points
 

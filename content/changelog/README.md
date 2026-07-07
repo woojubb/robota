@@ -9,6 +9,38 @@ User-facing changes, new features, and notable fixes. For full commit history, s
 
 ---
 
+## 2026-07-06 — Beta 77–79
+
+### New features
+
+**`/workflows create` — natural-language workflow authoring (FLOW-007)** — The `/workflows` CLI
+command can now author a workflow from a plain-English description. `robota` → `/workflows create
+"fetch the issues, summarize each, then post a digest"` asks the active provider to design the
+workflow, saves it as a reusable `.workflows/<name>.json` artifact (with any prompt-backed nodes
+under `.workflows/nodes/`), and runs it immediately. `create` is model-invocable, so the agent can
+build and run a workflow on your behalf mid-conversation. The full command surface is
+`create "<desc>" [--input key=value] [--name <name>] | list | catalog | validate <file> | run <file>`
+— `list` shows available workflow node kinds, `catalog` lists saved workflow files in `.workflows/`,
+and `validate` / `run` operate on a workflow file.
+
+### Internal
+
+**Self-contained `agent-cli` bundle (INFRA-028)** — `@robota-sdk/agent-cli` now publishes as a
+self-contained bundle: all `@robota-sdk` workspace code — including the `/workflows` command and the
+private DAG/workflow subsystem — is bundled into `dist`, and the published `dependencies` contain only
+third-party npm packages. The DAG/workflow packages remain private and are not published
+independently; they ship only inside the CLI bundle.
+
+**Instant-node provider SSOT + persistence round-trip (DATA-003)** — Instant (prompt-backed) workflow
+nodes now resolve their provider from a single source of truth and survive a symmetric save/load
+round-trip, so an authored workflow reloads with the same provider wiring it was created with.
+
+**Version-scoped single-OTP publish (INFRA-029)** — The release/publish flow now detects
+already-published versions per package version and completes a multi-package publish with a single
+OTP entry instead of prompting repeatedly.
+
+---
+
 ## 2026-06-14 — Beta 68–76
 
 ### Breaking (SDK imports)
@@ -89,12 +121,15 @@ See the [full release notes for Beta 59](/guide/release-2026-05-02) for a detail
 
 ## Version history
 
-| Version          | Date       | Notes                                                         |
-| ---------------- | ---------- | ------------------------------------------------------------- |
-| 3.0.0-beta.67    | 2026-05-23 | Plugin guide, `robota init`, local LLM guide, UX improvements |
-| 3.0.0-beta.60–66 | 2026-05-10 | Visual playground, BYOK, safety limits, DAG fixes             |
-| 3.0.0-beta.59    | 2026-05-02 | Subagents, multi-provider, session replay, parallel agents    |
-| 3.0.0-beta.56–58 | 2026-05-01 | [See release notes](/guide/release-2026-05-02)                |
+| Version          | Date       | Notes                                                                              |
+| ---------------- | ---------- | ---------------------------------------------------------------------------------- |
+| 3.0.0-beta.79    | 2026-07-06 | Instant-node provider SSOT (DATA-003), single-OTP publish (INFRA-029)              |
+| 3.0.0-beta.77–78 | 2026-07-05 | `/workflows create` NL authoring (FLOW-007), self-contained CLI bundle (INFRA-028) |
+| 3.0.0-beta.68–76 | 2026-06-14 | Transport package split, `agent-session-analytics`, design-quality audit           |
+| 3.0.0-beta.67    | 2026-05-23 | Plugin guide, `robota init`, local LLM guide, UX improvements                      |
+| 3.0.0-beta.60–66 | 2026-05-10 | Visual playground, BYOK, safety limits, DAG fixes                                  |
+| 3.0.0-beta.59    | 2026-05-02 | Subagents, multi-provider, session replay, parallel agents                         |
+| 3.0.0-beta.56–58 | 2026-05-01 | [See release notes](/guide/release-2026-05-02)                                     |
 
 ---
 

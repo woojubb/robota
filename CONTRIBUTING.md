@@ -33,7 +33,7 @@ Robota is a pnpm monorepo. The main packages are:
 - `packages/agent-tools` — Tool infrastructure + 8 built-in tools (Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch)
 - `packages/agent-provider` — Consolidated AI providers (Anthropic, OpenAI, Gemini, DeepSeek, Gemma, Qwen, ByteDance)
 - `packages/agent-cli` — Interactive terminal AI coding assistant
-- `packages/agent-command` — Slash command modules (/agent, /help, /provider, /skills, /plugin, …)
+- `packages/agent-command` — Slash command modules (/agent, /help, /provider, /skills, /plugin, /workflows, …)
 - `packages/agent-transport` — Transport adapters (TUI, headless, HTTP, WebSocket, MCP)
 - `apps/docs` — VitePress documentation site
 - `apps/www` — Marketing website
