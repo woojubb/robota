@@ -1,6 +1,14 @@
-import { describe, expect, it, vi } from 'vitest';
-import { listPresets } from '@robota-sdk/agent-preset';
-import type { ICommandHostContext, ICommandSessionRuntime } from '@robota-sdk/agent-framework';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+  clearExternalPresets,
+  listPresets,
+  registerExternalPresets,
+} from '@robota-sdk/agent-preset';
+import type {
+  ICommandHostContext,
+  ICommandSessionRuntime,
+  IUnknownCommandModuleName,
+} from '@robota-sdk/agent-framework';
 import { createPresetCommandModule, executePresetCommand } from '../index.js';
 
 function createSessionRuntime(overrides?: Partial<ICommandSessionRuntime>): ICommandSessionRuntime {
@@ -170,5 +178,36 @@ describe('preset command module', () => {
     expect(result.success).toBe(true);
     expect(result.message).toContain('Available presets:');
     expect(setActivePresetId).not.toHaveBeenCalled();
+  });
+
+  describe('INFRA-032: unmatched command-module names surface in the /preset result', () => {
+    afterEach(() => clearExternalPresets());
+
+    it('a preset disabling an unknown module name reports it (no longer silent)', async () => {
+      registerExternalPresets([
+        {
+          id: 'ext-unknown-module',
+          title: 'Ext Unknown Module',
+          description: 'disables a short-form command module name',
+          disabledCommandModules: ['editor'],
+        },
+      ]);
+      const unknowns: readonly IUnknownCommandModuleName[] = [{ name: 'editor', kind: 'disabled' }];
+      const applyCommandModuleSelection = vi.fn(() => unknowns);
+      const runtime = createSessionRuntime({ setActivePresetId: vi.fn() });
+      const context = createCommandHostContext(runtime, { applyCommandModuleSelection });
+
+      const result = await executePresetCommand(context, 'ext-unknown-module');
+
+      expect(applyCommandModuleSelection).toHaveBeenCalledWith(undefined, ['editor']);
+      // Non-fatal: the switch still succeeds…
+      expect(result.success).toBe(true);
+      expect(result.message).toContain('Switched to preset: ext-unknown-module');
+      // …and the unmatched name is surfaced in the command result (message + data).
+      expect(result.message).toContain(
+        'Preset command-module "editor" (disabled) matched no module',
+      );
+      expect(result.data?.unknownCommandModules).toEqual(unknowns);
+    });
   });
 });

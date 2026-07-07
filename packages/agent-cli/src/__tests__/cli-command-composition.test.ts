@@ -82,7 +82,7 @@ describe('default CLI command composition', () => {
       cwd: '/workspace',
       providerDefinitions: [],
       providerSettingsAdapter: noopProviderSettingsAdapter,
-    })) {
+    }).modules) {
       registry.addModule(module);
     }
 
@@ -221,7 +221,7 @@ describe('default CLI command composition', () => {
         cwd,
         providerDefinitions: [],
         providerSettingsAdapter: noopProviderSettingsAdapter,
-      }),
+      }).modules,
     });
     const writes: string[] = [];
     const originalWrite = process.stdout.write;
@@ -290,7 +290,7 @@ describe('default CLI command composition', () => {
         cwd,
         providerDefinitions: [],
         providerSettingsAdapter: createProviderSettingsAdapter(cwd),
-      }),
+      }).modules,
     });
     const writes: string[] = [];
     const originalWrite = process.stdout.write;

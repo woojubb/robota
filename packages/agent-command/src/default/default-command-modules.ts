@@ -1,3 +1,5 @@
+import { findUnknownModuleNames, selectCommandModules } from '@robota-sdk/agent-framework';
+
 import { createAgentCommandModule } from '../agent/index.js';
 import { createBackgroundCommandModule } from '../background/index.js';
 import { createCompactCommandModule } from '../compact/index.js';
@@ -24,7 +26,11 @@ import { createStatusLineCommandModule } from '../statusline/index.js';
 import { createUserLocalCommandModule } from '../user-local/index.js';
 
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
-import type { ICommandModule, IProviderCommandSettingsAdapter } from '@robota-sdk/agent-framework';
+import type {
+  ICommandModule,
+  IProviderCommandSettingsAdapter,
+  IUnknownCommandModuleName,
+} from '@robota-sdk/agent-framework';
 
 export interface IDefaultCommandModulesOptions {
   cwd: string;
@@ -48,22 +54,26 @@ export interface IDefaultCommandModulesOptions {
  * Rules: if `enabled` is provided, keep only modules whose `name` is in it; then
  * remove any module whose `name` is in `disabled` (deny > allow). Neither given →
  * the full default set is returned unchanged (no-regression).
+ *
+ * INFRA-032: delegates to agent-framework's `selectCommandModules` (the allowed command→framework
+ * edge) so the filter body exists once — the previously byte-identical copy here is collapsed.
  */
 function applyModuleSelection(
   modules: readonly ICommandModule[],
   enabled: readonly string[] | undefined,
   disabled: readonly string[] | undefined,
 ): readonly ICommandModule[] {
-  let selected = modules;
-  if (enabled !== undefined) {
-    const allow = new Set(enabled);
-    selected = selected.filter((module) => allow.has(module.name));
-  }
-  if (disabled !== undefined) {
-    const deny = new Set(disabled);
-    selected = selected.filter((module) => !deny.has(module.name));
-  }
-  return selected;
+  return selectCommandModules(modules, enabled, disabled);
+}
+
+/**
+ * Result of {@link createDefaultCommandModules} (INFRA-032): the selected `modules` plus any preset
+ * `enabledCommandModules`/`disabledCommandModules` names that matched no built module. Unknown names
+ * are returned as data (not dropped silently) so the CLI startup path can surface a non-fatal notice.
+ */
+export interface IDefaultCommandModulesResult {
+  readonly modules: readonly ICommandModule[];
+  readonly unknownModuleNames: readonly IUnknownCommandModuleName[];
 }
 
 export function createDefaultCommandModules({
@@ -72,7 +82,7 @@ export function createDefaultCommandModules({
   providerSettingsAdapter,
   enabledCommandModules,
   disabledCommandModules,
-}: IDefaultCommandModulesOptions): readonly ICommandModule[] {
+}: IDefaultCommandModulesOptions): IDefaultCommandModulesResult {
   const modules: readonly ICommandModule[] = [
     createSkillsCommandModule({ cwd }),
     createHelpCommandModule(),
@@ -102,5 +112,13 @@ export function createDefaultCommandModules({
       settings: providerSettingsAdapter,
     }),
   ];
-  return applyModuleSelection(modules, enabledCommandModules, disabledCommandModules);
+  const builtModuleNames = modules.map((module) => module.name);
+  return {
+    modules: applyModuleSelection(modules, enabledCommandModules, disabledCommandModules),
+    unknownModuleNames: findUnknownModuleNames(
+      builtModuleNames,
+      enabledCommandModules,
+      disabledCommandModules,
+    ),
+  };
 }

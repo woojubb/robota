@@ -101,10 +101,14 @@ The built-in registry holds **4** presets (`default`, `autonomous-builder`, `car
 - `disabledCommandModules?: readonly string[]` — deny-list: applied after the allow-list (deny > allow).
 
 This package only produces the field values; the actual filtering is applied downstream by
-`agent-command`'s `createDefaultCommandModules` (`applyModuleSelection`). Both fields match against
+`agent-command`'s `createDefaultCommandModules`, which delegates to `agent-framework`'s
+`selectCommandModules` (the single filter implementation). Both fields match against
 `ICommandModule.name`, whose canonical values are the **long `agent-command-*` form** —
 `agent-command-editor`, `agent-command-provider`, etc. — **not** the short slash-command name
-(`editor`, `provider`). The full vocabulary (owned by `agent-command`, one entry per assembled module):
+(`editor`, `provider`). A value that matches no module name is **no longer silently dropped**
+(INFRA-032): `agent-framework`'s `findUnknownModuleNames` surfaces it as a non-fatal notice on both the
+startup `--preset` path (CLI terminal) and the in-session `/preset` path (command result). The full
+vocabulary (owned by `agent-command`, one entry per assembled module):
 
 `agent-command-agent`, `agent-command-background`, `agent-command-compact`, `agent-command-context`,
 `agent-command-editor`, `agent-command-exit`, `agent-command-goal`, `agent-command-help`,
