@@ -6,8 +6,7 @@ import type {
   TToolParameters,
 } from '@robota-sdk/agent-core';
 import type { IToolSchema } from '@robota-sdk/agent-core';
-import { ValidationError, logger } from '@robota-sdk/agent-core';
-import { ToolRegistry } from '../registry/tool-registry';
+import { ValidationError, logger, ToolRegistry } from '@robota-sdk/agent-core';
 
 /**
  * Create a mock ITool with the given schema

@@ -1,6 +1,5 @@
-import { Robota } from '@robota-sdk/agent-core';
+import { Robota, FunctionTool } from '@robota-sdk/agent-core';
 import type { IAIProvider, IEventService, TUniversalMessage } from '@robota-sdk/agent-core';
-import { FunctionTool } from '@robota-sdk/agent-tools';
 
 import { createToolFromCard } from './tool-card-adapter';
 import { normalizeTools } from './tool-normalization';

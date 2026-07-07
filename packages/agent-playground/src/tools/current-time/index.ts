@@ -1,4 +1,4 @@
-import { FunctionTool } from '@robota-sdk/agent-tools';
+import { FunctionTool } from '@robota-sdk/agent-core';
 import type { IPlaygroundToolMeta } from '../types';
 
 // Current Time Tool metadata for UI

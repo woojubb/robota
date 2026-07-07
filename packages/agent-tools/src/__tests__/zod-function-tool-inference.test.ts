@@ -7,7 +7,9 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import { z } from 'zod';
 
-import { createZodFunctionTool, FunctionTool } from '../implementations/function-tool';
+import { FunctionTool } from '@robota-sdk/agent-core';
+
+import { createZodFunctionTool } from '../implementations/function-tool';
 
 const PersonaSchema = z.object({
   personaId: z.string(),

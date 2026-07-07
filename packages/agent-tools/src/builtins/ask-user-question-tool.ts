@@ -19,9 +19,8 @@ import { z } from 'zod';
 
 import { createZodFunctionTool } from '../implementations/function-tool';
 
-import type { FunctionTool } from '../implementations/function-tool';
 import type { IToolInvocationResult } from '../types/tool-result.js';
-import type { IActionRequest, IToolExecutionContext } from '@robota-sdk/agent-core';
+import type { FunctionTool, IActionRequest, IToolExecutionContext } from '@robota-sdk/agent-core';
 
 const MAX_QUESTIONS = 4;
 

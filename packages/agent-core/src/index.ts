@@ -170,6 +170,9 @@ export {
   type IEventEmitterHierarchicalEventData,
 } from './plugins/event-emitter-plugin';
 
+// Tool registry primitives (SSOT — dependency-free runtime primitives, DATA-005)
+export { FunctionTool, ToolRegistry } from './tool-registry';
+
 // Core agent
 export { Robota } from './core/robota';
 export type { IDestroyResult } from './core/robota-lifecycle';

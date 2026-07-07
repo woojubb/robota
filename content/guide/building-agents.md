@@ -198,7 +198,7 @@ const searchTool = createZodFunctionTool(
 `FunctionTool` takes a schema object and a handler function as separate arguments.
 
 ```typescript
-import { FunctionTool } from '@robota-sdk/agent-tools';
+import { FunctionTool } from '@robota-sdk/agent-core';
 
 const timeTool = new FunctionTool(
   {
@@ -222,7 +222,7 @@ const timeTool = new FunctionTool(
 ```typescript
 import { Robota } from '@robota-sdk/agent-core';
 import type { IAIProvider } from '@robota-sdk/agent-core';
-import type { FunctionTool } from '@robota-sdk/agent-tools';
+import type { FunctionTool } from '@robota-sdk/agent-core';
 
 declare const provider: IAIProvider;
 declare const searchTool: FunctionTool;
@@ -548,8 +548,6 @@ try {
 | v2.0.0                                     | v3.0.0                                                                 |
 | ------------------------------------------ | ---------------------------------------------------------------------- |
 | Plugins built into `agent-core`            | 8 plugins available in `@robota-sdk/agent-plugin`                      |
-| `FunctionTool` in `agent-core`             | Moved to `@robota-sdk/agent-tools`                                     |
-| `ToolRegistry` in `agent-core`             | Moved to `@robota-sdk/agent-tools`                                     |
 | `MCPTool` / `RelayMcpTool` in `agent-core` | Moved to `@robota-sdk/agent-tool-mcp` (internal, not published on npm) |
 | No permission/hook system                  | Permission evaluation + shell hook system in `agent-core`              |
 | No session management                      | `InteractiveSession` in `agent-framework` with compaction              |

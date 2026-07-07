@@ -6,7 +6,7 @@ packages/
 ├── agent-executor/               # Reusable background task and subagent lifecycle/state/ports
 ├── agent-session/               # Session lifecycle and persistence
 ├── agent-session-analytics/     # Session-log timing analysis + reporting (pure; depends on agent-interface-transport + agent-core)
-├── agent-tools/                 # Tool implementations: FunctionTool, built-ins, schema helpers, sandbox ports/manifests
+├── agent-tools/                 # Tool factories (createFunctionTool/createZodFunctionTool → core's FunctionTool), built-ins, sandbox ports/manifests
 ├── agent-tool-mcp/              # MCP tool implementations
 ├── agent-framework/             # SDK assembly layer: InteractiveSession, command contracts/common APIs
 ├── agent-preset/                # Preset contract (IPreset) + resolvePreset + built-in presets (depends on agent-framework only)

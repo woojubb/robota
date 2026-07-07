@@ -4,13 +4,9 @@
 
 export type { IToolInvocationResult } from './types/tool-result';
 
-export { ToolRegistry } from './registry/tool-registry';
-
-export {
-  FunctionTool,
-  createFunctionTool,
-  createZodFunctionTool,
-} from './implementations/function-tool';
+// FunctionTool and ToolRegistry classes are owned by @robota-sdk/agent-core (DATA-005 SSOT).
+// agent-tools exposes only the factories that construct core's FunctionTool.
+export { createFunctionTool, createZodFunctionTool } from './implementations/function-tool';
 // zodToJsonSchema and the Zod compatibility types moved to @robota-sdk/agent-core (CORE-015 SSOT).
 export type {
   IFunctionToolValidationOptions,
