@@ -14,25 +14,32 @@
 
 ### Inheritance Chains
 
-All node definitions extend `AbstractNodeDefinition` from `@robota-sdk/dag-node` (previously in `dag-core`):
+There is no shared `packages/dag-nodes/src/`. Each node ships as its own package at
+`packages/dag-nodes/<slug>` (published as `@robota-sdk/dag-node-<slug>`), with its source under
+`<slug>/src/`. All node definitions extend `AbstractNodeDefinition` from `@robota-sdk/dag-node`
+(previously in `dag-core`).
 
-| Base (Owner)                        | Derived                            | Location                    |
-| ----------------------------------- | ---------------------------------- | --------------------------- |
-| `AbstractNodeDefinition` (dag-node) | `ImageLoaderNodeDefinition`        | `src/image-loader/`         |
-| `AbstractNodeDefinition` (dag-node) | `ImageSourceNodeDefinition`        | `src/image-source/`         |
-| `AbstractNodeDefinition` (dag-node) | `InputNodeDefinition`              | `src/input/`                |
-| `AbstractNodeDefinition` (dag-node) | `TextOutputNodeDefinition`         | `src/text-output/`          |
-| `AbstractNodeDefinition` (dag-node) | `TextTemplateNodeDefinition`       | `src/text-template/`        |
-| `AbstractNodeDefinition` (dag-node) | `TransformNodeDefinition`          | `src/transform/`            |
-| `AbstractNodeDefinition` (dag-node) | `LlmTextOpenAiNodeDefinition`      | `src/llm-text-openai/`      |
-| `AbstractNodeDefinition` (dag-node) | `OkEmitterNodeDefinition`          | `src/ok-emitter/`           |
-| `AbstractNodeDefinition` (dag-node) | `GeminiImageEditNodeDefinition`    | `src/gemini-image-edit/`    |
-| `AbstractNodeDefinition` (dag-node) | `GeminiImageComposeNodeDefinition` | `src/gemini-image-compose/` |
-| `AbstractNodeDefinition` (dag-node) | `SeedanceVideoNodeDefinition`      | `src/seedance-video/`       |
+Across the ~25 child packages there are 40+ `*NodeDefinition` classes; a single package may export
+several (e.g. `utility-text`, `instant-node`, `gemini-image-edit`). The table below is a
+representative subset — each node package documents its own definitions in its `docs/SPEC.md`:
+
+| Base (Owner)                        | Derived                            | Location                 |
+| ----------------------------------- | ---------------------------------- | ------------------------ |
+| `AbstractNodeDefinition` (dag-node) | `ImageLoaderNodeDefinition`        | `image-loader/src/`      |
+| `AbstractNodeDefinition` (dag-node) | `ImageSourceNodeDefinition`        | `image-source/src/`      |
+| `AbstractNodeDefinition` (dag-node) | `InputNodeDefinition`              | `input/src/`             |
+| `AbstractNodeDefinition` (dag-node) | `TextOutputNodeDefinition`         | `text-output/src/`       |
+| `AbstractNodeDefinition` (dag-node) | `TextTemplateNodeDefinition`       | `text-template/src/`     |
+| `AbstractNodeDefinition` (dag-node) | `TransformNodeDefinition`          | `transform/src/`         |
+| `AbstractNodeDefinition` (dag-node) | `LlmTextOpenAiNodeDefinition`      | `llm-text-openai/src/`   |
+| `AbstractNodeDefinition` (dag-node) | `OkEmitterNodeDefinition`          | `ok-emitter/src/`        |
+| `AbstractNodeDefinition` (dag-node) | `GeminiImageEditNodeDefinition`    | `gemini-image-edit/src/` |
+| `AbstractNodeDefinition` (dag-node) | `GeminiImageComposeNodeDefinition` | `gemini-image-edit/src/` |
+| `AbstractNodeDefinition` (dag-node) | `SeedanceVideoNodeDefinition`      | `seedance-video/src/`    |
 
 ### Cross-Package Port Consumers
 
-| Port (Owner)                        | Consumer                | Notes                                                            |
-| ----------------------------------- | ----------------------- | ---------------------------------------------------------------- |
-| `AbstractNodeDefinition` (dag-node) | All 11 node definitions | Each implements `executeWithConfig` and `estimateCostWithConfig` |
-| `NodeIoAccessor` (dag-node)         | All 11 node definitions | Used for input reading and output assembly                       |
+| Port (Owner)                        | Consumer                 | Notes                                                            |
+| ----------------------------------- | ------------------------ | ---------------------------------------------------------------- |
+| `AbstractNodeDefinition` (dag-node) | All 40+ node definitions | Each implements `executeWithConfig` and `estimateCostWithConfig` |
+| `NodeIoAccessor` (dag-node)         | All 40+ node definitions | Used for input reading and output assembly                       |

@@ -20,7 +20,6 @@ Type `/` to see all available commands. The autocomplete popup filters as you ty
 ```
 /help         Show available commands
 /mode plan    Switch to plan mode (read-only)
-/model        Show model selection submenu
 /compact      Compress context with default instructions
 /compact focus on API changes    Compress with custom focus
 /context      Show detailed context usage

@@ -40,7 +40,7 @@ pnpm --filter @robota-sdk/<pkg> test
 ```
 packages/
 ├── agent-core/                 ← Foundation (zero deps)
-├── agent-tools/                ← Tools + 8 built-in CLI tools
+├── agent-tools/                ← Tools + 9 built-in CLI tools
 ├── agent-session/              ← Session with permissions/hooks
 ├── agent-session-analytics/    ← Session log timing analysis (new in beta.76)
 ├── agent-executor/             ← Background task and subagent lifecycle

@@ -226,14 +226,14 @@ import type { IToolSchema } from '@robota-sdk/agent-core';
 The v2.x session package has been rewritten. If you used these classes directly, migrate
 to the new alternatives:
 
-| Removed (v2.x)                | Replacement (3.0.0)             |
-| ----------------------------- | ------------------------------- |
-| `ConversationServiceImpl`     | `SessionManager`                |
-| `SystemMessageManagerImpl`    | `SessionManager`                |
-| `MultiProviderAdapterManager` | `SessionManager`                |
-| `ContextManager`              | Built into `SessionManager`     |
-| `ProviderManager`             | Agent-level `aiProviders` array |
-| `EnhancedConversationHistory` | `SessionManager` history        |
+| Removed (v2.x)                | Replacement (3.0.0)                     |
+| ----------------------------- | --------------------------------------- |
+| `ConversationServiceImpl`     | `Session` / `InteractiveSession`        |
+| `SystemMessageManagerImpl`    | `Session` (agent-level config)          |
+| `MultiProviderAdapterManager` | Agent-level `aiProviders` array         |
+| `ContextManager`              | Built into `Session`                    |
+| `ProviderManager`             | Agent-level `aiProviders` array         |
+| `EnhancedConversationHistory` | `Session` history APIs / `SessionStore` |
 
 Message editing and deletion methods have been removed. Conversation history is now
 append-only, which eliminates a class of state management bugs.
@@ -310,8 +310,10 @@ pnpm test
 
 ### 6. Check session usage
 
-If you used `ConversationServiceImpl`, `ContextManager`, or `ProviderManager` directly,
-migrate to `SessionManager`. See the [SDK guide](./sdk.md) for current session patterns.
+If you used `ConversationServiceImpl` or `ContextManager` directly, migrate to `Session`
+(or `InteractiveSession` at the framework layer); if you used `ProviderManager`, register
+providers via the agent-level `aiProviders` array. See the [SDK guide](./sdk.md) for current
+session patterns.
 
 ---
 
