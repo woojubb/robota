@@ -108,7 +108,10 @@ function matchesPattern(toolName: string, args: TToolArgs, pattern: string): boo
 
   const primary = primaryArg(toolName, args);
   if (primary === undefined) {
-    return false;
+    // ToolName(*) is generated for explicit allowedTools/deniedTools entries.
+    // It must match custom tools even when the permission system does not know
+    // which argument should be treated as that tool's primary value.
+    return parsed.argPattern === '*';
   }
 
   return globToRegex(parsed.argPattern).test(primary);

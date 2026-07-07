@@ -30,4 +30,20 @@ describe('evaluatePermission deny precedence', () => {
     });
     expect(decision).toBe('deny');
   });
+
+  it('ToolName(*) deny pattern matches custom tools without a primary argument', () => {
+    const decision = evaluatePermission('CustomTool', { value: 'x' }, 'bypassPermissions', {
+      deny: ['CustomTool(*)'],
+    });
+    expect(decision).toBe('deny');
+  });
+});
+
+describe('evaluatePermission allow-star fallback', () => {
+  it('ToolName(*) allow pattern matches custom tools without a primary argument', () => {
+    const decision = evaluatePermission('CustomTool', { value: 'x' }, 'default', {
+      allow: ['CustomTool(*)'],
+    });
+    expect(decision).toBe('auto');
+  });
 });
