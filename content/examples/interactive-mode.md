@@ -34,6 +34,7 @@ Type `/` to see all available commands. The autocomplete popup filters as you ty
 /agent        Run or manage background subagent jobs
 /statusline   Show, hide, or reset status line fields
 /reload-plugins  Reload all plugin resources
+/workflows create/list/catalog/validate/run  Author and run DAG workflows
 ```
 
 ### Permission Prompts

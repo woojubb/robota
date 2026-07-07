@@ -178,6 +178,7 @@ agent.setModel({ provider: 'openai', model: 'gpt-4o' });
 - **Multi-Provider**: Anthropic Claude, OpenAI, DeepSeek, Gemini, Gemma, Qwen, and OpenAI-compatible endpoints — same API, seamless switching
 - **Tool Calling**: Zod-based schema validation for type-safe function calls
 - **Subagents**: Runtime-managed background jobs, transcripts, and `/agent` command orchestration
+- **Workflows**: Author DAG workflows from a plain-English description with `/workflows create`, then save and re-run them
 - **Plugin System**: Extensible lifecycle hooks for logging, analytics, error handling
 - **Streaming**: Real-time text delta streaming from all providers
 - **CLI Ready**: Built-in coding assistant CLI with permission system and context management

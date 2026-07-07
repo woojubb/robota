@@ -2,13 +2,8 @@
 
 Browser React component library for monitoring a running `agent-cli` session over WebSocket. Provides a connection hook, conversation view, and a self-contained monitor widget.
 
-## Installation
-
-```bash
-npm install @robota-sdk/agent-web-ui
-```
-
-> This package is browser-only. It requires React 18+.
+> This package is **private** and not published to npm. It is internal to the Robota monorepo and
+> used via workspace references. It is browser-only and requires React 18+.
 
 ## Quick Start
 
@@ -87,5 +82,4 @@ agent-web-ui (browser components)
 
 ## Links
 
-- [npm](https://www.npmjs.com/package/@robota-sdk/agent-web-ui)
 - [GitHub](https://github.com/woojubb/robota)

@@ -32,6 +32,12 @@ export type {
   IPersistedCompositeNode,
   TPersistedInstantNode,
 };
+// Provider SSOT + persistence round-trip (DATA-003)
+export const INSTANT_NODE_PROVIDERS;
+export type { TInstantNodeProvider };
+export { isInstantNodeProvider, isPersistableInstantNode };
+export { parsePersistedInstantNode, rehydrateInstantNode };
+export type { IRehydrateInstantNodeDeps };
 ```
 
 ## Persistence View (BEHAVIOR-006)

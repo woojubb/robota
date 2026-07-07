@@ -13,11 +13,39 @@ Plugins extend the Robota agent lifecycle without modifying core packages. Every
 
 ## Official Plugins
 
-These plugins are maintained by the Robota team and included in `@robota-sdk/agent-core`.
+These plugins are maintained by the Robota team. The eight cross-cutting lifecycle plugins ship
+consolidated in `@robota-sdk/agent-plugin`; the pub/sub `EventEmitterPlugin` is part of the core
+runtime in `@robota-sdk/agent-core`. All are registered via the `Robota` constructor `plugins` array.
 
-| Plugin               | Import                   | Description                                                                               |
-| -------------------- | ------------------------ | ----------------------------------------------------------------------------------------- |
-| `EventEmitterPlugin` | `@robota-sdk/agent-core` | Pub/sub event subscriptions — listen to `execution:start`, `tool:call`, `error`, and more |
+| Plugin                      | Import                     | Description                                                                               |
+| --------------------------- | -------------------------- | ----------------------------------------------------------------------------------------- |
+| `LoggingPlugin`             | `@robota-sdk/agent-plugin` | Structured logging of agent activity                                                      |
+| `UsagePlugin`               | `@robota-sdk/agent-plugin` | Token usage accounting                                                                    |
+| `LimitsPlugin`              | `@robota-sdk/agent-plugin` | Token / turn / cost limits                                                                |
+| `ErrorHandlingPlugin`       | `@robota-sdk/agent-plugin` | Typed error classification with retry / recovery stats                                    |
+| `ExecutionAnalyticsPlugin`  | `@robota-sdk/agent-plugin` | Per-execution analytics                                                                   |
+| `PerformancePlugin`         | `@robota-sdk/agent-plugin` | Timing and performance metrics                                                            |
+| `WebhookPlugin`             | `@robota-sdk/agent-plugin` | Emit lifecycle events to a webhook                                                        |
+| `ConversationHistoryPlugin` | `@robota-sdk/agent-plugin` | Persist / restore conversation history                                                    |
+| `EventEmitterPlugin`        | `@robota-sdk/agent-core`   | Pub/sub event subscriptions — listen to `execution:start`, `tool:call`, `error`, and more |
+
+```typescript
+import { Robota, type IAIProvider } from '@robota-sdk/agent-core';
+import { LoggingPlugin, UsagePlugin, LimitsPlugin } from '@robota-sdk/agent-plugin';
+
+declare const provider: IAIProvider;
+
+const agent = new Robota({
+  name: 'my-agent',
+  aiProviders: [provider],
+  defaultModel: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
+  plugins: [
+    new LoggingPlugin({ strategy: 'console' }),
+    new UsagePlugin({ strategy: 'memory' }),
+    new LimitsPlugin({ strategy: 'token-bucket', maxTokens: 100_000 }),
+  ],
+});
+```
 
 ---
 
