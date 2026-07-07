@@ -34,8 +34,8 @@ describe('replay conversation through the real binary (INFRA-018)', () => {
     writeTuiProviderSettings(projectDir); // dummy provider profile so the CLI boots; key never used
   });
 
-  afterEach(() => {
-    session?.kill();
+  afterEach(async () => {
+    await session?.disposeAsync();
     session = undefined;
     rmSync(projectDir, { recursive: true, force: true });
   });

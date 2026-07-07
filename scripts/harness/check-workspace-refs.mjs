@@ -14,12 +14,22 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
+import { listManifestPackageDirs } from './workspace-packages.mjs';
+
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
-const TOKEN_PATTERN = /@robota-sdk\/[a-z0-9]+(?:-[a-z0-9]+)*(?![\w-])/g;
+// SSOT for the `@robota-sdk/*` npm-token shape. Exported so sibling doc/package
+// guards (e.g. check-ghost-package-refs) validate against the same pattern rather
+// than forking the regex.
+export const TOKEN_PATTERN = /@robota-sdk\/[a-z0-9]+(?:-[a-z0-9]+)*(?![\w-])/g;
 
-// Example/fixture tokens used inside harness scripts' own rule tables.
-const EXAMPLE_TOKEN_ALLOWLIST = new Set(['@robota-sdk/other']);
+// Example/fixture tokens used inside harness scripts' own rule tables and allowlists.
+const EXAMPLE_TOKEN_ALLOWLIST = new Set([
+  '@robota-sdk/other',
+  // Defunct-name literals seeded in check-ghost-package-refs' GHOST_PACKAGE_ALLOWLIST.
+  '@robota-sdk/dag-nodes',
+  '@robota-sdk/agent-provider-bytedance',
+]);
 
 function readJson(filePath) {
   return JSON.parse(readFileSync(filePath, 'utf8'));
@@ -69,15 +79,39 @@ function listHelperScripts(root) {
   return results;
 }
 
+/**
+ * SSOT for "the set of every workspace package `name`". Exported so sibling
+ * doc/package guards (e.g. check-ghost-package-refs) reuse the exact same name
+ * set rather than re-deriving their own list.
+ *
+ * Nesting-aware for `packages/` (via workspace-packages.mjs) so nested-group
+ * members like `packages/dag-nodes/<name>` are included — the depth-1
+ * `listPackageJsonFiles` script corpus alone would miss them. This can only
+ * grow the resolved-name set, so it never adds check-workspace-refs findings.
+ */
+export function listWorkspacePackageNames(root = WORKSPACE_ROOT) {
+  const names = new Set();
+  const addName = (pkgPath) => {
+    if (!existsSync(pkgPath)) return;
+    const name = readJson(pkgPath).name;
+    if (typeof name === 'string') names.add(name);
+  };
+  addName(path.join(root, 'package.json'));
+  for (const dir of listManifestPackageDirs(root)) addName(path.join(dir, 'package.json'));
+  const appsDir = path.join(root, 'apps');
+  if (existsSync(appsDir)) {
+    for (const entry of readdirSync(appsDir, { withFileTypes: true })) {
+      if (entry.isDirectory()) addName(path.join(appsDir, entry.name, 'package.json'));
+    }
+  }
+  return names;
+}
+
 export async function findWorkspaceRefFindings(root = WORKSPACE_ROOT) {
   const findings = [];
   const packageJsonFiles = listPackageJsonFiles(root);
 
-  const workspaceNames = new Set();
-  for (const pkgPath of packageJsonFiles) {
-    const name = readJson(pkgPath).name;
-    if (typeof name === 'string') workspaceNames.add(name);
-  }
+  const workspaceNames = listWorkspacePackageNames(root);
 
   function checkText(text, relativeFile) {
     for (const match of text.matchAll(TOKEN_PATTERN)) {

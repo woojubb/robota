@@ -275,14 +275,7 @@ export default function InputArea({
         ) : null}
         {topBorder.right}
       </Text>
-      <Box
-        borderStyle="single"
-        borderTop={false}
-        borderLeft={false}
-        borderRight={false}
-        borderColor={borderColor}
-        paddingLeft={1}
-      >
+      <Box paddingLeft={1}>
         {isAborting ? (
           <Text color="yellow"> Interrupting...</Text>
         ) : pendingPrompt ? (
@@ -318,6 +311,9 @@ export default function InputArea({
           </Box>
         )}
       </Box>
+      {/* Bottom border: hand-drawn <Text> (mirrors the top border) — a Yoga-synthesized Box border
+          drops glyphs during rapid re-render at full terminal height (SCREEN-003). */}
+      <Text color={borderColor}>{'─'.repeat(innerWidth)}</Text>
     </Box>
   );
 }

@@ -43,15 +43,16 @@ Consult the relevant skill before starting work in its domain. Each entry links 
 
 ## Architecture Conformance
 
-| Skill                                                                     | Description                                                                                                                           |
-| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| [architecture-refresh](architecture-refresh/SKILL.md)                     | Thin pipeline that re-calls architecture-auditor→architecture-fixer until an audit round is materially clean (agents hold all policy) |
-| [architecture-conformance-audit](architecture-conformance-audit/SKILL.md) | Orchestrates a repeatable doc-vs-code architecture conformance audit (GATE-CONFORMANCE)                                               |
-| [design-quality-audit](design-quality-audit/SKILL.md)                     | Repeatable deep design-quality audit — judges whether the design is right (vs doc conformance)                                        |
-| [dependency-graph-extraction](dependency-graph-extraction/SKILL.md)       | Extracts the actual agent-\* dependency edge set + runs the mechanical conformance guards                                             |
-| [doc-claim-verification](doc-claim-verification/SKILL.md)                 | Verifies one architecture document's claims vs code: HOLDS/DRIFT/VIOLATION/CONTRADICTION/STALE                                        |
-| [conformance-finding-report](conformance-finding-report/SKILL.md)         | Assembles verdicts into the AF-NN findings report with severities + counts (INFRA-002 schema)                                         |
-| [improvement-proposal-authoring](improvement-proposal-authoring/SKILL.md) | Maps findings to remediation + follow-up backlogs + mechanical-guard recommendations                                                  |
+| Skill                                                                     | Description                                                                                                                                                                                  |
+| ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [architecture-refresh](architecture-refresh/SKILL.md)                     | Thin pipeline that re-calls architecture-auditor→architecture-fixer until an audit round is materially clean (agents hold all policy)                                                        |
+| [capability-extraction](capability-extraction/SKILL.md)                   | Thin pipeline that sequences capability-scout→proposal-reviewer→agent-skill-author, gating authoring on ENDORSE and convergence on the `agent-def-convention` guard (agents hold all policy) |
+| [architecture-conformance-audit](architecture-conformance-audit/SKILL.md) | Orchestrates a repeatable doc-vs-code architecture conformance audit (GATE-CONFORMANCE)                                                                                                      |
+| [design-quality-audit](design-quality-audit/SKILL.md)                     | Repeatable deep design-quality audit — judges whether the design is right (vs doc conformance)                                                                                               |
+| [dependency-graph-extraction](dependency-graph-extraction/SKILL.md)       | Extracts the actual agent-\* dependency edge set + runs the mechanical conformance guards                                                                                                    |
+| [doc-claim-verification](doc-claim-verification/SKILL.md)                 | Verifies one architecture document's claims vs code: HOLDS/DRIFT/VIOLATION/CONTRADICTION/STALE                                                                                               |
+| [conformance-finding-report](conformance-finding-report/SKILL.md)         | Assembles verdicts into the AF-NN findings report with severities + counts (INFRA-002 schema)                                                                                                |
+| [improvement-proposal-authoring](improvement-proposal-authoring/SKILL.md) | Maps findings to remediation + follow-up backlogs + mechanical-guard recommendations                                                                                                         |
 
 > **Spawnable architecture agents (they hold the policy).** For an independent review dispatchable from
 > the main loop, a `/command`, a Workflow fan-out, or the `architecture-refresh` orchestrator, use four
@@ -86,6 +87,11 @@ FINDINGS: <n>`.
 >   decomposition for a described workflow (which roles → agents vs thin-skill steps, sequencing,
 >   per-role signal, tool scope) and flags over-scoped/duplicate roles; ends with `DECOMPOSITION: <n>
 roles …`. It is the discovery specialization `lesson-to-harness` dispatches for a "new recurring role."
+> - `agent-skill-author` (`.claude/agents/agent-skill-author.md`, edit-capable) — the **write-side**:
+>   authors/edits the agent/skill files from an ENDORSE'd decomposition, to the agent-definition
+>   convention; its completion evidence is a green `agent-def-convention` guard (it declares no `signal:`
+>   field, like `architecture-implementer`). The `capability-extraction` skill sequences
+>   scout → `proposal-reviewer` → author → guard.
 >
 > The **agent-definition convention** these agents follow (frontmatter `name`/`description`/`tools`,
 > read-only tool-scope, a closed-vocabulary terminal `signal:`, index registration) is a document-type

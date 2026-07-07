@@ -18,6 +18,23 @@ const REPO_ROOT = resolve(__dirname, '../../../../..');
 const ROBOTA_BIN = join(REPO_ROOT, 'packages/agent-cli/bin/robota.cjs');
 
 /**
+ * Signal the PTY child and await its ACTUAL exit before the caller removes the project dir.
+ * `dispose()` sends SIGTERM (then SIGKILL after the grace window) but returns synchronously;
+ * `expectExit()` resolves once the child has exited and **throws** if it has not within the timeout.
+ * Awaiting this closes the INFRA-026 race where a dying child writes `<projectDir>/.robota` between
+ * `rmSync`'s readdir and rmdir. A child that refuses to die fails the test loudly — the exit is awaited
+ * at the source, never masked by a removal fallback.
+ * Extracted so the compose is unit-testable with a fake session.
+ */
+export async function killAndAwaitExit(
+  session: Pick<IPtyRunSession, 'dispose' | 'expectExit'>,
+  timeoutMs?: number,
+): Promise<void> {
+  session.dispose();
+  await session.expectExit(timeoutMs);
+}
+
+/**
  * Driving session for a built-CLI PTY run. Mirrors the historical `spawnTui` surface (kept for the
  * existing `*.ptytest.ts` suites) on top of the shared `IPtyRunSession`.
  */
@@ -40,6 +57,13 @@ export interface IPtySession {
   snapshot(): string;
   expectExit(timeoutMs?: number): Promise<number>;
   kill(): void;
+  /**
+   * Teardown that awaits ACTUAL child exit: signals the PTY child (`kill()`/`dispose()`) then awaits
+   * `expectExit`, which resolves once the child has exited and **throws** if it has not within the
+   * timeout (default ≥ the SIGTERM→SIGKILL grace). Await this before removing the project dir so the
+   * dying child cannot write `<projectDir>/.robota` between `rmSync`'s readdir and rmdir (INFRA-026).
+   */
+  disposeAsync(timeoutMs?: number): Promise<void>;
 }
 
 export interface ISpawnTuiOptions {
@@ -104,5 +128,6 @@ export function spawnTui(options: ISpawnTuiOptions): IPtySession {
     snapshot: (): string => session.snapshot(),
     expectExit: (timeoutMs): Promise<number> => session.expectExit(timeoutMs),
     kill: (): void => session.dispose(),
+    disposeAsync: (timeoutMs): Promise<void> => killAndAwaitExit(session, timeoutMs),
   };
 }
