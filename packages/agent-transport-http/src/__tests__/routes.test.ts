@@ -165,4 +165,69 @@ describe('HTTP Transport Routes', () => {
     });
     expect(res.status).toBe(400);
   });
+
+  // ── POST /submit completion (decoupled from thinking(false)) ──────
+  //
+  // Regression guard for ARL-04: the /submit done-promise must resolve from the
+  // terminal handler (complete/interrupted/error), and the terminal SSE event must
+  // be flushed to the client, WITHOUT relying on a trailing thinking(false). Each
+  // scripted session emits ONLY its terminal event (no trailing thinking event).
+
+  /**
+   * Build a session whose on/off truly register handlers and whose submit()
+   * emits exactly one terminal event with NO trailing thinking(false).
+   */
+  function createEmitterSession(terminalEvent: string, terminalData: unknown) {
+    const handlers = new Map<string, Set<(data: unknown) => void>>();
+    const session = createMockSession({
+      on: vi.fn((event: string, handler: (data: unknown) => void) => {
+        const set = handlers.get(event) ?? new Set();
+        set.add(handler);
+        handlers.set(event, set);
+      }),
+      off: vi.fn((event: string, handler: (data: unknown) => void) => {
+        handlers.get(event)?.delete(handler);
+      }),
+      submit: vi.fn(async () => {
+        // Emit ONLY the terminal event — deliberately no trailing thinking(false).
+        for (const handler of handlers.get(terminalEvent) ?? []) {
+          handler(terminalData);
+        }
+      }),
+    });
+    return session;
+  }
+
+  async function requestSubmit(session: IInteractiveSession): Promise<string> {
+    const app = createAgentRoutes({ sessionFactory: () => session });
+    const res = await app.request('/submit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt: 'hi' }),
+    });
+    expect(res.status).toBe(200);
+    // Draining the SSE body must complete (no hang) and contain the terminal event.
+    return res.text();
+  }
+
+  it('POST /submit receives the complete event without a trailing thinking(false)', async () => {
+    const session = createEmitterSession('complete', { ok: true });
+    const body = await requestSubmit(session);
+    expect(body).toContain('event: complete');
+    expect(body).toContain('"ok":true');
+  });
+
+  it('POST /submit receives the interrupted event without a trailing thinking(false)', async () => {
+    const session = createEmitterSession('interrupted', { reason: 'user' });
+    const body = await requestSubmit(session);
+    expect(body).toContain('event: interrupted');
+    expect(body).toContain('"reason":"user"');
+  });
+
+  it('POST /submit receives the error event without a trailing thinking(false)', async () => {
+    const session = createEmitterSession('error', new Error('boom'));
+    const body = await requestSubmit(session);
+    expect(body).toContain('event: error');
+    expect(body).toContain('"message":"boom"');
+  });
 });

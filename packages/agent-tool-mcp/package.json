@@ -38,7 +38,6 @@
   },
   "devDependencies": {
     "@robota-sdk/agent-core": "workspace:*",
-    "@robota-sdk/agent-tools": "workspace:*",
     "rimraf": "^5.0.10",
     "tsdown": "^0.22.2",
     "typescript": "^5.9.3",
