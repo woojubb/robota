@@ -2,13 +2,15 @@
 
 ## Scope
 
-Owns the transport contract interfaces for the Robota SDK. This package contains only type
-contracts and no runtime implementation. It defines the standard protocol for transport adapters
-(WebSocket, HTTP, MCP, TUI, etc.) and their configurable lifecycle.
+Owns the transport contract interfaces for the Robota SDK. This package is contracts plus a small
+set of pure, dependency-free derivation accessors over its own owned union types (no classes, no
+I/O, no side effects) — it defines the standard protocol for transport adapters (WebSocket, HTTP,
+MCP, TUI, etc.) and their configurable lifecycle.
 
 ## Boundaries
 
-- **Contains only type contracts and interfaces — no implementation, no classes, no runtime logic.**
+- **Contains type contracts and interfaces plus a small set of pure, dependency-free derivation
+  accessors over its own owned union types — no classes, no I/O, no side effects.**
 - **Dependencies: `@robota-sdk/agent-core` only (INFRA-025).** The full inversion formerly
   tracked by REFACTOR-018 is DONE: the background-task data contracts, subagent job state
   family, and compaction event contract now live HERE (`background-task-contracts.ts`,
@@ -32,8 +34,12 @@ agent-interface-transport          ← this package (contracts only, zero deps)
   ├── ITransportEntry              ← (transport, config) pairing for registry storage
   └── ITransportRegistryView       ← read/write registry of IConfigurableTransport instances
 
-agent-transport-tui, agent-transport-ws, agent-transport-http, agent-transport-mcp, agent-transport (/headless)
+agent-transport-tui (TuiTransport), agent-transport-ws (WsTransport)
   └── implements IConfigurableTransport<TSession>
+
+agent-transport-http (createHttpTransport), agent-transport-mcp (createMcpTransport),
+agent-transport (/headless: createHeadlessTransport), agent-transport-ws (createWsTransport factory)
+  └── returns bare ITransportAdapter<TSession>
 
 agent-transport
   └── TransportRegistry            ← structurally compatible with ITransportRegistryView (no declared implements)
@@ -148,19 +154,24 @@ export interface ITransportRegistryView<TSession = unknown> {
   getAll(): ITransportEntry<TSession>[];
   setEnabled(name: string, enabled: boolean): Promise<void>;
   startAll(session: TSession): Promise<void>;
-  stopAll(): Promise<void>;
+  /** Best-effort: never rejects; per-transport stop failures come back in the result (CORE-013). */
+  stopAll(): Promise<IDestroyResult>;
 }
 ```
+
+`IDestroyResult` is imported (type-only) from `@robota-sdk/agent-core`. `stopAll()` is best-effort:
+it never rejects — each transport is stopped independently and any per-transport failure is reported
+in the returned `IDestroyResult` rather than thrown (CORE-013).
 
 ## Extension Points
 
 This package defines contracts that consumers implement or extend:
 
-| Extension Point          | Kind      | Implementor                                                                                 | Description                                                      |
-| ------------------------ | --------- | ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| `ITransportAdapter`      | Interface | `agent-transport-{tui,ws,http,mcp}`, `agent-transport` (headless)                           | Implement to create a transport with attach/start/stop lifecycle |
-| `IConfigurableTransport` | Interface | `agent-transport-{tui,ws,http,mcp}`, `agent-transport` (headless)                           | Extend `ITransportAdapter` to support enable/disable and options |
-| `ITransportRegistryView` | Interface | `agent-transport` (`TransportRegistry`, structurally compatible — no declared `implements`) | Provide registry management for configurable transports          |
+| Extension Point          | Kind      | Implementor                                                                                                                                                                  | Description                                                      |
+| ------------------------ | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `ITransportAdapter`      | Interface | `createHttpTransport` (http), `createMcpTransport` (mcp), `createHeadlessTransport` (agent-transport/headless), `createWsTransport` factory (ws) — all return a bare adapter | Implement to create a transport with attach/start/stop lifecycle |
+| `IConfigurableTransport` | Interface | `TuiTransport` (`agent-transport-tui`), `WsTransport` (`agent-transport-ws`)                                                                                                 | Extend `ITransportAdapter` to support enable/disable and options |
+| `ITransportRegistryView` | Interface | `agent-transport` (`TransportRegistry`, structurally compatible — no declared `implements`)                                                                                  | Provide registry management for configurable transports          |
 
 No abstract classes or base classes are exported — all extension is through interface implementation.
 
@@ -172,8 +183,10 @@ implementing packages (the separate `agent-transport-*` packages and `agent-tran
 
 ## Constraints
 
-- This package MUST NOT contain classes, runtime functions, or any executable logic.
-- Only `interface` and `type` declarations are allowed (narrow type-guard functions are also prohibited).
+- This package MUST NOT contain classes, I/O, or stateful/side-effecting runtime logic.
+- Beyond `interface`/`type` declarations, the only runtime allowed is a small set of pure,
+  dependency-free derivation accessors over this package's own owned union types (e.g. the `read*`
+  helpers over `InteractionEvent` in `interaction-contracts.ts`): no classes, no I/O, no side effects.
 - Zero runtime (emitted-JS) dependencies — all `@robota-sdk/*` imports are type-only (`import type`),
   so no `@robota-sdk/*` package is present in the compiled output.
 - Any new cross-cutting transport contract must be added here, not in `agent-framework` or individual transport packages.
@@ -189,11 +202,11 @@ so the test script succeeds with zero test files.
 This package contains no classes. The following interfaces are the extension contracts that
 implementors must satisfy:
 
-| Interface                | Implemented By                                                          | Package                      |
-| ------------------------ | ----------------------------------------------------------------------- | ---------------------------- |
-| `ITransportAdapter`      | concrete transport classes (via `IConfigurableTransport`)               | `agent-transport-*` packages |
-| `IConfigurableTransport` | `TuiTransport`, `WsTransport`, `HeadlessTransport`, etc.                | `agent-transport-*` packages |
-| `ITransportRegistryView` | `TransportRegistry` (structurally compatible, no declared `implements`) | `agent-transport`            |
+| Interface                | Implemented By                                                                                                                                                  | Package                                |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| `ITransportAdapter`      | `createHttpTransport`/`createMcpTransport`/`createHeadlessTransport`/`createWsTransport` factories (bare adapters); also satisfied via `IConfigurableTransport` | `agent-transport-*`, `agent-transport` |
+| `IConfigurableTransport` | `TuiTransport` (`agent-transport-tui`), `WsTransport` (`agent-transport-ws`)                                                                                    | `agent-transport-*` packages           |
+| `ITransportRegistryView` | `TransportRegistry` (structurally compatible, no declared `implements`)                                                                                         | `agent-transport`                      |
 
 No `extends` chains exist within this package — `IConfigurableTransport` extends `ITransportAdapter`
 and is the only intra-package inheritance.

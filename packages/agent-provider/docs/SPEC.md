@@ -18,9 +18,9 @@ Users who need a provider not included here can implement `IAIProvider` from `@r
 
 Re-exports all provider classes, factory functions, and types from all providers (except `google/`, which is omitted as a deprecated compatibility alias). Also exports `createDefaultProviderDefinitions()`.
 
-| Symbol                             | Kind     | Description                                                         |
-| ---------------------------------- | -------- | ------------------------------------------------------------------- |
-| `createDefaultProviderDefinitions` | function | Returns `readonly IProviderDefinition[]` for all built-in providers |
+| Symbol                             | Kind     | Description                                                                                                                                                                         |
+| ---------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `createDefaultProviderDefinitions` | function | Returns `readonly IProviderDefinition[]` for all built-in chat providers (anthropic, openai, gemini, gemma, qwen, deepseek); `bytedance` (video/internal) is intentionally excluded |
 
 ### Sub-path exports
 

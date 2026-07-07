@@ -292,16 +292,11 @@ Flow ownership:
 
 ```
 bin.ts → cli.ts (arg parsing + provider definition composition)
-              ├── createAgentCommandModule()      (from @robota-sdk/agent-command)
-              ├── createLanguageCommandModule()   (from @robota-sdk/agent-command)
-              ├── createCompactCommandModule()    (from @robota-sdk/agent-command)
-              ├── createContextCommandModule()    (from @robota-sdk/agent-command)
-              ├── createExitCommandModule()       (from @robota-sdk/agent-command)
-              ├── createProviderCommandModule()   (from @robota-sdk/agent-command)
-              ├── createSessionCommandModule()    (from @robota-sdk/agent-command)
-              ├── createResetCommandModule()      (from @robota-sdk/agent-command)
-              ├── createRewindCommandModule()     (from @robota-sdk/agent-command)
-              ├── createStatusLineCommandModule() (from @robota-sdk/agent-command)
+              ├── buildCommandSetup(...)          (src/startup/command-setup.ts)
+              │     ├── createDefaultCommandModules(...)  (from @robota-sdk/agent-command;
+              │     │     assembles the full default command set)
+              │     └── createWorkflowsCommandModule(...) (from @robota-sdk/agent-command-workflows;
+              │           the bundled `/workflows` module, statically imported — always present)
               └── renderApp({ ..., transportRegistry, cliAdapter })  (from @robota-sdk/agent-transport-tui)
                     └── TuiInteractionChannel (owns session lifecycle)
                           ├── InteractiveSession({ cwd, provider })

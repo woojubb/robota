@@ -19,7 +19,7 @@ packages/
 ├── agent-provider-*/            # Provider-family variants (e.g. agent-provider-replay: deterministic session-log replay provider; depends on agent-core + agent-session)
 ├── agent-playground/            # Playground UI package
 ├── agent-remote-client/         # Remote execution client
-├── agent-interface-*/           # Interface/contract packages: pure type contracts with no implementation (e.g. agent-interface-transport)
+├── agent-interface-*/           # Interface/contract packages: pure type contracts; MAY also export pure, dependency-free derivation accessors over their own owned types (no classes, no I/O) — e.g. agent-interface-transport's read* helpers over InteractionEvent
 ├── agent-transport/             # Transport core: headless adapter + transport registry + scripted-provider testing fixtures (pure TS)
 ├── agent-transport-*/           # Per-concern transport implementations: agent-transport-tui (React/Ink), -ws (WebSocket), -http (Hono), -mcp (MCP); -ws/-http/-mcp are contract-pure (deps: interface-transport + core only)
 ├── agent-testing/               # General test framework: domain-free test-environment tooling (PTY runner spawnPty/spawnPtyFixture); zero @robota-sdk deps, devDependency. Charter+placement rule in its SPEC (contracts→agent-interface-*, doubles→owner /testing, drivers→owning module)
