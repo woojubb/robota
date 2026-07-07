@@ -22,9 +22,9 @@ The package follows a controller-composition pattern:
 
 - **Contracts** (`contracts/`): Define API request/response types and the `IProblemDetails` error shape.
 - **Ports** (`ports/`): Define the minimal runtime, diagnostics, and observability service capabilities required by controllers.
-- **Controllers** (`controllers/`): Thin API controllers that delegate to domain services and map results to API responses. Four controllers: Design, Runtime, Diagnostics, Observability.
+- **Controllers** (`controllers/`): Thin API controllers that delegate to domain services and map results to API responses. Four composed controllers -- Design, Runtime, Diagnostics, Observability -- plus the standalone `PromptApiController`.
 - **Composition roots** (`composition/`): Factory functions that wire controllers from already-created port implementations.
-  - `createDagControllerComposition` -- assembles all four controllers from API-owned ports.
+  - `createDagControllerComposition` -- assembles the four composed controllers from API-owned ports.
   - `RunProgressEventBus` -- pub/sub bus for `TRunProgressEvent` streaming.
 
 ## Type Ownership
@@ -32,7 +32,8 @@ The package follows a controller-composition pattern:
 This package is SSOT for:
 
 - `IProblemDetails` -- RFC 7807-style error detail shape
-- `TDesignApiSuccess<TData>`, `TDesignApiFailure`, `TDesignApiResponse<TData>` -- design API result aliases
+- `TDesignApiFailure`, `TDesignApiResponse<TData>` -- design API result aliases
+- `TRuntimeApiResponse<TData>`, `TObservabilityApiResponse<TData>`, `TDiagnosticsApiResponse<TData>` -- per-domain API response aliases
 - `IApiSuccess<TData>`, `IApiFailure<TError>`, `TApiResponse<TData, TError>` -- generic API envelope types
 - `ICreateDefinitionRequest`, `IUpdateDraftRequest`, `IValidateDefinitionRequest`, `IPublishDefinitionRequest`, `IGetDefinitionRequest`, `IListDefinitionsRequest`, `IListNodeCatalogRequest` -- design API request types
 - `IDefinitionListItem`, `IDefinitionValidationResult` -- design API response types
@@ -40,7 +41,12 @@ This package is SSOT for:
 - `IAnalyzeFailureRequest`, `IRerunRequest`, `IReinjectDeadLetterRequest`, `IFailureCodeCount`, `IFailureAnalysis` -- diagnostics API types
 - `IQueryRunProjectionRequest`, `IQueryLineageProjectionRequest`, `IObservabilityDashboardData` -- observability API types
 - `IRunProjectionView`, `ILineageProjectionView`, `IObservabilityProjectionReaderPort` -- observability controller DTO and port contracts
-- `IRuntimeRunStarterPort`, `IRuntimeRunReaderPort`, `IRuntimeRunCancellerPort`, `IDiagnosticsDeadLetterReinjectPort` -- runtime and diagnostics controller service ports
+- `IObservabilityDashboardProjection`, `ILineageNodeView`, `ILineageEdgeView`, `TObservabilityTaskStatusSummary` -- observability projection DTOs and status summary alias
+- `IRuntimeRunStarterPort`, `IRuntimeRunCreatorPort`, `IRuntimeRunReaderPort`, `IRuntimeRunCancellerPort`, `IDiagnosticsDeadLetterReinjectPort` -- runtime and diagnostics controller service ports
+- `IRuntimeWorkerLoopPort`, `IRuntimeWorkerLoopResult`, `IRuntimeRunProgressEventBusPort` -- runtime worker-loop and progress event-bus ports
+- `IRuntimeStartRunInput`, `IRuntimeStartRunResult`, `IRuntimeCreateRunResult`, `IRuntimeRunReadResult`, `IRuntimeRunCancelResult` -- runtime port input/result DTOs
+- `IDiagnosticsDeadLetterReinjectResult` -- diagnostics DLQ reinject result DTO
+- `IRunProgressLogger` -- run progress logger interface
 - `IDagControllerComposition`, `IDagControllerCompositionDependencies`, `IDagControllerCompositionOptions` -- controller composition types
 - `IDagExecutionComposition` -- runtime execution composition port consumed by Prompt API backends
 - `IRunProgressEventBus`, `TRunProgressEventListener` -- event bus types
@@ -101,7 +107,9 @@ Controller-specific codes:
 
 ### Inheritance Chains
 
-None. Controller and composition classes are standalone.
+- `IRuntimeRunCreatorPort` → `IRuntimeRunStarterPort` (port interface extension).
+
+Controller and composition classes are standalone.
 
 ### Port Consumption via DI
 

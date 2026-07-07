@@ -37,9 +37,9 @@ When dispatching a downstream task, the create-then-enqueue sequence must be ato
 
 1. Create `TaskRun` record in storage with `queued` status.
 2. Enqueue the task message to the queue.
-3. **If enqueue fails**: the `TaskRun` must be transitioned to `cancelled` status via the `CANCEL` event (`queued -> cancelled`) to prevent orphaned records. A `TaskRun` in `queued` status with no corresponding queue message is an invariant violation. Note: the `queued -> failed` transition does not exist in the state machine; `CANCEL` is the correct recovery path.
+3. **If enqueue fails**: the `TaskRun` is transitioned to `cancelled` status via the `CANCEL` event (`queued -> cancelled`) to prevent orphaned records. A `TaskRun` in `queued` status with no corresponding queue message is an invariant violation. Note: the `queued -> failed` transition does not exist in the state machine; `CANCEL` is the correct recovery path.
 
-**Current gap**: The implementation creates the `TaskRun` then attempts enqueue. On enqueue failure, it returns an error but does not transition the orphaned `TaskRun`. This must be corrected.
+This is implemented in `dispatchSingleDownstreamNode` (`services/downstream-task-dispatcher.ts`): on `queue.enqueue` failure it runs `TaskRunStateMachine.transition('queued', 'CANCEL')`, updates the orphaned `TaskRun` status, and returns `DAG_DISPATCH_ENQUEUE_DOWNSTREAM_FAILED`.
 
 ### DLQ Reinject Concurrency Safety
 
@@ -61,7 +61,7 @@ The lease is always released in a `finally` block after processing completes.
 
 A DAG run is `success` when all tasks are terminal and **none** are in the `failed` state. `upstream_failed`, `skipped`, and `cancelled` tasks do not indicate DAG-level failure — they represent expected propagation of upstream failures, conditional skips, or user cancellation.
 
-**Current gap**: The `FAILURE_TASK_STATUSES` set includes `upstream_failed` and `cancelled`, causing DAG runs to be marked `failed` when tasks are only `upstream_failed`/`cancelled` (no actual `failed` task). Additionally, `skipped` is not in either the pending or failure set, which may cause incorrect finalization. This must be corrected.
+This is implemented in `services/dag-run-finalizer.ts`: `PENDING_TASK_STATUSES = {'created', 'queued', 'running'}` gate whether the run is still in progress, and `FAILURE_TASK_STATUSES = {'failed'}` alone determines the `failed` outcome. `upstream_failed`, `skipped`, and `cancelled` are treated as non-failure terminal states.
 
 ### Lease Failure Handling
 
@@ -96,7 +96,8 @@ This package is SSOT for:
 - `DlqReinjectService` -- DLQ reinject service
   - `reinjectOnce(workerId, visibilityTimeoutMs): Promise<TResult<IDlqReinjectResult, IDagError>>`
 - `createWorkerLoopService(deps, options): WorkerLoopService` -- composition factory
-- `replaceAttemptSegment(path, nextAttempt): string[]` -- execution path utility
+
+`replaceAttemptSegment(path, nextAttempt)` is an internal utility (`src/utils/execution-path.ts`), not re-exported from `src/index.ts`; see "Supporting utility" above.
 
 ## Extension Points
 
@@ -167,6 +168,6 @@ None. Service classes are standalone (no `extends`).
 ## Test Strategy
 
 - **Unit tests**: `worker-loop-service.test.ts`, `dlq-reinject-service.test.ts`, `worker-loop-composition.test.ts`
-- Tests use in-memory port implementations from `dag-core`.
+- Tests use in-memory port implementations from `@robota-sdk/dag-adapters-local`.
 - Coverage focus: lease acquisition/release, success/failure paths, retry logic with attempt increment, DLQ enqueue/reinject, downstream dispatch with binding resolution, DAG run finalization (success/failure), timeout enforcement.
 - Run: `pnpm --filter @robota-sdk/dag-worker test`

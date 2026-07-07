@@ -17,18 +17,16 @@ limited to building the Next.js app and pointing it at the WebSocket endpoints i
 All runtime configuration is optional and public (`NEXT_PUBLIC_*`); there are no secrets. Add any you
 need to `.env.local` (local) or your host's environment configuration (production).
 
-| Variable                        | Consumed by                         | Default                | Description                                                       |
-| ------------------------------- | ----------------------------------- | ---------------------- | ----------------------------------------------------------------- |
-| `NEXT_PUBLIC_PLAYGROUND_WS_URL` | `src/app/playground/page.tsx`       | Playground app default | WebSocket URL passed to `PlaygroundApp` as `defaultServerUrl`.    |
-| `NEXT_PUBLIC_CLI_WS_URL`        | `src/app/monitor/MonitorClient.tsx` | `ws://localhost:7070`  | WebSocket URL the CLI monitor connects to via `SessionMonitor`.   |
-| `NEXT_PUBLIC_API_VERSION`       | `API_CONFIG` (`src/config/api.ts`)  | app default            | API version used to build the versioned base URL in `API_CONFIG`. |
+| Variable                        | Consumed by                         | Default                | Description                                                     |
+| ------------------------------- | ----------------------------------- | ---------------------- | --------------------------------------------------------------- |
+| `NEXT_PUBLIC_PLAYGROUND_WS_URL` | `src/app/playground/page.tsx`       | Playground app default | WebSocket URL passed to `PlaygroundApp` as `defaultServerUrl`.  |
+| `NEXT_PUBLIC_CLI_WS_URL`        | `src/app/monitor/MonitorClient.tsx` | `ws://localhost:7070`  | WebSocket URL the CLI monitor connects to via `SessionMonitor`. |
 
 Example `.env.local`:
 
 ```env
 NEXT_PUBLIC_PLAYGROUND_WS_URL=wss://playground.example.com
 NEXT_PUBLIC_CLI_WS_URL=wss://cli.example.com
-NEXT_PUBLIC_API_VERSION=v1
 ```
 
 ## Build and Run

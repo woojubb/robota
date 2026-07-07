@@ -70,19 +70,22 @@ interface IDagFramework {
 ### Node Registries
 
 ```typescript
-// Core nodes only (7 nodes, sync, no optional peer deps)
+// Core nodes only (23 nodes, sync, no optional peer deps)
 createDefaultNodeRegistrySync(): IDagNodeDefinition[]
 
 // Core + optional LLM nodes (async, silently skips unavailable SDKs)
 createDefaultNodeRegistry(): Promise<IDagNodeDefinition[]>
 ```
 
-**Core nodes (always available):** `input`, `transform`, `text-template`, `text-output`,
-`image-loader`, `image-source`, `ok-emitter`.
+**Core nodes (always available, 23):** `input`, `multi-input`, `transform`, `text-template`,
+`text-output`, `image-loader`, `image-source`, `ok-emitter`, `tool`, and the 14 `utility-text`
+nodes: `string-to-number`, `number-to-string`, `text-join`, `text-split`, `text-replace`,
+`text-length`, `text-upper`, `text-lower`, `text-trim`, `json-extract`, `conditional-text`,
+`text-count-lines`, `text-repeat`, `text-slice`.
 
 **Optional LLM nodes (loaded if SDK installed):** `llm-text-openai`, `llm-text-anthropic`,
 `llm-text-gemini`, `llm-text-deepseek`, `llm-text-qwen`, `gemini-image-edit`,
-`gemini-image-compose`.
+`gemini-image-compose`, `text-to-image`, `seedance-video`, `skill`.
 
 ### Infrastructure Adapters (re-exported)
 
@@ -221,6 +224,9 @@ Not-yet-implemented methods return `{ status: 501, ... NOT_IMPLEMENTED_IN_FRAMEW
 - `dag-framework` MUST NOT import `@robota-sdk/agent-*` packages.
 - LLM node packages (`dag-node-llm-text-*`, `dag-node-gemini-*`) are declared as
   `optionalDependencies` — loaded via dynamic import with silent skip on missing SDK.
+- `dag-node-text-to-image`, `dag-node-seedance-video`, and `dag-node-skill` load via the same
+  dynamic-import silent-skip path (`tryImport`), but are currently declared as hard
+  `dependencies` rather than `optionalDependencies`.
 
 ---
 

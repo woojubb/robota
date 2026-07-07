@@ -58,7 +58,9 @@ worker loop, and serves the app via `@hono/node-server`.
 
 | `GET /v1/dag/runs/:id/events` (SSE) | `progressSource` run-progress stream |
 
-An `HttpDagRuntimeProvider` (for the `--provider http` path) is the remaining follow-on surface.
+The `HttpDagRuntimeProvider` (for the `--provider http` path) now exists, exported from
+`@robota-sdk/dag-framework`, and is verified against this server by
+`src/__tests__/http-provider.roundtrip.test.ts`.
 
 ## Type Ownership
 
@@ -87,6 +89,10 @@ Port methods return `IDagOrchestrationHttpResponse` with an HTTP `status`; the h
 
 `src/__tests__/app.contract.test.ts`: Hono `app.request()` round-trips for `GET /v1/dag/nodes` and
 `/v1/dag/definitions`, and asserts a `404` on an unknown route (no external-runtime surface).
+
+`src/__tests__/http-provider.roundtrip.test.ts`: drives `HttpDagRuntimeProvider`
+(from `@robota-sdk/dag-framework`) against the in-process Hono app via a fetch shim, exercising the
+HTTP + SSE run-progress round-trip end to end.
 
 ## Class Contract Registry
 

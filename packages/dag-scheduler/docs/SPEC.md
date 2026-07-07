@@ -103,6 +103,6 @@ None. Service classes are standalone (no `extends`).
 
 - **Unit tests**: `scheduler-trigger-service.test.ts`
 - **Integration tests**: `scheduler-integration-e2e.test.ts`
-- Tests use in-memory port implementations from `dag-core`.
+- Tests use in-memory port implementations from `@robota-sdk/dag-adapters-local`.
 - Coverage focus: single trigger delegation, batch sequential execution with fail-fast, catchup slot computation, input validation (date parsing, interval, slot limits, range ordering), error propagation from runtime.
 - Run: `pnpm --filter @robota-sdk/dag-scheduler test`

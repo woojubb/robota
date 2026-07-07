@@ -8,9 +8,9 @@
 
 ## Boundaries
 
-- Extends `AbstractNodeDefinition` from `dag-core`. Does not redefine core DAG contracts.
-- Delegates AI provider calls to `@robota-sdk/agent-provider-google` (`GoogleProvider`). Does not own provider implementation.
-- Binary port definitions use `BINARY_PORT_PRESETS.IMAGE_COMMON` from `dag-core`.
+- Extends `AbstractNodeDefinition` from `@robota-sdk/dag-node`. Does not redefine core DAG contracts.
+- Delegates AI provider calls to `@robota-sdk/agent-provider` (subpath `/google`, `GoogleProvider`). Does not own provider implementation.
+- Binary port definitions use `BINARY_PORT_PRESETS.IMAGE_COMMON` from `@robota-sdk/dag-node`.
 - Config validation through Zod schemas (`GeminiImageEditConfigSchema`, `GeminiImageComposeConfigSchema`).
 - Input validation uses `NodeIoAccessor` helpers (`requireInputBinary`, `requireInputBinaryList`, `requireInputString`).
 
