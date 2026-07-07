@@ -24,7 +24,7 @@ Each command domain lives in its own subdirectory (`src/<command>/`) with a cons
 
 Two cross-cutting subdirectories:
 
-- `src/default/` — `createDefaultCommandModules` assembles all 21 standard command modules into one `readonly ICommandModule[]` array. Consumers pass `cwd`, `providerDefinitions`, `providerSettingsAdapter`, and optionally `enabledCommandModules` / `disabledCommandModules` (allow-then-deny module name filters). `orgPolicy` is not an option here — it is wired at the provider-command-module level via `createProviderCommandModule`.
+- `src/default/` — `createDefaultCommandModules` assembles all 24 standard command modules into one `readonly ICommandModule[]` array. Consumers pass `cwd`, `providerDefinitions`, `providerSettingsAdapter`, and optionally `enabledCommandModules` / `disabledCommandModules` (allow-then-deny module name filters). `orgPolicy` is not an option here — it is wired at the provider-command-module level via `createProviderCommandModule`.
 - `src/plugins/` — provides `createDefaultPluginCommandAdapter` (wires `BundlePluginInstaller`, `BundlePluginLoader`, `MarketplaceClient` into an `ICommandPluginAdapter`) and `reloadPluginCommandSource` (synchronously reloads plugin commands into a `CommandRegistry`).
 
 The `agent` command module sets `sessionRequirements: ['agent-runtime']`, which signals to the session layer that this module must only be registered when an agent runtime is available.
@@ -73,7 +73,7 @@ Single root entry point: `import { ... } from '@robota-sdk/agent-command'`
 
 | Export                              | Kind     | Description                                                                            |
 | ----------------------------------- | -------- | -------------------------------------------------------------------------------------- |
-| `createDefaultCommandModules`       | function | Assembles all 21 standard command modules into one array                               |
+| `createDefaultCommandModules`       | function | Assembles all 24 standard command modules into one array                               |
 | `IDefaultCommandModulesOptions`     | type     | Options interface for `createDefaultCommandModules`                                    |
 | `createDefaultPluginCommandAdapter` | function | Creates a production `ICommandPluginAdapter` wired to filesystem plugin infrastructure |
 | `reloadPluginCommandSource`         | function | Synchronously reloads plugin commands into a `CommandRegistry`                         |
@@ -86,6 +86,7 @@ Single root entry point: `import { ... } from '@robota-sdk/agent-command'`
 | background  | `createBackgroundCommandModule`  | `BackgroundCommandSource`    | `executeBackgroundCommand`                                                                                                                                                             |
 | compact     | `createCompactCommandModule`     | `CompactCommandSource`       | `executeCompactCommand`                                                                                                                                                                |
 | context     | `createContextCommandModule`     | `ContextCommandSource`       | `executeContextCommand`                                                                                                                                                                |
+| editor      | `createEditorCommandModule`      | `EditorCommandSource`        | `executeEditorCommand`                                                                                                                                                                 |
 | exit        | `createExitCommandModule`        | `ExitCommandSource`          | `executeExitCommand`                                                                                                                                                                   |
 | goal        | `createGoalCommandModule`        | `GoalCommandSource`          | `executeGoalCommand` (GOAL-001: `/goal <objective>` \| `status` \| `cancel`; delegates to the framework goal controller via `ICommandHostContext.setGoal`/`getGoalState`/`cancelGoal`) |
 | help        | `createHelpCommandModule`        | `HelpCommandSource`          | `executeHelpCommand`                                                                                                                                                                   |
@@ -101,6 +102,7 @@ Single root entry point: `import { ... } from '@robota-sdk/agent-command'`
 | schedule    | `createScheduleCommandModule`    | `ScheduleCommandSource`      | `executeScheduleCommand`, `executeMonitorCommand` (recurring/one-shot wake + process-monitor wake; `sessionRequirements: ['agent-runtime']`)                                           |
 | session     | `createSessionCommandModule`     | `SessionCommandSource`       | `executeClearCommand`, `executeCostCommand`, `executeRenameCommand`, `executeResumeCommand`, `executeValidateSessionCommand`                                                           |
 | settings    | `createSettingsCommandModule`    | `SettingsCommandSource`      | (inline, no standalone export)                                                                                                                                                         |
+| shell       | `createShellCommandModule`       | `ShellCommandSource`         | `executeShellCommand`                                                                                                                                                                  |
 | skills      | `createSkillsCommandModule`      | `SkillsCommandSource`        | `executeSkillsCommand`                                                                                                                                                                 |
 | statusline  | `createStatusLineCommandModule`  | `StatusLineCommandSource`    | `executeStatusLineCommand`                                                                                                                                                             |
 | user-local  | `createUserLocalCommandModule`   | `UserLocalCommandSource`     | `executeUserLocalCommand`, `executeUserLocalDirectCommand`                                                                                                                             |
@@ -219,6 +221,7 @@ Coverage gaps: `src/default/` and `src/plugins/` subdirectories have no dedicate
 | `BackgroundCommandSource`    | `ICommandSource` | `src/background/background-command-module.ts`   |
 | `CompactCommandSource`       | `ICommandSource` | `src/compact/compact-command-module.ts`         |
 | `ContextCommandSource`       | `ICommandSource` | `src/context/context-command-module.ts`         |
+| `EditorCommandSource`        | `ICommandSource` | `src/editor/editor-command-module.ts`           |
 | `ExitCommandSource`          | `ICommandSource` | `src/exit/exit-command-module.ts`               |
 | `GoalCommandSource`          | `ICommandSource` | `src/goal/goal-command-module.ts`               |
 | `HelpCommandSource`          | `ICommandSource` | `src/help/help-command-module.ts`               |
@@ -234,6 +237,7 @@ Coverage gaps: `src/default/` and `src/plugins/` subdirectories have no dedicate
 | `ScheduleCommandSource`      | `ICommandSource` | `src/schedule/schedule-command-module.ts`       |
 | `SessionCommandSource`       | `ICommandSource` | `src/session/session-command-module.ts`         |
 | `SettingsCommandSource`      | `ICommandSource` | `src/settings/settings-command-module.ts`       |
+| `ShellCommandSource`         | `ICommandSource` | `src/shell/shell-command-module.ts`             |
 | `SkillsCommandSource`        | `ICommandSource` | `src/skills/skills-command-module.ts`           |
 | `StatusLineCommandSource`    | `ICommandSource` | `src/statusline/statusline-command-module.ts`   |
 | `UserLocalCommandSource`     | `ICommandSource` | `src/user-local/user-local-command-module.ts`   |

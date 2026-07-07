@@ -113,23 +113,23 @@ Design rules:
 
 ### Subagent Types
 
-| Type                                  | Location                                                          | Purpose                                                     |
-| ------------------------------------- | ----------------------------------------------------------------- | ----------------------------------------------------------- |
-| `TSubagentJobStatus`                  | `src/subagents/types.ts` (state family: interface-transport SSOT) | Subagent job status union (mirrors `TBackgroundTaskStatus`) |
-| `TSubagentJobMode`                    | `src/subagents/types.ts` (state family: interface-transport SSOT) | `'foreground' \| 'background'`                              |
-| `ISubagentSpawnRequest`               | `src/subagents/types.ts` (state family: interface-transport SSOT) | Subagent spawn request                                      |
-| `ISubagentJobState`                   | `src/subagents/types.ts` (state family: interface-transport SSOT) | Subagent job state projection                               |
-| `ISubagentJobResult`                  | `src/subagents/types.ts` (state family: interface-transport SSOT) | Subagent completion output and metadata                     |
-| `ISubagentJobStart`                   | `src/subagents/types.ts` (state family: interface-transport SSOT) | Argument passed from manager to runner `start()` call       |
-| `ISubagentJobHandle`                  | `src/subagents/types.ts` (state family: interface-transport SSOT) | Cancellable handle returned by `ISubagentRunner.start()`    |
-| `ISubagentRunner`                     | `src/subagents/types.ts` (state family: interface-transport SSOT) | Port for executing one subagent job                         |
-| `ISubagentManager`                    | `src/subagents/types.ts` (state family: interface-transport SSOT) | Subagent job compatibility facade                           |
-| `ISubagentManagerOptions`             | `src/subagents/types.ts` (state family: interface-transport SSOT) | Constructor options for `SubagentManager`                   |
-| `ISubagentWorktreeAdapter`            | `src/subagents/worktree-subagent-runner.ts`                       | Port for concrete worktree I/O                              |
-| `ISubagentWorktreePrepareRequest`     | `src/subagents/worktree-subagent-runner.ts`                       | Request passed to `ISubagentWorktreeAdapter.prepare()`      |
-| `IPreparedSubagentWorktree`           | `src/subagents/worktree-subagent-runner.ts`                       | Prepared worktree handoff data                              |
-| `IWorktreeSubagentRunnerOptions`      | `src/subagents/worktree-subagent-runner.ts`                       | Constructor options for `WorktreeSubagentRunner`            |
-| `IGitWorktreeIsolationAdapterOptions` | `src/subagents/git-worktree-isolation-adapter.ts`                 | Options for `createGitWorktreeIsolationAdapter()`           |
+| Type                                  | Location                                                                                   | Purpose                                                     |
+| ------------------------------------- | ------------------------------------------------------------------------------------------ | ----------------------------------------------------------- |
+| `TSubagentJobStatus`                  | `@robota-sdk/agent-interface-transport` (SSOT; re-exported at `src/subagents/types.ts:18`) | Subagent job status union (mirrors `TBackgroundTaskStatus`) |
+| `TSubagentJobMode`                    | `@robota-sdk/agent-interface-transport` (SSOT; re-exported at `src/subagents/types.ts:18`) | `'foreground' \| 'background'`                              |
+| `ISubagentSpawnRequest`               | `src/subagents/types.ts:20` (owned)                                                        | Subagent spawn request                                      |
+| `ISubagentJobState`                   | `@robota-sdk/agent-interface-transport` (SSOT; re-exported at `src/subagents/types.ts:18`) | Subagent job state projection                               |
+| `ISubagentJobResult`                  | `src/subagents/types.ts:44` (owned)                                                        | Subagent completion output and metadata                     |
+| `ISubagentJobStart`                   | `src/subagents/types.ts:52` (owned)                                                        | Argument passed from manager to runner `start()` call       |
+| `ISubagentJobHandle`                  | `src/subagents/types.ts:58` (owned)                                                        | Cancellable handle returned by `ISubagentRunner.start()`    |
+| `ISubagentRunner`                     | `src/subagents/types.ts:69` (owned)                                                        | Port for executing one subagent job                         |
+| `ISubagentManager`                    | `src/subagents/types.ts:73` (owned)                                                        | Subagent job compatibility facade                           |
+| `ISubagentManagerOptions`             | `src/subagents/types.ts:84` (owned)                                                        | Constructor options for `SubagentManager`                   |
+| `ISubagentWorktreeAdapter`            | `src/subagents/worktree-subagent-runner.ts`                                                | Port for concrete worktree I/O                              |
+| `ISubagentWorktreePrepareRequest`     | `src/subagents/worktree-subagent-runner.ts`                                                | Request passed to `ISubagentWorktreeAdapter.prepare()`      |
+| `IPreparedSubagentWorktree`           | `src/subagents/worktree-subagent-runner.ts`                                                | Prepared worktree handoff data                              |
+| `IWorktreeSubagentRunnerOptions`      | `src/subagents/worktree-subagent-runner.ts`                                                | Constructor options for `WorktreeSubagentRunner`            |
+| `IGitWorktreeIsolationAdapterOptions` | `src/subagents/git-worktree-isolation-adapter.ts`                                          | Options for `createGitWorktreeIsolationAdapter()`           |
 
 Hook event types and hook execution are owned by `agent-core`.
 
@@ -383,9 +383,11 @@ Cross-package port consumers:
 
 Production dependencies:
 
-| Package                  | Reason                                                                                        |
-| ------------------------ | --------------------------------------------------------------------------------------------- |
-| `@robota-sdk/agent-core` | Hook types, hook runner (`WorktreeSubagentRunner`), and provider definition types (factories) |
-| `croner`                 | Cron expression parsing and scheduling for `createScheduledTaskRunner`                        |
+| Package                                 | Reason                                                                                                                                                             |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `@robota-sdk/agent-core`                | Hook types, hook runner (`WorktreeSubagentRunner`), and provider definition types (factories)                                                                      |
+| `@robota-sdk/agent-interface-transport` | Contract SSOT (INFRA-025) for background-task/subagent state families (`src/background-tasks/types.ts`, `src/subagents/types.ts`)                                  |
+| `@robota-sdk/agent-process`             | `killProcessTree`/`DEFAULT_KILL_GRACE_MS` for process-tree teardown in the background-task runners (`scheduled-task-runner.ts`, `managed-shell-process-runner.ts`) |
+| `croner`                                | Cron expression parsing and scheduling for `createScheduledTaskRunner`                                                                                             |
 
-This package must not depend on SDK, sessions, tool, concrete-provider, transport, or CLI packages.
+This package must not depend on SDK, sessions, tool, concrete-provider, concrete-transport, or CLI packages (the `agent-interface-transport` contract SSOT above is not a concrete transport).

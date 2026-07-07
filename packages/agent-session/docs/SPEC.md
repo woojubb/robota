@@ -43,7 +43,7 @@ session-store.ts          -- SessionStore: JSON file persistence for conversatio
 
 **Dependency direction:**
 
-- `@robota-sdk/agent-session` depends on `@robota-sdk/agent-core` only.
+- `@robota-sdk/agent-session` depends on `@robota-sdk/agent-core` and `@robota-sdk/agent-interface-transport` (SSOT for `ICompactEvent`/`TCompactTrigger`).
 - No dependency on `@robota-sdk/agent-tools` or `@robota-sdk/agent-provider/anthropic`.
 - Tool and provider assembly is the responsibility of the consuming layer (`agent-framework`).
 
@@ -414,6 +414,7 @@ No formal interface implementations. `PermissionEnforcer`, `ContextWindowTracker
 
 ## Dependencies
 
-### Production (1)
+### Production (2)
 
 - `@robota-sdk/agent-core` -- Robota agent, permission system, hook system, core types
+- `@robota-sdk/agent-interface-transport` -- SSOT for `ICompactEvent`/`TCompactTrigger` (imported/re-exported by `src/session-types.ts`)

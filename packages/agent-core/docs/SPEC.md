@@ -221,7 +221,7 @@ their own price tables. Prices are USD per 1,000,000 tokens.
 
 ### Tools
 
-NOTE: `ToolRegistry`, `FunctionTool`, `createFunctionTool`, `createZodFunctionTool`, and `OpenAPITool` have been moved to the tools layer. `MCPTool` and `RelayMcpTool` have been moved to the MCP-tool layer.
+NOTE: The public `createFunctionTool` / `createZodFunctionTool` tool constructors live in the tools layer; `MCPTool` and `RelayMcpTool` live in the MCP-tool layer. agent-core still retains an internal `ToolRegistry` / `FunctionTool` (`src/tool-registry/`, consumed by `tool-manager`) — these were not part of the tools-layer move. There is no `OpenAPITool` class in agent-core: OpenAPI tools are described only by the `IOpenAPIToolConfig` type and the `IToolFactory.createOpenAPITool()` factory port (no shipped class).
 
 ### Interaction (CMD-004)
 
@@ -1027,7 +1027,7 @@ When the execution loop starts round 2+ (after tool execution), `execution-round
 | `IEventEmitterMetrics`            | `InMemoryEventEmitterMetrics` | production               | `src/plugins/event-emitter/metrics.ts`         |
 | `ICacheStorage`                   | `MemoryCacheStorage`          | production               | `src/services/cache/memory-cache-storage.ts`   |
 
-NOTE: `FunctionTool`, `ToolRegistry`, `OpenAPITool` moved to the tools layer. `MCPTool`, `RelayMcpTool` moved to the MCP-tool layer. Plugin storage implementations (ILogStorage, IUsageStorage, IPerformanceStorage, IHistoryStorage, etc.) moved to their respective external plugin packages.
+NOTE: `MCPTool`, `RelayMcpTool` moved to the MCP-tool layer. Plugin storage implementations (ILogStorage, IUsageStorage, IPerformanceStorage, IHistoryStorage, etc.) moved to their respective external plugin packages. agent-core retains an internal `ToolRegistry` / `FunctionTool` (`src/tool-registry/`, consumed by `tool-manager`); there is no `OpenAPITool` class (only the `IOpenAPIToolConfig` type and the `createOpenAPITool` factory port).
 
 ### Inheritance Chains (within agent-core)
 
@@ -1040,7 +1040,7 @@ NOTE: `FunctionTool`, `ToolRegistry`, `OpenAPITool` moved to the tools layer. `M
 | `AbstractExecutor`     | `LocalExecutor`          | `src/executors/local-executor.ts`     | Local provider execution |
 | `AbstractPlugin`       | `EventEmitterPlugin`     | `src/plugins/event-emitter-plugin.ts` | Event coordination       |
 
-NOTE: Tool implementations (`FunctionTool`, `OpenAPITool`) in the tools layer implement `IFunctionTool`/`ITool` directly without extending `AbstractTool`. Plugin implementations in the external plugin packages extend `AbstractPlugin`.
+NOTE: `FunctionTool` implementations (the tools-layer one and agent-core's internal `tool-registry` one) implement `IFunctionTool`/`ITool` directly without extending `AbstractTool`. There is no `OpenAPITool` class; OpenAPI tools are built through the `createOpenAPITool` factory port. Plugin implementations in the external plugin packages extend `AbstractPlugin`.
 
 ### Cross-Package Port Consumers
 
