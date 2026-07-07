@@ -1,6 +1,7 @@
+import { getValidationErrors, validateToolParameters } from './parameter-validator';
 import { ToolExecutionError, ValidationError } from '../utils/errors';
 
-import type { IToolSchema, IParameterSchema } from '../interfaces/provider';
+import type { IToolSchema } from '../interfaces/provider';
 import type {
   IFunctionTool,
   IToolResult,
@@ -57,7 +58,12 @@ export class FunctionTool implements IFunctionTool {
 
     // Validate parameters before execution
     if (!this.validate(parameters)) {
-      const errors = this.getValidationErrors(parameters);
+      const errors = getValidationErrors(
+        parameters,
+        this.schema.parameters.required || [],
+        this.schema.parameters.properties || {},
+        this.schema.parameters.additionalProperties,
+      );
       throw new ValidationError(`Invalid parameters for tool "${toolName}": ${errors.join(', ')}`);
     }
 
@@ -99,18 +105,26 @@ export class FunctionTool implements IFunctionTool {
    * Validate parameters (simple boolean result)
    */
   validate(parameters: TToolParameters): boolean {
-    return this.getValidationErrors(parameters).length === 0;
+    return (
+      getValidationErrors(
+        parameters,
+        this.schema.parameters.required || [],
+        this.schema.parameters.properties || {},
+        this.schema.parameters.additionalProperties,
+      ).length === 0
+    );
   }
 
   /**
    * Validate tool parameters with detailed result
    */
   validateParameters(parameters: TToolParameters): IParameterValidationResult {
-    const errors = this.getValidationErrors(parameters);
-    return {
-      isValid: errors.length === 0,
-      errors,
-    };
+    return validateToolParameters(
+      parameters,
+      this.schema.parameters.required || [],
+      this.schema.parameters.properties || {},
+      this.schema.parameters.additionalProperties,
+    );
   }
 
   /**
@@ -118,110 +132,6 @@ export class FunctionTool implements IFunctionTool {
    */
   getDescription(): string {
     return this.schema.description;
-  }
-
-  /**
-   * Get detailed validation errors
-   */
-  private getValidationErrors(parameters: TToolParameters): string[] {
-    const errors: string[] = [];
-    const required = this.schema.parameters.required || [];
-    const properties = this.schema.parameters.properties || {};
-
-    // Check required parameters
-    for (const field of required) {
-      if (!(field in parameters)) {
-        errors.push(`Missing required parameter: ${field}`);
-      }
-    }
-
-    // Check parameter types and constraints
-    for (const [key, value] of Object.entries(parameters)) {
-      const paramSchema = properties[key];
-      if (!paramSchema) {
-        errors.push(`Unknown parameter: ${key}`);
-        continue;
-      }
-
-      const typeError = this.validateParameterType(key, value, paramSchema);
-      if (typeError) {
-        errors.push(typeError);
-      }
-    }
-
-    return errors;
-  }
-
-  /**
-   * Validate individual parameter type
-   */
-  private validateParameterType(
-    key: string,
-    value: TUniversalValue,
-    schema: IParameterSchema,
-  ): string | undefined {
-    const expectedType = schema['type'];
-
-    switch (expectedType) {
-      case 'string':
-        if (typeof value !== 'string') {
-          return `Parameter "${key}" must be a string, got ${typeof value}`;
-        }
-        break;
-
-      case 'number':
-        if (typeof value !== 'number' || isNaN(value)) {
-          return `Parameter "${key}" must be a number, got ${typeof value}`;
-        }
-        break;
-
-      case 'boolean':
-        if (typeof value !== 'boolean') {
-          return `Parameter "${key}" must be a boolean, got ${typeof value}`;
-        }
-        break;
-
-      case 'array':
-        if (!Array.isArray(value)) {
-          return `Parameter "${key}" must be an array, got ${typeof value}`;
-        }
-        // Check array items if specified
-        if (schema.items) {
-          for (let i = 0; i < value.length; i++) {
-            const itemError = this.validateParameterType(`${key}[${i}]`, value[i], schema.items);
-            if (itemError) {
-              return itemError;
-            }
-          }
-        }
-        break;
-
-      case 'object':
-        if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-          return `Parameter "${key}" must be an object, got ${typeof value}`;
-        }
-        break;
-    }
-
-    // Check enum constraints
-    if (schema.enum && schema.enum.length > 0) {
-      const enumValues = schema.enum;
-      let isValidEnum = false;
-
-      // Type-safe enum checking based on JSONSchemaEnum type
-      for (const enumValue of enumValues) {
-        if (value === enumValue) {
-          isValidEnum = true;
-          break;
-        }
-      }
-
-      if (!isValidEnum) {
-        return `Parameter "${key}" must be one of: ${enumValues.join(', ')}, got ${value}`;
-      }
-    }
-
-    return undefined;
   }
 
   /**

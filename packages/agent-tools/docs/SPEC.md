@@ -2,11 +2,12 @@
 
 ## Scope
 
-Owns the tool registry, tool implementations, tool result types, sandbox execution ports, and sandbox workspace manifest contracts for the Robota SDK. This package provides both the infrastructure for defining and managing tools (`ToolRegistry`, `FunctionTool`, `createZodFunctionTool`) and a set of 10 built-in CLI tools (`shell`, `bash`, `read`, `write`, `edit`, `glob`, `grep`, `webFetch`, `webSearch`, `askUserQuestion`) used by the agent CLI.
+Owns the tool factory constructors, tool result types, sandbox execution ports, and sandbox workspace manifest contracts for the Robota SDK. This package provides the ergonomic tool-construction factories (`createFunctionTool`, `createZodFunctionTool`) — which construct the `FunctionTool` class owned by `@robota-sdk/agent-core` (DATA-005 SSOT) — and a set of 10 built-in CLI tools (`shell`, `bash`, `read`, `write`, `edit`, `glob`, `grep`, `webFetch`, `webSearch`, `askUserQuestion`) used by the agent CLI.
 
 ## Boundaries
 
 - Does not own the abstract tool base class (`AbstractTool`) or tool interface contracts (`IToolWithEventService`, `IToolResult`, `IToolExecutionContext`). Those belong to `@robota-sdk/agent-core`.
+- Does not own the concrete `FunctionTool` / `ToolRegistry` classes or their parameter validation. Those are dependency-free runtime primitives owned by `@robota-sdk/agent-core` (DATA-005). This package's factories construct core's `FunctionTool`.
 - Does not own permission evaluation or hook execution. Tool permission wrapping is performed by consumers (e.g., `@robota-sdk/agent-session`).
 - Does not own MCP tool protocol. MCP tools live in `@robota-sdk/agent-tool-mcp`.
 - Does not own provider-specific behavior. Tools are provider-agnostic.
@@ -18,14 +19,11 @@ Owns the tool registry, tool implementations, tool result types, sandbox executi
 ```
 index.ts              -- Main entry point (Node.js — all exports)
 browser.ts            -- Browser-safe entry point (excludes Node.js-only tools and sandbox clients)
-registry/
-  tool-registry.ts      -- ToolRegistry: central tool management and lookup
 implementations/
-  function-tool.ts      -- FunctionTool: JS function tool with Zod schema validation
+  function-tool.ts      -- createFunctionTool / createZodFunctionTool factories (construct core's FunctionTool)
   function-tool/
-    index.ts            -- Re-exports FunctionTool, createFunctionTool, createZodFunctionTool
-    parameter-validator.ts -- validateToolParameters / getValidationErrors / validateParameterType
-    types.ts            -- FunctionTool-specific types
+    index.ts            -- Re-exports the function-tool factory-specific interface types
+    types.ts            -- FunctionTool factory-specific interface types
 types/
   tool-result.ts        -- IToolInvocationResult: result type for CLI tool invocations
 sandbox/
@@ -51,8 +49,7 @@ builtins/
 
 **Design patterns used:**
 
-- **Registry** -- `ToolRegistry` provides central tool registration, lookup, and schema management.
-- **Factory** -- `createFunctionTool` and `createZodFunctionTool` provide ergonomic tool construction.
+- **Factory** -- `createFunctionTool` and `createZodFunctionTool` provide ergonomic construction of core's `FunctionTool` (the `ToolRegistry` / `FunctionTool` classes are owned by `@robota-sdk/agent-core`; DATA-005).
 - **Adapter** -- `E2BSandboxClient` adapts E2B-compatible sandbox instances to `ISandboxClient`. (Zod-to-JSON-schema conversion is owned by the core package as the schema SSOT; this package imports it.)
 - **Ports and adapters** -- `ISandboxClient` separates tool execution intent, workspace preparation, and provider-owned snapshot hydration from the concrete execution plane.
 - **Declarative workspace setup** -- `IWorkspaceManifest` describes fresh-session sandbox files, directories, Git repositories, and future ephemeral storage mounts without putting manifest algorithms in SDK or CLI layers.
@@ -100,9 +97,7 @@ Types owned by this package (SSOT):
 
 | Export                                  | Kind     | Description                                                                                                                                                |
 | --------------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ToolRegistry`                          | Class    | Central tool registration and schema lookup                                                                                                                |
-| `FunctionTool`                          | Class    | JS function tool with Zod schema validation                                                                                                                |
-| `createFunctionTool`                    | Function | Factory for creating function tools                                                                                                                        |
+| `createFunctionTool`                    | Function | Factory constructing core's `FunctionTool` from a plain schema + handler                                                                                   |
 | `createZodFunctionTool`                 | Function | Generic factory (`<S extends ZodType>`): runtime `safeParse` validation AND `z.infer<S>`-typed executor args (SDK-009); executor receives the parsed value |
 | `IToolInvocationResult`                 | Type     | Result shape for CLI tool invocations                                                                                                                      |
 | `E2BSandboxClient`                      | Class    | Adapter for E2B-compatible sandbox instances and snapshots                                                                                                 |
@@ -171,13 +166,11 @@ This is the inner result type used by built-in tools. It is serialized to JSON a
 
 ## Extension Points
 
-1. **ToolRegistry** -- Consumers register custom tools via `ToolRegistry.register()`. The registry manages name-based lookup and schema retrieval.
+1. **createFunctionTool / createZodFunctionTool** -- Consumers create custom tools from plain functions (or from Zod schemas for parameter validation); both factories construct the `FunctionTool` class owned by `@robota-sdk/agent-core` (DATA-005). Zod object schemas marked with `passthrough()` are converted to root `additionalProperties: true`, and core's `FunctionTool` validation accepts unknown root parameters for those schemas. (The `ToolRegistry` and `FunctionTool` classes themselves are imported from `@robota-sdk/agent-core`.)
 
-2. **FunctionTool / createZodFunctionTool** -- Consumers create custom tools from plain functions with Zod schemas for parameter validation. Zod object schemas marked with `passthrough()` are converted to root `additionalProperties: true`, and `FunctionTool` validation accepts unknown root parameters for those schemas.
+2. **ISandboxClient** -- Consumers inject provider-backed execution planes into sandbox-aware built-in tool factories. The optional `snapshot()` and `restore(snapshotId)` methods return and hydrate provider-owned resumable workspace references. `E2BSandboxClient` adapts E2B-compatible objects without adding an `e2b` package dependency to `agent-tools`; it supports both `createSnapshot()` style checkpoint references and `pause()`/`connect()` style resumable sandbox IDs. `InMemorySandboxClient` supports deterministic contract tests.
 
-3. **ISandboxClient** -- Consumers inject provider-backed execution planes into sandbox-aware built-in tool factories. The optional `snapshot()` and `restore(snapshotId)` methods return and hydrate provider-owned resumable workspace references. `E2BSandboxClient` adapts E2B-compatible objects without adding an `e2b` package dependency to `agent-tools`; it supports both `createSnapshot()` style checkpoint references and `pause()`/`connect()` style resumable sandbox IDs. `InMemorySandboxClient` supports deterministic contract tests.
-
-4. **IWorkspaceManifest / applyWorkspaceManifest** -- Consumers declare fresh-session sandbox contents using workspace-relative paths. The generic applicator writes inline/local files, creates directories, and clones Git repositories through `ISandboxClient`; provider-specific storage mounts are represented in the contract but return explicit `unsupported` entries until an adapter supplies native mount capability.
+3. **IWorkspaceManifest / applyWorkspaceManifest** -- Consumers declare fresh-session sandbox contents using workspace-relative paths. The generic applicator writes inline/local files, creates directories, and clones Git repositories through `ISandboxClient`; provider-specific storage mounts are represented in the contract but return explicit `unsupported` entries until an adapter supplies native mount capability.
 
 ## Error Taxonomy
 
@@ -191,20 +184,20 @@ This package does not define a custom error hierarchy. Built-in tools return err
 
 | Interface                      | Implementor             | Kind         | Location                                  |
 | ------------------------------ | ----------------------- | ------------ | ----------------------------------------- |
-| `IFunctionTool` (agent-core)   | `FunctionTool`          | production   | `src/implementations/function-tool.ts`    |
-| `IToolRegistry` (agent-core)   | `ToolRegistry`          | production   | `src/registry/tool-registry.ts`           |
 | `ISandboxClient` (agent-tools) | `E2BSandboxClient`      | production   | `src/sandbox/e2b-sandbox-client.ts`       |
 | `ISandboxClient` (agent-tools) | `InMemorySandboxClient` | test/utility | `src/sandbox/in-memory-sandbox-client.ts` |
 
+`IFunctionTool` / `IToolRegistry` (agent-core) are implemented by the `FunctionTool` / `ToolRegistry` classes owned by `@robota-sdk/agent-core` (DATA-005); this package's factories construct core's `FunctionTool`.
+
 ### Inheritance Chains
 
-None. `FunctionTool` implements its interface directly (`implements IFunctionTool`) without extending `AbstractTool`, to avoid circular runtime dependencies between agent-tools and agent-core.
+None. This package defines no tool classes; the factories construct core's `FunctionTool` (which itself implements `IFunctionTool` directly without extending `AbstractTool`, owned by `@robota-sdk/agent-core`).
 
 ### Cross-Package Port Consumers
 
 | Port (Owner)                       | Consumer                                       | Location                                                                      |
 | ---------------------------------- | ---------------------------------------------- | ----------------------------------------------------------------------------- |
-| `IFunctionTool` (agent-core)       | `FunctionTool`                                 | `src/implementations/function-tool.ts`                                        |
+| `FunctionTool` (agent-core)        | `createFunctionTool` / `createZodFunctionTool` | `src/implementations/function-tool.ts`                                        |
 | `IToolWithEventService` shape      | Built-in CLI tools                             | `src/builtins/*.ts`                                                           |
 | `ISandboxClient` (agent-tools)     | Built-in CLI tool factories                    | `src/builtins/shell-tool.ts`, `read-tool.ts`, `write-tool.ts`, `edit-tool.ts` |
 | `IWorkspaceManifest` (agent-tools) | `agent-framework` interactive session assembly | `packages/agent-framework/src/interactive/interactive-session-options.ts`     |
@@ -213,13 +206,13 @@ None. `FunctionTool` implements its interface directly (`implements IFunctionToo
 
 ### Current Test Coverage
 
-| File                                       | Scope | Description                                                                                     |
-| ------------------------------------------ | ----- | ----------------------------------------------------------------------------------------------- |
-| `src/__tests__/atomic-file-write.test.ts`  | Unit  | Atomic UTF-8 write replacement, mode preservation, cleanup, and handoff                         |
-| `src/__tests__/sandbox-tools.test.ts`      | Unit  | Sandbox client contracts, sandbox-aware tools, E2B adapter behavior, and snapshot/restore paths |
-| `src/__tests__/workspace-manifest.test.ts` | Unit  | Workspace manifest path validation and generic sandbox application                              |
-| `src/__tests__/function-tool.test.ts`      | Unit  | FunctionTool creation, execution, schema validation                                             |
-| `src/__tests__/tool-registry.test.ts`      | Unit  | ToolRegistry registration, lookup, listing                                                      |
+| File                                       | Scope | Description                                                                                           |
+| ------------------------------------------ | ----- | ----------------------------------------------------------------------------------------------------- |
+| `src/__tests__/atomic-file-write.test.ts`  | Unit  | Atomic UTF-8 write replacement, mode preservation, cleanup, and handoff                               |
+| `src/__tests__/sandbox-tools.test.ts`      | Unit  | Sandbox client contracts, sandbox-aware tools, E2B adapter behavior, and snapshot/restore paths       |
+| `src/__tests__/workspace-manifest.test.ts` | Unit  | Workspace manifest path validation and generic sandbox application                                    |
+| `src/__tests__/function-tool.test.ts`      | Unit  | `createFunctionTool` + core `FunctionTool` (imported from agent-core) creation, execution, validation |
+| `src/__tests__/tool-registry.test.ts`      | Unit  | core `ToolRegistry` (imported from agent-core) registration, lookup, listing                          |
 
 ### Gaps
 

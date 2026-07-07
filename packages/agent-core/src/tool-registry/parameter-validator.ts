@@ -1,15 +1,12 @@
-import type {
-  IParameterSchema,
-  TToolParameters,
-  IParameterValidationResult,
-} from '@robota-sdk/agent-core';
-import type { TUniversalValue } from '@robota-sdk/agent-core';
+import type { IParameterSchema } from '../interfaces/provider';
+import type { IParameterValidationResult, TToolParameters } from '../interfaces/tool';
+import type { TUniversalValue } from '../interfaces/types';
 
 /**
  * Validate individual parameter type against its schema.
  * Returns an error string if invalid, undefined if valid.
  */
-export function validateParameterType(
+function validateParameterType(
   key: string,
   value: TUniversalValue,
   schema: IParameterSchema,

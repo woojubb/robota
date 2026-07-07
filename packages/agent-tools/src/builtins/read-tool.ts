@@ -12,9 +12,9 @@ import { z } from 'zod';
 import { checkPathWithinCwd } from './path-guard.js';
 import { createZodFunctionTool } from '../implementations/function-tool';
 
-import type { FunctionTool } from '../implementations/function-tool';
 import type { ISandboxToolOptions } from '../sandbox/types.js';
 import type { IToolInvocationResult } from '../types/tool-result.js';
+import type { FunctionTool } from '@robota-sdk/agent-core';
 
 const DEFAULT_LIMIT = 2000;
 

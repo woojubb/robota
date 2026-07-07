@@ -221,7 +221,12 @@ their own price tables. Prices are USD per 1,000,000 tokens.
 
 ### Tools
 
-NOTE: The public `createFunctionTool` / `createZodFunctionTool` tool constructors live in the tools layer; `MCPTool` and `RelayMcpTool` live in the MCP-tool layer. agent-core still retains an internal `ToolRegistry` / `FunctionTool` (`src/tool-registry/`, consumed by `tool-manager`) — these were not part of the tools-layer move. There is no `OpenAPITool` class in agent-core: OpenAPI tools are described only by the `IOpenAPIToolConfig` type and the `IToolFactory.createOpenAPITool()` factory port (no shipped class).
+| Export         | Kind  | Description                                                                                                                                        |
+| -------------- | ----- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `FunctionTool` | class | Dependency-free JS-function tool primitive (`implements IFunctionTool`); honors `parameters.additionalProperties` validation (DATA-005 canonical). |
+| `ToolRegistry` | class | Dependency-free tool registry primitive (`implements IToolRegistry`); central registration, lookup, and schema retrieval.                          |
+
+NOTE: agent-core is the **single owner (SSOT)** of the concrete `ToolRegistry` / `FunctionTool` classes (`src/tool-registry/`, exported from the package barrel and constructed directly by the zero-dep `tool-manager`) — they are dependency-free runtime primitives whose contracts (`IToolRegistry` / `IFunctionTool`) already live in core (DATA-005, resolves ARL-01). The `createFunctionTool` / `createZodFunctionTool` tool constructors live in the tools layer and construct core's `FunctionTool`; `MCPTool` and `RelayMcpTool` live in the MCP-tool layer. `FunctionTool` parameter validation honors `schema.parameters.additionalProperties` (`true` / object-form accept extra props; `false`/omitted reject) via `src/tool-registry/parameter-validator.ts`. There is no `OpenAPITool` class in agent-core: OpenAPI tools are described only by the `IOpenAPIToolConfig` type and the `IToolFactory.createOpenAPITool()` factory port (no shipped class).
 
 ### Interaction (CMD-004)
 
@@ -1027,7 +1032,7 @@ When the execution loop starts round 2+ (after tool execution), `execution-round
 | `IEventEmitterMetrics`            | `InMemoryEventEmitterMetrics` | production               | `src/plugins/event-emitter/metrics.ts`         |
 | `ICacheStorage`                   | `MemoryCacheStorage`          | production               | `src/services/cache/memory-cache-storage.ts`   |
 
-NOTE: `MCPTool`, `RelayMcpTool` moved to the MCP-tool layer. Plugin storage implementations (ILogStorage, IUsageStorage, IPerformanceStorage, IHistoryStorage, etc.) moved to their respective external plugin packages. agent-core retains an internal `ToolRegistry` / `FunctionTool` (`src/tool-registry/`, consumed by `tool-manager`); there is no `OpenAPITool` class (only the `IOpenAPIToolConfig` type and the `createOpenAPITool` factory port).
+NOTE: `MCPTool`, `RelayMcpTool` moved to the MCP-tool layer. Plugin storage implementations (ILogStorage, IUsageStorage, IPerformanceStorage, IHistoryStorage, etc.) moved to their respective external plugin packages. agent-core is the single owner (SSOT) of the public `ToolRegistry` / `FunctionTool` classes (`src/tool-registry/`, exported from the barrel and consumed by `tool-manager`; DATA-005); there is no `OpenAPITool` class (only the `IOpenAPIToolConfig` type and the `createOpenAPITool` factory port).
 
 ### Inheritance Chains (within agent-core)
 
@@ -1040,7 +1045,7 @@ NOTE: `MCPTool`, `RelayMcpTool` moved to the MCP-tool layer. Plugin storage impl
 | `AbstractExecutor`     | `LocalExecutor`          | `src/executors/local-executor.ts`     | Local provider execution |
 | `AbstractPlugin`       | `EventEmitterPlugin`     | `src/plugins/event-emitter-plugin.ts` | Event coordination       |
 
-NOTE: `FunctionTool` implementations (the tools-layer one and agent-core's internal `tool-registry` one) implement `IFunctionTool`/`ITool` directly without extending `AbstractTool`. There is no `OpenAPITool` class; OpenAPI tools are built through the `createOpenAPITool` factory port. Plugin implementations in the external plugin packages extend `AbstractPlugin`.
+NOTE: The single `FunctionTool` class (agent-core's `tool-registry`, DATA-005 SSOT) implements `IFunctionTool`/`ITool` directly without extending `AbstractTool`. There is no `OpenAPITool` class; OpenAPI tools are built through the `createOpenAPITool` factory port. Plugin implementations in the external plugin packages extend `AbstractPlugin`.
 
 ### Cross-Package Port Consumers
 
