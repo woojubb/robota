@@ -9,7 +9,7 @@ flowchart TB
     CLI["**agent-cli**\nCLI entry point · argument parsing · provider wiring · TUI startup"]
     TUI["**agent-transport-tui**\nInk/React terminal UI · TuiInteractionChannel"]
     CMD["**agent-command**\ncore slash command modules\n(+ /workflows via agent-command-workflows)"]
-    TRANS["**agent-transport**\nHeadless · Testing (lean core)\nHTTP/WS/MCP are standalone packages"]
+    TRANS["**agent-transport**\nHeadless · Testing · Programmatic (lean core)\nHTTP/WS/MCP are standalone packages"]
     FW["**agent-framework**\nInteractiveSession · CommandRegistry · createQuery()"]
     SESS["**agent-session**\nsession lifecycle · permissions · hooks · compaction"]
     EXEC["**agent-executor**\nbackground tasks · subagent lifecycle"]
@@ -96,12 +96,12 @@ Background tasks are tracked alongside the session through runtime snapshots and
 ```
 User input
   → InteractiveSession.submit()
-  → history appended: IHistoryEntry (kind: 'chat', role: 'user')
+  → history appended: IHistoryEntry (category: 'chat', role: 'user')
   → Session.run()
   → AI provider receives filtered view (chat-only IHistoryEntry[])
   → streaming response → text_delta / tool_start / tool_end events
-  → history appended: IHistoryEntry (kind: 'chat', role: 'assistant')
-  → event entries appended: IHistoryEntry (kind: 'event', ...)
+  → history appended: IHistoryEntry (category: 'chat', role: 'assistant')
+  → event entries appended: IHistoryEntry (category: 'event', ...)
   → thinking / context_update events emitted
   → clients (CLI, HTTP, MCP, WS, Headless) update their state from events
 ```
@@ -171,7 +171,7 @@ The transport layer exposes `InteractiveSession` over various protocols. Each tr
 
 All adapters import `InteractiveSession` from `agent-framework`. None of them implement session logic — they only translate protocol messages into session calls and forward session events back to the caller.
 
-All transport adapters implement `IConfigurableTransport` (defined in `agent-interface-transport`), which provides a uniform lifecycle: `attach(session)` to bind a session, `start()` to begin serving, and `stop()` to shut down.
+All transport adapters implement `ITransportAdapter` (defined in `agent-interface-transport`), which provides a uniform lifecycle: `attach(session)` to bind a session, `start()` to begin serving, and `stop()` to shut down.
 
 `agent-remote-client` is a companion HTTP client that allows a remote process to call an agent exposed via `agent-transport-http`. It has no dependency on `agent-framework`.
 

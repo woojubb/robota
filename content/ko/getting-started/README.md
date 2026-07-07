@@ -98,6 +98,11 @@ robota
 | Gemini             | gemini-2.0-flash                   | [aistudio.google.com](https://aistudio.google.com)       |
 | LM Studio (로컬)   | 모든 로컬 모델                     | localhost — 키 불필요                                    |
 
+### 시스템 요구사항
+
+- **Node.js 22 이상** — `node --version`으로 확인하세요
+- macOS, Linux 또는 Windows(WSL 권장)
+
 ## 첫 번째 에이전트
 
 ### 1. 간단한 대화형 에이전트 만들기
@@ -228,7 +233,7 @@ robota
 robota -p "이 프로젝트의 모든 TODO 주석을 나열해줘"
 
 # 모델 오버라이드
-robota --model claude-sonnet-4-6
+robota --model claude-opus-4-6
 ```
 
 ## 다음 단계

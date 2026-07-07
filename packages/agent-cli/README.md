@@ -219,18 +219,19 @@ Non-interactive/headless mode never prompts. Configure a provider ahead of time 
 
 ## Built-in Tools
 
-The AI agent can invoke 8 local tools:
+The AI agent can invoke 9 distinct local tools (the runtime registers 10 tool names — `Bash` is the model-familiar alias of `Shell`):
 
-| Tool        | Description                                    | Primary Argument |
-| ----------- | ---------------------------------------------- | ---------------- |
-| `Bash`      | Execute shell commands                         | `command`        |
-| `Read`      | Read file contents with line numbers           | `filePath`       |
-| `Write`     | Write content to a file                        | `filePath`       |
-| `Edit`      | Replace a string in a file                     | `filePath`       |
-| `Glob`      | Find files matching a pattern                  | `pattern`        |
-| `Grep`      | Search file contents with regex                | `pattern`        |
-| `WebFetch`  | Fetch URL content as text                      | `url`            |
-| `WebSearch` | Search the internet (requires `BRAVE_API_KEY`) | `query`          |
+| Tool              | Description                                    | Primary Argument |
+| ----------------- | ---------------------------------------------- | ---------------- |
+| `Bash`            | Execute shell commands                         | `command`        |
+| `Read`            | Read file contents with line numbers           | `filePath`       |
+| `Write`           | Write content to a file                        | `filePath`       |
+| `Edit`            | Replace a string in a file                     | `filePath`       |
+| `Glob`            | Find files matching a pattern                  | `pattern`        |
+| `Grep`            | Search file contents with regex                | `pattern`        |
+| `WebFetch`        | Fetch URL content as text                      | `url`            |
+| `WebSearch`       | Search the internet (requires `BRAVE_API_KEY`) | `query`          |
+| `AskUserQuestion` | Ask the user structured questions mid-task     | `questions`      |
 
 > **WebSearch** requires a `BRAVE_API_KEY` environment variable. Without it, the tool returns a setup message instead of results. Get a free key at [brave.com/search/api](https://brave.com/search/api/) (2,000 queries/month free tier).
 
