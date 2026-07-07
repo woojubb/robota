@@ -1578,9 +1578,6 @@ importers:
       '@robota-sdk/agent-core':
         specifier: workspace:*
         version: link:../agent-core
-      '@robota-sdk/agent-tools':
-        specifier: workspace:*
-        version: link:../agent-tools
       rimraf:
         specifier: ^5.0.10
         version: 5.0.10

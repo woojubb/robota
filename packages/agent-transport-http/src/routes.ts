@@ -2,7 +2,8 @@
  * HTTP transport adapter — exposes IInteractiveSession over REST API.
  *
  * Built on Hono for Cloudflare Workers + Node.js + AWS Lambda compatibility.
- * Each endpoint maps 1:1 to an IInteractiveSession API method.
+ * Exposes the core session methods (a subset; background-task, job-group, and
+ * execution-workspace methods are WS-only).
  */
 
 import { Hono } from 'hono';
@@ -50,7 +51,6 @@ export function createAgentRoutes(options: IAgentRoutesOptions): Hono {
         cleanup.push(() => session.off(event as 'text_delta', handler as () => void));
       };
 
-      let completed = false;
       const done = new Promise<void>((resolve) => {
         subscribe('text_delta', (delta: string) => {
           stream.writeSSE({ event: 'text_delta', data: JSON.stringify({ delta }) });
@@ -66,24 +66,26 @@ export function createAgentRoutes(options: IAgentRoutesOptions): Hono {
 
         subscribe('thinking', (isThinking: boolean) => {
           stream.writeSSE({ event: 'thinking', data: JSON.stringify({ isThinking }) });
-          if (!isThinking && completed) {
-            resolve();
-          }
         });
 
-        subscribe('complete', (result) => {
-          completed = true;
-          stream.writeSSE({ event: 'complete', data: JSON.stringify(result) });
+        subscribe('complete', async (result) => {
+          // Flush the terminal event before resolving, so the resolve → cleanup →
+          // stream-close continuation cannot race ahead of the fire-and-forget write.
+          await stream.writeSSE({ event: 'complete', data: JSON.stringify(result) });
+          resolve();
         });
 
-        subscribe('interrupted', (result) => {
-          completed = true;
-          stream.writeSSE({ event: 'interrupted', data: JSON.stringify(result) });
+        subscribe('interrupted', async (result) => {
+          await stream.writeSSE({ event: 'interrupted', data: JSON.stringify(result) });
+          resolve();
         });
 
-        subscribe('error', (error: Error) => {
-          completed = true;
-          stream.writeSSE({ event: 'error', data: JSON.stringify({ message: error.message }) });
+        subscribe('error', async (error: Error) => {
+          await stream.writeSSE({
+            event: 'error',
+            data: JSON.stringify({ message: error.message }),
+          });
+          resolve();
         });
       });
 
