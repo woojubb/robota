@@ -17,26 +17,16 @@ import {
   type TPortPayload,
 } from '@robota-sdk/dag-core';
 import {
-  createPromptBackedNodeDefinition,
-  createCompositeInstantNodeDefinition,
-  type ICreateCompositeNodeInput,
+  parsePersistedInstantNode,
+  rehydrateInstantNode,
+  isPersistableInstantNode,
   type ICompositeSubRunner,
-  type TInstantNodeProvider,
-  type IPersistableInstantNode,
-  type TPersistedInstantNode,
 } from '@robota-sdk/dag-node-instant-node';
 import { scanWorkspaceCatalog } from '@robota-sdk/dag-framework';
 import { LocalDagRunner, createCliNodeRegistry } from '../index.js';
 import { parseCodeManifest, reconstructCodeNode } from '../code-node-adapter.js';
 import { NODE_MANIFEST_EXT, nodesDir, workflowsDir } from './paths.js';
 import { safeParseJson } from '../../mcp/utils.js';
-
-/** Narrow an arbitrary node definition to one that can serialize itself for reload. */
-function asPersistable(nodeDef: IDagNodeDefinition): IPersistableInstantNode | undefined {
-  return typeof (nodeDef as Partial<IPersistableInstantNode>).toPersisted === 'function'
-    ? (nodeDef as unknown as IPersistableInstantNode)
-    : undefined;
-}
 
 /**
  * Persist a node from its own serializable manifest view. Prompt AND composite nodes; the composite
@@ -47,11 +37,10 @@ export async function saveNode(
   projectDir: string,
   layout: IWorkspaceLayout = DEFAULT_WORKSPACE_LAYOUT,
 ): Promise<void> {
-  const persistable = asPersistable(nodeDef);
-  if (!persistable) return;
+  if (!isPersistableInstantNode(nodeDef)) return;
   const dir = nodesDir(projectDir, layout);
   await mkdir(dir, { recursive: true });
-  const record = { ...persistable.toPersisted(), createdAt: new Date().toISOString() };
+  const record = { ...nodeDef.toPersisted(), createdAt: new Date().toISOString() };
   await writeFile(
     join(dir, `${nodeDef.nodeType}${NODE_MANIFEST_EXT}`),
     JSON.stringify(record, null, 2),
@@ -92,97 +81,6 @@ export function buildCompositeRunner(liveDefs: IDagNodeDefinition[]): IComposite
   };
 }
 
-function toRecordObject(value: unknown): Record<string, unknown> | null {
-  return typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : null;
-}
-
-function parsePortKeys(value: unknown): Array<{ key: string; description?: string }> | null {
-  if (!Array.isArray(value)) return null;
-  const ports = value
-    .map((p) => toRecordObject(p))
-    .filter((p): p is Record<string, unknown> => p !== null && typeof p['key'] === 'string')
-    .map((p) => ({ key: p['key'] as string }));
-  return ports.length > 0 ? ports : null;
-}
-
-/** Parse an on-disk manifest into a discriminated persisted node record. */
-function parsePersistedRecord(raw: unknown): TPersistedInstantNode | null {
-  const r = toRecordObject(raw);
-  if (!r || typeof r['nodeType'] !== 'string') return null;
-  const nodeType = r['nodeType'];
-  const displayName = typeof r['displayName'] === 'string' ? r['displayName'] : nodeType;
-
-  if (r['kind'] === 'composite') {
-    const innerDag = toRecordObject(r['innerDag']);
-    const exposedInputPort = toRecordObject(r['exposedInputPort']);
-    if (
-      !innerDag ||
-      !exposedInputPort ||
-      typeof exposedInputPort['key'] !== 'string' ||
-      !Array.isArray(r['exposedOutputPorts']) ||
-      r['exposedOutputPorts'].length === 0
-    ) {
-      return null;
-    }
-    return {
-      kind: 'composite',
-      nodeType,
-      displayName,
-      innerDag: innerDag as unknown as import('@robota-sdk/dag-core').IDagDefinition,
-      exposedInputPort:
-        exposedInputPort as unknown as ICreateCompositeNodeInput['exposedInputPort'],
-      exposedOutputPorts: r[
-        'exposedOutputPorts'
-      ] as unknown as ICreateCompositeNodeInput['exposedOutputPorts'],
-      ...(typeof r['maxDepth'] === 'number' ? { maxDepth: r['maxDepth'] } : {}),
-    };
-  }
-
-  // prompt
-  const template = r['systemPromptTemplate'];
-  if (typeof template !== 'string') return null;
-  const inputPorts = parsePortKeys(r['inputPorts']) ?? [{ key: 'text' }];
-  const outputPorts = parsePortKeys(r['outputPort'] !== undefined ? [r['outputPort']] : undefined);
-  return {
-    kind: 'prompt',
-    nodeType,
-    displayName,
-    systemPromptTemplate: template,
-    inputPorts,
-    outputPort: outputPorts ? { key: outputPorts[0].key } : { key: 'text' },
-    ...(typeof r['provider'] === 'string'
-      ? { provider: r['provider'] as TInstantNodeProvider }
-      : {}),
-    ...(typeof r['model'] === 'string' ? { model: r['model'] } : {}),
-  };
-}
-
-function reconstructNode(
-  record: TPersistedInstantNode,
-  liveDefs: IDagNodeDefinition[],
-): IDagNodeDefinition {
-  if (record.kind === 'composite') {
-    return createCompositeInstantNodeDefinition({
-      nodeType: record.nodeType,
-      displayName: record.displayName,
-      innerDag: record.innerDag,
-      exposedInputPort: record.exposedInputPort,
-      exposedOutputPorts: record.exposedOutputPorts,
-      runner: buildCompositeRunner(liveDefs),
-      ...(record.maxDepth !== undefined ? { maxDepth: record.maxDepth } : {}),
-    });
-  }
-  return createPromptBackedNodeDefinition({
-    nodeType: record.nodeType,
-    displayName: record.displayName,
-    systemPromptTemplate: record.systemPromptTemplate,
-    inputPorts: record.inputPorts,
-    outputPort: record.outputPort,
-    ...(record.provider !== undefined ? { provider: record.provider } : {}),
-    ...(record.model !== undefined ? { model: record.model } : {}),
-  });
-}
-
 /**
  * Load persisted node manifests from `.dag/nodes/*.node.json` into `liveDefs`, skipping
  * already-registered/malformed records. Per manifest `kind`: prompt/composite reconstruct from the
@@ -212,10 +110,14 @@ export async function loadNodes(
         if (def) liveDefs.push(def);
         continue;
       }
-      const record = parsePersistedRecord(raw);
+      // Instant nodes (prompt/composite) parse + rehydrate through the owner round-trip (DATA-004);
+      // dag-cli supplies only the composite sub-runner, which closes over its LocalDagRunner.
+      const record = parsePersistedInstantNode(raw);
       if (!record) continue;
       if (liveDefs.some((n) => n.nodeType === record.nodeType)) continue;
-      liveDefs.push(reconstructNode(record, liveDefs));
+      liveDefs.push(
+        rehydrateInstantNode(record, { compositeRunner: buildCompositeRunner(liveDefs) }),
+      );
     } catch {
       // allow-fallback: unreadable/unparseable/unconstructable record skipped
       continue;
