@@ -44,6 +44,7 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
+    "@robota-sdk/agent-core": "workspace:*",
     "@robota-sdk/agent-tools": "workspace:*",
     "@robota-sdk/dag-core": "workspace:*",
     "@robota-sdk/dag-node": "workspace:*",
