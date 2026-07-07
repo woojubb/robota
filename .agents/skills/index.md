@@ -61,12 +61,13 @@ Consult the relevant skill before starting work in its domain. Each entry links 
 
 ## Documentation
 
-| Skill                                                   | Description                                                                                     |
-| ------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| [documentation-refresh](documentation-refresh/SKILL.md) | Orchestrates a convergent audit→fix→re-audit loop that brings all living docs current with code |
+| Skill                                                   | Description                                                                                              |
+| ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| [documentation-refresh](documentation-refresh/SKILL.md) | Thin pipeline that re-calls doc-auditor→doc-fixer until an audit round is clean (agents hold all policy) |
 
-> **Spawnable doc agents.** The refresh loop dispatches two universal/neutral subagents (portable to
-> any codebase; they judge docs against the code, not house style): `doc-auditor`
+> **Spawnable doc agents (they hold the policy).** The refresh skill is only the loop; the judgement
+> and roles live in two universal/neutral subagents (portable to any codebase; they judge docs against
+> the code, not house style): `doc-auditor`
 > (`.claude/agents/doc-auditor.md`, read-only — enumerates every doc in scope, returns per-file
 > findings + an `ACTIONABLE FINDINGS` convergence signal) and `doc-fixer`
 > (`.claude/agents/doc-fixer.md`, edits docs only — applies a findings list, verify-before-write).
