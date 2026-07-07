@@ -13,7 +13,7 @@ flowchart TB
     FW["**agent-framework**\nInteractiveSession · CommandRegistry · createQuery()"]
     SESS["**agent-session**\nsession lifecycle · permissions · hooks · compaction"]
     EXEC["**agent-executor**\nbackground tasks · subagent lifecycle"]
-    TOOLS["**agent-tools**\nToolRegistry · createZodFunctionTool · 8 built-in CLI tools"]
+    TOOLS["**agent-tools**\nToolRegistry · createZodFunctionTool · 9 built-in CLI tools"]
     PROV["**agent-provider**\nAnthropic · OpenAI · DeepSeek · Gemini · Gemma · Qwen"]
     PLUG["**agent-plugin**\n8 official plugins"]
     CORE["**agent-core**\nFoundation · Robota engine · DI · events · plugin system"]
@@ -52,7 +52,7 @@ flowchart TB
 | Package                       | Role                                                                                                                                                                                                       | Layer        |
 | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
 | **agent-core**                | Robota engine, execution loop, provider abstraction, permissions, hooks, plugin system, model definitions (SSOT)                                                                                           | Foundation   |
-| **agent-tools**               | ToolRegistry, FunctionTool, createZodFunctionTool, 8 built-in CLI tools                                                                                                                                    | General      |
+| **agent-tools**               | ToolRegistry, FunctionTool, createZodFunctionTool, 9 built-in CLI tools                                                                                                                                    | General      |
 | **agent-session**             | Session class with permission enforcement, context tracking, compaction                                                                                                                                    | General      |
 | **agent-session-analytics**   | Session log timing analysis (LLM wait vs. tool/code time, slow intervals) — new in beta.76                                                                                                                 | Analytics    |
 | **agent-executor**            | Background task state machines, subagent manager contracts, task snapshots, watchdogs, transcript references                                                                                               | General      |
