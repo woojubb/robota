@@ -43,3 +43,13 @@ Return a structured report (no code changes):
 - **Remediation** — group findings into suggested backlog items (recommend; do not create them).
 
 State explicitly when a criterion holds rather than omitting it.
+
+End the report with the exact line `ACTIONABLE FINDINGS: <n>`, where `<n>` counts the **material**
+findings (severity blocker/high/medium). This is the convergence signal an orchestrator reads; low
+findings are polish and do not count toward it. A materially-clean pass ends with `ACTIONABLE FINDINGS: 0`.
+
+## Orchestration pairing
+
+For a recurring audit→fix→re-audit loop, this agent is the read-only half; its edit-only counterpart is
+the `architecture-fixer` agent, sequenced by the thin `architecture-refresh` skill. That skill carries no
+policy — the criteria, scoping, convergence signal, and apply discipline all live in these two agents.
