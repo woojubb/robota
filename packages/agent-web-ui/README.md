@@ -78,7 +78,7 @@ agent-web-ui (browser components)
 ## Dependencies
 
 - `react` ^18 (peer)
-- `@robota-sdk/agent-transport` (for WebSocket message types)
+- `@robota-sdk/agent-transport-ws` (for WebSocket message types)
 
 ## Links
 

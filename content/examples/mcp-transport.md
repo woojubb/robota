@@ -36,7 +36,6 @@ The server exposes `submit` plus one `command_<name>` MCP tool for each command 
 | command_clear   | `{ args?: string }`  | Clear conversation history         |
 | command_compact | `{ args?: string }`  | Compress context window            |
 | command_mode    | `{ args?: string }`  | Show/change permission mode        |
-| command_model   | `{ args?: string }`  | Change AI model                    |
 | command_context | `{ args?: string }`  | Context window info                |
 | command_resume  | `{ args?: string }`  | Resume a previous session          |
 | command_rename  | `{ args?: string }`  | Rename the current session         |

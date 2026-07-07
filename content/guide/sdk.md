@@ -68,7 +68,7 @@ Event types include: `tool-start` (individual tool execution began), `tool-end` 
 The SDK owns `CommandRegistry` and common command sources used by clients:
 
 - **`BuiltinCommandSource`** — SDK-core compatibility source; currently empty because user-visible built-ins are command modules
-- **Command modules** — product-composed built-ins such as `skills`, `help`, `clear`, `compact`, `mode`, `model`, `cost`, `context`, `permissions`, `memory`, `rewind`, `provider`, `resume`, `background`, `rename`, `plugin`, `reload-plugins`, `language`, `reset`, and `exit`; UI shells render and parse them as slash syntax
+- **Command modules** — product-composed built-ins such as `skills`, `help`, `clear`, `compact`, `mode`, `cost`, `context`, `permissions`, `memory`, `rewind`, `provider`, `resume`, `background`, `rename`, `plugin`, `reload-plugins`, `language`, `reset`, and `exit`; UI shells render and parse them as slash syntax
 - **`SkillCommandSource`** — project and user skills discovered from `.agents/skills/`, `.claude/skills/`, `.claude/commands/`, and `~/.robota/skills/`
 - **`PluginCommandSource`** — commands contributed by loaded plugins
 
@@ -397,7 +397,7 @@ standalone packages; `@robota-sdk/agent-transport` itself is a lean core that ke
 
 Each transport wraps an `InteractiveSession` instance and translates protocol messages into `submit()` / `abort()` calls, then forwards emitted events back to the client. No separate gateway interface exists — `InteractiveSession` is the gateway.
 
-All transport adapters implement the `ITransportAdapter` interface (exported from `@robota-sdk/agent-framework`), which defines a common lifecycle: `attach(session)`, `start()`, and `stop()`. Each transport package (or `agent-transport` sub-path) provides a factory function (e.g., `createHttpTransport()`, `createWsTransport()`, `createMcpTransport()`, `createHeadlessTransport()`) that returns an `ITransportAdapter`. `createHeadlessTransport()` also accepts a `createHeadlessRunner()` helper for pre-configured non-interactive execution.
+All transport adapters implement the `ITransportAdapter` interface (defined in `@robota-sdk/agent-interface-transport`), which defines a common lifecycle: `attach(session)`, `start()`, and `stop()`. Each transport package (or `agent-transport` sub-path) provides a factory function (e.g., `createHttpTransport()`, `createWsTransport()`, `createMcpTransport()`, `createHeadlessTransport()`) that returns an `ITransportAdapter`. `createHeadlessTransport()` also accepts a `createHeadlessRunner()` helper for pre-configured non-interactive execution.
 
 `agent-remote-client` is a companion package that provides an HTTP client for calling an agent exposed via `agent-transport-http`. It has no dependency on `agent-framework`.
 

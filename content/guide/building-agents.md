@@ -245,17 +245,18 @@ const response = await agent.run(
 
 `@robota-sdk/agent-tools` ships ready-to-use tools for file system operations and web access:
 
-| Tool            | Description                                             |
-| --------------- | ------------------------------------------------------- |
-| `shellTool`     | Execute host shell commands (OS-aware: bash/PowerShell) |
-| `bashTool`      | Alias of `shellTool` (model-familiar name)              |
-| `readTool`      | Read file contents with line numbers                    |
-| `writeTool`     | Write content to a file                                 |
-| `editTool`      | Replace a string in a file                              |
-| `globTool`      | Find files by glob pattern                              |
-| `grepTool`      | Search file contents with regex                         |
-| `webFetchTool`  | Fetch URL content (HTML-to-text)                        |
-| `webSearchTool` | Web search via Brave Search API                         |
+| Tool                  | Description                                             |
+| --------------------- | ------------------------------------------------------- |
+| `shellTool`           | Execute host shell commands (OS-aware: bash/PowerShell) |
+| `bashTool`            | Alias of `shellTool` (model-familiar name)              |
+| `readTool`            | Read file contents with line numbers                    |
+| `writeTool`           | Write content to a file                                 |
+| `editTool`            | Replace a string in a file                              |
+| `globTool`            | Find files by glob pattern                              |
+| `grepTool`            | Search file contents with regex                         |
+| `webFetchTool`        | Fetch URL content (HTML-to-text)                        |
+| `webSearchTool`       | Web search via Brave Search API                         |
+| `askUserQuestionTool` | Ask the user a question and wait for their answer       |
 
 These are used by `agent-framework` to assemble the CLI agent, but can also be used independently.
 

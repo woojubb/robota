@@ -3,7 +3,7 @@
 ## Scope
 
 - Owns the `file-read` DAG node definition.
-- Reads a file from the local filesystem and emits its content, resolved path, and byte size.
+- Reads a file from the local filesystem and emits its text, resolved path, and byte size.
 
 ## Boundaries
 
@@ -13,7 +13,7 @@
 
 ## Architecture Overview
 
-- `FileReadNodeDefinition` — node that accepts an optional `path` input port and produces `content`, `path`, and `sizeBytes` output ports.
+- `FileReadNodeDefinition` — node that accepts an optional `path` input port and produces `text`, `path`, and `sizeBytes` output ports.
 - Path resolution: input port value overrides the static `config.path`; `resolve(cwd, path)` is applied.
 - Encoding: `utf8` (default) or `base64`, controlled by `config.encoding`.
 - File system errors (`ENOENT`, `EACCES`) are converted to structured `TResult` failures — no unhandled exceptions.

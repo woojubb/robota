@@ -13,7 +13,7 @@
 
 ## Architecture Overview
 
-- `FileWriteNodeDefinition` — node that accepts optional `content` and `path` input ports and produces `path`, `sizeBytes`, and `appended` output ports.
+- `FileWriteNodeDefinition` — node that accepts optional `text` and `path` input ports and produces `path`, `sizeBytes`, and `appended` output ports.
 - Path resolution: input port value overrides `config.path`; `resolve(cwd, path)` is applied.
 - `config.createDirs` (default `true`): automatically creates parent directories with `mkdir -p`.
 - `config.append` (default `false`): appends to existing file instead of overwriting.
