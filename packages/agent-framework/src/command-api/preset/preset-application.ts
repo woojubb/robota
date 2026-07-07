@@ -1,6 +1,10 @@
 import { writeCommandPermissionMode } from '../permissions/permission-mode-command-api.js';
 
-import type { ICommandHostContext, IModelReapplyOptions } from '../host-context.js';
+import type {
+  ICommandHostContext,
+  IModelReapplyOptions,
+  IUnknownCommandModuleName,
+} from '../host-context.js';
 import type { TModelEffort, TPermissionMode } from '@robota-sdk/agent-core';
 
 /**
@@ -39,6 +43,12 @@ export interface IPresetApplicationResult {
   readonly applied: readonly string[];
   /** Option-group keys absent from the resolved options (left untouched). */
   readonly skipped: readonly string[];
+  /**
+   * INFRA-032: preset `enabledCommandModules`/`disabledCommandModules` names that matched no live
+   * command module. Empty when every name matched (or the group was skipped). The `/preset` command
+   * surfaces these as a non-fatal notice so an in-session switch is no longer silent.
+   */
+  readonly unknownCommandModules: readonly IUnknownCommandModuleName[];
 }
 
 /**
@@ -103,11 +113,17 @@ export async function applyPresetToSession(
 
   // PRESET-015 command-module group — re-applied via the host context's optional
   // applyCommandModuleSelection seam (re-filters the session-start module set).
-  if (options.enabledCommandModules !== undefined || options.disabledCommandModules !== undefined) {
-    context.applyCommandModuleSelection?.(
-      options.enabledCommandModules,
-      options.disabledCommandModules,
-    );
+  const hasCommandModuleSelection =
+    options.enabledCommandModules !== undefined || options.disabledCommandModules !== undefined;
+  // INFRA-032: the seam returns any names that matched no live module; run it exactly once, only
+  // when the group is present, and carry the unknowns up so `/preset` can surface a non-fatal notice.
+  const unknownCommandModules: readonly IUnknownCommandModuleName[] = hasCommandModuleSelection
+    ? (context.applyCommandModuleSelection?.(
+        options.enabledCommandModules,
+        options.disabledCommandModules,
+      ) ?? [])
+    : [];
+  if (hasCommandModuleSelection) {
     applied.push('commandModules');
   } else {
     skipped.push('commandModules');
@@ -131,5 +147,5 @@ export async function applyPresetToSession(
     skipped.push('selfVerification');
   }
 
-  return { applied, skipped };
+  return { applied, skipped, unknownCommandModules };
 }

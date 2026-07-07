@@ -39,6 +39,7 @@ import type { ICommandHostContext } from '../command-api/index.js';
 import type {
   IAgentJobHostContext,
   ICommandResult,
+  IUnknownCommandModuleName,
   TAutoCompactThresholdSource,
   TAutoCompactThreshold,
 } from '../commands/index.js';
@@ -441,12 +442,14 @@ export class InteractiveSession
   /**
    * PRESET-015: re-apply a preset's command-module selection to the live session by delegating to
    * the skill router, which re-filters the session-start module set and rebuilds the executor.
+   * INFRA-032: returns any `enabled`/`disabled` names that matched no live command module so the
+   * `/preset` command can surface them as a non-fatal notice.
    */
   applyCommandModuleSelection(
     enabled: readonly string[] | undefined,
     disabled: readonly string[] | undefined,
-  ): void {
-    this.skillRouter.reapplyCommandModuleSelection(enabled, disabled);
+  ): readonly IUnknownCommandModuleName[] {
+    return this.skillRouter.reapplyCommandModuleSelection(enabled, disabled);
   }
 
   getAgentJobCapability(): IAgentJobHostContext {

@@ -361,14 +361,14 @@ groups were `applied` vs. `skipped` (a group absent from `options` is left untou
 `IResolvedPresetOptions` satisfies **structurally** (so the framework never imports agent-preset — no
 dependency cycle). Fields and the group each drives:
 
-| Field                                               | Group / seam used                                                  |
-| --------------------------------------------------- | ------------------------------------------------------------------ |
-| `permissionMode`                                    | PRESET-012 — `writeCommandPermissionMode` seam                     |
-| `model`, `effort`, `temperature`, `maxOutputTokens` | PRESET-013 — runtime `applyModelOptions(IModelReapplyOptions)`     |
-| `persona`                                           | PRESET-014 — host `applyPersona(persona)`                          |
-| `enabledCommandModules`, `disabledCommandModules`   | PRESET-015 — host `applyCommandModuleSelection(enabled, disabled)` |
-| `enableParallelSubagents`                           | PRESET-016 — runtime `setParallelSubagentsEnabled(enabled)`        |
-| `selfVerification`                                  | PRESET-017 — host `applySelfVerification(enabled)`                 |
+| Field                                               | Group / seam used                                                                                                                                                                                    |
+| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `permissionMode`                                    | PRESET-012 — `writeCommandPermissionMode` seam                                                                                                                                                       |
+| `model`, `effort`, `temperature`, `maxOutputTokens` | PRESET-013 — runtime `applyModelOptions(IModelReapplyOptions)`                                                                                                                                       |
+| `persona`                                           | PRESET-014 — host `applyPersona(persona)`                                                                                                                                                            |
+| `enabledCommandModules`, `disabledCommandModules`   | PRESET-015 — host `applyCommandModuleSelection(enabled, disabled)` → `readonly IUnknownCommandModuleName[]` (INFRA-032: unmatched names carried on `IPresetApplicationResult.unknownCommandModules`) |
+| `enableParallelSubagents`                           | PRESET-016 — runtime `setParallelSubagentsEnabled(enabled)`                                                                                                                                          |
+| `selfVerification`                                  | PRESET-017 — host `applySelfVerification(enabled)`                                                                                                                                                   |
 
 `IPresetApplicationResult` is `{ applied: readonly string[]; skipped: readonly string[] }`.
 
@@ -405,11 +405,24 @@ verify-before-done system-prompt section with `source: 'self-verification'` at *
 `selfVerification` is true. `'self-verification'` is a member of `TSystemPromptSectionSource`.
 
 **`selectCommandModules(modules, enabled, disabled)`** — pure allow-then-deny filter for live
-command-module re-selection (deny wins over allow; neither given returns the input unchanged). It is
-the framework-owned counterpart of agent-command's `applyModuleSelection`, duplicated so the framework
-does not depend on agent-command. This is an **internal helper** consumed by the skill router; it is
-re-exported only from `src/commands/index.ts`, not from the package root (`src/index.ts`), so it is not
-part of the Public API Surface.
+command-module re-selection (deny wins over allow; neither given returns the input unchanged). This is
+the **single** framework-owned filter implementation: agent-command's `applyModuleSelection` now
+delegates to it (allowed command→framework edge, INFRA-032), so the previously byte-identical copy is
+collapsed.
+
+**`findUnknownModuleNames(availableNames, enabled?, disabled?)`** (INFRA-032) — pure detection
+primitive beside `selectCommandModules`. Returns one `{ name, kind: 'enabled' | 'disabled' }` entry
+per `enabled`/`disabled` name that is not in `availableNames` (`[]` when all match). It is the single
+source of the unmatched-name detection reused by **both** preset entry points: the startup `--preset`
+path (via agent-command's `createDefaultCommandModules`, which returns `{ modules, unknownModuleNames }`)
+and the in-session `/preset` path (via `SessionSkillRouter.reapplyCommandModuleSelection`, whose return
+threads through the host-context `applyCommandModuleSelection` seam and `IPresetApplicationResult.unknownCommandModules`
+so the `/preset` command surfaces a non-fatal notice). An unmatched name — a short form like `"editor"`
+instead of `agent-command-editor`, or a typo — is surfaced, never silently dropped.
+
+Both `selectCommandModules` and `findUnknownModuleNames` are re-exported from the package root
+(`src/index.ts`) so agent-command can reuse them, along with the shared `IUnknownCommandModuleName`
+result type.
 
 ## Provider Resolution Order
 

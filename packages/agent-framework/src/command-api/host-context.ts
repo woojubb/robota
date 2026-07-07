@@ -72,6 +72,17 @@ export interface IModelReapplyOptions {
   maxOutputTokens?: number;
 }
 
+/**
+ * A preset `enabledCommandModules`/`disabledCommandModules` name that matched no built command
+ * module (INFRA-032). Surfaced as a non-fatal notice on both the startup `--preset` path and the
+ * in-session `/preset` path instead of being silently dropped. `kind` records which list the
+ * unmatched name came from.
+ */
+export interface IUnknownCommandModuleName {
+  readonly name: string;
+  readonly kind: 'enabled' | 'disabled';
+}
+
 export interface ICommandSessionRuntime {
   clearHistory(): void;
   compact(instructions?: string): Promise<void>;
@@ -123,11 +134,15 @@ export interface ICommandHostContext {
   applyPersona?(persona: string): void;
   /** PRESET-017 — toggle the verify-before-done self-verification section on the live prompt. */
   applySelfVerification?(enabled: boolean): void;
-  /** PRESET-015 — re-apply command-module selection to the live session. */
+  /**
+   * PRESET-015 — re-apply command-module selection to the live session. Returns any
+   * `enabled`/`disabled` names that matched no live command module (INFRA-032) so the `/preset`
+   * command can surface them as a non-fatal notice; an empty array means every name matched.
+   */
   applyCommandModuleSelection?(
     enabled: readonly string[] | undefined,
     disabled: readonly string[] | undefined,
-  ): void;
+  ): readonly IUnknownCommandModuleName[];
   getContextState(): IContextWindowState;
   getAutoCompactThreshold(): TAutoCompactThreshold;
   getAutoCompactThresholdSource?(): TAutoCompactThresholdSource;

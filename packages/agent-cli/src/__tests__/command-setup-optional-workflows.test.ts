@@ -25,3 +25,27 @@ describe('buildCommandSetup — bundled /workflows (INFRA-028)', () => {
     expect(workflows[0].systemCommands?.some((c) => c.name === 'workflows')).toBe(true);
   });
 });
+
+describe('buildCommandSetup — unknown preset command-module names (INFRA-032)', () => {
+  it('forwards no unknowns when the preset selection is absent', () => {
+    const setup = buildCommandSetup('/tmp', MINIMAL_ARGS, {}, '0.0.0-test');
+    expect(setup.unknownModuleNames).toEqual([]);
+  });
+
+  it('forwards an unmatched disabled short-form name so the CLI can surface a notice', () => {
+    const setup = buildCommandSetup('/tmp', MINIMAL_ARGS, {}, '0.0.0-test', {
+      disabledCommandModules: ['editor'],
+    });
+    // "editor" is the short form; the built module name is agent-command-editor → unmatched.
+    expect(setup.unknownModuleNames).toEqual([{ name: 'editor', kind: 'disabled' }]);
+    // Non-fatal: the module set is still built and the workflows module is still present.
+    expect(setup.commandModules.length).toBeGreaterThan(0);
+  });
+
+  it('forwards no unknowns when every selection name matches a built module', () => {
+    const setup = buildCommandSetup('/tmp', MINIMAL_ARGS, {}, '0.0.0-test', {
+      disabledCommandModules: ['agent-command-editor'],
+    });
+    expect(setup.unknownModuleNames).toEqual([]);
+  });
+});

@@ -46,6 +46,8 @@ export {
   createSystemCommands,
   parseFrontmatter,
   executeSkill,
+  selectCommandModules,
+  findUnknownModuleNames,
 } from './commands/index.js';
 export type {} from './capabilities/types.js';
 export type { IOrgPolicy } from './command-api/org-policy/index.js';
@@ -63,6 +65,7 @@ export type {
   ICommandProcessAdapter,
   ICommandSessionRuntime,
   IModelReapplyOptions,
+  IUnknownCommandModuleName,
   ICommandSettingsAdapter,
   ICommandSettingsDocument,
   ICommandSkillListEntry,

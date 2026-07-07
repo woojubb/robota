@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { selectCommandModules } from '../command-module-selection.js';
+import { findUnknownModuleNames, selectCommandModules } from '../command-module-selection.js';
 import { SystemCommandExecutor } from '../system-command.js';
 
 import type { ICommandModule } from '../../command-api/index.js';
@@ -61,5 +61,36 @@ describe('selectCommandModules (PRESET-015)', () => {
   it('deny wins over allow when a module appears in both lists', () => {
     const selected = selectCommandModules(ALL_MODULES, ['alpha', 'beta'], ['beta']);
     expect(selected.map((module) => module.name)).toEqual(['alpha']);
+  });
+});
+
+describe('findUnknownModuleNames (INFRA-032)', () => {
+  const AVAILABLE = ['alpha', 'beta'] as const;
+
+  it('returns [] when every enabled/disabled name matches an available name', () => {
+    expect(findUnknownModuleNames(AVAILABLE, ['alpha'], ['beta'])).toEqual([]);
+  });
+
+  it('returns [] when neither list is given', () => {
+    expect(findUnknownModuleNames(AVAILABLE)).toEqual([]);
+  });
+
+  it('reports one entry per unmatched enabled name with kind "enabled"', () => {
+    expect(findUnknownModuleNames(AVAILABLE, ['alpha', 'nope'], undefined)).toEqual([
+      { name: 'nope', kind: 'enabled' },
+    ]);
+  });
+
+  it('reports one entry per unmatched disabled name with kind "disabled"', () => {
+    expect(findUnknownModuleNames(AVAILABLE, undefined, ['editor'])).toEqual([
+      { name: 'editor', kind: 'disabled' },
+    ]);
+  });
+
+  it('reports unmatched names from both lists, tagged by their kind', () => {
+    expect(findUnknownModuleNames(AVAILABLE, ['x'], ['y'])).toEqual([
+      { name: 'x', kind: 'enabled' },
+      { name: 'y', kind: 'disabled' },
+    ]);
   });
 });

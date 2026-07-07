@@ -251,9 +251,28 @@ describe('applyPresetToSession command-module group (PRESET-015)', () => {
   it('TC-06: context without applyCommandModuleSelection still applies safely (optional chaining)', async () => {
     const { context, spies } = createContext(true, true, true, false);
     expect(spies.applyCommandModuleSelection).toBeUndefined();
-    await expect(
-      applyPresetToSession(context, 'careful-reviewer', { enabledCommandModules: ['a'] }),
-    ).resolves.toBeDefined();
+    const result = await applyPresetToSession(context, 'careful-reviewer', {
+      enabledCommandModules: ['a'],
+    });
+    // Optional seam absent → no unknowns can be detected; the field is an empty array, not missing.
+    expect(result.unknownCommandModules).toEqual([]);
+  });
+
+  it('INFRA-032: unknowns returned by the seam are carried on result.unknownCommandModules', async () => {
+    const { context, spies } = createContext();
+    spies.applyCommandModuleSelection?.mockReturnValue([{ name: 'editor', kind: 'disabled' }]);
+    const result = await applyPresetToSession(context, 'careful-reviewer', {
+      disabledCommandModules: ['editor'],
+    });
+    expect(result.unknownCommandModules).toEqual([{ name: 'editor', kind: 'disabled' }]);
+    // Non-fatal: the group is still reported as applied.
+    expect(result.applied).toContain('commandModules');
+  });
+
+  it('INFRA-032: command-module group skipped → unknownCommandModules is empty', async () => {
+    const { context } = createContext();
+    const result = await applyPresetToSession(context, 'x', {});
+    expect(result.unknownCommandModules).toEqual([]);
   });
 });
 
