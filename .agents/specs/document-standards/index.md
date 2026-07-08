@@ -92,6 +92,15 @@ gaps named), **gap** (type not yet defined).
   agents — classification is by `signal:`-field presence, never tool scope), plus skills-index
   registration, are all mechanized by the guard. The separate prose "agent-definition template" INFRA-030
   had listed as a follow-on is **retracted**: the guard supersedes it as the enforced form.
+  **Neutrality is a required authored property, not a nicety.** Every agent/skill MUST be universal and
+  neutral — it judges by timeless, portable principles and treats the host repo's rules/specs as _optional
+  drift-check context supplied at call time_, never as baked-in policy. Its policy body MUST NOT hardcode
+  project-specific package names, paths, or house conventions (a role that only works in this repo is
+  mis-scoped). `capability-scout` flags non-neutral roles at decomposition, `proposal-reviewer` checks
+  neutrality at the approval gate, and `agent-skill-author` must emit neutral definitions. This property is
+  **semantic**, so it is review-enforced rather than fully mechanizable; a lexical warning (e.g. flagging
+  `@robota-sdk/`/`packages/<name>` tokens inside an agent's policy sections) is a reasonable future
+  tripwire but cannot be the sole gate (legitimate call-time examples would false-positive).
 - **Thin orchestration skill → partial** (`INFRA-030`). **Identity/Altitude:** a harness-asset contract
   for a `SKILL.md` that is PURE PIPELINE — it only sequences agents and reacts to their terminal
   machine-signal, holding no domain judgement itself (that lives in the agents). NOT a design doc.

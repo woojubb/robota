@@ -38,6 +38,11 @@ Concretely, for each agent file you write:
 4. **Registration.** The agent's `name` is referenced in `.agents/skills/index.md` (registered, not
    orphaned). For a thin skill, register it in the same index and keep it pipeline-only (no policy — all
    judgement lives in the agents it sequences), mirroring `architecture-refresh`.
+5. **Neutrality.** Every definition you emit MUST be universal and neutral — it judges by timeless,
+   portable principles and takes the host repo's rules/specs as _optional call-time context_, never as
+   baked-in policy. Do NOT hardcode project-specific package names, paths, or house conventions in a role's
+   policy body (a role that only works in this repo is mis-scoped). If the endorsed decomposition would
+   require a non-neutral role, stop and report rather than emit it.
 
 After writing, **re-run the guard yourself** (`node scripts/harness/check-agent-def-convention.mjs`, or
 the aggregated `pnpm harness:scan`) and do not consider a file done until it is green. The guard PASS —

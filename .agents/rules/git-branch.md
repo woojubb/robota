@@ -125,6 +125,27 @@ after confirming the branch is merged:
 keeps `develop`/`main` the only standing branches. The safe per-branch delete (never the merge-time
 `--delete-branch`) avoids the incident that deleted the `develop` integration branch.
 
+### Merge Landing Verification (mandatory)
+
+A merge is not "done" the moment `gh pr merge` returns. **Independently verify the merge actually landed
+before treating the work as complete** — the merge command can report success while the change is absent
+from the target's remote head, or while a required CI gate was still red (a red-`quality` PR has merged
+before). After every merge:
+
+1. Confirm the PR state is `MERGED` and its merge commit is on the **target branch's remote head**
+   (`origin/<target>`), not just locally.
+2. Confirm the changes the PR claimed are actually present on `origin/<target>` (spot-check the key
+   files/symbols), and that no unrelated drift was swept in.
+3. Confirm the required CI gates were green (explicitly check `quality`/build — do not treat "pending" or
+   "not-required-skipped" as pass).
+4. **Verify each hop of a multi-hop flow** (e.g. feature→develop→main): the landing check runs after every
+   hop, not only the last.
+
+The read-only `merge-verifier` agent (`.claude/agents/merge-verifier.md`, signal `MERGE VERIFIED`) is the
+mechanism for this check; dispatch it after a merge rather than eyeballing. **Why:** a PR merged despite a
+red quality gate and shipped a broken build to `main` (DATA-005); "the merge command succeeded" is not
+evidence the change landed correctly.
+
 ### Post-Merge Branch Cycle (mandatory)
 
 After a branch is merged, follow this exact cycle to start the next feature branch from a correct base:

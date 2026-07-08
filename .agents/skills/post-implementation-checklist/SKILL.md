@@ -131,3 +131,6 @@ For small changes (1-2 packages, no new features):
 - NEVER deploy docs without building first
 - content/v2.0.0/ is frozen — never modify
 - Cloudflare Pages production docs deploy from `main`; manual direct upload requires explicit intent
+- After a merge, the work is not "done" until the merge is **independently verified as landed** on the
+  target's remote head with the required CI gates green and no drift — see the "Merge Landing Verification"
+  rule in [git-branch.md](../../rules/git-branch.md) (dispatch the `merge-verifier` agent; verify each hop)
