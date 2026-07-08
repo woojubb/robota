@@ -25,7 +25,11 @@ single-responsibility step skills; it does not itself extract graphs, judge clai
 
 1. **Mechanical baseline.** Run `pnpm harness:conformance` (dependency-direction + workspace-package-name
    guard) and `pnpm harness:scan`. Capture both verbatim. This is the deterministic floor — no human
-   judgement. See [dependency-graph-extraction](../dependency-graph-extraction/SKILL.md).
+   judgement. See [dependency-graph-extraction](../dependency-graph-extraction/SKILL.md). **A green baseline
+   is a floor, not a ceiling:** several guards assert only that referenced _names/tokens_ exist, not that a
+   documented _edge/shape/direction_ is real (see [harness-governance](../harness-governance/SKILL.md)
+   "Assert the relation, not a proxy"). Treat guard **coverage gaps** — a boundary the audit can violate
+   that no guard catches — as first-class findings, and recommend the relation-asserting guard in step 4.
 2. **Per-document verification.** For each canonical architecture document (the set in
    [doc-claim-verification](../doc-claim-verification/SKILL.md) > Canonical Document Set), assign every
    checkable claim a verdict via [doc-claim-verification](../doc-claim-verification/SKILL.md).

@@ -110,6 +110,14 @@ startup. Any push with modified or staged uncommitted files is blocked with exit
 - If a backlog is too large, split it into explicitly named work units before implementation; each
   work unit must have its own recommendation gate.
 - Do not combine unrelated backlogs in one PR.
+- **Sequence by relatedness.** Decide the execution shape from whether items share files or contracts:
+  items that touch the **same files/contracts are related — serialize them** (one ordered unit, or
+  sequential PRs on the same seam) so reviews and merges do not interleave or conflict. Items that are
+  **genuinely disjoint are unrelated — deliver them as separate PR units** and let their read-only work
+  (audits, reviews, independent analyses) fan out in parallel. Parallelism applies to that read-only
+  fan-out and to independent PR _units_, **not** to concurrently-open feature branches — the
+  [One-Branch-At-A-Time rule](git-branch.md) still holds: branches are created and merged one at a time
+  to avoid divergence. So: related → serial; unrelated → separate units, still merged in sequence.
 - Every PR description must include the accepted recommendation, rationale, implementation summary,
   tests run, user execution test scenario gate result or not-applicable reason, and residual risks.
 
