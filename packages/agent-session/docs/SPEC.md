@@ -11,10 +11,14 @@ Owns the CLI session lifecycle for the Robota SDK. This package provides the `Se
 - Does not own system prompt building. Accepts a pre-built `systemMessage` string.
 - Does not own configuration resolution or context loading. Those belong to `agent-framework`.
 - Does not own the permission evaluation algorithm or hook execution engine. Those belong to `@robota-sdk/agent-core` (`evaluatePermission`, `runHooks`).
-- **Owns the session persistence port.** `SessionStore` and `ISessionRecord` are the SSOT for
-  conversation session persistence contracts. Storage adapters implement these interfaces; the port
-  interface must not be duplicated in other packages. Consumers obtain a session store through SDK
-  facades (`createProjectSessionStore`) rather than constructing `SessionStore` directly.
+- **Owns the storage-neutral persistence primitive.** `SessionStore` and `ISessionRecord` are the
+  SSOT for the storage-neutral conversation persistence primitive — opaque payloads with no typed
+  resumable-session shape. Storage adapters implement these interfaces. The **typed
+  resumable-session contract** (`IInteractiveSessionRecord` / `IInteractiveSessionStore`), which the
+  consumer-facing store actually returns, is owned by `@robota-sdk/agent-interface-transport`
+  (DATA-001) and adapted by `agent-framework`; it is not duplicated here. Consumers obtain a session
+  store through SDK facades (`createProjectSessionStore`) rather than constructing `SessionStore`
+  directly.
 
 ## Architecture Overview
 
@@ -88,36 +92,38 @@ Types consumed from other packages (not owned here):
 
 ## Public API Surface
 
-| Export                           | Kind                 | Description                                                                                                                                                                          |
-| -------------------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `Session`                        | Class                | Wraps Robota agent with permissions, hooks, streaming, and persistence                                                                                                               |
-| `PermissionEnforcer`             | Class                | Tool permission checking, hook execution, output truncation                                                                                                                          |
-| `ContextWindowTracker`           | Class                | Token usage tracking and auto-compact threshold                                                                                                                                      |
-| `CompactionOrchestrator`         | Class                | Conversation compaction via LLM summary                                                                                                                                              |
-| `CompactionError`                | Class                | Thrown when a compaction summary is invalid — history is preserved untouched (see Compaction Failure Contract)                                                                       |
-| `SessionStore`                   | Class                | JSON file persistence for session records (`~/.robota/sessions/`)                                                                                                                    |
-| `FileSessionLogger`              | Class                | JSONL file-based session event logger                                                                                                                                                |
-| `SilentSessionLogger`            | Class                | No-op session logger                                                                                                                                                                 |
-| `ISessionOptions`                | Interface            | Constructor options for Session                                                                                                                                                      |
-| `ISessionShutdownOptions`        | Interface            | Graceful shutdown options for `Session.shutdown()`                                                                                                                                   |
-| `TAutoCompactThreshold`          | Type                 | Auto-compact threshold fraction, or `false` to disable automatic compaction                                                                                                          |
-| `TPermissionHandler`             | Type                 | Custom permission approval callback                                                                                                                                                  |
-| `TPermissionResult`              | Type                 | Permission decision result                                                                                                                                                           |
-| `ITerminalOutput`                | Interface            | Terminal I/O abstraction                                                                                                                                                             |
-| `ISpinner`                       | Interface            | Spinner handle                                                                                                                                                                       |
-| ~~`IPermissionEnforcerOptions`~~ | Interface (internal) | Options for constructing `PermissionEnforcer` — **not exported** from `src/index.ts`. Internal to the package.                                                                       |
-| `ISessionLogger`                 | Interface            | Pluggable session event logger interface                                                                                                                                             |
-| `TSessionLogData`                | Type                 | Structured log event data                                                                                                                                                            |
-| `ISessionRecord`                 | Interface            | Persisted session record shape                                                                                                                                                       |
-| `ISessionStore`                  | Interface            | Minimal persistence port consumed by `Session`; implemented by `SessionStore`                                                                                                        |
-| `ICompactEvent`                  | Interface            | Compaction event payload — SSOT moved to `@robota-sdk/agent-interface-transport` (INFRA-025); this package imports it and no longer re-exports it                                    |
-| `TCompactTrigger`                | Type                 | Discriminator for what triggered a compaction (e.g. auto vs manual) — SSOT in `@robota-sdk/agent-interface-transport` (INFRA-025); this package imports it and does not re-export it |
-| `AUTO_COMPACT_THRESHOLD`         | Constant             | Default auto-compact threshold fraction of the context window (exported from `context-window-tracker.ts`)                                                                            |
-| `SESSION_LOG_EVENT`              | Constant             | Session log event-name enum object (`session-log-events.ts`)                                                                                                                         |
-| `isSessionLogEvent`              | Function             | Type guard for a `TSessionLogEventName`                                                                                                                                              |
-| `loadSessionLogEntries`          | Function             | Loads and parses persisted session log entries from a JSONL file                                                                                                                     |
-| `ISessionLogEntry`               | Interface            | One parsed session log entry (`session-log-replay.ts`)                                                                                                                               |
-| `ISessionReplayValidationResult` | Interface            | Result of validating a session replay log for integrity                                                                                                                              |
+| Export                           | Kind                 | Description                                                                                                    |
+| -------------------------------- | -------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `Session`                        | Class                | Wraps Robota agent with permissions, hooks, streaming, and persistence                                         |
+| `PermissionEnforcer`             | Class                | Tool permission checking, hook execution, output truncation                                                    |
+| `ContextWindowTracker`           | Class                | Token usage tracking and auto-compact threshold                                                                |
+| `CompactionOrchestrator`         | Class                | Conversation compaction via LLM summary                                                                        |
+| `CompactionError`                | Class                | Thrown when a compaction summary is invalid — history is preserved untouched (see Compaction Failure Contract) |
+| `SessionStore`                   | Class                | JSON file persistence for session records (`~/.robota/sessions/`)                                              |
+| `FileSessionLogger`              | Class                | JSONL file-based session event logger                                                                          |
+| `SilentSessionLogger`            | Class                | No-op session logger                                                                                           |
+| `ISessionOptions`                | Interface            | Constructor options for Session                                                                                |
+| `ISessionShutdownOptions`        | Interface            | Graceful shutdown options for `Session.shutdown()`                                                             |
+| `TAutoCompactThreshold`          | Type                 | Auto-compact threshold fraction, or `false` to disable automatic compaction                                    |
+| `TPermissionHandler`             | Type                 | Custom permission approval callback                                                                            |
+| `TPermissionResult`              | Type                 | Permission decision result                                                                                     |
+| `ITerminalOutput`                | Interface            | Terminal I/O abstraction                                                                                       |
+| `ISpinner`                       | Interface            | Spinner handle                                                                                                 |
+| ~~`IPermissionEnforcerOptions`~~ | Interface (internal) | Options for constructing `PermissionEnforcer` — **not exported** from `src/index.ts`. Internal to the package. |
+| `ISessionLogger`                 | Interface            | Pluggable session event logger interface                                                                       |
+| `TSessionLogData`                | Type                 | Structured log event data                                                                                      |
+| `ISessionRecord`                 | Interface            | Persisted session record shape                                                                                 |
+| `ISessionStore`                  | Interface            | Minimal persistence port consumed by `Session`; implemented by `SessionStore`                                  |
+| `AUTO_COMPACT_THRESHOLD`         | Constant             | Default auto-compact threshold fraction of the context window (exported from `context-window-tracker.ts`)      |
+| `SESSION_LOG_EVENT`              | Constant             | Session log event-name enum object (`session-log-events.ts`)                                                   |
+| `isSessionLogEvent`              | Function             | Type guard for a `TSessionLogEventName`                                                                        |
+| `loadSessionLogEntries`          | Function             | Loads and parses persisted session log entries from a JSONL file                                               |
+| `ISessionLogEntry`               | Interface            | One parsed session log entry (`session-log-replay.ts`)                                                         |
+| `ISessionReplayValidationResult` | Interface            | Result of validating a session replay log for integrity                                                        |
+
+`ICompactEvent` and `TCompactTrigger` are **not** part of the public API surface. Their SSOT is
+`@robota-sdk/agent-interface-transport` (INFRA-025); `src/session-types.ts` re-exports them
+intra-package for internal use, but they are not surfaced on the public `src/index.ts`.
 
 ### Session Constructor — sessionId Parameter
 

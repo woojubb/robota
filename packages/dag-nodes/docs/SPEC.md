@@ -4,6 +4,10 @@
 
 - Node package layout and node definition delivery conventions.
 - Per-node packages export `IDagNodeDefinition` implementations.
+- Node packages depend on `dag-core`/`dag-node`; several also consume the `agent-*` subsystem
+  one-way — `agent-core`/`agent-provider` (LLM-text, image, video, instant-node families),
+  `agent-tools` (tool node), and `agent-framework`/`agent-interface-transport` (skill node). This
+  DAG→agent dependency is one-directional; no `agent-*` package depends back on any DAG package.
 
 ## Naming
 

@@ -9,17 +9,18 @@ Back to [System Architecture Map](../ARCHITECTURE-MAP.md) | [agent-system.md](ag
 ## Package Inventory
 
 The transport layer is **five separate packages**, not one package with subpaths. `agent-transport`
-itself exports only `.`, `./headless`, and `./testing`; each protocol adapter (TUI, WS, HTTP, MCP)
+itself exports only `.`, `./headless`, `./testing`, and `./programmatic`; each protocol adapter (TUI, WS, HTTP, MCP)
 is its own `@robota-sdk/agent-transport-*` package. Packages must never cross-import each other.
 
-| Package                | Subpath / Entry   | Protocol / Purpose                                                     | React/Ink              | Consumers                                                       |
-| ---------------------- | ----------------- | ---------------------------------------------------------------------- | ---------------------- | --------------------------------------------------------------- |
-| `agent-transport`      | `./headless`      | Non-interactive print mode — text/JSON/stream output                   | No                     | `agent-cli` print mode (`runPrintMode`), provider setup prompts |
-| `agent-transport`      | `.` / `./testing` | `TransportRegistry` contract surface + testing doubles                 | No                     | Shared registry/testing imports                                 |
-| `agent-transport-http` | `.`               | Hono-based REST adapter                                                | No                     | `apps/agent-server` HTTP composition                            |
-| `agent-transport-ws`   | `.`               | WebSocket real-time adapter                                            | No                     | `agent-web-ui` (`useWsSession`), sidecar server (planned)       |
-| `agent-transport-mcp`  | `.`               | MCP **server** adapter — exposes `InteractiveSession` as an MCP server | No                     | External MCP clients connecting to a Robota session             |
-| `agent-transport-tui`  | `.`               | Ink/React terminal TUI — full interactive CLI                          | Yes (React 19 + Ink 7) | `agent-cli` interactive mode (`runTuiMode`)                     |
+| Package                | Subpath / Entry   | Protocol / Purpose                                                                      | React/Ink              | Consumers                                                       |
+| ---------------------- | ----------------- | --------------------------------------------------------------------------------------- | ---------------------- | --------------------------------------------------------------- |
+| `agent-transport`      | `./headless`      | Non-interactive print mode — text/JSON/stream output                                    | No                     | `agent-cli` print mode (`runPrintMode`), provider setup prompts |
+| `agent-transport`      | `.` / `./testing` | `TransportRegistry` contract surface + testing doubles                                  | No                     | Shared registry/testing imports                                 |
+| `agent-transport`      | `./programmatic`  | Programmatic agent driver (`createProgrammaticAgent`, `ProgrammaticInteractionChannel`) | No                     | Non-interactive programmatic session consumers                  |
+| `agent-transport-http` | `.`               | Hono-based REST adapter                                                                 | No                     | `apps/agent-server` HTTP composition                            |
+| `agent-transport-ws`   | `.`               | WebSocket real-time adapter                                                             | No                     | `agent-web-ui` (`useWsSession`), sidecar server (planned)       |
+| `agent-transport-mcp`  | `.`               | MCP **server** adapter — exposes `InteractiveSession` as an MCP server                  | No                     | External MCP clients connecting to a Robota session             |
+| `agent-transport-tui`  | `.`               | Ink/React terminal TUI — full interactive CLI                                           | Yes (React 19 + Ink 7) | `agent-cli` interactive mode (`runTuiMode`)                     |
 
 The `agent-transport` root export (`.`) surfaces the `TransportRegistry` contract. Application code
 imports the specific transport package (`@robota-sdk/agent-transport-{tui,ws,http,mcp}`) or the
@@ -53,7 +54,6 @@ flowchart TD
   TransportTui --> Core
   TransportTui --> IfaceTui
   IfaceTransport --> Core
-  IfaceTui --> Core
 ```
 
 **Assembly ↔ Transport bidirectional edge**: `agent-framework` exposes `InteractiveSession` (an
@@ -110,8 +110,8 @@ consume them.
 (`packages/agent-transport-tui/src/tui-cli-adapter.ts`).
 
 `agent-interface-tui` has **zero workspace dependencies** — not even `agent-core`.
-`agent-interface-transport` has **type-only** dependencies on `agent-core`, `agent-executor`, and
-`agent-session` (zero emitted-JS runtime deps), consistent with the diamond diagram above
+`agent-interface-transport` has a **type-only** dependency on `agent-core`
+(zero emitted-JS runtime deps), consistent with the diamond diagram above
 (`IfaceTransport --> Core`). See
 [cross-cutting-contracts.md](cross-cutting-contracts.md) for the full contract index.
 

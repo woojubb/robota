@@ -12,8 +12,8 @@ renderers (which live in `agent-transport-tui`).
 
 - **Contains only type contracts — no runtime functions, no implementation, no UI, no React.**
 - Depends on nothing (`@robota-sdk/agent-core` is not required; TUI contracts are UI-layer only).
-- Implementation rendering lives in `agent-transport/src/tui`.
-- `agent-framework` uses these contracts to describe TUI interaction requirements for command modules.
+- Implementation rendering lives in the `agent-transport-tui` package.
+- `agent-transport-tui` uses these contracts to describe TUI interaction requirements for command modules.
 
 ## Architecture Overview
 

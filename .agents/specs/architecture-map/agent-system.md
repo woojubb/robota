@@ -21,7 +21,7 @@ flowchart TD
   Providers["agent-provider\nprovider definitions + transports"]
   SubagentRunner["agent-subagent-runner\nChildProcessSubagentRunner + worker\n(optional — install only when needed)"]
   Plugins["agent-plugin\nplugin layer (event, logging, usage, etc.)"]
-  IfaceTransport["agent-interface-transport\ntransport type contracts (ZERO deps)"]
+  IfaceTransport["agent-interface-transport\ntransport + session/storage/usage/workspace/command/event contracts (DATA-001)\n(type-only agent-core dep)"]
   IfaceTui["agent-interface-tui\nTUI type contracts (ZERO deps)"]
 
   AgentCLI --> TuiTransport
