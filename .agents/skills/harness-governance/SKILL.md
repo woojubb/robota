@@ -53,6 +53,15 @@ When you add a mechanical guard (a scan/check that enforces an invariant):
    cover it, and do NOT drop the finding.
 3. Widening the guard's scope is itself a change that needs its own justification — handle it deliberately,
    not as a side effect of an unrelated run.
+4. **Assert the relation, not a proxy for it.** A guard must verify the actual relation it claims to
+   enforce — a dependency _edge_, a contract _shape_, a direction, a round-trip — not merely that a
+   referenced _name/token exists_. Token-existence checks give false confidence: a doc can name real
+   packages while stating a dependency edge that does not exist, and two differently-named contracts can be
+   structurally identical while every name-level check passes. If the true relation is hard to check
+   mechanically, either check the closest verifiable proxy **and say so explicitly** (state what it does and
+   does not catch), or record the gap as a backlog item — never let a name-existence pass masquerade as
+   relation conformance. When a guard's stated intent and its actual scan target diverge (e.g. the docstring
+   names one package but the code scans another), that is itself a defect to fix.
 
 ## Stop Conditions
 
