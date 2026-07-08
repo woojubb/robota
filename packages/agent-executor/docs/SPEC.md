@@ -21,15 +21,16 @@ This package is a composable material layer. It provides stateful runtime servic
 
 - Does not create sessions, tools, prompts, child processes (except via `createManagedShellProcessRunner`), Git worktrees, transports, or TUI state.
 - Does not read config files or project context.
-- Does not import `agent-sdk`, `agent-sessions`, `agent-tools`, provider packages, or `agent-cli`.
+- Does not import `agent-framework`, `agent-session`, `agent-tools`, provider packages, or `agent-cli`.
 - Provider factory helpers (`src/providers/`) depend only on `@robota-sdk/agent-core` provider definitions; they do not import provider-specific packages.
 - Concrete I/O belongs in adapters owned by runtime shells or dedicated adapter packages.
 - SDK assembly may re-export this package for compatibility, but this package remains the SSOT for runtime lifecycle contracts.
-- **Layer position — below agent-sessions.** `agent-sessions` may consume agent-executor services;
-  agent-executor must never depend on agent-sessions. Dependency direction is strictly upward:
-  `agent-core` ← `agent-executor` ← `agent-sessions` ← `agent-sdk`.
+- **Layer position — below agent-framework.** `agent-framework` consumes agent-executor services;
+  agent-executor must never depend on agent-framework. `agent-session` does **not** depend on
+  agent-executor. Dependency direction is strictly upward:
+  `agent-core` ← `agent-executor` ← `agent-framework`.
 - **Contract stability.** Public API shapes are stable runtime lifecycle contracts. Higher-layer
-  packages (`agent-sessions`, `agent-sdk`) depend on these contracts. Breaking changes to the
+  packages (`agent-framework`) depend on these contracts. Breaking changes to the
   public API surface require coordinating all consumers before merging.
 
 ## Architecture Overview
@@ -334,7 +335,7 @@ For non-worktree requests it delegates unchanged. For `isolation: 'worktree'` it
 
 ## Package Integration
 
-- `agent-sdk` imports this package and composes it with config/context/session assembly.
+- `agent-framework` imports this package and composes it with config/context/session assembly.
 - `agent-cli` injects concrete adapters such as child-process runners and Git worktree adapters through SDK/runtime ports.
 - Transport packages consume task events and controls but do not own task transitions.
 
@@ -373,7 +374,7 @@ Provider factory functions (`normalizeProviderConfig`, `resolveProfileApiKey`, `
 
 Cross-package port consumers:
 
-- `agent-sdk` consumes `SubagentManager`, `IBackgroundTaskRunner`, `ISubagentRunner`, and `TBackgroundTaskEvent`.
+- `agent-framework` consumes `SubagentManager`, `IBackgroundTaskRunner`, `ISubagentRunner`, and `TBackgroundTaskEvent`.
 - `agent-cli` consumes runtime contracts through SDK re-exports and implements concrete child-process/Git adapters.
 - Transport packages consume task events and control APIs through SDK `InteractiveSession`.
 

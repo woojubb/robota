@@ -69,9 +69,11 @@ consumer for any payload/application domain:
   STT/TTS adapters are app-domain contracts (TRANS-001 rescope) — libraries ship content-neutral
   mechanics that any domain can carry.
 - `apps/` is the product tier and plays by product rules (opinionated UX, domain concepts, its own
-  prompts). `examples/` may likewise be full products — that is their job. `packages/agent-cli` is
-  the sanctioned reference product assembled FROM the libraries (its preset/persona surface is
-  product behavior, not library behavior).
+  prompts). `examples/` may likewise be full products — that is their job. A small **product-shell
+  tier lives in `packages/`** and is exempt from library neutrality: `packages/agent-cli` (the
+  published reference product), `packages/agent-playground`, and `packages/agent-web-ui` (both
+  `private` product shells). These are sanctioned products assembled FROM the libraries — their
+  preset/persona/UI surfaces are product behavior, not library behavior.
 
 When a use case seems to need a domain feature in a library, the answer is: verify the neutral
 ingredients exist, then show the assembly in `examples/` or a guide.
@@ -121,7 +123,7 @@ the contract between the session runtime and transport implementations.
 - `TActionRequest` / `TActionResponse` — the disambiguation dialog protocol (permission prompts)
 - `createInteractiveRuntime` — the factory that wires `IInteractionChannel` ↔ `InteractiveSession`
 
-The transport packages own concrete implementations: `TuiInteractionChannel` (TUI mode, in `agent-transport-tui`) and `HeadlessInteractionChannel` (print mode, in `agent-transport` core). Neither class implements `IInteractionChannel` directly if doing so would lose access to session events outside the `InteractionEvent` union.
+The transport packages own concrete implementations: `TuiInteractionChannel` (TUI mode, in `agent-transport-tui`) and `HeadlessInteractionChannel` (print mode, in `agent-transport` core). `TuiInteractionChannel` implements `IInteractionChannel` directly; `HeadlessInteractionChannel` does not, because doing so would lose access to session events outside the `InteractionEvent` union.
 
 ## Command Package Rule
 
@@ -132,8 +134,8 @@ User-visible internal commands belong in `agent-command` or command-module owner
 `agent-interface-*` packages contain **only type contracts and interfaces — no implementation**.
 They are the SSOT for cross-cutting contracts shared between implementation families.
 
-- `agent-interface-transport` — transport contracts (`ITransportAdapter`, `IConfigurableTransport`, `ITransportConfig`)
-- `agent-interface-tui` — TUI interaction contracts (`ITuiPickerItem`, `ITuiCommandInteraction`, `ITuiPickerInteraction`, `ITuiConfirmInteraction`, `TAnyTuiCommandInteraction`)
+- `agent-interface-transport` — transport contracts (`ITransportAdapter`, `IConfigurableTransport`, `ITransportConfig`) plus, post-DATA-001, the session (`IInteractiveSessionRecord`/`Store`, `IInteractiveSession`), workspace (`IExecutionWorkspace*`), command (`ICommand`/`ICommandResult`), event (`InteractionEvent`, session-event payloads), and usage (`IBackgroundTaskUsage`) contract families
+- `agent-interface-tui` — TUI interaction contracts (`ITuiPickerItem`, `ITuiCommandInteraction`, `ITuiPickerInteraction`, `ITuiConfirmInteraction`, `TAnyTuiCommandInteraction`, `TOnMissingArgsAction`)
 - Future: `agent-interface-provider`, `agent-interface-plugin` if those families need isolated contracts
 
 Rules:
@@ -142,7 +144,8 @@ Rules:
 - An `agent-interface-*` package's internal dependencies are a subset of `{agent-core}` —
   contracts never depend on implementation packages (INFRA-025; mechanized as the
   `INTERFACE-DEPS` rule in the `deps` scan). `agent-interface-transport` owns the
-  background-task/subagent/compaction data contracts; `agent-executor`/`agent-session` import
+  background-task/subagent/compaction data contracts and, post-DATA-001, the
+  session/workspace/command/event/usage contract families; `agent-executor`/`agent-session` import
   them and keep only runtime SPI.
 - Implementation packages (`agent-transport` with subpath `/headless`; the per-concern `agent-transport-tui` / `-ws` / `-http` / `-mcp` packages; `agent-provider` with subpaths `/anthropic`, `/openai`, etc.; `agent-command`) depend on the corresponding `agent-interface-*` package, not on `agent-framework`, for interface types. The transport-facing contract types (command, interaction, event, workspace, session, and transport contracts) live in `agent-interface-transport` as their SSOT (per INFRA-010). This is **mechanically enforced** by `scripts/harness/check-interface-imports.mjs` (wired into `pnpm harness:scan` as the `interface-imports` scan): any implementation package that imports an `agent-interface-transport`-exported symbol from `@robota-sdk/agent-framework` fails the gate. Runtime values and framework-owned types (e.g. `TInteractiveSessionOptions`, `ICommandHostContext`, `ICommandModule`, `TSettingsData`) still come from `agent-framework`.
 - `agent-framework` depends on the `agent-interface-transport` package to consume the contracts it needs (it does not depend on `agent-interface-tui`, which only `agent-transport-tui` consumes).
