@@ -10,6 +10,7 @@ Back to [System Architecture Map](../ARCHITECTURE-MAP.md).
 flowchart TD
   ProductShells["Product shells\nagent-cli, apps/agent-web, docs, blog"]
   Playground["Product app\nagent-playground"]
+  WebUi["Product app\nagent-web-ui\n(type-only edges)"]
   Assembly["Assembly/API layers\nagent-framework, apps/agent-server"]
   Preset["Preset/option data\nagent-preset (named option bundles + resolvePreset)"]
   TransportShells["Transport shells\nagent-transport (+ /headless), agent-transport-tui, agent-transport-ws,\nagent-transport-http, agent-transport-mcp"]
@@ -45,6 +46,8 @@ flowchart TD
   Playground --> Domain
   Playground --> Adapters
   Playground --> Orchestration
+  WebUi --> TypeContracts
+  WebUi --> TransportShells
 ```
 
 `ProductShells → Adapters` is composition-root wiring only. A product shell may construct or select
@@ -55,8 +58,8 @@ See [capability-placement.md](capability-placement.md).
 assembly-level object) which transports consume, while Assembly registers transport adapters.
 
 `agent-subagent-runner` is opt-in: install only when child-process subagent support is needed.
-It depends on agent-core, agent-framework, agent-executor, and agent-provider but must not import
-from agent-command or agent-cli.
+It depends on agent-core, agent-framework, agent-executor, agent-provider, agent-interface-transport,
+and agent-process but must not import from agent-command or agent-cli.
 
 Layer rules:
 

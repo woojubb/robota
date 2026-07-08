@@ -10,7 +10,7 @@ Users who need a provider not included here can implement `IAIProvider` from `@r
 
 - **npm name**: `@robota-sdk/agent-provider`
 - **Layer**: Layer 1 (depends on `agent-core` only; never imports from `agent-framework`, `agent-session`, `agent-tools`, `agent-command`, or `agent-transport`)
-- **Platform**: node + browser
+- **Platform**: node (browser bundle built but not yet exports-resolvable — see the exports-map note below)
 
 ## Public API
 

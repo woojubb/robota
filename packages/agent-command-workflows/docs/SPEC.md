@@ -119,11 +119,12 @@ None.
 
 ### Cross-Package Port Consumers
 
-| Owner                                                              | Consumer       | Location                                                                         |
-| ------------------------------------------------------------------ | -------------- | -------------------------------------------------------------------------------- |
-| `agent-framework` command contracts + `createProviderFromSettings` | this module    | `src/`                                                                           |
-| `agent-core` `IAIProvider` + message factories                     | authoring      | `src/authoring/author.ts`                                                        |
-| `dag-framework` `LocalDagRuntimeProvider` + registry               | executors      | `src/list-command.ts`, `src/run-command.ts`, `src/authoring/execute-workflow.ts` |
-| `dag-builder` `buildDagFromPipeline` / converters                  | assembly + run | `src/authoring/assemble.ts`, `src/run-command.ts`                                |
-| `dag-node` `buildNodeDefinitionAssembly`                           | node catalog   | `src/authoring/node-catalog.ts`                                                  |
-| `dag-node-instant-node` prompt-node factory                        | Phase 3 nodes  | `src/create-command.ts`, `src/persistence/instant-node-loader.ts`                |
+| Owner                                                              | Consumer       | Location                                                                                                        |
+| ------------------------------------------------------------------ | -------------- | --------------------------------------------------------------------------------------------------------------- |
+| `agent-framework` command contracts + `createProviderFromSettings` | this module    | `src/`                                                                                                          |
+| `agent-core` `IAIProvider` + message factories                     | authoring      | `src/authoring/author.ts`                                                                                       |
+| `dag-core` workflow-file/node/definition + workspace-layout types  | this module    | `src/run-command.ts`, `src/validate-command.ts`, `src/catalog-command.ts`, `src/authoring/`, `src/persistence/` |
+| `dag-framework` `LocalDagRuntimeProvider` + registry               | executors      | `src/list-command.ts`, `src/run-command.ts`, `src/authoring/execute-workflow.ts`                                |
+| `dag-builder` `buildDagFromPipeline` / converters                  | assembly + run | `src/authoring/assemble.ts`, `src/run-command.ts`                                                               |
+| `dag-node` `buildNodeDefinitionAssembly`                           | node catalog   | `src/authoring/node-catalog.ts`                                                                                 |
+| `dag-node-instant-node` prompt-node factory                        | Phase 3 nodes  | `src/create-command.ts`, `src/persistence/instant-node-loader.ts`                                               |

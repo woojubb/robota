@@ -30,12 +30,13 @@ flowchart TD
   Builder --> Core
   AdaptersLocal --> Core
   AdaptersSqlite --> Core
-  Api --> AdaptersLocal
-  Runtime --> AdaptersLocal
-  Worker --> AdaptersLocal
-  Projection --> AdaptersLocal
+  Api --> Core
+  Runtime --> Core
+  Worker --> Core
+  Projection --> Core
   OrchClient --> Builder
   Nodes --> Node
+  Framework --> AdaptersLocal
   Framework --> Runtime
   Framework --> Worker
   Framework --> Projection
@@ -49,23 +50,29 @@ flowchart TD
 
 ## Layers and boundary contracts
 
-| Layer          | Packages                                                                             | Owns / boundary contract                                                                                                                                                                    |
-| -------------- | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Foundation     | `dag-core`                                                                           | Zero dag-deps. Runtime-provider (`IDagRuntimeProvider`, `IDagNodeManifest`, `INodePortSpec`), workflow-file format, engine types, lifecycle services. SSOT for DAG domain contracts.        |
-| Domain / nodes | `dag-node`, `dag-cost`, `dag-builder`                                                | Node-definition assembly + manifests; cost-metadata types; `IDagDefinition` ↔ `.dag.json` conversion. Depend only on core.                                                                  |
-| Adapters       | `dag-adapters-local`, `dag-adapters-sqlite`                                          | Concrete storage/queue/clock/lease ports (in-memory; SQLite). Injected at the composition root; no domain logic.                                                                            |
-| Runtime / API  | `dag-runtime`, `dag-worker`, `dag-projection`, `dag-api`, `dag-orchestration-client` | Run lifecycle services; worker-loop execution; read-model projection; server-side API contracts; thin HTTP client.                                                                          |
-| Assembly       | `dag-framework`                                                                      | Composition layer: `createDagFramework`, the local in-process `IDagRuntimeProvider`, default node registry. The only place ports wire to adapters.                                          |
-| Surfaces       | `dag-cli`, `dag-mcp-server`, `dag-scheduler`                                         | Product shells: `robota-dag` CLI; standalone MCP server; scheduled-run triggering. Assemble framework + selected nodes.                                                                     |
-| Nodes          | `dag-nodes/*` (`@robota-sdk/dag-node-*`)                                             | Node-family packages: llm-text providers, image edit, http, file r/w, mcp-tool, router, instant-node, utility-text. Depend on `dag-core`/`dag-node`; consumed by `dag-framework`/`dag-cli`. |
+| Layer          | Packages                                                                             | Owns / boundary contract                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| -------------- | ------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Foundation     | `dag-core`                                                                           | Zero dag-deps. Runtime-provider (`IDagRuntimeProvider`, `IDagNodeManifest`, `INodePortSpec`), workflow-file format, engine types, lifecycle services. SSOT for DAG domain contracts.                                                                                                                                                                                                                                                                                                                                  |
+| Domain / nodes | `dag-node`, `dag-cost`, `dag-builder`                                                | Node-definition assembly + manifests; cost-metadata types; `IDagDefinition` ↔ `.dag.json` conversion. Depend only on core.                                                                                                                                                                                                                                                                                                                                                                                            |
+| Adapters       | `dag-adapters-local`, `dag-adapters-sqlite`                                          | Concrete storage/queue/clock/lease ports (in-memory; SQLite). Injected at the composition root; no domain logic.                                                                                                                                                                                                                                                                                                                                                                                                      |
+| Runtime / API  | `dag-runtime`, `dag-worker`, `dag-projection`, `dag-api`, `dag-orchestration-client` | Run lifecycle services; worker-loop execution; read-model projection; server-side API contracts; thin HTTP client.                                                                                                                                                                                                                                                                                                                                                                                                    |
+| Assembly       | `dag-framework`                                                                      | Composition layer: `createDagFramework`, the local in-process `IDagRuntimeProvider`, default node registry. The only place ports wire to adapters.                                                                                                                                                                                                                                                                                                                                                                    |
+| Surfaces       | `dag-cli`, `dag-mcp-server`, `dag-scheduler`                                         | Product shells: `robota-dag` CLI; standalone MCP server; scheduled-run triggering. Assemble framework + selected nodes.                                                                                                                                                                                                                                                                                                                                                                                               |
+| Nodes          | `dag-nodes/*` (`@robota-sdk/dag-node-*`)                                             | Node-family packages: llm-text providers, image edit, http, file r/w, mcp-tool, router, instant-node, utility-text. Depend on `dag-core`/`dag-node`; several also consume the `agent-*` subsystem one-way — `agent-core`/`agent-provider` (LLM-text, image, video, instant-node families), `agent-tools` (tool node), `agent-framework`/`agent-interface-transport` (skill node). This DAG→agent edge is one-directional (no `agent-*` package depends back on a DAG package). Consumed by `dag-framework`/`dag-cli`. |
 
 ## Provider model (native)
 
 The runtime is provider-abstracted via `IDagRuntimeProvider` (catalog `listNodes()` + `execute()`),
-with a detachable variant `IDetachableRunProvider` (submit/watch/status/cancel/list). The local
-in-process provider (`LocalDagRuntimeProvider` in `dag-framework`) is the default and currently only
-provider — the external-runtime provider was excluded on absorption; a native runtime-server provider is
-deferred to **WORKFLOW-002**. The agent-cli `/workflows` command surface is **WORKFLOW-003**.
+with a detachable variant `IDetachableRunProvider` (submit/watch/status/cancel/list). Two providers
+ship in `dag-framework`:
+
+- `LocalDagRuntimeProvider` — the default in-process provider (`IDagRuntimeProvider`).
+- `HttpDagRuntimeProvider` — the native runtime-server client and first `IDetachableRunProvider`
+  implementation, talking to the `/v1/dag/*` surface served by `apps/dag-runtime-server`
+  (**WORKFLOW-002**, delivered).
+
+The external-runtime provider was excluded on absorption. The agent-cli `/workflows` command surface
+is **WORKFLOW-003**.
 
 ## Owner SPECs
 
