@@ -57,6 +57,8 @@ export interface ISessionRecord {
   contextReferences?: unknown[];
   /** Provider sandbox snapshot identifier for workspace hydration on resume. */
   sandboxSnapshotId?: string;
+  /** In-flight autonomous goal payload (opaque; typed as IGoalState by the domain contract). */
+  goal?: unknown;
 }
 
 /** Minimal persistence port consumed by Session. */
