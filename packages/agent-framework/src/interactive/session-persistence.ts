@@ -14,11 +14,9 @@ import type {
   IBackgroundJobGroupState,
   TBackgroundJobGroupEvent,
 } from '../background-tasks/index.js';
-import type { ISkillActivationEvent } from '../commands/skill-activation-events.js';
-import type { IContextReferenceItem } from '../context/context-reference-inventory.js';
-import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
+import type { IMemoryEvent } from '../memory/automatic-memory-types.js';
 import type { IFileSystem } from '@robota-sdk/agent-core';
-import type { IHistoryEntry, TUniversalMessage } from '@robota-sdk/agent-core';
+import type { TUniversalMessage } from '@robota-sdk/agent-core';
 // Session persistence contracts SSOT relocated to @robota-sdk/agent-interface-transport (DATA-001).
 import type {
   IInteractiveSessionRecord,
@@ -175,45 +173,14 @@ function toSessionRecord(session: IInteractiveSessionRecord): ISessionRecord {
   return { ...session };
 }
 
+// Structural mirror of `toSessionRecord` (DATA-006). The persisted JSON carries exactly what the write
+// path spread onto the record, so a full re-spread restores every field (incl. `goal`) with nothing to
+// enumerate — a dropped-field regression is structurally impossible. The `as unknown as` is the honest
+// `unknown[]`-payload → typed-record trust boundary (symmetric with the write cast); the store performs
+// no runtime validation, so no narrowing is lost. The replay-log path (`loadFromReplayLog`) is a separate
+// event-derived mechanism and is intentionally not routed through here.
 function fromSessionRecord(session: ISessionRecord): IInteractiveSessionRecord {
-  return {
-    id: session.id,
-    ...(session.name !== undefined ? { name: session.name } : {}),
-    cwd: session.cwd,
-    createdAt: session.createdAt,
-    updatedAt: session.updatedAt,
-    messages: session.messages as TUniversalMessage[],
-    ...(session.history !== undefined ? { history: session.history as IHistoryEntry[] } : {}),
-    ...(session.systemPrompt !== undefined ? { systemPrompt: session.systemPrompt } : {}),
-    ...(session.toolSchemas !== undefined ? { toolSchemas: session.toolSchemas } : {}),
-    ...(session.backgroundTasks !== undefined
-      ? { backgroundTasks: session.backgroundTasks as IBackgroundTaskState[] }
-      : {}),
-    ...(session.backgroundTaskEvents !== undefined
-      ? { backgroundTaskEvents: session.backgroundTaskEvents as TBackgroundTaskEvent[] }
-      : {}),
-    ...(session.backgroundJobGroups !== undefined
-      ? { backgroundJobGroups: session.backgroundJobGroups as IBackgroundJobGroupState[] }
-      : {}),
-    ...(session.backgroundJobGroupEvents !== undefined
-      ? { backgroundJobGroupEvents: session.backgroundJobGroupEvents as TBackgroundJobGroupEvent[] }
-      : {}),
-    ...(session.skillActivationEvents !== undefined
-      ? { skillActivationEvents: session.skillActivationEvents as ISkillActivationEvent[] }
-      : {}),
-    ...(session.memoryEvents !== undefined
-      ? { memoryEvents: session.memoryEvents as IMemoryEvent[] }
-      : {}),
-    ...(session.usedMemoryReferences !== undefined
-      ? { usedMemoryReferences: session.usedMemoryReferences as IMemoryReference[] }
-      : {}),
-    ...(session.contextReferences !== undefined
-      ? { contextReferences: session.contextReferences as IContextReferenceItem[] }
-      : {}),
-    ...(session.sandboxSnapshotId !== undefined
-      ? { sandboxSnapshotId: session.sandboxSnapshotId }
-      : {}),
-  };
+  return { ...session } as unknown as IInteractiveSessionRecord;
 }
 
 function deriveBackgroundTasks(events: readonly TBackgroundTaskEvent[]): IBackgroundTaskState[] {

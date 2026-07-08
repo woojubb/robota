@@ -206,6 +206,7 @@ The callback payload is provider-neutral `IContextWindowState`; provider-specifi
 | `usedMemoryReferences`     | `unknown[]` | No       | SDK-owned provenance records for memory topics injected into the latest prompt turn.                                                                              |
 | `contextReferences`        | `unknown[]` | No       | SDK-owned context reference inventory for resume/debugging.                                                                                                       |
 | `sandboxSnapshotId`        | `string`    | No       | Provider-owned sandbox workspace reference used by SDK resume hydration. `agent-sessions` stores this value opaquely and does not import sandbox packages.        |
+| `goal`                     | `unknown`   | No       | In-flight autonomous goal payload (typed `IGoalState` by the domain contract), stored opaquely so it survives resume (GOAL-001 / DATA-006).                       |
 
 Memory event and used-reference fields are audit/debug data, not baseline user-local preferences.
 Inspectable user-local memory is governed by
