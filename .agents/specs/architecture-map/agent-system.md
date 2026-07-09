@@ -135,7 +135,7 @@ See [packages/agent-playground/docs/SPEC.md](../../../packages/agent-playground/
 ## WebSocket Sidecar Mode [Partially implemented]
 
 > **[Partially implemented]** The transport + browser halves exist:
-> `createWsHandler({ session, send })` (`packages/agent-transport-ws/src/ws-handler.ts:51`) and
+> `createWsHandler({ session, send })` (`packages/agent-transport-protocol/src/ws-handler.ts:51`) and
 > `useWsSession(url)` (`packages/agent-web-ui/src/hooks/useWsSession.ts:43`), plus the `agent-web-ui`
 > components. **Still pending:** the CLI `--web` / `--web-port` flags and
 > `startWebSidecarServer(interactiveSession, port)` that wire the sidecar server into `agent-cli`.

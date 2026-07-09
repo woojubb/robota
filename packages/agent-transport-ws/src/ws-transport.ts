@@ -5,10 +5,10 @@
  * After start(), the consumer must wire onMessage to their WebSocket.
  */
 
-import { createWsHandler } from './ws-handler.js';
+import { createWsHandler } from '@robota-sdk/agent-transport-protocol';
 
-import type { TServerMessage } from './ws-protocol.js';
 import type { IInteractiveSession, ITransportAdapter } from '@robota-sdk/agent-interface-transport';
+import type { TServerMessage } from '@robota-sdk/agent-transport-protocol';
 
 export interface IWsTransportOptions {
   /** Send a JSON message to the connected WebSocket client. */

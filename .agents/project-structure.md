@@ -21,7 +21,8 @@ packages/
 ├── agent-remote-client/         # Remote execution client
 ├── agent-interface-*/           # Interface/contract packages: pure type contracts; MAY also export pure, dependency-free derivation accessors over their own owned types (no classes, no I/O) — e.g. agent-interface-transport's read* helpers over InteractionEvent. Mechanized by scripts/harness/scan-interface-runtime.mjs (harness:scan `interface-runtime`, INFRA-035): FAILS on any bare/external value import-or-re-export or any class/enum declaration in these packages' src (zero runtime dependency edges).
 ├── agent-transport/             # Transport core: headless adapter + transport registry + scripted-provider testing fixtures (pure TS)
-├── agent-transport-*/           # Per-concern transport implementations: agent-transport-tui (React/Ink), -ws (WebSocket), -http (Hono), -mcp (MCP); -ws/-http/-mcp are contract-pure (deps: interface-transport + core only)
+├── agent-transport-protocol/    # Transport-neutral session bridge + WS wire protocol (createWsHandler, TClientMessage/TServerMessage); shared by -ws and -webrtc (deps: interface-transport only)
+├── agent-transport-*/           # Per-concern transport implementations: agent-transport-tui (React/Ink), -ws (WebSocket), -http (Hono), -mcp (MCP), -webrtc (P2P RTCDataChannel, optional werift peer dep, REMOTE-001); -ws/-http/-mcp/-webrtc are contract-pure (deps: interface-transport + transport-protocol only)
 ├── agent-testing/               # General test framework: domain-free test-environment tooling (PTY runner spawnPty/spawnPtyFixture); zero @robota-sdk deps, devDependency. Charter+placement rule in its SPEC (contracts→agent-interface-*, doubles→owner /testing, drivers→owning module)
 ├── agent-process/               # Domain-free child-process termination primitives (killProcessTree: SIGTERM→grace→SIGKILL, process-group aware); zero @robota-sdk deps, leaf. Consumed by agent-executor/agent-tools/agent-subagent-runner (CORE-023)
 ├── agent-plugin/                # Plugins: conversation-history, logging, usage, performance, execution-analytics, error-handling, limits, event-emitter, webhook
@@ -51,7 +52,8 @@ apps/
 ├── starter-nextjs/         # Next.js SDK starter template (PM-029)
 ├── www/                    # Marketing site (robota.io)
 ├── agent-server/           # AI provider proxy + Playground WebSocket
-└── dag-runtime-server/     # Native DAG runtime HTTP server (`/v1/dag/*` over Hono); serves dag-framework's IDagOrchestrationPort, native runtime surface, no external-runtime API (WORKFLOW-002)
+├── dag-runtime-server/     # Native DAG runtime HTTP server (`/v1/dag/*` over Hono); serves dag-framework's IDagOrchestrationPort, native runtime surface, no external-runtime API (WORKFLOW-002)
+└── remote-signaling/       # Minimal content-blind WebRTC signaling relay (SDP/ICE rendezvous); dumb relay, no @robota-sdk deps, no session content (REMOTE-001/002 Stage A)
 ```
 
 ## Library Neutrality Rule (packages/ vs apps/)
