@@ -230,14 +230,15 @@ suite makes **no** real provider call — common-mistakes #76). Full `harness:sc
 
 ## Tasks
 
-- [ ] Step 1 — agent-core: add `allowedModels?` + per-model cost catalog fields; relocate
+- [x] Step 1 — agent-core: add `allowedModels?` + per-model cost catalog fields; relocate
       `normalizeProviderConfig`/`createProviderFromConfig` into agent-core (agent-executor re-exports). RED→GREEN.
-- [ ] Step 2 — agent-provider-defaults: populate `defaults.model`/`allowedModels`/cost per definition (golden test).
-- [ ] Step 3 — dag-core: invert the `llm-text` tombstone in `definition-validator.ts` (+ validator test).
-- [ ] Step 4 — author `@robota-sdk/dag-node-llm-text` (one node; registry-injected; strategy + skip-if-no-cred;
-      options passthrough; no process.env). TC-01/02/03/07.
-- [ ] Step 5 — dag-framework: `createDagFramework({ providers })` + `createDefaultNodeRegistry(providers?)`
-      (lazy default + typed diagnostic on missing SDK); dep-direction allowlist. TC-04/TC-10.
+- [x] Step 2 — agent-provider-defaults: populate cost per definition (golden test); `defaults.model` already
+      SSOT; allowedModels enforcement left off by default (deliberate).
+- [x] Step 3 — dag-core: invert the `llm-text` tombstone in `definition-validator.ts` (+ validator test).
+- [x] Step 4 — author `@robota-sdk/dag-node-llm-text` (one node; registry-injected; strategy + skip-if-no-cred;
+      options passthrough; no process.env). TC-01/02/03/07 (10/10).
+- [x] Step 5 — dag-framework: `createDagFramework({ providers })` + `createDefaultNodeRegistry(providers?)`
+      (lazy default + typed diagnostic on missing SDK). TC-04/TC-10 (120/120). _(Steps 1–5 = PR-1.)_
 - [ ] Step 6 — migrate consumers (dag-cli commands/templates/lock/local-runner) + workflow kinds to `llm-text`.
 - [ ] Step 7 — delete 5 vendor packages + router (atomic with step 6); doc sweep; changeset; harness green. TC-05/06/08/09.
 
@@ -279,3 +280,15 @@ suite makes **no** real provider call — common-mistakes #76). Full `harness:sc
   package is directly implementable in the new `createDefaultNodeRegistry(providers?)`. TC-10 confirmed a real
   gate; both citations correct; no new inconsistency. One trivial wording nit (four SDK packages → six
   definitions) tightened. Design APPROVED → implement (7-step sub-sequence). Spec → active.
+- 2026-07-09 GATE-IMPLEMENT (Steps 1–5, PR-1) — additive collapse infrastructure landed, each commit green:
+  (1) relocated `normalizeProviderConfig`/`createProviderFromConfig` into agent-core + SSOT `allowedModels`
+  - per-model catalog cost + interim `costPerTokenUsd`; (2) migrated per-vendor cost into the default
+    definitions (golden test); (3) inverted the dag-core `llm-text` tombstone; (4) authored
+    `@robota-sdk/dag-node-llm-text` (agent-core-only; registry-injected; priority-fallback + skip-if-no-cred;
+    options passthrough; no `process.env`; 10/10 incl. TC-01/02/03/07); (5) `createDagFramework({ providers })`
+    seam + lazy default with a typed diagnostic (TC-04/TC-10; 120/120). Verified: full `pnpm build`, affected
+    package tests (dag-cli 1007, dag-framework 120, agent-command-workflows 28) green with no regression (vendor
+    nodes still present), `pnpm harness:scan` 48/48 (agent-core SPEC public-API + allowlist updated for the two
+    relocated exports). Steps 6 (consumer migration + workflow-kind migration) + 7 (delete the 5 vendor
+    packages + router, atomic) remain — PR-2 (spec stays in-progress; the dag-cli `llm-text-<vendor>` surface is
+    the migration target).
