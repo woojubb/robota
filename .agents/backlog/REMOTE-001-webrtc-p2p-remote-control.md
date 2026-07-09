@@ -1,6 +1,6 @@
 ---
 title: 'REMOTE-001: /remote-control — WebRTC P2P remote access to a running agent-cli session'
-status: todo
+status: in-progress
 created: 2026-07-10
 priority: medium
 urgency: later
@@ -9,6 +9,11 @@ depends_on: []
 ---
 
 # REMOTE-001: WebRTC P2P remote control for agent-cli
+
+> **Phase status (2026-07-10):** Research DONE; design ENDORSED (proposal-reviewer, 2 rounds) —
+> see [`.agents/spec-docs/todo/REMOTE-001-webrtc-p2p-remote-control-design.md`](../spec-docs/todo/REMOTE-001-webrtc-p2p-remote-control-design.md).
+> Implementation proceeds as per-stage gated specs (Stage A: extract `agent-transport-protocol` +
+> `agent-transport-webrtc` skeleton + minimal signaling server, loopback-only, no enable path).
 
 ## Problem / Goal
 
