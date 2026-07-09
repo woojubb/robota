@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: INFRA
 tags: [remote-control, webrtc, transport, signaling]
 parent: REMOTE-001
@@ -199,3 +199,9 @@ pairing + no-content. Harness `deps`/`entry-point-only`/`spec-public-surface` gr
     ICE candidate policy (restricted STUN/TURN + candidate-type allowlist) fully neutralizes the miscategorization,
     (b) override `ip` to a maintained fork, or (c) re-accept with a documented, reviewed rationale. This must NOT
     be silently inherited — recorded here + carried into the REMOTE-001 design's Stage B security section.
+- 2026-07-10 GATE-COMPLETE — after the `ignoreCves` fix, PR #1079 CI fully green (security audit pass) →
+  merged to **develop** (`ad2006b38`), then promoted **develop→main** via PR #1080 (`402555dab`). Both hops
+  independently confirmed by the merge-verifier (PASS/PASS): all REMOTE-002 Stage A paths present on
+  `origin/main`, no unrelated drift, CI green on both PRs. Stage A shipped. Spec `active → done`
+  (`status: done`). Next: REMOTE-001 Stage B (the enable path) — must first discharge the CVE-2024-29415
+  security follow-up above.
