@@ -4,7 +4,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { IDagDefinition } from '@robota-sdk/dag-core';
 import { createDagFramework } from '../create-dag-framework.js';
-import { createDefaultNodeRegistrySync } from '../default-node-registry.js';
+import { createDefaultNodeRegistrySync } from '@robota-sdk/dag-nodes-default';
 import type { IDagFramework } from '../types.js';
 
 let tmpDir: string;

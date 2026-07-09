@@ -1,5 +1,5 @@
 import type { IDagNodeDefinition, IWorkspaceLayout } from '@robota-sdk/dag-core';
-import { createDefaultNodeRegistrySync } from '@robota-sdk/dag-framework';
+import { createDefaultNodeRegistrySync } from '@robota-sdk/dag-nodes-default';
 import { LlmTextNodeDefinition } from '@robota-sdk/dag-node-llm-text';
 import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider-defaults';
 import {

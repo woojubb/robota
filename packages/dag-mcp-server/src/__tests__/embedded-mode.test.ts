@@ -2,7 +2,8 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { createDagFramework, createDefaultNodeRegistrySync } from '@robota-sdk/dag-framework';
+import { createDagFramework } from '@robota-sdk/dag-framework';
+import { createDefaultNodeRegistrySync } from '@robota-sdk/dag-nodes-default';
 import type { IDagDefinition } from '@robota-sdk/dag-core';
 
 async function pollRunStatus(

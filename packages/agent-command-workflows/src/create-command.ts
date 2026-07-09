@@ -7,7 +7,7 @@
  *
  * FLOW-007 Phase 2 (existing nodes) + Phase 3 (on-the-fly prompt nodes).
  */
-import { createDefaultNodeRegistrySync } from '@robota-sdk/dag-framework';
+import { createDefaultNodeRegistrySync } from '@robota-sdk/dag-nodes-default';
 import {
   createProviderFromSettings,
   ProviderConfigError,

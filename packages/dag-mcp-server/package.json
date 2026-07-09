@@ -74,6 +74,7 @@
   },
   "devDependencies": {
     "@robota-sdk/dag-framework": "workspace:*",
+    "@robota-sdk/dag-nodes-default": "workspace:*",
     "tsdown": "^0.22.2"
   },
   "publishConfig": {

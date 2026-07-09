@@ -43,7 +43,7 @@ import { LocalFsAssetStore } from './adapters/local-fs-asset-store.js';
 import { DagPromptBackend } from './adapters/prompt-backend.js';
 import { DagFrameworkOrchestrationAdapter } from './adapters/orchestration-adapter.js';
 import { WorkerLoopDriver } from './runtime/worker-loop-driver.js';
-import { createDefaultNodeRegistry } from './default-node-registry.js';
+import { loadDefaultNodeRegistry } from './load-default-node-registry.js';
 import type { IDagFramework, IDagFrameworkOptions } from './types.js';
 
 const DEFAULT_WORKER_OPTIONS: IWorkerLoopPolicyOptions = {
@@ -86,7 +86,7 @@ export async function createDagFramework(
   // When `options.nodes` is supplied, `options.providers` is intentionally ignored — a custom node set
   // carries its own provider wiring (ARCH-PROVIDER-003).
   const nodes: readonly IDagNodeDefinition[] =
-    options.nodes ?? (await createDefaultNodeRegistry(options.providers));
+    options.nodes ?? (await loadDefaultNodeRegistry(options.providers));
   const assemblyResult = buildNodeDefinitionAssembly([...nodes]);
   if (!assemblyResult.ok) {
     throw new Error(`Failed to build node definition assembly: ${assemblyResult.error.message}`);

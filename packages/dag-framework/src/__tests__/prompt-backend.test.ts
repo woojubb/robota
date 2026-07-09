@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { INodeManifest } from '@robota-sdk/dag-core';
 import { DagPromptBackend } from '../adapters/prompt-backend.js';
 import { createDagFramework } from '../create-dag-framework.js';
-import { createDefaultNodeRegistrySync } from '../default-node-registry.js';
+import { createDefaultNodeRegistrySync } from '@robota-sdk/dag-nodes-default';
 import type { IDagFramework } from '../types.js';
 
 // ─── Minimal manifests for unit tests ────────────────────────────────────────

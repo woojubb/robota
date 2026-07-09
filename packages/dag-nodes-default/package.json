@@ -1,0 +1,96 @@
+{
+  "name": "@robota-sdk/dag-nodes-default",
+  "version": "0.1.0-beta.0",
+  "private": true,
+  "description": "Default DAG node catalog — composition aggregator for the built-in node set (entry-point-only)",
+  "type": "module",
+  "main": "dist/node/index.js",
+  "types": "dist/node/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/node/index.d.ts",
+      "node": {
+        "import": "./dist/node/index.js",
+        "require": "./dist/node/index.cjs"
+      },
+      "default": {
+        "import": "./dist/node/index.js",
+        "require": "./dist/node/index.cjs"
+      }
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "build:js": "tsdown --no-dts",
+    "build:types": "tsdown --dts",
+    "test": "vitest run --passWithNoTests",
+    "test:coverage": "vitest run --coverage --passWithNoTests",
+    "lint": "eslint src --ext .ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "clean": "rimraf dist",
+    "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
+  },
+  "keywords": [
+    "robota",
+    "dag",
+    "nodes"
+  ],
+  "author": "Robota SDK Team",
+  "license": "AGPL-3.0-only OR LicenseRef-Commercial",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@robota-sdk/agent-core": "workspace:*",
+    "@robota-sdk/dag-core": "workspace:*",
+    "@robota-sdk/dag-node": "workspace:*",
+    "@robota-sdk/dag-node-image-loader": "workspace:*",
+    "@robota-sdk/dag-node-image-source": "workspace:*",
+    "@robota-sdk/dag-node-input": "workspace:*",
+    "@robota-sdk/dag-node-llm-text": "workspace:*",
+    "@robota-sdk/dag-node-multi-input": "workspace:*",
+    "@robota-sdk/dag-node-ok-emitter": "workspace:*",
+    "@robota-sdk/dag-node-seedance-video": "workspace:*",
+    "@robota-sdk/dag-node-skill": "workspace:*",
+    "@robota-sdk/dag-node-text-output": "workspace:*",
+    "@robota-sdk/dag-node-text-template": "workspace:*",
+    "@robota-sdk/dag-node-text-to-image": "workspace:*",
+    "@robota-sdk/dag-node-tool": "workspace:*",
+    "@robota-sdk/dag-node-transform": "workspace:*",
+    "@robota-sdk/dag-node-utility-text": "workspace:*"
+  },
+  "optionalDependencies": {
+    "@robota-sdk/agent-provider-defaults": "workspace:*",
+    "@robota-sdk/dag-node-gemini-image-edit": "workspace:*"
+  },
+  "peerDependencies": {
+    "@anthropic-ai/sdk": "^0.91.1",
+    "@google/genai": "^1.52.0",
+    "openai": "^4.104.0"
+  },
+  "peerDependenciesMeta": {
+    "@anthropic-ai/sdk": {
+      "optional": true
+    },
+    "@google/genai": {
+      "optional": true
+    },
+    "openai": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "eslint": "^8.56.0",
+    "rimraf": "^5.0.5",
+    "tsdown": "^0.22.2",
+    "typescript": "^5.3.3",
+    "vitest": "^3.2.6"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

@@ -5,7 +5,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { buildDagFromPipeline, toDagWorkflowFile } from '@robota-sdk/dag-builder';
 import type { INodeManifest } from '@robota-sdk/dag-core';
 import { LocalDagRuntimeProvider } from '../local-dag-runtime-provider.js';
-import { createDefaultNodeRegistrySync } from '../default-node-registry.js';
+import { createDefaultNodeRegistrySync } from '@robota-sdk/dag-nodes-default';
 
 function syncManifests(): INodeManifest[] {
   return createDefaultNodeRegistrySync().map((d) => ({

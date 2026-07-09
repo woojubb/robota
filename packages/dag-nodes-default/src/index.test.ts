@@ -1,8 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import {
-  createDefaultNodeRegistry,
-  createDefaultNodeRegistrySync,
-} from '../default-node-registry.js';
+import { createDefaultNodeRegistry, createDefaultNodeRegistrySync } from './index.js';
 
 describe('createDefaultNodeRegistrySync', () => {
   it('returns all built-in node types without LLM nodes', () => {
