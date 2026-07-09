@@ -1,12 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { INodeExecutionContext, INodeConfigObject, TPortPayload } from '@robota-sdk/dag-core';
-import type { ICommand } from '@robota-sdk/agent-interface-transport';
-import {
-  SkillNodeDefinition,
-  SkillNodeConfigSchema,
-  createSkillNodeDefinition,
-  type ISkillNodeDefinitionOptions,
-} from './index.js';
+import type { ICommand, ISkillExecutionPort } from '@robota-sdk/agent-interface-transport';
+import { SkillNodeDefinition, SkillNodeConfigSchema } from './index.js';
 
 const greet: ICommand = {
   name: 'greet',
@@ -23,8 +18,17 @@ const forkSkill: ICommand = {
   skillContent: 'x',
 };
 
-function makeNode(options?: ISkillNodeDefinitionOptions): SkillNodeDefinition {
-  return new SkillNodeDefinition(options ?? { loadCommands: () => [greet, forkSkill] });
+/** Stub skill-execution port — the node is a leaf that depends on the port contract (ARCH-PROVIDER-005). */
+const stubPort: ISkillExecutionPort = {
+  loadCommands: () => [greet, forkSkill],
+  resolveSkill: async (skill, args) => ({
+    mode: 'inject',
+    prompt: `resolved ${skill.name}: ${args}`,
+  }),
+};
+
+function makeNode(port: ISkillExecutionPort = stubPort): SkillNodeDefinition {
+  return new SkillNodeDefinition({ skillPort: port });
 }
 
 function makeContext(config: Record<string, unknown>): INodeExecutionContext {
@@ -68,10 +72,6 @@ describe('SkillNodeDefinition metadata', () => {
     expect(node.defaultInputPort).toBe('args');
     expect(node.defaultOutputPort).toBe('prompt');
   });
-
-  it('factory returns an instance', () => {
-    expect(createSkillNodeDefinition()).toBeInstanceOf(SkillNodeDefinition);
-  });
 });
 
 describe('SkillNodeConfigSchema', () => {
@@ -93,7 +93,7 @@ describe('SkillNodeDefinition execution', () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value.mode).toBe('inject');
-      expect(String(result.value.prompt)).toContain('Say hello to World.');
+      expect(String(result.value.prompt)).toContain('resolved greet: World');
     }
   });
 
@@ -105,7 +105,7 @@ describe('SkillNodeDefinition execution', () => {
       makeContext({ skillName: 'greet', args: 'FromConfig' }),
     );
     expect(result.ok).toBe(true);
-    if (result.ok) expect(String(result.value.prompt)).toContain('Say hello to FromInput.');
+    if (result.ok) expect(String(result.value.prompt)).toContain('resolved greet: FromInput');
   });
 
   it('propagates skill-not-found', async () => {

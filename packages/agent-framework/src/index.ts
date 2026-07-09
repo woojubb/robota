@@ -46,6 +46,7 @@ export {
   createSystemCommands,
   parseFrontmatter,
   executeSkill,
+  createSkillExecutionPort,
   selectCommandModules,
   findUnknownModuleNames,
 } from './commands/index.js';

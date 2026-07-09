@@ -45,6 +45,8 @@
   },
   "dependencies": {
     "@robota-sdk/agent-core": "workspace:*",
+    "@robota-sdk/agent-framework": "workspace:*",
+    "@robota-sdk/agent-interface-transport": "workspace:*",
     "@robota-sdk/dag-core": "workspace:*",
     "@robota-sdk/dag-node": "workspace:*",
     "@robota-sdk/dag-node-image-loader": "workspace:*",

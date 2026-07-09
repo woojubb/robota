@@ -16,11 +16,10 @@ export type {
   ISkillResolverOptions,
   ISkillResolveRequest,
   ISkillResolveResult,
-  TLoadSkillCommands,
 } from './runtime-core.js';
 export { SkillResolverRuntime } from './runtime-core.js';
 
-/** Options for constructing a {@link SkillNodeDefinition}. */
+/** Options for constructing a {@link SkillNodeDefinition} — requires an injected skill-execution port. */
 export interface ISkillNodeDefinitionOptions extends ISkillResolverOptions {}
 
 export const SkillNodeConfigSchema = z.object({
@@ -67,7 +66,7 @@ export class SkillNodeDefinition extends AbstractNodeDefinition<typeof SkillNode
 
   private readonly runtime: SkillResolverRuntime;
 
-  public constructor(options?: ISkillNodeDefinitionOptions) {
+  public constructor(options: ISkillNodeDefinitionOptions) {
     super();
     this.runtime = new SkillResolverRuntime(options);
   }
@@ -120,8 +119,4 @@ export class SkillNodeDefinition extends AbstractNodeDefinition<typeof SkillNode
     );
     return { ok: true, value: io.toOutput() };
   }
-}
-
-export function createSkillNodeDefinition(): SkillNodeDefinition {
-  return new SkillNodeDefinition();
 }
