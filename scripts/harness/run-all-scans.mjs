@@ -13,9 +13,20 @@
  */
 
 import { spawn } from 'node:child_process';
+import os from 'node:os';
 import path from 'node:path';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+
+/**
+ * Default scan concurrency (INFRA-037). Each scan is an independent, read-only subprocess, so they run
+ * concurrently under a bounded pool instead of one-at-a-time. Cap leaves one core for the parent.
+ */
+const DEFAULT_SCAN_CONCURRENCY = Math.max(
+  1,
+  (typeof os.availableParallelism === 'function' ? os.availableParallelism() : os.cpus().length) -
+    1,
+);
 
 /** Ordered scan list — mirrors the former harness:scan chain. */
 const SCAN_COMMANDS = [
@@ -136,24 +147,55 @@ function spawnScan(command) {
   return new Promise((resolve) => {
     const child = spawn(command[0], command.slice(1), {
       cwd: WORKSPACE_ROOT,
-      stdio: 'inherit',
+      stdio: ['ignore', 'pipe', 'pipe'],
       shell: false,
     });
-    child.on('close', (code) => resolve(code ?? 1));
-    child.on('error', () => resolve(1));
+    let output = '';
+    child.stdout.on('data', (chunk) => {
+      output += chunk;
+    });
+    child.stderr.on('data', (chunk) => {
+      output += chunk;
+    });
+    child.on('close', (code) => resolve({ code: code ?? 1, output }));
+    child.on('error', (err) => resolve({ code: 1, output: `${output}${err?.message ?? err}\n` }));
   });
 }
 
 /**
- * Run scans sequentially without early exit; emit a final summary.
- * Each scan is { name, run: () => Promise<exitCode> }.
- * Returns the aggregate exit code (0 = all passed).
+ * Run scans with BOUNDED CONCURRENCY (INFRA-037), never early-exiting, then emit a final summary.
+ * Each scan is `{ name, run: () => Promise<{code, output}> | Promise<number> }`. Output is CAPTURED per
+ * scan and printed only for FAILURES (passes stay a one-line ✓), so parallel runs do not interleave.
+ * Returns the aggregate exit code (0 = all passed). The summary + exit code are order-independent.
  */
-export async function runScans(scans, write = (line) => process.stdout.write(`${line}\n`)) {
-  const results = [];
-  for (const scan of scans) {
-    const code = await scan.run();
-    results.push({ name: scan.name, code });
+export async function runScans(
+  scans,
+  write = (line) => process.stdout.write(`${line}\n`),
+  concurrency = DEFAULT_SCAN_CONCURRENCY,
+) {
+  const results = new Array(scans.length);
+  let next = 0;
+  async function worker() {
+    for (;;) {
+      const index = next++;
+      if (index >= scans.length) return;
+      const scan = scans[index];
+      const outcome = await scan.run();
+      results[index] =
+        typeof outcome === 'number'
+          ? { name: scan.name, code: outcome, output: '' }
+          : { name: scan.name, code: outcome.code, output: outcome.output ?? '' };
+    }
+  }
+  const poolSize = Math.max(1, Math.min(concurrency, scans.length));
+  await Promise.all(Array.from({ length: poolSize }, () => worker()));
+
+  // Surface the full captured output of each FAILED scan (in original order) for debuggability.
+  for (const result of results) {
+    if (result.code !== 0 && result.output.trim().length > 0) {
+      write(`\n----- ${result.name} (FAILED) -----`);
+      write(result.output.replace(/\n+$/, ''));
+    }
   }
 
   write('');

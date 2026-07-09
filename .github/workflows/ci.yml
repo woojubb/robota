@@ -148,6 +148,50 @@ jobs:
         if: github.base_ref != 'main'
         run: pnpm harness:verify -- --base-ref origin/${{ github.base_ref }} --skip-build --skip-record-check
 
+      # INFRA-037: build-contracts is the ONE scan that reads packages/*/dist (validates that declared
+      # main/types/exports paths resolve to built files) and silently no-ops without dist. It stays in
+      # `quality` (which restores dist above) so its coverage is preserved; the other 47 scans + the
+      # harness test suite moved to the `needs`-less `scans` job (parallel with build). The full scan
+      # suite remains a develop-merge gate (INFRA-026) — split across `scans` + this step, both required.
+      - name: Build-output contracts scan (dist-dependent)
+        if: github.base_ref != 'main'
+        run: pnpm harness:scan:build-contracts
+
+  # INFRA-037: the dist-INDEPENDENT scan suite + harness unit tests run here with NO `needs: build`, so
+  # they start immediately and run in parallel with `build` (removing the ~3-min build-wait for work that
+  # never consumed dist). Shaped like build/quality (main-base no-op + step-level `if`) so this REQUIRED
+  # check always resolves and never lingers pending.
+  scans:
+    name: scans
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Skip duplicate scans for main PR
+        if: github.base_ref == 'main'
+        run: echo "scans are covered by release-grade verification"
+
+      - uses: actions/checkout@v4
+        if: github.base_ref != 'main'
+        with:
+          fetch-depth: 50
+
+      - name: Install pnpm
+        if: github.base_ref != 'main'
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8.15.4
+
+      - name: Use Node.js 22.x
+        if: github.base_ref != 'main'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        if: github.base_ref != 'main'
+        run: pnpm install --frozen-lockfile
+
       # HARNESS-021: the harness scans' own unit suite runs in full — per-scan test selection
       # (verify-change) cannot see suite-wide drift, which let 5 stale fixtures sit silent.
       - name: Harness scan test suite
@@ -155,13 +199,12 @@ jobs:
         run: pnpm harness:test
 
       # INFRA-026: the full scan suite is a develop-merge gate, not a release-only one.
-      # Before this step existed, ~42 of the scans (incl. dep-kind and interface-imports)
-      # were only enforced on main-base PRs — the re-audit's gate-blind-spot root cause.
-      # `dist` is skipped by charter: it is a LOCAL pre-CI freshness check and a fresh CI
-      # checkout has no build outputs to measure (the skip is printed, never silent).
-      - name: Harness scan suite
+      # `dist` is a LOCAL pre-CI freshness check (a fresh checkout has no dist to measure — skip printed,
+      # never silent); `build-contracts` (INFRA-037) is dist-dependent and runs in the `quality` job after
+      # dist restore, so it is skipped here rather than silently no-op'ing on a source/build-change PR.
+      - name: Harness scan suite (dist-independent)
         if: github.base_ref != 'main'
-        run: pnpm harness:scan -- --skip dist
+        run: pnpm harness:scan -- --skip dist --skip build-contracts
 
   security-audit:
     name: security audit
