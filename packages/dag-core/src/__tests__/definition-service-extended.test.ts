@@ -185,13 +185,14 @@ describe('DagDefinitionValidator extended', () => {
     expect(result.error.some((e) => e.code === 'DAG_VALIDATION_EMPTY_NODE_ID')).toBe(true);
   });
 
-  it('validates deprecated llm-text node type', () => {
+  it('accepts the collapsed llm-text node type (ARCH-PROVIDER-003 — tombstone inverted)', () => {
     const def = createValidDefinition();
     def.nodes[0].nodeType = 'llm-text';
     const result = DagDefinitionValidator.validate(def);
-    expect(result.ok).toBe(false);
+    // `llm-text` is the collapsed provider-registry node; it must no longer be rejected as removed.
+    expect(result.ok).toBe(true);
     if (result.ok) return;
-    expect(result.error.some((e) => e.code === 'DAG_VALIDATION_NODE_TYPE_REMOVED')).toBe(true);
+    expect(result.error.some((e) => e.code === 'DAG_VALIDATION_NODE_TYPE_REMOVED')).toBe(false);
   });
 
   it('validates empty input port key', () => {
