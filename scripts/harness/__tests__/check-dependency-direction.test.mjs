@@ -46,16 +46,18 @@ describe('checkDagNodesLeaf (HARNESS-016 / ARL-16b)', () => {
     expect(v).toEqual([]);
   });
 
-  it('honors the frozen allowlist for the router aggregator (ARL-11 exception)', () => {
+  it('has an empty allowlist — the router aggregator is gone (ARL-11 resolved by ARCH-PROVIDER-003)', () => {
+    // The former node→node fan-out (router → vendor nodes) was collapsed into the single
+    // registry-injected dag-node-llm-text, so a node→node edge is no longer allowlisted and now fails.
     const v = checkDagNodesLeaf(
       pkgMap([
         [
-          '@robota-sdk/dag-node-llm-text-router',
-          ['@robota-sdk/dag-core', '@robota-sdk/dag-node', '@robota-sdk/dag-node-llm-text-openai'],
+          '@robota-sdk/dag-node-some-aggregator',
+          ['@robota-sdk/dag-core', '@robota-sdk/dag-node', '@robota-sdk/dag-node-llm-text'],
         ],
       ]),
     );
-    expect(v).toEqual([]);
+    expect(v.length).toBe(1);
   });
 
   it('TC-03: the live repo has no un-allowlisted leaf violations (exit 0)', () => {

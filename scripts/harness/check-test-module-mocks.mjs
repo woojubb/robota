@@ -76,11 +76,7 @@ const ALLOWLIST = new Set([
   'packages/dag-cli/src/__tests__/studio-http-server.test.ts',
   'packages/dag-nodes/gemini-image-edit/src/runtime-core.test.ts',
   'packages/dag-nodes/instant-node/src/__tests__/index.test.ts',
-  'packages/dag-nodes/llm-text-anthropic/src/index.test.ts',
-  'packages/dag-nodes/llm-text-deepseek/src/index.test.ts',
-  'packages/dag-nodes/llm-text-gemini/src/index.test.ts',
-  'packages/dag-nodes/llm-text-openai/src/index.test.ts',
-  'packages/dag-nodes/llm-text-qwen/src/index.test.ts',
+  'packages/dag-nodes/llm-text/src/index.test.ts',
 ]);
 
 async function* walkTestFiles(dir) {
