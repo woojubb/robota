@@ -166,6 +166,34 @@ re-export `agent-framework`.
   `scripts/harness/check-dependency-direction.mjs`; keeping the dependency one-way is sufficient for
   the gate (no separate allowlist entry required).
 
+## Family Decomposition Rule
+
+When a group of related capabilities forms a "family" (providers, DAG nodes, plugins, commands),
+decide package granularity by ONE driver: **is the member independently installed or registered by a
+consumer / third party?**
+
+- **Split into per-member packages** when a member is a unit a consumer (or a third party) adds à la
+  carte — installed from npm and/or registered at an extension point. A heavy **independent third-party
+  SDK** is the _strongest signal_ of this (each vendor SDK is a distinct dependency the consumer opts
+  into), but it is **not** the definition: a light, co-released member is still its own package when it is
+  an independently registrable extension-point member.
+- **Consolidate into a single package** when members are **internal runtime behaviors selected by config**,
+  not npm-installed or registered à la carte by consumers.
+
+Reconcile any new family against the four existing shapes (this rule is the SSOT that must keep matching
+them):
+
+| Family                                               | Shape            | Why                                                                                                                                                                                                                                                                                                                              |
+| ---------------------------------------------------- | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Providers (`agent-provider-*`)                       | per-member split | each vendor is consumer-selectable AND carries a distinct heavy SDK (ARCH-PROVIDER-002)                                                                                                                                                                                                                                          |
+| DAG nodes (`dag-node-*`)                             | per-member split | each node is a registry-registered extension-point member a consumer/3rd party adds à la carte — split **even when light + co-released** (e.g. `dag-node-text-output` depends only on `dag-core`/`dag-node`/`zod` at the family version, yet is its own package). This case is why the driver is installability, not dep-weight. |
+| Plugins / Commands                                   | single package   | config-selected internal behaviors with shared deps, not consumer-installed                                                                                                                                                                                                                                                      |
+| Defaults aggregator (`-defaults` / `-nodes-default`) | composition leaf | assembles the family's default set for a zero-config entry point; imported only at composition roots (entry-point-only)                                                                                                                                                                                                          |
+
+Consequence: adding a family member = one more package (split families) or one more internal module
+(consolidated families) — never collapse a split extension-point family into one package on a naive
+"no heavy dep" reading, and never split an internal config-selected behavior into its own package.
+
 ## Composition-Root Exemption (Import-Layering Scans)
 
 `agent-cli` must not import `@robota-sdk/agent-executor` directly — it consumes SDK

@@ -7,29 +7,19 @@ Do not promote entries to `.agents/rules/common-mistakes.md` without human revie
 
 ## user-correction
 
-- Frequency: 12 events in the last 7 days
+- Frequency: 50 events in the last 7 days
 - Sources: corrections
 - Example paths: (none)
-- First seen: 2026-06-28T03:00:08.000Z
-- Last seen: 2026-07-03T00:24:39.000Z
+- First seen: 2026-07-05T04:47:31.000Z
+- Last seen: 2026-07-09T16:38:47.000Z
 - Status: candidate; human review is required before promotion.
 <!-- auto-lesson:same-file-edited-3-times -->
 
 ## same-file-edited-3-times
 
-- Frequency: 493 events in the last 7 days
+- Frequency: 122 events in the last 7 days
 - Sources: reverts
-- Example paths: `.agents/project-structure.md`, `.agents/publish-registry.md`, `.agents/release-runs/3.0.0-beta.74.md`, `.agents/release-runs/3.0.0-beta.75.md`, `.agents/release-runs/3.0.0-beta.76.md`
-- First seen: 2026-07-03T16:54:46.000Z
-- Last seen: 2026-07-04T07:23:54.000Z
-- Status: candidate; human review is required before promotion.
-<!-- auto-lesson:try-catch-fallback -->
-
-## try-catch-fallback
-
-- Frequency: 10 events in the last 7 days
-- Sources: blocks
-- Example paths: `packages/agent-cli/src/process-guards.ts`, `packages/agent-cli/src/testing/binary-agent-driver.ts`, `packages/agent-command-workflows/src/run-command.ts`, `packages/agent-core/src/core/robota-execution.ts`, `packages/agent-core/src/core/robota-lifecycle.ts`
-- First seen: 2026-06-28T05:22:24.000Z
-- Last seen: 2026-07-03T13:55:09.000Z
+- Example paths: `.agents/architecture-remediation-log.md`, `.agents/project-structure.md`, `.agents/rules/common-mistakes.md`, `.agents/skills/architecture-refresh/SKILL.md`, `.agents/skills/documentation-refresh/SKILL.md`
+- First seen: 2026-07-05T07:16:04.000Z
+- Last seen: 2026-07-09T16:42:30.000Z
 - Status: candidate; human review is required before promotion.

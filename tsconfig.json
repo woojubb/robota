@@ -29,12 +29,6 @@
     },
     {
       "path": "./packages/agent-provider-anthropic"
-    },
-    {
-      "path": "./packages/agent-provider-google"
-    },
-    {
-      "path": "./packages/agent-team"
     }
   ]
 }
