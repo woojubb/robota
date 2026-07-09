@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: INFRA
 tags: [provider, dag-nodes, dag-framework, dip]
 parent: ARCH-PROVIDER-001
@@ -162,22 +162,22 @@ Sub-sequence green per commit.
 
 ## Completion Criteria
 
-- [ ] TC-01: `@robota-sdk/dag-nodes-default` exports `createDefaultNodeRegistry` + `createDefaultNodeRegistrySync`
+- [x] TC-01: `@robota-sdk/dag-nodes-default` exports `createDefaultNodeRegistry` + `createDefaultNodeRegistrySync`
       with identical behavior to the former framework functions (ported tests green, incl. the llm-text +
       optional-loader + partial-install TC-10 diagnostic).
-- [ ] TC-02: `dag-framework/package.json` has **no** `@robota-sdk/dag-node-*` concrete-node dependency (only
+- [x] TC-02: `dag-framework/package.json` has **no** `@robota-sdk/dag-node-*` concrete-node dependency (only
       `@robota-sdk/dag-node` the contract base) and **no** `agent-provider-defaults`; asserted by inspection +
       `check-dependency-direction` green.
-- [ ] TC-03: `createDagFramework()` with no `options.nodes` still yields the full default catalog (lazy load);
+- [x] TC-03: `createDagFramework()` with no `options.nodes` still yields the full default catalog (lazy load);
       with `options.nodes` injected, `dag-nodes-default` is never loaded; a load failure surfaces a typed
       diagnostic naming `@robota-sdk/dag-nodes-default` (no silent empty registry).
-- [ ] TC-04: `LocalDagRuntimeProvider` with no injected `nodeRegistry` still lists/executes the default
+- [x] TC-04: `LocalDagRuntimeProvider` with no injected `nodeRegistry` still lists/executes the default
       catalog (async lazy default); an injected `nodeRegistry` is used verbatim.
-- [ ] TC-05: consumers (`agent-command-workflows`, `dag-cli`, `dag-mcp-server`) import the registry from
+- [x] TC-05: consumers (`agent-command-workflows`, `dag-cli`, `dag-mcp-server`) import the registry from
       `dag-nodes-default`; `dag-framework` no longer re-exports it (no pass-through re-export).
-- [ ] TC-06: entry-point-only guard fails when a non-composition-root library `src` imports
+- [x] TC-06: entry-point-only guard fails when a non-composition-root library `src` imports
       `dag-nodes-default`; passes for the sanctioned composition roots; `DAG_NODES_LEAF_ALLOWLIST` stays empty.
-- [ ] TC-07: full `pnpm harness:scan` 48/48 (+ any new guard) + `pnpm harness:test` + full-repo `pnpm
+- [x] TC-07: full `pnpm harness:scan` 48/48 (+ any new guard) + `pnpm harness:test` + full-repo `pnpm
 typecheck` 0; changeset present. Affected package suites green (dag-cli, dag-framework, agent-command-workflows,
       dag-mcp-server, dag-runtime-server).
 
@@ -208,11 +208,11 @@ package move + lazy-default plumbing; RED→GREEN per sub-sequence step.
 
 ## Tasks
 
-- [ ] Step 1 — create `@robota-sdk/dag-nodes-default`; move `default-node-registry.ts` (both fns + optional loaders + lazy provider-defaults) + its test into it; take the 15 node deps + agent-provider-defaults.
-- [ ] Step 2 — repoint `dag-framework`: lazy `import()` default in create-dag-framework.ts; async lazy `buildNodeRegistry` in local-dag-runtime-provider.ts; drop node deps, add dag-nodes-default (optional+dev); stop index re-export; delete default-node-registry.ts; repoint + invert the 5 framework tests.
-- [ ] Step 3 — repoint prod consumers (agent-command-workflows, dag-cli local-runner) + dag-cli/dag-mcp-server tests to dag-nodes-default.
-- [ ] Step 4 — add the static-import entry-point-only guard (+ test); verify DAG_NODES_LEAF_ALLOWLIST stays empty.
-- [ ] Step 5 — full harness:scan + harness:test + typecheck + changeset; GATE-VERIFY/COMPLETE.
+- [x] Step 1 — create `@robota-sdk/dag-nodes-default`; move `default-node-registry.ts` (both fns + optional loaders + lazy provider-defaults) + its test into it; take the 15 node deps + agent-provider-defaults.
+- [x] Step 2 — repoint `dag-framework`: lazy `import()` default in create-dag-framework.ts; async lazy `buildNodeRegistry` in local-dag-runtime-provider.ts; drop node deps, add dag-nodes-default (optional+dev); stop index re-export; delete default-node-registry.ts; repoint + invert the 5 framework tests.
+- [x] Step 3 — repoint prod consumers (agent-command-workflows, dag-cli local-runner) + dag-cli/dag-mcp-server tests to dag-nodes-default.
+- [x] Step 4 — add the static-import entry-point-only guard (+ test); verify DAG_NODES_LEAF_ALLOWLIST stays empty.
+- [x] Step 5 — full harness:scan + harness:test + typecheck + changeset; GATE-VERIFY/COMPLETE.
 
 ## Evidence Log
 
@@ -241,3 +241,21 @@ package move + lazy-default plumbing; RED→GREEN per sub-sequence step.
     `index.test.ts` re-export assertion; plural/singular prefix divergence). `check-capability-placement` is
     production-scoped (a devDependency edge won't trip it); no cycle. Non-blocking copy-edits folded in (14 hard +
     1 optional = 15 concrete nodes; `createCliNodeRegistryWithLocalNodes`). Design APPROVED → implement. Spec → active.
+- 2026-07-10 GATE-IMPLEMENT (Steps 1–4) — created `@robota-sdk/dag-nodes-default` (moved
+  `default-node-registry.ts` + its test; 15 concrete node deps + agent-provider-defaults optional + SDK peers);
+  repointed `dag-framework` (new `load-default-node-registry.ts` lazy `import()` with typed diagnostic in
+  create-dag-framework + async `buildNodeRegistry` in LocalDagRuntimeProvider; dropped the 15 node deps +
+  agent-provider-defaults; added dag-nodes-default optional; stopped the index re-export; repointed 4 tests +
+  inverted `index.test.ts`); repointed prod consumers (agent-command-workflows, dag-cli local-runner) +
+  dag-mcp-server test to dag-nodes-default; added the static-import `check-entry-point-only` guard (+ fixture
+  test) sanctioning apps/dag-cli/agent-command-workflows/dag-mcp-server and exempting the framework's dynamic
+  seam; registered it in run-all-scans + package.json.
+- 2026-07-10 GATE-VERIFY — `dag-nodes-default` 13, `dag-framework` 107 (moved 13 out), `dag-cli` 1007,
+  `agent-command-workflows` 28, `dag-mcp-server` 14, `apps/dag-runtime-server` 13 (zero-arg default catalog via
+  lazy load, end-to-end); `pnpm harness:scan` **49/49** (new entry-point-only scan; `DAG_NODES_LEAF_ALLOWLIST`
+  stays empty; dag-nodes-default SPEC public-API documented); `pnpm harness:test` **298** (+ guard fixture);
+  full-repo `pnpm typecheck` 0; full `pnpm build`. `check-dependency-direction` green — `dag-framework` has no
+  concrete `dag-node-*` dependency. TC-01..07 met.
+- 2026-07-10 GATE-COMPLETE — Stage C done: `dag-framework` is decoupled from concrete node packages; the
+  default catalog is an injectable/lazy entry-point-only aggregator. Closes ARL-12. Spec → done. Stages D
+  (skill/tool port — ARL-11 skill-half) + E (husk + policy cleanup) remain per ARCH-PROVIDER-001.
