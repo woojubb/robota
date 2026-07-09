@@ -132,6 +132,15 @@ export interface IProviderDefinition {
    * drifting inventory. Absent means no allowlist enforcement (any model the provider accepts is allowed).
    */
   allowedModels?: readonly string[];
+  /**
+   * INTERIM provider-level cost per token in USD (ARCH-PROVIDER-003), migrated verbatim from the per-vendor
+   * LLM nodes' single `COST_PER_TOKEN_USD` scalar. The correct long-term home is the per-model
+   * {@link IProviderModelCatalogEntry.costPerInputToken}/`costPerOutputToken`; this flat scalar is a
+   * fidelity-preserving interim used only while model catalogs are `status:'unavailable'` (no per-model
+   * entries to attach cost to). Consumed by the collapsed `llm-text` node's `maxCostUsd` estimation. Absent
+   * means cost is unknown for this provider and estimators must degrade explicitly.
+   */
+  costPerTokenUsd?: number;
   modelCatalog?: IProviderModelCatalog;
   refreshModelCatalog?: TProviderModelCatalogRefresh;
   /** Maximum age in seconds before the model catalog is considered stale and auto-refreshed. */
