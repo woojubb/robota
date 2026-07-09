@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: INFRA
 tags: [harness, ci]
 ---
@@ -124,9 +124,13 @@ dist --skip build-contracts` + `harness:test`; `quality` keeps `needs: build` an
       (it runs in `quality` after dist restore, exactly as today); no scan silently no-ops. The dist-less
       `scans` job never runs `build-contracts`. → `harness:scan:build-contracts` entry added; runs in
       `quality` after dist restore; `scans` job passes `--skip build-contracts` (46/46 dist-less).
-- [ ] TC-07: `scans` is registered as a **required status check** on `develop`/`main` branch protection
+- [x] TC-07: `scans` is registered as a **required status check** on `develop`/`main` branch protection
       (a red `scans` blocks merge even with a green `quality`) — recorded as done in the Evidence Log.
-      → MANUAL branch-protection change; flagged to user as a release-blocking checklist item (pending).
+      → Discovered the repo had **NO** branch protection/rulesets at all (no required checks on any job).
+      With owner approval, created active rulesets `protect-develop` (id 18715844) + `protect-main`
+      (id 18715845) requiring `{build, quality, scans, security audit, commitlint}` — the skip-shape-safe
+      set that reports pass on both develop-base and main-base PRs — with admin `bypass_mode: always`
+      preserving owner fast-merge. Verified via `gh api repos/.../rules/branches/<br>`.
 
 ## Test Plan
 
@@ -144,7 +148,7 @@ lesson-to-harness.
 - [x] Add `harness:scan:build-contracts` package.json entry.
 - [x] CI: new `scans` job (no `needs`) + `quality` build-contracts carve-out after dist restore.
 - [x] Institutionalize the "don't serialize CI behind unused upstream output" lesson (lesson-to-harness).
-- [ ] TC-07 (manual): register `scans` as a required status check on `develop`/`main` protection.
+- [x] TC-07: register `scans` as a required status check on `develop`/`main` protection (rulesets created).
 
 ## Evidence Log
 
@@ -174,3 +178,11 @@ scripts/harness/check-build-output-contracts.mjs`) whose non-zero exit fails the
   (`--skip dist --skip build-contracts`) 46/46; `build-contracts` standalone exits 0 (TC-06); ci.yml parses,
   `scans` job + build-contracts step present (TC-04); **full-repo `pnpm typecheck` exit 0** (TC-05). TC-07
   (required-check registration) remains a manual branch-protection step, flagged to the user.
+- 2026-07-09 MERGE — PR #1062 → develop (merge 7e858110a, verified commit 9eca84004 on origin/develop);
+  PR #1063 develop → main (merge 247b013ab, verified 9eca84004 on origin/main). Full CI green on both incl.
+  release-grade verification. The `scans` job went green before `build` finished on #1062, confirming the
+  de-serialization win on the PR's own CI.
+- 2026-07-09 GATE-COMPLETE — TC-07 resolved by discovery+fix: the repo had **no** branch protection or
+  rulesets (verified — every CI job was informational, blocking nothing). With owner approval, created active
+  rulesets `protect-develop` (18715844) + `protect-main` (18715845) requiring `{build, quality, scans,
+security audit, commitlint}` with admin bypass. All TCs (01–07) met; spec → done.
