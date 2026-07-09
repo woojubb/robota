@@ -1,4 +1,6 @@
 import type { IDagNodeDefinition } from '@robota-sdk/dag-core';
+import type { IProviderDefinition } from '@robota-sdk/agent-core';
+import { LlmTextNodeDefinition } from '@robota-sdk/dag-node-llm-text';
 import { InputNodeDefinition } from '@robota-sdk/dag-node-input';
 import { MultiInputNodeDefinition } from '@robota-sdk/dag-node-multi-input';
 import { TransformNodeDefinition } from '@robota-sdk/dag-node-transform';
@@ -65,40 +67,48 @@ interface IOptionalNodeLoader {
   readonly factories: ReadonlyArray<(mod: Record<string, unknown>) => IDagNodeDefinition>;
 }
 
+/** Lazily loads the default provider-definition set. Kept dynamic so `dag-framework` gains NO static
+ * provider-SDK dependency (ARCH-PROVIDER-003). Unlike the per-node optional loaders below, a failure here
+ * is surfaced as a TYPED DIAGNOSTIC naming the missing package — the collapsed `llm-text` node is never
+ * silently dropped, and explicit `providers` injection is the supported partial-install path. */
+export type TProviderDefinitionLoader = () => Promise<readonly IProviderDefinition[]>;
+
+const loadDefaultProviderDefinitions: TProviderDefinitionLoader = async () => {
+  try {
+    // eslint-disable-next-line no-restricted-syntax -- lazy default set; keeps dag-framework SDK-free
+    const mod = (await import('@robota-sdk/agent-provider-defaults')) as {
+      createDefaultProviderDefinitions: () => readonly IProviderDefinition[];
+    };
+    return mod.createDefaultProviderDefinitions();
+  } catch (error) {
+    const cause = error instanceof Error ? error.message : String(error);
+    throw new Error(
+      'Failed to load the default LLM provider set for the llm-text node. A provider SDK package is ' +
+        'likely not installed. Install @robota-sdk/agent-provider-defaults (and its provider SDKs), or ' +
+        `pass createDagFramework({ providers: [...] }) explicitly. Cause: ${cause}`,
+    );
+  }
+};
+
 /**
- * Loads the default node registry, including LLM nodes whose construction may
- * depend on optional provider SDK peer dependencies. Each LLM node is loaded
- * dynamically; if the corresponding SDK is not installed, that node is
- * silently skipped instead of failing the entire registry build.
+ * Loads the default node registry. The collapsed provider-registry `llm-text` node
+ * (`@robota-sdk/dag-node-llm-text`, which depends on `agent-core` only) is a STATIC import and is always
+ * present; it is constructed with the injected `providers`, or — when none are given — a lazily-loaded
+ * `createDefaultProviderDefinitions()` (see {@link loadDefaultProviderDefinitions} for the partial-install
+ * diagnostic). The remaining media/skill nodes are still dynamically imported and silently skipped when their
+ * optional SDK peer dependency is absent.
  */
-export async function createDefaultNodeRegistry(): Promise<IDagNodeDefinition[]> {
-  const nodes: IDagNodeDefinition[] = [...createDefaultNodeRegistrySync()];
+export async function createDefaultNodeRegistry(
+  providers?: readonly IProviderDefinition[],
+  loadDefaults: TProviderDefinitionLoader = loadDefaultProviderDefinitions,
+): Promise<IDagNodeDefinition[]> {
+  const resolvedProviders = providers ?? (await loadDefaults());
+  const nodes: IDagNodeDefinition[] = [
+    ...createDefaultNodeRegistrySync(),
+    new LlmTextNodeDefinition(resolvedProviders),
+  ];
 
   const optionalLoaders: ReadonlyArray<IOptionalNodeLoader> = [
-    {
-      modulePath: '@robota-sdk/dag-node-llm-text-anthropic',
-      factories: [
-        (mod) => new (mod.LlmTextAnthropicNodeDefinition as new () => IDagNodeDefinition)(),
-      ],
-    },
-    {
-      modulePath: '@robota-sdk/dag-node-llm-text-openai',
-      factories: [(mod) => new (mod.LlmTextOpenAiNodeDefinition as new () => IDagNodeDefinition)()],
-    },
-    {
-      modulePath: '@robota-sdk/dag-node-llm-text-gemini',
-      factories: [(mod) => new (mod.LlmTextGeminiNodeDefinition as new () => IDagNodeDefinition)()],
-    },
-    {
-      modulePath: '@robota-sdk/dag-node-llm-text-deepseek',
-      factories: [
-        (mod) => new (mod.LlmTextDeepSeekNodeDefinition as new () => IDagNodeDefinition)(),
-      ],
-    },
-    {
-      modulePath: '@robota-sdk/dag-node-llm-text-qwen',
-      factories: [(mod) => new (mod.LlmTextQwenNodeDefinition as new () => IDagNodeDefinition)()],
-    },
     {
       modulePath: '@robota-sdk/dag-node-gemini-image-edit',
       factories: [

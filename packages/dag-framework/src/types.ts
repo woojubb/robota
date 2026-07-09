@@ -9,6 +9,7 @@ import type {
   ITaskExecutorPort,
   IAssetStore,
 } from '@robota-sdk/dag-core';
+import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import type { IWorkerLoopPolicyOptions } from '@robota-sdk/dag-worker';
 import type { IDagControllerComposition, IDagExecutionComposition } from '@robota-sdk/dag-api';
 import type { IDagOrchestrationPort } from '@robota-sdk/dag-orchestration-client';
@@ -62,6 +63,12 @@ export interface IDagFrameworkLogger {
 export interface IDagFrameworkOptions {
   /** Node definitions to register. Defaults to createDefaultNodeRegistry(). */
   readonly nodes?: readonly IDagNodeDefinition[];
+  /**
+   * Provider-definition registry injected into the collapsed `llm-text` node (ARCH-PROVIDER-003).
+   * Defaults to a lazily-loaded `createDefaultProviderDefinitions()`. **Ignored when `nodes` is supplied**
+   * — custom node sets carry their own provider wiring.
+   */
+  readonly providers?: readonly IProviderDefinition[];
   /** Override individual infrastructure ports. */
   readonly ports?: IDagFrameworkPorts;
   /** Override storage and asset paths (overrides env vars). */

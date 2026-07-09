@@ -2209,6 +2209,9 @@ importers:
       '@google/genai':
         specifier: ^1.52.0
         version: 1.52.0(@modelcontextprotocol/sdk@1.29.0)
+      '@robota-sdk/agent-core':
+        specifier: workspace:*
+        version: link:../agent-core
       '@robota-sdk/dag-adapters-local':
         specifier: workspace:*
         version: link:../dag-adapters-local
@@ -2236,6 +2239,9 @@ importers:
       '@robota-sdk/dag-node-input':
         specifier: workspace:*
         version: link:../dag-nodes/input
+      '@robota-sdk/dag-node-llm-text':
+        specifier: workspace:*
+        version: link:../dag-nodes/llm-text
       '@robota-sdk/dag-node-multi-input':
         specifier: workspace:*
         version: link:../dag-nodes/multi-input
@@ -2282,24 +2288,12 @@ importers:
         specifier: ^4.104.0
         version: 4.104.0(ws@8.21.0)(zod@3.25.76)
     optionalDependencies:
+      '@robota-sdk/agent-provider-defaults':
+        specifier: workspace:*
+        version: link:../agent-provider-defaults
       '@robota-sdk/dag-node-gemini-image-edit':
         specifier: workspace:*
         version: link:../dag-nodes/gemini-image-edit
-      '@robota-sdk/dag-node-llm-text-anthropic':
-        specifier: workspace:*
-        version: link:../dag-nodes/llm-text-anthropic
-      '@robota-sdk/dag-node-llm-text-deepseek':
-        specifier: workspace:*
-        version: link:../dag-nodes/llm-text-deepseek
-      '@robota-sdk/dag-node-llm-text-gemini':
-        specifier: workspace:*
-        version: link:../dag-nodes/llm-text-gemini
-      '@robota-sdk/dag-node-llm-text-openai':
-        specifier: workspace:*
-        version: link:../dag-nodes/llm-text-openai
-      '@robota-sdk/dag-node-llm-text-qwen':
-        specifier: workspace:*
-        version: link:../dag-nodes/llm-text-qwen
     devDependencies:
       tsdown:
         specifier: ^0.22.2
