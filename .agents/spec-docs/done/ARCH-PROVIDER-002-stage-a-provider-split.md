@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: INFRA
 tags: [architecture, cli]
 ---
@@ -104,3 +104,13 @@ default-definitions → delete monolith/husk, keeping the build green at each st
   (15 consumers exhaustive incl. instant-node on live /workflows; `agent-provider-defaults` leaf resolves
   the agent-cli cycle; concrete class exports; `-google` husk deleted). Non-blocking: `agent-command-workflows`
   takes a **devDep** (test-only) on `agent-provider-defaults`. Approved → implement (push-deferred).
+- 2026-07-09 GATE-IMPLEMENT/VERIFY/COMPLETE — 6 leaf packages created (agent-provider-{anthropic,openai,
+  openai-compatible,gemini,bytedance,defaults}); monolith + -gemma/-google husks removed; 15 consumers
+  repointed (incl. instant-node on live /workflows); createDefaultProviderDefinitions relocated to
+  agent-provider-defaults (no agent-cli cycle). Guards updated (capability-placement prod-scope, ghost-refs
+  .changeset exempt, sdk-react-free/agent-server-boundary/doc-examples/workspace-refs names). Doc sweep +
+  agent-provider-openai Reasoning-Effort SPEC section preserved + golden characterization test (6 defs, order).
+  (Implementer hit a transient 529 mid-run; recovery + tail completion + verification done in the main loop.)
+  Verified: full-repo typecheck exit 0; harness:scan 48/48; provider leaves + defaults golden + dag-nodes +
+  agent-cli tests green. Local commit 7937c19d0 (push deferred). ARL-10 provider-half + ARL-15 provider husks
+  resolved; ARL-10 node-half + ARL-11/12 remain for Stages B–D.
