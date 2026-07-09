@@ -2,10 +2,10 @@
 // Embeddable in-process DAG runtime composition package.
 
 export { createDagFramework } from './create-dag-framework.js';
-export {
-  createDefaultNodeRegistry,
-  createDefaultNodeRegistrySync,
-} from './default-node-registry.js';
+// The default node catalog moved to `@robota-sdk/dag-nodes-default` (ARCH-PROVIDER-004). It is NOT
+// re-exported here: a pass-through re-export would force a hard `dag-framework → dag-nodes-default`
+// production edge, re-creating the concrete-node coupling this stage removes. Import the registry from
+// `@robota-sdk/dag-nodes-default` directly at composition roots.
 export type {
   IDagFramework,
   IDagFrameworkOptions,

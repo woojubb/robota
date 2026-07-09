@@ -61,7 +61,7 @@ export interface IDagFrameworkLogger {
 }
 
 export interface IDagFrameworkOptions {
-  /** Node definitions to register. Defaults to createDefaultNodeRegistry(). */
+  /** Node definitions to register. Defaults to the lazily-loaded catalog from `@robota-sdk/dag-nodes-default`. */
   readonly nodes?: readonly IDagNodeDefinition[];
   /**
    * Provider-definition registry injected into the collapsed `llm-text` node (ARCH-PROVIDER-003).

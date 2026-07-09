@@ -36,7 +36,7 @@ import {
 } from '@robota-sdk/dag-node';
 import { fromDagWorkflowFile } from '@robota-sdk/dag-builder';
 
-import { createDefaultNodeRegistrySync } from './default-node-registry.js';
+import { loadDefaultNodeRegistrySync } from './load-default-node-registry.js';
 import { createExecutionComposition } from './composition/create-execution-composition.js';
 import {
   collectOutputsFromTaskRuns,
@@ -62,10 +62,9 @@ function sleep(ms: number): Promise<void> {
 /** Options accepted by {@link LocalDagRuntimeProvider}. */
 export interface ILocalDagRuntimeProviderOptions {
   /**
-   * Base node registry. Defaults to {@link createDefaultNodeRegistrySync}.
-   * The CLI layer typically passes `createCliNodeRegistry()` to include
-   * LLM and provider-backed nodes that are unavailable inside
-   * dag-framework alone.
+   * Base node registry. Defaults to the lazily-loaded `createDefaultNodeRegistrySync` from
+   * `@robota-sdk/dag-nodes-default` (ARCH-PROVIDER-004). The CLI layer typically passes
+   * `createCliNodeRegistry()` to include LLM and provider-backed nodes.
    */
   nodeRegistry?: IDagNodeDefinition[];
   /** DAG project directory — reserved for future local node-file scanning. */
@@ -95,7 +94,7 @@ export class LocalDagRuntimeProvider implements IDagRuntimeProvider {
   public constructor(private readonly options: ILocalDagRuntimeProviderOptions = {}) {}
 
   public async listNodes(): Promise<IDagNodeManifest[]> {
-    const allDefs = this.buildNodeRegistry();
+    const allDefs = await this.buildNodeRegistry();
     return allDefs.map(toObjectInfoManifest);
   }
 
@@ -104,7 +103,7 @@ export class LocalDagRuntimeProvider implements IDagRuntimeProvider {
     inputs: Record<string, unknown>,
     options?: IDagRuntimeExecuteOptions,
   ): Promise<IDagRuntimeResult> {
-    const nodeDefinitions = this.buildNodeRegistry();
+    const nodeDefinitions = await this.buildNodeRegistry();
     const definition = fromDagWorkflowFile(dag, undefined);
 
     const startMs = Date.now();
@@ -165,8 +164,8 @@ export class LocalDagRuntimeProvider implements IDagRuntimeProvider {
    *  `extraNodes`; node-file scanning is owned by the CLI layer to avoid
    *  pulling Node.js fs APIs into dag-framework consumers.)
    */
-  private buildNodeRegistry(): IDagNodeDefinition[] {
-    const base = this.options.nodeRegistry ?? createDefaultNodeRegistrySync();
+  private async buildNodeRegistry(): Promise<IDagNodeDefinition[]> {
+    const base = this.options.nodeRegistry ?? (await loadDefaultNodeRegistrySync());
     const instant = this.options.instantNodes ?? [];
     const extra = this.options.extraNodes ?? [];
 
