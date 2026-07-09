@@ -7,7 +7,6 @@
 '@robota-sdk/agent-interface-transport': patch
 '@robota-sdk/agent-interface-tui': patch
 '@robota-sdk/agent-plugin': patch
-'@robota-sdk/agent-provider': patch
 '@robota-sdk/agent-session': patch
 '@robota-sdk/agent-subagent-runner': patch
 '@robota-sdk/agent-tools': patch

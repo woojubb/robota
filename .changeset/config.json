@@ -13,7 +13,6 @@
       "@robota-sdk/agent-interface-tui",
       "@robota-sdk/agent-plugin",
       "@robota-sdk/agent-preset",
-      "@robota-sdk/agent-provider",
       "@robota-sdk/agent-session",
       "@robota-sdk/agent-subagent-runner",
       "@robota-sdk/agent-tools",

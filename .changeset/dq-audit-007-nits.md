@@ -1,5 +1,4 @@
 ---
-'@robota-sdk/agent-provider': patch
 '@robota-sdk/agent-core': patch
 ---
 
