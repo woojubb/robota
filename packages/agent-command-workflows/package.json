@@ -43,7 +43,8 @@
     "@robota-sdk/dag-core": "workspace:*",
     "@robota-sdk/dag-framework": "workspace:*",
     "@robota-sdk/dag-node": "workspace:*",
-    "@robota-sdk/dag-node-instant-node": "workspace:*"
+    "@robota-sdk/dag-node-instant-node": "workspace:*",
+    "@robota-sdk/dag-nodes-default": "workspace:*"
   },
   "devDependencies": {
     "@robota-sdk/agent-provider-defaults": "workspace:*",

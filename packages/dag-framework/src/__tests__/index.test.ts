@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import * as dagFramework from '../index.js';
 import {
   DAG_FRAMEWORK_PACKAGE_NAME,
-  createDefaultNodeRegistrySync,
   createDagFramework,
   DagPromptBackend,
   LocalFsAssetStore,
@@ -12,10 +12,10 @@ describe('package public surface (index.ts re-exports)', () => {
     expect(DAG_FRAMEWORK_PACKAGE_NAME).toBe('@robota-sdk/dag-framework');
   });
 
-  it('exports createDefaultNodeRegistrySync', () => {
-    expect(typeof createDefaultNodeRegistrySync).toBe('function');
-    const nodes = createDefaultNodeRegistrySync();
-    expect(Array.isArray(nodes)).toBe(true);
+  it('does NOT re-export the default node catalog (moved to @robota-sdk/dag-nodes-default, ARCH-PROVIDER-004)', () => {
+    // A pass-through re-export would re-create the concrete-node coupling this stage removes.
+    expect('createDefaultNodeRegistrySync' in dagFramework).toBe(false);
+    expect('createDefaultNodeRegistry' in dagFramework).toBe(false);
   });
 
   it('exports createDagFramework', () => {

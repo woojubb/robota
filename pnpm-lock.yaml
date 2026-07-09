@@ -1050,6 +1050,9 @@ importers:
       '@robota-sdk/dag-node-instant-node':
         specifier: workspace:*
         version: link:../dag-nodes/instant-node
+      '@robota-sdk/dag-nodes-default':
+        specifier: workspace:*
+        version: link:../dag-nodes-default
     devDependencies:
       '@robota-sdk/agent-provider-defaults':
         specifier: workspace:*
@@ -2125,6 +2128,9 @@ importers:
       '@robota-sdk/dag-node-mcp-tool':
         specifier: workspace:*
         version: link:../dag-nodes/mcp-tool
+      '@robota-sdk/dag-nodes-default':
+        specifier: workspace:*
+        version: link:../dag-nodes-default
       '@robota-sdk/dag-orchestration-client':
         specifier: workspace:*
         version: link:../dag-orchestration-client
@@ -2191,12 +2197,6 @@ importers:
 
   packages/dag-framework:
     dependencies:
-      '@anthropic-ai/sdk':
-        specifier: ^0.91.1
-        version: 0.91.1(zod@3.25.76)
-      '@google/genai':
-        specifier: ^1.52.0
-        version: 1.52.0(@modelcontextprotocol/sdk@1.29.0)
       '@robota-sdk/agent-core':
         specifier: workspace:*
         version: link:../agent-core
@@ -2215,6 +2215,97 @@ importers:
       '@robota-sdk/dag-cost':
         specifier: workspace:*
         version: link:../dag-cost
+      '@robota-sdk/dag-node':
+        specifier: workspace:*
+        version: link:../dag-node
+      '@robota-sdk/dag-orchestration-client':
+        specifier: workspace:*
+        version: link:../dag-orchestration-client
+      '@robota-sdk/dag-projection':
+        specifier: workspace:*
+        version: link:../dag-projection
+      '@robota-sdk/dag-runtime':
+        specifier: workspace:*
+        version: link:../dag-runtime
+      '@robota-sdk/dag-worker':
+        specifier: workspace:*
+        version: link:../dag-worker
+    optionalDependencies:
+      '@robota-sdk/dag-nodes-default':
+        specifier: workspace:*
+        version: link:../dag-nodes-default
+    devDependencies:
+      tsdown:
+        specifier: ^0.22.2
+        version: 0.22.2(tsx@4.22.4)(typescript@5.9.3)(unrun@0.3.1)
+
+  packages/dag-mcp-server:
+    dependencies:
+      '@modelcontextprotocol/sdk':
+        specifier: ^1.29.0
+        version: 1.29.0(zod@3.25.76)
+      '@robota-sdk/dag-builder':
+        specifier: workspace:*
+        version: link:../dag-builder
+      '@robota-sdk/dag-core':
+        specifier: workspace:*
+        version: link:../dag-core
+      '@robota-sdk/dag-orchestration-client':
+        specifier: workspace:*
+        version: link:../dag-orchestration-client
+    devDependencies:
+      '@robota-sdk/dag-framework':
+        specifier: workspace:*
+        version: link:../dag-framework
+      '@robota-sdk/dag-nodes-default':
+        specifier: workspace:*
+        version: link:../dag-nodes-default
+      tsdown:
+        specifier: ^0.22.2
+        version: 0.22.2(tsx@4.22.4)(typescript@5.9.3)(unrun@0.3.1)
+
+  packages/dag-node:
+    dependencies:
+      '@robota-sdk/dag-core':
+        specifier: workspace:*
+        version: link:../dag-core
+      zod:
+        specifier: ^3.24.4
+        version: 3.25.76
+      zod-to-json-schema:
+        specifier: ^3.24.5
+        version: 3.25.2(zod@3.25.76)
+    devDependencies:
+      eslint:
+        specifier: ^8.56.0
+        version: 8.57.1
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      tsdown:
+        specifier: ^0.22.2
+        version: 0.22.2(tsx@4.22.4)(typescript@5.9.3)(unrun@0.3.1)
+      typescript:
+        specifier: ^5.3.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.6
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.22.4)
+
+  packages/dag-nodes-default:
+    dependencies:
+      '@anthropic-ai/sdk':
+        specifier: ^0.91.1
+        version: 0.91.1(zod@3.25.76)
+      '@google/genai':
+        specifier: ^1.52.0
+        version: 1.52.0(@modelcontextprotocol/sdk@1.29.0)
+      '@robota-sdk/agent-core':
+        specifier: workspace:*
+        version: link:../agent-core
+      '@robota-sdk/dag-core':
+        specifier: workspace:*
+        version: link:../dag-core
       '@robota-sdk/dag-node':
         specifier: workspace:*
         version: link:../dag-node
@@ -2258,20 +2349,8 @@ importers:
         specifier: workspace:*
         version: link:../dag-nodes/transform
       '@robota-sdk/dag-node-utility-text':
-        specifier: workspace:3.0.0-beta.60
+        specifier: workspace:*
         version: link:../dag-nodes/utility-text
-      '@robota-sdk/dag-orchestration-client':
-        specifier: workspace:*
-        version: link:../dag-orchestration-client
-      '@robota-sdk/dag-projection':
-        specifier: workspace:*
-        version: link:../dag-projection
-      '@robota-sdk/dag-runtime':
-        specifier: workspace:*
-        version: link:../dag-runtime
-      '@robota-sdk/dag-worker':
-        specifier: workspace:*
-        version: link:../dag-worker
       openai:
         specifier: ^4.104.0
         version: 4.104.0(ws@8.21.0)(zod@3.25.76)
@@ -2283,44 +2362,9 @@ importers:
         specifier: workspace:*
         version: link:../dag-nodes/gemini-image-edit
     devDependencies:
-      tsdown:
-        specifier: ^0.22.2
-        version: 0.22.2(tsx@4.22.4)(typescript@5.9.3)(unrun@0.3.1)
-
-  packages/dag-mcp-server:
-    dependencies:
-      '@modelcontextprotocol/sdk':
-        specifier: ^1.29.0
-        version: 1.29.0(zod@3.25.76)
-      '@robota-sdk/dag-builder':
-        specifier: workspace:*
-        version: link:../dag-builder
-      '@robota-sdk/dag-core':
-        specifier: workspace:*
-        version: link:../dag-core
-      '@robota-sdk/dag-orchestration-client':
-        specifier: workspace:*
-        version: link:../dag-orchestration-client
-    devDependencies:
-      '@robota-sdk/dag-framework':
-        specifier: workspace:*
-        version: link:../dag-framework
-      tsdown:
-        specifier: ^0.22.2
-        version: 0.22.2(tsx@4.22.4)(typescript@5.9.3)(unrun@0.3.1)
-
-  packages/dag-node:
-    dependencies:
-      '@robota-sdk/dag-core':
-        specifier: workspace:*
-        version: link:../dag-core
-      zod:
-        specifier: ^3.24.4
-        version: 3.25.76
-      zod-to-json-schema:
-        specifier: ^3.24.5
-        version: 3.25.2(zod@3.25.76)
-    devDependencies:
+      '@types/node':
+        specifier: ^20.10.0
+        version: 20.19.43
       eslint:
         specifier: ^8.56.0
         version: 8.57.1
