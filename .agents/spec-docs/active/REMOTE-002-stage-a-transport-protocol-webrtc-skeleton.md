@@ -184,3 +184,18 @@ pairing + no-content. Harness `deps`/`entry-point-only`/`spec-public-surface` gr
     capability-placement allowlist; authored webrtc & remote-signaling `docs/{SPEC,README}.md`); full-repo
     `pnpm typecheck` **0 errors**; suites green — agent-transport-protocol 28, -ws 5, -webrtc 5, agent-web-ui 4,
     apps/remote-signaling 6, capability-placement scan-test 5. Changeset added. Stage A complete → GATE-VERIFY.
+- 2026-07-10 GATE-VERIFY — PR #1079 (feature→develop). CI green EXCEPT `security audit`, which flagged a **high**
+  advisory introduced by werift: **CVE-2024-29415 / GHSA-2p57-rm9w-gvfp** — `ip` SSRF (`isPublic`
+  miscategorization) via `werift@0.23.0 → {ip, werift-ice → ip}@2.0.1`. **Upstream is unfixable**: `ip` has no
+  patched release (advisory "patched: <0.0.0"), and werift@0.23.0 is the latest and still depends directly on
+  `ip@^2.0.1` — a werift bump does not remove it. **Decision:** added `CVE-2024-29415` to root
+  `pnpm.auditConfig.ignoreCves` (the repo's established mechanism for unfixable transitive advisories; 5 already
+  listed). Justified for Stage A because werift is an **optional peer dependency**, lazy-loaded, and **not wired
+  into any runnable/publish/deploy path** (TC-06) — the `ip` code path is unreachable in Stage A (loopback tests
+  only), so there is **no production SSRF surface** here.
+  - **SECURITY FOLLOW-UP (Stage B — mandatory before the enable path ships):** Stage B makes ICE candidate
+    gathering reachable, at which point `ip.isPublic`/`isPrivate` miscategorization becomes security-relevant
+    (SSRF-filter bypass on the P2P path). Before REMOTE-001 Stage B ships, RE-EVALUATE this: either (a) our own
+    ICE candidate policy (restricted STUN/TURN + candidate-type allowlist) fully neutralizes the miscategorization,
+    (b) override `ip` to a maintained fork, or (c) re-accept with a documented, reviewed rationale. This must NOT
+    be silently inherited — recorded here + carried into the REMOTE-001 design's Stage B security section.
