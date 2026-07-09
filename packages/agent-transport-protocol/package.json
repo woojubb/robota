@@ -1,7 +1,7 @@
 {
-  "name": "@robota-sdk/agent-transport-ws",
+  "name": "@robota-sdk/agent-transport-protocol",
   "version": "3.0.0-beta.79",
-  "description": "WebSocket transport and protocol for the Robota SDK",
+  "description": "Transport-neutral session bridge + wire protocol for the Robota SDK (shared by transport implementations)",
   "type": "module",
   "main": "dist/node/index.js",
   "types": "dist/node/index.d.ts",
@@ -45,13 +45,9 @@
     "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
   },
   "dependencies": {
-    "@robota-sdk/agent-core": "workspace:*",
-    "@robota-sdk/agent-interface-transport": "workspace:*",
-    "@robota-sdk/agent-transport-protocol": "workspace:*",
-    "ws": "^8.21.0"
+    "@robota-sdk/agent-interface-transport": "workspace:*"
   },
   "devDependencies": {
-    "@types/ws": "^8.18.1",
     "rimraf": "^5.0.10",
     "tsdown": "^0.22.2",
     "typescript": "^5.9.3",

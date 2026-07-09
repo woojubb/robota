@@ -185,6 +185,13 @@ user-facing enable path ships.
   protocol boundary). Add a **"waiting-for-operator-approval" server message** so a remote peer whose work
   stalls on a local TUI permission prompt sees a state, not a hang. This is where the user-facing enable path
   first ships — after the hardening, not before.
+  - **Inherited security debt from Stage A (MANDATORY, do not skip):** Stage A ignored **CVE-2024-29415**
+    (`ip` SSRF via werift's ICE stack) because it was unreachable with no enable path. Stage B makes ICE
+    candidate gathering reachable, so this becomes live. Before shipping the enable path, resolve it: (a) prove
+    our ICE candidate policy (restricted STUN/TURN + candidate-type allowlist) neutralizes the `isPublic`/
+    `isPrivate` miscategorization, (b) override `ip` to a maintained fork, or (c) re-accept with a reviewed,
+    documented rationale. Remove `CVE-2024-29415` from `pnpm.auditConfig.ignoreCves` if (a)/(b) resolves it. See
+    REMOTE-002 Evidence Log (2026-07-10 GATE-VERIFY).
 - **Stage D — Remote web client.** A generic fragment-injected static page (+ optional desktop shell) reusing
   the protocol + `IAgentDriver`, swapping WebSocket for `RTCDataChannel`; pairing UX (open link/scan → SPAKE2 →
   connected); `localStorage` TOFU key. (There is no Stage "C": a per-connection/enrollment manual-accept step is

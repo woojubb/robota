@@ -78,7 +78,7 @@ Import only what you need to keep bundles small:
 ```typescript
 import { createHeadlessTransport } from '@robota-sdk/agent-transport/headless';
 import { WsTransport } from '@robota-sdk/agent-transport-ws';
-import type { TServerMessage } from '@robota-sdk/agent-transport-ws';
+import type { TServerMessage } from '@robota-sdk/agent-transport-protocol';
 import { createHttpTransport } from '@robota-sdk/agent-transport-http';
 import { createMcpTransport } from '@robota-sdk/agent-transport-mcp';
 import { TuiTransport } from '@robota-sdk/agent-transport-tui';
