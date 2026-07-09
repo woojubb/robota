@@ -75,8 +75,8 @@ describe('nodeCommand', () => {
       // Check some known node types appear
       expect(output).toContain('input');
       expect(output).toContain('text-output');
-      expect(output).toContain('llm-text-anthropic');
-      expect(output).toContain('llm-text-openai');
+      expect(output).toContain('llm-text');
+      expect(output).toContain('LLM Text');
       expect(output).toContain('transform');
     });
 
@@ -136,24 +136,21 @@ describe('nodeCommand', () => {
   });
 
   describe('node info', () => {
-    it('succeeds for a known node type (llm-text-anthropic)', async () => {
+    it('succeeds for a known node type (llm-text)', async () => {
       const options = createOptions();
 
-      const exitCode = await nodeCommand(['info', 'llm-text-anthropic'], options);
+      const exitCode = await nodeCommand(['info', 'llm-text'], options);
 
       expect(exitCode).toBe(0);
       const output = getOutput(options);
-      expect(output).toContain('llm-text-anthropic');
-      expect(output).toContain('LLM Text Anthropic');
+      expect(output).toContain('llm-text');
+      expect(output).toContain('LLM Text');
     });
 
     it('returns shaped JSON when --output json', async () => {
       const options = createOptions();
 
-      const exitCode = await nodeCommand(
-        ['info', 'llm-text-anthropic', '--output', 'json'],
-        options,
-      );
+      const exitCode = await nodeCommand(['info', 'llm-text', '--output', 'json'], options);
 
       expect(exitCode).toBe(0);
       const parsed = JSON.parse(getOutput(options)) as {
@@ -166,8 +163,8 @@ describe('nodeCommand', () => {
         outputs: Array<{ portKey: string; type: string; required: boolean }>;
         configSchema: Record<string, unknown> | null;
       };
-      expect(parsed.nodeType).toBe('llm-text-anthropic');
-      expect(parsed.displayName).toBe('LLM Text Anthropic');
+      expect(parsed.nodeType).toBe('llm-text');
+      expect(parsed.displayName).toBe('LLM Text');
       expect(Array.isArray(parsed.inputs)).toBe(true);
       expect(Array.isArray(parsed.outputs)).toBe(true);
       const firstInput = parsed.inputs[0];
@@ -213,22 +210,22 @@ describe('nodeCommand', () => {
     it('suggests similar node types when nodeType not found', async () => {
       const options = createOptions();
 
-      // 'text' appears in many node types
-      const exitCode = await nodeCommand(['info', 'llm-text'], options);
+      // 'llm' is not a valid node type but is a prefix of 'llm-text'
+      const exitCode = await nodeCommand(['info', 'llm'], options);
 
       expect(exitCode).toBe(2);
       const output = getOutput(options);
-      expect(output).toContain('llm-text');
+      expect(output).toContain('llm');
       // Should suggest nodes that include 'llm-text'
-      expect(output).toContain('llm-text-anthropic');
+      expect(output).toContain('llm-text');
     });
   });
 
   describe('node schema', () => {
-    it('succeeds for a known node type (llm-text-anthropic)', async () => {
+    it('succeeds for a known node type (llm-text)', async () => {
       const options = createOptions();
 
-      const exitCode = await nodeCommand(['schema', 'llm-text-anthropic'], options);
+      const exitCode = await nodeCommand(['schema', 'llm-text'], options);
 
       expect(exitCode).toBe(0);
       const output = getOutput(options);
@@ -237,7 +234,7 @@ describe('nodeCommand', () => {
         nodeType: string;
         configSchema: Record<string, unknown>;
       };
-      expect(parsed.nodeType).toBe('llm-text-anthropic');
+      expect(parsed.nodeType).toBe('llm-text');
       expect(parsed.configSchema).toBeDefined();
     });
 
@@ -266,14 +263,14 @@ describe('nodeCommand', () => {
       expect(output).toContain('nodes');
     });
 
-    it('generates an example DAG JSON for llm-text-anthropic', async () => {
+    it('generates an example DAG JSON for llm-text', async () => {
       const options = createOptions();
 
-      const exitCode = await nodeCommand(['example', 'llm-text-anthropic'], options);
+      const exitCode = await nodeCommand(['example', 'llm-text'], options);
 
       expect(exitCode).toBe(0);
       const output = getOutput(options);
-      expect(output).toContain('llm-text-anthropic');
+      expect(output).toContain('llm-text');
       expect(output).toContain('# Save and run this example');
     });
 

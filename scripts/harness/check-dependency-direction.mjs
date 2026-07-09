@@ -227,19 +227,13 @@ export function checkInterfacePackageDeps(packages) {
 }
 
 /**
- * Frozen baseline (HARNESS-016 / ARL-16b): pre-existing dag-node leaf-invariant exceptions, keyed by the
- * exact `"<package> -> <dep>"` edge with a reason. `dag-node-llm-text-router` is an aggregator that
- * instantiates its sibling provider nodes; relocating that fan-out above the leaf layer is tracked as
- * ARL-11. New node→node / node→orchestrator edges are NOT in this set and must fail.
+ * Frozen baseline (HARNESS-016 / ARL-16b): dag-node leaf-invariant exceptions, keyed by the exact
+ * `"<package> -> <dep>"` edge with a reason. The former `dag-node-llm-text-router` aggregator (the only
+ * node→node fan-out) is REMOVED by ARCH-PROVIDER-003 — provider DIP collapsed the five vendor nodes + router
+ * into the single registry-injected `dag-node-llm-text`, so the leaf invariant now holds with no exceptions.
+ * (ARL-11 node-half resolved.) New node→node / node→orchestrator edges are NOT in this set and must fail.
  */
-const DAG_NODES_LEAF_ALLOWLIST = new Set([
-  // aggregator node pending ARL-11 structural relocation
-  '@robota-sdk/dag-node-llm-text-router -> @robota-sdk/dag-node-llm-text-anthropic',
-  '@robota-sdk/dag-node-llm-text-router -> @robota-sdk/dag-node-llm-text-openai',
-  '@robota-sdk/dag-node-llm-text-router -> @robota-sdk/dag-node-llm-text-gemini',
-  '@robota-sdk/dag-node-llm-text-router -> @robota-sdk/dag-node-llm-text-deepseek',
-  '@robota-sdk/dag-node-llm-text-router -> @robota-sdk/dag-node-llm-text-qwen',
-]);
+const DAG_NODES_LEAF_ALLOWLIST = new Set([]);
 
 /**
  * Rule 7 (HARNESS-016 / ARL-16b): a `@robota-sdk/dag-node-*` leaf package may depend, among `dag-*`

@@ -80,7 +80,7 @@ describe('parsePipelineSpec', () => {
 
     it('parses multiple config pairs with model and systemPrompt', () => {
       const result = parsePipelineSpec(
-        'input | llm-text-anthropic[model=claude-haiku-4-5-20251001,systemPrompt=Answer briefly] | text-output',
+        'input | llm-text[model=claude-haiku-4-5-20251001,systemPrompt=Answer briefly] | text-output',
       );
 
       expect(result.ok).toBe(true);

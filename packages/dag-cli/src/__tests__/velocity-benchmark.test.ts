@@ -77,7 +77,7 @@ describe('COMPOSE-006: Agent Authoring Velocity', () => {
         pipeline: [
           { nodeType: 'input', id: 'in' },
           {
-            nodeType: 'llm-text-anthropic',
+            nodeType: 'llm-text',
             id: 'llm',
             config: { model: 'claude-opus-4-7', systemPrompt: 'Answer concisely' },
           },
@@ -114,7 +114,7 @@ describe('COMPOSE-006: Agent Authoring Velocity', () => {
         dagId: 'scenario-a-run',
         pipeline: [
           { nodeType: 'input', id: 'in' },
-          { nodeType: 'llm-text-anthropic', id: 'llm' },
+          { nodeType: 'llm-text', id: 'llm' },
           { nodeType: 'text-output', id: 'out' },
         ],
       });
@@ -146,17 +146,17 @@ describe('COMPOSE-006: Agent Authoring Velocity', () => {
           {
             parallel: [
               {
-                nodeType: 'llm-text-anthropic',
+                nodeType: 'llm-text',
                 id: 'security',
                 config: { systemPrompt: 'Security review' },
               },
               {
-                nodeType: 'llm-text-anthropic',
+                nodeType: 'llm-text',
                 id: 'perf',
                 config: { systemPrompt: 'Performance review' },
               },
               {
-                nodeType: 'llm-text-anthropic',
+                nodeType: 'llm-text',
                 id: 'quality',
                 config: { systemPrompt: 'Quality review' },
               },

@@ -11,7 +11,7 @@ import { buildDagFromSpec, PORT_TYPE_COMPATIBILITY_RULES } from './build.js';
 const JSON_INDENT_SPACES = 2;
 const DESCRIBE_DAG_ID = 'described-pipeline';
 const DEFAULT_ENV_FILE = '.dag/.env';
-const LLM_NODE_TYPE = 'llm-text-anthropic';
+const LLM_NODE_TYPE = 'llm-text';
 const ANTHROPIC_KEY_ENV = 'ANTHROPIC_API_KEY';
 
 const DESCRIBE_HELP = `Usage: dag describe "<description>" [options]
@@ -186,8 +186,9 @@ KEY RULES:
 3. To give an LLM a task (translate, summarize, etc.), insert a "text-template" node BEFORE the LLM node.
    Set config.template to the full prompt with %s as placeholder for the user text.
    Example: {"type":"text-template","config":{"template":"Translate the following Korean text to English:\\n\\n%s"}}
-4. LLM nodes (llm-text-anthropic, llm-text-openai, etc.) receive text via their input port.
-   They do NOT have a systemPrompt config — use text-template upstream to build the prompt.
+4. The LLM node (llm-text) receives text via its input port. Set config.provider to one of
+   anthropic, openai, gemini, deepseek, qwen (optionally config.model). It does NOT have a
+   systemPrompt config — use text-template upstream to build the prompt.
 5. If multiple nodes of the same type are needed, give each a unique "id".
 6. Use ONLY node types from the list below.
 7. Output ONLY valid JSON — no explanation, no code fences.
@@ -199,10 +200,10 @@ EXAMPLE — "Translate Korean to English":
   "nodes": [
     {"type":"input"},
     {"type":"text-template","config":{"template":"Translate the following Korean text to English. Output only the translation.\\n\\n%s"}},
-    {"type":"llm-text-anthropic"},
+    {"type":"llm-text","config":{"provider":"anthropic"}},
     {"type":"text-output"}
   ],
-  "edges":["input→text-template","text-template→llm-text-anthropic","llm-text-anthropic→text-output"]
+  "edges":["input→text-template","text-template→llm-text","llm-text→text-output"]
 }
 
 Available node types:
@@ -234,7 +235,12 @@ const LLM_DAG: IDagDefinition = {
   status: 'draft',
   nodes: [
     { nodeId: 'input', nodeType: 'input', dependsOn: [], config: {} },
-    { nodeId: 'llm', nodeType: LLM_NODE_TYPE, dependsOn: ['input'], config: {} },
+    {
+      nodeId: 'llm',
+      nodeType: LLM_NODE_TYPE,
+      dependsOn: ['input'],
+      config: { provider: 'anthropic' },
+    },
     { nodeId: 'output', nodeType: 'text-output', dependsOn: ['llm'], config: {} },
   ],
   edges: [

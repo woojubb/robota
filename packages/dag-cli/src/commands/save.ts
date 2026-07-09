@@ -27,7 +27,7 @@ Options:
 Examples:
   dag save --pipeline "input | transform | text-output" --name my-transform \\
     --node-config "transform.prefix=→ "
-  dag save --pipeline "input | llm-text-anthropic | text-output" --name summarizer
+  dag save --pipeline "input | llm-text[provider=anthropic] | text-output" --name summarizer
 `;
 
 export interface ISaveCommandOptions {

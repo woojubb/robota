@@ -22,23 +22,19 @@ describe('TEMPLATE_REGISTRY', () => {
 describe('buildPipelineFromTemplate: linear', () => {
   it('builds linear pipeline with llm slot', () => {
     const result = buildPipelineFromTemplate('linear', {
-      llm: { nodeType: 'llm-text-anthropic', config: { systemPrompt: 'Be concise' } },
+      llm: { nodeType: 'llm-text', config: { systemPrompt: 'Be concise' } },
     });
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     const { pipeline } = result.buildInput;
     expect(pipeline).toHaveLength(3);
     expect((pipeline[0] as { nodeType: string }).nodeType).toBe('input');
-    expect((pipeline[1] as { nodeType: string }).nodeType).toBe('llm-text-anthropic');
+    expect((pipeline[1] as { nodeType: string }).nodeType).toBe('llm-text');
     expect((pipeline[2] as { nodeType: string }).nodeType).toBe('text-output');
   });
 
   it('uses provided dagId', () => {
-    const result = buildPipelineFromTemplate(
-      'linear',
-      { llm: { nodeType: 'llm-text-openai' } },
-      'my-dag',
-    );
+    const result = buildPipelineFromTemplate('linear', { llm: { nodeType: 'llm-text' } }, 'my-dag');
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.buildInput.dagId).toBe('my-dag');
@@ -63,8 +59,8 @@ describe('buildPipelineFromTemplate: chain', () => {
   it('builds chain with multiple steps', () => {
     const result = buildPipelineFromTemplate('chain', {
       steps: [
-        { nodeType: 'llm-text-anthropic', config: { systemPrompt: 'Translate to Korean' } },
-        { nodeType: 'llm-text-anthropic', config: { systemPrompt: 'Summarise' } },
+        { nodeType: 'llm-text', config: { systemPrompt: 'Translate to Korean' } },
+        { nodeType: 'llm-text', config: { systemPrompt: 'Summarise' } },
       ],
     });
     expect(result.ok).toBe(true);
@@ -90,8 +86,8 @@ describe('buildPipelineFromTemplate: parallel-review', () => {
   it('builds fan-out pipeline', () => {
     const result = buildPipelineFromTemplate('parallel-review', {
       branches: [
-        { nodeType: 'llm-text-anthropic', id: 'security', config: { systemPrompt: 'Security' } },
-        { nodeType: 'llm-text-anthropic', id: 'perf', config: { systemPrompt: 'Performance' } },
+        { nodeType: 'llm-text', id: 'security', config: { systemPrompt: 'Security' } },
+        { nodeType: 'llm-text', id: 'perf', config: { systemPrompt: 'Performance' } },
       ],
     });
     expect(result.ok).toBe(true);

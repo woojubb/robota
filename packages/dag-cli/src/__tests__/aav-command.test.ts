@@ -15,7 +15,7 @@ vi.mock('../local-runner/index.js', async () => {
         taskRuns: [
           { nodeId: 'input', status: 'success', outputSnapshot: JSON.stringify({ text: 'ok' }) },
           {
-            nodeId: 'llm-text-anthropic',
+            nodeId: 'llm-text',
             status: 'success',
             outputSnapshot: JSON.stringify({ text: 'result' }),
           },
@@ -103,7 +103,7 @@ describe('aavCommand - execution', () => {
             dagRun: { status: 'success' },
             taskRuns: [
               { nodeId: 'input', status: 'success' },
-              { nodeId: 'llm-text-anthropic', status: 'success' },
+              { nodeId: 'llm-text', status: 'success' },
               { nodeId: 'text-output', status: 'success' },
             ],
           }),
@@ -127,7 +127,7 @@ describe('aavCommand - execution', () => {
             dagRun: { status: 'success' },
             taskRuns: [
               { nodeId: 'input', status: 'success' },
-              { nodeId: 'llm-text-anthropic', status: 'success' },
+              { nodeId: 'llm-text', status: 'success' },
               { nodeId: 'text-output', status: 'success' },
             ],
           }),
@@ -179,7 +179,7 @@ describe('aavCommand - execution', () => {
             dagRun: { status: 'failed' },
             taskRuns: [
               { nodeId: 'input', status: 'success' },
-              { nodeId: 'llm-text-anthropic', status: 'failed' },
+              { nodeId: 'llm-text', status: 'failed' },
               { nodeId: 'text-output', status: 'failed' },
             ],
           }),

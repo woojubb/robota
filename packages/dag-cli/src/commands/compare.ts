@@ -8,14 +8,11 @@ const JSON_INDENT_SPACES = 2;
 const OUTPUT_FORMAT_JSON = 'json';
 const OUTPUT_FORMAT_PRETTY = 'pretty';
 
-/** Map provider name → nodeType */
-const PROVIDER_NODE_TYPE: Readonly<Record<string, string>> = {
-  anthropic: 'llm-text-anthropic',
-  openai: 'llm-text-openai',
-  gemini: 'llm-text-gemini',
-  deepseek: 'llm-text-deepseek',
-  qwen: 'llm-text-qwen',
-} as const;
+/** The collapsed LLM node type; the provider is carried in `config.provider` (ARCH-PROVIDER-003). */
+const LLM_NODE_TYPE = 'llm-text';
+
+/** Providers `dag compare` can benchmark (each has an env-var → credential mapping in {@link hasApiKey}). */
+const KNOWN_PROVIDERS: readonly string[] = ['anthropic', 'openai', 'gemini', 'deepseek', 'qwen'];
 
 export interface ICompareCommandOptions {
   readonly io: IDagCliIo;
@@ -171,11 +168,11 @@ function parseCompareArgv(args: readonly string[]): TParseResult {
   const providerB = positional[1] as string;
 
   for (const provider of [providerA, providerB]) {
-    if (!(provider in PROVIDER_NODE_TYPE)) {
+    if (!KNOWN_PROVIDERS.includes(provider)) {
       return {
         ok: false,
         exitCode: USAGE_ERROR_EXIT_CODE,
-        message: `Unknown provider "${provider}". Available providers: ${Object.keys(PROVIDER_NODE_TYPE).join(', ')}.`,
+        message: `Unknown provider "${provider}". Available providers: ${KNOWN_PROVIDERS.join(', ')}.`,
       };
     }
   }
@@ -187,15 +184,15 @@ function parseCompareArgv(args: readonly string[]): TParseResult {
 }
 
 /**
- * Build a minimal linear DAG definition for a single LLM provider.
- * Parses the --pipeline string with {provider} placeholder, replacing with actual provider.
+ * Build a minimal linear DAG definition for a single LLM provider. The collapsed `llm-text` node
+ * carries the provider in `config.provider`; the `{provider}` token in a `--pipeline` string is still
+ * substituted so callers can parameterize other stages by provider name.
  */
 function buildProviderDag(
   provider: string,
   pipelineStr: string | undefined,
   inputs: Record<string, string>,
 ): IDagDefinition {
-  const nodeType = PROVIDER_NODE_TYPE[provider] ?? `llm-text-${provider}`;
   const llmNodeId = `llm-${provider}`;
 
   // Default pipeline: input → llm → text-output
@@ -206,7 +203,7 @@ function buildProviderDag(
       status: 'draft',
       nodes: [
         { nodeId: 'input', nodeType: 'input', dependsOn: [], config: {} },
-        { nodeId: llmNodeId, nodeType, dependsOn: ['input'], config: {} },
+        { nodeId: llmNodeId, nodeType: LLM_NODE_TYPE, dependsOn: ['input'], config: { provider } },
         { nodeId: 'output', nodeType: 'text-output', dependsOn: [llmNodeId], config: {} },
       ],
       edges: [
@@ -216,7 +213,7 @@ function buildProviderDag(
     };
   }
 
-  // Parse pipeline string "input | llm-text-{provider} | text-output"
+  // Parse pipeline string "input | llm-text | text-output"; the LLM stage gets config.provider.
   const stages = pipelineStr
     .split('|')
     .map((s) => s.trim())
@@ -229,12 +226,15 @@ function buildProviderDag(
     return `node-${i}-${s.replace(/[^a-z0-9]/gi, '-')}`;
   });
 
-  const nodes = stages.map((stage, i) => ({
-    nodeId: nodeIds[i] as string,
-    nodeType: stage,
-    dependsOn: i === 0 ? [] : [nodeIds[i - 1] as string],
-    config: {},
-  }));
+  const nodes = stages.map((stage, i) => {
+    const config: Record<string, string> = stage === LLM_NODE_TYPE ? { provider } : {};
+    return {
+      nodeId: nodeIds[i] as string,
+      nodeType: stage,
+      dependsOn: i === 0 ? [] : [nodeIds[i - 1] as string],
+      config,
+    };
+  });
 
   const edges = stages.slice(0, -1).map((_, i) => ({
     from: nodeIds[i] as string,
@@ -437,7 +437,7 @@ function buildDecision(
 
   const pipelineStr = pipeline
     ? pipeline.replace(/\{provider\}/g, recommendation)
-    : `input | llm-text-${recommendation} | text-output`;
+    : `input | llm-text[provider=${recommendation}] | text-output`;
 
   return {
     speedWinner: fasterWinner.provider,
@@ -647,8 +647,8 @@ export async function compareCommand(
         '  <provider-b>    Second provider',
         '',
         'Options:',
-        '  --pipeline      Pipeline string with {provider} placeholder',
-        '                  e.g. "input | llm-text-{provider} | text-output"',
+        '  --pipeline      Pipeline string (the llm-text stage runs with each provider)',
+        '                  e.g. "input | llm-text | text-output"',
         '  --input         Input key=value pair (repeatable)',
         '  --output        Output format: pretty (default) or json',
         '  --decide        Show recommendation section with winner and run command',

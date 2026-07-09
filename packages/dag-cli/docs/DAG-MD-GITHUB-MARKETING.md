@@ -17,7 +17,9 @@ dag:
     input:
       nodeType: input
     review:
-      nodeType: llm-text-anthropic
+      nodeType: llm-text
+      config:
+        provider: anthropic
       dependsOn: [input]
     output:
       nodeType: text-output
@@ -28,7 +30,7 @@ dag:
 
 ```mermaid
 flowchart LR
-  input["📥 input"]-->review["🤖 llm-text-anthropic"]
+  input["📥 input"]-->review["🤖 llm-text (anthropic)"]
   review-->output["📤 text-output"]
 ```
 ````

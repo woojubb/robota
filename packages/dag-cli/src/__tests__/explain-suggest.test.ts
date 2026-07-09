@@ -20,7 +20,7 @@ vi.mock('@robota-sdk/dag-node', () => ({
           outputs: [],
         },
         {
-          nodeType: 'llm-text-anthropic',
+          nodeType: 'llm-text',
           displayName: 'LLM',
           inputs: [{ key: 'text', type: 'string' }],
           outputs: [{ key: 'text', type: 'string' }],
@@ -67,7 +67,7 @@ const VALID_DAG_JSON = JSON.stringify({
   status: 'draft',
   nodes: [
     { nodeId: 'input', nodeType: 'input', dependsOn: [], config: {} },
-    { nodeId: 'llm', nodeType: 'llm-text-anthropic', dependsOn: ['input'], config: {} },
+    { nodeId: 'llm', nodeType: 'llm-text', dependsOn: ['input'], config: {} },
     { nodeId: 'output', nodeType: 'text-output', dependsOn: ['llm'], config: {} },
   ],
   edges: [

@@ -86,7 +86,7 @@ const MINIMAL_MANIFESTS: INodeManifest[] = [
     defaultOutputPort: undefined,
   },
   {
-    nodeType: 'llm-text-anthropic',
+    nodeType: 'llm-text',
     displayName: 'LLM Text (Anthropic)',
     category: 'LLM',
     inputs: [{ key: 'text', type: 'string', required: true }],
@@ -126,7 +126,7 @@ const MINIMAL_DAG = {
   status: 'draft' as const,
   nodes: [
     { nodeId: 'in', nodeType: 'input', dependsOn: [] as string[], config: {} },
-    { nodeId: 'llm', nodeType: 'llm-text-anthropic', dependsOn: ['in'], config: {} },
+    { nodeId: 'llm', nodeType: 'llm-text', dependsOn: ['in'], config: {} },
     { nodeId: 'out', nodeType: 'text-output', dependsOn: ['llm'], config: {} },
   ],
   edges: [] as IDagEdgeDefinition[],
@@ -309,8 +309,8 @@ describe('handleDagNodesInfo', () => {
       getManifests: vi.fn().mockReturnValue([
         ...MINIMAL_MANIFESTS,
         {
-          nodeType: 'llm-text-openai',
-          displayName: 'LLM Text (OpenAI)',
+          nodeType: 'llm-text',
+          displayName: 'LLM Text',
           category: 'LLM',
           inputs: [],
           outputs: [],
@@ -320,8 +320,8 @@ describe('handleDagNodesInfo', () => {
         },
       ]),
     });
-    // Query for 'llm-text' — should suggest 'llm-text-anthropic' and 'llm-text-openai'
-    const result = handleDagNodesInfo(ctx, { nodeType: 'llm-text' });
+    // Query for 'llm' (not a valid nodeType) — should suggest 'llm-text'
+    const result = handleDagNodesInfo(ctx, { nodeType: 'llm' });
     expect(result.isError).toBe(true);
     expect(getText(result.content, 0)).toContain('Did you mean');
   });

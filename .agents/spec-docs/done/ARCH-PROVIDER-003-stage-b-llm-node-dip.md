@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: INFRA
 tags: [provider, dag-nodes, dip, dag-framework]
 parent: ARCH-PROVIDER-001
@@ -190,28 +190,28 @@ dag-cli/dag-core consumer surface + workflow `kind`s; delete the five vendor pac
 
 ## Completion Criteria
 
-- [ ] TC-01: one `dag-node-llm-text` resolves an `IAIProvider` from the **injected** `IProviderDefinition[]`
+- [x] TC-01: one `dag-node-llm-text` resolves an `IAIProvider` from the **injected** `IProviderDefinition[]`
       registry (unit; a stub registry proves no hardcoded vendor list).
-- [ ] TC-02: the router's selection is preserved — `priority-fallback`, `round-robin`, `maxCostUsd` cap, **and
+- [x] TC-02: the router's selection is preserved — `priority-fallback`, `round-robin`, `maxCostUsd` cap, **and
       the skip-if-no-credential semantics** (a provider lacking a resolvable credential is _skipped_, not a hard
       error) — characterization test ported from the router.
-- [ ] TC-03: **no `process.env` read in the node source** (grep/guard over `packages/dag-nodes/llm-text/src`);
+- [x] TC-03: **no `process.env` read in the node source** (grep/guard over `packages/dag-nodes/llm-text/src`);
       credential resolution flows through the relocated `agent-core` resolver.
-- [ ] TC-04: `createDagFramework({ providers })` overrides the registry; omitting it lazily defaults to
+- [x] TC-04: `createDagFramework({ providers })` overrides the registry; omitting it lazily defaults to
       `createDefaultProviderDefinitions()`; **`dag-framework` gains no static provider-SDK dependency**
       (dependency-direction scan green; asserted).
-- [ ] TC-05: `defaults.model` / `allowedModels` / per-model cost resolve from `IProviderDefinition` (SSOT),
+- [x] TC-05: `defaults.model` / `allowedModels` / per-model cost resolve from `IProviderDefinition` (SSOT),
       not from per-node hardcoded state; golden test on the default definitions carries the migrated values;
       **no second `defaultModel` field introduced**.
-- [ ] TC-06: the `llm-text` tombstone is inverted (a migrated `llm-text` workflow passes `definition-validator`);
+- [x] TC-06: the `llm-text` tombstone is inverted (a migrated `llm-text` workflow passes `definition-validator`);
       the five vendor packages + router are deleted; `ghost-package-refs` + `deps` + `workspace-refs` scans
       green; dag-cli/dag-core consumers migrated (no per-vendor `nodeType` branch remains — grep-asserted).
-- [ ] TC-07: `options` passthrough on the single node (a passed option reaches the provider config).
-- [ ] TC-08: full `pnpm harness:scan` 48/48 + `pnpm harness:test` + full-repo `pnpm typecheck` 0; changeset present.
-- [ ] TC-09: **no mid-migration `/workflows` regression** — `/workflows` instant-node execution + create still
+- [x] TC-07: `options` passthrough on the single node (a passed option reaches the provider config).
+- [x] TC-08: full `pnpm harness:scan` 48/48 + `pnpm harness:test` + full-repo `pnpm typecheck` 0; changeset present.
+- [x] TC-09: **no mid-migration `/workflows` regression** — `/workflows` instant-node execution + create still
       resolve an LLM provider through the collapsed node (integration; deterministic suite uses a stubbed
       provider — no real call, common-mistakes #76; a real call is opt-in only).
-- [ ] TC-10: **default-path partial-install behavior** — when the lazy default provider set cannot load
+- [x] TC-10: **default-path partial-install behavior** — when the lazy default provider set cannot load
       because a provider SDK is absent, the framework surfaces a **typed diagnostic naming the missing
       provider package** and does NOT silently drop the `llm-text` node; explicit `providers` injection is the
       supported partial-install path (asserted in an isolated context, since the in-repo suite has all SDKs
@@ -239,8 +239,11 @@ suite makes **no** real provider call — common-mistakes #76). Full `harness:sc
       options passthrough; no process.env). TC-01/02/03/07 (10/10).
 - [x] Step 5 — dag-framework: `createDagFramework({ providers })` + `createDefaultNodeRegistry(providers?)`
       (lazy default + typed diagnostic on missing SDK). TC-04/TC-10 (120/120). _(Steps 1–5 = PR-1.)_
-- [ ] Step 6 — migrate consumers (dag-cli commands/templates/lock/local-runner) + workflow kinds to `llm-text`.
-- [ ] Step 7 — delete 5 vendor packages + router (atomic with step 6); doc sweep; changeset; harness green. TC-05/06/08/09.
+- [x] Step 6 — migrated dag-cli + dag-builder consumer surface (registry/commands/templates/lock + 22 test
+      files) to `llm-text` + `config.provider`; dag-cli 1007/1007. _(Steps 6–7 = PR-2.)_
+- [x] Step 7 — deleted the 5 vendor packages + router (atomic with step 6); harness allowlist emptied
+      (ARL-11 node-half resolved), test-mock allowlist + pre.json repointed; full typecheck 0, harness:scan
+      48/48. TC-05/06/08/09.
 
 ## Evidence Log
 
@@ -292,3 +295,24 @@ suite makes **no** real provider call — common-mistakes #76). Full `harness:sc
     relocated exports). Steps 6 (consumer migration + workflow-kind migration) + 7 (delete the 5 vendor
     packages + router, atomic) remain — PR-2 (spec stays in-progress; the dag-cli `llm-text-<vendor>` surface is
     the migration target).
+- 2026-07-09 GATE-IMPLEMENT (Steps 6–7, PR-2) — Step 6: migrated the dag-cli + dag-builder consumer surface
+  (local-runner registry → single `LlmTextNodeDefinition(createDefaultProviderDefinitions())`;
+  explain/cost/benchmark/run/node/compare derive the provider from `config.provider`, LLM detection is
+  `nodeType === 'llm-text'`; init/tutorial/templates scaffold `llm-text` + `config.provider`; lock
+  `LLM_NODE_TYPES = ['llm-text']`; help/pipeline examples `llm-text[provider=…]`; 22 test files migrated).
+  Step 7: deleted `packages/dag-nodes/llm-text-{anthropic,openai,gemini,deepseek,qwen}` + `-router`; emptied
+  `DAG_NODES_LEAF_ALLOWLIST` (router aggregator was the only node→node edge → **ARL-11 node-half RESOLVED**,
+  logged in `.agents/architecture-remediation-log.md`); repointed the `test-module-mocks` allowlist to the
+  new node's test; dropped the 6 entries from `.changeset/pre.json`. dag-cli config `nodeType 'llm-text'` with
+  `config.provider` (single) / `config.providers[]` (router replacement); the generic dag-builder kebab↔Pascal
+  transform handles `llm-text` ↔ `RobotaLlmText` unchanged. Deliberate: help/pipeline examples use
+  `llm-text[provider=anthropic]` (the node requires a provider), and openai keeps no default model (matching
+  its `model: required` setup step).
+- 2026-07-09 GATE-VERIFY — full-repo `pnpm build` ✓; `pnpm typecheck` 0; `pnpm harness:scan` **48/48**
+  (ghost-package-refs / deps / workspace-refs / harness-config-paths all green post-deletion);
+  `pnpm harness:test` deps-direction 8/8; dag-cli **1007/1007**, dag-framework 120/120,
+  agent-command-workflows 28 (+5 skipped), dag-node-llm-text 10/10. TC-05/06/08/09 satisfied; no residual
+  live reference to the deleted packages (only historical mentions in this spec + the harness comment).
+- 2026-07-09 GATE-COMPLETE — all TC-01..10 met across PR-1 (Steps 1–5) + PR-2 (Steps 6–7). Provider DIP Stage
+  B done: the `/workflows` LLM path is now a single registry-injected `dag-node-llm-text`; adding a provider =
+  adding one `IProviderDefinition`. Spec → done. (Stages C–E remain per ARCH-PROVIDER-001.)

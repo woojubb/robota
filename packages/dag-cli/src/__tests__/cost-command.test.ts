@@ -56,9 +56,9 @@ const DAG_WITH_ANTHROPIC_HAIKU = JSON.stringify({
     { nodeId: 'input', nodeType: 'input', dependsOn: [], config: {} },
     {
       nodeId: 'llm',
-      nodeType: 'llm-text-anthropic',
+      nodeType: 'llm-text',
       dependsOn: ['input'],
-      config: { model: 'claude-haiku-4-5' },
+      config: { provider: 'anthropic', model: 'claude-haiku-4-5' },
     },
     { nodeId: 'text-output', nodeType: 'text-output', dependsOn: ['llm'], config: {} },
   ],
@@ -73,9 +73,9 @@ const DAG_WITH_DEEPSEEK = JSON.stringify({
     { nodeId: 'input', nodeType: 'input', dependsOn: [], config: {} },
     {
       nodeId: 'llm-deepseek',
-      nodeType: 'llm-text-deepseek',
+      nodeType: 'llm-text',
       dependsOn: ['input'],
-      config: { model: 'deepseek-chat' },
+      config: { provider: 'deepseek', model: 'deepseek-chat' },
     },
     { nodeId: 'text-output', nodeType: 'text-output', dependsOn: ['llm-deepseek'], config: {} },
   ],
@@ -90,9 +90,9 @@ const DAG_WITH_QWEN = JSON.stringify({
     { nodeId: 'input', nodeType: 'input', dependsOn: [], config: {} },
     {
       nodeId: 'llm-qwen',
-      nodeType: 'llm-text-qwen',
+      nodeType: 'llm-text',
       dependsOn: ['input'],
-      config: { model: 'qwen-plus' },
+      config: { provider: 'qwen', model: 'qwen-plus' },
     },
     { nodeId: 'text-output', nodeType: 'text-output', dependsOn: ['llm-qwen'], config: {} },
   ],
@@ -204,7 +204,7 @@ describe('runCostCommand — --output json format', () => {
     expect(parsed.nodes.length).toBe(3);
     expect(typeof parsed.totalUsd).toBe('number');
     // LLM node should have non-zero cost
-    const llmNode = parsed.nodes.find((n) => n.nodeType === 'llm-text-anthropic');
+    const llmNode = parsed.nodes.find((n) => n.nodeType === 'llm-text');
     expect(llmNode).toBeDefined();
     expect(llmNode!.estimatedUsd).toBeGreaterThan(0);
   });

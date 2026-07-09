@@ -19,7 +19,7 @@ Aliases are stored in .dag/aliases.json and can be used as:
   dag run --pipeline @<name>
 
 Examples:
-  dag alias add summarize "input | llm-text-anthropic | text-output"
+  dag alias add summarize "input | llm-text[provider=anthropic] | text-output"
   dag alias list
   dag run @summarize --input text="Hello"
 `;

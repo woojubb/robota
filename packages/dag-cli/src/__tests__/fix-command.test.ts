@@ -26,7 +26,7 @@ vi.mock('@robota-sdk/dag-node', () => ({
           defaultInputPort: 'text',
         },
         {
-          nodeType: 'llm-text-anthropic',
+          nodeType: 'llm-text',
           displayName: 'LLM Anthropic',
           inputs: [{ key: 'text', type: 'string', required: true }],
           outputs: [{ key: 'text', type: 'string' }],
@@ -52,8 +52,8 @@ vi.mock('../local-runner/index.js', () => ({
             text: {
               type: 'string',
               value: JSON.stringify({
-                nodes: [{ type: 'input' }, { type: 'llm-text-anthropic' }, { type: 'text-output' }],
-                edges: ['input→llm-text-anthropic', 'llm-text-anthropic→text-output'],
+                nodes: [{ type: 'input' }, { type: 'llm-text' }, { type: 'text-output' }],
+                edges: ['input→llm-text', 'llm-text→text-output'],
               }),
             },
           },
@@ -78,8 +78,8 @@ vi.mock('../commands/run.js', async (importOriginal) => {
     applyEnvFile: vi.fn().mockResolvedValue(undefined),
     extractFinalOutput: vi.fn(() =>
       JSON.stringify({
-        nodes: [{ type: 'input' }, { type: 'llm-text-anthropic' }, { type: 'text-output' }],
-        edges: ['input→llm-text-anthropic', 'llm-text-anthropic→text-output'],
+        nodes: [{ type: 'input' }, { type: 'llm-text' }, { type: 'text-output' }],
+        edges: ['input→llm-text', 'llm-text→text-output'],
       }),
     ),
   };
@@ -93,7 +93,7 @@ const VALID_DAG = JSON.stringify({
   status: 'draft',
   nodes: [
     { nodeId: 'input', nodeType: 'input', dependsOn: [], config: {} },
-    { nodeId: 'llm', nodeType: 'llm-text-anthropic', dependsOn: ['input'], config: {} },
+    { nodeId: 'llm', nodeType: 'llm-text', dependsOn: ['input'], config: {} },
     { nodeId: 'output', nodeType: 'text-output', dependsOn: ['llm'], config: {} },
   ],
   edges: [

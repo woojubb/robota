@@ -13,7 +13,7 @@ const JSON_INDENT_SPACES = 2;
 const OUTPUT_FORMAT_JSON = 'json';
 const ANTHROPIC_KEY_ENV = 'ANTHROPIC_API_KEY';
 const DEFAULT_ENV_FILE = '.dag/.env';
-const LLM_NODE_TYPE = 'llm-text-anthropic';
+const LLM_NODE_TYPE = 'llm-text';
 const OUTPUT_FORMAT_PRETTY = 'pretty';
 const OUTPUT_FORMAT_GITHUB_COMMENT = 'github-comment';
 
@@ -263,13 +263,24 @@ function getNodeModel(node: IDagNode): string | undefined {
   return undefined;
 }
 
-function getProviderFromNodeType(nodeType: string): string | null {
-  if (nodeType === 'llm-text-anthropic') return 'anthropic';
-  if (nodeType === 'llm-text-openai') return 'openai';
-  if (nodeType === 'llm-text-gemini') return 'gemini';
-  if (nodeType === 'llm-text-deepseek') return 'deepseek';
-  if (nodeType === 'llm-text-qwen') return 'qwen';
-  if (nodeType.startsWith('llm-')) return nodeType.replace('llm-text-', '').replace('llm-', '');
+/**
+ * Derive the LLM provider from a collapsed `llm-text` node (ARCH-PROVIDER-003): the single-provider
+ * shorthand (`config.provider`) or the first entry of the routing list (`config.providers[0].provider`).
+ * Returns `null` for non-LLM nodes or an `llm-text` node with no provider configured.
+ */
+function getProviderFromNode(node: IDagNode): string | null {
+  if (node.nodeType !== LLM_NODE_TYPE) return null;
+  if (typeof node.config !== 'object' || node.config === null) return null;
+  const config = node.config as Record<string, unknown>;
+  const single = config['provider'];
+  if (typeof single === 'string' && single.trim().length > 0) return single.trim();
+  const providers = config['providers'];
+  if (Array.isArray(providers) && providers.length > 0) {
+    const first = providers[0] as Record<string, unknown>;
+    if (typeof first['provider'] === 'string' && first['provider'].trim().length > 0) {
+      return first['provider'].trim();
+    }
+  }
   return null;
 }
 
@@ -304,7 +315,10 @@ function estimateTotalCostRange(dag: IDagDefinition): [number, number] {
     const { nodeType } = node;
     const model = getNodeModel(node);
 
-    if (nodeType === 'llm-text-anthropic') {
+    if (nodeType !== LLM_NODE_TYPE) continue;
+    const provider = getProviderFromNode(node);
+
+    if (provider === 'anthropic') {
       const isSonnet =
         (model ?? '').includes('sonnet') ||
         (model ?? '').includes('claude-3') ||
@@ -325,21 +339,22 @@ function estimateTotalCostRange(dag: IDagDefinition): [number, number] {
         minUsd += low * 0.5;
         maxUsd += low * 12;
       }
-    } else if (nodeType === 'llm-text-openai') {
+    } else if (provider === 'openai') {
       const isGpt4o = (model ?? '').includes('gpt-4o') && !(model ?? '').includes('mini');
       const inputRate = isGpt4o ? OPENAI_GPT4O_INPUT_PER_1K : OPENAI_GPT4O_MINI_INPUT_PER_1K;
       const outputRate = isGpt4o ? OPENAI_GPT4O_OUTPUT_PER_1K : OPENAI_GPT4O_MINI_OUTPUT_PER_1K;
       const base = (inputTokens / 1000) * inputRate + (ESTIMATED_OUTPUT_TOKENS / 1000) * outputRate;
       minUsd += base * 0.5;
       maxUsd += base * 10;
-    } else if (nodeType === 'llm-text-gemini') {
+    } else if (provider === 'gemini') {
       const isPro = (model ?? '').includes('pro');
       const inputRate = isPro ? GEMINI_PRO_INPUT_PER_1K : GEMINI_FLASH_INPUT_PER_1K;
       const outputRate = isPro ? GEMINI_PRO_OUTPUT_PER_1K : GEMINI_FLASH_OUTPUT_PER_1K;
       const base = (inputTokens / 1000) * inputRate + (ESTIMATED_OUTPUT_TOKENS / 1000) * outputRate;
       minUsd += base * 0.5;
       maxUsd += base * 10;
-    } else if (nodeType.startsWith('llm-')) {
+    } else {
+      // Other providers (deepseek/qwen/unknown) — flat heuristic.
       minUsd += 0.0005;
       maxUsd += 0.005;
     }
@@ -349,8 +364,8 @@ function estimateTotalCostRange(dag: IDagDefinition): [number, number] {
 }
 
 function estimateLatencyRange(dag: IDagDefinition): [number, number] {
-  const llmCount = dag.nodes.filter((n: { nodeType: string }) =>
-    n.nodeType.startsWith('llm-'),
+  const llmCount = dag.nodes.filter(
+    (n: { nodeType: string }) => n.nodeType === LLM_NODE_TYPE,
   ).length;
   if (llmCount === 0) return [0.1, 0.5];
   // Rough heuristic: 1–5 seconds per sequential LLM call
@@ -384,7 +399,7 @@ function buildExplainResult(dag: IDagDefinition): IExplainResult {
   const requiredInputsSet = new Set<string>();
 
   const nodes: IExplainNodeInfo[] = sorted.map((node, idx) => {
-    const provider = getProviderFromNodeType(node.nodeType);
+    const provider = getProviderFromNode(node);
     if (provider !== null) providersSet.add(provider);
 
     const inputPorts = getInputPortNames(node);
@@ -582,7 +597,12 @@ const SUGGEST_LLM_DAG: import('@robota-sdk/dag-core').IDagDefinition = {
   status: 'draft',
   nodes: [
     { nodeId: 'input', nodeType: 'input', dependsOn: [], config: {} },
-    { nodeId: 'llm', nodeType: LLM_NODE_TYPE, dependsOn: ['input'], config: {} },
+    {
+      nodeId: 'llm',
+      nodeType: LLM_NODE_TYPE,
+      dependsOn: ['input'],
+      config: { provider: 'anthropic' },
+    },
     { nodeId: 'output', nodeType: 'text-output', dependsOn: ['llm'], config: {} },
   ],
   edges: [

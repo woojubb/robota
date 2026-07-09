@@ -2,7 +2,7 @@
  * Shared pipeline spec parser.
  * Parses pipeline strings like:
  *   "input | transform[prefix=→] | text-output"
- *   "input | llm-text-anthropic[model=claude-haiku,systemPrompt=Answer briefly] | text-output"
+ *   "input | llm-text[provider=anthropic,model=claude-haiku,systemPrompt=Answer briefly] | text-output"
  */
 
 export interface IPipelineNodeSpec {
