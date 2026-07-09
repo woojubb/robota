@@ -20,7 +20,7 @@ const ROOT = resolve(import.meta.dirname, '../..');
 const FORBIDDEN_PRODUCTION_DEPENDENCIES = [];
 const HARNESS = loadHarnessConfig();
 
-function findWorkspacePackages() {
+export function findWorkspacePackages() {
   const packages = new Map();
 
   for (const dir of ['packages', 'apps']) {
@@ -226,6 +226,60 @@ export function checkInterfacePackageDeps(packages) {
   return violations;
 }
 
+/**
+ * Frozen baseline (HARNESS-016 / ARL-16b): pre-existing dag-node leaf-invariant exceptions, keyed by the
+ * exact `"<package> -> <dep>"` edge with a reason. `dag-node-llm-text-router` is an aggregator that
+ * instantiates its sibling provider nodes; relocating that fan-out above the leaf layer is tracked as
+ * ARL-11. New node→node / node→orchestrator edges are NOT in this set and must fail.
+ */
+const DAG_NODES_LEAF_ALLOWLIST = new Set([
+  // aggregator node pending ARL-11 structural relocation
+  '@robota-sdk/dag-node-llm-text-router -> @robota-sdk/dag-node-llm-text-anthropic',
+  '@robota-sdk/dag-node-llm-text-router -> @robota-sdk/dag-node-llm-text-openai',
+  '@robota-sdk/dag-node-llm-text-router -> @robota-sdk/dag-node-llm-text-gemini',
+  '@robota-sdk/dag-node-llm-text-router -> @robota-sdk/dag-node-llm-text-deepseek',
+  '@robota-sdk/dag-node-llm-text-router -> @robota-sdk/dag-node-llm-text-qwen',
+]);
+
+/**
+ * Rule 7 (HARNESS-016 / ARL-16b): a `@robota-sdk/dag-node-*` leaf package may depend, among `dag-*`
+ * packages, ONLY on the node-contract owners `{dag-core, dag-node}`. Depending on an orchestrator/runtime/
+ * adapter layer (`dag-runtime`/`dag-framework`/`dag-worker`/`dag-projection`/`dag-scheduler`/
+ * `dag-orchestration-*`/`dag-api`/`dag-builder`/`dag-adapters-*`/…) or on a **sibling** `dag-node-*` breaks
+ * the leaf invariant (a leaf must not know the orchestrator or its peers). Scope: intra-DAG leaf-ness only —
+ * the cross-subsystem `dag-node-* → agent-*` assembly reach (ARL-11) is a separate invariant not policed here.
+ * Scanned scope: every `packages/dag-nodes/*` package (name `@robota-sdk/dag-node-*`); allow-set = the
+ * node-contract owners; exceptions frozen in `DAG_NODES_LEAF_ALLOWLIST`.
+ */
+export function checkDagNodesLeaf(packages) {
+  const violations = [];
+  const nodePrefix = `${HARNESS.npmScopePrefix}dag-node-`;
+  const dagPrefix = `${HARNESS.npmScopePrefix}dag-`;
+  const allowedDagTargets = new Set([
+    `${HARNESS.npmScopePrefix}dag-core`,
+    `${HARNESS.npmScopePrefix}dag-node`,
+  ]);
+
+  for (const [name, pkg] of packages) {
+    if (!name.startsWith(nodePrefix)) continue;
+    for (const dep of pkg.dependencies) {
+      if (!dep.startsWith(dagPrefix)) continue; // only intra-DAG edges are policed here
+      if (allowedDagTargets.has(dep)) continue;
+      if (DAG_NODES_LEAF_ALLOWLIST.has(`${name} -> ${dep}`)) continue;
+      violations.push({
+        package: name,
+        dep,
+        message:
+          `dag-nodes leaf violation: ${name} must not depend on ${dep}. ` +
+          `A dag-node-* leaf may depend only on {dag-core, dag-node} among dag-* packages — never an ` +
+          `orchestrator/runtime/adapter layer or a sibling dag-node-*.`,
+      });
+    }
+  }
+
+  return violations;
+}
+
 function runScan() {
   const packages = findWorkspacePackages();
   const biDirViolations = checkBidirectionalDeps(packages);
@@ -234,6 +288,7 @@ function runScan() {
   const coreZeroDepViolations = checkAgentCoreZeroDeps(packages);
   const pluginLayerViolations = checkPluginLayerDeps(packages);
   const interfacePackageViolations = checkInterfacePackageDeps(packages);
+  const dagNodesLeafViolations = checkDagNodesLeaf(packages);
   const fullGraphCycleViolations = checkFullGraphCycles(packages);
 
   const hasViolations =
@@ -243,6 +298,7 @@ function runScan() {
     coreZeroDepViolations.length > 0 ||
     pluginLayerViolations.length > 0 ||
     interfacePackageViolations.length > 0 ||
+    dagNodesLeafViolations.length > 0 ||
     fullGraphCycleViolations.length > 0;
 
   if (hasViolations) {
@@ -264,6 +320,9 @@ function runScan() {
     }
     for (const v of interfacePackageViolations) {
       console.error(`  [INTERFACE-DEPS] ${v.message}`);
+    }
+    for (const v of dagNodesLeafViolations) {
+      console.error(`  [DAG-NODES-LEAF] ${v.message}`);
     }
     for (const v of fullGraphCycleViolations) {
       console.error(`  [DEV-CYCLE] ${v.message}`);
