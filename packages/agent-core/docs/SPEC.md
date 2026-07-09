@@ -204,6 +204,8 @@ their own price tables. Prices are USD per 1,000,000 tokens.
 | `assertProviderNativeWebToolsAvailable` | function       | Fail before provider transport execution when requested native web search/fetch is unsupported or disabled                                                                                                                                              |
 | `findProviderDefinition`                | function       | Resolve an injected provider definition by canonical type or alias                                                                                                                                                                                      |
 | `formatSupportedProviderTypes`          | function       | Format injected provider types and aliases for generic errors                                                                                                                                                                                           |
+| `normalizeProviderConfig`               | function       | Resolve loose provider settings into a full `IProviderDefinitionConfig` (default model from `defaults.model`, `$ENV:` apiKey resolution)                                                                                                                |
+| `createProviderFromConfig`              | function       | Construct an `IAIProvider` from a resolved config against the injected registry, enforcing the credential requirement                                                                                                                                   |
 
 ### Schema (CORE-015)
 

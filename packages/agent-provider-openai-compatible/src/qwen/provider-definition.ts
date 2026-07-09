@@ -74,6 +74,8 @@ export function createQwenProviderDefinition(): IProviderDefinition {
     displayName: 'Qwen',
     description: 'Alibaba Cloud Qwen series. API key required.',
     category: 'cloud-paid',
+    // Interim provider-level cost (ARCH-PROVIDER-003), migrated from the former llm-text-qwen node.
+    costPerTokenUsd: 0.0002,
     defaults: {
       model: DEFAULT_QWEN_PROVIDER_MODEL,
       apiKey: DEFAULT_QWEN_PROVIDER_API_KEY_REFERENCE,

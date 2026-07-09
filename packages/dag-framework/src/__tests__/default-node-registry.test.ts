@@ -84,3 +84,38 @@ describe('createDefaultNodeRegistry — tryImport and tryConstruct paths', () =>
     warnSpy.mockRestore();
   });
 });
+
+describe('createDefaultNodeRegistry — collapsed llm-text provider injection (ARCH-PROVIDER-003)', () => {
+  const stubProviders = [
+    {
+      type: 'stub-provider',
+      createProvider: () => ({ name: 'stub-provider' }),
+    },
+  ] as unknown as Parameters<typeof createDefaultNodeRegistry>[0];
+
+  it('always includes the collapsed llm-text node (not the per-vendor nodes)', async () => {
+    const types = (await createDefaultNodeRegistry()).map((n) => n.nodeType);
+    expect(types).toContain('llm-text');
+    expect(types).not.toContain('llm-text-openai');
+    expect(types).not.toContain('llm-text-router');
+  });
+
+  it('uses injected providers WITHOUT loading the default set (loadDefaults not called)', async () => {
+    const loadDefaults = vi.fn(async () => {
+      throw new Error('default set must not be loaded when providers are injected');
+    });
+    const nodes = await createDefaultNodeRegistry(stubProviders, loadDefaults);
+    expect(nodes.map((n) => n.nodeType)).toContain('llm-text');
+    expect(loadDefaults).not.toHaveBeenCalled();
+  });
+
+  it('TC-10: surfaces a typed diagnostic naming the missing package when the default set cannot load', async () => {
+    const loadDefaults = vi.fn(async () => {
+      throw new Error("Cannot find package '@robota-sdk/agent-provider-openai'");
+    });
+    // No providers injected + default load fails → REJECT with a named diagnostic, never a silent node drop.
+    await expect(createDefaultNodeRegistry(undefined, loadDefaults)).rejects.toThrow(
+      /agent-provider-openai/,
+    );
+  });
+});

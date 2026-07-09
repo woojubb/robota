@@ -19,4 +19,16 @@ describe('createDefaultProviderDefinitions (ARCH-PROVIDER-002 golden)', () => {
       expect(typeof definition.createProvider).toBe('function');
     }
   });
+
+  it('carries the interim per-provider cost migrated from the former llm-text vendor nodes (ARCH-PROVIDER-003 TC-05)', () => {
+    const costByType = Object.fromEntries(
+      createDefaultProviderDefinitions().map((d) => [d.type, d.costPerTokenUsd]),
+    );
+    // Migrated verbatim from each deleted llm-text-<vendor> node's COST_PER_TOKEN_USD scalar.
+    expect(costByType.anthropic).toBe(0.003);
+    expect(costByType.openai).toBe(0.001);
+    expect(costByType.gemini).toBe(0.0005);
+    expect(costByType.deepseek).toBe(0.0001);
+    expect(costByType.qwen).toBe(0.0002);
+  });
 });

@@ -80,6 +80,14 @@ export interface IProviderModelCatalogEntry {
   lifecycle?: TProviderModelLifecycle;
   lastVerifiedAt?: string;
   sourceUrl?: string;
+  /**
+   * Per-model USD cost per input/output token (ARCH-PROVIDER-003). This is the correct SSOT home for
+   * cost — it is a per-**model** attribute, not per-provider — consumed by cost-estimating nodes/commands
+   * so pricing is not hardcoded in the execution layer. Both optional; absent means cost is unknown for
+   * this model and estimators must degrade explicitly rather than assume a default price.
+   */
+  costPerInputToken?: number;
+  costPerOutputToken?: number;
 }
 
 export interface IProviderModelCatalog {
@@ -116,6 +124,23 @@ export interface IProviderDefinition {
   /** Billing/hosting category shown as a badge in provider selection UI. */
   category?: TProviderCategory;
   defaults?: IProviderProfileDefaults;
+  /**
+   * Optional enforced model allowlist (ARCH-PROVIDER-003). Distinct from {@link modelCatalog}: the catalog
+   * is the *descriptive* model inventory (often `status:'unavailable'` with no entries), whereas
+   * `allowedModels` is the *enforced* execution allowlist — a node rejects a requested model outside it.
+   * When present it should be a subset/override consistent with `modelCatalog.entries[].id`, not a second
+   * drifting inventory. Absent means no allowlist enforcement (any model the provider accepts is allowed).
+   */
+  allowedModels?: readonly string[];
+  /**
+   * INTERIM provider-level cost per token in USD (ARCH-PROVIDER-003), migrated verbatim from the per-vendor
+   * LLM nodes' single `COST_PER_TOKEN_USD` scalar. The correct long-term home is the per-model
+   * {@link IProviderModelCatalogEntry.costPerInputToken}/`costPerOutputToken`; this flat scalar is a
+   * fidelity-preserving interim used only while model catalogs are `status:'unavailable'` (no per-model
+   * entries to attach cost to). Consumed by the collapsed `llm-text` node's `maxCostUsd` estimation. Absent
+   * means cost is unknown for this provider and estimators must degrade explicitly.
+   */
+  costPerTokenUsd?: number;
   modelCatalog?: IProviderModelCatalog;
   refreshModelCatalog?: TProviderModelCatalogRefresh;
   /** Maximum age in seconds before the model catalog is considered stale and auto-refreshed. */
