@@ -82,8 +82,11 @@ class NoopDeadLetterReinject implements IDiagnosticsDeadLetterReinjectPort {
 export async function createDagFramework(
   options: IDagFrameworkOptions = {},
 ): Promise<IDagFramework> {
-  // 1. Node registry → manifests + handlers
-  const nodes: readonly IDagNodeDefinition[] = options.nodes ?? (await createDefaultNodeRegistry());
+  // 1. Node registry → manifests + handlers.
+  // When `options.nodes` is supplied, `options.providers` is intentionally ignored — a custom node set
+  // carries its own provider wiring (ARCH-PROVIDER-003).
+  const nodes: readonly IDagNodeDefinition[] =
+    options.nodes ?? (await createDefaultNodeRegistry(options.providers));
   const assemblyResult = buildNodeDefinitionAssembly([...nodes]);
   if (!assemblyResult.ok) {
     throw new Error(`Failed to build node definition assembly: ${assemblyResult.error.message}`);

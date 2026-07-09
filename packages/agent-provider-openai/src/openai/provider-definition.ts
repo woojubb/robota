@@ -28,6 +28,8 @@ export function createOpenAIProviderDefinition(): IProviderDefinition {
     displayName: 'OpenAI',
     description: 'GPT series — general-purpose assistant. API key required.',
     category: 'cloud-paid',
+    // Interim provider-level cost (ARCH-PROVIDER-003), migrated from the former llm-text-openai node.
+    costPerTokenUsd: 0.001,
     defaults: {
       apiKey: DEFAULT_OPENAI_PROVIDER_API_KEY_REFERENCE,
     },

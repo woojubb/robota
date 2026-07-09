@@ -97,6 +97,7 @@ export {
   formatSupportedProviderTypes,
   getProviderCredentialRequirement,
 } from './interfaces';
+export { normalizeProviderConfig, createProviderFromConfig } from './providers/provider-factory.js';
 
 // Message types
 export type { IToolCall, IUserMessage, ISystemMessage, IToolMessage } from './interfaces/agent';

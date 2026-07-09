@@ -1,48 +1,24 @@
 import {
-  findProviderDefinition,
-  formatSupportedProviderTypes,
-  getProviderCredentialRequirement,
   resolveEnvReference,
+  normalizeProviderConfig,
+  createProviderFromConfig,
 } from '@robota-sdk/agent-core';
 
 import type { ISerializableProviderProfile } from '../background-tasks/types.js';
-import type {
-  IAIProvider,
-  IProviderDefinitionConfig,
-  IProviderCredentialRequirement,
-  IProviderDefinition,
-  TProviderCredentialField,
-  TUniversalValue,
-} from '@robota-sdk/agent-core';
+import type { IAIProvider, IProviderDefinition } from '@robota-sdk/agent-core';
 
-export function normalizeProviderConfig(
-  settings: {
-    name: string;
-    model?: string;
-    apiKey?: string;
-    baseURL?: string;
-    timeout?: number;
-    options?: Record<string, TUniversalValue>;
-  },
-  providerDefinitions: readonly IProviderDefinition[],
-): IProviderDefinitionConfig {
-  const defaults = findProviderDefinition(providerDefinitions, settings.name)?.defaults ?? {};
-  const model = settings.model ?? defaults.model;
-  if (!model) {
-    throw new Error(`Provider ${settings.name} requires model`);
-  }
-  const apiKeyReference = settings.apiKey ?? defaults.apiKey;
-  const options = settings.options ?? defaults.options;
-  return {
-    name: settings.name,
-    model,
-    apiKey: apiKeyReference !== undefined ? resolveEnvReference(apiKeyReference) : undefined,
-    baseURL: settings.baseURL ?? defaults.baseURL,
-    timeout: settings.timeout,
-    ...(options !== undefined && { options }),
-  };
-}
+/**
+ * `normalizeProviderConfig` and `createProviderFromConfig` were relocated into `agent-core`
+ * (ARCH-PROVIDER-003) — they import only `agent-core` symbols, so the one credential-resolution path can be
+ * reused by the `dag-node-llm-text` leaf (which depends on `agent-core` alone). Re-exported here so existing
+ * `@robota-sdk/agent-executor` consumers are unaffected.
+ */
+export { normalizeProviderConfig, createProviderFromConfig };
 
+/**
+ * Profile-based helpers stay in `agent-executor`: they depend on the executor-owned
+ * {@link ISerializableProviderProfile} type and `resolveProfileApiKey` reads `process.env` directly.
+ */
 export function resolveProfileApiKey(profile: ISerializableProviderProfile): string | undefined {
   if (profile.apiKey !== undefined) {
     return resolveEnvReference(profile.apiKey);
@@ -51,28 +27,6 @@ export function resolveProfileApiKey(profile: ISerializableProviderProfile): str
     return process.env[profile.apiKeyEnv];
   }
   return undefined;
-}
-
-export function createProviderFromConfig(
-  settings: IProviderDefinitionConfig,
-  providerDefinitions: readonly IProviderDefinition[],
-): IAIProvider {
-  const definition = findProviderDefinition(providerDefinitions, settings.name);
-  if (definition === undefined) {
-    throw new Error(
-      `Unknown provider: ${settings.name}. Currently supported: ${formatSupportedProviderTypes(providerDefinitions)}`,
-    );
-  }
-  const credentialRequirement = getProviderCredentialRequirement(definition);
-  if (
-    credentialRequirement !== undefined &&
-    !hasRequiredProviderCredential(settings, credentialRequirement)
-  ) {
-    throw new Error(
-      `Provider ${settings.name} requires ${formatCredentialRequirement(credentialRequirement)}`,
-    );
-  }
-  return definition.createProvider(settings);
 }
 
 export function createProviderFromProfile(
@@ -94,23 +48,4 @@ export function createProviderFromProfile(
     ),
     providerDefinitions,
   );
-}
-
-function hasRequiredProviderCredential(
-  settings: IProviderDefinitionConfig,
-  requirement: IProviderCredentialRequirement,
-): boolean {
-  return requirement.anyOf.some((field) => hasProviderCredentialValue(settings, field));
-}
-
-function hasProviderCredentialValue(
-  settings: IProviderDefinitionConfig,
-  field: TProviderCredentialField,
-): boolean {
-  const value = settings[field];
-  return value !== undefined && value.length > 0;
-}
-
-function formatCredentialRequirement(requirement: IProviderCredentialRequirement): string {
-  return requirement.anyOf.join(' or ');
 }

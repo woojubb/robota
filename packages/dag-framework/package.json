@@ -46,10 +46,12 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
+    "@robota-sdk/agent-core": "workspace:*",
     "@robota-sdk/dag-adapters-local": "workspace:*",
     "@robota-sdk/dag-api": "workspace:*",
     "@robota-sdk/dag-builder": "workspace:*",
     "@robota-sdk/dag-core": "workspace:*",
+    "@robota-sdk/dag-node-llm-text": "workspace:*",
     "@robota-sdk/dag-cost": "workspace:*",
     "@robota-sdk/dag-node": "workspace:*",
     "@robota-sdk/dag-node-image-loader": "workspace:*",
@@ -71,12 +73,8 @@
     "@robota-sdk/dag-worker": "workspace:*"
   },
   "optionalDependencies": {
-    "@robota-sdk/dag-node-gemini-image-edit": "workspace:*",
-    "@robota-sdk/dag-node-llm-text-anthropic": "workspace:*",
-    "@robota-sdk/dag-node-llm-text-deepseek": "workspace:*",
-    "@robota-sdk/dag-node-llm-text-gemini": "workspace:*",
-    "@robota-sdk/dag-node-llm-text-openai": "workspace:*",
-    "@robota-sdk/dag-node-llm-text-qwen": "workspace:*"
+    "@robota-sdk/agent-provider-defaults": "workspace:*",
+    "@robota-sdk/dag-node-gemini-image-edit": "workspace:*"
   },
   "peerDependencies": {
     "@anthropic-ai/sdk": "^0.91.1",

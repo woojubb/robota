@@ -56,19 +56,10 @@ export class DagDefinitionValidator {
       nodeIdSet.add(node.nodeId);
       nodeById.set(node.nodeId, node);
 
-      if (node.nodeType === 'llm-text') {
-        errors.push(
-          buildValidationError(
-            'DAG_VALIDATION_NODE_TYPE_REMOVED',
-            'nodeType llm-text has been removed. Use llm-text-openai instead.',
-            {
-              nodeId: node.nodeId,
-              nodeType: node.nodeType,
-              replacementNodeType: 'llm-text-openai',
-            },
-          ),
-        );
-      }
+      // ARCH-PROVIDER-003: `llm-text` is the collapsed, provider-registry-driven node that supersedes the
+      // per-vendor `llm-text-<vendor>` nodes + the router. The prior tombstone that rejected this nodeType
+      // (when `llm-text` had been split into per-vendor nodes) is intentionally removed — provider DIP now
+      // removes the provider-in-node coupling that motivated the split, so the single identifier is valid.
 
       if (node.inputs) {
         const inputKeys = new Set<string>();

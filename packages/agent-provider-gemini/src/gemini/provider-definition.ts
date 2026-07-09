@@ -28,6 +28,8 @@ export function createGeminiProviderDefinition(): IProviderDefinition {
     displayName: 'Gemini',
     description: 'Google Gemini series — free tier available.',
     category: 'cloud-free',
+    // Interim provider-level cost (ARCH-PROVIDER-003), migrated from the former llm-text-gemini node.
+    costPerTokenUsd: 0.0005,
     defaults: {
       model: DEFAULT_GEMINI_PROVIDER_MODEL,
       apiKey: DEFAULT_GEMINI_PROVIDER_API_KEY_REFERENCE,

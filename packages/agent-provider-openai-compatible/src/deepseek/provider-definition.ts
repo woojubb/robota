@@ -40,6 +40,8 @@ export function createDeepSeekProviderDefinition(): IProviderDefinition {
     displayName: 'DeepSeek',
     description: 'High performance at low cost. API key required.',
     category: 'cloud-paid',
+    // Interim provider-level cost (ARCH-PROVIDER-003), migrated from the former llm-text-deepseek node.
+    costPerTokenUsd: 0.0001,
     defaults: {
       model: DEFAULT_DEEPSEEK_PROVIDER_MODEL,
       apiKey: DEFAULT_DEEPSEEK_PROVIDER_API_KEY_REFERENCE,
