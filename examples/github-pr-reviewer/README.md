@@ -52,4 +52,4 @@ The workflow triggers on `pull_request` `opened` and `synchronize` events.
 
 Edit the prompt in `src/review.ts` to focus on specific concerns (security, performance, etc.).
 
-To use a different provider, swap `AnthropicProvider` for `OpenAIProvider` from `@robota-sdk/agent-provider/openai`.
+To use a different provider, swap `AnthropicProvider` for `OpenAIProvider` from `@robota-sdk/agent-provider-openai`.

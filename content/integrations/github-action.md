@@ -21,7 +21,7 @@ Or use the SDK programmatically in a Node.js step:
 
 ```typescript
 import { createQuery } from '@robota-sdk/agent-framework';
-import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
 const query = createQuery({
   provider: new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY }),

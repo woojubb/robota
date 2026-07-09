@@ -47,6 +47,6 @@ echo "Generate a changelog entry for today" | node dist/index.js
 In `src/index.ts`, replace `AnthropicProvider`:
 
 ```ts
-import { OpenAIProvider } from '@robota-sdk/agent-provider/openai';
+import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
 return new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY });
 ```

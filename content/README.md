@@ -122,7 +122,7 @@ robota -p "Explain this project"    # Print mode
 
 ```typescript
 import { Robota } from '@robota-sdk/agent-core';
-import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
 const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -144,7 +144,7 @@ console.log(response);
 
 ```typescript
 import { createQuery } from '@robota-sdk/agent-framework';
-import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
 const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY! });
 const query = createQuery({ provider });
@@ -156,8 +156,8 @@ const response = await query('List all TypeScript files in src/');
 
 ```typescript
 import { Robota } from '@robota-sdk/agent-core';
-import { OpenAIProvider } from '@robota-sdk/agent-provider/openai';
-import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
 const agent = new Robota({
   name: 'MultiProviderAgent',

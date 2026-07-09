@@ -9,7 +9,7 @@ vi.mock('@robota-sdk/agent-core', () => ({
   })),
 }));
 
-vi.mock('@robota-sdk/agent-provider/google', () => ({
+vi.mock('@robota-sdk/agent-provider-gemini/google', () => ({
   GoogleProvider: vi.fn(),
 }));
 

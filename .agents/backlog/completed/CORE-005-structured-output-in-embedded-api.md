@@ -64,7 +64,7 @@ const chatOptions: IChatOptions = {
 
 (Same in `execution-round-provider.ts` if it builds `chatOptions` independently.)
 
-### 3. `packages/agent-provider/src/openai/chat-completions-chat.ts`
+### 3. `packages/agent-provider-openai/src/openai/chat-completions-chat.ts`
 
 Read `responseFormat` from per-call `chatOptions` first, fall back to provider config:
 

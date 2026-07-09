@@ -5,7 +5,7 @@ import {
   createSubagentLogger,
   createSubagentSession,
 } from '@robota-sdk/agent-framework';
-import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider';
+import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider-defaults';
 
 import {
   isSubagentWorkerParentMessage,

@@ -4,7 +4,7 @@ status: todo
 created: 2026-07-04
 priority: high
 urgency: soon
-area: packages/agent-cli, packages/agent-provider
+area: packages/agent-cli, packages/agent-provider-openai
 depends_on: []
 ---
 

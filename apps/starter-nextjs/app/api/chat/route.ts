@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAgentRuntime } from '@robota-sdk/agent-framework';
-import { AnthropicProvider } from '@robota-sdk/agent-provider';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const apiKey = process.env.ANTHROPIC_API_KEY;

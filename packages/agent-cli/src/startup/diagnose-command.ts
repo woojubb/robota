@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { getProviderSettingsPaths, readProviderSettings } from '@robota-sdk/agent-framework';
-import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider';
+import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider-defaults';
 
 import type { IProviderDefinition, ITerminalOutput } from '@robota-sdk/agent-core';
 

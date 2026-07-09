@@ -21,7 +21,7 @@ AI coding assistant CLI built on Robota SDK. Loads AGENTS.md/CLAUDE.md for proje
 
 ```typescript
 import { createAgentRuntime } from '@robota-sdk/agent-framework';
-import { createAnthropicProvider } from '@robota-sdk/agent-provider';
+import { createAnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
 const runtime = createAgentRuntime({
   cwd: process.cwd(),

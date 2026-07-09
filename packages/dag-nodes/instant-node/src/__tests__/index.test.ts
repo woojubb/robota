@@ -6,23 +6,20 @@ vi.mock('@robota-sdk/agent-core', () => ({
   })),
 }));
 
-vi.mock('@robota-sdk/agent-provider/anthropic', () => ({
+vi.mock('@robota-sdk/agent-provider-anthropic', () => ({
   AnthropicProvider: vi.fn().mockImplementation(() => ({})),
 }));
 
-vi.mock('@robota-sdk/agent-provider/openai', () => ({
+vi.mock('@robota-sdk/agent-provider-openai', () => ({
   OpenAIProvider: vi.fn().mockImplementation(() => ({})),
 }));
 
-vi.mock('@robota-sdk/agent-provider/google', () => ({
+vi.mock('@robota-sdk/agent-provider-gemini/google', () => ({
   GoogleProvider: vi.fn().mockImplementation(() => ({})),
 }));
 
-vi.mock('@robota-sdk/agent-provider/deepseek', () => ({
+vi.mock('@robota-sdk/agent-provider-openai-compatible', () => ({
   DeepSeekProvider: vi.fn().mockImplementation(() => ({})),
-}));
-
-vi.mock('@robota-sdk/agent-provider/qwen', () => ({
   QwenProvider: vi.fn().mockImplementation(() => ({})),
 }));
 

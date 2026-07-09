@@ -7,7 +7,7 @@
 
 import { Robota, createFunctionTool } from '@robota-sdk/agent-core';
 import type { TToolParameters } from '@robota-sdk/agent-core';
-import { OpenAIProvider } from '@robota-sdk/agent-provider/openai';
+import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
 
 const calculateTool = createFunctionTool(
   'calculate',

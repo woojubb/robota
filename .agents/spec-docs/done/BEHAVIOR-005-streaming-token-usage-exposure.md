@@ -24,12 +24,12 @@ metadata contains only `executionId` — no usage.
 Root causes (source-confirmed):
 
 1. **`stream_options: { include_usage: true }` is never sent.**
-   `buildChatRequestParams` (`packages/agent-provider/src/openai/chat-completions-chat.ts:121`)
+   `buildChatRequestParams` (`packages/agent-provider-openai/src/openai/chat-completions-chat.ts:121`)
    emits no `stream_options`; `grep -rn 'include_usage|stream_options' packages/*/src` = 0.
    OpenAI-compatible endpoints do not emit a usage chunk on streams without it.
 2. **The stream assembler drops final-chunk usage.**
    `assembleOpenAICompatibleStream` / `applyChunk` / `buildMessage`
-   (`packages/agent-provider/src/shared/openai-compatible/stream-assembler.ts:27,48,158`)
+   (`packages/agent-provider-openai-compatible/src/shared/openai-compatible/stream-assembler.ts:27,48,158`)
    never read `chunk.usage`. `applyChunk` also early-returns on the empty-`choices` final
    chunk (L57–60) that actually carries usage. So even when the endpoint sends usage, it is
    discarded during assembly.
@@ -150,12 +150,12 @@ assembler capture the final-chunk `usage` and attach top-level
 
 ## Affected Files
 
-- `packages/agent-provider/src/openai/chat-completions-chat.ts`
-- `packages/agent-provider/src/openai/types.ts`
-- `packages/agent-provider/src/shared/openai-compatible/stream-assembler.ts`
-- `packages/agent-provider/src/shared/openai-compatible/response-parser.ts`
-- `packages/agent-provider/src/shared/openai-compatible/stream-assembler.test.ts` (tests)
-- `packages/agent-provider/src/openai/provider.test.ts` (tests)
+- `packages/agent-provider-openai/src/openai/chat-completions-chat.ts`
+- `packages/agent-provider-openai/src/openai/types.ts`
+- `packages/agent-provider-openai-compatible/src/shared/openai-compatible/stream-assembler.ts`
+- `packages/agent-provider-openai-compatible/src/shared/openai-compatible/response-parser.ts`
+- `packages/agent-provider-openai-compatible/src/shared/openai-compatible/stream-assembler.test.ts` (tests)
+- `packages/agent-provider-openai/src/openai/provider.test.ts` (tests)
 - `packages/agent-provider/docs/SPEC.md` (SPEC update)
 - `packages/agent-core/src/services/execution-stream.ts` (runStream usage collection)
 - `packages/agent-core/src/core/robota.test.ts` (runStream usage regression test)

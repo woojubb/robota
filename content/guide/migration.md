@@ -43,12 +43,12 @@ In v2.x, each provider was its own npm package:
 In 3.0.0, all providers are sub-path exports of a single package:
 
 ```
-@robota-sdk/agent-provider/anthropic
-@robota-sdk/agent-provider/openai
-@robota-sdk/agent-provider/gemini
-@robota-sdk/agent-provider/deepseek
-@robota-sdk/agent-provider/qwen
-@robota-sdk/agent-provider/gemma
+@robota-sdk/agent-provider-anthropic
+@robota-sdk/agent-provider-openai
+@robota-sdk/agent-provider-gemini
+@robota-sdk/agent-provider-openai-compatible
+@robota-sdk/agent-provider-openai-compatible
+@robota-sdk/agent-provider-openai-compatible
 ```
 
 Update your `package.json`:
@@ -81,7 +81,7 @@ npm install
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
 // 3.0.0
-import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 ```
 
 ### OpenAI provider
@@ -93,7 +93,7 @@ import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
 import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
 
 // 3.0.0
-import { OpenAIProvider } from '@robota-sdk/agent-provider/openai';
+import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
 ```
 
 ### Gemini / Google provider
@@ -105,7 +105,7 @@ import { OpenAIProvider } from '@robota-sdk/agent-provider/openai';
 import { GeminiProvider } from '@robota-sdk/agent-provider-google';
 
 // 3.0.0
-import { GeminiProvider } from '@robota-sdk/agent-provider/gemini';
+import { GeminiProvider } from '@robota-sdk/agent-provider-gemini';
 ```
 
 ### DeepSeek provider
@@ -117,7 +117,7 @@ import { GeminiProvider } from '@robota-sdk/agent-provider/gemini';
 import { DeepSeekProvider } from '@robota-sdk/agent-provider-deepseek';
 
 // 3.0.0
-import { DeepSeekProvider } from '@robota-sdk/agent-provider/deepseek';
+import { DeepSeekProvider } from '@robota-sdk/agent-provider-openai-compatible';
 ```
 
 ---
@@ -176,7 +176,7 @@ import type { AnthropicProviderOptions } from '@robota-sdk/agent-provider-anthro
 const options: AnthropicProviderOptions = { apiKey: '...' };
 
 // 3.0.0
-import type { IAnthropicProviderOptions } from '@robota-sdk/agent-provider/anthropic';
+import type { IAnthropicProviderOptions } from '@robota-sdk/agent-provider-anthropic';
 
 const options: IAnthropicProviderOptions = { apiKey: '...' };
 ```

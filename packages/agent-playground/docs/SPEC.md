@@ -28,7 +28,7 @@ running a local session stack.
 
 - Allowed: `@robota-sdk/agent-core` (type contracts), `@robota-sdk/agent-remote-client`
   (remote execution), `@robota-sdk/agent-tools` (`FunctionTool` for built-in tool factories such
-  as `current-time`), and `@robota-sdk/agent-provider` (`OpenAIProvider` / `AnthropicProvider`
+  as `current-time`), and `@robota-sdk/agent-provider-openai` (`OpenAIProvider` / `AnthropicProvider`
   used by code-editor templates and the remote-injection import rewriter).
 - Not allowed: `@robota-sdk/agent-framework`, `@robota-sdk/agent-session`,
   `@robota-sdk/agent-executor`.

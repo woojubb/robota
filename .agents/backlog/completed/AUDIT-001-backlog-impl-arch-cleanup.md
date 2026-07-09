@@ -95,7 +95,7 @@ TUI 모드에서는 `ITuiRenderOptions`에 해당 필드가 없어 조용히 무
 
 ### [P1] AUDIT-001-F: createAnthropicProvider() 팩토리 함수 stub 방치
 
-**파일:** `packages/agent-provider/src/anthropic/index.ts`
+**파일:** `packages/agent-provider-anthropic/src/anthropic/index.ts`
 
 **문제:** `createAnthropicProvider()` 가 `void`를 반환하는 stub 상태.
 `content/quickstart.md`는 이 함수를 공개 API 예제로 문서화하고 있으나 실제로는 동작하지 않음.

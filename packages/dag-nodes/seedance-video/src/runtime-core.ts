@@ -5,7 +5,7 @@ import {
   type IPortBinaryValue,
   type TResult,
 } from '@robota-sdk/dag-core';
-import { BytedanceProvider } from '@robota-sdk/agent-provider/bytedance';
+import { BytedanceProvider } from '@robota-sdk/agent-provider-bytedance';
 import type {
   IProviderMediaError,
   IVideoGenerationProvider,

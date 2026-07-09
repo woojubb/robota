@@ -43,7 +43,7 @@ Client (fetch + ReadableStream)
 Change `AnthropicProvider` in `app/api/chat/route.ts` to any supported provider:
 
 ```ts
-import { OpenAIProvider } from '@robota-sdk/agent-provider/openai';
+import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
 
 provider: new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY });
 ```

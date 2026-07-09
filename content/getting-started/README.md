@@ -110,7 +110,7 @@ robota
 
 ```typescript
 import { Robota } from '@robota-sdk/agent-core';
-import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
 const provider = new AnthropicProvider({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -135,7 +135,7 @@ console.log(response);
 ```typescript
 import { Robota } from '@robota-sdk/agent-core';
 import { createZodFunctionTool } from '@robota-sdk/agent-tools';
-import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 import { z } from 'zod';
 
 const provider = new AnthropicProvider({
@@ -173,8 +173,8 @@ console.log(response);
 
 ```typescript
 import { Robota } from '@robota-sdk/agent-core';
-import { OpenAIProvider } from '@robota-sdk/agent-provider/openai';
-import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
 const agent = new Robota({
   name: 'MultiProviderAgent',
@@ -200,7 +200,7 @@ response = await agent.run('Continue our conversation.');
 
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-framework';
-import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
 const provider = new AnthropicProvider({
   apiKey: process.env.ANTHROPIC_API_KEY,

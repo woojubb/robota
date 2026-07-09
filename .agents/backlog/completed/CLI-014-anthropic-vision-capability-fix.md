@@ -10,7 +10,7 @@ depends_on: []
 
 ## Background
 
-`packages/agent-provider/src/anthropic/provider-definition.ts:81`에 `'vision'`이 capabilities로 선언되어 있으나, `convertToAnthropicFormat` (`message-converter.ts:18-23`)이 user 메시지를 `content: msg.content || ''` 단일 문자열로만 변환한다. `TUniversalMessage`의 `parts` 배열(이미지 포함)을 완전히 무시한다.
+`packages/agent-provider-anthropic/src/anthropic/provider-definition.ts:81`에 `'vision'`이 capabilities로 선언되어 있으나, `convertToAnthropicFormat` (`message-converter.ts:18-23`)이 user 메시지를 `content: msg.content || ''` 단일 문자열로만 변환한다. `TUniversalMessage`의 `parts` 배열(이미지 포함)을 완전히 무시한다.
 
 이미지 포함 user 메시지가 Anthropic 프로바이더에게 전달되면 이미지가 조용히 drop된다. 사용자는 vision 기능이 작동한다고 믿지만 실제로는 텍스트만 전달된다.
 

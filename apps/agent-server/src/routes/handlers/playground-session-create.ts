@@ -1,10 +1,10 @@
 import { createAgentCommandModule } from '@robota-sdk/agent-command';
 import { isAssistantMessage, isToolMessage, isUserMessage } from '@robota-sdk/agent-core';
 import { InteractiveSession } from '@robota-sdk/agent-framework';
-import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
-import { DeepSeekProvider } from '@robota-sdk/agent-provider/deepseek';
-import { GeminiProvider } from '@robota-sdk/agent-provider/gemini';
-import { OpenAIProvider } from '@robota-sdk/agent-provider/openai';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { GeminiProvider } from '@robota-sdk/agent-provider-gemini';
+import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
+import { DeepSeekProvider } from '@robota-sdk/agent-provider-openai-compatible';
 
 import { getPlaygroundSessionStore } from '../../session/persistent-session-store.js';
 import { addSession } from '../../session/playground-session-store.js';

@@ -16,7 +16,7 @@ That page does not exist.
 
 There is no single reference page listing all supported providers, their:
 
-- npm import paths (e.g., `import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic'`)
+- npm import paths (e.g., `import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic'`)
 - Required configuration options
 - Supported model names
 - Known limitations or quirks

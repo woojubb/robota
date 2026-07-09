@@ -5,7 +5,7 @@ import type {
   TProviderMediaResult,
 } from '@robota-sdk/agent-core';
 import { SeedanceVideoRuntime, type ISeedanceVideoRequest } from './runtime-core.js';
-import { BytedanceProvider } from '@robota-sdk/agent-provider/bytedance';
+import { BytedanceProvider } from '@robota-sdk/agent-provider-bytedance';
 
 // Shared job mocks so every constructed BytedanceProvider uses the same fns. The factory lives in
 // vi.hoisted so the vi.mock() call stays a single line (keeps the allow-module-mock escape attached).
@@ -22,7 +22,7 @@ const { createVideo, getVideoJob, cancelVideoJob, bytedanceMockFactory } = vi.ho
 });
 
 // Full replacement avoids loading the ByteDance HTTP client; only the video job methods are exercised.
-vi.mock('@robota-sdk/agent-provider/bytedance', bytedanceMockFactory); // allow-module-mock: BytedanceProvider hits the real ModelArk API
+vi.mock('@robota-sdk/agent-provider-bytedance', bytedanceMockFactory); // allow-module-mock: BytedanceProvider hits the real ModelArk API
 
 const MODEL = 'seedance-2.0';
 

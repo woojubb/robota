@@ -32,7 +32,7 @@ multi-turn conversations (the session is preserved internally).
 
 ```typescript
 import { createQuery } from '@robota-sdk/agent-framework';
-import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
 const query = createQuery({
   provider: new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY! }),
@@ -66,7 +66,7 @@ Use when you need real-time text streaming or tool execution events.
 
 ```typescript
 import { createAgentRuntime } from '@robota-sdk/agent-framework';
-import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
 declare const apiKey: string;
 
@@ -181,7 +181,7 @@ is restricted or undesirable.
 
 ```typescript
 import { createStatelessRuntime } from '@robota-sdk/agent-framework';
-import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
 declare const apiKey: string;
 
@@ -256,7 +256,7 @@ through to the provider's native JSON mode.
 
 ```typescript
 import { createQuery } from '@robota-sdk/agent-framework';
-import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
 declare const apiKey: string;
 
@@ -298,7 +298,7 @@ per connection, events forwarded as JSON messages.
 ```typescript
 import { WebSocketServer } from 'ws';
 import { createAgentRuntime } from '@robota-sdk/agent-framework';
-import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
 const runtime = createAgentRuntime({
   cwd: process.cwd(),
@@ -343,7 +343,7 @@ call owns its own internal session, so parallelism is safe.
 
 ```typescript
 import { createQuery } from '@robota-sdk/agent-framework';
-import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
 const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
@@ -370,7 +370,7 @@ For rate-limited providers, chunk the array and process sequentially or with a c
 Configure provider-level retry via the provider options:
 
 ```typescript
-import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
 declare const apiKey: string;
 

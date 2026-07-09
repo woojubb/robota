@@ -10,7 +10,7 @@ import {
   type TPortPayload,
 } from '@robota-sdk/dag-core';
 import { Robota } from '@robota-sdk/agent-core';
-import { OpenAIProvider } from '@robota-sdk/agent-provider/openai';
+import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
 import { z } from 'zod';
 
 const DEFAULT_OPENAI_LLM_MODEL = 'gpt-4o-mini';

@@ -10,7 +10,7 @@ import {
   type TPortPayload,
 } from '@robota-sdk/dag-core';
 import { Robota } from '@robota-sdk/agent-core';
-import { QwenProvider } from '@robota-sdk/agent-provider/qwen';
+import { QwenProvider } from '@robota-sdk/agent-provider-openai-compatible';
 import { z } from 'zod';
 
 const DEFAULT_QWEN_LLM_MODEL = 'qwen-plus';

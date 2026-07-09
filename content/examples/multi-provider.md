@@ -4,12 +4,12 @@ Register multiple providers and switch between them dynamically.
 
 ```typescript
 import { Robota } from '@robota-sdk/agent-core';
-import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
-import { OpenAIProvider } from '@robota-sdk/agent-provider/openai';
-import { DeepSeekProvider } from '@robota-sdk/agent-provider/deepseek';
-import { GeminiProvider } from '@robota-sdk/agent-provider/gemini';
-import { GemmaProvider } from '@robota-sdk/agent-provider/gemma';
-import { QwenProvider } from '@robota-sdk/agent-provider/qwen';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
+import { DeepSeekProvider } from '@robota-sdk/agent-provider-openai-compatible';
+import { GeminiProvider } from '@robota-sdk/agent-provider-gemini';
+import { GemmaProvider } from '@robota-sdk/agent-provider-openai-compatible';
+import { QwenProvider } from '@robota-sdk/agent-provider-openai-compatible';
 
 const agent = new Robota({
   name: 'MultiAgent',

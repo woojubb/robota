@@ -6,7 +6,7 @@
  */
 
 import { Robota } from '@robota-sdk/agent-core';
-import { OpenAIProvider } from '@robota-sdk/agent-provider/openai';
+import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
 
 async function testProvider(providerName: string, robota: Robota, query: string): Promise<void> {
   // eslint-disable-next-line no-console -- examples CLI entrypoint

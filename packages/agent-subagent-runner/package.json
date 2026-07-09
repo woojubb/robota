@@ -47,7 +47,7 @@
     "@robota-sdk/agent-framework": "workspace:*",
     "@robota-sdk/agent-interface-transport": "workspace:*",
     "@robota-sdk/agent-process": "workspace:*",
-    "@robota-sdk/agent-provider": "workspace:*"
+    "@robota-sdk/agent-provider-defaults": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.19.21",

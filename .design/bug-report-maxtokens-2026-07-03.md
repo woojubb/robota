@@ -56,7 +56,7 @@ console.log('stream+options   :', b.length); // 2489 ❌
 
 ## 소스 소견 (beta.76 기준 추정 — 정확한 근인은 팀 확인 필요)
 
-- 요청 빌더에는 배선이 **존재한다**: `packages/agent-provider/src/openai/chat-completions-chat.ts:138`
+- 요청 빌더에는 배선이 **존재한다**: `packages/agent-provider-openai/src/openai/chat-completions-chat.ts:138`
   — `...(input.chatOptions?.maxTokens !== undefined && { max_tokens: ... })`.
 - 비스트리밍 경로는 `execution-service-helpers.ts:68`에서 `config.defaultModel.maxTokens`를
   `aiProviderInfo`로 옮기고, 이것이 chatOptions까지 도달하는 것으로 보인다(동작하는 유일한 조합과 일치).
