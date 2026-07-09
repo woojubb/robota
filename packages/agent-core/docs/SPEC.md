@@ -1051,10 +1051,10 @@ NOTE: The single `FunctionTool` class (agent-core's `tool-registry`, DATA-005 SS
 
 | Port (Owner)                      | Adapter (Consumer Package)                   | Location                                                            |
 | --------------------------------- | -------------------------------------------- | ------------------------------------------------------------------- |
-| `AbstractAIProvider` (agent-core) | `OpenAIProvider` (agent-provider)            | `packages/agent-provider/src/openai/provider.ts`                    |
-| `AbstractAIProvider` (agent-core) | `AnthropicProvider` (agent-provider)         | `packages/agent-provider/src/anthropic/provider.ts`                 |
-| `AbstractAIProvider` (agent-core) | `GeminiProvider` (agent-provider)            | `packages/agent-provider/src/gemini/provider.ts`                    |
-| `AbstractAIProvider` (agent-core) | `GoogleProvider` (agent-provider)            | `packages/agent-provider/src/google/provider.ts`                    |
+| `AbstractAIProvider` (agent-core) | `OpenAIProvider` (agent-provider)            | `packages/agent-provider-openai/src/openai/provider.ts`             |
+| `AbstractAIProvider` (agent-core) | `AnthropicProvider` (agent-provider)         | `packages/agent-provider-anthropic/src/anthropic/provider.ts`       |
+| `AbstractAIProvider` (agent-core) | `GeminiProvider` (agent-provider)            | `packages/agent-provider-gemini/src/gemini/provider.ts`             |
+| `AbstractAIProvider` (agent-core) | `GoogleProvider` (agent-provider)            | `packages/agent-provider-gemini/src/google/provider.ts`             |
 | `AbstractAIProvider` (agent-core) | `MockAIProvider` (agent-sessions)            | `packages/agent-session/examples/verify-offline.ts`                 |
 | `IExecutor` (agent-core)          | `SimpleRemoteExecutor` (agent-remote-client) | `packages/agent-remote-client/src/client/remote-executor-simple.ts` |
 

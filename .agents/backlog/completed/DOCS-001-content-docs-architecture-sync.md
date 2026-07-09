@@ -82,7 +82,7 @@ Files listing individual provider packages:
   `agent-provider-deepseek/`, `agent-provider-gemma/`, `agent-provider-qwen/`
 
 Note: `content/guide/building-agents.md` already uses correct subpath form
-(`@robota-sdk/agent-provider/anthropic`) — no change needed there.
+(`@robota-sdk/agent-provider-anthropic`) — no change needed there.
 
 ### `agent-plugin-*` individual packages → `@robota-sdk/agent-plugin` (consolidated)
 

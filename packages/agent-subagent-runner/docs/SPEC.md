@@ -12,7 +12,7 @@ Applications that do not use subagents should not carry this dependency.
 ## Boundaries
 
 - Depends on `@robota-sdk/agent-core`, `@robota-sdk/agent-executor`, `@robota-sdk/agent-framework`,
-  `@robota-sdk/agent-provider`, `@robota-sdk/agent-interface-transport`, and `@robota-sdk/agent-process`.
+  `@robota-sdk/agent-provider-defaults`, `@robota-sdk/agent-interface-transport`, and `@robota-sdk/agent-process`.
 - Must NOT import from `@robota-sdk/agent-command` or `@robota-sdk/agent-cli`.
 - Must NOT import from `@robota-sdk/agent-session` directly — session lifecycle is accessed through
   `agent-framework` facades.

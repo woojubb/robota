@@ -60,14 +60,14 @@ You should receive a JSON response with the AI reply within a few seconds.
 ## Option C — Install the SDK directly
 
 ```bash
-npm install @robota-sdk/agent-framework @robota-sdk/agent-provider
+npm install @robota-sdk/agent-framework @robota-sdk/agent-provider-anthropic @robota-sdk/agent-provider-openai
 ```
 
 Then in your TypeScript or JavaScript file:
 
 ```typescript
 import { createQuery } from '@robota-sdk/agent-framework';
-import { createAnthropicProvider } from '@robota-sdk/agent-provider';
+import { createAnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
 // createQuery returns a prompt-only function. cwd defaults to process.cwd();
 // permissionMode defaults to 'bypassPermissions' for programmatic use.
@@ -88,7 +88,7 @@ OpenAI is constructed directly via its provider class:
 
 ```typescript
 import { createQuery } from '@robota-sdk/agent-framework';
-import { OpenAIProvider } from '@robota-sdk/agent-provider';
+import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
 
 const query = createQuery({
   provider: new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY }),
@@ -103,7 +103,7 @@ calling work first-try over the same protocol:
 
 ```typescript
 import { createQuery } from '@robota-sdk/agent-framework';
-import { OpenAIProvider } from '@robota-sdk/agent-provider';
+import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
 
 const query = createQuery({
   provider: new OpenAIProvider({

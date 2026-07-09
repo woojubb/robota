@@ -66,11 +66,11 @@ harness file-size scan: 33 file(s) exceed 300 lines:
 - [file-too-large] packages/agent-playground/src/lib/playground/robota-executor/playground-executor.ts: 353 lines (max 300). Split by responsibility per code-quality.md anti-monolith rule.
 - [file-too-large] packages/agent-playground/src/playground/components/PlaygroundApp.tsx: 829 lines (max 300). Split by responsibility per code-quality.md anti-monolith rule.
 - [file-too-large] packages/agent-plugin/src/execution-analytics/execution-analytics-plugin.ts: 327 lines (max 300). Split by responsibility per code-quality.md anti-monolith rule.
-- [file-too-large] packages/agent-provider/src/anthropic/provider.ts: 321 lines (max 300). Split by responsibility per code-quality.md anti-monolith rule.
-- [file-too-large] packages/agent-provider/src/deepseek/provider.ts: 301 lines (max 300). Split by responsibility per code-quality.md anti-monolith rule.
-- [file-too-large] packages/agent-provider/src/gemma/provider.ts: 311 lines (max 300). Split by responsibility per code-quality.md anti-monolith rule.
-- [file-too-large] packages/agent-provider/src/qwen/provider.ts: 301 lines (max 300). Split by responsibility per code-quality.md anti-monolith rule.
-- [file-too-large] packages/agent-provider/src/qwen/responses-parser.ts: 302 lines (max 300). Split by responsibility per code-quality.md anti-monolith rule.
+- [file-too-large] packages/agent-provider-anthropic/src/anthropic/provider.ts: 321 lines (max 300). Split by responsibility per code-quality.md anti-monolith rule.
+- [file-too-large] packages/agent-provider-openai-compatible/src/deepseek/provider.ts: 301 lines (max 300). Split by responsibility per code-quality.md anti-monolith rule.
+- [file-too-large] packages/agent-provider-openai-compatible/src/gemma/provider.ts: 311 lines (max 300). Split by responsibility per code-quality.md anti-monolith rule.
+- [file-too-large] packages/agent-provider-openai-compatible/src/qwen/provider.ts: 301 lines (max 300). Split by responsibility per code-quality.md anti-monolith rule.
+- [file-too-large] packages/agent-provider-openai-compatible/src/qwen/responses-parser.ts: 302 lines (max 300). Split by responsibility per code-quality.md anti-monolith rule.
 - [file-too-large] packages/agent-transport/src/tui/App.tsx: 489 lines (max 300). Split by responsibility per code-quality.md anti-monolith rule.
 - [file-too-large] packages/agent-transport/src/tui/InputArea.tsx: 310 lines (max 300). Split by responsibility per code-quality.md anti-monolith rule.
 - [file-too-large] packages/agent-transport/src/tui/TuiInteractionChannel.ts: 484 lines (max 300). Split by responsibility per code-quality.md anti-monolith rule.

@@ -8,7 +8,7 @@
 
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-framework';
-import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
 const provider = new AnthropicProvider({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -90,7 +90,7 @@ Transport adapters (HTTP, WS, MCP) use `session.listCommands()` to discover avai
 
 ```typescript
 import { createQuery } from '@robota-sdk/agent-framework';
-import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
 const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY! });
 const ask = createQuery({ provider });
@@ -103,7 +103,7 @@ The simplest way to interact with Robota is to create a query function and call 
 
 ```typescript
 import { createQuery } from '@robota-sdk/agent-framework';
-import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
 const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY! });
 const query = createQuery({ provider });
@@ -255,7 +255,7 @@ const session = new InteractiveSession({
 
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-framework';
-import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 import { E2BSandboxClient } from '@robota-sdk/agent-tools';
 import type { IWorkspaceManifest } from '@robota-sdk/agent-tools';
 import { Sandbox } from 'e2b';

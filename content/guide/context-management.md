@@ -59,7 +59,7 @@ The `text_delta` event provides real-time text as the model generates it:
 
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-framework';
-import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
 const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
 

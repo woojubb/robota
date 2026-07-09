@@ -5,7 +5,7 @@ done_at: 2026-05-25
 created: 2026-05-25
 priority: medium
 urgency: before-stable
-area: packages/agent-provider/src/anthropic, packages/agent-provider/src/openai
+area: packages/agent-provider-anthropic/src/anthropic, packages/agent-provider-openai/src/openai
 depends_on: []
 ---
 
@@ -49,7 +49,7 @@ if (error?.status === 429 || error?.message?.includes('rate_limit')) {
 
 Same pattern for the OpenAI provider.
 
-Reference: how Bytedance does it in `packages/agent-provider/src/bytedance/http-client.ts:139`.
+Reference: how Bytedance does it in `packages/agent-provider-bytedance/src/bytedance/http-client.ts:139`.
 
 ## Acceptance Criteria
 

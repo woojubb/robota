@@ -6,7 +6,7 @@ Express REST API with AI tool use, powered by `@robota-sdk/agent-framework`.
 
 - Creating a per-request query with `createQuery` from `@robota-sdk/agent-framework`
 - Defining `calculate` and `get_current_time` tools with `createZodFunctionTool` from `@robota-sdk/agent-tools`
-- Driving an `AnthropicProvider` from `@robota-sdk/agent-provider/anthropic`
+- Driving an `AnthropicProvider` from `@robota-sdk/agent-provider-anthropic`
 - Streaming the response as SSE from a POST endpoint via the `onTextDelta` callback
 
 ## Quick start
@@ -60,7 +60,7 @@ In `src/server.ts`, replace `AnthropicProvider` with any supported provider and 
 `createQuery`:
 
 ```ts
-import { OpenAIProvider } from '@robota-sdk/agent-provider/openai';
+import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
 
 const query = createQuery({
   provider: new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY }),

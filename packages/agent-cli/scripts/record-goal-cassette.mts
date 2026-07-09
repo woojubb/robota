@@ -12,7 +12,7 @@
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 
-import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider';
+import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider-defaults';
 import { scriptedSession } from '@robota-sdk/agent-framework/testing';
 
 import {

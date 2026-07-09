@@ -11,7 +11,7 @@ vi.mock('@robota-sdk/agent-core', () => ({
 }));
 
 // Mock OpenAIProvider
-vi.mock('@robota-sdk/agent-provider/openai', () => ({
+vi.mock('@robota-sdk/agent-provider-openai', () => ({
   OpenAIProvider: vi.fn(),
 }));
 

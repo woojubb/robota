@@ -8,7 +8,7 @@
 ## Boundaries
 
 - Extends `AbstractNodeDefinition` from `@robota-sdk/dag-node`. Does not redefine core DAG contracts.
-- Delegates to `@robota-sdk/agent-provider/bytedance` `BytedanceProvider`, which implements `IVideoGenerationProvider` (`createVideo` → `getVideoJob` → `cancelVideoJob`). Video generation is an **asynchronous job**: submit, then poll until a terminal status.
+- Delegates to `@robota-sdk/agent-provider-bytedance` `BytedanceProvider`, which implements `IVideoGenerationProvider` (`createVideo` → `getVideoJob` → `cancelVideoJob`). Video generation is an **asynchronous job**: submit, then poll until a terminal status.
 - Distinct from the image nodes: image generation is a single synchronous provider call; this node runs a **poll loop** inside `executeWithConfig` until the job reaches `succeeded`/`failed`/`cancelled` or a max-wait timeout.
 - The DAG subsystem stays private; this package is `private: true`. Registered in the **async/optional** node-registry list (the ByteDance provider is optional; the node self-skips if it cannot construct).
 - Matches the existing `nodeType: "seedance-video"` used by pre-authored `.dag-storage` fixtures and the planned node in `packages/dag-nodes/docs/SPEC.md`.

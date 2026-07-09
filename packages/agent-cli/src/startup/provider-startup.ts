@@ -8,7 +8,7 @@ import {
   resolveSettingsPathForScope,
 } from '@robota-sdk/agent-framework';
 import type { TSettingsScope } from '@robota-sdk/agent-framework';
-import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider';
+import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider-defaults';
 import { type IProviderSetupInput } from '@robota-sdk/agent-framework';
 import {
   ensureProviderConfig,

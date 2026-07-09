@@ -48,7 +48,7 @@ session-store.ts          -- SessionStore: JSON file persistence for conversatio
 **Dependency direction:**
 
 - `@robota-sdk/agent-session` depends on `@robota-sdk/agent-core` and `@robota-sdk/agent-interface-transport` (SSOT for `ICompactEvent`/`TCompactTrigger`).
-- No dependency on `@robota-sdk/agent-tools` or `@robota-sdk/agent-provider/anthropic`.
+- No dependency on `@robota-sdk/agent-tools` or `@robota-sdk/agent-provider-anthropic`.
 - Tool and provider assembly is the responsibility of the consuming layer (`agent-framework`).
 
 ## Type Ownership

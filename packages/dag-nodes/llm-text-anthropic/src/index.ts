@@ -10,7 +10,7 @@ import {
   type TPortPayload,
 } from '@robota-sdk/dag-core';
 import { Robota } from '@robota-sdk/agent-core';
-import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 import { z } from 'zod';
 
 const DEFAULT_ANTHROPIC_LLM_MODEL = 'claude-sonnet-4-6';

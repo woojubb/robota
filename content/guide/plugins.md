@@ -82,7 +82,7 @@ export class MyPlugin extends AbstractPlugin<IMyPluginOptions, IMyPluginStats> {
 
 ```typescript
 import { Robota } from '@robota-sdk/agent-core';
-import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 import { MyPlugin } from './my-plugin.js';
 
 const agent = new Robota({

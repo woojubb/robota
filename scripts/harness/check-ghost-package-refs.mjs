@@ -59,6 +59,7 @@ export const GHOST_PACKAGE_ALLOWLIST = new Set([
 function isExcludedDoc(rel) {
   if (path.basename(rel) === 'CHANGELOG.md') return true; // append-only release history (changesets)
   const p = `/${rel.split(path.sep).join('/')}`;
+  if (/\/\.changeset\//.test(p)) return true; // pending changelog fragments (same class as CHANGELOG.md; a removal changeset must name the removed package)
   if (/\/\.agents\/spec-docs\/(done|rejected)\//.test(p)) return true; // closed/archived spec work items
   if (/\/\.agents\/tasks\/completed\//.test(p)) return true; // completed task records
   if (/\/\.agents\/backlog\/completed\//.test(p)) return true; // completed backlog items

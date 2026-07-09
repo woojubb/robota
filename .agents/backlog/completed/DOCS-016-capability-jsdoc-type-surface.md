@@ -52,7 +52,7 @@ never goes stale for the consumer.
   reads. Mirrored on gemma/qwen/deepseek `baseURL` (OpenAI-compatible framing) and anthropic
   `baseURL` (Messages-protocol framing + pointer to the OpenAI provider for OpenAI-protocol
   gateways). Provider tables reframed to protocol/endpoint-surface in
-  `packages/agent-provider/README.md` (+ new "AI Gateway / any OpenAI-compatible endpoint"
+  `packages/agent-provider/README.md` <!-- evidence-superseded: the agent-provider monolith was split into per-vendor packages in ARCH-PROVIDER-002; the protocol/endpoint provider tables it documented now live in the per-vendor leaf packages' docs --> (+ new "AI Gateway / any OpenAI-compatible endpoint"
   example; fixed the Gemma example's wrong option names `baseUrl`/`model` →
   `baseURL`/`defaultModel`, masked from the doc scan by the options index signature) and
   `content/guide/providers.md` (protocol-client narrative, "Through an AI gateway" section,

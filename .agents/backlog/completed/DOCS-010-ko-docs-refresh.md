@@ -23,7 +23,7 @@ depends_on: [DOCS-008]
 ## Solution
 
 ko/getting-started를 현재 영어 `content/getting-started/README.md`(검증상 clean)에 맞춰 재작성
-(`new Robota({ aiProviders, defaultModel: {...} })`, `@robota-sdk/agent-provider/anthropic`,
+(`new Robota({ aiProviders, defaultModel: {...} })`, `@robota-sdk/agent-provider-anthropic`,
 `createZodFunctionTool`, 모델 id `-4-6`). ko/README의 끊긴 링크는 해당 한국어 섹션 생성 또는 영어
 대응 문서로 연결.
 

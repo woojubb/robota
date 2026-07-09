@@ -5,7 +5,7 @@ import {
   type IPortBinaryValue,
   type TResult,
 } from '@robota-sdk/dag-core';
-import { GoogleProvider } from '@robota-sdk/agent-provider/google';
+import { GoogleProvider } from '@robota-sdk/agent-provider-gemini/google';
 import type { IImageGenerationProvider, IImageGenerationResult } from '@robota-sdk/agent-core';
 import { normalizeImageOutput } from './image-output-normalizer.js';
 

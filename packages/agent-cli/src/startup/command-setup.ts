@@ -19,7 +19,7 @@ import {
   createDefaultCommandModules,
   createDefaultPluginCommandAdapter,
 } from '@robota-sdk/agent-command';
-import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider';
+import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider-defaults';
 import { createWorkflowsCommandModule } from '@robota-sdk/agent-command-workflows';
 import type { IParsedCliArgs } from '../utils/cli-args.js';
 

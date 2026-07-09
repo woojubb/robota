@@ -10,7 +10,7 @@ depends_on: [CLI-014]
 
 ## Background
 
-OpenAI Responses API 경로는 이미지를 처리하지만, `packages/agent-provider/src/shared/openai-compatible/message-converter.ts:33-36`의 ChatCompletions 경로는 user 메시지를 문자열로만 변환한다. GPT-4o 등 비전 모델을 ChatCompletions 경로로 사용할 경우 이미지가 조용히 drop된다.
+OpenAI Responses API 경로는 이미지를 처리하지만, `packages/agent-provider-openai-compatible/src/shared/openai-compatible/message-converter.ts:33-36`의 ChatCompletions 경로는 user 메시지를 문자열로만 변환한다. GPT-4o 등 비전 모델을 ChatCompletions 경로로 사용할 경우 이미지가 조용히 drop된다.
 
 DeepSeek, Qwen(ChatCompletions 경로), Gemma도 동일한 shared converter를 사용하므로 같은 문제가 있다.
 

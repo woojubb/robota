@@ -28,7 +28,7 @@ The CLI is built on top of a programmable SDK. Here's a minimal coding assistant
 
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-framework';
-import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
 const provider = new AnthropicProvider({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -59,7 +59,7 @@ This is where Robota's multi-provider design really shines. Anthropic raised pri
 const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 // After: DeepSeek (10-30x cheaper for many tasks)
-import { DeepSeekProvider } from '@robota-sdk/agent-provider/deepseek';
+import { DeepSeekProvider } from '@robota-sdk/agent-provider-openai-compatible';
 const provider = new DeepSeekProvider({ apiKey: process.env.DEEPSEEK_API_KEY });
 
 // The rest of your code is unchanged

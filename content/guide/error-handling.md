@@ -60,7 +60,7 @@ so you can use a standard `try/catch`.
 
 ```typescript
 import { createQuery } from '@robota-sdk/agent-framework';
-import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 import {
   AuthenticationError,
   RateLimitError,
@@ -102,7 +102,7 @@ may also reject — catch both surfaces.
 
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-framework';
-import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 import { RateLimitError, AuthenticationError } from '@robota-sdk/agent-core';
 
 const session = new InteractiveSession({
@@ -151,7 +151,7 @@ await session.submit('Refactor this file.').catch((err) => {
 
 ```typescript
 import { createQuery } from '@robota-sdk/agent-framework';
-import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 import { RateLimitError, NetworkError, ErrorUtils } from '@robota-sdk/agent-core';
 
 const query = createQuery({
@@ -222,7 +222,7 @@ Do not retry — fix the API key first.
 
 ```typescript
 import { createQuery } from '@robota-sdk/agent-framework';
-import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 import { AuthenticationError } from '@robota-sdk/agent-core';
 
 function buildQuery() {

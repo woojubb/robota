@@ -25,6 +25,7 @@ export const TOKEN_PATTERN = /@robota-sdk\/[a-z0-9]+(?:-[a-z0-9]+)*(?![\w-])/g;
 
 // Example/fixture tokens used inside harness scripts' own rule tables and allowlists.
 const EXAMPLE_TOKEN_ALLOWLIST = new Set([
+  '@robota-sdk/agent-provider', // removed monolith; remains only as a forbidden-PREFIX literal in check-agent-server-boundary (matches all agent-provider-* leaves)
   '@robota-sdk/other',
   // Defunct-name literals seeded in check-ghost-package-refs' GHOST_PACKAGE_ALLOWLIST.
   '@robota-sdk/dag-nodes',

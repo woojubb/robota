@@ -388,7 +388,7 @@ VitePress는 다크/라이트 모두 지원하지만 dark 모드에서 `#3a70ff`
 
 **임팩트: Mid / 난이도: Easy**
 
-모바일에서 긴 import 경로 (`@robota-sdk/agent-provider/anthropic`)가 가로 스크롤을 유발.
+모바일에서 긴 import 경로 (`@robota-sdk/agent-provider-anthropic`)가 가로 스크롤을 유발.
 
 ```css
 /* style.css 추가 */

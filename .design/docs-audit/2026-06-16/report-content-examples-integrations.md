@@ -14,7 +14,7 @@ Top themes: (1) transport split not reflected in 3 transport examples; (2) Korea
 ### content/ko/getting-started/README.md — HIGH (entirely v2-era; won't run)
 
 - `import { Anthropic } from '@robota-sdk/anthropic'` / `'@robota-sdk/openai'` — packages don't exist.
-  Current: `@robota-sdk/agent-provider/anthropic` exporting `AnthropicProvider`.
+  Current: `@robota-sdk/agent-provider-anthropic` exporting `AnthropicProvider`.
 - `createAgent({ providers, defaultModel: 'claude-sonnet-4-5' })` — `createAgent` not exported. Current:
   `new Robota({ name, aiProviders: [...], defaultModel: { provider, model, systemMessage } })`.
 - Wrong options (`providers:` → `aiProviders:`; string `defaultModel` → object); inline tool literal →

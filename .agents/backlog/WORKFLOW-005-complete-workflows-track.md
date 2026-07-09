@@ -158,7 +158,7 @@ Then repeat the pattern for the remaining P1 nodes: **skill node** (wrap a Robot
   (`packages/dag-nodes/text-to-image`, `private: true`), mirroring the `gemini-image-edit` skeleton but
   pure generation (no input image). `TextToImageNodeDefinition` (nodeType `text-to-image`, category `AI`):
   single `text` input port, single binary `image` output port (`IMAGE_COMMON`); config `{ model,
-baseCredits(=0.02) }`. `TextToImageRuntime.generateImage({prompt,model})` → `@robota-sdk/agent-provider/google`
+baseCredits(=0.02) }`. `TextToImageRuntime.generateImage({prompt,model})` → `@robota-sdk/agent-provider-gemini/google`
   `GoogleProvider.generateImage` (already a required provider method); creds `GEMINI_API_KEY`, default model
   `DAG_TEXT_TO_IMAGE_DEFAULT_MODEL`, allowlist `DAG_TEXT_TO_IMAGE_ALLOWED_MODELS`; output normalized to an
   `IPortBinaryValue`. Registered in the **async/optional** loader list in `default-node-registry.ts` (Gemini
@@ -183,7 +183,7 @@ catalog: true`; the node is reached, resolves config, and returns the graceful v
   `seedance-video` (matches pre-authored `.dag-storage` fixtures and the planned node in
   `packages/dag-nodes/docs/SPEC.md`). `SeedanceVideoNodeDefinition` (category `AI`): single `text` input,
   single binary `video` output (`VIDEO_MP4`); config `{ model, baseCredits(=0.5), durationSeconds?,
-aspectRatio?, pollIntervalMs(=5000), maxWaitMs(=300000) }`. Backend: `@robota-sdk/agent-provider/bytedance`
+aspectRatio?, pollIntervalMs(=5000), maxWaitMs(=300000) }`. Backend: `@robota-sdk/agent-provider-bytedance`
   `BytedanceProvider` (implements `IVideoGenerationProvider`). Video generation is an **async job** —
   `SeedanceVideoRuntime.generateVideo` calls `createVideo` then **polls `getVideoJob`** every
   `pollIntervalMs` until `succeeded`/`failed`/`cancelled` or `maxWaitMs` (best-effort `cancelVideoJob` on

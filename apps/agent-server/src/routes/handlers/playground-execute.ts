@@ -7,10 +7,10 @@ import {
   type IToolSchema,
   type TUniversalMessage,
 } from '@robota-sdk/agent-core';
-import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
-import { DeepSeekProvider } from '@robota-sdk/agent-provider/deepseek';
-import { GeminiProvider } from '@robota-sdk/agent-provider/gemini';
-import { OpenAIProvider } from '@robota-sdk/agent-provider/openai';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { GeminiProvider } from '@robota-sdk/agent-provider-gemini';
+import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
+import { DeepSeekProvider } from '@robota-sdk/agent-provider-openai-compatible';
 
 import { getToolRegistry } from '../../catalog/tools.js';
 
