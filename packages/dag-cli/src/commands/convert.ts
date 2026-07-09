@@ -74,7 +74,7 @@ function parseConvertArgv(args: readonly string[]): TParseResult {
 
 /**
  * Convert a linear comma-separated node type list into an IBuildSpec.
- * Example: "input,llm-text-anthropic,text-output"
+ * Example: "input,llm-text,text-output"
  */
 function convertLinear(input: string): IBuildSpec {
   const types = input

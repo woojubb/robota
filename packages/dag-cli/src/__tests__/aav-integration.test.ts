@@ -260,7 +260,7 @@ describe('AAV Integration: Autonomous 5-Call Sequence', () => {
           pipeline: [
             { nodeType: 'input', id: 'in' },
             {
-              nodeType: 'llm-text-anthropic',
+              nodeType: 'llm-text',
               id: 'llm',
               config: { model: 'claude-haiku-4-5-20251001', systemPrompt: 'Answer concisely.' },
             },

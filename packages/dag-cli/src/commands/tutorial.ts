@@ -223,7 +223,7 @@ function resolveOutputText(taskRuns: ReadonlyArray<TTaskRun>): string {
   return '';
 }
 
-function buildLlmDagDefinition(llmNode: string): {
+function buildLlmDagDefinition(provider: string): {
   dagId: string;
   version: 1;
   status: 'draft';
@@ -256,9 +256,10 @@ function buildLlmDagDefinition(llmNode: string): {
       },
       {
         nodeId: 'llm',
-        nodeType: llmNode,
+        nodeType: 'llm-text',
         dependsOn: ['input'],
         config: {
+          provider,
           systemPrompt: 'Answer in exactly 10 words or fewer.',
         } as INodeConfigObject,
         position: { x: NODE_X_LLM, y: 0 },
@@ -278,14 +279,14 @@ function buildLlmDagDefinition(llmNode: string): {
   };
 }
 
-async function runLlmPipeline(llmNode: string, io: IDagCliIo): Promise<boolean> {
+async function runLlmPipeline(provider: string, io: IDagCliIo): Promise<boolean> {
   const nodeDefinitions = createCliNodeRegistry();
   const assemblyResult = buildNodeDefinitionAssembly(nodeDefinitions);
   if (!assemblyResult.ok) {
     throw new Error(`Node registry error: ${assemblyResult.error.code}`);
   }
 
-  const dagDefinition = buildLlmDagDefinition(llmNode);
+  const dagDefinition = buildLlmDagDefinition(provider);
   const runner = new LocalDagRunner(nodeDefinitions);
 
   const startMs = Date.now();
@@ -314,14 +315,7 @@ async function runStep3FirstPipeline(
     return;
   }
 
-  const llmNode =
-    provider === 'openai'
-      ? 'llm-text-openai'
-      : provider === 'gemini'
-        ? 'llm-text-gemini'
-        : 'llm-text-anthropic';
-
-  io.write(`  Running: input → ${llmNode} → text-output\n`);
+  io.write(`  Running: input → llm-text (${provider}) → text-output\n`);
   io.write(`  Input: "What is a DAG in 10 words?"\n`);
 
   if (nonInteractive) {
@@ -331,7 +325,7 @@ async function runStep3FirstPipeline(
 
   let ranSuccessfully = false;
   try {
-    ranSuccessfully = await runLlmPipeline(llmNode, io);
+    ranSuccessfully = await runLlmPipeline(provider, io);
   } catch (err) {
     // allow-fallback: LLM pipeline failure falls back to local demo so tutorial can continue
     const msg = err instanceof Error ? err.message : String(err);
@@ -348,7 +342,7 @@ function runStep4BuildYourOwn(io: IDagCliIo): void {
   stepHeader(4, 'Build your own DAG', io);
   io.write(`  Create your first workflow file:\n`);
   io.write(
-    `    dag build --dagId my-first --spec '{"nodes":[{"type":"input"},{"type":"llm-text-anthropic"},{"type":"text-output"}],"edges":["input→llm-text-anthropic","llm-text-anthropic→text-output"]}' --output my-first.dag.json\n`,
+    `    dag build --dagId my-first --spec '{"nodes":[{"type":"input"},{"type":"llm-text","config":{"provider":"anthropic"}},{"type":"text-output"}],"edges":["input→llm-text","llm-text→text-output"]}' --output my-first.dag.json\n`,
   );
   io.write(`    dag run my-first.dag.json --input text="Your question"\n`);
 }
@@ -513,9 +507,9 @@ const TUTORIAL_EXAMPLES: ReadonlyArray<{
         { nodeId: 'input', nodeType: 'input', dependsOn: [], config: {}, position: { x: 0, y: 0 } },
         {
           nodeId: 'llm',
-          nodeType: 'llm-text-anthropic',
+          nodeType: 'llm-text',
           dependsOn: ['input'],
-          config: { systemPrompt: 'Answer in exactly 10 words or fewer.' },
+          config: { provider: 'anthropic', systemPrompt: 'Answer in exactly 10 words or fewer.' },
           position: { x: 300, y: 0 },
         },
         {
@@ -583,16 +577,16 @@ const TUTORIAL_EXAMPLES: ReadonlyArray<{
         },
         {
           nodeId: 'summarize',
-          nodeType: 'llm-text-anthropic',
+          nodeType: 'llm-text',
           dependsOn: ['input'],
-          config: { systemPrompt: 'Summarize in 1 sentence.' },
+          config: { provider: 'anthropic', systemPrompt: 'Summarize in 1 sentence.' },
           position: { x: 300, y: 0 },
         },
         {
           nodeId: 'translate',
-          nodeType: 'llm-text-anthropic',
+          nodeType: 'llm-text',
           dependsOn: ['input'],
-          config: { systemPrompt: 'Translate to Spanish.' },
+          config: { provider: 'anthropic', systemPrompt: 'Translate to Spanish.' },
           position: { x: 300, y: 300 },
         },
         {

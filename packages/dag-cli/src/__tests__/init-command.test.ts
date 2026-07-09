@@ -70,7 +70,8 @@ describe('initCommand', () => {
       .mock.calls.find((c) => (c[0] as string).includes('hello-world.dag.json'));
     expect(dagCall).toBeDefined();
     const content = dagCall![1] as string;
-    expect(content).toContain('llm-text-openai');
+    expect(content).toContain('llm-text');
+    expect(content).toContain('openai');
   });
 
   it('returns 2 for unknown --provider', async () => {
@@ -142,7 +143,8 @@ describe('initCommand', () => {
     const dagCall = vi
       .mocked(writeFile)
       .mock.calls.find((c) => (c[0] as string).includes('hello-world.dag.json'));
-    expect(dagCall![1] as string).toContain('llm-text-gemini');
+    expect(dagCall![1] as string).toContain('llm-text');
+    expect(dagCall![1] as string).toContain('gemini');
   });
 
   it('shows template note for non-hello-world template', async () => {

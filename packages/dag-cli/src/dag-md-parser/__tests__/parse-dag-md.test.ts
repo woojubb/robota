@@ -221,7 +221,7 @@ dag:
     n1:
       nodeType: input
     n2:
-      nodeType: llm-text-openai
+      nodeType: llm-text
     n3:
       nodeType: text-output
 ---
@@ -371,7 +371,7 @@ dagId: config-dag
 dag:
   nodes:
     n1:
-      nodeType: llm-text-openai
+      nodeType: llm-text
       config:
         model: gpt-4o
         temperature: 0.7
@@ -403,7 +403,7 @@ dag:
     fetch:
       nodeType: http-fetch
     summarize:
-      nodeType: llm-text-anthropic
+      nodeType: llm-text
       config:
         model: claude-3-5-sonnet-20241022
     output:

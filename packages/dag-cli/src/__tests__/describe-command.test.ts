@@ -28,7 +28,7 @@ vi.mock('@robota-sdk/dag-node', () => ({
           defaultInputPort: 'text',
         },
         {
-          nodeType: 'llm-text-anthropic',
+          nodeType: 'llm-text',
           displayName: 'LLM Anthropic',
           inputs: [{ key: 'text', type: 'string', required: true }],
           outputs: [{ key: 'text', type: 'string' }],
@@ -41,8 +41,8 @@ vi.mock('@robota-sdk/dag-node', () => ({
 }));
 
 const MOCK_BUILD_SPEC = JSON.stringify({
-  nodes: [{ type: 'input' }, { type: 'llm-text-anthropic' }, { type: 'text-output' }],
-  edges: ['input→llm-text-anthropic', 'llm-text-anthropic→text-output'],
+  nodes: [{ type: 'input' }, { type: 'llm-text' }, { type: 'text-output' }],
+  edges: ['input→llm-text', 'llm-text→text-output'],
 });
 
 vi.mock('../local-runner/index.js', () => ({

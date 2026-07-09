@@ -69,23 +69,23 @@ describe('sessionCommand', () => {
     it('creates a session with --allowed-nodes', async () => {
       const { io, output } = makeIo();
       const code = await sessionCommand(
-        ['create', '--allowed-nodes', 'input,llm-text-anthropic,text-output'],
+        ['create', '--allowed-nodes', 'input,llm-text,text-output'],
         { io },
       );
       expect(code).toBe(0);
       const text = getOutput(output);
       expect(text).toContain('allowedNodeTypes');
-      expect(text).toContain('llm-text-anthropic');
+      expect(text).toContain('llm-text');
       expect(text).toContain('"allowedNodeTypes"');
     });
 
     it('creates a session with --denied-nodes', async () => {
       const { io, output } = makeIo();
-      const code = await sessionCommand(['create', '--denied-nodes', 'llm-text-openai'], { io });
+      const code = await sessionCommand(['create', '--denied-nodes', 'llm-text'], { io });
       expect(code).toBe(0);
       const text = getOutput(output);
       expect(text).toContain('deniedNodeTypes');
-      expect(text).toContain('llm-text-openai');
+      expect(text).toContain('llm-text');
     });
 
     it('creates a session with --no-instant-nodes', async () => {

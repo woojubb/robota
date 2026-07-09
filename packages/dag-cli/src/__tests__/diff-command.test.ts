@@ -37,7 +37,7 @@ const DAG_B = JSON.stringify({
   status: 'draft',
   nodes: [
     { nodeId: 'in', nodeType: 'input', dependsOn: [], config: { label: 'changed' } },
-    { nodeId: 'new', nodeType: 'llm-text-anthropic', dependsOn: ['in'], config: {} },
+    { nodeId: 'new', nodeType: 'llm-text', dependsOn: ['in'], config: {} },
     { nodeId: 'out', nodeType: 'text-output', dependsOn: ['new'], config: {} },
   ],
   edges: [
@@ -205,14 +205,14 @@ describe('diffCommand - node type change', () => {
       dagId: 'dag',
       version: 1,
       status: 'draft',
-      nodes: [{ nodeId: 'proc', nodeType: 'llm-text-openai', dependsOn: [], config: {} }],
+      nodes: [{ nodeId: 'proc', nodeType: 'llm-text', dependsOn: [], config: {} }],
       edges: [],
     });
     const dagTypedV2 = JSON.stringify({
       dagId: 'dag',
       version: 1,
       status: 'draft',
-      nodes: [{ nodeId: 'proc', nodeType: 'llm-text-anthropic', dependsOn: [], config: {} }],
+      nodes: [{ nodeId: 'proc', nodeType: 'text-template', dependsOn: [], config: {} }],
       edges: [],
     });
     const io = makeIo({ 'a.dag.json': dagTyped, 'b.dag.json': dagTypedV2 });

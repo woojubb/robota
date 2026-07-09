@@ -166,11 +166,11 @@ function takeSingleOption(
 const PIPELINE_EXAMPLES_TEXT = `Pipeline examples (no file needed):
 
   Simple Q&A:
-    dag run --pipeline "input | llm-text-anthropic | text-output" \\
+    dag run --pipeline "input | llm-text[provider=anthropic] | text-output" \\
       --input text="What is a DAG?"
 
   Multi-provider draft-review:
-    dag run --pipeline "input | llm-text-openai | llm-text-anthropic | text-output" \\
+    dag run --pipeline "input | llm-text[provider=openai] | llm-text[provider=anthropic] | text-output" \\
       --input text="Review this idea: ..."
 
   Text transform:
@@ -178,11 +178,11 @@ const PIPELINE_EXAMPLES_TEXT = `Pipeline examples (no file needed):
       --input text="hello" --input template="Translate to French: {{text}}"
 
   Provider comparison (run separately):
-    dag run --pipeline "input | llm-text-anthropic | text-output" --input text="..."
-    dag run --pipeline "input | llm-text-openai | text-output" --input text="..."
+    dag run --pipeline "input | llm-text[provider=anthropic] | text-output" --input text="..."
+    dag run --pipeline "input | llm-text[provider=openai] | text-output" --input text="..."
 
   Cost check first:
-    dag cost estimate --pipeline "input | llm-text-anthropic | text-output" --input text="..."
+    dag cost estimate --pipeline "input | llm-text[provider=anthropic] | text-output" --input text="..."
 `;
 
 const RUN_HELP_TEXT = `Usage: dag run <file|url> [options]
@@ -197,7 +197,7 @@ Arguments:
 
 Pipeline Options:
   --pipeline, -p "<pipe>"        Run an inline pipeline (no file needed)
-                                 Example: "input | llm-text-anthropic | text-output"
+                                 Example: "input | llm-text[provider=anthropic] | text-output"
   --pipeline-examples            Show pipeline usage examples and exit
   --aliases                      List saved pipeline aliases and exit
 
@@ -587,7 +587,7 @@ function parseRunArgv(args: readonly string[]): TParseResult {
       return {
         ok: false,
         exitCode: USAGE_ERROR_EXIT_CODE,
-        message: `run requires <file|url>, --pipeline, or --stdin.\n\nQuick start:\n  dag run --pipeline "input | llm-text-anthropic | text-output" --input text="Hello"\n  dag run --pipeline-examples`,
+        message: `run requires <file|url>, --pipeline, or --stdin.\n\nQuick start:\n  dag run --pipeline "input | llm-text[provider=anthropic] | text-output" --input text="Hello"\n  dag run --pipeline-examples`,
       };
     }
     if (positional.length > 1) {
@@ -806,7 +806,7 @@ function applyNodeConfigs(
 }
 
 /**
- * Convert a pipeline string like "input | llm-text-anthropic | text-output"
+ * Convert a pipeline string like "input | llm-text[provider=anthropic] | text-output"
  * into an IDagDefinition ready for LocalDagRunner.
  *
  * Pipe syntax: nodes separated by " | " or "|" with optional spaces.
@@ -1367,12 +1367,33 @@ function getNodeModelString(node: IDagNode): string | undefined {
   return undefined;
 }
 
+/**
+ * Derive the LLM provider from a collapsed `llm-text` node's config (ARCH-PROVIDER-003):
+ * the single-provider shorthand (`config.provider`) or the first routing entry
+ * (`config.providers[0].provider`). Returns `undefined` when no provider is configured.
+ */
+function getNodeProviderString(node: IDagNode): string | undefined {
+  if (typeof node.config !== 'object' || node.config === null) return undefined;
+  const config = node.config as Record<string, unknown>;
+  const single = config['provider'];
+  if (typeof single === 'string' && single.trim().length > 0) return single.trim();
+  const providers = config['providers'];
+  if (Array.isArray(providers) && providers.length > 0) {
+    const first = providers[0] as Record<string, unknown>;
+    if (typeof first['provider'] === 'string' && first['provider'].trim().length > 0) {
+      return first['provider'].trim();
+    }
+  }
+  return undefined;
+}
+
 function estimateNodeCostUsd(node: IDagNode, inputTextChars: number): number {
   const { nodeType } = node;
   if (NO_API_NODE_TYPES.has(nodeType)) return 0;
   const inputTokens = Math.ceil(inputTextChars / CHARS_PER_TOKEN);
   const model = getNodeModelString(node);
-  if (nodeType === 'llm-text-anthropic') {
+  const provider = nodeType === 'llm-text' ? getNodeProviderString(node) : undefined;
+  if (provider === 'anthropic') {
     const modelStr = model ?? 'claude-haiku-4-5';
     const isSonnet =
       modelStr.includes('sonnet') || modelStr.includes('claude-3') || modelStr.includes('opus');
@@ -1380,14 +1401,14 @@ function estimateNodeCostUsd(node: IDagNode, inputTextChars: number): number {
     const outRate = isSonnet ? 0.015 : 0.00125;
     return (inputTokens / 1000) * inRate + (ESTIMATED_OUTPUT_TOKENS_HEURISTIC / 1000) * outRate;
   }
-  if (nodeType === 'llm-text-openai') {
+  if (provider === 'openai') {
     const modelStr = model ?? 'gpt-4o-mini';
     const isGpt4o = modelStr.includes('gpt-4o') && !modelStr.includes('mini');
     const inRate = isGpt4o ? 0.005 : 0.00015;
     const outRate = isGpt4o ? 0.015 : 0.0006;
     return (inputTokens / 1000) * inRate + (ESTIMATED_OUTPUT_TOKENS_HEURISTIC / 1000) * outRate;
   }
-  if (nodeType === 'llm-text-gemini') {
+  if (provider === 'gemini') {
     const modelStr = model ?? 'gemini-1.5-flash';
     const isPro = modelStr.includes('pro');
     const inRate = isPro ? 0.00125 : 0.000075;
@@ -1858,7 +1879,7 @@ async function printAliases(io: IDagCliIo): Promise<void> {
   if (!hasLocal && !hasGlobal) {
     io.write('No pipeline aliases defined.\n');
     io.write('\nCreate .dag/aliases.json or ~/.dag/aliases.json:\n');
-    io.write('  {\n    "qa": "input | llm-text-anthropic | text-output"\n  }\n');
+    io.write('  {\n    "qa": "input | llm-text[provider=anthropic] | text-output"\n  }\n');
     return;
   }
 

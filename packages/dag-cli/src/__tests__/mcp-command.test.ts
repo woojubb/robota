@@ -65,7 +65,7 @@ const MINIMAL_DAG = {
   status: 'draft',
   nodes: [
     { nodeId: 'in', nodeType: 'input', dependsOn: [], config: {} },
-    { nodeId: 'llm', nodeType: 'llm-text-anthropic', dependsOn: ['in'], config: {} },
+    { nodeId: 'llm', nodeType: 'llm-text', dependsOn: ['in'], config: {} },
     { nodeId: 'out', nodeType: 'text-output', dependsOn: ['llm'], config: {} },
   ],
   edges: [],
@@ -475,7 +475,7 @@ describe('MCP tool: dag_validate', () => {
       status: 'draft',
       nodes: [
         { nodeId: 'in', nodeType: 'input', dependsOn: [], config: {} },
-        { nodeId: 'llm', nodeType: 'llm-text-anthropic', dependsOn: ['in'], config: {} },
+        { nodeId: 'llm', nodeType: 'llm-text', dependsOn: ['in'], config: {} },
         { nodeId: 'out', nodeType: 'text-output', dependsOn: ['llm'], config: {} },
       ],
       edges: [

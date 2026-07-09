@@ -12,7 +12,7 @@ const MANIFESTS: INodeManifest[] = [
     defaultOutputPort: 'text',
   },
   {
-    nodeType: 'llm-text-anthropic',
+    nodeType: 'llm-text',
     displayName: 'LLM Text (Anthropic)',
     category: 'LLM',
     inputs: [{ key: 'text', label: 'Text', order: 0, type: 'string', required: true }],
@@ -37,7 +37,7 @@ describe('buildDagFromPipeline', () => {
       {
         pipeline: [
           { nodeType: 'input', id: 'in' },
-          { nodeType: 'llm-text-anthropic', id: 'llm' },
+          { nodeType: 'llm-text', id: 'llm' },
           { nodeType: 'text-output', id: 'out' },
         ],
       },
@@ -101,7 +101,7 @@ describe('buildDagFromPipeline', () => {
     if (result.ok) return;
     expect(result.error.fix).toBeDefined();
     expect(result.error.fix?.action).toBe('replace_node_type');
-    expect(result.error.fix?.options).toContain('llm-text-anthropic');
+    expect(result.error.fix?.options).toContain('llm-text');
     expect(result.error.fix?.options).toContain('input');
     expect(result.error.fix?.options).toContain('text-output');
   });
@@ -142,8 +142,8 @@ describe('buildDagFromPipeline', () => {
           { nodeType: 'input', id: 'in' },
           {
             parallel: [
-              { nodeType: 'llm-text-anthropic', id: 'a' },
-              { nodeType: 'llm-text-anthropic', id: 'b' },
+              { nodeType: 'llm-text', id: 'a' },
+              { nodeType: 'llm-text', id: 'b' },
             ],
           },
         ],
@@ -167,7 +167,7 @@ describe('buildDagFromPipeline', () => {
       {
         pipeline: [
           {
-            nodeType: 'llm-text-anthropic',
+            nodeType: 'llm-text',
             id: 'llm',
             config: { model: 'claude-opus-4-7', systemPrompt: 'Review this code' },
           },

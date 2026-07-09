@@ -178,7 +178,7 @@ export async function demoCommand(
   io.write('\nReady to use LLM nodes? Set an API key first:\n');
   io.write('  dag doctor                              → check environment & API keys\n');
   io.write(
-    '  dag run --pipeline "input | llm-text-anthropic | text-output" \\\n    --input text="Your question here"    → run a real LLM pipeline\n',
+    '  dag run --pipeline "input | llm-text[provider=anthropic] | text-output" \\\n    --input text="Your question here"    → run a real LLM pipeline\n',
   );
   io.write('  dag tutorial                           → interactive 5-minute walkthrough\n');
 

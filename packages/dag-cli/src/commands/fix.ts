@@ -12,7 +12,7 @@ import { buildDagFromSpec } from './build.js';
 
 const JSON_INDENT_SPACES = 2;
 const DEFAULT_ENV_FILE = '.dag/.env';
-const LLM_NODE_TYPE = 'llm-text-anthropic';
+const LLM_NODE_TYPE = 'llm-text';
 const ANTHROPIC_KEY_ENV = 'ANTHROPIC_API_KEY';
 
 const FIX_HELP = `Usage: dag fix <file> [options]
@@ -238,7 +238,12 @@ const LLM_DAG: IDagDefinition = {
   status: 'draft',
   nodes: [
     { nodeId: 'input', nodeType: 'input', dependsOn: [], config: {} },
-    { nodeId: 'llm', nodeType: LLM_NODE_TYPE, dependsOn: ['input'], config: {} },
+    {
+      nodeId: 'llm',
+      nodeType: LLM_NODE_TYPE,
+      dependsOn: ['input'],
+      config: { provider: 'anthropic' },
+    },
     { nodeId: 'output', nodeType: 'text-output', dependsOn: ['llm'], config: {} },
   ],
   edges: [

@@ -40,7 +40,7 @@ function parseSessionCreateArgs(args: readonly string[]): IParsedSessionCreateAr
       if (next === undefined || next.startsWith('--')) {
         return {
           error:
-            '--allowed-nodes requires a comma-separated list (e.g. input,llm-text-anthropic,text-output)',
+            '--allowed-nodes requires a comma-separated list (e.g. input,llm-text,text-output)',
         };
       }
       allowedNodeTypes = next
@@ -84,7 +84,7 @@ Options (for create):
 
 Examples:
   dag session create --max-cost 1.00
-  dag session create --allowed-nodes input,llm-text-anthropic,text-output
+  dag session create --allowed-nodes input,llm-text,text-output
   dag session create --max-cost 0.50 --no-instant-nodes
 
 The generated DAG_SESSION_PERMISSIONS value is read by the MCP server

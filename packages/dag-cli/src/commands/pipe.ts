@@ -15,7 +15,7 @@ If no spec is given, the default is "transform" (pass-through).
 Examples:
   echo "Hello" | dag pipe "transform[prefix=→ ]"
   echo "Hello" | dag pipe "transform[prefix=STEP1: ]" | dag pipe "transform[prefix=STEP2: ]"
-  cat notes.txt | dag pipe "llm-text-anthropic[model=claude-haiku-4-5-20251001]"
+  cat notes.txt | dag pipe "llm-text[provider=anthropic,model=claude-haiku-4-5-20251001]"
 `;
 
 export interface IPipeCommandOptions {

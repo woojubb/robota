@@ -5,30 +5,30 @@ describe('SessionPermissionGate', () => {
   describe('checkNodeTypes', () => {
     it('allows any node type when no restrictions configured', () => {
       const gate = new SessionPermissionGate({});
-      expect(gate.checkNodeTypes(['input', 'llm-text-anthropic', 'text-output'])).toBeUndefined();
+      expect(gate.checkNodeTypes(['input', 'llm-text', 'text-output'])).toBeUndefined();
     });
 
     it('blocks a node type not in allowedNodeTypes', () => {
       const gate = new SessionPermissionGate({
         allowedNodeTypes: ['input', 'text-output'],
       });
-      const violation = gate.checkNodeTypes(['input', 'llm-text-openai', 'text-output']);
+      const violation = gate.checkNodeTypes(['input', 'llm-text', 'text-output']);
       expect(violation?.code).toBe('NODE_TYPE_NOT_PERMITTED');
-      expect(violation?.message).toContain('llm-text-openai');
+      expect(violation?.message).toContain('llm-text');
       expect(violation?.fix?.options).toEqual(['input', 'text-output']);
     });
 
     it('blocks a denied node type even when allowedNodeTypes includes it', () => {
       const gate = new SessionPermissionGate({
-        allowedNodeTypes: ['input', 'llm-text-openai', 'text-output'],
-        deniedNodeTypes: ['llm-text-openai'],
+        allowedNodeTypes: ['input', 'llm-text', 'text-output'],
+        deniedNodeTypes: ['llm-text'],
       });
-      const violation = gate.checkNodeTypes(['input', 'llm-text-openai']);
+      const violation = gate.checkNodeTypes(['input', 'llm-text']);
       expect(violation?.code).toBe('NODE_TYPE_DENIED');
     });
 
     it('allows all types when allowedNodeTypes is undefined', () => {
-      const gate = new SessionPermissionGate({ deniedNodeTypes: ['llm-text-openai'] });
+      const gate = new SessionPermissionGate({ deniedNodeTypes: ['llm-text'] });
       const violation = gate.checkNodeTypes(['input', 'text-output']);
       expect(violation).toBeUndefined();
     });

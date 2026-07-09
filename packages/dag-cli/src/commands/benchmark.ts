@@ -382,6 +382,26 @@ async function readDagFile(
 // Cost estimation (mirrors run.ts heuristics)
 // ---------------------------------------------------------------------------
 
+/**
+ * Derive the LLM provider from a collapsed `llm-text` node's config (ARCH-PROVIDER-003):
+ * the single-provider shorthand (`config.provider`) or the first routing entry
+ * (`config.providers[0].provider`). Returns `undefined` when no provider is configured.
+ */
+function getNodeProvider(node: IDagDefinition['nodes'][0]): string | undefined {
+  if (typeof node.config !== 'object' || node.config === null) return undefined;
+  const config = node.config as Record<string, unknown>;
+  const single = config['provider'];
+  if (typeof single === 'string' && single.trim().length > 0) return single.trim();
+  const providers = config['providers'];
+  if (Array.isArray(providers) && providers.length > 0) {
+    const first = providers[0] as Record<string, unknown>;
+    if (typeof first['provider'] === 'string' && first['provider'].trim().length > 0) {
+      return first['provider'].trim();
+    }
+  }
+  return undefined;
+}
+
 function estimateNodeCostUsd(node: IDagDefinition['nodes'][0], inputTextChars: number): number {
   const { nodeType } = node;
   if (NO_API_NODE_TYPES.has(nodeType)) return 0;
@@ -393,8 +413,9 @@ function estimateNodeCostUsd(node: IDagDefinition['nodes'][0], inputTextChars: n
     typeof (node.config as Record<string, unknown>)['model'] === 'string'
       ? ((node.config as Record<string, unknown>)['model'] as string)
       : undefined;
+  const provider = nodeType === 'llm-text' ? getNodeProvider(node) : undefined;
 
-  if (nodeType === 'llm-text-anthropic') {
+  if (provider === 'anthropic') {
     const modelStr = model ?? 'claude-haiku-4-5';
     const isSonnet =
       modelStr.includes('sonnet') || modelStr.includes('claude-3') || modelStr.includes('opus');
@@ -402,14 +423,14 @@ function estimateNodeCostUsd(node: IDagDefinition['nodes'][0], inputTextChars: n
     const outRate = isSonnet ? 0.015 : 0.00125;
     return (inputTokens / 1000) * inRate + (ESTIMATED_OUTPUT_TOKENS_HEURISTIC / 1000) * outRate;
   }
-  if (nodeType === 'llm-text-openai') {
+  if (provider === 'openai') {
     const modelStr = model ?? 'gpt-4o-mini';
     const isGpt4o = modelStr.includes('gpt-4o') && !modelStr.includes('mini');
     const inRate = isGpt4o ? 0.005 : 0.00015;
     const outRate = isGpt4o ? 0.015 : 0.0006;
     return (inputTokens / 1000) * inRate + (ESTIMATED_OUTPUT_TOKENS_HEURISTIC / 1000) * outRate;
   }
-  if (nodeType === 'llm-text-gemini') {
+  if (provider === 'gemini') {
     const modelStr = model ?? 'gemini-1.5-flash';
     const isPro = modelStr.includes('pro');
     const inRate = isPro ? 0.00125 : 0.000075;

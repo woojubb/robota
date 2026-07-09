@@ -1,16 +1,12 @@
 import type { IDagNodeDefinition, IWorkspaceLayout } from '@robota-sdk/dag-core';
 import { createDefaultNodeRegistrySync } from '@robota-sdk/dag-framework';
-import { LlmTextOpenAiNodeDefinition } from '@robota-sdk/dag-node-llm-text-openai';
-import { LlmTextAnthropicNodeDefinition } from '@robota-sdk/dag-node-llm-text-anthropic';
-import { LlmTextGeminiNodeDefinition } from '@robota-sdk/dag-node-llm-text-gemini';
-import { LlmTextDeepSeekNodeDefinition } from '@robota-sdk/dag-node-llm-text-deepseek';
-import { LlmTextQwenNodeDefinition } from '@robota-sdk/dag-node-llm-text-qwen';
+import { LlmTextNodeDefinition } from '@robota-sdk/dag-node-llm-text';
+import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider-defaults';
 import {
   GeminiImageEditNodeDefinition,
   GeminiImageComposeNodeDefinition,
 } from '@robota-sdk/dag-node-gemini-image-edit';
 import { McpToolNodeDefinition } from '@robota-sdk/dag-node-mcp-tool';
-import { LlmTextRouterNodeDefinition } from '@robota-sdk/dag-node-llm-text-router';
 import { HttpRequestNodeDefinition } from '@robota-sdk/dag-node-http-request';
 import { FileReadNodeDefinition } from '@robota-sdk/dag-node-file-read';
 import { FileWriteNodeDefinition } from '@robota-sdk/dag-node-file-write';
@@ -19,15 +15,10 @@ import { loadLocalNodeDefinitions } from './local-node-loader.js';
 export function createCliNodeRegistry(): IDagNodeDefinition[] {
   return [
     ...createDefaultNodeRegistrySync(),
-    new LlmTextOpenAiNodeDefinition(),
-    new LlmTextAnthropicNodeDefinition(),
-    new LlmTextGeminiNodeDefinition(),
-    new LlmTextDeepSeekNodeDefinition(),
-    new LlmTextQwenNodeDefinition(),
+    new LlmTextNodeDefinition(createDefaultProviderDefinitions()),
     new GeminiImageEditNodeDefinition(),
     new GeminiImageComposeNodeDefinition(),
     new McpToolNodeDefinition(),
-    new LlmTextRouterNodeDefinition(),
     new HttpRequestNodeDefinition(),
     new FileReadNodeDefinition(),
     new FileWriteNodeDefinition(),

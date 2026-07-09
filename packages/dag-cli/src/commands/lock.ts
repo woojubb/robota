@@ -9,14 +9,7 @@ const DAG_LOCK_FILENAME = 'dag.lock';
 const DAG_DIR = '.dag';
 
 // LLM node types that carry a model config field
-const LLM_NODE_TYPES = new Set([
-  'llm-text-anthropic',
-  'llm-text-openai',
-  'llm-text-gemini',
-  'llm-text-deepseek',
-  'llm-text-qwen',
-  'llm-text-router',
-]);
+const LLM_NODE_TYPES = new Set(['llm-text']);
 
 // ---------------------------------------------------------------------------
 // Types

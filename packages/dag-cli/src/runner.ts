@@ -164,7 +164,7 @@ const TOP_LEVEL_HELP_TEXT = `dag — The DAG built for AI agents. Local-first, M
 [Quick Start]
   dag demo                          Try it now — no API key required
   dag run --pipeline \\
-    "input | llm-text-anthropic | text-output" \\
+    "input | llm-text[provider=anthropic] | text-output" \\
     --input text="Hello"            Run a pipeline in one line
 
 [For AI Agents (Claude Code / MCP)]

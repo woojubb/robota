@@ -2086,6 +2086,9 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: ^1.29.0
         version: 1.29.0(zod@3.25.76)
+      '@robota-sdk/agent-provider-defaults':
+        specifier: workspace:*
+        version: link:../agent-provider-defaults
       '@robota-sdk/dag-adapters-local':
         specifier: workspace:*
         version: link:../dag-adapters-local
@@ -2116,24 +2119,9 @@ importers:
       '@robota-sdk/dag-node-instant-node':
         specifier: workspace:*
         version: link:../dag-nodes/instant-node
-      '@robota-sdk/dag-node-llm-text-anthropic':
+      '@robota-sdk/dag-node-llm-text':
         specifier: workspace:*
-        version: link:../dag-nodes/llm-text-anthropic
-      '@robota-sdk/dag-node-llm-text-deepseek':
-        specifier: workspace:*
-        version: link:../dag-nodes/llm-text-deepseek
-      '@robota-sdk/dag-node-llm-text-gemini':
-        specifier: workspace:*
-        version: link:../dag-nodes/llm-text-gemini
-      '@robota-sdk/dag-node-llm-text-openai':
-        specifier: workspace:*
-        version: link:../dag-nodes/llm-text-openai
-      '@robota-sdk/dag-node-llm-text-qwen':
-        specifier: workspace:*
-        version: link:../dag-nodes/llm-text-qwen
-      '@robota-sdk/dag-node-llm-text-router':
-        specifier: workspace:*
-        version: link:../dag-nodes/llm-text-router
+        version: link:../dag-nodes/llm-text
       '@robota-sdk/dag-node-mcp-tool':
         specifier: workspace:*
         version: link:../dag-nodes/mcp-tool

@@ -26,13 +26,13 @@ const AAV_HELP = `Usage: dag aav [--pipeline <spec>] [--input <text>] [--json]
 Measure Agent Authoring Velocity — time from pipeline spec to first result.
 
 Options:
-  --pipeline <spec>  Inline pipeline (default: "input | llm-text-anthropic | text-output")
+  --pipeline <spec>  Inline pipeline (default: "input | llm-text[provider=anthropic] | text-output")
   --input <text>     Input text (default: built-in test prompt)
   --json             JSON output
 
 Example:
-  dag aav --pipeline "input | llm-text-anthropic | text-output"
-  dag aav --pipeline "input | llm-text-openai | text-output" --json
+  dag aav --pipeline "input | llm-text[provider=anthropic] | text-output"
+  dag aav --pipeline "input | llm-text[provider=openai] | text-output" --json
 `;
 
 function buildAavDag(spec: string): IDagDefinition | null {
@@ -79,7 +79,7 @@ function parseAavArgv(args: readonly string[]): TParseResult {
   }
 
   const mutableArgs = [...args];
-  let pipeline = 'input | llm-text-anthropic | text-output';
+  let pipeline = 'input | llm-text[provider=anthropic] | text-output';
   let input = DEFAULT_AAV_INPUT;
   let json = false;
 
