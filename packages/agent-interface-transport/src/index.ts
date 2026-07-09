@@ -20,6 +20,8 @@ export type {
 export type {
   ICommand,
   ICommandSource,
+  ISkillExecutionPort,
+  ISkillResolutionResult,
   ICommandResult,
   TCommandResultDataValue,
   ICommandListEntry,

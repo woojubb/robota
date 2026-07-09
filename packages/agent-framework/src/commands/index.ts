@@ -260,6 +260,7 @@ export {
   recordCommandMemoryEvent,
 } from '../command-api/memory/memory-command-api.js';
 export { executeSkill } from './skill-executor.js';
+export { createSkillExecutionPort } from './skill-execution-port.js';
 export type {
   IForkExecutionOptions,
   ISkillExecutionCallbacks,

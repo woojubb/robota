@@ -2303,6 +2303,12 @@ importers:
       '@robota-sdk/agent-core':
         specifier: workspace:*
         version: link:../agent-core
+      '@robota-sdk/agent-framework':
+        specifier: workspace:*
+        version: link:../agent-framework
+      '@robota-sdk/agent-interface-transport':
+        specifier: workspace:*
+        version: link:../agent-interface-transport
       '@robota-sdk/dag-core':
         specifier: workspace:*
         version: link:../dag-core
@@ -2804,9 +2810,6 @@ importers:
 
   packages/dag-nodes/skill:
     dependencies:
-      '@robota-sdk/agent-framework':
-        specifier: workspace:*
-        version: link:../../agent-framework
       '@robota-sdk/agent-interface-transport':
         specifier: workspace:*
         version: link:../../agent-interface-transport

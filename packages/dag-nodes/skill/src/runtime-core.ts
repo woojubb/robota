@@ -1,5 +1,4 @@
-import { SkillCommandSource, executeSkill } from '@robota-sdk/agent-framework';
-import type { ICommand } from '@robota-sdk/agent-interface-transport';
+import type { ICommand, ISkillExecutionPort } from '@robota-sdk/agent-interface-transport';
 import {
   buildTaskExecutionError,
   buildValidationError,
@@ -7,15 +6,15 @@ import {
   type TResult,
 } from '@robota-sdk/dag-core';
 
-/** Loads the available skill commands for a working directory. */
-export type TLoadSkillCommands = (cwd: string, home?: string) => ICommand[];
-
-/** Configuration options for the skill resolver runtime (dependency injection for tests). */
+/**
+ * Configuration for the skill resolver runtime (ARCH-PROVIDER-005). The concrete skill discovery + resolution
+ * is provided through the injected {@link ISkillExecutionPort}, so this leaf depends on the contract — NOT on
+ * the `agent-framework` assembly. The composition root (`dag-nodes-default`) injects the agent-framework-backed
+ * port; tests inject a stub.
+ */
 export interface ISkillResolverOptions {
-  /** Skill discovery. Defaults to `new SkillCommandSource(cwd, home).getCommands()`. */
-  loadCommands?: TLoadSkillCommands;
-  /** Skill resolution. Defaults to the real `executeSkill`. */
-  executeSkillFn?: typeof executeSkill;
+  /** Skill discovery + resolution port (required — injected at the composition root). */
+  skillPort: ISkillExecutionPort;
 }
 
 /** Request to resolve a skill to its inject-mode prompt. */
@@ -27,28 +26,22 @@ export interface ISkillResolveRequest {
   sessionId?: string;
 }
 
-/** Result of resolving a skill. */
+/** Result of resolving a skill. Derives from the port's `ISkillResolutionResult`, narrowed to a present prompt. */
 export interface ISkillResolveResult {
   prompt: string;
   mode: string;
 }
 
-function defaultLoadCommands(cwd: string, home?: string): ICommand[] {
-  return new SkillCommandSource(cwd, home).getCommands();
-}
-
 /**
- * Resolves a Robota skill (by name) to its inject-mode prompt string. No LLM, no
- * provider, no shell: `executeSkill` is called with empty callbacks so shell
- * interpolations are stripped rather than executed, and fork skills are rejected.
+ * Resolves a Robota skill (by name) to its inject-mode prompt string through the injected
+ * {@link ISkillExecutionPort}. No LLM, no provider, no shell: the port resolves with empty callbacks so shell
+ * interpolations are stripped rather than executed, and fork skills are rejected here before resolution.
  */
 export class SkillResolverRuntime {
-  private readonly loadCommands: TLoadSkillCommands;
-  private readonly executeSkillFn: typeof executeSkill;
+  private readonly port: ISkillExecutionPort;
 
-  public constructor(options?: ISkillResolverOptions) {
-    this.loadCommands = options?.loadCommands ?? defaultLoadCommands;
-    this.executeSkillFn = options?.executeSkillFn ?? executeSkill;
+  public constructor(options: ISkillResolverOptions) {
+    this.port = options.skillPort;
   }
 
   public async resolvePrompt(
@@ -56,7 +49,7 @@ export class SkillResolverRuntime {
   ): Promise<TResult<ISkillResolveResult, IDagError>> {
     let commands: ICommand[];
     try {
-      commands = this.loadCommands(request.cwd, request.home);
+      commands = this.port.loadCommands(request.cwd, request.home);
     } catch (err) {
       // allow-fallback: skill discovery failure surfaced as a retryable task error
       const message = err instanceof Error ? err.message : String(err);
@@ -107,10 +100,9 @@ export class SkillResolverRuntime {
     request: ISkillResolveRequest,
   ): Promise<TResult<ISkillResolveResult, IDagError>> {
     try {
-      const result = await this.executeSkillFn(
+      const result = await this.port.resolveSkill(
         skill,
         request.args,
-        {},
         request.sessionId !== undefined ? { sessionId: request.sessionId } : undefined,
       );
       if (typeof result.prompt !== 'string') {

@@ -1,5 +1,7 @@
 import type { IDagNodeDefinition } from '@robota-sdk/dag-core';
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
+import type { ISkillExecutionPort } from '@robota-sdk/agent-interface-transport';
+import { createSkillExecutionPort } from '@robota-sdk/agent-framework';
 import { LlmTextNodeDefinition } from '@robota-sdk/dag-node-llm-text';
 import { InputNodeDefinition } from '@robota-sdk/dag-node-input';
 import { MultiInputNodeDefinition } from '@robota-sdk/dag-node-multi-input';
@@ -124,18 +126,43 @@ export async function createDefaultNodeRegistry(
       modulePath: '@robota-sdk/dag-node-seedance-video',
       factories: [(mod) => new (mod.SeedanceVideoNodeDefinition as new () => IDagNodeDefinition)()],
     },
-    {
-      modulePath: '@robota-sdk/dag-node-skill',
-      factories: [(mod) => new (mod.SkillNodeDefinition as new () => IDagNodeDefinition)()],
-    },
   ];
 
-  const loadedGroups = await Promise.all(optionalLoaders.map(loadOptionalNodes));
+  const loadedGroups = await Promise.all([
+    ...optionalLoaders.map(loadOptionalNodes),
+    loadSkillNode(),
+  ]);
   for (const loaded of loadedGroups) {
     nodes.push(...loaded);
   }
 
   return nodes;
+}
+
+/**
+ * Bespoke loader for the `skill` node (ARCH-PROVIDER-005). Unlike the uniform optional loaders, the skill node
+ * requires an injected `ISkillExecutionPort` whose concrete implementation is owned by
+ * `@robota-sdk/agent-framework` (a DIFFERENT package). This aggregator builds the agent-framework-backed port
+ * and injects it — moving the former `dag-node-skill → agent-framework` leaf coupling UP to the composition
+ * root (ARL-11 skill-half).
+ *
+ * `createSkillExecutionPort` is a **static** import (agent-framework is a regular dependency of this
+ * aggregator): a *dynamic* `import('@robota-sdk/agent-framework')` panics Rolldown when `agent-cli` bundles the
+ * whole workspace (INFRA-028) because agent-framework is ALSO statically bundled — the mixed static+dynamic
+ * import of one module leaves a symbol "not in any chunk". The `dag-node-skill` NODE stays a dynamic optional
+ * import (as before), so the graceful-skip for a missing skill node is preserved.
+ */
+async function loadSkillNode(): Promise<IDagNodeDefinition[]> {
+  try {
+    // eslint-disable-next-line no-restricted-syntax -- optional node package (skill node is optional)
+    const skillMod = (await import('@robota-sdk/dag-node-skill')) as {
+      SkillNodeDefinition: new (options: { skillPort: ISkillExecutionPort }) => IDagNodeDefinition;
+    };
+    return [new skillMod.SkillNodeDefinition({ skillPort: createSkillExecutionPort() })];
+  } catch (_err) {
+    // allow-fallback: the optional skill node package is absent → skip the skill node, keep the registry
+    return [];
+  }
 }
 
 async function loadOptionalNodes(loader: IOptionalNodeLoader): Promise<IDagNodeDefinition[]> {
