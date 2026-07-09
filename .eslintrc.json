@@ -210,11 +210,7 @@
       }
     },
     {
-      "files": [
-        "packages/playground/**/*.{ts,tsx,js,jsx}",
-        "packages/dag-designer/**/*.{ts,tsx,js,jsx}",
-        "apps/agent-web/**/*.{ts,tsx,js,jsx}"
-      ],
+      "files": ["packages/playground/**/*.{ts,tsx,js,jsx}", "apps/agent-web/**/*.{ts,tsx,js,jsx}"],
       "extends": ["plugin:jsx-a11y/recommended"],
       "rules": {
         "jsx-a11y/alt-text": "warn",

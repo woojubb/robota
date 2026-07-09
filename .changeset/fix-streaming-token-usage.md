@@ -1,6 +1,5 @@
 ---
 '@robota-sdk/agent-core': patch
-'@robota-sdk/agent-provider': patch
 ---
 
 fix(streaming): expose token usage on the streaming execution path (BEHAVIOR-005)
