@@ -83,12 +83,6 @@ async function pathExists(p: string): Promise<boolean> {
 }
 
 function buildHelloWorldDag(provider: TProvider): object {
-  const llmNodeType =
-    provider === 'openai'
-      ? 'llm-text-openai'
-      : provider === 'gemini'
-        ? 'llm-text-gemini'
-        : 'llm-text-anthropic';
   const defaultModel =
     provider === 'openai'
       ? 'gpt-4o-mini'
@@ -110,9 +104,10 @@ function buildHelloWorldDag(provider: TProvider): object {
       },
       {
         nodeId: 'llm',
-        nodeType: llmNodeType,
+        nodeType: 'llm-text',
         dependsOn: ['input'],
         config: {
+          provider,
           model: defaultModel,
           systemPrompt: 'You are a helpful assistant. Answer concisely.',
         },
@@ -188,12 +183,6 @@ function buildReadme(provider: TProvider): string {
 }
 
 function buildHelloWorldDagMd(provider: TProvider): string {
-  const llmNode =
-    provider === 'openai'
-      ? 'llm-text-openai'
-      : provider === 'gemini'
-        ? 'llm-text-gemini'
-        : 'llm-text-anthropic';
   return `---
 dagId: hello-world
 description: Simple question-answering pipeline powered by robota-dag
@@ -202,7 +191,9 @@ dag:
     input:
       nodeType: input
     llm:
-      nodeType: ${llmNode}
+      nodeType: llm-text
+      config:
+        provider: ${provider}
       dependsOn: [input]
     output:
       nodeType: text-output
@@ -215,7 +206,7 @@ A simple question-answering pipeline built with [robota-dag](https://github.com/
 
 \`\`\`mermaid
 flowchart LR
-  input["📥 input"]-->llm["🤖 ${llmNode}"]
+  input["📥 input"]-->llm["🤖 llm-text (${provider})"]
   llm-->output["📤 text-output"]
 \`\`\`
 

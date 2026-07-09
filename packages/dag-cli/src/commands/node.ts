@@ -128,7 +128,7 @@ function parseNodeArgv(args: readonly string[]): TParseResult {
         '',
         'Examples:',
         '  dag node list',
-        '  dag node info llm-text-anthropic',
+        '  dag node info llm-text',
         '  dag node scaffold my-node',
         '  dag node validate ./my-node.dag.node.js',
         '',
@@ -148,7 +148,7 @@ function parseNodeArgv(args: readonly string[]): TParseResult {
     const validSubcommands = 'list, info, schema, example, scaffold, validate';
     const detail =
       subcommand === undefined
-        ? `node requires a subcommand (${validSubcommands}).\n\nExamples:\n  dag node list\n  dag node info llm-text-anthropic\n  dag node scaffold my-node`
+        ? `node requires a subcommand (${validSubcommands}).\n\nExamples:\n  dag node list\n  dag node info llm-text\n  dag node scaffold my-node`
         : `Unknown node subcommand "${subcommand}". Valid subcommands: ${validSubcommands}.`;
     return { ok: false, exitCode: USAGE_ERROR_EXIT_CODE, message: detail };
   }
@@ -447,7 +447,7 @@ function parseNodeArgv(args: readonly string[]): TParseResult {
           '  --output <fmt>      Output format: pretty (default), json',
           '',
           'Examples:',
-          '  dag node info llm-text-anthropic',
+          '  dag node info llm-text',
           '  dag node info my-node --node-file ./my-node.dag.node.js',
           '  dag node info my-node --output json',
         ].join('\n'),
@@ -463,7 +463,7 @@ function parseNodeArgv(args: readonly string[]): TParseResult {
           'Print the JSON config schema for a node type.',
           '',
           'Examples:',
-          '  dag node schema llm-text-anthropic',
+          '  dag node schema llm-text',
         ].join('\n'),
       };
     }
@@ -482,7 +482,7 @@ function parseNodeArgv(args: readonly string[]): TParseResult {
         '  --output <fmt>      Output format: json (only option)',
         '',
         'Examples:',
-        '  dag node example llm-text-anthropic',
+        '  dag node example llm-text',
         '  dag node example transform --run --input text="hello"',
       ].join('\n'),
     };
@@ -803,9 +803,7 @@ function handleSchemaCommand(
 }
 
 const DEFAULT_CONFIGS: Record<string, Record<string, string>> = {
-  'llm-text-anthropic': { model: 'claude-haiku-4-5-20251001' },
-  'llm-text-openai': { model: 'gpt-4o-mini' },
-  'llm-text-gemini': { model: 'gemini-1.5-flash' },
+  'llm-text': { provider: 'anthropic', model: 'claude-haiku-4-5-20251001' },
 };
 
 function handleExampleCommand(manifests: INodeManifest[], nodeType: string, io: IDagCliIo): number {

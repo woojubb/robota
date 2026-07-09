@@ -372,15 +372,15 @@ async function keysAdd(
     io.write(`\nTry it now:\n`);
     if (spec.provider === 'anthropic') {
       io.write(
-        `  dag run --pipeline "input | llm-text-anthropic | text-output" --input text="Hello"\n`,
+        `  dag run --pipeline "input | llm-text[provider=anthropic] | text-output" --input text="Hello"\n`,
       );
     } else if (spec.provider === 'openai') {
       io.write(
-        `  dag run --pipeline "input | llm-text-openai | text-output" --input text="Hello"\n`,
+        `  dag run --pipeline "input | llm-text[provider=openai] | text-output" --input text="Hello"\n`,
       );
     } else {
       io.write(
-        `  dag run --pipeline "input | llm-text-${spec.provider} | text-output" --input text="Hello"\n`,
+        `  dag run --pipeline "input | llm-text[provider=${spec.provider}] | text-output" --input text="Hello"\n`,
       );
     }
   } else {

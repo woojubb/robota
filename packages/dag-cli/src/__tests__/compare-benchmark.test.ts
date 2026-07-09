@@ -183,7 +183,7 @@ describe('compareCommand — execution paths', () => {
     const { compareCommand } = await import('../commands/compare.js');
     const io = makeIo();
     const code = await compareCommand(
-      ['anthropic', 'openai', '--pipeline', 'input | llm-text-{provider} | text-output'],
+      ['anthropic', 'openai', '--pipeline', 'input | llm-text | text-output'],
       { io },
     );
     expect(code).toBe(0);
@@ -429,9 +429,9 @@ describe('benchmarkCommand — additional branch coverage', () => {
         { nodeId: 'input', nodeType: 'input', dependsOn: [], config: {} },
         {
           nodeId: 'llm',
-          nodeType: 'llm-text-gemini',
+          nodeType: 'llm-text',
           dependsOn: ['input'],
-          config: { model: 'gemini-1.0-pro' },
+          config: { provider: 'gemini', model: 'gemini-1.0-pro' },
         },
         { nodeId: 'output', nodeType: 'text-output', dependsOn: ['llm'], config: {} },
       ],
@@ -456,9 +456,9 @@ describe('benchmarkCommand — additional branch coverage', () => {
         { nodeId: 'input', nodeType: 'input', dependsOn: [], config: {} },
         {
           nodeId: 'llm',
-          nodeType: 'llm-text-openai',
+          nodeType: 'llm-text',
           dependsOn: ['input'],
-          config: { model: 'gpt-4o' },
+          config: { provider: 'openai', model: 'gpt-4o' },
         },
         { nodeId: 'output', nodeType: 'text-output', dependsOn: ['llm'], config: {} },
       ],
@@ -480,9 +480,9 @@ describe('benchmarkCommand — additional branch coverage', () => {
         { nodeId: 'input', nodeType: 'input', dependsOn: [], config: {} },
         {
           nodeId: 'llm',
-          nodeType: 'llm-text-anthropic',
+          nodeType: 'llm-text',
           dependsOn: ['input'],
-          config: { model: 'claude-sonnet-4-5' },
+          config: { provider: 'anthropic', model: 'claude-sonnet-4-5' },
         },
         { nodeId: 'output', nodeType: 'text-output', dependsOn: ['llm'], config: {} },
       ],
@@ -700,7 +700,7 @@ describe('compareCommand — additional branch coverage', () => {
     const { compareCommand } = await import('../commands/compare.js');
     const io = makeIo();
     const code = await compareCommand(
-      ['anthropic', 'gemini', '--pipeline', 'input | llm-text-{provider} | text-output'],
+      ['anthropic', 'gemini', '--pipeline', 'input | llm-text | text-output'],
       { io },
     );
     expect(code).toBe(0);

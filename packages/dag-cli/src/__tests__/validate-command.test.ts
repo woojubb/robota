@@ -47,7 +47,7 @@ function createValidDag(): IDagDefinition {
       { nodeId: 'n1', nodeType: 'input', dependsOn: [], config: {} },
       {
         nodeId: 'n2',
-        nodeType: 'llm-text-openai',
+        nodeType: 'llm-text',
         dependsOn: ['n1'],
         config: { model: 'gpt-4o' },
       },

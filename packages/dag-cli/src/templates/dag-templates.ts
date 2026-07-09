@@ -33,12 +33,18 @@ export const TEMPLATE_REGISTRY: readonly ITemplateInfo[] = [
         description: 'LLM node spec. Must be a valid node type with text input/output.',
         type: 'node',
         required: true,
-        example: { nodeType: 'llm-text-anthropic', config: { systemPrompt: 'Answer concisely' } },
+        example: {
+          nodeType: 'llm-text',
+          config: { provider: 'anthropic', systemPrompt: 'Answer concisely' },
+        },
       },
     ],
     example: {
       slots: {
-        llm: { nodeType: 'llm-text-anthropic', config: { systemPrompt: 'Answer concisely' } },
+        llm: {
+          nodeType: 'llm-text',
+          config: { provider: 'anthropic', systemPrompt: 'Answer concisely' },
+        },
       },
     },
   },
@@ -53,16 +59,28 @@ export const TEMPLATE_REGISTRY: readonly ITemplateInfo[] = [
         type: 'node-array',
         required: true,
         example: [
-          { nodeType: 'llm-text-anthropic', config: { systemPrompt: 'Translate to Korean' } },
-          { nodeType: 'llm-text-anthropic', config: { systemPrompt: 'Summarise in one sentence' } },
+          {
+            nodeType: 'llm-text',
+            config: { provider: 'anthropic', systemPrompt: 'Translate to Korean' },
+          },
+          {
+            nodeType: 'llm-text',
+            config: { provider: 'anthropic', systemPrompt: 'Summarise in one sentence' },
+          },
         ],
       },
     ],
     example: {
       slots: {
         steps: [
-          { nodeType: 'llm-text-anthropic', config: { systemPrompt: 'Translate to Korean' } },
-          { nodeType: 'llm-text-anthropic', config: { systemPrompt: 'Summarise in one sentence' } },
+          {
+            nodeType: 'llm-text',
+            config: { provider: 'anthropic', systemPrompt: 'Translate to Korean' },
+          },
+          {
+            nodeType: 'llm-text',
+            config: { provider: 'anthropic', systemPrompt: 'Summarise in one sentence' },
+          },
         ],
       },
     },
@@ -80,14 +98,14 @@ export const TEMPLATE_REGISTRY: readonly ITemplateInfo[] = [
         required: true,
         example: [
           {
-            nodeType: 'llm-text-anthropic',
+            nodeType: 'llm-text',
             id: 'security',
-            config: { systemPrompt: 'Security review' },
+            config: { provider: 'anthropic', systemPrompt: 'Security review' },
           },
           {
-            nodeType: 'llm-text-anthropic',
+            nodeType: 'llm-text',
             id: 'perf',
-            config: { systemPrompt: 'Performance review' },
+            config: { provider: 'anthropic', systemPrompt: 'Performance review' },
           },
         ],
       },
@@ -96,14 +114,14 @@ export const TEMPLATE_REGISTRY: readonly ITemplateInfo[] = [
       slots: {
         branches: [
           {
-            nodeType: 'llm-text-anthropic',
+            nodeType: 'llm-text',
             id: 'security',
-            config: { systemPrompt: 'Security review' },
+            config: { provider: 'anthropic', systemPrompt: 'Security review' },
           },
           {
-            nodeType: 'llm-text-anthropic',
+            nodeType: 'llm-text',
             id: 'quality',
-            config: { systemPrompt: 'Quality review' },
+            config: { provider: 'anthropic', systemPrompt: 'Quality review' },
           },
         ],
       },

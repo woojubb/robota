@@ -119,7 +119,7 @@ describe('validateFrozenRun', () => {
       }) as unknown as string,
     );
     const result = await validateFrozenRun(
-      [{ nodeId: 'llm', nodeType: 'llm-text-anthropic', config: { model: 'claude-haiku-4-5' } }],
+      [{ nodeId: 'llm', nodeType: 'llm-text', config: { model: 'claude-haiku-4-5' } }],
       '/tmp/has-lockfile',
     );
     expect(result).toBeNull();
@@ -134,7 +134,7 @@ describe('validateFrozenRun', () => {
       }) as unknown as string,
     );
     const result = await validateFrozenRun(
-      [{ nodeId: 'llm', nodeType: 'llm-text-anthropic', config: { model: 'claude-haiku-4-5' } }],
+      [{ nodeId: 'llm', nodeType: 'llm-text', config: { model: 'claude-haiku-4-5' } }],
       '/tmp/has-lockfile',
     );
     expect(result).not.toBeNull();

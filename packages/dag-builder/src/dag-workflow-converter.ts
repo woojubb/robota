@@ -1,8 +1,8 @@
 // Bidirectional converter between IDagDefinition (internal) and IDagWorkflowFile (.dag.json format).
 //
 // Node type naming convention:
-//   internal kebab-case: "llm-text-anthropic"
-//   workflow PascalCase: "RobotaLlmTextAnthropic"  (prefix "Robota" + each segment capitalized)
+//   internal kebab-case: "llm-text"
+//   workflow PascalCase: "RobotaLlmText"  (prefix "Robota" + each segment capitalized)
 
 import type {
   IDagDefinition,
@@ -30,7 +30,7 @@ const ROBOTA_CONFIG_PROPERTY = 'robota_config';
 // Node type name mapping
 // ---------------------------------------------------------------------------
 
-/** Converts internal kebab-case nodeType to workflow PascalCase type (e.g. "llm-text-anthropic" → "RobotaLlmTextAnthropic"). */
+/** Converts internal kebab-case nodeType to workflow PascalCase type (e.g. "llm-text" → "RobotaLlmText"). */
 export function toWorkflowNodeType(nodeType: string): string {
   const pascal = nodeType
     .split('-')
@@ -39,7 +39,7 @@ export function toWorkflowNodeType(nodeType: string): string {
   return `${ROBOTA_PREFIX}${pascal}`;
 }
 
-/** Converts workflow PascalCase type back to internal kebab-case (e.g. "RobotaLlmTextAnthropic" → "llm-text-anthropic"). */
+/** Converts workflow PascalCase type back to internal kebab-case (e.g. "RobotaLlmText" → "llm-text"). */
 export function fromWorkflowNodeType(workflowType: string): string {
   const withoutPrefix = workflowType.startsWith(ROBOTA_PREFIX)
     ? workflowType.slice(ROBOTA_PREFIX.length)

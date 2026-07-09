@@ -286,6 +286,26 @@ function getNodeModel(node: IDagNode): string | undefined {
   return undefined;
 }
 
+/**
+ * Derive the LLM provider from a collapsed `llm-text` node's config (ARCH-PROVIDER-003):
+ * the single-provider shorthand (`config.provider`) or the first routing entry
+ * (`config.providers[0].provider`). Returns `undefined` when no provider is configured.
+ */
+function getNodeProvider(node: IDagNode): string | undefined {
+  if (typeof node.config !== 'object' || node.config === null) return undefined;
+  const config = node.config as Record<string, unknown>;
+  const single = config['provider'];
+  if (typeof single === 'string' && single.trim().length > 0) return single.trim();
+  const providers = config['providers'];
+  if (Array.isArray(providers) && providers.length > 0) {
+    const first = providers[0] as Record<string, unknown>;
+    if (typeof first['provider'] === 'string' && first['provider'].trim().length > 0) {
+      return first['provider'].trim();
+    }
+  }
+  return undefined;
+}
+
 /** Estimate cost for a single node given the total input text character count. */
 function estimateNodeCost(node: IDagNode, inputTextChars: number): INodeCostEstimate {
   const nodeType = node.nodeType;
@@ -313,7 +333,9 @@ function estimateNodeCost(node: IDagNode, inputTextChars: number): INodeCostEsti
     };
   }
 
-  if (nodeType === 'llm-text-anthropic') {
+  const provider = nodeType === 'llm-text' ? getNodeProvider(node) : undefined;
+
+  if (provider === 'anthropic') {
     const modelStr = model ?? 'claude-haiku-4-5';
     const isSonnet =
       modelStr.includes('sonnet') || modelStr.includes('claude-3') || modelStr.includes('opus');
@@ -330,7 +352,7 @@ function estimateNodeCost(node: IDagNode, inputTextChars: number): INodeCostEsti
     };
   }
 
-  if (nodeType === 'llm-text-openai') {
+  if (provider === 'openai') {
     const modelStr = model ?? 'gpt-4o-mini';
     const isGpt4o = modelStr.includes('gpt-4o') && !modelStr.includes('mini');
     const inputRate = isGpt4o ? OPENAI_GPT4O_INPUT_PER_1K : OPENAI_GPT4O_MINI_INPUT_PER_1K;
@@ -346,7 +368,7 @@ function estimateNodeCost(node: IDagNode, inputTextChars: number): INodeCostEsti
     };
   }
 
-  if (nodeType === 'llm-text-gemini') {
+  if (provider === 'gemini') {
     const modelStr = model ?? 'gemini-1.5-flash';
     const isPro = modelStr.includes('pro');
     const inputRate = isPro ? GEMINI_PRO_INPUT_PER_1K : GEMINI_FLASH_INPUT_PER_1K;
