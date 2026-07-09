@@ -9,7 +9,7 @@ import { createWsSessionClient } from '../client/ws-session-client.js';
 
 import type { TConnectionStatus, TClientMessage } from '../client/ws-session-client.js';
 import type { IExecutionWorkspaceSnapshot } from '@robota-sdk/agent-interface-transport';
-import type { TServerMessage } from '@robota-sdk/agent-transport-ws';
+import type { TServerMessage } from '@robota-sdk/agent-transport-protocol';
 
 export interface IConversationMessage {
   id: string;

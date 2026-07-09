@@ -43,7 +43,7 @@
   },
   "dependencies": {
     "@robota-sdk/agent-interface-transport": "workspace:*",
-    "@robota-sdk/agent-transport-ws": "workspace:*",
+    "@robota-sdk/agent-transport-protocol": "workspace:*",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1"
   },

@@ -5,16 +5,15 @@
 
 import { createServer, type Server } from 'node:http';
 
+import { createWsHandler } from '@robota-sdk/agent-transport-protocol';
 import { WebSocketServer, WebSocket } from 'ws';
 
-import { createWsHandler } from './ws-handler.js';
-
-import type { TServerMessage } from './ws-protocol.js';
 import type { TUniversalValue } from '@robota-sdk/agent-core';
 import type {
   IConfigurableTransport,
   IInteractiveSession,
 } from '@robota-sdk/agent-interface-transport';
+import type { TServerMessage } from '@robota-sdk/agent-transport-protocol';
 
 const DEFAULT_PORT = 7070;
 const DEFAULT_MAX_RETRIES = 20;

@@ -1846,6 +1846,25 @@ importers:
         specifier: ^3.2.6
         version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.22.4)
 
+  packages/agent-transport-protocol:
+    dependencies:
+      '@robota-sdk/agent-interface-transport':
+        specifier: workspace:*
+        version: link:../agent-interface-transport
+    devDependencies:
+      rimraf:
+        specifier: ^5.0.10
+        version: 5.0.10
+      tsdown:
+        specifier: ^0.22.2
+        version: 0.22.2(tsx@4.22.4)(typescript@5.9.3)(unrun@0.3.1)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.6
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.22.4)
+
   packages/agent-transport-tui:
     dependencies:
       '@robota-sdk/agent-core':
@@ -1924,6 +1943,9 @@ importers:
       '@robota-sdk/agent-interface-transport':
         specifier: workspace:*
         version: link:../agent-interface-transport
+      '@robota-sdk/agent-transport-protocol':
+        specifier: workspace:*
+        version: link:../agent-transport-protocol
       ws:
         specifier: ^8.21.0
         version: 8.21.0
@@ -1949,9 +1971,9 @@ importers:
       '@robota-sdk/agent-interface-transport':
         specifier: workspace:*
         version: link:../agent-interface-transport
-      '@robota-sdk/agent-transport-ws':
+      '@robota-sdk/agent-transport-protocol':
         specifier: workspace:*
-        version: link:../agent-transport-ws
+        version: link:../agent-transport-protocol
       react-markdown:
         specifier: ^10.1.0
         version: 10.1.0(@types/react@19.2.17)(react@19.2.4)
