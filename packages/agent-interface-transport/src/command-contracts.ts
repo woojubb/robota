@@ -57,6 +57,35 @@ export interface ICommandSource {
   getCommands(): ICommand[];
 }
 
+/**
+ * Result of resolving a skill command to an inject-mode prompt (ARCH-PROVIDER-005). The SSOT `{prompt?, mode}`
+ * contract — consumers derive their own internal shapes from this rather than duplicating it. `prompt` is
+ * absent when the skill did not resolve to an inject prompt (the consumer surfaces that as an error).
+ */
+export interface ISkillResolutionResult {
+  /** Resolution mode used (e.g. `'inject'`). */
+  mode: string;
+  /** Inject-mode prompt to send as a user message (absent if not resolved to an inject prompt). */
+  prompt?: string;
+}
+
+/**
+ * Owned execution port for skill discovery + resolution (ARCH-PROVIDER-005 / ARL-11 skill-half). A DAG skill
+ * node (or any consumer) depends on THIS contract, not on the concrete `agent-framework` implementation, which
+ * is injected at the composition root. Discovery returns the available skill {@link ICommand}s; `resolveSkill`
+ * resolves an inject-mode skill to its prompt (fork-context skills are rejected by the consumer before calling).
+ */
+export interface ISkillExecutionPort {
+  /** Discover the available skill commands for a working directory. */
+  loadCommands(cwd: string, home?: string): ICommand[];
+  /** Resolve a (non-fork) skill command to its inject-mode prompt. */
+  resolveSkill(
+    skill: ICommand,
+    args: string,
+    opts?: { sessionId?: string },
+  ): Promise<ISkillResolutionResult>;
+}
+
 /** Status-line command settings persisted in the settings document. */
 export interface IStatusLineCommandSettings {
   enabled: boolean;

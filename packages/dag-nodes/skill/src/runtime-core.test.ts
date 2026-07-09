@@ -1,5 +1,9 @@
-import { describe, it, expect } from 'vitest';
-import type { ICommand } from '@robota-sdk/agent-interface-transport';
+import { describe, it, expect, vi } from 'vitest';
+import type {
+  ICommand,
+  ISkillExecutionPort,
+  ISkillResolutionResult,
+} from '@robota-sdk/agent-interface-transport';
 import { SkillResolverRuntime, type ISkillResolveRequest } from './runtime-core.js';
 
 const greet: ICommand = {
@@ -17,24 +21,49 @@ const forkSkill: ICommand = {
   skillContent: 'Research $ARGUMENTS thoroughly.',
 };
 
+/**
+ * Stub {@link ISkillExecutionPort} — the runtime is a leaf that depends on the port contract, so its tests
+ * inject a stub (no agent-framework, no real executeSkill). The REAL inject-prompt shape (XML wrap +
+ * `$ARGUMENTS` substitution + empty-shell strip) is covered by the agent-framework adapter test (TC-02).
+ */
+function stubPort(overrides?: Partial<ISkillExecutionPort>): ISkillExecutionPort {
+  return {
+    loadCommands: () => [greet, forkSkill],
+    resolveSkill: async (skill, args): Promise<ISkillResolutionResult> => ({
+      mode: 'inject',
+      prompt: `<skill name="${skill.name}">resolved ${args}</skill>`,
+    }),
+    ...overrides,
+  };
+}
+
 function req(overrides?: Partial<ISkillResolveRequest>): ISkillResolveRequest {
   return { skillName: 'greet', args: 'World', cwd: '/tmp/x', ...overrides };
 }
 
-describe('SkillResolverRuntime', () => {
-  it('resolves an inject skill to its expanded prompt (real executeSkill)', async () => {
-    const runtime = new SkillResolverRuntime({ loadCommands: () => [greet, forkSkill] });
+describe('SkillResolverRuntime (ARCH-PROVIDER-005 — port-injected)', () => {
+  it('routes discovery + resolution through the injected port and returns its result', async () => {
+    const resolveSkill = vi.fn(async () => ({ mode: 'inject', prompt: 'PROMPT-FROM-PORT' }));
+    const runtime = new SkillResolverRuntime({ skillPort: stubPort({ resolveSkill }) });
     const result = await runtime.resolvePrompt(req());
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value.mode).toBe('inject');
-      expect(result.value.prompt).toContain('skill name="greet"');
-      expect(result.value.prompt).toContain('Say hello to World.');
+      expect(result.value.prompt).toBe('PROMPT-FROM-PORT');
     }
+    // The port's resolveSkill is called with the discovered skill + args (callbacks hidden by the port).
+    expect(resolveSkill).toHaveBeenCalledWith(greet, 'World', undefined);
+  });
+
+  it('forwards the sessionId to the port when provided', async () => {
+    const resolveSkill = vi.fn(async () => ({ mode: 'inject', prompt: 'p' }));
+    const runtime = new SkillResolverRuntime({ skillPort: stubPort({ resolveSkill }) });
+    await runtime.resolvePrompt(req({ sessionId: 'sess-1' }));
+    expect(resolveSkill).toHaveBeenCalledWith(greet, 'World', { sessionId: 'sess-1' });
   });
 
   it('returns a not-found error listing available skills', async () => {
-    const runtime = new SkillResolverRuntime({ loadCommands: () => [greet, forkSkill] });
+    const runtime = new SkillResolverRuntime({ skillPort: stubPort() });
     const result = await runtime.resolvePrompt(req({ skillName: 'missing' }));
     expect(result.ok).toBe(false);
     if (!result.ok) {
@@ -43,18 +72,22 @@ describe('SkillResolverRuntime', () => {
     }
   });
 
-  it('rejects a fork-context skill', async () => {
-    const runtime = new SkillResolverRuntime({ loadCommands: () => [greet, forkSkill] });
+  it('rejects a fork-context skill BEFORE calling the port', async () => {
+    const resolveSkill = vi.fn(async () => ({ mode: 'inject', prompt: 'p' }));
+    const runtime = new SkillResolverRuntime({ skillPort: stubPort({ resolveSkill }) });
     const result = await runtime.resolvePrompt(req({ skillName: 'deep-research' }));
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error.code).toBe('DAG_VALIDATION_SKILL_FORK_UNSUPPORTED');
+    expect(resolveSkill).not.toHaveBeenCalled();
   });
 
-  it('surfaces a skill-discovery failure as a task error', async () => {
+  it('surfaces a discovery failure (port.loadCommands throws) as a retryable task error', async () => {
     const runtime = new SkillResolverRuntime({
-      loadCommands: () => {
-        throw new Error('disk gone');
-      },
+      skillPort: stubPort({
+        loadCommands: () => {
+          throw new Error('disk gone');
+        },
+      }),
     });
     const result = await runtime.resolvePrompt(req());
     expect(result.ok).toBe(false);
@@ -64,45 +97,25 @@ describe('SkillResolverRuntime', () => {
     }
   });
 
-  it('surfaces an executeSkill failure as a task error', async () => {
+  it('surfaces a resolution failure (port.resolveSkill throws) as a task error', async () => {
     const runtime = new SkillResolverRuntime({
-      loadCommands: () => [greet],
-      executeSkillFn: async () => {
-        throw new Error('boom');
-      },
-    });
-    const result = await runtime.resolvePrompt(req());
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error.code).toBe('DAG_TASK_EXECUTION_SKILL_RESOLVE_FAILED');
-  });
-
-  it('errors when executeSkill returns no inject prompt', async () => {
-    const runtime = new SkillResolverRuntime({
-      loadCommands: () => [greet],
-      executeSkillFn: async () => ({ mode: 'fork', result: 'x' }),
-    });
-    const result = await runtime.resolvePrompt(req());
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error.code).toBe('DAG_TASK_EXECUTION_SKILL_RESOLVE_FAILED');
-  });
-
-  it('substitutes positional args (0-based) and $ARGUMENTS', async () => {
-    const runtime = new SkillResolverRuntime({
-      loadCommands: () => [
-        {
-          name: 'echo',
-          description: 'e',
-          source: 'skill',
-          skillContent: 'a=$0 b=$1 all=$ARGUMENTS',
+      skillPort: stubPort({
+        resolveSkill: async () => {
+          throw new Error('boom');
         },
-      ],
+      }),
     });
-    const result = await runtime.resolvePrompt(req({ skillName: 'echo', args: 'alpha beta' }));
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.value.prompt).toContain('a=alpha');
-      expect(result.value.prompt).toContain('b=beta');
-      expect(result.value.prompt).toContain('all=alpha beta');
-    }
+    const result = await runtime.resolvePrompt(req());
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe('DAG_TASK_EXECUTION_SKILL_RESOLVE_FAILED');
+  });
+
+  it('errors when the port returns no inject prompt', async () => {
+    const runtime = new SkillResolverRuntime({
+      skillPort: stubPort({ resolveSkill: async () => ({ mode: 'fork' }) }),
+    });
+    const result = await runtime.resolvePrompt(req());
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe('DAG_TASK_EXECUTION_SKILL_RESOLVE_FAILED');
   });
 });

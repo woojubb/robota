@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: INFRA
 tags: [provider, dag-nodes, dip, skill]
 parent: ARCH-PROVIDER-001
@@ -141,24 +141,24 @@ skillPort })`; add `agent-framework` as an `optionalDependency`; the try/catch g
 
 ## Completion Criteria
 
-- [ ] TC-01: `ISkillExecutionPort` is defined in `agent-interface-transport` (contracts-only) and exported;
+- [x] TC-01: `ISkillExecutionPort` is defined in `agent-interface-transport` (contracts-only) and exported;
       `dag-node-skill` imports the port from there and has **no** `@robota-sdk/agent-framework` dependency
       (package.json + no static import) — asserted by inspection + `check-dependency-direction` green.
-- [ ] TC-02: `agent-framework` exports `createSkillExecutionPort()` returning an `ISkillExecutionPort` whose
+- [x] TC-02: `agent-framework` exports `createSkillExecutionPort()` returning an `ISkillExecutionPort` whose
       `loadCommands`/`resolveSkill` delegate to `SkillCommandSource`/`executeSkill`, and whose `resolveSkill`
       produces the **actual inject-prompt shape** (XML wrap + `$ARGUMENTS` substitution + empty-shell strip) —
       NOT mere delegation. This test RELOCATES the real-`executeSkill` coverage that the node's tests hold today
       (see premise correction) and TC-03 drops.
-- [ ] TC-03: `SkillNodeDefinition`/`SkillResolverRuntime` require an injected `skillPort` and resolve an
+- [x] TC-03: `SkillNodeDefinition`/`SkillResolverRuntime` require an injected `skillPort` and resolve an
       inject-mode skill through it (discovery → not-found → fork-reject → inject-resolve paths preserved),
       asserted with a **stub port** (no agent-framework, no shell, no real skill I/O). Note: today's node tests
       inject only `loadCommands` and exercise the REAL `executeSkill` — that coverage relocates to TC-02.
-- [ ] TC-04: `dag-nodes-default`'s skill loader injects the agent-framework-backed port; the default catalog
+- [x] TC-04: `dag-nodes-default`'s skill loader injects the agent-framework-backed port; the default catalog
       still includes a functional `skill` node (integration), and the graceful-skip path holds when the skill
       node/agent-framework is absent.
-- [ ] TC-05: `checkDagNodesLeaf` + `entry-point-only` stay green; `dag-node-skill` depends on no top-assembly
+- [x] TC-05: `checkDagNodesLeaf` + `entry-point-only` stay green; `dag-node-skill` depends on no top-assembly
       package and no `dag-node-*` sibling; `dag-nodes-default → agent-framework` is a sanctioned aggregator edge.
-- [ ] TC-06: full `pnpm harness:scan` + `pnpm harness:test` + full-repo `pnpm typecheck` 0; changeset present;
+- [x] TC-06: full `pnpm harness:scan` + `pnpm harness:test` + full-repo `pnpm typecheck` 0; changeset present;
       affected suites green (agent-interface-transport, agent-framework, dag-node-skill, dag-nodes-default, dag-cli).
 
 ## Test Plan
@@ -191,11 +191,11 @@ harness:scan + harness:test + typecheck + changeset (TC-06). RED→GREEN per sub
 
 ## Tasks
 
-- [ ] Step 1 — agent-interface-transport: add `ISkillExecutionPort` + `ISkillResolutionResult` (+ export, SPEC).
-- [ ] Step 2 — agent-framework: `createSkillExecutionPort()` adapter (+ export) + test asserting real inject-prompt shape.
-- [ ] Step 3 — dag-node-skill: require injected `skillPort`; port calls; remove `createSkillNodeDefinition()`; drop agent-framework dep; rewrite tests to stub port.
-- [ ] Step 4 — dag-nodes-default: bespoke skill loader branch (dynamic agent-framework import → port); optional agent-framework dep; graceful-skip on agent-framework.
-- [ ] Step 5 — verify (harness:scan + harness:test + typecheck + changeset) + GATE-VERIFY/COMPLETE + ARL-11 update.
+- [x] Step 1 — agent-interface-transport: add `ISkillExecutionPort` + `ISkillResolutionResult` (+ export, SPEC).
+- [x] Step 2 — agent-framework: `createSkillExecutionPort()` adapter (+ export) + test asserting real inject-prompt shape.
+- [x] Step 3 — dag-node-skill: require injected `skillPort`; port calls; remove `createSkillNodeDefinition()`; drop agent-framework dep; rewrite tests to stub port.
+- [x] Step 4 — dag-nodes-default: bespoke skill loader branch (dynamic agent-framework import → port); optional agent-framework dep; graceful-skip on agent-framework.
+- [x] Step 5 — verify (harness:scan + harness:test + typecheck + changeset) + GATE-VERIFY/COMPLETE + ARL-11 update.
 
 ## Evidence Log
 
@@ -225,3 +225,26 @@ harness:scan + harness:test + typecheck + changeset (TC-06). RED→GREEN per sub
   branch + graceful-skip on agent-framework; `ISkillResolutionResult` name (no collision with agent-framework's
   `ISkillExecutionResult`; SSOT); ARL-11 tool-scoped-out. No new inconsistency, no cycle. Design APPROVED →
   implement (5-step sub-sequence). Spec → active.
+- 2026-07-10 GATE-IMPLEMENT — Step 1 `ISkillExecutionPort`+`ISkillResolutionResult` added to
+  agent-interface-transport (exported). Step 2 `createSkillExecutionPort()` adapter in agent-framework +
+  test asserting the real inject-prompt shape (XML wrap + `$ARGUMENTS` + empty-shell strip). Step 3
+  dag-node-skill requires injected `skillPort`, uses `port.loadCommands`/`resolveSkill`, dropped the
+  agent-framework import + dependency, removed the `createSkillNodeDefinition()` factory, tests rewritten to a
+  stub port. Step 4 dag-nodes-default bespoke skill loader. **Deviation from the plan (Rolldown constraint):**
+  the plan called for a _dynamic_ `import('@robota-sdk/agent-framework')` (optional dep). That panics Rolldown
+  when `agent-cli` bundles the whole workspace (INFRA-028) — agent-framework is ALSO statically bundled, and the
+  mixed static+dynamic import of one module leaves a symbol "not in any chunk". Fixed by importing
+  `createSkillExecutionPort` **statically** (agent-framework is a REGULAR dependency of the dag-nodes-default
+  aggregator); the `dag-node-skill` NODE stays a dynamic optional import so its graceful-skip is preserved.
+  ARL-11's "coupling above the leaf" goal is still met (the aggregator, not the leaf, depends on agent-framework);
+  the skill-node graceful-skip keys on the dag-node-skill import (TC-04 adjusted).
+- 2026-07-10 GATE-VERIFY — agent-interface-transport 10, agent-framework **1048** (incl. the adapter
+  inject-prompt test), dag-node-skill 13 (stub-port), dag-nodes-default 13 (skill node present via injected
+  port), dag-cli 1007; **agent-cli bundles green** (Rolldown panic fixed); full `pnpm build`; `pnpm harness:scan`
+  **49/49** (deps/leaf/entry-point/spec-public-surface); `pnpm harness:test` 298; full-repo `pnpm typecheck` 0.
+  `dag-node-skill` has NO `agent-framework` dependency (package.json + no import — only design-doc comments
+  mention it); `check-dependency-direction` green. TC-01..06 met.
+- 2026-07-10 GATE-COMPLETE — Stage D done: the DAG skill leaf depends on the `ISkillExecutionPort` contract,
+  not on the agent-framework assembly; the concrete is injected at the dag-nodes-default root. **ARL-11 fully
+  resolved** (skill-half here; node→node half in Stage B; tool node explicitly scoped out). Spec → done. Stage
+  E (husk + policy cleanup) remains per ARCH-PROVIDER-001.
