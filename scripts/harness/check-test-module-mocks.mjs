@@ -54,7 +54,7 @@ const ALLOWLIST = new Set([
   'packages/agent-framework/src/interactive/__tests__/interactive-session-manifest.test.ts',
   'packages/agent-framework/src/interactive/__tests__/interactive-session-sandbox-snapshot.test.ts',
   'packages/agent-framework/src/interactive/__tests__/interactive-session-system-context-regression.test.ts',
-  'packages/agent-provider/src/anthropic/__tests__/response-parser.test.ts',
+  'packages/agent-provider-anthropic/src/anthropic/__tests__/response-parser.test.ts',
   'packages/agent-session/src/__tests__/active-preset-state.test.ts',
   'packages/agent-session/src/__tests__/apply-model-options.test.ts',
   'packages/agent-session/src/__tests__/parallel-subagents-gate.test.ts',

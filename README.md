@@ -14,7 +14,7 @@ The minimal set is three packages: `agent-core` + `agent-provider` + `agent-tool
 
 ```typescript
 import { Robota } from '@robota-sdk/agent-core';
-import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
 const agent = new Robota({
   name: 'MyAgent',
@@ -38,7 +38,7 @@ OpenAI provider's `baseURL` (see the [quickstart's gateway section](./content/qu
 
 ```typescript
 import { createQuery } from '@robota-sdk/agent-framework';
-import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
 const query = createQuery({
   provider: new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY }),
@@ -86,11 +86,15 @@ agent-core             ← Foundation: Robota engine, abstractions, plugin contr
 
 **Start here (embedding)** — the minimal set:
 
-| Package                                                                                  | Description                                                                                                              |
-| ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| [`@robota-sdk/agent-core`](https://www.npmjs.com/package/@robota-sdk/agent-core)         | `Robota` engine: run/runStream, history, structured output, plugins                                                      |
-| [`@robota-sdk/agent-provider`](https://www.npmjs.com/package/@robota-sdk/agent-provider) | Provider protocol clients (Anthropic, OpenAI + any OpenAI-compatible endpoint, Gemini, DeepSeek, Gemma, Qwen, ByteDance) |
-| [`@robota-sdk/agent-tools`](https://www.npmjs.com/package/@robota-sdk/agent-tools)       | Tool registry, zod-validated function tools, 9 built-in tools                                                            |
+| Package                                                                                                                      | Description                                                         |
+| ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| [`@robota-sdk/agent-core`](https://www.npmjs.com/package/@robota-sdk/agent-core)                                             | `Robota` engine: run/runStream, history, structured output, plugins |
+| [`@robota-sdk/agent-provider-anthropic`](https://www.npmjs.com/package/@robota-sdk/agent-provider-anthropic)                 | Anthropic provider client                                           |
+| [`@robota-sdk/agent-provider-openai`](https://www.npmjs.com/package/@robota-sdk/agent-provider-openai)                       | OpenAI provider client                                              |
+| [`@robota-sdk/agent-provider-openai-compatible`](https://www.npmjs.com/package/@robota-sdk/agent-provider-openai-compatible) | OpenAI-compatible clients (DeepSeek, Qwen, Gemma)                   |
+| [`@robota-sdk/agent-provider-gemini`](https://www.npmjs.com/package/@robota-sdk/agent-provider-gemini)                       | Gemini / Google provider client                                     |
+| [`@robota-sdk/agent-provider-bytedance`](https://www.npmjs.com/package/@robota-sdk/agent-provider-bytedance)                 | ByteDance media/video provider client                               |
+| [`@robota-sdk/agent-tools`](https://www.npmjs.com/package/@robota-sdk/agent-tools)                                           | Tool registry, zod-validated function tools, 9 built-in tools       |
 
 **App assembly** — add when you need sessions, permissions, or plugins:
 

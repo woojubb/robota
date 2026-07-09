@@ -26,7 +26,7 @@
 
 ### 2.2 OpenAI-호환 엔드포인트 지원이 실용적
 
-`baseURL` 지정 시 Responses API 대신 Chat Completions surface로 자동 전환하는 설계(`packages/agent-provider/src/openai/provider.ts` — `apiSurface` 분기) 덕분에 AI Gateway 경유가 설정 한 줄로 됐고, 게이트웨이가 라우팅하는 **Anthropic 모델 슬러그도 문제없이** 스트리밍·툴콜링 모두 동작했다. `client` 직접 주입 옵션(`provider.ts:59-62`)이 있는 것도 커스텀 인증(OIDC 등) 관점에서 좋은 설계다.
+`baseURL` 지정 시 Responses API 대신 Chat Completions surface로 자동 전환하는 설계(`packages/agent-provider-openai/src/openai/provider.ts` — `apiSurface` 분기) 덕분에 AI Gateway 경유가 설정 한 줄로 됐고, 게이트웨이가 라우팅하는 **Anthropic 모델 슬러그도 문제없이** 스트리밍·툴콜링 모두 동작했다. `client` 직접 주입 옵션(`provider.ts:59-62`)이 있는 것도 커스텀 인증(OIDC 등) 관점에서 좋은 설계다.
 
 ### 2.3 `createZodFunctionTool`의 런타임 검증이 실제로 동작
 

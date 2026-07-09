@@ -14,10 +14,10 @@ depends_on: []
 `content/getting-started/README.md` at lines 58 and 64 instructs developers to run:
 
 ```bash
-npm install @robota-sdk/agent-core @robota-sdk/agent-provider/anthropic @anthropic-ai/sdk
+npm install @robota-sdk/agent-core @robota-sdk/agent-provider-anthropic @anthropic-ai/sdk
 ```
 
-`@robota-sdk/agent-provider/anthropic` is a **TypeScript sub-path export**, not a separate npm package.
+`@robota-sdk/agent-provider-anthropic` is a **TypeScript sub-path export**, not a separate npm package.
 Running this command fails with an npm error. This is the first code block a new SDK developer copies.
 
 Same error appears in `content/README.md` if it has a code sample.
@@ -30,7 +30,7 @@ Replace the incorrect install command:
 
 ```bash
 # Wrong
-npm install @robota-sdk/agent-core @robota-sdk/agent-provider/anthropic @anthropic-ai/sdk
+npm install @robota-sdk/agent-core @robota-sdk/agent-provider-anthropic @anthropic-ai/sdk
 
 # Correct
 npm install @robota-sdk/agent-core @robota-sdk/agent-provider

@@ -9,7 +9,7 @@
 
 - Extends `AbstractNodeDefinition` from `@robota-sdk/dag-node`. Does not redefine core DAG contracts.
 - Distinct from `gemini-image-edit`/`gemini-image-compose`: those take one or more **input images** and edit/compose them. This node is pure generation — prompt in, image out, no binary input port.
-- Delegates to `@robota-sdk/agent-provider/google` `GoogleProvider.generateImage({ prompt, model })` (already a required method on `IImageGenerationProvider`). The Google SDK (`@google/genai`) is a transitive concern of `agent-provider`, not a direct dependency.
+- Delegates to `@robota-sdk/agent-provider-gemini/google` `GoogleProvider.generateImage({ prompt, model })` (already a required method on `IImageGenerationProvider`). The Google SDK (`@google/genai`) is a transitive concern of `agent-provider`, not a direct dependency.
 - The DAG subsystem stays private; this package is `private: true`. Registered in the **async/optional** node-registry list (the Gemini SDK is an optional peer — the node self-skips if the provider cannot construct).
 
 ## Architecture Overview

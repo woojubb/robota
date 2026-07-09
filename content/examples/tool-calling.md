@@ -7,7 +7,7 @@ Agents that use Zod-validated function tools.
 ```typescript
 import { Robota } from '@robota-sdk/agent-core';
 import { createZodFunctionTool } from '@robota-sdk/agent-tools';
-import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 import { z } from 'zod';
 
 const provider = new AnthropicProvider({

@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "@robota-sdk/agent-framework": "workspace:*",
-    "@robota-sdk/agent-provider": "workspace:*",
+    "@robota-sdk/agent-provider-anthropic": "workspace:*",
     "next": "^15.5.19",
     "react": "19.1.0",
     "react-dom": "19.1.0"

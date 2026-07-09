@@ -1672,7 +1672,7 @@ Tool messages use the `isToolMessage(msg)` type guard for safe access to `msg.na
 | `@robota-sdk/agent-preset`             | Preset resolution (`resolvePreset`) and external preset loading (`loadExternalPresets`, `DEFAULT_AGENT_NAME`) consumed at startup                 |
 | `@robota-sdk/agent-framework`          | `InteractiveSession`, `CommandRegistry`, command sources, command API common layer, plugin management, re-exported runtime contracts              |
 | `@robota-sdk/agent-core`               | Public types (`TPermissionMode`, `TToolArgs`, `TUniversalMessage`, etc.)                                                                          |
-| `@robota-sdk/agent-provider`           | Default provider definitions contributed by the Robota binary (via sub-paths: `/anthropic`, `/openai`, `/gemini`, `/gemma`, `/qwen`, `/deepseek`) |
+| `@robota-sdk/agent-provider-openai`    | Default provider definitions contributed by the Robota binary (via sub-paths: `/anthropic`, `/openai`, `/gemini`, `/gemma`, `/qwen`, `/deepseek`) |
 | `@robota-sdk/agent-transport/headless` | Headless runner for print mode (`-p`) execution                                                                                                   |
 | `ink` 7, `react` 19.2+                 | TUI rendering                                                                                                                                     |
 | `ink-select-input`                     | Arrow-key selection (permission prompt)                                                                                                           |

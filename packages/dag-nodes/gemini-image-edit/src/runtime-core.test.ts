@@ -2,10 +2,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { IPortBinaryValue } from '@robota-sdk/dag-core';
 import type { IImageGenerationResult, TProviderMediaResult } from '@robota-sdk/agent-core';
 import { GeminiImageRuntime, isImageBinaryValue } from './runtime-core.js';
-import { GoogleProvider } from '@robota-sdk/agent-provider/google';
+import { GoogleProvider } from '@robota-sdk/agent-provider-gemini/google';
 
 // Mock GoogleProvider so no real API calls are made
-vi.mock('@robota-sdk/agent-provider/google', () => ({
+vi.mock('@robota-sdk/agent-provider-gemini/google', () => ({
   GoogleProvider: vi
     .fn()
     .mockImplementation((options: { apiKey: string; imageCapableModels: string[] }) => ({

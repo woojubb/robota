@@ -9,7 +9,7 @@ vi.mock('@robota-sdk/agent-core', () => ({
   })),
 }));
 
-vi.mock('@robota-sdk/agent-provider/anthropic', () => ({
+vi.mock('@robota-sdk/agent-provider-anthropic', () => ({
   AnthropicProvider: vi.fn(),
 }));
 

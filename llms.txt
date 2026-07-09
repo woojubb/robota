@@ -14,12 +14,12 @@ documents — follow the links; do not infer capabilities from package counts or
 Three packages; the other `@robota-sdk/*` packages are optional assembly on top of them.
 
 - [packages/agent-core/README.md](packages/agent-core/README.md): `Robota` class — `run`/`runStream`, conversation history, plugins, structured output
-- [packages/agent-provider/README.md](packages/agent-provider/README.md): providers as protocol clients (OpenAI / Anthropic Messages / Google GenAI surfaces)
+- [packages/agent-provider-openai/docs/README.md](packages/agent-provider-openai/docs/README.md): providers as protocol clients (OpenAI / Anthropic Messages / Google GenAI surfaces)
 - [packages/agent-tools/README.md](packages/agent-tools/README.md): zod-validated function tools + built-in CLI tools
 
 ## Capabilities
 
-- **OpenAI-compatible gateway via `baseURL`** — any gateway (Vercel AI Gateway, LiteLLM, OpenRouter), Azure, vLLM, Ollama, LM Studio; non-OpenAI model slugs pass through verbatim; streaming + tool calling included. Owner JSDoc: [packages/agent-provider/src/openai/types.ts](packages/agent-provider/src/openai/types.ts); guide: [content/guide/providers.md](content/guide/providers.md)
+- **OpenAI-compatible gateway via `baseURL`** — any gateway (Vercel AI Gateway, LiteLLM, OpenRouter), Azure, vLLM, Ollama, LM Studio; non-OpenAI model slugs pass through verbatim; streaming + tool calling included. Owner JSDoc: [packages/agent-provider-openai/src/openai/types.ts](packages/agent-provider-openai/src/openai/types.ts); guide: [content/guide/providers.md](content/guide/providers.md)
 - **Streaming** — `runStream()` or per-run `onTextDelta`: [content/guide/building-agents.md](content/guide/building-agents.md)
 - **Schema-enforced structured output** — `run(prompt, { output: zodSchema })` returns a validated typed object with provider-native mapping + bounded retry: [packages/agent-core/docs/SPEC.md](packages/agent-core/docs/SPEC.md) § Structured Output Contract
 - **Runtime tool validation** — zod schemas validate tool args before executors run: [packages/agent-tools/README.md](packages/agent-tools/README.md)
@@ -35,6 +35,6 @@ Three packages; the other `@robota-sdk/*` packages are optional assembly on top 
 
 ## Types & examples
 
-- Type declarations ship inside each npm package (`dist/**/*.d.ts`) — the hover docs above are in them. Repo sources: [packages/agent-core/src/index.ts](packages/agent-core/src/index.ts), [packages/agent-provider/src/index.ts](packages/agent-provider/src/index.ts), [packages/agent-tools/src/index.ts](packages/agent-tools/src/index.ts)
+- Type declarations ship inside each npm package (`dist/**/*.d.ts`) — the hover docs above are in them. Repo sources: [packages/agent-core/src/index.ts](packages/agent-core/src/index.ts), [packages/agent-provider-openai/src/index.ts](packages/agent-provider-openai/src/index.ts), [packages/agent-tools/src/index.ts](packages/agent-tools/src/index.ts)
 - Quickstart: [content/quickstart.md](content/quickstart.md) (includes the AI-gateway path)
 - Runnable examples — capabilities ("what can it do"): [examples/capabilities/openai-compatible-gateway](examples/capabilities/openai-compatible-gateway), [examples/capabilities/decision-agent](examples/capabilities/decision-agent), [examples/capabilities/streaming](examples/capabilities/streaming), [examples/capabilities/stateless-turns](examples/capabilities/stateless-turns); integrations ("where does it go"): [examples/express](examples/express), [examples/discord-bot](examples/discord-bot), [examples/batch-processor](examples/batch-processor)

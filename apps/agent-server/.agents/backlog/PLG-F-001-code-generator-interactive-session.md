@@ -25,7 +25,7 @@ const response = await robota.run('...');
 
 // 목표: createQuery (단순 에이전트)
 import { createQuery } from '@robota-sdk/agent-framework';
-import { OpenAIProvider } from '@robota-sdk/agent-provider/openai';
+import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
 
 const query = createQuery({
   provider: new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY }),
@@ -35,7 +35,7 @@ console.log(response);
 
 // 목표: InteractiveSession (도구·스킬 포함 에이전트)
 import { InteractiveSession, createBuiltinCommandModule } from '@robota-sdk/agent-framework';
-import { OpenAIProvider } from '@robota-sdk/agent-provider/openai';
+import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
 
 const session = new InteractiveSession({
   cwd: process.cwd(),

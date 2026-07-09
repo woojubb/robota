@@ -311,7 +311,12 @@ async function findPackageDependencyFindings(packages) {
       workspacePackage.relativeDir === 'packages/agent-command' ||
       workspacePackage.relativeDir.startsWith('packages/agent-command-');
     if (isCommandPackage) {
-      for (const dependency of dependencies) {
+      // Production deps only: the rule keeps command packages from *shipping* provider
+      // implementations. A test-only devDependency (e.g. a `.live.test.ts` importing
+      // `agent-provider-defaults` for default provider definitions) is not a runtime layering
+      // violation (ARCH-PROVIDER-002). Layering, like dependency-direction, is production-scoped.
+      const productionDependencies = Object.keys(workspacePackage.packageJson.dependencies ?? {});
+      for (const dependency of productionDependencies) {
         if (
           !COMMAND_PACKAGE_FORBIDDEN_DEPENDENCY_PREFIXES.some((prefix) =>
             dependency.startsWith(prefix),

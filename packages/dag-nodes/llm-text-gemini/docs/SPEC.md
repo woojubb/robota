@@ -9,7 +9,7 @@
 ## Boundaries
 
 - Extends `AbstractNodeDefinition` from `dag-node`. Does not redefine core DAG contracts.
-- Delegates AI provider calls to `@robota-sdk/agent-provider` (subpath `/google`, `GoogleProvider`) via `@robota-sdk/agent-core` (`Robota`).
+- Delegates AI provider calls to `@robota-sdk/agent-provider-gemini` (subpath `/google`, `GoogleProvider`) via `@robota-sdk/agent-core` (`Robota`).
 - Does not own provider or agent implementation.
 - Input validation uses `NodeIoAccessor.requireInputString`.
 - Config validation through Zod schema (`LlmTextGeminiConfigSchema`).

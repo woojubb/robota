@@ -91,7 +91,16 @@ function buildTsconfig(dir) {
       baseUrl: WORKSPACE_ROOT,
       paths: {
         '@robota-sdk/*': ['packages/*/src/index.ts'],
-        '@robota-sdk/agent-provider/*': ['packages/agent-provider/src/*/index.ts'],
+        '@robota-sdk/agent-provider-openai/loggers': [
+          'packages/agent-provider-openai/src/openai/loggers/index.ts',
+        ],
+        '@robota-sdk/agent-provider-gemini/google': [
+          'packages/agent-provider-gemini/src/google/index.ts',
+        ],
+        '@robota-sdk/agent-provider-openai-compatible/shared': [
+          'packages/agent-provider-openai-compatible/src/shared/openai-compatible/index.ts',
+        ],
+        '@robota-sdk/agent-provider-*': ['packages/agent-provider-*/src/index.ts'],
         '@robota-sdk/agent-transport/*': ['packages/agent-transport/src/*/index.ts'],
       },
     },

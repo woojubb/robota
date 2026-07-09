@@ -8,7 +8,7 @@ tags: [typescript]
 > LLM/image node packages were re-pointed off the published `@robota-sdk/agent-*@3.0.0-beta.61` deps:
 > `@robota-sdk/agent-core` → `workspace:*`; the separate `@robota-sdk/agent-provider-<vendor>` deps →
 > the workspace `@robota-sdk/agent-provider` umbrella, imports switched to its subpaths
-> (`@robota-sdk/agent-provider/anthropic|openai|google|deepseek|qwen`). Added
+> (`@robota-sdk/agent-provider-anthropic|openai|google|deepseek|qwen`). Added
 > `moduleResolution: "bundler"` to those node tsconfigs (subpath-exports resolution, matching agent-cli).
 > No more duplicate/published `agent-core`; the vulnerable `@anthropic-ai/sdk@0.80` path is gone, so the
 > tactical `pnpm.overrides` band-aid for it was **removed**. `pnpm build` + workspace `typecheck` +

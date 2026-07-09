@@ -1,5 +1,5 @@
 ---
-status: draft
+status: in-progress
 type: INFRA
 tags: [architecture, cli]
 ---
@@ -23,45 +23,57 @@ SDK(s) it uses.
 Create 5 leaf packages, each depending on `agent-core` + its one SDK, moving the existing `src/<vendor>` code
 verbatim:
 
-| Package                            | SDK                 | Contents (moved from `agent-provider/src/`)                                                                                      |
-| ---------------------------------- | ------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `agent-provider-anthropic`         | `@anthropic-ai/sdk` | `anthropic/`                                                                                                                     |
-| `agent-provider-openai`            | `openai`            | `openai/`                                                                                                                        |
-| `agent-provider-openai-compatible` | `openai`            | `shared/openai-compatible/` + `deepseek/` + `qwen/` + `gemma/` as **provider-definition config entries** (one package, not four) |
-| `agent-provider-gemini`            | `@google/genai`     | `gemini/` + `google/` facade                                                                                                     |
-| `agent-provider-bytedance`         | (bespoke HTTP)      | `bytedance/` — `IVideoGenerationProvider` (media/video group)                                                                    |
+| Package                            | SDK                 | Contents (moved from `agent-provider/src/`)                                                                                                                                                      |
+| ---------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `agent-provider-anthropic`         | `@anthropic-ai/sdk` | `anthropic/`                                                                                                                                                                                     |
+| `agent-provider-openai`            | `openai`            | `openai/`                                                                                                                                                                                        |
+| `agent-provider-openai-compatible` | `openai`            | `shared/openai-compatible/` + `deepseek/` + `qwen/` + `gemma/`, exporting the concrete `DeepSeekProvider`/`QwenProvider`/`GemmaProvider` **classes** + their definitions (one package, not four) |
+| `agent-provider-gemini`            | `@google/genai`     | `gemini/` + `google/`; **re-exports `GoogleProvider` via a `./google` entry** (it is imported more than `/gemini` — 14 vs 6 sites)                                                               |
+| `agent-provider-bytedance`         | (bespoke HTTP)      | `bytedance/` — `IVideoGenerationProvider` (media/video group)                                                                                                                                    |
 
-- Relocate `createDefaultProviderDefinitions()` (currently `agent-provider/src/default-provider-definitions.ts`)
-  into the **composition layer** — the sanctioned home is `agent-cli` (product tier) and/or a small composition
-  module; it imports the vendor packages the product bundles. (Its final home for the DAG side is settled in
-  Stage B/C via `dag-nodes-default`; Stage A moves it to the agent-side composition root so the monolith can be
-  deleted.)
-- **Repoint the 6 real consumers** from `@robota-sdk/agent-provider[/subpath]` to the specific vendor
-  package(s): `agent-cli`, `agent-command-workflows`, `agent-subagent-runner`, `agent-playground`,
-  `apps/agent-server`, `apps/starter-nextjs`. (Enumerate exhaustively via `rg "@robota-sdk/agent-provider"`.)
-- **Delete** the `agent-provider` monolith package and the `agent-provider-gemma` husk (gemma folds into
-  `-openai-compatible`).
-- Changesets for every new/removed/edited published package (major for the removal + repoints; the SDK bundle
-  change is breaking).
+- **Aggregator home = a new published composition leaf `agent-provider-defaults`** (NOT `agent-cli` — that
+  cycles: `agent-cli` already depends on `agent-command-workflows` + `agent-subagent-runner`, and
+  `agent-subagent-runner` (a published library) needs the default definitions, so it cannot depend on
+  `agent-cli`). Move `createDefaultProviderDefinitions()` there; it depends on the 4 LLM leaf packages
+  (`-anthropic`/`-openai`/`-openai-compatible`/`-gemini`) and is consumed by `agent-cli`,
+  `agent-subagent-runner`, and the `agent-command-workflows` test. This is the clean home the Stage B/C
+  `dag-nodes-default` composition later mirrors.
+- **Repoint ALL consumers (exhaustive — 15 workspace consumers, regenerated via
+  `rg "@robota-sdk/agent-provider" packages/** apps/**`)** from `@robota-sdk/agent-provider[/subpath]` to the
+  specific leaf package(s). Published (changeset owed): `agent-cli`, `agent-subagent-runner`. Private
+  (`private:true`, repoint-only, no changeset): `agent-command-workflows`, `agent-playground`, `apps/agent-server`,
+  `apps/starter-nextjs`, and the **9 `dag-nodes` consumers** that `new` a concrete provider —
+  `dag-node-llm-text-{anthropic,openai,gemini,deepseek,qwen}` (1 vendor each), **`dag-node-instant-node` (5
+  vendors → 4 leaf packages; on the LIVE `/workflows` path)**, `dag-node-gemini-image-edit` + `dag-node-text-to-image`
+  (`/google` → `-gemini`), `dag-node-seedance-video` (`/bytedance`). Missing any of these fails full-repo
+  typecheck (DATA-005) — enumerate up front, not via the safety net mid-deletion.
+- **Delete** the `agent-provider` monolith and the `-gemma` husk (folds into `-openai-compatible`); also delete
+  the `agent-provider-google` husk (the new package is `-gemini`; no `-gemini` husk exists — reconcile now so
+  `ghost-package-refs`/`dependency-direction` stay clean).
+- Changesets: `agent-provider` removal = **major**; `agent-cli` + `agent-subagent-runner` dep-shape change =
+  **major**; the 5 leaves + `agent-provider-defaults` = initial. Private packages (all `dag-nodes/*`,
+  `agent-playground`, apps) are repoint-only, no changeset.
 
-No `dag-node-llm-text-*` change in this stage — they keep importing their vendor provider, now from the
-per-vendor package instead of the monolith subpath (a mechanical import repoint), so nothing regresses.
+No node BEHAVIOR change in this stage — every node keeps constructing its concrete provider, now imported from
+the per-vendor leaf package instead of the monolith subpath (a mechanical import repoint). The DIP node collapse
+is Stage B.
 
 ## Affected Files
 
-- NEW: `packages/agent-provider-{anthropic,openai,openai-compatible,gemini,bytedance}/**` (package.json, src moved, docs/SPEC.md, tests moved)
-- MOVED: `packages/agent-provider/src/{anthropic,openai,shared/openai-compatible,deepseek,qwen,gemma,gemini,google,bytedance,default-provider-definitions.ts}`
-- EDITED: the 6 consumers' imports + `package.json` deps; `dag-node-llm-text-*` provider imports (monolith subpath → vendor package)
-- DELETED: `packages/agent-provider/` (monolith), `packages/agent-provider-gemma/` (husk)
+- NEW: `packages/agent-provider-{anthropic,openai,openai-compatible,gemini,bytedance}/**` + `packages/agent-provider-defaults/**` (package.json, src moved, docs/SPEC.md, tests moved)
+- MOVED: `packages/agent-provider/src/{anthropic,openai,shared/openai-compatible,deepseek,qwen,gemma,gemini,google,bytedance}` → leaves; `default-provider-definitions.ts` → `agent-provider-defaults`
+- EDITED (imports + `package.json` deps): published — `agent-cli`, `agent-subagent-runner`; private (repoint-only) — `agent-command-workflows`, `agent-playground`, `apps/agent-server`, `apps/starter-nextjs`, and `dag-nodes/{llm-text-anthropic,llm-text-openai,llm-text-gemini,llm-text-deepseek,llm-text-qwen,instant-node,gemini-image-edit,text-to-image,seedance-video}`
+- DELETED: `packages/agent-provider/` (monolith), `packages/agent-provider-gemma/` + `packages/agent-provider-google/` (husks)
 - `.changeset/*`, SPEC updates, `.agents/project-structure.md` (package listing), architecture-map provider entries
 
 ## Completion Criteria
 
-- [ ] TC-01: the 5 leaf packages exist; each `package.json` depends on `agent-core` + exactly its one SDK (no cross-SDK bundling — verified per package).
-- [ ] TC-02: `agent-provider` monolith + `-gemma` husk are deleted; no workspace package depends on `@robota-sdk/agent-provider` (grep clean).
-- [ ] TC-03: all provider capabilities preserved — every `IProviderDefinition` previously returned by `createDefaultProviderDefinitions()` still resolves (anthropic/openai/deepseek/qwen/gemma/gemini/google/bytedance), asserted by a characterization test moved with the code.
-- [ ] TC-04: `pnpm build` + full-repo `pnpm typecheck` + affected tests + `pnpm harness:scan` (incl. `dependency-direction`, `interface-runtime`, `ghost-package-refs`, `check-spec-public-surface`) all green; changesets present for every published package touched.
+- [ ] TC-01: the 5 leaf packages + `agent-provider-defaults` exist; each leaf `package.json` depends on `agent-core` + exactly its one SDK (no cross-SDK bundling); `agent-provider-defaults` depends on the 4 LLM leaves only.
+- [ ] TC-02: `agent-provider` monolith + `-gemma` + `-google` husks deleted; no workspace package depends on `@robota-sdk/agent-provider` (grep clean); no dependency cycle (`agent-subagent-runner` does NOT depend on `agent-cli`).
+- [ ] TC-03: all provider capabilities preserved — every `IProviderDefinition` previously returned by `createDefaultProviderDefinitions()` still resolves (anthropic/openai/deepseek/qwen/gemma/gemini/google/bytedance); `-openai-compatible` exports the concrete `DeepSeek/Qwen/Gemma` classes and `-gemini` re-exports `GoogleProvider` via `./google` (so every node's `new Vendor()` compiles). Characterization test moved with the code.
+- [ ] TC-04: `pnpm build` + full-repo `pnpm typecheck` + affected tests + `pnpm harness:scan` (incl. `dependency-direction`, `dag-nodes-leaf`, `interface-runtime`, `ghost-package-refs`, `check-spec-public-surface`) all green; changesets for `agent-provider`(major-removal) + `agent-cli` + `agent-subagent-runner`(major).
 - [ ] TC-05: dependency isolation proven — `agent-provider-anthropic`'s install closure contains `@anthropic-ai/sdk` and NOT `openai`/`@google/genai` (and symmetrically), asserted mechanically.
+- [ ] TC-06: the live `/workflows` path stays green — a `dag-node-instant-node` create+run scenario passes (it repoints 5 vendor providers → 4 leaf packages and is on that path).
 
 ## Test Plan
 
@@ -77,3 +89,18 @@ default-definitions → delete monolith/husk, keeping the build green at each st
 - [ ] 미생성 — GATE-APPROVAL 후 생성.
 
 ## Evidence Log
+
+- 2026-07-09 GATE-APPROVAL round 1 — proposal-reviewer REVISE (split direction endorsed; 2 correctness
+  defects + 2 secondary). Fixed: (1) **consumer undercount** — 15 workspace consumers not 6; added the 4
+  missed media/instant node consumers (`instant-node` [5 vendors, live `/workflows`], `gemini-image-edit`,
+  `seedance-video`, `text-to-image`) — enumerated exhaustively, private=repoint-only, + TC-06 `/workflows`
+  green. (2) **relocation cycle** — `agent-cli` is invalid (it depends on `subagent-runner`/`command-workflows`
+  which need the aggregator); introduced a new published `agent-provider-defaults` leaf as the aggregator home
+  (deps: 4 LLM leaves; consumers: agent-cli/subagent-runner/workflows-test). (3) `-openai-compatible` exports
+  concrete DeepSeek/Qwen/Gemma **classes**; `-gemini` re-exports `GoogleProvider` via `./google`. (4) delete
+  the `-google` husk too (no `-gemini` husk). Confirmed TRUE: DAG doesn't consume the aggregator, openai-compat
+  one-package, bytedance/google folding, changeset scope (private nodes repoint-only).
+- 2026-07-09 GATE-APPROVAL round 2 — proposal-reviewer **ENDORSE**. All 4 fixes confirmed against code
+  (15 consumers exhaustive incl. instant-node on live /workflows; `agent-provider-defaults` leaf resolves
+  the agent-cli cycle; concrete class exports; `-google` husk deleted). Non-blocking: `agent-command-workflows`
+  takes a **devDep** (test-only) on `agent-provider-defaults`. Approved → implement (push-deferred).

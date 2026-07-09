@@ -87,8 +87,8 @@ is not available for this run` before any provider call — `CORE-017-OK`. The F
   Durable artifacts: `packages/agent-core/src/core/robota.test.ts` (toolChoice describe
   block, 8 tests), `packages/agent-core/src/services/execution-service-helpers.test.ts`
   (assertToolChoiceValid + resolveToolChoiceForRound), `packages/agent-core/src/interfaces/__tests__/run-options-audit.test.ts`
-  (keyof exhaustiveness), `packages/agent-provider/src/shared/openai-compatible/tool-choice.test.ts`,
-  `packages/agent-provider/src/anthropic/__tests__/message-converter.test.ts`,
-  `packages/agent-provider/src/gemini/tool-schema-converter.test.ts`. Suites: core 825,
+  (keyof exhaustiveness), `packages/agent-provider-openai-compatible/src/shared/openai-compatible/tool-choice.test.ts`,
+  `packages/agent-provider-anthropic/src/anthropic/__tests__/message-converter.test.ts`,
+  `packages/agent-provider-gemini/src/gemini/tool-schema-converter.test.ts`. Suites: core 825,
   provider 573, repo 63 test files groups green; typecheck 0 errors; lint 0 errors;
   44 harness scans; harness suite 223.
