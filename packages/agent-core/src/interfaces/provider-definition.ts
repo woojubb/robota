@@ -80,6 +80,14 @@ export interface IProviderModelCatalogEntry {
   lifecycle?: TProviderModelLifecycle;
   lastVerifiedAt?: string;
   sourceUrl?: string;
+  /**
+   * Per-model USD cost per input/output token (ARCH-PROVIDER-003). This is the correct SSOT home for
+   * cost — it is a per-**model** attribute, not per-provider — consumed by cost-estimating nodes/commands
+   * so pricing is not hardcoded in the execution layer. Both optional; absent means cost is unknown for
+   * this model and estimators must degrade explicitly rather than assume a default price.
+   */
+  costPerInputToken?: number;
+  costPerOutputToken?: number;
 }
 
 export interface IProviderModelCatalog {
@@ -116,6 +124,14 @@ export interface IProviderDefinition {
   /** Billing/hosting category shown as a badge in provider selection UI. */
   category?: TProviderCategory;
   defaults?: IProviderProfileDefaults;
+  /**
+   * Optional enforced model allowlist (ARCH-PROVIDER-003). Distinct from {@link modelCatalog}: the catalog
+   * is the *descriptive* model inventory (often `status:'unavailable'` with no entries), whereas
+   * `allowedModels` is the *enforced* execution allowlist — a node rejects a requested model outside it.
+   * When present it should be a subset/override consistent with `modelCatalog.entries[].id`, not a second
+   * drifting inventory. Absent means no allowlist enforcement (any model the provider accepts is allowed).
+   */
+  allowedModels?: readonly string[];
   modelCatalog?: IProviderModelCatalog;
   refreshModelCatalog?: TProviderModelCatalogRefresh;
   /** Maximum age in seconds before the model catalog is considered stale and auto-refreshed. */
