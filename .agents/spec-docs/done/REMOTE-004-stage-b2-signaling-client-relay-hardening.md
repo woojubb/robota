@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: INFRA
 tags: [remote-control, webrtc, signaling, security]
 parent: REMOTE-001
@@ -194,3 +194,9 @@ refill 1 token / 12s (~5/min steady) per source; rendezvous TTL = 60s (half-open
     - the rate-limiter exports). `pnpm audit --audit-level high` exit 0. TC-06 grep: no enable path
       (`WsSignalingClient`/`remote-signaling`/`WebRtcTransport` absent from `agent-cli`). Lint 0 errors (boundary
       `unknown` warnings only, tolerated). Changeset added. → GATE-VERIFY.
+- 2026-07-11 GATE-COMPLETE — PR #1087 CI fully green → merged to **develop** (`8eb555c87`), then promoted
+  **develop→main** via PR #1088 (`718e164f4`). Both hops independently confirmed by the merge-verifier (PASS/PASS):
+  all B2 paths present on `origin/main`, `CVE-2024-29415` ignore retained, no unrelated drift (23 files), CI green
+  incl. `security audit`. B2 shipped. Spec `active → done` (`status: done`). Next: REMOTE-001 Stage B3 (SPAKE2
+  pairing + QR + DTLS-fingerprint binding — PAKE realization researched + recommended in the B3 spec), then B4
+  (`/remote-control` + registry wiring; must also close the logged model-invocation submit side-channel from B1).
