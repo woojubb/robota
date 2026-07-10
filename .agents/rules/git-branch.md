@@ -77,7 +77,13 @@ distinguish them automatically.
 - `develop` is the integration branch. All feature work branches from `develop`. Direct commits to
   `develop` are also prohibited — branch first, then PR. (Both `main` and `develop` are protected;
   enforced by `.husky/pre-commit` and the `branch-guard` skill/hook.)
-- Feature branches must be created from `develop` and merged back into `develop`.
+- Feature branches must be created from `develop` and merged back into `develop`. **Create them from the
+  freshly-fetched `origin/develop` head, never from `main`.** After a `develop → main` promotion, `main` sits
+  AHEAD of `develop`; a branch cut from `main` (or that has merged one in) and PR'd to `develop` drags the
+  promotion's `Merge pull request … from develop` commits into the PR range, which then fail `commitlint`. A clean
+  feature/docs branch has **zero merge commits** in its `origin/develop..HEAD` range. **Enforced** by
+  `.claude/hooks/pre-push-check.sh` (blocks a push when `git log --merges origin/develop..HEAD` is non-empty on a
+  non-integration branch); recover with `git reset --hard origin/develop && git cherry-pick <your-commit(s)>`.
 - Merging `develop` into `main` requires explicit user approval and is a release-level action.
 - When merging a branch, always merge back to the branch it was forked from. Verify the fork point before proposing a merge target.
 - If the agent wants to suggest a different merge target than the fork origin, it must explicitly recommend and receive user approval before proceeding.
@@ -161,6 +167,10 @@ After a branch is merged, follow this exact cycle to start the next feature bran
    ```
    `pnpm harness:pre-push` already tolerates this specific churn (it does not block a push when the only
    dirty files are the auto-generated evals lessons), so no stash is needed for the push itself.
+   **Never commit these files.** They are regenerated in place; staging them (typically via a broad
+   `git add .agents`) sweeps machine-churn into a feature/spec commit. **Stage explicit paths, not a broad
+   directory add.** **Enforced** by `.husky/pre-commit`, which blocks a commit that stages
+   `.agents/evals/lessons/*` (override only for a sanctioned harness update: `ALLOW_LESSONS_COMMIT=1`).
 2. **Pull develop** so the new branch is based on the freshly-pulled integration head.
 3. **Create the feature branch** from the updated `develop`.
 4. **Verify the base.** Confirm the new branch forked from the freshly-pulled `develop`, not a previous

@@ -24,6 +24,28 @@ PROJECT_DIR="${CLAUDE_PROJECT_DIR:-.}"
 
 echo "[pre-push-check] Running pre-push CI checks..." >&2
 
+# ── 0. Branch-base hygiene (git-branch.md: feature branches start from origin/develop) ──────────
+# After a develop→main promotion, `main` sits AHEAD of `develop`. A branch cut from `main` (or that
+# merged one in) and PR'd to develop carries the promotion's merge commits in its `origin/develop..HEAD`
+# range, which land in the PR range and fail commitlint. A clean feature/docs branch has ZERO merge
+# commits over origin/develop. Skip integration/detached branches and when origin/develop is absent.
+CUR_BRANCH=$(git -C "$PROJECT_DIR" branch --show-current 2>/dev/null || echo "")
+case "$CUR_BRANCH" in
+  main | master | develop | "") : ;;
+  *)
+    if git -C "$PROJECT_DIR" rev-parse --verify --quiet origin/develop >/dev/null 2>&1; then
+      FOREIGN_MERGES=$(git -C "$PROJECT_DIR" log --merges --oneline origin/develop..HEAD 2>/dev/null || true)
+      if [ -n "$FOREIGN_MERGES" ]; then
+        echo "[pre-push-check] Blocked: branch '$CUR_BRANCH' carries merge commits in its range over origin/develop:" >&2
+        echo "$FOREIGN_MERGES" | sed 's/^/[pre-push-check]   /' >&2
+        echo "[pre-push-check] It was likely based on 'main' (ahead of develop after a promotion), not origin/develop." >&2
+        echo "[pre-push-check] Re-base on develop: git reset --hard origin/develop && git cherry-pick <your-commit(s)>" >&2
+        exit 2
+      fi
+    fi
+    ;;
+esac
+
 # ── 1. Lockfile sync check ──────────────────────────────────────────────────
 
 if ! git -C "$PROJECT_DIR" diff --quiet pnpm-lock.yaml 2>/dev/null; then
