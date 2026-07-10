@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: INFRA
 tags: [remote-control, security, commands, transport]
 parent: REMOTE-001
@@ -192,3 +192,10 @@ this.remoteCommandPolicy)` so the no-policy path now allows (local == remote). `
     (incl. the no-policy framework-default TC-02 and the optional-restrictive-seam TC-03) — 8 green; full
     agent-framework 1056 + agent-cli 166 regression green; agent-transport-protocol 28. **TC-05 repo-wide grep =
     zero stale claims.** `harness:scan` 49/49; full-repo `typecheck` 0; changeset added. → GATE-VERIFY.
+- 2026-07-11 GATE-COMPLETE — PR #1098 CI green → merged to **develop** (`b34c8cb64`), promoted **develop→main** via
+  PR #1099 (`650cafbea`); both hops merge-verifier PASS (18-file scope, D2 sweep zero, no lessons swept, security
+  audit green). B4-1 shipped. Spec `active → done`. Next: REMOTE-001 Stage B4-2 (REMOTE-007) — the `/remote-control`
+  enable path: command + `ICommandHostAdapters` transport seam + relay-URL config + QR/link + pairing-gated
+  `WebRtcTransport` session exposure (`wireChannel` behind `startPairingHandshake`) + the **transport-neutral
+  permission/ask flow** (hard precondition so a paired remote owner answers their own prompts); then Stage D
+  (browser client, reusing agent-remote-pairing) + Stage E (TOFU reconnect + TURN + co-drive).
