@@ -63,9 +63,9 @@ export interface ICliSetup {
   unknownModuleNames: readonly IUnknownCommandModuleName[];
   startupUpdateNoticePromise: Promise<ICliUpdateNotice | undefined> | undefined;
   /**
-   * REMOTE-003: deny-by-default policy applied to remote-origin commands (WebSocket / WebRTC). B1 ships the
-   * default (empty allowlist → only read-only commands allowed from remote origins); the allowlist is the
-   * documented seam for widening it later.
+   * REMOTE-006: optional command-execution policy for remote-origin commands (WebSocket / WebRTC). **Allow by
+   * default** — local == remote (pairing is the trust boundary; the universal permission system governs anything
+   * dangerous). Injected only so a consumer can opt into a restriction.
    */
   remoteCommandPolicy: IRemoteCommandPolicy;
 }
@@ -120,6 +120,6 @@ export function buildCommandSetup(
     commandModules,
     unknownModuleNames,
     startupUpdateNoticePromise,
-    remoteCommandPolicy: createDefaultRemoteCommandPolicy(), // REMOTE-003: deny-by-default remote-command gate.
+    remoteCommandPolicy: createDefaultRemoteCommandPolicy(), // REMOTE-006: allow-by-default (local == remote).
   };
 }

@@ -166,19 +166,28 @@ key in `localStorage`). Subsequent connects authenticate via those keys — no r
   self-approve**. Default = operator-approves (stronger than Claude Code's remote-approves); any Stage-B
   "remote-approves" option must itself be an operator-gated opt-in (and would require adding
   `TActionRequest`/`TActionResponse` to the protocol).
-- **Commands (NOT gated today — must be fixed in Stage B).** The `command` verb → `session.executeCommand` runs
-  command modules with **no `PermissionEnforcer` gate** (the `safety`/`requiresPermission` taxonomy is used for
-  descriptors/metadata, not enforced on this path). Harmless while the protocol is `127.0.0.1`-only; exposed to
-  a remote peer, **every command module becomes remotely invokable, ungated** (config mutation, `/remote-control
-off`, etc.). Stage B MUST gate remote-origin `command` messages — an **allowlist of remote-invocable commands**
-  and/or enforcing the `requiresPermission`/`safety` taxonomy at the protocol boundary (routing gated commands
-  through operator approval). Until then the "remote cannot escalate" property is FALSE via commands.
+- **Commands.** The `command` verb → `session.executeCommand` runs command modules; the `safety`/`requiresPermission`
+  taxonomy is descriptor metadata, and the model's **tools** (`Bash`/`Write`/`Edit`) + **skills** are the dominant
+  side-effecting routes governed by the universal `PermissionEnforcer` + ask/approval handler.
+
+> **SUPERSEDED (REMOTE-006, 2026-07-11, owner-ratified): local == remote — do not discriminate.** The original
+> plan here (gate remote-origin `command` messages deny-by-default) is **withdrawn**. Owner principle: pairing
+> (Stage B3) is the **sole trust boundary**; a paired peer is the session **owner**, identical to the local
+> operator, and capability is governed **uniformly** by the universal permission system (permission modes +
+> `PermissionEnforcer` + the transport-neutral ask/approval handler) — not by an origin penalty. REMOTE-003 (B1)
+> introduced a `'remote'` deny-by-default command gate; that was origin discrimination AND incoherent (it gated
+> the narrow `command` verb while the wide tool/skill routes stayed open — "security theater"). REMOTE-006
+> **neutralizes it to allow-by-default** (the `IRemoteCommandPolicy` seam remains as an OPTIONAL, user-configured
+> restriction). **Hard precondition (REMOTE-007):** the genuinely-remote (WebRTC) enable path MUST NOT ship before
+> the **transport-neutral permission/ask flow** exists, so a paired remote owner answers their OWN permission
+> prompts (an allow-by-default remote command/tool must never execute with no owner present to approve it).
 
 **Trust-boundary reframing (own it).** Every reused component (`ws-handler`, the whole `TClientMessage` surface
 — submit, command, abort, cancel-queue, all background-task control) was built under **OS-localhost trust**
-(`WsTransport` binds `127.0.0.1`). WebRTC makes this protocol **internet-reachable for the first time**: the
-entire `TClientMessage` surface becomes attacker-controlled input and is audited as such in Stage B before any
-user-facing enable path ships.
+(`WsTransport` binds `127.0.0.1`). WebRTC makes this protocol **internet-reachable for the first time** — behind
+the pairing boundary (B3). Under the local==remote principle the surface is not re-gated by origin; it is governed
+by the same universal permission system as the local session, and the WebRTC enable path stays gated on pairing +
+the REMOTE-007 permission-transport precondition above.
 
 ## Build stages (each = its own gated implementation spec)
 

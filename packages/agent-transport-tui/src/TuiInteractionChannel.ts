@@ -75,7 +75,7 @@ export interface ITuiInteractionChannelOptions {
   commandModules?: readonly ICommandModule[];
   commandHostAdapters?: ICommandHostAdapters;
   shellExec?: TShellExecFn;
-  /** REMOTE-003: deny-by-default policy for remote-origin commands arriving over a registered transport. */
+  /** REMOTE-006: optional remote-command policy (allow-by-default; a transport-origin command runs as a local one). */
   remoteCommandPolicy?: IRemoteCommandPolicy;
   transportRegistry?: ITransportRegistryView<IInteractiveSession>;
   language?: string;

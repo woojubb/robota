@@ -73,9 +73,8 @@ export interface IInteractiveSessionStandardOptions {
   /** Shell exec function for preprocessing `` !`cmd` `` patterns in skills — injected from composition root. */
   shellExec?: TShellExecFn;
   /**
-   * REMOTE-003: deny-by-default policy for remote-origin (`source==='remote'`) commands arriving over a
-   * transport. Injected from the composition root; when absent, only read-only commands are permitted from
-   * remote origins.
+   * REMOTE-006: optional command-execution policy for remote-origin (`source==='remote'`) commands arriving over a
+   * transport. **Allow by default** — local == remote; injected only so a consumer can opt into a restriction.
    */
   remoteCommandPolicy?: IRemoteCommandPolicy;
   /**

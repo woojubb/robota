@@ -1,23 +1,21 @@
 import { describe, expect, it } from 'vitest';
 
-import { createDefaultRemoteCommandPolicy } from '../remote-command-policy.js';
+import {
+  createDefaultRemoteCommandPolicy,
+  type IRemoteCommandPolicy,
+} from '../remote-command-policy.js';
 
-describe('createDefaultRemoteCommandPolicy (REMOTE-003 B1)', () => {
-  it('allows read-only commands and denies non-read-only commands with an empty allowlist', () => {
+describe('createDefaultRemoteCommandPolicy (REMOTE-006 — allow-by-default, local == remote)', () => {
+  it('allows a non-read-only command from a remote origin by default (was denied under REMOTE-003)', () => {
     const policy = createDefaultRemoteCommandPolicy();
+    expect(policy.isAllowed('shell', false)).toBe(true); // non-read-only → allowed (local == remote)
     expect(policy.isAllowed('status', true)).toBe(true); // read-only → allowed
-    expect(policy.isAllowed('shell', false)).toBe(false); // non-read-only → denied (deny-by-default)
   });
 
-  it('widens: an allowlisted non-read-only command is permitted', () => {
-    const policy = createDefaultRemoteCommandPolicy(['deploy']);
-    expect(policy.isAllowed('deploy', false)).toBe(true);
-    expect(policy.isAllowed('shell', false)).toBe(false); // still denied — not on the allowlist
-  });
-
-  it('normalizes leading slashes in both the allowlist and the queried name', () => {
-    const policy = createDefaultRemoteCommandPolicy(['/deploy']);
-    expect(policy.isAllowed('/deploy', false)).toBe(true);
-    expect(policy.isAllowed('deploy', false)).toBe(true);
+  it('the IRemoteCommandPolicy interface is the optional restriction seam — a custom policy can restrict', () => {
+    // A consumer that opts into a read-only-only restriction implements the interface itself.
+    const restrictive: IRemoteCommandPolicy = { isAllowed: (_name, readOnly) => readOnly };
+    expect(restrictive.isAllowed('shell', false)).toBe(false);
+    expect(restrictive.isAllowed('status', true)).toBe(true);
   });
 });
