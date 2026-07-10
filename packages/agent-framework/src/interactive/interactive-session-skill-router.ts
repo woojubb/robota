@@ -26,6 +26,7 @@ import type {
   IUnknownCommandModuleName,
   TCommandInvocationSource,
   ISystemCommand,
+  IRemoteCommandPolicy,
 } from '../commands/index.js';
 import type { ISkillActivationEvent } from '../commands/skill-activation-events.js';
 import type { TShellExecFn } from '../utils/skill-prompt.js';
@@ -90,6 +91,8 @@ export class SessionSkillRouter {
       execute: () => Promise<ICommandResult>,
     ) => Promise<ICommandResult>,
     private readonly shellExec?: TShellExecFn,
+    /** Deny-by-default policy for remote-origin (`source==='remote'`) commands (REMOTE-003). Undefined → only read-only remote commands are allowed. */
+    private readonly remoteCommandPolicy?: IRemoteCommandPolicy,
   ) {
     this.allCommandModules = commandModules;
     this.commandExecutor = new SystemCommandExecutor(
@@ -166,7 +169,11 @@ export class SessionSkillRouter {
       .find((skill) => skill.name.toLowerCase() === normalizedName.toLowerCase());
   }
 
-  async executeCommand(name: string, args: string): Promise<ICommandResult | null> {
+  async executeCommand(
+    name: string,
+    args: string,
+    source: TCommandInvocationSource = 'user',
+  ): Promise<ICommandResult | null> {
     const normalizedName = normalizeCommandName(name);
     const command = this.commandExecutor.getCommand(normalizedName);
     const commandArgs = args.trim();
@@ -175,12 +182,12 @@ export class SessionSkillRouter {
       const skillsCommand = this.commandExecutor.getCommand('skills');
       if (!skill || !skillsCommand) return null;
       return this.executeCommandWithSource(
-        'user',
+        source,
         skillsCommand,
         formatSkillCommandArgs(skill.name, commandArgs),
       );
     }
-    return this.executeCommandWithSource('user', command, commandArgs);
+    return this.executeCommandWithSource(source, command, commandArgs);
   }
 
   async executeCommandWithSource(
@@ -191,6 +198,22 @@ export class SessionSkillRouter {
     const previousSource = this.commandInvocationSource;
     this.commandInvocationSource = source;
     try {
+      // REMOTE-003: gate untrusted remote-origin commands (deny-by-default). This guard sits BEFORE the
+      // blocking/non-blocking branch, so it covers both dispatch paths; it never touches the `'model'` path
+      // (which runs via `executeModelCommand`, not here). A denied command returns an explicit error result and
+      // never reaches `command.execute` — no silent no-op.
+      if (source === 'remote') {
+        const readOnly = !this.commandExecutor.resolveRequiresPermission(command);
+        const allowed = this.remoteCommandPolicy
+          ? this.remoteCommandPolicy.isAllowed(command.name, readOnly)
+          : readOnly;
+        if (!allowed) {
+          return {
+            success: false,
+            message: `command '${command.name}' is not permitted from a remote session`,
+          };
+        }
+      }
       if (command.lifecycle === 'blocking') {
         return this.onBlockingCommand(() => this.executeForegroundCommand(command, args));
       }

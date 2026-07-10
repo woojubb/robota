@@ -9,6 +9,14 @@
 import type { TCapabilitySafety } from './capability-contracts.js';
 import type { TSessionEndReason, TUniversalValue } from '@robota-sdk/agent-core';
 
+/**
+ * Origin of a command invocation. `'user'` = the local operator; `'model'` = a model-invoked command;
+ * `'remote'` = a command arriving over a transport (WebSocket / WebRTC) from an untrusted remote peer.
+ * SSOT lives here (the transport-facing `IInteractiveSession.executeCommand` carries it); `agent-framework`
+ * re-exports it. Remote-origin commands are gated by a deny-by-default policy in the session (REMOTE-003).
+ */
+export type TCommandInvocationSource = 'user' | 'model' | 'remote';
+
 /** A command entry */
 export interface ICommand {
   /** Command name without slash (e.g., "mode") — used for invocation */

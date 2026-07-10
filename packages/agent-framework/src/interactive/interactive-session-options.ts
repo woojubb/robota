@@ -13,7 +13,12 @@ import type { IBackgroundTaskRunner } from '../background-tasks/index.js';
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
 import type { IEditCheckpointRecorder } from '../checkpoints/edit-checkpoint-types.js';
 import type { IOrgPolicy } from '../command-api/org-policy/org-policy-types.js';
-import type { ICommandHostAdapters, ICommandModule, ICommandResult } from '../commands/index.js';
+import type {
+  ICommandHostAdapters,
+  ICommandModule,
+  ICommandResult,
+  IRemoteCommandPolicy,
+} from '../commands/index.js';
 import type { IResolvedConfig } from '../config/config-types.js';
 import type { IReversibleExecutionOptions } from '../reversible-execution/index.js';
 import type { TSubagentRunnerFactory } from '../subagents/index.js';
@@ -67,6 +72,12 @@ export interface IInteractiveSessionStandardOptions {
   commandHostAdapters?: ICommandHostAdapters;
   /** Shell exec function for preprocessing `` !`cmd` `` patterns in skills — injected from composition root. */
   shellExec?: TShellExecFn;
+  /**
+   * REMOTE-003: deny-by-default policy for remote-origin (`source==='remote'`) commands arriving over a
+   * transport. Injected from the composition root; when absent, only read-only commands are permitted from
+   * remote origins.
+   */
+  remoteCommandPolicy?: IRemoteCommandPolicy;
   /**
    * TERM-001: transport-provided terminal-handoff capability. When present, the session can hand the
    * real terminal to a child process (e.g. `/shell`, `$EDITOR`) and restore the display. Absent /

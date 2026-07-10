@@ -9,7 +9,7 @@ import { createProjectSessionStore } from '../interactive/session-persistence.js
 
 import type { IOrgPolicy } from '../command-api/org-policy/org-policy-types.js';
 import type { ICommandHostAdapters, ICommandModule } from '../commands/index.js';
-import type { CommandRegistry } from '../commands/index.js';
+import type { CommandRegistry, IRemoteCommandPolicy } from '../commands/index.js';
 import type { IInteractiveSession, IInteractiveSessionStore } from '../interactive/index.js';
 import type { TSubagentRunnerFactory } from '../subagents/index.js';
 import type { TShellExecFn } from '../utils/skill-prompt.js';
@@ -27,6 +27,8 @@ export interface IAgentRuntimeConfig {
   transportRegistry?: ITransportRegistryView<IInteractiveSession>;
   reloadPluginCommandSource?: (registry: CommandRegistry) => void;
   orgPolicy?: IOrgPolicy;
+  /** REMOTE-003: deny-by-default policy for remote-origin commands. Absent → only read-only remote commands allowed. */
+  remoteCommandPolicy?: IRemoteCommandPolicy;
 }
 
 /** Session-specific options for IAgentRuntime.createSession(). Runtime fields (cwd, provider, etc.) are inherited automatically. */
@@ -114,6 +116,7 @@ export function createAgentRuntime(config: IAgentRuntimeConfig): IAgentRuntime {
         shellExec: opts.shellExec,
         agentName: opts.agentName,
         orgPolicy: config.orgPolicy,
+        ...(config.remoteCommandPolicy ? { remoteCommandPolicy: config.remoteCommandPolicy } : {}),
         additionalTools: opts.additionalTools,
         resumeSessionId: opts.resumeSessionId,
         ...(opts.responseFormat ? { responseFormat: opts.responseFormat } : {}),

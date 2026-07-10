@@ -39,9 +39,11 @@ import type { ICommandHostContext } from '../command-api/index.js';
 import type {
   IAgentJobHostContext,
   ICommandResult,
+  IRemoteCommandPolicy,
   IUnknownCommandModuleName,
   TAutoCompactThresholdSource,
   TAutoCompactThreshold,
+  TCommandInvocationSource,
 } from '../commands/index.js';
 import type { IContextFileEntry } from '../context/context-file-tracker.js';
 import type { IGoalStartOptions } from '../goal/index.js';
@@ -149,6 +151,8 @@ export class InteractiveSession
     const commandHostAdapters =
       'commandHostAdapters' in options ? options.commandHostAdapters : undefined;
     const shellExec = 'shellExec' in options ? options.shellExec : undefined;
+    const remoteCommandPolicy =
+      'remoteCommandPolicy' in options ? options.remoteCommandPolicy : undefined;
 
     this.skillRouter = new SessionSkillRouter(
       commandModules,
@@ -172,6 +176,7 @@ export class InteractiveSession
       (execute) =>
         this.execCtrl.executeForegroundCommand(execute, (p, d, r) => this.submit(p, d, r)),
       shellExec,
+      remoteCommandPolicy,
     );
 
     this.execCtrl = new SessionExecutionController(this.histTracker, this.skillRouter, {
@@ -681,6 +686,7 @@ export class InteractiveSession
   override async executeCommand(
     name: string,
     args: string,
+    source: TCommandInvocationSource = 'user',
   ): Promise<import('../commands/index.js').ICommandResult | null> {
     if (this.orgPolicy?.blockedCommands?.includes(name)) {
       return {
@@ -691,7 +697,7 @@ export class InteractiveSession
         success: false,
       };
     }
-    const result = await super.executeCommand(name, args);
+    const result = await super.executeCommand(name, args, source);
     if (result === null) return null;
     const hotSwapEffect = result.effects?.find(
       (e): e is { type: 'provider-hot-swap-requested'; profileName: string } =>

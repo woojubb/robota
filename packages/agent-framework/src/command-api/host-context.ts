@@ -26,7 +26,11 @@ import type {
   TPermissionMode,
   TUniversalMessage,
 } from '@robota-sdk/agent-core';
-import type { ICommandListEntry, IGoalState } from '@robota-sdk/agent-interface-transport';
+import type {
+  ICommandListEntry,
+  IGoalState,
+  TCommandInvocationSource,
+} from '@robota-sdk/agent-interface-transport';
 import type {
   IBackgroundTaskListFilter,
   IBackgroundTaskLogCursor,
@@ -37,8 +41,9 @@ import type {
 } from '@robota-sdk/agent-interface-transport';
 import type { ISessionReplayValidationResult } from '@robota-sdk/agent-session';
 // ICommandListEntry SSOT relocated to @robota-sdk/agent-interface-transport (DATA-001).
+// TCommandInvocationSource SSOT relocated to @robota-sdk/agent-interface-transport (REMOTE-003).
 
-export type { ICommandListEntry };
+export type { ICommandListEntry, TCommandInvocationSource };
 
 export interface ICommandSkillListEntry {
   readonly name: string;
@@ -50,8 +55,6 @@ export interface ICommandSkillListEntry {
   readonly context?: string;
   readonly agent?: string;
 }
-
-export type TCommandInvocationSource = 'user' | 'model';
 
 export interface ICommandSkillActivationRequest {
   readonly invocationSource: TCommandInvocationSource;
