@@ -46,7 +46,8 @@
   },
   "dependencies": {
     "@robota-sdk/agent-interface-transport": "workspace:*",
-    "@robota-sdk/agent-transport-protocol": "workspace:*"
+    "@robota-sdk/agent-transport-protocol": "workspace:*",
+    "ws": "^8.21.0"
   },
   "peerDependencies": {
     "werift": "^0.23.0"
@@ -57,6 +58,7 @@
     }
   },
   "devDependencies": {
+    "@types/ws": "^8.18.1",
     "rimraf": "^5.0.10",
     "tsdown": "^0.22.2",
     "typescript": "^5.9.3",

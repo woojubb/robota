@@ -199,6 +199,12 @@ pairing + no-content. Harness `deps`/`entry-point-only`/`spec-public-surface` gr
     ICE candidate policy (restricted STUN/TURN + candidate-type allowlist) fully neutralizes the miscategorization,
     (b) override `ip` to a maintained fork, or (c) re-accept with a documented, reviewed rationale. This must NOT
     be silently inherited — recorded here + carried into the REMOTE-001 design's Stage B security section.
+  - **RESOLVED in REMOTE-004 Stage B2 (2026-07-11) → option (c), reviewed re-accept.** Code verification (and an
+    independent proposal-reviewer pass) established that werift/werift-ice **never call** the vulnerable
+    `ip.isPublic`/`isPrivate`/`address` — the only `ip.*` usage is STUN codec helpers + `ip.isLoopback` on the
+    host's own `os.networkInterfaces()` (trusted). The SSRF vector is **not reachable**, so the `ignoreCves` entry
+    is **retained** with the documented rationale (no upstream fix → fork override is a worse posture), guarded by
+    a regression test (`cve-2024-29415-reachability.test.ts`) + opt-in `forceTurn` defense-in-depth.
 - 2026-07-10 GATE-COMPLETE — after the `ignoreCves` fix, PR #1079 CI fully green (security audit pass) →
   merged to **develop** (`ad2006b38`), then promoted **develop→main** via PR #1080 (`402555dab`). Both hops
   independently confirmed by the merge-verifier (PASS/PASS): all REMOTE-002 Stage A paths present on

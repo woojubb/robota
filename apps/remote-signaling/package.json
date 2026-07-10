@@ -37,12 +37,15 @@
     "ws": "^8.21.0"
   },
   "devDependencies": {
+    "@robota-sdk/agent-interface-transport": "workspace:*",
+    "@robota-sdk/agent-transport-webrtc": "workspace:*",
     "@types/node": "^22.19.21",
     "@types/ws": "^8.18.1",
     "rimraf": "^5.0.10",
     "tsdown": "^0.22.2",
     "typescript": "^5.9.3",
-    "vitest": "^3.2.6"
+    "vitest": "^3.2.6",
+    "werift": "^0.23.0"
   },
   "license": "AGPL-3.0-only OR LicenseRef-Commercial"
 }
