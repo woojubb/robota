@@ -7,11 +7,13 @@ import type { ICommandHostContext, ICommandModule, ISystemCommand } from '../../
 import type { IRemoteCommandPolicy } from '../../commands/index.js';
 
 /**
- * REMOTE-003 B1 — the deny-by-default gate for remote-origin (`source==='remote'`) commands lives in
- * `SessionSkillRouter.executeCommandWithSource`, before the blocking/non-blocking dispatch branch. These tests
- * drive the router directly with a stubbed command set and assert the allow/deny matrix + that a denied command's
- * `execute` is never called.
+ * REMOTE-006 — local == remote. A transport-origin (`source==='remote'`) command runs exactly as a locally-typed
+ * one by default (allow-by-default); the router's gate only fires when a consumer injects an OPTIONAL restrictive
+ * `IRemoteCommandPolicy`. These tests drive `SessionSkillRouter` directly and assert the allow/deny matrix.
  */
+
+/** A read-only-only restriction — the optional opt-in seam a consumer may inject. */
+const RESTRICTIVE: IRemoteCommandPolicy = { isAllowed: (_name, readOnly) => readOnly };
 
 function makeCommand(name: string, extra: Partial<ISystemCommand>): ISystemCommand {
   return {
@@ -42,62 +44,56 @@ function makeRouter(commands: ISystemCommand[], policy?: IRemoteCommandPolicy): 
   );
 }
 
-const READ_ONLY = makeCommand('status', { safety: 'read-only', lifecycle: 'inline' });
-const MUTATING = makeCommand('shell', { requiresPermission: true, lifecycle: 'inline' });
-const MUTATING_BLOCKING = makeCommand('editor', {
-  requiresPermission: true,
-  lifecycle: 'blocking',
-});
-const ALLOWLISTED = makeCommand('deploy', { requiresPermission: true, lifecycle: 'inline' });
+function mutating(name = 'shell'): ISystemCommand {
+  return makeCommand(name, { requiresPermission: true, lifecycle: 'inline' });
+}
 
-describe('SessionSkillRouter remote-command gate (REMOTE-003 B1)', () => {
-  it('TC-03a: allows a read-only command from a remote origin', async () => {
-    const cmd = READ_ONLY;
-    const router = makeRouter([cmd]);
+describe('SessionSkillRouter remote-command policy (REMOTE-006 — allow-by-default)', () => {
+  it('TC-01: with the default allow-all policy, a non-read-only remote command executes (was denied under B1)', async () => {
+    const cmd = mutating();
+    const router = makeRouter([cmd], createDefaultRemoteCommandPolicy());
+    const result = await router.executeCommand('shell', '', 'remote');
+    expect(result?.success).toBe(true);
+    expect(cmd.execute).toHaveBeenCalledTimes(1);
+  });
+
+  it('TC-02: no-policy framework default — undefined policy now ALLOWS a non-read-only remote command', async () => {
+    const cmd = mutating();
+    const router = makeRouter([cmd]); // remoteCommandPolicy === undefined
+    const result = await router.executeCommand('shell', '', 'remote');
+    expect(result?.success).toBe(true);
+    expect(cmd.execute).toHaveBeenCalledTimes(1);
+  });
+
+  it('TC-03: the optional restriction seam still restricts — a non-read-only remote command is denied when a restrictive policy is injected', async () => {
+    const cmd = mutating();
+    const router = makeRouter([cmd], RESTRICTIVE);
+    const result = await router.executeCommand('shell', '', 'remote');
+    expect(result?.success).toBe(false);
+    expect(result?.message).toMatch(/not permitted by the configured remote-command policy/);
+    expect(cmd.execute).not.toHaveBeenCalled();
+  });
+
+  it('TC-03: a restrictive policy still allows a read-only remote command', async () => {
+    const cmd = makeCommand('status', { safety: 'read-only', lifecycle: 'inline' });
+    const router = makeRouter([cmd], RESTRICTIVE);
     const result = await router.executeCommand('status', '', 'remote');
     expect(result?.success).toBe(true);
     expect(cmd.execute).toHaveBeenCalledTimes(1);
   });
 
-  it('TC-03b: denies a non-read-only command from a remote origin without calling execute', async () => {
-    const cmd = MUTATING;
-    const router = makeRouter([cmd]);
-    const result = await router.executeCommand('shell', '', 'remote');
-    expect(result?.success).toBe(false);
-    expect(result?.message).toMatch(/not permitted from a remote session/);
-    expect(cmd.execute).not.toHaveBeenCalled();
-  });
-
-  it('TC-05: denies a BLOCKING-lifecycle non-read-only remote command (guard sits above the blocking branch)', async () => {
-    const cmd = MUTATING_BLOCKING;
-    const router = makeRouter([cmd]);
+  it('TC-03: a restrictive policy also gates the BLOCKING-lifecycle branch', async () => {
+    const cmd = makeCommand('editor', { requiresPermission: true, lifecycle: 'blocking' });
+    const router = makeRouter([cmd], RESTRICTIVE);
     const result = await router.executeCommand('editor', '', 'remote');
     expect(result?.success).toBe(false);
-    expect(result?.message).toMatch(/not permitted from a remote session/);
     expect(cmd.execute).not.toHaveBeenCalled();
   });
 
-  it('TC-04: an allowlisted non-read-only command executes from a remote origin', async () => {
-    const cmd = ALLOWLISTED;
-    const router = makeRouter([cmd], createDefaultRemoteCommandPolicy(['deploy']));
-    const result = await router.executeCommand('deploy', '', 'remote');
-    expect(result?.success).toBe(true);
-    expect(cmd.execute).toHaveBeenCalledTimes(1);
-  });
-
-  it('TC-06a: a non-read-only command runs unchanged from a local user origin (no gate)', async () => {
-    const cmd = makeCommand('shell', { requiresPermission: true, lifecycle: 'inline' });
-    const router = makeRouter([cmd]);
-    const result = await router.executeCommand('shell', '', 'user');
-    expect(result?.success).toBe(true);
-    expect(cmd.execute).toHaveBeenCalledTimes(1);
-  });
-
-  it('TC-06b: source defaults to `user` when omitted (no gate applied)', async () => {
-    const cmd = makeCommand('shell', { requiresPermission: true, lifecycle: 'inline' });
-    const router = makeRouter([cmd]);
-    const result = await router.executeCommand('shell', '');
-    expect(result?.success).toBe(true);
+  it('TC-04: local `user` + default-omitted commands run unchanged (no gate)', async () => {
+    const cmd = mutating();
+    const router = makeRouter([cmd], RESTRICTIVE); // even with a restrictive policy, local is never gated
+    expect((await router.executeCommand('shell', '', 'user'))?.success).toBe(true);
     expect(cmd.execute).toHaveBeenCalledTimes(1);
   });
 });

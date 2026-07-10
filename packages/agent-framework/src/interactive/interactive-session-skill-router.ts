@@ -91,7 +91,7 @@ export class SessionSkillRouter {
       execute: () => Promise<ICommandResult>,
     ) => Promise<ICommandResult>,
     private readonly shellExec?: TShellExecFn,
-    /** Deny-by-default policy for remote-origin (`source==='remote'`) commands (REMOTE-003). Undefined → only read-only remote commands are allowed. */
+    /** Optional remote-command policy (REMOTE-006). Undefined → allow (local == remote); provide one only to opt into a restriction. */
     private readonly remoteCommandPolicy?: IRemoteCommandPolicy,
   ) {
     this.allCommandModules = commandModules;
@@ -198,19 +198,16 @@ export class SessionSkillRouter {
     const previousSource = this.commandInvocationSource;
     this.commandInvocationSource = source;
     try {
-      // REMOTE-003: gate untrusted remote-origin commands (deny-by-default). This guard sits BEFORE the
-      // blocking/non-blocking branch, so it covers both dispatch paths; it never touches the `'model'` path
-      // (which runs via `executeModelCommand`, not here). A denied command returns an explicit error result and
-      // never reaches `command.execute` — no silent no-op.
-      if (source === 'remote') {
+      // REMOTE-006: local == remote — a transport-origin command runs exactly as a locally-typed one (pairing is
+      // the trust boundary; the universal permission system governs anything dangerous). This is **allow-by-
+      // default**: with no injected policy it always allows; an OPTIONAL `remoteCommandPolicy` may restrict for a
+      // consumer that opts in. (The guard is kept only as that opt-in seam.)
+      if (source === 'remote' && this.remoteCommandPolicy) {
         const readOnly = !this.commandExecutor.resolveRequiresPermission(command);
-        const allowed = this.remoteCommandPolicy
-          ? this.remoteCommandPolicy.isAllowed(command.name, readOnly)
-          : readOnly;
-        if (!allowed) {
+        if (!this.remoteCommandPolicy.isAllowed(command.name, readOnly)) {
           return {
             success: false,
-            message: `command '${command.name}' is not permitted from a remote session`,
+            message: `command '${command.name}' is not permitted by the configured remote-command policy`,
           };
         }
       }

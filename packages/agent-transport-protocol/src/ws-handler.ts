@@ -235,7 +235,7 @@ function handleSessionControlMessage(
       return;
     }
     // REMOTE-003: a command arriving over a transport is an untrusted remote origin — tag it `'remote'` so the
-    // session applies its deny-by-default remote-command policy (covers both the WebSocket and WebRTC transports).
+    // session applies its optional remote-command policy (allow-by-default — local == remote; REMOTE-006).
     session.executeCommand(msg.name, msg.args ?? '', 'remote').then(
       (result) => {
         send({

@@ -27,7 +27,7 @@ export interface IAgentRuntimeConfig {
   transportRegistry?: ITransportRegistryView<IInteractiveSession>;
   reloadPluginCommandSource?: (registry: CommandRegistry) => void;
   orgPolicy?: IOrgPolicy;
-  /** REMOTE-003: deny-by-default policy for remote-origin commands. Absent → only read-only remote commands allowed. */
+  /** REMOTE-006: optional remote-command policy. Absent → allow (local == remote); provide one only to restrict. */
   remoteCommandPolicy?: IRemoteCommandPolicy;
 }
 

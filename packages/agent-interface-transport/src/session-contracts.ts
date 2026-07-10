@@ -200,7 +200,7 @@ export interface IInteractiveSession {
 
   // Commands
   // `source` defaults to `'user'` (the local operator). Transport adapters pass `'remote'` so the session can
-  // apply a deny-by-default remote-command policy (REMOTE-003). Local callers omit it.
+  // apply an optional remote-command policy (allow-by-default; REMOTE-006). Local callers omit it.
   executeCommand(
     name: string,
     args: string,

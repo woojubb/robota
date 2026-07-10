@@ -13,7 +13,7 @@ import type { TSessionEndReason, TUniversalValue } from '@robota-sdk/agent-core'
  * Origin of a command invocation. `'user'` = the local operator; `'model'` = a model-invoked command;
  * `'remote'` = a command arriving over a transport (WebSocket / WebRTC) from an untrusted remote peer.
  * SSOT lives here (the transport-facing `IInteractiveSession.executeCommand` carries it); `agent-framework`
- * re-exports it. Remote-origin commands are gated by a deny-by-default policy in the session (REMOTE-003).
+ * re-exports it. A transport-origin command runs as a local one by default; an optional policy may restrict (REMOTE-006).
  */
 export type TCommandInvocationSource = 'user' | 'model' | 'remote';
 

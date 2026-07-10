@@ -296,7 +296,7 @@ describe('WebSocket Transport Handler', () => {
     expect(sent).toHaveLength(1);
     expect(sent[0]!.type).toBe('command_result');
     // A transport-origin command is an untrusted remote origin — the handler tags it `'remote'` so the session
-    // applies its deny-by-default remote-command policy.
+    // applies its (optional, allow-by-default) remote-command policy.
     expect(
       (session as unknown as { executeCommand: ReturnType<typeof vi.fn> }).executeCommand,
     ).toHaveBeenCalledWith('clear', '', 'remote');
