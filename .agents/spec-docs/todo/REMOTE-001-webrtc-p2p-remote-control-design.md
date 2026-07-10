@@ -119,7 +119,19 @@ signaling server for SDP/ICE relay) + a high-entropy **pairing secret**, shown a
 host terminal and carried out-of-band to the remote device. There is no directory/enumeration — knowing the key
 is the address.
 
-**Authentication = possession of the pairing secret (real SPAKE2), bound to the P2P channel.**
+**Authentication = possession of the pairing secret, bound to the P2P channel.**
+
+> **SUPERSEDED (REMOTE-005 B3, 2026-07-11, proposal-reviewer ENDORSED): SPAKE2 is replaced by a high-entropy
+> secret + directional HMAC channel-binding.** A PAKE exists only to protect a **low-entropy** secret (a typed
+> PIN) from brute-force. Because the pairing secret is transferred **machine-to-machine via QR / deep link**, it
+> is **high-entropy (256-bit)** and a PAKE is unnecessary; hand-rolling SPAKE2 is a footgun and there is no vetted
+> isomorphic pure-JS SPAKE2. The realized construction (in the isomorphic `@robota-sdk/agent-remote-pairing`,
+> WebCrypto only) is a **directional, nonce-bound HMAC key-confirmation bound to both DTLS fingerprints**:
+> `HMAC(HKDF(secret), LABEL[role] ‖ nonceI ‖ nonceR ‖ sortedPair(localFp, remoteFp))`, reflection-safe
+> (`LABEL_INITIATOR ≠ LABEL_RESPONDER`) + replay-safe (nonces). **Consequences:** the "**short human-typed code**"
+> option below is **retired** (a low-entropy typed code would reintroduce the PAKE case) — QR / deep-link only;
+> and the signaling **rate-limit** is **demoted from a load-bearing online-guess bound to defense-in-depth**
+> (128-bit guessing is infeasible). The paragraphs below describe the original SPAKE2 intent for context.
 
 - The remote runs **SPAKE2** (a balanced PAKE) with the host over the pairing secret — concrete construction,
   NOT "SPAKE2-style": correct M/N seed points + an explicit **key-confirmation MAC** (transcript MAC) round,

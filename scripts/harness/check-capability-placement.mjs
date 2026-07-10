@@ -93,6 +93,7 @@ const DOCUMENTED_WORKSPACE_PATTERNS = [
   { pathPattern: /^packages\/agent-cli$/, textPattern: /agent-cli/ },
   { pathPattern: /^packages\/agent-playground$/, textPattern: /agent-playground/ },
   { pathPattern: /^packages\/agent-remote-client$/, textPattern: /agent-remote-client/ },
+  { pathPattern: /^packages\/agent-remote-pairing$/, textPattern: /agent-remote-pairing/ },
   { pathPattern: /^packages\/agent-team$/, textPattern: /agent-team/ },
   { pathPattern: /^packages\/agent-subagent-runner$/, textPattern: /agent-subagent-runner/ },
   { pathPattern: /^packages\/agent-event-service$/, textPattern: /agent-event-service/ },
