@@ -16,6 +16,7 @@ import type {
   IBackgroundTaskRunner,
   ICommandHostAdapters,
   ICommandModule,
+  IRemoteCommandPolicy,
   TSubagentRunnerFactory,
   TShellExecFn,
   CommandRegistry,
@@ -48,6 +49,8 @@ export interface IRenderOptions {
   commandModules?: readonly ICommandModule[];
   commandHostAdapters?: ICommandHostAdapters;
   shellExec?: TShellExecFn;
+  /** REMOTE-003: deny-by-default policy for remote-origin commands. */
+  remoteCommandPolicy?: IRemoteCommandPolicy;
   startupUpdateNotice?: Promise<string | undefined>;
   transportRegistry?: ITransportRegistryView<IInteractiveSession>;
   cliAdapter: ITuiCliAdapter;
@@ -89,6 +92,7 @@ export function toChannelOptions(
     commandModules: options.commandModules,
     commandHostAdapters: options.commandHostAdapters,
     shellExec: options.shellExec,
+    remoteCommandPolicy: options.remoteCommandPolicy,
     transportRegistry: options.transportRegistry,
     language: options.language,
     reloadPluginCommandSource: options.reloadPluginCommandSource,

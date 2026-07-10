@@ -196,6 +196,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     commandModules,
     unknownModuleNames,
     startupUpdateNoticePromise,
+    remoteCommandPolicy,
   } = buildCommandSetup(cwd, args, options, version, {
     ...(resolvedPreset.enabledCommandModules !== undefined
       ? { enabledCommandModules: resolvedPreset.enabledCommandModules }
@@ -354,6 +355,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     subagentRunnerFactory,
     commandModules,
     commandHostAdapters,
+    remoteCommandPolicy,
     shellExec: (command: string) =>
       execSync(command, { timeout: 5000, encoding: 'utf-8', stdio: 'pipe' }).trimEnd(),
     startupUpdateNotice: startupUpdateNoticePromise

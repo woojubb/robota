@@ -49,6 +49,7 @@ export {
   createSkillExecutionPort,
   selectCommandModules,
   findUnknownModuleNames,
+  createDefaultRemoteCommandPolicy,
 } from './commands/index.js';
 export type {} from './capabilities/types.js';
 export type { IOrgPolicy } from './command-api/org-policy/index.js';
@@ -62,6 +63,7 @@ export type {
   ICommandHostAdapters,
   ICommandHostContext,
   ICommandModule,
+  IRemoteCommandPolicy,
   ICommandPickerAdapter,
   ICommandProcessAdapter,
   ICommandSessionRuntime,

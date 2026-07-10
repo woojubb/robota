@@ -24,6 +24,7 @@ export type {
   ISkillResolutionResult,
   ICommandResult,
   TCommandResultDataValue,
+  TCommandInvocationSource,
   ICommandListEntry,
   TCommandEffect,
   ICommandPluginAdapter,

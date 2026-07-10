@@ -35,6 +35,7 @@ import type {
   IBackgroundTaskRunner,
   ICommandHostAdapters,
   ICommandModule,
+  IRemoteCommandPolicy,
   TSubagentRunnerFactory,
   TShellExecFn,
 } from '@robota-sdk/agent-framework';
@@ -74,6 +75,8 @@ export interface ITuiInteractionChannelOptions {
   commandModules?: readonly ICommandModule[];
   commandHostAdapters?: ICommandHostAdapters;
   shellExec?: TShellExecFn;
+  /** REMOTE-003: deny-by-default policy for remote-origin commands arriving over a registered transport. */
+  remoteCommandPolicy?: IRemoteCommandPolicy;
   transportRegistry?: ITransportRegistryView<IInteractiveSession>;
   language?: string;
   reloadPluginCommandSource?: (registry: CommandRegistry) => void;
@@ -174,6 +177,7 @@ export class TuiInteractionChannel implements IInteractionChannel {
       commandModules: opts.commandModules,
       commandHostAdapters: opts.commandHostAdapters,
       shellExec: opts.shellExec,
+      ...(opts.remoteCommandPolicy ? { remoteCommandPolicy: opts.remoteCommandPolicy } : {}),
       language: opts.language,
       agentName: opts.agentName,
       activePresetId: opts.activePresetId,
