@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: INFRA
 tags: [remote-control, webrtc, security, pairing, crypto]
 parent: REMOTE-001
@@ -215,3 +215,12 @@ None — all round-1 questions resolved into D1–D7 above.
     **TC-09** in agent-transport-webrtc (werift **fails a tampered-fingerprint connect** — the binding invariant;
     webrtc suite 12). `harness:scan` **49/49** (capability-placement scan-test 5); no enable path (TC-11 grep);
     full-repo `pnpm typecheck` 0; changeset added; lint 0 errors. → GATE-VERIFY.
+- 2026-07-11 GATE-COMPLETE — PR #1091 CI fully green → merged to **develop** (`4c424109a`), then promoted
+  **develop→main** via PR #1092 (`4eed9d927`). Both hops independently confirmed by the merge-verifier
+  (PASS/PASS): all B3 paths present on `origin/main`, SPAKE2-SUPERSEDED note in the design, no unrelated code
+  drift (22 files), CI green incl. `security audit`. B3 shipped. Spec `active → done` (`status: done`). Next:
+  REMOTE-001 Stage B4 — the `/remote-control` command + registry wiring that FIRST exposes the enable path,
+  which must (a) wire the B3 pairing handshake so no session is exposed pre-confirmation, (b) gate remote-origin
+  commands using the B1 policy, and (c) close the B1-logged model-invocation submit side-channel via the
+  untrusted-`TClientMessage`-surface audit. Then Stage D (remote browser client, reusing agent-remote-pairing) +
+  Stage E (TOFU reconnect + TURN + co-drive).
