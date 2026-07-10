@@ -234,7 +234,9 @@ function handleSessionControlMessage(
       send({ type: 'protocol_error', message: 'name is required' });
       return;
     }
-    session.executeCommand(msg.name, msg.args ?? '').then(
+    // REMOTE-003: a command arriving over a transport is an untrusted remote origin — tag it `'remote'` so the
+    // session applies its deny-by-default remote-command policy (covers both the WebSocket and WebRTC transports).
+    session.executeCommand(msg.name, msg.args ?? '', 'remote').then(
       (result) => {
         send({
           type: 'command_result',

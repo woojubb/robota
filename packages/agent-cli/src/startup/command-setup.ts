@@ -15,6 +15,8 @@ import type {
   IUnknownCommandModuleName,
   TProviderSettingsDocument,
 } from '@robota-sdk/agent-framework';
+import { createDefaultRemoteCommandPolicy } from '@robota-sdk/agent-framework';
+import type { IRemoteCommandPolicy } from '@robota-sdk/agent-framework';
 import {
   createDefaultCommandModules,
   createDefaultPluginCommandAdapter,
@@ -60,6 +62,12 @@ export interface ICliSetup {
    */
   unknownModuleNames: readonly IUnknownCommandModuleName[];
   startupUpdateNoticePromise: Promise<ICliUpdateNotice | undefined> | undefined;
+  /**
+   * REMOTE-003: deny-by-default policy applied to remote-origin commands (WebSocket / WebRTC). B1 ships the
+   * default (empty allowlist → only read-only commands allowed from remote origins); the allowlist is the
+   * documented seam for widening it later.
+   */
+  remoteCommandPolicy: IRemoteCommandPolicy;
 }
 
 export function buildCommandSetup(
@@ -112,5 +120,6 @@ export function buildCommandSetup(
     commandModules,
     unknownModuleNames,
     startupUpdateNoticePromise,
+    remoteCommandPolicy: createDefaultRemoteCommandPolicy(), // REMOTE-003: deny-by-default remote-command gate.
   };
 }

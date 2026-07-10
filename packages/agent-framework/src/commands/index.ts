@@ -274,3 +274,5 @@ export type {
   TSkillActivationSource,
   TSkillActivationStatus,
 } from './skill-activation-events.js';
+export { createDefaultRemoteCommandPolicy } from './remote-command-policy.js';
+export type { IRemoteCommandPolicy } from './remote-command-policy.js';

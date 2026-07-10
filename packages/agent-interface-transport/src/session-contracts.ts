@@ -20,7 +20,11 @@ import type {
   TBackgroundTaskEvent,
   TBackgroundTaskIsolation,
 } from './background-task-contracts';
-import type { ICommandListEntry, ICommandResult } from './command-contracts.js';
+import type {
+  ICommandListEntry,
+  ICommandResult,
+  TCommandInvocationSource,
+} from './command-contracts.js';
 import type { ICompactEvent } from './compact-contracts';
 import type {
   IContextReferenceItem,
@@ -195,7 +199,13 @@ export interface IInteractiveSession {
   getCwd(): string;
 
   // Commands
-  executeCommand(name: string, args: string): Promise<ICommandResult | null>;
+  // `source` defaults to `'user'` (the local operator). Transport adapters pass `'remote'` so the session can
+  // apply a deny-by-default remote-command policy (REMOTE-003). Local callers omit it.
+  executeCommand(
+    name: string,
+    args: string,
+    source?: TCommandInvocationSource,
+  ): Promise<ICommandResult | null>;
   listCommands(): ICommandListEntry[];
 
   // Events

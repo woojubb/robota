@@ -95,14 +95,18 @@ export abstract class InteractiveSessionBase {
     this.execCtrl.clearPendingQueue();
   }
 
-  async executeCommand(name: string, args: string): Promise<ICommandResult | null> {
+  async executeCommand(
+    name: string,
+    args: string,
+    source: TCommandInvocationSource = 'user',
+  ): Promise<ICommandResult | null> {
     await this.ensureInitialized();
     if (this.execCtrl.executing)
       return {
         success: false,
         message: 'Another prompt or command is already running. Wait for it to finish.',
       };
-    return this.skillRouter.executeCommand(name, args);
+    return this.skillRouter.executeCommand(name, args, source);
   }
   async executeModelCommand(name: string, args: string): Promise<ICommandResult | null> {
     await this.ensureInitialized();

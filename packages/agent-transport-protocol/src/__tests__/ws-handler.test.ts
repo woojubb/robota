@@ -289,15 +289,17 @@ describe('WebSocket Transport Handler', () => {
     });
   });
 
-  it('command executes via session.executeCommand()', async () => {
+  it('command executes via session.executeCommand() tagged as a remote origin (REMOTE-003)', async () => {
     const { onMessage, sent, session } = setup();
     onMessage(JSON.stringify({ type: 'command', name: 'clear' }));
     await new Promise((r) => setTimeout(r, 10));
     expect(sent).toHaveLength(1);
     expect(sent[0]!.type).toBe('command_result');
+    // A transport-origin command is an untrusted remote origin — the handler tags it `'remote'` so the session
+    // applies its deny-by-default remote-command policy.
     expect(
       (session as unknown as { executeCommand: ReturnType<typeof vi.fn> }).executeCommand,
-    ).toHaveBeenCalledWith('clear', '');
+    ).toHaveBeenCalledWith('clear', '', 'remote');
   });
 
   it('invalid JSON sends protocol_error', () => {
