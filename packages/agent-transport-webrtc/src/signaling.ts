@@ -4,9 +4,12 @@
  * candidates — never session content — so a signaling server (or the in-memory test pair) is content-blind.
  */
 
+/** The kinds of signal a peer exchanges through the relay. */
+export type TSignalKind = 'offer' | 'answer' | 'ice';
+
 /** An opaque signaling message relayed by rendezvous id. `data` is an SDP description or an ICE candidate. */
 export interface ISignalMessage {
-  readonly kind: 'offer' | 'answer' | 'ice';
+  readonly kind: TSignalKind;
   /** Opaque payload (serialized SDP or ICE candidate). The signaling layer never inspects it. */
   readonly data: unknown;
 }

@@ -14,6 +14,12 @@ export interface IWebRtcTransportOptions {
   readonly signaling: ISignalingClient;
   /** Optional ICE servers (STUN/TURN). Omitted → host-candidate/loopback only. */
   readonly iceServers?: readonly { urls: string }[];
+  /**
+   * REMOTE-004 defense-in-depth: when true, restrict ICE to **relay (TURN) candidates only** (werift `forceTurn`),
+   * so host/server-reflexive candidates — and the local-interface gathering that touches the (unreachable, but
+   * belt-and-braces) `ip` code path — are never used. Requires a TURN server in `iceServers`.
+   */
+  readonly forceTurn?: boolean;
 }
 
 /**
@@ -48,9 +54,10 @@ export class WebRtcTransport implements IConfigurableTransport<IInteractiveSessi
     if (!session) throw new Error('WebRtcTransport: attach() must be called before start()');
 
     const { RTCPeerConnection } = loadWerift();
-    const peer = new RTCPeerConnection(
-      this.options.iceServers ? { iceServers: [...this.options.iceServers] } : undefined,
-    );
+    const peerConfig: { iceServers?: { urls: string }[]; forceTurn?: boolean } = {};
+    if (this.options.iceServers) peerConfig.iceServers = [...this.options.iceServers];
+    if (this.options.forceTurn) peerConfig.forceTurn = true;
+    const peer = new RTCPeerConnection(Object.keys(peerConfig).length > 0 ? peerConfig : undefined);
     this.peer = peer;
     const signaling = this.options.signaling;
 

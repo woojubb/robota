@@ -6,19 +6,19 @@
  * expose a network-reachable surface; a deployment would pass an explicit host/port. Stage A wires **no auth**
  * (Stage B adds pairing) and this server is NOT referenced by any publish/deploy path (TC-06).
  */
-import { createServer, type Server } from 'node:http';
+import { createServer, type IncomingMessage, type Server } from 'node:http';
 
 import { WebSocketServer, type WebSocket } from 'ws';
 
-import { SignalingRelay, type ISignalingPeer, type ISignalingRelayHooks } from './relay.js';
+import { SignalingRelay, type ISignalingPeer, type ISignalingRelayOptions } from './relay.js';
 
 export interface ISignalingServerOptions {
   /** Port to bind. Default `0` (ephemeral) — the actual port is reported by {@link ISignalingServerHandle.port}. */
   readonly port?: number;
   /** Host to bind. Default `127.0.0.1` (loopback) so no network-reachable surface is exposed by default. */
   readonly host?: string;
-  /** Optional relay hooks (Stage-B rate-limit/auth seam). */
-  readonly hooks?: ISignalingRelayHooks;
+  /** Relay behavior — custom-auth hooks + abuse-control params (rate limit, TTL, caps). Defaults are safe. */
+  readonly relay?: ISignalingRelayOptions;
 }
 
 export interface ISignalingServerHandle {
@@ -32,10 +32,11 @@ export interface ISignalingServerHandle {
 
 let peerCounter = 0;
 
-function wrapSocket(socket: WebSocket): ISignalingPeer {
+function wrapSocket(socket: WebSocket, remoteAddress?: string): ISignalingPeer {
   const id = `peer_${(peerCounter += 1)}`;
   return {
     id,
+    ...(remoteAddress ? { remoteAddress } : {}),
     send(raw: string): void {
       if (socket.readyState === socket.OPEN) socket.send(raw);
     },
@@ -51,13 +52,13 @@ export function startSignalingServer(
 ): Promise<ISignalingServerHandle> {
   const host = options.host ?? '127.0.0.1';
   const port = options.port ?? 0;
-  const relay = new SignalingRelay(options.hooks);
+  const relay = new SignalingRelay(options.relay);
 
   const httpServer: Server = createServer();
   const wss = new WebSocketServer({ server: httpServer });
 
-  wss.on('connection', (socket: WebSocket) => {
-    const peer = wrapSocket(socket);
+  wss.on('connection', (socket: WebSocket, request: IncomingMessage) => {
+    const peer = wrapSocket(socket, request.socket.remoteAddress);
     socket.on('message', (data: Buffer) => relay.handleFrame(peer, data.toString()));
     socket.on('close', () => relay.remove(peer));
     socket.on('error', () => relay.remove(peer));
@@ -73,6 +74,9 @@ export function startSignalingServer(
         relay,
         close(): Promise<void> {
           return new Promise<void>((res) => {
+            // Force-terminate any live sockets first — otherwise `httpServer.close()` blocks waiting for open
+            // WebSocket connections to end on their own.
+            for (const client of wss.clients) client.terminate();
             wss.close(() => httpServer.close(() => res()));
           });
         },

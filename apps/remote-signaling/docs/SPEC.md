@@ -46,11 +46,17 @@ default, and returns a handle exposing the resolved port + a `close()`.
 
 ## Public API Surface
 
-| Export                     | Kind     | Description                                           |
-| -------------------------- | -------- | ----------------------------------------------------- |
-| `SignalingRelay`           | class    | Content-blind rendezvous + SDP/ICE relay logic.       |
-| `startSignalingServer`     | function | Bind the relay over WebSocket; returns a stop handle. |
-| `MAX_PEERS_PER_RENDEZVOUS` | const    | Peer cap per rendezvous (2).                          |
+| Export                      | Kind     | Description                                                            |
+| --------------------------- | -------- | ---------------------------------------------------------------------- |
+| `SignalingRelay`            | class    | Content-blind rendezvous + SDP/ICE relay with built-in abuse controls. |
+| `startSignalingServer`      | function | Bind the relay over WebSocket; returns a stop handle.                  |
+| `MAX_PEERS_PER_RENDEZVOUS`  | const    | Peer cap per rendezvous (2).                                           |
+| `TokenBucketLimiter`        | class    | Per-source join token-bucket (REMOTE-004; injected clock).             |
+| `systemClock`               | const    | Default `Date.now`-based `IClock`.                                     |
+| `systemScheduler`           | const    | Default `setTimeout`-based `IScheduler`.                               |
+| `DEFAULT_TOKEN_BUCKET`      | const    | Default join bucket (burst 5, refill 1/12s).                           |
+| `DEFAULT_RENDEZVOUS_TTL_MS` | const    | Default half-open rendezvous TTL (60s).                                |
+| `DEFAULT_MAX_RENDEZVOUS`    | const    | Default concurrent-rendezvous cap (1024).                              |
 
 ## Extension Points
 
