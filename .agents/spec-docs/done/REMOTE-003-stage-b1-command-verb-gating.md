@@ -211,3 +211,10 @@ None — all round-1 questions resolved into D1–D4 above.
   relay auth/rate-limit + discharge CVE-2024-29415), then B3 (SPAKE2 pairing — realization researched in the B3
   spec), then B4 (`/remote-control` + registry wiring; must also close the logged model-invocation submit
   side-channel).
+- 2026-07-11 SUPERSEDED by REMOTE-006 (owner principle: local == remote). B1's `'remote'` deny-by-default command
+  gate was origin discrimination and incoherent (the model's tools/skills — the dominant side-effecting routes —
+  were never gated, so gating only the `command` verb was security theater). REMOTE-006 **neutralizes the gate to
+  allow-by-default** (a transport-origin command runs as a locally-typed one; the universal permission system
+  governs capability); the `'remote'` source plumbing + `IRemoteCommandPolicy` seam remain as an OPTIONAL,
+  user-configured restriction. The B4 "close the model-invocation submit side-channel" follow-up is likewise
+  withdrawn (nothing to close under local==remote). See REMOTE-006 (done) + the REMOTE-001 design SUPERSEDED note.

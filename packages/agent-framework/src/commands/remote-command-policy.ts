@@ -1,38 +1,33 @@
 /**
- * Remote-command policy (REMOTE-003 Stage B1).
+ * Command-execution policy for transport-origin (`source === 'remote'`) commands (REMOTE-006).
  *
- * Decides whether a command arriving from an **untrusted remote origin** (`source === 'remote'`: a WebSocket or
- * WebRTC peer) may execute. The gate is **deny-by-default**: a remote command runs only if it is read-only, or is
- * explicitly allowlisted. Local (`'user'`) and model (`'model'`) origins are never subject to this policy.
+ * **Local and remote are the same layer** (owner principle, 2026-07-11): pairing (Stage B3) is the sole trust
+ * boundary — a paired peer is the session owner, identical to the local operator — and capability is governed
+ * uniformly by the universal permission system (permission modes + `PermissionEnforcer` + the ask/approval
+ * handler), not by an origin penalty. So this policy is **allow-by-default**: a transport-origin command behaves
+ * exactly like a locally-typed one. It exists ONLY as an **optional, user-configured** restriction seam for a
+ * consumer that explicitly wants to constrain a driver; nothing built-in denies by origin. The `'remote'` source
+ * tag survives purely for attribution/telemetry + this optional seam.
  *
- * "read-only" reuses the command's `requiresPermission`/`safety` metadata (a command is read-only when
- * `SystemCommandExecutor.resolveRequiresPermission(command) === false`). That metadata was authored as a
- * local-prompt / model-invocability signal; repurposing it as a remote-safety signal is acceptable only under the
- * REMOTE-001 co-drive model, where a paired remote has already passed pairing (Stage B3) and is an authorized
- * session viewer — read-only exposure (`/context`, `/status`) is within the accepted envelope. The allowlist is
- * the escape hatch for that semantic mismatch.
+ * (Supersedes the REMOTE-003 origin-discriminating framing, which denied remote commands by default and gated
+ * only the narrow `command` verb while the model's tools/skills — the dominant side-effecting routes — were never
+ * gated.)
  */
 
-/** Whether a remote-origin command may execute. `readOnly` = `resolveRequiresPermission(command) === false`. */
+/** Optional restriction seam. `readOnly` = `resolveRequiresPermission(command) === false`. Returns whether the command may execute. */
 export interface IRemoteCommandPolicy {
   isAllowed(commandName: string, readOnly: boolean): boolean;
 }
 
-function normalizeCommandName(name: string): string {
-  return name.trim().replace(/^\/+/, '');
-}
-
 /**
- * Default deny-by-default policy: a remote command is allowed iff it is read-only OR its name is on `allowlist`.
- * An empty allowlist (the default) permits only read-only commands from remote origins.
+ * The default policy: **allow all** (local == remote). A transport-origin command runs exactly as a locally-typed
+ * one; the universal permission system governs anything dangerous. Provide a custom {@link IRemoteCommandPolicy}
+ * only to opt into a restriction.
  */
-export function createDefaultRemoteCommandPolicy(
-  allowlist: readonly string[] = [],
-): IRemoteCommandPolicy {
-  const allowed = new Set(allowlist.map(normalizeCommandName));
+export function createDefaultRemoteCommandPolicy(): IRemoteCommandPolicy {
   return {
-    isAllowed(commandName: string, readOnly: boolean): boolean {
-      return readOnly || allowed.has(normalizeCommandName(commandName));
+    isAllowed(): boolean {
+      return true;
     },
   };
 }

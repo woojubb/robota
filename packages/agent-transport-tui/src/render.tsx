@@ -49,7 +49,7 @@ export interface IRenderOptions {
   commandModules?: readonly ICommandModule[];
   commandHostAdapters?: ICommandHostAdapters;
   shellExec?: TShellExecFn;
-  /** REMOTE-003: deny-by-default policy for remote-origin commands. */
+  /** REMOTE-006: optional remote-command policy (allow-by-default; local == remote). */
   remoteCommandPolicy?: IRemoteCommandPolicy;
   startupUpdateNotice?: Promise<string | undefined>;
   transportRegistry?: ITransportRegistryView<IInteractiveSession>;
