@@ -48,15 +48,19 @@ throws). `stop()` tears down the handler, signal subscription, and peer.
 
 ## Public API Surface
 
-| Export                        | Kind     | Description                                                           |
-| ----------------------------- | -------- | --------------------------------------------------------------------- |
-| `WebRtcTransport`             | class    | `IConfigurableTransport` carrying a session over an `RTCDataChannel`. |
-| `IWebRtcTransportOptions`     | type     | Construction options.                                                 |
-| `createInMemorySignalingPair` | function | In-process signaling pair for loopback/tests (no server).             |
-| `ISignalingClient`            | type     | Signaling port (send/onSignal/close by rendezvous).                   |
-| `ISignalMessage`              | type     | Opaque SDP/ICE envelope.                                              |
-| `loadWerift`                  | function | Lazy-load the optional `werift` peer dep (throws on absence).         |
-| `IWeriftModule`               | type     | The subset of the werift surface this transport constructs.           |
+| Export                        | Kind     | Description                                                                      |
+| ----------------------------- | -------- | -------------------------------------------------------------------------------- |
+| `WebRtcTransport`             | class    | `IConfigurableTransport` carrying a session over an `RTCDataChannel`.            |
+| `IWebRtcTransportOptions`     | type     | Construction options.                                                            |
+| `createInMemorySignalingPair` | function | In-process signaling pair for loopback/tests (no server).                        |
+| `WsSignalingClient`           | class    | Production `ISignalingClient` over a `ws` socket to the relay (REMOTE-004).      |
+| `IWsSignalingClientOptions`   | type     | `WsSignalingClient` options (url, rendezvous, onError, onReady, socket factory). |
+| `IWebSocketLike`              | type     | Minimal socket surface `WsSignalingClient` needs (injectable in tests).          |
+| `ISignalingClient`            | type     | Signaling port (send/onSignal/close by rendezvous).                              |
+| `ISignalMessage`              | type     | Opaque SDP/ICE envelope.                                                         |
+| `TSignalKind`                 | type     | `'offer' \| 'answer' \| 'ice'`.                                                  |
+| `loadWerift`                  | function | Lazy-load the optional `werift` peer dep (throws on absence).                    |
+| `IWeriftModule`               | type     | The subset of the werift surface this transport constructs.                      |
 
 ## Extension Points
 

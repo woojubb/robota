@@ -1,16 +1,27 @@
 /**
- * Content-blind signaling relay (REMOTE-002 Stage A, Step 3).
+ * Content-blind signaling relay (REMOTE-002 Stage A; abuse-hardened in REMOTE-004 Stage B2).
  *
  * Two NAT'd WebRTC peers exchange SDP offers/answers + ICE candidates through this relay to establish a direct
  * P2P `RTCDataChannel`. The relay is a **dumb rendezvous**: it pairs at most two peers by an opaque rendezvous
  * id and forwards **only** `offer`/`answer`/`ice` frames verbatim between them. It NEVER inspects the `data`
- * payload, NEVER forwards a non-signaling frame, and holds **no session state** — only transient per-rendezvous
- * membership that is dropped when a peer disconnects. Auth/trust is deliberately absent in Stage A (added in
- * Stage B); this module carries a rate-limit seam (`onJoinAttempt`) that is a no-op until then.
+ * payload, NEVER forwards a non-signaling frame, and holds **no session content** — only transient membership.
  *
- * The relay logic is intentionally decoupled from `ws` (via {@link ISignalingPeer}) so it is unit-testable with
- * in-memory fake peers — no server, no network (TC-04).
+ * B2 makes the relay **safe by default** at its own layer (not only when a host wires a hook): a per-source
+ * token-bucket bounds join floods, rendezvous ids are **single-use** (a distinct third peer is refused for the
+ * lifetime of the id, even after one of the original two leaves), a **half-open** rendezvous (one peer, no
+ * counterpart) expires after a TTL, and the number of concurrent rendezvous is capped. All abuse controls take
+ * injected dependencies (clock + scheduler + params) so they are exercised by the network-free fake-peer suite.
  */
+import {
+  TokenBucketLimiter,
+  systemClock,
+  systemScheduler,
+  DEFAULT_RENDEZVOUS_TTL_MS,
+  DEFAULT_MAX_RENDEZVOUS,
+  type IClock,
+  type IScheduler,
+  type ITokenBucketConfig,
+} from './rate-limiter.js';
 
 /** The kinds of signaling frame the relay will forward. Anything else is rejected, never relayed. */
 export type TSignalKind = 'offer' | 'answer' | 'ice';
@@ -24,6 +35,8 @@ export const MAX_PEERS_PER_RENDEZVOUS = 2;
 export interface ISignalingPeer {
   /** Stable per-connection id (relay-assigned). */
   readonly id: string;
+  /** Client remote address (IP), when known — the rate-limit key. */
+  readonly remoteAddress?: string;
   /** Deliver a raw JSON frame to this peer. */
   send(raw: string): void;
   /** Force-close this peer's connection. */
@@ -35,9 +48,31 @@ export type TInboundFrame =
   | { readonly type: 'join'; readonly rendezvous: string }
   | { readonly type: 'signal'; readonly kind: TSignalKind; readonly data: unknown };
 
-/** Optional hooks. `onJoinAttempt` is the Stage-B rate-limit/auth seam — return false to reject a join. */
+/** Context passed to the join seam (REMOTE-004 — widened from the Stage-A `(rendezvous, peerId)` form). */
+export interface IJoinAttemptContext {
+  readonly rendezvous: string;
+  readonly peerId: string;
+  readonly remoteAddress?: string;
+}
+
+/** Optional hooks. `onJoinAttempt` is a custom-auth seam layered ON TOP of the built-in rate limiter. */
 export interface ISignalingRelayHooks {
-  onJoinAttempt?(rendezvous: string, peerId: string): boolean;
+  onJoinAttempt?(context: IJoinAttemptContext): boolean;
+}
+
+/** Relay construction options. Abuse controls default on with production-safe values. */
+export interface ISignalingRelayOptions {
+  readonly hooks?: ISignalingRelayHooks;
+  /** Per-source join token-bucket (default: burst 5, refill 1/12s). */
+  readonly rateLimit?: ITokenBucketConfig;
+  /** Half-open rendezvous TTL in ms (default 60s). */
+  readonly rendezvousTtlMs?: number;
+  /** Ceiling on concurrent (active) rendezvous (default 1024). */
+  readonly maxRendezvous?: number;
+  /** Injected time source (default `Date.now`). */
+  readonly clock?: IClock;
+  /** Injected timer scheduler (default `setTimeout`). */
+  readonly scheduler?: IScheduler;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -45,13 +80,29 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 /**
- * Routes signaling frames between the (≤2) peers sharing a rendezvous id. Pure in-memory; no persistence.
+ * Routes signaling frames between the (≤2) peers sharing a rendezvous id, with built-in abuse hardening.
  */
 export class SignalingRelay {
   private readonly rooms = new Map<string, Set<ISignalingPeer>>();
   private readonly peerRendezvous = new Map<string, string>();
+  /** Distinct peer ids EVER admitted to a rendezvous — enforces single-use (id not reusable by a new peer). */
+  private readonly lifetimePeers = new Map<string, Set<string>>();
+  /** One pending timer per rendezvous (half-open expiry or post-empty lifetime GC). */
+  private readonly timers = new Map<string, () => void>();
 
-  public constructor(private readonly hooks: ISignalingRelayHooks = {}) {}
+  private readonly hooks: ISignalingRelayHooks;
+  private readonly limiter: TokenBucketLimiter;
+  private readonly scheduler: IScheduler;
+  private readonly ttlMs: number;
+  private readonly maxRendezvous: number;
+
+  public constructor(options: ISignalingRelayOptions = {}) {
+    this.hooks = options.hooks ?? {};
+    this.scheduler = options.scheduler ?? systemScheduler;
+    this.ttlMs = options.rendezvousTtlMs ?? DEFAULT_RENDEZVOUS_TTL_MS;
+    this.maxRendezvous = options.maxRendezvous ?? DEFAULT_MAX_RENDEZVOUS;
+    this.limiter = new TokenBucketLimiter(options.rateLimit, options.clock ?? systemClock);
+  }
 
   /** Handle one raw inbound frame from `peer`. Only `signal` frames are ever forwarded, and only to the peer's counterpart. */
   public handleFrame(peer: ISignalingPeer, raw: string): void {
@@ -85,29 +136,59 @@ export class SignalingRelay {
   }
 
   private join(peer: ISignalingPeer, rendezvous: string): void {
+    // Rate-limit first (before any state is touched) — key by source IP, falling back to the peer id.
+    if (!this.limiter.tryConsume(peer.remoteAddress ?? peer.id)) {
+      this.reject(peer, 'rate-limited');
+      return;
+    }
     if (rendezvous.length === 0) {
       this.reject(peer, 'empty-rendezvous');
       return;
     }
-    if (this.hooks.onJoinAttempt && !this.hooks.onJoinAttempt(rendezvous, peer.id)) {
+    if (
+      this.hooks.onJoinAttempt &&
+      !this.hooks.onJoinAttempt({ rendezvous, peerId: peer.id, remoteAddress: peer.remoteAddress })
+    ) {
       this.reject(peer, 'join-rejected');
       return;
     }
+
+    const lifetime = this.lifetimePeers.get(rendezvous);
+    const alreadyAdmitted = lifetime?.has(peer.id) ?? false;
+    if (!alreadyAdmitted) {
+      // Single-use: a NEW distinct peer beyond the two that ever held this id is refused (even after a leave).
+      if (lifetime && lifetime.size >= MAX_PEERS_PER_RENDEZVOUS) {
+        this.reject(peer, 'rendezvous-full');
+        return;
+      }
+      // Concurrency cap: only when creating a brand-new rendezvous (unknown to both rooms + lifetime).
+      const isNew = !this.rooms.has(rendezvous) && !this.lifetimePeers.has(rendezvous);
+      if (isNew && this.rooms.size >= this.maxRendezvous) {
+        this.reject(peer, 'too-many-rendezvous');
+        return;
+      }
+    }
+
+    // Re-joining a different rendezvous moves the peer; drop it from any prior room first (no cross-room leak).
+    const prior = this.peerRendezvous.get(peer.id);
+    if (prior && prior !== rendezvous) this.leaveRoom(peer, prior);
+
     let room = this.rooms.get(rendezvous);
     if (!room) {
       room = new Set<ISignalingPeer>();
       this.rooms.set(rendezvous, room);
     }
-    if (!room.has(peer) && room.size >= MAX_PEERS_PER_RENDEZVOUS) {
-      this.reject(peer, 'rendezvous-full');
-      return;
+    let admitted = this.lifetimePeers.get(rendezvous);
+    if (!admitted) {
+      admitted = new Set<string>();
+      this.lifetimePeers.set(rendezvous, admitted);
     }
-    // Re-joining moves the peer; drop it from any prior rendezvous first (no cross-room leakage).
-    const prior = this.peerRendezvous.get(peer.id);
-    if (prior && prior !== rendezvous) this.leaveRoom(peer, prior);
     room.add(peer);
+    admitted.add(peer.id);
     this.peerRendezvous.set(peer.id, rendezvous);
     peer.send(JSON.stringify({ type: 'joined', rendezvous }));
+    this.armTimer(rendezvous);
+    if (prior && prior !== rendezvous) this.armTimer(prior);
   }
 
   private relay(peer: ISignalingPeer, kind: TSignalKind, data: unknown): void {
@@ -129,11 +210,14 @@ export class SignalingRelay {
     peer.send(JSON.stringify({ type: 'error', reason }));
   }
 
-  /** Drop a peer from its rendezvous (on disconnect). Empty rooms are deleted — no lingering session state. */
+  /** Drop a peer from its rendezvous (on disconnect). */
   public remove(peer: ISignalingPeer): void {
     const rendezvous = this.peerRendezvous.get(peer.id);
-    if (rendezvous) this.leaveRoom(peer, rendezvous);
     this.peerRendezvous.delete(peer.id);
+    if (rendezvous) {
+      this.leaveRoom(peer, rendezvous);
+      this.armTimer(rendezvous);
+    }
   }
 
   private leaveRoom(peer: ISignalingPeer, rendezvous: string): void {
@@ -143,7 +227,55 @@ export class SignalingRelay {
     if (room.size === 0) this.rooms.delete(rendezvous);
   }
 
-  /** Diagnostics only: current rendezvous count (holds no session content). */
+  /**
+   * (Re)arm the single pending timer for a rendezvous based on its current occupancy:
+   * - 1 peer  → half-open expiry after `ttlMs` (kick the lone peer, forget the id);
+   * - 0 peers → lifetime-GC after `ttlMs` (bound memory; the id may be reused only after the window);
+   * - 2 peers → no timer (cancel any pending).
+   */
+  private armTimer(rendezvous: string): void {
+    this.clearTimer(rendezvous);
+    const size = this.rooms.get(rendezvous)?.size ?? 0;
+    if (size === 1) {
+      this.timers.set(
+        rendezvous,
+        this.scheduler.schedule(() => this.expireHalfOpen(rendezvous), this.ttlMs),
+      );
+    } else if (size === 0 && this.lifetimePeers.has(rendezvous)) {
+      this.timers.set(
+        rendezvous,
+        this.scheduler.schedule(() => this.gcLifetime(rendezvous), this.ttlMs),
+      );
+    }
+  }
+
+  private expireHalfOpen(rendezvous: string): void {
+    this.timers.delete(rendezvous);
+    const room = this.rooms.get(rendezvous);
+    if (room && room.size === 1) {
+      for (const lone of room) {
+        this.peerRendezvous.delete(lone.id);
+        lone.close();
+      }
+      this.rooms.delete(rendezvous);
+    }
+    this.gcLifetime(rendezvous);
+  }
+
+  private gcLifetime(rendezvous: string): void {
+    this.lifetimePeers.delete(rendezvous);
+    this.clearTimer(rendezvous);
+  }
+
+  private clearTimer(rendezvous: string): void {
+    const cancel = this.timers.get(rendezvous);
+    if (cancel) {
+      cancel();
+      this.timers.delete(rendezvous);
+    }
+  }
+
+  /** Diagnostics only: current (active) rendezvous count (holds no session content). */
   public get rendezvousCount(): number {
     return this.rooms.size;
   }

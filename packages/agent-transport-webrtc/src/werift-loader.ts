@@ -4,7 +4,10 @@ import type { RTCPeerConnection } from 'werift';
 
 /** The subset of the `werift` module surface this transport constructs. */
 export interface IWeriftModule {
-  RTCPeerConnection: new (configuration?: { iceServers?: { urls: string }[] }) => RTCPeerConnection;
+  RTCPeerConnection: new (configuration?: {
+    iceServers?: { urls: string }[];
+    forceTurn?: boolean;
+  }) => RTCPeerConnection;
 }
 
 /**

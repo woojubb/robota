@@ -455,6 +455,12 @@ importers:
         specifier: ^8.21.0
         version: 8.21.0
     devDependencies:
+      '@robota-sdk/agent-interface-transport':
+        specifier: workspace:*
+        version: link:../../packages/agent-interface-transport
+      '@robota-sdk/agent-transport-webrtc':
+        specifier: workspace:*
+        version: link:../../packages/agent-transport-webrtc
       '@types/node':
         specifier: ^22.19.21
         version: 22.19.21
@@ -473,6 +479,9 @@ importers:
       vitest:
         specifier: ^3.2.6
         version: 3.2.6(@types/node@22.19.21)(tsx@4.22.4)
+      werift:
+        specifier: ^0.23.0
+        version: 0.23.0
 
   apps/starter-nextjs:
     dependencies:
@@ -1968,7 +1977,13 @@ importers:
       '@robota-sdk/agent-transport-protocol':
         specifier: workspace:*
         version: link:../agent-transport-protocol
+      ws:
+        specifier: ^8.21.0
+        version: 8.21.0
     devDependencies:
+      '@types/ws':
+        specifier: ^8.18.1
+        version: 8.18.1
       rimraf:
         specifier: ^5.0.10
         version: 5.0.10
