@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: INFRA
 tags: [remote-control, security, commands, transport]
 parent: REMOTE-001
@@ -204,3 +204,10 @@ None — all round-1 questions resolved into D1–D4 above.
     `createDefaultRemoteCommandPolicy` in agent-framework SPEC, `TCommandInvocationSource` ownership in
     agent-interface-transport SPEC). Changeset added. Lint: 0 errors (2 pre-existing-adjacent line-count warnings,
     tolerated — no `--max-warnings 0`). → GATE-VERIFY.
+- 2026-07-10 GATE-COMPLETE — PR #1083 CI fully green (commitlint incl.) → merged to **develop** (`a66cc4357`),
+  then promoted **develop→main** via PR #1084 (`323f74e6a`). Both hops independently confirmed by the
+  merge-verifier (PASS/PASS): all B1 paths present on `origin/main`, no unrelated drift (24 files), CI green on
+  both PRs. B1 shipped. Spec `active → done` (`status: done`). Next: REMOTE-001 Stage B2 (ws signaling client +
+  relay auth/rate-limit + discharge CVE-2024-29415), then B3 (SPAKE2 pairing — realization researched in the B3
+  spec), then B4 (`/remote-control` + registry wiring; must also close the logged model-invocation submit
+  side-channel).
