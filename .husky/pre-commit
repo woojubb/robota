@@ -22,4 +22,20 @@ if [ "${ALLOW_PROTECTED_COMMIT:-0}" != "1" ] && [ ! -f "$(git rev-parse --git-di
   esac
 fi
 
+# Auto-generated learning-artifact guard (git-branch.md — lessons are regenerated churn, not
+# hand-authored content). Block a commit that STAGES `.agents/evals/lessons/*` — these files are
+# regenerated in place and must never be swept into a feature/spec commit via a broad `git add`.
+# A sanctioned harness process that intentionally updates them sets ALLOW_LESSONS_COMMIT=1.
+if [ "${ALLOW_LESSONS_COMMIT:-0}" != "1" ]; then
+  STAGED_LESSONS=$(git diff --cached --name-only | grep -E '^\.agents/evals/lessons/' || true)
+  if [ -n "$STAGED_LESSONS" ]; then
+    echo "[pre-commit] Blocked: auto-generated lessons are staged (do not commit them):" >&2
+    echo "$STAGED_LESSONS" | sed 's/^/[pre-commit]   /' >&2
+    echo "[pre-commit] Unstage them (regenerated churn): git restore --staged .agents/evals/lessons" >&2
+    echo "[pre-commit] Stage explicit paths, not a broad 'git add .agents'. (git-branch.md)" >&2
+    echo "[pre-commit] Sanctioned harness update only: ALLOW_LESSONS_COMMIT=1 git commit ..." >&2
+    exit 1
+  fi
+fi
+
 NODE_OPTIONS="--max-old-space-size=8192" pnpm exec lint-staged
