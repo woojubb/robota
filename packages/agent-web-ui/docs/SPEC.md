@@ -8,6 +8,20 @@ session over WebSocket. Provides a connection hook (`useWsSession`), a conversat
 widget (`SessionMonitor`) that applications can embed without importing from any other
 `@robota-sdk/*` package.
 
+**REMOTE-009 Stage D — browser remote client.** The package is also the P2P remote peer: it opens the
+pairing URL, answers the host's WebRTC offer over a **native** `RTCPeerConnection`, runs the pairing
+handshake as RESPONDER over the data channel, and co-drives the SAME session — swapping WebSocket for
+`RTCDataChannel`. The session hook is parameterized (`useSessionClient(makeClient)`) with two thin
+wrappers: `useWsSession(url)` (localhost) and `useRtcSession({relayUrl,rendezvous,secret})` (Stage D).
+The RTC path adds `createRtcSignalingClient` (native-`WebSocket` `ISignalingClient`), `ResponderGate`
+(fail-closed pairing routing switch — session exposed ONLY post-accept, dropped pre-accept non-pairing),
+`createRtcSessionClient` (answerer + gate + session client), `parseRemoteClientLocation` (relay ← query,
+secret ← fragment), and the `spa/remote.html` fragment-injected static entry (`RemoteClient`). It reuses
+the isomorphic zero-dep `@robota-sdk/agent-remote-pairing` leaf and takes **no** `agent-transport-webrtc`
+(node/werift) dependency. The permission/ask render+answer (`useWsSession` handles
+`permission_request`/`ask_request`/`prompt_resolved`, `PermissionPrompt` component) serves BOTH the WS and
+RTC clients — the paired owner answers its OWN prompts (local == remote).
+
 This package sits in the **Product shells** layer. It is a pure browser UI library — it does not
 own session lifecycle, conversation history, or agent runtime state.
 
@@ -24,10 +38,18 @@ share a name prefix but are different layers: this package is a library; the app
   `agent-framework`, `agent-session`, `agent-executor`.
 - Does NOT own `agent-core` types directly — protocol message types come from `agent-transport-protocol`.
 - Does NOT own the CLI sidecar server — that is `agent-cli` (`startWebSidecarServer`).
+- Does NOT own the pairing CRYPTO — the directional-HMAC handshake + DTLS-fingerprint channel binding is the
+  isomorphic zero-dep `@robota-sdk/agent-remote-pairing` leaf (the only REMOTE-009 dep added). Owns the browser
+  responder GATE + answerer glue. Takes **no** `agent-transport-webrtc`/werift dependency (that is node-only).
 - OWNS: browser WebSocket client lifecycle (`IWsSessionClient`, reconnect logic).
-- OWNS: React state reconstruction from `TServerMessage` events (`useWsSession`).
-- OWNS: React components `SessionMonitor`, `ConversationView`, and `AgentActivityPanel`.
-- OWNS: `TConnectionStatus` type (`disconnected | connecting | connected | error`).
+- OWNS: browser WebRTC remote client (REMOTE-009): `createRtcSignalingClient`, `ResponderGate`,
+  `createRtcSessionClient`, `parseRemoteClientLocation`, `RemoteClient`/`PermissionPrompt`, the `spa/remote.html`
+  entry, and the `useSessionClient`/`useRtcSession` hooks.
+- OWNS: React state reconstruction from `TServerMessage` events (`useSessionClient`), incl. the REMOTE-007
+  permission/ask prompt state (`applyPromptEvent`) for BOTH transports.
+- OWNS: React components `SessionMonitor`, `ConversationView`, `AgentActivityPanel`, `RemoteClient`, `PermissionPrompt`.
+- OWNS: `TConnectionStatus` (`disconnected | connecting | connected | error`) + `TRtcConnectionStatus`
+  (adds `pairing | failed`) + `TSessionStatus` (their union).
 - OWNS: `IWsSessionClientCallbacks` callback contract for `createWsSessionClient`.
 
 ## Architecture Overview
@@ -75,16 +97,25 @@ package.
 
 ## Public API Surface
 
-| Export                 | Kind      | Description                                                                                              |
-| ---------------------- | --------- | -------------------------------------------------------------------------------------------------------- |
-| `SessionMonitor`       | component | Self-contained monitor widget; accepts `wsUrl` prop for the CLI sidecar WebSocket                        |
-| `ConversationView`     | component | Pure conversation renderer; accepts messages, activeTools, streamingText, isThinking                     |
-| `AgentActivityPanel`   | component | Background-task monitor panel; accepts `tasks: readonly IExecutionWorkspaceEntry[]` (exported from root) |
-| `useWsSession`         | hook      | React hook managing WebSocket connection and reconstructing session state                                |
-| `IConversationMessage` | type      | Reconstructed message shape for display                                                                  |
-| `IActiveTool`          | type      | Active tool call display state                                                                           |
-| `IWsSessionState`      | type      | Full hook return type including `executionWorkspace: IExecutionWorkspaceSnapshot \| null`                |
-| `TConnectionStatus`    | type      | WebSocket lifecycle status enum                                                                          |
+| Export                      | Kind      | Description                                                                                              |
+| --------------------------- | --------- | -------------------------------------------------------------------------------------------------------- |
+| `SessionMonitor`            | component | Self-contained monitor widget; accepts `wsUrl` prop for the CLI sidecar WebSocket                        |
+| `ConversationView`          | component | Pure conversation renderer; accepts messages, activeTools, streamingText, isThinking                     |
+| `AgentActivityPanel`        | component | Background-task monitor panel; accepts `tasks: readonly IExecutionWorkspaceEntry[]` (exported from root) |
+| `useWsSession`              | hook      | React hook managing WebSocket connection and reconstructing session state                                |
+| `useSessionClient`          | hook      | Core session hook parameterized by a client factory (WS or RTC); reconstructs state + prompt handling    |
+| `useRtcSession`             | hook      | REMOTE-009 Stage D: React hook for the WebRTC remote client (`{relayUrl,rendezvous,secret}`)             |
+| `RemoteClient`              | component | REMOTE-009 Stage D root: reads the pairing URL, pairs over WebRTC, renders the session + prompts         |
+| `PermissionPrompt`          | component | Renders the owner's pending permission/ask prompts + answer buttons (REMOTE-007 render+answer)           |
+| `createRtcSessionClient`    | function  | Browser WebRTC answerer + pairing responder + data-channel session client (REMOTE-009)                   |
+| `createRtcSignalingClient`  | function  | Browser `ISignalingClient` over the native `WebSocket` (REMOTE-009)                                      |
+| `parseRemoteClientLocation` | function  | Parse the Stage-D page URL: relay ← query, rendezvous + secret ← fragment (REMOTE-009)                   |
+| `IConversationMessage`      | type      | Reconstructed message shape for display                                                                  |
+| `TPendingPrompt`            | type      | A pending permission/ask prompt awaiting the owner's answer (REMOTE-007/009)                             |
+| `TSessionStatus`            | type      | Union of the WS + RTC connection statuses                                                                |
+| `IActiveTool`               | type      | Active tool call display state                                                                           |
+| `IWsSessionState`           | type      | Full hook return type including `executionWorkspace: IExecutionWorkspaceSnapshot \| null`                |
+| `TConnectionStatus`         | type      | WebSocket lifecycle status enum                                                                          |
 
 ## Extension Points
 
