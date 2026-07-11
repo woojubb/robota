@@ -1989,6 +1989,9 @@ importers:
       '@robota-sdk/agent-interface-transport':
         specifier: workspace:*
         version: link:../agent-interface-transport
+      '@robota-sdk/agent-remote-pairing':
+        specifier: workspace:*
+        version: link:../agent-remote-pairing
       '@robota-sdk/agent-transport-protocol':
         specifier: workspace:*
         version: link:../agent-transport-protocol

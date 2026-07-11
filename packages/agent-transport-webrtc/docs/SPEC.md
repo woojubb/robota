@@ -13,14 +13,22 @@ protocol is shared, not duplicated.
 - Does NOT own the session bridge or wire protocol — that is `@robota-sdk/agent-transport-protocol`
   (`createWsHandler`, `TClientMessage`/`TServerMessage`). This package only carries those frames over a data
   channel; it has **no** `webrtc → ws` package edge.
+- Owns the **pairing GATE** (REMOTE-008), not the pairing crypto — the directional-HMAC handshake +
+  DTLS-fingerprint channel binding is `@robota-sdk/agent-remote-pairing` (a zero-dep isomorphic leaf). The gate must
+  live here because only the transport can see the offer/answer DTLS fingerprints and the pre-session channel frames;
+  this is the sole reason for the `webrtc → agent-remote-pairing` edge (recorded in project-structure.md).
 - Does NOT own signaling — SDP/ICE rendezvous is an injected `ISignalingClient` port (a real server lives in
   `apps/remote-signaling`; tests use the in-memory pair). The transport never inspects signaling internals.
 - Does NOT bundle the WebRTC implementation. `werift` (pure-TS) is an **optional peer dependency** loaded lazily;
   its absence surfaces an explicit "WebRTC transport unavailable" throw at point-of-use — never a silent no-op or
   degraded path (no-fallback rule).
-- **Stage A carries no auth and no enable path.** `defaultEnabled` is `false`, the transport is NOT registered in
-  `agent-cli`, and there is no `/remote-control` command; it is exercised only by loopback tests. Pairing/auth
-  and the enable path land in Stage B.
+- **No enable path here.** `defaultEnabled` is `false`, the transport is NOT registered in `agent-cli`, and there is
+  no `/remote-control` command; the enable path (command + composition-root wiring + QR) is REMOTE-008 Steps 2-4.
+- **Pairing gate (REMOTE-008 Step 1) is opt-in via the `secret` option.** With a `secret`, the data channel is
+  phase-separated: pre-accept it carries only pairing frames (routed to the handshake; non-pairing frames DROPPED),
+  and only after the handshake accepts (channel-bound to the DTLS fingerprints) is the session bridge built —
+  fail closed on mismatch/timeout (channel closed, session never exposed). Without a `secret` (loopback/tests) the
+  channel is exposed immediately, unchanged.
 
 ## Architecture Overview
 
@@ -35,13 +43,21 @@ arrive before a subscription and the remote can send its first `TClientMessage` 
 Outbound `send` runs under try/catch (werift buffers sends while `connecting`; only a `closing`/`closed` channel
 throws). `stop()` tears down the handler, signal subscription, and peer.
 
+**Pairing gate (REMOTE-008, when `options.secret` is set).** The eager `onMessage` subscription becomes a ROUTING
+SWITCH into `PairingGate` (`src/pairing-gate.ts`) — never a deferred subscription. The local DTLS fingerprint is
+captured from the offer SDP; the remote fingerprint from the answer SDP in the signal branch, where the gate is then
+constructed (the channel cannot open until DTLS, i.e. post-answer, so no frame precedes the gate). Pre-accept the
+gate routes pairing frames to `startPairingHandshake` and DROPS everything else; on `result` accept it builds
+`createWsHandler` and switches routing to the session; on reject/timeout it closes the channel and exposes nothing.
+
 ## Type Ownership
 
-| Type                                 | Location                  | Purpose                                                           |
-| ------------------------------------ | ------------------------- | ----------------------------------------------------------------- |
-| `IWebRtcTransportOptions`            | `src/webrtc-transport.ts` | Construction options (injected signaling + optional ICE servers). |
-| `ISignalingClient`, `ISignalMessage` | `src/signaling.ts`        | Signaling port + opaque SDP/ICE message envelope.                 |
-| `IWeriftModule`, `TModuleResolver`   | `src/werift-loader.ts`    | Lazy-loaded werift surface + injectable resolver seam.            |
+| Type                                 | Location                  | Purpose                                                                                       |
+| ------------------------------------ | ------------------------- | --------------------------------------------------------------------------------------------- |
+| `IWebRtcTransportOptions`            | `src/webrtc-transport.ts` | Construction options (injected signaling, optional ICE servers, optional pairing `secret`).   |
+| `ISignalingClient`, `ISignalMessage` | `src/signaling.ts`        | Signaling port + opaque SDP/ICE message envelope.                                             |
+| `IWeriftModule`, `TModuleResolver`   | `src/werift-loader.ts`    | Lazy-loaded werift surface + injectable resolver seam.                                        |
+| `PairingGate`, `IPairingGateOptions` | `src/pairing-gate.ts`     | REMOTE-008 fail-closed routing switch (pairing frames → handshake; session only post-accept). |
 
 `TClientMessage`/`TServerMessage`/`IWsHandlerOptions` are re-consumed from `@robota-sdk/agent-transport-protocol`
 (their SSOT) — this package does not re-declare them.
@@ -87,12 +103,15 @@ throws). `stop()` tears down the handler, signal subscription, and peer.
 round-trips a `TClientMessage` (`get-messages`) → session → `TServerMessage` (`messages`) through the reused
 handler. `src/__tests__/werift-loader.test.ts`: TC-05 — `loadWerift` resolves the real module when installed and
 throws the explicit "unavailable" error (via an injected throwing resolver) when it cannot be resolved.
+`src/__tests__/pairing-gate.test.ts` (REMOTE-008 Step 1): the fail-closed routing switch with a stub channel +
+injected handshake/handler — session exposed ONLY post-accept, non-pairing frames dropped pre-accept, channel closed
+on reject, frames ignored post-close.
 
 ## Dependencies
 
 `@robota-sdk/agent-interface-transport` (contracts) + `@robota-sdk/agent-transport-protocol` (shared handler +
-protocol). `werift` is an **optional peer dependency** (lazy-loaded); it is a dev dependency here only to run the
-loopback tests.
+protocol) + `@robota-sdk/agent-remote-pairing` (REMOTE-008 pairing gate; zero-dep isomorphic leaf — no cycle).
+`werift` is an **optional peer dependency** (lazy-loaded); it is a dev dependency here only to run the loopback tests.
 
 ## Class Contract Registry
 
@@ -108,7 +127,8 @@ None.
 
 ### Cross-Package Port Consumers
 
-| Owner                                                | Consumer          | Location                  |
-| ---------------------------------------------------- | ----------------- | ------------------------- |
-| `agent-interface-transport` `IConfigurableTransport` | `WebRtcTransport` | `src/webrtc-transport.ts` |
-| `agent-transport-protocol` `createWsHandler`         | `WebRtcTransport` | `src/webrtc-transport.ts` |
+| Owner                                                                   | Consumer                         | Location                                         |
+| ----------------------------------------------------------------------- | -------------------------------- | ------------------------------------------------ |
+| `agent-interface-transport` `IConfigurableTransport`                    | `WebRtcTransport`                | `src/webrtc-transport.ts`                        |
+| `agent-transport-protocol` `createWsHandler`                            | `WebRtcTransport`, `PairingGate` | `src/webrtc-transport.ts`, `src/pairing-gate.ts` |
+| `agent-remote-pairing` `startPairingHandshake`/`extractDtlsFingerprint` | `PairingGate`, `WebRtcTransport` | `src/pairing-gate.ts`, `src/webrtc-transport.ts` |
