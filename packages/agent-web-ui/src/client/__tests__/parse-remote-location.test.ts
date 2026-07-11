@@ -39,4 +39,40 @@ describe('parseRemoteClientLocation (REMOTE-009)', () => {
   it('throws when the pairing fragment is missing', () => {
     expect(() => parseRemoteClientLocation('https://remote.example/?relay=wss://r')).toThrow();
   });
+
+  // ── REMOTE-010: ICE/TURN query params ──
+  const iceEnc = (s: unknown): string =>
+    btoa(JSON.stringify(s)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+  it('REMOTE-010: reads a validated `ice` param + forceTurn from the query, r+s still from the fragment', () => {
+    const servers = [{ urls: 'turn:turn.example:3478', username: 'u', credential: 'p' }];
+    const base = `https://remote.example/?relay=wss://r&ice=${iceEnc(servers)}&forceTurn=1`;
+    const link = toPairingUrl(base, { rendezvous: 'rv', secret: 'sec' });
+    const loc = parseRemoteClientLocation(link);
+    expect(loc.iceServers).toEqual(servers);
+    expect(loc.forceTurn).toBe(true);
+    expect(loc.secret).toBe('sec');
+  });
+
+  it('REMOTE-010: absent ice ⇒ no iceServers/forceTurn (unchanged behavior)', () => {
+    const loc = parseRemoteClientLocation('https://remote.example/?relay=wss://r#r=rv&s=sec');
+    expect(loc.iceServers).toBeUndefined();
+    expect(loc.forceTurn).toBeUndefined();
+  });
+
+  it('REMOTE-010: fail-closed on a malformed/bad-scheme `ice` param (attacker-influenced)', () => {
+    const bad = iceEnc([{ urls: 'http://evil.example' }]);
+    expect(() =>
+      parseRemoteClientLocation(`https://remote.example/?relay=wss://r&ice=${bad}#r=rv&s=sec`),
+    ).toThrow(/scheme/);
+  });
+
+  it('REMOTE-010: forceTurn without a TURN server fails closed', () => {
+    const stunOnly = iceEnc([{ urls: 'stun:stun.example:19302' }]);
+    expect(() =>
+      parseRemoteClientLocation(
+        `https://remote.example/?relay=wss://r&ice=${stunOnly}&forceTurn=1#r=rv&s=sec`,
+      ),
+    ).toThrow(/forceTurn.*requires.*TURN/i);
+  });
 });

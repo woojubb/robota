@@ -115,6 +115,27 @@ describe('createRtcSessionClient (REMOTE-009 Step 2)', () => {
     expect(statuses.at(-1)).toBe('disconnected');
   });
 
+  it('REMOTE-010: threads iceServers + forceTurn (iceTransportPolicy: relay) into the peer config', () => {
+    const iceServers = [{ urls: 'turn:turn.example:3478', username: 'u', credential: 'p' }];
+    let peerConfig: RTCConfiguration | undefined;
+    createRtcSessionClient(
+      {
+        relayUrl: 'wss://r',
+        rendezvous: 'rv',
+        secret: 's',
+        iceServers,
+        forceTurn: true,
+        createSignaling: () => ({ send: vi.fn(), onSignal: () => () => {}, close: vi.fn() }),
+        createPeer: (config) => {
+          peerConfig = config;
+          return makeFakePeer().peer as unknown as RTCPeerConnection;
+        },
+      },
+      { onMessage: vi.fn(), onStatusChange: vi.fn() },
+    ).connect();
+    expect(peerConfig).toEqual({ iceServers, iceTransportPolicy: 'relay' });
+  });
+
   it('a signaling error fails the client closed', () => {
     const statuses: TRtcConnectionStatus[] = [];
     let capturedOnError: (() => void) | undefined;

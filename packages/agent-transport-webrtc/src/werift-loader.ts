@@ -5,8 +5,11 @@ import type { RTCPeerConnection } from 'werift';
 /** The subset of the `werift` module surface this transport constructs. */
 export interface IWeriftModule {
   RTCPeerConnection: new (configuration?: {
-    iceServers?: { urls: string }[];
-    forceTurn?: boolean;
+    // REMOTE-010: werift's ICE gatherer consumes only a SINGLE-string `urls` (array urls / `turns:` are silently
+    // dropped by its `parseIceServers`); TURN servers carry username/credential. Relay-only comes from
+    // `iceTransportPolicy:'relay'` — werift IGNORES a top-level `forceTurn`, so this type must NOT declare it.
+    iceServers?: { urls: string; username?: string; credential?: string }[];
+    iceTransportPolicy?: 'all' | 'relay';
   }) => RTCPeerConnection;
 }
 

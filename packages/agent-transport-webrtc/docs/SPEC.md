@@ -70,6 +70,7 @@ lifecycle (REMOTE-008: status `paired`, and teardown of the peer/signaling on fa
 | ----------------------------- | -------- | -------------------------------------------------------------------------------- |
 | `WebRtcTransport`             | class    | `IConfigurableTransport` carrying a session over an `RTCDataChannel`.            |
 | `IWebRtcTransportOptions`     | type     | Construction options.                                                            |
+| `IIceServer`                  | type     | A STUN/TURN server (`urls` + optional `username`/`credential`; REMOTE-010).      |
 | `createInMemorySignalingPair` | function | In-process signaling pair for loopback/tests (no server).                        |
 | `WsSignalingClient`           | class    | Production `ISignalingClient` over a `ws` socket to the relay (REMOTE-004).      |
 | `IWsSignalingClientOptions`   | type     | `WsSignalingClient` options (url, rendezvous, onError, onReady, socket factory). |
@@ -84,6 +85,9 @@ lifecycle (REMOTE-008: status `paired`, and teardown of the peer/signaling on fa
 
 - **Signaling** is swappable via `ISignalingClient` — the in-memory pair, a WebSocket client to
   `apps/remote-signaling`, or any other rendezvous can be injected without touching the transport.
+- **REMOTE-010 TURN:** `IWebRtcTransportOptions.iceServers` is `readonly IIceServer[]` — TURN servers carry
+  `username`/`credential` (+ `urls` may be a string or array). The host reads + validates them from
+  `transports.webrtc.options.iceServers` at the `agent-cli` composition root; `forceTurn` requires a TURN server.
 - **ICE servers** (STUN/TURN) are supplied via `IWebRtcTransportOptions.iceServers`; omitted → host-candidate /
   loopback only.
 - **WebRTC implementation** is isolated behind `loadWerift`/`IWeriftModule`; switching to a native impl

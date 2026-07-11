@@ -9,17 +9,32 @@ import type { RTCDataChannel, RTCPeerConnection } from 'werift';
 import { loadWerift } from './werift-loader.js';
 import { PairingGate } from './pairing-gate.js';
 import type { ISignalingClient } from './signaling.js';
+import type { IWeriftModule } from './werift-loader.js';
+
+/**
+ * A single ICE (STUN/TURN) server for the HOST (werift) transport (REMOTE-010). `urls` is a SINGLE string with a
+ * `turn:`/`turns:`/`stun:`/`stuns:` scheme — werift's ICE gatherer (`parseIceServers`) consumes only a single-string
+ * url and silently drops array `urls`, so the host reader (`agent-cli` `parseIceServers`) must narrow to this shape
+ * and reject what werift would drop (fail-closed). (The browser peer uses the native DOM `RTCIceServer`, which does
+ * support array urls / `turns:` — a separate, wider validator.) Kept a plain interface (no DOM dependency here).
+ */
+export interface IIceServer {
+  readonly urls: string;
+  readonly username?: string;
+  readonly credential?: string;
+}
 
 /** Construction options for {@link WebRtcTransport}. The signaling client is injected (Stage A: no settings). */
 export interface IWebRtcTransportOptions {
   /** Signaling port used to exchange SDP/ICE with the remote peer by rendezvous id. */
   readonly signaling: ISignalingClient;
   /** Optional ICE servers (STUN/TURN). Omitted → host-candidate/loopback only. */
-  readonly iceServers?: readonly { urls: string }[];
+  readonly iceServers?: readonly IIceServer[];
   /**
-   * REMOTE-004 defense-in-depth: when true, restrict ICE to **relay (TURN) candidates only** (werift `forceTurn`),
-   * so host/server-reflexive candidates — and the local-interface gathering that touches the (unreachable, but
-   * belt-and-braces) `ip` code path — are never used. Requires a TURN server in `iceServers`.
+   * REMOTE-004 defense-in-depth: when true, restrict ICE to **relay (TURN) candidates only**, so
+   * host/server-reflexive candidates — and the local-interface gathering that touches the (unreachable, but
+   * belt-and-braces) `ip` code path — are never used. Requires a TURN server in `iceServers`. Mapped to werift's
+   * `iceTransportPolicy: 'relay'` (REMOTE-010) — werift IGNORES a top-level `forceTurn`, so it must NOT be passed.
    */
   readonly forceTurn?: boolean;
   /**
@@ -33,6 +48,8 @@ export interface IWebRtcTransportOptions {
   readonly onPaired?: () => void;
   /** REMOTE-008: fired when pairing rejects/times out (host lifecycle → teardown; the channel is already closed). */
   readonly onPairingFailed?: () => void;
+  /** Test seam: inject the werift module (defaults to the real lazy loader). */
+  readonly loadWerift?: () => IWeriftModule;
 }
 
 /**
@@ -70,10 +87,17 @@ export class WebRtcTransport implements IConfigurableTransport<IInteractiveSessi
     const session = this.session;
     if (!session) throw new Error('WebRtcTransport: attach() must be called before start()');
 
-    const { RTCPeerConnection } = loadWerift();
-    const peerConfig: { iceServers?: { urls: string }[]; forceTurn?: boolean } = {};
-    if (this.options.iceServers) peerConfig.iceServers = [...this.options.iceServers];
-    if (this.options.forceTurn) peerConfig.forceTurn = true;
+    const { RTCPeerConnection } = (this.options.loadWerift ?? loadWerift)();
+    const peerConfig: {
+      iceServers?: { urls: string; username?: string; credential?: string }[];
+      iceTransportPolicy?: 'all' | 'relay';
+    } = {};
+    if (this.options.iceServers)
+      peerConfig.iceServers = this.options.iceServers.map((s) => ({ ...s }));
+    // REMOTE-010: werift's ICE gatherer derives relay-only from `iceTransportPolicy === 'relay'` — it IGNORES a
+    // top-level `forceTurn`. Map `forceTurn` → `iceTransportPolicy:'relay'`, else the privacy control is a silent
+    // no-op and host/server-reflexive candidates still leak.
+    if (this.options.forceTurn) peerConfig.iceTransportPolicy = 'relay';
     const peer = new RTCPeerConnection(Object.keys(peerConfig).length > 0 ? peerConfig : undefined);
     this.peer = peer;
     const signaling = this.options.signaling;
