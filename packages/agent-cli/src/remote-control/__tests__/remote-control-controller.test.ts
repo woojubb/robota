@@ -25,6 +25,7 @@ function makeDeps(over: Partial<IRemoteControlControllerDeps> = {}): {
   };
   signaling: { close: ReturnType<typeof vi.fn> };
   hooks: { onPaired?: () => void; onPairingFailed?: () => void };
+  captured: { ice?: { iceServers?: unknown; forceTurn?: boolean } };
 } {
   const registered: IConfigurableTransport<IInteractiveSession>[] = [];
   const registry = {
@@ -42,6 +43,8 @@ function makeDeps(over: Partial<IRemoteControlControllerDeps> = {}): {
   // Capture the pairing lifecycle hooks the controller passes into the transport, so a test can simulate
   // the gate accepting / rejecting.
   const hooks: { onPaired?: () => void; onPairingFailed?: () => void } = {};
+  // Capture the ICE config the controller passes into the transport (REMOTE-010).
+  const captured: { ice?: { iceServers?: unknown; forceTurn?: boolean } } = {};
   const deps: IRemoteControlControllerDeps = {
     registry,
     readRelayUrl: () => 'ws://127.0.0.1:9999',
@@ -49,14 +52,15 @@ function makeDeps(over: Partial<IRemoteControlControllerDeps> = {}): {
     getSession: () => ({}) as IInteractiveSession,
     renderQr: () => Promise.resolve('[QR]'),
     createSignaling: () => signaling as unknown as ISignalingClient,
-    createTransport: (_s, _secret, h) => {
+    createTransport: (_s, _secret, h, ice) => {
       hooks.onPaired = h.onPaired;
       hooks.onPairingFailed = h.onPairingFailed;
+      captured.ice = ice;
       return transport as unknown as IConfigurableTransport<IInteractiveSession>;
     },
     ...over,
   };
-  return { deps, registered, transport, signaling, hooks };
+  return { deps, registered, transport, signaling, hooks, captured };
 }
 
 describe('RemoteControlController (REMOTE-008)', () => {
@@ -100,6 +104,43 @@ describe('RemoteControlController (REMOTE-008)', () => {
     expect(createTransport).not.toHaveBeenCalled();
     expect(registered).toHaveLength(0);
     expect(controller.getStatus()).toEqual({ state: 'off' }); // untouched (no new enum variant)
+  });
+
+  it('REMOTE-010: passes configured iceServers + forceTurn into the transport', async () => {
+    const iceServers = [{ urls: 'turn:turn.example:3478', username: 'u', credential: 'p' }];
+    const { deps, captured } = makeDeps({
+      readIceServers: () => iceServers,
+      readForceTurn: () => true,
+    });
+    await new RemoteControlController(deps).enable();
+    expect(captured.ice).toEqual({ iceServers, forceTurn: true });
+  });
+
+  it('REMOTE-010: forceTurn without a TURN server fails closed — constructs nothing', async () => {
+    const createTransport = vi.fn();
+    const { deps } = makeDeps({
+      readIceServers: () => [{ urls: 'stun:stun.example:19302' }], // STUN only, no TURN
+      readForceTurn: () => true,
+      createTransport,
+    });
+    const msg = await new RemoteControlController(deps).enable();
+    expect(msg).toMatch(/forceTurn.*requires.*TURN/i);
+    expect(createTransport).not.toHaveBeenCalled();
+  });
+
+  it('REMOTE-010: a malformed iceServers config fails closed (throwing reader surfaced, nothing constructed)', async () => {
+    const createTransport = vi.fn();
+    const { deps } = makeDeps({
+      readIceServers: () => {
+        throw new Error(
+          'Invalid ICE config: iceServers[0].urls "http://x" must use a stun:/turn: scheme.',
+        );
+      },
+      createTransport,
+    });
+    const msg = await new RemoteControlController(deps).enable();
+    expect(msg).toMatch(/Invalid ICE config/);
+    expect(createTransport).not.toHaveBeenCalled();
   });
 
   it('enable with no session yet → reports and constructs nothing', async () => {

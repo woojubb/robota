@@ -10,12 +10,22 @@ import { loadWerift } from './werift-loader.js';
 import { PairingGate } from './pairing-gate.js';
 import type { ISignalingClient } from './signaling.js';
 
+/**
+ * A single ICE (STUN/TURN) server. TURN servers carry `username`/`credential` (REMOTE-010). werift's peer config
+ * accepts this shape; kept as a plain interface (no DOM `RTCIceServer` dependency in this node package).
+ */
+export interface IIceServer {
+  readonly urls: string | readonly string[];
+  readonly username?: string;
+  readonly credential?: string;
+}
+
 /** Construction options for {@link WebRtcTransport}. The signaling client is injected (Stage A: no settings). */
 export interface IWebRtcTransportOptions {
   /** Signaling port used to exchange SDP/ICE with the remote peer by rendezvous id. */
   readonly signaling: ISignalingClient;
   /** Optional ICE servers (STUN/TURN). Omitted → host-candidate/loopback only. */
-  readonly iceServers?: readonly { urls: string }[];
+  readonly iceServers?: readonly IIceServer[];
   /**
    * REMOTE-004 defense-in-depth: when true, restrict ICE to **relay (TURN) candidates only** (werift `forceTurn`),
    * so host/server-reflexive candidates — and the local-interface gathering that touches the (unreachable, but
@@ -71,8 +81,12 @@ export class WebRtcTransport implements IConfigurableTransport<IInteractiveSessi
     if (!session) throw new Error('WebRtcTransport: attach() must be called before start()');
 
     const { RTCPeerConnection } = loadWerift();
-    const peerConfig: { iceServers?: { urls: string }[]; forceTurn?: boolean } = {};
-    if (this.options.iceServers) peerConfig.iceServers = [...this.options.iceServers];
+    const peerConfig: {
+      iceServers?: { urls: string | readonly string[]; username?: string; credential?: string }[];
+      forceTurn?: boolean;
+    } = {};
+    if (this.options.iceServers)
+      peerConfig.iceServers = this.options.iceServers.map((s) => ({ ...s }));
     if (this.options.forceTurn) peerConfig.forceTurn = true;
     const peer = new RTCPeerConnection(Object.keys(peerConfig).length > 0 ? peerConfig : undefined);
     this.peer = peer;

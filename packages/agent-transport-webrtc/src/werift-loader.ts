@@ -5,7 +5,8 @@ import type { RTCPeerConnection } from 'werift';
 /** The subset of the `werift` module surface this transport constructs. */
 export interface IWeriftModule {
   RTCPeerConnection: new (configuration?: {
-    iceServers?: { urls: string }[];
+    // REMOTE-010: TURN servers carry username/credential; werift's runtime accepts the standard RTCIceServer shape.
+    iceServers?: { urls: string | readonly string[]; username?: string; credential?: string }[];
     forceTurn?: boolean;
   }) => RTCPeerConnection;
 }
