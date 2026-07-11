@@ -235,3 +235,12 @@ None — resolved into D1–D4. (Backstop-timeout concrete value is an implement
   transport 45/45, tools 147/147, cli 166/166; harness:scan 49/49; full-repo `pnpm typecheck` 0; lint pass; changeset
   added. TC-07 (no-enable-path) grep-verified: no `/remote-control` command, `WebRtcTransport.defaultEnabled=false`,
   unregistered. Ready for merge-verifier feature→develop→main.
+- 2026-07-11 GATE-REVIEW (implementation) — independent proposal-reviewer **ENDORSE** of the diff. Verified every
+  parked-promise settlement path is total (emit-zero-listener, reconcile-on-detach, drain, backstop, normal resolve),
+  park-before-emit ordering correct, `settle` idempotent (delete-before-resolve, single `prompt_resolved`), kind-guard
+  - globally-unique ids sound, no shutdown order bug (drain precedes `listeners.clear()`; `session.abort/shutdown`
+    don't await the run loop so the drain is always reached), TUI self-answer/co-drive has no double-resolve hazard
+    (entry shifted before resolve; framework settle idempotent), WS disconnect mid-prompt fail-closes via
+    reconcile-on-detach, and the `createUserInteractionPort` model guard is intact. One non-blocking hardening applied:
+    a throwing surface handler during emit now settles the parked prompt fail-closed (registry `emitOrFailClosed`) instead
+    of rejecting the executor + leaking the entry (+regression test). PR #1102 (feature→develop).
