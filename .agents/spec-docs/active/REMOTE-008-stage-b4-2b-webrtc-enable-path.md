@@ -112,7 +112,11 @@ QR/link fragment, never sent to the relay).
 - [x] Step 3 — `/remote-control [enable|stop|status]` command module (trigger only; reads status via the adapter) +
       registered in default modules; TUI effect handler dispatches to injected `enableRemoteControl`/`stopRemoteControl`.
       7 command unit tests. **DONE (commit 343075970).**
-- [ ] Step 4 — agent-cli composition root (grounded, see round-2 GATE-BUILD evidence below). Construct `WsSignalingClient` + `WebRtcTransport`, register + **attach+start directly** (NOT `startAll` — `defaultEnabled:false`, and the registry
+- [x] Step 4 — agent-cli composition root **DONE** (commit 0da6db6f7): `RemoteControlController` + `createRemoteControlController`
+      (construct `WsSignalingClient` + pairing-gated `WebRtcTransport`, register + attach+start directly, relay/client URL
+      from `transports.webrtc.options`, QR via `qrcode` + `toPairingUrl` rendered through effect-deps `addEntry`, `getStatus`
+      over a shared holder, teardown); enable/stop threaded `IRenderOptions→App→useSideEffects`; webrtc+pairing devDeps +
+      qrcode+werift runtime; 8 controller tests. Superseded detail: + `WebRtcTransport`, register + **attach+start directly** (NOT `startAll` — `defaultEnabled:false`, and the registry
       has no start-one method), `generatePairingSecret`, read `settings.transports.webrtc.options.relayUrl` (absent →
       `{state:'no-relay'}`), QR/link render of `toPairingUrl` via the effect deps `addEntry` (Ink owns stdout after
       renderApp), `getStatus` impl over a SHARED MUTABLE HOLDER (the adapter is built in command-setup before the
@@ -121,9 +125,11 @@ QR/link fragment, never sent to the relay).
       `agent-remote-pairing` as agent-cli **devDependencies** (self-contained bundle convention) + a QR dep + `werift`
       runtime dep (or accept lazy-unavailable). Live channel/session reachable via `onChannelReady`/`setLiveChannel`
       (cli.ts:337).
-- [ ] Step 5 — end-to-end integration (real-relay two-peer pair → session message; REMOTE-007 permission-over-WebRTC
-      assertion; tampered-fp + wrong-secret fail-closed) + changeset.
-- [ ] Step 6 — verify: harness:scan + full typecheck + changeset.
+- [x] Step 5 — **DONE** (commit 44393bedd): paired E2E over real werift (matching → pair + session round-trip;
+      mismatched → fail closed, session never exposed); tampered-fp already REMOTE-005 TC-09; permission-over-WebRTC
+      transitive (paired channel reuses `createWsHandler`, forwarding tested in REMOTE-007) + enable-path changeset.
+- [x] Step 6 — **DONE**: harness:scan 49/49 + full-repo `pnpm typecheck` 0 + changesets present. Ready for
+      merge-verifier feature→develop→main.
 
 ## Affected Files
 
