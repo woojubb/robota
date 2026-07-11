@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: INFRA
 tags: [remote-control, transport, permissions, interaction]
 parent: REMOTE-001
@@ -244,3 +244,7 @@ None — resolved into D1–D4. (Backstop-timeout concrete value is an implement
     reconcile-on-detach, and the `createUserInteractionPort` model guard is intact. One non-blocking hardening applied:
     a throwing surface handler during emit now settles the parked prompt fail-closed (registry `emitOrFailClosed`) instead
     of rejecting the executor + leaking the entry (+regression test). PR #1102 (feature→develop).
+- 2026-07-11 GATE-COMPLETE — merged to main via PR #1102 (feature→develop) → PR #1103 (develop→main), both
+  merge-verifier PASS (REMOTE-007-only, no lessons drift, CI green; release-grade passed on rerun after a confirmed
+  unrelated flaky teardown race). Spec moved active→done, status done. REMOTE-008 (B4-2b, the WebRTC enable path) may
+  now consume this transport-neutral permission/ask layer.
