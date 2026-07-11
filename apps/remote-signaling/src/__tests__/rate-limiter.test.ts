@@ -33,4 +33,18 @@ describe('TokenBucketLimiter (REMOTE-004 B2)', () => {
     expect(limiter.tryConsume('a')).toBe(false);
     expect(limiter.tryConsume('b')).toBe(true); // separate bucket
   });
+
+  it('TC-06: evict(key) drops a key bucket (memory bound); an absent key is a no-op', () => {
+    const clock = mutableClock(0);
+    const limiter = new TokenBucketLimiter({ burst: 1, refillPerMs: 0 }, clock);
+    limiter.tryConsume('a');
+    limiter.tryConsume('b');
+    expect(limiter.size).toBe(2);
+    limiter.evict('a');
+    expect(limiter.size).toBe(1);
+    limiter.evict('missing'); // no-op, no throw
+    expect(limiter.size).toBe(1);
+    // Evicting resets the key: a fresh consume gets a full burst again.
+    expect(limiter.tryConsume('a')).toBe(true);
+  });
 });
