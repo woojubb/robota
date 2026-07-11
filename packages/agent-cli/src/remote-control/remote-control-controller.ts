@@ -1,9 +1,19 @@
-import { generatePairingSecret, toPairingUrl } from '@robota-sdk/agent-remote-pairing';
+import {
+  generatePairingSecret,
+  importPublicKey,
+  toPairingUrl,
+} from '@robota-sdk/agent-remote-pairing';
 import { WsSignalingClient, WebRtcTransport } from '@robota-sdk/agent-transport-webrtc';
 
 import { hasTurnServer } from './ice-config.js';
 
-import type { IIceServer, ISignalingClient } from '@robota-sdk/agent-transport-webrtc';
+import type { IHostIdentity } from './host-identity.js';
+import type { ITrustedDeviceRecord, ITrustedDeviceStore } from './trusted-device-store.js';
+import type {
+  IHostReconnectConfig,
+  IIceServer,
+  ISignalingClient,
+} from '@robota-sdk/agent-transport-webrtc';
 import type { TransportRegistry } from '@robota-sdk/agent-transport';
 import type { TRemoteControlStatus } from '@robota-sdk/agent-framework';
 import type {
@@ -43,6 +53,10 @@ export interface IRemoteControlControllerDeps {
   renderQr: (text: string) => Promise<string>;
   /** Surface an async failure (e.g. a `werift`-absent `start()` failure) to the operator. */
   reportError?: (message: string) => void;
+  /** REMOTE-012 E3: the host trusted-device store (device public keys). Absent → first-pair only, no TOFU reconnect. */
+  trustedDeviceStore?: ITrustedDeviceStore;
+  /** REMOTE-012 E3: load-or-create the host identity keypair (async). Absent → first-pair only, no TOFU reconnect. */
+  loadHostIdentity?: () => Promise<IHostIdentity>;
   /** Construction seams (default to the real implementations; overridden in unit tests). */
   createSignaling?: (url: string, rendezvous: string) => ISignalingClient;
   createTransport?: (
@@ -50,6 +64,7 @@ export interface IRemoteControlControllerDeps {
     secret: string,
     hooks: { onPaired: () => void; onPairingFailed: () => void },
     ice: { iceServers?: readonly IIceServer[]; forceTurn?: boolean },
+    reconnect?: IHostReconnectConfig,
   ) => IConfigurableTransport<IInteractiveSession>;
 }
 
@@ -108,6 +123,21 @@ export class RemoteControlController {
       );
     }
 
+    // REMOTE-012 E3: when a trusted-device store + host identity are configured, build the reconnect config so
+    // the gate admits a pinned device without re-pairing (and enrolls new devices on first pair). A malformed
+    // host-identity file throws → fail closed with the error (don't start with a broken trust anchor).
+    let reconnect: IHostReconnectConfig | undefined;
+    if (this.deps.trustedDeviceStore && this.deps.loadHostIdentity) {
+      try {
+        reconnect = await this.buildReconnectConfig(
+          this.deps.trustedDeviceStore,
+          this.deps.loadHostIdentity,
+        );
+      } catch (error) {
+        return `Remote control: ${error instanceof Error ? error.message : String(error)}`;
+      }
+    }
+
     const pairing = generatePairingSecret();
     const signaling = (this.deps.createSignaling ?? defaultCreateSignaling)(
       relayUrl,
@@ -128,6 +158,7 @@ export class RemoteControlController {
         },
       },
       { ...(iceServers ? { iceServers } : {}), forceTurn },
+      reconnect,
     );
 
     this.deps.registry.register(transport);
@@ -146,6 +177,48 @@ export class RemoteControlController {
     const pairingUrl = toPairingUrl(clientUrl, pairing);
     this.status = { state: 'awaiting-pairing', pairingUrl };
     return this.renderPairingMessage(pairingUrl);
+  }
+
+  /**
+   * REMOTE-012 E3: build the gate's reconnect/enrollment config from the host identity + trusted-device store.
+   * `resolveDevicePublicKey` imports a pinned SPKI (unknown/revoked → undefined → fail closed); `onEnroll`
+   * pins a device's public key on first pair (preserving `createdAt`/`label` on a re-enroll, bumping `lastSeenAt`).
+   */
+  private async buildReconnectConfig(
+    store: ITrustedDeviceStore,
+    loadHostIdentity: () => Promise<IHostIdentity>,
+  ): Promise<IHostReconnectConfig> {
+    const identity = await loadHostIdentity();
+    return {
+      hostIdentityId: identity.hostIdentityId,
+      hostPublicSpki: identity.publicKeySpki,
+      hostPrivateKey: identity.keyPair.privateKey,
+      resolveDevicePublicKey: async (deviceId) => {
+        const record = store.get(deviceId);
+        return record ? importPublicKey(record.publicKey) : undefined;
+      },
+      onEnroll: (deviceId, deviceSpki) => {
+        const now = new Date().toISOString();
+        const existing = store.get(deviceId);
+        store.upsert({
+          deviceId,
+          publicKey: deviceSpki,
+          label: existing?.label ?? 'remote device',
+          createdAt: existing?.createdAt ?? now,
+          lastSeenAt: now,
+        });
+      },
+    };
+  }
+
+  /** REMOTE-012 E3: list enrolled trusted devices (public data only). Empty when no store is configured. */
+  listDevices(): ITrustedDeviceRecord[] {
+    return this.deps.trustedDeviceStore?.list() ?? [];
+  }
+
+  /** REMOTE-012 E3: revoke a trusted device by id; it must re-pair. Returns false when unknown / no store. */
+  revokeDevice(deviceId: string): boolean {
+    return this.deps.trustedDeviceStore?.revoke(deviceId) ?? false;
   }
 
   /** Stop remote control and tear down the transport + signaling. */
@@ -199,6 +272,7 @@ function defaultCreateTransport(
   secret: string,
   hooks: { onPaired: () => void; onPairingFailed: () => void },
   ice: { iceServers?: readonly IIceServer[]; forceTurn?: boolean },
+  reconnect?: IHostReconnectConfig,
 ): IConfigurableTransport<IInteractiveSession> {
   return new WebRtcTransport({
     signaling,
@@ -207,5 +281,6 @@ function defaultCreateTransport(
     onPairingFailed: hooks.onPairingFailed,
     ...(ice.iceServers ? { iceServers: ice.iceServers } : {}),
     ...(ice.forceTurn ? { forceTurn: ice.forceTurn } : {}),
+    ...(reconnect ? { reconnect } : {}),
   });
 }

@@ -3,7 +3,7 @@
  * reconstructs conversation state from TServerMessage events.
  */
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 
 import {
   applyPromptEvent,
@@ -11,6 +11,7 @@ import {
   permissionResponse,
   type TPendingPrompt,
 } from './prompt-state.js';
+import { createDeviceCredentialStore } from '../client/device-credential-store.js';
 import {
   createRtcSessionClient,
   type IRtcSessionClientOptions,
@@ -229,6 +230,8 @@ export function useRtcSession(
   >,
 ): IWsSessionState {
   const { relayUrl, rendezvous, secret, iceServers, forceTurn } = options;
+  // REMOTE-012 E3: a stable per-session credential store (IndexedDB) so first-pair enrolls this device.
+  const deviceCredentials = useMemo(() => createDeviceCredentialStore(), []);
   const makeClient = useCallback<TMakeSessionClient>(
     (cb) =>
       createRtcSessionClient(
@@ -238,10 +241,11 @@ export function useRtcSession(
           secret,
           ...(iceServers ? { iceServers } : {}),
           ...(forceTurn ? { forceTurn } : {}),
+          deviceCredentials,
         },
         cb,
       ),
-    [relayUrl, rendezvous, secret, iceServers, forceTurn],
+    [relayUrl, rendezvous, secret, iceServers, forceTurn, deviceCredentials],
   );
   return useSessionClient(makeClient);
 }
