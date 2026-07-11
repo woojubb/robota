@@ -22,6 +22,13 @@ the isomorphic zero-dep `@robota-sdk/agent-remote-pairing` leaf and takes **no**
 `permission_request`/`ask_request`/`prompt_resolved`, `PermissionPrompt` component) serves BOTH the WS and
 RTC clients — the paired owner answers its OWN prompts (local == remote).
 
+**REMOTE-010 TURN fallback.** `parseRemoteClientLocation` also reads an optional `ice` query param (a base64url
+JSON `RTCIceServer[]`, decoded + validated by a browser-local fail-closed decoder — the param is
+attacker-influenceable) and a `forceTurn` flag, threaded through `RemoteClient` → `useRtcSession` →
+`createRtcSessionClient` (`forceTurn` → `iceTransportPolicy: 'relay'`; requires a TURN server, else fail-closed).
+Like `relay=`, the `ice` config rides the query (reaches the page host / QR / history — NOT the fragment-protected
+secret, NOT the relay).
+
 This package sits in the **Product shells** layer. It is a pure browser UI library — it does not
 own session lifecycle, conversation history, or agent runtime state.
 

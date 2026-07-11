@@ -66,6 +66,42 @@ describe('WebRtcTransport (REMOTE-002 Stage A — loopback)', () => {
     await expect(t.start()).rejects.toThrow(/attach\(\) must be called/);
   });
 
+  it('REMOTE-010: forceTurn → iceTransportPolicy:relay (NOT top-level forceTurn, which werift ignores) + turn: passes through', async () => {
+    // Inject a fake werift to capture the config the transport builds (a real relay-only peer + dead TURN would
+    // block ICE gathering). The mapping is proven against real werift empirically; this guards the regression:
+    // forceTurn MUST become iceTransportPolicy:'relay', never a top-level forceTurn werift silently drops.
+    let captured: Record<string, unknown> | undefined;
+    const fakeWerift = {
+      RTCPeerConnection: function (config?: Record<string, unknown>) {
+        captured = config;
+        return {
+          onIceCandidate: { subscribe: () => {} },
+          createDataChannel: () => ({ onMessage: { subscribe: () => {} }, send: () => {} }),
+          createOffer: async () => ({ type: 'offer', sdp: 'a=fingerprint:sha-256 AA' }),
+          setLocalDescription: async () => {},
+          localDescription: { sdp: 'a=fingerprint:sha-256 AA' },
+          close: async () => {},
+        };
+      },
+    } as unknown as import('../werift-loader.js').IWeriftModule;
+
+    const [sig] = createInMemorySignalingPair();
+    const t = new WebRtcTransport({
+      signaling: sig,
+      iceServers: [{ urls: 'turn:relay.example:3478', username: 'u', credential: 'c' }],
+      forceTurn: true,
+      loadWerift: () => fakeWerift,
+    });
+    t.attach(createStubSession());
+    await t.start();
+    expect(captured).toEqual({
+      iceServers: [{ urls: 'turn:relay.example:3478', username: 'u', credential: 'c' }],
+      iceTransportPolicy: 'relay',
+    });
+    expect(captured).not.toHaveProperty('forceTurn'); // werift ignores it → must not be emitted
+    await t.stop();
+  });
+
   it('TC-03: establishes an RTCDataChannel between two peers and round-trips TClient→session→TServer through the shared handler', async () => {
     const [hostSig, remoteSig] = createInMemorySignalingPair();
     const session = createStubSession();

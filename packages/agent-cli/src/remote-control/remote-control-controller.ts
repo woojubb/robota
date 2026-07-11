@@ -1,7 +1,9 @@
 import { generatePairingSecret, toPairingUrl } from '@robota-sdk/agent-remote-pairing';
 import { WsSignalingClient, WebRtcTransport } from '@robota-sdk/agent-transport-webrtc';
 
-import type { ISignalingClient } from '@robota-sdk/agent-transport-webrtc';
+import { hasTurnServer } from './ice-config.js';
+
+import type { IIceServer, ISignalingClient } from '@robota-sdk/agent-transport-webrtc';
 import type { TransportRegistry } from '@robota-sdk/agent-transport';
 import type { TRemoteControlStatus } from '@robota-sdk/agent-framework';
 import type {
@@ -30,6 +32,11 @@ export interface IRemoteControlControllerDeps {
   readRelayUrl: () => string | undefined;
   /** Client base URL for the pairing link (`transports.webrtc.options.clientUrl`); unset ⇒ enable fails closed (REMOTE-009 D5). */
   readClientUrl: () => string | undefined;
+  /** REMOTE-010: validated user-supplied ICE (STUN/TURN) servers (`transports.webrtc.options.iceServers`), or
+   *  undefined when absent. THROWS on a malformed config (fail-closed) — surfaced as an enable error. */
+  readIceServers?: () => readonly IIceServer[] | undefined;
+  /** REMOTE-010: `transports.webrtc.options.forceTurn` — restrict ICE to relay candidates (requires a TURN server). */
+  readForceTurn?: () => boolean;
   /** The live interactive session to expose on pairing accept, or undefined before one is ready. */
   getSession: () => IInteractiveSession | undefined;
   /** Render a scannable QR for the given text (async). */
@@ -42,6 +49,7 @@ export interface IRemoteControlControllerDeps {
     signaling: ISignalingClient,
     secret: string,
     hooks: { onPaired: () => void; onPairingFailed: () => void },
+    ice: { iceServers?: readonly IIceServer[]; forceTurn?: boolean },
   ) => IConfigurableTransport<IInteractiveSession>;
 }
 
@@ -83,6 +91,23 @@ export class RemoteControlController {
       );
     }
 
+    // REMOTE-010: user-supplied TURN/STUN. `readIceServers` throws on a malformed config → fail closed with the
+    // error (don't construct/start). `forceTurn` requires a TURN server, else ICE yields zero candidates (silent
+    // never-connect) — surface that as a config error too.
+    let iceServers: readonly IIceServer[] | undefined;
+    try {
+      iceServers = this.deps.readIceServers?.();
+    } catch (error) {
+      return `Remote control: ${error instanceof Error ? error.message : String(error)}`;
+    }
+    const forceTurn = this.deps.readForceTurn?.() ?? false;
+    if (forceTurn && !hasTurnServer(iceServers)) {
+      return (
+        'Remote control: `transports.webrtc.options.forceTurn` requires at least one TURN server in ' +
+        '`iceServers` (a turn:/turns: url) — otherwise ICE gathers no candidates and never connects.'
+      );
+    }
+
     const pairing = generatePairingSecret();
     const signaling = (this.deps.createSignaling ?? defaultCreateSignaling)(
       relayUrl,
@@ -102,6 +127,7 @@ export class RemoteControlController {
           if (this.transport === transport) void this.teardown('off');
         },
       },
+      { ...(iceServers ? { iceServers } : {}), forceTurn },
     );
 
     this.deps.registry.register(transport);
@@ -172,11 +198,14 @@ function defaultCreateTransport(
   signaling: ISignalingClient,
   secret: string,
   hooks: { onPaired: () => void; onPairingFailed: () => void },
+  ice: { iceServers?: readonly IIceServer[]; forceTurn?: boolean },
 ): IConfigurableTransport<IInteractiveSession> {
   return new WebRtcTransport({
     signaling,
     secret,
     onPaired: hooks.onPaired,
     onPairingFailed: hooks.onPairingFailed,
+    ...(ice.iceServers ? { iceServers: ice.iceServers } : {}),
+    ...(ice.forceTurn ? { forceTurn: ice.forceTurn } : {}),
   });
 }

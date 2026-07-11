@@ -45,8 +45,10 @@ export interface IRtcSessionClientOptions {
   /** Rendezvous id + high-entropy secret from the pairing URL fragment. */
   readonly rendezvous: string;
   readonly secret: string;
-  /** Optional ICE servers (STUN/TURN) — Stage E supplies TURN; omitted → host candidates only. */
+  /** Optional ICE servers (STUN/TURN) — REMOTE-010 supplies TURN; omitted → host candidates only. */
   readonly iceServers?: RTCIceServer[];
+  /** REMOTE-010: restrict ICE to relay candidates (`iceTransportPolicy: 'relay'`); requires a TURN server. */
+  readonly forceTurn?: boolean;
   /** Injection seams (default to the real implementations) — for tests. */
   readonly createSignaling?: typeof createRtcSignalingClient;
   readonly createPeer?: (config?: RTCConfiguration) => RTCPeerConnection;
@@ -119,7 +121,10 @@ export function createRtcSessionClient(
       if (peer) return; // already connecting
       setStatus('connecting');
       const createPeer = options.createPeer ?? ((c) => new RTCPeerConnection(c));
-      peer = createPeer(options.iceServers ? { iceServers: options.iceServers } : undefined);
+      const peerConfig: RTCConfiguration = {};
+      if (options.iceServers) peerConfig.iceServers = options.iceServers;
+      if (options.forceTurn) peerConfig.iceTransportPolicy = 'relay'; // browser equivalent of werift forceTurn
+      peer = createPeer(Object.keys(peerConfig).length > 0 ? peerConfig : undefined);
       peer.onicecandidate = (event): void => {
         if (event.candidate) signaling?.send({ kind: 'ice', data: event.candidate.toJSON() });
       };
