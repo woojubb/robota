@@ -9,6 +9,7 @@ export type {
   ICommandPickerAdapter,
   ICommandPluginAdapter,
   ICommandProcessAdapter,
+  ICommandRemoteControlAdapter,
   ICommandResult,
   ICommandSessionReplayValidationReport,
   ICommandSessionRuntime,
@@ -25,6 +26,7 @@ export type {
   TCommandEffect,
   TCommandModuleSessionRequirement,
   TCommandResultDataValue,
+  TRemoteControlStatus,
   TSystemCommandLifecycle,
 } from '../command-api/index.js';
 export { CommandRegistry } from './command-registry.js';

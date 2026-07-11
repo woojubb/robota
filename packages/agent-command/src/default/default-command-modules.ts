@@ -15,6 +15,7 @@ import { createPermissionsCommandModule } from '../permissions/index.js';
 import { createPluginCommandModule } from '../plugin/index.js';
 import { createPresetCommandModule } from '../preset/index.js';
 import { createProviderCommandModule } from '../provider/index.js';
+import { createRemoteControlCommandModule } from '../remote-control/index.js';
 import { createResetCommandModule } from '../reset/index.js';
 import { createRewindCommandModule } from '../rewind/index.js';
 import { createScheduleCommandModule } from '../schedule/index.js';
@@ -107,6 +108,7 @@ export function createDefaultCommandModules({
     createStatusLineCommandModule(),
     createPluginCommandModule(),
     createSettingsCommandModule(),
+    createRemoteControlCommandModule(),
     createProviderCommandModule({
       providerDefinitions,
       settings: providerSettingsAdapter,
