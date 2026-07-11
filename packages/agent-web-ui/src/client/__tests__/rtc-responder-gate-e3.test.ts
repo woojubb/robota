@@ -83,7 +83,7 @@ describe('ResponderGate E3 first-pair enrollment (REMOTE-012)', () => {
     gate.onInbound(JSON.stringify({ t: 'enroll-key', spki: hostSpki }));
 
     await vi.waitFor(() => expect(onAccept).toHaveBeenCalledTimes(1));
-    expect(identity.onEnrollHost).toHaveBeenCalledWith(hostSpki);
+    expect(identity.onEnrollHost).toHaveBeenCalledWith(hostSpki, expect.anything()); // (hostSpki, sessionKey)
     expect(sent.some((f) => (f as { t?: string }).t === 'enroll-key')).toBe(true);
   });
 });

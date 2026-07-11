@@ -19,6 +19,7 @@ import {
   importPublicKey,
   startDeviceReconnect,
   startPairingHandshake,
+  type IPairingResult,
   type TPairingFrame,
   type TReconnectFrame,
 } from '@robota-sdk/agent-remote-pairing';
@@ -38,8 +39,8 @@ export interface IDeviceIdentityConfig {
   readonly deviceId: string;
   /** base64url device public SPKI — advertised to the host at first-pair enrollment. */
   readonly devicePublicSpki: string;
-  /** First-pair: pin the host's advertised public key (persist the credential). */
-  readonly onEnrollHost: (hostPublicSpki: string) => void;
+  /** First-pair: pin the host's advertised public key + the pairing `sessionKey` (persist the credential + E4 reconnect seed). */
+  readonly onEnrollHost: (hostPublicSpki: string, sessionKey?: string) => void;
   /** Reconnect (client-initiated) config — present only when a credential for this host already exists. */
   readonly reconnect?: {
     readonly hostIdentityId: string;
@@ -92,6 +93,8 @@ export class ResponderGate {
   private state: TGateState = 'pairing';
   private pairingController?: ReturnType<typeof startPairingHandshake>;
   private reconnectController?: ReturnType<typeof startDeviceReconnect>;
+  /** REMOTE-013 E4: the first-pair result, held so its `sessionKey` seeds the reconnect credential on enroll. */
+  private pendingResult?: IPairingResult;
 
   constructor(private readonly options: IResponderGateOptions) {
     if (options.deviceIdentity?.reconnect) {
@@ -154,7 +157,7 @@ export class ResponderGate {
       ...(this.options.timeoutMs !== undefined ? { timeoutMs: this.options.timeoutMs } : {}),
     });
     this.pairingController.result.then(
-      () => this.onFirstPairAccepted(),
+      (result) => this.onFirstPairAccepted(result),
       () => this.rejectAndClose(),
     );
   }
@@ -181,8 +184,9 @@ export class ResponderGate {
   }
 
   /** B3 handshake accepted. Without E3: expose. With E3: wait for the host's enroll-key, pin it, reply, expose. */
-  private onFirstPairAccepted(): void {
+  private onFirstPairAccepted(result: IPairingResult): void {
     if (this.state !== 'pairing') return;
+    this.pendingResult = result; // its sessionKey seeds the E4 reconnect credential
     if (!this.options.deviceIdentity) {
       this.accept();
       return;
@@ -203,7 +207,7 @@ export class ResponderGate {
         // Validate the host SPKI parses as a public key before pinning (fail closed on garbage).
         await importPublicKey(hostSpki);
         if (this.state !== 'enrolling') return;
-        identity.onEnrollHost(hostSpki);
+        identity.onEnrollHost(hostSpki, this.pendingResult?.sessionKey);
         this.safeSend(JSON.stringify({ t: 'enroll-key', spki: identity.devicePublicSpki }));
         this.accept();
       } catch {
