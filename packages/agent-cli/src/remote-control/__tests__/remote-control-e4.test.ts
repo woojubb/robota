@@ -33,6 +33,15 @@ interface ICreatedTransport {
   transport: IConfigurableTransport<IInteractiveSession>;
 }
 
+/** Deterministically wait until the async reconnect-seed persist has landed (WebCrypto HKDF is not sync). */
+async function waitForSeed(store: ITrustedDeviceStore, deviceId: string): Promise<void> {
+  for (let i = 0; i < 100; i += 1) {
+    if (store.get(deviceId)?.reconnectSeed) return;
+    await new Promise((r) => setTimeout(r, 5));
+  }
+  throw new Error('reconnect seed was never persisted');
+}
+
 function memoryStore(): ITrustedDeviceStore {
   const map = new Map<string, ITrustedDeviceRecord>();
   return {
@@ -123,7 +132,7 @@ describe('RemoteControlController E4 reconnect (REMOTE-013)', () => {
     reconnectCfg.onEnroll('dev-1', 'dev-spki');
     const sessionKey = generatePairingSecret().secret;
     created[0].hooks.onPaired({ sessionKey });
-    await new Promise((r) => setTimeout(r, 0)); // let the async seed persist settle
+    await waitForSeed(store, 'dev-1'); // let the async seed persist settle
 
     const seed = await deriveReconnectSeed(sessionKey);
     const record = store.get('dev-1');
@@ -149,7 +158,7 @@ describe('RemoteControlController E4 reconnect (REMOTE-013)', () => {
     );
     const sessionKey = generatePairingSecret().secret;
     created[0].hooks.onPaired({ sessionKey });
-    await new Promise((r) => setTimeout(r, 0));
+    await waitForSeed(store, 'dev-1');
 
     created[0].hooks.onDropped?.();
     await new Promise((r) => setTimeout(r, 25));
@@ -174,7 +183,7 @@ describe('RemoteControlController E4 reconnect (REMOTE-013)', () => {
       'spki',
     );
     created[0].hooks.onPaired({ sessionKey: generatePairingSecret().secret });
-    await new Promise((r) => setTimeout(r, 0));
+    await waitForSeed(store, 'dev-1');
     created[0].hooks.onDropped?.();
     await new Promise((r) => setTimeout(r, 25));
 
