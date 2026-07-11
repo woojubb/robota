@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: SECURITY
 tags: [auth, websocket, typescript]
 ---
