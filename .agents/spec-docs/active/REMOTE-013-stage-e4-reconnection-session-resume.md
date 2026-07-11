@@ -188,30 +188,30 @@ peer cannot exhaust host memory; the host ceiling frees everything after a bound
 
 ## Completion Criteria
 
-- [ ] TC-01: `ResumeBuffer` — `append` returns a monotonic seq; `ackThrough(seq)` drops ≤ seq; `tailAfter(lastSeq)`
+- [x] TC-01: `ResumeBuffer` — `append` returns a monotonic seq; `ackThrough(seq)` drops ≤ seq; `tailAfter(lastSeq)`
       returns the frames after `lastSeq` in order; when `lastSeq` predates the oldest retained frame it returns a
       `buffer-overrun` marker (never a silent gap); the buffer never exceeds its frame/byte bound (drop-oldest).
-- [ ] TC-02: `SessionResumeBridge` stamps a monotonic `seq` continuous ACROSS a detach/attach (channel drop);
+- [x] TC-02: `SessionResumeBridge` stamps a monotonic `seq` continuous ACROSS a detach/attach (channel drop);
       output emitted while DETACHED is buffered (gap capture) and replayed on the next `resume{lastSeq}` — proving
       seq does NOT reset per channel (the Issue-A regression guard). `ack{seq}` frees buffer ≤ seq. The WS path
       (`createWsHandler`, no bridge) is byte-for-byte unchanged (regression) and a `type`-dispatching client
       ignores an additive `seq`.
-- [ ] TC-03: `deriveReconnectSeed(sessionKey)` + `deriveReconnectRendezvous(seed, counter)` are deterministic +
+- [x] TC-03: `deriveReconnectSeed(sessionKey)` + `deriveReconnectRendezvous(seed, counter)` are deterministic +
       isomorphic (host == browser for the same inputs), differ per counter and per seed, and are base64url; a
       DIFFERENT `sessionKey` (per-device) yields a disjoint room space (revoked-device-cannot-squat property).
-- [ ] TC-04: Host transport — on a paired channel drop the session is NOT torn down; output during the gap is
+- [x] TC-04: Host transport — on a paired channel drop the session is NOT torn down; output during the gap is
       buffered; a NEW data channel that passes the E3 host reconnect resumes and receives the replayed tail after
       its `lastSeq`; the counter advances only on confirmed accept; the reconnect-window ceiling disposes the
       bridge + tears down after the idle bound.
-- [ ] TC-05: Client — on drop with a stored E3 credential, the auto-reconnect loop computes
+- [x] TC-05: Client — on drop with a stored E3 credential, the auto-reconnect loop computes
       `deriveReconnectRendezvous(seed, counter)` (probing counter/counter+1), reconnects via the E3 device
       reconnect (host verified), sends `resume{lastSeq}`, applies replayed frames idempotently (dedup by seq), and
       advances the counter to **used-room-counter + 1 (resync-on-success)** on confirmed accept; a partial
       reconnect (final `rc-device` lost → device ahead by 1) re-meets at `counter+1`; backoff is bounded and
       surfaces `failed` after the ceiling.
-- [ ] TC-06: Exactly-once across a gap — output produced while the channel is down is delivered exactly once
+- [x] TC-06: Exactly-once across a gap — output produced while the channel is down is delivered exactly once
       after resume (no dup, no loss); a `buffer-overrun` triggers a `get-messages` refresh instead of a silent gap.
-- [ ] TC-07: `pnpm harness:scan` + `pnpm typecheck` + affected package tests green; the WS localhost path is
+- [x] TC-07: `pnpm harness:scan` + `pnpm typecheck` + affected package tests green; the WS localhost path is
       unchanged (no seq/buffer/bridge constructed for it).
 
 ## Test Plan
@@ -228,6 +228,29 @@ peer cannot exhaust host memory; the host ceiling frees everything after a bound
 
 ## Tasks
 
-- [ ] `.agents/tasks/REMOTE-013.md` — 미생성 (GATE-APPROVAL 통과 후 생성)
+- [x] `.agents/tasks/REMOTE-013.md` — created at GATE-APPROVAL.
 
 ## Evidence Log
+
+- **GATE-APPROVAL:** proposal-reviewer ENDORSE (2 rounds). Round 1 REVISE fixed all three: (A) the seq+buffer
+  moved OUT of the per-channel handler into a persistent `SessionResumeBridge` (seq continuous across a
+  reconnect; gap output captured while detached); (B) the wall-clock epoch rendezvous replaced by a per-device
+  `reconnectSeed = HKDF(sessionKey)` + persisted counter (no skew, works cold, closes the revoked-device
+  squatting DoS); (C) a host reconnect-window ceiling. Binding note applied: counter advance is
+  **resync-on-success** (used-room + 1) with a `{counter, counter+1}` host window + client probe.
+- **Implementation (foundation-first):** `agent-transport-protocol` — `resume-buffer.ts` (bounded ring +
+  overrun), `session-resume-bridge.ts` (persistent seq/buffer above the channel; split `createWsHandler`),
+  `resume`/`ack`/`resume_gap` + `TSeqServerMessage`. `agent-remote-pairing` — `reconnect-rendezvous.ts`
+  (`deriveReconnectSeed`/`deriveReconnectRendezvous`). `agent-transport-webrtc` — gate `resumeBridge`
+  attach/detach + transport `onDropped` drop watcher. `agent-cli` — controller reconnect orchestration
+  (seed/counter persist, `{counter,counter+1}` room re-arm, resync-on-success, ceiling), store fields.
+  `agent-web-ui` — credential seed/counter, ResponderGate sessionKey threading, client seq-dedup + warm
+  auto-reconnect loop. WS localhost path unchanged (opt-in bridge).
+- **Verification (2026-07-12):** per-package vitest — agent-transport-protocol 45 (ResumeBuffer append/ack/
+  tail/overrun; bridge seq-continuity-across-detach/attach + gap capture + WS-unchanged), agent-remote-pairing
+  32 (seed/rendezvous determinism + disjoint room space), agent-transport-webrtc 29 (gate bridge routing +
+  seq continuity across cleanup), agent-cli 203 (seed persist + `{counter,counter+1}` room re-arm + counter
+  resync + ceiling teardown), agent-web-ui 55 (credential seed/counter round-trip + responder sessionKey
+  threading). Full `pnpm typecheck` clean; `pnpm harness:scan` all 49 passed. TC-06 (exactly-once across a gap
+  - overrun→get-messages) is proven compositionally by the ResumeBuffer overrun test + the bridge
+    gap-capture/replay/resume_gap test (host replay = exactly-once) + the client seq-dedup path.
