@@ -40,9 +40,11 @@ import type {
   IExecutionWorkspaceSnapshotOptions,
 } from './workspace-contracts.js';
 import type {
+  IActionRequest,
   IContextWindowState,
   IHistoryEntry,
   IToolSchema,
+  TActionResponse,
   TToolArgs,
   TUniversalMessage,
 } from '@robota-sdk/agent-core';
@@ -135,6 +137,35 @@ export type TInteractivePermissionHandler = (
   toolArgs: TToolArgs,
 ) => Promise<TPermissionResultValue>;
 
+/**
+ * REMOTE-007 (B4-2a) — transport-neutral permission/ask.
+ *
+ * The session emits a pending-prompt event and awaits a `resolve*(id)` reply instead of invoking a
+ * single injected callback, so ANY attached surface (local TUI, a WS/WebRTC driver, a web UI) can
+ * render + answer the SAME prompt. `id` correlates the emit with its resolve; the session parks the
+ * awaiting promise and the first `resolvePermission`/`resolveAsk(id, …)` settles it (later resolves for
+ * a settled id are no-ops). `prompt_resolved` lets a co-driving second surface dismiss a prompt the
+ * first already answered.
+ */
+
+/** A tool call awaiting a permission decision. Serializable — crosses the transport boundary unchanged. */
+export interface IPermissionRequestEvent {
+  id: string;
+  toolName: string;
+  toolArgs: TToolArgs;
+}
+
+/** An "ask the user" request (command- or tool-issued) awaiting an answer. Serializable. */
+export interface IAskRequestEvent {
+  id: string;
+  request: IActionRequest;
+}
+
+/** A pending prompt (permission or ask) that has been settled — attached surfaces dismiss it. */
+export interface IPromptResolvedEvent {
+  id: string;
+}
+
 /** Emitted when a context file is found stale and re-read before a turn. */
 export interface IContextFileRefreshedEvent {
   filePath: string;
@@ -167,6 +198,12 @@ export interface IInteractiveSessionEvents {
   memory_event: (event: IMemoryEvent) => void;
   /** Emitted on every autonomous goal lifecycle transition (start, per-iteration, stop) — GOAL-001. */
   goal_event: (event: IGoalEvent) => void;
+  /** REMOTE-007: a tool call awaits a permission decision; answer via `resolvePermission(id, …)`. */
+  permission_request: (event: IPermissionRequestEvent) => void;
+  /** REMOTE-007: an "ask the user" request awaits an answer; answer via `resolveAsk(id, …)`. */
+  ask_request: (event: IAskRequestEvent) => void;
+  /** REMOTE-007: a pending prompt was settled (by any surface); attached surfaces dismiss it. */
+  prompt_resolved: (event: IPromptResolvedEvent) => void;
 }
 
 export type TInteractiveEventName = keyof IInteractiveSessionEvents;
@@ -211,6 +248,12 @@ export interface IInteractiveSession {
   // Events
   on<E extends TInteractiveEventName>(event: E, handler: IInteractiveSessionEvents[E]): void;
   off<E extends TInteractiveEventName>(event: E, handler: IInteractiveSessionEvents[E]): void;
+
+  // Transport-neutral prompt resolution (REMOTE-007). Any attached surface answers a pending
+  // `permission_request` / `ask_request` by id; the first resolve wins, later ones for a settled id
+  // are no-ops. Idempotent and safe to call for an unknown/already-settled id.
+  resolvePermission(id: string, result: TPermissionResultValue): void;
+  resolveAsk(id: string, response: TActionResponse): void;
 
   // Background tasks
   listBackgroundTasks(filter?: IBackgroundTaskListFilter): IBackgroundTaskState[];

@@ -70,12 +70,24 @@ function wireSessionEvents(session: IInteractiveSession, channel: IInteractionCh
     channel.setBusy(false);
   };
 
+  // REMOTE-007: this runtime is a subscribed surface. It answers the transport-neutral `ask_request`
+  // by rendering through the channel's unified `askUser` and replying via `resolveAsk` — replacing the
+  // old injected `askHandler`. Subscribing makes `getUserInteraction()` present, so commands that ask
+  // (CMD-004) reach the channel exactly as before. (This runtime injects no permission surface, so
+  // permission prompts fail closed just as they did without a permissionHandler.)
+  const onAskRequest: IInteractiveSessionEvents['ask_request'] = ({ id, request }) => {
+    void Promise.resolve(channel.askUser(request)).then((response) =>
+      session.resolveAsk(id, response),
+    );
+  };
+
   session.on('text_delta', onDelta);
   session.on('complete', onComplete);
   session.on('tool_start', onToolStart);
   session.on('tool_end', onToolEnd);
   session.on('error', onError);
   session.on('interrupted', onInterrupted);
+  session.on('ask_request', onAskRequest);
 
   return () => {
     session.off('text_delta', onDelta);
@@ -84,6 +96,7 @@ function wireSessionEvents(session: IInteractiveSession, channel: IInteractionCh
     session.off('tool_end', onToolEnd);
     session.off('error', onError);
     session.off('interrupted', onInterrupted);
+    session.off('ask_request', onAskRequest);
   };
 }
 
@@ -132,9 +145,8 @@ export function createInteractiveRuntime(options: IInteractiveRuntimeOptions): I
           sessionStore,
           commandModules,
           permissionMode,
-          // CMD-004: route command asks to the channel's unified renderer (askUser is a required
-          // member of IInteractionChannel — every channel renders or resolves cancelled itself).
-          askHandler: (request) => channel.askUser(request),
+          // REMOTE-007: no injected askHandler — the runtime subscribes to `ask_request` in
+          // wireSessionEvents and answers via the channel's unified `askUser` + `resolveAsk`.
         });
       }
 

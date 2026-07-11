@@ -48,6 +48,8 @@ function createMockSession(overrides: Partial<IInteractiveSession> = {}): IInter
         if (idx !== -1) arr.splice(idx, 1);
       }
     }),
+    resolvePermission: vi.fn(),
+    resolveAsk: vi.fn(),
     setGoal: vi.fn().mockResolvedValue({
       id: 'g',
       objective: 'o',
