@@ -176,11 +176,11 @@ None — resolved into D1–D4. (Backstop-timeout concrete value is an implement
 
 ## Tasks
 
-- [ ] Step 1 — session events (`permission_request`/`ask_request`/`prompt_resolved`) + `resolvePermission`/`resolveAsk` + the id-keyed parked-promise registry + event-emitting default handlers (replacing askHandler/permissionHandler at source) + fail-closed (emit-zero-listener + reconcile-on-detach + backstop) + teardown drain (SSOT in agent-interface-transport, impl in agent-framework).
-- [ ] Step 2 — migrate BOTH injector sites (`TuiInteractionChannel` + `createInteractiveRuntime.ts`) to subscribe + resolve (behavior-preserving; model-guard preserved); gate `getUserInteraction()` on the `ask_request` listener count so the headless `undefined` presence contract survives (D4a).
-- [ ] Step 3 — ws-protocol messages + `createWsHandler` forward events + handle response verbs; SPEC update.
-- [ ] Step 4 — tests (registry, fail-closed emit/detach, teardown drain, co-drive dismiss, both-ask-seams+model-guard, TUI regression, WS end-to-end round-trip, no-enable-path) + changeset.
-- [ ] Step 5 — verify: harness:scan + typecheck + changeset.
+- [x] Step 1 — session events (`permission_request`/`ask_request`/`prompt_resolved`) + `resolvePermission`/`resolveAsk` + the id-keyed parked-promise registry (`SessionPromptRegistry`) + event-emitting default handlers (replacing askHandler/permissionHandler at source) + fail-closed (emit-zero-listener + reconcile-on-detach + backstop) + teardown drain (SSOT in agent-interface-transport, impl in agent-framework).
+- [x] Step 2 — migrated BOTH injector sites (`TuiInteractionChannel` + `createInteractiveRuntime.ts`) — plus the scripted-session test harness — to subscribe + resolve (behavior-preserving; model-guard preserved); gated `getUserInteraction()` on the `ask_request` listener count so the headless `undefined` presence contract survives (D4a).
+- [x] Step 3 — ws-protocol messages + `createWsHandler` forward events + handle response verbs; SPEC update.
+- [x] Step 4 — tests (registry, fail-closed emit/detach, teardown drain, co-drive dismiss, both-ask-seams+model-guard, headless presence TC-04c, TUI regression, WS end-to-end round-trip, no-enable-path) + changeset.
+- [x] Step 5 — verify: harness:scan (49/49) + full-repo typecheck 0 + affected suites + lint + changeset.
 
 ## Evidence Log
 
@@ -222,3 +222,16 @@ None — resolved into D1–D4. (Backstop-timeout concrete value is an implement
   refresh the `HeadlessInteractionChannel.ts:94-96` comment in Step 2 (post-D4a the `undefined` comes from the gate,
   not a missing handler) + TC-04c's three commands are representative of a command-agnostic guarantee. **GATE-APPROVAL
   cleared** → status in-progress, spec moved to active, implementation begins on an `origin/develop`-based branch.
+- 2026-07-11 GATE-BUILD — implemented on `feat/remote-007-transport-neutral-permission-ask` (off `origin/develop`).
+  Steps 1–3 landed in three commits. **Discovered + resolved during build:** the event-emitting default is now the
+  SOLE handler source, so the model `AskUserQuestion` (CMD-005) tool-seam `unavailable` (static "no context.ask")
+  degrades — per reviewer-endorsed D4a "tool seam stays always-present resolving `cancelled`" — to per-question
+  `cancelled` when no surface is subscribed; the tool in isolation still returns `unavailable` when built with no ask
+  wiring (agent-tools unit test unchanged), only the framework functional test's expectation was updated. All injector
+  surfaces migrated (TUI + createInteractiveRuntime + scripted-session harness). TUI local Ink queues + rendering
+  unchanged; `prompt_resolved` dismisses on co-drive; teardown is now belt-and-suspenders (local cancel-all + framework
+  D3 drain, both idempotent). **Verification:** agent-framework 1079/1079, TUI 418/418, protocol 32/32 (incl. TC-06
+  forward + response-verb), ws 5/5, webrtc 12/12 (incl. TC-09 tampered-fp), interface-transport 10/10, session 86/86,
+  transport 45/45, tools 147/147, cli 166/166; harness:scan 49/49; full-repo `pnpm typecheck` 0; lint pass; changeset
+  added. TC-07 (no-enable-path) grep-verified: no `/remote-control` command, `WebRtcTransport.defaultEnabled=false`,
+  unregistered. Ready for merge-verifier feature→develop→main.
