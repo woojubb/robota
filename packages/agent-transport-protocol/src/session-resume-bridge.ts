@@ -23,7 +23,7 @@ import { ResumeBuffer, type IResumeBufferOptions } from './resume-buffer.js';
 import { handleClientMessage, parseClientMessage, subscribeSessionEvents } from './ws-handler.js';
 
 import type { TSeqServerMessage, TServerMessage } from './ws-protocol.js';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSession, TDriverId } from '@robota-sdk/agent-interface-transport';
 
 /** The current channel sink — receives a serialized JSON frame to put on the wire. */
 export type TResumeSink = (data: string) => void;
@@ -43,11 +43,14 @@ export interface IAttachOptions {
 export interface ISessionResumeBridgeOptions {
   readonly session: IInteractiveSession;
   readonly buffer?: IResumeBufferOptions;
+  /** REMOTE-014 E5: the SERVER-ASSIGNED driver id for this surface, injected into inbound submit/command/prompt-response. */
+  readonly driverId?: TDriverId;
 }
 
 export class SessionResumeBridge {
   private readonly session: IInteractiveSession;
   private readonly buffer: ResumeBuffer;
+  private driverId?: TDriverId;
   private readonly unsubscribe: () => void;
   private sink?: TResumeSink;
   private disposed = false;
@@ -57,6 +60,7 @@ export class SessionResumeBridge {
   public constructor(options: ISessionResumeBridgeOptions) {
     this.session = options.session;
     this.buffer = new ResumeBuffer(options.buffer);
+    this.driverId = options.driverId;
     // ONE subscription for the whole session — outlives every channel. Every event → seq-stamped + buffered.
     this.unsubscribe = subscribeSessionEvents(this.session, (message) => this.emit(message));
   }
@@ -74,6 +78,14 @@ export class SessionResumeBridge {
     this.sink = undefined;
   }
 
+  /**
+   * REMOTE-014 E5: bind the SERVER-ASSIGNED driver id (the E3 `deviceId`) once the peer pairs — the bridge
+   * injects it into every subsequent inbound submit/command/prompt-response for co-drive attribution.
+   */
+  public setDriverId(driverId: TDriverId): void {
+    this.driverId = driverId;
+  }
+
   /** Route one inbound channel frame: `resume`/`ack` handled here; everything else → the session. */
   public onClientMessage(data: string): void {
     if (this.disposed) return;
@@ -88,7 +100,8 @@ export class SessionResumeBridge {
       return;
     }
     // Session control/query/background/prompt-response — responses funnel back through `emit` (seq'd + buffered).
-    handleClientMessage(this.session, (m) => this.emit(m), msg);
+    // REMOTE-014 E5: inject the server-assigned driver id (submit/prompt-response attribution).
+    handleClientMessage(this.session, (m) => this.emit(m), msg, this.driverId);
   }
 
   /** Unsubscribe from the session (host reconnect-window ceiling / teardown). Idempotent. */

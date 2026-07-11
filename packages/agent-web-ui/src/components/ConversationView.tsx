@@ -91,11 +91,23 @@ function AgentMarkdown({ children }: { children: string }): React.ReactElement {
   );
 }
 
-function UserBlock({ content }: { content: string }): React.ReactElement {
+/** Shorten a driver id for a compact co-drive attribution chip (device ids are long SHA-256 hashes). */
+function shortDriver(author: string): string {
+  return author.length > 12 ? `${author.slice(0, 8)}…` : author;
+}
+
+function UserBlock({ content, author }: { content: string; author?: string }): React.ReactElement {
+  // REMOTE-014 E5 (display-only, OWNER PRINCIPLE): show WHO drove this turn when it wasn't the local owner.
+  const coDriver = author && author !== 'owner' ? author : undefined;
   return (
     <div className="flex flex-col gap-1">
       <span className="text-[10px] font-mono tracking-[0.14em] uppercase text-primary/50 px-1">
         You
+        {coDriver && (
+          <span className="ml-1.5 text-primary/40 normal-case tracking-normal">
+            · from {shortDriver(coDriver)}
+          </span>
+        )}
       </span>
       <div className="rounded-xl border border-primary/20 bg-primary/8 px-4 py-3 text-sm leading-relaxed text-foreground">
         {content}
@@ -197,7 +209,7 @@ export function ConversationView({
 
       {messages.map((msg) =>
         msg.role === 'user' ? (
-          <UserBlock key={msg.id} content={msg.content} />
+          <UserBlock key={msg.id} content={msg.content} author={msg.author} />
         ) : (
           <AgentBlock key={msg.id} content={msg.content} />
         ),

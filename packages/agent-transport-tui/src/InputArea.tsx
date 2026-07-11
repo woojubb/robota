@@ -34,6 +34,8 @@ interface IProps {
   isDisabled: boolean;
   isAborting?: boolean;
   pendingPrompt?: string | null;
+  /** REMOTE-014 E5: total queued turns (owner + co-drivers); >1 surfaces a co-driver-queued hint. */
+  pendingCount?: number;
   registry?: CommandRegistry;
   sessionName?: string;
   history?: readonly IHistoryEntry[];
@@ -70,6 +72,7 @@ export default function InputArea({
   isDisabled,
   isAborting,
   pendingPrompt,
+  pendingCount,
   registry,
   sessionName,
   history,
@@ -285,6 +288,9 @@ export default function InputArea({
             {pendingPrompt.length > PENDING_PROMPT_DISPLAY_MAX
               ? pendingPrompt.slice(0, PENDING_PROMPT_TAIL_KEEP) + '...'
               : pendingPrompt}{' '}
+            {typeof pendingCount === 'number' && pendingCount > 1 && (
+              <Text dimColor>(+{pendingCount - 1} co-driver queued) </Text>
+            )}
             <Text dimColor>(Backspace to cancel)</Text>
           </Text>
         ) : isDisabled ? (

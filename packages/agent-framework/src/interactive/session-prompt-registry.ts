@@ -119,7 +119,13 @@ export class SessionPromptRegistry {
     });
   }
 
-  /** Answer a parked permission by id. `answererDriverId` is server-assigned. Idempotent. */
+  /**
+   * Answer a parked permission by id. `answererDriverId` is server-assigned. Idempotent (first resolve wins).
+   *
+   * AUTHORIZATION INVARIANT (REMOTE-014 E5 / OWNER PRINCIPLE): `answererDriverId` is recorded for DISPLAY
+   * attribution only — it is NEVER an authorization check. Under local == remote every paired driver holds
+   * full owner authority, so any driver may answer any prompt; who answered is surfaced, not gated here.
+   */
   resolvePermission(
     id: string,
     result: TPermissionResultValue,

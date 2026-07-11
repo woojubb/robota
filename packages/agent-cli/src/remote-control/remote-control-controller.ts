@@ -265,6 +265,9 @@ export class RemoteControlController {
         });
         // E4: remember which device is driving, so a drop knows whose reconnect rooms to re-arm.
         this.pairedDeviceId = deviceId;
+        // REMOTE-014 E5: bind the paired device's id as the co-drive driver id for this remote surface, so its
+        // submits/prompt-answers are server-attributed (never a client-forged id).
+        this.bridge?.setDriverId(deviceId);
       },
     };
   }

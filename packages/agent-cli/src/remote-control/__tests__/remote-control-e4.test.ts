@@ -90,7 +90,13 @@ function setup(store: ITrustedDeviceStore, identity: IHostIdentity) {
     trustedDeviceStore: store,
     loadHostIdentity: () => Promise.resolve(identity),
     createResumeBridge: () =>
-      ({ dispose: vi.fn(), attach: vi.fn(), detach: vi.fn(), onClientMessage: vi.fn() }) as never,
+      ({
+        dispose: vi.fn(),
+        attach: vi.fn(),
+        detach: vi.fn(),
+        onClientMessage: vi.fn(),
+        setDriverId: vi.fn(), // REMOTE-014 E5: onEnroll binds the paired device id as the co-drive driver id
+      }) as never,
     createSignaling: (_url, rendezvous) => {
       rendezvouses.push(rendezvous);
       return {
