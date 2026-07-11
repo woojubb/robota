@@ -14,6 +14,19 @@ depends_on: []
 > see [`.agents/spec-docs/todo/REMOTE-001-webrtc-p2p-remote-control-design.md`](../spec-docs/todo/REMOTE-001-webrtc-p2p-remote-control-design.md).
 > Implementation proceeds as per-stage gated specs (Stage A: extract `agent-transport-protocol` +
 > `agent-transport-webrtc` skeleton + minimal signaling server, loopback-only, no enable path).
+>
+> **Stage progress (2026-07-11):** Stages A–D DONE + on main (REMOTE-002…009) — the full user story
+> ships (host `/remote-control` → QR/link → browser pairs + co-drives over WebRTC). **Stage E (final
+> hardening)** is decomposed into child backlog items, sequenced:
+>
+> - E1 = user-supplied TURN fallback — REMOTE-010, **DONE** (`.agents/spec-docs/done/`).
+> - E2 = signaling-server abuse hardening — [REMOTE-011](REMOTE-011-stage-e2-signaling-abuse-hardening.md) (self-contained).
+> - E3 = TOFU trusted-device reconnect — [REMOTE-012](REMOTE-012-stage-e3-tofu-trusted-device-reconnect.md).
+> - E4 = reconnection/session-resume — [REMOTE-013](REMOTE-013-stage-e4-reconnection-session-resume.md) (on E3).
+> - E5 = co-drive concurrency + attribution — [REMOTE-014](REMOTE-014-stage-e5-co-drive-concurrency-attribution.md).
+>
+> This item stays `in-progress` until Stage E completes and the User Execution Test Scenario evidence
+> below is filled.
 
 ## Problem / Goal
 
