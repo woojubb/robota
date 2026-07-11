@@ -31,9 +31,10 @@ export interface IWebRtcTransportOptions {
   /** Optional ICE servers (STUN/TURN). Omitted → host-candidate/loopback only. */
   readonly iceServers?: readonly IIceServer[];
   /**
-   * REMOTE-004 defense-in-depth: when true, restrict ICE to **relay (TURN) candidates only** (werift `forceTurn`),
-   * so host/server-reflexive candidates — and the local-interface gathering that touches the (unreachable, but
-   * belt-and-braces) `ip` code path — are never used. Requires a TURN server in `iceServers`.
+   * REMOTE-004 defense-in-depth: when true, restrict ICE to **relay (TURN) candidates only**, so
+   * host/server-reflexive candidates — and the local-interface gathering that touches the (unreachable, but
+   * belt-and-braces) `ip` code path — are never used. Requires a TURN server in `iceServers`. Mapped to werift's
+   * `iceTransportPolicy: 'relay'` (REMOTE-010) — werift IGNORES a top-level `forceTurn`, so it must NOT be passed.
    */
   readonly forceTurn?: boolean;
   /**
