@@ -28,7 +28,7 @@ export interface IRemoteControlControllerDeps {
   registry: TransportRegistry;
   /** Signaling relay URL (`transports.webrtc.options.relayUrl`), or undefined when unconfigured. */
   readRelayUrl: () => string | undefined;
-  /** Client base URL for the pairing link (`transports.webrtc.options.clientUrl`); defaults to a placeholder. */
+  /** Client base URL for the pairing link (`transports.webrtc.options.clientUrl`); unset ⇒ enable fails closed (REMOTE-009 D5). */
   readClientUrl: () => string | undefined;
   /** The live interactive session to expose on pairing accept, or undefined before one is ready. */
   getSession: () => IInteractiveSession | undefined;

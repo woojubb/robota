@@ -189,3 +189,12 @@ the fragment. harness:scan + full typecheck + changeset.
   `spa/remote.html` fragment entry (both SPA entries build). No `agent-transport-webrtc`/werift edge (only the zero-dep
   `agent-remote-pairing` leaf added). Verify: agent-web-ui 36, agent-cli 178, harness:scan 49/49, full-repo typecheck 0,
   changeset present, agent-web-ui SPEC public-API table updated. Ready for implementation review + merge-verifier.
+- 2026-07-11 GATE-REVIEW (implementation) — proposal-reviewer **ENDORSE**. Security-critical core verified: no path
+  delivers a `TServerMessage` to the reducer (or sends a `TClientMessage`) before a genuine channel-bound
+  confirmation; `accept()` reachable only via the crypto `result`; fail-closed on reject/timeout/missing-fingerprint;
+  directional binding correct (host fp←offer, local fp←answer); D6 cross-dialect fingerprint parity real; secret only
+  in the fragment (never query/relay); dependency direction clean (only agent-remote-pairing added, no werift edge);
+  D5 fail-closed early-return before any construction. 3 non-blocking notes: fixed the stale `clientUrl` JSDoc; the
+  post-accept `TServerMessage` cast is safe (host cryptographically authenticated + reducer ignores unknown types);
+  the responder-nonce send starts synchronously in `ondatachannel` (safe — answerer's channel is open when the event
+  fires; fails closed via timeout if not) — flagged for a Stage-E headed-browser check. Ready for merge feature→develop→main.
