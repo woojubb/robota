@@ -4,4 +4,8 @@ export type { TClientMessage, TServerMessage, TSeqServerMessage } from './ws-pro
 export { ResumeBuffer } from './resume-buffer.js';
 export type { IResumeBufferOptions, IBufferedFrame, TResumeTail } from './resume-buffer.js';
 export { SessionResumeBridge } from './session-resume-bridge.js';
-export type { ISessionResumeBridgeOptions, TResumeSink } from './session-resume-bridge.js';
+export type {
+  ISessionResumeBridgeOptions,
+  TResumeSink,
+  IAttachOptions,
+} from './session-resume-bridge.js';

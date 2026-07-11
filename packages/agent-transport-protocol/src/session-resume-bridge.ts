@@ -28,6 +28,18 @@ import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport'
 /** The current channel sink — receives a serialized JSON frame to put on the wire. */
 export type TResumeSink = (data: string) => void;
 
+/** Options for {@link SessionResumeBridge.attach}. */
+export interface IAttachOptions {
+  /**
+   * REMOTE-013 E4: on a RECONNECT, HOLD live sink-forwarding until the client's `resume` has replayed the
+   * buffered tail — otherwise a live frame emitted between attach and the inbound `resume` would leapfrog the
+   * gap frames on the wire, and the client's seq-dedup would then discard the (older, lower-seq) gap. Every
+   * live event is already appended to the buffer, so holding loses nothing; `replay()` flushes in order and
+   * un-holds. First-pair attach does NOT hold (the client starts at seq 0, frames arrive in order).
+   */
+  readonly awaitResume?: boolean;
+}
+
 export interface ISessionResumeBridgeOptions {
   readonly session: IInteractiveSession;
   readonly buffer?: IResumeBufferOptions;
@@ -39,6 +51,8 @@ export class SessionResumeBridge {
   private readonly unsubscribe: () => void;
   private sink?: TResumeSink;
   private disposed = false;
+  /** REMOTE-013 E4: while true, live emits are buffered but NOT forwarded — released by `replay()` on reconnect. */
+  private holding = false;
 
   public constructor(options: ISessionResumeBridgeOptions) {
     this.session = options.session;
@@ -47,10 +61,12 @@ export class SessionResumeBridge {
     this.unsubscribe = subscribeSessionEvents(this.session, (message) => this.emit(message));
   }
 
-  /** Set the current channel sink (on connect / reconnect). Live messages now reach the client; replay is `resume`-driven. */
-  public attach(sink: TResumeSink): void {
+  /** Set the current channel sink (on connect / reconnect). Live messages reach the client; replay is `resume`-driven. */
+  public attach(sink: TResumeSink, options: IAttachOptions = {}): void {
     if (this.disposed) return;
     this.sink = sink;
+    // On a reconnect, hold live forwarding until `resume` flushes the buffered tail (avoids the live-vs-replay race).
+    this.holding = options.awaitResume === true;
   }
 
   /** Clear the sink (channel drop). Buffering continues so gap output is retained for the next `resume`. */
@@ -88,23 +104,29 @@ export class SessionResumeBridge {
     return this.buffer.lastSeq;
   }
 
-  /** Stamp a seq, retain in the buffer, and forward to the current sink (if any). */
+  /** Stamp a seq, retain in the buffer, and forward to the current sink — UNLESS holding for a reconnect replay. */
   private emit(message: TServerMessage): void {
     if (this.disposed) return;
     const seq = this.buffer.append(message);
+    if (this.holding) return; // buffered only; `replay()` will flush it in order and release the hold
     this.send({ ...message, seq } as TSeqServerMessage);
   }
 
-  /** Replay the buffered tail after `lastSeq`, or signal `resume_gap` on overrun (client must full-refresh). */
+  /**
+   * Replay the buffered tail after `lastSeq` (or `resume_gap` on overrun), then RELEASE the reconnect hold so
+   * subsequent live frames flow in order behind the flushed gap.
+   */
   private replay(lastSeq: number): void {
     const tail = this.buffer.tailAfter(lastSeq);
     if (tail.kind === 'overrun') {
       this.rawSend(JSON.stringify({ type: 'resume_gap' }));
+      this.holding = false; // client will full-refresh via get-messages; let live frames flow
       return;
     }
     for (const frame of tail.frames) {
       this.send({ ...frame.message, seq: frame.seq } as TSeqServerMessage);
     }
+    this.holding = false; // gap flushed in order — resume live forwarding
   }
 
   private send(message: TSeqServerMessage): void {

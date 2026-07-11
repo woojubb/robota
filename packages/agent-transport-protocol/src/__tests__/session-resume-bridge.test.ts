@@ -77,6 +77,35 @@ describe('SessionResumeBridge (REMOTE-013 TC-02)', () => {
     bridge.dispose();
   });
 
+  it('reconnect hold (Issue-B): a LIVE frame emitted between attach and resume does not leapfrog the gap', () => {
+    const { session, fire } = fakeSession();
+    const bridge = new SessionResumeBridge({ session });
+    const s1 = sink();
+    bridge.attach(s1);
+    fire('text_delta', 'a'); // seq 1 → client applies through 1
+
+    // Drop; gap frames buffered.
+    bridge.detach();
+    fire('text_delta', 'b'); // seq 2 (gap)
+    fire('text_delta', 'c'); // seq 3 (gap)
+
+    // Reconnect attach with awaitResume → live forwarding is HELD until resume flushes the tail.
+    const s2 = sink();
+    bridge.attach(s2, { awaitResume: true });
+    fire('text_delta', 'd'); // seq 4 — emitted BEFORE the client's resume arrives; must NOT be sent yet
+    expect(s2.calls).toHaveLength(0); // held
+
+    bridge.onClientMessage(JSON.stringify({ type: 'resume', lastSeq: 1 }));
+    // The client receives 2,3,4 IN ORDER (gap then the held live frame) — none lost, none reordered.
+    expect(frames(s2).map((f) => f.seq)).toEqual([2, 3, 4]);
+    expect(frames(s2).map((f) => f.delta)).toEqual(['b', 'c', 'd']);
+
+    // Hold released — a subsequent live frame flows immediately behind the flushed tail.
+    fire('text_delta', 'e'); // seq 5
+    expect(frames(s2).map((f) => f.seq)).toEqual([2, 3, 4, 5]);
+    bridge.dispose();
+  });
+
   it('ack frees the buffer up to seq; a later resume replays only the newer tail', () => {
     const { session, fire } = fakeSession();
     const bridge = new SessionResumeBridge({ session });
