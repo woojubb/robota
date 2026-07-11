@@ -38,7 +38,7 @@ interface ITrustedDeviceFile {
 }
 
 /** Default on-disk location for the trusted-device store. */
-export function defaultTrustedDeviceStorePath(): string {
+function defaultTrustedDeviceStorePath(): string {
   return join(homedir(), '.robota', 'remote-trusted-devices.json');
 }
 

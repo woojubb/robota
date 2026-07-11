@@ -43,13 +43,50 @@ export function executeRemoteControlCommand(
   context: ICommandHostContext,
   args: string,
 ): ICommandResult {
-  const sub = args.trim().toLowerCase();
+  const trimmed = args.trim();
+  // Split into a lowercased verb + the original-case remainder (a deviceId is case-sensitive base64url).
+  const spaceAt = trimmed.indexOf(' ');
+  const verb = (spaceAt === -1 ? trimmed : trimmed.slice(0, spaceAt)).toLowerCase();
+  const rest = spaceAt === -1 ? '' : trimmed.slice(spaceAt + 1).trim();
 
-  if (sub === 'status') {
+  if (verb === 'status') {
     return formatStatus(context.getCommandHostAdapters?.().remoteControl?.getStatus());
   }
 
-  if (sub === 'stop' || sub === 'off') {
+  if (verb === 'devices') {
+    const adapter = context.getCommandHostAdapters?.().remoteControl;
+    const devices = adapter?.listDevices?.();
+    if (!devices) {
+      return {
+        message: 'Trusted-device reconnect is not available in this environment.',
+        success: true,
+      };
+    }
+    if (devices.length === 0) {
+      return { message: 'No trusted devices are enrolled yet.', success: true };
+    }
+    const lines = devices.map((d) => `  ${d.deviceId}  ${d.label}  (last seen ${d.lastSeenAt})`);
+    return { message: `Trusted devices:\n${lines.join('\n')}`, success: true };
+  }
+
+  if (verb === 'revoke') {
+    if (!rest) {
+      return { message: 'Usage: /remote-control revoke <deviceId>', success: false };
+    }
+    const adapter = context.getCommandHostAdapters?.().remoteControl;
+    if (!adapter?.revokeDevice) {
+      return {
+        message: 'Trusted-device reconnect is not available in this environment.',
+        success: true,
+      };
+    }
+    const removed = adapter.revokeDevice(rest);
+    return removed
+      ? { message: `Revoked trusted device ${rest}. It must re-pair to reconnect.`, success: true }
+      : { message: `No trusted device with id ${rest}.`, success: false };
+  }
+
+  if (verb === 'stop' || verb === 'off') {
     return {
       message: 'Stopping remote control...',
       success: true,
@@ -58,7 +95,7 @@ export function executeRemoteControlCommand(
   }
 
   // Default (empty / `enable` / `on`): request enable. The host reports the pairing QR/link.
-  if (sub === '' || sub === 'enable' || sub === 'on') {
+  if (verb === '' || verb === 'enable' || verb === 'on') {
     return {
       message: 'Enabling remote control...',
       success: true,
@@ -67,7 +104,7 @@ export function executeRemoteControlCommand(
   }
 
   return {
-    message: `Unknown argument "${sub}". Usage: /remote-control [enable|stop|status]`,
+    message: `Unknown argument "${verb}". Usage: /remote-control [enable|stop|status|devices|revoke <id>]`,
     success: false,
   };
 }

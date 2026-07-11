@@ -204,31 +204,31 @@ explicit accept).
 
 ## Completion Criteria
 
-- [ ] TC-01: `signChallenge` + `verifyChallenge` round-trip: a signature over
+- [x] TC-01: `signChallenge` + `verifyChallenge` round-trip: a signature over
       `{nonceHost, nonceDevice, fpA, fpB}` verifies with the matching public key and FAILS for a different
       nonce (either), a different fingerprint pair, or a different keypair (isomorphic WebCrypto unit).
-- [ ] TC-02: `deriveIdentityId` is stable for a given public key and differs across keypairs;
+- [x] TC-02: `deriveIdentityId` is stable for a given public key and differs across keypairs;
       `exportPublicKey`→`importPublicKey` round-trips; a `SHA-256(SPKI)` id is second-preimage stable.
-- [ ] TC-03: `reconnect.ts` MUTUAL controller resolves accept on each side ONLY after it verifies the
+- [x] TC-03: `reconnect.ts` MUTUAL controller resolves accept on each side ONLY after it verifies the
       counterpart's signature against the pinned key; it rejects (fail-closed) on timeout, a wrong device
       signature, a wrong/absent HOST signature (rogue host), or an unknown deviceId.
-- [ ] TC-04: Host trusted-device store: `upsert` then `get`/`list` returns the record; `revoke` removes it;
+- [x] TC-04: Host trusted-device store: `upsert` then `get`/`list` returns the record; `revoke` removes it;
       a corrupt file **throws** (fail-fast); an absent id returns undefined; the persisted JSON contains
       **only public keys — no private key material** (negative assertion). Round-trips through a temp
       `~/.robota`. Host identity keypair: load-or-create persists a `0600` JWK and reloads the same key.
-- [ ] TC-05: Host gate/transport: on first-pair accept the device public key is enrolled (store `upsert`
+- [x] TC-05: Host gate/transport: on first-pair accept the device public key is enrolled (store `upsert`
       with a stable deviceId) AND the host advertises its identity public key; on a subsequent `rc-hello`
       for that deviceId the mutual reconnect admits WITHOUT a fresh pairing accept; on `rc-hello` for an
       unknown/revoked id the reconnect is refused fail-closed (no session exposed).
-- [ ] TC-06: Browser credential store: a generated device keypair + pinned host key persist (IndexedDB fake)
+- [x] TC-06: Browser credential store: a generated device keypair + pinned host key persist (IndexedDB fake)
       and reload so the client takes the reconnect path on the second connect and **verifies the host**; the
       private key is non-extractable (export rejects); no secret/key value is ever placed in
       `location.search`/history.
-- [ ] TC-07: End-to-end (Node responder oracle ↔ host gate): first pair enrolls both keys; reconnect with
+- [x] TC-07: End-to-end (Node responder oracle ↔ host gate): first pair enrolls both keys; reconnect with
       the pinned keypairs establishes a session with no re-accept; a **rogue host** (wrong host identity key)
       makes the DEVICE refuse fail-closed; a tampered fingerprint (simulated MITM) fails the channel-bound
       challenge → reconnect refused; a captured `rc-device` proof replayed against a fresh challenge → reject.
-- [ ] TC-08: `/remote-control devices` lists enrolled devices and `revoke <id>` removes one; a revoked
+- [x] TC-08: `/remote-control devices` lists enrolled devices and `revoke <id>` removes one; a revoked
       device must re-pair. `pnpm harness:scan` + `pnpm typecheck` + affected package tests green.
 
 ## Test Plan
@@ -246,6 +246,30 @@ explicit accept).
 
 ## Tasks
 
-- [ ] `.agents/tasks/REMOTE-012.md` — 미생성 (GATE-APPROVAL 통과 후 생성)
+- [x] `.agents/tasks/REMOTE-012.md` — created at GATE-APPROVAL.
 
 ## Evidence Log
+
+- **GATE-APPROVAL:** proposal-reviewer ENDORSE (2 rounds). Round 1 REVISE — the blocking gap was a one-way
+  reconnect (device→host only), dropping B3's mutual auth (rogue-host downgrade). Round 2 ENDORSE after
+  making reconnect MUTUAL (host identity keypair + host also signs a channel-bound challenge the device
+  verifies), deferring `sessionKey` to E4, excluding WebAuthn, and adding rogue-host / no-private-material /
+  replay tests. Optional hardening applied: the signed transcript binds `deviceId ‖ hostIdentityId`.
+- **Implementation (isomorphic, WebCrypto-only foundation):** `agent-remote-pairing` — `crypto-primitives.ts`
+  (SSOT extract), `device-identity.ts` (ECDSA-P256 keygen/SPKI/JWK/`deriveIdentityId`/`signChallenge`/
+  `verifyChallenge`), `reconnect.ts` (mutual `startDeviceReconnect`/`startHostReconnect`). Host —
+  `host-identity.ts` (0600 JWK, load/reload), `trusted-device-store.ts` (public keys only, fail-fast),
+  `remote-control-controller.ts` (reconnect config, enroll-on-accept, `listDevices`/`revokeDevice`),
+  `/remote-control devices`/`revoke <id>` verbs (case-preserving id) via a new `remoteControl` adapter surface.
+  Gate — `pairing-gate.ts` reactive E3 mode (first-pair-with-enrollment vs mutual reconnect; B4 path
+  unchanged), `webrtc-transport.ts` threads `IHostReconnectConfig` + `onPaired(result)`. Browser —
+  `device-credential-store.ts` (IndexedDB, injectable backend, non-extractable key), `rtc-responder-gate.ts`
+  (E3 enrollment + device reconnect), `rtc-session-client.ts`/`useRtcSession` wiring. **E3/E4 boundary:** E3
+  ships the identity/trust/auth layer + persistence + enrollment + the mutual reconnect protocol (both gates);
+  the transport-level reconnection LOOP (stable-rendezvous rediscovery + auto-reconnect + session resume) is E4.
+- **Verification (2026-07-12):** per-package vitest — agent-remote-pairing 28 (crypto round-trip+negatives,
+  mutual protocol fail-closed incl. rogue-host + proof-replay), agent-transport-webrtc 27 (gate enroll/
+  reconnect/deny), agent-cli 200 (host identity + store no-private-material/fail-fast + controller E3),
+  agent-web-ui 54 (credential store non-extractable + responder-gate E3 + session-client), agent-command 225
+  (`devices`/`revoke` incl. case-preserving id), agent-framework 1080. Full `pnpm typecheck` clean;
+  `pnpm harness:scan` all 49 passed (incl. `spec-public-surface`, `orphan-exports`).

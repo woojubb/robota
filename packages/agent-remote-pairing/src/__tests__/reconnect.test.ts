@@ -110,6 +110,53 @@ describe('mutual reconnect (REMOTE-012 TC-03)', () => {
     await expect(host.result).rejects.toThrow(/device authentication failed/i);
   });
 
+  it('fail-closed: a captured rc-device proof replayed against a fresh challenge is rejected', async () => {
+    const h = await setup();
+    // Capture a valid rc-device proof from a completed handshake.
+    const captured: TReconnectFrame[] = [];
+    let host1!: ReturnType<typeof startHostReconnect>;
+    let device1!: ReturnType<typeof startDeviceReconnect>;
+    host1 = startHostReconnect({
+      hostIdentityId: h.hostIdentityId,
+      ...HOST_FP,
+      hostPrivateKey: h.hostKeyPair.privateKey,
+      resolveDevicePublicKey: async () => h.devicePublicKey,
+      send: (f) => device1.onFrame(f),
+      timeoutMs: 1000,
+    });
+    device1 = startDeviceReconnect({
+      deviceId: h.deviceId,
+      hostIdentityId: h.hostIdentityId,
+      ...DEVICE_FP,
+      devicePrivateKey: h.deviceKeyPair.privateKey,
+      pinnedHostPublicKey: h.pinnedHostPublicKey,
+      send: (f) => {
+        if (f.t === 'rc-device') captured.push(f);
+        host1.onFrame(f);
+      },
+      timeoutMs: 1000,
+    });
+    await Promise.all([host1.result, device1.result]);
+    const staleProof = captured[0];
+    expect(staleProof?.t).toBe('rc-device');
+
+    // A fresh host handshake issues a new nonce; replaying the stale proof must fail its verify.
+    const host2 = startHostReconnect({
+      hostIdentityId: h.hostIdentityId,
+      ...HOST_FP,
+      hostPrivateKey: h.hostKeyPair.privateKey,
+      resolveDevicePublicKey: async () => h.devicePublicKey,
+      send: () => {}, // swallow rc-host; we inject the stale proof directly
+      timeoutMs: 200,
+    });
+    host2.onFrame({ t: 'rc-hello', deviceId: h.deviceId, nonceDevice: 'ZnJlc2g' });
+    // Let the host process rc-hello (resolve key + sign + set pending) before the stale proof arrives.
+    await new Promise((r) => setTimeout(r, 10));
+    host2.onFrame(staleProof);
+    // Any fail-closed rejection is acceptable — the stale proof must never authenticate.
+    await expect(host2.result).rejects.toThrow();
+  });
+
   it('fail-closed: times out if the counterpart never answers', async () => {
     const h = await setup();
     const device = startDeviceReconnect({

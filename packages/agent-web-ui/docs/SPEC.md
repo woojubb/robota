@@ -22,6 +22,15 @@ the isomorphic zero-dep `@robota-sdk/agent-remote-pairing` leaf and takes **no**
 `permission_request`/`ask_request`/`prompt_resolved`, `PermissionPrompt` component) serves BOTH the WS and
 RTC clients — the paired owner answers its OWN prompts (local == remote).
 
+**REMOTE-012 E3 TOFU reconnect.** `ResponderGate` gains E3 admission: on first pair (after B3 accept) it runs an
+identity-key **enrollment** exchange — it pins the host's advertised ECDSA public key and advertises the browser
+device's public key — before the session is exposed; it can also run a mutual `startDeviceReconnect` that verifies
+the host against the pinned key (rogue-host → fail closed). The browser-local `device-credential-store` (IndexedDB,
+keyed by `relayOrigin + hostIdentityId`) persists the device's **non-extractable** keypair + the pinned host key
+(never serialized, never in a URL). `createRtcSessionClient` takes an optional `deviceCredentials` store (wired from
+`useRtcSession`) so first-pair enrolls this device; reconnect INITIATION (reusing a stored credential) is E4. Without
+`deviceCredentials` the client is exactly the REMOTE-009 first-pair-only path.
+
 **REMOTE-010 TURN fallback.** `parseRemoteClientLocation` also reads an optional `ice` query param (a base64url
 JSON `RTCIceServer[]`, decoded + validated by a browser-local fail-closed decoder — the param is
 attacker-influenceable) and a `forceTurn` flag, threaded through `RemoteClient` → `useRtcSession` →

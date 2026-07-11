@@ -37,7 +37,7 @@ interface IHostIdentityFile {
 }
 
 /** Default on-disk location for the host identity JWK. */
-export function defaultHostIdentityPath(): string {
+function defaultHostIdentityPath(): string {
   return join(homedir(), '.robota', 'remote-host-identity.json');
 }
 
