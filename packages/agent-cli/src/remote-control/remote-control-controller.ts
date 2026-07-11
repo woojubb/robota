@@ -23,15 +23,12 @@ import type {
  * or start failure ⇒ report the error and stay off.
  */
 
-/** Fallback client base when none is configured — a custom scheme a future browser client registers. */
-const DEFAULT_CLIENT_URL = 'robota-remote://pair';
-
 export interface IRemoteControlControllerDeps {
   /** The full transport registry (needs `register`, so not the view). */
   registry: TransportRegistry;
   /** Signaling relay URL (`transports.webrtc.options.relayUrl`), or undefined when unconfigured. */
   readRelayUrl: () => string | undefined;
-  /** Client base URL for the pairing link (`transports.webrtc.options.clientUrl`); defaults to a placeholder. */
+  /** Client base URL for the pairing link (`transports.webrtc.options.clientUrl`); unset ⇒ enable fails closed (REMOTE-009 D5). */
   readClientUrl: () => string | undefined;
   /** The live interactive session to expose on pairing accept, or undefined before one is ready. */
   getSession: () => IInteractiveSession | undefined;
@@ -76,6 +73,16 @@ export class RemoteControlController {
     const session = this.deps.getSession();
     if (!session) return 'Remote control: no active session yet — try again in a moment.';
 
+    // REMOTE-009 D5: a pairing link needs a hosted browser client. Fail closed BEFORE constructing/starting
+    // the transport when `clientUrl` is unset — never mint a link that goes nowhere (no fabricated default).
+    const clientUrl = this.deps.readClientUrl();
+    if (!clientUrl) {
+      return (
+        'Remote control needs a browser client page. Set `transports.webrtc.options.clientUrl` ' +
+        'in ~/.robota/settings.json to your hosted Stage-D page (`@robota-sdk/agent-web-ui`).'
+      );
+    }
+
     const pairing = generatePairingSecret();
     const signaling = (this.deps.createSignaling ?? defaultCreateSignaling)(
       relayUrl,
@@ -110,7 +117,6 @@ export class RemoteControlController {
 
     this.transport = transport;
     this.signaling = signaling;
-    const clientUrl = this.deps.readClientUrl() ?? DEFAULT_CLIENT_URL;
     const pairingUrl = toPairingUrl(clientUrl, pairing);
     this.status = { state: 'awaiting-pairing', pairingUrl };
     return this.renderPairingMessage(pairingUrl);

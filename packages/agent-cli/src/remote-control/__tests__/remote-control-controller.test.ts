@@ -91,6 +91,17 @@ describe('RemoteControlController (REMOTE-008)', () => {
     expect(status.state).toBe('awaiting-pairing');
   });
 
+  it('D5: unset clientUrl fails closed — reports, constructs/starts nothing, status untouched (no dead link)', async () => {
+    const createTransport = vi.fn();
+    const { deps, registered } = makeDeps({ readClientUrl: () => undefined, createTransport });
+    const controller = new RemoteControlController(deps);
+    const msg = await controller.enable();
+    expect(msg).toMatch(/clientUrl/);
+    expect(createTransport).not.toHaveBeenCalled();
+    expect(registered).toHaveLength(0);
+    expect(controller.getStatus()).toEqual({ state: 'off' }); // untouched (no new enum variant)
+  });
+
   it('enable with no session yet → reports and constructs nothing', async () => {
     const createTransport = vi.fn();
     const { deps } = makeDeps({ getSession: () => undefined, createTransport });

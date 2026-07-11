@@ -5,10 +5,25 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 
+import {
+  applyPromptEvent,
+  askResponse,
+  permissionResponse,
+  type TPendingPrompt,
+} from './prompt-state.js';
+import {
+  createRtcSessionClient,
+  type IRtcSessionClientOptions,
+  type TRtcConnectionStatus,
+} from '../client/rtc-session-client.js';
 import { createWsSessionClient } from '../client/ws-session-client.js';
 
 import type { TConnectionStatus, TClientMessage } from '../client/ws-session-client.js';
-import type { IExecutionWorkspaceSnapshot } from '@robota-sdk/agent-interface-transport';
+import type {
+  IExecutionWorkspaceSnapshot,
+  TActionResponse,
+  TPermissionResultValue,
+} from '@robota-sdk/agent-interface-transport';
 import type { TServerMessage } from '@robota-sdk/agent-transport-protocol';
 
 export interface IConversationMessage {
@@ -26,14 +41,36 @@ export interface IActiveTool {
   result?: unknown;
 }
 
+/** The connection status shown by the UI — the WS statuses plus the RTC pairing/failed states. */
+export type TSessionStatus = TConnectionStatus | TRtcConnectionStatus;
+
+/** The minimal session-client surface both the WS and RTC clients satisfy. */
+export interface ISessionClientHandle {
+  connect: () => void;
+  disconnect: () => void;
+  send: (msg: TClientMessage) => void;
+}
+
+/** Factory the hook calls to build its client from the message/status callbacks. */
+export type TMakeSessionClient = (callbacks: {
+  onMessage: (msg: TServerMessage) => void;
+  onStatusChange: (status: TSessionStatus) => void;
+}) => ISessionClientHandle;
+
 export interface IWsSessionState {
-  status: TConnectionStatus;
+  status: TSessionStatus;
   messages: IConversationMessage[];
   activeTools: IActiveTool[];
   streamingText: string;
   isThinking: boolean;
   executionWorkspace: IExecutionWorkspaceSnapshot | null;
   send: (msg: TClientMessage) => void;
+  /** REMOTE-007/009: prompts awaiting the owner's answer (permission/ask), rendered by the UI. */
+  pendingPrompts: readonly TPendingPrompt[];
+  /** Answer a pending permission prompt (sends `permission-response`). */
+  answerPermission: (id: string, result: TPermissionResultValue) => void;
+  /** Answer a pending ask prompt (sends `ask-response`). */
+  answerAsk: (id: string, response: TActionResponse) => void;
 }
 
 let msgCounter = 0;
@@ -41,8 +78,8 @@ function nextId(): string {
   return `msg_${++msgCounter}_${Date.now()}`;
 }
 
-export function useWsSession(url: string): IWsSessionState {
-  const [status, setStatus] = useState<TConnectionStatus>('disconnected');
+export function useSessionClient(makeClient: TMakeSessionClient): IWsSessionState {
+  const [status, setStatus] = useState<TSessionStatus>('disconnected');
   const [messages, setMessages] = useState<IConversationMessage[]>([]);
   const [activeTools, setActiveTools] = useState<IActiveTool[]>([]);
   const [streamingText, setStreamingText] = useState('');
@@ -50,8 +87,9 @@ export function useWsSession(url: string): IWsSessionState {
   const [executionWorkspace, setExecutionWorkspace] = useState<IExecutionWorkspaceSnapshot | null>(
     null,
   );
+  const [pendingPrompts, setPendingPrompts] = useState<readonly TPendingPrompt[]>([]);
 
-  const clientRef = useRef<ReturnType<typeof createWsSessionClient> | null>(null);
+  const clientRef = useRef<ISessionClientHandle | null>(null);
   const streamingIdRef = useRef<string | null>(null);
   const streamingTextRef = useRef('');
 
@@ -112,6 +150,13 @@ export function useWsSession(url: string): IWsSessionState {
         setExecutionWorkspace(msg.snapshot);
         break;
       }
+      case 'permission_request':
+      case 'ask_request':
+      case 'prompt_resolved': {
+        // REMOTE-007/009: the paired owner renders + answers its own prompts (local == remote).
+        setPendingPrompts((prev) => applyPromptEvent(prev, msg));
+        break;
+      }
       case 'complete':
       case 'interrupted': {
         const finalText = streamingTextRef.current;
@@ -136,18 +181,54 @@ export function useWsSession(url: string): IWsSessionState {
     clientRef.current?.send(msg);
   }, []);
 
+  const answerPermission = useCallback((id: string, result: TPermissionResultValue): void => {
+    clientRef.current?.send(permissionResponse(id, result));
+    setPendingPrompts((prev) => prev.filter((p) => p.id !== id)); // optimistic dismiss (prompt_resolved confirms)
+  }, []);
+
+  const answerAsk = useCallback((id: string, response: TActionResponse): void => {
+    clientRef.current?.send(askResponse(id, response));
+    setPendingPrompts((prev) => prev.filter((p) => p.id !== id));
+  }, []);
+
   useEffect(() => {
-    const client = createWsSessionClient(url, {
-      onMessage: handleMessage,
-      onStatusChange: setStatus,
-    });
+    const client = makeClient({ onMessage: handleMessage, onStatusChange: setStatus });
     clientRef.current = client;
     client.connect();
     return () => {
       client.disconnect();
       clientRef.current = null;
     };
-  }, [url, handleMessage]);
+  }, [makeClient, handleMessage]);
 
-  return { status, messages, activeTools, streamingText, isThinking, executionWorkspace, send };
+  return {
+    status,
+    messages,
+    activeTools,
+    streamingText,
+    isThinking,
+    executionWorkspace,
+    send,
+    pendingPrompts,
+    answerPermission,
+    answerAsk,
+  };
+}
+
+/** Connect to an agent-cli sidecar over WebSocket (localhost path). */
+export function useWsSession(url: string): IWsSessionState {
+  const makeClient = useCallback<TMakeSessionClient>((cb) => createWsSessionClient(url, cb), [url]);
+  return useSessionClient(makeClient);
+}
+
+/** Connect to a paired host over WebRTC (REMOTE-009 Stage D). Memoized on the primitive connection fields. */
+export function useRtcSession(
+  options: Pick<IRtcSessionClientOptions, 'relayUrl' | 'rendezvous' | 'secret'>,
+): IWsSessionState {
+  const { relayUrl, rendezvous, secret } = options;
+  const makeClient = useCallback<TMakeSessionClient>(
+    (cb) => createRtcSessionClient({ relayUrl, rendezvous, secret }, cb),
+    [relayUrl, rendezvous, secret],
+  );
+  return useSessionClient(makeClient);
 }
