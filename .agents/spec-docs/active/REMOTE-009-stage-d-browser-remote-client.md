@@ -164,17 +164,28 @@ the fragment. harness:scan + full typecheck + changeset.
 
 ## Tasks
 
-- [ ] Step 1 — browser signaling client `rtc-signaling-client.ts` (`ISignalingClient` over native `WebSocket`;
+- [x] Step 1 — browser signaling client `rtc-signaling-client.ts` (`ISignalingClient` over native `WebSocket`;
       join/joined/signal/error + pre-open outbox buffering). Unit tests with a fake `WebSocket`.
-- [ ] Step 2 — `createRtcSessionClient` (native `RTCPeerConnection` answerer + `startPairingHandshake('responder')` over
+- [x] Step 2 — `createRtcSessionClient` (native `RTCPeerConnection` answerer + `startPairingHandshake('responder')` over
       the data channel; phase-separated routing switch, expose session ONLY post-accept, drop pre-accept non-pairing,
       `failed` on reject; `{onMessage,onStatusChange,send}` contract mirroring `createWsSessionClient`) + the D6
       fingerprint-parity gating test (native-answer SDP fixture == host-verified fp). Unit tests (fake RTCPeerConnection,
       real agent-remote-pairing, Node responder oracle). + `agent-remote-pairing` dep.
-- [ ] Step 3 — fragment-injected SPA entry + pairing-UX shell (`parsePairingUrl(window.location.href)` → connecting →
+- [x] Step 3 — fragment-injected SPA entry + pairing-UX shell (`parsePairingUrl(window.location.href)` → connecting →
       pairing → connected → failed) feeding the existing `useWsSession` reducer + `SessionMonitor`. Vite build wiring.
-- [ ] Step 4 — REMOTE-007 render+answer in `useWsSession`: handle `permission_request`/`ask_request`/`prompt_resolved`,
+- [x] Step 4 — REMOTE-007 render+answer in `useWsSession`: handle `permission_request`/`ask_request`/`prompt_resolved`,
       send `permission-response`/`ask-response` + a prompt component. Reducer unit tests (works for WS + RTC clients).
-- [ ] Step 5 — D5 fail-closed: delete `DEFAULT_CLIENT_URL`, unset `clientUrl` → error string early-return (no
+- [x] Step 5 — D5 fail-closed: delete `DEFAULT_CLIENT_URL`, unset `clientUrl` → error string early-return (no
       construct/start) + controller test. `agent-web-ui/docs/SPEC.md` + `clientUrl` guidance.
-- [ ] Step 6 — verify: harness:scan + full typecheck + changeset.
+- [x] Step 6 — verify: harness:scan + full typecheck + changeset.
+- 2026-07-11 GATE-BUILD — implemented on `feat/remote-009-browser-remote-client` (off origin/develop), all 6 steps
+  committed. Step 1 `createRtcSignalingClient` (native WebSocket, 8 tests); Step 2 `ResponderGate` (client dual of the
+  host PairingGate — fail-closed routing switch, 8 tests) + `createRtcSessionClient` (answerer glue, 2 tests) + D6
+  fingerprint-parity gate (werift session-level uppercase == native media-level lowercase → identical canonical fp, 4
+  tests); Step 4 `useWsSession` permission/ask render+answer via a pure `prompt-state` module (6 tests) — REMOTE-007's
+  deferred web render, shared by WS + RTC; Step 5 deleted `DEFAULT_CLIENT_URL`, unset `clientUrl` fails closed (early
+  return, status untouched; +controller test); Step 3 hook generalized to `useSessionClient(makeClient)` +
+  `useWsSession`/`useRtcSession` wrappers, `parseRemoteClientLocation` (4 tests), `RemoteClient`/`PermissionPrompt`,
+  `spa/remote.html` fragment entry (both SPA entries build). No `agent-transport-webrtc`/werift edge (only the zero-dep
+  `agent-remote-pairing` leaf added). Verify: agent-web-ui 36, agent-cli 178, harness:scan 49/49, full-repo typecheck 0,
+  changeset present, agent-web-ui SPEC public-API table updated. Ready for implementation review + merge-verifier.
