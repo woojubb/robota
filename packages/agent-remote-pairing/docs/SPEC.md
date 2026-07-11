@@ -33,24 +33,32 @@ detection is a **directional, nonce-bound HMAC key-confirmation** bound to both 
 
 ## Public API Surface
 
-| Export                   | Kind     | Description                                                                                          |
-| ------------------------ | -------- | ---------------------------------------------------------------------------------------------------- |
-| `generatePairingSecret`  | function | Fresh 256-bit secret + 128-bit rendezvous (base64url).                                               |
-| `generateNonce`          | function | Fresh per-handshake nonce.                                                                           |
-| `toPairingUrl`           | function | Encode `{ rendezvous, secret }` into a URL **fragment**.                                             |
-| `parsePairingUrl`        | function | Read `{ rendezvous, secret }` from a pairing URL fragment.                                           |
-| `extractDtlsFingerprint` | function | Parse the `a=fingerprint` value from an SDP (throws if absent).                                      |
-| `deriveSessionKey`       | function | HKDF a domain-separated session key (Stage-E use).                                                   |
-| `computeConfirmations`   | function | This peer's outgoing + expected-peer directional confirmations.                                      |
-| `verifyPeerConfirmation` | function | Isomorphic timing-safe (double-HMAC) equality of two confirmations.                                  |
-| `startPairingHandshake`  | function | Drive the confirmation exchange; resolves accept-with-session-key, hard-rejects on mismatch/timeout. |
+| Export                                        | Kind     | Description                                                                                           |
+| --------------------------------------------- | -------- | ----------------------------------------------------------------------------------------------------- |
+| `generatePairingSecret`                       | function | Fresh 256-bit secret + 128-bit rendezvous (base64url).                                                |
+| `generateNonce`                               | function | Fresh per-handshake nonce.                                                                            |
+| `toPairingUrl`                                | function | Encode `{ rendezvous, secret }` into a URL **fragment**.                                              |
+| `parsePairingUrl`                             | function | Read `{ rendezvous, secret }` from a pairing URL fragment.                                            |
+| `extractDtlsFingerprint`                      | function | Parse the `a=fingerprint` value from an SDP (throws if absent).                                       |
+| `deriveSessionKey`                            | function | HKDF a domain-separated session key (Stage-E use).                                                    |
+| `computeConfirmations`                        | function | This peer's outgoing + expected-peer directional confirmations.                                       |
+| `verifyPeerConfirmation`                      | function | Isomorphic timing-safe (double-HMAC) equality of two confirmations.                                   |
+| `startPairingHandshake`                       | function | Drive the confirmation exchange; resolves accept-with-session-key, hard-rejects on mismatch/timeout.  |
+| `generateIdentityKeyPair`                     | function | ECDSA-P256 identity keypair (REMOTE-012 E3); `extractable:false` for the device, `true` for the host. |
+| `exportPublicKey` / `importPublicKey`         | function | Base64url SPKI export/import — the value each side pins for the other.                                |
+| `exportKeyPairJwk` / `importKeyPairJwk`       | function | Host-only JWK export/import for persisting its extractable identity key.                              |
+| `deriveIdentityId`                            | function | Stable non-secret id = base64url `SHA-256(SPKI)` (deviceId / hostIdentityId).                         |
+| `signChallenge` / `verifyChallenge`           | function | Sign/verify the channel-bound reconnect transcript (E3).                                              |
+| `startDeviceReconnect` / `startHostReconnect` | function | Mutual reconnect controllers; each verifies the counterpart's pinned key before accept.               |
 
 ## Type Ownership
 
-| Type                                                          | Location           | Purpose                       |
-| ------------------------------------------------------------- | ------------------ | ----------------------------- |
-| `IPairingSecret`, `IConfirmationInput`, `TPairingRole`        | `src/pairing.ts`   | Pairing crypto contracts.     |
-| `IPairingHandshakeOptions`, `IPairingResult`, `TPairingFrame` | `src/handshake.ts` | Handshake protocol contracts. |
+| Type                                                                                                              | Location                 | Purpose                              |
+| ----------------------------------------------------------------------------------------------------------------- | ------------------------ | ------------------------------------ |
+| `IPairingSecret`, `IConfirmationInput`, `TPairingRole`                                                            | `src/pairing.ts`         | Pairing crypto contracts.            |
+| `IPairingHandshakeOptions`, `IPairingResult`, `TPairingFrame`                                                     | `src/handshake.ts`       | Handshake protocol contracts.        |
+| `IIdentityKeyPairJwk`, `IReconnectChallenge`                                                                      | `src/device-identity.ts` | E3 identity + challenge contracts.   |
+| `IReconnectController`, `IReconnectResult`, `IDeviceReconnectOptions`, `IHostReconnectOptions`, `TReconnectFrame` | `src/reconnect.ts`       | Mutual reconnect protocol contracts. |
 
 ## Extension Points
 

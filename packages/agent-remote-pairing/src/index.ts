@@ -16,3 +16,22 @@ export {
 export type { IPairingSecret, IConfirmationInput, TPairingRole } from './pairing.js';
 export { startPairingHandshake } from './handshake.js';
 export type { IPairingHandshakeOptions, IPairingResult, TPairingFrame } from './handshake.js';
+export {
+  generateIdentityKeyPair,
+  exportPublicKey,
+  importPublicKey,
+  exportKeyPairJwk,
+  importKeyPairJwk,
+  deriveIdentityId,
+  signChallenge,
+  verifyChallenge,
+} from './device-identity.js';
+export type { IIdentityKeyPairJwk, IReconnectChallenge } from './device-identity.js';
+export { startDeviceReconnect, startHostReconnect } from './reconnect.js';
+export type {
+  IReconnectController,
+  IReconnectResult,
+  IDeviceReconnectOptions,
+  IHostReconnectOptions,
+  TReconnectFrame,
+} from './reconnect.js';

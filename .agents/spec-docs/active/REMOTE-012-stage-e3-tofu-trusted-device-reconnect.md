@@ -1,5 +1,5 @@
 ---
-status: draft
+status: in-progress
 type: SECURITY
 tags: [auth, websocket, typescript]
 ---
