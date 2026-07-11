@@ -284,7 +284,8 @@ describe('createInteractiveRuntime', () => {
     await runtime.stop();
 
     expect(channel.stopped).toBe(true);
-    expect(session.off).toHaveBeenCalledTimes(6);
+    // 6 display events + 1 REMOTE-007 ask_request subscription (unwired on stop).
+    expect(session.off).toHaveBeenCalledTimes(7);
   });
 
   it('Given user message submitted When complete emitted Then setBusy called true then false', async () => {

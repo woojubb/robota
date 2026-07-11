@@ -177,6 +177,30 @@ describe('SessionPromptRegistry (REMOTE-007 transport-neutral permission/ask)', 
     await expect(perm).resolves.toBe(true);
   });
 
+  it('a throwing surface handler fails the prompt closed (never rejects/hangs the awaiting caller)', async () => {
+    const counts = { permission_request: 1, ask_request: 1 } as Record<
+      'permission_request' | 'ask_request',
+      number
+    >;
+    const deps: ISessionPromptRegistryDeps = {
+      emitPermissionRequest: () => {
+        throw new Error('surface handler blew up');
+      },
+      emitAskRequest: () => {
+        throw new Error('surface handler blew up');
+      },
+      emitPromptResolved: () => {},
+      countListeners: (event) => counts[event],
+    };
+    const registry = new SessionPromptRegistry(deps);
+    // The reject must NOT escape the executor — the caller sees a fail-closed deny/cancel, not a throw.
+    await expect(registry.requestPermission('shell', {})).resolves.toBe(false);
+    await expect(registry.requestAsk({ id: 'r', title: 't' })).resolves.toEqual({
+      type: 'cancelled',
+    });
+    expect(registry.pendingCount).toBe(0); // no leaked parked entry
+  });
+
   it('resolve for an unknown id is a safe no-op', () => {
     const h = harness();
     expect(() => h.registry.resolvePermission('nope', true)).not.toThrow();

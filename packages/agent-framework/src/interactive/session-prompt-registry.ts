@@ -85,7 +85,9 @@ export class SessionPromptRegistry {
     }
     return new Promise<TPermissionResultValue>((resolve) => {
       this.park(id, 'permission', resolve as (v: TPermissionResultValue | TActionResponse) => void);
-      this.deps.emitPermissionRequest({ id, toolName, toolArgs });
+      this.emitOrFailClosed(id, 'permission', () =>
+        this.deps.emitPermissionRequest({ id, toolName, toolArgs }),
+      );
     });
   }
 
@@ -97,7 +99,7 @@ export class SessionPromptRegistry {
     }
     return new Promise<TActionResponse>((resolve) => {
       this.park(id, 'ask', resolve as (v: TPermissionResultValue | TActionResponse) => void);
-      this.deps.emitAskRequest({ id, request });
+      this.emitOrFailClosed(id, 'ask', () => this.deps.emitAskRequest({ id, request }));
     });
   }
 
@@ -135,6 +137,20 @@ export class SessionPromptRegistry {
   /** Currently-parked prompt count — for assertions/telemetry. */
   get pendingCount(): number {
     return this.parked.size;
+  }
+
+  /**
+   * Emit the prompt event, but if a subscribed surface's synchronous handler THROWS, settle the
+   * already-parked prompt fail-closed instead of letting the reject propagate out of the Promise
+   * executor (which would make the enforcer/tool throw rather than deny, and leak the parked entry
+   * until the backstop). Fail-closed is the invariant — a broken surface must not hang or grant.
+   */
+  private emitOrFailClosed(id: string, kind: TParkedKind, emit: () => void): void {
+    try {
+      emit();
+    } catch {
+      this.settle(id, failClosedValue(kind));
+    }
   }
 
   private park(
