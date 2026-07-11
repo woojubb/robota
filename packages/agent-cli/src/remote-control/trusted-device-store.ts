@@ -19,6 +19,10 @@ export interface ITrustedDeviceRecord {
   readonly label: string;
   readonly createdAt: string;
   readonly lastSeenAt: string;
+  /** REMOTE-013 E4: per-device reconnect seed (HKDF of the pairing sessionKey) for rotating-rendezvous rediscovery. */
+  readonly reconnectSeed?: string;
+  /** REMOTE-013 E4: monotonic reconnect counter (resync-on-success). Absent → 0. */
+  readonly reconnectCounter?: number;
 }
 
 export interface ITrustedDeviceStore {

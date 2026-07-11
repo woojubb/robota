@@ -1,14 +1,18 @@
 import {
+  deriveReconnectRendezvous,
+  deriveReconnectSeed,
   generatePairingSecret,
   importPublicKey,
   toPairingUrl,
 } from '@robota-sdk/agent-remote-pairing';
 import { WsSignalingClient, WebRtcTransport } from '@robota-sdk/agent-transport-webrtc';
+import { SessionResumeBridge } from '@robota-sdk/agent-transport-protocol';
 
 import { hasTurnServer } from './ice-config.js';
 
 import type { IHostIdentity } from './host-identity.js';
 import type { ITrustedDeviceRecord, ITrustedDeviceStore } from './trusted-device-store.js';
+import type { IPairingResult } from '@robota-sdk/agent-remote-pairing';
 import type {
   IHostReconnectConfig,
   IIceServer,
@@ -62,16 +66,45 @@ export interface IRemoteControlControllerDeps {
   createTransport?: (
     signaling: ISignalingClient,
     secret: string,
-    hooks: { onPaired: () => void; onPairingFailed: () => void },
+    hooks: {
+      onPaired: (result?: IPairingResult) => void;
+      onPairingFailed: () => void;
+      onDropped?: () => void;
+    },
     ice: { iceServers?: readonly IIceServer[]; forceTurn?: boolean },
     reconnect?: IHostReconnectConfig,
+    resumeBridge?: SessionResumeBridge,
   ) => IConfigurableTransport<IInteractiveSession>;
+  /** REMOTE-013 E4: build the session-scoped resume bridge (default: real `SessionResumeBridge`). */
+  createResumeBridge?: (session: IInteractiveSession) => SessionResumeBridge;
+  /** REMOTE-013 E4: relay URL for reconnect signaling (defaults to `readRelayUrl`). */
+  now?: () => number;
+  /** REMOTE-013 E4: schedule a deferred callback (default `setTimeout`); tests inject a controllable fake. */
+  schedule?: (callback: () => void, delayMs: number) => () => void;
 }
+
+/**
+ * REMOTE-013 E4 host reconnect-window ceiling. Kept UNDER the relay's half-open TTL (60s,
+ * `DEFAULT_RENDEZVOUS_TTL_MS`) so the host's lone presence at a reconnect room is not evicted mid-window; a
+ * returning device must reconnect within this window or the session is freed (the operator re-pairs via QR).
+ */
+const RECONNECT_WINDOW_MS = 50_000;
 
 export class RemoteControlController {
   private status: TRemoteControlStatus = { state: 'off' };
   private transport?: IConfigurableTransport<IInteractiveSession>;
   private signaling?: ISignalingClient;
+  // REMOTE-013 E4 reconnect state (session-scoped, spans channel drops).
+  private bridge?: SessionResumeBridge;
+  private pairedDeviceId?: string;
+  private relayUrl?: string;
+  private iceConfig: { iceServers?: readonly IIceServer[]; forceTurn?: boolean } = {};
+  private reconnectConfig?: IHostReconnectConfig;
+  /** Active reconnect transports (the 2-room window) + their timers, torn down on reconnect/ceiling. */
+  private reconnectPeers: IConfigurableTransport<IInteractiveSession>[] = [];
+  private reconnectSignalings: ISignalingClient[] = [];
+  private cancelReconnectRound?: () => void;
+  private cancelReconnectCeiling?: () => void;
 
   constructor(private readonly deps: IRemoteControlControllerDeps) {}
 
@@ -138,6 +171,17 @@ export class RemoteControlController {
       }
     }
 
+    // REMOTE-013 E4: a session-scoped resume bridge (only when reconnect/E3 is active) that survives channel
+    // drops. Retain the config needed to re-arm reconnect signaling later.
+    this.relayUrl = relayUrl;
+    this.iceConfig = { ...(iceServers ? { iceServers } : {}), forceTurn };
+    this.reconnectConfig = reconnect;
+    if (reconnect && !this.bridge) {
+      this.bridge = (
+        this.deps.createResumeBridge ?? ((s) => new SessionResumeBridge({ session: s }))
+      )(session);
+    }
+
     const pairing = generatePairingSecret();
     const signaling = (this.deps.createSignaling ?? defaultCreateSignaling)(
       relayUrl,
@@ -147,18 +191,26 @@ export class RemoteControlController {
       signaling,
       pairing.secret,
       {
-        // Pairing accepted → the paired device is now driving the session (host lifecycle status).
-        onPaired: () => {
-          if (this.transport === transport) this.status = { state: 'paired' };
+        // Pairing accepted → the paired device drives the session. On FIRST pair, persist the reconnect
+        // seed+counter (from the pairing sessionKey) so a future drop can rediscover + resume (E4).
+        onPaired: (result) => {
+          if (this.transport !== transport) return;
+          this.status = { state: 'paired' };
+          if (result?.sessionKey && this.pairedDeviceId) {
+            void this.persistReconnectSeed(this.pairedDeviceId, result.sessionKey);
+          }
         },
-        // Pairing rejected/timed out → tear down (channel already closed by the gate) so nothing leaks and
-        // the status stops advertising "waiting to pair".
         onPairingFailed: () => {
           if (this.transport === transport) void this.teardown('off');
         },
+        // E4: a PAIRED channel dropped → keep the session + bridge, run the reconnect loop.
+        onDropped: () => {
+          if (this.transport === transport) this.onDropped();
+        },
       },
-      { ...(iceServers ? { iceServers } : {}), forceTurn },
+      this.iceConfig,
       reconnect,
+      this.bridge,
     );
 
     this.deps.registry.register(transport);
@@ -206,9 +258,126 @@ export class RemoteControlController {
           label: existing?.label ?? 'remote device',
           createdAt: existing?.createdAt ?? now,
           lastSeenAt: now,
+          ...(existing?.reconnectSeed ? { reconnectSeed: existing.reconnectSeed } : {}),
+          ...(existing?.reconnectCounter !== undefined
+            ? { reconnectCounter: existing.reconnectCounter }
+            : {}),
         });
+        // E4: remember which device is driving, so a drop knows whose reconnect rooms to re-arm.
+        this.pairedDeviceId = deviceId;
       },
     };
+  }
+
+  /** REMOTE-013 E4: persist the per-device reconnect seed (from the pairing sessionKey) + counter 0 on first pair. */
+  private async persistReconnectSeed(deviceId: string, sessionKey: string): Promise<void> {
+    const store = this.deps.trustedDeviceStore;
+    const existing = store?.get(deviceId);
+    if (!store || !existing || existing.reconnectSeed) return; // already seeded, or no store
+    const reconnectSeed = await deriveReconnectSeed(sessionKey);
+    store.upsert({ ...existing, reconnectSeed, reconnectCounter: 0 });
+  }
+
+  /**
+   * REMOTE-013 E4: a PAIRED channel dropped. Keep the session + bridge; register the returning device's
+   * reconnect rooms (the `{counter, counter+1}` window) and arm the reconnect-window ceiling. The client runs
+   * its own backoff loop toward these rooms; a confirmed E3 reconnect resumes the same session.
+   */
+  private onDropped(): void {
+    const store = this.deps.trustedDeviceStore;
+    const record = this.pairedDeviceId ? store?.get(this.pairedDeviceId) : undefined;
+    const session = this.deps.getSession();
+    if (
+      !record?.reconnectSeed ||
+      !this.reconnectConfig ||
+      !this.relayUrl ||
+      !session ||
+      !this.bridge
+    ) {
+      void this.teardown('off'); // cannot rediscover (no seed / no session) → free everything
+      return;
+    }
+    // Drop the old peer transport (channel already closed) but KEEP the bridge (it is buffering the gap).
+    const dropped = this.transport;
+    this.transport = undefined;
+    if (dropped) void dropped.stop().catch(() => undefined);
+    void this.safeClose(this.signaling);
+    this.signaling = undefined;
+
+    const counter = record.reconnectCounter ?? 0;
+    const schedule = this.deps.schedule ?? defaultSchedule;
+    this.cancelReconnectCeiling = schedule(() => this.giveUpReconnect(), RECONNECT_WINDOW_MS);
+    // Register the 2-room window so a device that advanced its counter (lost final frame) still meets the host.
+    void this.armReconnectRoom(record.reconnectSeed, counter, session);
+    void this.armReconnectRoom(record.reconnectSeed, counter + 1, session);
+  }
+
+  /** Register one reconnect transport at `rendezvous(seed, counter)`, sharing the persistent bridge. */
+  private async armReconnectRoom(
+    seed: string,
+    counter: number,
+    session: IInteractiveSession,
+  ): Promise<void> {
+    if (!this.reconnectConfig || !this.relayUrl || !this.bridge) return;
+    const rendezvous = await deriveReconnectRendezvous(seed, counter);
+    const signaling = (this.deps.createSignaling ?? defaultCreateSignaling)(
+      this.relayUrl,
+      rendezvous,
+    );
+    // The reconnect room carries only rc-hello (E3 reconnect); the QR secret is unused but the gate requires one.
+    const dummySecret = generatePairingSecret().secret;
+    const peer = (this.deps.createTransport ?? defaultCreateTransport)(
+      signaling,
+      dummySecret,
+      {
+        onPaired: () => this.onReconnected(counter, peer, signaling),
+        onPairingFailed: () => undefined, // a wrong/absent device at this room is not fatal; the ceiling governs
+        onDropped: () => {
+          if (this.transport === peer) this.onDropped();
+        },
+      },
+      this.iceConfig,
+      this.reconnectConfig,
+      this.bridge,
+    );
+    this.reconnectPeers.push(peer);
+    this.reconnectSignalings.push(signaling);
+    this.deps.registry.register(peer);
+    peer.attach(session);
+    void peer.start().catch(() => undefined);
+  }
+
+  /** A returning device confirmed the E3 reconnect at `usedCounter`. Advance (resync), promote the winner, drop the rest. */
+  private onReconnected(
+    usedCounter: number,
+    winner: IConfigurableTransport<IInteractiveSession>,
+    winnerSignaling: ISignalingClient,
+  ): void {
+    if (this.transport) return; // already promoted a winner (first wins)
+    this.cancelReconnectCeiling?.();
+    this.cancelReconnectCeiling = undefined;
+    // Resync-on-success: the next room is the USED room + 1 (erases any ±1 drift).
+    const store = this.deps.trustedDeviceStore;
+    const record = this.pairedDeviceId ? store?.get(this.pairedDeviceId) : undefined;
+    if (store && record) store.upsert({ ...record, reconnectCounter: usedCounter + 1 });
+    // Tear down the losing rooms; promote the winner (its gate already re-attached the bridge on accept).
+    for (let i = 0; i < this.reconnectPeers.length; i += 1) {
+      const p = this.reconnectPeers[i];
+      if (p === winner) continue;
+      void p.stop().catch(() => undefined);
+      void this.safeClose(this.reconnectSignalings[i]);
+    }
+    this.reconnectPeers = [];
+    this.reconnectSignalings = [];
+    this.transport = winner;
+    this.signaling = winnerSignaling;
+    this.status = { state: 'paired' };
+  }
+
+  /** Reconnect window elapsed with no returning device → free the bridge + session presence (operator re-pairs). */
+  private giveUpReconnect(): void {
+    this.cancelReconnectCeiling = undefined;
+    void this.teardown('off');
   }
 
   /** REMOTE-012 E3: list enrolled trusted devices (public data only). Empty when no store is configured. */
@@ -239,8 +408,22 @@ export class RemoteControlController {
     this.transport = undefined;
     this.signaling = undefined;
     this.status = { state: next };
+    // REMOTE-013 E4: cancel any in-flight reconnect + free the session-scoped bridge and its buffer.
+    this.cancelReconnectCeiling?.();
+    this.cancelReconnectCeiling = undefined;
+    this.cancelReconnectRound?.();
+    this.cancelReconnectRound = undefined;
+    const reconnectPeers = this.reconnectPeers;
+    const reconnectSignalings = this.reconnectSignalings;
+    this.reconnectPeers = [];
+    this.reconnectSignalings = [];
+    this.pairedDeviceId = undefined;
+    this.bridge?.dispose();
+    this.bridge = undefined;
     if (transport) await transport.stop().catch(() => undefined);
     await this.safeClose(signaling);
+    for (const p of reconnectPeers) await p.stop().catch(() => undefined);
+    for (const s of reconnectSignalings) await this.safeClose(s);
   }
 
   private async renderPairingMessage(pairingUrl: string): Promise<string> {
@@ -267,20 +450,32 @@ function defaultCreateSignaling(url: string, rendezvous: string): ISignalingClie
   return new WsSignalingClient({ url, rendezvous });
 }
 
+function defaultSchedule(callback: () => void, delayMs: number): () => void {
+  const timer = setTimeout(callback, delayMs);
+  return () => clearTimeout(timer);
+}
+
 function defaultCreateTransport(
   signaling: ISignalingClient,
   secret: string,
-  hooks: { onPaired: () => void; onPairingFailed: () => void },
+  hooks: {
+    onPaired: (result?: IPairingResult) => void;
+    onPairingFailed: () => void;
+    onDropped?: () => void;
+  },
   ice: { iceServers?: readonly IIceServer[]; forceTurn?: boolean },
   reconnect?: IHostReconnectConfig,
+  resumeBridge?: SessionResumeBridge,
 ): IConfigurableTransport<IInteractiveSession> {
   return new WebRtcTransport({
     signaling,
     secret,
     onPaired: hooks.onPaired,
     onPairingFailed: hooks.onPairingFailed,
+    ...(hooks.onDropped ? { onDropped: hooks.onDropped } : {}),
     ...(ice.iceServers ? { iceServers: ice.iceServers } : {}),
     ...(ice.forceTurn ? { forceTurn: ice.forceTurn } : {}),
     ...(reconnect ? { reconnect } : {}),
+    ...(resumeBridge ? { resumeBridge } : {}),
   });
 }
