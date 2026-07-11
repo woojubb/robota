@@ -115,6 +115,26 @@ describe('PairingGate (REMOTE-008 Step 1 — fail-closed routing switch)', () =>
     expect(sessionOnMessage).not.toHaveBeenCalled();
   });
 
+  it('fires onAccept on accept (not onReject)', async () => {
+    const onAccept = vi.fn();
+    const onReject = vi.fn();
+    const { hs } = makeGate({ onAccept, onReject });
+    hs.accept();
+    await Promise.resolve();
+    expect(onAccept).toHaveBeenCalledTimes(1);
+    expect(onReject).not.toHaveBeenCalled();
+  });
+
+  it('fires onReject on reject (not onAccept)', async () => {
+    const onAccept = vi.fn();
+    const onReject = vi.fn();
+    const { hs } = makeGate({ onAccept, onReject });
+    hs.reject();
+    await Promise.resolve();
+    expect(onReject).toHaveBeenCalledTimes(1);
+    expect(onAccept).not.toHaveBeenCalled();
+  });
+
   it('cleanup tears down the session bridge when one was built', async () => {
     const { gate, hs, handlerCleanup } = makeGate();
     hs.accept();

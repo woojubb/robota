@@ -46,6 +46,10 @@ export interface IPairingGateOptions {
   readonly remoteFingerprint: string;
   /** Handshake timeout (ms); fail closed on expiry. */
   readonly timeoutMs?: number;
+  /** REMOTE-008: fired once the handshake accepts + the session is exposed (host lifecycle → status 'paired'). */
+  readonly onAccept?: () => void;
+  /** REMOTE-008: fired once the handshake rejects/times out + the channel closes (host lifecycle → teardown). */
+  readonly onReject?: () => void;
   /** Injection seams (default to the real implementations). */
   readonly startHandshake?: typeof startPairingHandshake;
   readonly createHandler?: typeof createWsHandler;
@@ -125,6 +129,7 @@ export class PairingGate {
     this.onSessionMessage = onMessage;
     this.handlerCleanup = cleanup;
     this.state = 'accepted';
+    this.options.onAccept?.();
   }
 
   private rejectAndClose(): void {
@@ -136,6 +141,7 @@ export class PairingGate {
     } catch {
       // already closing/closed
     }
+    this.options.onReject?.();
   }
 
   private safeSend(data: string): void {

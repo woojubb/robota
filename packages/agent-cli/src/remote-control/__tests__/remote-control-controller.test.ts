@@ -24,6 +24,7 @@ function makeDeps(over: Partial<IRemoteControlControllerDeps> = {}): {
     stop: ReturnType<typeof vi.fn>;
   };
   signaling: { close: ReturnType<typeof vi.fn> };
+  hooks: { onPaired?: () => void; onPairingFailed?: () => void };
 } {
   const registered: IConfigurableTransport<IInteractiveSession>[] = [];
   const registry = {
@@ -38,6 +39,9 @@ function makeDeps(over: Partial<IRemoteControlControllerDeps> = {}): {
     validateOptions: () => true,
   };
   const signaling = { send: vi.fn(), onSignal: vi.fn(() => () => {}), close: vi.fn() };
+  // Capture the pairing lifecycle hooks the controller passes into the transport, so a test can simulate
+  // the gate accepting / rejecting.
+  const hooks: { onPaired?: () => void; onPairingFailed?: () => void } = {};
   const deps: IRemoteControlControllerDeps = {
     registry,
     readRelayUrl: () => 'ws://127.0.0.1:9999',
@@ -45,10 +49,14 @@ function makeDeps(over: Partial<IRemoteControlControllerDeps> = {}): {
     getSession: () => ({}) as IInteractiveSession,
     renderQr: () => Promise.resolve('[QR]'),
     createSignaling: () => signaling as unknown as ISignalingClient,
-    createTransport: () => transport as unknown as IConfigurableTransport<IInteractiveSession>,
+    createTransport: (_s, _secret, h) => {
+      hooks.onPaired = h.onPaired;
+      hooks.onPairingFailed = h.onPairingFailed;
+      return transport as unknown as IConfigurableTransport<IInteractiveSession>;
+    },
     ...over,
   };
-  return { deps, registered, transport, signaling };
+  return { deps, registered, transport, signaling, hooks };
 }
 
 describe('RemoteControlController (REMOTE-008)', () => {
@@ -115,6 +123,40 @@ describe('RemoteControlController (REMOTE-008)', () => {
     const { deps } = makeDeps();
     const msg = await new RemoteControlController(deps).stop();
     expect(msg).toMatch(/not running/i);
+  });
+
+  it('onPaired hook flips status to paired', async () => {
+    const { deps, hooks } = makeDeps();
+    const controller = new RemoteControlController(deps);
+    await controller.enable();
+    expect(controller.getStatus().state).toBe('awaiting-pairing');
+    hooks.onPaired?.();
+    expect(controller.getStatus()).toEqual({ state: 'paired' });
+  });
+
+  it('onPairingFailed hook tears down (no leak) and returns to off', async () => {
+    const { deps, hooks, transport, signaling } = makeDeps();
+    const controller = new RemoteControlController(deps);
+    await controller.enable();
+    hooks.onPairingFailed?.();
+    await new Promise((r) => setTimeout(r, 0)); // let the detached async teardown run to completion
+    expect(transport.stop).toHaveBeenCalledTimes(1);
+    expect(signaling.close).toHaveBeenCalledTimes(1);
+    expect(controller.getStatus()).toEqual({ state: 'off' });
+  });
+
+  it('a start() failure resets to off and reports to the operator (not swallowed)', async () => {
+    const reportError = vi.fn();
+    const { deps, transport } = makeDeps({ reportError });
+    transport.start.mockRejectedValue(new Error('WebRTC unavailable'));
+    const controller = new RemoteControlController(deps);
+    await controller.enable();
+    await Promise.resolve(); // let the detached start().catch run
+    await Promise.resolve();
+    expect(reportError).toHaveBeenCalledWith(
+      expect.stringMatching(/failed to start.*WebRTC unavailable/i),
+    );
+    expect(controller.getStatus()).toEqual({ state: 'off' });
   });
 
   it('falls back to the link alone when QR rendering fails', async () => {

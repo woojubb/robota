@@ -1,10 +1,18 @@
+import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
 import { getUserSettingsPath, readSettings } from '@robota-sdk/agent-framework';
 
 import { renderQrToTerminal } from './render-qr.js';
 import { RemoteControlController } from './remote-control-controller.js';
 
+import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type { TransportRegistry } from '@robota-sdk/agent-transport';
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
+
+/** The surface the controller needs from the live TUI channel (structural — no coupling to the class). */
+interface ILiveChannel {
+  getSession(): IInteractiveSession;
+  readonly stateManager: { addEntry(entry: IHistoryEntry): void };
+}
 
 export { RemoteControlController } from './remote-control-controller.js';
 export type { IRemoteControlControllerDeps } from './remote-control-controller.js';
@@ -23,25 +31,28 @@ function readWebrtcOption(key: string): string | undefined {
 }
 
 /**
- * Build the `/remote-control` controller at the composition root. The returned `setSession` is called from
- * `onChannelReady` (each live channel) so the enable path can attach the current session.
+ * Build the `/remote-control` controller at the composition root. The returned `setChannel` is called from
+ * `onChannelReady` (each live channel, incl. session-switch re-creations) so the enable path attaches the
+ * session the user is actually driving and surfaces async failures into that channel's history.
  */
 export function createRemoteControlController(registry: TransportRegistry): {
   controller: RemoteControlController;
-  setSession: (session: IInteractiveSession | undefined) => void;
+  setChannel: (channel: ILiveChannel | undefined) => void;
 } {
-  let session: IInteractiveSession | undefined;
+  let channel: ILiveChannel | undefined;
   const controller = new RemoteControlController({
     registry,
     readRelayUrl: () => readWebrtcOption('relayUrl'),
     readClientUrl: () => readWebrtcOption('clientUrl'),
-    getSession: () => session,
+    getSession: () => channel?.getSession(),
     renderQr: renderQrToTerminal,
+    reportError: (message) =>
+      channel?.stateManager.addEntry(messageToHistoryEntry(createSystemMessage(message))),
   });
   return {
     controller,
-    setSession: (next) => {
-      session = next;
+    setChannel: (next) => {
+      channel = next;
     },
   };
 }

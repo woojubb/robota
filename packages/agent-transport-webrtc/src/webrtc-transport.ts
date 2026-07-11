@@ -29,6 +29,10 @@ export interface IWebRtcTransportOptions {
    * exposed immediately with no pairing (unchanged behavior).
    */
   readonly secret?: string;
+  /** REMOTE-008: fired when pairing accepts + the session is exposed (host lifecycle → status 'paired'). */
+  readonly onPaired?: () => void;
+  /** REMOTE-008: fired when pairing rejects/times out (host lifecycle → teardown; the channel is already closed). */
+  readonly onPairingFailed?: () => void;
 }
 
 /**
@@ -129,6 +133,8 @@ export class WebRtcTransport implements IConfigurableTransport<IInteractiveSessi
       role: 'initiator', // the host is the WebRTC offerer ≡ pairing initiator
       localFingerprint: this.localFingerprint,
       remoteFingerprint: extractDtlsFingerprint(sdp),
+      ...(this.options.onPaired ? { onAccept: this.options.onPaired } : {}),
+      ...(this.options.onPairingFailed ? { onReject: this.options.onPairingFailed } : {}),
     });
   }
 

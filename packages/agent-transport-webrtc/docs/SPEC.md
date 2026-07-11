@@ -49,6 +49,8 @@ captured from the offer SDP; the remote fingerprint from the answer SDP in the s
 constructed (the channel cannot open until DTLS, i.e. post-answer, so no frame precedes the gate). Pre-accept the
 gate routes pairing frames to `startPairingHandshake` and DROPS everything else; on `result` accept it builds
 `createWsHandler` and switches routing to the session; on reject/timeout it closes the channel and exposes nothing.
+The transport's optional `onPaired`/`onPairingFailed` callbacks fire on gate accept/reject so the host can drive its
+lifecycle (REMOTE-008: status `paired`, and teardown of the peer/signaling on failure so nothing leaks).
 
 ## Type Ownership
 

@@ -210,7 +210,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   // settings, the registry, and — via onChannelReady — the live session). The `/remote-control` command is
   // a declarative trigger; the enable/stop wiring + status view are assembled here.
   const transportRegistry = createDefaultTransportRegistry();
-  const { controller: remoteControlController, setSession: setRemoteControlSession } =
+  const { controller: remoteControlController, setChannel: setRemoteControlChannel } =
     createRemoteControlController(transportRegistry);
   commandHostAdapters.remoteControl = { getStatus: () => remoteControlController.getStatus() };
 
@@ -345,9 +345,10 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   await renderApp({
     onChannelReady: (channel) => {
       setLiveChannel(channel);
-      // REMOTE-008: keep the remote-control controller pointed at the current live session (incl.
-      // session-switch re-creations) so an enable attaches the session the user is actually driving.
-      setRemoteControlSession(channel.getSession());
+      // REMOTE-008: keep the remote-control controller pointed at the current live channel (incl.
+      // session-switch re-creations) so an enable attaches the session the user is actually driving and
+      // async failures surface into that channel's history.
+      setRemoteControlChannel(channel);
     },
     cwd,
     provider,

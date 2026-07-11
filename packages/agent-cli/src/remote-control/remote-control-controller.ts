@@ -37,11 +37,14 @@ export interface IRemoteControlControllerDeps {
   getSession: () => IInteractiveSession | undefined;
   /** Render a scannable QR for the given text (async). */
   renderQr: (text: string) => Promise<string>;
+  /** Surface an async failure (e.g. a `werift`-absent `start()` failure) to the operator. */
+  reportError?: (message: string) => void;
   /** Construction seams (default to the real implementations; overridden in unit tests). */
   createSignaling?: (url: string, rendezvous: string) => ISignalingClient;
   createTransport?: (
     signaling: ISignalingClient,
     secret: string,
+    hooks: { onPaired: () => void; onPairingFailed: () => void },
   ) => IConfigurableTransport<IInteractiveSession>;
 }
 
@@ -81,18 +84,28 @@ export class RemoteControlController {
     const transport = (this.deps.createTransport ?? defaultCreateTransport)(
       signaling,
       pairing.secret,
+      {
+        // Pairing accepted → the paired device is now driving the session (host lifecycle status).
+        onPaired: () => {
+          if (this.transport === transport) this.status = { state: 'paired' };
+        },
+        // Pairing rejected/timed out → tear down (channel already closed by the gate) so nothing leaks and
+        // the status stops advertising "waiting to pair".
+        onPairingFailed: () => {
+          if (this.transport === transport) void this.teardown('off');
+        },
+      },
     );
 
     this.deps.registry.register(transport);
     transport.attach(session);
     // Start out-of-band: the registry's startAll won't pick up a defaultEnabled:false transport, and there is
-    // no start-one method. A werift-absent / start failure fails closed (report + stay off).
+    // no start-one method. A werift-absent / start failure fails closed: reset to off + report to the operator.
     void transport.start().catch((error: unknown) => {
-      this.status = { state: 'off' };
-      this.transport = undefined;
-      this.signaling = undefined;
-      void this.safeClose(signaling);
-      throw error instanceof Error ? error : new Error(String(error));
+      if (this.transport === transport) void this.teardown('off');
+      this.deps.reportError?.(
+        `Remote control failed to start: ${error instanceof Error ? error.message : String(error)}`,
+      );
     });
 
     this.transport = transport;
@@ -106,14 +119,23 @@ export class RemoteControlController {
   /** Stop remote control and tear down the transport + signaling. */
   async stop(): Promise<string> {
     if (!this.transport) return 'Remote control is not running.';
+    await this.teardown('off');
+    return 'Remote control stopped.';
+  }
+
+  /**
+   * Tear down the active transport + signaling and set the next status. Shared by `stop` (user request) and
+   * the pairing-failure hook (so a rejected/timed-out handshake never leaks the peer connection or signaling
+   * socket and never leaves the status stuck at `awaiting-pairing`). Idempotent — a no-op when already off.
+   */
+  private async teardown(next: 'off'): Promise<void> {
     const transport = this.transport;
     const signaling = this.signaling;
     this.transport = undefined;
     this.signaling = undefined;
-    this.status = { state: 'off' };
-    await transport.stop().catch(() => undefined);
+    this.status = { state: next };
+    if (transport) await transport.stop().catch(() => undefined);
     await this.safeClose(signaling);
-    return 'Remote control stopped.';
   }
 
   private async renderPairingMessage(pairingUrl: string): Promise<string> {
@@ -143,6 +165,12 @@ function defaultCreateSignaling(url: string, rendezvous: string): ISignalingClie
 function defaultCreateTransport(
   signaling: ISignalingClient,
   secret: string,
+  hooks: { onPaired: () => void; onPairingFailed: () => void },
 ): IConfigurableTransport<IInteractiveSession> {
-  return new WebRtcTransport({ signaling, secret });
+  return new WebRtcTransport({
+    signaling,
+    secret,
+    onPaired: hooks.onPaired,
+    onPairingFailed: hooks.onPairingFailed,
+  });
 }
