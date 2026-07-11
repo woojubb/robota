@@ -101,17 +101,26 @@ QR/link fragment, never sent to the relay).
 
 ## Tasks
 
-- [ ] Step 1 (SECURITY milestone) — pairing gate in `wireChannel`: create the pairing controller in the answer branch,
-      eager `onMessage` routing switch (pre-accept `onFrame` / drop non-pairing; post-accept session), `send`
-      serialization, local/remote fp capture, `secret` transport option, fail-closed on reject/timeout + close channel.
-      Unit tests (stub signaling + in-memory channel). + `agent-remote-pairing` dep + `project-structure.md` edge doc +
-      webrtc SPEC.md.
-- [ ] Step 2 — relay-URL config read (`transports.webrtc.options.relayUrl`) + `remote-control-enable-requested`/`-stop`
-      `TCommandEffect` variant (SSOT agent-interface-transport) + `ICommandHostAdapters.remoteControl.getStatus()`.
-- [ ] Step 3 — `/remote-control` command module (trigger only) + register in default modules; TUI effect handler
-      dispatches to injected `enableRemoteControl`/`stopRemoteControl`.
-- [ ] Step 4 — agent-cli composition root: construct `WsSignalingClient` + `WebRtcTransport`, register+enable+`startAll`,
-      `generatePairingSecret`, QR dep + terminal render of `toPairingUrl`, `getStatus` impl, teardown.
+- [x] Step 1 (SECURITY milestone) — pairing gate in `wireChannel` (`PairingGate`): controller created in the answer
+      branch, eager `onMessage` routing switch (pre-accept `onFrame` / drop non-pairing; post-accept session), `send`
+      serialization, local/remote fp capture, opt-in `secret` transport option, fail-closed on reject/timeout + close
+      channel. 7 unit tests (stub signaling + in-memory channel). + `agent-remote-pairing` dep + `project-structure.md`
+      edge doc + webrtc SPEC.md. **DONE (commit 92bf33eb9).**
+- [x] Step 2 — `remote-control-enable-requested`/`-stop-requested` `TCommandEffect` variants (SSOT
+      agent-interface-transport) + `ICommandHostAdapters.remoteControl.getStatus()` (`TRemoteControlStatus`). Relay-URL
+      config read deferred to Step 4 (consumed at the composition root). **DONE (commit 343075970).**
+- [x] Step 3 — `/remote-control [enable|stop|status]` command module (trigger only; reads status via the adapter) +
+      registered in default modules; TUI effect handler dispatches to injected `enableRemoteControl`/`stopRemoteControl`.
+      7 command unit tests. **DONE (commit 343075970).**
+- [ ] Step 4 — agent-cli composition root (grounded, see round-2 GATE-BUILD evidence below). Construct `WsSignalingClient` + `WebRtcTransport`, register + **attach+start directly** (NOT `startAll` — `defaultEnabled:false`, and the registry
+      has no start-one method), `generatePairingSecret`, read `settings.transports.webrtc.options.relayUrl` (absent →
+      `{state:'no-relay'}`), QR/link render of `toPairingUrl` via the effect deps `addEntry` (Ink owns stdout after
+      renderApp), `getStatus` impl over a SHARED MUTABLE HOLDER (the adapter is built in command-setup before the
+      transport exists), teardown (`webrtc.stop()` + `signaling.close()`). Thread `enableRemoteControl`/`stopRemoteControl`
+      through `IRenderOptions → App prop → useSideEffects option → deps`. Add `agent-transport-webrtc` +
+      `agent-remote-pairing` as agent-cli **devDependencies** (self-contained bundle convention) + a QR dep + `werift`
+      runtime dep (or accept lazy-unavailable). Live channel/session reachable via `onChannelReady`/`setLiveChannel`
+      (cli.ts:337).
 - [ ] Step 5 — end-to-end integration (real-relay two-peer pair → session message; REMOTE-007 permission-over-WebRTC
       assertion; tampered-fp + wrong-secret fail-closed) + changeset.
 - [ ] Step 6 — verify: harness:scan + full typecheck + changeset.
@@ -199,3 +208,22 @@ agent-remote-pairing` edge trips no mechanized rule in `check-dependency-directi
   loose "into wireChannel" phrasing — corrected to "controller created in the answer branch; eager subscription routes
   to it". **GATE-APPROVAL cleared** → status in-progress, spec moved to active, implementation begins on an
   `origin/develop`-based branch, Step 1 (security milestone) first.
+- 2026-07-11 GATE-BUILD — implemented on `feat/remote-008-webrtc-enable-path` (off `origin/develop`). \*\*Steps 1-3 DONE
+  - committed** (92bf33eb9 gate; 343075970 command/effects). Step 1: `PairingGate` (`agent-transport-webrtc/src/pairing-gate.ts`,
+    7 tests) + `secret` option + fingerprint capture in `webrtc-transport.ts` + `agent-remote-pairing` dep +
+    `project-structure.md` edge + SPEC.md; full webrtc suite 19/19, dep-direction clean, harness:scan 49/49. Steps 2-3:
+    effect variants + `remoteControl` adapter + `/remote-control` command (7 tests) + default-modules registration
+    (count 24→25) + TUI effect dispatch; agent-framework 1080, agent-command 227, tui 418, interface-transport 10 all
+    green. **Step 4 grounded (agent-cli composition-root Explore)** — precise anchors for continuation:
+    `createDefaultTransportRegistry` cli.ts:86-90 (hoist to a var, also register webrtc); effect deps assembled in
+    `agent-transport-tui/src/hooks/useSideEffects.ts:43-61` (add `enableRemoteControl`/`stopRemoteControl`, thread via
+    `side-effects-types.ts` → `App.tsx:191-202` ← `IRenderOptions`); command host adapters built in
+    `agent-cli/src/startup/command-setup.ts:80-86` (add `remoteControl.getStatus` over a shared mutable holder, since it
+    runs before the transport exists); live channel via `onChannelReady`/`setLiveChannel` cli.ts:337 →
+    `channel.getSession()` (TuiInteractionChannel.ts:269); relay URL from `readSettings(getUserSettingsPath()).transports?.webrtc?.options?.relayUrl`
+    (no merged-config object); `startAll` at channel start will NOT auto-start webrtc (`defaultEnabled:false`, no
+    start-one method) → the enable callback `attach(session)`+`start()` the `WebRtcTransport` DIRECTLY (still
+    `registry.register` for the transport-TUI panel + `stopAll` teardown); QR via effect-deps `addEntry` (Ink owns stdout
+    after `renderApp`); add `agent-transport-webrtc`+`agent-remote-pairing` as agent-cli **devDependencies\*\* (self-contained
+    bundle) + a QR dep + `werift` (lazy peer → runtime need when enabled). Steps 4-6 remain; REMOTE-008 lands as ONE PR
+    once the enable path is usable (Steps 1-3 alone leave `/remote-control` returning an inert effect).
