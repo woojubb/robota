@@ -22,7 +22,7 @@
  * `pair-nonce`, no enrollment, no reconnect) — preserving existing behavior.
  */
 
-import { createWsHandler } from '@robota-sdk/agent-transport-protocol';
+import { createWsHandler, type SessionResumeBridge } from '@robota-sdk/agent-transport-protocol';
 import {
   deriveIdentityId,
   importPublicKey,
@@ -76,6 +76,13 @@ export interface IPairingGateOptions {
   readonly onReject?: () => void;
   /** REMOTE-012 E3: host reconnect/enrollment config. Absent → B4 first-pair-only behavior (unchanged). */
   readonly reconnect?: IHostReconnectConfig;
+  /**
+   * REMOTE-013 E4: a session-scoped {@link SessionResumeBridge}. When set, the paired session flows through the
+   * bridge (seq-stamped + buffered) instead of a fresh `createWsHandler`, so the session survives a channel
+   * drop and can replay on reconnect. Accept ATTACHES the channel as the bridge's sink; cleanup DETACHES it
+   * (never disposes — the bridge is owned by the transport across reconnects).
+   */
+  readonly resumeBridge?: SessionResumeBridge;
   /** Injection seams (default to the real implementations). */
   readonly startHandshake?: typeof startPairingHandshake;
   readonly createHandler?: typeof createWsHandler;
@@ -269,13 +276,22 @@ export class PairingGate {
 
   private accept(result?: IPairingResult): void {
     if (this.state === 'closed' || this.state === 'accepted') return;
-    const create = this.options.createHandler ?? createWsHandler;
-    const { onMessage, cleanup } = create({
-      session: this.options.session,
-      send: (serverMessage) => this.safeSend(JSON.stringify(serverMessage)),
-    });
-    this.onSessionMessage = onMessage;
-    this.handlerCleanup = cleanup;
+    const bridge = this.options.resumeBridge;
+    if (bridge) {
+      // REMOTE-013 E4: route the session through the persistent bridge. Attach this channel as the sink;
+      // post-accept inbound frames (incl. resume/ack) go to the bridge; cleanup DETACHES (session survives).
+      bridge.attach((data) => this.safeSend(data));
+      this.onSessionMessage = (data) => bridge.onClientMessage(data);
+      this.handlerCleanup = () => bridge.detach();
+    } else {
+      const create = this.options.createHandler ?? createWsHandler;
+      const { onMessage, cleanup } = create({
+        session: this.options.session,
+        send: (serverMessage) => this.safeSend(JSON.stringify(serverMessage)),
+      });
+      this.onSessionMessage = onMessage;
+      this.handlerCleanup = cleanup;
+    }
     this.state = 'accepted';
     this.options.onAccept?.(result);
   }
