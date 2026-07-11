@@ -3,10 +3,11 @@
  * harness.
  *
  * Drives a REAL InteractiveSession (real agent loop + builtin tools): the scripted model calls the
- * AskUserQuestion tool; the harness's `askHandler` plays the interactive user (the same seam a TUI's
- * dialog resolves). Verifies the CMD-004 → CMD-005 injection chain end to end — session askHandler →
- * agent config → tool execution context → tool result — and the headless `unavailable` contract when
- * no handler is attached.
+ * AskUserQuestion tool; the harness plays the interactive user by SUBSCRIBING to the session's
+ * transport-neutral `ask_request` event and answering via `resolveAsk` (REMOTE-007) — the same seam a
+ * TUI/remote surface resolves. Verifies the CMD-004 → CMD-005 chain end to end — ask_request event →
+ * resolveAsk → tool result — and the headless fail-closed path (each question `cancelled`) when no
+ * surface is subscribed.
  */
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -84,8 +85,11 @@ describe('AskUserQuestion tool (CMD-005) — functional, via the scripted-sessio
   );
 
   it(
-    'reports unavailable (never guesses) when no askHandler is attached — headless contract',
+    'fails closed (each question cancelled, never guesses) when no surface is subscribed — headless contract (REMOTE-007)',
     async () => {
+      // REMOTE-007: the framework now always wires the transport-neutral ask default, so a model
+      // question with NO subscribed surface fails closed to per-question `cancelled` (not the old
+      // static `unavailable`). The model still continues autonomously — cancellation is data, not an error.
       harness = scriptedSession({
         turns: [
           {
@@ -105,7 +109,7 @@ describe('AskUserQuestion tool (CMD-005) — functional, via the scripted-sessio
       await harness.submit('decide something');
 
       const result = askToolResult(harness);
-      expect(result).toEqual({ unavailable: true, reason: 'no interactive user attached' });
+      expect(result).toEqual({ answers: [{ question: 'anyone?', cancelled: true }] });
     },
     TEST_TIMEOUT,
   );

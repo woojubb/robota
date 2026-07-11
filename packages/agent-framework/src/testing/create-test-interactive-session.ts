@@ -54,6 +54,8 @@ export function createTestInteractiveSession(
     listCommands: () => [],
     on: () => {},
     off: () => {},
+    resolvePermission: () => {},
+    resolveAsk: () => {},
     listBackgroundTasks: () => [],
     getBackgroundTask: () => undefined,
     cancelBackgroundTask: () => Promise.resolve(),

@@ -85,6 +85,8 @@ function createMockSession() {
     readBackgroundTaskLog: vi.fn().mockResolvedValue(backgroundTaskLogPage),
     getExecutionWorkspaceSnapshot: vi.fn().mockReturnValue(executionWorkspaceSnapshot),
     executeCommand: vi.fn().mockResolvedValue({ message: 'done', success: true, data: {} }),
+    resolvePermission: vi.fn(),
+    resolveAsk: vi.fn(),
     listCommands: vi.fn().mockReturnValue([]),
     on: vi.fn((event: string, handler: (...args: unknown[]) => void) => {
       if (!listeners.has(event)) listeners.set(event, new Set());
@@ -423,9 +425,57 @@ describe('WebSocket Transport Handler', () => {
     ).toHaveBeenCalled();
   });
 
+  // ── REMOTE-007: transport-neutral permission/ask over the wire (TC-06) ──
+
+  it('forwards a permission_request session event to the client', () => {
+    const { session, sent } = setup();
+    session._emit('permission_request', {
+      id: 'p1',
+      toolName: 'Bash',
+      toolArgs: { command: 'ls' },
+    });
+    const msg = sent.find((m) => m.type === 'permission_request');
+    expect(msg).toEqual({
+      type: 'permission_request',
+      event: { id: 'p1', toolName: 'Bash', toolArgs: { command: 'ls' } },
+    });
+  });
+
+  it('forwards ask_request and prompt_resolved session events to the client', () => {
+    const { session, sent } = setup();
+    session._emit('ask_request', { id: 'a1', request: { id: 'r', title: 'Pick' } });
+    session._emit('prompt_resolved', { id: 'a1' });
+    expect(sent.find((m) => m.type === 'ask_request')).toEqual({
+      type: 'ask_request',
+      event: { id: 'a1', request: { id: 'r', title: 'Pick' } },
+    });
+    expect(sent.find((m) => m.type === 'prompt_resolved')).toEqual({
+      type: 'prompt_resolved',
+      event: { id: 'a1' },
+    });
+  });
+
+  it('a permission-response from the client resolves the pending permission by id', () => {
+    const { onMessage, session } = setup();
+    onMessage(JSON.stringify({ type: 'permission-response', id: 'p1', result: true }));
+    expect(
+      (session as unknown as { resolvePermission: ReturnType<typeof vi.fn> }).resolvePermission,
+    ).toHaveBeenCalledWith('p1', true);
+  });
+
+  it('an ask-response from the client resolves the pending ask by id', () => {
+    const { onMessage, session } = setup();
+    const response = { type: 'answer', values: ['React'] };
+    onMessage(JSON.stringify({ type: 'ask-response', id: 'a1', response }));
+    expect(
+      (session as unknown as { resolveAsk: ReturnType<typeof vi.fn> }).resolveAsk,
+    ).toHaveBeenCalledWith('a1', response);
+  });
+
   it('cleanup unsubscribes from all events', () => {
     const { session, cleanup } = setup();
     cleanup();
-    expect((session as unknown as { off: ReturnType<typeof vi.fn> }).off).toHaveBeenCalledTimes(11);
+    // 11 base events + 3 REMOTE-007 prompt events (permission_request/ask_request/prompt_resolved).
+    expect((session as unknown as { off: ReturnType<typeof vi.fn> }).off).toHaveBeenCalledTimes(14);
   });
 });

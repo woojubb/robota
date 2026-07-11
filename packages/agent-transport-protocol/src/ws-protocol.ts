@@ -1,11 +1,16 @@
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
 import type {
+  IAskRequestEvent,
   IBackgroundJobGroupState,
   ICommandResult,
   IExecutionResult,
   IExecutionWorkspaceSnapshot,
+  IPermissionRequestEvent,
+  IPromptResolvedEvent,
   IToolState,
+  TActionResponse,
   TBackgroundJobGroupEvent,
+  TPermissionResultValue,
 } from '@robota-sdk/agent-interface-transport';
 import type {
   IBackgroundTaskInput,
@@ -37,7 +42,10 @@ export type TClientMessage =
   | { type: 'cancel-background-task'; taskId: string; reason?: string }
   | { type: 'close-background-task'; taskId: string }
   | { type: 'send-background-task'; taskId: string; input: IBackgroundTaskInput }
-  | { type: 'read-background-task-log'; taskId: string; cursor?: IBackgroundTaskLogCursor };
+  | { type: 'read-background-task-log'; taskId: string; cursor?: IBackgroundTaskLogCursor }
+  // REMOTE-007: a driving client answers a pending permission/ask prompt by id (first answer wins).
+  | { type: 'permission-response'; id: string; result: TPermissionResultValue }
+  | { type: 'ask-response'; id: string; response: TActionResponse };
 
 /** Outbound message from server to client. */
 export type TServerMessage =
@@ -68,6 +76,11 @@ export type TServerMessage =
   | { type: 'background_job_groups'; groups: IBackgroundJobGroupState[] }
   | { type: 'background_job_group'; groupId: string; group: IBackgroundJobGroupState | null }
   | { type: 'background_task_log'; taskId: string; page: IBackgroundTaskLogPage }
+  // REMOTE-007: forward the session's transport-neutral prompt events so a remote surface can render +
+  // answer the SAME prompt (permission/ask). `prompt_resolved` dismisses it when another surface won.
+  | { type: 'permission_request'; event: IPermissionRequestEvent }
+  | { type: 'ask_request'; event: IAskRequestEvent }
+  | { type: 'prompt_resolved'; event: IPromptResolvedEvent }
   | {
       type: 'background_task_control_result';
       action: TBackgroundControlAction;

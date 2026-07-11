@@ -11,6 +11,13 @@ non-WebSocket transport can reuse it without a `webrtc → ws` package edge.
 abort/...` from inbound `TClientMessage`s) + `cleanup()`. Framework-agnostic: works over any byte/string
   channel via `send`/`onMessage` callbacks — no `ws`, no `node:` sockets.
 - `TClientMessage` / `TServerMessage` — the JSON wire protocol (inbound client verbs; outbound server events).
+- **REMOTE-007 transport-neutral permission/ask.** The handler forwards the session's
+  `permission_request` / `ask_request` / `prompt_resolved` events as `TServerMessage`s and dispatches the
+  inbound `permission-response` / `ask-response` verbs to `session.resolvePermission` / `resolveAsk`. So a
+  driving client (WS or, via the same handler, WebRTC) renders + answers the SAME prompt as the local
+  operator (local == remote); the first answer wins and `prompt_resolved` dismisses it on co-drive. A client
+  disconnect (`cleanup` → `session.off`) drops the prompt listeners, and the session's reconcile-on-detach
+  fails the prompt closed (deny/cancel) so a mid-prompt disconnect cannot hang the awaiting tool.
 
 ## Boundaries
 
@@ -40,4 +47,6 @@ abort/...` from inbound `TClientMessage`s) + `cleanup()`. Framework-agnostic: wo
 ## Test Strategy
 
 `src/__tests__/ws-handler.test.ts` (moved from `agent-transport-ws`) covers the session-event → `TServerMessage`
-subscription and inbound `TClientMessage` dispatch with a stubbed session (no socket, no real provider).
+subscription and inbound `TClientMessage` dispatch with a stubbed session (no socket, no real provider),
+including the REMOTE-007 prompt-event forwarding and the `permission-response` / `ask-response` → `resolve*`
+dispatch (TC-06).
