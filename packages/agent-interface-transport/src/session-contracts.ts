@@ -148,22 +148,46 @@ export type TInteractivePermissionHandler = (
  * first already answered.
  */
 
+/**
+ * REMOTE-014 E5 co-drive attribution: a stable, SERVER-ASSIGNED id for the driver of an input/turn. It is
+ * DISPLAY/ATTRIBUTION ONLY — never an authorization input (the OWNER PRINCIPLE, REMOTE-006, governs
+ * authorization; remote == local). Remote = the E3 `deviceId`; local = {@link OWNER_DRIVER_ID}; an
+ * agent-wakeup/goal turn = {@link AGENT_DRIVER_ID}.
+ */
+export type TDriverId = string;
+
+/** The local operator ("owner") driver id — the default for a human turn with no explicit driver. */
+export const OWNER_DRIVER_ID: TDriverId = 'owner';
+/** The reserved driver id for an autonomous (wakeup/goal/agent-initiated) turn — never the owner. */
+export const AGENT_DRIVER_ID: TDriverId = 'agent';
+
+/** REMOTE-014 E5: options for `submit` — carries the SERVER-ASSIGNED driver id for co-drive attribution. */
+export interface ISubmitOptions {
+  readonly driverId?: TDriverId;
+}
+
 /** A tool call awaiting a permission decision. Serializable — crosses the transport boundary unchanged. */
 export interface IPermissionRequestEvent {
   id: string;
   toolName: string;
   toolArgs: TToolArgs;
+  /** REMOTE-014 E5: the driver whose turn raised this prompt (display-only). */
+  requesterDriverId?: TDriverId;
 }
 
 /** An "ask the user" request (command- or tool-issued) awaiting an answer. Serializable. */
 export interface IAskRequestEvent {
   id: string;
   request: IActionRequest;
+  /** REMOTE-014 E5: the driver whose turn raised this prompt (display-only). */
+  requesterDriverId?: TDriverId;
 }
 
 /** A pending prompt (permission or ask) that has been settled — attached surfaces dismiss it. */
 export interface IPromptResolvedEvent {
   id: string;
+  /** REMOTE-014 E5: the driver who answered the prompt (server-assigned; display-only). */
+  answererDriverId?: TDriverId;
 }
 
 /** Emitted when a context file is found stale and re-read before a turn. */
@@ -214,7 +238,14 @@ export interface IInteractiveSession {
   readonly isInitialized?: boolean;
 
   // Submission
-  submit(input: string, displayInput?: string, rawInput?: string): Promise<void>;
+  // REMOTE-014 E5: `options.driverId` is the SERVER-ASSIGNED co-drive attribution id (optional — a human turn
+  // with no id defaults to the owner; an agent-wakeup turn to the agent id). Existing callers omit it.
+  submit(
+    input: string,
+    displayInput?: string,
+    rawInput?: string,
+    options?: ISubmitOptions,
+  ): Promise<void>;
   abort(): void;
   cancelQueue(): void;
   shutdown(options?: { reason?: string; message?: string }): Promise<void>;
@@ -230,6 +261,10 @@ export interface IInteractiveSession {
   // State
   isExecuting(): boolean;
   getPendingPrompt(): string | null;
+  /** REMOTE-014 E5: number of queued inputs behind the head (0 when none) — for a co-drive "N queued" hint. */
+  getPendingCount?(): number;
+  /** REMOTE-014 E5: the driver id of the ACTIVE turn (null when idle) — read at event-emit time for attribution. */
+  getActiveDriverId?(): TDriverId | null;
   getMessages(): TUniversalMessage[];
   getContextState(): IContextWindowState;
   getSession(): { getSessionId(): string };
@@ -252,8 +287,10 @@ export interface IInteractiveSession {
   // Transport-neutral prompt resolution (REMOTE-007). Any attached surface answers a pending
   // `permission_request` / `ask_request` by id; the first resolve wins, later ones for a settled id
   // are no-ops. Idempotent and safe to call for an unknown/already-settled id.
-  resolvePermission(id: string, result: TPermissionResultValue): void;
-  resolveAsk(id: string, response: TActionResponse): void;
+  // REMOTE-014 E5: `answererDriverId` is the SERVER-ASSIGNED driver who answered (display-only). A local
+  // answer omits it (defaults to owner); a transport injects its bound remote id.
+  resolvePermission(id: string, result: TPermissionResultValue, answererDriverId?: TDriverId): void;
+  resolveAsk(id: string, response: TActionResponse, answererDriverId?: TDriverId): void;
 
   // Background tasks
   listBackgroundTasks(filter?: IBackgroundTaskListFilter): IBackgroundTaskState[];

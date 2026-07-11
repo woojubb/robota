@@ -24,9 +24,23 @@ export function PermissionPrompt({
   const prompt = prompts[0];
   if (!prompt) return null;
 
+  // REMOTE-014 E5 (display-only): the prompt belongs to the driver whose turn raised it. Shown so the owner
+  // can tell a co-driver's tool-gate from their own — it NEVER changes who is authorized to answer (owner).
+  const requester =
+    prompt.requesterDriverId && prompt.requesterDriverId !== 'owner'
+      ? prompt.requesterDriverId
+      : undefined;
+  const shortRequester =
+    requester && requester.length > 12 ? `${requester.slice(0, 8)}…` : requester;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="w-full max-w-md rounded-lg bg-[var(--card)] p-5 font-mono text-[13px] shadow-xl">
+        {shortRequester && (
+          <p className="mb-2 text-[11px] text-[var(--muted-foreground)]">
+            from driver <span className="text-[var(--foreground)]">{shortRequester}</span>
+          </p>
+        )}
         {prompt.kind === 'permission' ? (
           <>
             <p className="mb-1 font-bold text-[var(--foreground)]">Permission request</p>

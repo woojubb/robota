@@ -34,6 +34,8 @@ export interface IInteractiveSessionState {
   isStalled: boolean;
   isShuttingDown: boolean;
   pendingPrompt: string | null;
+  /** REMOTE-014 E5: total queued turns across all drivers (owner + co-drivers); >1 means a co-driver is queued. */
+  pendingCount: number;
   executionWorkspaceSnapshot: IExecutionWorkspaceSnapshot | null;
   selectedExecutionEntryId?: string;
   permissionRequest: IPendingPermissionRequest | null;
@@ -102,6 +104,8 @@ export function useTuiChannel(channel: TuiInteractionChannel): IInteractiveSessi
     isStalled: manager.isStalled,
     isShuttingDown: channel.isShuttingDown,
     pendingPrompt: manager.pendingPrompt,
+    // Read live from the session (the co-drive queue is session-owned); optional getter → 0 on older mocks.
+    pendingCount: channel.getSession().getPendingCount?.() ?? (manager.pendingPrompt ? 1 : 0),
     executionWorkspaceSnapshot: manager.executionWorkspaceSnapshot,
     selectedExecutionEntryId: manager.selectedExecutionEntryId,
     permissionRequest: channel.permissionRequest,

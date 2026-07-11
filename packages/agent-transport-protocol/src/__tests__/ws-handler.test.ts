@@ -117,7 +117,7 @@ describe('WebSocket Transport Handler', () => {
     onMessage(JSON.stringify({ type: 'submit', prompt: 'hello' }));
     expect(
       (session as unknown as { submit: ReturnType<typeof vi.fn> }).submit,
-    ).toHaveBeenCalledWith('hello');
+    ).toHaveBeenCalledWith('hello', undefined, undefined, undefined);
   });
 
   it('abort calls session.abort()', () => {
@@ -460,7 +460,7 @@ describe('WebSocket Transport Handler', () => {
     onMessage(JSON.stringify({ type: 'permission-response', id: 'p1', result: true }));
     expect(
       (session as unknown as { resolvePermission: ReturnType<typeof vi.fn> }).resolvePermission,
-    ).toHaveBeenCalledWith('p1', true);
+    ).toHaveBeenCalledWith('p1', true, undefined);
   });
 
   it('an ask-response from the client resolves the pending ask by id', () => {
@@ -469,7 +469,7 @@ describe('WebSocket Transport Handler', () => {
     onMessage(JSON.stringify({ type: 'ask-response', id: 'a1', response }));
     expect(
       (session as unknown as { resolveAsk: ReturnType<typeof vi.fn> }).resolveAsk,
-    ).toHaveBeenCalledWith('a1', response);
+    ).toHaveBeenCalledWith('a1', response, undefined);
   });
 
   it('cleanup unsubscribes from all events', () => {

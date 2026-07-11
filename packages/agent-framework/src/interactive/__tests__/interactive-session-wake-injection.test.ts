@@ -143,7 +143,8 @@ describe('FLOW-002 session wake injection', () => {
     await Promise.resolve();
 
     expect(execCtrl.pendingPrompt).toBe('queued instruction');
-    expect(execCtrl.pendingTurnOptions.turnSource).toBe('agent-wakeup');
+    // REMOTE-014 E5: the queue entry preserves the wake's turn options (agent-wakeup source).
+    expect(execCtrl.pendingQueue[0]?.options.turnSource).toBe('agent-wakeup');
   });
 
   it('RUNTIME-19: aborting a queued wake evicts its id so a future wake is not locked out', async () => {

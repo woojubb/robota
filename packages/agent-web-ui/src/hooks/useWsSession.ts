@@ -32,6 +32,8 @@ export interface IConversationMessage {
   role: 'user' | 'assistant';
   content: string;
   isStreaming?: boolean;
+  /** REMOTE-014 E5: the co-driving author of a user turn (display-only; absent/owner = the local owner). */
+  author?: string;
 }
 
 export interface IActiveTool {
@@ -108,7 +110,12 @@ export function useSessionClient(makeClient: TMakeSessionClient): IWsSessionStat
       case 'user_message': {
         setMessages((prev) => [
           ...prev,
-          { id: nextId(), role: 'user', content: msg.content ?? '' },
+          {
+            id: nextId(),
+            role: 'user',
+            content: msg.content ?? '',
+            ...(msg.driverId ? { author: msg.driverId } : {}),
+          },
         ]);
         break;
       }

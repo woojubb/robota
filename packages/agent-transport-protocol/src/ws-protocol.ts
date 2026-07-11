@@ -1,4 +1,4 @@
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSession, TDriverId } from '@robota-sdk/agent-interface-transport';
 import type {
   IAskRequestEvent,
   IBackgroundJobGroupState,
@@ -53,14 +53,17 @@ export type TClientMessage =
 
 /** Outbound message from server to client. */
 export type TServerMessage =
-  | { type: 'text_delta'; delta: string }
-  | { type: 'user_message'; content: string }
-  | { type: 'tool_start'; state: IToolState }
-  | { type: 'tool_end'; state: IToolState }
-  | { type: 'thinking'; isThinking: boolean }
-  | { type: 'complete'; result: IExecutionResult }
-  | { type: 'interrupted'; result: IExecutionResult }
-  | { type: 'error'; message: string }
+  // REMOTE-014 E5: turn-authored events optionally carry the ACTIVE turn's `driverId` (co-drive authorship,
+  // display-only). Stamped at `subscribeSessionEvents` from `getActiveDriverId()`; background/goal/memory/
+  // execution-workspace events are NEVER stamped (they are not authored by a driver turn).
+  | { type: 'text_delta'; delta: string; driverId?: TDriverId }
+  | { type: 'user_message'; content: string; driverId?: TDriverId }
+  | { type: 'tool_start'; state: IToolState; driverId?: TDriverId }
+  | { type: 'tool_end'; state: IToolState; driverId?: TDriverId }
+  | { type: 'thinking'; isThinking: boolean; driverId?: TDriverId }
+  | { type: 'complete'; result: IExecutionResult; driverId?: TDriverId }
+  | { type: 'interrupted'; result: IExecutionResult; driverId?: TDriverId }
+  | { type: 'error'; message: string; driverId?: TDriverId }
   | {
       type: 'command_result';
       name: string;

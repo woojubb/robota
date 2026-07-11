@@ -18,6 +18,15 @@ abort/...` from inbound `TClientMessage`s) + `cleanup()`. Framework-agnostic: wo
   operator (local == remote); the first answer wins and `prompt_resolved` dismisses it on co-drive. A client
   disconnect (`cleanup` → `session.off`) drops the prompt listeners, and the session's reconcile-on-detach
   fails the prompt closed (deny/cancel) so a mid-prompt disconnect cannot hang the awaiting tool.
+- **REMOTE-014 E5 co-drive attribution (SERVER-ASSIGNED, display-only).** `IWsHandlerOptions.driverId` binds a
+  surface's server-assigned driver id (the E3 `deviceId`; the SessionResumeBridge sets it at pairing via
+  `setDriverId`). The handler INJECTS it into every inbound `submit` / `permission-response` / `ask-response`
+  — a client can never send its own id, so authorship is not forgeable. Outbound, `subscribeSessionEvents`
+  SELECTIVELY stamps the eight turn-authored events (`text_delta`, `user_message`, `tool_start`/`tool_end`,
+  `thinking`, `complete`, `interrupted`, `error`) with the active turn's `driverId` read from
+  `session.getActiveDriverId()`; background / job-group / execution-workspace events are NEVER stamped (not
+  authored by a driver turn). **Invariant:** `driverId` is DISPLAY attribution only, never an authorization
+  input — the OWNER PRINCIPLE (local == remote) governs who may act; every paired driver holds owner authority.
 
 ## Boundaries
 
