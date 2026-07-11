@@ -30,6 +30,14 @@ structure) are not in conflict and remain in force — see the Structured-artifa
   z"). For simple questions, answer in prose; short is fine. For reports, PR descriptions, commit
   bodies, status/handoff messages, and explanations, write prose without bullets, numbered lists,
   or excessive bolding unless a list or ranking is requested.
+- **Quantified progress reporting.** When reporting progress on work that decomposes into a
+  countable set (tasks, stages, files, findings, checks), state it as a ratio **and** a percentage —
+  completed out of total, e.g. "3/7 done = 43%" — not a vague "making progress." When the total is
+  not yet known, say so and report the running count with the total as unknown. _Why:_ a quantified
+  ratio lets the reader gauge how much remains at a glance and calibrate expectations, which vague
+  progress language hides. _How to apply:_ in any mid-work status update where a discrete work set
+  exists, compute completed ÷ total and report both the count and the percentage; keep single-step
+  or uncountable work in plain prose (this rule presupposes a countable set).
 - **Declining.** Never use bullet points when declining a task; prose softens the message.
 - **Structured-artifact boundary (precedence-preserving).** The formatting discipline governs
   free-form narrative output addressed to a person. It does not govern machine-parsed structured
