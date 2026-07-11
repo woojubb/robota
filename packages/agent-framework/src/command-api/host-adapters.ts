@@ -38,8 +38,19 @@ export type TRemoteControlStatus =
   | { readonly state: 'awaiting-pairing'; readonly pairingUrl: string }
   | { readonly state: 'paired' };
 
+/** A trusted device summary for `/remote-control devices` (public data only; REMOTE-012 E3). */
+export interface IRemoteTrustedDeviceSummary {
+  readonly deviceId: string;
+  readonly label: string;
+  readonly lastSeenAt: string;
+}
+
 export interface ICommandRemoteControlAdapter {
   getStatus(): TRemoteControlStatus;
+  /** REMOTE-012 E3: enrolled trusted devices (for `/remote-control devices`). Absent → TOFU not available. */
+  listDevices?(): IRemoteTrustedDeviceSummary[];
+  /** REMOTE-012 E3: revoke a trusted device by id (for `/remote-control revoke <id>`); returns true if removed. */
+  revokeDevice?(deviceId: string): boolean;
 }
 
 export interface ICommandHostAdapters {

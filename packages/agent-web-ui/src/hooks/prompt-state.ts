@@ -32,14 +32,27 @@ export function applyPromptEvent(
 ): readonly TPendingPrompt[] {
   switch (msg.type) {
     case 'permission_request': {
-      const { id, toolName, toolArgs } = msg.event;
+      // REMOTE-014 E5: keep requesterDriverId so the surface can show WHICH driver's turn raised the prompt.
+      const { id, toolName, toolArgs, requesterDriverId } = msg.event;
       if (prompts.some((p) => p.id === id)) return prompts;
-      return [...prompts, { kind: 'permission', id, toolName, toolArgs }];
+      return [
+        ...prompts,
+        {
+          kind: 'permission',
+          id,
+          toolName,
+          toolArgs,
+          ...(requesterDriverId ? { requesterDriverId } : {}),
+        },
+      ];
     }
     case 'ask_request': {
-      const { id, request } = msg.event;
+      const { id, request, requesterDriverId } = msg.event;
       if (prompts.some((p) => p.id === id)) return prompts;
-      return [...prompts, { kind: 'ask', id, request }];
+      return [
+        ...prompts,
+        { kind: 'ask', id, request, ...(requesterDriverId ? { requesterDriverId } : {}) },
+      ];
     }
     case 'prompt_resolved': {
       const { id } = msg.event;

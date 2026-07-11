@@ -18,9 +18,17 @@ export {
   systemClock,
   systemScheduler,
   DEFAULT_TOKEN_BUCKET,
+  DEFAULT_MESSAGE_RATE,
   DEFAULT_RENDEZVOUS_TTL_MS,
   DEFAULT_MAX_RENDEZVOUS,
+  DEFAULT_MAX_CONNECTIONS,
+  DEFAULT_MAX_CONNECTIONS_PER_IP,
+  DEFAULT_MAX_FRAME_BYTES,
 } from './rate-limiter.js';
 export type { IClock, IScheduler, ITokenBucketConfig } from './rate-limiter.js';
-export { startSignalingServer } from './server.js';
-export type { ISignalingServerOptions, ISignalingServerHandle } from './server.js';
+export { startSignalingServer, OVER_CAPACITY_CLOSE_CODE } from './server.js';
+export type {
+  ISignalingServerOptions,
+  ISignalingServerHandle,
+  TAddressResolver,
+} from './server.js';

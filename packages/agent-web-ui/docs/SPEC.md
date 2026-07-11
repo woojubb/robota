@@ -22,6 +22,24 @@ the isomorphic zero-dep `@robota-sdk/agent-remote-pairing` leaf and takes **no**
 `permission_request`/`ask_request`/`prompt_resolved`, `PermissionPrompt` component) serves BOTH the WS and
 RTC clients — the paired owner answers its OWN prompts (local == remote).
 
+**REMOTE-012 E3 TOFU reconnect.** `ResponderGate` gains E3 admission: on first pair (after B3 accept) it runs an
+identity-key **enrollment** exchange — it pins the host's advertised ECDSA public key and advertises the browser
+device's public key — before the session is exposed; it can also run a mutual `startDeviceReconnect` that verifies
+the host against the pinned key (rogue-host → fail closed). The browser-local `device-credential-store` (IndexedDB,
+keyed by `relayOrigin + hostIdentityId`) persists the device's **non-extractable** keypair + the pinned host key
+(never serialized, never in a URL). `createRtcSessionClient` takes an optional `deviceCredentials` store (wired from
+`useRtcSession`) so first-pair enrolls this device; reconnect INITIATION (reusing a stored credential) is E4. Without
+`deviceCredentials` the client is exactly the REMOTE-009 first-pair-only path.
+
+**REMOTE-013 E4 session-resume.** `createRtcSessionClient` dedups incoming seq-stamped messages (`resume`/`ack`
+protocol), so on an auto-reconnect it applies only the un-seen tail (a `resume_gap` from the host triggers a
+`get-messages` refresh). On a connection drop after a successful connect, if a stored E4 credential exists
+(`reconnectSeed`+`reconnectCounter` in the `device-credential-store`), it runs a bounded warm-reconnect loop —
+probing `deriveReconnectRendezvous(seed, counter/counter+1)`, reconnecting via the E3 device reconnect (host
+verified), sending `resume{lastSeq}`, and advancing the counter resync-on-success — without re-pairing; the
+exhausted loop surfaces `failed`. `useRtcSession` wires the credential store; the seed is persisted at first
+pair from the pairing `sessionKey` (reserved for E4).
+
 **REMOTE-010 TURN fallback.** `parseRemoteClientLocation` also reads an optional `ice` query param (a base64url
 JSON `RTCIceServer[]`, decoded + validated by a browser-local fail-closed decoder — the param is
 attacker-influenceable) and a `forceTurn` flag, threaded through `RemoteClient` → `useRtcSession` →

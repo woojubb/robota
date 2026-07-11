@@ -62,6 +62,16 @@ function join(relay: SignalingRelay, peer: ISignalingPeer, rendezvous = 'r'): vo
   relay.handleFrame(peer, JSON.stringify({ type: 'join', rendezvous }));
 }
 
+function signal(relay: SignalingRelay, peer: ISignalingPeer, data: unknown = {}): void {
+  relay.handleFrame(peer, JSON.stringify({ type: 'signal', kind: 'ice', data }));
+}
+
+function signalFrames(peer: { readonly sent: string[] }): Record<string, unknown>[] {
+  return peer.sent
+    .map((raw) => JSON.parse(raw) as Record<string, unknown>)
+    .filter((f) => f.type === 'signal');
+}
+
 describe('SignalingRelay abuse-hardening (REMOTE-004 B2)', () => {
   it('TC-03: rate-limits join floods per source and never relays a rejected join', () => {
     const relay = new SignalingRelay({
@@ -145,5 +155,65 @@ describe('SignalingRelay abuse-hardening (REMOTE-004 B2)', () => {
       peerId: a.id,
       remoteAddress: '1.2.3.4',
     });
+  });
+});
+
+describe('SignalingRelay per-connection message rate (REMOTE-011 E2)', () => {
+  it('TC-01: throttles a signal flood from one joined peer and does NOT fan out the rejected frame', () => {
+    const relay = new SignalingRelay({
+      messageRate: { burst: 2, refillPerMs: 0 }, // 2 signals, no refill
+      rateLimit: { burst: 5, refillPerMs: 0 },
+      clock: frozenClock,
+      scheduler: createFakeScheduler().scheduler,
+    });
+    const a = fakePeer('1.1.1.1');
+    const b = fakePeer('2.2.2.2');
+    join(relay, a);
+    join(relay, b);
+
+    signal(relay, a); // 1 → forwarded
+    signal(relay, a); // 2 → forwarded
+    signal(relay, a); // 3 → over burst → throttled
+
+    // Only the first two reached the counterpart; the third was dropped, not relayed.
+    expect(signalFrames(b)).toHaveLength(2);
+    expect(lastFrame(a)).toEqual({ type: 'error', reason: 'message-rate-limited' });
+  });
+
+  it('TC-01: the message bucket is per-connection — one peer flooding does not throttle the other', () => {
+    const relay = new SignalingRelay({
+      messageRate: { burst: 1, refillPerMs: 0 },
+      rateLimit: { burst: 5, refillPerMs: 0 },
+      clock: frozenClock,
+      scheduler: createFakeScheduler().scheduler,
+    });
+    const a = fakePeer('1.1.1.1');
+    const b = fakePeer('2.2.2.2');
+    join(relay, a);
+    join(relay, b);
+
+    signal(relay, a); // a: token 1 → forwarded to b
+    signal(relay, a); // a: throttled
+    signal(relay, b); // b has its own bucket → forwarded to a
+
+    expect(signalFrames(b)).toHaveLength(1); // b received a's single allowed signal
+    expect(signalFrames(a)).toHaveLength(1); // a received b's signal (b not throttled by a's flood)
+    expect(lastFrame(a)).toEqual({ type: 'signal', kind: 'ice', data: {} });
+  });
+
+  it('TC-06: a peer message bucket is evicted on remove() (bounded by live connections)', () => {
+    const relay = new SignalingRelay({
+      clock: frozenClock,
+      scheduler: createFakeScheduler().scheduler,
+    });
+    const a = fakePeer('1.1.1.1');
+    const b = fakePeer('2.2.2.2');
+    join(relay, a);
+    join(relay, b);
+    expect(relay.messageBucketCount).toBe(0); // no signal sent yet → no bucket
+    signal(relay, a); // creates a's message bucket
+    expect(relay.messageBucketCount).toBe(1);
+    relay.remove(a); // disconnect evicts the bucket
+    expect(relay.messageBucketCount).toBe(0);
   });
 });

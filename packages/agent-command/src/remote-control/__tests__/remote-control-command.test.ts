@@ -72,4 +72,62 @@ describe('executeRemoteControlCommand (REMOTE-008)', () => {
     expect(result.success).toBe(false);
     expect(result.effects).toBeUndefined();
   });
+
+  // REMOTE-012 E3 — trusted-device management verbs.
+  function e3ctx(over: Partial<ICommandRemoteControlAdapter>): ICommandHostContext {
+    const adapter: ICommandRemoteControlAdapter = { getStatus: () => ({ state: 'off' }), ...over };
+    return {
+      getCommandHostAdapters: () => ({ remoteControl: adapter }),
+    } as unknown as ICommandHostContext;
+  }
+
+  it('`devices` lists enrolled trusted devices', () => {
+    const result = executeRemoteControlCommand(
+      e3ctx({
+        listDevices: () => [
+          { deviceId: 'AbC-123', label: 'phone', lastSeenAt: '2026-07-11T00:00:00Z' },
+        ],
+      }),
+      'devices',
+    );
+    expect(result.success).toBe(true);
+    expect(result.message).toContain('AbC-123');
+    expect(result.message).toContain('phone');
+  });
+
+  it('`devices` with none enrolled says so', () => {
+    const result = executeRemoteControlCommand(e3ctx({ listDevices: () => [] }), 'devices');
+    expect(result.message).toMatch(/no trusted devices/i);
+  });
+
+  it('`revoke <id>` removes a device (case-preserving id) and reports it', () => {
+    let revoked: string | undefined;
+    const result = executeRemoteControlCommand(
+      e3ctx({
+        revokeDevice: (id) => {
+          revoked = id;
+          return true;
+        },
+      }),
+      'revoke AbC-123',
+    );
+    expect(revoked).toBe('AbC-123'); // NOT lowercased
+    expect(result.success).toBe(true);
+    expect(result.message).toMatch(/revoked/i);
+  });
+
+  it('`revoke` of an unknown id is a failure notice', () => {
+    const result = executeRemoteControlCommand(
+      e3ctx({ revokeDevice: () => false }),
+      'revoke ghost',
+    );
+    expect(result.success).toBe(false);
+    expect(result.message).toMatch(/no trusted device/i);
+  });
+
+  it('`revoke` with no id is a usage error', () => {
+    const result = executeRemoteControlCommand(e3ctx({ revokeDevice: () => true }), 'revoke');
+    expect(result.success).toBe(false);
+    expect(result.message).toMatch(/usage/i);
+  });
 });

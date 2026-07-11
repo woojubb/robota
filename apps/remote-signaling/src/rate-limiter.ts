@@ -28,11 +28,27 @@ export interface ITokenBucketConfig {
 /** Default: burst 5 joins, refill 1 token / 12s (~5/min steady) per source. */
 export const DEFAULT_TOKEN_BUCKET: ITokenBucketConfig = { burst: 5, refillPerMs: 1 / 12_000 };
 
+/**
+ * Default per-connection **message rate** for the relayed `signal` path (REMOTE-011 E2): burst 60, refill
+ * 1 token / 100ms (~10/s steady) — generous for a normal offer/answer + ICE-trickle negotiation, but bounds
+ * a `signal` flood from an already-joined peer. Distinct from the per-source `join` bucket above.
+ */
+export const DEFAULT_MESSAGE_RATE: ITokenBucketConfig = { burst: 60, refillPerMs: 1 / 100 };
+
 /** Default half-open rendezvous TTL (a rendezvous holding a single peer expires after this). */
 export const DEFAULT_RENDEZVOUS_TTL_MS = 60_000;
 
 /** Default ceiling on concurrent rendezvous. */
 export const DEFAULT_MAX_RENDEZVOUS = 1024;
+
+/** Default ceiling on total concurrent WebSocket connections (REMOTE-011 E2). ~2 peers × max rendezvous. */
+export const DEFAULT_MAX_CONNECTIONS = 2048;
+
+/** Default ceiling on concurrent connections per resolved source key (REMOTE-011 E2). `0` disables. */
+export const DEFAULT_MAX_CONNECTIONS_PER_IP = 64;
+
+/** Default max bytes per WebSocket frame (REMOTE-011 E2). Signaling frames are a few KB; far below ws's 100 MiB. */
+export const DEFAULT_MAX_FRAME_BYTES = 64 * 1024;
 
 export const systemClock: IClock = { now: () => Date.now() };
 
@@ -67,5 +83,19 @@ export class TokenBucketLimiter {
       return true;
     }
     return false;
+  }
+
+  /**
+   * Drop a key's bucket (REMOTE-011 E2). Callers that key by a transient identity (e.g. a per-connection
+   * peer id) MUST evict on teardown, else the map grows by every key ever seen — an unbounded leak.
+   * Evicting an absent key is a harmless no-op.
+   */
+  public evict(key: string): void {
+    this.buckets.delete(key);
+  }
+
+  /** Diagnostics only: number of live buckets (used to assert the eviction/memory bound in tests). */
+  public get size(): number {
+    return this.buckets.size;
   }
 }

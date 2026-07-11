@@ -15,8 +15,16 @@
  * a peer's own confirmation back to it, nor replay one across handshakes.
  */
 
-const webcrypto: Crypto = globalThis.crypto;
-const encoder = new TextEncoder();
+import {
+  ab,
+  concat,
+  encoder,
+  fromBase64Url,
+  randomBytes,
+  sortedPair,
+  toBase64Url,
+  webcrypto,
+} from './crypto-primitives.js';
 
 /** Fixed, non-secret HKDF salt (v1). Host and browser MUST use the identical salt/info to derive matching keys. */
 const HKDF_SALT = encoder.encode('robota-remote-pairing/v1');
@@ -39,44 +47,6 @@ export interface IPairingSecret {
   readonly rendezvous: string;
   /** High-entropy pairing secret — carried in the URL fragment, NEVER sent to any server. */
   readonly secret: string;
-}
-
-// ── base64url (isomorphic via btoa/atob, present in Node 22 + browsers) ──────────────────────────
-
-function toBase64Url(bytes: Uint8Array): string {
-  let binary = '';
-  for (const b of bytes) binary += String.fromCharCode(b);
-  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
-
-function fromBase64Url(value: string): Uint8Array {
-  const padded = value.replace(/-/g, '+').replace(/_/g, '/');
-  const binary = atob(padded);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
-  return bytes;
-}
-
-function randomBytes(length: number): Uint8Array {
-  const bytes = new Uint8Array(length);
-  webcrypto.getRandomValues(bytes);
-  return bytes;
-}
-
-function concat(parts: readonly Uint8Array[]): Uint8Array {
-  const total = parts.reduce((sum, p) => sum + p.length, 0);
-  const out = new Uint8Array(total);
-  let offset = 0;
-  for (const p of parts) {
-    out.set(p, offset);
-    offset += p.length;
-  }
-  return out;
-}
-
-/** Normalize a byte view to a standalone `ArrayBuffer` (a `BufferSource` WebCrypto accepts across TS lib versions). */
-function ab(view: Uint8Array): ArrayBuffer {
-  return view.buffer.slice(view.byteOffset, view.byteOffset + view.byteLength) as ArrayBuffer;
 }
 
 // ── secret + rendezvous + nonce ─────────────────────────────────────────────────────────────────
@@ -157,10 +127,6 @@ export async function deriveSessionKey(secret: string): Promise<string> {
 }
 
 // ── directional, nonce-bound channel confirmation ───────────────────────────────────────────────
-
-function sortedPair(a: string, b: string): string {
-  return a <= b ? `${a}|${b}` : `${b}|${a}`;
-}
 
 async function confirmationFor(
   key: CryptoKey,

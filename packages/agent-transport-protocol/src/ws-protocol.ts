@@ -1,4 +1,4 @@
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSession, TDriverId } from '@robota-sdk/agent-interface-transport';
 import type {
   IAskRequestEvent,
   IBackgroundJobGroupState,
@@ -45,18 +45,25 @@ export type TClientMessage =
   | { type: 'read-background-task-log'; taskId: string; cursor?: IBackgroundTaskLogCursor }
   // REMOTE-007: a driving client answers a pending permission/ask prompt by id (first answer wins).
   | { type: 'permission-response'; id: string; result: TPermissionResultValue }
-  | { type: 'ask-response'; id: string; response: TActionResponse };
+  | { type: 'ask-response'; id: string; response: TActionResponse }
+  // REMOTE-013 E4 session-resume: `resume` asks the host to replay the tail after `lastSeq` (the last seq the
+  // client applied); `ack` lets the host free its un-acked buffer up to `seq`. Only meaningful post-E3-accept.
+  | { type: 'resume'; lastSeq: number }
+  | { type: 'ack'; seq: number };
 
 /** Outbound message from server to client. */
 export type TServerMessage =
-  | { type: 'text_delta'; delta: string }
-  | { type: 'user_message'; content: string }
-  | { type: 'tool_start'; state: IToolState }
-  | { type: 'tool_end'; state: IToolState }
-  | { type: 'thinking'; isThinking: boolean }
-  | { type: 'complete'; result: IExecutionResult }
-  | { type: 'interrupted'; result: IExecutionResult }
-  | { type: 'error'; message: string }
+  // REMOTE-014 E5: turn-authored events optionally carry the ACTIVE turn's `driverId` (co-drive authorship,
+  // display-only). Stamped at `subscribeSessionEvents` from `getActiveDriverId()`; background/goal/memory/
+  // execution-workspace events are NEVER stamped (they are not authored by a driver turn).
+  | { type: 'text_delta'; delta: string; driverId?: TDriverId }
+  | { type: 'user_message'; content: string; driverId?: TDriverId }
+  | { type: 'tool_start'; state: IToolState; driverId?: TDriverId }
+  | { type: 'tool_end'; state: IToolState; driverId?: TDriverId }
+  | { type: 'thinking'; isThinking: boolean; driverId?: TDriverId }
+  | { type: 'complete'; result: IExecutionResult; driverId?: TDriverId }
+  | { type: 'interrupted'; result: IExecutionResult; driverId?: TDriverId }
+  | { type: 'error'; message: string; driverId?: TDriverId }
   | {
       type: 'command_result';
       name: string;
@@ -88,4 +95,15 @@ export type TServerMessage =
       success: boolean;
       message?: string;
     }
-  | { type: 'protocol_error'; message: string };
+  | { type: 'protocol_error'; message: string }
+  // REMOTE-013 E4: sent instead of a replay when the client's `lastSeq` predates the host's retained buffer
+  // (overrun) — the client must do a full `get-messages` refresh rather than accept a silent gap.
+  | { type: 'resume_gap' };
+
+/**
+ * REMOTE-013 E4: a server message stamped with its monotonic session sequence number (added by the
+ * {@link SessionResumeBridge} on the reconnectable WebRTC path). Intersecting over the union distributes the
+ * `seq` field onto every variant. The WS localhost path never stamps it (a `type`-dispatching client ignores
+ * an absent/extra `seq`).
+ */
+export type TSeqServerMessage = TServerMessage & { seq: number };

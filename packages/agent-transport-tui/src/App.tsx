@@ -131,6 +131,7 @@ function AppInner(
     isAborting,
     isShuttingDown,
     pendingPrompt,
+    pendingCount,
     executionWorkspaceSnapshot,
     selectedExecutionEntryId,
     selectExecutionWorkspaceEntry,
@@ -580,6 +581,7 @@ function AppInner(
             }
             isAborting={isAborting}
             pendingPrompt={pendingPrompt}
+            pendingCount={pendingCount}
             registry={registry}
             sessionName={sessionName}
             history={history}

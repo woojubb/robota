@@ -212,7 +212,17 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   const transportRegistry = createDefaultTransportRegistry();
   const { controller: remoteControlController, setChannel: setRemoteControlChannel } =
     createRemoteControlController(transportRegistry);
-  commandHostAdapters.remoteControl = { getStatus: () => remoteControlController.getStatus() };
+  commandHostAdapters.remoteControl = {
+    getStatus: () => remoteControlController.getStatus(),
+    // REMOTE-012 E3: `/remote-control devices` + `revoke <id>` over the same controller (trusted-device store).
+    listDevices: () =>
+      remoteControlController.listDevices().map((d) => ({
+        deviceId: d.deviceId,
+        label: d.label,
+        lastSeenAt: d.lastSeenAt,
+      })),
+    revokeDevice: (deviceId: string) => remoteControlController.revokeDevice(deviceId),
+  };
 
   // INFRA-032: a preset command-module name that matched no module (a short form like "editor"
   // instead of agent-command-editor, or a typo) is surfaced as a non-fatal notice — never a silent

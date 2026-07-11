@@ -36,7 +36,7 @@ import type { ICommand, ICommandResult, ISkillExecutionResult } from '../command
 import type { ISkillActivationEvent } from '../commands/skill-activation-events.js';
 import type { IContextFileEntry } from '../context/context-file-tracker.js';
 import type { IContextWindowState, TToolArgs } from '@robota-sdk/agent-core';
-import type { TTurnSource } from '@robota-sdk/agent-interface-transport';
+import type { TDriverId, TTurnSource } from '@robota-sdk/agent-interface-transport';
 import type { ICompactEvent } from '@robota-sdk/agent-interface-transport';
 import type { Session } from '@robota-sdk/agent-session';
 
@@ -57,7 +57,20 @@ export interface ITurnOptions {
   turnSource?: TTurnSource;
   /** When set, the in-flight wake for this background task id is cleared on turn completion. */
   wakeTaskId?: string;
+  /** REMOTE-014 E5: the SERVER-ASSIGNED driver id for this turn (co-drive attribution; display-only). */
+  driverId?: TDriverId;
 }
+
+/** REMOTE-014 E5: one queued input awaiting its turn (attributed). */
+export interface IQueuedInput {
+  readonly input: string;
+  readonly displayInput?: string;
+  readonly rawInput?: string;
+  readonly options: ITurnOptions;
+}
+
+/** REMOTE-014 E5: max co-drive queue depth — beyond this, drop-newest with an attributed notice. */
+export const MAX_PENDING_QUEUE_DEPTH = 32;
 
 /** A submit callback that optionally carries turn options (default = user turn). */
 export type TSubmitFn = (
@@ -71,10 +84,10 @@ export class SessionExecutionController {
   streamingText = '';
   flushTimer: ReturnType<typeof setTimeout> | null = null;
   activeTools: IToolState[] = [];
-  pendingPrompt: string | null = null;
-  pendingDisplayInput: string | undefined;
-  pendingRawInput: string | undefined;
-  pendingTurnOptions: ITurnOptions = {};
+  /** REMOTE-014 E5: co-drive input queue (same-driver coalesces to the tail, cross-driver appends). */
+  pendingQueue: IQueuedInput[] = [];
+  /** REMOTE-014 E5: the driver id of the ACTIVE turn (null when idle) — read at event-emit time for attribution. */
+  activeDriverId: TDriverId | null = null;
   shuttingDown = false;
 
   /** FLOW-002: background task ids with an in-flight wake turn (coalesces duplicate wakes). */
@@ -86,17 +99,56 @@ export class SessionExecutionController {
     private readonly callbacks: IExecutionControllerCallbacks,
   ) {}
 
-  clearPendingQueue(): void {
-    // CORE-024 (RUNTIME-19): a queued wake that is dropped here (abort/shutdown/re-queue) must
-    // release its wake-tracking id — otherwise the `wakeTaskIds` gate rejects every future wake
-    // for that task forever, since the id is only cleared on a wake that runs to a completed turn.
-    if (this.pendingTurnOptions.wakeTaskId !== undefined) {
-      this.wakeTaskIds.delete(this.pendingTurnOptions.wakeTaskId);
+  /** The HEAD queued prompt (next to run), or null — backward-compatible single-prompt read. */
+  get pendingPrompt(): string | null {
+    return this.pendingQueue[0]?.input ?? null;
+  }
+
+  /** REMOTE-014 E5: total queued inputs (0 when idle) — a co-drive "N queued" hint. */
+  pendingCount(): number {
+    return this.pendingQueue.length;
+  }
+
+  /**
+   * REMOTE-014 E5: enqueue an input while a turn is executing. Same-driver-as-tail COALESCES (tail-replace —
+   * preserves today's editable-pending, last-wins-per-driver semantics + caps a single flooder); a different
+   * driver APPENDS (never clobbers another's input). At capacity, drop-newest and return 'dropped' (the caller
+   * emits an attributed notice). Releases a coalesced-away / dropped entry's `wakeTaskId` (CORE-024).
+   */
+  enqueuePending(entry: IQueuedInput): 'queued' | 'coalesced' | 'dropped' {
+    const tail = this.pendingQueue[this.pendingQueue.length - 1];
+    if (tail && tail.options.driverId === entry.options.driverId) {
+      if (
+        tail.options.wakeTaskId !== undefined &&
+        tail.options.wakeTaskId !== entry.options.wakeTaskId
+      ) {
+        this.wakeTaskIds.delete(tail.options.wakeTaskId);
+      }
+      this.pendingQueue[this.pendingQueue.length - 1] = entry;
+      return 'coalesced';
     }
-    this.pendingPrompt = null;
-    this.pendingDisplayInput = undefined;
-    this.pendingRawInput = undefined;
-    this.pendingTurnOptions = {};
+    if (this.pendingQueue.length >= MAX_PENDING_QUEUE_DEPTH) {
+      if (entry.options.wakeTaskId !== undefined) this.wakeTaskIds.delete(entry.options.wakeTaskId);
+      return 'dropped';
+    }
+    this.pendingQueue.push(entry);
+    return 'queued';
+  }
+
+  /**
+   * Clear the WHOLE queue, releasing EVERY entry's `wakeTaskId` (CORE-024/RUNTIME-19 — a dropped wake must free
+   * its gate or that task can never wake again). Returns the distinct driver ids whose input was cleared, so
+   * the caller can emit an attributed `cancelled by <id>` notice (E5 co-drive).
+   */
+  clearPendingQueue(): TDriverId[] {
+    const drivers: TDriverId[] = [];
+    for (const entry of this.pendingQueue) {
+      if (entry.options.wakeTaskId !== undefined) this.wakeTaskIds.delete(entry.options.wakeTaskId);
+      const driver = entry.options.driverId;
+      if (driver !== undefined && !drivers.includes(driver)) drivers.push(driver);
+    }
+    this.pendingQueue = [];
+    return drivers;
   }
 
   clearStreaming(): void {
@@ -175,13 +227,11 @@ export class SessionExecutionController {
   }
 
   private drainPendingQueue(submit: TSubmitFn): void {
-    if (!this.shuttingDown && this.pendingPrompt) {
-      const queued = this.pendingPrompt;
-      const queuedDisplay = this.pendingDisplayInput;
-      const queuedRaw = this.pendingRawInput;
-      const queuedOptions = this.pendingTurnOptions;
-      this.clearPendingQueue();
-      setTimeout(() => void submit(queued, queuedDisplay, queuedRaw, queuedOptions), 0);
+    if (!this.shuttingDown && this.pendingQueue.length > 0) {
+      // Dequeue the HEAD (submission order); resubmit it. Its wakeTaskId is NOT released here — the turn it
+      // starts will release it on completion (or `clearPendingQueue` if aborted).
+      const head = this.pendingQueue.shift() as IQueuedInput;
+      setTimeout(() => void submit(head.input, head.displayInput, head.rawInput, head.options), 0);
     }
   }
 
@@ -205,6 +255,8 @@ export class SessionExecutionController {
       (event: string, payload: unknown) => this.callbacks.emit(event, payload),
     );
     this.executing = true;
+    // REMOTE-014 E5: capture the ACTIVE turn's driver so event/prompt emitters can attribute to it.
+    this.activeDriverId = turnOptions.driverId ?? null;
     this.clearStreaming();
     // FLOW-002: surface the turn origin so consumers (hooks, TUI) can distinguish a human
     // prompt from an agent-wakeup re-entry.
@@ -246,6 +298,7 @@ export class SessionExecutionController {
         this.callbacks.emit('error', error instanceof Error ? error : new Error(String(error)));
       }
       this.executing = false;
+      this.activeDriverId = null; // REMOTE-014 E5: turn ended — events after this are not turn-authored
       this.callbacks.emit('thinking', false);
       // FLOW-002: the wake for this task id is no longer in flight; allow future wakes to inject.
       if (turnOptions.wakeTaskId !== undefined) this.wakeTaskIds.delete(turnOptions.wakeTaskId);

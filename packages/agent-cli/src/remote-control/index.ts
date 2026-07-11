@@ -1,9 +1,11 @@
 import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
 import { getUserSettingsPath, readSettings } from '@robota-sdk/agent-framework';
 
+import { loadOrCreateHostIdentity } from './host-identity.js';
 import { parseIceServers } from './ice-config.js';
 import { renderQrToTerminal } from './render-qr.js';
 import { RemoteControlController } from './remote-control-controller.js';
+import { createTrustedDeviceStore } from './trusted-device-store.js';
 
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type { TransportRegistry } from '@robota-sdk/agent-transport';
@@ -63,6 +65,11 @@ export function createRemoteControlController(registry: TransportRegistry): {
     renderQr: renderQrToTerminal,
     reportError: (message) =>
       channel?.stateManager.addEntry(messageToHistoryEntry(createSystemMessage(message))),
+    // REMOTE-012 E3: TOFU trusted-device reconnect is on by default — the host identity + device store live
+    // under ~/.robota (like an SSH host key + known_hosts). A returning device reconnects without re-pairing;
+    // a new device enrolls on first pair after the explicit accept.
+    trustedDeviceStore: createTrustedDeviceStore(),
+    loadHostIdentity: () => loadOrCreateHostIdentity(),
   });
   return {
     controller,

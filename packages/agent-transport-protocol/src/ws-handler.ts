@@ -14,6 +14,7 @@ import {
 } from './ws-background-messages.js';
 
 import type { TClientMessage, TServerMessage } from './ws-protocol.js';
+import type { TDriverId } from '@robota-sdk/agent-interface-transport';
 import type {
   IAskRequestEvent,
   IExecutionResult,
@@ -31,6 +32,12 @@ export interface IWsHandlerOptions {
   session: IInteractiveSession;
   /** Send a JSON message to the client. */
   send: (message: TServerMessage) => void;
+  /**
+   * REMOTE-014 E5: the SERVER-ASSIGNED driver id for THIS remote surface (the E3 `deviceId`). Injected into
+   * every inbound `submit`/`command`/prompt-response so a co-drive turn/answer is attributed to this driver —
+   * a client-supplied driver id is NEVER trusted. Absent → unattributed (the session defaults to the owner).
+   */
+  driverId?: TDriverId;
 }
 
 /**
@@ -56,23 +63,41 @@ export function createWsHandler(options: IWsHandlerOptions): {
   cleanup: () => void;
 } {
   const cleanup = subscribeSessionEvents(options.session, options.send);
-  const onMessage = createWsMessageHandler(options.session, options.send);
+  const onMessage = createWsMessageHandler(options.session, options.send, options.driverId);
 
   return { onMessage, cleanup };
 }
 
-function subscribeSessionEvents(
+/**
+ * Subscribe the session's events and forward each as a `TServerMessage` via `send`; returns an unsubscribe.
+ * Exported (REMOTE-013 E4) so the persistent {@link SessionResumeBridge} can own a SINGLE subscription that
+ * outlives per-channel handlers.
+ */
+export function subscribeSessionEvents(
   session: IInteractiveSession,
   send: (message: TServerMessage) => void,
 ): () => void {
-  const onUserMessage = (content: string): void => send({ type: 'user_message', content });
-  const onTextDelta = (delta: string): void => send({ type: 'text_delta', delta });
-  const onToolStart = (state: IToolState): void => send({ type: 'tool_start', state });
-  const onToolEnd = (state: IToolState): void => send({ type: 'tool_end', state });
-  const onThinking = (isThinking: boolean): void => send({ type: 'thinking', isThinking });
-  const onComplete = (result: IExecutionResult): void => send({ type: 'complete', result });
-  const onInterrupted = (result: IExecutionResult): void => send({ type: 'interrupted', result });
-  const onError = (error: Error): void => send({ type: 'error', message: error.message });
+  // REMOTE-014 E5: stamp the ACTIVE turn's driver id onto TURN-AUTHORED events (co-drive authorship,
+  // display-only), read at emit time. Only these events — background/goal/memory/execution-workspace events
+  // are NOT authored by a driver turn and carry no `driverId`. `undefined` when idle or unattributed.
+  const driver = (): TDriverId | undefined => session.getActiveDriverId?.() ?? undefined;
+  const attr = (): { driverId?: TDriverId } => {
+    const d = driver();
+    return d ? { driverId: d } : {};
+  };
+  const onUserMessage = (content: string): void =>
+    send({ type: 'user_message', content, ...attr() });
+  const onTextDelta = (delta: string): void => send({ type: 'text_delta', delta, ...attr() });
+  const onToolStart = (state: IToolState): void => send({ type: 'tool_start', state, ...attr() });
+  const onToolEnd = (state: IToolState): void => send({ type: 'tool_end', state, ...attr() });
+  const onThinking = (isThinking: boolean): void =>
+    send({ type: 'thinking', isThinking, ...attr() });
+  const onComplete = (result: IExecutionResult): void =>
+    send({ type: 'complete', result, ...attr() });
+  const onInterrupted = (result: IExecutionResult): void =>
+    send({ type: 'interrupted', result, ...attr() });
+  const onError = (error: Error): void =>
+    send({ type: 'error', message: error.message, ...attr() });
   const onBackgroundTaskEvent = (event: TBackgroundTaskEvent): void =>
     send({ type: 'background_task_event', event });
   const onBackgroundJobGroupEvent = (event: TBackgroundJobGroupEvent): void =>
@@ -123,15 +148,17 @@ function subscribeSessionEvents(
 function createWsMessageHandler(
   session: IInteractiveSession,
   send: (message: TServerMessage) => void,
+  driverId?: TDriverId,
 ): (data: string) => void {
   return (data: string): void => {
     const msg = parseClientMessage(data, send);
     if (!msg) return;
-    handleClientMessage(session, send, msg);
+    handleClientMessage(session, send, msg, driverId);
   };
 }
 
-function parseClientMessage(
+/** Parse a client JSON frame; on invalid JSON it emits `protocol_error` and returns null. Exported for E4. */
+export function parseClientMessage(
   data: string,
   send: (message: TServerMessage) => void,
 ): TClientMessage | null {
@@ -143,13 +170,18 @@ function parseClientMessage(
   }
 }
 
-function handleClientMessage(
+/**
+ * Route a parsed client message to the session (control/query/background/prompt-response). Exported for E4:
+ * the {@link SessionResumeBridge} intercepts `resume`/`ack` itself and delegates everything else here.
+ */
+export function handleClientMessage(
   session: IInteractiveSession,
   send: (message: TServerMessage) => void,
   msg: TClientMessage,
+  driverId?: TDriverId,
 ): void {
   if (isSessionControlMessage(msg)) {
-    handleSessionControlMessage(session, send, msg);
+    handleSessionControlMessage(session, send, msg, driverId);
     return;
   }
   if (isSessionQueryMessage(msg)) {
@@ -165,7 +197,7 @@ function handleClientMessage(
     return;
   }
   if (isPromptResponseMessage(msg)) {
-    handlePromptResponseMessage(session, msg);
+    handlePromptResponseMessage(session, msg, driverId);
     return;
   }
   send({ type: 'protocol_error', message: `Unknown message type: ${getMessageType(msg)}` });
@@ -250,11 +282,13 @@ function isPromptResponseMessage(
 function handlePromptResponseMessage(
   session: IInteractiveSession,
   msg: Extract<TClientMessage, { type: 'permission-response' | 'ask-response' }>,
+  driverId?: TDriverId,
 ): void {
+  // REMOTE-014 E5: record the SERVER-ASSIGNED answering driver (not client-sent) on `prompt_resolved`.
   if (msg.type === 'permission-response') {
-    session.resolvePermission(msg.id, msg.result);
+    session.resolvePermission(msg.id, msg.result, driverId);
   } else {
-    session.resolveAsk(msg.id, msg.response);
+    session.resolveAsk(msg.id, msg.response, driverId);
   }
 }
 
@@ -262,15 +296,19 @@ function handleSessionControlMessage(
   session: IInteractiveSession,
   send: (message: TServerMessage) => void,
   msg: Extract<TClientMessage, { type: 'submit' | 'command' | 'abort' | 'cancel-queue' }>,
+  driverId?: TDriverId,
 ): void {
   if (msg.type === 'submit') {
     if (!msg.prompt) {
       send({ type: 'protocol_error', message: 'prompt is required' });
       return;
     }
-    session.submit(msg.prompt).catch((error: Error) => {
-      send({ type: 'protocol_error', message: error.message });
-    });
+    // REMOTE-014 E5: attribute this remote turn to the SERVER-ASSIGNED driver id (never a client-sent one).
+    session
+      .submit(msg.prompt, undefined, undefined, driverId ? { driverId } : undefined)
+      .catch((error: Error) => {
+        send({ type: 'protocol_error', message: error.message });
+      });
   } else if (msg.type === 'command') {
     if (!msg.name) {
       send({ type: 'protocol_error', message: 'name is required' });

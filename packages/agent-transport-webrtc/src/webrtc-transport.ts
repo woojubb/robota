@@ -6,8 +6,11 @@ import type {
 } from '@robota-sdk/agent-interface-transport';
 import type { RTCDataChannel, RTCPeerConnection } from 'werift';
 
+import type { IPairingResult } from '@robota-sdk/agent-remote-pairing';
+import type { SessionResumeBridge } from '@robota-sdk/agent-transport-protocol';
+
 import { loadWerift } from './werift-loader.js';
-import { PairingGate } from './pairing-gate.js';
+import { PairingGate, type IHostReconnectConfig } from './pairing-gate.js';
 import type { ISignalingClient } from './signaling.js';
 import type { IWeriftModule } from './werift-loader.js';
 
@@ -44,10 +47,16 @@ export interface IWebRtcTransportOptions {
    * exposed immediately with no pairing (unchanged behavior).
    */
   readonly secret?: string;
-  /** REMOTE-008: fired when pairing accepts + the session is exposed (host lifecycle → status 'paired'). */
-  readonly onPaired?: () => void;
+  /** REMOTE-008: fired when pairing accepts + the session is exposed (host lifecycle → status 'paired'). Carries the first-pair result (E4 uses its sessionKey). */
+  readonly onPaired?: (result?: IPairingResult) => void;
   /** REMOTE-008: fired when pairing rejects/times out (host lifecycle → teardown; the channel is already closed). */
   readonly onPairingFailed?: () => void;
+  /** REMOTE-012 E3: host reconnect/enrollment config. When set, the gate admits first-pair (with enrollment) OR a pinned-device reconnect. */
+  readonly reconnect?: IHostReconnectConfig;
+  /** REMOTE-013 E4: a session-scoped resume bridge (owned by the controller across reconnects). Passed to the gate so the paired session flows through it (seq/buffer) and survives channel drops. */
+  readonly resumeBridge?: SessionResumeBridge;
+  /** REMOTE-013 E4: fired when a PAIRED data channel drops (so the controller can run the reconnect loop). Not fired for a pre-accept failure (that is `onPairingFailed`). */
+  readonly onDropped?: () => void;
   /** Test seam: inject the werift module (defaults to the real lazy loader). */
   readonly loadWerift?: () => IWeriftModule;
 }
@@ -68,6 +77,10 @@ export class WebRtcTransport implements IConfigurableTransport<IInteractiveSessi
   private peer?: RTCPeerConnection;
   private unsubscribeSignal?: () => void;
   private cleanupHandler?: () => void;
+  /** REMOTE-013 E4: true once the pairing gate accepted; a channel close after this is a DROP, not a failure. */
+  private paired = false;
+  /** REMOTE-013 E4: guards `onDropped` to fire at most once per transport instance. */
+  private dropped = false;
   /** REMOTE-008: local DTLS fingerprint (from the offer SDP), captured for the pairing channel-binding. */
   private localFingerprint?: string;
   /** REMOTE-008: the pairing gate for the current channel (only when `options.secret` is set). */
@@ -157,8 +170,14 @@ export class WebRtcTransport implements IConfigurableTransport<IInteractiveSessi
       role: 'initiator', // the host is the WebRTC offerer ≡ pairing initiator
       localFingerprint: this.localFingerprint,
       remoteFingerprint: extractDtlsFingerprint(sdp),
-      ...(this.options.onPaired ? { onAccept: this.options.onPaired } : {}),
+      // E4: mark paired on accept so a later channel close is a DROP (→ onDropped), not a pre-accept failure.
+      onAccept: (result) => {
+        this.paired = true;
+        this.options.onPaired?.(result);
+      },
       ...(this.options.onPairingFailed ? { onReject: this.options.onPairingFailed } : {}),
+      ...(this.options.reconnect ? { reconnect: this.options.reconnect } : {}),
+      ...(this.options.resumeBridge ? { resumeBridge: this.options.resumeBridge } : {}),
     });
   }
 
@@ -175,6 +194,15 @@ export class WebRtcTransport implements IConfigurableTransport<IInteractiveSessi
     if (this.options.secret) {
       channel.onMessage.subscribe((data) => {
         this.pairingGate?.onInbound(typeof data === 'string' ? data : data.toString());
+      });
+      // REMOTE-013 E4: a channel close AFTER the gate accepted is a reconnectable DROP — detach the bridge
+      // (via the gate cleanup) and tell the controller to run the reconnect loop. The session is NOT torn down.
+      channel.stateChanged.subscribe((state) => {
+        if ((state === 'closed' || state === 'closing') && this.paired && !this.dropped) {
+          this.dropped = true;
+          this.pairingGate?.cleanup(); // detaches the resume bridge (keeps buffering); session survives
+          this.options.onDropped?.();
+        }
       });
       this.cleanupHandler = () => this.pairingGate?.cleanup();
       return;

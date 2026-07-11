@@ -1,8 +1,10 @@
 import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
+import { OWNER_DRIVER_ID, AGENT_DRIVER_ID } from '@robota-sdk/agent-interface-transport';
 
 import { SessionBackgroundTaskTracker } from './interactive-session-background-tracker.js';
 import { InteractiveSessionBase } from './interactive-session-base.js';
 import { SessionExecutionController } from './interactive-session-execution-controller.js';
+import { MAX_PENDING_QUEUE_DEPTH } from './interactive-session-execution-controller.js';
 import { runSkillInFork } from './interactive-session-fork.js';
 import { SessionHistoryTracker } from './interactive-session-history-tracker.js';
 import { initializeInteractiveSessionAsync } from './interactive-session-init.js';
@@ -61,6 +63,7 @@ import type {
   IGoalState,
   ITerminalHandoff,
   TTurnSource,
+  TDriverId,
   TPermissionResultValue,
 } from '@robota-sdk/agent-interface-transport';
 import type { Session } from '@robota-sdk/agent-session';
@@ -141,6 +144,8 @@ export class InteractiveSession
       emitAskRequest: (event) => this.emit('ask_request', event),
       emitPromptResolved: (event) => this.emit('prompt_resolved', event),
       countListeners: (event) => this.listeners.get(event)?.size ?? 0,
+      // REMOTE-014 E5: stamp the active turn's driver as the prompt's requester (display-only attribution).
+      getActiveDriverId: () => this.execCtrl.activeDriverId,
       backstopMs: PROMPT_BACKSTOP_MS,
     });
     this.askHandler = (request) => this.promptRegistry.requestAsk(request);
@@ -381,11 +386,28 @@ export class InteractiveSession
   ): Promise<void> {
     await this.ensureInitialized();
     if (this.execCtrl.shuttingDown) throw new Error('Interactive session is shutting down.');
+    // REMOTE-014 E5: resolve the SERVER-ASSIGNED driver id (display-only). A human turn defaults to the owner;
+    // an agent-wakeup/goal turn to the reserved agent id (never the owner — an autonomous action must not be
+    // mis-attributed to the operator).
+    const driverId =
+      options.driverId ??
+      (options.turnSource === 'agent-wakeup' ? AGENT_DRIVER_ID : OWNER_DRIVER_ID);
+    const resolvedOptions: ITurnOptions = { ...options, driverId };
     if (this.execCtrl.executing) {
-      this.execCtrl.pendingPrompt = input;
-      this.execCtrl.pendingDisplayInput = displayInput;
-      this.execCtrl.pendingRawInput = rawInput;
-      this.execCtrl.pendingTurnOptions = options;
+      // Same-driver coalesces to the tail (1-deep = today); a different driver appends (no clobber).
+      const outcome = this.execCtrl.enqueuePending({
+        input,
+        displayInput,
+        rawInput,
+        options: resolvedOptions,
+      });
+      if (outcome === 'dropped') {
+        this.emit(
+          'user_message',
+          `[remote-control] input from ${driverId} was dropped — the co-drive queue is full ` +
+            `(max ${MAX_PENDING_QUEUE_DEPTH}). Try again after the current work settles.`,
+        );
+      }
       return;
     }
     await this.execCtrl.executePrompt(
@@ -401,8 +423,18 @@ export class InteractiveSession
         this.histTracker.recordSystemContextFiles([...agents, ...claude]);
       },
       (p, d, r, o) => this.submit(p, d, r, o),
-      options,
+      resolvedOptions,
     );
+  }
+
+  /** REMOTE-014 E5: the driver id of the ACTIVE turn (null when idle) — read at emit time for attribution. */
+  getActiveDriverId(): TDriverId | null {
+    return this.execCtrl.activeDriverId;
+  }
+
+  /** REMOTE-014 E5: number of queued co-drive inputs (0 when idle) — a "N queued" hint for both surfaces. */
+  getPendingCount(): number {
+    return this.execCtrl.pendingCount();
   }
 
   /**
@@ -422,7 +454,9 @@ export class InteractiveSession
   }
 
   abort(): void {
-    this.execCtrl.clearPendingQueue();
+    // REMOTE-014 E5: clearing the WHOLE shared queue is an OWNER-PRINCIPLE-legit cross-driver effect — emit an
+    // attributed notice so a co-driver whose queued input was cleared sees why (and every wakeTaskId is freed).
+    this.notifyQueueCleared(this.execCtrl.clearPendingQueue(), 'aborted');
     // REMOTE-007 D3: deny/cancel every parked prompt so an aborted turn never leaves the enforcer's
     // `await` (or a wrapped tool) hanging — reproduces the TUI's cancel-all-permissions/actions semantics.
     this.promptRegistry.drain();
@@ -430,8 +464,19 @@ export class InteractiveSession
   }
 
   override cancelQueue(): void {
-    super.cancelQueue();
+    this.notifyQueueCleared(this.execCtrl.clearPendingQueue(), 'cancelled');
     this.promptRegistry.drain();
+  }
+
+  /** REMOTE-014 E5: emit an attributed system notice when a whole-queue clear dropped other drivers' input. */
+  private notifyQueueCleared(clearedDrivers: TDriverId[], verb: 'aborted' | 'cancelled'): void {
+    const others = clearedDrivers.filter((d) => d !== OWNER_DRIVER_ID);
+    if (others.length > 0) {
+      this.emit(
+        'user_message',
+        `[remote-control] queued input from ${others.join(', ')} was ${verb} (queue cleared).`,
+      );
+    }
   }
 
   shutdown(options: IInteractiveSessionShutdownOptions = {}): Promise<void> {
@@ -537,13 +582,18 @@ export class InteractiveSession
    * REMOTE-007: answer a pending `permission_request` by id (any attached surface; first resolve wins,
    * later resolves for a settled id are no-ops). Idempotent and safe for an unknown/settled id.
    */
-  resolvePermission(id: string, result: TPermissionResultValue): void {
-    this.promptRegistry.resolvePermission(id, result);
+  resolvePermission(
+    id: string,
+    result: TPermissionResultValue,
+    answererDriverId?: TDriverId,
+  ): void {
+    // REMOTE-014 E5: a LOCAL answer (no explicit id) is the owner; a remote transport injects its bound id.
+    this.promptRegistry.resolvePermission(id, result, answererDriverId ?? OWNER_DRIVER_ID);
   }
 
-  /** REMOTE-007: answer a pending `ask_request` by id (see {@link resolvePermission}). */
-  resolveAsk(id: string, response: TActionResponse): void {
-    this.promptRegistry.resolveAsk(id, response);
+  /** REMOTE-007: answer a pending `ask_request` by id (see {@link resolvePermission}). REMOTE-014: `answererDriverId`. */
+  resolveAsk(id: string, response: TActionResponse, answererDriverId?: TDriverId): void {
+    this.promptRegistry.resolveAsk(id, response, answererDriverId ?? OWNER_DRIVER_ID);
   }
 
   /**

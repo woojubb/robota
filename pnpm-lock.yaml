@@ -1008,6 +1008,9 @@ importers:
       '@robota-sdk/agent-transport':
         specifier: workspace:*
         version: link:../agent-transport
+      '@robota-sdk/agent-transport-protocol':
+        specifier: workspace:*
+        version: link:../agent-transport-protocol
       '@robota-sdk/agent-transport-tui':
         specifier: workspace:*
         version: link:../agent-transport-tui

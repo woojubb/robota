@@ -3,7 +3,7 @@
  * reconstructs conversation state from TServerMessage events.
  */
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 
 import {
   applyPromptEvent,
@@ -11,6 +11,7 @@ import {
   permissionResponse,
   type TPendingPrompt,
 } from './prompt-state.js';
+import { createDeviceCredentialStore } from '../client/device-credential-store.js';
 import {
   createRtcSessionClient,
   type IRtcSessionClientOptions,
@@ -31,6 +32,8 @@ export interface IConversationMessage {
   role: 'user' | 'assistant';
   content: string;
   isStreaming?: boolean;
+  /** REMOTE-014 E5: the co-driving author of a user turn (display-only; absent/owner = the local owner). */
+  author?: string;
 }
 
 export interface IActiveTool {
@@ -107,7 +110,12 @@ export function useSessionClient(makeClient: TMakeSessionClient): IWsSessionStat
       case 'user_message': {
         setMessages((prev) => [
           ...prev,
-          { id: nextId(), role: 'user', content: msg.content ?? '' },
+          {
+            id: nextId(),
+            role: 'user',
+            content: msg.content ?? '',
+            ...(msg.driverId ? { author: msg.driverId } : {}),
+          },
         ]);
         break;
       }
@@ -229,6 +237,8 @@ export function useRtcSession(
   >,
 ): IWsSessionState {
   const { relayUrl, rendezvous, secret, iceServers, forceTurn } = options;
+  // REMOTE-012 E3: a stable per-session credential store (IndexedDB) so first-pair enrolls this device.
+  const deviceCredentials = useMemo(() => createDeviceCredentialStore(), []);
   const makeClient = useCallback<TMakeSessionClient>(
     (cb) =>
       createRtcSessionClient(
@@ -238,10 +248,11 @@ export function useRtcSession(
           secret,
           ...(iceServers ? { iceServers } : {}),
           ...(forceTurn ? { forceTurn } : {}),
+          deviceCredentials,
         },
         cb,
       ),
-    [relayUrl, rendezvous, secret, iceServers, forceTurn],
+    [relayUrl, rendezvous, secret, iceServers, forceTurn, deviceCredentials],
   );
   return useSessionClient(makeClient);
 }
