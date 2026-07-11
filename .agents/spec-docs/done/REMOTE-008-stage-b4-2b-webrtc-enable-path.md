@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: INFRA
 tags: [remote-control, transport, webrtc, pairing, enable-path]
 parent: REMOTE-001
@@ -246,3 +246,8 @@ agent-remote-pairing` edge trips no mechanized rule in `check-dependency-directi
     after `renderApp`); add `agent-transport-webrtc`+`agent-remote-pairing` as agent-cli **devDependencies\*\* (self-contained
     bundle) + a QR dep + `werift` (lazy peer → runtime need when enabled). Steps 4-6 remain; REMOTE-008 lands as ONE PR
     once the enable path is usable (Steps 1-3 alone leave `/remote-control` returning an inert effect).
+- GATE-COMPLETE — merged to main via PR #1107 (feature→develop) → PR #1108 (develop→main), both merge-verifier PASS
+  (REMOTE-008-only, no lessons drift, CI green incl. release-grade + compat-node18). Spec moved active→done, status
+  done. Follow-up backlog noted: TransportRegistry `unregister` (repeated enable→fail/stop accumulates stopped-but-
+  registered transports). REMOTE-001 remaining: Stage D (browser remote client, reusing agent-remote-pairing) + Stage E
+  (TOFU reconnect + TURN + co-drive).
