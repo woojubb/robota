@@ -8,13 +8,15 @@
 
 const ICE_URL_SCHEME = /^(stuns?|turns?):/i;
 
-/** Decode a base64url string to UTF-8 (browser/jsdom `atob`). Throws on malformed base64. */
+/** Decode a base64url string to a proper UTF-8 string (so non-ASCII TURN creds survive). Throws on malformed base64. */
 function base64UrlToUtf8(b64url: string): string {
   const b64 = b64url
     .replace(/-/g, '+')
     .replace(/_/g, '/')
     .padEnd(Math.ceil(b64url.length / 4) * 4, '=');
-  return atob(b64);
+  const binary = atob(b64); // latin1 bytes
+  const bytes = Uint8Array.from(binary, (ch) => ch.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
 }
 
 function validateUrl(url: unknown, where: string): string {

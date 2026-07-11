@@ -20,15 +20,20 @@ describe('parseIceServers (REMOTE-010 host validator)', () => {
     ]);
   });
 
-  it('accepts a TURN server with credentials + array urls', () => {
-    const cfg = [
-      {
-        urls: ['turn:turn.example:3478', 'turns:turn.example:5349'],
-        username: 'u',
-        credential: 'p',
-      },
-    ];
+  it('accepts a single-string TURN server with credentials', () => {
+    const cfg = [{ urls: 'turn:turn.example:3478', username: 'u', credential: 'p' }];
     expect(parseIceServers(cfg)).toEqual(cfg);
+  });
+
+  it('fail-closed: array urls — werift silently drops them, so reject (do not fail open)', () => {
+    expect(() => parseIceServers([{ urls: ['turn:a:3478', 'turn:b:3478'] }])).toThrow(
+      /single url string/,
+    );
+  });
+
+  it('fail-closed: turns:/stuns: scheme — werift drops them, so reject', () => {
+    expect(() => parseIceServers([{ urls: 'turns:turn.example:5349' }])).toThrow(/turns:\/stuns:/);
+    expect(() => parseIceServers([{ urls: 'stuns:x' }])).toThrow(/scheme/);
   });
 
   it('fail-closed: not an array', () => {
@@ -56,10 +61,9 @@ describe('parseIceServers (REMOTE-010 host validator)', () => {
 });
 
 describe('hasTurnServer', () => {
-  it('detects a TURN url (string or array), ignores STUN-only', () => {
+  it('detects a turn: url, ignores STUN-only', () => {
     expect(hasTurnServer([{ urls: 'stun:x' }])).toBe(false);
     expect(hasTurnServer([{ urls: 'turn:x' }])).toBe(true);
-    expect(hasTurnServer([{ urls: ['stun:x', 'turns:y'] }])).toBe(true);
     expect(hasTurnServer(undefined)).toBe(false);
   });
 });

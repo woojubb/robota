@@ -166,3 +166,16 @@ the exact attacker-influenced surface, never a loose cast into `RTCConfiguration
   Step 3: SPECs + changeset. Verify: agent-web-ui 48, agent-cli 190, agent-transport-webrtc 23; harness:scan 49/49;
   full-repo typecheck 0. Both fail-closed validators tested (host malformed + browser malformed/bad-scheme +
   forceTurn-without-TURN on both peers). Ready for implementation review + merge-verifier.
+- 2026-07-11 GATE-REVIEW (implementation) — proposal-reviewer **REVISE→fixed** (browser side ENDORSED; 2 host
+  fail-OPEN defects at the werift boundary, both empirically confirmed + fixed). **Defect 1 (privacy):** werift's ICE
+  gatherer derives relay-only from `iceTransportPolicy === 'relay'` and IGNORES a top-level `forceTurn` — so the host
+  `forceTurn` was a silent no-op (host candidates still leak). Fixed: map `forceTurn` → `peerConfig.iceTransportPolicy =
+'relay'`; werift-loader config type corrected (`iceTransportPolicy?:'all'|'relay'`, dropped the ignored `forceTurn`).
+  **Defect 2 (silent drop):** werift's `parseIceServers` consumes only a single-string `turn:`/`stun:` url and silently
+  drops array `urls` + `turns:`/`stuns:` — the host validator accepted them → TURN configured-but-discarded → silent
+  never-connect. Fixed: narrowed `IIceServer.urls` to a single string and the host `parseIceServers` REJECTS (fail-closed)
+  array urls + `turns:`/`stuns:` (with a clear werift-limitation error); the browser decoder stays wider (native
+  RTCPeerConnection supports those). Added a werift-level regression test (fake-werift seam captures the config:
+  forceTurn→iceTransportPolicy:'relay', no top-level forceTurn emitted). Also fixed a non-blocking nit (browser base64url
+  decoder now proper UTF-8 for non-ASCII creds). Verify: webrtc 24, cli 192, web-ui 48; harness:scan 49/49; full
+  typecheck 0. Ready for re-review + merge.

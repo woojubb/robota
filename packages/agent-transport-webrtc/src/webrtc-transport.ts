@@ -9,13 +9,17 @@ import type { RTCDataChannel, RTCPeerConnection } from 'werift';
 import { loadWerift } from './werift-loader.js';
 import { PairingGate } from './pairing-gate.js';
 import type { ISignalingClient } from './signaling.js';
+import type { IWeriftModule } from './werift-loader.js';
 
 /**
- * A single ICE (STUN/TURN) server. TURN servers carry `username`/`credential` (REMOTE-010). werift's peer config
- * accepts this shape; kept as a plain interface (no DOM `RTCIceServer` dependency in this node package).
+ * A single ICE (STUN/TURN) server for the HOST (werift) transport (REMOTE-010). `urls` is a SINGLE string with a
+ * `turn:`/`turns:`/`stun:`/`stuns:` scheme — werift's ICE gatherer (`parseIceServers`) consumes only a single-string
+ * url and silently drops array `urls`, so the host reader (`agent-cli` `parseIceServers`) must narrow to this shape
+ * and reject what werift would drop (fail-closed). (The browser peer uses the native DOM `RTCIceServer`, which does
+ * support array urls / `turns:` — a separate, wider validator.) Kept a plain interface (no DOM dependency here).
  */
 export interface IIceServer {
-  readonly urls: string | readonly string[];
+  readonly urls: string;
   readonly username?: string;
   readonly credential?: string;
 }
@@ -43,6 +47,8 @@ export interface IWebRtcTransportOptions {
   readonly onPaired?: () => void;
   /** REMOTE-008: fired when pairing rejects/times out (host lifecycle → teardown; the channel is already closed). */
   readonly onPairingFailed?: () => void;
+  /** Test seam: inject the werift module (defaults to the real lazy loader). */
+  readonly loadWerift?: () => IWeriftModule;
 }
 
 /**
@@ -80,14 +86,17 @@ export class WebRtcTransport implements IConfigurableTransport<IInteractiveSessi
     const session = this.session;
     if (!session) throw new Error('WebRtcTransport: attach() must be called before start()');
 
-    const { RTCPeerConnection } = loadWerift();
+    const { RTCPeerConnection } = (this.options.loadWerift ?? loadWerift)();
     const peerConfig: {
-      iceServers?: { urls: string | readonly string[]; username?: string; credential?: string }[];
-      forceTurn?: boolean;
+      iceServers?: { urls: string; username?: string; credential?: string }[];
+      iceTransportPolicy?: 'all' | 'relay';
     } = {};
     if (this.options.iceServers)
       peerConfig.iceServers = this.options.iceServers.map((s) => ({ ...s }));
-    if (this.options.forceTurn) peerConfig.forceTurn = true;
+    // REMOTE-010: werift's ICE gatherer derives relay-only from `iceTransportPolicy === 'relay'` — it IGNORES a
+    // top-level `forceTurn`. Map `forceTurn` → `iceTransportPolicy:'relay'`, else the privacy control is a silent
+    // no-op and host/server-reflexive candidates still leak.
+    if (this.options.forceTurn) peerConfig.iceTransportPolicy = 'relay';
     const peer = new RTCPeerConnection(Object.keys(peerConfig).length > 0 ? peerConfig : undefined);
     this.peer = peer;
     const signaling = this.options.signaling;
