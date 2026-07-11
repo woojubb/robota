@@ -40,23 +40,30 @@ or duplicated `TServerMessage`.
 
 ### Affected Scope
 
-- `packages/agent-transport-protocol/` — add envelope **sequence + resume/ack** to the shared bridge: a
-  monotonic `seq` stamped on every outbound `TServerMessage` at the single `send` choke point in
-  `createWsHandler`, and new `TClientMessage` variants `resume` / `ack`; a reusable **`ResumeBuffer`** (bounded
-  ring of un-acked messages: append+seq, drop-on-ack, replay-tail-on-resume). This is transport-neutral —
-  both WS and WebRTC use `createWsHandler`.
-- `packages/agent-remote-pairing/` — a **rotating rendezvous** derivation `deriveReconnectRendezvous(hostId, epoch)`
-  (HKDF over `hostIdentityId` + epoch), so host and client independently compute the same fresh room per epoch.
-- `packages/agent-transport-webrtc/` — `WebRtcTransport`: a channel/connection-state watcher; on a paired
-  peer drop, wrap the `send` with the `ResumeBuffer` and (host side) re-arm signaling at the current rotating
-  rendezvous to accept a returning peer, re-running the E3 host reconnect + replaying the buffer tail on
-  `resume`.
-- `packages/agent-cli/src/remote-control/` — host: register at BOTH the first-pair rendezvous (QR) and the
-  rotating reconnect rendezvous (derived from its own `hostIdentityId`), keeping a reconnect presence.
-- `packages/agent-web-ui/src/client/` — `rtc-session-client.ts`: an **auto-reconnect loop** (bounded backoff)
-  that, on drop, looks up the E3 credential (`deviceCredentials.get(relayOrigin, hostIdentityId)`), computes
-  the rotating rendezvous, reconnects via the E3 device reconnect path, and sends `resume{lastSeq}`; tracks
-  `lastSeq` + sends `ack`.
+- `packages/agent-transport-protocol/` — (i) new `TClientMessage` variants `resume` / `ack`; (ii) a reusable
+  bounded **`ResumeBuffer`** (append+seq, drop-on-ack, replay-tail-on-resume, overrun marker); (iii) a
+  **persistent `SessionResumeBridge`** that subscribes to the session's events ONCE and OUTLIVES individual
+  data channels — it owns the monotonic `seq` and the `ResumeBuffer`, and exposes `attach(sink)`/`detach()` so
+  a data channel is a swappable sink. The per-channel `createWsHandler` is split: session→wire (seq/buffer)
+  moves into the bridge; client→session routing (incl. `resume`/`ack`) is a thin per-channel adapter over the
+  bridge. **The bridge is opt-in** — only the WebRTC/paired path constructs it; the WS localhost path keeps
+  `createWsHandler` byte-for-byte (no seq, no buffer, no standing memory).
+- `packages/agent-remote-pairing/` — `deriveReconnectSeed(sessionKey)` (HKDF, domain-separated — this is the
+  E4 use the pairing `sessionKey` was reserved for) and `deriveReconnectRendezvous(reconnectSeed, counter)`
+  (HKDF → base64url). A **per-device** seed (derived from the per-pairing `sessionKey`) + a **persisted
+  monotonic counter** advanced on each confirmed reconnect accept — NOT a wall-clock epoch.
+- `packages/agent-transport-webrtc/` — `WebRtcTransport`: a channel/connection-state watcher; on a paired peer
+  drop, `bridge.detach()` (the bridge keeps buffering); host side re-arms signaling at the current reconnect
+  rendezvous to accept a returning peer, re-runs the E3 host reconnect, `bridge.attach(newChannelSend)` and
+  replays `tailAfter(lastSeq)` on `resume`. A **host-side reconnect-window ceiling** stops re-arming + frees
+  the bridge/buffer after a bounded idle period (no forever-standing room).
+- `packages/agent-cli/src/remote-control/` — host: persist the per-device `reconnectSeed` + `counter` in the
+  trusted-device record (E3 store), register at the reconnect rendezvous derived from them, advance the
+  counter on confirmed reconnect, enforce the reconnect-window ceiling.
+- `packages/agent-web-ui/src/client/` + `device-credential-store` — persist `reconnectSeed` + `counter` in the
+  `IDeviceCredential`; `rtc-session-client.ts` auto-reconnect loop (bounded backoff) that computes the
+  rendezvous (probing `counter`, `counter+1`), reconnects via the E3 device reconnect, sends `resume{lastSeq}`,
+  applies replayed frames idempotently by `seq`, and `ack`s; advances the counter on confirmed accept.
 
 ### Alternatives Considered (rendezvous rediscovery — the crux)
 
@@ -69,78 +76,106 @@ or duplicated `TServerMessage`.
    knows nothing of device identity, so it cannot authenticate a returning device without becoming
    trust-aware — breaking its minimal-SSOT invariant (REMOTE-001) and re-opening the squatting/enumeration
    surface E2 closed. Rejected: pushes trust into the one component that must stay dumb.
-3. **(Chosen) Rotating identity-derived rendezvous.** Both peers deterministically compute a **fresh** room
-   per time epoch: `rendezvous(epoch) = base64url(HKDF(hostIdentityId, "robota-reconnect-rv/v1" ‖ epoch))`,
-   `epoch = floor(now / WINDOW)`. On a drop the host re-registers at the current epoch's room and the returning
-   client computes the same room from its pinned `hostIdentityId` and joins — a **fresh, single-use room each
-   epoch** (single-use satisfied: two new peer ids per room) with the host present within the half-open TTL
-   (`WINDOW < TTL`, e.g. 20s window vs 60s TTL, and the host re-registers each epoch). Pro: no relay change —
-   respects content-blind single-use + half-open exactly; the rendezvous is unguessable without
-   `hostIdentityId` (which only a paired device holds); mutual E3 auth still gates admission so the room being
-   public-derivable is not a trust risk. Con: needs loose host/client clock agreement (mitigated by the client
-   trying the current ± adjacent epoch) and a host that re-registers as epochs roll. Accepted: the only option
-   that keeps the relay dumb and E2 intact.
+3. **Rotating WALL-CLOCK-epoch rendezvous** `HKDF(hostIdentityId, floor(now/WINDOW))`. Pro: no shared state
+   beyond `hostIdentityId`. Con (all real): clock skew makes host + client bin to different epochs at a
+   boundary (a skewed client finds an empty room unless the host holds TWO rooms across the boundary);
+   a second flap within one WINDOW hits the already-single-use-burned epoch room and stalls until the epoch
+   rolls; the lone host must re-join a room every WINDOW **forever**, holding a standing room + consuming the
+   relay join-bucket per host; and a **revoked device still knows `hostIdentityId`**, so it can compute every
+   future room and squat a single-use slot (a DoS the relay, being content-blind, cannot stop). Rejected: the
+   skew/burn/churn are operational hazards and the revoked-device squatting is a real regression from E3.
+4. **(Chosen) Per-device seed + persisted counter rendezvous.** At first pair BOTH sides derive a
+   **per-device reconnect seed** from the pairing `sessionKey` — `reconnectSeed = HKDF(sessionKey,
+"robota-reconnect-seed/v1")` (this is the E4 use `sessionKey` was reserved for; each pairing has its own
+   `sessionKey`, so the seed is per-device) — and persist it (host in the trusted-device record, client in the
+   IndexedDB credential). The reconnect room is `rendezvous(counter) = base64url(HKDF(reconnectSeed, counter))`
+   with a **persisted monotonic counter advanced on each confirmed reconnect accept**; both sides probe
+   `counter` then `counter+1` to self-heal a partial advance. Pro: no wall clock → no skew/adjacent-epoch race;
+   a fresh single-use room per reconnect (respects the relay exactly); works **cold** (page reload) because
+   seed + counter are persisted; and — critically — **a revoked device's seed derives only its OWN, now-defunct
+   rooms**, so revoking device A cannot let A squat the legitimate device B's rooms (B's seed came from B's
+   distinct `sessionKey`, which A never held). Con: two more persisted fields per device (seed + counter) in
+   both stores, and the counter must advance only on _confirmed_ accept. Accepted: keeps the relay dumb AND
+   closes the revoked-device squatting the epoch scheme reopened, AND survives cold reload.
 
 ### Decision
 
-Take alternative 3 (rotating identity-derived rendezvous) for rediscovery, plus a transport-neutral
-**sequence + resume/ack** contract and a bounded host **ResumeBuffer** for exactly-once replay. Reconnect
-authentication REUSES the E3 mutual handshake unchanged (the returning peer is a trusted device; a
-non-trusted peer fails the handshake and never resumes). The host session already survives a peer drop, so
-E4 adds only: keep/re-arm the host's reconnect presence, buffer un-acked output, and let the client find its
-way back and ask for the tail. This is a **contract-boundary change** (new envelope seq + two client message
-variants + a new rendezvous derivation): validated for reachability by both peers (WS host ignores the new
-fields harmlessly; WebRTC host + browser both speak the seq/ack), capability preservation (a client that
-never drops behaves exactly as today — seq is stamped but only consulted on resume), and an adversarial pass
-(a wrong-epoch or wrong-identity room yields no host / fails E3 auth; a forged `resume`/`ack` from a
-non-trusted peer cannot arrive because resume runs only post-E3-accept; buffer bounded so a never-acking peer
-cannot exhaust host memory — oldest frames drop with a gap marker).
+Take alternative 4 (per-device `sessionKey`-derived seed + persisted counter) for rediscovery, plus a
+transport-neutral **sequence + resume/ack** contract carried by a **persistent, session-scoped
+`SessionResumeBridge`** that outlives per-channel handlers (owns the monotonic `seq` + bounded `ResumeBuffer`,
+subscribes to session events ONCE, swaps the channel as a sink) — so `seq` is continuous across a reconnect
+and gap output is captured while no channel is attached. Reconnect authentication REUSES the E3 mutual
+handshake unchanged. The host session already survives a peer drop; E4 adds: the persistent bridge, the host's
+re-armed reconnect presence bounded by a **reconnect-window ceiling** (no forever-standing room/buffer), and
+the client's bounded-backoff auto-reconnect + resume. The bridge is **opt-in** (WebRTC/paired path only) so
+the WS localhost path is byte-for-byte unchanged. This is a **contract-boundary change** (two new client
+message variants + an envelope `seq` + a new rendezvous derivation + two persisted per-device fields):
+validated for reachability (WS client ignores the additive `seq`; WebRTC host + browser both speak seq/ack),
+capability preservation (a never-dropping client behaves exactly as today — seq is stamped but consulted only
+on resume), and an adversarial pass (wrong-seed/wrong-counter room → no host or fails E3 auth; a revoked
+device derives only its own defunct rooms; `resume`/`ack` run only post-E3-accept so no non-trusted peer can
+resume or read the buffer; the `ResumeBuffer` is bounded, drop-oldest with an overrun marker → a never-acking
+peer cannot exhaust host memory; the host ceiling frees everything after a bounded idle window).
 
 ### Architecture Review Checklist
 
 - [x] 영향 패키지/레이어 목록 작성 완료
-- [x] Sibling scan 완료 — the resume/ack + seq live in the SHARED `createWsHandler` (`ws-handler.ts`), so BOTH transports (WS sidecar + WebRTC) get the contract; the WS client is checked to ignore unknown fields (no break). The rotating rendezvous is host-side (`remote-control-controller.ts`) + client-side (`rtc-session-client.ts`) computed from the same primitive.
+- [x] Sibling scan 완료 — `createWsHandler` (`ws-handler.ts`) is the shared bridge for BOTH transports; E4 splits it so the seq/buffer `SessionResumeBridge` is **opt-in** (WebRTC path only) and the WS localhost path keeps the unchanged handler (verified the WS client dispatches by `type` and ignores an additive `seq`). Reconnect rendezvous is host-side (`remote-control-controller.ts`) + client-side (`rtc-session-client.ts`) from the same `agent-remote-pairing` primitive; the per-device seed/counter persist in the E3 stores (host trusted-device record + browser `IDeviceCredential`).
 - [x] 대안 최소 2개 검토 완료
 - [x] 결정 근거 문서화 완료
 
 ## Solution
 
-- **Sequence + resume/ack (`agent-transport-protocol`):**
-  - Add `seq: number` to the outbound envelope by wrapping the `send` in `createWsHandler` with a stamper
-    (monotonic per session bridge). The 14 event→message mappings are untouched — only the choke point stamps.
-  - New `TClientMessage` variants: `{ type:'resume'; lastSeq: number }` and `{ type:'ack'; seq: number }`.
-    `handleClientMessage` routes them: `resume` → replay the buffer tail after `lastSeq`; `ack` → drop
-    buffered frames ≤ `seq`.
-  - `ResumeBuffer` (new module): a bounded ring (default N frames / M bytes) of un-acked `{seq, message}`;
-    `append` returns the seq; `ackThrough(seq)`; `tailAfter(lastSeq)` returns the replay slice or a
-    `buffer-overrun` signal when `lastSeq` is older than the oldest retained frame (client then does a full
-    `get-messages` refresh — never a silent gap).
-- **Rotating rendezvous (`agent-remote-pairing`):** `deriveReconnectRendezvous(hostIdentityId, epoch): Promise<string>`
-  = base64url HKDF; `currentEpoch(nowMs, windowMs): number`. Pure, isomorphic (same primitive host + browser).
-- **Host (`agent-transport-webrtc` + `agent-cli`):** on a paired channel drop (a new `channel`/`peer`
-  connection-state watcher), the transport keeps the session, attaches the `ResumeBuffer` to `send`, and the
-  controller re-arms a `WsSignalingClient` at `deriveReconnectRendezvous(hostIdentityId, currentEpoch())`,
-  re-registering as epochs roll (a small timer), so a returning device can meet it. A new data channel runs
-  the E3 host reconnect; on accept it replays `tailAfter(lastSeq)`.
-- **Client (`agent-web-ui`):** on drop, if `deviceCredentials.get(relayOrigin, hostIdentityId)` has a
-  credential, enter an auto-reconnect loop with bounded exponential backoff: compute the rotating rendezvous,
-  connect, run the E3 device reconnect (verify host), then `send({type:'resume', lastSeq})`; apply replayed
-  frames idempotently by `seq` and periodically `ack`. On `buffer-overrun`, fall back to `get-messages`.
-- **Bounds/fail-safe:** the ResumeBuffer is bounded (drop-oldest with an overrun signal — never unbounded);
-  the reconnect loop has a max-attempts/backoff ceiling then surfaces `failed`; the epoch window `< TTL`.
+- **`ResumeBuffer` (`agent-transport-protocol/resume-buffer.ts`, new):** a bounded ring (default N frames / M
+  bytes) of un-acked `{seq, message}`; `append(message)` assigns + returns the next seq; `ackThrough(seq)`
+  drops ≤ seq; `tailAfter(lastSeq)` returns the ordered replay slice, or a `buffer-overrun` marker when
+  `lastSeq` predates the oldest retained frame (client then does a full `get-messages` refresh — never a
+  silent gap). Drop-oldest when over bound.
+- **`SessionResumeBridge` (`agent-transport-protocol`, new — the Issue-A fix):** created ONCE per remote
+  session; subscribes the session's events once (reusing the extracted `subscribeSessionEvents`), stamps a
+  **monotonic `seq` continuous across channel drops**, appends to its `ResumeBuffer`, and forwards to the
+  CURRENT sink. `attach(send)` sets the sink (and, on a reconnect, does nothing until the client asks —
+  replay is driven by `resume`); `detach()` clears the sink but KEEPS buffering (gap capture). `onClientMessage(data)`
+  routes `resume{lastSeq}` → send `tailAfter(lastSeq)` (or overrun signal) to the sink, `ack{seq}` →
+  `ackThrough`, everything else → the session via the extracted client-message router. `dispose()` unsubscribes.
+  The per-channel adapter just pipes channel bytes → `bridge.onClientMessage` and provides `bridge.attach`'s
+  sink. **WS path unchanged:** it keeps calling `createWsHandler` directly (no bridge, no seq, no buffer).
+- **New `TClientMessage` variants** (`ws-protocol.ts`): `{ type:'resume'; lastSeq: number }`,
+  `{ type:'ack'; seq: number }`. Outbound envelope gains an optional `seq` stamped by the bridge (additive; a
+  `type`-dispatching WS client ignores it).
+- **Rendezvous (`agent-remote-pairing/reconnect-rendezvous.ts`, new):** `deriveReconnectSeed(sessionKey): Promise<string>`
+  = base64url HKDF(sessionKey, "robota-reconnect-seed/v1"); `deriveReconnectRendezvous(reconnectSeed, counter): Promise<string>`
+  = base64url HKDF(reconnectSeed, "robota-reconnect-rv/v1" ‖ counter). Pure, isomorphic.
+- **Host (`agent-transport-webrtc` + `agent-cli`):** at first-pair accept, derive + persist `reconnectSeed`
+  (from the `IPairingResult.sessionKey`) + `counter=0` in the trusted-device record. A channel/connection-state
+  watcher: on a paired drop, `bridge.detach()`; the controller re-arms a `WsSignalingClient` at
+  `deriveReconnectRendezvous(seed, counter)` (probe window: also register `counter+1`), so a returning device
+  meets it. A new data channel runs the E3 host reconnect; on **confirmed** accept, advance + persist the
+  counter, `bridge.attach(newSink)`, and serve `resume`. A **reconnect-window ceiling** (e.g. 5 min idle)
+  stops re-arming, `bridge.dispose()`, and tears down — no forever-standing room.
+- **Client (`agent-web-ui` + `device-credential-store`):** persist `reconnectSeed` + `counter` in the
+  `IDeviceCredential` at first-pair enrollment. On drop, if a credential exists, enter a bounded-backoff
+  auto-reconnect loop: compute `deriveReconnectRendezvous(seed, counter)` (probe `counter`, then `counter+1`),
+  connect, run the E3 device reconnect (verify host), advance the counter on confirmed accept, then
+  `send({type:'resume', lastSeq})`; apply replayed frames idempotently by `seq`, `ack` periodically. On
+  `buffer-overrun`, fall back to `get-messages`. After the backoff ceiling, surface `failed`.
+- **Bounds/fail-safe:** ResumeBuffer bounded (drop-oldest + overrun marker); client backoff ceiling → `failed`;
+  host reconnect-window ceiling frees the bridge/room; counter advances ONLY on confirmed accept (so a failed
+  attempt cannot desync it).
 
 ## Affected Files
 
-- `packages/agent-transport-protocol/src/ws-protocol.ts`
-- `packages/agent-transport-protocol/src/ws-handler.ts`
+- `packages/agent-transport-protocol/src/ws-protocol.ts` (resume/ack variants + optional `seq`)
+- `packages/agent-transport-protocol/src/ws-handler.ts` (extract `subscribeSessionEvents` + client-message router for reuse)
 - `packages/agent-transport-protocol/src/resume-buffer.ts` (new)
+- `packages/agent-transport-protocol/src/session-resume-bridge.ts` (new)
 - `packages/agent-transport-protocol/src/index.ts`
 - `packages/agent-transport-protocol/docs/SPEC.md`
 - `packages/agent-remote-pairing/src/reconnect-rendezvous.ts` (new)
-- `packages/agent-remote-pairing/src/index.ts`
-- `packages/agent-transport-webrtc/src/webrtc-transport.ts`
-- `packages/agent-cli/src/remote-control/remote-control-controller.ts`
-- `packages/agent-web-ui/src/client/rtc-session-client.ts`
+- `packages/agent-remote-pairing/src/index.ts` + `docs/SPEC.md`
+- `packages/agent-transport-webrtc/src/webrtc-transport.ts` (+ `pairing-gate.ts` attach/detach seam)
+- `packages/agent-cli/src/remote-control/remote-control-controller.ts` + `trusted-device-store.ts` (seed/counter fields)
+- `packages/agent-web-ui/src/client/rtc-session-client.ts` + `device-credential-store.ts` (seed/counter fields)
 - `packages/agent-web-ui/src/hooks/useWsSession.ts`
 - Tests in each package.
 
@@ -149,32 +184,38 @@ cannot exhaust host memory — oldest frames drop with a gap marker).
 - [ ] TC-01: `ResumeBuffer` — `append` returns a monotonic seq; `ackThrough(seq)` drops ≤ seq; `tailAfter(lastSeq)`
       returns the frames after `lastSeq` in order; when `lastSeq` predates the oldest retained frame it returns a
       `buffer-overrun` marker (never a silent gap); the buffer never exceeds its frame/byte bound (drop-oldest).
-- [ ] TC-02: `createWsHandler` stamps a monotonic `seq` on every outbound `TServerMessage`; a `resume{lastSeq}`
-      client message replays exactly the tail after `lastSeq` (no dup, no loss); an `ack{seq}` frees buffer ≤ seq.
-      A client that never sends resume/ack behaves exactly as today (regression).
-- [ ] TC-03: `deriveReconnectRendezvous(hostIdentityId, epoch)` is deterministic + isomorphic (host == browser
-      for the same inputs), differs per epoch and per hostIdentityId, and is base64url; `currentEpoch` bins by window.
-- [ ] TC-04: Host transport — on a paired channel drop the session is NOT torn down; the `send` is buffered; a
-      NEW data channel that passes the E3 host reconnect resumes and receives the replayed tail after its `lastSeq`.
-- [ ] TC-05: Client — on drop with a stored E3 credential, the auto-reconnect loop computes the rotating
-      rendezvous, reconnects via the E3 device reconnect (host verified), sends `resume{lastSeq}`, and applies the
-      replayed frames idempotently (dedup by seq); backoff is bounded and surfaces `failed` after the ceiling.
+- [ ] TC-02: `SessionResumeBridge` stamps a monotonic `seq` continuous ACROSS a detach/attach (channel drop);
+      output emitted while DETACHED is buffered (gap capture) and replayed on the next `resume{lastSeq}` — proving
+      seq does NOT reset per channel (the Issue-A regression guard). `ack{seq}` frees buffer ≤ seq. The WS path
+      (`createWsHandler`, no bridge) is byte-for-byte unchanged (regression) and a `type`-dispatching client
+      ignores an additive `seq`.
+- [ ] TC-03: `deriveReconnectSeed(sessionKey)` + `deriveReconnectRendezvous(seed, counter)` are deterministic +
+      isomorphic (host == browser for the same inputs), differ per counter and per seed, and are base64url; a
+      DIFFERENT `sessionKey` (per-device) yields a disjoint room space (revoked-device-cannot-squat property).
+- [ ] TC-04: Host transport — on a paired channel drop the session is NOT torn down; output during the gap is
+      buffered; a NEW data channel that passes the E3 host reconnect resumes and receives the replayed tail after
+      its `lastSeq`; the counter advances only on confirmed accept; the reconnect-window ceiling disposes the
+      bridge + tears down after the idle bound.
+- [ ] TC-05: Client — on drop with a stored E3 credential, the auto-reconnect loop computes
+      `deriveReconnectRendezvous(seed, counter)` (probing counter/counter+1), reconnects via the E3 device
+      reconnect (host verified), sends `resume{lastSeq}`, applies replayed frames idempotently (dedup by seq), and
+      advances the counter on confirmed accept; backoff is bounded and surfaces `failed` after the ceiling.
 - [ ] TC-06: Exactly-once across a gap — output produced while the channel is down is delivered exactly once
       after resume (no dup, no loss); a `buffer-overrun` triggers a `get-messages` refresh instead of a silent gap.
-- [ ] TC-07: `pnpm harness:scan` + `pnpm typecheck` + affected package tests green; the WS client ignores the new
-      `seq` field (no break to the localhost path).
+- [ ] TC-07: `pnpm harness:scan` + `pnpm typecheck` + affected package tests green; the WS localhost path is
+      unchanged (no seq/buffer/bridge constructed for it).
 
 ## Test Plan
 
-| TC-ID | Test Type               | Tool / Approach                                                                                                 | Notes                                   |
-| ----- | ----------------------- | --------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
-| TC-01 | Unit                    | vitest — ResumeBuffer append/ack/tail/overrun + bound enforcement                                               | Pure data structure                     |
-| TC-02 | Unit (handler)          | vitest — extend ws-handler.test.ts: seq stamping + resume replay + ack drop + no-resume regression              | Shared bridge (WS + WebRTC)             |
-| TC-03 | Unit (crypto)           | vitest — rendezvous determinism/isomorphism + per-epoch/per-id variance                                         | Isomorphic WebCrypto HKDF               |
-| TC-04 | Integration (transport) | vitest — fake channel drop + new channel + E3 host reconnect → replay tail                                      | Extends webrtc-transport / pairing-gate |
-| TC-05 | Integration (client)    | vitest — injected drop; assert reconnect loop computes rendezvous + resume + idempotent apply + backoff ceiling | Extends rtc-session-client.test.ts      |
-| TC-06 | Integration             | vitest — end-to-end seq/resume across a simulated gap: exactly-once + overrun→get-messages fallback             | Cross-package (protocol + client)       |
-| TC-07 | CI smoke                | `pnpm harness:scan` exit 0 + `pnpm typecheck` + affected suites; WS-client-ignores-seq assertion                | Regression + scans                      |
+| TC-ID | Test Type               | Tool / Approach                                                                                                                        | Notes                                   |
+| ----- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
+| TC-01 | Unit                    | vitest — ResumeBuffer append/ack/tail/overrun + bound enforcement                                                                      | Pure data structure                     |
+| TC-02 | Unit (bridge)           | vitest — SessionResumeBridge: seq continuity across detach/attach + gap capture + resume replay + ack; WS-handler-unchanged regression | The Issue-A guard                       |
+| TC-03 | Unit (crypto)           | vitest — seed/rendezvous determinism/isomorphism + per-counter/per-seed variance (disjoint room space)                                 | Isomorphic WebCrypto HKDF               |
+| TC-04 | Integration (transport) | vitest — fake channel drop + gap buffer + new channel + E3 host reconnect → replay tail; counter-on-accept; ceiling teardown           | Extends webrtc-transport / pairing-gate |
+| TC-05 | Integration (client)    | vitest — injected drop; reconnect loop computes rendezvous(counter/counter+1) + resume + idempotent apply + backoff ceiling            | Extends rtc-session-client.test.ts      |
+| TC-06 | Integration             | vitest — end-to-end seq/resume across a simulated gap: exactly-once + overrun→get-messages fallback                                    | Cross-package (protocol + client)       |
+| TC-07 | CI smoke                | `pnpm harness:scan` exit 0 + `pnpm typecheck` + affected suites; WS-client-ignores-seq assertion                                       | Regression + scans                      |
 
 ## Tasks
 
