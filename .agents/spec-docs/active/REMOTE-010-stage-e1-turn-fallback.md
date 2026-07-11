@@ -149,11 +149,20 @@ the exact attacker-influenced surface, never a loose cast into `RTCConfiguration
 
 ## Tasks
 
-- [ ] Step 1 — host: `readIceServers` (validating `unknown`→`RTCIceServer[]`, no cast, fail-closed) + `readForceTurn` in
+- [x] Step 1 — host: `readIceServers` (validating `unknown`→`RTCIceServer[]`, no cast, fail-closed) + `readForceTurn` in
       `agent-cli/src/remote-control/index.ts` + `IRemoteControlControllerDeps`; `defaultCreateTransport` passes
       `iceServers`/`forceTurn`; `forceTurn`-needs-TURN validation fails closed. Controller + reader unit tests
       (incl. malformed-value + forceTurn-without-TURN fail-closed).
-- [ ] Step 2 — browser: extend `IRemoteClientLocation` + `parseRemoteClientLocation` with a validating `ice` decoder
+- [x] Step 2 — browser: extend `IRemoteClientLocation` + `parseRemoteClientLocation` with a validating `ice` decoder
       (base64url JSON → `RTCIceServer[]`, fail-closed) + `forceTurn`; thread through `RemoteClient` → `useRtcSession` →
       `createRtcSessionClient`. Parser + client unit tests (incl. malformed-`ice` + forceTurn-without-TURN fail-closed).
-- [ ] Step 3 — docs (webrtc + web-ui SPECs) + changeset + verify (harness:scan + full typecheck).
+- [x] Step 3 — docs (webrtc + web-ui SPECs) + changeset + verify (harness:scan + full typecheck).
+- 2026-07-11 GATE-BUILD — implemented on `feat/remote-010-turn-fallback` (off origin/develop), all 3 steps. Step 1
+  (host): `parseIceServers` validator (unknown→IIceServer[], no cast, fail-closed on malformed/bad-scheme) + hasTurnServer
+  in agent-cli; readIceServers/readForceTurn deps + defaultCreateTransport pass-through + forceTurn⇒TURN fail-closed;
+  widened IWebRtcTransportOptions.iceServers (+werift loader) for TURN username/credential + array urls. Step 2
+  (browser): parse-ice-servers.ts browser decoder (base64url→JSON→validate, fail-closed) + parseRemoteClientLocation
+  reads ice/forceTurn query + createRtcSessionClient forceTurn→iceTransportPolicy:'relay' + useRtcSession threads them.
+  Step 3: SPECs + changeset. Verify: agent-web-ui 48, agent-cli 190, agent-transport-webrtc 23; harness:scan 49/49;
+  full-repo typecheck 0. Both fail-closed validators tested (host malformed + browser malformed/bad-scheme +
+  forceTurn-without-TURN on both peers). Ready for implementation review + merge-verifier.

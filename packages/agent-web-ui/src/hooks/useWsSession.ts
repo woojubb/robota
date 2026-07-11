@@ -223,12 +223,25 @@ export function useWsSession(url: string): IWsSessionState {
 
 /** Connect to a paired host over WebRTC (REMOTE-009 Stage D). Memoized on the primitive connection fields. */
 export function useRtcSession(
-  options: Pick<IRtcSessionClientOptions, 'relayUrl' | 'rendezvous' | 'secret'>,
+  options: Pick<
+    IRtcSessionClientOptions,
+    'relayUrl' | 'rendezvous' | 'secret' | 'iceServers' | 'forceTurn'
+  >,
 ): IWsSessionState {
-  const { relayUrl, rendezvous, secret } = options;
+  const { relayUrl, rendezvous, secret, iceServers, forceTurn } = options;
   const makeClient = useCallback<TMakeSessionClient>(
-    (cb) => createRtcSessionClient({ relayUrl, rendezvous, secret }, cb),
-    [relayUrl, rendezvous, secret],
+    (cb) =>
+      createRtcSessionClient(
+        {
+          relayUrl,
+          rendezvous,
+          secret,
+          ...(iceServers ? { iceServers } : {}),
+          ...(forceTurn ? { forceTurn } : {}),
+        },
+        cb,
+      ),
+    [relayUrl, rendezvous, secret, iceServers, forceTurn],
   );
   return useSessionClient(makeClient);
 }
