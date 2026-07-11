@@ -75,6 +75,8 @@ export type {
   ISystemCommand,
   TSystemCommandLifecycle,
   ICommandPermissionModeAdapter,
+  ICommandRemoteControlAdapter,
+  TRemoteControlStatus,
   IForkExecutionOptions,
   ISkillExecutionCallbacks,
   ISkillExecutionResult,

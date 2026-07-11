@@ -15,6 +15,7 @@ export * from './plugin/index.js';
 export * from './preset/index.js';
 export * from './shell/index.js';
 export * from './provider/index.js';
+export * from './remote-control/index.js';
 export * from './reset/index.js';
 export * from './rewind/index.js';
 export * from './schedule/index.js';

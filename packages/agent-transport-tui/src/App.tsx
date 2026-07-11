@@ -67,6 +67,9 @@ interface IProps {
   startupUpdateNotice?: Promise<string | undefined>;
   transportRegistry?: ITransportRegistryView<IInteractiveSession>;
   cliAdapter: ITuiCliAdapter;
+  /** REMOTE-008: composition-root enable/stop of P2P remote control (each returns a message to render). */
+  enableRemoteControl?: () => string | Promise<string>;
+  stopRemoteControl?: () => string | Promise<string>;
 }
 
 export default function App(props: IProps): React.ReactElement {
@@ -199,6 +202,8 @@ function AppInner(
     setStatusLineSettings,
     showSessionPickerOnStart: props.showSessionPickerOnStart,
     openAgentSwitcher: () => setShowExecutionWorkspaceSwitcher(true),
+    enableRemoteControl: props.enableRemoteControl,
+    stopRemoteControl: props.stopRemoteControl,
   });
 
   useEffect(() => {

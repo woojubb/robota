@@ -118,7 +118,11 @@ export type TCommandEffect =
   | { type: 'conversation-history-cleared' }
   | { type: 'session-execution-started' }
   | { type: 'statusline-settings-patch'; patch: TStatusLineCommandSettingsPatch }
-  | { type: 'agent-switcher-requested' };
+  | { type: 'agent-switcher-requested' }
+  // REMOTE-008: `/remote-control` enable/disable. The host wires the request to an injected callback that
+  // constructs the WebRTC transport at the composition root (commands never touch transports directly).
+  | { type: 'remote-control-enable-requested' }
+  | { type: 'remote-control-stop-requested' };
 
 export type TCommandResultDataValue =
   | TUniversalValue

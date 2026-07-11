@@ -17,6 +17,9 @@ export interface ICommandEffectHandlerDeps {
   openAgentSwitcher: () => void;
   renameSession: (name: string) => void;
   applyStatusLinePatch: (patch: TStatusLineCommandSettingsPatch) => boolean;
+  /** REMOTE-008: host-wired enable/stop of P2P remote control (implemented at the composition root). */
+  enableRemoteControl?: () => void;
+  stopRemoteControl?: () => void;
   cliAdapter: ITuiCliAdapter;
 }
 
@@ -68,6 +71,14 @@ export function applyCommandEffects(
       if (isStatusLineCommandSettingsPatch(effect.patch)) {
         return deps.applyStatusLinePatch(effect.patch);
       }
+    }
+    if (effect.type === 'remote-control-enable-requested') {
+      deps.enableRemoteControl?.();
+      return true;
+    }
+    if (effect.type === 'remote-control-stop-requested') {
+      deps.stopRemoteControl?.();
+      return true;
     }
   }
   return false;
