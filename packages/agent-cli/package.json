@@ -98,6 +98,7 @@
     "@robota-sdk/agent-subagent-runner": "workspace:*",
     "@robota-sdk/agent-transport": "workspace:*",
     "@robota-sdk/agent-transport-tui": "workspace:*",
+    "@robota-sdk/agent-transport-protocol": "workspace:*",
     "@robota-sdk/agent-transport-webrtc": "workspace:*",
     "@robota-sdk/agent-transport-ws": "workspace:*",
     "@types/marked": "^6.0.0",

@@ -29,12 +29,20 @@ abort/...` from inbound `TClientMessage`s) + `cleanup()`. Framework-agnostic: wo
 
 ## Public API Surface
 
-| Export              | Kind      |
-| ------------------- | --------- |
-| `createWsHandler`   | function  |
-| `IWsHandlerOptions` | interface |
-| `TClientMessage`    | type      |
-| `TServerMessage`    | type      |
+| Export                        | Kind      |
+| ----------------------------- | --------- |
+| `createWsHandler`             | function  |
+| `IWsHandlerOptions`           | interface |
+| `TClientMessage`              | type      |
+| `TServerMessage`              | type      |
+| `TSeqServerMessage`           | type      |
+| `ResumeBuffer`                | class     |
+| `IResumeBufferOptions`        | interface |
+| `IBufferedFrame`              | interface |
+| `TResumeTail`                 | type      |
+| `SessionResumeBridge`         | class     |
+| `ISessionResumeBridgeOptions` | interface |
+| `TResumeSink`                 | type      |
 
 ## Type Ownership
 

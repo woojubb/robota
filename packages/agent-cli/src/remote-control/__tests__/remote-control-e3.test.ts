@@ -49,7 +49,7 @@ function build(
     registry: { register: () => {} } as unknown as TransportRegistry,
     readRelayUrl: () => 'ws://127.0.0.1:9999',
     readClientUrl: () => 'https://remote.example/',
-    getSession: () => ({}) as IInteractiveSession,
+    getSession: () => stubSession(),
     renderQr: () => Promise.resolve('[QR]'),
     createSignaling: () =>
       ({
@@ -72,6 +72,10 @@ function build(
     },
   });
   return { controller, captured };
+}
+
+function stubSession(): IInteractiveSession {
+  return { on: vi.fn(), off: vi.fn(), getMessages: () => [] } as unknown as IInteractiveSession;
 }
 
 describe('RemoteControlController E3 wiring (REMOTE-012)', () => {
@@ -119,7 +123,7 @@ describe('RemoteControlController E3 wiring (REMOTE-012)', () => {
       registry: { register: () => {} } as unknown as TransportRegistry,
       readRelayUrl: () => 'ws://127.0.0.1:9999',
       readClientUrl: () => 'https://remote.example/',
-      getSession: () => ({}) as IInteractiveSession,
+      getSession: () => stubSession(),
       renderQr: () => Promise.resolve('[QR]'),
       createSignaling: () =>
         ({

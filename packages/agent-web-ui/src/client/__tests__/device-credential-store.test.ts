@@ -66,4 +66,18 @@ describe('device credential store (REMOTE-012 TC-06)', () => {
   it('credentialKey composes relay origin + host identity (no URL/secret material)', () => {
     expect(credentialKey('wss://relay.example', 'host-xyz')).toBe('wss://relay.example|host-xyz');
   });
+
+  it('REMOTE-013 E4: round-trips the reconnect seed + counter alongside the keypair', async () => {
+    const store = createDeviceCredentialStore(memoryBackend());
+    const cred = {
+      deviceKeyPair: await generateIdentityKeyPair(false),
+      hostPublicSpki: 'host',
+      reconnectSeed: 'seed-abc',
+      reconnectCounter: 3,
+    };
+    await store.save('wss://relay', 'host-1', cred);
+    const reloaded = await store.get('wss://relay', 'host-1');
+    expect(reloaded?.reconnectSeed).toBe('seed-abc');
+    expect(reloaded?.reconnectCounter).toBe(3);
+  });
 });

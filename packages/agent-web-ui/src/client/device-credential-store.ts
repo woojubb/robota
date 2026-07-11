@@ -16,6 +16,10 @@
 export interface IDeviceCredential {
   readonly deviceKeyPair: CryptoKeyPair;
   readonly hostPublicSpki: string;
+  /** REMOTE-013 E4: per-device reconnect seed (HKDF of the pairing sessionKey) for rotating-rendezvous rediscovery. */
+  readonly reconnectSeed?: string;
+  /** REMOTE-013 E4: monotonic reconnect counter (resync-on-success). Absent → 0. */
+  readonly reconnectCounter?: number;
 }
 
 /** Minimal async key/value backend the store needs. IndexedDB satisfies it; tests inject a Map-backed fake. */
