@@ -1,5 +1,5 @@
 ---
-status: draft
+status: in-progress
 type: BEHAVIOR
 tags: [websocket, async, streaming, realtime]
 ---
@@ -159,6 +159,13 @@ peer cannot exhaust host memory; the host ceiling frees everything after a bound
   connect, run the E3 device reconnect (verify host), advance the counter on confirmed accept, then
   `send({type:'resume', lastSeq})`; apply replayed frames idempotently by `seq`, `ack` periodically. On
   `buffer-overrun`, fall back to `get-messages`. After the backoff ceiling, surface `failed`.
+- **Counter semantics (resync-on-success):** "advance" means set the counter to **the counter value of the
+  room that produced the confirmed accept, plus one** — NOT `persisted + 1`. Each successful reconnect thus
+  erases any accumulated ±1 drift on both sides (drift can never grow). Combined with the host registering the
+  2-room window `{counter, counter+1}` and the client probing `counter` then `counter+1`, a single lost final
+  `rc-device` frame (device advanced, host did not) still re-meets at `counter+1`. The pathological multi-fault
+  tail (drift exceeding the ±1 window) is handled by the client's backoff ceiling → `failed` → the user
+  re-pairs via QR (a first-pair that mints a fresh `sessionKey`/seed) — not a silent stall.
 - **Bounds/fail-safe:** ResumeBuffer bounded (drop-oldest + overrun marker); client backoff ceiling → `failed`;
   host reconnect-window ceiling frees the bridge/room; counter advances ONLY on confirmed accept (so a failed
   attempt cannot desync it).
@@ -199,7 +206,9 @@ peer cannot exhaust host memory; the host ceiling frees everything after a bound
 - [ ] TC-05: Client — on drop with a stored E3 credential, the auto-reconnect loop computes
       `deriveReconnectRendezvous(seed, counter)` (probing counter/counter+1), reconnects via the E3 device
       reconnect (host verified), sends `resume{lastSeq}`, applies replayed frames idempotently (dedup by seq), and
-      advances the counter on confirmed accept; backoff is bounded and surfaces `failed` after the ceiling.
+      advances the counter to **used-room-counter + 1 (resync-on-success)** on confirmed accept; a partial
+      reconnect (final `rc-device` lost → device ahead by 1) re-meets at `counter+1`; backoff is bounded and
+      surfaces `failed` after the ceiling.
 - [ ] TC-06: Exactly-once across a gap — output produced while the channel is down is delivered exactly once
       after resume (no dup, no loss); a `buffer-overrun` triggers a `get-messages` refresh instead of a silent gap.
 - [ ] TC-07: `pnpm harness:scan` + `pnpm typecheck` + affected package tests green; the WS localhost path is

@@ -45,7 +45,11 @@ export type TClientMessage =
   | { type: 'read-background-task-log'; taskId: string; cursor?: IBackgroundTaskLogCursor }
   // REMOTE-007: a driving client answers a pending permission/ask prompt by id (first answer wins).
   | { type: 'permission-response'; id: string; result: TPermissionResultValue }
-  | { type: 'ask-response'; id: string; response: TActionResponse };
+  | { type: 'ask-response'; id: string; response: TActionResponse }
+  // REMOTE-013 E4 session-resume: `resume` asks the host to replay the tail after `lastSeq` (the last seq the
+  // client applied); `ack` lets the host free its un-acked buffer up to `seq`. Only meaningful post-E3-accept.
+  | { type: 'resume'; lastSeq: number }
+  | { type: 'ack'; seq: number };
 
 /** Outbound message from server to client. */
 export type TServerMessage =
@@ -88,4 +92,15 @@ export type TServerMessage =
       success: boolean;
       message?: string;
     }
-  | { type: 'protocol_error'; message: string };
+  | { type: 'protocol_error'; message: string }
+  // REMOTE-013 E4: sent instead of a replay when the client's `lastSeq` predates the host's retained buffer
+  // (overrun) — the client must do a full `get-messages` refresh rather than accept a silent gap.
+  | { type: 'resume_gap' };
+
+/**
+ * REMOTE-013 E4: a server message stamped with its monotonic session sequence number (added by the
+ * {@link SessionResumeBridge} on the reconnectable WebRTC path). Intersecting over the union distributes the
+ * `seq` field onto every variant. The WS localhost path never stamps it (a `type`-dispatching client ignores
+ * an absent/extra `seq`).
+ */
+export type TSeqServerMessage = TServerMessage & { seq: number };

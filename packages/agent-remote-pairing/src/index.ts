@@ -27,6 +27,7 @@ export {
   verifyChallenge,
 } from './device-identity.js';
 export type { IIdentityKeyPairJwk, IReconnectChallenge } from './device-identity.js';
+export { deriveReconnectSeed, deriveReconnectRendezvous } from './reconnect-rendezvous.js';
 export { startDeviceReconnect, startHostReconnect } from './reconnect.js';
 export type {
   IReconnectController,

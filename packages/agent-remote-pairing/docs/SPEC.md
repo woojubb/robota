@@ -33,27 +33,29 @@ detection is a **directional, nonce-bound HMAC key-confirmation** bound to both 
 
 ## Public API Surface
 
-| Export                    | Kind     | Description                                                                                           |
-| ------------------------- | -------- | ----------------------------------------------------------------------------------------------------- |
-| `generatePairingSecret`   | function | Fresh 256-bit secret + 128-bit rendezvous (base64url).                                                |
-| `generateNonce`           | function | Fresh per-handshake nonce.                                                                            |
-| `toPairingUrl`            | function | Encode `{ rendezvous, secret }` into a URL **fragment**.                                              |
-| `parsePairingUrl`         | function | Read `{ rendezvous, secret }` from a pairing URL fragment.                                            |
-| `extractDtlsFingerprint`  | function | Parse the `a=fingerprint` value from an SDP (throws if absent).                                       |
-| `deriveSessionKey`        | function | HKDF a domain-separated session key (Stage-E use).                                                    |
-| `computeConfirmations`    | function | This peer's outgoing + expected-peer directional confirmations.                                       |
-| `verifyPeerConfirmation`  | function | Isomorphic timing-safe (double-HMAC) equality of two confirmations.                                   |
-| `startPairingHandshake`   | function | Drive the confirmation exchange; resolves accept-with-session-key, hard-rejects on mismatch/timeout.  |
-| `generateIdentityKeyPair` | function | ECDSA-P256 identity keypair (REMOTE-012 E3); `extractable:false` for the device, `true` for the host. |
-| `exportPublicKey`         | function | Export a public key as base64url SPKI — the value the counterpart pins.                               |
-| `importPublicKey`         | function | Import a base64url SPKI public key for verify.                                                        |
-| `exportKeyPairJwk`        | function | Host-only: export an extractable keypair to JWKs (0600 on-disk file).                                 |
-| `importKeyPairJwk`        | function | Host-only: reload a keypair from persisted JWKs.                                                      |
-| `deriveIdentityId`        | function | Stable non-secret id = base64url `SHA-256(SPKI)` (deviceId / hostIdentityId).                         |
-| `signChallenge`           | function | Sign the channel-bound reconnect transcript (E3).                                                     |
-| `verifyChallenge`         | function | Verify a counterpart's reconnect signature against its pinned public key (fail-closed).               |
-| `startDeviceReconnect`    | function | Device-side mutual reconnect controller; verifies the host before accept.                             |
-| `startHostReconnect`      | function | Host-side mutual reconnect controller; verifies the device before accept.                             |
+| Export                      | Kind     | Description                                                                                           |
+| --------------------------- | -------- | ----------------------------------------------------------------------------------------------------- |
+| `generatePairingSecret`     | function | Fresh 256-bit secret + 128-bit rendezvous (base64url).                                                |
+| `generateNonce`             | function | Fresh per-handshake nonce.                                                                            |
+| `toPairingUrl`              | function | Encode `{ rendezvous, secret }` into a URL **fragment**.                                              |
+| `parsePairingUrl`           | function | Read `{ rendezvous, secret }` from a pairing URL fragment.                                            |
+| `extractDtlsFingerprint`    | function | Parse the `a=fingerprint` value from an SDP (throws if absent).                                       |
+| `deriveSessionKey`          | function | HKDF a domain-separated session key (Stage-E use).                                                    |
+| `computeConfirmations`      | function | This peer's outgoing + expected-peer directional confirmations.                                       |
+| `verifyPeerConfirmation`    | function | Isomorphic timing-safe (double-HMAC) equality of two confirmations.                                   |
+| `startPairingHandshake`     | function | Drive the confirmation exchange; resolves accept-with-session-key, hard-rejects on mismatch/timeout.  |
+| `generateIdentityKeyPair`   | function | ECDSA-P256 identity keypair (REMOTE-012 E3); `extractable:false` for the device, `true` for the host. |
+| `exportPublicKey`           | function | Export a public key as base64url SPKI — the value the counterpart pins.                               |
+| `importPublicKey`           | function | Import a base64url SPKI public key for verify.                                                        |
+| `exportKeyPairJwk`          | function | Host-only: export an extractable keypair to JWKs (0600 on-disk file).                                 |
+| `importKeyPairJwk`          | function | Host-only: reload a keypair from persisted JWKs.                                                      |
+| `deriveIdentityId`          | function | Stable non-secret id = base64url `SHA-256(SPKI)` (deviceId / hostIdentityId).                         |
+| `signChallenge`             | function | Sign the channel-bound reconnect transcript (E3).                                                     |
+| `verifyChallenge`           | function | Verify a counterpart's reconnect signature against its pinned public key (fail-closed).               |
+| `startDeviceReconnect`      | function | Device-side mutual reconnect controller; verifies the host before accept.                             |
+| `startHostReconnect`        | function | Host-side mutual reconnect controller; verifies the device before accept.                             |
+| `deriveReconnectSeed`       | function | HKDF a per-device reconnect seed from the pairing `sessionKey` (REMOTE-013 E4).                       |
+| `deriveReconnectRendezvous` | function | HKDF a fresh reconnect rendezvous id from `(seed, counter)` — single-use room per reconnect (E4).     |
 
 ## Type Ownership
 
