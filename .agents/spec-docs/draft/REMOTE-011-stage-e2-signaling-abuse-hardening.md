@@ -39,16 +39,22 @@ content-blind and holds no session content; this stage only bounds resource cons
 ### Affected Scope
 
 - `apps/remote-signaling/src/server.ts` — set `WebSocketServer` `maxPayload`; enforce total + per-IP
-  connection caps at `wss.on('connection')`; thread new options.
+  connection caps at `wss.on('connection')`; add a per-IP-key **address resolver** seam (default
+  `request.socket.remoteAddress`, `trustProxy` variant reads a trusted `X-Forwarded-For`) that also gives
+  the server-level test a way to present distinct source addresses; thread new options.
 - `apps/remote-signaling/src/relay.ts` — add a per-connection **message-rate** limiter to the `signal`
-  relay path (distinct from the existing per-source **join** bucket); surface a new reject reason.
-- `apps/remote-signaling/src/rate-limiter.ts` — reuse `TokenBucketLimiter` for the message-rate bucket;
-  add typed defaults (`DEFAULT_MESSAGE_RATE`, `DEFAULT_MAX_CONNECTIONS`, `DEFAULT_MAX_CONNECTIONS_PER_IP`,
+  relay path (distinct from the existing per-source **join** bucket); evict a peer's bucket in `remove()`;
+  surface a new reject reason.
+- `apps/remote-signaling/src/rate-limiter.ts` — reuse `TokenBucketLimiter` for the message-rate bucket
+  **and add an `evict(key: string): void` method** (the class currently exposes only `tryConsume`, so a
+  per-connection bucket would otherwise grow by every peer id EVER admitted — an unbounded leak); add typed
+  defaults (`DEFAULT_MESSAGE_RATE`, `DEFAULT_MAX_CONNECTIONS`, `DEFAULT_MAX_CONNECTIONS_PER_IP`,
   `DEFAULT_MAX_FRAME_BYTES`).
-- `apps/remote-signaling/src/index.ts` — export any new option/const on the public surface.
+- `apps/remote-signaling/src/index.ts` — export any new option/const/method on the public surface.
 - `apps/remote-signaling/docs/SPEC.md` — extend Boundaries / Error Taxonomy / Public API with the new
-  bounds and reject reasons.
-- Tests: `__tests__/relay-hardening.test.ts` (message-rate), a server-level test for caps + `maxPayload`.
+  bounds, the relay reject reason, and the transport close codes.
+- Tests: `__tests__/relay-hardening.test.ts` (message-rate + bucket eviction), a server-level test for
+  caps + `maxPayload` + per-IP via the address-resolver seam.
 
 ### Alternatives Considered
 
@@ -61,7 +67,12 @@ content-blind and holds no session content; this stage only bounds resource cons
    code; production-grade. Con: the server ships as a self-hostable minimal app (REMOTE-001 constraint —
    "the one piece the owner hosts"); it must be safe **by default** without assuming a fronting proxy,
    exactly as B2 made the relay safe by default rather than hook-dependent. Rejected as the sole control;
-   may complement in production but cannot be the default posture.
+   may complement in production but cannot be the default posture. **Interaction hazard (must be resolved,
+   not ignored):** the per-IP cap keys on the TCP peer address — if a proxy IS fronting the server, every
+   connection presents the proxy's IP, so a naive per-IP cap collapses and rejects _legitimate_ clients.
+   The Decision therefore makes the per-IP cap assume **direct exposure by default** and adds an explicit
+   `trustProxy` opt-in (read a trusted `X-Forwarded-For`) plus the ability to disable the per-IP cap — so
+   the proxy deployment is correct rather than self-defeating.
 3. **(Chosen) Bound at the transport layer in `server.ts` (maxPayload + connection caps) and add a
    per-connection message-rate bucket at the relay.** Pro: `maxPayload` makes `ws` reject an oversized
    frame before buffering it; connection caps refuse sockets at accept time regardless of join; message
@@ -81,6 +92,14 @@ host↔client pairing sends small, low-rate frames and is unaffected); it does n
 protocol, so both existing peers (werift host + browser client) remain fully reachable — validated
 against the relay's frame contract (`offer`/`answer`/`ice` unchanged) and the fake-peer regression suite.
 
+Two correctness requirements ride with the decision (not optional): (a) the per-connection message-rate
+bucket is only truly "bounded by live connections" if `TokenBucketLimiter` can **evict** a key — so an
+`evict(key)` method is added and called from `relay.remove()`; without it the map grows by every peer id
+ever admitted, re-introducing the exact unbounded-growth class this stage closes. (The pre-existing B2
+`join` bucket keyed by `remoteAddress` has the same latent growth; that is out of scope here but noted so
+a future item can bound it.) (b) the per-IP cap assumes **direct exposure**; behind a trusted proxy it is
+enabled via `trustProxy` (`X-Forwarded-For`) or disabled — never left to silently reject all clients.
+
 ### Architecture Review Checklist
 
 - [x] 영향 패키지/레이어 목록 작성 완료
@@ -91,21 +110,36 @@ against the relay's frame contract (`offer`/`answer`/`ice` unchanged) and the fa
 ## Solution
 
 - **Frame size (`server.ts`):** construct `new WebSocketServer({ server, maxPayload: MAX_FRAME_BYTES })`
-  with a small default (e.g. 64 KiB — comfortably above any SDP/ICE frame, far below 100 MiB). `ws`
-  rejects and closes a connection that exceeds it before delivering the frame to our handler.
-- **Connection caps (`server.ts`):** track live socket count total and per remote IP; in
+  with a small default (e.g. 64 KiB — comfortably above any SDP/ICE frame, far below 100 MiB). `ws` reads
+  the frame's declared length from the header and closes with code **1009 (message too big)** BEFORE
+  buffering the body, so the oversized frame never reaches our `message` handler.
+- **Connection caps (`server.ts`):** track live socket count total and per resolved source key; in
   `wss.on('connection')`, if either the total (`MAX_CONNECTIONS`) or the per-IP
-  (`MAX_CONNECTIONS_PER_IP`) ceiling is already met, `socket.close()` immediately (with a bounded close
-  code/reason) and do not register the peer. Decrement on `close`/`error`. Bound the per-IP tracking map
-  so it cannot itself grow unboundedly (evict zero-count entries).
+  (`MAX_CONNECTIONS_PER_IP`) ceiling is already met, `socket.close(1013, 'over-capacity')` immediately and
+  do not register the peer. Decrement on `close`/`error`. Bound the per-IP tracking map so it cannot itself
+  grow unboundedly (delete a source key when its count returns to 0).
+- **Per-IP source resolution + proxy stance (`server.ts`):** the per-IP key comes from an injectable
+  **address resolver** `(request) => string`. Default resolver returns `request.socket.remoteAddress`,
+  falling back to a fixed sentinel (e.g. `'unknown'`) when it is `undefined` (so a missing address does not
+  crash or bypass the cap). A `trustProxy: true` option swaps in a resolver that reads the left-most
+  trusted `X-Forwarded-For` hop. The per-IP cap is **disable-able** (`maxConnectionsPerIp: 0`/undefined →
+  off) for proxy deployments that cannot supply a real client IP. The resolver seam doubles as the
+  server-level test's way to present distinct source addresses over loopback (TC-03).
 - **Message-rate (`relay.ts`):** add a second `TokenBucketLimiter` keyed by **peer id** (per connection),
   consumed on each `signal` frame in `relay()`. On exhaustion, `reject(peer, 'message-rate-limited')` and
-  do not forward. The existing per-source **join** bucket is unchanged. Clean up a peer's message bucket
-  on `remove()` so the bucket map is bounded by live connections.
-- **Options:** thread `maxFrameBytes`, `maxConnections`, `maxConnectionsPerIp`, `messageRate` through
-  `ISignalingServerOptions` / `ISignalingRelayOptions`, each defaulting to the new safe constants.
-- **SPEC.md:** document the four bounds under Boundaries, add `message-rate-limited` (and any
-  connection-refused close reason) to the Error Taxonomy, and list new exports under Public API Surface.
+  do not forward. The existing per-source **join** bucket is unchanged. In `remove()`, call the new
+  `limiter.evict(peerId)` on the message bucket so the map is bounded by LIVE connections, not lifetime.
+- **`TokenBucketLimiter.evict` (`rate-limiter.ts`):** add `evict(key: string): void { this.buckets.delete(key); }`
+  — the class currently exposes only `tryConsume`, so without eviction the "bounded by live connections"
+  guarantee is false. (Noted, out of scope: the B2 `join` bucket keyed by `remoteAddress` has the same
+  latent unbounded growth; a follow-up can evict it on a schedule.)
+- **Options:** thread `maxFrameBytes`, `maxConnections`, `maxConnectionsPerIp`, `trustProxy`,
+  `addressResolver`, `messageRate` through `ISignalingServerOptions` / `ISignalingRelayOptions`, each
+  defaulting to the new safe constants.
+- **SPEC.md:** document the bounds under Boundaries; split the failure surface into (i) **relay error
+  frames** — add `message-rate-limited` alongside the existing `{ type:'error', reason }` reasons — and
+  (ii) a new **transport close codes** subsection — `1009` (oversize, from `ws` `maxPayload`) and `1013`
+  (`over-capacity`, connection-cap refusal); list new exports under Public API Surface.
 
 ## Affected Files
 
@@ -124,26 +158,33 @@ against the relay's frame contract (`offer`/`answer`/`ice` unchanged) and the fa
       bucket for other sources is unaffected.
 - [ ] TC-02: With `maxConnections: N`, the (N+1)-th concurrent WebSocket connection is closed at accept
       time (never registered as a peer); after one closes, a new connection is admitted again.
-- [ ] TC-03: With `maxConnectionsPerIp: K`, the (K+1)-th connection from the SAME remote IP is closed at
-      accept time while a connection from a different IP is still admitted.
+- [ ] TC-03: With `maxConnectionsPerIp: K` and an injected address resolver mapping connections to two
+      distinct source keys, the (K+1)-th connection sharing a source key is closed at accept
+      (`close(1013,'over-capacity')`) while a connection with a different source key is still admitted;
+      with `maxConnectionsPerIp: 0` the per-IP cap is off (no refusal on source-key collision).
 - [ ] TC-04: A frame larger than `maxFrameBytes` does not reach the relay handler (the `ws` connection is
-      closed by `maxPayload`); a normal small frame relays successfully (regression).
+      closed with code `1009`); a normal small frame relays successfully (regression).
 - [ ] TC-05: A legitimate two-peer pairing (join → offer/answer/ice at normal size + rate) completes
       end-to-end unchanged — no new bound trips for well-behaved peers (regression against B2 behavior).
-- [ ] TC-06: New bounds are override-injectable and default to the documented safe constants
+- [ ] TC-06: `TokenBucketLimiter.evict(key)` removes a key's bucket; after a joined peer floods `signal`
+      and then `remove()` runs, the message-bucket map no longer contains that peer id (memory bound), and
+      the total/per-IP connection counters return to their pre-connection values after disconnect.
+- [ ] TC-07: New bounds are override-injectable and default to the documented safe constants
       (`DEFAULT_MAX_FRAME_BYTES`, `DEFAULT_MAX_CONNECTIONS`, `DEFAULT_MAX_CONNECTIONS_PER_IP`,
-      `DEFAULT_MESSAGE_RATE`); `pnpm harness:scan` + typecheck + build green.
+      `DEFAULT_MESSAGE_RATE`); a resolved source address of `undefined` maps to the sentinel key (no crash,
+      cap still applies); `pnpm harness:scan` + typecheck + build green.
 
 ## Test Plan
 
-| TC-ID | Test Type            | Tool / Approach                                                                                     | Notes                                                    |
-| ----- | -------------------- | --------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
-| TC-01 | Unit (fake-peer)     | vitest — fake peers + injected `IClock`; flood `signal`, assert `message-rate-limited` + no fan-out | Deterministic, network-free (reuses B2 harness)          |
-| TC-02 | Integration (server) | vitest — real `ws` client connections to `startSignalingServer({ relay:{ maxConnections } })`       | Server-layer cap; assert (N+1)-th socket closed          |
-| TC-03 | Integration (server) | vitest — two source addresses (loopback + stub `remoteAddress`) assert per-IP cap                   | Per-IP cap at accept                                     |
-| TC-04 | Integration (server) | vitest — send a frame > `maxFrameBytes`; assert handler not invoked / socket closed; small frame OK | Exercises `ws` `maxPayload`                              |
-| TC-05 | Integration (webrtc) | vitest — extend `integration-webrtc-relay.test.ts`: full pair still round-trips                     | Regression: well-behaved peers unaffected                |
-| TC-06 | CI smoke             | `pnpm --filter @robota-sdk/remote-signaling test` + `pnpm harness:scan` exit 0 + `pnpm typecheck`   | Defaults + injectability; scan/spec-public-surface green |
+| TC-ID | Test Type            | Tool / Approach                                                                                     | Notes                                                 |
+| ----- | -------------------- | --------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| TC-01 | Unit (fake-peer)     | vitest — fake peers + injected `IClock`; flood `signal`, assert `message-rate-limited` + no fan-out | Deterministic, network-free (reuses B2 harness)       |
+| TC-02 | Integration (server) | vitest — real `ws` client connections to `startSignalingServer({ relay:{ maxConnections } })`       | Server-layer cap; assert (N+1)-th socket closed       |
+| TC-03 | Integration (server) | vitest — injected `addressResolver` maps sockets to 2 source keys; assert per-IP cap + `0` disables | Resolver seam makes distinct source keys testable     |
+| TC-04 | Integration (server) | vitest — send a frame > `maxFrameBytes`; assert handler not invoked / socket closed 1009; small OK  | Exercises `ws` `maxPayload` → close 1009              |
+| TC-05 | Integration (webrtc) | vitest — extend `integration-webrtc-relay.test.ts`: full pair still round-trips                     | Regression: well-behaved peers unaffected             |
+| TC-06 | Unit + Integration   | vitest — `evict` unit test; flood-then-`remove()` asserts message-bucket map + conn counters shrink | Proves the memory bound (G1)                          |
+| TC-07 | CI smoke             | `pnpm --filter @robota-sdk/remote-signaling test` + `pnpm harness:scan` exit 0 + `pnpm typecheck`   | Defaults + injectability + undefined-address sentinel |
 
 ## Tasks
 
