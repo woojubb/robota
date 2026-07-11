@@ -1,6 +1,7 @@
 ---
 title: 'REMOTE-012: Stage E3 — TOFU trusted-device reconnect'
-status: todo
+status: done
+completed: 2026-07-12
 created: 2026-07-11
 priority: medium
 urgency: later
