@@ -134,8 +134,15 @@ QR/link fragment, never sent to the relay).
       `'paired'` status was unreachable; (2) "teardown on pairing failure" was unimplemented (peer/signaling leak +
       stale `awaiting-pairing`); (3) `werift`-absent `start()` failure rethrown into a detached promise + swallowed.
       Wired a lifecycle seam `PairingGate.onAccept/onReject → WebRtcTransport.onPaired/onPairingFailed →
-  RemoteControlController` (status `paired` on accept; teardown→`off` on failure; `start()` errors surfaced via an
+RemoteControlController` (status `paired` on accept; teardown→`off` on failure; `start()` errors surfaced via an
       injected `reportError` to the live channel history). +4 tests. Full typecheck 0, cli 177, webrtc 23, scans 49/49.
+- GATE-REVIEW round 2 (implementation) — proposal-reviewer **ENDORSE**. All 3 fixes verified correct against source:
+  onAccept/onReject fire exactly once (state-guarded, mutually exclusive, no fire after cleanup); teardown is
+  idempotent (nulls fields before first await) with a `this.transport === transport` stale-guard, no double-stop, no
+  new unhandledRejection; the `reportError` structural `ILiveChannel` sink is sound + precedented; security routing
+  unchanged. **Known residual (pre-existing, out of scope — future backlog):** `TransportRegistry` has no `unregister`,
+  so repeated enable→fail/stop cycles accumulate stopped-but-registered transports; identical to the pre-fix `stop()`
+  and the ENDORSED design, not introduced here. Ready for merge-verifier feature→develop→main.
 
 ## Affected Files
 
