@@ -58,6 +58,8 @@ export {
   readToolCalls,
   readErrors,
 } from './interaction-contracts.js';
+// REMOTE-014 E5: co-drive driver-id constants (values, not types).
+export { OWNER_DRIVER_ID, AGENT_DRIVER_ID } from './session-contracts.js';
 
 // ── Session-event payload contracts ──────────────────────────
 export type {
@@ -171,6 +173,8 @@ export type {
   IPermissionRequestEvent,
   IAskRequestEvent,
   IPromptResolvedEvent,
+  TDriverId,
+  ISubmitOptions,
   IContextFileRefreshedEvent,
   IInteractiveSessionRecord,
   IInteractiveSessionStore,

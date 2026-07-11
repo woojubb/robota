@@ -29,6 +29,7 @@ import type {
   IAskRequestEvent,
   IPermissionRequestEvent,
   IPromptResolvedEvent,
+  TDriverId,
   TPermissionResultValue,
 } from '@robota-sdk/agent-interface-transport';
 
@@ -62,6 +63,8 @@ export interface ISessionPromptRegistryDeps {
   emitPromptResolved: (event: IPromptResolvedEvent) => void;
   /** Live listener count for a gating event (reads the session's per-event emitter map). */
   countListeners: (event: TGatingEvent) => number;
+  /** REMOTE-014 E5: the ACTIVE turn's driver id, stamped as `requesterDriverId` on the emitted prompt. */
+  getActiveDriverId?: () => TDriverId | null;
   /**
    * Optional backstop timeout (ms). Armed when a prompt parks with a live surface; the unconditional
    * last resort so a surface that died without unsubscribing cannot hang the prompt forever. Omit to
@@ -83,10 +86,16 @@ export class SessionPromptRegistry {
     if (this.deps.countListeners('permission_request') === 0) {
       return Promise.resolve(failClosedValue('permission') as TPermissionResultValue);
     }
+    const requesterDriverId = this.deps.getActiveDriverId?.() ?? undefined;
     return new Promise<TPermissionResultValue>((resolve) => {
       this.park(id, 'permission', resolve as (v: TPermissionResultValue | TActionResponse) => void);
       this.emitOrFailClosed(id, 'permission', () =>
-        this.deps.emitPermissionRequest({ id, toolName, toolArgs }),
+        this.deps.emitPermissionRequest({
+          id,
+          toolName,
+          toolArgs,
+          ...(requesterDriverId ? { requesterDriverId } : {}),
+        }),
       );
     });
   }
@@ -97,22 +106,33 @@ export class SessionPromptRegistry {
     if (this.deps.countListeners('ask_request') === 0) {
       return Promise.resolve(failClosedValue('ask') as TActionResponse);
     }
+    const requesterDriverId = this.deps.getActiveDriverId?.() ?? undefined;
     return new Promise<TActionResponse>((resolve) => {
       this.park(id, 'ask', resolve as (v: TPermissionResultValue | TActionResponse) => void);
-      this.emitOrFailClosed(id, 'ask', () => this.deps.emitAskRequest({ id, request }));
+      this.emitOrFailClosed(id, 'ask', () =>
+        this.deps.emitAskRequest({
+          id,
+          request,
+          ...(requesterDriverId ? { requesterDriverId } : {}),
+        }),
+      );
     });
   }
 
-  /** Answer a parked permission by id. Wrong-kind / unknown / already-settled id ⇒ no-op (idempotent). */
-  resolvePermission(id: string, result: TPermissionResultValue): void {
+  /** Answer a parked permission by id. `answererDriverId` is server-assigned. Idempotent. */
+  resolvePermission(
+    id: string,
+    result: TPermissionResultValue,
+    answererDriverId?: TDriverId,
+  ): void {
     if (this.parked.get(id)?.kind !== 'permission') return;
-    this.settle(id, result);
+    this.settle(id, result, answererDriverId);
   }
 
-  /** Answer a parked ask by id. Wrong-kind / unknown / already-settled id ⇒ no-op (idempotent). */
-  resolveAsk(id: string, response: TActionResponse): void {
+  /** Answer a parked ask by id. `answererDriverId` is server-assigned. Idempotent. */
+  resolveAsk(id: string, response: TActionResponse, answererDriverId?: TDriverId): void {
     if (this.parked.get(id)?.kind !== 'ask') return;
-    this.settle(id, response);
+    this.settle(id, response, answererDriverId);
   }
 
   /**
@@ -167,13 +187,17 @@ export class SessionPromptRegistry {
     this.parked.set(id, { kind, resolve, timer });
   }
 
-  private settle(id: string, value: TPermissionResultValue | TActionResponse): void {
+  private settle(
+    id: string,
+    value: TPermissionResultValue | TActionResponse,
+    answererDriverId?: TDriverId,
+  ): void {
     const parked = this.parked.get(id);
     if (!parked) return; // unknown or already-settled — idempotent no-op
     this.parked.delete(id);
     if (parked.timer) clearTimeout(parked.timer);
     parked.resolve(value);
-    this.deps.emitPromptResolved({ id });
+    this.deps.emitPromptResolved({ id, ...(answererDriverId ? { answererDriverId } : {}) });
   }
 
   private mintId(prefix: 'p' | 'a'): string {

@@ -1,5 +1,5 @@
 ---
-status: draft
+status: in-progress
 type: BEHAVIOR
 tags: [websocket, async, realtime]
 ---
