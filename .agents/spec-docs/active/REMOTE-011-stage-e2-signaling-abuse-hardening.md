@@ -1,5 +1,5 @@
 ---
-status: draft
+status: in-progress
 type: SECURITY
 tags: [websocket, auth, async]
 ---
@@ -153,23 +153,23 @@ enabled via `trustProxy` (`X-Forwarded-For`) or disabled — never left to silen
 
 ## Completion Criteria
 
-- [ ] TC-01: A `signal` frame flood from one joined fake peer is throttled — after the burst, `relay()`
+- [x] TC-01: A `signal` frame flood from one joined fake peer is throttled — after the burst, `relay()`
       calls `reject(peer, 'message-rate-limited')` and does NOT forward to the counterpart; the join
       bucket for other sources is unaffected.
-- [ ] TC-02: With `maxConnections: N`, the (N+1)-th concurrent WebSocket connection is closed at accept
+- [x] TC-02: With `maxConnections: N`, the (N+1)-th concurrent WebSocket connection is closed at accept
       time (never registered as a peer); after one closes, a new connection is admitted again.
-- [ ] TC-03: With `maxConnectionsPerIp: K` and an injected address resolver mapping connections to two
+- [x] TC-03: With `maxConnectionsPerIp: K` and an injected address resolver mapping connections to two
       distinct source keys, the (K+1)-th connection sharing a source key is closed at accept
       (`close(1013,'over-capacity')`) while a connection with a different source key is still admitted;
       with `maxConnectionsPerIp: 0` the per-IP cap is off (no refusal on source-key collision).
-- [ ] TC-04: A frame larger than `maxFrameBytes` does not reach the relay handler (the `ws` connection is
+- [x] TC-04: A frame larger than `maxFrameBytes` does not reach the relay handler (the `ws` connection is
       closed with code `1009`); a normal small frame relays successfully (regression).
-- [ ] TC-05: A legitimate two-peer pairing (join → offer/answer/ice at normal size + rate) completes
+- [x] TC-05: A legitimate two-peer pairing (join → offer/answer/ice at normal size + rate) completes
       end-to-end unchanged — no new bound trips for well-behaved peers (regression against B2 behavior).
-- [ ] TC-06: `TokenBucketLimiter.evict(key)` removes a key's bucket; after a joined peer floods `signal`
+- [x] TC-06: `TokenBucketLimiter.evict(key)` removes a key's bucket; after a joined peer floods `signal`
       and then `remove()` runs, the message-bucket map no longer contains that peer id (memory bound), and
       the total/per-IP connection counters return to their pre-connection values after disconnect.
-- [ ] TC-07: New bounds are override-injectable and default to the documented safe constants
+- [x] TC-07: New bounds are override-injectable and default to the documented safe constants
       (`DEFAULT_MAX_FRAME_BYTES`, `DEFAULT_MAX_CONNECTIONS`, `DEFAULT_MAX_CONNECTIONS_PER_IP`,
       `DEFAULT_MESSAGE_RATE`); a resolved source address of `undefined` maps to the sentinel key (no crash,
       cap still applies); `pnpm harness:scan` + typecheck + build green.
@@ -188,6 +188,23 @@ enabled via `trustProxy` (`X-Forwarded-For`) or disabled — never left to silen
 
 ## Tasks
 
-- [ ] `.agents/tasks/REMOTE-011.md` — 미생성 (GATE-APPROVAL 통과 후 생성)
+- [x] `.agents/tasks/REMOTE-011.md` — created at GATE-APPROVAL.
 
 ## Evidence Log
+
+- **GATE-APPROVAL:** proposal-reviewer ENDORSE (2 rounds). Round 1 REVISE (G1 evict / G2 proxy stance /
+  G3 taxonomy split + tests); round 2 ENDORSE with all four resolved. Two non-blocking implementer notes
+  applied: XFF picks the trusted right-most hop (`forwardedForResolver`); option layering kept clean
+  (transport caps on `ISignalingServerOptions`, `messageRate` on `ISignalingRelayOptions`).
+- **Implementation:** `rate-limiter.ts` — `evict(key)` + `size` getter + `DEFAULT_MESSAGE_RATE`/
+  `DEFAULT_MAX_CONNECTIONS`/`DEFAULT_MAX_CONNECTIONS_PER_IP`/`DEFAULT_MAX_FRAME_BYTES`. `relay.ts` —
+  per-connection message-rate bucket keyed by peer id, `message-rate-limited` reject + no fan-out, evict
+  on `remove()`, `messageBucketCount` diagnostics. `server.ts` — `maxPayload`, total + per-IP caps at
+  accept (`close(1013,'over-capacity')`), injectable `addressResolver` (+ `trustProxy` XFF + `undefined`
+  sentinel), idempotent release decrement, `connectionCount` diagnostics. `index.ts` public exports;
+  `docs/SPEC.md` Boundaries + Error-Taxonomy split + Public API.
+- **Verification (2026-07-11):** `pnpm --filter @robota-sdk/remote-signaling test` → 26 passed (TC-01
+  message-rate throttle + per-connection isolation + no fan-out; TC-02 total cap; TC-03 per-IP cap via
+  resolver seam + `0` disables; TC-04 oversize→1009 + small relays; TC-05 webrtc-relay regression; TC-06
+  evict + counter/map shrink; TC-07 defaults + undefined sentinel). Full `pnpm typecheck` clean.
+  `pnpm harness:scan` → all 49 passed (incl. `spec-public-surface`).

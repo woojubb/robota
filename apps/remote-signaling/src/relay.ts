@@ -16,6 +16,7 @@ import {
   TokenBucketLimiter,
   systemClock,
   systemScheduler,
+  DEFAULT_MESSAGE_RATE,
   DEFAULT_RENDEZVOUS_TTL_MS,
   DEFAULT_MAX_RENDEZVOUS,
   type IClock,
@@ -65,6 +66,12 @@ export interface ISignalingRelayOptions {
   readonly hooks?: ISignalingRelayHooks;
   /** Per-source join token-bucket (default: burst 5, refill 1/12s). */
   readonly rateLimit?: ITokenBucketConfig;
+  /**
+   * Per-connection **message rate** for the relayed `signal` path (REMOTE-011 E2; default
+   * {@link DEFAULT_MESSAGE_RATE}). Bounds a `signal` flood from an already-joined peer — distinct from the
+   * per-source `join` bucket (`rateLimit`). Keyed by peer id and evicted on `remove()`.
+   */
+  readonly messageRate?: ITokenBucketConfig;
   /** Half-open rendezvous TTL in ms (default 60s). */
   readonly rendezvousTtlMs?: number;
   /** Ceiling on concurrent (active) rendezvous (default 1024). */
@@ -92,6 +99,8 @@ export class SignalingRelay {
 
   private readonly hooks: ISignalingRelayHooks;
   private readonly limiter: TokenBucketLimiter;
+  /** Per-connection message-rate bucket for the `signal` path (keyed by peer id; evicted on remove). */
+  private readonly messageLimiter: TokenBucketLimiter;
   private readonly scheduler: IScheduler;
   private readonly ttlMs: number;
   private readonly maxRendezvous: number;
@@ -101,7 +110,12 @@ export class SignalingRelay {
     this.scheduler = options.scheduler ?? systemScheduler;
     this.ttlMs = options.rendezvousTtlMs ?? DEFAULT_RENDEZVOUS_TTL_MS;
     this.maxRendezvous = options.maxRendezvous ?? DEFAULT_MAX_RENDEZVOUS;
-    this.limiter = new TokenBucketLimiter(options.rateLimit, options.clock ?? systemClock);
+    const clock = options.clock ?? systemClock;
+    this.limiter = new TokenBucketLimiter(options.rateLimit, clock);
+    this.messageLimiter = new TokenBucketLimiter(
+      options.messageRate ?? DEFAULT_MESSAGE_RATE,
+      clock,
+    );
   }
 
   /** Handle one raw inbound frame from `peer`. Only `signal` frames are ever forwarded, and only to the peer's counterpart. */
@@ -197,6 +211,12 @@ export class SignalingRelay {
       this.reject(peer, 'not-joined');
       return;
     }
+    // Per-connection message-rate bound (REMOTE-011 E2): a joined peer flooding `signal` frames is
+    // throttled here — the frame is dropped (never forwarded) rather than closing the connection.
+    if (!this.messageLimiter.tryConsume(peer.id)) {
+      this.reject(peer, 'message-rate-limited');
+      return;
+    }
     const room = this.rooms.get(rendezvous);
     if (!room) return;
     // Forward the opaque signal verbatim to the counterpart(s) only — never echo back to the sender.
@@ -214,6 +234,9 @@ export class SignalingRelay {
   public remove(peer: ISignalingPeer): void {
     const rendezvous = this.peerRendezvous.get(peer.id);
     this.peerRendezvous.delete(peer.id);
+    // Evict the per-connection message bucket (REMOTE-011 E2) so the map is bounded by LIVE connections,
+    // not by every peer id ever admitted — the unbounded-growth class this stage exists to close.
+    this.messageLimiter.evict(peer.id);
     if (rendezvous) {
       this.leaveRoom(peer, rendezvous);
       this.armTimer(rendezvous);
@@ -278,5 +301,10 @@ export class SignalingRelay {
   /** Diagnostics only: current (active) rendezvous count (holds no session content). */
   public get rendezvousCount(): number {
     return this.rooms.size;
+  }
+
+  /** Diagnostics only (REMOTE-011 E2): live per-connection message-bucket count — asserts the memory bound. */
+  public get messageBucketCount(): number {
+    return this.messageLimiter.size;
   }
 }
