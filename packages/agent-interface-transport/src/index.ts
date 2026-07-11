@@ -1,5 +1,10 @@
 // @robota-sdk/agent-interface-transport
 
+// ── Interaction primitives re-exported for transports (REMOTE-007) ──
+// The transport-neutral prompt events (IAskRequestEvent/IPermissionRequestEvent) reference these
+// agent-core SSOT types; re-export them here so transport adapters keep a single import hub.
+export type { IActionRequest, TActionResponse } from '@robota-sdk/agent-core';
+
 // ── Transport adapter contracts ──────────────────────────────
 export type { ITransportAdapter } from './transport-adapter.js';
 export type {
@@ -163,6 +168,9 @@ export type {
   IUsageSource,
   TPermissionResultValue,
   TInteractivePermissionHandler,
+  IPermissionRequestEvent,
+  IAskRequestEvent,
+  IPromptResolvedEvent,
   IContextFileRefreshedEvent,
   IInteractiveSessionRecord,
   IInteractiveSessionStore,

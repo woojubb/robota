@@ -112,6 +112,8 @@ export class TuiInteractionChannel implements IInteractionChannel {
   private userActionQueue: Array<{
     request: IActionRequest;
     resolve: (response: TUserActionResponse) => void;
+    /** REMOTE-007: framework prompt id, so `prompt_resolved` can dismiss it on co-drive. */
+    id?: string;
   }> = [];
   private processingUserAction = false;
 
@@ -134,6 +136,8 @@ export class TuiInteractionChannel implements IInteractionChannel {
     toolName: string;
     toolArgs: TToolArgs;
     resolve: (result: TPermissionResultValue) => void;
+    /** REMOTE-007: framework prompt id, so `prompt_resolved` can dismiss it on co-drive. */
+    id?: string;
   }> = [];
   private processingPermission = false;
 
@@ -166,8 +170,9 @@ export class TuiInteractionChannel implements IInteractionChannel {
       provider: opts.provider,
       permissionMode: opts.permissionMode,
       maxTurns: opts.maxTurns,
-      permissionHandler: (toolName, toolArgs) => this.handlePermissionRequest(toolName, toolArgs),
-      askHandler: (request) => this.askUser(request),
+      // REMOTE-007: no injected permission/ask handlers — the TUI subscribes to the session's
+      // transport-neutral `permission_request`/`ask_request` events (wireSessionEvents) and answers via
+      // `resolvePermission`/`resolveAsk`. The local Ink queues + rendering are unchanged.
       sessionStore: opts.sessionStore,
       resumeSessionId: opts.resumeSessionId,
       forkSession: opts.forkSession,
@@ -344,10 +349,14 @@ export class TuiInteractionChannel implements IInteractionChannel {
 
   // ── CMD-004 unified ask path ─────────────────────────────────
 
-  /** Framework's `askHandler` entry point: queue the request and resolve when the user answers. */
-  async askUser(request: IActionRequest): Promise<TUserActionResponse> {
+  /**
+   * Queue an ask and resolve when the user answers. Reached via the `ask_request` event handler
+   * (which passes the framework prompt `id` for co-drive dismissal) and by any direct
+   * `IInteractionChannel.askUser` caller (no id).
+   */
+  async askUser(request: IActionRequest, id?: string): Promise<TUserActionResponse> {
     return new Promise<TUserActionResponse>((resolve) => {
-      this.userActionQueue.push({ request, resolve });
+      this.userActionQueue.push({ request, resolve, ...(id !== undefined ? { id } : {}) });
       this.processNextUserAction();
     });
   }
@@ -430,11 +439,43 @@ export class TuiInteractionChannel implements IInteractionChannel {
   private handlePermissionRequest(
     toolName: string,
     toolArgs: TToolArgs,
+    id?: string,
   ): Promise<TPermissionResultValue> {
     return new Promise<TPermissionResultValue>((resolve) => {
-      this.permissionQueue.push({ toolName, toolArgs, resolve });
+      this.permissionQueue.push({
+        toolName,
+        toolArgs,
+        resolve,
+        ...(id !== undefined ? { id } : {}),
+      });
       this.processNextPermission();
     });
+  }
+
+  /**
+   * REMOTE-007 co-drive: another surface answered the prompt with this framework `id`, so dismiss the
+   * still-showing local dialog. Resolving the local entry (cancelled) is a no-op on the framework side
+   * — that id is already settled — but it clears the TUI's queue + render state.
+   */
+  private dismissPromptById(id: string): void {
+    if (this.userActionQueue.some((entry) => entry.id === id)) {
+      const remaining = this.userActionQueue.filter((entry) => entry.id !== id);
+      const dismissed = this.userActionQueue.filter((entry) => entry.id === id);
+      this.userActionQueue = remaining;
+      this.processingUserAction = false;
+      this.pendingUserAction = null;
+      for (const entry of dismissed) entry.resolve({ type: 'cancelled' });
+      this.processNextUserAction();
+    }
+    if (this.permissionQueue.some((entry) => entry.id === id)) {
+      const remaining = this.permissionQueue.filter((entry) => entry.id !== id);
+      const dismissed = this.permissionQueue.filter((entry) => entry.id === id);
+      this.permissionQueue = remaining;
+      this.processingPermission = false;
+      this.permissionRequest = null;
+      for (const entry of dismissed) entry.resolve(false);
+      this.processNextPermission();
+    }
   }
 
   private processNextPermission(): void {
@@ -518,6 +559,28 @@ export class TuiInteractionChannel implements IInteractionChannel {
     this.bindSession('skill_activation', onSkillActivation);
     this.bindSession('memory_event', onMemoryEvent);
     this.bindSession('execution_workspace_event', onExecutionWorkspaceEvent);
+
+    // REMOTE-007: the TUI is a subscribed surface for the transport-neutral permission/ask events. It
+    // renders each through its existing Ink queues and answers via `resolvePermission`/`resolveAsk`; a
+    // `prompt_resolved` (from co-drive or the framework's teardown drain) dismisses the local dialog.
+    const onPermissionRequest: IInteractiveSessionEvents['permission_request'] = ({
+      id,
+      toolName,
+      toolArgs,
+    }) => {
+      void this.handlePermissionRequest(toolName, toolArgs, id).then((result) =>
+        session.resolvePermission(id, result),
+      );
+    };
+    const onAskRequest: IInteractiveSessionEvents['ask_request'] = ({ id, request }) => {
+      void this.askUser(request, id).then((response) => session.resolveAsk(id, response));
+    };
+    const onPromptResolved: IInteractiveSessionEvents['prompt_resolved'] = ({ id }) => {
+      this.dismissPromptById(id);
+    };
+    this.bindSession('permission_request', onPermissionRequest);
+    this.bindSession('ask_request', onAskRequest);
+    this.bindSession('prompt_resolved', onPromptResolved);
   }
 
   /** Register a session listener and retain the binding so `unwireSessionEvents()` can remove it. */

@@ -59,8 +59,10 @@ export interface IScriptedSessionOptions {
   /** Scripted assistant turns replayed deterministically through the real loop. */
   turns?: readonly TScriptedTurn[];
   /**
-   * CMD-005: answer model-issued questions (AskUserQuestion) programmatically. When set, tool
-   * executions receive it as `context.ask`; absent ⇒ the tool reports `unavailable` (headless).
+   * CMD-005: answer model-issued questions (AskUserQuestion) programmatically. When set, the harness
+   * subscribes to the session's `ask_request` event and answers via `resolveAsk` (REMOTE-007). Absent ⇒
+   * nothing subscribes, so a model-issued question fails closed (each question `cancelled`) — the
+   * headless no-human path.
    */
   askHandler?: IUserInteraction['ask'];
   /**
@@ -196,7 +198,6 @@ export class ScriptedSessionHarness {
       ...(options.maxTurns !== undefined ? { maxTurns: options.maxTurns } : {}),
       ...(options.model !== undefined ? { model: options.model } : {}),
       ...(options.terminalHandoff ? { terminalHandoff: options.terminalHandoff } : {}),
-      ...(options.askHandler ? { askHandler: options.askHandler } : {}),
     });
 
     for (const name of COLLECTED_EVENTS) {
@@ -206,6 +207,19 @@ export class ScriptedSessionHarness {
           this.completions.push(args[0] as IExecutionResult);
         }
       }) as IInteractiveSessionEvents[typeof name]);
+    }
+
+    // REMOTE-007: the harness plays the interactive user by SUBSCRIBING to the transport-neutral
+    // `ask_request` event (the same seam a TUI/remote surface uses) and answering via `resolveAsk`,
+    // rather than injecting a one-surface `askHandler`. With no `askHandler`, nothing subscribes, so a
+    // model-issued question fails closed (each question `cancelled`) — the headless no-human path.
+    if (options.askHandler) {
+      const askHandler = options.askHandler;
+      this.session.on('ask_request', ({ id, request }) => {
+        void Promise.resolve(askHandler(request)).then((response) =>
+          this.session.resolveAsk(id, response),
+        );
+      });
     }
   }
 

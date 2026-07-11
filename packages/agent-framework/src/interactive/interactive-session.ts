@@ -9,6 +9,7 @@ import { initializeInteractiveSessionAsync } from './interactive-session-init.js
 import { persistSession } from './interactive-session-persistence.js';
 import { loadSessionRecord } from './interactive-session-restore.js';
 import { SessionSkillRouter } from './interactive-session-skill-router.js';
+import { SessionPromptRegistry } from './session-prompt-registry.js';
 import { retrieveSessionBackgroundTaskManager } from '../background-tasks/session-background-store.js';
 import { EditCheckpointStore } from '../checkpoints/edit-checkpoint-store.js';
 import { formatOrgPolicyViolationMessage } from '../command-api/org-policy/org-policy-loader.js';
@@ -52,6 +53,7 @@ import type {
   TSessionEndReason,
   IProviderDefinition,
   IUserInteraction,
+  TActionResponse,
 } from '@robota-sdk/agent-core';
 import type { ISession } from '@robota-sdk/agent-core';
 import type {
@@ -59,6 +61,7 @@ import type {
   IGoalState,
   ITerminalHandoff,
   TTurnSource,
+  TPermissionResultValue,
 } from '@robota-sdk/agent-interface-transport';
 import type { Session } from '@robota-sdk/agent-session';
 import type { ISandboxClient } from '@robota-sdk/agent-tools';
@@ -68,6 +71,13 @@ export interface IInteractiveSessionShutdownOptions {
   reason?: TSessionEndReason;
   message?: string;
 }
+
+/**
+ * REMOTE-007 fail-closed backstop (D2): the unconditional last resort for a parked permission/ask
+ * whose subscribed surface died WITHOUT unsubscribing (so reconcile-on-detach never fired). Generous —
+ * a human deliberating over a prompt never reaches it; it only rescues a truly-stuck await.
+ */
+const PROMPT_BACKSTOP_MS = 30 * 60 * 1000;
 
 export class InteractiveSession
   extends InteractiveSessionBase
@@ -103,8 +113,15 @@ export class InteractiveSession
   private currentTurnSource: TTurnSource = 'user';
   /** TERM-001: transport-provided terminal-handoff capability (undefined when none). */
   private readonly terminalHandoff?: ITerminalHandoff;
-  /** CMD-004: transport-provided "ask the user" handler (undefined when no interactive renderer). */
-  private readonly askHandler?: IUserInteraction['ask'];
+  /**
+   * REMOTE-007: the framework's event-emitting "ask the user" default (never undefined). It emits
+   * `ask_request` and parks the answer in {@link promptRegistry}. `getUserInteraction()` gates the
+   * COMMAND port on the live `ask_request` listener count (D4a) so the headless `undefined`
+   * "no-human ⇒ proceed" contract survives; the TOOL seam gets this default always-present.
+   */
+  private readonly askHandler: IUserInteraction['ask'];
+  /** REMOTE-007: transport-neutral pending permission/ask registry (parking + fail-closed + drain). */
+  private readonly promptRegistry: SessionPromptRegistry;
   /** TERM-001: guards handoff exclusivity (one handoff at a time). */
   private terminalHandoffActive = false;
 
@@ -113,7 +130,30 @@ export class InteractiveSession
     this.sessionStore = options.sessionStore;
     this.sessionName = options.sessionName;
     this.terminalHandoff = options.terminalHandoff;
-    this.askHandler = options.askHandler;
+
+    // REMOTE-007: the framework OWNS the permission/ask handlers — event-emitting defaults bound to
+    // this session's emitter, replacing any injected `askHandler`/`permissionHandler` AT THEIR SOURCE
+    // so BOTH ask seams (the command port + the tool `setAskHandler` seam) and the permission seam are
+    // fed from one transport-neutral value. Attached surfaces subscribe to the events and answer via
+    // `resolvePermission`/`resolveAsk`; with none subscribed the registry fails closed (deny/cancel).
+    this.promptRegistry = new SessionPromptRegistry({
+      emitPermissionRequest: (event) => this.emit('permission_request', event),
+      emitAskRequest: (event) => this.emit('ask_request', event),
+      emitPromptResolved: (event) => this.emit('prompt_resolved', event),
+      countListeners: (event) => this.listeners.get(event)?.size ?? 0,
+      backstopMs: PROMPT_BACKSTOP_MS,
+    });
+    this.askHandler = (request) => this.promptRegistry.requestAsk(request);
+    // Feed the underlying session (enforcer + tool `ask` seam) the same event-emitting defaults. The
+    // injected-session path never runs init and ignores these; the standard path reads them at init.
+    if (!('session' in options && options.session)) {
+      const stdOptions = options as IInteractiveSessionStandardOptions;
+      stdOptions.permissionHandler = (toolName, toolArgs) =>
+        this.promptRegistry.requestPermission(toolName, toolArgs);
+      // The tool `ask` seam (CMD-005 model questions) is fed the same event-emitting default.
+      stdOptions.askHandler = this.askHandler;
+    }
+
     this.cwd = ('cwd' in options ? options.cwd : undefined) ?? '';
     this.resumeSessionId = options.resumeSessionId;
     this.forkSession = options.forkSession ?? false;
@@ -318,6 +358,11 @@ export class InteractiveSession
 
   off<E extends TInteractiveEventName>(event: E, handler: IInteractiveSessionEvents[E]): void {
     this.listeners.get(event)?.delete(handler as (...args: unknown[]) => void);
+    // REMOTE-007 D2: if a surface just detached and the gating event dropped to zero listeners,
+    // reconcile any still-parked prompt of that kind fail-closed (a disconnect mid-prompt cannot hang).
+    if (event === 'permission_request' || event === 'ask_request') {
+      this.promptRegistry.reconcileOnDetach(event);
+    }
   }
 
   private emit<E extends TInteractiveEventName>(
@@ -378,7 +423,15 @@ export class InteractiveSession
 
   abort(): void {
     this.execCtrl.clearPendingQueue();
+    // REMOTE-007 D3: deny/cancel every parked prompt so an aborted turn never leaves the enforcer's
+    // `await` (or a wrapped tool) hanging — reproduces the TUI's cancel-all-permissions/actions semantics.
+    this.promptRegistry.drain();
     this.session?.abort();
+  }
+
+  override cancelQueue(): void {
+    super.cancelQueue();
+    this.promptRegistry.drain();
   }
 
   shutdown(options: IInteractiveSessionShutdownOptions = {}): Promise<void> {
@@ -394,6 +447,9 @@ export class InteractiveSession
       await this.captureSandboxSnapshot();
       this.persistCurrentSession();
       await session?.shutdown({ reason: options.reason ?? 'other' });
+      // REMOTE-007 D3: drain before dropping listeners so any prompt still parked at shutdown settles
+      // fail-closed (the awaiting checkPermission/tool unblocks) rather than hanging on a cleared emitter.
+      this.promptRegistry.drain();
       this.listeners.clear();
     })();
     return this.shutdownPromise;
@@ -462,12 +518,32 @@ export class InteractiveSession
   }
 
   /**
-   * CMD-004: the injected "ask the user" port, or undefined when no interactive renderer is attached
+   * CMD-004: the command "ask the user" port, or undefined when no interactive surface can answer
    * (headless/automation) — a command must treat absence as "no human available", never a silent
    * guess. The model-invocation guard lives in {@link createUserInteractionPort}.
+   *
+   * REMOTE-007 D4a: the framework's ask default is now always defined, so PRESENCE is gated on the live
+   * `ask_request` listener count (evaluated per call — the port is rebuilt each call). Zero subscribed
+   * surfaces ⇒ `undefined`, preserving the load-bearing headless "no-human ⇒ proceed" contract
+   * (`/exit` exits, `/clear` clears); a subscribed TUI/WS/WebRTC surface ⇒ a live port. This is
+   * orthogonal to the tool `setAskHandler` seam, which stays always-present (fail-closed on zero listeners).
    */
   getUserInteraction(): IUserInteraction | undefined {
+    if ((this.listeners.get('ask_request')?.size ?? 0) === 0) return undefined;
     return createUserInteractionPort(this.askHandler, () => this.getCommandInvocationSource());
+  }
+
+  /**
+   * REMOTE-007: answer a pending `permission_request` by id (any attached surface; first resolve wins,
+   * later resolves for a settled id are no-ops). Idempotent and safe for an unknown/settled id.
+   */
+  resolvePermission(id: string, result: TPermissionResultValue): void {
+    this.promptRegistry.resolvePermission(id, result);
+  }
+
+  /** REMOTE-007: answer a pending `ask_request` by id (see {@link resolvePermission}). */
+  resolveAsk(id: string, response: TActionResponse): void {
+    this.promptRegistry.resolveAsk(id, response);
   }
 
   /**
