@@ -18,6 +18,7 @@ implementer notes: XFF picks the trusted-appended hop (not raw left-most); keep 
 - [x] T8: `index.ts` — export new options/consts/`evict` on the public surface (spec-public-surface scan).
 - [x] T9: `docs/SPEC.md` — Boundaries (four bounds), Error Taxonomy split (relay `message-rate-limited` frame vs transport close codes 1009/1013), Public API Surface.
 - [x] T10 (TC-07): `pnpm --filter @robota-sdk/remote-signaling test` + `pnpm typecheck` + `pnpm harness:scan` green.
+- [ ] T11 (GATE-COMPLETE): after feature→develop merge (merge-verifier) and the batched Stage-E develop→main promotion, move the spec `active → done` (status `done`) and archive this task to `.agents/tasks/completed/`.
 
 ## Test Plan / 검증
 
