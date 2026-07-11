@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: INFRA
 tags: [remote-control, webrtc, browser, pairing, web-ui]
 parent: REMOTE-001
@@ -198,3 +198,9 @@ the fragment. harness:scan + full typecheck + changeset.
   post-accept `TServerMessage` cast is safe (host cryptographically authenticated + reducer ignores unknown types);
   the responder-nonce send starts synchronously in `ondatachannel` (safe — answerer's channel is open when the event
   fires; fails closed via timeout if not) — flagged for a Stage-E headed-browser check. Ready for merge feature→develop→main.
+- GATE-COMPLETE — merged to main via PR #1111 (feature→develop) → PR #1112 (develop→main), both merge-verifier PASS
+  (REMOTE-009-only, D5 deletion confirmed, no lessons drift, CI green incl. release-grade + compat-node18). Spec moved
+  active→done, status done. **REMOTE-001's full user story now ships:** `/remote-control` on the host → QR/link → the
+  browser pairs + co-drives the SAME session over WebRTC. Remaining: Stage E (TOFU trusted-device reconnect + optional
+  TURN fallback + co-drive UX polish) — the last hardening stage. Follow-up backlog: `TransportRegistry.unregister`;
+  a headed-browser E2E for the responder-nonce send timing (impl-review note 3).
