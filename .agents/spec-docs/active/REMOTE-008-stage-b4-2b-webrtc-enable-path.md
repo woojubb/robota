@@ -128,8 +128,14 @@ QR/link fragment, never sent to the relay).
 - [x] Step 5 — **DONE** (commit 44393bedd): paired E2E over real werift (matching → pair + session round-trip;
       mismatched → fail closed, session never exposed); tampered-fp already REMOTE-005 TC-09; permission-over-WebRTC
       transitive (paired channel reuses `createWsHandler`, forwarding tested in REMOTE-007) + enable-path changeset.
-- [x] Step 6 — **DONE**: harness:scan 49/49 + full-repo `pnpm typecheck` 0 + changesets present. Ready for
-      merge-verifier feature→develop→main.
+- [x] Step 6 — **DONE**: harness:scan 49/49 + full-repo `pnpm typecheck` 0 + changesets present.
+- [x] GATE-REVIEW (implementation) — proposal-reviewer **REVISE→fixed** (commit 863b527d0). Security-critical pairing
+      gate + fail-closed session-exposure ENDORSED unreservedly. Fixed 3 conformance gaps vs the approved spec: (1)
+      `'paired'` status was unreachable; (2) "teardown on pairing failure" was unimplemented (peer/signaling leak +
+      stale `awaiting-pairing`); (3) `werift`-absent `start()` failure rethrown into a detached promise + swallowed.
+      Wired a lifecycle seam `PairingGate.onAccept/onReject → WebRtcTransport.onPaired/onPairingFailed →
+  RemoteControlController` (status `paired` on accept; teardown→`off` on failure; `start()` errors surfaced via an
+      injected `reportError` to the live channel history). +4 tests. Full typecheck 0, cli 177, webrtc 23, scans 49/49.
 
 ## Affected Files
 
