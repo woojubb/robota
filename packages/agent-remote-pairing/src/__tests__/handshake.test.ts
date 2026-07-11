@@ -72,8 +72,13 @@ describe('pairing handshake (REMOTE-005 B3)', () => {
       { a: secret, b: secret },
       { aLocal: FP_A, aRemote: FP_M, bLocal: FP_B, bRemote: FP_M },
     );
-    await expect(a.result).rejects.toThrow(/channel-confirmation mismatch/);
-    await expect(b.result).rejects.toThrow(/channel-confirmation mismatch/);
+    // Attach BOTH rejection handlers synchronously (same tick) before either promise settles —
+    // awaiting them sequentially leaves the second promise handler-less during the first `await`, so
+    // if it rejects in that window it surfaces as an unhandled rejection (flaky). Promise.all closes it.
+    await Promise.all([
+      expect(a.result).rejects.toThrow(/channel-confirmation mismatch/),
+      expect(b.result).rejects.toThrow(/channel-confirmation mismatch/),
+    ]);
   });
 
   it('rejects a reflection relay that echoes each peer its own frames (no secret)', async () => {
@@ -84,8 +89,8 @@ describe('pairing handshake (REMOTE-005 B3)', () => {
       { aLocal: FP_A, aRemote: FP_B, bLocal: FP_B, bRemote: FP_A },
       (from, frame) => ({ to: from, frame }),
     );
-    await expect(a.result).rejects.toThrow();
-    await expect(b.result).rejects.toThrow();
+    // Both reject at nearly the same microtask — attach both handlers synchronously (see above).
+    await Promise.all([expect(a.result).rejects.toThrow(), expect(b.result).rejects.toThrow()]);
   });
 
   it('rejects when the peers hold different secrets', async () => {
@@ -93,8 +98,10 @@ describe('pairing handshake (REMOTE-005 B3)', () => {
       { a: generatePairingSecret().secret, b: generatePairingSecret().secret },
       { aLocal: FP_A, aRemote: FP_B, bLocal: FP_B, bRemote: FP_A },
     );
-    await expect(a.result).rejects.toThrow(/mismatch/);
-    await expect(b.result).rejects.toThrow(/mismatch/);
+    await Promise.all([
+      expect(a.result).rejects.toThrow(/mismatch/),
+      expect(b.result).rejects.toThrow(/mismatch/),
+    ]);
   });
 
   it('times out (fail closed) when the counterpart never responds', async () => {
