@@ -20,50 +20,62 @@ contract, so it can proceed independently of E3–E5.
 ## Problem / Goal
 
 The signaling server (`apps/remote-signaling`) is the one owner-hosted, publicly reachable component. It
-relays SDP offers/answers + ICE candidates by rendezvous id and holds no session content — but a public
-rendezvous endpoint with no abuse controls is exploitable by an unauthenticated attacker:
+relays SDP offers/answers + ICE candidates by rendezvous id and holds no session content.
 
-- **Rendezvous-slot hijack / squatting:** a peer that is not the paired client claims or races for a
-  rendezvous id, intercepting the host's offer or denying the real client its slot.
-- **Enumeration / flooding:** brute-forcing or spraying rendezvous ids to discover live sessions or to
-  exhaust server memory/connection slots (DoS).
-- **Oversized / malformed frames:** unbounded or malformed signaling messages consuming resources or
-  crashing the relay.
-- **Replay / stale-slot reuse:** reconnecting against an expired or already-consumed rendezvous id.
+**Already hardened by REMOTE-004 (Stage B2), NOT in scope:** the _relay layer_ is safe-by-default —
+per-source token bucket on `join` floods, single-use rendezvous ids, half-open TTL expiry, concurrent-
+rendezvous cap, and a strict `offer`/`answer`/`ice` frame allowlist (everything else rejected
+fail-closed). Rendezvous-slot hijack, id enumeration/reuse, and malformed/unknown frames are covered
+there.
 
-Goal: add abuse hardening to the signaling server while keeping it strictly minimal and content-free —
-no session payload, no long-term state beyond what a rendezvous needs.
+**Residual gaps — the _WebSocket transport layer_ in `server.ts`** (this item):
+
+- **Unbounded frame size:** `WebSocketServer` sets no `maxPayload`, so `ws` buffers up to its 100 MiB
+  default per frame before the relay sees it — a memory-exhaustion vector (signaling frames are only a
+  few KB).
+- **No connection cap:** nothing bounds concurrent sockets, total or per-IP. The B2 bucket limits `join`
+  _attempts_, but a socket that connects and never joins is never bounded (FD/memory exhaustion).
+- **No per-connection message rate:** B2 buckets only `join`; an already-joined peer can flood `signal`
+  frames with no ceiling.
+
+Goal: bound these transport-layer resource-exhaustion vectors so the public endpoint is DoS-resistant
+by default, while keeping the server strictly minimal and content-free.
 
 ## Scope / Approach (to be confirmed in the spec)
 
-- **Per-connection + per-IP rate limiting** on rendezvous registration and message relay; connection caps.
-- **Rendezvous-slot exclusivity:** a rendezvous id is claimed by exactly the two expected roles
-  (host + one client); additional claimants are refused. Short-lived, single-use slot with TTL/expiry.
-- **Message validation:** strict allowlist of signaling message kinds (offer/answer/ice), bounded size,
-  schema-validated shape; reject anything else fail-closed.
-- **High-entropy rendezvous ids** (already pairing-secret-bound; confirm enumeration resistance) and
-  slot expiry so stale ids cannot be reused.
-- No new dependency-direction violation; the server stays a minimal SSOT with no session content.
+- **Frame size:** set `WebSocketServer` `maxPayload` to a small default (SDP/ICE are tiny) so oversized
+  frames are rejected before buffering.
+- **Connection caps:** total + per-IP concurrent-connection ceilings enforced at accept time
+  (refuse/close before the peer is registered).
+- **Per-connection message rate:** a token bucket on the `signal` relay path (distinct from the existing
+  per-source `join` bucket), reusing the B2 `TokenBucketLimiter` + injected clock.
+- Every bound defaults on with a production-safe value and is override-injectable (matches the B2
+  safe-by-default, dependency-injected, deterministically-tested pattern). No relayed-frame protocol
+  change; the server stays a minimal SSOT with no session content.
+
+See the spec: [`.agents/spec-docs/draft/REMOTE-011-stage-e2-signaling-abuse-hardening.md`](../spec-docs/draft/REMOTE-011-stage-e2-signaling-abuse-hardening.md).
 
 ## Test Plan
 
-- Unit/integration (server): slot-exclusivity (second claimant refused); rate-limit trips at threshold;
-  oversized/malformed frame rejected fail-closed; expired rendezvous rejected; valid two-party rendezvous
-  still succeeds end-to-end (regression).
-- Security: an attacker connection cannot hijack a rendezvous already claimed by the paired pair, cannot
-  enumerate live ids within the rate budget, and cannot exhaust slots below the cap.
+- Unit (fake-peer): a `signal` flood from a joined peer is throttled (per-connection message-rate bucket)
+  with no fan-out to the counterpart; the per-source join bucket is unaffected.
+- Integration (server): total + per-IP connection caps refuse the over-cap socket at accept time;
+  `maxPayload` closes an oversized frame before it reaches the relay; a normal small frame relays.
+- Regression: a legitimate two-peer pairing (join → offer/answer/ice at normal size + rate) still
+  round-trips end-to-end (B2 behavior unchanged).
 - Harness: `pnpm harness:scan` + typecheck + build green.
 
 ## User Execution Test Scenario
 
-1. **Abuse controls hold under a hostile second peer.**
-   - Prerequisites: `apps/remote-signaling` running; a host `/remote-control on` with a rendezvous id;
-     a legitimate client paired.
-   - Steps: from a third (attacker) connection, attempt to (a) claim the same rendezvous id, (b) spray N
-     random ids past the rate threshold, (c) send an oversized/malformed frame.
-   - Expected: (a) refused (slot already claimed) — the legitimate pair stays connected; (b) throttled
-     after the threshold with no server memory blowup; (c) connection dropped fail-closed. The legitimate
-     host↔client P2P session is unaffected throughout.
+1. **Transport-layer DoS bounds hold; well-behaved pairing is unaffected.**
+   - Prerequisites: `apps/remote-signaling` running with the default bounds; a host `/remote-control on`
+     with a legitimate client paired.
+   - Steps: from attacker connection(s), attempt to (a) open more sockets than the connection cap (total
+     and from one IP), (b) send a frame larger than `maxFrameBytes`, (c) after joining, flood `signal`
+     frames past the message-rate burst.
+   - Expected: (a) the over-cap sockets are closed at accept; (b) the oversized frame closes that socket
+     without reaching the relay; (c) the flood is throttled (`message-rate-limited`) with no counterpart
+     fan-out — and throughout, the legitimate host↔client P2P session stays connected and responsive.
    - Evidence: _(fill after implementation)_
 
 ## Notes
