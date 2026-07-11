@@ -16,6 +16,9 @@ export interface IUseSideEffectsOptions {
   setStatusLineSettings: (settings: TStatusLineSettings) => void;
   showSessionPickerOnStart?: boolean;
   openAgentSwitcher?: () => void;
+  /** REMOTE-008: composition-root enable/stop of remote control; each returns a message to render. */
+  enableRemoteControl?: () => string | Promise<string>;
+  stopRemoteControl?: () => string | Promise<string>;
 }
 
 export interface IUseSideEffectsResult {

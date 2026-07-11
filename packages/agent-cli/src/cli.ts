@@ -37,6 +37,7 @@ import { renderApp, createDefaultTuiCliAdapter } from '@robota-sdk/agent-transpo
 import { installTuiProcessGuards, setLiveChannel } from './process-guards.js';
 import { TransportRegistry } from '@robota-sdk/agent-transport';
 import { WsTransport } from '@robota-sdk/agent-transport-ws';
+import { createRemoteControlController } from './remote-control/index.js';
 import { createDefaultBackgroundTaskRunners } from '@robota-sdk/agent-executor';
 import {
   createChildProcessSubagentRunnerFactory,
@@ -205,6 +206,14 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
       ? { disabledCommandModules: resolvedPreset.disabledCommandModules }
       : {}),
   });
+  // REMOTE-008: the composition root owns the transport registry + the remote-control controller (it has
+  // settings, the registry, and — via onChannelReady — the live session). The `/remote-control` command is
+  // a declarative trigger; the enable/stop wiring + status view are assembled here.
+  const transportRegistry = createDefaultTransportRegistry();
+  const { controller: remoteControlController, setSession: setRemoteControlSession } =
+    createRemoteControlController(transportRegistry);
+  commandHostAdapters.remoteControl = { getStatus: () => remoteControlController.getStatus() };
+
   // INFRA-032: a preset command-module name that matched no module (a short form like "editor"
   // instead of agent-command-editor, or a typo) is surfaced as a non-fatal notice — never a silent
   // drop, never an abort — mirroring the external-preset skip reporting above.
@@ -334,7 +343,12 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   }
 
   await renderApp({
-    onChannelReady: (channel) => setLiveChannel(channel),
+    onChannelReady: (channel) => {
+      setLiveChannel(channel);
+      // REMOTE-008: keep the remote-control controller pointed at the current live session (incl.
+      // session-switch re-creations) so an enable attaches the session the user is actually driving.
+      setRemoteControlSession(channel.getSession());
+    },
     cwd,
     provider,
     providerOverride: args.provider,
@@ -361,7 +375,9 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     startupUpdateNotice: startupUpdateNoticePromise
       ? startupUpdateNoticePromise.then((n) => (n ? formatCliUpdateNotice(n) : undefined))
       : undefined,
-    transportRegistry: createDefaultTransportRegistry(),
+    transportRegistry,
+    enableRemoteControl: () => remoteControlController.enable(),
+    stopRemoteControl: () => remoteControlController.stop(),
     cliAdapter: createDefaultTuiCliAdapter({ providerDefinitions, reloadPluginCommandSource }),
     reloadPluginCommandSource,
     agentName: resolvedPreset.agentName ?? DEFAULT_AGENT_NAME,
