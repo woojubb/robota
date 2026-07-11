@@ -15,9 +15,12 @@ import {
 
 import type { TClientMessage, TServerMessage } from './ws-protocol.js';
 import type {
+  IAskRequestEvent,
   IExecutionResult,
   IExecutionWorkspaceEvent,
   IInteractiveSession,
+  IPermissionRequestEvent,
+  IPromptResolvedEvent,
   IToolState,
   TBackgroundJobGroupEvent,
 } from '@robota-sdk/agent-interface-transport';
@@ -76,6 +79,13 @@ function subscribeSessionEvents(
     send({ type: 'background_job_group_event', event });
   const onExecutionWorkspace = (event: IExecutionWorkspaceEvent): void =>
     send({ type: 'execution_workspace_event', snapshot: event.snapshot });
+  // REMOTE-007: forward the transport-neutral prompt events so a remote surface can render + answer the
+  // SAME permission/ask prompt; `prompt_resolved` dismisses it when another surface answered first.
+  const onPermissionRequest = (event: IPermissionRequestEvent): void =>
+    send({ type: 'permission_request', event });
+  const onAskRequest = (event: IAskRequestEvent): void => send({ type: 'ask_request', event });
+  const onPromptResolved = (event: IPromptResolvedEvent): void =>
+    send({ type: 'prompt_resolved', event });
 
   session.on('user_message', onUserMessage);
   session.on('text_delta', onTextDelta);
@@ -88,6 +98,9 @@ function subscribeSessionEvents(
   session.on('background_task_event', onBackgroundTaskEvent);
   session.on('background_job_group_event', onBackgroundJobGroupEvent);
   session.on('execution_workspace_event', onExecutionWorkspace);
+  session.on('permission_request', onPermissionRequest);
+  session.on('ask_request', onAskRequest);
+  session.on('prompt_resolved', onPromptResolved);
 
   return (): void => {
     session.off('user_message', onUserMessage);
@@ -101,6 +114,9 @@ function subscribeSessionEvents(
     session.off('background_task_event', onBackgroundTaskEvent);
     session.off('background_job_group_event', onBackgroundJobGroupEvent);
     session.off('execution_workspace_event', onExecutionWorkspace);
+    session.off('permission_request', onPermissionRequest);
+    session.off('ask_request', onAskRequest);
+    session.off('prompt_resolved', onPromptResolved);
   };
 }
 
@@ -146,6 +162,10 @@ function handleClientMessage(
   }
   if (isBackgroundControlMessage(msg)) {
     handleBackgroundControlMessage(session, send, msg);
+    return;
+  }
+  if (isPromptResponseMessage(msg)) {
+    handlePromptResponseMessage(session, msg);
     return;
   }
   send({ type: 'protocol_error', message: `Unknown message type: ${getMessageType(msg)}` });
@@ -214,6 +234,28 @@ function isBackgroundControlMessage(
     msg.type === 'close-background-task' ||
     msg.type === 'send-background-task'
   );
+}
+
+function isPromptResponseMessage(
+  msg: TClientMessage,
+): msg is Extract<TClientMessage, { type: 'permission-response' | 'ask-response' }> {
+  return msg.type === 'permission-response' || msg.type === 'ask-response';
+}
+
+/**
+ * REMOTE-007: a driving client answered a pending prompt by id. `resolvePermission`/`resolveAsk` are
+ * idempotent — a stale id (already answered by another surface, or drained) is a safe no-op, so no
+ * acknowledgement is needed; the resulting `prompt_resolved` server event is the shared signal.
+ */
+function handlePromptResponseMessage(
+  session: IInteractiveSession,
+  msg: Extract<TClientMessage, { type: 'permission-response' | 'ask-response' }>,
+): void {
+  if (msg.type === 'permission-response') {
+    session.resolvePermission(msg.id, msg.result);
+  } else {
+    session.resolveAsk(msg.id, msg.response);
+  }
 }
 
 function handleSessionControlMessage(
