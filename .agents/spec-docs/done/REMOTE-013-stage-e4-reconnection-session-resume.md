@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: BEHAVIOR
 tags: [websocket, async, streaming, realtime]
 ---

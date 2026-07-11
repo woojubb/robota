@@ -15,18 +15,20 @@ depends_on: []
 > Implementation proceeds as per-stage gated specs (Stage A: extract `agent-transport-protocol` +
 > `agent-transport-webrtc` skeleton + minimal signaling server, loopback-only, no enable path).
 >
-> **Stage progress (2026-07-11):** Stages A–D DONE + on main (REMOTE-002…009) — the full user story
+> **Stage progress (2026-07-12):** Stages A–D DONE + on main (REMOTE-002…009) — the full user story
 > ships (host `/remote-control` → QR/link → browser pairs + co-drives over WebRTC). **Stage E (final
-> hardening)** is decomposed into child backlog items, sequenced:
+> hardening) is now fully implemented + on `main`** (all child items merged + merge-verified,
+> feature→develop→main):
 >
 > - E1 = user-supplied TURN fallback — REMOTE-010, **DONE** (`.agents/spec-docs/done/`).
-> - E2 = signaling-server abuse hardening — [REMOTE-011](REMOTE-011-stage-e2-signaling-abuse-hardening.md) (self-contained).
-> - E3 = TOFU trusted-device reconnect — [REMOTE-012](REMOTE-012-stage-e3-tofu-trusted-device-reconnect.md).
-> - E4 = reconnection/session-resume — [REMOTE-013](REMOTE-013-stage-e4-reconnection-session-resume.md) (on E3).
-> - E5 = co-drive concurrency + attribution — [REMOTE-014](REMOTE-014-stage-e5-co-drive-concurrency-attribution.md).
+> - E2 = signaling-server abuse hardening — REMOTE-011, **DONE** (`.agents/spec-docs/done/`, backlog `completed/`).
+> - E3 = TOFU trusted-device reconnect — REMOTE-012, **DONE** (`.agents/spec-docs/done/`, backlog `completed/`).
+> - E4 = reconnection/session-resume — REMOTE-013, **DONE** (`.agents/spec-docs/done/`, backlog `completed/`).
+> - E5 = co-drive concurrency + attribution — REMOTE-014, **DONE** (`.agents/spec-docs/done/`, backlog `completed/`).
 >
-> This item stays `in-progress` until Stage E completes and the User Execution Test Scenario evidence
-> below is filled.
+> All engineering is complete. This item stays `in-progress` **only** until the end-to-end User Execution
+> Test Scenario evidence below is filled by the owner (the backlog done-gate cannot be self-certified by the
+> agent). Once that hands-on run is recorded, flip `status: done` + `completed:` and move to `backlog/completed/`.
 
 ## Problem / Goal
 

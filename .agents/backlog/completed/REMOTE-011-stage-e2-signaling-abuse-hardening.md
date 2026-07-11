@@ -1,6 +1,7 @@
 ---
 title: 'REMOTE-011: Stage E2 — signaling-server abuse hardening'
-status: todo
+status: done
+completed: 2026-07-12
 created: 2026-07-11
 priority: medium
 urgency: later
