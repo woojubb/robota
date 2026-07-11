@@ -1,4 +1,5 @@
 import { createWsHandler } from '@robota-sdk/agent-transport-protocol';
+import { extractDtlsFingerprint } from '@robota-sdk/agent-remote-pairing';
 import type {
   IConfigurableTransport,
   IInteractiveSession,
@@ -6,6 +7,7 @@ import type {
 import type { RTCDataChannel, RTCPeerConnection } from 'werift';
 
 import { loadWerift } from './werift-loader.js';
+import { PairingGate } from './pairing-gate.js';
 import type { ISignalingClient } from './signaling.js';
 
 /** Construction options for {@link WebRtcTransport}. The signaling client is injected (Stage A: no settings). */
@@ -20,6 +22,17 @@ export interface IWebRtcTransportOptions {
    * belt-and-braces) `ip` code path — are never used. Requires a TURN server in `iceServers`.
    */
   readonly forceTurn?: boolean;
+  /**
+   * REMOTE-008 pairing secret. When set, the data channel is **pairing-gated**: it carries only pairing frames
+   * until the directional-HMAC handshake accepts (channel-bound to the DTLS fingerprints), and only THEN is the
+   * session exposed — fail closed on mismatch/timeout. When omitted (Stage-A loopback / tests), the channel is
+   * exposed immediately with no pairing (unchanged behavior).
+   */
+  readonly secret?: string;
+  /** REMOTE-008: fired when pairing accepts + the session is exposed (host lifecycle → status 'paired'). */
+  readonly onPaired?: () => void;
+  /** REMOTE-008: fired when pairing rejects/times out (host lifecycle → teardown; the channel is already closed). */
+  readonly onPairingFailed?: () => void;
 }
 
 /**
@@ -38,6 +51,10 @@ export class WebRtcTransport implements IConfigurableTransport<IInteractiveSessi
   private peer?: RTCPeerConnection;
   private unsubscribeSignal?: () => void;
   private cleanupHandler?: () => void;
+  /** REMOTE-008: local DTLS fingerprint (from the offer SDP), captured for the pairing channel-binding. */
+  private localFingerprint?: string;
+  /** REMOTE-008: the pairing gate for the current channel (only when `options.secret` is set). */
+  private pairingGate?: PairingGate;
 
   public constructor(private readonly options: IWebRtcTransportOptions) {}
 
@@ -74,6 +91,10 @@ export class WebRtcTransport implements IConfigurableTransport<IInteractiveSessi
           await peer.setRemoteDescription(
             message.data as Parameters<typeof peer.setRemoteDescription>[0],
           );
+          // REMOTE-008: the remote DTLS fingerprint is only knowable now (from the answer SDP). Start the
+          // pairing handshake here — the data channel cannot open (DTLS) until the answer is processed, so no
+          // inbound frame can arrive before the gate exists.
+          this.startPairingIfConfigured(channel, session, message.data);
         } else if (message.kind === 'ice') {
           await peer.addIceCandidate(message.data as Parameters<typeof peer.addIceCandidate>[0]);
         }
@@ -85,17 +106,59 @@ export class WebRtcTransport implements IConfigurableTransport<IInteractiveSessi
 
     const offer = await peer.createOffer();
     await peer.setLocalDescription(offer);
+    // Capture the local DTLS fingerprint for the pairing channel-binding (offer SDP).
+    if (this.options.secret && peer.localDescription) {
+      this.localFingerprint = extractDtlsFingerprint(peer.localDescription.sdp);
+    }
     signaling.send({ kind: 'offer', data: peer.localDescription });
   }
 
+  /**
+   * REMOTE-008: when a pairing secret is configured, build the {@link PairingGate} from the local + remote DTLS
+   * fingerprints once the answer is in. The gate drives the handshake and only exposes the session on accept.
+   */
+  private startPairingIfConfigured(
+    channel: RTCDataChannel,
+    session: IInteractiveSession,
+    answer: unknown,
+  ): void {
+    const secret = this.options.secret;
+    if (!secret || !this.localFingerprint) return;
+    const sdp = (answer as { sdp?: unknown }).sdp;
+    if (typeof sdp !== 'string') return;
+    this.pairingGate = new PairingGate({
+      channel: { send: (d) => channel.send(d), close: () => void channel.close() },
+      session,
+      secret,
+      role: 'initiator', // the host is the WebRTC offerer ≡ pairing initiator
+      localFingerprint: this.localFingerprint,
+      remoteFingerprint: extractDtlsFingerprint(sdp),
+      ...(this.options.onPaired ? { onAccept: this.options.onPaired } : {}),
+      ...(this.options.onPairingFailed ? { onReject: this.options.onPairingFailed } : {}),
+    });
+  }
+
   private wireChannel(channel: RTCDataChannel, session: IInteractiveSession): void {
-    // Subscribe `onMessage` and build the handler **eagerly at channel creation** — NOT inside the `open`
-    // event. werift does not buffer inbound messages that arrive before a subscription exists, and the remote
-    // (answerer) can open its end and send its first `TClientMessage` before the host's `open` fires, so a
-    // deferred subscription drops that first message. `channel.send` runs under try/catch because werift buffers
-    // sends while the channel is still `connecting` (a `TServerMessage` reply is often produced at that point)
-    // and only throws once the channel is `closing`/`closed` — that terminal case is the only one we drop,
-    // matching WebSocket semantics where a send after close cannot carry the frame.
+    // Subscribe `onMessage` **eagerly at channel creation** — NOT inside the `open` event. werift does not buffer
+    // inbound messages that arrive before a subscription exists, and the remote (answerer) can open its end and
+    // send its first frame before the host's `open` fires, so a deferred subscription drops that first message.
+    //
+    // REMOTE-008: when a pairing secret is configured, the eager subscription is a ROUTING SWITCH — it forwards
+    // to the {@link PairingGate}, which routes to the handshake pre-accept (dropping non-pairing frames) and to
+    // the session bridge post-accept. The gate is created in the answer branch, so a frame arriving before it
+    // exists is dropped (fail-closed) — but the channel cannot open until DTLS (post-answer), so that window is
+    // empty in practice. Without a secret, behavior is unchanged: expose the session immediately.
+    if (this.options.secret) {
+      channel.onMessage.subscribe((data) => {
+        this.pairingGate?.onInbound(typeof data === 'string' ? data : data.toString());
+      });
+      this.cleanupHandler = () => this.pairingGate?.cleanup();
+      return;
+    }
+
+    // Unpaired (Stage-A loopback / tests): `channel.send` runs under try/catch because werift buffers sends while
+    // the channel is `connecting` and only throws once `closing`/`closed` — the terminal case we drop, matching
+    // WebSocket semantics where a send after close cannot carry the frame.
     const { onMessage, cleanup } = createWsHandler({
       session,
       send: (serverMessage) => {
@@ -117,6 +180,8 @@ export class WebRtcTransport implements IConfigurableTransport<IInteractiveSessi
     this.unsubscribeSignal?.();
     this.cleanupHandler = undefined;
     this.unsubscribeSignal = undefined;
+    this.pairingGate = undefined;
+    this.localFingerprint = undefined;
     if (this.peer) {
       await this.peer.close();
       this.peer = undefined;

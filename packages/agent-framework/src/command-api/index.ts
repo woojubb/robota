@@ -27,8 +27,10 @@ export type {
   ICommandPermissionModeAdapter,
   ICommandPickerAdapter,
   ICommandProcessAdapter,
+  ICommandRemoteControlAdapter,
   ICommandSettingsAdapter,
   ICommandSettingsDocument,
+  TRemoteControlStatus,
 } from './host-adapters.js';
 export type {
   IProviderCommandModuleOptions,

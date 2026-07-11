@@ -6,9 +6,27 @@ import { applyCommandEffects } from './command-effect-handler.js';
 import { useTuiCliAdapter } from '../tui-cli-adapter-context.js';
 
 import type { IUseSideEffectsOptions, IUseSideEffectsResult } from './side-effects-types.js';
-import type { TSessionEndReason } from '@robota-sdk/agent-core';
+import type { IHistoryEntry, TSessionEndReason } from '@robota-sdk/agent-core';
 
 const EXIT_DELAY_MS = 500;
+
+/** REMOTE-008: resolve a composition-root enable/stop message (sync or async) and render it into history. */
+function renderRemoteControlMessage(
+  message: string | Promise<string>,
+  addEntry: (entry: IHistoryEntry) => void,
+): void {
+  void Promise.resolve(message)
+    .then((text) => addEntry(messageToHistoryEntry(createSystemMessage(text))))
+    .catch((error: unknown) => {
+      addEntry(
+        messageToHistoryEntry(
+          createSystemMessage(
+            `Remote control failed: ${error instanceof Error ? error.message : String(error)}`,
+          ),
+        ),
+      );
+    });
+}
 
 export function useSideEffects({
   cwd,
@@ -21,6 +39,8 @@ export function useSideEffects({
   setStatusLineSettings,
   showSessionPickerOnStart,
   openAgentSwitcher,
+  enableRemoteControl,
+  stopRemoteControl,
 }: IUseSideEffectsOptions): IUseSideEffectsResult {
   const { exit } = useApp();
   const cliAdapter = useTuiCliAdapter();
@@ -57,6 +77,13 @@ export function useSideEffects({
           );
           return true;
         },
+        // REMOTE-008: run the composition-root enable/stop (returns a message) and render it into history.
+        enableRemoteControl: enableRemoteControl
+          ? () => void renderRemoteControlMessage(enableRemoteControl(), addEntry)
+          : undefined,
+        stopRemoteControl: stopRemoteControl
+          ? () => void renderRemoteControlMessage(stopRemoteControl(), addEntry)
+          : undefined,
         cliAdapter,
       }),
     [
@@ -66,6 +93,8 @@ export function useSideEffects({
       requestShutdown,
       setSessionName,
       setStatusLineSettings,
+      enableRemoteControl,
+      stopRemoteControl,
     ],
   );
 
