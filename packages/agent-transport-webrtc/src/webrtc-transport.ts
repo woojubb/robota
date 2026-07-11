@@ -6,8 +6,10 @@ import type {
 } from '@robota-sdk/agent-interface-transport';
 import type { RTCDataChannel, RTCPeerConnection } from 'werift';
 
+import type { IPairingResult } from '@robota-sdk/agent-remote-pairing';
+
 import { loadWerift } from './werift-loader.js';
-import { PairingGate } from './pairing-gate.js';
+import { PairingGate, type IHostReconnectConfig } from './pairing-gate.js';
 import type { ISignalingClient } from './signaling.js';
 import type { IWeriftModule } from './werift-loader.js';
 
@@ -44,10 +46,12 @@ export interface IWebRtcTransportOptions {
    * exposed immediately with no pairing (unchanged behavior).
    */
   readonly secret?: string;
-  /** REMOTE-008: fired when pairing accepts + the session is exposed (host lifecycle → status 'paired'). */
-  readonly onPaired?: () => void;
+  /** REMOTE-008: fired when pairing accepts + the session is exposed (host lifecycle → status 'paired'). Carries the first-pair result (E4 uses its sessionKey). */
+  readonly onPaired?: (result?: IPairingResult) => void;
   /** REMOTE-008: fired when pairing rejects/times out (host lifecycle → teardown; the channel is already closed). */
   readonly onPairingFailed?: () => void;
+  /** REMOTE-012 E3: host reconnect/enrollment config. When set, the gate admits first-pair (with enrollment) OR a pinned-device reconnect. */
+  readonly reconnect?: IHostReconnectConfig;
   /** Test seam: inject the werift module (defaults to the real lazy loader). */
   readonly loadWerift?: () => IWeriftModule;
 }
@@ -159,6 +163,7 @@ export class WebRtcTransport implements IConfigurableTransport<IInteractiveSessi
       remoteFingerprint: extractDtlsFingerprint(sdp),
       ...(this.options.onPaired ? { onAccept: this.options.onPaired } : {}),
       ...(this.options.onPairingFailed ? { onReject: this.options.onPairingFailed } : {}),
+      ...(this.options.reconnect ? { reconnect: this.options.reconnect } : {}),
     });
   }
 

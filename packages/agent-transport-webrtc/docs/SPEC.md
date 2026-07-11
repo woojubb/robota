@@ -50,7 +50,12 @@ constructed (the channel cannot open until DTLS, i.e. post-answer, so no frame p
 gate routes pairing frames to `startPairingHandshake` and DROPS everything else; on `result` accept it builds
 `createWsHandler` and switches routing to the session; on reject/timeout it closes the channel and exposes nothing.
 The transport's optional `onPaired`/`onPairingFailed` callbacks fire on gate accept/reject so the host can drive its
-lifecycle (REMOTE-008: status `paired`, and teardown of the peer/signaling on failure so nothing leaks).
+lifecycle (REMOTE-008: status `paired`, and teardown of the peer/signaling on failure so nothing leaks). **REMOTE-012
+E3:** when `IWebRtcTransportOptions.reconnect` (an `IHostReconnectConfig`) is set, the gate becomes reactive — the
+client's first frame selects **first-pair** (B3 handshake, then a mutual identity-key enrollment exchange that pins
+the device key before the session is exposed) or **reconnect** (the mutual `startHostReconnect` against the pinned
+device + host identity keys, no re-pair). `onPaired` carries the first-pair `IPairingResult` (its `sessionKey` is
+reserved for E4). Without `reconnect`, the gate is exactly the B4 first-pair-only gate.
 
 ## Type Ownership
 
@@ -66,20 +71,21 @@ lifecycle (REMOTE-008: status `paired`, and teardown of the peer/signaling on fa
 
 ## Public API Surface
 
-| Export                        | Kind     | Description                                                                      |
-| ----------------------------- | -------- | -------------------------------------------------------------------------------- |
-| `WebRtcTransport`             | class    | `IConfigurableTransport` carrying a session over an `RTCDataChannel`.            |
-| `IWebRtcTransportOptions`     | type     | Construction options.                                                            |
-| `IIceServer`                  | type     | A STUN/TURN server (`urls` + optional `username`/`credential`; REMOTE-010).      |
-| `createInMemorySignalingPair` | function | In-process signaling pair for loopback/tests (no server).                        |
-| `WsSignalingClient`           | class    | Production `ISignalingClient` over a `ws` socket to the relay (REMOTE-004).      |
-| `IWsSignalingClientOptions`   | type     | `WsSignalingClient` options (url, rendezvous, onError, onReady, socket factory). |
-| `IWebSocketLike`              | type     | Minimal socket surface `WsSignalingClient` needs (injectable in tests).          |
-| `ISignalingClient`            | type     | Signaling port (send/onSignal/close by rendezvous).                              |
-| `ISignalMessage`              | type     | Opaque SDP/ICE envelope.                                                         |
-| `TSignalKind`                 | type     | `'offer' \| 'answer' \| 'ice'`.                                                  |
-| `loadWerift`                  | function | Lazy-load the optional `werift` peer dep (throws on absence).                    |
-| `IWeriftModule`               | type     | The subset of the werift surface this transport constructs.                      |
+| Export                        | Kind     | Description                                                                                              |
+| ----------------------------- | -------- | -------------------------------------------------------------------------------------------------------- |
+| `WebRtcTransport`             | class    | `IConfigurableTransport` carrying a session over an `RTCDataChannel`.                                    |
+| `IWebRtcTransportOptions`     | type     | Construction options.                                                                                    |
+| `IIceServer`                  | type     | A STUN/TURN server (`urls` + optional `username`/`credential`; REMOTE-010).                              |
+| `IHostReconnectConfig`        | type     | E3 host reconnect/enrollment config for the gate (host identity + device resolver + enroll; REMOTE-012). |
+| `createInMemorySignalingPair` | function | In-process signaling pair for loopback/tests (no server).                                                |
+| `WsSignalingClient`           | class    | Production `ISignalingClient` over a `ws` socket to the relay (REMOTE-004).                              |
+| `IWsSignalingClientOptions`   | type     | `WsSignalingClient` options (url, rendezvous, onError, onReady, socket factory).                         |
+| `IWebSocketLike`              | type     | Minimal socket surface `WsSignalingClient` needs (injectable in tests).                                  |
+| `ISignalingClient`            | type     | Signaling port (send/onSignal/close by rendezvous).                                                      |
+| `ISignalMessage`              | type     | Opaque SDP/ICE envelope.                                                                                 |
+| `TSignalKind`                 | type     | `'offer' \| 'answer' \| 'ice'`.                                                                          |
+| `loadWerift`                  | function | Lazy-load the optional `werift` peer dep (throws on absence).                                            |
+| `IWeriftModule`               | type     | The subset of the werift surface this transport constructs.                                              |
 
 ## Extension Points
 
