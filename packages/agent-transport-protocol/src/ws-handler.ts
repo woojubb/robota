@@ -61,7 +61,12 @@ export function createWsHandler(options: IWsHandlerOptions): {
   return { onMessage, cleanup };
 }
 
-function subscribeSessionEvents(
+/**
+ * Subscribe the session's events and forward each as a `TServerMessage` via `send`; returns an unsubscribe.
+ * Exported (REMOTE-013 E4) so the persistent {@link SessionResumeBridge} can own a SINGLE subscription that
+ * outlives per-channel handlers.
+ */
+export function subscribeSessionEvents(
   session: IInteractiveSession,
   send: (message: TServerMessage) => void,
 ): () => void {
@@ -131,7 +136,8 @@ function createWsMessageHandler(
   };
 }
 
-function parseClientMessage(
+/** Parse a client JSON frame; on invalid JSON it emits `protocol_error` and returns null. Exported for E4. */
+export function parseClientMessage(
   data: string,
   send: (message: TServerMessage) => void,
 ): TClientMessage | null {
@@ -143,7 +149,11 @@ function parseClientMessage(
   }
 }
 
-function handleClientMessage(
+/**
+ * Route a parsed client message to the session (control/query/background/prompt-response). Exported for E4:
+ * the {@link SessionResumeBridge} intercepts `resume`/`ack` itself and delegates everything else here.
+ */
+export function handleClientMessage(
   session: IInteractiveSession,
   send: (message: TServerMessage) => void,
   msg: TClientMessage,
