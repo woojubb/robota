@@ -1,6 +1,7 @@
 ---
 title: 'DIST-001: Bun-compile single-binary distribution for agent-cli (Node path unchanged)'
-status: todo
+status: done
+completed: 2026-07-12
 created: 2026-07-11
 priority: medium
 urgency: later
