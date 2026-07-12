@@ -111,6 +111,12 @@ Check every item. A single unmet item = FAIL.
 - [ ] Sibling scan item is `[x]` with either completion evidence or explicit `N/A: <reason>`
 - [ ] Alternatives Considered has at least 2 entries with pro/con for each
 - [ ] Decision references the trade-off that drove the choice
+- [ ] **New-surface placement (conditional):** IF the spec introduces a new package / app / presentation
+      or interface surface, or reclassifies a layer / product-family boundary, the Sibling scan / Decision
+      MUST (a) name the analogous existing layer it mirrors + its product-family classification, and (b) show
+      reuse is at the shared contract/core level, not a dependency on a sibling PRODUCT. See
+      `spec-workflow.md` "New-Surface Architecture Placement". (N/A only if no new surface/boundary is
+      introduced.)
 
 **Completion Criteria:**
 
@@ -141,6 +147,11 @@ Check every item. A single unmet item = FAIL.
 - [ ] User has provided explicit approval in the current conversation
 - [ ] Approval is a direct, unambiguous statement directed at this spec document
 - [ ] No Architecture Review or frontmatter type/tags modified after approval
+- [ ] **Independent architecture validation (conditional):** IF the spec introduces a new package / app /
+      surface or reclassifies a layer / product-family boundary, the Evidence Log MUST contain an independent
+      architecture-review verdict (a `proposal-reviewer` / `architecture-auditor` entry) that ENDORSED the
+      placement — not a bare "reviewed" claim. A new-surface spec approved without a recorded independent
+      placement review is a process violation (see `spec-workflow.md` "New-Surface Architecture Placement").
 
 **What counts as explicit approval:**
 
