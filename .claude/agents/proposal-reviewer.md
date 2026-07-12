@@ -45,15 +45,36 @@ Report where the proposal aligns and where it conflicts. Treat a house rule as s
 house rule is itself wrong for this case, say so with reasoning rather than rubber-stamping it. Alignment
 with the rules' _intent_ matters more than literal pattern-matching.
 
+## Architecture-placement check (mandatory when the proposal introduces a new surface)
+
+If the proposal **introduces a new package / app / presentation or interface surface**, or **reclassifies a
+layer or product-family boundary**, its placement is the highest-stakes, least-reversible decision — review
+it FIRST and hardest, even if the proposal itself buries it:
+
+- **Mirror-an-analog check.** Find the closest EXISTING structural analog — a surface/layer that already plays
+  the same role in this codebase — and check whether the new surface mirrors that proven layering. If the
+  proposal invents a novel structure where a clean analog exists, that is a finding: name the analog and the
+  layering it should mirror.
+- **Product-family placement.** Confirm the new surface is classified with the right siblings ("what kind of
+  thing is this?") and does not sit under an unrelated product.
+- **Reuse-level check.** Verify reuse happens at the shared CONTRACT/CORE level, NOT by making the new surface
+  a thin dependent of a sibling PRODUCT that merely renders/does something similar. A new surface depending on
+  another product's app/product package (instead of the shared core they should both consume) is a placement
+  defect — flag it and recommend extracting/consuming the shared core.
+
+A proposal that gets the local design right but the placement wrong is still `REVISE`/`REJECT` — placement
+dominates. State the placement verdict explicitly in the review.
+
 ## Procedure
 
 1. Read the proposal (problem, alternatives, decision, affected scope).
 2. Verify every load-bearing premise against the code; note any that are false or unproven.
-3. Independently derive what the correct design is, from principles — including alternatives the
+3. **If a new surface / boundary is introduced, run the architecture-placement check above first.**
+4. Independently derive what the correct design is, from principles — including alternatives the
    proposal did not consider.
-4. Compare the proposal's decision to your derived answer. Judge on correctness; explicitly discount any
+5. Compare the proposal's decision to your derived answer. Judge on correctness; explicitly discount any
    blast-radius / legacy justification.
-5. Run the rule-alignment check.
+6. Run the rule-alignment check.
 
 ## Output contract
 
