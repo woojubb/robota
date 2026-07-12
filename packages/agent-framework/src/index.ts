@@ -585,6 +585,9 @@ export type {
   IHeadlessSessionOptions,
   IStatelessRuntimeConfig,
 } from './runtime/index.js';
+// RUNTIME-001: the shared, presentation-free runtime host (build session + transport lifecycle).
+export { buildRuntimeSession, startRuntimeHost } from './runtime/index.js';
+export type { IRuntimeHostOptions, IRuntimeHostHandle } from './runtime/index.js';
 export type { IResolvedConfig } from './config/config-types.js';
 
 // ──────────────────────────────────────────────────────────────

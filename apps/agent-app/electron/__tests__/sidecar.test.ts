@@ -33,7 +33,8 @@ describe('endpoint + spawn args (GUI-002)', () => {
     expect(spawn.env['ROBOTA_WS_TOKEN']).toBe('nonce-abc');
     expect(spawn.env['ROBOTA_WS_PORT']).toBe('51234');
     expect(spawn.env['PATH']).toBe('/usr/bin'); // base env preserved
-    expect(spawn.args).toEqual(['--foo']);
+    // RUNTIME-001: the headless runtime host (`--serve`) is always spawned, before any extra args.
+    expect(spawn.args).toEqual(['--serve', '--foo']);
     expect(spawn.args.join(' ')).not.toContain('nonce-abc'); // token NOT on argv
   });
 

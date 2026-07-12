@@ -16,6 +16,8 @@ export interface IParsedCliArgs {
   positional: string[];
   help: boolean;
   printMode: boolean;
+  /** RUNTIME-001: run the headless runtime host (serve the WS, no ink) — the backend apps/agent-app spawns. */
+  serve: boolean;
   continueMode: boolean;
   resumeId: string | undefined;
   language: string | undefined;
@@ -162,6 +164,7 @@ const PARSE_ARGS_CONFIG = {
     goal: { type: 'string' },
     'goal-max-iterations': { type: 'string' },
     'fork-session': { type: 'boolean', default: false },
+    serve: { type: 'boolean', default: false },
     name: { type: 'string', short: 'n' },
     'output-format': { type: 'string' },
     format: { type: 'string' },
@@ -204,6 +207,7 @@ function mapParsedValues(
     positional: positionals,
     help: values['help'] ?? false,
     printMode: values['p'] ?? false,
+    serve: values['serve'] ?? false,
     continueMode: values['continue'] ?? false,
     resumeId: values['resume'],
     language: values['language'],

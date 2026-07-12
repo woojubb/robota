@@ -5,6 +5,14 @@
 Interactive terminal AI coding assistant. A React + Ink-based TUI for running AI agents from the command line.
 A **thin CLI layer** built on top of agent-sdk, responsible only for the terminal UI.
 
+**Modes.** Default = interactive TUI (`renderApp`). `-p`/`--goal` = print/headless autonomous run. **`--serve`
+(RUNTIME-001)** = the **headless runtime host**: it runs `startRuntimeHost` (from `@robota-sdk/agent-framework`)
+over the resolved runtime options + the loopback `WsTransport` (token/port from `ROBOTA_WS_TOKEN`/`ROBOTA_WS_PORT`)
+and keeps the process alive until SIGTERM — rendering NO ink. This is the backend `apps/agent-app` (the desktop
+GUI) spawns: the TUI and the GUI are sibling presentations over the SAME runtime host; the GUI does not control
+the CLI. The CLI stays the composition root (it resolves settings/preset/provider and chooses the transports);
+`agent-framework` owns the neutral build-session + transport-lifecycle seam.
+
 ## Boundaries
 
 - Does NOT own Session/SessionStore — handled internally by `@robota-sdk/agent-framework`; CLI must NOT import from `@robota-sdk/agent-session`
