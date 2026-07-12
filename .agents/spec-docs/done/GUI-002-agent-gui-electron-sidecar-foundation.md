@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: INFRA
 tags: [desktop, electron, sidecar, gui, react, websocket]
 ---
@@ -263,39 +263,39 @@ a later spec (GUI-003)**.
 
 ## Completion Criteria
 
-- [ ] **TC-01** — Observable: launching `apps/agent-gui` (dev run) opens a desktop window that spawns the
+- [x] **TC-01** — Observable: launching `apps/agent-gui` (dev run) opens a desktop window that spawns the
       `robota` sidecar and connects the webview over loopback WS; submitting a user turn shows a streaming
       assistant reply and tool cards in the GUI.
-- [ ] **TC-02** — Observable: a gated tool call renders a permission prompt in the GUI; clicking Allow/Deny
+- [x] **TC-02** — Observable: a gated tool call renders a permission prompt in the GUI; clicking Allow/Deny
       answers it via `resolvePermission`, and an ask prompt renders + answers via `resolveAsk`; a
       `prompt_resolved` event dismisses an open prompt.
-- [ ] **TC-03** — Observable: a WS connection presenting a missing/wrong launch nonce is rejected by the
+- [x] **TC-03** — Observable: a WS connection presenting a missing/wrong launch nonce is rejected by the
       sidecar **before any session data (`messages` / `execution_workspace_event`) is emitted** (the reject
       happens at the handshake/first-frame, not after the snapshot dump); a connection presenting the
       correct nonce — carried via query param or `Sec-WebSocket-Protocol` subprotocol — is accepted.
-- [ ] **TC-04** — Observable: closing the window shuts the session down gracefully (session `shutdown`
+- [x] **TC-04** — Observable: closing the window shuts the session down gracefully (session `shutdown`
       called), and a killed/crashed sidecar surfaces a non-hanging fatal/reconnect state in the UI status.
-- [ ] **TC-05** — Observable: `apps/agent-gui` declares no dependency on `agent-framework`/`agent-core`;
+- [x] **TC-05** — Observable: `apps/agent-gui` declares no dependency on `agent-framework`/`agent-core`;
       the GUI adds no session/command/permission logic (dependency-direction check + review).
-- [ ] **TC-06** — Command: `pnpm --filter @robota-sdk/agent-gui typecheck` and the affected `pnpm test`
+- [x] **TC-06** — Command: `pnpm --filter @robota-sdk/agent-gui typecheck` and the affected `pnpm test`
       pass; `pnpm harness:scan` is green (incl. the new app SPEC doc/structure scans); `.agents/project-structure.md`
       lists `apps/agent-gui` and its dependency edges.
 
 ## Test Plan
 
-| TC-N  | Test type            | Tool / approach                                                                                                                                                                                                                                                      |
-| ----- | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| TC-01 | Manual smoke + unit  | Unit: compose-root mounts the session view against a stub `TMakeSessionClient` and renders folded events. Manual: dev-run launch on the dev OS drives a real session (recorded in the app SPEC User Execution scenario).                                             |
-| TC-02 | Unit                 | Prompt render + answer against a mock session surface: Allow/Deny → `resolvePermission`, ask option → `resolveAsk`, `prompt_resolved` → dismiss (reuses `agent-web-ui` prompt-state coverage; GUI compose-root wiring test).                                         |
-| TC-03 | Unit                 | Launch-nonce loopback auth: the WS client presents the token; the WS handler/transport accepts the correct nonce and rejects a missing/wrong one (test lives in the touched transport package if the option lands there).                                            |
-| TC-04 | Unit (TS)            | Electron main-process (TS): the sidecar spawn builds the right args (port + nonce); a child-exit maps to the UI fatal state; the window-close path invokes graceful `shutdown`; a simulated sidecar drop surfaces the fatal/reconnect status. (All JS/TS — no Rust.) |
-| TC-05 | Static / review      | Dependency-direction assertion (`apps/agent-gui` package.json has no `agent-framework`/`agent-core` dep) + harness `deps` scan + code review that no session/command/permission logic was added.                                                                     |
-| TC-06 | Command (CI/harness) | `pnpm --filter @robota-sdk/agent-gui typecheck`, affected `pnpm test`, `pnpm harness:scan` all green; `.agents/project-structure.md` updated and passing the structure scan.                                                                                         |
+| TC-N  | Test type            | Tool / approach                                                                                                                                                                                                                                                                                |
+| ----- | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| TC-01 | Unit + headless e2e  | Unit: `src/__tests__/session-surface.test.tsx` mounts the compose-root over a stub state + renders folded events. E2E: `e2e/run-e2e.mjs` (Playwright `_electron` + xvfb) launches the REAL app against the real-`WsTransport` scripted sidecar — asserts connect-with-nonce + streaming reply. |
+| TC-02 | Unit                 | Prompt render + answer against a mock session surface: Allow/Deny → `resolvePermission`, ask option → `resolveAsk`, `prompt_resolved` → dismiss (reuses `agent-web-ui` prompt-state coverage; GUI compose-root wiring test).                                                                   |
+| TC-03 | Unit                 | Launch-nonce loopback auth: the WS client presents the token; the WS handler/transport accepts the correct nonce and rejects a missing/wrong one (test lives in the touched transport package if the option lands there).                                                                      |
+| TC-04 | Unit + headless e2e  | Unit: `electron/__tests__/sidecar.test.ts` — spawn args (token in env), child-exit → fatal, shutdown SIGTERM→SIGKILL, idempotent. E2E: `e2e/run-e2e.mjs` asserts the app closes cleanly (sidecar SIGTERM shutdown, no orphan). (All JS/TS — no Rust.)                                          |
+| TC-05 | Static / review      | Dependency-direction assertion (`apps/agent-gui` package.json has no `agent-framework`/`agent-core` dep) + harness `deps` scan + code review that no session/command/permission logic was added.                                                                                               |
+| TC-06 | Command (CI/harness) | `pnpm --filter @robota-sdk/agent-gui typecheck`, affected `pnpm test`, `pnpm harness:scan` all green; `.agents/project-structure.md` updated and passing the structure scan.                                                                                                                   |
 
 ## Tasks
 
-Task file: [`.agents/tasks/GUI-002.md`](../../tasks/GUI-002.md) (execution checklist T1–T10, one task per
-TC-N, with the mirrored Test Plan).
+Task file (archived on GATE-COMPLETE): [`.agents/tasks/completed/GUI-002.md`](../../tasks/completed/GUI-002.md)
+(execution checklist T1–T10, one task per TC-N, with the mirrored Test Plan).
 
 - [ ] T1: GATE-APPROVAL — proposal-reviewer ENDORSE of this architecture (the two forks + Stage-1 scope).
 - [ ] T2: Scaffold `apps/agent-gui` (Electron + Vite + React, all JS/TS); register in `.agents/project-structure.md`.
@@ -484,3 +484,149 @@ hardening notes folded into the spec: Fork B's stale "(forcing Electron)" parent
 (`will-navigate` deny + `setWindowOpenHandler` deny) recorded in Components (to be nailed down in the app
 `docs/SPEC.md` at T7). **Design gate satisfied for the Electron revision; implementation authorized (owner
 re-approved).**
+
+### [verification] — ✅ all TC-01..TC-06 verified (headless e2e built — GUI smoke is agent-owned) | 2026-07-12
+
+Implementation complete + on main (PR #1129 feature→develop, #1130 develop→main; both merge-verifier PASS).
+Per the owner directive ("GUI 검증은 네가 하고, 그게 가능한 테스트 환경까지 구축하라"), the previously-deferred
+desktop smoke is now an **agent-run headless automated e2e** — no owner action required:
+
+- **TC-01** — PASS. Unit: `apps/agent-gui/src/__tests__/session-surface.test.tsx` (compose-root renders folded
+  state). E2E: `apps/agent-gui/e2e/run-e2e.mjs` (Playwright `_electron` under `xvfb`, Electron `--no-sandbox`)
+  launches the REAL built app → asserts "window connects to the token-gated sidecar (nonce accepted
+  end-to-end)" + "submit renders a streaming assistant reply". GREEN.
+- **TC-02** — PASS. Unit: `session-surface.test.tsx` (Allow → `resolvePermission`). E2E: asserts "a gated tool
+  raises a permission prompt" + "Allow answers it and the tool completes". GREEN.
+- **TC-03** — PASS. `packages/agent-transport-ws/src/__tests__/ws-transport-auth.test.ts` (5 tests): correct
+  token via query param + subprotocol served; missing/wrong token closed 1008 BEFORE any `messages`/
+  `execution_workspace_event`; no-token = unchanged open. The e2e additionally proves the GUI presents the
+  correct token (its connection is accepted by the real token-gated `WsTransport`).
+- **TC-04** — PASS. Unit: `apps/agent-gui/electron/__tests__/sidecar.test.ts` (8 tests: spawn args token-in-env,
+  child-exit→fatal, shutdown SIGTERM→SIGKILL, idempotent). E2E: asserts "app closes cleanly (sidecar SIGTERM
+  shutdown)". GREEN.
+- **TC-05** — PASS. `apps/agent-gui/package.json` has no `agent-framework`/`agent-core` dep (the sidecar owns
+  the runtime; the e2e's `agent-transport-ws` is a devDep test fixture only); harness `deps` + capability-placement scans green.
+- **TC-06** — PASS. `pnpm --filter @robota-sdk/agent-gui typecheck` + `test` (12) + renderer/electron builds +
+  lint clean; `pnpm harness:scan` all 49 pass; `.agents/project-structure.md` lists `apps/agent-gui`.
+
+**Test env built (agent-owned, reproducible):** `xvfb` (headless display) + the downloaded Electron 43 binary
+(`--no-sandbox`) + Playwright `_electron` + `e2e/scripted-sidecar.mjs` (real `WsTransport` + scripted session,
+deterministic, no LLM/API key). `pnpm --filter @robota-sdk/agent-gui test:e2e` → **E2E PASSED (5/5)**.
+Follow-up (not blocking): wire `test:e2e` into a CI job (needs xvfb + electron-binary + playwright provisioning).
+
+### [GATE-VERIFY] — ❌ FAIL | 2026-07-12
+
+**Status remains:** in-progress
+
+Prior-gate precondition met: GATE-IMPLEMENT shows `✅ PASS | 2026-07-12` in this Evidence Log; frontmatter
+`status: in-progress` and the `active/` folder match the expected input stage for GATE-VERIFY.
+
+Criteria checked:
+
+- Build passes for affected packages — PASS (per record). The `[verification]` entry records renderer +
+  electron builds clean and `pnpm --filter @robota-sdk/agent-gui typecheck` green.
+- Tests pass for affected packages — PASS (per record). The `[verification]` entry records agent-gui `test`
+  (12) + `agent-transport-ws` ws-transport-auth (5) + e2e (5/5) green, and `pnpm harness:scan` all 49 pass.
+
+**Failed criteria:**
+
+- "All tasks in `.agents/tasks/GUI-002.md` are marked complete (`[x]`)" / "No tasks are blocked or pending":
+  T8 (`Tests per Test Plan; pnpm typecheck + affected pnpm test + pnpm harness:scan green;
+feature→develop→main via merge-verifier at each hop`) is still `[ ]` in the tasks file, even though the
+  `[verification]` Evidence entry records its substance as complete and merged (PR #1129 → develop, #1130 →
+  main, both merge-verifier PASS; tests + harness:scan green). The tracker therefore contradicts the recorded
+  evidence. (T10 = GATE-COMPLETE is a later-gate milestone task and is legitimately not-yet-checked at
+  GATE-VERIFY; it is not the blocker.)
+  **Required action:** Reconcile the tasks file — mark T8 `[x]` (its completion is already evidenced) so the
+  execution tracker reflects reality, then re-run GATE-VERIFY.
+
+### [GATE-VERIFY] — ✅ PASS | 2026-07-12
+
+**Status upgrade:** in-progress → verifying
+
+Prior-gate precondition met: GATE-IMPLEMENT shows `✅ PASS | 2026-07-12` in this Evidence Log; frontmatter
+`status: in-progress` and the `active/` folder match the expected input stage for GATE-VERIFY.
+
+Criteria checked:
+
+- "All tasks in `.agents/tasks/GUI-002.md` are marked complete (`[x]`)" — PASS. The prior FAIL blocker is
+  resolved: T8 (`Tests per Test Plan; pnpm typecheck + affected pnpm test + pnpm harness:scan green;
+feature→develop→main via merge-verifier at each hop`) is now `[x]`. T1–T9 are all `[x]`.
+- "No tasks are blocked or pending" — PASS. The only remaining unchecked item is T10 (`GATE-COMPLETE — spec
+active→done; open follow-up backlogs`), the terminal GATE-COMPLETE milestone task. Per the pipeline state
+  machine it transitions verifying→done at its OWN next gate and cannot be checked before that gate runs; it
+  is treated as not-yet-applicable for GATE-VERIFY (consistent with the prior GATE-VERIFY FAIL entry, which
+  explicitly recorded T10 as "a later-gate milestone task … legitimately not-yet-checked at GATE-VERIFY; it
+  is not the blocker"). No task is blocked.
+- Build passes for affected packages — PASS (per record). The `[verification]` entry records renderer +
+  electron builds clean and `pnpm --filter @robota-sdk/agent-gui typecheck` green.
+- Tests pass for affected packages — PASS (per record). The `[verification]` entry records agent-gui `test`
+  (12) + `agent-transport-ws` `ws-transport-auth.test.ts` (5) + headless Playwright/xvfb e2e (5/5) green, and
+  `pnpm harness:scan` all 49 pass. All six Completion Criteria TC-01..TC-06 are `[x]` with per-TC Test Plan
+  references and a per-TC Evidence Log entry.
+
+All GATE-VERIFY criteria met. File stays in `active/`; frontmatter `status` advanced to `verifying`.
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-07-12
+
+Checkbox `[x]`. Verification: unit `apps/agent-gui/src/__tests__/session-surface.test.tsx` (compose-root
+renders folded state) + headless e2e `apps/agent-gui/e2e/run-e2e.mjs` (Playwright `_electron` under `xvfb`,
+Electron 43 `--no-sandbox`) launched the REAL built app → asserted window connects to the token-gated
+sidecar (nonce accepted end-to-end) + submit renders a streaming assistant reply. E2E PASSED 5/5.
+Test reference: `session-surface.test.tsx` + `e2e/run-e2e.mjs` (Test Plan TC-01 row).
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-07-12
+
+Checkbox `[x]`. Verification: unit `session-surface.test.tsx` (Allow → `resolvePermission`) + e2e asserted a
+gated tool raises a permission prompt and Allow answers it so the tool completes. GREEN.
+Test reference: `apps/agent-gui/src/__tests__/session-surface.test.tsx` + `e2e/run-e2e.mjs` (Test Plan TC-02 row).
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-07-12
+
+Checkbox `[x]`. Verification: `packages/agent-transport-ws/src/__tests__/ws-transport-auth.test.ts` (5 tests) —
+correct token via query param + subprotocol served; missing/wrong token closed 1008 BEFORE any `messages` /
+`execution_workspace_event` emit; no-token path unchanged. The e2e additionally proves the GUI presents the
+correct token (accepted by the real token-gated `WsTransport`). GREEN.
+Test reference: `packages/agent-transport-ws/src/__tests__/ws-transport-auth.test.ts` (Test Plan TC-03 row).
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-07-12
+
+Checkbox `[x]`. Verification: unit `apps/agent-gui/electron/__tests__/sidecar.test.ts` (8 tests: spawn args
+token-in-env, child-exit→fatal, shutdown SIGTERM→SIGKILL, idempotent) + e2e asserted the app closes cleanly
+(sidecar SIGTERM shutdown, no orphan). GREEN.
+Test reference: `apps/agent-gui/electron/__tests__/sidecar.test.ts` + `e2e/run-e2e.mjs` (Test Plan TC-04 row).
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-07-12
+
+Checkbox `[x]`. Verification: `apps/agent-gui/package.json` declares no `agent-framework`/`agent-core` dep (the
+sidecar owns the runtime; `agent-transport-ws` is a devDep test fixture only); harness `deps` +
+capability-placement scans green; review confirmed no session/command/permission logic added.
+Test reference: dependency-direction assertion + harness `deps` scan (Test Plan TC-05 row).
+
+### [GATE-COMPLETE: TC-06] — ✅ PASS | 2026-07-12
+
+Checkbox `[x]`. Verification (command): `pnpm --filter @robota-sdk/agent-gui typecheck` + `test` (12) +
+renderer/electron builds + lint clean; `pnpm harness:scan` all 49 pass; `.agents/project-structure.md` lists
+`apps/agent-gui` and its dependency edges.
+Test reference: command form — typecheck + affected test + `harness:scan` (Test Plan TC-06 row).
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-07-12
+
+**Status upgrade:** verifying → done
+
+Prior-gate precondition met: GATE-VERIFY shows `✅ PASS | 2026-07-12` in this Evidence Log; frontmatter
+`status: verifying` and the `active/` folder match the expected input stage for GATE-COMPLETE.
+
+- Every TC-N in `## Completion Criteria` is `[x]` (TC-01..TC-06) and each has a matching
+  `[GATE-COMPLETE: TC-N]` Evidence entry above recording the verification command/action, the observed
+  result, and the test reference (real headless Playwright/xvfb e2e PASSED 5/5 + unit suites +
+  `ws-transport-auth` 5 tests).
+- Every TC-N in `## Test Plan` carries a test reference: TC-01 `session-surface.test.tsx` + `e2e/run-e2e.mjs`;
+  TC-02 `session-surface.test.tsx` + e2e; TC-03 `ws-transport-auth.test.ts`; TC-04 `sidecar.test.ts` + e2e;
+  TC-05 dependency-direction assertion + harness `deps` scan; TC-06 typecheck + test + `harness:scan`. No TC-N
+  silently unaddressed.
+- `## Completion Criteria` checkboxes all `[x]`; `## Test Plan` rows all reference tests.
+- Tasks file archived to `.agents/tasks/completed/GUI-002.md`; T10 marked `[x]`; the spec `## Tasks` section
+  updated to point at the archived path.
+
+All GATE-COMPLETE criteria met. Frontmatter `status` advanced to `done`; spec moved `active/` → `done/`.
