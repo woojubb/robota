@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: INFRA
 tags: [gui, architecture, presentation, electron, react, refactor]
 ---
@@ -263,3 +263,50 @@ apps/agent-app` rename, as an isolated commit per T4).
 - Test Plan present: task file has a `## Test Plan` section (TC-01..TC-05 rows, ≥50 chars) satisfying the `test-plans` harness scan requirement. [AF-24]
 - Note (non-blocking, not a gate criterion): the task file's TC-02 wording still references a "re-export shim", which the spec's post-proposal-review decision reversed (NO re-export shim). Content freshness of the task file is out of scope for this gate; flagged for the implementer to reconcile.
 - Spec moved `todo/ → active/`; frontmatter set to `status: in-progress`. Task file stays in place.
+
+### [GATE-VERIFY] — ✅ PASS | 2026-07-12
+
+**Status upgrade:** in-progress → verify-passed
+
+Every Completion Criterion verified (agent-owned; GUI verification not deferred to the owner):
+
+- **TC-01** — `@robota-sdk/agent-transport-gui` builds (tsdown dual node/browser) + typechecks; exports the
+  session core (`useSessionClient`/`useWsSession`/`createWsSessionClient`, prompt-state, `ConversationView`/
+  `AgentActivityPanel`/`PermissionPrompt`/`SessionSurface`/`CenteredChrome`, `styles/theme.css`). Deps =
+  `agent-interface-transport` + `agent-transport-protocol` + react-markdown/remark-gfm + react peer only — NO
+  pairing, NO agent-web-ui. Unit tests 10/10.
+- **TC-02** — `agent-web-ui` refactored to the browser-remote surface; imports the core directly and does NOT
+  re-export it (proposal-review-corrected: exports only its owned RTC surface — no pass-through shim).
+  `apps/agent-web` (robota-web) typecheck green with no source edit. web-ui unit tests 45/45.
+- **TC-03** — `apps/agent-app` (renamed from `apps/agent-gui`) renders via `agent-transport-gui/client` (no
+  agent-web-ui import); Vite+Tailwind renderer + Electron build clean; jsdom unit tests 12/12; headless
+  Playwright `_electron`+xvfb e2e **5/5** over the real `WsTransport` sidecar; screenshots captured + shown to
+  the owner (terminal-noir shell: title/status bar, user/agent blocks, composer + key hints, permission modal).
+- **TC-04** — dependency-direction: `agent-transport-gui` → contract/protocol only; `agent-web-ui` +
+  `apps/agent-app` → `agent-transport-gui`; no cycle (generic status param keeps RTC states out of the core);
+  `apps/agent-app` has no agent-framework/agent-core dep. Registered in `.agents/project-structure.md` +
+  capability-placement allowlist (`apps/agent-app`).
+- **TC-05** — affected typecheck (agent-transport-gui, agent-web-ui, agent-app, robota-web) + tests (67 total) +
+  `pnpm harness:scan` **49/49** green. All packages `private:true` → no changeset. SPEC + README authored for
+  the new package + refactored for agent-web-ui + renamed app.
+
+Independent architecture-conformance audit (architecture-conformance-auditor): **materially conformant** — deps
+exact, no cycle, no pass-through re-export, correct peer-of-agent-transport-tui placement all HOLD. All five
+findings (four doc-side + one unused-dep) applied before merge.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-07-12
+
+**Status upgrade:** verify-passed → done
+
+- Shipped to `main`: implementation squash `55287530a` (#1137, feature→develop) promoted via #1138
+  (develop→main merge `6dcff493e`). Both hops merge-verified (merge-verifier → LANDED: PASS): the new
+  `packages/agent-transport-gui`, the renamed `apps/agent-app` (old `apps/agent-gui` gone), and `agent-web-ui`
+  import-not-re-export are present on the remote target; CI green (build/quality/scans/security/compat-node18/
+  release-grade verification); no unrelated drift.
+- GUI verification agent-owned end-to-end (headless Electron test env built + run by the agent; not deferred).
+- Follow-up filed: **GUI-006** backlog — unify the web GUI surface over `agent-transport-gui` and
+  absorb/retire `agent-web-ui` (GUI Phase-2), per the owner's "agent-web-ui는 정리되어야겠다" directive.
+- Parent GUI-001 backlog intent (a GUI layer mirroring the TUI) is now satisfied for the desktop surface; the
+  web surface unification remains as GUI-006.
+
+Spec moved `active/ → done/`; frontmatter `status: done`.
