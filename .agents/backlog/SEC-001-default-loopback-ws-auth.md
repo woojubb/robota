@@ -4,7 +4,7 @@ status: todo
 created: 2026-07-12
 priority: high
 urgency: soon
-area: packages/agent-transport-ws, packages/agent-web-ui, packages/agent-cli
+area: packages/agent-transport-ws, packages/agent-transport-gui, packages/agent-cli
 depends_on: []
 ---
 

@@ -28,7 +28,7 @@ Next.js App Router application with the following route structure:
 - `/monitor` -- CLI second-screen browser monitor. Connects to a running CLI session via WebSocket
   (default `NEXT_PUBLIC_CLI_WS_URL`, fallback `ws://localhost:7070`) and renders live conversation
   output. Implemented by `MonitorClient` (`src/app/monitor/MonitorClient.tsx`), which uses
-  `SessionMonitor` from `@robota-sdk/agent-web-ui/client` (the published browser component library).
+  `SessionMonitor` from `@robota-sdk/agent-transport-gui/client` (the shared GUI core package).
 
 The app composes workspace packages as React components. Client-side caching is provided by
 `src/lib/cache.ts`. Browser builds explicitly disable Node builtin polyfills in `next.config.ts` so
@@ -91,10 +91,10 @@ None.
 
 ### Cross-Package Port Consumers
 
-| Port (Owner)                                            | Consumer        | Location                            |
-| ------------------------------------------------------- | --------------- | ----------------------------------- |
-| `PlaygroundApp` (`@robota-sdk/agent-playground/client`) | Playground page | `src/app/playground/page.tsx`       |
-| `SessionMonitor` (`@robota-sdk/agent-web-ui/client`)    | MonitorClient   | `src/app/monitor/MonitorClient.tsx` |
+| Port (Owner)                                                | Consumer        | Location                            |
+| ----------------------------------------------------------- | --------------- | ----------------------------------- |
+| `PlaygroundApp` (`@robota-sdk/agent-playground/client`)     | Playground page | `src/app/playground/page.tsx`       |
+| `SessionMonitor` (`@robota-sdk/agent-transport-gui/client`) | MonitorClient   | `src/app/monitor/MonitorClient.tsx` |
 
 ## Test Strategy
 

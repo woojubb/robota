@@ -10,7 +10,7 @@ limited to building the Next.js app and pointing it at the WebSocket endpoints i
 - `/` — redirects to `/playground`.
 - `/playground` — Playground main page (`PlaygroundApp` from `@robota-sdk/agent-playground/client`).
 - `/playground/demo` — Playground demo mode.
-- `/monitor` — CLI second-screen browser monitor (`SessionMonitor` from `@robota-sdk/agent-web-ui/client`).
+- `/monitor` — CLI second-screen browser monitor (`SessionMonitor` from `@robota-sdk/agent-transport-gui/client`).
 
 ## Environment Variables
 

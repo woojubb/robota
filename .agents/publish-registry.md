@@ -36,15 +36,16 @@ Last audited: 2026-05-25 (pre-release readiness audit, REL-007)
 
 ## Private Packages (must NOT be published)
 
-| Package                                 | Reason                                                    |
-| --------------------------------------- | --------------------------------------------------------- |
-| `@robota-sdk/agent-executor`            | Internal background-task primitives, not consumer-facing  |
-| `@robota-sdk/agent-interface-transport` | Internal interface layer, superseded by agent-transport   |
-| `@robota-sdk/agent-interface-tui`       | Internal TUI interface, superseded by agent-transport/tui |
-| `@robota-sdk/agent-web-ui`              | Internal web UI components, not standalone                |
-| `@robota-sdk/agent-playground`          | Development playground app                                |
-| `@robota-sdk/agent-remote-client`       | Internal remote client                                    |
-| `@robota-sdk/agent-tool-mcp`            | Experimental MCP tool adapter                             |
+| Package                                  | Reason                                                    |
+| ---------------------------------------- | --------------------------------------------------------- |
+| `@robota-sdk/agent-executor`             | Internal background-task primitives, not consumer-facing  |
+| `@robota-sdk/agent-interface-transport`  | Internal interface layer, superseded by agent-transport   |
+| `@robota-sdk/agent-interface-tui`        | Internal TUI interface, superseded by agent-transport/tui |
+| `@robota-sdk/agent-transport-gui`        | Internal GUI presentation core, not standalone            |
+| `@robota-sdk/agent-transport-webrtc-web` | Internal browser WebRTC peer, not standalone              |
+| `@robota-sdk/agent-playground`           | Development playground app                                |
+| `@robota-sdk/agent-remote-client`        | Internal remote client                                    |
+| `@robota-sdk/agent-tool-mcp`             | Experimental MCP tool adapter                             |
 
 ## Rules
 

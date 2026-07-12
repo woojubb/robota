@@ -35,7 +35,7 @@ Deployment ownership:
 | `apps/starter-nextjs` | Next.js starter template (`@robota-sdk/starter-nextjs`) | Template (not a deployed service)                | Reference AI-chat starter that consumers copy; built with `next build`.                                                                                                                                                                         |
 | `apps/action`         | GitHub Action (`@robota-sdk/action`)                    | GitHub Marketplace (`tsc` build)                 | Official Robota GitHub Action; not a hosted web service.                                                                                                                                                                                        |
 
-`packages/agent-web-ui` vs `apps/agent-web` disambiguation:
+`apps/agent-web` vs `apps/agent-web-monitor` disambiguation:
 
 | Item                     | Kind                  | Role                                                                                                                                                                                                                         |
 | ------------------------ | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

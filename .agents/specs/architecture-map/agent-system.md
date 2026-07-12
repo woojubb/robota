@@ -142,13 +142,13 @@ See [packages/agent-playground/docs/SPEC.md](../../../packages/agent-playground/
 
 Sidecar mode spans four packages:
 
-| Package               | Role                                                                        | Status  |
-| --------------------- | --------------------------------------------------------------------------- | ------- |
-| `agent-cli`           | Launch `--web` flag; host `startWebSidecarServer(interactiveSession, port)` | pending |
-| `agent-transport-ws`  | `createWsHandler({ session, send })` — real-time session event relay        | exists  |
-| `agent-transport-gui` | Shared GUI core: `useWsSession(url)` reducer + view components              | exists  |
-| `agent-web-ui`        | Browser remote (WebRTC) surface + `SessionMonitor` (composes the GUI core)  | exists  |
-| `apps/agent-web`      | Deployment host; opens monitor URL in browser                               | exists  |
+| Package                      | Role                                                                                   | Status  |
+| ---------------------------- | -------------------------------------------------------------------------------------- | ------- |
+| `agent-cli`                  | Launch `--web` flag; host `startWebSidecarServer(interactiveSession, port)`            | pending |
+| `agent-transport-ws`         | `createWsHandler({ session, send })` — real-time session event relay                   | exists  |
+| `agent-transport-gui`        | Shared GUI core: owns `SessionMonitor` + `useWsSession(url)` reducer + view components | exists  |
+| `agent-transport-webrtc-web` | Browser WebRTC peer (`RemoteClient`, `useRtcSession`) over the GUI core                | exists  |
+| `apps/agent-web`             | Deployment host; opens monitor URL in browser                                          | exists  |
 
 For the intended sequence diagram see [agent-cli/execution-modes.md](agent-cli/execution-modes.md).
 
