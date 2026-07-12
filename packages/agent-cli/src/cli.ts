@@ -56,6 +56,7 @@ import { warnIfTerminalAppOnMacOS } from './startup/terminal-check.js';
 import type { IStartCliOptions } from './startup/command-setup.js';
 import { buildCommandSetup } from './startup/command-setup.js';
 import { runPrintMode } from './modes/print-mode.js';
+import { runServeMode } from './modes/serve-mode.js';
 
 export type { IStartCliOptions };
 
@@ -353,6 +354,41 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
           : {}),
       },
     );
+    return;
+  }
+
+  // RUNTIME-001: the headless runtime host. `apps/agent-app` (GUI) spawns `robota --serve` instead of the ink
+  // TUI — both the TUI and this entry drive the SAME runtime; the GUI does not control the CLI. No ink is
+  // rendered; the WS sidecar is served by the shared `startRuntimeHost`. Placed after the runtime block so it
+  // reuses the exact provider/session/transport assembly.
+  if (args.serve) {
+    await runServeMode({
+      cwd,
+      args,
+      provider,
+      sessionStore,
+      backgroundTaskRunners,
+      subagentRunnerFactory,
+      commandModules,
+      commandHostAdapters,
+      transportRegistry,
+      ...(remoteCommandPolicy ? { remoteCommandPolicy } : {}),
+      resumeSessionId,
+      preset: {
+        agentName: resolvedPreset.agentName ?? DEFAULT_AGENT_NAME,
+        activePresetId: selectedPresetId,
+        persona: resolvedPreset.persona,
+        ...(resolvedPreset.permissionMode !== undefined
+          ? { permissionMode: resolvedPreset.permissionMode }
+          : {}),
+        ...(resolvedPreset.enableParallelSubagents !== undefined
+          ? { enableParallelSubagents: resolvedPreset.enableParallelSubagents }
+          : {}),
+        ...(resolvedPreset.selfVerification !== undefined
+          ? { selfVerification: resolvedPreset.selfVerification }
+          : {}),
+      },
+    });
     return;
   }
 

@@ -62,7 +62,10 @@ export function buildSidecarSpawn(
   env['ROBOTA_WS_PORT'] = String(endpoint.port);
   return {
     command,
-    args: [...(options.extraArgs ?? [])],
+    // RUNTIME-001: spawn the headless runtime host (`robota --serve`), NOT the default ink TUI. The GUI drives
+    // a shared runtime; it does not control the CLI's terminal UI. (The scripted-sidecar test double ignores
+    // argv, so this is inert under e2e.)
+    args: ['--serve', ...(options.extraArgs ?? [])],
     env,
   };
 }

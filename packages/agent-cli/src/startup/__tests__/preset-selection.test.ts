@@ -10,6 +10,7 @@ function makeArgs(overrides: Partial<IParsedCliArgs> = {}): IParsedCliArgs {
     positional: [],
     help: false,
     printMode: false,
+    serve: false,
     continueMode: false,
     resumeId: undefined,
     language: undefined,
