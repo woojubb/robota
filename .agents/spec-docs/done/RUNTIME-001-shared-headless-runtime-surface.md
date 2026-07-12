@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: INFRA
 tags: [runtime, architecture, cli, gui, headless, session, refactor]
 ---
@@ -324,3 +324,24 @@ black-box scenarios run on every develop-targeting PR — the verification envir
 one-off snapshot.
 
 Remaining: T7 feature→develop→main (merge-verifier), then T8 GATE-COMPLETE stamp + `active/` → `done/` move.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-07-13
+
+**Status upgrade:** in-progress → done
+
+T7 landed: the serve black-box harness + CI wiring merged feature→develop→main (#1153 → #1154), independently
+confirmed by `merge-verifier` (MERGE VERIFIED: PASS — all changes present on origin/main, both CI hops green, no
+drift). `startRuntimeHost`/`buildRuntimeSession` (Design C) ship in `agent-framework/src/runtime/`; TUI + print +
+`--serve` construct through the single `buildRuntimeSession` seam; `robota --serve` is the headless host the GUI
+(`apps/agent-app`) spawns.
+
+**Done-gate (user execution test — agent-run, not deferred):** the RUNTIME-001 scenarios in
+`.agents/evals/scenarios/user-execution-scenarios.md` were run by the agent against the real surfaces and captured
+as evidence:
+
+- **S-GUI-1 / S-GUI-2** — the real Electron desktop app (headless under xvfb) connects to its `robota --serve`
+  sidecar, streams a reply, and raises + resolves a permission modal. Screenshots captured.
+- **S-SRV-1/2/3** — the real `robota --serve` binary black-box (`serve-mode.bintest.ts`): authed turn round-trip,
+  unauthenticated reject, graceful SIGTERM. 3/3 green; now a standing CI gate (`quality` job).
+
+All completion criteria satisfied. GUI-003 may now bundle the headless runtime entry.

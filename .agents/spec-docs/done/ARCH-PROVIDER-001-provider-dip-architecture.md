@@ -1,5 +1,5 @@
 ---
-status: approved
+status: done
 type: INFRA
 tags: [architecture, cli]
 ---
@@ -180,3 +180,13 @@ own gated spec. Nothing in this spec edits package `src`.
     (1) migrating per-vendor cost needs a small additive cost field on IProviderDefinition (planned extension of
     the SSOT, not incidental); (2) Stage B should internally sub-sequence (seam → node → default composition →
     migrate kinds → delete old) to keep each commit green. Design APPROVED → author Stage A.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-07-13
+
+**Status upgrade:** approved → done
+
+This parent design is fully realized: all staged implementation specs shipped and merged to main —
+ARCH-PROVIDER-002 (Stage A provider split), -003 (Stage B llm-node DIP), -004 (Stage C node-registry
+injection), -005 (Stage D skill-execution port), -006 (Stage E husk-policy cleanup), all in `done/`. The
+architecture-remediation items ARL-10/11/12/15 that motivated the design are resolved. No design intent remains
+unimplemented; the spec moves `todo/` → `done/` as housekeeping (the design's work is complete via its stages).
