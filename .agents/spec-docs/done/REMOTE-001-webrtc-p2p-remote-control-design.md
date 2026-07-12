@@ -1,5 +1,5 @@
 ---
-status: approved
+status: done
 type: INFRA
 tags: [remote-control, webrtc, transport, agent-cli, signaling]
 ---
@@ -286,3 +286,27 @@ the signaling server).
   a Stage-A refinement); staging exposes an enable path only in Stage B after the untrusted-surface hardening +
   command-gating land. **Design APPROVED.** Proceed to per-stage implementation specs (Stage A first). Spec →
   todo/ (approved design; stages carry their own gated specs).
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-07-13
+
+**Status upgrade:** approved → done
+
+All 13 build stages (REMOTE-002 … REMOTE-014) shipped and merged to main under their own gated specs (see
+`done/REMOTE-002…014`): transport-protocol/WebRTC skeleton, command-verb gating, signaling relay hardening,
+PAKE pairing + channel binding, untrusted-surface hardening, transport-neutral permission ask, WebRTC enable
+path, browser remote client, TURN fallback, signaling-abuse bounds, TOFU trusted-device reconnect, session
+resume, and co-drive attribution. The parent stayed open only pending the **User Execution Test Scenario**.
+
+**Done-gate (user execution test — agent-run, not deferred):** the scenario "enable → scan → drive from a second
+device; verify session content never transits the signaling server" is now agent-runnable and was run green (see
+`.agents/evals/scenarios/user-execution-scenarios.md`, S-RMT-1/2/3):
+
+- **S-RMT-1** — a host (`WebRtcTransport` + secret) and a second device (werift answerer) reach the **real**
+  `startSignalingServer()` via production `WsSignalingClient`, establish a **real** `RTCDataChannel`, and
+  round-trip a session message (`pairing-e2e.test.ts` + `integration-webrtc-relay.test.ts`).
+- **S-RMT-2** — mismatched pairing secret → both reject, session never exposed (fail-closed).
+- **S-RMT-3** — the privacy invariant is structurally enforced + tested: the signaling relay forwards **only**
+  `{signal: offer/answer/ice}` and holds no session content (`relay-hardening.test.ts`) — session payload rides
+  the P2P data channel exclusively. 13/13 green.
+
+These are standard `*.test.ts` suites already run by CI on the affected packages. All design intents realized.
