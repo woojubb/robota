@@ -11,8 +11,8 @@ import {
   messageToHistoryEntry,
 } from '@robota-sdk/agent-core';
 import {
-  InteractiveSession,
   CommandRegistry,
+  buildRuntimeSession,
   generateSessionName,
 } from '@robota-sdk/agent-framework';
 
@@ -31,6 +31,7 @@ import type {
   IActionRequest,
   TActionResponse as TUserActionResponse,
 } from '@robota-sdk/agent-core';
+import type { InteractiveSession } from '@robota-sdk/agent-framework';
 import type {
   IBackgroundTaskRunner,
   ICommandHostAdapters,
@@ -165,7 +166,9 @@ export class TuiInteractionChannel implements IInteractionChannel {
 
   private createSession(): InteractiveSession {
     const opts = this.opts;
-    return new InteractiveSession({
+    // RUNTIME-001: build through the shared construction seam (agent-framework), not a private
+    // `new InteractiveSession` — one session-construction SSOT across the TUI, print, and --serve.
+    return buildRuntimeSession({
       cwd: opts.cwd,
       provider: opts.provider,
       permissionMode: opts.permissionMode,

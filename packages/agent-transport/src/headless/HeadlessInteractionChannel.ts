@@ -7,7 +7,7 @@
 
 import { execSync } from 'node:child_process';
 
-import { InteractiveSession } from '@robota-sdk/agent-framework';
+import { buildRuntimeSession } from '@robota-sdk/agent-framework';
 
 import { createHeadlessRunner, type TOutputFormat } from './headless-runner.js';
 
@@ -18,6 +18,7 @@ import type {
   ICommandModule,
   TSubagentRunnerFactory,
   TShellExecFn,
+  InteractiveSession,
 } from '@robota-sdk/agent-framework';
 import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-transport';
 
@@ -82,12 +83,14 @@ export class HeadlessInteractionChannel {
   }
 
   private createSession(): InteractiveSession {
+    // RUNTIME-001: build through the shared construction seam (agent-framework), not a private
+    // `new InteractiveSession` — one session-construction SSOT across the TUI, print, and --serve.
     const shellExec: TShellExecFn =
       this.opts.shellExec ??
       ((command: string) =>
         execSync(command, { timeout: 5000, encoding: 'utf-8', stdio: 'pipe' }).trimEnd());
 
-    return new InteractiveSession({
+    return buildRuntimeSession({
       cwd: this.opts.cwd,
       provider: this.opts.provider,
       permissionMode: this.opts.permissionMode ?? 'bypassPermissions',

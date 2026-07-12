@@ -40,7 +40,12 @@ vi.mock('@robota-sdk/agent-framework', async (importOriginal) => {
     async shutdown(): Promise<void> {}
   }
 
-  return { ...mod, InteractiveSession: FakeInteractiveSession };
+  // RUNTIME-001: construction flows through buildRuntimeSession (wraps InteractiveSession in agent-framework).
+  return {
+    ...mod,
+    InteractiveSession: FakeInteractiveSession,
+    buildRuntimeSession: (options: unknown) => new FakeInteractiveSession(options),
+  };
 });
 
 import { HeadlessInteractionChannel } from '../HeadlessInteractionChannel.js';
