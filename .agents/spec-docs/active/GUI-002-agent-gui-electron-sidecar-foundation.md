@@ -1,16 +1,24 @@
 ---
 status: in-progress
 type: INFRA
-tags: [desktop, tauri, sidecar, gui, react, websocket]
+tags: [desktop, electron, sidecar, gui, react, websocket]
 ---
 
-# GUI-002: agent-gui — Tauri + sidecar foundation (Stage 1 MVP)
+# GUI-002: agent-gui — Electron + sidecar foundation (Stage 1 MVP)
 
 > Parent: [GUI-001](../../backlog/completed/) research-first backlog. This is the **foundational
 > architecture spec** for `agent-gui` and the **Stage 1 MVP** it authorizes. It records the two
-> owner-decided forks (Tauri v2 shell; spawn-the-CLI-sidecar hosting) so GATE-APPROVAL reviews the
+> owner-decided forks (Electron shell; spawn-the-CLI-sidecar hosting) so GATE-APPROVAL reviews the
 > decision, then authorizes a first buildable stage. Later stages (per-OS packaging/signing, richer
 > co-drive UI, in-process option if ever wanted) are separate specs.
+>
+> **Fork A revised (2026-07-12):** the shell was flipped **Tauri v2 → Electron** at the owner's direction
+> ("Node 생태계를 최대한 활용") after research showed every system-webview shell (Tauri/webview-nodejs/
+> electrobun) forces a non-Node toolchain (Rust/Bun) or a native addon — reintroducing exactly what
+> INFRA-028/DIST-001 avoid, and Rust does not even build in the current CI. Electron is the only option
+> satisfying all-Node + no-native-addon + builds-in-plain-Node-CI + mature signing. Sidecar model (Fork B),
+> the required nonce auth, and agent-web-ui reuse are unchanged. Re-endorsed by proposal-review (see
+> Evidence Log).
 
 ## Problem
 
@@ -75,37 +83,56 @@ Research (GUI-001 phase 1, read-only) established the reusable substrate and the
 
 ### Alternatives Considered (the two forks)
 
-**Fork A — desktop shell.** Tauri v2 (Rust core + system webview; ~5–15 MB shell; no Node in the
-webview) vs Electron (bundled Chromium + Node; ~90–150 MB; uniform rendering). **Owner decision: Tauri
-v2.** Rationale: a system-webview shell is the cleaner match for a display-only surface over a separate
-runtime process; it yields the smallest bundle and needs no native-dep handling. It _can_ later adopt the
-DIST-001 Bun single-binary as its sidecar for a single CLI+GUI artifact **if that spike succeeds** (a
-Node-less-install upside that is gated on DIST-001, not assumed here) — but Stage 1 spawns the Node
-`robota` entrypoint and depends on no unproven toolchain. Cost accepted: introduces **Rust** (shell glue
-only — spawn sidecar, window, tray — never domain logic, which stays TypeScript) and requires **Linux
-WebKitGTK QA** (the least uniform of the three system webviews).
+**Fork A — desktop shell.** The candidates split into two classes: **bundled-Chromium** shells (Electron,
+NW.js — all-JS, prebuilt binary, no compiler) and **system-webview** shells (Tauri = Rust; `webview-nodejs`
+= C native addon, discontinued; `@webview/webview` = Rust native addon; electrobun = Bun + Zig). Research
+established a decisive structural fact: **binding a system webview inherently requires native code, so
+"small system-webview bundle" and "all-Node + no-native-addon + builds-in-plain-Node-CI" are mutually
+exclusive in this repo.** Every system-webview option reintroduces exactly the native-module / non-Node
+toolchain that INFRA-028 (pure-JS closure) and DIST-001 (Bun-compile hostile to native addons) avoid — and
+Rust/Bun are both **absent from the current CI** (Tauri literally does not build here). **Owner decision:
+Electron.** Rationale: it is the only candidate satisfying ALL hard constraints simultaneously — no new
+language/toolchain (prebuilt Chromium+Node; the app compiles nothing), **no native addon** (INFRA-028
+invariant preserved), **builds in the current plain Node/pnpm CI**, and mature per-OS packaging + signing
+(electron-builder: macOS notarization, Windows Authenticode) for the deferred GUI-003 stage. Between the
+two bundled-Chromium options, Electron dominates NW.js on community and signing tooling. Cost accepted:
+**~85–150 MB bundled-Chromium shell** (vs the ~5–15 MB a system webview would give) and **the shell itself
+is not Bun-compilable** — but because this is a **sidecar** architecture, that misalignment is confined to
+the window chrome: the DIST-001 Bun single-binary, if that spike succeeds, still becomes the **sidecar**
+Electron spawns, so the Bun/native direction is preserved for the part that carries the actual runtime.
+Flipping to Electron also **removes** two costs the Tauri path carried (Rust glue + Linux WebKitGTK QA;
+Electron ships uniform Chromium on all three OSes).
 
 **Fork B — session hosting.** Spawn the CLI as a **loopback-WS sidecar** vs host the session
 **in-process** in a Node runtime. **Owner decision: sidecar.** Rationale: reuses the entire existing
 WS surface (REMOTE-007 permission/ask, REMOTE-014 attribution, OWNER PRINCIPLE) with near-zero new
-transport code — it is literally what `apps/agent-web` already does. In-process hosting would require a
-Node runtime in the shell (forcing Electron) and directly contradicts the Bun single-binary direction.
+transport code — it is literally what `apps/agent-web` already does. In-process hosting would couple
+`agent-gui` to `agent-framework`/`agent-core` (violating the no-framework-dep invariant), force the session
+runtime into the shell process, and directly contradict the Bun single-binary direction — whereas the
+sidecar keeps the runtime in a separate, independently-distributable `robota` process.
 
 **Package shape (consequence of A+B).** REUSE `agent-web-ui` as the presentation substrate rather than
-fork a new `agent-transport-gui`. A new `apps/agent-gui` owns ONLY the Tauri shell + sidecar
+fork a new `agent-transport-gui`. A new `apps/agent-gui` owns ONLY the Electron shell + sidecar
 lifecycle + loopback wiring (its own product assembly, per the "no shared product factory" rule). Any
 GUI-only presentation seam that emerges is added _inside_ `agent-web-ui`, not a parallel package.
 
 ### Decision
 
-Build `agent-gui` as a **thin Tauri v2 desktop shell** that (1) on launch **spawns a `robota` sidecar**
+Build `agent-gui` as a **thin Electron desktop shell** that (1) on launch **spawns a `robota` sidecar**
 (the Node entrypoint for Stage 1; the DIST-001 Bun single-binary later, gated on that spike) with the WS
 transport enabled on a loopback port and a **required launch-nonce loopback auth**; (2) loads the existing
-**`agent-web-ui` React SPA** in its system webview,
-pointed at `ws://127.0.0.1:<port>`; (3) reuses `agent-web-ui`'s session reducer + rendering verbatim —
-**no session/command/permission logic in the GUI**. The GUI is one more driver surface over the
+**`agent-web-ui` React SPA** into a `BrowserWindow` renderer, pointed at `ws://127.0.0.1:<port>`; (3) reuses
+`agent-web-ui`'s session reducer + rendering verbatim — **no session/command/permission logic in the GUI**.
+The Electron **main process is Node**, so `child_process.spawn('robota', …)` with the port+nonce is native
+and matches what `apps/agent-web` already does over loopback WS. The GUI is one more driver surface over the
 transport-neutral session; the OWNER PRINCIPLE (local == remote) and co-drive attribution (REMOTE-014)
 apply to it unchanged.
+
+**Cross-platform:** the app targets **macOS, Linux, and Windows** — Electron bundles uniform Chromium on all
+three (no per-OS webview divergence), and the Stage-1 dev-run works on each. Per-OS installers + code-signing
+(macOS notarization, Windows Authenticode; .dmg/.app, .AppImage/.deb/.rpm, .exe/.msi via electron-builder)
+are the deferred **GUI-003** stage; the `robota` sidecar likewise targets all three (DIST-001: macOS
+arm64/x64, Linux x64/arm64, Windows x64).
 
 **Stage 1 (this spec) delivers the MVP:** a desktop window that starts, spawns + supervises the sidecar,
 renders a live session (conversation, streaming, tools), and renders + answers permission/ask prompts —
@@ -119,13 +146,15 @@ a later spec (GUI-003)**.
 - [x] Sibling scan 완료 — the "render a live session" surface already exists as a SIBLING (`agent-web-ui`,
       the browser React surface, and `apps/agent-web` which mounts it over loopback WS); this spec REUSES that
       sibling as the presentation substrate rather than forking a new `agent-transport-gui` — `apps/agent-gui`
-      adds ONLY the Tauri shell + sidecar lifecycle. The TUI sibling (`agent-transport-tui`) is the
+      adds ONLY the Electron shell + sidecar lifecycle. The TUI sibling (`agent-transport-tui`) is the
       architectural mirror (thin surface over the transport-neutral session), not code to copy. N/A: no new
       shared presentation package is introduced.
-- [x] 대안 최소 2개 검토 완료 — two forks each with ≥2 options: shell (Tauri vs Electron) and hosting
-      (sidecar vs in-process); see **Alternatives Considered**.
-- [x] 결정 근거 문서화 완료 — see **Decision** (Tauri+sidecar; rationale = DIST-alignment + zero session-logic
-      duplication + smallest bundle; costs = Rust glue + Linux WebKitGTK QA + loopback-nonce surface).
+- [x] 대안 최소 2개 검토 완료 — two forks each with ≥2 options: shell (bundled-Chromium: Electron/NW.js vs
+      system-webview: Tauri/webview-nodejs/electrobun) and hosting (sidecar vs in-process); see
+      **Alternatives Considered**.
+- [x] 결정 근거 문서화 완료 — see **Decision** (Electron+sidecar; rationale = only all-Node + no-native-addon +
+      builds-in-plain-CI + mature signing option; costs = ~100 MB bundled-Chromium shell + shell not
+      Bun-compilable, sidecar still can be).
 
 **Design invariants this spec must hold** (checked at implementation + review):
 
@@ -136,8 +165,12 @@ a later spec (GUI-003)**.
 - **No shared product factory:** `apps/agent-gui` owns its own composition; reuse comes from the shared
   lower layer (`agent-web-ui`), not a shared assembler.
 - **OWNER PRINCIPLE:** the GUI is a driver surface; attribution is display-only, never authorization.
-- **No native modules:** runtime closure is pure-JS (INFRA-028). The Stage-1 sidecar is the Node `robota`
-  entrypoint; the Bun single-binary is a later, DIST-001-gated substitution, not a Stage-1 dependency.
+- **No native modules:** runtime closure is pure-JS (INFRA-028). Electron ships a prebuilt Chromium+Node
+  (no native addon in the app). The Stage-1 sidecar is the Node `robota` entrypoint; the Bun single-binary
+  is a later, DIST-001-gated substitution, not a Stage-1 dependency.
+- **All-Node toolchain:** the shell is JS/TS (Electron main + preload + renderer); no Rust/Bun/Go, builds in
+  the plain Node/pnpm CI. `contextIsolation` on + a minimal `preload` bridge (no `nodeIntegration` in the
+  renderer) so the `agent-web-ui` SPA stays a pure browser surface.
 - **Loopback auth is REQUIRED (not optional):** the GUI-spawned sidecar must reject any WS connection that
   does not present the launch nonce, and the check must run **before** any session data is emitted.
 
@@ -145,25 +178,32 @@ a later spec (GUI-003)**.
 
 ### Components (Stage 1)
 
-1. **`apps/agent-gui` — Tauri v2 project.**
-   - `src-tauri/` (Rust): window creation; **sidecar spawn** via Tauri's external-binary (sidecar)
-     feature; a `src-tauri/tauri.conf.json` that (a) declares the `robota` sidecar binary, (b) restricts
-     the webview to the bundled SPA + the loopback WS origin, (c) sets a strict CSP. The Rust surface is
-     minimal glue: spawn the sidecar with the chosen port + nonce, expose the port/nonce to the webview
-     (via a Tauri command or an injected `<meta>`), supervise the child (health + shutdown on window
-     close), and surface a fatal-spawn error to the UI.
-   - `src/` (TS/React): a thin entry that mounts `agent-web-ui`'s session view (composing
+1. **`apps/agent-gui` — Electron project (all JS/TS).**
+   - `electron/main.ts` (Node main process): create the `BrowserWindow`; **mint** the loopback port + nonce
+     (`node:crypto`); **spawn** the `robota` sidecar via `child_process.spawn` with the port+nonce (env/CLI
+     flag); supervise the child (health, graceful `shutdown` on window-close, child-exit → UI fatal state);
+     `webPreferences` (`contextIsolation:true`, `nodeIntegration:false`, `sandbox:true`); load the built
+     `agent-web-ui` SPA via `loadFile` (local content, never a remote URL). **Renderer hardening (the
+     bundled Chromium renderer holds the nonce, so it is itself a "browser on the machine"):** a strict CSP
+     pinned to `default-src 'self'` + `connect-src ws://127.0.0.1:<port>` (renderer can only reach its own
+     loopback sidecar), plus **navigation lockdown** — `will-navigate` deny + `setWindowOpenHandler(() =>
+({action:'deny'}))` so a redirected/compromised renderer cannot carry the nonce/session to an external
+     origin. (Recorded in `docs/SPEC.md`.)
+   - `electron/preload.ts`: a minimal `contextBridge` exposing ONLY the port + nonce (and a fatal/ready
+     signal) to the renderer — no Node APIs leak into the SPA.
+   - `src/` (TS/React renderer): a thin entry that mounts `agent-web-ui`'s session view (composing
      `ConversationView` + `AgentActivityPanel` + `PermissionPrompt` against `useWsSession(url)`, the way
-     `RemoteClient` composes for RTC — NOT the WS-hardwired `SessionMonitor`), plus a Tailwind theme
-     providing the CSS variables (`--background`, `--card`, `--foreground`, `--primary`, …).
+     `RemoteClient` composes for RTC — NOT the WS-hardwired `SessionMonitor`), reading the port+nonce from
+     the preload bridge, plus a Tailwind theme providing the CSS variables (`--background`, `--card`,
+     `--foreground`, `--primary`, …).
 2. **Sidecar contract + REQUIRED loopback auth.** The GUI spawns `robota` with the WS transport on a
    chosen loopback port and a **mandatory launch nonce** (a high-entropy secret minted by the shell per
    launch). The nonce is NOT optional and NOT merely "hostile-local-process" defense — as **Affected Scope**
    documents, the loopback WS is unauthenticated today and reachable by any local process _or any browser
    page_, so without the nonce a co-resident web page could answer permission prompts. Contract:
-   - **Mint:** the Rust shell generates the nonce (e.g. 256-bit, `crypto`-grade) and a free loopback port
-     at launch; passes both to the child (env var / CLI flag) and to the webview (Tauri command or injected
-     `<meta>` — never a world-readable file).
+   - **Mint:** the Electron main process generates the nonce (256-bit, `node:crypto`) and a free loopback
+     port at launch; passes both to the child (env var / CLI flag) and to the renderer via the `preload`
+     `contextBridge` (never a world-readable file).
    - **Sidecar side:** the WS transport gains a **required-token option**; the server **rejects the
      handshake (close, no data) BEFORE** the current unconditional `messages` / `execution_workspace_event`
      send when the presented token is absent or wrong. This is a published-surface change to
@@ -192,12 +232,14 @@ a later spec (GUI-003)**.
 
 **New — `apps/agent-gui/`:**
 
-- `package.json` (private app; deps: `@robota-sdk/agent-web-ui`, React, Tailwind, `@tauri-apps/*`).
-- `src-tauri/` — `tauri.conf.json`, `Cargo.toml`, `src/main.rs` (spawn/supervise sidecar, port+nonce,
-  CSP), `capabilities/` (sidecar + shell scope).
+- `package.json` (private app; deps: `@robota-sdk/agent-web-ui`, React, Tailwind; devDeps: `electron`,
+  `electron-builder`, `vite`). NO `agent-framework`/`agent-core`.
+- `electron/main.ts` (spawn/supervise sidecar, port+nonce, CSP, BrowserWindow), `electron/preload.ts`
+  (contextBridge: port+nonce+ready/fatal), `electron/tsconfig.json`.
 - `src/main.tsx`, `src/App.tsx` (mount agent-web-ui session view), `src/theme.css` (Tailwind tokens),
-  `index.html`, `vite.config.ts`, `tsconfig.json`.
-- `docs/SPEC.md` (new app spec; also list the sidecar/nonce contract).
+  `index.html`, `vite.config.ts` (renderer build), `tsconfig.json`.
+- `electron-builder.yml` (per-OS targets for GUI-003; present but packaging deferred), `docs/SPEC.md`
+  (new app spec; also list the sidecar/nonce contract).
 
 **Changed (small, additive):**
 
@@ -241,14 +283,14 @@ a later spec (GUI-003)**.
 
 ## Test Plan
 
-| TC-N  | Test type            | Tool / approach                                                                                                                                                                                                              |
-| ----- | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| TC-01 | Manual smoke + unit  | Unit: compose-root mounts the session view against a stub `TMakeSessionClient` and renders folded events. Manual: dev-run launch on the dev OS drives a real session (recorded in the app SPEC User Execution scenario).     |
-| TC-02 | Unit                 | Prompt render + answer against a mock session surface: Allow/Deny → `resolvePermission`, ask option → `resolveAsk`, `prompt_resolved` → dismiss (reuses `agent-web-ui` prompt-state coverage; GUI compose-root wiring test). |
-| TC-03 | Unit                 | Launch-nonce loopback auth: the WS client presents the token; the WS handler/transport accepts the correct nonce and rejects a missing/wrong one (test lives in the touched transport package if the option lands there).    |
-| TC-04 | Unit (Rust + TS)     | Rust: sidecar spawn builds the right args (port + nonce); a child-exit maps to the UI fatal state. TS: window-close path invokes graceful `shutdown`; a simulated sidecar drop surfaces the fatal/reconnect status.          |
-| TC-05 | Static / review      | Dependency-direction assertion (`apps/agent-gui` package.json has no `agent-framework`/`agent-core` dep) + harness `deps` scan + code review that no session/command/permission logic was added.                             |
-| TC-06 | Command (CI/harness) | `pnpm --filter @robota-sdk/agent-gui typecheck`, affected `pnpm test`, `pnpm harness:scan` all green; `.agents/project-structure.md` updated and passing the structure scan.                                                 |
+| TC-N  | Test type            | Tool / approach                                                                                                                                                                                                                                                      |
+| ----- | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| TC-01 | Manual smoke + unit  | Unit: compose-root mounts the session view against a stub `TMakeSessionClient` and renders folded events. Manual: dev-run launch on the dev OS drives a real session (recorded in the app SPEC User Execution scenario).                                             |
+| TC-02 | Unit                 | Prompt render + answer against a mock session surface: Allow/Deny → `resolvePermission`, ask option → `resolveAsk`, `prompt_resolved` → dismiss (reuses `agent-web-ui` prompt-state coverage; GUI compose-root wiring test).                                         |
+| TC-03 | Unit                 | Launch-nonce loopback auth: the WS client presents the token; the WS handler/transport accepts the correct nonce and rejects a missing/wrong one (test lives in the touched transport package if the option lands there).                                            |
+| TC-04 | Unit (TS)            | Electron main-process (TS): the sidecar spawn builds the right args (port + nonce); a child-exit maps to the UI fatal state; the window-close path invokes graceful `shutdown`; a simulated sidecar drop surfaces the fatal/reconnect status. (All JS/TS — no Rust.) |
+| TC-05 | Static / review      | Dependency-direction assertion (`apps/agent-gui` package.json has no `agent-framework`/`agent-core` dep) + harness `deps` scan + code review that no session/command/permission logic was added.                                                                     |
+| TC-06 | Command (CI/harness) | `pnpm --filter @robota-sdk/agent-gui typecheck`, affected `pnpm test`, `pnpm harness:scan` all green; `.agents/project-structure.md` updated and passing the structure scan.                                                                                         |
 
 ## Tasks
 
@@ -256,8 +298,10 @@ Task file: [`.agents/tasks/GUI-002.md`](../../tasks/GUI-002.md) (execution check
 TC-N, with the mirrored Test Plan).
 
 - [ ] T1: GATE-APPROVAL — proposal-reviewer ENDORSE of this architecture (the two forks + Stage-1 scope).
-- [ ] T2: Scaffold `apps/agent-gui` (Tauri v2 + Vite + React); register in `.agents/project-structure.md`.
-- [ ] T3: Rust shell — sidecar spawn + supervise + port/nonce plumbing + CSP + fatal-error surface.
+- [ ] T2: Scaffold `apps/agent-gui` (Electron + Vite + React, all JS/TS); register in `.agents/project-structure.md`.
+- [ ] T3: Electron main + preload (TS) — mint port+nonce (`node:crypto`); `child_process.spawn` the Node
+      `robota` sidecar + supervise; `contextIsolation`/`sandbox` + CSP; contextBridge port/nonce to renderer;
+      fatal-error surface.
 - [ ] T4: TS compose-root — mount `agent-web-ui` session view (ConversationView + AgentActivityPanel +
       PermissionPrompt) against `useWsSession(loopbackUrl)`; Tailwind theme tokens.
 - [ ] T5: **Required** launch-nonce loopback auth — SPEC-first update to the touched transport package,
@@ -399,3 +443,44 @@ Prior-gate precondition met: GATE-APPROVAL shows `✅ PASS | 2026-07-12` in this
 - Tasks file path recorded in the spec `## Tasks` section — PASS (prior FAIL resolved). The `## Tasks` section now opens with ``Task file: [`.agents/tasks/GUI-002.md`](../../tasks/GUI-002.md)`` (spec line 255), so the spec points to its execution tracker.
 - Tasks correspond to Completion Criteria (≥1 task per TC-N) — PASS. Task-file mapping covers all six: T2→TC-01, T3→TC-01/TC-04, T4→TC-01/TC-02, T5→TC-03, T7→TC-06, T9→TC-05, T8→TC-01..TC-06. TC-01..TC-06 all covered.
 - Task file `## Test Plan` (≥50 chars) — PASS. `.agents/tasks/GUI-002.md` has a `## Test Plan` section mirroring the spec's TC-01..TC-06, well over 50 chars. [AF-24]
+
+### [Fork A revision] — Tauri v2 → Electron + owner re-approval | 2026-07-12
+
+During implementation prep, the environment was found to have **no Rust toolchain** (`cargo`/`rustc` absent),
+so the GATE-APPROVED Tauri shell could not be compiled or run here. The owner challenged the shell choice on a
+sound principle — "우리는 node.js로 만든 환경이 다 갖춰져 있는데 … 생태계도 nodejs로 선택해야 하는거 아닌가?"
+(maximize the already-provisioned Node ecosystem). Follow-up research (read-only) established that **every
+system-webview shell forces a non-Node toolchain or a native addon** (Tauri = Rust; `webview-nodejs` = C
+addon, discontinued; `@webview/webview` = Rust addon; electrobun = Bun+Zig, Bun absent) — reintroducing
+exactly what INFRA-028 (pure-JS closure) and DIST-001 (Bun-compile hostile to native addons) avoid — so
+"small system-webview bundle" and "all-Node + no-native-addon + builds-in-plain-CI" are **mutually
+exclusive**. **Electron** is the only candidate satisfying all hard constraints (all-JS/TS, no native addon,
+builds in the current CI, mature per-OS signing, uniform Chromium on macOS/Linux/Windows).
+
+**Fork A revised Tauri v2 → Electron.** Fork B (sidecar), the required nonce auth, agent-web-ui reuse, the
+dependency direction, and every TC are UNCHANGED; the spec's `src-tauri/` Rust component became
+`electron/main.ts` + `preload.ts` (TS), and two costs (Rust glue + Linux WebKitGTK QA) were removed. Because
+this modifies the Architecture Review after the prior GATE-APPROVAL, the owner **re-approved the revised
+decision** via a Fork-A-reconsideration question — owner answered verbatim: **"Electron으로 확정 (권장)"** —
+and separately confirmed cross-platform support ("Mac, linux, windows 지원 가능하지?" → yes, all three).
+Re-endorsement by proposal-review recorded below.
+
+### [proposal-review] — ✅ ENDORSE (Electron revision) | 2026-07-12
+
+Independent proposal-reviewer re-reviewed the delta and ENDORSED. Confirmed: (1) the Electron choice is sound
+and internally consistent — every current-decision surface reads Electron; residual Tauri/Rust text is
+legitimately historical (Evidence Log) or the expected "why the system-webview/Rust class was rejected"
+rationale; (2) Electron satisfies every hard constraint — all-JS/TS (no new language), no native addon in the
+app closure (prebuilt Chromium+Node; INFRA-028's pure-JS-_runtime-closure_ concern is met since the runtime
+lives in the sidecar), builds in the current Node/pnpm CI, and PRESERVES the unchanged parts (sidecar,
+reject-before-emit nonce, agent-web-ui reuse, non-inverting dependency direction). The Node main process
+doing `child_process.spawn` of the sidecar is lifecycle/hosting, NOT session/command/permission logic, and
+does not tempt an `agent-framework`/`agent-core` import (TC-05 asserts the absence); (3) the sharpest
+Electron-specific risk — the bundled-Chromium renderer is itself "a browser on the machine" holding the nonce
+— is closed by the nonce + the webPreferences posture (`contextIsolation:true`, `nodeIntegration:false`,
+`sandbox:true`, `loadFile` of local content, preload bridge exposing only port+nonce). Two non-blocking
+hardening notes folded into the spec: Fork B's stale "(forcing Electron)" parenthetical reworded; and the
+"strict CSP" pinned to `default-src 'self'` + `connect-src ws://127.0.0.1:<port>` plus navigation lockdown
+(`will-navigate` deny + `setWindowOpenHandler` deny) recorded in Components (to be nailed down in the app
+`docs/SPEC.md` at T7). **Design gate satisfied for the Electron revision; implementation authorized (owner
+re-approved).**
