@@ -101,6 +101,7 @@ const DOCUMENTED_WORKSPACE_PATTERNS = [
   { pathPattern: /^packages\/dag-[^/]+$/, textPattern: /dag-core\// },
   { pathPattern: /^packages\/dag-nodes\/[^/]+$/, textPattern: /dag-nodes\/\*/ },
   { pathPattern: /^apps\/agent-web$/, textPattern: /agent-web/ },
+  { pathPattern: /^apps\/agent-gui$/, textPattern: /agent-gui/ },
   { pathPattern: /^apps\/agent-server$/, textPattern: /agent-server/ },
   { pathPattern: /^apps\/dag-runtime-server$/, textPattern: /dag-runtime-server/ },
   { pathPattern: /^apps\/remote-signaling$/, textPattern: /remote-signaling/ },

@@ -1,0 +1,86 @@
+/*
+ * GUI-002 theme tokens. `agent-web-ui` components consume CSS custom properties (--background, --card,
+ * --foreground, --primary, …) but ship no CSS; the shell supplies them. Dark palette mirroring the web-ui
+ * demo. (Tailwind utilities used by the components are provided by the renderer's Tailwind build; this file
+ * defines only the design tokens + the shell's own layout classes.)
+ */
+
+:root {
+  --background: #0b0b0e;
+  --foreground: #e6e6ea;
+  --card: #14141a;
+  --card-foreground: #e6e6ea;
+  --muted: #1c1c24;
+  --muted-foreground: #9a9aa6;
+  --border: #26262f;
+  --primary: #7c8cff;
+  --primary-foreground: #0b0b0e;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+.agent-gui-root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.agent-gui-status {
+  padding: 6px 12px;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+  border-bottom: 1px solid var(--border);
+}
+
+.agent-gui-composer {
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--border);
+}
+
+.agent-gui-composer input {
+  flex: 1;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--foreground);
+}
+
+.agent-gui-composer button {
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: none;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  cursor: pointer;
+}
+
+.agent-gui-loading,
+.agent-gui-fatal {
+  display: flex;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  color: var(--muted-foreground);
+}
+
+.agent-gui-fatal {
+  color: #f4a3a3;
+}
