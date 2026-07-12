@@ -28,11 +28,7 @@ dag-core/
     state-machines/  -- DagRun and TaskRun finite state machines
     services/        -- Domain services (validation, definition mgmt, cost policy, node lifecycle runner, task executor port)
     state/           -- Pure DAG node state reducers for orchestration views
-    registry/        -- (emptied — extracted to node authoring package)
-    schemas/         -- (emptied — extracted to node authoring package)
-    value-objects/   -- (emptied — extracted to node authoring package)
     utils/           -- Error builder helpers
-    testing/         -- (emptied — extracted to dag-adapters-local package)
     __tests__/       -- Unit tests
 ```
 
@@ -99,6 +95,8 @@ All types below are the canonical SSOT definitions. Other `dag-*` packages must 
 | `TPortPayload`                | `interfaces/ports.ts`               | Key-value map of port values                                                                                                                                          |
 | `IStoredAssetMetadata`        | `interfaces/asset-store-port.ts`    | Asset metadata stored by infrastructure adapters, including optional `runtimeAssetId` when an orchestrator asset has been synchronized to a runtime backend           |
 | `ICreateAssetInput`           | `interfaces/asset-store-port.ts`    | Asset creation input with binary content and optional `runtimeAssetId` metadata                                                                                       |
+| `ICreateAssetReferenceInput`  | `interfaces/asset-store-port.ts`    | Input for registering an asset by external reference (no inline binary content)                                                                                       |
+| `IAssetContentResult`         | `interfaces/asset-store-port.ts`    | Result of reading asset content (binary payload plus metadata)                                                                                                        |
 | `IAssetStore`                 | `interfaces/asset-store-port.ts`    | Asset storage infrastructure port for saving, reading metadata, and streaming content                                                                                 |
 | `IQueuePort`                  | `interfaces/ports.ts`               | Queue infrastructure port (enqueue, dequeue with optional wait timeout, ack, nack)                                                                                    |
 | `ILeasePort`                  | `interfaces/ports.ts`               | Lease infrastructure port (acquire, renew, release, get)                                                                                                              |

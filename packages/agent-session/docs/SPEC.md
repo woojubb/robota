@@ -205,7 +205,7 @@ The callback payload is provider-neutral `IContextWindowState`; provider-specifi
 | `memoryEvents`             | `unknown[]` | No       | SDK-owned automatic memory audit events such as extracted, queued, saved, skipped, approved, rejected, and retrieved.                                             |
 | `usedMemoryReferences`     | `unknown[]` | No       | SDK-owned provenance records for memory topics injected into the latest prompt turn.                                                                              |
 | `contextReferences`        | `unknown[]` | No       | SDK-owned context reference inventory for resume/debugging.                                                                                                       |
-| `sandboxSnapshotId`        | `string`    | No       | Provider-owned sandbox workspace reference used by SDK resume hydration. `agent-sessions` stores this value opaquely and does not import sandbox packages.        |
+| `sandboxSnapshotId`        | `string`    | No       | Provider-owned sandbox workspace reference used by SDK resume hydration. `agent-session` stores this value opaquely and does not import sandbox packages.         |
 | `goal`                     | `unknown`   | No       | In-flight autonomous goal payload (typed `IGoalState` by the domain contract), stored opaquely so it survives resume (GOAL-001 / DATA-006).                       |
 
 Memory event and used-reference fields are audit/debug data, not baseline user-local preferences.
@@ -268,7 +268,7 @@ The session log records structured events to a JSONL file for diagnostics and re
 
 1. **`ISessionOptions.terminal`** (required) -- Inject an `ITerminalOutput` implementation for permission prompts and UI output. The consuming layer provides either a real terminal (CLI print mode) or an Ink-based no-op (TUI mode).
 
-2. **`ISessionOptions.tools`** -- Inject any set of `IToolWithEventService[]`. The consuming layer (agent-framework) provides the default 8 tools + agent-tool.
+2. **`ISessionOptions.tools`** -- Inject any set of `IToolWithEventService[]`. The consuming layer (agent-framework) provides the default 10 built-in tools.
 
 3. **`ISessionOptions.provider`** -- Inject any `IAIProvider`. The consuming layer (agent-framework) creates the appropriate provider from config.
 

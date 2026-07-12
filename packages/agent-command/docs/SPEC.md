@@ -73,7 +73,7 @@ Single root entry point: `import { ... } from '@robota-sdk/agent-command'`
 
 | Export                              | Kind     | Description                                                                                |
 | ----------------------------------- | -------- | ------------------------------------------------------------------------------------------ |
-| `createDefaultCommandModules`       | function | Assembles all 24 standard command modules; returns `{ modules, unknownModuleNames }`       |
+| `createDefaultCommandModules`       | function | Assembles all 25 standard command modules; returns `{ modules, unknownModuleNames }`       |
 | `IDefaultCommandModulesOptions`     | type     | Options interface for `createDefaultCommandModules`                                        |
 | `IDefaultCommandModulesResult`      | type     | Return shape of `createDefaultCommandModules` (`modules` + INFRA-032 `unknownModuleNames`) |
 | `createDefaultPluginCommandAdapter` | function | Creates a production `ICommandPluginAdapter` wired to filesystem plugin infrastructure     |
@@ -217,32 +217,33 @@ Coverage gaps: `src/default/` and `src/plugins/` subdirectories have no dedicate
 
 ## Class Contract Registry
 
-| Class                        | Implements       | Defined In                                      |
-| ---------------------------- | ---------------- | ----------------------------------------------- |
-| `AgentCommandSource`         | `ICommandSource` | `src/agent/agent-command-module.ts`             |
-| `BackgroundCommandSource`    | `ICommandSource` | `src/background/background-command-module.ts`   |
-| `CompactCommandSource`       | `ICommandSource` | `src/compact/compact-command-module.ts`         |
-| `ContextCommandSource`       | `ICommandSource` | `src/context/context-command-module.ts`         |
-| `EditorCommandSource`        | `ICommandSource` | `src/editor/editor-command-module.ts`           |
-| `ExitCommandSource`          | `ICommandSource` | `src/exit/exit-command-module.ts`               |
-| `GoalCommandSource`          | `ICommandSource` | `src/goal/goal-command-module.ts`               |
-| `HelpCommandSource`          | `ICommandSource` | `src/help/help-command-module.ts`               |
-| `LanguageCommandSource`      | `ICommandSource` | `src/language/language-command-module.ts`       |
-| `MemoryCommandSource`        | `ICommandSource` | `src/memory/memory-command-module.ts`           |
-| `ModeCommandSource`          | `ICommandSource` | `src/mode/mode-command-module.ts`               |
-| `PermissionsCommandSource`   | `ICommandSource` | `src/permissions/permissions-command-module.ts` |
-| `PluginManagerCommandSource` | `ICommandSource` | `src/plugin/plugin-command-module.ts`           |
-| `PresetCommandSource`        | `ICommandSource` | `src/preset/preset-command-module.ts`           |
-| `ProviderCommandSource`      | `ICommandSource` | `src/provider/provider-command-module.ts`       |
-| `ResetCommandSource`         | `ICommandSource` | `src/reset/reset-command-module.ts`             |
-| `RewindCommandSource`        | `ICommandSource` | `src/rewind/rewind-command-module.ts`           |
-| `ScheduleCommandSource`      | `ICommandSource` | `src/schedule/schedule-command-module.ts`       |
-| `SessionCommandSource`       | `ICommandSource` | `src/session/session-command-module.ts`         |
-| `SettingsCommandSource`      | `ICommandSource` | `src/settings/settings-command-module.ts`       |
-| `ShellCommandSource`         | `ICommandSource` | `src/shell/shell-command-module.ts`             |
-| `SkillsCommandSource`        | `ICommandSource` | `src/skills/skills-command-module.ts`           |
-| `StatusLineCommandSource`    | `ICommandSource` | `src/statusline/statusline-command-module.ts`   |
-| `UserLocalCommandSource`     | `ICommandSource` | `src/user-local/user-local-command-module.ts`   |
+| Class                        | Implements       | Defined In                                            |
+| ---------------------------- | ---------------- | ----------------------------------------------------- |
+| `AgentCommandSource`         | `ICommandSource` | `src/agent/agent-command-module.ts`                   |
+| `BackgroundCommandSource`    | `ICommandSource` | `src/background/background-command-module.ts`         |
+| `CompactCommandSource`       | `ICommandSource` | `src/compact/compact-command-module.ts`               |
+| `ContextCommandSource`       | `ICommandSource` | `src/context/context-command-module.ts`               |
+| `EditorCommandSource`        | `ICommandSource` | `src/editor/editor-command-module.ts`                 |
+| `ExitCommandSource`          | `ICommandSource` | `src/exit/exit-command-module.ts`                     |
+| `GoalCommandSource`          | `ICommandSource` | `src/goal/goal-command-module.ts`                     |
+| `HelpCommandSource`          | `ICommandSource` | `src/help/help-command-module.ts`                     |
+| `LanguageCommandSource`      | `ICommandSource` | `src/language/language-command-module.ts`             |
+| `MemoryCommandSource`        | `ICommandSource` | `src/memory/memory-command-module.ts`                 |
+| `ModeCommandSource`          | `ICommandSource` | `src/mode/mode-command-module.ts`                     |
+| `PermissionsCommandSource`   | `ICommandSource` | `src/permissions/permissions-command-module.ts`       |
+| `PluginManagerCommandSource` | `ICommandSource` | `src/plugin/plugin-command-module.ts`                 |
+| `PresetCommandSource`        | `ICommandSource` | `src/preset/preset-command-module.ts`                 |
+| `ProviderCommandSource`      | `ICommandSource` | `src/provider/provider-command-module.ts`             |
+| `RemoteControlCommandSource` | `ICommandSource` | `src/remote-control/remote-control-command-module.ts` |
+| `ResetCommandSource`         | `ICommandSource` | `src/reset/reset-command-module.ts`                   |
+| `RewindCommandSource`        | `ICommandSource` | `src/rewind/rewind-command-module.ts`                 |
+| `ScheduleCommandSource`      | `ICommandSource` | `src/schedule/schedule-command-module.ts`             |
+| `SessionCommandSource`       | `ICommandSource` | `src/session/session-command-module.ts`               |
+| `SettingsCommandSource`      | `ICommandSource` | `src/settings/settings-command-module.ts`             |
+| `ShellCommandSource`         | `ICommandSource` | `src/shell/shell-command-module.ts`                   |
+| `SkillsCommandSource`        | `ICommandSource` | `src/skills/skills-command-module.ts`                 |
+| `StatusLineCommandSource`    | `ICommandSource` | `src/statusline/statusline-command-module.ts`         |
+| `UserLocalCommandSource`     | `ICommandSource` | `src/user-local/user-local-command-module.ts`         |
 
 ## Migration
 

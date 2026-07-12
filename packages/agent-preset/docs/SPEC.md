@@ -117,9 +117,6 @@ vocabulary (owned by `agent-command`, one entry per assembled module):
 `agent-command-rewind`, `agent-command-schedule`, `agent-command-session`, `agent-command-settings`,
 `agent-command-shell`, `agent-command-skills`, `agent-command-statusline`, `agent-command-user-local`.
 
-A name that does not match any assembled module's `name` is currently silently ignored (no error is
-raised for an unknown module name).
-
 ## Extension Points
 
 | Extension Point          | Kind      | How to extend                                                                                |
