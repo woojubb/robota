@@ -42,7 +42,6 @@
     "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
   },
   "dependencies": {
-    "@robota-sdk/agent-interface-transport": "workspace:*",
     "@robota-sdk/agent-remote-pairing": "workspace:*",
     "@robota-sdk/agent-transport-gui": "workspace:*",
     "@robota-sdk/agent-transport-protocol": "workspace:*",

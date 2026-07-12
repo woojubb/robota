@@ -2,7 +2,7 @@
 
 ## Scope
 
-`agent-gui` is a thin **Electron** desktop application (macOS / Linux / Windows) that drives a live
+`agent-app` is a thin **Electron** desktop application (macOS / Linux / Windows) that drives a live
 `robota` session graphically. It is a **presentation surface only** — the mirror of the TUI
 (`agent-transport-tui`): it owns the desktop shell (window, lifecycle) and the loopback wiring, and reuses
 `@robota-sdk/agent-transport-gui`'s React session view + reducer verbatim. All session/command/permission logic
@@ -63,14 +63,15 @@ Electron main (Node)                         robota sidecar (Node CLI)
 
 ## Public API Surface
 
-None — `agent-gui` is a private application (`"private": true`), not a library. It exports no package API.
+None — `agent-app` is a private application (`"private": true`), not a library. It exports no package API.
 
 ## Dependencies
 
 `@robota-sdk/agent-transport-gui` (workspace) + `react`/`react-dom`. Dev: `electron`, `vite`,
-`@vitejs/plugin-react`, `vitest`, `@testing-library/react`, `jsdom`, `typescript`. **No
-`agent-framework`/`agent-core`** (the sidecar owns the runtime) — enforced by review + the harness `deps`
-scan.
+`@vitejs/plugin-react`, `@tailwindcss/vite`, `tailwindcss`, `vitest`, `@testing-library/react`, `jsdom`,
+`playwright`, `typescript`, and `@robota-sdk/agent-transport-ws` (workspace, e2e-only — the headless Electron
+e2e stands up the real `WsTransport` sidecar). **No `agent-framework`/`agent-core`** (the sidecar owns the
+runtime) — enforced by review + the harness `deps` scan.
 
 ## Test Strategy
 

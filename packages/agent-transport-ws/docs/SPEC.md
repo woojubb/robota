@@ -51,7 +51,7 @@ connection must present a matching token or the socket is **closed (code 1008) B
 **When unset** (the default, e.g. the local TUI path) the transport is unauthenticated exactly as before — a
 backward-compatible no-op. It is a runtime-injected secret (not part of `optionsSchema`, never persisted to
 settings). The `agent-cli` composition root passes it from `ROBOTA_WS_TOKEN` (+ optional `ROBOTA_WS_PORT`)
-when a host such as the `agent-gui` Electron shell spawns the CLI as a loopback sidecar. The pre-existing
+when a host such as the `agent-app` Electron shell spawns the CLI as a loopback sidecar. The pre-existing
 unauthenticated default path is tracked for hardening by a companion SECURITY backlog.
 
 ## Extension Points

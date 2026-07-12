@@ -3,7 +3,7 @@
 An **Electron desktop app** (macOS / Linux / Windows) that drives a live `robota` session graphically —
 the graphical mirror of the terminal TUI (`agent-transport-tui`).
 
-`agent-gui` is a **thin presentation shell**: it spawns a `robota` **sidecar** process, connects to it over
+`agent-app` is a **thin presentation shell**: it spawns a `robota` **sidecar** process, connects to it over
 a loopback WebSocket, and renders the session by reusing `@robota-sdk/agent-transport-gui`'s React view + reducer
 **verbatim**. All session, command, and permission logic lives in the sidecar (reached over the wire), so the
 GUI holds no agent runtime and depends on neither `agent-framework` nor `agent-core` (the OWNER PRINCIPLE:

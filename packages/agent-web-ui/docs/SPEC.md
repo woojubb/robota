@@ -115,7 +115,7 @@ instantiates the shared `useSessionClient<TSessionStatus>` generic — keeping t
 
 Note: the session reducer state (`IWsSessionState`, `IConversationMessage`, `IActiveTool`), the prompt state
 (`TPendingPrompt`), and `TConnectionStatus` are owned by `@robota-sdk/agent-transport-gui` and imported.
-`IExecutionWorkspaceSnapshot` / `IExecutionWorkspaceEntry` come from `@robota-sdk/agent-transport-ws`.
+`IExecutionWorkspaceSnapshot` / `IExecutionWorkspaceEntry` come from `@robota-sdk/agent-interface-transport` (used transitively via the `agent-transport-gui` view components).
 
 ## Public API Surface
 
