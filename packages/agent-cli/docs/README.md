@@ -5,6 +5,7 @@
 ## Current Capabilities
 
 - Interactive TUI and print/headless mode through the `robota` command.
+- `robota --serve` — run as a headless runtime host over a loopback WS sidecar (used by the desktop GUI).
 - Provider-definition setup UI for Anthropic, OpenAI-compatible, DeepSeek, Gemma, and Qwen profiles.
 - Eight local built-in tools are exposed through SDK session assembly, including `WebFetch` and `WebSearch`.
 - npm update checks with deterministic print/headless behavior.

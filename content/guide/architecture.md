@@ -6,7 +6,7 @@ Robota SDK follows a strict bottom-up layered assembly model. Each layer builds 
 
 ```mermaid
 flowchart TB
-    CLI["**agent-cli**\nCLI entry point · argument parsing · provider wiring · TUI startup"]
+    CLI["**agent-cli**\nCLI entry point · argument parsing · provider wiring · TUI startup · --serve runtime host"]
     TUI["**agent-transport-tui**\nInk/React terminal UI · TuiInteractionChannel"]
     CMD["**agent-command**\ncore slash command modules\n(+ /workflows via agent-command-workflows)"]
     TRANS["**agent-transport**\nHeadless · Testing · Programmatic (lean core)\nHTTP/WS/MCP are standalone packages"]
@@ -62,11 +62,12 @@ flowchart TB
 | **agent-framework**            | Assembly: InteractiveSession, CommandRegistry, BuiltinCommandSource, SkillCommandSource, config loading, context discovery, skill/agent runtime APIs, createQuery()                                                                                | SDK-specific |
 | **agent-transport**            | Lean transport core (pure TS, zero React/Ink): headless (`/headless`), testing (`/testing`), and programmatic (`/programmatic`) sub-paths. HTTP, WebSocket, and MCP are standalone `agent-transport-{http,ws,mcp}` packages (split out in beta.76) | Transport    |
 | **agent-transport-tui**        | TUI rendering layer — all Ink/React terminal UI components, `TuiInteractionChannel` (owns session lifecycle), and `useTuiChannel` hook (standalone package since beta.76)                                                                          | Transport    |
-| **agent-cli**                  | CLI entry point: argument parsing, provider factory, TUI startup; wires `agent-transport-tui`, `agent-transport`, `agent-command`, `agent-framework`                                                                                               | CLI          |
+| **agent-cli**                  | CLI entry point: argument parsing, provider factory, TUI startup, and the `robota --serve` headless runtime-host mode (RUNTIME-001); wires `agent-transport-tui`, `agent-transport`, `agent-command`, `agent-framework`                            | CLI          |
 | **agent-remote-client**        | HTTP client for calling a remote Robota agent exposed via `agent-transport-http`                                                                                                                                                                   | Client       |
-| **agent-transport-gui**        | Shared GUI core — React `SessionMonitor` + wire-protocol session reducer (`useWsSession`) over `TServerMessage`                                                                                                                                    | Browser UI   |
+| **agent-transport-gui**        | Shared GUI core — session reducer (`useSessionClient`/`useWsSession`) + view components (`ConversationView`, `AgentActivityPanel`, `PermissionPrompt`) + `SessionSurface` shell + `theme.css`                                                      | Browser UI   |
 | **agent-transport-webrtc-web** | Browser WebRTC peer (`RemoteClient`, `useRtcSession`) rendered over the GUI core                                                                                                                                                                   | Browser UI   |
 | **apps/agent-web-monitor**     | CLI-served Vite SPA that hosts the browser session monitor                                                                                                                                                                                         | Browser UI   |
+| **apps/agent-app**             | Electron desktop app; drives a `robota --serve` sidecar over loopback WS and renders the shared GUI core `agent-transport-gui`                                                                                                                     | Desktop UI   |
 | **agent-interface-transport**  | Transport contract interfaces only (no implementation): `ITransportAdapter`, `IConfigurableTransport`, `ITransportConfig`                                                                                                                          | Contracts    |
 | **agent-interface-tui**        | TUI interaction type contracts only: `ITuiCommandInteraction`, `ITuiCliAdapter`, `ITerminalOutput` — no runtime deps                                                                                                                               | Contracts    |
 
@@ -81,15 +82,18 @@ agent-remote-client                    (HTTP client, no agent-framework dependen
 agent-transport-gui        ─→ agent-interface-transport, agent-transport-protocol (type contracts only)
 agent-transport-webrtc-web ─→ agent-transport-gui, agent-remote-pairing, agent-transport-protocol
 apps/agent-web-monitor     ─→ agent-transport-gui, agent-transport-webrtc-web
+apps/agent-app             ─→ agent-transport-gui (spawns robota --serve over loopback WS; no agent-framework/agent-core dep)
 ```
+
+> **Runtime host (RUNTIME-001).** `startRuntimeHost()`/`buildRuntimeSession()` live in `agent-framework`: they build and serve one headless `InteractiveSession` over a loopback WS. The TUI (`agent-cli`) and the desktop GUI (`apps/agent-app`, which spawns `robota --serve`) are sibling presentations over that one shared runtime host.
 
 ## React / Ink Policy
 
-| Category          | Packages allowed                                                                                  | Rule                                        |
-| ----------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------- |
-| React + Ink (TUI) | `agent-transport-tui` only                                                                        | Never in protocol transport or SDK packages |
-| React (browser)   | `agent-playground`, `agent-transport-gui`, `agent-transport-webrtc-web`, `apps/agent-web-monitor` | Browser app packages only                   |
-| Pure TypeScript   | Everything else (core, framework, transport, CLI)                                                 | No React or Ink dependencies                |
+| Category          | Packages allowed                                                                                                    | Rule                                        |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| React + Ink (TUI) | `agent-transport-tui` only                                                                                          | Never in protocol transport or SDK packages |
+| React (browser)   | `agent-playground`, `agent-transport-gui`, `agent-transport-webrtc-web`, `apps/agent-web-monitor`, `apps/agent-app` | Browser app packages only                   |
+| Pure TypeScript   | Everything else (core, framework, transport, CLI)                                                                   | No React or Ink dependencies                |
 
 ## Data Flow: IHistoryEntry[]
 

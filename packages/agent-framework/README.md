@@ -55,6 +55,26 @@ const runtime = createAgentRuntime({
 const session = runtime.createSession({});
 ```
 
+### Runtime host (`robota --serve`)
+
+`buildRuntimeSession()` is the single session-construction seam: every presentation — the TUI channel
+and the headless `robota --serve` entry — builds its `InteractiveSession` from resolved options through
+it, instead of calling `new InteractiveSession` directly. `startRuntimeHost()` adds the transport
+`startAll`/`stopAll` lifecycle plus a bounded shutdown handle on top, and is used by the headless
+`--serve` path (which the desktop GUI spawns as a loopback-WS sidecar). It lives in `agent-framework`,
+not the product shell — it takes already-resolved options and is presentation-neutral (RUNTIME-001).
+
+```typescript
+import { startRuntimeHost } from '@robota-sdk/agent-framework';
+import type { IRuntimeHostOptions, IRuntimeHostHandle } from '@robota-sdk/agent-framework';
+
+// `session` holds the resolved session options; `transportRegistry` is the loopback WS sidecar.
+declare const options: IRuntimeHostOptions;
+const host: IRuntimeHostHandle = await startRuntimeHost(options);
+// host.session — the live runtime session every presentation drives
+// await host.shutdown() — bounded transport teardown + session shutdown
+```
+
 ## Features
 
 - **InteractiveSession** — Event-driven session wrapper (composition over Session). Central client-facing API for CLI, web, API server, or any other client
@@ -62,6 +82,7 @@ const session = runtime.createSession({});
 - **CommandRegistry, BuiltinCommandSource, SkillCommandSource** — Command registry and SDK common discovery APIs. User-visible built-ins are composed through `agent-command` packages.
 - **Model Command Common APIs** — Provider-neutral `/model` helpers that resolve active provider catalogs and optionally invoke provider-owned refresh hooks
 - **createQuery()** — Provider-bound factory for one-shot AI agent interactions with streaming support
+- **Runtime host (RUNTIME-001)** — `startRuntimeHost()` builds and serves a headless session over a loopback WS (used by `robota --serve` and the desktop GUI sidecar); `buildRuntimeSession()` is the shared session-construction seam every presentation builds its `InteractiveSession` through
 - **Session assembly** — Internal factory wires tools, provider, config, and context for `InteractiveSession`
 - **Built-in Tools** — Shell/Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch, AskUserQuestion are assembled for SDK sessions; direct tool usage imports from `@robota-sdk/agent-tools`
 - **Sandbox Execution** — Optional `sandboxClient` injection routes Bash and core file tools through a provider-backed execution plane; `workspaceManifest` can prepare a fresh sandbox workspace before session creation
@@ -104,7 +125,7 @@ agent-cli (TUI layer — bridges InteractiveSession events to React/Ink state)
   → agent-framework
 ```
 
-The SDK is **pure TypeScript with no React dependency**. The CLI is a thin TUI-only layer that consumes `InteractiveSession` events and maps them to React state. Any other client (web app, API server, worker) can do the same.
+The SDK is **pure TypeScript with no React dependency**. The CLI is a thin presentation layer (TUI, plus the `--serve` runtime host) that consumes `InteractiveSession` events and maps them to React state. Any other client (web app, API server, worker) can do the same.
 
 ## API
 

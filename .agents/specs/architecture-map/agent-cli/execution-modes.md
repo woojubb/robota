@@ -2,9 +2,9 @@
 
 Part of the [agent-cli composition map](../agent-cli-composition.md).
 
-Source-verified against `develop` on 2026-06-14.
+Source-verified against `develop` on 2026-07-12.
 
-Interactive TUI and non-interactive print-mode execution paths.
+Interactive TUI, non-interactive print-mode, and headless runtime-host (`--serve`) execution paths.
 
 ## Interactive TUI
 
@@ -67,35 +67,39 @@ Print-mode permission mode resolves as `args.permissionMode ?? presetOptions.per
 CLI forwards the preset's `persona`, `agentName`, `activePresetId`, `enableParallelSubagents`, and
 `selfVerification` into the channel without re-applying any preset logic.
 
-## WebSocket Sidecar Mode
+## Runtime Host Mode (`robota --serve`)
 
-> **[Planned — not yet implemented]** The `--web` / `--web-port` flags and `startWebSidecarServer()` described below do not exist in the codebase. This section documents the planned design intent captured in the sidecar-mode section of [agent-system.md](../agent-system.md). Do not rely on it as a current implementation reference.
+> **[Landed — RUNTIME-001 / GUI-005]** `robota --serve` (`packages/agent-cli/src/modes/serve-mode.ts`)
+> is a headless runtime host: it builds the session via `startRuntimeHost` (`agent-framework`) — sharing
+> the `buildRuntimeSession` construction seam with TUI and print modes — and serves the loopback WS
+> sidecar. It renders NO ink; it is the backend the desktop Electron shell `apps/agent-app` spawns, and
+> it stays alive until `SIGTERM`/`SIGINT`, then shuts the runtime down cleanly.
 
 ```mermaid
 sequenceDiagram
-  participant User as robota --web [--web-port N]
-  participant TUI as agent-cli React/Ink TUI
-  participant Sidecar as startWebSidecarServer
-  participant WsTransport as agent-transport/ws createWsHandler
-  participant Browser as agent-web (browser)
+  participant App as apps/agent-app (Electron)
+  participant CLI as robota --serve (serve-mode.ts)
+  participant Host as startRuntimeHost (agent-framework)
+  participant WS as agent-transport-ws WsTransport
+  participant GUI as agent-transport-gui renderer (useWsSession)
 
-  User->>TUI: launch with --web flag
-  TUI->>Sidecar: startWebSidecarServer(interactiveSession, port)
-  Sidecar->>Sidecar: bind HTTP+WebSocket server on 127.0.0.1:PORT
-  Sidecar-->>TUI: IWebSidecarServer { port, stop }
-  TUI->>Browser: open ROBOTA_MONITOR_URL
-
-  Browser->>Sidecar: WebSocket connect
-  Sidecar->>WsTransport: createWsHandler({ session, send })
-  Sidecar-->>Browser: send { type: "messages", messages } (full history replay)
-
+  App->>CLI: spawn `robota --serve`
+  CLI->>Host: startRuntimeHost({ session, transportRegistry })
+  Host->>Host: buildRuntimeSession(options) — shared construction seam
+  Host->>WS: transportRegistry.startAll(session)
+  Host-->>CLI: IRuntimeHostHandle { session, shutdown }
+  App->>GUI: render SessionMonitor over the loopback WS
   loop session events
-    TUI->>TUI: normal interactive TUI operation
-    WsTransport-->>Browser: real-time session events
+    WS-->>GUI: TServerMessage stream
   end
+  App->>CLI: SIGTERM on window close
+  CLI->>Host: handle.shutdown() (bounded)
 ```
 
-Sidecar bind failure is intended to be non-fatal. Planned source path:
-`agent-cli/src/web-sidecar/web-sidecar-server.ts` — this file does not exist in the codebase yet
-(verified 2026-06-14; `src/web-sidecar/` is absent). Treat this section as design intent only.
+> **Superseded design.** The earlier `--web` / `--web-port` flags and
+> `startWebSidecarServer(interactiveSession, port)` were never built — neither the flags nor that
+> function (nor `agent-cli/src/web-sidecar/`) exist in the codebase. The landed path is
+> `robota --serve` → `startRuntimeHost`, supervised by the desktop GUI (`apps/agent-app`) rather than a
+> browser opened from a TUI session.
+
 See [packages/agent-cli/docs/SPEC.md](../../../../packages/agent-cli/docs/SPEC.md) for supported flags.

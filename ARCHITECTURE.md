@@ -38,6 +38,8 @@ High-level system architecture for the Robota AI Agent SDK monorepo.
 │                                                              │
 │  Domain          agent-core (auth, credits planned)         │
 │  Assembly        agent-framework                            │
+│  Runtime host    agent-framework buildRuntimeSession /      │
+│                  startRuntimeHost (robota --serve seam)     │
 │  Runtime/Session agent-session / agent-executor             │
 │  Preset/Options  agent-preset                               │
 │  Commands/CLI    agent-command / agent-cli                  │
@@ -53,7 +55,8 @@ High-level system architecture for the Robota AI Agent SDK monorepo.
 │  Playground      agent-playground                           │
 │  GUI/Web         agent-transport-gui (GUI core);            │
 │                  agent-transport-webrtc-web (browser peer); │
-│                  apps/agent-web-monitor (CLI SPA)           │
+│                  apps/agent-web-monitor (CLI SPA);          │
+│                  apps/agent-app (Electron desktop GUI)      │
 │  Remote          agent-remote-client                        │
 └────────────────────────────────────────────────────────────┘
 ```
