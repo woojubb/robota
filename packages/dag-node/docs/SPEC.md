@@ -7,7 +7,7 @@
 ## Boundaries
 
 - **No domain contracts.** Interfaces (`IDagNodeDefinition`, `INodeLifecycle`, `INodeTaskHandler`, etc.), type definitions, state machines, and error builders belong to `@robota-sdk/dag-core`.
-- **No concrete node implementations.** Specific node types (e.g., `llm-text-openai`, `image-source`) belong to `@robota-sdk/dag-nodes`.
+- **No concrete node implementations.** Specific node types (e.g., `llm-text`, `image-source`) belong to `@robota-sdk/dag-nodes`.
 - **No orchestration or runtime.** DAG scheduling, worker execution, and run coordination belong to `dag-runtime`, `dag-worker`, `dag-scheduler`.
 - **No API layer.** HTTP/REST composition belongs to application packages.
 - **No execution engine or lifecycle runner.** The `NodeLifecycleRunner` and `LifecycleTaskExecutorPort` belong to `@robota-sdk/dag-core`.
@@ -161,8 +161,8 @@ All errors use codes and categories defined in `@robota-sdk/dag-core`. This pack
 
 | Export (This Package)                                         | Consumer Package                    | Notes                                                            |
 | ------------------------------------------------------------- | ----------------------------------- | ---------------------------------------------------------------- |
-| `AbstractNodeDefinition`                                      | `dag-nodes` (11 node definitions)   | Each implements `executeWithConfig` and `estimateCostWithConfig` |
-| `NodeIoAccessor`                                              | `dag-nodes` (11 node definitions)   | Used for input reading and output assembly                       |
+| `AbstractNodeDefinition`                                      | `dag-nodes` (35 node definitions)   | Each implements `executeWithConfig` and `estimateCostWithConfig` |
+| `NodeIoAccessor`                                              | `dag-nodes` (35 node definitions)   | Used for input reading and output assembly                       |
 | `MediaReference`                                              | `dag-nodes` (media-handling nodes)  | Used for asset reference handling                                |
 | `BINARY_PORT_PRESETS`, `createBinaryPortDefinition`           | `dag-nodes` (binary-handling nodes) | Used for port definitions                                        |
 | `buildNodeDefinitionAssembly`                                 | runtime / orchestrator servers      | Builds manifests + handler map from node definitions             |

@@ -14,8 +14,7 @@ packages/
 ├── agent-command/               # Command modules: agent, background, compact, context, exit, help, language, memory, mode, model, permissions, plugin, provider, reset, rewind, session, settings, skills, statusline, user-local
 ├── agent-command-*/             # Command-module bridge packages to other subsystems (e.g. agent-command-workflows: surfaces the DAG engine as `/workflows`, composing dag-framework)
 ├── agent-cli/                   # Terminal UI and local runtime adapters
-├── agent-provider/              # Provider packages: anthropic, openai, openai-compatible, deepseek, gemma, qwen, gemini, google, bytedance
-├── agent-provider-*/            # Provider-family variants (e.g. agent-provider-replay: deterministic session-log replay provider; depends on agent-core + agent-session)
+├── agent-provider-*/            # Provider family (per-vendor split, ARCH-PROVIDER-002): agent-provider-anthropic, -bytedance, -gemini, -openai, -openai-compatible, -defaults (default-set aggregator), -replay (deterministic session-log replay provider; depends on agent-core + agent-session). There is NO bare `agent-provider` package. deepseek/qwen/gemma are `openai-compatible` *definitions* surfaced by agent-provider-openai-compatible, not standalone packages
 ├── agent-playground/            # Playground UI package
 ├── agent-remote-client/         # Remote execution client
 ├── agent-remote-pairing/        # Isomorphic pairing + DTLS-fingerprint channel binding (WebCrypto only, zero workspace deps; host + Stage-D browser reuse) (REMOTE-001)
@@ -43,7 +42,8 @@ packages/
 ├── dag-scheduler/               # DAG scheduled-run triggering
 ├── dag-adapters-local/          # DAG in-memory persistence/queue/clock adapters
 ├── dag-adapters-sqlite/         # DAG SQLite persistence adapter
-└── dag-nodes/*/                 # DAG node-family packages (`@robota-sdk/dag-node-*`): llm-text providers, image edit, text-to-image, seedance-video, skill, http, file r/w, mcp-tool, in-process tool, router, instant-node
+├── dag-nodes/*/                 # DAG node-family packages (`@robota-sdk/dag-node-*`): llm-text providers, image edit, text-to-image, seedance-video, skill, http, file r/w, mcp-tool, in-process tool, router, instant-node
+└── dag-nodes-default/           # DAG default node-set aggregator (composition leaf): createDefaultNodeRegistry(); consumed at composition roots by dag-cli + agent-command-workflows, lazy-loaded by dag-framework via a dynamic import() (its sole optionalDependency)
 apps/
 ├── action/                 # Official GitHub Action wrapper for the CLI (robota-sdk/action)
 ├── agent-web/              # Web application (Agent Playground)

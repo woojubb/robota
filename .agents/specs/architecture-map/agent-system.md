@@ -18,7 +18,7 @@ flowchart TD
   Executor["agent-executor\nbackground task lifecycle"]
   Tools["agent-tools + agent-tool-mcp\ntools + sandbox ports + MCP integration"]
   Core["agent-core\nprovider/history/permission contracts\n(ZERO deps from other agent-* packages)"]
-  Providers["agent-provider\nprovider definitions + transports"]
+  Providers["agent-provider\nprovider definitions"]
   SubagentRunner["agent-subagent-runner\nChildProcessSubagentRunner + worker\n(optional — install only when needed)"]
   Plugins["agent-plugin\nplugin layer (event, logging, usage, etc.)"]
   IfaceTransport["agent-interface-transport\ntransport + session/storage/usage/workspace/command/event contracts (DATA-001)\n(type-only agent-core dep)"]
@@ -108,7 +108,6 @@ flowchart TD
   ClientEntry --> Playground
   Playground --> RemoteClient
   Playground --> Core
-  Playground --> Providers
   RemoteClient --> Core
   AgentServer --> Providers
 ```

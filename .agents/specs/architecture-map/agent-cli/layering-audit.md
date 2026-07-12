@@ -1,6 +1,6 @@
 # Agent CLI Layering Audit
 
-Source-verified against `develop` on 2026-06-14.
+Source-verified against `develop` on 2026-07-12.
 
 Resolved audit findings, durable lessons, and mechanical guard candidates.
 
@@ -35,8 +35,9 @@ Mechanical guard: `scripts/harness/check-command-layering.mjs` flags `_pendingCo
 
 Status: resolved — PR #401 (`feat(prov-001)`).
 
-Live refresh adapters exist for Anthropic, Gemini, Qwen, OpenAI, and DeepSeek via
-provider-owned `refreshModelCatalog` hooks. TTL-based auto-refresh (`modelCatalogCacheTtlSeconds`)
+Live refresh adapters exist for the Anthropic, Gemini, Qwen, OpenAI, and DeepSeek definitions via
+provider-owned `refreshModelCatalog` hooks (Qwen/DeepSeek are `agent-provider-openai-compatible`
+definitions, not standalone packages). TTL-based auto-refresh (`modelCatalogCacheTtlSeconds`)
 is wired in `model-command-api.ts`. CLI/TUI renders freshness state only.
 
 ### CLI-AUDIT-004: Legacy assembly architecture doc was stale
@@ -57,15 +58,15 @@ Mechanical guard: command-layering harness scans for new CLI command shim files 
 
 Status: resolved.
 
-| File                                                                          | Classification                                                            |
-| ----------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| `agent-executor/src/background-tasks/runners/managed-shell-process-runner.ts` | Executor adapter — Node spawn, stdin, cancellation (moved from agent-cli) |
-| `agent-subagent-runner/src/child-process-subagent-runner.ts`                  | Optional package — Node fork, worker path, payload (moved from agent-cli) |
-| `agent-subagent-runner/src/child-process-subagent-ipc.ts`                     | Optional package — IPC protocol types                                     |
-| `agent-subagent-runner/src/child-process-subagent-worker.ts`                  | Optional package — worker entry point                                     |
-| `agent-subagent-runner/src/worker-path-resolver.ts`                           | Optional package — bundled worker path resolver                           |
-| `agent-executor/src/subagents/git-worktree-isolation-adapter.ts`              | Executor adapter — worktree port impl                                     |
-| `agent-executor/src/background-tasks/log-pages.ts`                            | Runtime primitive — bounded output + pagination                           |
+| File                                                                          | Classification                                                                                                                                                                      |
+| ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `agent-executor/src/background-tasks/runners/managed-shell-process-runner.ts` | Executor adapter — Node spawn, stdin, cancellation (moved from agent-cli)                                                                                                           |
+| `agent-subagent-runner/src/child-process-subagent-runner.ts`                  | Optional package — Node fork, worker path, payload (moved from agent-cli)                                                                                                           |
+| `agent-subagent-runner/src/child-process-subagent-ipc.ts`                     | Optional package — IPC protocol types                                                                                                                                               |
+| `agent-subagent-runner/src/child-process-subagent-worker.ts`                  | Optional package — worker entry point                                                                                                                                               |
+| `agent-subagent-runner/src/worker-path-resolver.ts`                           | Optional package — bundled worker path resolver                                                                                                                                     |
+| `agent-cli/src/subagents/git-worktree-isolation-adapter.ts`                   | CLI host adapter — concrete git-worktree isolation over the `agent-executor` worktree port (CLI keeps concrete local host adapters — CLI-AUDIT-009 / agent-system.md ownership row) |
+| `agent-executor/src/background-tasks/log-pages.ts`                            | Runtime primitive — bounded output + pagination                                                                                                                                     |
 
 ### CLI-AUDIT-007: SDK public exports hide package ownership
 
@@ -232,7 +233,8 @@ Status: resolved — branch refactor/arch-002-slim-agent-cli (2026-05-17).
 from `agent-core` and factory functions from `@robota-sdk/agent-provider-defaults/*` sub-paths.
 
 The decision of "which providers are available by default" is a provider package concern.
-`agent-provider` already re-exports all providers from its root.
+`agent-provider-defaults` assembles the default set from the per-vendor `agent-provider-*` packages
+(there is no bare `agent-provider` package).
 
 Fix: added `createDefaultProviderDefinitions()` to `packages/agent-provider-defaults/src/default-provider-definitions.ts`,
 exported from `@robota-sdk/agent-provider-defaults` root. All callers in `agent-cli` now import from

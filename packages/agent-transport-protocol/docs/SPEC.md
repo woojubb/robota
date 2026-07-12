@@ -52,6 +52,7 @@ abort/...` from inbound `TClientMessage`s) + `cleanup()`. Framework-agnostic: wo
 | `SessionResumeBridge`         | class     |
 | `ISessionResumeBridgeOptions` | interface |
 | `TResumeSink`                 | type      |
+| `IAttachOptions`              | interface |
 
 ## Type Ownership
 

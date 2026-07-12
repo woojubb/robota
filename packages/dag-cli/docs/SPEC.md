@@ -2,7 +2,7 @@
 
 ## Scope
 
-Local-first command-line workflow tool for building, running, and inspecting Robota DAG workflows. This package is an operational tool for humans and AI agents that author, validate, execute, and inspect DAG workflows locally (no server required) via an in-process runner, plus supporting commands for cost estimation, MCP serving, node inspection, cataloging, sharing, and diagnostics. When a server URL is configured it can additionally delegate the orchestration command groups (definitions, runs, run-drafts, cost metadata, assets, published workflows) to `dag-orchestrator-server` over HTTP.
+Local-first command-line workflow tool for building, running, and inspecting Robota DAG workflows. This package is an operational tool for humans and AI agents that author, validate, execute, and inspect DAG workflows locally (no server required) via an in-process runner, plus supporting commands for cost estimation, MCP serving, node inspection, cataloging, sharing, and diagnostics. When a server URL is configured it can additionally delegate the orchestration command groups (definitions, runs, run-drafts, cost metadata, assets, published workflows) to a compatible DAG orchestration HTTP server (e.g. `@robota-sdk/dag-runtime-server`) over HTTP.
 
 ## Boundaries
 
@@ -11,7 +11,7 @@ Local-first command-line workflow tool for building, running, and inspecting Rob
 - Does not own server-side API problem detail mapping. That belongs to `@robota-sdk/dag-api`.
 - Does not import or extend `@robota-sdk/agent-cli`; the agent TUI remains a separate thin UI.
 - Supports local execution mode (default) that runs DAGs in-process via a composition built by `createExecutionComposition` from `@robota-sdk/dag-framework` over `dag-adapters-local` in-memory adapters, requiring no server.
-- HTTP server mode is available via `--server <url>` for compatibility with `dag-orchestrator-server`.
+- HTTP server mode is available via `--server <url>` for compatibility with a DAG orchestration HTTP server (e.g. `@robota-sdk/dag-runtime-server`).
 
 ## Architecture Overview
 
@@ -76,7 +76,7 @@ Server URL resolution:
 3. `http://localhost:3012`
 
 When a server URL is configured, unmatched commands fall through to `dispatchDagCliCommand`, which
-proxies the orchestration command groups to `dag-orchestrator-server` over HTTP:
+proxies the orchestration command groups to a compatible DAG orchestration HTTP server (e.g. `@robota-sdk/dag-runtime-server`) over HTTP:
 
 - `assets upload|get|download`
 - `cost-meta list|get|create|update|delete|validate|preview`
@@ -127,7 +127,8 @@ Imported from other packages:
 - `parsePersistedInstantNode`, `rehydrateInstantNode` from `@robota-sdk/dag-node-instant-node` (instant-node reload, DATA-004)
 - `IOrchestrationProblemDetails`, `DagOrchestrationHttpClient`, asset request aliases, cost metadata request aliases, run draft request aliases, `IDagOrchestrationPublishedWorkflowRunRequest`, and orchestrator HTTP response types from `@robota-sdk/dag-orchestration-client`
 - `IDagExecutionComposition`, `IRuntimeRunProgressEventBusPort` from `@robota-sdk/dag-api`
-- `createExecutionComposition` (in-process run composition), `createDefaultNodeRegistrySync`, `scanWorkspaceCatalog`, `HttpDagRuntimeProvider`, `LocalDagRuntimeProvider` from `@robota-sdk/dag-framework`
+- `createExecutionComposition` (in-process run composition), `scanWorkspaceCatalog`, `HttpDagRuntimeProvider`, `LocalDagRuntimeProvider` from `@robota-sdk/dag-framework`
+- `createDefaultNodeRegistrySync` (default node catalog) from `@robota-sdk/dag-nodes-default`
 - `buildDagFromPipeline`, `fromDagWorkflowFile`, `isWorkflowFileFormat`, `IDagBuildInput`, `IPipelineNodeSpec` from `@robota-sdk/dag-builder`
 - `InMemoryStoragePort`, `InMemoryQueuePort`, `InMemoryLeasePort`, `SystemClockPort` from `@robota-sdk/dag-adapters-local`
 - `buildNodeDefinitionAssembly`, `StaticNodeLifecycleFactory`, `StaticNodeManifestRegistry`, `StaticNodeTaskHandlerRegistry` from `@robota-sdk/dag-node`
@@ -191,6 +192,7 @@ None.
 | `dag-orchestration-client` HTTP client and payloads | CLI runner     | `src/`              |
 | `dag-api` composition and event bus                 | LocalDagRunner | `src/local-runner/` |
 | `dag-framework` `createExecutionComposition`        | LocalDagRunner | `src/local-runner/` |
+| `dag-nodes-default` `createDefaultNodeRegistrySync` | node-registry  | `src/local-runner/` |
 | `dag-builder` build/workflow-file helpers           | CLI commands   | `src/commands/`     |
 | `dag-adapters-local` in-memory adapters             | LocalDagRunner | `src/local-runner/` |
 | `dag-node` lifecycle and registry                   | LocalDagRunner | `src/local-runner/` |

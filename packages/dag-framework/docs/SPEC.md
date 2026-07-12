@@ -50,31 +50,42 @@ interface IDagFramework {
 
 ### `IDagFrameworkOptions`
 
-| Field                   | Type                       | Default                          | Description                       |
-| ----------------------- | -------------------------- | -------------------------------- | --------------------------------- |
-| `nodes`                 | `IDagNodeDefinition[]`     | `createDefaultNodeRegistry()`    | Node definitions to register      |
-| `ports.storage`         | `IStoragePort`             | `JsonFileStoragePort` (XDG path) | Persistent storage                |
-| `ports.queue`           | `IQueuePort`               | `InMemoryQueuePort`              | Task queue                        |
-| `ports.deadLetterQueue` | `IQueuePort`               | `InMemoryQueuePort`              | DLQ                               |
-| `ports.lease`           | `ILeasePort`               | `InMemoryLeasePort`              | Distributed lease                 |
-| `ports.clock`           | `IClockPort`               | `SystemClockPort`                | Time source                       |
-| `ports.executor`        | `ITaskExecutorPort`        | `DirectTaskExecutorPort`         | Task executor                     |
-| `ports.assetStore`      | `IAssetStore`              | `LocalFsAssetStore`              | File asset store                  |
-| `ports.runDraftStore`   | `IRunDraftStore`           | `InMemoryRunDraftStore`          | Run draft persistence             |
-| `paths.storageRoot`     | `string`                   | XDG / homedir                    | Root for JSON storage             |
-| `paths.assetRoot`       | `string`                   | `<storageRoot>/assets`           | Root for file assets              |
-| `worker`                | `IWorkerLoopPolicyOptions` | defaults                         | Worker backoff/poll settings      |
-| `autoStart`             | `boolean`                  | `false`                          | Auto-start worker loop in factory |
-| `logger`                | `IDagFrameworkLogger`      | no-op                            | Log info + error messages         |
+| Field                   | Type                             | Default                                                    | Description                                                                                                     |
+| ----------------------- | -------------------------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `nodes`                 | `IDagNodeDefinition[]`           | lazily-loaded catalog from `@robota-sdk/dag-nodes-default` | Node definitions to register                                                                                    |
+| `providers`             | `readonly IProviderDefinition[]` | lazily-loaded `createDefaultProviderDefinitions()`         | Provider-definition registry injected into the collapsed `llm-text` node. **Ignored when `nodes` is supplied.** |
+| `ports.storage`         | `IStoragePort`                   | `JsonFileStoragePort` (XDG path)                           | Persistent storage                                                                                              |
+| `ports.queue`           | `IQueuePort`                     | `InMemoryQueuePort`                                        | Task queue                                                                                                      |
+| `ports.deadLetterQueue` | `IQueuePort`                     | `InMemoryQueuePort`                                        | DLQ                                                                                                             |
+| `ports.lease`           | `ILeasePort`                     | `InMemoryLeasePort`                                        | Distributed lease                                                                                               |
+| `ports.clock`           | `IClockPort`                     | `SystemClockPort`                                          | Time source                                                                                                     |
+| `ports.executor`        | `ITaskExecutorPort`              | `DirectTaskExecutorPort`                                   | Task executor                                                                                                   |
+| `ports.assetStore`      | `IAssetStore`                    | `LocalFsAssetStore`                                        | File asset store                                                                                                |
+| `ports.runDraftStore`   | `IRunDraftStore`                 | `InMemoryRunDraftStore`                                    | Run draft persistence                                                                                           |
+| `paths.storageRoot`     | `string`                         | XDG / homedir                                              | Root for JSON storage                                                                                           |
+| `paths.assetRoot`       | `string`                         | `<storageRoot>/assets`                                     | Root for file assets                                                                                            |
+| `worker`                | `IWorkerLoopPolicyOptions`       | defaults                                                   | Worker backoff/poll settings                                                                                    |
+| `autoStart`             | `boolean`                        | `false`                                                    | Auto-start worker loop in factory                                                                               |
+| `logger`                | `IDagFrameworkLogger`            | no-op                                                      | Log info + error messages                                                                                       |
 
 ### Node Registries
 
+The default node catalog was extracted to `@robota-sdk/dag-nodes-default` (ARCH-PROVIDER-004) and is
+**not** re-exported by `dag-framework` — a pass-through re-export would force a hard
+`dag-framework → dag-nodes-default` production edge. Import the registry factories directly from the
+`@robota-sdk/dag-nodes-default` entry point at composition roots:
+
 ```typescript
+import {
+  createDefaultNodeRegistrySync,
+  createDefaultNodeRegistry,
+} from '@robota-sdk/dag-nodes-default';
+
 // Core nodes only (23 nodes, sync, no optional peer deps)
 createDefaultNodeRegistrySync(): IDagNodeDefinition[]
 
-// Core + optional LLM nodes (async, silently skips unavailable SDKs)
-createDefaultNodeRegistry(): Promise<IDagNodeDefinition[]>
+// Core + collapsed llm-text + optional media/skill nodes (async, silently skips unavailable SDKs)
+createDefaultNodeRegistry(providers?: readonly IProviderDefinition[]): Promise<IDagNodeDefinition[]>
 ```
 
 **Core nodes (always available, 23):** `input`, `multi-input`, `transform`, `text-template`,
@@ -83,8 +94,11 @@ nodes: `string-to-number`, `number-to-string`, `text-join`, `text-split`, `text-
 `text-length`, `text-upper`, `text-lower`, `text-trim`, `json-extract`, `conditional-text`,
 `text-count-lines`, `text-repeat`, `text-slice`.
 
-**Optional LLM nodes (loaded if SDK installed):** `llm-text-openai`, `llm-text-anthropic`,
-`llm-text-gemini`, `llm-text-deepseek`, `llm-text-qwen`, `gemini-image-edit`,
+**LLM node (always present via `createDefaultNodeRegistry`):** the collapsed single `llm-text` node
+(`@robota-sdk/dag-node-llm-text`) bound to an injected/lazy provider-definition registry (the
+per-vendor `llm-text-openai/anthropic/gemini/deepseek/qwen` nodes were collapsed into it).
+
+**Optional media/skill nodes (loaded if SDK installed):** `gemini-image-edit`,
 `gemini-image-compose`, `text-to-image`, `seedance-video`, `skill`.
 
 ### Infrastructure Adapters (re-exported)
