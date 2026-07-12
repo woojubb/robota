@@ -14,7 +14,6 @@ packages/
 ├── agent-command/               # Command modules: agent, background, compact, context, exit, help, language, memory, mode, model, permissions, plugin, provider, reset, rewind, session, settings, skills, statusline, user-local
 ├── agent-command-*/             # Command-module bridge packages to other subsystems (e.g. agent-command-workflows: surfaces the DAG engine as `/workflows`, composing dag-framework)
 ├── agent-cli/                   # Terminal UI and local runtime adapters
-├── agent-web-ui/                # Browser-remote (WebRTC) surface: SessionMonitor + RemoteClient + the RTC session/signaling clients over the shared GUI core; NO pass-through re-exports of agent-transport-gui (GUI-005). To be absorbed/retired once the web GUI surface is unified (GUI Phase-2)
 ├── agent-provider/              # Provider packages: anthropic, openai, openai-compatible, deepseek, gemma, qwen, gemini, google, bytedance
 ├── agent-provider-*/            # Provider-family variants (e.g. agent-provider-replay: deterministic session-log replay provider; depends on agent-core + agent-session)
 ├── agent-playground/            # Playground UI package
@@ -23,7 +22,7 @@ packages/
 ├── agent-interface-*/           # Interface/contract packages: pure type contracts; MAY also export pure, dependency-free derivation accessors over their own owned types (no classes, no I/O) — e.g. agent-interface-transport's read* helpers over InteractionEvent. Mechanized by scripts/harness/scan-interface-runtime.mjs (harness:scan `interface-runtime`, INFRA-035): FAILS on any bare/external value import-or-re-export or any class/enum declaration in these packages' src (zero runtime dependency edges).
 ├── agent-transport/             # Transport core: headless adapter + transport registry + scripted-provider testing fixtures (pure TS)
 ├── agent-transport-protocol/    # Transport-neutral session bridge + WS wire protocol (createWsHandler, TClientMessage/TServerMessage); shared by -ws and -webrtc (deps: interface-transport only)
-├── agent-transport-*/           # Per-concern transport implementations: agent-transport-tui (React/Ink), agent-transport-gui (React GUI presentation core — session reducer + view components + desktop shell; the GUI analog of -tui, consumed by apps/agent-app and agent-web-ui; deps: interface-transport + transport-protocol only, GUI-005), -ws (WebSocket), -http (Hono), -mcp (MCP), -webrtc (P2P RTCDataChannel, optional werift peer dep, REMOTE-001); -ws/-http/-mcp are contract-pure (deps: interface-transport + transport-protocol only). -webrtc additionally depends on agent-remote-pairing (REMOTE-008): the pairing gate must live in wireChannel, where the DTLS fingerprints (offer/answer SDP) and pre-session channel frames are visible — agent-remote-pairing is a zero-dep isomorphic leaf, so this adds no cycle.
+├── agent-transport-*/           # Per-concern transport implementations: agent-transport-tui (React/Ink), agent-transport-gui (React GUI presentation core — session reducer + view components + desktop shell + SessionMonitor web shell; the GUI analog of -tui, consumed by apps/agent-app, apps/agent-web-monitor, and agent-transport-webrtc-web; deps: interface-transport + transport-protocol only, GUI-005/006), agent-transport-webrtc-web (BROWSER WebRTC peer — native RTCPeerConnection answerer + RemoteClient + useRtcSession over the GUI core; browser mirror of node -webrtc; deps: agent-transport-gui + agent-remote-pairing + transport-protocol, GUI-006), -ws (WebSocket), -http (Hono), -mcp (MCP), -webrtc (P2P RTCDataChannel, optional werift peer dep, REMOTE-001); -ws/-http/-mcp are contract-pure (deps: interface-transport + transport-protocol only). -webrtc additionally depends on agent-remote-pairing (REMOTE-008): the pairing gate must live in wireChannel, where the DTLS fingerprints (offer/answer SDP) and pre-session channel frames are visible — agent-remote-pairing is a zero-dep isomorphic leaf, so this adds no cycle.
 ├── agent-testing/               # General test framework: domain-free test-environment tooling (PTY runner spawnPty/spawnPtyFixture); zero @robota-sdk deps, devDependency. Charter+placement rule in its SPEC (contracts→agent-interface-*, doubles→owner /testing, drivers→owning module)
 ├── agent-process/               # Domain-free child-process termination primitives (killProcessTree: SIGTERM→grace→SIGKILL, process-group aware); zero @robota-sdk deps, leaf. Consumed by agent-executor/agent-tools/agent-subagent-runner (CORE-023)
 ├── agent-plugin/                # Plugins: conversation-history, logging, usage, performance, execution-analytics, error-handling, limits, event-emitter, webhook
@@ -48,6 +47,7 @@ packages/
 apps/
 ├── action/                 # Official GitHub Action wrapper for the CLI (robota-sdk/action)
 ├── agent-web/              # Web application (Agent Playground)
+├── agent-web-monitor/      # CLI-served web GUI (Vite SPA): index.html monitor (SessionMonitor) + remote.html Stage-D page (RemoteClient); the web sibling of apps/agent-app over the shared GUI core; agent-cli builds + serves its dist (GUI-006)
 ├── blog/                   # Blog/content application
 ├── docs/                   # Documentation site
 ├── starter-nextjs/         # Next.js SDK starter template (PM-029)
@@ -55,7 +55,7 @@ apps/
 ├── agent-server/           # AI provider proxy + Playground WebSocket
 ├── dag-runtime-server/     # Native DAG runtime HTTP server (`/v1/dag/*` over Hono); serves dag-framework's IDagOrchestrationPort, native runtime surface, no external-runtime API (WORKFLOW-002)
 ├── remote-signaling/       # Minimal content-blind WebRTC signaling relay (SDP/ICE rendezvous); dumb relay, no @robota-sdk deps, no session content (REMOTE-001/002 Stage A)
-└── agent-app/              # Electron desktop application (macOS/Linux/Windows); the desktop GUI surface — spawns a robota loopback-WS sidecar (required nonce auth) and renders the shared GUI presentation core agent-transport-gui; NO agent-framework/agent-core dep (GUI-002 foundation, GUI-005 taxonomy)
+└── agent-app/              # Electron desktop application (macOS/Linux/Windows); the desktop GUI surface. Runs STANDALONE — the user never launches agent-cli first; the app spawns its OWN headless robota runtime sidecar internally (loopback-WS + required nonce auth) and renders the shared GUI presentation core agent-transport-gui. Depends on the agent RUNTIME, not the CLI's terminal UI; NO agent-framework/agent-core dep. Remote WebRTC (agent-transport-webrtc-web) is an optional in-app feature, not a requirement (GUI-002 foundation, GUI-005 taxonomy)
 ```
 
 ## Library Neutrality Rule (packages/ vs apps/)
@@ -75,9 +75,10 @@ consumer for any payload/application domain:
 - `apps/` is the product tier and plays by product rules (opinionated UX, domain concepts, its own
   prompts). `examples/` may likewise be full products — that is their job. A small **product-shell
   tier lives in `packages/`** and is exempt from library neutrality: `packages/agent-cli` (the
-  published reference product), `packages/agent-playground`, and `packages/agent-web-ui` (both
-  `private` product shells). These are sanctioned products assembled FROM the libraries — their
-  preset/persona/UI surfaces are product behavior, not library behavior.
+  published reference product) and `packages/agent-playground` (a `private` product shell). These are
+  sanctioned products assembled FROM the libraries — their preset/persona/UI surfaces are product
+  behavior, not library behavior. (The former `packages/agent-web-ui` was retired in GUI-006; its web
+  GUI is now the `apps/agent-web-monitor` app over the shared GUI core.)
 
 When a use case seems to need a domain feature in a library, the answer is: verify the neutral
 ingredients exist, then show the assembly in `examples/` or a guide.

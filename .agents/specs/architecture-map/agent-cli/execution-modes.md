@@ -69,7 +69,7 @@ CLI forwards the preset's `persona`, `agentName`, `activePresetId`, `enableParal
 
 ## WebSocket Sidecar Mode
 
-> **[Planned — not yet implemented]** The `--web` / `--web-port` flags and `startWebSidecarServer()` described below do not exist in the codebase. This section documents the planned design intent referenced in `agent-web-ui/docs/SPEC.md`. Do not rely on it as a current implementation reference.
+> **[Planned — not yet implemented]** The `--web` / `--web-port` flags and `startWebSidecarServer()` described below do not exist in the codebase. This section documents the planned design intent captured in the sidecar-mode section of [agent-system.md](../agent-system.md). Do not rely on it as a current implementation reference.
 
 ```mermaid
 sequenceDiagram

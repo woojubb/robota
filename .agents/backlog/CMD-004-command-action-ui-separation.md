@@ -4,7 +4,7 @@ status: in-progress
 created: 2026-06-28
 priority: high
 urgency: soon
-area: packages/agent-interface-transport, packages/agent-framework, packages/agent-command, packages/agent-transport-tui, packages/agent-transport, packages/agent-cli, packages/agent-web-ui
+area: packages/agent-interface-transport, packages/agent-framework, packages/agent-command, packages/agent-transport-tui, packages/agent-transport, packages/agent-cli, packages/agent-transport-gui
 depends_on: []
 ---
 

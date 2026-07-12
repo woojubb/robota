@@ -128,17 +128,17 @@ packages/agent-cli/src/bin.ts
 
 When reading older branches or PRs, use this map.
 
-| Old name (pre-2026-05) | Current name                                  |
-| ---------------------- | --------------------------------------------- |
-| `agent-runtime`        | `agent-executor`                              |
-| `agent-sessions`       | `agent-session`                               |
-| `agent-providers`      | `agent-provider`                              |
-| `agent-plugins`        | `agent-plugin`                                |
-| `agent-sdk`            | `agent-framework`                             |
-| `agent-transport/ws`   | `agent-transport-ws` (separate package)       |
-| `agent-transport/tui`  | `agent-transport-tui` (separate package)      |
-| `agent-command-*`      | `agent-command`                               |
-| `agent-web`            | `agent-web-ui` (pkg) / `apps/agent-web` (app) |
+| Old name (pre-2026-05) | Current name                                                                                                    |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `agent-runtime`        | `agent-executor`                                                                                                |
+| `agent-sessions`       | `agent-session`                                                                                                 |
+| `agent-providers`      | `agent-provider`                                                                                                |
+| `agent-plugins`        | `agent-plugin`                                                                                                  |
+| `agent-sdk`            | `agent-framework`                                                                                               |
+| `agent-transport/ws`   | `agent-transport-ws` (separate package)                                                                         |
+| `agent-transport/tui`  | `agent-transport-tui` (separate package)                                                                        |
+| `agent-command-*`      | `agent-command`                                                                                                 |
+| `agent-web`            | `agent-transport-gui` / `agent-transport-webrtc-web` (pkgs), `apps/agent-web-monitor` / `apps/agent-web` (apps) |
 
 ## Startup Module Boundary Map
 

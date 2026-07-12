@@ -1,11 +1,11 @@
 'use client';
 
-import {
-  AgentActivityPanel,
-  ConversationView,
-  useWsSession,
-} from '@robota-sdk/agent-transport-gui';
 import React, { useState } from 'react';
+
+import { useWsSession } from '../hooks/useSessionClient.js';
+
+import { AgentActivityPanel } from './AgentActivityPanel.js';
+import { ConversationView } from './ConversationView.js';
 
 const STATUS_CONFIG: Record<string, { label: string; dot: string; text: string; glow: string }> = {
   connected: {

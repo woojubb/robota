@@ -4,7 +4,7 @@
 
 WebSocket transport and wire protocol for the Robota SDK. Split out of the consolidated
 `agent-transport` package (DQ-AUDIT-005) so the `ws` dependency and the WS message types are an
-isolated unit — browser/monitor consumers (e.g. `agent-web-ui`) depend on this package's types
+isolated unit — browser/monitor consumers (e.g. `agent-transport-gui`) depend on this package's types
 without pulling React, Ink, or Hono.
 
 ## Boundaries

@@ -11,7 +11,7 @@
  *    nothing and enforced nothing while its docstring claimed `agent-framework`; assert the real relation).
  *
  * agent-framework is a platform-neutral assembly layer. React hooks/context/components belong in the
- * product/UI packages (agent-cli, agent-transport-tui, agent-web-ui) only.
+ * product/UI packages (agent-cli, agent-transport-tui, agent-transport-gui) only.
  *
  * Exit code 0 = clean, 1 = violations found.
  */
@@ -100,7 +100,7 @@ function runScan() {
     console.error('');
     console.error(`  ${SDK_PKG} is a platform-neutral assembly layer.`);
     console.error(
-      '  React hooks/context/components belong in agent-cli / agent-transport-tui / agent-web-ui.',
+      '  React hooks/context/components belong in agent-cli / agent-transport-tui / agent-transport-gui.',
     );
     process.exit(1);
   } else {
