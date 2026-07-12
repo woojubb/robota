@@ -54,7 +54,8 @@ apps/
 ├── www/                    # Marketing site (robota.io)
 ├── agent-server/           # AI provider proxy + Playground WebSocket
 ├── dag-runtime-server/     # Native DAG runtime HTTP server (`/v1/dag/*` over Hono); serves dag-framework's IDagOrchestrationPort, native runtime surface, no external-runtime API (WORKFLOW-002)
-└── remote-signaling/       # Minimal content-blind WebRTC signaling relay (SDP/ICE rendezvous); dumb relay, no @robota-sdk deps, no session content (REMOTE-001/002 Stage A)
+├── remote-signaling/       # Minimal content-blind WebRTC signaling relay (SDP/ICE rendezvous); dumb relay, no @robota-sdk deps, no session content (REMOTE-001/002 Stage A)
+└── agent-gui/              # Electron desktop shell (macOS/Linux/Windows); thin presentation surface that spawns a robota loopback-WS sidecar (required nonce auth) and reuses agent-web-ui; NO agent-framework/agent-core dep (GUI-002)
 ```
 
 ## Library Neutrality Rule (packages/ vs apps/)

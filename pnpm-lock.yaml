@@ -115,7 +115,7 @@ importers:
         version: 0.3.1
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.22.4)
+        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.22.4)
 
   apps/action:
     dependencies:
@@ -132,6 +132,46 @@ importers:
       vitest:
         specifier: ^3.2.6
         version: 3.2.6(@types/node@22.19.21)(tsx@4.22.4)
+
+  apps/agent-gui:
+    dependencies:
+      '@robota-sdk/agent-web-ui':
+        specifier: workspace:*
+        version: link:../../packages/agent-web-ui
+      react:
+        specifier: 19.1.0
+        version: 19.1.0
+      react-dom:
+        specifier: 19.1.0
+        version: 19.1.0(react@19.1.0)
+    devDependencies:
+      '@testing-library/react':
+        specifier: ^16.1.0
+        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@19.2.3)(@types/react@19.2.17)(react-dom@19.1.0)(react@19.1.0)
+      '@types/react':
+        specifier: ^19.2.17
+        version: 19.2.17
+      '@types/react-dom':
+        specifier: ^19.2.3
+        version: 19.2.3(@types/react@19.2.17)
+      '@vitejs/plugin-react':
+        specifier: ^4.3.4
+        version: 4.7.0(vite@6.4.3)
+      electron:
+        specifier: ^43.0.0
+        version: 43.1.0
+      jsdom:
+        specifier: ^25.0.1
+        version: 25.0.1
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      vite:
+        specifier: ^6.0.7
+        version: 6.4.3(@types/node@20.19.43)(tsx@4.22.4)
+      vitest:
+        specifier: ^3.2.6
+        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.22.4)
 
   apps/agent-server:
     dependencies:
@@ -1043,7 +1083,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.22.4)
+        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.22.4)
 
   packages/agent-command:
     dependencies:
@@ -1163,7 +1203,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.22.4)
+        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.22.4)
 
   packages/agent-executor:
     dependencies:
@@ -1194,7 +1234,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.22.4)
+        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.22.4)
 
   packages/agent-framework:
     dependencies:
@@ -1231,7 +1271,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.22.4)
+        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.22.4)
 
   packages/agent-interface-transport:
     dependencies:
@@ -1250,7 +1290,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.22.4)
+        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.22.4)
 
   packages/agent-interface-tui:
     devDependencies:
@@ -1265,7 +1305,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.22.4)
+        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.22.4)
 
   packages/agent-playground:
     dependencies:
@@ -1439,7 +1479,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.22.4)
+        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.22.4)
 
   packages/agent-process:
     devDependencies:
@@ -1457,7 +1497,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.22.4)
+        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.22.4)
 
   packages/agent-provider-anthropic:
     dependencies:
@@ -1641,7 +1681,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.22.4)
+        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.22.4)
 
   packages/agent-remote-client:
     dependencies:
@@ -1663,7 +1703,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.22.4)
+        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.22.4)
 
   packages/agent-remote-pairing:
     devDependencies:
@@ -1678,7 +1718,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.22.4)
+        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.22.4)
 
   packages/agent-session:
     dependencies:
@@ -1703,7 +1743,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.22.4)
+        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.22.4)
 
   packages/agent-session-analytics:
     dependencies:
@@ -1725,7 +1765,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.22.4)
+        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.22.4)
 
   packages/agent-subagent-runner:
     dependencies:
@@ -1787,7 +1827,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.22.4)
+        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.22.4)
 
   packages/agent-tool-mcp:
     devDependencies:
@@ -1805,7 +1845,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.22.4)
+        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.22.4)
 
   packages/agent-tools:
     dependencies:
@@ -1836,7 +1876,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.22.4)
+        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.22.4)
 
   packages/agent-transport:
     dependencies:
@@ -1867,7 +1907,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.22.4)
+        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.22.4)
 
   packages/agent-transport-http:
     dependencies:
@@ -1889,7 +1929,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.22.4)
+        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.22.4)
 
   packages/agent-transport-mcp:
     dependencies:
@@ -1911,7 +1951,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.22.4)
+        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.22.4)
 
   packages/agent-transport-protocol:
     dependencies:
@@ -1930,7 +1970,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.22.4)
+        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.22.4)
 
   packages/agent-transport-tui:
     dependencies:
@@ -2000,7 +2040,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.22.4)
+        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.22.4)
 
   packages/agent-transport-webrtc:
     dependencies:
@@ -2031,7 +2071,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.22.4)
+        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.22.4)
       werift:
         specifier: ^0.23.0
         version: 0.23.0
@@ -2065,7 +2105,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.22.4)
+        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.22.4)
 
   packages/agent-web-ui:
     dependencies:
@@ -2120,7 +2160,7 @@ importers:
         version: 8.0.16(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.22.4)
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.22.4)
+        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.22.4)
 
   packages/dag-adapters-local:
     dependencies:
@@ -2142,7 +2182,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.22.4)
+        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.22.4)
 
   packages/dag-adapters-sqlite:
     dependencies:
@@ -2167,7 +2207,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.22.4)
+        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.22.4)
 
   packages/dag-api:
     dependencies:
@@ -2192,7 +2232,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.22.4)
+        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.22.4)
 
   packages/dag-builder:
     dependencies:
@@ -2297,7 +2337,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.22.4)
+        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.22.4)
 
   packages/dag-cost:
     dependencies:
@@ -2319,7 +2359,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.22.4)
+        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.22.4)
 
   packages/dag-framework:
     dependencies:
@@ -2416,7 +2456,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.22.4)
+        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.22.4)
 
   packages/dag-nodes-default:
     dependencies:
@@ -2511,7 +2551,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.22.4)
+        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.22.4)
 
   packages/dag-nodes/file-read:
     dependencies:
@@ -2542,7 +2582,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.22.4)
+        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.22.4)
 
   packages/dag-nodes/file-write:
     dependencies:
@@ -2573,7 +2613,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.22.4)
+        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.22.4)
 
   packages/dag-nodes/gemini-image-edit:
     dependencies:
@@ -2610,7 +2650,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.22.4)
+        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.22.4)
 
   packages/dag-nodes/http-request:
     dependencies:
@@ -2641,7 +2681,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.22.4)
+        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.22.4)
 
   packages/dag-nodes/image-loader:
     dependencies:
@@ -2669,7 +2709,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.22.4)
+        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.22.4)
 
   packages/dag-nodes/image-source:
     dependencies:
@@ -2697,7 +2737,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.22.4)
+        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.22.4)
 
   packages/dag-nodes/input:
     dependencies:
@@ -2725,7 +2765,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.22.4)
+        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.22.4)
 
   packages/dag-nodes/instant-node:
     dependencies:
@@ -2771,7 +2811,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.22.4)
+        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.22.4)
 
   packages/dag-nodes/llm-text:
     dependencies:
@@ -2805,7 +2845,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.22.4)
+        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.22.4)
 
   packages/dag-nodes/mcp-tool:
     dependencies:
@@ -2839,7 +2879,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.22.4)
+        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.22.4)
 
   packages/dag-nodes/multi-input:
     dependencies:
@@ -2867,7 +2907,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.22.4)
+        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.22.4)
 
   packages/dag-nodes/ok-emitter:
     dependencies:
@@ -2895,7 +2935,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.22.4)
+        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.22.4)
 
   packages/dag-nodes/seedance-video:
     dependencies:
@@ -2932,7 +2972,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.22.4)
+        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.22.4)
 
   packages/dag-nodes/skill:
     dependencies:
@@ -2966,7 +3006,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.22.4)
+        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.22.4)
 
   packages/dag-nodes/text-output:
     dependencies:
@@ -2994,7 +3034,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.22.4)
+        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.22.4)
 
   packages/dag-nodes/text-template:
     dependencies:
@@ -3022,7 +3062,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.22.4)
+        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.22.4)
 
   packages/dag-nodes/text-to-image:
     dependencies:
@@ -3059,7 +3099,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.22.4)
+        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.22.4)
 
   packages/dag-nodes/tool:
     dependencies:
@@ -3096,7 +3136,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.22.4)
+        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.22.4)
 
   packages/dag-nodes/transform:
     dependencies:
@@ -3124,7 +3164,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.22.4)
+        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.22.4)
 
   packages/dag-nodes/utility-text:
     dependencies:
@@ -3152,7 +3192,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.22.4)
+        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.22.4)
 
   packages/dag-orchestration-client:
     dependencies:
@@ -3180,7 +3220,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.22.4)
+        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.22.4)
 
   packages/dag-projection:
     dependencies:
@@ -3205,7 +3245,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.22.4)
+        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.22.4)
 
   packages/dag-runtime:
     dependencies:
@@ -3230,7 +3270,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.22.4)
+        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.22.4)
 
   packages/dag-scheduler:
     dependencies:
@@ -3261,7 +3301,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.22.4)
+        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.22.4)
 
   packages/dag-worker:
     dependencies:
@@ -3286,7 +3326,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.22.4)
+        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.22.4)
 
   scratch:
     dependencies:
@@ -4381,6 +4421,27 @@ packages:
   /@discoveryjs/json-ext@0.5.7:
     resolution: {integrity: sha512-dBVuXR082gk3jsFp7Rd/JI4kytwGHecnCoTtXFb7DB6CNHp4rg5k1bhg0nWdLGLnOV71lmDzGQaLMy8iPLY0pw==}
     engines: {node: '>=10.0.0'}
+    dev: true
+
+  /@electron-internal/extract-zip@1.0.4:
+    resolution: {integrity: sha512-Zr1Vs7E9tpCNhZHDAbFVXc2gEVCG9RqPDjrno5+bdgB6LRAuvgyMHJut4NCVyYwtAieapMzc3fiQ3CSTi75ARg==}
+    engines: {node: '>=22.12.0'}
+    dev: true
+
+  /@electron/get@5.0.0:
+    resolution: {integrity: sha512-pjoBpru1KdEtcExBnuHAP1cAc/5faoedw0hzJkL3o4/IJp7HNF1+fbrdxT3gMYRX2oJfvnA/WXeCTVQpYYxyJA==}
+    engines: {node: '>=22.12.0'}
+    dependencies:
+      debug: 4.4.3
+      env-paths: 3.0.0
+      graceful-fs: 4.2.11
+      progress: 2.0.3
+      semver: 7.8.4
+      sumchecker: 3.0.1
+    optionalDependencies:
+      undici: 7.28.0
+    transitivePeerDependencies:
+      - supports-color
     dev: true
 
   /@emnapi/core@1.10.0:
@@ -9010,7 +9071,6 @@ packages:
     resolution: {integrity: sha512-fRa09kZTgu8o71KFcDjUFuc7F+dEbZYZmkI0mg5YBTRs0yMKjYHsq/c0urDKeDb+D5qVgXOdFcuu+DZPKOITwA==}
     dependencies:
       undici-types: 7.18.2
-    dev: false
 
   /@types/promise.allsettled@1.0.6:
     resolution: {integrity: sha512-wA0UT0HeT2fGHzIFV9kWpYz5mdoyLxKrTgMdZQM++5h6pYAFH73HXcQhefg24nD1yivUFEn5KU+EF4b+CXJ4Wg==}
@@ -9615,6 +9675,23 @@ packages:
       d3-transition: 3.0.1(d3-selection@3.0.0)
     dev: false
 
+  /@vitejs/plugin-react@4.7.0(vite@6.4.3):
+    resolution: {integrity: sha512-gUu9hwfWvvEDBBmgtAowQCojwZmJ5mcLn3aufeCsitijs3+f2NsrPtlAWIR6OPiqljl96GVCUbLe0HyqIpVaoA==}
+    engines: {node: ^14.18.0 || >=16.0.0}
+    peerDependencies:
+      vite: '>=7.3.2'
+    dependencies:
+      '@babel/core': 7.29.7
+      '@babel/plugin-transform-react-jsx-self': 7.29.7(@babel/core@7.29.7)
+      '@babel/plugin-transform-react-jsx-source': 7.29.7(@babel/core@7.29.7)
+      '@rolldown/pluginutils': 1.0.0-beta.27
+      '@types/babel__core': 7.20.5
+      react-refresh: 0.17.0
+      vite: 6.4.3(@types/node@20.19.43)(tsx@4.22.4)
+    transitivePeerDependencies:
+      - supports-color
+    dev: true
+
   /@vitejs/plugin-react@4.7.0(vite@8.0.16):
     resolution: {integrity: sha512-gUu9hwfWvvEDBBmgtAowQCojwZmJ5mcLn3aufeCsitijs3+f2NsrPtlAWIR6OPiqljl96GVCUbLe0HyqIpVaoA==}
     engines: {node: ^14.18.0 || >=16.0.0}
@@ -9654,7 +9731,7 @@ packages:
       std-env: 3.10.0
       test-exclude: 7.0.2
       tinyrainbow: 2.0.0
-      vitest: 3.2.6(@types/node@20.19.43)(tsx@4.22.4)
+      vitest: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.22.4)
     transitivePeerDependencies:
       - supports-color
     dev: true
@@ -11869,6 +11946,18 @@ packages:
   /electron-to-chromium@1.5.371:
     resolution: {integrity: sha512-e9htk9mAYL6AzmkEhSvVVw7IWGSBJ/Bqdn2eRyRLrj1g6sncN4WbFt5qnILYoCktktr45pyjIrOiRvBThQ808w==}
 
+  /electron@43.1.0:
+    resolution: {integrity: sha512-DPfxpQLd4NL3BJ8DBxYAfmLUKKesF5Rx9dQx5FyczAP8bhOPScjHE48GArVeXu68LlAainuwkmQTQvdZwpIIAQ==}
+    engines: {node: '>= 22.12.0'}
+    hasBin: true
+    dependencies:
+      '@electron-internal/extract-zip': 1.0.4
+      '@electron/get': 5.0.0
+      '@types/node': 24.13.2
+    transitivePeerDependencies:
+      - supports-color
+    dev: true
+
   /emittery@0.13.1:
     resolution: {integrity: sha512-DeWwawk6r5yR9jFgnDKYt4sLS0LmHJJi3ZOnb5/JdbYwj3nW+FxQnHIjhBKz8YLC7oRNPVM9NQ47I3CVx34eqQ==}
     engines: {node: '>=12'}
@@ -11945,6 +12034,11 @@ packages:
   /env-paths@2.2.1:
     resolution: {integrity: sha512-+h1lkLKhZMTYjog1VEpJNG7NZJWcuc2DDk/qsqSTRRCOXiLjeQ1d1/udrUGhqMxUgAlwKNZ0cf2uqan5GLuS2A==}
     engines: {node: '>=6'}
+    dev: true
+
+  /env-paths@3.0.0:
+    resolution: {integrity: sha512-dtJUTepzMW3Lm/NPxRf3wP4642UWhjL2sQxc+ym2YMj1m/H2zDNQOlezafzkHwn6sMstjHTwG6iQQsctDW/b1A==}
+    engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
     dev: true
 
   /environment@1.1.0:
@@ -17597,6 +17691,11 @@ packages:
     engines: {node: '>= 0.6.0'}
     dev: true
 
+  /progress@2.0.3:
+    resolution: {integrity: sha512-7PiHtLll5LdnKIMw100I+8xJXR5gW2QwWYkT6iJva0bXitZKa/XMrSbdmg3r2Xnaidz9Qumd0VPaMrZlF9V9sA==}
+    engines: {node: '>=0.4.0'}
+    dev: true
+
   /promise.allsettled@1.0.7:
     resolution: {integrity: sha512-hezvKvQQmsFkOdrZfYxUxkyxl8mgFQeT259Ajj9PXdbg9VzBCWrItOev72JyWxkCD5VSSqAeHmlN3tWx4DlmsA==}
     engines: {node: '>= 0.4'}
@@ -19268,6 +19367,15 @@ packages:
       ts-interface-checker: 0.1.13
     dev: true
 
+  /sumchecker@3.0.1:
+    resolution: {integrity: sha512-MvjXzkz/BOfyVDkG0oFOtBxHX2u3gKbMHIF/dXblZsgD3BWOFLmHovIpZY7BykJdAjcqRCBi1WYBNdEC9yI7vg==}
+    engines: {node: '>= 8.0'}
+    dependencies:
+      debug: 4.4.3
+    transitivePeerDependencies:
+      - supports-color
+    dev: true
+
   /superagent@10.3.0:
     resolution: {integrity: sha512-B+4Ik7ROgVKrQsXTV0Jwp2u+PXYLSlqtDAhYnkkD+zn3yg8s/zjA2MeGayPoY/KICrbitwneDHrjSotxKL+0XQ==}
     engines: {node: '>=14.18.0'}
@@ -19901,12 +20009,18 @@ packages:
 
   /undici-types@7.18.2:
     resolution: {integrity: sha512-AsuCzffGHJybSaRrmr5eHr81mwJU3kjw6M+uprWvCXiNeN9SOGwQ3Jn8jb8m3Z6izVgknn1R0FTCEAP2QrLY/w==}
-    dev: false
 
   /undici@6.24.1:
     resolution: {integrity: sha512-sC+b0tB1whOCzbtlx20fx3WgCXwkW627p4EA9uM+/tNNPkSS+eSEld6pAs9nDv7WbY1UUljBMYPtu9BCOrCWKA==}
     engines: {node: '>=18.17'}
     dev: false
+
+  /undici@7.28.0:
+    resolution: {integrity: sha512-cRZYrTDwWznlnRiPjggAGxZXanty6M8RV1ff8Wm4LWXBp7/IG8v5DnOm74DtUBp9OONpK75YlPnIjQqX0dBDtA==}
+    engines: {node: '>=20.18.1'}
+    requiresBuild: true
+    dev: true
+    optional: true
 
   /undici@8.5.0:
     resolution: {integrity: sha512-xamtWoB1EshgjpmlXd7GGm2VfdDtw1+rD8uhry8pSNW3If6S8E0m2T2+orSKeZXEn/aPJMviCpDBA65WJt8zhg==}
@@ -20316,6 +20430,58 @@ packages:
       - yaml
     dev: true
 
+  /vite@6.4.3(@types/node@20.19.43)(tsx@4.22.4):
+    resolution: {integrity: sha512-NTKlcQjlAK7MlQoyb6LgaqHc8sso/pVyUJYWMws3jg21uTJw/LddqIFPcPqP6PzpgbIcZyKI85sFE4HBrQDA8A==}
+    engines: {node: ^18.0.0 || ^20.0.0 || >=22.0.0}
+    hasBin: true
+    peerDependencies:
+      '@types/node': ^18.0.0 || ^20.0.0 || >=22.0.0
+      jiti: '>=1.21.0'
+      less: '*'
+      lightningcss: ^1.21.0
+      sass: '*'
+      sass-embedded: '*'
+      stylus: '*'
+      sugarss: '*'
+      terser: ^5.16.0
+      tsx: ^4.8.1
+      yaml: ^2.4.2
+    peerDependenciesMeta:
+      '@types/node':
+        optional: true
+      jiti:
+        optional: true
+      less:
+        optional: true
+      lightningcss:
+        optional: true
+      sass:
+        optional: true
+      sass-embedded:
+        optional: true
+      stylus:
+        optional: true
+      sugarss:
+        optional: true
+      terser:
+        optional: true
+      tsx:
+        optional: true
+      yaml:
+        optional: true
+    dependencies:
+      '@types/node': 20.19.43
+      esbuild: 0.28.1
+      fdir: 6.5.0(picomatch@4.0.4)
+      picomatch: 4.0.4
+      postcss: 8.5.15
+      rollup: 4.59.1
+      tinyglobby: 0.2.17
+      tsx: 4.22.4
+    optionalDependencies:
+      fsevents: 2.3.3
+    dev: true
+
   /vite@8.0.16(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.22.4):
     resolution: {integrity: sha512-h9bXPmJichP5fLmVQo3PyaGSDE2n3aPuomeAlVRm0JLmt4rY6zmPKd59HYI4LNW8oTK7tlTsuC7l/m7awx9Jcw==}
     engines: {node: ^20.19.0 || >=22.12.0}
@@ -20503,7 +20669,7 @@ packages:
       - yaml
     dev: true
 
-  /vitest@3.2.6(@types/node@20.19.43)(tsx@4.22.4):
+  /vitest@3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.22.4):
     resolution: {integrity: sha512-xejya+bT/j/+R/AGa1XOfRxLmNUlLtlwjRsFUILF+xHfzElmGcmFydy2gqqIrd62ptIEfwVMofd19uNWD9L7Nw==}
     engines: {node: ^18.0.0 || ^20.0.0 || >=22.0.0}
     hasBin: true
@@ -20543,6 +20709,7 @@ packages:
       chai: 5.3.3
       debug: 4.4.3
       expect-type: 1.3.0
+      jsdom: 25.0.1
       magic-string: 0.30.21
       pathe: 2.0.3
       picomatch: 4.0.4
