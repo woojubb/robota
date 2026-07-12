@@ -12,8 +12,8 @@ import { startRuntimeHost } from '../runtime/runtime-host.js';
 
 import type { IParsedCliArgs } from '../utils/cli-args.js';
 import type { IAIProvider } from '@robota-sdk/agent-core';
-import type { IBackgroundTaskRunner } from '@robota-sdk/agent-executor';
 import type {
+  IBackgroundTaskRunner,
   ICommandHostAdapters,
   ICommandModule,
   IRemoteCommandPolicy,
