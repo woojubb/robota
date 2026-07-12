@@ -157,6 +157,14 @@ jobs:
         if: github.base_ref != 'main'
         run: pnpm harness:scan:build-contracts
 
+      # RUNTIME-001: build-gated black-box e2e for the real `robota --serve` binary (+ the cross-fidelity
+      # bintest). These spawn the built CLI, so they need packages/*/dist (restored above) — hence they run
+      # here rather than in the dist-independent `scans` job. Deterministic (replay provider over loopback
+      # WS; no model key, no network). Gated on dist actually being restored so unrelated PRs skip cleanly.
+      - name: Binary e2e (agent-cli bintests, dist-dependent)
+        if: github.base_ref != 'main' && needs.build.outputs.package_dist_required == 'true'
+        run: pnpm --filter @robota-sdk/agent-cli test:bin
+
   # INFRA-037: the dist-INDEPENDENT scan suite + harness unit tests run here with NO `needs: build`, so
   # they start immediately and run in parallel with `build` (removing the ~3-min build-wait for work that
   # never consumed dist). Shaped like build/quality (main-base no-op + step-level `if`) so this REQUIRED
