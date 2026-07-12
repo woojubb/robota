@@ -27,9 +27,11 @@ running a local session stack.
 **Dependency boundary**:
 
 - Allowed: `@robota-sdk/agent-core` (type contracts), `@robota-sdk/agent-remote-client`
-  (remote execution), `@robota-sdk/agent-tools` (`FunctionTool` for built-in tool factories such
-  as `current-time`), and `@robota-sdk/agent-provider-openai` (`OpenAIProvider` / `AnthropicProvider`
-  used by code-editor templates and the remote-injection import rewriter).
+  (remote execution), and `@robota-sdk/agent-tools` (`FunctionTool` for built-in tool factories such
+  as `current-time`). The code-editor templates and the remote-injection import rewriter do not
+  depend on any provider package — they only emit and rewrite provider import-path strings as
+  generated code text (the literal paths live in `src/lib/code-generator/provider-templates.ts` and
+  the `remote-injection` rewriter), never linking a provider package.
 - Not allowed: `@robota-sdk/agent-framework`, `@robota-sdk/agent-session`,
   `@robota-sdk/agent-executor`.
 

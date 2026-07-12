@@ -2,11 +2,11 @@
 
 ## Scope
 
-`@robota-sdk/starter-nextjs` owns a minimal Next.js 15 starter template that demonstrates embedding the Robota SDK into a web application. It provides a single POST API route (`/api/chat`) that accepts a `message` string, invokes the Robota agent runtime, and returns the agent reply as JSON. It is the canonical reference showing how to wire `@robota-sdk/agent-framework` and `@robota-sdk/agent-provider` together inside a Next.js App Router API route.
+`@robota-sdk/starter-nextjs` owns a minimal Next.js 15 starter template that demonstrates embedding the Robota SDK into a web application. It provides a single POST API route (`/api/chat`) that accepts a `message` string, invokes the Robota agent runtime, and returns the agent reply as JSON. It is the canonical reference showing how to wire `@robota-sdk/agent-framework` and `@robota-sdk/agent-provider-anthropic` together inside a Next.js App Router API route.
 
 ## Boundaries
 
-- Does not implement any agent runtime, session, or provider logic — all AI execution is delegated to `@robota-sdk/agent-framework` and `@robota-sdk/agent-provider`.
+- Does not implement any agent runtime, session, or provider logic — all AI execution is delegated to `@robota-sdk/agent-framework` and `@robota-sdk/agent-provider-anthropic`.
 - Does not include a frontend chat UI (`app/page.tsx` is intentionally absent in the minimal template).
 - Does not manage conversation history or session persistence across HTTP requests.
 - Does not define custom authentication, rate limiting, or middleware.
@@ -22,7 +22,7 @@ apps/starter-nextjs
   │       └── chat/
   │           └── route.ts     -- Next.js App Router POST handler: /api/chat
   ├── next.config.ts            -- Minimal Next.js config (no customizations)
-  ├── package.json              -- Dependencies: next, react, react-dom, agent-framework, agent-provider
+  ├── package.json              -- Dependencies: next, react, react-dom, agent-framework, agent-provider-anthropic
   └── tsconfig.json             -- Next.js bundler module resolution, strict TS
 ```
 
@@ -64,12 +64,12 @@ This app has no library exports. It exposes one HTTP endpoint consumed by web cl
 
 Consumers extending this template are expected to modify source directly (it is a starter template, not a library). Documented extension paths from `README.md`:
 
-| Extension                           | How                                                                                 |
-| ----------------------------------- | ----------------------------------------------------------------------------------- |
-| Add a frontend UI                   | Create `app/page.tsx` with a chat component                                         |
-| Swap AI provider                    | Replace `AnthropicProvider` with another provider from `@robota-sdk/agent-provider` |
-| Persist conversation history        | Pass a `sessionId` across requests and retrieve prior session state                 |
-| Add authentication or rate limiting | Add Next.js middleware (`middleware.ts`) or wrap the route handler                  |
+| Extension                           | How                                                                                             |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Add a frontend UI                   | Create `app/page.tsx` with a chat component                                                     |
+| Swap AI provider                    | Replace `AnthropicProvider` with a provider from another `@robota-sdk/agent-provider-*` package |
+| Persist conversation history        | Pass a `sessionId` across requests and retrieve prior session state                             |
+| Add authentication or rate limiting | Add Next.js middleware (`middleware.ts`) or wrap the route handler                              |
 
 ## Error Taxonomy
 

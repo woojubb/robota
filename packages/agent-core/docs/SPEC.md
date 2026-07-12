@@ -451,11 +451,15 @@ Provider response usage is normalized before assistant messages are committed:
 
 ### Services
 
-| Export               | Kind  | Description     |
-| -------------------- | ----- | --------------- |
-| `EventHistoryModule` | class | Event recording |
+| Export                   | Kind          | Description               |
+| ------------------------ | ------------- | ------------------------- |
+| `EventHistoryModule`     | class         | Event recording           |
+| `AbstractEventService`   | abstract base | `IEventService` base      |
+| `DefaultEventService`    | class         | Null-object event service |
+| `StructuredEventService` | class         | Structured event service  |
+| `ObservableEventService` | class         | Observable event service  |
 
-Note: `AbstractEventService`, `DefaultEventService`, `StructuredEventService`, and `ObservableEventService` are internal implementation details and are not exported from `src/index.ts`.
+Note: `AbstractEventService`, `DefaultEventService`, `StructuredEventService`, and `ObservableEventService` are part of the public surface — all four are exported from `src/index.ts` and appear in the Class Contract Registry.
 
 ### Plugins (1 built-in)
 
@@ -1057,7 +1061,7 @@ NOTE: The single `FunctionTool` class (agent-core's `tool-registry`, DATA-005 SS
 | `AbstractAIProvider` (agent-core) | `AnthropicProvider` (agent-provider)         | `packages/agent-provider-anthropic/src/anthropic/provider.ts`       |
 | `AbstractAIProvider` (agent-core) | `GeminiProvider` (agent-provider)            | `packages/agent-provider-gemini/src/gemini/provider.ts`             |
 | `AbstractAIProvider` (agent-core) | `GoogleProvider` (agent-provider)            | `packages/agent-provider-gemini/src/google/provider.ts`             |
-| `AbstractAIProvider` (agent-core) | `MockAIProvider` (agent-sessions)            | `packages/agent-session/examples/verify-offline.ts`                 |
+| `AbstractAIProvider` (agent-core) | `MockAIProvider` (agent-session)             | `packages/agent-session/examples/verify-offline.ts`                 |
 | `IExecutor` (agent-core)          | `SimpleRemoteExecutor` (agent-remote-client) | `packages/agent-remote-client/src/client/remote-executor-simple.ts` |
 
 ## Test Strategy

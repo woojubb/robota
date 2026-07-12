@@ -23,7 +23,7 @@ There is no shared `packages/dag-nodes/src/`. Each node ships as its own package
 `<slug>/src/`. All node definitions extend `AbstractNodeDefinition` from `@robota-sdk/dag-node`
 (previously in `dag-core`).
 
-Across the 25 child packages there are 40 `*NodeDefinition` classes; a single package may export
+Across the 20 child packages there are 35 `*NodeDefinition` classes; a single package may export
 several (e.g. `utility-text`, `instant-node`, `gemini-image-edit`). The table below is a
 representative subset — each node package documents its own definitions in its `docs/SPEC.md`:
 
@@ -35,7 +35,7 @@ representative subset — each node package documents its own definitions in its
 | `AbstractNodeDefinition` (dag-node) | `TextOutputNodeDefinition`         | `text-output/src/`       |
 | `AbstractNodeDefinition` (dag-node) | `TextTemplateNodeDefinition`       | `text-template/src/`     |
 | `AbstractNodeDefinition` (dag-node) | `TransformNodeDefinition`          | `transform/src/`         |
-| `AbstractNodeDefinition` (dag-node) | `LlmTextOpenAiNodeDefinition`      | `llm-text-openai/src/`   |
+| `AbstractNodeDefinition` (dag-node) | `LlmTextNodeDefinition`            | `llm-text/src/`          |
 | `AbstractNodeDefinition` (dag-node) | `OkEmitterNodeDefinition`          | `ok-emitter/src/`        |
 | `AbstractNodeDefinition` (dag-node) | `GeminiImageEditNodeDefinition`    | `gemini-image-edit/src/` |
 | `AbstractNodeDefinition` (dag-node) | `GeminiImageComposeNodeDefinition` | `gemini-image-edit/src/` |
@@ -45,5 +45,5 @@ representative subset — each node package documents its own definitions in its
 
 | Port (Owner)                        | Consumer                | Notes                                                            |
 | ----------------------------------- | ----------------------- | ---------------------------------------------------------------- |
-| `AbstractNodeDefinition` (dag-node) | All 40 node definitions | Each implements `executeWithConfig` and `estimateCostWithConfig` |
-| `NodeIoAccessor` (dag-node)         | All 40 node definitions | Used for input reading and output assembly                       |
+| `AbstractNodeDefinition` (dag-node) | All 35 node definitions | Each implements `executeWithConfig` and `estimateCostWithConfig` |
+| `NodeIoAccessor` (dag-node)         | All 35 node definitions | Used for input reading and output assembly                       |

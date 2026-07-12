@@ -2,7 +2,7 @@
 
 Part of the [agent-cli composition map](../agent-cli-composition.md).
 
-Source-verified against `develop` on 2026-06-14.
+Source-verified against `develop` on 2026-07-12.
 
 This document owns the concrete startup tree from `packages/agent-cli/src/bin.ts` through
 interactive TUI and print-mode composition.
@@ -39,13 +39,11 @@ packages/agent-cli/src/bin.ts
    |  |- commandHostAdapters
    |  |  |- settings adapter -> agent-framework settings-io
    |  |  `- plugin adapter -> createDefaultPluginCommandAdapter()  (agent-command)
-   |  |- providerDefinitions = createDefaultProviderDefinitions()  (agent-provider)
-   |  |  |- agent-provider-anthropic
-   |  |  |- agent-provider-openai
-   |  |  |- agent-provider-gemini
-   |  |  |- agent-provider-gemma
-   |  |  |- agent-provider-qwen
-   |  |  `- agent-provider-deepseek
+   |  |- providerDefinitions = createDefaultProviderDefinitions()  (agent-provider-defaults)
+   |  |  |- createAnthropicProviderDefinition()  (agent-provider-anthropic)
+   |  |  |- createOpenAIProviderDefinition()  (agent-provider-openai)
+   |  |  |- createGeminiProviderDefinition()  (agent-provider-gemini)
+   |  |  `- Gemma / Qwen / DeepSeek definitions  (agent-provider-openai-compatible)
    |  |- commandModules (via createDefaultCommandModules() from agent-command — default-command-modules.ts)
    |  |  |- createSkillsCommandModule({ cwd })
    |  |  |- createHelpCommandModule()
@@ -132,7 +130,7 @@ When reading older branches or PRs, use this map.
 | ---------------------- | --------------------------------------------------------------------------------------------------------------- |
 | `agent-runtime`        | `agent-executor`                                                                                                |
 | `agent-sessions`       | `agent-session`                                                                                                 |
-| `agent-providers`      | `agent-provider`                                                                                                |
+| `agent-providers`      | `agent-provider-*` (per-vendor split; no bare `agent-provider` package)                                         |
 | `agent-plugins`        | `agent-plugin`                                                                                                  |
 | `agent-sdk`            | `agent-framework`                                                                                               |
 | `agent-transport/ws`   | `agent-transport-ws` (separate package)                                                                         |

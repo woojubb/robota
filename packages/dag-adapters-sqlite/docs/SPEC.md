@@ -46,14 +46,14 @@ const storage =
 
 ### `dag_definitions`
 
-| Column          | Type    | Description                          |
-| --------------- | ------- | ------------------------------------ |
-| dag_id          | TEXT    | DAG identifier (PK part)             |
-| version         | INTEGER | Version number (PK part)             |
-| status          | TEXT    | `draft` \| `published` \| `archived` |
-| definition_json | TEXT    | Full `IDagDefinition` as JSON        |
-| created_at      | INTEGER | Unix epoch ms                        |
-| updated_at      | INTEGER | Unix epoch ms                        |
+| Column          | Type    | Description                            |
+| --------------- | ------- | -------------------------------------- |
+| dag_id          | TEXT    | DAG identifier (PK part)               |
+| version         | INTEGER | Version number (PK part)               |
+| status          | TEXT    | `draft` \| `published` \| `deprecated` |
+| definition_json | TEXT    | Full `IDagDefinition` as JSON          |
+| created_at      | INTEGER | Unix epoch ms                          |
+| updated_at      | INTEGER | Unix epoch ms                          |
 
 ### `dag_runs`
 
