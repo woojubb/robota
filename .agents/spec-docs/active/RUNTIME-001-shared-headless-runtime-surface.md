@@ -279,10 +279,14 @@ A runtime-construct map established the correct single seam + the real duplicati
   `startAll/stopAll` + bounded shutdown near-verbatim; (2) three sites (TUI, print, serve) each hand-roll a
   full-fidelity `TInteractiveSessionOptions` mapping and call `new InteractiveSession` independently.
 
-**Design C plan:** move `buildRuntimeSession` + `startRuntimeHost` into `agent-framework/src/runtime/` (next to
-`agent-runtime.ts`), export them; delete `packages/agent-runtime`; `agent-cli` serve-mode imports from
-`agent-framework`. Reconcile the duplication: route the TUI + print session construction through
-`buildRuntimeSession` (one construction seam), and collapse the TUI's duplicated transport lifecycle into
-`startRuntimeHost` (add an `onSessionReady(session)` hook so the TUI can wire session events between build and
-`startAll`). Unify all three on `TInteractiveSessionOptions`. Leave `createAgentRuntime`/`createInteractiveRuntime`
-for their existing consumers. Independently validated (both reviews endorse C); owner-approved.
+**Design C plan (as shipped):** move `buildRuntimeSession` + `startRuntimeHost` into `agent-framework/src/runtime/`
+(next to `agent-runtime.ts`), export them; delete `packages/agent-runtime`; `agent-cli` serve-mode imports from
+`agent-framework`. Reconcile the **construction** duplication: the TUI + print + `--serve` session construction all
+route through the single `buildRuntimeSession` seam (was three private `new InteractiveSession` sites), unified on
+`TInteractiveSessionOptions`. The **transport lifecycle** is NOT collapsed into `startRuntimeHost` for the TUI: the
+TUI channel builds its session (via `buildRuntimeSession`) in its constructor and must wire session events BEFORE
+`startAll`, so it keeps its own `startAll/stopAll` — it shares only the construction seam, not the host's atomic
+build+start (`startRuntimeHost` owns the lifecycle for the headless `--serve` path, which builds-and-starts
+together). No `onSessionReady` hook — an earlier draft floated one but it proved unnecessary (YAGNI) and was not
+shipped. Leave `createAgentRuntime`/`createInteractiveRuntime` for their existing consumers. Independently
+validated (proposal-review + architecture-auditor endorse C; conformance audit HOLDS); owner-approved.
