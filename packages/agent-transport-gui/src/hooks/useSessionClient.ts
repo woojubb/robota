@@ -1,9 +1,12 @@
 /**
- * React hook that connects to an agent-cli sidecar WebSocket and
- * reconstructs conversation state from TServerMessage events.
+ * GUI-005 — the transport-neutral session reducer for the GUI presentation layer. Reconstructs conversation
+ * state from the wire `TServerMessage` stream, independent of HOW the bytes arrive (a `TMakeSessionClient`
+ * factory over `{onMessage, onStatusChange}`). The core is **generic over its status type** (default
+ * `TConnectionStatus`) so a surface with extra connection states (e.g. the browser WebRTC surface) can widen it
+ * WITHOUT this core depending on that surface's types — keeping the dependency direction acyclic.
  */
 
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 
 import {
   applyPromptEvent,
@@ -11,12 +14,6 @@ import {
   permissionResponse,
   type TPendingPrompt,
 } from './prompt-state.js';
-import { createDeviceCredentialStore } from '../client/device-credential-store.js';
-import {
-  createRtcSessionClient,
-  type IRtcSessionClientOptions,
-  type TRtcConnectionStatus,
-} from '../client/rtc-session-client.js';
 import { createWsSessionClient } from '../client/ws-session-client.js';
 
 import type { TConnectionStatus, TClientMessage } from '../client/ws-session-client.js';
@@ -44,10 +41,7 @@ export interface IActiveTool {
   result?: unknown;
 }
 
-/** The connection status shown by the UI — the WS statuses plus the RTC pairing/failed states. */
-export type TSessionStatus = TConnectionStatus | TRtcConnectionStatus;
-
-/** The minimal session-client surface both the WS and RTC clients satisfy. */
+/** The minimal session-client surface a transport (WS, RTC, …) satisfies. Generic over its status type. */
 export interface ISessionClientHandle {
   connect: () => void;
   disconnect: () => void;
@@ -55,13 +49,13 @@ export interface ISessionClientHandle {
 }
 
 /** Factory the hook calls to build its client from the message/status callbacks. */
-export type TMakeSessionClient = (callbacks: {
+export type TMakeSessionClient<TStatus extends string = TConnectionStatus> = (callbacks: {
   onMessage: (msg: TServerMessage) => void;
-  onStatusChange: (status: TSessionStatus) => void;
+  onStatusChange: (status: TStatus) => void;
 }) => ISessionClientHandle;
 
-export interface IWsSessionState {
-  status: TSessionStatus;
+export interface IWsSessionState<TStatus extends string = TConnectionStatus> {
+  status: TStatus;
   messages: IConversationMessage[];
   activeTools: IActiveTool[];
   streamingText: string;
@@ -81,8 +75,10 @@ function nextId(): string {
   return `msg_${++msgCounter}_${Date.now()}`;
 }
 
-export function useSessionClient(makeClient: TMakeSessionClient): IWsSessionState {
-  const [status, setStatus] = useState<TSessionStatus>('disconnected');
+export function useSessionClient<TStatus extends string = TConnectionStatus>(
+  makeClient: TMakeSessionClient<TStatus>,
+): IWsSessionState<TStatus> {
+  const [status, setStatus] = useState<TStatus>('disconnected' as TStatus);
   const [messages, setMessages] = useState<IConversationMessage[]>([]);
   const [activeTools, setActiveTools] = useState<IActiveTool[]>([]);
   const [streamingText, setStreamingText] = useState('');
@@ -223,36 +219,11 @@ export function useSessionClient(makeClient: TMakeSessionClient): IWsSessionStat
   };
 }
 
-/** Connect to an agent-cli sidecar over WebSocket (localhost path). */
-export function useWsSession(url: string): IWsSessionState {
-  const makeClient = useCallback<TMakeSessionClient>((cb) => createWsSessionClient(url, cb), [url]);
-  return useSessionClient(makeClient);
-}
-
-/** Connect to a paired host over WebRTC (REMOTE-009 Stage D). Memoized on the primitive connection fields. */
-export function useRtcSession(
-  options: Pick<
-    IRtcSessionClientOptions,
-    'relayUrl' | 'rendezvous' | 'secret' | 'iceServers' | 'forceTurn'
-  >,
-): IWsSessionState {
-  const { relayUrl, rendezvous, secret, iceServers, forceTurn } = options;
-  // REMOTE-012 E3: a stable per-session credential store (IndexedDB) so first-pair enrolls this device.
-  const deviceCredentials = useMemo(() => createDeviceCredentialStore(), []);
-  const makeClient = useCallback<TMakeSessionClient>(
-    (cb) =>
-      createRtcSessionClient(
-        {
-          relayUrl,
-          rendezvous,
-          secret,
-          ...(iceServers ? { iceServers } : {}),
-          ...(forceTurn ? { forceTurn } : {}),
-          deviceCredentials,
-        },
-        cb,
-      ),
-    [relayUrl, rendezvous, secret, iceServers, forceTurn, deviceCredentials],
+/** Connect to a `robota` sidecar over WebSocket (loopback / localhost path). */
+export function useWsSession(url: string): IWsSessionState<TConnectionStatus> {
+  const makeClient = useCallback<TMakeSessionClient<TConnectionStatus>>(
+    (cb) => createWsSessionClient(url, cb),
+    [url],
   );
   return useSessionClient(makeClient);
 }

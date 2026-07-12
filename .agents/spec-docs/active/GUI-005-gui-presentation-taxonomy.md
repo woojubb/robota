@@ -1,5 +1,5 @@
 ---
-status: review-ready
+status: in-progress
 type: INFRA
 tags: [gui, architecture, presentation, electron, react, refactor]
 ---
@@ -239,3 +239,27 @@ All three round-1 corrections verified in code + consistent across the spec: (1)
 prescribes a shim; (3) the `apps/agent-gui→apps/agent-app` rename is isolated + owner-confirmed. No new
 inconsistency. Direction aligned with the repo's acyclic-deps + no-pass-through-re-export rules. **Design gate
 satisfied; GATE-APPROVAL pending (incl. the owner's rename decision).**
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-07-12
+
+**Status upgrade:** review-ready → approved
+
+- Explicit owner approval directed at this spec, in the current conversation, via the GATE-APPROVAL question —
+  owner answered verbatim: **"승인 + apps/agent-app로 rename"**. Unambiguous confirmation of the ENDORSED
+  redesign + authorization to implement, and a decision on the open item (do the `apps/agent-gui →
+apps/agent-app` rename, as an isolated commit per T4).
+- Placement decision surfaced first + independently validated (proposal-review 2 rounds → ENDORSE) per the
+  new "New-Surface Architecture Placement" rule.
+- No Architecture Review or frontmatter type/tags modified after approval.
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-07-12
+
+**Status upgrade:** approved → in-progress
+
+- Prior-gate precondition: GATE-APPROVAL shows ✅ PASS (2026-07-12) with the owner's verbatim approval "승인 + apps/agent-app로 rename"; frontmatter was `status: approved` in `todo/` — correct input stage.
+- Tasks file exists: `.agents/tasks/GUI-005.md` present on disk (git-tracked).
+- Tasks file path recorded in `## Tasks`: spec opens the section with "Task file: [`.agents/tasks/GUI-005.md`](../../tasks/GUI-005.md)."
+- Tasks map to every Completion Criterion: T2→TC-01, T3→TC-02, T4→TC-03, T5→TC-04, T6→TC-05 (plus T1 GATE-IMPLEMENT, T7 merge, T8 GATE-COMPLETE) — one task per TC-01..TC-05.
+- Test Plan present: task file has a `## Test Plan` section (TC-01..TC-05 rows, ≥50 chars) satisfying the `test-plans` harness scan requirement. [AF-24]
+- Note (non-blocking, not a gate criterion): the task file's TC-02 wording still references a "re-export shim", which the spec's post-proposal-review decision reversed (NO re-export shim). Content freshness of the task file is out of scope for this gate; flagged for the implementer to reconcile.
+- Spec moved `todo/ → active/`; frontmatter set to `status: in-progress`. Task file stays in place.

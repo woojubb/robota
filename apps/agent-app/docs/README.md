@@ -1,10 +1,10 @@
-# @robota-sdk/agent-gui
+# @robota-sdk/agent-app
 
 An **Electron desktop app** (macOS / Linux / Windows) that drives a live `robota` session graphically —
 the graphical mirror of the terminal TUI (`agent-transport-tui`).
 
 `agent-gui` is a **thin presentation shell**: it spawns a `robota` **sidecar** process, connects to it over
-a loopback WebSocket, and renders the session by reusing `@robota-sdk/agent-web-ui`'s React view + reducer
+a loopback WebSocket, and renders the session by reusing `@robota-sdk/agent-transport-gui`'s React view + reducer
 **verbatim**. All session, command, and permission logic lives in the sidecar (reached over the wire), so the
 GUI holds no agent runtime and depends on neither `agent-framework` nor `agent-core` (the OWNER PRINCIPLE:
 the GUI is "just another surface").
@@ -17,8 +17,8 @@ loopback port against a co-resident browser page.
 ## Run (dev)
 
 ```bash
-pnpm --filter @robota-sdk/agent-gui build     # renderer (Vite) + electron main/preload (tsc)
-pnpm --filter @robota-sdk/agent-gui start      # launch Electron (needs a display + a `robota` on PATH)
+pnpm --filter @robota-sdk/agent-app build     # renderer (Vite) + electron main/preload (tsc)
+pnpm --filter @robota-sdk/agent-app start      # launch Electron (needs a display + a `robota` on PATH)
 ```
 
 Set `ROBOTA_GUI_SIDECAR_CMD` to override the sidecar command (default `robota`).

@@ -133,24 +133,27 @@ importers:
         specifier: ^3.2.6
         version: 3.2.6(@types/node@22.19.21)(tsx@4.22.4)
 
-  apps/agent-gui:
+  apps/agent-app:
     dependencies:
-      '@robota-sdk/agent-web-ui':
+      '@robota-sdk/agent-transport-gui':
         specifier: workspace:*
-        version: link:../../packages/agent-web-ui
+        version: link:../../packages/agent-transport-gui
       react:
-        specifier: 19.1.0
-        version: 19.1.0
+        specifier: 19.2.4
+        version: 19.2.4
       react-dom:
-        specifier: 19.1.0
-        version: 19.1.0(react@19.1.0)
+        specifier: 19.2.4
+        version: 19.2.4(react@19.2.4)
     devDependencies:
       '@robota-sdk/agent-transport-ws':
         specifier: workspace:*
         version: link:../../packages/agent-transport-ws
+      '@tailwindcss/vite':
+        specifier: ^4.1.16
+        version: 4.3.0(vite@6.4.3)
       '@testing-library/react':
         specifier: ^16.1.0
-        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@19.2.3)(@types/react@19.2.17)(react-dom@19.1.0)(react@19.1.0)
+        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@19.2.3)(@types/react@19.2.17)(react-dom@19.2.4)(react@19.2.4)
       '@types/react':
         specifier: ^19.2.17
         version: 19.2.17
@@ -169,6 +172,9 @@ importers:
       playwright:
         specifier: ^1.49.1
         version: 1.61.1
+      tailwindcss:
+        specifier: ^4.1.16
+        version: 4.3.0
       typescript:
         specifier: ^5.7.2
         version: 5.9.3
@@ -1915,6 +1921,52 @@ importers:
         specifier: ^3.2.6
         version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.22.4)
 
+  packages/agent-transport-gui:
+    dependencies:
+      '@robota-sdk/agent-interface-transport':
+        specifier: workspace:*
+        version: link:../agent-interface-transport
+      '@robota-sdk/agent-transport-protocol':
+        specifier: workspace:*
+        version: link:../agent-transport-protocol
+      react-markdown:
+        specifier: ^10.1.0
+        version: 10.1.0(@types/react@19.2.17)(react@19.2.4)
+      remark-gfm:
+        specifier: ^4.0.1
+        version: 4.0.1
+    devDependencies:
+      '@testing-library/react':
+        specifier: ^16.1.0
+        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@19.2.3)(@types/react@19.2.17)(react-dom@19.2.4)(react@19.2.4)
+      '@types/react':
+        specifier: ^19.2.17
+        version: 19.2.17
+      '@types/react-dom':
+        specifier: ^19.2.3
+        version: 19.2.3(@types/react@19.2.17)
+      jsdom:
+        specifier: ^25.0.1
+        version: 25.0.1
+      react:
+        specifier: 19.2.4
+        version: 19.2.4
+      react-dom:
+        specifier: 19.2.4
+        version: 19.2.4(react@19.2.4)
+      rimraf:
+        specifier: ^5.0.0
+        version: 5.0.10
+      tsdown:
+        specifier: ^0.22.2
+        version: 0.22.2(tsx@4.22.4)(typescript@5.9.3)(unrun@0.3.1)
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.6
+        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.22.4)
+
   packages/agent-transport-http:
     dependencies:
       '@robota-sdk/agent-interface-transport':
@@ -2121,6 +2173,9 @@ importers:
       '@robota-sdk/agent-remote-pairing':
         specifier: workspace:*
         version: link:../agent-remote-pairing
+      '@robota-sdk/agent-transport-gui':
+        specifier: workspace:*
+        version: link:../agent-transport-gui
       '@robota-sdk/agent-transport-protocol':
         specifier: workspace:*
         version: link:../agent-transport-protocol
@@ -8533,6 +8588,17 @@ packages:
       tailwindcss: 4.3.0
     dev: true
 
+  /@tailwindcss/vite@4.3.0(vite@6.4.3):
+    resolution: {integrity: sha512-t6J3OrB5Fc0ExuhohouH0fWUGMYL6PTLhW+E7zIk/pdbnJARZDCwjBznFnkh5ynRnIRSI4YjtTH0t6USjJISrw==}
+    peerDependencies:
+      vite: '>=7.3.2'
+    dependencies:
+      '@tailwindcss/node': 4.3.0
+      '@tailwindcss/oxide': 4.3.0
+      tailwindcss: 4.3.0
+      vite: 6.4.3(@types/node@20.19.43)(tsx@4.22.4)
+    dev: true
+
   /@tailwindcss/vite@4.3.0(vite@8.0.16):
     resolution: {integrity: sha512-t6J3OrB5Fc0ExuhohouH0fWUGMYL6PTLhW+E7zIk/pdbnJARZDCwjBznFnkh5ynRnIRSI4YjtTH0t6USjJISrw==}
     peerDependencies:
@@ -8591,6 +8657,29 @@ packages:
       '@types/react-dom': 19.2.3(@types/react@19.2.17)
       react: 19.1.0
       react-dom: 19.1.0(react@19.1.0)
+    dev: true
+
+  /@testing-library/react@16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@19.2.3)(@types/react@19.2.17)(react-dom@19.2.4)(react@19.2.4):
+    resolution: {integrity: sha512-XU5/SytQM+ykqMnAnvB2umaJNIOsLF3PVv//1Ew4CTcpz0/BRyy/af40qqrt7SjKpDdT1saBMc42CUok5gaw+g==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      '@testing-library/dom': ^10.0.0
+      '@types/react': ^18.0.0 || ^19.0.0
+      '@types/react-dom': ^18.0.0 || ^19.0.0
+      react: ^18.0.0 || ^19.0.0
+      react-dom: ^18.0.0 || ^19.0.0
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+      '@types/react-dom':
+        optional: true
+    dependencies:
+      '@babel/runtime': 7.29.7
+      '@testing-library/dom': 10.4.1
+      '@types/react': 19.2.17
+      '@types/react-dom': 19.2.3(@types/react@19.2.17)
+      react: 19.2.4
+      react-dom: 19.2.4(react@19.2.4)
     dev: true
 
   /@testing-library/react@16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@19.2.3)(@types/react@19.2.17)(react-dom@19.2.7)(react@19.2.7):
