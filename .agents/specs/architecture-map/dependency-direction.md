@@ -13,6 +13,7 @@ flowchart TD
   TransportGui["GUI presentation core\nagent-transport-gui\n(SessionMonitor, useWsSession)"]
   WebRtcWeb["Browser WebRTC peer\nagent-transport-webrtc-web"]
   WebMonitor["Product app\napps/agent-web-monitor\n(CLI-served SPA)"]
+  DesktopApp["Desktop shell\napps/agent-app (Electron)\nspawns robota --serve → startRuntimeHost"]
   Assembly["Assembly/API layers\nagent-framework, apps/agent-server"]
   Preset["Preset/option data\nagent-preset (named option bundles + resolvePreset)"]
   TransportShells["Transport shells\nagent-transport (+ /headless), agent-transport-tui, agent-transport-ws,\nagent-transport-http, agent-transport-mcp"]
@@ -52,7 +53,16 @@ flowchart TD
   WebRtcWeb --> TransportGui
   WebMonitor --> TransportGui
   WebMonitor --> WebRtcWeb
+  DesktopApp --> TransportGui
+  DesktopApp --> TransportShells
 ```
+
+`apps/agent-app` (desktop Electron shell) imports the GUI presentation core
+(`agent-transport-gui`) and the WS transport (`agent-transport-ws`, within Transport shells); it does
+**not** import `agent-framework` or `agent-core`. It drives the session by spawning the CLI runtime
+host — `robota --serve` → `startRuntimeHost` — and rendering the GUI core over the loopback WS sidecar
+that host serves. The `DesktopApp → Transport shells` edge is the `agent-transport-ws` import; the
+`robota --serve` process spawn is a runtime supervision relationship, not an import.
 
 `ProductShells → Adapters` is composition-root wiring only. A product shell may construct or select
 a concrete local adapter; reusable contract and behavior must be owned by a lower layer.

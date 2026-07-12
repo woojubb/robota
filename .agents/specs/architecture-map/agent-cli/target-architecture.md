@@ -2,7 +2,7 @@
 
 Part of the [agent-cli composition map](../agent-cli-composition.md).
 
-Source-verified against `develop` on 2026-06-14.
+Source-verified against `develop` on 2026-07-12.
 
 Target CLI ownership model and dependency graph.
 
@@ -27,7 +27,8 @@ framework-owned state and invoke framework-owned controls.
 agent-cli
   owns terminal input/rendering, CLI flags, provider definition composition,
   product-default command module selection, preset id selection glue,
-  and concrete local host adapters
+  concrete local host adapters, and the CLI mode entrypoints
+  (runTuiMode / runPrintMode / runServeMode — `--serve` calls startRuntimeHost via serve-mode.ts)
       |
       +--> agent-preset
       |      owns named preset profiles (data), resolvePreset() precedence merge,
@@ -35,9 +36,11 @@ agent-cli
       |      CLI selects an id + forwards CLI overrides — owns no merge logic
       |
       v
-agent-framework  [React-free — React hooks belong in agent-transport/tui only]
+agent-framework  [React-free — React belongs in the presentation transports (tui/gui) only]
   owns InteractiveSession, command contracts/common APIs, provider-neutral facades,
-  host adapter ports, prompt file-reference preprocessing, session orchestration
+  host adapter ports, prompt file-reference preprocessing, session orchestration,
+  buildRuntimeSession (the single session-construction seam) +
+  startRuntimeHost (build + start; serves the loopback WS sidecar for --serve)
       |
       +--> agent-session    owns conversation run loop, persistence, compaction
       +--> agent-executor   owns reusable background/subagent lifecycle ports and state
@@ -58,29 +61,38 @@ agent-subagent-runner  [OPTIONAL — install only when child-process subagent su
   depends on: agent-framework + agent-provider
 ```
 
+**Runtime-host seam (RUNTIME-001 Design C)**: all three CLI presentations — interactive TUI
+(`runTuiMode`), non-interactive print (`runPrintMode`), and the headless `--serve` host
+(`runServeMode`) — construct their `InteractiveSession` through the one `buildRuntimeSession` seam in
+`agent-framework`, never by calling `new InteractiveSession` directly. `--serve` additionally goes
+through `startRuntimeHost`, which builds and starts the transport lifecycle atomically and serves the
+loopback WS sidecar that `apps/agent-app` spawns.
+
 Target ownership rules:
 
-| Concern                                                               | Target owner                                  | CLI role                                                              |
-| --------------------------------------------------------------------- | --------------------------------------------- | --------------------------------------------------------------------- |
-| Slash prefix detection, command autocomplete, prompt UI               | `agent-cli`                                   | Render and route generic command requests.                            |
-| TUI layout, keyboard navigation, selected panel/menu state            | `agent-cli`                                   | Keep view state ephemeral.                                            |
-| Command descriptors, execution, lifecycle effects                     | `agent-command`                               | Select default modules; render returned interactions/effects.         |
-| Plugin-to-command bridge adapters                                     | `agent-command`                               | Compose plugin adapter; CLI is not the owner.                         |
-| Command contracts, result/effect types, host adapter ports            | `agent-framework`                             | Consume without defining parallel command shapes.                     |
-| Skill activation semantics and audit events                           | `agent-framework`                             | Render `skill_activation`; never infer activation from prompt text.   |
-| Skill-spawned agent/task behavior                                     | `agent-framework` + `agent-executor`          | Render task entries only.                                             |
-| Provider settings/profile setup common APIs                           | `agent-framework` + provider packages         | Provide concrete settings adapters and provider definitions.          |
-| Prompt `@file` parsing, file reads, diagnostics                       | `agent-framework`                             | Pass ordinary prompt text through `InteractiveSession.submit()`.      |
-| Provider-specific defaults, probes, model fallback data               | `agent-provider` via `agent-core`             | Compose definitions; never branch on provider names in TUI hooks.     |
-| Session persistence facade                                            | `agent-framework`                             | Request project-local store; display framework-owned summaries.       |
-| Reusable background/subagent state machines and ports                 | `agent-executor`                              | Supply local process/worktree adapters via agent-subagent-runner.     |
-| Child-process subagent runner + worker                                | `agent-subagent-runner` (opt-in)              | Import factory; pass workerPath from getDefaultSubagentWorkerPath().  |
-| Background task workspace/read model and retention                    | `agent-framework` + `agent-executor`          | Render framework projection; keep only selected-entry UI state.       |
-| Execution workspace task switching                                    | `agent-framework` read model, `agent-cli` TUI | Framework owns entries/details/events; CLI owns Ctrl+B and selection. |
-| Preset profile data, `resolvePreset()` merge, external preset loading | `agent-preset`                                | Select preset id + forward CLI overrides; never merge or map posture. |
-| Preset application to a session (`applyPresetToSession`)              | `agent-framework`                             | Forward resolved option bundle; never apply preset semantics in TUI.  |
-| Terminal process spawning, Ink rendering, local settings I/O          | `agent-cli`                                   | Keep concrete I/O at the outer shell.                                 |
-| Core provider/history/permission/model contracts                      | `agent-core`                                  | Import public contracts only.                                         |
+| Concern                                                               | Target owner                                  | CLI role                                                                         |
+| --------------------------------------------------------------------- | --------------------------------------------- | -------------------------------------------------------------------------------- |
+| Slash prefix detection, command autocomplete, prompt UI               | `agent-cli`                                   | Render and route generic command requests.                                       |
+| TUI layout, keyboard navigation, selected panel/menu state            | `agent-cli`                                   | Keep view state ephemeral.                                                       |
+| Command descriptors, execution, lifecycle effects                     | `agent-command`                               | Select default modules; render returned interactions/effects.                    |
+| Plugin-to-command bridge adapters                                     | `agent-command`                               | Compose plugin adapter; CLI is not the owner.                                    |
+| Command contracts, result/effect types, host adapter ports            | `agent-framework`                             | Consume without defining parallel command shapes.                                |
+| Skill activation semantics and audit events                           | `agent-framework`                             | Render `skill_activation`; never infer activation from prompt text.              |
+| Skill-spawned agent/task behavior                                     | `agent-framework` + `agent-executor`          | Render task entries only.                                                        |
+| Provider settings/profile setup common APIs                           | `agent-framework` + provider packages         | Provide concrete settings adapters and provider definitions.                     |
+| Prompt `@file` parsing, file reads, diagnostics                       | `agent-framework`                             | Pass ordinary prompt text through `InteractiveSession.submit()`.                 |
+| Provider-specific defaults, probes, model fallback data               | `agent-provider` via `agent-core`             | Compose definitions; never branch on provider names in TUI hooks.                |
+| Session persistence facade                                            | `agent-framework`                             | Request project-local store; display framework-owned summaries.                  |
+| Reusable background/subagent state machines and ports                 | `agent-executor`                              | Supply local process/worktree adapters via agent-subagent-runner.                |
+| Child-process subagent runner + worker                                | `agent-subagent-runner` (opt-in)              | Import factory; pass workerPath from getDefaultSubagentWorkerPath().             |
+| Background task workspace/read model and retention                    | `agent-framework` + `agent-executor`          | Render framework projection; keep only selected-entry UI state.                  |
+| Execution workspace task switching                                    | `agent-framework` read model, `agent-cli` TUI | Framework owns entries/details/events; CLI owns Ctrl+B and selection.            |
+| Preset profile data, `resolvePreset()` merge, external preset loading | `agent-preset`                                | Select preset id + forward CLI overrides; never merge or map posture.            |
+| Preset application to a session (`applyPresetToSession`)              | `agent-framework`                             | Forward resolved option bundle; never apply preset semantics in TUI.             |
+| Session-construction seam (`buildRuntimeSession`)                     | `agent-framework`                             | Build TUI/print/serve sessions through the seam; never `new InteractiveSession`. |
+| Runtime host build + transport lifecycle (`startRuntimeHost`)         | `agent-framework`                             | `--serve` (`serve-mode.ts`) calls it to serve the WS sidecar.                    |
+| Terminal process spawning, Ink rendering, local settings I/O          | `agent-cli`                                   | Keep concrete I/O at the outer shell.                                            |
+| Core provider/history/permission/model contracts                      | `agent-core`                                  | Import public contracts only.                                                    |
 
 ## Package Dependency Graph
 

@@ -29,6 +29,7 @@ robota --output-format json         # Output format (text/json/stream-json)
 robota --append-system-prompt "..." # Append to system prompt
 robota --configure                  # Interactive provider setup
 robota --provider qwen              # Run with a configured provider profile
+robota --serve                      # Run as a headless runtime host over a loopback WS sidecar (used by the desktop GUI)
 robota --reset                      # Delete user settings and exit
 robota --check-update               # Check npm for a newer CLI version and exit
 robota --disable-update-check        # Skip startup update check for this run

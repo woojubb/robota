@@ -64,6 +64,7 @@ Agent stack ownership:
 | Terminal input/rendering                          | `agent-transport-tui`                                   | I/O adapter only — implements `IConfigurableTransport`.                                                                                                                                                                                       |
 | CLI lifecycle + assembly                          | `agent-cli`                                             | Composes transports, providers, commands; owns `process.exit()`.                                                                                                                                                                              |
 | Framework assembly layer                          | `agent-framework`                                       | Composes sessions/executor/tools/core. React-free.                                                                                                                                                                                            |
+| Runtime host / session-construction seam          | `agent-framework`                                       | Owns `buildRuntimeSession` (single construction seam) + `startRuntimeHost` (build + start WS lifecycle). TUI, print, and `--serve` are three presentations over the one seam.                                                                 |
 | Command contracts/common APIs                     | `agent-framework`                                       | Command packages consume these as third-party modules.                                                                                                                                                                                        |
 | User-visible built-in command behavior            | `agent-command`                                         | CLI composes defaults; framework must not import them.                                                                                                                                                                                        |
 | Provider defaults, setup metadata, model catalogs | `agent-provider` via `agent-core`                       | CLI must not hardcode provider branches.                                                                                                                                                                                                      |
@@ -132,25 +133,34 @@ Playground ownership:
 policy run in `apps/agent-server`; the playground is a lightweight client UI only.
 See [packages/agent-playground/docs/SPEC.md](../../../packages/agent-playground/docs/SPEC.md).
 
-## WebSocket Sidecar Mode [Partially implemented]
+## Runtime Host / WS Sidecar Mode [Landed — RUNTIME-001 / GUI-005]
 
-> **[Partially implemented]** The transport + browser halves exist:
-> `createWsHandler({ session, send })` (`packages/agent-transport-protocol/src/ws-handler.ts:51`) and
-> `useWsSession(url)` (`packages/agent-transport-gui/src/hooks/useSessionClient.ts`), plus the shared GUI
-> core components. **Still pending:** the CLI `--web` / `--web-port` flags and
-> `startWebSidecarServer(interactiveSession, port)` that wire the sidecar server into `agent-cli`.
+The sidecar is served by the shared runtime host, not a bespoke CLI server. `robota --serve`
+(`serve-mode.ts`) runs `startRuntimeHost` (`agent-framework`), which builds the `InteractiveSession`
+through the `buildRuntimeSession` seam and starts the loopback WS transport lifecycle. The desktop
+Electron shell `apps/agent-app` spawns `robota --serve` and renders the shared GUI presentation core
+`agent-transport-gui` over the transport-neutral `TServerMessage` stream; `apps/agent-web-monitor`
+serves the same GUI core (monitor + Stage-D remote page) as a CLI-served SPA.
 
-Sidecar mode spans four packages:
+Sidecar mode spans these packages:
 
-| Package                      | Role                                                                                   | Status  |
-| ---------------------------- | -------------------------------------------------------------------------------------- | ------- |
-| `agent-cli`                  | Launch `--web` flag; host `startWebSidecarServer(interactiveSession, port)`            | pending |
-| `agent-transport-ws`         | `createWsHandler({ session, send })` — real-time session event relay                   | exists  |
-| `agent-transport-gui`        | Shared GUI core: owns `SessionMonitor` + `useWsSession(url)` reducer + view components | exists  |
-| `agent-transport-webrtc-web` | Browser WebRTC peer (`RemoteClient`, `useRtcSession`) over the GUI core                | exists  |
-| `apps/agent-web`             | Deployment host; opens monitor URL in browser                                          | exists  |
+| Package                      | Role                                                                                                        | Status |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------- | ------ |
+| `agent-framework`            | `buildRuntimeSession` construction seam + `startRuntimeHost` (build session + start WS transport lifecycle) | landed |
+| `agent-cli`                  | `robota --serve` (`serve-mode.ts`) runs `startRuntimeHost` headless (no ink); alive until SIGTERM/SIGINT    | landed |
+| `agent-transport-protocol`   | `createWsHandler({ session, send })` + `TServerMessage` — transport-neutral relay contract                  | landed |
+| `agent-transport-ws`         | `WsTransport` — WebSocket adapter serving the relay over the loopback socket                                | landed |
+| `agent-transport-gui`        | Shared GUI core: owns `SessionMonitor` + `useWsSession(url)` reducer + view components                      | landed |
+| `agent-transport-webrtc-web` | Browser WebRTC peer (`RemoteClient`, `useRtcSession`) over the GUI core                                     | landed |
+| `apps/agent-app`             | Desktop Electron shell; spawns `robota --serve` and renders the GUI core over the loopback WS sidecar       | landed |
+| `apps/agent-web-monitor`     | CLI-served Vite SPA (monitor + remote page) over the GUI core                                               | landed |
 
-For the intended sequence diagram see [agent-cli/execution-modes.md](agent-cli/execution-modes.md).
+> **Superseded design.** The earlier `--web` / `--web-port` flags and
+> `startWebSidecarServer(interactiveSession, port)` were never built — neither the flags nor that
+> function exist in the codebase. The landed seam is `robota --serve` → `startRuntimeHost`; the desktop
+> GUI (`apps/agent-app`) supervises the sidecar process rather than a browser opened from `apps/agent-web`.
+
+For the runtime-host sequence see [agent-cli/execution-modes.md](agent-cli/execution-modes.md).
 
 ## Multi-Agent Orchestration
 
