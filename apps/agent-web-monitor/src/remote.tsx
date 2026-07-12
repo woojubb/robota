@@ -1,7 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 
-import { RemoteClient } from '../src/components/RemoteClient.js';
+import { RemoteClient } from '@robota-sdk/agent-transport-webrtc-web/client';
 import './main.css';
 
 // REMOTE-009 Stage D: the browser remote client. Connection inputs come from THIS page's URL —

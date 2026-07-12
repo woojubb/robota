@@ -54,14 +54,14 @@ const PRODUCT_SHELL_OWNERSHIP_PATTERNS = [
 const COMMAND_PACKAGE_FORBIDDEN_DEPENDENCY_PREFIXES = [
   '@robota-sdk/agent-provider-',
   '@robota-sdk/agent-cli',
-  '@robota-sdk/agent-web-ui',
+  '@robota-sdk/agent-transport-gui',
   '@robota-sdk/agent-server',
 ];
 
 const PROVIDER_PACKAGE_FORBIDDEN_DEPENDENCY_PREFIXES = [
   '@robota-sdk/agent-command-',
   '@robota-sdk/agent-cli',
-  '@robota-sdk/agent-web-ui',
+  '@robota-sdk/agent-transport-gui',
   '@robota-sdk/agent-server',
   '@robota-sdk/agent-framework',
 ];
@@ -101,6 +101,7 @@ const DOCUMENTED_WORKSPACE_PATTERNS = [
   { pathPattern: /^packages\/dag-[^/]+$/, textPattern: /dag-core\// },
   { pathPattern: /^packages\/dag-nodes\/[^/]+$/, textPattern: /dag-nodes\/\*/ },
   { pathPattern: /^apps\/agent-web$/, textPattern: /agent-web/ },
+  { pathPattern: /^apps\/agent-web-monitor$/, textPattern: /agent-web-monitor/ },
   { pathPattern: /^apps\/agent-app$/, textPattern: /agent-app/ },
   { pathPattern: /^apps\/agent-server$/, textPattern: /agent-server/ },
   { pathPattern: /^apps\/dag-runtime-server$/, textPattern: /dag-runtime-server/ },

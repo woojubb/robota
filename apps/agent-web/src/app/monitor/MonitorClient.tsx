@@ -5,7 +5,8 @@ import dynamic from 'next/dynamic';
 import type { ReactElement } from 'react';
 
 const SessionMonitor = dynamic(
-  () => import('@robota-sdk/agent-web-ui/client').then((m) => ({ default: m.SessionMonitor })),
+  () =>
+    import('@robota-sdk/agent-transport-gui/client').then((m) => ({ default: m.SessionMonitor })),
   {
     ssr: false,
     loading: () => (

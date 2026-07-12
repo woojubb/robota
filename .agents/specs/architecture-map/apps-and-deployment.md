@@ -37,14 +37,15 @@ Deployment ownership:
 
 `packages/agent-web-ui` vs `apps/agent-web` disambiguation:
 
-| Item                    | Kind              | Role                                                                                      |
-| ----------------------- | ----------------- | ----------------------------------------------------------------------------------------- |
-| `packages/agent-web-ui` | Published npm lib | Browser React components for monitoring a CLI session over `--web` WebSocket sidecar.     |
-| `apps/agent-web`        | Next.js host app  | Full Playground web application; consumes `agent-playground` and `packages/agent-web-ui`. |
+| Item                     | Kind                  | Role                                                                                                                                                                                                                         |
+| ------------------------ | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/agent-web`         | Next.js host app      | Full Playground web application; consumes `agent-playground`; its `/monitor` route mounts `SessionMonitor` from the shared GUI core `@robota-sdk/agent-transport-gui`.                                                       |
+| `apps/agent-web-monitor` | Vite SPA (CLI-served) | The CLI-served web GUI: `index.html` monitor (`SessionMonitor`) + `remote.html` Stage-D page (`RemoteClient` from `agent-transport-webrtc-web`), over the shared GUI core. `agent-cli` builds + serves its `dist` (GUI-006). |
 
-They share the `agent-web` name prefix but are different layers: the package is a reusable library;
-the app is the deployment host. Do not import `apps/agent-web` from anywhere; use
-`@robota-sdk/agent-web-ui` for the published library surface.
+The former `packages/agent-web-ui` library was retired in GUI-006: its `SessionMonitor` moved to the shared GUI
+core (`@robota-sdk/agent-transport-gui`), its browser WebRTC peer to `@robota-sdk/agent-transport-webrtc-web`,
+and its CLI-served SPA to `apps/agent-web-monitor`. Do not import `apps/agent-web` from anywhere; consume the
+shared GUI surface from `@robota-sdk/agent-transport-gui`.
 
 Deployment decision:
 
