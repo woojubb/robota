@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit && tsc -p electron/tsconfig.json --noEmit",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
+    "test:e2e": "xvfb-run -a node e2e/run-e2e.mjs",
     "lint": "eslint . --max-warnings 0"
   },
   "dependencies": {
@@ -21,12 +22,14 @@
     "react-dom": "19.1.0"
   },
   "devDependencies": {
+    "@robota-sdk/agent-transport-ws": "workspace:*",
     "@testing-library/react": "^16.1.0",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^4.3.4",
     "electron": "^43.0.0",
     "jsdom": "^25.0.1",
+    "playwright": "^1.49.1",
     "typescript": "^5.7.2",
     "vite": "^6.0.7",
     "vitest": "^3.2.6"

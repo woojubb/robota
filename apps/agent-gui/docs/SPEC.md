@@ -78,13 +78,20 @@ scan.
   argv), and `SidecarSupervisor` (crash → fatal, ready, shutdown SIGTERM→SIGKILL, idempotent).
 - `src/__tests__/session-surface.test.tsx` — the compose-root renders the session over a stub
   `IWsSessionState` and answers permission prompts, proving no session logic lives in the GUI.
-- **Deferred (needs a desktop machine):** the manual dev-run smoke — launch the app, spawn a real sidecar,
-  drive a real session, answer a real permission prompt — is the **User Execution Test Scenario** below; it
-  cannot run in a headless CI without a display.
+- **Headless end-to-end (`e2e/`, `pnpm --filter @robota-sdk/agent-gui test:e2e`):** launches the REAL built
+  Electron app under **`xvfb`** via **Playwright `_electron`**, pointed at `e2e/scripted-sidecar.mjs` — a
+  deterministic sidecar that stands up the **REAL `WsTransport`** (so the GUI-002 T5 loopback auth is
+  exercised against the nonce the GUI presents) with a scripted session (no LLM/API key). Asserts the full
+  Stage-1 story: connect with the launch nonce → streaming reply → raise + Allow a permission prompt → clean
+  shutdown (TC-01/TC-02/TC-04). Runs on this headless Linux box (Electron launched with `--no-sandbox`, the
+  standard CI posture). This is the agent-owned automated form of the smoke below — GUI verification is not
+  deferred to the owner.
 
-## User Execution Test Scenario
+## User Execution Test Scenario (manual, real `robota`)
 
-On a machine with a display + a built `robota` on `PATH` (or `ROBOTA_GUI_SIDECAR_CMD` set):
+The headless e2e above covers the GUI behavior deterministically. This manual scenario additionally exercises
+a REAL `robota` sidecar (a live provider) on a machine with a display + a built `robota` on `PATH` (or
+`ROBOTA_GUI_SIDECAR_CMD` set):
 
 1. `pnpm --filter @robota-sdk/agent-gui build && pnpm --filter @robota-sdk/agent-gui start`.
 2. The window opens, spawns the sidecar, and shows the conversation view (status `connected`).
