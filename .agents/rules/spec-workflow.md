@@ -73,6 +73,35 @@ Record the verification in the spec's Architecture Review (Alternatives/Decision
 Presenting an unvalidated design for approval — one a basic reachability/capability/adversarial check
 would have invalidated — is a process violation.
 
+### New-Surface Architecture Placement (mandatory)
+
+When a change **introduces a new package, app, or presentation/interface surface**, or **reclassifies a
+layer / product-family boundary** (a new module that could plausibly live in more than one place, or that
+consumes or extends an existing product), the **architecture-placement decision is the single most
+consequential and owner-visible decision in the spec** — it determines what the new thing _is_ and how it
+relates to the rest of the system. It must be treated as a primary decision, not an incidental one:
+
+1. **Mirror an analogous existing layer.** The Architecture Review MUST identify the closest existing
+   structural analog — a surface/layer that plays the same role — and justify the new surface by mirroring
+   that proven layering, or explicitly justify why it must differ. State the new surface's product-family /
+   taxonomy classification (which "kind" of thing it is, alongside its siblings).
+2. **Reuse at the shared-core/contract level, never as a skin on a sibling product.** A new surface must
+   consume shared CONTRACT/CORE layers — not be built as a thin dependent of another PRODUCT that happens to
+   render something similar. Coupling a new surface under an unrelated product's app/product package (instead
+   of the shared core they should both consume) is the specific anti-pattern this rule prevents.
+3. **Independent architecture validation — not a self-claim.** The placement MUST be validated by an
+   independent architecture review (an architecture-audit / proposal-review agent — see
+   [architecture-refresh](../skills/architecture-refresh/SKILL.md) and the `proposal-reviewer` /
+   `architecture-auditor` agents), which explicitly checks (1) and (2). A bare "reviewed" assertion is
+   insufficient; the review and its verdict must be recorded in the Evidence Log.
+4. **Surface it to the owner FIRST.** When presenting the design for sign-off, lead with the placement
+   decision — which layer it mirrors, its product-family, and the placement alternatives rejected — above
+   styling, scope, or implementation detail. It is the decision the owner most needs to weigh and the one an
+   owner is least able to reconstruct after the fact.
+
+Record all four in the spec's Architecture Review before GATE-APPROVAL. Presenting a new surface for approval
+without an explicit, independently-validated, owner-surfaced placement decision is a process violation.
+
 ### User Request Implementation Gate (mandatory, zero exceptions)
 
 When the user sends any message requesting implementation, code changes, feature additions, fixes,
