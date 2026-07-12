@@ -86,7 +86,19 @@ function loadReplayProvider(logFile: string): IAIProvider {
 
 function createDefaultTransportRegistry(): TransportRegistry {
   const registry = new TransportRegistry(getUserSettingsPath());
-  registry.register(new WsTransport());
+  // GUI-002: when a host (e.g. the agent-gui Electron shell) spawns this CLI as a loopback sidecar, it
+  // passes ROBOTA_WS_TOKEN (a per-launch nonce) + optional ROBOTA_WS_PORT via env. The token makes the WS
+  // transport reject any unauthenticated connection before emitting session data. Absent = unchanged
+  // default (open localhost path); the token is never persisted to settings (secret, runtime-only).
+  const wsToken = process.env['ROBOTA_WS_TOKEN'];
+  const wsPortRaw = process.env['ROBOTA_WS_PORT'];
+  const wsPort = wsPortRaw ? Number.parseInt(wsPortRaw, 10) : undefined;
+  registry.register(
+    new WsTransport({
+      ...(wsToken ? { token: wsToken } : {}),
+      ...(wsPort !== undefined && Number.isInteger(wsPort) ? { port: wsPort } : {}),
+    }),
+  );
   return registry;
 }
 

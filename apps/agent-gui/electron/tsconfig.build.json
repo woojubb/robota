@@ -1,0 +1,8 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false
+  },
+  "include": ["main.ts", "preload.ts", "sidecar.ts"],
+  "exclude": ["../node_modules", "../dist", "__tests__"]
+}

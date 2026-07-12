@@ -3,7 +3,8 @@
  * Owns the WebSocket server lifecycle (ws package), started/stopped via the transport registry.
  */
 
-import { createServer, type Server } from 'node:http';
+import { timingSafeEqual } from 'node:crypto';
+import { createServer, type IncomingMessage, type Server } from 'node:http';
 
 import { createWsHandler } from '@robota-sdk/agent-transport-protocol';
 import { WebSocketServer, WebSocket } from 'ws';
@@ -21,6 +22,38 @@ const DEFAULT_MAX_RETRIES = 20;
 export interface IWsTransportConfig {
   port?: number;
   maxRetries?: number;
+  /**
+   * GUI-002: OPTIONAL loopback auth token. When set, every connection MUST present a matching token
+   * (query param `?token=` or the `Sec-WebSocket-Protocol` subprotocol) or the socket is closed
+   * BEFORE any session data is emitted. Unset (default, e.g. the local TUI path) = no auth, unchanged
+   * behavior. The GUI-spawned sidecar sets this so a co-resident browser page cannot drive the session.
+   */
+  token?: string;
+}
+
+/**
+ * Constant-time token comparison. Returns false on any length mismatch (never throws), so an
+ * absent/short/long presented token is a plain reject, not an error.
+ */
+function tokenMatches(expected: string, presented: string | null | undefined): boolean {
+  if (!presented) return false;
+  const a = Buffer.from(expected);
+  const b = Buffer.from(presented);
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
+}
+
+/** Read the presented token from the upgrade request: `?token=` query param, else the WS subprotocol. */
+function presentedToken(req: IncomingMessage): string | null {
+  try {
+    const url = new URL(req.url ?? '', 'ws://127.0.0.1');
+    const q = url.searchParams.get('token');
+    if (q) return q;
+  } catch {
+    // malformed URL → fall through to the subprotocol header
+  }
+  const proto = req.headers['sec-websocket-protocol'];
+  return typeof proto === 'string' ? proto.split(',')[0]?.trim() || null : null;
 }
 
 export class WsTransport implements IConfigurableTransport<IInteractiveSession> {
@@ -39,10 +72,12 @@ export class WsTransport implements IConfigurableTransport<IInteractiveSession> 
   private stopFn: (() => Promise<void>) | null = null;
   private readonly port: number;
   private readonly maxRetries: number;
+  private readonly token?: string;
 
   constructor(config: IWsTransportConfig = {}) {
     this.port = config.port ?? DEFAULT_PORT;
     this.maxRetries = config.maxRetries ?? DEFAULT_MAX_RETRIES;
+    if (config.token) this.token = config.token;
   }
 
   attach(session: IInteractiveSession): void {
@@ -94,10 +129,19 @@ export class WsTransport implements IConfigurableTransport<IInteractiveSession> 
         reject(err);
       });
 
+      const expectedToken = this.token;
       httpServer.listen(port, '127.0.0.1', () => {
         const wss = new WebSocketServer({ server: httpServer });
 
-        wss.on('connection', (ws: WebSocket) => {
+        wss.on('connection', (ws: WebSocket, req: IncomingMessage) => {
+          // GUI-002: REJECT BEFORE ANY SESSION DATA. When a token is configured, an unauthenticated
+          // connection is closed here — before the `messages` / `execution_workspace_event` sends below —
+          // so a co-resident browser page cannot read history or answer prompts on the open loopback port.
+          if (expectedToken !== undefined && !tokenMatches(expectedToken, presentedToken(req))) {
+            ws.close(1008, 'unauthorized');
+            return;
+          }
+
           const send = (message: TServerMessage): void => {
             if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(message));
           };

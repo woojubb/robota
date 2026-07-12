@@ -1,0 +1,34 @@
+{
+  "name": "@robota-sdk/agent-gui",
+  "version": "3.0.0-beta.79",
+  "private": true,
+  "description": "agent-gui — a thin Electron desktop shell that drives a robota session over a loopback WS sidecar (GUI-002)",
+  "main": "dist/electron/main.js",
+  "scripts": {
+    "dev": "vite",
+    "build:renderer": "vite build",
+    "build:electron": "tsc -p electron/tsconfig.build.json",
+    "build": "pnpm build:renderer && pnpm build:electron",
+    "start": "electron dist/electron/main.cjs",
+    "typecheck": "tsc --noEmit && tsc -p electron/tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint . --max-warnings 0"
+  },
+  "dependencies": {
+    "@robota-sdk/agent-web-ui": "workspace:*",
+    "react": "19.1.0",
+    "react-dom": "19.1.0"
+  },
+  "devDependencies": {
+    "@testing-library/react": "^16.1.0",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^4.3.4",
+    "electron": "^43.0.0",
+    "jsdom": "^25.0.1",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.7",
+    "vitest": "^3.2.6"
+  }
+}
