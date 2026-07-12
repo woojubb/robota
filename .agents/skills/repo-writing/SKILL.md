@@ -31,18 +31,20 @@ description: Applies Robota's repository writing rules for `.design/`, general d
    - general repository document
    - generated documentation
    - commit message
-2. Apply the language rule:
-   - `.design/` in Korean
-   - repository documents outside `.design/` in English
-   - commit messages in English
+2. Apply the language rule (SSOT: [naming-style Language Policy](../../rules/naming-style.md)):
+   - ALL repository documents — including `.design/` — in English by default; another language only when the
+     user explicitly requests it
+   - commit messages in English (conventional-commits format)
+   - (only user-facing conversational responses match the user's current message language — that is not a
+     document-writing concern)
 3. If the target is generated docs, update the source or generator instead of editing generated output directly.
 4. If the target is a commit message, keep it in conventional commit format and focus on what changed for users or maintainers.
 5. Keep examples and surrounding prose aligned with the target language of the document.
 
 ## Stop Conditions
 
-- A `.design/` document is written in English.
-- A non-`.design/` repository document is written in Korean.
+- Any repository document (including `.design/`) is written in a non-English language without an explicit user
+  request for that language.
 - Generated docs are edited directly.
 - A commit message is not in English or not in conventional format.
 
@@ -63,7 +65,7 @@ docs(design): document harness migration phases
 ```
 
 ```text
-.design/tmp/ -> Korean
+.design/tmp/ -> English (default)
 packages/*/docs/ -> English
 README.md -> English
 ```
