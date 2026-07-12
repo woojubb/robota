@@ -14,7 +14,7 @@ packages/
 ├── agent-command/               # Command modules: agent, background, compact, context, exit, help, language, memory, mode, model, permissions, plugin, provider, reset, rewind, session, settings, skills, statusline, user-local
 ├── agent-command-*/             # Command-module bridge packages to other subsystems (e.g. agent-command-workflows: surfaces the DAG engine as `/workflows`, composing dag-framework)
 ├── agent-cli/                   # Terminal UI and local runtime adapters
-├── agent-web-ui/                # Browser React component library for monitoring a CLI session over WebSocket (product shell, browser-only)
+├── agent-web-ui/                # Browser-remote (WebRTC) surface: SessionMonitor + RemoteClient + the RTC session/signaling clients over the shared GUI core; NO pass-through re-exports of agent-transport-gui (GUI-005). To be absorbed/retired once the web GUI surface is unified (GUI Phase-2)
 ├── agent-provider/              # Provider packages: anthropic, openai, openai-compatible, deepseek, gemma, qwen, gemini, google, bytedance
 ├── agent-provider-*/            # Provider-family variants (e.g. agent-provider-replay: deterministic session-log replay provider; depends on agent-core + agent-session)
 ├── agent-playground/            # Playground UI package
@@ -23,7 +23,7 @@ packages/
 ├── agent-interface-*/           # Interface/contract packages: pure type contracts; MAY also export pure, dependency-free derivation accessors over their own owned types (no classes, no I/O) — e.g. agent-interface-transport's read* helpers over InteractionEvent. Mechanized by scripts/harness/scan-interface-runtime.mjs (harness:scan `interface-runtime`, INFRA-035): FAILS on any bare/external value import-or-re-export or any class/enum declaration in these packages' src (zero runtime dependency edges).
 ├── agent-transport/             # Transport core: headless adapter + transport registry + scripted-provider testing fixtures (pure TS)
 ├── agent-transport-protocol/    # Transport-neutral session bridge + WS wire protocol (createWsHandler, TClientMessage/TServerMessage); shared by -ws and -webrtc (deps: interface-transport only)
-├── agent-transport-*/           # Per-concern transport implementations: agent-transport-tui (React/Ink), -ws (WebSocket), -http (Hono), -mcp (MCP), -webrtc (P2P RTCDataChannel, optional werift peer dep, REMOTE-001); -ws/-http/-mcp are contract-pure (deps: interface-transport + transport-protocol only). -webrtc additionally depends on agent-remote-pairing (REMOTE-008): the pairing gate must live in wireChannel, where the DTLS fingerprints (offer/answer SDP) and pre-session channel frames are visible — agent-remote-pairing is a zero-dep isomorphic leaf, so this adds no cycle.
+├── agent-transport-*/           # Per-concern transport implementations: agent-transport-tui (React/Ink), agent-transport-gui (React GUI presentation core — session reducer + view components + desktop shell; the GUI analog of -tui, consumed by apps/agent-app and agent-web-ui; deps: interface-transport + transport-protocol only, GUI-005), -ws (WebSocket), -http (Hono), -mcp (MCP), -webrtc (P2P RTCDataChannel, optional werift peer dep, REMOTE-001); -ws/-http/-mcp are contract-pure (deps: interface-transport + transport-protocol only). -webrtc additionally depends on agent-remote-pairing (REMOTE-008): the pairing gate must live in wireChannel, where the DTLS fingerprints (offer/answer SDP) and pre-session channel frames are visible — agent-remote-pairing is a zero-dep isomorphic leaf, so this adds no cycle.
 ├── agent-testing/               # General test framework: domain-free test-environment tooling (PTY runner spawnPty/spawnPtyFixture); zero @robota-sdk deps, devDependency. Charter+placement rule in its SPEC (contracts→agent-interface-*, doubles→owner /testing, drivers→owning module)
 ├── agent-process/               # Domain-free child-process termination primitives (killProcessTree: SIGTERM→grace→SIGKILL, process-group aware); zero @robota-sdk deps, leaf. Consumed by agent-executor/agent-tools/agent-subagent-runner (CORE-023)
 ├── agent-plugin/                # Plugins: conversation-history, logging, usage, performance, execution-analytics, error-handling, limits, event-emitter, webhook
@@ -55,7 +55,7 @@ apps/
 ├── agent-server/           # AI provider proxy + Playground WebSocket
 ├── dag-runtime-server/     # Native DAG runtime HTTP server (`/v1/dag/*` over Hono); serves dag-framework's IDagOrchestrationPort, native runtime surface, no external-runtime API (WORKFLOW-002)
 ├── remote-signaling/       # Minimal content-blind WebRTC signaling relay (SDP/ICE rendezvous); dumb relay, no @robota-sdk deps, no session content (REMOTE-001/002 Stage A)
-└── agent-gui/              # Electron desktop shell (macOS/Linux/Windows); thin presentation surface that spawns a robota loopback-WS sidecar (required nonce auth) and reuses agent-web-ui; NO agent-framework/agent-core dep (GUI-002)
+└── agent-app/              # Electron desktop application (macOS/Linux/Windows); the desktop GUI surface — spawns a robota loopback-WS sidecar (required nonce auth) and renders the shared GUI presentation core agent-transport-gui; NO agent-framework/agent-core dep (GUI-002 foundation, GUI-005 taxonomy)
 ```
 
 ## Library Neutrality Rule (packages/ vs apps/)

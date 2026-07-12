@@ -1,7 +1,9 @@
 {
-  "name": "@robota-sdk/agent-web-ui",
+  "name": "@robota-sdk/agent-transport-gui",
   "version": "3.0.0-beta.79",
-  "description": "Browser UI library for monitoring and controlling a running agent-cli session",
+  "description": "GUI presentation layer for a robota session — React components + a wire-protocol session reducer + a desktop shell, rendered over the transport-neutral TServerMessage stream. The GUI analog of agent-transport-tui; consumed by the desktop app (apps/agent-app) and the browser surface (agent-web-ui).",
+  "license": "AGPL-3.0-only OR LicenseRef-Commercial",
+  "private": true,
   "type": "module",
   "main": "dist/node/index.js",
   "types": "dist/node/index.d.ts",
@@ -16,34 +18,24 @@
       "types": "./dist/browser/index.d.ts",
       "import": "./dist/browser/index.js",
       "default": "./dist/browser/index.js"
-    }
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/woojubb/robota.git"
-  },
-  "homepage": "https://robota.io/",
-  "bugs": {
-    "url": "https://github.com/woojubb/robota/issues"
+    },
+    "./styles/theme.css": "./src/styles/theme.css"
   },
   "files": [
-    "dist"
+    "dist",
+    "src"
   ],
   "scripts": {
     "build": "tsdown",
     "build:js": "tsdown --no-dts",
     "build:types": "tsdown --dts",
-    "build:spa": "vite build --config vite.spa.config.ts",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
     "test:coverage": "vitest run --coverage --passWithNoTests",
-    "typecheck": "tsc --noEmit",
-    "lint": "eslint src/ --ext .ts,.tsx",
-    "clean": "rimraf dist",
-    "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
+    "clean": "rimraf dist"
   },
   "dependencies": {
-    "@robota-sdk/agent-remote-pairing": "workspace:*",
-    "@robota-sdk/agent-transport-gui": "workspace:*",
+    "@robota-sdk/agent-interface-transport": "workspace:*",
     "@robota-sdk/agent-transport-protocol": "workspace:*",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1"
@@ -52,22 +44,15 @@
     "react": ">=18"
   },
   "devDependencies": {
-    "@tailwindcss/vite": "^4.3.0",
+    "@testing-library/react": "^16.1.0",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^4.7.0",
+    "jsdom": "^25.0.1",
     "react": "19.2.4",
     "react-dom": "19.2.4",
-    "rimraf": "^5.0.10",
-    "tailwindcss": "^4.3.0",
+    "rimraf": "^5.0.0",
     "tsdown": "^0.22.2",
-    "typescript": "^5.9.3",
-    "vite": "^8.0.16",
+    "typescript": "^5.7.2",
     "vitest": "^3.2.6"
-  },
-  "license": "AGPL-3.0-only OR LicenseRef-Commercial",
-  "publishConfig": {
-    "access": "public"
-  },
-  "private": true
+  }
 }

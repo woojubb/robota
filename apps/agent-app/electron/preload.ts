@@ -1,6 +1,6 @@
 /**
  * GUI-002 — Electron preload (runs in an isolated context). Exposes ONLY the loopback endpoint + lifecycle
- * signals to the renderer via `contextBridge` — no Node APIs leak into the agent-web-ui SPA, and the endpoint
+ * signals to the renderer via `contextBridge` — no Node APIs leak into the agent-transport-gui renderer, and the endpoint
  * (which carries the auth nonce) is never placed on `window` as a plain value that page script could read
  * off a global before the bridge is set up.
  */

@@ -136,18 +136,19 @@ See [packages/agent-playground/docs/SPEC.md](../../../packages/agent-playground/
 
 > **[Partially implemented]** The transport + browser halves exist:
 > `createWsHandler({ session, send })` (`packages/agent-transport-protocol/src/ws-handler.ts:51`) and
-> `useWsSession(url)` (`packages/agent-web-ui/src/hooks/useWsSession.ts:43`), plus the `agent-web-ui`
-> components. **Still pending:** the CLI `--web` / `--web-port` flags and
+> `useWsSession(url)` (`packages/agent-transport-gui/src/hooks/useSessionClient.ts`), plus the shared GUI
+> core components. **Still pending:** the CLI `--web` / `--web-port` flags and
 > `startWebSidecarServer(interactiveSession, port)` that wire the sidecar server into `agent-cli`.
 
 Sidecar mode spans four packages:
 
-| Package              | Role                                                                        | Status  |
-| -------------------- | --------------------------------------------------------------------------- | ------- |
-| `agent-cli`          | Launch `--web` flag; host `startWebSidecarServer(interactiveSession, port)` | pending |
-| `agent-transport-ws` | `createWsHandler({ session, send })` — real-time session event relay        | exists  |
-| `agent-web-ui`       | Browser React components; `useWsSession(url)` hook for WebSocket connection | exists  |
-| `apps/agent-web`     | Deployment host; opens monitor URL in browser                               | exists  |
+| Package               | Role                                                                        | Status  |
+| --------------------- | --------------------------------------------------------------------------- | ------- |
+| `agent-cli`           | Launch `--web` flag; host `startWebSidecarServer(interactiveSession, port)` | pending |
+| `agent-transport-ws`  | `createWsHandler({ session, send })` — real-time session event relay        | exists  |
+| `agent-transport-gui` | Shared GUI core: `useWsSession(url)` reducer + view components              | exists  |
+| `agent-web-ui`        | Browser remote (WebRTC) surface + `SessionMonitor` (composes the GUI core)  | exists  |
+| `apps/agent-web`      | Deployment host; opens monitor URL in browser                               | exists  |
 
 For the intended sequence diagram see [agent-cli/execution-modes.md](agent-cli/execution-modes.md).
 

@@ -67,7 +67,7 @@ export function buildSidecarSpawn(
   };
 }
 
-/** The lifecycle state the renderer renders (reusing agent-web-ui's `status` surface for the fatal case). */
+/** The lifecycle state the renderer renders (reusing agent-transport-gui's `status` surface for the fatal case). */
 export type TSidecarState = 'starting' | 'ready' | 'fatal';
 
 /** Minimal child handle the supervisor drives — satisfied by a `ChildProcess` and by a test stub. */

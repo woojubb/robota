@@ -1,6 +1,6 @@
 /**
  * GUI-002 — Electron main process (Node). Thin shell: mint a loopback endpoint, spawn the `robota` sidecar,
- * load the agent-web-ui SPA in a hardened BrowserWindow, and supervise the child. NO session/command/
+ * load the agent-transport-gui renderer in a hardened BrowserWindow, and supervise the child. NO session/command/
  * permission logic lives here — all of that is in the sidecar, reached over the loopback WS (OWNER PRINCIPLE).
  */
 
