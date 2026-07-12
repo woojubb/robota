@@ -290,3 +290,37 @@ build+start (`startRuntimeHost` owns the lifecycle for the headless `--serve` pa
 together). No `onSessionReady` hook — an earlier draft floated one but it proved unnecessary (YAGNI) and was not
 shipped. Leave `createAgentRuntime`/`createInteractiveRuntime` for their existing consumers. Independently
 validated (proposal-review + architecture-auditor endorse C; conformance audit HOLDS); owner-approved.
+
+### [GATE-VERIFY] — ✅ PASS (agent-run black-box e2e) | 2026-07-13
+
+Owner principle (this session): a "user execution test" done-gate must be AGENT-runnable — the agent builds and
+runs the same scenario the owner would, never deferring the smoke to the owner. Verified accordingly.
+
+Agent-run integration coverage (all green, run locally):
+
+- `packages/agent-framework/src/runtime/__tests__/runtime-host.test.ts` — host builds the session, owns transport
+  start/stop, shuts down idempotently within the bounded timeout (3/3).
+- `apps/agent-app` headless desktop e2e (real Electron under xvfb) — connect(nonce) → streaming reply → permission
+  prompt → Allow → clean SIGTERM shutdown (5/5).
+- `packages/agent-cli/.../cross-fidelity.bintest.ts` — the real `robota` binary and the programmatic driver observe
+  the identical recorded reply (1/1).
+
+**Gap found + closed.** No test spawned the REAL `robota --serve` process end-to-end (the GUI e2e substitutes a
+scripted sidecar; `runtime-host.test` is in-process). New black-box harness
+`packages/agent-cli/src/__tests__/e2e/serve-mode.bintest.ts` spawns the built `robota --serve` (loopback WS +
+`ROBOTA_WS_TOKEN`/`ROBOTA_WS_PORT`; `--session-log` replay ⇒ deterministic, no model key) and, over the production
+WS protocol:
+
+- TC-A an unauthenticated connection (wrong token) is rejected before any session data is emitted;
+- TC-B an authenticated client submits a turn and receives the recorded reply end-to-end;
+- TC-C SIGTERM drives a graceful host shutdown (no SIGKILL/hang).
+
+Result 3/3; `typecheck` clean; strict lint (`--max-warnings 0`) clean. `.eslintrc.json` test-file override extended
+to `**/*.bintest.ts` (bintests are test files).
+
+**Durability.** The bintest tier was not run in CI (build-gated, on-demand). Wired into the `quality` job
+(`pnpm --filter @robota-sdk/agent-cli test:bin`, gated on dist restore) so the serve-mode + cross-fidelity
+black-box scenarios run on every develop-targeting PR — the verification environment is now a standing gate, not a
+one-off snapshot.
+
+Remaining: T7 feature→develop→main (merge-verifier), then T8 GATE-COMPLETE stamp + `active/` → `done/` move.

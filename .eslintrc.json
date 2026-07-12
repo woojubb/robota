@@ -158,7 +158,7 @@
       }
     },
     {
-      "files": ["**/*.test.ts", "**/*.test.tsx"],
+      "files": ["**/*.test.ts", "**/*.test.tsx", "**/*.bintest.ts"],
       "env": {
         "jest": true
       },
