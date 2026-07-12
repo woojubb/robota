@@ -8,7 +8,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { InteractiveSession } from '@robota-sdk/agent-framework';
+import { InteractiveSession } from '../../interactive/interactive-session.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { startRuntimeHost } from '../runtime-host.js';

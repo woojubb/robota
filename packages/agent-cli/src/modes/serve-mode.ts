@@ -8,7 +8,7 @@
  */
 
 import { parseToolList } from '../utils/cli-args.js';
-import { startRuntimeHost } from '../runtime/runtime-host.js';
+import { startRuntimeHost } from '@robota-sdk/agent-framework';
 
 import type { IParsedCliArgs } from '../utils/cli-args.js';
 import type { IAIProvider } from '@robota-sdk/agent-core';

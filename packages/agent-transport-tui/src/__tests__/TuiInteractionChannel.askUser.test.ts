@@ -8,18 +8,21 @@ vi.mock('@robota-sdk/agent-framework', async () => {
   const actual = await vi.importActual<typeof import('@robota-sdk/agent-framework')>(
     '@robota-sdk/agent-framework',
   );
+  // RUNTIME-001: construction flows through buildRuntimeSession (wraps InteractiveSession); mock both.
+  const makeMockSession = (): unknown => ({
+    getFullHistory: vi.fn().mockReturnValue([]),
+    setName: vi.fn(),
+    getSessionId: vi.fn().mockReturnValue('test-id'),
+    isInitialized: false,
+    on: vi.fn(),
+    off: vi.fn(),
+    cancelQueue: vi.fn(),
+    abort: vi.fn(),
+  });
   return {
     ...actual,
-    InteractiveSession: vi.fn().mockImplementation(() => ({
-      getFullHistory: vi.fn().mockReturnValue([]),
-      setName: vi.fn(),
-      getSessionId: vi.fn().mockReturnValue('test-id'),
-      isInitialized: false,
-      on: vi.fn(),
-      off: vi.fn(),
-      cancelQueue: vi.fn(),
-      abort: vi.fn(),
-    })),
+    InteractiveSession: vi.fn().mockImplementation(makeMockSession),
+    buildRuntimeSession: vi.fn().mockImplementation(makeMockSession),
     CommandRegistry: vi.fn().mockImplementation(() => ({
       addModule: vi.fn(),
     })),

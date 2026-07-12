@@ -233,3 +233,56 @@ All GATE-WRITE criteria met. Status upgrade to `review-ready` authorized; file m
   GATE-IMPLEMENT, T7 merge, T8 GATE-COMPLETE).
 - Test Plan present in the task file (TC-01..TC-05 rows, ≥50 chars) satisfying the `test-plans` scan.
 - Spec moved `todo/ → active/`; frontmatter `status: in-progress`.
+
+### [decision-revision] — Design A → Design B (owner-directed) | 2026-07-12
+
+During implementation of Design A, TC-03 (dedup the TUI's `InteractiveSession` construction) surfaced two
+findings: (1) `TuiInteractionChannel` re-creates its session **per session-switch** (`render.tsx` `createChannel`
+is re-invoked on resume/switch), so there is no single host-owned session for the TUI; (2) a shared
+session-options builder cannot live anywhere both the ink `TuiInteractionChannel` (`agent-transport-tui`) and the
+**ink-free** serve entry (`agent-cli`) can reach without violating dependency-direction or pulling ink into the
+serve path — i.e. the shared builder needs a **neutral** home. That is exactly **Design B**.
+
+The owner, shown this finding, chose **"지금 Design B 전체 (중립 agent-runtime 패키지)"** (do full Design B now).
+
+**Revised decision (Design B):** extract a NEW neutral `packages/agent-runtime` package holding ONLY the
+presentation-free runtime core — `buildRuntimeSession(TInteractiveSessionOptions)` + `startRuntimeHost(options +
+transportRegistry)` (session build + transport `startAll/stopAll` lifecycle). It takes ALREADY-RESOLVED
+`TInteractiveSessionOptions`; CLI-product concerns (`~/.robota` settings, first-run, preset resolution, arg
+parsing) STAY in `agent-cli` and are passed in — so Library Neutrality is preserved (this resolves the
+neutrality concern the round-1 review raised against B-now). Deps: `agent-framework` + `agent-interface-transport`
+only. Consumers: `agent-cli` (serve-mode + startCli) and `agent-transport-tui` (`TuiInteractionChannel` builds
+its per-switch session via the shared builder — the TC-03 dedup). The `startRuntimeHost` already implemented
+(agent-cli/src/runtime/runtime-host.ts) is the neutral core and moves verbatim into `agent-runtime`.
+
+Independent placement re-validation (proposal-review of the Design-B neutral-package boundary) requested before
+GATE-re-APPROVAL; result recorded below.
+
+### [decision-revision-2] — Design B → Design C (owner-approved) | 2026-07-12
+
+Two independent reviews (proposal-review + architecture-auditor) REJECTED Design B (new `packages/agent-runtime`)
+in favor of **Design C**: the neutral runtime host belongs in the existing assembly layer `agent-framework`, not a
+new sibling package (single consumer; identical dep set; framework already owns `InteractiveSession` +
+`TInteractiveSessionOptions`). Owner approved **"Design C 승인 · 진행"** and directed (common-mistakes #80): the
+pre-existing duplication must be **reconciled, not preserved** — legacy is not the baseline, only correct
+architecture is.
+
+A runtime-construct map established the correct single seam + the real duplication:
+
+- `startRuntimeHost` + `buildRuntimeSession` are ALREADY the right shape (full `TInteractiveSessionOptions`,
+  presentation-free, own the transport start/stop + bounded-shutdown lifecycle). Their only flaw is **placement**.
+- `createAgentRuntime` (`agent-framework/src/runtime/agent-runtime.ts`) speaks a LOSSY `IHeadlessSessionOptions`
+  subset (missing persona/activePresetId/enableParallelSubagents/selfVerification/forkSession/language) and is
+  consumed only by `apps/starter-nextjs` + stateless mode — leave it as the serverless factory; do NOT extend it.
+- `createInteractiveRuntime` is a narrow programmatic channel-driver (only `createProgrammaticAgent`) — leave it.
+- **Real duplication to reconcile:** (1) `TuiInteractionChannel` duplicates `startRuntimeHost`'s transport
+  `startAll/stopAll` + bounded shutdown near-verbatim; (2) three sites (TUI, print, serve) each hand-roll a
+  full-fidelity `TInteractiveSessionOptions` mapping and call `new InteractiveSession` independently.
+
+**Design C plan:** move `buildRuntimeSession` + `startRuntimeHost` into `agent-framework/src/runtime/` (next to
+`agent-runtime.ts`), export them; delete `packages/agent-runtime`; `agent-cli` serve-mode imports from
+`agent-framework`. Reconcile the duplication: route the TUI + print session construction through
+`buildRuntimeSession` (one construction seam), and collapse the TUI's duplicated transport lifecycle into
+`startRuntimeHost` (add an `onSessionReady(session)` hook so the TUI can wire session events between build and
+`startAll`). Unify all three on `TInteractiveSessionOptions`. Leave `createAgentRuntime`/`createInteractiveRuntime`
+for their existing consumers. Independently validated (both reviews endorse C); owner-approved.

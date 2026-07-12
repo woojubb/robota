@@ -22,7 +22,12 @@ vi.mock('@robota-sdk/agent-framework', async (importOriginal) => {
     async shutdown(): Promise<void> {}
   }
 
-  return { ...mod, InteractiveSession: FakeInteractiveSession };
+  // RUNTIME-001: construction flows through buildRuntimeSession (wraps InteractiveSession in agent-framework).
+  return {
+    ...mod,
+    InteractiveSession: FakeInteractiveSession,
+    buildRuntimeSession: () => new FakeInteractiveSession(),
+  };
 });
 
 import { TuiInteractionChannel } from '../TuiInteractionChannel.js';
