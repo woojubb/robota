@@ -5,15 +5,18 @@ Parent: [AGENTS.md](../../AGENTS.md) | Index: [rules/index.md](index.md)
 
 ### Language Policy
 
-- Code and comments: English only.
-- Conversations with the user: Korean only.
-- Documents in `.design/`: Korean only.
-- Documents in all other folders: English only.
-- Commit messages: English only and conventional commits format.
+- **User-facing responses: match the user's CURRENT message language, dynamically.** Reply in whichever
+  language the user writes in for that message — if they write English, reply in English; if Korean, reply in
+  Korean; this is matched per-message, never pinned to one language. This is the ONLY thing keyed to the user's
+  language, and it applies to every message addressed to the user (especially reports, questions, and
+  decision-requests). Do not mix another language into that user-facing narrative.
+- **Everything else defaults to English**, unless the user explicitly requests otherwise: code and comments,
+  ALL repository documents (including `.design/`), commit messages (conventional-commits format), and any other
+  written artifact.
 
-### Korean Writing Style (Blog / .design/)
+### Korean Writing Style (only when Korean output is explicitly requested)
 
-When writing Korean content (blog posts, presentations, design documents):
+When the user explicitly requests Korean content (e.g., a Korean blog post) — Korean is never the default:
 
 - No `적` suffix — restructure the sentence instead (e.g., "현실적인" → rephrase without "적")
 - No `의` possessive — restructure to avoid it
