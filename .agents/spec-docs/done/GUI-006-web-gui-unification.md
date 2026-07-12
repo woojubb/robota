@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: INFRA
 tags: [gui, architecture, presentation, web, webrtc, refactor, cleanup]
 ---
@@ -257,3 +257,26 @@ TC-N count reconciliation: Completion Criteria = 6 (TC-01…TC-06); Test Plan = 
   GATE-IMPLEMENT, T7 merge, T8 GATE-COMPLETE).
 - Test Plan present in the task file (TC-01..TC-06 rows, ≥50 chars) satisfying the `test-plans` scan.
 - Spec moved `todo/ → active/`; frontmatter `status: in-progress`.
+
+### [GATE-VERIFY] — ✅ PASS | 2026-07-12
+
+**Status upgrade:** in-progress → verify-passed
+
+- **TC-01** — `agent-transport-gui` exports `SessionMonitor` (reachable via `./client`); build + typecheck green; core deps unchanged. Unit tests 10/10.
+- **TC-02** — `agent-transport-webrtc-web` build + typecheck green; owns the RTC browser peer + `RemoteClient` + `useRtcSession`; migrated suite 45/45; deps = agent-transport-gui + agent-remote-pairing + transport-protocol only (no interface-transport/werift/ws/markdown); no pass-through re-export; no cycle.
+- **TC-03** — `apps/agent-web-monitor` builds (Vite+Tailwind, both entries); agent-owned headless Chromium smoke 2/2 (monitor renders SessionMonitor; remote mounts RemoteClient) + screenshots.
+- **TC-04** — `agent-cli` build path re-pointed; `copy-web-assets` → `apps/agent-web-monitor/dist`; produces `dist/web/{index,remote}.html`.
+- **TC-05** — `apps/agent-web` `/monitor` imports `@robota-sdk/agent-transport-gui/client`; robota-web typecheck green.
+- **TC-06** — `agent-web-ui` deleted; no live dangling refs (current docs swept; historical exempt); dependency-direction + no cycle; core contract-pure; `pnpm harness:scan` 49/49; structure + arch-map + capability-placement updated.
+
+Independent architecture-conformance audit: **code side fully conformant** (all 5 structural claims HOLD); doc-side stale-reference sweep applied + re-verified.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-07-12
+
+**Status upgrade:** verify-passed → done
+
+- Shipped to `main`: implementation squash `7f13782a1` (#1141, feature→develop) promoted via #1142 (develop→main merge `00837ba25`). Both hops merge-verified (LANDED: PASS). compat-node18 passed on re-run after an unrelated flaky `ENOTEMPTY` checkpoint-cleanup race in `agent-transport` (not GUI-006).
+- Verification agent-owned end-to-end (headless Chromium web smoke built + run by the agent).
+- `packages/agent-web-ui` retired; taxonomy `GUI = app (agent-app) | web (agent-web-monitor + agent-web /monitor)` over the shared core `agent-transport-gui`, with the browser WebRTC peer `agent-transport-webrtc-web` as a transport-family sibling of the node host transport.
+
+Spec moved `active/ → done/`; frontmatter `status: done`.
