@@ -1,7 +1,7 @@
 {
-  "name": "@robota-sdk/agent-web-ui",
+  "name": "@robota-sdk/agent-transport-webrtc-web",
   "version": "3.0.0-beta.79",
-  "description": "Browser UI library for monitoring and controlling a running agent-cli session",
+  "description": "Browser WebRTC transport peer for a robota session (REMOTE-009 Stage D) — native RTCPeerConnection answerer + fail-closed pairing gate + RemoteClient page + useRtcSession, over the shared GUI core. The browser mirror of the node-side agent-transport-webrtc host transport.",
   "type": "module",
   "main": "dist/node/index.js",
   "types": "dist/node/index.d.ts",
@@ -33,41 +33,30 @@
     "build": "tsdown",
     "build:js": "tsdown --no-dts",
     "build:types": "tsdown --dts",
-    "build:spa": "vite build --config vite.spa.config.ts",
     "test": "vitest run --passWithNoTests",
     "test:coverage": "vitest run --coverage --passWithNoTests",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src/ --ext .ts,.tsx",
-    "clean": "rimraf dist",
-    "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
+    "clean": "rimraf dist"
   },
   "dependencies": {
     "@robota-sdk/agent-remote-pairing": "workspace:*",
     "@robota-sdk/agent-transport-gui": "workspace:*",
-    "@robota-sdk/agent-transport-protocol": "workspace:*",
-    "react-markdown": "^10.1.0",
-    "remark-gfm": "^4.0.1"
+    "@robota-sdk/agent-transport-protocol": "workspace:*"
   },
   "peerDependencies": {
     "react": ">=18"
   },
   "devDependencies": {
-    "@tailwindcss/vite": "^4.3.0",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^4.7.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "rimraf": "^5.0.10",
-    "tailwindcss": "^4.3.0",
     "tsdown": "^0.22.2",
     "typescript": "^5.9.3",
-    "vite": "^8.0.16",
     "vitest": "^3.2.6"
   },
   "license": "AGPL-3.0-only OR LicenseRef-Commercial",
-  "publishConfig": {
-    "access": "public"
-  },
   "private": true
 }

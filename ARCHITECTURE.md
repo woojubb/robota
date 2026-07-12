@@ -50,7 +50,10 @@ High-level system architecture for the Robota AI Agent SDK monorepo.
 │                  agent-interface-tui                         │
 │  Providers       agent-provider                             │
 │  Plugins         agent-plugin                               │
-│  Playground/Web  agent-playground / agent-web-ui            │
+│  Playground      agent-playground                           │
+│  GUI/Web         agent-transport-gui (GUI core);            │
+│                  agent-transport-webrtc-web (browser peer); │
+│                  apps/agent-web-monitor (CLI SPA)           │
 │  Remote          agent-remote-client                        │
 └────────────────────────────────────────────────────────────┘
 ```

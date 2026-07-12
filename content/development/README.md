@@ -58,12 +58,14 @@ packages/
 ├── agent-cli/                  ← Terminal AI coding assistant
 ├── agent-subagent-runner/      ← Opt-in child-process subagent runner
 ├── agent-remote-client/        ← HTTP client for remote agents
-├── agent-web-ui/               ← Browser React component library
+├── agent-transport-gui/        ← Shared GUI core (SessionMonitor + session reducer)
+├── agent-transport-webrtc-web/ ← Browser WebRTC peer over the GUI core
 ├── agent-tool-mcp/             ← MCP tool client adapter
 └── agent-playground/           ← Playground executor, hooks, and components
 
 apps/
 ├── agent-web/                  ← Next.js playground host
+├── agent-web-monitor/          ← CLI-served browser monitor SPA (Vite)
 ├── agent-server/               ← AI provider proxy + WebSocket server
 ├── docs/                       ← VitePress documentation site
 └── blog/                       ← Blog

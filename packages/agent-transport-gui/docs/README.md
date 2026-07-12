@@ -4,7 +4,7 @@ The **GUI presentation layer** for a robota session — the graphical analog of 
 It reconstructs conversation state from the transport-neutral `TServerMessage` stream and renders it as React
 components, and it ships the desktop **session shell** (title/status bar, conversation column, background
 activity rail, composer, permission modal). Consumed by the desktop app (`apps/agent-app`) and the
-browser-remote surface (`@robota-sdk/agent-web-ui`).
+browser-remote surface (`@robota-sdk/agent-transport-webrtc-web`).
 
 ## What it owns
 
@@ -37,6 +37,6 @@ entry and sources this package's `src`:
 ```
 
 A different transport supplies its own `makeClient` (a `TMakeSessionClient<TStatus>`) and, if it adds
-connection states, instantiates `useSessionClient<ItsStatus>` — see `useRtcSession` in `@robota-sdk/agent-web-ui`.
+connection states, instantiates `useSessionClient<ItsStatus>` — see `useRtcSession` in `@robota-sdk/agent-transport-webrtc-web`.
 
 See [SPEC.md](./SPEC.md) for the full contract.

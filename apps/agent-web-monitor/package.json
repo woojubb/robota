@@ -1,0 +1,31 @@
+{
+  "name": "@robota-sdk/agent-web-monitor",
+  "version": "3.0.0-beta.79",
+  "private": true,
+  "description": "agent-web-monitor — the CLI-served web GUI: a minimal Vite SPA with the localhost-WS monitor page (index.html) and the Stage-D browser remote page (remote.html), composed over the shared GUI core and the browser WebRTC transport peer. The web sibling of apps/agent-app (GUI-006).",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test:e2e": "node e2e/run-smoke.mjs",
+    "lint": "eslint . --max-warnings 0"
+  },
+  "dependencies": {
+    "@robota-sdk/agent-transport-gui": "workspace:*",
+    "@robota-sdk/agent-transport-webrtc-web": "workspace:*",
+    "react": "19.2.4",
+    "react-dom": "19.2.4"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.0",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^4.7.0",
+    "playwright": "^1.49.1",
+    "tailwindcss": "^4.3.0",
+    "typescript": "^5.9.3",
+    "vite": "^6.0.7"
+  }
+}

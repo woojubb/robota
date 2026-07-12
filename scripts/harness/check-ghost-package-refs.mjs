@@ -63,6 +63,7 @@ function isExcludedDoc(rel) {
   if (/\/\.agents\/spec-docs\/(done|rejected)\//.test(p)) return true; // closed/archived spec work items
   if (/\/\.agents\/tasks\/completed\//.test(p)) return true; // completed task records
   if (/\/\.agents\/backlog\/completed\//.test(p)) return true; // completed backlog items
+  if (/\/\.agents\/release-runs\//.test(p)) return true; // frozen per-release run records (immutable history)
   if (/\/content\/v\d/.test(p)) return true; // frozen versioned documentation snapshots
   if (/\/docs\/superpowers\//.test(p)) return true; // dated historical plan/spec artifacts
   if (/\/\.design\//.test(p)) return true; // dated design-review / architecture-audit archive

@@ -7,7 +7,7 @@ presentation in `@robota-sdk/agent-transport-tui`. It reconstructs conversation 
 transport-neutral `TServerMessage` stream and renders it as React components, and it ships the desktop
 **session shell** (title/status bar, conversation column, background-activity rail, composer, permission
 modal). It is consumed by both GUI product surfaces: the desktop app (`apps/agent-app`, Electron) and the
-browser-remote surface (`@robota-sdk/agent-web-ui`).
+browser-remote surface (`@robota-sdk/agent-transport-webrtc-web`).
 
 Provides:
 
@@ -41,7 +41,7 @@ not own session lifecycle, conversation history, or agent runtime state.
 - Does NOT own `InteractiveSession`, session/runtime contracts, or `agent-core` types — no dependency on
   `agent-framework` / `agent-session` / `agent-core`.
 - Does NOT own the CLI sidecar server — that is `agent-cli` (`startWebSidecarServer`).
-- Does NOT own the WebRTC remote peer / pairing — that is `@robota-sdk/agent-web-ui` (REMOTE-009), which
+- Does NOT own the WebRTC remote peer / pairing — that is `@robota-sdk/agent-transport-webrtc-web` (REMOTE-009), which
   consumes this package's reducer + components and widens the status union.
 - Does NOT own the Electron shell / sidecar supervision — that is `apps/agent-app`.
 - OWNS: the transport-neutral session reducer (`useSessionClient`) + its state/handle contract
@@ -57,7 +57,7 @@ not own session lifecycle, conversation history, or agent runtime state.
 ## Architecture Overview
 
 ```
-apps/agent-app (Electron renderer)          agent-web-ui (browser remote)
+apps/agent-app (Electron renderer)          agent-transport-webrtc-web (browser remote)
         │                                            │
         │ useWsSession(loopbackUrl)                  │ useRtcSession({relay,…})
         ▼                                            ▼
@@ -67,13 +67,13 @@ apps/agent-app (Electron renderer)          agent-web-ui (browser remote)
   │  complete/interrupted  →  IWsSessionState<TStatus>                                   │
   └──────────────────────────────────────────────────────────────────────────────────┘
         │                                            │
-        │ createWsSessionClient (localhost)          │ createRtcSessionClient (agent-web-ui)
+        │ createWsSessionClient (localhost)          │ createRtcSessionClient (agent-transport-webrtc-web)
         ▼                                            ▼
   agent-transport-protocol  (TServerMessage / TClientMessage)
 ```
 
 `useSessionClient` is generic over `TStatus extends string = TConnectionStatus`: the WS path uses
-`TConnectionStatus`; the WebRTC path (agent-web-ui) instantiates `useSessionClient<TSessionStatus>` where
+`TConnectionStatus`; the WebRTC path (agent-transport-webrtc-web) instantiates `useSessionClient<TSessionStatus>` where
 `TSessionStatus = TConnectionStatus | TRtcConnectionStatus`. This keeps the RTC-only status states out of this
 package (no dependency on the RTC client) — the reason the reducer is generic rather than importing a widened
 union (which would create a package cycle).
@@ -85,16 +85,16 @@ logic — it forwards user intent through the reducer's `send` / `answerPermissi
 
 ## Type Ownership
 
-| Type / value                                                               | Owner                                    |
-| -------------------------------------------------------------------------- | ---------------------------------------- |
-| `IWsSessionState<TStatus>`                                                 | this package (reducer state)             |
-| `ISessionClientHandle`, `TMakeSessionClient`                               | this package                             |
-| `IConversationMessage`, `IActiveTool`                                      | this package                             |
-| `TConnectionStatus`                                                        | this package (`createWsSessionClient`)   |
-| `TPendingPrompt`                                                           | this package (`prompt-state`)            |
-| `TServerMessage`, `TClientMessage`                                         | `@robota-sdk/agent-transport-protocol`   |
-| `IExecutionWorkspaceSnapshot`, `TActionResponse`, `TPermissionResultValue` | `@robota-sdk/agent-interface-transport`  |
-| `TRtcConnectionStatus`, `TSessionStatus`                                   | `@robota-sdk/agent-web-ui` (RTC surface) |
+| Type / value                                                               | Owner                                                  |
+| -------------------------------------------------------------------------- | ------------------------------------------------------ |
+| `IWsSessionState<TStatus>`                                                 | this package (reducer state)                           |
+| `ISessionClientHandle`, `TMakeSessionClient`                               | this package                                           |
+| `IConversationMessage`, `IActiveTool`                                      | this package                                           |
+| `TConnectionStatus`                                                        | this package (`createWsSessionClient`)                 |
+| `TPendingPrompt`                                                           | this package (`prompt-state`)                          |
+| `TServerMessage`, `TClientMessage`                                         | `@robota-sdk/agent-transport-protocol`                 |
+| `IExecutionWorkspaceSnapshot`, `TActionResponse`, `TPermissionResultValue` | `@robota-sdk/agent-interface-transport`                |
+| `TRtcConnectionStatus`, `TSessionStatus`                                   | `@robota-sdk/agent-transport-webrtc-web` (RTC surface) |
 
 ## Public API Surface
 
@@ -113,6 +113,7 @@ Exported from the package root (node) and `./client` (browser):
 | `PermissionPrompt`      | component | Permission/ask modal; prompts + `onAnswerPermission`/`onAnswerAsk`                   |
 | `SessionSurface`        | component | Full terminal-noir desktop layout over an `IWsSessionState`; optional `surface`      |
 | `CenteredChrome`        | component | Pre-session / fatal chrome frame; `tone` + children                                  |
+| `SessionMonitor`        | component | Localhost-WS **web** session shell (composes the reducer + views); prop `wsUrl`      |
 | `IConversationMessage`  | type      | Reconstructed conversation message (id, role, content, author?)                      |
 | `IActiveTool`           | type      | Active tool-call display state                                                       |
 | `IWsSessionState`       | type      | Reducer return state (generic over the status type)                                  |
@@ -122,13 +123,13 @@ Exported from the package root (node) and `./client` (browser):
 | `TPendingPrompt`        | type      | A pending permission/ask prompt awaiting the owner's answer                          |
 
 Style: `./styles/theme.css` (source; consumer-compiled). Consumers import these directly — this package is
-NOT re-exported through a sibling product (`agent-web-ui` does not re-export it; the repo forbids
+NOT re-exported through a sibling product (`agent-transport-webrtc-web` does not re-export it; the repo forbids
 pass-through re-exports).
 
 ## Extension Points
 
 - A new transport supplies its own `makeClient` (a `TMakeSessionClient<TStatus>`) and, if it has extra
-  connection states, instantiates `useSessionClient<ItsStatus>` — mirroring `useRtcSession` in `agent-web-ui`.
+  connection states, instantiates `useSessionClient<ItsStatus>` — mirroring `useRtcSession` in `agent-transport-webrtc-web`.
 - A new GUI surface (e.g. a future unified web app) renders `SessionSurface` / the components over its own
   `makeClient`, and owns its Tailwind entry + theme import.
 
@@ -165,9 +166,10 @@ pass-through re-exports).
 | `PermissionPrompt`   | `prompts`, `onAnswerPermission`, `onAnswerAsk`           |
 | `SessionSurface`     | `state: IWsSessionState`, optional `surface` label       |
 | `CenteredChrome`     | `tone: 'muted' \| 'fatal'`, `children`                   |
+| `SessionMonitor`     | `wsUrl: string`, optional `className` (web monitor page) |
 
 ### Cross-Package Consumers
 
 - `apps/agent-app` — Electron renderer: `useWsSession` + `SessionSurface` + `CenteredChrome` + `theme.css`.
-- `@robota-sdk/agent-web-ui` — `useSessionClient` (generic), `ConversationView`, `AgentActivityPanel`,
+- `@robota-sdk/agent-transport-webrtc-web` — `useSessionClient` (generic), `ConversationView`, `AgentActivityPanel`,
   `PermissionPrompt` for its `SessionMonitor` / `RemoteClient`.

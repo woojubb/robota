@@ -38,7 +38,7 @@
     "bin"
   ],
   "scripts": {
-    "build": "pnpm --filter @robota-sdk/agent-web-ui build:spa && node scripts/copy-web-assets.mjs && tsdown",
+    "build": "pnpm --filter @robota-sdk/agent-web-monitor build && node scripts/copy-web-assets.mjs && tsdown",
     "build:js": "tsdown --no-dts",
     "build:types": "tsdown --dts",
     "dev": "tsx src/bin.ts",

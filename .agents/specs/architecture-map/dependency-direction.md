@@ -10,7 +10,9 @@ Back to [System Architecture Map](../ARCHITECTURE-MAP.md).
 flowchart TD
   ProductShells["Product shells\nagent-cli, apps/agent-web, docs, blog"]
   Playground["Product app\nagent-playground"]
-  WebUi["Product app\nagent-web-ui\n(type-only edges)"]
+  TransportGui["GUI presentation core\nagent-transport-gui\n(SessionMonitor, useWsSession)"]
+  WebRtcWeb["Browser WebRTC peer\nagent-transport-webrtc-web"]
+  WebMonitor["Product app\napps/agent-web-monitor\n(CLI-served SPA)"]
   Assembly["Assembly/API layers\nagent-framework, apps/agent-server"]
   Preset["Preset/option data\nagent-preset (named option bundles + resolvePreset)"]
   TransportShells["Transport shells\nagent-transport (+ /headless), agent-transport-tui, agent-transport-ws,\nagent-transport-http, agent-transport-mcp"]
@@ -46,8 +48,10 @@ flowchart TD
   Playground --> Domain
   Playground --> Adapters
   Playground --> Orchestration
-  WebUi --> TypeContracts
-  WebUi --> TransportShells
+  TransportGui --> TypeContracts
+  WebRtcWeb --> TransportGui
+  WebMonitor --> TransportGui
+  WebMonitor --> WebRtcWeb
 ```
 
 `ProductShells → Adapters` is composition-root wiring only. A product shell may construct or select

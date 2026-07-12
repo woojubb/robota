@@ -1,7 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 
-import { SessionMonitor } from '../src/components/SessionMonitor.js';
+import { SessionMonitor } from '@robota-sdk/agent-transport-gui/client';
 import './main.css';
 
 // WS URL is injected by the HTTP server via <meta name="ws-url">.

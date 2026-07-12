@@ -135,7 +135,7 @@ export class RemoteControlController {
     if (!clientUrl) {
       return (
         'Remote control needs a browser client page. Set `transports.webrtc.options.clientUrl` ' +
-        'in ~/.robota/settings.json to your hosted Stage-D page (`@robota-sdk/agent-web-ui`).'
+        'in ~/.robota/settings.json to your hosted Stage-D page (the `@robota-sdk/agent-web-monitor` `remote.html`).'
       );
     }
 

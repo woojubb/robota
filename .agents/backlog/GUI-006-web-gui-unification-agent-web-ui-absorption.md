@@ -4,7 +4,7 @@ status: todo
 created: 2026-07-12
 priority: medium
 urgency: later
-area: packages/agent-web-ui, packages/agent-transport-gui, apps/agent-web
+area: packages/agent-transport-gui, packages/agent-transport-webrtc-web, apps/agent-web-monitor, apps/agent-web
 depends_on: [GUI-005]
 ---
 
@@ -19,7 +19,7 @@ depends_on: [GUI-005]
 GUI-005 established the taxonomy **presentation = TUI | GUI; GUI = app | web over a shared GUI core
 (`@robota-sdk/agent-transport-gui`)**. The desktop surface (`apps/agent-app`) now renders the shared core
 directly — the GUI analog of how `agent-cli` renders `agent-transport-tui`. The **web** surface is only
-partway there: `packages/agent-web-ui` still exists as a distinct product that (a) composes the shared core
+partway there: the `agent-web-ui` package still existed as a distinct product that (a) composes the shared core
 into a bespoke `SessionMonitor` page and (b) owns the browser-remote (WebRTC) peer surface (`RemoteClient`,
 `useRtcSession`, the RTC clients, `spa/remote.html`, REMOTE-009..013).
 
