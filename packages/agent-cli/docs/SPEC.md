@@ -1647,8 +1647,34 @@ The CLI uses `IHistoryEntry` from `@robota-sdk/agent-core` as the primary messag
 
 Tool messages use the `isToolMessage(msg)` type guard for safe access to `msg.name`.
 
+## Distribution — Bun single binary (DIST-001)
+
+Alongside the npm/Node package, `agent-cli` can be compiled to a **standalone single-file executable** via
+Bun. **Bun is used for build/packaging ONLY — never at runtime, and no Bun-specific APIs are used.** The
+existing Node path (`bin/robota.cjs` → `dist/node/bin.js`) and every existing `package.json` script are
+**byte-identical / unchanged**.
+
+- **Build:** `scripts/build-bun.mjs` (run under Bun) `Bun.build({ compile, define, plugins })`s the built
+  `dist/node/bin.js` per target. Additive scripts: `build:bun` (host), `build:bun:all`, and per-target
+  `build:bun:<os>-<arch>` (darwin-arm64/x64, linux-x64/arm64, windows-x64). Prereq: `pnpm build` (produces
+  `dist/node/bin.js`); output → `dist/bin/robota-<os>-<arch>[.exe]`.
+- **Two build-time fixes** (do not affect Node): a plugin stubs ink 7.x's DEV-only static
+  `react-devtools-core` import (Bun's compiler resolves it eagerly; the code path never runs in production);
+  and `src/startup/version.ts` reads a `--define`d `__ROBOTA_VERSION__` through a `typeof` guard (the single
+  binary can't fs-walk for `package.json` → would show `0.0.0`; in Node the identifier is undeclared so the
+  guard falls through to the existing fs-walk).
+- **Smoke:** `test:bun` (`scripts/e2e-bun-binary.mjs`) builds the host binary and asserts `--version` (real
+  version, not `0.0.0`) + `--help` (exit 0); it **skips gracefully when `bun` is not on PATH**.
+- **Constraint (user-facing):** a **subagent** turn inside the binary spawns a child `node` process, so
+  subagent execution still requires **`node` on `PATH`**. Non-subagent use (the CLI itself, no-provider
+  commands) needs no Node install. Publishing the binaries (DIST-002) and the node-less install scripts
+  (DIST-003) are separate downstream items.
+
 ## Known Limitations
 
+- **Bun single binary — subagents need `node`:** see Distribution above — a subagent turn spawns a child
+  `node`, so the standalone binary still requires `node` on `PATH` for subagent execution (not for the CLI
+  itself). (DIST-001)
 - **Korean IME on macOS Terminal.app**: Ink's renderer shifts the input area during IME composition, causing Terminal.app to crash (SIGSEGV). Fixed by adding a permanent blank line below the input area, which stabilizes the cursor position during IME composition. **Use [iTerm2](https://iterm2.com/) for the best experience.**
 - **CjkTextInput**: Custom text input component with try-catch error handling, non-printable character filtering, `setCursorPosition` removed to minimize IME interaction surface, and optional visual-line-aware up/down arrow navigation for wrapped text.
 
