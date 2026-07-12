@@ -1,20 +1,20 @@
-# SPEC.md — @robota-sdk/agent-gui
+# SPEC.md — @robota-sdk/agent-app
 
 ## Scope
 
-`agent-gui` is a thin **Electron** desktop application (macOS / Linux / Windows) that drives a live
+`agent-app` is a thin **Electron** desktop application (macOS / Linux / Windows) that drives a live
 `robota` session graphically. It is a **presentation surface only** — the mirror of the TUI
 (`agent-transport-tui`): it owns the desktop shell (window, lifecycle) and the loopback wiring, and reuses
-`@robota-sdk/agent-web-ui`'s React session view + reducer verbatim. All session/command/permission logic
+`@robota-sdk/agent-transport-gui`'s React session view + reducer verbatim. All session/command/permission logic
 lives **below the wire**, in a `robota` sidecar process reached over a loopback WebSocket (GUI-002).
 
 ## Boundaries
 
 - **Does NOT own session logic.** No agent runtime, tools, providers, command routing, or permission
-  policy — those run in the spawned `robota` sidecar and are reached over WS (`agent-web-ui`'s reducer folds
+  policy — those run in the spawned `robota` sidecar and are reached over WS (`agent-transport-gui`'s reducer folds
   the `TServerMessage` stream). The GUI never imports `@robota-sdk/agent-framework` or `agent-core`.
 - **Does NOT own the wire protocol or the session contract** — those belong to
-  `agent-transport-protocol` / `agent-interface-transport`, consumed transitively via `agent-web-ui`.
+  `agent-transport-protocol` / `agent-interface-transport`, consumed transitively via `agent-transport-gui`.
 - **Does NOT own packaging/signing** in Stage 1 — per-OS installers, code-signing, notarization, and
   auto-update are deferred to **GUI-003** (`electron-builder`).
 
@@ -32,7 +32,7 @@ Electron main (Node)                         robota sidecar (Node CLI)
   └─ supervise child (exit → fatal; close → SIGTERM→SIGKILL)
         │
         ▼ (renderer, Chromium)
-   agent-web-ui React SPA
+   agent-transport-gui React presentation core
      useWsSession('ws://127.0.0.1:<port>?token=<nonce>')  ← token in query (browser WS can't set headers)
      ConversationView + AgentActivityPanel + PermissionPrompt + composer
 ```
@@ -63,14 +63,15 @@ Electron main (Node)                         robota sidecar (Node CLI)
 
 ## Public API Surface
 
-None — `agent-gui` is a private application (`"private": true`), not a library. It exports no package API.
+None — `agent-app` is a private application (`"private": true`), not a library. It exports no package API.
 
 ## Dependencies
 
-`@robota-sdk/agent-web-ui` (workspace) + `react`/`react-dom`. Dev: `electron`, `vite`,
-`@vitejs/plugin-react`, `vitest`, `@testing-library/react`, `jsdom`, `typescript`. **No
-`agent-framework`/`agent-core`** (the sidecar owns the runtime) — enforced by review + the harness `deps`
-scan.
+`@robota-sdk/agent-transport-gui` (workspace) + `react`/`react-dom`. Dev: `electron`, `vite`,
+`@vitejs/plugin-react`, `@tailwindcss/vite`, `tailwindcss`, `vitest`, `@testing-library/react`, `jsdom`,
+`playwright`, `typescript`, and `@robota-sdk/agent-transport-ws` (workspace, e2e-only — the headless Electron
+e2e stands up the real `WsTransport` sidecar). **No `agent-framework`/`agent-core`** (the sidecar owns the
+runtime) — enforced by review + the harness `deps` scan.
 
 ## Test Strategy
 
@@ -78,7 +79,7 @@ scan.
   argv), and `SidecarSupervisor` (crash → fatal, ready, shutdown SIGTERM→SIGKILL, idempotent).
 - `src/__tests__/session-surface.test.tsx` — the compose-root renders the session over a stub
   `IWsSessionState` and answers permission prompts, proving no session logic lives in the GUI.
-- **Headless end-to-end (`e2e/`, `pnpm --filter @robota-sdk/agent-gui test:e2e`):** launches the REAL built
+- **Headless end-to-end (`e2e/`, `pnpm --filter @robota-sdk/agent-app test:e2e`):** launches the REAL built
   Electron app under **`xvfb`** via **Playwright `_electron`**, pointed at `e2e/scripted-sidecar.mjs` — a
   deterministic sidecar that stands up the **REAL `WsTransport`** (so the GUI-002 T5 loopback auth is
   exercised against the nonce the GUI presents) with a scripted session (no LLM/API key). Asserts the full
@@ -93,7 +94,7 @@ The headless e2e above covers the GUI behavior deterministically. This manual sc
 a REAL `robota` sidecar (a live provider) on a machine with a display + a built `robota` on `PATH` (or
 `ROBOTA_GUI_SIDECAR_CMD` set):
 
-1. `pnpm --filter @robota-sdk/agent-gui build && pnpm --filter @robota-sdk/agent-gui start`.
+1. `pnpm --filter @robota-sdk/agent-app build && pnpm --filter @robota-sdk/agent-app start`.
 2. The window opens, spawns the sidecar, and shows the conversation view (status `connected`).
 3. Send a message → a streaming assistant reply + tool cards appear.
 4. Trigger a gated tool → a permission prompt appears; **Allow** proceeds, **Deny** blocks.

@@ -1,11 +1,10 @@
 'use client';
 
+import { ConversationView, PermissionPrompt } from '@robota-sdk/agent-transport-gui';
 import React, { useMemo } from 'react';
 
-import { ConversationView } from './ConversationView.js';
-import { PermissionPrompt } from './PermissionPrompt.js';
 import { parseRemoteClientLocation } from '../client/parse-remote-location.js';
-import { useRtcSession } from '../hooks/useWsSession.js';
+import { useRtcSession } from '../hooks/useRtcSession.js';
 
 /**
  * Stage-D browser remote client root (REMOTE-009). Reads its connection inputs from its own URL

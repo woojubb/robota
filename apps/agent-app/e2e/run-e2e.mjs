@@ -5,7 +5,7 @@
  * `scripted-sidecar.mjs` (real `WsTransport` + scripted session). Asserts the full Stage-1 user story:
  *   connect (with the launch nonce) → render a streaming reply → raise + Allow a permission prompt.
  *
- * Run: `pnpm --filter @robota-sdk/agent-gui test:e2e` (wraps this in `xvfb-run`).
+ * Run: `pnpm --filter @robota-sdk/agent-app test:e2e` (wraps this in `xvfb-run`).
  */
 
 import { chmodSync } from 'node:fs';

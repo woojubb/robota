@@ -1,0 +1,141 @@
+/*
+ * GUI-005 — "terminal-noir" theme for the GUI presentation layer (agent-transport-gui).
+ *
+ * The consuming app owns the Tailwind entry (`@import 'tailwindcss'` + `@source '…/agent-transport-gui/src'`)
+ * and then `@import`s this file, so Tailwind processes the `@theme`/`@layer` below in-context. This file owns
+ * the design tokens, the Tailwind token map, base styles, scrollbars, and the shell's small utility classes.
+ */
+
+/* Map the design tokens (CSS vars below) onto Tailwind color/font utilities (bg-card, text-primary, …). */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --font-mono: var(--font-mono);
+  --font-sans: var(--font-sans);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+/*
+ * Terminal-noir palette — a deep near-black desktop frame around warm-charcoal message panels, a mint accent,
+ * mono-forward chrome (the domain language is the terminal).
+ */
+:root {
+  --radius: 0.6rem;
+
+  --background: #0d0e12; /* app canvas / frame */
+  --foreground: #e7e8ef;
+
+  --card: #171922; /* message + panel surfaces */
+  --card-foreground: #e7e8ef;
+
+  --popover: #14161d;
+  --popover-foreground: #e7e8ef;
+
+  --primary: #34d3a6; /* mint accent */
+  --primary-foreground: #07120e;
+
+  --secondary: #1c1e28;
+  --secondary-foreground: #e7e8ef;
+
+  --muted: #1a1c25;
+  --muted-foreground: #8a8ea6;
+
+  --accent: #34d3a6;
+  --accent-foreground: #07120e;
+
+  --destructive: #fb7185;
+  --border: #262935;
+  --input: #262935;
+  --ring: #34d3a6;
+
+  --font-mono: 'JetBrains Mono', 'SF Mono', 'Cascadia Code', ui-monospace, Menlo, monospace;
+  --font-sans: ui-sans-serif, -apple-system, 'Segoe UI', system-ui, sans-serif;
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+    margin: 0;
+  }
+
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-feature-settings:
+      'rlig' 1,
+      'calt' 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    /* faint terminal grain — atmosphere, not texture */
+    background-image: radial-gradient(rgba(255, 255, 255, 0.014) 1px, transparent 1px);
+    background-size: 3px 3px;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: color-mix(in oklab, var(--muted-foreground) 55%, transparent);
+  }
+}
+
+/* Thin mint-hover scrollbars — terminal restraint. */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+  border: 2px solid var(--background);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in oklab, var(--primary) 55%, var(--border));
+}
+
+/* Status-dot glow used by the title bar. */
+.status-glow {
+  box-shadow: 0 0 8px 1px color-mix(in oklab, var(--primary) 60%, transparent);
+}
+
+/* Page-load reveal for the conversation column. */
+@keyframes gui-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.gui-rise {
+  animation: gui-rise 0.32s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
