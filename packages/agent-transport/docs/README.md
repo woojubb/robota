@@ -1,8 +1,8 @@
 # @robota-sdk/agent-transport
 
 Consolidated transport package for the Robota SDK. Protocol adapters are available via
-sub-path exports. TUI (Ink/React) rendering lives in the `./tui` sub-path to isolate React
-dependencies from pure-TS consumers.
+sub-path exports. TUI (Ink/React) rendering ships as the standalone
+`@robota-sdk/agent-transport-tui` package, keeping this core React-free.
 
 ## Usage
 

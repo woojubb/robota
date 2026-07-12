@@ -5,6 +5,7 @@
 ## Current Capabilities
 
 - `InteractiveSession` owns session execution for CLI and transports.
+- `startRuntimeHost()` builds and serves a headless session over a loopback WS (used by `robota --serve` and the desktop GUI sidecar); `buildRuntimeSession()` is the shared session-construction seam every presentation builds its `InteractiveSession` through (RUNTIME-001).
 - Active `.agents/tasks` context can be injected into system prompt composition.
 - Prompt `@file` references are parsed, resolved, diagnosed, and recorded by SDK-owned context APIs.
 - Manual context references are managed by SDK-owned inventory APIs and consumed by command packages through command common APIs.

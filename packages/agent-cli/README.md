@@ -143,6 +143,7 @@ robota --append-system-prompt <text> # Append to system prompt (print mode)
 robota --model claude-sonnet-4-6     # Override provider model for this session
 robota --allowed-tools "Bash,Read"  # Whitelist specific tools
 robota --denied-tools "Bash,Write"  # Blacklist specific tools (denied > allowed)
+robota --serve                      # Run as a headless runtime host over a loopback WS sidecar (used by the desktop GUI)
 robota --reset                      # Delete user settings and exit
 robota --check-update               # Check npm for a newer CLI version and exit
 robota --disable-update-check        # Skip interactive startup update check for this run
