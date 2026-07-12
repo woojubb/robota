@@ -1,6 +1,7 @@
 ---
 title: 'GUI-006: unify the web GUI surface over agent-transport-gui + absorb/retire agent-web-ui (GUI Phase-2)'
-status: todo
+status: done
+completed: 2026-07-12
 created: 2026-07-12
 priority: medium
 urgency: later
