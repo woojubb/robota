@@ -1,0 +1,49 @@
+name: Release — tag on version bump
+
+# RELEASE-001 — when a version bump for @robota-sdk/agent-cli lands on main, push the matching `v<version>` tag.
+# That tag fires release-bun-binaries.yml + release-desktop-app.yml (which a tag pushed with the default
+# GITHUB_TOKEN cannot do — anti-recursion), so the binaries + OS installers auto-build for that release.
+# npm publish is OUT OF SCOPE — it stays the separate OTP-gated manual flow (release-operations.md), untouched.
+#
+# Requires an owner-provisioned repo DEPLOY KEY (write) as `secrets.RELEASE_DEPLOY_KEY`. Inert without it
+# (the tag push fails loudly). See the release runbook.
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-tag-${{ github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  tag-on-bump:
+    name: Push v<version> tag when agent-cli is bumped
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2 # need HEAD^ to detect a version change
+          ssh-key: ${{ secrets.RELEASE_DEPLOY_KEY }} # push over SSH so the tag fires the v* workflows
+
+      - name: Push v<version> tag on an agent-cli bump
+        run: |
+          set -euo pipefail
+          PKG=packages/agent-cli/package.json
+          CUR=$(node -pe "require('./$PKG').version")
+          PREV=$(git show "HEAD^:$PKG" | node -pe "JSON.parse(require('fs').readFileSync(0,'utf8')).version" || echo "")
+          if [ "$CUR" = "$PREV" ]; then
+            echo "agent-cli version unchanged ($CUR) — no release tag."
+            exit 0
+          fi
+          TAG="v$CUR"
+          if git ls-remote --tags origin "refs/tags/$TAG" | grep -q "refs/tags/$TAG"; then
+            echo "tag $TAG already exists — skip (idempotent)."
+            exit 0
+          fi
+          echo "agent-cli bumped ${PREV:-<none>} -> $CUR; pushing $TAG to fire the binary + desktop workflows"
+          git tag "$TAG"
+          git push origin "refs/tags/$TAG"
