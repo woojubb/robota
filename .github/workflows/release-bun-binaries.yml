@@ -1,0 +1,85 @@
+name: Release — Bun binaries
+
+# DIST-002 — build the five Bun single-file `robota` binaries (DIST-001) and publish them to the tag's
+# GitHub Release. Sibling to release.yml (manual npm publish); this workflow NEVER touches npm publishing.
+# Binaries are UNSIGNED (Bun --compile cross-compilation) — macOS Gatekeeper / Windows SmartScreen will warn.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing release tag to build + attach binaries to (e.g. v3.0.0-beta.79). The tag must already exist.'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  bun-binaries:
+    name: Build + publish Bun binaries
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve release tag
+        id: tag
+        run: echo "tag=${{ github.event.inputs.tag || github.ref_name }}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ steps.tag.outputs.tag }}
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8.15.4
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # agent-cli is bundled by tsdown, which resolves @robota-sdk/* to each dep's built dist/node/*.
+      # The full workspace build must run before the Bun compile — a bare --filter agent-cli build would
+      # fail on a clean checkout (this mirrors why release.yml runs `pnpm build` before publishing).
+      - name: Build workspace
+        run: pnpm build
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Compile Bun binaries (all 5 targets)
+        run: pnpm --filter @robota-sdk/agent-cli build:bun:all
+
+      - name: Sanity — host binary prints the real version (no Node)
+        run: ./packages/agent-cli/dist/bin/robota-linux-x64 --version
+
+      - name: Generate SHA-256 checksums
+        working-directory: packages/agent-cli/dist/bin
+        run: sha256sum robota-* > SHA256SUMS.txt
+
+      - name: Publish binaries to the GitHub Release
+        working-directory: packages/agent-cli/dist/bin
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "$TAG" --generate-notes
+          gh release upload "$TAG" \
+            robota-darwin-arm64 \
+            robota-darwin-x64 \
+            robota-linux-x64 \
+            robota-linux-arm64 \
+            robota-windows-x64.exe \
+            SHA256SUMS.txt \
+            --clobber
