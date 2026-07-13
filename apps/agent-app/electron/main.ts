@@ -14,6 +14,7 @@ import {
   buildSidecarSpawn,
   endpointUrl,
   mintToken,
+  resolveSidecarCommand,
   SidecarSupervisor,
   type ISidecarEndpoint,
   type TSidecarState,
@@ -64,11 +65,15 @@ async function createWindow(): Promise<void> {
   const port = await findFreePort();
   endpoint = { port, token: mintToken() };
 
+  // GUI-003: packaged → the bundled runtime under process.resourcesPath; dev/e2e → $ROBOTA_GUI_SIDECAR_CMD / PATH.
   const sidecar = buildSidecarSpawn(endpoint, {
     baseEnv: process.env,
-    ...(process.env['ROBOTA_GUI_SIDECAR_CMD']
-      ? { command: process.env['ROBOTA_GUI_SIDECAR_CMD'] }
-      : {}),
+    command: resolveSidecarCommand({
+      isPackaged: app.isPackaged,
+      resourcesPath: process.resourcesPath,
+      platform: process.platform,
+      env: process.env,
+    }),
   });
   const child = spawn(sidecar.command, [...sidecar.args], { env: sidecar.env, stdio: 'inherit' });
 

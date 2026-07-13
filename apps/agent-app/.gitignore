@@ -1,0 +1,3 @@
+# GUI-003 electron-builder outputs (build artifacts — never committed)
+release/
+resources-bin/
