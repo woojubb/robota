@@ -57,6 +57,21 @@ npm install -g @robota-sdk/agent-cli
 robota
 ```
 
+**No Node.js? Install the standalone binary** (macOS / Linux / Windows — nothing else required):
+
+```bash
+# macOS / Linux
+curl -fsSL https://raw.githubusercontent.com/woojubb/robota/main/scripts/install.sh | bash
+```
+
+```powershell
+# Windows PowerShell
+irm https://raw.githubusercontent.com/woojubb/robota/main/scripts/install.ps1 | iex
+```
+
+The installer detects your OS/CPU, downloads the matching release binary, checksum-verifies it, and puts `robota`
+on your PATH. Pin a version with `ROBOTA_VERSION=v3.0.0-beta.79`. Binaries are unsigned — macOS/Windows may warn.
+
 ![Robota CLI](https://raw.githubusercontent.com/woojubb/robota/main/content/images/cli-demo.png)
 
 > **Beta**: Robota is currently `3.0.0-beta`. Core features are stable but APIs may change before 1.0. See [CHANGELOG.md](./CHANGELOG.md) for upgrade notes.
