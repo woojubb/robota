@@ -4,6 +4,7 @@ import {
   buildSidecarSpawn,
   endpointUrl,
   mintToken,
+  resolveSidecarCommand,
   SidecarSupervisor,
   type ISupervisedChild,
   type TSidecarState,
@@ -40,6 +41,52 @@ describe('endpoint + spawn args (GUI-002)', () => {
 
   it('honors a command override (later: the bundled binary)', () => {
     expect(buildSidecarSpawn(endpoint, { command: '/opt/robota' }).command).toBe('/opt/robota');
+  });
+});
+
+/** GUI-003 TC-03 — the bundled-runtime command resolution (packaged vs dev). */
+describe('resolveSidecarCommand (GUI-003)', () => {
+  it('packaged: resolves the bundled binary under resourcesPath (posix)', () => {
+    expect(
+      resolveSidecarCommand({
+        isPackaged: true,
+        resourcesPath: '/Applications/Robota.app/Contents/Resources',
+        platform: 'darwin',
+        env: { ROBOTA_GUI_SIDECAR_CMD: '/ignored/in/prod' },
+      }),
+    ).toBe('/Applications/Robota.app/Contents/Resources/robota');
+  });
+
+  it('packaged on win32: appends the .exe suffix', () => {
+    expect(
+      resolveSidecarCommand({
+        isPackaged: true,
+        resourcesPath: 'C:\\Program Files\\Robota\\resources',
+        platform: 'win32',
+      }),
+    ).toContain('robota.exe');
+  });
+
+  it('dev: honors $ROBOTA_GUI_SIDECAR_CMD (the e2e/scripted double)', () => {
+    expect(
+      resolveSidecarCommand({
+        isPackaged: false,
+        resourcesPath: '/unused',
+        platform: 'linux',
+        env: { ROBOTA_GUI_SIDECAR_CMD: '/repo/e2e/scripted-sidecar.mjs' },
+      }),
+    ).toBe('/repo/e2e/scripted-sidecar.mjs');
+  });
+
+  it('dev without override: falls back to PATH `robota`', () => {
+    expect(
+      resolveSidecarCommand({
+        isPackaged: false,
+        resourcesPath: '/unused',
+        platform: 'linux',
+        env: {},
+      }),
+    ).toBe('robota');
   });
 });
 
