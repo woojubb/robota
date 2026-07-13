@@ -18,3 +18,13 @@ Add a sibling workflow that cross-compiles the five Bun `robota` binaries (from 
 - [ ] T4: feature→develop→main via merge-verifier.
 - [ ] T5 (GATE-COMPLETE): User Execution Test — once on the default branch, `workflow_dispatch` on a real/draft
       tag; confirm all five binaries + `SHA256SUMS.txt` attach to the Release; record evidence.
+
+## Test Plan
+
+- **T1 gating precondition (done):** locally cross-compile all five targets and confirm real types + host
+  `--version` — `pnpm build:deps && bun scripts/build-bun.mjs all`; `file(1)` = Mach-O / ELF / PE32+;
+  `robota-linux-x64 --version` → real version. Checksums (`sha256sum robota-*`) match.
+- **Static (done):** `actionlint` clean on `release-bun-binaries.yml`; `git diff origin/main` shows
+  `release.yml` + `ci.yml` byte-unchanged; `permissions: contents: write` only; triggers = `v*` + dispatch only.
+- **User Execution Test (T5, post-merge):** `workflow_dispatch` on a real/draft tag → the Release lists exactly
+  the five binaries + `SHA256SUMS.txt`, each non-empty; download the host asset and run `--version`.
