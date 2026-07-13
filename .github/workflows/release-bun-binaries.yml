@@ -18,6 +18,12 @@ on:
 permissions:
   contents: write
 
+# Shares the Release with release-desktop-app.yml (both fire on v*) — same group so they serialize on release
+# creation and never race on `gh release create`.
+concurrency:
+  group: release-assets-${{ github.event.inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
 jobs:
   bun-binaries:
     name: Build + publish Bun binaries
