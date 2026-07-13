@@ -1,0 +1,37 @@
+# GUI-003 — electron-builder config for the Robota desktop app.
+# Bundles the host-arch Bun `robota` runtime (copied to resources-bin/ by scripts/bundle-runtime.mjs) as an
+# extraResource, so the installed app is self-contained (zero external install). Artifacts are UNSIGNED
+# (no certs — Gatekeeper/SmartScreen will warn); signing is a tracked follow-up.
+appId: com.robota-sdk.desktop
+productName: Robota
+copyright: Robota
+# The package `name` is scoped (@robota-sdk/agent-app) — its slash breaks default artifact paths (esp. deb).
+# Derive artifact names from productName instead.
+artifactName: ${productName}-${version}-${arch}.${ext}
+# The app has NO native node modules (renderer + electron main + a bundled external runtime binary), and pnpm's
+# non-flat store confuses @electron/rebuild's dep walk — skip the native rebuild entirely.
+npmRebuild: false
+directories:
+  output: release
+  buildResources: build
+files:
+  - dist/**
+  - package.json
+extraResources:
+  # The single host binary produced by bundle-runtime.mjs — lands at <resources>/robota(.exe).
+  - from: resources-bin
+    to: .
+linux:
+  target:
+    - AppImage
+    - deb
+  category: Development
+  maintainer: Robota <noreply@robota-sdk.dev>
+mac:
+  target:
+    - dmg
+    - zip
+  category: public.app-category.developer-tools
+win:
+  target:
+    - nsis

@@ -7,6 +7,7 @@
  */
 
 import { randomBytes } from 'node:crypto';
+import { join } from 'node:path';
 
 /** Auth-token entropy: 256 bits (32 bytes), hex-encoded. */
 const TOKEN_BYTES = 32;
@@ -25,6 +26,31 @@ export function endpointUrl(endpoint: ISidecarEndpoint): string {
 /** Mint the auth token (256-bit, crypto-grade). The port is supplied by the caller (found free via `net`). */
 export function mintToken(): string {
   return randomBytes(TOKEN_BYTES).toString('hex');
+}
+
+/** Inputs for resolving the sidecar command — injected (not read from electron) so this stays unit-testable. */
+export interface IResolveSidecarCommandOptions {
+  /** electron `app.isPackaged` — true in a packaged install, false in dev/e2e. */
+  readonly isPackaged: boolean;
+  /** electron `process.resourcesPath` — where electron-builder `extraResources` land in a packaged app. */
+  readonly resourcesPath: string;
+  /** `process.platform` — `'win32'` gets the `.exe` suffix. */
+  readonly platform: NodeJS.Platform;
+  /** Base environment for the dev-override lookup (`$ROBOTA_GUI_SIDECAR_CMD`). */
+  readonly env?: Readonly<Record<string, string | undefined>>;
+}
+
+/**
+ * Resolve the `robota` runtime command (GUI-003). In a PACKAGED app the runtime binary is bundled via
+ * electron-builder `extraResources` at `<resourcesPath>/robota[.exe]`, so the app is fully self-contained —
+ * zero external install. In DEV/e2e, fall back to `$ROBOTA_GUI_SIDECAR_CMD` (the scripted-sidecar double) or
+ * PATH `robota`. ONLY the command path changes; the loopback-nonce security model is untouched.
+ */
+export function resolveSidecarCommand(options: IResolveSidecarCommandOptions): string {
+  if (options.isPackaged) {
+    return join(options.resourcesPath, options.platform === 'win32' ? 'robota.exe' : 'robota');
+  }
+  return options.env?.['ROBOTA_GUI_SIDECAR_CMD'] ?? 'robota';
 }
 
 /** The concrete command/args/env used to spawn the `robota` sidecar for a given endpoint. */

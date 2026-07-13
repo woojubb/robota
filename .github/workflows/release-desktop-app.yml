@@ -1,0 +1,93 @@
+name: Release — Desktop app
+
+# GUI-003 — package apps/agent-app per-OS with electron-builder (runtime bundled via extraResources) and
+# publish the installers to the tag's GitHub Release. Sibling to release-bun-binaries.yml (raw Bun binaries) and
+# release.yml (npm publish); all three leave each other untouched. Installers are UNSIGNED (no certs).
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing release tag to build + attach installers to (e.g. v3.0.0-beta.79). Must already exist.'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+# Shares the Release with release-bun-binaries.yml (both fire on v*) — serialize per tag so they do not race on
+# release creation.
+concurrency:
+  group: release-assets-${{ github.event.inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  desktop:
+    name: Package + publish (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            bun_target: linux-x64
+            assets: release/*.AppImage release/*.deb
+          - os: macos-latest
+            bun_target: darwin-arm64
+            assets: release/*.dmg release/*.zip
+          - os: windows-latest
+            bun_target: windows-x64
+            assets: release/*.exe
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Resolve release tag
+        id: tag
+        shell: bash
+        run: echo "tag=${{ github.event.inputs.tag || github.ref_name }}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ steps.tag.outputs.tag }}
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8.15.4
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Full workspace build — the Bun binary bundles the agent-cli closure (dist/node/*).
+      - name: Build workspace
+        run: pnpm build
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Compile the host Bun runtime binary
+        run: pnpm --filter @robota-sdk/agent-cli build:bun:${{ matrix.bun_target }}
+
+      - name: Package the desktop app (bundles the runtime)
+        run: pnpm --filter @robota-sdk/agent-app dist:app
+
+      - name: Publish installers to the GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "$TAG" --generate-notes
+          gh release upload "$TAG" ${{ matrix.assets }} --clobber
+        working-directory: apps/agent-app
