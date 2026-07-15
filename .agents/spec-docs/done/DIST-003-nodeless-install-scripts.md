@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: INFRA
 tags: [distribution, install, cli, bun]
 ---
@@ -220,3 +220,9 @@ full flow without a real GitHub Release):
 
 Remaining: T4 feature→develop→main (merge-verifier); **T5 GATE-COMPLETE** = the User Execution Test — the Node-less
 one-liner against a real DIST-002 Release (owner-gated, same first-Release dependency as DIST-002).
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-07-16
+
+**Status upgrade:** in-progress → done
+
+The first public GitHub Release is live — **https://github.com/woojubb/robota/releases/tag/v3.0.0-beta.79** — with all 11 assets (5 Bun binaries + `SHA256SUMS.txt` + 5 OS installers), built by the DIST-002 + GUI-003 workflows off the pushed `v3.0.0-beta.79` tag. User Execution Test: the REAL one-liner `curl … install.sh | bash` (releases/latest, no version pin, no Node) downloaded, checksum-verified, and installed `robota 3.0.0-beta.79`.
