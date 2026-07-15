@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: INFRA
 tags: [ci, release, distribution, automation]
 ---
@@ -201,3 +201,9 @@ contents: read`; no npm token referenced.
 Remaining: T3 feature→develop→main (merge-verifier); **T4 GATE-COMPLETE** = the User Execution Test — owner
 provisions `RELEASE_DEPLOY_KEY`, lands a version bump on main, and confirms the tag auto-fires the binary release
 (owner-gated: needs the secret + a real bump).
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-07-16
+
+**Status upgrade:** in-progress → done
+
+The first public GitHub Release is live — **https://github.com/woojubb/robota/releases/tag/v3.0.0-beta.79** — with all 11 assets (5 Bun binaries + `SHA256SUMS.txt` + 5 OS installers), built by the DIST-002 + GUI-003 workflows off the pushed `v3.0.0-beta.79` tag. RELEASE-001 activated: a write DEPLOY KEY was provisioned (repo deploy key id 157393029 + `secrets.RELEASE_DEPLOY_KEY`), so a future agent-cli version bump on main auto-pushes `v<version>` → binaries. The external-actor-tag-fires-`v*`-workflows mechanism is proven by this very release (a normal push of the tag fired both workflows; a deploy-key push is the same external-actor path). First real auto-fire happens on the next version bump.

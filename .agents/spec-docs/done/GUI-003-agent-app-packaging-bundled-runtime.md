@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: INFRA
 tags: [electron, packaging, distribution, gui, ci, runtime]
 ---
@@ -256,3 +256,9 @@ Implemented + verified end-to-end on Linux (mac/win = CI-only, as scoped):
 Remaining: T5 feature→develop→main (merge-verifier); **T6 GATE-COMPLETE** = the User Execution Test — dispatch
 `release-desktop-app.yml` on a real/draft tag and confirm the installers attach to the Release (creates the repo's
 first public Release — owner-gated, same as DIST-002).
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-07-16
+
+**Status upgrade:** in-progress → done
+
+The first public GitHub Release is live — **https://github.com/woojubb/robota/releases/tag/v3.0.0-beta.79** — with all 11 assets (5 Bun binaries + `SHA256SUMS.txt` + 5 OS installers), built by the DIST-002 + GUI-003 workflows off the pushed `v3.0.0-beta.79` tag. User Execution Test: the OS installers (macOS .dmg/.zip built on macos-latest, Windows .exe on windows-latest, Linux .AppImage/.deb on ubuntu-latest) are attached — proving electron-builder packaging + the bundled runtime across all three OSes in CI.

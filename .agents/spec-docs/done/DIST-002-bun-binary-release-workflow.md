@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: INFRA
 tags: [ci, distribution, bun, release]
 ---
@@ -241,3 +241,9 @@ Workflow implemented — `.github/workflows/release-bun-binaries.yml`:
 Remaining: T4 feature→develop→main (merge-verifier); **T5 GATE-COMPLETE** = the User Execution Test — once on the
 default branch, dispatch the workflow on a real/draft tag and confirm all five binaries + `SHA256SUMS.txt` attach
 to the Release (agent-run, evidence recorded).
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-07-16
+
+**Status upgrade:** in-progress → done
+
+The first public GitHub Release is live — **https://github.com/woojubb/robota/releases/tag/v3.0.0-beta.79** — with all 11 assets (5 Bun binaries + `SHA256SUMS.txt` + 5 OS installers), built by the DIST-002 + GUI-003 workflows off the pushed `v3.0.0-beta.79` tag. User Execution Test: the 5 Bun binaries (`robota-{darwin,linux,windows}-*`) + `SHA256SUMS.txt` are attached and downloadable; `install.sh` fetched `robota-linux-x64` from the real Release, verified its checksum, and ran `--version`.
