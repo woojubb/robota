@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: INFRA
 tags: [ci, security, dependencies, audit]
 ---
@@ -214,3 +214,15 @@ Implemented + verified:
 Note: `deploy.yml` added to Affected Scope (a 3rd `pnpm audit`, non-blocking). Remaining: T4 feature→develop→main
 (merge-verifier — this is what UNBLOCKS main, since release-grade now runs osv-scanner instead of the 410'd audit);
 T5 GATE-COMPLETE (CI release-grade green on the new scanner).
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-07-16
+
+**Status upgrade:** in-progress → done
+
+The migration is live on main (#1169 → #1170, 39bb0b3d7). **CI `release-grade verification` PASSED with the new
+osv-scanner step (8m37s) — the npm-audit 410 blocker that blocked every develop→main merge is resolved**, and this
+promotion PR merged NORMALLY (no admin override, unlike the audit-blocked #1168). The standalone `security audit`
+job also runs osv-scanner (8s, clean). `osv-scanner.toml` is the single re-accept SSOT on main; `pnpm audit
+--audit-level` is gone from ci.yml/deploy.yml; the CI-structure guard test (`harness-scripts.test.mjs`) asserts the
+new shape. undici/js-yaml resolved to safe same-major versions; the ip CVE-2024-29415 re-accept stays enforced by
+its werift reachability regression test. Zero KNOWN un-ignored vulnerabilities.
