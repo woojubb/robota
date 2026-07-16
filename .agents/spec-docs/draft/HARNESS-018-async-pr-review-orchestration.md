@@ -181,3 +181,8 @@ INFRA-018a..e above.
   pull_request, git-branch gate). New-Surface placement validated as correct (mirrors architecture-refresh /
   backlog-pipeline / merge-verifier analogs). **GATE-APPROVAL PASSED.** Next: GATE-IMPLEMENT via epic children
   INFRA-018a..e. (One trivial doc-count nit — skills/index.md registration row — fixed here.)
+- 2026-07-16 — **GATE-IMPLEMENT (018b + 018c).** Landed the three agents (`pr-review-reviewer` [read-only guardian,
+  emits `ACTIONABLE FINDINGS: <n>`], `pr-review-writer` [worker, posts to PR], `pr-review-fixer` [edit-capable worker])
+  and the route-only `pr-review-orchestration` skill (synchronous loop, max-3 + progress detection on `file:line+severity`,
+  → gated merge path). All conform to `agent-def-convention`; all 51 harness scans pass. Remaining: 018d (merge-gate
+  wiring + merge-verifier), 018e (scan floor + ci.yml extension), 018a (async firing, prerequisite for non-blocking).
