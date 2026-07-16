@@ -66,10 +66,20 @@ gh pr merge 670 --squash --auto
 Branches must only be deleted by explicit user request. Use `git branch -D <name>` (local) or
 `gh api -X DELETE repos/<owner>/<repo>/git/refs/heads/<name>` (remote) when the user says to delete a branch.
 
-**Why:** `--delete-branch` on a `develop → main` PR deleted the `develop` integration branch,
-breaking the entire branch structure and requiring manual restoration. Auto-deletion is safe only
-for short-lived feature branches, not for long-lived integration branches — and there is no way to
-distinguish them automatically.
+**Confirm the merge landed BEFORE deleting the remote branch. Zero exceptions.** A remote branch deleted
+while its PR is still open CLOSES/orphans that PR. So a remote-branch deletion is allowed only once
+`gh pr view <n> --json state` reports `MERGED` (equivalently, `gh pr list --head <branch> --state merged`
+is non-empty). Never run `gh pr merge` and the deletion in one blind sequence — the merge can fail (e.g.
+`mergeStateStatus: DIRTY`) while the deletion still fires. **Enforced** by `.claude/hooks/branch-guard.sh`,
+which blocks `gh api -X DELETE .../git/refs/heads/<name>`, `git push <remote> --delete <name>`, and
+`git push <remote> :<name>` unless the branch has a merged PR (override for an intentional abandon:
+`BRANCH_GUARD_ALLOW_DELETE=1`).
+
+**Why:** (1) `--delete-branch` on a `develop → main` PR once deleted the `develop` integration branch,
+breaking the entire branch structure. (2) A blind delete right after a _failed_ `gh pr merge` once closed an
+unmerged PR and orphaned its work, forcing a cherry-pick recovery. Auto-deletion is safe only for short-lived
+feature branches whose merge is confirmed — never for long-lived integration branches, and never before the
+merge lands.
 
 ### Branch Policy
 
@@ -78,7 +88,13 @@ distinguish them automatically.
   `develop` are also prohibited — branch first, then PR. (Both `main` and `develop` are protected;
   enforced by `.husky/pre-commit` and the `branch-guard` skill/hook.)
 - Feature branches must be created from `develop` and merged back into `develop`. **Create them from the
-  freshly-fetched `origin/develop` head, never from `main`.** After a `develop → main` promotion, `main` sits
+  freshly-fetched `origin/develop` head — never from `main`, and never from another local feature branch.**
+  Explicitly: `git fetch origin && git checkout -b <type>/<slug> origin/develop`. Branching off a local feature
+  branch that was **squash-merged** re-introduces that branch's pre-squash commits; they are patch-equivalent to
+  develop's squash, so the new branch **pushes fine (no merge commits) but merges DIRTY** (content conflict) and,
+  if deleted blindly, orphans the PR. If you have local unmerged branches, the `branch-guard` create-check flags
+  them; clean up (`git branch -D <name>` after their PR merged) and cut the new branch from `origin/develop`.
+  After a `develop → main` promotion, `main` sits
   AHEAD of `develop`; a branch cut from `main` (or that has merged one in) and PR'd to `develop` drags the
   promotion's `Merge pull request … from develop` commits into the PR range, which then fail `commitlint`. A clean
   feature/docs branch has **zero merge commits** in its `origin/develop..HEAD` range. **Enforced** by
