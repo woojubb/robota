@@ -186,3 +186,12 @@ INFRA-018a..e above.
   and the route-only `pr-review-orchestration` skill (synchronous loop, max-3 + progress detection on `file:line+severity`,
   → gated merge path). All conform to `agent-def-convention`; all 51 harness scans pass. Remaining: 018d (merge-gate
   wiring + merge-verifier), 018e (scan floor + ci.yml extension), 018a (async firing, prerequisite for non-blocking).
+- 2026-07-16 — **GATE-IMPLEMENT (018e + 018d + 018a) — epic implementation complete.** 018e: `scan-review-findings.mjs`
+  (registered in run-all-scans, so it runs on every PR via `ci.yml`'s existing `pnpm harness:scan` job — the CI check
+  floor) enforces the pipeline contracts: the reviewer's `ACTIONABLE FINDINGS: <n>` output contract and the
+  orchestrator's merge-gate contracts (no-unresolved-MUST, never-merge-`main`, `merge-verifier`, git-branch.md anchor);
+  proven. 018d: the merge gate is expressed in the orchestrator (MUST/SHOULD Pre-Merge per git-branch.md; develop
+  admin-merge + merge-verifier; main→user) and now floored by 018e's scan. 018a: async EXECUTION available via the
+  Agent tool's background spawn (documented in the orchestrator's "Invocation" section); automatic server-side
+  triggering stays out of scope (pull_request_target rejected on security). All INFRA-018a..e delivered;
+  52 harness scans pass. The pipeline is registered in the Orchestration Map.

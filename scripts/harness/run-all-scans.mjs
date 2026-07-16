@@ -34,6 +34,7 @@ const SCAN_COMMANDS = [
   { name: 'memory-mirror', command: ['node', 'scripts/harness/scan-memory-mirror.mjs'] },
   { name: 'spec-research', command: ['node', 'scripts/harness/scan-spec-research.mjs'] },
   { name: 'orchestration-map', command: ['node', 'scripts/harness/scan-orchestration-map.mjs'] },
+  { name: 'review-findings', command: ['node', 'scripts/harness/scan-review-findings.mjs'] },
   { name: 'document-authority', command: ['node', 'scripts/harness/check-document-authority.mjs'] },
   { name: 'commands', command: ['node', 'scripts/harness/check-command-layering.mjs'] },
   {
