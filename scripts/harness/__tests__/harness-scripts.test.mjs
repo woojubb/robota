@@ -159,13 +159,18 @@ describe('CI build workflow', () => {
     expect(content).toContain('covered by release-grade verification');
   });
 
-  it('checks dependency graph changes before installing for security audit', () => {
+  it('detects dependency graph changes before the security scan (INFRA-038: osv-scanner, not the retired pnpm audit)', () => {
     const content = readFileSync('.github/workflows/ci.yml', 'utf8');
     const diffIndex = content.indexOf('Detect dependency graph changes');
-    const installIndex = content.indexOf('Install dependencies for audit');
+    const scanIndex = content.indexOf(
+      'Vulnerability scan (osv-scanner) for dependency graph changes',
+    );
 
     expect(diffIndex).toBeGreaterThanOrEqual(0);
-    expect(installIndex).toBeGreaterThan(diffIndex);
+    expect(scanIndex).toBeGreaterThan(diffIndex);
+    // The retired npm audit endpoint (410) must not be reintroduced as a command.
+    expect(content).not.toContain('pnpm audit --audit-level');
+    expect(content).toContain('scan source --config osv-scanner.toml --lockfile pnpm-lock.yaml');
   });
 });
 
