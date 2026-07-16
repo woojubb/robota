@@ -31,6 +31,7 @@ const DEFAULT_SCAN_CONCURRENCY = Math.max(
 /** Ordered scan list — mirrors the former harness:scan chain. */
 const SCAN_COMMANDS = [
   { name: 'consistency', command: ['node', 'scripts/harness/scan-consistency.mjs'] },
+  { name: 'memory-mirror', command: ['node', 'scripts/harness/scan-memory-mirror.mjs'] },
   { name: 'document-authority', command: ['node', 'scripts/harness/check-document-authority.mjs'] },
   { name: 'commands', command: ['node', 'scripts/harness/check-command-layering.mjs'] },
   {
