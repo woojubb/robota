@@ -87,6 +87,12 @@ FINDINGS: <n>`.
 >   decomposition for a described workflow (which roles → agents vs thin-skill steps, sequencing,
 >   per-role signal, tool scope) and flags over-scoped/duplicate roles; ends with `DECOMPOSITION: <n>
 roles …`. It is the discovery specialization `lesson-to-harness` dispatches for a "new recurring role."
+> - `prior-art-researcher` (`.claude/agents/prior-art-researcher.md`, read-only) — the research **WORKER**:
+>   given a spec topic, researches comparable products / OSS / AI-agent references from PRODUCT DOCS (not
+>   source code) and returns a ready-to-paste `## Prior Art Research` block + evidence-based recommendation;
+>   ends with `PRIOR_ART_RESEARCH: <FOUND|NONE_FOUND>`. Dispatched by `user-request-gate` (default-on per
+>   `research.md`); its output is judged by the `backlog-gate-guard` GATE-WRITE research criterion (guardian)
+>   and floored by `scan-spec-research.mjs`.
 > - `agent-skill-author` (`.claude/agents/agent-skill-author.md`, edit-capable) — the **write-side**:
 >   authors/edits the agent/skill files from an ENDORSE'd decomposition, to the agent-definition
 >   convention; its completion evidence is a green `agent-def-convention` guard (it declares no `signal:`

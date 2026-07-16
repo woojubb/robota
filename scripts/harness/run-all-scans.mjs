@@ -32,6 +32,7 @@ const DEFAULT_SCAN_CONCURRENCY = Math.max(
 const SCAN_COMMANDS = [
   { name: 'consistency', command: ['node', 'scripts/harness/scan-consistency.mjs'] },
   { name: 'memory-mirror', command: ['node', 'scripts/harness/scan-memory-mirror.mjs'] },
+  { name: 'spec-research', command: ['node', 'scripts/harness/scan-spec-research.mjs'] },
   { name: 'document-authority', command: ['node', 'scripts/harness/check-document-authority.mjs'] },
   { name: 'commands', command: ['node', 'scripts/harness/check-command-layering.mjs'] },
   {
