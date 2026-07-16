@@ -45,6 +45,10 @@ This file contains only domain-free rules and routing. It does not contain packa
 
 ## Project Overview
 
+**North-star: [`VISION.md`](VISION.md) — Robota builds Robota.** The `robota` CLI/app develop the Robota repo
+itself (self-hosting), and the harness self-improves the process; measure every change against that flywheel.
+The capability roadmap toward it is tracked in [`.agents/backlog/SELFHOST-*`](.agents/backlog/).
+
 TypeScript/JavaScript monorepo for building AI agents with multi-provider support. Uses a pnpm workspace with strict TypeScript and ESLint.
 
 - Package manager: `pnpm` 8.15.4
