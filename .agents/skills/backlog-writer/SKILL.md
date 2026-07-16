@@ -173,6 +173,26 @@ Multiple tags → list all derived strategies, one per line.
 
 ---
 
+### `## Prior Art Research`
+
+**DEFAULT-ON** ([research.md](../../rules/research.md)). Dispatch the `prior-art-researcher` agent (the research
+WORKER) and paste its returned block here; its recommendation feeds `Alternatives Considered` / `Decision`.
+
+**Minimum required content:**
+
+1. Comparable commercial products / OSS / AI-agent references, cited from PRODUCT DOCS (docs, API refs, design
+   docs, release notes, protocol specs) — NOT third-party source code (`research.md`).
+2. The observed common behavior across them + the constraint that applies to Robota.
+3. ≥1 documentation citation (http link) OR an explicit "no comparable reference found".
+
+**Opt out** only with an explicit `Waived: <reason>` line — a waiver you propose (research genuinely
+unnecessary) or the user requests.
+
+**Rejected (GATE-WRITE + `scan-spec-research.mjs` will FAIL):** missing section, a bare/placeholder section,
+or a "TODO" with no citation and no waiver.
+
+---
+
 ### `## Architecture Review`
 
 #### `### Affected Scope`
