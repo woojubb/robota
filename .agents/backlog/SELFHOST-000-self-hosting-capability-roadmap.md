@@ -57,8 +57,10 @@ product opinion in `agent-cli`/`apps/agent-app`.
 | 13  | Multi-surface deployment + gateway (one agent → many channels/runtimes)                                 | D   | cli/app/web/remote exist, no documented "one agent → many channels" story | transports + surfaces (packaging/docs)                                     |
 | 14  | Shared/synced async session artifacts for collaboration                                                 | D   | REMOTE-001 live P2P, no async shareable session artifacts                 | agent-session persistence + sharing surface                                |
 
-**Close first (parity):** #1, #2, #3, #4, #5, #6 (spun out as SELFHOST-001..006).
-**Invest for edge (differentiators):** #7, #8, #9, #10, #11 (+ #12–14 opportunistic).
+**Close first (parity):** #1–#6 spun out as SELFHOST-001..006.
+**Invest for edge (differentiators):** #7–#14 spun out as SELFHOST-007..014 (SELFHOST-007 branching time-travel,
+-008 semantic memory, -009 hook catalog, -010 computer use, -011 evals-as-code, -012 scheduled tasks,
+-013 multi-surface deployment, -014 async shared sessions).
 
 ## Test Plan
 
