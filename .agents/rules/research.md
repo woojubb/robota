@@ -26,3 +26,19 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 - If multiple references converge on the same behavior, the agent may choose that direction without asking the user again, as long as the task/spec records the evidence and impact.
 - If references conflict or the evidence is weak, present options with a recommendation and ask only for the decision that cannot be derived from the evidence.
 - Do not select the easiest implementation merely because it is faster; choose the pattern that is most broadly supported, maintainable, and compatible with Robota's architecture.
+
+### Enforcement (default-on, guarded)
+
+Research is not optional guidance — it is a **default-on, mechanically-guarded** step of backlog authoring
+(see [enforcement-architecture.md](enforcement-architecture.md) for the worker/guardian/orchestrator model).
+
+- **Default-on.** Every `draft` / `todo` / `active` spec MUST carry a `## Prior Art Research` (or `## Research`)
+  section. Opt out ONLY with an explicit `Waived: <reason>` line — either the agent proposes the waiver (when
+  it judges research genuinely unnecessary) or the user requests it. A missing or unsubstantiated section, with
+  no waiver, is a failure. Silent omission is not allowed.
+- **Worker / guardian / floor.** The `prior-art-researcher` agent (worker) produces the section; the
+  `backlog-gate-guard` GATE-WRITE criterion (guardian) judges its adequacy; `scan-spec-research.mjs`
+  (mechanical floor, in `pnpm harness:scan`) fails any in-flight spec lacking a substantiated section or waiver.
+- **Loop-back is hybrid.** On the research guardian's FAIL the orchestrator AUTO-re-drives the researcher toward
+  convergence (bounded iterations, then escalate to the user) — the completeness-gate shape of
+  `architecture-refresh`. Human-decision gates (GATE-APPROVAL) HALT for the user instead.

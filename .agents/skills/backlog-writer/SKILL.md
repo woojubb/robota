@@ -49,6 +49,14 @@ tags: [<tag>, <tag>]
 
 <!-- symptom + reproduction condition -->
 
+## Prior Art Research
+
+<!-- DEFAULT-ON (research.md). Comparable commercial products / OSS / AI-agent references from PRODUCT DOCS
+     (not source code): observed common behavior + the constraint that applies to Robota, with ≥1 doc citation
+     (http link) OR an explicit "no comparable reference found". This feeds Alternatives + Decision below.
+     Opt out ONLY with an explicit `Waived: <reason>` line (agent-proposed or user-requested). Enforced by
+     scan-spec-research.mjs + GATE-WRITE. -->
+
 ## Architecture Review
 
 ### Affected Scope
