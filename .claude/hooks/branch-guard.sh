@@ -29,8 +29,10 @@ IS_GH_DELETE_BRANCH=false
 echo "$COMMAND" | grep -qE '^\s*git\s+commit\b' && IS_COMMIT=true
 echo "$COMMAND" | grep -qE '^\s*git\s+(push|push\s)' && IS_PUSH=true
 echo "$COMMAND" | grep -qE '^\s*git\s+merge\b' && IS_MERGE=true
-echo "$COMMAND" | grep -qE '^\s*git\s+checkout\s+-b\b' && IS_BRANCH_CREATE=true
-echo "$COMMAND" | grep -qE '^\s*git\s+switch\s+-c\b' && IS_BRANCH_CREATE=true
+# Tolerate flags between the subcommand and -b/-c (e.g. `git checkout -q -b x`, which
+# previously slipped past the create-guard entirely).
+echo "$COMMAND" | grep -qE '^\s*git\s+checkout\s+(-\S+\s+)*-b\b' && IS_BRANCH_CREATE=true
+echo "$COMMAND" | grep -qE '^\s*git\s+switch\s+(-\S+\s+)*-c\b' && IS_BRANCH_CREATE=true
 # `gh pr merge --delete-branch` is banned (git-branch.md): it once deleted the
 # develop integration branch. Match ONLY when --delete-branch is an actual argument
 # of a `gh pr merge` invocation — strip shell comments first, then require the flag
@@ -133,7 +135,7 @@ fi
 # Enforce feature branch naming convention <type>/<desc> (git-branch.md).
 # Long-lived branches are exempt; override with BRANCH_GUARD_ALLOW_BADNAME=1.
 if [[ "$IS_BRANCH_CREATE" == "true" && "${BRANCH_GUARD_ALLOW_BADNAME:-0}" != "1" ]]; then
-  NEW_BRANCH=$(printf '%s' "$COMMAND" | sed -E 's/.*(checkout[[:space:]]+-b|switch[[:space:]]+-c)[[:space:]]+([^[:space:]]+).*/\2/')
+  NEW_BRANCH=$(printf '%s' "$COMMAND" | sed -E 's/.*[[:space:]](-b|-c)[[:space:]]+([^[:space:]]+).*/\2/')
   BRANCH_NAME_RE='^(feat|fix|chore|docs|refactor|test|perf|build|ci|style|revert|release|hotfix)/[a-z0-9][a-z0-9._/-]*$'
   EXEMPT_RE='^(main|master|develop|gh-pages)$'
   if [[ -n "$NEW_BRANCH" && ! "$NEW_BRANCH" =~ $EXEMPT_RE && ! "$NEW_BRANCH" =~ $BRANCH_NAME_RE ]]; then
