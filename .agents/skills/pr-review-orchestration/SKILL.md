@@ -17,8 +17,21 @@ work lives in `pr-review-writer` / `pr-review-fixer`.
 
 ## When to Use
 
-Invoke on an open PR that needs review → converge → merge. Synchronous (blocks until terminal); true async/background
-firing is HARNESS-018a and not required to run this loop.
+Invoke on an open PR that needs review → converge → merge.
+
+## Invocation — async (018a) and its honest limit
+
+Run this loop in the **trusted local session** (it holds the checkout + keys; the fixer must never run
+untrusted fork code in a privileged CI runner — that is the `pull_request_target` pwn surface the design
+rejects). Two modes:
+
+- **Async execution (available now).** The calling session spawns this orchestration as a **background Agent**
+  (the Agent tool's `run_in_background`), so the caller is not blocked while the reviewer→fixer loop runs.
+  This is the same background-agent mechanism used elsewhere in the harness.
+- **Automatic on-PR triggering (out of scope).** There is no server-side webhook that fires this without a
+  running agent host, because the only server-side option (`pull_request_target` executing fork code with
+  secrets) is rejected on security. So firing is: the calling session (or a human) starts it when a PR is up.
+  GitHub Actions on the plain `pull_request` event remains only the required-check floor (`ci.yml`).
 
 ## The Loop (route-only)
 
