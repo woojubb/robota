@@ -6,8 +6,11 @@ appId: com.robota-sdk.desktop
 productName: Robota
 copyright: Robota
 # The package `name` is scoped (@robota-sdk/agent-app) — its slash breaks default artifact paths (esp. deb).
-# Derive artifact names from productName instead.
-artifactName: ${productName}-${version}-${arch}.${ext}
+# Release-asset filenames use a fixed lowercase `robota-desktop-` prefix (NOT ${productName}, which is the
+# capitalized OS display name "Robota"). This keeps desktop installers disambiguated from the agent-cli
+# single binaries (`robota-<os>-<arch>`), which are lowercase and version-less; the two product families
+# no longer collide on the GitHub release. The installed app is still displayed as "Robota" (productName).
+artifactName: robota-desktop-${version}-${arch}.${ext}
 # The app has NO native node modules (renderer + electron main + a bundled external runtime binary), and pnpm's
 # non-flat store confuses @electron/rebuild's dep walk — skip the native rebuild entirely.
 npmRebuild: false
