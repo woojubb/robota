@@ -1,0 +1,11 @@
+# INFRA-038 — osv-scanner config. Single SSOT for reviewed vulnerability re-accepts (replaces the retired
+# `pnpm audit` + its `pnpm.auditConfig.ignoreCves`). Every ignore MUST have a documented, reviewed justification.
+
+[[IgnoredVulns]]
+id = "GHSA-2p57-rm9w-gvfp" # CVE-2024-29415 — `ip` SSRF via improper isPublic/isPrivate categorization (CVSS 8.1)
+# Reviewed re-accept (REMOTE-001 / REMOTE-004 B2 TC-05). `ip@2.0.1` has NO published fix and is pulled ONLY by
+# werift + werift-ice (WebRTC). werift never calls the vulnerable ip.isPublic/isPrivate/address — only
+# ip.isLoopback over the host's own os.networkInterfaces() — so the SSRF vector is unreachable. Enforced by the
+# regression guard packages/agent-transport-webrtc/src/__tests__/cve-2024-29415-reachability.test.ts, which fails
+# if a future werift version introduces a vulnerable call site.
+reason = "ip@2.0.1 SSRF unreachable in werift (no fix published); guarded by cve-2024-29415-reachability.test.ts — REMOTE-001."

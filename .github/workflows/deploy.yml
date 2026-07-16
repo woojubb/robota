@@ -153,9 +153,13 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Run security audit
-        run: pnpm audit --audit-level high
+      # INFRA-038: pnpm audit's endpoint was retired (410) → osv-scanner (advisory here: continue-on-error, like snyk below).
+      - name: Run security audit (osv-scanner)
         continue-on-error: true
+        run: |
+          curl -fsSL https://github.com/google/osv-scanner/releases/download/v2.0.2/osv-scanner_linux_amd64 -o "$RUNNER_TEMP/osv-scanner"
+          chmod +x "$RUNNER_TEMP/osv-scanner"
+          "$RUNNER_TEMP/osv-scanner" scan source --config osv-scanner.toml --lockfile pnpm-lock.yaml
 
       - name: Check for known vulnerabilities
         uses: snyk/actions/node@master
