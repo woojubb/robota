@@ -37,6 +37,23 @@ must **self-improve so it continuously makes robota better** (compounding loop).
    the User-Execution-Scenario contract / PR-body / stop-conditions that `backlog-execution.md` already owns (§124-289,
    §107-122, §385-413), violating that rule's own Orchestration-Skill Rule (:380 "must not duplicate the detailed procedures").
 
+## Prior Art Research
+
+Prior art for "enforce the correct process + measure firing + self-improve":
+
+- **Internal exemplars (primary evidence).** The repo's own `backlog-pipeline` + `backlog-gate-guard`
+  (orchestrator/worker/guardian with a `PASS|FAIL|NON-COMPLIANCE` verdict) and `architecture-refresh`
+  (auto-loop converging on `ACTIONABLE FINDINGS: 0`) already realize this model; this spec generalizes them
+  rather than inventing a new shape.
+- **External patterns (tool/product docs).** GitHub required-status-checks + branch protection as the
+  mechanical gate floor; ADR/RFC "Considered Alternatives + Decision" as the recommendation-record
+  convention; CI request-classification hooks as deterministic dispatch. Common behavior: reliability comes
+  from a machine-read signal (a check), not from prose guidance.
+- **Constraint for Robota.** `.agents/skills/` are agent-invoked prose, so enforcement must live in
+  `.claude/hooks/` + `scripts/harness` scans (see `.agents/memory/harness-mechanical-not-skilltree.md`).
+  No comparable turnkey "self-improving agent harness" product was found to copy; the design is assembled
+  from the above.
+
 ## Architecture Review
 
 ### Placement Decision (the primary, owner-visible decision)

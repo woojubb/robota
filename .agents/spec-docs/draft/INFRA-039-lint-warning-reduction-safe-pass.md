@@ -40,6 +40,18 @@ Warning breakdown from a full `pnpm lint` run (health-skill measurement):
 (854) and `agent-transport-tui/src/TuiInteractionChannel.ts` (692). `max-lines-per-function` + `complexity`
 warnings co-occur in these god-functions, so a small file set holds a disproportionate share of the 556 combined.
 
+## Prior Art Research
+
+- **eslint rule semantics (product docs).** `no-magic-numbers` (`enforceConst`), `complexity`, and
+  `max-lines-per-function` are standard maintainability rules; the recommended remediation (extract named
+  consts, split oversized functions) is the eslint-documented intent, not a novel approach.
+- **Warning-debt convention (common behavior).** Large TS monorepos ratchet warnings down without a blanket
+  `--max-warnings 0` flip (which would block CI on legitimate complex code) — matching this repo's
+  intentional two-tier policy. The reduction is mechanical, per-file, and test-backed.
+- **Constraint for Robota.** No external product dictates the naming/threshold choices here; the design
+  derives from the repo's own `.eslintrc.json` policy. No comparable commercial product behavior applies —
+  this is internal code-quality cleanup.
+
 ## Proposed Change
 
 Two independent, sequenceable work streams. **No `.eslintrc.json` change of any kind** — no threshold bumps
