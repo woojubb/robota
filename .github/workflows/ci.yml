@@ -244,21 +244,9 @@ jobs:
             echo "No package manifest or lockfile changes; skipping vulnerability scan."
           fi
 
-      - name: Install pnpm
-        if: github.base_ref != 'main' && steps.dependency_changes.outputs.changed == 'true'
-        uses: pnpm/action-setup@v2
-        with:
-          version: 8.15.4
-
-      - name: Use Node.js 22.x
-        if: github.base_ref != 'main' && steps.dependency_changes.outputs.changed == 'true'
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22.x'
-          cache: 'pnpm'
-
       # INFRA-038: npm retired the legacy audit endpoint (pnpm audit → 410). osv-scanner reads the pnpm lockfile
-      # directly (OSV.dev DB), fails on any un-ignored vuln; re-accepts live in osv-scanner.toml (single SSOT).
+      # directly (OSV.dev DB) — no pnpm/node install needed; it fails on any un-ignored vuln; re-accepts live in
+      # osv-scanner.toml (single SSOT).
       - name: Vulnerability scan (osv-scanner) for dependency graph changes
         if: github.base_ref != 'main' && steps.dependency_changes.outputs.changed == 'true'
         run: |
