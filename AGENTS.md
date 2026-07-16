@@ -38,6 +38,7 @@ This file contains only domain-free rules and routing. It does not contain packa
 | `.agents/spec-docs/`                                                                   | Gate-pipeline spec documents — draft/backlog/todo/active/done/rejected lifecycle                                    |
 | [.agents/templates/spec-template.md](.agents/templates/spec-template.md)               | SPEC.md authoring template                                                                                          |
 | [.agents/specs/README.md](.agents/specs/README.md)                                     | Cross-cutting specs that span multiple packages                                                                     |
+| [.agents/specs/orchestration-map.md](.agents/specs/orchestration-map.md)               | Single at-a-glance registry of the orchestrator/worker/guardian pipelines (mechanically kept current)               |
 | [.agents/specs/document-standards/index.md](.agents/specs/document-standards/index.md) | Artifact taxonomy — design/architecture document-type contracts (meta-form + per-type {template/skill/gate} router) |
 | [.agents/evals/README.md](.agents/evals/README.md)                                     | Agent quality evaluation datasets and metrics                                                                       |
 | `packages/*/docs/SPEC.md`                                                              | Package-level contracts (SSOT) — one per package                                                                    |

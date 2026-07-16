@@ -3,6 +3,9 @@
 How the harness makes a step actually happen — not "the model should," but a mechanism that fails loudly when
 it doesn't. Every enforced process in this repo follows one shape. Parent: [process.md](process.md).
 
+The live registry of every orchestrator/worker/guardian pipeline (at a glance, auditable, mechanically kept
+current) is [.agents/specs/orchestration-map.md](../specs/orchestration-map.md).
+
 ## The three roles — strict division of labor
 
 - **Orchestrator** — manages the PIPELINE ONLY. Runs stages in order; on a verdict it routes forward, or
