@@ -152,6 +152,7 @@ roles …`. It is the discovery specialization `lesson-to-harness` dispatches fo
 | [branch-guard](branch-guard/SKILL.md)               | Guard against direct commits to protected branches                                              |
 | [execution-caching](execution-caching/SKILL.md)     | Caching workflows, invalidation, cache system operations                                        |
 | [semver-api-surface](semver-api-surface/SKILL.md)   | Semver impact of API surface changes across packages                                            |
+| [daily-report](daily-report/SKILL.md)               | Generate the committed daily work report (OBSERVABILITY-001) — one summary per UTC work day     |
 
 ## Package-Specific
 
