@@ -88,6 +88,7 @@ export async function executePromptTurn(
       historyBefore,
       ctx.getSession().getContextState(),
       preparedPrompt.promptFileReferenceRecords,
+      ctx.getSession().getModelId(),
     );
     history.push(messageToHistoryEntry(createAssistantMessage(result.response)));
     if (result.usage) history.push(createUsageSummaryEntry(result.usage));
@@ -101,6 +102,7 @@ export async function executePromptTurn(
         history,
         historyBefore,
         ctx.getSession().getContextState(),
+        ctx.getSession().getModelId(),
       );
       pushToolSummaryToHistory({ activeTools: ctx.getActiveTools(), history });
       ctx.clearStreaming();

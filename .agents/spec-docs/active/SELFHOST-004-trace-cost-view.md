@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: OBSERVABILITY
 tags: [tracing, cost, budget, agent-plugin, agent-interface-transport, tui, gui, selfhost]
 ---
@@ -218,7 +218,9 @@ mirroring `SessionMonitor`, the timeline reaching the GUI over the new `TServerM
 
 ## Tasks
 
-`.agents/tasks/SELFHOST-004.md` — 미생성 (GATE-APPROVAL 통과 후 생성).
+[`.agents/tasks/SELFHOST-004.md`](../../tasks/SELFHOST-004.md) — created at GATE-IMPLEMENT. Split into named work
+units: P1 (turn-granular cost foundation, TC-06, this slice) / P2 (span timing, TC-07) / P3 (read-model, TC-01/03) /
+P4 (per-run budget cap, TC-02/04) / P5 (TServerMessage carrier + TUI/GUI view, TC-05/08).
 
 ## Evidence Log
 
@@ -316,3 +318,14 @@ mirroring `SessionMonitor`, the timeline reaching the GUI over the new `TServerM
   PASSED** — after 7 iterations (3 REVISE at the data-flow layer, 1 REJECT that forced the P2 redesign, 2 REVISE at
   the seam, final ENDORSE); the gate held the line on a genuine, repeatedly-relabeled illegal-dependency defect that
   would otherwise have surfaced only in a post-implementation architecture audit.
+- 2026-07-18 — **GATE-IMPLEMENT: P1 implemented (turn-granular cost foundation, TC-06)** (moved todo/ → active/,
+  status in-progress; task created split P1–P5). `agent-interface-transport`: OPTIONAL derived `costUsd?: number` on
+  `IUsageSnapshot` (present iff `costStatus !== 'unknown'`; backward-compatible). `agent-framework`: `extractTurnUsage`
+  now resolves the turn's model id (threaded from the caller's `ctx.getSession().getModelId()` through
+  `buildResult`/`buildInterruptedResult`) and computes `costUsd` via `calculateModelCost` (the `agent-core/model-pricing.ts`
+  SSOT — exact input/output split), flipping `costStatus` `'unknown'` → `'exact'`; stays `'unknown'`/absent for an
+  unpriced/absent model. No `agent-plugin` edge; this seam owns ONLY turn cost (span timing is P2). TC-06 proven:
+  `interactive-session-usage.test.ts` (gpt-4o → costUsd 0.00075 + `exact`; unpriced → absent + `unknown`). Verified:
+  build + typecheck + full agent-framework suite **1133/1133** (incl. updated Session mocks) + agent-interface-transport
+  10/10 + lint (0 errors) + `pnpm harness:scan` (54/54). **P2** (span timing, TC-07) / **P3** (read-model, TC-01/03) /
+  **P4** (budget cap, TC-02/04) / **P5** (carrier + view, TC-05/08) remain.
