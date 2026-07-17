@@ -24,6 +24,7 @@ import type { IScheduledBackgroundTaskRequest } from '@robota-sdk/agent-interfac
 function createSessionStub(): Session {
   return {
     getSessionId: () => 'session_parent',
+    getEventService: () => ({ subscribe: () => {}, unsubscribe: () => {} }),
     getHistory: () => [],
     getSystemMessage: () => 'system',
     getToolSchemas: () => [],

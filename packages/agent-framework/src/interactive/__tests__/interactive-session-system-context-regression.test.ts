@@ -67,6 +67,7 @@ vi.mock('@robota-sdk/agent-session', async () => {
     ...actual,
     Session: vi.fn().mockImplementation(() => ({
       getSessionId: vi.fn().mockReturnValue('test-session-id'),
+      getEventService: vi.fn().mockReturnValue({ subscribe: vi.fn(), unsubscribe: vi.fn() }),
       run: vi.fn().mockResolvedValue('mock response'),
       abort: vi.fn(),
       getHistory: vi.fn().mockReturnValue([]),

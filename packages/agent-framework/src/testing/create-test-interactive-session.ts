@@ -48,7 +48,11 @@ export function createTestInteractiveSession(
     getPendingPrompt: () => null,
     getMessages: () => [],
     getContextState: () => ({ ...EMPTY_CONTEXT_STATE }),
-    getSession: () => ({ getSessionId: () => 'test-session-id' }),
+    getSession: () => ({
+      getSessionId: () => 'test-session-id',
+      // SELFHOST-004: the span collector subscribes to the session bus each turn.
+      getEventService: () => ({ subscribe: () => {}, unsubscribe: () => {} }),
+    }),
     getCwd: () => '/workspace',
     executeCommand: () => Promise.resolve(null),
     listCommands: () => [],

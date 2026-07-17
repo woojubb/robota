@@ -40,6 +40,7 @@ function createMockSession(options?: {
 
     getSessionId: vi.fn().mockReturnValue(options?.sessionId ?? 'test-session-id'),
     getModelId: vi.fn().mockReturnValue('test-model'),
+    getEventService: vi.fn().mockReturnValue({ subscribe: vi.fn(), unsubscribe: vi.fn() }),
     getSystemMessage: vi.fn().mockReturnValue('mock system prompt'),
     getToolSchemas: vi.fn().mockReturnValue([]),
   };

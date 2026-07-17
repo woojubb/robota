@@ -194,6 +194,14 @@ export class PermissionEnforcer {
       }
     };
 
+    // SELFHOST-004: the wrapper runs `originalExecute` (bound to the ORIGINAL tool), which reads the
+    // ORIGINAL tool's `eventService` (e.g. the `FunctionTool` span-completion emit). Because
+    // `Object.create(tool)` would shadow a `setEventService` call onto the wrapper instance, forward it
+    // to the original tool — otherwise an injected event bus never reaches the tool and spans never fire.
+    wrappedTool.setEventService = (eventService) => {
+      tool.setEventService(eventService);
+    };
+
     return wrappedTool;
   }
 

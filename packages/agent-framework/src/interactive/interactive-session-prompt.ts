@@ -17,6 +17,7 @@ import {
   buildResult,
   buildInterruptedResult,
   createUsageSummaryEntry,
+  collectSpanEntries,
   preparePromptInput,
 } from './interactive-session-execution.js';
 import { pushToolSummaryToHistory } from './interactive-session-streaming.js';
@@ -61,6 +62,10 @@ export async function executePromptTurn(
   const historyBefore = ctx.getSession().getHistory().length;
   ctx.resetUsedMemoryReferences();
 
+  // SELFHOST-004 (P6): collect the per-operation span events tools emit during this turn's run, so
+  // they can be projected onto history under the owning turn (drained just before its usage-summary).
+  const spanCollector = collectSpanEntries(ctx.getSession().getEventService());
+
   try {
     const preparedPrompt = await preparePromptInput(
       input,
@@ -91,6 +96,9 @@ export async function executePromptTurn(
       ctx.getSession().getModelId(),
     );
     history.push(messageToHistoryEntry(createAssistantMessage(result.response)));
+    // SELFHOST-004: drain the turn's spans BEFORE its usage-summary so the read-model groups them
+    // under this turn (the usage-summary is the turn boundary the reducer flushes on).
+    for (const spanEntry of spanCollector.entries) history.push(spanEntry);
     if (result.usage) history.push(createUsageSummaryEntry(result.usage));
     ctx.onComplete(result);
     ctx.onContextUpdate();
@@ -108,6 +116,8 @@ export async function executePromptTurn(
       ctx.clearStreaming();
       if (result.response)
         history.push(messageToHistoryEntry(createAssistantMessage(result.response)));
+      // SELFHOST-004: spans that ran before the interrupt still belong to this (final) turn.
+      for (const spanEntry of spanCollector.entries) history.push(spanEntry);
       if (result.usage) history.push(createUsageSummaryEntry(result.usage));
       history.push(messageToHistoryEntry(createSystemMessage('Interrupted by user.')));
       ctx.onInterrupted(result);
@@ -132,5 +142,8 @@ export async function executePromptTurn(
       );
       ctx.onError(errObj);
     }
+  } finally {
+    // SELFHOST-004: always unsubscribe the span collector so a completed turn leaves no listener.
+    spanCollector.dispose();
   }
 }

@@ -28,6 +28,7 @@ function createMockSession(options?: { sessionId?: string }) {
     injectRawMessage: vi.fn(),
     syncContextFromHistory: vi.fn(),
     getSessionId: vi.fn().mockReturnValue(options?.sessionId ?? 'test-session'),
+    getEventService: vi.fn().mockReturnValue({ subscribe: vi.fn(), unsubscribe: vi.fn() }),
     getSystemMessage: vi.fn().mockReturnValue('system prompt'),
     getToolSchemas: vi.fn().mockReturnValue([]),
   };

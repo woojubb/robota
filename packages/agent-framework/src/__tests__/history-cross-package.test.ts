@@ -35,6 +35,7 @@ function createMockSession(options?: {
     getPermissionMode: vi.fn().mockReturnValue('default'),
     setPermissionMode: vi.fn(),
     getModelId: vi.fn().mockReturnValue('test-model'),
+    getEventService: vi.fn().mockReturnValue({ subscribe: vi.fn(), unsubscribe: vi.fn() }),
     getSessionId: vi.fn().mockReturnValue('test-session-id'),
     getMessageCount: vi.fn().mockReturnValue(0),
     getSessionAllowedTools: vi.fn().mockReturnValue([]),
