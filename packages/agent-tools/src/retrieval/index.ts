@@ -11,3 +11,8 @@ export type {
   IRetrievalAdapter,
   IRetrievalToolOptions,
 } from './types.js';
+
+export {
+  RepoMapRetrievalAdapter,
+  type IRepoMapRetrievalAdapterOptions,
+} from './repo-map-adapter.js';

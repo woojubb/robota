@@ -31,7 +31,7 @@ export type {
 } from './sandbox/index';
 export { applyWorkspaceManifest, validateWorkspaceManifestPath } from './sandbox/index';
 
-// SELFHOST-003: codebase retrieval (port + types; adapter + tool added below)
+// SELFHOST-003: codebase retrieval (port + types + neutral repo-map ranking adapter; tool added below)
 export type {
   IRetrievalSymbol,
   IRetrievalParsedFile,
@@ -42,7 +42,9 @@ export type {
   IRetrievalResult,
   IRetrievalAdapter,
   IRetrievalToolOptions,
+  IRepoMapRetrievalAdapterOptions,
 } from './retrieval/index';
+export { RepoMapRetrievalAdapter } from './retrieval/index';
 
 // FunctionTool and ToolRegistry classes are owned by @robota-sdk/agent-core (DATA-005 SSOT).
 // agent-tools exposes only the factories that construct core's FunctionTool.
