@@ -73,7 +73,8 @@ Adopt (1): a `TRoleModelMap = Record<string, TModelRef[]>` contract keyed by an 
 model/provider foundational contracts as SSOT); a framework routing policy over the provider DIP that resolves per
 role key + walks the chain to an alternate provider/model on provider error; the concrete `planner/editor/reviewer`
 set in `agent-provider-defaults`.
-**v1 = the subagent path** (already opaque-keyed by agent name); the main-loop per-turn role signal is P2.
+**v1 = the subagent path** (the v1 role key = the subagent's agent identity — distinct from the model-alias key of
+the `resolveModelId` resolution analog); the main-loop per-turn role signal is P2.
 **Budget-based fallback is OUT of scope for v1** (needs cost accounting; ship per-role + error-fallback first).
 
 ### Validated Recommendation
@@ -155,3 +156,11 @@ fallback; P2 = main-loop per-turn role signal; P3 = budget-based fallback.
   only a secondary guard globbing `agent-interface-*`, not agent-core; (4) removed TC-01's stale interface-package
   parenthetical. Unchanged (all correct): v1 scoped to the subagent path, budget fallback → P3, rejection of
   enum/union + per-provider.
+- 2026-07-17 — **iteration 3: RE-REVIEW → ENDORSE** (independent proposal-reviewer). All 4 punch-list items verified
+  against the code: `resolveModelId` = `MODEL_SHORTCUTS[x] ?? x` over a model alias (not an agent name);
+  `TRoleModelMap = Record<string, TModelRef[]>` with `TModelRef = { provider, model }` mirrors the global
+  `defaultModel` and makes TC-02 fallback expressible; owner pinned to agent-core beside its provider/model peers,
+  no-enum re-justified on neutrality (interface-runtime scan globs only `agent-interface-*`); TC-01 reconciled.
+  Unchanged decisions (v1 subagent path, budget → P3, enum/per-provider rejections) all hold. **GATE-APPROVAL PASSED.**
+  (Applied the non-blocking clarity nit: disambiguated the v1 role key = the subagent's agent identity, distinct from
+  the model-alias key of the resolution analog.)

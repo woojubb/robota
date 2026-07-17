@@ -162,3 +162,11 @@ returns. Reuse `schema/structured-output.ts` for typed input/output validation.
   return-veto rejection on a CORRECTNESS ground (best-effort notification/observation vs control), dropping the
   blast-radius framing; (4) TC-04 made concrete — a guardrail block flows through the single existing `blocked`/denial
   return, not a second tier. Affected Files / Completion Criteria / Test Plan updated accordingly.
+- 2026-07-17 — **iteration 3: RE-REVIEW → ENDORSE** (independent proposal-reviewer). All 4 punch-list items verified
+  against the code: `IHookTypeExecutor`/`runHooks(..., executors?)` + the `exitCode:2 → blocked` single contract +
+  the end-to-end `hookTypeExecutors` threading all real (zero new session wiring); tool-output validator correctly
+  placed in agent-core `function-tool.ts::execute` beside `parameter-validator.ts`; Alt-2 rejected on
+  observation-vs-control; TC-04 asserts the single path. **GATE-APPROVAL PASSED.** Task-file guidance (non-blocking):
+  register the guardrail executor under the `PreToolUse` event (the path that actually enforces `blocked`;
+  `UserPromptSubmit` only injects stdout today), and inject the guardrail set into the executor by construction in
+  agent-framework (the `{type:'guardrail'}` definition carries only matcher/config, not the set).

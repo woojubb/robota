@@ -46,8 +46,9 @@ Constraint: all are neutral mechanisms (no persona/room/topic) — library-neutr
 
 1. **Neutral contracts+events in agent-core; mechanism/assembly in agent-framework over `agent-executor`'s
    `ISubagentRunner` port (CHOSEN).**
-   - ✅ Correct layering (core owns the abstracts + event-service the consuming layer implements — mirrors
-     `AbstractAIProvider`); reuses the existing subagent port; no dependency cycle; neutral.
+   - ✅ Correct layering (core owns the neutral abstracts + event unions the consuming framework layer implements —
+     justified by single-implementer-family + YAGNI + the pinned B3 extraction trigger, NOT by a runtime-class
+     analogy); reuses the existing subagent port; no dependency cycle; neutral.
    - ❌ Requires amending `agent-core/docs/SPEC.md` Boundaries: today `:1121` frames the multi-agent/orchestration
      layer as a _consumer_ of core ("the multi-agent/orchestration layer consumes `Robota`, `IAgentConfig`, event
      services"). It must be converted to **"agent-core OWNS the neutral orchestration contracts + event-type
@@ -101,7 +102,7 @@ role/manager concepts are opaque neutral mechanisms — no room/persona/topic fi
 - [x] 영향 패키지/레이어: agent-core (contracts+event-types, +SPEC amendment), agent-framework (assembly over ISubagentRunner). agent-cli injects the concrete runner. No package/app domain content.
 - [x] Sibling scan 완료 — composes over `agent-executor` `ISubagentRunner` (already realized by `createInProcessSubagentRunner`); does NOT depend on `agent-subagent-runner` (would cycle); no DAG duplication.
 - [x] 대안 최소 2개 — 3 considered (core-contracts+framework-assembly-over-port CHOSEN; compose-over-subagent-runner REJECTED cycle; DAG-only REJECTED conflation), each Pro+Con.
-- [x] 결정 근거 — core owns the neutral contracts (mirrors AbstractAIProvider) + no-cycle composition over the executor port; Validated-Recommendation recorded above; independent GATE-APPROVAL re-review pending.
+- [x] 결정 근거 — core owns the neutral contracts (single-family + YAGNI + pinned B3 extraction trigger, engaging the `InteractionEvent`/agent-interface-transport analog) + no-cycle composition over the executor port; Validated-Recommendation recorded above; GATE-APPROVAL PASSED (iteration 4 ENDORSE).
 
 ## Solution
 
@@ -181,4 +182,9 @@ SPEC amendment), P2 (parallel + handoff), P3 (hierarchical + group-chat).
   to a **standing `pnpm harness:scan` floor** (`orchestration-neutrality`) that keeps firing and guards P2/P3
   hierarchical/group-chat (per enforcement-architecture.md). (4) **SPEC-amendment framing pinned:** convert `:1121`
   from "multi-agent/orchestration layer CONSUMES core" to "agent-core OWNS the neutral contracts + event unions;
-  framework IMPLEMENTS them", reclassifying core's Boundaries role. Iteration-4 re-review pending.
+  framework IMPLEMENTS them", reclassifying core's Boundaries role.
+- 2026-07-17 — **iteration 4: RE-REVIEW → ENDORSE** (independent proposal-reviewer). All 4 punch-list items verified
+  resolved against the code (ISubagentRunner port + no-cycle composition; agent-core zero workspace deps; the
+  `InteractionEvent` analog; the false-green interface-runtime scan; the SPEC amendment target). Highest-stakes call
+  (new-surface placement) correct on principle with a pinned, mechanical extraction trigger. Also cleaned the two
+  stale "mirrors AbstractAIProvider" phrasings the reviewer flagged as document hygiene. **GATE-APPROVAL PASSED.**

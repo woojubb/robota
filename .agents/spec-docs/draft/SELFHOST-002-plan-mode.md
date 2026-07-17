@@ -158,4 +158,10 @@ artifact and emit the approval event.
   Bash-heavy self-host case (vs over-granting `bypassPermissions`); the controller is now **pure** — returns
   `{ action, nextMode }`, `InteractiveSession` applies `setPermissionMode`; approval-event/artifact owner files
   pinned (`event-contracts.ts` / `session-contracts.ts`); TC-03 asserts the decision-only return + the
-  `MODE_POLICY.acceptEdits` effect; dropped the false "GoalController re-seeds" analogy. Iteration-4 re-review pending.
+  `MODE_POLICY.acceptEdits` effect; dropped the false "GoalController re-seeds" analogy.
+- 2026-07-17 — **iteration 4: RE-REVIEW → ENDORSE** (independent proposal-reviewer). Both iteration-3 blockers
+  verified resolved against the code: `MODE_POLICY.acceptEdits` matches (Write/Edit auto, Bash/Shell per-call
+  `approve`); the controller is a faithful pure mirror of `GoalController` (decision-only `TGoalDecision`, applied at
+  `interactive-session.ts:777-785`); owner files pinned beside `IGoalState` (`session-contracts.ts:359`); re-seed
+  analogy gone. Single enforcement point + placement + dependency direction all clean; no new defect.
+  **GATE-APPROVAL PASSED.**

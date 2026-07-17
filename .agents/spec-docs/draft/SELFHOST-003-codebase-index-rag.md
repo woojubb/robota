@@ -162,4 +162,10 @@ P2 (index+persistence) / P3 (incremental) / P4 (vector backend).
   neutrality enforcement floor: no existing `pnpm harness:scan` rule (deps/interface-imports/interface-runtime) fences
   `agent-tools`' third-party dependencies, so a mechanical `agent-tools` neutrality floor is filed as a follow-up (TC-04
   no longer rests on the manual grep alone). Housekeeping: dropped the stale `agent-interface` tag (no interface package
-  is created); the chosen alternative (fold port+types+tool into `agent-tools`) is unchanged. Iteration-4 re-review pending.
+  is created); the chosen alternative (fold port+types+tool into `agent-tools`) is unchanged.
+- 2026-07-17 — **iteration 4: RE-REVIEW → ENDORSE** (independent proposal-reviewer). All 4 punch-list items verified
+  against the source: the `InMemorySandboxClient`/`E2BSandboxClient`/`IE2BSandboxAdapter` precedent is real and the
+  retrieval design mirrors it; `createDefaultTools(options)` adapter-gating confirmed; no existing scan fences
+  `agent-tools` third-party deps (follow-up correctly filed); tag/type housekeeping consistent. Placement + dependency
+  direction + capability-preservation all clean; no new defect. **GATE-APPROVAL PASSED.** (Non-blocking: file the
+  `agent-tools` neutrality-floor follow-up as a tracked backlog item at task-authoring time.)
