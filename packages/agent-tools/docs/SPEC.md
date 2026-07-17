@@ -123,6 +123,11 @@ Types owned by this package (SSOT):
 | `RepoMapRetrievalAdapter`               | Class    | SELFHOST-003 — neutral repo-map graph-centrality ranking adapter (source parser injected, corpus from the surface; token-budgeted)                         |
 | `IRetrievalAdapter`                     | Type     | SELFHOST-003 — codebase-retrieval port (`retrieve(request) → ranked result within a token budget`)                                                         |
 | `IRetrievalSourceParser`                | Type     | SELFHOST-003 — duck-typed source-parser port injected into the ranking adapter                                                                             |
+| `buildRepoMapIndex`                     | Function | SELFHOST-003 P2 — parse the corpus once into a serializable `IRepoMapIndex` (build-once, rank-many)                                                        |
+| `serializeRepoMapIndex`                 | Function | SELFHOST-003 P2 — serialize a built index to a neutral JSON string for surface persistence                                                                 |
+| `deserializeRepoMapIndex`               | Function | SELFHOST-003 P2 — restore a built index from JSON (throws on unsupported `version`)                                                                        |
+| `REPO_MAP_INDEX_VERSION`                | Const    | SELFHOST-003 P2 — persisted-schema version for `IRepoMapIndex`                                                                                             |
+| `IRepoMapIndex`                         | Type     | SELFHOST-003 P2 — a built, serializable repo-map index (the corpus parsed once)                                                                            |
 
 ### Built-in CLI Tools
 

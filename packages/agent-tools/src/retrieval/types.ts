@@ -90,3 +90,29 @@ export interface IRetrievalAdapter {
 export interface IRetrievalToolOptions {
   adapter?: IRetrievalAdapter;
 }
+
+/**
+ * One indexed corpus file (SELFHOST-003 P2): its parsed definitions + references. This is the parsed
+ * form the ranker consumes, so a built index lets the adapter rank WITHOUT re-parsing the corpus on
+ * every `retrieve()`.
+ */
+export interface IRepoMapIndexEntry {
+  /** Repo-relative path. */
+  path: string;
+  /** Symbols defined in this file. */
+  definitions: IRetrievalSymbol[];
+  /** Identifiers this file references. */
+  references: string[];
+}
+
+/**
+ * A built, serializable repo-map index (SELFHOST-003 P2): the whole corpus parsed once. Persist it
+ * (see `serializeRepoMapIndex`/`deserializeRepoMapIndex`) so retrieval is build-once, rank-many. The
+ * `version` guards forward-compatibility of the persisted form.
+ */
+export interface IRepoMapIndex {
+  /** Persisted-schema version. */
+  version: number;
+  /** One entry per corpus file, parsed. */
+  entries: IRepoMapIndexEntry[];
+}

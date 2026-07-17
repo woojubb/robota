@@ -10,7 +10,17 @@ export type {
   IRetrievalResult,
   IRetrievalAdapter,
   IRetrievalToolOptions,
+  IRepoMapIndexEntry,
+  IRepoMapIndex,
 } from './types.js';
+
+export {
+  buildRepoMapIndex,
+  serializeRepoMapIndex,
+  deserializeRepoMapIndex,
+  REPO_MAP_INDEX_VERSION,
+  type IBuildRepoMapIndexOptions,
+} from './repo-map-index.js';
 
 export {
   RepoMapRetrievalAdapter,

@@ -43,8 +43,18 @@ export type {
   IRetrievalAdapter,
   IRetrievalToolOptions,
   IRepoMapRetrievalAdapterOptions,
+  IRepoMapIndexEntry,
+  IRepoMapIndex,
+  IBuildRepoMapIndexOptions,
 } from './retrieval/index';
-export { RepoMapRetrievalAdapter, createRetrievalTool } from './retrieval/index';
+export {
+  RepoMapRetrievalAdapter,
+  createRetrievalTool,
+  buildRepoMapIndex,
+  serializeRepoMapIndex,
+  deserializeRepoMapIndex,
+  REPO_MAP_INDEX_VERSION,
+} from './retrieval/index';
 
 // FunctionTool and ToolRegistry classes are owned by @robota-sdk/agent-core (DATA-005 SSOT).
 // agent-tools exposes only the factories that construct core's FunctionTool.
