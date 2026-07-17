@@ -21,6 +21,7 @@ import {
 } from '../command-api/provider/provider-factory.js';
 import { GoalController, buildGoalContinuationPrompt } from '../goal/index.js';
 import { createUserInteractionPort } from '../interaction/user-interaction-port.js';
+import { PlanController } from '../plan/index.js';
 import { retrieveAgentToolDeps } from '../tools/agent-tool.js';
 import { humanizeApiError } from '../utils/error-humanizer.js';
 
@@ -61,6 +62,7 @@ import type { ISession } from '@robota-sdk/agent-core';
 import type {
   ITransportAdapter,
   IGoalState,
+  IPlanArtifact,
   ITerminalHandoff,
   TTurnSource,
   TDriverId,
@@ -112,6 +114,8 @@ export class InteractiveSession
   protected readonly execCtrl: SessionExecutionController;
   /** GOAL-001: autonomous objective-pursuit controller (inert until a goal is set). */
   private readonly goalController = new GoalController();
+  /** SELFHOST-002: plan-mode phase controller (inert until a plan is started). */
+  private readonly planController = new PlanController();
   /** GOAL-001: origin of the most recently started turn — gates goal-loop advancement. */
   private currentTurnSource: TTurnSource = 'user';
   /** TERM-001: transport-provided terminal-handoff capability (undefined when none). */
@@ -290,6 +294,8 @@ export class InteractiveSession
     this.sandboxSnapshotId = this.forkSession ? undefined : restored.sandboxSnapshotId;
     // GOAL-001: a fork starts fresh; a true resume restores any in-flight goal so pursuit continues.
     if (!this.forkSession && restored.goal) this.goalController.restore(restored.goal);
+    // SELFHOST-002: likewise restore an in-flight plan artifact on a true resume (not a fork).
+    if (!this.forkSession && restored.plan) this.planController.restore(restored.plan);
     if (this.session && restored.pendingRestoreMessages === null) {
       // Injected-session path: messages were injected immediately — sync context estimate.
       this.session.syncContextFromHistory();
@@ -728,6 +734,7 @@ export class InteractiveSession
       { references: histState.contextReferences },
       { snapshotId: this.sandboxSnapshotId },
       this.goalController.getState() ?? undefined,
+      this.planController.getState() ?? undefined,
     );
   }
 
@@ -758,6 +765,50 @@ export class InteractiveSession
       this.persistCurrentSession();
     }
     return stopped;
+  }
+
+  /**
+   * SELFHOST-002: start a plan — draft it (phase `planning`) for review, keeping the existing
+   * `plan` permission mode as the mutation block. Returns the seeded artifact. Throws on an empty
+   * objective. This does NOT flip permission mode (drafting stays read-only); {@link approvePlan}
+   * does, on approval.
+   */
+  async setPlan(objective: string, steps: readonly string[] = []): Promise<IPlanArtifact> {
+    await this.ensureInitialized();
+    const plan = this.planController.start(objective, steps);
+    this.emit('plan_event', { type: 'plan_created', plan });
+    this.persistCurrentSession();
+    return plan;
+  }
+
+  /** SELFHOST-002: the current plan artifact, or `null` when no plan has been started. */
+  getPlanState(): IPlanArtifact | null {
+    return this.planController.getState();
+  }
+
+  /**
+   * SELFHOST-002: approve the current plan. The controller decides the mode flip (`plan →
+   * acceptEdits`); THIS method applies it via `setPermissionMode` — the controller never does.
+   * Approving auto-applies edits while shell stays per-call confirmed (`MODE_POLICY.acceptEdits`).
+   */
+  approvePlan(): IPlanArtifact {
+    if (this.planController.getState()?.phase === 'planning') {
+      this.planController.requestApproval();
+    }
+    const decision = this.planController.approve();
+    this.getSessionOrThrow().setPermissionMode(decision.nextMode);
+    this.emit('plan_event', { type: 'plan_approved', plan: decision.plan });
+    this.persistCurrentSession();
+    return decision.plan;
+  }
+
+  /** SELFHOST-002: revert the plan to drafting, returning permission mode to `plan`. */
+  revertPlan(): IPlanArtifact {
+    const decision = this.planController.revert();
+    this.getSessionOrThrow().setPermissionMode(decision.nextMode);
+    this.emit('plan_event', { type: 'plan_reverted', plan: decision.plan });
+    this.persistCurrentSession();
+    return decision.plan;
   }
 
   /** GOAL-001: schedule the next goal-driven turn via the FLOW-002 wakeup primitive. */

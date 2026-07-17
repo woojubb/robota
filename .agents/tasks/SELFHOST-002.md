@@ -1,9 +1,9 @@
-<!-- archival-exempt: spec in progress — P1 (contract + pure PlanController + mutation-gate assertions) is the first of two named work units; P2 (InteractiveSession wiring + /plan surface + artifact round-trip, TC-04) remains, so the spec stays in spec-docs/active/ until both land and GATE-VERIFY/GATE-COMPLETE run. -->
+<!-- archival-exempt: spec in progress — P1 (contract + pure PlanController) and P2 (InteractiveSession wiring + /plan surface, TC-04) both implemented; the spec stays in spec-docs/active/ until GATE-VERIFY/GATE-COMPLETE run and move it to done/. -->
 
 # SELFHOST-002 — explicit plan-mode (plan → review → approve → act)
 
 Spec: [`.agents/spec-docs/active/SELFHOST-002-plan-mode.md`](../spec-docs/active/SELFHOST-002-plan-mode.md)
-GATE-APPROVAL: PASSED (iteration 4 ENDORSE). GATE-IMPLEMENT in progress.
+GATE-APPROVAL: PASSED (iteration 4 ENDORSE). GATE-IMPLEMENT: P1+P2 implemented; GATE-VERIFY/GATE-COMPLETE next.
 
 ## Recommendation (gate)
 
@@ -28,11 +28,27 @@ so each is independently testable/mergeable.
       gate in `agent-core/.../plan/`).
 - [x] Verify: build + typecheck + tests + lint + `pnpm harness:scan`.
 
-## P2 — InteractiveSession wiring + `/plan` surface + artifact round-trip — PENDING
+## P2 — InteractiveSession wiring + `/plan` surface + artifact round-trip ✅ IMPLEMENTED
 
-- InteractiveSession applies the controller's `nextMode` via `setPermissionMode` + emits the approval event;
-  `agent-cli` `/plan` renders the artifact + emits approval; `apps/agent-app` view. TC-04 (artifact/approval
-  round-trip + headless CLI `/plan` verification per verification.md).
+- [x] `agent-interface-transport`: added `plan_event` to `IInteractiveSessionEvents` (beside `goal_event`).
+- [x] `agent-framework`: `InteractiveSession` gained `setPlan`/`getPlanState`/`approvePlan`/`revertPlan` — mirroring
+      the goal wiring. `approvePlan`/`revertPlan` APPLY the controller's `nextMode` via
+      `getSessionOrThrow().setPermissionMode(...)` (the controller stays pure) and emit `plan_event`
+      (`plan_created`/`plan_approved`/`plan_reverted`). The plan artifact persists into the session record
+      (`interactive-session-persistence.ts` + restore threading) so it survives resume. `ICommandHostContext`
+      exposes the optional `setPlan`/`getPlanState`/`approvePlan`/`revertPlan` so the command reaches them.
+- [x] `agent-command`: `/plan` command (`src/plan/`, verbs `<objective>`/`status`/`approve`/`revert`) mirroring
+      `/goal`; registered in `default-command-modules`. Only the module factory is a package export (siblings'
+      pattern).
+- [x] TC-04: artifact/approval round-trip + mode flip proven headlessly on a REAL `InteractiveSession` driven by an
+      injected (scripted) provider — `plan-mode-wiring.test.ts` asserts `plan_created` (stays `plan` mode),
+      `approvePlan` → mode `acceptEdits` + `plan_approved`, `revertPlan` → mode `plan` + `plan_reverted`; the
+      record round-trip (`session-persistence-roundtrip.test.ts`) preserves the `plan` field; the `/plan` command
+      renders/dispatches (`plan-command.test.ts`, 9 tests).
+- [x] `apps/agent-app` view: NOT added — there is no existing goal/plan view consumer in `apps/agent-app` either
+      (the only runtime `goal_event`/`plan_event` consumer is the headless runner); a UI surface is deferred to a
+      product-UI slice, not required for the SDK/CLI plan-mode flow. (Recorded here to avoid a silent scope gap.)
+- [x] Verify: build + typecheck + tests + lint (0 errors) + `pnpm harness:scan` (54/54) + `harness:test` (303/303).
 
 ## Test Plan
 

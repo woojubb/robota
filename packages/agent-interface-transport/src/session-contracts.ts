@@ -30,6 +30,7 @@ import type {
   IContextReferenceItem,
   IMemoryEvent,
   IMemoryReference,
+  IPlanApprovalEvent,
   IPromptFileReferenceRecord,
   ISkillActivationEvent,
 } from './event-contracts.js';
@@ -222,6 +223,8 @@ export interface IInteractiveSessionEvents {
   memory_event: (event: IMemoryEvent) => void;
   /** Emitted on every autonomous goal lifecycle transition (start, per-iteration, stop) — GOAL-001. */
   goal_event: (event: IGoalEvent) => void;
+  /** Emitted on every plan-mode lifecycle transition (created, approved, reverted) — SELFHOST-002. */
+  plan_event: (event: IPlanApprovalEvent) => void;
   /** REMOTE-007: a tool call awaits a permission decision; answer via `resolvePermission(id, …)`. */
   permission_request: (event: IPermissionRequestEvent) => void;
   /** REMOTE-007: an "ask the user" request awaits an answer; answer via `resolveAsk(id, …)`. */

@@ -180,3 +180,18 @@ wiring + `/plan` surface + artifact round-trip, TC-04).
   typecheck + tests (plan-controller 8/8; full agent-framework 1126/1126, agent-interface-transport 10/10) + lint
   (0 errors) + `pnpm harness:scan` (all 54 pass). **P2** (InteractiveSession wiring + `/plan` surface + artifact
   round-trip, TC-04) remains.
+- 2026-07-17 — **GATE-IMPLEMENT: P2 implemented (TC-04) — spec feature-complete.** Wired the surfaces:
+  `agent-interface-transport` added `plan_event` to `IInteractiveSessionEvents`; `InteractiveSession` gained
+  `setPlan`/`getPlanState`/`approvePlan`/`revertPlan` that APPLY the pure controller's `nextMode` via
+  `getSessionOrThrow().setPermissionMode(...)` (controller stays pure) and emit `plan_event`; the plan artifact
+  persists into the session record + restores on resume; `ICommandHostContext` exposes the optional plan methods;
+  `agent-command` ships the `/plan` command (verbs `<objective>`/`status`/`approve`/`revert`) mirroring `/goal`,
+  registered in `default-command-modules` (only the module factory is a package export, per the siblings' pattern +
+  the `spec-public-surface` baseline). **TC-04 proven headlessly** on a REAL `InteractiveSession` driven by an
+  injected scripted provider (no API key): `plan-mode-wiring.test.ts` asserts the plan_event round-trip AND the
+  permission-mode flip (`plan → acceptEdits` on approve, back to `plan` on revert); `session-persistence-roundtrip`
+  preserves the `plan` record field; `plan-command.test.ts` (9) covers the `/plan` verbs. No new mutation gate.
+  `apps/agent-app` UI view deferred (no goal/plan view consumer exists there; not required for the SDK/CLI flow —
+  recorded to avoid a silent scope gap). Verified: build + typecheck + full suites (agent-interface-transport 10/10,
+  agent-framework 1129/1129, agent-command 234/234) + lint (0 errors) + `pnpm harness:scan` (54/54) + `harness:test`
+  (303/303). **Both slices implemented.** Next: GATE-VERIFY + GATE-COMPLETE.
