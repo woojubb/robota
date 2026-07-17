@@ -33,85 +33,110 @@ guardrail cannot fail-fast from there — enforcement must be in the turn owner 
 
 ### Affected Scope
 
-- **`agent-core`**: the neutral guardrail **contract** + a **parallel/fail-fast runner** (mechanism only), reusing
-  `schema/structured-output.ts` for typed validation.
-- **`agent-session`**: the **enforcement point** — compose the guardrail run into the turn (`session-run.ts` /
-  `PermissionEnforcer` / `tool-hook-helpers.ts`) so a failing guardrail fails the turn fast (this is where fail-fast
-  actually lives).
-- **`agent-framework`**: the consumer **registration** surface for guardrails.
-- Tool-output schema validation added alongside the existing tool-input `parameter-validator`.
+- **`agent-core` (hooks)**: a guardrail **`IHookTypeExecutor`** (`type: 'guardrail'`) — the guardrail set runs
+  **inside the executor in parallel and fails fast**, mapping any failure onto the existing exit-code-2/`blocked`
+  contract `runHooks` already understands. No new runner and no second block-decision mechanism; reuses
+  `schema/structured-output.ts` for typed input/output validation.
+- **`agent-session`**: **unchanged** — the executor rides the already-threaded `hookTypeExecutors` path
+  (`session-run.ts` → `PermissionEnforcer` → `tool-hook-helpers.ts` `runPreToolHook` → `runHooks`), so fail-fast
+  reuses the enforcement already in place with zero new session composition.
+- **`agent-framework`**: the consumer **registration** surface — register the guardrail executor + its guardrail set.
+- **`agent-core` (tool-registry)**: tool-**output** schema validation beside the existing tool-input
+  `parameter-validator`, enforced in `function-tool.ts::execute` (same layer as tool-input validation).
 
 ### Alternatives Considered
 
-1. **Three-layer: contract+runner in agent-core, fail-fast enforcement in agent-session, registration in framework
-   (CHOSEN).**
-   - ✅ Mirrors the proven hooks/permissions split; enforcement where fail-fast actually happens (agent-session);
-     reuses CORE-015 structured-output + tool-input validator; neutral.
-   - ❌ Correct radius is three packages + their SPECs (not one).
+1. **Guardrail as an in-process `IHookTypeExecutor` (`type: 'guardrail'`), reusing `runHooks`/`runPreToolHook`/`PermissionEnforcer` (CHOSEN).**
+   - ✅ Composes with the EXISTING, proven enforcement path: `hookTypeExecutors` is already threaded end-to-end
+     (`session-run.ts` → `PermissionEnforcer` → `runPreToolHook` → `runHooks`), so there is **zero new session
+     wiring** and **one** turn-blocking mechanism. Parallel + fail-fast is preserved **inside** the executor
+     (fan-out the guardrail set with `Promise.all`/`race`, first failure → exit code 2 / `blocked`). Typed
+     input/output contract via `schema/structured-output.ts`. Lowest migration cost.
+   - ❌ Guardrails become one sequential step _within_ `runHooks` ordering (parallelism lives inside the step, not
+     across steps) — acceptable, since the requirement is that the guardrail _set_ runs in parallel, which the
+     executor delivers.
 2. **Give the in-process plugin-hook contract a return-based veto (make `beforeRun`/`beforeToolCall` block).**
    - ✅ Localizes to the hook engine.
-   - ❌ Changes the semantics of every existing plugin hook (currently void/error-swallowed) — a wide, risky change
-     to a shipped contract. REJECTED for v1 (kept as a considered option).
-3. **A separate guardrail plugin package.**
+   - ❌ **Correctness, not blast radius:** plugin hooks are a best-effort fan-out **notification** channel — many
+     plugins, errors swallowed, run for observation. Giving them a return-veto conflates **observation with
+     control**: a swallowed error or a silent plugin would then decide whether a turn proceeds. Wrong semantics for
+     an enforcement decision. REJECTED.
+3. **A separate parallel guardrail runner in `agent-core` + new `agent-session` composition (the prior draft's choice).**
+   - ✅ A purpose-built parallel runner reads cleanly in isolation.
+   - ❌ Introduces a **second, independently-ordered turn-blocking mechanism** alongside `runHooks`, plus new session
+     composition to wire it in — a turn would then carry two block decisions with no defined ordering or precedence.
+     The guardrail-as-executor (1) already gets parallelism inside the executor with none of that. REJECTED.
+4. **A separate guardrail plugin package.**
    - ✅ Externalizable.
    - ❌ A plugin cannot fail-fast the turn today (plugin hooks are void/swallowed); wrong layer. REJECTED (the
      original spec's strawman).
 
 ### Decision
 
-Adopt (1): neutral guardrail **contract + parallel/fail-fast runner in `agent-core`**; **turn-blocking enforcement
-in `agent-session`** (composed with `PermissionEnforcer`/the `UserPromptSubmit`/`Stop` path); consumer
-**registration in `agent-framework`**; add tool-**output** schema validation beside the existing input validator.
-Scope excludes model-output structured validation (CORE-015 already ships it). Policies stay in the consumer.
+Adopt (1): guardrails are a registered in-process **`IHookTypeExecutor`** (`type: 'guardrail'`) in `agent-core`
+that fans out to the registered guardrail set **in parallel and fails fast**, mapping any failure onto the existing
+exit-code-2/`blocked` contract. Enforcement reuses the **single** path already in place (`runHooks` →
+`runPreToolHook` → `PermissionEnforcer`) via the already-threaded `hookTypeExecutors` — **no new session wiring, no
+second block-decision mechanism.** Consumer **registration in `agent-framework`** (register the executor + guardrail
+set). Add tool-**output** schema validation in `agent-core` tool-registry, enforced in `function-tool.ts::execute`
+beside the existing tool-input validation. Scope excludes model-output structured validation (CORE-015 already ships
+it). Policies stay in the consumer.
 
 ### Validated Recommendation
 
-- **Reachability:** the turn that must fail-fast is owned by `agent-session` (`session-run.ts`), where
-  `runPreToolHook`/`PermissionEnforcer` already block — so a guardrail run composed there is reachable and can
-  fail-fast; a core-only placement is NOT (plugin hooks void/swallowed). Verified.
+- **Reachability:** the guardrail executor rides the already-threaded `hookTypeExecutors` path (`session-run.ts` →
+  `PermissionEnforcer` → `runPreToolHook` → `runHooks`); a `blocked` result from the executor is the same denial
+  `runPreToolHook`/`PermissionEnforcer` already return, so it is reachable and fails fast with **no** new
+  composition. Verified against `hook-runner.ts` (`runHooks(..., executors?)`, `IRunHooksResult.blocked`) and the
+  session enforcement path. A core-only _plugin_-hook placement is NOT reachable (plugin hooks void/swallowed).
 - **Capability preservation:** CORE-015 model-output validation + tool-input validation are untouched and reused.
-- **Adversarial:** risk = a guardrail placed only in core silently not blocking → prevented by putting enforcement
-  in agent-session (TC-01/04 assert turn-blocking there).
+- **Adversarial:** risk = two independently-ordered turn-blocking mechanisms on one turn → prevented by reusing the
+  single `runHooks` `blocked` path; parallelism lives INSIDE the executor, never as a second turn-level tier (TC-04
+  asserts this).
 
 ### Architecture Review Checklist
 
-- [x] 영향 패키지/레이어: agent-core (contract+runner), agent-session (fail-fast enforcement), agent-framework (registration). No package/app domain policy.
-- [x] Sibling scan 완료 — mirrors the hooks/permissions three-layer split; reuses CORE-015 `schema/structured-output.ts` + tool-input `parameter-validator`; enforcement in the turn owner (agent-session), NOT core plugin hooks (void/swallowed).
-- [x] 대안 최소 2개 — 3 considered (three-layer CHOSEN; hook-return-veto REJECTED wide-contract-change; plugin REJECTED can't-fail-fast), each Pro+Con.
-- [x] 결정 근거 — fail-fast lives in agent-session; contract/mechanism in core; scope to the delta over CORE-015; independent GATE-APPROVAL re-review pending.
+- [x] 영향 패키지/레이어: agent-core hooks (guardrail executor) + agent-core tool-registry (tool-output validator) + agent-framework (registration); agent-session unchanged (existing `hookTypeExecutors` threading). No package/app domain policy.
+- [x] Sibling scan 완료 — reuses the EXISTING extensible hooks strategy (`IHookTypeExecutor`, `runHooks(..., executors?)`) and the already-threaded enforcement path; tool-output validation mirrors tool-input `parameter-validator` in the same layer (`function-tool.ts::execute`); enforcement stays on the single `runHooks`/`PermissionEnforcer` path, NOT core plugin hooks (void/swallowed).
+- [x] 대안 최소 2개 — 4 considered (guardrail-as-executor CHOSEN; plugin-hook return-veto REJECTED on correctness; separate parallel runner + session composition REJECTED second-blocking-mechanism; plugin package REJECTED can't-fail-fast), each Pro+Con.
+- [x] 결정 근거 — single enforcement path (guardrail executor → `blocked` → existing denial); parallelism inside the executor; tool-output validation in the same layer as tool-input; scope to the delta over CORE-015; independent GATE-APPROVAL re-review applied (iteration 2).
 
 ## Solution
 
-Neutral guardrail contract (input/output → pass | fail-with-reason) + a parallel/fail-fast runner in agent-core;
-enforcement composed into the turn in agent-session (fails the turn on a failing guardrail); registration API in
-agent-framework; tool-output schema validation beside the input validator. Reuse `schema/structured-output.ts`.
+Guardrails are a registered in-process `IHookTypeExecutor` (`type: 'guardrail'`) in agent-core: the executor fans
+out to the registered guardrail set in parallel and fails fast, mapping any failure onto the existing
+exit-code-2/`blocked` contract so enforcement reuses the single `runHooks` → `runPreToolHook` → `PermissionEnforcer`
+path already threaded via `hookTypeExecutors` (no new session wiring, no second block mechanism). Registration API in
+agent-framework registers the executor + guardrail set. Tool-output schema validation is enforced in agent-core
+tool-registry (`function-tool.ts::execute`, beside the tool-input validator), throwing on mismatch before the result
+returns. Reuse `schema/structured-output.ts` for typed input/output validation.
 
 ## Affected Files
 
-| File                                                                                | Change                                         |
-| ----------------------------------------------------------------------------------- | ---------------------------------------------- |
-| `packages/agent-core/src/guardrails/` (new) + `schema/` reuse                       | guardrail contract + parallel/fail-fast runner |
-| `packages/agent-session/src/{session-run,permission-enforcer,tool-hook-helpers}.ts` | compose guardrail run → fail-fast the turn     |
-| `packages/agent-framework/src/`                                                     | guardrail registration surface                 |
-| tool-output validator (beside `parameter-validator.ts`)                             | validate tool OUTPUT schemas                   |
+| File                                                                                            | Change                                                                                                                                                     |
+| ----------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/agent-core/src/hooks/executors/guardrail-executor.ts` (new) + `hooks/types.ts`        | guardrail `IHookTypeExecutor` (`type: 'guardrail'`): parallel fan-out + fail-fast → exit-code-2/`blocked` (no new runner)                                  |
+| `packages/agent-core/src/tool-registry/output-validator.ts` (new) + `function-tool.ts::execute` | validate tool OUTPUT schema right after `result = await this.fn(...)`, throw on mismatch before return (same layer as tool-input `parameter-validator.ts`) |
+| `packages/agent-framework/src/`                                                                 | register the guardrail executor + guardrail set (consumer registration)                                                                                    |
+| `packages/agent-session/src/*`                                                                  | **unchanged** — existing `hookTypeExecutors` threading carries the executor end-to-end                                                                     |
 
 ## Completion Criteria
 
-- [ ] TC-01: a failing output guardrail **fails the turn fast** at the agent-session enforcement point (unit/functional test in agent-session).
-- [ ] TC-02: multiple guardrails run in parallel; any failure fails fast (unit test on the core runner).
-- [ ] TC-03: tool-**output** schema validation rejects a malformed tool result (unit test) — model-output validation (CORE-015) is unchanged and out of scope.
-- [ ] TC-04: guardrail enforcement composes with the existing `PermissionEnforcer`/hook path without a second enforcement tier (functional test in agent-session).
+- [ ] TC-01: a failing guardrail **fails the turn fast** through the SAME `runHooks`→`runPreToolHook`→`PermissionEnforcer` `blocked`/denial path hooks already use (functional test in agent-session).
+- [ ] TC-02: the guardrail executor runs its guardrail set in parallel; any failure fails fast → exit-code-2/`blocked` (unit test on the executor, agent-core).
+- [ ] TC-03: tool-**output** schema validation rejects a malformed tool result **in agent-core tool-registry** (`function-tool.ts::execute`), surfaced as a thrown error the execution round already propagates — model-output validation (CORE-015) is unchanged and out of scope (unit test).
+- [ ] TC-04: a guardrail block flows through the **single** existing `blocked`/denial return (no second, independently-ordered enforcement tier) — parallelism stays inside the executor (functional test in agent-session).
 - [ ] TC-05: no domain guardrail policy in `packages/` (neutrality + interface-runtime guards pass).
 
 ## Test Plan
 
-| TC    | Verification                     | Type/Tool                |
-| ----- | -------------------------------- | ------------------------ |
-| TC-01 | turn fail-fast in agent-session  | vitest unit/functional   |
-| TC-02 | parallel + fail-fast runner      | vitest unit (agent-core) |
-| TC-03 | tool-output reject               | vitest unit              |
-| TC-04 | composes with PermissionEnforcer | functional test          |
-| TC-05 | neutrality                       | interface-runtime scan   |
+| TC    | Verification                                               | Type/Tool                |
+| ----- | ---------------------------------------------------------- | ------------------------ |
+| TC-01 | turn fail-fast via existing `blocked` path                 | vitest unit/functional   |
+| TC-02 | executor: parallel fan-out + fail-fast                     | vitest unit (agent-core) |
+| TC-03 | tool-output reject in `function-tool.ts::execute` (thrown) | vitest unit              |
+| TC-04 | single enforcement path (no second tier)                   | functional test          |
+| TC-05 | neutrality                                                 | interface-runtime scan   |
 
 ## Tasks
 
@@ -126,3 +151,14 @@ agent-framework; tool-output schema validation beside the input validator. Reuse
   enforcement in agent-session, registration in agent-framework); scoped to the delta over CORE-015 (guardrail
   contract/runner + tool-OUTPUT validation; TC-03 reworded); real alternatives (hook return-veto vs guardrail
   executor) with adversarial notes; agent-session + framework added to Affected Files. Re-review pending.
+- 2026-07-17 — **GATE-APPROVAL iteration 2: RE-REVIEW → REVISE, applied.** Independent re-review punch-list applied:
+  (1) added + resolved the key missing alternative — guardrail as an in-process `IHookTypeExecutor` (`type: 'guardrail'`)
+  reusing `runHooks`/`runPreToolHook`/`PermissionEnforcer` via the already-threaded `hookTypeExecutors` (now CHOSEN);
+  parallelism is preserved inside the executor, so there is no separate runner and no second turn-blocking mechanism,
+  and no new session wiring; (2) corrected the tool-**output** validation layer — moved from agent-session
+  `PermissionEnforcer` (a pre-tool permission gate) to agent-core tool-registry (`output-validator.ts` beside
+  `parameter-validator.ts`, enforced in `function-tool.ts::execute` right after `result = await this.fn(...)`, throwing
+  before return), by symmetry with tool-input validation; TC-03 names that site; (3) rewrote the plugin-hook
+  return-veto rejection on a CORRECTNESS ground (best-effort notification/observation vs control), dropping the
+  blast-radius framing; (4) TC-04 made concrete — a guardrail block flows through the single existing `blocked`/denial
+  return, not a second tier. Affected Files / Completion Criteria / Test Plan updated accordingly.
