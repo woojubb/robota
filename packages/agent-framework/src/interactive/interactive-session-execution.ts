@@ -23,8 +23,8 @@ import type { IExecutionResult, IToolSummary, IUsageSnapshot } from './types.js'
 import type { IContextReferenceItem } from '../context/context-reference-inventory.js';
 import type { IPromptFileReferenceRecord } from '../context/prompt-file-references.js';
 import type { IContextWindowState, TUniversalMessage } from '@robota-sdk/agent-core';
-import type { IHistoryEntry } from '@robota-sdk/agent-core';
-import type { IUsageSource } from '@robota-sdk/agent-interface-transport';
+import type { IHistoryEntry, ISpanCompletionEventData } from '@robota-sdk/agent-core';
+import type { IUsageSource, ISpanEntry } from '@robota-sdk/agent-interface-transport';
 
 export interface IPreparedPromptInput {
   modelInput: string;
@@ -150,6 +150,27 @@ export function createSourceUsageSummaryEntry(
     costStatus: 'unknown',
     source,
   });
+}
+
+/**
+ * SELFHOST-004 (P2, TC-07): build a per-operation span entry from the `agent-core` span-completion
+ * event (`ISpanCompletionEventData`), mirroring `createUsageSummaryEntry`. This is the ONLY place the
+ * event's joined `spanId + durationMs + op` becomes a record-side `IHistoryEntry<ISpanEntry>` — so
+ * `agent-core` surfaces raw timing while `agent-framework` (which already depends on transport) owns
+ * the record projection. No `agent-core → agent-interface-transport` edge; no `agent-plugin` edge.
+ */
+export function createSpanEntry(event: ISpanCompletionEventData): IHistoryEntry<ISpanEntry> {
+  return {
+    id: `span_${randomUUID()}`,
+    timestamp: new Date(),
+    category: 'event',
+    type: 'span',
+    data: {
+      spanId: event.spanId,
+      op: event.op,
+      durationMs: event.durationMs,
+    },
+  };
 }
 
 export async function preparePromptInput(

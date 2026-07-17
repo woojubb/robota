@@ -169,6 +169,7 @@ export type {
   IToolSummary,
   IUsageSnapshot,
   IUsageSource,
+  ISpanEntry,
   TPermissionResultValue,
   TInteractivePermissionHandler,
   IPermissionRequestEvent,

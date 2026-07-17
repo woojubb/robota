@@ -122,6 +122,22 @@ export interface IUsageSnapshot {
   source?: IUsageSource;
 }
 
+/**
+ * SELFHOST-004: a per-operation span entry recorded on the session timeline. Carried as the `data` of
+ * an `IHistoryEntry<ISpanEntry>` on `IInteractiveSessionRecord.history`. It is the record-side projection
+ * of the `agent-core` span-completion event (`ISpanCompletionEventData`): the framework builds it from
+ * the event (mirroring the usage-summary entry), so `agent-core` never depends on this transport type.
+ * Joinable to its turn via the enclosing entry's position in `history`.
+ */
+export interface ISpanEntry {
+  /** The span id (equals the source event's `spanId`; correlatable across the trace). */
+  spanId: string;
+  /** The operation name (e.g. the tool name). */
+  op: string;
+  /** Measured wall-clock duration of the operation, in milliseconds. */
+  durationMs: number;
+}
+
 /** Summary of a tool call extracted from history. */
 export interface IToolSummary {
   name: string;
