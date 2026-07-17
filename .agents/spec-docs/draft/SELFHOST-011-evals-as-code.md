@@ -323,3 +323,10 @@ dataset loader) / P4 (deferred: dedicated package iff a family; in-session `/eva
   (`createAgentRuntime`) to PRODUCE the result, which a pure record-analytics package neither has nor should take
   on. Everything else retained: placement, neutrality, the `.agents/evals` dev-harness-vs-product distinction, the
   4 correctness-grounded alternatives, and TC-05's honest manual floor + filed mechanical-scan follow-up.
+- 2026-07-17 — **GATE-APPROVAL iteration 2: ENDORSE** (independent proposal-reviewer). Both fixes verified against
+  the code: `createQuery` resolves only `result.response` (a `string`, `query.ts:34/62-67`) while
+  `createAgentRuntime().createSession()`'s `complete` event carries the full `IExecutionResult`
+  (`interactive-session-execution-controller.ts:281-283/394`) — so the corrected default `runFn` makes TC-02
+  (scores `toolSummaries`+`usage`) meetable and no longer collapses into the rejected string-only metric; the
+  `agent-session-analytics` boundary (scores a session RECORD, not a single RUN RESULT) is accurate. Placement,
+  neutrality, and the `robota eval` exit-contract mirror all intact; no regression. **GATE-APPROVAL PASSED.**

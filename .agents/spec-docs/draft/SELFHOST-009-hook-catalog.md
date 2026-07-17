@@ -325,4 +325,14 @@ Extend the existing hooks engine in three coordinated moves, all on the current 
   distinguishing the new `PermissionDecision` hook event from the existing `TPermissionDecision` permissions enum
   (`'auto'|'approve'|'deny'`, `permissions/types.ts:34`) and the internal `IRunHooksResult.permissionDecision`
   field (`'allow'|'deny'|'ask'|'defer'`, `hook-runner.ts:80`). Affected Files / Completion Criteria / Test Plan
-  updated for consistency. **GATE-APPROVAL pending** (re-review).
+  updated for consistency.
+- 2026-07-17 — **GATE-APPROVAL iteration 2: ENDORSE** (independent proposal-reviewer). All 4 fixes verified against
+  the code: `provider_request` (`execution-round-streaming.ts:69`) fires before `callProviderWithCache`/`provider.chat()`
+  → `PreModelCall` (ordering strictly holds); `provider_response_normalized` (`:108`) → `PostModelCall`; the three new
+  events are genuinely informational (`TExecutionEventCallback` returns `void`, un-awaited — cannot gate; only
+  `PreToolUse`'s `exitCode:2→blocked` gates); the drift scan resolves the variable-dispatched Subagent*/Worktree*
+  events via the event-name string literals present in the firing modules (with a red-fixture), covering all 13; the
+  `PermissionDecision`/`TPermissionDecision`/`permissionDecision` naming note is accurate. Non-blocking clarity fix
+  folded here: **`PostModelCall` is pinned to the single canonical source `provider_response_normalized`** (NOT also
+  `provider_response_raw`, which would double-fire per round); the catalog documents one fire-site and TC-03 asserts
+  single emission. Direction (extend the one engine, no new tier, mechanical drift floor) intact. **GATE-APPROVAL PASSED.**

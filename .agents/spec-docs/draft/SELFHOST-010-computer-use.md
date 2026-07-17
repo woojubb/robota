@@ -329,3 +329,13 @@ wiring) / P4 (mechanical neutrality floor).
   asserting read-only inspection works in `plan` mode. Everything else kept (placement in `computer-use/`, no
   interface package for v1, `FakeComputerDriver` + zero-dep `PageComputerDriver`, no-host-fallback omission, takeover
   halt-for-user + perception pause, TC-06 manual floor + filed mechanical follow-up).
+- 2026-07-17 — **GATE-APPROVAL iteration 2: ENDORSE** (independent proposal-reviewer). The perceive/act split is
+  applied consistently and every load-bearing premise verified: the `Read`(auto-in-all-modes) and
+  `Shell`(deny/approve/approve/auto) `MODE_POLICY` rows the two tools mirror are exact; `acceptEdits`=`approve` for
+  `Computer` is sound (a GUI mutation is not a file edit, and `Shell` is likewise `approve` there); the allow-list
+  genuinely does NOT match `Computer(screenshot)` today (`primaryArg` `default`→`undefined`), correctly noted as a
+  one-line change since P4 was dropped; the no-host-fallback divergence from `sandboxClient` is explicit, not a
+  literal mirror; the security floor is preserved (every mutating action `approve`/`deny`, only `bypassPermissions`
+  auto-runs; auto-perception mirrors `Read` and cannot mutate). TC-02/07/08 route through the existing
+  `evaluatePermission`→`PermissionEnforcer` path — no second gate. Placement unchanged (mirrors the sandbox port).
+  **GATE-APPROVAL PASSED.**
