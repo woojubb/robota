@@ -51,6 +51,17 @@ start from an inconsistent baseline.
 - Conventional commit format: `<type>(<scope>): <message>` (max 72 chars).
 - Valid types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`, `perf`.
 
+### Commit Cadence
+
+Commit at appropriate logical boundaries **as work progresses** — one commit per logical step (e.g.
+contract/types → adapter/mechanism → wiring/assembly → tests → docs/evidence), each left green
+(build/typecheck), then open one coherent PR (DX-001). **Never batch a whole slice into a single
+end-of-work commit, and never defer committing until the context is nearly exhausted** — committed
+progress is safe across a compaction, whereas a large uncommitted working tree is not, and deferring
+reads as stalling. Avoid the opposite failure too: do not fragment into many trivial commits. The
+context window filling is **not** a reason to stop implementing or to switch to planning-only; keep
+implementing and keep committing. (Owner feedback, 2026-07-17, validated on SELFHOST-003 P1.)
+
 ### `--delete-branch` is Prohibited in `gh pr merge`
 
 **Never pass `--delete-branch` to `gh pr merge`. Zero exceptions.**
