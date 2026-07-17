@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: DATA
 tags: [rag, codebase-index, retrieval, agent-tools, selfhost]
 ---
@@ -133,8 +133,9 @@ incremental re-index on file change. P4 = embedding-vector backend (may revise t
 
 ## Tasks
 
-`.agents/tasks/SELFHOST-003*.md` — 미생성 (GATE-APPROVAL 통과 후 생성). Epic P1 (contract+tool+repo-map adapter) /
-P2 (index+persistence) / P3 (incremental) / P4 (vector backend).
+[`.agents/tasks/SELFHOST-003.md`](../../tasks/SELFHOST-003.md) — created at GATE-IMPLEMENT. Epic P1 (contract + tool +
+repo-map adapter, this slice) / P2 (index+persistence) / P3 (incremental) / P4 (vector backend). ENDORSE non-blocking
+follow-up filed: [`.agents/backlog/HARNESS-027-agent-tools-neutrality-floor.md`](../../backlog/HARNESS-027-agent-tools-neutrality-floor.md).
 
 ## Evidence Log
 
