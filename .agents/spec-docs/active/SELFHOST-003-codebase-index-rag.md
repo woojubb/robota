@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: DATA
 tags: [rag, codebase-index, retrieval, agent-tools, selfhost]
 ---
@@ -133,8 +133,9 @@ incremental re-index on file change. P4 = embedding-vector backend (may revise t
 
 ## Tasks
 
-`.agents/tasks/SELFHOST-003*.md` — 미생성 (GATE-APPROVAL 통과 후 생성). Epic P1 (contract+tool+repo-map adapter) /
-P2 (index+persistence) / P3 (incremental) / P4 (vector backend).
+[`.agents/tasks/SELFHOST-003.md`](../../tasks/SELFHOST-003.md) — created at GATE-IMPLEMENT. Epic P1 (contract + tool +
+repo-map adapter, this slice) / P2 (index+persistence) / P3 (incremental) / P4 (vector backend). ENDORSE non-blocking
+follow-up filed: [`.agents/backlog/HARNESS-027-agent-tools-neutrality-floor.md`](../../backlog/HARNESS-027-agent-tools-neutrality-floor.md).
 
 ## Evidence Log
 
@@ -169,3 +170,19 @@ P2 (index+persistence) / P3 (incremental) / P4 (vector backend).
   `agent-tools` third-party deps (follow-up correctly filed); tag/type housekeeping consistent. Placement + dependency
   direction + capability-preservation all clean; no new defect. **GATE-APPROVAL PASSED.** (Non-blocking: file the
   `agent-tools` neutrality-floor follow-up as a tracked backlog item at task-authoring time.)
+- 2026-07-18 — **GATE-IMPLEMENT: P1 implemented** (moved todo/ → active/, status in-progress; task file created,
+  split P1/P2/P3/P4; ENDORSE follow-up filed as `HARNESS-027`). Shipped, mirroring the sandbox port precedent:
+  retrieval port + contract types (`IRetrievalAdapter` + request/ranked-result/token-budget + the duck-typed
+  `IRetrievalSourceParser`) in `agent-tools/src/retrieval/types.ts`; the neutral **`RepoMapRetrievalAdapter`**
+  (graph-centrality ranking, personalized by active files, mention-boosted, token-budget-truncated) with the source
+  parser injected + corpus supplied at construction (no repo paths in the package); `createRetrievalTool({ adapter })`
+  (the `CodebaseRetrieval` tool), threaded through the assembly like `sandboxClient`
+  (`ICreateDefaultToolsOptions`/`ICreateSessionOptions` gain `retrievalAdapter?`) and **adapter-gated** in
+  `createDefaultTools` (absent with no adapter). TC-01..TC-05 satisfied: TC-01/02/05 in
+  `agent-tools/src/retrieval/__tests__/repo-map-adapter.test.ts` (budget truncation; centrality + active-file
+  personalization; fake-adapter swap + adapter-gated unavailability), TC-03 in
+  `agent-framework/src/assembly/__tests__/create-tools.test.ts` (tool present iff adapter), TC-04 by grep (no corpus
+  in the package; mechanical floor tracked as `HARNESS-027`). Verified: build + typecheck + tests (agent-tools
+  152/152, agent-framework 1131/1131) + lint (0 errors) + `pnpm harness:scan` (all 54 pass, incl. spec-public-surface
+  with the two runtime exports allowlisted like their sandbox siblings). **P2** (index+persistence) / **P3**
+  (incremental re-index) / **P4** (vector backend) remain.

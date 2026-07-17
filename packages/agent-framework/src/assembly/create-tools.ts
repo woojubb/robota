@@ -9,6 +9,7 @@ import {
   createReadTool,
   createWriteTool,
   createEditTool,
+  createRetrievalTool,
   globTool,
   grepTool,
   webFetchTool,
@@ -16,7 +17,7 @@ import {
 } from '@robota-sdk/agent-tools';
 
 import type { IToolWithEventService } from '@robota-sdk/agent-core';
-import type { ISandboxClient } from '@robota-sdk/agent-tools';
+import type { ISandboxClient, IRetrievalAdapter } from '@robota-sdk/agent-tools';
 
 /** Human-readable descriptions of the built-in tools (for system prompt) */
 export const DEFAULT_TOOL_DESCRIPTIONS = [
@@ -39,6 +40,8 @@ export const DEFAULT_TOOL_DESCRIPTIONS = [
 export interface ICreateDefaultToolsOptions {
   sandboxClient?: ISandboxClient;
   cwd?: string;
+  /** SELFHOST-003: when present, adds the adapter-gated `CodebaseRetrieval` tool (absent otherwise). */
+  retrievalAdapter?: IRetrievalAdapter;
 }
 
 export function createDefaultTools(
@@ -55,5 +58,9 @@ export function createDefaultTools(
     webFetchTool as IToolWithEventService,
     webSearchTool as IToolWithEventService,
     createAskUserQuestionTool() as IToolWithEventService,
+    // Retrieval is adapter-gated: absent when no adapter is supplied (there is no host fallback).
+    ...(options.retrievalAdapter
+      ? [createRetrievalTool({ adapter: options.retrievalAdapter }) as IToolWithEventService]
+      : []),
   ];
 }
