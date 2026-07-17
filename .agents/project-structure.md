@@ -83,6 +83,13 @@ consumer for any payload/application domain:
 When a use case seems to need a domain feature in a library, the answer is: verify the neutral
 ingredients exist, then show the assembly in `examples/` or a guide.
 
+**Why this is the north-star, not just hygiene.** [`VISION.md`](../VISION.md) targets a _general_
+development agent (one capable enough to build even Robota); "Robota builds Robota" is a **validation
+benchmark**, never a licence to couple `packages/` to the Robota domain. Robota-specific content in a
+library makes the agent LESS general, i.e. moves it away from the goal. So neutrality here is the goal
+restated — a self-hosting / "build Robota" motivation must still land as a neutral mechanism usable on
+any project, with the Robota-specific assembly (if any) staying in `agent-cli` / `apps/`.
+
 ## Forward-Provisioned Surface Rule
 
 A public surface in `packages/` with zero in-repo consumers is **not dead code**. Libraries and

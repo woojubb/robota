@@ -1,8 +1,22 @@
 # Vision — Robota builds Robota
 
-**The ultimate goal: use Robota to build Robota.** The `robota` CLI and the Robota desktop app
-develop the Robota repository itself — Robota codes Robota — so the product improves itself in a loop.
-로보타 CLI/앱으로 로보타 레포의 로보타를 개발한다: 로보타로 로보타를 만든다.
+**The ultimate goal: make `robota` a general development agent so capable that it can build even Robota
+itself.** The target is a **sophisticated, general-purpose agent** — one that can develop _any_ demanding
+software project. "Robota builds Robota" is the **validation benchmark** for that general capability (the
+hardest possible dogfood), **not** the purpose.
+로보타로 로보타를 만든다 = 로보타를 만들 수 있을 만큼 정교한 **범용** 에이전트가 된다는 것. 로보타 제작은 그 범용 능력의
+**검증**이다.
+
+> ### What this does NOT mean (read this first)
+>
+> This is **NOT** a directive to build a Robota-specific or Robota-only tool, and **NOT** a license to
+> bake Robota-development assumptions into the product. The agent's capabilities must stay **general and
+> neutral** — usable to build any project — because that generality is exactly what "capable enough to
+> build Robota" is measuring. Robota is chosen only because it is the **hardest dogfood** (a strict-TS
+> monorepo under a rigorous harness); succeeding on it proves _general_ capability. Making `robota`
+> dedicated to developing Robota would be **failing** the north-star, not reaching it.
+> 로보타 **전용** 도구를 만드는 게 아니다. 역량은 어떤 프로젝트든 만들 수 있는 **범용·중립**이어야 하며(그 범용성이 곧
+> 검증 대상), 로보타는 가장 어려운 dogfood라서 골랐을 뿐이다. 로보타-전용화는 북극성 **달성이 아니라 실패**다.
 
 ## The flywheel
 
@@ -55,6 +69,13 @@ Every capability enters at its correct layer of the Robota architecture
 library neutrality (`packages/` stay domain-free; product opinions live in `agent-cli` / `apps/agent-app`),
 and is validated by Robota developing Robota. Reaching the goal by hacking a shortcut onto a surface is
 not reaching the goal.
+
+**Library neutrality is not a side rule here — it is the goal restated.** Because the target is a _general_
+agent (see "What this does NOT mean"), every capability must be a neutral mechanism usable on any project;
+Robota-specific content in `packages/` would make the agent less general, i.e. move it away from the
+north-star. Enforced by the library-neutrality rule (TRANS-001, [project-structure.md](.agents/project-structure.md))
+and the neutrality scans (e.g. `orchestration-neutrality`). "Self-hosting" is a benchmark, never a licence to
+couple the product to the Robota domain.
 
 ---
 
