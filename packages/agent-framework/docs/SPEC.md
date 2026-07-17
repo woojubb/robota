@@ -26,6 +26,7 @@ This package does NOT own: provider implementations, generic session run loop, t
 - Self-hosting verification: `planSelfHostingVerification()`, `transitionSelfHostingLoop()`
 - Background job orchestration: `BackgroundJobOrchestrator`, execution workspace projections
 - Subagent assembly: `createSubagentSession()`, `createInProcessSubagentRunner()`, `createDefaultTools()`
+- Multi-agent orchestration mechanism (SELFHOST-001): `runSequential()` — IMPLEMENTS the neutral orchestration contracts agent-core OWNS (`src/orchestration/`), composing over `agent-executor`'s `ISubagentManager`/`ISubagentRunner` port. The framework never depends on `agent-subagent-runner` (would be a cycle); the concrete runner is injected at the `agent-cli` composition root. P1 ships `sequential`; `parallel`/`handoff` (P2) and `hierarchical`/`group-chat` (P3) follow.
 - Bundle plugin management: `BundlePluginLoader`, `BundlePluginInstaller`, `MarketplaceClient`, `PluginSettingsStore`
 - Agent tool: `createAgentTool()`, `storeAgentToolDeps()`, `retrieveAgentToolDeps()`
 - Hook executors: `PromptExecutor`, `AgentExecutor`
@@ -199,6 +200,7 @@ Core classes and functions exported from `@robota-sdk/agent-framework`:
 | `createLineDetailPage`                      | function | Build a cursor-based detail page for a task log                                                                                                                                |
 | `createMainThreadDetailPage`                | function | Build a detail page for the main thread transcript                                                                                                                             |
 | `createInProcessSubagentRunner`             | function | Default in-process subagent runner adapter                                                                                                                                     |
+| `runSequential`                             | function | SELFHOST-001 — run a `sequential` orchestration over `agent-executor`'s `ISubagentManager`/`ISubagentRunner` port; emits neutral lifecycle events over the event-service       |
 | `PromptExecutor`                            | class    | Hook executor: injects a prompt into session context                                                                                                                           |
 | `AgentExecutor`                             | class    | Hook executor: creates a nested agent session for hook input                                                                                                                   |
 | `promptForApproval`                         | function | Terminal permission approval prompt                                                                                                                                            |

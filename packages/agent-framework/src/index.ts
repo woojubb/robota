@@ -452,6 +452,10 @@ export type {
   TSubagentRunnerFactory,
 } from './subagents/index.js';
 
+// ── Multi-agent orchestration mechanism (SELFHOST-001) ──────
+export { runSequential } from './orchestration/index.js';
+export type { ISequentialOrchestratorDeps, ISequentialRunContext } from './orchestration/index.js';
+
 // ── Hook executors ──────────────────────────────────────────
 export { PromptExecutor, AgentExecutor } from './hooks/index.js';
 export type { TProviderFactory, IPromptProvider, IPromptExecutorOptions } from './hooks/index.js';

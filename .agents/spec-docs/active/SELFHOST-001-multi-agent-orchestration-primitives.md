@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: BEHAVIOR
 tags: [orchestration, multi-agent, agent-core, agent-framework, selfhost]
 ---
@@ -188,3 +188,10 @@ SPEC amendment), P2 (parallel + handoff), P3 (hierarchical + group-chat).
   `InteractionEvent` analog; the false-green interface-runtime scan; the SPEC amendment target). Highest-stakes call
   (new-surface placement) correct on principle with a pinned, mechanical extraction trigger. Also cleaned the two
   stale "mirrors AbstractAIProvider" phrasings the reviewer flagged as document hygiene. **GATE-APPROVAL PASSED.**
+- 2026-07-17 — **GATE-IMPLEMENT: P1 implemented** (moved todo/ → active/, status in-progress). Shipped the neutral
+  contracts + event-type unions in `agent-core/src/orchestration/`, the `sequential` mechanism in
+  `agent-framework/src/orchestration/sequential.ts` composing over `agent-executor`'s `ISubagentManager`/
+  `ISubagentRunner` port, the standing `orchestration-neutrality` scan, and the agent-core/agent-framework SPEC
+  amendments. TC-01..TC-06 satisfied and verified locally: build + typecheck + 5/5 tests + lint (0 errors) +
+  `pnpm harness:scan` (all 54 scans pass). Tasks: [`.agents/tasks/SELFHOST-001.md`](../../tasks/SELFHOST-001.md).
+  P2 (`parallel`/`handoff`) and P3 (`hierarchical`/`group-chat`) remain.

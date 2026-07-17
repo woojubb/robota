@@ -207,6 +207,15 @@ their own price tables. Prices are USD per 1,000,000 tokens.
 | `normalizeProviderConfig`               | function       | Resolve loose provider settings into a full `IProviderDefinitionConfig` (default model from `defaults.model`, `$ENV:` apiKey resolution)                                                                                                                |
 | `createProviderFromConfig`              | function       | Construct an `IAIProvider` from a resolved config against the injected registry, enforcing the credential requirement                                                                                                                                   |
 
+### Orchestration Public API (SELFHOST-001)
+
+Neutral multi-agent orchestration runtime exports (the contracts/event-type unions are type-only; see `src/orchestration/`). agent-core OWNS these; the `agent-framework` layer IMPLEMENTS the mechanism.
+
+| Export                       | Kind  | Description                                                                                                  |
+| ---------------------------- | ----- | ------------------------------------------------------------------------------------------------------------ |
+| `ORCHESTRATION_EVENTS`       | const | Neutral orchestration lifecycle event names (`started`/`step_started`/`step_completed`/`completed`/`failed`) |
+| `ORCHESTRATION_EVENT_PREFIX` | const | Event-name prefix (`orchestration`) for the neutral orchestration lifecycle events                           |
+
 ### Schema (CORE-015)
 
 | Export                                                                                                    | Kind     | Description                                                                                                               |
@@ -1118,4 +1127,14 @@ cassettePath, recordCwd? })` wraps a real provider and writes each interaction t
 - The session layer consumes `Robota`, `runHooks`, `evaluatePermission`, `TUniversalMessage`
 - The tools layer consumes `AbstractTool`, `IFunctionTool`, `IToolWithEventService`
 - External plugin packages extend `AbstractPlugin`
-- The multi-agent/orchestration layer consumes `Robota`, `IAgentConfig`, event services
+- **agent-core OWNS the neutral multi-agent orchestration contracts + event-type unions**
+  (`src/orchestration/` — `TOrchestrationPrimitive`, `IOrchestrationStep`,
+  `ISequentialOrchestrationSpec`, `IOrchestrationRunResult`, `IOrchestrationEventData`,
+  `ORCHESTRATION_EVENTS`); **the `agent-framework` layer IMPLEMENTS them** as the mechanism
+  over `agent-executor`'s `ISubagentRunner` port (SELFHOST-001). These are pure contracts (no
+  runtime, no class) and carry no app-domain identity (neutrality enforced by the standing
+  `orchestration-neutrality` harness scan). The multi-agent layer still consumes `Robota`,
+  `IAgentConfig`, and the event services for the single-agent runs the primitives compose.
+  Extraction trigger (B3): when a second implementer family lands (a dag-\* adapter), both these
+  contracts and the event unions move to a new `agent-interface-orchestration` package
+  (deps ⊆ {agent-core}).
