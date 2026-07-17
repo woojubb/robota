@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: OBSERVABILITY
 tags: [tracing, cost, budget, agent-plugin, agent-interface-transport, tui, gui, selfhost]
 ---
@@ -218,7 +218,9 @@ mirroring `SessionMonitor`, the timeline reaching the GUI over the new `TServerM
 
 ## Tasks
 
-`.agents/tasks/SELFHOST-004.md` — 미생성 (GATE-APPROVAL 통과 후 생성).
+[`.agents/tasks/SELFHOST-004.md`](../../tasks/SELFHOST-004.md) — created at GATE-IMPLEMENT. Split into named work
+units: P1 (turn-granular cost foundation, TC-06, this slice) / P2 (span timing, TC-07) / P3 (read-model, TC-01/03) /
+P4 (per-run budget cap, TC-02/04) / P5 (TServerMessage carrier + TUI/GUI view, TC-05/08).
 
 ## Evidence Log
 
