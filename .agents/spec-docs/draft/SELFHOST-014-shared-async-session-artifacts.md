@@ -255,14 +255,6 @@ channel — no new transport, pairing, or wire protocol.
 - [ ] TC-04: **a shared artifact resumes on a second surface** — export from surface A's store, import into a
       **distinct** surface B's store (different `baseDir`), and resume there; the resumed session's messages/history/goal
       match the source with both stores independent (functional test).
-- [ ] TC-08: **a REDACTED share artifact still resumes on surface B (import-side rebinding of stripped required
-      fields).** Because `redact` may strip the **required** `cwd` field (and other surface-bound fields), the export →
-      hand-off → import → resume-on-B path must not silently fail: the **import/app layer on surface B rebinds the
-      stripped required fields (supplies B's own `cwd`)** before invoking the existing resume path. Assign this
-      rebinding responsibility to the app/import layer (the strip decision is app-owned per TC-07; the rebind is its
-      symmetric counterpart — the library envelope neither strips nor rebinds field policy). Functional test:
-      `redact(strip cwd) → import on B → rebind B's cwd → resume` succeeds and messages/history/goal match (the
-      redaction seam and the resume contract are proven end-to-end, closing the seam TC-07 opened).
 - [ ] TC-05: **neutrality — sharing policy is NOT in `packages/` (mechanized grep floor)** — a `pnpm harness:scan`
       grep floor over `session-artifact.ts` asserts the envelope module contains no link/cloud/upload/access-control or
       redaction-**policy** tokens (it is pure serialize/deserialize + schema version + the app-supplied `redact` seam).
@@ -277,6 +269,14 @@ channel — no new transport, pairing, or wire protocol.
       secret-scrub produces an artifact whose deserialized record has those fields absent/redacted (named secret keys →
       `[REDACTED]`), while the same record serialized WITHOUT `redact` retains them (TC-01). Proves the seam is opt-in
       and the share path is redactable without any library-side field policy (unit test).
+- [ ] TC-08: **a REDACTED share artifact still resumes on surface B (import-side rebinding of stripped required
+      fields).** Because `redact` may strip the **required** `cwd` field (and other surface-bound fields), the export →
+      hand-off → import → resume-on-B path must not silently fail: the **import/app layer on surface B rebinds the
+      stripped required fields (supplies B's own `cwd`)** before invoking the existing resume path. Assign this
+      rebinding responsibility to the app/import layer (the strip decision is app-owned per TC-07; the rebind is its
+      symmetric counterpart — the library envelope neither strips nor rebinds field policy). Functional test:
+      `redact(strip cwd) → import on B → rebind B's cwd → resume` succeeds and messages/history/goal match (the
+      redaction seam and the resume contract are proven end-to-end, closing the seam TC-07 opened).
 
 ## Test Plan
 
@@ -344,4 +344,12 @@ session-artifact.ts`** (SRP: record-transport vs file-backed `session-store.ts`)
   `redact` may strip the REQUIRED `cwd`, so a redacted artifact would fail to resume unless the import/app layer on
   surface B rebinds it (supplies B's own `cwd`); added TC-08 (`redact → import → rebind cwd on B → resume`) and
   assigned the rebind responsibility to the app/import layer (symmetric counterpart of the app-owned strip decision;
-  the library envelope neither strips nor rebinds field policy). Direction unchanged. Iteration-3 re-review pending.
+  the library envelope neither strips nor rebinds field policy). Direction unchanged.
+- 2026-07-17 — **iteration 3: RE-REVIEW → ENDORSE** (independent proposal-reviewer). Both seams verified closed
+  against the code: the scrub is genuinely private/un-exported today (`SENSITIVE_KEY_PATTERN` `session-logger.ts:35`,
+  `normalizeLogValue` `:103`; the barrel exports only `FileSessionLogger`/`SilentSessionLogger`), so the EXTRACT +
+  REFACTOR-to-consume is required, not a no-op; `cwd: string` is a REQUIRED field (`session-store.ts:29`,
+  `session-contracts.ts:380/412`), so redact-strips-required + app-rebind (TC-08) is a real, cleanly-assigned seam
+  (library owns no field policy). Round-trip fidelity floor (TC-01), mechanical guards (TC-05 grep / TC-06 deps),
+  sibling `session-artifact.ts` placement, and complements-REMOTE-001 all intact; no new defect. Reordered TC-08 to
+  numeric order (the reviewer's only, cosmetic, nit). **GATE-APPROVAL PASSED.**

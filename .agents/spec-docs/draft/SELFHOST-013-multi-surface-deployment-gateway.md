@@ -325,4 +325,14 @@ test + deploy guide + runnable example.
   tui/ws/webrtc; factory object-literal for http/mcp, which are `ITransportAdapter` without `defaultEnabled`, mounted
   outside `startAll`'s fan-out); (3) the matrix now separates a **Transport `name`** column from a
   **Client / presentation** column (`-gui`/`-webrtc-web`/print moved there), so TC-02's "no phantom rows" is
-  well-defined against the transport-`name` set only. Iteration-3 re-review pending.
+  well-defined against the transport-`name` set only.
+- 2026-07-17 — **iteration 3: RE-REVIEW → ENDORSE** (independent proposal-reviewer). Every premise verified against
+  the code: `agent-transport-gui` and `agent-transport-webrtc-web` export NO `ITransportAdapter`/transport `name`
+  (correctly Client/presentation, not the name floor); `tui`/`ws`/`webrtc` declare `readonly name` on an
+  `IConfigurableTransport` class (`defaultEnabled` present); `http`/`mcp` expose `name` via a factory object-literal
+  as plain `ITransportAdapter` (no `defaultEnabled`, mounted outside `startAll`'s fan-out) — so the enumerable source
+  is correctly the SEMANTIC discriminator (implements the port with a `name` = `{tui,ws,webrtc,http,mcp}`), not a
+  string-prefix glob; the matrix's Transport-`name` column union equals that set (no undocumented/phantom); TC-01
+  (reference identity at `startAll`), TC-03 (`deps` scan), and TC-04 (example) remain genuine floors. Direction
+  intact. **GATE-APPROVAL PASSED.** (Non-blocking: `ws` also has a factory form in addition to its class form — the
+  enumerable set is identical either way; the both-forms scan or the manifest covers it.)
