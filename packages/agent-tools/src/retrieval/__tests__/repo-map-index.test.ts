@@ -3,6 +3,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { RepoMapRetrievalAdapter } from '../repo-map-adapter.js';
 import {
   buildRepoMapIndex,
+  updateRepoMapIndex,
   serializeRepoMapIndex,
   deserializeRepoMapIndex,
   REPO_MAP_INDEX_VERSION,
@@ -97,5 +98,65 @@ describe('SELFHOST-003 P2 — repo-map index build + persistence', () => {
 
   it('throws when constructed with neither an index nor a parser+corpus', () => {
     expect(() => new RepoMapRetrievalAdapter({})).toThrow(/requires either/);
+  });
+});
+
+describe('SELFHOST-003 P3 — incremental re-index (updateRepoMapIndex)', () => {
+  // b.ts modified: `bar` now also references `foo`.
+  const MODIFIED: Record<string, IRetrievalParsedFile> = {
+    ...PARSED,
+    'b.ts': {
+      definitions: [{ file: 'b.ts', name: 'bar', kind: 'function', line: 1 }],
+      references: ['foo'],
+    },
+  };
+
+  it('re-parses ONLY the changed files and matches a full rebuild', async () => {
+    const initial = buildRepoMapIndex({ parser: fakeParser(PARSED), corpus: CORPUS });
+    const parse = vi.fn(fakeParser(MODIFIED).parse);
+
+    const updated = updateRepoMapIndex(
+      initial,
+      { upserted: [{ path: 'b.ts', content: '' }] },
+      { parse },
+    );
+    expect(parse).toHaveBeenCalledTimes(1); // only b.ts, not the whole corpus
+
+    const rebuilt = buildRepoMapIndex({ parser: fakeParser(MODIFIED), corpus: CORPUS });
+    const req = { activeFiles: ['a.ts'], tokenBudget: 1000 };
+    expect(await new RepoMapRetrievalAdapter({ index: updated }).retrieve(req)).toEqual(
+      await new RepoMapRetrievalAdapter({ index: rebuilt }).retrieve(req),
+    );
+  });
+
+  it('drops removed paths and adds new files', () => {
+    const initial = buildRepoMapIndex({ parser: fakeParser(PARSED), corpus: CORPUS });
+    const parse = vi.fn(fakeParser({ 'd.ts': { definitions: [], references: [] } }).parse);
+
+    const updated = updateRepoMapIndex(
+      initial,
+      { removed: ['b.ts'], upserted: [{ path: 'd.ts', content: '' }] },
+      { parse },
+    );
+    const paths = updated.entries.map((e) => e.path).sort();
+    expect(paths).toEqual(['a.ts', 'c.ts', 'd.ts']); // b.ts dropped, d.ts added
+    expect(parse).toHaveBeenCalledTimes(1); // only the upserted d.ts
+  });
+
+  it('does not mutate the input index', () => {
+    const initial = buildRepoMapIndex({ parser: fakeParser(PARSED), corpus: CORPUS });
+    const before = JSON.stringify(initial);
+    updateRepoMapIndex(initial, { removed: ['b.ts'] }, fakeParser(PARSED));
+    expect(JSON.stringify(initial)).toBe(before);
+  });
+
+  it('upsert wins when a path is both removed and upserted', () => {
+    const initial = buildRepoMapIndex({ parser: fakeParser(PARSED), corpus: CORPUS });
+    const updated = updateRepoMapIndex(
+      initial,
+      { removed: ['b.ts'], upserted: [{ path: 'b.ts', content: '' }] },
+      fakeParser(MODIFIED),
+    );
+    expect(updated.entries.find((e) => e.path === 'b.ts')?.references).toEqual(['foo']);
   });
 });
