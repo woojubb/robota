@@ -95,7 +95,7 @@ Adopt (1): reuse `plan` permission mode as the mutation gate; add the plan/todo-
 - [x] 영향 패키지/레이어: reuse agent-core `plan` mode; contract in agent-interface-transport; controller in agent-framework; `/plan` in cli/app.
 - [x] Sibling scan 완료 — reuses `plan` permission mode + `GoalController` analog + `IGoalState`/event-contracts home; NO new permission gate (single enforcement point preserved).
 - [x] 대안 최소 2개 — 3 considered (reuse-plan-mode CHOSEN; new-core-gate REJECTED SSOT; cli-only REJECTED skinning), each Pro+Con.
-- [x] 결정 근거 — reuse existing gate (no second enforcement path) + contract in interface package + mirror GoalController; independent GATE-APPROVAL re-review pending.
+- [x] 결정 근거 — reuse existing gate (no second enforcement path) + contract in interface package + mirror GoalController; GATE-APPROVAL PASSED (ENDORSE).
 
 ## Solution
 

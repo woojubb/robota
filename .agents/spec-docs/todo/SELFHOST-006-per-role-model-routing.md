@@ -92,7 +92,7 @@ the `resolveModelId` resolution analog); the main-loop per-turn role signal is P
 - [x] 영향 패키지/레이어: agent-core (type-only opaque-key mapping, beside its model/provider contracts as SSOT), agent-framework (routing policy over DIP), agent-provider-defaults (concrete role set). v1 = subagent path.
 - [x] Sibling scan 완료 — rides the existing provider DIP; mirrors the subagent opaque model-alias resolution (`resolveModelId` → `MODEL_SHORTCUTS[x] ?? x`); no per-provider coupling; concrete role set at the default/product layer (not the neutral contract).
 - [x] 대안 최소 2개 — 3 considered (opaque-key+framework-policy CHOSEN; fixed-enum/union REJECTED on neutrality — interface-runtime scan only a secondary guard covering agent-interface-\*, not agent-core; per-provider REJECTED duplication), each Pro+Con.
-- [x] 결정 근거 — opaque key (no enum) mirrors the subagent analog; v1 scoped to the reachable subagent path; budget deferred; independent GATE-APPROVAL re-review pending.
+- [x] 결정 근거 — opaque key (no enum) mirrors the subagent analog; v1 scoped to the reachable subagent path; budget deferred; GATE-APPROVAL PASSED (ENDORSE).
 
 ## Solution
 

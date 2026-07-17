@@ -92,7 +92,7 @@ Adopt (1): the retrieval port+types live IN `agent-tools` (mirroring `ISandboxCl
 - [x] 영향 패키지/레이어: agent-tools (port+types+tool + neutral repo-map ranking adapter, mirror sandbox), assembly threads the adapter, concrete source parser + corpus supplied by agent-cli/apps/agent-app. NO new interface package for v1 (extract at P4 iff a family).
 - [x] Sibling scan 완료 — mirrors the **sandbox port precedent**: port+types + `createRetrievalTool({adapter})` + the neutral ranking adapter live IN `agent-tools` (like `ISandboxClient` + `createReadTool` + `InMemorySandboxClient`), adapter threaded through assembly like `sandboxClient`; NO new interface package for v1 (extract at P4 iff a family). Independent architecture-placement validation recorded in the Evidence Log.
 - [x] 대안 최소 2개 — 3 considered (one-backend+interface-contract CHOSEN; unify-both REJECTED capability, baked-vector REJECTED neutrality), each Pro+Con.
-- [x] 결정 근거 — capability-preservation forces one backend for v1; interface-package placement per rule; independent GATE-APPROVAL re-review pending.
+- [x] 결정 근거 — capability-preservation forces one backend for v1; interface-package placement per rule; GATE-APPROVAL PASSED (ENDORSE).
 
 ## Solution
 

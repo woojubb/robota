@@ -27,7 +27,7 @@ session-record history / `InteractionEvent` stream + usage snapshots the transpo
 **timing** is the one datum not yet on any reachable path: it lives ONLY in `ExecutionAnalyticsPlugin`'s in-memory
 `executionHistory` (`getExecutionData()`), which **no production package holds** — plugins load as opaque hook
 bundles via `BundlePluginLoader` (nobody retains a typed `ExecutionAnalyticsPlugin` reference), and `agent-plugin`
-is imported by NO package (`agent-system.md:79`). Worse, the GUI consumer (`apps/agent-app`) is a thin Electron
+is imported by NO package (`.agents/specs/architecture-map/agent-system.md:79`). Worse, the GUI consumer (`apps/agent-app`) is a thin Electron
 renderer talking to a `robota --serve` **sidecar process** over a loopback WS `TServerMessage` stream — any plugin
 memory lives in the sidecar, unreachable from the renderer except over that transport contract. So the timeline
 cannot be assembled "at the consumer." Per-operation timing is genuinely measured in **`agent-core`**: `function-tool.ts`
@@ -129,7 +129,7 @@ op name`** (today `executionTime` is returned in metadata but never `emit()`ed, 
    - ✅ Would touch no contract.
    - ❌ **Non-viable — REJECTED.** No production package holds a typed `ExecutionAnalyticsPlugin` (plugins load as
      opaque hook bundles via `BundlePluginLoader`; `agent-plugin` is imported by NO package). Reading
-     `getExecutionData()` would require an `agent-cli → agent-plugin` edge barred by `agent-system.md:79`; and for
+     `getExecutionData()` would require an `agent-cli → agent-plugin` edge barred by `.agents/specs/architecture-map/agent-system.md:79`; and for
      the GUI the consumer is a separate Electron renderer whose sidecar holds any plugin memory, unreachable except
      over the transport contract — which is exactly alternative (1). "Smaller" here means "inert."
 3. **Put the budget cap (halt) in `agent-session-analytics`.**
@@ -164,7 +164,7 @@ timing, not the source. `dag-cost` is out of scope (DAG-subsystem metadata). Cos
 - [x] 영향 패키지/레이어: agent-core (per-op timing SOURCE — function-tool `executionTime` + event-service span-completion event joining spanId+durationMs+op; surfaces raw timing only, NO transport/plugin edge), agent-interface-transport (`costUsd?` on IUsageSnapshot + `ISpanEntry` payload type), agent-framework (builds `IHistoryEntry<ISpanEntry>` mirroring createUsageSummaryEntry + turn-granular `costUsd`; no agent-plugin edge), agent-transport-protocol (new `TServerMessage` carrier), agent-session-analytics (read-model: timeline + cost-by-source, in-deps), agent-plugin `limits` (cap enforcement), transport-tui/-gui (view).
 - [x] Sibling scan 완료 — reuses `summarizeUsageBySource` (ANALYTICS-001) + `LimitsPlugin` (existing `maxCost`) + `SessionMonitor` view + `function-tool.ts` per-tool `executionTime` + event-service `span_…` ids + `createUsageSummaryEntry` construction analog; NO new tracing pipeline; enforcement stays in a runtime plugin (analytics reducer cannot halt); NO `agent-plugin` edge into core/framework/reducer/cli, NO `agent-core → agent-interface-transport` edge; `dag-cost` excluded.
 - [x] 대안 최소 2개 — 4 considered (timing-from-core-seam-event + framework-builds-entry + limits-enforcement CHOSEN; consumer-held-plugin REJECTED non-viable/no package holds the instance; cap-in-analytics REJECTED can't-halt/SSOT; new-pipeline REJECTED duplication), each Pro+Con.
-- [x] 결정 근거 — per-op timing sourced where measured (agent-core), but agent-core only SURFACES it (no cycle); the record entry is built in agent-framework (mirrors createUsageSummaryEntry); dependency-legal reachable path (span-completion event → framework entry → new TServerMessage carrier), not trapped in plugin memory nor faked at the turn-granular seam; enforcement where it can halt; aggregation in the pure reducer; cost SSOT owned once; GATE-APPROVAL re-review pending.
+- [x] 결정 근거 — per-op timing sourced where measured (agent-core), but agent-core only SURFACES it (no cycle); the record entry is built in agent-framework (mirrors createUsageSummaryEntry); dependency-legal reachable path (span-completion event → framework entry → new TServerMessage carrier), not trapped in plugin memory nor faked at the turn-granular seam; enforcement where it can halt; aggregation in the pure reducer; cost SSOT owned once; GATE-APPROVAL PASSED (ENDORSE).
 
 ## Solution
 
@@ -252,7 +252,7 @@ mirroring `SessionMonitor`, the timeline reaching the GUI over the new `TServerM
   Files, Completion Criteria, and Test Plan updated accordingly.
 - 2026-07-17 — **iteration 4: RE-REVIEW → REVISE, applied.** Re-reviewer (correctly) caught that iteration-3 did
   NOT remove the illegal cross-layer edge — it MOVED it from `agent-session-analytics → agent-plugin` to
-  `agent-framework → agent-plugin`, equally barred by `agent-system.md:79` (plugins are consumer-opt-in; no
+  `agent-framework → agent-plugin`, equally barred by `.agents/specs/architecture-map/agent-system.md:79` (plugins are consumer-opt-in; no
   `agent-plugin` import in `agent-framework`/`agent-cli` production assembly; verified `agent-framework/package.json`
   has no such edge), and that TC-07 only guarded the reducer, leaving a gate blind spot. Fixes: **relocated the
   span-timeline assembly to the composition-root / consumer** (the layer that already holds the concrete
@@ -264,7 +264,7 @@ mirroring `SessionMonitor`, the timeline reaching the GUI over the new `TServerM
 - 2026-07-17 — **iteration 5: RE-REVIEW → REJECT, reworked.** The reviewer (correctly, code-verified) found the
   "consumer holds the plugin" premise FALSE: NO production package depends on `agent-plugin` or instantiates
   `ExecutionAnalyticsPlugin` (plugins load as opaque hook bundles via `BundlePluginLoader`); reading
-  `getExecutionData()` would need an `agent-cli → agent-plugin` edge barred by `agent-system.md:79`; and the GUI
+  `getExecutionData()` would need an `agent-cli → agent-plugin` edge barred by `.agents/specs/architecture-map/agent-system.md:79`; and the GUI
   consumer is a separate Electron renderer whose plugin memory lives in the `robota --serve` sidecar, reachable only
   over the `TServerMessage` WS contract. Three iterations had all relabeled the SAME illegal/unreachable timing join.
   **Adopted the reviewer's P2 as v1** (the design that actually works and stays rule-legal): per-operation `durationMs`

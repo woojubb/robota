@@ -99,7 +99,7 @@ it). Policies stay in the consumer.
 - [x] 영향 패키지/레이어: agent-core hooks (guardrail executor) + agent-core tool-registry (tool-output validator) + agent-framework (registration); agent-session unchanged (existing `hookTypeExecutors` threading). No package/app domain policy.
 - [x] Sibling scan 완료 — reuses the EXISTING extensible hooks strategy (`IHookTypeExecutor`, `runHooks(..., executors?)`) and the already-threaded enforcement path; tool-output validation mirrors tool-input `parameter-validator` in the same layer (`function-tool.ts::execute`); enforcement stays on the single `runHooks`/`PermissionEnforcer` path, NOT core plugin hooks (void/swallowed).
 - [x] 대안 최소 2개 — 4 considered (guardrail-as-executor CHOSEN; plugin-hook return-veto REJECTED on correctness; separate parallel runner + session composition REJECTED second-blocking-mechanism; plugin package REJECTED can't-fail-fast), each Pro+Con.
-- [x] 결정 근거 — single enforcement path (guardrail executor → `blocked` → existing denial); parallelism inside the executor; tool-output validation in the same layer as tool-input; scope to the delta over CORE-015; independent GATE-APPROVAL re-review applied (iteration 2).
+- [x] 결정 근거 — single enforcement path (guardrail executor → `blocked` → existing denial); parallelism inside the executor; tool-output validation in the same layer as tool-input; scope to the delta over CORE-015; GATE-APPROVAL PASSED (ENDORSE, iteration 3).
 
 ## Solution
 
