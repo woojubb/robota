@@ -130,6 +130,23 @@ This rule applies even when:
 
 **The only exception:** The user explicitly says "create a new branch anyway" or "abandon the old branch."
 
+### PR Batching — appropriately-sized PRs (DX-001)
+
+Do NOT split a single coherent work-unit into many tiny PRs — each one waits on a full CI run, and that overhead
+repeats far more than the work warrants. Bundle multiple commits into one PR by BOTH criteria:
+
+1. **Coherent work-unit** — the commits belong to the same feature/epic/batch/theme (e.g. all spec revisions in
+   one design-gate pass; all backlog items in one authoring pass; a rule + its enforcement + its wiring).
+2. **Soft size ceiling** — split when a bundle would exceed roughly **~600 changed lines or ~15 files**, or when a
+   part is independently revertible and valuable. Otherwise keep it in one PR.
+
+Use **one conventional commit per logical step** within the PR, so history stays readable while CI runs once for
+the bundle. Prefer a few medium PRs over many tiny ones.
+
+This does NOT relax the **One-Branch-At-A-Time / PR Unit Rule** above: genuinely UNRELATED backlogs still go in
+separate PRs. Related steps of ONE work-unit go in one multi-commit PR. Bundling never waives a gate (an
+implementation PR still carries its User Execution Test Scenarios).
+
 ### Delete Merged Branches (mandatory)
 
 After a PR merges, delete its now-merged feature branch so only `develop` and `main` remain as standing
