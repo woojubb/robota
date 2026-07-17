@@ -12,6 +12,7 @@ import { createLanguageCommandModule } from '../language/index.js';
 import { createMemoryCommandModule } from '../memory/index.js';
 import { createModeCommandModule } from '../mode/index.js';
 import { createPermissionsCommandModule } from '../permissions/index.js';
+import { createPlanCommandModule } from '../plan/index.js';
 import { createPluginCommandModule } from '../plugin/index.js';
 import { createPresetCommandModule } from '../preset/index.js';
 import { createProviderCommandModule } from '../provider/index.js';
@@ -94,6 +95,7 @@ export function createDefaultCommandModules({
     createLanguageCommandModule(),
     createBackgroundCommandModule(),
     createGoalCommandModule(),
+    createPlanCommandModule(),
     createShellCommandModule(),
     createEditorCommandModule(),
     createMemoryCommandModule(),

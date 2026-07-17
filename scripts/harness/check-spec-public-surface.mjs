@@ -121,6 +121,7 @@ export const UNDOCUMENTED_EXPORT_ALLOWLIST = new Set([
   '@robota-sdk/agent-command#createMonitorCommandEntry',
   '@robota-sdk/agent-command#createPermissionsCommandEntry',
   '@robota-sdk/agent-command#createPermissionsCommandModule',
+  '@robota-sdk/agent-command#createPlanCommandModule',
   '@robota-sdk/agent-command#createPluginCommandEntry',
   '@robota-sdk/agent-command#createPluginCommandModule',
   '@robota-sdk/agent-command#createPresetCommandEntry',

@@ -29,6 +29,7 @@ import type {
 import type {
   ICommandListEntry,
   IGoalState,
+  IPlanArtifact,
   TCommandInvocationSource,
 } from '@robota-sdk/agent-interface-transport';
 import type {
@@ -187,6 +188,14 @@ export interface ICommandHostContext {
   getGoalState?(): IGoalState | null;
   /** GOAL-001 — cancel an in-flight goal; returns the stopped state or null. */
   cancelGoal?(): IGoalState | null;
+  /** SELFHOST-002 — start a plan (draft for review; keeps `plan` mode). */
+  setPlan?(objective: string, steps?: readonly string[]): Promise<IPlanArtifact>;
+  /** SELFHOST-002 — the current plan artifact, or null when none started. */
+  getPlanState?(): IPlanArtifact | null;
+  /** SELFHOST-002 — approve the plan; applies the `plan → acceptEdits` mode flip. */
+  approvePlan?(): IPlanArtifact;
+  /** SELFHOST-002 — revert the plan to drafting; returns mode to `plan`. */
+  revertPlan?(): IPlanArtifact;
   /**
    * TERM-001 — whether the active transport can hand the real terminal to a child process. `false`
    * (or `runWithTerminal` absent) when there is no interactive TTY (e.g. headless).
