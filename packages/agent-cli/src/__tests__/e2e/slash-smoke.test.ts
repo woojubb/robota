@@ -130,4 +130,22 @@ describe('slash-command smoke through print mode (CLI-074 TC-06)', () => {
     expect(crashed, `commands crashed the CLI: ${crashed.join('; ')}`).toEqual([]);
     expect(malformed, `commands emitted non-envelope output: ${malformed.join(', ')}`).toEqual([]);
   }, 120_000);
+
+  // SELFHOST-002 user-execution: draft a plan through the real CLI product surface (print mode).
+  it('SELFHOST-002: /plan <objective> drafts a reviewable plan via the CLI', async () => {
+    const run = await runPrintJson('/plan draft the release notes');
+    expect(run.exitCode).toBe(0);
+    const lastLine = run.stdout.trim().split('\n').at(-1) ?? '{}';
+    const envelope = JSON.parse(lastLine) as { type?: string; result?: string };
+    expect(envelope.type).toBe('result');
+    expect(envelope.result ?? '').toContain('/plan approve'); // drafted, read-only until approved
+  }, 60_000);
+
+  it('SELFHOST-002: /plan status reports no active plan in a fresh session', async () => {
+    const run = await runPrintJson('/plan status');
+    expect(run.exitCode).toBe(0);
+    const lastLine = run.stdout.trim().split('\n').at(-1) ?? '{}';
+    const envelope = JSON.parse(lastLine) as { type?: string; result?: string };
+    expect(envelope.result ?? '').toContain('No plan is active.');
+  }, 60_000);
 });

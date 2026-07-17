@@ -43,6 +43,18 @@ each punch-list verified against the actual code) and promoted to `.agents/spec-
 - **B3 extraction trigger** (deferred): when a second implementer family lands (a dag-\* adapter), move BOTH the
   contracts AND event unions into a new `agent-interface-orchestration` package (deps ⊆ {agent-core}).
 
+**SELFHOST-002 (explicit plan-mode) is DONE** (spec in `spec-docs/done/`, task archived; all gates). Two work units:
+P1 (PR #1197) added the plan/todo-artifact + approval-event contract in `agent-interface-transport` (beside
+`IGoalState`) and a **pure** `PlanController` in `agent-framework/src/plan/` (mirrors `GoalController`: returns
+`{action,nextMode}`, never calls `setPermissionMode`); P2 (PR #1198) wired `InteractiveSession.setPlan/approvePlan/
+revertPlan` (applies the mode flip: `setPlan`→`plan`, `approve`→`acceptEdits`, `revert`→`plan`; emits `plan_event`;
+persists+restores the artifact) + the `/plan` command in `agent-command` (registered in `default-command-modules`;
+only the module factory is a package export → allowlisted in `check-spec-public-surface.mjs` like its siblings). **No
+second mutation gate** — reuses the existing `plan` permission mode (`MODE_POLICY`: plan blocks Write/Edit/Bash,
+acceptEdits auto-applies edits but keeps Bash/Shell per-call). TC-04 proven headlessly on a real `InteractiveSession`
+
+- injected provider AND a `/plan` print-mode CLI UET (`slash-smoke.test.ts`).
+
 ## How this was executed (reusable pattern)
 
 Design-gate ALL specs first (owner's chosen path "설계-게이트 일괄"), then implement in priority order. Each spec
@@ -50,8 +62,10 @@ authored grounded in real code (four corrected inaccurate backlog seeds against 
 `proposal-reviewer` gate repeatedly caught genuine code-verified defects (dependency cycles, wrong placement,
 unbuildable data-flow, a neutrality scan bypassable by camelCase) BEFORE any code — see the specs' Evidence Logs.
 PRs use the DX-001 batching policy (one coherent design-gate pass per PR) and the HARNESS-018 async PR-review
-(reviewer → 0/1 actionable → fix → merge). **SELFHOST-001 is DONE** (all 5 primitives, all gates). Next: pick up
-the remaining 13 specs from `todo/` in priority order (they are `priority: medium`/`low`, `urgency: later`);
-each follows the same GATE-IMPLEMENT → VERIFY → COMPLETE flow. Consider SELFHOST-002 (plan-mode) next.
+(reviewer → 0/1 actionable → fix → merge). **SELFHOST-001 and SELFHOST-002 are DONE** (all gates). Next: pick up
+the remaining 12 specs from `todo/` in priority order (they are `priority: medium`/`low`, `urgency: later`);
+each follows the same GATE-IMPLEMENT → VERIFY → COMPLETE flow. Consider SELFHOST-003 (codebase-index/RAG) next.
+Multi-package specs split into named P-slice work units (own PR each); each code-changing spec's GATE-COMPLETE needs
+a real user-execution scenario (product surface — CLI print-mode or public-SDK usage, agent-executable, evidence captured).
 
 Related: [[self-improving-harness-northstar]], [[harness-mechanical-not-skilltree]].

@@ -1,9 +1,7 @@
-<!-- archival-exempt: spec in progress — P1 (contract + pure PlanController) and P2 (InteractiveSession wiring + /plan surface, TC-04) both implemented; the spec stays in spec-docs/active/ until GATE-VERIFY/GATE-COMPLETE run and move it to done/. -->
-
 # SELFHOST-002 — explicit plan-mode (plan → review → approve → act)
 
-Spec: [`.agents/spec-docs/active/SELFHOST-002-plan-mode.md`](../spec-docs/active/SELFHOST-002-plan-mode.md)
-GATE-APPROVAL: PASSED (iteration 4 ENDORSE). GATE-IMPLEMENT: P1+P2 implemented; GATE-VERIFY/GATE-COMPLETE next.
+Spec: [`.agents/spec-docs/done/SELFHOST-002-plan-mode.md`](../../spec-docs/done/SELFHOST-002-plan-mode.md)
+GATE-APPROVAL: PASSED (iteration 4 ENDORSE). GATE-IMPLEMENT: P1+P2 (both slices). GATE-VERIFY + GATE-COMPLETE: PASSED — spec in `spec-docs/done/`, this task archived.
 
 ## Recommendation (gate)
 
