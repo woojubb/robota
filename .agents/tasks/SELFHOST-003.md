@@ -42,7 +42,15 @@ surface** (no repo paths in `agent-tools`). `createRetrievalTool({ adapter })` m
       throw, corpus-vs-persisted ranking parity, parse-once-not-per-retrieve, construction-arg validation. 12/12.
 - [x] Verify: build + typecheck + tests + lint (0 errors) + `pnpm harness:scan` (54/54).
 
-## P3 — incremental re-index on file change — PENDING
+## P3 — incremental re-index on file change ✅ IMPLEMENTED
+
+- [x] `updateRepoMapIndex(index, changes, parser)` (`repo-map-index.ts`) + `IRepoMapIndexChanges` type: re-parse
+      ONLY the `upserted` files and drop `removed` paths, reusing every unchanged entry — no full-corpus re-parse on
+      a file change. Returns a new index (input not mutated); a path in both `removed`+`upserted` is upserted.
+      Exported; SPEC + spec-public-surface baseline updated.
+- [x] Tests (`repo-map-index.test.ts`): re-parses only changed files (call-count) + matches a full rebuild; drops
+      removed + adds new; input not mutated; upsert-wins. 17/17 retrieval tests.
+- [x] Verify: build + typecheck + tests + lint (0 errors) + `pnpm harness:scan` (54/54).
 
 ## P4 — embedding-vector backend (may revise the port) — PENDING
 

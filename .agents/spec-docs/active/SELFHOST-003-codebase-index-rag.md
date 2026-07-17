@@ -195,3 +195,11 @@ follow-up filed: [`.agents/backlog/HARNESS-027-agent-tools-neutrality-floor.md`]
   parse-once-not-per-retrieve). Verified: build + typecheck + retrieval tests **12/12** + lint (0 errors) +
   `pnpm harness:scan` (54/54, SPEC + spec-public-surface baseline updated for the 4 new runtime exports). **P3**
   (incremental re-index) / **P4** (vector backend, may revise port) remain.
+- 2026-07-18 — **GATE-IMPLEMENT: P3 implemented (incremental re-index).** `updateRepoMapIndex(index, changes, parser)`
+  - `IRepoMapIndexChanges` re-parse ONLY the changed (`upserted`) files and drop `removed` paths, reusing every
+    unchanged entry — no full-corpus re-parse on a file change. Returns a new index (input not mutated); ranking over
+    the result is identical to a full rebuild (order-independent). Neutral. Tests prove re-parse-only-changed
+    (call-count), full-rebuild parity, remove/add, immutability, and upsert-wins. Verified: build + typecheck +
+    retrieval tests **17/17** + lint (0 errors) + `pnpm harness:scan` (54/54, SPEC + baseline updated for
+    `updateRepoMapIndex`). **P4** (embedding-vector backend, may revise the port) is the only remaining slice —
+    consciously deferred; once done (or split to its own backlog), the epic reaches GATE-VERIFY/COMPLETE.
