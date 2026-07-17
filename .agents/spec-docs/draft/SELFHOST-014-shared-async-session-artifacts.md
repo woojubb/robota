@@ -93,10 +93,13 @@ memory*/contextReferences/sandboxSnapshotId/goal`). The shareable artifact MUST 
 
 - **`agent-session` (reusable opt-in scrub, SSOT — reuse, don't duplicate).** The package **already** has recursive,
   mechanism-level secret redaction in `FileSessionLogger` (`docs/SPEC.md:252`: keys `apiKey`/`authorization`/
-  `accessToken`/`refreshToken`/`secret`/`password`/`xApiKey` → `[REDACTED]` before persistence). SELFHOST-014 **exposes
-  that scrub as a reusable, opt-in utility** (single source of truth) that an app **composes** into its `redact`
-  transform on the share path — it is NOT re-implemented, and it is NEVER forced into the round-trip (local resume
-  needs full fidelity). The utility is a pure recursive secret-key scrub only; the **trust-boundary FIELD policy**
+  `accessToken`/`refreshToken`/`secret`/`password`/`xApiKey` → `[REDACTED]` before persistence). Today that scrub is a
+  **private, logging-coupled** function in `session-logger.ts` (`SENSITIVE_KEY_PATTERN` + `normalizeLogValue`), NOT
+  exported — so "reuse" requires **EXTRACTING the pure recursive secret-key walk into a shared utility (SSOT) and
+  REFACTORING `FileSessionLogger` to consume it** (deleting its private copy), leaving exactly one implementation.
+  SELFHOST-014 then **composes** that extracted opt-in utility into its `redact` transform on the share path — it is
+  NOT re-implemented, and it is NEVER forced into the round-trip (local resume needs full fidelity). The utility is a
+  pure recursive secret-key scrub only; the **trust-boundary FIELD policy**
   (which of `cwd`/`sandboxSnapshotId`/`contextReferences` to strip, target audience) stays **app-owned**, not baked
   into the library.
 - **`agent-framework` (resume path, reused unchanged)** — the resume flow already exists:
@@ -229,7 +232,8 @@ channel — no new transport, pairing, or wire protocol.
 | File                                                                      | Change                                                                                                                                                                                                                                                                                              |
 | ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `packages/agent-session/src/session-artifact.ts` (**new** sibling)        | neutral export/import envelope over `ISessionRecord` — `serialize(record, options?)` (op 1 round-trip / op 2 export-for-share via policy-free `redact`) + `deserialize` + schema-version header; mirrors `save`/`load`. **Not** folded into `session-store.ts` (SRP: transport vs file persistence) |
-| `packages/agent-session/src/session-artifact.ts` (reusable scrub utility) | expose the `FileSessionLogger` recursive secret-key scrub as an **opt-in** utility (SSOT) an app composes into `redact`; never forced into the round-trip                                                                                                                                           |
+| `packages/agent-session/src/` (new shared scrub utility)                  | **EXTRACT** the pure recursive secret-key scrub (`SENSITIVE_KEY_PATTERN` + object/array walk) out of `session-logger.ts` into a shared pure utility (SSOT), exposed as an **opt-in** function an app composes into `redact`; never forced into the round-trip                                       |
+| `packages/agent-session/src/session-logger.ts`                            | **REFACTOR** `FileSessionLogger` to CONSUME the extracted scrub utility (delete its private copy) so exactly ONE scrub implementation exists — this is what makes fix "reuse, don't duplicate" true (today the scrub is private + logging-coupled + not exported)                                   |
 | `packages/agent-session/src/index.ts`                                     | export the artifact envelope primitive + the opt-in scrub utility                                                                                                                                                                                                                                   |
 | `packages/agent-session/docs/SPEC.md`                                     | record the artifact primitive + the two operations + the reusable opt-in scrub under the storage-neutral persistence ownership (SSOT)                                                                                                                                                               |
 | `packages/agent-framework/src/interactive/interactive-session-restore.ts` | resume path **reused as-is** — import = `deserialize` → `store.save` → existing `loadSessionRecord` (no new resume logic)                                                                                                                                                                           |
@@ -251,6 +255,14 @@ channel — no new transport, pairing, or wire protocol.
 - [ ] TC-04: **a shared artifact resumes on a second surface** — export from surface A's store, import into a
       **distinct** surface B's store (different `baseDir`), and resume there; the resumed session's messages/history/goal
       match the source with both stores independent (functional test).
+- [ ] TC-08: **a REDACTED share artifact still resumes on surface B (import-side rebinding of stripped required
+      fields).** Because `redact` may strip the **required** `cwd` field (and other surface-bound fields), the export →
+      hand-off → import → resume-on-B path must not silently fail: the **import/app layer on surface B rebinds the
+      stripped required fields (supplies B's own `cwd`)** before invoking the existing resume path. Assign this
+      rebinding responsibility to the app/import layer (the strip decision is app-owned per TC-07; the rebind is its
+      symmetric counterpart — the library envelope neither strips nor rebinds field policy). Functional test:
+      `redact(strip cwd) → import on B → rebind B's cwd → resume` succeeds and messages/history/goal match (the
+      redaction seam and the resume contract are proven end-to-end, closing the seam TC-07 opened).
 - [ ] TC-05: **neutrality — sharing policy is NOT in `packages/` (mechanized grep floor)** — a `pnpm harness:scan`
       grep floor over `session-artifact.ts` asserts the envelope module contains no link/cloud/upload/access-control or
       redaction-**policy** tokens (it is pure serialize/deserialize + schema version + the app-supplied `redact` seam).
@@ -277,6 +289,7 @@ channel — no new transport, pairing, or wire protocol.
 | TC-05 | no link/cloud/access/redaction-policy tokens in module              | `harness:scan` grep floor (mechanical)        |
 | TC-06 | no dep edge → `agent-remote-pairing`/`-webrtc`                      | `deps` dependency-direction scan (mechanical) |
 | TC-07 | share-export with `redact` strips `cwd`/`sandboxSnapshotId`/secrets | vitest unit (share path, distinct from TC-01) |
+| TC-08 | redacted export → import → app rebinds `cwd` on B → resume          | functional test (redact/resume end-to-end)    |
 
 ## Tasks
 
@@ -321,3 +334,14 @@ session-artifact.ts`** (SRP: record-transport vs file-backed `session-store.ts`)
   Affected Files / Completion Criteria / Test Plan / Architecture Review Checklist updated for consistency. Everything
   else (envelope over `ISessionRecord`, resume reuses `loadSessionRecord`, apps own sharing UI/policy, the 4
   correctness-grounded alternatives, complements REMOTE-001) unchanged.
+- 2026-07-17 — **iteration 2: RE-REVIEW → REVISE, applied.** Re-reviewer confirmed all 5 iteration-1 fixes are
+  present and mechanically sound (opt-in seam + two never-conflated ops; sibling `session-artifact.ts` SRP; TC-05
+  grep floor + TC-06 deps scan are real mechanical floors; TC-07). Two doc-only seams the redaction fix itself opened,
+  now closed: (1) **scrub SSOT extraction made explicit** — the scrub is today a PRIVATE, logging-coupled,
+  un-exported function in `session-logger.ts`, so "reuse" required EXTRACTING the pure secret-key walk into a shared
+  utility and REFACTORING `FileSessionLogger` to consume it (one copy); Affected Files now carries both the extract
+  and the `session-logger.ts` refactor rows. (2) **Import-side rebinding of stripped required fields assigned** —
+  `redact` may strip the REQUIRED `cwd`, so a redacted artifact would fail to resume unless the import/app layer on
+  surface B rebinds it (supplies B's own `cwd`); added TC-08 (`redact → import → rebind cwd on B → resume`) and
+  assigned the rebind responsibility to the app/import layer (symmetric counterpart of the app-owned strip decision;
+  the library envelope neither strips nor rebinds field policy). Direction unchanged. Iteration-3 re-review pending.

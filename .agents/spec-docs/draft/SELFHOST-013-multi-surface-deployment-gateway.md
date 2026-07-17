@@ -177,14 +177,25 @@ Deliverables, all over the **existing** transport DIP (no new transport/package/
 1. **Deployment matrix** — a registry doc (surface × runtime × `IConfigurableTransport` impl), mirroring the
    mechanically-kept `orchestration-map.md`. Initial rows:
 
-   | Surface        | Runtime                                           | Transport (`IConfigurableTransport`)                  | Prior art in-repo     |
-   | -------------- | ------------------------------------------------- | ----------------------------------------------------- | --------------------- |
-   | CLI / terminal | local `agent-cli` process                         | `agent-transport-tui` (TUI) / `agent-transport` print | —                     |
-   | Desktop        | headless `robota --serve` spawned by Electron     | `agent-transport-ws` (WS, nonce auth) + `-gui` client | GUI-002 / RUNTIME-001 |
-   | Web            | `apps/agent-server` (Express + WS) / browser peer | `agent-transport-ws` / `agent-transport-webrtc-web`   | playground stack      |
-   | HTTP/WS server | headless `robota --serve` / `apps/agent-server`   | `agent-transport-http` (Hono) / `agent-transport-ws`  | RUNTIME-001           |
-   | Remote (P2P)   | local host + signaling relay                      | `agent-transport-webrtc` (WebRTC, pairing-gated)      | REMOTE-001            |
-   | MCP host       | any MCP client                                    | `agent-transport-mcp`                                 | —                     |
+   The matrix separates the **transport `name`** (the value the drift scan enumerates — the set
+   `{tui, ws, webrtc, http, mcp}`) from the **client / presentation** layer (React/browser packages that are NOT
+   transports and carry no `name`: `-gui`, `-webrtc-web`, and the `agent-transport` print renderer), so TC-02's
+   "no phantom rows" is well-defined against the transport `name` column only.
+
+   | Surface        | Runtime                                           | Transport `name`   | Client / presentation        | Prior art in-repo     |
+   | -------------- | ------------------------------------------------- | ------------------ | ---------------------------- | --------------------- |
+   | CLI / terminal | local `agent-cli` process                         | `tui`              | `agent-transport` print      | —                     |
+   | Desktop        | headless `robota --serve` spawned by Electron     | `ws` (nonce auth)  | `agent-transport-gui`        | GUI-002 / RUNTIME-001 |
+   | Web            | `apps/agent-server` (Express + WS) / browser peer | `ws`               | `agent-transport-webrtc-web` | playground stack      |
+   | HTTP/WS server | headless `robota --serve` / `apps/agent-server`   | `http` / `ws`      | —                            | RUNTIME-001           |
+   | Remote (P2P)   | local host + signaling relay                      | `webrtc` (pairing) | `agent-transport-webrtc-web` | REMOTE-001            |
+   | MCP host       | any MCP client                                    | `mcp`              | —                            | —                     |
+
+   Note on declaration forms + fan-out: `tui`/`ws`/`webrtc` declare `readonly name = '…'` on an
+   `IConfigurableTransport` class (registry-registrable, `defaultEnabled` present); `http`/`mcp` expose
+   `name: '…'` as a factory object-literal implementing plain `ITransportAdapter` (no `defaultEnabled`, mounted
+   **outside** `startAll`'s fan-out but still `attach(session)` over the DIP). The scan must parse both forms
+   (or read the static manifest — see TC-02).
 
 2. **Deploy guide** in `docs/` — the one-definition→many-channels pattern: resolve a definition
    (`TInteractiveSessionOptions`/preset), `buildRuntimeSession(...)`, `register` the desired transports,
@@ -201,15 +212,15 @@ deploy` UX veneer is explicitly deferred (alt 3), only if a discoverability need
 
 ## Affected Files
 
-| File                                                                      | Change                                                                                                        |
-| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `.agents/specs/deployment-matrix.md` (new)                                | deployment-matrix registry (surface × runtime × transport), mirror `orchestration-map.md`                     |
-| `docs/` deploy guide (new)                                                | user-facing one-definition→many-channels pattern over the registry seam                                       |
-| `examples/` multi-surface program (new)                                   | serve one resolved definition over ≥2 transports (e.g. WS + HTTP) against one session                         |
-| `packages/agent-transport/src/__tests__/` (new test)                      | reference-identity proof: two recording-fake transports both `attach()` the same session instance (TC-01)     |
-| `scripts/harness/scan-deployment-matrix.mjs` (new) + harness registration | matrix drift scan (TC-02): enumerate `packages/agent-transport-*` (excluding `-protocol`) names ↔ matrix rows |
-| `.agents/specs/architecture-map/agent-system.md` (edit, if needed)        | cross-link the deployment matrix from the transport ownership section                                         |
-| _(no new package, no new transport, no new dependency edge)_              | enforced by the `deps` scan — see TC-03                                                                       |
+| File                                                                      | Change                                                                                                                                                                                                                                                                                                                            |
+| ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `.agents/specs/deployment-matrix.md` (new)                                | deployment-matrix registry (surface × runtime × transport), mirror `orchestration-map.md`                                                                                                                                                                                                                                         |
+| `docs/` deploy guide (new)                                                | user-facing one-definition→many-channels pattern over the registry seam                                                                                                                                                                                                                                                           |
+| `examples/` multi-surface program (new)                                   | serve one resolved definition over ≥2 transports (e.g. WS + HTTP) against one session                                                                                                                                                                                                                                             |
+| `packages/agent-transport/src/__tests__/` (new test)                      | reference-identity proof: two recording-fake transports both `attach()` the same session instance (TC-01)                                                                                                                                                                                                                         |
+| `scripts/harness/scan-deployment-matrix.mjs` (new) + harness registration | matrix drift scan (TC-02): enumerate the transport-`name` set `{tui,ws,webrtc,http,mcp}` — packages EXPORTING an `ITransportAdapter`/`IConfigurableTransport` with a `name` (excludes `-protocol` shared lib AND `-gui`/`-webrtc-web` presentation), OR a static `transport-names.json` manifest — ↔ matrix Transport-`name` rows |
+| `.agents/specs/architecture-map/agent-system.md` (edit, if needed)        | cross-link the deployment matrix from the transport ownership section                                                                                                                                                                                                                                                             |
+| _(no new package, no new transport, no new dependency edge)_              | enforced by the `deps` scan — see TC-03                                                                                                                                                                                                                                                                                           |
 
 ## Completion Criteria
 
@@ -228,15 +239,20 @@ deploy` UX veneer is explicitly deferred (alt 3), only if a discoverability need
       matrix enumerates every surface × runtime × transport for cli/desktop/web/HTTP-WS-server/remote/MCP, and a
       `pnpm harness:scan` check asserts **every transport is documented, with no phantom rows**. Unlike the
       `orchestration-map` scan — whose enumerable source is the static file set `.claude/agents/*.md` — transport
-      names live at runtime in transport classes (`readonly name = 'ws'|'http'|'mcp'|'webrtc'|'tui'|…`), so there
-      is no equivalent static set to diff against by default. This TC therefore names a **concrete enumerable
-      source**: scan the **`packages/agent-transport-*` package set, EXCLUDING `agent-transport-protocol`** (the
-      shared protocol lib, not a transport), extract each package's declared transport `name`, and FAIL if any
-      such `name` is missing a matrix row (undocumented transport) or any matrix transport row names a
-      nonexistent transport (phantom). (Equivalent acceptable alternative: introduce a static
-      transport-name manifest — e.g. `.agents/specs/transport-names.json` — that the scan reads as its source of
-      truth; either way the source must be a real enumerable set, not a hand-maintained assertion.) Mechanical
-      FAIL floor per [enforcement-architecture.md](../../rules/enforcement-architecture.md): every guardian needs
+      names live at runtime, so there is no equivalent static set to diff against by default. This TC therefore
+      names a **concrete enumerable source = the set of packages that EXPORT an object implementing
+      `ITransportAdapter`/`IConfigurableTransport` with a `name`** — verified today as exactly
+      `{tui, ws, webrtc, http, mcp}`. This EXCLUDES not only `agent-transport-protocol` (shared protocol lib) but
+      also **`agent-transport-gui` and `agent-transport-webrtc-web`** — React/browser **presentation** packages that
+      export NO `ITransportAdapter` and carry no transport `name` (so a naive "scan `agent-transport-*` excluding
+      `-protocol`" would false-FAIL on those two). The scan must parse BOTH `name` declaration forms: class
+      `readonly name = '…'` (tui/ws/webrtc) and factory object-literal `name: '…'` (http/mcp). It FAILs if any
+      such transport `name` is missing a matrix Transport-`name` row (undocumented) or any matrix Transport-`name`
+      row names a nonexistent transport (phantom); the Client/presentation column is out of scope for this floor.
+      (Equivalent acceptable alternative, and the cleaner route: adopt a static transport-name manifest — e.g.
+      `.agents/specs/transport-names.json` = `["tui","ws","webrtc","http","mcp"]` — as the scan's SSOT, sidestepping
+      the two declaration forms entirely; either way the source is a real enumerable set, not a hand-maintained
+      assertion.) Mechanical FAIL floor per [enforcement-architecture.md](../../rules/enforcement-architecture.md): every guardian needs
       a mechanical source, not a human re-checking the list.
 - [ ] TC-03: **no-new-coupling deps scan** — `pnpm harness:scan` `deps`
       (`scripts/harness/check-dependency-direction.mjs`) stays green: this work introduces **no new bidirectional
@@ -247,12 +263,12 @@ deploy` UX veneer is explicitly deferred (alt 3), only if a discoverability need
 
 ## Test Plan
 
-| TC    | Verification                                                    | Type/Tool                                                  |
-| ----- | --------------------------------------------------------------- | ---------------------------------------------------------- |
-| TC-01 | `t1.attached === t2.attached === session` (reference identity)  | vitest (registry + `buildRuntimeSession`, recording fakes) |
-| TC-02 | every `agent-transport-*` (excl. `-protocol`) name ↔ matrix row | `pnpm harness:scan` (deployment-matrix drift)              |
-| TC-03 | no new bidirectional dep / re-export / package                  | `pnpm harness:scan` (`deps`)                               |
-| TC-04 | multi-surface example builds + smoke-runs                       | example build / bintest                                    |
+| TC    | Verification                                                   | Type/Tool                                                  |
+| ----- | -------------------------------------------------------------- | ---------------------------------------------------------- |
+| TC-01 | `t1.attached === t2.attached === session` (reference identity) | vitest (registry + `buildRuntimeSession`, recording fakes) |
+| TC-02 | transport-`name` set `{tui,ws,webrtc,http,mcp}` ↔ matrix rows  | `pnpm harness:scan` (deployment-matrix drift)              |
+| TC-03 | no new bidirectional dep / re-export / package                 | `pnpm harness:scan` (`deps`)                               |
+| TC-04 | multi-surface example builds + smoke-runs                      | example build / bintest                                    |
 
 ## Tasks
 
@@ -298,3 +314,15 @@ test + deploy guide + runnable example.
     two-transport / one-session prior art for TC-01/TC-04 — rather than implying all five surfaces exercise the
     fan-out concurrently (the default CLI / `--serve` path runs a single network transport).
   - TC-03 (`deps` scan) and TC-04 (example build / bintest) unchanged — already genuine floors.
+- 2026-07-17 — **iteration 2: RE-REVIEW → REVISE, applied.** Re-reviewer confirmed Fixes 1 (TC-01 reference-identity)
+  and 3 (WebRTC out-of-band framing + REMOTE-001 citation) code-accurate; Fix 2's enumerable source was FALSE for 2
+  of 7 non-protocol packages — `agent-transport-gui` and `agent-transport-webrtc-web` are React/browser PRESENTATION
+  layers exporting no `ITransportAdapter`/`name`, so "scan `agent-transport-*` excluding `-protocol`" would false-FAIL
+  on them, and the matrix mixed package identity with transport `name`. Fixes applied: (1) TC-02's enumerable source
+  redefined to **the set of packages exporting an `ITransportAdapter`/`IConfigurableTransport` with a `name`** =
+  `{tui,ws,webrtc,http,mcp}` (excludes `-protocol`, `-gui`, `-webrtc-web`), with a static `transport-names.json`
+  manifest offered as the cleaner SSOT; (2) noted both `name` declaration forms (class `readonly name` for
+  tui/ws/webrtc; factory object-literal for http/mcp, which are `ITransportAdapter` without `defaultEnabled`, mounted
+  outside `startAll`'s fan-out); (3) the matrix now separates a **Transport `name`** column from a
+  **Client / presentation** column (`-gui`/`-webrtc-web`/print moved there), so TC-02's "no phantom rows" is
+  well-defined against the transport-`name` set only. Iteration-3 re-review pending.
