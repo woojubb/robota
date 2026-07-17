@@ -56,15 +56,24 @@ Robota ships only the **neutral eval-definition + runner contract**; concrete me
 ### Affected Scope
 
 - **`agent-framework` (SDK surface)** — the neutral **eval-definition API + runner** live HERE, in a new
-  `src/evals/` subsystem, mirroring two existing precedents in the same package: (a) `createQuery()`
-  (`src/query.ts`) — a prompt-in → result-out convenience wrapper over `InteractiveSession` that resolves on
-  the terminal `complete` event; and (b) `createAgentRuntime()` (`src/runtime/agent-runtime.ts`) — a reusable,
-  headless-friendly session factory (`createSession(opts): InteractiveSession`) an eval runner hangs one
-  session per case off of. A **metric is a pure function over the SSOT run-result** `IExecutionResult`
-  (`packages/agent-interface-transport/src/session-contracts.ts:125` — `{ response, history, toolSummaries,
-contextState, usage }`), **mirroring the pure metrics-over-a-run sibling** `@robota-sdk/agent-session-analytics`
-  whose `analyzeSession(input: Pick<IInteractiveSessionRecord, …>)` scores over the same SSOT record with **no
-  file I/O and no process concerns**. The `src/evals/` folder mirrors the structural template of the small,
+  `src/evals/` subsystem, mirroring two existing precedents in the same package: (a) `createAgentRuntime()`
+  (`src/runtime/agent-runtime.ts`) — a reusable, headless-friendly session factory
+  (`createSession(opts): InteractiveSession`) an eval runner hangs one session per case off of, **capturing
+  that session's terminal `complete`-event `IExecutionResult` as the default `runFn` — this, not `createQuery`,
+  is the default run source**; and (b) `createQuery()` (`src/query.ts`) — a prompt-in convenience wrapper over
+  `InteractiveSession` that resolves on the terminal `complete` event **to `result.response` (a `string`)
+  only**; it is the precedent for the resolve-on-`complete` wrapper pattern, but because it drops the rest of
+  the run result it **cannot** supply a full-`IExecutionResult` `runFn`. A **metric is a pure function over the
+  SSOT run-result** `IExecutionResult` (`packages/agent-interface-transport/src/session-contracts.ts:125` —
+  `{ response, history, toolSummaries, contextState, usage }`), **mirroring the pure metrics-over-a-run
+  sibling** `@robota-sdk/agent-session-analytics` whose `analyzeSession(input: Pick<IInteractiveSessionRecord,
+…>)` scores over the same SSOT record with **no file I/O and no process concerns**. **Boundary:**
+  `agent-session-analytics` scores a persisted **session RECORD** (`IInteractiveSessionRecord` — a whole
+  conversation's history), whereas an eval metric scores a **single RUN RESULT** (`IExecutionResult` from one
+  `runFn` invocation); the eval runner therefore does **not** extend `agent-session-analytics` — it needs the
+  framework's run-primitives (`createAgentRuntime`) to **produce** the `IExecutionResult` in the first place,
+  which a pure record-analytics package neither has nor should take on. The `src/evals/` folder mirrors the
+  structural template of the small,
   pure `src/self-hosting/` and `src/goal/` subsystems (behavior module + local `index.ts` barrel; contract
   types that cross transport/persistence go to the `agent-interface-transport` SSOT, not duplicated). Exposed
   either through the root barrel under a `// ── Evals ──` header or, for a clean opt-in surface, a `"./evals"`
@@ -132,8 +141,11 @@ failed checks` is the same CI-gate contract this command needs). If `eval` needs
 Adopt (1). The neutral **eval-definition API + runner** live in a new `agent-framework/src/evals/` subsystem
 (mirroring `createQuery`/`createAgentRuntime` and the pure `agent-session-analytics` metrics-over-a-run
 sibling); a **metric is a pure function over the SSOT `IExecutionResult`**; the runner drives an agent through
-an injected run function (default built from `createAgentRuntime`/`createQuery`, so the consumer supplies
-provider/agent config and the library stays neutral). A `robota eval` top-level subcommand in `agent-cli`
+an injected run function (default built from `createAgentRuntime().createSession()`, capturing the session's
+terminal `complete`-event `IExecutionResult`, so the consumer supplies provider/agent config and the library
+stays neutral). `createQuery` is cited only as precedent for the resolve-on-`complete` convenience-wrapper
+pattern — it resolves to `result.response` (a `string`), not the full `IExecutionResult`, so it cannot supply
+the default `runFn`. A `robota eval` top-level subcommand in `agent-cli`
 mirrors `runDiagnoseCommand` — returns a failed-eval count that the dispatcher maps to
 `process.exitCode = failCount > 0 ? 1 : 0` (the CI gate), reaching the agent via the existing
 `HeadlessInteractionChannel`. Concrete metrics/datasets are consumer-supplied; a reference example ships in
@@ -142,9 +154,12 @@ mirrors `runDiagnoseCommand` — returns a failed-eval count that the dispatcher
 
 ### Validated Recommendation
 
-- **Reachability:** every named surface exists and the mirror is exact — `createQuery()`
-  (`src/query.ts`) resolves on `complete` and returns the run result; `createAgentRuntime().createSession()`
-  spawns headless sessions; `agent-session-analytics.analyzeSession(Pick<IInteractiveSessionRecord,…>)` is a
+- **Reachability:** every named surface exists and the mirror is exact — `createAgentRuntime().createSession()`
+  spawns headless `InteractiveSession`s whose terminal `complete` event carries the full `IExecutionResult`,
+  which the default `runFn` captures (the default run source); `createQuery()` (`src/query.ts`) is precedent
+  for the resolve-on-`complete` convenience-wrapper pattern **only** — it resolves to `result.response` (a
+  `string`), **not** the full `IExecutionResult`, so it cannot supply a full-result `runFn`;
+  `agent-session-analytics.analyzeSession(Pick<IInteractiveSessionRecord,…>)` is a
   pure metric-over-a-run; `runDiagnoseCommand(): Promise<number>` + `process.exitCode = failCount > 0 ? 1 : 0`
   (`cli.ts:158–161`) is a live CI-gate exit contract; `HeadlessInteractionChannel` is the existing non-TUI run
   path; `examples/capabilities/*` + `examples/README.md` is the example convention. The design reuses these
@@ -170,9 +185,11 @@ mirrors `runDiagnoseCommand` — returns a failed-eval count that the dispatcher
       `createQuery`/`createAgentRuntime`/`agent-session-analytics`), `agent-cli` (`robota eval` subcommand, mirror
       `runDiagnoseCommand` → `process.exitCode`), `examples/` (one capability example). `agent-command` out of
       scope; NO new package for v1 (extract iff a metric family emerges).
-- [x] Sibling scan 완료 — mirrors THREE real precedents in the same package: `createQuery` (run → result on
-      `complete`), `createAgentRuntime` (headless session factory), and the pure `agent-session-analytics`
-      metrics-over-a-run sibling; the CLI gate mirrors `runDiagnoseCommand`'s exit-code contract. Independent
+- [x] Sibling scan 완료 — mirrors THREE real precedents in the same package: `createAgentRuntime` (headless
+      session factory — the default `runFn` captures its session's `complete`-event `IExecutionResult`),
+      `createQuery` (resolve-on-`complete` wrapper precedent only; resolves to the `response` string, so NOT a
+      full-result `runFn` source), and the pure `agent-session-analytics` metrics-over-a-run sibling; the CLI
+      gate mirrors `runDiagnoseCommand`'s exit-code contract. Independent
       architecture-placement validation to be recorded in the Evidence Log at GATE-APPROVAL.
 - [x] 대안 최소 2개 — 4 considered (framework-API + CLI-gate CHOSEN; CLI-only REJECTED capability/layer;
       new-package REJECTED over-decomposition; string-only-metric REJECTED capability), each Pro+Con.
@@ -188,8 +205,11 @@ v1 ships the neutral surface + the CI gate + one example:
 number | boolean }`), `IEvalCase` (`{ input; expected? }`), `IEvalDefinition` (`{ cases; metrics;
 threshold }`), `IEvalReport`/`IEvalCaseResult` (per-case scores + pass/fail). `runner.ts`:
   `defineEval(def): IEvalDefinition` and `runEval(def, runFn): Promise<IEvalReport>` where `runFn: (input) =>
-Promise<IExecutionResult>` is injected (default built from `createAgentRuntime`/`createQuery` so the
-  consumer owns provider/agent config). `index.ts` barrel; re-export under a `// ── Evals ──` header (or a
+Promise<IExecutionResult>` is injected (default built from `createAgentRuntime().createSession()`, capturing
+  the session's `complete`-event `IExecutionResult`, so the consumer owns provider/agent config). `createQuery`
+  cannot supply this default — it resolves to `result.response` (a `string`), dropping
+  `toolSummaries`/`usage`/`history`; it is cited only as precedent for the resolve-on-`complete` wrapper
+  pattern. `index.ts` barrel; re-export under a `// ── Evals ──` header (or a
   `"./evals"` subpath mirroring `"./testing"`). Contract types that cross transport/persistence go to the
   `agent-interface-transport` SSOT; behavior stays in `src/evals/`. No concrete metrics ship.
 - **`agent-cli` `robota eval`** — `src/eval/eval-command.ts`: `runEvalCommand(...): Promise<number>` loads a
@@ -211,18 +231,18 @@ consciously deferred: dedicated `agent-evals` package iff a third-party metric f
 
 ## Affected Files
 
-| File                                                      | Change                                                                                                     |
-| --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `packages/agent-framework/src/evals/eval-types.ts` (new)  | `IMetric` (score over `IExecutionResult`), `IEvalCase`, `IEvalDefinition`, `IEvalReport`/`IEvalCaseResult` |
-| `packages/agent-framework/src/evals/runner.ts` (new)      | `defineEval` + `runEval(def, runFn)`; default `runFn` via `createAgentRuntime`/`createQuery`               |
-| `packages/agent-framework/src/evals/index.ts` (new)       | barrel (values then `export type`), mirror `src/self-hosting`/`src/goal`                                   |
-| `packages/agent-framework/src/index.ts`                   | re-export `// ── Evals ──` block (or add `"./evals"` subpath in `package.json` like `"./testing"`)         |
-| `packages/agent-cli/src/eval/eval-command.ts` (new)       | `runEvalCommand(...): Promise<number>` — run cases via `HeadlessInteractionChannel`, apply metrics         |
-| `packages/agent-cli/src/cli.ts`                           | `positional[0] === 'eval'` branch → `process.exitCode = failed > 0 ? 1 : 0` (mirror diagnose)              |
-| `packages/agent-cli/src/utils/cli-args.ts`                | `printHelp()` `Commands:` gains `robota eval`; any `--eval-*` flags (or pre-parse like `session analyze`)  |
-| `packages/agent-cli/src/__tests__/cli-exit-codes.test.ts` | assert `eval` exits non-zero on failing eval, zero on pass                                                 |
-| `examples/capabilities/agent-eval/` (new)                 | `package.json` (`robota-capability-agent-eval`), `tsconfig.json`, `README.md`, `src/index.ts`              |
-| `examples/README.md`                                      | add a row to the "Capability examples" table                                                               |
+| File                                                      | Change                                                                                                                                                      |
+| --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/agent-framework/src/evals/eval-types.ts` (new)  | `IMetric` (score over `IExecutionResult`), `IEvalCase`, `IEvalDefinition`, `IEvalReport`/`IEvalCaseResult`                                                  |
+| `packages/agent-framework/src/evals/runner.ts` (new)      | `defineEval` + `runEval(def, runFn)`; default `runFn` via `createAgentRuntime().createSession()` (capture `complete` `IExecutionResult`; NOT `createQuery`) |
+| `packages/agent-framework/src/evals/index.ts` (new)       | barrel (values then `export type`), mirror `src/self-hosting`/`src/goal`                                                                                    |
+| `packages/agent-framework/src/index.ts`                   | re-export `// ── Evals ──` block (or add `"./evals"` subpath in `package.json` like `"./testing"`)                                                          |
+| `packages/agent-cli/src/eval/eval-command.ts` (new)       | `runEvalCommand(...): Promise<number>` — run cases via `HeadlessInteractionChannel`, apply metrics                                                          |
+| `packages/agent-cli/src/cli.ts`                           | `positional[0] === 'eval'` branch → `process.exitCode = failed > 0 ? 1 : 0` (mirror diagnose)                                                               |
+| `packages/agent-cli/src/utils/cli-args.ts`                | `printHelp()` `Commands:` gains `robota eval`; any `--eval-*` flags (or pre-parse like `session analyze`)                                                   |
+| `packages/agent-cli/src/__tests__/cli-exit-codes.test.ts` | assert `eval` exits non-zero on failing eval, zero on pass                                                                                                  |
+| `examples/capabilities/agent-eval/` (new)                 | `package.json` (`robota-capability-agent-eval`), `tsconfig.json`, `README.md`, `src/index.ts`                                                               |
+| `examples/README.md`                                      | add a row to the "Capability examples" table                                                                                                                |
 
 ## Completion Criteria
 
@@ -244,9 +264,11 @@ consciously deferred: dedicated `agent-evals` package iff a third-party metric f
       [enforcement-architecture.md](../../rules/enforcement-architecture.md) (every guardian needs a mechanical
       floor), a follow-up is filed for a mechanical neutrality scan (assert no dataset/metric-content files under
       `packages/**/evals`); neutrality does not rest on the manual grep alone.
-- [ ] TC-06: the runner reaches the agent through injected/assembled run paths only (`createAgentRuntime`/
-      `createQuery` in the SDK; `HeadlessInteractionChannel` in the CLI) — the library defines no provider and no
-      agent config (unit test on the injected-`runFn` seam; the default `runFn` is constructed by the caller).
+- [ ] TC-06: the runner reaches the agent through injected/assembled run paths only
+      (`createAgentRuntime().createSession()` capturing the `complete`-event `IExecutionResult` in the SDK;
+      `HeadlessInteractionChannel` in the CLI) — the library defines no provider and no agent config (unit test
+      on the injected-`runFn` seam; the default `runFn` is constructed by the caller). The default `runFn` is
+      NOT built from `createQuery`, which yields only the `response` string.
 
 ## Test Plan
 
@@ -281,3 +303,23 @@ dataset loader) / P4 (deferred: dedicated package iff a family; in-session `/eva
   (`.agents/evals/README.md`); and library-neutrality + mechanical-floor rules
   ([enforcement-architecture.md](../../rules/enforcement-architecture.md)). **GATE-APPROVAL pending** (independent
   proposal-reviewer + prior-art-researcher pass to run; architecture-placement validation to be recorded here).
+- 2026-07-17 — **RE-REVIEW → REVISE (iteration 1), applied.** GATE-APPROVAL re-review confirmed the design
+  DIRECTION correct (SDK eval surface in `agent-framework/src/evals/`, `robota eval` CLI gate mirroring
+  `runDiagnoseCommand`'s exit contract, metric = pure fn over `IExecutionResult`, neutrality) but flagged the
+  **default-`runFn` source as wrong**: the draft said the default `runFn` is built from
+  `createAgentRuntime`/`createQuery`, but `createQuery` resolves to `result.response` — a `string` — only
+  (`packages/agent-framework/src/query.ts:34,62–67`: `TQueryFunction = (prompt) => Promise<string>`, `onComplete`
+  resolves `result.response`), **not** the full `IExecutionResult`. Wiring the default path through it would
+  silently drop `toolSummaries`/`usage`/`history` and collapse the default eval into the string-only metric that
+  Alternative 4 was REJECTED for, making TC-02 (which scores `toolSummaries` + `usage`) unmeetable. **Fixed:** the
+  default `runFn` is now built from **`createAgentRuntime().createSession()`, capturing the session's terminal
+  `complete`-event `IExecutionResult`** — the `InteractiveSession` `complete` payload is the full result (per
+  `query.ts`'s `onComplete(result: IExecutionResult)`); `createQuery` is demoted to precedent for the
+  resolve-on-`complete` convenience-wrapper pattern only. Updated Decision, Solution (`runner.ts`), Affected Files
+  (`runner.ts` row), Validated Recommendation (Reachability), Architecture-Review Checklist (sibling scan), and
+  TC-06. **Also added the `agent-session-analytics` boundary** (Affected Scope): it scores a persisted **session
+  RECORD** (`IInteractiveSessionRecord`) whereas an eval metric scores a **single RUN RESULT**
+  (`IExecutionResult`), so the metric does NOT extend that package — the runner needs the framework run-primitives
+  (`createAgentRuntime`) to PRODUCE the result, which a pure record-analytics package neither has nor should take
+  on. Everything else retained: placement, neutrality, the `.agents/evals` dev-harness-vs-product distinction, the
+  4 correctness-grounded alternatives, and TC-05's honest manual floor + filed mechanical-scan follow-up.
