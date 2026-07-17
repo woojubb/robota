@@ -64,6 +64,14 @@ describe('SELFHOST-003 P2 — repo-map index build + persistence', () => {
     expect(() => deserializeRepoMapIndex(stale)).toThrow(/Unsupported repo-map index version/);
   });
 
+  it('deserialize throws on a version-1 but structurally corrupt entry', () => {
+    const corrupt = JSON.stringify({
+      version: REPO_MAP_INDEX_VERSION,
+      entries: [{ path: 'a.ts', definitions: 'not-an-array', references: [] }],
+    });
+    expect(() => deserializeRepoMapIndex(corrupt)).toThrow(/corrupt entry/);
+  });
+
   it('ranking is identical whether built from a corpus or from a persisted index', async () => {
     const fromCorpus = new RepoMapRetrievalAdapter({ parser: fakeParser(PARSED), corpus: CORPUS });
 

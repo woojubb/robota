@@ -31,7 +31,8 @@ import type {
 
 /**
  * Construct from EITHER a prebuilt/persisted `index` (P2) OR a `parser` + `corpus` (parsed once at
- * construction). Exactly one of the two forms must be supplied.
+ * construction). At least one form must be supplied (else the constructor throws); if both are given,
+ * `index` takes precedence.
  */
 export interface IRepoMapRetrievalAdapterOptions {
   /** Injected source parser (duck-typed) — required when building from a corpus. */

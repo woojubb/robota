@@ -52,5 +52,14 @@ export function deserializeRepoMapIndex(serialized: string): IRepoMapIndex {
   if (!Array.isArray(parsed.entries)) {
     throw new Error('Malformed repo-map index: missing `entries`.');
   }
+  for (const entry of parsed.entries) {
+    if (
+      typeof entry?.path !== 'string' ||
+      !Array.isArray(entry?.definitions) ||
+      !Array.isArray(entry?.references)
+    ) {
+      throw new Error('Malformed repo-map index: a corrupt entry — rebuild the index.');
+    }
+  }
   return { version: parsed.version, entries: parsed.entries };
 }
