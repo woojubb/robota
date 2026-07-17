@@ -25,8 +25,18 @@ each punch-list verified against the actual code) and promoted to `.agents/spec-
   `orchestration-neutrality` harness scan (`scripts/harness/scan-orchestration-neutrality.mjs`, identifier-CONTAINING
   match so camelCase `roomId`/`personaName` are caught) + its red-fixture test; agent-core/agent-framework SPEC
   amendments (core reclassified as OWNER of the neutral contracts).
-- **P2 PENDING**: `parallel` (bounded concurrency + aggregation) + `handoff` (control-transfer).
-- **P3 PENDING**: `hierarchical` (manager-delegation) + `group-chat` (turn-taking).
+- **P2 SHIPPED** (PR #1194, merged to develop `354e55e99`, merge-verified): `runParallel` (bounded-concurrency
+  worker pool + fail-fast + order-preserving `\n\n`-join aggregate) + `runHandoff` (dynamic loop-ownership transfer
+  via an INJECTED neutral `resolveHandoff` policy; previous-output threading; `maxHandoffs` guard). Contracts
+  `IParallelOrchestrationSpec` + `IHandoffOrchestrationSpec`. spawn/wait/event mechanics factored into
+  `orchestration/shared.ts` (sequential refactored onto it; `ISequentialRunContext` kept as alias).
+- **P3 IMPLEMENTED** (this PR): `runHierarchical` (manager step delegates to workers via an injected neutral
+  `planDelegation` policy; worker output threaded back each round; `maxRounds` guard) + `runGroupChat` (steps take
+  turns chosen by an injected neutral `selectNextStep` policy; prior turns threaded as id-labeled history; `maxTurns`
+  guard). Contracts `IOrchestrationDelegation` + `IHierarchicalOrchestrationSpec` + `IGroupChatOrchestrationSpec`.
+  Neutrality held for these two highest-drift primitives — WHO delegates / WHO speaks next is caller-injected, and
+  the standing `orchestration-neutrality` floor stays clean. **All five named primitives now implemented** (30 tests).
+- **NEXT: GATE-VERIFY + GATE-COMPLETE** for the epic — move the spec `active/` → `done/` with done-evidence.
 - **B3 extraction trigger** (deferred): when a second implementer family lands (a dag-\* adapter), move BOTH the
   contracts AND event unions into a new `agent-interface-orchestration` package (deps ⊆ {agent-core}).
 
@@ -37,7 +47,8 @@ authored grounded in real code (four corrected inaccurate backlog seeds against 
 `proposal-reviewer` gate repeatedly caught genuine code-verified defects (dependency cycles, wrong placement,
 unbuildable data-flow, a neutrality scan bypassable by camelCase) BEFORE any code — see the specs' Evidence Logs.
 PRs use the DX-001 batching policy (one coherent design-gate pass per PR) and the HARNESS-018 async PR-review
-(reviewer → 0/1 actionable → fix → merge). Continue from P2, then the remaining specs in priority order
-(001 is P1-priority; the differentiators are `priority: medium`/`low`, `urgency: later`).
+(reviewer → 0/1 actionable → fix → merge). SELFHOST-001 is now feature-complete (all 5 primitives); next is its
+GATE-VERIFY/GATE-COMPLETE, then the remaining specs in priority order (differentiators are `priority: medium`/`low`,
+`urgency: later`).
 
 Related: [[self-improving-harness-northstar]], [[harness-mechanical-not-skilltree]].
