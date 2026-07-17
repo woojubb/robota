@@ -35,13 +35,17 @@ caller (e.g. agent-cli `session analyze`)
 
 Types owned by this package (SSOT):
 
-| Type                   | Kind      | File       | Description                                                        |
-| ---------------------- | --------- | ---------- | ------------------------------------------------------------------ |
-| `TIntervalKind`        | type      | `types.ts` | Union of the five timing-interval kinds                            |
-| `ITimingInterval`      | interface | `types.ts` | One classified interval (kind, from/to type+timestamp, durationMs) |
-| `ITimingStats`         | interface | `types.ts` | Aggregated LLM-wait / tool-exec / user→assistant stats             |
-| `ISessionTimingReport` | interface | `types.ts` | Per-session report: intervals, slow intervals, stats               |
-| `IAggregateReport`     | interface | `types.ts` | Fleet-level summary across sessions                                |
+| Type                   | Kind      | File       | Description                                                             |
+| ---------------------- | --------- | ---------- | ----------------------------------------------------------------------- |
+| `TIntervalKind`        | type      | `types.ts` | Union of the five timing-interval kinds                                 |
+| `ITimingInterval`      | interface | `types.ts` | One classified interval (kind, from/to type+timestamp, durationMs)      |
+| `ITimingStats`         | interface | `types.ts` | Aggregated LLM-wait / tool-exec / user→assistant stats                  |
+| `ISessionTimingReport` | interface | `types.ts` | Per-session report: intervals, slow intervals, stats                    |
+| `IAggregateReport`     | interface | `types.ts` | Fleet-level summary across sessions                                     |
+| `IUsageSourceTotals`   | interface | `usage.ts` | Per-source token+cost totals (SELFHOST-004 adds `costUsd`/`costExact`)  |
+| `IUsageBySourceReport` | interface | `usage.ts` | Per-source breakdown + session cost + span `timeline` (SELFHOST-004)    |
+| `IRunTraceSpan`        | interface | `usage.ts` | One per-operation span on the run timeline (`spanId`/`op`/`durationMs`) |
+| `IRunTraceTurn`        | interface | `usage.ts` | One turn on the timeline with its sub-turn spans grouped underneath     |
 
 Reused (not owned): `TSessionAnalysisInput` is `Pick<IInteractiveSessionRecord, 'id' | 'cwd' |
 'createdAt' | 'history'>` (agent-interface-transport SSOT); history entries are `IHistoryEntry`
