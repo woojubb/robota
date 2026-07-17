@@ -228,6 +228,18 @@ Neutral multi-agent orchestration runtime exports (the contracts/event-type unio
 | `IOrchestrationRunResult`        | type  | A run's result (primitive, per-step results, aggregate output)                                               |
 | `IOrchestrationEventData`        | type  | Neutral event payload the primitives emit over `IEventService`                                               |
 
+### Span Timing Public API (SELFHOST-004)
+
+Per-operation timing SOURCE. agent-core measures the operation duration (e.g. `FunctionTool`), mints the span id, and emits a span-completion event whose payload JOINS `spanId + durationMs + op` (raw scalars only — references no transport type, so agent-core depends on neither `agent-interface-transport` nor `agent-plugin`; no cycle). A consuming layer (`agent-framework`) turns the event into a record span entry.
+
+| Export                     | Kind     | Description                                                                                              |
+| -------------------------- | -------- | -------------------------------------------------------------------------------------------------------- |
+| `SPAN_EVENTS`              | const    | Span lifecycle event names (`span_completed`); mirrors the `TASK_EVENTS`/`USER_EVENTS` pattern           |
+| `SPAN_EVENT_PREFIX`        | const    | Event-name prefix (`span`) for the span lifecycle events                                                 |
+| `TSpanEvent`               | type     | Union of the span lifecycle event names                                                                  |
+| `ISpanCompletionEventData` | type     | Span-completion payload joining `spanId` + `durationMs` + `op` (raw scalars; no transport dependency)    |
+| `generateSpanId`           | function | Mint a unique `span_…` id for distributed-tracing correlation (also used to seed `IEventContext.spanId`) |
+
 ### Schema (CORE-015)
 
 | Export                                                                                                    | Kind     | Description                                                                                                               |
