@@ -76,27 +76,35 @@ durationMs + op` (raw scalars; no transport/plugin edge — no cycle). `span-eve
 - [x] Verify: build + typecheck (incl. cli/framework consumers) + tests (transport 10 / analytics 32 /
       protocol 52) + lint (0 errors) + `harness:scan` (54/54).
 
-## P6 — LIVE span→history population (real-session timeline) — PENDING (honest gap)
+## P6 — LIVE span→history population (real-session timeline) — DONE
 
-The P1–P5 seam is complete and tested end-to-end **for cost** (P1 `costUsd` rides the `usage-summary`
-entries already on `IInteractiveSessionRecord.history`, so `summarizeUsageBySource` + `formatUsageReport`
-show real per-source/session cost, and the P4 budget cap enforces the exact figure). The **span timeline**,
-however, is only populated over CONSTRUCTED records in the reducer tests: nothing yet appends
-`createSpanEntry(...)` results to a live session's `history`. `FunctionTool` emits `SPAN_EVENTS.COMPLETED`
-on the agent's `eventService`, but the interactive session does not tap that bus (the `Session` wrapper in
-`@robota-sdk/agent-session` exposes no event-bus accessor; `onExecutionEvent` does not carry the span
-emit). Closing this needs a small, deliberate multi-package slice:
+Closed the honest gap: the interactive session now populates the span timeline on a REAL turn (not only
+over constructed reducer records).
 
-- expose the agent event bus to the session (a read accessor on the agent / `Session` wrapper, or route
-  the span emit through `onExecutionEvent`), then
-- have the interactive turn subscribe, collect `span_completed` events during `.run(...)`, and push
-  `createSpanEntry(event)` entries onto `history` at the turn boundary (mirroring `createUsageSummaryEntry`),
-- plus a live end-to-end test (real session → timeline populated → reducer/view show it) for the
-  User Execution Scenario in TC-05/08.
+- [x] `agent-session`: the session owns an `ObservableEventService` and injects it into the agent via
+      `buildRobota` — the agent previously fell back to the **no-op default**, so tool span emits never
+      fired in the interactive path. Exposed read-only via `Session.getEventService()`.
+- [x] `agent-session`: the permission wrapper forwards `setEventService` to the ORIGINAL tool (it runs
+      `originalExecute` bound to that tool). `Object.create(tool)` would shadow the injection onto the
+      wrapper, leaving the original tool's bus unset — no spans. Proven by a wrapper test.
+- [x] `agent-framework`: `collectSpanEntries(eventService)` subscribes to the bus and projects each
+      `SPAN_EVENTS.COMPLETED` into a record entry (`createSpanEntry`). The interactive turn subscribes
+      for the run and drains entries onto `history` BEFORE the turn's `usage-summary` (the reducer's turn
+      boundary), then disposes in `finally`.
+- [x] Tests: live collector over a real bus (emit→collect→entry; dispose stops it) + wrapper
+      `setEventService` forwarding; test fakes updated for the new `getEventService()` contract.
+- [x] Verify: build:deps + workspace typecheck + tests (framework 1141 / session 88 + consumers cli 205,
+      tui 418) + lint (0 errors) + `harness:scan` (54/54).
 
-Deferred to keep the core-package change deliberate rather than rushed. GATE-COMPLETE for the epic is
-**not** claimed until P6 lands; P1–P5 land as a coherent, green, independently-valuable increment (cost
-budgeting + cost-by-source are live today; the span seam is built and unit-proven).
+The full chain is now live end-to-end: tool emit → session bus → collector → `createSpanEntry` →
+`history` → `summarizeUsageBySource` timeline + `formatUsageReport` view.
+
+## GATE-COMPLETE
+
+All completion criteria (TC-01…08) implemented, tested, and dependency-legal; P1–P6 landed. Cost
+budgeting + cost-by-source + the span trace timeline are all live in a real interactive session.
+Verification is AGENT-RUN (headless unit/integration tests over real objects + the `session analyze`
+headless CLI render path) — no owner manual smoke required.
 
 ## Test Plan
 

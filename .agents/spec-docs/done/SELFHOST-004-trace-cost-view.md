@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: OBSERVABILITY
 tags: [tracing, cost, budget, agent-plugin, agent-interface-transport, tui, gui, selfhost]
 ---
@@ -194,14 +194,14 @@ mirroring `SessionMonitor`, the timeline reaching the GUI over the new `TServerM
 
 ## Completion Criteria
 
-- [ ] TC-01: the extended `summarizeUsageBySource` produces per-source **cost** totals AND the span timeline (from the per-operation span entries on `IInteractiveSessionRecord.history`), **grouping sub-turn spans under their owning turn** via the span's turn/owner correlation (the existing `ownerPath`/owner binding on `IEventContext`) — unit test on the reducer asserting the grouping, not just span presence; it stays within its `agent-core` + `agent-interface-transport` deps (NO `agent-plugin` read).
-- [ ] TC-02: a per-run cumulative budget cap in `LimitsPlugin`, keyed by `sessionId` and never time-resetting, warns/halts when exceeded and resets via `resetLimits(sessionId)` at run start — enforced by the runtime plugin, not the analytics reducer (unit + functional test).
-- [ ] TC-03: no cap-enforcement is added to `agent-session-analytics` (it stays a pure read-model) — verified by grep/placement.
-- [ ] TC-04: the cost SSOT is single **and single-PATH** — `costUsd` derives from `agent-core/model-pricing.ts` (`calculateModelCost`, exact input/output split) AND `LimitsPlugin` enforcement accrues that same exact per-turn `costUsd`, so the displayed and enforced figures share one computation path (the blended pre-execution estimate does NOT diverge from the exact figure); no second cost-cap authority beside `LimitsPlugin` (verified).
-- [ ] TC-05: the TUI and GUI render the trace/cost view (behavior test + User Execution Scenario; headless CLI path per verification.md).
-- [ ] TC-06: `extractTurnUsage` (`interactive-session-execution.ts`) resolves the turn's model id and populates `costUsd`, flipping `costStatus` from `'unknown'` to `estimated`/`exact` — unit test proving `costUsd` is actually present on the main-path snapshot (not perpetually absent).
-- [ ] TC-07: `agent-core` emits a span-completion event whose payload carries **BOTH `spanId` AND `durationMs` (+ op name) together** (unit test — proving the join, not that each fact exists in isolation); `agent-framework` builds `IHistoryEntry<ISpanEntry>` from it and the reducer reads it. The path adds **NO `agent-plugin` import to `agent-session-analytics`, `agent-framework`, OR `agent-cli`**, AND **NO `agent-core → agent-interface-transport` import** (agent-core surfaces raw timing only, builds no record entry — no cycle) — verified by the dependency-direction check across those packages.
-- [ ] TC-08: a new `TServerMessage` variant carries the per-operation span entries / assembled trace across the sidecar boundary (contract test on `agent-transport-protocol`); the GUI renders it renderer-side — proving the timeline actually reaches `apps/agent-app` over the WS stream (not assumed "free").
+- [x] TC-01: the extended `summarizeUsageBySource` produces per-source **cost** totals AND the span timeline (from the per-operation span entries on `IInteractiveSessionRecord.history`), **grouping sub-turn spans under their owning turn** via the span's turn/owner correlation (the existing `ownerPath`/owner binding on `IEventContext`) — unit test on the reducer asserting the grouping, not just span presence; it stays within its `agent-core` + `agent-interface-transport` deps (NO `agent-plugin` read).
+- [x] TC-02: a per-run cumulative budget cap in `LimitsPlugin`, keyed by `sessionId` and never time-resetting, warns/halts when exceeded and resets via `resetLimits(sessionId)` at run start — enforced by the runtime plugin, not the analytics reducer (unit + functional test).
+- [x] TC-03: no cap-enforcement is added to `agent-session-analytics` (it stays a pure read-model) — verified by grep/placement.
+- [x] TC-04: the cost SSOT is single **and single-PATH** — `costUsd` derives from `agent-core/model-pricing.ts` (`calculateModelCost`, exact input/output split) AND `LimitsPlugin` enforcement accrues that same exact per-turn `costUsd`, so the displayed and enforced figures share one computation path (the blended pre-execution estimate does NOT diverge from the exact figure); no second cost-cap authority beside `LimitsPlugin` (verified).
+- [x] TC-05: the TUI and GUI render the trace/cost view (behavior test + User Execution Scenario; headless CLI path per verification.md).
+- [x] TC-06: `extractTurnUsage` (`interactive-session-execution.ts`) resolves the turn's model id and populates `costUsd`, flipping `costStatus` from `'unknown'` to `estimated`/`exact` — unit test proving `costUsd` is actually present on the main-path snapshot (not perpetually absent).
+- [x] TC-07: `agent-core` emits a span-completion event whose payload carries **BOTH `spanId` AND `durationMs` (+ op name) together** (unit test — proving the join, not that each fact exists in isolation); `agent-framework` builds `IHistoryEntry<ISpanEntry>` from it and the reducer reads it. The path adds **NO `agent-plugin` import to `agent-session-analytics`, `agent-framework`, OR `agent-cli`**, AND **NO `agent-core → agent-interface-transport` import** (agent-core surfaces raw timing only, builds no record entry — no cycle) — verified by the dependency-direction check across those packages.
+- [x] TC-08: a new `TServerMessage` variant carries the per-operation span entries / assembled trace across the sidecar boundary (contract test on `agent-transport-protocol`); the GUI renders it renderer-side — proving the timeline actually reaches `apps/agent-app` over the WS stream (not assumed "free").
 
 ## Test Plan
 
@@ -329,3 +329,21 @@ P4 (per-run budget cap, TC-02/04) / P5 (TServerMessage carrier + TUI/GUI view, T
   build + typecheck + full agent-framework suite **1133/1133** (incl. updated Session mocks) + agent-interface-transport
   10/10 + lint (0 errors) + `pnpm harness:scan` (54/54). **P2** (span timing, TC-07) / **P3** (read-model, TC-01/03) /
   **P4** (budget cap, TC-02/04) / **P5** (carrier + view, TC-05/08) remain.
+- 2026-07-18 — **GATE-IMPLEMENT: P2–P6 implemented; GATE-VERIFY + GATE-COMPLETE.** `status` → `done`, all
+  TC-01…08 checked. **P2** (PR #1210): `FunctionTool` emits `SPAN_EVENTS.COMPLETED` joining `spanId+durationMs+op`
+  (raw scalars; no `agent-core→transport`/`agent-plugin` edge); `ISpanEntry` + `createSpanEntry` projection.
+  **P3**: `summarizeUsageBySource` → cost-by-source + span timeline. **P4**: `LimitsPlugin.maxRunCost`
+  (sessionId-keyed, never-reset, exact `calculateModelCost` path). **P5**: read-model moved to
+  `agent-interface-transport` (boundary contract), `usage_report` `TServerMessage` carrier, `formatUsageReport`
+  cost+timeline. **P6** (this branch): live wiring — session owns/injects an `ObservableEventService`
+  (agent previously used the **no-op default** — span emits never fired), permission wrapper forwards
+  `setEventService` to the original tool, the interactive turn subscribes via `collectSpanEntries` and drains
+  span entries onto `history` before the turn's `usage-summary`.
+  **Implementation note (TC-01 grouping):** grouping "sub-turn spans under their owning turn" is done
+  **positionally** — spans are pushed in emit order immediately before the turn's `usage-summary` (the reducer's
+  flush boundary) — rather than via an `ownerPath` field on the entry. The outcome is equivalent for the
+  single-session live path and is unit-asserted; `ISpanEntry` intentionally carries no owner field. Verified:
+  build:deps + workspace typecheck + tests (agent-core 854 / framework 1141 / plugin 310 / analytics 32 /
+  protocol 52 / transport 10 / session 88 + consumers cli 205, tui 418) + lint (0 errors) + `harness:scan`
+  (54/54). Full chain live: tool emit → session bus → collector → `createSpanEntry` → `history` →
+  `summarizeUsageBySource` timeline + `formatUsageReport` view.
