@@ -263,6 +263,9 @@ export class LimitsPlugin extends AbstractPlugin<ILimitsPluginOptions> {
       this.buckets.delete(key);
       this.windows.delete(key);
       // SELFHOST-004: run-start reset — clear the run's cumulative budget so a new run starts at $0.
+      // The run budget is keyed by the RUN key (`getRunKey` = sessionId), which differs from the
+      // window key (`getKey` = userId||sessionId) when a userId is set. Callers resetting the run
+      // budget MUST pass the sessionId, not a userId-derived window key, or the run cost won't clear.
       this.runCosts.delete(key);
     } else {
       this.buckets.clear();
