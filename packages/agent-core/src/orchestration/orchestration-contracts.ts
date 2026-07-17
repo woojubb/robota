@@ -56,6 +56,41 @@ export interface ISequentialOrchestrationSpec {
   threadOutput?: boolean;
 }
 
+/** The specification for a `parallel` orchestration run (SELFHOST-001 P2). */
+export interface IParallelOrchestrationSpec {
+  /** The steps to run concurrently. Each runs with only its own prompt (no threading). */
+  steps: IOrchestrationStep[];
+  /**
+   * Maximum number of steps in flight at once (bounded concurrency). When
+   * omitted or `<= 0`, all steps run at once. Steps beyond the bound queue and
+   * start as slots free up. Results are returned in the original step order
+   * regardless of completion order.
+   */
+  maxConcurrency?: number;
+}
+
+/**
+ * The specification for a `handoff` orchestration run (SELFHOST-001 P2).
+ *
+ * Distinct from `sequential` (a fixed ordered pipeline) and from
+ * hierarchical manager-delegation: here loop ownership TRANSFERS between
+ * steps dynamically. Control starts at `entryStepId`; after each step, the
+ * caller-supplied handoff policy decides which step (if any) receives control
+ * next. The step that receives control is threaded the previous step's output.
+ */
+export interface IHandoffOrchestrationSpec {
+  /** The candidate steps control can transfer among, addressed by `id`. */
+  steps: IOrchestrationStep[];
+  /** The id of the step that receives control first. */
+  entryStepId: string;
+  /**
+   * Maximum number of control transfers before the run is forced to stop (a
+   * loop bound guarding a mis-specified policy that never terminates). When
+   * omitted, defaults to the step count. Exceeding it fails the run.
+   */
+  maxHandoffs?: number;
+}
+
 /** The result of one executed step. */
 export interface IOrchestrationStepResult {
   /** The step id this result corresponds to. */
@@ -75,9 +110,14 @@ export interface IOrchestrationStepResult {
 export interface IOrchestrationRunResult {
   /** Which primitive produced this result. */
   primitive: TOrchestrationPrimitive;
-  /** Per-step results in execution order. */
+  /** Per-step results in original step order. */
   steps: IOrchestrationStepResult[];
-  /** The aggregate output (for `sequential`, the last step's output). */
+  /**
+   * The aggregate output. `sequential` and `handoff` return the LAST executed
+   * step's output (the end of the pipeline / the final control-holder);
+   * `parallel` returns every step's output joined in original order (blank-line
+   * separated), since concurrent steps have no single "last" result.
+   */
   output: string;
 }
 

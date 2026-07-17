@@ -195,3 +195,15 @@ SPEC amendment), P2 (parallel + handoff), P3 (hierarchical + group-chat).
   amendments. TC-01..TC-06 satisfied and verified locally: build + typecheck + 5/5 tests + lint (0 errors) +
   `pnpm harness:scan` (all 54 scans pass). Tasks: [`.agents/tasks/SELFHOST-001.md`](../../tasks/SELFHOST-001.md).
   P2 (`parallel`/`handoff`) and P3 (`hierarchical`/`group-chat`) remain.
+- 2026-07-17 — **GATE-IMPLEMENT: P2 implemented.** Added the `parallel` and `handoff` primitives. agent-core:
+  `IParallelOrchestrationSpec` (bounded `maxConcurrency`) + `IHandoffOrchestrationSpec` (control-transfer among
+  steps; `entryStepId` + `maxHandoffs` loop bound), still zero new `@robota-sdk/agent-*` deps. agent-framework:
+  `runParallel` (bounded-concurrency worker pool, order-preserving results, joined aggregate) and `runHandoff`
+  (dynamic loop-ownership transfer driven by an injected neutral `resolveHandoff` policy — keeping WHICH step
+  receives control a caller decision so the primitive carries no app-domain routing; previous-output threading;
+  `maxHandoffs` guard); spawn/wait/event mechanics factored into `orchestration/shared.ts` (also adopted by the
+  refactored `sequential`). No `agent-subagent-runner` dep (no-cycle). The standing `orchestration-neutrality`
+  floor already covers the new source and stays clean (guarding the still-pending P3 `hierarchical`/`group-chat`).
+  SPEC amendments in both packages. Verified locally: build + typecheck + orchestration tests **17/17**
+  (6 sequential + 6 parallel + 5 handoff) + lint (0 errors) + `pnpm harness:scan` (all **54** pass) + `harness:test`
+  neutrality 5/5. P3 (`hierarchical`/`group-chat`) remains.

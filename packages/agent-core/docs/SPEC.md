@@ -219,6 +219,8 @@ Neutral multi-agent orchestration runtime exports (the contracts/event-type unio
 | `TOrchestrationPrimitive`      | type  | Named neutral primitives: `sequential`/`parallel`/`hierarchical`/`handoff`/`group-chat`                      |
 | `IOrchestrationStep`           | type  | A neutral unit of work (id, label, agentType, prompt, optional model/tool scoping)                           |
 | `ISequentialOrchestrationSpec` | type  | Spec for a `sequential` run (ordered steps + `threadOutput`)                                                 |
+| `IParallelOrchestrationSpec`   | type  | Spec for a `parallel` run (concurrent steps + bounded `maxConcurrency`)                                      |
+| `IHandoffOrchestrationSpec`    | type  | Spec for a `handoff` run (control-transfer among steps; `entryStepId` + `maxHandoffs` loop bound)            |
 | `IOrchestrationStepResult`     | type  | One executed step's result (id, output, optional usage)                                                      |
 | `IOrchestrationRunResult`      | type  | A run's result (primitive, per-step results, aggregate output)                                               |
 | `IOrchestrationEventData`      | type  | Neutral event payload the primitives emit over `IEventService`                                               |
