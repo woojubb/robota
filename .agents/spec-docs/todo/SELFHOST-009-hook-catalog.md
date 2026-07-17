@@ -68,8 +68,8 @@ ride the `agent-session` enforcement path, never core plugin hooks.
   `PermissionEnforcer` right after `evaluatePermission` (`permission-enforcer.ts:201-242`); `PreModelCall` /
   `PostModelCall` mapped from the provider-call execution events the turn owner already receives via
   `onExecutionEvent` (`session-run.ts:161-173`) — `provider_request` (emitted as the request goes out,
-  `execution-round-streaming.ts:69`) → `PreModelCall`, and `provider_response_normalized` /
-  `provider_response_raw` (emitted after the response returns, `execution-round-streaming.ts:101-117`) →
+  `execution-round-streaming.ts:69`) → `PreModelCall`, and `provider_response_normalized` (the **single canonical
+  source**, `execution-round-streaming.ts:108`; NOT also `provider_response_raw`, which would double-fire per round) →
   `PostModelCall`. (Correction: **not** `assistant_message_committed`, which fires only after the model has
   already responded — wrong boundary for a "pre" event.) These are **informational-only** notifications: the
   `onExecutionEvent` callback is void and un-awaited by agent-core, so a `runHooks` call fired from it is
@@ -144,8 +144,8 @@ of hook definitions stays in `agent-framework`; policies stay in the consumer.
   `PermissionEnforcer` already return. Verified against `hook-runner.ts` (`runHooks(…, executors?)`,
   `IRunHooksResult.blocked`, `exitCode:2 → blocked` at lines 95-142). Firing `PreModelCall`/`PostModelCall` from
   the turn owner's `onExecutionEvent` provider-call events — `provider_request` (before `provider.chat()` returns,
-  `execution-round-streaming.ts:69`) → `PreModelCall`; `provider_response_normalized` / `provider_response_raw`
-  (after it returns, `execution-round-streaming.ts:101-117`) → `PostModelCall` — is reachable with hooks +
+  `execution-round-streaming.ts:69`) → `PreModelCall`; `provider_response_normalized` (single canonical source,
+  `:108`; NOT also `provider_response_raw`) → `PostModelCall` — is reachable with hooks +
   executors already in `IRunContext` (`session-run.ts:47-48`); a deep agent-core-loop placement is NOT reachable
   without new threading (Alt 2). These two events plus `PermissionDecision` are **informational-only**: because
   `onExecutionEvent` is a void, un-awaited notification callback, the `runHooks` call fired from it is
@@ -184,8 +184,9 @@ Extend the existing hooks engine in three coordinated moves, all on the current 
    `PermissionEnforcer` immediately after `evaluatePermission` (informational; carries the decision).
    `PreModelCall`/`PostModelCall` are mapped from the provider-call execution events `session-run.ts` already
    receives via `onExecutionEvent`: `provider_request` (`execution-round-streaming.ts:69`, emitted as the request
-   goes out — before `provider.chat()` returns) → `PreModelCall`; `provider_response_normalized` /
-   `provider_response_raw` (`execution-round-streaming.ts:101-117`, emitted after the response returns) →
+   goes out — before `provider.chat()` returns) → `PreModelCall`; `provider_response_normalized` (the **single
+   canonical source**, `execution-round-streaming.ts:108`; the catalog documents ONE fire-site and TC-03 asserts
+   single emission — NOT also `provider_response_raw`, which would double-fire per round) →
    `PostModelCall`. (**Not** `assistant_message_committed`, which only fires after the model has responded.) Each
    call reuses the already-threaded `hookTypeExecutors`; none introduces a new block point.
 
@@ -232,15 +233,15 @@ Extend the existing hooks engine in three coordinated moves, all on the current 
 
 ## Affected Files
 
-| File                                                                | Change                                                                                                                                                                                                                                                                                                                          |
-| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `packages/agent-core/src/hooks/types.ts`                            | Add `PreModelCall` / `PostModelCall` / `PermissionDecision` to the `THookEvent` union + their `IHookInput` carrier fields. No change to `runHooks`/executor union.                                                                                                                                                              |
-| `packages/agent-session/src/permission-enforcer.ts`                 | Fire `PermissionDecision` (informational / non-blocking) right after `evaluatePermission` via `runHooks` on the existing `hookTypeExecutors`. PreToolUse block path unchanged.                                                                                                                                                  |
-| `packages/agent-session/src/session-run.ts`                         | Fire `PreModelCall` / `PostModelCall` (informational / non-blocking) from the `onExecutionEvent` provider-call events — `provider_request` → `PreModelCall`, `provider_response_normalized`/`provider_response_raw` → `PostModelCall` — via `runHooks` (hooks + executors already in `IRunContext`).                            |
-| `packages/agent-core/docs/hook-catalog.md` (new)                    | Catalog SSOT: every named event — timing, fire-site, input fields, blocking semantics.                                                                                                                                                                                                                                          |
-| `content/guide/permissions-and-hooks.md`                            | Correct the drifted Events table (drop phantom `Notification`, add `SessionEnd`/`StopFailure`/`SubagentStart`/`SubagentStop`/`WorktreeCreate`/`WorktreeRemove`); link the SSOT.                                                                                                                                                 |
-| `scripts/harness/scan-hook-catalog.mjs` (new) + `run-all-scans.mjs` | Drift-guard: FAIL on any doc ↔ `THookEvent` union ↔ firing-call-site mismatch. Firing-site detection resolves variable dispatch (via `hook_event_name:` field literals + the `getSubagentHookEvent`/`fireWorktreeHook` mappings) so all 13 events, incl. the 4 variable-dispatched, are covered. Registered in the scan runner. |
-| `packages/agent-core/docs/SPEC.md`                                  | Update the hook-layer line (event count) and point to the catalog SSOT.                                                                                                                                                                                                                                                         |
+| File                                                                | Change                                                                                                                                                                                                                                                                                                                              |
+| ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/agent-core/src/hooks/types.ts`                            | Add `PreModelCall` / `PostModelCall` / `PermissionDecision` to the `THookEvent` union + their `IHookInput` carrier fields. No change to `runHooks`/executor union.                                                                                                                                                                  |
+| `packages/agent-session/src/permission-enforcer.ts`                 | Fire `PermissionDecision` (informational / non-blocking) right after `evaluatePermission` via `runHooks` on the existing `hookTypeExecutors`. PreToolUse block path unchanged.                                                                                                                                                      |
+| `packages/agent-session/src/session-run.ts`                         | Fire `PreModelCall` / `PostModelCall` (informational / non-blocking) from the `onExecutionEvent` provider-call events — `provider_request` → `PreModelCall`, `provider_response_normalized` (single canonical source; NOT `provider_response_raw`) → `PostModelCall` — via `runHooks` (hooks + executors already in `IRunContext`). |
+| `packages/agent-core/docs/hook-catalog.md` (new)                    | Catalog SSOT: every named event — timing, fire-site, input fields, blocking semantics.                                                                                                                                                                                                                                              |
+| `content/guide/permissions-and-hooks.md`                            | Correct the drifted Events table (drop phantom `Notification`, add `SessionEnd`/`StopFailure`/`SubagentStart`/`SubagentStop`/`WorktreeCreate`/`WorktreeRemove`); link the SSOT.                                                                                                                                                     |
+| `scripts/harness/scan-hook-catalog.mjs` (new) + `run-all-scans.mjs` | Drift-guard: FAIL on any doc ↔ `THookEvent` union ↔ firing-call-site mismatch. Firing-site detection resolves variable dispatch (via `hook_event_name:` field literals + the `getSubagentHookEvent`/`fireWorktreeHook` mappings) so all 13 events, incl. the 4 variable-dispatched, are covered. Registered in the scan runner.     |
+| `packages/agent-core/docs/SPEC.md`                                  | Update the hook-layer line (event count) and point to the catalog SSOT.                                                                                                                                                                                                                                                             |
 
 ## Completion Criteria
 
@@ -258,9 +259,10 @@ Extend the existing hooks engine in three coordinated moves, all on the current 
       `permissionDecision: "deny"`) causes the tool call to return the denial `IToolResult` via the **existing**
       `runPreToolHook` → `blocked` path — the tool's underlying `execute` never runs (functional test in
       agent-session).
-- [ ] TC-03: each **new** named event fires at its documented point — `PermissionDecision` after
-      `evaluatePermission`, `PreModelCall` on `provider_request`, `PostModelCall` on
-      `provider_response_normalized`/`provider_response_raw` — each through `runHooks` on the shared
+- [ ] TC-03: each **new** named event fires at its documented point **exactly once per round** — `PermissionDecision`
+      after `evaluatePermission`, `PreModelCall` on `provider_request`, `PostModelCall` on
+      `provider_response_normalized` (the SINGLE canonical source — asserting it does NOT also fire on
+      `provider_response_raw`, i.e. no double-fire) — each through `runHooks` on the shared
       `hookTypeExecutors` path (unit/functional tests). Also assert all three are **informational-only**: firing
       them does not block/mutate `provider.chat()` or the permission outcome (their `runHooks` result is not
       awaited or consulted for gating), so only `PreToolUse` gates (TC-02).
