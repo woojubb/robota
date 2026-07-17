@@ -1,5 +1,5 @@
 ---
-status: draft
+status: approved
 type: INFRA
 tags: [deployment, gateway, transport, multi-surface, agent-server, selfhost]
 ---

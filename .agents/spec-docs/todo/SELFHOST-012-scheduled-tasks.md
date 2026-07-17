@@ -1,5 +1,5 @@
 ---
-status: draft
+status: approved
 type: FLOW
 tags: [scheduler, cron, tasks, dag-scheduler, agent-command, selfhost]
 ---

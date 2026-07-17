@@ -1,5 +1,5 @@
 ---
-status: draft
+status: approved
 type: DATA
 tags: [session-artifact, sharing, resume, persistence, agent-session, selfhost]
 ---

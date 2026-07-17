@@ -1,5 +1,5 @@
 ---
-status: draft
+status: approved
 type: DATA
 tags: [memory, semantic-recall, persistence, agent-framework, agent-cli, selfhost]
 ---

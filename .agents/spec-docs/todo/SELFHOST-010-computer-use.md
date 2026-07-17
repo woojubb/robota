@@ -1,5 +1,5 @@
 ---
-status: draft
+status: approved
 type: BEHAVIOR
 tags: [computer-use, browser, tool, permissions, agent-tools, selfhost]
 ---

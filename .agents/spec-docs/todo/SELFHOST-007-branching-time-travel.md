@@ -1,5 +1,5 @@
 ---
-status: draft
+status: approved
 type: DATA
 tags: [checkpoint, time-travel, rewind, agent-session, agent-core, selfhost]
 ---

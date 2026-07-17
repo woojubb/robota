@@ -1,5 +1,5 @@
 ---
-status: draft
+status: approved
 type: BEHAVIOR
 tags: [hooks, lifecycle, security-gate, agent-core, selfhost]
 ---

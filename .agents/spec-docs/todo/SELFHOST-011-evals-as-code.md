@@ -1,5 +1,5 @@
 ---
-status: draft
+status: approved
 type: BEHAVIOR
 tags: [evals, sdk, ci-gate, agent-framework, agent-cli, selfhost]
 ---
