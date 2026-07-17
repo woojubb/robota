@@ -30,13 +30,18 @@ bundles via `BundlePluginLoader` (nobody retains a typed `ExecutionAnalyticsPlug
 is imported by NO package (`agent-system.md:79`). Worse, the GUI consumer (`apps/agent-app`) is a thin Electron
 renderer talking to a `robota --serve` **sidecar process** over a loopback WS `TServerMessage` stream — any plugin
 memory lives in the sidecar, unreachable from the renderer except over that transport contract. So the timeline
-cannot be assembled "at the consumer." The correct source is the **runtime execution seam** (`agent-framework`,
-where the start/end timestamps already exist and `extractTurnUsage` already runs): stamp per-operation `durationMs`
-onto the **transport/record contract** (`agent-interface-transport`), which then rides the same `TServerMessage`
-stream every other datum uses to cross the sidecar boundary. The `ExecutionAnalyticsPlugin` is a downstream
-_recorder_ of that timing, not the source anything must reach into. The per-source aggregation already exists as
-`summarizeUsageBySource` (`agent-session-analytics/src/usage.ts`, ANALYTICS-001) and is EXTENDED to assemble the
-timeline from the new record field — within its legal `agent-core` + `agent-interface-transport` deps.
+cannot be assembled "at the consumer." The correct source is the **`agent-core` operation seam** where per-operation
+timing is genuinely measured — `function-tool.ts` already captures per-tool `executionTime` (`:71/:91`) and the
+event-service already mints `span_…` ids (`event-service.ts`), with sibling per-op boundaries in
+`execution-service.ts` / `conversation-service` / `execution-proxy.ts`. The framework's turn-level `extractTurnUsage`
+is post-hoc and sees NO per-operation timestamps, so it is NOT the timing source (it only owns the turn-granular
+`costUsd`). v1 emits a **per-operation span entry** (`op id/name + durationMs`, joinable to the turn) from those
+`agent-core` seams onto the **record/history contract** (`agent-interface-transport`, as a first-class span entry on
+`IInteractiveSessionRecord.history` — NOT a field on the turn-scoped `IUsageSnapshot`); a **new `TServerMessage`
+carrier** then rides those span entries across the sidecar boundary. The `ExecutionAnalyticsPlugin` is a downstream
+_recorder_ of that same timing, not the source anything must reach into. The per-source aggregation already exists
+as `summarizeUsageBySource` (`agent-session-analytics/src/usage.ts`, ANALYTICS-001) and is EXTENDED to assemble the
+timeline from the new record span entries — within its legal `agent-core` + `agent-interface-transport` deps.
 
 ## Architecture Review
 
@@ -46,27 +51,35 @@ timeline from the new record field — within its legal `agent-core` + `agent-in
   read by `LimitsPlugin` via `limits-helpers.ts` and by `/cost` via `agent-command/session/model-pricing.ts`). Do
   NOT declare a second cost authority.
 - **`agent-interface-transport`** (the contract carrier): (a) add an **OPTIONAL, derived** `costUsd?: number` on
-  `IUsageSnapshot` (`session-contracts.ts`), present iff `costStatus !== 'unknown'` (aligns with the existing enum);
-  (b) add an **OPTIONAL per-operation timing entry** (op id/name + `durationMs`, joinable to the turn) to the
-  session-record / snapshot-adjacent contract, so per-operation timing becomes a first-class part of the transport
-  stream (rides `TServerMessage` across the sidecar boundary like every other datum). Both optional =
-  backward-compatible **at the contract level** (all construction sites keep compiling); populating them is **real
-  work, not free** (below).
-- **`agent-framework`** (the runtime seam — the timing SOURCE, no `agent-plugin` edge): the main-path snapshot
+  `IUsageSnapshot` (`session-contracts.ts`) — a **turn-granular** amount, present iff `costStatus !== 'unknown'`
+  (aligns with the existing enum); (b) add a **first-class per-operation span entry type** (`op id/name +
+durationMs`, joinable to the turn) on **`IInteractiveSessionRecord.history`** — sub-turn granularity, so it is
+  NOT hung on the turn-scoped `IUsageSnapshot`. Both optional = backward-compatible **at the contract level** (all
+  construction sites keep compiling); populating them is **real work, not free** (below).
+- **`agent-core`** (the per-operation timing SOURCE, no `agent-plugin` edge): per-operation timing is measured HERE,
+  not in the framework — `function-tool.ts` already computes per-tool `executionTime` (`:71/:91`), the event-service
+  mints `span_…` ids (`event-service.ts`), and `execution-service.ts` / `conversation-service` / `execution-proxy.ts`
+  hold the sibling per-op boundaries. v1 emits a per-operation span entry (`op id/name + durationMs`) from those
+  seams onto the record/history contract. This is where the genuine sub-turn timing lives; nothing reaches into a
+  plugin.
+- **`agent-framework`** (turn-granular `costUsd` + record assembly, no `agent-plugin` edge): the main-path snapshot
   builder `extractTurnUsage` (`interactive/interactive-session-execution.ts`, ~lines 201–232) currently hard-codes
   `costStatus: 'unknown'` and has **no model id in scope**, so `costUsd` would otherwise NEVER be present.
   `extractTurnUsage` MUST resolve the turn's model id and compute cost via `calculateModelCost` (the
-  `agent-core/model-pricing.ts` SSOT — exact input/output split), flipping `costStatus` to `estimated`/`exact`. At
-  the same seam — where the operation start/end timestamps already exist — the runtime **stamps per-operation
-  `durationMs` onto the transport/record contract** (not into any plugin). This adds **no** `agent-plugin`
-  dependency; the `ExecutionAnalyticsPlugin` becomes just one more downstream consumer of the timing the runtime now
-  emits, rather than the sole source.
+  `agent-core/model-pricing.ts` SSOT — exact input/output split), flipping `costStatus` to `estimated`/`exact`.
+  `extractTurnUsage` owns ONLY this turn-granular `costUsd` — it is post-hoc and sees no per-operation timestamps, so
+  it does NOT stamp span timing (that is the `agent-core` seam above). The framework assembles the per-op span
+  entries into the session record.
+- **`agent-transport-protocol`** (the boundary carrier): **no existing `TServerMessage` variant carries per-operation
+  timing or the assembled timeline** (`tool_start`/`tool_end` carry `IToolState` with no `durationMs`). Add a new
+  `TServerMessage` variant carrying either the span entries or the assembled trace read-model, so it crosses the
+  sidecar boundary to the GUI. Stated as real work, not "free."
 - **`agent-session-analytics`** (pure read-model, now legally assembling the timeline): extend
   `summarizeUsageBySource` to produce **both** cost-by-source totals **and** the span timeline — the timeline is now
-  assembled from the **new per-operation timing field on the record contract**, so it stays entirely within this
-  package's `agent-core` + `agent-interface-transport` deps (NO `agent-plugin` read, no illegal edge). It **cannot
-  halt** a live run — no enforcement here. The assembled read-model reaches the GUI over the existing
-  `TServerMessage` WS stream (fixing the sidecar process-boundary gap for free) and the TUI in-process.
+  assembled from the **per-operation span entries on `IInteractiveSessionRecord.history`**, so it stays entirely
+  within this package's `agent-core` + `agent-interface-transport` deps (NO `agent-plugin` read, no illegal edge). It
+  **cannot halt** a live run — no enforcement here. The assembled read-model reaches the GUI over the new
+  `TServerMessage` carrier and the TUI in-process.
 - **`agent-plugin` `limits`**: the halt/warn enforcement — add a **per-run cumulative budget as a NEW orthogonal
   axis** (accumulate across all turns of one run, never time-reset) — NOT merely a `maxCost` window-sibling. Pin
   the identifiers concretely: a **"run" = one interactive session, keyed EXPLICITLY by `sessionId`** — NOT via the
@@ -115,65 +128,74 @@ timeline from the new record field — within its legal `agent-core` + `agent-in
 
 ### Decision
 
-Adopt (1): **per-operation timing is stamped onto the transport/record contract (`agent-interface-transport`) at
-the runtime seam in `agent-framework`** (where the start/end timestamps already exist and `extractTurnUsage` runs) —
-NO `agent-plugin` edge anywhere; the timing then rides the `TServerMessage` stream across the sidecar boundary. The
-trace/cost **read-model** extends `summarizeUsageBySource` to assemble **both** the span timeline (from the new
-timing field, within its own deps) **and** cost-by-source. **Cap enforcement** in `LimitsPlugin` (per-run cumulative
-budget keyed EXPLICITLY by `sessionId`, never time-resetting, accruing the exact per-turn `costUsd` threaded via a
-concrete carrier field on `IPluginExecutionResult`); the **pricing SSOT stays `agent-core/model-pricing.ts`**, and
-the derived **`costUsd`** is owned on `IUsageSnapshot`, computed in `extractTurnUsage` via `calculateModelCost`; the
-**view** mirrors `SessionMonitor` in TUI/GUI. The `ExecutionAnalyticsPlugin` is a downstream recorder of the same
+Adopt (1): **per-operation span timing is measured at the `agent-core` operation seams** (`function-tool.ts`
+per-tool `executionTime`, event-service `span_…` ids, `execution-service`/`conversation-service`/`execution-proxy`
+boundaries) and emitted as a **first-class span entry** (`op id/name + durationMs`) onto
+`IInteractiveSessionRecord.history` (`agent-interface-transport`) — NOT on the turn-scoped `IUsageSnapshot`, and NOT
+via `extractTurnUsage` (which is post-hoc/turn-granular and sees no per-op timestamps). A **new `TServerMessage`
+carrier** rides those span entries across the sidecar boundary; NO `agent-plugin` edge anywhere. The trace/cost
+**read-model** extends `summarizeUsageBySource` to assemble **both** the span timeline (from the record span entries,
+within its own deps) **and** cost-by-source. **Cap enforcement** in `LimitsPlugin` (per-run cumulative budget keyed
+EXPLICITLY by `sessionId`, never time-resetting, accruing the exact per-turn `costUsd` threaded via a concrete
+carrier field on `IPluginExecutionResult`); the **pricing SSOT stays `agent-core/model-pricing.ts`**, and the
+turn-granular **`costUsd`** is owned on `IUsageSnapshot`, computed in `extractTurnUsage` via `calculateModelCost`;
+the **view** mirrors `SessionMonitor` in TUI/GUI. The `ExecutionAnalyticsPlugin` is a downstream recorder of the same
 timing, not the source. `dag-cost` is out of scope (DAG-subsystem metadata). Cost = financial risk, first-class.
 
 ### Architecture Review Checklist
 
-- [x] 영향 패키지/레이어: agent-interface-transport (cost SSOT `costUsd?` + per-operation `durationMs` timing field), agent-framework (runtime seam stamps timing + populates `costUsd`; no agent-plugin edge), agent-session-analytics (read-model: timeline + cost-by-source, in-deps), agent-plugin `limits` (cap enforcement), transport-tui/-gui (view over `TServerMessage`).
-- [x] Sibling scan 완료 — reuses `summarizeUsageBySource` (ANALYTICS-001) + `LimitsPlugin` (existing `maxCost`) + `SessionMonitor` view + the `TServerMessage` transport stream; NO new tracing pipeline; enforcement stays in a runtime plugin (analytics reducer cannot halt); NO `agent-plugin` edge into framework/reducer/cli; `dag-cost` excluded.
-- [x] 대안 최소 2개 — 4 considered (timing-on-contract + limits-enforcement CHOSEN; consumer-held-plugin REJECTED non-viable/no package holds the instance; cap-in-analytics REJECTED can't-halt/SSOT; new-pipeline REJECTED duplication), each Pro+Con.
-- [x] 결정 근거 — timing must enter a dependency-legal, reachable path (transport contract at the runtime seam, not trapped in plugin memory); enforcement where it can halt (runtime plugin); aggregation in the pure reducer; cost SSOT owned once; GATE-APPROVAL re-review pending.
+- [x] 영향 패키지/레이어: agent-core (per-op span timing SOURCE — function-tool/event-service/execution seams), agent-interface-transport (`costUsd?` on IUsageSnapshot + per-op span entry on IInteractiveSessionRecord.history), agent-framework (turn-granular `costUsd` + record assembly; no agent-plugin edge), agent-transport-protocol (new `TServerMessage` carrier for span entries/trace), agent-session-analytics (read-model: timeline + cost-by-source, in-deps), agent-plugin `limits` (cap enforcement), transport-tui/-gui (view).
+- [x] Sibling scan 완료 — reuses `summarizeUsageBySource` (ANALYTICS-001) + `LimitsPlugin` (existing `maxCost`) + `SessionMonitor` view + `function-tool.ts` per-tool `executionTime` + event-service `span_…` ids; NO new tracing pipeline; enforcement stays in a runtime plugin (analytics reducer cannot halt); NO `agent-plugin` edge into core/framework/reducer/cli; `dag-cost` excluded.
+- [x] 대안 최소 2개 — 4 considered (timing-on-contract-from-core-seam + limits-enforcement CHOSEN; consumer-held-plugin REJECTED non-viable/no package holds the instance; cap-in-analytics REJECTED can't-halt/SSOT; new-pipeline REJECTED duplication), each Pro+Con.
+- [x] 결정 근거 — per-op timing must be sourced where it is measured (agent-core operation seams) and enter a dependency-legal, reachable path (record span entry + new TServerMessage carrier), not trapped in plugin memory nor faked at the turn-granular framework seam; enforcement where it can halt (runtime plugin); aggregation in the pure reducer; cost SSOT owned once; GATE-APPROVAL re-review pending.
 
 ## Solution
 
-Stamp per-operation `durationMs` onto the transport/record contract (`agent-interface-transport`) at the runtime
-seam in `agent-framework` (where the timestamps already exist and `extractTurnUsage` runs) — no `agent-plugin` edge;
-populate the derived `costUsd` on `IUsageSnapshot` in the same `extractTurnUsage` via `calculateModelCost`. Extend
-`summarizeUsageBySource` to assemble **both** the span timeline (from the new timing field, within its own deps)
-**and** cost-by-source. Add a per-run (`sessionId`) cumulative, never-time-resetting budget cap to `LimitsPlugin`
-that accrues the exact per-turn `costUsd` (warn/halt). Render the trace/cost view in TUI + GUI mirroring
-`SessionMonitor`, the timeline reaching the GUI over the existing `TServerMessage` WS stream.
+Emit a per-operation span entry (`op id/name + durationMs`) from the `agent-core` operation seams (`function-tool.ts`
+per-tool `executionTime`, event-service `span_…` ids, `execution-service`/`conversation-service`/`execution-proxy`)
+onto `IInteractiveSessionRecord.history` (`agent-interface-transport`) — no `agent-plugin` edge; add a new
+`TServerMessage` carrier so the span entries cross the sidecar boundary. Populate the turn-granular `costUsd` on
+`IUsageSnapshot` in `extractTurnUsage` via `calculateModelCost` (this seam owns only `costUsd`, not span timing).
+Extend `summarizeUsageBySource` to assemble **both** the span timeline (from the record span entries, within its own
+deps) **and** cost-by-source. Add a per-run (`sessionId`) cumulative, never-time-resetting budget cap to
+`LimitsPlugin` that accrues the exact per-turn `costUsd` (warn/halt). Render the trace/cost view in TUI + GUI
+mirroring `SessionMonitor`, the timeline reaching the GUI over the new `TServerMessage` carrier.
 
 ## Affected Files
 
-| File                                                                          | Change                                                                                                                                                                                                                                             |
-| ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `packages/agent-interface-transport/src/session-contracts.ts`                 | add OPTIONAL derived `costUsd?: number` on `IUsageSnapshot` (present iff `costStatus !== 'unknown'`) + an OPTIONAL per-operation timing entry (op id/name + `durationMs`, joinable to the turn) on the record/snapshot-adjacent contract           |
-| `packages/agent-framework/src/interactive/interactive-session-execution.ts`   | `extractTurnUsage` resolves the turn's model id + computes `costUsd` via `calculateModelCost`, flips `costStatus` from `'unknown'`; at the same seam STAMPS per-operation `durationMs` onto the transport/record contract (NO `agent-plugin` edge) |
-| `packages/agent-session-analytics/src/usage.ts`                               | extend `summarizeUsageBySource` → assemble the span timeline (from the new per-operation timing field) + cost-by-source totals; stays within `agent-core`+`agent-interface-transport` deps (NO `agent-plugin` read)                                |
-| `packages/agent-plugin/src/limits/` (`limits-plugin.ts`, `limits-helpers.ts`) | per-run cumulative budget keyed EXPLICITLY by `sessionId` (not `getKey()` precedence), never time-resets, accrues exact per-turn `costUsd` via a carrier field on `IPluginExecutionResult`; `resetLimits(sessionId)` at run start                  |
-| `packages/agent-transport-tui/`, `packages/agent-transport-gui/`              | trace/cost view (mirror `SessionMonitor`)                                                                                                                                                                                                          |
+| File                                                                                                                                                                  | Change                                                                                                                                                                                                                                                                                |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/agent-interface-transport/src/session-contracts.ts`                                                                                                         | add OPTIONAL derived `costUsd?: number` on `IUsageSnapshot` (turn-granular, present iff `costStatus !== 'unknown'`) + a first-class per-operation span entry type (op id/name + `durationMs`) on `IInteractiveSessionRecord.history` (sub-turn — NOT on `IUsageSnapshot`)             |
+| `packages/agent-core/src/{tool-registry/function-tool,services/execution-service,services/conversation-service,utils/execution-proxy,event-service/event-service}.ts` | per-operation timing SOURCE — emit `op id/name + durationMs` span entries from the existing operation seams (`function-tool` already measures `executionTime`; event-service already mints `span_…` ids) onto the record contract                                                     |
+| `packages/agent-framework/src/interactive/interactive-session-execution.ts`                                                                                           | `extractTurnUsage` resolves the turn's model id + computes turn-granular `costUsd` via `calculateModelCost`, flips `costStatus` from `'unknown'`; assembles the per-op span entries into the session record (NO span-timestamp stamping here — post-hoc seam; NO `agent-plugin` edge) |
+| `packages/agent-transport-protocol/src/ws-protocol.ts`                                                                                                                | add a new `TServerMessage` variant carrying the per-op span entries / assembled trace read-model across the sidecar boundary (no existing variant carries per-op `durationMs`)                                                                                                        |
+| `packages/agent-session-analytics/src/usage.ts`                                                                                                                       | extend `summarizeUsageBySource` → assemble the span timeline (from the per-op span entries on `IInteractiveSessionRecord.history`) + cost-by-source totals; stays within `agent-core`+`agent-interface-transport` deps (NO `agent-plugin` read)                                       |
+| `packages/agent-plugin/src/limits/` (`limits-plugin.ts`, `limits-helpers.ts`)                                                                                         | per-run cumulative budget keyed EXPLICITLY by `sessionId` (not `getKey()` precedence), never time-resets, accrues exact per-turn `costUsd` via a carrier field on `IPluginExecutionResult`; `resetLimits(sessionId)` at run start                                                     |
+| `packages/agent-transport-tui/`, `packages/agent-transport-gui/`                                                                                                      | trace/cost view (mirror `SessionMonitor`)                                                                                                                                                                                                                                             |
 
 ## Completion Criteria
 
-- [ ] TC-01: the extended `summarizeUsageBySource` produces per-source **cost** totals AND the span timeline (from the new per-operation timing field on the record contract) — unit test on the reducer; it stays within its `agent-core` + `agent-interface-transport` deps (NO `agent-plugin` read).
+- [ ] TC-01: the extended `summarizeUsageBySource` produces per-source **cost** totals AND the span timeline (from the per-operation span entries on `IInteractiveSessionRecord.history`) — unit test on the reducer; it stays within its `agent-core` + `agent-interface-transport` deps (NO `agent-plugin` read).
 - [ ] TC-02: a per-run cumulative budget cap in `LimitsPlugin`, keyed by `sessionId` and never time-resetting, warns/halts when exceeded and resets via `resetLimits(sessionId)` at run start — enforced by the runtime plugin, not the analytics reducer (unit + functional test).
 - [ ] TC-03: no cap-enforcement is added to `agent-session-analytics` (it stays a pure read-model) — verified by grep/placement.
 - [ ] TC-04: the cost SSOT is single **and single-PATH** — `costUsd` derives from `agent-core/model-pricing.ts` (`calculateModelCost`, exact input/output split) AND `LimitsPlugin` enforcement accrues that same exact per-turn `costUsd`, so the displayed and enforced figures share one computation path (the blended pre-execution estimate does NOT diverge from the exact figure); no second cost-cap authority beside `LimitsPlugin` (verified).
 - [ ] TC-05: the TUI and GUI render the trace/cost view (behavior test + User Execution Scenario; headless CLI path per verification.md).
 - [ ] TC-06: `extractTurnUsage` (`interactive-session-execution.ts`) resolves the turn's model id and populates `costUsd`, flipping `costStatus` from `'unknown'` to `estimated`/`exact` — unit test proving `costUsd` is actually present on the main-path snapshot (not perpetually absent).
-- [ ] TC-07: per-operation timing is **sourced from the transport/record contract** (stamped at the `agent-framework` runtime seam), NOT from `ExecutionAnalyticsPlugin.getExecutionData()`; the timeline path adds **NO `agent-plugin` import to `agent-session-analytics`, `agent-framework`, OR `agent-cli`** (all three remain plugin-import-free, per `agent-system.md:79`) — verified by the dependency-direction check across all three packages.
+- [ ] TC-07: per-operation timing is **measured at the `agent-core` operation seams and carried as span entries on `IInteractiveSessionRecord.history`** (sourced from the record contract, NOT from `ExecutionAnalyticsPlugin.getExecutionData()` and NOT stamped at the post-hoc `extractTurnUsage` seam); the timeline path adds **NO `agent-plugin` import to `agent-session-analytics`, `agent-framework`, OR `agent-cli`** (all remain plugin-import-free, per `agent-system.md:79`) — verified by the dependency-direction check across those packages.
+- [ ] TC-08: a new `TServerMessage` variant carries the per-operation span entries / assembled trace across the sidecar boundary (contract test on `agent-transport-protocol`); the GUI renders it renderer-side — proving the timeline actually reaches `apps/agent-app` over the WS stream (not assumed "free").
 
 ## Test Plan
 
 | TC    | Verification                                      | Type/Tool                    |
 | ----- | ------------------------------------------------- | ---------------------------- |
-| TC-01 | cost-by-source read-model (cost only, in-deps)    | vitest unit                  |
+| TC-01 | timeline + cost-by-source read-model (in-deps)    | vitest unit                  |
 | TC-02 | cumulative cap halts (sessionId, never-reset)     | vitest unit + functional     |
 | TC-03 | no enforcement in analytics                       | grep/placement               |
 | TC-04 | single cost SSOT + single enforced/displayed path | placement review             |
 | TC-05 | TUI/GUI view                                      | behavior test + headless CLI |
 | TC-06 | `extractTurnUsage` populates `costUsd`            | vitest unit                  |
-| TC-07 | timing sourced from contract (no plugin edge, x3) | vitest unit + dep-direction  |
+| TC-07 | span timing from core seam → record (no plugin x) | vitest unit + dep-direction  |
+| TC-08 | new `TServerMessage` carrier reaches GUI          | contract test + behavior     |
 
 ## Tasks
 
@@ -234,4 +256,18 @@ that accrues the exact per-turn `costUsd` (warn/halt). Render the trace/cost vie
   Scope, Alternatives (added consumer-held-plugin as REJECTED non-viable), Decision, checklist, Solution, Affected
   Files, TC-01 (timeline back in the reducer, in-deps), and **TC-07** (timing sourced from the contract; no
   `agent-plugin` edge to analytics/framework/cli — all three). Items 3 & 4 (sessionId keying, `costUsd` carrier)
-  unchanged. Iteration-6 re-review pending.
+  unchanged.
+- 2026-07-17 — **iteration 6: RE-REVIEW → REVISE, applied.** The reviewer confirmed the P2 direction is now correct
+  and rule-legal (dependency-legality sound, consumer-held-plugin correctly rejected) but caught a NEW false premise
+  in the stamp SITE: `extractTurnUsage` is post-hoc/turn-granular and has **no per-operation timestamps in scope**
+  (`executePromptTurn` captures no turn duration), so it cannot be the span-timing source. The genuine per-operation
+  timing lives one layer down at the **`agent-core` operation seams** (`function-tool.ts` already measures per-tool
+  `executionTime` `:71/:91`; event-service mints `span_…` ids; `execution-service`/`conversation-service`/
+  `execution-proxy` boundaries). Fixes (a seam correction within the same chosen direction): (1) struck the false
+  "timestamps already exist at `extractTurnUsage`" premise; (2) relocated the per-op timing SOURCE to the `agent-core`
+  seams, emitting a span entry onto the record contract (added an `agent-core` Affected-Files row); `extractTurnUsage`
+  now owns ONLY the turn-granular `costUsd`; (3) modelled the timing as a **first-class span entry on
+  `IInteractiveSessionRecord.history`** (sub-turn), NOT a field on the turn-scoped `IUsageSnapshot`; (4) proved the
+  transport path — no existing `TServerMessage` carries per-op timing, so added a new carrier variant
+  (`agent-transport-protocol` row + TC-08), not claimed "free". Items P2/P3/P6 (sessionId keying, `costUsd` carrier,
+  cost SSOT) kept as verified-correct. Iteration-7 re-review pending.
