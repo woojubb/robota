@@ -1,5 +1,6 @@
 ---
-status: in-progress
+status: done
+completed: 2026-07-17
 type: FLOW
 tags: [plan-mode, hitl, agent-framework, agent-interface-transport, cli, selfhost]
 ---
@@ -119,11 +120,11 @@ artifact and emit the approval event.
 
 ## Completion Criteria
 
-- [ ] TC-01: while the session is in `plan` mode, a mutating tool call is denied **by the existing `PermissionEnforcer`** (unit test asserting the denial reason is the plan mode, not a new gate).
-- [ ] TC-02: read-only tools are permitted during the plan phase (unit test).
-- [ ] TC-03: the **pure** plan-phase controller, on approval, RETURNS `{ action: 'approve', nextMode: 'acceptEdits' }` (asserted without any session/permission side-effect — mirroring GoalController's decision-only unit tests); `InteractiveSession` applying that mode then makes `Write/Edit` auto while `Bash/Shell` stay per-call `approve` (asserted against `MODE_POLICY.acceptEdits`) — i.e. approved plan edits flow, shell stays confirmed.
-- [ ] TC-04: a plan/todo artifact + approval event round-trip through the interface-transport contract (unit test); `/plan` renders it (headless CLI verification per verification.md, injected provider fixture).
-- [ ] TC-05: no second mutation-enforcement path is added — the only mutation gate remains `PermissionEnforcer`/`plan` mode (verified: grep shows no new gate in `agent-core/.../plan/`).
+- [x] TC-01: while the session is in `plan` mode, a mutating tool call is denied **by the existing `PermissionEnforcer`** (unit test asserting the denial reason is the plan mode, not a new gate).
+- [x] TC-02: read-only tools are permitted during the plan phase (unit test).
+- [x] TC-03: the **pure** plan-phase controller, on approval, RETURNS `{ action: 'approve', nextMode: 'acceptEdits' }` (asserted without any session/permission side-effect — mirroring GoalController's decision-only unit tests); `InteractiveSession` applying that mode then makes `Write/Edit` auto while `Bash/Shell` stay per-call `approve` (asserted against `MODE_POLICY.acceptEdits`) — i.e. approved plan edits flow, shell stays confirmed.
+- [x] TC-04: a plan/todo artifact + approval event round-trip through the interface-transport contract (unit test); `/plan` renders it (headless CLI verification per verification.md, injected provider fixture).
+- [x] TC-05: no second mutation-enforcement path is added — the only mutation gate remains `PermissionEnforcer`/`plan` mode (verified: grep shows no new gate in `agent-core/.../plan/`).
 
 ## Test Plan
 
@@ -135,11 +136,41 @@ artifact and emit the approval event.
 | TC-04 | artifact/approval round-trip + `/plan` | interface unit + **headless CLI verification** (verification.md:50) |
 | TC-05 | no second gate                         | grep/placement check                                                |
 
+**Test references (delivered across P1–P2):**
+
+- TC-01 / TC-02 → `packages/agent-framework/src/plan/__tests__/plan-controller.test.ts` ("plan mode denies mutating
+  tools via the existing permission gate" / "plan mode permits read-only tools", over `evaluatePermission`/`MODE_POLICY.plan`).
+- TC-03 → same file ("approve() returns { approve, acceptEdits } with no side-effect" + "applying acceptEdits flows
+  edits but keeps shell per-call confirmed"), plus the session-level flip in
+  `packages/agent-framework/src/interactive/__tests__/plan-mode-wiring.test.ts`.
+- TC-04 → `plan-mode-wiring.test.ts` (real InteractiveSession + injected provider: plan_event round-trip + mode flip),
+  `packages/agent-framework/src/interactive/__tests__/session-persistence-roundtrip.test.ts` (plan record round-trip),
+  `packages/agent-command/src/plan/__tests__/plan-command.test.ts` (the `/plan` verbs), and the CLI print-mode
+  UET in `packages/agent-cli/src/__tests__/e2e/slash-smoke.test.ts` ("SELFHOST-002: /plan …").
+- TC-05 → no `agent-core/src/plan` gate; the P1/P2 diffs add no mutation-enforcement path (deps + grep).
+
+## User Execution Test Scenarios
+
+**Scenario UET-01 — draft a plan through the `robota` CLI.** `agent-executable`.
+
+- **Prerequisite state:** build the CLI (`pnpm --filter @robota-sdk/agent-cli build`); a scripted provider fixture
+  (no API key), as set up by the e2e harness.
+- **Surface:** the real `robota` CLI in print mode (`-p '<slash-command>' --output-format json`), driven by
+  `runPrintJson` in `packages/agent-cli/src/__tests__/e2e/slash-smoke.test.ts` — the same product entry a user runs.
+- **Exact command (agent-executable):** `pnpm --filter @robota-sdk/agent-cli test -- --run src/__tests__/e2e/slash-smoke.test.ts -t "SELFHOST-002"`
+- **Expected observable result:** exit 0; `robota -p '/plan draft the release notes' --output-format json` emits a
+  `type: 'result'` envelope whose `result` contains `/plan approve` (the plan was drafted, read-only until approved);
+  `/plan status` in a fresh session reports `No plan is active.`
+- **Evidence:** executed 2026-07-17 — **2 passed** (1 TC-06 sibling skipped by the `-t` filter). The `/plan` command
+  is registered and reachable through the product CLI; the draft envelope + the no-plan status both observed as
+  asserted. (The full approve→`acceptEdits` mode-flip lifecycle is additionally proven headlessly on a real
+  `InteractiveSession` by `plan-mode-wiring.test.ts`.)
+- **Cleanup:** none (print mode runs `--no-session-persistence` in an isolated temp workspace).
+
 ## Tasks
 
-[`.agents/tasks/SELFHOST-002.md`](../../tasks/SELFHOST-002.md) — created at GATE-IMPLEMENT. Split into two named
-work units: P1 (contract + pure `PlanController` + mutation-gate assertions, TC-01/02/03/05) and P2 (InteractiveSession
-wiring + `/plan` surface + artifact round-trip, TC-04).
+Archived: [`.agents/tasks/completed/SELFHOST-002.md`](../../tasks/completed/SELFHOST-002.md) — P1 (contract + pure
+`PlanController`) and P2 (InteractiveSession wiring + `/plan` surface) both `[x]`.
 
 ## Evidence Log
 
@@ -195,3 +226,53 @@ wiring + `/plan` surface + artifact round-trip, TC-04).
   recorded to avoid a silent scope gap). Verified: build + typecheck + full suites (agent-interface-transport 10/10,
   agent-framework 1130/1130, agent-command 234/234) + lint (0 errors) + `pnpm harness:scan` (54/54) + `harness:test`
   (303/303). **Both slices implemented.** Next: GATE-VERIFY + GATE-COMPLETE.
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-07-17
+
+**Status upgrade:** approved → in-progress (recorded at P1; consolidated here across the two work units)
+
+- Both work units landed via reviewed PRs merged to `develop`: P1 (contract + pure `PlanController`, PR #1197) and
+  P2 (InteractiveSession wiring + `/plan` command, PR #1198). Tasks file `.agents/tasks/SELFHOST-002.md` created; both
+  slice checklists `[x]`; `## Tasks` records the path.
+- Reused the existing `plan` permission mode as the single mutation block (no second gate); the controller is a pure
+  `GoalController` mirror; the contract lives in `agent-interface-transport` beside `IGoalState`.
+- NON-COMPLIANCE check: no implementation ahead of GATE-APPROVAL; each slice landed via its own reviewed PR.
+
+### [GATE-VERIFY] — ✅ PASS | 2026-07-17
+
+**Status upgrade:** in-progress → verifying
+
+- Tasks completion: every checklist item in `.agents/tasks/SELFHOST-002.md` is `[x]` (P1 + P2); none blocked.
+- Build: `pnpm --filter @robota-sdk/agent-interface-transport --filter @robota-sdk/agent-framework --filter @robota-sdk/agent-command --filter @robota-sdk/agent-cli build` → exit 0.
+- Tests: agent-interface-transport **10/10**, agent-framework **1130/1130**, agent-command **234/234**,
+  agent-cli slash-smoke e2e **3/3** (incl. the two `/plan` print-mode UET cases). exit 0.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-07-17
+
+**Status upgrade:** verifying → done
+
+- **[GATE-COMPLETE: TC-01]** Verified: `plan-controller.test.ts` "plan mode denies mutating tools via the existing
+  permission gate" → `evaluatePermission('Write'|'Edit'|'Bash'|'Shell', {}, 'plan') === 'deny'`. Checkbox `[x]`.
+  Test reference: `packages/agent-framework/src/plan/__tests__/plan-controller.test.ts`.
+- **[GATE-COMPLETE: TC-02]** Verified: same file, "plan mode permits read-only tools" →
+  `evaluatePermission('Read'|'Glob'|'Grep'|'WebFetch', {}, 'plan') === 'auto'`. Checkbox `[x]`.
+- **[GATE-COMPLETE: TC-03]** Verified: the pure `approve()` returns `{ action:'approve', nextMode:'acceptEdits' }`
+  with no side-effect, and `MODE_POLICY.acceptEdits` makes Write/Edit `auto` while Bash/Shell stay `approve`
+  (`plan-controller.test.ts`); the session-level flip is proven in `plan-mode-wiring.test.ts`. Checkbox `[x]`.
+- **[GATE-COMPLETE: TC-04]** Verified: `plan-mode-wiring.test.ts` (real `InteractiveSession` + injected provider):
+  `plan_event` round-trip (`plan_created`/`plan_approved`/`plan_reverted`) + the actual mode flip
+  (`plan → acceptEdits → plan`) via `getSession().getPermissionMode()`; `session-persistence-roundtrip.test.ts`
+  preserves the `plan` record field; `plan-command.test.ts` (9) covers the `/plan` verbs; and the CLI print-mode
+  UET (`slash-smoke.test.ts`, "SELFHOST-002: /plan …") drafts a plan through the real `robota` CLI. Checkbox `[x]`.
+- **[GATE-COMPLETE: TC-05]** Verified: no `agent-core/src/plan` gate exists and the P1/P2 diffs add no
+  mutation-enforcement path — the only mutation gate remains `evaluatePermission`/`MODE_POLICY`/`plan` mode
+  (`deps` scan green; grep clean). Checkbox `[x]`.
+- **Test Plan coverage:** all 5 rows have concrete test references (recorded under `## Test Plan`); no unaddressed row.
+- **User-Execution done-gate:** PASS — `## User Execution Test Scenarios` UET-01 (`agent-executable`, the real
+  `robota` CLI print-mode surface) executed 2026-07-17 (2 passed), observing the drafted-plan envelope (`/plan approve`)
+  and the no-plan status through the product command.
+- **Artifact actions:** tasks file archived `.agents/tasks/SELFHOST-002.md` → `.agents/tasks/completed/SELFHOST-002.md`;
+  spec `## Tasks` updated to the archived path. Spec moved `spec-docs/active/` → `spec-docs/done/`, frontmatter
+  `status: done` + `completed: 2026-07-17`.
+- **Summary:** all 5 Completion Criteria `[x]` with matching GATE-COMPLETE evidence; Test Plan fully covered;
+  User-Execution gate passed with captured evidence; tasks archived. Status upgrade verifying → done authorized.
