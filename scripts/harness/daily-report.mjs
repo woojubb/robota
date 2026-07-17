@@ -76,7 +76,10 @@ export function commitsSince(sinceDate, runGit = defaultRunGit) {
   if (!out) return [];
   return out.split('\n').map((line) => {
     const [hash, committedIso, subject, author] = line.split(UNIT_SEP);
-    return { hash, utcDay: committedIso.slice(0, 10), subject, author };
+    // %cI is the committer date WITH its timezone offset (this repo commits in +09:00), so a plain
+    // slice would yield the LOCAL day. Convert to true UTC first so the day boundary is UTC-exact.
+    const utcDay = new Date(committedIso).toISOString().slice(0, 10);
+    return { hash, utcDay, subject, author };
   });
 }
 
@@ -184,7 +187,13 @@ function main() {
   const through = explicitDate ?? utcDateString(new Date(Date.now()));
 
   const days = explicitDate ? [explicitDate] : workDaysNeedingReport(through);
-  const commits = commitsSince(lastReportedDate(), defaultRunGit);
+  // Fetch commits from one day BEFORE the earliest target day: `--since` filters on the absolute
+  // committer timestamp, so an early-KST commit of a target UTC day can precede `<day>T00:00:00Z`; the
+  // one-day buffer includes it, and gatherDayData re-filters by the (UTC) day. Also fixes a `--date`/
+  // `--force` regen of a day at/before the last report (which `--since lastReportedDate` would exclude).
+  const earliest = days.length > 0 ? days.slice().sort()[0] : through;
+  const since = utcDateString(new Date(Date.parse(`${earliest}T00:00:00Z`) - MS_PER_DAY));
+  const commits = commitsSince(since, defaultRunGit);
   const reports = days.map((day) => gatherDayData(day, commits, defaultRunGit));
 
   if (flag('--plan')) {

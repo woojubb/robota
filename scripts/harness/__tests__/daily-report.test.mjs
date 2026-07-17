@@ -37,11 +37,13 @@ describe('OBSERVABILITY-001 daily-report harness', () => {
     expect(datesAfter(null, '2026-07-18')).toEqual(['2026-07-18']);
   });
 
-  it('commitsSince tags each commit with its UTC day from the committer ISO date', () => {
+  it('commitsSince tags each commit with its true UTC day, even for a non-Z timezone offset', () => {
     const runGit = fakeGit({
       commits: [
         { hash: 'aaaaaaa', cISO: '2026-07-18T23:30:00Z', subject: 'feat: x (#10)', author: 'w' },
-        { hash: 'bbbbbbb', cISO: '2026-07-17T01:00:00Z', subject: 'fix: y', author: 'w' },
+        // Committed 02:00 in +09:00 (KST) = 2026-07-17T17:00Z → must tag the UTC day 2026-07-17,
+        // NOT the committer-local day 2026-07-18 (the bug a plain `.slice(0,10)` would produce).
+        { hash: 'bbbbbbb', cISO: '2026-07-18T02:00:00+09:00', subject: 'fix: y', author: 'w' },
       ],
     });
     const commits = commitsSince(null, runGit);
@@ -75,9 +77,10 @@ describe('OBSERVABILITY-001 daily-report harness', () => {
 
     const runGit = fakeGit({
       commits: [
-        { hash: 'a', cISO: '2026-07-16T10:00:00Z', subject: 'work 16', author: 'w' },
+        // Committer-local day 2026-07-17 (+09:00) but UTC day 2026-07-16 → must count for 16, not 17.
+        { hash: 'a', cISO: '2026-07-17T02:00:00+09:00', subject: 'work 16', author: 'w' },
         { hash: 'b', cISO: '2026-07-18T10:00:00Z', subject: 'work 18', author: 'w' },
-        // 2026-07-17 has NO commit → skipped; 2026-07-15 already reported.
+        // 2026-07-17 has NO (UTC) commit → skipped; 2026-07-15 already reported.
       ],
     });
     expect(lastReportedDate(root)).toBe('2026-07-15');
