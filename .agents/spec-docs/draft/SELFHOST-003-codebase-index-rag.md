@@ -1,7 +1,7 @@
 ---
 status: draft
 type: DATA
-tags: [rag, codebase-index, retrieval, agent-tools, agent-interface, selfhost]
+tags: [rag, codebase-index, retrieval, agent-tools, selfhost]
 ---
 
 # SELFHOST-003 (EPIC): codebase retrieval — contract + tool + reference adapter (v1)
@@ -32,23 +32,33 @@ infra, fits self-hosting a code repo) and designs the port to it, deferring the 
 - **`agent-tools`**: the retrieval **adapter port + request/response/ranked-result/token-budget types** live HERE
   (`src/retrieval/types.ts`), **mirroring the sandbox precedent** (`ISandboxClient`/`ISandboxToolOptions` in
   `agent-tools/src/sandbox/types.ts`) — NOT a new interface package. `createRetrievalTool({ adapter })` mirrors
-  `create*Tool(options)`.
-- **assembly threading**: the concrete repo-map reference adapter is threaded through the assembly layer exactly as
-  `sandboxClient` is (`createDefaultTools` / `ICreateSessionOptions`), with the **product (`agent-cli`) supplying the
-  concrete instance**. (Decide at design time whether retrieval joins the default tool set in `agent-framework` like
-  Read/Edit, or is product-specific corpus wiring — the Prior Art frames it as a general capability, favoring the
-  default set.)
-- Corpus (which repo/paths) wired in `agent-cli`/`apps/agent-app`.
+  `create*Tool(options)`. **The neutral repo-map ranking adapter also lives HERE** (`src/retrieval/`), mirroring
+  `InMemorySandboxClient` in `agent-tools/src/sandbox/in-memory-sandbox-client.ts`: graph-centrality ranking within a
+  token budget is a NEUTRAL mechanism that works on any repo given a corpus, so it stays in the shared core. Only the
+  heavy/domain pieces are injected — the **source parser** as a duck-typed port (exactly as `E2BSandboxClient`
+  duck-types the E2B SDK via `IE2BSandboxAdapter`, so no heavy parser SDK becomes an `agent-tools` dependency) and the
+  **corpus** (repo paths) supplied from the surface.
+- **assembly threading**: the retrieval adapter is threaded through the assembly layer exactly as `sandboxClient` is
+  (`createDefaultTools` / `ICreateSessionOptions`), with the **product (`agent-cli`/`apps/agent-app`) supplying the
+  concrete source-parser port + corpus** (the neutral ranking adapter itself comes from `agent-tools`).
+  `createRetrievalTool` **joins the default tool set adapter-gated**, mirroring how the sandbox-aware
+  Read/Edit/Write/Shell tools receive the adapter through `createDefaultTools(options)`: with no retrieval adapter the
+  tool is absent/no-op (there is no host fallback for retrieval), so sibling surfaces reuse the shared core without a
+  library-side corpus choice.
+- Corpus (which repo/paths) + concrete source parser wired in `agent-cli`/`apps/agent-app`.
 - **Extraction trigger:** extract the port/types to a new `agent-interface-retrieval` package at **P4 iff** the
   vector backend makes retrieval adapters a third-party-installable family (like `agent-provider-*`) — not before
   (avoids premature publish-registry/project-structure/SPEC ceremony for a non-family).
 
 ### Alternatives Considered
 
-1. **Retrieval port+types folded into agent-tools (mirror the sandbox port); tool in agent-tools; thin repo-map reference adapter at
-   the agent-cli root; v1 = one backend (CHOSEN).**
+1. **Retrieval port+types folded into agent-tools (mirror the sandbox port); tool in agent-tools; neutral repo-map
+   ranking adapter in `agent-tools/src/retrieval/` (mirror `InMemorySandboxClient`) with the source parser injected as
+   a duck-typed port and corpus from the surface; v1 = one backend (CHOSEN).**
    - ✅ Correct interface-package placement (not conditional); neutral (corpus in surface); no heavy dep in libs;
-     port designed to a concrete backend (capability-preservation satisfied).
+     the neutral ranking mechanism stays in the shared core so sibling surfaces (`apps/agent-app`, DAG tooling) reuse
+     it instead of depending on the `agent-cli` product; port designed to a concrete backend (capability-preservation
+     satisfied).
    - ❌ The vector backend is deferred; the port may need revision when it lands (stated, not hidden).
 2. **One `query(text)` port hiding both vector store and repo-map.**
    - ✅ Looks maximally flexible.
@@ -61,58 +71,65 @@ infra, fits self-hosting a code repo) and designs the port to it, deferring the 
 ### Decision
 
 Adopt (1): the retrieval port+types live IN `agent-tools` (mirroring `ISandboxClient` in `sandbox/types.ts`) — NOT a new interface package; a neutral
-`createRetrievalTool({ adapter })` in `agent-tools`; a thin repo-map graph-rank reference adapter threaded through the assembly layer like `sandboxClient` (product supplies the concrete); corpus in surfaces. The embedding-vector backend is a consciously deferred follow-up
+`createRetrievalTool({ adapter })` in `agent-tools`, joining the default tool set adapter-gated; the neutral repo-map graph-rank ranking adapter ALSO lives in `agent-tools/src/retrieval/` (mirroring `InMemorySandboxClient`), with the source parser injected as a duck-typed port and the corpus supplied from the surface; the adapter is threaded through the assembly layer like `sandboxClient` (product supplies the source parser + corpus). The embedding-vector backend is a consciously deferred follow-up
 (the port may be revised when it lands). Epic slices below.
 
 ### Validated Recommendation
 
-- **Reachability:** the tool is composed at the agent-cli root where the adapter + corpus are configured — reachable
-  without a library-side domain choice. Verified against the `create*Tool(options)` pattern in agent-tools.
+- **Reachability:** the neutral ranking adapter ships from `agent-tools`; the surface (agent-cli/apps/agent-app)
+  supplies the source parser + corpus and the tool joins the default set adapter-gated — reachable without a
+  library-side domain choice. Verified against the `create*Tool(options)` + `createDefaultTools(options)` patterns in
+  agent-tools/agent-framework.
 - **Capability preservation:** v1 preserves repo-map ranking (token-budgeted); the deferred vector backend is
   recorded, not silently dropped, with the note the port may need revision.
-- **Adversarial:** risk = a heavy vector SDK creeping into libs → prevented by the composition-root adapter +
-  neutrality guard.
+- **Adversarial:** risk = a heavy vector/parser SDK creeping into libs → prevented by keeping only the neutral
+  mechanism in `agent-tools` and injecting the parser as a duck-typed port + corpus from the surface. Because no
+  existing `pnpm harness:scan` rule mechanically fences `agent-tools`' third-party dependencies (see TC-04), a
+  mechanical floor is filed as a follow-up rather than resting neutrality on the manual grep.
 
 ### Architecture Review Checklist
 
-- [x] 영향 패키지/레이어: agent-tools (port+types+tool, mirror sandbox), assembly threads the adapter, repo-map reference adapter + corpus supplied by agent-cli. NO new interface package for v1 (extract at P4 iff a family).
-- [x] Sibling scan 완료 — mirrors the **sandbox port precedent**: port+types + `createRetrievalTool({adapter})` live IN `agent-tools` (like `ISandboxClient` + `createReadTool`), adapter threaded through assembly like `sandboxClient`; NO new interface package for v1 (extract at P4 iff a family). Independent architecture-placement validation recorded in the Evidence Log.
+- [x] 영향 패키지/레이어: agent-tools (port+types+tool + neutral repo-map ranking adapter, mirror sandbox), assembly threads the adapter, concrete source parser + corpus supplied by agent-cli/apps/agent-app. NO new interface package for v1 (extract at P4 iff a family).
+- [x] Sibling scan 완료 — mirrors the **sandbox port precedent**: port+types + `createRetrievalTool({adapter})` + the neutral ranking adapter live IN `agent-tools` (like `ISandboxClient` + `createReadTool` + `InMemorySandboxClient`), adapter threaded through assembly like `sandboxClient`; NO new interface package for v1 (extract at P4 iff a family). Independent architecture-placement validation recorded in the Evidence Log.
 - [x] 대안 최소 2개 — 3 considered (one-backend+interface-contract CHOSEN; unify-both REJECTED capability, baked-vector REJECTED neutrality), each Pro+Con.
 - [x] 결정 근거 — capability-preservation forces one backend for v1; interface-package placement per rule; independent GATE-APPROVAL re-review pending.
 
 ## Solution
 
-v1: retrieval port+types in `agent-tools/src/retrieval` (mirror sandbox); `createRetrievalTool({ adapter })` in agent-tools;
-a repo-map graph-rank reference adapter (token-budget aware) at the agent-cli root; corpus config in the surface.
+v1: retrieval port+types in `agent-tools/src/retrieval` (mirror sandbox); `createRetrievalTool({ adapter })` in agent-tools,
+joining the default tool set adapter-gated; the neutral repo-map graph-rank ranking adapter (token-budget aware) in
+`agent-tools/src/retrieval/` (mirror `InMemorySandboxClient`), with the source parser injected as a duck-typed port;
+concrete source parser + corpus config supplied by the surface (agent-cli/apps/agent-app).
 
 **Epic slices:** P1 (this) = contract + tool + repo-map reference adapter. P2 = index build + persistence. P3 =
 incremental re-index on file change. P4 = embedding-vector backend (may revise the port).
 
 ## Affected Files
 
-| File                                                               | Change                                                                   |
-| ------------------------------------------------------------------ | ------------------------------------------------------------------------ |
-| `packages/agent-tools/src/retrieval/types.ts` (new)                | retrieval adapter port + types (mirror sandbox/types.ts)                 |
-| `packages/agent-tools/src/retrieval/` + `agent-framework` assembly | `createRetrievalTool({ adapter })` + thread adapter like `sandboxClient` |
-| `packages/agent-cli/`                                              | repo-map reference adapter + corpus wiring                               |
+| File                                                               | Change                                                                                                   |
+| ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------- |
+| `packages/agent-tools/src/retrieval/types.ts` (new)                | retrieval adapter port + types (mirror sandbox/types.ts)                                                 |
+| `packages/agent-tools/src/retrieval/` (new)                        | neutral repo-map ranking adapter (mirror `InMemorySandboxClient`) — source parser injected               |
+| `packages/agent-tools/src/retrieval/` + `agent-framework` assembly | `createRetrievalTool({ adapter })`, joins default set adapter-gated; thread adapter like `sandboxClient` |
+| `packages/agent-cli/` / `apps/agent-app`                           | concrete source parser + corpus wiring (the neutral adapter comes from agent-tools)                      |
 
 ## Completion Criteria
 
 - [ ] TC-01: the retrieval contract returns ranked results and never exceeds the given token budget (unit test).
 - [ ] TC-02: the repo-map reference adapter ranks the most relevant symbols/files of a fixture repo for a given active-file set within a budget (functional test).
-- [ ] TC-03: the concrete repo-map adapter is threaded through the assembly layer (like `sandboxClient`) and the product (`agent-cli`) supplies it — the tool itself carries no concrete adapter/corpus (unit test on the assembly wiring).
-- [ ] TC-04: no corpus/domain content in `agent-tools` — the tool takes the adapter by injection; a code review / a targeted grep confirms no repo paths in the package (manual check, justified: no mechanical neutrality scan covers agent-tools).
+- [ ] TC-03: the retrieval adapter is threaded through the assembly layer (like `sandboxClient`) and `createRetrievalTool` joins the default set adapter-gated — absent/no-op with no adapter — while the product (`agent-cli`/`apps/agent-app`) supplies the concrete source parser + corpus; the neutral ranking adapter itself comes from `agent-tools` and carries no corpus (unit test on the assembly wiring + adapter-gating).
+- [ ] TC-04: no corpus/domain content in `agent-tools` — the neutral ranking adapter takes the source parser + corpus by injection; a code review / a targeted grep confirms no repo paths in the package. This is a MANUAL floor today: no existing `pnpm harness:scan` rule mechanically fences `agent-tools`' third-party dependencies — `deps` (`check-dependency-direction.mjs`) only checks inter-workspace direction/cycles + agent-core/agent-plugin constraints, and `interface-imports`/`interface-runtime` only cover `agent-interface-*` packages. Per [enforcement-architecture.md](../../rules/enforcement-architecture.md) (every guardian needs a mechanical floor), a follow-up is filed for a mechanical `agent-tools` neutrality floor (a dependency-allowlist / no-heavy-retrieval-SDK scan); neutrality does not rest on the manual grep alone.
 - [ ] TC-05: swapping the adapter needs no `agent-tools` change (design + a fake-adapter unit test).
 
 ## Test Plan
 
-| TC    | Verification                  | Type/Tool                      |
-| ----- | ----------------------------- | ------------------------------ |
-| TC-01 | budget respected + ranked     | vitest unit                    |
-| TC-02 | repo-map fixture ranking      | functional test                |
-| TC-03 | adapter threaded via assembly | vitest unit (assembly wiring)  |
-| TC-04 | no corpus in agent-tools      | manual grep/review (justified) |
-| TC-05 | adapter swap                  | fake-adapter unit test         |
+| TC    | Verification                  | Type/Tool                                       |
+| ----- | ----------------------------- | ----------------------------------------------- |
+| TC-01 | budget respected + ranked     | vitest unit                                     |
+| TC-02 | repo-map fixture ranking      | functional test                                 |
+| TC-03 | adapter threaded via assembly | vitest unit (assembly wiring)                   |
+| TC-04 | no corpus in agent-tools      | manual grep/review + follow-up mechanical floor |
+| TC-05 | adapter swap                  | fake-adapter unit test                          |
 
 ## Tasks
 
@@ -135,3 +152,14 @@ P2 (index+persistence) / P3 (incremental) / P4 (vector backend).
   - tool IN `agent-tools`, adapter threaded through assembly. Fixed: retrieval port+types folded into
     `agent-tools/src/retrieval/types.ts`; adapter threaded like `sandboxClient`; extraction to an interface package
     deferred to P4 iff a third-party-installable family; TC-03 retargeted to the assembly-threading. Iteration-3 re-review pending.
+- 2026-07-17 — **iteration 3: RE-REVIEW → REVISE, applied.** Re-reviewer: the reference-adapter placement under-mirrored
+  the invoked analog — neutral reference adapters like `InMemorySandboxClient` live INSIDE `agent-tools`, not at the
+  product root. Fixed: the **neutral repo-map ranking adapter now lives in `agent-tools/src/retrieval/`** (mirroring
+  `InMemorySandboxClient`), with the source parser injected as a duck-typed port (as `E2BSandboxClient` duck-types the
+  E2B SDK) and the corpus supplied from the surface, so sibling surfaces reuse the shared core instead of depending on
+  `agent-cli`. Committed the default-tool-set membership: `createRetrievalTool` **joins the default set adapter-gated**
+  (absent/no-op with no adapter), mirroring the sandbox-aware tools through `createDefaultTools(options)`. Stated the
+  neutrality enforcement floor: no existing `pnpm harness:scan` rule (deps/interface-imports/interface-runtime) fences
+  `agent-tools`' third-party dependencies, so a mechanical `agent-tools` neutrality floor is filed as a follow-up (TC-04
+  no longer rests on the manual grep alone). Housekeeping: dropped the stale `agent-interface` tag (no interface package
+  is created); the chosen alternative (fold port+types+tool into `agent-tools`) is unchanged. Iteration-4 re-review pending.
