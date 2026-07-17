@@ -241,6 +241,19 @@ export { EXECUTION_EVENTS, EXECUTION_EVENT_PREFIX } from './services/execution-s
 export { TOOL_EVENTS, TOOL_EVENT_PREFIX } from './services/tool-execution-service';
 export { AGENT_EVENTS, AGENT_EVENT_PREFIX } from './agents/constants';
 
+// Neutral multi-agent orchestration contracts + event-type unions (SELFHOST-001)
+export {
+  ORCHESTRATION_EVENTS,
+  ORCHESTRATION_EVENT_PREFIX,
+  type TOrchestrationEvent,
+  type TOrchestrationPrimitive,
+  type IOrchestrationStep,
+  type ISequentialOrchestrationSpec,
+  type IOrchestrationStepResult,
+  type IOrchestrationRunResult,
+  type IOrchestrationEventData,
+} from './orchestration';
+
 // Workflow converter interfaces
 export type {
   IWorkflowConverter,
