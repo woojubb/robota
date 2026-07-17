@@ -62,7 +62,12 @@ export interface IOrchestrationStepResult {
   id: string;
   /** The step's output text. */
   output: string;
-  /** Optional token usage of the step's subagent run (ANALYTICS-001 shape). */
+  /**
+   * Optional token usage of the step's subagent run (ANALYTICS-001 shape). Present
+   * only when the underlying runner/manager surfaces usage through its result — the
+   * default `SubagentManager.wait` does not yet thread it, so this is `undefined`
+   * there until that port is extended.
+   */
   usage?: { promptTokens: number; completionTokens: number; totalTokens: number };
 }
 

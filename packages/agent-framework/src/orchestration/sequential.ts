@@ -116,11 +116,15 @@ async function runStep(
   return { id: step.id, output: result.output, ...(result.usage ? { usage: result.usage } : {}) };
 }
 
+/** Monotonic per-process counter so concurrent runs in one session get distinct run ids. */
+let sequentialRunCounter = 0;
+
 export async function runSequential(
   spec: ISequentialOrchestrationSpec,
   deps: ISequentialOrchestratorDeps,
 ): Promise<IOrchestrationRunResult> {
-  const runId = `${deps.context.parentSessionId}:seq`;
+  sequentialRunCounter += 1;
+  const runId = `${deps.context.parentSessionId}:seq:${sequentialRunCounter}`;
   emit(deps.events, ORCHESTRATION_EVENTS.STARTED, runId, {});
 
   const stepResults: IOrchestrationStepResult[] = [];

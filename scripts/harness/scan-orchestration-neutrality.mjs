@@ -12,10 +12,12 @@
  * and NOT the `interface-runtime` scan (which neither covers `agent-core` nor
  * checks app-domain field names, so it would be false-green here).
  *
- * It flags the app-domain identifiers `room` / `persona` / `topic` (whole word,
- * case-insensitive) anywhere in the orchestration source (contracts + mechanism),
- * excluding test files. The scanner's own pattern definition is the only allowed
- * occurrence of those words under scan.
+ * It flags the app-domain identifiers `room` / `persona` / `topic` anywhere in the
+ * orchestration source (contracts + mechanism), excluding test files. The match is
+ * IDENTIFIER-CONTAINING (not whole-word), so the realistic smuggling vector — a
+ * camelCase field like `roomId`, `chatRoom`, `personaName`, `topicTitle`,
+ * `conversationTopic` — is caught, not just the bare word. The scanner's own pattern
+ * definition is the only allowed occurrence of those words under scan.
  *
  * Exit 0 = clean, 1 = findings.
  */
@@ -26,7 +28,10 @@ import path from 'node:path';
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
 // App-domain identity terms forbidden in the neutral orchestration contracts.
-const FORBIDDEN = /\b(room|persona|topic)\b/i;
+// Matches any identifier-like token CONTAINING the term (case-insensitive), so
+// `roomId` / `chatRoom` / `personaName` / `topicTitle` / `conversationTopic` are all
+// flagged — not merely the standalone word.
+const FORBIDDEN = /\w*(room|persona|topic)\w*/i;
 
 // Directories whose orchestration source is the neutral surface under scan.
 const SCAN_DIRS = [
@@ -52,20 +57,28 @@ function walkSource(target) {
   return files;
 }
 
+/**
+ * Pure content check: return the neutrality violations in a source string.
+ * Exposed so the harness test can assert failing-capability directly (including the
+ * camelCase identifier vector) without touching disk.
+ */
+export function findNeutralityViolationsInSource(source, file = 'fixture.ts') {
+  const findings = [];
+  const lines = source.split('\n');
+  for (let i = 0; i < lines.length; i += 1) {
+    if (FORBIDDEN.test(lines[i])) {
+      findings.push({ file, line: i + 1, text: lines[i].trim() });
+    }
+  }
+  return findings;
+}
+
 export function findOrchestrationNeutralityFindings(root = WORKSPACE_ROOT) {
   const findings = [];
   for (const dir of SCAN_DIRS) {
     for (const file of walkSource(dir)) {
-      const lines = readFileSync(file, 'utf8').split('\n');
-      for (let i = 0; i < lines.length; i += 1) {
-        if (FORBIDDEN.test(lines[i])) {
-          findings.push({
-            file: path.relative(root, file),
-            line: i + 1,
-            text: lines[i].trim(),
-          });
-        }
-      }
+      const rel = path.relative(root, file);
+      findings.push(...findNeutralityViolationsInSource(readFileSync(file, 'utf8'), rel));
     }
   }
   return findings;

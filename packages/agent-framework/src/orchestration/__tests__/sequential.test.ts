@@ -42,15 +42,33 @@ function jobState(id: string): ISubagentJobState {
 /** A fake ISubagentManager that records spawn requests and returns canned outputs. */
 function fakeManager(outputs: string[]): {
   manager: ISubagentManager;
-  spawns: Array<{ prompt: string; type: string }>;
+  spawns: Array<{
+    prompt: string;
+    type: string;
+    model?: string;
+    allowedTools?: string[];
+    disallowedTools?: string[];
+  }>;
 } {
-  const spawns: Array<{ prompt: string; type: string }> = [];
+  const spawns: Array<{
+    prompt: string;
+    type: string;
+    model?: string;
+    allowedTools?: string[];
+    disallowedTools?: string[];
+  }> = [];
   let index = 0;
   const results = new Map<string, ISubagentJobResult>();
   const manager: ISubagentManager = {
     async spawn(request) {
       const id = `job-${index}`;
-      spawns.push({ prompt: request.prompt, type: request.type });
+      spawns.push({
+        prompt: request.prompt,
+        type: request.type,
+        model: request.model,
+        allowedTools: request.allowedTools,
+        disallowedTools: request.disallowedTools,
+      });
       results.set(id, { jobId: id, output: outputs[index] ?? '' });
       index += 1;
       return jobState(id);
@@ -119,6 +137,27 @@ describe('SELFHOST-001 P1 — sequential orchestration', () => {
     expect(result.primitive).toBe('sequential');
     expect(result.steps.map((s) => s.output)).toEqual(['PLAN', 'DONE']);
     expect(result.output).toBe('DONE'); // aggregate = last step output
+  });
+
+  it('threads per-step model + tool scoping into the spawn request', async () => {
+    const { manager, spawns } = fakeManager(['x']);
+    const spec: ISequentialOrchestrationSpec = {
+      steps: [
+        {
+          id: 's1',
+          label: 'scoped',
+          agentType: 'worker',
+          prompt: 'go',
+          model: 'claude-opus-4-8',
+          allowedTools: ['Read', 'Grep'],
+          disallowedTools: ['Shell'],
+        },
+      ],
+    };
+    await runSequential(spec, { manager, context: CONTEXT });
+    expect(spawns[0].model).toBe('claude-opus-4-8');
+    expect(spawns[0].allowedTools).toEqual(['Read', 'Grep']);
+    expect(spawns[0].disallowedTools).toEqual(['Shell']);
   });
 
   it('threadOutput:false runs each step with only its own prompt', async () => {
