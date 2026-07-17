@@ -453,13 +453,23 @@ export type {
 } from './subagents/index.js';
 
 // ── Multi-agent orchestration mechanism (SELFHOST-001) ──────
-export { runSequential, runParallel, runHandoff } from './orchestration/index.js';
+export {
+  runSequential,
+  runParallel,
+  runHandoff,
+  runHierarchical,
+  runGroupChat,
+} from './orchestration/index.js';
 export type {
   ISequentialOrchestratorDeps,
   ISequentialRunContext,
   IParallelOrchestratorDeps,
   IHandoffOrchestratorDeps,
   ResolveHandoff,
+  IHierarchicalOrchestratorDeps,
+  PlanDelegation,
+  IGroupChatOrchestratorDeps,
+  SelectNextStep,
   IOrchestrationRunContext,
 } from './orchestration/index.js';
 

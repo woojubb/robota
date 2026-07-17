@@ -207,3 +207,18 @@ SPEC amendment), P2 (parallel + handoff), P3 (hierarchical + group-chat).
   SPEC amendments in both packages. Verified locally: build + typecheck + orchestration tests **17/17**
   (6 sequential + 6 parallel + 5 handoff) + lint (0 errors) + `pnpm harness:scan` (all **54** pass) + `harness:test`
   neutrality 5/5. P3 (`hierarchical`/`group-chat`) remains.
+- 2026-07-17 — **GATE-IMPLEMENT: P3 implemented — epic feature-complete.** Added the final two primitives.
+  agent-core: `IOrchestrationDelegation`, `IHierarchicalOrchestrationSpec` (`managerStepId` + `maxRounds`) and
+  `IGroupChatOrchestrationSpec` (`firstStepId` + `maxTurns`), still zero new `@robota-sdk/agent-*` deps.
+  agent-framework: `runHierarchical` (manager step delegates to workers via an injected neutral `planDelegation`
+  policy; worker output aggregated + threaded back into the manager's next round; `maxRounds` guard) and
+  `runGroupChat` (steps take turns chosen by an injected neutral `selectNextStep` policy; prior turns threaded as
+  id-labeled history; `maxTurns` guard), both over the shared `orchestration/shared.ts` mechanics and the same
+  `ISubagentManager`/`ISubagentRunner` port. **Neutrality held for the two highest-drift primitives** — the
+  standing `orchestration-neutrality` floor covers the new source and is clean (0 findings); WHO delegates / WHO
+  speaks next is a caller-injected policy, never baked-in routing (the adversarial risk called out in the
+  Validated-Recommendation is thus mechanically closed). No `agent-subagent-runner` dep. SPEC amendments in both
+  packages. Verified locally: build + typecheck + orchestration tests **30/30** (6 sequential + 7 parallel +
+  5 handoff + 6 hierarchical + 6 group-chat) + lint (0 errors) + `pnpm harness:scan` (all **54** pass) +
+  `harness:test` neutrality 5/5. **All five named primitives now implemented.** Next: GATE-VERIFY + GATE-COMPLETE
+  (move `active/` → `done/` with done-evidence).

@@ -1,9 +1,9 @@
-<!-- archival-exempt: EPIC in progress — P1+P2 shipped; P3 (hierarchical/group-chat) remains, so the spec stays in spec-docs/active/ until the remaining slice lands and GATE-VERIFY/GATE-COMPLETE run. -->
+<!-- archival-exempt: EPIC in progress — all 5 primitives implemented (P1 sequential, P2 parallel/handoff, P3 hierarchical/group-chat); the spec stays in spec-docs/active/ until GATE-VERIFY/GATE-COMPLETE run and move it to done/. -->
 
 # SELFHOST-001 — first-class multi-agent orchestration primitives (EPIC)
 
 Spec: [`.agents/spec-docs/active/SELFHOST-001-multi-agent-orchestration-primitives.md`](../spec-docs/active/SELFHOST-001-multi-agent-orchestration-primitives.md)
-GATE-APPROVAL: PASSED (iteration 4 ENDORSE). GATE-IMPLEMENT: P1+P2 in progress (P3 remains).
+GATE-APPROVAL: PASSED (iteration 4 ENDORSE). GATE-IMPLEMENT: P1+P2+P3 implemented (all 5 primitives); GATE-VERIFY/GATE-COMPLETE next.
 
 ## P1 — `sequential` + neutral contracts + SPEC amendment (this slice) ✅ IMPLEMENTED
 
@@ -61,7 +61,34 @@ Command evidence: `pnpm --filter @robota-sdk/agent-core --filter @robota-sdk/age
 - [x] Verified locally: build (core+framework), typecheck, orchestration tests **18/18** (6 sequential + 7 parallel + 5 handoff),
       lint (0 errors), `pnpm harness:scan` (all **54** scans pass), `harness:test` neutrality scan 5/5.
 
-## P3 — `hierarchical` (manager-delegation) + `group-chat` (turn-taking) — PENDING
+## P3 — `hierarchical` (manager-delegation) + `group-chat` (turn-taking) ✅ IMPLEMENTED
+
+- [x] agent-core: `IOrchestrationDelegation` (`stepId` + `prompt`), `IHierarchicalOrchestrationSpec`
+      (`managerStepId` + `maxRounds` loop bound) and `IGroupChatOrchestrationSpec` (`firstStepId` + `maxTurns` loop
+      bound) added to `orchestration-contracts.ts`; `IOrchestrationRunResult` steps/output docs generalized to all
+      five primitives. Exported from `src/orchestration/index.ts` + `src/index.ts`. Still zero new
+      `@robota-sdk/agent-*` production deps.
+- [x] agent-framework: `runHierarchical` (`hierarchical.ts`) — a manager step delegates to workers via an injected
+      neutral `planDelegation` policy, worker output aggregated + threaded back into the manager's next round,
+      `maxRounds` guard; `runGroupChat` (`group-chat.ts`) — steps take turns chosen by an injected neutral
+      `selectNextStep` policy, prior turns threaded as id-labeled history, `maxTurns` guard. Both reuse
+      `shared.ts` (spawn/wait/event mechanics) and compose over the same `ISubagentManager`/`ISubagentRunner` port.
+      Exported from both index files.
+- [x] **Neutrality held for the highest-drift primitives**: `hierarchical`/`group-chat` carry NO app-domain
+      identity — the standing `orchestration-neutrality` floor covers the new source and stays clean (0 findings);
+      WHO delegates / WHO speaks next is a caller-injected policy, not baked-in routing.
+- [x] Still NO dep on `agent-subagent-runner` (no-cycle — `deps` scan green).
+- [x] SPEC amendments: `agent-core/docs/SPEC.md` Orchestration Public API table adds the three P3 types;
+      `agent-framework/docs/SPEC.md` documents `runHierarchical`/`runGroupChat`.
+- [x] Tests: `hierarchical.test.ts` (6: delegate+thread-back+order, no-delegation, maxRounds-exceeded,
+      unknown-delegation-target, manager-not-found, end-to-end), `group-chat.test.ts` (6: turn-taking+thread+order,
+      end-on-null, default-first-step, maxTurns-exceeded, unknown-first-step, end-to-end).
+- [x] Verified locally: build (core+framework), typecheck, orchestration tests **30/30** (6 sequential + 7 parallel + 5 handoff + 6 hierarchical + 6 group-chat), lint (0 errors), `pnpm harness:scan` (all **54** scans pass),
+      `harness:test` neutrality scan 5/5.
+
+**Epic status:** all FIVE named orchestration primitives (sequential, parallel, handoff, hierarchical, group-chat)
+are now implemented. Remaining: GATE-VERIFY + GATE-COMPLETE (move the epic spec `active/` → `done/` with
+done-evidence) — a dedicated verification pass, tracked as the immediate next step.
 
 ## Extraction trigger (B3, deferred)
 

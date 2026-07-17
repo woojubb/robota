@@ -211,19 +211,22 @@ their own price tables. Prices are USD per 1,000,000 tokens.
 
 Neutral multi-agent orchestration runtime exports (the contracts/event-type unions are type-only; see `src/orchestration/`). agent-core OWNS these; the `agent-framework` layer IMPLEMENTS the mechanism.
 
-| Export                         | Kind  | Description                                                                                                  |
-| ------------------------------ | ----- | ------------------------------------------------------------------------------------------------------------ |
-| `ORCHESTRATION_EVENTS`         | const | Neutral orchestration lifecycle event names (`started`/`step_started`/`step_completed`/`completed`/`failed`) |
-| `ORCHESTRATION_EVENT_PREFIX`   | const | Event-name prefix (`orchestration`) for the neutral orchestration lifecycle events                           |
-| `TOrchestrationEvent`          | type  | Union of the orchestration lifecycle event names                                                             |
-| `TOrchestrationPrimitive`      | type  | Named neutral primitives: `sequential`/`parallel`/`hierarchical`/`handoff`/`group-chat`                      |
-| `IOrchestrationStep`           | type  | A neutral unit of work (id, label, agentType, prompt, optional model/tool scoping)                           |
-| `ISequentialOrchestrationSpec` | type  | Spec for a `sequential` run (ordered steps + `threadOutput`)                                                 |
-| `IParallelOrchestrationSpec`   | type  | Spec for a `parallel` run (concurrent steps + bounded `maxConcurrency`)                                      |
-| `IHandoffOrchestrationSpec`    | type  | Spec for a `handoff` run (control-transfer among steps; `entryStepId` + `maxHandoffs` loop bound)            |
-| `IOrchestrationStepResult`     | type  | One executed step's result (id, output, optional usage)                                                      |
-| `IOrchestrationRunResult`      | type  | A run's result (primitive, per-step results, aggregate output)                                               |
-| `IOrchestrationEventData`      | type  | Neutral event payload the primitives emit over `IEventService`                                               |
+| Export                           | Kind  | Description                                                                                                  |
+| -------------------------------- | ----- | ------------------------------------------------------------------------------------------------------------ |
+| `ORCHESTRATION_EVENTS`           | const | Neutral orchestration lifecycle event names (`started`/`step_started`/`step_completed`/`completed`/`failed`) |
+| `ORCHESTRATION_EVENT_PREFIX`     | const | Event-name prefix (`orchestration`) for the neutral orchestration lifecycle events                           |
+| `TOrchestrationEvent`            | type  | Union of the orchestration lifecycle event names                                                             |
+| `TOrchestrationPrimitive`        | type  | Named neutral primitives: `sequential`/`parallel`/`hierarchical`/`handoff`/`group-chat`                      |
+| `IOrchestrationStep`             | type  | A neutral unit of work (id, label, agentType, prompt, optional model/tool scoping)                           |
+| `ISequentialOrchestrationSpec`   | type  | Spec for a `sequential` run (ordered steps + `threadOutput`)                                                 |
+| `IParallelOrchestrationSpec`     | type  | Spec for a `parallel` run (concurrent steps + bounded `maxConcurrency`)                                      |
+| `IHandoffOrchestrationSpec`      | type  | Spec for a `handoff` run (control-transfer among steps; `entryStepId` + `maxHandoffs` loop bound)            |
+| `IOrchestrationDelegation`       | type  | A neutral manager→worker delegation (`stepId` + `prompt`)                                                    |
+| `IHierarchicalOrchestrationSpec` | type  | Spec for a `hierarchical` (manager-delegation) run (`managerStepId` + `maxRounds` loop bound)                |
+| `IGroupChatOrchestrationSpec`    | type  | Spec for a `group-chat` (turn-taking) run (`firstStepId` + `maxTurns` loop bound)                            |
+| `IOrchestrationStepResult`       | type  | One executed step's result (id, output, optional usage)                                                      |
+| `IOrchestrationRunResult`        | type  | A run's result (primitive, per-step results, aggregate output)                                               |
+| `IOrchestrationEventData`        | type  | Neutral event payload the primitives emit over `IEventService`                                               |
 
 ### Schema (CORE-015)
 
