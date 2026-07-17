@@ -1,5 +1,6 @@
 ---
-status: in-progress
+status: done
+completed: 2026-07-17
 type: BEHAVIOR
 tags: [orchestration, multi-agent, agent-core, agent-framework, selfhost]
 ---
@@ -130,12 +131,12 @@ scoping. No room/persona/topic anywhere.
 
 ## Completion Criteria
 
-- [ ] TC-01: agent-core exposes the primitive contracts + event-type unions with zero new `@robota-sdk/agent-*` production deps (deps scan).
-- [ ] TC-02: the `sequential` primitive emits its lifecycle events on the existing event-service (unit test).
-- [ ] TC-03: agent-framework composes a `sequential` run end-to-end over `agent-executor`'s `ISubagentRunner` (via `createInProcessSubagentRunner`) — functional test; framework carries NO dep on `agent-subagent-runner` (deps scan).
-- [ ] TC-04: `agent-framework` does not depend on `agent-subagent-runner` (no-cycle) — verified by the deps/one-way scan.
-- [ ] TC-05: no room/persona/topic (or other app-domain) fields in the orchestration contracts — enforced by a **bespoke, failing-capable neutrality scan wired into `pnpm harness:scan` as a standing FAIL condition** (a new `orchestration-neutrality` scan registered in `scripts/harness/run-all-scans.mjs`), so it **keeps firing on every run** and guards P2/P3's `hierarchical`/`group-chat` additions when they land — not a one-time P1 vitest. Per [enforcement-architecture.md](../../rules/enforcement-architecture.md), every guardian needs a mechanical floor that keeps firing. (NOT the `interface-runtime` scan, which neither covers `agent-core` nor checks app-domain field names, so it would be false-green here.)
-- [ ] TC-06: agent-core + agent-framework SPEC.md document the new surface incl. the Boundaries amendment (docs scan).
+- [x] TC-01: agent-core exposes the primitive contracts + event-type unions with zero new `@robota-sdk/agent-*` production deps (deps scan).
+- [x] TC-02: the `sequential` primitive emits its lifecycle events on the existing event-service (unit test).
+- [x] TC-03: agent-framework composes a `sequential` run end-to-end over `agent-executor`'s `ISubagentRunner` (via `createInProcessSubagentRunner`) — functional test; framework carries NO dep on `agent-subagent-runner` (deps scan).
+- [x] TC-04: `agent-framework` does not depend on `agent-subagent-runner` (no-cycle) — verified by the deps/one-way scan.
+- [x] TC-05: no room/persona/topic (or other app-domain) fields in the orchestration contracts — enforced by a **bespoke, failing-capable neutrality scan wired into `pnpm harness:scan` as a standing FAIL condition** (a new `orchestration-neutrality` scan registered in `scripts/harness/run-all-scans.mjs`), so it **keeps firing on every run** and guards P2/P3's `hierarchical`/`group-chat` additions when they land — not a one-time P1 vitest. Per [enforcement-architecture.md](../../rules/enforcement-architecture.md), every guardian needs a mechanical floor that keeps firing. (NOT the `interface-runtime` scan, which neither covers `agent-core` nor checks app-domain field names, so it would be false-green here.)
+- [x] TC-06: agent-core + agent-framework SPEC.md document the new surface incl. the Boundaries amendment (docs scan).
 
 ## Test Plan
 
@@ -148,10 +149,51 @@ scoping. No room/persona/topic anywhere.
 | TC-05 | neutrality (no room/persona/topic) | standing `pnpm harness:scan` floor (`orchestration-neutrality`; not interface-runtime) |
 | TC-06 | SPEC updated + amendment           | docs-structure scan                                                                    |
 
+**Test references (delivered across P1–P3):**
+
+- TC-02 → `packages/agent-framework/src/orchestration/__tests__/sequential.test.ts` (events order), plus
+  `parallel.test.ts` / `handoff.test.ts` / `hierarchical.test.ts` / `group-chat.test.ts` (each asserts the neutral
+  STARTED/STEP\_\*/COMPLETED/FAILED lifecycle for its primitive).
+- TC-03 → `sequential.test.ts` "composes end-to-end over a SubagentManager backed by an ISubagentRunner", plus the
+  end-to-end case in each of `parallel.test.ts` / `handoff.test.ts` / `hierarchical.test.ts` / `group-chat.test.ts`.
+- TC-01 / TC-04 → `deps` dependency-direction scan (`scripts/harness/check-dependency-direction.mjs`).
+- TC-05 → `scripts/harness/scan-orchestration-neutrality.mjs` + `scripts/harness/__tests__/scan-orchestration-neutrality.test.mjs`.
+- TC-06 → `docs-structure` + `spec-public-surface` scans over `packages/agent-core/docs/SPEC.md` /
+  `packages/agent-framework/docs/SPEC.md`.
+
+## User Execution Test Scenarios
+
+**Scenario UET-01 — the five primitives run through the public SDK surface.** `agent-executable`.
+
+- **Prerequisite state:** `pnpm --filter @robota-sdk/agent-core --filter @robota-sdk/agent-framework build`.
+- **Surface:** public SDK usage — a script that imports `runSequential`/`runParallel`/`runHandoff`/
+  `runHierarchical`/`runGroupChat` from `@robota-sdk/agent-framework` and runs each over a trivial in-script
+  `ISubagentManager` (the subagent execution is stubbed; the primitives' owned behavior — composition, threading,
+  aggregation, control-transfer, delegation, turn-taking, lifecycle events — is what is exercised). Script:
+  `scratch/src/selfhost-001-orchestration-demo.ts` (INFRA-023 disposable live-verification home; `scratch/src/` is
+  gitignored).
+- **Exact command:** `cd scratch && pnpm run run -- src/selfhost-001-orchestration-demo.ts`
+- **Expected observable result:** exit 0, and each primitive prints its neutral composition outcome —
+  sequential threads (`s1→s2 | output = BUILT-from-PLAN`), parallel order-preserving join
+  (`aggregate = "out:A\n\nout:B\n\nout:C"`), handoff control-transfer (`triage→specialist | output = RESOLVED`),
+  hierarchical delegate-then-return (`mgr→w1→w2→mgr | output = MGR`), group-chat turn-taking
+  (`a→b→a | output = A`, `events = started:1 step_completed:3 completed:1`), ending with `ALL FIVE PRIMITIVES RAN OK`.
+- **Evidence:** executed 2026-07-17 via `tsx --conditions=source`, **exit 0**. Observed output:
+  ```
+  [sequential] order = s1→s2 | output = BUILT-from-PLAN
+  [parallel] steps = a,b,c | aggregate = "out:A\n\nout:B\n\nout:C"
+  [handoff] transferred = triage→specialist | output = RESOLVED
+  [hierarchical] executed = mgr→w1→w2→mgr | output = MGR
+  [group-chat] turns = a→b→a | output = A
+  [group-chat] events = started:1 step_completed:3 completed:1
+  ALL FIVE PRIMITIVES RAN OK
+  ```
+- **Cleanup:** none (`scratch/src/` is gitignored and non-persistent).
+
 ## Tasks
 
-`.agents/tasks/SELFHOST-001*.md` — 미생성 (GATE-APPROVAL 통과 후 생성). Epic slices P1 (sequential + contracts +
-SPEC amendment), P2 (parallel + handoff), P3 (hierarchical + group-chat).
+Archived: [`.agents/tasks/completed/SELFHOST-001.md`](../../tasks/completed/SELFHOST-001.md) — all P1/P2/P3 slices
+`[x]` (sequential + contracts + SPEC amendment; parallel + handoff; hierarchical + group-chat).
 
 ## Evidence Log
 
@@ -222,3 +264,63 @@ SPEC amendment), P2 (parallel + handoff), P3 (hierarchical + group-chat).
   5 handoff + 6 hierarchical + 6 group-chat) + lint (0 errors) + `pnpm harness:scan` (all **54** pass) +
   `harness:test` neutrality 5/5. **All five named primitives now implemented.** Next: GATE-VERIFY + GATE-COMPLETE
   (move `active/` → `done/` with done-evidence).
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-07-17
+
+**Status upgrade:** approved → in-progress (recorded at P1; consolidated here across the epic's three slices)
+
+- All five primitives implemented across P1 (`sequential`, PR #1192), P2 (`parallel`/`handoff`, PR #1194) and P3
+  (`hierarchical`/`group-chat`, PR #1195) — each merged to `develop` and merge-verified. Tasks file
+  `.agents/tasks/SELFHOST-001.md` created and its slice checklists all `[x]`; `## Tasks` records the path.
+- Contracts + event-type unions owned by `agent-core/src/orchestration/`; mechanism in
+  `agent-framework/src/orchestration/` composing over `agent-executor`'s `ISubagentManager`/`ISubagentRunner` port,
+  spawn/wait/event mechanics factored into `shared.ts`. Standing `orchestration-neutrality` scan registered.
+- NON-COMPLIANCE check: no implementation ahead of GATE-APPROVAL; each slice landed via its own reviewed PR.
+
+### [GATE-VERIFY] — ✅ PASS | 2026-07-17
+
+**Status upgrade:** in-progress → verifying
+
+- Tasks completion: every checklist item in `.agents/tasks/SELFHOST-001.md` is `[x]` (P1 sequential + contracts +
+  SPEC amendment; P2 parallel + handoff; P3 hierarchical + group-chat); none blocked or pending.
+- Build: `pnpm --filter @robota-sdk/agent-core --filter @robota-sdk/agent-framework build` → exit 0.
+- Tests: `pnpm --filter @robota-sdk/agent-core --filter @robota-sdk/agent-framework test` → agent-core **851/851**
+  (59 files), agent-framework **1118/1118** (129 files); orchestration subset 30/30 (5 files). exit 0.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-07-17
+
+**Status upgrade:** verifying → done
+
+- **[GATE-COMPLETE: TC-01]** Verified: `node scripts/harness/check-dependency-direction.mjs` (via `pnpm harness:scan`
+  `deps`) → pass; `agent-core` carries zero new `@robota-sdk/agent-*` production deps (prod deps: `jssha`, `zod`).
+  Checkbox `[x]`. Test reference: `deps` dependency-direction scan.
+- **[GATE-COMPLETE: TC-02]** Verified: `pnpm --filter @robota-sdk/agent-framework test -- --run src/orchestration/__tests__/`
+  → 30/30. Lifecycle-event assertions in `sequential.test.ts` ("emits the neutral lifecycle events") + the
+  events assertions in `parallel.test.ts` / `handoff.test.ts` / `hierarchical.test.ts` / `group-chat.test.ts`.
+  Checkbox `[x]`. Test reference: those five `packages/agent-framework/src/orchestration/__tests__/*.test.ts`.
+- **[GATE-COMPLETE: TC-03]** Verified: same run — each primitive has a "composes end-to-end over a SubagentManager
+  backed by an ISubagentRunner" case; `createInProcessSubagentRunner` referenced without an `agent-subagent-runner`
+  dep. Checkbox `[x]`. Test reference: the end-to-end case in each `__tests__/*.test.ts`.
+- **[GATE-COMPLETE: TC-04]** Verified: `deps`/one-way scan green — `agent-framework` does not depend on
+  `agent-subagent-runner` (no cycle). Checkbox `[x]`. Test reference: `deps` scan.
+- **[GATE-COMPLETE: TC-05]** Verified: `node scripts/harness/scan-orchestration-neutrality.mjs` → "scan passed"
+  (0 findings) over `agent-core/src/orchestration` + `agent-framework/src/orchestration` incl. the P3
+  `hierarchical`/`group-chat` source; `npx vitest run scripts/harness/__tests__/scan-orchestration-neutrality.test.mjs`
+  → 5/5 (red-fixture proves failing-capability). Checkbox `[x]`. Test reference:
+  `scripts/harness/scan-orchestration-neutrality.mjs` + its `__tests__` test.
+- **[GATE-COMPLETE: TC-06]** Verified: `pnpm harness:scan` → all 54 scans pass incl. `docs-structure` +
+  `spec-public-surface`; `agent-core/docs/SPEC.md` (Boundaries amendment + Orchestration Public API table with all
+  contracts) and `agent-framework/docs/SPEC.md` (all five `runX` rows) updated. Checkbox `[x]`. Test reference:
+  `docs-structure` + `spec-public-surface` scans.
+- **Test Plan coverage:** all 6 rows have concrete test references (recorded under `## Test Plan`); no unaddressed row.
+- **User-Execution done-gate:** PASS — `## User Execution Test Scenarios` UET-01 (`agent-executable`, public SDK
+  surface) executed 2026-07-17 via `cd scratch && pnpm run run -- src/selfhost-001-orchestration-demo.ts`, exit 0,
+  observed output captured in the scenario's evidence field (`ALL FIVE PRIMITIVES RAN OK` with each primitive's
+  neutral composition outcome). The subagent runner is stubbed (credential-free, preference-order option 2) because
+  the primitives own the COMPOSITION, not the LLM call.
+- **Artifact actions:** tasks file archived `.agents/tasks/SELFHOST-001.md` → `.agents/tasks/completed/SELFHOST-001.md`;
+  spec `## Tasks` updated to the archived path. Spec moved `spec-docs/active/` → `spec-docs/done/`, frontmatter
+  `status: done` + `completed: 2026-07-17`.
+- **Summary:** all 6 Completion Criteria `[x]` with matching GATE-COMPLETE evidence; Test Plan fully covered;
+  User-Execution gate passed with captured evidence; tasks archived. Epic feature-complete (all five primitives).
+  Status upgrade verifying → done authorized.

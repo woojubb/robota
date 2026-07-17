@@ -36,7 +36,10 @@ each punch-list verified against the actual code) and promoted to `.agents/spec-
   guard). Contracts `IOrchestrationDelegation` + `IHierarchicalOrchestrationSpec` + `IGroupChatOrchestrationSpec`.
   Neutrality held for these two highest-drift primitives — WHO delegates / WHO speaks next is caller-injected, and
   the standing `orchestration-neutrality` floor stays clean. **All five named primitives now implemented** (30 tests).
-- **NEXT: GATE-VERIFY + GATE-COMPLETE** for the epic — move the spec `active/` → `done/` with done-evidence.
+- **GATE-VERIFY + GATE-COMPLETE PASSED** — spec moved `active/` → `.agents/spec-docs/done/`, `status: done`,
+  `completed: 2026-07-17`; task archived to `.agents/tasks/completed/SELFHOST-001.md`. All 6 Completion Criteria
+  `[x]` with per-TC evidence; User-Execution done-gate passed via a public-SDK-usage scenario (UET-01, exit 0,
+  all 5 primitives run — script in `scratch/src/`, INFRA-023). **SELFHOST-001 is DONE.**
 - **B3 extraction trigger** (deferred): when a second implementer family lands (a dag-\* adapter), move BOTH the
   contracts AND event unions into a new `agent-interface-orchestration` package (deps ⊆ {agent-core}).
 
@@ -47,8 +50,8 @@ authored grounded in real code (four corrected inaccurate backlog seeds against 
 `proposal-reviewer` gate repeatedly caught genuine code-verified defects (dependency cycles, wrong placement,
 unbuildable data-flow, a neutrality scan bypassable by camelCase) BEFORE any code — see the specs' Evidence Logs.
 PRs use the DX-001 batching policy (one coherent design-gate pass per PR) and the HARNESS-018 async PR-review
-(reviewer → 0/1 actionable → fix → merge). SELFHOST-001 is now feature-complete (all 5 primitives); next is its
-GATE-VERIFY/GATE-COMPLETE, then the remaining specs in priority order (differentiators are `priority: medium`/`low`,
-`urgency: later`).
+(reviewer → 0/1 actionable → fix → merge). **SELFHOST-001 is DONE** (all 5 primitives, all gates). Next: pick up
+the remaining 13 specs from `todo/` in priority order (they are `priority: medium`/`low`, `urgency: later`);
+each follows the same GATE-IMPLEMENT → VERIFY → COMPLETE flow. Consider SELFHOST-002 (plan-mode) next.
 
 Related: [[self-improving-harness-northstar]], [[harness-mechanical-not-skilltree]].
