@@ -1,5 +1,6 @@
 ---
-status: in-progress
+status: done
+completed: 2026-07-18
 type: DATA
 tags: [rag, codebase-index, retrieval, agent-tools, selfhost]
 ---
@@ -115,11 +116,11 @@ incremental re-index on file change. P4 = embedding-vector backend (may revise t
 
 ## Completion Criteria
 
-- [ ] TC-01: the retrieval contract returns ranked results and never exceeds the given token budget (unit test).
-- [ ] TC-02: the repo-map reference adapter ranks the most relevant symbols/files of a fixture repo for a given active-file set within a budget (functional test).
-- [ ] TC-03: the retrieval adapter is threaded through the assembly layer (like `sandboxClient`) and `createRetrievalTool` joins the default set adapter-gated — absent/no-op with no adapter — while the product (`agent-cli`/`apps/agent-app`) supplies the concrete source parser + corpus; the neutral ranking adapter itself comes from `agent-tools` and carries no corpus (unit test on the assembly wiring + adapter-gating).
-- [ ] TC-04: no corpus/domain content in `agent-tools` — the neutral ranking adapter takes the source parser + corpus by injection; a code review / a targeted grep confirms no repo paths in the package. This is a MANUAL floor today: no existing `pnpm harness:scan` rule mechanically fences `agent-tools`' third-party dependencies — `deps` (`check-dependency-direction.mjs`) only checks inter-workspace direction/cycles + agent-core/agent-plugin constraints, and `interface-imports`/`interface-runtime` only cover `agent-interface-*` packages. Per [enforcement-architecture.md](../../rules/enforcement-architecture.md) (every guardian needs a mechanical floor), a follow-up is filed for a mechanical `agent-tools` neutrality floor (a dependency-allowlist / no-heavy-retrieval-SDK scan); neutrality does not rest on the manual grep alone.
-- [ ] TC-05: swapping the adapter needs no `agent-tools` change (design + a fake-adapter unit test).
+- [x] TC-01: the retrieval contract returns ranked results and never exceeds the given token budget (unit test).
+- [x] TC-02: the repo-map reference adapter ranks the most relevant symbols/files of a fixture repo for a given active-file set within a budget (functional test).
+- [x] TC-03: the retrieval adapter is threaded through the assembly layer (like `sandboxClient`) and `createRetrievalTool` joins the default set adapter-gated — absent/no-op with no adapter — while the product (`agent-cli`/`apps/agent-app`) supplies the concrete source parser + corpus; the neutral ranking adapter itself comes from `agent-tools` and carries no corpus (unit test on the assembly wiring + adapter-gating).
+- [x] TC-04: no corpus/domain content in `agent-tools` — the neutral ranking adapter takes the source parser + corpus by injection; a code review / a targeted grep confirms no repo paths in the package. This is a MANUAL floor today: no existing `pnpm harness:scan` rule mechanically fences `agent-tools`' third-party dependencies — `deps` (`check-dependency-direction.mjs`) only checks inter-workspace direction/cycles + agent-core/agent-plugin constraints, and `interface-imports`/`interface-runtime` only cover `agent-interface-*` packages. Per [enforcement-architecture.md](../../rules/enforcement-architecture.md) (every guardian needs a mechanical floor), a follow-up is filed for a mechanical `agent-tools` neutrality floor (a dependency-allowlist / no-heavy-retrieval-SDK scan); neutrality does not rest on the manual grep alone.
+- [x] TC-05: swapping the adapter needs no `agent-tools` change (design + a fake-adapter unit test).
 
 ## Test Plan
 
@@ -131,11 +132,45 @@ incremental re-index on file change. P4 = embedding-vector backend (may revise t
 | TC-04 | no corpus in agent-tools      | manual grep/review + follow-up mechanical floor |
 | TC-05 | adapter swap                  | fake-adapter unit test                          |
 
+**Test references (v1, P1–P3):**
+
+- TC-01 / TC-02 / TC-05 → `packages/agent-tools/src/retrieval/__tests__/repo-map-adapter.test.ts` (budget truncation;
+  centrality + active-file personalization + mention boost; fake-adapter swap + adapter-gated unavailability).
+- TC-03 → `packages/agent-framework/src/assembly/__tests__/create-tools.test.ts` (`CodebaseRetrieval` present iff a
+  retrieval adapter is supplied).
+- TC-04 → grep/review (no repo paths / domain content in `packages/agent-tools/src/retrieval`); mechanical floor
+  tracked as `HARNESS-027`.
+- P2/P3 index build/persistence/incremental → `packages/agent-tools/src/retrieval/__tests__/repo-map-index.test.ts`.
+
+## User Execution Test Scenarios
+
+**Scenario UET-01 — the retrieval capability through the public SDK.** `agent-executable`.
+
+- **Prerequisite state:** `pnpm --filter @robota-sdk/agent-tools build`.
+- **Surface:** public SDK usage — a script importing `buildRepoMapIndex`/`RepoMapRetrievalAdapter`/
+  `createRetrievalTool`/`serializeRepoMapIndex`/`deserializeRepoMapIndex`/`updateRepoMapIndex` from
+  `@robota-sdk/agent-tools`, over a tiny corpus + a simple injected parser (the parser+corpus are the surface's
+  responsibility; the neutral ranking/index machinery is what is exercised). Script:
+  `scratch/src/selfhost-003-retrieval-demo.ts` (INFRA-023 disposable home; `scratch/src/` gitignored).
+- **Exact command:** `cd scratch && pnpm run run -- src/selfhost-003-retrieval-demo.ts`
+- **Expected observable result:** exit 0; ranking `add > mul` (centrality + active-file personalization); the
+  `CodebaseRetrieval` tool renders `math.ts:1  function add`; persist round-trip identical = true; incremental
+  re-index drops `add`'s score after removing a referencing file; ends with `RETRIEVAL DEMO OK`.
+- **Evidence:** executed 2026-07-18 via `tsx --conditions=source`, **exit 0**. Observed:
+  ```
+  [retrieve] ranked = add > mul
+  [tool] first line = math.ts:1  function add
+  [persist] round-trip identical = true
+  [incremental] add score 4 → 1 after removing util.ts
+  RETRIEVAL DEMO OK
+  ```
+- **Cleanup:** none (`scratch/src/` is gitignored, non-persistent).
+
 ## Tasks
 
-[`.agents/tasks/SELFHOST-003.md`](../../tasks/SELFHOST-003.md) — created at GATE-IMPLEMENT. Epic P1 (contract + tool +
-repo-map adapter, this slice) / P2 (index+persistence) / P3 (incremental) / P4 (vector backend). ENDORSE non-blocking
-follow-up filed: [`.agents/backlog/HARNESS-027-agent-tools-neutrality-floor.md`](../../backlog/HARNESS-027-agent-tools-neutrality-floor.md).
+Archived: [`.agents/tasks/completed/SELFHOST-003.md`](../../tasks/completed/SELFHOST-003.md) — v1 P1/P2/P3 `[x]`;
+P4 DEFERRED to [`.agents/backlog/SELFHOST-003-P4-embedding-vector-backend.md`](../../backlog/SELFHOST-003-P4-embedding-vector-backend.md).
+ENDORSE follow-up: [`.agents/backlog/HARNESS-027-agent-tools-neutrality-floor.md`](../../backlog/HARNESS-027-agent-tools-neutrality-floor.md).
 
 ## Evidence Log
 
@@ -203,3 +238,44 @@ follow-up filed: [`.agents/backlog/HARNESS-027-agent-tools-neutrality-floor.md`]
     retrieval tests **17/17** + lint (0 errors) + `pnpm harness:scan` (54/54, SPEC + baseline updated for
     `updateRepoMapIndex`). **P4** (embedding-vector backend, may revise the port) is the only remaining slice —
     consciously deferred; once done (or split to its own backlog), the epic reaches GATE-VERIFY/COMPLETE.
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-07-18
+
+**Status upgrade:** approved → in-progress (recorded at P1; consolidated across the v1 slices)
+
+- v1 shipped across three reviewed PRs merged to `develop`: P1 (contract + tool + repo-map adapter, PR #1200),
+  P2 (index build + persistence, PR #1202), P3 (incremental re-index, PR #1203). Mirrors the sandbox port precedent;
+  `agent-tools` stays neutral (parser injected, corpus from surface — no repo paths, no heavy dep). ENDORSE
+  non-blocking follow-up `HARNESS-027` filed. P4 (embedding-vector) deferred to a backlog.
+
+### [GATE-VERIFY] — ✅ PASS | 2026-07-18
+
+**Status upgrade:** in-progress → verifying
+
+- Tasks completion: v1 P1/P2/P3 checklists all `[x]`; P4 DEFERRED (tracked as a backlog); none blocked.
+- Build: `pnpm --filter @robota-sdk/agent-tools --filter @robota-sdk/agent-framework build` → exit 0.
+- Tests: agent-tools **165/165**, agent-framework **1131/1131** (retrieval subset 18/18). exit 0.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-07-18
+
+**Status upgrade:** verifying → done
+
+- **[GATE-COMPLETE: TC-01]** `repo-map-adapter.test.ts` "truncates to the token budget most-relevant-first, never
+  exceeding it" (+ index budget cases) — `… test -- --run src/retrieval/__tests__/` → 18/18. Checkbox `[x]`.
+- **[GATE-COMPLETE: TC-02]** `repo-map-adapter.test.ts` "ranks the most central symbols; active files personalize" +
+  the mention-boost test. Checkbox `[x]`.
+- **[GATE-COMPLETE: TC-03]** `create-tools.test.ts` "CodebaseRetrieval joins the default set only when a retrieval
+  adapter is supplied" (adapter-gated). Checkbox `[x]`.
+- **[GATE-COMPLETE: TC-04]** `grep -rnE '/home/|packages/|apps/|/Users/' packages/agent-tools/src/retrieval/*.ts`
+  (non-test) → none; the ranking adapter takes parser + corpus by injection. Mechanical floor tracked as
+  `HARNESS-027`. Checkbox `[x]`.
+- **[GATE-COMPLETE: TC-05]** `repo-map-adapter.test.ts` "works with any IRetrievalAdapter (fake adapter, not the
+  repo-map one)" — swapping the adapter needs no `agent-tools` change. Checkbox `[x]`.
+- **Test Plan coverage:** all 5 rows have concrete test references; P2/P3 covered by `repo-map-index.test.ts`.
+- **User-Execution done-gate:** PASS — `## User Execution Test Scenarios` UET-01 (`agent-executable`, public SDK
+  surface) executed 2026-07-18 (`cd scratch && pnpm run run -- src/selfhost-003-retrieval-demo.ts`, exit 0), observing
+  the ranked output + tool render + persist round-trip + incremental score change (`RETRIEVAL DEMO OK`).
+- **Artifact actions:** tasks archived `.agents/tasks/SELFHOST-003.md` → `.agents/tasks/completed/SELFHOST-003.md`;
+  spec `## Tasks` updated. Spec moved `spec-docs/active/` → `spec-docs/done/`, `status: done` + `completed: 2026-07-18`.
+- **Summary:** all 5 Completion Criteria `[x]` with matching evidence; Test Plan covered; User-Execution gate passed;
+  tasks archived. **v1 (P1–P3) done; P4 deferred to a tracked backlog.** Status upgrade verifying → done authorized.

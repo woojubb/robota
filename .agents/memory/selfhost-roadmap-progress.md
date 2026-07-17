@@ -55,6 +55,16 @@ acceptEdits auto-applies edits but keeps Bash/Shell per-call). TC-04 proven head
 
 - injected provider AND a `/plan` print-mode CLI UET (`slash-smoke.test.ts`).
 
+**SELFHOST-003 (codebase retrieval / RAG, EPIC, `type: DATA`) v1 is DONE** (spec in `spec-docs/done/`, task archived;
+all gates). v1 = P1 (retrieval port + contract + duck-typed parser port + neutral `RepoMapRetrievalAdapter`
+graph-centrality ranking + `createRetrievalTool`, adapter-gated in `createDefaultTools`, PR #1200), P2 (`buildRepoMapIndex`
+
+- serialize/deserialize persistence; adapter builds/accepts the index once, PR #1202), P3 (`updateRepoMapIndex`
+  incremental re-index — re-parse only changed files, PR #1203). Neutral throughout (parser injected, corpus from
+  surface, no repo paths, no heavy dep in `agent-tools`). UET = a public-SDK demo (`scratch/src/`). **P4 (embedding-vector
+  backend, may revise the port) DEFERRED** → `.agents/backlog/SELFHOST-003-P4-embedding-vector-backend.md`. Also filed:
+  `HARNESS-027` (mechanical agent-tools neutrality/dep floor).
+
 ## How this was executed (reusable pattern)
 
 Design-gate ALL specs first (owner's chosen path "설계-게이트 일괄"), then implement in priority order. Each spec
@@ -62,9 +72,10 @@ authored grounded in real code (four corrected inaccurate backlog seeds against 
 `proposal-reviewer` gate repeatedly caught genuine code-verified defects (dependency cycles, wrong placement,
 unbuildable data-flow, a neutrality scan bypassable by camelCase) BEFORE any code — see the specs' Evidence Logs.
 PRs use the DX-001 batching policy (one coherent design-gate pass per PR) and the HARNESS-018 async PR-review
-(reviewer → 0/1 actionable → fix → merge). **SELFHOST-001 and SELFHOST-002 are DONE** (all gates). Next: pick up
-the remaining 12 specs from `todo/` in priority order (they are `priority: medium`/`low`, `urgency: later`);
-each follows the same GATE-IMPLEMENT → VERIFY → COMPLETE flow. Consider SELFHOST-003 (codebase-index/RAG) next.
+(reviewer → 0/1 actionable → fix → merge). **SELFHOST-001, SELFHOST-002, and SELFHOST-003 (v1) are DONE** (all gates).
+Next: pick up the remaining specs from `todo/` in priority order (they are `priority: medium`/`low`, `urgency: later`);
+each follows the same GATE-IMPLEMENT → VERIFY → COMPLETE flow. Consider SELFHOST-004 (trace/cost view) next.
+Committing at logical boundaries per the new commit-cadence rule (git-branch.md).
 Multi-package specs split into named P-slice work units (own PR each); each code-changing spec's GATE-COMPLETE needs
 a real user-execution scenario (product surface — CLI print-mode or public-SDK usage, agent-executable, evidence captured).
 
