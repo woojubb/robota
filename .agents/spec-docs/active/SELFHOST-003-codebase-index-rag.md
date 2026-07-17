@@ -186,3 +186,12 @@ follow-up filed: [`.agents/backlog/HARNESS-027-agent-tools-neutrality-floor.md`]
   152/152, agent-framework 1131/1131) + lint (0 errors) + `pnpm harness:scan` (all 54 pass, incl. spec-public-surface
   with the two runtime exports allowlisted like their sandbox siblings). **P2** (index+persistence) / **P3**
   (incremental re-index) / **P4** (vector backend) remain.
+- 2026-07-18 — **GATE-IMPLEMENT: P2 implemented (index build + persistence).** `buildRepoMapIndex` parses the corpus
+  ONCE into a versioned, serializable `IRepoMapIndex`; `serializeRepoMapIndex`/`deserializeRepoMapIndex` round-trip it
+  as neutral JSON for surface persistence (deserialize throws on an unsupported `version`). `RepoMapRetrievalAdapter`
+  refactored to build/accept the index once and rank over it — no longer re-parsing every `retrieve()`; back-compat
+  `{ parser, corpus }` preserved. Neutral (parser injected, corpus from surface; no repo paths, no heavy dep). Tests
+  in `repo-map-index.test.ts` (parse-once, round-trip, unsupported-version throw, corpus-vs-persisted ranking parity,
+  parse-once-not-per-retrieve). Verified: build + typecheck + retrieval tests **12/12** + lint (0 errors) +
+  `pnpm harness:scan` (54/54, SPEC + spec-public-surface baseline updated for the 4 new runtime exports). **P3**
+  (incremental re-index) / **P4** (vector backend, may revise port) remain.

@@ -1,5 +1,5 @@
 /**
- * SELFHOST-003: neutral repo-map ranking adapter (v1) — mirrors `InMemorySandboxClient`.
+ * SELFHOST-003: neutral repo-map ranking adapter — mirrors `InMemorySandboxClient`.
  *
  * Ranks a corpus of source files by graph centrality relative to the active files / mentioned
  * identifiers, within a token budget. It is a NEUTRAL mechanism: it works on ANY repo given a corpus
@@ -7,12 +7,18 @@
  * injected as the duck-typed `IRetrievalSourceParser` (like `E2BSandboxClient` duck-types the E2B SDK),
  * and the corpus is supplied from the surface.
  *
+ * P2 (index build + persistence): the corpus is parsed ONCE into an `IRepoMapIndex` at construction
+ * (or supplied prebuilt/persisted via `{ index }`), so `retrieve()` ranks without re-parsing.
+ *
  * Ranking model (aider repo-map style): a definition's score is the weighted number of references to it
  * across the corpus, references FROM an active file weighted higher (personalization), plus a boost for
  * a directly-mentioned identifier. Entries are emitted most-relevant-first, truncated to the budget.
  */
 
+import { buildRepoMapIndex } from './repo-map-index.js';
+
 import type {
+  IRepoMapIndex,
   IRetrievalAdapter,
   IRetrievalCorpusFile,
   IRetrievalParsedFile,
@@ -23,11 +29,18 @@ import type {
   IRetrievalSymbol,
 } from './types.js';
 
+/**
+ * Construct from EITHER a prebuilt/persisted `index` (P2) OR a `parser` + `corpus` (parsed once at
+ * construction). At least one form must be supplied (else the constructor throws); if both are given,
+ * `index` takes precedence.
+ */
 export interface IRepoMapRetrievalAdapterOptions {
-  /** Injected source parser (duck-typed; no heavy parser SDK becomes an `agent-tools` dependency). */
-  parser: IRetrievalSourceParser;
-  /** The corpus to rank over, supplied from the surface (no repo paths live in this package). */
-  corpus: IRetrievalCorpusFile[];
+  /** Injected source parser (duck-typed) — required when building from a corpus. */
+  parser?: IRetrievalSourceParser;
+  /** The corpus to index, supplied from the surface — required when building from a corpus. */
+  corpus?: IRetrievalCorpusFile[];
+  /** A prebuilt/persisted index (SELFHOST-003 P2) — rank over this without re-parsing. */
+  index?: IRepoMapIndex;
 }
 
 /** References from an active file weigh more (personalization toward the current focus). */
@@ -47,12 +60,22 @@ function estimateTokens(symbol: IRetrievalSymbol): number {
 const symbolKey = (s: IRetrievalSymbol): string => `${s.file}::${s.name}::${s.line}`;
 
 export class RepoMapRetrievalAdapter implements IRetrievalAdapter {
-  constructor(private readonly options: IRepoMapRetrievalAdapterOptions) {}
+  private readonly index: IRepoMapIndex;
+
+  constructor(options: IRepoMapRetrievalAdapterOptions) {
+    if (options.index) {
+      this.index = options.index;
+    } else if (options.parser && options.corpus) {
+      this.index = buildRepoMapIndex({ parser: options.parser, corpus: options.corpus });
+    } else {
+      throw new Error('RepoMapRetrievalAdapter requires either { index } or { parser, corpus }.');
+    }
+  }
 
   async retrieve(request: IRetrievalRequest): Promise<IRetrievalResult> {
-    const parsed = this.options.corpus.map((file) => ({
-      file: file.path,
-      parsed: this.options.parser.parse(file.path, file.content),
+    const parsed = this.index.entries.map((entry) => ({
+      file: entry.path,
+      parsed: { definitions: entry.definitions, references: entry.references },
     }));
     const ranked = rankSymbols(parsed, request);
     return selectWithinBudget(ranked, request.tokenBudget);
