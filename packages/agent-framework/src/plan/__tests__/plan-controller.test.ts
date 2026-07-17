@@ -85,6 +85,7 @@ describe('SELFHOST-002 P1 — plan-mode', () => {
     const updated = controller.markStep('id-0_0', 'done');
     expect(updated.steps.find((s) => s.id === 'id-0_0')?.status).toBe('done');
     expect(updated.steps.find((s) => s.id === 'id-1_1')?.status).toBe('pending');
+    expect(() => controller.markStep('nope', 'done')).toThrow(/unknown step id/);
   });
 
   it('rejects out-of-phase transitions and an empty objective', () => {

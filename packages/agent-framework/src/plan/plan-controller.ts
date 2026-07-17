@@ -110,7 +110,12 @@ export class PlanController {
     return { action: 'approve', nextMode: 'acceptEdits', plan: this.plan };
   }
 
-  /** Revert to planning (`awaiting-approval`/`executing` → `planning`), returning the mode back to `plan`. */
+  /**
+   * Revert to planning, returning the mode back to `plan`. Intentionally has NO phase guard — it is
+   * the escape hatch usable from ANY phase (reject while awaiting approval, bail mid-execution, or
+   * re-open a completed plan for another cycle). The mode flip is always the safe direction (`→ plan`,
+   * which re-blocks mutation), so an any-phase revert can never widen permissions.
+   */
   revert(): TPlanRevertDecision {
     const plan = this.requirePlan();
     this.plan = { ...plan, phase: 'planning' };
@@ -127,9 +132,12 @@ export class PlanController {
     return { action: 'revert', nextMode: 'plan', plan: this.plan };
   }
 
-  /** Update one step's status (todo tracking). Returns the updated artifact. */
+  /** Update one step's status (todo tracking). Throws on an unknown step id (surfaces caller bugs). */
   markStep(stepId: string, status: TPlanStepStatus): IPlanArtifact {
     const plan = this.requirePlan();
+    if (!plan.steps.some((step) => step.id === stepId)) {
+      throw new Error(`markStep: unknown step id "${stepId}".`);
+    }
     this.plan = {
       ...plan,
       steps: plan.steps.map((step) => (step.id === stepId ? { ...step, status } : step)),
