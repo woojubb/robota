@@ -1,5 +1,5 @@
 ---
-status: draft
+status: approved
 type: BEHAVIOR
 tags:
   [guardrails, structured-output, validation, agent-core, agent-session, agent-framework, selfhost]

@@ -1,5 +1,5 @@
 ---
-status: draft
+status: approved
 type: BEHAVIOR
 tags: [model-routing, fallback, provider, agent-framework, selfhost]
 ---

@@ -1,5 +1,5 @@
 ---
-status: draft
+status: approved
 type: DATA
 tags: [rag, codebase-index, retrieval, agent-tools, selfhost]
 ---

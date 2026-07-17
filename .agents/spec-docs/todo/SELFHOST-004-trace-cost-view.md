@@ -1,5 +1,5 @@
 ---
-status: draft
+status: approved
 type: OBSERVABILITY
 tags: [tracing, cost, budget, agent-plugin, agent-interface-transport, tui, gui, selfhost]
 ---

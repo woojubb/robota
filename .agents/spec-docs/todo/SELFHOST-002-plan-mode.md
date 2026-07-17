@@ -1,5 +1,5 @@
 ---
-status: draft
+status: approved
 type: FLOW
 tags: [plan-mode, hitl, agent-framework, agent-interface-transport, cli, selfhost]
 ---

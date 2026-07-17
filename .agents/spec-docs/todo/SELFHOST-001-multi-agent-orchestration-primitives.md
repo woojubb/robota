@@ -1,5 +1,5 @@
 ---
-status: draft
+status: approved
 type: BEHAVIOR
 tags: [orchestration, multi-agent, agent-core, agent-framework, selfhost]
 ---
