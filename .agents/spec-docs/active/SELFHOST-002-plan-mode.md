@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: FLOW
 tags: [plan-mode, hitl, agent-framework, agent-interface-transport, cli, selfhost]
 ---
@@ -137,7 +137,9 @@ artifact and emit the approval event.
 
 ## Tasks
 
-`.agents/tasks/SELFHOST-002.md` — 미생성 (GATE-APPROVAL 통과 후 생성).
+[`.agents/tasks/SELFHOST-002.md`](../../tasks/SELFHOST-002.md) — created at GATE-IMPLEMENT. Split into two named
+work units: P1 (contract + pure `PlanController` + mutation-gate assertions, TC-01/02/03/05) and P2 (InteractiveSession
+wiring + `/plan` surface + artifact round-trip, TC-04).
 
 ## Evidence Log
 
@@ -165,3 +167,16 @@ artifact and emit the approval event.
   `interactive-session.ts:777-785`); owner files pinned beside `IGoalState` (`session-contracts.ts:359`); re-seed
   analogy gone. Single enforcement point + placement + dependency direction all clean; no new defect.
   **GATE-APPROVAL PASSED.**
+- 2026-07-17 — **GATE-IMPLEMENT: P1 implemented** (moved todo/ → active/, status in-progress; task file created + split
+  into P1/P2 work units). Shipped the pure-type contract in `agent-interface-transport` — `IPlanStep`/`TPlanStepStatus`/
+  `TPlanPhase`/`IPlanArtifact` in `session-contracts.ts` (beside `IGoalState`, + `plan?` on `IInteractiveSessionRecord`
+  for resume) and `IPlanApprovalEvent` in `event-contracts.ts` — and the **pure** `PlanController` in
+  `agent-framework/src/plan/plan-controller.ts` mirroring `GoalController` (phase machine planning→awaiting-approval→
+  executing→completed; `approve()` returns `{ action:'approve', nextMode:'acceptEdits' }`, `revert()`/`complete()`
+  return `{ action:'revert', nextMode:'plan' }`; decision-only, never calls `setPermissionMode`). TC-01/02/03/05 satisfied:
+  TC-01/02 assert `evaluatePermission(..., 'plan')` denies Write/Edit/Bash + allows Read/Glob/Grep (the EXISTING gate);
+  TC-03 asserts the decision-only `approve()` return + `MODE_POLICY.acceptEdits` (Write/Edit `auto`, Bash/Shell `approve`);
+  TC-05 verified no `agent-core/src/plan` gate exists and P1 touched zero agent-core source. Verified locally: build +
+  typecheck + tests (plan-controller 8/8; full agent-framework 1126/1126, agent-interface-transport 10/10) + lint
+  (0 errors) + `pnpm harness:scan` (all 54 pass). **P2** (InteractiveSession wiring + `/plan` surface + artifact
+  round-trip, TC-04) remains.

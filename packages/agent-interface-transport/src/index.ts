@@ -76,6 +76,7 @@ export type {
   IContextReferenceItem,
   TContextReferenceLoadType,
   TContextReferenceStatus,
+  IPlanApprovalEvent,
 } from './event-contracts.js';
 
 // ── Background-task data contracts (INFRA-025 SSOT) ─────────
@@ -184,4 +185,8 @@ export type {
   IGoalProgressEntry,
   TGoalStatus,
   TGoalStopReason,
+  IPlanStep,
+  TPlanStepStatus,
+  TPlanPhase,
+  IPlanArtifact,
 } from './session-contracts.js';

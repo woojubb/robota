@@ -7,7 +7,19 @@
  * these events lives in agent-framework and imports these declarations.
  */
 
+import type { IPlanArtifact } from './session-contracts.js';
 import type { TUniversalValue } from '@robota-sdk/agent-core';
+
+/**
+ * Plan-mode lifecycle event (SELFHOST-002): emitted as a plan artifact is created, approved
+ * (mode flips `plan → acceptEdits`), or reverted (`→ plan`). Carries the artifact snapshot,
+ * mirroring how {@link IGoalEvent} carries the goal state. The event only OBSERVES the phase
+ * transition — the mutation gate stays the existing `plan` permission mode.
+ */
+export interface IPlanApprovalEvent {
+  type: 'plan_created' | 'plan_approved' | 'plan_reverted';
+  plan: IPlanArtifact;
+}
 
 export type TSkillActivationSource = 'skill' | 'plugin';
 export type TSkillActivationInvocation = 'user-slash' | 'model-tool';
