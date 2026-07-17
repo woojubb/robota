@@ -47,15 +47,15 @@ report; you never lump multiple days into one report.
 
 ## Background Trigger — runs in PARALLEL; never blocks the main task
 
-Report generation MUST run as a **background agent, in parallel with the main task** — the main agent
-does NOT stop its current work to write a report. Concretely: the main agent **dispatches this skill's
+Report generation MUST run as a **background worker, in parallel with the main loop** — the main loop
+does NOT stop its current work to write a report. Concretely: the main loop **dispatches this skill's
 Steps to a background subagent** (`Agent` with `run_in_background: true`) and immediately continues its
-own work; when the background subagent completes, the main agent is notified and gives the owner a
+own work; when the background subagent completes, the main loop is notified and gives the owner a
 **brief one-paragraph briefing** on the report, then resumes. (Owner workflow, 2026-07-18.)
 
 Entry points:
 
-- **Self-scheduled (the intended default):** near a UTC hour boundary during active work, the main agent
+- **Self-scheduled (the intended default):** near a UTC hour boundary during active work, the main loop
   schedules/kicks off the background report subagent (e.g. via a scheduled wake / cron whose action is
   "dispatch the daily-report subagent"), then keeps working. Act only if the **Plan** step shows a work
   day needs a report.
