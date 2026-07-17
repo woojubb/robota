@@ -17,16 +17,16 @@ surface** (no repo paths in `agent-tools`). `createRetrievalTool({ adapter })` m
 
 ## P1 — contract + tool + repo-map reference adapter (this slice)
 
-- [ ] `agent-tools/src/retrieval/types.ts`: retrieval adapter port (`IRetrievalAdapter`) + request/ranked-result/
+- [x] `agent-tools/src/retrieval/types.ts`: retrieval adapter port (`IRetrievalAdapter`) + request/ranked-result/
       token-budget types + the duck-typed `IRetrievalSourceParser` port. Exported from the barrel.
-- [ ] `agent-tools/src/retrieval/`: neutral repo-map graph-centrality ranking adapter (mirror `InMemorySandboxClient`)
+- [x] `agent-tools/src/retrieval/`: neutral repo-map graph-centrality ranking adapter (mirror `InMemorySandboxClient`)
       — token-budget-aware, source parser injected, corpus supplied at construction (no repo paths in the package).
-- [ ] `createRetrievalTool({ adapter })` (mirror `create*Tool`); assembly threads `retrievalAdapter?` through
+- [x] `createRetrievalTool({ adapter })` (mirror `create*Tool`); assembly threads `retrievalAdapter?` through
       `ICreateDefaultToolsOptions`/`createDefaultTools` adapter-gated (absent/no-op with no adapter).
-- [ ] Tests: TC-01 (budget respected + ranked), TC-02 (repo-map fixture ranking for an active-file set), TC-03
+- [x] Tests: TC-01 (budget respected + ranked), TC-02 (repo-map fixture ranking for an active-file set), TC-03
       (assembly threading + adapter-gating), TC-04 (no corpus/domain content in agent-tools — grep), TC-05 (adapter
       swap — fake-adapter unit).
-- [ ] Verify: build + typecheck + tests + lint + `pnpm harness:scan`.
+- [x] Verify: build + typecheck + tests + lint + `pnpm harness:scan`.
 - [x] ENDORSE non-blocking follow-up filed: [`.agents/backlog/HARNESS-027-agent-tools-neutrality-floor.md`](../backlog/HARNESS-027-agent-tools-neutrality-floor.md) (mechanical agent-tools neutrality/dep-allowlist floor — TC-04 no longer rests on the manual grep alone).
 
 ## P2 — index build + persistence — PENDING
