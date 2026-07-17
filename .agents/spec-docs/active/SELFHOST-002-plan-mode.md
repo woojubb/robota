@@ -193,5 +193,5 @@ wiring + `/plan` surface + artifact round-trip, TC-04).
   preserves the `plan` record field; `plan-command.test.ts` (9) covers the `/plan` verbs. No new mutation gate.
   `apps/agent-app` UI view deferred (no goal/plan view consumer exists there; not required for the SDK/CLI flow —
   recorded to avoid a silent scope gap). Verified: build + typecheck + full suites (agent-interface-transport 10/10,
-  agent-framework 1129/1129, agent-command 234/234) + lint (0 errors) + `pnpm harness:scan` (54/54) + `harness:test`
+  agent-framework 1130/1130, agent-command 234/234) + lint (0 errors) + `pnpm harness:scan` (54/54) + `harness:test`
   (303/303). **Both slices implemented.** Next: GATE-VERIFY + GATE-COMPLETE.

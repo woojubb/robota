@@ -41,6 +41,17 @@ describe('SELFHOST-002 P2 — InteractiveSession plan-mode wiring', () => {
     expect(harness.session.getPlanState()?.id).toBe(plan.id);
   });
 
+  it('setPlan ESTABLISHES plan mode even when the session was not in plan mode', async () => {
+    // The session is CONSTRUCTED in `acceptEdits`; starting a plan must make drafting genuinely
+    // read-only regardless of the prior mode — otherwise "read-only until approved" would be false.
+    // (Had setPlan not established plan mode, the mode would still read `acceptEdits` here.)
+    harness = scriptedSession({ turns: [{ text: 'ok' }], permissionMode: 'acceptEdits' });
+
+    await harness.session.setPlan('Ship it');
+
+    expect(mode(harness)).toBe('plan'); // drafting re-blocks mutation despite the acceptEdits start
+  });
+
   it('approvePlan flips permission mode plan → acceptEdits and emits plan_approved', async () => {
     harness = planSession();
     const events: string[] = [];

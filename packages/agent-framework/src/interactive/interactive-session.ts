@@ -768,14 +768,16 @@ export class InteractiveSession
   }
 
   /**
-   * SELFHOST-002: start a plan — draft it (phase `planning`) for review, keeping the existing
-   * `plan` permission mode as the mutation block. Returns the seeded artifact. Throws on an empty
-   * objective. This does NOT flip permission mode (drafting stays read-only); {@link approvePlan}
-   * does, on approval.
+   * SELFHOST-002: start a plan — draft it (phase `planning`) for review. Establishes the existing
+   * `plan` permission mode so drafting is genuinely read-only (the mutation block), making the
+   * "read-only until approved" contract true regardless of the mode the session was in.
+   * {@link approvePlan} flips to `acceptEdits`. Returns the seeded artifact; throws on empty objective.
    */
   async setPlan(objective: string, steps: readonly string[] = []): Promise<IPlanArtifact> {
     await this.ensureInitialized();
+    const session = this.getSessionOrThrow();
     const plan = this.planController.start(objective, steps);
+    session.setPermissionMode('plan'); // drafting is read-only until approved
     this.emit('plan_event', { type: 'plan_created', plan });
     this.persistCurrentSession();
     return plan;
@@ -792,11 +794,12 @@ export class InteractiveSession
    * Approving auto-applies edits while shell stays per-call confirmed (`MODE_POLICY.acceptEdits`).
    */
   approvePlan(): IPlanArtifact {
+    const session = this.getSessionOrThrow(); // fail fast before mutating controller phase
     if (this.planController.getState()?.phase === 'planning') {
       this.planController.requestApproval();
     }
     const decision = this.planController.approve();
-    this.getSessionOrThrow().setPermissionMode(decision.nextMode);
+    session.setPermissionMode(decision.nextMode);
     this.emit('plan_event', { type: 'plan_approved', plan: decision.plan });
     this.persistCurrentSession();
     return decision.plan;
@@ -804,8 +807,9 @@ export class InteractiveSession
 
   /** SELFHOST-002: revert the plan to drafting, returning permission mode to `plan`. */
   revertPlan(): IPlanArtifact {
+    const session = this.getSessionOrThrow(); // fail fast before mutating controller phase
     const decision = this.planController.revert();
-    this.getSessionOrThrow().setPermissionMode(decision.nextMode);
+    session.setPermissionMode(decision.nextMode);
     this.emit('plan_event', { type: 'plan_reverted', plan: decision.plan });
     this.persistCurrentSession();
     return decision.plan;
