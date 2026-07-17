@@ -96,10 +96,14 @@ export async function executePromptTurn(
       ctx.getSession().getModelId(),
     );
     history.push(messageToHistoryEntry(createAssistantMessage(result.response)));
-    // SELFHOST-004: drain the turn's spans BEFORE its usage-summary so the read-model groups them
-    // under this turn (the usage-summary is the turn boundary the reducer flushes on).
-    for (const spanEntry of spanCollector.entries) history.push(spanEntry);
-    if (result.usage) history.push(createUsageSummaryEntry(result.usage));
+    // SELFHOST-004: drain the turn's spans immediately BEFORE its usage-summary — the usage-summary is
+    // the reducer's turn boundary, so spans are recorded ONLY when that boundary exists. Pairing them
+    // avoids attributing this turn's spans to a later turn's usage-summary (a usage-less turn drops
+    // them rather than misgroup them).
+    if (result.usage) {
+      for (const spanEntry of spanCollector.entries) history.push(spanEntry);
+      history.push(createUsageSummaryEntry(result.usage));
+    }
     ctx.onComplete(result);
     ctx.onContextUpdate();
   } catch (err) {
@@ -116,9 +120,12 @@ export async function executePromptTurn(
       ctx.clearStreaming();
       if (result.response)
         history.push(messageToHistoryEntry(createAssistantMessage(result.response)));
-      // SELFHOST-004: spans that ran before the interrupt still belong to this (final) turn.
-      for (const spanEntry of spanCollector.entries) history.push(spanEntry);
-      if (result.usage) history.push(createUsageSummaryEntry(result.usage));
+      // SELFHOST-004: spans before the interrupt belong to this (final) turn — pair them with the
+      // usage-summary boundary (drop them if this interrupted turn carries no usage, same as above).
+      if (result.usage) {
+        for (const spanEntry of spanCollector.entries) history.push(spanEntry);
+        history.push(createUsageSummaryEntry(result.usage));
+      }
       history.push(messageToHistoryEntry(createSystemMessage('Interrupted by user.')));
       ctx.onInterrupted(result);
     } else {
