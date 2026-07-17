@@ -27,18 +27,32 @@ Robota constraint: the mutation-block is **already delivered** by `plan` mode (s
 (a cross-cutting type → `agent-interface-transport`, alongside `IGoalState`) and a **phase controller**
 (→ `agent-framework`, mirroring the existing `GoalController` state machine).
 
+**Post-approval semantics (pinned to the actual `MODE_POLICY`).** Approval flips the mode `plan → acceptEdits`.
+Per `MODE_POLICY.acceptEdits` (`permission-mode.ts`): `Write/Edit` become `auto` but **`Bash`/`Shell` stay
+`approve`** — i.e. approving the plan **auto-applies file edits while every shell step is still confirmed
+per-call**. This partial autonomy is the intended contract for self-hosting, not a limitation to paper over: when
+Robota develops Robota the mutating steps are shell-heavy (`pnpm build`/`test`, `git`), and keeping a HITL
+confirmation on each shell call is the correct safety posture for a self-improving harness — full unattended
+execution (`bypassPermissions`) would over-grant. "Approved" therefore means "edits flow, shell stays gated," and
+that is what TC-03 asserts. (A future approval-scoped shell allowance keyed to the approved plan is out of scope.)
+
 ## Architecture Review
 
 ### Affected Scope
 
 - **`agent-core`**: NO new gate — reuse the existing `plan` permission mode as the mutation block (single
   enforcement point stays `PermissionEnforcer`/`evaluatePermission`).
-- **`agent-interface-transport`**: new pure-type **plan/todo artifact + approval-event contract** (SSOT for
-  cross-cutting session/event contracts; sits with `IGoalState`, `event-contracts.ts`). Type-only, no runtime.
+- **`agent-interface-transport`**: new pure-type **plan/todo artifact + approval-event contract**, owner files
+  pinned: the **plan/todo artifact type in `session-contracts.ts`** (beside `IGoalState`), the **approval event in
+  `event-contracts.ts`** (beside the other session events). Type-only, no runtime.
 - **`agent-framework`**: a **plan-phase controller mirroring `GoalController`** (planning → awaiting-approval →
-  executing; approval flips the session's permission mode **`plan → acceptEdits`** — "approved" means the approved
-  plan may execute without a per-tool re-prompt; on `executing` completion the controller reverts to `plan` for the
-  next cycle, mirroring how `GoalController` re-seeds).
+  executing). Critically, the controller stays **pure like `GoalController`**: it returns a decision
+  (`{ action: 'approve', nextMode: 'acceptEdits' }` / `{ action: 'revert', nextMode: 'plan' }` / `{ action:
+'continue' }`) and **never calls `setPermissionMode` itself** — `InteractiveSession` applies the mode flip, exactly
+  as it applies `GoalController`'s decisions today. This preserves the controller's testability-in-isolation (the
+  whole reason `GoalController` is side-effect-free). Approval → `nextMode: 'acceptEdits'` (edits auto-apply, shell
+  stays per-call confirmed — see Post-approval semantics); after execution the controller emits `{ action: 'revert',
+nextMode: 'plan' }` for the next cycle.
 - **`agent-cli` / `apps/agent-app`**: `/plan` renders the artifact + emits the approval event (product-local).
 
 ### Alternatives Considered
@@ -58,16 +72,20 @@ Robota constraint: the mutation-block is **already delivered** by `plan` mode (s
 
 ### Decision
 
-Adopt (1): reuse `plan` permission mode as the mutation gate; add the plan/todo-artifact + approval-event
-**contract in `agent-interface-transport`**; add a **plan-phase controller in `agent-framework` mirroring
-`GoalController`** whose approval action flips the permission mode `plan → acceptEdits`; surfaces render `/plan` +
-emit approval. No new permission gate; no per-surface duplication.
+Adopt (1): reuse `plan` permission mode as the mutation gate; add the plan/todo-artifact type (`session-contracts.ts`)
+
+- approval-event (`event-contracts.ts`) **contract in `agent-interface-transport`**; add a **pure plan-phase
+  controller in `agent-framework` mirroring `GoalController`** that returns an `{ action, nextMode }` decision (approval
+  → `acceptEdits`, post-execution → revert to `plan`) which `InteractiveSession` applies — the controller never calls
+  `setPermissionMode` itself. Surfaces render `/plan` + emit approval. No new permission gate; no per-surface duplication.
+  Post-approval semantics are pinned to `MODE_POLICY.acceptEdits` (edits auto-apply, shell/Bash stay per-call confirmed).
 
 ### Validated Recommendation
 
 - **Reachability:** the mutation block is reachable today via `plan` mode + `PermissionEnforcer`; the missing
-  transition is reachable by a framework controller that sets the session permission mode (already threaded through
-  `interactive-session-init.ts`). Verified.
+  transition is reachable because `InteractiveSession` already owns `setPermissionMode` (threaded through
+  `interactive-session-init.ts`) and already applies `GoalController` decisions — the pure plan controller's
+  `nextMode` decision plugs into that same apply-point. Verified.
 - **Capability preservation:** existing `/mode plan` + `--dry-run` behavior is unchanged; this adds the
   artifact/approval/transition on top.
 - **Adversarial:** risk = a second mutation gate drifting from `plan` mode → designed out by reusing `plan` mode.
@@ -81,25 +99,29 @@ emit approval. No new permission gate; no per-surface duplication.
 
 ## Solution
 
-Reuse `plan` mode as the mutation block. Add a plan/todo-artifact + approval-event contract in
-`agent-interface-transport`. Add a plan-phase controller in `agent-framework` mirroring `GoalController`:
-`planning` (in `plan` mode, read-only tools, produce the artifact) → `awaiting-approval` → on approval flip
-permission mode `plan → acceptEdits` → `executing`. Surfaces (`/plan`, app view) render the artifact and emit the
-approval event.
+Reuse `plan` mode as the mutation block. Add a plan/todo-artifact type + approval-event contract in
+`agent-interface-transport`. Add a **pure** plan-phase controller in `agent-framework` mirroring `GoalController`:
+`planning` (in `plan` mode, read-only tools, produce the artifact) → `awaiting-approval` → on approval it returns
+`{ action: 'approve', nextMode: 'acceptEdits' }` → `executing`; on completion it returns `{ action: 'revert',
+nextMode: 'plan' }`. `InteractiveSession` applies each `nextMode` via `setPermissionMode` (the controller does not).
+Approving auto-applies edits; shell/Bash steps stay per-call confirmed. Surfaces (`/plan`, app view) render the
+artifact and emit the approval event.
 
 ## Affected Files
 
-| File                                                           | Change                                                   |
-| -------------------------------------------------------------- | -------------------------------------------------------- |
-| `packages/agent-interface-transport/src/`                      | plan/todo-artifact + approval-event contract (type-only) |
-| `packages/agent-framework/src/interactive/` (+ mirror `goal/`) | plan-phase controller; approval flips permission mode    |
-| `packages/agent-cli/`, `apps/agent-app/`                       | `/plan` + plan/todo view + emit approval                 |
+| File                                                               | Change                                                                |
+| ------------------------------------------------------------------ | --------------------------------------------------------------------- |
+| `packages/agent-interface-transport/src/session-contracts.ts`      | plan/todo-artifact type, beside `IGoalState` (type-only)              |
+| `packages/agent-interface-transport/src/event-contracts.ts`        | approval event, beside the other session events (type-only)           |
+| `packages/agent-framework/src/` (mirror `goal/goal-controller.ts`) | pure plan-phase controller returning `{ action, nextMode }` decisions |
+| `packages/agent-framework/src/interactive/interactive-session*.ts` | applies the controller's `nextMode` via `setPermissionMode`           |
+| `packages/agent-cli/`, `apps/agent-app/`                           | `/plan` + plan/todo view + emit approval                              |
 
 ## Completion Criteria
 
 - [ ] TC-01: while the session is in `plan` mode, a mutating tool call is denied **by the existing `PermissionEnforcer`** (unit test asserting the denial reason is the plan mode, not a new gate).
 - [ ] TC-02: read-only tools are permitted during the plan phase (unit test).
-- [ ] TC-03: the plan-phase controller, on approval, flips permission mode `plan → acceptEdits` and mutation is then allowed (framework unit/functional test mirroring GoalController tests).
+- [ ] TC-03: the **pure** plan-phase controller, on approval, RETURNS `{ action: 'approve', nextMode: 'acceptEdits' }` (asserted without any session/permission side-effect — mirroring GoalController's decision-only unit tests); `InteractiveSession` applying that mode then makes `Write/Edit` auto while `Bash/Shell` stay per-call `approve` (asserted against `MODE_POLICY.acceptEdits`) — i.e. approved plan edits flow, shell stays confirmed.
 - [ ] TC-04: a plan/todo artifact + approval event round-trip through the interface-transport contract (unit test); `/plan` renders it (headless CLI verification per verification.md, injected provider fixture).
 - [ ] TC-05: no second mutation-enforcement path is added — the only mutation gate remains `PermissionEnforcer`/`plan` mode (verified: grep shows no new gate in `agent-core/.../plan/`).
 
@@ -125,7 +147,15 @@ approval event.
 - 2026-07-16 — **Revisions applied (this draft):** reuse `plan` mode (no new gate; single enforcement point);
   contract moved to `agent-interface-transport`; phase controller mirrors `GoalController`; Problem now names the
   concrete gap; TC-05 falsifiable (grep no new gate); headless CLI verification added (verification.md:50). Re-review pending.
-- 2026-07-16 — **iteration 2: RE-REVIEW → one-fix bounce, now applied.** Re-reviewer confirmed all 5 fixes
-  RESOLVED; the one new blocker (approval target-mode unpinned/inconsistent) fixed: approval flips `plan → acceptEdits`
-  (approved plan executes without per-tool re-prompt), reverts to `plan` after executing (GoalController re-seed
-  analog); TC-01 relabeled agent-session PermissionEnforcer. Iteration-3 re-review pending.
+- 2026-07-16 — **iteration 2: RE-REVIEW → one-fix bounce, applied.** Re-reviewer confirmed all 5 fixes RESOLVED;
+  the one new blocker (approval target-mode unpinned/inconsistent) fixed: approval flips `plan → acceptEdits`,
+  reverts to `plan` after executing; TC-01 relabeled agent-session PermissionEnforcer.
+- 2026-07-17 — **iteration 3: RE-REVIEW → REVISE, applied.** Re-reviewer flagged two blockers: (1) the
+  `acceptEdits` rationale was inconsistent with `MODE_POLICY` — `acceptEdits` keeps `Bash/Shell = approve`, so
+  "executes without a per-tool re-prompt" was false; (2) making the controller flip the mode itself broke the
+  "mirror `GoalController`" claim (GoalController is pure). Fixes: **Post-approval semantics** section pins the
+  honest contract (edits auto-apply, shell/Bash stay per-call confirmed) and justifies that partial autonomy for the
+  Bash-heavy self-host case (vs over-granting `bypassPermissions`); the controller is now **pure** — returns
+  `{ action, nextMode }`, `InteractiveSession` applies `setPermissionMode`; approval-event/artifact owner files
+  pinned (`event-contracts.ts` / `session-contracts.ts`); TC-03 asserts the decision-only return + the
+  `MODE_POLICY.acceptEdits` effect; dropped the false "GoalController re-seeds" analogy. Iteration-4 re-review pending.
