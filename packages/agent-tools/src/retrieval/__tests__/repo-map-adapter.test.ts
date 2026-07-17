@@ -56,6 +56,17 @@ describe('SELFHOST-003 P1 — RepoMapRetrievalAdapter', () => {
     expect(barScore).toBeGreaterThan(bazScore);
   });
 
+  it('boosts a directly-mentioned identifier above its reference-only centrality', async () => {
+    const adapter = makeAdapter();
+    // `foo` has zero references (centrality 0) but a direct mention (+MENTION_BOOST) must lift it
+    // above `baz` (reference centrality 1) — exercising the mentionedIdentifiers ranking branch.
+    const result = await adapter.retrieve({ mentionedIdentifiers: ['foo'], tokenBudget: 1000 });
+    const fooScore = result.symbols.find((s) => s.name === 'foo')?.score ?? 0;
+    const bazScore = result.symbols.find((s) => s.name === 'baz')?.score ?? 0;
+    expect(fooScore).toBeGreaterThan(bazScore);
+    expect(result.symbols[0].name).toBe('foo');
+  });
+
   // TC-01: the contract returns ranked results and never exceeds the token budget.
   it('TC-01: truncates to the token budget most-relevant-first, never exceeding it', async () => {
     const adapter = makeAdapter();

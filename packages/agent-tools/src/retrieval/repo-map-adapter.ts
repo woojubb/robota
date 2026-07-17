@@ -35,9 +35,12 @@ const ACTIVE_FILE_WEIGHT = 3;
 /** A directly-mentioned identifier is a strong relevance signal. */
 const MENTION_BOOST = 5;
 
-/** Estimate the token cost of one repo-map entry (neutral chars/4 heuristic). */
+/**
+ * Estimate the token cost of one repo-map entry (neutral chars/4 heuristic). Uses the same rendering
+ * shape the tool prints (`file:line  kind name`) so the budgeted estimate matches the emitted output.
+ */
 function estimateTokens(symbol: IRetrievalSymbol): number {
-  const line = `${symbol.file}:${symbol.line} ${symbol.kind} ${symbol.name}`;
+  const line = `${symbol.file}:${symbol.line}  ${symbol.kind} ${symbol.name}`;
   return Math.max(1, Math.ceil(line.length / 4));
 }
 
