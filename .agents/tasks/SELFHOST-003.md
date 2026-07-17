@@ -29,7 +29,18 @@ surface** (no repo paths in `agent-tools`). `createRetrievalTool({ adapter })` m
 - [x] Verify: build + typecheck + tests + lint + `pnpm harness:scan`.
 - [x] ENDORSE non-blocking follow-up filed: [`.agents/backlog/HARNESS-027-agent-tools-neutrality-floor.md`](../backlog/HARNESS-027-agent-tools-neutrality-floor.md) (mechanical agent-tools neutrality/dep-allowlist floor — TC-04 no longer rests on the manual grep alone).
 
-## P2 — index build + persistence — PENDING
+## P2 — index build + persistence ✅ IMPLEMENTED
+
+- [x] `agent-tools/src/retrieval/repo-map-index.ts`: `buildRepoMapIndex({ parser, corpus })` parses the corpus once
+      into a versioned, serializable `IRepoMapIndex`; `serializeRepoMapIndex`/`deserializeRepoMapIndex` round-trip it
+      as neutral JSON for surface persistence (deserialize throws on an unsupported `version`). `IRepoMapIndex`/
+      `IRepoMapIndexEntry` types + `REPO_MAP_INDEX_VERSION`. Exported; SPEC + spec-public-surface baseline updated.
+- [x] `RepoMapRetrievalAdapter` refactored to build the index ONCE at construction (or accept a prebuilt/persisted
+      `{ index }`) and rank over it — no longer re-parsing on every `retrieve()`. Back-compat: `{ parser, corpus }`
+      still works.
+- [x] Tests (`repo-map-index.test.ts`): parse-once index build, serialize↔deserialize round-trip, unsupported-version
+      throw, corpus-vs-persisted ranking parity, parse-once-not-per-retrieve, construction-arg validation. 12/12.
+- [x] Verify: build + typecheck + tests + lint (0 errors) + `pnpm harness:scan` (54/54).
 
 ## P3 — incremental re-index on file change — PENDING
 
