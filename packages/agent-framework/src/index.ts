@@ -18,6 +18,9 @@ export {
   type TGoalDecision,
   type IGoalStartOptions,
 } from './goal/index.js';
+
+// ── Explicit plan-mode (SELFHOST-002) ───────────────────────
+export { PlanController, type TPlanDecision, type IPlanControllerDeps } from './plan/index.js';
 export {
   createProjectSessionStore,
   createUserSessionStore,

@@ -373,6 +373,44 @@ export interface IGoalEvent {
   goal: IGoalState;
 }
 
+/** Execution status of one plan step (SELFHOST-002 plan-mode). */
+export type TPlanStepStatus = 'pending' | 'in-progress' | 'done';
+
+/** One reviewable step in a plan artifact (SELFHOST-002 plan-mode). */
+export interface IPlanStep {
+  /** Stable id within the plan. */
+  id: string;
+  /** Human-readable description of the step. */
+  description: string;
+  /** Step status as the plan is executed. */
+  status: TPlanStepStatus;
+}
+
+/**
+ * Lifecycle phase of a plan artifact (SELFHOST-002). `planning` = drafted in `plan` mode (read-only
+ * tools); `awaiting-approval` = presented for review; `executing` = approved, edits unblocked per
+ * `acceptEdits` (shell still per-call confirmed); `completed` = finished (mode reverts to `plan`).
+ */
+export type TPlanPhase = 'planning' | 'awaiting-approval' | 'executing' | 'completed';
+
+/**
+ * A reviewable plan/todo artifact produced during plan mode (SELFHOST-002). Persisted in the
+ * session record beside {@link IGoalState} so an in-flight plan survives resume. Pure data — the
+ * mutation block stays the existing `plan` permission mode (no artifact-carried enforcement).
+ */
+export interface IPlanArtifact {
+  id: string;
+  /** The objective the plan addresses. */
+  objective: string;
+  /** The ordered plan steps. */
+  steps: IPlanStep[];
+  /** Current lifecycle phase. */
+  phase: TPlanPhase;
+  createdAt: string;
+  /** Set when the plan was approved (phase → `executing`). */
+  approvedAt?: string;
+}
+
 /** Persisted record for a resumable interactive session. */
 export interface IInteractiveSessionRecord {
   id: string;
@@ -395,6 +433,8 @@ export interface IInteractiveSessionRecord {
   sandboxSnapshotId?: string;
   /** In-flight autonomous goal, persisted so it survives resume (GOAL-001). */
   goal?: IGoalState;
+  /** In-flight plan artifact, persisted so it survives resume (SELFHOST-002 plan-mode). */
+  plan?: IPlanArtifact;
 }
 
 /** Persistence port for resumable interactive sessions. */
