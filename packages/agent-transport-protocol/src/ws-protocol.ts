@@ -8,6 +8,7 @@ import type {
   IPermissionRequestEvent,
   IPromptResolvedEvent,
   IToolState,
+  IUsageBySourceReport,
   TActionResponse,
   TBackgroundJobGroupEvent,
   TPermissionResultValue,
@@ -31,6 +32,8 @@ export type TClientMessage =
   | { type: 'cancel-queue' }
   | { type: 'get-messages' }
   | { type: 'get-context' }
+  // SELFHOST-004: request the assembled trace/cost read-model (spans + cost-by-source) for the run.
+  | { type: 'get-usage-report' }
   | { type: 'get-executing' }
   | { type: 'get-pending' }
   | { type: 'get-execution-workspace' }
@@ -73,6 +76,10 @@ export type TServerMessage =
     }
   | { type: 'messages'; messages: ReturnType<IInteractiveSession['getMessages']> }
   | { type: 'context'; state: ReturnType<IInteractiveSession['getContextState']> }
+  // SELFHOST-004 (P5, TC-08): carry the assembled trace/cost read-model (per-op span timeline +
+  // cost-by-source) across the sidecar boundary — no existing variant carries per-op `durationMs` or
+  // per-source `costUsd`. The GUI renders it renderer-side.
+  | { type: 'usage_report'; report: IUsageBySourceReport }
   | { type: 'executing'; executing: boolean }
   | { type: 'pending'; pending: string | null }
   | { type: 'execution_workspace_event'; snapshot: IExecutionWorkspaceSnapshot }

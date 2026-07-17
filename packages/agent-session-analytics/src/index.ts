@@ -17,4 +17,10 @@ export { formatSingleSession, formatAggregateReport, formatUsageReport } from '.
 
 // ANALYTICS-001: source-attributed token-usage analysis.
 export { summarizeUsageBySource } from './usage.js';
-export type { TUsageAnalysisInput, IUsageSourceTotals, IUsageBySourceReport } from './usage.js';
+export type {
+  TUsageAnalysisInput,
+  IUsageSourceTotals,
+  IUsageBySourceReport,
+  IRunTraceSpan,
+  IRunTraceTurn,
+} from './usage.js';

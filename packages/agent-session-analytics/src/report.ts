@@ -12,9 +12,15 @@ function fmtTokens(n: number): string {
   return `${n}`;
 }
 
+/** SELFHOST-004: render a USD cost; `~` prefix marks an inexact aggregate (some unpriced turns). */
+function fmtCost(usd: number, exact: boolean): string {
+  return `${exact ? '' : '~'}$${usd.toFixed(4)}`;
+}
+
 /**
- * ANALYTICS-001: render a per-source token-usage breakdown — which part of the session burned the
- * most tokens. Pure; the caller owns writing it.
+ * ANALYTICS-001 + SELFHOST-004: render a per-source token+cost breakdown and the per-operation span
+ * timeline — which part of the session burned the most tokens/cost, and where the wall-clock went.
+ * Pure; the caller owns writing it (the headless CLI path for the TUI/GUI trace/cost view).
  */
 export function formatUsageReport(report: IUsageBySourceReport): string {
   const lines: string[] = [];
@@ -22,18 +28,32 @@ export function formatUsageReport(report: IUsageBySourceReport): string {
   lines.push(
     `  total ${fmtTokens(report.totalTokens)} (prompt ${fmtTokens(report.promptTokens)} · completion ${fmtTokens(report.completionTokens)})`,
   );
+  lines.push(`  cost ${fmtCost(report.costUsd, report.costExact)}`);
   if (report.bySource.length === 0) {
     lines.push('  (no usage recorded)');
-    return lines.join('\n');
+  } else {
+    lines.push('  by source (most tokens first):');
+    for (const s of report.bySource) {
+      lines.push(
+        `    ${s.label.padEnd(24)} ${String(s.percentage).padStart(5)}%  ${fmtTokens(s.totalTokens).padStart(7)}  ${fmtCost(s.costUsd, s.costExact).padStart(10)}  (${s.turns} turn${s.turns === 1 ? '' : 's'})`,
+      );
+    }
+    if (report.topConsumer) {
+      lines.push(`  top consumer: ${report.topConsumer.label} (${report.topConsumer.percentage}%)`);
+    }
   }
-  lines.push('  by source (most tokens first):');
-  for (const s of report.bySource) {
-    lines.push(
-      `    ${s.label.padEnd(24)} ${String(s.percentage).padStart(5)}%  ${fmtTokens(s.totalTokens).padStart(7)}  (${s.turns} turn${s.turns === 1 ? '' : 's'})`,
-    );
-  }
-  if (report.topConsumer) {
-    lines.push(`  top consumer: ${report.topConsumer.label} (${report.topConsumer.percentage}%)`);
+
+  // SELFHOST-004: the span timeline — sub-turn operations grouped under their owning turn.
+  if (report.timeline.length > 0) {
+    lines.push('  trace (per turn, sub-turn spans):');
+    for (const turn of report.timeline) {
+      lines.push(
+        `    turn ${turn.turnIndex} — ${turn.label} · ${fmtMs(turn.totalDurationMs)} across ${turn.spans.length} op${turn.spans.length === 1 ? '' : 's'}`,
+      );
+      for (const span of turn.spans) {
+        lines.push(`      ${span.op.padEnd(22)} ${fmtMs(span.durationMs).padStart(8)}`);
+      }
+    }
   }
   return lines.join('\n');
 }

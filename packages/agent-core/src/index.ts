@@ -235,6 +235,9 @@ export {
 export { TASK_EVENTS, TASK_EVENT_PREFIX } from './event-service/task-events';
 export { USER_EVENTS, USER_EVENT_PREFIX } from './event-service/user-events';
 export type { TUserEvent } from './event-service/user-events';
+export { SPAN_EVENTS, SPAN_EVENT_PREFIX } from './event-service/span-events';
+export type { TSpanEvent, ISpanCompletionEventData } from './event-service/span-events';
+export { generateSpanId } from './event-service/event-service';
 
 // Event constants (SSOT — do not hardcode strings)
 export { EXECUTION_EVENTS, EXECUTION_EVENT_PREFIX } from './services/execution-service';

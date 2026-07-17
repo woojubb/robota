@@ -122,6 +122,83 @@ export interface IUsageSnapshot {
   source?: IUsageSource;
 }
 
+/**
+ * SELFHOST-004: a per-operation span entry recorded on the session timeline. Carried as the `data` of
+ * an `IHistoryEntry<ISpanEntry>` on `IInteractiveSessionRecord.history`. It is the record-side projection
+ * of the `agent-core` span-completion event (`ISpanCompletionEventData`): the framework builds it from
+ * the event (mirroring the usage-summary entry), so `agent-core` never depends on this transport type.
+ * Joinable to its turn via the enclosing entry's position in `history`.
+ */
+export interface ISpanEntry {
+  /** The span id (equals the source event's `spanId`; correlatable across the trace). */
+  spanId: string;
+  /** The operation name (e.g. the tool name). */
+  op: string;
+  /** Measured wall-clock duration of the operation, in milliseconds. */
+  durationMs: number;
+}
+
+/**
+ * SELFHOST-004: the trace/cost read-model that crosses the sidecar boundary (P5 carrier). It is a
+ * BOUNDARY CONTRACT, so it is owned here (both the `agent-session-analytics` producer and the
+ * `agent-transport-protocol` carrier depend on `agent-interface-transport`). `summarizeUsageBySource`
+ * assembles it; a `TServerMessage` variant carries it to the TUI/GUI.
+ */
+export interface IUsageSourceTotals {
+  /** Stable grouping key (`<scope>:<id>`). */
+  key: string;
+  source: IUsageSource;
+  label: string;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  /** How many usage snapshots (turns) were attributed to this source. */
+  turns: number;
+  /** Share of the session's total tokens, 0–100 (rounded to 1 decimal). */
+  percentage: number;
+  /** Exact cost (USD) summed from each turn's `IUsageSnapshot.costUsd` (unpriced turns contribute 0). */
+  costUsd: number;
+  /** Whether every turn attributed to this source carried an exact `costUsd`. */
+  costExact: boolean;
+}
+
+/** SELFHOST-004: one per-operation span on the run timeline (record-side projection of a span event). */
+export interface IRunTraceSpan {
+  spanId: string;
+  op: string;
+  durationMs: number;
+}
+
+/** SELFHOST-004: one turn on the run timeline, with its sub-turn spans grouped underneath. */
+export interface IRunTraceTurn {
+  /** 0-based position of this turn among the session's usage-summary turns. */
+  turnIndex: number;
+  /** The source that owns this turn (main thread when unattributed). */
+  source: IUsageSource;
+  label: string;
+  /** Spans that ran during this turn, in timeline order. */
+  spans: IRunTraceSpan[];
+  /** Sum of the turn's span durations, in milliseconds. */
+  totalDurationMs: number;
+}
+
+export interface IUsageBySourceReport {
+  sessionId: string;
+  totalTokens: number;
+  promptTokens: number;
+  completionTokens: number;
+  /** Exact total cost (USD) across all priced turns in the session. */
+  costUsd: number;
+  /** Whether every turn in the session carried an exact `costUsd` (no unpriced turns). */
+  costExact: boolean;
+  /** Per-source totals, sorted by `totalTokens` descending. */
+  bySource: IUsageSourceTotals[];
+  /** The single biggest token consumer, if any usage was recorded. */
+  topConsumer?: IUsageSourceTotals;
+  /** The span timeline — one entry per turn, sub-turn spans grouped under their owning turn. */
+  timeline: IRunTraceTurn[];
+}
+
 /** Summary of a tool call extracted from history. */
 export interface IToolSummary {
   name: string;
