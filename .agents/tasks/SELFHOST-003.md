@@ -52,7 +52,12 @@ surface** (no repo paths in `agent-tools`). `createRetrievalTool({ adapter })` m
       removed + adds new; input not mutated; upsert-wins. 17/17 retrieval tests.
 - [x] Verify: build + typecheck + tests + lint (0 errors) + `pnpm harness:scan` (54/54).
 
-## P4 — embedding-vector backend (may revise the port) — PENDING
+## P4 — embedding-vector backend (may revise the port) — DEFERRED
+
+Consciously deferred per the spec (the vector backend is not interchangeable behind the repo-map signature and
+**may revise the port**). Filed as a follow-on backlog:
+[`.agents/backlog/SELFHOST-003-P4-embedding-vector-backend.md`](../backlog/SELFHOST-003-P4-embedding-vector-backend.md).
+v1 (P1–P3) satisfies the epic's Completion Criteria TC-01..05, so GATE-VERIFY/GATE-COMPLETE run on v1 with P4 tracked separately.
 
 ## Test Plan
 
