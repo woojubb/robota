@@ -22,10 +22,11 @@ https://openai.github.io/openai-agents-python/); Google ADK event/state step ins
 budgets (https://cursor.com/docs). Common shape: a run **trace** + **token/cost accounting** in the UI with
 optional budget caps. Robota constraint: cost is **already first-class** — `LimitsPlugin`
 (`agent-plugin/src/limits`) enforces `maxCost`(USD)/`tokenCostPer1000` per window; the genuine delta is a
-**per-run/session cumulative budget** (vs per-window) + a **trace view**. Span data comes from the session-record
-history / `InteractionEvent` stream the transports already consume (NOT `execution-analytics`, which has only
-generic operation timings + no cost). The per-source aggregation already exists as `summarizeUsageBySource`
-(`agent-session-analytics/src/usage.ts`, ANALYTICS-001) and must be EXTENDED, not re-created.
+**per-run/session cumulative budget** (vs per-window) + a **trace view**. Span attribution + cost come from the
+session-record history / `InteractionEvent` stream + usage snapshots the transports already consume; per-operation
+**timing** is the one thing that joins from `execution-analytics` (generic operation timings, no cost) — and that
+join happens in `agent-framework`, NOT inside the pure reducer. The per-source aggregation already exists as
+`summarizeUsageBySource` (`agent-session-analytics/src/usage.ts`, ANALYTICS-001) and must be EXTENDED, not re-created.
 
 ## Architecture Review
 
@@ -35,18 +36,40 @@ generic operation timings + no cost). The per-source aggregation already exists 
   read by `LimitsPlugin` via `limits-helpers.ts` and by `/cost` via `agent-command/session/model-pricing.ts`). Do
   NOT declare a second cost authority.
 - **`agent-interface-transport`**: add an **OPTIONAL, derived** `costUsd?: number` on `IUsageSnapshot`
-  (`session-contracts.ts`) computed by agent-framework **via `model-pricing.ts`** at snapshot creation
-  (`interactive-session-execution.ts`), present iff `costStatus !== 'unknown'` (aligns with the existing enum).
-  Optional = backward-compatible (all construction sites keep compiling).
-- **`agent-session-analytics`** (pure read-model): extend `summarizeUsageBySource` for **cost-by-source**. The
-  **span timeline** is a distinct shape — `InteractionEvent` has order but no timings, so per-operation durations
-  join from `execution-analytics` (timing) to cost from the usage snapshots. It **cannot halt** a live run — no
-  enforcement here.
+  (`session-contracts.ts`), present iff `costStatus !== 'unknown'` (aligns with the existing enum). Optional =
+  backward-compatible **at the contract level** (all construction sites keep compiling), but populating it is
+  **real work, not free**: the main-path snapshot builder `extractTurnUsage`
+  (`agent-framework/src/interactive/interactive-session-execution.ts`, ~lines 201–232) currently hard-codes
+  `costStatus: 'unknown'` and has **no model id in scope**, so `costUsd` would otherwise NEVER be present.
+  `extractTurnUsage` MUST resolve the turn's model id and compute cost via `calculateModelCost` (the
+  `agent-core/model-pricing.ts` SSOT — exact input/output split) at snapshot creation, flipping `costStatus` to
+  `estimated`/`exact` accordingly.
+- **`agent-session-analytics`** (pure read-model): extend `summarizeUsageBySource` for **cost-by-source ONLY**
+  (per-source cost totals derived from the usage snapshots it already reads). It does **not** build the span
+  timeline: timing lives in `execution-analytics`'s in-plugin memory array (`executionHistory`, not the session
+  record), and this package depends only on `agent-core` + `agent-interface-transport`, so reading `agent-plugin`
+  timing here would violate the one-way dependency rule. It **cannot halt** a live run — no enforcement here.
+- **`agent-framework`** (trace-timeline ASSEMBLY — alternative (b), chosen): the span timeline is assembled here,
+  the layer that already depends on both `agent-plugin` (to read `ExecutionAnalyticsPlugin` per-operation
+  `duration`) and the session record (usage snapshots carrying `costUsd`). New assembly site: an
+  `assembleRunTrace(...)` function under `packages/agent-framework/src/interactive/` joins each operation's timing
+  to its `costUsd`, keeping `summarizeUsageBySource` pure and within its existing deps. (Alternative (a) — the
+  timing PRODUCER writing per-operation `duration` into the session-record history as a typed entry so the reducer
+  could read it in-deps — was considered but is more invasive: it mutates the record schema and the analytics
+  write-path. (b) reads existing plugin state at assembly time and touches no contract.)
 - **`agent-plugin` `limits`**: the halt/warn enforcement — add a **per-run cumulative budget as a NEW orthogonal
-  axis** (accumulate across all turns of one run, never time-reset; define the run identifier vs session/executionId
-  and where the run-start reset fires) — NOT merely a `maxCost` window-sibling. Reconcile with the existing
-  **display-only monthly budget** (`.robota/budget.json`, `agent-command/session/session-command.ts`): per-run
-  enforcement is orthogonal to the display-only monthly (do not add a third unreconciled budget notion).
+  axis** (accumulate across all turns of one run, never time-reset) — NOT merely a `maxCost` window-sibling. Pin
+  the identifiers concretely: a **"run" = one interactive session, keyed by `sessionId`**; the cumulative
+  accumulator **NEVER time-resets** (unlike the token-bucket / sliding-/fixed-window paths in `limits-helpers.ts`);
+  the run-start reset fires via **`resetLimits(sessionId)`** at session/run start. **Unify enforced cost with
+  displayed cost:** today enforcement computes cost via a BLENDED per-1000 rate over a single token count
+  (`estimateBlendedCostPer1000`, `limits-helpers.ts`), while the displayed/derived `costUsd` uses the exact
+  input/output split (`calculateModelCost`). For a "trace + budget" feature these MUST agree — the per-run
+  cumulative accumulator MUST accrue the **exact per-turn `costUsd`** the view renders (read off the snapshot in
+  `afterExecution`), NOT the blended pre-execution estimate; where an estimate is unavoidable (pre-execution
+  admission check) it is reconciled to the exact figure after the turn, tied to `costStatus`. Reconcile with the
+  existing **display-only monthly budget** (`.robota/budget.json`, `agent-command/session/session-command.ts`):
+  per-run enforcement is orthogonal to the display-only monthly (do not add a third unreconciled budget notion).
 - **`agent-transport-gui`** (`SessionMonitor`) / **`agent-transport-tui`** (its TUI analog `UsageSummaryEntry`/
   `SessionStatusBar`): the trace/cost **view**.
 
@@ -67,10 +90,12 @@ generic operation timings + no cost). The per-source aggregation already exists 
 
 ### Decision
 
-Adopt (1): trace/cost **read-model** by extending `summarizeUsageBySource` (sourcing spans from session-record
-history / `InteractionEvent`); **cap enforcement** in `LimitsPlugin` (per-run cumulative budget beside its
-per-window `maxCost`); the **cost SSOT** decided + owned in `agent-interface-transport` (add a cost-amount to
-`IUsageSnapshot`, or source from `usage`-plugin storage — decided at design time); the **view** mirrors
+Adopt (1): trace/cost **read-model** by extending `summarizeUsageBySource` for **cost-by-source only**, with the
+**span-timeline assembly in `agent-framework`** (alternative (b) — the layer that depends on both
+`execution-analytics` timing and the session record); **cap enforcement** in `LimitsPlugin` (per-run cumulative
+budget keyed by `sessionId`, never time-resetting, accruing the exact per-turn `costUsd`); the **pricing SSOT stays
+`agent-core/model-pricing.ts`**, and the derived **`costUsd`** is owned on `IUsageSnapshot`
+(`agent-interface-transport`), computed in `extractTurnUsage` via `calculateModelCost`; the **view** mirrors
 `SessionMonitor` in TUI/GUI. `dag-cost` is out of scope (DAG-subsystem metadata). Cost = financial risk, first-class.
 
 ### Architecture Review Checklist
@@ -82,36 +107,44 @@ per-window `maxCost`); the **cost SSOT** decided + owned in `agent-interface-tra
 
 ## Solution
 
-Extend `summarizeUsageBySource` into a per-run/session trace+cost read-model (spans from session-record history /
-`InteractionEvent`); decide + own the cost amount in `agent-interface-transport`; add a per-run cumulative budget
-cap to `LimitsPlugin` (warn/halt); render the trace/cost view in TUI + GUI mirroring `SessionMonitor`.
+Extend `summarizeUsageBySource` into a per-source **cost** read-model (cost only); assemble the span timeline in
+`agent-framework` (`assembleRunTrace`, joining `execution-analytics` per-operation timing to the snapshot
+`costUsd`); populate the derived `costUsd` on `IUsageSnapshot` in `extractTurnUsage` via `calculateModelCost`; add
+a per-run (`sessionId`) cumulative, never-time-resetting budget cap to `LimitsPlugin` that accrues the exact
+per-turn `costUsd` (warn/halt); render the trace/cost view in TUI + GUI mirroring `SessionMonitor`.
 
 ## Affected Files
 
-| File                                                             | Change                                                                     |
-| ---------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| `packages/agent-interface-transport/src/session-contracts.ts`    | cost SSOT decision (cost amount on `IUsageSnapshot`, or documented source) |
-| `packages/agent-session-analytics/src/usage.ts`                  | extend `summarizeUsageBySource` → trace+cost read-model                    |
-| `packages/agent-plugin/src/limits/`                              | per-run cumulative budget cap (beside per-window `maxCost`)                |
-| `packages/agent-transport-tui/`, `packages/agent-transport-gui/` | trace/cost view (mirror `SessionMonitor`)                                  |
+| File                                                                          | Change                                                                                                                                     |
+| ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `packages/agent-interface-transport/src/session-contracts.ts`                 | add OPTIONAL derived `costUsd?: number` on `IUsageSnapshot` (present iff `costStatus !== 'unknown'`)                                       |
+| `packages/agent-framework/src/interactive/interactive-session-execution.ts`   | `extractTurnUsage` resolves the turn's model id + computes `costUsd` via `calculateModelCost`, flips `costStatus` from `'unknown'`         |
+| `packages/agent-framework/src/interactive/` (new `assembleRunTrace`)          | trace-timeline ASSEMBLY (alt. (b)) — joins `ExecutionAnalyticsPlugin` per-operation `duration` to snapshot `costUsd`                       |
+| `packages/agent-session-analytics/src/usage.ts`                               | extend `summarizeUsageBySource` → cost-by-source ONLY (cost totals; no timeline, stays in-deps)                                            |
+| `packages/agent-plugin/src/limits/` (`limits-plugin.ts`, `limits-helpers.ts`) | per-run cumulative budget keyed by `sessionId`, never time-resets, accrues exact per-turn `costUsd`; `resetLimits(sessionId)` at run start |
+| `packages/agent-transport-tui/`, `packages/agent-transport-gui/`              | trace/cost view (mirror `SessionMonitor`)                                                                                                  |
 
 ## Completion Criteria
 
-- [ ] TC-01: the read-model produces a per-run trace (LLM/tool spans) + token+cost totals from the session record (unit test on the extended `summarizeUsageBySource`).
-- [ ] TC-02: a per-run cumulative budget cap in `LimitsPlugin` warns/halts when exceeded — enforced by the runtime plugin, not the analytics reducer (unit + functional test).
+- [ ] TC-01: the extended `summarizeUsageBySource` produces per-source **cost** totals (cost-by-source) from the usage snapshots — unit test on the reducer; it stays within its `agent-core` + `agent-interface-transport` deps and builds NO timeline.
+- [ ] TC-02: a per-run cumulative budget cap in `LimitsPlugin`, keyed by `sessionId` and never time-resetting, warns/halts when exceeded and resets via `resetLimits(sessionId)` at run start — enforced by the runtime plugin, not the analytics reducer (unit + functional test).
 - [ ] TC-03: no cap-enforcement is added to `agent-session-analytics` (it stays a pure read-model) — verified by grep/placement.
-- [ ] TC-04: the cost SSOT is single (either the `IUsageSnapshot` cost field or the documented plugin source) — no second cost-cap authority beside `LimitsPlugin` (verified).
+- [ ] TC-04: the cost SSOT is single **and single-PATH** — `costUsd` derives from `agent-core/model-pricing.ts` (`calculateModelCost`, exact input/output split) AND `LimitsPlugin` enforcement accrues that same exact per-turn `costUsd`, so the displayed and enforced figures share one computation path (the blended pre-execution estimate does NOT diverge from the exact figure); no second cost-cap authority beside `LimitsPlugin` (verified).
 - [ ] TC-05: the TUI and GUI render the trace/cost view (behavior test + User Execution Scenario; headless CLI path per verification.md).
+- [ ] TC-06: `extractTurnUsage` (`interactive-session-execution.ts`) resolves the turn's model id and populates `costUsd`, flipping `costStatus` from `'unknown'` to `estimated`/`exact` — unit test proving `costUsd` is actually present on the main-path snapshot (not perpetually absent).
+- [ ] TC-07: the span timeline is assembled in `agent-framework` (`assembleRunTrace`), joining `ExecutionAnalyticsPlugin` per-operation `duration` to snapshot `costUsd`, with NO `agent-plugin` import added to `agent-session-analytics` — unit/behavior test + dependency-direction check.
 
 ## Test Plan
 
-| TC    | Verification                            | Type/Tool                    |
-| ----- | --------------------------------------- | ---------------------------- |
-| TC-01 | trace+cost read-model                   | vitest unit                  |
-| TC-02 | cumulative budget cap halts (in limits) | vitest unit + functional     |
-| TC-03 | no enforcement in analytics             | grep/placement               |
-| TC-04 | single cost SSOT                        | placement review             |
-| TC-05 | TUI/GUI view                            | behavior test + headless CLI |
+| TC    | Verification                                      | Type/Tool                    |
+| ----- | ------------------------------------------------- | ---------------------------- |
+| TC-01 | cost-by-source read-model (cost only, in-deps)    | vitest unit                  |
+| TC-02 | cumulative cap halts (sessionId, never-reset)     | vitest unit + functional     |
+| TC-03 | no enforcement in analytics                       | grep/placement               |
+| TC-04 | single cost SSOT + single enforced/displayed path | placement review             |
+| TC-05 | TUI/GUI view                                      | behavior test + headless CLI |
+| TC-06 | `extractTurnUsage` populates `costUsd`            | vitest unit                  |
+| TC-07 | timeline assembly in agent-framework (dep-legal)  | vitest unit + dep-direction  |
 
 ## Tasks
 
@@ -133,3 +166,17 @@ cap to `LimitsPlugin` (warn/halt); render the trace/cost view in TUI + GUI mirro
   trace timeline (needs timing from execution-analytics) separated from cost-by-source (`summarizeUsageBySource`);
   per-run cumulative budget defined as a NEW orthogonal axis in LimitsPlugin (run id + reset); existing display-only
   monthly budget (`.robota/budget.json`) reconciled as orthogonal. Iteration-3 re-review pending.
+- 2026-07-17 — **iteration 3: RE-REVIEW → REVISE, applied.** Re-reviewer punch-list resolved (chosen alternative
+  unchanged): (1) **timeline timing source** — the illegal cross-dep join is removed; `summarizeUsageBySource` is
+  now **cost-by-source ONLY** (stays in its `agent-core`+`agent-interface-transport` deps), and the span timeline
+  is assembled in **`agent-framework`** (alt. (b), new `assembleRunTrace`) which already depends on both the
+  `ExecutionAnalyticsPlugin` timing (in-plugin `executionHistory`, not the record) and the snapshot `costUsd`.
+  (2) **`costUsd` actually populates** — spec now states `extractTurnUsage` (`interactive-session-execution.ts`,
+  hard-coded `costStatus: 'unknown'`, no model id in scope) MUST resolve the model id and compute cost via
+  `calculateModelCost`, flipping `costStatus`; called out as real work, not free (added to Affected Files + TC-06).
+  (3) **enforced == displayed cost** — the per-run accumulator accrues the exact per-turn `costUsd` (not the blended
+  `estimateBlendedCostPer1000` estimate); estimate reconciled to exact after the turn, tied to `costStatus`.
+  (4) **run id + reset pinned into the body** — "run" = one interactive session keyed by `sessionId`, accumulator
+  never time-resets, run-start reset via `resetLimits(sessionId)`. (5) **TC-04 tightened** to assert a single
+  computation PATH for enforced vs displayed cost, plus TC-07 for the dependency-legal timeline assembly. Affected
+  Files, Completion Criteria, and Test Plan updated accordingly.
