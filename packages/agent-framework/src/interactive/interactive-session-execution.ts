@@ -6,7 +6,11 @@
 
 import { randomUUID } from 'node:crypto';
 
-import { collectAssistantUsageMetadata, calculateModelCost } from '@robota-sdk/agent-core';
+import {
+  collectAssistantUsageMetadata,
+  calculateModelCost,
+  SPAN_EVENTS,
+} from '@robota-sdk/agent-core';
 
 import { listActiveContextReferences } from '../context/context-reference-inventory.js';
 import {
@@ -23,7 +27,12 @@ import type { IExecutionResult, IToolSummary, IUsageSnapshot } from './types.js'
 import type { IContextReferenceItem } from '../context/context-reference-inventory.js';
 import type { IPromptFileReferenceRecord } from '../context/prompt-file-references.js';
 import type { IContextWindowState, TUniversalMessage } from '@robota-sdk/agent-core';
-import type { IHistoryEntry, ISpanCompletionEventData } from '@robota-sdk/agent-core';
+import type {
+  IHistoryEntry,
+  ISpanCompletionEventData,
+  IEventService,
+  TEventListener,
+} from '@robota-sdk/agent-core';
 import type { IUsageSource, ISpanEntry } from '@robota-sdk/agent-interface-transport';
 
 export interface IPreparedPromptInput {
@@ -170,6 +179,34 @@ export function createSpanEntry(event: ISpanCompletionEventData): IHistoryEntry<
       op: event.op,
       durationMs: event.durationMs,
     },
+  };
+}
+
+/** A live span collector: buffers span entries seen on the bus until disposed. */
+export interface ISpanCollector {
+  /** The span entries observed since subscription, in emit order. */
+  readonly entries: IHistoryEntry<ISpanEntry>[];
+  /** Unsubscribe from the bus (idempotent). */
+  dispose(): void;
+}
+
+/**
+ * SELFHOST-004 (P6): subscribe to a session's event bus and project each `SPAN_EVENTS.COMPLETED`
+ * event into a record span entry (via {@link createSpanEntry}). The interactive turn drains the
+ * collected entries onto `history` at the turn boundary — BEFORE the turn's `usage-summary` entry —
+ * so the read-model groups them under the owning turn. Tools publish raw (unbound) local event names,
+ * so we match `SPAN_EVENTS.COMPLETED` directly.
+ */
+export function collectSpanEntries(eventService: IEventService): ISpanCollector {
+  const entries: IHistoryEntry<ISpanEntry>[] = [];
+  const listener: TEventListener = (eventType, data) => {
+    if (eventType !== SPAN_EVENTS.COMPLETED) return;
+    entries.push(createSpanEntry(data as ISpanCompletionEventData));
+  };
+  eventService.subscribe(listener);
+  return {
+    entries,
+    dispose: () => eventService.unsubscribe(listener),
   };
 }
 

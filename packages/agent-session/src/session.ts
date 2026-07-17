@@ -1,4 +1,4 @@
-import { TRUST_TO_MODE } from '@robota-sdk/agent-core';
+import { TRUST_TO_MODE, ObservableEventService } from '@robota-sdk/agent-core';
 
 import { SessionBase } from './session-base.js';
 import {
@@ -35,6 +35,7 @@ import type {
 import type {
   IAIProvider,
   IContextWindowState,
+  IEventService,
   IToolSchema,
   TPermissionMode,
   IHookTypeExecutor,
@@ -59,6 +60,12 @@ const ID_RANDOM_LENGTH = 9;
 /** Wraps a Robota agent with project context, permission state, and optional persistence. */
 export class Session extends SessionBase {
   protected readonly robota: Robota;
+  /**
+   * SELFHOST-004: session-owned observable event bus. Injected into the agent so tools (incl. the
+   * `FunctionTool` span-completion emit) publish here; the interactive turn subscribes to it to
+   * project per-operation spans onto session history. Exposed read-only via {@link getEventService}.
+   */
+  protected readonly eventService: IEventService = new ObservableEventService();
   protected readonly permissionEnforcer: PermissionEnforcer;
   protected readonly contextTracker: ContextWindowTracker;
   protected permissionMode: TPermissionMode;
@@ -153,6 +160,7 @@ export class Session extends SessionBase {
       provider,
       this.model,
       systemMessage,
+      this.eventService,
     );
     fireSessionStartHook(
       this.sessionId,
@@ -175,6 +183,14 @@ export class Session extends SessionBase {
     } finally {
       this.abortController = null;
     }
+  }
+
+  /**
+   * SELFHOST-004: the session-owned observable event bus the agent's tools publish to. The interactive
+   * turn subscribes to it to collect span-completion events and project them onto session history.
+   */
+  getEventService(): IEventService {
+    return this.eventService;
   }
 
   private log(event: string, data: TSessionLogData): void {
