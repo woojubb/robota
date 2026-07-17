@@ -150,6 +150,21 @@ describe('SELFHOST-003 P3 — incremental re-index (updateRepoMapIndex)', () => 
     expect(JSON.stringify(initial)).toBe(before);
   });
 
+  it('de-duplicates a repeated upserted path (last-wins → one entry, matches a rebuild)', () => {
+    const initial = buildRepoMapIndex({ parser: fakeParser(PARSED), corpus: CORPUS });
+    const updated = updateRepoMapIndex(
+      initial,
+      {
+        upserted: [
+          { path: 'b.ts', content: 'stale' },
+          { path: 'b.ts', content: 'latest' },
+        ],
+      },
+      fakeParser(MODIFIED),
+    );
+    expect(updated.entries.filter((e) => e.path === 'b.ts')).toHaveLength(1);
+  });
+
   it('upsert wins when a path is both removed and upserted', () => {
     const initial = buildRepoMapIndex({ parser: fakeParser(PARSED), corpus: CORPUS });
     const updated = updateRepoMapIndex(
