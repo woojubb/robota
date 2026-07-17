@@ -70,15 +70,35 @@ memory*/contextReferences/sandboxSnapshotId/goal`). The shareable artifact MUST 
 
 ### Affected Scope
 
-- **`agent-session`** — owns the neutral **export/import artifact envelope** over its storage-neutral `ISessionRecord`
-  (`packages/agent-session/src/session-store.ts`), **mirroring the existing `SessionStore.save`/`load` round-trip**
-  (temp-file + atomic rename → JSON on disk; `JSON.parse` → record). The envelope is a `serialize(record) → bytes`
-  / `deserialize(bytes) → record` pair with a **schema-version header** (so an artifact produced by one build is
-  identifiably importable by another). This is a pure, policy-free mechanism — it carries no notion of "who can see
-  it," no links, no cloud, no auth. It fits `agent-session`'s SPEC boundary, which already declares it "owns the
-  storage-neutral persistence primitive … opaque payloads with no typed resumable-session shape." Because the
-  storage-neutral record is byte-identical to the serialized typed `IInteractiveSessionRecord`, an exported artifact
-  is exactly what the framework already reads back on resume.
+- **`agent-session`** — owns the neutral **export/import artifact envelope** over its storage-neutral `ISessionRecord`,
+  in a **new sibling module `packages/agent-session/src/session-artifact.ts`** (SRP: record-**transport** vs the
+  file-backed persistence in `session-store.ts` — the envelope is not folded into `SessionStore`), **mirroring the
+  existing `SessionStore.save`/`load` round-trip** (temp-file + atomic rename → JSON on disk; `JSON.parse` → record).
+  The envelope exposes **two operations that are specified separately and MUST NOT be conflated**:
+  1. **Round-trip serialize (fidelity, local — no redaction).** `serialize(record)` with no transform is the pure,
+     full-fidelity form: `deserialize(serialize(record))` deep-equals the record for local resume/backup. This is the
+     round-trip floor (TC-01/TC-03) and carries **every** field verbatim.
+  2. **Export-for-share (app-supplied redaction applied).** `serialize(record, options?)` accepts a **policy-free**
+     `redact: (record) => record` transform the caller supplies; the envelope applies it to the record before
+     writing bytes but **defines no field policy of its own**. The library never selects which fields to drop and
+     never forces a transform into the round-trip path — the no-transform form (op 1) stays full-fidelity.
+
+  Both forms produce a `deserialize(bytes) → record` pair with a **schema-version header** (so an artifact produced by
+  one build is identifiably importable by another). This is a pure, policy-free mechanism — it carries no notion of
+  "who can see it," no links, no cloud, no auth, and **no field-redaction policy**. It fits `agent-session`'s SPEC
+  boundary, which already declares it "owns the storage-neutral persistence primitive … opaque payloads with no typed
+  resumable-session shape." Because the storage-neutral record is byte-identical to the serialized typed
+  `IInteractiveSessionRecord`, a **non-redacted** exported artifact is exactly what the framework already reads back on
+  resume.
+
+- **`agent-session` (reusable opt-in scrub, SSOT — reuse, don't duplicate).** The package **already** has recursive,
+  mechanism-level secret redaction in `FileSessionLogger` (`docs/SPEC.md:252`: keys `apiKey`/`authorization`/
+  `accessToken`/`refreshToken`/`secret`/`password`/`xApiKey` → `[REDACTED]` before persistence). SELFHOST-014 **exposes
+  that scrub as a reusable, opt-in utility** (single source of truth) that an app **composes** into its `redact`
+  transform on the share path — it is NOT re-implemented, and it is NEVER forced into the round-trip (local resume
+  needs full fidelity). The utility is a pure recursive secret-key scrub only; the **trust-boundary FIELD policy**
+  (which of `cwd`/`sandboxSnapshotId`/`contextReferences` to strip, target audience) stays **app-owned**, not baked
+  into the library.
 - **`agent-framework` (resume path, reused unchanged)** — the resume flow already exists:
   `buildInteractiveSessionRecord`
   (`packages/agent-framework/src/interactive/interactive-session-persistence.ts`) writes the record and
@@ -87,9 +107,13 @@ memory*/contextReferences/sandboxSnapshotId/goal`). The shareable artifact MUST 
   = `deserialize` → `store.save(record)` into the target store → the **existing** resume path runs verbatim. No new
   resume machinery; SELFHOST-014 adds the transport of the record between stores, not a second way to rehydrate one.
 - **`apps/agent-app` + `apps/agent-web` (sharing UI + policy)** — the share/import UI and **all policy** live HERE:
-  producing a shareable link/file, choosing a destination (download, cloud upload, sync), access control, and
-  **redaction** of surface-sensitive fields the record carries (absolute `cwd`, memory/context references) before it
-  crosses a trust boundary. These are product decisions; per the neutrality boundary they must not enter `packages/`.
+  producing a shareable link/file, choosing a destination (download, cloud upload, sync), access control, and the
+  **redaction FIELD policy** — which surface-sensitive fields the record carries (absolute `cwd`, `sandboxSnapshotId`,
+  memory/`contextReferences`) to strip, and for which audience — before it crosses a trust boundary. The app builds its
+  `redact: (record) => record` transform HERE and passes it to `serialize(record, { redact })` on the share path,
+  **composing** the library's reusable opt-in secret-scrub utility (the `FileSessionLogger` key-scrub, reused not
+  re-implemented) for mechanism-level secret removal on top of its own field policy. These are product decisions; per
+  the neutrality boundary the field policy and share mechanics must not enter `packages/`.
 - **Boundary vs REMOTE-001 (stated, not duplicated).** REMOTE-001 = the **live** channel (pair two online peers,
   stream a session in real time; `SessionResumeBridge` recovers a dropped data channel _within_ a live session).
   SELFHOST-014 = the **async durable artifact** (export a thread to a portable object, import + resume later / on a
@@ -148,20 +172,28 @@ channel and adds no transport.
   reduced share schema), an imported artifact resumes with **full fidelity** — `messages`, `history`, `goal`,
   `background*`, `memory*`, `contextReferences`, `sandboxSnapshotId` — identical to a local `--resume`. No capability
   is dropped relative to local resume; the rejected "new share format" (alt 2) would have silently regressed this.
-- **Adversarial:** the main risk is a **trust-boundary leak** — the record carries an absolute `cwd` and
-  memory/context references, and `sandboxSnapshotId`, which should not cross to another party unredacted — plus the
-  temptation to sneak sharing policy into the library. Mitigations: the neutral envelope stays strictly policy-free
-  (a TC asserts no sharing policy / link / cloud logic in `packages/`); **redaction is an app-surface responsibility**
-  performed before an artifact leaves a trust boundary; the schema-version header lets an importer reject/adapt an
-  incompatible record rather than mis-resume it. Neutrality here rests on `agent-session`'s SPEC boundary + code
-  review; whether a mechanical `packages/`-neutrality floor is warranted is left to task-authoring (noted, not
-  claimed as already enforced).
+- **Adversarial (the one real gap this revision closes):** the main risk is a **trust-boundary leak** — the record
+  **always** carries an absolute `cwd`, a `sandboxSnapshotId`, `contextReferences`, and possible secrets in
+  `messages`, none of which should cross to another party unredacted — plus the temptation to sneak sharing policy
+  into the library. A serialize primitive that only ever emits the full record **defaults-to-leak**. Mitigations, now
+  made explicit and mechanical:
+  1. **Opt-in redaction seam on the export path.** `serialize(record, { redact })` lets the app apply a policy-free
+     transform before bytes are written (op 2 above), so the share path is redactable **without** the library owning
+     any field policy; the no-transform round-trip (op 1) stays full-fidelity for local resume. The two operations are
+     specified separately and never conflated (TC-01/TC-03 guard fidelity; TC-07 guards the redacted share path).
+  2. **Reuse the existing scrub (SSOT).** The `FileSessionLogger` recursive secret-key scrub is exposed as a reusable
+     opt-in utility the app composes into its `redact`; it is not re-implemented and never forced into the round-trip.
+  3. **Mechanical neutrality floor (no longer "code review").** TC-05 is a `harness:scan` grep floor asserting the
+     envelope module contains no link/cloud/access/redaction-**policy** tokens (neutrality is enforced, not reviewed);
+     the schema-version header lets an importer reject/adapt an incompatible record rather than mis-resume it.
+     Trust-boundary FIELD policy (which fields, which audience) is app-owned by design, not a library gap.
 
 ### Architecture Review Checklist
 
-- [x] 영향 패키지/레이어: `agent-session` (neutral export/import envelope over `ISessionRecord`, mirror
-      `SessionStore.save`/`load`); `agent-framework` resume path **reused unchanged** (`loadSessionRecord`); sharing UI +
-      policy in `apps/agent-app` / `apps/agent-web`. No new package, no new transport.
+- [x] 영향 패키지/레이어: `agent-session` (neutral export/import envelope over `ISessionRecord` in a **new sibling
+      `session-artifact.ts`**, mirror `SessionStore.save`/`load`; opt-in `redact` seam + reusable `FileSessionLogger`
+      scrub reused as SSOT); `agent-framework` resume path **reused unchanged** (`loadSessionRecord`); sharing UI +
+      redaction FIELD policy in `apps/agent-app` / `apps/agent-web`. No new package, no new transport.
 - [x] Sibling scan 완료 — mirrors the **`SessionStore` persistence precedent** (atomic JSON round-trip over
       `ISessionRecord`) and the **existing resume path** (`buildInteractiveSessionRecord` / `loadSessionRecord`); does NOT
       duplicate the **REMOTE-001 live channel** (`agent-remote-pairing` / `agent-transport-webrtc` /
@@ -169,34 +201,48 @@ channel and adds no transport.
 - [x] 대안 최소 2개 — 4 considered (envelope-over-record CHOSEN; new-share-format REJECTED capability+SSOT;
       policy-in-a-package REJECTED neutrality; live-channel-as-sharing REJECTED not-async), each Pro+Con.
 - [x] 결정 근거 — capability-preservation + SSOT force reusing the record; the neutrality rule + `agent-session`'s SPEC
-      boundary force the split (neutral serialize in the library, sharing policy in the apps); complements REMOTE-001's
-      live form. GATE-APPROVAL pending.
+      boundary force the split (neutral serialize in the library, sharing policy in the apps); the opt-in `redact` seam
+      closes the defaults-to-leak trust-boundary gap while preserving the fidelity round-trip; neutrality/complement
+      floors are mechanized (TC-05 grep floor + TC-06 deps scan); complements REMOTE-001's live form. GATE-APPROVAL:
+      RE-REVIEW → REVISE applied (see Evidence Log 2026-07-17 iteration 1).
 
 ## Solution
 
-A neutral **export/import envelope** in `agent-session` over the storage-neutral `ISessionRecord`
-(`serialize(record) → bytes` with a schema-version header / `deserialize(bytes) → record`), mirroring the existing
-`SessionStore.save`/`load` round-trip. **Import** deserializes an artifact and `store.save`s the record into the
-target store; **resume** is then the **existing** `loadSessionRecord` path (`--resume`/fork), unchanged. The
-**sharing UI + all policy** (link/file production, destination/sync, access control, redaction of `cwd`/references)
+A neutral **export/import envelope** in a new sibling module `packages/agent-session/src/session-artifact.ts`
+(record-transport, distinct from the file-backed `session-store.ts`) over the storage-neutral `ISessionRecord`, with
+a schema-version header, mirroring the existing `SessionStore.save`/`load` round-trip. The envelope specifies **two
+non-conflated operations**: (1) **round-trip serialize** — `serialize(record)` with no transform is the pure,
+full-fidelity local form where `deserialize(serialize(record))` deep-equals the record (fidelity floor, no
+redaction); (2) **export-for-share** — `serialize(record, { redact })` applies a caller-supplied **policy-free**
+`redact: (record) => record` transform before writing bytes, so an app can strip trust-boundary fields on the share
+path without the library owning any field policy. The `FileSessionLogger` recursive secret-key scrub
+(`docs/SPEC.md:252`) is **exposed as a reusable opt-in utility** (SSOT) the app composes into its `redact`; it is
+never re-implemented and never forced into the round-trip. **Import** deserializes an artifact and `store.save`s the
+record into the target store; **resume** is then the **existing** `loadSessionRecord` path (`--resume`/fork),
+unchanged. The **sharing UI + all policy** (link/file production, destination/sync, access control, and the
+**redaction field policy** — which of `cwd`/`sandboxSnapshotId`/`contextReferences` to strip, for which audience)
 live in `apps/agent-app` / `apps/agent-web`. This is the **async durable complement** to REMOTE-001's live P2P
 channel — no new transport, pairing, or wire protocol.
 
 ## Affected Files
 
-| File                                                                                    | Change                                                                                                                         |
-| --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `packages/agent-session/src/session-store.ts` (or a sibling `session-artifact.ts`, new) | neutral export/import envelope over `ISessionRecord` (`serialize`/`deserialize` + schema-version header), mirror `save`/`load` |
-| `packages/agent-session/src/index.ts`                                                   | export the artifact envelope primitive                                                                                         |
-| `packages/agent-session/docs/SPEC.md`                                                   | record the artifact primitive under the storage-neutral persistence ownership (SSOT)                                           |
-| `packages/agent-framework/src/interactive/interactive-session-restore.ts`               | resume path **reused as-is** — import = `deserialize` → `store.save` → existing `loadSessionRecord` (no new resume logic)      |
-| `apps/agent-app` / `apps/agent-web`                                                     | share/import UI + **all policy** (link/file, sync, access, redaction of `cwd`/references) — never in `packages/`               |
+| File                                                                      | Change                                                                                                                                                                                                                                                                                              |
+| ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/agent-session/src/session-artifact.ts` (**new** sibling)        | neutral export/import envelope over `ISessionRecord` — `serialize(record, options?)` (op 1 round-trip / op 2 export-for-share via policy-free `redact`) + `deserialize` + schema-version header; mirrors `save`/`load`. **Not** folded into `session-store.ts` (SRP: transport vs file persistence) |
+| `packages/agent-session/src/session-artifact.ts` (reusable scrub utility) | expose the `FileSessionLogger` recursive secret-key scrub as an **opt-in** utility (SSOT) an app composes into `redact`; never forced into the round-trip                                                                                                                                           |
+| `packages/agent-session/src/index.ts`                                     | export the artifact envelope primitive + the opt-in scrub utility                                                                                                                                                                                                                                   |
+| `packages/agent-session/docs/SPEC.md`                                     | record the artifact primitive + the two operations + the reusable opt-in scrub under the storage-neutral persistence ownership (SSOT)                                                                                                                                                               |
+| `packages/agent-framework/src/interactive/interactive-session-restore.ts` | resume path **reused as-is** — import = `deserialize` → `store.save` → existing `loadSessionRecord` (no new resume logic)                                                                                                                                                                           |
+| `apps/agent-app` / `apps/agent-web`                                       | share/import UI + **all policy** (link/file, sync, access, redaction FIELD policy for `cwd`/`sandboxSnapshotId`/`contextReferences`); builds the `redact` transform + composes the opt-in scrub — never in `packages/`                                                                              |
+| `scripts/harness/*` (guard floors — see TC-05/TC-06)                      | TC-05 grep floor (no link/cloud/access/redaction-policy tokens in `session-artifact.ts`); TC-06 dep-direction assertion (no edge from the artifact path to `agent-remote-pairing`/`agent-transport-webrtc`)                                                                                         |
 
 ## Completion Criteria
 
-- [ ] TC-01: **export/import round-trip** — `deserialize(serialize(record))` deep-equals the original
-      `ISessionRecord` for a record exercising every field (`messages`/`history`/`goal`/`background*`/`memory*`/
-      `contextReferences`/`sandboxSnapshotId`) (unit test).
+- [ ] TC-01: **round-trip serialize WITHOUT redaction is the fidelity floor** — `deserialize(serialize(record))`
+      (no `redact` transform) deep-equals the original `ISessionRecord` for a record exercising every field
+      (`messages`/`history`/`goal`/`background*`/`memory*`/`contextReferences`/`sandboxSnapshotId`). This is the
+      pure local round-trip and is **distinct from the redacted share path** (TC-07) — the two are never conflated
+      (unit test).
 - [ ] TC-02: **schema-version guard** — an artifact with an unknown/incompatible schema version is rejected (or
       adapted) rather than silently mis-imported; a same-version artifact imports cleanly (unit test).
 - [ ] TC-03: **imported artifact resumes** — importing an exported artifact into a target store and running the
@@ -205,23 +251,32 @@ channel — no new transport, pairing, or wire protocol.
 - [ ] TC-04: **a shared artifact resumes on a second surface** — export from surface A's store, import into a
       **distinct** surface B's store (different `baseDir`), and resume there; the resumed session's messages/history/goal
       match the source with both stores independent (functional test).
-- [ ] TC-05: **neutrality — sharing policy is NOT in `packages/`** — the library envelope contains no link scheme,
-      cloud/upload, access-control, or redaction policy (it is pure serialize/deserialize + version); a code review /
-      targeted grep confirms sharing policy lives only in the app surfaces.
-- [ ] TC-06: **complements, does not duplicate, REMOTE-001** — the export → import → resume path completes with **no
-      live channel** (no pairing, no WebRTC/`SessionResumeBridge`), i.e. both peers may be offline; the artifact path does
-      not depend on `agent-remote-pairing` / `agent-transport-webrtc` (design assertion + a dependency check).
+- [ ] TC-05: **neutrality — sharing policy is NOT in `packages/` (mechanized grep floor)** — a `pnpm harness:scan`
+      grep floor over `session-artifact.ts` asserts the envelope module contains no link/cloud/upload/access-control or
+      redaction-**policy** tokens (it is pure serialize/deserialize + schema version + the app-supplied `redact` seam).
+      This is a mechanical scan floor per enforcement-architecture, **not** a code-review promise.
+- [ ] TC-06: **complements, does not duplicate, REMOTE-001 (mechanized deps scan)** — a `deps`-style dependency-
+      direction scan asserts the artifact path (`session-artifact.ts` / `agent-session`) has **no** dependency edge to
+      `agent-remote-pairing` or `agent-transport-webrtc`, so the export → import → resume path completes with no live
+      channel (no pairing, no WebRTC/`SessionResumeBridge`) and both peers may be offline. Mechanical, not a design
+      assertion.
+- [ ] TC-07: **export-for-share WITH an app-supplied `redact` transform strips trust-boundary fields** —
+      `serialize(record, { redact })` with a transform that drops `cwd`/`sandboxSnapshotId` and composes the opt-in
+      secret-scrub produces an artifact whose deserialized record has those fields absent/redacted (named secret keys →
+      `[REDACTED]`), while the same record serialized WITHOUT `redact` retains them (TC-01). Proves the seam is opt-in
+      and the share path is redactable without any library-side field policy (unit test).
 
 ## Test Plan
 
-| TC    | Verification                                  | Type/Tool                                |
-| ----- | --------------------------------------------- | ---------------------------------------- |
-| TC-01 | serialize/deserialize deep-equal (all fields) | vitest unit                              |
-| TC-02 | schema-version accept/reject                  | vitest unit                              |
-| TC-03 | imported record resumes via existing path     | vitest unit (resume path)                |
-| TC-04 | export A-store → import B-store → resume on B | functional test (two independent stores) |
-| TC-05 | no sharing policy in `packages/`              | code review + targeted grep              |
-| TC-06 | artifact path independent of the live channel | dependency check + design assertion      |
+| TC    | Verification                                                        | Type/Tool                                     |
+| ----- | ------------------------------------------------------------------- | --------------------------------------------- |
+| TC-01 | round-trip serialize (no redact) deep-equal (all fields)            | vitest unit (fidelity floor)                  |
+| TC-02 | schema-version accept/reject                                        | vitest unit                                   |
+| TC-03 | imported record resumes via existing path                           | vitest unit (resume path)                     |
+| TC-04 | export A-store → import B-store → resume on B                       | functional test (two independent stores)      |
+| TC-05 | no link/cloud/access/redaction-policy tokens in module              | `harness:scan` grep floor (mechanical)        |
+| TC-06 | no dep edge → `agent-remote-pairing`/`-webrtc`                      | `deps` dependency-direction scan (mechanical) |
+| TC-07 | share-export with `redact` strips `cwd`/`sandboxSnapshotId`/secrets | vitest unit (share path, distinct from TC-01) |
 
 ## Tasks
 
@@ -243,3 +298,26 @@ channel — no new transport, pairing, or wire protocol.
   (`packages/agent-transport-protocol/src/session-resume-bridge.ts`) resumes across a **data-channel drop within one
   live session**, not an async artifact. No session export/share feature exists in the repo today (grep confirmed the
   gap). **GATE-APPROVAL pending** (independent proposal-reviewer sign-off not yet run).
+- 2026-07-17 — **GATE-APPROVAL re-review → REVISE, applied (iteration 1).** Design DIRECTION confirmed correct
+  (envelope over the existing `ISessionRecord` in `agent-session`; resume reuses `loadSessionRecord` unchanged;
+  sharing UI/policy in the apps; complements REMOTE-001 — all kept). One real gap: the **trust-boundary REDACTION
+  seam** — a serialize primitive that only ever emits the full record defaults-to-leak, since the record always
+  carries an absolute `cwd`, `sandboxSnapshotId`, `contextReferences`, and possible secrets in `messages`. Fixes
+  applied: (1) **Opt-in redaction seam on the export path** — `serialize(record, options?)` takes a policy-free
+  `redact: (record) => record`; the two operations are now specified separately and never conflated — "round-trip
+  serialize (fidelity, local — no redaction)" vs "export-for-share (app-supplied redaction applied)" — preserving
+  TC-01/TC-03 fidelity while closing the defaults-to-leak posture. (2) **Reuse, not duplicate, the scrub** — the
+  existing `FileSessionLogger` recursive secret-key redaction (`docs/SPEC.md:252`) is exposed as a reusable **opt-in**
+  utility (SSOT) the app composes into `redact`; the library never forces it into the round-trip and never owns the
+  trust-boundary FIELD policy (which of `cwd`/`sandboxSnapshotId`/`contextReferences`, audience) — that stays
+  app-owned. (3) **File placement pinned** — the envelope goes in a **new sibling `packages/agent-session/src/
+session-artifact.ts`** (SRP: record-transport vs file-backed `session-store.ts`); the Affected-Files "(or a
+  sibling …)" hedge is resolved to this decision. (4) **Guard TCs mechanized** per enforcement-architecture — TC-06
+  is a `deps` dependency-direction assertion that the artifact path has no edge to `agent-remote-pairing`/
+  `agent-transport-webrtc` (complements-not-duplicates-REMOTE-001, mechanically); TC-05 is a `harness:scan` grep floor
+  asserting no link/cloud/access/redaction-**policy** tokens in the envelope module (neutrality), replacing the prior
+  "code review + grep". (5) **New TCs** — TC-07 (share-export WITH `redact` strips `cwd`/`sandboxSnapshotId`/named
+  secret fields) and TC-01 restated as the no-redaction fidelity floor, explicitly distinct from the share path.
+  Affected Files / Completion Criteria / Test Plan / Architecture Review Checklist updated for consistency. Everything
+  else (envelope over `ISessionRecord`, resume reuses `loadSessionRecord`, apps own sharing UI/policy, the 4
+  correctness-grounded alternatives, complements REMOTE-001) unchanged.
