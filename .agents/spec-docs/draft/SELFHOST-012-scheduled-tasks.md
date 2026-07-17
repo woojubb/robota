@@ -236,4 +236,18 @@ state-machine + runner croner pause/resume + manager/host methods); P2 = `/sched
   in `default-command-modules.ts:107`; and `dag-scheduler`'s stateless DAG-run trigger
   (`packages/dag-scheduler/src/services/scheduler-trigger-service.ts`) — confirming the seed's "over dag-scheduler"
   framing is corrected: the recurrence engine is the croner runner, dag-scheduler is the DAG-run trigger, and a thin
-  non-destructive lifecycle extension (not a new scheduler) is required. **GATE-APPROVAL pending.**
+  non-destructive lifecycle extension (not a new scheduler) is required.
+- 2026-07-17 — **GATE-APPROVAL iteration 1: ENDORSE** (independent proposal-reviewer). Every load-bearing premise
+  verified: `SchedulerTriggerService` is a stateless DAG-run trigger delegator (the seed's "reuse dag-scheduler" is
+  genuinely wrong); the real recurrence engine is the croner-backed `createScheduledTaskRunner` driven by FLOW-005's
+  `/schedule` (CREATE exists; the gap is list/pause/resume/edit); the runner cancels via irreversible croner `.stop()`
+  and never `.pause()`/`.resume()`; `TBackgroundTaskStatus` has no `paused`, the state machine no PAUSE/RESUME edge,
+  and no manager/host lifecycle verb — so "pause→doesn't fire→resume" is genuinely inexpressible today. Design reuses
+  the engine + trigger unchanged, adds a persisted `paused` status + croner `.pause()`/`.resume()` + `/schedule`
+  subcommands mirroring `/background`; alternatives (pause=cancel/recreate; new registry) correctly rejected on
+  correctness. Non-blocking implementation note folded: the FLOW-003 restore path keys re-arm on `status==='sleeping'`
+  in TWO predicates — `reArmRestoredSchedules` (`interactive-session-background-tracker.ts:92`) and `isReArmableSchedule`
+  (`interactive-session-restore.ts:156-157`) — so a new `paused` scheduled task would fall through into the stale-worker
+  branch and be marked `failed` on restart; TC-06 requires WIDENING BOTH predicates to treat a paused scheduled task as
+  re-armable-but-kept-paused (re-arm the croner job then immediately `.pause()`, or persist paused without arming), named
+  for the P3 task. **GATE-APPROVAL PASSED.**

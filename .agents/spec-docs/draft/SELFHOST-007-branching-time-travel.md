@@ -100,6 +100,12 @@ turns that single `sequence` chain into a **parent-linked tree** and makes resto
    - ❌ Making `restore` non-destructive changes existing semantics (today it deletes later checkpoints), and the
      manifest must migrate `version: 1` → `2`; unbounded fork growth needs a prune/GC **policy** (kept out of the
      neutral mechanism — filed as a follow-up). Stated, not hidden.
+   - **Why the pure tree lives in `agent-session`, not beside its sole consumer in `agent-framework`:** the tree is a
+     neutral, I/O-free navigational primitive of the same class as `SessionStore` (which `agent-session` already owns
+     per its SPEC). Placing it in the lower reusable library keeps the pure algorithm out of the heavy assembly layer
+     and lets any future consumer depend on it downward, while it stays consumable by `EditCheckpointStore` over the
+     existing `agent-framework → agent-session` edge — so the placement is affirmatively correct, not merely "not the
+     other options."
 2. **Invent a NEW `CheckpointTree` store in `agent-session`, parallel to `EditCheckpointStore`, persisting its own
    branch history.**
    - ✅ Matches the backlog seed's literal "tree in agent-session" wording; clean greenfield with no manifest
@@ -237,7 +243,11 @@ of the neutral mechanism.
       neutral mechanism — neutrality does not rest on manual review alone.
 - [ ] TC-05: the `/rewind` command exposes `fork` / `switch` / `branches` through the existing `ICommandHostContext`
       seam and the branch survives `--resume` (persisted-record round-trip) — the linear `restore`/`rollback` path
-      still passes unchanged (capability-preservation regression test).
+      still passes unchanged (capability-preservation regression test). Includes the **cross-store referential-integrity
+      edge**: the active-branch pointer persists in `IInteractiveSessionRecord` (agent-session `SessionStore`,
+      `~/.robota/sessions`) while the branch tree persists in the agent-framework manifest (`projectPaths.checkpoints`);
+      a `--resume` whose pointer references a `branchId` **absent from the manifest store** must degrade gracefully
+      (fall back to the linear HEAD / report a missing branch), not crash.
 
 ## Test Plan
 
@@ -273,5 +283,14 @@ prune (GC) policy.
   with the real code (the checkpoint store lives in agent-framework): the **neutral pure tree** lives in
   agent-session, the **existing store** in agent-framework is extended (not duplicated) over the existing one-way
   edge, and the **session-facing event/record contracts** go to agent-interface-transport (not agent-core, which is
-  zero-dep). Independent architecture-placement validation (proposal-reviewer / architecture-auditor) and
-  GATE-APPROVAL pending.
+  zero-dep).
+- 2026-07-17 — **GATE-APPROVAL iteration 1: ENDORSE** (independent proposal-reviewer). Every load-bearing premise
+  verified against the code (checkpoint machinery in agent-framework, linear/destructive restore; agent-session owns
+  the storage-neutral primitive; `goal_event`/`goal?` precedent; agent-core zero-`@robota`-dep enforced by
+  `check-dependency-direction.mjs`; the `ICommandHostContext` rewind seam). Placement correct on every boundary; the
+  tree is a derived view over the single on-disk manifest SSOT (not a second store); TC-04 rests on the real `deps`
+  scan floor. Folded the reviewer's non-blocking refinements: affirmative co-location justification for the pure tree;
+  TC-05 now covers the cross-store referential-integrity edge (stale/missing `branchId` on `--resume` degrades
+  gracefully); the manifest `version:1→2` bump is a literal-type widening + a loader mapping a `parentId`-less v1
+  manifest onto a synthetic linear chain (noted for the P1 task); the `restore` (`sequence>target`) vs `rollback`
+  (`sequence>=target`) distinct fork points to be nailed in P2. **GATE-APPROVAL PASSED.**

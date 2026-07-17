@@ -1,7 +1,7 @@
 ---
 status: draft
 type: DATA
-tags: [memory, semantic-recall, persistence, agent-core, agent-cli, selfhost]
+tags: [memory, semantic-recall, persistence, agent-framework, agent-cli, selfhost]
 ---
 
 # SELFHOST-008 (EPIC): durable project + semantic long-term memory — port + reference adapter + curation seam (v1)
@@ -176,7 +176,7 @@ read-only retrieval and write/curate memory would repeat SELFHOST-003's rejected
       `agent-tools` REJECTED not-a-tool/ownership-inversion; one-`query()`-LCD REJECTED capability), each Pro+Con.
 - [x] 결정 근거 — mirror-an-analog places the port with its consumer subsystem (`agent-framework`); capability-preservation
       forces ONE recall backend for v1 (keyword/FTS), semantic deferred; memory port is a distinct superset of SELFHOST-003's
-      read-only retrieval port. GATE-APPROVAL pending.
+      read-only retrieval port. GATE-APPROVAL PASSED (iteration 1 ENDORSE).
 
 ## Solution
 
@@ -245,6 +245,17 @@ revise the port; extract `agent-interface-memory` iff a family).
   (`scan-memory-mirror.mjs` covers the different `.agents/memory` mirror; no runtime-memory content scan). **Decision:
   fold the memory port + reference adapter into `agent-framework` (mirror the sandbox STRUCTURE in the package that owns
   memory's consumers), REJECTING the seed's `agent-core` (mirror-failure/zero-dep) and `agent-tools` (not-a-tool).**
-  GATE-APPROVAL pending (independent proposal-reviewer sign-off + architecture-placement validation to be recorded here).
-  </content>
-  </invoke>
+  Note: `IMemoryEvent` already lives in `agent-interface-transport` (a transport-facing DISPLAY event, correctly in the
+  interface package) — this is distinct from and does not undercut the decision: `IMemoryStore` is a capability port with
+  an fs-backed reference adapter, which correctly folds into its consumer subsystem (`agent-framework`), exactly as
+  `ISandboxClient` is NOT in an interface package.
+- 2026-07-17 — **GATE-APPROVAL iteration 1: ENDORSE** (independent proposal-reviewer). Every load-bearing premise
+  verified: the fs-backed memory subsystem already lives in `agent-framework` with no port/DIP/swappable store; its
+  consumers (`context-loader.ts:113` startup injection, `command-api/memory/` `/memory`) are there too; memory is not a
+  function-tool; the sandbox precedent's actual rule is "port lives with its consumer subsystem," so `agent-framework`
+  (not `agent-core`/`agent-tools`) is correct; the Interface Package Rule forbids the fs adapter in zero-dep `agent-core`.
+  Capability-preservation (one keyword/FTS backend v1, duck-typed `ISemanticMemoryAdapter` deferred) and the distinct-port
+  relationship to SELFHOST-003 are sound. Non-blocking notes folded: dropped the stale `agent-core` frontmatter tag;
+  acknowledged the `IMemoryEvent`-vs-`IMemoryStore` distinction above; the mechanical neutrality floor should GATE the
+  P3/P4 slice that first injects curation prompt/content (where the neutrality risk actually materializes), not remain an
+  open-ended follow-up. **GATE-APPROVAL PASSED.**
