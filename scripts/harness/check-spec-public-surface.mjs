@@ -599,6 +599,7 @@ export const UNDOCUMENTED_EXPORT_ALLOWLIST = new Set([
   '@robota-sdk/agent-tools#RepoMapRetrievalAdapter',
   '@robota-sdk/agent-tools#REPO_MAP_INDEX_VERSION',
   '@robota-sdk/agent-tools#buildRepoMapIndex',
+  '@robota-sdk/agent-tools#updateRepoMapIndex',
   '@robota-sdk/agent-tools#serializeRepoMapIndex',
   '@robota-sdk/agent-tools#deserializeRepoMapIndex',
   '@robota-sdk/agent-tools#applyWorkspaceManifest',

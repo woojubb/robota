@@ -12,10 +12,12 @@ export type {
   IRetrievalToolOptions,
   IRepoMapIndexEntry,
   IRepoMapIndex,
+  IRepoMapIndexChanges,
 } from './types.js';
 
 export {
   buildRepoMapIndex,
+  updateRepoMapIndex,
   serializeRepoMapIndex,
   deserializeRepoMapIndex,
   REPO_MAP_INDEX_VERSION,

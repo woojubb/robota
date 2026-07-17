@@ -116,3 +116,14 @@ export interface IRepoMapIndex {
   /** One entry per corpus file, parsed. */
   entries: IRepoMapIndexEntry[];
 }
+
+/**
+ * A set of corpus changes to apply incrementally to a built index (SELFHOST-003 P3): only the changed
+ * files are re-parsed; the rest of the index is reused unchanged.
+ */
+export interface IRepoMapIndexChanges {
+  /** Files added or modified — re-parsed and upserted into the index. */
+  upserted?: IRetrievalCorpusFile[];
+  /** Repo-relative paths removed — their entries are dropped from the index. */
+  removed?: string[];
+}

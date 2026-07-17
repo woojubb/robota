@@ -9,6 +9,7 @@
 
 import type {
   IRepoMapIndex,
+  IRepoMapIndexChanges,
   IRepoMapIndexEntry,
   IRetrievalCorpusFile,
   IRetrievalSourceParser,
@@ -24,13 +25,42 @@ export interface IBuildRepoMapIndexOptions {
   corpus: IRetrievalCorpusFile[];
 }
 
+/** Parse one corpus file into an index entry. */
+function parseEntry(
+  parser: IRetrievalSourceParser,
+  file: IRetrievalCorpusFile,
+): IRepoMapIndexEntry {
+  const parsed = parser.parse(file.path, file.content);
+  return { path: file.path, definitions: parsed.definitions, references: parsed.references };
+}
+
 /** Parse the whole corpus once into a serializable repo-map index. */
 export function buildRepoMapIndex(options: IBuildRepoMapIndexOptions): IRepoMapIndex {
-  const entries: IRepoMapIndexEntry[] = options.corpus.map((file) => {
-    const parsed = options.parser.parse(file.path, file.content);
-    return { path: file.path, definitions: parsed.definitions, references: parsed.references };
-  });
-  return { version: REPO_MAP_INDEX_VERSION, entries };
+  return {
+    version: REPO_MAP_INDEX_VERSION,
+    entries: options.corpus.map((file) => parseEntry(options.parser, file)),
+  };
+}
+
+/**
+ * Apply corpus changes to a built index INCREMENTALLY (SELFHOST-003 P3): re-parse only the `upserted`
+ * files and drop `removed` paths, reusing every unchanged entry. Returns a new index (the input is not
+ * mutated). A file present in both `removed` and `upserted` is upserted (re-parse wins); a path repeated
+ * within `upserted` is de-duplicated last-wins, so the result always has one entry per path — matching a
+ * full rebuild (entry order does not affect ranking). Unchanged entries are REUSED BY REFERENCE; index
+ * entries are treated as immutable, so callers must not mutate an entry in place.
+ */
+export function updateRepoMapIndex(
+  index: IRepoMapIndex,
+  changes: IRepoMapIndexChanges,
+  parser: IRetrievalSourceParser,
+): IRepoMapIndex {
+  // De-dup upserted by path (last-wins) so a repeated path yields a single, latest entry.
+  const upsertedByPath = new Map((changes.upserted ?? []).map((file) => [file.path, file]));
+  const touched = new Set<string>([...(changes.removed ?? []), ...upsertedByPath.keys()]);
+  const kept = index.entries.filter((entry) => !touched.has(entry.path));
+  const upserted = [...upsertedByPath.values()].map((file) => parseEntry(parser, file));
+  return { version: index.version, entries: [...kept, ...upserted] };
 }
 
 /** Serialize a built index to a neutral JSON string for persistence by the surface. */

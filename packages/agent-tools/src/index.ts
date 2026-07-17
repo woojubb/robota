@@ -45,12 +45,14 @@ export type {
   IRepoMapRetrievalAdapterOptions,
   IRepoMapIndexEntry,
   IRepoMapIndex,
+  IRepoMapIndexChanges,
   IBuildRepoMapIndexOptions,
 } from './retrieval/index';
 export {
   RepoMapRetrievalAdapter,
   createRetrievalTool,
   buildRepoMapIndex,
+  updateRepoMapIndex,
   serializeRepoMapIndex,
   deserializeRepoMapIndex,
   REPO_MAP_INDEX_VERSION,
