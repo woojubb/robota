@@ -41,8 +41,10 @@ From product documentation:
 **Common shape:** author one agent definition; a **deploy/target abstraction** binds it to many channels and
 runtimes without editing the definition. **Robota constraint / delta:** Robota **already has that abstraction**
 — it is the transport DIP (`IConfigurableTransport` + `TransportRegistry.startAll(session)` over the single
-`buildRuntimeSession` seam), proven by five live surfaces sharing it (RUNTIME-001 `robota --serve`, GUI-002
-desktop sidecar, REMOTE-001 P2P). Hermes/ADK ship a **gateway service** as a new component; Robota **must not**
+`buildRuntimeSession` seam). Each surface individually rides it (RUNTIME-001 `robota --serve`, GUI-002 desktop
+sidecar, REMOTE-001 P2P), and **REMOTE-001 is the concrete case of two transports sharing one live session
+simultaneously** — a default `WsTransport` plus the pairing-time `WebRtcTransport`, both `attach(session)` on the
+same instance (the latter started out-of-band, `defaultEnabled:false`). Hermes/ADK ship a **gateway service** as a new component; Robota **must not**
 — a new gateway package would re-introduce the sibling coupling the DIP exists to prevent. The delta is
 therefore purely the **documented pattern + the matrix + a proof test** that one definition serves ≥2
 transports unchanged — packaging/docs, plus at most thin, convention-level glue.
@@ -65,18 +67,30 @@ transports unchanged — packaging/docs, plus at most thin, convention-level glu
     [`agent-cli/src/cli.ts`](../../../packages/agent-cli/src/cli.ts) (`createDefaultTransportRegistry`),
     served headless by [`serve-mode.ts`](../../../packages/agent-cli/src/modes/serve-mode.ts) (RUNTIME-001),
     spawned by the desktop sidecar [`apps/agent-app/electron/sidecar.ts`](../../../apps/agent-app/electron/sidecar.ts)
-    (GUI-002), and the pairing-gated `WebRtcTransport` registered into the **same** registry by
-    [`remote-control-controller.ts`](../../../packages/agent-cli/src/remote-control/remote-control-controller.ts)
-    (REMOTE-001). Available implementations: `agent-transport-tui`, `-ws`, `-http`, `-mcp`, `-webrtc`,
+    (GUI-002). Available implementations: `agent-transport-tui`, `-ws`, `-http`, `-mcp`, `-webrtc`,
     `-webrtc-web`, `-gui`.
+  - **The concrete live SIMULTANEOUS two-transport / one-session prior art is REMOTE-001.** A default network
+    transport (`WsTransport`, `defaultEnabled:true`, picked up by `startAll`) and the pairing-gated
+    `WebRtcTransport` attach to the **same** `IInteractiveSession` instance at once. The `WebRtcTransport` is
+    **`defaultEnabled:false`** and is started **OUT-OF-BAND** by
+    [`remote-control-controller.ts`](../../../packages/agent-cli/src/remote-control/remote-control-controller.ts)
+    (`registry.register(transport); transport.attach(session); void transport.start()` at :216-220, and again for
+    reconnect rooms at :348-350) — it is **attached to the same session but NOT picked up by `startAll`** (there
+    is no start-one method; `startAll` only starts `defaultEnabled:true` transports). This out-of-band pattern is
+    the live proof that one session instance feeds two transports concurrently, and is the grounding for TC-01
+    (reference-identity) and TC-04 (the runnable example). Note the important framing: the default CLI / `--serve`
+    path runs a **single** network transport — the five surfaces are _individually_ proven over the one seam, but
+    they do **not** all exercise the fan-out concurrently; REMOTE-001 is the one place two transports share one
+    live session simultaneously today.
 - **This work adds NO transport, NO package, NO sibling edge.** It adds:
   - A **deployment matrix** (registry doc): surface × runtime × `IConfigurableTransport` impl — mirroring the
     mechanically-kept [`orchestration-map.md`](../../specs/orchestration-map.md) registry precedent.
   - A **user-facing deploy guide** in `docs/` describing the one-definition→many-channels pattern over the
     registry seam.
   - A **runnable example** under `examples/` serving one definition over ≥2 transports simultaneously.
-  - A **functional proof test** that one `buildRuntimeSession` session, registered against ≥2 transports,
-    is served **byte-identically** (no per-transport branching) — the falsifiable DIP claim.
+  - A **reference-identity proof test** that one `buildRuntimeSession` session, registered against ≥2
+    transports, is the **same `IInteractiveSession` instance** each transport's `attach()` receives (strict
+    reference identity, `t1.attached === t2.attached === session`) — the falsifiable DIP claim (TC-01).
   - **Thin glue only if the example demands it** — and only as a documented convention re-using the existing
     registry API, never a new port or package.
 - **"Agent definition" clarified.** The served definition is the **preset-resolved
@@ -114,8 +128,8 @@ transports unchanged — packaging/docs, plus at most thin, convention-level glu
 Adopt (1): SELFHOST-013 is a **documentation + packaging** effort over the **existing** transport DIP. Ship (a)
 a **deployment-matrix** registry doc (surface × runtime × `IConfigurableTransport`, mirroring
 `orchestration-map.md`), (b) a user-facing deploy guide in `docs/`, (c) a runnable `examples/` program serving
-one definition over ≥2 transports, and (d) a **functional proof test** that one `buildRuntimeSession` session
-is served byte-identically across ≥2 registered transports. **No new transport, no new package, no new sibling
+one definition over ≥2 transports, and (d) a **reference-identity proof test** that one `buildRuntimeSession`
+session is the same instance every registered transport's `attach()` receives. **No new transport, no new package, no new sibling
 edge**; any glue is a documented convention over the current `TransportRegistry` API. The gateway-service and
 `robota deploy` command shapes are consciously rejected as re-coupling / out-of-scope.
 
@@ -134,9 +148,11 @@ edge**; any glue is a documented convention over the current `TransportRegistry`
   fenced two ways: (a) the Decision forbids any new package/transport/edge; (b) TC-03 makes the `deps` scan
   (`check-dependency-direction.mjs`) a mechanical FAIL floor for any new bidirectional dep / pass-through
   re-export / new transport package this work might introduce. A second risk — the docs drifting from the real
-  transports — is fenced by TC-02 asserting every registered transport name appears in the matrix (a
-  consistency check, per [enforcement-architecture.md](../../rules/enforcement-architecture.md): every guardian
-  needs a mechanical floor).
+  transports — is fenced by TC-02, a `harness:scan` drift floor with a **named enumerable source** (the
+  `packages/agent-transport-*` package set excluding `-protocol`, or a static transport-name manifest): every
+  transport `name` must appear as a matrix row and no row may name a nonexistent transport, per
+  [enforcement-architecture.md](../../rules/enforcement-architecture.md) (a guardian needs a mechanical source,
+  not a hand-maintained assertion).
 
 ### Architecture Review Checklist
 
@@ -175,34 +191,53 @@ Deliverables, all over the **existing** transport DIP (no new transport/package/
    `startAll(session)`; each surface keeps its own composition root + auth posture.
 3. **Runnable example** under `examples/` — serve one resolved definition over ≥2 transports (e.g. WS + HTTP)
    simultaneously against one session.
-4. **Functional proof test** — one `buildRuntimeSession` session, ≥2 registered transports, asserted served
-   **byte-identically** (same session instance, no per-transport branching).
+4. **Reference-identity proof test** — one `buildRuntimeSession` session, ≥2 registered recording-fake
+   transports, asserting each transport's captured `attach()` argument is the **same `IInteractiveSession`
+   instance** (`t1.attached === t2.attached === session`) — the registry fans one session to every enabled
+   transport. (Scoped to the registry seam; not a claim about every surface's composition root — see TC-01.)
 
 **Slices:** P1 (this) = matrix + proof test + deploy guide + example. Follow-ups (not this spec): a `robota
 deploy` UX veneer is explicitly deferred (alt 3), only if a discoverability need is demonstrated.
 
 ## Affected Files
 
-| File                                                               | Change                                                                                           |
-| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
-| `.agents/specs/deployment-matrix.md` (new)                         | deployment-matrix registry (surface × runtime × transport), mirror `orchestration-map.md`        |
-| `docs/` deploy guide (new)                                         | user-facing one-definition→many-channels pattern over the registry seam                          |
-| `examples/` multi-surface program (new)                            | serve one resolved definition over ≥2 transports (e.g. WS + HTTP) against one session            |
-| `packages/agent-transport/src/__tests__/` (new test)               | functional proof: one `buildRuntimeSession` session served byte-identically across ≥2 transports |
-| `.agents/specs/architecture-map/agent-system.md` (edit, if needed) | cross-link the deployment matrix from the transport ownership section                            |
-| _(no new package, no new transport, no new dependency edge)_       | enforced by the `deps` scan — see TC-03                                                          |
+| File                                                                      | Change                                                                                                        |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `.agents/specs/deployment-matrix.md` (new)                                | deployment-matrix registry (surface × runtime × transport), mirror `orchestration-map.md`                     |
+| `docs/` deploy guide (new)                                                | user-facing one-definition→many-channels pattern over the registry seam                                       |
+| `examples/` multi-surface program (new)                                   | serve one resolved definition over ≥2 transports (e.g. WS + HTTP) against one session                         |
+| `packages/agent-transport/src/__tests__/` (new test)                      | reference-identity proof: two recording-fake transports both `attach()` the same session instance (TC-01)     |
+| `scripts/harness/scan-deployment-matrix.mjs` (new) + harness registration | matrix drift scan (TC-02): enumerate `packages/agent-transport-*` (excluding `-protocol`) names ↔ matrix rows |
+| `.agents/specs/architecture-map/agent-system.md` (edit, if needed)        | cross-link the deployment matrix from the transport ownership section                                         |
+| _(no new package, no new transport, no new dependency edge)_              | enforced by the `deps` scan — see TC-03                                                                       |
 
 ## Completion Criteria
 
-- [ ] TC-01: **one-def-over-≥2-transports functional test** — build ONE `InteractiveSession` from a single
-      resolved config via `buildRuntimeSession`, `register` ≥2 transports in a `TransportRegistry` (real
-      `WsTransport` + `HttpTransport`, or two recording fakes), call `startAll(session)`, and assert **both
-      transports attach to the identical session instance with no per-transport branching of the definition** —
-      proving the DIP claim (functional test).
-- [ ] TC-02: **deployment-matrix doc coverage** — the matrix enumerates every surface × runtime × transport for
-      cli/desktop/web/HTTP-WS-server/remote/MCP, and a consistency check asserts **every registered
-      `IConfigurableTransport.name` appears in the matrix** (no transport is undocumented, no phantom row) — doc +
-      consistency test.
+- [ ] TC-01: **one-def-over-≥2-transports reference-identity test** — build ONE `InteractiveSession` from a
+      single resolved config via `buildRuntimeSession`; `register(t1); register(t2)` in a `TransportRegistry`
+      where `t1`/`t2` are **two recording fakes** (each `defaultEnabled:true`, each captures its `attach()`
+      argument into a field, e.g. `this.attached = session`); call `startAll(session)`; then assert the precise
+      falsifiable claim **`t1.attached === session && t2.attached === session`** (strict reference identity — the
+      _same_ `IInteractiveSession` instance reached every enabled transport, not a copy/clone/per-transport
+      rebuild). What this test PROVES: the registry fans **one** session instance out to every enabled transport
+      (the load-bearing DIP claim). What it does NOT prove: per-surface composition-root discipline — a single
+      `agent-transport` test cannot establish the _absence_ of per-transport branching across all five surfaces'
+      composition roots (`cli.ts`, `serve-mode.ts`, the sidecar, `remote-control-controller.ts`); that is the
+      matrix's (TC-02) and each surface's own concern, not a claim this unit test makes.
+- [ ] TC-02: **deployment-matrix drift scan (mechanical FAIL floor with a named enumerable source)** — the
+      matrix enumerates every surface × runtime × transport for cli/desktop/web/HTTP-WS-server/remote/MCP, and a
+      `pnpm harness:scan` check asserts **every transport is documented, with no phantom rows**. Unlike the
+      `orchestration-map` scan — whose enumerable source is the static file set `.claude/agents/*.md` — transport
+      names live at runtime in transport classes (`readonly name = 'ws'|'http'|'mcp'|'webrtc'|'tui'|…`), so there
+      is no equivalent static set to diff against by default. This TC therefore names a **concrete enumerable
+      source**: scan the **`packages/agent-transport-*` package set, EXCLUDING `agent-transport-protocol`** (the
+      shared protocol lib, not a transport), extract each package's declared transport `name`, and FAIL if any
+      such `name` is missing a matrix row (undocumented transport) or any matrix transport row names a
+      nonexistent transport (phantom). (Equivalent acceptable alternative: introduce a static
+      transport-name manifest — e.g. `.agents/specs/transport-names.json` — that the scan reads as its source of
+      truth; either way the source must be a real enumerable set, not a hand-maintained assertion.) Mechanical
+      FAIL floor per [enforcement-architecture.md](../../rules/enforcement-architecture.md): every guardian needs
+      a mechanical source, not a human re-checking the list.
 - [ ] TC-03: **no-new-coupling deps scan** — `pnpm harness:scan` `deps`
       (`scripts/harness/check-dependency-direction.mjs`) stays green: this work introduces **no new bidirectional
       production dependency, no pass-through re-export, and no new transport/gateway package**. Mechanical FAIL
@@ -212,12 +247,12 @@ deploy` UX veneer is explicitly deferred (alt 3), only if a discoverability need
 
 ## Test Plan
 
-| TC    | Verification                                           | Type/Tool                                            |
-| ----- | ------------------------------------------------------ | ---------------------------------------------------- |
-| TC-01 | one session served byte-identically over ≥2 transports | vitest functional (registry + `buildRuntimeSession`) |
-| TC-02 | every registered transport name in the matrix          | doc + consistency test                               |
-| TC-03 | no new bidirectional dep / re-export / package         | `pnpm harness:scan` (`deps`)                         |
-| TC-04 | multi-surface example builds + smoke-runs              | example build / bintest                              |
+| TC    | Verification                                                    | Type/Tool                                                  |
+| ----- | --------------------------------------------------------------- | ---------------------------------------------------------- |
+| TC-01 | `t1.attached === t2.attached === session` (reference identity)  | vitest (registry + `buildRuntimeSession`, recording fakes) |
+| TC-02 | every `agent-transport-*` (excl. `-protocol`) name ↔ matrix row | `pnpm harness:scan` (deployment-matrix drift)              |
+| TC-03 | no new bidirectional dep / re-export / package                  | `pnpm harness:scan` (`deps`)                               |
+| TC-04 | multi-surface example builds + smoke-runs                       | example build / bintest                                    |
 
 ## Tasks
 
@@ -241,3 +276,25 @@ test + deploy guide + runnable example.
   [`remote-control-controller.ts`](../../../packages/agent-cli/src/remote-control/remote-control-controller.ts)).
   Scoped strictly to docs/packaging + a proof test + optional convention-level glue; no new transport, package,
   or sibling edge (fenced by the `deps` scan, TC-03). **GATE-APPROVAL pending** (independent proposal-reviewer).
+- 2026-07-17 — **RE-REVIEW → REVISE (iteration 1, applied).** Direction (documentation + packaging over the
+  existing transport DIP; gateway-sibling and `robota deploy` shapes rejected; no new coupling) confirmed
+  CORRECT; the completion criteria were tightened per the punch-list:
+  - **TC-01** — replaced the imprecise "byte-identical" wording with a falsifiable **reference-identity**
+    assertion: two recording fakes capture their `attach()` argument and the test asserts
+    `t1.attached === t2.attached === session` (the same `IInteractiveSession` instance reaches every enabled
+    transport). Scoped explicitly: it PROVES the registry shares one session instance; it does NOT prove
+    per-surface composition-root discipline (a single `agent-transport` test cannot show absence of branching
+    across all surfaces' composition roots).
+  - **TC-02** — gave the matrix-drift scan a **concrete enumerable source** so it is a real mechanical floor,
+    not a hand-maintained assertion (transport names live at runtime, so there is no `.claude/agents/*.md`-style
+    static set the `orchestration-map` scan relies on): scan the `packages/agent-transport-*` set EXCLUDING
+    `agent-transport-protocol` (not a transport) and require each transport's `name` to appear as a matrix row
+    (or read a static transport-name manifest); added `scripts/harness/scan-deployment-matrix.mjs` to Affected
+    Files and made TC-02 a `harness:scan` FAIL floor.
+  - **Framing precision** — Prior Art + Affected Scope now state the pairing-gated `WebRtcTransport` is
+    `defaultEnabled:false` and started **out-of-band** (`void transport.start()`, attached to the same session
+    but NOT picked up by `startAll`), and cite **REMOTE-001** (default `WsTransport` + pairing-time
+    `WebRtcTransport`, both `attach(session)` on the same instance) as the concrete live SIMULTANEOUS
+    two-transport / one-session prior art for TC-01/TC-04 — rather than implying all five surfaces exercise the
+    fan-out concurrently (the default CLI / `--serve` path runs a single network transport).
+  - TC-03 (`deps` scan) and TC-04 (example build / bintest) unchanged — already genuine floors.
