@@ -9,6 +9,7 @@
 
 import type {
   IRepoMapIndex,
+  IRepoMapIndexChanges,
   IRepoMapIndexEntry,
   IRetrievalCorpusFile,
   IRetrievalSourceParser,
@@ -24,13 +25,42 @@ export interface IBuildRepoMapIndexOptions {
   corpus: IRetrievalCorpusFile[];
 }
 
+/** Parse one corpus file into an index entry. */
+function parseEntry(
+  parser: IRetrievalSourceParser,
+  file: IRetrievalCorpusFile,
+): IRepoMapIndexEntry {
+  const parsed = parser.parse(file.path, file.content);
+  return { path: file.path, definitions: parsed.definitions, references: parsed.references };
+}
+
 /** Parse the whole corpus once into a serializable repo-map index. */
 export function buildRepoMapIndex(options: IBuildRepoMapIndexOptions): IRepoMapIndex {
-  const entries: IRepoMapIndexEntry[] = options.corpus.map((file) => {
-    const parsed = options.parser.parse(file.path, file.content);
-    return { path: file.path, definitions: parsed.definitions, references: parsed.references };
-  });
-  return { version: REPO_MAP_INDEX_VERSION, entries };
+  return {
+    version: REPO_MAP_INDEX_VERSION,
+    entries: options.corpus.map((file) => parseEntry(options.parser, file)),
+  };
+}
+
+/**
+ * Apply corpus changes to a built index INCREMENTALLY (SELFHOST-003 P3): re-parse only the `upserted`
+ * files and drop `removed` paths, reusing every unchanged entry. Returns a new index (the input is not
+ * mutated). A file present in both `removed` and `upserted` is upserted (re-parse wins). Ranking over
+ * the result is identical to a full rebuild of the changed corpus (entry order does not affect ranking).
+ */
+export function updateRepoMapIndex(
+  index: IRepoMapIndex,
+  changes: IRepoMapIndexChanges,
+  parser: IRetrievalSourceParser,
+): IRepoMapIndex {
+  const upsertedFiles = changes.upserted ?? [];
+  const touched = new Set<string>([
+    ...(changes.removed ?? []),
+    ...upsertedFiles.map((file) => file.path),
+  ]);
+  const kept = index.entries.filter((entry) => !touched.has(entry.path));
+  const upserted = upsertedFiles.map((file) => parseEntry(parser, file));
+  return { version: index.version, entries: [...kept, ...upserted] };
 }
 
 /** Serialize a built index to a neutral JSON string for persistence by the surface. */
