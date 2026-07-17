@@ -6,7 +6,7 @@
 
 import { randomUUID } from 'node:crypto';
 
-import { collectAssistantUsageMetadata } from '@robota-sdk/agent-core';
+import { collectAssistantUsageMetadata, calculateModelCost } from '@robota-sdk/agent-core';
 
 import { listActiveContextReferences } from '../context/context-reference-inventory.js';
 import {
@@ -73,9 +73,10 @@ export function buildResult(
   historyBefore: number,
   contextState: IContextWindowState,
   promptFileReferences?: readonly IPromptFileReferenceRecord[],
+  modelId?: string,
 ): IExecutionResult {
   const toolSummaries = extractToolSummaries(sessionHistory, historyBefore);
-  const usage = extractTurnUsage(sessionHistory, historyBefore, contextState);
+  const usage = extractTurnUsage(sessionHistory, historyBefore, contextState, modelId);
   return {
     response,
     history: interactiveHistory,
@@ -97,6 +98,7 @@ export function buildInterruptedResult(
   interactiveHistory: IHistoryEntry[],
   historyBefore: number,
   contextState: IContextWindowState,
+  modelId?: string,
 ): IExecutionResult {
   const toolSummaries = extractToolSummaries(sessionHistory, historyBefore);
   const parts: string[] = [];
@@ -104,7 +106,7 @@ export function buildInterruptedResult(
     const msg = sessionHistory[i];
     if (msg?.role === 'assistant' && msg.content) parts.push(msg.content);
   }
-  const usage = extractTurnUsage(sessionHistory, historyBefore, contextState);
+  const usage = extractTurnUsage(sessionHistory, historyBefore, contextState, modelId);
   return {
     response: parts.join('\n\n'),
     history: interactiveHistory,
@@ -202,6 +204,7 @@ function extractTurnUsage(
   sessionHistory: TUniversalMessage[],
   historyBefore: number,
   contextState: IContextWindowState,
+  modelId?: string,
 ): IUsageSnapshot | undefined {
   const turnMessages = sessionHistory.slice(historyBefore);
   let promptTokens = 0;
@@ -218,6 +221,11 @@ function extractTurnUsage(
   }
 
   if (!foundUsage) return undefined;
+
+  // SELFHOST-004: derive the turn's exact cost from the model-pricing SSOT (input/output split).
+  // `undefined` when no model id is in scope or the model is unpriced → costStatus stays 'unknown'.
+  const costUsd = modelId ? calculateModelCost(modelId, promptTokens, completionTokens) : undefined;
+
   return {
     kind: 'exact',
     scope: 'turn',
@@ -227,7 +235,8 @@ function extractTurnUsage(
     contextUsedTokens: contextState.usedTokens,
     contextMaxTokens: contextState.maxTokens,
     contextUsedPercentage: contextState.usedPercentage,
-    costStatus: 'unknown',
+    costStatus: costUsd !== undefined ? 'exact' : 'unknown',
+    ...(costUsd !== undefined ? { costUsd } : {}),
   };
 }
 

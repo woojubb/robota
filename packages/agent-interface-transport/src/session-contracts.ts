@@ -112,6 +112,12 @@ export interface IUsageSnapshot {
   contextMaxTokens: number;
   contextUsedPercentage: number;
   costStatus: 'unknown' | 'estimated' | 'exact';
+  /**
+   * SELFHOST-004: derived turn cost in USD, present iff `costStatus !== 'unknown'` (i.e. the turn's
+   * model was priced). Computed from the `agent-core/model-pricing.ts` SSOT (`calculateModelCost`,
+   * exact input/output split). Optional = backward-compatible; a turn on an unpriced model omits it.
+   */
+  costUsd?: number;
   /** ANALYTICS-001: which execution unit consumed these tokens. Defaults to the main thread. */
   source?: IUsageSource;
 }
