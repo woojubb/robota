@@ -249,6 +249,8 @@ export {
   type TOrchestrationPrimitive,
   type IOrchestrationStep,
   type ISequentialOrchestrationSpec,
+  type IParallelOrchestrationSpec,
+  type IHandoffOrchestrationSpec,
   type IOrchestrationStepResult,
   type IOrchestrationRunResult,
   type IOrchestrationEventData,

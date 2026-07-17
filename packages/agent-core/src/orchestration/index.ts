@@ -14,6 +14,8 @@ export type {
   TOrchestrationPrimitive,
   IOrchestrationStep,
   ISequentialOrchestrationSpec,
+  IParallelOrchestrationSpec,
+  IHandoffOrchestrationSpec,
   IOrchestrationStepResult,
   IOrchestrationRunResult,
   IOrchestrationEventData,

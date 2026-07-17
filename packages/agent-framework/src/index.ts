@@ -453,8 +453,15 @@ export type {
 } from './subagents/index.js';
 
 // ── Multi-agent orchestration mechanism (SELFHOST-001) ──────
-export { runSequential } from './orchestration/index.js';
-export type { ISequentialOrchestratorDeps, ISequentialRunContext } from './orchestration/index.js';
+export { runSequential, runParallel, runHandoff } from './orchestration/index.js';
+export type {
+  ISequentialOrchestratorDeps,
+  ISequentialRunContext,
+  IParallelOrchestratorDeps,
+  IHandoffOrchestratorDeps,
+  ResolveHandoff,
+  IOrchestrationRunContext,
+} from './orchestration/index.js';
 
 // ── Hook executors ──────────────────────────────────────────
 export { PromptExecutor, AgentExecutor } from './hooks/index.js';

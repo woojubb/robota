@@ -1,9 +1,9 @@
-<!-- archival-exempt: EPIC in progress — P1 shipped; P2 (parallel/handoff) + P3 (hierarchical/group-chat) remain, so the spec stays in spec-docs/active/ until the remaining slices land and GATE-VERIFY/GATE-COMPLETE run. -->
+<!-- archival-exempt: EPIC in progress — P1+P2 shipped; P3 (hierarchical/group-chat) remains, so the spec stays in spec-docs/active/ until the remaining slice lands and GATE-VERIFY/GATE-COMPLETE run. -->
 
 # SELFHOST-001 — first-class multi-agent orchestration primitives (EPIC)
 
 Spec: [`.agents/spec-docs/active/SELFHOST-001-multi-agent-orchestration-primitives.md`](../spec-docs/active/SELFHOST-001-multi-agent-orchestration-primitives.md)
-GATE-APPROVAL: PASSED (iteration 4 ENDORSE). GATE-IMPLEMENT: P1 in progress.
+GATE-APPROVAL: PASSED (iteration 4 ENDORSE). GATE-IMPLEMENT: P1+P2 in progress (P3 remains).
 
 ## P1 — `sequential` + neutral contracts + SPEC amendment (this slice) ✅ IMPLEMENTED
 
@@ -37,7 +37,29 @@ Maps the spec's Completion Criteria to the shipped verification (all green local
 
 Command evidence: `pnpm --filter @robota-sdk/agent-core --filter @robota-sdk/agent-framework build && … typecheck` (pass), `… test src/orchestration/__tests__/sequential.test.ts` (5/5), `… lint` (0 errors), `pnpm harness:scan` (all 54 scans pass).
 
-## P2 — `parallel` (bounded concurrency + aggregation) + `handoff` (control-transfer) — PENDING
+## P2 — `parallel` (bounded concurrency + aggregation) + `handoff` (control-transfer) ✅ IMPLEMENTED
+
+- [x] agent-core: `IParallelOrchestrationSpec` (concurrent steps + bounded `maxConcurrency`) and
+      `IHandoffOrchestrationSpec` (control-transfer among steps; `entryStepId` + `maxHandoffs` loop bound) added to
+      `orchestration-contracts.ts`; `IOrchestrationRunResult.output` doc generalized (sequential/handoff = last
+      step; parallel = order-preserving join). Exported from `src/orchestration/index.ts` + `src/index.ts`. Pure
+      types — still zero new `@robota-sdk/agent-*` production deps.
+- [x] agent-framework: `runParallel` (`parallel.ts`) — bounded-concurrency worker pool, order-preserving results,
+      `\n\n`-joined aggregate; `runHandoff` (`handoff.ts`) — dynamic control-transfer driven by an injected neutral
+      `resolveHandoff` policy (WHICH step receives control is a caller decision, so the primitive stays neutral),
+      previous-output threading, `maxHandoffs` loop-bound guard. Both compose over the same
+      `agent-executor` `ISubagentManager`/`ISubagentRunner` port; spawn/wait/event mechanics factored into
+      `shared.ts` (also now used by the refactored `sequential.ts`). Exported from both index files.
+- [x] Still NO dep on `agent-subagent-runner` (no-cycle — `deps` scan green); neutrality floor
+      (`orchestration-neutrality`) already covers the new source and stays clean.
+- [x] SPEC amendments: `agent-core/docs/SPEC.md` Orchestration Public API table adds the two specs;
+      `agent-framework/docs/SPEC.md` documents `runParallel`/`runHandoff` + the `shared.ts` factoring.
+- [x] Tests: `parallel.test.ts` (7: order+aggregate, bounded-concurrency peak, unbounded, `maxConcurrency<=0`,
+      events, failed-rethrow, end-to-end over a real `SubagentManager`), `handoff.test.ts` (5: transfer+thread+order,
+      stop-on-null, maxHandoffs-exceeded, unknown-target, end-to-end), shared `orchestration-test-helpers.ts`.
+      Review-polish (PR #1194, 0 actionable): `runParallel` fail-fast (siblings stop pulling steps once one throws) + `IOrchestrationRunResult.steps` ordering doc made primitive-precise.
+- [x] Verified locally: build (core+framework), typecheck, orchestration tests **18/18** (6 sequential + 7 parallel + 5 handoff),
+      lint (0 errors), `pnpm harness:scan` (all **54** scans pass), `harness:test` neutrality scan 5/5.
 
 ## P3 — `hierarchical` (manager-delegation) + `group-chat` (turn-taking) — PENDING
 
