@@ -45,19 +45,26 @@ report; you never lump multiple days into one report.
    (`git-branch.md`): `docs(daily-report): <YYYY-MM-DD> work report`. One commit may cover several
    catch-up days.
 
-## Background Trigger
+## Background Trigger — runs in PARALLEL; never blocks the main task
 
-The skill is meant to fire **as a background agent when a UTC hour boundary passes during active work**.
-Two equivalent entry points:
+Report generation MUST run as a **background worker, in parallel with the main loop** — the main loop
+does NOT stop its current work to write a report. Concretely: the main loop **dispatches this skill's
+Steps to a background subagent** (`Agent` with `run_in_background: true`) and immediately continues its
+own work; when the background subagent completes, the main loop is notified and gives the owner a
+**brief one-paragraph briefing** on the report, then resumes. (Owner workflow, 2026-07-18.)
 
-- **Self-scheduled:** in a live session, schedule a wake near a UTC hour boundary (e.g. `ScheduleWakeup`
-  / a cron entry) whose prompt invokes this skill. On wake, run the **Plan** step; act only if a work
+Entry points:
+
+- **Self-scheduled (the intended default):** near a UTC hour boundary during active work, the main loop
+  schedules/kicks off the background report subagent (e.g. via a scheduled wake / cron whose action is
+  "dispatch the daily-report subagent"), then keeps working. Act only if the **Plan** step shows a work
   day needs a report.
-- **Manual / on-demand:** invoke `/daily-report` (or run the harness) any time to catch up.
+- **Manual / on-demand:** the owner invokes `/daily-report` (or runs the harness) any time to catch up.
 
 The trigger is idempotent: the harness writes a report only for a UTC day that is (a) a work day and
 (b) after the last existing report — so re-firing on the same day is a no-op (use `--force` only to
-regenerate an existing day's factual sections).
+regenerate an existing day's factual sections). Because it runs in the background, a report never
+interrupts or slows the main work; the only foreground moment is the short completion briefing.
 
 ## Boundaries
 
