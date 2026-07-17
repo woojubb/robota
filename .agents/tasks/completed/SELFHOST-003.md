@@ -1,9 +1,7 @@
-<!-- archival-exempt: EPIC in progress — v1 P1 (retrieval contract + tool + repo-map reference adapter) is the first slice; P2 (index+persistence) / P3 (incremental re-index) / P4 (vector backend) remain, so the spec stays in spec-docs/active/ until the v1 slice(s) land and GATE-VERIFY/GATE-COMPLETE run. -->
-
 # SELFHOST-003 — codebase retrieval: contract + tool + reference adapter (EPIC, v1)
 
-Spec: [`.agents/spec-docs/active/SELFHOST-003-codebase-index-rag.md`](../spec-docs/active/SELFHOST-003-codebase-index-rag.md)
-GATE-APPROVAL: PASSED (iteration 4 ENDORSE). GATE-IMPLEMENT in progress (v1 = P1).
+Spec: [`.agents/spec-docs/done/SELFHOST-003-codebase-index-rag.md`](../../spec-docs/done/SELFHOST-003-codebase-index-rag.md)
+GATE-APPROVAL: PASSED (iteration 4 ENDORSE). GATE-IMPLEMENT: v1 P1+P2+P3. GATE-VERIFY + GATE-COMPLETE: PASSED — spec in `spec-docs/done/`, this task archived. P4 (vector backend) DEFERRED to a backlog.
 
 ## Recommendation (gate)
 
@@ -52,7 +50,12 @@ surface** (no repo paths in `agent-tools`). `createRetrievalTool({ adapter })` m
       removed + adds new; input not mutated; upsert-wins. 17/17 retrieval tests.
 - [x] Verify: build + typecheck + tests + lint (0 errors) + `pnpm harness:scan` (54/54).
 
-## P4 — embedding-vector backend (may revise the port) — PENDING
+## P4 — embedding-vector backend (may revise the port) — DEFERRED
+
+Consciously deferred per the spec (the vector backend is not interchangeable behind the repo-map signature and
+**may revise the port**). Filed as a follow-on backlog:
+[`.agents/backlog/SELFHOST-003-P4-embedding-vector-backend.md`](../backlog/SELFHOST-003-P4-embedding-vector-backend.md).
+v1 (P1–P3) satisfies the epic's Completion Criteria TC-01..05, so GATE-VERIFY/GATE-COMPLETE run on v1 with P4 tracked separately.
 
 ## Test Plan
 
