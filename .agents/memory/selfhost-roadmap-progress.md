@@ -72,9 +72,17 @@ authored grounded in real code (four corrected inaccurate backlog seeds against 
 `proposal-reviewer` gate repeatedly caught genuine code-verified defects (dependency cycles, wrong placement,
 unbuildable data-flow, a neutrality scan bypassable by camelCase) BEFORE any code — see the specs' Evidence Logs.
 PRs use the DX-001 batching policy (one coherent design-gate pass per PR) and the HARNESS-018 async PR-review
-(reviewer → 0/1 actionable → fix → merge). **SELFHOST-001, SELFHOST-002, and SELFHOST-003 (v1) are DONE** (all gates).
+(reviewer → 0/1 actionable → fix → merge). **SELFHOST-001, SELFHOST-002, SELFHOST-003 (v1), and SELFHOST-004
+are DONE** (all gates). **SELFHOST-004 (run tracing + per-run cost budgeting view)** landed P1–P6 (PRs #1205,
+#1210, #1211; spec in `spec-docs/done/`, task in `tasks/completed/`, TC-01…08 checked): turn-granular `costUsd`
+→ span-completion event (spanId+durationMs+op) → cost-by-source + span-timeline read-model → per-run budget cap
+(`LimitsPlugin.maxRunCost`, exact `calculateModelCost` path) → `usage_report` `TServerMessage` carrier +
+`formatUsageReport` view → **live wiring** (session-owned `ObservableEventService`, permission-wrapper
+`setEventService` forward, per-turn `collectSpanEntries` draining spans onto history before the usage-summary).
+Full chain live in a real interactive turn. Note: span→turn grouping is positional (spans before each
+usage-summary), not `ownerPath`-based; `ISpanEntry` carries no owner field.
 Next: pick up the remaining specs from `todo/` in priority order (they are `priority: medium`/`low`, `urgency: later`);
-each follows the same GATE-IMPLEMENT → VERIFY → COMPLETE flow. Consider SELFHOST-004 (trace/cost view) next.
+each follows the same GATE-IMPLEMENT → VERIFY → COMPLETE flow.
 Committing at logical boundaries per the new commit-cadence rule (git-branch.md).
 Multi-package specs split into named P-slice work units (own PR each); each code-changing spec's GATE-COMPLETE needs
 a real user-execution scenario (product surface — CLI print-mode or public-SDK usage, agent-executable, evidence captured).
