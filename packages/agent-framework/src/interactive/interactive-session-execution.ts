@@ -130,6 +130,9 @@ export function createUsageSummaryEntry(usage: IUsageSnapshot): IHistoryEntry<IU
  * ANALYTICS-001 (Phase 2): build a usage-summary entry attributed to a non-main source (a subagent /
  * background task) so the parent session log can report token usage per source. Context fields are
  * not meaningful for a child run and are left at 0; the usage reducer only reads the token totals.
+ * Cost is NOT derived here (no model id is in scope for the child run), so `costStatus: 'unknown'`
+ * and `costUsd` is omitted — honoring the SELFHOST-004 invariant "costUsd present iff costStatus !==
+ * 'unknown'" (the `kind: 'exact'` still reflects exact TOKENS).
  */
 export function createSourceUsageSummaryEntry(
   totals: { promptTokens: number; completionTokens: number; totalTokens: number },
@@ -144,7 +147,7 @@ export function createSourceUsageSummaryEntry(
     contextUsedTokens: 0,
     contextMaxTokens: 0,
     contextUsedPercentage: 0,
-    costStatus: 'exact',
+    costStatus: 'unknown',
     source,
   });
 }

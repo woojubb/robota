@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildResult, createUsageSummaryEntry } from '../interactive-session-execution.js';
+import {
+  buildResult,
+  createUsageSummaryEntry,
+  createSourceUsageSummaryEntry,
+} from '../interactive-session-execution.js';
 
 import type { IContextWindowState, TUniversalMessage } from '@robota-sdk/agent-core';
 
@@ -93,6 +97,17 @@ describe('interactive session usage summaries', () => {
 
     expect(result.usage?.costStatus).toBe('unknown');
     expect(result.usage?.costUsd).toBeUndefined();
+  });
+
+  // SELFHOST-004: the source-attribution entry derives no cost → costStatus 'unknown' + no costUsd,
+  // honoring the invariant "costUsd present iff costStatus !== 'unknown'".
+  it('TC-06: source-attributed usage carries costStatus unknown and no costUsd', () => {
+    const entry = createSourceUsageSummaryEntry(
+      { promptTokens: 100, completionTokens: 50, totalTokens: 150 },
+      { scope: 'subagent', id: 'agent_1' },
+    );
+    expect(entry.data?.costStatus).toBe('unknown');
+    expect(entry.data?.costUsd).toBeUndefined();
   });
 
   it('creates persisted usage-summary history entries', () => {
