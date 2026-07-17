@@ -38,6 +38,7 @@ function createMockSession(options?: {
     clearHistory: vi.fn(),
     getPermissionMode: vi.fn().mockReturnValue('default'),
     setPermissionMode: vi.fn(),
+    getModelId: vi.fn().mockReturnValue('test-model'),
     getSessionId: vi.fn().mockReturnValue('sess-1'),
     getSystemMessage: vi.fn().mockReturnValue('system prompt with capabilities'),
     getToolSchemas: vi
