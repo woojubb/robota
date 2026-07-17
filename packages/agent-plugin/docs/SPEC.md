@@ -121,16 +121,16 @@ All types below are defined in `@robota-sdk/agent-plugin` and re-exported from `
 
 ### Plugin Classes
 
-| Export                      | Kind  | Description                                            |
-| --------------------------- | ----- | ------------------------------------------------------ |
-| `ConversationHistoryPlugin` | class | Persists conversation history with pluggable storage   |
-| `ErrorHandlingPlugin`       | class | Error recovery with circuit-breaker / retry strategies |
-| `ExecutionAnalyticsPlugin`  | class | Tracks timing and success/failure of agent operations  |
-| `LimitsPlugin`              | class | Rate limiting on tokens, requests, and cost            |
-| `LoggingPlugin`             | class | Multi-backend structured logging                       |
-| `PerformancePlugin`         | class | System and application performance metrics             |
-| `UsagePlugin`               | class | Token usage and cost tracking                          |
-| `WebhookPlugin`             | class | HTTP webhook notifications for lifecycle events        |
+| Export                      | Kind  | Description                                                                                                                                                                                                      |
+| --------------------------- | ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ConversationHistoryPlugin` | class | Persists conversation history with pluggable storage                                                                                                                                                             |
+| `ErrorHandlingPlugin`       | class | Error recovery with circuit-breaker / retry strategies                                                                                                                                                           |
+| `ExecutionAnalyticsPlugin`  | class | Tracks timing and success/failure of agent operations                                                                                                                                                            |
+| `LimitsPlugin`              | class | Rate limiting on tokens, requests, and cost; plus an orthogonal per-run cumulative budget cap (`maxRunCost`, keyed by `sessionId`, exact `costUsd` via the pricing SSOT, reset via `resetLimits`) — SELFHOST-004 |
+| `LoggingPlugin`             | class | Multi-backend structured logging                                                                                                                                                                                 |
+| `PerformancePlugin`         | class | System and application performance metrics                                                                                                                                                                       |
+| `UsagePlugin`               | class | Token usage and cost tracking                                                                                                                                                                                    |
+| `WebhookPlugin`             | class | HTTP webhook notifications for lifecycle events                                                                                                                                                                  |
 
 ### Storage / Utility Classes
 
