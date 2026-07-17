@@ -48,8 +48,11 @@ Constraint: all are neutral mechanisms (no persona/room/topic) — library-neutr
    `ISubagentRunner` port (CHOSEN).**
    - ✅ Correct layering (core owns the abstracts + event-service the consuming layer implements — mirrors
      `AbstractAIProvider`); reuses the existing subagent port; no dependency cycle; neutral.
-   - ❌ Requires amending `agent-core/docs/SPEC.md` Boundaries (today `:1121` frames the multi-agent layer as a
-     _consumer_ of core) to take ownership of the neutral orchestration _contracts_.
+   - ❌ Requires amending `agent-core/docs/SPEC.md` Boundaries: today `:1121` frames the multi-agent/orchestration
+     layer as a _consumer_ of core ("the multi-agent/orchestration layer consumes `Robota`, `IAgentConfig`, event
+     services"). It must be converted to **"agent-core OWNS the neutral orchestration contracts + event-type
+     unions; the framework layer IMPLEMENTS them"**, reclassifying core's role in that Boundaries / Key-Peer-
+     Contracts section.
 2. **Compose over `agent-subagent-runner` (the concrete child-process runner).**
    - ✅ It is the richest runner.
    - ❌ `agent-subagent-runner` depends on `agent-framework` → framework composing over it is a **dependency cycle**.
@@ -64,14 +67,24 @@ Constraint: all are neutral mechanisms (no persona/room/topic) — library-neutr
 
 Adopt (1): neutral orchestration **contracts + event-type unions in `agent-core`** (with a SPEC Boundaries
 amendment), and the **mechanism/assembly in `agent-framework`** composing over `agent-executor`'s `ISubagentRunner`
-port; the concrete runner stays injected at the `agent-cli` composition root. **Why core (real rationale):** the
-event-type unions **co-locate with core's existing event-payload contracts** (`IAgentEventData`/`IToolEventData`
-in `event-service/interfaces.ts`) — an interface package would fragment that SSOT — and there is a **single
-implementer family** today (framework). (Not "because it mirrors `AbstractAIProvider`", which is a runtime class;
-these are pure contracts.) **Extraction trigger (B3):** when a second implementer family lands (a dag-\* adapter
-mapping sequential/parallel to the graph), extract the **pure contracts** — not the event unions — into a new
-`agent-interface-orchestration` package so dag-\* need not depend on heavy `agent-core`. The role/manager concepts
-are opaque neutral mechanisms — no room/persona/topic fields (TRANS-001 neutrality).
+port; the concrete runner stays injected at the `agent-cli` composition root. **Why core (real rationale):** a
+**single implementer family** today (framework) + **YAGNI** — an interface package earns its keep only once a
+second consuming family exists, and there is none yet — plus a **pre-committed extraction trigger** (below) that
+keeps the later split mechanical. (Not "because it mirrors `AbstractAIProvider`", which is a runtime class; these
+are pure contracts. And explicitly _not_ "an interface package would fragment the event-payload SSOT" — it would
+not, per the analog below.) **Interface-package analog (`InteractionEvent`):** `agent-interface-transport` already
+owns a runtime-emitted event union — `InteractionEvent` in `src/interaction-contracts.ts` — that **extends
+`agent-core`'s base types** (`IActionRequest`/`TActionResponse`) without fragmenting any SSOT, under the allowed
+Interface-Package dependency rule (deps ⊆ {`agent-core`}; see `agent-interface-transport/package.json`). So an
+interface package _can_ own an event union cleanly — the fragmentation objection is false. The reason orchestration
+keeps its contracts in core **now** is not fragmentation but **consumer count**: transport was extracted with **≥2
+consuming families** at extraction time, whereas orchestration has **one** (agent-framework) today. **Extraction
+trigger (B3):** when a second implementer family lands (a dag-\* adapter mapping sequential/parallel to the graph),
+move **both** the pure contracts **and** the event-type unions into a new `agent-interface-orchestration` package
+(deps ⊆ {`agent-core`}, mirroring `agent-interface-transport`), so the future dag-\* adapter depends on that light
+interface package — **not** on heavy `agent-core` merely for the event types. The event unions do **not** stay in
+core permanently; pinning their destination now makes the later move mechanical rather than a re-fragmentation. The
+role/manager concepts are opaque neutral mechanisms — no room/persona/topic fields (TRANS-001 neutrality).
 
 ### Validated Recommendation (spec-workflow.md)
 
@@ -106,13 +119,13 @@ scoping. No room/persona/topic anywhere.
 
 ## Affected Files
 
-| File                                                | Change                                                                    |
-| --------------------------------------------------- | ------------------------------------------------------------------------- |
-| `packages/agent-core/src/orchestration/` (new)      | neutral primitive contracts + event-type unions                           |
-| `packages/agent-core/src/index.ts`                  | export the contracts                                                      |
-| `packages/agent-core/docs/SPEC.md`                  | Boundaries amendment: agent-core owns the neutral orchestration contracts |
-| `packages/agent-framework/src/orchestration/` (new) | assembly over `agent-executor` `ISubagentRunner` + builder API            |
-| `packages/agent-framework/docs/SPEC.md`             | document the assembly surface                                             |
+| File                                                | Change                                                                                                                                                                                                                                            |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/agent-core/src/orchestration/` (new)      | neutral primitive contracts + event-type unions                                                                                                                                                                                                   |
+| `packages/agent-core/src/index.ts`                  | export the contracts                                                                                                                                                                                                                              |
+| `packages/agent-core/docs/SPEC.md`                  | Boundaries amendment: convert `:1121` ("multi-agent/orchestration layer CONSUMES core") to "agent-core OWNS the neutral orchestration contracts + event-type unions; the framework layer IMPLEMENTS them"; reclassify core's role in that section |
+| `packages/agent-framework/src/orchestration/` (new) | assembly over `agent-executor` `ISubagentRunner` + builder API                                                                                                                                                                                    |
+| `packages/agent-framework/docs/SPEC.md`             | document the assembly surface                                                                                                                                                                                                                     |
 
 ## Completion Criteria
 
@@ -120,19 +133,19 @@ scoping. No room/persona/topic anywhere.
 - [ ] TC-02: the `sequential` primitive emits its lifecycle events on the existing event-service (unit test).
 - [ ] TC-03: agent-framework composes a `sequential` run end-to-end over `agent-executor`'s `ISubagentRunner` (via `createInProcessSubagentRunner`) — functional test; framework carries NO dep on `agent-subagent-runner` (deps scan).
 - [ ] TC-04: `agent-framework` does not depend on `agent-subagent-runner` (no-cycle) — verified by the deps/one-way scan.
-- [ ] TC-05: no room/persona/topic (or other app-domain) fields in the orchestration contracts — enforced by a **bespoke, failing-capable structural test/scan** over the orchestration contract shapes (NOT the `interface-runtime` scan, which neither covers `agent-core` nor checks app-domain field names, so it would be false-green here).
+- [ ] TC-05: no room/persona/topic (or other app-domain) fields in the orchestration contracts — enforced by a **bespoke, failing-capable neutrality scan wired into `pnpm harness:scan` as a standing FAIL condition** (a new `orchestration-neutrality` scan registered in `scripts/harness/run-all-scans.mjs`), so it **keeps firing on every run** and guards P2/P3's `hierarchical`/`group-chat` additions when they land — not a one-time P1 vitest. Per [enforcement-architecture.md](../../rules/enforcement-architecture.md), every guardian needs a mechanical floor that keeps firing. (NOT the `interface-runtime` scan, which neither covers `agent-core` nor checks app-domain field names, so it would be false-green here.)
 - [ ] TC-06: agent-core + agent-framework SPEC.md document the new surface incl. the Boundaries amendment (docs scan).
 
 ## Test Plan
 
-| TC    | Verification                       | Type/Tool                                            |
-| ----- | ---------------------------------- | ---------------------------------------------------- |
-| TC-01 | zero new agent-\* deps             | `pnpm harness:scan` deps                             |
-| TC-02 | sequential events fire             | vitest unit                                          |
-| TC-03 | sequential over ISubagentRunner    | framework functional test                            |
-| TC-04 | no agent-subagent-runner dep       | deps/one-way scan                                    |
-| TC-05 | neutrality (no room/persona/topic) | bespoke structural test/scan (not interface-runtime) |
-| TC-06 | SPEC updated + amendment           | docs-structure scan                                  |
+| TC    | Verification                       | Type/Tool                                                                              |
+| ----- | ---------------------------------- | -------------------------------------------------------------------------------------- |
+| TC-01 | zero new agent-\* deps             | `pnpm harness:scan` deps                                                               |
+| TC-02 | sequential events fire             | vitest unit                                                                            |
+| TC-03 | sequential over ISubagentRunner    | framework functional test                                                              |
+| TC-04 | no agent-subagent-runner dep       | deps/one-way scan                                                                      |
+| TC-05 | neutrality (no room/persona/topic) | standing `pnpm harness:scan` floor (`orchestration-neutrality`; not interface-runtime) |
+| TC-06 | SPEC updated + amendment           | docs-structure scan                                                                    |
 
 ## Tasks
 
@@ -155,3 +168,17 @@ SPEC amendment), P2 (parallel + handoff), P3 (hierarchical + group-chat).
   bespoke failing-capable structural test; core-placement rationale corrected (event-union co-location + single
   implementer, not "mirrors AbstractAIProvider"); extraction trigger to `agent-interface-orchestration` at the
   dag-adapter family recorded. Iteration-3 re-review pending.
+- 2026-07-17 — **iteration 3: RE-REVIEW → REVISE, applied.** Independent re-reviewer's GATE-APPROVAL punch-list
+  (4 fixes) applied; chosen alternative (1) unchanged. (1) **Core-placement rationale re-based** on single
+  implementer family today + YAGNI + a pre-committed extraction trigger — dropped the "interface package would
+  fragment the event-payload SSOT" claim, which is contradicted by `InteractionEvent` (a runtime-emitted event
+  union in `agent-interface-transport/src/interaction-contracts.ts` that extends agent-core base types without
+  fragmenting anything; Interface-Package deps ⊆ {agent-core}); orchestration defers the interface package now
+  because it has **one** consuming family (agent-framework) vs transport's **≥2** at extraction. (2) **Extraction
+  trigger tightened:** at the dag-\* second family, **both** the pure contracts **and** the event-type unions move
+  to a new `agent-interface-orchestration` (deps ⊆ {agent-core}) — event unions do not stay in core permanently,
+  so dag-\* need not depend on heavy agent-core just for event types. (3) **TC-05 promoted** from one-time vitest
+  to a **standing `pnpm harness:scan` floor** (`orchestration-neutrality`) that keeps firing and guards P2/P3
+  hierarchical/group-chat (per enforcement-architecture.md). (4) **SPEC-amendment framing pinned:** convert `:1121`
+  from "multi-agent/orchestration layer CONSUMES core" to "agent-core OWNS the neutral contracts + event unions;
+  framework IMPLEMENTS them", reclassifying core's Boundaries role. Iteration-4 re-review pending.
