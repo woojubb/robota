@@ -8,8 +8,9 @@ app built from these same libraries**, not the product itself.
 > Evaluating with an AI agent? Start at [`llms.txt`](./llms.txt) — the consumer map (identity,
 > minimal package set, capability matrix, behavior contracts).
 
-> **Where this is going:** [`VISION.md`](./VISION.md) — _Robota builds Robota_. The `robota` CLI and app
-> develop the Robota repository itself; the capability roadmap lives in
+> **Where this is going:** [`VISION.md`](./VISION.md) — _Robota builds Robota_. The goal is a **general**
+> development agent capable enough to build even Robota; developing the Robota repo is the **validation
+> benchmark** (the hardest dogfood), not a Robota-dedicated tool. The capability roadmap lives in
 > [`.agents/backlog/SELFHOST-*`](./.agents/backlog/).
 
 ## Quick Start — Embed the Library
