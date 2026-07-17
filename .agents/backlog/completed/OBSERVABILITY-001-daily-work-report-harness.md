@@ -1,12 +1,38 @@
 ---
 title: 'OBSERVABILITY-001: daily work-report harness (template-based, UTC-daily, background-triggered)'
-status: todo
+status: done
 created: 2026-07-18
+completed: 2026-07-18
 priority: medium
 urgency: later
 area: .agents, scripts/harness, .claude
 depends_on: []
 ---
+
+## Completion (2026-07-18)
+
+Implemented as a harness generator + an orchestrator skill:
+
+- **Harness** `scripts/harness/daily-report.mjs` — per-UTC-day work report from git history: work-day
+  detection (commits), catch-up range from the last report (`workDaysNeedingReport`, skipping no-work
+  days), per-day data gathering (`gatherDayData`: commits, merged PRs, files/specs/tasks touched),
+  and template rendering (`renderReport`) with a `## Summary` left for an agent. Pure functions with
+  injected git (`runGit`); CLI `--plan` / `--date` / `--force`.
+- **Skill** `.agents/skills/daily-report/SKILL.md` — orchestrates: `--plan` → author each day's
+  `## Summary` prose → commit; documents the background trigger (UTC hour boundary during active work;
+  self-scheduled or `/daily-report`), idempotent + day-by-day catch-up.
+- **Reports** land as a DURABLE committed record at `.agents/daily-reports/YYYY-MM-DD.md` (the gitignored
+  `.agents/reports/` throwaway dir is deliberately NOT used).
+
+Resolved open questions: work-day signal = git commits; location = `.agents/daily-reports/`; UTC-exact
+day boundary computed in JS from committer ISO date; catch-up bookkeeping = last existing report file;
+first-ever run reports only the current day (no retroactive backfill of all history).
+
+**User Execution: N/A** — internal harness tooling + a skill, not a Robota product surface (CLI/TUI/GUI/
+SDK). Engineering evidence: `daily-report.test.mjs` 5/5 (range, work-day catch-up, no-work skip, render);
+full `harness:test` 308/308; `pnpm harness:scan` 54/54. Demonstrated end-to-end: `node
+scripts/harness/daily-report.mjs --date 2026-07-17` produced a complete report (22 commits, 22 merged
+PRs, 106 files touched) with the factual sections filled and the Summary placeholder for the agent.
 
 # Daily work-report harness
 
