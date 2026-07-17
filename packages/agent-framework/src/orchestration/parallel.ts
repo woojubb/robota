@@ -50,13 +50,22 @@ export async function runParallel(
     spec.maxConcurrency && spec.maxConcurrency > 0 ? spec.maxConcurrency : spec.steps.length;
   const poolSize = Math.max(1, Math.min(bound, spec.steps.length));
   let nextIndex = 0;
+  let aborted = false;
 
   async function worker(): Promise<void> {
     for (;;) {
+      // Fail-fast: once any sibling has thrown, stop pulling new steps so an
+      // early failure does not keep spawning the rest of the queue.
+      if (aborted) return;
       const index = nextIndex++;
       if (index >= spec.steps.length) return;
       const step = spec.steps[index];
-      results[index] = await runStepOnce(step, index, step.prompt, deps, runId, emit);
+      try {
+        results[index] = await runStepOnce(step, index, step.prompt, deps, runId, emit);
+      } catch (error) {
+        aborted = true;
+        throw error;
+      }
     }
   }
 

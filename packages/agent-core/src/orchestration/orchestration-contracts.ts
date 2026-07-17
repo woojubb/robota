@@ -110,7 +110,11 @@ export interface IOrchestrationStepResult {
 export interface IOrchestrationRunResult {
   /** Which primitive produced this result. */
   primitive: TOrchestrationPrimitive;
-  /** Per-step results in original step order. */
+  /**
+   * Per-step results — in EXECUTION order for `sequential`/`handoff` (a
+   * `handoff` may repeat a step id when control returns to it), in ORIGINAL
+   * step order for `parallel` (regardless of completion order).
+   */
   steps: IOrchestrationStepResult[];
   /**
    * The aggregate output. `sequential` and `handoff` return the LAST executed

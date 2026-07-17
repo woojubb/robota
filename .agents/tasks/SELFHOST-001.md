@@ -54,10 +54,11 @@ Command evidence: `pnpm --filter @robota-sdk/agent-core --filter @robota-sdk/age
       (`orchestration-neutrality`) already covers the new source and stays clean.
 - [x] SPEC amendments: `agent-core/docs/SPEC.md` Orchestration Public API table adds the two specs;
       `agent-framework/docs/SPEC.md` documents `runParallel`/`runHandoff` + the `shared.ts` factoring.
-- [x] Tests: `parallel.test.ts` (6: order+aggregate, bounded-concurrency peak, unbounded, events, failed-rethrow,
-      end-to-end over a real `SubagentManager`), `handoff.test.ts` (5: transfer+thread+order, stop-on-null,
-      maxHandoffs-exceeded, unknown-target, end-to-end), shared `orchestration-test-helpers.ts`.
-- [x] Verified locally: build (core+framework), typecheck, orchestration tests **17/17** (6 seq + 6 par + 5 handoff),
+- [x] Tests: `parallel.test.ts` (7: order+aggregate, bounded-concurrency peak, unbounded, `maxConcurrency<=0`,
+      events, failed-rethrow, end-to-end over a real `SubagentManager`), `handoff.test.ts` (5: transfer+thread+order,
+      stop-on-null, maxHandoffs-exceeded, unknown-target, end-to-end), shared `orchestration-test-helpers.ts`.
+      Review-polish (PR #1194, 0 actionable): `runParallel` fail-fast (siblings stop pulling steps once one throws) + `IOrchestrationRunResult.steps` ordering doc made primitive-precise.
+- [x] Verified locally: build (core+framework), typecheck, orchestration tests **18/18** (6 sequential + 7 parallel + 5 handoff),
       lint (0 errors), `pnpm harness:scan` (all **54** scans pass), `harness:test` neutrality scan 5/5.
 
 ## P3 — `hierarchical` (manager-delegation) + `group-chat` (turn-taking) — PENDING

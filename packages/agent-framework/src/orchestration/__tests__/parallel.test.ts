@@ -103,6 +103,32 @@ describe('SELFHOST-001 P2 — parallel orchestration', () => {
     expect(peak).toBe(4);
   });
 
+  it('treats maxConcurrency <= 0 as unbounded', async () => {
+    let inFlight = 0;
+    let peak = 0;
+    const manager: ISubagentManager = {
+      async spawn() {
+        inFlight += 1;
+        peak = Math.max(peak, inFlight);
+        return jobState('job');
+      },
+      async wait(jobId) {
+        await Promise.resolve();
+        await Promise.resolve();
+        inFlight -= 1;
+        return { jobId, output: 'x' } satisfies ISubagentJobResult;
+      },
+      list: () => [],
+      get: () => undefined,
+      cancel: async () => {},
+      close: async () => {},
+      send: async () => {},
+      shutdown: async () => {},
+    };
+    await runParallel(fourStepSpec(0), { manager, context: TEST_CONTEXT });
+    expect(peak).toBe(4);
+  });
+
   it('emits STARTED, a start/complete per step, and COMPLETED', async () => {
     const { manager } = fakeManager(['a', 'b']);
     const { events, names } = capturingEvents();
