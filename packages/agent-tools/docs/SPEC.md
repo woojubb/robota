@@ -119,6 +119,10 @@ Types owned by this package (SSOT):
 | `TInMemorySandboxRunHandler`            | Type     | Custom run handler type for `InMemorySandboxClient`                                                                                                        |
 | `applyWorkspaceManifest`                | Function | Applies a workspace manifest through an `ISandboxClient`                                                                                                   |
 | `validateWorkspaceManifestPath`         | Function | Validates and normalizes manifest entry paths                                                                                                              |
+| `createRetrievalTool`                   | Function | SELFHOST-003 — the `CodebaseRetrieval` tool over an injected `IRetrievalAdapter` (adapter-gated; no corpus in the package)                                 |
+| `RepoMapRetrievalAdapter`               | Class    | SELFHOST-003 — neutral repo-map graph-centrality ranking adapter (source parser injected, corpus from the surface; token-budgeted)                         |
+| `IRetrievalAdapter`                     | Type     | SELFHOST-003 — codebase-retrieval port (`retrieve(request) → ranked result within a token budget`)                                                         |
+| `IRetrievalSourceParser`                | Type     | SELFHOST-003 — duck-typed source-parser port injected into the ranking adapter                                                                             |
 
 ### Built-in CLI Tools
 

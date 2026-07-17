@@ -94,7 +94,11 @@ export function createSession(options: ICreateSessionOptions): ICreateSessionRes
     ? skillCommandSource.getModelInvocableSkills()
     : [];
 
-  const baseDefaultTools = createDefaultTools({ sandboxClient: options.sandboxClient, cwd });
+  const baseDefaultTools = createDefaultTools({
+    sandboxClient: options.sandboxClient,
+    cwd,
+    ...(options.retrievalAdapter ? { retrievalAdapter: options.retrievalAdapter } : {}),
+  });
   const shouldWrapHostEditCheckpoints =
     options.editCheckpointRecorder !== undefined && options.sandboxClient === undefined;
   const defaultTools =

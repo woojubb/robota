@@ -30,7 +30,7 @@ import type {
   TPermissionResult,
   ISessionLogger,
 } from '@robota-sdk/agent-session';
-import type { ISandboxClient } from '@robota-sdk/agent-tools';
+import type { ISandboxClient, IRetrievalAdapter } from '@robota-sdk/agent-tools';
 
 export type TAutoCompactThreshold = number | false;
 export type TSessionOptionsWithAutoCompact = ISessionOptions & {
@@ -160,6 +160,11 @@ export interface ICreateSessionOptions {
   reversibleExecution?: IReversibleExecutionOptions;
   /** Optional provider sandbox client used by sandbox-aware built-in tools. */
   sandboxClient?: ISandboxClient;
+  /**
+   * SELFHOST-003: optional codebase-retrieval adapter (built from a surface-supplied source parser +
+   * corpus). When present, the adapter-gated `CodebaseRetrieval` tool joins the default set; absent otherwise.
+   */
+  retrievalAdapter?: IRetrievalAdapter;
   /** Name reported to the underlying Robota agent config. Defaults to 'agent'. */
   agentName?: string;
   /** Active preset id selected at startup (PRESET-011 runtime state). Defaults to 'default'. */

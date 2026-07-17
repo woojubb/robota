@@ -16,3 +16,5 @@ export {
   RepoMapRetrievalAdapter,
   type IRepoMapRetrievalAdapterOptions,
 } from './repo-map-adapter.js';
+
+export { createRetrievalTool } from './retrieval-tool.js';
