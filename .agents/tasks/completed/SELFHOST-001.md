@@ -1,9 +1,7 @@
-<!-- archival-exempt: EPIC in progress — all 5 primitives implemented (P1 sequential, P2 parallel/handoff, P3 hierarchical/group-chat); the spec stays in spec-docs/active/ until GATE-VERIFY/GATE-COMPLETE run and move it to done/. -->
-
 # SELFHOST-001 — first-class multi-agent orchestration primitives (EPIC)
 
-Spec: [`.agents/spec-docs/active/SELFHOST-001-multi-agent-orchestration-primitives.md`](../spec-docs/active/SELFHOST-001-multi-agent-orchestration-primitives.md)
-GATE-APPROVAL: PASSED (iteration 4 ENDORSE). GATE-IMPLEMENT: P1+P2+P3 implemented (all 5 primitives); GATE-VERIFY/GATE-COMPLETE next.
+Spec: [`.agents/spec-docs/done/SELFHOST-001-multi-agent-orchestration-primitives.md`](../../spec-docs/done/SELFHOST-001-multi-agent-orchestration-primitives.md)
+GATE-APPROVAL: PASSED (iteration 4 ENDORSE). GATE-IMPLEMENT: P1+P2+P3 (all 5 primitives). GATE-VERIFY + GATE-COMPLETE: PASSED — spec in `spec-docs/done/`, this task archived.
 
 ## P1 — `sequential` + neutral contracts + SPEC amendment (this slice) ✅ IMPLEMENTED
 
