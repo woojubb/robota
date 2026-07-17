@@ -15,15 +15,15 @@ cycle) is preserved slice by slice:
 
 ## P1 — turn-granular cost foundation (this slice, TC-06)
 
-- [ ] `agent-interface-transport`: add OPTIONAL derived `costUsd?: number` on `IUsageSnapshot` (present iff
+- [x] `agent-interface-transport`: add OPTIONAL derived `costUsd?: number` on `IUsageSnapshot` (present iff
       `costStatus !== 'unknown'`; turn-granular). Backward-compatible.
-- [ ] `agent-framework`: `extractTurnUsage` (`interactive-session-execution.ts`) resolves the turn's model id
+- [x] `agent-framework`: `extractTurnUsage` (`interactive-session-execution.ts`) resolves the turn's model id
       (threaded from the caller's `ctx.getSession().getModelId()`) and computes `costUsd` via `calculateModelCost`
       (the `agent-core/model-pricing.ts` SSOT — exact input/output split), flipping `costStatus` from `'unknown'` to
       `exact` (or leaving `unknown` when the model is unpriced). No `agent-plugin` edge; owns ONLY turn cost.
-- [ ] Tests (TC-06): `extractTurnUsage` populates `costUsd` + flips `costStatus` for a priced model; leaves it
+- [x] Tests (TC-06): `extractTurnUsage` populates `costUsd` + flips `costStatus` for a priced model; leaves it
       absent/`unknown` for an unpriced/absent model.
-- [ ] Verify: build + typecheck + tests + lint + `pnpm harness:scan`.
+- [x] Verify: build + typecheck + tests + lint + `pnpm harness:scan`.
 
 ## P2 — span timing (agent-core span-completion event + ISpanEntry + framework entry) — TC-07 — PENDING
 
