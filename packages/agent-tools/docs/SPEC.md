@@ -32,6 +32,13 @@ sandbox/
   in-memory-sandbox-client.ts    -- deterministic contract-test adapter
   e2b-sandbox-client.ts          -- structural adapter for E2B-compatible sandboxes
   workspace-manifest.ts          -- workspace manifest validation and generic sandbox application
+computer-use/                    -- SELFHOST-010 computer/browser use (mirrors the sandbox port)
+  index.ts                       -- Re-exports the port/types + tool factory + PageComputerDriver (NOT the scripted driver)
+  types.ts                       -- IComputerDriver port + TComputerAction contract + IBrowserPageAdapter (no browser SDK)
+  computer-tool.ts               -- ComputerView (perceive) + Computer (act) tool factory, split on the permission boundary
+  page-computer-driver.ts        -- zero-dep reference IComputerDriver duck-typing a browser page
+  testing/
+    scripted-computer-driver.ts  -- test-support ScriptedComputerDriver (records actions, scripts screenshots); not shipped in the main entry
 builtins/
   index.ts              -- Re-exports all built-in CLI tools + classifyFetchError
   atomic-file-write.ts  -- Same-directory temp write + atomic rename helper for UTF-8 file replacement
@@ -95,40 +102,51 @@ Types owned by this package (SSOT):
 
 ### Tool Infrastructure
 
-| Export                                  | Kind     | Description                                                                                                                                                |
-| --------------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `createFunctionTool`                    | Function | Factory constructing core's `FunctionTool` from a plain schema + handler                                                                                   |
-| `createZodFunctionTool`                 | Function | Generic factory (`<S extends ZodType>`): runtime `safeParse` validation AND `z.infer<S>`-typed executor args (SDK-009); executor receives the parsed value |
-| `IToolInvocationResult`                 | Type     | Result shape for CLI tool invocations                                                                                                                      |
-| `E2BSandboxClient`                      | Class    | Adapter for E2B-compatible sandbox instances and snapshots                                                                                                 |
-| `InMemorySandboxClient`                 | Class    | Deterministic sandbox client for tests                                                                                                                     |
-| `ISandboxClient`                        | Type     | Provider-neutral sandbox execution and hydration port                                                                                                      |
-| `IWorkspaceManifest`                    | Type     | Provider-neutral sandbox workspace manifest                                                                                                                |
-| `IWorkspaceManifestFileEntry`           | Type     | Inline file entry type                                                                                                                                     |
-| `IWorkspaceManifestDirectoryEntry`      | Type     | Directory creation entry type                                                                                                                              |
-| `IWorkspaceManifestLocalFileEntry`      | Type     | Host-local file copy entry type                                                                                                                            |
-| `IWorkspaceManifestLocalDirectoryEntry` | Type     | Host-local directory copy entry type                                                                                                                       |
-| `IWorkspaceManifestGitRepositoryEntry`  | Type     | Git repository clone entry type                                                                                                                            |
-| `IWorkspaceManifestS3MountEntry`        | Type     | AWS S3 bucket mount entry type                                                                                                                             |
-| `IWorkspaceManifestGcsMountEntry`       | Type     | GCS bucket mount entry type                                                                                                                                |
-| `IWorkspaceManifestR2MountEntry`        | Type     | Cloudflare R2 bucket mount entry type                                                                                                                      |
-| `IWorkspaceManifestAzureBlobMountEntry` | Type     | Azure Blob Storage mount entry type                                                                                                                        |
-| `IWorkspaceManifestPermissions`         | Type     | Read/write path permission lists for a workspace manifest                                                                                                  |
-| `TWorkspaceManifestEntry`               | Type     | Union of all manifest entry types                                                                                                                          |
-| `TWorkspaceManifestApplyStatus`         | Type     | `'applied' \| 'unsupported'` status per applied manifest entry                                                                                             |
-| `TInMemorySandboxRunHandler`            | Type     | Custom run handler type for `InMemorySandboxClient`                                                                                                        |
-| `applyWorkspaceManifest`                | Function | Applies a workspace manifest through an `ISandboxClient`                                                                                                   |
-| `validateWorkspaceManifestPath`         | Function | Validates and normalizes manifest entry paths                                                                                                              |
-| `createRetrievalTool`                   | Function | SELFHOST-003 — the `CodebaseRetrieval` tool over an injected `IRetrievalAdapter` (adapter-gated; no corpus in the package)                                 |
-| `RepoMapRetrievalAdapter`               | Class    | SELFHOST-003 — neutral repo-map graph-centrality ranking adapter (source parser injected, corpus from the surface; token-budgeted)                         |
-| `IRetrievalAdapter`                     | Type     | SELFHOST-003 — codebase-retrieval port (`retrieve(request) → ranked result within a token budget`)                                                         |
-| `IRetrievalSourceParser`                | Type     | SELFHOST-003 — duck-typed source-parser port injected into the ranking adapter                                                                             |
-| `buildRepoMapIndex`                     | Function | SELFHOST-003 P2 — parse the corpus once into a serializable `IRepoMapIndex` (build-once, rank-many)                                                        |
-| `updateRepoMapIndex`                    | Function | SELFHOST-003 P3 — incrementally re-index: re-parse only changed files (upsert/remove), reuse the rest                                                      |
-| `serializeRepoMapIndex`                 | Function | SELFHOST-003 P2 — serialize a built index to a neutral JSON string for surface persistence                                                                 |
-| `deserializeRepoMapIndex`               | Function | SELFHOST-003 P2 — restore a built index from JSON (throws on unsupported `version`)                                                                        |
-| `REPO_MAP_INDEX_VERSION`                | Const    | SELFHOST-003 P2 — persisted-schema version for `IRepoMapIndex`                                                                                             |
-| `IRepoMapIndex`                         | Type     | SELFHOST-003 P2 — a built, serializable repo-map index (the corpus parsed once)                                                                            |
+| Export                                  | Kind     | Description                                                                                                                                                  |
+| --------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `createFunctionTool`                    | Function | Factory constructing core's `FunctionTool` from a plain schema + handler                                                                                     |
+| `createZodFunctionTool`                 | Function | Generic factory (`<S extends ZodType>`): runtime `safeParse` validation AND `z.infer<S>`-typed executor args (SDK-009); executor receives the parsed value   |
+| `IToolInvocationResult`                 | Type     | Result shape for CLI tool invocations                                                                                                                        |
+| `E2BSandboxClient`                      | Class    | Adapter for E2B-compatible sandbox instances and snapshots                                                                                                   |
+| `InMemorySandboxClient`                 | Class    | Deterministic sandbox client for tests                                                                                                                       |
+| `ISandboxClient`                        | Type     | Provider-neutral sandbox execution and hydration port                                                                                                        |
+| `IWorkspaceManifest`                    | Type     | Provider-neutral sandbox workspace manifest                                                                                                                  |
+| `IWorkspaceManifestFileEntry`           | Type     | Inline file entry type                                                                                                                                       |
+| `IWorkspaceManifestDirectoryEntry`      | Type     | Directory creation entry type                                                                                                                                |
+| `IWorkspaceManifestLocalFileEntry`      | Type     | Host-local file copy entry type                                                                                                                              |
+| `IWorkspaceManifestLocalDirectoryEntry` | Type     | Host-local directory copy entry type                                                                                                                         |
+| `IWorkspaceManifestGitRepositoryEntry`  | Type     | Git repository clone entry type                                                                                                                              |
+| `IWorkspaceManifestS3MountEntry`        | Type     | AWS S3 bucket mount entry type                                                                                                                               |
+| `IWorkspaceManifestGcsMountEntry`       | Type     | GCS bucket mount entry type                                                                                                                                  |
+| `IWorkspaceManifestR2MountEntry`        | Type     | Cloudflare R2 bucket mount entry type                                                                                                                        |
+| `IWorkspaceManifestAzureBlobMountEntry` | Type     | Azure Blob Storage mount entry type                                                                                                                          |
+| `IWorkspaceManifestPermissions`         | Type     | Read/write path permission lists for a workspace manifest                                                                                                    |
+| `TWorkspaceManifestEntry`               | Type     | Union of all manifest entry types                                                                                                                            |
+| `TWorkspaceManifestApplyStatus`         | Type     | `'applied' \| 'unsupported'` status per applied manifest entry                                                                                               |
+| `TInMemorySandboxRunHandler`            | Type     | Custom run handler type for `InMemorySandboxClient`                                                                                                          |
+| `applyWorkspaceManifest`                | Function | Applies a workspace manifest through an `ISandboxClient`                                                                                                     |
+| `validateWorkspaceManifestPath`         | Function | Validates and normalizes manifest entry paths                                                                                                                |
+| `createRetrievalTool`                   | Function | SELFHOST-003 — the `CodebaseRetrieval` tool over an injected `IRetrievalAdapter` (adapter-gated; no corpus in the package)                                   |
+| `RepoMapRetrievalAdapter`               | Class    | SELFHOST-003 — neutral repo-map graph-centrality ranking adapter (source parser injected, corpus from the surface; token-budgeted)                           |
+| `IRetrievalAdapter`                     | Type     | SELFHOST-003 — codebase-retrieval port (`retrieve(request) → ranked result within a token budget`)                                                           |
+| `IRetrievalSourceParser`                | Type     | SELFHOST-003 — duck-typed source-parser port injected into the ranking adapter                                                                               |
+| `buildRepoMapIndex`                     | Function | SELFHOST-003 P2 — parse the corpus once into a serializable `IRepoMapIndex` (build-once, rank-many)                                                          |
+| `updateRepoMapIndex`                    | Function | SELFHOST-003 P3 — incrementally re-index: re-parse only changed files (upsert/remove), reuse the rest                                                        |
+| `serializeRepoMapIndex`                 | Function | SELFHOST-003 P2 — serialize a built index to a neutral JSON string for surface persistence                                                                   |
+| `deserializeRepoMapIndex`               | Function | SELFHOST-003 P2 — restore a built index from JSON (throws on unsupported `version`)                                                                          |
+| `REPO_MAP_INDEX_VERSION`                | Const    | SELFHOST-003 P2 — persisted-schema version for `IRepoMapIndex`                                                                                               |
+| `IRepoMapIndex`                         | Type     | SELFHOST-003 P2 — a built, serializable repo-map index (the corpus parsed once)                                                                              |
+| `createComputerTool`                    | Function | SELFHOST-010 — creates BOTH computer-use tools (`ComputerView` perceive + `Computer` act) over an injected `IComputerDriver` (adapter-gated; no environment) |
+| `createComputerViewTool`                | Function | SELFHOST-010 — the `ComputerView` perceive tool (`driver.screenshot()`); permission-gated `auto` like `Read`                                                 |
+| `createComputerActTool`                 | Function | SELFHOST-010 — the `Computer` act tool (one typed mutating action → post-action screenshot); permission-gated `approve`/`deny` like `Shell`                  |
+| `PageComputerDriver`                    | Class    | SELFHOST-010 — zero-dep reference `IComputerDriver` duck-typing a browser page via `IBrowserPageAdapter` (imports NO browser SDK; surface passes the page)   |
+| `IComputerDriver`                       | Type     | SELFHOST-010 — computer-use driver port: `screenshot()` (perceive) + `act(action)` (typed mutating action → screenshot) + optional takeover hooks            |
+| `IComputerToolOptions`                  | Type     | SELFHOST-010 — tool-factory options carrying the computer-use driver (mirror `ISandboxToolOptions`)                                                          |
+| `TComputerAction`                       | Type     | SELFHOST-010 — the whole typed mutating-action union (`click`/`double_click`/`type`/`keypress`/`scroll`/`drag`/`wait`/`takeover`)                            |
+| `IBrowserPageAdapter`                   | Type     | SELFHOST-010 — duck-typed browser-page port for `PageComputerDriver` (structural; keeps the package free of any browser SDK import)                          |
+| `IComputerScreenshot`                   | Type     | SELFHOST-010 — a perceived screenshot (base64 bytes + media type + optional dimensions)                                                                      |
+
+> The test-support `ScriptedComputerDriver` (SELFHOST-010) is intentionally NOT in the Public API Surface — it lives under `src/computer-use/testing/` and is imported by tests via a relative path (test-support, never the package main entry), mirroring agent-core's `scripted-provider`.
 
 ### Built-in CLI Tools
 

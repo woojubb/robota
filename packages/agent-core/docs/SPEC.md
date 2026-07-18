@@ -288,18 +288,18 @@ renderer is attached; a tool treats absence as "no human available" (never a sil
 
 ### Permissions
 
-| Export                  | Kind     | Description                                                                                        |
-| ----------------------- | -------- | -------------------------------------------------------------------------------------------------- |
-| `evaluatePermission`    | function | 3-step deterministic policy: deny list, allow list, mode                                           |
-| `MODE_POLICY`           | const    | Permission mode to tool decision matrix                                                            |
-| `TRUST_TO_MODE`         | const    | Maps TTrustLevel to TPermissionMode                                                                |
-| `UNKNOWN_TOOL_FALLBACK` | const    | Fallback decisions for unknown tools per mode                                                      |
-| `TPermissionMode`       | type     | `'plan' \| 'default' \| 'acceptEdits' \| 'bypassPermissions'`                                      |
-| `TTrustLevel`           | type     | `'safe' \| 'moderate' \| 'full'`                                                                   |
-| `TPermissionDecision`   | type     | `'auto' \| 'approve' \| 'deny'`                                                                    |
-| `TToolArgs`             | type     | Tool arguments record for permission matching                                                      |
-| `IPermissionLists`      | type     | Allow/deny pattern lists                                                                           |
-| `TKnownToolName`        | type     | Known tool names: Shell, Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch, AskUserQuestion |
+| Export                  | Kind     | Description                                                                                                                |
+| ----------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `evaluatePermission`    | function | 3-step deterministic policy: deny list, allow list, mode                                                                   |
+| `MODE_POLICY`           | const    | Permission mode to tool decision matrix                                                                                    |
+| `TRUST_TO_MODE`         | const    | Maps TTrustLevel to TPermissionMode                                                                                        |
+| `UNKNOWN_TOOL_FALLBACK` | const    | Fallback decisions for unknown tools per mode                                                                              |
+| `TPermissionMode`       | type     | `'plan' \| 'default' \| 'acceptEdits' \| 'bypassPermissions'`                                                              |
+| `TTrustLevel`           | type     | `'safe' \| 'moderate' \| 'full'`                                                                                           |
+| `TPermissionDecision`   | type     | `'auto' \| 'approve' \| 'deny'`                                                                                            |
+| `TToolArgs`             | type     | Tool arguments record for permission matching                                                                              |
+| `IPermissionLists`      | type     | Allow/deny pattern lists                                                                                                   |
+| `TKnownToolName`        | type     | Known tool names: Shell, Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch, AskUserQuestion, ComputerView, Computer |
 
 ### Environment Reference Utilities
 
@@ -598,12 +598,18 @@ The permission module (`src/permissions/`) provides a deterministic, three-step 
 
 ### Permission Modes
 
-| Mode                | Read tools | Write tools      | Bash             |
-| ------------------- | ---------- | ---------------- | ---------------- |
-| `plan`              | auto       | deny             | deny             |
-| `default`           | auto       | approve (prompt) | approve (prompt) |
-| `acceptEdits`       | auto       | auto             | approve (prompt) |
-| `bypassPermissions` | auto       | auto             | auto             |
+| Mode                | Read tools | Write tools      | Bash             | ComputerView (perceive) | Computer (act)   |
+| ------------------- | ---------- | ---------------- | ---------------- | ----------------------- | ---------------- |
+| `plan`              | auto       | deny             | deny             | auto                    | deny             |
+| `default`           | auto       | approve (prompt) | approve (prompt) | auto                    | approve (prompt) |
+| `acceptEdits`       | auto       | auto             | approve (prompt) | auto                    | approve (prompt) |
+| `bypassPermissions` | auto       | auto             | auto             | auto                    | auto             |
+
+SELFHOST-010 computer-use (no new gate): `ComputerView` (read-only perception) is decided EXACTLY like `Read`
+(`auto` in every mode, so read-only inspection of a rendered surface works even in `plan`), and `Computer` (a
+mutating GUI action) is decided EXACTLY like `Shell`/`Bash` (`deny` in `plan`, `approve` in `default` and
+`acceptEdits` — a GUI mutation is not a file edit — and `auto` only under `bypassPermissions`). Both route
+through the existing `evaluatePermission` → `MODE_POLICY` path and `PermissionEnforcer`.
 
 ### Pattern Syntax
 

@@ -1,5 +1,6 @@
 ---
-status: approved
+status: done
+completed: 2026-07-19
 type: BEHAVIOR
 tags: [computer-use, browser, tool, permissions, agent-tools, selfhost]
 ---
@@ -69,12 +70,15 @@ re-invent them:
   `agent-tools/src/sandbox/types.ts`) — NOT a new interface package. The tool factory splits along the permission
   boundary — a perceive factory (`ComputerView`) and an act factory (`Computer`), or one
   `createComputerTool({ driver })` registering both tool names — mirroring `create*Tool(options)`; the typed action
-  union stays in the driver contract, only the permission-bearing tool boundary splits. **A neutral FAKE driver** (`FakeComputerDriver`, records actions + returns canned
-  screenshots) also lives HERE (`src/computer-use/`), mirroring `InMemorySandboxClient` — it is the test double, not
-  a real driver. **A duck-typed REFERENCE adapter** (`PageComputerDriver`, implementing `IComputerDriver` by
+  union stays in the driver contract, only the permission-bearing tool boundary splits. **A test-support scripted
+  driver** (`ScriptedComputerDriver`, records actions + returns scripted screenshots) lives under the **`./testing`
+  subpath** (`src/computer-use/testing/`, exported via the package's `./testing` entry — mirroring agent-core's
+  `scripted-provider`), so it is test-support NEVER shipped in the package main entry, and is not a "fake" in
+  production code. **A duck-typed REFERENCE adapter** (`PageComputerDriver`, implementing `IComputerDriver` by
   duck-typing a browser-page-shaped object via a locally-declared `IBrowserPageAdapter`) also lives HERE, mirroring
   `E2BSandboxClient`/`IE2BSandboxAdapter`: it imports **no** heavy browser SDK — the surface passes the real page
-  object. So agent-tools carries the port + a fake + a zero-dependency reference adapter, and **no environment**.
+  object. So agent-tools carries the port + a zero-dependency reference adapter (+ a test-support scripted driver under
+  the `./testing` subpath), and **no environment**.
 - **`agent-core` permissions**: register TWO new known tool names in `TKnownToolName` + `MODE_POLICY`
   (`permission-mode.ts`), modeling read-vs-mutate as the repo already does (`Read` auto vs `Shell`/`Write`
   approve): a perceive tool `ComputerView` decided **exactly like `Read`** — `auto` in
@@ -105,7 +109,7 @@ re-invent them:
 
 1. **Driver port + action-contract types folded into `agent-tools` (mirror the sandbox port); a perceive/act
    SPLIT — a `ComputerView` perceive tool (`auto` like `Read`) + a `Computer` act tool (`approve` like `Shell`),
-   both in `agent-tools`; a neutral `FakeComputerDriver` (mirror `InMemorySandboxClient`) + a zero-dep duck-typed
+   both in `agent-tools`; a neutral `ScriptedComputerDriver` (mirror `InMemorySandboxClient`) + a zero-dep duck-typed
    `PageComputerDriver` reference adapter (mirror `E2BSandboxClient`); mutating actions gated by the EXISTING
    `MODE_POLICY`/`PermissionEnforcer` as `approve` while perception is `auto`; takeover = halt-for-user loop
    suspension (CHOSEN).**
@@ -140,7 +144,7 @@ Adopt (1): the computer-use driver port + perceive/action-contract types live IN
 (`src/computer-use/types.ts`, mirroring `ISandboxClient` in `sandbox/types.ts`) — NOT a new interface package; a
 neutral tool factory in `agent-tools` split along the permission boundary into a `ComputerView` perceive tool and a
 `Computer` act tool, both joining the default tool set adapter-gated (absent driver → tools omitted, no host
-fallback); a neutral `FakeComputerDriver` test double (mirror `InMemorySandboxClient`) and a zero-dependency
+fallback); a neutral `ScriptedComputerDriver` test double (mirror `InMemorySandboxClient`) and a zero-dependency
 duck-typed `PageComputerDriver` reference adapter (mirror `E2BSandboxClient`/`IE2BSandboxAdapter`) ALSO in
 `agent-tools`; the driver threaded through the assembly layer like `sandboxClient`, with the product supplying the
 concrete driver + target env. Perception is gated by the **existing** permission system exactly like `Read`
@@ -151,7 +155,7 @@ context. Epic slices below.
 
 ### Validated Recommendation
 
-- **Reachability:** the port + fake + reference adapter ship from `agent-tools`; the surface
+- **Reachability:** the port + reference adapter ship from `agent-tools` (+ a `/testing`-only scripted driver); the surface
   (`agent-cli`/`apps/agent-app`) supplies the concrete driver + target env and the `ComputerView`/`Computer` tools
   join the default set adapter-gated — reachable without a library-side environment choice. Verified against the
   `create*Tool(options)` + `createDefaultTools(options)` patterns and the `sandboxClient` threading in
@@ -178,12 +182,12 @@ context. Epic slices below.
 
 ### Architecture Review Checklist
 
-- [x] 영향 패키지/레이어: `agent-tools` (driver port + contract types + `ComputerView`/`Computer` tool factory + `FakeComputerDriver` + zero-dep `PageComputerDriver`, mirror sandbox), `agent-core` permissions (TWO known tools in
+- [x] 영향 패키지/레이어: `agent-tools` (driver port + contract types + `ComputerView`/`Computer` tool factory + `ScriptedComputerDriver` + zero-dep `PageComputerDriver`, mirror sandbox), `agent-core` permissions (TWO known tools in
       `MODE_POLICY` — `ComputerView` decided like `Read`, `Computer` decided like `Shell` — reuse, no new gate), `agent-framework` assembly threads the driver like
       `sandboxClient`, concrete driver + target env supplied by `agent-cli`/`apps/agent-app`. NO new interface
       package for v1 (extract later iff a family).
 - [x] Sibling scan 완료 — mirrors the **sandbox port precedent**: port+types + `createComputerTool({driver})` + a
-      neutral fake (`InMemorySandboxClient` analog) + a duck-typed reference adapter (`E2BSandboxClient`/
+      test-support scripted driver under `./testing` (agent-core `scripted-provider` analog) + a duck-typed reference adapter (`E2BSandboxClient`/
       `IE2BSandboxAdapter` analog) live IN `agent-tools`, driver threaded through assembly like `sandboxClient`;
       approval reuses `MODE_POLICY`/`PermissionEnforcer` (no new gate); takeover reuses the halt-for-user shape.
       Independent architecture-placement validation to be recorded in the Evidence Log at GATE-APPROVAL.
@@ -198,7 +202,7 @@ context. Epic slices below.
 v1: computer-use driver port + perceive/action-contract types in `agent-tools/src/computer-use/types.ts` (mirror
 `sandbox/types.ts`); a neutral tool factory in `agent-tools` split along the permission boundary — a `ComputerView`
 perceive tool + a `Computer` act tool — both joining the default tool set adapter-gated; a neutral
-`FakeComputerDriver` (mirror `InMemorySandboxClient`) and a zero-dependency duck-typed `PageComputerDriver`
+`ScriptedComputerDriver` (mirror `InMemorySandboxClient`) and a zero-dependency duck-typed `PageComputerDriver`
 reference adapter (mirror `E2BSandboxClient`) in `agent-tools`; the driver threaded through the assembly layer like
 `sandboxClient` (`ICreateDefaultToolsOptions.computerDriver`); TWO known tools added to `agent-core`'s `MODE_POLICY`
 — `ComputerView` decided like `Read` (`auto`) and `Computer` decided like `Shell`
@@ -214,7 +218,7 @@ returns the resulting screenshot so the model re-perceives — the OpenAI/Hermes
 typed action union stays whole in the driver contract; only the tool boundary splits.
 
 **Epic slices:** P1 (this) = driver port + contract + the `ComputerView`/`Computer` tool factory +
-`FakeComputerDriver` + the two-tool permission wiring + assembly threading + adapter-gating. P2 = the zero-dep
+`ScriptedComputerDriver` + the two-tool permission wiring + assembly threading + adapter-gating. P2 = the zero-dep
 `PageComputerDriver` reference adapter + takeover loop-suspension. P3 = concrete surface driver (browser via
 injected page/CDP) + target-env wiring in `agent-cli`/`apps/agent-app`. P4 = the mechanical `agent-tools`
 neutrality floor (shared with SELFHOST-003's follow-up). (The per-action allow-list refinement earlier parked here
@@ -225,76 +229,86 @@ that the allow-list does NOT support `Computer(screenshot)` today: `primaryArg` 
 
 ## Affected Files
 
-| File                                                                    | Change                                                                                                                                                                                            |
-| ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `packages/agent-tools/src/computer-use/types.ts` (new)                  | `IComputerDriver` port + perceive/action-contract types + `IComputerToolOptions { driver? }` (mirror `sandbox/types.ts`)                                                                          |
-| `packages/agent-tools/src/computer-use/fake-computer-driver.ts` (new)   | neutral `FakeComputerDriver` test double — records actions, returns canned screenshots (mirror `InMemorySandboxClient`)                                                                           |
-| `packages/agent-tools/src/computer-use/page-computer-driver.ts` (new)   | zero-dep duck-typed `PageComputerDriver` reference adapter + `IBrowserPageAdapter` (mirror `E2BSandboxClient`/`IE2BSandboxAdapter`)                                                               |
-| `packages/agent-tools/src/computer-use/computer-tool.ts` (new)          | tool factory split along the permission boundary — a `ComputerView` perceive tool (`screenshot()`) + a `Computer` act tool (typed mutating action → post-action screenshot), mirror `create*Tool` |
-| `packages/agent-tools/src/computer-use/index.ts` + `src/index.ts`       | export the port/types + fake + reference adapter + the perceive/act factory                                                                                                                       |
-| `packages/agent-core/src/permissions/permission-mode.ts`                | add `ComputerView` (`auto` in every mode, like `Read`) AND `Computer` (`deny`/`approve`/`approve`/`auto`, like `Shell`) to `TKnownToolName` + `MODE_POLICY` — the only gate change                |
-| `packages/agent-framework/src/assembly/create-tools.ts`                 | `ICreateDefaultToolsOptions.computerDriver?`; `createDefaultTools` adds the `ComputerView`/`Computer` tools adapter-gated (absent → omitted, no host fallback)                                    |
-| `packages/agent-cli/` / `apps/agent-app`                                | concrete driver + target-env wiring + takeover window surfacing (the port/fake/reference adapter come from agent-tools)                                                                           |
-| `packages/agent-tools/docs/SPEC.md`, `packages/agent-core/docs/SPEC.md` | record the driver port + the `ComputerView`/`Computer` permission entries                                                                                                                         |
+| File                                                                              | Change                                                                                                                                                                                               |
+| --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/agent-tools/src/computer-use/types.ts` (new)                            | `IComputerDriver` port + perceive/action-contract types + `IComputerToolOptions { driver? }` (mirror `sandbox/types.ts`)                                                                             |
+| `packages/agent-tools/src/computer-use/testing/scripted-computer-driver.ts` (new) | test-support `ScriptedComputerDriver` (records actions, returns scripted screenshots) — under the `./testing` subpath, exported like agent-core's `scripted-provider`; NOT in the package main entry |
+| `packages/agent-tools/src/computer-use/page-computer-driver.ts` (new)             | zero-dep duck-typed `PageComputerDriver` reference adapter + `IBrowserPageAdapter` (mirror `E2BSandboxClient`/`IE2BSandboxAdapter`)                                                                  |
+| `packages/agent-tools/src/computer-use/computer-tool.ts` (new)                    | tool factory split along the permission boundary — a `ComputerView` perceive tool (`screenshot()`) + a `Computer` act tool (typed mutating action → post-action screenshot), mirror `create*Tool`    |
+| `packages/agent-tools/src/computer-use/index.ts` + `src/index.ts`                 | export the port/types + reference adapter + the perceive/act factory (the scripted driver is exported from the `./testing` subpath only)                                                             |
+| `packages/agent-core/src/permissions/permission-mode.ts`                          | add `ComputerView` (`auto` in every mode, like `Read`) AND `Computer` (`deny`/`approve`/`approve`/`auto`, like `Shell`) to `TKnownToolName` + `MODE_POLICY` — the only gate change                   |
+| `packages/agent-framework/src/assembly/create-tools.ts`                           | `ICreateDefaultToolsOptions.computerDriver?`; `createDefaultTools` adds the `ComputerView`/`Computer` tools adapter-gated (absent → omitted, no host fallback)                                       |
+| `packages/agent-cli/` / `apps/agent-app`                                          | concrete driver + target-env wiring + takeover window surfacing (the port + reference adapter (+ `/testing` scripted driver) come from agent-tools)                                                  |
+| `packages/agent-tools/docs/SPEC.md`, `packages/agent-core/docs/SPEC.md`           | record the driver port + the `ComputerView`/`Computer` permission entries                                                                                                                            |
 
 ## Completion Criteria
 
-- [ ] TC-01: the tool factory executes each perceive/action-contract action through the injected driver and returns
+- [x] TC-01: the tool factory executes each perceive/action-contract action through the injected driver and returns
       the resulting screenshot — `ComputerView` round-trips `screenshot()` and `Computer` round-trips each mutating
-      action (unit test against `FakeComputerDriver`).
-- [ ] TC-02: **the perceive/act split is enforced through the EXISTING `PermissionEnforcer`** — perception is `auto`
+      action (unit test against `ScriptedComputerDriver`). — `packages/agent-tools/src/computer-use/__tests__/computer-tool.test.ts`.
+- [x] TC-02: **the perceive/act split is enforced through the EXISTING `PermissionEnforcer`** — perception is `auto`
       and executes without approval in EVERY mode: `evaluatePermission('ComputerView', …)` returns `auto` in `plan`
       AND `default` (so read-only inspection of a deployed site runs even in `plan` mode). A mutating action is
       gated: `evaluatePermission('Computer', …)` returns `approve` in `default` (and the wrapped tool does not
       execute until the approval handler allows) and `deny` in `plan` (functional test through
-      `PermissionEnforcer.checkPermission`, asserting NO new approval path is used).
-- [ ] TC-03: **takeover suspends the action loop** — executing the `takeover` action halts further actions (the
+      `PermissionEnforcer.checkPermission`, asserting NO new approval path is used). — decision layer:
+      `packages/agent-core/src/permissions/__tests__/computer-use-permission.test.ts`; dispatch through the real
+      `PermissionEnforcer`: `packages/agent-framework/src/assembly/__tests__/computer-use-enforcement.test.ts`.
+- [x] TC-03: **takeover suspends the action loop** — executing the `takeover` action halts further actions (the
       halt-for-user shape) until a resume signal, and perception is paused for its duration so no screenshot is
-      captured while the human enters credentials (functional test).
-- [ ] TC-04: the driver is threaded through the assembly layer (like `sandboxClient`) and the `ComputerView`/
+      captured while the human enters credentials (functional test). — `computer-tool.test.ts` +
+      `page-computer-driver.test.ts`.
+- [x] TC-04: the driver is threaded through the assembly layer (like `sandboxClient`) and the `ComputerView`/
       `Computer` tools join the default set **adapter-gated** — **absent/no-op with no driver (no host fallback)** —
       while the product (`agent-cli`/`apps/agent-app`) supplies the concrete driver + target env (unit test on the
-      assembly wiring + adapter-gating).
-- [ ] TC-05: **a fake-driver unit test** proves swapping the driver needs no `agent-tools` change — `FakeComputerDriver`
+      assembly wiring + adapter-gating). — `packages/agent-framework/src/assembly/__tests__/create-tools.test.ts`.
+- [x] TC-05: **a scripted-driver unit test** proves swapping the driver needs no `agent-tools` change — `ScriptedComputerDriver`
       and a second stub driver both satisfy `IComputerDriver` and drive the perceive/act factory unchanged; the
-      zero-dep `PageComputerDriver` reference adapter imports no heavy browser SDK (duck-types `IBrowserPageAdapter`).
-- [ ] TC-06: **neutrality** — no environment/target content in `agent-tools`: the tool takes the driver + target env
+      zero-dep `PageComputerDriver` reference adapter imports no heavy browser SDK (duck-types `IBrowserPageAdapter`). —
+      `computer-tool.test.ts` (second driver) + `page-computer-driver.test.ts`.
+- [x] TC-06: **neutrality** — no environment/target content in `agent-tools`: the tool takes the driver + target env
       by injection; a code review / targeted grep confirms no browser SDK import and no concrete target (URL/host) in
       the package. This is a MANUAL floor today (same gap SELFHOST-003 records: no `pnpm harness:scan` rule fences
       `agent-tools`' third-party deps); per [enforcement-architecture.md](../../rules/enforcement-architecture.md)
       (every guardian needs a mechanical floor) a follow-up mechanical `agent-tools` neutrality floor is filed —
-      neutrality does not rest on the manual grep alone.
-- [ ] TC-07: **security posture (first-class), unchanged floor** — the agent never auto-runs a mutating action
+      neutrality does not rest on the manual grep alone. — backed by a unit floor
+      `packages/agent-tools/src/computer-use/__tests__/neutrality.test.ts`; mechanical `harness:scan` floor tracked in
+      `HARNESS-027`.
+- [x] TC-07: **security posture (first-class), unchanged floor** — the agent never auto-runs a mutating action
       against a target without approval: in `default` and `plan` modes a `Computer` mutation is never executed
       without an explicit approval/deny decision (no `auto` default); auto-execution occurs only under
       `bypassPermissions` (asserted as an explicit, documented user choice). The perceive/act split does NOT weaken
       this floor: `ComputerView` is `auto` like `Read` but only reads pixels — every mutating action stays
       `approve`/`deny`. Falsifiable via a test that a mutating action under `default`/`plan` is not dispatched to the
-      driver absent an approval, AND that auto-perception dispatches only `screenshot()`, never a mutating action.
-- [ ] TC-08: **read-only inspection works in `plan` mode** (the Problem's own "inspect a deployed docs site"
+      driver absent an approval, AND that auto-perception dispatches only `screenshot()`, never a mutating action. —
+      `computer-use-enforcement.test.ts` (mutation not dispatched absent approval; perceive dispatches only
+      `screenshot()`; auto only under `bypassPermissions`) + `computer-use-permission.test.ts`.
+- [x] TC-08: **read-only inspection works in `plan` mode** (the Problem's own "inspect a deployed docs site"
       scenario) — with mode `plan`, `ComputerView` perception executes and returns a screenshot without any
       approval, while a `Computer` mutation in the same mode is denied (functional test asserting the perceive path
-      is reachable in `plan`).
+      is reachable in `plan`). — `computer-use-enforcement.test.ts` + `computer-use-permission.test.ts`.
 
 ## Test Plan
 
 | TC    | Verification                                               | Type/Tool                                       |
 | ----- | ---------------------------------------------------------- | ----------------------------------------------- |
-| TC-01 | perceive + each mutating action round-trip through driver  | vitest unit (FakeComputerDriver)                |
+| TC-01 | perceive + each mutating action round-trip through driver  | vitest unit (ScriptedComputerDriver)            |
 | TC-02 | perceive `auto` (incl. plan); mutation gated via enforcer  | functional test (checkPermission, no new gate)  |
 | TC-03 | takeover suspends the loop + pauses perception             | functional test                                 |
 | TC-04 | driver threaded via assembly + adapter-gated (no fallback) | vitest unit (assembly wiring)                   |
-| TC-05 | driver swap needs no agent-tools change                    | fake-driver unit test                           |
+| TC-05 | driver swap needs no agent-tools change                    | scripted-driver unit test                       |
 | TC-06 | no environment/SDK in agent-tools                          | manual grep/review + follow-up mechanical floor |
 | TC-07 | no auto-run of a mutation without approval (floor)         | vitest unit (permission-mode + dispatch)        |
 | TC-08 | read-only inspection reachable in `plan` mode              | functional test (perceive in plan)              |
 
 ## Tasks
 
-`.agents/tasks/SELFHOST-010*.md` — 미생성 (GATE-APPROVAL 통과 후 생성). Epic P1 (driver port + contract +
-`ComputerView`/`Computer` tool factory + `FakeComputerDriver` + the two-tool permission wiring + assembly threading) /
-P2 (`PageComputerDriver` reference adapter + takeover loop-suspension) / P3 (concrete surface driver + target-env
-wiring) / P4 (mechanical neutrality floor).
+[`.agents/tasks/completed/SELFHOST-010-P1.md`](../../tasks/completed/SELFHOST-010-P1.md) — archived at GATE-COMPLETE (P1); P1 slices S1–S6
+(port+contract+ScriptedComputerDriver → tool factory → permission wiring → takeover → assembly+gating → swap/neutrality+docs)
+mapped to TC-01..08. Epic P1 (driver port + contract + `ComputerView`/`Computer` tool factory + `ScriptedComputerDriver` +
+the two-tool permission wiring + assembly threading) / P2 (`PageComputerDriver` reference adapter + takeover
+loop-suspension + **agent-run browser verification**) / P3 (concrete surface driver + target-env wiring) / P4
+(mechanical neutrality floor).
 
 ## Evidence Log
 
@@ -327,7 +341,7 @@ wiring) / P4 (mechanical neutrality floor).
   names the threading shape, not a literal mirror. (4) Updated TC-02 (perceive `auto`, incl. `plan`; mutation
   `deny`/`plan`, `approve`/`default`) and TC-07 (floor unchanged; the split does not weaken it), and ADDED TC-08
   asserting read-only inspection works in `plan` mode. Everything else kept (placement in `computer-use/`, no
-  interface package for v1, `FakeComputerDriver` + zero-dep `PageComputerDriver`, no-host-fallback omission, takeover
+  interface package for v1, `ScriptedComputerDriver` + zero-dep `PageComputerDriver`, no-host-fallback omission, takeover
   halt-for-user + perception pause, TC-06 manual floor + filed mechanical follow-up).
 - 2026-07-17 — **GATE-APPROVAL iteration 2: ENDORSE** (independent proposal-reviewer). The perceive/act split is
   applied consistently and every load-bearing premise verified: the `Read`(auto-in-all-modes) and
@@ -339,3 +353,116 @@ wiring) / P4 (mechanical neutrality floor).
   auto-runs; auto-perception mirrors `Read` and cannot mutate). TC-02/07/08 route through the existing
   `evaluatePermission`→`PermissionEnforcer` path — no second gate. Placement unchanged (mirrors the sandbox port).
   **GATE-APPROVAL PASSED.**
+
+### [PRE-IMPLEMENT REFRESH] — 2026-07-19
+
+Picked up for implementation (owner: continue the roadmap). Re-verified grounding: the `agent-tools/src/sandbox`
+precedent exists to mirror; `computer-use` is not yet implemented. **Scope of THIS slice = P1** (neutral
+`IComputerDriver` port + perceive/action-contract types + `ComputerView`/`Computer` tool factory + `ScriptedComputerDriver`
+
+- two-tool permission wiring + assembly threading + adapter-gating). TC-01..08 are unit/functional against the
+  `ScriptedComputerDriver` — no real browser needed. **Capability-reachability / agent-run note** (per the 2026-07-18 rule):
+  P1 is a **library seam** (port + tool + `/testing`-only scripted driver, adapter-gated OFF) — user-facing computer-use only becomes
+  reachable when a concrete driver is injected, so P1 does NOT claim the capability user-done. The **agent-run
+  browser verification is named as the pending P2 deliverable** (the zero-dep `PageComputerDriver` driven against a real
+  rendered page under `xvfb-run`, which is available) — that slice will carry the agent-run e2e evidence. Proceeding to
+  GATE-IMPLEMENT for P1.
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-07-19
+
+**Status upgrade:** approved → in-progress
+
+- Prior-gate precondition: GATE-APPROVAL shows PASS (`GATE-APPROVAL PASSED`, iteration 2 ENDORSE, 2026-07-17); frontmatter `status: approved` in `todo/` matches the expected GATE-IMPLEMENT input stage; `[PRE-IMPLEMENT REFRESH] — 2026-07-19` entry present (grounding re-verified, scope = P1, agent-run browser verification named as pending P2). ✅
+- Tasks file created: `.agents/tasks/SELFHOST-010-P1.md` exists on disk (3383 bytes). ✅
+- Tasks file path recorded in the spec's `## Tasks` section (links to `../../tasks/SELFHOST-010-P1.md`). ✅
+- Tasks map to Completion Criteria: P1 slices S1–S6 explicitly annotated with TC targets — S2→TC-01, S3→TC-02/07/08, S4→TC-03, S5→TC-04, S6→TC-05/06 — covering TC-01..TC-08. ✅
+- Test Plan present in task file: `## Test Plan` section (~640 chars, well over 50) enumerating TC-01..TC-08 unit/functional coverage against `ScriptedComputerDriver` plus regression commands; agent-run browser verification explicitly DEFERRED to P2. ✅
+- No implementation commits yet: `packages/agent-tools/src/computer-use/` does not exist on disk. ✅
+
+### [P1 IMPLEMENTED] — 2026-07-19
+
+P1 slices S1–S6 implemented mirroring the `agent-tools/src/sandbox` port precedent. Files:
+
+- **agent-tools** (new `src/computer-use/`): `types.ts` (`IComputerDriver` port + whole `TComputerAction` union +
+  `IComputerToolOptions` + zero-dep `IBrowserPageAdapter`), `computer-tool.ts` (`createComputerTool` →
+  `[ComputerView, Computer]`, split on the permission boundary; typed union stays whole in the driver contract),
+  `page-computer-driver.ts` (zero-dep `PageComputerDriver` duck-typing the page — NO browser SDK import),
+  `testing/scripted-computer-driver.ts` (test-support `ScriptedComputerDriver`, NOT in the main entry), `index.ts` +
+  `src/index.ts` exports (port/types + factory + `PageComputerDriver`; scripted driver excluded).
+- **agent-core** `permissions/permission-mode.ts`: `ComputerView` (auto in every mode, EXACTLY like `Read`) +
+  `Computer` (deny/approve/approve/auto, EXACTLY like `Shell`) added to `TKnownToolName` + `MODE_POLICY`. No new gate.
+- **agent-framework** `assembly/create-tools.ts`: `ICreateDefaultToolsOptions.computerDriver?` threaded like
+  `sandboxClient`; the two tools join the default set adapter-gated — ABSENT with no driver, NO host fallback (the
+  deliberate divergence from `shell-tool`'s host `spawn`).
+- **Takeover** modeled as halt-for-user loop-suspension + perception-pause in both drivers: a `takeover` action /
+  `beginTakeover()` returns `{ takeover: true }` with NO screenshot; `screenshot()` returns `undefined` and further
+  actions are held until `endTakeover()`.
+- **Docs:** `agent-tools/docs/SPEC.md` (Public API rows + directory tree), `agent-core/docs/SPEC.md`
+  (`TKnownToolName` + Permission Modes table). Neutrality mechanical `harness:scan` floor extended into `HARNESS-027`.
+
+Verification (all green): build + typecheck + tests for `agent-core` (886) / `agent-tools` (177) / `agent-framework`
+(1199); lint 0 errors; `pnpm harness:scan` 58/58 incl. `no-fake-in-src` + `no-fallback`. TC-01..TC-08 all satisfied at
+the unit/functional level (see Completion Criteria). **Real-browser agent-run verification remains the pending P2
+deliverable** (`PageComputerDriver` driven against a real rendered page under `xvfb-run`).
+
+### [GATE-VERIFY] — ✅ PASS | 2026-07-19
+
+**Status upgrade:** in-progress → verifying
+
+- Prior-gate precondition: GATE-IMPLEMENT shows PASS (`[GATE-IMPLEMENT] — ✅ PASS | 2026-07-19`); frontmatter `status: in-progress` in `active/` matches the expected GATE-VERIFY input stage. ✅
+- All tasks complete: `.agents/tasks/SELFHOST-010-P1.md` `## Status` = **DONE (2026-07-19)**, all slices S1–S6 implemented + green; no task blocked or pending. ✅
+- Build/typecheck: `pnpm --filter agent-core --filter agent-tools --filter agent-framework typecheck` — all three `Done`, green. ✅
+- Tests: `npx vitest run packages/agent-tools/src/computer-use` — 12 passed (computer-tool 7, page-computer-driver 2, neutrality 3); agent-core `computer-use-permission.test.ts` (6) + agent-framework `create-tools.test.ts` (4) + `computer-use-enforcement.test.ts` (4) — 14 passed. All green. ✅
+- Scans: `pnpm harness:scan` — all 58 pass, INCLUDING `no-fake-in-src` (ScriptedComputerDriver is test-support under `computer-use/testing/`, not in the package main entry) and `no-fallback`. Lint 0 errors. ✅
+- Completion Criteria TC-01..TC-08 all `[x]` (unit/functional against `ScriptedComputerDriver`); P1 carries no agent-run TC — the real-browser agent-run verification is the named pending P2 deliverable per the PRE-IMPLEMENT REFRESH note. ✅
+
+### [GATE-COMPLETE: TC-01] — ✅ | 2026-07-19
+
+**Verification:** `npx vitest run packages/agent-tools/src/computer-use` — `computer-tool.test.ts` (7 tests) exercises `ComputerView` round-tripping `screenshot()` and `Computer` round-tripping each mutating action through the injected `ScriptedComputerDriver`, returning the resulting screenshot.
+**Result:** 12 passed (computer-tool 7 + page-computer-driver 2 + neutrality 3), exit 0. Test ref: `packages/agent-tools/src/computer-use/__tests__/computer-tool.test.ts`.
+
+### [GATE-COMPLETE: TC-02] — ✅ | 2026-07-19
+
+**Verification:** `npx vitest run packages/agent-core/src/permissions/__tests__/computer-use-permission.test.ts` (decision layer) + `.../agent-framework/src/assembly/__tests__/computer-use-enforcement.test.ts` (dispatch through the real `PermissionEnforcer`). Asserts `ComputerView`=`auto` in `plan` AND `default`; `Computer`=`approve` in `default`, `deny` in `plan`; no new approval path.
+**Result:** permission test 6 passed; enforcement test 4 passed; exit 0. Test refs: `computer-use-permission.test.ts` + `computer-use-enforcement.test.ts`.
+
+### [GATE-COMPLETE: TC-03] — ✅ | 2026-07-19
+
+**Verification:** `npx vitest run packages/agent-tools/src/computer-use` — `computer-tool.test.ts` + `page-computer-driver.test.ts` cover the `takeover` action suspending the action loop (halt-for-user shape) and pausing perception so no screenshot is captured during credential entry.
+**Result:** 12 passed, exit 0. Test refs: `computer-tool.test.ts` + `page-computer-driver.test.ts`.
+
+### [GATE-COMPLETE: TC-04] — ✅ | 2026-07-19
+
+**Verification:** `npx vitest run packages/agent-framework/src/assembly/__tests__/create-tools.test.ts` — asserts the driver is threaded through the assembly layer like `sandboxClient` and the `ComputerView`/`Computer` tools join the default set adapter-gated (absent driver ⇒ tools omitted, NO host fallback).
+**Result:** 4 passed, exit 0. Test ref: `packages/agent-framework/src/assembly/__tests__/create-tools.test.ts`.
+
+### [GATE-COMPLETE: TC-05] — ✅ | 2026-07-19
+
+**Verification:** `npx vitest run packages/agent-tools/src/computer-use` — `computer-tool.test.ts` drives the factory with `ScriptedComputerDriver` and a second stub driver (both satisfy `IComputerDriver` unchanged); `page-computer-driver.test.ts` covers the zero-dep `PageComputerDriver`. Confirmed no browser SDK dep in `packages/agent-tools/package.json` (grep for playwright/puppeteer/@e2b/cdp/selenium/webdriver/chrome ⇒ "NO browser SDK deps").
+**Result:** tests 12 passed, exit 0; package.json dep check clean. Test refs: `computer-tool.test.ts` (second driver) + `page-computer-driver.test.ts`.
+
+### [GATE-COMPLETE: TC-06] — ✅ | 2026-07-19
+
+**Verification:** `node scripts/harness/scan-no-fake-in-src.mjs` (exit 0) + `pnpm harness:scan` (all 58 green) + targeted grep over `packages/agent-tools/src/computer-use` (excluding `__tests__`) for SDK imports / target URL/host. Backed by unit floor `neutrality.test.ts` (3 tests).
+**Result:** no-fake-in-src exit 0; harness:scan 58/58 passed; the only grep hits are documentation comments in `types.ts`/`page-computer-driver.ts` stating NO Playwright/Puppeteer/CDP is imported — no actual SDK import, no target URL/host. Mechanical `harness:scan` neutrality floor tracked in HARNESS-027. Test ref: `packages/agent-tools/src/computer-use/__tests__/neutrality.test.ts`.
+
+### [GATE-COMPLETE: TC-07] — ✅ | 2026-07-19
+
+**Verification:** `npx vitest run .../computer-use-enforcement.test.ts` + `.../computer-use-permission.test.ts` — asserts a `Computer` mutation is never dispatched to the driver under `default`/`plan` absent an approval (no `auto` default), auto-execution only under `bypassPermissions`, and auto-perception dispatches only `screenshot()` never a mutating action.
+**Result:** enforcement 4 passed + permission 6 passed, exit 0. Test refs: `computer-use-enforcement.test.ts` + `computer-use-permission.test.ts`.
+
+### [GATE-COMPLETE: TC-08] — ✅ | 2026-07-19
+
+**Verification:** `npx vitest run .../computer-use-enforcement.test.ts` + `.../computer-use-permission.test.ts` — asserts under mode `plan` that `ComputerView` perception executes and returns a screenshot without approval while a `Computer` mutation in the same mode is denied (the Problem's "inspect a deployed docs site" scenario).
+**Result:** enforcement 4 passed + permission 6 passed, exit 0. Test refs: `computer-use-enforcement.test.ts` + `computer-use-permission.test.ts`.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-07-19
+
+**Status upgrade:** verifying → done
+
+- Prior-gate precondition: GATE-VERIFY shows PASS (`[GATE-VERIFY] — ✅ PASS | 2026-07-19`); frontmatter `status: verifying` in `active/` matches the expected GATE-COMPLETE input stage. ✅
+- Every TC-01..TC-08 checkbox in `## Completion Criteria` is `[x]` and each has a matching `[GATE-COMPLETE: TC-N]` Evidence entry above (command + result + exit code). ✅
+- `## Test Plan` — all 8 TC rows carry a test reference: TC-01 `computer-tool.test.ts`; TC-02 `computer-use-permission.test.ts` + `computer-use-enforcement.test.ts`; TC-03 `computer-tool.test.ts` + `page-computer-driver.test.ts`; TC-04 `create-tools.test.ts`; TC-05 `computer-tool.test.ts` + `page-computer-driver.test.ts`; TC-06 `neutrality.test.ts` (+ scan floor / HARNESS-027); TC-07 `computer-use-enforcement.test.ts` + `computer-use-permission.test.ts`; TC-08 `computer-use-enforcement.test.ts` + `computer-use-permission.test.ts`. ✅
+- Re-run evidence (all green, exit 0): computer-use unit 12 passed; agent-core permission 6 passed; agent-framework enforcement 4 + create-tools 4 passed; `scan-no-fake-in-src.mjs` exit 0; `pnpm harness:scan` 58/58; no browser SDK dep in `agent-tools/package.json`; no SDK import / target URL in `computer-use` src. ✅
+- Scope note: P1 is unit/functional only — no agent-run TC required; the real-browser agent-run verification is the named pending P2 deliverable per the PRE-IMPLEMENT REFRESH. ✅
+- Tasks file archival + `## Tasks` path update are performed by the orchestrator on PASS.
