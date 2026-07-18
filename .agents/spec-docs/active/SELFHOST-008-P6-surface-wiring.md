@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: verifying
 type: DATA
 tags: [memory, agent-cli, surface-wiring, agent-run-verification, selfhost-008]
 ---
@@ -287,3 +287,17 @@ in: TC-05 SAVED-state precondition made explicit; the two transport option inter
 - Slices cover all completion criteria: S1 (resolver) → TC-01/TC-02/TC-03; S2/S3 (transport pass-through + inject at print/serve/TUI + one-time notice) → TC-07 enable-notice path; S5 (agent-run e2e) → TC-04/TC-05/TC-07 + neutrality TC-06. All of TC-01..TC-07 mapped (task file states "slices S1–S5 … mapped to TC-01..07").
 - Test Plan present in the task file: `## Test Plan` section (Unit / AGENT-RUN / Neutrality / Regression subsections), well over 50 chars.
 - No P6 implementation commits yet: `memory-enablement.ts` does not exist under `packages/agent-cli`; the only `memoryStore`/`recallMemory` grep hits are an unrelated `memoryStore()` helper for `ITrustedDeviceStore` in remote-control-e3/e4 tests — not P6 memory-pipeline code.
+
+### [GATE-VERIFY] — ✅ PASS | 2026-07-19
+
+**Status upgrade:** in-progress → verifying
+
+- Prior-gate precondition: `[GATE-IMPLEMENT] — ✅ PASS | 2026-07-18` present in Evidence Log; frontmatter `status: in-progress`; file in `spec-docs/active/` — expected input stage for GATE-VERIFY matches.
+- Tasks complete: `.agents/tasks/SELFHOST-008-P6.md` slices S1–S5 all delivered (task file uses numbered slices rather than `[ ]`/`[x]` checkboxes; each slice verified complete by its deliverables existing + green): S1 resolver `packages/agent-cli/src/startup/memory-enablement.ts` (+ tests) present; S2/S3 transport pass-through + inject at print/serve/TUI present; S4 flag/settings/docs present; S5 agent-run scenario present. No task blocked or pending.
+- Build: `pnpm --filter @robota-sdk/agent-cli --filter @robota-sdk/agent-transport --filter @robota-sdk/agent-transport-tui build` — all three "Build complete" (green).
+- Typecheck: `pnpm --filter … typecheck` (agent-cli + agent-transport + agent-transport-tui) — all "Done", 0 errors.
+- Lint: `pnpm --filter @robota-sdk/agent-cli lint` — 0 errors (40 pre-existing style warnings only; no error-level violations).
+- Unit tests: `npx vitest run packages/agent-cli/src/startup/__tests__/memory-enablement.test.ts` — 13/13 passed (TC-01/02/03: default-off, precedence, injection); `cli-args.test.ts` — 52/52 passed (`--memory`/`--no-memory` parsing).
+- Scans: `pnpm harness:scan` — all 56 passed (incl. memory-neutrality, dependency-direction/deps, spec-publish-claims → TC-06 neutrality green).
+- AGENT-RUN e2e (TC-04/05/07): `.agents/evals/scenarios/selfhost-008-memory-agent-run.md` records real `robota -p` runs with `anthropic (claude-sonnet-4-6)`: run A `--memory --memory-autosave` captured to `<WS>/.robota/memory/` (MEMORY.md + `topics/release-command.md`); fresh-session run B paraphrased query recalled the fact (`<recalled-memory>` block present in the session `.jsonl`; answer reflects `pnpm ship`); one-time enable notice printed; default-off writes no store.
+- Completion Criteria: all TC-01..TC-07 are `[x]` in `## Completion Criteria`.
