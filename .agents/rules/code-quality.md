@@ -27,6 +27,15 @@ Parent: [AGENTS.md](../../AGENTS.md) | Index: [rules/index.md](index.md)
 
 ### Development Patterns
 
+- **No test doubles in production code.** `fake`/`mock`/`stub` name TEST doubles ONLY — never shipped
+  dev/production code. A `Fake*`/`Mock*`/`Stub*` class/function/factory (or `create(Fake|Mock|Stub)*`) must not be
+  declared or exported from a package's shippable `src` (outside `__tests__/`, `testing/`, `*.test.ts`,
+  `*.spec.ts`). A neutral in-memory/reference adapter is fine but must be named for what it IS (`InMemory…`,
+  `Manual…`, `Recording…`, `Scripted…`), not "fake/mock". A genuine test-support double that other packages'
+  tests reuse belongs under a `testing/` subpath exported via a `./testing` package entry (the
+  `@robota-sdk/agent-core/testing` `scripted-provider` precedent), never the package main entry. Mechanically
+  enforced by `scan-no-fake-in-src.mjs` (HARNESS-032) — a sanctioned occurrence carries `// allow-fake: <reason>`.
+  (Sibling of the No-Fallback floor; both keep test-only constructs out of shipped code.)
 - NEVER use `console.*` directly in production code.
 - ALWAYS use dependency injection for logging and side concerns.
 - No blind type assertions without proper validation.

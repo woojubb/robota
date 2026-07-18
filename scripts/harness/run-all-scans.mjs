@@ -105,6 +105,7 @@ const SCAN_COMMANDS = [
   { name: 'stub-markers', command: ['node', 'scripts/harness/check-stub-markers.mjs'] },
   { name: 'conflict-markers', command: ['node', 'scripts/harness/scan-conflict-markers.mjs'] },
   { name: 'no-fallback', command: ['node', 'scripts/harness/scan-no-fallback.mjs'] },
+  { name: 'no-fake-in-src', command: ['node', 'scripts/harness/scan-no-fake-in-src.mjs'] },
   {
     name: 'memory-neutrality',
     command: ['node', 'scripts/harness/scan-memory-neutrality.mjs'],
