@@ -47,6 +47,7 @@ import { createGitWorktreeIsolationAdapter } from './subagents/git-worktree-isol
 import { reloadPluginCommandSource } from '@robota-sdk/agent-command';
 import { runUserLocalDirectCommandIfRequested } from './user-local-direct-command.js';
 import { runSessionAnalyze } from './session-analyzer/session-analyze-command.js';
+import { runEvalCommand } from './eval/eval-command.js';
 import { readVersion } from './startup/version.js';
 import { runResetConfig } from './startup/reset-config.js';
 import { runDiagnoseCommand } from './startup/diagnose-command.js';
@@ -118,6 +119,14 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     return;
   }
 
+  // SELFHOST-011: `robota eval <definition>` carries a file path + `--threshold` the strict global parser
+  // would reject. Intercept it BEFORE parseCliArgs() (like `session analyze`); the returned count maps to the
+  // CI exit code (0 = pass, 1 = fail — mirrors `robota diagnose`).
+  if (process.argv[2] === 'eval') {
+    process.exitCode = await runEvalCommand(process.argv.slice(3), process.cwd());
+    return;
+  }
+
   let args: IParsedCliArgs;
   try {
     args = parseCliArgs();
@@ -165,6 +174,13 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     // Exit contract (CLI-067): 0 = no issues, 1 = one or more failed checks.
     const failCount = await runDiagnoseCommand({ version, terminal, cwd });
     process.exitCode = failCount > 0 ? 1 : 0;
+    return;
+  }
+
+  if (args.positional[0] === 'eval') {
+    // Normally unreachable — the pre-parse interceptor above handles `eval`.
+    // Kept as a defensive fallthrough for non-argv invocations.
+    process.exitCode = await runEvalCommand(process.argv.slice(3), cwd);
     return;
   }
 
