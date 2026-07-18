@@ -1,5 +1,6 @@
 ---
-status: approved
+status: done
+completed: 2026-07-19
 type: BEHAVIOR
 tags: [hooks, lifecycle, security-gate, agent-core, selfhost]
 ---
@@ -76,7 +77,7 @@ ride the `agent-session` enforcement path, never core plugin hooks.
   fire-and-forget and cannot block or mutate `provider.chat()` (see Solution §2). The **PreToolUse security gate is unchanged** — it already blocks via
   `runPreToolHook` → `blocked` → denial `IToolResult` (`tool-hook-helpers.ts:58-80`,
   `permission-enforcer.ts:116-124`); this spec documents + tests it, it does not re-wire it.
-- **catalog SSOT doc** (`packages/agent-core/docs/hook-catalog.md`, new): the single documented catalog of every
+- **catalog SSOT doc** (`packages/agent-core/docs/HOOK-CATALOG.md`, new): the single documented catalog of every
   named event — timing, fire-site, input fields, and blocking semantics. `content/guide/permissions-and-hooks.md`
   is corrected to reference it (drops the phantom `Notification`, adds the 6 omitted events).
 - **`scripts/harness` (drift-guard, new floor)**: `scan-hook-catalog.mjs` compares the documented catalog to the
@@ -131,7 +132,7 @@ path — **no new runner, no new executor type, no second block mechanism, no ne
 gate is the **existing** `runPreToolHook` → `blocked` → denial path made first-class by documentation + a
 functional block test; it is not re-wired and gains no second enforcement point (consistent with SELFHOST-005,
 which registers its guardrail executor under this same PreToolUse path). Publish the catalog SSOT
-(`packages/agent-core/docs/hook-catalog.md`) enumerating every named event and its blocking semantics, correct the
+(`packages/agent-core/docs/HOOK-CATALOG.md`) enumerating every named event and its blocking semantics, correct the
 drifted guide table, and back the "documented catalog" claim with a mechanical **`scan-hook-catalog.mjs`** floor
 (doc ↔ `THookEvent` union ↔ `runHooks` firing call-sites) registered in `run-all-scans.mjs`. Consumer registration
 of hook definitions stays in `agent-framework`; policies stay in the consumer.
@@ -208,7 +209,7 @@ Extend the existing hooks engine in three coordinated moves, all on the current 
    The **PreToolUse security gate is the existing path** (`runPreToolHook` → `blocked` → denial
    `IToolResult`) — documented + tested as first-class, not re-wired.
 
-3. **Documented catalog SSOT + drift-guard floor.** Publish `packages/agent-core/docs/hook-catalog.md` — every
+3. **Documented catalog SSOT + drift-guard floor.** Publish `packages/agent-core/docs/HOOK-CATALOG.md` — every
    named event with timing, fire-site (file:function), input fields, and blocking semantics — and correct
    `content/guide/permissions-and-hooks.md` to reference it (drop phantom `Notification`, add the 6 omitted
    events). Add `scripts/harness/scan-hook-catalog.mjs`: it parses the `THookEvent` union, the **firing call-sites**
@@ -238,14 +239,14 @@ Extend the existing hooks engine in three coordinated moves, all on the current 
 | `packages/agent-core/src/hooks/types.ts`                            | Add `PreModelCall` / `PostModelCall` / `PermissionDecision` to the `THookEvent` union + their `IHookInput` carrier fields. No change to `runHooks`/executor union.                                                                                                                                                                  |
 | `packages/agent-session/src/permission-enforcer.ts`                 | Fire `PermissionDecision` (informational / non-blocking) right after `evaluatePermission` via `runHooks` on the existing `hookTypeExecutors`. PreToolUse block path unchanged.                                                                                                                                                      |
 | `packages/agent-session/src/session-run.ts`                         | Fire `PreModelCall` / `PostModelCall` (informational / non-blocking) from the `onExecutionEvent` provider-call events — `provider_request` → `PreModelCall`, `provider_response_normalized` (single canonical source; NOT `provider_response_raw`) → `PostModelCall` — via `runHooks` (hooks + executors already in `IRunContext`). |
-| `packages/agent-core/docs/hook-catalog.md` (new)                    | Catalog SSOT: every named event — timing, fire-site, input fields, blocking semantics.                                                                                                                                                                                                                                              |
+| `packages/agent-core/docs/HOOK-CATALOG.md` (new)                    | Catalog SSOT: every named event — timing, fire-site, input fields, blocking semantics.                                                                                                                                                                                                                                              |
 | `content/guide/permissions-and-hooks.md`                            | Correct the drifted Events table (drop phantom `Notification`, add `SessionEnd`/`StopFailure`/`SubagentStart`/`SubagentStop`/`WorktreeCreate`/`WorktreeRemove`); link the SSOT.                                                                                                                                                     |
 | `scripts/harness/scan-hook-catalog.mjs` (new) + `run-all-scans.mjs` | Drift-guard: FAIL on any doc ↔ `THookEvent` union ↔ firing-call-site mismatch. Firing-site detection resolves variable dispatch (via `hook_event_name:` field literals + the `getSubagentHookEvent`/`fireWorktreeHook` mappings) so all 13 events, incl. the 4 variable-dispatched, are covered. Registered in the scan runner.     |
 | `packages/agent-core/docs/SPEC.md`                                  | Update the hook-layer line (event count) and point to the catalog SSOT.                                                                                                                                                                                                                                                             |
 
 ## Completion Criteria
 
-- [ ] TC-01: **catalog-drift scan floor.** `scan-hook-catalog.mjs` FAILs when the documented catalog and the code
+- [x] TC-01: **catalog-drift scan floor.** `scan-hook-catalog.mjs` FAILs when the documented catalog and the code
       disagree — a `THookEvent` union member absent from the doc, a documented event absent from the union
       (phantom), or a documented event with no resolved firing call-site; PASSes when they agree. Firing-site
       detection resolves variable dispatch (`hook_event_name:` field literals + the `getSubagentHookEvent` /
@@ -255,23 +256,29 @@ Extend the existing hooks engine in three coordinated moves, all on the current 
       **variable**-dispatched event (e.g. drop `WorktreeCreate` from the doc, or rename it in the
       `getSubagentHookEvent`/`fireWorktreeHook` mapping) → FAIL — proving the scan catches drift behind the
       indirection, not only literal `runHooks('<Event>'` sites. Registered in `run-all-scans.mjs`.
-- [ ] TC-02: **PreToolUse blocks a tool (functional).** A `PreToolUse` hook returning exit-code-2 (or
+- [x] TC-02: **PreToolUse blocks a tool (functional).** A `PreToolUse` hook returning exit-code-2 (or
       `permissionDecision: "deny"`) causes the tool call to return the denial `IToolResult` via the **existing**
       `runPreToolHook` → `blocked` path — the tool's underlying `execute` never runs (functional test in
       agent-session).
-- [ ] TC-03: each **new** named event fires at its documented point **exactly once per round** — `PermissionDecision`
+- [x] TC-03: each **new** named event fires at its documented point **exactly once per round** — `PermissionDecision`
       after `evaluatePermission`, `PreModelCall` on `provider_request`, `PostModelCall` on
       `provider_response_normalized` (the SINGLE canonical source — asserting it does NOT also fire on
       `provider_response_raw`, i.e. no double-fire) — each through `runHooks` on the shared
       `hookTypeExecutors` path (unit/functional tests). Also assert all three are **informational-only**: firing
       them does not block/mutate `provider.chat()` or the permission outcome (their `runHooks` result is not
       awaited or consulted for gating), so only `PreToolUse` gates (TC-02).
-- [ ] TC-04: every **existing** catalogued event still fires at its documented fire-site (regression coverage for
+- [x] TC-04: every **existing** catalogued event still fires at its documented fire-site (regression coverage for
       the 13 current events across agent-session / agent-framework / agent-executor).
-- [ ] TC-05: **single path, no new tier.** Every catalogued event dispatches through the one `runHooks` engine and
+- [x] TC-05: **single path, no new tier.** Every catalogued event dispatches through the one `runHooks` engine and
       the one `exitCode:2 → blocked` contract; there is no second, parallel hook/registry system and no second
       block-decision point (assertion/scan; interface-runtime + neutrality guards pass).
-- [ ] TC-06: no domain hook policy in `packages/` — the catalog + engine stay neutral mechanism (neutrality scan).
+- [x] TC-06: no domain hook policy in `packages/` — the catalog + engine stay neutral mechanism (neutrality scan).
+- [x] TC-07 (**AGENT-RUN**, per the capability-reachability done-gate): the agent itself runs the real `robota` CLI
+      with a user-configured `PreToolUse` hook (in `settings.json`) that DENIES a tool, and observes the tool actually
+      blocked in a live run (the tool's effect does not occur / a denial is surfaced) — proving the user-facing hook
+      gate is reachable and works end-to-end, not just in a unit test. Evidence saved under `.agents/evals/scenarios/`.
+      (Added per the 2026-07-18 agent-run-verification rule; the hook engine is already reachable, so this verifies the
+      user-configured gate behavior via a real run.)
 
 ## Test Plan
 
@@ -283,10 +290,11 @@ Extend the existing hooks engine in three coordinated moves, all on the current 
 | TC-04 | all 13 existing events still fire at their fire-sites                                                                        | vitest unit (regression)      |
 | TC-05 | single `runHooks`/`blocked` path, no second tier                                                                             | assertion + interface-runtime |
 | TC-06 | neutrality — no domain hook policy in `packages/`                                                                            | neutrality scan               |
+| TC-07 | AGENT-RUN: real `robota` CLI + settings.json `PreToolUse` deny hook → tool blocked in a live run                             | agent-run (`-p`) + evidence   |
 
 ## Tasks
 
-`.agents/tasks/SELFHOST-009.md` — 미생성 (GATE-APPROVAL 통과 후 생성).
+[`.agents/tasks/completed/SELFHOST-009.md`](../../tasks/completed/SELFHOST-009.md) — archived at GATE-COMPLETE; slices S1–S6 (new events → fire-sites → catalog SSOT doc → drift-guard scan → tests → agent-run TC-07) mapped to TC-01..07.
 
 ## Evidence Log
 
@@ -338,3 +346,83 @@ Extend the existing hooks engine in three coordinated moves, all on the current 
   folded here: **`PostModelCall` is pinned to the single canonical source `provider_response_normalized`** (NOT also
   `provider_response_raw`, which would double-fire per round); the catalog documents one fire-site and TC-03 asserts
   single emission. Direction (extend the one engine, no new tier, mechanical drift floor) intact. **GATE-APPROVAL PASSED.**
+
+### [PRE-IMPLEMENT REFRESH] — 2026-07-19
+
+Picked up for implementation (owner "바로 시작해"). Re-verified the design-gate grounding against current develop (it
+holds): `THookEvent` is still the 13-member union; `content/guide/permissions-and-hooks.md` still carries the phantom
+`Notification` row + omits the 6 real events; `PreModelCall`/`PostModelCall`/`PermissionDecision` still do not exist.
+Added **TC-07 (AGENT-RUN)** to Completion Criteria + Test Plan per the 2026-07-18 capability-reachability /
+agent-run-verification rule (owner directive) — the `PreToolUse` security gate is user-facing, so the done-gate now
+requires demonstrating it via a real `robota` run, not only a unit test. This is an additive, rule-driven verification
+(no design change); the prior GATE-APPROVAL ENDORSE + owner sign-off stand. Proceeding to GATE-IMPLEMENT.
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-07-19
+
+**Status upgrade:** approved → in-progress
+
+- **Prior-gate precondition:** GATE-APPROVAL PASS on record (Evidence Log 2026-07-17 iteration 2 "ENDORSE … GATE-APPROVAL PASSED") + `[PRE-IMPLEMENT REFRESH] 2026-07-19` (grounding re-verified, TC-07 agent-run added); frontmatter `status: approved` and file in `todo/` match the expected GATE-IMPLEMENT input stage. ✅
+- **Tasks file created:** `.agents/tasks/SELFHOST-009.md` exists on disk (3492 bytes). ✅
+- **Path recorded in spec `## Tasks`:** the section links `.agents/tasks/SELFHOST-009.md` and describes slices S1–S6 mapped to TC-01..07. ✅
+- **Tasks map to Completion Criteria:** S1→TC-03 types; S2→TC-03/TC-04; S3→catalog SSOT + guide; S4→TC-01; S5→TC-02/TC-05/TC-06; S6→TC-07 — every TC-01..TC-07 is covered by ≥1 slice. ✅
+- **Test Plan present (≥50 chars):** task file carries a `## Test Plan` section enumerating TC-01..TC-07 (unit/functional + AGENT-RUN + regression), well over 50 chars. ✅
+- **No implementation commits yet:** `THookEvent` union has no `PreModelCall`/`PostModelCall`/`PermissionDecision` members; `scripts/harness/scan-hook-catalog.mjs` and `packages/agent-core/docs/HOOK-CATALOG.md` do not exist. ✅
+
+### [GATE-VERIFY] — ✅ PASS | 2026-07-19
+
+**Status upgrade:** in-progress → verifying
+
+- **Prior-gate precondition:** GATE-IMPLEMENT PASS on record (Evidence Log 2026-07-19 "approved → in-progress"); frontmatter `status: in-progress` and file in `active/` match the expected GATE-VERIFY input stage. ✅
+- **Tasks complete (`.agents/tasks/SELFHOST-009.md`):** all slices S1–S6 (new events → fire-sites → catalog SSOT + guide fix → drift-guard scan → tests → AGENT-RUN TC-07) landed and verified below; none blocked or pending. Implementation confirmed on disk: `THookEvent` union now carries `PreModelCall`/`PostModelCall`/`PermissionDecision` (`packages/agent-core/src/hooks/types.ts:29-31`) + their `IHookInput` carrier fields; `packages/agent-core/docs/HOOK-CATALOG.md` exists (SSOT); `scripts/harness/scan-hook-catalog.mjs` exists and is registered in `run-all-scans.mjs` (`hook-catalog` entry); `content/guide/permissions-and-hooks.md` corrected (no phantom `Notification` event row; `SessionEnd`/`WorktreeCreate`/`PreModelCall` etc. present). ✅
+- **Build passes (affected packages):** `pnpm --filter @robota-sdk/agent-core --filter @robota-sdk/agent-session build` → exit 0, both build complete. ✅
+- **Tests pass (affected packages):** `pnpm --filter @robota-sdk/agent-core --filter @robota-sdk/agent-session test` → agent-core 880/880 (65 files), agent-session 108/108 (25 files), all pass. ✅
+- **Drift-guard scan green:** `node scripts/harness/scan-hook-catalog.mjs` → exit 0 ("hook-catalog scan passed"); `npx vitest run scripts/harness/__tests__/scan-hook-catalog.test.mjs` → 12/12 pass (TC-01 red→green for literal- and variable-dispatched drift). Full `pnpm harness:scan` reported all 57 scans passing (incl. new hook-catalog scan) in the run evidence. ✅
+- **AGENT-RUN (TC-07):** `.agents/evals/scenarios/selfhost-009-pretooluse-gate-agent-run.md` records real `robota` CLI runs (anthropic claude-sonnet-4-6): a `settings.json` PreToolUse deny hook blocked the Bash tool ("The command was blocked by a hook."), while a contrast run without the hook executed it — user-facing gate reachable + working end-to-end. (Not re-run per instructions.) ✅
+- **All Completion Criteria TC-01..TC-07 are `[x]`.** ✅
+
+### [GATE-COMPLETE: TC-01] — ✅ | 2026-07-19
+
+**Verification:** `node scripts/harness/scan-hook-catalog.mjs` → `hook-catalog scan passed.` exit 0; `npx vitest run scripts/harness/__tests__/scan-hook-catalog.test.mjs` → 12/12 pass. Scan registered in `run-all-scans.mjs:41` (`hook-catalog`).
+**Result:** catalog-drift scan floor holds — red→green fixtures for literal- AND variable-dispatched (`getSubagentHookEvent`/`fireWorktreeHook`) drift covered by the 12 passing tests. Completion Criteria TC-01 `[x]`; Test Plan TC-01 → `scripts/harness/__tests__/scan-hook-catalog.test.mjs` + `scan-hook-catalog.mjs`.
+
+### [GATE-COMPLETE: TC-02] — ✅ | 2026-07-19
+
+**Verification:** `npx vitest run packages/agent-session/src/__tests__/selfhost-009-pretooluse-gate.test.ts` → 3/3 pass (`SELFHOST-009 TC-02 — PreToolUse security gate (functional)` > exit-code-2 hook blocks the tool / `permissionDecision:"deny"` blocks / exit-0 lets it run).
+**Result:** PreToolUse deny returns the denial `IToolResult` via the existing `runPreToolHook → blocked` path; tool `execute` never runs. Completion Criteria TC-02 `[x]`; Test Plan TC-02 → `selfhost-009-pretooluse-gate.test.ts`.
+
+### [GATE-COMPLETE: TC-03] — ✅ | 2026-07-19
+
+**Verification:** `npx vitest run packages/agent-session/src/__tests__/selfhost-009-model-call-hooks.test.ts packages/agent-session/src/__tests__/selfhost-009-permission-decision-hook.test.ts` → 6/6 pass (`TC-03 — model-call hook events`: PreModelCall once on `provider_request`, PostModelCall on `provider_response_normalized` ONLY / no double-fire on raw, informational-only; `TC-03 — PermissionDecision hook`: fires once after evaluatePermission, reports decision, informational-only).
+**Result:** the 3 new events fire at their documented points via `runHooks` on the shared path, exactly once/round, and are informational-only (exit-code-2 does not block/mutate). Completion Criteria TC-03 `[x]`; Test Plan TC-03 → `selfhost-009-model-call-hooks.test.ts` + `selfhost-009-permission-decision-hook.test.ts`.
+
+### [GATE-COMPLETE: TC-04] — ✅ | 2026-07-19
+
+**Verification:** `npx vitest run packages/agent-session/src/__tests__/selfhost-009-existing-events-regression.test.ts` → 3/3 pass (`TC-04 — existing events still fire (agent-session sites)`: UserPromptSubmit/Stop on happy path, StopFailure on throw, PreToolUse/PostToolUse from wrapped tool). Full 13-event coverage backed by `node scripts/harness/scan-hook-catalog.mjs` exit 0 (every union member resolves a firing call-site).
+**Result:** all existing catalogued events still fire at their documented fire-sites. Completion Criteria TC-04 `[x]`; Test Plan TC-04 → `selfhost-009-existing-events-regression.test.ts` + `scan-hook-catalog.mjs`.
+
+### [GATE-COMPLETE: TC-05] — ✅ | 2026-07-19
+
+**Verification:** `npx vitest run packages/agent-core/src/hooks/__tests__/selfhost-009-single-path-neutrality.test.ts` → 6/6 pass (`TC-05 — single runHooks path, no second tier`: exactly one dispatch engine, no parallel dispatcher/registry/bus/emitter, single `IRunHooksResult.blocked` / `exitCode:2` block contract).
+**Result:** every catalogued event dispatches through the one `runHooks` engine and the one block contract; no second tier / second block point. Completion Criteria TC-05 `[x]`; Test Plan TC-05 → `selfhost-009-single-path-neutrality.test.ts` (assertion + interface-runtime).
+
+### [GATE-COMPLETE: TC-06] — ✅ | 2026-07-19
+
+**Verification:** `npx vitest run …/selfhost-009-single-path-neutrality.test.ts` → `TC-06 — neutrality` tests pass (every THookEvent member is a neutral lifecycle name; engine embeds no hardcoded tool policy; catalog SSOT stays neutral mechanism). Neutrality scans re-run green: `node scripts/harness/scan-orchestration-neutrality.mjs` exit 0, `node scripts/harness/scan-memory-neutrality.mjs` exit 0.
+**Result:** no domain hook policy in `packages/`; catalog + engine remain neutral mechanism. Completion Criteria TC-06 `[x]`; Test Plan TC-06 → neutrality scan + `selfhost-009-single-path-neutrality.test.ts`.
+
+### [GATE-COMPLETE: TC-07] — ✅ | 2026-07-19
+
+**Verification (AGENT-RUN, not re-run per instructions):** `.agents/evals/scenarios/selfhost-009-pretooluse-gate-agent-run.md` — real `robota` CLI (`node packages/agent-cli/bin/robota.cjs -p`, provider anthropic `claude-sonnet-4-6`) with a project `.robota/settings.json` `PreToolUse` deny hook (`deny.sh`: `permissionDecision:"deny"` + exit 2) on the Bash tool.
+**Result:** the deny hook blocked the Bash tool in a live run ("The command was blocked by a hook.", no `hello-world` output); the contrast run without the hook executed the same tool (`hello-world-NOHOOK`). User-facing gate reachable + working end-to-end. Completion Criteria TC-07 `[x]`; Test Plan TC-07 → agent-run evidence scenario.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-07-19
+
+**Status upgrade:** verifying → done
+
+- **Prior-gate precondition:** GATE-VERIFY PASS on record (Evidence Log 2026-07-19 "in-progress → verifying"); frontmatter `status: verifying` and file in `active/` match the expected GATE-COMPLETE input stage. ✅
+- **Every TC-01..TC-07 has a `[GATE-COMPLETE: TC-N]` Evidence entry** with the exact command/action + observed result (above); TC-01..TC-06 re-run green this session, TC-07 cited from the AGENT-RUN scenario per instructions. ✅
+- **All `## Completion Criteria` checkboxes `[x]`** (TC-01..TC-07). ✅
+- **`## Test Plan` — every TC-N row has a test reference** (scan/vitest file paths) or, for TC-07, the agent-run evidence scenario; no TC silently unaddressed. ✅
+- **Tasks file archival + `## Tasks` path update + frontmatter/status/folder move:** deferred to the orchestrator on PASS (per guard invocation instructions — the guard does not move the file or archive tasks). ⏭
+
+**Result: PASS.** All completion criteria met; status upgrade verifying → done authorized.

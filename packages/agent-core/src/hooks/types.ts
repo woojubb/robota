@@ -2,7 +2,16 @@
  * Hook system types — Claude Code compatible event/hook model.
  */
 
-/** Hook lifecycle events */
+/**
+ * Hook lifecycle events.
+ *
+ * `PreModelCall`, `PostModelCall`, and `PermissionDecision` (SELFHOST-009) are
+ * INFORMATIONAL-ONLY: they are fired fire-and-forget from the turn owner at points it already
+ * observes and their `runHooks` result is NOT awaited or consulted for gating. The sole BLOCKING
+ * event is `PreToolUse` (exit-code-2 / `permissionDecision: "deny"` → `blocked`). See the catalog
+ * SSOT `packages/agent-core/docs/HOOK-CATALOG.md` for per-event timing, fire-site, and blocking
+ * semantics.
+ */
 export type THookEvent =
   | 'PreToolUse'
   | 'PostToolUse'
@@ -16,7 +25,10 @@ export type THookEvent =
   | 'SubagentStart'
   | 'SubagentStop'
   | 'WorktreeCreate'
-  | 'WorktreeRemove';
+  | 'WorktreeRemove'
+  | 'PreModelCall'
+  | 'PostModelCall'
+  | 'PermissionDecision';
 
 /** Claude Code compatible session end reasons. */
 export type TSessionEndReason =
@@ -140,6 +152,25 @@ export interface IHookInput {
   agent_transcript_path?: string;
   /** Claude Code permission mode at time of event (e.g. "default", "plan", "acceptEdits", "bypassPermissions") */
   permission_mode?: string;
+  /**
+   * Provider model identifier for the model call (PreModelCall/PostModelCall only).
+   * SELFHOST-009 — informational.
+   */
+  model?: string;
+  /**
+   * Provider name for the model call (PreModelCall/PostModelCall only).
+   * SELFHOST-009 — informational.
+   */
+  provider?: string;
+  /** Agentic round index for the model call (PreModelCall/PostModelCall only). SELFHOST-009 — informational. */
+  round?: number;
+  /**
+   * Reported permission decision (PermissionDecision only) — the value `evaluatePermission` returned
+   * (`'auto' | 'approve' | 'deny'`). SELFHOST-009 — informational. This REPORTS a decision already made;
+   * it neither extends `TPermissionDecision` nor the internal `IRunHooksResult.permissionDecision`, and
+   * the hook cannot change the outcome.
+   */
+  permission_decision?: string;
   /** Additional environment variables to pass to hook child processes */
   env?: Record<string, string>;
 }

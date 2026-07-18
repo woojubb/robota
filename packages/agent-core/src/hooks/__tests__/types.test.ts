@@ -17,8 +17,12 @@ describe('Hook types', () => {
       'SubagentStop',
       'WorktreeCreate',
       'WorktreeRemove',
+      // SELFHOST-009 — informational-only events (non-blocking).
+      'PreModelCall',
+      'PostModelCall',
+      'PermissionDecision',
     ];
-    expect(events).toHaveLength(13);
+    expect(events).toHaveLength(16);
   });
 
   it('should support discriminated union for hook definitions', () => {
