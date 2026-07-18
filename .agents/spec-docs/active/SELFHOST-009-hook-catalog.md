@@ -245,7 +245,7 @@ Extend the existing hooks engine in three coordinated moves, all on the current 
 
 ## Completion Criteria
 
-- [ ] TC-01: **catalog-drift scan floor.** `scan-hook-catalog.mjs` FAILs when the documented catalog and the code
+- [x] TC-01: **catalog-drift scan floor.** `scan-hook-catalog.mjs` FAILs when the documented catalog and the code
       disagree — a `THookEvent` union member absent from the doc, a documented event absent from the union
       (phantom), or a documented event with no resolved firing call-site; PASSes when they agree. Firing-site
       detection resolves variable dispatch (`hook_event_name:` field literals + the `getSubagentHookEvent` /
@@ -255,24 +255,24 @@ Extend the existing hooks engine in three coordinated moves, all on the current 
       **variable**-dispatched event (e.g. drop `WorktreeCreate` from the doc, or rename it in the
       `getSubagentHookEvent`/`fireWorktreeHook` mapping) → FAIL — proving the scan catches drift behind the
       indirection, not only literal `runHooks('<Event>'` sites. Registered in `run-all-scans.mjs`.
-- [ ] TC-02: **PreToolUse blocks a tool (functional).** A `PreToolUse` hook returning exit-code-2 (or
+- [x] TC-02: **PreToolUse blocks a tool (functional).** A `PreToolUse` hook returning exit-code-2 (or
       `permissionDecision: "deny"`) causes the tool call to return the denial `IToolResult` via the **existing**
       `runPreToolHook` → `blocked` path — the tool's underlying `execute` never runs (functional test in
       agent-session).
-- [ ] TC-03: each **new** named event fires at its documented point **exactly once per round** — `PermissionDecision`
+- [x] TC-03: each **new** named event fires at its documented point **exactly once per round** — `PermissionDecision`
       after `evaluatePermission`, `PreModelCall` on `provider_request`, `PostModelCall` on
       `provider_response_normalized` (the SINGLE canonical source — asserting it does NOT also fire on
       `provider_response_raw`, i.e. no double-fire) — each through `runHooks` on the shared
       `hookTypeExecutors` path (unit/functional tests). Also assert all three are **informational-only**: firing
       them does not block/mutate `provider.chat()` or the permission outcome (their `runHooks` result is not
       awaited or consulted for gating), so only `PreToolUse` gates (TC-02).
-- [ ] TC-04: every **existing** catalogued event still fires at its documented fire-site (regression coverage for
+- [x] TC-04: every **existing** catalogued event still fires at its documented fire-site (regression coverage for
       the 13 current events across agent-session / agent-framework / agent-executor).
-- [ ] TC-05: **single path, no new tier.** Every catalogued event dispatches through the one `runHooks` engine and
+- [x] TC-05: **single path, no new tier.** Every catalogued event dispatches through the one `runHooks` engine and
       the one `exitCode:2 → blocked` contract; there is no second, parallel hook/registry system and no second
       block-decision point (assertion/scan; interface-runtime + neutrality guards pass).
-- [ ] TC-06: no domain hook policy in `packages/` — the catalog + engine stay neutral mechanism (neutrality scan).
-- [ ] TC-07 (**AGENT-RUN**, per the capability-reachability done-gate): the agent itself runs the real `robota` CLI
+- [x] TC-06: no domain hook policy in `packages/` — the catalog + engine stay neutral mechanism (neutrality scan).
+- [x] TC-07 (**AGENT-RUN**, per the capability-reachability done-gate): the agent itself runs the real `robota` CLI
       with a user-configured `PreToolUse` hook (in `settings.json`) that DENIES a tool, and observes the tool actually
       blocked in a live run (the tool's effect does not occur / a denial is surfaced) — proving the user-facing hook
       gate is reachable and works end-to-end, not just in a unit test. Evidence saved under `.agents/evals/scenarios/`.
