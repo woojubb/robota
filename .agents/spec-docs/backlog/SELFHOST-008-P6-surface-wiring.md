@@ -151,9 +151,11 @@ capture→recall e2e** the agent executes via `-p` print mode with a real provid
 
 ### Architecture Review Checklist
 
-- [x] 영향 패키지/레이어: `agent-cli` (a memory-config resolver + inject into `TInteractiveSessionOptions` at the
-      print/serve/TUI construction sites) + possibly `agent-transport` headless channel option pass-through; the neutral
-      `agent-framework` memory library + `buildRuntimeSession` are UNCHANGED. No memory content/prompt/SDK in `packages/`.
+- [x] 영향 패키지/레이어: `agent-cli` (memory-config resolver + inject at the print/serve/TUI construction sites) +
+      **`agent-transport`** (`IHeadlessInteractionChannelOptions` forwards the memory fields) + **`agent-transport-tui`**
+      (`renderApp`/`TuiInteractionChannel` option surface forwards them) — honest scope: two transport option interfaces
+      are extended (the established option-forwarding idiom, not a re-export). The neutral `agent-framework` memory
+      library + `buildRuntimeSession` are UNCHANGED. No memory content/prompt/SDK in `packages/`.
 - [x] Sibling scan 완료 — mirrors how agent-cli already resolves other `TInteractiveSessionOptions` (permissionMode,
       allowedTools, model) from settings/flags; reuses `createFileSystemMemoryStore` + the P2 `automaticMemory` / P3
       `recallMemory` seams + the existing `/memory` command; no new escape hatch beyond the declared P2/P3 degradations.
@@ -182,16 +184,16 @@ the P3 `<recalled-memory>` block. Verify by an agent-run `-p` capture→recall e
 
 ## Affected Files
 
-| File                                                                                  | Change                                                                                                                                                         |
-| ------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `packages/agent-cli/src/…/memory-enablement.ts` (new)                                 | resolve the `memory` switch (settings.json ← `--memory`/`--no-memory` ← `ROBOTA_MEMORY` env; default OFF) → `{ memoryStore, automaticMemory?, recallMemory? }` |
-| `packages/agent-cli/src/modes/print-mode.ts` + the HeadlessInteractionChannel options | merge the resolved memory options into the print-path `TInteractiveSessionOptions`                                                                             |
-| `packages/agent-cli/src/modes/serve-mode.ts`                                          | merge the resolved memory options into `sessionOptions`                                                                                                        |
-| agent-cli TUI channel construction                                                    | merge the resolved memory options into the TUI-path options (parity across surfaces)                                                                           |
-| agent-cli settings schema + `--memory`/`--no-memory` arg parsing                      | add the `memory` settings entry + flag + the one-time enable notice                                                                                            |
-| `packages/agent-cli/src/__tests__/…` (new)                                            | unit: resolver precedence (settings/flag/env, default off) + options-injection on/off                                                                          |
-| `.agents/evals/scenarios/selfhost-008-memory-agent-run.md` (new)                      | the AGENT-RUN capture→recall e2e scenario (`-p`, real provider) + captured evidence                                                                            |
-| `packages/agent-cli/docs/SPEC.md`                                                     | document the `memory` setting/flag/env, default-off, scope, observability                                                                                      |
+| File                                                                                                                           | Change                                                                                                                                                                                                                    |
+| ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/agent-cli/src/…/memory-enablement.ts` (new)                                                                          | resolve the `memory` switch (settings.json ← `--memory`/`--no-memory` ← `ROBOTA_MEMORY` env; default OFF) → `{ memoryStore, automaticMemory?, recallMemory? }`                                                            |
+| `agent-transport` `IHeadlessInteractionChannelOptions` (`HeadlessInteractionChannel.ts`) + `agent-cli/src/modes/print-mode.ts` | extend the channel option interface to forward the memory fields (established option-forwarding idiom, NOT a pass-through re-export); merge into the print-path `TInteractiveSessionOptions` before `buildRuntimeSession` |
+| `packages/agent-cli/src/modes/serve-mode.ts`                                                                                   | merge the resolved memory options directly into `sessionOptions` (already a `TInteractiveSessionOptions`)                                                                                                                 |
+| agent-transport-tui `renderApp` / `TuiInteractionChannel` option surface + agent-cli TUI construction (`cli.ts` `renderApp`)   | extend the TUI channel option surface to forward the memory fields; merge at the TUI construction site (parity across surfaces)                                                                                           |
+| agent-cli settings schema + `--memory`/`--no-memory` arg parsing                                                               | add the `memory` settings entry + flag + the one-time enable notice                                                                                                                                                       |
+| `packages/agent-cli/src/__tests__/…` (new)                                                                                     | unit: resolver precedence (settings/flag/env, default off) + options-injection on/off                                                                                                                                     |
+| `.agents/evals/scenarios/selfhost-008-memory-agent-run.md` (new)                                                               | the AGENT-RUN capture→recall e2e scenario (`-p`, real provider) + captured evidence                                                                                                                                       |
+| `packages/agent-cli/docs/SPEC.md`                                                                                              | document the `memory` setting/flag/env, default-off, scope, observability                                                                                                                                                 |
 
 ## Completion Criteria
 
@@ -205,7 +207,11 @@ the P3 `<recalled-memory>` block. Verify by an agent-run `-p` capture→recall e
       fact to `<cwd>/.robota/memory/` (saved, or queued-then-approved) — the AGENT executes this and captures evidence.
 - [ ] TC-05 (**AGENT-RUN recall, the headline**): a fresh `robota -p --memory` run in the same cwd, asked a paraphrased
       question, RECALLS the captured fact into the turn (the `<recalled-memory>` block is present / the answer reflects
-      it) — the AGENT executes this end-to-end with a real provider and captures evidence.
+      it) — the AGENT executes this end-to-end with a real provider and captures evidence. **Precondition (explicit):**
+      the fact must be in a SAVED state before run B — under the default `approval_required` policy a queued candidate is
+      NOT recallable (recall reads saved topics, not `pending.json`), so the demo uses EITHER `memory.autoSave: true`
+      (an explicit "remember …" cue is high-confidence → auto-saved) OR an intermediate `robota -p "/memory approve <id>"`
+      (id from `robota -p "/memory pending"`) between run A and run B.
 - [ ] TC-06: **neutrality** — no memory content/prompt/SDK added to `packages/`; `pnpm harness:scan` (memory-neutrality + deps) green; the neutral library + `buildRuntimeSession` unchanged.
 - [ ] TC-07: **observability** — `/memory` lists the captured/pending entry after TC-04, and the enable path prints the
       one-time notice (unit/functional + shown in the agent-run evidence).
@@ -242,3 +248,20 @@ _GATE entries appended by the pipeline._
 - Test Plan: `## Test Plan` present; 7 rows matching 7 TC-N (count matches); each row has non-empty Type/Tool + reference; no "TBD"; no bare "manual" rows.
 - Structure: Tasks section present with placeholder; Evidence Log present (empty before this run); no `## Status`/`## Classification` body sections.
 - Mechanical scans confirmed passing: `scan-spec-research.mjs` (exit 0), `check-spec-doc-frontmatter.mjs` (exit 0, only expected non-blocking SELFHOST-008 duplicate-ID warn). Completion Criteria = 7, Test Plan = 7.
+
+### [GATE-APPROVAL] — ENDORSE (proposal-reviewer) | 2026-07-18
+
+Independent `proposal-reviewer` verified every load-bearing premise against code and returned **ENDORSE**: (1)
+`buildRuntimeSession` passes resolved options through unchanged; (2) `TInteractiveSessionOptions` accepts
+`memoryStore`/`automaticMemory`/`recallMemory` (default-off = omit = today's behavior); (3) **the capture→recall policy
+flow is correct** — `approval_required` QUEUEs (pending.json, not saved), `auto_save` SAVEs, and `recall()` reads only
+SAVED topics, so the e2e demo must use `auto_save` OR capture→`/memory approve`→recall (the spec routes through both;
+verified the explicit "remember …" cue is HIGH_CONFIDENCE 0.9 ≥ 0.85 auto-save threshold + the paraphrased query
+topic-name-matches); (4) `/memory` list/show/pending/approve resolve the SAME injected store (no split-brain); (5)
+print mode is `-p`-scriptable incl. slash commands, fs store persists cross-invocation under `<cwd>/.robota/memory/`.
+All three live construction sites (print/serve/TUI) confirmed, none missed. Rule-alignment: layering, no-pass-through,
+no-fallback, capability-reachability, architecture-placement (N/A) — all aligned. Two non-blocking tightenings folded
+in: TC-05 SAVED-state precondition made explicit; the two transport option interfaces (`IHeadlessInteractionChannelOptions`
+
+- `renderApp`/`TuiInteractionChannel`) named in Affected Files + the checklist (honest 3-package scope). Awaiting owner
+  sign-off to complete GATE-APPROVAL.
