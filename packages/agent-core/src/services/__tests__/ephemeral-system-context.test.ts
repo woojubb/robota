@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
+import { AbstractAIProvider } from '../../abstracts/abstract-ai-provider';
 import { Robota } from '../../core/robota';
 import { createScriptedProvider } from '../../testing/scripted-provider';
 
 import type { IAgentConfig } from '../../interfaces/agent';
+import type { TUniversalMessage } from '../../interfaces/messages';
+import type { IChatOptions } from '../../interfaces/provider';
 
 /**
  * SELFHOST-008 P3 — TC-03: the agent-core EPHEMERAL system-context seam.
@@ -66,6 +69,57 @@ describe('SELFHOST-008 P3 TC-03 — ephemeral system-context seam (agent-core)',
     // the 2nd call's request must not carry the 1st turn's ephemeral block (it was never stored)
     expect(scripted.requests).toHaveLength(2);
     expect(scripted.requests[1].some((m) => m.content === EPHEMERAL)).toBe(false);
+    expect(robota.getHistory().some((m) => (m.content ?? '').includes('recalled-memory'))).toBe(
+      false,
+    );
+  });
+});
+
+/** Streaming provider that captures the messages array each chatStream call received. */
+class CapturingStreamProvider extends AbstractAIProvider {
+  readonly name = 'capturing-stream-provider';
+  readonly version = '1.0.0';
+  streamCalls: TUniversalMessage[][] = [];
+
+  async chat(messages: TUniversalMessage[]): Promise<TUniversalMessage> {
+    return { id: 'x', role: 'assistant', content: 'ok', state: 'complete', timestamp: new Date() };
+  }
+
+  override async *chatStream(
+    messages: TUniversalMessage[],
+    _options?: IChatOptions,
+  ): AsyncIterable<TUniversalMessage> {
+    this.streamCalls.push([...messages]);
+    yield {
+      id: 'c1',
+      role: 'assistant',
+      content: 'streamed',
+      state: 'complete',
+      timestamp: new Date(),
+    };
+  }
+}
+
+describe('SELFHOST-008 P3 — ephemeral seam on the runStream path (review SHOULD)', () => {
+  it('runStream honors ephemeralSystemContext identically: reaches the provider, not persisted', async () => {
+    const provider = new CapturingStreamProvider();
+    const robota = new Robota({
+      name: 'Ephemeral Stream Test Agent',
+      aiProviders: [provider],
+      defaultModel: { provider: 'capturing-stream-provider', model: 'test-model' },
+      logging: { level: 'silent', enabled: false },
+    });
+
+    for await (const _chunk of robota.runStream('rotate the key', {
+      ephemeralSystemContext: EPHEMERAL,
+    })) {
+      // consume
+    }
+
+    expect(provider.streamCalls).toHaveLength(1);
+    expect(
+      provider.streamCalls[0].some((m) => m.role === 'system' && m.content === EPHEMERAL),
+    ).toBe(true);
     expect(robota.getHistory().some((m) => (m.content ?? '').includes('recalled-memory'))).toBe(
       false,
     );

@@ -2,6 +2,7 @@ import { assertToolChoiceValid, buildChatResponseFormat } from './execution-serv
 import { executeStreamToolCalls } from './execution-stream-tools';
 import { collectAssistantUsageMetadata } from './execution-usage';
 import { callPluginHook } from './plugin-hook-dispatcher';
+import { createSystemMessage } from '../managers/conversation-message-factory';
 import { ConfigurationError } from '../utils/errors';
 
 import type { ExecutionEventEmitter } from './execution-event-emitter';
@@ -103,6 +104,14 @@ export async function* executeStream(
     logger.debug('ExecutionService calling provider.chatStream');
 
     const conversationMessages = conversationStore.getMessages();
+    // SELFHOST-008 P3: mirror the round path — an EPHEMERAL per-run system block is appended to a DERIVED
+    // provider-message array only (sent to the model, NEVER written to the conversation store), so the
+    // `IRunOptions.ephemeralSystemContext` contract holds identically on the streaming path.
+    const ephemeralSystemContext = context?.ephemeralSystemContext;
+    const providerMessages =
+      ephemeralSystemContext && ephemeralSystemContext.trim().length > 0
+        ? [...conversationMessages, createSystemMessage(ephemeralSystemContext)]
+        : conversationMessages;
 
     const configToolsLength = Array.isArray(config.tools) ? config.tools.length : undefined;
     logger.debug('[EXECUTION-SERVICE] config.tools:', {
@@ -155,7 +164,7 @@ export async function* executeStream(
       throw new ConfigurationError('Provider does not support streaming');
     }
 
-    const stream = chatStream.call(provider, conversationMessages, chatOptions);
+    const stream = chatStream.call(provider, providerMessages, chatOptions);
     let fullResponse = '';
     let sawAssistantContent = false;
     const toolCalls: IToolCall[] = [];
