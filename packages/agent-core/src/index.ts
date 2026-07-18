@@ -235,11 +235,32 @@ export {
 export { TASK_EVENTS, TASK_EVENT_PREFIX } from './event-service/task-events';
 export { USER_EVENTS, USER_EVENT_PREFIX } from './event-service/user-events';
 export type { TUserEvent } from './event-service/user-events';
+export { SPAN_EVENTS, SPAN_EVENT_PREFIX } from './event-service/span-events';
+export type { TSpanEvent, ISpanCompletionEventData } from './event-service/span-events';
+export { generateSpanId } from './event-service/event-service';
 
 // Event constants (SSOT — do not hardcode strings)
 export { EXECUTION_EVENTS, EXECUTION_EVENT_PREFIX } from './services/execution-service';
 export { TOOL_EVENTS, TOOL_EVENT_PREFIX } from './services/tool-execution-service';
 export { AGENT_EVENTS, AGENT_EVENT_PREFIX } from './agents/constants';
+
+// Neutral multi-agent orchestration contracts + event-type unions (SELFHOST-001)
+export {
+  ORCHESTRATION_EVENTS,
+  ORCHESTRATION_EVENT_PREFIX,
+  type TOrchestrationEvent,
+  type TOrchestrationPrimitive,
+  type IOrchestrationStep,
+  type ISequentialOrchestrationSpec,
+  type IParallelOrchestrationSpec,
+  type IHandoffOrchestrationSpec,
+  type IOrchestrationDelegation,
+  type IHierarchicalOrchestrationSpec,
+  type IGroupChatOrchestrationSpec,
+  type IOrchestrationStepResult,
+  type IOrchestrationRunResult,
+  type IOrchestrationEventData,
+} from './orchestration';
 
 // Workflow converter interfaces
 export type {
@@ -315,9 +336,12 @@ export type {
   IHttpHookDefinition,
   IPromptHookDefinition,
   IAgentHookDefinition,
+  IGuardrailHookDefinition,
   THookDefinition,
+  IGuardrailResult,
+  TGuardrail,
   IHookInput,
   IHookResult,
   IHookTypeExecutor,
 } from './hooks/index.js';
-export { runHooks } from './hooks/index.js';
+export { runHooks, GuardrailExecutor } from './hooks/index.js';

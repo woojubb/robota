@@ -53,7 +53,7 @@ function readJsonFile(filePath: string): unknown {
   try {
     return JSON.parse(raw) as unknown;
   } catch {
-    // Corrupt JSON — likely from a crash during write. Treat as missing.
+    // allow-fallback: corrupt config JSON (likely a crash during write) is treated as missing config
     return undefined;
   }
 }

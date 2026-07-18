@@ -119,6 +119,16 @@ Types owned by this package (SSOT):
 | `TInMemorySandboxRunHandler`            | Type     | Custom run handler type for `InMemorySandboxClient`                                                                                                        |
 | `applyWorkspaceManifest`                | Function | Applies a workspace manifest through an `ISandboxClient`                                                                                                   |
 | `validateWorkspaceManifestPath`         | Function | Validates and normalizes manifest entry paths                                                                                                              |
+| `createRetrievalTool`                   | Function | SELFHOST-003 — the `CodebaseRetrieval` tool over an injected `IRetrievalAdapter` (adapter-gated; no corpus in the package)                                 |
+| `RepoMapRetrievalAdapter`               | Class    | SELFHOST-003 — neutral repo-map graph-centrality ranking adapter (source parser injected, corpus from the surface; token-budgeted)                         |
+| `IRetrievalAdapter`                     | Type     | SELFHOST-003 — codebase-retrieval port (`retrieve(request) → ranked result within a token budget`)                                                         |
+| `IRetrievalSourceParser`                | Type     | SELFHOST-003 — duck-typed source-parser port injected into the ranking adapter                                                                             |
+| `buildRepoMapIndex`                     | Function | SELFHOST-003 P2 — parse the corpus once into a serializable `IRepoMapIndex` (build-once, rank-many)                                                        |
+| `updateRepoMapIndex`                    | Function | SELFHOST-003 P3 — incrementally re-index: re-parse only changed files (upsert/remove), reuse the rest                                                      |
+| `serializeRepoMapIndex`                 | Function | SELFHOST-003 P2 — serialize a built index to a neutral JSON string for surface persistence                                                                 |
+| `deserializeRepoMapIndex`               | Function | SELFHOST-003 P2 — restore a built index from JSON (throws on unsupported `version`)                                                                        |
+| `REPO_MAP_INDEX_VERSION`                | Const    | SELFHOST-003 P2 — persisted-schema version for `IRepoMapIndex`                                                                                             |
+| `IRepoMapIndex`                         | Type     | SELFHOST-003 P2 — a built, serializable repo-map index (the corpus parsed once)                                                                            |
 
 ### Built-in CLI Tools
 

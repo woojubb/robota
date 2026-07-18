@@ -19,6 +19,14 @@ export interface ILimitsPluginOptions extends IPluginOptions {
   timeWindow?: number;
   /** Maximum cost per time window (in USD) */
   maxCost?: number;
+  /**
+   * SELFHOST-004: per-run CUMULATIVE budget cap (in USD). A NEW axis orthogonal to the time-windowed
+   * `maxCost`: keyed by the run (`sessionId`), it NEVER time-resets — it accrues the EXACT per-turn
+   * cost (`calculateModelCost` SSOT, the same figure displayed) for the whole run and halts the next
+   * turn once the run's cumulative cost exceeds this cap. Reset only at run start via
+   * `resetLimits(sessionId)`. Omitted ⇒ no per-run cap (unbounded).
+   */
+  maxRunCost?: number;
   /** Token cost per 1000 tokens (in USD) */
   tokenCostPer1000?: number;
   /** Bucket refill rate for token bucket strategy */

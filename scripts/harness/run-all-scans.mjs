@@ -31,6 +31,14 @@ const DEFAULT_SCAN_CONCURRENCY = Math.max(
 /** Ordered scan list — mirrors the former harness:scan chain. */
 const SCAN_COMMANDS = [
   { name: 'consistency', command: ['node', 'scripts/harness/scan-consistency.mjs'] },
+  { name: 'memory-mirror', command: ['node', 'scripts/harness/scan-memory-mirror.mjs'] },
+  { name: 'spec-research', command: ['node', 'scripts/harness/scan-spec-research.mjs'] },
+  { name: 'orchestration-map', command: ['node', 'scripts/harness/scan-orchestration-map.mjs'] },
+  {
+    name: 'orchestration-neutrality',
+    command: ['node', 'scripts/harness/scan-orchestration-neutrality.mjs'],
+  },
+  { name: 'review-findings', command: ['node', 'scripts/harness/scan-review-findings.mjs'] },
   { name: 'document-authority', command: ['node', 'scripts/harness/check-document-authority.mjs'] },
   { name: 'commands', command: ['node', 'scripts/harness/check-command-layering.mjs'] },
   {
@@ -95,6 +103,7 @@ const SCAN_COMMANDS = [
   },
   { name: 'stub-markers', command: ['node', 'scripts/harness/check-stub-markers.mjs'] },
   { name: 'conflict-markers', command: ['node', 'scripts/harness/scan-conflict-markers.mjs'] },
+  { name: 'no-fallback', command: ['node', 'scripts/harness/scan-no-fallback.mjs'] },
   { name: 'deprecated-markers', command: ['node', 'scripts/harness/scan-deprecated-markers.mjs'] },
   { name: 'done-evidence', command: ['node', 'scripts/harness/check-done-evidence.mjs'] },
   { name: 'task-archival', command: ['node', 'scripts/harness/check-task-archival.mjs'] },

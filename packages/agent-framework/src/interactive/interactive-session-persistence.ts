@@ -7,7 +7,11 @@ import type { ISkillActivationEvent } from '../commands/skill-activation-events.
 import type { IContextReferenceItem } from '../context/context-reference-inventory.js';
 import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
-import type { IGoalState } from '@robota-sdk/agent-interface-transport';
+import type {
+  IGoalState,
+  IPlanArtifact,
+  IActiveBranchPointer,
+} from '@robota-sdk/agent-interface-transport';
 import type {
   IBackgroundTaskState,
   TBackgroundTaskEvent,
@@ -44,6 +48,8 @@ export function persistSession(
     snapshotId?: string;
   },
   goalState?: IGoalState,
+  planState?: IPlanArtifact,
+  activeBranchState?: IActiveBranchPointer,
 ): void {
   try {
     const sessionId = session.getSessionId();
@@ -63,6 +69,8 @@ export function persistSession(
         contextReferenceState,
         ...(sandboxSnapshotId !== undefined ? { sandboxSnapshotId } : {}),
         ...(goalState !== undefined ? { goalState } : {}),
+        ...(planState !== undefined ? { planState } : {}),
+        ...(activeBranchState !== undefined ? { activeBranchState } : {}),
       }),
     );
   } catch {
@@ -95,6 +103,8 @@ interface IBuildInteractiveSessionRecordInput {
   };
   sandboxSnapshotId?: string;
   goalState?: IGoalState;
+  planState?: IPlanArtifact;
+  activeBranchState?: IActiveBranchPointer;
 }
 
 function buildInteractiveSessionRecord(
@@ -103,6 +113,8 @@ function buildInteractiveSessionRecord(
   return {
     id: input.sessionId,
     ...(input.goalState !== undefined ? { goal: input.goalState } : {}),
+    ...(input.planState !== undefined ? { plan: input.planState } : {}),
+    ...(input.activeBranchState !== undefined ? { activeBranch: input.activeBranchState } : {}),
     ...(input.sessionName !== undefined ? { name: input.sessionName } : {}),
     cwd: input.cwd,
     createdAt: input.createdAt ?? new Date().toISOString(),

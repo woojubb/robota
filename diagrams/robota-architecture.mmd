@@ -1,0 +1,69 @@
+graph TD
+  subgraph Contracts["agent-interface-* (pure type contracts, zero runtime deps)"]
+    IF[agent-interface-transport<br/>IInteractionChannel · InteractionEvent]
+  end
+
+  subgraph Core["Foundation"]
+    CORE[agent-core<br/>engine · events · hooks · permissions]
+    EXEC[agent-executor]
+    SESS[agent-session]
+    TOOLS[agent-tools · agent-tool-mcp]
+    PROC[agent-process leaf]
+  end
+
+  subgraph Assembly["SDK assembly"]
+    FW[agent-framework<br/>InteractiveSession · createInteractiveRuntime · startRuntimeHost]
+    CMD[agent-command*]
+    PRESET[agent-preset]
+  end
+
+  subgraph Providers["Provider family (DIP, ARCH-PROVIDER-002)"]
+    PROV[agent-provider-anthropic / -openai / -gemini /<br/>-bytedance / -openai-compatible / -defaults / -replay]
+  end
+
+  subgraph Transports["Transport implementations"]
+    TPROTO[agent-transport-protocol<br/>createWsHandler · wire protocol]
+    TCORE[agent-transport core<br/>HeadlessInteractionChannel]
+    TTUI[agent-transport-tui React/Ink]
+    TGUI[agent-transport-gui<br/>GUI presentation core]
+    TWS[agent-transport-ws]
+    THTTP[agent-transport-http]
+    TWEBRTC[agent-transport-webrtc + -webrtc-web]
+    PAIR[agent-remote-pairing<br/>DTLS channel-binding leaf]
+  end
+
+  subgraph DAG["DAG subsystem (WORKFLOW-001)"]
+    DAGCORE[dag-core] --> DAGFW[dag-framework]
+    DAGFW --> DAGRT[dag-runtime · dag-worker]
+    DAGFW --> DAGNODES[dag-nodes-default → dag-node-*]
+    DAGCLI[dag-cli robota-dag]
+  end
+
+  subgraph Surfaces["Product surfaces (composition roots)"]
+    CLI[packages/agent-cli<br/>TUI + robota --serve headless host]
+    APP[apps/agent-app<br/>Electron desktop GUI]
+    WEB[apps/agent-web · agent-web-monitor]
+    SRV[apps/agent-server · dag-runtime-server · remote-signaling]
+  end
+
+  IF --> CORE
+  CORE --> EXEC & SESS & TOOLS
+  PROC --> EXEC & TOOLS
+  CORE --> FW
+  EXEC & SESS --> FW
+  FW --> CMD & PRESET
+  PROV -. injected via DIP .-> FW
+  IF --> TPROTO & TCORE & TTUI & TGUI & TWS & THTTP & TWEBRTC
+  TPROTO --> TWS & THTTP & TWEBRTC & TGUI
+  PAIR --> TWEBRTC
+  TGUI --> TWEBRTC
+  FW --> CLI
+  CMD --> CLI
+  TTUI --> CLI
+  TCORE --> CLI
+  DAGFW --> DAGCLI
+  CMD --> DAGFW
+  CLI -. spawns robota --serve loopback+nonce .-> APP
+  TGUI --> APP & WEB
+  TWS --> APP
+  DAGCLI --> SRV

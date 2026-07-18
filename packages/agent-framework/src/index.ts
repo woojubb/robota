@@ -18,6 +18,9 @@ export {
   type TGoalDecision,
   type IGoalStartOptions,
 } from './goal/index.js';
+
+// ── Explicit plan-mode (SELFHOST-002) ───────────────────────
+export { PlanController, type TPlanDecision, type IPlanControllerDeps } from './plan/index.js';
 export {
   createProjectSessionStore,
   createUserSessionStore,
@@ -220,6 +223,9 @@ export {
   recordCommandMemoryEvent,
   restoreCommandEditCheckpoint,
   rollbackCommandEditCheckpoint,
+  forkCommandEditCheckpoint,
+  switchCommandEditCheckpointBranch,
+  listCommandEditCheckpointBranches,
   STATUSLINE_COMMAND_ARGUMENT_HINT,
   STATUSLINE_COMMAND_DESCRIPTION,
   PLUGIN_COMMAND_ARGUMENT_HINT,
@@ -452,6 +458,27 @@ export type {
   TSubagentRunnerFactory,
 } from './subagents/index.js';
 
+// ── Multi-agent orchestration mechanism (SELFHOST-001) ──────
+export {
+  runSequential,
+  runParallel,
+  runHandoff,
+  runHierarchical,
+  runGroupChat,
+} from './orchestration/index.js';
+export type {
+  ISequentialOrchestratorDeps,
+  ISequentialRunContext,
+  IParallelOrchestratorDeps,
+  IHandoffOrchestratorDeps,
+  ResolveHandoff,
+  IHierarchicalOrchestratorDeps,
+  PlanDelegation,
+  IGroupChatOrchestratorDeps,
+  SelectNextStep,
+  IOrchestrationRunContext,
+} from './orchestration/index.js';
+
 // ── Hook executors ──────────────────────────────────────────
 export { PromptExecutor, AgentExecutor } from './hooks/index.js';
 export type { TProviderFactory, IPromptProvider, IPromptExecutorOptions } from './hooks/index.js';
@@ -589,6 +616,13 @@ export type {
 export { buildRuntimeSession, startRuntimeHost } from './runtime/index.js';
 export type { IRuntimeHostOptions, IRuntimeHostHandle } from './runtime/index.js';
 export type { IResolvedConfig } from './config/config-types.js';
+
+// SELFHOST-006: per-role model routing policy (neutral, over the provider DIP).
+export {
+  resolveRoleModel,
+  resolveRoleFallbackChain,
+  runWithRoleFallback,
+} from './routing/role-model-routing.js';
 
 // ──────────────────────────────────────────────────────────────
 // INTERNAL (not exported):

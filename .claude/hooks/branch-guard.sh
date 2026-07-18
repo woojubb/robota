@@ -29,8 +29,10 @@ IS_GH_DELETE_BRANCH=false
 echo "$COMMAND" | grep -qE '^\s*git\s+commit\b' && IS_COMMIT=true
 echo "$COMMAND" | grep -qE '^\s*git\s+(push|push\s)' && IS_PUSH=true
 echo "$COMMAND" | grep -qE '^\s*git\s+merge\b' && IS_MERGE=true
-echo "$COMMAND" | grep -qE '^\s*git\s+checkout\s+-b\b' && IS_BRANCH_CREATE=true
-echo "$COMMAND" | grep -qE '^\s*git\s+switch\s+-c\b' && IS_BRANCH_CREATE=true
+# Tolerate flags between the subcommand and -b/-c (e.g. `git checkout -q -b x`, which
+# previously slipped past the create-guard entirely).
+echo "$COMMAND" | grep -qE '^\s*git\s+checkout\s+(-\S+\s+)*-b\b' && IS_BRANCH_CREATE=true
+echo "$COMMAND" | grep -qE '^\s*git\s+switch\s+(-\S+\s+)*-c\b' && IS_BRANCH_CREATE=true
 # `gh pr merge --delete-branch` is banned (git-branch.md): it once deleted the
 # develop integration branch. Match ONLY when --delete-branch is an actual argument
 # of a `gh pr merge` invocation — strip shell comments first, then require the flag
@@ -47,6 +49,45 @@ if [[ "$IS_GH_DELETE_BRANCH" == "true" ]]; then
   echo "[branch-guard] only on explicit user request: git branch -D <name> (local) /" >&2
   echo "[branch-guard] gh api -X DELETE repos/<owner>/<repo>/git/refs/heads/<name> (remote)." >&2
   exit 2
+fi
+
+# --- L2: never delete a REMOTE branch until its PR is confirmed MERGED (git-branch.md) ---
+# A branch deleted while its PR is unmerged CLOSES/orphans the PR (this happened once: a delete
+# ran right after a `gh pr merge` that had actually failed DIRTY). Gate remote-branch deletion on
+# a confirmed merged PR. Matches: `gh api -X DELETE .../git/refs/heads/<name>`,
+# `git push <remote> --delete <name>`, `git push <remote> :<name>`.
+DELETE_BRANCH_NAME=""
+# Scan only the command up to the first heredoc opener (`<<`): everything after it is DATA
+# (e.g. a `git commit -F - <<'EOF' …` message that may legitimately mention `git push --delete`
+# or `refs/heads/`), not an executed command. This prevents a commit message from tripping the guard.
+DELETE_SCAN="${COMMAND_NO_COMMENTS%%<<*}"
+if printf '%s' "$DELETE_SCAN" | grep -qE 'gh[[:space:]]+api[^|;&]*-X[[:space:]]+DELETE[^|;&]*/git/refs/heads/'; then
+  DELETE_BRANCH_NAME=$(printf '%s' "$DELETE_SCAN" | sed -E 's#.*/git/refs/heads/([A-Za-z0-9._/-]+).*#\1#')
+elif printf '%s' "$DELETE_SCAN" | grep -qE 'git[[:space:]]+push[[:space:]]+[^[:space:]-][^[:space:]]*[[:space:]]+(--delete[[:space:]]|:)'; then
+  DELETE_BRANCH_NAME=$(printf '%s' "$DELETE_SCAN" | sed -E 's#.*git[[:space:]]+push[[:space:]]+[^[:space:]]+[[:space:]]+(--delete[[:space:]]+|:)([A-Za-z0-9._/-]+).*#\2#')
+fi
+
+if [[ -n "$DELETE_BRANCH_NAME" && "${BRANCH_GUARD_ALLOW_DELETE:-0}" != "1" ]]; then
+  if printf '%s' "$DELETE_BRANCH_NAME" | grep -qE '^(main|master|develop|gh-pages)$'; then
+    echo "[branch-guard] Blocked: refusing to delete protected branch '$DELETE_BRANCH_NAME'." >&2
+    exit 2
+  fi
+  MERGED_COUNT=""
+  if command -v gh >/dev/null 2>&1; then
+    MERGED_COUNT=$(gh pr list --head "$DELETE_BRANCH_NAME" --state merged --json number --jq 'length' 2>/dev/null || echo "")
+  fi
+  if [[ -z "$MERGED_COUNT" ]]; then
+    echo "[branch-guard] Blocked: cannot confirm a MERGED PR for '$DELETE_BRANCH_NAME' (gh unavailable / query failed)." >&2
+    echo "[branch-guard] Verify the merge landed (gh pr view <n> --json state == MERGED), then override: BRANCH_GUARD_ALLOW_DELETE=1" >&2
+    exit 2
+  fi
+  if [[ "$MERGED_COUNT" == "0" ]]; then
+    echo "[branch-guard] Blocked: branch '$DELETE_BRANCH_NAME' has NO merged PR — deleting it now would orphan/close an unmerged PR." >&2
+    echo "[branch-guard] Confirm the merge FIRST: gh pr view <n> --json state must be MERGED." >&2
+    echo "[branch-guard] Intentional abandon of an unmerged branch? Override: BRANCH_GUARD_ALLOW_DELETE=1" >&2
+    exit 2
+  fi
+  # MERGED_COUNT >= 1 → the PR merged; deletion is safe. Fall through.
 fi
 
 if [[ "$IS_COMMIT" == "false" && "$IS_PUSH" == "false" && "$IS_MERGE" == "false" && "$IS_BRANCH_CREATE" == "false" ]]; then
@@ -94,7 +135,7 @@ fi
 # Enforce feature branch naming convention <type>/<desc> (git-branch.md).
 # Long-lived branches are exempt; override with BRANCH_GUARD_ALLOW_BADNAME=1.
 if [[ "$IS_BRANCH_CREATE" == "true" && "${BRANCH_GUARD_ALLOW_BADNAME:-0}" != "1" ]]; then
-  NEW_BRANCH=$(printf '%s' "$COMMAND" | sed -E 's/.*(checkout[[:space:]]+-b|switch[[:space:]]+-c)[[:space:]]+([^[:space:]]+).*/\2/')
+  NEW_BRANCH=$(printf '%s' "$COMMAND" | sed -E 's/.*[[:space:]](-b|-c)[[:space:]]+([^[:space:]]+).*/\2/')
   BRANCH_NAME_RE='^(feat|fix|chore|docs|refactor|test|perf|build|ci|style|revert|release|hotfix)/[a-z0-9][a-z0-9._/-]*$'
   EXEMPT_RE='^(main|master|develop|gh-pages)$'
   if [[ -n "$NEW_BRANCH" && ! "$NEW_BRANCH" =~ $EXEMPT_RE && ! "$NEW_BRANCH" =~ $BRANCH_NAME_RE ]]; then

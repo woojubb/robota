@@ -4,6 +4,8 @@ import {
   type IPluginExecutionResult,
   PluginCategory,
   PluginPriority,
+  PluginError,
+  calculateModelCost,
   createLogger,
   type ILogger,
   type TUniversalMessage,
@@ -59,6 +61,8 @@ export class LimitsPlugin extends AbstractPlugin<ILimitsPluginOptions> {
   private logger: ILogger;
   private windows = new Map<string, ILimitWindow>();
   private buckets = new Map<string, ITokenBucket>();
+  /** SELFHOST-004: per-run cumulative EXACT cost (USD) keyed by run (sessionId); never time-resets. */
+  private runCosts = new Map<string, number>();
 
   constructor(options: ILimitsPluginOptions) {
     super();
@@ -71,6 +75,8 @@ export class LimitsPlugin extends AbstractPlugin<ILimitsPluginOptions> {
       maxRequests: options.maxRequests ?? DEFAULT_MAX_REQUESTS,
       timeWindow: options.timeWindow ?? DEFAULT_TIME_WINDOW_MS,
       maxCost: options.maxCost ?? DEFAULT_MAX_COST,
+      // No per-run cap unless configured: +Infinity is never exceeded (feature opt-in).
+      maxRunCost: options.maxRunCost ?? Number.POSITIVE_INFINITY,
       tokenCostPer1000: options.tokenCostPer1000 ?? DEFAULT_TOKEN_COST_PER_1000,
       refillRate: options.refillRate ?? DEFAULT_REFILL_RATE,
       bucketSize: options.bucketSize ?? DEFAULT_BUCKET_SIZE,
@@ -86,6 +92,9 @@ export class LimitsPlugin extends AbstractPlugin<ILimitsPluginOptions> {
   }
 
   override async beforeExecution(context: IPluginExecutionContext): Promise<void> {
+    // SELFHOST-004: the per-run cumulative cap is orthogonal to the time-window strategy — it halts
+    // the NEXT turn once the run's accrued cost has exceeded the budget (checked before 'none' returns).
+    this.enforceRunBudget(context);
     if (this.pluginOptions.strategy === 'none') return;
     const key = this.getKey(context);
     const now = Date.now();
@@ -109,6 +118,8 @@ export class LimitsPlugin extends AbstractPlugin<ILimitsPluginOptions> {
     context: IPluginExecutionContext,
     result: IPluginExecutionResult,
   ): Promise<void> {
+    // SELFHOST-004: accrue this turn's EXACT cost to the run budget first (orthogonal to the strategy).
+    this.accrueRunCost(context, result);
     if (this.pluginOptions.strategy === 'none') return;
     const key = this.getKey(context);
     const tokensUsed = result?.tokensUsed || 0;
@@ -149,6 +160,62 @@ export class LimitsPlugin extends AbstractPlugin<ILimitsPluginOptions> {
     return context.userId || context.sessionId || context.executionId || 'default';
   }
 
+  /**
+   * SELFHOST-004: the run key is the interactive session (`sessionId`) — NOT `userId`, which groups the
+   * time-windows. A "run" is one session; its cumulative budget spans every turn until `resetLimits`.
+   */
+  private getRunKey(context: ILimitsPluginExecutionContext): string {
+    return context.sessionId || context.executionId || 'default';
+  }
+
+  /**
+   * SELFHOST-004: halt (throw) when the run's already-accrued cumulative cost has reached the per-run
+   * budget cap — blocking the next turn. No-op when the cap is unset (+Infinity).
+   */
+  private enforceRunBudget(context: ILimitsPluginExecutionContext): void {
+    if (!Number.isFinite(this.pluginOptions.maxRunCost)) return;
+    const runKey = this.getRunKey(context);
+    const accrued = this.runCosts.get(runKey) ?? 0;
+    if (accrued >= this.pluginOptions.maxRunCost) {
+      throw new PluginError(
+        `Per-run budget exhausted. Run: ${runKey}, spent: $${accrued.toFixed(4)}, max: $${this.pluginOptions.maxRunCost}`,
+        this.name,
+        { runKey, accrued, maxRunCost: this.pluginOptions.maxRunCost },
+      );
+    }
+  }
+
+  /**
+   * SELFHOST-004: accrue this turn's EXACT cost to the run budget, using the SAME `calculateModelCost`
+   * SSOT (exact input/output split) that produces the displayed `costUsd` — so the enforced and
+   * displayed figures share ONE computation path (never the blended estimate). Unpriced turns (no
+   * model price) accrue nothing, mirroring `costStatus: 'unknown'`. Warns on crossing the cap.
+   */
+  private accrueRunCost(
+    context: ILimitsPluginExecutionContext,
+    result: IPluginExecutionResult,
+  ): void {
+    if (!Number.isFinite(this.pluginOptions.maxRunCost)) return;
+    const usage = result.usage;
+    if (!usage) return;
+    const exact = calculateModelCost(
+      this.resolveModelName(context),
+      usage.promptTokens ?? 0,
+      usage.completionTokens ?? 0,
+    );
+    if (exact === undefined) return; // unpriced model — cannot enforce an exact budget
+
+    const runKey = this.getRunKey(context);
+    const before = this.runCosts.get(runKey) ?? 0;
+    const after = before + exact;
+    this.runCosts.set(runKey, after);
+    if (before < this.pluginOptions.maxRunCost && after >= this.pluginOptions.maxRunCost) {
+      this.logger.warn?.(
+        `[LimitsPlugin] Per-run budget reached for ${runKey}: $${after.toFixed(4)} of $${this.pluginOptions.maxRunCost}`,
+      );
+    }
+  }
+
   private resolveModelName(context: IPluginExecutionContext): string {
     const m = context.config?.model;
     return typeof m === 'string' && m.length > 0 ? m : 'unknown';
@@ -176,6 +243,11 @@ export class LimitsPlugin extends AbstractPlugin<ILimitsPluginOptions> {
               windowStart: window.windowStart,
             }
           : null,
+        // SELFHOST-004: the run's cumulative budget spend (USD) for this key, and its cap.
+        runCost: this.runCosts.get(key) ?? 0,
+        maxRunCost: Number.isFinite(this.pluginOptions.maxRunCost)
+          ? this.pluginOptions.maxRunCost
+          : null,
       };
     }
     return {
@@ -190,9 +262,20 @@ export class LimitsPlugin extends AbstractPlugin<ILimitsPluginOptions> {
     if (key) {
       this.buckets.delete(key);
       this.windows.delete(key);
+      // SELFHOST-004: run-start reset — clear the run's cumulative budget so a new run starts at $0.
+      // The run budget is keyed by the RUN key (`getRunKey` = sessionId), which differs from the
+      // window key (`getKey` = userId||sessionId) when a userId is set. Callers resetting the run
+      // budget MUST pass the sessionId, not a userId-derived window key, or the run cost won't clear.
+      this.runCosts.delete(key);
     } else {
       this.buckets.clear();
       this.windows.clear();
+      this.runCosts.clear();
     }
+  }
+
+  /** SELFHOST-004: the run's accrued cumulative cost (USD) so far, 0 if none/unknown. */
+  getRunCost(key: string): number {
+    return this.runCosts.get(key) ?? 0;
   }
 }

@@ -6,7 +6,11 @@
 
 import { randomUUID } from 'node:crypto';
 
-import { collectAssistantUsageMetadata } from '@robota-sdk/agent-core';
+import {
+  collectAssistantUsageMetadata,
+  calculateModelCost,
+  SPAN_EVENTS,
+} from '@robota-sdk/agent-core';
 
 import { listActiveContextReferences } from '../context/context-reference-inventory.js';
 import {
@@ -23,8 +27,13 @@ import type { IExecutionResult, IToolSummary, IUsageSnapshot } from './types.js'
 import type { IContextReferenceItem } from '../context/context-reference-inventory.js';
 import type { IPromptFileReferenceRecord } from '../context/prompt-file-references.js';
 import type { IContextWindowState, TUniversalMessage } from '@robota-sdk/agent-core';
-import type { IHistoryEntry } from '@robota-sdk/agent-core';
-import type { IUsageSource } from '@robota-sdk/agent-interface-transport';
+import type {
+  IHistoryEntry,
+  ISpanCompletionEventData,
+  IEventService,
+  TEventListener,
+} from '@robota-sdk/agent-core';
+import type { IUsageSource, ISpanEntry } from '@robota-sdk/agent-interface-transport';
 
 export interface IPreparedPromptInput {
   modelInput: string;
@@ -73,9 +82,10 @@ export function buildResult(
   historyBefore: number,
   contextState: IContextWindowState,
   promptFileReferences?: readonly IPromptFileReferenceRecord[],
+  modelId?: string,
 ): IExecutionResult {
   const toolSummaries = extractToolSummaries(sessionHistory, historyBefore);
-  const usage = extractTurnUsage(sessionHistory, historyBefore, contextState);
+  const usage = extractTurnUsage(sessionHistory, historyBefore, contextState, modelId);
   return {
     response,
     history: interactiveHistory,
@@ -97,6 +107,7 @@ export function buildInterruptedResult(
   interactiveHistory: IHistoryEntry[],
   historyBefore: number,
   contextState: IContextWindowState,
+  modelId?: string,
 ): IExecutionResult {
   const toolSummaries = extractToolSummaries(sessionHistory, historyBefore);
   const parts: string[] = [];
@@ -104,7 +115,7 @@ export function buildInterruptedResult(
     const msg = sessionHistory[i];
     if (msg?.role === 'assistant' && msg.content) parts.push(msg.content);
   }
-  const usage = extractTurnUsage(sessionHistory, historyBefore, contextState);
+  const usage = extractTurnUsage(sessionHistory, historyBefore, contextState, modelId);
   return {
     response: parts.join('\n\n'),
     history: interactiveHistory,
@@ -128,6 +139,9 @@ export function createUsageSummaryEntry(usage: IUsageSnapshot): IHistoryEntry<IU
  * ANALYTICS-001 (Phase 2): build a usage-summary entry attributed to a non-main source (a subagent /
  * background task) so the parent session log can report token usage per source. Context fields are
  * not meaningful for a child run and are left at 0; the usage reducer only reads the token totals.
+ * Cost is NOT derived here (no model id is in scope for the child run), so `costStatus: 'unknown'`
+ * and `costUsd` is omitted — honoring the SELFHOST-004 invariant "costUsd present iff costStatus !==
+ * 'unknown'" (the `kind: 'exact'` still reflects exact TOKENS).
  */
 export function createSourceUsageSummaryEntry(
   totals: { promptTokens: number; completionTokens: number; totalTokens: number },
@@ -142,9 +156,58 @@ export function createSourceUsageSummaryEntry(
     contextUsedTokens: 0,
     contextMaxTokens: 0,
     contextUsedPercentage: 0,
-    costStatus: 'exact',
+    costStatus: 'unknown',
     source,
   });
+}
+
+/**
+ * SELFHOST-004 (P2, TC-07): build a per-operation span entry from the `agent-core` span-completion
+ * event (`ISpanCompletionEventData`), mirroring `createUsageSummaryEntry`. This is the ONLY place the
+ * event's joined `spanId + durationMs + op` becomes a record-side `IHistoryEntry<ISpanEntry>` — so
+ * `agent-core` surfaces raw timing while `agent-framework` (which already depends on transport) owns
+ * the record projection. No `agent-core → agent-interface-transport` edge; no `agent-plugin` edge.
+ */
+export function createSpanEntry(event: ISpanCompletionEventData): IHistoryEntry<ISpanEntry> {
+  return {
+    id: `span_${randomUUID()}`,
+    timestamp: new Date(),
+    category: 'event',
+    type: 'span',
+    data: {
+      spanId: event.spanId,
+      op: event.op,
+      durationMs: event.durationMs,
+    },
+  };
+}
+
+/** A live span collector: buffers span entries seen on the bus until disposed. */
+export interface ISpanCollector {
+  /** The span entries observed since subscription, in emit order. */
+  readonly entries: IHistoryEntry<ISpanEntry>[];
+  /** Unsubscribe from the bus (idempotent). */
+  dispose(): void;
+}
+
+/**
+ * SELFHOST-004 (P6): subscribe to a session's event bus and project each `SPAN_EVENTS.COMPLETED`
+ * event into a record span entry (via {@link createSpanEntry}). The interactive turn drains the
+ * collected entries onto `history` at the turn boundary — BEFORE the turn's `usage-summary` entry —
+ * so the read-model groups them under the owning turn. Tools publish raw (unbound) local event names,
+ * so we match `SPAN_EVENTS.COMPLETED` directly.
+ */
+export function collectSpanEntries(eventService: IEventService): ISpanCollector {
+  const entries: IHistoryEntry<ISpanEntry>[] = [];
+  const listener: TEventListener = (eventType, data) => {
+    if (eventType !== SPAN_EVENTS.COMPLETED) return;
+    entries.push(createSpanEntry(data as ISpanCompletionEventData));
+  };
+  eventService.subscribe(listener);
+  return {
+    entries,
+    dispose: () => eventService.unsubscribe(listener),
+  };
 }
 
 export async function preparePromptInput(
@@ -202,6 +265,7 @@ function extractTurnUsage(
   sessionHistory: TUniversalMessage[],
   historyBefore: number,
   contextState: IContextWindowState,
+  modelId?: string,
 ): IUsageSnapshot | undefined {
   const turnMessages = sessionHistory.slice(historyBefore);
   let promptTokens = 0;
@@ -218,6 +282,11 @@ function extractTurnUsage(
   }
 
   if (!foundUsage) return undefined;
+
+  // SELFHOST-004: derive the turn's exact cost from the model-pricing SSOT (input/output split).
+  // `undefined` when no model id is in scope or the model is unpriced → costStatus stays 'unknown'.
+  const costUsd = modelId ? calculateModelCost(modelId, promptTokens, completionTokens) : undefined;
+
   return {
     kind: 'exact',
     scope: 'turn',
@@ -227,7 +296,8 @@ function extractTurnUsage(
     contextUsedTokens: contextState.usedTokens,
     contextMaxTokens: contextState.maxTokens,
     contextUsedPercentage: contextState.usedPercentage,
-    costStatus: 'unknown',
+    costStatus: costUsd !== undefined ? 'exact' : 'unknown',
+    ...(costUsd !== undefined ? { costUsd } : {}),
   };
 }
 

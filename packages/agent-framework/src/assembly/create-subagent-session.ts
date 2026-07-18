@@ -10,6 +10,7 @@
 import { Session } from '@robota-sdk/agent-session';
 
 import { assembleSubagentPrompt } from './subagent-prompts.js';
+import { resolveRoleFallbackChain } from '../routing/role-model-routing.js';
 import { createProviderSafeModelCommandToolName } from '../tools/model-command-tool-projection.js';
 
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
@@ -17,7 +18,7 @@ import type { IResolvedConfig } from '../config/config-types.js';
 import type { ILoadedContext } from '../context/context-loader.js';
 import type { IToolWithEventService, IHookTypeExecutor } from '@robota-sdk/agent-core';
 import type { TPermissionMode, TToolArgs } from '@robota-sdk/agent-core';
-import type { IAIProvider } from '@robota-sdk/agent-core';
+import type { IAIProvider, TRoleModelMap } from '@robota-sdk/agent-core';
 import type {
   ISessionLogger,
   ITerminalOutput,
@@ -45,6 +46,12 @@ export interface ISubagentOptions {
   parentTools: IToolWithEventService[];
   /** AI provider instance. */
   provider: IAIProvider;
+  /**
+   * SELFHOST-006: optional per-role model routing map. When set, a subagent with no explicit `model`
+   * alias resolves its model from its role's fallback chain (primary first) keyed by
+   * `agentDefinition.role ?? agentDefinition.name`. Rides the existing provider DIP.
+   */
+  roleModels?: TRoleModelMap;
   /** Terminal output interface. */
   terminal: ITerminalOutput;
   /** Stable session ID for transcript files. */
@@ -130,10 +137,19 @@ export function createSubagentSession(options: ISubagentOptions): Session {
   // Filter tools based on agent definition constraints
   const tools = filterTools(parentTools, agentDefinition);
 
-  // Resolve model: agent override or parent model
+  // Resolve model (precedence): explicit alias override > SELFHOST-006 per-role routing > parent model.
+  // v1 resolution site (per opaque role key = role ?? name). The subagent runs on the PARENT provider
+  // instance (no provider registry to swap providers in v1), so only apply a role's model when its
+  // chain entry targets that SAME provider — pick the first `IModelRef` whose `provider` matches. A
+  // role whose entries all target a different provider falls back to the parent model rather than
+  // running a foreign model string on the parent provider (which would mismatch). Cross-provider
+  // fallback is the routing policy's job (`runWithRoleFallback`) once a provider registry is wired.
+  const roleKey = agentDefinition.role ?? agentDefinition.name;
+  const roleChain = options.roleModels ? resolveRoleFallbackChain(options.roleModels, roleKey) : [];
+  const roleModel = roleChain.find((ref) => ref.provider === options.provider.name);
   const model = agentDefinition.model
     ? resolveModelId(agentDefinition.model, parentConfig.provider.model)
-    : parentConfig.provider.model;
+    : (roleModel?.model ?? parentConfig.provider.model);
 
   // Assemble system prompt with framework suffix
   const systemMessage = assembleSubagentPrompt({

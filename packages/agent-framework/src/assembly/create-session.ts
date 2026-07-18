@@ -5,6 +5,7 @@
 
 import { join } from 'node:path';
 
+import { GuardrailExecutor } from '@robota-sdk/agent-core';
 import { Session } from '@robota-sdk/agent-session';
 
 import {
@@ -34,7 +35,12 @@ import type {
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
 import type { TSessionFactory } from '../hooks/agent-executor.js';
 import type { TProviderFactory } from '../hooks/prompt-executor.js';
-import type { IToolWithEventService, IHookTypeExecutor } from '@robota-sdk/agent-core';
+import type {
+  IToolWithEventService,
+  IHookTypeExecutor,
+  THooksConfig,
+  TGuardrail,
+} from '@robota-sdk/agent-core';
 
 export type { ICreateSessionOptions, ICreateSessionResult } from './create-session-types.js';
 
@@ -67,6 +73,26 @@ function hasModelInvocableCommandDescriptor(
  * Assembles provider, tools, and system prompt, then passes them
  * to Session as pre-constructed dependencies.
  */
+/**
+ * SELFHOST-005: ensure a guardrail hook definition exists when guardrails are registered, so the
+ * `GuardrailExecutor` actually fires. Appends a `PreToolUse` guardrail group (matcher '' = all tools)
+ * unless a guardrail hook is already declared anywhere in the config (idempotent — no double-run).
+ */
+function resolveGuardrailHooks(
+  hooks: THooksConfig | undefined,
+  guardrails: Record<string, TGuardrail> | undefined,
+): THooksConfig | undefined {
+  if (!guardrails || Object.keys(guardrails).length === 0) return hooks;
+  const alreadyDeclared = Object.values(hooks ?? {}).some((groups) =>
+    groups?.some((group) => group.hooks.some((hook) => hook.type === 'guardrail')),
+  );
+  if (alreadyDeclared) return hooks;
+  return {
+    ...hooks,
+    PreToolUse: [...(hooks?.PreToolUse ?? []), { matcher: '', hooks: [{ type: 'guardrail' }] }],
+  };
+}
+
 export function createSession(options: ICreateSessionOptions): ICreateSessionResult {
   if (!options.provider) {
     throw new Error(
@@ -94,7 +120,11 @@ export function createSession(options: ICreateSessionOptions): ICreateSessionRes
     ? skillCommandSource.getModelInvocableSkills()
     : [];
 
-  const baseDefaultTools = createDefaultTools({ sandboxClient: options.sandboxClient, cwd });
+  const baseDefaultTools = createDefaultTools({
+    sandboxClient: options.sandboxClient,
+    cwd,
+    ...(options.retrievalAdapter ? { retrievalAdapter: options.retrievalAdapter } : {}),
+  });
   const shouldWrapHostEditCheckpoints =
     options.editCheckpointRecorder !== undefined && options.sandboxClient === undefined;
   const defaultTools =
@@ -146,9 +176,21 @@ export function createSession(options: ICreateSessionOptions): ICreateSessionRes
   if (options.sessionFactory) {
     hookTypeExecutors.push(new AgentExecutor({ sessionFactory: options.sessionFactory }));
   }
+  if (options.guardrails && Object.keys(options.guardrails).length > 0) {
+    // SELFHOST-005: register the guardrail executor so a { type: 'guardrail' } hook definition runs
+    // the consumer's guardrail set in parallel and fails the turn fast via the existing blocked path.
+    hookTypeExecutors.push(new GuardrailExecutor(options.guardrails));
+  }
   if (options.additionalHookExecutors) {
     hookTypeExecutors.push(...options.additionalHookExecutors);
   }
+
+  // SELFHOST-005: registering guardrails only adds the EXECUTOR; the guardrail set fires only if a
+  // { type: 'guardrail' } hook definition exists on an enforcing event. When guardrails are registered
+  // and the config declares none, auto-inject a PreToolUse guardrail group (matcher '' = all tools) so
+  // the gate actually runs — otherwise P3 would be inert. Idempotent: skipped if the user already
+  // declared a guardrail hook.
+  const resolvedHooks = resolveGuardrailHooks(options.config.hooks, options.guardrails);
 
   const { agentToolDeps, agentDefinitions, backgroundTaskManager } = buildAgentRuntime(
     options,
@@ -232,7 +274,7 @@ export function createSession(options: ICreateSessionOptions): ICreateSessionRes
     systemMessage: finalSystemMessage,
     terminal: options.terminal,
     permissions: mergedPermissions,
-    hooks: options.config.hooks,
+    hooks: resolvedHooks,
     permissionMode: options.permissionMode,
     defaultTrustLevel: options.config.defaultTrustLevel,
     model: options.model ?? options.config.provider.model,

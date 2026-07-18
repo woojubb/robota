@@ -34,6 +34,7 @@ export const CLOSED_SIGNAL_VOCAB = new Set([
   'REVIEW VERDICT',
   'MERGE VERIFIED',
   'DECOMPOSITION',
+  'PRIOR_ART_RESEARCH',
 ]);
 
 const EDIT_TOOLS = ['Edit', 'Write'];

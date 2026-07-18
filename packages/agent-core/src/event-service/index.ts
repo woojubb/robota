@@ -26,8 +26,11 @@ export {
   StructuredEventService,
   ObservableEventService,
   composeEventName,
+  generateSpanId,
 } from './event-service';
 
 export { TASK_EVENTS, TASK_EVENT_PREFIX } from './task-events';
 export { USER_EVENTS, USER_EVENT_PREFIX } from './user-events';
 export type { TUserEvent } from './user-events';
+export { SPAN_EVENTS, SPAN_EVENT_PREFIX } from './span-events';
+export type { TSpanEvent, ISpanCompletionEventData } from './span-events';

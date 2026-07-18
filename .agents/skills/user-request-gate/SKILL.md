@@ -53,6 +53,7 @@ Before any code writing, explore freely:
 
 3. Create `.agents/spec-docs/draft/<TYPE>-NNN-<kebab-slug>.md` using [`backlog-writer`](../backlog-writer/SKILL.md).
    Required frontmatter:
+
    ```yaml
    ---
    status: draft
@@ -60,6 +61,14 @@ Before any code writing, explore freely:
    tags: [<env>, <protocol>]
    ---
    ```
+
+4. **Prior-art research (default-on, [research.md](../../rules/research.md)).** Dispatch the
+   `prior-art-researcher` agent (the research WORKER) on the request; paste its returned `## Prior Art Research`
+   block into the draft and let its recommendation feed `Alternatives Considered` / `Decision`. Skip ONLY by
+   writing an explicit `Waived: <reason>` line under the section — a waiver you propose (research genuinely
+   unnecessary) or the user requests. A missing/unsubstantiated section with no waiver FAILS GATE-WRITE
+   (`backlog-gate-guard`) and `scan-spec-research.mjs`; on that FAIL, re-drive the researcher (bounded) — do not
+   hand-wave past it.
 
 ## Phase 3: Gate Pipeline (run before implementing)
 

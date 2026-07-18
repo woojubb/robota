@@ -17,6 +17,7 @@ import {
   buildResult,
   buildInterruptedResult,
   createUsageSummaryEntry,
+  collectSpanEntries,
   preparePromptInput,
 } from './interactive-session-execution.js';
 import { pushToolSummaryToHistory } from './interactive-session-streaming.js';
@@ -61,6 +62,10 @@ export async function executePromptTurn(
   const historyBefore = ctx.getSession().getHistory().length;
   ctx.resetUsedMemoryReferences();
 
+  // SELFHOST-004 (P6): collect the per-operation span events tools emit during this turn's run, so
+  // they can be projected onto history under the owning turn (drained just before its usage-summary).
+  const spanCollector = collectSpanEntries(ctx.getSession().getEventService());
+
   try {
     const preparedPrompt = await preparePromptInput(
       input,
@@ -88,9 +93,17 @@ export async function executePromptTurn(
       historyBefore,
       ctx.getSession().getContextState(),
       preparedPrompt.promptFileReferenceRecords,
+      ctx.getSession().getModelId(),
     );
     history.push(messageToHistoryEntry(createAssistantMessage(result.response)));
-    if (result.usage) history.push(createUsageSummaryEntry(result.usage));
+    // SELFHOST-004: drain the turn's spans immediately BEFORE its usage-summary — the usage-summary is
+    // the reducer's turn boundary, so spans are recorded ONLY when that boundary exists. Pairing them
+    // avoids attributing this turn's spans to a later turn's usage-summary (a usage-less turn drops
+    // them rather than misgroup them).
+    if (result.usage) {
+      for (const spanEntry of spanCollector.entries) history.push(spanEntry);
+      history.push(createUsageSummaryEntry(result.usage));
+    }
     ctx.onComplete(result);
     ctx.onContextUpdate();
   } catch (err) {
@@ -101,12 +114,18 @@ export async function executePromptTurn(
         history,
         historyBefore,
         ctx.getSession().getContextState(),
+        ctx.getSession().getModelId(),
       );
       pushToolSummaryToHistory({ activeTools: ctx.getActiveTools(), history });
       ctx.clearStreaming();
       if (result.response)
         history.push(messageToHistoryEntry(createAssistantMessage(result.response)));
-      if (result.usage) history.push(createUsageSummaryEntry(result.usage));
+      // SELFHOST-004: spans before the interrupt belong to this (final) turn — pair them with the
+      // usage-summary boundary (drop them if this interrupted turn carries no usage, same as above).
+      if (result.usage) {
+        for (const spanEntry of spanCollector.entries) history.push(spanEntry);
+        history.push(createUsageSummaryEntry(result.usage));
+      }
       history.push(messageToHistoryEntry(createSystemMessage('Interrupted by user.')));
       ctx.onInterrupted(result);
     } else {
@@ -130,5 +149,8 @@ export async function executePromptTurn(
       );
       ctx.onError(errObj);
     }
+  } finally {
+    // SELFHOST-004: always unsubscribe the span collector so a completed turn leaves no listener.
+    spanCollector.dispose();
   }
 }

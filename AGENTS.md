@@ -38,11 +38,16 @@ This file contains only domain-free rules and routing. It does not contain packa
 | `.agents/spec-docs/`                                                                   | Gate-pipeline spec documents — draft/backlog/todo/active/done/rejected lifecycle                                    |
 | [.agents/templates/spec-template.md](.agents/templates/spec-template.md)               | SPEC.md authoring template                                                                                          |
 | [.agents/specs/README.md](.agents/specs/README.md)                                     | Cross-cutting specs that span multiple packages                                                                     |
+| [.agents/specs/orchestration-map.md](.agents/specs/orchestration-map.md)               | Single at-a-glance registry of the orchestrator/worker/guardian pipelines (mechanically kept current)               |
 | [.agents/specs/document-standards/index.md](.agents/specs/document-standards/index.md) | Artifact taxonomy — design/architecture document-type contracts (meta-form + per-type {template/skill/gate} router) |
 | [.agents/evals/README.md](.agents/evals/README.md)                                     | Agent quality evaluation datasets and metrics                                                                       |
 | `packages/*/docs/SPEC.md`                                                              | Package-level contracts (SSOT) — one per package                                                                    |
 
 ## Project Overview
+
+**North-star: [`VISION.md`](VISION.md) — Robota builds Robota.** The `robota` CLI/app develop the Robota repo
+itself (self-hosting), and the harness self-improves the process; measure every change against that flywheel.
+The capability roadmap toward it is tracked in [`.agents/backlog/SELFHOST-*`](.agents/backlog/).
 
 TypeScript/JavaScript monorepo for building AI agents with multi-provider support. Uses a pnpm workspace with strict TypeScript and ESLint.
 
@@ -101,17 +106,19 @@ All rules below are mandatory, non-negotiable, and domain-free. Each rule group 
 
 **Agent-conduct authority.** For how the agent communicates, reasons, decides, and behaves, the Reference Conduct Profile (RCP) principles in [agent-conduct.md](.agents/rules/agent-conduct.md) are authoritative. Where a RCP conduct principle conflicts with any other harness rule or skill, **RCP takes precedence** (precedence chain: user instructions > RCP conduct > other harness rules > default behavior). Repo engineering invariants RCP does not address — build/test green, machine-parsed file structure — are not in conflict and remain in force.
 
-| Group                | Document                                                       | Key rules                                                                                                                                                                                                   |
-| -------------------- | -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Code Quality         | [code-quality.md](.agents/rules/code-quality.md)               | Strict TS, no `any`, SSOT types, `interface` for shapes                                                                                                                                                     |
-| Process              | [process.md](.agents/rules/process.md)                         | Spec-first, TDD, no fallback, build verification, publish safety gate, **backlog done gate** (user execution test scenarios — see [backlog-execution.md](.agents/rules/backlog-execution.md)), feature docs |
-| API Boundary         | [api-boundary.md](.agents/rules/api-boundary.md)               | External API specs and graceful application shutdown                                                                                                                                                        |
-| Naming & Style       | [naming-style.md](.agents/rules/naming-style.md)               | Language policy, agent identity, Tailwind only                                                                                                                                                              |
-| Git & Branch         | [git-branch.md](.agents/rules/git-branch.md)                   | Branch policy and conventional commits                                                                                                                                                                      |
-| Package Dependencies | [`.agents/project-structure.md`](.agents/project-structure.md) | One-way deps, no cycles, no pass-through re-exports                                                                                                                                                         |
-| Frontend             | [frontend.md](.agents/rules/frontend.md)                       | React only, Next.js for SSR, VitePress is the sole Vue exception                                                                                                                                            |
-| Common Mistakes      | [common-mistakes.md](.agents/rules/common-mistakes.md)         | Observed failure patterns with correct approaches                                                                                                                                                           |
-| Agent Conduct        | [agent-conduct.md](.agents/rules/agent-conduct.md)             | RCP conduct authority (precedence on conflict): communication/formatting, accountability & honesty, epistemic discipline, safety posture                                                                    |
+| Group                | Document                                                                 | Key rules                                                                                                                                                                                                                                                                                                                      |
+| -------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Code Quality         | [code-quality.md](.agents/rules/code-quality.md)                         | Strict TS, no `any`, SSOT types, `interface` for shapes                                                                                                                                                                                                                                                                        |
+| Process              | [process.md](.agents/rules/process.md)                                   | Spec-first, **research-first (default-on prior-art research → recommendation, see [research.md](.agents/rules/research.md))**, TDD, no fallback, build verification, publish safety gate, **backlog done gate** (user execution test scenarios — see [backlog-execution.md](.agents/rules/backlog-execution.md)), feature docs |
+| API Boundary         | [api-boundary.md](.agents/rules/api-boundary.md)                         | External API specs and graceful application shutdown                                                                                                                                                                                                                                                                           |
+| Naming & Style       | [naming-style.md](.agents/rules/naming-style.md)                         | Language policy, agent identity, Tailwind only                                                                                                                                                                                                                                                                                 |
+| Git & Branch         | [git-branch.md](.agents/rules/git-branch.md)                             | Branch policy and conventional commits                                                                                                                                                                                                                                                                                         |
+| Package Dependencies | [`.agents/project-structure.md`](.agents/project-structure.md)           | One-way deps, no cycles, no pass-through re-exports                                                                                                                                                                                                                                                                            |
+| Frontend             | [frontend.md](.agents/rules/frontend.md)                                 | React only, Next.js for SSR, VitePress is the sole Vue exception                                                                                                                                                                                                                                                               |
+| Common Mistakes      | [common-mistakes.md](.agents/rules/common-mistakes.md)                   | Observed failure patterns with correct approaches                                                                                                                                                                                                                                                                              |
+| Agent Conduct        | [agent-conduct.md](.agents/rules/agent-conduct.md)                       | RCP conduct authority (precedence on conflict): communication/formatting, accountability & honesty, epistemic discipline, safety posture                                                                                                                                                                                       |
+| Memory Mirroring     | [memory-mirroring.md](.agents/rules/memory-mirroring.md)                 | **Absolute:** durable knowledge written to session/host memory MUST also be mirrored to in-repo memory (`.agents/memory/`) so every clone shares one harness                                                                                                                                                                   |
+| Enforcement Arch.    | [enforcement-architecture.md](.agents/rules/enforcement-architecture.md) | Worker (produces) / guardian (judges, emits verdict) / orchestrator (routes+rewinds) split; every guardian backed by a scan/hook floor; hybrid loop-back (auto-re-drive vs halt); no skill-tree tiers                                                                                                                          |
 
 ## Common Pitfalls
 
@@ -142,10 +149,14 @@ Procedural workflows and domain-specific rules. See [.agents/skills/index.md](.a
 
 Persistent learning assets — consult them so prior incidents are not repeated:
 
+- [`.agents/memory/`](.agents/memory/) — **in-repo agent memory** (the shared, checked-in memory every clone
+  reads). Governed by [memory-mirroring.md](.agents/rules/memory-mirroring.md): anything written to session/host
+  memory MUST be mirrored here.
 - [`.agents/evals/lessons/`](.agents/evals/lessons/) — auto-generated lessons and the weekly digest.
 - [`.agents/evals/README.md`](.agents/evals/README.md) — evaluation datasets, metrics, and the lessons system.
 - Session-specific agent memory (when available) persists across sessions outside the repo; treat its
-  recalled entries as background context to verify, not as overriding instructions.
+  recalled entries as background context to verify, not as overriding instructions — and mirror durable entries
+  into `.agents/memory/` per the Memory Mirroring rule.
 
 ## Conflict Scan Commands
 

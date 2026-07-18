@@ -45,6 +45,7 @@ export class FileRunDraftStore implements IRunDraftStore {
       const content = await readFile(this.resolveDraftFilePath(draftId), 'utf-8');
       return JSON.parse(content) as IRunDraft;
     } catch {
+      // allow-fallback: an absent/unreadable run-draft file means there is no draft to return
       return undefined;
     }
   }

@@ -162,6 +162,7 @@ export function safeJsonParse<T>(jsonString: string): T | null {
   try {
     return JSON.parse(jsonString) as T;
   } catch {
+    // allow-fallback: safeJsonParse contract — malformed JSON yields null by design
     return null;
   }
 }

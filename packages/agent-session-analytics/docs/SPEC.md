@@ -45,7 +45,10 @@ Types owned by this package (SSOT):
 
 Reused (not owned): `TSessionAnalysisInput` is `Pick<IInteractiveSessionRecord, 'id' | 'cwd' |
 'createdAt' | 'history'>` (agent-interface-transport SSOT); history entries are `IHistoryEntry`
-(agent-core SSOT).
+(agent-core SSOT). The trace/cost read-model — `IUsageBySourceReport`, `IUsageSourceTotals`,
+`IRunTraceSpan`, `IRunTraceTurn` (SELFHOST-004) — is a **boundary contract owned by
+`agent-interface-transport`** (it crosses the sidecar boundary via a `TServerMessage` carrier);
+`summarizeUsageBySource` produces it and this package re-exports the types for co-located consumers.
 
 ## Public API Surface
 

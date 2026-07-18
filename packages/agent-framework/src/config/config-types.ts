@@ -76,12 +76,19 @@ const AgentHookDefinitionSchema = z.object({
   timeout: z.number().optional(),
 });
 
+/** SELFHOST-005: guardrail hook — runs the registered guardrail set (by name, or all) in parallel. */
+const GuardrailHookDefinitionSchema = z.object({
+  type: z.literal('guardrail'),
+  guardrails: z.array(z.string()).optional(),
+});
+
 /** Discriminated union of all hook definition types */
 const HookDefinitionSchema = z.discriminatedUnion('type', [
   CommandHookDefinitionSchema,
   HttpHookDefinitionSchema,
   PromptHookDefinitionSchema,
   AgentHookDefinitionSchema,
+  GuardrailHookDefinitionSchema,
 ]);
 
 const HookGroupSchema = z.object({

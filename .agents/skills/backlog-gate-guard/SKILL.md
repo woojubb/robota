@@ -105,6 +105,13 @@ Check every item. A single unmet item = FAIL.
 - [ ] Contains a reproduction condition (when/where it occurs)
 - [ ] Does not contain "TBD", "TODO", or vague single-sentence descriptions
 
+**Prior Art Research (research.md — default-on):**
+
+- [ ] `## Prior Art Research` (or `## Research`) section present
+- [ ] Section is substantiated: cites ≥1 documentation source (product/API/design doc, release notes, protocol spec — NOT third-party source code per `research.md`), OR explicitly states no comparable reference was found
+- [ ] OR an explicit `Waived: <reason>` line is present (opt-out the agent proposed or the user requested) — a bare or missing section is FAIL
+- [ ] Research findings feed `Alternatives Considered` / `Decision` (evidence-based recommendation, not asserted)
+
 **Architecture Review Checklist:**
 
 - [ ] All 4 checklist items are `[x]`

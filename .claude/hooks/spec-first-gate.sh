@@ -60,10 +60,14 @@ MANDATORY SEQUENCE before writing any code (.ts/.tsx/.js files):
 2. Create a backlog draft: `.agents/spec-docs/draft/<TYPE>-NNN-<slug>.md`
    → Use skill: `backlog-writer` to author it
    → Required frontmatter: status, type, tags
+   → DEFAULT-ON: include a substantiated `## Prior Art Research` section (dispatch the
+     `prior-art-researcher` agent) — comparable products/OSS/AI-agent refs from PRODUCT DOCS, feeding an
+     evidence-based recommendation. Opt out only with an explicit `Waived: <reason>`. Enforced by
+     `scan-spec-research.mjs` + GATE-WRITE. Per `.agents/rules/research.md`.
 3. Run gate pipeline: `backlog-pipeline` (GATE-WRITE → GATE-APPROVAL)
 4. Only after GATE-APPROVAL passes: implement.
 
-Per HARD GATE rule in `.agents/rules/spec-workflow.md`.
+Per HARD GATE rule in `.agents/rules/spec-workflow.md` and `.agents/rules/research.md` (research is default-on).
 If the user explicitly waives the gate ("skip spec", "just fix it"), document the waiver in your response before proceeding.
 EOF
 

@@ -72,6 +72,23 @@ structure) are not in conflict and remain in force — see the Structured-artifa
 - **Decision authority.** Where rule or architecture grounds are clear, decide and act directly
   without over-deferring; only product-direction or contract changes are confirmed with the user.
 
+## Feedback → Trial → Rule Promotion
+
+When the owner gives working-process feedback (how to work, not what to build), follow this routine so
+the harness compounds instead of forgetting:
+
+1. **Apply it immediately** in the current work — treat it as an active constraint, not a note for later.
+2. **Record it** as a session/in-repo `feedback` memory (per [memory-mirroring.md](memory-mirroring.md)) so
+   it survives the session even before it is a rule.
+3. **Trial it** across real work. If it proves out with no problems, **promote it to a permanent in-repo
+   rule** (`.agents/rules/…`, or a spec/skill when that is the right owner), citing the feedback and where
+   it was validated; leave the memory note pointing at the rule.
+4. If the trial surfaces problems, report them to the owner and adjust rather than silently promoting.
+
+Do not let process feedback live only in one session's context — either it is being trialed toward a rule
+or it is already a rule. This routine is itself a rule (added at owner request, 2026-07-17): the act of
+turning validated feedback into durable governance is not optional.
+
 ## Epistemic Discipline & Verification
 
 - **Verify, don't assume (external behavior).** Before asserting or coding against any

@@ -266,6 +266,8 @@ describe('createSessionCommandModule', () => {
       injectMessage: vi.fn(),
       getSystemMessage: vi.fn().mockReturnValue('system'),
       getToolSchemas: vi.fn().mockReturnValue([]),
+      // SELFHOST-004 P6: the span collector subscribes to the session bus each turn.
+      getEventService: () => ({ subscribe: () => {}, unsubscribe: () => {} }),
     };
     const session = new InteractiveSession({
       session: runtime as never,

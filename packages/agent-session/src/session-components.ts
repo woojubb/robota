@@ -8,6 +8,7 @@ import type { ISessionOptions } from './session-types.js';
 import type {
   IAgentConfig,
   IAIProvider,
+  IEventService,
   IToolWithEventService,
   TPermissionMode,
 } from '@robota-sdk/agent-core';
@@ -67,6 +68,7 @@ export function buildRobota(
   provider: IAIProvider,
   model: string,
   systemMessage: string,
+  eventService: IEventService,
 ): Robota {
   const wrappedTools = permissionEnforcer.wrapTools(tools);
   const agentConfig: IAgentConfig = {
@@ -81,6 +83,11 @@ export function buildRobota(
     systemMessage,
     tools: wrappedTools,
     logging: { enabled: false },
+    // SELFHOST-004: the session-owned observable event bus. Tools (incl. the FunctionTool span
+    // emit) are wired to it via the agent, so the interactive turn can subscribe to span-completion
+    // events and project them onto session history. Absent this, the agent falls back to the no-op
+    // default event service and no span events fire.
+    eventService,
     ...(options.providerTimeout !== undefined && { timeout: options.providerTimeout }),
     ...(options.responseFormat ? { responseFormat: options.responseFormat } : {}),
     // CMD-005: the "ask the user" port rides the agent config into tool execution contexts.
