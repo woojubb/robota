@@ -1,5 +1,5 @@
 ---
-status: review-ready
+status: approved
 type: DATA
 tags: [memory, semantic-recall, adapter, agent-framework, selfhost-008]
 ---
@@ -320,7 +320,8 @@ SDK dependency, prompt, or content.
 
 ## Tasks
 
-_Created at GATE-IMPLEMENT._
+[`.agents/tasks/SELFHOST-008-P4.md`](../../tasks/SELFHOST-008-P4.md) — created at GATE-IMPLEMENT; slices S1–S4
+(decorator+factory → barrel export → tests → docs) mapped to TC-01..07 + the Test Plan.
 
 ## Evidence Log
 
@@ -369,3 +370,14 @@ level; mirrors the sandbox/retrieval precedents). One non-blocking refinement fo
 pre-indexed-gap is now documented as a known keyword-floored v1 limitation with `upsert-by-id` reserved as the v2 fix
 (Adversarial (e)). Rule-alignment: SSOT, dep-direction/neutrality, no-pass-through, HARNESS-028 — all aligned. Awaiting
 owner sign-off to complete GATE-APPROVAL.
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-07-18
+
+**Status upgrade:** review-ready → approved
+
+- Prior-gate precondition: fresh `[GATE-WRITE] — ✅ PASS | 2026-07-18` entry present (the P4 re-gate); frontmatter `status: review-ready` matches the expected input stage. PASS.
+- Explicit owner approval: the owner answered the GATE-APPROVAL question verbatim with **"승인 (추천)"** — a direct, unambiguous confirmation of this P4 design authorizing implementation. PASS.
+- Approval directed at THIS spec (SELFHOST-008-P4 semantic-adapter decorator), not a clarifying-question answer and not approval of a different item. PASS.
+- No Architecture Review or frontmatter `type`/`tags` modified after approval. PASS.
+- Independent design review: `[GATE-APPROVAL] — ENDORSE (proposal-reviewer)` entry present — re-reviewed after the P3/P4 split, all load-bearing premises verified against current code (recall/index now LIVE via P3/P2; decorator transparency + zero new threading; both declared degradations HARNESS-028-legit; idempotent skip-on-dedup implementable via `IAppendMemoryResult.deduplicated`; neutrality claim honest; placement correct). PASS.
+- Independent architecture validation (conditional): N/A — no new package/app/surface or layer/product-family reclassification (a second `IMemoryStore` impl inside the existing `agent-framework/src/memory/`, reuse at the contract level). Recorded N/A. PASS.
