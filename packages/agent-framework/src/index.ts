@@ -614,6 +614,13 @@ export { buildRuntimeSession, startRuntimeHost } from './runtime/index.js';
 export type { IRuntimeHostOptions, IRuntimeHostHandle } from './runtime/index.js';
 export type { IResolvedConfig } from './config/config-types.js';
 
+// SELFHOST-006: per-role model routing policy (neutral, over the provider DIP).
+export {
+  resolveRoleModel,
+  resolveRoleFallbackChain,
+  runWithRoleFallback,
+} from './routing/role-model-routing.js';
+
 // ──────────────────────────────────────────────────────────────
 // INTERNAL (not exported):
 //   createSession()        — assembly factory
