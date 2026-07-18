@@ -341,6 +341,18 @@ export type {
   TSelfHostingVerificationPhase,
 } from './self-hosting/index.js';
 
+// ── Evals ─────────────────────────────────────────────────
+export { defineEval, runEval, createSessionRunFn } from './evals/index.js';
+export type {
+  IEvalCase,
+  IEvalCaseResult,
+  IEvalDefinition,
+  IEvalMetricScore,
+  IEvalReport,
+  IMetric,
+  TEvalRunFn,
+} from './evals/index.js';
+
 // ── Reversible execution safety ───────────────────────────
 export {
   evaluateReversibleToolSafety,

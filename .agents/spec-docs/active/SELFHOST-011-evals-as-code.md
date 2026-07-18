@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: BEHAVIOR
 tags: [evals, sdk, ci-gate, agent-framework, agent-cli, selfhost]
 ---
@@ -283,9 +283,11 @@ consciously deferred: dedicated `agent-evals` package iff a third-party metric f
 
 ## Tasks
 
-`.agents/tasks/SELFHOST-011*.md` — 미생성 (GATE-APPROVAL 통과 후 생성). Epic P1 (neutral `src/evals/`
-definition API + runner) / P2 (`robota eval` CLI gate + example) / P3 (optional neutral metric helpers +
-dataset loader) / P4 (deferred: dedicated package iff a family; in-session `/eval`).
+Epic P1 (neutral `src/evals/` definition API + runner) / P2 (`robota eval` CLI gate + example) / P3 (optional
+neutral metric helpers + dataset loader) / P4 (deferred: dedicated package iff a family; in-session `/eval`).
+
+- **P1** — [`.agents/tasks/SELFHOST-011-P1.md`](../../tasks/SELFHOST-011-P1.md) (GATE-IMPLEMENT PASSED; in progress).
+- P2/P3/P4 task files created after P1 completes.
 
 ## Evidence Log
 
@@ -330,3 +332,16 @@ dataset loader) / P4 (deferred: dedicated package iff a family; in-session `/eva
   (scores `toolSummaries`+`usage`) meetable and no longer collapses into the rejected string-only metric; the
   `agent-session-analytics` boundary (scores a session RECORD, not a single RUN RESULT) is accurate. Placement,
   neutrality, and the `robota eval` exit-contract mirror all intact; no regression. **GATE-APPROVAL PASSED.**
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-07-19
+
+**Status upgrade:** approved → in-progress
+
+- Prior-gate precondition: GATE-APPROVAL recorded PASS (2026-07-17 iteration-2 ENDORSE, "GATE-APPROVAL PASSED."); frontmatter `status: approved` in `todo/` matches the expected GATE-IMPLEMENT input stage. ✓
+- Task file created: `.agents/tasks/SELFHOST-011-P1.md` exists (epic P1 slice — neutral `src/evals/` definition API + runner). ✓
+- Path recorded in `## Tasks`: the section references `.agents/tasks/SELFHOST-011*.md` (glob matching the created `SELFHOST-011-P1.md`) plus the P1–P4 epic slice breakdown. Note: the section's "미생성" wording is now stale (the P1 file exists) — a doc-currency nit, not a gate blocker; the path reference is present and discoverable. ✓
+- Tasks correspond to Completion Criteria: P1 slices S1–S4 back TC-01/TC-02/TC-06 (pure contracts, `runEval` over an injected `runFn`, default `runFn` via `createAgentRuntime().createSession()` capturing the `complete`-event `IExecutionResult`); TC-03 (CLI exit contract), TC-04 (example), TC-05 (neutrality floor) are explicitly named as pending P2/P3 in the task file's "P1 scope boundary" section — no TC-N silently unaddressed. ✓
+- Tasks file `## Test Plan` present and ≥50 chars: vitest unit plan for TC-01/TC-02/TC-06 with an injected fake `runFn` + regression (`pnpm --filter @robota-sdk/agent-framework test`, typecheck, lint, `pnpm harness:scan`). ✓
+
+- 2026-07-19 — **[P1 IMPLEMENTED]** — neutral `agent-framework/src/evals/` shipped: `eval-types.ts` (`IMetric` = pure fn over the SSOT `IExecutionResult`; `IEvalCase`/`IEvalDefinition` = cases × metrics × threshold; `IEvalReport`/`IEvalCaseResult`/`IEvalMetricScore`/`TEvalRunFn`), `runner.ts` (`defineEval` validates + defaults threshold→1; `runEval(def, runFn)` runs each case through the INJECTED `runFn`, scores with each metric, normalizes boolean→1/0, aggregates `overallScore` = mean of every case×metric score, `passed = overallScore >= threshold`; IO-free/provider-free), `session-run-fn.ts` (`createSessionRunFn(runtime)` — the default `runFn` from `createAgentRuntime().createSession()` capturing the terminal `complete`-event **full** `IExecutionResult`, a fresh session per case; NOT `createQuery`, which yields only `result.response`). Barrel `src/evals/index.ts` + root `// ── Evals ──` re-export. agent-framework SPEC.md updated (What-lives-here + Type Ownership + Public API). **TC-01/TC-02/TC-06 green** (`src/evals/__tests__/runner.test.ts`, 8 tests, injected fake `runFn` + synthetic `IExecutionResult`). Regression: agent-framework 143 files / 1207 tests, typecheck clean, evals lint 0 warnings, **57/57 harness scans**. TC-03 (CLI exit gate)/TC-04 (example)/TC-05 (neutrality floor) + the **agent-run capability verification** remain P2/P3 per the capability-reachability rule (P1 is the neutral library seam). Epic-level GATE-VERIFY/COMPLETE run after the P-slices land.
+- 2026-07-19 — **[P1 REVIEW → fixes applied]** (pr-review-reviewer, PR #1232, 2 SHOULD). (1) **Session leak**: `createSessionRunFn` spawned a fresh session per case but never shut it down → now `await session.shutdown()` in a `finally` (extracted `awaitRun`); the fresh-per-case design otherwise leaked N sessions + could block the CI process exit. (2) **Unclamped numeric score false-pass**: `normalized` was documented `[0,1]` but a numeric metric returning > 1 could force a false aggregate pass (mean 1.5 ≥ 1 despite a 0-scoring case) → `normalizeScore` now clamps numeric scores to `[0,1]`; `IMetric` doc states numeric scores are `[0,1]`. Also (CONSIDER) added `session-run-fn.test.ts` (4 tests: full-result capture + shutdown, interrupted-scorable, error-rejects-but-shuts-down, fresh-session-per-case+options) closing the untested-wiring gap, a clamp regression, and documented the `interrupted`-scored + `bypassPermissions` posture. Green: agent-framework 144 files / 1212 tests, typecheck, 0 evals lint warnings.
