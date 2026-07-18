@@ -21,6 +21,7 @@ import {
 } from '../command-api/provider/provider-factory.js';
 import { GoalController, buildGoalContinuationPrompt } from '../goal/index.js';
 import { createUserInteractionPort } from '../interaction/user-interaction-port.js';
+import { AutomaticMemoryController } from '../memory/automatic-memory-controller.js';
 import { createFileSystemMemoryStore } from '../memory/file-system-memory-store.js';
 import { PlanController } from '../plan/index.js';
 import { retrieveAgentToolDeps } from '../tools/agent-tool.js';
@@ -52,6 +53,7 @@ import type {
 } from '../commands/index.js';
 import type { IContextFileEntry } from '../context/context-file-tracker.js';
 import type { IGoalStartOptions } from '../goal/index.js';
+import type { IAutomaticMemoryConfig, IMemoryEvent } from '../memory/automatic-memory-types.js';
 import type { IMemoryStore } from '../memory/types.js';
 import type {
   TUniversalMessage,
@@ -108,6 +110,10 @@ export class InteractiveSession
   // host context via getMemoryStore() so command reads/writes hit the SAME store as startup + capture.
   private injectedMemoryStore?: IMemoryStore;
   private defaultMemoryStore?: IMemoryStore;
+  // SELFHOST-008 P2: optional post-turn auto-capture policy (surface-supplied); absent ⇒ capture OFF.
+  private readonly automaticMemory?: IAutomaticMemoryConfig;
+  private autoMemoryController?: AutomaticMemoryController;
+  private autoMemoryTurn = 0;
   private sandboxSnapshotId?: string;
   private agentsFileEntries: IContextFileEntry[] = [];
   private claudeFileEntries: IContextFileEntry[] = [];
@@ -175,6 +181,7 @@ export class InteractiveSession
     this.forkSession = options.forkSession ?? false;
     this.sandboxClient = 'sandboxClient' in options ? options.sandboxClient : undefined;
     this.injectedMemoryStore = 'memoryStore' in options ? options.memoryStore : undefined;
+    this.automaticMemory = 'automaticMemory' in options ? options.automaticMemory : undefined;
     this.sandboxSnapshotId = 'sandboxSnapshotId' in options ? options.sandboxSnapshotId : undefined;
 
     const cwd = this.cwd;
@@ -248,6 +255,14 @@ export class InteractiveSession
           ...(args as Parameters<IInteractiveSessionEvents[TInteractiveEventName]>),
         ),
       persistSession: () => this.persistCurrentSession(),
+      // SELFHOST-008 P2: adapter-gated — only wire capture when the surface supplied an `automaticMemory`
+      // policy (absent ⇒ undefined ⇒ capture OFF, zero behavior change).
+      ...(this.automaticMemory
+        ? {
+            captureMemory: (turn: { userMessage: string; assistantMessage: string }) =>
+              this.captureTurnMemory(turn),
+          }
+        : {}),
     });
 
     if ('providerDefinitions' in options) {
@@ -378,6 +393,32 @@ export class InteractiveSession
     if (this.injectedMemoryStore) return this.injectedMemoryStore;
     this.defaultMemoryStore ??= createFileSystemMemoryStore(this.getCwd());
     return this.defaultMemoryStore;
+  }
+
+  /**
+   * SELFHOST-008 P2 — post-turn auto-capture, invoked by the execution controller's `finally` (before
+   * persistSession) when an `automaticMemory` policy was supplied. Extracts + evaluates + curates through
+   * the SAME injected `IMemoryStore` (SSOT with startup + `/memory`), returning the `IMemoryEvent`s for the
+   * controller to record. The controller guards this call (a capture failure never breaks the turn).
+   */
+  private async captureTurnMemory(turn: {
+    userMessage: string;
+    assistantMessage: string;
+  }): Promise<IMemoryEvent[]> {
+    if (!this.automaticMemory) return [];
+    this.autoMemoryController ??= new AutomaticMemoryController({
+      cwd: this.getCwd(),
+      config: this.automaticMemory,
+      memoryStore: this.getMemoryStore(),
+    });
+    this.autoMemoryTurn += 1;
+    const result = await this.autoMemoryController.capture({
+      sessionId: this.sessionId || 'session',
+      turnId: `turn-${this.autoMemoryTurn}`,
+      userMessage: turn.userMessage,
+      assistantMessage: turn.assistantMessage,
+    });
+    return result.events;
   }
 
   get sessionId(): string {

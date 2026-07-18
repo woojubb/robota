@@ -35,6 +35,7 @@ import type {
 import type { ICommand, ICommandResult, ISkillExecutionResult } from '../commands/index.js';
 import type { ISkillActivationEvent } from '../commands/skill-activation-events.js';
 import type { IContextFileEntry } from '../context/context-file-tracker.js';
+import type { IMemoryEvent } from '../memory/automatic-memory-types.js';
 import type { IContextWindowState, TToolArgs } from '@robota-sdk/agent-core';
 import type { TDriverId, TTurnSource } from '@robota-sdk/agent-interface-transport';
 import type { ICompactEvent } from '@robota-sdk/agent-interface-transport';
@@ -50,6 +51,17 @@ export interface IExecutionControllerCallbacks {
   getExecutionWorkspaceSnapshot: () => IExecutionWorkspaceSnapshot;
   emit: <E extends string>(event: E, ...args: unknown[]) => void;
   persistSession: () => void;
+  /**
+   * SELFHOST-008 P2: optional post-turn auto-capture. When set (surface supplied `automaticMemory`), it is
+   * `await`ed in the executePrompt `finally` immediately BEFORE `persistSession()` on the completed-turn path,
+   * so the returned `IMemoryEvent`s (recorded via the history tracker) land in THIS turn's persisted record.
+   * Absent ⇒ capture OFF. It extracts/evaluates/curates through the injected `IMemoryStore` and returns the
+   * events; the controller records them + swallows any error to a skip (a capture bug never breaks the turn).
+   */
+  captureMemory?: (input: {
+    userMessage: string;
+    assistantMessage: string;
+  }) => Promise<IMemoryEvent[]>;
 }
 
 /** Options threaded through submit/executePrompt for non-user turns (FLOW-002). */
@@ -263,6 +275,9 @@ export class SessionExecutionController {
     this.callbacks.emit('turn_source', turnOptions.turnSource ?? 'user');
     this.callbacks.emit('user_message', displayInput ?? input);
     this.callbacks.emit('thinking', true);
+    // SELFHOST-008 P2: stash the completed turn's result so post-turn capture can run in the `finally`
+    // BEFORE persistSession() (awaiting inside `onComplete` would not order there — it is not awaited).
+    let completedResult: IExecutionResult | undefined;
     try {
       await executePromptTurn(input, displayInput, rawInput, {
         getSession: () => this.callbacks.getSessionOrThrow(),
@@ -279,6 +294,7 @@ export class SessionExecutionController {
         getStreamingText: () => this.streamingText,
         onWorkspaceUpdated: () => this.emitExecutionWorkspaceUpdated('main_thread'),
         onComplete: (result: IExecutionResult) => {
+          completedResult = result; // stash for post-turn capture in the `finally`
           this.callbacks.emit('complete', result);
         },
         onInterrupted: (result: IExecutionResult) => {
@@ -303,6 +319,26 @@ export class SessionExecutionController {
       // FLOW-002: the wake for this task id is no longer in flight; allow future wakes to inject.
       if (turnOptions.wakeTaskId !== undefined) this.wakeTaskIds.delete(turnOptions.wakeTaskId);
       this.emitExecutionWorkspaceUpdated('main_thread');
+      // SELFHOST-008 P2: post-turn auto-capture — completed USER-turn path only (agent-wakeup/goal turns
+      // carry agent-authored text, not user facts, so they are skipped), AWAITED here (this `finally` is an
+      // awaited scope) so recorded events land in the SAME turn's persisted record, and guarded so a capture
+      // bug never breaks the turn. Runs BEFORE persistSession().
+      if (
+        this.callbacks.captureMemory &&
+        completedResult &&
+        (turnOptions.turnSource ?? 'user') === 'user'
+      ) {
+        try {
+          const events = await this.callbacks.captureMemory({
+            userMessage: displayInput ?? input,
+            assistantMessage: completedResult.response,
+          });
+          for (const event of events) this.histTracker.recordMemoryEvent(event);
+        } catch (error) {
+          // allow-fallback: memory capture is best-effort — a capture failure must never fail the turn
+          this.callbacks.emit('error', error instanceof Error ? error : new Error(String(error)));
+        }
+      }
       this.callbacks.persistSession();
       this.drainPendingQueue(submit);
     }
