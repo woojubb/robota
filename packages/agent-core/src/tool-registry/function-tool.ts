@@ -1,3 +1,4 @@
+import { validateToolOutput } from './output-validator';
 import { getValidationErrors, validateToolParameters } from './parameter-validator';
 import { generateSpanId } from '../event-service/event-service';
 import { SPAN_EVENTS } from '../event-service/span-events';
@@ -89,6 +90,12 @@ export class FunctionTool implements IFunctionTool {
           hasContext: !!context,
         },
       );
+    }
+
+    // SELFHOST-005: validate the tool OUTPUT against its declared schema (beside the tool-input
+    // validation above), throwing before the result returns — same layer as the input validator.
+    if (this.schema.outputSchema) {
+      validateToolOutput(toolName, result, this.schema.outputSchema);
     }
 
     const executionTime = Date.now() - startTime;
