@@ -300,6 +300,8 @@ export {
   FileSystemMemoryStore,
   createFileSystemMemoryStore,
 } from './memory/file-system-memory-store.js';
+// SELFHOST-008 P4: the neutral semantic-memory adapter decorator (surface injects the concrete adapter).
+export { SemanticMemoryStore, createSemanticMemoryStore } from './memory/semantic-memory-store.js';
 export type {
   IMemoryStore,
   IDurableMemoryReader,
