@@ -215,8 +215,13 @@ mechanism (no vector SDK dependency, no prompt/content — HARNESS-029-fenced). 
   a noted follow-up); (d) eventual consistency surprising a caller → documented (a just-captured entry may not be
   immediately semantically queryable; the keyword baseline still returns it); (e) duplicate vectors on re-append → base
   `append` may return `deduplicated: true` (no new durable entry); the decorator MUST skip `adapter.index()` on that
-  signal (or require the adapter to upsert by the entry's stable reference id) so a re-captured fact does not create a
-  duplicate vector.
+  signal so a re-captured fact does not create a duplicate vector. **Known v1 limitation (documented):** an entry
+  durably written BEFORE the adapter was injected (or during a prior `index()` failure) will later return
+  `deduplicated: true` on re-capture and thus be permanently skipped from the vector index — a healthy semantic
+  `query()` (which falls back to keyword only on ERROR, not on an incomplete result) would silently omit it. This is
+  NOT a regression (such entries are keyword-recallable exactly as today) and is bounded by the eventual-consistency
+  posture; the robust fix is **`upsert-by-id`** (the reserved v2 `delete`/upsert verb). Recorded in SPEC.md's
+  eventual-consistency note; TC-02 asserts the deduped-skip is intentional.
 
 ### Architecture Review Checklist
 
@@ -346,3 +351,21 @@ _P4 re-gate after the owner "분할" split: this spec passed GATE-WRITE previous
 - Completion Criteria: TC-01..TC-07 all `TC-N`-prefixed; ≥1 per distinct feature; each in observable/command form (incl. the folded-in dedup-skip in TC-02 and neutrality-scope note in TC-07); no banned vague phrasing. PASS.
 - Test Plan: `## Test Plan` present; 7 rows (TC-01..TC-07) — matches the 7 Completion Criteria (count confirmed: 7 = 7); each row has non-empty Type/Tool and Test reference; no "manual"-tool rows requiring a Notes justification. PASS.
 - Structure: `## Tasks` present with placeholder; `## Evidence Log` present; no `## Status`/`## Classification` sections in body. (Evidence Log is non-empty by design here — the retained prior P3-era PASS — which is correct for a re-gate, not a first run.) PASS.
+
+### [GATE-APPROVAL] — ENDORSE (proposal-reviewer) | 2026-07-18
+
+Independent `proposal-reviewer` (re-review after the P3/P4 split) verified every load-bearing premise against the
+current code and returned **ENDORSE**: (1) recall + index are now GENUINELY LIVE (P3 per-turn recall → `getMemoryStore().recall`
+at `interactive-session-execution-controller.ts:291-293`; P2 capture → `.append`), so a `SemanticMemoryStore` injected as
+`memoryStore` is exercised — the dead-path defect that split this slice is resolved; (2) decorator transparency + zero
+new threading confirmed (all consumers port-typed via the single `getMemoryStore()` SSOT; no concrete-type dependency);
+(3) both declared degradations (query-error → keyword base; index-error → skip, durable write kept) are legitimate
+HARNESS-028-sanctioned degradations over the keyword baseline, mirroring the P3 call-site guard (defense-in-depth), not
+banned fallbacks; (4) idempotent index implementable (`IAppendMemoryResult.deduplicated` exists) — skip-on-dedup is the
+right v1 default; (5) neutrality claim now honest (HARNESS-029 does not scan npm deps; guarantee rests on duck-typed
+design + review, dep-allowlist floor a follow-up); (6) append ordering / eventual consistency / two-verb surface sound.
+Architecture-placement: correct (second `IMemoryStore` impl beside the fs reference adapter; reuse at the CONTRACT
+level; mirrors the sandbox/retrieval precedents). One non-blocking refinement folded in: the skip-on-dedup
+pre-indexed-gap is now documented as a known keyword-floored v1 limitation with `upsert-by-id` reserved as the v2 fix
+(Adversarial (e)). Rule-alignment: SSOT, dep-direction/neutrality, no-pass-through, HARNESS-028 — all aligned. Awaiting
+owner sign-off to complete GATE-APPROVAL.
