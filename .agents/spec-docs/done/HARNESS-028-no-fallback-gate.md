@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: INFRA
 tags: [no-fallback, enforcement, gate, scan, harness, self-improving]
 ---
@@ -194,15 +194,15 @@ declaration↔code reconciliation stays a REVIEW judgment (not mechanized).
 
 ## Completion Criteria
 
-- [ ] TC-01: `scan-no-fallback.mjs` (v1) flags the high-confidence `catch { return <alt> }` pattern in a
+- [x] TC-01: `scan-no-fallback.mjs` (v1) flags the high-confidence `catch { return <alt> }` pattern in a
       `packages/*/src` fixture and is suppressed by an adjacent `allow-fallback: <reason>` annotation (unit test on
       the scan). The `f() || g()` both-calls rule is DEFERRED (see TC below) and NOT flagged in v1.
-- [ ] TC-02: the scan does NOT flag `x ?? default` / defaulting-`||` value-precedence, nor a `catch` that rethrows
+- [x] TC-02: the scan does NOT flag `x ?? default` / defaulting-`||` value-precedence, nor a `catch` that rethrows
       or logs-and-throws (no false positives) — fixture-based negative test.
-- [ ] TC-03: the **spec-doc authoring convention** (`backlog-writer`) exposes a `## Fallback & Degradation
+- [x] TC-03: the **spec-doc authoring convention** (`backlog-writer`) exposes a `## Fallback & Degradation
 Declaration` section (default "None") on the gate-pipeline spec-doc (NOT the package `SPEC.md` template);
       GATE-WRITE-adjacent structure checks still pass (placement).
-- [ ] TC-04: **annotation anti-rot — v1 = REASON-LESS ONLY** (the mypy `ignore-without-code` analogue, mechanical on
+- [x] TC-04: **annotation anti-rot — v1 = REASON-LESS ONLY** (the mypy `ignore-without-code` analogue, mechanical on
       the scan): a REASON-LESS `allow-fallback:` (no `<reason>` text) FAILS. **Stale-detection is DEFERRED**: while
       v1's scan flags only a NARROW construct set (`catch{return <alt>}`), an `allow-fallback:` on a not-yet-scanned
       construct (`||`-fallback, catch-continue, best-effort) is INERT — it suppresses nothing today but is NOT stale
@@ -210,10 +210,10 @@ Declaration` section (default "None") on the gate-pipeline spec-doc (NOT the pac
       constructs). Stale-detection lands with the broader pattern set, scoped to fire only when a flagged construct
       loses its flag-worthy shape. Unit test: reason-less fails; a not-yet-scanned annotation does NOT fail. (Code↔
       prose-declaration matching is a REVIEW judgment — proposal-reviewer at GATE-APPROVAL — NOT mechanized.)
-- [ ] TC-05: the scan is registered in `run-all-scans.mjs` and runs both continuously (`pnpm harness:scan`, CI
+- [x] TC-05: the scan is registered in `run-all-scans.mjs` and runs both continuously (`pnpm harness:scan`, CI
       `scans`) and at GATE-VERIFY (the guard re-runs the scans); a changed `catch{return <alt>}` lacking an
       `allow-fallback:` fails the gate (functional).
-- [ ] TC-06 (green on introduction): with the v1 semantics (catch→default-literal flag + reason-less-only anti-rot),
+- [x] TC-06 (green on introduction): with the v1 semantics (catch→default-literal flag + reason-less-only anti-rot),
       the existing `allow-fallback:` sites do NOT trip the scan — the already-annotated catch-returns and the
       non-catch-return annotations are inert (not stale). The v1 detector surfaced **10** genuine un-annotated
       swallow→default fallbacks + the **1** prose mention (`dag-nodes/llm-text/src/index.ts:44`); each was
@@ -222,19 +222,19 @@ Declaration` section (default "None") on the gate-pipeline spec-doc (NOT the pac
 
 ## Test Plan
 
-| TC    | Verification                                                 | Type/Tool                     |
-| ----- | ------------------------------------------------------------ | ----------------------------- |
-| TC-01 | v1 `catch{return alt}` flag + `allow-fallback:` suppress     | node unit on the scan         |
-| TC-02 | no false positive on `??`/defaulting-`\|\|`/rethrow          | node unit (negative fixture)  |
-| TC-03 | spec-DOC declaration section present (backlog-writer)        | placement/structure           |
-| TC-04 | anti-rot = reason-less-only (stale-detection deferred)       | node unit on the scan         |
-| TC-05 | registered in run-all-scans; runs continuous + at gate       | functional (scan set + guard) |
-| TC-06 | ~11 sites stamped (10 catch + 1 prose); `harness:scan` green | harness:scan regression       |
+| TC    | Verification                                                 | Type/Tool                     | Test reference                                                                                         |
+| ----- | ------------------------------------------------------------ | ----------------------------- | ------------------------------------------------------------------------------------------------------ |
+| TC-01 | v1 `catch{return alt}` flag + `allow-fallback:` suppress     | node unit on the scan         | `scan-no-fallback.test.mjs` › "flags the silent catch→default-return fallback" + "suppression by …"    |
+| TC-02 | no false positive on `??`/defaulting-`\|\|`/rethrow          | node unit (negative fixture)  | `scan-no-fallback.test.mjs` › "no false positives (precision mandate)"                                 |
+| TC-03 | spec-DOC declaration section present (backlog-writer)        | placement/structure           | `backlog-writer/SKILL.md` schema + guide; `pnpm harness:scan` 55/55 (structure scans green)            |
+| TC-04 | anti-rot = reason-less-only (stale-detection deferred)       | node unit on the scan         | `scan-no-fallback.test.mjs` › "annotation anti-rot (v1 = reason-less-only)"                            |
+| TC-05 | registered in run-all-scans; runs continuous + at gate       | functional (scan set + guard) | `run-all-scans.mjs` `no-fallback` entry; GATE-VERIFY guard ran the scans (Evidence Log)                |
+| TC-06 | ~11 sites stamped (10 catch + 1 prose); `harness:scan` green | harness:scan regression       | `scan-no-fallback.test.mjs` › "the live source tree is green under v1 semantics"; `harness:scan` 55/55 |
 
 ## Tasks
 
-[`.agents/tasks/HARNESS-028.md`](../../tasks/HARNESS-028.md) — created at GATE-IMPLEMENT; one slice per TC-01..06
-with a `## Test Plan` section.
+[`.agents/tasks/completed/HARNESS-028.md`](../../tasks/completed/HARNESS-028.md) — archived at GATE-COMPLETE; one
+slice per TC-01..06 with a `## Test Plan` section.
 
 ## Evidence Log
 
@@ -310,3 +310,51 @@ with a `## Test Plan` section.
   iteration-2 "single bare annotation" estimate counted only bare (no-colon) tokens, not the detector's live output;
   the real bounded count is ~11 zero-behavior-change annotations. Spec Solution/Affected Files/TC-06/Checklist +
   the task file reconciled to this. Not a 357-site sweep.
+
+### [GATE-VERIFY] — ✅ PASS | 2026-07-18
+
+**Status upgrade:** in-progress → verifying
+
+- Prior-gate precondition: `### [GATE-IMPLEMENT] — ✅ PASS | 2026-07-18` entry present; frontmatter `status: in-progress` matches the expected input stage for GATE-VERIFY — in order, pass.
+- All tasks complete: `.agents/tasks/HARNESS-028.md` slices TC-01..TC-06 are all `[x]`; none blocked or pending — pass.
+- Build passes for affected packages: `pnpm typecheck` (workspace) clean, no errors this session — pass.
+- Tests pass for affected packages: agent-core 870, agent-framework 1163, dag-adapters-local 54, agent-remote-pairing 32, agent-remote-client 106, agent-provider-openai-compatible 101 all green; harness suite `pnpm harness:test` 322/322 including the new `scripts/harness/__tests__/scan-no-fallback.test.mjs` (14 tests) — pass.
+- Scan floor green: spot-checked `node scripts/harness/scan-no-fallback.mjs` → "no-fallback scan passed." (exit 0); artifacts present (`scan-no-fallback.mjs`, `__tests__/scan-no-fallback.test.mjs`) and registered as `no-fallback` in `run-all-scans.mjs:106`; implementation committed (`f673ced83`) — pass.
+- `task-archival` scan red is EXPECTED gate-sequencing (all 6 task boxes `[x]` while the spec is still in active/) telling us to run GATE-VERIFY→GATE-COMPLETE and archive; it goes green once GATE-COMPLETE moves the spec to done/. NOT an implementation defect; the `no-fallback` scan itself is GREEN — N/A to this gate.
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-07-18
+
+- Verification: `npx vitest run scripts/harness/__tests__/scan-no-fallback.test.mjs` → 14 passed (exit 0).
+- Test: `scripts/harness/__tests__/scan-no-fallback.test.mjs` › "HARNESS-028 TC-01 — flags the silent catch→default-return fallback" (5 default-literal shapes flagged, line reported) + "HARNESS-028 TC-01 — suppression by an adjacent allow-fallback: <reason>" (3 placements: in-body / inline-on-return / trailing-brace).
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-07-18
+
+- Verification: same vitest run (exit 0).
+- Test: `scan-no-fallback.test.mjs` › "HARNESS-028 TC-02 — no false positives (precision mandate)" — `??`, defaulting-`||`, rethrow/wrap-and-throw, error-RESULT returns (`{ ok: false }` / error string), and act-before-default are all NOT flagged.
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-07-18
+
+- Verification: `pnpm harness:scan` → 55/55 green except the expected `task-archival` sequencing flag; the spec-doc structure scans (`spec-doc-frontmatter`, `design-doc`, `consistency`) pass with the new `## Fallback & Degradation Declaration` section in `backlog-writer/SKILL.md`.
+- Artifact: `.agents/skills/backlog-writer/SKILL.md` — Spec Document File Schema now contains `## Fallback & Degradation Declaration` (default "None") + a Section-by-Section authoring-guide entry; NOT the package `SPEC.md` template. This spec dogfoods it (its own declaration = "None").
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-07-18
+
+- Verification: same vitest run (exit 0).
+- Test: `scan-no-fallback.test.mjs` › "HARNESS-028 TC-04 — annotation anti-rot (v1 = reason-less-only)" — reason-less `// allow-fallback`, `// allow-fallback:`, and `// allow-fallback:   ` all FAIL; a well-formed `allow-fallback: <reason>` passes; a reasoned annotation on a not-yet-scanned `||` construct is INERT (no finding) — stale-detection deferred.
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-07-18
+
+- Verification: `run-all-scans.mjs` registers `{ name: 'no-fallback', command: ['node', 'scripts/harness/scan-no-fallback.mjs'] }`; `pnpm harness:scan` executes it (`✓ no-fallback` in the summary); the GATE-VERIFY guard re-ran the scans (see GATE-VERIFY entry). Continuous (CI `scans`) + at-gate wiring confirmed.
+- Test: functional — the scan set + guard; `scan-no-fallback.test.mjs` › "the live source tree is green under v1 semantics" exercises the same `findNoFallbackFindings()` the scan runs.
+
+### [GATE-COMPLETE: TC-06] — ✅ PASS | 2026-07-18
+
+- Verification: `node scripts/harness/scan-no-fallback.mjs` → "no-fallback scan passed." (exit 0); `pnpm harness:scan` → 55/55 (54 prior + `no-fallback`), modulo the expected `task-archival` sequencing flag cleared at GATE-COMPLETE.
+- Result: the v1 detector surfaced 10 genuine un-annotated swallow→default fallbacks + 1 JSDoc prose mention; each reason-stamped with `// allow-fallback: <reason>` (zero behavior change; affected-package tests all green post-stamp). A bounded ~11-site stamp, NOT a 357-site sweep.
+- Test: `scan-no-fallback.test.mjs` › "HARNESS-028 TC-06 — the live source tree is green under v1 semantics" (`findNoFallbackFindings()` === []).
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-07-18
+
+**Status upgrade:** verifying → done
+
+All six Completion Criteria checked with matching `[GATE-COMPLETE: TC-N]` evidence; every Test Plan row carries a test reference. Implementation: `scan-no-fallback.mjs` + 14-test unit suite + `run-all-scans.mjs` registration (55/55) + `backlog-writer` declaration section + 11 sanctioned-degradation reason-stamps. Affected-package tests green (agent-core 870 / agent-framework 1163 / dag-adapters-local 54 / agent-remote-pairing 32 / agent-remote-client 106 / openai-compatible 101), harness suite 322/322, typecheck clean. Spec → `spec-docs/done/`; task → `.agents/tasks/completed/HARNESS-028.md`.
