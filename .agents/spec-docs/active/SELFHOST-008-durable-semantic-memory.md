@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: DATA
 tags: [memory, semantic-recall, persistence, agent-framework, agent-cli, selfhost]
 ---
@@ -227,10 +227,11 @@ in a surface (may revise the port) + extraction to `agent-interface-memory` iff 
 
 ## Tasks
 
-`.agents/tasks/SELFHOST-008*.md` — 미생성 (GATE-APPROVAL 통과 후 생성). Epic P1 (port + refactor store as reference
-adapter + assembly threading + curation-policy seam) / P2 (persistence + cross-session recall guarantees) / P3
-(duck-typed `ISemanticMemoryAdapter` + fake-adapter swap) / P4 (concrete semantic/vector backend in a surface; may
-revise the port; extract `agent-interface-memory` iff a family).
+Epic P1 task created at GATE-IMPLEMENT: [`.agents/tasks/SELFHOST-008-P1.md`](../../tasks/SELFHOST-008-P1.md)
+(port + refactor store as reference adapter + assembly threading + curation-policy seam; TC-01..06). Later slices:
+P2 (persistence + cross-session recall guarantees) / P3 (duck-typed `ISemanticMemoryAdapter` + fake-adapter swap) /
+P4 (concrete semantic/vector backend in a surface; may revise the port; extract `agent-interface-memory` iff a
+family) — tracked here, separate tasks when reached.
 
 ## Evidence Log
 
@@ -259,3 +260,13 @@ revise the port; extract `agent-interface-memory` iff a family).
   acknowledged the `IMemoryEvent`-vs-`IMemoryStore` distinction above; the mechanical neutrality floor should GATE the
   P3/P4 slice that first injects curation prompt/content (where the neutrality risk actually materializes), not remain an
   open-ended follow-up. **GATE-APPROVAL PASSED.**
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-07-18
+
+**Status upgrade:** approved → in-progress
+Prior-gate precondition: GATE-APPROVAL shows `✅ PASS` in Evidence Log (2026-07-17 proposal-reviewer ENDORSE iteration 1); frontmatter `status: approved` matches expected input stage.
+Task file created: `.agents/tasks/SELFHOST-008-P1.md` exists.
+Path recorded in `## Tasks`: spec `## Tasks` links `.agents/tasks/SELFHOST-008-P1.md` (P1 slice, TC-01..06; P2/P3/P4 tracked as later slices).
+Tasks correspond to Completion Criteria: task file `## Slices` maps TC-01..TC-06, one slice per TC-N, matching the spec's 6 Completion Criteria (EPIC P1 slice covering TC-01..TC-06 as expected).
+Test Plan present: task file `## Test Plan` section (functional round-trip + vitest units for TC-02..TC-05 + manual grep/review for TC-06), well over 50 chars.
+No implementation commits yet: `packages/agent-framework/src/memory/types.ts` and `file-system-memory-store.ts` do not exist; no uncommitted changes under `packages/agent-framework/src/memory/`; branch carries only spec/task docs for this item.
