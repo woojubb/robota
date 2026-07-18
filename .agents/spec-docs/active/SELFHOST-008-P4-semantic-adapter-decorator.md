@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: verifying
 type: DATA
 tags: [memory, semantic-recall, adapter, agent-framework, selfhost-008]
 ---
@@ -392,3 +392,16 @@ owner sign-off to complete GATE-APPROVAL.
 - Tasks map to Completion Criteria: task file's Slices S1 (decorator+factory: tiered recall, guarded append-then-index, skip-on-dedup, delegate rest) → TC-01/TC-02/TC-04/TC-05; S2 (barrel export + types.ts doc note) supports TC-06; S3 (tests) covers TC-01..07; S4 (docs SPEC.md) supports TC-07 — every TC-01..TC-07 covered. PASS.
 - Test Plan present in task file: `## Test Plan` section present with per-TC (TC-01..07) verification lines + a regression line (>50 chars). PASS.
 - No implementation commits yet for P4 source: recent commits are docs-only (`docs(spec): ...` for GATE-WRITE/proposal-reviewer/GATE-APPROVAL + task breakdown); `packages/agent-framework/src/memory/semantic-memory-store.ts` does NOT exist, and `semantic-memory-store.test.ts` does NOT exist (both verified via `ls`). PASS.
+
+### [GATE-VERIFY] — ✅ PASS | 2026-07-18
+
+**Status upgrade:** in-progress → verifying
+
+- Prior-gate precondition: `[GATE-IMPLEMENT] — ✅ PASS | 2026-07-18` entry present in the Evidence Log; frontmatter `status: in-progress` matches the expected input stage for GATE-VERIFY. PASS.
+- Tasks complete / none blocked or pending: `.agents/tasks/SELFHOST-008-P4.md` uses a slice-narrative format (S1–S4 numbered list, no `[x]` checkbox markers — `grep` for checkbox tokens returns none). Completion is therefore verified by confirming each slice's deliverable exists and is green: S1 decorator+factory (`src/memory/semantic-memory-store.ts` exists, 5957 B), S2 barrel export (`src/index.ts:304` exports `SemanticMemoryStore` + `createSemanticMemoryStore`), S3 tests (`src/memory/__tests__/semantic-memory-store.test.ts` exists, 7 tests green), S4 docs (`docs/SPEC.md` documents `SemanticMemoryStore` + `createSemanticMemoryStore` + `ISemanticMemoryAdapter` consumer note). All four slices delivered; no task blocked or pending. PASS (checkbox literal N/A for this file's slice format; substance verified).
+- Build passes for affected package: `pnpm --filter @robota-sdk/agent-framework build` — green (`✔ Build complete`, CJS + ESM). PASS.
+- Typecheck: `pnpm --filter @robota-sdk/agent-framework typecheck` (`tsc --noEmit`) — green, no errors. PASS.
+- Tests pass for affected package: `npx vitest run packages/agent-framework/src/memory/__tests__/semantic-memory-store.test.ts` — 7 tests passed (TC-01..07 + factory/instance checks), 1 file passed. PASS.
+- Scans: `pnpm harness:scan` — all 56 scans passed (incl. memory-neutrality, orphan-exports, spec-publish-claims, test-plans, conformance). PASS.
+- Lint: `pnpm --filter @robota-sdk/agent-framework lint` — 0 errors (150 pre-existing warnings, unrelated allowed-unused-var style). PASS.
+- Completion Criteria state: TC-01..TC-07 all `[x]` in `## Completion Criteria`, each with a Test Plan reference (TC-07 = HARNESS-029 memory-neutrality scan + package.json review). PASS.
