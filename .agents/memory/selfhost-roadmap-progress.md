@@ -123,7 +123,7 @@ Branch-flow lesson: NEVER PR a develop-based branch into `main` (it sweeps the w
 incident, forward-fixed by #1217). Architecture lesson: capability DIP ports must be async + wire ALL consumers through
 the port; run architecture-auditor + architecture-conformance-auditor at mid-points (they caught the P1 defects early).
 
-Next: SELFHOST-009 (hook-catalog) next; SELFHOST-008 P5 deferred to backlog; then 010–014 in priority order (`priority: medium`/`low`, `urgency: later`);
+Next: **SELFHOST-008 P6 (surface-wire memory + agent-run e2e verification) IMMEDIATE next** (owner 2026-07-18: P2/P3/P4 are library seams OFF in the real agent); then P5 deferred; then SELFHOST-009; then 010–014 in priority order (`priority: medium`/`low`, `urgency: later`);
 each follows the same GATE-WRITE → APPROVAL → IMPLEMENT → VERIFY → COMPLETE flow.
 Committing at logical boundaries per the new commit-cadence rule (git-branch.md).
 Multi-package specs split into named P-slice work units (own PR each); each code-changing spec's GATE-COMPLETE needs
