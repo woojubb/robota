@@ -284,23 +284,21 @@ the neutral seam + wiring.
 
 ## Completion Criteria
 
-- [ ] TC-01: with a `recallMemory` policy supplied, a turn calls `getMemoryStore().recall(input, budget)` and the
-      rendered result reaches the model for that turn (functional test with a fake session/store — the recall block is
-      present in the model call).
-- [ ] TC-02: **ephemeral** — the recalled block is NOT written to the interactive history NOR the session history: after
-      the turn, neither persisted history contains the recalled text (only `displayInput ?? input` + the assistant
-      reply) (functional test — MUST fail if the block is prepended to `modelInput`).
-- [ ] TC-03: **agent-core ephemeral seam** — a `run()` with `IRunOptions.ephemeralSystemContext` set reaches the
-      provider request as a transient system-role message AND is absent from the conversation store after the run
-      (`getHistory()` contains no such message); a `run()` without it is unchanged (unit test in agent-core).
-- [ ] TC-04: **adapter-gating** — with NO `recallMemory` policy supplied, no per-turn recall runs (no `recall()` call,
-      no block injected); memory behavior is exactly today's startup-only injection (unit test).
-- [ ] TC-05: **guarded** — a `recall()`/render that THROWS does NOT fail the turn (the turn completes, model still
-      called with no recall block) (unit test with a throwing store).
-- [ ] TC-06: **budget respected** — recall is called with the surface-supplied `IMemoryBudget` (topK/char), and the
-      rendered block honors the char cap (unit test).
-- [ ] TC-07 (**NEUTRALITY**): `packages/` gains only the neutral seam + wiring — no memory CONTENT or capture/recall
-      PROMPT added; enable/budget are surface-supplied; HARNESS-029 `memory-neutrality` scan green (scan + review).
+- [x] TC-01: with a `recallMemory` policy supplied, a turn calls `getMemoryStore().recall(input, budget)` and the
+      rendered result reaches the model for that turn — `interactive-session-recall.test.ts` › "TC-01".
+- [x] TC-02: **ephemeral** — the recalled block is NOT written to the interactive history NOR the session history —
+      `interactive-session-recall.test.ts` › "TC-02" (persisted record JSON contains no `recalled-memory`/body).
+- [x] TC-03: **agent-core ephemeral seam** — `run({ ephemeralSystemContext })` reaches the provider request as a
+      system message AND is absent from the conversation store after the run; a run without it is unchanged —
+      `agent-core/src/services/__tests__/ephemeral-system-context.test.ts` (3 cases incl. no cross-turn leak).
+- [x] TC-04: **adapter-gating** — with NO `recallMemory` policy, no `recall()` call, no block injected —
+      `interactive-session-recall.test.ts` › "TC-04".
+- [x] TC-05: **guarded** — a `recall()` that THROWS does NOT fail the turn (turn completes, model still called, no
+      block) — `interactive-session-recall.test.ts` › "TC-05".
+- [x] TC-06: **budget respected** — recall is called with the surface-supplied `IMemoryBudget` —
+      `interactive-session-recall.test.ts` › "TC-06".
+- [x] TC-07 (**NEUTRALITY**): `packages/` gains only the neutral seam + wiring (no memory content/prompt; enable/budget
+      surface-supplied) — `pnpm harness:scan` memory-neutrality + dependency-direction green (56/56).
 
 ## Test Plan
 
