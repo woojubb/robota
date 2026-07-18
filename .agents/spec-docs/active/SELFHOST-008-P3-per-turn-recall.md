@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: DATA
 tags: [memory, recall, session-lifecycle, agent-framework, selfhost-008]
 ---
@@ -388,3 +388,14 @@ aligned. Awaiting owner sign-off to complete GATE-APPROVAL.
 - No Architecture Review / frontmatter type/tags modified after approval: the two proposal-reviewer iterations (REVISE→ENDORSE) and all Architecture Review edits predate the sign-off; nothing changed after approval.
 - Independent design review (recorded): `proposal-reviewer` ran two iterations — iteration 1 **REVISE** (false layer-ownership premise → ephemeral seam relocated from `agent-session` to `agent-core` `IRunOptions.ephemeralSystemContext`; dedup granularity mismatch → v1 dedup deferred) and iteration 2 **ENDORSE** (agent-core owns model-call assembly/persistence, insertion point feasible with no conversation-store write, deps one-way acyclic, dead-code/no-fallback/push-vs-pull all TRUE; two minor cautions folded into Implementation Notes). Both iteration entries present above.
 - Independent architecture validation (conditional): **N/A** — no new package / app / presentation surface and no layer/product-family reclassification (additive `IRunOptions` seam + pass-through + wiring within existing `agent-core`/`agent-session`/`agent-framework`). New-surface placement recorded N/A in the Architecture Review Checklist. Conditional criterion does not apply.
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-07-18
+
+**Status upgrade:** approved → in-progress
+
+- Prior-gate precondition: `### [GATE-APPROVAL] — ✅ PASS | 2026-07-18` entry present in this Evidence Log; frontmatter `status: approved` — matches the expected input stage (`approved`) for GATE-IMPLEMENT. In order.
+- Tasks file created: `.agents/tasks/SELFHOST-008-P3.md` exists on disk (verified).
+- Tasks file path recorded in spec `## Tasks`: links `.agents/tasks/SELFHOST-008-P3.md` (spec line 319).
+- Tasks map to Completion Criteria: task-file slices S1–S6 cover all seven TCs — S1 → TC-03 (agent-core ephemeral seam), S2 (agent-session pass-through) + S3 (recall render label) supporting, S4 → TC-01/TC-04/TC-05/TC-06 (controller wiring + gating + guarded + budget), S5 → TC-02 (ephemeral end-to-end), S6 → TC-07 (neutrality + docs). TC-01..TC-07 all covered.
+- Test Plan present in task file: `## Test Plan` section (task file lines 37–48) present, >50 chars — agent-core unit (TC-03), agent-framework unit/functional TC-01/02/04/05/06, neutrality TC-07, plus regression commands. Satisfies the `test-plans` harness scan floor [AF-24].
+- No implementation commits for P3 source: recent history is `docs(spec)`/`docs(memory)` only (latest `d38f38f2f docs(spec): SELFHOST-008 P3 GATE-APPROVAL pass (approved) + task breakdown`); no `feat`/`fix` P3 source commits; working tree touches only unrelated lessons files. In order.
