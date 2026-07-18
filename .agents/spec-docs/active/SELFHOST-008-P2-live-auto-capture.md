@@ -1,5 +1,5 @@
 ---
-status: review-ready
+status: in-progress
 type: DATA
 tags: [memory, auto-capture, session-lifecycle, agent-framework, selfhost, selfhost-008]
 ---
@@ -297,7 +297,8 @@ is surface-owned (the library ships only the neutral seam + the existing `approv
 
 ## Tasks
 
-`.agents/tasks/SELFHOST-008-P2.md` — 미생성 (GATE-APPROVAL 통과 후 생성).
+[`.agents/tasks/SELFHOST-008-P2.md`](../../tasks/SELFHOST-008-P2.md) — created at GATE-IMPLEMENT; TC-01..06 slices +
+option-B design notes + Test Plan.
 
 ## Evidence Log
 
@@ -350,3 +351,24 @@ is surface-owned (the library ships only the neutral seam + the existing `approv
   path only (stash the `result` from `onComplete`). No `interactive-session-prompt.ts` contract change needed.
   Recommendation/Alternatives(1,2)/Decision/Affected-Scope/Validated-Reachability/Affected-Files/TC-02a/TC-02b updated;
   TC-02b strengthened to fail against a detached/deferred capture (asserts the await-before-persist edge). Re-review pending.
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-07-18
+
+**Status upgrade:** review-ready → approved
+
+- Prior-gate precondition: GATE-WRITE PASS present in the Evidence Log (dated 2026-07-18, `draft → review-ready`); frontmatter `status: review-ready`, file in `spec-docs/backlog/` — matches the expected input stage for GATE-APPROVAL.
+- Independent design review (ENDORSE): the `proposal-reviewer` ran THREE iterations — (1) REVISE (async fire-and-forget races the `finally` `persistSession()` and drops the turn's `memoryEvents`); (2) REVISE (awaiting inside `onComplete` does not order before the persist because `executePromptTurn` calls `onComplete` UNAWAITED); (3) **ENDORSE**. Final verdict ENDORSE: the await-before-persist ordering genuinely holds via option B (capture in the execution controller's own awaited `finally`, immediately before `persistSession()`, completed-turn path only); all premises verified TRUE against code; no internal contradiction remains.
+- Independent architecture validation (conditional): N/A — no new package/app/surface introduced and no layer/product-family reclassification; the change is a neutral post-turn wiring seam within the existing `agent-framework` package (new-surface placement recorded N/A at GATE-WRITE).
+- No Architecture Review or frontmatter `type`/`tags` modified after approval.
+- Owner sign-off (explicit approval, verbatim): **"P2 재개 (라이브 자동 캐프처)"** — the owner approved resumption + implementation of P2 live auto-capture (lifting the prior HELD-pending-owner-course-correction state), a direct authorization of this spec's design.
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-07-18
+
+**Status upgrade:** approved → in-progress
+
+- Prior-gate precondition: GATE-APPROVAL PASS present in the Evidence Log (dated 2026-07-18, `review-ready → approved`); frontmatter `status: approved` — matches the expected input stage for GATE-IMPLEMENT.
+- Tasks file created: `.agents/tasks/SELFHOST-008-P2.md` exists (verified on disk; untracked/new).
+- Path recorded in spec: `## Tasks` section links `.agents/tasks/SELFHOST-008-P2.md` (created at GATE-IMPLEMENT; TC-01..06 slices + option-B design notes + Test Plan).
+- Tasks map to Completion Criteria: task file `## Slices` carry one slice per TC-N — TC-01, TC-02a, TC-02b, TC-03, TC-04, TC-05, TC-06 — matching all Completion Criteria (incl. the split TC-02a/TC-02b).
+- Test Plan present: task file has a `## Test Plan` section well over 50 chars (vitest unit/functional coverage for TC-01..06 + regression `typecheck`/suite/`harness:scan` + TC-06 grep/review).
+- No implementation commits: latest touch to `interactive-session-execution-controller.ts` is REMOTE-014 (#1125, unrelated); no P2 source changes committed; only the new untracked tasks file and the backlog→todo spec move are pending.
