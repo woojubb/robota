@@ -1,5 +1,6 @@
 ---
-status: in-progress
+status: done
+completed: 2026-07-19
 type: BEHAVIOR
 tags: [evals, sdk, ci-gate, agent-framework, agent-cli, selfhost]
 ---
@@ -283,11 +284,13 @@ consciously deferred: dedicated `agent-evals` package iff a third-party metric f
 
 ## Tasks
 
-Epic P1 (neutral `src/evals/` definition API + runner) / P2 (`robota eval` CLI gate + example) / P3 (optional
-neutral metric helpers + dataset loader) / P4 (deferred: dedicated package iff a family; in-session `/eval`).
+Epic P1 (neutral `src/evals/` definition API + runner) / P2 (`robota eval` CLI gate + example + agent-run
+verification) / P3 (optional neutral metric helpers + dataset loader) / P4 (deferred: dedicated package iff a
+family; in-session `/eval`).
 
-- **P1** — [`.agents/tasks/SELFHOST-011-P1.md`](../../tasks/SELFHOST-011-P1.md) (GATE-IMPLEMENT PASSED; in progress).
-- P2/P3/P4 task files created after P1 completes.
+- **P1 — DONE** (merged develop `c1e856da3`, #1232): [`.agents/tasks/completed/SELFHOST-011-P1.md`](../../tasks/completed/SELFHOST-011-P1.md).
+- **P2 — DONE** (this branch; agent-run verified): [`.agents/tasks/completed/SELFHOST-011-P2.md`](../../tasks/completed/SELFHOST-011-P2.md).
+- **P3/P4 — deferred to backlog**: [`.agents/backlog/SELFHOST-011-P3-P4-evals-followups.md`](../../backlog/SELFHOST-011-P3-P4-evals-followups.md) (no neutral-library gap remains for v1).
 
 ## Evidence Log
 
@@ -348,3 +351,37 @@ neutral metric helpers + dataset loader) / P4 (deferred: dedicated package iff a
 - 2026-07-19 — **[P2 IMPLEMENTED]** — `robota eval` CLI gate + example. `agent-cli/src/eval/eval-command.ts` `runEvalCommand(argv, cwd, deps?): Promise<number>` — loads a consumer eval-definition module (dynamic `import()` of `default`/`evalDefinition`, validated by `defineEval`), builds the default `runFn` from the CLI-resolved provider (`createProviderFromSettings` → `createAgentRuntime` → `createSessionRunFn`), runs every case, prints a compact report, returns exit `0`/`1` (missing-path/unloadable/run-error → 1). `cli.ts` intercepts `eval` before the strict global parser (mirrors `session analyze`) → `process.exitCode`; defensive positional fallthrough + help text. `examples/capabilities/agent-eval/` (dataset + a response metric + a tool-trajectory metric, `runEval` via `createSessionRunFn`, `process.exit(1)` on breach; registered in `examples/README.md`; typechecks) — **TC-04**. agent-cli SPEC.md updated. **TC-03** exit-code contract test (`eval-command.test.ts`, 6 cases, injected fake `runFn`, no live provider): fail→1, pass→0, `--threshold`, missing/unloadable/run-error→1. **TC-05** neutrality = no eval content under `packages/` (grep) + mechanical floor filed **HARNESS-034**. Regression: agent-cli 28 files / 226 tests, typecheck, lint 0 errors, **57/57 harness scans**; example typechecks.
 - 2026-07-19 — **[AGENT-RUN VERIFIED]** (capability-reachability rule) — drove the real `robota` CLI through `robota eval` against a **live Anthropic provider** and confirmed the exit-code gate BOTH ways on a real agent run's `IExecutionResult`: a PASS definition (the live model answered `4`; `says-4` metric passed) → **exit 0**; a FAIL definition (unsatisfiable metric) → **exit 1**; missing-path guard → exit 1. Evidence: [`.agents/evals/scenarios/selfhost-011-eval-gate-agent-run.md`](../../evals/scenarios/selfhost-011-eval-gate-agent-run.md). This closes the user-execution done-gate (not the unit test alone). **All TC-01..06 satisfied.**
 - 2026-07-19 — **Epic scope close**: P1 (library seam) + P2 (CLI gate + example + agent-run verification) COMPLETE. **P3** (optional neutral metric helpers — exact-match/JSON-schema-match — + dataset-file loader) and **P4** (dedicated `agent-evals` package iff a third-party metric family emerges; in-session `/eval` command) are **consciously deferred to backlog** (mirrors the SELFHOST-003-P4 / SELFHOST-008-P5 / SELFHOST-010-P2 deferral pattern) — no neutral-library gap remains for v1. GATE-VERIFY → GATE-COMPLETE next.
+
+### [GATE-VERIFY] — ✅ PASS | 2026-07-19
+
+**Status upgrade:** in-progress → verifying
+
+- Prior-gate precondition: GATE-IMPLEMENT recorded PASS (`### [GATE-IMPLEMENT] — ✅ PASS | 2026-07-19`); frontmatter `status: in-progress` matches the expected GATE-VERIFY input stage. ✓
+- All tasks complete / none blocked or pending: both epic task files marked **DONE (2026-07-19)** — `.agents/tasks/SELFHOST-011-P1.md` (S1–S4 library seam, TC-01/02/06) and `.agents/tasks/SELFHOST-011-P2.md` (S1–S5 CLI gate + example + agent-run, TC-03/04/05); no unchecked or blocked slice remains. ✓
+- Build passes for affected packages: `pnpm --filter @robota-sdk/agent-framework --filter @robota-sdk/agent-cli build` → both "Build complete" (agent-cli ESM/CJS emitted; only benign `[INEFFECTIVE_DYNAMIC_IMPORT]` notices, no errors). ✓
+- Tests pass for affected packages: `pnpm --filter @robota-sdk/agent-framework test` → **144 files / 1212 tests passed** (incl. `src/evals/__tests__/runner.test.ts` 9 + `src/evals/__tests__/session-run-fn.test.ts` 4); `pnpm --filter @robota-sdk/agent-cli test` → **28 files / 226 tests passed** (incl. `src/eval/__tests__/eval-command.test.ts` 6 + `src/__tests__/cli-exit-codes.test.ts` 3). ✓
+- Evidence-Log mapping confirmed: `[P1 IMPLEMENTED]` → TC-01/TC-02/TC-06 (neutral `src/evals/` runner over injected `runFn`); `[P2 IMPLEMENTED]` → TC-03 (exit-code gate) / TC-04 (example) / TC-05 (neutrality floor + HARNESS-034); `[AGENT-RUN VERIFIED]` (`.agents/evals/scenarios/selfhost-011-eval-gate-agent-run.md`) closes the capability-reachability done-gate. Per-TC command/output evidence + tasks-file archival are the GATE-COMPLETE criteria (next gate). ✓
+
+### [GATE-COMPLETE] — ❌ FAIL | 2026-07-19
+
+**Status remains:** verifying
+
+Prior-gate precondition MET (GATE-VERIFY PASS present; frontmatter `status: verifying` matches the expected input stage). All TC-01..06 substance verified — every Completion-Criteria checkbox is `[x]` with a matching Evidence entry and a Test-Plan test reference/skip reason: TC-01/TC-02 (`packages/agent-framework/src/evals/__tests__/runner.test.ts`, 9 tests), TC-06 (`runner.test.ts` + `packages/agent-framework/src/evals/__tests__/session-run-fn.test.ts`, 4 tests), TC-03 (`packages/agent-cli/src/eval/__tests__/eval-command.test.ts` 6 + `packages/agent-cli/src/__tests__/cli-exit-codes.test.ts` 3), TC-04 (example `examples/capabilities/agent-eval/` typechecks + registered in `examples/README.md`, per `[P2 IMPLEMENTED]`), TC-05 (neutrality: manual grep + mechanical floor filed HARNESS-034 as the recorded skip reason); the `[AGENT-RUN VERIFIED]` live-provider run (`.agents/evals/scenarios/selfhost-011-eval-gate-agent-run.md`) closes the capability-reachability done-gate. Task files ARE archived on disk (`.agents/tasks/completed/SELFHOST-011-P1.md` + `-P2.md` present; the pre-archival `.agents/tasks/SELFHOST-011-*.md` paths no longer exist). One criterion is unmet — this is the sole blocker.
+
+**Failed criteria:**
+
+- `## Tasks` section updated to reflect archived path: the section still points at the pre-archival `.agents/tasks/SELFHOST-011-P1.md` and reads "(GATE-IMPLEMENT PASSED; in progress)" + "P2/P3/P4 task files created after P1 completes" — factually stale. Both task files are archived (`.agents/tasks/completed/SELFHOST-011-P1.md` and `-P2.md`, verified on disk), P2 is DONE, and P3/P4 are deferred to backlog. The archival criterion (files under `completed/`) is MET, but the spec's `## Tasks` pointer was never refreshed to reflect it.
+  **Required action:** Update the `## Tasks` section to reference the archived `.agents/tasks/completed/SELFHOST-011-P1.md` and `.agents/tasks/completed/SELFHOST-011-P2.md` (P1 + P2 DONE/archived; P3/P4 consciously deferred to `.agents/backlog/SELFHOST-011-P3-P4-evals-followups.md`), then re-run GATE-COMPLETE. No other criterion blocks completion.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-07-19
+
+**Status upgrade:** verifying → done
+
+Re-run after the prior GATE-COMPLETE FAIL (stale `## Tasks` pointer) was fixed. All criteria now met:
+
+- Prior-gate precondition: GATE-VERIFY recorded PASS (`### [GATE-VERIFY] — ✅ PASS | 2026-07-19`); frontmatter `status: verifying` matches the expected GATE-COMPLETE input stage. ✓
+- Every `## Completion Criteria` checkbox `[x]` with a matching Evidence entry (verification command/output): TC-01/TC-02 (`[P1 IMPLEMENTED]` — `runEval` scores each case's `IExecutionResult` incl. `toolSummaries`/`usage`, threshold pass/fail; `packages/agent-framework/src/evals/__tests__/runner.test.ts`); TC-06 (`[P1 IMPLEMENTED]` — injected/assembled run path, default `runFn` via `createAgentRuntime().createSession()` not `createQuery`; `runner.test.ts` + `session-run-fn.test.ts`); TC-03 (`[P2 IMPLEMENTED]` — `robota eval` fail→exit 1 / pass→exit 0; `packages/agent-cli/src/eval/__tests__/eval-command.test.ts` 6 + `packages/agent-cli/src/__tests__/cli-exit-codes.test.ts` 3); TC-04 (`[P2 IMPLEMENTED]` — `examples/capabilities/agent-eval/` typechecks + registered in `examples/README.md`); TC-05 (`[P2 IMPLEMENTED]` — neutrality manual grep + mechanical floor filed HARNESS-034 as the recorded skip reason). ✓
+- `[AGENT-RUN VERIFIED]` live-Anthropic run closes the capability-reachability done-gate; evidence file present and substantive: `.agents/evals/scenarios/selfhost-011-eval-gate-agent-run.md` (PASS→exit 0, FAIL→exit 1, missing-path→exit 1 on real `IExecutionResult`). ✓
+- `## Test Plan` carries a test reference or skip reason for every TC-N row (TC-01/02→`runner.test.ts`; TC-03→`eval-command.test.ts`+`cli-exit-codes.test.ts`; TC-04→example typecheck+register; TC-05→manual grep + HARNESS-034 floor skip reason; TC-06→`runner.test.ts`+`session-run-fn.test.ts`). ✓
+- Tasks files archived: `.agents/tasks/completed/SELFHOST-011-P1.md` and `.agents/tasks/completed/SELFHOST-011-P2.md` both present on disk; the pre-archival `.agents/tasks/SELFHOST-011-P1.md`/`-P2.md` paths no longer exist. ✓
+- `## Tasks` section now reflects the archived paths (the sole prior FAIL blocker, fixed): P1 DONE → `.agents/tasks/completed/SELFHOST-011-P1.md`; P2 DONE → `.agents/tasks/completed/SELFHOST-011-P2.md`; P3/P4 consciously deferred to `.agents/backlog/SELFHOST-011-P3-P4-evals-followups.md`. No stale pre-archival pointer or "in progress" wording remains. ✓
