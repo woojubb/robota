@@ -41,7 +41,10 @@ metric or dataset **content** in `packages/`. Commit per logical slice (commit-c
 
 ## Status
 
-**IN PROGRESS.** GATE-IMPLEMENT PASSED (backlog-gate-guard, 2026-07-19); implementing S1–S4.
+**DONE (2026-07-19).** S1–S4 implemented + green; TC-01/TC-02/TC-06 satisfied (8 unit tests, injected fake
+`runFn` + synthetic `IExecutionResult`). agent-framework 1207 tests, typecheck, lint (0 evals warnings),
+57/57 harness scans. See the spec's Evidence Log `[P1 IMPLEMENTED]` entry. TC-03/TC-04/TC-05 + the agent-run
+capability verification are pending P2/P3 per the capability-reachability rule.
 
 ## Slices (each green + committed)
 
