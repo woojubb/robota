@@ -26,6 +26,8 @@ const RUN_OPTION_CONSUMERS: Record<keyof Required<IRunOptions>, string> = {
   maxExecutionRounds: 'execution round loop cap',
   maxSameToolInputs: 'execution tool-repetition guard',
   allowToolOnlyCompletion: 'execution round completion policy (CORE-011)',
+  ephemeralSystemContext:
+    'execution-round.ts derived providerMessages — transient system block, not persisted (SELFHOST-008 P3)',
   output: 'robota-execution.ts robotaRunStructured (CORE-015)',
   outputRetries: 'robota-execution.ts structured-output retry budget (CORE-015)',
 };

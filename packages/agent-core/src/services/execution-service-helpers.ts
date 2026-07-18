@@ -351,6 +351,9 @@ export function buildFullExecutionContext(
     ...(context?.maxTokens !== undefined && { maxTokens: context.maxTokens }),
     ...(context?.temperature !== undefined && { temperature: context.temperature }),
     ...(context?.toolChoice !== undefined && { toolChoice: context.toolChoice }),
+    ...(context?.ephemeralSystemContext !== undefined && {
+      ephemeralSystemContext: context.ephemeralSystemContext,
+    }),
   };
 }
 

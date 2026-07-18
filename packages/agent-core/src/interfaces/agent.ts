@@ -203,6 +203,13 @@ export interface IRunOptions {
   sessionId?: string;
   userId?: string;
   metadata?: TMetadata;
+  /**
+   * Run-scoped EPHEMERAL system context (SELFHOST-008 P3). A transient system-role block included in THIS
+   * run's provider request(s) only — it is **never written to the conversation store** and never persisted,
+   * so it does not bloat history or force a static-system-prompt rebuild. Content-free neutral channel: the
+   * caller decides what to put here (e.g. per-turn recalled memory). Absent ⇒ no change.
+   */
+  ephemeralSystemContext?: string;
   /** AbortSignal for cancelling execution */
   signal?: AbortSignal;
   /** Per-run streaming text callback. Prefer this over mutating provider callback state. */
