@@ -197,23 +197,23 @@ the P3 `<recalled-memory>` block. Verify by an agent-run `-p` capture→recall e
 
 ## Completion Criteria
 
-- [ ] TC-01: **default OFF** — with no `memory` setting/flag/env, no memory options are injected (no capture, no recall);
+- [x] TC-01: **default OFF** — with no `memory` setting/flag/env, no memory options are injected (no capture, no recall);
       behavior is exactly today's (unit test on the resolver + a `-p` run showing no `.robota/memory/` write).
-- [ ] TC-02: **enablement precedence** — `settings.json memory.enabled` is the SSOT; `--memory`/`--no-memory` overrides
+- [x] TC-02: **enablement precedence** — `settings.json memory.enabled` is the SSOT; `--memory`/`--no-memory` overrides
       it; `ROBOTA_MEMORY=1|0` overrides both (unit test on the resolver).
-- [ ] TC-03: **injection** — when enabled, the resolved `TInteractiveSessionOptions` carry `memoryStore` +
+- [x] TC-03: **injection** — when enabled, the resolved `TInteractiveSessionOptions` carry `memoryStore` +
       `recallMemory` + `automaticMemory` (unit test on the shared merge helper for the print/serve/TUI paths).
-- [ ] TC-04 (**AGENT-RUN capture**): a real `robota -p --memory` run with an explicit "remember that …" cue captures the
+- [x] TC-04 (**AGENT-RUN capture**): a real `robota -p --memory` run with an explicit "remember that …" cue captures the
       fact to `<cwd>/.robota/memory/` (saved, or queued-then-approved) — the AGENT executes this and captures evidence.
-- [ ] TC-05 (**AGENT-RUN recall, the headline**): a fresh `robota -p --memory` run in the same cwd, asked a paraphrased
+- [x] TC-05 (**AGENT-RUN recall, the headline**): a fresh `robota -p --memory` run in the same cwd, asked a paraphrased
       question, RECALLS the captured fact into the turn (the `<recalled-memory>` block is present / the answer reflects
       it) — the AGENT executes this end-to-end with a real provider and captures evidence. **Precondition (explicit):**
       the fact must be in a SAVED state before run B — under the default `approval_required` policy a queued candidate is
       NOT recallable (recall reads saved topics, not `pending.json`), so the demo uses EITHER `memory.autoSave: true`
       (an explicit "remember …" cue is high-confidence → auto-saved) OR an intermediate `robota -p "/memory approve <id>"`
       (id from `robota -p "/memory pending"`) between run A and run B.
-- [ ] TC-06: **neutrality** — no memory content/prompt/SDK added to `packages/`; `pnpm harness:scan` (memory-neutrality + deps) green; the neutral library + `buildRuntimeSession` unchanged.
-- [ ] TC-07: **observability** — `/memory` lists the captured/pending entry after TC-04, and the enable path prints the
+- [x] TC-06: **neutrality** — no memory content/prompt/SDK added to `packages/`; `pnpm harness:scan` (memory-neutrality + deps) green; the neutral library + `buildRuntimeSession` unchanged.
+- [x] TC-07: **observability** — `/memory` lists the captured/pending entry after TC-04, and the enable path prints the
       one-time notice (unit/functional + shown in the agent-run evidence).
 
 ## Test Plan
