@@ -3,6 +3,9 @@ import {
   listCommandEditCheckpoints,
   restoreCommandEditCheckpoint,
   rollbackCommandEditCheckpoint,
+  forkCommandEditCheckpoint,
+  switchCommandEditCheckpointBranch,
+  listCommandEditCheckpointBranches,
 } from '@robota-sdk/agent-framework';
 
 import type {
@@ -158,6 +161,56 @@ async function rollback(
   }
 }
 
+// SELFHOST-007: branching time-travel handlers.
+async function fork(
+  context: ICommandHostContext,
+  checkpointId: string | undefined,
+): Promise<ICommandResult> {
+  if (!checkpointId) return usage();
+  try {
+    const result = await forkCommandEditCheckpoint(context, checkpointId);
+    return {
+      message: [
+        `Forked a new branch from ${result.target.id} (the previous future is preserved).`,
+        `Restored files: ${result.restoredFileCount}`,
+      ].join('\n'),
+      success: true,
+      data: { target: result.target, restoredFileCount: result.restoredFileCount },
+    };
+  } catch (error) {
+    return formatError(error instanceof Error ? error : String(error));
+  }
+}
+
+function switchBranch(
+  context: ICommandHostContext,
+  checkpointId: string | undefined,
+): ICommandResult {
+  if (!checkpointId) return usage();
+  try {
+    switchCommandEditCheckpointBranch(context, checkpointId);
+    return { message: `Switched to checkpoint branch ${checkpointId}.`, success: true };
+  } catch (error) {
+    return formatError(error instanceof Error ? error : String(error));
+  }
+}
+
+function branches(context: ICommandHostContext): ICommandResult {
+  try {
+    const tips = listCommandEditCheckpointBranches(context);
+    return {
+      message:
+        tips.length === 0
+          ? 'No checkpoint branches yet.'
+          : `Branch tips:\n${tips.map((id) => `- ${id}`).join('\n')}`,
+      success: true,
+      data: { branches: tips },
+    };
+  } catch (error) {
+    return formatError(error instanceof Error ? error : String(error));
+  }
+}
+
 export async function executeRewindCommand(
   context: ICommandHostContext,
   rawArgs: string,
@@ -179,6 +232,17 @@ export async function executeRewindCommand(
 
   if (subcommand === 'rollback') {
     return rollback(context, args[CHECKPOINT_ID_INDEX]);
+  }
+
+  // SELFHOST-007: branching time-travel subcommands.
+  if (subcommand === 'fork') {
+    return fork(context, args[CHECKPOINT_ID_INDEX]);
+  }
+  if (subcommand === 'switch') {
+    return switchBranch(context, args[CHECKPOINT_ID_INDEX]);
+  }
+  if (subcommand === 'branches') {
+    return branches(context);
   }
 
   return usage();

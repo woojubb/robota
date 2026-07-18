@@ -28,6 +28,8 @@ function makeParentSession() {
     }),
     injectMessage: vi.fn(),
     getSessionId: vi.fn().mockReturnValue('parent-session-id'),
+    // SELFHOST-004 P6: the span collector subscribes to the session bus each turn.
+    getEventService: vi.fn().mockReturnValue({ subscribe: vi.fn(), unsubscribe: vi.fn() }),
     getSystemMessage: vi.fn().mockReturnValue('# system'),
     getToolSchemas: vi.fn().mockReturnValue([]),
   };

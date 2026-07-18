@@ -511,6 +511,10 @@ export const UNDOCUMENTED_EXPORT_ALLOWLIST = new Set([
   '@robota-sdk/agent-framework#resolveProviderSettingsWriteTargetPath',
   '@robota-sdk/agent-framework#restoreCommandEditCheckpoint',
   '@robota-sdk/agent-framework#rollbackCommandEditCheckpoint',
+  // SELFHOST-007: branching time-travel command-api (peers of restore/rollback, same export boundary).
+  '@robota-sdk/agent-framework#forkCommandEditCheckpoint',
+  '@robota-sdk/agent-framework#switchCommandEditCheckpointBranch',
+  '@robota-sdk/agent-framework#listCommandEditCheckpointBranches',
   '@robota-sdk/agent-framework#sanitizeProviderProfileName',
   '@robota-sdk/agent-framework#scriptedSession',
   '@robota-sdk/agent-framework#selectCommandModules',

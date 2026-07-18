@@ -174,6 +174,17 @@ export abstract class InteractiveSessionBase {
     await this.ensureInitialized();
     return this.histTracker.rollbackEditCheckpoint(checkpointId);
   }
+  // SELFHOST-007: branching time-travel.
+  listCheckpointBranches(): string[] {
+    return this.histTracker.listCheckpointBranches();
+  }
+  async forkCheckpointBranch(checkpointId: string): Promise<IEditCheckpointRestoreResult> {
+    await this.ensureInitialized();
+    return this.histTracker.forkCheckpointBranch(checkpointId);
+  }
+  switchCheckpointBranch(checkpointId: string): void {
+    this.histTracker.switchCheckpointBranch(checkpointId);
+  }
 
   getUsedMemoryReferences(): IMemoryReference[] {
     return this.histTracker.getUsedMemoryReferences();

@@ -161,6 +161,41 @@ export class SessionHistoryTracker {
     return result;
   }
 
+  // SELFHOST-007: branching time-travel — navigation delegates to the store's neutral tree.
+  listCheckpointBranches(): string[] {
+    return this.getCheckpointStore().listCheckpointBranches(this.getSessionId());
+  }
+
+  async forkCheckpointBranch(checkpointId: string): Promise<IEditCheckpointRestoreResult> {
+    if (this.getExecuting()) {
+      throw new Error('Cannot fork edit checkpoint while a prompt is running.');
+    }
+    // Fork = non-destructive restore: revert the working tree to the checkpoint while the abandoned
+    // future stays on a sibling branch; the next turn diverges from here.
+    const result = await this.getCheckpointStore().restoreToCheckpoint(
+      this.getSessionId(),
+      checkpointId,
+    );
+    this.history.push(
+      messageToHistoryEntry(
+        createSystemMessage(`Forked new branch from checkpoint: ${checkpointId}`),
+      ),
+    );
+    this.persistSession();
+    return result;
+  }
+
+  switchCheckpointBranch(checkpointId: string): void {
+    if (this.getExecuting()) {
+      throw new Error('Cannot switch edit checkpoint branch while a prompt is running.');
+    }
+    this.getCheckpointStore().switchToCheckpoint(this.getSessionId(), checkpointId);
+    this.history.push(
+      messageToHistoryEntry(createSystemMessage(`Switched to checkpoint branch: ${checkpointId}`)),
+    );
+    this.persistSession();
+  }
+
   async beginEditCheckpointTurn(prompt: string): Promise<void> {
     if (!this.editCheckpointStore) return;
     await this.editCheckpointStore.beginTurn({ sessionId: this.getSessionId(), prompt });

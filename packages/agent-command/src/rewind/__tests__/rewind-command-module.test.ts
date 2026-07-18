@@ -93,6 +93,9 @@ describe('createRewindCommandModule', () => {
       'restore',
       'code',
       'rollback',
+      'fork',
+      'switch',
+      'branches',
     ]);
     expect(module.systemCommands?.map((command) => command.name)).toEqual(['rewind']);
     expect(module.systemCommands?.[0]?.userInvocable).toBe(true);
@@ -184,6 +187,43 @@ describe('executeRewindCommand', () => {
     expect(result?.success).toBe(true);
     expect(rollbackEditCheckpoint).toHaveBeenCalledWith('turn-0001');
     expect(result?.message).toContain('Rolled back code through turn-0001.');
+  });
+
+  // SELFHOST-007 TC-05: branching subcommands route through the host context.
+  it('delegates fork through session.executeCommand (non-destructive)', async () => {
+    const session = createInteractiveSession();
+    const forkCheckpointBranch = vi
+      .spyOn(session, 'forkCheckpointBranch')
+      .mockResolvedValue(createRestoreResult());
+
+    const result = await session.executeCommand('rewind', 'fork turn-0001');
+
+    expect(result?.success).toBe(true);
+    expect(forkCheckpointBranch).toHaveBeenCalledWith('turn-0001');
+    expect(result?.message).toContain('Forked a new branch from turn-0001');
+  });
+
+  it('delegates switch through session.executeCommand', async () => {
+    const session = createInteractiveSession();
+    const switchCheckpointBranch = vi.spyOn(session, 'switchCheckpointBranch').mockReturnValue();
+
+    const result = await session.executeCommand('rewind', 'switch turn-0002');
+
+    expect(result?.success).toBe(true);
+    expect(switchCheckpointBranch).toHaveBeenCalledWith('turn-0002');
+    expect(result?.message).toContain('Switched to checkpoint branch turn-0002.');
+  });
+
+  it('lists branch tips via the branches subcommand', async () => {
+    const session = createInteractiveSession();
+    vi.spyOn(session, 'listCheckpointBranches').mockReturnValue(['turn-0003', 'turn-0005']);
+
+    const result = await session.executeCommand('rewind', 'branches');
+
+    expect(result?.success).toBe(true);
+    expect(result?.message).toContain('turn-0003');
+    expect(result?.message).toContain('turn-0005');
+    expect(result?.data?.branches).toEqual(['turn-0003', 'turn-0005']);
   });
 
   it('returns usage for invalid arguments without mutating state', async () => {
