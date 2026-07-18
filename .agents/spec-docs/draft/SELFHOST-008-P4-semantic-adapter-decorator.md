@@ -7,30 +7,35 @@ tags: [memory, semantic-recall, adapter, agent-framework, selfhost-008]
 # SELFHOST-008 P4: the semantic-memory adapter decorator (tiered recall + index, adapter-gated)
 
 > **Renumbered P3 → P4 (2026-07-18, owner "분할" decision).** The GATE-APPROVAL proposal-reviewer (REVISE)
-> found that the memory RECALL path is not wired into the turn lifecycle at all (`AutomaticMemoryController.retrieve()`
-> has zero live callers; startup uses `loadStartupMemory()`, not `recall()`), so a semantic decorator built now would
-> upgrade a **dead** recall path. The owner chose to SPLIT: the per-turn recall→context-injection wiring becomes
-> **P3** (`SELFHOST-008-P3-per-turn-recall.md`, keyword store, immediately observable), and THIS decorator slice is
-> deferred behind it — it lands on the now-live recall path so semantic recall is genuinely user-observable. The
-> reviewer's non-scope corrections (false startup-uses-recall rationale, overstated HARNESS-029 npm-dep fencing claim,
-> idempotent `index()` on `deduplicated: true`) are folded in when this re-enters the gate as P4. Its earlier
-> GATE-WRITE PASS (as P3) is retained in the Evidence Log for reference; it re-runs the pipeline from `draft` as P4.
+> found that the memory RECALL path was not wired into the turn lifecycle (`AutomaticMemoryController.retrieve()` had
+> zero live callers; startup uses `loadStartupMemory()`, not `recall()`), so a semantic decorator built then would have
+> upgraded a **dead** recall path. The owner chose to SPLIT: the per-turn recall→context-injection wiring shipped as
+> **P3** (`SELFHOST-008-P3-per-turn-recall.md`, **DONE #1224** — keyword store, per-turn recall now LIVE), and THIS
+> decorator slice lands on that now-live recall+index path so semantic recall is genuinely user-observable. The
+> reviewer's non-scope corrections are now **FOLDED IN**: (1) the false "startup uses recall" rationale corrected — the
+> live consumers are P3 per-turn recall + P2 capture; (2) the overstated HARNESS-029 npm-dep fencing claim corrected —
+> neutrality rests on the duck-typed design + review (dep-allowlist floor a noted follow-up); (3) idempotent index —
+> the decorator skips `adapter.index()` when base `append` returns `deduplicated: true`. Its earlier GATE-WRITE PASS
+> (as P3) is retained in the Evidence Log for reference; it re-runs the pipeline from `draft` as P4.
 
 ## Problem
 
 Continues the SELFHOST-008 epic ([spec](../done/SELFHOST-008-durable-semantic-memory.md); P1 port + fs reference
 adapter DONE #1218, P1R async-port remediation DONE #1220, P2 live auto-capture DONE #1221, HARNESS-029 neutrality
-floor DONE #1223) toward [VISION.md](../../../VISION.md)'s "memory that **grows with you**". P1 defined a **deferred,
-duck-typed** `ISemanticMemoryAdapter { index(entry): Promise<void>; query(text, budget): Promise<{content, references}> }`
-in `packages/agent-framework/src/memory/types.ts` — the seam a surface would inject to upgrade recall from keyword to
-embedding search — but **nothing in the library consumes it**: `grep` for `ISemanticMemoryAdapter` across `packages/`
-finds only its type definition and doc references, zero call sites. Concrete symptom: durable-memory RECALL is
-keyword-only (`MemoryRetrievalService` token-overlap ranking), so a fact phrased differently from the query
-(synonyms, paraphrase, cross-language) is not recalled even when it was durably captured — and the P1 "swap the store
-to a semantic backend with no library change" contract is asserted by a design-only test but **never exercised by a
-consumer**. P3 wires the adapter into the recall + index paths behind the neutral port, adapter-gated (absent ⇒
-today's keyword default), so that injecting a concrete adapter (P4) upgrades recall with no `agent-framework` change —
-without the neutral library taking any vector-DB SDK dependency (the HARNESS-029-fenced neutrality invariant).
+floor DONE #1223, **P3 per-turn recall wiring DONE #1224**) toward [VISION.md](../../../VISION.md)'s "memory that
+**grows with you**". P1 defined a **deferred, duck-typed**
+`ISemanticMemoryAdapter { index(entry): Promise<void>; query(text, budget): Promise<{content, references}> }` in
+`packages/agent-framework/src/memory/types.ts` — the seam a surface injects to upgrade recall from keyword to embedding
+search — but **nothing in the library consumes it** (`grep` for `ISemanticMemoryAdapter` across `packages/` finds only
+its type definition + doc references, zero call sites). Concrete symptom: durable-memory RECALL is keyword-only
+(`MemoryRetrievalService` token-overlap ranking), so a fact phrased differently from the query (synonyms, paraphrase,
+cross-language) is not recalled even when it was durably captured. **P3 made recall a LIVE path**: per-turn recall now
+calls `IMemoryStore.recall(input, budget)` (and post-turn capture calls `IMemoryStore.append` — P2), both through the
+surface-injected store. P4 supplies the **backend upgrade**: a neutral `SemanticMemoryStore` decorator that composes any
+base `IMemoryStore` with an injected `ISemanticMemoryAdapter`, so `recall()` uses embedding search and `append()` also
+indexes — transparently upgrading the now-live P2/P3 recall+index paths with **no `agent-framework` change**, and
+without the neutral library taking any vector-DB SDK dependency (the HARNESS-029-fenced neutrality invariant). This
+realizes the P1 design-only "swap the store" contract (its TC-05) as a consumer-exercised path.
 
 ## Prior Art Research
 
@@ -123,16 +128,20 @@ taking a vector-DB SDK dependency.
   `ISemanticMemoryAdapter`:
   - `recall(query, budget)` → **tiered**: `await adapter.query(query, budget)` as primary; on adapter error, degrade to
     `base.recall(...)` (declared, see Fallback Declaration).
-  - `append(input)` → `await base.append(input)` (durable, authoritative) **then** `await adapter.index(input)` guarded
-    (index failure = declared degradation, durable write kept).
+  - `append(input)` → `await base.append(input)` (durable, authoritative) **then**, only if the base result's
+    `deduplicated` flag is falsy, `await adapter.index(input)` guarded (index failure = declared degradation, durable
+    write kept). Skipping `index()` on `deduplicated: true` (or requiring the adapter to upsert by the entry's stable
+    reference id) prevents duplicate vectors when a fact is re-captured.
   - every other `IMemoryStore` method (`loadStartupMemory`/`list`/`readTopic`/pending-queue methods) → pure delegation
     to `base`. Semantic search touches only recall + index.
   - factory `createSemanticMemoryStore(base, adapter)` (mirrors `createFileSystemMemoryStore`).
 - **Injection seam — ZERO new threading (the elegance).** Because the decorator IS an `IMemoryStore`, the surface
   composes `createSemanticMemoryStore(createFileSystemMemoryStore(cwd), concreteAdapter)` and injects it through the
   **existing** `memoryStore` seam (interactive session options, P1) + `ICommandHostContext.getMemoryStore()` (P1R). The
-  `AutomaticMemoryController`, startup recall (`loadContext`), and the `/memory` command all already consume
-  `IMemoryStore`, so the decorator is transparent to every consumer — no new option, no new controller field.
+  live `IMemoryStore` consumers — **P3 per-turn recall** (execution controller → `getMemoryStore().recall`), **P2
+  post-turn capture** (`getMemoryStore().append`), the `/memory` command, and startup `loadStartupMemory` (delegated to
+  base) — all consume the port, so the decorator is transparent to every consumer — no new option, no new controller
+  field. (`recall()`/`append()` are the paths the decorator upgrades; `loadStartupMemory` is pure base delegation.)
 - **NOT the library's job:** the concrete `ISemanticMemoryAdapter` (embedder + vector DB SDK), the embedding model
   choice, and any content live in the SURFACE (`agent-cli` / `apps/agent-app`). `packages/` gains only the neutral
   decorator MECHANISM — no vector SDK dep, no prompt, no content (HARNESS-029-fenced).
@@ -189,18 +198,25 @@ mechanism (no vector SDK dependency, no prompt/content — HARNESS-029-fenced). 
 - **Reachability + ORDERING (verified against code):** `IMemoryStore.recall`/`.append` are async
   (`types.ts`); `AutomaticMemoryController` already awaits them (`automatic-memory-controller.ts:71-101`);
   `FileSystemMemoryStore` wraps sync fs work in resolved Promises (`file-system-memory-store.ts:42-90`). The decorator
-  therefore fits the existing async port with no ripple into the sync `MemoryRetrievalService`. Startup recall
-  (`loadContext`), `/memory` (`getMemoryStore()`), and post-turn capture all consume `IMemoryStore`, so decorating the
-  injected store reaches every recall + index site.
-- **Capability preservation:** manual `/memory`, startup recall, and keyword ranking are unchanged when no adapter is
-  injected; the decorator is additive composition. The P1 design-only "swap the store" contract (its TC-05) becomes a
-  consumer-exercised path here.
-- **Adversarial:** (a) semantic query failure breaking a session's startup recall → degrade to keyword base (declared,
-  annotated) so recall is always available; (b) an index failure losing a durable fact → base durable write is awaited
-  FIRST and authoritative, index is best-effort after it; (c) a vector SDK leaking into `packages/` → the concrete
-  adapter is surface-injected, the decorator is pure mechanism, and HARNESS-029 + the dep-direction scans fence it;
-  (d) eventual consistency surprising a caller → documented (a just-captured entry may not be immediately semantically
-  queryable; the keyword baseline still returns it).
+  therefore fits the existing async port with no ripple into the sync `MemoryRetrievalService`. The LIVE consumers that
+  drive the upgraded paths are **P3 per-turn recall** (execution controller → `getMemoryStore().recall`) and **P2
+  capture** (`getMemoryStore().append`); the `/memory` command also consumes the port; startup uses
+  `loadStartupMemory` (pure base delegation, adapter untouched). Decorating the injected store therefore reaches every
+  recall + index site that exists.
+- **Capability preservation:** manual `/memory`, startup memory injection, P2 capture, P3 per-turn recall, and keyword
+  ranking are unchanged when no adapter is injected; the decorator is additive composition. The P1 design-only "swap the
+  store" contract (its TC-05) becomes a consumer-exercised path here.
+- **Adversarial:** (a) a semantic query failure breaking **per-turn recall** (P3) → the decorator degrades to keyword
+  `base.recall()` (declared, annotated) so recall is always available (and P3 itself already guards recall errors → skip
+  injection, a second safety net); (b) an index failure losing a durable fact → base durable write is awaited FIRST and
+  authoritative, index is best-effort after it; (c) a vector SDK leaking into `packages/` → the concrete adapter is
+  surface-injected, the decorator is pure mechanism (the neutrality guard is the **duck-typed design + review**, since
+  HARNESS-029 detects seeded content/prompts but does NOT scan `package.json` deps — a mechanical dep-allowlist floor is
+  a noted follow-up); (d) eventual consistency surprising a caller → documented (a just-captured entry may not be
+  immediately semantically queryable; the keyword baseline still returns it); (e) duplicate vectors on re-append → base
+  `append` may return `deduplicated: true` (no new durable entry); the decorator MUST skip `adapter.index()` on that
+  signal (or require the adapter to upsert by the entry's stable reference id) so a re-captured fact does not create a
+  duplicate vector.
 
 ### Architecture Review Checklist
 
@@ -228,8 +244,9 @@ at the code site per HARNESS-028:
 
 1. **Recall query degradation:** if the injected `adapter.query()` throws/rejects, `SemanticMemoryStore.recall()`
    degrades to the keyword `base.recall()` (the DECLARED default recall path — a genuine equivalent mechanism, not a
-   fabricated result). Rationale: recall is used at session startup; a semantic-backend outage must not break the
-   session — keyword recall is always available and correct.
+   fabricated result). Rationale: `recall()` drives **P3 per-turn recall** (and the `/memory` recall command); a
+   semantic-backend outage must not break a turn — keyword recall is always available and correct. (P3 additionally
+   guards recall errors at the call site → skip injection, so this is defense-in-depth, not the only net.)
 2. **Index write degradation:** in `append()`, the base durable write is awaited FIRST and is authoritative; if the
    subsequent `adapter.index()` throws/rejects, the error is caught and the semantic index is skipped (the entry is
    still durably written and keyword-recallable, and is re-indexable later). Rationale: a semantic-index failure must
@@ -266,7 +283,8 @@ SDK dependency, prompt, or content.
       `query()` result (semantic-primary), NOT the keyword base result — proven by a fake adapter returning a hit the
       keyword ranker would not (functional test, fake adapter + fake base).
 - [ ] TC-02: `SemanticMemoryStore.append(entry)` performs the base durable write AND calls `adapter.index(entry)` with
-      that entry (unit test, spy fake adapter + spy base — both invoked, base before index).
+      that entry (unit test, spy fake adapter + spy base — both invoked, base before index); and when the base result is
+      `deduplicated: true`, `adapter.index()` is **NOT** called (no duplicate vector).
 - [ ] TC-03: **adapter-gating by composition** — a plain `FileSystemMemoryStore` (no decorator) recalls via keyword and
       appends without any `index()` call exactly as today (unit test — decorator is opt-in; base unchanged).
 - [ ] TC-04: **recall query degradation (declared)** — when `adapter.query()` throws, `recall()` returns the keyword
@@ -277,21 +295,23 @@ SDK dependency, prompt, or content.
       `createSemanticMemoryStore` upgrades recall with **no `agent-framework` change**, and the decorated store is
       consumed transparently by an `IMemoryStore` consumer (e.g. `AutomaticMemoryController.retrieve`) — realizing the
       P1 design-only "swap the store" contract as an exercised path (unit/functional test).
-- [ ] TC-07 (**NEUTRALITY**): `packages/agent-framework` gains no vector-DB SDK dependency and no capture prompt/content;
-      `SemanticMemoryStore` is pure mechanism — HARNESS-029 `memory-neutrality` + dependency-direction scans green
-      (scan + targeted review).
+- [ ] TC-07 (**NEUTRALITY**): `SemanticMemoryStore` is pure mechanism — no capture/recall prompt or memory CONTENT and
+      no vector-DB SDK dependency in `packages/agent-framework`. HARNESS-029 `memory-neutrality` scan green. NOTE:
+      HARNESS-029 detects seeded content/prompts but does **not** scan `package.json` dependencies, so the no-SDK-dep
+      guarantee rests on the duck-typed design + a targeted `package.json` review (a mechanical dep-allowlist floor is a
+      noted follow-up, mirroring the filed HARNESS-027 for agent-tools).
 
 ## Test Plan
 
-| TC    | Verification                                                      | Type/Tool                        | Test reference                                                      |
-| ----- | ----------------------------------------------------------------- | -------------------------------- | ------------------------------------------------------------------- |
-| TC-01 | adapter present ⇒ recall returns semantic `query()` result        | functional (fake adapter + base) | `semantic-memory-store.test.ts` › "TC-01 — semantic-primary recall" |
-| TC-02 | append does base durable write then `adapter.index(entry)`        | vitest unit (spies)              | same file › "TC-02 — index on append"                               |
-| TC-03 | plain fs store (no decorator) unchanged; no `index()` call        | vitest unit                      | same file › "TC-03 — adapter-gating by composition"                 |
-| TC-04 | `query()` throws ⇒ recall degrades to keyword base, no throw      | vitest unit                      | same file › "TC-04 — recall query degradation"                      |
-| TC-05 | `index()` throws ⇒ base durable write kept, append does not throw | vitest unit                      | same file › "TC-05 — index write degradation"                       |
-| TC-06 | fake adapter upgrades recall, consumed transparently, no lib edit | vitest functional                | same file › "TC-06 — adapter swap needs no library change"          |
-| TC-07 | no vector SDK dep / prompt / content in `packages/`               | HARNESS-029 + dep scans, review  | `pnpm harness:scan` (memory-neutrality + deps) + file-set review    |
+| TC    | Verification                                                      | Type/Tool                              | Test reference                                                           |
+| ----- | ----------------------------------------------------------------- | -------------------------------------- | ------------------------------------------------------------------------ |
+| TC-01 | adapter present ⇒ recall returns semantic `query()` result        | functional (fake adapter + base)       | `semantic-memory-store.test.ts` › "TC-01 — semantic-primary recall"      |
+| TC-02 | append: base write then `adapter.index`; skip index on dedup      | vitest unit (spies)                    | same file › "TC-02 — index on append" (+ dedup skip case)                |
+| TC-03 | plain fs store (no decorator) unchanged; no `index()` call        | vitest unit                            | same file › "TC-03 — adapter-gating by composition"                      |
+| TC-04 | `query()` throws ⇒ recall degrades to keyword base, no throw      | vitest unit                            | same file › "TC-04 — recall query degradation"                           |
+| TC-05 | `index()` throws ⇒ base durable write kept, append does not throw | vitest unit                            | same file › "TC-05 — index write degradation"                            |
+| TC-06 | fake adapter upgrades recall, consumed transparently, no lib edit | vitest functional                      | same file › "TC-06 — adapter swap needs no library change"               |
+| TC-07 | no prompt/content (scan) + no vector SDK dep (design+review)      | HARNESS-029 scan + package.json review | `pnpm harness:scan` (memory-neutrality) + targeted `package.json` review |
 
 ## Tasks
 
