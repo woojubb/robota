@@ -18,6 +18,8 @@ const MANIFEST_FILE = 'manifest.json';
 const SNAPSHOT_DIR = 'files';
 const ID_PAD = 4;
 const SNAPSHOT_PAD = 6;
+/** SELFHOST-007: the default branch a session's checkpoints belong to. */
+const DEFAULT_BRANCH_ID = 'main';
 interface IActiveEditCheckpointTurn {
   manifest: IEditCheckpointManifest;
   dir: string;
@@ -33,6 +35,12 @@ export class EditCheckpointStore {
   private readonly rootDir: string;
   private readonly now: () => Date;
   private activeTurn: IActiveEditCheckpointTurn | null = null;
+  /** SELFHOST-007: per-session active branch HEAD (checkpoint id the next turn forks from). */
+  private readonly activeHead = new Map<string, string>();
+  /** SELFHOST-007: per-session active branch id (default `'main'`; a fresh id after a fork). */
+  private readonly activeBranch = new Map<string, string>();
+  /** SELFHOST-007: monotonic fork counter for minting distinct branch ids. */
+  private forkCounter = 0;
 
   constructor(
     options: IEditCheckpointStoreOptions,
@@ -54,8 +62,14 @@ export class EditCheckpointStore {
     const dir = join(this.sessionDir(input.sessionId), id);
     await this.fsAsync.mkdir(join(dir, SNAPSHOT_DIR), { recursive: true });
 
+    // SELFHOST-007: the new checkpoint's parent is the active branch HEAD (the checkpoint the last
+    // restore/rollback forked from, or the previous head). Falls back to the last checkpoint by
+    // sequence for a fresh store. branchId groups the line (default 'main', a fresh id after a fork).
+    const parentId = this.resolveActiveHead(input.sessionId);
+    const branchId = this.activeBranch.get(input.sessionId) ?? DEFAULT_BRANCH_ID;
+
     const manifest: IEditCheckpointManifest = {
-      version: 1,
+      version: 2,
       id,
       sessionId: input.sessionId,
       sequence: nextSequence,
@@ -63,6 +77,8 @@ export class EditCheckpointStore {
       createdAt: this.now().toISOString(),
       fileCount: 0,
       files: [],
+      ...(parentId !== undefined ? { parentId } : {}),
+      branchId,
     };
 
     this.activeTurn = {
@@ -70,6 +86,8 @@ export class EditCheckpointStore {
       dir,
       capturedPaths: new Set<string>(),
     };
+    // This checkpoint is now the branch HEAD.
+    this.activeHead.set(input.sessionId, id);
 
     return toSummary(manifest);
   }
@@ -138,19 +156,28 @@ export class EditCheckpointStore {
       }
     }
 
-    for (const manifest of later) {
-      await this.fsAsync.rm(this.checkpointDir(sessionId, manifest.id), {
-        recursive: true,
-        force: true,
-      });
-    }
+    // SELFHOST-007: NON-DESTRUCTIVE — the later checkpoints are NOT removed; they stay on disk as a
+    // sibling branch (the abandoned future), reachable via the checkpoint tree. Instead of `rm`, we
+    // fork: the active HEAD moves to the target and a fresh branch id is minted, so the NEXT turn
+    // diverges from the target while the old line remains listable.
+    this.forkFrom(sessionId, target.id);
 
     return {
       target: toSummary(target),
       restoredCheckpointCount: later.length,
       restoredFileCount,
-      removedCheckpointCount: later.length,
+      removedCheckpointCount: 0,
     };
+  }
+
+  /**
+   * SELFHOST-007: move the active HEAD to `checkpointId` and start a fresh branch so the next turn
+   * diverges (a sibling branch) instead of overwriting the abandoned future.
+   */
+  private forkFrom(sessionId: string, checkpointId: string): void {
+    this.activeHead.set(sessionId, checkpointId);
+    this.forkCounter += 1;
+    this.activeBranch.set(sessionId, `branch-${this.forkCounter}`);
   }
 
   async rollbackThroughCheckpoint(
@@ -175,18 +202,23 @@ export class EditCheckpointStore {
       }
     }
 
-    for (const manifest of rollbackRange) {
-      await this.fsAsync.rm(this.checkpointDir(sessionId, manifest.id), {
-        recursive: true,
-        force: true,
-      });
+    // SELFHOST-007: NON-DESTRUCTIVE — rollback reverts THROUGH the target (inclusive) but keeps those
+    // checkpoints on disk as a sibling branch. The active HEAD forks from the target's PARENT (the
+    // point before the rolled-back range); an absent parent (target was the root) clears the head so
+    // the next turn starts a fresh root line.
+    if (target.parentId !== undefined) {
+      this.forkFrom(sessionId, target.parentId);
+    } else {
+      this.activeHead.delete(sessionId);
+      this.forkCounter += 1;
+      this.activeBranch.set(sessionId, `branch-${this.forkCounter}`);
     }
 
     return {
       target: toSummary(target),
       restoredCheckpointCount: rollbackRange.length,
       restoredFileCount,
-      removedCheckpointCount: rollbackRange.length,
+      removedCheckpointCount: 0,
     };
   }
 
@@ -235,11 +267,23 @@ export class EditCheckpointStore {
 
   private loadManifests(sessionId: string): IEditCheckpointManifest[] {
     const dir = this.sessionDir(sessionId);
-    return readDirSyncSafe(this.fs, dir)
+    const manifests = readDirSyncSafe(this.fs, dir)
       .map((entry) => join(dir, entry, MANIFEST_FILE))
       .map((manifestPath) => readJsonManifest(this.fs, manifestPath))
       .filter((manifest): manifest is IEditCheckpointManifest => manifest !== undefined)
       .sort((a, b) => a.sequence - b.sequence);
+    return migrateManifestsToTree(manifests);
+  }
+
+  /**
+   * SELFHOST-007: the active branch HEAD for a session — the checkpoint the next turn forks from.
+   * Defaults to the last checkpoint by sequence (a fresh store continues the linear line).
+   */
+  private resolveActiveHead(sessionId: string): string | undefined {
+    const tracked = this.activeHead.get(sessionId);
+    if (tracked !== undefined) return tracked;
+    const manifests = this.loadManifests(sessionId);
+    return manifests.length > 0 ? manifests[manifests.length - 1]!.id : undefined;
   }
 
   private nextSequence(sessionId: string): number {
@@ -273,6 +317,25 @@ function toSummary(manifest: IEditCheckpointManifest): IEditCheckpointSummary {
     createdAt: manifest.createdAt,
     fileCount: manifest.fileCount,
   };
+}
+
+/**
+ * SELFHOST-007 migration: reconstruct the branch tree for legacy (v1) manifests. A v1 manifest has no
+ * `parentId`/`branchId`, so — sorted by sequence — it is treated as a LINEAR chain: each node's parent
+ * is the previous node, all on the `'main'` branch. v2 manifests keep their stored branch fields. Pure;
+ * does not mutate the inputs.
+ */
+function migrateManifestsToTree(manifests: IEditCheckpointManifest[]): IEditCheckpointManifest[] {
+  return manifests.map((manifest, index) => {
+    if (manifest.version === 2 && manifest.branchId !== undefined) return manifest;
+    const previous = index > 0 ? manifests[index - 1] : undefined;
+    return {
+      ...manifest,
+      version: 2,
+      branchId: DEFAULT_BRANCH_ID,
+      ...(previous ? { parentId: previous.id } : {}),
+    };
+  });
 }
 
 function safePathSegment(value: string): string {

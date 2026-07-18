@@ -23,7 +23,18 @@ export interface IEditCheckpointFileRecord {
 }
 
 export interface IEditCheckpointManifest extends IEditCheckpointSummary {
-  version: 1;
+  /**
+   * SELFHOST-007: `1` = legacy linear manifest (no branch fields; migrated to a linear chain on load).
+   * `2` = branch-aware manifest carrying `parentId`/`branchId`.
+   */
+  version: 1 | 2;
+  /**
+   * SELFHOST-007: id of the checkpoint this one was created after (its parent in the branch tree).
+   * Absent on the root and on legacy (v1) manifests — a v1 chain is reconstructed linearly by sequence.
+   */
+  parentId?: string;
+  /** SELFHOST-007: the branch line this checkpoint belongs to (default `'main'`). */
+  branchId?: string;
   files: IEditCheckpointFileRecord[];
 }
 

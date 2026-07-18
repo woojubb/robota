@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { describe, expect, it, afterEach } from 'vitest';
 
 import { EditCheckpointStore } from '../edit-checkpoint-store.js';
+import { projectPaths } from '../../paths.js';
 
 const TMP_BASE = join(tmpdir(), `robota-edit-checkpoint-store-${process.pid}`);
 
@@ -41,7 +42,10 @@ describe('EditCheckpointStore', () => {
     expect(readFileSync(filePath, 'utf8')).toBe('version 2');
     expect(result.restoredCheckpointCount).toBe(1);
     expect(result.restoredFileCount).toBe(1);
-    expect(store.list('session_1').map((checkpoint) => checkpoint.id)).toEqual([first.id]);
+    // SELFHOST-007 TC-03: restore is NON-destructive — the later checkpoint is NOT deleted; it stays
+    // reachable (a sibling branch). Nothing is removed.
+    expect(result.removedCheckpointCount).toBe(0);
+    expect(store.list('session_1')).toHaveLength(2);
   });
 
   it('Given a file created after a checkpoint When restoring to that checkpoint Then the created file is removed', async () => {
@@ -125,7 +129,10 @@ describe('EditCheckpointStore', () => {
     expect(readFileSync(filePath, 'utf8')).toBe('version 1');
     expect(result.restoredCheckpointCount).toBe(2);
     expect(result.restoredFileCount).toBe(2);
-    expect(store.list('session_1')).toEqual([]);
+    // SELFHOST-007 TC-03: rollback is NON-destructive — the rolled-back checkpoints stay on disk as a
+    // sibling branch rather than being deleted.
+    expect(result.removedCheckpointCount).toBe(0);
+    expect(store.list('session_1')).toHaveLength(2);
   });
 
   it('Given a missing snapshot file When rollback fails Then checkpoint directories are preserved', async () => {
@@ -167,5 +174,70 @@ describe('EditCheckpointStore', () => {
 
     expect(summary?.fileCount).toBe(1);
     expect(store.list('session_1')[0]?.fileCount).toBe(1);
+  });
+
+  // SELFHOST-007 TC-03: branching (non-destructive divergence) + v1 back-compat migration.
+  it('forking after a restore diverges — the old future AND the new branch are both listed', async () => {
+    const cwd = makeProject();
+    const store = new EditCheckpointStore({ cwd });
+
+    const a = await store.beginTurn({ sessionId: 'session_1', prompt: 'a' });
+    await store.finalizeTurn();
+    await store.beginTurn({ sessionId: 'session_1', prompt: 'b' });
+    await store.finalizeTurn();
+    await store.beginTurn({ sessionId: 'session_1', prompt: 'c' });
+    await store.finalizeTurn(); // line a-b-c
+
+    await store.restoreToCheckpoint('session_1', a.id); // fork point = a (b,c preserved)
+    const d = await store.beginTurn({ sessionId: 'session_1', prompt: 'd' });
+    await store.finalizeTurn(); // new branch a-d
+
+    // all four checkpoints reachable — nothing deleted
+    expect(store.list('session_1')).toHaveLength(4);
+
+    // d diverged from a (its parent is the restore target), NOT from c
+    const dManifestPath = join(projectPaths(cwd).checkpoints, 'session_1', d.id, 'manifest.json');
+    const dManifest = JSON.parse(readFileSync(dManifestPath, 'utf8')) as {
+      version: number;
+      parentId?: string;
+      branchId?: string;
+    };
+    expect(dManifest.version).toBe(2);
+    expect(dManifest.parentId).toBe(a.id);
+    expect(dManifest.branchId).not.toBe('main'); // a fresh branch after the fork
+  });
+
+  it('loads a legacy v1 manifest as a linear chain (back-compat migration)', async () => {
+    const cwd = makeProject();
+    const sessionDir = join(projectPaths(cwd).checkpoints, 'session_1');
+    // hand-write two legacy v1 manifests (no parentId/branchId)
+    for (const [seq, id] of [
+      [1, 'turn-0001'],
+      [2, 'turn-0002'],
+    ] as const) {
+      mkdirSync(join(sessionDir, id), { recursive: true });
+      writeFileSync(
+        join(sessionDir, id, 'manifest.json'),
+        JSON.stringify({
+          version: 1,
+          id,
+          sessionId: 'session_1',
+          sequence: seq,
+          prompt: `legacy ${seq}`,
+          createdAt: new Date(1_700_000_000_000 + seq).toISOString(),
+          fileCount: 0,
+          files: [],
+        }),
+        'utf8',
+      );
+    }
+
+    const store = new EditCheckpointStore({ cwd });
+    // migration does not crash, lists both in sequence order (linear chain)
+    expect(store.list('session_1').map((c) => c.id)).toEqual(['turn-0001', 'turn-0002']);
+    // restore over a migrated v1 chain is non-destructive
+    const result = await store.restoreToCheckpoint('session_1', 'turn-0001');
+    expect(result.removedCheckpointCount).toBe(0);
+    expect(store.list('session_1')).toHaveLength(2);
   });
 });
