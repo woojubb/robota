@@ -57,12 +57,42 @@ export interface IAgentHookDefinition {
   timeout?: number;
 }
 
+/**
+ * Guardrail hook (SELFHOST-005) — runs the registered guardrail SET in parallel and fails the turn
+ * fast. The guardrail functions live in the `GuardrailExecutor` (registered by the consumer); this
+ * data-only definition just selects which to run. Any failure maps onto the existing exit-code-2 /
+ * `blocked` contract, so enforcement reuses the single `runHooks` → `runPreToolHook` path.
+ */
+export interface IGuardrailHookDefinition {
+  type: 'guardrail';
+  /** Names of registered guardrails to run; omitted = run ALL registered guardrails. */
+  guardrails?: string[];
+}
+
 /** Discriminated union of all hook definition types */
 export type THookDefinition =
   | ICommandHookDefinition
   | IHttpHookDefinition
   | IPromptHookDefinition
-  | IAgentHookDefinition;
+  | IAgentHookDefinition
+  | IGuardrailHookDefinition;
+
+/**
+ * SELFHOST-005: the verdict a guardrail returns. `pass: false` fails the turn fast (mapped to the
+ * exit-code-2 / `blocked` hook contract).
+ */
+export interface IGuardrailResult {
+  pass: boolean;
+  /** Human-readable reason surfaced when `pass === false`. */
+  reason?: string;
+}
+
+/**
+ * SELFHOST-005: a registerable guardrail — a pure MECHANISM that inspects the turn's hook input and
+ * votes pass/block. The POLICY (what to check) is the consumer's. Guardrails in a set run in parallel
+ * and the first `!pass` (or a thrown error — fail-safe) fails the turn fast.
+ */
+export type TGuardrail = (input: IHookInput) => IGuardrailResult | Promise<IGuardrailResult>;
 
 /** A hook group — matcher + array of hook definitions */
 export interface IHookGroup {

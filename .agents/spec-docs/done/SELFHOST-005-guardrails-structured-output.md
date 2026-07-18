@@ -1,5 +1,5 @@
 ---
-status: approved
+status: done
 type: BEHAVIOR
 tags:
   [guardrails, structured-output, validation, agent-core, agent-session, agent-framework, selfhost]
@@ -122,11 +122,11 @@ returns. Reuse `schema/structured-output.ts` for typed input/output validation.
 
 ## Completion Criteria
 
-- [ ] TC-01: a failing guardrail **fails the turn fast** through the SAME `runHooks`→`runPreToolHook`→`PermissionEnforcer` `blocked`/denial path hooks already use (functional test in agent-session).
-- [ ] TC-02: the guardrail executor runs its guardrail set in parallel; any failure fails fast → exit-code-2/`blocked` (unit test on the executor, agent-core).
-- [ ] TC-03: tool-**output** schema validation rejects a malformed tool result **in agent-core tool-registry** (`function-tool.ts::execute`), surfaced as a thrown error the execution round already propagates — model-output validation (CORE-015) is unchanged and out of scope (unit test).
-- [ ] TC-04: a guardrail block flows through the **single** existing `blocked`/denial return (no second, independently-ordered enforcement tier) — parallelism stays inside the executor (functional test in agent-session).
-- [ ] TC-05: no domain guardrail policy in `packages/` (neutrality + interface-runtime guards pass).
+- [x] TC-01: a failing guardrail **fails the turn fast** through the SAME `runHooks`→`runPreToolHook`→`PermissionEnforcer` `blocked`/denial path hooks already use (functional test in agent-session).
+- [x] TC-02: the guardrail executor runs its guardrail set in parallel; any failure fails fast → exit-code-2/`blocked` (unit test on the executor, agent-core).
+- [x] TC-03: tool-**output** schema validation rejects a malformed tool result **in agent-core tool-registry** (`function-tool.ts::execute`), surfaced as a thrown error the execution round already propagates — model-output validation (CORE-015) is unchanged and out of scope (unit test).
+- [x] TC-04: a guardrail block flows through the **single** existing `blocked`/denial return (no second, independently-ordered enforcement tier) — parallelism stays inside the executor (functional test in agent-session).
+- [x] TC-05: no domain guardrail policy in `packages/` (neutrality + interface-runtime guards pass).
 
 ## Test Plan
 
@@ -170,3 +170,15 @@ returns. Reuse `schema/structured-output.ts` for typed input/output validation.
   register the guardrail executor under the `PreToolUse` event (the path that actually enforces `blocked`;
   `UserPromptSubmit` only injects stdout today), and inject the guardrail set into the executor by construction in
   agent-framework (the `{type:'guardrail'}` definition carries only matcher/config, not the set).
+- 2026-07-18 — **GATE-IMPLEMENT + VERIFY + COMPLETE.** `status` → `done`, TC-01…05 checked. Implemented per the
+  ENDORSE'd decision in 3 slices: (P1) agent-core `GuardrailExecutor` (`type: 'guardrail'`) — parallel `Promise.all`
+  fail-fast fan-out over the injected guardrail set, first `pass:false`/throw (fail-safe) → `exitCode:2` → the
+  existing `runHooks` `blocked` contract; `IGuardrailHookDefinition`/`IGuardrailResult`/`TGuardrail` types. (P2)
+  agent-core tool-registry `output-validator.ts` + optional `IToolSchema.outputSchema`, enforced in
+  `FunctionTool.execute` beside the tool-input validator (throws `ToolExecutionError` on mismatch; reuses CORE-015
+  `validateAgainstJsonSchema`). (P3) agent-framework `create-session` `guardrails` option → pushes a
+  `GuardrailExecutor` onto the already-threaded `hookTypeExecutors` (no new session wiring). Tests: TC-02 executor
+  (7 — parallel/fail-fast/fail-safe/subset), TC-03 tool-output (4), TC-01+TC-04 via `runHooks` (4 — same single
+  `{blocked,reason,stdout}` contract, no second tier). TC-05 neutrality: pure mechanism, policy in the consumer —
+  `harness:scan` 54/54. Verify: agent-core 865 + agent-framework 1141 + lint (0 errors) + typecheck + build all green.
+  agent-session UNCHANGED as designed. No `agent-plugin`/domain policy in `packages/`.

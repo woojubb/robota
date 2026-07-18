@@ -336,9 +336,12 @@ export type {
   IHttpHookDefinition,
   IPromptHookDefinition,
   IAgentHookDefinition,
+  IGuardrailHookDefinition,
   THookDefinition,
+  IGuardrailResult,
+  TGuardrail,
   IHookInput,
   IHookResult,
   IHookTypeExecutor,
 } from './hooks/index.js';
-export { runHooks } from './hooks/index.js';
+export { runHooks, GuardrailExecutor } from './hooks/index.js';

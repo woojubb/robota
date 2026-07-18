@@ -328,6 +328,8 @@ export const UNDOCUMENTED_EXPORT_ALLOWLIST = new Set([
   '@robota-sdk/agent-core#resolveEnvReference',
   '@robota-sdk/agent-core#resolvePlatformShell',
   '@robota-sdk/agent-core#runHooks',
+  // SELFHOST-005: documented in the `### Hooks` SPEC subsection alongside runHooks (same export boundary).
+  '@robota-sdk/agent-core#GuardrailExecutor',
   '@robota-sdk/agent-core#selectAction',
   '@robota-sdk/agent-core#setGlobalLogLevel',
   '@robota-sdk/agent-core#setToolProgressCallback',

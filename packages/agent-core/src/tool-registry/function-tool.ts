@@ -1,3 +1,4 @@
+import { validateToolOutput } from './output-validator';
 import { getValidationErrors, validateToolParameters } from './parameter-validator';
 import { generateSpanId } from '../event-service/event-service';
 import { SPAN_EVENTS } from '../event-service/span-events';
@@ -91,7 +92,15 @@ export class FunctionTool implements IFunctionTool {
       );
     }
 
+    // SELFHOST-004: capture the pure fn() duration BEFORE output validation so the span timing is not
+    // inflated by validation work.
     const executionTime = Date.now() - startTime;
+
+    // SELFHOST-005: validate the tool OUTPUT against its declared schema (beside the tool-input
+    // validation above), throwing before the result returns — same layer as the input validator.
+    if (this.schema.outputSchema) {
+      validateToolOutput(toolName, result, this.schema.outputSchema);
+    }
 
     // SELFHOST-004: surface per-operation timing as a span-completion event whose PAYLOAD JOINS the
     // span id with the measured duration + op name (raw scalars). A consumer (agent-framework) turns

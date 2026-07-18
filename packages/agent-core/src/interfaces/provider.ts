@@ -59,6 +59,23 @@ export interface IToolSchema {
     required?: string[];
     additionalProperties?: boolean | IParameterSchema;
   };
+  /**
+   * SELFHOST-005: optional schema the tool's OUTPUT (`result.data`) must match. When present, the
+   * tool-registry validates the returned value against it in `FunctionTool.execute` (beside the
+   * tool-INPUT `parameter-validator`) and throws on mismatch before the result returns. Absent =
+   * no output validation (backward-compatible). Model-output validation is separate (CORE-015).
+   *
+   * Accepts the same object-root shape as `parameters` (so object outputs can declare `required`
+   * fields and strict `additionalProperties`) OR a bare `IParameterSchema` for a non-object output.
+   */
+  outputSchema?:
+    | {
+        type: 'object';
+        properties: Record<string, IParameterSchema>;
+        required?: string[];
+        additionalProperties?: boolean | IParameterSchema;
+      }
+    | IParameterSchema;
 }
 
 /**
