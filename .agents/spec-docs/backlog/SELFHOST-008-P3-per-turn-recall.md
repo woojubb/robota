@@ -212,6 +212,18 @@ upgrades it later behind the same port). Recall is **adapter-gated**: a surface-
   → only the neutral seam + wiring land; the `IRunOptions` field is a content-free string channel; budget/enable/content
   surface-owned; HARNESS-029 fences it.
 
+### Implementation Notes (from GATE-APPROVAL ENDORSE)
+
+- **Cache-safety claim scoped.** The unconditional guarantee is "**no per-turn rebuild of the cached static system
+  section**" (the transient block is a separate per-call message, never a mutation of the static prefix). Whether the
+  transient system message ALSO preserves provider prompt-cache depends on the provider (Anthropic-style APIs may hoist
+  system content into a separate parameter and reposition it); the implementation verifies per-provider cache behavior
+  and the spec does not over-claim beyond the no-rebuild guarantee.
+- **Distinct recall label.** `renderRetrievedMemory()` currently wraps recall in `<project-memory>…</project-memory>` —
+  the same tag as the static startup section. The per-turn recall block uses a **distinct label** (e.g.
+  `<recalled-memory>`) so the model can tell the query-relevant bodies (tail) from the always-loaded index (head); this
+  is a small render-parameter addition, a clarity nicety, not a correctness change.
+
 ### Architecture Review Checklist
 
 - [x] 영향 패키지/레이어: **`agent-core`** (the `IRunOptions.ephemeralSystemContext` primitive — model-call assembly +
@@ -348,3 +360,18 @@ Independent `proposal-reviewer` verified all premises against code and returned 
 
 No-fallback compliance (recall-error → skip, mirrors the blessed P2 capture degradation), push-vs-pull coherence, and
 the dead-code premise were verified TRUE. Re-review pending.
+
+### [GATE-APPROVAL] — iteration 2: ENDORSE | 2026-07-18
+
+Independent `proposal-reviewer` re-verified all premises against source and returned **ENDORSE**: (1a) agent-core owns
+model-call assembly + persistence (`ExecutionService.execute` → `initializeConversationStore`/`addUserMessage`; round
+loop builds the provider request from `conversationStore.getMessages()`), so the primitive is correctly located; (1b)
+the insertion point is feasible — carry `ephemeralSystemContext` on `IExecutionContext` and build a derived
+provider-message array at `executeRound` (persisted messages + transient block) with no `addMessage`, store never
+mutated; `buildRunContext` is the exact spread-threading point; (1c) deps one-way, acyclic
+(`agent-framework → agent-session → agent-core`; agent-core has no `@robota-sdk/*` deps). Dedup deferral is a sound v1
+call, not a correctness hole. Dead-code / no-fallback / push-vs-pull / nothing-unreachable all re-confirmed TRUE; the
+iteration-1 Evidence Log entry is accurate. Two minor non-blocking cautions folded into **Implementation Notes**
+(cache-safety wording scoped to the no-rebuild guarantee; distinct `<recalled-memory>` label). Rule-alignment: dep
+direction, HARNESS-029 neutrality (TC-07), HARNESS-028 no-fallback, SSOT/ownership, architecture-placement (N/A) — all
+aligned. Awaiting owner sign-off to complete GATE-APPROVAL.
