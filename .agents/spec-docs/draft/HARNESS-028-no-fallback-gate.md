@@ -63,17 +63,27 @@ existing lint gate; reserve a `#[forbid]`-style no-hatch tier for future non-neg
 
 ### Affected Scope
 
-- **`.agents/templates/spec-template.md` + the SELFHOST/spec-doc convention**: a new
-  `## Fallback & Degradation Declaration` section (default **"None"**) where any INTENTIONAL fallback or graceful
-  degradation is declared and justified. `proposal-reviewer` judges it at GATE-APPROVAL — so an unauthorized
-  fallback cannot pass the design gate.
-- **`backlog-gate-guard` (GATE-VERIFY step)**: a mechanical check that the changed `packages/*/src` fallback
-  patterns are a SUBSET of what the spec declared + `allow-fallback:` annotations; an undeclared fallback FAILS
-  the gate (orchestrator rewinds).
-- **`scripts/harness/scan-no-fallback.mjs` (new) + `run-all-scans.mjs`**: a CONTINUOUS floor over `packages/*/src`
-  for the always-on / drive-by (non-spec) case, joining `pnpm harness:scan` (→ the CI `scans` job).
-- **NOT** a blanket `??` ban: value-precedence defaults (`x ?? default`) are out of scope — only the policy's
-  high-confidence patterns are flagged, to keep false positives near zero.
+- **spec-doc authoring convention (`backlog-writer` + a structure check), NOT the package `SPEC.md` template**: a
+  `## Fallback & Degradation Declaration` section (default **"None"**) on the GATE-PIPELINE spec-doc (the artifact
+  GATE-APPROVAL/GATE-VERIFY actually read — `.agents/spec-docs/`), where any INTENTIONAL fallback/degradation is
+  declared + justified. `proposal-reviewer` judges it at GATE-APPROVAL as a **review** responsibility. (The package
+  `SPEC.md` template `.agents/templates/spec-template.md` is a SEPARATE document — the durable per-package contract
+  — and is explicitly NOT this artifact; a per-package registry of sanctioned fallbacks there is a distinct future
+  idea, not this spec.)
+- **`scripts/harness/scan-no-fallback.mjs` (new) + `run-all-scans.mjs`**: the MECHANICAL floor over `packages/*/src`
+  — the continuous, always-on guardian, joining `pnpm harness:scan` (→ the CI `scans` job). It also runs AT
+  GATE-VERIFY (the guard already runs the scans), so an undeclared/un-annotated fallback in changed code fails both
+  continuously and at the gate. **Annotation anti-rot** lives here too: a STALE `allow-fallback:` (no matching
+  flagged pattern) and a REASON-LESS `allow-fallback:` both fail (the mypy `warn_unused_ignores` +
+  `ignore-without-code` analogue — the annotation is structured/line-adjacent, so this IS mechanically computable).
+- **`backlog-gate-guard` (GATE-VERIFY)**: no NEW bespoke reconciliation — it already runs `harness:scan`, so the
+  scan floor enforces the code side at the gate. The code↔prose-declaration match is a **review** judgment
+  (proposal-reviewer at GATE-APPROVAL reads the declaration), not a claimed mechanical bidirectional check —
+  because free-prose cannot be mechanically reconciled against code.
+- **NOT** a blanket `??` ban: value-precedence defaults (`x ?? default`) are out of scope — only high-confidence
+  patterns are flagged, to keep false positives near zero. **v1 flags `catch { return <alt> }` ONLY**; the
+  `f() || g()` both-calls rule is DEFERRED behind a proven `ruleid:`/`ok:` fixture corpus (it cannot syntactically
+  tell legit lazy-init `cache.get() || fetch()` from prohibited `primary() || fallback()`).
 
 ### Alternatives Considered
 
@@ -102,12 +112,17 @@ existing lint gate; reserve a `#[forbid]`-style no-hatch tier for future non-neg
 
 ### Decision
 
-Adopt (1): make "fallback" a **declared + gate-verified + scanned** artifact. (a) Spec template gains a
-`## Fallback & Degradation Declaration` section (default "None"), judged by `proposal-reviewer` at GATE-APPROVAL.
-(b) A GATE-VERIFY step mechanically checks that changed-production fallback patterns ⊆ (declared ∪ `allow-fallback:`
-annotated). (c) A conservative, always-on `scan-no-fallback.mjs` (high-confidence patterns only, `allow-fallback:`
-suppression) joins `harness:scan`. The scan is a **floor, not a ceiling** — semantic judgment stays with review +
-the spec declaration. Neutrality/no-fallback semantics live in the rule; the scan enforces the syntactic floor.
+Adopt (1), with TWO mechanical surfaces + ONE review surface (per the GATE-APPROVAL revision):
+(a) **Review (Layer 1):** the gate-pipeline **spec-doc** gains a `## Fallback & Degradation Declaration` section
+(default "None"), judged by `proposal-reviewer` at GATE-APPROVAL — a shift-left justification, NOT a mechanical
+check. (b) **Mechanical floor (Layer 3):** a conservative, always-on `scan-no-fallback.mjs` over `packages/*/src`
+flags high-confidence patterns (v1: `catch { return <alt> }` only), suppressed by an `allow-fallback: <reason>`
+annotation; it joins `harness:scan` and also runs at GATE-VERIFY (the guard runs the scans). (c) **Annotation
+anti-rot (mechanical, on the scan):** a stale `allow-fallback:` (no matching flagged pattern) and a reason-less
+`allow-fallback:` both fail — the mypy `warn_unused_ignores`/`ignore-without-code` analogue, applicable because the
+annotation is structured + line-adjacent. The scan is a **floor, not a ceiling**; free-prose declaration↔code
+reconciliation stays a REVIEW judgment (not mechanized). `x ?? default` value-precedence is excluded; the
+`f() || g()` both-calls rule is deferred behind a fixture corpus.
 
 ### Validated Recommendation
 
@@ -122,8 +137,8 @@ the spec declaration. Neutrality/no-fallback semantics live in the rule; the sca
 
 ### Architecture Review Checklist
 
-- [x] 영향 패키지/레이어: harness-only (spec template + `backlog-gate-guard` gate-verify + `scripts/harness/`
-      scan + `run-all-scans.mjs`); no `packages/` runtime code. Enforces an EXISTING rule (operational.md).
+- [x] 영향 패키지/레이어: harness-only (spec-DOC convention via `backlog-writer` + `scripts/harness/scan-no-fallback.mjs` + `run-all-scans.mjs`, also run at GATE-VERIFY); no `packages/` runtime code changed (only a one-time
+      annotation reason-stamp sweep of existing sites). Enforces an EXISTING rule (operational.md).
 - [x] Sibling scan 완료 — mirrors the existing scan pattern (`conflict-markers`, `check-dependency-direction`,
       `orchestration-neutrality`) + the existing `allow-fallback:` annotation convention; does NOT add a new
       escape-hatch mechanism.
@@ -134,49 +149,57 @@ the spec declaration. Neutrality/no-fallback semantics live in the rule; the sca
 
 ## Solution
 
-Three layers implementing the `No Fallback Policy` mechanically: (1) a `## Fallback & Degradation Declaration`
-spec-template section (default "None") reviewed at GATE-APPROVAL; (2) a `backlog-gate-guard` GATE-VERIFY check that
-changed `packages/*/src` fallback patterns are a subset of (spec-declared ∪ `allow-fallback:`-annotated); (3) a
-conservative always-on `scan-no-fallback.mjs` joining `harness:scan`. Patterns detected (high-confidence only):
-a `catch` block whose body returns/produces an alternative value, and `f() || g()` / `f() ?? g()` where both sides
-are CALLS used as core-behavior (not `x ?? literal` value-precedence). `allow-fallback: <reason>` on the line/block
-suppresses. The current repo is annotated so the scan passes on introduction (no false-positive breakage).
+Two mechanical surfaces + one review surface: (1 — review) a `## Fallback & Degradation Declaration` section
+(default "None") on the gate-pipeline **spec-doc** (authored via `backlog-writer`, NOT the package `SPEC.md`
+template), justified at GATE-APPROVAL by `proposal-reviewer`; (2 — floor) a conservative always-on
+`scan-no-fallback.mjs` over `packages/*/src` joining `harness:scan` and also run at GATE-VERIFY — v1 detects ONLY a
+`catch` block whose body returns/produces an alternative value; (3 — anti-rot on the scan) a stale or reason-less
+`allow-fallback: <reason>` annotation fails (mypy `warn_unused_ignores` analogue). Explicitly EXCLUDED: `x ??
+literal` and defaulting-`||` value-precedence. The `f() || g()` both-calls rule is DEFERRED behind a proven
+`ruleid:`/`ok:` fixture corpus (it cannot syntactically distinguish legit lazy-init from a prohibited fallback).
+The ~357 existing `allow-fallback:` sites are reason-stamped in a one-time migration so the scan passes on
+introduction. Free-prose declaration↔code reconciliation stays a REVIEW judgment (not mechanized).
 
 ## Affected Files
 
-| File                                              | Change                                                                                               |
-| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `.agents/templates/spec-template.md`              | add `## Fallback & Degradation Declaration` (default "None") + authoring guidance                    |
-| `scripts/harness/scan-no-fallback.mjs` (new)      | conservative high-confidence fallback-pattern scan over `packages/*/src`; `allow-fallback:` suppress |
-| `scripts/harness/run-all-scans.mjs`               | register `no-fallback` in the scan set (→ CI `scans` job)                                            |
-| `backlog-gate-guard` (GATE-VERIFY)                | verify changed-production fallback patterns ⊆ (spec declaration ∪ annotations)                       |
-| existing sanctioned fallbacks in `packages/*/src` | add/normalize `allow-fallback: <reason>` annotations so the new scan passes                          |
+| File                                                           | Change                                                                                                                                                                                                      |
+| -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `.agents/skills/backlog-writer/SKILL.md` (spec-doc convention) | add `## Fallback & Degradation Declaration` (default "None") to the spec-DOC structure it authors — NOT the package `SPEC.md` template — + authoring guidance                                               |
+| `scripts/harness/scan-no-fallback.mjs` (new)                   | v1: conservative `catch { return <alt> }` scan over `packages/*/src`; `allow-fallback: <reason>` suppression; anti-rot (stale + reason-less annotation fail); `f()\|\|g()` deferred behind a fixture corpus |
+| `scripts/harness/run-all-scans.mjs`                            | register `no-fallback` in the scan set (→ CI `scans` job; also runs at GATE-VERIFY)                                                                                                                         |
+| existing `allow-fallback:` sites in `packages/*/src` (~357)    | one-time migration: reason-stamp any bare annotation so the anti-rot passes on introduction                                                                                                                 |
 
 ## Completion Criteria
 
-- [ ] TC-01: `scan-no-fallback.mjs` flags a high-confidence fallback pattern (`catch { return <alt> }`;
-      `f() || g()` core-behavior) in a `packages/*/src` fixture and is suppressed by an `allow-fallback:` annotation
-      (unit test on the scan).
-- [ ] TC-02: the scan does NOT flag `x ?? default` value-precedence or a `catch` that rethrows / logs-and-throws
-      (no false positives) — fixture-based negative test.
-- [ ] TC-03: the spec template exposes a `## Fallback & Degradation Declaration` section (default "None"), and
-      `scan-spec-research`/GATE-WRITE-adjacent structure checks still pass (placement).
-- [ ] TC-04: GATE-VERIFY reconciles code ↔ declaration BOTH ways (mypy `warn_unused_ignores` analogue): it fails
-      when a changed `packages/*/src` fallback is neither declared nor `allow-fallback:`-annotated, AND fails on a
-      STALE exception (a spec Fallback Declaration with no matching live suppression) — passing only when they
-      match. An `allow-fallback:` without a reason is also rejected (specific + reasoned). Functional test.
-- [ ] TC-05: running `pnpm harness:scan` on the current repo PASSES after annotating the existing sanctioned
-      fallbacks — the new floor introduces zero false-positive breakage (regression: the whole scan set is green).
+- [ ] TC-01: `scan-no-fallback.mjs` (v1) flags the high-confidence `catch { return <alt> }` pattern in a
+      `packages/*/src` fixture and is suppressed by an adjacent `allow-fallback: <reason>` annotation (unit test on
+      the scan). The `f() || g()` both-calls rule is DEFERRED (see TC below) and NOT flagged in v1.
+- [ ] TC-02: the scan does NOT flag `x ?? default` / defaulting-`||` value-precedence, nor a `catch` that rethrows
+      or logs-and-throws (no false positives) — fixture-based negative test.
+- [ ] TC-03: the **spec-doc authoring convention** (`backlog-writer`) exposes a `## Fallback & Degradation
+Declaration` section (default "None") on the gate-pipeline spec-doc (NOT the package `SPEC.md` template);
+      GATE-WRITE-adjacent structure checks still pass (placement).
+- [ ] TC-04: **annotation anti-rot** (the mypy `warn_unused_ignores` + `ignore-without-code` analogue, mechanical
+      on the scan): a STALE `allow-fallback:` (an annotation with no matching flagged pattern on/near its line) FAILS,
+      and a REASON-LESS `allow-fallback:` (no `<reason>`) FAILS — passing only when the annotation is both live and
+      reasoned (unit test). (Code↔prose-declaration matching is a REVIEW judgment — proposal-reviewer at
+      GATE-APPROVAL + the scan run at GATE-VERIFY — NOT a mechanical bidirectional check.)
+- [ ] TC-05: the scan is registered in `run-all-scans.mjs` and runs both continuously (`pnpm harness:scan`, CI
+      `scans`) and at GATE-VERIFY; a changed fallback lacking a declaration+annotation fails the gate (functional).
+- [ ] TC-06 (migration): the one-time sweep reason-stamps the ~357 existing `allow-fallback:` sites (any bare ones)
+      so `pnpm harness:scan` is GREEN on introduction — zero false-positive breakage (regression: whole scan set
+      green). Sites already reasoned are unchanged; the sweep is bounded + listed.
 
 ## Test Plan
 
-| TC    | Verification                                      | Type/Tool                    |
-| ----- | ------------------------------------------------- | ---------------------------- |
-| TC-01 | high-confidence flag + `allow-fallback:` suppress | node unit on the scan        |
-| TC-02 | no false positive on `??`/rethrow                 | node unit (negative fixture) |
-| TC-03 | spec-template declaration section present         | placement/structure          |
-| TC-04 | gate-verify code↔declaration subset check         | functional (guard)           |
-| TC-05 | full `harness:scan` green on the real repo        | harness:scan regression      |
+| TC    | Verification                                                | Type/Tool                     |
+| ----- | ----------------------------------------------------------- | ----------------------------- |
+| TC-01 | v1 `catch{return alt}` flag + `allow-fallback:` suppress    | node unit on the scan         |
+| TC-02 | no false positive on `??`/defaulting-`\|\|`/rethrow         | node unit (negative fixture)  |
+| TC-03 | spec-DOC declaration section present (backlog-writer)       | placement/structure           |
+| TC-04 | annotation anti-rot (stale + reason-less fail)              | node unit on the scan         |
+| TC-05 | registered in run-all-scans; runs continuous + at gate      | functional (scan set + guard) |
+| TC-06 | ~357-site reason-stamp migration; full `harness:scan` green | harness:scan regression       |
 
 ## Tasks
 
@@ -186,6 +209,14 @@ suppresses. The current repo is annotated so the scan passes on introduction (no
 
 - 2026-07-18 — **Drafted.** Owner raised the enforcement gap during the SELFHOST run and approved the three-layer
   design (spec-declaration + gate-verify + continuous scan floor, conservative patterns, `allow-fallback:`
-  suppression). Prior-art research pending (dispatched).
-  EOF
-  echo "draft written"
+  suppression). Prior-art research substantiated (ESLint/Semgrep/Rust/ArchUnit/mypy).
+- 2026-07-18 — **GATE-APPROVAL iteration 1: REVISE, applied.** Independent proposal-reviewer punch-list:
+  (1) Layer-1 declaration was mis-targeted at the package `SPEC.md` template — moved to the **spec-doc authoring
+  convention** (backlog-writer + a structure check), the artifact GATE-APPROVAL/GATE-VERIFY actually read.
+  (2) Layer-2 "code ⊆ spec-PROSE-declaration" is not mechanically computable — reframed the mechanical anti-rot to
+  operate on the `allow-fallback:` **annotations** (stale annotation fails; reason-less annotation fails — the exact
+  mypy `warn_unused_ignores` + `ignore-without-code` analogue) and demoted code↔prose reconciliation to a **review**
+  responsibility (proposal-reviewer at GATE-APPROVAL + the Layer-3 scan run at GATE-VERIFY). (3) v1 ships the
+  `catch { return <alt> }` pattern ONLY; the `f() || g()` both-calls rule is deferred behind a proven `ruleid:`/`ok:`
+  fixture corpus (it false-positives on legit lazy-init like `cache.get() || fetch()`). (4) The ~357 existing
+  `allow-fallback:` sites are a real one-time migration (reason-stamp) — added as its own TC. Re-review pending.
