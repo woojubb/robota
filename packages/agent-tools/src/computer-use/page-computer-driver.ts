@@ -51,7 +51,9 @@ export class PageComputerDriver implements IComputerDriver {
   }
 
   private async capture(): Promise<IComputerScreenshot> {
-    const bytes = await this.page.screenshot({ type: 'png' });
+    // Honor the configured mediaType so the reported bytes and the label agree (jpeg vs png).
+    const type = this.mediaType === 'image/jpeg' ? 'jpeg' : 'png';
+    const bytes = await this.page.screenshot({ type });
     return { data: encodeScreenshot(bytes), mediaType: this.mediaType };
   }
 
@@ -101,30 +103,41 @@ export class PageComputerDriver implements IComputerDriver {
         await keyboard.type(action.text);
         break;
       case 'keypress':
-        for (const key of action.keys) {
-          await keyboard.press(key);
-        }
+        // `keys` is a CHORD (e.g. ['Control','a'] = Ctrl+A), not a sequence — press them together via the
+        // `'Control+a'` chord form (a single key like ['a'] presses just 'a').
+        await keyboard.press(action.keys.join('+'));
         break;
       case 'scroll':
         await mouse.move(action.x, action.y);
         await mouse.wheel(action.deltaX, action.deltaY);
         break;
-      case 'drag': {
-        const [first, ...rest] = action.path;
-        await mouse.move(first.x, first.y);
-        await mouse.down(action.button ? { button: action.button } : undefined);
-        for (const point of rest) {
-          await mouse.move(point.x, point.y);
-        }
-        await mouse.up(action.button ? { button: action.button } : undefined);
+      case 'drag':
+        await this.performDrag(action);
         break;
-      }
       case 'wait':
         await this.wait(action.ms ?? this.defaultWaitMs);
         break;
     }
 
     return { screenshot: await this.capture() };
+  }
+
+  /** Move the pointer along a multi-point path with the button held (mouse down → moves → up). */
+  private async performDrag(action: Extract<TComputerAction, { type: 'drag' }>): Promise<void> {
+    // Defensive: this reference adapter is public API; a direct caller may bypass the tool boundary's
+    // `path.length >= 2` check. A drag needs at least a start + end point.
+    if (action.path.length < 2) {
+      throw new Error('computer drag requires a path of at least 2 points (start + end)');
+    }
+    const { mouse } = this.page;
+    const [first, ...rest] = action.path;
+    const button = action.button ? { button: action.button } : undefined;
+    await mouse.move(first.x, first.y);
+    await mouse.down(button);
+    for (const point of rest) {
+      await mouse.move(point.x, point.y);
+    }
+    await mouse.up(button);
   }
 
   async beginTakeover(_reason?: string): Promise<void> {

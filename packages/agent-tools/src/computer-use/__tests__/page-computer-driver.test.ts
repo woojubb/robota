@@ -75,9 +75,9 @@ describe('PageComputerDriver', () => {
     await driver.act({ type: 'type', text: 'hi' });
     expect(page.calls).toContain('type(hi)');
 
+    // keys is a CHORD — pressed together as 'Control+a' (Ctrl+A), not as two sequential single presses.
     await driver.act({ type: 'keypress', keys: ['Control', 'a'] });
-    expect(page.calls).toContain('press(Control)');
-    expect(page.calls).toContain('press(a)');
+    expect(page.calls).toContain('press(Control+a)');
 
     await driver.act({ type: 'scroll', x: 5, y: 6, deltaX: 0, deltaY: 100 });
     expect(page.calls).toContain('move(5,6)');
@@ -95,6 +95,13 @@ describe('PageComputerDriver', () => {
 
     await driver.act({ type: 'wait', ms: 42 });
     expect(page.calls).toContain('wait(42)');
+  });
+
+  it('rejects a drag with fewer than 2 path points (public-API guard)', async () => {
+    const driver = new PageComputerDriver({ page: new RecordingBrowserPage() });
+    await expect(driver.act({ type: 'drag', path: [{ x: 0, y: 0 }] })).rejects.toThrow(
+      /at least 2 points/,
+    );
   });
 
   it('pauses perception during a takeover and resumes on endTakeover', async () => {
