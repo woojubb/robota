@@ -110,6 +110,7 @@ Options:
 Commands:
   robota init                      Initialize AGENTS.md and .robota/settings.json
   robota diagnose                  Check setup and print a diagnostics report
+  robota eval <definition>         Run an evals-as-code definition; exit 1 on a metric breach (CI gate)
 
 Examples:
   robota                           Start interactive TUI session
