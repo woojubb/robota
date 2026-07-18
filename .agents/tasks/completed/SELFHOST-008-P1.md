@@ -1,6 +1,6 @@
 # SELFHOST-008 P1 — durable memory port `IMemoryStore` + neutral fs reference adapter
 
-Spec: [`.agents/spec-docs/todo/SELFHOST-008-durable-semantic-memory.md`](../spec-docs/todo/SELFHOST-008-durable-semantic-memory.md)
+Spec: [`.agents/spec-docs/done/SELFHOST-008-durable-semantic-memory.md`](../../spec-docs/done/SELFHOST-008-durable-semantic-memory.md)
 GATE-APPROVAL: PASS (proposal-reviewer ENDORSE iteration 1). GATE-IMPLEMENT: PASS. Implementation: DONE (all TC; agent-framework 1174/1174, harness:scan 55/55).
 
 EPIC slice **P1** only: the memory port + refactor the existing fs store into a reference adapter behind it +

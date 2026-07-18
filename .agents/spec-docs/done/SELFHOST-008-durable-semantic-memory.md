@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: DATA
 tags: [memory, semantic-recall, persistence, agent-framework, agent-cli, selfhost]
 ---
@@ -227,7 +227,7 @@ in a surface (may revise the port) + extraction to `agent-interface-memory` iff 
 
 ## Tasks
 
-Epic P1 task created at GATE-IMPLEMENT: [`.agents/tasks/SELFHOST-008-P1.md`](../../tasks/SELFHOST-008-P1.md)
+Epic P1 task created at GATE-IMPLEMENT: [`.agents/tasks/completed/SELFHOST-008-P1.md`](../../tasks/completed/SELFHOST-008-P1.md)
 (port + refactor store as reference adapter + assembly threading + curation-policy seam; TC-01..06). Later slices:
 P2 (persistence + cross-session recall guarantees) / P3 (duck-typed `ISemanticMemoryAdapter` + fake-adapter swap) /
 P4 (concrete semantic/vector backend in a surface; may revise the port; extract `agent-interface-memory` iff a
@@ -323,3 +323,12 @@ deferred `ISemanticMemoryAdapter` (`memory/types.ts`); `FileSystemMemoryStore` r
 fs classes; startup-injection + post-turn capture routed through the port, adapter-gated; SPEC + exports updated. agent-framework
 1175/1175, harness:scan 54/54 (+ the expected task-archival flag cleared at archival), typecheck clean. Spec → `spec-docs/done/`;
 task → `.agents/tasks/completed/SELFHOST-008-P1.md`. Later slices P2/P3/P4 tracked in `## Tasks` (separate tasks when reached).
+
+### [GATE-VERIFY] — ✅ PASS | 2026-07-18
+
+**Status upgrade:** in-progress → verifying
+Prior-gate precondition: GATE-IMPLEMENT shows `✅ PASS` in Evidence Log (2026-07-18); frontmatter `status: in-progress` matches the expected input stage.
+All task slices complete: `.agents/tasks/SELFHOST-008-P1.md` — TC-01..TC-06 all `[x]`, none blocked or pending.
+Tests green (affected package `@robota-sdk/agent-framework`): spot-run of the two new files — `file-system-memory-store.test.ts` (9 passed) + `context-loader-memory.test.ts` (3 passed) = 12/12 passed (exit 0); consistent with the recorded full run of 1175 passing + typecheck clean.
+Build/scan: harness:scan 55/55 except the expected `task-archival` flag (task fully checked while spec still in active/) — clears at GATE-COMPLETE archival, NOT a defect.
+(Recorded by backlog-gate-guard.)
