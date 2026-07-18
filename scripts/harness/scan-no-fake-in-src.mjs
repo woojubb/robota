@@ -57,21 +57,32 @@ const KNOWN_PREEXISTING = new Set([
  * A leading string quote before the keyword (injected-code string literal) is excluded by `hasFakeDeclaration`.
  */
 const FAKE_DECL_PATTERNS = [
-  /\b(?:abstract\s+)?(?:class|interface|type)\s+(?:Fake|Mock|Stub)[A-Z]/,
-  /\b(?:export\s+)?(?:async\s+)?function\s+create(?:Fake|Mock|Stub)[A-Z]/,
-  /\b(?:export\s+)?(?:const|let)\s+create(?:Fake|Mock|Stub)[A-Z]\w*\s*[:=]/,
+  // class/interface/type/enum named Fake*/Mock*/Stub* (incl. object-literal class expressions)
+  /\b(?:abstract\s+)?(?:class|interface|type|enum)\s+(?:Fake|Mock|Stub)[A-Z]/,
+  // a function DECLARED as Fake*/Mock*/Stub* or create(Fake|Mock|Stub)* (declaration only — not call sites)
+  /\b(?:export\s+)?(?:async\s+)?function\s+(?:create)?(?:Fake|Mock|Stub)[A-Z]/,
+  // a const/let BOUND to a Fake*/Mock*/Stub*- or create(Fake|Mock|Stub)*-named binding (requires `=`/`:` → decl,
+  // not a bare call site like `createMockUsageSnapshot()`)
+  /\b(?:export\s+)?(?:const|let)\s+(?:create)?(?:Fake|Mock|Stub)[A-Z]\w*\s*[:=]/,
+  // a re-export of a Fake*/Mock*/Stub*-named symbol
   /\bexport\s*(?:type\s*)?\{[^}]*\b(?:Fake|Mock|Stub)[A-Z]/,
 ];
 
-/** True when a line DECLARES/re-exports a test-double-named identifier (not an import or a string literal). */
+/** True when a line DECLARES/re-exports a test-double-named identifier (not an import, comment, or string literal). */
 function hasFakeDeclaration(line) {
   if (/^\s*import\b/.test(line)) return false; // imports are consequences, not the declaration
+  if (/^\s*(?:\/\/|\/?\*)/.test(line)) return false; // a comment line (`//`, `/*`, or a JSDoc `*` continuation)
   const firstQuoteIdx = line.search(/['"`]/);
+  const lineCommentIdx = line.indexOf('//');
+  const blockCommentIdx = line.indexOf('/*');
   for (const re of FAKE_DECL_PATTERNS) {
     const m = re.exec(line);
     if (!m) continue;
-    // Skip a match that sits inside a string literal (e.g. injected browser-code strings): a quote opens before it.
+    // Skip a match inside a string literal (injected browser-code strings): a quote opens before it.
     if (firstQuoteIdx !== -1 && firstQuoteIdx < m.index) continue;
+    // Skip a match inside a comment (doc prose that merely mentions a declaration).
+    if (lineCommentIdx !== -1 && lineCommentIdx < m.index) continue;
+    if (blockCommentIdx !== -1 && blockCommentIdx < m.index) continue;
     return true;
   }
   return false;
@@ -100,8 +111,15 @@ export function findFakeDeclarationsInSource(source, file = 'fixture.ts') {
   for (let i = 0; i < lines.length; i += 1) {
     const line = lines[i];
     if (hasFakeDeclaration(line)) {
-      const windowText = `${lines[i - 1] ?? ''}\n${line}`;
-      if (!ANNOTATION_WITH_REASON.test(windowText)) {
+      // Suppressed only by (a) a same-line trailing `allow-fake: <reason>`, or (b) a DEDICATED comment line
+      // directly above carrying the reason. A trailing annotation on the PREVIOUS declaration line must NOT
+      // bleed onto this one (that was the suppression-bleed defect), so the above-line case requires the
+      // previous line to be a comment that is not itself a flagged declaration.
+      const prev = lines[i - 1] ?? '';
+      const suppressedSameLine = ANNOTATION_WITH_REASON.test(line);
+      const suppressedByCommentAbove =
+        annotationInComment(prev) && ANNOTATION_WITH_REASON.test(prev) && !hasFakeDeclaration(prev);
+      if (!suppressedSameLine && !suppressedByCommentAbove) {
         findings.push({ file, line: i + 1, kind: 'fake-in-src', text: line.trim().slice(0, 120) });
       }
     }

@@ -24,6 +24,13 @@ describe('HARNESS-032 — flags test-double declarations in shipped source', () 
     expect(kinds('const createFakeDriver = () => ({});')).toContain('fake-in-src');
   });
 
+  it('flags const/enum/function test-double declarations (gap closures)', () => {
+    expect(kinds('export const MockClient = () => ({});')).toContain('fake-in-src');
+    expect(kinds('export const StubZ = class {};')).toContain('fake-in-src');
+    expect(kinds('export enum FakeStatus { A, B }')).toContain('fake-in-src');
+    expect(kinds('export function MockThing() {}')).toContain('fake-in-src');
+  });
+
   it('flags a re-export of a test-double-named symbol', () => {
     expect(kinds("export { FakeClockPort } from './clock-ports.js';")).toContain('fake-in-src');
   });
@@ -43,6 +50,25 @@ describe('HARNESS-032 — no false positives', () => {
     expect(kinds('export class ClockPort {}')).not.toContain('fake-in-src');
     expect(kinds('const remockRegistry = 1;')).not.toContain('fake-in-src'); // not a Fake/Mock/Stub<Name> decl
     expect(kinds('// this is not a mock, just a comment')).not.toContain('fake-in-src');
+  });
+
+  it('does NOT flag a declaration name merely mentioned in a comment (comment false-positive fix)', () => {
+    expect(kinds('// type FakeThing = the shape of the thing')).not.toContain('fake-in-src');
+    expect(kinds(' * class MockRegistry documents the fixture')).not.toContain('fake-in-src');
+  });
+});
+
+describe('HARNESS-032 — suppression does not BLEED to the next declaration (review SHOULD)', () => {
+  it('a trailing allow-fake on one declaration does NOT suppress the following declaration', () => {
+    const ks = kinds('export class FakeA {} // allow-fake: sanctioned A\nexport class FakeB {}');
+    // FakeA is suppressed (same-line), FakeB must STILL be flagged (no reason of its own)
+    expect(ks.filter((k) => k === 'fake-in-src')).toHaveLength(1);
+  });
+
+  it('a dedicated comment line above still suppresses the declaration below', () => {
+    expect(kinds('// allow-fake: dedicated reason\nexport class FakeClockPort {}')).not.toContain(
+      'fake-in-src',
+    );
   });
 });
 
