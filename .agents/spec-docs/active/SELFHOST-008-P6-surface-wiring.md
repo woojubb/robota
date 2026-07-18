@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: DATA
 tags: [memory, agent-cli, surface-wiring, agent-run-verification, selfhost-008]
 ---
@@ -276,3 +276,14 @@ in: TC-05 SAVED-state precondition made explicit; the two transport option inter
 - No post-approval edits to Architecture Review or frontmatter `type`/`tags`.
 - Independent design review: `[GATE-APPROVAL] — ENDORSE (proposal-reviewer)` entry present — every load-bearing premise verified against code (buildRuntimeSession neutral pass-through; `TInteractiveSessionOptions` accepts `memoryStore`/`automaticMemory`/`recallMemory`; capture→recall policy flow correct — `approval_required` queues / `auto_save` saves / recall reads only saved topics; `/memory` resolves the same injected store; `-p` print mode agent-runnable + fs store persists cross-invocation); two non-blocking tightenings folded in (TC-05 SAVED-state precondition explicit; two transport option interfaces named for honest 3-package scope).
 - Independent architecture validation (conditional): N/A — no new package/app/surface; wiring is within existing `agent-cli` plus extending two existing transport option interfaces (the established option-forwarding idiom, not a new surface or product-family boundary). New-surface placement review not required.
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-07-18
+
+**Status upgrade:** approved → in-progress
+
+- Prior-gate precondition: `[GATE-APPROVAL] — ✅ PASS | 2026-07-18` present in Evidence Log; frontmatter `status: approved` — expected input stage for GATE-IMPLEMENT matches.
+- Tasks file created: `.agents/tasks/SELFHOST-008-P6.md` exists (3387 bytes).
+- Tasks file linked in spec `## Tasks` section: line 233 references `.agents/tasks/SELFHOST-008-P6.md`.
+- Slices cover all completion criteria: S1 (resolver) → TC-01/TC-02/TC-03; S2/S3 (transport pass-through + inject at print/serve/TUI + one-time notice) → TC-07 enable-notice path; S5 (agent-run e2e) → TC-04/TC-05/TC-07 + neutrality TC-06. All of TC-01..TC-07 mapped (task file states "slices S1–S5 … mapped to TC-01..07").
+- Test Plan present in the task file: `## Test Plan` section (Unit / AGENT-RUN / Neutrality / Regression subsections), well over 50 chars.
+- No P6 implementation commits yet: `memory-enablement.ts` does not exist under `packages/agent-cli`; the only `memoryStore`/`recallMemory` grep hits are an unrelated `memoryStore()` helper for `ITrustedDeviceStore` in remote-control-e3/e4 tests — not P6 memory-pipeline code.
