@@ -11,7 +11,7 @@ port precedent. NO heavy browser SDK in `agent-tools`. Commit per logical slice.
   `IComputerToolOptions { driver? }` (mirror `sandbox/types.ts`). A duck-typed `IBrowserPageAdapter` for the (P2)
   zero-dep reference adapter — no browser SDK import.
 - **agent-tools** `ComputerView` (perceive; returns a screenshot) + `Computer` (mutating action) tool factory +
-  `FakeComputerDriver` (deterministic, no browser). Tools join the default set **adapter-gated** (absent driver ⇒
+  `ScriptedComputerDriver` (deterministic, no browser). Tools join the default set **adapter-gated** (absent driver ⇒
   no-op/absent, NO host fallback).
 - **agent-core permissions**: register `ComputerView` (auto — read-only like `Read`) + `Computer` (approve in default,
   deny in plan — mutating) as two KNOWN tools through the EXISTING `PermissionEnforcer`; no new approval path.
@@ -22,18 +22,18 @@ port precedent. NO heavy browser SDK in `agent-tools`. Commit per logical slice.
 
 ## Slices (each green + committed)
 
-1. **S1 — port + contract types** (`computer-use/types.ts`, mirror sandbox/types.ts) + `FakeComputerDriver`.
+1. **S1 — port + contract types** (`computer-use/types.ts`, mirror sandbox/types.ts) + `ScriptedComputerDriver`.
 2. **S2 — tool factory** `ComputerView`/`Computer` executing actions through the injected driver (TC-01).
 3. **S3 — permission wiring** (agent-core two known tools: ComputerView auto, Computer approve/deny) (TC-02/07/08).
 4. **S4 — takeover** loop-suspension + perception-pause (TC-03).
 5. **S5 — assembly threading + adapter-gating** (like sandboxClient; absent driver ⇒ no-op, no host fallback) (TC-04).
-6. **S6 — swap + neutrality** (fake + a 2nd stub driver both satisfy the port; no browser SDK / no target in
+6. **S6 — swap + neutrality** (the scripted test-support driver + a 2nd stub driver both satisfy the port; no browser SDK / no target in
    `agent-tools`) (TC-05/06) + docs (agent-tools + agent-core SPEC). File the mechanical agent-tools neutrality-floor
    follow-up (per TC-06, shared with SELFHOST-003's noted gap / HARNESS-027).
 
 ## Test Plan
 
-Unit/functional against `FakeComputerDriver`: TC-01 (round-trip perceive/act), TC-02 (perceive auto / mutate
+Unit/functional against `ScriptedComputerDriver`: TC-01 (round-trip perceive/act), TC-02 (perceive auto / mutate
 approve-in-default, deny-in-plan via PermissionEnforcer — no new path), TC-03 (takeover suspends loop + pauses
 perception), TC-04 (assembly threading + adapter-gating, no host fallback), TC-05 (driver swap needs no agent-tools
 change; PageComputerDriver imports no browser SDK), TC-06 (neutrality grep/review), TC-07 (no auto mutating action
@@ -41,4 +41,4 @@ w/o approval except bypassPermissions), TC-08 (read-only perception works in pla
 Regression: `pnpm --filter @robota-sdk/agent-tools --filter @robota-sdk/agent-core test`, typecheck, lint,
 `pnpm harness:scan`.
 **Agent-run browser verification: DEFERRED to P2** (PageComputerDriver vs a real page under xvfb) — named per the
-capability-reachability rule; P1 is a fake-driver library seam.
+capability-reachability rule; P1 is a scripted-test-support-driver library seam.
