@@ -14,7 +14,11 @@ import type { ISkillActivationEvent } from '../commands/skill-activation-events.
 import type { IContextReferenceItem } from '../context/context-reference-inventory.js';
 import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
 import type { TUniversalMessage, IHistoryEntry } from '@robota-sdk/agent-core';
-import type { IGoalState, IPlanArtifact } from '@robota-sdk/agent-interface-transport';
+import type {
+  IGoalState,
+  IPlanArtifact,
+  IActiveBranchPointer,
+} from '@robota-sdk/agent-interface-transport';
 import type {
   IBackgroundTaskState,
   TBackgroundTaskEvent,
@@ -50,6 +54,7 @@ export function loadSessionRecord(
   sandboxSnapshotId: string | undefined;
   goal: IGoalState | undefined;
   plan: IPlanArtifact | undefined;
+  activeBranch: IActiveBranchPointer | undefined;
 } {
   const record = sessionStore.load(resumeSessionId);
   if (!record) {
@@ -68,6 +73,7 @@ export function loadSessionRecord(
       sandboxSnapshotId: undefined,
       goal: undefined,
       plan: undefined,
+      activeBranch: undefined,
     };
   }
 
@@ -115,6 +121,7 @@ export function loadSessionRecord(
     sandboxSnapshotId,
     goal: record.goal,
     plan: record.plan,
+    activeBranch: record.activeBranch,
   };
 }
 

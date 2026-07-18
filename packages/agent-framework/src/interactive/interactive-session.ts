@@ -296,6 +296,8 @@ export class InteractiveSession
     if (!this.forkSession && restored.goal) this.goalController.restore(restored.goal);
     // SELFHOST-002: likewise restore an in-flight plan artifact on a true resume (not a fork).
     if (!this.forkSession && restored.plan) this.planController.restore(restored.plan);
+    // SELFHOST-007: restore the active checkpoint branch on a true resume (graceful on manifest drift).
+    if (!this.forkSession) this.histTracker.restoreActiveBranch(restored.activeBranch);
     if (this.session && restored.pendingRestoreMessages === null) {
       // Injected-session path: messages were injected immediately — sync context estimate.
       this.session.syncContextFromHistory();
@@ -735,6 +737,8 @@ export class InteractiveSession
       { snapshotId: this.sandboxSnapshotId },
       this.goalController.getState() ?? undefined,
       this.planController.getState() ?? undefined,
+      // SELFHOST-007: persist the active branch pointer so a branch survives --resume.
+      this.histTracker.getActiveBranchPointer(),
     );
   }
 

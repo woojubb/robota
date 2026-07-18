@@ -39,6 +39,7 @@ import type {
 import type { IPromptFileReferenceRecord } from '../context/prompt-file-references.js';
 import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
 import type { IHistoryEntry, TUniversalValue } from '@robota-sdk/agent-core';
+import type { IActiveBranchPointer } from '@robota-sdk/agent-interface-transport';
 
 export interface IHistoryTrackerState {
   history: IHistoryEntry[];
@@ -194,6 +195,18 @@ export class SessionHistoryTracker {
       messageToHistoryEntry(createSystemMessage(`Switched to checkpoint branch: ${checkpointId}`)),
     );
     this.persistSession();
+  }
+
+  /** SELFHOST-007: the active-branch pointer to persist (so a branch survives --resume). */
+  getActiveBranchPointer(): IActiveBranchPointer | undefined {
+    if (!this.editCheckpointStore) return undefined;
+    return this.editCheckpointStore.getActiveBranchPointer(this.getSessionId());
+  }
+
+  /** SELFHOST-007: restore the active branch from a persisted pointer on resume (graceful on drift). */
+  restoreActiveBranch(pointer: IActiveBranchPointer | undefined): void {
+    if (!this.editCheckpointStore) return;
+    this.editCheckpointStore.restoreActiveBranch(this.getSessionId(), pointer);
   }
 
   async beginEditCheckpointTurn(prompt: string): Promise<void> {

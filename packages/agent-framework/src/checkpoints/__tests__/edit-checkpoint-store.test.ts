@@ -267,4 +267,35 @@ describe('EditCheckpointStore', () => {
     expect(store.checkpointAncestors('session_1', e.id).slice(0, 2)).toEqual([e.id, c.id]);
     expect(() => store.switchToCheckpoint('session_1', 'nope')).toThrow(/Unknown/);
   });
+
+  // SELFHOST-007 TC-05: the active-branch pointer survives a save→resume round-trip; drift degrades.
+  it('captures and restores the active-branch pointer (and degrades gracefully on drift)', async () => {
+    const cwd = makeProject();
+    const store = new EditCheckpointStore({ cwd });
+
+    const a = await store.beginTurn({ sessionId: 'session_1', prompt: 'a' });
+    await store.finalizeTurn();
+    await store.beginTurn({ sessionId: 'session_1', prompt: 'b' });
+    await store.finalizeTurn();
+    await store.restoreToCheckpoint('session_1', a.id); // fork → active head = a, fresh branch
+
+    const pointer = store.getActiveBranchPointer('session_1');
+    expect(pointer).toEqual({ branchId: expect.stringMatching(/^branch-/), checkpointId: a.id });
+
+    // A brand-new store (simulating --resume) restores the pointer from the persisted record.
+    const resumed = new EditCheckpointStore({ cwd });
+    resumed.restoreActiveBranch('session_1', pointer);
+    const next = await resumed.beginTurn({ sessionId: 'session_1', prompt: 'c' });
+    await resumed.finalizeTurn();
+    // the new turn diverges from 'a' (the restored branch head), not from 'b'
+    expect(resumed.checkpointAncestors('session_1', next.id)).toEqual([next.id, a.id]);
+
+    // Drift: a pointer referencing a checkpoint absent from the manifest store is ignored (no throw),
+    // and the store keeps its linear-HEAD default.
+    const drifted = new EditCheckpointStore({ cwd });
+    expect(() =>
+      drifted.restoreActiveBranch('session_1', { branchId: 'ghost', checkpointId: 'turn-9999' }),
+    ).not.toThrow();
+    expect(drifted.getActiveBranchPointer('session_1')).toBeUndefined();
+  });
 });

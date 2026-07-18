@@ -15,6 +15,7 @@ import type {
   IEditCheckpointTurnInput,
 } from './edit-checkpoint-types.js';
 import type { IFileSystem, IFileSystemAsync } from '@robota-sdk/agent-core';
+import type { IActiveBranchPointer } from '@robota-sdk/agent-interface-transport';
 
 const MANIFEST_FILE = 'manifest.json';
 const SNAPSHOT_DIR = 'files';
@@ -310,6 +311,29 @@ export class EditCheckpointStore {
       throw new Error(`Unknown edit checkpoint: ${checkpointId}`);
     }
     this.forkFrom(sessionId, checkpointId);
+  }
+
+  /**
+   * SELFHOST-007: the active-branch pointer to persist on the session record (so a branch survives
+   * `--resume`). Undefined when there is no active head (a fresh/empty session).
+   */
+  getActiveBranchPointer(sessionId: string): IActiveBranchPointer | undefined {
+    const checkpointId = this.activeHead.get(sessionId);
+    if (checkpointId === undefined) return undefined;
+    return { branchId: this.activeBranch.get(sessionId) ?? DEFAULT_BRANCH_ID, checkpointId };
+  }
+
+  /**
+   * SELFHOST-007: restore the active branch from a persisted pointer (on `--resume`). GRACEFUL
+   * DEGRADATION: if the pointer's checkpoint is absent from this session's manifest store (the two
+   * stores can drift — pointer in `~/.robota/sessions`, tree in `projectPaths.checkpoints`), it is
+   * ignored and the store keeps its linear-HEAD default (`resolveActiveHead`), never throwing.
+   */
+  restoreActiveBranch(sessionId: string, pointer: IActiveBranchPointer | undefined): void {
+    if (pointer === undefined) return;
+    if (!this.buildTree(sessionId).has(pointer.checkpointId)) return; // drift → keep linear HEAD
+    this.activeHead.set(sessionId, pointer.checkpointId);
+    this.activeBranch.set(sessionId, pointer.branchId);
   }
 
   /** Build the neutral checkpoint tree from this session's persisted manifest edges. */
