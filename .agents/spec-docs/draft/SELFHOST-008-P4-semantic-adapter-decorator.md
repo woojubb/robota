@@ -1,10 +1,20 @@
 ---
-status: review-ready
+status: draft
 type: DATA
 tags: [memory, semantic-recall, adapter, agent-framework, selfhost-008]
 ---
 
-# SELFHOST-008 P3: wire the semantic-memory adapter into recall + index (decorator store, tiered, adapter-gated)
+# SELFHOST-008 P4: the semantic-memory adapter decorator (tiered recall + index, adapter-gated)
+
+> **Renumbered P3 → P4 (2026-07-18, owner "분할" decision).** The GATE-APPROVAL proposal-reviewer (REVISE)
+> found that the memory RECALL path is not wired into the turn lifecycle at all (`AutomaticMemoryController.retrieve()`
+> has zero live callers; startup uses `loadStartupMemory()`, not `recall()`), so a semantic decorator built now would
+> upgrade a **dead** recall path. The owner chose to SPLIT: the per-turn recall→context-injection wiring becomes
+> **P3** (`SELFHOST-008-P3-per-turn-recall.md`, keyword store, immediately observable), and THIS decorator slice is
+> deferred behind it — it lands on the now-live recall path so semantic recall is genuinely user-observable. The
+> reviewer's non-scope corrections (false startup-uses-recall rationale, overstated HARNESS-029 npm-dep fencing claim,
+> idempotent `index()` on `deduplicated: true`) are folded in when this re-enters the gate as P4. Its earlier
+> GATE-WRITE PASS (as P3) is retained in the Evidence Log for reference; it re-runs the pipeline from `draft` as P4.
 
 ## Problem
 
