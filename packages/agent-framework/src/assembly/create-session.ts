@@ -5,6 +5,7 @@
 
 import { join } from 'node:path';
 
+import { GuardrailExecutor } from '@robota-sdk/agent-core';
 import { Session } from '@robota-sdk/agent-session';
 
 import {
@@ -149,6 +150,11 @@ export function createSession(options: ICreateSessionOptions): ICreateSessionRes
   }
   if (options.sessionFactory) {
     hookTypeExecutors.push(new AgentExecutor({ sessionFactory: options.sessionFactory }));
+  }
+  if (options.guardrails && Object.keys(options.guardrails).length > 0) {
+    // SELFHOST-005: register the guardrail executor so a { type: 'guardrail' } hook definition runs
+    // the consumer's guardrail set in parallel and fails the turn fast via the existing blocked path.
+    hookTypeExecutors.push(new GuardrailExecutor(options.guardrails));
   }
   if (options.additionalHookExecutors) {
     hookTypeExecutors.push(...options.additionalHookExecutors);

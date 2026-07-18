@@ -16,6 +16,7 @@ import type {
   IContextWindowState,
   IToolWithEventService,
   IHookTypeExecutor,
+  TGuardrail,
   TPermissionMode,
   TModelEffort,
   TToolArgs,
@@ -129,6 +130,13 @@ export interface ICreateSessionOptions {
   sessionFactory?: TSessionFactory;
   /** Additional hook type executors beyond the defaults (prompt, agent). */
   additionalHookExecutors?: IHookTypeExecutor[];
+  /**
+   * SELFHOST-005: registered guardrails (name → guardrail function). When present, a
+   * `GuardrailExecutor` is added to the hook executors so a `{ type: 'guardrail' }` hook definition
+   * runs the set in parallel and fails the turn fast. The POLICY is the consumer's; the mechanism is
+   * neutral.
+   */
+  guardrails?: Record<string, TGuardrail>;
   /** Override session ID (used when resuming a session to reuse the original ID) */
   sessionId?: string;
   /** Pre-approved tool names — added to permissions.allow as ToolName(*) patterns. */
