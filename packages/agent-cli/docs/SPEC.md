@@ -364,6 +364,43 @@ The selected preset id is also passed to the session as runtime active-preset st
 (`ISessionOptions.activePresetId`, see the agent-session SPEC). An unknown `--preset <id>` is terminal:
 the CLI surfaces the available preset list and exits.
 
+### Durable Memory Enablement (SELFHOST-008 P6)
+
+The neutral durable-memory pipeline (auto-capture P2 + per-turn recall P3, in `@robota-sdk/agent-framework`)
+is **adapter-gated OFF by default**. The CLI is the surface that turns it on: it owns the enablement
+DECISION, the policy default, and the recall/retrieval budget — the library carries no enablement config,
+prompt, or content (HARNESS-029 memory-neutrality).
+
+- **One user-facing switch, default OFF (opt-in).** `src/startup/memory-enablement.ts` resolves a single
+  `memory` switch with precedence (lowest → highest):
+  1. `settings.json` `memory.enabled` (SSOT) — the agent-cli-owned `IMemorySettings`
+     (`{ enabled?: boolean; autoSave?: boolean }`), read from the raw settings record by
+     `readMemorySettings()` (unknown keys ignored, never a throw).
+  2. `--memory` / `--no-memory` CLI flag (tri-state `IParsedCliArgs.memory`; `--no-memory` wins if both).
+  3. `ROBOTA_MEMORY=1|0` env — the CI/scripting escape hatch; **env wins over settings and flag**.
+
+  Absent everywhere ⇒ OFF ⇒ **no memory options are injected** (exactly today's behavior).
+
+- **When ON**, `buildMemorySessionOptions()` produces the session option fields
+  `{ memoryStore: createFileSystemMemoryStore(cwd), recallMemory: { budget }, automaticMemory: { policy, retrieval: budget } }`
+  with a default budget `{ maxTopics: 5, maxTopicChars: 2000 }`. Capture + recall are enabled **together**
+  (one switch). The capture policy defaults to `approval_required` (candidates are queued, not saved);
+  `memory.autoSave: true` (settings) or `--memory-autosave` flips it to `auto_save`.
+
+- **Wiring.** The switch is resolved once in `src/cli.ts` and the resolved `IMemorySessionOptions` are
+  threaded into all three construction sites — `runPrintMode` (→ `HeadlessInteractionChannel`),
+  `runServeMode` (merged into `sessionOptions`), and `renderApp` (→ `TuiInteractionChannel`) — each of which
+  forwards the fields into `buildRuntimeSession` only when present. `buildRuntimeSession` and the neutral
+  memory library are unchanged.
+
+- **Scope = repo/project.** The fs reference store persists to `<cwd>/.robota/memory/`, so a fact captured
+  in one invocation is available to a later invocation in the same repo (cross-session recall).
+
+- **Consent + observability.** No blocking prompt for the local store; a concise **one-time enable notice**
+  is printed to stderr on first enable (what/where/how-to-disable). The store is plain-markdown and
+  inspectable via the existing `/memory` command (list / pending / approve); recalled memory is rendered
+  into the turn as a distinct `<recalled-memory>` block (P3).
+
 ### Transport Registry
 
 The CLI assembles a `TransportRegistry` (the generic registry class is owned by

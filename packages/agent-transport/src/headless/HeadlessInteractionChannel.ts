@@ -19,6 +19,9 @@ import type {
   TSubagentRunnerFactory,
   TShellExecFn,
   InteractiveSession,
+  IMemoryStore,
+  IAutomaticMemoryConfig,
+  IPerTurnRecallConfig,
 } from '@robota-sdk/agent-framework';
 import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-transport';
 
@@ -54,6 +57,15 @@ export interface IHeadlessInteractionChannelOptions {
   commandModules?: readonly ICommandModule[];
   commandHostAdapters?: ICommandHostAdapters;
   shellExec?: TShellExecFn;
+  /**
+   * SELFHOST-008 P6: optional durable-memory store injected by the surface (agent-cli). Forwarded into
+   * `buildRuntimeSession`; absent ⇒ memory OFF (today's behavior). Enablement/policy is surface-owned.
+   */
+  memoryStore?: IMemoryStore;
+  /** SELFHOST-008 P6: optional automatic post-turn capture policy (absent ⇒ capture OFF). */
+  automaticMemory?: IAutomaticMemoryConfig;
+  /** SELFHOST-008 P6: optional per-turn recall policy (absent ⇒ recall OFF, startup-only injection). */
+  recallMemory?: IPerTurnRecallConfig;
 }
 
 export class HeadlessInteractionChannel {
@@ -125,6 +137,10 @@ export class HeadlessInteractionChannel {
       ...(this.opts.selfVerification !== undefined
         ? { selfVerification: this.opts.selfVerification }
         : {}),
+      // SELFHOST-008 P6: forward the surface-resolved memory fields only when present (absent ⇒ OFF).
+      ...(this.opts.memoryStore ? { memoryStore: this.opts.memoryStore } : {}),
+      ...(this.opts.automaticMemory ? { automaticMemory: this.opts.automaticMemory } : {}),
+      ...(this.opts.recallMemory ? { recallMemory: this.opts.recallMemory } : {}),
     });
   }
 

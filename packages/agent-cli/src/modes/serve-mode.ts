@@ -11,6 +11,7 @@ import { parseToolList } from '../utils/cli-args.js';
 import { startRuntimeHost } from '@robota-sdk/agent-framework';
 
 import type { IParsedCliArgs } from '../utils/cli-args.js';
+import type { IMemorySessionOptions } from '../startup/memory-enablement.js';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 import type {
   IBackgroundTaskRunner,
@@ -49,6 +50,8 @@ export interface IServeModeOptions {
   remoteCommandPolicy?: IRemoteCommandPolicy;
   resumeSessionId?: string;
   preset: IServeModePresetOptions;
+  /** SELFHOST-008 P6: surface-resolved memory fields (empty ⇒ memory OFF, today's behavior). */
+  memorySessionOptions?: IMemorySessionOptions;
 }
 
 /**
@@ -82,6 +85,8 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
       ? { enableParallelSubagents: preset.enableParallelSubagents }
       : {}),
     ...(preset.selfVerification !== undefined ? { selfVerification: preset.selfVerification } : {}),
+    // SELFHOST-008 P6: surface-resolved memory fields (empty ⇒ memory OFF, today's behavior).
+    ...(opts.memorySessionOptions ?? {}),
   };
 
   const host = await startRuntimeHost({

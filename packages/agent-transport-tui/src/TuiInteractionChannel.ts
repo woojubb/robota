@@ -39,6 +39,9 @@ import type {
   IRemoteCommandPolicy,
   TSubagentRunnerFactory,
   TShellExecFn,
+  IMemoryStore,
+  IAutomaticMemoryConfig,
+  IPerTurnRecallConfig,
 } from '@robota-sdk/agent-framework';
 import type {
   ICommandInfo,
@@ -96,6 +99,15 @@ export interface ITuiInteractionChannelOptions {
   selfVerification?: boolean;
   /** TERM-002: process-shared terminal-handoff controller (the TUI implementation of ITerminalHandoff). */
   terminalHandoff?: TerminalHandoffController;
+  /**
+   * SELFHOST-008 P6: optional durable-memory store injected by the surface (agent-cli). Forwarded into
+   * `buildRuntimeSession`; absent ⇒ memory OFF (today's behavior). Enablement/policy is surface-owned.
+   */
+  memoryStore?: IMemoryStore;
+  /** SELFHOST-008 P6: optional automatic post-turn capture policy (absent ⇒ capture OFF). */
+  automaticMemory?: IAutomaticMemoryConfig;
+  /** SELFHOST-008 P6: optional per-turn recall policy (absent ⇒ recall OFF, startup-only injection). */
+  recallMemory?: IPerTurnRecallConfig;
 }
 
 export class TuiInteractionChannel implements IInteractionChannel {
@@ -197,6 +209,10 @@ export class TuiInteractionChannel implements IInteractionChannel {
       enableParallelSubagents: opts.enableParallelSubagents,
       selfVerification: opts.selfVerification,
       terminalHandoff: opts.terminalHandoff,
+      // SELFHOST-008 P6: forward the surface-resolved memory fields only when present (absent ⇒ OFF).
+      ...(opts.memoryStore ? { memoryStore: opts.memoryStore } : {}),
+      ...(opts.automaticMemory ? { automaticMemory: opts.automaticMemory } : {}),
+      ...(opts.recallMemory ? { recallMemory: opts.recallMemory } : {}),
     });
   }
 

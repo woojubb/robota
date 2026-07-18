@@ -133,6 +133,25 @@ describe('parseCliArgs', () => {
     expect(args.appendSystemPrompt).toBe('Focus on tests');
   });
 
+  it('memory flag is tri-state (SELFHOST-008 P6)', () => {
+    process.argv = ['node', 'cli', '-p', 'x'];
+    expect(parseCliArgs().memory).toBeUndefined();
+    process.argv = ['node', 'cli', '-p', '--memory', 'x'];
+    expect(parseCliArgs().memory).toBe(true);
+    process.argv = ['node', 'cli', '-p', '--no-memory', 'x'];
+    expect(parseCliArgs().memory).toBe(false);
+    // --no-memory wins over --memory when both are given (explicit opt-out).
+    process.argv = ['node', 'cli', '-p', '--memory', '--no-memory', 'x'];
+    expect(parseCliArgs().memory).toBe(false);
+  });
+
+  it('parses --memory-autosave flag', () => {
+    process.argv = ['node', 'cli', '-p', 'x'];
+    expect(parseCliArgs().memoryAutoSave).toBe(false);
+    process.argv = ['node', 'cli', '-p', '--memory-autosave', 'x'];
+    expect(parseCliArgs().memoryAutoSave).toBe(true);
+  });
+
   it('parses --task-file flag', () => {
     process.argv = ['node', 'cli', '-p', '--task-file', 'task.md', 'test'];
     const args = parseCliArgs();

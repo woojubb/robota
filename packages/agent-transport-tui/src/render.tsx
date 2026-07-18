@@ -20,6 +20,9 @@ import type {
   TSubagentRunnerFactory,
   TShellExecFn,
   CommandRegistry,
+  IMemoryStore,
+  IAutomaticMemoryConfig,
+  IPerTurnRecallConfig,
 } from '@robota-sdk/agent-framework';
 import type {
   IInteractiveSession,
@@ -76,6 +79,15 @@ export interface IRenderOptions {
    */
   enableRemoteControl?: () => string | Promise<string>;
   stopRemoteControl?: () => string | Promise<string>;
+  /**
+   * SELFHOST-008 P6: optional durable-memory store injected by the surface (agent-cli). Forwarded to the
+   * channel → `buildRuntimeSession`; absent ⇒ memory OFF (today's behavior). Enablement is surface-owned.
+   */
+  memoryStore?: IMemoryStore;
+  /** SELFHOST-008 P6: optional automatic post-turn capture policy (absent ⇒ capture OFF). */
+  automaticMemory?: IAutomaticMemoryConfig;
+  /** SELFHOST-008 P6: optional per-turn recall policy (absent ⇒ recall OFF, startup-only injection). */
+  recallMemory?: IPerTurnRecallConfig;
 }
 
 /** Map render options to TuiInteractionChannel constructor options. */
@@ -108,6 +120,10 @@ export function toChannelOptions(
     persona: options.persona,
     enableParallelSubagents: options.enableParallelSubagents,
     selfVerification: options.selfVerification,
+    // SELFHOST-008 P6: forward the surface-resolved memory fields (absent ⇒ OFF).
+    ...(options.memoryStore ? { memoryStore: options.memoryStore } : {}),
+    ...(options.automaticMemory ? { automaticMemory: options.automaticMemory } : {}),
+    ...(options.recallMemory ? { recallMemory: options.recallMemory } : {}),
   };
 }
 

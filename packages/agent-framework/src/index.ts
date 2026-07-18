@@ -309,9 +309,12 @@ export type {
   IMemoryRecaller,
   IMemoryCurationQueue,
   IMemoryBudget,
+  IPerTurnRecallConfig,
   ISemanticMemoryAdapter,
   ISemanticMemoryQueryResult,
 } from './memory/types.js';
+// SELFHOST-008 P6: the surface-owned automatic-capture policy shape (consumed by agent-cli/transport wiring).
+export type { IAutomaticMemoryConfig, TMemoryPolicyMode } from './memory/automatic-memory-types.js';
 // ── Edit checkpointing ─────────────────────────────────────
 export { EditCheckpointStore, wrapEditCheckpointTools } from './checkpoints/index.js';
 export type {

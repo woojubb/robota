@@ -57,6 +57,12 @@ import type { IStartCliOptions } from './startup/command-setup.js';
 import { buildCommandSetup } from './startup/command-setup.js';
 import { runPrintMode } from './modes/print-mode.js';
 import { runServeMode } from './modes/serve-mode.js';
+import {
+  buildMemorySessionOptions,
+  printMemoryEnableNoticeOnce,
+  readMemorySettings,
+  resolveMemoryEnablement,
+} from './startup/memory-enablement.js';
 
 export type { IStartCliOptions };
 
@@ -327,6 +333,18 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     }
   }
 
+  // SELFHOST-008 P6: resolve the one memory switch (default OFF, opt-in) once and thread the resolved
+  // fields into every construction site (print/serve/TUI). settings.json memory.enabled (SSOT) ←
+  // --memory/--no-memory ← ROBOTA_MEMORY=1|0 (env wins). Disabled ⇒ {} injects nothing (today's behavior).
+  const memoryEnablement = resolveMemoryEnablement({
+    settings: readMemorySettings(userSettings),
+    flagEnabled: args.memory,
+    flagAutoSave: args.memoryAutoSave,
+    env: process.env['ROBOTA_MEMORY'],
+  });
+  const memorySessionOptions = buildMemorySessionOptions(memoryEnablement, cwd);
+  if (memoryEnablement.enabled) printMemoryEnableNoticeOnce(cwd);
+
   // GOAL-001: --goal runs an autonomous headless goal even without an explicit -p.
   if (args.printMode || args.goal) {
     await runPrintMode(
@@ -353,6 +371,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
           ? { selfVerification: resolvedPreset.selfVerification }
           : {}),
       },
+      memorySessionOptions,
     );
     return;
   }
@@ -388,6 +407,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
           ? { selfVerification: resolvedPreset.selfVerification }
           : {}),
       },
+      memorySessionOptions,
     });
     return;
   }
@@ -437,6 +457,8 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     transportRegistry,
     enableRemoteControl: () => remoteControlController.enable(),
     stopRemoteControl: () => remoteControlController.stop(),
+    // SELFHOST-008 P6: surface-resolved memory fields (empty ⇒ memory OFF, today's behavior).
+    ...memorySessionOptions,
     cliAdapter: createDefaultTuiCliAdapter({ providerDefinitions, reloadPluginCommandSource }),
     reloadPluginCommandSource,
     agentName: resolvedPreset.agentName ?? DEFAULT_AGENT_NAME,

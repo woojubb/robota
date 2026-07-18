@@ -7,6 +7,7 @@ import type { createChildProcessSubagentRunnerFactory } from '@robota-sdk/agent-
 import type { IParsedCliArgs } from '../utils/cli-args.js';
 import { parseToolList } from '../utils/cli-args.js';
 import { buildAppendSystemPrompt } from '../startup/append-system-prompt.js';
+import type { IMemorySessionOptions } from '../startup/memory-enablement.js';
 
 export interface IPrintModeSessionResolution {
   /** Session id resolved by the CLI from -c/-r (undefined starts a new session). */
@@ -42,6 +43,7 @@ export async function runPrintMode(
   commandHostAdapters: ICommandHostAdapters,
   sessionResolution: IPrintModeSessionResolution = {},
   presetOptions: IPrintModePresetOptions = {},
+  memorySessionOptions: IMemorySessionOptions = {},
 ): Promise<void> {
   const goalObjective = args.goal?.trim();
   let prompt = args.positional.join(' ').trim();
@@ -91,6 +93,8 @@ export async function runPrintMode(
     subagentRunnerFactory,
     commandModules,
     commandHostAdapters,
+    // SELFHOST-008 P6: surface-resolved memory fields (empty ⇒ memory OFF, today's behavior).
+    ...memorySessionOptions,
   });
 
   if (goalObjective) {
