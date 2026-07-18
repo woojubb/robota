@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: verifying
 type: DATA
 tags: [memory, recall, session-lifecycle, agent-framework, selfhost-008]
 ---
@@ -397,3 +397,39 @@ aligned. Awaiting owner sign-off to complete GATE-APPROVAL.
 - Tasks map to Completion Criteria: task-file slices S1–S6 cover all seven TCs — S1 → TC-03 (agent-core ephemeral seam), S2 (agent-session pass-through) + S3 (recall render label) supporting, S4 → TC-01/TC-04/TC-05/TC-06 (controller wiring + gating + guarded + budget), S5 → TC-02 (ephemeral end-to-end), S6 → TC-07 (neutrality + docs). TC-01..TC-07 all covered.
 - Test Plan present in task file: `## Test Plan` section (task file lines 37–48) present, >50 chars — agent-core unit (TC-03), agent-framework unit/functional TC-01/02/04/05/06, neutrality TC-07, plus regression commands. Satisfies the `test-plans` harness scan floor [AF-24].
 - No implementation commits for P3 source: recent history is `docs(spec)`/`docs(memory)` only (latest `d38f38f2f docs(spec): SELFHOST-008 P3 GATE-APPROVAL pass (approved) + task breakdown`); no `feat`/`fix` P3 source commits; working tree touches only unrelated lessons files. In order.
+
+### [GATE-VERIFY] — ✅ PASS | 2026-07-18
+
+**Status upgrade:** in-progress → verifying
+
+- Prior-gate precondition: `### [GATE-IMPLEMENT] — ✅ PASS | 2026-07-18` entry present in this Evidence Log; frontmatter `status: in-progress` and file in `spec-docs/active/` — matches the expected input stage (`in-progress`) for GATE-VERIFY. In order.
+- Tasks completion / none blocked or pending: `.agents/tasks/SELFHOST-008-P3.md` slices S1–S6 all landed as committed source (git log: `0531710c1` S1 agent-core seam, `a48c1eec5` S2 agent-session pass-through, `2d355b84b` S3–S5 agent-framework wiring, `9f5b76ea4` S6 docs, `246920aaf` completion criteria met). No slice is blocked or pending; the task file uses a slice narrative (not checkboxes) and every slice has a matching commit + passing test.
+- Build passes for all affected packages: `pnpm --filter @robota-sdk/agent-core --filter @robota-sdk/agent-session --filter @robota-sdk/agent-framework build` — all three "Build complete" / "Done", green.
+- Typecheck: same three filters `typecheck` — `tsc --noEmit` Done for all three, exit 0.
+- Tests pass: `npx vitest run packages/agent-core/src/services/__tests__/ephemeral-system-context.test.ts packages/agent-framework/src/interactive/__tests__/interactive-session-recall.test.ts` — 2 files, 8 tests passed (agent-core TC-03 seam 3 cases + agent-framework TC-01/02/04/05/06 5 cases).
+- Neutrality + scans: `node scripts/harness/scan-memory-neutrality.mjs` exit 0 ("memory-neutrality scan passed"); `pnpm harness:scan` — "all 56 scans passed" (incl. memory-neutrality TC-07 + dependency-direction), exit 0.
+- Completion Criteria: TC-01..TC-07 all checked `[x]` with test references in `## Completion Criteria` and `## Test Plan`.
+
+### [GATE-COMPLETE] — 🔴 NON-COMPLIANCE | 2026-07-18
+
+**Status remains:** in-progress
+**Violation:** Prior-gate precondition unmet. The `backlog-gate-guard` precondition (run FIRST for every
+status-transition gate) requires the spec frontmatter `status:` to match the expected input stage for
+GATE-COMPLETE, which is `verifying`. The frontmatter currently reads `status: in-progress`. The GATE-VERIFY
+PASS entry above records "Status upgrade: in-progress → verifying", but that upgrade was never applied to the
+frontmatter (git log confirms no commit advanced it — the latest spec commit is `246920aaf docs(spec):
+SELFHOST-008 P3 completion criteria met`). GATE-COMPLETE is therefore being run against a spec whose status
+field is out of sync with its Evidence Log, i.e. out of order. Per the skill I do not upgrade status; the
+gate's own criteria are not evaluated as a PASS while the precondition fails.
+
+**Substantive verifications (already re-run, all green — recorded so the post-fix re-run is trivial):**
+
+- TC-01 / TC-02 / TC-04 / TC-05 / TC-06 — `npx vitest run packages/agent-framework/src/interactive/__tests__/interactive-session-recall.test.ts` → 5 passed, exit 0. Named cases map 1:1: "TC-01: with a recallMemory policy, a turn recalls (query=input) and the block reaches the model"; "TC-02: the recalled block is EPHEMERAL — absent from the persisted session record"; "TC-04: adapter-gating — no recallMemory policy ⇒ no recall call, no block"; "TC-05: guarded — a recall that THROWS does not fail the turn (no block, turn completes)"; "TC-06: recall is called with the surface-supplied budget".
+- TC-03 — `npx vitest run packages/agent-core/src/services/__tests__/ephemeral-system-context.test.ts` → 3 passed, exit 0 ("reaches the provider request as a system message but is NOT persisted to the conversation store"; "is a no-op when ephemeralSystemContext is absent (no extra system message)"; "does not persist the block even across a second turn (ephemeral per-run only)").
+- TC-07 — `node scripts/harness/scan-memory-neutrality.mjs` → "memory-neutrality scan passed", exit 0; `node scripts/harness/check-dependency-direction.mjs` → "✅ No dependency direction violations found.", exit 0.
+- `## Completion Criteria` TC-01..TC-07 all `[x]`; `## Test Plan` all 7 rows carry a test reference. Tasks file `.agents/tasks/SELFHOST-008-P3.md` present, not yet archived (GATE-COMPLETE's action on PASS).
+
+**Required action:** Apply the GATE-VERIFY status upgrade that was recorded but never persisted — advance the
+frontmatter `status: in-progress` → `status: verifying` (the file already lives in `spec-docs/active/`, which
+holds both stages, so no move is needed) — then re-run GATE-COMPLETE. All TC substance is green, so the
+re-run is expected to pass immediately.
