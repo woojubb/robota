@@ -1,6 +1,6 @@
 # SELFHOST-008 P1R — memory-port remediation (async + command-wiring + role segregation)
 
-Spec: [`.agents/spec-docs/todo/SELFHOST-008-P1R-memory-port-remediation.md`](../spec-docs/todo/SELFHOST-008-P1R-memory-port-remediation.md)
+Spec: [`.agents/spec-docs/done/SELFHOST-008-P1R-memory-port-remediation.md`](../../spec-docs/done/SELFHOST-008-P1R-memory-port-remediation.md)
 GATE-WRITE: PASS. GATE-APPROVAL: PASS (proposal-reviewer ENDORSE; owner sign-off "포트 재정비 슬라이스 먼저 (P1.5)").
 GATE-IMPLEMENT: PASS. Implementation: DONE (agent-framework 1176, agent-command 237, workspace typecheck clean, harness:scan 55/55). Driven by the owner-requested architecture audit (2 HIGH + MED/LOW).
 

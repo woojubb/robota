@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: DATA
 tags: [memory, dip-port, async, remediation, selfhost]
 ---
@@ -182,39 +182,39 @@ P1 spec doc-drifts. P2 then builds the live capture path on the corrected async 
 
 ## Completion Criteria
 
-- [ ] TC-01: `IMemoryStore` (and its 4 role sub-interfaces) is **async** — every read/recall/write/curate method returns
+- [x] TC-01: `IMemoryStore` (and its 4 role sub-interfaces) is **async** — every read/recall/write/curate method returns
       `Promise`; the fs reference adapter satisfies it with zero behavior change (the P1 round-trip/budget/curate tests
       pass unchanged after `await`) (unit test).
-- [ ] TC-02: `ISemanticMemoryAdapter` (async) is now **structurally injectable behind the port** — a fake async
+- [x] TC-02: `ISemanticMemoryAdapter` (async) is now **structurally injectable behind the port** — a fake async
       `IMemoryStore` backed by a fake `ISemanticMemoryAdapter` satisfies every consumer with no `agent-framework` change
       (fake-adapter unit test) — the ghost-seam is closed.
-- [ ] TC-03: the **`/memory` command path routes through the injected `IMemoryStore`** — with an injected fake store,
+- [x] TC-03: the **`/memory` command path routes through the injected `IMemoryStore`** — with an injected fake store,
       `/memory add` / `list` / `approve` / `reject` read+write THAT store (not a fresh fs store); with none injected the
       fs reference adapter is the default (memory works unchanged) (functional test — closes the split-brain).
-- [ ] TC-04: **role segregation** — `IMemoryStore` is composed of `IDurableMemoryReader` + `IMemoryWriter` +
+- [x] TC-04: **role segregation** — `IMemoryStore` is composed of `IDurableMemoryReader` + `IMemoryWriter` +
       `IMemoryRecaller` + `IMemoryCurationQueue`; the command path consumes the segregated interfaces (no duplicate
       `ICommandProjectMemoryStore`/`ICommandPendingMemoryStore` contract); a reader-only consumer depends on no
       curate/write methods (type-level + unit test).
-- [ ] TC-05: **recall seam cleaned** — `MemoryRetrievalService.retrieve(query, budget: IMemoryBudget)` (no fabricated
+- [x] TC-05: **recall seam cleaned** — `MemoryRetrievalService.retrieve(query, budget: IMemoryBudget)` (no fabricated
       config); `FileSystemMemoryStore` constructs ONE `ProjectMemoryStore` honoring the injected clock (unit test —
       injected `now` reaches the recall read path).
-- [ ] TC-06: **doc drift reconciled + build/tests green** — the `done/` P1 spec names the interactive-options seam (not
+- [x] TC-06: **doc drift reconciled + build/tests green** — the `done/` P1 spec names the interactive-options seam (not
       `ICreateSessionOptions`) and narrows the injectability claim; `pnpm --filter @robota-sdk/agent-framework typecheck` + agent-framework + agent-command test suites + `pnpm harness:scan` are all green.
 
 ## Test Plan
 
-| TC    | Verification                                                   | Type/Tool                         |
-| ----- | -------------------------------------------------------------- | --------------------------------- |
-| TC-01 | async port; fs adapter zero-behavior-change (P1 tests pass)    | vitest unit                       |
-| TC-02 | async semantic adapter injectable behind the port              | fake-adapter unit test            |
-| TC-03 | `/memory` command routes through the injected store            | functional (command + fake store) |
-| TC-04 | role segregation; command reuses the slices; reader-only dep   | type-level + vitest unit          |
-| TC-05 | recall takes `IMemoryBudget`; single store honors injected now | vitest unit                       |
-| TC-06 | doc drift reconciled; typecheck + tests + harness:scan green   | doc review + suite/regression     |
+| TC    | Verification                                                   | Type/Tool                         | Test reference                                                                               |
+| ----- | -------------------------------------------------------------- | --------------------------------- | -------------------------------------------------------------------------------------------- |
+| TC-01 | async port; fs adapter zero-behavior-change (P1 tests pass)    | vitest unit                       | `memory/__tests__/file-system-memory-store.test.ts` (TC-01/TC-02 async round-trip + budget)  |
+| TC-02 | async semantic adapter injectable behind the port              | fake-adapter unit test            | same file › "semantic seam functions" (fake `ISemanticMemoryAdapter`-backed store)           |
+| TC-03 | `/memory` command routes through the injected store            | functional (command + fake store) | `agent-command/.../memory-command-module.test.ts` (12) + `command-api.test.ts` memory API    |
+| TC-04 | role segregation; command reuses the slices; reader-only dep   | type-level + vitest unit          | workspace typecheck (segregated composition) + the fake-store slice tests                    |
+| TC-05 | recall takes `IMemoryBudget`; single store honors injected now | vitest unit                       | `file-system-memory-store.test.ts` › "recall seam cleaned: injected clock reaches recall"    |
+| TC-06 | doc drift reconciled; typecheck + tests + harness:scan green   | doc review + suite/regression     | `done/` P1 spec + `docs/SPEC.md` diffs; `pnpm harness:scan` 55/55; workspace typecheck clean |
 
 ## Tasks
 
-[`.agents/tasks/SELFHOST-008-P1R.md`](../../tasks/SELFHOST-008-P1R.md) — created at GATE-IMPLEMENT; TC-01..06 slices
+[`.agents/tasks/completed/SELFHOST-008-P1R.md`](../../tasks/completed/SELFHOST-008-P1R.md) — created at GATE-IMPLEMENT; TC-01..06 slices
 
 - the 2 GATE-APPROVAL implementation cautions + a 4-commit increment plan + Test Plan.
 
@@ -259,3 +259,78 @@ P1 spec doc-drifts. P2 then builds the live capture path on the corrected async 
 - Tasks map to Completion Criteria: task file has one slice per TC-N (TC-01..TC-06), each mirroring the spec's Completion Criteria; plus a 4-commit increment plan and the 2 GATE-APPROVAL implementation cautions. PASS.
 - Test Plan present in task file: `## Test Plan` section (≥50 chars) enumerating vitest-unit / functional / regression coverage mapped to TC-01..06 — satisfies the `test-plans` harness scan [AF-24]. PASS.
 - No implementation commits: `git log` shows the latest memory work is P1 (#1218, merged); no P1R remediation commits exist — spec + task files are untracked. No NON-COMPLIANCE trigger.
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-07-18
+
+**Status upgrade:** approved → in-progress. Task `.agents/tasks/SELFHOST-008-P1R.md` created (TC-01..06 + 2 cautions +
+increment plan + Test Plan); path in `## Tasks`; no pre-gate implementation. (Recorded by backlog-gate-guard.)
+
+### [GATE-VERIFY] — ✅ PASS | 2026-07-18
+
+**Status upgrade:** in-progress → verifying
+
+- Prior-gate precondition: `### [GATE-IMPLEMENT] — ✅ PASS | 2026-07-18` present in this Evidence Log; frontmatter
+  `status: in-progress`. Expected input stage matches. PASS.
+- All task slices complete: `.agents/tasks/SELFHOST-008-P1R.md` shows TC-01..TC-06 all `[x]` (6/6); none blocked or
+  pending. PASS.
+- Build/tests green for affected packages (evidence spot-checked, full suites not re-run): agent-framework
+  1176/1176 passing; agent-command 237/237 passing; `pnpm typecheck` (workspace) clean; `pnpm harness:scan` 55/55.
+  Spot-check confirmed the backing test files exist (`memory/__tests__/file-system-memory-store.test.ts` with the
+  "semantic seam functions" + "recall seam cleaned" cases; `agent-command/src/memory/__tests__/memory-command-module.test.ts`),
+  the 4 segregated role interfaces + composing `IMemoryStore` are present in `memory/types.ts`, and the injected-port
+  command wiring (`ICommandHostContext.getMemoryStore()` + fs default) is in place. PASS.
+- (Recorded by backlog-gate-guard.)
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-07-18
+
+- Async port + zero-behavior-change adapter: `IMemoryStore` + the 4 role sub-interfaces are `Promise`-returning
+  (`memory/types.ts`); `FileSystemMemoryStore` wraps the unchanged sync stores in resolved Promises. The P1
+  round-trip/budget/curate tests pass unchanged after `await`.
+- Test: `memory/__tests__/file-system-memory-store.test.ts` › TC-01 durable round-trip + TC-02 budgeted recall (async).
+  `npx vitest run packages/agent-framework/src/memory` → all pass.
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-07-18
+
+- Semantic seam functions: a fake async `IMemoryStore` backed by a fake async `ISemanticMemoryAdapter` satisfies the
+  port with no `agent-framework` change (ghost-seam closed).
+- Test: `file-system-memory-store.test.ts` › "async adapter swap needs no library change; semantic seam functions".
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-07-18
+
+- `/memory` routes through the injected port: `ICommandHostContext.getMemoryStore()` (new) returns the session's
+  injected store or a lazily-cached fs default (ONE shared instance); `InteractiveSession.getMemoryStore()` implements
+  it; `createCommandMemoryStores` returns that store; `executeMemoryCommand` (now async) reads/writes it — split-brain
+  closed.
+- Test: `agent-command/src/memory/__tests__/memory-command-module.test.ts` (12 pass — `/memory pending|approve|reject|
+add` through the session's store) + `command-api.test.ts` memory API.
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-07-18
+
+- Role segregation: `IMemoryStore extends IDurableMemoryReader, IMemoryWriter, IMemoryRecaller, IMemoryCurationQueue`;
+  the command path consumes those (the duplicate `ICommandProjectMemoryStore`/`ICommandPendingMemoryStore` were
+  removed); `context-loader` depends only on the reader (`loadStartupMemory`).
+- Test: typecheck (the segregated composition compiles + all consumers) + the async fake-store tests exercising slices.
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-07-18
+
+- Recall seam cleaned: `MemoryRetrievalService.retrieve(query, budget: IMemoryBudget)` (no fabricated config);
+  `FileSystemMemoryStore` holds ONE `ProjectMemoryStore` injected into the retrieval service, honoring the injected clock.
+- Test: `file-system-memory-store.test.ts` › "recall seam cleaned: injected clock reaches the recall read path"
+  (recalled entry is stamped with the injected 2026-07-18 clock).
+
+### [GATE-COMPLETE: TC-06] — ✅ PASS | 2026-07-18
+
+- Doc drift reconciled: the `done/` P1 spec now names the interactive-options seam (not `ICreateSessionOptions`) and
+  narrows the "thresholds surface-injectable" claim (heuristics + policy-mode/budget injectable; threshold/evaluator
+  deferred). `docs/SPEC.md` carries the async + segregated rows.
+- Green: `pnpm --filter @robota-sdk/agent-framework typecheck` clean; agent-framework 1176/1176; agent-command 237/237;
+  `pnpm typecheck` (workspace) clean; `pnpm harness:scan` 55/55.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-07-18
+
+**Status upgrade:** verifying → done. All six Completion Criteria `[x]` with matching `[GATE-COMPLETE: TC-N]` evidence;
+every Test Plan row has a test reference. Both HIGH audit findings closed (async port + full command wiring), MED/LOW
+folded (segregation, recall seam, injected-clock). The two GATE-APPROVAL cautions applied: ONE shared store instance
+(`InteractiveSession.getMemoryStore()` lazy-cached) + unified `*Pending` curation-queue naming. Spec → `spec-docs/done/`;
+task → `.agents/tasks/completed/SELFHOST-008-P1R.md`. **P2 (in `backlog/`) is now UNBLOCKED** — it builds the live
+capture path on the corrected async port (awaiting capture before the turn's `persistSession()`).
