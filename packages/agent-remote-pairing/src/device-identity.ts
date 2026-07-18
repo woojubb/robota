@@ -129,6 +129,7 @@ export async function verifyChallenge(
       transcriptBytes(challenge),
     );
   } catch {
+    // allow-fallback: a signature verification that throws is a failed verification (false)
     return false;
   }
 }

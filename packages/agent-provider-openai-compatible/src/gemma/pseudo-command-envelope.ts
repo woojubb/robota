@@ -48,6 +48,7 @@ function parseJsonValue(text: string): TGemmaJsonValue | undefined {
   try {
     return JSON.parse(text) as TGemmaJsonValue;
   } catch {
+    // allow-fallback: non-JSON gemma text is simply not a pseudo-command envelope
     return undefined;
   }
 }

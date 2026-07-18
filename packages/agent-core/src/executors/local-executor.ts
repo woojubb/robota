@@ -211,6 +211,7 @@ export class LocalExecutor extends AbstractExecutor {
 
       return true;
     } catch {
+      // allow-fallback: a provider validateConfig that throws means the config is unusable → not runnable
       return false;
     }
   }

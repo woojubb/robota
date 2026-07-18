@@ -26,6 +26,7 @@ function tryReadJson(filePath: string): IPackageJson | undefined {
   try {
     return JSON.parse(readFileSync(filePath, 'utf-8')) as IPackageJson;
   } catch {
+    // allow-fallback: an absent/unreadable package.json means the project detail is simply unknown
     return undefined;
   }
 }

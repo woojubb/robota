@@ -72,6 +72,17 @@ tags: [<tag>, <tag>]
 - [ ] 대안 최소 2개 검토 완료
 - [ ] 결정 근거 문서화 완료
 
+## Fallback & Degradation Declaration
+
+<!-- HARNESS-028. Default "None". Declare EVERY intentional fallback / graceful-degradation / silent
+     catch→default this change introduces, and justify each (why it is sanctioned, not a hidden
+     alternative path). The No Fallback Policy (operational.md) forbids silent fallbacks; a DECLARED +
+     justified one is reviewed at GATE-APPROVAL by proposal-reviewer. The mechanical floor
+     (scan-no-fallback.mjs) also requires each sanctioned site to carry `// allow-fallback: <reason>`
+     in code. If this change adds none, write exactly "None". -->
+
+None
+
 ## Solution
 
 ## Affected Files
@@ -221,6 +232,18 @@ All 4 items must be `[x]` before GATE-WRITE can pass:
 - Sibling scan done: `- [x] Sibling scan 완료 — agent-cli {chat,print,init} 전부 확인`
 
 Never leave `[ ]`. Unchecked = work not done.
+
+---
+
+### `## Fallback & Degradation Declaration`
+
+HARNESS-028. Default **`None`**. Declare every INTENTIONAL fallback / graceful-degradation / silent
+`catch → default` this change introduces, and justify each — why it is a sanctioned single-path decision,
+not a hidden alternative that violates the No Fallback Policy ([operational.md](../../rules/operational.md)).
+`proposal-reviewer` reviews this section at GATE-APPROVAL. The mechanical floor
+(`scripts/harness/scan-no-fallback.mjs`) independently requires each sanctioned code site to carry an
+`// allow-fallback: <reason>` annotation. If the change introduces no fallback, write exactly `None` — do
+not omit the section.
 
 ---
 
