@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: BEHAVIOR
 tags: [hooks, lifecycle, security-gate, agent-core, selfhost]
 ---
@@ -355,3 +355,14 @@ Added **TC-07 (AGENT-RUN)** to Completion Criteria + Test Plan per the 2026-07-1
 agent-run-verification rule (owner directive) — the `PreToolUse` security gate is user-facing, so the done-gate now
 requires demonstrating it via a real `robota` run, not only a unit test. This is an additive, rule-driven verification
 (no design change); the prior GATE-APPROVAL ENDORSE + owner sign-off stand. Proceeding to GATE-IMPLEMENT.
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-07-19
+
+**Status upgrade:** approved → in-progress
+
+- **Prior-gate precondition:** GATE-APPROVAL PASS on record (Evidence Log 2026-07-17 iteration 2 "ENDORSE … GATE-APPROVAL PASSED") + `[PRE-IMPLEMENT REFRESH] 2026-07-19` (grounding re-verified, TC-07 agent-run added); frontmatter `status: approved` and file in `todo/` match the expected GATE-IMPLEMENT input stage. ✅
+- **Tasks file created:** `.agents/tasks/SELFHOST-009.md` exists on disk (3492 bytes). ✅
+- **Path recorded in spec `## Tasks`:** the section links `.agents/tasks/SELFHOST-009.md` and describes slices S1–S6 mapped to TC-01..07. ✅
+- **Tasks map to Completion Criteria:** S1→TC-03 types; S2→TC-03/TC-04; S3→catalog SSOT + guide; S4→TC-01; S5→TC-02/TC-05/TC-06; S6→TC-07 — every TC-01..TC-07 is covered by ≥1 slice. ✅
+- **Test Plan present (≥50 chars):** task file carries a `## Test Plan` section enumerating TC-01..TC-07 (unit/functional + AGENT-RUN + regression), well over 50 chars. ✅
+- **No implementation commits yet:** `THookEvent` union has no `PreModelCall`/`PostModelCall`/`PermissionDecision` members; `scripts/harness/scan-hook-catalog.mjs` and `packages/agent-core/docs/hook-catalog.md` do not exist. ✅
