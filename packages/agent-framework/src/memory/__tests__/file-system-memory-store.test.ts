@@ -165,6 +165,45 @@ describe('SELFHOST-008 TC-05 — adapter swap needs no library change', () => {
   });
 });
 
+describe('SELFHOST-008 TC-03 (capture half) — AutomaticMemoryController routes through the injected port', () => {
+  it('an injected IMemoryStore receives the capture write, with no ProjectMemoryStore of its own', async () => {
+    const { AutomaticMemoryController } = await import('../automatic-memory-controller.js');
+    const appended: string[] = [];
+    const pending: string[] = [];
+    const base = createFileSystemMemoryStore(makeWorkspace());
+    const spy: IMemoryStore = {
+      ...base,
+      append: (input) => {
+        appended.push(input.text);
+        return base.append(input);
+      },
+      upsertPending: (candidate, status, reason) => {
+        pending.push(`${candidate.id}:${status}`);
+        base.upsertPending(candidate, status, reason);
+      },
+    };
+
+    const controller = new AutomaticMemoryController({
+      cwd: makeWorkspace(),
+      config: { policy: 'auto_save', retrieval: { maxTopics: 3, maxTopicChars: 3000 } },
+      memoryStore: spy,
+      // deterministic high-confidence candidate so the decision is 'save'
+      extractor: { extract: () => [candidate({ confidence: 0.99, text: 'stored via port' })] },
+    });
+
+    const result = controller.capture({
+      sessionId: 's1',
+      turnId: 't1',
+      userMessage: 'u',
+      assistantMessage: 'a',
+    });
+
+    expect(result.saved).toContain('cand-1');
+    expect(appended).toContain('stored via port'); // write went through the injected port
+    expect(pending).toContain('cand-1:saved');
+  });
+});
+
 describe('SELFHOST-008 — FileSystemMemoryStore is the neutral reference adapter', () => {
   it('is an IMemoryStore and composes the existing fs mechanisms without new behavior', () => {
     const store = new FileSystemMemoryStore(makeWorkspace());

@@ -207,23 +207,23 @@ in a surface (may revise the port) + extraction to `agent-interface-memory` iff 
 
 ## Completion Criteria
 
-- [ ] TC-01: the memory port **round-trips durably across sessions** — a fact written via `IMemoryStore` in one session is recalled in a fresh session over the same workspace (functional test).
-- [ ] TC-02: recall returns ranked references and **never exceeds the given token/char budget** (unit test).
-- [ ] TC-03: the memory adapter is threaded through the assembly (like `sandboxClient` via `ICreateSessionOptions.memoryStore`) and both startup-memory injection and post-turn capture use the port; with **no adapter injected the neutral fs reference adapter is the default** (memory works unchanged), while the surface supplies the curation policy + content (unit test on the assembly wiring + adapter-gating).
-- [ ] TC-04: the **curate** path queues/saves candidates per the injected policy and **refuses sensitive content** via the safety filter (unit test).
-- [ ] TC-05: **swapping the store adapter** (a fake `ISemanticMemoryAdapter` / fake `IMemoryStore`) needs **no `agent-framework` change** (design + fake-adapter unit test) — capability-preservation for the deferred semantic backend.
-- [ ] TC-06 (**NEUTRALITY GUARD**): **no memory CONTENT and no app-voice curation prompt/seeded corpus in `packages/`** — a targeted grep/review confirms memory content lives only under the consumer workspace (`<cwd>/.robota/memory/`) and any capture-prompt/policy content lives in `agent-cli`/`apps/agent-app`, not the library. This is a **MANUAL floor today**: no existing `pnpm harness:scan` rule fences the runtime memory subsystem's neutrality — `scan-memory-mirror.mjs` governs the **different** `.agents/memory` harness mirror, and `deps`/`interface-imports`/`interface-runtime` do not check content. Per [enforcement-architecture.md](../../rules/enforcement-architecture.md) (every guardian needs a mechanical floor), a follow-up is filed for a mechanical `packages/` memory-neutrality scan; neutrality does not rest on the manual grep alone.
+- [x] TC-01: the memory port **round-trips durably across sessions** — a fact written via `IMemoryStore` in one session is recalled in a fresh session over the same workspace (functional test).
+- [x] TC-02: recall returns ranked references and **never exceeds the given token/char budget** (unit test).
+- [x] TC-03: the memory adapter is threaded through the assembly (like `sandboxClient` via `ICreateSessionOptions.memoryStore`) and both startup-memory injection and post-turn capture use the port; with **no adapter injected the neutral fs reference adapter is the default** (memory works unchanged), while the surface supplies the curation policy + content (unit test on the assembly wiring + adapter-gating).
+- [x] TC-04: the **curate** path queues/saves candidates per the injected policy and **refuses sensitive content** via the safety filter (unit test).
+- [x] TC-05: **swapping the store adapter** (a fake `ISemanticMemoryAdapter` / fake `IMemoryStore`) needs **no `agent-framework` change** (design + fake-adapter unit test) — capability-preservation for the deferred semantic backend.
+- [x] TC-06 (**NEUTRALITY GUARD**): **no memory CONTENT and no app-voice curation prompt/seeded corpus in `packages/`** — a targeted grep/review confirms memory content lives only under the consumer workspace (`<cwd>/.robota/memory/`) and any capture-prompt/policy content lives in `agent-cli`/`apps/agent-app`, not the library. This is a **MANUAL floor today**: no existing `pnpm harness:scan` rule fences the runtime memory subsystem's neutrality — `scan-memory-mirror.mjs` governs the **different** `.agents/memory` harness mirror, and `deps`/`interface-imports`/`interface-runtime` do not check content. Per [enforcement-architecture.md](../../rules/enforcement-architecture.md) (every guardian needs a mechanical floor), a follow-up is filed for a mechanical `packages/` memory-neutrality scan; neutrality does not rest on the manual grep alone.
 
 ## Test Plan
 
-| TC    | Verification                                   | Type/Tool                                       |
-| ----- | ---------------------------------------------- | ----------------------------------------------- |
-| TC-01 | cross-session write→recall round-trip          | functional test                                 |
-| TC-02 | budget respected + ranked references           | vitest unit                                     |
-| TC-03 | adapter threaded via assembly + adapter-gating | vitest unit (assembly wiring)                   |
-| TC-04 | curate queue/save + sensitive-content refusal  | vitest unit                                     |
-| TC-05 | adapter swap needs no library change           | fake-adapter unit test                          |
-| TC-06 | no memory content/policy in `packages/`        | manual grep/review + follow-up mechanical floor |
+| TC    | Verification                                   | Type/Tool                                       | Test reference                                                                                       |
+| ----- | ---------------------------------------------- | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| TC-01 | cross-session write→recall round-trip          | functional test                                 | `memory/__tests__/file-system-memory-store.test.ts` › "TC-01 — durable round-trip across sessions"   |
+| TC-02 | budget respected + ranked references           | vitest unit                                     | same file › "TC-02 — budgeted recall (ranked, never over budget)"                                    |
+| TC-03 | adapter threaded via assembly + adapter-gating | vitest unit (assembly wiring)                   | `context/__tests__/context-loader-memory.test.ts` (startup) + file-store test "TC-03 (capture half)" |
+| TC-04 | curate queue/save + sensitive-content refusal  | vitest unit                                     | file-store test › "TC-04 — curate queue + sensitive-content refusal"                                 |
+| TC-05 | adapter swap needs no library change           | fake-adapter unit test                          | file-store test › "TC-05 — adapter swap needs no library change" (incl. `ISemanticMemoryAdapter`)    |
+| TC-06 | no memory content/policy in `packages/`        | manual grep/review + follow-up mechanical floor | grep (Evidence Log) + `.agents/backlog/HARNESS-029-memory-neutrality-scan.md`                        |
 
 ## Tasks
 
@@ -270,3 +270,56 @@ Path recorded in `## Tasks`: spec `## Tasks` links `.agents/tasks/SELFHOST-008-P
 Tasks correspond to Completion Criteria: task file `## Slices` maps TC-01..TC-06, one slice per TC-N, matching the spec's 6 Completion Criteria (EPIC P1 slice covering TC-01..TC-06 as expected).
 Test Plan present: task file `## Test Plan` section (functional round-trip + vitest units for TC-02..TC-05 + manual grep/review for TC-06), well over 50 chars.
 No implementation commits yet: `packages/agent-framework/src/memory/types.ts` and `file-system-memory-store.ts` do not exist; no uncommitted changes under `packages/agent-framework/src/memory/`; branch carries only spec/task docs for this item.
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-07-18
+
+**Status upgrade:** approved → in-progress. Task file `.agents/tasks/SELFHOST-008-P1.md` created (TC-01..06 slices +
+Test Plan), path recorded in `## Tasks`, no implementation before the gate. (Recorded by backlog-gate-guard.)
+
+### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-07-18
+
+- Verification: `npx vitest run packages/agent-framework/src/memory/__tests__/file-system-memory-store.test.ts` → 9 passed (exit 0).
+- Test: "SELFHOST-008 TC-01 — durable round-trip across sessions" — a fact written via `createFileSystemMemoryStore(cwd).append` in one store instance is recalled by a FRESH store over the same workspace (`recall` + `loadStartupMemory`).
+
+### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-07-18
+
+- Verification: same vitest run (exit 0).
+- Test: "TC-02 — budgeted recall" — `recall` returns ≤ `maxTopics`, reports truncation when sources exceed `maxTopicChars`, and empty for a non-matching query.
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-07-18
+
+- Verification: `npx vitest run packages/agent-framework/src/context/__tests__/context-loader-memory.test.ts` (3 passed) + the file-store capture test (exit 0).
+- Startup-injection consumer: `loadContext(cwd, memoryStore?)` reads startup memory through the injected port; with none supplied the neutral `createFileSystemMemoryStore(cwd)` is the default (test: injected store used; default fs used; empty→undefined). Threaded through the interactive session options (`IInteractiveSessionStandardOptions` + `IInitOptions`) like `sandboxClient`.
+- Capture consumer: `AutomaticMemoryController` now reads/writes through an injected `IMemoryStore` (default fs adapter); test "TC-03 (capture half)" proves a capture `save` routes `append`/`upsertPending` through the injected port.
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-07-18
+
+- Verification: same vitest run (exit 0).
+- Test: "TC-04 — curate queue + sensitive-content refusal" — the port's curate queue (`upsertPending`/`listPending`/`markPending`/`getPending`) round-trips; the neutral default `MemoryPolicyEvaluator` returns `{ action: 'skip', reason: 'sensitive-content' }` for api-key/password text.
+
+### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-07-18
+
+- Verification: same vitest run (exit 0).
+- Test: "TC-05 — adapter swap needs no library change" — a hand-written fake `IMemoryStore` satisfies the port and is consumed by the library with no `agent-framework` edit; the deferred duck-typed `ISemanticMemoryAdapter` shape is satisfiable by a fake (design-only, P3 wiring).
+
+### [GATE-COMPLETE: TC-06] — ✅ PASS | 2026-07-18
+
+- Verification (manual grep): `grep -nE "\.robota/memory" src/memory/{types,file-system-memory-store}.ts` → only DOC-COMMENT mentions (paths derive from injected `cwd`, no hardcoded content); `find packages -path "*/src/*" \( -name MEMORY.md -o -path "*memory/topics/*" \)` → none; no app-voice capture-prompt string in the new port/adapter (neutral mechanism only).
+- Follow-up filed: `.agents/backlog/HARNESS-029-memory-neutrality-scan.md` — a mechanical `packages/*/src` memory-neutrality scan, scoped to GATE the P3/P4 slice that first injects curation prompt/content (per the ENDORSE note + enforcement-architecture.md).
+
+- 2026-07-18 — **Implementation note — threading seam corrected (honest deviation from Affected Files).** The spec's
+  Affected Files named `create-session-types.ts` (`ICreateSessionOptions.memoryStore`). Empirically the startup-memory
+  consumer is `loadContext` on the INTERACTIVE path — `createSession`/`ICreateSessionOptions` never reads memory, so a
+  `memoryStore` field there would be a dangling never-consumed option. `memoryStore` was therefore threaded through the
+  real consumer path (`IInteractiveSessionStandardOptions` + `IInitOptions` → `createInteractiveSession` → `loadContext`)
+  AND the post-turn `AutomaticMemoryController`, both adapter-gated (default = fs reference adapter). Faithful to the
+  spec's INTENT ("thread it like `sandboxClient`, adapter-gated") on the seams memory actually flows through.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-07-18
+
+**Status upgrade:** verifying → done (P1 slice). All six Completion Criteria `[x]` with matching `[GATE-COMPLETE: TC-N]`
+evidence; every Test Plan row carries a test reference. Implementation: neutral `IMemoryStore` port + `IMemoryBudget` +
+deferred `ISemanticMemoryAdapter` (`memory/types.ts`); `FileSystemMemoryStore` reference adapter composing the existing
+fs classes; startup-injection + post-turn capture routed through the port, adapter-gated; SPEC + exports updated. agent-framework
+1175/1175, harness:scan 54/54 (+ the expected task-archival flag cleared at archival), typecheck clean. Spec → `spec-docs/done/`;
+task → `.agents/tasks/completed/SELFHOST-008-P1.md`. Later slices P2/P3/P4 tracked in `## Tasks` (separate tasks when reached).
