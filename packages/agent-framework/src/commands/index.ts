@@ -230,6 +230,9 @@ export {
   listCommandEditCheckpoints,
   restoreCommandEditCheckpoint,
   rollbackCommandEditCheckpoint,
+  forkCommandEditCheckpoint,
+  switchCommandEditCheckpointBranch,
+  listCommandEditCheckpointBranches,
   REWIND_COMMAND_ARGUMENT_HINT,
   REWIND_COMMAND_DESCRIPTION,
 } from '../command-api/checkpoint/rewind-command-api.js';

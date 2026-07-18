@@ -173,6 +173,12 @@ export interface ICommandHostContext {
   inspectEditCheckpoint?(checkpointId: string): IEditCheckpointInspection;
   restoreEditCheckpoint(checkpointId: string): Promise<IEditCheckpointRestoreResult>;
   rollbackEditCheckpoint(checkpointId: string): Promise<IEditCheckpointRestoreResult>;
+  /** SELFHOST-007: list the checkpoint branch tips (leaf ids) via the neutral tree. Optional (older hosts). */
+  listCheckpointBranches?(): string[];
+  /** SELFHOST-007: fork a new branch from a past checkpoint (non-destructive restore). Optional. */
+  forkCheckpointBranch?(checkpointId: string): Promise<IEditCheckpointRestoreResult>;
+  /** SELFHOST-007: switch the active branch to an existing checkpoint/branch tip. Optional. */
+  switchCheckpointBranch?(checkpointId: string): void;
   getUsedMemoryReferences(): IMemoryReference[];
   recordMemoryEvent(event: IMemoryEvent): void;
   listBackgroundTasks(filter?: IBackgroundTaskListFilter): IBackgroundTaskState[];

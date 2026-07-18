@@ -99,9 +99,12 @@ describe('InteractiveSession edit checkpointing', () => {
     await session.restoreEditCheckpoint(firstCheckpoint!.id);
 
     expect(readFileSync(filePath, 'utf8')).toBe('first edit');
-    expect(session.listEditCheckpoints().map((checkpoint) => checkpoint.id)).toEqual([
+    // SELFHOST-007 TC-03: restore is non-destructive — later checkpoints are preserved (sibling
+    // branch), so the first checkpoint remains reachable and nothing is deleted.
+    expect(session.listEditCheckpoints().map((checkpoint) => checkpoint.id)).toContain(
       firstCheckpoint!.id,
-    ]);
+    );
+    expect(session.listEditCheckpoints().length).toBeGreaterThanOrEqual(2);
   });
 
   it('Given the model edits a file When rolling back the checkpoint Then the selected turn is reverted', async () => {
@@ -137,6 +140,8 @@ describe('InteractiveSession edit checkpointing', () => {
     await session.rollbackEditCheckpoint(firstCheckpoint!.id);
 
     expect(readFileSync(filePath, 'utf8')).toBe('initial');
-    expect(session.listEditCheckpoints()).toEqual([]);
+    // SELFHOST-007 TC-03: rollback reverts the files but no longer deletes the checkpoints — they
+    // remain on disk as a sibling branch (capability-preservation: the linear revert still works).
+    expect(session.listEditCheckpoints().length).toBeGreaterThanOrEqual(1);
   });
 });

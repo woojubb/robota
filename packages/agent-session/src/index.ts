@@ -48,3 +48,7 @@ export type {
 // Session persistence
 export { SessionStore } from './session-store.js';
 export type { ISessionRecord, ISessionStore } from './session-store.js';
+
+// SELFHOST-007: neutral checkpoint tree (branching time-travel) — pure, I/O-free.
+export { CheckpointTree } from './checkpoint-tree.js';
+export type { ICheckpointNode } from './checkpoint-tree.js';

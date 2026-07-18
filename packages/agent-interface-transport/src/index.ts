@@ -185,6 +185,8 @@ export type {
   IInteractiveSessionRecord,
   IInteractiveSessionStore,
   IResumableSessionSummary,
+  IBranchEvent,
+  IActiveBranchPointer,
   IGoalState,
   IGoalEvent,
   IGoalProgressEntry,
