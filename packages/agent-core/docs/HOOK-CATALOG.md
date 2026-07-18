@@ -45,9 +45,12 @@ outcome.
 | `PostModelCall`      | After the provider response is normalized (per round) | `agent-session/src/session-run.ts : fireModelCallHook`                              | `model`, `provider`, `round`                             | Informational       |
 | `PermissionDecision` | Right after `evaluatePermission` decides a tool call  | `agent-session/src/permission-enforcer.ts : firePermissionDecisionHook`             | `tool_name`, `tool_input`, `permission_decision`         | Informational       |
 
-\* `UserPromptSubmit` is not a tool gate, but its hook stdout is injected into the model context (a
-`{ decision: "block" }` / `continue: false` response can still halt the prompt — see
-`hook-runner.ts`). It is not a tool-execution gate.
+\* `UserPromptSubmit` is **informational-only at the turn owner**: its hook stdout is injected into the model
+context as a `<system-reminder>` (`session-run.ts : executeRun` reads only `hookResult.stdout`). The turn owner
+does **not** consult its `IRunHooksResult.blocked` — so a `{ decision: "block" }` / `continue: false` response
+does **not** halt the prompt today. The ONLY event whose `blocked` result gates execution is `PreToolUse`
+(`tool-hook-helpers.ts : runPreToolHook`). (If halting the prompt from `UserPromptSubmit` is ever wanted, the turn
+owner must be wired to consult `blocked` there — that is not the case now.)
 
 ## Fire-site dispatch note (for the drift-guard scan)
 
