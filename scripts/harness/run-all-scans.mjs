@@ -38,6 +38,7 @@ const SCAN_COMMANDS = [
     name: 'orchestration-neutrality',
     command: ['node', 'scripts/harness/scan-orchestration-neutrality.mjs'],
   },
+  { name: 'hook-catalog', command: ['node', 'scripts/harness/scan-hook-catalog.mjs'] },
   { name: 'review-findings', command: ['node', 'scripts/harness/scan-review-findings.mjs'] },
   { name: 'document-authority', command: ['node', 'scripts/harness/check-document-authority.mjs'] },
   { name: 'commands', command: ['node', 'scripts/harness/check-command-layering.mjs'] },
