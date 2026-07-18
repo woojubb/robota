@@ -54,6 +54,15 @@ export interface IMemoryBudget {
 }
 
 /**
+ * SELFHOST-008 P3: surface-supplied per-turn recall policy. Its PRESENCE enables per-turn recall
+ * (adapter-gated — absent ⇒ OFF, startup-only injection); `budget` caps each turn's recalled slice
+ * (topK / char). The enable decision + budget are surface-owned; the library ships only the neutral wiring.
+ */
+export interface IPerTurnRecallConfig {
+  budget: IMemoryBudget;
+}
+
+/**
  * Segregated role interfaces (ISP). The durable-memory capability is four distinct client roles —
  * a reader (startup injection needs only this), a writer, a recaller, and a curation queue. `IMemoryStore`
  * composes all four; a consumer depends only on the slice it uses. Every method is **async**

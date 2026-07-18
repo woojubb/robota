@@ -21,7 +21,7 @@ import type {
 } from '../commands/index.js';
 import type { IResolvedConfig } from '../config/config-types.js';
 import type { IAutomaticMemoryConfig } from '../memory/automatic-memory-types.js';
-import type { IMemoryStore } from '../memory/types.js';
+import type { IMemoryStore, IPerTurnRecallConfig } from '../memory/types.js';
 import type { IReversibleExecutionOptions } from '../reversible-execution/index.js';
 import type { TSubagentRunnerFactory } from '../subagents/index.js';
 import type { TShellExecFn } from '../utils/skill-prompt.js';
@@ -116,6 +116,12 @@ export interface IInteractiveSessionStandardOptions {
    * gated by this policy (default reference policy = approval_required = queue). Absent ⇒ capture OFF.
    */
   automaticMemory?: IAutomaticMemoryConfig;
+  /**
+   * SELFHOST-008 P3: optional per-turn durable-memory recall policy. When present, each turn recalls
+   * query-relevant memory (query = the turn input) and injects it EPHEMERALLY into that turn's model call
+   * (never persisted). Absent ⇒ recall OFF (startup-only injection, unchanged). The budget is surface-owned.
+   */
+  recallMemory?: IPerTurnRecallConfig;
   /** Fresh-session workspace manifest applied through the sandbox client. */
   workspaceManifest?: IWorkspaceManifest;
   /** Sandbox target root for workspace manifest entries. Defaults to /workspace. */

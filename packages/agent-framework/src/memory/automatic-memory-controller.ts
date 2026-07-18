@@ -138,3 +138,13 @@ export function renderRetrievedMemory(retrieval: IMemoryRetrievalResult): string
   if (retrieval.content.trim().length === 0) return '';
   return `<project-memory>\n${retrieval.content}\n</project-memory>`;
 }
+
+/**
+ * SELFHOST-008 P3: render PER-TURN recalled memory with a DISTINCT `<recalled-memory>` label, so the model
+ * can tell the query-relevant bodies (injected ephemerally per turn) from the always-loaded startup
+ * `<project-memory>` index. Empty when there is nothing to recall.
+ */
+export function renderPerTurnRecall(retrieval: IMemoryRetrievalResult): string {
+  if (retrieval.content.trim().length === 0) return '';
+  return `<recalled-memory>\n${retrieval.content}\n</recalled-memory>`;
+}
