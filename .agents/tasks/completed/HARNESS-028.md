@@ -1,6 +1,6 @@
 # HARNESS-028 — No-Fallback policy: spec-declared + gate-verified + mechanically scanned
 
-Spec: [`.agents/spec-docs/active/HARNESS-028-no-fallback-gate.md`](../spec-docs/active/HARNESS-028-no-fallback-gate.md)
+Spec: [`.agents/spec-docs/done/HARNESS-028-no-fallback-gate.md`](../../spec-docs/done/HARNESS-028-no-fallback-gate.md)
 GATE-WRITE: PASS. GATE-APPROVAL: PASS (proposal-reviewer ENDORSE, iteration 3; owner sign-off "제안대로 해").
 GATE-IMPLEMENT: PASS. Implementation: DONE (all slices; `harness:scan` 55/55, harness test 14/14).
 
