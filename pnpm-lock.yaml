@@ -679,6 +679,25 @@ importers:
         specifier: ^5.5.0
         version: 5.9.3
 
+  examples/capabilities/agent-eval:
+    dependencies:
+      '@robota-sdk/agent-framework':
+        specifier: ^3.0.0-beta.67
+        version: link:../../../packages/agent-framework
+      '@robota-sdk/agent-provider':
+        specifier: ^3.0.0-beta.67
+        version: 3.0.0-beta.79(@modelcontextprotocol/sdk@1.29.0)(ws@8.21.0)(zod@3.25.76)
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.19.21
+      tsx:
+        specifier: ^4.6.0
+        version: 4.22.4
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.3
+
   examples/capabilities/decision-agent:
     dependencies:
       '@robota-sdk/agent-core':

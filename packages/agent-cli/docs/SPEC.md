@@ -957,6 +957,8 @@ src/
 │   ├── print-mode.ts                             ← Headless/print mode runner (-p flag); uses HeadlessInteractionChannel
 ├── session-analyzer/
 │   └── session-analyze-command.ts                ← `robota session analyze` — thin wiring: loads records via framework session stores, delegates analysis/formatting to `@robota-sdk/agent-session-analytics`
+├── eval/
+│   └── eval-command.ts                           ← `robota eval <definition>` (SELFHOST-011) — thin wiring: loads a consumer eval definition, builds the default runFn from the resolved provider (`createSessionRunFn`), delegates scoring to `@robota-sdk/agent-framework` `runEval`; returns exit 0 (pass) / 1 (metric breach) — the CI gate
 └── startup/
     ├── append-system-prompt.ts                   ← Builds appendSystemPrompt string from session options
     ├── command-setup.ts                           ← buildCommandSetup() — command modules, adapters, provider definitions
@@ -969,11 +971,14 @@ src/
     └── version.ts                                 ← readVersion() — reads package.json version
 ```
 
-All pre-session commands (`init`, `diagnose`, `session analyze`, `user-local`, `--help`,
+All pre-session commands (`init`, `diagnose`, `session analyze`, `eval`, `user-local`, `--help`,
 `--version`, `--check-update`, `--reset`, `--configure`) are dispatched inline by `startCli()` in
-`src/cli.ts` — the composition root owns the single dispatch table. In the TUI path, `startCli()`
-emits the macOS Terminal.app warning and the first-run welcome banner (creating the onboarded
-marker) immediately before `renderApp()`.
+`src/cli.ts` — the composition root owns the single dispatch table. `eval` (like `session analyze`) is
+intercepted on `process.argv` before the strict global `parseCliArgs()` because it carries a definition path
+
+- `--threshold` the global parser would reject; its returned count maps to `process.exitCode` (0/1). In the TUI path, `startCli()`
+  emits the macOS Terminal.app warning and the first-run welcome banner (creating the onboarded
+  marker) immediately before `renderApp()`.
 
 **Note:** `print-terminal.ts` and `types.ts` have been removed from `src/`. `ITerminalOutput` and
 `ISpinner` are owned by `@robota-sdk/agent-core`; import them directly from that package. All Ink
@@ -989,6 +994,7 @@ adapters, and settings/provider utilities.
 robota                               # Interactive TUI
 robota init                          # Initialize project (AGENTS.md + .robota/settings.json)
 robota diagnose                      # Check setup and print diagnostics
+robota eval ./my-eval.mjs            # Run an evals-as-code definition; exit 1 on a metric breach (CI gate)
 robota -p "prompt"                   # Print mode (one-shot)
 robota -c                            # Continue last session (most recent by cwd)
 robota --continue                    # Same as -c

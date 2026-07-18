@@ -27,6 +27,7 @@ capability. Each has its own README and `npm run dev` (`tsx src/index.ts`) scrip
 | [`capabilities/streaming/`](./capabilities/streaming/)                                 | Token-level streaming of assistant text               |
 | [`capabilities/stateless-turns/`](./capabilities/stateless-turns/)                     | Independent, stateless single-turn queries            |
 | [`capabilities/openai-compatible-gateway/`](./capabilities/openai-compatible-gateway/) | Routing through an OpenAI-compatible gateway endpoint |
+| [`capabilities/agent-eval/`](./capabilities/agent-eval/)                               | Evals-as-code: metrics over an agent's runs, CI-gated |
 
 ## Prerequisites
 
