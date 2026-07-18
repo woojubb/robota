@@ -319,10 +319,15 @@ export class SessionExecutionController {
       // FLOW-002: the wake for this task id is no longer in flight; allow future wakes to inject.
       if (turnOptions.wakeTaskId !== undefined) this.wakeTaskIds.delete(turnOptions.wakeTaskId);
       this.emitExecutionWorkspaceUpdated('main_thread');
-      // SELFHOST-008 P2: post-turn auto-capture — completed-turn path only, AWAITED here (this `finally` is
-      // an awaited scope) so recorded events land in the SAME turn's persisted record, and guarded so a
-      // capture bug never breaks the turn. Runs BEFORE persistSession().
-      if (this.callbacks.captureMemory && completedResult) {
+      // SELFHOST-008 P2: post-turn auto-capture — completed USER-turn path only (agent-wakeup/goal turns
+      // carry agent-authored text, not user facts, so they are skipped), AWAITED here (this `finally` is an
+      // awaited scope) so recorded events land in the SAME turn's persisted record, and guarded so a capture
+      // bug never breaks the turn. Runs BEFORE persistSession().
+      if (
+        this.callbacks.captureMemory &&
+        completedResult &&
+        (turnOptions.turnSource ?? 'user') === 'user'
+      ) {
         try {
           const events = await this.callbacks.captureMemory({
             userMessage: displayInput ?? input,

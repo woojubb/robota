@@ -228,12 +228,6 @@ export interface IInitOptions {
    * it; absent, the neutral filesystem reference adapter is the default (memory works unchanged).
    */
   memoryStore?: IMemoryStore;
-  /**
-   * SELFHOST-008 P2: optional automatic post-turn memory-capture policy. When present, the dormant
-   * capture pipeline is wired into the live turn (awaited in the controller's finally before persist),
-   * gated by this policy (default reference policy = approval_required = queue). Absent ⇒ capture OFF.
-   */
-  automaticMemory?: IAutomaticMemoryConfig;
   /** Fresh-session workspace manifest applied through the sandbox client. */
   workspaceManifest?: IWorkspaceManifest;
   /** Sandbox target root for workspace manifest entries. Defaults to /workspace. */
