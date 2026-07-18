@@ -282,6 +282,26 @@ export interface IContextFileRefreshedEvent {
 /** Origin of a turn — distinguishes a human prompt from an agent-wakeup re-entry (FLOW-002). */
 export type TTurnSource = 'user' | 'agent-wakeup';
 
+/** SELFHOST-007: a checkpoint/branch lifecycle transition a surface renders. */
+export interface IBranchEvent {
+  kind: 'checkpoint_created' | 'branch_forked' | 'branch_switched';
+  /** The checkpoint id the transition concerns. */
+  checkpointId: string;
+  /** The branch the checkpoint belongs to (or was switched/forked to). */
+  branchId: string;
+}
+
+/**
+ * SELFHOST-007: the persisted active-branch pointer — added to the resumable session record (beside
+ * `goal`) so a branch survives `--resume`. Pure data. The branch TREE persists in the agent-framework
+ * checkpoint manifest; a resume whose pointer references a `branchId`/`checkpointId` absent from that
+ * manifest store must degrade gracefully (fall back to the linear HEAD), not crash.
+ */
+export interface IActiveBranchPointer {
+  branchId: string;
+  checkpointId: string;
+}
+
 /** Events emitted by InteractiveSession. */
 export interface IInteractiveSessionEvents {
   text_delta: (delta: string) => void;
@@ -308,6 +328,8 @@ export interface IInteractiveSessionEvents {
   goal_event: (event: IGoalEvent) => void;
   /** Emitted on every plan-mode lifecycle transition (created, approved, reverted) — SELFHOST-002. */
   plan_event: (event: IPlanApprovalEvent) => void;
+  /** Emitted on every checkpoint/branch transition (created, forked, switched) — SELFHOST-007. */
+  branch_event: (event: IBranchEvent) => void;
   /** REMOTE-007: a tool call awaits a permission decision; answer via `resolvePermission(id, …)`. */
   permission_request: (event: IPermissionRequestEvent) => void;
   /** REMOTE-007: an "ask the user" request awaits an answer; answer via `resolveAsk(id, …)`. */
@@ -521,6 +543,8 @@ export interface IInteractiveSessionRecord {
   goal?: IGoalState;
   /** In-flight plan artifact, persisted so it survives resume (SELFHOST-002 plan-mode). */
   plan?: IPlanArtifact;
+  /** Active checkpoint branch pointer, persisted so a branch survives resume (SELFHOST-007). */
+  activeBranch?: IActiveBranchPointer;
 }
 
 /** Persistence port for resumable interactive sessions. */
