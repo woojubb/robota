@@ -1,5 +1,5 @@
 ---
-status: review-ready
+status: approved
 type: DATA
 tags: [memory, recall, session-lifecycle, agent-framework, selfhost-008]
 ---
@@ -316,7 +316,9 @@ the neutral seam + wiring.
 
 ## Tasks
 
-_Created at GATE-IMPLEMENT._
+[`.agents/tasks/SELFHOST-008-P3.md`](../../tasks/SELFHOST-008-P3.md) — created at GATE-IMPLEMENT; slices S1–S6
+(agent-core seam → agent-session pass-through → recall render label → controller wiring → ephemeral e2e → neutrality+docs)
+mapped to TC-01..07 + the Test Plan.
 
 ## Evidence Log
 
@@ -375,3 +377,14 @@ iteration-1 Evidence Log entry is accurate. Two minor non-blocking cautions fold
 (cache-safety wording scoped to the no-rebuild guarantee; distinct `<recalled-memory>` label). Rule-alignment: dep
 direction, HARNESS-029 neutrality (TC-07), HARNESS-028 no-fallback, SSOT/ownership, architecture-placement (N/A) — all
 aligned. Awaiting owner sign-off to complete GATE-APPROVAL.
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-07-18
+
+**Status upgrade:** review-ready → approved
+
+- Prior-gate precondition: `### [GATE-WRITE] — ✅ PASS | 2026-07-18` entry present in this Evidence Log; frontmatter `status: review-ready` and file in `spec-docs/backlog/` — matches the expected input stage for GATE-APPROVAL. In order.
+- Explicit approval in current conversation: the owner answered the GATE-APPROVAL question with **"승인 (추천)"** — a direct, unambiguous statement authorizing implementation of this P3 design ("승인" is a listed valid approval form).
+- Approval directed at this spec: yes — it answers the GATE-APPROVAL question for SELFHOST-008 P3 (per-turn durable-memory recall), not a different item or a clarifying question.
+- No Architecture Review / frontmatter type/tags modified after approval: the two proposal-reviewer iterations (REVISE→ENDORSE) and all Architecture Review edits predate the sign-off; nothing changed after approval.
+- Independent design review (recorded): `proposal-reviewer` ran two iterations — iteration 1 **REVISE** (false layer-ownership premise → ephemeral seam relocated from `agent-session` to `agent-core` `IRunOptions.ephemeralSystemContext`; dedup granularity mismatch → v1 dedup deferred) and iteration 2 **ENDORSE** (agent-core owns model-call assembly/persistence, insertion point feasible with no conversation-store write, deps one-way acyclic, dead-code/no-fallback/push-vs-pull all TRUE; two minor cautions folded into Implementation Notes). Both iteration entries present above.
+- Independent architecture validation (conditional): **N/A** — no new package / app / presentation surface and no layer/product-family reclassification (additive `IRunOptions` seam + pass-through + wiring within existing `agent-core`/`agent-session`/`agent-framework`). New-surface placement recorded N/A in the Architecture Review Checklist. Conditional criterion does not apply.
