@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: verifying
 type: BEHAVIOR
 tags: [computer-use, browser, tool, permissions, agent-tools, selfhost]
 ---
@@ -403,3 +403,14 @@ Verification (all green): build + typecheck + tests for `agent-core` (886) / `ag
 (1199); lint 0 errors; `pnpm harness:scan` 58/58 incl. `no-fake-in-src` + `no-fallback`. TC-01..TC-08 all satisfied at
 the unit/functional level (see Completion Criteria). **Real-browser agent-run verification remains the pending P2
 deliverable** (`PageComputerDriver` driven against a real rendered page under `xvfb-run`).
+
+### [GATE-VERIFY] — ✅ PASS | 2026-07-19
+
+**Status upgrade:** in-progress → verifying
+
+- Prior-gate precondition: GATE-IMPLEMENT shows PASS (`[GATE-IMPLEMENT] — ✅ PASS | 2026-07-19`); frontmatter `status: in-progress` in `active/` matches the expected GATE-VERIFY input stage. ✅
+- All tasks complete: `.agents/tasks/SELFHOST-010-P1.md` `## Status` = **DONE (2026-07-19)**, all slices S1–S6 implemented + green; no task blocked or pending. ✅
+- Build/typecheck: `pnpm --filter agent-core --filter agent-tools --filter agent-framework typecheck` — all three `Done`, green. ✅
+- Tests: `npx vitest run packages/agent-tools/src/computer-use` — 12 passed (computer-tool 7, page-computer-driver 2, neutrality 3); agent-core `computer-use-permission.test.ts` (6) + agent-framework `create-tools.test.ts` (4) + `computer-use-enforcement.test.ts` (4) — 14 passed. All green. ✅
+- Scans: `pnpm harness:scan` — all 58 pass, INCLUDING `no-fake-in-src` (ScriptedComputerDriver is test-support under `computer-use/testing/`, not in the package main entry) and `no-fallback`. Lint 0 errors. ✅
+- Completion Criteria TC-01..TC-08 all `[x]` (unit/functional against `ScriptedComputerDriver`); P1 carries no agent-run TC — the real-browser agent-run verification is the named pending P2 deliverable per the PRE-IMPLEMENT REFRESH note. ✅
