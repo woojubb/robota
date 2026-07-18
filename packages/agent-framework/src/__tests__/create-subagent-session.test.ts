@@ -22,6 +22,7 @@ vi.mock('@robota-sdk/agent-session', () => ({
 }));
 
 const mockProvider = {
+  name: 'anthropic',
   generateResponse: vi.fn(),
 } as unknown as IAIProvider;
 
@@ -217,6 +218,43 @@ describe('createSubagentSession', () => {
     });
     const passedOptions = mockSessionConstructor.mock.calls[0][0] as Record<string, unknown>;
     expect(passedOptions['model']).toBe('claude-sonnet-4-6'); // parent model (makeParentConfig)
+  });
+
+  // SELFHOST-006: v1 runs on the parent provider — it picks the chain entry matching that provider,
+  // never a foreign provider's model string (which would mismatch the parent provider at runtime).
+  it('picks the chain entry that matches the parent provider (skips a foreign-provider primary)', () => {
+    const agent = makeAgentDef({ role: 'planner' });
+    createSubagentSession({
+      agentDefinition: agent,
+      parentConfig: makeParentConfig(),
+      parentContext: makeParentContext(),
+      parentTools: [makeTool('Read')],
+      provider: mockProvider, // name: 'anthropic'
+      terminal: makeTerminal(),
+      roleModels: {
+        planner: [
+          { provider: 'openai', model: 'o3' }, // primary — foreign provider, skipped in v1
+          { provider: 'anthropic', model: 'claude-opus-4-5' }, // matches parent provider
+        ],
+      },
+    });
+    const passedOptions = mockSessionConstructor.mock.calls[0][0] as Record<string, unknown>;
+    expect(passedOptions['model']).toBe('claude-opus-4-5');
+  });
+
+  it('falls back to the parent model when no chain entry targets the parent provider', () => {
+    const agent = makeAgentDef({ role: 'planner' });
+    createSubagentSession({
+      agentDefinition: agent,
+      parentConfig: makeParentConfig(),
+      parentContext: makeParentContext(),
+      parentTools: [makeTool('Read')],
+      provider: mockProvider, // name: 'anthropic'
+      terminal: makeTerminal(),
+      roleModels: { planner: [{ provider: 'openai', model: 'o3' }] }, // no anthropic entry
+    });
+    const passedOptions = mockSessionConstructor.mock.calls[0][0] as Record<string, unknown>;
+    expect(passedOptions['model']).toBe('claude-sonnet-4-6'); // parent model, not the foreign 'o3'
   });
 
   it('should resolve model shortcut "sonnet"', () => {

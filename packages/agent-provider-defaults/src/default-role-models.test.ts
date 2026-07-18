@@ -4,7 +4,7 @@ import { describe, it, expect } from 'vitest';
 
 import { DEFAULT_ROLE_MODELS } from './default-role-models.js';
 
-import type { TModelRef } from '@robota-sdk/agent-core';
+import type { IModelRef } from '@robota-sdk/agent-core';
 
 /**
  * SELFHOST-006 TC-05 — the concrete role vocabulary (`planner`/`editor`/`reviewer`) lives HERE (the
@@ -17,7 +17,7 @@ describe('SELFHOST-006 TC-05 — concrete role set lives in the default layer', 
       const chain = DEFAULT_ROLE_MODELS[role];
       expect(chain).toBeDefined();
       expect(chain!.length).toBeGreaterThanOrEqual(1);
-      for (const ref of chain as TModelRef[]) {
+      for (const ref of chain as IModelRef[]) {
         expect(typeof ref.provider).toBe('string');
         expect(typeof ref.model).toBe('string');
       }
@@ -36,7 +36,7 @@ describe('SELFHOST-006 TC-05 — concrete role set lives in the default layer', 
       'utf8',
     );
     // positive: the map is keyed by an opaque string (Record), not a fixed key set
-    expect(contract).toMatch(/Record<string,\s*TModelRef\[\]>/);
+    expect(contract).toMatch(/Record<string,\s*IModelRef\[\]>/);
     // negative: no `enum` DECLARATION and no string-literal union TYPE (a fixed role vocabulary)
     expect(contract).not.toMatch(/\benum\s+\w+/); // e.g. `enum Role {`
     expect(contract).not.toMatch(/type\s+\w+\s*=\s*'[^']+'\s*\|/); // e.g. `type TRole = 'planner' | ...`

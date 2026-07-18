@@ -175,3 +175,14 @@ Record<string, TModelRef[]>` type-only contract (opaque keys, no enum/union); (a
   agent-framework 1154 + agent-provider-defaults 6 + typecheck + build + lint (0 errors) all green.
   **P2 (main-loop per-turn role signal) and P3 (budget-based fallback) remain as future follow-ups** — v1 is the
   reachable subagent path per the approved scope.
+- 2026-07-18 — **PR #1214 review fixes (2 SHOULD + CONSIDER).** (1) contract shape renamed `TModelRef` →
+  `interface IModelRef` per the code-quality rule (object shapes = interface); `TRoleModelMap =
+Record<string, IModelRef[]>` unchanged. (2) subagent resolution now picks the chain entry whose
+  `provider` matches the PARENT provider (`options.provider.name`) — v1 runs on the parent provider, so a
+  foreign-provider primary is skipped (and a role with no parent-provider entry falls back to the parent
+  model) rather than running a foreign model string on the parent provider. (3) `runWithRoleFallback`
+  gained an optional `shouldRetry(err)` predicate (default retry-all) so a caller can narrow fallback to
+  transient/provider errors. Tests added (cross-provider pick + parent fallback + non-retryable rethrow).
+  **Dormancy disclosed:** no runner passes `roleModels` yet — the subagent resolution SITE + policy +
+  default set are the v1 deliverable; wiring a runner to thread `roleModels` from config is a thin
+  follow-up alongside P2.

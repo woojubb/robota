@@ -6,13 +6,13 @@ import {
   runWithRoleFallback,
 } from '../role-model-routing.js';
 
-import type { TRoleModelMap, TModelRef } from '@robota-sdk/agent-core';
+import type { TRoleModelMap, IModelRef } from '@robota-sdk/agent-core';
 
 /**
  * SELFHOST-006 TC-01 / TC-02 — per-role model routing policy over the provider DIP.
  *
  * TC-01: resolve distinct OPAQUE role keys to their configured fallback chains' primaries.
- * TC-02: on a provider error, walk to the next TModelRef (alternate provider AND model) and succeed.
+ * TC-02: on a provider error, walk to the next IModelRef (alternate provider AND model) and succeed.
  */
 
 const MAP: TRoleModelMap = {
@@ -25,7 +25,7 @@ const MAP: TRoleModelMap = {
 };
 
 describe('SELFHOST-006 TC-01 — resolve per opaque role key', () => {
-  it('resolves two distinct role keys to their chains’ primary TModelRef', () => {
+  it('resolves two distinct role keys to their chains’ primary IModelRef', () => {
     expect(resolveRoleModel(MAP, 'planner')).toEqual({
       provider: 'anthropic',
       model: 'claude-opus-4-5',
@@ -51,7 +51,7 @@ describe('SELFHOST-006 TC-01 — resolve per opaque role key', () => {
 
 describe('SELFHOST-006 TC-02 — fallback walk on provider error', () => {
   it('walks to the next provider+model on error and succeeds', async () => {
-    const tried: TModelRef[] = [];
+    const tried: IModelRef[] = [];
     const result = await runWithRoleFallback(MAP.planner!, async (ref) => {
       tried.push(ref);
       if (ref.provider === 'anthropic') throw new Error('provider 5xx');
@@ -85,5 +85,20 @@ describe('SELFHOST-006 TC-02 — fallback walk on provider error', () => {
 
   it('throws immediately on an empty chain', async () => {
     await expect(runWithRoleFallback([], async () => 'x')).rejects.toThrow(/empty fallback chain/);
+  });
+
+  it('rethrows immediately (no fallback) when shouldRetry rejects the error', async () => {
+    let attempts = 0;
+    await expect(
+      runWithRoleFallback(
+        MAP.planner!,
+        async () => {
+          attempts += 1;
+          throw new Error('auth failed (401)');
+        },
+        (err) => !(err instanceof Error && err.message.includes('401')),
+      ),
+    ).rejects.toThrow('auth failed (401)');
+    expect(attempts).toBe(1); // did NOT burn the rest of the chain on a non-retryable error
   });
 });

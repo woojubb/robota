@@ -10,7 +10,7 @@
 import { Session } from '@robota-sdk/agent-session';
 
 import { assembleSubagentPrompt } from './subagent-prompts.js';
-import { resolveRoleModel } from '../routing/role-model-routing.js';
+import { resolveRoleFallbackChain } from '../routing/role-model-routing.js';
 import { createProviderSafeModelCommandToolName } from '../tools/model-command-tool-projection.js';
 
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
@@ -138,11 +138,15 @@ export function createSubagentSession(options: ISubagentOptions): Session {
   const tools = filterTools(parentTools, agentDefinition);
 
   // Resolve model (precedence): explicit alias override > SELFHOST-006 per-role routing > parent model.
-  // v1 resolution site (per opaque role key = role ?? name); rides the existing provider DIP — the
-  // primary chain entry's model is applied over the parent provider (cross-provider fallback is the
-  // routing policy's job — runWithRoleFallback — not baked into subagent assembly).
+  // v1 resolution site (per opaque role key = role ?? name). The subagent runs on the PARENT provider
+  // instance (no provider registry to swap providers in v1), so only apply a role's model when its
+  // chain entry targets that SAME provider — pick the first `IModelRef` whose `provider` matches. A
+  // role whose entries all target a different provider falls back to the parent model rather than
+  // running a foreign model string on the parent provider (which would mismatch). Cross-provider
+  // fallback is the routing policy's job (`runWithRoleFallback`) once a provider registry is wired.
   const roleKey = agentDefinition.role ?? agentDefinition.name;
-  const roleModel = options.roleModels ? resolveRoleModel(options.roleModels, roleKey) : undefined;
+  const roleChain = options.roleModels ? resolveRoleFallbackChain(options.roleModels, roleKey) : [];
+  const roleModel = roleChain.find((ref) => ref.provider === options.provider.name);
   const model = agentDefinition.model
     ? resolveModelId(agentDefinition.model, parentConfig.provider.model)
     : (roleModel?.model ?? parentConfig.provider.model);

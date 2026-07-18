@@ -14,10 +14,10 @@
  */
 
 /** One provider+model target in a role's fallback chain. */
-export type TModelRef = {
+export interface IModelRef {
   provider: string;
   model: string;
-};
+}
 
 /** Opaque role id → ordered fallback chain (primary first, then fallbacks in order). */
-export type TRoleModelMap = Record<string, TModelRef[]>;
+export type TRoleModelMap = Record<string, IModelRef[]>;
