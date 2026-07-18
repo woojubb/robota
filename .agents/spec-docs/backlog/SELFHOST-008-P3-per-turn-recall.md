@@ -4,7 +4,7 @@ type: DATA
 tags: [memory, recall, session-lifecycle, agent-framework, selfhost-008]
 ---
 
-# SELFHOST-008 P3: wire per-turn durable-memory recall into the turn (ephemeral, push, deduped)
+# SELFHOST-008 P3: wire per-turn durable-memory recall into the turn (ephemeral, push)
 
 ## Problem
 
@@ -100,22 +100,38 @@ limit=k)` → inject top-k"; retrieved long-term facts **"almost always go into 
   (`interactive-session-execution-controller.ts:250`) already owns the store access pattern used by P2 capture
   (`getMemoryStore()` via callbacks) and runs before/after the turn. Per-turn recall is computed in the controller at
   the START of the turn (query = `input`), symmetric to the P2 capture callback at the end.
-- **The ephemeral-injection seam (the key design point, verified against code).** History records
-  `displayInput ?? input` (`interactive-session-prompt.ts:60`), while the model receives
-  `preparedPrompt.modelInput` via `session.run(modelInput, hookInput)` (`:85`); `Session.run(message, rawInput?)`
-  (`agent-session/src/session.ts:176`) **persists `message` into the session history** and has **no per-call
-  ephemeral-context argument**. Therefore neither prepending to `modelInput` (persists → history bloat / "fake
-  history") nor a per-turn `rebuildSystemMessage` (prompt-cache invalidation) satisfies the requirement. P3 adds a
-  **minimal ephemeral per-turn context seam**: `Session.run(message, rawInput?, options?: { ephemeralSystemContext?: string })`
-  includes the provided context in THIS turn's model call (as a transient system-role addendum, positioned to preserve
-  the cached static prefix) and **never writes it to the session history**. This is a layer-appropriate addition — the
-  session layer owns model-call assembly; a per-turn transient context is a session-layer concern — and is reusable by
-  any future dynamic per-turn context.
+- **The ephemeral-injection seam (the key design point — corrected at GATE-APPROVAL, verified against code).** History
+  records `displayInput ?? input` (`interactive-session-prompt.ts:60`), while the model receives
+  `preparedPrompt.modelInput` via `session.run(modelInput, hookInput)` (`:85`). Crucially, **`agent-session` does NOT
+  own model-call assembly — `agent-core` does**: `Session.run` (`agent-session/src/session.ts:176`) → `executeRun`
+  (`session-run.ts:158` `ctx.robota.run(enrichedMessage, …)`) → `Robota.run` → `ExecutionService.execute`, which
+  **persists the input via `conversationStore.addUserMessage(input, …)`** (`agent-core/src/services/execution-service.ts:160`);
+  `IRunOptions` (`agent-core/src/interfaces/agent.ts:190`) has **no** system-context channel, and there is **no**
+  existing transient/ephemeral system facility anywhere (the `<system-reminder>` path at `session-run.ts:119` _prepends
+  to the message string → persisted_, so it is NOT an ephemeral precedent). Therefore neither prepending to `modelInput`
+  (persists → "fake history"/bloat) nor a per-turn `rebuildSystemMessage`/`updateSystemPrompt` (cache invalidation)
+  satisfies the requirement — and a `Session.run` option alone cannot, because the assembly + persistence live one layer
+  deeper. **The primitive belongs on `agent-core`**: add `ephemeralSystemContext?: string` to `IRunOptions`, thread it
+  `buildRunContext` (`core/robota-execution.ts:28`) → `IExecutionContext` → `ExecutionService.execute`, and inject it as
+  a **transient system-role message in the provider request WITHOUT any `addUserMessage`/`addMessage`** — so it reaches
+  the model for THIS call only, is never written to the conversation store, and does not mutate the cached static prefix.
+  `agent-session.run(message, rawInput?, options?: { ephemeralSystemContext?: string })` becomes a **thin pass-through**
+  of that primitive; the guarantee is owned by the layer that owns assembly. This is a **three-package** change
+  (`agent-core` seam → `agent-session` pass-through → `agent-framework` wiring), deps one-way
+  (`agent-framework → agent-session → agent-core`).
 - **The recall block (neutral mechanism).** The controller calls `getMemoryStore().recall(input, budget)` →
-  `renderRetrievedMemory()` → **dedup** against the startup `<project-memory>` content (by topic/reference) → pass the
-  result as `ephemeralSystemContext`. The `budget` (topK/char) and the enable flag are **surface-supplied** (a
-  `recallMemory?` policy on the interactive session options, adapter-gated like `automaticMemory`); absent ⇒ recall is
-  OFF (zero behavior change — memory keeps loading only at startup as today).
+  `renderRetrievedMemory()` → pass the result as `ephemeralSystemContext`. The `budget` (topK/char) and the enable flag
+  are **surface-supplied** (a `recallMemory?` policy on the interactive session options, adapter-gated like
+  `automaticMemory`); absent ⇒ recall is OFF (zero behavior change — memory keeps loading only at startup as today).
+- **Dedup vs startup memory — DEFERRED for v1 (corrected at GATE-APPROVAL), with rationale.** The startup
+  `<project-memory>` section is the rendered MEMORY.md **index** (`IStartupMemory.content` — topic summaries/links),
+  whereas per-turn recall surfaces full topic **bodies** (`MemoryRetrievalService.retrieve` → per-topic `### name\n<body>`
+  sections + a 1:1 `references[]` of `{topic, path, score, truncated}`). These are different granularities: title-level
+  dedup of a recalled BODY because its summary/link appears in the index would suppress exactly the detail per-turn
+  recall exists to provide (a near-no-op at best, actively wrong at worst). v1 therefore does **not** dedup against the
+  startup index; the overlap is minimal (index summaries vs. bodies). A future body-level dedup (compare a recalled
+  topic's full body against window content, filtering `references`/sections BEFORE `renderRetrievedMemory` since its
+  whole-blob API cannot dedup post-hoc) is a documented deferral, not v1 scope.
 - **NOT the library's job.** Whether to enable per-turn recall, the budget, and any content are surface decisions;
   `packages/` gains only the neutral seam + wiring. No memory CONTENT or prompt is added (HARNESS-029-fenced).
 - **Capability preservation.** Startup `<project-memory>` injection, manual `/memory`, and P2 capture are unchanged;
@@ -125,28 +141,36 @@ limit=k)` → inject top-k"; retrieved long-term facts **"almost always go into 
 ### Alternatives Considered
 
 1. **Per-turn recall (query = input) computed in the execution controller, injected as an EPHEMERAL block via a new
-   `Session.run` `ephemeralSystemContext` option (not persisted, not a system rebuild), deduped vs startup memory,
-   surface-budgeted + adapter-gated (CHOSEN).**
+   `agent-core` `IRunOptions.ephemeralSystemContext` primitive (transient provider-request system message, NOT
+   `addUserMessage`'d, no system rebuild), passed through `agent-session.run`, surface-budgeted + adapter-gated (CHOSEN).**
    - ✅ Matches prior-art (per-turn, labeled block, not-in-history, push); keeps the cached static system prefix intact
-     (no per-turn `rebuildSystemMessage`); no history bloat (ephemeral); neutral (budget/enable surface-owned,
-     adapter-gated OFF); reuses the P2 controller store-access pattern; the new seam is a clean, reusable session-layer
-     primitive. Makes the dead recall path live — the P4 semantic decorator then upgrades a real path.
-   - ❌ Adds one small API to `agent-session` (`run` options) — a two-package change, but tightly scoped and
-     layer-clean (session owns model-call assembly).
-2. **Prepend the rendered recall block to `modelInput` (no new seam).**
+     (no per-turn system rebuild); no history bloat (ephemeral — never written to the conversation store); neutral
+     (budget/enable surface-owned, adapter-gated OFF); reuses the P2 controller store-access pattern; the primitive lives
+     in the layer that OWNS model-call assembly (`agent-core`), so the guarantee actually holds. Makes the dead recall
+     path live — the P4 semantic decorator then upgrades a real path.
+   - ❌ Three-package change (`agent-core` seam + `agent-session` pass-through + `agent-framework` wiring) — larger than
+     first scoped, but correct: the ephemeral/cache-safe property is a model-assembly concern that only agent-core can
+     honor. Deps stay one-way; the `IRunOptions` field is additive/optional (no existing caller changes).
+2. **Add the seam to `agent-session.run` only (the first-draft placement) — REJECTED.**
+   - ✅ Fewer packages touched.
+   - ❌ FALSE-premise: `agent-session` is a thin caller; assembly + persistence live in `agent-core`
+     (`ExecutionService.execute` → `addUserMessage`). A `Session.run` option could only fold the block into the
+     persisted `input` (Alternative 3) or call `updateSystemPrompt` (Alternative 4) — neither ephemeral nor cache-safe.
+     The GATE-APPROVAL review verified this against code. REJECTED (cannot deliver the guarantee at that layer).
+3. **Prepend the rendered recall block to `modelInput` (no new seam).**
    - ✅ Zero agent-session change; simplest.
    - ❌ `Session.run` persists `message` into session history → the recalled text becomes permanent "fake history" and
      bloats every subsequent turn's context (the exact Mem0/Zep anti-pattern). REJECTED (correctness + bloat).
-3. **Rebuild the system message each turn with a `<recalled-memory>` section via `rebuildSystemMessage`.**
+4. **Rebuild the system message each turn with a `<recalled-memory>` section via `rebuildSystemMessage`.**
    - ✅ Puts recall in the system role (LangChain-style); no agent-session change.
    - ❌ Mutating the system message every turn invalidates the prompt cache for the whole conversation prefix (prior-art
      (e)); also conflates the static startup section with dynamic recall. REJECTED (cache + separation).
-4. **Pull-only: expose recall as a tool the model calls (like the SELFHOST-003 RAG tool), no auto-inject.**
+5. **Pull-only: expose recall as a tool the model calls (like the SELFHOST-003 RAG tool), no auto-inject.**
    - ✅ Reuses the tool pattern; model decides when to recall.
    - ❌ Prior-art (c): durable distilled memory is push across peers; a pull-only durable memory relies on the model
      remembering to look, defeating "memory that grows with you." (Robota already HAS a pull RAG tool; this slice is the
      complementary push channel.) REJECTED for durable memory.
-5. **End-of-P4 only: skip P3, wire recall together with the semantic decorator.**
+6. **End-of-P4 only: skip P3, wire recall together with the semantic decorator.**
    - ✅ One slice.
    - ❌ The reason for the split (owner decision): mixes the assembly/lifecycle concern (recall wiring) with the
      mechanism concern (semantic backend) in one slice, and delays any observable recall. REJECTED (layering + cadence).
@@ -154,43 +178,57 @@ limit=k)` → inject top-k"; retrieved long-term facts **"almost always go into 
 ### Decision
 
 Adopt (1): compute per-turn recall in the execution controller (query = the turn `input`), render via the existing
-`renderRetrievedMemory()`, **dedup** against the startup `<project-memory>` content, and inject it as an **ephemeral
-per-turn block** through a new minimal `Session.run(message, rawInput?, options?: { ephemeralSystemContext?: string })`
-seam that includes the block in that turn's model call but **never persists it** to session or interactive history and
-does **not** rebuild the cached static system section. The keyword `IMemoryStore` is the recall backend (the P4 semantic
-decorator upgrades it later behind the same port). Recall is **adapter-gated**: a surface-supplied `recallMemory?`
-policy (enable + budget) turns it on; absent ⇒ OFF (startup-only injection, zero behavior change). Budget is small
-(topK ~3–5 + char cap), surface-supplied. The concrete enable/budget/content decisions are surface-owned; `packages/`
-gains only the neutral seam + wiring (HARNESS-029-fenced).
+`renderRetrievedMemory()`, and inject it as an **ephemeral per-turn block** through a new **`agent-core`
+`IRunOptions.ephemeralSystemContext`** primitive — threaded `buildRunContext` → `IExecutionContext` →
+`ExecutionService.execute` and emitted as a transient system-role message in the provider request **without any
+`addUserMessage`/`addMessage`**, so it reaches the model for that call only, is **never persisted** to the conversation
+store (nor pushed to the interactive history, which records `displayInput ?? input`), and does **not** rebuild the
+cached static system section. `agent-session.run(message, rawInput?, options?: { ephemeralSystemContext?: string })` is
+a thin pass-through of that primitive. The keyword `IMemoryStore` is the recall backend (the P4 semantic decorator
+upgrades it later behind the same port). Recall is **adapter-gated**: a surface-supplied `recallMemory?` policy (enable
+
+- budget) turns it on; absent ⇒ OFF (startup-only injection, zero behavior change). Budget is small (topK ~3–5 + char
+  cap), surface-supplied. v1 does not dedup against the startup index (different granularity — see Affected Scope; a
+  body-level dedup is a documented deferral). The concrete enable/budget/content decisions are surface-owned; `packages/`
+  gains only the neutral seam + wiring (HARNESS-029-fenced).
 
 ### Validated Recommendation
 
-- **Reachability + ORDERING (verified against code):** the controller has `input` + `getMemoryStore()` at turn start;
-  the model call is `session.run(modelInput, hookInput)` (`interactive-session-prompt.ts:85`); `Session.run`
-  (`session.ts:176`) persists `message` and takes no ephemeral arg — hence the new option. Recall runs BEFORE
-  `executePromptTurn`'s `session.run`, so the block is present for the turn; it is never pushed to `history`
-  (which uses `displayInput ?? input`) nor to session history (the new seam excludes it).
+- **Reachability + ORDERING + LAYER (verified against code):** the controller has `input` + `getMemoryStore()` at turn
+  start; the model call is `session.run(modelInput, hookInput)` (`interactive-session-prompt.ts:85`) → `executeRun`
+  (`session-run.ts:158`) → `Robota.run` → `ExecutionService.execute` → `conversationStore.addUserMessage`
+  (`execution-service.ts:160`). Assembly + persistence are in **agent-core**, so the ephemeral primitive lives on
+  `IRunOptions` (agent-core) — `agent-session.run` passes it through. Recall runs BEFORE the turn's `session.run`, so the
+  block is present for the turn; it is never `addUserMessage`'d (absent from the conversation store) nor pushed to the
+  interactive `history` (which uses `displayInput ?? input`).
 - **Capability preservation:** startup injection + `/memory` + P2 capture unchanged; per-turn recall is additive +
   opt-in; the previously-dead `recall()`/`renderRetrievedMemory()` becomes a live, tested path.
-- **Adversarial:** (a) recalled text bloating history → ephemeral seam keeps it out of both histories (asserted by a
-  TC); (b) prompt cache thrash → no per-turn system rebuild; block rides the dynamic tail; (c) duplicate injection with
-  startup memory → dedup vs the startup section before render; (d) recall failure breaking the turn → declared
-  degradation (skip injection, turn proceeds); (e) content/prompt creeping into `packages/` → only the neutral seam +
-  wiring land; budget/enable/content surface-owned; HARNESS-029 fences it.
+- **Adversarial:** (a) recalled text bloating history → the agent-core primitive injects a transient provider-request
+  message with no `addUserMessage`, so it is absent from the conversation store AND the interactive history (asserted by
+  TC-02 + the agent-core TC-07); (b) prompt cache thrash → no per-turn system rebuild; the transient message rides the
+  dynamic tail; (c) duplicate injection with startup memory → v1 does not dedup (index summaries vs recall bodies are
+  different granularity; title-level dedup would suppress the value — deferred to a body-level dedup); (d) recall failure
+  breaking the turn → declared degradation (skip injection, turn proceeds); (e) content/prompt creeping into `packages/`
+  → only the neutral seam + wiring land; the `IRunOptions` field is a content-free string channel; budget/enable/content
+  surface-owned; HARNESS-029 fences it.
 
 ### Architecture Review Checklist
 
-- [x] 영향 패키지/레이어: `agent-session` (a minimal `Session.run` ephemeral-context option — model-call assembly is
-      the session layer's job) + `agent-framework` (compute recall in the interactive execution controller, dedup vs
-      startup, pass through the seam; thread a surface-supplied `recallMemory?` policy through the interactive session
-      options like `automaticMemory`). NO memory content/prompt in `packages/`; enable/budget surface-owned.
+- [x] 영향 패키지/레이어: **`agent-core`** (the `IRunOptions.ephemeralSystemContext` primitive — model-call assembly +
+      persistence live here, so the ephemeral/cache-safe guarantee is owned at this layer) + `agent-session` (thin
+      pass-through on `run`) + `agent-framework` (compute recall in the interactive execution controller, pass through
+      the seam; thread a surface-supplied `recallMemory?` policy through the interactive session options like
+      `automaticMemory`). Deps one-way (`agent-framework → agent-session → agent-core`). NO memory content/prompt in
+      `packages/`; enable/budget surface-owned. (Corrected at GATE-APPROVAL: the first draft mislocated the seam in
+      `agent-session`, which does not own assembly.)
 - [x] Sibling scan 완료 — reuses the P2 controller store-access + options-threading precedent (`automaticMemory` →
       `recallMemory`), the existing `renderRetrievedMemory()`/`recall()` mechanisms, and the `<project-memory>` section
       convention; the sole degradation (recall-error → skip injection) is declared + `allow-fallback:`-annotated per
-      HARNESS-028; the new `run` option is additive/optional (no existing caller changes).
-- [x] 대안 최소 2개 — 5 considered (ephemeral-seam CHOSEN; prepend-to-modelInput REJECTED persist/bloat; per-turn
-      system-rebuild REJECTED cache; pull-only REJECTED not-push-for-durable; skip-into-P4 REJECTED layering/cadence),
-      each Pro+Con.
+      HARNESS-028 (mirrors the blessed P2 capture degradation); the new `IRunOptions` field + `run` option are
+      additive/optional (no existing caller changes).
+- [x] 대안 최소 2개 — 6 considered (agent-core-seam CHOSEN; agent-session-only-seam REJECTED false-layer;
+      prepend-to-modelInput REJECTED persist/bloat; per-turn system-rebuild REJECTED cache; pull-only REJECTED
+      not-push-for-durable; skip-into-P4 REJECTED layering/cadence), each Pro+Con.
 - [x] 결정 근거 — per-turn + labeled-block-not-history + push (prior-art (a)(b)(c)) + cache-safety (e) + dedup/budget
       (d) + neutrality (enable/budget surface-owned, adapter-gated OFF) + the owner "분할" decision (recall wiring is the
       assembly-layer concern, kept separate from the P4 mechanism-layer semantic backend). New-surface placement N/A —
@@ -206,26 +244,31 @@ at the code site per HARNESS-028), NOT a silent alternative for core behavior. N
 
 ## Solution
 
-Add a minimal ephemeral per-turn context seam to `agent-session` (`Session.run(message, rawInput?, options?:
-{ ephemeralSystemContext?: string })` — included in the turn's model call, never persisted to history) and wire per-turn
-recall in the `agent-framework` interactive execution controller: at turn start, when the surface supplied a
-`recallMemory?` policy, call `getMemoryStore().recall(input, budget)` → `renderRetrievedMemory()` → dedup against the
-startup `<project-memory>` content → pass as `ephemeralSystemContext` to the turn's `session.run`, wrapped in a
-try/catch that skips injection on error (never breaks the turn). Adapter-gated: no `recallMemory` ⇒ recall OFF
-(startup-only injection, zero behavior change). Keyword `IMemoryStore` is the backend; the P4 semantic decorator
-upgrades it behind the same port. The enable/budget/content are surface-owned; `packages/` gains only the neutral seam +
-wiring.
+Add an ephemeral per-turn context primitive to **`agent-core`** — `IRunOptions.ephemeralSystemContext?: string`,
+threaded through `buildRunContext` → `IExecutionContext` → `ExecutionService.execute` and emitted as a transient
+system-role message in the provider request with **no `addUserMessage`/`addMessage`** (reaches the model for that call
+only, never persisted) — expose it as a thin pass-through on `agent-session.run(message, rawInput?, options?)`, and wire
+per-turn recall in the `agent-framework` interactive execution controller: at turn start, when the surface supplied a
+`recallMemory?` policy, call `getMemoryStore().recall(input, budget)` → `renderRetrievedMemory()` → pass as
+`ephemeralSystemContext` to the turn's `session.run`, wrapped in a try/catch that skips injection on error (never breaks
+the turn). Adapter-gated: no `recallMemory` ⇒ recall OFF (startup-only injection, zero behavior change). v1 does not
+dedup against the startup index (granularity mismatch — deferred). Keyword `IMemoryStore` is the backend; the P4
+semantic decorator upgrades it behind the same port. The enable/budget/content are surface-owned; `packages/` gains only
+the neutral seam + wiring.
 
 ## Affected Files
 
-| File                                                                                   | Change                                                                                                                                                                                               |
-| -------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `packages/agent-session/src/session.ts`                                                | add optional `run(message, rawInput?, options?: { ephemeralSystemContext?: string })` — include the context in this turn's model call, NEVER persist to history                                      |
-| `packages/agent-framework/src/interactive/interactive-session-prompt.ts`               | thread an optional per-turn `ephemeralSystemContext` into the `session.run(...)` call (from the controller); history still records `displayInput ?? input`                                           |
-| `packages/agent-framework/src/interactive/interactive-session-execution-controller.ts` | at turn start (gated on a supplied `recallMemory` policy), compute the deduped/budgeted recall block via `getMemoryStore().recall()` + `renderRetrievedMemory()`, try/catch → skip; pass to the turn |
-| `packages/agent-framework/src/interactive/interactive-session-options.ts`              | thread a surface-supplied `recallMemory?` policy (enable + `IMemoryBudget`) through `IInteractiveSessionStandardOptions` (like `automaticMemory`)                                                    |
-| `packages/agent-framework/src/interactive/__tests__/…` (new)                           | TC-01..07 — recall fires per turn, ephemeral (absent from persisted history), dedup vs startup, gating, guarded, budget, neutrality                                                                  |
-| `packages/agent-session/docs/SPEC.md` + `packages/agent-framework/docs/SPEC.md`        | document the ephemeral per-turn context seam + the opt-in per-turn recall wiring                                                                                                                     |
+| File                                                                                                                 | Change                                                                                                                                                                                       |
+| -------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/agent-core/src/interfaces/agent.ts`                                                                        | add `ephemeralSystemContext?: string` to `IRunOptions` (content-free string channel; additive/optional)                                                                                      |
+| `packages/agent-core/src/core/robota-execution.ts`                                                                   | thread `ephemeralSystemContext` through `buildRunContext` → `IExecutionContext`                                                                                                              |
+| `packages/agent-core/src/services/execution-service.ts`                                                              | in `execute`, emit `ephemeralSystemContext` as a transient system-role message in the provider request — NO `addUserMessage`/`addMessage` (never persisted to the conversation store)        |
+| `packages/agent-session/src/session.ts` (+ `session-run.ts`)                                                         | `run(message, rawInput?, options?: { ephemeralSystemContext?: string })` — thin pass-through to `IRunOptions.ephemeralSystemContext`                                                         |
+| `packages/agent-framework/src/interactive/interactive-session-prompt.ts`                                             | thread an optional per-turn `ephemeralSystemContext` into the `session.run(...)` call (from the controller); interactive history still records `displayInput ?? input`                       |
+| `packages/agent-framework/src/interactive/interactive-session-execution-controller.ts`                               | at turn start (gated on a supplied `recallMemory` policy), compute the budgeted recall block via `getMemoryStore().recall()` + `renderRetrievedMemory()`, try/catch → skip; pass to the turn |
+| `packages/agent-framework/src/interactive/interactive-session-options.ts`                                            | thread a surface-supplied `recallMemory?` policy (enable + `IMemoryBudget`) through `IInteractiveSessionStandardOptions` (like `automaticMemory`)                                            |
+| `packages/agent-core/src/__tests__/…` + `packages/agent-framework/src/interactive/__tests__/…` (new)                 | TC-01..07 — agent-core ephemeral-seam (reaches provider, not persisted), recall fires per turn, ephemeral, gating, guarded, budget, neutrality                                               |
+| `packages/agent-core/docs/SPEC.md` + `packages/agent-session/docs/SPEC.md` + `packages/agent-framework/docs/SPEC.md` | document the ephemeral per-turn context primitive + pass-through + the opt-in per-turn recall wiring                                                                                         |
 
 ## Completion Criteria
 
@@ -235,8 +278,9 @@ wiring.
 - [ ] TC-02: **ephemeral** — the recalled block is NOT written to the interactive history NOR the session history: after
       the turn, neither persisted history contains the recalled text (only `displayInput ?? input` + the assistant
       reply) (functional test — MUST fail if the block is prepended to `modelInput`).
-- [ ] TC-03: **dedup with startup memory** — a memory already present in the static startup `<project-memory>` section is
-      NOT injected again by per-turn recall (unit test with overlapping startup + recall content).
+- [ ] TC-03: **agent-core ephemeral seam** — a `run()` with `IRunOptions.ephemeralSystemContext` set reaches the
+      provider request as a transient system-role message AND is absent from the conversation store after the run
+      (`getHistory()` contains no such message); a `run()` without it is unchanged (unit test in agent-core).
 - [ ] TC-04: **adapter-gating** — with NO `recallMemory` policy supplied, no per-turn recall runs (no `recall()` call,
       no block injected); memory behavior is exactly today's startup-only injection (unit test).
 - [ ] TC-05: **guarded** — a `recall()`/render that THROWS does NOT fail the turn (the turn completes, model still
@@ -252,7 +296,7 @@ wiring.
 | ----- | -------------------------------------------------------- | ------------------------------- | ----------------------------------------------------------------------- |
 | TC-01 | recall fires per turn; block reaches the model           | functional (fake session/store) | `interactive-session-recall.test.ts` › "TC-01 — per-turn recall fires"  |
 | TC-02 | recalled block absent from interactive + session history | functional                      | same file › "TC-02 — ephemeral, not persisted" (fails if in modelInput) |
-| TC-03 | startup-duplicated memory not re-injected                | vitest unit                     | same file › "TC-03 — dedup vs startup"                                  |
+| TC-03 | ephemeralSystemContext reaches provider, not persisted   | vitest unit (agent-core)        | `execution-service` test › "TC-03 — ephemeral seam, not persisted"      |
 | TC-04 | no `recallMemory` ⇒ no recall (startup-only, unchanged)  | vitest unit                     | same file › "TC-04 — adapter-gating"                                    |
 | TC-05 | throwing recall does not fail the turn                   | vitest unit                     | same file › "TC-05 — guarded"                                           |
 | TC-06 | recall called with the supplied budget; char cap honored | vitest unit                     | same file › "TC-06 — budget respected"                                  |
@@ -279,3 +323,28 @@ _GATE entries appended by the pipeline._
 - Structure: Tasks section present with placeholder; Evidence Log present and empty at first run; no `## Status`/`## Classification` body sections.
 - TC-N count: Completion Criteria (7) == Test Plan (7). Confirmed.
 - Mechanical scans: `scan-spec-research.mjs` exit 0, `check-spec-doc-frontmatter.mjs` exit 0 (only expected non-blocking SELFHOST-008 duplicate-ID warn).
+
+### [GATE-APPROVAL] — iteration 1: REVISE, applied | 2026-07-18
+
+Independent `proposal-reviewer` verified all premises against code and returned REVISE with two load-bearing defects
+(both fixed here, direction endorsed):
+
+1. **False layer-ownership premise (central).** The spec claimed "the session layer owns model-call assembly," so the
+   ephemeral seam belonged on `agent-session.run`. Verified FALSE: `Session.run` → `executeRun` → `Robota.run` →
+   `ExecutionService.execute` → `conversationStore.addUserMessage` (`agent-core/src/services/execution-service.ts:160`);
+   `IRunOptions` (agent-core) has no system-context channel and there is no existing transient-system facility (the
+   `<system-reminder>` path prepends to the message string → persisted). A `Session.run` option alone could only persist
+   the block (Alt 3) or mutate the cached system prompt (Alt 4) — neither ephemeral nor cache-safe. **Fix:** the
+   primitive moves to **agent-core** (`IRunOptions.ephemeralSystemContext` → `buildRunContext` → `ExecutionService`,
+   emitted as a transient provider-request system message with NO `addUserMessage`); `agent-session.run` is a thin
+   pass-through. This is a **three-package** change (agent-core seam → agent-session pass-through → agent-framework
+   wiring), deps one-way. Updated Affected Scope, Alternatives (added the mislocated-in-agent-session REJECTED entry, now
+   6), Decision, Validated Recommendation, Checklist, Solution, Affected Files, and split the seam into agent-core TC-03.
+2. **Dedup underspecified + granularity mismatch.** Startup `<project-memory>` is the MEMORY.md **index** (summaries);
+   per-turn recall surfaces full topic **bodies** — title-level dedup would suppress the very detail recall exists to
+   provide. **Fix:** v1 does NOT dedup against startup (rationale documented); a body-level dedup (filter references/
+   sections before `renderRetrievedMemory`) is a documented deferral. Replaced the dedup TC-03 with the agent-core
+   ephemeral-seam TC-03; adversarial (c) + Decision updated.
+
+No-fallback compliance (recall-error → skip, mirrors the blessed P2 capture degradation), push-vs-pull coherence, and
+the dead-code premise were verified TRUE. Re-review pending.
