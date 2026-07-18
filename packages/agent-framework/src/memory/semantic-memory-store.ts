@@ -71,6 +71,10 @@ export class SemanticMemoryStore implements IMemoryStore {
     const result = await this.base.append(input);
     if (!result.deduplicated) {
       try {
+        // ADAPTER CONTRACT: `index` receives the RAW `IAppendMemoryInput`. The durable store may normalize the topic
+        // (truncate/default) when writing; a query hit's `references.topic` must resolve to the durable topic file, so
+        // the injected adapter MUST normalize its index/query keys the same way the durable store does (or key off a
+        // stable id). This is a surface-adapter responsibility — the neutral decorator passes the input through.
         await this.adapter.index(input);
       } catch {
         // allow-fallback: semantic index is best-effort over the authoritative durable keyword write (SELFHOST-008 P4

@@ -4,6 +4,7 @@ import { AutomaticMemoryController } from '../automatic-memory-controller.js';
 import { createSemanticMemoryStore, SemanticMemoryStore } from '../semantic-memory-store.js';
 
 import type {
+  IAppendMemoryInput,
   IAppendMemoryResult,
   IMemoryBudget,
   IMemoryRetrievalResult,
@@ -17,6 +18,11 @@ import type {
  */
 
 const BUDGET: IMemoryBudget = { maxTopics: 4, maxTopicChars: 2000 };
+const INPUT: IAppendMemoryInput = {
+  type: 'project',
+  topic: 'deploy',
+  text: 'the deploy key rotates',
+};
 const KEYWORD: IMemoryRetrievalResult = {
   content: '### keyword\nkeyword-ranked hit',
   references: [{ topic: 'keyword', path: 'k.md', score: 1, truncated: false }],
@@ -72,11 +78,10 @@ describe('SELFHOST-008 P4 — SemanticMemoryStore decorator', () => {
     const base = createFakeBase({ deduplicated: false });
     const adapter = createFakeAdapter(async () => SEMANTIC_HIT);
     const store = createSemanticMemoryStore(base, adapter);
-    const input = { topic: 'deploy', content: 'the deploy key rotates', id: 'c1' } as never;
 
-    await store.append(input);
+    await store.append(INPUT);
     expect(base.append).toHaveBeenCalledTimes(1);
-    expect(adapter.index).toHaveBeenCalledWith(input);
+    expect(adapter.index).toHaveBeenCalledWith(INPUT);
     // base BEFORE index
     expect((base.append as ReturnType<typeof vi.fn>).mock.invocationCallOrder[0]).toBeLessThan(
       (adapter.index as ReturnType<typeof vi.fn>).mock.invocationCallOrder[0],
@@ -85,20 +90,32 @@ describe('SELFHOST-008 P4 — SemanticMemoryStore decorator', () => {
     // dedup ⇒ index skipped (no duplicate vector)
     const dedupBase = createFakeBase({ deduplicated: true });
     const dedupAdapter = createFakeAdapter(async () => SEMANTIC_HIT);
-    await createSemanticMemoryStore(dedupBase, dedupAdapter).append(input);
+    await createSemanticMemoryStore(dedupBase, dedupAdapter).append(INPUT);
     expect(dedupBase.append).toHaveBeenCalledTimes(1);
     expect(dedupAdapter.index).not.toHaveBeenCalled();
   });
 
-  it('TC-03: adapter-gating by composition — a plain base store (no decorator) never touches an adapter', async () => {
-    const base = createFakeBase();
+  it('TC-03: adapter-gating by composition — decorated store hits the adapter; the plain base does NOT', async () => {
+    // The MEANINGFUL contrast: the SAME adapter is reached only through the decorator. A surface that composes the
+    // decorator gets semantic recall + index; a surface that injects the plain base store gets neither (today's behavior).
     const adapter = createFakeAdapter(async () => SEMANTIC_HIT);
-    // Using the base directly (the surface simply did not compose the decorator) ⇒ keyword recall, no index.
-    const input = { topic: 'x', content: 'y', id: 'c2' } as never;
-    await base.append(input);
-    await base.recall('q', BUDGET);
-    expect(adapter.query).not.toHaveBeenCalled();
+
+    const decoratedBase = createFakeBase();
+    const decorated = createSemanticMemoryStore(decoratedBase, adapter);
+    await decorated.recall('q', BUDGET);
+    await decorated.append(INPUT);
+    expect(adapter.query).toHaveBeenCalledTimes(1); // decorated ⇒ adapter reached
+    expect(adapter.index).toHaveBeenCalledTimes(1);
+
+    (adapter.query as ReturnType<typeof vi.fn>).mockClear();
+    (adapter.index as ReturnType<typeof vi.fn>).mockClear();
+
+    const plainBase = createFakeBase();
+    await plainBase.recall('q', BUDGET); // surface did NOT compose the decorator
+    await plainBase.append(INPUT);
+    expect(adapter.query).not.toHaveBeenCalled(); // plain base ⇒ adapter untouched (keyword-only, unchanged)
     expect(adapter.index).not.toHaveBeenCalled();
+    expect(plainBase.recall).toHaveBeenCalled(); // it still recalled via the keyword base
   });
 
   it('TC-04: recall query degradation — adapter.query throws ⇒ keyword base.recall, no throw', async () => {
@@ -122,11 +139,10 @@ describe('SELFHOST-008 P4 — SemanticMemoryStore decorator', () => {
       },
     );
     const store = createSemanticMemoryStore(base, adapter);
-    const input = { topic: 'x', content: 'y', id: 'c3' } as never;
 
-    const result = await expect(store.append(input)).resolves.toBeDefined();
+    await expect(store.append(INPUT)).resolves.toBeDefined();
     expect(base.append).toHaveBeenCalledTimes(1); // durable write still happened
-    void result;
+    expect(adapter.index).toHaveBeenCalledTimes(1); // index was attempted (then threw + was swallowed)
   });
 
   it('TC-06: capability-preservation/swap — a fake adapter upgrades recall, consumed transparently by AutomaticMemoryController', async () => {
