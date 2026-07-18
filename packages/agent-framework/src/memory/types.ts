@@ -1,5 +1,5 @@
 /**
- * SELFHOST-008 P1 — the neutral durable-memory port.
+ * SELFHOST-008 — the neutral durable-memory port (P1R: async + role-segregated).
  *
  * `IMemoryStore` is the single DIP seam for the memory capability, mirroring the STRUCTURE of the
  * sandbox precedent (`ISandboxClient` in `@robota-sdk/agent-tools`): the port + its neutral reference
@@ -7,12 +7,14 @@
  * command-api), NOT in `agent-core` and NOT in a new interface package. It unifies what today is split
  * across `ProjectMemoryStore` (durable write/read), `MemoryRetrievalService` (budgeted keyword recall),
  * and `PendingMemoryStore` (curation queue) so a surface can swap the whole store without editing the
- * library.
+ * library — and (P1R) is composed from segregated role interfaces so each consumer depends only on its slice.
  *
- * v1 commits to ONE recall backend — the neutral keyword/FTS reference adapter (`FileSystemMemoryStore`).
- * The heavy semantic/vector backend is a SEPARATE, duck-typed, DEFERRED port (`ISemanticMemoryAdapter`,
- * mirroring `IE2BSandboxAdapter`) so no vector-DB SDK becomes an `agent-framework` dependency; the port
- * may be revised when that backend lands (a conscious deferral, not a hidden one).
+ * The surface is **async** (`Promise`-returning), matching the repo's I/O-capability port precedents
+ * (`ISandboxClient`, `IRetrievalAdapter`) so a remote/heavy backend fits behind the same port. v1's recall
+ * backend is the neutral keyword/FTS fs reference adapter (`FileSystemMemoryStore`, which wraps its sync fs
+ * calls in resolved Promises — zero behavior change). The heavy semantic/vector backend is the SEPARATE,
+ * duck-typed, async `ISemanticMemoryAdapter` (mirroring `IE2BSandboxAdapter`) — now injectable behind this
+ * async port without a breaking migration; no vector-DB SDK becomes an `agent-framework` dependency.
  *
  * Library-neutrality: this port and its fs reference adapter are neutral MECHANISMS. Memory CONTENT lives
  * only in the consumer workspace (`<cwd>/.robota/memory/`), and curation POLICY/prompt is supplied by the
@@ -52,36 +54,60 @@ export interface IMemoryBudget {
 }
 
 /**
- * The neutral durable-memory port. Flat by design (mirrors the flat `ISandboxClient`), with method
- * groups for durable project memory (write + read), budgeted recall, and the curation queue. The v1
- * reference adapter is synchronous (filesystem); a later semantic backend is injected via the separate
- * async `ISemanticMemoryAdapter`, so this port stays sync and is not prematurely Promise-ified.
+ * Segregated role interfaces (ISP). The durable-memory capability is four distinct client roles —
+ * a reader (startup injection needs only this), a writer, a recaller, and a curation queue. `IMemoryStore`
+ * composes all four; a consumer depends only on the slice it uses. Every method is **async**
+ * (`Promise`-returning), matching the repo's I/O-capability port precedents (`ISandboxClient`,
+ * `IRetrievalAdapter`) so a remote/heavy backend — including the async `ISemanticMemoryAdapter` — fits
+ * behind the same port without a breaking migration. The fs reference adapter wraps its synchronous `fs`
+ * calls in already-resolved Promises (zero behavior change).
  */
-export interface IMemoryStore {
-  // ── durable project memory (write + read) ──────────────────────────────
+export interface IDurableMemoryReader {
   /** The startup-memory index (budget-limited), injected into the system prompt. */
-  loadStartupMemory(): IStartupMemory;
+  loadStartupMemory(): Promise<IStartupMemory>;
   /** Summarize the memory index + topic files. */
-  list(): IProjectMemorySummary;
+  list(): Promise<IProjectMemorySummary>;
   /** Read a single topic's content ('' if absent). */
-  readTopic(topic: string): string;
-  /** Append a durable memory entry (deduplicated). */
-  append(input: IAppendMemoryInput): IAppendMemoryResult;
-
-  // ── budgeted recall ────────────────────────────────────────────────────
-  /** Recall the most relevant topics for `query`, never exceeding `budget`. */
-  recall(query: string, budget: IMemoryBudget): IMemoryRetrievalResult;
-
-  // ── curation queue ─────────────────────────────────────────────────────
-  /** A pending candidate by id (undefined if absent). */
-  getPending(id: string): IMemoryPendingRecord | undefined;
-  /** Pending candidates, optionally filtered by status. */
-  listPending(status?: TMemoryCandidateStatus): IMemoryPendingRecord[];
-  /** Transition a pending candidate to a new status with a reason. */
-  markPending(id: string, status: TMemoryCandidateStatus, reason: string): IMemoryPendingRecord;
-  /** Insert or update a pending candidate with a status + reason. */
-  upsertPending(candidate: IMemoryCandidate, status: TMemoryCandidateStatus, reason: string): void;
+  readTopic(topic: string): Promise<string>;
 }
+
+export interface IMemoryWriter {
+  /** Append a durable memory entry (deduplicated). */
+  append(input: IAppendMemoryInput): Promise<IAppendMemoryResult>;
+}
+
+export interface IMemoryRecaller {
+  /** Recall the most relevant topics for `query`, never exceeding `budget`. */
+  recall(query: string, budget: IMemoryBudget): Promise<IMemoryRetrievalResult>;
+}
+
+export interface IMemoryCurationQueue {
+  /** A pending candidate by id (undefined if absent). */
+  getPending(id: string): Promise<IMemoryPendingRecord | undefined>;
+  /** Pending candidates, optionally filtered by status. */
+  listPending(status?: TMemoryCandidateStatus): Promise<IMemoryPendingRecord[]>;
+  /** Transition a pending candidate to a new status with a reason. */
+  markPending(
+    id: string,
+    status: TMemoryCandidateStatus,
+    reason: string,
+  ): Promise<IMemoryPendingRecord>;
+  /** Insert or update a pending candidate with a status + reason. */
+  upsertPending(
+    candidate: IMemoryCandidate,
+    status: TMemoryCandidateStatus,
+    reason: string,
+  ): Promise<void>;
+}
+
+/**
+ * The neutral durable-memory port — the composition of the four role interfaces above. It is the single
+ * DIP seam a surface swaps to change the whole backend (fs, FTS, or a semantic/vector store behind
+ * `ISemanticMemoryAdapter`); startup injection, the `/memory` command path, and the post-turn capture
+ * controller ALL read/write through it, so an injected store is authoritative everywhere (no split-brain).
+ */
+export interface IMemoryStore
+  extends IDurableMemoryReader, IMemoryWriter, IMemoryRecaller, IMemoryCurationQueue {}
 
 /** A single semantic recall hit (deferred backend). */
 export interface ISemanticMemoryQueryResult {

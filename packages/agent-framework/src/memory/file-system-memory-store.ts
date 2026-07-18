@@ -34,49 +34,58 @@ export class FileSystemMemoryStore implements IMemoryStore {
   constructor(cwd: string, now: () => Date = () => new Date()) {
     this.project = new ProjectMemoryStore(cwd, now);
     this.pending = new PendingMemoryStore(cwd, now);
-    this.retrieval = new MemoryRetrievalService(cwd);
+    // P1R: reuse the SAME project store (honors the injected clock) for the recall read path —
+    // one ProjectMemoryStore per cwd, not two.
+    this.retrieval = new MemoryRetrievalService(this.project);
   }
 
+  // The methods are async to satisfy the async `IMemoryStore` port; the underlying fs work is
+  // synchronous, so each returns an already-resolved value — zero behavior change vs the sync P1 adapter.
+
   // ── durable project memory ─────────────────────────────────────────────
-  loadStartupMemory(): IStartupMemory {
+  async loadStartupMemory(): Promise<IStartupMemory> {
     return this.project.loadStartupMemory();
   }
 
-  list(): IProjectMemorySummary {
+  async list(): Promise<IProjectMemorySummary> {
     return this.project.list();
   }
 
-  readTopic(topic: string): string {
+  async readTopic(topic: string): Promise<string> {
     return this.project.readTopic(topic);
   }
 
-  append(input: IAppendMemoryInput): IAppendMemoryResult {
+  async append(input: IAppendMemoryInput): Promise<IAppendMemoryResult> {
     return this.project.append(input);
   }
 
   // ── budgeted recall ────────────────────────────────────────────────────
-  recall(query: string, budget: IMemoryBudget): IMemoryRetrievalResult {
-    // The keyword recall service takes an IAutomaticMemoryConfig; only its `retrieval` budget is used.
-    return this.retrieval.retrieve(query, {
-      policy: 'disabled',
-      retrieval: { maxTopics: budget.maxTopics, maxTopicChars: budget.maxTopicChars },
-    });
+  async recall(query: string, budget: IMemoryBudget): Promise<IMemoryRetrievalResult> {
+    return this.retrieval.retrieve(query, budget);
   }
 
   // ── curation queue ─────────────────────────────────────────────────────
-  getPending(id: string): IMemoryPendingRecord | undefined {
+  async getPending(id: string): Promise<IMemoryPendingRecord | undefined> {
     return this.pending.get(id);
   }
 
-  listPending(status?: TMemoryCandidateStatus): IMemoryPendingRecord[] {
+  async listPending(status?: TMemoryCandidateStatus): Promise<IMemoryPendingRecord[]> {
     return this.pending.list(status);
   }
 
-  markPending(id: string, status: TMemoryCandidateStatus, reason: string): IMemoryPendingRecord {
+  async markPending(
+    id: string,
+    status: TMemoryCandidateStatus,
+    reason: string,
+  ): Promise<IMemoryPendingRecord> {
     return this.pending.mark(id, status, reason);
   }
 
-  upsertPending(candidate: IMemoryCandidate, status: TMemoryCandidateStatus, reason: string): void {
+  async upsertPending(
+    candidate: IMemoryCandidate,
+    status: TMemoryCandidateStatus,
+    reason: string,
+  ): Promise<void> {
     this.pending.upsert(candidate, status, reason);
   }
 }

@@ -14,7 +14,6 @@ import {
   buildStatusLineCommandSubcommands,
   clearConversationHistory,
   createCommandMemoryStores,
-  createCommandPendingMemoryStore,
   addCommandContextReference,
   clearCommandContextReferences,
   createPluginTuiRequestedEffect,
@@ -285,9 +284,10 @@ describe('command-api contracts', () => {
     expect(formatLanguageUsageMessage()).toBe('Usage: language <code> (e.g., ko, en, ja, zh)');
   });
 
-  it('exposes memory command common APIs without command implementation imports', () => {
+  it('exposes memory command common APIs without command implementation imports', async () => {
     const context = createCommandHostContext();
-    const stores = createCommandMemoryStores(context);
+    // P1R: createCommandMemoryStores returns the single injected IMemoryStore (fs default here).
+    const store = createCommandMemoryStores(context);
 
     expect(buildMemoryCommandSubcommands().map((command) => command.name)).toEqual([
       'list',
@@ -301,8 +301,8 @@ describe('command-api contracts', () => {
     expect(isCommandMemoryType('project')).toBe(true);
     expect(isCommandMemoryType('secret')).toBe(false);
     expect(hasSensitiveCommandMemoryContent('api key is sk-test-secret')).toBe(true);
-    expect(stores.project.list().indexPath).toContain('.robota/memory/MEMORY.md');
-    expect(createCommandPendingMemoryStore('/workspace').list()).toEqual([]);
+    expect((await store.list()).indexPath).toContain('.robota/memory/MEMORY.md');
+    expect(await store.listPending()).toEqual([]);
     expect(listCommandUsedMemoryReferences(context)).toEqual([]);
   });
 

@@ -1,7 +1,6 @@
+import { createFileSystemMemoryStore } from '../../memory/file-system-memory-store.js';
 import { containsSensitiveMemoryContent } from '../../memory/memory-policy-evaluator.js';
-import { PendingMemoryStore } from '../../memory/pending-memory-store.js';
 import {
-  ProjectMemoryStore,
   isMemoryType,
   type IAppendMemoryInput,
   type IAppendMemoryResult,
@@ -17,6 +16,12 @@ import type {
   IMemoryReference,
   TMemoryCandidateStatus,
 } from '../../memory/automatic-memory-types.js';
+import type {
+  IDurableMemoryReader,
+  IMemoryCurationQueue,
+  IMemoryStore,
+  IMemoryWriter,
+} from '../../memory/types.js';
 import type { ICommandHostContext } from '../host-context.js';
 import type { ICommand } from '../types.js';
 
@@ -27,25 +32,11 @@ export const MEMORY_COMMAND_ARGUMENT_HINT =
 export const MEMORY_COMMAND_USAGE =
   'Usage: memory list | memory show [topic] | memory add <user|feedback|project|reference> <topic> <text> | memory pending | memory approve <id> | memory reject <id> | memory used';
 
-export interface ICommandProjectMemoryStore {
-  list(): IProjectMemorySummary;
-  loadStartupMemory(): IStartupMemory;
-  readTopic(topic: string): string;
-  append(input: IAppendMemoryInput): IAppendMemoryResult;
-}
-
-export interface ICommandPendingMemoryStore {
-  get(id: string): IMemoryPendingRecord | undefined;
-  list(status?: TMemoryCandidateStatus): IMemoryPendingRecord[];
-  mark(id: string, status: TMemoryCandidateStatus, reason: string): IMemoryPendingRecord;
-  upsert(candidate: IMemoryCandidate, status: TMemoryCandidateStatus, reason: string): void;
-}
-
-export interface ICommandMemoryStores {
-  project: ICommandProjectMemoryStore;
-  pending: ICommandPendingMemoryStore;
-}
-
+// SELFHOST-008 P1R: the `/memory` command consumes the segregated durable-memory port role interfaces
+// (`IDurableMemoryReader` + `IMemoryWriter` + `IMemoryCurationQueue`) directly — the prior
+// `ICommandProjectMemoryStore`/`ICommandPendingMemoryStore` were a duplicate decomposition of the same
+// stores and are removed. `createCommandMemoryStores` returns the INJECTED `IMemoryStore` so a swapped
+// backend is authoritative for command operations too (no split-brain), defaulting to the fs store.
 export type {
   IAppendMemoryInput,
   IAppendMemoryResult,
@@ -57,6 +48,10 @@ export type {
   IStartupMemory,
   TMemoryCandidateStatus,
   TMemoryType,
+  IDurableMemoryReader,
+  IMemoryWriter,
+  IMemoryCurationQueue,
+  IMemoryStore,
 };
 
 export function buildMemoryCommandSubcommands(source = 'memory'): ICommand[] {
@@ -75,29 +70,16 @@ export function buildMemoryCommandSubcommands(source = 'memory'): ICommand[] {
   ];
 }
 
-export function createCommandProjectMemoryStore(
-  cwd: string,
-  now?: () => Date,
-): ICommandProjectMemoryStore {
-  return new ProjectMemoryStore(cwd, now);
-}
-
-export function createCommandPendingMemoryStore(
-  cwd: string,
-  now?: () => Date,
-): ICommandPendingMemoryStore {
-  return new PendingMemoryStore(cwd, now);
-}
-
+/**
+ * The durable-memory port the `/memory` command reads/writes through — the surface-injected `IMemoryStore`
+ * (SSOT: the SAME instance the session uses for startup injection + capture), or the neutral fs reference
+ * store over the command host's cwd when the host injects none (memory behavior unchanged).
+ */
 export function createCommandMemoryStores(
   context: ICommandHostContext,
   now?: () => Date,
-): ICommandMemoryStores {
-  const cwd = context.getCwd();
-  return {
-    project: createCommandProjectMemoryStore(cwd, now),
-    pending: createCommandPendingMemoryStore(cwd, now),
-  };
+): IMemoryStore {
+  return context.getMemoryStore?.() ?? createFileSystemMemoryStore(context.getCwd(), now);
 }
 
 export function isCommandMemoryType(value: string): value is TMemoryType {

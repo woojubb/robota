@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import {
   InteractiveSession,
   SystemCommandExecutor,
-  createCommandPendingMemoryStore,
+  createFileSystemMemoryStore,
 } from '@robota-sdk/agent-framework';
 import { MemoryCommandSource, createMemoryCommandModule, executeMemoryCommand } from '../index.js';
 
@@ -51,12 +51,9 @@ function createInteractiveSession(cwd = makeProject()): InteractiveSession {
   });
 }
 
-function seedPendingMemory(cwd: string): void {
-  const pendingStore = createCommandPendingMemoryStore(
-    cwd,
-    () => new Date('2026-05-02T00:00:00.000Z'),
-  );
-  pendingStore.upsert(
+async function seedPendingMemory(cwd: string): Promise<void> {
+  const store = createFileSystemMemoryStore(cwd, () => new Date('2026-05-02T00:00:00.000Z'));
+  await store.upsertPending(
     {
       id: 'mem_123',
       type: 'project',
@@ -189,7 +186,7 @@ describe('executeMemoryCommand', () => {
 
   it('lists queued automatic memory candidates', async () => {
     const cwd = makeProject();
-    seedPendingMemory(cwd);
+    await seedPendingMemory(cwd);
     const session = createInteractiveSession(cwd);
 
     const result = await session.executeCommand('memory', 'pending');
@@ -202,7 +199,7 @@ describe('executeMemoryCommand', () => {
 
   it('approves and saves a pending candidate while recording audit events', async () => {
     const cwd = makeProject();
-    seedPendingMemory(cwd);
+    await seedPendingMemory(cwd);
     const session = createInteractiveSession(cwd);
     const recordMemoryEvent = vi.spyOn(session, 'recordMemoryEvent');
 
@@ -213,7 +210,7 @@ describe('executeMemoryCommand', () => {
     expect(readFileSync(join(cwd, '.robota', 'memory', 'MEMORY.md'), 'utf8')).toContain(
       '(project/build) Use pnpm for package scripts.',
     );
-    expect(createCommandPendingMemoryStore(cwd).get('mem_123')?.status).toBe('saved');
+    expect((await createFileSystemMemoryStore(cwd).getPending('mem_123'))?.status).toBe('saved');
     expect(recordMemoryEvent).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'memory_candidate_approved', candidateId: 'mem_123' }),
     );
@@ -224,7 +221,7 @@ describe('executeMemoryCommand', () => {
 
   it('rejects a pending candidate while recording an audit event', async () => {
     const cwd = makeProject();
-    seedPendingMemory(cwd);
+    await seedPendingMemory(cwd);
     const session = createInteractiveSession(cwd);
     const recordMemoryEvent = vi.spyOn(session, 'recordMemoryEvent');
 
@@ -232,7 +229,7 @@ describe('executeMemoryCommand', () => {
 
     expect(result?.success).toBe(true);
     expect(result?.message).toContain('Rejected memory candidate mem_123');
-    expect(createCommandPendingMemoryStore(cwd).get('mem_123')?.status).toBe('rejected');
+    expect((await createFileSystemMemoryStore(cwd).getPending('mem_123'))?.status).toBe('rejected');
     expect(recordMemoryEvent).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'memory_candidate_rejected', candidateId: 'mem_123' }),
     );
