@@ -272,6 +272,12 @@ Extend the existing hooks engine in three coordinated moves, all on the current 
       the one `exitCode:2 → blocked` contract; there is no second, parallel hook/registry system and no second
       block-decision point (assertion/scan; interface-runtime + neutrality guards pass).
 - [ ] TC-06: no domain hook policy in `packages/` — the catalog + engine stay neutral mechanism (neutrality scan).
+- [ ] TC-07 (**AGENT-RUN**, per the capability-reachability done-gate): the agent itself runs the real `robota` CLI
+      with a user-configured `PreToolUse` hook (in `settings.json`) that DENIES a tool, and observes the tool actually
+      blocked in a live run (the tool's effect does not occur / a denial is surfaced) — proving the user-facing hook
+      gate is reachable and works end-to-end, not just in a unit test. Evidence saved under `.agents/evals/scenarios/`.
+      (Added per the 2026-07-18 agent-run-verification rule; the hook engine is already reachable, so this verifies the
+      user-configured gate behavior via a real run.)
 
 ## Test Plan
 
@@ -283,10 +289,11 @@ Extend the existing hooks engine in three coordinated moves, all on the current 
 | TC-04 | all 13 existing events still fire at their fire-sites                                                                        | vitest unit (regression)      |
 | TC-05 | single `runHooks`/`blocked` path, no second tier                                                                             | assertion + interface-runtime |
 | TC-06 | neutrality — no domain hook policy in `packages/`                                                                            | neutrality scan               |
+| TC-07 | AGENT-RUN: real `robota` CLI + settings.json `PreToolUse` deny hook → tool blocked in a live run                             | agent-run (`-p`) + evidence   |
 
 ## Tasks
 
-`.agents/tasks/SELFHOST-009.md` — 미생성 (GATE-APPROVAL 통과 후 생성).
+[`.agents/tasks/SELFHOST-009.md`](../../tasks/SELFHOST-009.md) — created at GATE-IMPLEMENT; slices S1–S6 (new events → fire-sites → catalog SSOT doc → drift-guard scan → tests → agent-run TC-07) mapped to TC-01..07.
 
 ## Evidence Log
 
@@ -338,3 +345,13 @@ Extend the existing hooks engine in three coordinated moves, all on the current 
   folded here: **`PostModelCall` is pinned to the single canonical source `provider_response_normalized`** (NOT also
   `provider_response_raw`, which would double-fire per round); the catalog documents one fire-site and TC-03 asserts
   single emission. Direction (extend the one engine, no new tier, mechanical drift floor) intact. **GATE-APPROVAL PASSED.**
+
+### [PRE-IMPLEMENT REFRESH] — 2026-07-19
+
+Picked up for implementation (owner "바로 시작해"). Re-verified the design-gate grounding against current develop (it
+holds): `THookEvent` is still the 13-member union; `content/guide/permissions-and-hooks.md` still carries the phantom
+`Notification` row + omits the 6 real events; `PreModelCall`/`PostModelCall`/`PermissionDecision` still do not exist.
+Added **TC-07 (AGENT-RUN)** to Completion Criteria + Test Plan per the 2026-07-18 capability-reachability /
+agent-run-verification rule (owner directive) — the `PreToolUse` security gate is user-facing, so the done-gate now
+requires demonstrating it via a real `robota` run, not only a unit test. This is an additive, rule-driven verification
+(no design change); the prior GATE-APPROVAL ENDORSE + owner sign-off stand. Proceeding to GATE-IMPLEMENT.
