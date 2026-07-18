@@ -19,6 +19,7 @@ import {
 import { collectAssistantUsageMetadata } from './execution-usage';
 import { callPluginHook } from './plugin-hook-dispatcher';
 import { bindWithOwnerPath } from '../event-service/index';
+import { createSystemMessage } from '../managers/conversation-message-factory';
 
 import type { ExecutionEventEmitter } from './execution-event-emitter';
 import type { TPluginWithHooks } from './plugin-hook-dispatcher';
@@ -77,6 +78,14 @@ export async function executeRound(
   });
 
   const conversationMessages = conversationStore.getMessages();
+  // SELFHOST-008 P3: an EPHEMERAL per-run system block (e.g. per-turn recalled memory) is appended to a
+  // DERIVED provider-message array only — it is sent to the model for this call but never written to the
+  // conversation store, so it does not persist to history nor rebuild the cached static system prompt.
+  const ephemeralSystemContext = fullContext.ephemeralSystemContext;
+  const providerMessages =
+    ephemeralSystemContext && ephemeralSystemContext.trim().length > 0
+      ? [...conversationMessages, createSystemMessage(ephemeralSystemContext)]
+      : conversationMessages;
   const { thinkingNodeId, previousThinkingNodeId } = computeRoundThinkingContext(
     conversationId,
     roundState,
@@ -149,7 +158,7 @@ export async function executeRound(
   );
 
   const response = await callRoundProviderWithEvents(
-    conversationMessages,
+    providerMessages,
     config,
     resolved,
     cacheService,

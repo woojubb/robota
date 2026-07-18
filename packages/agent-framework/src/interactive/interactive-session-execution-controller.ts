@@ -62,6 +62,13 @@ export interface IExecutionControllerCallbacks {
     userMessage: string;
     assistantMessage: string;
   }) => Promise<IMemoryEvent[]>;
+  /**
+   * SELFHOST-008 P3: optional per-turn recall. When set (surface supplied a `recallMemory` policy), it is
+   * called at turn START with the turn's input and returns a rendered `<recalled-memory>` block (or '') to
+   * inject EPHEMERALLY into that turn's model call (never persisted). Absent ⇒ recall OFF (startup-only
+   * injection). The controller guards this call — a recall failure skips injection, never breaks the turn.
+   */
+  recallMemory?: (query: string) => Promise<string>;
 }
 
 /** Options threaded through submit/executePrompt for non-user turns (FLOW-002). */
@@ -278,8 +285,22 @@ export class SessionExecutionController {
     // SELFHOST-008 P2: stash the completed turn's result so post-turn capture can run in the `finally`
     // BEFORE persistSession() (awaiting inside `onComplete` would not order there — it is not awaited).
     let completedResult: IExecutionResult | undefined;
+    // SELFHOST-008 P3: per-turn recall — compute the ephemeral `<recalled-memory>` block (query = input)
+    // BEFORE the turn's model call, guarded so a recall failure skips injection but never breaks the turn.
+    let ephemeralSystemContext: string | undefined;
+    if (this.callbacks.recallMemory) {
+      try {
+        const recalled = await this.callbacks.recallMemory(input);
+        if (recalled && recalled.trim().length > 0) ephemeralSystemContext = recalled;
+      } catch {
+        // allow-fallback: per-turn recall is best-effort over the always-present startup memory; a recall
+        // error skips ephemeral injection and the turn proceeds normally (SELFHOST-008 P3 declared degradation).
+        ephemeralSystemContext = undefined;
+      }
+    }
     try {
       await executePromptTurn(input, displayInput, rawInput, {
+        ...(ephemeralSystemContext !== undefined ? { ephemeralSystemContext } : {}),
         getSession: () => this.callbacks.getSessionOrThrow(),
         getCwd: () => this.callbacks.getCwd(),
         getHistory: () => this.histTracker.getHistory(),

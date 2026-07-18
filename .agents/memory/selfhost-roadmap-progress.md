@@ -96,14 +96,30 @@ injectable) + segregated into 4 role interfaces (ISP) + the `/memory` command pa
 post-turn auto-capture — the dormant `AutomaticMemoryController` fires per USER turn, **awaited in the execution
 controller's `finally` before `persistSession()`** (option B; `onComplete` is unawaited so awaiting there would race —
 the gate caught this over 3 review iterations), try/catch-guarded, adapter-gated on a surface-supplied `automaticMemory?`
-(absent ⇒ OFF). TC-02b proves await-before-persist. **P3 (ISemanticMemoryAdapter wiring + fake swap) / P4 (concrete
-backend) PENDING; HARNESS-029 gates them.** Also this session: **HARNESS-028** no-fallback mechanical gate DONE (merged
-main #1216 + develop #1217) — see `no-fallback-gate.md`. Branch-flow lesson: NEVER PR a develop-based branch into `main`
-(it sweeps the whole develop→main delta; the #1216 incident, forward-fixed by #1217). Architecture lesson: capability
-DIP ports must be async + wire ALL consumers through the port; run architecture-auditor + architecture-conformance-auditor
-at mid-points (they caught the P1 defects before they compounded).
+(absent ⇒ OFF). TC-02b proves await-before-persist. **HARNESS-029 DONE** (PR #1223, merged develop `d20f73576`):
+mechanical memory-neutrality floor (`scan-memory-neutrality.mjs`, 57 scans) flagging `seeded-memory-content` +
+`library-capture-prompt` in `packages/*/src`; the always-on guardian that GATES P3/P4. Review found + fixed 1 SHOULD
+ReDoS (disjoint `CAPTURE_PROMPT_DECL` branches `\\.|(?!\1)[^\\]` + TC-07 regression) + threaded `root` through the walk.
+**P3 SPLIT + DONE** (PR #1224 → develop). GATE-APPROVAL proposal-review of the semantic-decorator slice found the recall
+path (`controller.retrieve`/`renderRetrievedMemory`/`IMemoryStore.recall`) has ZERO live callers — a semantic backend
+would upgrade DEAD code. Owner chose "분할": **P3 = wire per-turn recall FIRST** (keyword, observable); semantic
+decorator → **P4** (deferred). P3 shipped via the full gate pipeline (WRITE→APPROVAL[proposal-reviewer REVISE×2→ENDORSE]
+→IMPLEMENT→VERIFY→COMPLETE): per-turn durable-memory recall injected EPHEMERALLY. **3-package (layering):** the ephemeral
+primitive lives in **agent-core** `IRunOptions.ephemeralSystemContext` (transient system-role msg appended to a DERIVED
+provider-message array in `executeRound`, never `addUserMessage`'d → never persisted, no prompt-cache rebuild) — agent-core
+owns model-call assembly, not agent-session (reviewer caught the 1st-draft mislocation); `agent-session.run(...,{ephemeralSystemContext})`
+= thin pass-through; agent-framework controller computes recall at turn start (query=input) → distinct `<recalled-memory>`
+label → ephemeral inject, adapter-gated on surface `recallMemory?` (`IPerTurnRecallConfig`; absent ⇒ OFF), guarded
+(recall error → skip). v1 NO dedup vs startup index (summaries vs bodies = granularity mismatch; deferred). TC-01..07
+green, 56/56 scans. \*\*P4 (`ISemanticMemoryAdapter` decorator — spec drafted `spec-docs/draft/SELFHOST-008-P4-semantic-adapter-decorator.md`)
 
-Next: SELFHOST-008 P3→P4 (+ HARNESS-029), then 009–014 in priority order (`priority: medium`/`low`, `urgency: later`);
+- P5 (concrete backend) PENDING.** Also this session:
+  **HARNESS-028\*\* no-fallback mechanical gate DONE (merged main #1216 + develop #1217) — see `no-fallback-gate.md`.
+  Branch-flow lesson: NEVER PR a develop-based branch into `main` (it sweeps the whole develop→main delta; the #1216
+  incident, forward-fixed by #1217). Architecture lesson: capability DIP ports must be async + wire ALL consumers through
+  the port; run architecture-auditor + architecture-conformance-auditor at mid-points (they caught the P1 defects early).
+
+Next: await #1224 merge; SELFHOST-008 P4→P5, then 009–014 in priority order (`priority: medium`/`low`, `urgency: later`);
 each follows the same GATE-WRITE → APPROVAL → IMPLEMENT → VERIFY → COMPLETE flow.
 Committing at logical boundaries per the new commit-cadence rule (git-branch.md).
 Multi-package specs split into named P-slice work units (own PR each); each code-changing spec's GATE-COMPLETE needs
