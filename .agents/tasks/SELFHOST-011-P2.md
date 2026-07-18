@@ -34,7 +34,11 @@ agent-cli stays a THIN shell. Commit per logical slice (commit-cadence).
 
 ## Status
 
-**IN PROGRESS.** Implementing S1–S5 + the agent-run verification.
+**DONE (2026-07-19).** S1–S5 implemented + green; TC-03/TC-04/TC-05 satisfied. **AGENT-RUN VERIFIED**: drove
+the real `robota eval` against a live Anthropic provider — PASS def → exit 0, FAIL def → exit 1, missing-path
+→ exit 1 (evidence `.agents/evals/scenarios/selfhost-011-eval-gate-agent-run.md`). agent-cli 226 tests,
+typecheck, lint 0 errors, 57/57 scans; example typechecks. P3/P4 deferred to backlog
+(`.agents/backlog/SELFHOST-011-P3-P4-evals-followups.md`). Epic ready for GATE-VERIFY → GATE-COMPLETE.
 
 ## Slices (each green + committed)
 
