@@ -284,23 +284,23 @@ SDK dependency, prompt, or content.
 
 ## Completion Criteria
 
-- [ ] TC-01: with an injected `ISemanticMemoryAdapter`, `SemanticMemoryStore.recall(q, budget)` returns the adapter's
+- [x] TC-01: with an injected `ISemanticMemoryAdapter`, `SemanticMemoryStore.recall(q, budget)` returns the adapter's
       `query()` result (semantic-primary), NOT the keyword base result — proven by a fake adapter returning a hit the
       keyword ranker would not (functional test, fake adapter + fake base).
-- [ ] TC-02: `SemanticMemoryStore.append(entry)` performs the base durable write AND calls `adapter.index(entry)` with
+- [x] TC-02: `SemanticMemoryStore.append(entry)` performs the base durable write AND calls `adapter.index(entry)` with
       that entry (unit test, spy fake adapter + spy base — both invoked, base before index); and when the base result is
       `deduplicated: true`, `adapter.index()` is **NOT** called (no duplicate vector).
-- [ ] TC-03: **adapter-gating by composition** — a plain `FileSystemMemoryStore` (no decorator) recalls via keyword and
+- [x] TC-03: **adapter-gating by composition** — a plain `FileSystemMemoryStore` (no decorator) recalls via keyword and
       appends without any `index()` call exactly as today (unit test — decorator is opt-in; base unchanged).
-- [ ] TC-04: **recall query degradation (declared)** — when `adapter.query()` throws, `recall()` returns the keyword
+- [x] TC-04: **recall query degradation (declared)** — when `adapter.query()` throws, `recall()` returns the keyword
       `base.recall()` result and does NOT throw (unit test, throwing fake adapter).
-- [ ] TC-05: **index write degradation (declared)** — when `adapter.index()` throws, `append()` still performs the base
+- [x] TC-05: **index write degradation (declared)** — when `adapter.index()` throws, `append()` still performs the base
       durable write and does NOT throw (unit test, throwing fake adapter; base write asserted present).
-- [ ] TC-06 (**capability-preservation / swap**): a hand-written fake `ISemanticMemoryAdapter` composed via
+- [x] TC-06 (**capability-preservation / swap**): a hand-written fake `ISemanticMemoryAdapter` composed via
       `createSemanticMemoryStore` upgrades recall with **no `agent-framework` change**, and the decorated store is
       consumed transparently by an `IMemoryStore` consumer (e.g. `AutomaticMemoryController.retrieve`) — realizing the
       P1 design-only "swap the store" contract as an exercised path (unit/functional test).
-- [ ] TC-07 (**NEUTRALITY**): `SemanticMemoryStore` is pure mechanism — no capture/recall prompt or memory CONTENT and
+- [x] TC-07 (**NEUTRALITY**): `SemanticMemoryStore` is pure mechanism — no capture/recall prompt or memory CONTENT and
       no vector-DB SDK dependency in `packages/agent-framework`. HARNESS-029 `memory-neutrality` scan green. NOTE:
       HARNESS-029 detects seeded content/prompts but does **not** scan `package.json` dependencies, so the no-SDK-dep
       guarantee rests on the duck-typed design + a targeted `package.json` review (a mechanical dep-allowlist floor is a
