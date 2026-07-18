@@ -60,6 +60,13 @@ export interface IParsedCliArgs {
   disableUpdateCheck: boolean;
   dryRun: boolean;
   yes: boolean;
+  /**
+   * SELFHOST-008 P6: tri-state memory enablement override — `true` (`--memory`), `false`
+   * (`--no-memory`), or `undefined` (neither given, defer to settings/env). `--no-memory` wins if both.
+   */
+  memory: boolean | undefined;
+  /** SELFHOST-008 P6: `--memory-autosave` flips the capture policy to `auto_save`. */
+  memoryAutoSave: boolean;
 }
 
 /** Return CLI usage help text. */
@@ -88,6 +95,9 @@ Options:
   --denied-tools <list>      Comma-separated tool denylist (TUI and print mode)
   --model <model>            Model override for this run
   --preset <id>              Preset id to apply (default: settings.preset or "default")
+  --memory / --no-memory     Enable/disable durable memory for this run (default: off; opt-in).
+                             Overrides settings.json memory.enabled; ROBOTA_MEMORY=1|0 overrides both
+  --memory-autosave          With memory on, auto-save captured facts (default: approval-required queue)
   --json-schema <schema>     Print mode: instruct the model to respond with JSON matching this schema
   --dry-run                  Alias for --permission-mode plan (plan only, no execution)
   --reset                    Delete ~/.robota/settings.json (provider profiles and preferences).
@@ -196,6 +206,10 @@ const PARSE_ARGS_CONFIG = {
     'disable-update-check': { type: 'boolean', default: false },
     'dry-run': { type: 'boolean', default: false },
     yes: { type: 'boolean', short: 'y', default: false },
+    // SELFHOST-008 P6: no `default` so absence is distinguishable (tri-state override).
+    memory: { type: 'boolean' },
+    'no-memory': { type: 'boolean' },
+    'memory-autosave': { type: 'boolean' },
   },
 } as const;
 
@@ -247,6 +261,9 @@ function mapParsedValues(
     disableUpdateCheck: values['disable-update-check'] ?? false,
     dryRun: values['dry-run'] ?? false,
     yes: values['yes'] ?? false,
+    // SELFHOST-008 P6: `--no-memory` wins over `--memory` if both are given (explicit opt-out).
+    memory: values['no-memory'] === true ? false : values['memory'] === true ? true : undefined,
+    memoryAutoSave: values['memory-autosave'] ?? false,
   };
 }
 

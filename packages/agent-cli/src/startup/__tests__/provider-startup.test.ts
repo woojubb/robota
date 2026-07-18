@@ -168,6 +168,8 @@ function baseArgs(): IParsedCliArgs {
     disableUpdateCheck: false,
     dryRun: false,
     yes: false,
+    memory: undefined,
+    memoryAutoSave: false,
   };
 }
 
