@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: DATA
 tags: [memory, semantic-recall, adapter, agent-framework, selfhost-008]
 ---
@@ -381,3 +381,14 @@ owner sign-off to complete GATE-APPROVAL.
 - No Architecture Review or frontmatter `type`/`tags` modified after approval. PASS.
 - Independent design review: `[GATE-APPROVAL] — ENDORSE (proposal-reviewer)` entry present — re-reviewed after the P3/P4 split, all load-bearing premises verified against current code (recall/index now LIVE via P3/P2; decorator transparency + zero new threading; both declared degradations HARNESS-028-legit; idempotent skip-on-dedup implementable via `IAppendMemoryResult.deduplicated`; neutrality claim honest; placement correct). PASS.
 - Independent architecture validation (conditional): N/A — no new package/app/surface or layer/product-family reclassification (a second `IMemoryStore` impl inside the existing `agent-framework/src/memory/`, reuse at the contract level). Recorded N/A. PASS.
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-07-18
+
+**Status upgrade:** approved → in-progress
+
+- Prior-gate precondition: `[GATE-APPROVAL] — ✅ PASS | 2026-07-18` entry present in the Evidence Log; frontmatter `status: approved` matches the expected input stage for GATE-IMPLEMENT. PASS.
+- Tasks file created: `.agents/tasks/SELFHOST-008-P4.md` exists on disk (3646 bytes, verified via `ls`). PASS.
+- Path recorded in spec: the `## Tasks` section links `.agents/tasks/SELFHOST-008-P4.md` and states slices S1–S4 mapped to TC-01..07 + the Test Plan. PASS.
+- Tasks map to Completion Criteria: task file's Slices S1 (decorator+factory: tiered recall, guarded append-then-index, skip-on-dedup, delegate rest) → TC-01/TC-02/TC-04/TC-05; S2 (barrel export + types.ts doc note) supports TC-06; S3 (tests) covers TC-01..07; S4 (docs SPEC.md) supports TC-07 — every TC-01..TC-07 covered. PASS.
+- Test Plan present in task file: `## Test Plan` section present with per-TC (TC-01..07) verification lines + a regression line (>50 chars). PASS.
+- No implementation commits yet for P4 source: recent commits are docs-only (`docs(spec): ...` for GATE-WRITE/proposal-reviewer/GATE-APPROVAL + task breakdown); `packages/agent-framework/src/memory/semantic-memory-store.ts` does NOT exist, and `semantic-memory-store.test.ts` does NOT exist (both verified via `ls`). PASS.
