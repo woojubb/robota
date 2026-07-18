@@ -111,15 +111,20 @@ owns model-call assembly, not agent-session (reviewer caught the 1st-draft mislo
 = thin pass-through; agent-framework controller computes recall at turn start (query=input) → distinct `<recalled-memory>`
 label → ephemeral inject, adapter-gated on surface `recallMemory?` (`IPerTurnRecallConfig`; absent ⇒ OFF), guarded
 (recall error → skip). v1 NO dedup vs startup index (summaries vs bodies = granularity mismatch; deferred). TC-01..07
-green, 56/56 scans. \*\*P4 (`ISemanticMemoryAdapter` decorator — spec drafted `spec-docs/draft/SELFHOST-008-P4-semantic-adapter-decorator.md`)
+green, 56/56 scans. **P4 DONE** (PR #1225 → develop): neutral `SemanticMemoryStore` decorator (base `IMemoryStore` +
+injected `ISemanticMemoryAdapter`) — tiered recall (adapter.query primary; error → keyword base.recall, declared),
+guarded append-then-index (base durable write first; adapter.index only when `!deduplicated`; index error → skip,
+declared), delegate rest; `createSemanticMemoryStore` factory + barrel export; imports NO vector SDK (surface injects
+the concrete adapter). Upgrades the live P2/P3 recall+index paths via the existing `memoryStore` seam with no
+agent-framework change. TC-01..07 (7 tests), 56/56 scans, proposal-reviewer ENDORSE. Known v1 limit: pre-adapter
+durable entries dedup-skip the vector index (keyword-recallable; v2 `upsert-by-id`). **P5 (concrete embedder+vector-DB
+backend in a surface; may extract `agent-interface-memory` iff a 2nd family) PENDING.** Also this session:
+\*\*HARNESS-028\*\* no-fallback mechanical gate DONE (merged main #1216 + develop #1217) — see `no-fallback-gate.md`.
+Branch-flow lesson: NEVER PR a develop-based branch into `main` (it sweeps the whole develop→main delta; the #1216
+incident, forward-fixed by #1217). Architecture lesson: capability DIP ports must be async + wire ALL consumers through
+the port; run architecture-auditor + architecture-conformance-auditor at mid-points (they caught the P1 defects early).
 
-- P5 (concrete backend) PENDING.** Also this session:
-  **HARNESS-028\*\* no-fallback mechanical gate DONE (merged main #1216 + develop #1217) — see `no-fallback-gate.md`.
-  Branch-flow lesson: NEVER PR a develop-based branch into `main` (it sweeps the whole develop→main delta; the #1216
-  incident, forward-fixed by #1217). Architecture lesson: capability DIP ports must be async + wire ALL consumers through
-  the port; run architecture-auditor + architecture-conformance-auditor at mid-points (they caught the P1 defects early).
-
-Next: SELFHOST-008 P4→P5, then 009–014 in priority order (`priority: medium`/`low`, `urgency: later`);
+Next: await #1225 merge; SELFHOST-008 P5 (concrete backend), then 009–014 in priority order (`priority: medium`/`low`, `urgency: later`);
 each follows the same GATE-WRITE → APPROVAL → IMPLEMENT → VERIFY → COMPLETE flow.
 Committing at logical boundaries per the new commit-cadence rule (git-branch.md).
 Multi-package specs split into named P-slice work units (own PR each); each code-changing spec's GATE-COMPLETE needs
