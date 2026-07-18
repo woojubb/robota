@@ -1,5 +1,6 @@
 ---
-status: verifying
+status: done
+completed: 2026-07-18
 type: DATA
 tags: [memory, semantic-recall, adapter, agent-framework, selfhost-008]
 ---
@@ -320,7 +321,7 @@ SDK dependency, prompt, or content.
 
 ## Tasks
 
-[`.agents/tasks/SELFHOST-008-P4.md`](../../tasks/SELFHOST-008-P4.md) — created at GATE-IMPLEMENT; slices S1–S4
+[`.agents/tasks/completed/SELFHOST-008-P4.md`](../../tasks/completed/SELFHOST-008-P4.md) — archived at GATE-COMPLETE; slices S1–S4
 (decorator+factory → barrel export → tests → docs) mapped to TC-01..07 + the Test Plan.
 
 ## Evidence Log
@@ -405,3 +406,52 @@ owner sign-off to complete GATE-APPROVAL.
 - Scans: `pnpm harness:scan` — all 56 scans passed (incl. memory-neutrality, orphan-exports, spec-publish-claims, test-plans, conformance). PASS.
 - Lint: `pnpm --filter @robota-sdk/agent-framework lint` — 0 errors (150 pre-existing warnings, unrelated allowed-unused-var style). PASS.
 - Completion Criteria state: TC-01..TC-07 all `[x]` in `## Completion Criteria`, each with a Test Plan reference (TC-07 = HARNESS-029 memory-neutrality scan + package.json review). PASS.
+
+### [GATE-COMPLETE: TC-01] — ✅ | 2026-07-18
+
+Command: `npx vitest run packages/agent-framework/src/memory/__tests__/semantic-memory-store.test.ts` (exit 0).
+Result: test `TC-01: adapter present ⇒ recall returns the semantic query() result, not keyword` passed — decorator returns the injected adapter's `query()` result (semantic-primary), not the keyword base. Checkbox `[x]`.
+
+### [GATE-COMPLETE: TC-02] — ✅ | 2026-07-18
+
+Command: same vitest run (exit 0).
+Result: test `TC-02: append does base durable write THEN adapter.index (base first); skips index on dedup` passed — `append()` awaits base durable write before `adapter.index()`, and skips `adapter.index()` when base returns `deduplicated: true`. Checkbox `[x]`.
+
+### [GATE-COMPLETE: TC-03] — ✅ | 2026-07-18
+
+Command: same vitest run (exit 0).
+Result: test `TC-03: adapter-gating by composition — a plain base store (no decorator) never touches an adapter` passed — undecorated base store recalls via keyword and appends with no `index()` call (opt-in, base unchanged). Checkbox `[x]`.
+
+### [GATE-COMPLETE: TC-04] — ✅ | 2026-07-18
+
+Command: same vitest run (exit 0).
+Result: test `TC-04: recall query degradation — adapter.query throws ⇒ keyword base.recall, no throw` passed — declared recall degradation to keyword base on adapter error, no throw. Checkbox `[x]`.
+
+### [GATE-COMPLETE: TC-05] — ✅ | 2026-07-18
+
+Command: same vitest run (exit 0).
+Result: test `TC-05: index write degradation — adapter.index throws ⇒ base durable write kept, append does not throw` passed — declared index degradation; base durable write kept, no throw. Checkbox `[x]`.
+
+### [GATE-COMPLETE: TC-06] — ✅ | 2026-07-18
+
+Command: same vitest run (exit 0).
+Result: test `TC-06: capability-preservation/swap — a fake adapter upgrades recall, consumed transparently by AutomaticMemoryController` passed — fake `ISemanticMemoryAdapter` composed via `createSemanticMemoryStore` upgrades recall with no `agent-framework` change and is consumed transparently by an `IMemoryStore` consumer. Factory/class exposure also confirmed by the 7th test `exposes the class + factory (public mechanism, mirrors createFileSystemMemoryStore)`. Full suite: 7 tests passed, 1 file passed, exit 0. Checkbox `[x]`.
+
+### [GATE-COMPLETE: TC-07] — ✅ | 2026-07-18
+
+Commands + results:
+
+- `node scripts/harness/scan-memory-neutrality.mjs` → `memory-neutrality scan passed.` exit 0 (no seeded capture/recall prompt or memory CONTENT).
+- `node scripts/harness/check-dependency-direction.mjs` → `✅ No dependency direction violations found.` exit 0.
+- `grep -iE "chromadb|pinecone|weaviate|pgvector|qdrant|faiss" packages/agent-framework/package.json` → no matches, exit 1 (no vector-DB SDK dependency present). Confirms the no-SDK-dep guarantee.
+  Checkbox `[x]`.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-07-18
+
+**Status upgrade:** verifying → done
+
+- Prior-gate precondition: `[GATE-VERIFY] — ✅ PASS | 2026-07-18` entry present; frontmatter `status: verifying` matches the expected input stage for GATE-COMPLETE. PASS.
+- All 7 Completion Criteria (TC-01..TC-07) checkboxes are `[x]`, each backed by a `[GATE-COMPLETE: TC-N]` Evidence entry above with the exact command, observed result, and exit code. PASS.
+- All 7 `## Test Plan` rows have a concrete test reference: TC-01..TC-06 map to named tests in `packages/agent-framework/src/memory/__tests__/semantic-memory-store.test.ts` (+ the factory-exposure test); TC-07 = `scan-memory-neutrality.mjs` (exit 0) + `check-dependency-direction.mjs` (exit 0) + no-vector-SDK-dep grep (exit 1, no match). No TC silently unaddressed. PASS.
+- Verification re-run for this gate: `npx vitest run …/semantic-memory-store.test.ts` → 7 passed, exit 0; neutrality scan exit 0; dependency-direction exit 0; vector-DB-SDK grep no match. PASS.
+- Tasks file archival to `.agents/tasks/completed/SELFHOST-008-P4.md` and `## Tasks` section update are the orchestrator's responsibility on PASS (not performed by this guard).
