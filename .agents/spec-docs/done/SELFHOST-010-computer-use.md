@@ -1,5 +1,6 @@
 ---
-status: verifying
+status: done
+completed: 2026-07-19
 type: BEHAVIOR
 tags: [computer-use, browser, tool, permissions, agent-tools, selfhost]
 ---
@@ -302,7 +303,7 @@ that the allow-list does NOT support `Computer(screenshot)` today: `primaryArg` 
 
 ## Tasks
 
-[`.agents/tasks/SELFHOST-010-P1.md`](../../tasks/SELFHOST-010-P1.md) — created at GATE-IMPLEMENT; P1 slices S1–S6
+[`.agents/tasks/completed/SELFHOST-010-P1.md`](../../tasks/completed/SELFHOST-010-P1.md) — archived at GATE-COMPLETE (P1); P1 slices S1–S6
 (port+contract+ScriptedComputerDriver → tool factory → permission wiring → takeover → assembly+gating → swap/neutrality+docs)
 mapped to TC-01..08. Epic P1 (driver port + contract + `ComputerView`/`Computer` tool factory + `ScriptedComputerDriver` +
 the two-tool permission wiring + assembly threading) / P2 (`PageComputerDriver` reference adapter + takeover
@@ -414,3 +415,54 @@ deliverable** (`PageComputerDriver` driven against a real rendered page under `x
 - Tests: `npx vitest run packages/agent-tools/src/computer-use` — 12 passed (computer-tool 7, page-computer-driver 2, neutrality 3); agent-core `computer-use-permission.test.ts` (6) + agent-framework `create-tools.test.ts` (4) + `computer-use-enforcement.test.ts` (4) — 14 passed. All green. ✅
 - Scans: `pnpm harness:scan` — all 58 pass, INCLUDING `no-fake-in-src` (ScriptedComputerDriver is test-support under `computer-use/testing/`, not in the package main entry) and `no-fallback`. Lint 0 errors. ✅
 - Completion Criteria TC-01..TC-08 all `[x]` (unit/functional against `ScriptedComputerDriver`); P1 carries no agent-run TC — the real-browser agent-run verification is the named pending P2 deliverable per the PRE-IMPLEMENT REFRESH note. ✅
+
+### [GATE-COMPLETE: TC-01] — ✅ | 2026-07-19
+
+**Verification:** `npx vitest run packages/agent-tools/src/computer-use` — `computer-tool.test.ts` (7 tests) exercises `ComputerView` round-tripping `screenshot()` and `Computer` round-tripping each mutating action through the injected `ScriptedComputerDriver`, returning the resulting screenshot.
+**Result:** 12 passed (computer-tool 7 + page-computer-driver 2 + neutrality 3), exit 0. Test ref: `packages/agent-tools/src/computer-use/__tests__/computer-tool.test.ts`.
+
+### [GATE-COMPLETE: TC-02] — ✅ | 2026-07-19
+
+**Verification:** `npx vitest run packages/agent-core/src/permissions/__tests__/computer-use-permission.test.ts` (decision layer) + `.../agent-framework/src/assembly/__tests__/computer-use-enforcement.test.ts` (dispatch through the real `PermissionEnforcer`). Asserts `ComputerView`=`auto` in `plan` AND `default`; `Computer`=`approve` in `default`, `deny` in `plan`; no new approval path.
+**Result:** permission test 6 passed; enforcement test 4 passed; exit 0. Test refs: `computer-use-permission.test.ts` + `computer-use-enforcement.test.ts`.
+
+### [GATE-COMPLETE: TC-03] — ✅ | 2026-07-19
+
+**Verification:** `npx vitest run packages/agent-tools/src/computer-use` — `computer-tool.test.ts` + `page-computer-driver.test.ts` cover the `takeover` action suspending the action loop (halt-for-user shape) and pausing perception so no screenshot is captured during credential entry.
+**Result:** 12 passed, exit 0. Test refs: `computer-tool.test.ts` + `page-computer-driver.test.ts`.
+
+### [GATE-COMPLETE: TC-04] — ✅ | 2026-07-19
+
+**Verification:** `npx vitest run packages/agent-framework/src/assembly/__tests__/create-tools.test.ts` — asserts the driver is threaded through the assembly layer like `sandboxClient` and the `ComputerView`/`Computer` tools join the default set adapter-gated (absent driver ⇒ tools omitted, NO host fallback).
+**Result:** 4 passed, exit 0. Test ref: `packages/agent-framework/src/assembly/__tests__/create-tools.test.ts`.
+
+### [GATE-COMPLETE: TC-05] — ✅ | 2026-07-19
+
+**Verification:** `npx vitest run packages/agent-tools/src/computer-use` — `computer-tool.test.ts` drives the factory with `ScriptedComputerDriver` and a second stub driver (both satisfy `IComputerDriver` unchanged); `page-computer-driver.test.ts` covers the zero-dep `PageComputerDriver`. Confirmed no browser SDK dep in `packages/agent-tools/package.json` (grep for playwright/puppeteer/@e2b/cdp/selenium/webdriver/chrome ⇒ "NO browser SDK deps").
+**Result:** tests 12 passed, exit 0; package.json dep check clean. Test refs: `computer-tool.test.ts` (second driver) + `page-computer-driver.test.ts`.
+
+### [GATE-COMPLETE: TC-06] — ✅ | 2026-07-19
+
+**Verification:** `node scripts/harness/scan-no-fake-in-src.mjs` (exit 0) + `pnpm harness:scan` (all 58 green) + targeted grep over `packages/agent-tools/src/computer-use` (excluding `__tests__`) for SDK imports / target URL/host. Backed by unit floor `neutrality.test.ts` (3 tests).
+**Result:** no-fake-in-src exit 0; harness:scan 58/58 passed; the only grep hits are documentation comments in `types.ts`/`page-computer-driver.ts` stating NO Playwright/Puppeteer/CDP is imported — no actual SDK import, no target URL/host. Mechanical `harness:scan` neutrality floor tracked in HARNESS-027. Test ref: `packages/agent-tools/src/computer-use/__tests__/neutrality.test.ts`.
+
+### [GATE-COMPLETE: TC-07] — ✅ | 2026-07-19
+
+**Verification:** `npx vitest run .../computer-use-enforcement.test.ts` + `.../computer-use-permission.test.ts` — asserts a `Computer` mutation is never dispatched to the driver under `default`/`plan` absent an approval (no `auto` default), auto-execution only under `bypassPermissions`, and auto-perception dispatches only `screenshot()` never a mutating action.
+**Result:** enforcement 4 passed + permission 6 passed, exit 0. Test refs: `computer-use-enforcement.test.ts` + `computer-use-permission.test.ts`.
+
+### [GATE-COMPLETE: TC-08] — ✅ | 2026-07-19
+
+**Verification:** `npx vitest run .../computer-use-enforcement.test.ts` + `.../computer-use-permission.test.ts` — asserts under mode `plan` that `ComputerView` perception executes and returns a screenshot without approval while a `Computer` mutation in the same mode is denied (the Problem's "inspect a deployed docs site" scenario).
+**Result:** enforcement 4 passed + permission 6 passed, exit 0. Test refs: `computer-use-enforcement.test.ts` + `computer-use-permission.test.ts`.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-07-19
+
+**Status upgrade:** verifying → done
+
+- Prior-gate precondition: GATE-VERIFY shows PASS (`[GATE-VERIFY] — ✅ PASS | 2026-07-19`); frontmatter `status: verifying` in `active/` matches the expected GATE-COMPLETE input stage. ✅
+- Every TC-01..TC-08 checkbox in `## Completion Criteria` is `[x]` and each has a matching `[GATE-COMPLETE: TC-N]` Evidence entry above (command + result + exit code). ✅
+- `## Test Plan` — all 8 TC rows carry a test reference: TC-01 `computer-tool.test.ts`; TC-02 `computer-use-permission.test.ts` + `computer-use-enforcement.test.ts`; TC-03 `computer-tool.test.ts` + `page-computer-driver.test.ts`; TC-04 `create-tools.test.ts`; TC-05 `computer-tool.test.ts` + `page-computer-driver.test.ts`; TC-06 `neutrality.test.ts` (+ scan floor / HARNESS-027); TC-07 `computer-use-enforcement.test.ts` + `computer-use-permission.test.ts`; TC-08 `computer-use-enforcement.test.ts` + `computer-use-permission.test.ts`. ✅
+- Re-run evidence (all green, exit 0): computer-use unit 12 passed; agent-core permission 6 passed; agent-framework enforcement 4 + create-tools 4 passed; `scan-no-fake-in-src.mjs` exit 0; `pnpm harness:scan` 58/58; no browser SDK dep in `agent-tools/package.json`; no SDK import / target URL in `computer-use` src. ✅
+- Scope note: P1 is unit/functional only — no agent-run TC required; the real-browser agent-run verification is the named pending P2 deliverable per the PRE-IMPLEMENT REFRESH. ✅
+- Tasks file archival + `## Tasks` path update are performed by the orchestrator on PASS.
