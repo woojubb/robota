@@ -41,8 +41,8 @@ type TEntryPrep = { config: IProviderDefinitionConfig } | { skip: ISkip['reason'
  * {@link IProviderDefinition} registry and resolves the target `IAIProvider` through
  * {@link normalizeProviderConfig} + {@link createProviderFromConfig} — so it reads **no** `process.env`
  * itself (credential/`$ENV:` resolution lives in `agent-core`). Providers are tried in ascending priority
- * order; a provider with no resolvable credential is **skipped** (an `// allow-fallback` strategy), and the
- * first success is returned.
+ * order; a provider with no resolvable credential is **skipped** (an `allow-fallback: try-next-provider`
+ * strategy), and the first success is returned.
  */
 export class LlmTextNodeDefinition extends AbstractNodeDefinition<typeof LlmTextConfigSchema> {
   public readonly nodeType = 'llm-text';
