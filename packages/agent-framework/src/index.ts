@@ -300,6 +300,17 @@ export type {
   IProjectMemorySummary,
   IStartupMemory,
 } from './memory/project-memory-store.js';
+// SELFHOST-008: the neutral durable-memory port + filesystem reference adapter.
+export {
+  FileSystemMemoryStore,
+  createFileSystemMemoryStore,
+} from './memory/file-system-memory-store.js';
+export type {
+  IMemoryStore,
+  IMemoryBudget,
+  ISemanticMemoryAdapter,
+  ISemanticMemoryQueryResult,
+} from './memory/types.js';
 // ── Edit checkpointing ─────────────────────────────────────
 export { EditCheckpointStore, wrapEditCheckpointTools } from './checkpoints/index.js';
 export type {
