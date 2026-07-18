@@ -77,25 +77,27 @@ through a store, emit memory events. Robota already _ships_ the extractor + poli
   in the surface, not `packages/`; the library ships only the neutral WIRING SEAM + a _reference default_ policy
   (`memory-candidate-extractor.ts` / `memory-policy-evaluator.ts`'s `AUTO_SAVE_CONFIDENCE_THRESHOLD`, already
   present). P2 wires the trigger without moving policy into the library.
-- **v1 extractor is keyword-heuristic, not model-judged** — cheap + LLM-free, so the async/sync latency tradeoff
-  that dominates the prior art is largely moot for v1; capture runs synchronously but MUST be try/catch-guarded so a
-  bug never breaks turn completion / event flush. The lower precision motivates the conservative queue-by-default gate.
+- **v1 extractor is keyword-heuristic, not model-judged** — cheap + LLM-free, so the latency tradeoff that dominates
+  the prior art is largely moot for v1; capture is an **awaited** async call (post-P1R the `IMemoryStore` port is async)
+  run before the turn's persist + MUST be try/catch-guarded so a bug never breaks turn completion / event flush. The
+  lower precision motivates the conservative queue-by-default gate.
 - The controller is **dormant today** — no split-brain to migrate; a clean wiring.
 
 ### Recommendation (adopted below)
 
-**Per-turn, SYNCHRONOUS-but-guarded (never _breaking_ the turn), queue-by-default, filter-before-persist.** (1) Trigger
-on turn completion (`onComplete`), not end-of-session — coding sessions are long-lived and crash-prone, so
-incremental capture avoids losing facts. (2) Run capture **synchronously inside `onComplete`** (before
-`executePromptTurn` resolves, hence before the `finally`'s `persistSession()`), wrapped in **try/catch → skip** so a
-capture error never _fails_ the turn. Capture is NOT fire-and-forget/async: the v1 extractor is keyword-heuristic
-(LLM-free, sub-millisecond) and `IMemoryStore` is deliberately synchronous, so the prior-art "go async, never block"
-consensus — premised on an LLM/network-bound capture step — does not apply; an async offload here would race the
-`finally` `persistSession()` and DROP the just-recorded `memoryEvents` from this turn's persisted record (and, on
-one-shot `-p`/Ctrl-C exit, could lose the durable write entirely). "Never break the turn" is satisfied by the
-try/catch, not by deferral. (When a model-judged extractor or the Promise-based `ISemanticMemoryAdapter` lands in a
-later slice, integrate it as an **awaited** step inside the turn — or explicit record-then-re-persist — never as a
-persist-racing fire-and-forget; that async decision belongs to that slice, on its own premise.) (3) Default policy
+**Per-turn, AWAITED-before-persist + guarded (never _breaking_ the turn), queue-by-default, filter-before-persist.**
+(1) Trigger on turn completion, not end-of-session — coding sessions are long-lived and crash-prone, so incremental
+capture avoids losing facts. (2) `await` the capture in the **execution controller's post-turn `finally`, immediately
+before `persistSession()`** (NOT inside `onComplete` — `executePromptTurn` does not await `onComplete`, so awaiting
+there would not order before the persist), on the completed-turn path only, wrapped in **try/catch → skip** so a capture
+error never _fails_ the turn. Post-P1R the `IMemoryStore` port is **async**, so capture is an awaited async call — but it
+is NOT fire-and-forget: the decisive property is **await-before-persist** (in the controller's own awaited `finally`), so
+the just-recorded `memoryEvents` land in THIS turn's persisted record. A detached/fire-and-forget offload (or awaiting
+inside the unawaited `onComplete`) would race the `finally` `persistSession()` and DROP those events (and, on one-shot
+`-p`/Ctrl-C exit, could lose the durable write entirely) — so it is rejected. The v1 extractor is keyword-heuristic (LLM-free, sub-millisecond) + the fs adapter's async methods
+wrap sync fs work, so awaiting adds negligible latency vs seconds of model latency. "Never break the turn" is satisfied
+by the try/catch; correctness is satisfied by awaiting before the persist. (A future model-judged extractor or a real
+semantic backend behind the async port stays an **awaited** step here — never a persist-racing detachment.) (3) Default policy
 = `approval_required` (QUEUE), auto-save only above the confidence threshold — Robota's existing three-way policy; the
 default is a **surface setting**, not a library mechanism change. (4) Run `containsSensitiveMemoryContent` before
 persistence on **every** path. (5) Always emit `IMemoryEvent` for saved+queued. (6) Capture is **opt-in / adapter-gated**:
@@ -106,16 +108,19 @@ threshold, and gate default are surface-owned, consistent with the P1 neutrality
 
 ### Affected Scope
 
-- **`agent-framework` interactive turn loop (the wiring seam):** the post-turn capture trigger lives in
-  `interactive-session-execution-controller.ts` at the existing `onComplete(result: IExecutionResult)` boundary
-  (line ~281) — after the assistant turn completes and `'complete'` is emitted, but STILL INSIDE the awaited
-  `executePromptTurn` (so before the `finally`'s `persistSession()`). It invokes an INJECTED capture callback
-  **synchronously, wrapped in try/catch** (built from the injected `IMemoryStore` (P1) + a surface-supplied curation
-  policy config); the callback extracts candidates from the turn's user (`displayInput ?? input`) + assistant
-  (`result.response`) text, runs the evaluator (which already runs the sensitive-content filter first), curates through
-  the port, and records `IMemoryEvent`s via the history tracker (`interactive-session-history-tracker.ts` already owns
-  `memoryEvents`). Recording BEFORE the `finally` persist is what puts the captured events in the SAME turn's persisted
-  record (an async offload would race and drop them). This is the NEUTRAL mechanism only.
+- **`agent-framework` interactive turn loop (the wiring seam):** ordering caveat first — `executePromptTurn` does **NOT
+  await** `onComplete` (`interactive-session-prompt.ts:46,107`: `onComplete: (result) => void`, called unawaited), so
+  `await`-ing capture _inside_ `onComplete` would NOT order before the persist — it would be the raced Alternative 2.
+  Therefore the capture is triggered from **`SessionExecutionController.executePrompt`'s own `finally`** (which IS an
+  awaited async scope), **immediately before `this.callbacks.persistSession()`** (`interactive-session-execution-controller.ts`
+  ~line 306) — and only on the **completed-turn path** (stash the `result` handed to `onComplete`; run capture only if a
+  completed result was stashed, never on interrupted/error). It **`await`s** an INJECTED capture callback **wrapped in
+  try/catch** (built from the injected async `IMemoryStore` (P1R) + a surface-supplied curation policy config); the
+  callback extracts candidates from the turn's user (`displayInput ?? input`) + assistant (`result.response`) text, runs
+  the evaluator (sensitive-content filter first), curates through the port, and records `IMemoryEvent`s via the history
+  tracker (`interactive-session-history-tracker.ts` already owns `memoryEvents`). Awaiting it in the `finally` BEFORE
+  `persistSession()` is what puts the captured events in the SAME turn's persisted record (a fire-and-forget, or awaiting
+  inside the unawaited `onComplete`, would race and drop them). This is the NEUTRAL mechanism only.
 - **capture-config threading:** an optional `automaticMemory?: IAutomaticMemoryConfig` (the existing type) is threaded
   through the interactive session options like `memoryStore` (P1) — `IInteractiveSessionStandardOptions` + `IInitOptions`.
   ADAPTER-GATED: absent ⇒ capture is OFF (no controller constructed, zero behavior change). The surface owns the
@@ -132,26 +137,28 @@ threshold, and gate default are surface-owned, consistent with the P1 neutrality
 
 ### Alternatives Considered
 
-1. **Per-turn SYNCHRONOUS-but-guarded capture at `onComplete` (inside the awaited turn, before the `finally` persist),
-   try/catch → skip, opt-in via surface policy, queue-by-default, filter-before-persist (CHOSEN).**
-   - ✅ Correct ordering: records events + durable saves BEFORE the turn's `persistSession()`, so captured
-     `memoryEvents` land in the same turn's persisted record (no race, no lost-on-exit window). The v1 extractor is
-     keyword-heuristic (LLM-free, sub-millisecond) and `IMemoryStore` is synchronous, so a couple of small fs writes at
-     turn end are negligible against seconds of model latency — the "never block on an LLM call" concern does not apply.
-     "Never _break_ the turn" is met by the try/catch. Reuses the dormant pipeline; adapter-gated (zero behavior change
-     when not opted in); neutral (policy in the surface); non-destructive default (queue); sensitive filter stays a hard
-     pre-persistence gate.
+1. **Per-turn AWAITED-before-persist + guarded capture in the controller's post-turn `finally` (immediately before
+   `persistSession()`, completed-turn path only), try/catch → skip, opt-in via surface policy, queue-by-default,
+   filter-before-persist (CHOSEN).**
+   - ✅ Correct ordering: the controller's `finally` IS an awaited async scope, so `await`ing the capture there (records
+     events + durable saves) runs BEFORE the turn's `persistSession()` — so
+     captured `memoryEvents` land in the same turn's persisted record (no race, no lost-on-exit window). Post-P1R the
+     `IMemoryStore` port is async, so capture is an awaited async call; the v1 extractor is keyword-heuristic (LLM-free)
+     and the fs adapter wraps sync fs work, so awaiting adds negligible latency vs seconds of model latency — the "never
+     block on an LLM call" concern does not apply. "Never _break_ the turn" is met by the try/catch. Reuses the dormant
+     pipeline; adapter-gated (zero behavior change when not opted in); neutral (policy in the surface); non-destructive
+     default (queue); sensitive filter stays a hard pre-persistence gate.
    - ❌ Keyword extractor is lower-precision than LLM peers (mitigated by queue-by-default + the deferred model-judged
      extractor in a later slice).
-2. **Async fire-and-forget at `onComplete` (schedule capture, let the turn resolve immediately).**
+2. **Fire-and-forget — or awaiting capture inside `onComplete` (which `executePromptTurn` does NOT await).**
    - ✅ Literally matches the prior-art "go async, never block" consensus; zero added turn latency.
-   - ❌ **RACES `persistSession()`.** `onComplete` is followed by a `finally` that calls `persistSession()`; a detached
-     capture records `memoryEvents` AFTER the persist already serialized the record → the captured events are dropped
-     from THIS turn's persisted state (survive only if a later turn re-persists; lost entirely on one-shot `-p`/Ctrl-C
-     exit — the crash-prone case this spec cites as motivation). The prior-art async consensus is premised on an
-     LLM/network-bound capture step; that premise does NOT hold for Robota's synchronous regex+fs v1, so importing the
-     async _mechanism_ without its premise is a misapplication. REJECTED (correctness).
-3. **Synchronous capture that lets errors propagate (no guard).**
+   - ❌ **RACES `persistSession()`.** `onComplete` is typed `=> void` and called unawaited (`interactive-session-prompt.ts:107`),
+     and the controller's `finally` calls `persistSession()` after `executePromptTurn` resolves; so a detached capture —
+     OR an `await` placed _inside_ the unawaited `onComplete` — records `memoryEvents` AFTER the persist serialized the
+     record → captured events dropped from THIS turn's persisted state (survive only if a later turn re-persists; lost
+     entirely on one-shot `-p`/Ctrl-C exit). The async port (P1R) does NOT justify detachment — the fix is to `await`
+     capture in the controller's own `finally` before the persist (option 1). REJECTED (correctness).
+3. **Awaited capture that lets errors propagate (no guard).**
    - ✅ Simplest; captured before persist.
    - ❌ A capture bug would then FAIL the user's turn — unacceptable. The try/catch in (1) is exactly the fix. REJECTED.
 4. **End-of-session capture only.**
@@ -165,30 +172,38 @@ threshold, and gate default are surface-owned, consistent with the P1 neutrality
 
 ### Decision
 
-Adopt (1): a post-turn, **synchronous, try/catch-guarded** capture trigger at the interactive execution controller's
-`onComplete` boundary — run INSIDE the awaited turn (before the `finally`'s `persistSession()`) so captured events land
-in the same turn's persisted record — invoking an injected capture callback built from the P1 `IMemoryStore` + a
-**surface-supplied** `automaticMemory?: IAutomaticMemoryConfig`, threaded through the interactive session options
-exactly like `memoryStore` and **adapter-gated** (absent ⇒ OFF, zero behavior change). The callback reuses the
-P1-refactored `AutomaticMemoryController.capture()` (extract → evaluate [sensitive-filter first] → curate through the
-port), records `IMemoryEvent`s via the history tracker, and **never _breaks_ the turn** (capture errors are caught and
-swallowed to a skip — the one sanctioned degradation, declared below). NOT async/fire-and-forget: that would race the
-`finally` persist (see Alternative 2). Default policy = the library's existing `approval_required` reference default
+Adopt (1): a post-turn, **awaited-before-persist, try/catch-guarded** capture trigger in the execution controller's
+**post-turn `finally`, immediately before `persistSession()`** (completed-turn path only) — NOT inside `onComplete`
+(which `executePromptTurn` does not await); the `finally` is the controller's own awaited scope, so awaiting capture
+there lands the events in the same turn's persisted record — invoking an injected capture callback built from the
+(now-async, P1R) `IMemoryStore` + a **surface-supplied** `automaticMemory?: IAutomaticMemoryConfig`, threaded through
+the interactive session options exactly like `memoryStore` and **adapter-gated** (absent ⇒ OFF, zero behavior change).
+The callback reuses the P1R-refactored async `AutomaticMemoryController.capture()` (extract → evaluate [sensitive-filter
+first] → curate through the port), records `IMemoryEvent`s via the history tracker, and **never _breaks_ the turn**
+(capture errors are caught and swallowed to a skip — the one sanctioned degradation, declared below). NOT
+fire-and-forget: a detached capture would race the `finally` persist (see Alternative 2). Default policy = the library's existing `approval_required` reference default
 (queue, not auto-save); the surface owns whether to enable and at what threshold. The sensitive-content filter runs
 before persistence on every path.
 
 ### Validated Recommendation
 
-- **Reachability:** the `onComplete` boundary is where the assistant result is available and `'complete'` is emitted
-  (`interactive-session-execution-controller.ts:281`); the history tracker already owns `memoryEvents`
-  (`interactive-session-history-tracker.ts:46-108`) and persists them (`-persistence.ts`/`-restore.ts`); `memoryStore`
-  is already threaded (P1). The capture-config threads through the same options seam. Verified against those files.
+- **Reachability + ORDERING (verified against code):** the assistant `result` is available at `onComplete`
+  (`interactive-session-execution-controller.ts:281`), but `executePromptTurn` calls `onComplete` UNAWAITED
+  (`interactive-session-prompt.ts:46` `=> void`, `:107` `ctx.onComplete(result)`), so capture must NOT be awaited there.
+  The controller's `executePrompt` `finally` (~`:294-306`) IS an awaited async scope and runs `persistSession()` at
+  `:306` — so the capture is triggered from that `finally`, immediately before `persistSession()` (stashing the
+  completed `result` from `onComplete`), which is the point where an `await` genuinely orders before the persist. The
+  history tracker owns `memoryEvents` (`interactive-session-history-tracker.ts:46-108`, `recordMemoryEvent` at `:268`)
+  and persists them (`-persistence.ts`/`-restore.ts`); `memoryStore` is already threaded (P1). `automaticMemory` threads
+  through the same options seam. (This corrects the iteration-1/P1R-realignment claim that awaiting inside `onComplete`
+  suffices — it does not, because `onComplete` is unawaited; the GATE-APPROVAL re-review caught this.)
 - **Capability preservation:** manual `/memory` + startup recall are unchanged (capture is additive + opt-in). The
   dormant controller is now reachable; nothing existing is removed. v1 keeps the keyword extractor; a model-judged
   extractor is a later slice.
-- **Adversarial:** (a) capture blocking/slowing the turn → v1 capture is synchronous sub-millisecond regex+fs work (no
-  LLM call), negligible vs model latency, and try/catch-guarded so a bug can't break the turn — verified that running it
-  before the `finally` persist is required to avoid dropping events (an async offload would race `persistSession()`);
+- **Adversarial:** (a) capture blocking/slowing the turn → v1 capture is an awaited async call over sub-millisecond
+  regex+fs work (no LLM call), negligible vs model latency, and try/catch-guarded so a bug can't break the turn —
+  verified that AWAITING it before the `finally` persist is required to avoid dropping events (a detached fire-and-forget
+  would race `persistSession()`);
   (b) secrets reaching the store → sensitive filter is a hard pre-persistence gate on every path; (c) low-precision
   auto-save eroding trust → queue-by-default, auto-save only above threshold, opt-in; (d) policy/prompt creeping into
   `packages/` → only the wiring seam lands in the library, the policy is surface-supplied (the `HARNESS-029` mechanical
@@ -203,57 +218,60 @@ before persistence on every path.
 - [x] Sibling scan 완료 — mirrors the P1 `memoryStore` threading precedent (interactive options → controller) + the
       existing `IAutomaticMemoryConfig`/`AutomaticMemoryController` mechanism; adds no new escape hatch; the sole
       sanctioned degradation (capture-error → skip) is declared + `allow-fallback:`-annotated per HARNESS-028.
-- [x] 대안 최소 2개 — 5 considered (per-turn SYNC-guarded CHOSEN; async fire-and-forget REJECTED persist-race;
-      sync-unguarded REJECTED breaks-turn; end-of-session REJECTED loses facts; library-auto-enable REJECTED
-      neutrality/trust), each Pro+Con.
-- [x] 결정 근거 — per-turn trigger (prior-art) + SYNCHRONOUS guarded execution (v1 capture is LLM-free + IMemoryStore is
-      sync, so async's premise doesn't hold and would race persistSession) + coding-context evidence (Cursor retreat →
-      queue-by-default) + neutrality (policy surface-owned, adapter-gated OFF by default). GATE-APPROVAL iteration 1
-      REVISE applied (async→sync-guarded, persist-race fix). Re-review pending.
+- [x] 대안 최소 2개 — 5 considered (per-turn AWAITED-before-persist+guarded CHOSEN; fire-and-forget REJECTED
+      persist-race; awaited-unguarded REJECTED breaks-turn; end-of-session REJECTED loses facts; library-auto-enable
+      REJECTED neutrality/trust), each Pro+Con.
+- [x] 결정 근거 — per-turn trigger (prior-art) + AWAIT-before-persist guarded execution (post-P1R the IMemoryStore port
+      is async; awaiting the capture before `persistSession()` puts events in the same record — a detached fire-and-forget
+      would race it) + coding-context evidence (Cursor retreat → queue-by-default) + neutrality (policy surface-owned,
+      adapter-gated OFF). GATE-APPROVAL iteration-1 REVISE (async→await-before-persist, race fix) + P1R async-port
+      re-alignment applied. Re-review pending.
 
 ## Fallback & Degradation Declaration
 
-**One sanctioned degradation:** post-turn capture runs **synchronously but MUST NOT break the turn** — the
-`controller.capture(...)` call at `onComplete` is wrapped in try/catch, so if extraction / evaluation / persistence
-throws, the error is caught and the turn still completes normally (the candidate is skipped). Turn integrity is
-sacrosanct: a memory-capture bug must never fail the user's turn. This is a guarded-degradation of an ancillary,
-best-effort side task, NOT a silent alternative for core behavior. It is declared here, justified, and the code site
-carries `// allow-fallback: <reason>` per HARNESS-028. No other fallback is introduced. (Note: capture is synchronous
-and runs BEFORE the turn's `persistSession()`, so a caught error loses only that one turn's candidate — not the
-persisted record; an async offload would instead race the persist, which is why it was rejected.)
+**One sanctioned degradation:** post-turn capture is **awaited but MUST NOT break the turn** — the awaited capture call
+**in the controller's post-turn `finally` (immediately before `persistSession()`)** is wrapped in try/catch, so if extraction / evaluation /
+persistence throws (or rejects), the error is caught and the turn still completes normally (the candidate is skipped).
+Turn integrity is sacrosanct: a memory-capture bug must never fail the user's turn. This is a guarded-degradation of an
+ancillary, best-effort side task, NOT a silent alternative for core behavior. It is declared here, justified, and the
+code site carries `// allow-fallback: <reason>` per HARNESS-028. No other fallback is introduced. (Note: capture is
+awaited BEFORE the turn's `persistSession()`, so a caught error loses only that one turn's candidate — not the persisted
+record; a detached fire-and-forget would instead race the persist, which is why it was rejected.)
 
 ## Solution
 
-Add a neutral post-turn capture seam at the interactive execution controller's `onComplete` boundary that, when the
-surface has opted in via `automaticMemory?: IAutomaticMemoryConfig`, invokes a **synchronous, try/catch-guarded**
-capture callback (inside the awaited turn, before the `finally` `persistSession()`) built from the injected
-`IMemoryStore` (P1) + the supplied policy: it extracts candidates from the turn's user+assistant text, evaluates them
+Add a neutral post-turn capture seam that, when the surface has opted in via `automaticMemory?: IAutomaticMemoryConfig`,
+runs from the execution controller's post-turn `finally`, immediately before `persistSession()` (completed-turn path
+only; NOT inside the unawaited `onComplete`), where it **`await`s a try/catch-guarded** capture callback built from the
+injected async `IMemoryStore` (P1R) + the supplied policy: it extracts candidates from the turn's user+assistant text, evaluates them
 (sensitive-content filter first, then policy → save/queue/skip), curates through the port, and records `IMemoryEvent`s
 via the history tracker — a caught error skips the candidate but never breaks the turn. Adapter-gated: no `automaticMemory` ⇒ capture
-OFF (zero behavior change). Reuses the P1-refactored `AutomaticMemoryController`; the policy/threshold/enable decision
+OFF (zero behavior change). Reuses the P1R-refactored async `AutomaticMemoryController`; the policy/threshold/enable decision
 is surface-owned (the library ships only the neutral seam + the existing `approval_required` reference default).
 
 ## Affected Files
 
-| File                                                                                   | Change                                                                                                                                           |
-| -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `packages/agent-framework/src/interactive/interactive-session-execution-controller.ts` | invoke the injected SYNCHRONOUS capture callback at `onComplete` (before the `finally` persist), wrapped in try/catch → skip (turn never breaks) |
-| `packages/agent-framework/src/interactive/interactive-session-options.ts`              | thread `automaticMemory?: IAutomaticMemoryConfig` through `IInteractiveSessionStandardOptions` + `IInitOptions` (like `memoryStore`)             |
-| `packages/agent-framework/src/interactive/interactive-session-init.ts`                 | build the capture callback (reuse `AutomaticMemoryController` over the injected `memoryStore`) + wire it into the execution controller; gated    |
-| `packages/agent-framework/src/interactive/interactive-session-history-tracker.ts`      | record captured `IMemoryEvent`s (reuse the existing `memoryEvents` accumulator/recorder)                                                         |
-| `packages/agent-framework/src/interactive/__tests__/…` (new)                           | TC-01..06 unit/functional tests on the capture wiring + gating + never-fail + sensitive filter                                                   |
-| `packages/agent-framework/docs/SPEC.md`                                                | document the opt-in post-turn capture seam + `automaticMemory` option                                                                            |
+| File                                                                                   | Change                                                                                                                                                                                                                                    |
+| -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/agent-framework/src/interactive/interactive-session-execution-controller.ts` | stash the completed `result` from `onComplete`; in the `executePrompt` `finally`, `await` the injected capture callback IMMEDIATELY BEFORE `persistSession()` (completed-turn path only), wrapped in try/catch → skip (turn never breaks) |
+| `packages/agent-framework/src/interactive/interactive-session-options.ts`              | thread `automaticMemory?: IAutomaticMemoryConfig` through `IInteractiveSessionStandardOptions` + `IInitOptions` (like `memoryStore`)                                                                                                      |
+| `packages/agent-framework/src/interactive/interactive-session-init.ts`                 | build the capture callback (reuse `AutomaticMemoryController` over the injected `memoryStore`) + wire it into the execution controller; gated                                                                                             |
+| `packages/agent-framework/src/interactive/interactive-session-history-tracker.ts`      | record captured `IMemoryEvent`s (reuse the existing `memoryEvents` accumulator/recorder)                                                                                                                                                  |
+| `packages/agent-framework/src/interactive/__tests__/…` (new)                           | TC-01..06 unit/functional tests on the capture wiring + gating + never-fail + sensitive filter                                                                                                                                            |
+| `packages/agent-framework/docs/SPEC.md`                                                | document the opt-in post-turn capture seam + `automaticMemory` option                                                                                                                                                                     |
 
 ## Completion Criteria
 
 - [ ] TC-01: with `automaticMemory` supplied, a completed turn triggers the capture path — a durable fact in the
       user+assistant text is extracted, evaluated, and curated through the injected `IMemoryStore`, and a memory event
       is recorded (functional test with a fake session/turn + fake store).
-- [ ] TC-02a: capture is **guarded** — a capture callback that THROWS SYNCHRONOUSLY does NOT fail the turn (`'complete'`
-      still emitted; the turn resolves; no throw escapes `onComplete`) (unit test with a throwing capture callback).
-- [ ] TC-02b: capture is recorded **in the same turn's persisted record** — a captured `IMemoryEvent` from a turn
-      appears in the session state serialized by that turn's `persistSession()` (the property an async offload would
-      silently violate) (unit/functional test asserting the event is in the persisted record, not a later one).
+- [ ] TC-02a: capture is **guarded** — a capture callback that THROWS or REJECTS does NOT fail the turn (`'complete'`
+      still emitted; the turn `submit()` resolves; no error escapes the controller's `finally`) (unit test with a
+      throwing/rejecting callback).
+- [ ] TC-02b: capture is recorded **in the same turn's persisted record — even when it resolves on a deferred tick** —
+      a capture whose async work completes on a later microtask/macrotask still has its `IMemoryEvent` present in the
+      session state serialized by THAT turn's `persistSession()`. The test MUST fail against a detached/unawaited capture
+      (i.e. it asserts the await-before-persist edge, not incidental microtask ordering) (unit/functional test).
 - [ ] TC-03: **adapter-gating** — with NO `automaticMemory` supplied, capture is OFF: no controller is constructed and
       no candidate is extracted/queued/saved for a turn (memory behavior unchanged) (unit test).
 - [ ] TC-04: **sensitive-content refusal on the capture path** — a turn whose text contains a secret/PII yields NO
@@ -316,3 +334,19 @@ is surface-owned (the library ships only the neutral seam + the existing `approv
   sandbox/retrieval precedents and can't host the async `ISemanticMemoryAdapter` without a breaking change → schedules,
   not avoids, the break. Recommended addressing async (#2) + command-wiring (#1) BEFORE P2 (which adds more callers on
   the same port). **P2 is HELD pending an owner course-correction decision on a port-remediation slice.**
+- 2026-07-18 — **P1R async-port re-alignment (before GATE-APPROVAL re-review).** SELFHOST-008 P1R (PR #1220, merged)
+  made `IMemoryStore` async. P2 reframed accordingly: capture is now an **awaited** async call at `onComplete` (not a
+  synchronous call), but the load-bearing property is unchanged — it is **awaited BEFORE the `finally`'s
+  `persistSession()`**, so captured `memoryEvents` land in the same turn's record; a detached fire-and-forget (rejected
+  Alternative 2) would race the persist. `AutomaticMemoryController.capture()` is async post-P1R, so the seam awaits it.
+  Recommendation/Alternatives/Decision/Adversarial/Fallback/Solution/Affected-Files/TC-02a updated sync→awaited. P2 is
+  UNBLOCKED (the corrected async port is on develop). Re-review pending.
+- 2026-07-18 — **GATE-APPROVAL re-review: REVISE, applied (REJECT-severity ordering defect).** The proposal-reviewer
+  verified against code that `executePromptTurn` calls `onComplete` **UNAWAITED** (`interactive-session-prompt.ts:46`
+  `=> void`, `:107`), so awaiting capture _inside_ `onComplete` would NOT order before `persistSession()` — it would be
+  the raced Alternative 2 the spec rejects (events dropped from the turn's persisted record; total loss on `-p`/Ctrl-C).
+  Fix (reviewer option B): trigger capture from the execution controller's own **`finally`** (an awaited async scope),
+  **immediately before `persistSession()`** (`interactive-session-execution-controller.ts` ~:306), on the completed-turn
+  path only (stash the `result` from `onComplete`). No `interactive-session-prompt.ts` contract change needed.
+  Recommendation/Alternatives(1,2)/Decision/Affected-Scope/Validated-Reachability/Affected-Files/TC-02a/TC-02b updated;
+  TC-02b strengthened to fail against a detached/deferred capture (asserts the await-before-persist edge). Re-review pending.
