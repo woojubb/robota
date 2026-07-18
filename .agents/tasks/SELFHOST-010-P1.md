@@ -20,6 +20,12 @@ port precedent. NO heavy browser SDK in `agent-tools`. Commit per logical slice.
 - **takeover**: the `takeover` action suspends the action loop + pauses perception until resume (no screenshot during
   credential entry).
 
+## Status
+
+**DONE (2026-07-19).** All slices S1–S6 implemented + green; TC-01..TC-08 satisfied at the unit/functional level.
+See the spec's Evidence Log `[P1 IMPLEMENTED]` entry for files + verification. Real-browser agent-run verification
+remains the pending P2 deliverable.
+
 ## Slices (each green + committed)
 
 1. **S1 — port + contract types** (`computer-use/types.ts`, mirror sandbox/types.ts) + `ScriptedComputerDriver`.

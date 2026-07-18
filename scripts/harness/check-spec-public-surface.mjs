@@ -618,6 +618,13 @@ export const UNDOCUMENTED_EXPORT_ALLOWLIST = new Set([
   '@robota-sdk/agent-tools#createReadTool',
   '@robota-sdk/agent-tools#createRetrievalTool',
   '@robota-sdk/agent-tools#createShellTool',
+  // SELFHOST-010 computer-use — documented in the agent-tools SPEC Public API table, but that table sits
+  // under a `###` subheading the surface scan does not treat as a `Public API` section (same structural
+  // quirk baselined for every sibling agent-tools tool factory above).
+  '@robota-sdk/agent-tools#createComputerTool',
+  '@robota-sdk/agent-tools#createComputerViewTool',
+  '@robota-sdk/agent-tools#createComputerActTool',
+  '@robota-sdk/agent-tools#PageComputerDriver',
   '@robota-sdk/agent-tools#createWriteTool',
   '@robota-sdk/agent-tools#createZodFunctionTool',
   '@robota-sdk/agent-tools#editTool',
