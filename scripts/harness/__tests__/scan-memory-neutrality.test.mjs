@@ -126,3 +126,17 @@ describe('HARNESS-029 TC-05 — the live packages/*/src tree is green', () => {
     expect(findMemoryNeutralityFindings()).toEqual([]);
   });
 });
+
+describe('HARNESS-029 TC-07 — CAPTURE_PROMPT_DECL is ReDoS-safe', () => {
+  it('terminates on a prompt-ish line with many backslashes and no closing delimiter', () => {
+    // A naive overlapping-branch regex backtracks exponentially here (the reviewer hung it at 40
+    // backslashes). The disjoint-branch form must finish effectively instantly regardless of the count.
+    const pathological = `const promptTemplate = \`${'\\'.repeat(200)}`; // opening backtick, no close
+    const start = process.hrtime.bigint();
+    const ks = kinds(pathological);
+    const elapsedMs = Number(process.hrtime.bigint() - start) / 1e6;
+    expect(elapsedMs).toBeLessThan(100);
+    // No closing delimiter on the line ⇒ no capture-prompt match (correctness, not just liveness).
+    expect(ks).not.toContain('library-capture-prompt');
+  });
+});

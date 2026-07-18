@@ -39,9 +39,18 @@ import path from 'node:path';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
-/** A capture-prompt intent identifier assigned a string literal of >= 40 chars (a sentence, not a token). */
+/**
+ * A capture-prompt intent identifier assigned a string literal of >= 40 chars (a sentence, not a token).
+ *
+ * ReDoS-safe by construction: the inner alternation branches are DISJOINT — `\\.` consumes a backslash +
+ * its escaped char, `(?!\1)[^\\]` consumes exactly one non-delimiter, non-backslash char. Because no input
+ * char can be tokenized by both branches, there is no ambiguous factoring for the `{40,}` quantifier to
+ * backtrack over. (A naive `(?:\\.|(?!\1).){40,}` lets a lone backslash match EITHER branch, so a line with
+ * an opening quote + many backslashes and no closing delimiter — e.g. the first line of a multi-line prompt
+ * template — backtracks exponentially and hangs the whole run-all-scans pass. Regression: TC-07.)
+ */
 const CAPTURE_PROMPT_DECL =
-  /\b\w*(?:prompt|persona|instruction)\w*\s*[:=]\s*(['"`])((?:\\.|(?!\1).){40,})\1/i;
+  /\b\w*(?:prompt|persona|instruction)\w*\s*[:=]\s*(['"`])((?:\\.|(?!\1)[^\\]){40,})\1/i;
 
 /** A well-formed escape hatch: the token followed by `:` and at least one non-space reason char. */
 const ANNOTATION_WITH_REASON = /allow-memory-content:\s*\S/;
@@ -123,7 +132,7 @@ export function findMemoryNeutralityFindings(root = WORKSPACE_ROOT) {
       continue;
     }
     // include .md (corpus) + .ts/.tsx (prompt) files under src
-    for (const rel of walkSourceAllFiles(srcRel)) {
+    for (const rel of walkSourceAllFiles(srcRel, root)) {
       // Class 1 — seeded content file (any src location under the package)
       if (isSeededMemoryContent(rel)) {
         findings.push({
@@ -145,9 +154,9 @@ export function findMemoryNeutralityFindings(root = WORKSPACE_ROOT) {
   return findings;
 }
 
-/** Collect ALL non-test files (any extension) under a src tree, workspace-relative. */
-function walkSourceAllFiles(target) {
-  const full = path.join(WORKSPACE_ROOT, target);
+/** Collect ALL non-test files (any extension) under a src tree, relative to `root`. */
+function walkSourceAllFiles(target, root = WORKSPACE_ROOT) {
+  const full = path.join(root, target);
   if (!existsSync(full)) return [];
   const out = [];
   for (const entry of readdirSync(full, { withFileTypes: true })) {
@@ -155,7 +164,7 @@ function walkSourceAllFiles(target) {
       continue;
     }
     const child = path.join(target, entry.name);
-    if (entry.isDirectory()) out.push(...walkSourceAllFiles(child));
+    if (entry.isDirectory()) out.push(...walkSourceAllFiles(child, root));
     else if (entry.isFile()) out.push(child);
   }
   return out;
