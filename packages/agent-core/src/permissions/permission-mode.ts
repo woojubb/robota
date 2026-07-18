@@ -23,7 +23,11 @@ export type TKnownToolName =
   | 'Grep'
   | 'WebFetch'
   | 'WebSearch'
-  | 'AskUserQuestion';
+  | 'AskUserQuestion'
+  // SELFHOST-010: computer-use. `ComputerView` (perceive) is decided EXACTLY like `Read`; `Computer`
+  // (mutating action) is decided EXACTLY like `Shell` — read-vs-mutate, no new gate.
+  | 'ComputerView'
+  | 'Computer';
 
 /**
  * Permission mode → tool policy matrix
@@ -41,6 +45,10 @@ export const MODE_POLICY: Record<TPermissionMode, Record<TKnownToolName, TPermis
     WebFetch: 'auto',
     WebSearch: 'auto',
     AskUserQuestion: 'auto',
+    // SELFHOST-010: perceive mirrors Read (auto in plan → read-only inspection works in plan);
+    // mutate mirrors Shell (deny in plan).
+    ComputerView: 'auto',
+    Computer: 'deny',
   },
   default: {
     Shell: 'approve',
@@ -53,6 +61,8 @@ export const MODE_POLICY: Record<TPermissionMode, Record<TKnownToolName, TPermis
     WebFetch: 'auto',
     WebSearch: 'auto',
     AskUserQuestion: 'auto',
+    ComputerView: 'auto',
+    Computer: 'approve',
   },
   acceptEdits: {
     Shell: 'approve',
@@ -65,6 +75,9 @@ export const MODE_POLICY: Record<TPermissionMode, Record<TKnownToolName, TPermis
     WebFetch: 'auto',
     WebSearch: 'auto',
     AskUserQuestion: 'auto',
+    // A GUI mutation is not a file edit, so acceptEdits' edit-auto does not cover it (mirror Shell).
+    ComputerView: 'auto',
+    Computer: 'approve',
   },
   bypassPermissions: {
     Shell: 'auto',
@@ -77,6 +90,8 @@ export const MODE_POLICY: Record<TPermissionMode, Record<TKnownToolName, TPermis
     WebFetch: 'auto',
     WebSearch: 'auto',
     AskUserQuestion: 'auto',
+    ComputerView: 'auto',
+    Computer: 'auto',
   },
 };
 
