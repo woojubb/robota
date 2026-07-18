@@ -42,6 +42,8 @@ export interface IRunEvalDeps {
 interface IEvalCommandArgs {
   definitionPath: string | undefined;
   threshold: number | undefined;
+  /** `--threshold` was supplied with a missing/non-numeric value — a CI gate must not silently ignore it. */
+  thresholdInvalid: boolean;
 }
 
 /** The default/`evalDefinition` export shape of a consumer's eval-definition module. */
@@ -53,19 +55,25 @@ interface IEvalDefinitionModule {
 function parseEvalArgs(argv: string[]): IEvalCommandArgs {
   let definitionPath: string | undefined;
   let threshold: number | undefined;
+  let thresholdInvalid = false;
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
-    if (arg === '--threshold' && argv[i + 1]) {
-      const parsed = Number.parseFloat(argv[i + 1]!);
+    if (arg === '--threshold') {
+      const raw = argv[i + 1];
+      const parsed = raw !== undefined ? Number.parseFloat(raw) : Number.NaN;
       if (Number.isFinite(parsed)) {
         threshold = parsed;
+      } else {
+        // A supplied-but-malformed override must fail loudly — silently reverting to the definition's own
+        // threshold would gate CI on the wrong bar (a possible false PASS).
+        thresholdInvalid = true;
       }
       i++;
     } else if (arg && !arg.startsWith('-') && definitionPath === undefined) {
       definitionPath = arg;
     }
   }
-  return { definitionPath, threshold };
+  return { definitionPath, threshold, thresholdInvalid };
 }
 
 async function loadEvalDefinition(absPath: string): Promise<IEvalDefinition> {
@@ -131,7 +139,7 @@ export async function runEvalCommand(
   deps: IRunEvalDeps = {},
 ): Promise<number> {
   const args = parseEvalArgs(argv);
-  if (!args.definitionPath) {
+  if (!args.definitionPath || args.thresholdInvalid) {
     process.stderr.write('Usage: robota eval <definition-file> [--threshold <0..1>]\n');
     return 1;
   }
@@ -150,12 +158,14 @@ export async function runEvalCommand(
     return 1;
   }
 
-  const runFn = deps.runFn ?? buildDefaultRunFn(cwd);
   let report: IEvalReport;
   try {
+    // Build the runFn inside the try so a provider-config error (no provider configured — a common CI case)
+    // honors this function's number-return contract instead of rejecting.
+    const runFn = deps.runFn ?? buildDefaultRunFn(cwd);
     report = await runEval(definition, runFn);
   } catch (error) {
-    // allow-fallback: a failed agent run is a terminal gate failure (exit 1), surfaced on stderr
+    // allow-fallback: a failed agent run / unconfigured provider is a terminal gate failure (exit 1), on stderr
     process.stderr.write(
       `Eval run failed: ${error instanceof Error ? error.message : String(error)}\n`,
     );

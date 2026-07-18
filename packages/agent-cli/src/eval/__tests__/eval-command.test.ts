@@ -95,6 +95,17 @@ describe('runEvalCommand — exit-code contract (TC-03)', () => {
     expect(stderrText).toContain('Usage: robota eval');
   });
 
+  it('rejects a malformed --threshold instead of silently ignoring it (no false PASS on the wrong bar)', async () => {
+    const runFn = vi.fn();
+    const code = await runEvalCommand(['demo.mjs', '--threshold', 'abc'], '/tmp', {
+      loadDefinition: () => Promise.resolve(definition()),
+      runFn,
+    });
+    expect(code).toBe(1);
+    expect(stderrText).toContain('Usage: robota eval');
+    expect(runFn).not.toHaveBeenCalled(); // bailed before any run
+  });
+
   it('returns 1 when the definition cannot be loaded/validated', async () => {
     const code = await runEvalCommand(['missing.mjs'], '/tmp', {
       loadDefinition: () => Promise.reject(new Error('no such module')),

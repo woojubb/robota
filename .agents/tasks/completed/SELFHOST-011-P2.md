@@ -22,7 +22,7 @@ agent-cli stays a THIN shell. Commit per logical slice (commit-cadence).
   `if (process.argv[2] === 'eval') { process.exitCode = await runEvalCommand(process.argv.slice(3), process.cwd()); return; }`
   Plus a defensive `positional[0] === 'eval'` fallthrough (like the `session analyze` note).
 - **agent-cli `src/utils/cli-args.ts`** — `printHelp()` `Commands:` gains `robota eval <definition>`.
-- **agent-cli `src/__tests__/cli-exit-codes.test.ts`** — assert `runEvalCommand` returns `1` on a failing
+- **agent-cli `src/eval/__tests__/eval-command.test.ts`** (new, mirrors the `cli-exit-codes.test.ts` pattern) — assert `runEvalCommand` returns `1` on a failing
   eval and `0` on a passing one, via an injected fake `runFn` + a fixture definition (no live provider) —
   **TC-03, the CI gate**.
 - **`examples/capabilities/agent-eval/`** (new) — runnable reference: `package.json`
@@ -45,7 +45,7 @@ typecheck, lint 0 errors, 57/57 scans; example typechecks. P3/P4 deferred to bac
 1. **S1 — `runEvalCommand`** (`src/eval/eval-command.ts`): argv parse + definition load + injected/default
    `runFn` + `runEval` + report format + return exit code.
 2. **S2 — dispatch** (`cli.ts` pre-parse intercept + defensive fallthrough) + help text (`cli-args.ts`).
-3. **S3 — exit-code contract test** (`cli-exit-codes.test.ts`): fail→1, pass→0 via injected fake `runFn`
+3. **S3 — exit-code contract test** (`eval-command.test.ts`, mirrors the `cli-exit-codes.test.ts` pattern): fail→1, pass→0 via injected fake `runFn`
    (TC-03).
 4. **S4 — example** `examples/capabilities/agent-eval/` + `examples/README.md` row (TC-04); no lib content
    (TC-05).
@@ -55,7 +55,7 @@ typecheck, lint 0 errors, 57/57 scans; example typechecks. P3/P4 deferred to bac
 ## Test Plan
 
 - **TC-03** (exit gate): `runEvalCommand` returns 1 on a failing eval, 0 on passing — vitest, injected fake
-  `runFn` + fixture definition, no live provider (mirror `cli-exit-codes.test.ts`).
+  `runFn` + fixture definition, no live provider (dedicated `eval-command.test.ts`, mirroring the `cli-exit-codes.test.ts` pattern).
 - **TC-04** (example): `examples/capabilities/agent-eval/` typechecks (`tsc --noEmit`), runs, and is
   registered in `examples/README.md`.
 - **TC-05** (neutrality): no eval content under `packages/` (manual grep) + file the mechanical floor.

@@ -4,7 +4,7 @@ Closes the capability-reachability done-gate for the evals-as-code CLI gate: the
 `robota` CLI through `robota eval` against a **live Anthropic provider** and confirmed the exit-code gate in
 both directions on a **real agent run's** `IExecutionResult` — not the unit exit-code test alone.
 Per [`.agents/rules/backlog-execution.md`](../../rules/backlog-execution.md) (Capability Reachability) and the
-[SELFHOST-011 spec](../../spec-docs/active/SELFHOST-011-evals-as-code.md) TC-03.
+[SELFHOST-011 spec](../../spec-docs/done/SELFHOST-011-evals-as-code.md) TC-03.
 
 Run by the agent on 2026-07-19 with `ANTHROPIC_API_KEY` set (no owner action).
 
