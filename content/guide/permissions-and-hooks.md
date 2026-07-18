@@ -47,16 +47,33 @@ Lifecycle hooks for extending session behavior. Defined in `agent-core` and `age
 
 ### Events
 
-| Event              | Timing                    | Purpose                         |
-| ------------------ | ------------------------- | ------------------------------- |
-| `PreToolUse`       | Before tool execution     | Validation, blocking            |
-| `PostToolUse`      | After tool execution      | Logging, auditing               |
-| `PreCompact`       | Before context compaction | Validation                      |
-| `PostCompact`      | After context compaction  | Notification (includes summary) |
-| `SessionStart`     | Session initialization    | Setup                           |
-| `Stop`             | Session termination       | Cleanup                         |
-| `UserPromptSubmit` | Before user prompt sent   | Prompt preprocessing, injection |
-| `Notification`     | On notification events    | External alerting, logging      |
+The full, authoritative catalog — every event with its exact timing, fire-site, input fields, and
+blocking semantics — lives in the SSOT
+[`packages/agent-core/docs/hook-catalog.md`](../../packages/agent-core/docs/hook-catalog.md), kept
+true to the code by the `scan-hook-catalog` drift guard. Summary:
+
+| Event                | Timing                                        | Purpose                         | Blocking            |
+| -------------------- | --------------------------------------------- | ------------------------------- | ------------------- |
+| `PreToolUse`         | Before tool execution                         | Validation, **blocking** (gate) | **BLOCKING** (gate) |
+| `PostToolUse`        | After tool execution                          | Logging, auditing               | Informational       |
+| `PreCompact`         | Before context compaction                     | Validation                      | Informational       |
+| `PostCompact`        | After context compaction                      | Notification (includes summary) | Informational       |
+| `SessionStart`       | Session initialization                        | Setup                           | Informational       |
+| `SessionEnd`         | Session teardown                              | Cleanup, flush                  | Informational       |
+| `Stop`               | After a turn's response completes             | Cleanup                         | Informational       |
+| `StopFailure`        | When a turn errors                            | Error notification              | Informational       |
+| `UserPromptSubmit`   | Before user prompt sent                       | Prompt preprocessing, injection | Informational       |
+| `SubagentStart`      | When a subagent starts                        | Subagent lifecycle tracking     | Informational       |
+| `SubagentStop`       | When a subagent finishes/fails/cancels        | Subagent lifecycle tracking     | Informational       |
+| `WorktreeCreate`     | When a subagent worktree is created           | Worktree lifecycle tracking     | Informational       |
+| `WorktreeRemove`     | When a subagent worktree is removed           | Worktree lifecycle tracking     | Informational       |
+| `PreModelCall`       | As a provider request goes out (per round)    | Observe model calls             | Informational       |
+| `PostModelCall`      | After the provider response is normalized     | Observe model responses         | Informational       |
+| `PermissionDecision` | Right after a tool-call permission is decided | Audit permission decisions      | Informational       |
+
+Only `PreToolUse` can block. `PreModelCall`, `PostModelCall`, and `PermissionDecision` are
+informational-only (fire-and-forget) despite the "Pre"/"Decision" naming — they cannot veto the
+action they observe.
 
 ### Exit Code Protocol
 
