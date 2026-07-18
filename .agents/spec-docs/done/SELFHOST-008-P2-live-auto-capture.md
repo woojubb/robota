@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: DATA
 tags: [memory, auto-capture, session-lifecycle, agent-framework, selfhost, selfhost-008]
 ---
@@ -262,42 +262,43 @@ is surface-owned (the library ships only the neutral seam + the existing `approv
 
 ## Completion Criteria
 
-- [ ] TC-01: with `automaticMemory` supplied, a completed turn triggers the capture path — a durable fact in the
+- [x] TC-01: with `automaticMemory` supplied, a completed turn triggers the capture path — a durable fact in the
       user+assistant text is extracted, evaluated, and curated through the injected `IMemoryStore`, and a memory event
       is recorded (functional test with a fake session/turn + fake store).
-- [ ] TC-02a: capture is **guarded** — a capture callback that THROWS or REJECTS does NOT fail the turn (`'complete'`
+- [x] TC-02a: capture is **guarded** — a capture callback that THROWS or REJECTS does NOT fail the turn (`'complete'`
       still emitted; the turn `submit()` resolves; no error escapes the controller's `finally`) (unit test with a
       throwing/rejecting callback).
-- [ ] TC-02b: capture is recorded **in the same turn's persisted record — even when it resolves on a deferred tick** —
+- [x] TC-02b: capture is recorded **in the same turn's persisted record — even when it resolves on a deferred tick** —
       a capture whose async work completes on a later microtask/macrotask still has its `IMemoryEvent` present in the
       session state serialized by THAT turn's `persistSession()`. The test MUST fail against a detached/unawaited capture
       (i.e. it asserts the await-before-persist edge, not incidental microtask ordering) (unit/functional test).
-- [ ] TC-03: **adapter-gating** — with NO `automaticMemory` supplied, capture is OFF: no controller is constructed and
+- [x] TC-03: **adapter-gating** — with NO `automaticMemory` supplied, capture is OFF: no controller is constructed and
       no candidate is extracted/queued/saved for a turn (memory behavior unchanged) (unit test).
-- [ ] TC-04: **sensitive-content refusal on the capture path** — a turn whose text contains a secret/PII yields NO
+- [x] TC-04: **sensitive-content refusal on the capture path** — a turn whose text contains a secret/PII yields NO
       durable save and NO queued candidate for that content (the evaluator's `containsSensitiveMemoryContent` gate runs
       before persistence) (unit test).
-- [ ] TC-05: **gating default is non-destructive** — under the library reference default (`approval_required`), an
+- [x] TC-05: **gating default is non-destructive** — under the library reference default (`approval_required`), an
       extracted candidate is QUEUED (pending), not auto-saved; an above-threshold high-confidence candidate under
       `auto_save` policy is saved (unit test).
-- [ ] TC-06 (**NEUTRALITY**): the capture trigger/policy default is surface-supplied; `packages/` gains only the wiring
+- [x] TC-06 (**NEUTRALITY**): the capture trigger/policy default is surface-supplied; `packages/` gains only the wiring
       seam — no capture PROMPT/policy CONTENT added to the library (targeted grep/review; the mechanical floor remains
       the filed `HARNESS-029`, which gates the P3/P4 slice that first injects a capture prompt).
 
 ## Test Plan
 
-| TC    | Verification                                                      | Type/Tool                       |
-| ----- | ----------------------------------------------------------------- | ------------------------------- |
-| TC-01 | completed turn → extract/evaluate/curate through the port + event | functional (fake session)       |
-| TC-02 | throwing capture callback does NOT fail the turn                  | vitest unit                     |
-| TC-03 | no `automaticMemory` ⇒ capture OFF (nothing captured)             | vitest unit                     |
-| TC-04 | secret/PII in turn text ⇒ no save/queue (filter before persist)   | vitest unit                     |
-| TC-05 | approval_required ⇒ queue; auto_save+high-confidence ⇒ save       | vitest unit                     |
-| TC-06 | no capture prompt/policy content in `packages/`                   | grep/review (HARNESS-029 floor) |
+| TC     | Verification                                                      | Type/Tool                       | Test reference                                                             |
+| ------ | ----------------------------------------------------------------- | ------------------------------- | -------------------------------------------------------------------------- |
+| TC-01  | completed turn → extract/evaluate/curate through the port + event | functional (fake session)       | `interactive-session-auto-capture.test.ts` › "TC-01/TC-05 … capture fires" |
+| TC-02a | throwing/rejecting capture does NOT fail the turn                 | vitest unit                     | same file › "TC-02a — guarded"                                             |
+| TC-02b | event in the SAME turn record even on a deferred tick             | vitest functional               | same file › "TC-02b — deferred tick" (fails vs a detached capture)         |
+| TC-03  | no `automaticMemory` ⇒ capture OFF (nothing captured)             | vitest unit                     | same file › "TC-03 — adapter-gating"                                       |
+| TC-04  | secret/PII in turn text ⇒ no save/queue (filter before persist)   | vitest unit                     | same file › "TC-04 — sensitive content refused"                            |
+| TC-05  | approval_required ⇒ queue; auto_save+high-confidence ⇒ save       | vitest unit                     | same file › "TC-01/TC-05 … capture fires" (auto_save case)                 |
+| TC-06  | no capture prompt/policy content in `packages/`                   | grep/review (HARNESS-029 floor) | file-set review (only the wiring seam) + `HARNESS-029` follow-up           |
 
 ## Tasks
 
-[`.agents/tasks/SELFHOST-008-P2.md`](../../tasks/SELFHOST-008-P2.md) — created at GATE-IMPLEMENT; TC-01..06 slices +
+[`.agents/tasks/completed/SELFHOST-008-P2.md`](../../tasks/completed/SELFHOST-008-P2.md) — created at GATE-IMPLEMENT; TC-01..06 slices +
 option-B design notes + Test Plan.
 
 ## Evidence Log
@@ -372,3 +373,73 @@ option-B design notes + Test Plan.
 - Tasks map to Completion Criteria: task file `## Slices` carry one slice per TC-N — TC-01, TC-02a, TC-02b, TC-03, TC-04, TC-05, TC-06 — matching all Completion Criteria (incl. the split TC-02a/TC-02b).
 - Test Plan present: task file has a `## Test Plan` section well over 50 chars (vitest unit/functional coverage for TC-01..06 + regression `typecheck`/suite/`harness:scan` + TC-06 grep/review).
 - No implementation commits: latest touch to `interactive-session-execution-controller.ts` is REMOTE-014 (#1125, unrelated); no P2 source changes committed; only the new untracked tasks file and the backlog→todo spec move are pending.
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-07-18
+
+**Status upgrade:** approved → in-progress. Task `.agents/tasks/SELFHOST-008-P2.md` created (TC-01..06 + option-B
+notes + Test Plan); path in `## Tasks`; no pre-gate implementation. (Recorded by backlog-gate-guard.)
+
+### [GATE-VERIFY] — ✅ PASS | 2026-07-18
+
+**Status upgrade:** in-progress → verifying
+
+- Prior-gate precondition: GATE-IMPLEMENT PASS present in the Evidence Log (dated 2026-07-18, `approved → in-progress`); frontmatter `status: in-progress`, file in `spec-docs/active/` — matches the expected input stage for GATE-VERIFY.
+- Task slices all complete: `.agents/tasks/SELFHOST-008-P2.md` `## Slices` — TC-01, TC-02a, TC-02b, TC-03, TC-04, TC-05, TC-06 all `[x]`; none blocked/pending.
+- Tests green (spot-check, per gate-run scope): the new `interactive/__tests__/interactive-session-auto-capture.test.ts` → `vitest run` 6/6 passed (TC-01/05 queue+auto_save, TC-02a guarded, TC-02b await-before-persist deferred-tick, TC-03 adapter-gating, TC-04 sensitive refusal). Recorded caller evidence: agent-framework suite 1182 passing (incl. these 6), agent-command 237 passing.
+- Scans green: `no-fallback` scan → "no-fallback scan passed" (the P2 capture-guard site at `interactive-session-execution-controller.ts:333` carries `// allow-fallback:` per HARNESS-028); recorded caller evidence `pnpm harness:scan` 55/55 + workspace typecheck clean.
+
+### [GATE-COMPLETE: TC-01/TC-05] — ✅ PASS | 2026-07-18
+
+- A completed turn with `automaticMemory` supplied fires capture through the injected async `IMemoryStore`:
+  `approval_required` QUEUES (pending.json written, MEMORY.md NOT written) + records `memory_candidate_extracted`
+  /`memory_candidate_queued`; `auto_save` SAVES the high-confidence cue to MEMORY.md + records `memory_candidate_saved`.
+- Test: `interactive/__tests__/interactive-session-auto-capture.test.ts` › "TC-01/TC-05 — capture fires on a completed
+  turn (queue-by-default)" (2 cases). `npx vitest run …auto-capture.test.ts` → 6 passed.
+
+### [GATE-COMPLETE: TC-02a] — ✅ PASS | 2026-07-18
+
+- Guarded: an injected store whose `append`/`upsertPending` REJECT does not fail the turn — `session.submit(CUE)`
+  resolves (no error escapes the controller's `finally`). Test: same file › "TC-02a — guarded".
+
+### [GATE-COMPLETE: TC-02b] — ✅ PASS | 2026-07-18
+
+- Await-before-persist: an injected store whose every write resolves on a `setTimeout` macrotask still has its
+  `memory_candidate_queued` event in the record serialized by THAT turn's `persistSession()` — proving the controller
+  `finally` AWAITS capture before persisting (would fail against a detached/unawaited capture). Test: same file ›
+  "TC-02b — event lands in the SAME turn record even when capture resolves on a deferred tick".
+
+### [GATE-COMPLETE: TC-03] — ✅ PASS | 2026-07-18
+
+- Adapter-gating: with NO `automaticMemory`, a memory-cue turn writes no `pending.json` and records `memoryEvents: []`
+  (capture OFF, zero behavior change). Test: same file › "TC-03 — adapter-gating".
+
+### [GATE-COMPLETE: TC-04] — ✅ PASS | 2026-07-18
+
+- Sensitive refusal: `auto_save` + a cue containing `api_key … sk-live-…` writes no MEMORY.md and queues no
+  non-skipped candidate (`containsSensitiveMemoryContent` skips before persistence). Test: same file › "TC-04".
+
+### [GATE-COMPLETE: TC-06] — ✅ PASS | 2026-07-18
+
+- Neutrality: only the wiring seam landed in `packages/` (execution-controller `finally` + `InteractiveSession`
+  capture method + `automaticMemory` option + SPEC); the capture POLICY/prompt stays surface-supplied (the config is
+  injected; the library ships only the neutral mechanism + the `approval_required` reference default). The mechanical
+  floor remains the filed `HARNESS-029` (gates P3/P4). No capture prompt/seeded corpus added to `packages/`.
+
+- 2026-07-18 — **Implementation note — file-set deviation (honest).** The task's Affected Files anticipated wiring the
+  capture callback in `interactive-session-init.ts` and recording via `interactive-session-history-tracker.ts`. The
+  actual, simpler wiring: the callback is built in `InteractiveSession.captureTurnMemory()` (the session already holds
+  `getMemoryStore()` (P1R) + reads `automaticMemory` from its constructor options) and passed to the execution
+  controller via the existing `IExecutionControllerCallbacks` (`captureMemory?`); the controller records returned
+  events via the histTracker's EXISTING `recordMemoryEvent` in its `finally`. So `interactive-session-init.ts` and
+  `interactive-session-history-tracker.ts` were NOT modified — the constructor-options path + existing recorder
+  sufficed. Files touched: `interactive-session-execution-controller.ts`, `interactive-session.ts`,
+  `interactive-session-options.ts`, `docs/SPEC.md`, + the new test.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-07-18
+
+**Status upgrade:** verifying → done. All Completion Criteria `[x]` with matching `[GATE-COMPLETE: TC-N]` evidence;
+every Test Plan row has a test reference. The ENDORSED option-B ordering (await capture in the controller's `finally`
+before `persistSession()`) is implemented + proven by TC-02b. agent-framework 1182/1182, agent-command 237/237,
+`pnpm harness:scan` 55/55, workspace typecheck clean. Spec → `spec-docs/done/`; task →
+`.agents/tasks/completed/SELFHOST-008-P2.md`. **SELFHOST-008 P2 DONE** (P3/P4 remain: `ISemanticMemoryAdapter` wiring +
+concrete backend; HARNESS-029 mechanical neutrality floor gates them).

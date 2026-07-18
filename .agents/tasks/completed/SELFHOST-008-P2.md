@@ -1,8 +1,8 @@
 # SELFHOST-008 P2 — wire the auto-capture pipeline into the live turn
 
-Spec: [`.agents/spec-docs/todo/SELFHOST-008-P2-live-auto-capture.md`](../spec-docs/todo/SELFHOST-008-P2-live-auto-capture.md)
+Spec: [`.agents/spec-docs/done/SELFHOST-008-P2-live-auto-capture.md`](../../spec-docs/done/SELFHOST-008-P2-live-auto-capture.md)
 GATE-WRITE: PASS. GATE-APPROVAL: PASS (proposal-reviewer ENDORSE iteration 3; owner sign-off "P2 재개 (라이브 자동 캐프처)").
-GATE-IMPLEMENT: in progress. Builds on the corrected async `IMemoryStore` port (P1R, #1220).
+GATE-IMPLEMENT: PASS. Implementation DONE (agent-framework 1182, agent-command 237, harness:scan 55/55). Builds on the corrected async `IMemoryStore` port (P1R, #1220).
 
 ## Design (ENDORSED — option B)
 
@@ -16,20 +16,20 @@ race the persist). Wrapped in try/catch → skip so a capture bug never breaks t
 
 ## Slices (map to Completion Criteria)
 
-- [ ] **TC-01 — capture fires on a completed turn.** With `automaticMemory` supplied, a completed turn extracts +
+- [x] **TC-01 — capture fires on a completed turn.** With `automaticMemory` supplied, a completed turn extracts +
       evaluates + curates a durable fact through the injected async `IMemoryStore` and records a memory event.
-- [ ] **TC-02a — guarded (never breaks the turn).** A capture callback that throws/rejects does not fail the turn
+- [x] **TC-02a — guarded (never breaks the turn).** A capture callback that throws/rejects does not fail the turn
       (`'complete'` emitted; `submit()` resolves; no error escapes the controller's `finally`).
-- [ ] **TC-02b — recorded in the SAME turn's persisted record, even on a deferred tick.** A capture that resolves on a
+- [x] **TC-02b — recorded in the SAME turn's persisted record, even on a deferred tick.** A capture that resolves on a
       later microtask/macrotask still has its `IMemoryEvent` in the state serialized by that turn's `persistSession()`;
       the test MUST fail against a detached/unawaited capture (asserts the await-before-persist edge).
-- [ ] **TC-03 — adapter-gating.** No `automaticMemory` ⇒ capture OFF: no controller constructed, nothing
+- [x] **TC-03 — adapter-gating.** No `automaticMemory` ⇒ capture OFF: no controller constructed, nothing
       extracted/queued/saved for a turn (memory behavior unchanged).
-- [ ] **TC-04 — sensitive-content refusal.** A turn whose text contains a secret/PII yields NO save and NO queued
+- [x] **TC-04 — sensitive-content refusal.** A turn whose text contains a secret/PII yields NO save and NO queued
       candidate for that content (evaluator's `containsSensitiveMemoryContent` runs before persistence).
-- [ ] **TC-05 — gating default non-destructive.** Under `approval_required` an extracted candidate is QUEUED (pending),
+- [x] **TC-05 — gating default non-destructive.** Under `approval_required` an extracted candidate is QUEUED (pending),
       not auto-saved; an above-threshold high-confidence candidate under `auto_save` is saved.
-- [ ] **TC-06 — NEUTRALITY.** The trigger/policy default is surface-supplied; `packages/` gains only the wiring seam
+- [x] **TC-06 — NEUTRALITY.** The trigger/policy default is surface-supplied; `packages/` gains only the wiring seam
       (no capture PROMPT/policy CONTENT); the mechanical floor stays the filed HARNESS-029 (gates P3/P4).
 
 ## Implementation notes
