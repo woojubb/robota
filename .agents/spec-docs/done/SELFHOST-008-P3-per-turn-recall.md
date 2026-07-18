@@ -1,5 +1,6 @@
 ---
-status: verifying
+status: done
+completed: 2026-07-18
 type: DATA
 tags: [memory, recall, session-lifecycle, agent-framework, selfhost-008]
 ---
@@ -314,7 +315,7 @@ the neutral seam + wiring.
 
 ## Tasks
 
-[`.agents/tasks/SELFHOST-008-P3.md`](../../tasks/SELFHOST-008-P3.md) — created at GATE-IMPLEMENT; slices S1–S6
+[`.agents/tasks/completed/SELFHOST-008-P3.md`](../../tasks/completed/SELFHOST-008-P3.md) — archived at GATE-COMPLETE; slices S1–S6
 (agent-core seam → agent-session pass-through → recall render label → controller wiring → ephemeral e2e → neutrality+docs)
 mapped to TC-01..07 + the Test Plan.
 
@@ -433,3 +434,62 @@ gate's own criteria are not evaluated as a PASS while the precondition fails.
 frontmatter `status: in-progress` → `status: verifying` (the file already lives in `spec-docs/active/`, which
 holds both stages, so no move is needed) — then re-run GATE-COMPLETE. All TC substance is green, so the
 re-run is expected to pass immediately.
+
+### [GATE-COMPLETE: TC-01] | 2026-07-18
+
+**Command:** `npx vitest run packages/agent-framework/src/interactive/__tests__/interactive-session-recall.test.ts --reporter=verbose`
+**Result:** PASS — `✓ TC-01: with a recallMemory policy, a turn recalls (query=input) and the block reaches the model` (16ms). Confirms recall fires per turn keyed on `input` and the rendered block reaches the model.
+**Exit code:** 0
+Completion Criteria checkbox: `[x]` (spec line 287). Test Plan reference present (line 307).
+
+### [GATE-COMPLETE: TC-02] | 2026-07-18
+
+**Command:** `npx vitest run packages/agent-framework/src/interactive/__tests__/interactive-session-recall.test.ts --reporter=verbose`
+**Result:** PASS — `✓ TC-02: the recalled block is EPHEMERAL — absent from the persisted session record` (8ms). Confirms the recalled block is not written to the interactive history nor the session history.
+**Exit code:** 0
+Completion Criteria checkbox: `[x]` (spec line 289). Test Plan reference present (line 308).
+
+### [GATE-COMPLETE: TC-03] | 2026-07-18
+
+**Command:** `npx vitest run packages/agent-core/src/services/__tests__/ephemeral-system-context.test.ts --reporter=verbose`
+**Result:** PASS — 3 cases: `✓ reaches the provider request as a system message but is NOT persisted to the conversation store` (7ms); `✓ is a no-op when ephemeralSystemContext is absent (no extra system message)` (1ms); `✓ does not persist the block even across a second turn (ephemeral per-run only)` (1ms). Confirms the agent-core ephemeral seam.
+**Exit code:** 0
+Completion Criteria checkbox: `[x]` (spec line 291). Test Plan reference present (line 309).
+
+### [GATE-COMPLETE: TC-04] | 2026-07-18
+
+**Command:** `npx vitest run packages/agent-framework/src/interactive/__tests__/interactive-session-recall.test.ts --reporter=verbose`
+**Result:** PASS — `✓ TC-04: adapter-gating — no recallMemory policy ⇒ no recall call, no block` (3ms). Confirms with no `recallMemory` policy there is no `recall()` call and no block injected (startup-only, unchanged).
+**Exit code:** 0
+Completion Criteria checkbox: `[x]` (spec line 295). Test Plan reference present (line 310).
+
+### [GATE-COMPLETE: TC-05] | 2026-07-18
+
+**Command:** `npx vitest run packages/agent-framework/src/interactive/__tests__/interactive-session-recall.test.ts --reporter=verbose`
+**Result:** PASS — `✓ TC-05: guarded — a recall that THROWS does not fail the turn (no block, turn completes)` (4ms). Confirms the declared guarded degradation: a throwing `recall()` skips injection and the turn completes.
+**Exit code:** 0
+Completion Criteria checkbox: `[x]` (spec line 296). Test Plan reference present (line 311).
+
+### [GATE-COMPLETE: TC-06] | 2026-07-18
+
+**Command:** `npx vitest run packages/agent-framework/src/interactive/__tests__/interactive-session-recall.test.ts --reporter=verbose`
+**Result:** PASS — `✓ TC-06: recall is called with the surface-supplied budget` (3ms). Confirms recall is invoked with the surface-supplied `IMemoryBudget`.
+**Exit code:** 0
+Completion Criteria checkbox: `[x]` (spec line 298). Test Plan reference present (line 312).
+
+### [GATE-COMPLETE: TC-07] | 2026-07-18
+
+**Command:** `node scripts/harness/scan-memory-neutrality.mjs` + `node scripts/harness/check-dependency-direction.mjs`
+**Result:** PASS — memory-neutrality: `memory-neutrality scan passed.` (exit 0); dependency-direction: `✅ No dependency direction violations found.` (exit 0). Confirms `packages/` gains only the neutral seam + wiring (no memory content/prompt; enable/budget surface-supplied) and deps stay one-way.
+**Exit codes:** 0 (neutrality), 0 (dependency-direction)
+Completion Criteria checkbox: `[x]` (spec line 300). Test Plan reference present (line 313).
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-07-18
+
+**Status upgrade:** verifying → done
+
+- Prior-gate precondition: `### [GATE-VERIFY] — ✅ PASS | 2026-07-18` entry present in this Evidence Log; frontmatter `status: verifying` and file in `spec-docs/active/` — matches the expected input stage (`verifying`) for GATE-COMPLETE. The prior NON-COMPLIANCE (status field out of sync) is resolved. In order.
+- Per-TC verification: TC-01..TC-07 each RE-RUN this gate pass, each with a `[GATE-COMPLETE: TC-N]` entry above recording the exact command, actual result, and exit code. All green (agent-framework recall test 5 cases exit 0; agent-core ephemeral-seam test 3 cases exit 0; neutrality + dependency-direction scans both exit 0).
+- Completion Criteria: `## Completion Criteria` TC-01..TC-07 all checked `[x]` (spec lines 287–301).
+- Test Plan: `## Test Plan` all 7 rows (TC-01..TC-07) carry a test reference (spec lines 307–313); no TC silently unaddressed.
+- Tasks archival + `## Tasks` path update: deferred to the orchestrator on PASS (per skill, the guard does not move files or archive tasks).
