@@ -1,5 +1,5 @@
 ---
-status: approved
+status: done
 type: DATA
 tags: [checkpoint, time-travel, rewind, agent-session, agent-core, selfhost]
 ---
@@ -222,15 +222,15 @@ of the neutral mechanism.
 
 ## Completion Criteria
 
-- [ ] TC-01: the neutral checkpoint-tree structure supports `fork`, `switch`, `listBranches`, and `ancestors` over
+- [x] TC-01: the neutral checkpoint-tree structure supports `fork`, `switch`, `listBranches`, and `ancestors` over
       `{id,parentId}` nodes, with no file/system I/O in the module (unit test + a no-`node:fs`/`node:path`-import
       assertion on the module).
-- [ ] TC-02: forking from a past checkpoint **preserves the parent line and diverges** — the parent branch and its
+- [x] TC-02: forking from a past checkpoint **preserves the parent line and diverges** — the parent branch and its
       descendants remain reachable after a fork, and the two branches share the common ancestor (functional test).
-- [ ] TC-03: restore is **non-destructive** — restoring to an earlier checkpoint no longer deletes later checkpoints
+- [x] TC-03: restore is **non-destructive** — restoring to an earlier checkpoint no longer deletes later checkpoints
       (they are reachable on a sibling branch); a v1 (`parentId`-less) manifest loads as a linear chain
       (back-compat + migration unit test).
-- [ ] TC-04 (**standing mechanical guard**): no dependency cycle and no `agent-core` → session-facing-contract
+- [x] TC-04 (**standing mechanical guard**): no dependency cycle and no `agent-core` → session-facing-contract
       dependency is introduced — the neutral tree stays in `agent-session` (consumed over the existing
       `agent-framework → agent-session` edge), events/record stay in `agent-interface-transport`, and `agent-core`
       gains no `@robota` production dependency. Enforced mechanically by `check-dependency-direction.mjs` (the `deps`
@@ -241,7 +241,7 @@ of the neutral mechanism.
       for checkpoints; like SELFHOST-003's TC-04, a follow-up mechanical neutrality floor (a no-retention-policy /
       dependency-allowlist scan for the checkpoint modules) is filed so branch-prune policy cannot creep into the
       neutral mechanism — neutrality does not rest on manual review alone.
-- [ ] TC-05: the `/rewind` command exposes `fork` / `switch` / `branches` through the existing `ICommandHostContext`
+- [x] TC-05: the `/rewind` command exposes `fork` / `switch` / `branches` through the existing `ICommandHostContext`
       seam and the branch survives `--resume` (persisted-record round-trip) — the linear `restore`/`rollback` path
       still passes unchanged (capability-preservation regression test). Includes the **cross-store referential-integrity
       edge**: the active-branch pointer persists in `IInteractiveSessionRecord` (agent-session `SessionStore`,
@@ -294,3 +294,17 @@ prune (GC) policy.
   gracefully); the manifest `version:1→2` bump is a literal-type widening + a loader mapping a `parentId`-less v1
   manifest onto a synthetic linear chain (noted for the P1 task); the `restore` (`sequence>target`) vs `rollback`
   (`sequence>=target`) distinct fork points to be nailed in P2. **GATE-APPROVAL PASSED.**
+- 2026-07-18 — **GATE-IMPLEMENT + VERIFY + COMPLETE.** `status` → `done`, TC-01…05 checked. Implemented:
+  (agent-session) neutral `CheckpointTree` — pure/I/O-free `{id,parentId}` tree (add/fork/switch/listBranches/
+  ancestors/activeLeaf + `fromNodes` reconstruction). (agent-framework) `EditCheckpointStore` extended to
+  branch-aware `version:2` manifests (`parentId`/`branchId`); restore/rollback are **non-destructive** (fork the
+  active HEAD, keep the abandoned future as a sibling branch — no `rm`); v1 manifests migrate to a linear chain;
+  navigation (list-branches/ancestors/switch) delegates to the neutral tree over the existing edge.
+  (agent-interface-transport) `IBranchEvent` `branch_event` + `IActiveBranchPointer` `IInteractiveSessionRecord.
+activeBranch`. (agent-command + framework command-api) `/rewind fork|switch|branches` subcommands + host-context
+  methods. **--resume:** the active-branch pointer is persisted on save and restored on a true resume, with
+  graceful degradation on cross-store drift (missing checkpoint → keep linear HEAD, never crash).
+  Tests: checkpoint-tree 7 (TC-01/02 + fromNodes) · store 10 (TC-03 non-destructive + v1 migration + navigation +
+  pointer round-trip/drift) · persistence round-trip (activeBranch) · rewind routing 13 (TC-05). TC-04 by
+  `check-dependency-direction` scan. Verify: workspace build:deps + typecheck + agent-framework 1161 + agent-command
+  237 + agent-session + lint (0 errors) + `harness:scan` 54/54 all green.
