@@ -89,12 +89,22 @@ ACTIONABLE 0): neutral `IMemoryStore` DIP port + `IMemoryBudget` + deferred duck
 composing the existing fs classes (zero behavior change); BOTH consumers (startup injection via `loadContext` on the
 interactive options path — NOT `ICreateSessionOptions` which never reads memory — + post-turn `AutomaticMemoryController`)
 routed through the port adapter-gated. v1 = ONE keyword/FTS backend, semantic deferred; TC-06 neutrality = manual +
-follow-up **HARNESS-029** (gates P3/P4). **P2/P3/P4 PENDING.** Also this session: **HARNESS-028** no-fallback mechanical
-gate DONE (merged main #1216 + develop #1217) — see `no-fallback-gate.md`. Branch-flow lesson: NEVER PR a develop-based
-branch into `main` (it sweeps the whole develop→main delta; the #1216 incident, forward-fixed by #1217).
+follow-up **HARNESS-029** (gates P3/P4). **P1R DONE** (PR #1220, owner-requested architecture-audit course-correction):
+`IMemoryStore` made **async** (aligns sandbox/retrieval precedents; the async `ISemanticMemoryAdapter` ghost-seam is now
+injectable) + segregated into 4 role interfaces (ISP) + the `/memory` command path routed through the injected port via
+`ICommandHostContext.getMemoryStore()` (split-brain closed). **P2 DONE** (PR #1221, merged develop `92ea04206`): live
+post-turn auto-capture — the dormant `AutomaticMemoryController` fires per USER turn, **awaited in the execution
+controller's `finally` before `persistSession()`** (option B; `onComplete` is unawaited so awaiting there would race —
+the gate caught this over 3 review iterations), try/catch-guarded, adapter-gated on a surface-supplied `automaticMemory?`
+(absent ⇒ OFF). TC-02b proves await-before-persist. **P3 (ISemanticMemoryAdapter wiring + fake swap) / P4 (concrete
+backend) PENDING; HARNESS-029 gates them.** Also this session: **HARNESS-028** no-fallback mechanical gate DONE (merged
+main #1216 + develop #1217) — see `no-fallback-gate.md`. Branch-flow lesson: NEVER PR a develop-based branch into `main`
+(it sweeps the whole develop→main delta; the #1216 incident, forward-fixed by #1217). Architecture lesson: capability
+DIP ports must be async + wire ALL consumers through the port; run architecture-auditor + architecture-conformance-auditor
+at mid-points (they caught the P1 defects before they compounded).
 
-Next: SELFHOST-008 P2→P4, then 009–014 in priority order (`priority: medium`/`low`, `urgency: later`);
-each follows the same GATE-IMPLEMENT → VERIFY → COMPLETE flow.
+Next: SELFHOST-008 P3→P4 (+ HARNESS-029), then 009–014 in priority order (`priority: medium`/`low`, `urgency: later`);
+each follows the same GATE-WRITE → APPROVAL → IMPLEMENT → VERIFY → COMPLETE flow.
 Committing at logical boundaries per the new commit-cadence rule (git-branch.md).
 Multi-package specs split into named P-slice work units (own PR each); each code-changing spec's GATE-COMPLETE needs
 a real user-execution scenario (product surface — CLI print-mode or public-SDK usage, agent-executable, evidence captured).
