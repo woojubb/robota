@@ -79,6 +79,13 @@ describe('SELFHOST-007 TC-02 — fork preserves the parent line and diverges', (
     expect(tree.ancestors('d')).toEqual(['d', 'b', 'a']);
   });
 
+  it('ancestors stops at a dangling parent edge (drift-hardening) — no phantom node id', () => {
+    // 'c' points to 'b' which is NOT registered (manifest drift): the walk stops at 'c'.
+    const tree = CheckpointTree.fromNodes([{ id: 'c', parentId: 'b' }], 'c');
+    expect(tree.ancestors('c')).toEqual(['c']);
+    expect(tree.ancestors('unknown')).toEqual([]);
+  });
+
   it('fromNodes reconstructs a branched tree from explicit edges (persisted manifest delegation)', () => {
     // a-b-c and a divergent a-d, arriving out of order
     const tree = CheckpointTree.fromNodes(

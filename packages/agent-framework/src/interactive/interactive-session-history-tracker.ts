@@ -52,6 +52,12 @@ export interface IHistoryTrackerState {
 export class SessionHistoryTracker {
   private history: IHistoryEntry[] = [];
   private editCheckpointStore: EditCheckpointStore | null = null;
+  /**
+   * SELFHOST-007: a persisted active-branch pointer restored (in the constructor) BEFORE the checkpoint
+   * store exists on the standard/async construction path — stashed here and applied the moment the
+   * store is set, so `--resume` reaches the store instead of silently dropping the pointer.
+   */
+  private pendingActiveBranch: IActiveBranchPointer | undefined = undefined;
   private memoryEvents: IMemoryEvent[] = [];
   private usedMemoryReferences: IMemoryReference[] = [];
   private contextReferences: IContextReferenceItem[] = [];
@@ -203,14 +209,32 @@ export class SessionHistoryTracker {
     return this.editCheckpointStore.getActiveBranchPointer(this.getSessionId());
   }
 
-  /** SELFHOST-007: restore the active branch from a persisted pointer on resume (graceful on drift). */
+  /**
+   * SELFHOST-007: restore the active branch from a persisted pointer on resume (graceful on drift). If
+   * the checkpoint store is not yet created (standard async construction path — the store is injected
+   * later via {@link setEditCheckpointStore}), stash the pointer and apply it when the store arrives.
+   */
   restoreActiveBranch(pointer: IActiveBranchPointer | undefined): void {
-    if (!this.editCheckpointStore) return;
+    if (pointer === undefined) return;
+    if (!this.editCheckpointStore) {
+      this.pendingActiveBranch = pointer;
+      return;
+    }
     this.editCheckpointStore.restoreActiveBranch(this.getSessionId(), pointer);
+  }
+
+  /** Apply a stashed active-branch pointer once the store exists (idempotent; clears the stash). */
+  private applyPendingActiveBranch(): void {
+    if (this.pendingActiveBranch === undefined || !this.editCheckpointStore) return;
+    this.editCheckpointStore.restoreActiveBranch(this.getSessionId(), this.pendingActiveBranch);
+    this.pendingActiveBranch = undefined;
   }
 
   async beginEditCheckpointTurn(prompt: string): Promise<void> {
     if (!this.editCheckpointStore) return;
+    // SELFHOST-007: apply any stashed --resume branch pointer now (session is ready) so this turn's
+    // parent is the restored HEAD, not the last-by-sequence tip.
+    this.applyPendingActiveBranch();
     await this.editCheckpointStore.beginTurn({ sessionId: this.getSessionId(), prompt });
   }
 
@@ -229,6 +253,9 @@ export class SessionHistoryTracker {
 
   setEditCheckpointStore(store: EditCheckpointStore): void {
     this.editCheckpointStore = store;
+    // SELFHOST-007: do NOT apply the stashed pointer here — this runs during async init BEFORE the
+    // underlying session is assigned, so getSessionId() would throw. It is applied lazily on the first
+    // checkpoint operation (beginEditCheckpointTurn / getCheckpointStore), when the session is ready.
   }
 
   getUsedMemoryReferences(): IMemoryReference[] {
@@ -316,6 +343,9 @@ export class SessionHistoryTracker {
     if (!this.editCheckpointStore) {
       this.editCheckpointStore = new EditCheckpointStore({ cwd: this.cwd });
     }
+    // SELFHOST-007: apply any stashed --resume branch pointer on first store access (session is ready
+    // by the time a read/nav command runs); idempotent — clears the stash once applied.
+    this.applyPendingActiveBranch();
     return this.editCheckpointStore;
   }
 }
