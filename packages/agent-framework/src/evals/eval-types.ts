@@ -15,8 +15,9 @@
 import type { IExecutionResult } from '../interactive/types.js';
 
 /**
- * A metric scores one run's SSOT result. A `boolean` is a direct pass/fail; a `number` is a score where higher
- * is better (normalized against the definition threshold). Pure — no IO, no provider.
+ * A metric scores one run's SSOT result. A `boolean` is a direct pass/fail; a `number` is a score in `[0, 1]`
+ * where higher is better (compared against the definition threshold). A numeric score outside `[0, 1]` is
+ * clamped by the runner. Pure — no IO, no provider.
  */
 export interface IMetric {
   readonly name: string;

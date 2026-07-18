@@ -77,6 +77,21 @@ describe('runEval — TC-01: scores cases + threshold pass/fail', () => {
     expect(report.passed).toBe(false);
   });
 
+  it('clamps a numeric metric score into [0,1] so an out-of-range score cannot force a false pass', async () => {
+    // Without clamping, case a=3 and case b=0 would mean 1.5 >= 1 → false pass despite a 0-scoring case.
+    const over: IMetric = { name: 'over', score: (r) => (r.response === 'big' ? 3 : 0) };
+    const runFn = vi.fn<TEvalRunFn>((input) =>
+      Promise.resolve(makeResult({ response: input === 'a' ? 'big' : '' })),
+    );
+    const report = await runEval(
+      { cases: [{ input: 'a' }, { input: 'b' }], metrics: [over], threshold: 1 },
+      runFn,
+    );
+    expect(report.results[0].scores[0].normalized).toBe(1); // 3 clamped to 1
+    expect(report.overallScore).toBe(0.5);
+    expect(report.passed).toBe(false);
+  });
+
   it('passes when the aggregate meets a lowered threshold (boolean aggregate = pass rate)', async () => {
     const pass: IMetric = { name: 'half', score: (r) => r.response === 'ok' };
     const runFn = vi.fn<TEvalRunFn>((input) =>

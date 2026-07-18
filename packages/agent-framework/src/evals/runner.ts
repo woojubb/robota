@@ -18,9 +18,16 @@ import type {
 /** Default aggregate bar: every case×metric must be perfect. */
 const DEFAULT_THRESHOLD = 1;
 
-/** Normalize a metric score to `[0, 1+]`: a boolean → 1/0, a number → itself (higher is better). */
+/**
+ * Normalize a metric score into `[0, 1]`: a boolean → 1/0, a number → clamped to `[0, 1]`. A numeric metric is
+ * expected to return `[0, 1]`; clamping keeps the field honest to its `IEvalMetricScore.normalized` contract and
+ * prevents an out-of-range score (> 1) from masking a `0`-scoring case and forcing a false aggregate pass.
+ */
 function normalizeScore(score: number | boolean): number {
-  return typeof score === 'boolean' ? (score ? 1 : 0) : score;
+  if (typeof score === 'boolean') {
+    return score ? 1 : 0;
+  }
+  return Math.max(0, Math.min(1, score));
 }
 
 /** Arithmetic mean; an empty set scores 0 (no evidence of passing). */
