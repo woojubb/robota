@@ -173,11 +173,19 @@ export class Session extends SessionBase {
     );
   }
 
-  async run(message: string, rawInput?: string): Promise<string> {
+  /**
+   * @param options.ephemeralSystemContext SELFHOST-008 P3 — a transient system-role block included in this
+   *   turn's model call only, never persisted to history (thin pass-through to agent-core `IRunOptions`).
+   */
+  async run(
+    message: string,
+    rawInput?: string,
+    options?: { ephemeralSystemContext?: string },
+  ): Promise<string> {
     this.abortController = new AbortController();
     const { signal } = this.abortController;
     try {
-      const response = await executeRun(message, rawInput, this.buildRunContext(), signal);
+      const response = await executeRun(message, rawInput, this.buildRunContext(), signal, options);
       this.messageCount += 1;
       return response;
     } finally {
