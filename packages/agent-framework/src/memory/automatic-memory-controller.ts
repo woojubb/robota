@@ -68,14 +68,14 @@ export class AutomaticMemoryController {
     this.store = options.memoryStore ?? createFileSystemMemoryStore(options.cwd, this.now);
   }
 
-  retrieve(query: string): IMemoryRetrievalResult {
+  async retrieve(query: string): Promise<IMemoryRetrievalResult> {
     if (this.config.policy === 'disabled') {
       return { content: '', references: [], truncated: false };
     }
     return this.store.recall(query, this.config.retrieval);
   }
 
-  capture(input: Omit<IMemoryExtractionInput, 'now'>): IMemoryCaptureResult {
+  async capture(input: Omit<IMemoryExtractionInput, 'now'>): Promise<IMemoryCaptureResult> {
     const extractionInput: IMemoryExtractionInput = { ...input, now: this.now() };
     const candidates = this.extractor.extract(extractionInput);
     const events: IMemoryEvent[] = [];
@@ -86,21 +86,21 @@ export class AutomaticMemoryController {
       events.push(this.event('memory_candidate_extracted', candidate.id, candidate.topic));
       const decision = this.evaluator.evaluate(candidate, this.config);
       if (decision.action === 'save') {
-        this.store.append(candidate);
-        this.store.upsertPending(candidate, 'saved', decision.reason);
+        await this.store.append(candidate);
+        await this.store.upsertPending(candidate, 'saved', decision.reason);
         saved.push(candidate.id);
         events.push(
           this.event('memory_candidate_saved', candidate.id, candidate.topic, decision.reason),
         );
       } else if (decision.action === 'queue') {
-        this.store.upsertPending(candidate, 'pending', decision.reason);
-        const record = this.store.getPending(candidate.id);
+        await this.store.upsertPending(candidate, 'pending', decision.reason);
+        const record = await this.store.getPending(candidate.id);
         if (record) queued.push(record);
         events.push(
           this.event('memory_candidate_queued', candidate.id, candidate.topic, decision.reason),
         );
       } else {
-        this.store.upsertPending(candidate, 'skipped', decision.reason);
+        await this.store.upsertPending(candidate, 'skipped', decision.reason);
         events.push(
           this.event('memory_candidate_skipped', candidate.id, candidate.topic, decision.reason),
         );
@@ -110,17 +110,17 @@ export class AutomaticMemoryController {
     return { events, queued, saved };
   }
 
-  listPending(): IMemoryPendingRecord[] {
+  async listPending(): Promise<IMemoryPendingRecord[]> {
     return this.store.listPending('pending');
   }
 
-  approve(id: string): IMemoryPendingRecord {
-    const record = this.store.markPending(id, 'approved', 'approved-by-user');
-    this.store.append(record);
+  async approve(id: string): Promise<IMemoryPendingRecord> {
+    const record = await this.store.markPending(id, 'approved', 'approved-by-user');
+    await this.store.append(record);
     return this.store.markPending(id, 'saved', 'approved-and-saved');
   }
 
-  reject(id: string): IMemoryPendingRecord {
+  async reject(id: string): Promise<IMemoryPendingRecord> {
     return this.store.markPending(id, 'rejected', 'rejected-by-user');
   }
 

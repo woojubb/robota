@@ -228,9 +228,10 @@ export {
 export type {
   IAppendMemoryInput,
   IAppendMemoryResult,
-  ICommandMemoryStores,
-  ICommandPendingMemoryStore,
-  ICommandProjectMemoryStore,
+  IDurableMemoryReader,
+  IMemoryWriter,
+  IMemoryCurationQueue,
+  IMemoryStore,
   IMemoryCandidate,
   IMemoryEvent,
   IMemoryPendingRecord,
@@ -243,8 +244,6 @@ export type {
 export {
   buildMemoryCommandSubcommands,
   createCommandMemoryStores,
-  createCommandPendingMemoryStore,
-  createCommandProjectMemoryStore,
   hasSensitiveCommandMemoryContent,
   isCommandMemoryType,
   listCommandUsedMemoryReferences,

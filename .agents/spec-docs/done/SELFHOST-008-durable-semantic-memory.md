@@ -130,7 +130,7 @@ package). The existing fs-backed `ProjectMemoryStore`/`PendingMemoryStore`/`Memo
 implement `IMemoryStore` as the **neutral reference adapter** (mirroring `InMemorySandboxClient`). The heavy
 **semantic/vector store** is a **duck-typed injected port** `ISemanticMemoryAdapter` (mirroring `IE2BSandboxAdapter`),
 consciously **deferred** to a later slice — v1 commits to the keyword/FTS recall backend and the port is designed to it.
-The adapter is threaded through the assembly like `sandboxClient` (`ICreateSessionOptions.memoryStore`), adapter-gated
+The adapter is threaded through the assembly like `sandboxClient` (the interactive session options (`IInteractiveSessionStandardOptions`/`IInitOptions`, NOT `ICreateSessionOptions` — see P1R + Evidence Log)), adapter-gated
 (default = the neutral fs reference adapter). The **curation policy** (capture heuristics/thresholds/prompt) and any
 **memory content** are supplied by the surface (`agent-cli`/`apps/agent-app`, the latter through the runtime host); the
 library ships only default _reference_ policy + neutral mechanism.
@@ -163,7 +163,7 @@ read-only retrieval and write/curate memory would repeat SELFHOST-003's rejected
 ### Architecture Review Checklist
 
 - [x] 영향 패키지/레이어: `agent-framework` (memory port `IMemoryStore` + types + neutral fs reference adapter, mirror
-      sandbox), assembly threads the adapter via `ICreateSessionOptions.memoryStore` like `sandboxClient`, curation policy +
+      sandbox), assembly threads the adapter via the interactive session options (`IInteractiveSessionStandardOptions`/`IInitOptions`, NOT `ICreateSessionOptions` — see P1R + Evidence Log) like `sandboxClient`, curation policy +
       content + optional `ISemanticMemoryAdapter` supplied by `agent-cli`/`apps/agent-app`. NO new interface package for v1
       (extract at a later slice iff a family); NOT `agent-core` (zero-dep foundation, fs adapter can't co-locate); NOT
       `agent-tools` (memory is not a function-tool).
@@ -186,7 +186,7 @@ implement it as the neutral reference adapter (mirror `InMemorySandboxClient`), 
 
 - budgeted keyword recall + dedup + the sensitive-content safety filter; the semantic/vector store injected as a
   duck-typed `ISemanticMemoryAdapter` (mirror `IE2BSandboxAdapter`), deferred; the adapter threaded through
-  `ICreateSessionOptions.memoryStore` and consumed by `context-loader` startup injection + the post-turn capture
+  the interactive session options (`IInteractiveSessionStandardOptions`/`IInitOptions`, NOT `ICreateSessionOptions` — see P1R + Evidence Log) and consumed by `context-loader` startup injection + the post-turn capture
   controller, adapter-gated; curation policy + memory content supplied by the surface (`agent-cli`/`apps/agent-app`).
 
 **Epic slices:** P1 (this) = memory port + refactor the existing store behind it as the reference adapter + assembly
@@ -196,20 +196,20 @@ in a surface (may revise the port) + extraction to `agent-interface-memory` iff 
 
 ## Affected Files
 
-| File                                                                                                                       | Change                                                                                                                                             |
-| -------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `packages/agent-framework/src/memory/types.ts` (new)                                                                       | memory port `IMemoryStore` (write/recall/curate) + budget/request/response types + duck-typed `ISemanticMemoryAdapter` (mirror `sandbox/types.ts`) |
-| `packages/agent-framework/src/memory/project-memory-store.ts` (+ `pending-memory-store.ts`, `memory-retrieval-service.ts`) | refactor existing fs store to **implement `IMemoryStore`** as the neutral reference adapter (mirror `InMemorySandboxClient`)                       |
-| `packages/agent-framework/src/assembly/create-session-types.ts` + assembly wiring                                          | add `memoryStore?: IMemoryStore` and thread it like `sandboxClient`, adapter-gated (default = fs reference adapter)                                |
-| `packages/agent-framework/src/context/context-loader.ts`                                                                   | consume startup memory through the port instead of `new ProjectMemoryStore(cwd)` directly                                                          |
-| `packages/agent-framework/src/memory/automatic-memory-controller.ts` + `memory-candidate-extractor.ts`                     | make the auto-capture curation policy (heuristics/thresholds/prompt) surface-injectable; library keeps a neutral default reference policy          |
-| `packages/agent-cli/` / `apps/agent-app` (via runtime host)                                                                | supply curation policy + memory-content location + optional concrete `ISemanticMemoryAdapter` (the neutral adapter comes from `agent-framework`)   |
+| File                                                                                                                       | Change                                                                                                                                                                                                                                                                                                                                                                            |
+| -------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/agent-framework/src/memory/types.ts` (new)                                                                       | memory port `IMemoryStore` (write/recall/curate) + budget/request/response types + duck-typed `ISemanticMemoryAdapter` (mirror `sandbox/types.ts`)                                                                                                                                                                                                                                |
+| `packages/agent-framework/src/memory/project-memory-store.ts` (+ `pending-memory-store.ts`, `memory-retrieval-service.ts`) | refactor existing fs store to **implement `IMemoryStore`** as the neutral reference adapter (mirror `InMemorySandboxClient`)                                                                                                                                                                                                                                                      |
+| `packages/agent-framework/src/assembly/create-session-types.ts` + assembly wiring                                          | add `memoryStore?: IMemoryStore` and thread it like `sandboxClient`, adapter-gated (default = fs reference adapter)                                                                                                                                                                                                                                                               |
+| `packages/agent-framework/src/context/context-loader.ts`                                                                   | consume startup memory through the port instead of `new ProjectMemoryStore(cwd)` directly                                                                                                                                                                                                                                                                                         |
+| `packages/agent-framework/src/memory/automatic-memory-controller.ts` + `memory-candidate-extractor.ts`                     | the auto-capture HEURISTICS (`extractor`) + policy-mode/recall-budget (`IAutomaticMemoryConfig`) are surface-injectable; library keeps a neutral default reference policy. (Correction per the P1 conformance audit: the `MemoryPolicyEvaluator` + `AUTO_SAVE_CONFIDENCE_THRESHOLD` are NOT yet field-injectable — threshold/evaluator injection is deferred, not shipped in P1.) |
+| `packages/agent-cli/` / `apps/agent-app` (via runtime host)                                                                | supply curation policy + memory-content location + optional concrete `ISemanticMemoryAdapter` (the neutral adapter comes from `agent-framework`)                                                                                                                                                                                                                                  |
 
 ## Completion Criteria
 
 - [x] TC-01: the memory port **round-trips durably across sessions** — a fact written via `IMemoryStore` in one session is recalled in a fresh session over the same workspace (functional test).
 - [x] TC-02: recall returns ranked references and **never exceeds the given token/char budget** (unit test).
-- [x] TC-03: the memory adapter is threaded through the assembly (like `sandboxClient` via `ICreateSessionOptions.memoryStore`) and both startup-memory injection and post-turn capture use the port; with **no adapter injected the neutral fs reference adapter is the default** (memory works unchanged), while the surface supplies the curation policy + content (unit test on the assembly wiring + adapter-gating).
+- [x] TC-03: the memory adapter is threaded through the assembly (like `sandboxClient` via the interactive session options (`IInteractiveSessionStandardOptions`/`IInitOptions`, NOT `ICreateSessionOptions` — see P1R + Evidence Log)) and both startup-memory injection and post-turn capture use the port; with **no adapter injected the neutral fs reference adapter is the default** (memory works unchanged), while the surface supplies the curation policy + content (unit test on the assembly wiring + adapter-gating).
 - [x] TC-04: the **curate** path queues/saves candidates per the injected policy and **refuses sensitive content** via the safety filter (unit test).
 - [x] TC-05: **swapping the store adapter** (a fake `ISemanticMemoryAdapter` / fake `IMemoryStore`) needs **no `agent-framework` change** (design + fake-adapter unit test) — capability-preservation for the deferred semantic backend.
 - [x] TC-06 (**NEUTRALITY GUARD**): **no memory CONTENT and no app-voice curation prompt/seeded corpus in `packages/`** — a targeted grep/review confirms memory content lives only under the consumer workspace (`<cwd>/.robota/memory/`) and any capture-prompt/policy content lives in `agent-cli`/`apps/agent-app`, not the library. This is a **MANUAL floor today**: no existing `pnpm harness:scan` rule fences the runtime memory subsystem's neutrality — `scan-memory-mirror.mjs` governs the **different** `.agents/memory` harness mirror, and `deps`/`interface-imports`/`interface-runtime` do not check content. Per [enforcement-architecture.md](../../rules/enforcement-architecture.md) (every guardian needs a mechanical floor), a follow-up is filed for a mechanical `packages/` memory-neutrality scan; neutrality does not rest on the manual grep alone.
@@ -311,7 +311,7 @@ Test Plan), path recorded in `## Tasks`, no implementation before the gate. (Rec
 - Follow-up filed: `.agents/backlog/HARNESS-029-memory-neutrality-scan.md` — a mechanical `packages/*/src` memory-neutrality scan, scoped to GATE the P3/P4 slice that first injects curation prompt/content (per the ENDORSE note + enforcement-architecture.md).
 
 - 2026-07-18 — **Implementation note — threading seam corrected (honest deviation from Affected Files).** The spec's
-  Affected Files named `create-session-types.ts` (`ICreateSessionOptions.memoryStore`). Empirically the startup-memory
+  Affected Files named `create-session-types.ts` (the interactive session options (`IInteractiveSessionStandardOptions`/`IInitOptions`, NOT `ICreateSessionOptions` — see P1R + Evidence Log)). Empirically the startup-memory
   consumer is `loadContext` on the INTERACTIVE path — `createSession`/`ICreateSessionOptions` never reads memory, so a
   `memoryStore` field there would be a dangling never-consumed option. `memoryStore` was therefore threaded through the
   real consumer path (`IInteractiveSessionStandardOptions` + `IInitOptions` → `createInteractiveSession` → `loadContext`)

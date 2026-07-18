@@ -1,10 +1,7 @@
 import { ProjectMemoryStore } from './project-memory-store.js';
 
-import type {
-  IAutomaticMemoryConfig,
-  IMemoryReference,
-  IMemoryRetrievalResult,
-} from './automatic-memory-types.js';
+import type { IMemoryReference, IMemoryRetrievalResult } from './automatic-memory-types.js';
+import type { IMemoryBudget } from './types.js';
 
 const TOKEN_MIN_LENGTH = 3;
 const TOPIC_NAME_SCORE = 4;
@@ -38,11 +35,16 @@ function truncateContent(
 export class MemoryRetrievalService {
   private readonly store: ProjectMemoryStore;
 
-  constructor(cwd: string) {
-    this.store = new ProjectMemoryStore(cwd);
+  /**
+   * P1R: accept an injected `ProjectMemoryStore` (so the fs adapter's single, injected-clock instance is
+   * reused for the recall read path) — falling back to constructing one from `cwd` for standalone use.
+   */
+  constructor(cwdOrStore: string | ProjectMemoryStore) {
+    this.store = typeof cwdOrStore === 'string' ? new ProjectMemoryStore(cwdOrStore) : cwdOrStore;
   }
 
-  retrieve(query: string, config: IAutomaticMemoryConfig): IMemoryRetrievalResult {
+  /** P1R: recall takes only a budget (`IMemoryBudget`) — no fabricated `IAutomaticMemoryConfig`. */
+  retrieve(query: string, budget: IMemoryBudget): IMemoryRetrievalResult {
     const tokens = tokenize(query);
     if (tokens.length === 0) return { content: '', references: [], truncated: false };
 
@@ -58,14 +60,14 @@ export class MemoryRetrievalService {
       })
       .filter((item) => item.score > 0)
       .sort((a, b) => b.score - a.score)
-      .slice(0, config.retrieval.maxTopics);
+      .slice(0, budget.maxTopics);
 
     const references: IMemoryReference[] = [];
     const sections: string[] = [];
     let truncated = false;
 
     for (const item of scored) {
-      const limited = truncateContent(item.content, config.retrieval.maxTopicChars);
+      const limited = truncateContent(item.content, budget.maxTopicChars);
       truncated = truncated || limited.truncated;
       references.push({
         topic: item.topic.name,

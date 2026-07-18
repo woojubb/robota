@@ -116,7 +116,7 @@ export async function loadContext(
   const compactInstructions = extractCompactInstructions(claudeMd);
   // SELFHOST-008: startup memory is read through the injected memory port; with none supplied the
   // neutral filesystem reference adapter is the default, so memory keeps working exactly as before.
-  const startupMemory = (memoryStore ?? createFileSystemMemoryStore(cwd)).loadStartupMemory();
+  const startupMemory = await (memoryStore ?? createFileSystemMemoryStore(cwd)).loadStartupMemory();
   const memoryMd = startupMemory.content || undefined;
   const loadedTaskContext = loadTaskContext(cwd);
   const taskContext = loadedTaskContext.trim().length > 0 ? loadedTaskContext : undefined;

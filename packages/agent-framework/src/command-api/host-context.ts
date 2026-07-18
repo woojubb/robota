@@ -17,6 +17,7 @@ import type {
 } from '../context/context-reference-inventory.js';
 import type { IGoalStartOptions } from '../goal/index.js';
 import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
+import type { IMemoryStore } from '../memory/types.js';
 import type { TAutoCompactThreshold } from './context/context-command-api.js';
 import type {
   IContextWindowState,
@@ -181,6 +182,13 @@ export interface ICommandHostContext {
   switchCheckpointBranch?(checkpointId: string): void;
   getUsedMemoryReferences(): IMemoryReference[];
   recordMemoryEvent(event: IMemoryEvent): void;
+  /**
+   * SELFHOST-008 P1R — the injected durable-memory port the `/memory` command reads/writes through, so a
+   * surface that swaps the store is authoritative for command operations too (no split-brain). Optional:
+   * when absent, the command path defaults to the neutral fs reference store over `getCwd()` (memory
+   * behavior unchanged). Must return the SAME instance the session injected (SSOT for a stateful store).
+   */
+  getMemoryStore?(): IMemoryStore;
   listBackgroundTasks(filter?: IBackgroundTaskListFilter): IBackgroundTaskState[];
   readBackgroundTaskLog(
     taskId: string,

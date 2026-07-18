@@ -28,24 +28,24 @@ afterEach(() => {
 describe('SELFHOST-008 TC-03 — loadContext memory-port threading + adapter-gating', () => {
   it('consumes an INJECTED IMemoryStore for startup memory', async () => {
     const injected: IMemoryStore = {
-      loadStartupMemory: (): IStartupMemory => ({
+      loadStartupMemory: async (): Promise<IStartupMemory> => ({
         content: 'INJECTED-MEMORY-CONTENT',
         path: '/virtual',
         lineCount: 1,
         truncated: false,
       }),
-      list: () => ({ indexPath: '/virtual', topicsPath: '/virtual/topics', topics: [] }),
-      readTopic: () => '',
-      append: (input) => ({
+      list: async () => ({ indexPath: '/virtual', topicsPath: '/virtual/topics', topics: [] }),
+      readTopic: async () => '',
+      append: async (input) => ({
         indexPath: '/virtual',
         topicPath: '/virtual/topics/x.md',
         topic: input.topic,
         deduplicated: false,
       }),
-      recall: () => ({ content: '', references: [], truncated: false }),
-      getPending: () => undefined,
-      listPending: () => [],
-      markPending: (id, status, reason) => ({
+      recall: async () => ({ content: '', references: [], truncated: false }),
+      getPending: async () => undefined,
+      listPending: async () => [],
+      markPending: async (id, status, reason) => ({
         id,
         type: 'project',
         topic: 't',
@@ -57,7 +57,7 @@ describe('SELFHOST-008 TC-03 — loadContext memory-port threading + adapter-gat
         status,
         updatedAt: '2026-07-18T00:00:00.000Z',
       }),
-      upsertPending: () => undefined,
+      upsertPending: async () => undefined,
     };
 
     const context = await loadContext(makeWorkspace(), injected);
@@ -67,7 +67,7 @@ describe('SELFHOST-008 TC-03 — loadContext memory-port threading + adapter-gat
   it('DEFAULTS to the neutral fs reference adapter when NO store is injected (memory works unchanged)', async () => {
     const cwd = makeWorkspace();
     // seed durable memory on disk via the same neutral fs adapter the default path uses
-    createFileSystemMemoryStore(cwd).append({
+    await createFileSystemMemoryStore(cwd).append({
       type: 'project',
       topic: 'build',
       text: 'default-fs-memory-entry',

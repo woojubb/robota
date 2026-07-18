@@ -2,25 +2,25 @@
 
 Spec: [`.agents/spec-docs/todo/SELFHOST-008-P1R-memory-port-remediation.md`](../spec-docs/todo/SELFHOST-008-P1R-memory-port-remediation.md)
 GATE-WRITE: PASS. GATE-APPROVAL: PASS (proposal-reviewer ENDORSE; owner sign-off "포트 재정비 슬라이스 먼저 (P1.5)").
-GATE-IMPLEMENT: in progress. Driven by the owner-requested architecture audit (2 HIGH + MED/LOW).
+GATE-IMPLEMENT: PASS. Implementation: DONE (agent-framework 1176, agent-command 237, workspace typecheck clean, harness:scan 55/55). Driven by the owner-requested architecture audit (2 HIGH + MED/LOW).
 
 ## Slices (map to Completion Criteria)
 
-- [ ] **TC-01 — async port + zero-behavior-change adapter.** `IMemoryStore` + its role sub-interfaces are async
+- [x] **TC-01 — async port + zero-behavior-change adapter.** `IMemoryStore` + its role sub-interfaces are async
       (every read/recall/write/curate returns `Promise`); `FileSystemMemoryStore` wraps the unchanged sync stores in
       resolved Promises; the P1 round-trip/budget/curate tests pass unchanged after `await`.
-- [ ] **TC-02 — semantic seam functions.** A fake async `IMemoryStore` backed by a fake `ISemanticMemoryAdapter`
+- [x] **TC-02 — semantic seam functions.** A fake async `IMemoryStore` backed by a fake `ISemanticMemoryAdapter`
       satisfies every consumer with no `agent-framework` change (ghost-seam closed).
-- [ ] **TC-03 — `/memory` routes through the injected port.** With an injected fake store, `/memory add|list|approve|
-  reject` read+write THAT store; with none injected the fs reference adapter is the default (split-brain closed).
-- [ ] **TC-04 — role segregation.** `IMemoryStore` = `IDurableMemoryReader` + `IMemoryWriter` + `IMemoryRecaller` +
+- [x] **TC-03 — `/memory` routes through the injected port.** With an injected fake store, `/memory add|list|approve|
+reject` read+write THAT store; with none injected the fs reference adapter is the default (split-brain closed).
+- [x] **TC-04 — role segregation.** `IMemoryStore` = `IDurableMemoryReader` + `IMemoryWriter` + `IMemoryRecaller` +
       `IMemoryCurationQueue`; the command path consumes the segregated interfaces (no duplicate
       `ICommandProjectMemoryStore`/`ICommandPendingMemoryStore` contract); a reader-only consumer depends on no
       curate/write methods.
-- [ ] **TC-05 — recall seam cleaned.** `MemoryRetrievalService.retrieve(query, budget: IMemoryBudget)` (no fabricated
+- [x] **TC-05 — recall seam cleaned.** `MemoryRetrievalService.retrieve(query, budget: IMemoryBudget)` (no fabricated
       config); `FileSystemMemoryStore` holds ONE `ProjectMemoryStore` honoring the injected clock (injected `now`
       reaches the recall read path).
-- [ ] **TC-06 — doc drift reconciled + green.** the `done/` P1 spec names the interactive-options seam (not
+- [x] **TC-06 — doc drift reconciled + green.** the `done/` P1 spec names the interactive-options seam (not
       `ICreateSessionOptions`) + narrows the injectability claim; typecheck + agent-framework + agent-command suites +
       `pnpm harness:scan` all green.
 

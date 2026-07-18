@@ -21,6 +21,7 @@ import {
 } from '../command-api/provider/provider-factory.js';
 import { GoalController, buildGoalContinuationPrompt } from '../goal/index.js';
 import { createUserInteractionPort } from '../interaction/user-interaction-port.js';
+import { createFileSystemMemoryStore } from '../memory/file-system-memory-store.js';
 import { PlanController } from '../plan/index.js';
 import { retrieveAgentToolDeps } from '../tools/agent-tool.js';
 import { humanizeApiError } from '../utils/error-humanizer.js';
@@ -51,6 +52,7 @@ import type {
 } from '../commands/index.js';
 import type { IContextFileEntry } from '../context/context-file-tracker.js';
 import type { IGoalStartOptions } from '../goal/index.js';
+import type { IMemoryStore } from '../memory/types.js';
 import type {
   TUniversalMessage,
   TSessionEndReason,
@@ -101,6 +103,11 @@ export class InteractiveSession
   private autoCompactThresholdSource: TAutoCompactThresholdSource = 'default';
   private shutdownPromise: Promise<void> | null = null;
   private readonly sandboxClient?: ISandboxClient;
+  // SELFHOST-008 P1R: the durable-memory port for this session — the surface-injected store or the neutral
+  // fs default (lazily created + cached so it is ONE shared instance). Exposed to the `/memory` command
+  // host context via getMemoryStore() so command reads/writes hit the SAME store as startup + capture.
+  private injectedMemoryStore?: IMemoryStore;
+  private defaultMemoryStore?: IMemoryStore;
   private sandboxSnapshotId?: string;
   private agentsFileEntries: IContextFileEntry[] = [];
   private claudeFileEntries: IContextFileEntry[] = [];
@@ -167,6 +174,7 @@ export class InteractiveSession
     this.resumeSessionId = options.resumeSessionId;
     this.forkSession = options.forkSession ?? false;
     this.sandboxClient = 'sandboxClient' in options ? options.sandboxClient : undefined;
+    this.injectedMemoryStore = 'memoryStore' in options ? options.memoryStore : undefined;
     this.sandboxSnapshotId = 'sandboxSnapshotId' in options ? options.sandboxSnapshotId : undefined;
 
     const cwd = this.cwd;
@@ -358,6 +366,18 @@ export class InteractiveSession
   getCwd(): string {
     if (!this.cwd) throw new Error('cwd is not set — provide cwd in session options');
     return this.cwd;
+  }
+
+  /**
+   * SELFHOST-008 P1R — the durable-memory port the `/memory` command host context reads/writes through.
+   * Returns the surface-injected store if one was supplied, else a lazily-created + cached neutral fs
+   * store over `cwd` (ONE shared instance, so command operations are the SSOT with startup + capture — no
+   * split-brain).
+   */
+  getMemoryStore(): IMemoryStore {
+    if (this.injectedMemoryStore) return this.injectedMemoryStore;
+    this.defaultMemoryStore ??= createFileSystemMemoryStore(this.getCwd());
+    return this.defaultMemoryStore;
   }
 
   get sessionId(): string {
