@@ -20,7 +20,7 @@ This package does NOT own: provider implementations, generic session run loop, t
 - All `command-api/` sub-namespaces: provider, org-policy, context, compact, language, memory, background, help, permissions, statusline, plugin, session, effects, checkpoint
 - Config loading: `loadConfig()` (internal), `readSettings()`, `writeSettings()`, settings I/O utilities
 - Context loading: `loadContext()` (internal), task context helpers, prompt file reference resolver, context reference inventory
-- Project memory: `ProjectMemoryStore`, memory policy constants
+- Project memory: `ProjectMemoryStore`, the neutral `IMemoryStore` port + `FileSystemMemoryStore` reference adapter (SELFHOST-008), memory policy constants
 - Edit checkpointing: `EditCheckpointStore`, `wrapEditCheckpointTools()`
 - Reversible execution: `evaluateReversibleToolSafety()`, `wrapReversibleExecutionTools()`
 - Self-hosting verification: `planSelfHostingVerification()`, `transitionSelfHostingLoop()`
@@ -128,6 +128,10 @@ Key design rules:
 | `IUserLocalStorageInspection`        | `src/user-local/index.ts`                                                                              | User-local storage inspection projection                                                                            |
 | `IUserLocalMemoryItemProjection`     | `src/user-local/index.ts`                                                                              | Memory item with display/navigation metadata                                                                        |
 | `TUserLocalMemoryCategory`           | `src/user-local/index.ts`                                                                              | Allowed user-local memory category union                                                                            |
+| `IMemoryStore`                       | `src/memory/types.ts`                                                                                  | Neutral durable-memory DIP port (write/recall/curate) — SELFHOST-008                                                |
+| `IMemoryBudget`                      | `src/memory/types.ts`                                                                                  | Recall budget (`maxTopics`/`maxTopicChars`)                                                                         |
+| `ISemanticMemoryAdapter`             | `src/memory/types.ts`                                                                                  | Deferred duck-typed semantic/vector memory backend port (P3)                                                        |
+| `ISemanticMemoryQueryResult`         | `src/memory/types.ts`                                                                                  | A semantic recall hit                                                                                               |
 | `ISkillPromptContext`                | `src/utils/skill-prompt.ts`                                                                            | Variable substitution context for skill prompts                                                                     |
 | `ICliUpdateNotice`                   | `src/update-check/update-check.ts`                                                                     | CLI update notification data                                                                                        |
 | `TCliUpdateCheckResult`              | `src/update-check/update-check.ts`                                                                     | Result of a CLI update check                                                                                        |
@@ -169,6 +173,8 @@ Core classes and functions exported from `@robota-sdk/agent-framework`:
 | `formatOrgPolicyViolationMessage`           | function | Format a human-readable org policy violation message                                                                                                                           |
 | `isApiKeyPlaintext`                         | function | Check whether an API key value is a plaintext secret                                                                                                                           |
 | `ProjectMemoryStore`                        | class    | Project memory CRUD store backed by `.robota/memory/`                                                                                                                          |
+| `FileSystemMemoryStore`                     | class    | Neutral filesystem reference adapter implementing the `IMemoryStore` port (SELFHOST-008); composes project/pending/recall stores                                               |
+| `createFileSystemMemoryStore`               | function | Factory for the neutral fs `IMemoryStore` reference adapter (the default when no store is injected)                                                                            |
 | `isMemoryType`                              | function | Type guard for `TMemoryType`                                                                                                                                                   |
 | `EditCheckpointStore`                       | class    | Edit checkpoint store backed by `.robota/checkpoints/`                                                                                                                         |
 | `wrapEditCheckpointTools`                   | function | Wrap Write/Edit tools to snapshot pre-images before mutation                                                                                                                   |

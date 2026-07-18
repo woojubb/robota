@@ -149,7 +149,8 @@ describe('createInteractiveSession — bare mode', () => {
     });
 
     expect(mockLoadContext).toHaveBeenCalledTimes(1);
-    expect(mockLoadContext).toHaveBeenCalledWith('/tmp/test');
+    // SELFHOST-008: loadContext now also receives the optional memoryStore (undefined here → fs default).
+    expect(mockLoadContext).toHaveBeenCalledWith('/tmp/test', undefined);
   });
 
   it('bare=false (default): detectProject IS called', async () => {
