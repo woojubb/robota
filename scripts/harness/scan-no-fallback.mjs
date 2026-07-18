@@ -30,6 +30,11 @@
  *     that suppresses nothing) is DEFERRED to a future revision: while v1 flags only the narrow
  *     catch-return-default construct, an `allow-fallback:` on any OTHER construct is INERT, not stale.
  *
+ * SCOPE (v1): `packages/<pkg>/src` only. `apps/<app>/src` (deployable production code, equally subject to
+ * the policy) is a documented DEFERRAL — add it once the packages floor has settled with no false-positive
+ * noise. The brace-matcher is string/comment-aware and the catch match excludes promise `.catch()`
+ * handlers, so the near-zero-false-positive mandate holds for the covered tree.
+ *
  * Exit 0 = clean, 1 = findings.
  */
 
@@ -42,9 +47,7 @@ const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const DEFAULT_LITERAL_RETURN =
   /^return\s+(null|undefined|\[\]|\{\}|''|""|``|false|true|0|-1)\s*;?$/;
 
-/** The escape-hatch token. A sanctioned fallback carries `allow-fallback: <reason>`. */
-const ANNOTATION = /allow-fallback/;
-/** A well-formed annotation: the token followed by `:` and at least one non-space reason char. */
+/** A well-formed escape hatch: the token followed by `:` and at least one non-space reason char. */
 const ANNOTATION_WITH_REASON = /allow-fallback:\s*\S/;
 
 const SCAN_DIRS = ['packages'];
@@ -82,23 +85,49 @@ function isCommentOrEmpty(line) {
 
 /**
  * Brace-match the body of a `catch (...) {` starting at `braceIndex` (the position of the `{`).
- * Returns the inner body text (without the outer braces).
+ * Returns the inner body text (without the outer braces). Braces INSIDE strings, template literals,
+ * and comments are ignored, so a `}` in a string/comment cannot truncate the body early (which would
+ * mis-place the suppression window and false-flag annotated code).
  */
 function extractBlockBody(src, braceIndex) {
   let depth = 0;
   let body = '';
+  let mode = 'code'; // 'code' | 'line' | 'block' | "'" | '"' | '`'
   for (let i = braceIndex; i < src.length; i += 1) {
     const ch = src[i];
-    if (ch === '{') {
-      depth += 1;
-      if (depth === 1) continue; // skip the outer opening brace
-    } else if (ch === '}') {
-      depth -= 1;
-      if (depth === 0) break; // reached the matching close
+    const next = src[i + 1];
+    const prev = src[i - 1];
+    if (mode === 'code') {
+      if (ch === '/' && next === '/') mode = 'line';
+      else if (ch === '/' && next === '*') mode = 'block';
+      else if (ch === "'" || ch === '"' || ch === '`') mode = ch;
+      else if (ch === '{') {
+        depth += 1;
+        if (depth === 1) continue; // skip the outer opening brace
+      } else if (ch === '}') {
+        depth -= 1;
+        if (depth === 0) break; // reached the matching close
+      }
+    } else if (mode === 'line') {
+      if (ch === '\n') mode = 'code';
+    } else if (mode === 'block') {
+      if (ch === '*' && next === '/') mode = 'code';
+    } else if (ch === mode && prev !== '\\') {
+      mode = 'code'; // closing quote of the current string/template
     }
     body += ch;
   }
   return body;
+}
+
+/** Whether `allow-fallback` on this line sits in a COMMENT (line/JSDoc/block), not a string literal. */
+function annotationInComment(line) {
+  const trimmed = line.trim();
+  return (
+    /\/\/[^\n]*allow-fallback/.test(line) || // // allow-fallback…
+    /\/\*[^\n]*allow-fallback/.test(line) || //  /* allow-fallback…
+    (/^\*/.test(trimmed) && /allow-fallback/.test(trimmed)) // JSDoc continuation ` * …allow-fallback`
+  );
 }
 
 /**
@@ -111,8 +140,10 @@ export function findNoFallbackFindingsInSource(source, file = 'fixture.ts') {
   const findings = [];
   const lines = source.split('\n');
 
-  // (1) unannotated silent fallbacks: catch { <default-literal return>, no throw }
-  const catchRe = /catch\s*(\([^)]*\))?\s*\{/g;
+  // (1) unannotated silent fallbacks: catch { <default-literal return>, no throw }.
+  // Lookbehind `(?<![.\w])` excludes a promise `.catch(fn)` handler and any `…catch`-suffixed
+  // identifier — only a statement `try { … } catch { … }` is a swallow candidate.
+  const catchRe = /(?<![.\w])catch\s*(\([^)]*\))?\s*\{/g;
   let match;
   while ((match = catchRe.exec(source)) !== null) {
     const braceIndex = match.index + match[0].length - 1;
@@ -139,10 +170,11 @@ export function findNoFallbackFindingsInSource(source, file = 'fixture.ts') {
     });
   }
 
-  // (2) anti-rot: a reason-less `allow-fallback` annotation (v1 = reason-less-only).
+  // (2) anti-rot: a reason-less `allow-fallback` annotation (v1 = reason-less-only). Only a token in a
+  // COMMENT is an annotation — a `allow-fallback` inside a string literal is data, not a suppression.
   for (let i = 0; i < lines.length; i += 1) {
     const line = lines[i];
-    if (ANNOTATION.test(line) && !ANNOTATION_WITH_REASON.test(line)) {
+    if (annotationInComment(line) && !ANNOTATION_WITH_REASON.test(line)) {
       findings.push({
         file,
         line: i + 1,

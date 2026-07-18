@@ -90,6 +90,27 @@ describe('HARNESS-028 TC-02 — no false positives (precision mandate)', () => {
       kinds('try { x(); } catch (e) {\n  logger.warn(e);\n  return undefined;\n}'),
     ).not.toContain('unannotated-fallback');
   });
+
+  it('does NOT flag a promise `.catch(fn)` handler (a different construct)', () => {
+    expect(kinds('p.catch(function () { return null; });')).not.toContain('unannotated-fallback');
+    expect(kinds('p.catch((e) => { return undefined; });')).not.toContain('unannotated-fallback');
+  });
+
+  it('does NOT flag `catch` as a suffix of another identifier', () => {
+    expect(kinds('const mismatchcatch = () => { return null; };')).not.toContain(
+      'unannotated-fallback',
+    );
+  });
+
+  it('a `}` inside a string does NOT truncate the body or defeat a trailing annotation', () => {
+    const src =
+      'try {\n  x();\n} catch {\n  const s = "a}b";\n  return null;\n} // allow-fallback: sanctioned';
+    expect(kinds(src)).not.toContain('unannotated-fallback');
+  });
+
+  it('does NOT flag `allow-fallback` appearing inside a string literal (anti-rot is comment-only)', () => {
+    expect(kinds('const label = "allow-fallback";')).not.toContain('reasonless-annotation');
+  });
 });
 
 describe('HARNESS-028 TC-04 — annotation anti-rot (v1 = reason-less-only)', () => {
