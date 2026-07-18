@@ -20,6 +20,7 @@ Every runtime export of the package entry (`src/index.ts`). Provider option/conf
 | Symbol                             |
 | ---------------------------------- |
 | `createDefaultProviderDefinitions` |
+| `DEFAULT_ROLE_MODELS`              |
 
 ## Dependencies
 

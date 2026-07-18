@@ -17,6 +17,13 @@ export interface IAgentDefinition {
   /** Model override (e.g., 'claude-haiku-4-5', 'sonnet', 'opus'). Inherits parent model when omitted. */
   model?: string;
 
+  /**
+   * SELFHOST-006: opaque role key for per-role model routing. When a `TRoleModelMap` is configured
+   * and no explicit `model` alias is set, the subagent resolves its model from the role's fallback
+   * chain (primary first). Defaults to `name` when omitted. Opaque string — no fixed vocabulary.
+   */
+  role?: string;
+
   /** Maximum number of agentic turns the subagent may execute. */
   maxTurns?: number;
 
