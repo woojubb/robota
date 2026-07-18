@@ -96,14 +96,20 @@ injectable) + segregated into 4 role interfaces (ISP) + the `/memory` command pa
 post-turn auto-capture — the dormant `AutomaticMemoryController` fires per USER turn, **awaited in the execution
 controller's `finally` before `persistSession()`** (option B; `onComplete` is unawaited so awaiting there would race —
 the gate caught this over 3 review iterations), try/catch-guarded, adapter-gated on a surface-supplied `automaticMemory?`
-(absent ⇒ OFF). TC-02b proves await-before-persist. **P3 (ISemanticMemoryAdapter wiring + fake swap) / P4 (concrete
-backend) PENDING; HARNESS-029 gates them.** Also this session: **HARNESS-028** no-fallback mechanical gate DONE (merged
-main #1216 + develop #1217) — see `no-fallback-gate.md`. Branch-flow lesson: NEVER PR a develop-based branch into `main`
-(it sweeps the whole develop→main delta; the #1216 incident, forward-fixed by #1217). Architecture lesson: capability
-DIP ports must be async + wire ALL consumers through the port; run architecture-auditor + architecture-conformance-auditor
-at mid-points (they caught the P1 defects before they compounded).
+(absent ⇒ OFF). TC-02b proves await-before-persist. **HARNESS-029 DONE** (PR #1223, merged develop `d20f73576`):
+mechanical memory-neutrality floor (`scan-memory-neutrality.mjs`, 57 scans) flagging `seeded-memory-content` +
+`library-capture-prompt` in `packages/*/src`; the always-on guardian that GATES P3/P4. Review found + fixed 1 SHOULD
+ReDoS (disjoint `CAPTURE_PROMPT_DECL` branches `\\.|(?!\1)[^\\]` + TC-07 regression) + threaded `root` through the walk.
+**P3 IN PROGRESS** (spec-gate): wire the deferred duck-typed `ISemanticMemoryAdapter` into recall+index behind the
+port, adapter-gated (absent ⇒ keyword fs default) + a fake-swap proof (no `agent-framework` change); KEY TENSION = sync
+`MemoryRetrievalService.retrieve` vs async `ISemanticMemoryAdapter.query` → needs an async recall path. GATE-APPROVAL
+(user sign-off + proposal-reviewer ENDORSE) required before impl. **P4 (concrete backend) PENDING.** Also this session:
+**HARNESS-028** no-fallback mechanical gate DONE (merged main #1216 + develop #1217) — see `no-fallback-gate.md`.
+Branch-flow lesson: NEVER PR a develop-based branch into `main` (it sweeps the whole develop→main delta; the #1216
+incident, forward-fixed by #1217). Architecture lesson: capability DIP ports must be async + wire ALL consumers through
+the port; run architecture-auditor + architecture-conformance-auditor at mid-points (they caught the P1 defects early).
 
-Next: SELFHOST-008 P3→P4 (+ HARNESS-029), then 009–014 in priority order (`priority: medium`/`low`, `urgency: later`);
+Next: SELFHOST-008 P3→P4, then 009–014 in priority order (`priority: medium`/`low`, `urgency: later`);
 each follows the same GATE-WRITE → APPROVAL → IMPLEMENT → VERIFY → COMPLETE flow.
 Committing at logical boundaries per the new commit-cadence rule (git-branch.md).
 Multi-package specs split into named P-slice work units (own PR each); each code-changing spec's GATE-COMPLETE needs
