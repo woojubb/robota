@@ -54,7 +54,7 @@ export interface IMemoryBudget {
 }
 
 /**
- * Segregated role interfaces (ISP). The durable-memory capability is three distinct client roles —
+ * Segregated role interfaces (ISP). The durable-memory capability is four distinct client roles —
  * a reader (startup injection needs only this), a writer, a recaller, and a curation queue. `IMemoryStore`
  * composes all four; a consumer depends only on the slice it uses. Every method is **async**
  * (`Promise`-returning), matching the repo's I/O-capability port precedents (`ISandboxClient`,
