@@ -159,6 +159,27 @@ User execution test scenarios are separate from the agent's engineering test pla
   documented procedure itself. It must not inspect the document to prove the document is well
   written.
 
+### Capability Reachability — no library-seam "N/A" dodge — MANDATORY
+
+When a backlog delivers a **user-facing capability** (something a user would experience — e.g. memory,
+retrieval, a new tool or mode) but the slice implements only a neutral **library seam** that no product
+surface yet enables, the user-execution gate **must not** be marked "not applicable." A user-facing
+capability is not done until it is BOTH:
+
+1. **Reachable via a product surface** — some surface (CLI/TUI/app/public-SDK) actually turns the seam on
+   (injects/enables it), so a user can reach the behavior; and
+2. **Verified by an AGENT-RUN end-to-end scenario the agent executes itself** — the agent drives the real
+   product surface with a real provider, exercises the capability end-to-end, and captures the evidence.
+   The agent never delegates this run to the user (see the Agent Executability Requirement below and the
+   agent-owned-verification principle).
+
+The spec/backlog **PLAN must include the surface-wiring + the agent-run verification step from the start.**
+Splitting surface-wiring into a later slice is allowed, but an intermediate **library-only** slice records
+its engineering evidence and **names the still-pending agent-run verification** — it must NOT claim the
+capability "done," and the capability's epic is not COMPLETE until the agent-run verification passes. (This
+closes the loophole where a library seam no surface enables silently marks the user-execution gate N/A —
+the exact gap that let SELFHOST-008 memory ship OFF in the real agent, unverified end-to-end.)
+
 ### Agent Executability Requirement — MANDATORY
 
 **Before writing a scenario, the agent must ask: "Can I execute this via Bash right now?"**
