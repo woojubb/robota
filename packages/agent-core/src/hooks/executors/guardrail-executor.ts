@@ -46,6 +46,20 @@ export class GuardrailExecutor implements IHookTypeExecutor {
       return { exitCode: 0, stdout: '', stderr: '' };
     }
 
+    // Fail-safe on misconfiguration: a NAMED guardrail that isn't registered is a config error that
+    // must NOT silently disable the gate — block the turn with a clear reason. (An omitted name list
+    // runs all registered guardrails; an empty registry then legitimately passes.)
+    if (definition.guardrails) {
+      const unknown = definition.guardrails.filter((name) => !this.guardrails.has(name));
+      if (unknown.length > 0) {
+        return {
+          exitCode: 2,
+          stdout: '',
+          stderr: `Unknown guardrail(s) referenced but not registered: ${unknown.join(', ')}`,
+        };
+      }
+    }
+
     const selected = this.selectGuardrails(definition.guardrails);
     if (selected.length === 0) return { exitCode: 0, stdout: '', stderr: '' };
 

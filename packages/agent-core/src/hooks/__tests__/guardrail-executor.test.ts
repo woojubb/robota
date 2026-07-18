@@ -90,4 +90,11 @@ describe('SELFHOST-005 TC-02 — GuardrailExecutor', () => {
     const r = await exec.execute(DEF, INPUT);
     expect(r.exitCode).toBe(0);
   });
+
+  it('fail-safe: blocks when a NAMED guardrail is not registered (config error must not silently pass)', async () => {
+    const exec = new GuardrailExecutor({ a: pass() });
+    const r = await exec.execute({ type: 'guardrail', guardrails: ['a', 'missing'] }, INPUT);
+    expect(r.exitCode).toBe(2);
+    expect(r.stderr).toContain('missing');
+  });
 });

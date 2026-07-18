@@ -11,8 +11,11 @@
 import { validateAgainstJsonSchema } from '../schema/structured-output.js';
 import { ToolExecutionError } from '../utils/errors.js';
 
-import type { IParameterSchema } from '../interfaces/provider.js';
+import type { IToolSchema } from '../interfaces/provider.js';
 import type { TUniversalValue } from '../interfaces/types.js';
+
+/** The declared output schema — the object-root shape or a bare parameter schema (see `IToolSchema`). */
+type TOutputSchema = NonNullable<IToolSchema['outputSchema']>;
 
 /**
  * Validate a tool's output value against its declared `outputSchema`. Throws `ToolExecutionError`
@@ -21,7 +24,7 @@ import type { TUniversalValue } from '../interfaces/types.js';
 export function validateToolOutput(
   toolName: string,
   output: TUniversalValue,
-  schema: IParameterSchema,
+  schema: TOutputSchema,
 ): void {
   const issues = validateAgainstJsonSchema(schema, output, '$');
   if (issues.length > 0) {
