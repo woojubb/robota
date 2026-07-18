@@ -168,6 +168,57 @@ describe('createSubagentSession', () => {
     expect(passedOptions['model']).toBe('claude-haiku-4-5');
   });
 
+  // SELFHOST-006 TC-03: v1 resolves on the subagent path via the opaque role key.
+  it('resolves the model from the role map (primary of the role’s fallback chain)', () => {
+    const agent = makeAgentDef({ role: 'planner' }); // no explicit model alias
+    createSubagentSession({
+      agentDefinition: agent,
+      parentConfig: makeParentConfig(),
+      parentContext: makeParentContext(),
+      parentTools: [makeTool('Read')],
+      provider: mockProvider,
+      terminal: makeTerminal(),
+      roleModels: {
+        planner: [
+          { provider: 'anthropic', model: 'claude-opus-4-5' },
+          { provider: 'openai', model: 'o3' },
+        ],
+      },
+    });
+    const passedOptions = mockSessionConstructor.mock.calls[0][0] as Record<string, unknown>;
+    expect(passedOptions['model']).toBe('claude-opus-4-5');
+  });
+
+  it('lets an explicit model alias win over the role map', () => {
+    const agent = makeAgentDef({ role: 'planner', model: 'haiku' });
+    createSubagentSession({
+      agentDefinition: agent,
+      parentConfig: makeParentConfig(),
+      parentContext: makeParentContext(),
+      parentTools: [makeTool('Read')],
+      provider: mockProvider,
+      terminal: makeTerminal(),
+      roleModels: { planner: [{ provider: 'anthropic', model: 'claude-opus-4-5' }] },
+    });
+    const passedOptions = mockSessionConstructor.mock.calls[0][0] as Record<string, unknown>;
+    expect(passedOptions['model']).toBe('claude-haiku-4-5'); // alias, not the role model
+  });
+
+  it('falls back to the parent model when the role is not in the map', () => {
+    const agent = makeAgentDef({ role: 'unmapped-role' });
+    createSubagentSession({
+      agentDefinition: agent,
+      parentConfig: makeParentConfig(),
+      parentContext: makeParentContext(),
+      parentTools: [makeTool('Read')],
+      provider: mockProvider,
+      terminal: makeTerminal(),
+      roleModels: { planner: [{ provider: 'anthropic', model: 'claude-opus-4-5' }] },
+    });
+    const passedOptions = mockSessionConstructor.mock.calls[0][0] as Record<string, unknown>;
+    expect(passedOptions['model']).toBe('claude-sonnet-4-6'); // parent model (makeParentConfig)
+  });
+
   it('should resolve model shortcut "sonnet"', () => {
     const agent = makeAgentDef({ model: 'sonnet' });
 
