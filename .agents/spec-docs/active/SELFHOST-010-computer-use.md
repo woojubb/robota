@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: BEHAVIOR
 tags: [computer-use, browser, tool, permissions, agent-tools, selfhost]
 ---
