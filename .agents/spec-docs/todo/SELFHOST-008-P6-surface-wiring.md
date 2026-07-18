@@ -1,5 +1,5 @@
 ---
-status: review-ready
+status: approved
 type: DATA
 tags: [memory, agent-cli, surface-wiring, agent-run-verification, selfhost-008]
 ---
@@ -230,7 +230,7 @@ the P3 `<recalled-memory>` block. Verify by an agent-run `-p` capture→recall e
 
 ## Tasks
 
-_Created at GATE-IMPLEMENT._
+[`.agents/tasks/SELFHOST-008-P6.md`](../../tasks/SELFHOST-008-P6.md) — created at GATE-IMPLEMENT; slices S1–S5 (resolver → print/serve/TUI injection → observability notice → unit tests → agent-run e2e verification) mapped to TC-01..07.
 
 ## Evidence Log
 
@@ -265,3 +265,14 @@ in: TC-05 SAVED-state precondition made explicit; the two transport option inter
 
 - `renderApp`/`TuiInteractionChannel`) named in Affected Files + the checklist (honest 3-package scope). Awaiting owner
   sign-off to complete GATE-APPROVAL.
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-07-18
+
+**Status upgrade:** review-ready → approved
+
+- Prior-gate precondition: `[GATE-WRITE] — ✅ PASS | 2026-07-18` present; frontmatter `status: review-ready`; file in `spec-docs/backlog/` — expected input stage matches.
+- Owner explicit approval (verbatim): the owner answered the GATE-APPROVAL question with **"승인 (추천)"** — a direct, unambiguous statement authorizing implementation of this spec.
+- Direct + directed: the approval confirms this spec document's design (not a clarifying-question answer, not approval of a different item).
+- No post-approval edits to Architecture Review or frontmatter `type`/`tags`.
+- Independent design review: `[GATE-APPROVAL] — ENDORSE (proposal-reviewer)` entry present — every load-bearing premise verified against code (buildRuntimeSession neutral pass-through; `TInteractiveSessionOptions` accepts `memoryStore`/`automaticMemory`/`recallMemory`; capture→recall policy flow correct — `approval_required` queues / `auto_save` saves / recall reads only saved topics; `/memory` resolves the same injected store; `-p` print mode agent-runnable + fs store persists cross-invocation); two non-blocking tightenings folded in (TC-05 SAVED-state precondition explicit; two transport option interfaces named for honest 3-package scope).
+- Independent architecture validation (conditional): N/A — no new package/app/surface; wiring is within existing `agent-cli` plus extending two existing transport option interfaces (the established option-forwarding idiom, not a new surface or product-family boundary). New-surface placement review not required.
