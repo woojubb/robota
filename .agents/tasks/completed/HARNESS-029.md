@@ -1,6 +1,6 @@
 # HARNESS-029 — mechanical memory-neutrality floor over `packages/*/src`
 
-Spec: [`.agents/spec-docs/todo/HARNESS-029-memory-neutrality-scan.md`](../spec-docs/todo/HARNESS-029-memory-neutrality-scan.md)
+Spec: [`.agents/spec-docs/done/HARNESS-029-memory-neutrality-scan.md`](../../spec-docs/done/HARNESS-029-memory-neutrality-scan.md)
 GATE-WRITE: PASS. GATE-APPROVAL: PASS (proposal-reviewer ENDORSE; owner sign-off "HARNESS-029 먼저").
 GATE-IMPLEMENT: PASS. Implementation DONE (11 unit tests; harness:scan 56/56). Gates SELFHOST-008 P3/P4.
 
