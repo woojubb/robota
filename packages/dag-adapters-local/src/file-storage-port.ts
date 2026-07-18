@@ -63,6 +63,7 @@ export class FileStoragePort implements IStoragePort {
       const content = await readFile(filePath, 'utf-8');
       return JSON.parse(content) as IDagDefinition;
     } catch {
+      // allow-fallback: an absent/unreadable definition file means there is no definition to return
       return undefined;
     }
   }
@@ -100,6 +101,7 @@ export class FileStoragePort implements IStoragePort {
     try {
       entries = await readdir(definitionDirectoryPath, { withFileTypes: true });
     } catch {
+      // allow-fallback: an absent definition directory means no definitions are listed for this dag
       return [];
     }
     const definitions: IDagDefinition[] = [];

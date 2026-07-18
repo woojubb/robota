@@ -58,6 +58,7 @@ function readTokenUsageFromJson(value: string): IMessageTokenUsage | undefined {
     const parsed = JSON.parse(value) as IProviderUsageLike;
     return readTokenUsageFromProviderUsage(parsed);
   } catch {
+    // allow-fallback: malformed provider-usage JSON yields no token-usage snapshot (advisory metric)
     return undefined;
   }
 }
@@ -77,10 +78,7 @@ function readTokenUsageFromProviderUsage(
   };
 }
 
-function numberFromMetadata(
-  metadata: TUniversalMessageMetadata,
-  key: string,
-): number | undefined {
+function numberFromMetadata(metadata: TUniversalMessageMetadata, key: string): number | undefined {
   const value = metadata[key];
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
 }
