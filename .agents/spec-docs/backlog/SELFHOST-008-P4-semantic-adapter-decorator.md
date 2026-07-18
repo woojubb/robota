@@ -1,5 +1,5 @@
 ---
-status: draft
+status: review-ready
 type: DATA
 tags: [memory, semantic-recall, adapter, agent-framework, selfhost-008]
 ---
@@ -332,3 +332,17 @@ _GATE entries appended by the pipeline._
 - Completion Criteria: TC-01..TC-07 all `TC-N`-prefixed; ≥1 per distinct feature; each in observable/command form; no banned vague phrasing ("works correctly"/"no errors"/"implemented"/"displays correctly"). PASS.
 - Test Plan: `## Test Plan` present; 7 rows (TC-01..TC-07) — matches the 7 Completion Criteria (count confirmed); each row has non-empty Type/Tool and Test reference; no "manual"-tool rows requiring a Notes justification. PASS.
 - Structure: `## Tasks` present with placeholder; `## Evidence Log` present (was empty before this entry); no `## Status`/`## Classification` sections in body. PASS.
+
+### [GATE-WRITE] — ✅ PASS | 2026-07-18
+
+**Status upgrade:** draft → review-ready
+
+_P4 re-gate after the owner "분할" split: this spec passed GATE-WRITE previously as SELFHOST-008 P3 (semantic-adapter-wiring); it was renumbered P4 and returned to `draft/` when the per-turn recall wiring was carved out as P3 (DONE #1224). This is a FRESH GATE-WRITE of the refreshed P4 (recall now LIVE; the proposal-review non-scope corrections folded in). The prior P3-era PASS above is retained for reference._
+
+- Frontmatter: begins with `---`; `status: draft`; `type: DATA` (valid 11-prefix value); `tags: [memory, semantic-recall, adapter, agent-framework, selfhost-008]` present. `check-spec-doc-frontmatter.mjs` exit 0 (only the expected non-blocking SELFHOST-008 duplicate-ID warn). PASS.
+- Problem: concrete symptom (`grep` for `ISemanticMemoryAdapter` across `packages/` finds only the type def + doc refs, zero call sites; keyword-only RECALL via token-overlap ranking misses paraphrase/synonym/cross-language facts); reproduction condition (a fact phrased differently from the query is not recalled even when durably captured); refresh correctly re-scopes onto the now-LIVE P2/P3 recall+index path; no TBD/TODO/vague. PASS.
+- Prior Art Research: `## Prior Art Research` present and substantiated — 8 product-documentation citations (Mem0 search + async, Mastra semantic-recall + recall(), Zep/Graphiti, Letta/MemGPT, LlamaIndex, LangChain, Weaviate); observed common shape (a–d) feeds an evidence-based Recommendation that drives Alternatives/Decision. `scan-spec-research.mjs` exit 0. PASS.
+- Architecture Review Checklist: all 4 items `[x]`; Sibling scan `[x]` with completion evidence (mirrors sandbox `E2BSandboxClient`/`IE2BSandboxAdapter` + retrieval `RepoMapRetrievalAdapter` precedents + P1 fs-store/IMemoryStore design; reuses the `memoryStore`/`getMemoryStore()` seam; degradations `allow-fallback`-annotated per HARNESS-028); Alternatives Considered has 5 entries each with Pro+Con (decorator+tiered+guarded-index CHOSEN; option-thread-into-fs, pure-replace, fire-and-forget-index, in-library-hybrid all REJECTED); Decision references the driving trade-offs (open/closed, prior-art (a)/(b), neutrality). New-surface placement N/A — explicitly stated (neutral mechanism within existing `agent-framework`, no new package/app/surface/boundary). PASS.
+- Completion Criteria: TC-01..TC-07 all `TC-N`-prefixed; ≥1 per distinct feature; each in observable/command form (incl. the folded-in dedup-skip in TC-02 and neutrality-scope note in TC-07); no banned vague phrasing. PASS.
+- Test Plan: `## Test Plan` present; 7 rows (TC-01..TC-07) — matches the 7 Completion Criteria (count confirmed: 7 = 7); each row has non-empty Type/Tool and Test reference; no "manual"-tool rows requiring a Notes justification. PASS.
+- Structure: `## Tasks` present with placeholder; `## Evidence Log` present; no `## Status`/`## Classification` sections in body. (Evidence Log is non-empty by design here — the retained prior P3-era PASS — which is correct for a re-gate, not a first run.) PASS.
