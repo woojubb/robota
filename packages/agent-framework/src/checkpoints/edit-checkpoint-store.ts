@@ -1,5 +1,7 @@
 import { dirname, join, relative, resolve } from 'node:path';
 
+import { CheckpointTree } from '@robota-sdk/agent-session';
+
 import { NodeFileSystem, NodeFileSystemAsync } from '../adapters/node-file-system.js';
 import { projectPaths } from '../paths.js';
 import { buildEditCheckpointInspection } from './edit-checkpoint-inspection.js';
@@ -284,6 +286,39 @@ export class EditCheckpointStore {
     if (tracked !== undefined) return tracked;
     const manifests = this.loadManifests(sessionId);
     return manifests.length > 0 ? manifests[manifests.length - 1]!.id : undefined;
+  }
+
+  /**
+   * SELFHOST-007: navigation delegates to the neutral `CheckpointTree` (agent-session). Build the tree
+   * from the session's persisted manifest edges and return its branch tips (leaf checkpoints).
+   */
+  listCheckpointBranches(sessionId: string): string[] {
+    return this.buildTree(sessionId).listBranches();
+  }
+
+  /** SELFHOST-007: the ancestors of a checkpoint (nearest-first to the root) via the neutral tree. */
+  checkpointAncestors(sessionId: string, checkpointId: string): string[] {
+    return this.buildTree(sessionId).ancestors(checkpointId);
+  }
+
+  /**
+   * SELFHOST-007: switch the active branch to an existing checkpoint (typically a branch tip), so the
+   * next turn continues that line. Non-destructive; throws on an unknown checkpoint.
+   */
+  switchToCheckpoint(sessionId: string, checkpointId: string): void {
+    if (!this.buildTree(sessionId).has(checkpointId)) {
+      throw new Error(`Unknown edit checkpoint: ${checkpointId}`);
+    }
+    this.forkFrom(sessionId, checkpointId);
+  }
+
+  /** Build the neutral checkpoint tree from this session's persisted manifest edges. */
+  private buildTree(sessionId: string): CheckpointTree {
+    const nodes = this.loadManifests(sessionId).map((manifest) => ({
+      id: manifest.id,
+      ...(manifest.parentId !== undefined ? { parentId: manifest.parentId } : {}),
+    }));
+    return CheckpointTree.fromNodes(nodes, this.activeHead.get(sessionId));
   }
 
   private nextSequence(sessionId: string): number {

@@ -26,6 +26,31 @@ export class CheckpointTree {
   private activeId: string | undefined;
 
   /**
+   * Build a tree from explicit `{ id, parentId }` edges (e.g. reconstructed from persisted checkpoint
+   * manifests). Nodes may arrive in any order — parents are linked by id. The active head is left at
+   * the given `activeId` (or undefined). This is the delegation entry point a consumer store uses to
+   * answer navigation queries (`listBranches`/`ancestors`) without the tree owning any persistence.
+   */
+  static fromNodes(nodes: ICheckpointNode[], activeId?: string): CheckpointTree {
+    const tree = new CheckpointTree();
+    // First pass: register every node so parent links resolve regardless of arrival order.
+    for (const node of nodes) {
+      if (tree.nodes.has(node.id)) throw new Error(`CheckpointTree: duplicate node "${node.id}"`);
+      tree.nodes.set(node.id, node.parentId === undefined ? { id: node.id } : { ...node });
+    }
+    // Second pass: build child adjacency in the provided order.
+    for (const node of nodes) {
+      if (node.parentId !== undefined) {
+        const siblings = tree.children.get(node.parentId) ?? [];
+        siblings.push(node.id);
+        tree.children.set(node.parentId, siblings);
+      }
+    }
+    tree.activeId = activeId;
+    return tree;
+  }
+
+  /**
    * Append a checkpoint as a child of the current active head and make it the new active head.
    * The first append (no active head) becomes the root. Ids must be unique.
    */

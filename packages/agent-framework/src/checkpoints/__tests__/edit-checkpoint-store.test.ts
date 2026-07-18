@@ -240,4 +240,31 @@ describe('EditCheckpointStore', () => {
     expect(result.removedCheckpointCount).toBe(0);
     expect(store.list('session_1')).toHaveLength(2);
   });
+
+  // SELFHOST-007 TC-05: navigation (list-branches / ancestors / switch) delegates to the neutral tree.
+  it('lists branch tips and switches the active branch via the neutral checkpoint tree', async () => {
+    const cwd = makeProject();
+    const store = new EditCheckpointStore({ cwd });
+
+    const a = await store.beginTurn({ sessionId: 'session_1', prompt: 'a' });
+    await store.finalizeTurn();
+    await store.beginTurn({ sessionId: 'session_1', prompt: 'b' });
+    await store.finalizeTurn();
+    const c = await store.beginTurn({ sessionId: 'session_1', prompt: 'c' });
+    await store.finalizeTurn(); // a-b-c
+
+    await store.restoreToCheckpoint('session_1', a.id);
+    const d = await store.beginTurn({ sessionId: 'session_1', prompt: 'd' });
+    await store.finalizeTurn(); // fork a-d
+
+    expect(store.listCheckpointBranches('session_1').sort()).toEqual([c.id, d.id].sort());
+    expect(store.checkpointAncestors('session_1', d.id)).toEqual([d.id, a.id]);
+
+    // switch back to the original branch tip
+    store.switchToCheckpoint('session_1', c.id);
+    const e = await store.beginTurn({ sessionId: 'session_1', prompt: 'e' });
+    await store.finalizeTurn(); // continues c -> e
+    expect(store.checkpointAncestors('session_1', e.id).slice(0, 2)).toEqual([e.id, c.id]);
+    expect(() => store.switchToCheckpoint('session_1', 'nope')).toThrow(/Unknown/);
+  });
 });

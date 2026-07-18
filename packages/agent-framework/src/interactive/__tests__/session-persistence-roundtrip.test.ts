@@ -67,6 +67,8 @@ describe('session persistence round-trip (DATA-006 / ARL-08)', () => {
         createdAt: '2026-05-05T00:00:45.000Z',
         approvedAt: '2026-05-05T00:00:50.000Z',
       },
+      // SELFHOST-007: the persisted active-branch pointer (survives --resume).
+      activeBranch: { branchId: 'branch-1', checkpointId: 'turn-0002' },
     };
   }
 

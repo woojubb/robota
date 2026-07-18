@@ -78,4 +78,21 @@ describe('SELFHOST-007 TC-02 — fork preserves the parent line and diverges', (
     tree.addCheckpoint('d'); // continues the original branch b-d
     expect(tree.ancestors('d')).toEqual(['d', 'b', 'a']);
   });
+
+  it('fromNodes reconstructs a branched tree from explicit edges (persisted manifest delegation)', () => {
+    // a-b-c and a divergent a-d, arriving out of order
+    const tree = CheckpointTree.fromNodes(
+      [
+        { id: 'd', parentId: 'a' },
+        { id: 'c', parentId: 'b' },
+        { id: 'a' },
+        { id: 'b', parentId: 'a' },
+      ],
+      'd',
+    );
+    expect(tree.listBranches().sort()).toEqual(['c', 'd']);
+    expect(tree.ancestors('c')).toEqual(['c', 'b', 'a']);
+    expect(tree.ancestors('d')).toEqual(['d', 'a']);
+    expect(tree.activeLeaf()).toBe('d');
+  });
 });
