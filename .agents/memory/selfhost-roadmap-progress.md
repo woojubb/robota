@@ -81,7 +81,19 @@ are DONE** (all gates). **SELFHOST-004 (run tracing + per-run cost budgeting vie
 `setEventService` forward, per-turn `collectSpanEntries` draining spans onto history before the usage-summary).
 Full chain live in a real interactive turn. Note: span→turn grouping is positional (spans before each
 usage-summary), not `ownerPath`-based; `ISpanEntry` carries no owner field.
-Next: pick up the remaining specs from `todo/` in priority order (they are `priority: medium`/`low`, `urgency: later`);
+**SELFHOST-005/006/007 DONE** (PRs #1213/#1214/#1215): parallel guardrails + tool-output validation; per-role model
+routing (`IModelRef`/`TRoleModelMap`); branching time-travel checkpoints (neutral `CheckpointTree` + non-destructive
+fork restore). **SELFHOST-008 (durable memory, EPIC) — P1 DONE** (PR #1218, merged develop `f44d16b23`, review
+ACTIONABLE 0): neutral `IMemoryStore` DIP port + `IMemoryBudget` + deferred duck-typed `ISemanticMemoryAdapter`
+(`agent-framework/src/memory/types.ts`, mirror sandbox `ISandboxClient`); `FileSystemMemoryStore` reference adapter
+composing the existing fs classes (zero behavior change); BOTH consumers (startup injection via `loadContext` on the
+interactive options path — NOT `ICreateSessionOptions` which never reads memory — + post-turn `AutomaticMemoryController`)
+routed through the port adapter-gated. v1 = ONE keyword/FTS backend, semantic deferred; TC-06 neutrality = manual +
+follow-up **HARNESS-029** (gates P3/P4). **P2/P3/P4 PENDING.** Also this session: **HARNESS-028** no-fallback mechanical
+gate DONE (merged main #1216 + develop #1217) — see `no-fallback-gate.md`. Branch-flow lesson: NEVER PR a develop-based
+branch into `main` (it sweeps the whole develop→main delta; the #1216 incident, forward-fixed by #1217).
+
+Next: SELFHOST-008 P2→P4, then 009–014 in priority order (`priority: medium`/`low`, `urgency: later`);
 each follows the same GATE-IMPLEMENT → VERIFY → COMPLETE flow.
 Committing at logical boundaries per the new commit-cadence rule (git-branch.md).
 Multi-package specs split into named P-slice work units (own PR each); each code-changing spec's GATE-COMPLETE needs
