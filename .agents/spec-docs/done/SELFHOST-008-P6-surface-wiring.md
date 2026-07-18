@@ -1,5 +1,6 @@
 ---
-status: verifying
+status: done
+completed: 2026-07-19
 type: DATA
 tags: [memory, agent-cli, surface-wiring, agent-run-verification, selfhost-008]
 ---
@@ -230,7 +231,7 @@ the P3 `<recalled-memory>` block. Verify by an agent-run `-p` capture→recall e
 
 ## Tasks
 
-[`.agents/tasks/SELFHOST-008-P6.md`](../../tasks/SELFHOST-008-P6.md) — created at GATE-IMPLEMENT; slices S1–S5 (resolver → print/serve/TUI injection → observability notice → unit tests → agent-run e2e verification) mapped to TC-01..07.
+[`.agents/tasks/completed/SELFHOST-008-P6.md`](../../tasks/completed/SELFHOST-008-P6.md) — archived at GATE-COMPLETE; slices S1–S5 (resolver → print/serve/TUI injection → observability notice → unit tests → agent-run e2e verification) mapped to TC-01..07.
 
 ## Evidence Log
 
@@ -301,3 +302,41 @@ in: TC-05 SAVED-state precondition made explicit; the two transport option inter
 - Scans: `pnpm harness:scan` — all 56 passed (incl. memory-neutrality, dependency-direction/deps, spec-publish-claims → TC-06 neutrality green).
 - AGENT-RUN e2e (TC-04/05/07): `.agents/evals/scenarios/selfhost-008-memory-agent-run.md` records real `robota -p` runs with `anthropic (claude-sonnet-4-6)`: run A `--memory --memory-autosave` captured to `<WS>/.robota/memory/` (MEMORY.md + `topics/release-command.md`); fresh-session run B paraphrased query recalled the fact (`<recalled-memory>` block present in the session `.jsonl`; answer reflects `pnpm ship`); one-time enable notice printed; default-off writes no store.
 - Completion Criteria: all TC-01..TC-07 are `[x]` in `## Completion Criteria`.
+
+### [GATE-COMPLETE: TC-01] — ✅ | 2026-07-19
+
+**Default OFF.** Re-ran `npx vitest run packages/agent-cli/src/startup/__tests__/memory-enablement.test.ts` → 13/13 passed (0.6s), including the "default off" resolver cases (no setting/flag/env ⇒ no memory options injected). AGENT-RUN evidence (`selfhost-008-memory-agent-run.md` › Result) confirms without `--memory` no `<cwd>/.robota/memory/` is written (today's behavior preserved). Checkbox `[x]`. Test ref: `memory-enablement.test.ts` › "default off". PASS.
+
+### [GATE-COMPLETE: TC-02] — ✅ | 2026-07-19
+
+**Enablement precedence.** Same vitest run (13/13) covers `settings.json memory.enabled` (SSOT) ← `--memory`/`--no-memory` ← `ROBOTA_MEMORY=1|0` precedence on the resolver. Checkbox `[x]`. Test ref: `memory-enablement.test.ts` › "precedence". PASS.
+
+### [GATE-COMPLETE: TC-03] — ✅ | 2026-07-19
+
+**Injection.** Same vitest run (13/13) covers the enabled path producing resolved `TInteractiveSessionOptions` carrying `memoryStore` + `recallMemory` + `automaticMemory` via the shared merge helper. Checkbox `[x]`. Test ref: `memory-enablement.test.ts` › "injection". PASS.
+
+### [GATE-COMPLETE: TC-04] — ✅ | 2026-07-19
+
+**AGENT-RUN capture.** Evidence: `.agents/evals/scenarios/selfhost-008-memory-agent-run.md` › Run A. Orchestrator executed `robota -p --memory --memory-autosave "remember that this project is released with 'pnpm ship'"` against the real CLI (`anthropic claude-sonnet-4-6`); `find` shows the store written durably — `<WS>/.robota/memory/MEMORY.md` + `<WS>/.robota/memory/topics/release-command.md`, MEMORY.md line `- [2026-07-18] (project/release-command) This project is released with 'pnpm ship'`. Not re-run here per instructions (real-provider AGENT-RUN owned by orchestrator). Checkbox `[x]`. Test ref: scenario file. PASS.
+
+### [GATE-COMPLETE: TC-05] — ✅ | 2026-07-19
+
+**AGENT-RUN recall (headline).** Evidence: same scenario file › Run B. A fresh `robota -p --memory --no-session-persistence "How do I release/publish this project?"` in the same cwd recalled the captured fact — the answer reflects `pnpm ship` and the ephemeral `<recalled-memory>` block is present in the recall-turn session `.jsonl` (`grep -l "recalled-memory"` matched the session log), proving per-turn P3 recall fired (not just startup injection). Cross-session recall via the persisted fs store confirmed. Checkbox `[x]`. Test ref: scenario file (capture→recall proof). PASS.
+
+### [GATE-COMPLETE: TC-06] — ✅ | 2026-07-19
+
+**Neutrality.** Re-ran `node scripts/harness/scan-memory-neutrality.mjs` (exit 0, "memory-neutrality scan passed") + `node scripts/harness/check-dependency-direction.mjs` (exit 0, "No dependency direction violations found"). No vector-DB SDK dep added — `grep -rEi "chromadb|pinecone|weaviate|qdrant|lancedb|faiss|milvus" packages/*/package.json` found none. Neutral library + `buildRuntimeSession` unchanged (P6 is surface wiring). Checkbox `[x]`. Test ref: memory-neutrality + dependency-direction green. PASS.
+
+### [GATE-COMPLETE: TC-07] — ✅ | 2026-07-19
+
+**Observability.** Evidence: scenario file — Run A printed the one-time enable notice ("Memory is ON (opt-in): capturing and recalling durable memory in <WS>/.robota/memory. Inspect with /memory; disable with --no-memory …"); the captured entry is inspectable via `/memory` and present as plain-markdown in MEMORY.md + the topic file. Enable-notice/observability path also covered by the agent-cli unit/functional suite (GATE-VERIFY). Checkbox `[x]`. Test ref: scenario file + `/memory` list assertion. PASS.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-07-19
+
+**Status upgrade:** verifying → done
+
+- Prior-gate precondition: `[GATE-VERIFY] — ✅ PASS | 2026-07-19` present in Evidence Log; frontmatter `status: verifying`; file in `spec-docs/active/` — expected input stage matches.
+- All 7 Completion Criteria (TC-01..TC-07) are `[x]` and each has a matching `[GATE-COMPLETE: TC-N]` Evidence entry above (command/action + result).
+- All 7 Test Plan rows carry a test reference or AGENT-RUN scenario reference — none silently unaddressed.
+- Automatable re-verification (this guard): `memory-enablement.test.ts` 13/13; `scan-memory-neutrality.mjs` exit 0; `check-dependency-direction.mjs` exit 0; no vector-DB SDK dep. AGENT-RUN TC-04/05/07 cited from `.agents/evals/scenarios/selfhost-008-memory-agent-run.md` (orchestrator-executed, real provider) per instructions — not re-run.
+- Tasks-file archival (`.agents/tasks/SELFHOST-008-P6.md` → `completed/`) and frontmatter/status/folder move are the orchestrator's post-PASS actions per the invocation contract; not performed by this guard.
