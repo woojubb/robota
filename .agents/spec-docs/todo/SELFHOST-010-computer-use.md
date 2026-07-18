@@ -291,10 +291,12 @@ that the allow-list does NOT support `Computer(screenshot)` today: `primaryArg` 
 
 ## Tasks
 
-`.agents/tasks/SELFHOST-010*.md` — 미생성 (GATE-APPROVAL 통과 후 생성). Epic P1 (driver port + contract +
-`ComputerView`/`Computer` tool factory + `FakeComputerDriver` + the two-tool permission wiring + assembly threading) /
-P2 (`PageComputerDriver` reference adapter + takeover loop-suspension) / P3 (concrete surface driver + target-env
-wiring) / P4 (mechanical neutrality floor).
+[`.agents/tasks/SELFHOST-010-P1.md`](../../tasks/SELFHOST-010-P1.md) — created at GATE-IMPLEMENT; P1 slices S1–S6
+(port+contract+FakeComputerDriver → tool factory → permission wiring → takeover → assembly+gating → swap/neutrality+docs)
+mapped to TC-01..08. Epic P1 (driver port + contract + `ComputerView`/`Computer` tool factory + `FakeComputerDriver` +
+the two-tool permission wiring + assembly threading) / P2 (`PageComputerDriver` reference adapter + takeover
+loop-suspension + **agent-run browser verification**) / P3 (concrete surface driver + target-env wiring) / P4
+(mechanical neutrality floor).
 
 ## Evidence Log
 
@@ -339,3 +341,17 @@ wiring) / P4 (mechanical neutrality floor).
   auto-runs; auto-perception mirrors `Read` and cannot mutate). TC-02/07/08 route through the existing
   `evaluatePermission`→`PermissionEnforcer` path — no second gate. Placement unchanged (mirrors the sandbox port).
   **GATE-APPROVAL PASSED.**
+
+### [PRE-IMPLEMENT REFRESH] — 2026-07-19
+
+Picked up for implementation (owner: continue the roadmap). Re-verified grounding: the `agent-tools/src/sandbox`
+precedent exists to mirror; `computer-use` is not yet implemented. **Scope of THIS slice = P1** (neutral
+`IComputerDriver` port + perceive/action-contract types + `ComputerView`/`Computer` tool factory + `FakeComputerDriver`
+
+- two-tool permission wiring + assembly threading + adapter-gating). TC-01..08 are unit/functional against the
+  `FakeComputerDriver` — no real browser needed. **Capability-reachability / agent-run note** (per the 2026-07-18 rule):
+  P1 is a **library seam** (port + tool + fake driver, adapter-gated OFF) — user-facing computer-use only becomes
+  reachable when a concrete driver is injected, so P1 does NOT claim the capability user-done. The **agent-run
+  browser verification is named as the pending P2 deliverable** (the zero-dep `PageComputerDriver` driven against a real
+  rendered page under `xvfb-run`, which is available) — that slice will carry the agent-run e2e evidence. Proceeding to
+  GATE-IMPLEMENT for P1.
