@@ -100,7 +100,7 @@ the gate caught this over 3 review iterations), try/catch-guarded, adapter-gated
 mechanical memory-neutrality floor (`scan-memory-neutrality.mjs`, 57 scans) flagging `seeded-memory-content` +
 `library-capture-prompt` in `packages/*/src`; the always-on guardian that GATES P3/P4. Review found + fixed 1 SHOULD
 ReDoS (disjoint `CAPTURE_PROMPT_DECL` branches `\\.|(?!\1)[^\\]` + TC-07 regression) + threaded `root` through the walk.
-**P3 SPLIT + DONE** (PR #1224 → develop). GATE-APPROVAL proposal-review of the semantic-decorator slice found the recall
+**P3 SPLIT + DONE** (PR #1224 merged develop `4fc3ec266`). GATE-APPROVAL proposal-review of the semantic-decorator slice found the recall
 path (`controller.retrieve`/`renderRetrievedMemory`/`IMemoryStore.recall`) has ZERO live callers — a semantic backend
 would upgrade DEAD code. Owner chose "분할": **P3 = wire per-turn recall FIRST** (keyword, observable); semantic
 decorator → **P4** (deferred). P3 shipped via the full gate pipeline (WRITE→APPROVAL[proposal-reviewer REVISE×2→ENDORSE]
@@ -119,7 +119,7 @@ green, 56/56 scans. \*\*P4 (`ISemanticMemoryAdapter` decorator — spec drafted 
   incident, forward-fixed by #1217). Architecture lesson: capability DIP ports must be async + wire ALL consumers through
   the port; run architecture-auditor + architecture-conformance-auditor at mid-points (they caught the P1 defects early).
 
-Next: await #1224 merge; SELFHOST-008 P4→P5, then 009–014 in priority order (`priority: medium`/`low`, `urgency: later`);
+Next: SELFHOST-008 P4→P5, then 009–014 in priority order (`priority: medium`/`low`, `urgency: later`);
 each follows the same GATE-WRITE → APPROVAL → IMPLEMENT → VERIFY → COMPLETE flow.
 Committing at logical boundaries per the new commit-cadence rule (git-branch.md).
 Multi-package specs split into named P-slice work units (own PR each); each code-changing spec's GATE-COMPLETE needs
