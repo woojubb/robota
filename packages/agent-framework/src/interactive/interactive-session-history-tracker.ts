@@ -206,6 +206,9 @@ export class SessionHistoryTracker {
   /** SELFHOST-007: the active-branch pointer to persist (so a branch survives --resume). */
   getActiveBranchPointer(): IActiveBranchPointer | undefined {
     if (!this.editCheckpointStore) return undefined;
+    // Apply any stashed resume pointer first, so a persist that fires BEFORE the first checkpoint op
+    // (resume → save → exit) does not clobber the on-disk pointer to undefined. No-op when unstashed.
+    this.applyPendingActiveBranch();
     return this.editCheckpointStore.getActiveBranchPointer(this.getSessionId());
   }
 
