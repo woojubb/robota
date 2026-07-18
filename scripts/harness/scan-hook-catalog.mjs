@@ -3,13 +3,13 @@
 /**
  * SELFHOST-009 TC-01 — hook-catalog drift guard.
  *
- * The documented catalog SSOT (packages/agent-core/docs/hook-catalog.md) is the product surface for
+ * The documented catalog SSOT (packages/agent-core/docs/HOOK-CATALOG.md) is the product surface for
  * the lifecycle hook events; without a mechanical floor it rots (the guide table had already drifted:
  * a phantom Notification row + 6 omitted events). This scan FAILs on any disagreement between three
  * sources of truth:
  *
  *   1. the THookEvent union     (packages/agent-core/src/hooks/types.ts)
- *   2. the documented catalog   (packages/agent-core/docs/hook-catalog.md — the Events table)
+ *   2. the documented catalog   (packages/agent-core/docs/HOOK-CATALOG.md — the Events table)
  *   3. the resolved firing call-sites across the workspace src trees
  *
  * FAIL conditions:
@@ -41,7 +41,7 @@ import path from 'node:path';
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
 const UNION_FILE = 'packages/agent-core/src/hooks/types.ts';
-const CATALOG_DOC = 'packages/agent-core/docs/hook-catalog.md';
+const CATALOG_DOC = 'packages/agent-core/docs/HOOK-CATALOG.md';
 
 /** Directories whose src trees are scanned for firing call-sites. */
 const FIRING_SCAN_DIRS = ['packages'];

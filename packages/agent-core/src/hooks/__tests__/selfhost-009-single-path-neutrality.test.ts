@@ -82,7 +82,7 @@ describe('SELFHOST-009 TC-06 — neutrality: no domain hook policy in packages/'
   });
 
   it('the catalog SSOT documents blocking semantics and stays neutral mechanism', () => {
-    const catalog = readFileSync(path.join(AGENT_CORE_ROOT, 'docs/hook-catalog.md'), 'utf8');
+    const catalog = readFileSync(path.join(AGENT_CORE_ROOT, 'docs/HOOK-CATALOG.md'), 'utf8');
     // The single blocking gate is documented; the informational events are marked non-blocking.
     expect(catalog).toMatch(/PreToolUse/);
     expect(catalog.toLowerCase()).toContain('informational');

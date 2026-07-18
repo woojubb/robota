@@ -9,7 +9,7 @@
  * INFORMATIONAL-ONLY: they are fired fire-and-forget from the turn owner at points it already
  * observes and their `runHooks` result is NOT awaited or consulted for gating. The sole BLOCKING
  * event is `PreToolUse` (exit-code-2 / `permissionDecision: "deny"` → `blocked`). See the catalog
- * SSOT `packages/agent-core/docs/hook-catalog.md` for per-event timing, fire-site, and blocking
+ * SSOT `packages/agent-core/docs/HOOK-CATALOG.md` for per-event timing, fire-site, and blocking
  * semantics.
  */
 export type THookEvent =

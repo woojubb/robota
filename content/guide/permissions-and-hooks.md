@@ -49,7 +49,7 @@ Lifecycle hooks for extending session behavior. Defined in `agent-core` and `age
 
 The full, authoritative catalog — every event with its exact timing, fire-site, input fields, and
 blocking semantics — lives in the SSOT
-[`packages/agent-core/docs/hook-catalog.md`](../../packages/agent-core/docs/hook-catalog.md), kept
+[`packages/agent-core/docs/HOOK-CATALOG.md`](../../packages/agent-core/docs/HOOK-CATALOG.md), kept
 true to the code by the `scan-hook-catalog` drift guard. Summary:
 
 | Event                | Timing                                        | Purpose                         | Blocking            |
