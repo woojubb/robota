@@ -7,7 +7,6 @@ import type {
   IMemoryEvent,
   IMemoryExtractionInput,
   IMemoryPendingRecord,
-  IMemoryReference,
   IMemoryRetrievalResult,
 } from './automatic-memory-types.js';
 import type { IMemoryCandidateExtractor } from './memory-candidate-extractor.js';

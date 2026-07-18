@@ -229,7 +229,10 @@ in a surface (may revise the port) + extraction to `agent-interface-memory` iff 
 
 Epic P1 task created at GATE-IMPLEMENT: [`.agents/tasks/completed/SELFHOST-008-P1.md`](../../tasks/completed/SELFHOST-008-P1.md)
 (port + refactor store as reference adapter + assembly threading + curation-policy seam; TC-01..06). Later slices:
-P2 (persistence + cross-session recall guarantees) / P3 (duck-typed `ISemanticMemoryAdapter` + fake-adapter swap) /
+P2 (persistence + cross-session recall guarantees — and WIRE the post-turn `AutomaticMemoryController` capture path
+into the live session so an injected `memoryStore` reaches BOTH startup recall and capture, not just startup; the
+controller is dormant today, so no split-brain exists yet — per PR #1218 review CONSIDER) / P3 (duck-typed
+`ISemanticMemoryAdapter` + fake-adapter swap) /
 P4 (concrete semantic/vector backend in a surface; may revise the port; extract `agent-interface-memory` iff a
 family) — tracked here, separate tasks when reached.
 

@@ -171,8 +171,15 @@ describe('SELFHOST-008 TC-03 (capture half) — AutomaticMemoryController routes
     const appended: string[] = [];
     const pending: string[] = [];
     const base = createFileSystemMemoryStore(makeWorkspace());
+    // Wrap the concrete instance by explicit delegation (NOT `{...base}`, which drops prototype methods).
     const spy: IMemoryStore = {
-      ...base,
+      loadStartupMemory: () => base.loadStartupMemory(),
+      list: () => base.list(),
+      readTopic: (topic) => base.readTopic(topic),
+      recall: (query, budget) => base.recall(query, budget),
+      getPending: (id) => base.getPending(id),
+      listPending: (status) => base.listPending(status),
+      markPending: (id, status, reason) => base.markPending(id, status, reason),
       append: (input) => {
         appended.push(input.text);
         return base.append(input);
