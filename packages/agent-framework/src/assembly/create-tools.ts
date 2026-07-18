@@ -10,6 +10,7 @@ import {
   createWriteTool,
   createEditTool,
   createRetrievalTool,
+  createComputerTool,
   globTool,
   grepTool,
   webFetchTool,
@@ -17,7 +18,7 @@ import {
 } from '@robota-sdk/agent-tools';
 
 import type { IToolWithEventService } from '@robota-sdk/agent-core';
-import type { ISandboxClient, IRetrievalAdapter } from '@robota-sdk/agent-tools';
+import type { ISandboxClient, IRetrievalAdapter, IComputerDriver } from '@robota-sdk/agent-tools';
 
 /** Human-readable descriptions of the built-in tools (for system prompt) */
 export const DEFAULT_TOOL_DESCRIPTIONS = [
@@ -42,6 +43,12 @@ export interface ICreateDefaultToolsOptions {
   cwd?: string;
   /** SELFHOST-003: when present, adds the adapter-gated `CodebaseRetrieval` tool (absent otherwise). */
   retrievalAdapter?: IRetrievalAdapter;
+  /**
+   * SELFHOST-010: when present, adds the adapter-gated `ComputerView` + `Computer` tools. Unlike the
+   * shell tool's host `spawn` fallback, computer-use has NO host fallback — with no driver the tools are
+   * simply ABSENT (there is no safe library-side "local" screen to fall back to).
+   */
+  computerDriver?: IComputerDriver;
 }
 
 export function createDefaultTools(
@@ -61,6 +68,11 @@ export function createDefaultTools(
     // Retrieval is adapter-gated: absent when no adapter is supplied (there is no host fallback).
     ...(options.retrievalAdapter
       ? [createRetrievalTool({ adapter: options.retrievalAdapter }) as IToolWithEventService]
+      : []),
+    // Computer-use is adapter-gated on the driver: absent when no driver is supplied. There is NO host
+    // fallback (unlike the shell tool's host spawn) — no library-side "local" screen exists.
+    ...(options.computerDriver
+      ? (createComputerTool({ driver: options.computerDriver }) as IToolWithEventService[])
       : []),
   ];
 }
