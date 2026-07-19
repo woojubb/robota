@@ -31,7 +31,10 @@ echo "[pre-push-check] Running pre-push CI checks..." >&2
 # commits over origin/develop. Skip integration/detached branches and when origin/develop is absent.
 CUR_BRANCH=$(git -C "$PROJECT_DIR" branch --show-current 2>/dev/null || echo "")
 case "$CUR_BRANCH" in
-  main | master | develop | "") : ;;
+  # release/* and hotfix/* are promotion branches — they LEGITIMATELY carry the `-s ours` merge of `main`
+  # (develop→main promotion), so exempt them from the "no foreign merge commits" check that targets
+  # feature branches accidentally based on `main`.
+  main | master | develop | release/* | hotfix/* | "") : ;;
   *)
     if git -C "$PROJECT_DIR" rev-parse --verify --quiet origin/develop >/dev/null 2>&1; then
       FOREIGN_MERGES=$(git -C "$PROJECT_DIR" log --merges --oneline origin/develop..HEAD 2>/dev/null || true)
