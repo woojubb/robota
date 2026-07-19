@@ -112,6 +112,10 @@ const SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/scan-session-artifact-neutrality.mjs'],
   },
   {
+    name: 'agent-tools-neutrality',
+    command: ['node', 'scripts/harness/scan-agent-tools-neutrality.mjs'],
+  },
+  {
     name: 'memory-neutrality',
     command: ['node', 'scripts/harness/scan-memory-neutrality.mjs'],
   },
