@@ -73,10 +73,22 @@ describe('parseEvalCases (TC-02)', () => {
     ]);
   });
 
-  it('throws on malformed input (missing string input / non-array json)', () => {
+  it('throws on malformed input (missing string input / non-array json / non-string expected)', () => {
     expect(() => parseEvalCases('[{"expected":"x"}]', 'json')).toThrow(/input/);
     expect(() => parseEvalCases('{"input":"a"}', 'json')).toThrow(/array/);
     expect(() => parseEvalCases('not json', 'jsonl')).toThrow();
+    // present-but-wrong-typed expected is malformed, not silently dropped (review CONSIDER)
+    expect(() => parseEvalCases('[{"input":"a","expected":123}]', 'json')).toThrow(/expected/);
+  });
+});
+
+describe('regexMatch — stateless across cases (review CONSIDER)', () => {
+  it('a /g-flagged pattern scores consistently case-to-case (no lastIndex leak)', () => {
+    const m = regexMatch(/\d+/g);
+    // Called repeatedly as the runner would; each is independent.
+    expect(m.score(result('42'))).toBe(true);
+    expect(m.score(result('7'))).toBe(true);
+    expect(m.score(result('99'))).toBe(true);
   });
 });
 

@@ -18,6 +18,10 @@ function toEvalCase(row: IRawCaseRow, where: string): IEvalCase {
   if (!row || typeof row.input !== 'string') {
     throw new Error(`Invalid eval case (${where}): each case needs a string "input".`);
   }
+  if (row.expected !== undefined && typeof row.expected !== 'string') {
+    // A present-but-wrong-typed `expected` is malformed — throw loudly rather than silently dropping it.
+    throw new Error(`Invalid eval case (${where}): "expected" must be a string when present.`);
+  }
   return typeof row.expected === 'string'
     ? { input: row.input, expected: row.expected }
     : { input: row.input };

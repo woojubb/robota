@@ -41,9 +41,12 @@ export function includesText(substring: string): IMetric {
 
 /** The run response matches `pattern`. */
 export function regexMatch(pattern: RegExp): IMetric {
+  // Strip stateful flags (g/y) so `RegExp.lastIndex` does not leak across cases in the runner loop, which would
+  // otherwise make the same pattern score inconsistently case-to-case.
+  const stateless = new RegExp(pattern.source, pattern.flags.replace(/[gy]/g, ''));
   return {
     name: 'regex-match',
-    score: (result: IExecutionResult): boolean => pattern.test(result.response),
+    score: (result: IExecutionResult): boolean => stateless.test(result.response),
   };
 }
 
