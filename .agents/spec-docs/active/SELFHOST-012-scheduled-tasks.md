@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: FLOW
 tags: [scheduler, cron, tasks, dag-scheduler, agent-command, selfhost]
 ---
@@ -219,9 +219,12 @@ Reuse the existing scheduler; add the user-facing management surface + a thin li
 
 ## Tasks
 
-`.agents/tasks/SELFHOST-012*.md` — 미생성 (GATE-APPROVAL 통과 후 생성). Slices: P1 = lifecycle extension (status +
-state-machine + runner croner pause/resume + manager/host methods); P2 = `/schedule list|pause|resume|edit` surface
-(mirror `/background`); P3 = `paused`/edited-schedule persistence across restart (FLOW-003 path).
+Slices: P1 = lifecycle extension (status + state-machine + runner croner pause/resume + manager/host methods);
+P2 = `/schedule list|pause|resume|edit` surface (mirror `/background`) + the AGENT-RUN capability verification;
+P3 = `paused`/edited-schedule persistence across restart (FLOW-003 path).
+
+- **P1** — [`.agents/tasks/SELFHOST-012-P1.md`](../../tasks/SELFHOST-012-P1.md) (GATE-IMPLEMENT; in progress).
+- P2/P3 task files created after P1 completes.
 
 ## Evidence Log
 
@@ -251,3 +254,46 @@ state-machine + runner croner pause/resume + manager/host methods); P2 = `/sched
   branch and be marked `failed` on restart; TC-06 requires WIDENING BOTH predicates to treat a paused scheduled task as
   re-armable-but-kept-paused (re-arm the croner job then immediately `.pause()`, or persist paused without arming), named
   for the P3 task. **GATE-APPROVAL PASSED.**
+
+### [GATE-IMPLEMENT] — ❌ FAIL | 2026-07-19
+
+**Status remains:** approved
+**Prior-gate precondition:** PASS — GATE-APPROVAL shows a PASS entry ("**GATE-APPROVAL PASSED.**", 2026-07-17);
+frontmatter `status: approved` and folder `todo/` match the expected GATE-IMPLEMENT input stage.
+**Criteria checked:**
+
+- ✅ Tasks file created: `.agents/tasks/SELFHOST-012-P1.md` exists (first slice; sliced execution P1/P2/P3).
+- ✅ Tasks correspond to Completion Criteria (P1 slice): S1→TC-01, S2/S3→TC-02, S5→TC-03, S4→TC-04, S6→TC-06
+  (grep note, partial); TC-05 and TC-06-persistence are scoped to P2/P3 per the spec's GATE-APPROVAL note.
+- ✅ Tasks file carries a `## Test Plan` section (≥50 chars) — satisfies the `test-plans` harness scan [AF-24].
+- ❌ Tasks file path recorded in the spec `## Tasks` section.
+
+**Failed criteria:**
+
+- Tasks file path recorded in `## Tasks`: the section still reads `` `.agents/tasks/SELFHOST-012*.md` — 미생성
+(GATE-APPROVAL 통과 후 생성) `` — a stale pre-creation placeholder that declares the file _not created_ and does
+  not record the actual created path `.agents/tasks/SELFHOST-012-P1.md`.
+  **Required action:** Update the `## Tasks` section to record the created `.agents/tasks/SELFHOST-012-P1.md`
+  path (and remove the stale "미생성" annotation), then re-run GATE-IMPLEMENT. (Minor: the P1 file's spec
+  back-link points at `.agents/spec-docs/active/…` while the spec currently lives in `todo/`.)
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-07-19
+
+**Status upgrade:** approved → in-progress
+**Prior-gate precondition:** PASS — GATE-APPROVAL shows a PASS entry ("**GATE-APPROVAL PASSED.**", 2026-07-17);
+frontmatter `status: approved` and folder `todo/` match the expected GATE-IMPLEMENT input stage.
+**Criteria checked:**
+
+- ✅ Tasks file created: `.agents/tasks/SELFHOST-012-P1.md` exists (first slice of sliced P1/P2/P3 execution).
+- ✅ Tasks file path recorded in `## Tasks`: now reads
+  `**P1** — [\`.agents/tasks/SELFHOST-012-P1.md\`](../../tasks/SELFHOST-012-P1.md) (GATE-IMPLEMENT; in progress)`
+  with P2/P3 to follow — the stale "미생성" placeholder is gone (prior FAIL fixed).
+- ✅ Tasks correspond to Completion Criteria (P1 slice): S1/S2→TC-01, S3→TC-02, S4→TC-02/TC-04, S5→TC-03,
+  S6→TC-06 (grep note, partial); TC-05 and TC-06-persistence are scoped to P2/P3 per the spec's GATE-APPROVAL
+  note.
+- ✅ Tasks file carries a `## Test Plan` section (≥50 chars, TC-01..TC-04 + regression commands) — satisfies
+  the `test-plans` harness scan [AF-24].
+
+Minor (non-blocking, carried from prior FAIL): the P1 file's spec back-link still points at
+`.agents/spec-docs/active/…` while the spec lives in `todo/` — cosmetic, not a gate criterion.
+**GATE-IMPLEMENT PASSED.**
