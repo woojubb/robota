@@ -1,6 +1,6 @@
 ---
 title: 'HARNESS-033: sweep pre-existing test-double-named shipped code (fake/mock/stub)'
-status: todo
+status: done
 created: 2026-07-19
 priority: medium
 urgency: later
@@ -40,6 +40,31 @@ allowlist.
 - Every `KNOWN_PREEXISTING` entry is removed from `scan-no-fake-in-src.mjs` and the scan is green with an EMPTY
   allowlist (the floor then rests entirely on rename/relocation, no baseline).
 - No behavior change to the affected packages (pure rename/relocation + import updates).
+
+## Resolution (2026-07-19)
+
+`KNOWN_PREEXISTING` in `scan-no-fake-in-src.mjs` is now EMPTY — the floor rests entirely on rename/relocation.
+
+**dag-adapters-local** — the three test-support ports moved from the package main export to a dedicated
+`@robota-sdk/dag-adapters-local/testing` entry (mirrors `@robota-sdk/agent-core/testing`; new tsdown entry +
+package.json `./testing` export), renamed for what they ARE:
+
+- `FakeClockPort` → `ManualClockPort` (manually-advanced clock)
+- `MockTaskExecutorPort` → `ScriptedTaskExecutorPort` (runs a caller-supplied handler; default echoes)
+- `createStubPromptBackend` → `createCannedPromptBackend` (in-memory backend returning canned data)
+  `SystemClockPort` (a real port) stays on the main entry. ~9 dag-\* test files updated to the `/testing` import;
+  SPEC.md Public API updated (main entry trimmed + a `./testing` Public API subsection).
+
+**agent-playground** — in-browser placeholders (no real SDK injected) renamed off the `Mock*` prefix:
+
+- `createMockUsageSnapshot` → `createSampleUsageSnapshot` (file `mock-usage-snapshot.ts` → `sample-usage-snapshot.ts`)
+- the 9 `class Mock*` provider/plugin placeholders in `remote-injection-setup.ts` + the 2 in the
+  `remote-injection.ts` injected-code strings → `Placeholder*` (note: `Stub*` is also a fenced prefix, so
+  `Placeholder*` — not the backlog's `Stub*` suggestion — is used).
+
+No behavior change (pure rename/relocation + import updates). All dag package tests green (dag-adapters-local
+54, dag-api 34, dag-worker 49, dag-scheduler 16, dag-runtime 11, …); agent-playground typecheck clean;
+`scan-no-fake-in-src` green with the empty allowlist; 62/62 run-all-scans.
 
 ## Notes
 

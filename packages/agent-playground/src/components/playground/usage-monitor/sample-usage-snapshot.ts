@@ -20,7 +20,7 @@ function createRateLimitWindow(limit: number, resetOffsetMs: number): IRateLimit
   };
 }
 
-export function createMockUsageSnapshot(): IPlaygroundUsageSnapshot {
+export function createSampleUsageSnapshot(): IPlaygroundUsageSnapshot {
   return {
     usage: {
       dailyExecutions: MOCK_MAX_DAILY_EXECUTIONS,

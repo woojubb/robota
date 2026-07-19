@@ -1,5 +1,5 @@
 export default {
-  entry: ['src/index.ts'],
+  entry: ['src/index.ts', 'src/testing/index.ts'],
   format: ['esm', 'cjs'],
   outDir: 'dist/node',
   clean: true,

@@ -3,10 +3,9 @@ import {
   InMemoryStoragePort,
   InMemoryQueuePort,
   InMemoryLeasePort,
-  FakeClockPort,
   SystemClockPort,
-  MockTaskExecutorPort,
 } from '../index.js';
+import { ManualClockPort, ScriptedTaskExecutorPort } from '../testing/index.js';
 import type { IDagDefinition, IDagRun, IQueueMessage, ITaskRun } from '@robota-sdk/dag-core';
 
 // ---- InMemoryStoragePort ----
@@ -382,23 +381,23 @@ describe('InMemoryLeasePort', () => {
   });
 });
 
-// ---- FakeClockPort / SystemClockPort ----
+// ---- ManualClockPort / SystemClockPort ----
 
-describe('FakeClockPort', () => {
+describe('ManualClockPort', () => {
   it('returns configured time', () => {
-    const clock = new FakeClockPort(1000);
+    const clock = new ManualClockPort(1000);
     expect(clock.nowEpochMs()).toBe(1000);
     expect(clock.nowIso()).toBe(new Date(1000).toISOString());
   });
 
   it('advances time', () => {
-    const clock = new FakeClockPort(1000);
+    const clock = new ManualClockPort(1000);
     clock.advanceByMs(500);
     expect(clock.nowEpochMs()).toBe(1500);
   });
 
   it('sets absolute time', () => {
-    const clock = new FakeClockPort(1000);
+    const clock = new ManualClockPort(1000);
     clock.setNowEpochMs(5000);
     expect(clock.nowEpochMs()).toBe(5000);
   });
@@ -421,11 +420,11 @@ describe('SystemClockPort', () => {
   });
 });
 
-// ---- MockTaskExecutorPort ----
+// ---- ScriptedTaskExecutorPort ----
 
-describe('MockTaskExecutorPort', () => {
+describe('ScriptedTaskExecutorPort', () => {
   it('returns default success result (passes input through)', async () => {
-    const mock = new MockTaskExecutorPort();
+    const mock = new ScriptedTaskExecutorPort();
     const result = await mock.execute({
       dagId: 'dag-1',
       dagRunId: 'run-1',
@@ -441,7 +440,7 @@ describe('MockTaskExecutorPort', () => {
   });
 
   it('uses custom executor function', async () => {
-    const mock = new MockTaskExecutorPort(async () => ({
+    const mock = new ScriptedTaskExecutorPort(async () => ({
       ok: true,
       output: { custom: 'result' },
     }));

@@ -100,16 +100,16 @@ if (typeof window !== 'undefined') {
       createFunctionTool: (name, description, schema, handler) => {
         return { name, description, schema, handler, execute: handler };
       },
-      LoggingPlugin: class MockLoggingPlugin { constructor(options) {} },
-      UsagePlugin: class MockUsagePlugin { constructor(options) {} },
-      PerformancePlugin: class MockPerformancePlugin { constructor(options) {} }
+      LoggingPlugin: class PlaceholderLoggingPlugin { constructor(options) {} },
+      UsagePlugin: class PlaceholderUsagePlugin { constructor(options) {} },
+      PerformancePlugin: class PlaceholderPerformancePlugin { constructor(options) {} }
     },
     openai: {
-      OpenAIProvider: class MockOpenAIProvider {
+      OpenAIProvider: class PlaceholderOpenAIProvider {
         constructor(options) { this.name = 'openai'; this.options = options; }
         async chat(messages) { return 'Mock OpenAI response'; }
       },
-      OpenAI: class MockOpenAI {
+      OpenAI: class PlaceholderOpenAI {
         constructor(options) { this.apiKey = options?.apiKey; }
         chat = {
           completions: {
@@ -119,10 +119,10 @@ if (typeof window !== 'undefined') {
       }
     },
     anthropic: {
-      AnthropicProvider: class MockAnthropicProvider {
+      AnthropicProvider: class PlaceholderAnthropicProvider {
         constructor(options) { this.name = 'anthropic'; this.options = options; }
       },
-      Anthropic: class MockAnthropic {
+      Anthropic: class PlaceholderAnthropic {
         constructor(options) { this.apiKey = options?.apiKey; }
         messages = {
           create: async (params) => ({ content: [{ text: 'Mock Anthropic API response' }] })
@@ -130,10 +130,10 @@ if (typeof window !== 'undefined') {
       }
     },
     google: {
-      GoogleProvider: class MockGoogleProvider {
+      GoogleProvider: class PlaceholderGoogleProvider {
         constructor(options) { this.name = 'google'; this.options = options; }
       },
-      GoogleGenerativeAI: class MockGoogleGenerativeAI {
+      GoogleGenerativeAI: class PlaceholderGoogleGenerativeAI {
         constructor(apiKey) { this.apiKey = apiKey; }
         getGenerativeModel(config) {
           return {

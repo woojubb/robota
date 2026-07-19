@@ -36,18 +36,12 @@ const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
  * `.agents/backlog/HARNESS-033-fake-in-src-sweep.md` — remove each entry as HARNESS-033 fixes it. A NEW file
  * with a `Fake*`/`Mock*`/`Stub*` declaration is NOT on this list and therefore FAILS. Normalized to `/`.
  */
-const KNOWN_PREEXISTING = new Set([
-  // dag-adapters-local: test-support ports (manual clock / recording executor / stub backend) consumed almost
-  // entirely by dag-* tests, currently in the package main export — HARNESS-033 relocates them to `./testing`.
-  'packages/dag-adapters-local/src/clock-ports.ts',
-  'packages/dag-adapters-local/src/mock-task-executor-port.ts',
-  'packages/dag-adapters-local/src/stub-prompt-backend.ts',
-  'packages/dag-adapters-local/src/index.ts',
-  // agent-playground: browser-sandbox stub provider/plugin classes + mock UI snapshot (no real SDK in the
-  // in-browser playground) — HARNESS-033 renames to `Stub*`/real data or gates them.
-  'packages/agent-playground/src/components/playground/usage-monitor/mock-usage-snapshot.ts',
-  'packages/agent-playground/src/lib/playground/remote-injection-setup.ts',
-]);
+// HARNESS-033 emptied this baseline: the dag-adapters-local test-support ports were relocated to the
+// `./testing` entry (ManualClockPort / ScriptedTaskExecutorPort / createCannedPromptBackend) and the
+// agent-playground in-browser placeholders were renamed (Placeholder* / createSampleUsageSnapshot). The floor
+// now rests entirely on rename/relocation — a NEW `Fake*`/`Mock*`/`Stub*` declaration in shipped src FAILs
+// with no baseline to hide behind. Keep this set EMPTY; do not add exceptions.
+const KNOWN_PREEXISTING = new Set([]);
 
 /**
  * A test-double-named DECLARATION or re-export (the shippable surface) — NOT imports or bare call sites:
