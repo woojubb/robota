@@ -119,6 +119,10 @@ const SCAN_COMMANDS = [
     name: 'memory-neutrality',
     command: ['node', 'scripts/harness/scan-memory-neutrality.mjs'],
   },
+  {
+    name: 'evals-neutrality',
+    command: ['node', 'scripts/harness/scan-evals-neutrality.mjs'],
+  },
   { name: 'deprecated-markers', command: ['node', 'scripts/harness/scan-deprecated-markers.mjs'] },
   { name: 'done-evidence', command: ['node', 'scripts/harness/check-done-evidence.mjs'] },
   { name: 'task-archival', command: ['node', 'scripts/harness/check-task-archival.mjs'] },

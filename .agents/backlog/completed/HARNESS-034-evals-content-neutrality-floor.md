@@ -1,12 +1,30 @@
 ---
 title: 'HARNESS-034: mechanical neutrality floor — no eval dataset/metric CONTENT in packages/'
-status: todo
+status: done
 created: 2026-07-19
 priority: medium
 urgency: later
 area: scripts
 depends_on: ['SELFHOST-011']
 ---
+
+## Resolution (2026-07-19)
+
+Added `scripts/harness/scan-evals-neutrality.mjs`, registered in `run-all-scans.mjs` as `evals-neutrality`,
+mirroring the `scan-memory-neutrality.mjs` convention (pure `findX(src, file)` + live `findX()` +
+`allow-evals-content: <reason>` suppression with reason-less anti-rot):
+
+- **Class 1 `evals-dataset-content`** (exact path/name, zero-FP): a `.json`/`.jsonl`/`.csv`/`.ya?ml` DATA file
+  that is eval-corpus-shaped — under an `/evals/` dir segment, or a corpus-marked basename
+  (`*.evalset.*`/`*.cases.*`/`*.dataset.*`).
+- **Class 2 `library-eval-content`** (source, evals-subsystem-scoped): an `export` of a concrete
+  metric/dataset VALUE — a `cases`/`dataset`/`evalset` array literal, a `: IEvalDefinition =` value, or a
+  `: IMetric =` value. The neutral mechanism (the `IMetric` TYPE, the runner contract, and the parameterized
+  FACTORIES declared `export function name(...): IMetric {`) is NOT matched.
+
+Test `scripts/harness/__tests__/scan-evals-neutrality.test.mjs` (8 tests: TC-01 data-file class, TC-02
+value class + neutral-surface negatives, TC-03 suppression + anti-rot, TC-04 live tree green). Live tree +
+`run-all-scans` both green. Closes SELFHOST-011 P2 TC-05 (the manual-grep neutrality check is now mechanized).
 
 # Mechanical neutrality floor for evals-as-code content (HARNESS-034)
 
