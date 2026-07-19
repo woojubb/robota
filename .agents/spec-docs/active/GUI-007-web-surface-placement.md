@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: INFRA
 tags:
   [architecture, placement, web, gui, surface-taxonomy, agent-web, agent-web-monitor, cli, sec-001]
@@ -156,8 +156,8 @@ with the `/remote` route and no `/monitor`; harness scans (deps/structure/arch-m
 
 ## Tasks
 
-- [ ] P1 — `packages/agent-cli-web` (monitor SPA) + `copy-web-assets` repoint + **CLI static-serve wiring
-      (`--serve`/`--open`)** + Library-Neutrality-Rule amend + delete `apps/agent-web-monitor`
+- [x] P1 — `packages/agent-cli-web` + `copy-web-assets` repoint + CLI static-serve wiring (`--serve --open`) +
+      Library-Neutrality-Rule amend DONE (P1a 423391668, P1b b9b7fcb72); delete `apps/agent-web-monitor` is P2
 - [ ] P2 — `apps/agent-web` `/remote` route (+webrtc-web dep) + remove `/monitor` (after P1 serve exists)
 - [ ] P3 — docs/map/structure/CODEOWNERS/deploy + SEC-001 client retarget (`.agents/backlog/` path)
 - [ ] AGENT-RUN verification (TC-06/07)

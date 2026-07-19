@@ -3,7 +3,7 @@
  * Owns the WebSocket server lifecycle (ws package), started/stopped via the transport registry.
  */
 
-import { timingSafeEqual } from 'node:crypto';
+import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { createServer, type IncomingMessage, type Server } from 'node:http';
 
 import { createWsHandler } from '@robota-sdk/agent-transport-protocol';
@@ -23,12 +23,70 @@ export interface IWsTransportConfig {
   port?: number;
   maxRetries?: number;
   /**
-   * GUI-002: OPTIONAL loopback auth token. When set, every connection MUST present a matching token
-   * (query param `?token=` or the `Sec-WebSocket-Protocol` subprotocol) or the socket is closed
-   * BEFORE any session data is emitted. Unset (default, e.g. the local TUI path) = no auth, unchanged
-   * behavior. The GUI-spawned sidecar sets this so a co-resident browser page cannot drive the session.
+   * OPTIONAL explicit loopback auth token. When set, every connection MUST present a matching token
+   * (query param `?token=` or the `Sec-WebSocket-Protocol` subprotocol) or the socket is closed BEFORE any
+   * session data is emitted (GUI-002; the GUI sidecar sets `ROBOTA_WS_TOKEN`). SEC-001: when this is unset
+   * AND `open` is not `true`, the transport AUTO-MINTS a random per-launch token (secure by default) —
+   * `resolvedToken` exposes it so the surface can deliver it to the co-located client (a `0600` connection
+   * file / the served monitor's injected `ws-url`). An explicit token here always wins over the auto-mint.
    */
   token?: string;
+  /**
+   * SEC-001 discouraged opt-out: when `true`, run WITHOUT auth (no token, no auto-mint) — the pre-SEC-001
+   * open loopback behavior. NOT RECOMMENDED (any local process or browser page can then drive+authorize the
+   * session); mirrors Jupyter's `c.ServerApp.token = ''`. An explicit `token` takes precedence over `open`.
+   */
+  open?: boolean;
+  /**
+   * SEC-001 defense-in-depth: extra host names (beyond `localhost`/`127.0.0.1`/`::1`) accepted in the
+   * upgrade `Host` header. The `Host` allow-list closes DNS-rebinding independently of the token.
+   */
+  allowedHosts?: readonly string[];
+  /**
+   * SEC-001 defense-in-depth: extra browser `Origin`s (beyond loopback) accepted on the upgrade — e.g. the
+   * `apps/agent-web` app origin. A browser sends an unforgeable `Origin`; a non-browser client omits it (and
+   * is gated by the token instead). Closes the "any web page in any browser" hole before history is emitted.
+   */
+  allowedOrigins?: readonly string[];
+}
+
+/** Mint a random per-launch loopback token. Throws (never returns empty) if entropy is unavailable → the
+ * transport then fails to construct/start rather than binding OPEN (SEC-001 fail-closed). */
+function mintToken(): string {
+  return randomBytes(32).toString('hex');
+}
+
+/** Host names that are always loopback (port stripped by the caller). IPv4 bind only, so `[::1]` inbound is
+ * moot, but accepting it is harmless. */
+const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
+
+/** Strip the `:port` suffix from a Host/authority (port-agnostic — `bindWithRetry` can walk the port). */
+function hostname(hostHeader: string | undefined): string | null {
+  if (!hostHeader) return null;
+  if (hostHeader.startsWith('[')) return hostHeader.slice(0, hostHeader.indexOf(']') + 1) || null;
+  const colon = hostHeader.lastIndexOf(':');
+  return colon === -1 ? hostHeader : hostHeader.slice(0, colon);
+}
+
+/** The upgrade `Host` must be a loopback name (port-agnostic) or an explicitly allowed host — closes DNS
+ * rebinding. A missing `Host` is rejected (a well-formed HTTP/1.1 client always sends one). */
+function hostAllowed(req: IncomingMessage, allowedHosts: ReadonlySet<string>): boolean {
+  const host = hostname(req.headers.host);
+  if (host === null) return false;
+  return LOOPBACK_HOSTS.has(host) || allowedHosts.has(host);
+}
+
+/** A browser sends an unforgeable `Origin`; require it to be loopback or explicitly allowed. A non-browser
+ * client omits `Origin` (allowed here — the token is its gate). Closes the browser drive-by hole. */
+function originAllowed(req: IncomingMessage, allowedOrigins: ReadonlySet<string>): boolean {
+  const origin = req.headers.origin;
+  if (origin === undefined) return true; // non-browser client; token still required
+  if (allowedOrigins.has(origin)) return true;
+  try {
+    return LOOPBACK_HOSTS.has(new URL(origin).hostname);
+  } catch {
+    return false; // malformed Origin → reject
+  }
 }
 
 /**
@@ -73,12 +131,22 @@ export class WsTransport implements IConfigurableTransport<IInteractiveSession> 
   private readonly port: number;
   private readonly maxRetries: number;
   private readonly token?: string;
+  private readonly allowedHosts: ReadonlySet<string>;
+  private readonly allowedOrigins: ReadonlySet<string>;
   private resolvedPort?: number;
 
   constructor(config: IWsTransportConfig = {}) {
     this.port = config.port ?? DEFAULT_PORT;
     this.maxRetries = config.maxRetries ?? DEFAULT_MAX_RETRIES;
-    if (config.token) this.token = config.token;
+    // SEC-001 secure-by-default: an explicit token wins; else auto-mint UNLESS `open` opts out. A failed
+    // mint throws out of the constructor → the transport never binds OPEN (fail-closed).
+    if (config.token) {
+      this.token = config.token;
+    } else if (!config.open) {
+      this.token = mintToken();
+    }
+    this.allowedHosts = new Set(config.allowedHosts ?? []);
+    this.allowedOrigins = new Set(config.allowedOrigins ?? []);
   }
 
   attach(session: IInteractiveSession): void {
@@ -92,6 +160,15 @@ export class WsTransport implements IConfigurableTransport<IInteractiveSession> 
    */
   get boundPort(): number | undefined {
     return this.resolvedPort;
+  }
+
+  /**
+   * SEC-001: the resolved auth token (explicit or auto-minted), or `undefined` in the discouraged `open`
+   * mode. The surface reads this to deliver the token to the co-located client (a `0600` connection file /
+   * the served monitor's injected `ws-url`). Never logged by the transport itself.
+   */
+  get resolvedToken(): string | undefined {
+    return this.token;
   }
 
   async start(): Promise<void> {
@@ -141,13 +218,34 @@ export class WsTransport implements IConfigurableTransport<IInteractiveSession> 
       });
 
       const expectedToken = this.token;
+      const allowedHosts = this.allowedHosts;
+      const allowedOrigins = this.allowedOrigins;
       httpServer.listen(port, '127.0.0.1', () => {
-        const wss = new WebSocketServer({ server: httpServer });
+        const wss = new WebSocketServer({
+          server: httpServer,
+          // SEC-001 defense-in-depth: reject a disallowed Host/Origin at the UPGRADE handshake (HTTP 403,
+          // before the 101 protocol switch), independently of the token. Closes DNS-rebinding (Host) and the
+          // browser drive-by hole (Origin) before any session data can be sent.
+          verifyClient: (
+            info: { origin: string; secure: boolean; req: IncomingMessage },
+            cb: (res: boolean, code?: number, message?: string) => void,
+          ) => {
+            if (!hostAllowed(info.req, allowedHosts)) {
+              cb(false, 403, 'Forbidden host');
+              return;
+            }
+            if (!originAllowed(info.req, allowedOrigins)) {
+              cb(false, 403, 'Forbidden origin');
+              return;
+            }
+            cb(true);
+          },
+        });
 
         wss.on('connection', (ws: WebSocket, req: IncomingMessage) => {
-          // GUI-002: REJECT BEFORE ANY SESSION DATA. When a token is configured, an unauthenticated
-          // connection is closed here — before the `messages` / `execution_workspace_event` sends below —
-          // so a co-resident browser page cannot read history or answer prompts on the open loopback port.
+          // REJECT BEFORE ANY SESSION DATA. When a token is required (explicit or SEC-001 auto-minted), an
+          // unauthenticated connection is closed here — before the `messages` / `execution_workspace_event`
+          // sends below — so a co-resident process/page cannot read history or answer prompts.
           if (expectedToken !== undefined && !tokenMatches(expectedToken, presentedToken(req))) {
             ws.close(1008, 'unauthorized');
             return;

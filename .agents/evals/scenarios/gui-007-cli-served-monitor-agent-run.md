@@ -23,18 +23,26 @@ SPA with a server-injected `<meta name="ws-url" content="ws://127.0.0.1:<wsPort>
 
 ```
 Using anthropic (claude-sonnet-4-6) via ANTHROPIC_API_KEY — ...
-Web monitor: http://127.0.0.1:32829
+Web monitor: http://127.0.0.1:40161
 
-$ curl -s http://127.0.0.1:32829/ | grep ws-url
-<meta name="ws-url" content="ws://127.0.0.1:7070" />
+$ curl -s http://127.0.0.1:40161/ | grep ws-url
+<meta name="ws-url" content="ws://127.0.0.1:7071?token=91e4ec396df8bef8a7c98a72e86710a4673a0863aabf2cbb70ba3afe6a09be9f" />
 
-$ curl -o /dev/null -w '%{http_code}' http://127.0.0.1:32829/index.html
+$ curl -o /dev/null -w '%{http_code}' http://127.0.0.1:40161/index.html
 200
 ```
 
-✅ PASS — the CLI serves its own monitor from a loopback HTTP host, with the live WS URL injected. This is the
-token-delivery channel SEC-001 will ride (`?token=` in the injected URL). Without `--open`, no monitor server
-starts (the GUI-002 sidecar `--serve` path is unaffected).
+✅ PASS — the CLI serves its own monitor from a loopback HTTP host, with the live WS URL **and the SEC-001
+auto-minted auth token** injected (`?token=<64-hex>`) — zero-config authentication for the CLI's own
+localhost-origin monitor. Without `--open`, no monitor server starts (the GUI-002 sidecar `--serve` path is
+unaffected).
+
+### SEC-001 token gating (unit-proven, `ws-transport-auth.test.ts` 15/15)
+
+The served monitor's URL carries the token; the WS enforces it: an unauthenticated connection is rejected
+(`closed:1008`) before any session data, and the auto-minted token is accepted (`messages`). Host/Origin are
+rejected at the upgrade (403). Together with the injected-token URL above, this is the secure end-to-end: a
+public page reaching into loopback (the old `apps/agent-web` `/monitor`) can no longer drive the session.
 
 ## Unit coverage
 

@@ -412,9 +412,15 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
       commandModules,
       commandHostAdapters,
       transportRegistry,
-      // GUI-007: `--serve --open` reads the bound WS port to point the served monitor at the live socket.
-      getMonitorWsUrl: () =>
-        wsTransport.boundPort !== undefined ? `ws://127.0.0.1:${wsTransport.boundPort}` : undefined,
+      // GUI-007 + SEC-001: point the served monitor at the live WS port AND carry the resolved auth token in
+      // the `ws-url` (`?token=`) — zero-config authentication for the CLI's own localhost-origin monitor.
+      getMonitorWsUrl: () => {
+        if (wsTransport.boundPort === undefined) return undefined;
+        const base = `ws://127.0.0.1:${wsTransport.boundPort}`;
+        return wsTransport.resolvedToken
+          ? `${base}?token=${encodeURIComponent(wsTransport.resolvedToken)}`
+          : base;
+      },
       ...(remoteCommandPolicy ? { remoteCommandPolicy } : {}),
       resumeSessionId,
       model: modelId,
