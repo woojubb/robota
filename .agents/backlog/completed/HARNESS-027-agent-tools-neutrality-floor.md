@@ -1,6 +1,7 @@
 ---
 title: 'HARNESS-027: mechanical agent-tools neutrality / third-party-dep floor'
-status: todo
+status: done
+completed: 2026-07-19
 created: 2026-07-17
 priority: medium
 urgency: later
