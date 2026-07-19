@@ -73,6 +73,7 @@ export class WsTransport implements IConfigurableTransport<IInteractiveSession> 
   private readonly port: number;
   private readonly maxRetries: number;
   private readonly token?: string;
+  private resolvedPort?: number;
 
   constructor(config: IWsTransportConfig = {}) {
     this.port = config.port ?? DEFAULT_PORT;
@@ -84,10 +85,20 @@ export class WsTransport implements IConfigurableTransport<IInteractiveSession> 
     this.session = session;
   }
 
+  /**
+   * GUI-007: the actually-bound port after `start()` (may differ from the requested port — `bindWithRetry`
+   * walks up on `EADDRINUSE`). `undefined` before start. A surface (e.g. `agent-cli --serve`) reads this to
+   * point the served monitor's `ws-url` at the real port.
+   */
+  get boundPort(): number | undefined {
+    return this.resolvedPort;
+  }
+
   async start(): Promise<void> {
     if (!this.session) throw new Error('WsTransport: attach() must be called before start()');
     const handle = await this.bindWithRetry(this.session, this.port, this.maxRetries);
     this.stopFn = handle.stop;
+    this.resolvedPort = handle.port;
   }
 
   async stop(): Promise<void> {
@@ -107,7 +118,7 @@ export class WsTransport implements IConfigurableTransport<IInteractiveSession> 
     session: IInteractiveSession,
     port: number,
     retriesLeft: number,
-  ): Promise<{ stop: () => Promise<void> }> {
+  ): Promise<{ stop: () => Promise<void>; port: number }> {
     return this.tryBind(session, port).catch((err: NodeJS.ErrnoException) => {
       if (err.code === 'EADDRINUSE' && retriesLeft > 0)
         return this.bindWithRetry(session, port + 1, retriesLeft - 1);
@@ -118,7 +129,7 @@ export class WsTransport implements IConfigurableTransport<IInteractiveSession> 
   private tryBind(
     session: IInteractiveSession,
     port: number,
-  ): Promise<{ stop: () => Promise<void> }> {
+  ): Promise<{ stop: () => Promise<void>; port: number }> {
     return new Promise((resolve, reject) => {
       const httpServer: Server = createServer((_, res) => {
         res.writeHead(400).end('WebSocket endpoint');
@@ -160,6 +171,7 @@ export class WsTransport implements IConfigurableTransport<IInteractiveSession> 
         });
 
         resolve({
+          port,
           stop: () =>
             new Promise<void>((res) => {
               wss.close(() => httpServer.close(() => res()));
