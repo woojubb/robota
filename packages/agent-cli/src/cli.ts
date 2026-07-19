@@ -374,6 +374,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
       commandHostAdapters,
       { resumeSessionId, forkSession: args.forkSession },
       {
+        model: modelId,
         agentName: resolvedPreset.agentName ?? DEFAULT_AGENT_NAME,
         activePresetId: selectedPresetId,
         persona: resolvedPreset.persona,
@@ -409,6 +410,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
       transportRegistry,
       ...(remoteCommandPolicy ? { remoteCommandPolicy } : {}),
       resumeSessionId,
+      model: modelId,
       preset: {
         agentName: resolvedPreset.agentName ?? DEFAULT_AGENT_NAME,
         activePresetId: selectedPresetId,

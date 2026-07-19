@@ -49,6 +49,11 @@ export interface IServeModeOptions {
   transportRegistry: ITransportRegistryView<IInteractiveSession>;
   remoteCommandPolicy?: IRemoteCommandPolicy;
   resumeSessionId?: string;
+  /**
+   * CLI-076: the resolved model id. Forwarded to the runtime session so an explicit `--model` override
+   * reaches the provider chat call instead of being silently replaced by the session's default model.
+   */
+  model?: string;
   preset: IServeModePresetOptions;
   /** SELFHOST-008 P6: surface-resolved memory fields (empty ⇒ memory OFF, today's behavior). */
   memorySessionOptions?: IMemorySessionOptions;
@@ -63,6 +68,8 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
   const sessionOptions: TInteractiveSessionOptions = {
     cwd: opts.cwd,
     provider: opts.provider,
+    // CLI-076: forward the resolved model so `--model` takes effect in the served runtime session.
+    ...(opts.model !== undefined ? { model: opts.model } : {}),
     permissionMode: args.permissionMode ?? preset.permissionMode,
     maxTurns: args.maxTurns,
     sessionStore: args.noSessionPersistence ? undefined : opts.sessionStore,

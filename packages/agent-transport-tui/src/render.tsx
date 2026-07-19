@@ -98,6 +98,9 @@ export function toChannelOptions(
   return {
     cwd: options.cwd,
     provider: options.provider,
+    // CLI-076: the display model id doubles as the session's model override so `--model` actually reaches
+    // the provider chat call (header/status line == the model actually called).
+    ...(options.modelId !== undefined ? { model: options.modelId } : {}),
     permissionMode: options.permissionMode,
     maxTurns: options.maxTurns,
     allowedTools: options.allowedTools,
