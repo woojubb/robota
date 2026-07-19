@@ -5,7 +5,7 @@
 import { parseScheduleSpec } from './schedule-spec-parser.js';
 
 import type { IAgentJobHostContext } from '@robota-sdk/agent-framework';
-import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
+import type { IBackgroundTaskState, ICommandResult } from '@robota-sdk/agent-interface-transport';
 
 const MAX_LABEL_LENGTH = 48;
 
@@ -14,13 +14,84 @@ function labelFor(prefix: string, instruction: string): string {
   return `${prefix}: ${snippet}${instruction.length > MAX_LABEL_LENGTH ? '…' : ''}`;
 }
 
+// SELFHOST-012: management subcommands over the existing scheduler. Create (FLOW-005) stays the default form —
+// a create spec always begins with `in`/`cron`, so these keywords never collide with it.
+const MANAGE_USAGE =
+  'Usage: /schedule list | pause <id> | resume <id> | edit <id> <spec>  (or a create spec: in <N><s|m|h|d> … | cron "<expr>" …)';
+
+/** One-line list view: id, status, cadence, label, and next-fire time. The `[status]` already conveys paused. */
+function formatScheduleList(schedules: IBackgroundTaskState[]): string {
+  if (schedules.length === 0) return 'No schedules.';
+  return schedules
+    .map((s) => {
+      const cadence = s.schedule?.cronExpression ?? '(unknown)';
+      const when = s.nextFireAt ? `next ${s.nextFireAt}` : '—';
+      return `- ${s.id} [${s.status}] ${cadence} — ${s.label} (${when})`;
+    })
+    .join('\n');
+}
+
+async function executeScheduleManagement(
+  host: IAgentJobHostContext,
+  action: string,
+  rest: string,
+  now: number,
+): Promise<ICommandResult | undefined> {
+  if (action === 'list') {
+    const schedules = host.listSchedules();
+    return {
+      message: formatScheduleList(schedules),
+      success: true,
+      data: { count: schedules.length },
+    };
+  }
+  if (action === 'pause' || action === 'resume') {
+    const id = rest.split(/\s+/)[0];
+    if (!id) return { message: MANAGE_USAGE, success: false };
+    if (action === 'pause') {
+      await host.pauseSchedule(id);
+      return { message: `Schedule paused: ${id}`, success: true, data: { taskId: id } };
+    }
+    await host.resumeSchedule(id);
+    return { message: `Schedule resumed: ${id}`, success: true, data: { taskId: id } };
+  }
+  if (action === 'edit') {
+    const idSpaceIdx = rest.indexOf(' ');
+    const id = idSpaceIdx === -1 ? rest : rest.slice(0, idSpaceIdx);
+    const spec = idSpaceIdx === -1 ? '' : rest.slice(idSpaceIdx + 1).trim();
+    if (!id || !spec) return { message: MANAGE_USAGE, success: false };
+    const parsed = parseScheduleSpec(spec, now);
+    if (!parsed.ok) return { message: parsed.error, success: false };
+    await host.editSchedule(id, {
+      cronExpression: parsed.spec.cronExpression,
+      agentInstruction: parsed.spec.instruction,
+    });
+    return {
+      message: `Schedule updated: ${id} (cron \`${parsed.spec.cronExpression}\`).`,
+      success: true,
+      data: { taskId: id, cronExpression: parsed.spec.cronExpression },
+    };
+  }
+  return undefined; // not a management subcommand — fall through to create
+}
+
 export async function executeScheduleCommand(
   host: IAgentJobHostContext,
   args: string,
   now: number = Date.now(),
 ): Promise<ICommandResult> {
+  const trimmed = args.trim();
+  const spaceIdx = trimmed.indexOf(' ');
+  const action = (spaceIdx === -1 ? trimmed : trimmed.slice(0, spaceIdx)).toLowerCase();
+  const rest = spaceIdx === -1 ? '' : trimmed.slice(spaceIdx + 1).trim();
+
+  const managed = await executeScheduleManagement(host, action, rest, now);
+  if (managed) return managed;
+
+  // Default: create (FLOW-005 form). On a parse failure also surface the management usage — a mistyped
+  // subcommand (e.g. `pasue <id>`) falls through here, and the create-only error hides list/pause/resume/edit.
   const parsed = parseScheduleSpec(args, now);
-  if (!parsed.ok) return { message: parsed.error, success: false };
+  if (!parsed.ok) return { message: `${parsed.error}\n${MANAGE_USAGE}`, success: false };
 
   const { cronExpression, instruction, recurring } = parsed.spec;
   const task = await host.spawnScheduledWake({

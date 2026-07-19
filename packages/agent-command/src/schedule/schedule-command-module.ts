@@ -24,8 +24,9 @@ function getAgentHostContext(context: ICommandHostContext): IAgentJobHostContext
 }
 
 const SCHEDULE_DESCRIPTION =
-  'Schedule the agent to wake and run an instruction on a timer (one-shot or cron).';
-const SCHEDULE_ARGUMENT_HINT = 'in <N><s|m|h|d> <instruction>  |  cron "<expr>" <instruction>';
+  'Schedule the agent to wake on a timer, and manage schedules (list / pause / resume / edit).';
+const SCHEDULE_ARGUMENT_HINT =
+  'in <N><s|m|h|d> <instruction> | cron "<expr>" <instruction> | list | pause <id> | resume <id> | edit <id> <spec>';
 const MONITOR_DESCRIPTION =
   'Watch a process’s output and wake the agent when a line matches a pattern.';
 const MONITOR_ARGUMENT_HINT = '"<command>" "<pattern>" <instruction>';
