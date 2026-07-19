@@ -723,6 +723,34 @@ importers:
         specifier: ^5.5.0
         version: 5.9.3
 
+  examples/capabilities/multi-surface-deploy:
+    dependencies:
+      '@robota-sdk/agent-framework':
+        specifier: ^3.0.0-beta.67
+        version: link:../../../packages/agent-framework
+      '@robota-sdk/agent-provider-anthropic':
+        specifier: ^3.0.0-beta.67
+        version: link:../../../packages/agent-provider-anthropic
+      '@robota-sdk/agent-transport':
+        specifier: ^3.0.0-beta.67
+        version: link:../../../packages/agent-transport
+      '@robota-sdk/agent-transport-http':
+        specifier: ^3.0.0-beta.67
+        version: link:../../../packages/agent-transport-http
+      '@robota-sdk/agent-transport-ws':
+        specifier: ^3.0.0-beta.67
+        version: link:../../../packages/agent-transport-ws
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.19.21
+      tsx:
+        specifier: ^4.6.0
+        version: 4.22.4
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.3
+
   examples/capabilities/openai-compatible-gateway:
     dependencies:
       '@robota-sdk/agent-core':
