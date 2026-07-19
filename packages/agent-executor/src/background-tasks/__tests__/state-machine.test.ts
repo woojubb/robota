@@ -25,4 +25,24 @@ describe('background task state machine', () => {
 
     expect(() => transitionBackgroundTaskStatus('completed', 'START')).toThrow('terminal status');
   });
+
+  // SELFHOST-012 TC-01: non-destructive pause/resume lifecycle for scheduled tasks.
+  it('supports non-destructive pause/resume and keeps `paused` non-terminal', () => {
+    expect(transitionBackgroundTaskStatus('sleeping', 'PAUSE')).toBe('paused');
+    expect(transitionBackgroundTaskStatus('running', 'PAUSE')).toBe('paused');
+    expect(transitionBackgroundTaskStatus('paused', 'RESUME')).toBe('sleeping');
+    // a paused schedule can still be destroyed, but `paused` itself is not terminal
+    expect(transitionBackgroundTaskStatus('paused', 'CANCEL')).toBe('cancelled');
+    expect(isTerminalBackgroundTaskStatus('paused')).toBe(false);
+  });
+
+  it('rejects illegal pause/resume edges', () => {
+    expect(() => transitionBackgroundTaskStatus('paused', 'PAUSE')).toThrow(
+      'Invalid background task transition',
+    );
+    expect(() => transitionBackgroundTaskStatus('sleeping', 'RESUME')).toThrow(
+      'Invalid background task transition',
+    );
+    expect(() => transitionBackgroundTaskStatus('completed', 'PAUSE')).toThrow('terminal status');
+  });
 });

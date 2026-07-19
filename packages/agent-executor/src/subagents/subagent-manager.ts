@@ -138,7 +138,9 @@ export class SubagentManager implements ISubagentManager {
       type: state.agentType ?? state.label,
       label: state.label,
       parentSessionId: state.parentSessionId,
-      status: state.status,
+      // SELFHOST-012: `paused` is a scheduled-task-only status; a subagent is never a scheduled task, so this
+      // branch is unreachable — narrowed here only to keep the projection assignable to TSubagentJobStatus.
+      status: state.status === 'paused' ? 'sleeping' : state.status,
       mode: state.mode,
       depth: state.depth,
       pid: state.pid,

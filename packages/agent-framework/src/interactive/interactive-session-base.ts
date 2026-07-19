@@ -357,4 +357,30 @@ export abstract class InteractiveSessionBase {
       agentInstruction: input.agentInstruction,
     });
   }
+
+  // SELFHOST-012: non-destructive schedule lifecycle over the existing scheduler (no new scheduler).
+  listSchedules(): IBackgroundTaskState[] {
+    return this.bgTracker
+      .getManagerOrThrow()
+      .list()
+      .filter((task) => task.kind === 'scheduled');
+  }
+
+  async pauseSchedule(taskId: string): Promise<void> {
+    await this.ensureInitialized();
+    await this.bgTracker.getManagerOrThrow().pauseScheduledTask(taskId);
+  }
+
+  async resumeSchedule(taskId: string): Promise<void> {
+    await this.ensureInitialized();
+    await this.bgTracker.getManagerOrThrow().resumeScheduledTask(taskId);
+  }
+
+  async editSchedule(
+    taskId: string,
+    patch: { cronExpression?: string; agentInstruction?: string; command?: string },
+  ): Promise<void> {
+    await this.ensureInitialized();
+    await this.bgTracker.getManagerOrThrow().editScheduledTask(taskId, patch);
+  }
 }

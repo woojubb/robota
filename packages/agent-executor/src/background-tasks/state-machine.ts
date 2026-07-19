@@ -11,7 +11,10 @@ export type TBackgroundTaskTransitionEvent =
   | 'FAIL'
   | 'CANCEL'
   | 'SLEEP'
-  | 'WAKE';
+  | 'WAKE'
+  // SELFHOST-012: non-destructive schedule lifecycle (distinct from the irreversible CANCEL).
+  | 'PAUSE'
+  | 'RESUME';
 
 interface IBackgroundTaskTransition {
   from: TBackgroundTaskStatus;
@@ -34,6 +37,12 @@ const TRANSITIONS: readonly IBackgroundTaskTransition[] = [
   { from: 'waiting_permission', event: 'CANCEL', to: 'cancelled' },
   { from: 'sleeping', event: 'WAKE', to: 'running' },
   { from: 'sleeping', event: 'CANCEL', to: 'cancelled' },
+  // SELFHOST-012: non-destructive pause/resume for scheduled tasks. `paused` is non-terminal; a paused
+  // schedule does not fire (croner `.pause()`), and RESUME returns it to `sleeping` (re-armed).
+  { from: 'sleeping', event: 'PAUSE', to: 'paused' },
+  { from: 'running', event: 'PAUSE', to: 'paused' },
+  { from: 'paused', event: 'RESUME', to: 'sleeping' },
+  { from: 'paused', event: 'CANCEL', to: 'cancelled' },
 ];
 
 export function isTerminalBackgroundTaskStatus(status: TBackgroundTaskStatus): boolean {

@@ -252,6 +252,17 @@ export interface IAgentJobHostContext {
     cronExpression: string;
     agentInstruction: string;
   }): Promise<IBackgroundTaskState>;
+  /** SELFHOST-012: list the caller's scheduled tasks (each carries cadence, `nextFireAt`, and status). */
+  listSchedules(): IBackgroundTaskState[];
+  /** SELFHOST-012: non-destructively pause a scheduled task — it stops firing until `resumeSchedule`. */
+  pauseSchedule(taskId: string): Promise<void>;
+  /** SELFHOST-012: resume a paused scheduled task, re-armed with the same identity. */
+  resumeSchedule(taskId: string): Promise<void>;
+  /** SELFHOST-012: edit a scheduled task's cron / instruction in place (same task id). */
+  editSchedule(
+    taskId: string,
+    patch: { cronExpression?: string; agentInstruction?: string; command?: string },
+  ): Promise<void>;
   /**
    * FLOW-005: monitor a process's output and wake the agent with `agentInstruction` when a
    * line matches `matchPattern` (FLOW-004).
