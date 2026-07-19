@@ -195,7 +195,7 @@ All types below are the canonical SSOT definitions. Other `dag-*` packages must 
 | `DAG_CORE_PACKAGE_NAME`                                                                                            | Constant  | Package name string `@robota-sdk/dag-core`                                                                                                                    |
 | `DEFAULT_WORKSPACE_LAYOUT`                                                                                         | Constant  | **FLOW-007**: default `IWorkspaceLayout` — `.workflows/` workspace with flat `.json` workflow definitions                                                     |
 
-> **Note:** 인메모리 포트 구현체들은 `@robota-sdk/dag-adapters-local` 패키지로 분리됨. `InMemoryStoragePort`, `InMemoryQueuePort`, `InMemoryLeasePort`, `FakeClockPort`, `SystemClockPort`, `MockTaskExecutorPort` 등은 해당 패키지에서 import.
+> **Note:** 인메모리 포트 구현체들은 `@robota-sdk/dag-adapters-local` 패키지로 분리됨. `InMemoryStoragePort`, `InMemoryQueuePort`, `InMemoryLeasePort`, `SystemClockPort` 등은 패키지 메인 엔트리에서 import. 테스트 지원 포트(`ManualClockPort`, `ScriptedTaskExecutorPort`, `createCannedPromptBackend`)는 `@robota-sdk/dag-adapters-local/testing` 서브패스에서 import (HARNESS-033).
 
 ## DAG Definition Port Catalog Policy
 
@@ -423,7 +423,7 @@ Implementations owned by this package:
 | `IRunCostPolicyEvaluator` | `RunCostPolicyEvaluator`      | production | `src/services/node-lifecycle-runner.ts`        |
 | `ITaskExecutorPort`       | `LifecycleTaskExecutorPort`   | production | `src/services/lifecycle-task-executor-port.ts` |
 
-> **Note:** 인메모리 포트 어댑터(`InMemoryStoragePort`, `InMemoryQueuePort`, `InMemoryLeasePort`, `FakeClockPort`, `SystemClockPort`, `MockTaskExecutorPort`)는 `@robota-sdk/dag-adapters-local` 패키지로 분리됨. 해당 패키지의 SPEC.md 참조.
+> **Note:** 인메모리 포트 어댑터(`InMemoryStoragePort`, `InMemoryQueuePort`, `InMemoryLeasePort`, `SystemClockPort`)는 `@robota-sdk/dag-adapters-local` 메인 엔트리, 테스트 지원 포트(`ManualClockPort`, `ScriptedTaskExecutorPort`, `createCannedPromptBackend`)는 `@robota-sdk/dag-adapters-local/testing` 서브패스로 분리됨 (HARNESS-033). 해당 패키지의 SPEC.md 참조.
 
 ### Interfaces Designed for External Implementation
 

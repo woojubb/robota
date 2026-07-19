@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { IQueueMessage, ITaskRun } from '@robota-sdk/dag-core';
 import {
-  FakeClockPort,
   InMemoryLeasePort,
   InMemoryQueuePort,
   InMemoryStoragePort,
 } from '@robota-sdk/dag-adapters-local';
+import { ManualClockPort } from '@robota-sdk/dag-adapters-local/testing';
 import { DlqReinjectService } from '../services/dlq-reinject-service.js';
 
 function createDeadLetterMessage(): IQueueMessage {
@@ -46,7 +46,7 @@ describe('DlqReinjectService', () => {
     const deadLetterQueue = new InMemoryQueuePort();
     const mainQueue = new InMemoryQueuePort();
     const lease = new InMemoryLeasePort();
-    const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 8, 0, 0));
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14, 8, 0, 0));
     const service = new DlqReinjectService(storage, deadLetterQueue, mainQueue, lease, clock);
 
     await storage.createTaskRun(createFailedTaskRun());
@@ -74,7 +74,7 @@ describe('DlqReinjectService', () => {
     const deadLetterQueue = new InMemoryQueuePort();
     const mainQueue = new InMemoryQueuePort();
     const lease = new InMemoryLeasePort();
-    const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 8, 0, 0));
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14, 8, 0, 0));
     const service = new DlqReinjectService(storage, deadLetterQueue, mainQueue, lease, clock);
 
     await storage.createTaskRun(createFailedTaskRun());

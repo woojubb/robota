@@ -1,10 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { IDagRun, IDagDefinition, IQueueMessage, IQueuePort } from '@robota-sdk/dag-core';
-import {
-  FakeClockPort,
-  InMemoryQueuePort,
-  InMemoryStoragePort,
-} from '@robota-sdk/dag-adapters-local';
+import { InMemoryQueuePort, InMemoryStoragePort } from '@robota-sdk/dag-adapters-local';
+import { ManualClockPort } from '@robota-sdk/dag-adapters-local/testing';
 import { RunOrchestratorService } from '../services/run-orchestrator-service.js';
 
 function createPublishedDefinition(): IDagDefinition {
@@ -145,7 +142,7 @@ describe('RunOrchestratorService', () => {
   it('creates run and enqueues entry task', async () => {
     const storage = new InMemoryStoragePort();
     const queue = new InMemoryQueuePort();
-    const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 2, 0, 0));
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14, 2, 0, 0));
 
     await storage.saveDefinition(createPublishedDefinition());
     const service = new RunOrchestratorService(storage, queue, clock);
@@ -172,7 +169,7 @@ describe('RunOrchestratorService', () => {
   it('fails when published definition is missing', async () => {
     const storage = new InMemoryStoragePort();
     const queue = new InMemoryQueuePort();
-    const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 2, 0, 0));
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14, 2, 0, 0));
 
     const service = new RunOrchestratorService(storage, queue, clock);
     const started = await service.startRun({
@@ -192,7 +189,7 @@ describe('RunOrchestratorService', () => {
   it('fails for scheduled trigger without logicalDate', async () => {
     const storage = new InMemoryStoragePort();
     const queue = new InMemoryQueuePort();
-    const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 2, 0, 0));
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14, 2, 0, 0));
 
     await storage.saveDefinition(createPublishedDefinition());
     const service = new RunOrchestratorService(storage, queue, clock);
@@ -214,7 +211,7 @@ describe('RunOrchestratorService', () => {
   it('returns existing dagRun for duplicate runKey trigger (idempotent)', async () => {
     const storage = new InMemoryStoragePort();
     const queue = new InMemoryQueuePort();
-    const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 2, 0, 0));
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14, 2, 0, 0));
 
     await storage.saveDefinition(createPublishedDefinition());
     const service = new RunOrchestratorService(storage, queue, clock);
@@ -252,7 +249,7 @@ describe('RunOrchestratorService', () => {
   it('starts existing created run without creating duplicate run id', async () => {
     const storage = new InMemoryStoragePort();
     const queue = new InMemoryQueuePort();
-    const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 2, 0, 0));
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14, 2, 0, 0));
 
     await storage.saveDefinition(createPublishedDefinition());
     const service = new RunOrchestratorService(storage, queue, clock);
@@ -286,7 +283,7 @@ describe('RunOrchestratorService', () => {
   it('treats startCreatedRun as idempotent for already running run', async () => {
     const storage = new InMemoryStoragePort();
     const queue = new InMemoryQueuePort();
-    const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 2, 0, 0));
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14, 2, 0, 0));
 
     await storage.saveDefinition(createPublishedDefinition());
     const service = new RunOrchestratorService(storage, queue, clock);
@@ -318,7 +315,7 @@ describe('RunOrchestratorService', () => {
   it('keeps run in created state when definition has no entry node', async () => {
     const storage = new InMemoryStoragePort();
     const queue = new InMemoryQueuePort();
-    const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 2, 0, 0));
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14, 2, 0, 0));
 
     await storage.saveDefinition(createPublishedDefinitionWithoutEntryNode());
     const service = new RunOrchestratorService(storage, queue, clock);
@@ -344,7 +341,7 @@ describe('RunOrchestratorService', () => {
   it('marks run failed when enqueue fails during start', async () => {
     const storage = new InMemoryStoragePort();
     const queue = new FailingQueuePort(2);
-    const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 2, 0, 0));
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14, 2, 0, 0));
 
     await storage.saveDefinition(createPublishedDefinitionWithTwoEntries());
     const service = new RunOrchestratorService(storage, queue, clock);
@@ -378,7 +375,7 @@ describe('RunOrchestratorService', () => {
   it('fails when createDagRun throws a storage error', async () => {
     const storage = new RacyDagRunStoragePort();
     const queue = new InMemoryQueuePort();
-    const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 2, 0, 0));
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14, 2, 0, 0));
 
     await storage.saveDefinition(createPublishedDefinition());
     const service = new RunOrchestratorService(storage, queue, clock);

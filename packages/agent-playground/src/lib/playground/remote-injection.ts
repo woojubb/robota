@@ -46,7 +46,7 @@ function convertImportsToGlobals(code: string): string {
   t = replaceNamedImport(t, '@robota-sdk/agent-core', 'agents');
   t = t.replace(
     /import\s+OpenAI\s+from\s*['"]openai['"];?\s*/g,
-    'const OpenAI = window.__ROBOTA_SDK__?.openai?.OpenAI || class MockOpenAI {};\n',
+    'const OpenAI = window.__ROBOTA_SDK__?.openai?.OpenAI || class PlaceholderOpenAI {};\n',
   );
   t = replaceNamedImport(t, 'openai', 'openai');
   t = replaceNamedImport(t, '@robota-sdk/agent-provider/openai', 'openai');
@@ -55,7 +55,7 @@ function convertImportsToGlobals(code: string): string {
 
   t = t.replace(
     /import\s+Anthropic\s+from\s*['"]@anthropic-ai\/sdk['"];?\s*/g,
-    'const Anthropic = window.__ROBOTA_SDK__?.anthropic?.Anthropic || class MockAnthropic {};\n',
+    'const Anthropic = window.__ROBOTA_SDK__?.anthropic?.Anthropic || class PlaceholderAnthropic {};\n',
   );
 
   t = replaceNamedImport(t, '@google/generative-ai', 'google');

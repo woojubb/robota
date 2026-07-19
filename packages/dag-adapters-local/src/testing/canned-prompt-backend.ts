@@ -1,16 +1,18 @@
 import type { IPromptBackendPort } from '@robota-sdk/dag-core';
 
 /**
- * Creates an in-memory stub implementing IPromptBackendPort.
- * Useful for testing controllers, routes, and orchestrator services.
+ * Creates an in-memory {@link IPromptBackendPort} that returns fixed, canned success responses (overridable per
+ * method). Useful for testing controllers, routes, and orchestrator services without a real backend.
+ * (HARNESS-033: relocated from the package main entry + renamed from `createStubPromptBackend` — it returns
+ * real canned data, and the no-fake-in-src rule keeps `Stub*` names to test code; now lives under `./testing`.)
  */
-export function createStubPromptBackend(
+export function createCannedPromptBackend(
   overrides?: Partial<IPromptBackendPort>,
 ): IPromptBackendPort {
   return {
     submitPrompt: async () => ({
       ok: true as const,
-      value: { prompt_id: 'stub-prompt-id', number: 1, node_errors: {} },
+      value: { prompt_id: 'canned-prompt-id', number: 1, node_errors: {} },
     }),
     getQueue: async () => ({
       ok: true as const,

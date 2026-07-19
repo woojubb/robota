@@ -1,12 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { IDagDefinition, IDagRun, IQueueMessage, ITaskRun } from '@robota-sdk/dag-core';
 import {
-  FakeClockPort,
   InMemoryLeasePort,
   InMemoryQueuePort,
   InMemoryStoragePort,
-  MockTaskExecutorPort,
 } from '@robota-sdk/dag-adapters-local';
+import { ManualClockPort, ScriptedTaskExecutorPort } from '@robota-sdk/dag-adapters-local/testing';
 import { WorkerLoopService } from '../services/worker-loop-service.js';
 
 function createQueuedTaskFixture() {
@@ -73,11 +72,11 @@ describe('WorkerLoopService', () => {
   const ENQUEUE_DELAY_MS = 5;
 
   function createService(
-    executor: MockTaskExecutorPort,
+    executor: ScriptedTaskExecutorPort,
     storage: InMemoryStoragePort,
     queue: InMemoryQueuePort,
     lease: InMemoryLeasePort,
-    clock: FakeClockPort,
+    clock: ManualClockPort,
     retryEnabled = false,
   ): WorkerLoopService {
     return new WorkerLoopService(storage, queue, lease, executor, clock, {
@@ -94,7 +93,7 @@ describe('WorkerLoopService', () => {
     const storage = new InMemoryStoragePort();
     const queue = new InMemoryQueuePort();
     const lease = new InMemoryLeasePort();
-    const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 3, 0, 0));
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14, 3, 0, 0));
     const { dagRun, taskRun, message } = createQueuedTaskFixture();
 
     const definition = createDefinitionForRun(dagRun);
@@ -103,7 +102,7 @@ describe('WorkerLoopService', () => {
     await storage.createTaskRun(taskRun);
     await queue.enqueue(message);
 
-    const executor = new MockTaskExecutorPort(async () => ({
+    const executor = new ScriptedTaskExecutorPort(async () => ({
       ok: true,
       output: { done: true },
     }));
@@ -130,7 +129,7 @@ describe('WorkerLoopService', () => {
     const storage = new InMemoryStoragePort();
     const queue = new InMemoryQueuePort();
     const lease = new InMemoryLeasePort();
-    const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 3, 0, 0));
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14, 3, 0, 0));
     const { dagRun, taskRun, message } = createQueuedTaskFixture();
 
     const definition = createDefinitionForRun(dagRun);
@@ -138,7 +137,7 @@ describe('WorkerLoopService', () => {
     await storage.createDagRun({ ...dagRun, definitionSnapshot: JSON.stringify(definition) });
     await storage.createTaskRun(taskRun);
 
-    const executor = new MockTaskExecutorPort(async () => ({
+    const executor = new ScriptedTaskExecutorPort(async () => ({
       ok: true,
       output: { done: true },
     }));
@@ -172,7 +171,7 @@ describe('WorkerLoopService', () => {
     const storage = new InMemoryStoragePort();
     const queue = new InMemoryQueuePort();
     const lease = new InMemoryLeasePort();
-    const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 3, 0, 0));
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14, 3, 0, 0));
     const { dagRun, taskRun, message } = createQueuedTaskFixture();
 
     const definition = createDefinitionForRun(dagRun);
@@ -181,7 +180,7 @@ describe('WorkerLoopService', () => {
     await storage.createTaskRun(taskRun);
     await queue.enqueue(message);
 
-    const executor = new MockTaskExecutorPort(async () => ({
+    const executor = new ScriptedTaskExecutorPort(async () => ({
       ok: false,
       error: {
         code: 'DAG_TASK_EXECUTION_FAILED',
@@ -212,7 +211,7 @@ describe('WorkerLoopService', () => {
     const storage = new InMemoryStoragePort();
     const queue = new InMemoryQueuePort();
     const lease = new InMemoryLeasePort();
-    const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 3, 0, 0));
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14, 3, 0, 0));
     const { dagRun, taskRun, message } = createQueuedTaskFixture();
 
     const definition = createDefinitionForRun(dagRun);
@@ -221,7 +220,7 @@ describe('WorkerLoopService', () => {
     await storage.createTaskRun(taskRun);
     await queue.enqueue(message);
 
-    const executor = new MockTaskExecutorPort(async () => ({
+    const executor = new ScriptedTaskExecutorPort(async () => ({
       ok: false,
       error: {
         code: 'DAG_TASK_EXECUTION_FAILED',
@@ -252,7 +251,7 @@ describe('WorkerLoopService', () => {
     const storage = new InMemoryStoragePort();
     const queue = new InMemoryQueuePort();
     const lease = new InMemoryLeasePort();
-    const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 3, 0, 0));
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14, 3, 0, 0));
     const { dagRun, taskRun, message } = createQueuedTaskFixture();
 
     const definition = createDefinitionForRun(dagRun);
@@ -261,7 +260,7 @@ describe('WorkerLoopService', () => {
     await storage.createTaskRun(taskRun);
     await queue.enqueue(message);
 
-    const executor = new MockTaskExecutorPort(async () => ({
+    const executor = new ScriptedTaskExecutorPort(async () => ({
       ok: false,
       error: {
         code: 'DAG_TASK_EXECUTION_HARD_FAIL',
@@ -292,7 +291,7 @@ describe('WorkerLoopService', () => {
     const storage = new InMemoryStoragePort();
     const queue = new InMemoryQueuePort();
     const lease = new InMemoryLeasePort();
-    const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 3, 0, 0));
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14, 3, 0, 0));
     const { dagRun, taskRun, message } = createQueuedTaskFixture();
 
     const definition = createDefinitionForRun(dagRun);
@@ -301,7 +300,7 @@ describe('WorkerLoopService', () => {
     await storage.createTaskRun(taskRun);
     await queue.enqueue(message);
 
-    const executor = new MockTaskExecutorPort(async () => ({
+    const executor = new ScriptedTaskExecutorPort(async () => ({
       ok: false,
       error: {
         code: 'DAG_TASK_EXECUTION_FAILED',
@@ -346,7 +345,7 @@ describe('WorkerLoopService', () => {
     const storage = new InMemoryStoragePort();
     const queue = new InMemoryQueuePort();
     const lease = new InMemoryLeasePort();
-    const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 3, 0, 0));
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14, 3, 0, 0));
     const { dagRun, taskRun, message } = createQueuedTaskFixture();
 
     const definition = createDefinitionForRun(dagRun);
@@ -357,7 +356,7 @@ describe('WorkerLoopService', () => {
 
     await lease.acquire(`taskRun:${taskRun.taskRunId}`, 'worker-lock', 30_000);
 
-    const executor = new MockTaskExecutorPort(async () => ({
+    const executor = new ScriptedTaskExecutorPort(async () => ({
       ok: true,
       output: { done: true },
     }));
@@ -396,7 +395,7 @@ describe('WorkerLoopService', () => {
     const queue = new InMemoryQueuePort();
     const deadLetterQueue = new InMemoryQueuePort();
     const lease = new InMemoryLeasePort();
-    const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 3, 0, 0));
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14, 3, 0, 0));
     const { dagRun, taskRun, message } = createQueuedTaskFixture();
 
     const definition = createDefinitionForRun(dagRun);
@@ -405,7 +404,7 @@ describe('WorkerLoopService', () => {
     await storage.createTaskRun(taskRun);
     await queue.enqueue(message);
 
-    const executor = new MockTaskExecutorPort(async () => ({
+    const executor = new ScriptedTaskExecutorPort(async () => ({
       ok: false,
       error: {
         code: 'DAG_TASK_EXECUTION_HARD_FAIL',
@@ -441,7 +440,7 @@ describe('WorkerLoopService', () => {
     const storage = new InMemoryStoragePort();
     const queue = new InMemoryQueuePort();
     const lease = new InMemoryLeasePort();
-    const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 3, 0, 0));
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14, 3, 0, 0));
     const { dagRun, taskRun, message } = createQueuedTaskFixture();
 
     const definition: IDagDefinition = {
@@ -479,7 +478,7 @@ describe('WorkerLoopService', () => {
     await storage.createTaskRun(taskRun);
     await queue.enqueue(message);
 
-    const executor = new MockTaskExecutorPort(async () => ({
+    const executor = new ScriptedTaskExecutorPort(async () => ({
       ok: true,
       output: { nextInput: 'ok' },
     }));
@@ -513,7 +512,7 @@ describe('WorkerLoopService', () => {
     const storage = new InMemoryStoragePort();
     const queue = new InMemoryQueuePort();
     const lease = new InMemoryLeasePort();
-    const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 3, 0, 0));
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14, 3, 0, 0));
     const { dagRun, taskRun, message } = createQueuedTaskFixture();
 
     const definition: IDagDefinition = {
@@ -552,7 +551,7 @@ describe('WorkerLoopService', () => {
     });
     await queue.enqueue(message);
 
-    const executor = new MockTaskExecutorPort(async () => ({
+    const executor = new ScriptedTaskExecutorPort(async () => ({
       ok: true,
       output: { done: true },
     }));
@@ -570,7 +569,7 @@ describe('WorkerLoopService', () => {
     const storage = new InMemoryStoragePort();
     const queue = new InMemoryQueuePort();
     const lease = new InMemoryLeasePort();
-    const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 3, 0, 0));
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14, 3, 0, 0));
     const { dagRun, taskRun, message } = createQueuedTaskFixture();
 
     const definition = createDefinitionForRun(dagRun);
@@ -581,7 +580,7 @@ describe('WorkerLoopService', () => {
 
     await lease.acquire(`taskRun:${taskRun.taskRunId}`, 'other-worker', 60_000);
 
-    const executor = new MockTaskExecutorPort(async () => ({
+    const executor = new ScriptedTaskExecutorPort(async () => ({
       ok: true,
       output: { done: true },
     }));

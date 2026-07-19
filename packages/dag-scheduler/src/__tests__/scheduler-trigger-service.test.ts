@@ -1,10 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { IDagDefinition } from '@robota-sdk/dag-core';
-import {
-  FakeClockPort,
-  InMemoryQueuePort,
-  InMemoryStoragePort,
-} from '@robota-sdk/dag-adapters-local';
+import { InMemoryQueuePort, InMemoryStoragePort } from '@robota-sdk/dag-adapters-local';
+import { ManualClockPort } from '@robota-sdk/dag-adapters-local/testing';
 import { RunOrchestratorService } from '@robota-sdk/dag-runtime';
 import { SchedulerTriggerService } from '../services/scheduler-trigger-service.js';
 
@@ -31,7 +28,7 @@ describe('SchedulerTriggerService', () => {
   it('triggers one scheduled run with explicit logicalDate', async () => {
     const storage = new InMemoryStoragePort();
     const queue = new InMemoryQueuePort();
-    const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 7, 0, 0));
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14, 7, 0, 0));
     await storage.saveDefinition(createPublishedDefinition('dag-scheduler-one'));
 
     const service = new SchedulerTriggerService(new RunOrchestratorService(storage, queue, clock));
@@ -54,7 +51,7 @@ describe('SchedulerTriggerService', () => {
   it('triggers batch and preserves idempotency by runKey', async () => {
     const storage = new InMemoryStoragePort();
     const queue = new InMemoryQueuePort();
-    const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 7, 0, 0));
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14, 7, 0, 0));
     await storage.saveDefinition(createPublishedDefinition('dag-scheduler-batch'));
 
     const service = new SchedulerTriggerService(new RunOrchestratorService(storage, queue, clock));
@@ -94,7 +91,7 @@ describe('SchedulerTriggerService', () => {
   it('triggers catchup range within maxSlots limit', async () => {
     const storage = new InMemoryStoragePort();
     const queue = new InMemoryQueuePort();
-    const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 7, 0, 0));
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14, 7, 0, 0));
     await storage.saveDefinition(createPublishedDefinition('dag-scheduler-catchup'));
 
     const service = new SchedulerTriggerService(new RunOrchestratorService(storage, queue, clock));
@@ -118,7 +115,7 @@ describe('SchedulerTriggerService', () => {
   it('rejects catchup with invalid start date', async () => {
     const storage = new InMemoryStoragePort();
     const queue = new InMemoryQueuePort();
-    const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 7, 0, 0));
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14, 7, 0, 0));
     await storage.saveDefinition(createPublishedDefinition('dag-scheduler-invalid-date'));
 
     const service = new SchedulerTriggerService(new RunOrchestratorService(storage, queue, clock));
@@ -140,7 +137,7 @@ describe('SchedulerTriggerService', () => {
   it('rejects catchup with invalid end date', async () => {
     const storage = new InMemoryStoragePort();
     const queue = new InMemoryQueuePort();
-    const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 7, 0, 0));
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14, 7, 0, 0));
     await storage.saveDefinition(createPublishedDefinition('dag-scheduler-invalid-end'));
 
     const service = new SchedulerTriggerService(new RunOrchestratorService(storage, queue, clock));
@@ -162,7 +159,7 @@ describe('SchedulerTriggerService', () => {
   it('rejects catchup with zero slotIntervalMs', async () => {
     const storage = new InMemoryStoragePort();
     const queue = new InMemoryQueuePort();
-    const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 7, 0, 0));
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14, 7, 0, 0));
     await storage.saveDefinition(createPublishedDefinition('dag-scheduler-zero-interval'));
 
     const service = new SchedulerTriggerService(new RunOrchestratorService(storage, queue, clock));
@@ -184,7 +181,7 @@ describe('SchedulerTriggerService', () => {
   it('rejects catchup with negative slotIntervalMs', async () => {
     const storage = new InMemoryStoragePort();
     const queue = new InMemoryQueuePort();
-    const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 7, 0, 0));
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14, 7, 0, 0));
     await storage.saveDefinition(createPublishedDefinition('dag-neg-interval'));
 
     const service = new SchedulerTriggerService(new RunOrchestratorService(storage, queue, clock));
@@ -206,7 +203,7 @@ describe('SchedulerTriggerService', () => {
   it('rejects catchup with zero maxSlots', async () => {
     const storage = new InMemoryStoragePort();
     const queue = new InMemoryQueuePort();
-    const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 7, 0, 0));
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14, 7, 0, 0));
     await storage.saveDefinition(createPublishedDefinition('dag-zero-maxslots'));
 
     const service = new SchedulerTriggerService(new RunOrchestratorService(storage, queue, clock));
@@ -228,7 +225,7 @@ describe('SchedulerTriggerService', () => {
   it('rejects catchup with negative maxSlots', async () => {
     const storage = new InMemoryStoragePort();
     const queue = new InMemoryQueuePort();
-    const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 7, 0, 0));
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14, 7, 0, 0));
     await storage.saveDefinition(createPublishedDefinition('dag-neg-maxslots'));
 
     const service = new SchedulerTriggerService(new RunOrchestratorService(storage, queue, clock));
@@ -250,7 +247,7 @@ describe('SchedulerTriggerService', () => {
   it('rejects catchup when end is before start', async () => {
     const storage = new InMemoryStoragePort();
     const queue = new InMemoryQueuePort();
-    const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 7, 0, 0));
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14, 7, 0, 0));
     await storage.saveDefinition(createPublishedDefinition('dag-reversed-range'));
 
     const service = new SchedulerTriggerService(new RunOrchestratorService(storage, queue, clock));
@@ -272,7 +269,7 @@ describe('SchedulerTriggerService', () => {
   it('handles single-slot catchup when start equals end', async () => {
     const storage = new InMemoryStoragePort();
     const queue = new InMemoryQueuePort();
-    const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 7, 0, 0));
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14, 7, 0, 0));
     await storage.saveDefinition(createPublishedDefinition('dag-single-slot'));
 
     const service = new SchedulerTriggerService(new RunOrchestratorService(storage, queue, clock));
@@ -295,7 +292,7 @@ describe('SchedulerTriggerService', () => {
   it('batch returns error directly when first item fails', async () => {
     const storage = new InMemoryStoragePort();
     const queue = new InMemoryQueuePort();
-    const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 7, 0, 0));
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14, 7, 0, 0));
     // No definition saved — will cause orchestrator to fail
 
     const service = new SchedulerTriggerService(new RunOrchestratorService(storage, queue, clock));
@@ -315,7 +312,7 @@ describe('SchedulerTriggerService', () => {
   it('batch returns partial result when second item fails', async () => {
     const storage = new InMemoryStoragePort();
     const queue = new InMemoryQueuePort();
-    const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 7, 0, 0));
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14, 7, 0, 0));
     await storage.saveDefinition(createPublishedDefinition('dag-batch-partial'));
 
     const service = new SchedulerTriggerService(new RunOrchestratorService(storage, queue, clock));
@@ -344,7 +341,7 @@ describe('SchedulerTriggerService', () => {
   it('batch succeeds with empty items array', async () => {
     const storage = new InMemoryStoragePort();
     const queue = new InMemoryQueuePort();
-    const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 7, 0, 0));
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14, 7, 0, 0));
 
     const service = new SchedulerTriggerService(new RunOrchestratorService(storage, queue, clock));
     const batch = await service.triggerScheduledBatch({ items: [] });
@@ -358,7 +355,7 @@ describe('SchedulerTriggerService', () => {
   it('rejects catchup range when requested slots exceed maxSlots', async () => {
     const storage = new InMemoryStoragePort();
     const queue = new InMemoryQueuePort();
-    const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 7, 0, 0));
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14, 7, 0, 0));
     await storage.saveDefinition(createPublishedDefinition('dag-scheduler-catchup-limit'));
 
     const service = new SchedulerTriggerService(new RunOrchestratorService(storage, queue, clock));

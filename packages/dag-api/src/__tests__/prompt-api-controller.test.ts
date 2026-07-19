@@ -1,12 +1,12 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { PromptApiController } from '../controllers/prompt-api-controller.js';
-import { createStubPromptBackend } from '@robota-sdk/dag-adapters-local';
+import { createCannedPromptBackend } from '@robota-sdk/dag-adapters-local/testing';
 
 describe('PromptApiController', () => {
   let controller: PromptApiController;
 
   beforeEach(() => {
-    controller = new PromptApiController(createStubPromptBackend());
+    controller = new PromptApiController(createCannedPromptBackend());
   });
 
   describe('submitPrompt', () => {
@@ -15,7 +15,7 @@ describe('PromptApiController', () => {
         prompt: { '1': { class_type: 'Test', inputs: { value: 'hello' } } },
       });
       expect(result.ok).toBe(true);
-      if (result.ok) expect(result.value.prompt_id).toBe('stub-prompt-id');
+      if (result.ok) expect(result.value.prompt_id).toBe('canned-prompt-id');
     });
 
     it('should reject empty prompt', async () => {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { IDagRun, ITaskRun } from '@robota-sdk/dag-core';
-import { FakeClockPort, InMemoryStoragePort } from '@robota-sdk/dag-adapters-local';
+import { InMemoryStoragePort } from '@robota-sdk/dag-adapters-local';
+import { ManualClockPort } from '@robota-sdk/dag-adapters-local/testing';
 import { RunCancelService } from '../services/run-cancel-service.js';
 import { RunQueryService } from '../services/run-query-service.js';
 
@@ -47,7 +48,7 @@ describe('RunQueryService and RunCancelService', () => {
 
   it('cancels run from running status', async () => {
     const storage = new InMemoryStoragePort();
-    const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 4, 0, 0));
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14, 4, 0, 0));
     await storage.createDagRun(createRun());
     const service = new RunCancelService(storage, clock);
 
