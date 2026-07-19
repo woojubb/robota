@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: DATA
 tags: [session-artifact, sharing, resume, persistence, agent-session, selfhost]
 ---
@@ -293,8 +293,10 @@ channel — no new transport, pairing, or wire protocol.
 
 ## Tasks
 
-`.agents/tasks/SELFHOST-014*.md` — 미생성 (GATE-APPROVAL 통과 후 생성). DESIGN spec: envelope primitive in
-`agent-session` + resume-path reuse + app-surface sharing UI/policy.
+P1 = the neutral envelope primitive in `agent-session` + the reusable opt-in scrub + guard floors + resume-path
+reuse. App-surface sharing UI/policy is out of `packages/` (apps/).
+
+- **P1** — [`.agents/tasks/SELFHOST-014-P1.md`](../../tasks/SELFHOST-014-P1.md) (GATE-IMPLEMENT; in progress).
 
 ## Evidence Log
 
@@ -353,3 +355,12 @@ session-artifact.ts`** (SRP: record-transport vs file-backed `session-store.ts`)
   (library owns no field policy). Round-trip fidelity floor (TC-01), mechanical guards (TC-05 grep / TC-06 deps),
   sibling `session-artifact.ts` placement, and complements-REMOTE-001 all intact; no new defect. Reordered TC-08 to
   numeric order (the reviewer's only, cosmetic, nit). **GATE-APPROVAL PASSED.**
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-07-19
+
+**Status upgrade:** approved → in-progress
+Prior-gate precondition: GATE-APPROVAL recorded PASS (2026-07-17 iteration 3 — independent proposal-reviewer ENDORSE, "GATE-APPROVAL PASSED"); frontmatter `status: approved` in `todo/` matches the expected input stage.
+Tasks file created: `.agents/tasks/SELFHOST-014-P1.md` exists.
+Tasks file path recorded: referenced in `## Tasks` (P1 → `.agents/tasks/SELFHOST-014-P1.md`).
+Tasks map to Completion Criteria: slices S1 (scrub SSOT + logger refactor), S2 (envelope — TC-01/02/07), S3 (resume + second-surface + guards + docs — TC-03/04/05/06/08) cover all of TC-01..TC-08 (≥1 task per TC-N).
+Test Plan present: task file `## Test Plan` section enumerates TC-01..TC-08 + regression, well over the 50-char `test-plans` scan floor [AF-24].
