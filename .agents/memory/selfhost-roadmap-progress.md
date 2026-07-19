@@ -146,3 +146,9 @@ Related: [[self-improving-harness-northstar]], [[harness-mechanical-not-skilltre
 NEXT: SELFHOST-014 (shared-async-session-artifacts) — the LAST roadmap spec.
 
 NEXT: SELFHOST-011 P2 (CLI gate + agent-run verification), then 012-014.
+
+**SELFHOST-014 (async shareable session artifacts, EPIC, DATA) — DONE** (PR #1241 merged+verified develop `826de59dd`). Neutral export/import envelope over the EXISTING ISessionRecord (`session-artifact.ts`: serializeSessionArtifact(record,{redact?}) op1 round-trip / op2 share-via-app-redact + schema-version guard + malformed-record reject); scrub-sensitive.ts = sensitive-key SSOT (logger refactored to consume it). Import=deserialize→store.save→existing loadSessionRecord. Guards: scan-session-artifact-neutrality (TC-05) + deps (TC-06). AGENT-RUN VERIFIED (TC-04/08): export A→import DISTINCT store B (offline)→resume w/ redaction. Review #1241 0 MUST/SHOULD; 3 CONSIDER fixed. GATE-COMPLETE, spec done/. agent-session 118 tests, 59/59 scans.
+
+## ROADMAP COMPLETE — all 14 SELFHOST specs DONE (001–014)
+
+Every spec design-gated → implemented (commit-cadence) → HARNESS-018 async review → agent-run capability verification → GATE-VERIFY/COMPLETE → merged. Governance floors added: HARNESS-028/029/032, deployment-matrix + session-artifact-neutrality scans. Deferred backlog (surface-side follow-ups, NOT roadmap gaps): 003-P4, 008-P5, 010-P2/P3/P4, 011-P3/P4, 013 robota-deploy veneer; HARNESS-027/030/031/033/034. NEXT: owner direction.
