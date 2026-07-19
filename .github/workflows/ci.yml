@@ -5,6 +5,26 @@ on:
     branches: [main, develop]
 
 jobs:
+  # Recurrence guard for the #1216 incident: a feature branch was PR'd straight to `main`, skipping `develop`,
+  # which swept the whole develop delta onto main and diverged the branches. The feature→develop→main flow is
+  # fixed (git-branch.md); this makes it MECHANICAL — a PR to `main` must come from `develop` (or a
+  # `release/*` / `hotfix/*` promotion branch), never a feature branch.
+  main-pr-source-guard:
+    name: main PR source guard
+    if: github.base_ref == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Only develop / release / hotfix may target main
+        run: |
+          head="${{ github.head_ref }}"
+          case "$head" in
+            develop|release/*|hotfix/*)
+              echo "OK: '$head' → main (allowed promotion source)" ;;
+            *)
+              echo "::error::A PR to 'main' must come from 'develop' (or a release/* / hotfix/* promotion branch), not '$head'. Feature work flows feature→develop→main — never feature→main. See .agents/rules/git-branch.md (#1216 incident)."
+              exit 1 ;;
+          esac
+
   build:
     name: build
     runs-on: ubuntu-latest
