@@ -89,7 +89,7 @@ export function parseDocEvents(source) {
 /**
  * Extract the `{ ... }` body of a named `function <fnName>` via brace matching, or '' if absent.
  * Brace-counting is imprecise around braces inside strings/comments, but the target (getSubagentHookEvent)
- * is a plain switch/return mapping table, so this is exact for the firing-scope use here (HARNESS-031).
+ * is a plain if/return mapping table, so this is exact for the firing-scope use here (HARNESS-031).
  */
 export function extractFunctionBody(source, fnName) {
   const decl = source.search(new RegExp(`function\\s+${fnName}\\b`));
