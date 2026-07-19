@@ -18,6 +18,12 @@ export interface IPrintModeSessionResolution {
 
 /** Preset-resolved identity/persona the thin-shell CLI forwards into the headless session. */
 export interface IPrintModePresetOptions {
+  /**
+   * CLI-076: the resolved model id (the same value the CLI header displays — `resolvedPreset.model ??
+   * providerSettings.model`). Forwarded to the headless session so an explicit `--model` override reaches
+   * the provider chat call rather than being silently replaced by the session's default model.
+   */
+  model?: string;
   /** Resolved agent name (preset value, else agent-preset DEFAULT_AGENT_NAME). */
   agentName?: string;
   /** Active preset id selected at startup (PRESET-011 runtime state). Defaults to 'default'. */
@@ -67,6 +73,9 @@ export async function runPrintMode(
     cwd,
     provider,
     outputFormat: args.outputFormat ?? 'text',
+    // CLI-076: forward the resolved model so `--model` takes effect (an invalid model then surfaces the
+    // provider's error and a non-zero exit, instead of a silent substitution succeeding with exit 0).
+    ...(presetOptions.model !== undefined ? { model: presetOptions.model } : {}),
     permissionMode: args.permissionMode ?? presetOptions.permissionMode ?? 'bypassPermissions',
     maxTurns: args.maxTurns,
     sessionStore: args.noSessionPersistence ? undefined : sessionStore,

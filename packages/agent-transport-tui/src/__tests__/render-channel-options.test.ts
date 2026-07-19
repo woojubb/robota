@@ -29,4 +29,24 @@ describe('toChannelOptions', () => {
     expect(channelOptions.allowedTools).toBeUndefined();
     expect(channelOptions.deniedTools).toBeUndefined();
   });
+
+  it('CLI-076: threads the display modelId into the channel model override', () => {
+    const channelOptions = toChannelOptions({
+      cwd: '/tmp/project',
+      provider: {} as IAIProvider,
+      cliAdapter: {} as ITuiCliAdapter,
+      modelId: 'claude-haiku-4-5-20251001',
+    });
+    // The status-line model id IS the session's model override (header == the model actually called).
+    expect(channelOptions.model).toBe('claude-haiku-4-5-20251001');
+  });
+
+  it('CLI-076: leaves model undefined when no modelId is resolved', () => {
+    const channelOptions = toChannelOptions({
+      cwd: '/tmp/project',
+      provider: {} as IAIProvider,
+      cliAdapter: {} as ITuiCliAdapter,
+    });
+    expect(channelOptions.model).toBeUndefined();
+  });
 });

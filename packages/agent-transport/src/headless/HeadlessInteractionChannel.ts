@@ -29,6 +29,12 @@ export interface IHeadlessInteractionChannelOptions {
   cwd: string;
   provider: IAIProvider;
   outputFormat: TOutputFormat;
+  /**
+   * CLI-076: the resolved model id (the same value the CLI header displays). Forwarded verbatim to the
+   * session so an explicit `--model` override actually reaches the provider chat call. Absent ⇒ the
+   * session resolves the model from config (no silent substitution of the requested model).
+   */
+  model?: string;
   permissionMode?: TPermissionMode;
   maxTurns?: number;
   sessionStore?: IInteractiveSessionStore;
@@ -112,6 +118,9 @@ export class HeadlessInteractionChannel {
       // then applies its explicit no-human path (e.g. /mode reports current, /exit and /clear proceed —
       // never a silent guess).
       maxTurns: this.opts.maxTurns,
+      // CLI-076: forward the resolved model so an explicit `--model` override takes effect instead of being
+      // silently dropped (which fell through to the session's config/default model).
+      ...(this.opts.model !== undefined ? { model: this.opts.model } : {}),
       sessionStore: this.opts.sessionStore,
       resumeSessionId: this.opts.resumeSessionId,
       forkSession: this.opts.forkSession,

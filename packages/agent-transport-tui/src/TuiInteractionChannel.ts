@@ -67,6 +67,12 @@ const SHUTDOWN_TIMEOUT_MS = 5000;
 export interface ITuiInteractionChannelOptions {
   cwd: string;
   provider: IAIProvider;
+  /**
+   * CLI-076: the resolved model id (the same value the status line displays). Forwarded to the session so an
+   * explicit `--model` override reaches the provider chat call instead of being silently replaced by the
+   * session's default model.
+   */
+  model?: string;
   permissionMode?: TPermissionMode;
   maxTurns?: number;
   sessionStore?: IInteractiveSessionStore;
@@ -183,6 +189,9 @@ export class TuiInteractionChannel implements IInteractionChannel {
     return buildRuntimeSession({
       cwd: opts.cwd,
       provider: opts.provider,
+      // CLI-076: forward the resolved model so `--model` takes effect rather than falling through to the
+      // session's config/default model.
+      ...(opts.model !== undefined ? { model: opts.model } : {}),
       permissionMode: opts.permissionMode,
       maxTurns: opts.maxTurns,
       // REMOTE-007: no injected permission/ask handlers — the TUI subscribes to the session's
