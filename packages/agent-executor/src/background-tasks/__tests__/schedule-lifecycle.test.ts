@@ -37,12 +37,20 @@ interface IFakeHandle extends IBackgroundTaskHandle {
   editSchedule: ReturnType<typeof vi.fn>;
 }
 
-function createFakeScheduledRunner(): { runner: IBackgroundTaskRunner; handles: IFakeHandle[] } {
+type TEmit = (event: Parameters<NonNullable<IBackgroundTaskStart['emit']>>[0]) => void;
+
+function createFakeScheduledRunner(): {
+  runner: IBackgroundTaskRunner;
+  handles: IFakeHandle[];
+  emits: TEmit[];
+} {
   const handles: IFakeHandle[] = [];
+  const emits: TEmit[] = [];
   const runner: IBackgroundTaskRunner = {
     kind: 'scheduled',
     start(task: IBackgroundTaskStart): IBackgroundTaskHandle {
       const emit = task.emit ?? (() => undefined);
+      emits.push(emit);
       // announce the initial sleeping state so the manager status is `sleeping`
       emit({ type: 'background_task_sleeping', nextFireAt: '2030-01-01T00:00:00.000Z' });
       const handle: IFakeHandle = {
@@ -61,19 +69,20 @@ function createFakeScheduledRunner(): { runner: IBackgroundTaskRunner; handles: 
       return handle;
     },
   };
-  return { runner, handles };
+  return { runner, handles, emits };
 }
 
 async function spawnScheduled(): Promise<{
   manager: BackgroundTaskManager;
   handles: IFakeHandle[];
+  emits: TEmit[];
   id: string;
 }> {
-  const { runner, handles } = createFakeScheduledRunner();
+  const { runner, handles, emits } = createFakeScheduledRunner();
   const manager = new BackgroundTaskManager({ runners: [runner] });
   const created = await manager.spawn(scheduledRequest());
   await Promise.resolve();
-  return { manager, handles, id: created.id };
+  return { manager, handles, emits, id: created.id };
 }
 
 describe('SELFHOST-012 manager schedule lifecycle', () => {
@@ -118,6 +127,21 @@ describe('SELFHOST-012 manager schedule lifecycle', () => {
     await manager.resumeScheduledTask(id);
     await manager.resumeScheduledTask(id); // already resumed → no-op
     expect(handles[0]?.resume).toHaveBeenCalledOnce();
+  });
+
+  it('pauses a mid-fire (running) schedule — status paused, slot released (review CONSIDER)', async () => {
+    const { manager, handles, emits, id } = await spawnScheduled();
+    // Drive a wake so the schedule is mid-fire (running).
+    emits[0]?.({ type: 'background_task_waking', instruction: 'wake' });
+    expect(manager.get(id)?.status).toBe('running');
+
+    await manager.pauseScheduledTask(id);
+    expect(handles[0]?.pause).toHaveBeenCalledOnce();
+    expect(manager.get(id)?.status).toBe('paused');
+
+    // A fresh scheduled task can still spawn (the paused one released its slot).
+    const second = await manager.spawn(scheduledRequest({ label: 'second' }));
+    expect(manager.get(second.id)?.status).toBe('sleeping');
   });
 
   it('rejects lifecycle verbs on a non-scheduled task', async () => {

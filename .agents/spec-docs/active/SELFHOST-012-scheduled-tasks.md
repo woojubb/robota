@@ -321,3 +321,14 @@ Minor (non-blocking, carried from prior FAIL): the P1 file's spec back-link stil
     typecheck, lint 0 errors, **57/57 harness scans**. **P2 (the `/schedule list|pause|resume|edit` surface +
     the AGENT-RUN capability verification per the reachability rule) / P3 (paused persists across restart via the
     FLOW-003 re-arm predicates) PENDING.**
+- 2026-07-19 — **[P1 REVIEW]** (pr-review-reviewer, PR #1235): **0 MUST/SHOULD** — the lifecycle is confirmed
+  correct, non-destructive (croner `.pause()`, not `.stop()`), leak-free (edit stops the old `Cron`), identity-
+  preserving, with the paused-guard closing the illegal `paused→sleeping` trap on all three fire paths and the
+  slot released like `sleeping`. Applied 2 CONSIDERs: (a) a clearer state-based error for a not-yet-started
+  (`queued`) schedule instead of the misleading "runner does not support pause"; (b) two regression tests locking
+  the guards — runner `edit-while-paused` (no sleeping emit + re-pause + resume announces the new cadence) and
+  manager `running→paused` (mid-fire pause → paused + slot released). **Sequencing constraint recorded from the
+  review:** **P3 (paused survives restart) MUST land before or with P2** — a restored `paused` task is currently
+  reconciled to `failed` by `isReArmableSchedule` (keys on `sleeping`), so exposing `pause` to users via P2
+  without P3 would let a restart silently kill a paused schedule. Unreachable in P1 (no surface creates a paused
+  task). Green after fixes: agent-executor **87 tests**, typecheck, lint 0 errors.

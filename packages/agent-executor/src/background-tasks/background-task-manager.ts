@@ -203,6 +203,13 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
     if (isTerminalBackgroundTaskStatus(task.state.status)) {
       throw createRunnerError(`Cannot change lifecycle of a ${task.state.status} task: ${taskId}`);
     }
+    // A queued schedule has no runner handle yet (all concurrency slots busy) — a clearer error than the
+    // downstream "runner does not support pause" the missing handle would otherwise produce.
+    if (task.state.status === 'queued') {
+      throw createRunnerError(
+        `Cannot change lifecycle of a not-yet-started (queued) schedule: ${taskId}`,
+      );
+    }
     return task;
   }
 

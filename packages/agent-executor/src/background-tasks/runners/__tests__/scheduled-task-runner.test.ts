@@ -219,6 +219,42 @@ describe('createScheduledTaskRunner', () => {
     }
   });
 
+  // SELFHOST-012 (review CONSIDER): editing while paused re-pauses the rebuilt job and emits no sleeping while
+  // paused; resuming then announces the NEW cadence. Locks in the `if (state.paused)` re-pause + no-emit guards.
+  it('edit while paused stays paused (no sleeping emit) and resumes with the new cadence', async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date('2026-01-01T00:00:30.000Z'));
+      const runner = createScheduledTaskRunner();
+      const emitted: TBackgroundTaskRunnerEvent[] = [];
+      const handle = runner.start(
+        makeScheduledTask('0 * * * *', 'echo hi', (e) => emitted.push(e)),
+      );
+      if (!handle.pause || !handle.resume || !handle.editSchedule) {
+        throw new Error('lifecycle methods should be supported');
+      }
+
+      await handle.pause();
+      const beforeEdit = emitted.filter((e) => e.type === 'background_task_sleeping').length;
+      await handle.editSchedule({ cronExpression: '* * * * *' }); // every-minute
+      const afterEdit = emitted.filter((e) => e.type === 'background_task_sleeping').length;
+      expect(afterEdit).toBe(beforeEdit); // no sleeping emitted while paused
+
+      await handle.resume();
+      const lastSleeping = [...emitted]
+        .reverse()
+        .find((e) => e.type === 'background_task_sleeping');
+      // resumed → the NEW every-minute cadence's next fire, not the original hourly one
+      expect(lastSleeping?.type === 'background_task_sleeping' && lastSleeping.nextFireAt).toBe(
+        '2026-01-01T00:01:00.000Z',
+      );
+
+      await handle.cancel();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it(
     'resolves result promise when cancelled',
     async () => {
