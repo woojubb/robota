@@ -1,6 +1,6 @@
 # SELFHOST-012 P2+P3 — `/schedule` lifecycle surface + paused-survives-restart (task breakdown)
 
-Spec: [`.agents/spec-docs/active/SELFHOST-012-scheduled-tasks.md`](../spec-docs/active/SELFHOST-012-scheduled-tasks.md)
+Spec: [`.agents/spec-docs/done/SELFHOST-012-scheduled-tasks.md`](../spec-docs/done/SELFHOST-012-scheduled-tasks.md)
 (FLOW; P2 = surface + agent-run verification, P3 = restart persistence). P1 (the manager/host lifecycle) merged
 (#1235). **P3 ships WITH P2** per the review's sequencing constraint: a restored `paused` task is currently
 reconciled to `failed`, so exposing `pause` via the surface without restart-safety would let a restart silently

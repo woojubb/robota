@@ -1,5 +1,6 @@
 ---
-status: in-progress
+status: done
+completed: 2026-07-19
 type: FLOW
 tags: [scheduler, cron, tasks, dag-scheduler, agent-command, selfhost]
 ---
@@ -223,8 +224,8 @@ Slices: P1 = lifecycle extension (status + state-machine + runner croner pause/r
 P2 = `/schedule list|pause|resume|edit` surface (mirror `/background`) + the AGENT-RUN capability verification;
 P3 = `paused`/edited-schedule persistence across restart (FLOW-003 path).
 
-- **P1** — [`.agents/tasks/SELFHOST-012-P1.md`](../../tasks/SELFHOST-012-P1.md) (GATE-IMPLEMENT; in progress).
-- P2/P3 task files created after P1 completes.
+- **P1 — DONE** (lifecycle engine; merged develop `181f0e89a`, #1235): [`.agents/tasks/completed/SELFHOST-012-P1.md`](../../tasks/completed/SELFHOST-012-P1.md).
+- **P2 + P3 — DONE** (surface + agent-run verification + restart persistence; this branch): [`.agents/tasks/completed/SELFHOST-012-P2-P3.md`](../../tasks/completed/SELFHOST-012-P2-P3.md).
 
 ## Evidence Log
 
@@ -359,3 +360,75 @@ Minor (non-blocking, carried from prior FAIL): the P1 file's spec back-link stil
 - 2026-07-19 — **Epic scope close**: P1 (lifecycle engine) + P2 (surface + agent-run verification) + P3 (restart
   persistence) COMPLETE — the whole SELFHOST-012 capability ships. **No new scheduler** was introduced (still the
   croner runner). GATE-VERIFY → GATE-COMPLETE next.
+
+### [GATE-VERIFY] — ✅ PASS | 2026-07-19
+
+**Status upgrade:** in-progress → verifying
+**Prior-gate precondition:** PASS — GATE-IMPLEMENT shows a PASS entry ("**GATE-IMPLEMENT PASSED.**", 2026-07-19);
+frontmatter `status: in-progress` matches the expected GATE-VERIFY input stage.
+**Criteria checked:**
+
+- ✅ All tasks marked complete: both task files declare **DONE (2026-07-19)** — `.agents/tasks/SELFHOST-012-P1.md`
+  (S1–S6, TC-01..04) and `.agents/tasks/SELFHOST-012-P2-P3.md` (S1–S3, TC-05/TC-06). Grep confirms **no unchecked
+  `[ ]` items** in either file.
+- ✅ No tasks blocked or pending: no blocked/pending markers; the P2/P3 slices that were "PENDING" in the P1 file
+  are all shipped in the P2-P3 file (surface + restart persistence + AGENT-RUN verification).
+- ✅ Build passes for all affected packages: `pnpm --filter @robota-sdk/agent-interface-transport
+--filter @robota-sdk/agent-executor --filter @robota-sdk/agent-framework --filter @robota-sdk/agent-command build`
+  — all 4 "Build complete".
+- ✅ Tests pass for all affected packages: agent-interface-transport 10/10, agent-executor 87/87, agent-framework
+  1213/1213, agent-command 242/242 — all green.
+
+TC↔evidence mapping confirmed for the Completion Criteria: TC-01/02/03/04 ([P1 IMPLEMENTED]), TC-05 ([P2
+IMPLEMENTED]), TC-06 ([P3 IMPLEMENTED]), all end-to-end ([AGENT-RUN VERIFIED],
+`.agents/evals/scenarios/selfhost-012-schedule-lifecycle-agent-run.md`). **GATE-VERIFY PASSED.**
+
+### [GATE-COMPLETE] — ❌ FAIL | 2026-07-19
+
+**Status remains:** verifying
+**Prior-gate precondition:** PASS — GATE-VERIFY shows a PASS entry ("**GATE-VERIFY PASSED.**", 2026-07-19);
+frontmatter `status: verifying` matches the expected GATE-COMPLETE input stage.
+**Criteria checked:**
+
+- ✅ All `## Completion Criteria` checkboxes `[x]`: TC-01..TC-06 all checked.
+- ✅ TC↔evidence present: TC-01/02/03/04 ([P1 IMPLEMENTED]), TC-05 ([P2 IMPLEMENTED]), TC-06 ([P3 IMPLEMENTED]),
+  end-to-end ([AGENT-RUN VERIFIED]) with the agent-run scenario at
+  `.agents/evals/scenarios/selfhost-012-schedule-lifecycle-agent-run.md` (exists).
+- ✅ `## Test Plan` populated with per-TC verification + type/tool for TC-01..TC-06 (no "TBD").
+- ✅ Tasks files physically archived: `.agents/tasks/completed/SELFHOST-012-P1.md` and
+  `.agents/tasks/completed/SELFHOST-012-P2-P3.md` both exist; the pre-archival `.agents/tasks/SELFHOST-012-P1.md`
+  no longer exists.
+- ❌ `## Tasks` section updated to reflect the archived paths.
+
+**Failed criteria:**
+
+- `## Tasks` section still points at pre-archival paths and reads stale (same failure mode as SELFHOST-011):
+  it lists ``**P1** — `.agents/tasks/SELFHOST-012-P1.md` (GATE-IMPLEMENT; in progress)`` (a path that no
+  longer exists, with an in-progress status), and `P2/P3 task files created after P1 completes` — it never
+  references the archived files `.agents/tasks/completed/SELFHOST-012-P1.md` and
+  `.agents/tasks/completed/SELFHOST-012-P2-P3.md`, nor reflects that all slices are DONE.
+  **Required action:** Update the `## Tasks` section to reference both archived paths
+  (`.agents/tasks/completed/SELFHOST-012-P1.md`, `.agents/tasks/completed/SELFHOST-012-P2-P3.md`) and mark the
+  slices complete (remove the "in progress" / "created after P1 completes" stale wording), then re-run
+  GATE-COMPLETE.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-07-19
+
+**Status upgrade:** verifying → done
+**Prior-gate precondition:** PASS — GATE-VERIFY shows a PASS entry ("**GATE-VERIFY PASSED.**", 2026-07-19);
+frontmatter `status: verifying` matches the expected GATE-COMPLETE input stage.
+**Criteria checked:**
+
+- ✅ All `## Completion Criteria` checkboxes `[x]`: TC-01..TC-06 all checked.
+- ✅ Per-TC evidence present: TC-01/02/03/04 ([P1 IMPLEMENTED]), TC-05 ([P2 IMPLEMENTED]), TC-06 ([P3
+  IMPLEMENTED]) each with command/action + observed result; end-to-end verified via [AGENT-RUN VERIFIED] with
+  the scenario `.agents/evals/scenarios/selfhost-012-schedule-lifecycle-agent-run.md` (exists).
+- ✅ `## Test Plan` populated with per-TC verification + type/tool for TC-01..TC-06 (no "TBD").
+- ✅ Tasks files physically archived: `.agents/tasks/completed/SELFHOST-012-P1.md` and
+  `.agents/tasks/completed/SELFHOST-012-P2-P3.md` both exist; the pre-archival `.agents/tasks/SELFHOST-012-P1.md`
+  and `.agents/tasks/SELFHOST-012-P2-P3.md` no longer exist.
+- ✅ `## Tasks` section reflects the archived paths (prior FAIL fixed): now records
+  `.agents/tasks/completed/SELFHOST-012-P1.md` (P1 — DONE) and `.agents/tasks/completed/SELFHOST-012-P2-P3.md`
+  (P2+P3 — DONE); the stale in-progress / "created after P1 completes" wording is gone.
+
+**GATE-COMPLETE PASSED.**
