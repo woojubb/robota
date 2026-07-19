@@ -19,13 +19,13 @@ function labelFor(prefix: string, instruction: string): string {
 const MANAGE_USAGE =
   'Usage: /schedule list | pause <id> | resume <id> | edit <id> <spec>  (or a create spec: in <N><s|m|h|d> … | cron "<expr>" …)';
 
-/** One-line list view: id, status, cadence, label, and next-fire (or `paused`). */
+/** One-line list view: id, status, cadence, label, and next-fire time. The `[status]` already conveys paused. */
 function formatScheduleList(schedules: IBackgroundTaskState[]): string {
   if (schedules.length === 0) return 'No schedules.';
   return schedules
     .map((s) => {
       const cadence = s.schedule?.cronExpression ?? '(unknown)';
-      const when = s.status === 'paused' ? 'paused' : s.nextFireAt ? `next ${s.nextFireAt}` : '—';
+      const when = s.nextFireAt ? `next ${s.nextFireAt}` : '—';
       return `- ${s.id} [${s.status}] ${cadence} — ${s.label} (${when})`;
     })
     .join('\n');
@@ -88,9 +88,10 @@ export async function executeScheduleCommand(
   const managed = await executeScheduleManagement(host, action, rest, now);
   if (managed) return managed;
 
-  // Default: create (FLOW-005 form).
+  // Default: create (FLOW-005 form). On a parse failure also surface the management usage — a mistyped
+  // subcommand (e.g. `pasue <id>`) falls through here, and the create-only error hides list/pause/resume/edit.
   const parsed = parseScheduleSpec(args, now);
-  if (!parsed.ok) return { message: parsed.error, success: false };
+  if (!parsed.ok) return { message: `${parsed.error}\n${MANAGE_USAGE}`, success: false };
 
   const { cronExpression, instruction, recurring } = parsed.spec;
   const task = await host.spawnScheduledWake({

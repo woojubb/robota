@@ -5,6 +5,7 @@
  */
 
 import { createSourceUsageSummaryEntry } from './interactive-session-execution.js';
+import { isReArmableScheduledTask } from './schedule-rearm.js';
 import {
   BackgroundJobOrchestrator,
   createBackgroundGroupExecutionEntryId,
@@ -89,13 +90,10 @@ export class SessionBackgroundTaskTracker {
   private reArmRestoredSchedules(manager: IBackgroundTaskManager): void {
     const nowMs = Date.now();
     for (const task of this.backgroundTasks) {
-      // SELFHOST-012: re-arm both `sleeping` and `paused` scheduled tasks. A paused one is re-spawned then
-      // immediately paused again so a restart keeps it paused (not silently running).
-      const reArmable =
-        task.kind === 'scheduled' &&
-        (task.status === 'sleeping' || task.status === 'paused') &&
-        task.schedule !== undefined;
-      if (!reArmable || !task.schedule) continue;
+      // SELFHOST-012: re-arm both `sleeping` and `paused` scheduled tasks (shared predicate — must agree with
+      // the restore reconciliation). A paused one is re-spawned then immediately paused again so a restart keeps
+      // it paused (not silently running).
+      if (!isReArmableScheduledTask(task) || !task.schedule) continue;
       // A paused schedule carries no pending fire time, so the missed-wake note applies only to sleeping ones.
       if (
         task.status === 'sleeping' &&
@@ -123,8 +121,18 @@ export class SessionBackgroundTaskTracker {
         ...(task.schedule.env !== undefined ? { env: { ...task.schedule.env } } : {}),
       });
       if (wasPaused) {
-        // Re-arm-then-pause: keep the restored schedule paused across restart.
-        void spawned.then((state) => manager.pauseScheduledTask(state.id)).catch(() => undefined);
+        // Re-arm-then-pause: keep the restored schedule paused across restart. A pause failure is surfaced as a
+        // system note rather than silently swallowed (a paused schedule that resumed firing would be a surprise).
+        const label = task.label;
+        void spawned
+          .then((state) => manager.pauseScheduledTask(state.id))
+          .catch((error) => {
+            this.appendSystemNote?.(
+              `Could not keep schedule "${label}" paused after restart: ${
+                error instanceof Error ? error.message : String(error)
+              }`,
+            );
+          });
       } else {
         void spawned;
       }

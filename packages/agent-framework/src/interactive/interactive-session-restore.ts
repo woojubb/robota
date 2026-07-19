@@ -5,6 +5,8 @@
  * session record back into the tracker state on resume/fork.
  */
 
+import { isReArmableScheduledTask } from './schedule-rearm.js';
+
 import type { IInteractiveSessionStore } from './session-persistence.js';
 import type {
   IBackgroundJobGroupState,
@@ -135,7 +137,7 @@ function reconcileRestoredBackgroundTasks(
     if (isRestoredTerminalStatus(task.status)) return task;
     // FLOW-003: a sleeping scheduled wake that carries a reconstructable schedule is re-armed
     // (re-spawned) by the background tracker on subscribe — keep it as-is rather than failing it.
-    if (isReArmableSchedule(task)) return task;
+    if (isReArmableScheduledTask(task)) return task;
     const reconciled: IBackgroundTaskState = {
       ...task,
       status: 'failed',
@@ -160,17 +162,4 @@ function reconcileRestoredBackgroundTasks(
 
 function isRestoredTerminalStatus(status: TBackgroundTaskStatus): boolean {
   return status === 'completed' || status === 'failed' || status === 'cancelled';
-}
-
-/**
- * FLOW-003 / SELFHOST-012: a restored scheduled task that can be re-armed from its persisted schedule — a
- * `sleeping` one re-arms to fire again, and a `paused` one re-arms but is kept paused (the tracker re-spawns
- * then immediately pauses). Both are kept rather than reconciled to `failed` as a stale worker.
- */
-function isReArmableSchedule(task: IBackgroundTaskState): boolean {
-  return (
-    task.kind === 'scheduled' &&
-    (task.status === 'sleeping' || task.status === 'paused') &&
-    task.schedule !== undefined
-  );
 }
