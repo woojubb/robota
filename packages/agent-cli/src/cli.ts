@@ -92,7 +92,10 @@ function loadReplayProvider(logFile: string): IAIProvider {
   return mod.createReplayProviderFromLogFile(logFile);
 }
 
-function createDefaultTransportRegistry(): TransportRegistry {
+function createDefaultTransportRegistry(): {
+  registry: TransportRegistry;
+  wsTransport: WsTransport;
+} {
   const registry = new TransportRegistry(getUserSettingsPath());
   // GUI-002: when a host (e.g. the agent-gui Electron shell) spawns this CLI as a loopback sidecar, it
   // passes ROBOTA_WS_TOKEN (a per-launch nonce) + optional ROBOTA_WS_PORT via env. The token makes the WS
@@ -101,13 +104,14 @@ function createDefaultTransportRegistry(): TransportRegistry {
   const wsToken = process.env['ROBOTA_WS_TOKEN'];
   const wsPortRaw = process.env['ROBOTA_WS_PORT'];
   const wsPort = wsPortRaw ? Number.parseInt(wsPortRaw, 10) : undefined;
-  registry.register(
-    new WsTransport({
-      ...(wsToken ? { token: wsToken } : {}),
-      ...(wsPort !== undefined && Number.isInteger(wsPort) ? { port: wsPort } : {}),
-    }),
-  );
-  return registry;
+  const wsTransport = new WsTransport({
+    ...(wsToken ? { token: wsToken } : {}),
+    ...(wsPort !== undefined && Number.isInteger(wsPort) ? { port: wsPort } : {}),
+  });
+  registry.register(wsTransport);
+  // GUI-007: return the WS transport so `--serve --open` can read its `boundPort` to point the served
+  // monitor's `ws-url` at the actual port.
+  return { registry, wsTransport };
 }
 
 export async function startCli(options: IStartCliOptions = {}): Promise<void> {
@@ -244,7 +248,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   // REMOTE-008: the composition root owns the transport registry + the remote-control controller (it has
   // settings, the registry, and — via onChannelReady — the live session). The `/remote-control` command is
   // a declarative trigger; the enable/stop wiring + status view are assembled here.
-  const transportRegistry = createDefaultTransportRegistry();
+  const { registry: transportRegistry, wsTransport } = createDefaultTransportRegistry();
   const { controller: remoteControlController, setChannel: setRemoteControlChannel } =
     createRemoteControlController(transportRegistry);
   commandHostAdapters.remoteControl = {
@@ -408,6 +412,15 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
       commandModules,
       commandHostAdapters,
       transportRegistry,
+      // GUI-007 + SEC-001: point the served monitor at the live WS port AND carry the resolved auth token in
+      // the `ws-url` (`?token=`) — zero-config authentication for the CLI's own localhost-origin monitor.
+      getMonitorWsUrl: () => {
+        if (wsTransport.boundPort === undefined) return undefined;
+        const base = `ws://127.0.0.1:${wsTransport.boundPort}`;
+        return wsTransport.resolvedToken
+          ? `${base}?token=${encodeURIComponent(wsTransport.resolvedToken)}`
+          : base;
+      },
       ...(remoteCommandPolicy ? { remoteCommandPolicy } : {}),
       resumeSessionId,
       model: modelId,

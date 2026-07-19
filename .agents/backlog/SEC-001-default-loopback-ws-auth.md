@@ -1,6 +1,6 @@
 ---
 title: 'SEC-001: authenticate the default (defaultEnabled) loopback WebSocket path'
-status: todo
+status: in-progress
 created: 2026-07-12
 priority: high
 urgency: soon

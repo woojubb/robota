@@ -1,8 +1,8 @@
 {
-  "name": "@robota-sdk/agent-web-monitor",
+  "name": "@robota-sdk/agent-cli-web",
   "version": "3.0.0-beta.79",
   "private": true,
-  "description": "agent-web-monitor — the CLI-served web GUI: a minimal Vite SPA with the localhost-WS monitor page (index.html) and the Stage-D browser remote page (remote.html), composed over the shared GUI core and the browser WebRTC transport peer. The web sibling of apps/agent-app (GUI-006).",
+  "description": "agent-cli-web — the CLI's built-in web monitor SPA (Vite). A minimal localhost-WS session monitor (index.html → SessionMonitor from the shared GUI core). agent-cli builds this package's dist/ and serves it over localhost HTTP (GUI-007). Not a deployable app — a CLI-owned product shell.",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -14,7 +14,6 @@
   },
   "dependencies": {
     "@robota-sdk/agent-transport-gui": "workspace:*",
-    "@robota-sdk/agent-transport-webrtc-web": "workspace:*",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },

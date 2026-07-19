@@ -18,6 +18,8 @@ export interface IParsedCliArgs {
   printMode: boolean;
   /** RUNTIME-001: run the headless runtime host (serve the WS, no ink) — the backend apps/agent-app spawns. */
   serve: boolean;
+  /** GUI-007: with `--serve --open`, also serve the CLI's web monitor SPA over localhost and open it. */
+  open: boolean;
   continueMode: boolean;
   resumeId: string | undefined;
   language: string | undefined;
@@ -103,6 +105,7 @@ Options:
   --reset                    Delete ~/.robota/settings.json (provider profiles and preferences).
                              Asks for confirmation; use --yes to skip
   --yes                      Skip confirmation prompts (required for --reset in non-TTY)
+  --serve --open             Serve the web monitor over localhost and open it in a browser
   --check-update             Check for CLI updates
   --version                  Show version number
   -h, --help                 Show this help message
@@ -176,6 +179,7 @@ const PARSE_ARGS_CONFIG = {
     'goal-max-iterations': { type: 'string' },
     'fork-session': { type: 'boolean', default: false },
     serve: { type: 'boolean', default: false },
+    open: { type: 'boolean', default: false },
     name: { type: 'string', short: 'n' },
     'output-format': { type: 'string' },
     format: { type: 'string' },
@@ -237,6 +241,7 @@ function mapParsedValues(
     help: values['help'] ?? false,
     printMode: values['p'] ?? false,
     serve: values['serve'] ?? false,
+    open: values['open'] ?? false,
     continueMode: values['continue'] ?? false,
     resumeId: values['resume'],
     language: values['language'],
