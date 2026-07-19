@@ -31,7 +31,7 @@ The only gap is the two re-arm predicates, which key on `status === 'sleeping'` 
 
 ## Status
 
-**IN PROGRESS.** Implementing P3 (S1) then P2 (S2–S3) + agent-run verification.
+**DONE (2026-07-19).** P3 (restart persistence, TC-06) + P2 (/schedule surface, TC-05) implemented + green; AGENT-RUN VERIFIED end-to-end on the real runtime (create→pause→no-fire→resume→fire→edit). agent-command 242 tests, agent-framework 1213, all scans. Epic ready for GATE-VERIFY→GATE-COMPLETE.
 
 ## Slices (each green + committed)
 

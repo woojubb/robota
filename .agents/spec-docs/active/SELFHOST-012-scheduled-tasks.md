@@ -190,19 +190,19 @@ Reuse the existing scheduler; add the user-facing management surface + a thin li
 
 ## Completion Criteria
 
-- [ ] TC-01: pause/resume lifecycle over the existing runner — the state machine accepts `running/sleeping → paused`
+- [x] TC-01: pause/resume lifecycle over the existing runner — the state machine accepts `running/sleeping → paused`
       and `paused → sleeping` and rejects illegal edges; `paused` is non-terminal (unit test on `state-machine.ts`).
-- [ ] TC-02: **a paused task does not fire and resumes correctly** — spawn a cron schedule, pause it, advance time
+- [x] TC-02: **a paused task does not fire and resumes correctly** — spawn a cron schedule, pause it, advance time
       across at least one scheduled tick, assert **zero** fires while paused (via croner `.pause()`, not `.stop()`),
       then resume and assert the next tick fires — with the **same task id** (functional test on the scheduled runner).
-- [ ] TC-03: `edit` updates a schedule's cron/instruction and re-arms it **in place** (same task id + `schedule`
+- [x] TC-03: `edit` updates a schedule's cron/instruction and re-arms it **in place** (same task id + `schedule`
       identity), and the new cadence takes effect on the next fire (functional test).
-- [ ] TC-04: `list` returns the caller's schedules with cadence + `nextFireAt` + status, including a `paused` entry
+- [x] TC-04: `list` returns the caller's schedules with cadence + `nextFireAt` + status, including a `paused` entry
       (unit/integration on the host-context list path).
-- [ ] TC-05: CLI behavior — `/schedule list|pause <id>|resume <id>|edit <id> …` dispatch to the corresponding host
+- [x] TC-05: CLI behavior — `/schedule list|pause <id>|resume <id>|edit <id> …` dispatch to the corresponding host
       lifecycle calls and return the expected `ICommandResult`, mirroring `/background`; unknown subcommand is a usage
       error (unit test on `schedule-command.ts`).
-- [ ] TC-06: **no new scheduler + paused survives restart** — a grep/review confirms recurrence still runs on the
+- [x] TC-06: **no new scheduler + paused survives restart** — a grep/review confirms recurrence still runs on the
       existing croner runner + `dag-scheduler` trigger (no new cron engine introduced); and a paused schedule persisted
       via the FLOW-003 path is re-armed as **paused** (not running) after a simulated restart (integration test).
 
@@ -332,3 +332,30 @@ Minor (non-blocking, carried from prior FAIL): the P1 file's spec back-link stil
   reconciled to `failed` by `isReArmableSchedule` (keys on `sleeping`), so exposing `pause` to users via P2
   without P3 would let a restart silently kill a paused schedule. Unreachable in P1 (no surface creates a paused
   task). Green after fixes: agent-executor **87 tests**, typecheck, lint 0 errors.
+
+- 2026-07-19 — **[P3 IMPLEMENTED]** — paused schedules survive restart. The FLOW-003 re-arm predicates keyed on
+  `status === 'sleeping'` and would reconcile a restored paused schedule to `failed`. Widened both:
+  `isReArmableSchedule` (`interactive-session-restore.ts`) accepts `sleeping || paused`; `reArmRestoredSchedules`
+  (`interactive-session-background-tracker.ts`) re-spawns a paused task then immediately `pauseScheduledTask`es it
+  (re-arm-then-pause), and skips the missed-wake note for paused (no `nextFireAt`). Status + edited schedule were
+  already serialized by the FLOW-003 path — only the predicates were the gap. **TC-06** integration
+  (`interactive-session-resume-rearm.test.ts`): a persisted paused schedule re-arms as paused (not failed, no
+  missed-wake note) after a simulated restart.
+- 2026-07-19 — **[P2 IMPLEMENTED]** — `/schedule list|pause|resume|edit` surface. `executeScheduleCommand`
+  dispatches on the first token (mirror `/background`): `list` → `host.listSchedules()` (cadence + `nextFireAt` +
+  status view), `pause`/`resume <id>` → `host.pauseSchedule`/`resumeSchedule`, `edit <id> <spec>` →
+  `parseScheduleSpec` → `host.editSchedule(id, {cronExpression, agentInstruction})`; any other first token stays
+  the FLOW-005 **create** form (a create spec begins with `in`/`cron` → no keyword collision); missing id / unknown
+  → usage error. Module description + `argumentHint` updated. Uses the P1 host lifecycle methods — no new wiring.
+  **TC-05** (5 cases: list view, pause/resume dispatch, edit parse+patch, missing-id usage error,
+  create-still-creates). agent-command SPEC.md updated.
+- 2026-07-19 — **[AGENT-RUN VERIFIED]** (capability-reachability rule) — drove the `/schedule` lifecycle end-to-end
+  through the **real assembled runtime** (`createAgentRuntime({commandModules:[createScheduleCommandModule()]})
+.createSession()` + the default croner scheduled runner): create an every-second cron → `list` → `pause` →
+  **across 2.5s (2+ ticks) it fired NOTHING** (`status=paused`, `nextFireAt=undefined`) → `resume` → **fired again**
+  (`nextFireAt` advanced tick-over-tick) → `edit` re-armed to a new cadence (`0 0 * * *`), same task id. Evidence:
+  [`.agents/evals/scenarios/selfhost-012-schedule-lifecycle-agent-run.md`](../../evals/scenarios/selfhost-012-schedule-lifecycle-agent-run.md).
+  **All TC-01..06 satisfied.**
+- 2026-07-19 — **Epic scope close**: P1 (lifecycle engine) + P2 (surface + agent-run verification) + P3 (restart
+  persistence) COMPLETE — the whole SELFHOST-012 capability ships. **No new scheduler** was introduced (still the
+  croner runner). GATE-VERIFY → GATE-COMPLETE next.
