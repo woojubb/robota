@@ -10,6 +10,8 @@ import { createHash } from 'node:crypto';
 import { mkdirSync, appendFileSync, existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { isSensitiveKey } from './scrub-sensitive.js';
+
 /** Session log event data — extensible record of event metadata. */
 export type TSessionLogValue = string | number | boolean | object | null | undefined;
 export type TSessionLogData = Record<string, TSessionLogValue>;
@@ -32,8 +34,6 @@ const DEFAULT_EXTERNAL_PAYLOAD_THRESHOLD_KIB = 32;
 const DEFAULT_EXTERNAL_PAYLOAD_THRESHOLD_BYTES =
   DEFAULT_EXTERNAL_PAYLOAD_THRESHOLD_KIB * BYTES_PER_KIB;
 const DEFAULT_REDACTED_VALUE = '[REDACTED]';
-const SENSITIVE_KEY_PATTERN =
-  /^(api[-_]?key|authorization|access[-_]?token|refresh[-_]?token|secret|password|x[-_]?api[-_]?key)$/i;
 
 /**
  * Session logger interface — injected into Session for pluggable logging.
@@ -107,7 +107,7 @@ function normalizeLogValue(
   value: TSessionLogValue,
   options: Required<IFileSessionLoggerOptions>,
 ): TSessionLogValue {
-  if (SENSITIVE_KEY_PATTERN.test(key)) {
+  if (isSensitiveKey(key)) {
     return options.redactedValue;
   }
   if (

@@ -108,6 +108,10 @@ const SCAN_COMMANDS = [
   { name: 'no-fallback', command: ['node', 'scripts/harness/scan-no-fallback.mjs'] },
   { name: 'no-fake-in-src', command: ['node', 'scripts/harness/scan-no-fake-in-src.mjs'] },
   {
+    name: 'session-artifact-neutrality',
+    command: ['node', 'scripts/harness/scan-session-artifact-neutrality.mjs'],
+  },
+  {
     name: 'memory-neutrality',
     command: ['node', 'scripts/harness/scan-memory-neutrality.mjs'],
   },
