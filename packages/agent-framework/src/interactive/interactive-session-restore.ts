@@ -162,7 +162,15 @@ function isRestoredTerminalStatus(status: TBackgroundTaskStatus): boolean {
   return status === 'completed' || status === 'failed' || status === 'cancelled';
 }
 
-/** FLOW-003: a restored sleeping scheduled task that can be re-armed from its persisted schedule. */
+/**
+ * FLOW-003 / SELFHOST-012: a restored scheduled task that can be re-armed from its persisted schedule — a
+ * `sleeping` one re-arms to fire again, and a `paused` one re-arms but is kept paused (the tracker re-spawns
+ * then immediately pauses). Both are kept rather than reconciled to `failed` as a stale worker.
+ */
 function isReArmableSchedule(task: IBackgroundTaskState): boolean {
-  return task.kind === 'scheduled' && task.status === 'sleeping' && task.schedule !== undefined;
+  return (
+    task.kind === 'scheduled' &&
+    (task.status === 'sleeping' || task.status === 'paused') &&
+    task.schedule !== undefined
+  );
 }

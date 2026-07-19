@@ -50,14 +50,63 @@ function createFakeScheduledRunner(): IFakeScheduled {
     kind: 'scheduled',
     start(task: IBackgroundTaskStart): IBackgroundTaskHandle {
       started.push(task.taskId);
+      const emit = task.emit ?? (() => undefined);
+      emit({ type: 'background_task_sleeping', nextFireAt: '2999-01-01T00:00:00.000Z' });
       return {
         taskId: task.taskId,
         result: new Promise<never>(() => {}),
         cancel: () => Promise.resolve(),
+        pause: () => Promise.resolve(),
+        resume: () => Promise.resolve(),
+        editSchedule: () => Promise.resolve(),
       };
     },
   };
   return { runner, started };
+}
+
+function pausedScheduledRecord(): Record<string, unknown> {
+  return {
+    id: 'session_resumed',
+    cwd: '/workspace',
+    createdAt: '2026-06-13T00:00:00.000Z',
+    updatedAt: '2026-06-13T00:00:00.000Z',
+    messages: [],
+    backgroundTasks: [
+      {
+        id: 'sched_paused',
+        kind: 'scheduled',
+        status: 'paused', // persisted paused — no nextFireAt
+        label: 'paused daily wake',
+        mode: 'background',
+        parentSessionId: 'session_resumed',
+        depth: 1,
+        cwd: '/workspace',
+        updatedAt: '2026-06-13T00:00:00.000Z',
+        unread: false,
+        schedule: { cronExpression: '0 0 * * *', agentInstruction: 'summarize overnight changes' },
+      },
+    ],
+    backgroundTaskEvents: [],
+  };
+}
+
+function setupWithRecord(record: Record<string, unknown>): {
+  started: string[];
+  manager: BackgroundTaskManager;
+  session: InteractiveSession;
+} {
+  const { runner, started } = createFakeScheduledRunner();
+  const manager = new BackgroundTaskManager({ runners: [runner] });
+  const sessionStub = createSessionStub();
+  storeAgentToolDeps(sessionStub, { backgroundTaskManager: manager } as unknown as IAgentToolDeps);
+  const store = createStore(record);
+  const session = new InteractiveSession({
+    session: sessionStub,
+    sessionStore: store as never,
+    resumeSessionId: 'session_resumed',
+  });
+  return { started, manager, session };
 }
 
 function sleepingScheduledRecord(nextFireAt: string): Record<string, unknown> {
@@ -135,5 +184,25 @@ describe('FLOW-003 resume re-arm + missed-wake', () => {
       JSON.stringify(e).includes('Missed scheduled wake'),
     );
     expect(notes).toHaveLength(0);
+  });
+
+  // SELFHOST-012 TC-06: a persisted PAUSED schedule re-arms as paused (not failed, not firing) on restart.
+  it('TC-06: a restored paused schedule is kept + re-armed paused, not reconciled to failed', async () => {
+    const { started, manager, session } = setupWithRecord(pausedScheduledRecord());
+
+    // Re-armed (re-spawned), not killed as a stale worker.
+    expect(started).toHaveLength(1);
+    // The restored paused task was NOT reconciled to `failed`, and no missed-wake note fired.
+    const notes = history(session).filter((e) =>
+      JSON.stringify(e).includes('Missed scheduled wake'),
+    );
+    expect(notes).toHaveLength(0);
+
+    // The re-arm-then-pause lands on a microtask — after it, the re-spawned schedule is paused.
+    await Promise.resolve();
+    await Promise.resolve();
+    const scheduled = manager.list().filter((t) => t.kind === 'scheduled');
+    expect(scheduled.some((t) => t.status === 'paused')).toBe(true);
+    expect(scheduled.some((t) => t.status === 'failed')).toBe(false);
   });
 });
