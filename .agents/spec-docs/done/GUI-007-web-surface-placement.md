@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: INFRA
 tags:
   [architecture, placement, web, gui, surface-taxonomy, agent-web, agent-web-monitor, cli, sec-001]
@@ -214,3 +214,7 @@ applied → **approved**.
 - 62/62 run-all-scans; agent-cli 232 tests; serve-monitor-ui 5; ws-transport-auth 15.
 
 **GATE-COMPLETE pending** the PR review (HARNESS-018) + merge-verify.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-07-20
+
+All TC-01..07 met (agent-web-monitor dissolved; agent-cli-web CLI-served monitor; agent-web /remote; 0 dangling refs; AGENT-RUN verified). Merged #1249. pr-review-reviewer 1 SHOULD (malformed-URL DoS) + CONSIDER (monitor Host guard) + 2 NIT all applied (`36f2cc6d6`); merge-verified on develop. Spec → `done/`.
