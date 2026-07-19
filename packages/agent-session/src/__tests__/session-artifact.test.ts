@@ -62,6 +62,14 @@ describe('session artifact — schema-version guard (TC-02)', () => {
       /schema version/i,
     );
   });
+
+  it('rejects a degenerate/crafted record (array, {}, or missing id) rather than importing it', () => {
+    for (const record of [[], {}, { name: 'no-id' }]) {
+      expect(() =>
+        deserializeSessionArtifact(JSON.stringify({ schemaVersion: 1, record })),
+      ).toThrow(/malformed|missing/i);
+    }
+  });
 });
 
 describe('session artifact — export-for-share redact seam (TC-07)', () => {

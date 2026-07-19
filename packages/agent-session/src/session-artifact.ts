@@ -9,6 +9,8 @@
  * Two operations, specified separately and never conflated:
  *   1. Round-trip serialize (fidelity, local): `serializeSessionArtifact(record)` with no transform is
  *      full-fidelity — `deserializeSessionArtifact(serializeSessionArtifact(record))` deep-equals the record.
+ *      (Precondition: `ISessionRecord` is JSON-safe, as it is by construction — it is the on-disk file-store
+ *      shape; a non-JSON value like a `Date`/`Map`/class instance nested in a payload would not round-trip.)
  *   2. Export-for-share: `serializeSessionArtifact(record, { redact })` applies a caller-supplied, policy-free
  *      `redact` transform BEFORE writing bytes. The envelope selects NO fields and owns NO field policy — the app
  *      builds `redact` (composing the opt-in `scrubSensitiveKeys`). The no-transform form stays full-fidelity.
@@ -67,8 +69,14 @@ export function deserializeSessionArtifact(bytes: string): ISessionRecord {
       `Unsupported session artifact schema version ${artifact.schemaVersion} (this build reads ${SESSION_ARTIFACT_SCHEMA_VERSION}).`,
     );
   }
-  if (!artifact.record || typeof artifact.record !== 'object') {
-    throw new Error('Invalid session artifact: missing session record.');
+  if (
+    !artifact.record ||
+    typeof artifact.record !== 'object' ||
+    Array.isArray(artifact.record) ||
+    typeof artifact.record.id !== 'string'
+  ) {
+    // Reject a degenerate/crafted payload (`record: []` / `{}` / no id) rather than importing an empty record.
+    throw new Error('Invalid session artifact: missing or malformed session record.');
   }
   return artifact.record;
 }

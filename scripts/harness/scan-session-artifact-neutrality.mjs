@@ -31,10 +31,15 @@ const FORBIDDEN = [
   /\bs3\b/i,
   /\bshareLink\b/i,
   /\bshareUrl\b/i,
+  /\bshare\b/i,
+  /\blink\b/i,
+  /\bsync\b/i,
   /\baccessControl\b/i,
   /\b(acl|rbac)\b/i,
   /\bpermissions?\b/i,
   /\bauthToken\b/i,
+  /\b(redaction|field)Policy\b/i,
+  /\ballowlist\b/i,
 ];
 
 /** Strip block + line comments so the module's own neutrality doc (which names these words) is exempt. */
