@@ -1,5 +1,6 @@
 ---
-status: in-progress
+status: done
+completed: 2026-07-19
 type: INFRA
 tags: [deployment, gateway, transport, multi-surface, agent-server, selfhost]
 ---
@@ -372,3 +373,27 @@ P1 (this) = deployment matrix + drift scan + proof test + deploy guide + runnabl
   COMPLETE — the documented one-definition→many-channels pattern + drift floor over the existing transport DIP.
   A `robota deploy` UX veneer stays consciously deferred (alt 3). **No new transport/package/edge.** GATE-VERIFY →
   GATE-COMPLETE next.
+
+### [GATE-VERIFY] — ✅ PASS | 2026-07-19
+
+**Status upgrade:** in-progress → verifying
+
+- Prior-gate precondition: GATE-IMPLEMENT recorded PASS (2026-07-19, above); frontmatter `status: in-progress` — matches the expected input stage for GATE-VERIFY.
+- Tasks complete: task file archived at `.agents/tasks/completed/SELFHOST-013-P1.md`, `## Status` = **DONE (2026-07-19)** with all three slices (S1 matrix+drift scan, S2 proof test, S3 guide+example) done and TC-03 deps green. No task blocked or pending.
+- Build/tests green (recorded, not re-run per gate scope): `[P1 IMPLEMENTED]` entry reports agent-transport 47 tests, scan unit 5, typecheck, lint, and 58/58 harness scans passing.
+- Completion Criteria → Evidence mapping: all four TC map to Evidence entries — TC-01 (reference-identity proof `one-session-many-transports.test.ts`) + TC-02 (drift scan `scan-deployment-matrix.mjs` + 5 unit tests) + TC-03 (`deps` scan green) + TC-04 (runnable example) via `[P1 IMPLEMENTED]`; TC-04 additionally via `[AGENT-RUN VERIFIED]` (example ran end-to-end, one session over ws+http, exit 0) citing scenario `.agents/evals/scenarios/selfhost-013-multi-surface-agent-run.md` (present).
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-07-19
+
+**Status upgrade:** verifying → done
+
+- Prior-gate precondition: GATE-VERIFY recorded PASS (2026-07-19, above); frontmatter `status: verifying` — matches the expected input stage for GATE-COMPLETE.
+- All `## Completion Criteria` checkboxes `[x]`: TC-01, TC-02, TC-03, TC-04 all checked, each with per-TC evidence.
+  - TC-01 (reference-identity proof): `packages/agent-transport/src/__tests__/one-session-many-transports.test.ts` asserts `t1.attached === t2.attached === session` (two recording transports) + the `defaultEnabled:false` out-of-band case — recorded in `[P1 IMPLEMENTED]`.
+  - TC-02 (matrix drift scan): `scripts/harness/scan-deployment-matrix.mjs` (registered in run-all-scans), code-enumerated `{tui,ws,webrtc,http,mcp}` ↔ matrix Transport-`name` column; 5 unit tests (parse/undocumented/phantom/live set); part of 58/58 harness scans.
+  - TC-03 (`deps` scan): `check-dependency-direction.mjs` green — no new bidirectional dep / pass-through re-export / new package.
+  - TC-04 (runnable example): `examples/capabilities/multi-surface-deploy/` served one session over ws+http (`One session served over 2 channels: ws, http`, exit 0), verified by the agent-run scenario.
+- `## Test Plan` TC rows all carry test references: TC-01 → the proof test; TC-02 → scan + unit tests; TC-03 → `deps` scan; TC-04 → example build/smoke-run — no TC silently unaddressed.
+- Tasks file archived to `.agents/tasks/completed/SELFHOST-013-P1.md` (verified present); the pre-archival path `.agents/tasks/SELFHOST-013-P1.md` is absent.
+- `## Tasks` section references the archived path `.agents/tasks/completed/SELFHOST-013-P1.md` marked **DONE** (spec line 277) — not a pre-archival path.
+- Done-evidence present, including the agent-run scenario `.agents/evals/scenarios/selfhost-013-multi-surface-agent-run.md` (`[AGENT-RUN VERIFIED]`, all TC-01..04 satisfied).

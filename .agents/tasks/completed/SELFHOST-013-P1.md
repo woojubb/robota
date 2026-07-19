@@ -1,6 +1,6 @@
 # SELFHOST-013 P1 — multi-surface deployment matrix + gateway pattern (task breakdown)
 
-Spec: [`.agents/spec-docs/active/SELFHOST-013-multi-surface-deployment-gateway.md`](../spec-docs/active/SELFHOST-013-multi-surface-deployment-gateway.md)
+Spec: [`.agents/spec-docs/done/SELFHOST-013-multi-surface-deployment-gateway.md`](../spec-docs/done/SELFHOST-013-multi-surface-deployment-gateway.md)
 (INFRA; P1 = the whole slice; design-gated GATE-APPROVAL ENDORSE). This is a **packaging + documentation + proof**
 gap over the ALREADY-CORRECT transport DIP — **NO new transport, NO new package, NO new dependency edge**. The
 capability (one `buildRuntimeSession` session fanned to many `IConfigurableTransport`s via
@@ -33,7 +33,7 @@ presentation packages `-gui`/`-webrtc-web` and the shared `-protocol` lib export
 
 ## Status
 
-**IN PROGRESS.** GATE-IMPLEMENT PASSED (backlog-gate-guard, 2026-07-19); implementing S1–S3.
+**DONE (2026-07-19).** S1 (matrix+drift scan, TC-02) + S2 (proof test, TC-01) + S3 (guide+example, TC-04) done; TC-03 deps green. AGENT-RUN VERIFIED (example ran, one session over ws+http). agent-transport 47 tests, 58/58 scans. Epic ready for GATE-VERIFY→GATE-COMPLETE.
 
 ## Slices (each green + committed)
 
