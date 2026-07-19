@@ -15,7 +15,7 @@
  *
  *  1. `evals-dataset-content` — a dataset/case-corpus DATA file: a `.json`/`.jsonl`/`.csv`/`.yaml`/`.yml`
  *     file whose path is eval-corpus-shaped — either it sits under an `/evals/` DIRECTORY segment, or its
- *     basename carries a corpus marker (`*.evalset.*`, `*.cases.*`, `*.dataset.*`). Exact path/name check;
+ *     basename carries a corpus marker (`*.evalset.*`, `*.cases.*`, `*.dataset.*`, `*.corpus.*`). Exact path/name check;
  *     zero false positives on the neutral TS surface (which ships no data files).
  *
  *  2. `library-eval-content` — a concrete metric/dataset VALUE shipped as library code: within a `.ts`/`.tsx`
@@ -44,7 +44,7 @@ const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const DATASET_DATA_EXT = /\.(json|jsonl|csv|ya?ml)$/i;
 
 /** Basename markers that name a file as an eval corpus regardless of directory. */
-const DATASET_NAME_MARKER = /\.(evalset|cases|dataset)\.[a-z0-9]+$/i;
+const DATASET_NAME_MARKER = /\.(evalset|cases|dataset|corpus)\.[a-z0-9]+$/i;
 
 /**
  * Class 2 export shapes (concrete metric/dataset VALUE, not the neutral type/factory mechanism):
@@ -54,7 +54,7 @@ const DATASET_NAME_MARKER = /\.(evalset|cases|dataset)\.[a-z0-9]+$/i;
  * A neutral factory (`export function exactMatch(...): IMetric {`) has no `: IMetric =` and is not matched.
  */
 const LIBRARY_EVAL_CONTENT_DECL =
-  /export\s+(?:const|let|var|default)\s+\w*(?:cases|dataset|evalset)\w*\s*(?::[^=]+)?=\s*\[|export\s+(?:const|let|var|default)?\s*\w+\s*:\s*IEvalDefinition\s*=|export\s+(?:const|let|var|default)?\s*\w+\s*:\s*IMetric\s*=/i;
+  /export\s+(?:const|let|var|default)\s+\w*(?:cases|dataset|evalset|corpus)\w*\s*(?::[^=]+)?=\s*\[|export\s+(?:const|let|var|default)?\s*\w+\s*:\s*IEvalDefinition\s*=|export\s+(?:const|let|var|default)?\s*\w+\s*:\s*IMetric\s*=/i;
 
 /** A well-formed escape hatch: the token followed by `:` and at least one non-space reason char. */
 const ANNOTATION_WITH_REASON = /allow-evals-content:\s*\S/;

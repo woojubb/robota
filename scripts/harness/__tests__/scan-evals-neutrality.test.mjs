@@ -1,4 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import {
   findEvalsContentInSource,
@@ -26,6 +30,8 @@ describe('HARNESS-034 TC-01 — evals-dataset-content file-path class', () => {
     expect(isEvalsDatasetContent('packages/agent-framework/src/evals/dataset.jsonl')).toBe(true);
     expect(isEvalsDatasetContent('packages/foo/src/coding.evalset.json')).toBe(true);
     expect(isEvalsDatasetContent('packages/foo/src/x.cases.yaml')).toBe(true);
+    // 'corpus' — the term the subsystem's own prose uses most — is covered (PR #1246 review CONSIDER)
+    expect(isEvalsDatasetContent('packages/foo/src/coding.corpus.json')).toBe(true);
   });
 
   it('does NOT flag the neutral TS surface or unrelated data files', () => {
@@ -55,6 +61,10 @@ describe('HARNESS-034 TC-02 — library-eval-content value class', () => {
         `export const exactAnswer: IMetric = { name: 'exact', score: (r) => r.response === '42' };`,
       ),
     ).toContain('library-eval-content');
+    // 'corpus'-named array is covered (PR #1246 review CONSIDER)
+    expect(kinds(`export const codingCorpus = [{ input: 'x' }];`)).toContain(
+      'library-eval-content',
+    );
   });
 
   it('does NOT flag the neutral mechanism — the IMetric TYPE, factories, or the runner contract', () => {
@@ -95,5 +105,34 @@ describe('HARNESS-034 TC-04 — live packages/ tree is neutral', () => {
   it('inEvalsSubsystem detects the /evals/ directory segment', () => {
     expect(inEvalsSubsystem('packages/agent-framework/src/evals/runner.ts')).toBe(true);
     expect(inEvalsSubsystem('packages/agent-framework/src/runtime/agent-runtime.ts')).toBe(false);
+  });
+});
+
+describe('HARNESS-034 TC-04b — disk walk positive path (PR #1246 review CONSIDER)', () => {
+  let root;
+  beforeAll(() => {
+    // A throwaway workspace with planted content, to exercise the walk + per-file read + Class1→continue.
+    root = mkdtempSync(path.join(tmpdir(), 'evals-neutrality-'));
+    const evalsDir = path.join(root, 'packages', 'demo', 'src', 'evals');
+    mkdirSync(evalsDir, { recursive: true });
+    writeFileSync(path.join(evalsDir, 'cases.jsonl'), '{"input":"a","expected":"b"}\n');
+    writeFileSync(
+      path.join(evalsDir, 'suite.ts'),
+      `export const codingEval: IEvalDefinition = { cases, metrics };\n`,
+    );
+    // a neutral factory in the same dir must NOT be flagged
+    writeFileSync(
+      path.join(evalsDir, 'helpers.ts'),
+      `export function exactMatch(expected?: string): IMetric {\n  return { name: 'exact', score: () => true };\n}\n`,
+    );
+  });
+  afterAll(() => rmSync(root, { recursive: true, force: true }));
+
+  it('flags the planted dataset file (Class 1) and the concrete definition (Class 2), not the factory', () => {
+    const findings = findEvalsNeutralityFindings(root);
+    const kindsByFile = findings.map((f) => `${f.kind}:${path.basename(f.file)}`);
+    expect(kindsByFile).toContain('evals-dataset-content:cases.jsonl');
+    expect(kindsByFile).toContain('library-eval-content:suite.ts');
+    expect(kindsByFile.some((k) => k.endsWith('helpers.ts'))).toBe(false);
   });
 });
