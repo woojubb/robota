@@ -65,7 +65,7 @@ packages/
 
 apps/
 ├── agent-web/                  ← Next.js playground host
-├── agent-web-monitor/          ← CLI-served browser monitor SPA (Vite)
+# (the CLI-served monitor SPA is packages/agent-cli-web — GUI-007)
 ├── agent-app/                  ← Electron desktop GUI app; drives a robota --serve sidecar over the shared GUI core
 ├── agent-server/               ← AI provider proxy + WebSocket server
 ├── docs/                       ← VitePress documentation site
