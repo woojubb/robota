@@ -34,6 +34,7 @@ const SCAN_COMMANDS = [
   { name: 'memory-mirror', command: ['node', 'scripts/harness/scan-memory-mirror.mjs'] },
   { name: 'spec-research', command: ['node', 'scripts/harness/scan-spec-research.mjs'] },
   { name: 'orchestration-map', command: ['node', 'scripts/harness/scan-orchestration-map.mjs'] },
+  { name: 'deployment-matrix', command: ['node', 'scripts/harness/scan-deployment-matrix.mjs'] },
   {
     name: 'orchestration-neutrality',
     command: ['node', 'scripts/harness/scan-orchestration-neutrality.mjs'],
