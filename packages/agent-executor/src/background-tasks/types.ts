@@ -124,6 +124,10 @@ export interface IBackgroundTaskManager {
   get(taskId: string): IBackgroundTaskState | undefined;
   cancel(taskId: string, reason?: string): Promise<void>;
   close(taskId: string): Promise<void>;
+  // SELFHOST-012: non-destructive schedule lifecycle (scheduled tasks only).
+  pauseScheduledTask(taskId: string): Promise<void>;
+  resumeScheduledTask(taskId: string): Promise<void>;
+  editScheduledTask(taskId: string, patch: IScheduleEditPatch): Promise<void>;
   shutdown(reason?: string): Promise<void>;
   send(taskId: string, input: IBackgroundTaskInput): Promise<void>;
   readLog(taskId: string, cursor?: IBackgroundTaskLogCursor): Promise<IBackgroundTaskLogPage>;

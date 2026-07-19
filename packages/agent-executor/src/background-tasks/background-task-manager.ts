@@ -12,6 +12,8 @@ import {
   markBackgroundTaskCancelled,
   markBackgroundTaskCompleted,
   markBackgroundTaskFailed,
+  markBackgroundTaskPaused,
+  markBackgroundTaskResumed,
   markBackgroundTaskStarted,
   startBackgroundTaskRunner,
   validateBackgroundTaskRequest,
@@ -30,6 +32,7 @@ import {
   type IBackgroundTaskResult,
   type IBackgroundTaskRunner,
   type IBackgroundTaskState,
+  type IScheduleEditPatch,
   type TBackgroundTaskIdFactory,
   type TBackgroundTaskEvent,
   type TBackgroundTaskEventListener,
@@ -146,6 +149,61 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
     }
     this.tasks.delete(taskId);
     this.emit({ type: 'background_task_closed', taskId });
+  }
+
+  // SELFHOST-012: non-destructive pause of a scheduled task — croner `.pause()`, not the irreversible `.stop()`
+  // that `cancel` uses. A paused schedule holds no concurrency slot (like `sleeping`).
+  async pauseScheduledTask(taskId: string): Promise<void> {
+    const task = this.requireScheduledTask(taskId);
+    if (task.state.status === 'paused') return; // idempotent
+    const handle = task.handle;
+    if (!handle?.pause) {
+      throw createRunnerError(`Background task runner does not support pause: ${taskId}`);
+    }
+    const updated = markBackgroundTaskPaused(task, this.now());
+    this.releaseSlot(taskId);
+    this.emit({ type: 'background_task_updated', task: updated });
+    await handle.pause();
+    if (!this.shuttingDown) this.drainQueue();
+  }
+
+  async resumeScheduledTask(taskId: string): Promise<void> {
+    const task = this.requireScheduledTask(taskId);
+    if (task.state.status !== 'paused') return; // only a paused schedule resumes; otherwise no-op
+    const handle = task.handle;
+    if (!handle?.resume) {
+      throw createRunnerError(`Background task runner does not support resume: ${taskId}`);
+    }
+    const updated = markBackgroundTaskResumed(task, this.now());
+    this.emit({ type: 'background_task_updated', task: updated });
+    // The runner re-emits `sleeping`, which refreshes nextFireAt idempotently (status is already sleeping).
+    await handle.resume();
+  }
+
+  async editScheduledTask(taskId: string, patch: IScheduleEditPatch): Promise<void> {
+    const task = this.requireScheduledTask(taskId);
+    const handle = task.handle;
+    if (!handle?.editSchedule) {
+      throw createRunnerError(`Background task runner does not support edit: ${taskId}`);
+    }
+    await handle.editSchedule(patch);
+    // Keep the reconstructable schedule (FLOW-003) + list view in sync with the in-place re-arm.
+    if (task.state.schedule) {
+      task.state.schedule = { ...task.state.schedule, ...patch };
+    }
+    task.state.updatedAt = this.now();
+    this.emit({ type: 'background_task_updated', task: cloneBackgroundTaskState(task.state) });
+  }
+
+  private requireScheduledTask(taskId: string): ITrackedBackgroundTask {
+    const task = this.requireTask(taskId);
+    if (task.state.kind !== 'scheduled') {
+      throw createRunnerError(`Not a scheduled task: ${taskId}`);
+    }
+    if (isTerminalBackgroundTaskStatus(task.state.status)) {
+      throw createRunnerError(`Cannot change lifecycle of a ${task.state.status} task: ${taskId}`);
+    }
+    return task;
   }
 
   shutdown(reason = 'Background task manager shutdown'): Promise<void> {

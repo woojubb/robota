@@ -104,6 +104,27 @@ export function markBackgroundTaskCancelled(
   return { task: cloneBackgroundTaskState(task.state) };
 }
 
+/** SELFHOST-012: non-destructive pause — `paused` is non-terminal; the schedule stops firing but is kept. */
+export function markBackgroundTaskPaused(
+  task: ITrackedBackgroundTask,
+  now: string,
+): IBackgroundTaskState {
+  task.state.status = transitionBackgroundTaskStatus(task.state.status, 'PAUSE');
+  task.state.nextFireAt = undefined; // a paused schedule has no pending fire
+  task.state.updatedAt = now;
+  return cloneBackgroundTaskState(task.state);
+}
+
+/** SELFHOST-012: resume a paused schedule back to `sleeping`; the runner's re-emitted sleeping sets nextFireAt. */
+export function markBackgroundTaskResumed(
+  task: ITrackedBackgroundTask,
+  now: string,
+): IBackgroundTaskState {
+  task.state.status = transitionBackgroundTaskStatus(task.state.status, 'RESUME');
+  task.state.updatedAt = now;
+  return cloneBackgroundTaskState(task.state);
+}
+
 export function applyBackgroundTaskRunnerStateEvent(
   task: ITrackedBackgroundTask,
   event: TBackgroundTaskRunnerEvent,
@@ -121,7 +142,11 @@ export function applyBackgroundTaskRunnerStateEvent(
     return cloneBackgroundTaskState(task.state);
   }
   if (event.type === 'background_task_sleeping') {
-    task.state.status = transitionBackgroundTaskStatus(task.state.status, 'SLEEP');
+    // Idempotent: a resume() re-emits sleeping after the manager already transitioned paused→sleeping (RESUME).
+    // Only transition when a real running→sleeping edge applies; otherwise just refresh nextFireAt.
+    if (task.state.status !== 'sleeping') {
+      task.state.status = transitionBackgroundTaskStatus(task.state.status, 'SLEEP');
+    }
     task.state.nextFireAt = event.nextFireAt;
     task.state.updatedAt = now;
     return cloneBackgroundTaskState(task.state);

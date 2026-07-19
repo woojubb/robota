@@ -210,7 +210,9 @@ function runOneFire(state: IScheduledTaskState): void {
   child.on('close', () => {
     clearFireTimeout();
     if (state.currentChild === child) state.currentChild = undefined;
-    if (!state.cancelled) {
+    // SELFHOST-012: a fire in flight when pause() lands still completes; don't re-announce sleeping for a
+    // now-paused schedule (it would drive an illegal paused→sleeping transition upstream).
+    if (!state.cancelled && !state.paused) {
       emitSleeping(state);
     }
   });
@@ -219,7 +221,7 @@ function runOneFire(state: IScheduledTaskState): void {
     clearFireTimeout();
     if (state.currentChild === child) state.currentChild = undefined;
     appendPrefixedLogLines(state.logs, 'system', error.message);
-    if (!state.cancelled) {
+    if (!state.cancelled && !state.paused) {
       emitSleeping(state);
     }
   });
