@@ -95,6 +95,11 @@ merge lands.
 ### Branch Policy
 
 - `main` is the production branch. Direct commits, pushes, and merges to `main` are prohibited.
+  **A PR to `main` may ONLY come from `develop` (or a `release/*` / `hotfix/*` promotion branch) — never a
+  feature branch.** A feature branch PR'd straight to `main` skips integration and sweeps the entire
+  `develop` delta onto `main`, diverging the two branches (the **#1216 incident**, 2026-07-18). This is now
+  MECHANICALLY enforced by the `main-pr-source-guard` CI job (`.github/workflows/ci.yml`), which fails any PR
+  to `main` whose head is not `develop`/`release/*`/`hotfix/*`. The flow is fixed: **feature→develop→main**.
 - `develop` is the integration branch. All feature work branches from `develop`. Direct commits to
   `develop` are also prohibited — branch first, then PR. (Both `main` and `develop` are protected;
   enforced by `.husky/pre-commit` and the `branch-guard` skill/hook.)
