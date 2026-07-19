@@ -15,14 +15,35 @@ function mockHost(): {
   host: IAgentJobHostContext;
   scheduled: ReturnType<typeof vi.fn>;
   monitor: ReturnType<typeof vi.fn>;
+  listSchedules: ReturnType<typeof vi.fn>;
+  pauseSchedule: ReturnType<typeof vi.fn>;
+  resumeSchedule: ReturnType<typeof vi.fn>;
+  editSchedule: ReturnType<typeof vi.fn>;
 } {
   const scheduled = vi.fn().mockResolvedValue({ id: 'task_sched' });
   const monitor = vi.fn().mockResolvedValue({ id: 'task_mon' });
+  const listSchedules = vi.fn().mockReturnValue([
+    {
+      id: 'sched_1',
+      status: 'sleeping',
+      label: 'daily',
+      kind: 'scheduled',
+      nextFireAt: '2030-01-01T00:00:00.000Z',
+      schedule: { cronExpression: '0 0 * * *' },
+    },
+  ]);
+  const pauseSchedule = vi.fn().mockResolvedValue(undefined);
+  const resumeSchedule = vi.fn().mockResolvedValue(undefined);
+  const editSchedule = vi.fn().mockResolvedValue(undefined);
   const host = {
     spawnScheduledWake: scheduled,
     spawnMonitorWake: monitor,
+    listSchedules,
+    pauseSchedule,
+    resumeSchedule,
+    editSchedule,
   } as unknown as IAgentJobHostContext;
-  return { host, scheduled, monitor };
+  return { host, scheduled, monitor, listSchedules, pauseSchedule, resumeSchedule, editSchedule };
 }
 
 describe('parseScheduleSpec (FLOW-005)', () => {
@@ -103,5 +124,64 @@ describe('executeScheduleCommand (FLOW-005)', () => {
         agentInstruction: 'fix the failure',
       }),
     );
+  });
+});
+
+// SELFHOST-012 TC-05: /schedule list|pause|resume|edit dispatch (mirror /background); create stays default.
+describe('executeScheduleCommand — management subcommands (SELFHOST-012)', () => {
+  it('list returns the caller schedules with cadence + status, no create', async () => {
+    const { host, listSchedules, scheduled } = mockHost();
+    const result = await executeScheduleCommand(host, 'list', Date.now());
+    expect(result.success).toBe(true);
+    expect(listSchedules).toHaveBeenCalledOnce();
+    expect(result.message).toContain('sched_1');
+    expect(result.message).toContain('[sleeping]');
+    expect(result.message).toContain('0 0 * * *');
+    expect(scheduled).not.toHaveBeenCalled(); // list is not a create
+  });
+
+  it('pause <id> / resume <id> dispatch to the host lifecycle calls', async () => {
+    const { host, pauseSchedule, resumeSchedule } = mockHost();
+    const paused = await executeScheduleCommand(host, 'pause sched_1', Date.now());
+    expect(paused.success).toBe(true);
+    expect(pauseSchedule).toHaveBeenCalledWith('sched_1');
+
+    const resumed = await executeScheduleCommand(host, 'resume sched_1', Date.now());
+    expect(resumed.success).toBe(true);
+    expect(resumeSchedule).toHaveBeenCalledWith('sched_1');
+  });
+
+  it('edit <id> <spec> parses the spec and patches the schedule', async () => {
+    const { host, editSchedule } = mockHost();
+    const result = await executeScheduleCommand(
+      host,
+      'edit sched_1 cron "*/5 * * * *" ping',
+      Date.now(),
+    );
+    expect(result.success).toBe(true);
+    expect(editSchedule).toHaveBeenCalledWith('sched_1', {
+      cronExpression: '*/5 * * * *',
+      agentInstruction: 'ping',
+    });
+  });
+
+  it('pause/resume/edit without an id is a usage error (no host call)', async () => {
+    const { host, pauseSchedule, editSchedule } = mockHost();
+    const p = await executeScheduleCommand(host, 'pause', Date.now());
+    expect(p.success).toBe(false);
+    expect(p.message).toContain('Usage:');
+    expect(pauseSchedule).not.toHaveBeenCalled();
+
+    const e = await executeScheduleCommand(host, 'edit sched_1', Date.now());
+    expect(e.success).toBe(false);
+    expect(editSchedule).not.toHaveBeenCalled();
+  });
+
+  it('a create spec (in/cron) still creates — subcommand keywords do not collide', async () => {
+    const { host, scheduled, pauseSchedule } = mockHost();
+    const result = await executeScheduleCommand(host, 'in 5m summarize', 0);
+    expect(result.success).toBe(true);
+    expect(scheduled).toHaveBeenCalledOnce();
+    expect(pauseSchedule).not.toHaveBeenCalled();
   });
 });
