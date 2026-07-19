@@ -73,7 +73,7 @@ export async function runEval(def: IEvalDefinition, runFn: TEvalRunFn): Promise<
   for (const evalCase of normalized.cases) {
     const result = await runFn(evalCase.input);
     const scores: IEvalMetricScore[] = normalized.metrics.map((metric) => {
-      const raw = metric.score(result);
+      const raw = metric.score(result, evalCase);
       return { metric: metric.name, score: raw, normalized: normalizeScore(raw) };
     });
     results.push({

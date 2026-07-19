@@ -21,7 +21,9 @@ import type { IExecutionResult } from '../interactive/types.js';
  */
 export interface IMetric {
   readonly name: string;
-  score(result: IExecutionResult): number | boolean;
+  // SELFHOST-011 P3: the eval CASE is threaded in (optional, backward-compatible — an existing `(result) => …`
+  // metric still satisfies this) so a per-case metric (e.g. `exactMatch()`) can read `evalCase.expected`.
+  score(result: IExecutionResult, evalCase?: IEvalCase): number | boolean;
 }
 
 /** One eval case: the prompt driven through the agent, plus an optional expected reference for a metric to use. */

@@ -20,16 +20,12 @@ import {
   createProviderFromSettings,
   createSessionRunFn,
   defineEval,
+  formatEvalReport,
   runEval,
 } from '@robota-sdk/agent-framework';
 import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider-defaults';
 
-import type {
-  IEvalCaseResult,
-  IEvalDefinition,
-  IEvalReport,
-  TEvalRunFn,
-} from '@robota-sdk/agent-framework';
+import type { IEvalDefinition, IEvalReport, TEvalRunFn } from '@robota-sdk/agent-framework';
 
 /** Injection seams so the exit-code contract test can run without a live provider (TC-03). */
 export interface IRunEvalDeps {
@@ -96,38 +92,7 @@ function buildDefaultRunFn(cwd: string): TEvalRunFn {
   const runtime = createAgentRuntime({ cwd, provider });
   return createSessionRunFn(runtime);
 }
-
-function formatScore(score: number | boolean): string {
-  if (typeof score === 'boolean') {
-    return score ? 'pass' : 'fail';
-  }
-  return score.toFixed(2);
-}
-
-/** Case-input display width in the report; longer inputs are elided with an ellipsis. */
-const INPUT_DISPLAY_WIDTH = 60;
-const ELLIPSIS = '...';
-
-function formatCase(result: IEvalCaseResult, index: number): string {
-  const perMetric = result.scores.map((s) => `${s.metric}=${formatScore(s.score)}`).join(', ');
-  const input =
-    result.input.length > INPUT_DISPLAY_WIDTH
-      ? `${result.input.slice(0, INPUT_DISPLAY_WIDTH - ELLIPSIS.length)}${ELLIPSIS}`
-      : result.input;
-  return `  case ${index + 1} [${result.caseScore.toFixed(2)}] ${input} — ${perMetric}`;
-}
-
-/** A compact human/CI-readable report (thin-shell presentation; a neutral SDK formatter is a P3 candidate). */
-function formatEvalReport(report: IEvalReport): string {
-  const lines = [report.name ? `Eval: ${report.name}` : 'Eval'];
-  report.results.forEach((result, index) => lines.push(formatCase(result, index)));
-  lines.push(
-    `Overall ${report.overallScore.toFixed(2)} vs threshold ${report.threshold.toFixed(2)} → ${
-      report.passed ? 'PASS' : 'FAIL'
-    }`,
-  );
-  return `${lines.join('\n')}\n`;
-}
+// SELFHOST-011 P3: the report is rendered by the shared SDK `formatEvalReport` (the CLI's private copy was removed).
 
 /**
  * Load a definition, run it, print the report, and return the CI exit code (`0` pass / `1` fail). A missing
