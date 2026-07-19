@@ -242,34 +242,34 @@ channel — no new transport, pairing, or wire protocol.
 
 ## Completion Criteria
 
-- [ ] TC-01: **round-trip serialize WITHOUT redaction is the fidelity floor** — `deserialize(serialize(record))`
+- [x] TC-01: **round-trip serialize WITHOUT redaction is the fidelity floor** — `deserialize(serialize(record))`
       (no `redact` transform) deep-equals the original `ISessionRecord` for a record exercising every field
       (`messages`/`history`/`goal`/`background*`/`memory*`/`contextReferences`/`sandboxSnapshotId`). This is the
       pure local round-trip and is **distinct from the redacted share path** (TC-07) — the two are never conflated
       (unit test).
-- [ ] TC-02: **schema-version guard** — an artifact with an unknown/incompatible schema version is rejected (or
+- [x] TC-02: **schema-version guard** — an artifact with an unknown/incompatible schema version is rejected (or
       adapted) rather than silently mis-imported; a same-version artifact imports cleanly (unit test).
-- [ ] TC-03: **imported artifact resumes** — importing an exported artifact into a target store and running the
+- [x] TC-03: **imported artifact resumes** — importing an exported artifact into a target store and running the
       existing `loadSessionRecord` path rehydrates `messages`/`history`/`goal` identically to a local `--resume` (unit
       test on the resume path; no new resume machinery introduced).
-- [ ] TC-04: **a shared artifact resumes on a second surface** — export from surface A's store, import into a
+- [x] TC-04: **a shared artifact resumes on a second surface** — export from surface A's store, import into a
       **distinct** surface B's store (different `baseDir`), and resume there; the resumed session's messages/history/goal
       match the source with both stores independent (functional test).
-- [ ] TC-05: **neutrality — sharing policy is NOT in `packages/` (mechanized grep floor)** — a `pnpm harness:scan`
+- [x] TC-05: **neutrality — sharing policy is NOT in `packages/` (mechanized grep floor)** — a `pnpm harness:scan`
       grep floor over `session-artifact.ts` asserts the envelope module contains no link/cloud/upload/access-control or
       redaction-**policy** tokens (it is pure serialize/deserialize + schema version + the app-supplied `redact` seam).
       This is a mechanical scan floor per enforcement-architecture, **not** a code-review promise.
-- [ ] TC-06: **complements, does not duplicate, REMOTE-001 (mechanized deps scan)** — a `deps`-style dependency-
+- [x] TC-06: **complements, does not duplicate, REMOTE-001 (mechanized deps scan)** — a `deps`-style dependency-
       direction scan asserts the artifact path (`session-artifact.ts` / `agent-session`) has **no** dependency edge to
       `agent-remote-pairing` or `agent-transport-webrtc`, so the export → import → resume path completes with no live
       channel (no pairing, no WebRTC/`SessionResumeBridge`) and both peers may be offline. Mechanical, not a design
       assertion.
-- [ ] TC-07: **export-for-share WITH an app-supplied `redact` transform strips trust-boundary fields** —
+- [x] TC-07: **export-for-share WITH an app-supplied `redact` transform strips trust-boundary fields** —
       `serialize(record, { redact })` with a transform that drops `cwd`/`sandboxSnapshotId` and composes the opt-in
       secret-scrub produces an artifact whose deserialized record has those fields absent/redacted (named secret keys →
       `[REDACTED]`), while the same record serialized WITHOUT `redact` retains them (TC-01). Proves the seam is opt-in
       and the share path is redactable without any library-side field policy (unit test).
-- [ ] TC-08: **a REDACTED share artifact still resumes on surface B (import-side rebinding of stripped required
+- [x] TC-08: **a REDACTED share artifact still resumes on surface B (import-side rebinding of stripped required
       fields).** Because `redact` may strip the **required** `cwd` field (and other surface-bound fields), the export →
       hand-off → import → resume-on-B path must not silently fail: the **import/app layer on surface B rebinds the
       stripped required fields (supplies B's own `cwd`)** before invoking the existing resume path. Assign this
@@ -296,7 +296,7 @@ channel — no new transport, pairing, or wire protocol.
 P1 = the neutral envelope primitive in `agent-session` + the reusable opt-in scrub + guard floors + resume-path
 reuse. App-surface sharing UI/policy is out of `packages/` (apps/).
 
-- **P1** — [`.agents/tasks/SELFHOST-014-P1.md`](../../tasks/SELFHOST-014-P1.md) (GATE-IMPLEMENT; in progress).
+- **P1 — DONE** (this branch): [`.agents/tasks/completed/SELFHOST-014-P1.md`](../../tasks/completed/SELFHOST-014-P1.md).
 
 ## Evidence Log
 
@@ -364,3 +364,30 @@ Tasks file created: `.agents/tasks/SELFHOST-014-P1.md` exists.
 Tasks file path recorded: referenced in `## Tasks` (P1 → `.agents/tasks/SELFHOST-014-P1.md`).
 Tasks map to Completion Criteria: slices S1 (scrub SSOT + logger refactor), S2 (envelope — TC-01/02/07), S3 (resume + second-surface + guards + docs — TC-03/04/05/06/08) cover all of TC-01..TC-08 (≥1 task per TC-N).
 Test Plan present: task file `## Test Plan` section enumerates TC-01..TC-08 + regression, well over the 50-char `test-plans` scan floor [AF-24].
+
+- 2026-07-19 — **[P1 IMPLEMENTED]** — the whole library slice over the EXISTING `ISessionRecord` (no new format;
+  async complement to REMOTE-001, no transport/pairing/wire):
+  - **Scrub SSOT** `agent-session/src/scrub-sensitive.ts` (`SENSITIVE_KEY_PATTERN` + `isSensitiveKey` +
+    `scrubSensitiveKeys`); `FileSessionLogger` refactored to consume `isSensitiveKey` (private pattern deleted),
+    redaction test preserved — exactly one sensitive-key definition.
+  - **Artifact envelope** `agent-session/src/session-artifact.ts` (record-transport sibling of `session-store.ts`):
+    `serializeSessionArtifact(record, {redact?})` (op1 full-fidelity round-trip / op2 export-for-share via an
+    app-supplied policy-free `redact`) + schema-version header + `deserializeSessionArtifact` (version guard).
+    Exported. **TC-01/02/07**.
+  - **Resume reused as-is** — import = `deserialize → store.save → existing loadSessionRecord` (**TC-03**,
+    agent-framework test); **TC-04** export A → import DISTINCT store B → resumes identically (independent stores);
+    **TC-08** redacted (strip cwd) → import → app rebinds B's cwd → resumes with content intact.
+  - **Guard floors** — `scan-session-artifact-neutrality.mjs` (registered; TC-05: no link/cloud/access/field-policy
+    token in the envelope code, comments exempt; +3 unit tests) + the `deps` scan (TC-06: agent-session has no edge
+    to `agent-remote-pairing`/`agent-transport-webrtc`).
+  - agent-session SPEC.md updated. Green: agent-session **117 tests**, agent-framework **1214**, typecheck, lint 0
+    errors, **59/59 harness scans**.
+- 2026-07-19 — **[AGENT-RUN VERIFIED]** (TC-04 + TC-08, capability-reachability rule) — ran the functional tests
+  proving the async share→resume across two INDEPENDENT stores (different baseDirs) with the source offline and
+  with redaction: export → hand-off → import on B → (rebind stripped cwd) → resume, `messages`/`history`/`goal`
+  intact. Evidence:
+  [`.agents/evals/scenarios/selfhost-014-session-artifact-agent-run.md`](../../evals/scenarios/selfhost-014-session-artifact-agent-run.md).
+  **All TC-01..08 satisfied.**
+- 2026-07-19 — **Epic scope close**: P1 (the neutral envelope + scrub SSOT + guard floors + resume reuse) COMPLETE
+  — the async durable shareable/resumable session artifact over the existing record. App-surface sharing UI/policy
+  is out of `packages/` by design (apps/). GATE-VERIFY → GATE-COMPLETE next.
