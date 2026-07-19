@@ -1,6 +1,6 @@
 ---
 title: 'HARNESS-031: harden the hook-catalog drift-guard (firing-leg + guide-table coverage)'
-status: todo
+status: done
 created: 2026-07-19
 priority: low
 urgency: later
@@ -31,6 +31,22 @@ PR #1228 review flagged two best-effort gaps (both CONSIDER, non-blocking — fi
 - Guide coverage: either extend `scan-hook-catalog.mjs` to also assert the guide table's event set matches the union,
   OR reduce the guide table to a link-only pointer to the `HOOK-CATALOG.md` SSOT (single catalog surface). The
   link-only option removes the second rot-prone surface entirely and is likely simpler.
+
+## Resolution (2026-07-19)
+
+Hardened `scan-hook-catalog.mjs` on both flagged legs (PR #1228 CONSIDERs):
+
+- **Firing leg scoped (Leg 1):** the `return '<Event>'` firing pattern (c) now counts ONLY within the
+  `getSubagentHookEvent` mapping function body (`extractFunctionBody` brace-match). A stray `return '<Event>'`
+  in an unrelated file can no longer satisfy the firing check and mask a deleted `runHooks`/`fire*Hook` call.
+- **Guide table covered (Leg 2):** added `parseGuideEventTable` (reads only the `| Event | Timing | …` table,
+  excluding the sibling permission-MODE table) + a guide↔union parity leg in `computeCatalogDrift`
+  (`guideEvents` optional; null ⇒ skip, back-compat). The exact drift SELFHOST-009 fixed (phantom
+  `Notification` + omissions) now FAILs the scan on either doc surface, not just `HOOK-CATALOG.md`.
+
+Tests: `scan-hook-catalog.test.mjs` extended to 19 (firing-scope stray-return negative, `extractFunctionBody`,
+`parseGuideEventTable` mode-table exclusion, guide-parity GREEN/RED-missing/RED-phantom/null-skip). Live scan +
+run-all-scans green.
 
 ## Notes
 

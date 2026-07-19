@@ -151,4 +151,16 @@ NEXT: SELFHOST-011 P2 (CLI gate + agent-run verification), then 012-014.
 
 ## ROADMAP COMPLETE — all 14 SELFHOST specs DONE (001–014)
 
-Every spec design-gated → implemented (commit-cadence) → HARNESS-018 async review → agent-run capability verification → GATE-VERIFY/COMPLETE → merged. Governance floors added: HARNESS-028/029/032, deployment-matrix + session-artifact-neutrality scans. Deferred backlog (surface-side follow-ups, NOT roadmap gaps): 003-P4, 008-P5, 010-P2/P3/P4, 011-P3/P4, 013 robota-deploy veneer; HARNESS-027/030/031/033/034. NEXT: owner direction.
+Every spec design-gated → implemented (commit-cadence) → HARNESS-018 async review → agent-run capability verification → GATE-VERIFY/COMPLETE → merged. Governance floors added: HARNESS-028/029/032, deployment-matrix + session-artifact-neutrality scans. Deferred backlog (surface-side follow-ups, NOT roadmap gaps): 003-P4, 008-P5, 010-P2/P3/P4, 011-P4, 013 robota-deploy veneer.
+
+## Post-roadmap backlog run (owner: "모든 남은 백로그들 중 너가 스스로 수행 가능한 것부터 우선순위대로 모두 끝까지 진행해" = standing GATE-APPROVAL sign-off for self-performable items)
+
+Priority-ordered, each via full gate + HARNESS-018 review + agent-run where applicable:
+
+- **HARNESS-027 DONE** (#1243): mechanical agent-tools dep-allowlist neutrality floor (`scan-agent-tools-neutrality.mjs`; union of dependencies/peer/optional; allowlist fast-glob/p-limit/zod). Closes SELFHOST-010-P4.
+- **SELFHOST-011-P3 DONE** (#1244): neutral metric helpers (`metric-helpers.ts`) + `IMetric.score(result, evalCase?)` per-case extension + `dataset.ts` parser + `format.ts` shared formatter. 2 CONSIDER applied (stateless regexMatch; parseEvalCases throws on non-string expected). P4 still todo.
+- **CLI-076 DONE** (#1245): headless `--model` was silently substituted (No-Fallback violation) — print/TUI/serve channels never forwarded the resolved model into `buildRuntimeSession`. Fix threads `modelId` (header SSOT) into the session across all 3 channels; invalid model now surfaces the provider 404 (exit 1); header==actual. AGENT-RUN verified (live API). No client-side allowlist.
+- **HARNESS-034 DONE** (#1246): mechanical evals-neutrality floor (`scan-evals-neutrality.mjs`) — Class 1 dataset/corpus data files + Class 2 concrete metric/definition VALUE exports; neutral type/factory surface not matched. Closes SELFHOST-011 P2 TC-05. 2 CONSIDER applied (corpus marker; disk-walk positive test).
+- **HARNESS-031 DONE** (#pending): hardened the SELFHOST-009 hook-catalog drift-guard — firing leg (`return '<Event>'`) scoped to the `getSubagentHookEvent` body (stray literal can't mask drift) + user-guide Event/Timing table added to the union-parity check (2nd rot-prone surface guarded).
+
+Harness-floor PRs touching `run-all-scans.mjs` MUST serialize; scan-file-only edits (HARNESS-031) don't conflict. NEXT self-performable in priority order: HARNESS-033 (fake-in-src sweep), SEC-001 (default loopback WS auth), HARNESS-030 (capability-reachability floor). NOT self-performable: PM-_/REL-_, GUI/RUNTIME/WORKFLOW owner-decision items.
