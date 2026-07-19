@@ -15,7 +15,9 @@ exit-code gate + example + agent-run verification) are DONE and closed the epic'
 consciously-deferred slices remain (mirrors the SELFHOST-003-P4 / SELFHOST-008-P5 / SELFHOST-010-P2 deferral
 pattern — no neutral-library gap remains for v1):
 
-## P3 — optional neutral metric helpers + dataset-file loader
+## P3 — DONE (spec-docs/done/SELFHOST-011-P3-evals-helpers.md, 2026-07-19)
+
+## P3 (original) — optional neutral metric helpers + dataset-file loader
 
 - Ship **mechanism-only** neutral metric helpers (e.g. `exactMatch`, `jsonSchemaMatch`, `regexMatch`) — pure
   functions over `IExecutionResult`/`response`, **no domain content**. They must stay neutral: no opinionated

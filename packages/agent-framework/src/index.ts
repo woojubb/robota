@@ -343,6 +343,15 @@ export type {
 
 // ── Evals ─────────────────────────────────────────────────
 export { defineEval, runEval, createSessionRunFn } from './evals/index.js';
+export {
+  exactMatch,
+  includesText,
+  regexMatch,
+  responseIsJson,
+  usedTool,
+  parseEvalCases,
+  formatEvalReport,
+} from './evals/index.js';
 export type {
   IEvalCase,
   IEvalCaseResult,
