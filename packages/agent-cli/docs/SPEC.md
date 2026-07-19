@@ -364,6 +364,43 @@ The selected preset id is also passed to the session as runtime active-preset st
 (`ISessionOptions.activePresetId`, see the agent-session SPEC). An unknown `--preset <id>` is terminal:
 the CLI surfaces the available preset list and exits.
 
+### Durable Memory Enablement (SELFHOST-008 P6)
+
+The neutral durable-memory pipeline (auto-capture P2 + per-turn recall P3, in `@robota-sdk/agent-framework`)
+is **adapter-gated OFF by default**. The CLI is the surface that turns it on: it owns the enablement
+DECISION, the policy default, and the recall/retrieval budget — the library carries no enablement config,
+prompt, or content (HARNESS-029 memory-neutrality).
+
+- **One user-facing switch, default OFF (opt-in).** `src/startup/memory-enablement.ts` resolves a single
+  `memory` switch with precedence (lowest → highest):
+  1. `settings.json` `memory.enabled` (SSOT) — the agent-cli-owned `IMemorySettings`
+     (`{ enabled?: boolean; autoSave?: boolean }`), read from the raw settings record by
+     `readMemorySettings()` (unknown keys ignored, never a throw).
+  2. `--memory` / `--no-memory` CLI flag (tri-state `IParsedCliArgs.memory`; `--no-memory` wins if both).
+  3. `ROBOTA_MEMORY=1|0` env — the CI/scripting escape hatch; **env wins over settings and flag**.
+
+  Absent everywhere ⇒ OFF ⇒ **no memory options are injected** (exactly today's behavior).
+
+- **When ON**, `buildMemorySessionOptions()` produces the session option fields
+  `{ memoryStore: createFileSystemMemoryStore(cwd), recallMemory: { budget }, automaticMemory: { policy, retrieval: budget } }`
+  with a default budget `{ maxTopics: 5, maxTopicChars: 2000 }`. Capture + recall are enabled **together**
+  (one switch). The capture policy defaults to `approval_required` (candidates are queued, not saved);
+  `memory.autoSave: true` (settings) or `--memory-autosave` flips it to `auto_save`.
+
+- **Wiring.** The switch is resolved once in `src/cli.ts` and the resolved `IMemorySessionOptions` are
+  threaded into all three construction sites — `runPrintMode` (→ `HeadlessInteractionChannel`),
+  `runServeMode` (merged into `sessionOptions`), and `renderApp` (→ `TuiInteractionChannel`) — each of which
+  forwards the fields into `buildRuntimeSession` only when present. `buildRuntimeSession` and the neutral
+  memory library are unchanged.
+
+- **Scope = repo/project.** The fs reference store persists to `<cwd>/.robota/memory/`, so a fact captured
+  in one invocation is available to a later invocation in the same repo (cross-session recall).
+
+- **Consent + observability.** No blocking prompt for the local store; a concise **one-time enable notice**
+  is printed to stderr on first enable (what/where/how-to-disable). The store is plain-markdown and
+  inspectable via the existing `/memory` command (list / pending / approve); recalled memory is rendered
+  into the turn as a distinct `<recalled-memory>` block (P3).
+
 ### Transport Registry
 
 The CLI assembles a `TransportRegistry` (the generic registry class is owned by
@@ -920,6 +957,8 @@ src/
 │   ├── print-mode.ts                             ← Headless/print mode runner (-p flag); uses HeadlessInteractionChannel
 ├── session-analyzer/
 │   └── session-analyze-command.ts                ← `robota session analyze` — thin wiring: loads records via framework session stores, delegates analysis/formatting to `@robota-sdk/agent-session-analytics`
+├── eval/
+│   └── eval-command.ts                           ← `robota eval <definition>` (SELFHOST-011) — thin wiring: loads a consumer eval definition, builds the default runFn from the resolved provider (`createSessionRunFn`), delegates scoring to `@robota-sdk/agent-framework` `runEval`; returns exit 0 (pass) / 1 (metric breach) — the CI gate
 └── startup/
     ├── append-system-prompt.ts                   ← Builds appendSystemPrompt string from session options
     ├── command-setup.ts                           ← buildCommandSetup() — command modules, adapters, provider definitions
@@ -932,11 +971,14 @@ src/
     └── version.ts                                 ← readVersion() — reads package.json version
 ```
 
-All pre-session commands (`init`, `diagnose`, `session analyze`, `user-local`, `--help`,
+All pre-session commands (`init`, `diagnose`, `session analyze`, `eval`, `user-local`, `--help`,
 `--version`, `--check-update`, `--reset`, `--configure`) are dispatched inline by `startCli()` in
-`src/cli.ts` — the composition root owns the single dispatch table. In the TUI path, `startCli()`
-emits the macOS Terminal.app warning and the first-run welcome banner (creating the onboarded
-marker) immediately before `renderApp()`.
+`src/cli.ts` — the composition root owns the single dispatch table. `eval` (like `session analyze`) is
+intercepted on `process.argv` before the strict global `parseCliArgs()` because it carries a definition path
+
+- `--threshold` the global parser would reject; its returned count maps to `process.exitCode` (0/1). In the TUI path, `startCli()`
+  emits the macOS Terminal.app warning and the first-run welcome banner (creating the onboarded
+  marker) immediately before `renderApp()`.
 
 **Note:** `print-terminal.ts` and `types.ts` have been removed from `src/`. `ITerminalOutput` and
 `ISpinner` are owned by `@robota-sdk/agent-core`; import them directly from that package. All Ink
@@ -952,6 +994,7 @@ adapters, and settings/provider utilities.
 robota                               # Interactive TUI
 robota init                          # Initialize project (AGENTS.md + .robota/settings.json)
 robota diagnose                      # Check setup and print diagnostics
+robota eval ./my-eval.mjs            # Run an evals-as-code definition; exit 1 on a metric breach (CI gate)
 robota -p "prompt"                   # Print mode (one-shot)
 robota -c                            # Continue last session (most recent by cwd)
 robota --continue                    # Same as -c

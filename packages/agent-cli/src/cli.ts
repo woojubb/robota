@@ -47,6 +47,7 @@ import { createGitWorktreeIsolationAdapter } from './subagents/git-worktree-isol
 import { reloadPluginCommandSource } from '@robota-sdk/agent-command';
 import { runUserLocalDirectCommandIfRequested } from './user-local-direct-command.js';
 import { runSessionAnalyze } from './session-analyzer/session-analyze-command.js';
+import { runEvalCommand } from './eval/eval-command.js';
 import { readVersion } from './startup/version.js';
 import { runResetConfig } from './startup/reset-config.js';
 import { runDiagnoseCommand } from './startup/diagnose-command.js';
@@ -57,6 +58,12 @@ import type { IStartCliOptions } from './startup/command-setup.js';
 import { buildCommandSetup } from './startup/command-setup.js';
 import { runPrintMode } from './modes/print-mode.js';
 import { runServeMode } from './modes/serve-mode.js';
+import {
+  buildMemorySessionOptions,
+  printMemoryEnableNoticeOnce,
+  readMemorySettings,
+  resolveMemoryEnablement,
+} from './startup/memory-enablement.js';
 
 export type { IStartCliOptions };
 
@@ -85,7 +92,10 @@ function loadReplayProvider(logFile: string): IAIProvider {
   return mod.createReplayProviderFromLogFile(logFile);
 }
 
-function createDefaultTransportRegistry(): TransportRegistry {
+function createDefaultTransportRegistry(): {
+  registry: TransportRegistry;
+  wsTransport: WsTransport;
+} {
   const registry = new TransportRegistry(getUserSettingsPath());
   // GUI-002: when a host (e.g. the agent-gui Electron shell) spawns this CLI as a loopback sidecar, it
   // passes ROBOTA_WS_TOKEN (a per-launch nonce) + optional ROBOTA_WS_PORT via env. The token makes the WS
@@ -94,13 +104,14 @@ function createDefaultTransportRegistry(): TransportRegistry {
   const wsToken = process.env['ROBOTA_WS_TOKEN'];
   const wsPortRaw = process.env['ROBOTA_WS_PORT'];
   const wsPort = wsPortRaw ? Number.parseInt(wsPortRaw, 10) : undefined;
-  registry.register(
-    new WsTransport({
-      ...(wsToken ? { token: wsToken } : {}),
-      ...(wsPort !== undefined && Number.isInteger(wsPort) ? { port: wsPort } : {}),
-    }),
-  );
-  return registry;
+  const wsTransport = new WsTransport({
+    ...(wsToken ? { token: wsToken } : {}),
+    ...(wsPort !== undefined && Number.isInteger(wsPort) ? { port: wsPort } : {}),
+  });
+  registry.register(wsTransport);
+  // GUI-007: return the WS transport so `--serve --open` can read its `boundPort` to point the served
+  // monitor's `ws-url` at the actual port.
+  return { registry, wsTransport };
 }
 
 export async function startCli(options: IStartCliOptions = {}): Promise<void> {
@@ -109,6 +120,14 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   // the subcommand instead of being rejected as "Unknown option".
   if (process.argv[2] === 'session' && process.argv[3] === 'analyze') {
     await runSessionAnalyze(process.argv.slice(4), process.cwd());
+    return;
+  }
+
+  // SELFHOST-011: `robota eval <definition>` carries a file path + `--threshold` the strict global parser
+  // would reject. Intercept it BEFORE parseCliArgs() (like `session analyze`); the returned count maps to the
+  // CI exit code (0 = pass, 1 = fail — mirrors `robota diagnose`).
+  if (process.argv[2] === 'eval') {
+    process.exitCode = await runEvalCommand(process.argv.slice(3), process.cwd());
     return;
   }
 
@@ -159,6 +178,13 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     // Exit contract (CLI-067): 0 = no issues, 1 = one or more failed checks.
     const failCount = await runDiagnoseCommand({ version, terminal, cwd });
     process.exitCode = failCount > 0 ? 1 : 0;
+    return;
+  }
+
+  if (args.positional[0] === 'eval') {
+    // Normally unreachable — the pre-parse interceptor above handles `eval`.
+    // Kept as a defensive fallthrough for non-argv invocations.
+    process.exitCode = await runEvalCommand(process.argv.slice(3), cwd);
     return;
   }
 
@@ -222,7 +248,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   // REMOTE-008: the composition root owns the transport registry + the remote-control controller (it has
   // settings, the registry, and — via onChannelReady — the live session). The `/remote-control` command is
   // a declarative trigger; the enable/stop wiring + status view are assembled here.
-  const transportRegistry = createDefaultTransportRegistry();
+  const { registry: transportRegistry, wsTransport } = createDefaultTransportRegistry();
   const { controller: remoteControlController, setChannel: setRemoteControlChannel } =
     createRemoteControlController(transportRegistry);
   commandHostAdapters.remoteControl = {
@@ -327,6 +353,18 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     }
   }
 
+  // SELFHOST-008 P6: resolve the one memory switch (default OFF, opt-in) once and thread the resolved
+  // fields into every construction site (print/serve/TUI). settings.json memory.enabled (SSOT) ←
+  // --memory/--no-memory ← ROBOTA_MEMORY=1|0 (env wins). Disabled ⇒ {} injects nothing (today's behavior).
+  const memoryEnablement = resolveMemoryEnablement({
+    settings: readMemorySettings(userSettings),
+    flagEnabled: args.memory,
+    flagAutoSave: args.memoryAutoSave,
+    env: process.env['ROBOTA_MEMORY'],
+  });
+  const memorySessionOptions = buildMemorySessionOptions(memoryEnablement, cwd);
+  if (memoryEnablement.enabled) printMemoryEnableNoticeOnce(cwd);
+
   // GOAL-001: --goal runs an autonomous headless goal even without an explicit -p.
   if (args.printMode || args.goal) {
     await runPrintMode(
@@ -340,6 +378,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
       commandHostAdapters,
       { resumeSessionId, forkSession: args.forkSession },
       {
+        model: modelId,
         agentName: resolvedPreset.agentName ?? DEFAULT_AGENT_NAME,
         activePresetId: selectedPresetId,
         persona: resolvedPreset.persona,
@@ -353,6 +392,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
           ? { selfVerification: resolvedPreset.selfVerification }
           : {}),
       },
+      memorySessionOptions,
     );
     return;
   }
@@ -372,8 +412,18 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
       commandModules,
       commandHostAdapters,
       transportRegistry,
+      // GUI-007 + SEC-001: point the served monitor at the live WS port AND carry the resolved auth token in
+      // the `ws-url` (`?token=`) — zero-config authentication for the CLI's own localhost-origin monitor.
+      getMonitorWsUrl: () => {
+        if (wsTransport.boundPort === undefined) return undefined;
+        const base = `ws://127.0.0.1:${wsTransport.boundPort}`;
+        return wsTransport.resolvedToken
+          ? `${base}?token=${encodeURIComponent(wsTransport.resolvedToken)}`
+          : base;
+      },
       ...(remoteCommandPolicy ? { remoteCommandPolicy } : {}),
       resumeSessionId,
+      model: modelId,
       preset: {
         agentName: resolvedPreset.agentName ?? DEFAULT_AGENT_NAME,
         activePresetId: selectedPresetId,
@@ -388,6 +438,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
           ? { selfVerification: resolvedPreset.selfVerification }
           : {}),
       },
+      memorySessionOptions,
     });
     return;
   }
@@ -437,6 +488,8 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     transportRegistry,
     enableRemoteControl: () => remoteControlController.enable(),
     stopRemoteControl: () => remoteControlController.stop(),
+    // SELFHOST-008 P6: surface-resolved memory fields (empty ⇒ memory OFF, today's behavior).
+    ...memorySessionOptions,
     cliAdapter: createDefaultTuiCliAdapter({ providerDefinitions, reloadPluginCommandSource }),
     reloadPluginCommandSource,
     agentName: resolvedPreset.agentName ?? DEFAULT_AGENT_NAME,

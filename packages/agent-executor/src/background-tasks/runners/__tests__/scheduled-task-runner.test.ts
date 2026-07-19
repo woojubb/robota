@@ -144,6 +144,117 @@ describe('createScheduledTaskRunner', () => {
     TEST_TIMEOUT_MS,
   );
 
+  // SELFHOST-012 TC-02: a paused schedule does not fire, and resumes correctly with the same task id.
+  it(
+    'does not fire while paused (croner .pause(), not .stop()) and fires again after resume',
+    async () => {
+      const runner = createScheduledTaskRunner();
+      const emitted: TBackgroundTaskRunnerEvent[] = [];
+      // Agent-wake-only every-second schedule: each fire emits a `waking` event (no child process).
+      const task: IBackgroundTaskStart = {
+        taskId: 'sched_pause_1',
+        request: {
+          kind: 'scheduled',
+          cronExpression: '* * * * * *',
+          agentInstruction: 'wake',
+          label: 'paused-schedule',
+          mode: 'background',
+          parentSessionId: 'session_1',
+          depth: 0,
+          cwd: process.cwd(),
+        },
+        emit: (e) => emitted.push(e),
+      };
+      const handle = runner.start(task);
+      if (!handle.pause || !handle.resume) throw new Error('pause/resume should be supported');
+
+      // Pause immediately, before any tick, then let 2+ scheduled ticks pass.
+      await handle.pause();
+      await new Promise((r) => setTimeout(r, 2200));
+      const wakesWhilePaused = emitted.filter((e) => e.type === 'background_task_waking').length;
+      expect(wakesWhilePaused).toBe(0); // zero fires while paused — asserted by absence of wakes, not a flag
+
+      // Resume and observe it fire again — same task identity.
+      await handle.resume();
+      await new Promise((r) => setTimeout(r, 2200));
+      const wakesAfterResume = emitted.filter((e) => e.type === 'background_task_waking').length;
+      expect(wakesAfterResume).toBeGreaterThanOrEqual(1);
+      expect(handle.taskId).toBe('sched_pause_1');
+
+      await handle.cancel();
+    },
+    TEST_TIMEOUT_MS,
+  );
+
+  // SELFHOST-012 TC-03: edit re-arms the schedule in place (same task id) with the new cadence.
+  it('edits a schedule in place — new cadence applies, same task id', async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date('2026-01-01T00:00:30.000Z'));
+      const runner = createScheduledTaskRunner();
+      const emitted: TBackgroundTaskRunnerEvent[] = [];
+      const task = makeScheduledTask('0 * * * *', 'echo hi', (e) => emitted.push(e)); // hourly
+      const handle = runner.start(task);
+      if (!handle.editSchedule) throw new Error('editSchedule should be supported');
+
+      // Initial hourly cadence → next fire at the top of the next hour.
+      const firstSleeping = emitted.find((e) => e.type === 'background_task_sleeping');
+      expect(firstSleeping?.type === 'background_task_sleeping' && firstSleeping.nextFireAt).toBe(
+        '2026-01-01T01:00:00.000Z',
+      );
+
+      // Re-arm to every-minute: the new cadence takes effect and the task id is unchanged.
+      await handle.editSchedule({ cronExpression: '* * * * *' });
+      const lastSleeping = [...emitted]
+        .reverse()
+        .find((e) => e.type === 'background_task_sleeping');
+      expect(lastSleeping?.type === 'background_task_sleeping' && lastSleeping.nextFireAt).toBe(
+        '2026-01-01T00:01:00.000Z',
+      );
+      expect(handle.taskId).toBe('sched_1');
+
+      await handle.cancel();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // SELFHOST-012 (review CONSIDER): editing while paused re-pauses the rebuilt job and emits no sleeping while
+  // paused; resuming then announces the NEW cadence. Locks in the `if (state.paused)` re-pause + no-emit guards.
+  it('edit while paused stays paused (no sleeping emit) and resumes with the new cadence', async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date('2026-01-01T00:00:30.000Z'));
+      const runner = createScheduledTaskRunner();
+      const emitted: TBackgroundTaskRunnerEvent[] = [];
+      const handle = runner.start(
+        makeScheduledTask('0 * * * *', 'echo hi', (e) => emitted.push(e)),
+      );
+      if (!handle.pause || !handle.resume || !handle.editSchedule) {
+        throw new Error('lifecycle methods should be supported');
+      }
+
+      await handle.pause();
+      const beforeEdit = emitted.filter((e) => e.type === 'background_task_sleeping').length;
+      await handle.editSchedule({ cronExpression: '* * * * *' }); // every-minute
+      const afterEdit = emitted.filter((e) => e.type === 'background_task_sleeping').length;
+      expect(afterEdit).toBe(beforeEdit); // no sleeping emitted while paused
+
+      await handle.resume();
+      const lastSleeping = [...emitted]
+        .reverse()
+        .find((e) => e.type === 'background_task_sleeping');
+      // resumed → the NEW every-minute cadence's next fire, not the original hourly one
+      expect(lastSleeping?.type === 'background_task_sleeping' && lastSleeping.nextFireAt).toBe(
+        '2026-01-01T00:01:00.000Z',
+      );
+
+      await handle.cancel();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it(
     'resolves result promise when cancelled',
     async () => {

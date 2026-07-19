@@ -20,6 +20,8 @@ import type {
   IRemoteCommandPolicy,
 } from '../commands/index.js';
 import type { IResolvedConfig } from '../config/config-types.js';
+import type { IAutomaticMemoryConfig } from '../memory/automatic-memory-types.js';
+import type { IMemoryStore, IPerTurnRecallConfig } from '../memory/types.js';
 import type { IReversibleExecutionOptions } from '../reversible-execution/index.js';
 import type { TSubagentRunnerFactory } from '../subagents/index.js';
 import type { TShellExecFn } from '../utils/skill-prompt.js';
@@ -103,6 +105,23 @@ export interface IInteractiveSessionStandardOptions {
   reversibleExecution?: IReversibleExecutionOptions;
   /** Optional provider sandbox client used by sandbox-aware built-in tools. */
   sandboxClient?: ISandboxClient;
+  /**
+   * SELFHOST-008: optional durable-memory store injected by the surface. Threads to startup-memory
+   * injection; absent, the neutral filesystem reference adapter is the default (memory unchanged).
+   */
+  memoryStore?: IMemoryStore;
+  /**
+   * SELFHOST-008 P2: optional automatic post-turn memory-capture policy. When present, the dormant
+   * capture pipeline is wired into the live turn (awaited in the controller's finally before persist),
+   * gated by this policy (default reference policy = approval_required = queue). Absent ⇒ capture OFF.
+   */
+  automaticMemory?: IAutomaticMemoryConfig;
+  /**
+   * SELFHOST-008 P3: optional per-turn durable-memory recall policy. When present, each turn recalls
+   * query-relevant memory (query = the turn input) and injects it EPHEMERALLY into that turn's model call
+   * (never persisted). Absent ⇒ recall OFF (startup-only injection, unchanged). The budget is surface-owned.
+   */
+  recallMemory?: IPerTurnRecallConfig;
   /** Fresh-session workspace manifest applied through the sandbox client. */
   workspaceManifest?: IWorkspaceManifest;
   /** Sandbox target root for workspace manifest entries. Defaults to /workspace. */
@@ -210,6 +229,11 @@ export interface IInitOptions {
   reversibleExecution?: IReversibleExecutionOptions;
   /** Optional provider sandbox client used by sandbox-aware built-in tools. */
   sandboxClient?: ISandboxClient;
+  /**
+   * SELFHOST-008: optional durable-memory store. When present, startup-memory injection reads through
+   * it; absent, the neutral filesystem reference adapter is the default (memory works unchanged).
+   */
+  memoryStore?: IMemoryStore;
   /** Fresh-session workspace manifest applied through the sandbox client. */
   workspaceManifest?: IWorkspaceManifest;
   /** Sandbox target root for workspace manifest entries. Defaults to /workspace. */

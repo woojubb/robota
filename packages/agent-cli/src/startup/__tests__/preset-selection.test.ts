@@ -11,6 +11,7 @@ function makeArgs(overrides: Partial<IParsedCliArgs> = {}): IParsedCliArgs {
     help: false,
     printMode: false,
     serve: false,
+    open: false,
     continueMode: false,
     resumeId: undefined,
     language: undefined,
@@ -50,6 +51,8 @@ function makeArgs(overrides: Partial<IParsedCliArgs> = {}): IParsedCliArgs {
     disableUpdateCheck: false,
     dryRun: false,
     yes: false,
+    memory: undefined,
+    memoryAutoSave: false,
     ...overrides,
   };
 }

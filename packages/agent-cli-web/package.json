@@ -1,0 +1,30 @@
+{
+  "name": "@robota-sdk/agent-cli-web",
+  "version": "3.0.0-beta.79",
+  "private": true,
+  "description": "agent-cli-web — the CLI's built-in web monitor SPA (Vite). A minimal localhost-WS session monitor (index.html → SessionMonitor from the shared GUI core). agent-cli builds this package's dist/ and serves it over localhost HTTP (GUI-007). Not a deployable app — a CLI-owned product shell.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test:e2e": "node e2e/run-smoke.mjs",
+    "lint": "eslint . --max-warnings 0"
+  },
+  "dependencies": {
+    "@robota-sdk/agent-transport-gui": "workspace:*",
+    "react": "19.2.4",
+    "react-dom": "19.2.4"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.0",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^4.7.0",
+    "playwright": "^1.49.1",
+    "tailwindcss": "^4.3.0",
+    "typescript": "^5.9.3",
+    "vite": "^6.0.7"
+  }
+}

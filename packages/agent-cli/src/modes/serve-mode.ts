@@ -8,9 +8,16 @@
  */
 
 import { parseToolList } from '../utils/cli-args.js';
+import {
+  openInBrowser,
+  resolveWebRoot,
+  startMonitorUiServer,
+  type IMonitorUiServer,
+} from './serve-monitor-ui.js';
 import { startRuntimeHost } from '@robota-sdk/agent-framework';
 
 import type { IParsedCliArgs } from '../utils/cli-args.js';
+import type { IMemorySessionOptions } from '../startup/memory-enablement.js';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 import type {
   IBackgroundTaskRunner,
@@ -48,7 +55,20 @@ export interface IServeModeOptions {
   transportRegistry: ITransportRegistryView<IInteractiveSession>;
   remoteCommandPolicy?: IRemoteCommandPolicy;
   resumeSessionId?: string;
+  /**
+   * CLI-076: the resolved model id. Forwarded to the runtime session so an explicit `--model` override
+   * reaches the provider chat call instead of being silently replaced by the session's default model.
+   */
+  model?: string;
   preset: IServeModePresetOptions;
+  /** SELFHOST-008 P6: surface-resolved memory fields (empty ⇒ memory OFF, today's behavior). */
+  memorySessionOptions?: IMemorySessionOptions;
+  /**
+   * GUI-007: resolve the live WS URL for the served monitor (`ws://127.0.0.1:<boundPort>`), read AFTER the
+   * host has started (the port is only known once the WS transport binds). Absent ⇒ the monitor UI is not
+   * served. The CLI composition root builds this from the registered `WsTransport.boundPort`.
+   */
+  getMonitorWsUrl?: () => string | undefined;
 }
 
 /**
@@ -60,6 +80,8 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
   const sessionOptions: TInteractiveSessionOptions = {
     cwd: opts.cwd,
     provider: opts.provider,
+    // CLI-076: forward the resolved model so `--model` takes effect in the served runtime session.
+    ...(opts.model !== undefined ? { model: opts.model } : {}),
     permissionMode: args.permissionMode ?? preset.permissionMode,
     maxTurns: args.maxTurns,
     sessionStore: args.noSessionPersistence ? undefined : opts.sessionStore,
@@ -82,6 +104,8 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
       ? { enableParallelSubagents: preset.enableParallelSubagents }
       : {}),
     ...(preset.selfVerification !== undefined ? { selfVerification: preset.selfVerification } : {}),
+    // SELFHOST-008 P6: surface-resolved memory fields (empty ⇒ memory OFF, today's behavior).
+    ...(opts.memorySessionOptions ?? {}),
   };
 
   const host = await startRuntimeHost({
@@ -89,13 +113,32 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
     transportRegistry: opts.transportRegistry,
   });
 
+  // GUI-007: with `--serve --open`, the CLI serves its OWN monitor SPA over localhost HTTP (a localhost-origin
+  // surface) and opens it — gated on `--open` so the GUI sidecar's plain `--serve` path is unaffected. The WS
+  // URL is resolved AFTER the host started (the bound port is only known then).
+  let monitorUi: IMonitorUiServer | null = null;
+  if (args.open) {
+    const wsUrl = opts.getMonitorWsUrl?.();
+    const webRoot = resolveWebRoot();
+    if (wsUrl && webRoot) {
+      monitorUi = await startMonitorUiServer(webRoot, wsUrl);
+      process.stdout.write(`Web monitor: ${monitorUi.url}\n`);
+      openInBrowser(monitorUi.url);
+    } else if (!webRoot) {
+      process.stderr.write('Web monitor assets not found (dist/web) — run a full CLI build.\n');
+    }
+  }
+
   // Stay alive until the supervisor (e.g. apps/agent-app on window close) signals; then tear down cleanly.
   await new Promise<void>((resolve) => {
     let settling = false;
     const onSignal = (signal: NodeJS.Signals): void => {
       if (settling) return;
       settling = true;
-      void host.shutdown(`received ${signal}`).finally(() => resolve());
+      void Promise.resolve(monitorUi?.close())
+        .catch(() => {})
+        .then(() => host.shutdown(`received ${signal}`))
+        .finally(() => resolve());
     };
     process.once('SIGTERM', onSignal);
     process.once('SIGINT', onSignal);

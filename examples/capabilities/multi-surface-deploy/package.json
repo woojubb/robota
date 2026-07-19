@@ -1,0 +1,26 @@
+{
+  "name": "robota-capability-multi-surface-deploy",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Robota capability demo — one agent definition served over many channels (WS + HTTP) via the transport registry, no gateway",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@robota-sdk/agent-framework": "^3.0.0-beta.67",
+    "@robota-sdk/agent-provider-anthropic": "^3.0.0-beta.67",
+    "@robota-sdk/agent-transport": "^3.0.0-beta.67",
+    "@robota-sdk/agent-transport-http": "^3.0.0-beta.67",
+    "@robota-sdk/agent-transport-ws": "^3.0.0-beta.67"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.6.0",
+    "typescript": "^5.5.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

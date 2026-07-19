@@ -30,6 +30,11 @@ import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type { Session } from '@robota-sdk/agent-session';
 
 export interface IPromptTurnContext {
+  /**
+   * SELFHOST-008 P3: an EPHEMERAL per-turn system block (rendered recalled memory) to include in THIS
+   * turn's model call only — passed through to `session.run` and never persisted. Absent ⇒ no injection.
+   */
+  ephemeralSystemContext?: string;
   getSession: () => Session;
   getCwd: () => string;
   getHistory: () => IHistoryEntry[];
@@ -80,9 +85,14 @@ export async function executePromptTurn(
     ctx.recordPromptContextReferences(preparedPrompt.promptFileReferenceRecords);
 
     await ctx.beginEditCheckpointTurn(displayInput ?? input);
-    const response = await ctx
-      .getSession()
-      .run(preparedPrompt.modelInput, preparedPrompt.hookInput);
+    // SELFHOST-008 P3: pass the ephemeral recall block only when present, preserving the 2-arg call shape
+    // for the (dominant) no-recall path so existing run() call contracts are unchanged.
+    const response =
+      ctx.ephemeralSystemContext !== undefined
+        ? await ctx.getSession().run(preparedPrompt.modelInput, preparedPrompt.hookInput, {
+            ephemeralSystemContext: ctx.ephemeralSystemContext,
+          })
+        : await ctx.getSession().run(preparedPrompt.modelInput, preparedPrompt.hookInput);
     ctx.flushStreaming();
     pushToolSummaryToHistory({ activeTools: ctx.getActiveTools(), history });
     ctx.clearStreaming();

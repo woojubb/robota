@@ -21,12 +21,14 @@ Fully-typed TypeScript examples showing how to embed `@robota-sdk` into your own
 Focused, runnable examples under [`capabilities/`](./capabilities/) that each isolate one SDK
 capability. Each has its own README and `npm run dev` (`tsx src/index.ts`) script.
 
-| Directory                                                                              | Highlights                                            |
-| -------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| [`capabilities/decision-agent/`](./capabilities/decision-agent/)                       | Structured decision output from an agent turn         |
-| [`capabilities/streaming/`](./capabilities/streaming/)                                 | Token-level streaming of assistant text               |
-| [`capabilities/stateless-turns/`](./capabilities/stateless-turns/)                     | Independent, stateless single-turn queries            |
-| [`capabilities/openai-compatible-gateway/`](./capabilities/openai-compatible-gateway/) | Routing through an OpenAI-compatible gateway endpoint |
+| Directory                                                                              | Highlights                                                             |
+| -------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| [`capabilities/decision-agent/`](./capabilities/decision-agent/)                       | Structured decision output from an agent turn                          |
+| [`capabilities/streaming/`](./capabilities/streaming/)                                 | Token-level streaming of assistant text                                |
+| [`capabilities/stateless-turns/`](./capabilities/stateless-turns/)                     | Independent, stateless single-turn queries                             |
+| [`capabilities/openai-compatible-gateway/`](./capabilities/openai-compatible-gateway/) | Routing through an OpenAI-compatible gateway endpoint                  |
+| [`capabilities/agent-eval/`](./capabilities/agent-eval/)                               | Evals-as-code: metrics over an agent's runs, CI-gated                  |
+| [`capabilities/multi-surface-deploy/`](./capabilities/multi-surface-deploy/)           | One agent definition served over many channels (WS + HTTP), no gateway |
 
 ## Prerequisites
 

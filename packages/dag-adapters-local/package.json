@@ -6,6 +6,13 @@
   "type": "module",
   "main": "dist/node/index.js",
   "types": "dist/node/index.d.ts",
+  "typesVersions": {
+    "*": {
+      "testing": [
+        "./dist/node/testing/index.d.ts"
+      ]
+    }
+  },
   "exports": {
     ".": {
       "types": "./dist/node/index.d.ts",
@@ -16,6 +23,18 @@
       "default": {
         "import": "./dist/node/index.js",
         "require": "./dist/node/index.cjs"
+      }
+    },
+    "./testing": {
+      "types": "./dist/node/testing/index.d.ts",
+      "source": "./src/testing/index.ts",
+      "node": {
+        "import": "./dist/node/testing/index.js",
+        "require": "./dist/node/testing/index.cjs"
+      },
+      "default": {
+        "import": "./dist/node/testing/index.js",
+        "require": "./dist/node/testing/index.cjs"
       }
     }
   },

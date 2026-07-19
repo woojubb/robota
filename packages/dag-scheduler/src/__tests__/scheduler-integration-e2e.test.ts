@@ -1,12 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { IDagDefinition } from '@robota-sdk/dag-core';
 import {
-  FakeClockPort,
   InMemoryLeasePort,
   InMemoryQueuePort,
   InMemoryStoragePort,
-  MockTaskExecutorPort,
 } from '@robota-sdk/dag-adapters-local';
+import { ManualClockPort, ScriptedTaskExecutorPort } from '@robota-sdk/dag-adapters-local/testing';
 import { WorkerLoopService } from '@robota-sdk/dag-worker';
 import { RunOrchestratorService } from '@robota-sdk/dag-runtime';
 import { SchedulerTriggerService } from '../services/scheduler-trigger-service.js';
@@ -35,8 +34,8 @@ describe('Scheduler integration E2E', () => {
     const storage = new InMemoryStoragePort();
     const queue = new InMemoryQueuePort();
     const lease = new InMemoryLeasePort();
-    const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 9, 0, 0));
-    const executor = new MockTaskExecutorPort(async () => ({
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14, 9, 0, 0));
+    const executor = new ScriptedTaskExecutorPort(async () => ({
       ok: true,
       output: { done: true },
     }));

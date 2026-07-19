@@ -10,8 +10,7 @@ import {
 import type {
   IAppendMemoryInput,
   ICommandHostContext,
-  ICommandPendingMemoryStore,
-  ICommandProjectMemoryStore,
+  IMemoryStore,
 } from '@robota-sdk/agent-framework';
 import type { ICommandResult, IMemoryEvent } from '@robota-sdk/agent-interface-transport';
 
@@ -34,8 +33,8 @@ function formatError(error: Error | string): ICommandResult {
   };
 }
 
-function formatList(store: ICommandProjectMemoryStore): ICommandResult {
-  const summary = store.list();
+async function formatList(store: IMemoryStore): Promise<ICommandResult> {
+  const summary = await store.list();
   const topics =
     summary.topics.length > 0
       ? summary.topics.map((topic) => `- ${topic.name}: ${topic.path}`).join('\n')
@@ -57,9 +56,9 @@ function formatList(store: ICommandProjectMemoryStore): ICommandResult {
   };
 }
 
-function formatShow(store: ICommandProjectMemoryStore, topic?: string): ICommandResult {
+async function formatShow(store: IMemoryStore, topic?: string): Promise<ICommandResult> {
   if (!topic || topic === 'index') {
-    const memory = store.loadStartupMemory();
+    const memory = await store.loadStartupMemory();
     return {
       message: memory.content || '(empty memory index)',
       success: true,
@@ -71,7 +70,7 @@ function formatShow(store: ICommandProjectMemoryStore, topic?: string): ICommand
     };
   }
 
-  const content = store.readTopic(topic);
+  const content = await store.readTopic(topic);
   return {
     message: content || `(empty memory topic: ${topic})`,
     success: true,
@@ -88,8 +87,8 @@ function parseAdd(args: readonly string[]): IAppendMemoryInput | undefined {
   return { type, topic, text };
 }
 
-function formatPending(store: ICommandPendingMemoryStore): ICommandResult {
-  const records = store.list('pending');
+async function formatPending(store: IMemoryStore): Promise<ICommandResult> {
+  const records = await store.listPending('pending');
   const lines =
     records.length > 0
       ? records.map(
@@ -109,17 +108,16 @@ function recordEvent(context: ICommandHostContext, event: Omit<IMemoryEvent, 'at
   recordCommandMemoryEvent(context, event);
 }
 
-function approvePending(
+async function approvePending(
   context: ICommandHostContext,
-  pendingStore: ICommandPendingMemoryStore,
-  memoryStore: ICommandProjectMemoryStore,
+  store: IMemoryStore,
   id: string | undefined,
-): ICommandResult {
+): Promise<ICommandResult> {
   if (!id) return usage();
   try {
-    const approved = pendingStore.mark(id, 'approved', 'approved-by-user');
-    const saved = memoryStore.append(approved);
-    const record = pendingStore.mark(id, 'saved', 'approved-and-saved');
+    const approved = await store.markPending(id, 'approved', 'approved-by-user');
+    const saved = await store.append(approved);
+    const record = await store.markPending(id, 'saved', 'approved-and-saved');
     recordEvent(context, {
       type: 'memory_candidate_approved',
       candidateId: record.id,
@@ -150,14 +148,14 @@ function approvePending(
   }
 }
 
-function rejectPending(
+async function rejectPending(
   context: ICommandHostContext,
-  pendingStore: ICommandPendingMemoryStore,
+  store: IMemoryStore,
   id: string | undefined,
-): ICommandResult {
+): Promise<ICommandResult> {
   if (!id) return usage();
   try {
-    const record = pendingStore.mark(id, 'rejected', 'rejected-by-user');
+    const record = await store.markPending(id, 'rejected', 'rejected-by-user');
     recordEvent(context, {
       type: 'memory_candidate_rejected',
       candidateId: record.id,
@@ -191,20 +189,21 @@ function formatUsed(context: ICommandHostContext): ICommandResult {
   };
 }
 
-export function executeMemoryCommand(
+export async function executeMemoryCommand(
   context: ICommandHostContext,
   rawArgs: string,
-): ICommandResult {
+): Promise<ICommandResult> {
   const args = rawArgs.trim().split(/\s+/).filter(Boolean);
   const subcommand = args[SUBCOMMAND_INDEX] ?? 'list';
-  const stores = createCommandMemoryStores(context);
+  // SELFHOST-008 P1R: the single injected durable-memory port (or fs default) — authoritative for all
+  // `/memory` operations, so a surface that swaps the store is honored here too (no split-brain).
+  const store = createCommandMemoryStores(context);
 
-  if (subcommand === 'list') return formatList(stores.project);
-  if (subcommand === 'show') return formatShow(stores.project, args[TYPE_INDEX]);
-  if (subcommand === 'pending') return formatPending(stores.pending);
-  if (subcommand === 'approve')
-    return approvePending(context, stores.pending, stores.project, args[TYPE_INDEX]);
-  if (subcommand === 'reject') return rejectPending(context, stores.pending, args[TYPE_INDEX]);
+  if (subcommand === 'list') return formatList(store);
+  if (subcommand === 'show') return formatShow(store, args[TYPE_INDEX]);
+  if (subcommand === 'pending') return formatPending(store);
+  if (subcommand === 'approve') return approvePending(context, store, args[TYPE_INDEX]);
+  if (subcommand === 'reject') return rejectPending(context, store, args[TYPE_INDEX]);
   if (subcommand === 'used') return formatUsed(context);
   if (subcommand === 'add') {
     const input = parseAdd(args);
@@ -215,7 +214,7 @@ export function executeMemoryCommand(
         success: false,
       };
     }
-    const result = stores.project.append(input);
+    const result = await store.append(input);
     return {
       message: result.deduplicated
         ? `${input.type} memory already exists in ${result.topicPath}`

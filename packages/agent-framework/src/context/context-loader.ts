@@ -8,9 +8,10 @@ import { join, dirname, resolve } from 'path';
 
 import { loadFileWithHash } from './context-file-tracker.js';
 import { loadTaskContext } from './task-context.js';
-import { ProjectMemoryStore } from '../memory/project-memory-store.js';
+import { createFileSystemMemoryStore } from '../memory/file-system-memory-store.js';
 
 import type { IContextFileEntry } from './context-file-tracker.js';
+import type { IMemoryStore } from '../memory/types.js';
 
 export type { IContextFileEntry };
 
@@ -99,7 +100,10 @@ function extractCompactInstructions(content: string): string | undefined {
  *
  * @param cwd - Starting directory for the walk-up search
  */
-export async function loadContext(cwd: string): Promise<ILoadedContext> {
+export async function loadContext(
+  cwd: string,
+  memoryStore?: IMemoryStore,
+): Promise<ILoadedContext> {
   const agentsPaths = collectFilesWalkingUp(cwd, AGENTS_FILENAME);
   const claudePaths = collectFilesWalkingUp(cwd, CLAUDE_FILENAME);
 
@@ -110,7 +114,9 @@ export async function loadContext(cwd: string): Promise<ILoadedContext> {
   const claudeMd = claudeEntries.map((e) => e.content).join('\n\n');
 
   const compactInstructions = extractCompactInstructions(claudeMd);
-  const startupMemory = new ProjectMemoryStore(cwd).loadStartupMemory();
+  // SELFHOST-008: startup memory is read through the injected memory port; with none supplied the
+  // neutral filesystem reference adapter is the default, so memory keeps working exactly as before.
+  const startupMemory = await (memoryStore ?? createFileSystemMemoryStore(cwd)).loadStartupMemory();
   const memoryMd = startupMemory.content || undefined;
   const loadedTaskContext = loadTaskContext(cwd);
   const taskContext = loadedTaskContext.trim().length > 0 ? loadedTaskContext : undefined;

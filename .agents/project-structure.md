@@ -14,6 +14,7 @@ packages/
 ├── agent-command/               # Command modules: agent, background, compact, context, exit, help, language, memory, mode, model, permissions, plugin, provider, reset, rewind, session, settings, skills, statusline, user-local
 ├── agent-command-*/             # Command-module bridge packages to other subsystems (e.g. agent-command-workflows: surfaces the DAG engine as `/workflows`, composing dag-framework)
 ├── agent-cli/                   # Terminal UI and local runtime adapters
+├── agent-cli-web/               # GUI-007 — the CLI's built-in web monitor SPA (Vite; index.html → SessionMonitor over localhost WS); `private` product-shell; agent-cli builds its dist + serves it over localhost HTTP. Not deployable
 ├── agent-provider-*/            # Provider family (per-vendor split, ARCH-PROVIDER-002): agent-provider-anthropic, -bytedance, -gemini, -openai, -openai-compatible, -defaults (default-set aggregator), -replay (deterministic session-log replay provider; depends on agent-core + agent-session). There is NO bare `agent-provider` package. deepseek/qwen/gemma are `openai-compatible` *definitions* surfaced by agent-provider-openai-compatible, not standalone packages
 ├── agent-playground/            # Playground UI package
 ├── agent-remote-client/         # Remote execution client
@@ -21,7 +22,7 @@ packages/
 ├── agent-interface-*/           # Interface/contract packages: pure type contracts; MAY also export pure, dependency-free derivation accessors over their own owned types (no classes, no I/O) — e.g. agent-interface-transport's read* helpers over InteractionEvent. Mechanized by scripts/harness/scan-interface-runtime.mjs (harness:scan `interface-runtime`, INFRA-035): FAILS on any bare/external value import-or-re-export or any class/enum declaration in these packages' src (zero runtime dependency edges).
 ├── agent-transport/             # Transport core: headless adapter + transport registry + scripted-provider testing fixtures (pure TS)
 ├── agent-transport-protocol/    # Transport-neutral session bridge + WS wire protocol (createWsHandler, TClientMessage/TServerMessage); shared by -ws and -webrtc (deps: interface-transport only)
-├── agent-transport-*/           # Per-concern transport implementations: agent-transport-tui (React/Ink), agent-transport-gui (React GUI presentation core — session reducer + view components + desktop shell + SessionMonitor web shell; the GUI analog of -tui, consumed by apps/agent-app, apps/agent-web-monitor, and agent-transport-webrtc-web; deps: interface-transport + transport-protocol only, GUI-005/006), agent-transport-webrtc-web (BROWSER WebRTC peer — native RTCPeerConnection answerer + RemoteClient + useRtcSession over the GUI core; browser mirror of node -webrtc; deps: agent-transport-gui + agent-remote-pairing + transport-protocol, GUI-006), -ws (WebSocket), -http (Hono), -mcp (MCP), -webrtc (P2P RTCDataChannel, optional werift peer dep, REMOTE-001); -ws/-http/-mcp are contract-pure (deps: interface-transport + transport-protocol only). -webrtc additionally depends on agent-remote-pairing (REMOTE-008): the pairing gate must live in wireChannel, where the DTLS fingerprints (offer/answer SDP) and pre-session channel frames are visible — agent-remote-pairing is a zero-dep isomorphic leaf, so this adds no cycle.
+├── agent-transport-*/           # Per-concern transport implementations: agent-transport-tui (React/Ink), agent-transport-gui (React GUI presentation core — session reducer + view components + desktop shell + SessionMonitor web shell; the GUI analog of -tui, consumed by apps/agent-app, packages/agent-cli-web (CLI-served monitor), and agent-transport-webrtc-web; deps: interface-transport + transport-protocol only, GUI-005/006), agent-transport-webrtc-web (BROWSER WebRTC peer — native RTCPeerConnection answerer + RemoteClient + useRtcSession over the GUI core; browser mirror of node -webrtc; deps: agent-transport-gui + agent-remote-pairing + transport-protocol, GUI-006), -ws (WebSocket), -http (Hono), -mcp (MCP), -webrtc (P2P RTCDataChannel, optional werift peer dep, REMOTE-001); -ws/-http/-mcp are contract-pure (deps: interface-transport + transport-protocol only). -webrtc additionally depends on agent-remote-pairing (REMOTE-008): the pairing gate must live in wireChannel, where the DTLS fingerprints (offer/answer SDP) and pre-session channel frames are visible — agent-remote-pairing is a zero-dep isomorphic leaf, so this adds no cycle.
 ├── agent-testing/               # General test framework: domain-free test-environment tooling (PTY runner spawnPty/spawnPtyFixture); zero @robota-sdk deps, devDependency. Charter+placement rule in its SPEC (contracts→agent-interface-*, doubles→owner /testing, drivers→owning module)
 ├── agent-process/               # Domain-free child-process termination primitives (killProcessTree: SIGTERM→grace→SIGKILL, process-group aware); zero @robota-sdk deps, leaf. Consumed by agent-executor/agent-tools/agent-subagent-runner (CORE-023)
 ├── agent-plugin/                # Plugins: conversation-history, logging, usage, performance, execution-analytics, error-handling, limits, event-emitter, webhook
@@ -46,8 +47,7 @@ packages/
 └── dag-nodes-default/           # DAG default node-set aggregator (composition leaf): createDefaultNodeRegistry(); consumed at composition roots by dag-cli + agent-command-workflows, lazy-loaded by dag-framework via a dynamic import() (its sole optionalDependency)
 apps/
 ├── action/                 # Official GitHub Action wrapper for the CLI (robota-sdk/action)
-├── agent-web/              # Web application (Agent Playground)
-├── agent-web-monitor/      # CLI-served web GUI (Vite SPA): index.html monitor (SessionMonitor) + remote.html Stage-D page (RemoteClient); the web sibling of apps/agent-app over the shared GUI core; agent-cli builds + serves its dist (GUI-006)
+├── agent-web/              # Deployed web app (Next.js/Vercel): /playground host + /remote Stage-D page (GUI-007). The public web surface
 ├── blog/                   # Blog/content application
 ├── docs/                   # Documentation site
 ├── starter-nextjs/         # Next.js SDK starter template (PM-029)
@@ -75,10 +75,13 @@ consumer for any payload/application domain:
 - `apps/` is the product tier and plays by product rules (opinionated UX, domain concepts, its own
   prompts). `examples/` may likewise be full products — that is their job. A small **product-shell
   tier lives in `packages/`** and is exempt from library neutrality: `packages/agent-cli` (the
-  published reference product) and `packages/agent-playground` (a `private` product shell). These are
-  sanctioned products assembled FROM the libraries — their preset/persona/UI surfaces are product
-  behavior, not library behavior. (The former `packages/agent-web-ui` was retired in GUI-006; its web
-  GUI is now the `apps/agent-web-monitor` app over the shared GUI core.)
+  published reference product), `packages/agent-playground` (a `private` product shell), and
+  `packages/agent-cli-web` (GUI-007 — the CLI's `private` built-in web monitor SPA, served by
+  `agent-cli` over localhost HTTP). These are sanctioned products assembled FROM the libraries — their
+  preset/persona/UI surfaces are product behavior, not library behavior. (The former
+  `packages/agent-web-ui` was retired in GUI-006; the CLI-served monitor SPA is now
+  `packages/agent-cli-web`, and the Stage-D browser remote page lives in the deployed `apps/agent-web`
+  over the shared GUI core.)
 
 When a use case seems to need a domain feature in a library, the answer is: verify the neutral
 ingredients exist, then show the assembly in `examples/` or a guide.

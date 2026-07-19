@@ -32,6 +32,42 @@ import type { Robota } from '@robota-sdk/agent-core';
 
 const logger = createLogger('SessionRun');
 
+/**
+ * SELFHOST-009: fire an INFORMATIONAL-ONLY model-call hook event mapped from a provider-call
+ * execution event the turn owner already observes. Fire-and-forget — `onExecutionEvent` is a void,
+ * un-awaited callback, so this `runHooks` call cannot block or mutate `provider.chat()`. Its result
+ * is never consulted for gating; only PreToolUse gates.
+ */
+function fireModelCallHook(
+  ctx: IRunContext,
+  hookEvent: 'PreModelCall' | 'PostModelCall',
+  data: Record<string, unknown>,
+): void {
+  const model = typeof data['model'] === 'string' ? (data['model'] as string) : ctx.model;
+  const provider =
+    typeof data['provider'] === 'string' ? (data['provider'] as string) : ctx.aiProvider.name;
+  const round = typeof data['round'] === 'number' ? (data['round'] as number) : undefined;
+  void runHooks(
+    ctx.hooks as THooksConfig | undefined,
+    hookEvent,
+    {
+      session_id: ctx.sessionId,
+      cwd: ctx.cwd,
+      hook_event_name: hookEvent,
+      model,
+      provider,
+      ...(round !== undefined && { round }),
+      ...(ctx.permissionMode !== undefined && { permission_mode: ctx.permissionMode }),
+      ...(ctx.transcriptPath !== undefined && { transcript_path: ctx.transcriptPath }),
+      env: {
+        CLAUDE_PROJECT_DIR: ctx.cwd,
+        CLAUDE_SESSION_ID: ctx.sessionId,
+      },
+    },
+    ctx.hookTypeExecutors,
+  ).catch((error) => logger.warn('hook failed', { error }));
+}
+
 /** Dependencies injected by Session.run() */
 export interface IRunContext {
   sessionId: string;
@@ -72,6 +108,7 @@ export async function executeRun(
   rawInput: string | undefined,
   ctx: IRunContext,
   abortSignal: AbortSignal,
+  runOptions?: { ephemeralSystemContext?: string },
 ): Promise<string> {
   // Auto-compact BEFORE processing the new message (not after).
   // This prevents compaction from interfering with the current response stream.
@@ -158,9 +195,23 @@ export async function executeRun(
     response = await ctx.robota.run(enrichedMessage, {
       signal: abortSignal,
       maxExecutionRounds: ctx.maxTurns ?? 0,
+      // SELFHOST-008 P3: thin pass-through of the ephemeral per-turn system block to agent-core.
+      ...(runOptions?.ephemeralSystemContext !== undefined && {
+        ephemeralSystemContext: runOptions.ephemeralSystemContext,
+      }),
       onExecutionEvent: (event, data) => {
         ctx.log(event, data as TSessionLogData);
         forwardToolExecutionEvent(toolExecutionBridge, event, data);
+        // SELFHOST-009: fire the informational-only model-call events from the provider-call
+        // execution events the turn owner already observes. provider_request → PreModelCall (before
+        // provider.chat() returns); provider_response_normalized → PostModelCall (the SINGLE
+        // canonical source — NOT provider_response_raw, which would double-fire per round). Both are
+        // fire-and-forget: this callback is void/un-awaited, so they cannot gate/mutate the call.
+        if (event === 'provider_request') {
+          fireModelCallHook(ctx, 'PreModelCall', data as Record<string, unknown>);
+        } else if (event === 'provider_response_normalized') {
+          fireModelCallHook(ctx, 'PostModelCall', data as Record<string, unknown>);
+        }
         // BEHAVIOR-002: recompute and emit context per agentic round so the status bar
         // climbs live during a turn instead of jumping once at completion. The agent loop
         // runs entirely inside this single robota.run() call; assistant_message_committed

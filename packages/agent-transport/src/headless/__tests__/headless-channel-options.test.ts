@@ -108,4 +108,31 @@ describe('HeadlessInteractionChannel session options', () => {
     expect(options.resumeSessionId).toBeUndefined();
     expect(options.forkSession).toBeUndefined();
   });
+
+  it('TC-02 (CLI-076): forwards an explicit model override to the session options', async () => {
+    const channel = new HeadlessInteractionChannel({
+      cwd: process.cwd(),
+      provider: {} as IAIProvider,
+      outputFormat: 'text',
+      model: 'claude-nonexistent-model-core020',
+      shellExec: () => '',
+    });
+    await channel.run('hello');
+    expect(sessionCtorSpy).toHaveBeenCalledTimes(1);
+    const options = sessionCtorSpy.mock.calls[0]?.[0] as { model?: string };
+    // The requested model must reach the session verbatim — not be silently swapped for a default.
+    expect(options.model).toBe('claude-nonexistent-model-core020');
+  });
+
+  it('TC-02 (CLI-076): omits model when not provided (session resolves from config, no substitution)', async () => {
+    const channel = new HeadlessInteractionChannel({
+      cwd: process.cwd(),
+      provider: {} as IAIProvider,
+      outputFormat: 'text',
+      shellExec: () => '',
+    });
+    await channel.run('hello');
+    const options = sessionCtorSpy.mock.calls[0]?.[0] as { model?: string };
+    expect(options.model).toBeUndefined();
+  });
 });

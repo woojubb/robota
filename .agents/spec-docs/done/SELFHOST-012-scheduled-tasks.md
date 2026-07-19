@@ -1,0 +1,434 @@
+---
+status: done
+completed: 2026-07-19
+type: FLOW
+tags: [scheduler, cron, tasks, dag-scheduler, agent-command, selfhost]
+---
+
+# SELFHOST-012: user-facing scheduled / cron tasks — list / pause / resume / edit over the existing scheduler
+
+## Problem
+
+Promotes backlog [SELFHOST-012](../../backlog/SELFHOST-012-scheduled-tasks.md) toward
+[VISION.md](../../../VISION.md). Concrete symptom: Robota already **runs** recurring agent-wake tasks — FLOW-005's
+`/schedule` command creates one-shot and cron wakes via
+`IAgentJobHostContext.spawnScheduledWake` (`packages/agent-command/src/schedule/schedule-command.ts`), backed by a
+real `croner`-driven runner (`packages/agent-executor/src/background-tasks/runners/scheduled-task-runner.ts`) and
+persisted/re-armed across restart by FLOW-003 (`IBackgroundTaskState.schedule` in
+`packages/agent-interface-transport/src/background-task-contracts.ts`). But there is **no user-facing surface to
+manage the lifecycle of those schedules**: you can create a cron task, yet you cannot _list_ your schedules, _pause_
+one without destroying it, _resume_ it, or _edit_ its cron/instruction. The only lifecycle verbs today are
+destructive: `/background cancel|close` (`packages/agent-command/src/background/background-command.ts`) map to the
+runner's `cancel()`, which calls croner `.stop()` — permanent, and `.resume()` will not work after it
+(`node_modules/.pnpm/croner@10.0.1/.../croner.d.ts:634` "`.resume()` will not work after stopping"). The background
+state machine (`packages/agent-executor/src/background-tasks/state-machine.ts`) has **no `paused` status** and no
+PAUSE/RESUME transition — `cancelled` is terminal. So "pause a task, it does not fire, then resume it correctly" is
+**not expressible** with what ships. Every scheduling-capable agent (see Prior Art) exposes pause/resume/edit; Robota
+has the engine but not the controls.
+
+## Prior Art Research
+
+From product documentation: **Hermes** (Nous Research) scheduled cron tasks expose the full management lifecycle —
+create a recurring task, list the user's schedules, pause and later resume a schedule, and edit its cadence /
+instruction (https://hermes-agent.nousresearch.com/docs/). Comparable managed-scheduler surfaces show the same
+shape: **GitHub Actions** scheduled workflows can be disabled and re-enabled without deletion
+(https://docs.github.com/en/actions/managing-workflow-runs-and-deployments) and **Temporal** schedules expose
+explicit `pause` / `unpause` / `update` (edit) operations distinct from delete
+(https://docs.temporal.io/develop/typescript/schedules). **Common observed behavior:** a scheduled task is a durable,
+addressable object with a non-destructive **pause/resume** distinct from delete, an **edit** that re-arms the cadence
+in place (same identity), and a **list** view showing each schedule's cadence + next fire time + status.
+
+**Robota constraint / delta.** Robota must NOT introduce a second scheduler. The recurrence engine already exists
+(the `croner`-backed scheduled-task runner reused by FLOW-005), and where a scheduled task drives a DAG run the
+`dag-scheduler` `SchedulerTriggerService`
+(`packages/dag-scheduler/src/services/scheduler-trigger-service.ts`) is the existing DAG-run trigger primitive. So the
+Robota shape is: **reuse the existing scheduler; add ONLY the user-facing surface + the non-destructive lifecycle
+controls it needs.** The delta versus the common shape is one Robota-specific fact established below — the existing
+schedulers do **not** yet expose non-destructive pause/resume, so a thin lifecycle extension (not a new scheduler) is
+required.
+
+## Architecture Review
+
+### Affected Scope
+
+- **Which existing scheduler is reused (grounded).** There are two existing scheduling primitives and neither is
+  replaced:
+  - `dag-scheduler` `SchedulerTriggerService` — a **stateless DAG-run trigger delegator**: `triggerScheduledRun` /
+    `triggerScheduledBatch` / `triggerCatchup` forward to `RunOrchestratorService.startRun`
+    (`scheduler-trigger-service.ts:69-221`). It has **no recurrence engine, no schedule registry, no persistence, and
+    no pause/resume** — it fires a DAG run for a given logical date. It is the trigger a scheduled task uses _when the
+    task drives a DAG_, not the agent-wake cron.
+  - The **agent-wake recurrence engine** is `createScheduledTaskRunner` (`scheduled-task-runner.ts`), which
+    constructs a `croner` `Cron(cronExpression, …)` and is the runner FLOW-005 `/schedule` already spawns through
+    `spawnScheduledWake`. Persistence/re-arm on restart is FLOW-003 (`IBackgroundTaskState.schedule`).
+- **Verification — does the existing scheduler already expose the lifecycle primitives the surface needs? NO → a thin
+  lifecycle extension is required (grounded in the actual code):**
+  - `dag-scheduler` exposes none (stateless trigger delegator; no registry/pause/resume — see above).
+  - The croner runner **cancels** (`scheduled-task-runner.ts:98-111` sets `cancelled = true` + `job.stop()`), which is
+    permanent. It never calls croner's own `.pause()` / `.resume()` — which DO exist and are non-destructive
+    (`croner.d.ts:643 pause(): boolean`, `:647 resume()`), distinct from the irreversible `.stop()` (`:637`).
+  - `IBackgroundTaskManager` (`background-tasks/types.ts:106-117`) has `spawn/wait/list/get/cancel/close/…` but **no
+    `pause`/`resume`/`editSchedule`**. `IAgentJobHostContext`
+    (`agent-framework/src/command-api/host-context.ts:204-246`) has `spawnScheduledWake` but **no schedule-lifecycle
+    method**. `TBackgroundTaskStatus` (`background-task-contracts.ts:17-24`) has **no `paused`**; the state machine has
+    no PAUSE/RESUME edge and `cancelled` is terminal.
+  - **Conclusion:** the recurrence engine is reused unchanged in spirit (still croner, still the FLOW-005 runner), but
+    a **thin lifecycle extension** is required to turn the engine's _already-present_ `.pause()`/`.resume()` into a
+    first-class, persisted, addressable status — plus the user-facing subcommands. **No new scheduler / cron engine is
+    introduced.**
+- **Surface placement (mirror-an-analog).** The user-facing controls live in the **existing** `/schedule` command
+  module (`packages/agent-command/src/schedule/`, already registered in
+  `default-command-modules.ts:107`), extended with `list|pause|resume|edit` subcommands **mirroring the `/background`
+  multi-subcommand command** (`background/background-command.ts` dispatches `list|read|cancel|close`;
+  `buildBackgroundCommandSubcommands()` builds its subcommand entries). `agent-cli` needs no bespoke wiring — the
+  module is already in the default set; the new subcommands ride the same registration.
+- **Lifecycle plumbing (thin extension, SSOT-respecting).** `paused` added to `TBackgroundTaskStatus` (the SSOT in
+  `agent-interface-transport`); PAUSE/RESUME transitions added to the state machine (non-terminal); the runner wires
+  croner `.pause()`/`.resume()`; the manager gains `pauseScheduledTask/resumeScheduledTask/editScheduledTask`; the
+  host context (`IAgentJobHostContext`) exposes them to commands, wired in `interactive-session-agent-jobs.ts`.
+  `paused` **must persist** so a restart re-arms a paused schedule as paused, not silently running (extends the
+  FLOW-003 `schedule` persistence).
+
+### Alternatives Considered
+
+1. **Thin non-destructive lifecycle extension over the EXISTING croner runner + `list|pause|resume|edit` subcommands
+   on the existing `/schedule` module (mirror `/background`) (CHOSEN).**
+   - ✅ Reuses the shipped recurrence engine (croner runner + FLOW-005 create + FLOW-003 persistence) and croner's
+     _own_ `.pause()`/`.resume()` — no second scheduler, no second cron parser. The surface mirrors a proven analog
+     (`/background`) so registration/subcommand plumbing is already established. `paused` becomes a real, persisted,
+     addressable status, so "does not fire while paused, resumes correctly with the same identity" is directly
+     expressible and testable.
+   - ❌ Touches the SSOT status enum + state machine + manager + host context (a real, if small, cross-layer diff);
+     `paused` must be threaded through persistence or a restart resumes a paused task (called out as TC-06, not
+     hidden).
+2. **Map pause→`cancel`, resume→re-create the schedule (no new status).**
+   - ✅ Zero state-machine / enum change; only a surface script over existing verbs.
+   - ❌ Correctness failure. `cancel` calls croner `.stop()`, which is **irreversible** (`croner.d.ts:634`: "`.resume()`
+     will not work after stopping"), and `cancelled` is a **terminal** status. "Resume" would mint a **new** task id,
+     breaking every reference the user's `list`/`edit` holds, losing missed-wake/next-fire continuity (FLOW-003
+     semantics), and losing schedule identity. It does not satisfy "a paused task … resumes correctly." REJECTED on
+     correctness.
+3. \*\*Build a new schedule-registry / scheduler service (in `dag-scheduler` or a new package) owning cron + pause/resume
+   - persistence for user schedules.\*\*
+   * ✅ One clean owner for the user-facing schedule object.
+   * ❌ Duplicates machinery that already ships in production — the croner runner, FLOW-005 create, and FLOW-003
+     persistence — producing **two cron engines that will diverge**, and directly violates the "reuse the existing
+     scheduler, NO new scheduler" constraint. Putting it on `dag-scheduler` is also the wrong layer: that service has
+     no recurrence engine or registry and triggers DAG runs, not agent-wake cron. REJECTED on reuse + layering.
+
+### Decision
+
+Adopt (1): **reuse the existing scheduler** (the croner-backed background-tasks runner FLOW-005 already drives, and the
+`dag-scheduler` trigger primitive where a schedule fires a DAG run) and add **only** (a) the user-facing
+`list|pause|resume|edit` subcommands on the already-registered `/schedule` module, mirroring `/background`, and (b) a
+**thin non-destructive lifecycle extension** — a persisted `paused` status + PAUSE/RESUME transitions wiring croner's
+existing `.pause()`/`.resume()`, exposed through the manager and `IAgentJobHostContext`. No new scheduler or cron engine
+is introduced.
+
+### Validated Recommendation
+
+- **Reachability:** the surface reuses the `/schedule` module already in `createDefaultCommandModules`
+  (`default-command-modules.ts:107`) and the `IAgentJobHostContext` capability already resolved by
+  `getAgentHostContext` in `schedule-command-module.ts:20-24`; the new subcommands ride the established
+  registration exactly as `/background`'s do. Reachable with no bespoke `agent-cli` wiring.
+- **Capability preservation:** create (FLOW-005), persist/re-arm and missed-wake (FLOW-003) are preserved unchanged;
+  the extension _adds_ list/pause/resume/edit and preserves task identity across pause→resume (same id, same
+  `schedule`). The croner engine and dag-scheduler trigger primitive are untouched in responsibility.
+- **Adversarial:** (i) the destructive-cancel trap — an implementer might reflexively reuse `cancel`/`.stop()`;
+  pinned out by requiring croner `.pause()`/`.resume()` and a non-terminal `paused` status (TC-02). (ii) the silent-resume
+  trap — if `paused` is not persisted, a restart re-arms the schedule as running; pinned by TC-06 (paused survives
+  restart). (iii) the "did it actually not fire" trap — asserted by advancing time across a scheduled tick while paused
+  and observing **zero** fires, then a fire after resume (TC-02), not merely by reading a status flag.
+
+### Architecture Review Checklist
+
+- [x] 영향 패키지/레이어: `agent-command/src/schedule` (surface subcommands, mirror `/background`);
+      `agent-executor/src/background-tasks` (state-machine PAUSE/RESUME, runner croner `.pause()`/`.resume()`, manager
+      lifecycle methods); `agent-framework` host-context + `interactive-session-agent-jobs` (expose lifecycle);
+      `agent-interface-transport` (add `paused` to the status SSOT). `dag-scheduler` is **reused, not modified**. No new
+      package, no new scheduler.
+- [x] Sibling scan 완료 — mirrors the **`/background` multi-subcommand analog** (`list|read|cancel|close` →
+      `list|pause|resume|edit`) and reuses the **existing croner runner** FLOW-005/003 already established, rather than a
+      new registry. Independent architecture-placement validation to be recorded in the Evidence Log at GATE-APPROVAL.
+- [x] 대안 최소 2개 — 3 considered (thin lifecycle extension + surface CHOSEN; pause=cancel/recreate REJECTED on
+      correctness; new scheduler registry REJECTED on reuse+layering), each Pro+Con grounded in the actual runner /
+      state-machine / croner behavior.
+- [x] 결정 근거 — the seed's "over dag-scheduler" framing is corrected against the code (dag-scheduler is a stateless
+      DAG-run trigger; the agent-wake recurrence engine is the croner runner); reuse + non-destructive lifecycle satisfy
+      the design constraints; GATE-APPROVAL pending.
+
+## Solution
+
+Reuse the existing scheduler; add the user-facing management surface + a thin lifecycle extension:
+
+- **Status SSOT:** add `'paused'` to `TBackgroundTaskStatus` (`agent-interface-transport/src/background-task-contracts.ts`).
+- **State machine:** add non-terminal transitions `sleeping|running → paused` (PAUSE) and `paused → sleeping`
+  (RESUME) in `agent-executor/src/background-tasks/state-machine.ts`; keep `cancelled` terminal (unchanged).
+- **Runner:** in `scheduled-task-runner.ts`, wire croner's own `job.pause()` / `job.resume()` (NOT `job.stop()`),
+  exposing `pause()`/`resume()` on `IBackgroundTaskHandle`; a paused job does not fire, and `nextFireAt` reflects the
+  resumed cadence.
+- **Manager + host:** add `pauseScheduledTask/resumeScheduledTask/editScheduledTask(taskId, patch)` to
+  `IBackgroundTaskManager` and to `IAgentJobHostContext`, wired in `interactive-session-agent-jobs.ts`; `edit`
+  re-arms the croner job in place (same task id + `schedule`).
+- **Persistence:** thread `paused` + the edited `schedule` through the FLOW-003 persistence path so a restart
+  re-arms a paused schedule as **paused**.
+- **Surface:** extend the existing `/schedule` module with `list|pause|resume|edit` subcommands, mirroring
+  `/background` (`background-command.ts` dispatch + `buildBackgroundCommandSubcommands()`); `create` stays the current
+  FLOW-005 form. `list` shows each schedule's cadence + `nextFireAt` + status.
+
+## Affected Files
+
+| File                                                                                                         | Change                                                                                        |
+| ------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
+| `packages/agent-interface-transport/src/background-task-contracts.ts`                                        | add `'paused'` to `TBackgroundTaskStatus` (SSOT)                                              |
+| `packages/agent-executor/src/background-tasks/state-machine.ts`                                              | add PAUSE/RESUME transitions (`sleeping/running → paused`, `paused → sleeping`), non-terminal |
+| `packages/agent-executor/src/background-tasks/runners/scheduled-task-runner.ts`                              | wire croner `.pause()`/`.resume()` (not `.stop()`); expose `pause`/`resume` on the handle     |
+| `packages/agent-executor/src/background-tasks/types.ts` + `background-task-manager.ts`                       | add `pauseScheduledTask/resumeScheduledTask/editScheduledTask` to the manager port + impl     |
+| `packages/agent-framework/src/command-api/host-context.ts` + `interactive/interactive-session-agent-jobs.ts` | expose schedule lifecycle on `IAgentJobHostContext`; wire to the manager                      |
+| `packages/agent-framework/.../session-persistence` (FLOW-003 path)                                           | persist `paused` + edited `schedule` so a restart re-arms as paused                           |
+| `packages/agent-command/src/schedule/schedule-command.ts` + `schedule-command-module.ts`                     | add `list\|pause\|resume\|edit` subcommands (mirror `/background`); keep FLOW-005 `create`    |
+| `packages/dag-scheduler/**`                                                                                  | **reused, not modified** — DAG-run trigger primitive for schedules that fire DAG runs         |
+
+## Completion Criteria
+
+- [x] TC-01: pause/resume lifecycle over the existing runner — the state machine accepts `running/sleeping → paused`
+      and `paused → sleeping` and rejects illegal edges; `paused` is non-terminal (unit test on `state-machine.ts`).
+- [x] TC-02: **a paused task does not fire and resumes correctly** — spawn a cron schedule, pause it, advance time
+      across at least one scheduled tick, assert **zero** fires while paused (via croner `.pause()`, not `.stop()`),
+      then resume and assert the next tick fires — with the **same task id** (functional test on the scheduled runner).
+- [x] TC-03: `edit` updates a schedule's cron/instruction and re-arms it **in place** (same task id + `schedule`
+      identity), and the new cadence takes effect on the next fire (functional test).
+- [x] TC-04: `list` returns the caller's schedules with cadence + `nextFireAt` + status, including a `paused` entry
+      (unit/integration on the host-context list path).
+- [x] TC-05: CLI behavior — `/schedule list|pause <id>|resume <id>|edit <id> …` dispatch to the corresponding host
+      lifecycle calls and return the expected `ICommandResult`, mirroring `/background`; unknown subcommand is a usage
+      error (unit test on `schedule-command.ts`).
+- [x] TC-06: **no new scheduler + paused survives restart** — a grep/review confirms recurrence still runs on the
+      existing croner runner + `dag-scheduler` trigger (no new cron engine introduced); and a paused schedule persisted
+      via the FLOW-003 path is re-armed as **paused** (not running) after a simulated restart (integration test).
+
+## Test Plan
+
+| TC    | Verification                                            | Type/Tool                                   |
+| ----- | ------------------------------------------------------- | ------------------------------------------- |
+| TC-01 | pause/resume transitions valid, `paused` non-terminal   | vitest unit (state-machine)                 |
+| TC-02 | paused → no fire across a tick; resume → fires; same id | functional test (scheduled runner + croner) |
+| TC-03 | edit re-arms in place, new cadence applies              | functional test                             |
+| TC-04 | list shows cadence + nextFireAt + status                | vitest unit/integration (host list path)    |
+| TC-05 | `/schedule list\|pause\|resume\|edit` dispatch + usage  | vitest unit (schedule-command)              |
+| TC-06 | no new cron engine (grep) + paused persists restart     | grep/review + integration (FLOW-003 re-arm) |
+
+## Tasks
+
+Slices: P1 = lifecycle extension (status + state-machine + runner croner pause/resume + manager/host methods);
+P2 = `/schedule list|pause|resume|edit` surface (mirror `/background`) + the AGENT-RUN capability verification;
+P3 = `paused`/edited-schedule persistence across restart (FLOW-003 path).
+
+- **P1 — DONE** (lifecycle engine; merged develop `181f0e89a`, #1235): [`.agents/tasks/completed/SELFHOST-012-P1.md`](../../tasks/completed/SELFHOST-012-P1.md).
+- **P2 + P3 — DONE** (surface + agent-run verification + restart persistence; this branch): [`.agents/tasks/completed/SELFHOST-012-P2-P3.md`](../../tasks/completed/SELFHOST-012-P2-P3.md).
+
+## Evidence Log
+
+- 2026-07-17 — **Draft authored.** Grounded in the actual code: FLOW-005 create surface
+  (`packages/agent-command/src/schedule/schedule-command.ts`) + croner recurrence runner
+  (`packages/agent-executor/src/background-tasks/runners/scheduled-task-runner.ts`, `croner@10.0.1` `.pause()`/
+  `.resume()`/`.stop()` at `croner.d.ts:634-647`); the background state machine's status set with no `paused` and
+  terminal `cancelled` (`state-machine.ts`); the status SSOT (`agent-interface-transport/src/background-task-contracts.ts`,
+  `TBackgroundTaskStatus`/`IBackgroundTaskSchedule`); `IBackgroundTaskManager`/`IAgentJobHostContext` lacking any
+  schedule-lifecycle method (`background-tasks/types.ts`, `agent-framework/src/command-api/host-context.ts`); the
+  `/background` multi-subcommand analog (`background/background-command.ts`); the `/schedule` module already registered
+  in `default-command-modules.ts:107`; and `dag-scheduler`'s stateless DAG-run trigger
+  (`packages/dag-scheduler/src/services/scheduler-trigger-service.ts`) — confirming the seed's "over dag-scheduler"
+  framing is corrected: the recurrence engine is the croner runner, dag-scheduler is the DAG-run trigger, and a thin
+  non-destructive lifecycle extension (not a new scheduler) is required.
+- 2026-07-17 — **GATE-APPROVAL iteration 1: ENDORSE** (independent proposal-reviewer). Every load-bearing premise
+  verified: `SchedulerTriggerService` is a stateless DAG-run trigger delegator (the seed's "reuse dag-scheduler" is
+  genuinely wrong); the real recurrence engine is the croner-backed `createScheduledTaskRunner` driven by FLOW-005's
+  `/schedule` (CREATE exists; the gap is list/pause/resume/edit); the runner cancels via irreversible croner `.stop()`
+  and never `.pause()`/`.resume()`; `TBackgroundTaskStatus` has no `paused`, the state machine no PAUSE/RESUME edge,
+  and no manager/host lifecycle verb — so "pause→doesn't fire→resume" is genuinely inexpressible today. Design reuses
+  the engine + trigger unchanged, adds a persisted `paused` status + croner `.pause()`/`.resume()` + `/schedule`
+  subcommands mirroring `/background`; alternatives (pause=cancel/recreate; new registry) correctly rejected on
+  correctness. Non-blocking implementation note folded: the FLOW-003 restore path keys re-arm on `status==='sleeping'`
+  in TWO predicates — `reArmRestoredSchedules` (`interactive-session-background-tracker.ts:92`) and `isReArmableSchedule`
+  (`interactive-session-restore.ts:156-157`) — so a new `paused` scheduled task would fall through into the stale-worker
+  branch and be marked `failed` on restart; TC-06 requires WIDENING BOTH predicates to treat a paused scheduled task as
+  re-armable-but-kept-paused (re-arm the croner job then immediately `.pause()`, or persist paused without arming), named
+  for the P3 task. **GATE-APPROVAL PASSED.**
+
+### [GATE-IMPLEMENT] — ❌ FAIL | 2026-07-19
+
+**Status remains:** approved
+**Prior-gate precondition:** PASS — GATE-APPROVAL shows a PASS entry ("**GATE-APPROVAL PASSED.**", 2026-07-17);
+frontmatter `status: approved` and folder `todo/` match the expected GATE-IMPLEMENT input stage.
+**Criteria checked:**
+
+- ✅ Tasks file created: `.agents/tasks/SELFHOST-012-P1.md` exists (first slice; sliced execution P1/P2/P3).
+- ✅ Tasks correspond to Completion Criteria (P1 slice): S1→TC-01, S2/S3→TC-02, S5→TC-03, S4→TC-04, S6→TC-06
+  (grep note, partial); TC-05 and TC-06-persistence are scoped to P2/P3 per the spec's GATE-APPROVAL note.
+- ✅ Tasks file carries a `## Test Plan` section (≥50 chars) — satisfies the `test-plans` harness scan [AF-24].
+- ❌ Tasks file path recorded in the spec `## Tasks` section.
+
+**Failed criteria:**
+
+- Tasks file path recorded in `## Tasks`: the section still reads `` `.agents/tasks/SELFHOST-012*.md` — 미생성
+(GATE-APPROVAL 통과 후 생성) `` — a stale pre-creation placeholder that declares the file _not created_ and does
+  not record the actual created path `.agents/tasks/SELFHOST-012-P1.md`.
+  **Required action:** Update the `## Tasks` section to record the created `.agents/tasks/SELFHOST-012-P1.md`
+  path (and remove the stale "미생성" annotation), then re-run GATE-IMPLEMENT. (Minor: the P1 file's spec
+  back-link points at `.agents/spec-docs/active/…` while the spec currently lives in `todo/`.)
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-07-19
+
+**Status upgrade:** approved → in-progress
+**Prior-gate precondition:** PASS — GATE-APPROVAL shows a PASS entry ("**GATE-APPROVAL PASSED.**", 2026-07-17);
+frontmatter `status: approved` and folder `todo/` match the expected GATE-IMPLEMENT input stage.
+**Criteria checked:**
+
+- ✅ Tasks file created: `.agents/tasks/SELFHOST-012-P1.md` exists (first slice of sliced P1/P2/P3 execution).
+- ✅ Tasks file path recorded in `## Tasks`: now reads
+  `**P1** — [\`.agents/tasks/SELFHOST-012-P1.md\`](../../tasks/SELFHOST-012-P1.md) (GATE-IMPLEMENT; in progress)`
+  with P2/P3 to follow — the stale "미생성" placeholder is gone (prior FAIL fixed).
+- ✅ Tasks correspond to Completion Criteria (P1 slice): S1/S2→TC-01, S3→TC-02, S4→TC-02/TC-04, S5→TC-03,
+  S6→TC-06 (grep note, partial); TC-05 and TC-06-persistence are scoped to P2/P3 per the spec's GATE-APPROVAL
+  note.
+- ✅ Tasks file carries a `## Test Plan` section (≥50 chars, TC-01..TC-04 + regression commands) — satisfies
+  the `test-plans` harness scan [AF-24].
+
+Minor (non-blocking, carried from prior FAIL): the P1 file's spec back-link still points at
+`.agents/spec-docs/active/…` while the spec lives in `todo/` — cosmetic, not a gate criterion.
+**GATE-IMPLEMENT PASSED.**
+
+- 2026-07-19 — **[P1 IMPLEMENTED]** — non-destructive schedule lifecycle extension shipped (no new scheduler):
+  - **Status SSOT**: `'paused'` added to `TBackgroundTaskStatus` (`agent-interface-transport`) — non-terminal;
+    a subagent-status projection narrows the (unreachable-for-subagents) `paused` case.
+  - **State machine**: `PAUSE` (`running/sleeping → paused`) + `RESUME` (`paused → sleeping`) + `paused → cancelled`;
+    `paused` kept out of `TERMINAL_STATUSES`. **TC-01** (valid edges + illegal-edge rejection + non-terminal).
+  - **Runner** (`scheduled-task-runner.ts`): `IBackgroundTaskHandle.pause()/resume()/editSchedule(patch)` +
+    `IScheduleEditPatch`; a `state.paused` flag guards the fire closure + `runOneFire` + the in-flight-child
+    completion (no illegal `paused→sleeping` emit); `pause()`=croner `.pause()`, `resume()`=`.resume()`+re-emit
+    sleeping, `editSchedule` rebuilds the `Cron` in place (same taskId). **TC-02** (real timers: zero fires while
+    paused, fires after resume, same id) + **TC-03** (fake timers: edit hourly→every-minute re-arms in place).
+  - **Manager**: `pauseScheduledTask/resumeScheduledTask/editScheduledTask` + `markBackgroundTaskPaused/Resumed`
+    helpers; a paused schedule releases its concurrency slot (like `sleeping`); the `sleeping`-event handler is
+    idempotent (resume's re-emit refreshes `nextFireAt` without a double transition); `requireScheduledTask`
+    guards non-scheduled/terminal. 5 manager tests (pause→paused+list, resume→sleeping+nextFireAt, edit updates
+    `schedule`, idempotency, non-scheduled rejection) — **TC-04** (list shows the paused entry).
+  - **Host**: `IAgentJobHostContext.listSchedules()/pauseSchedule/resumeSchedule/editSchedule`, wired in
+    `interactive-session-base` to the manager. Reachable by the P2 `/schedule` surface with no bespoke wiring.
+  - Docs: agent-executor SPEC.md (status enum + lifecycle note). **No new cron engine** — still the croner
+    runner (TC-06 no-new-scheduler grep holds; the paused-survives-restart half of TC-06 is P3).
+  - Green: agent-interface-transport 10 tests, agent-executor **85 tests**, agent-framework 1212 tests,
+    typecheck, lint 0 errors, **57/57 harness scans**. **P2 (the `/schedule list|pause|resume|edit` surface +
+    the AGENT-RUN capability verification per the reachability rule) / P3 (paused persists across restart via the
+    FLOW-003 re-arm predicates) PENDING.**
+- 2026-07-19 — **[P1 REVIEW]** (pr-review-reviewer, PR #1235): **0 MUST/SHOULD** — the lifecycle is confirmed
+  correct, non-destructive (croner `.pause()`, not `.stop()`), leak-free (edit stops the old `Cron`), identity-
+  preserving, with the paused-guard closing the illegal `paused→sleeping` trap on all three fire paths and the
+  slot released like `sleeping`. Applied 2 CONSIDERs: (a) a clearer state-based error for a not-yet-started
+  (`queued`) schedule instead of the misleading "runner does not support pause"; (b) two regression tests locking
+  the guards — runner `edit-while-paused` (no sleeping emit + re-pause + resume announces the new cadence) and
+  manager `running→paused` (mid-fire pause → paused + slot released). **Sequencing constraint recorded from the
+  review:** **P3 (paused survives restart) MUST land before or with P2** — a restored `paused` task is currently
+  reconciled to `failed` by `isReArmableSchedule` (keys on `sleeping`), so exposing `pause` to users via P2
+  without P3 would let a restart silently kill a paused schedule. Unreachable in P1 (no surface creates a paused
+  task). Green after fixes: agent-executor **87 tests**, typecheck, lint 0 errors.
+
+- 2026-07-19 — **[P3 IMPLEMENTED]** — paused schedules survive restart. The FLOW-003 re-arm predicates keyed on
+  `status === 'sleeping'` and would reconcile a restored paused schedule to `failed`. Widened both:
+  `isReArmableSchedule` (`interactive-session-restore.ts`) accepts `sleeping || paused`; `reArmRestoredSchedules`
+  (`interactive-session-background-tracker.ts`) re-spawns a paused task then immediately `pauseScheduledTask`es it
+  (re-arm-then-pause), and skips the missed-wake note for paused (no `nextFireAt`). Status + edited schedule were
+  already serialized by the FLOW-003 path — only the predicates were the gap. **TC-06** integration
+  (`interactive-session-resume-rearm.test.ts`): a persisted paused schedule re-arms as paused (not failed, no
+  missed-wake note) after a simulated restart.
+- 2026-07-19 — **[P2 IMPLEMENTED]** — `/schedule list|pause|resume|edit` surface. `executeScheduleCommand`
+  dispatches on the first token (mirror `/background`): `list` → `host.listSchedules()` (cadence + `nextFireAt` +
+  status view), `pause`/`resume <id>` → `host.pauseSchedule`/`resumeSchedule`, `edit <id> <spec>` →
+  `parseScheduleSpec` → `host.editSchedule(id, {cronExpression, agentInstruction})`; any other first token stays
+  the FLOW-005 **create** form (a create spec begins with `in`/`cron` → no keyword collision); missing id / unknown
+  → usage error. Module description + `argumentHint` updated. Uses the P1 host lifecycle methods — no new wiring.
+  **TC-05** (5 cases: list view, pause/resume dispatch, edit parse+patch, missing-id usage error,
+  create-still-creates). agent-command SPEC.md updated.
+- 2026-07-19 — **[AGENT-RUN VERIFIED]** (capability-reachability rule) — drove the `/schedule` lifecycle end-to-end
+  through the **real assembled runtime** (`createAgentRuntime({commandModules:[createScheduleCommandModule()]})
+.createSession()` + the default croner scheduled runner): create an every-second cron → `list` → `pause` →
+  **across 2.5s (2+ ticks) it fired NOTHING** (`status=paused`, `nextFireAt=undefined`) → `resume` → **fired again**
+  (`nextFireAt` advanced tick-over-tick) → `edit` re-armed to a new cadence (`0 0 * * *`), same task id. Evidence:
+  [`.agents/evals/scenarios/selfhost-012-schedule-lifecycle-agent-run.md`](../../evals/scenarios/selfhost-012-schedule-lifecycle-agent-run.md).
+  **All TC-01..06 satisfied.**
+- 2026-07-19 — **Epic scope close**: P1 (lifecycle engine) + P2 (surface + agent-run verification) + P3 (restart
+  persistence) COMPLETE — the whole SELFHOST-012 capability ships. **No new scheduler** was introduced (still the
+  croner runner). GATE-VERIFY → GATE-COMPLETE next.
+
+### [GATE-VERIFY] — ✅ PASS | 2026-07-19
+
+**Status upgrade:** in-progress → verifying
+**Prior-gate precondition:** PASS — GATE-IMPLEMENT shows a PASS entry ("**GATE-IMPLEMENT PASSED.**", 2026-07-19);
+frontmatter `status: in-progress` matches the expected GATE-VERIFY input stage.
+**Criteria checked:**
+
+- ✅ All tasks marked complete: both task files declare **DONE (2026-07-19)** — `.agents/tasks/SELFHOST-012-P1.md`
+  (S1–S6, TC-01..04) and `.agents/tasks/SELFHOST-012-P2-P3.md` (S1–S3, TC-05/TC-06). Grep confirms **no unchecked
+  `[ ]` items** in either file.
+- ✅ No tasks blocked or pending: no blocked/pending markers; the P2/P3 slices that were "PENDING" in the P1 file
+  are all shipped in the P2-P3 file (surface + restart persistence + AGENT-RUN verification).
+- ✅ Build passes for all affected packages: `pnpm --filter @robota-sdk/agent-interface-transport
+--filter @robota-sdk/agent-executor --filter @robota-sdk/agent-framework --filter @robota-sdk/agent-command build`
+  — all 4 "Build complete".
+- ✅ Tests pass for all affected packages: agent-interface-transport 10/10, agent-executor 87/87, agent-framework
+  1213/1213, agent-command 242/242 — all green.
+
+TC↔evidence mapping confirmed for the Completion Criteria: TC-01/02/03/04 ([P1 IMPLEMENTED]), TC-05 ([P2
+IMPLEMENTED]), TC-06 ([P3 IMPLEMENTED]), all end-to-end ([AGENT-RUN VERIFIED],
+`.agents/evals/scenarios/selfhost-012-schedule-lifecycle-agent-run.md`). **GATE-VERIFY PASSED.**
+
+### [GATE-COMPLETE] — ❌ FAIL | 2026-07-19
+
+**Status remains:** verifying
+**Prior-gate precondition:** PASS — GATE-VERIFY shows a PASS entry ("**GATE-VERIFY PASSED.**", 2026-07-19);
+frontmatter `status: verifying` matches the expected GATE-COMPLETE input stage.
+**Criteria checked:**
+
+- ✅ All `## Completion Criteria` checkboxes `[x]`: TC-01..TC-06 all checked.
+- ✅ TC↔evidence present: TC-01/02/03/04 ([P1 IMPLEMENTED]), TC-05 ([P2 IMPLEMENTED]), TC-06 ([P3 IMPLEMENTED]),
+  end-to-end ([AGENT-RUN VERIFIED]) with the agent-run scenario at
+  `.agents/evals/scenarios/selfhost-012-schedule-lifecycle-agent-run.md` (exists).
+- ✅ `## Test Plan` populated with per-TC verification + type/tool for TC-01..TC-06 (no "TBD").
+- ✅ Tasks files physically archived: `.agents/tasks/completed/SELFHOST-012-P1.md` and
+  `.agents/tasks/completed/SELFHOST-012-P2-P3.md` both exist; the pre-archival `.agents/tasks/SELFHOST-012-P1.md`
+  no longer exists.
+- ❌ `## Tasks` section updated to reflect the archived paths.
+
+**Failed criteria:**
+
+- `## Tasks` section still points at pre-archival paths and reads stale (same failure mode as SELFHOST-011):
+  it lists ``**P1** — `.agents/tasks/SELFHOST-012-P1.md` (GATE-IMPLEMENT; in progress)`` (a path that no
+  longer exists, with an in-progress status), and `P2/P3 task files created after P1 completes` — it never
+  references the archived files `.agents/tasks/completed/SELFHOST-012-P1.md` and
+  `.agents/tasks/completed/SELFHOST-012-P2-P3.md`, nor reflects that all slices are DONE.
+  **Required action:** Update the `## Tasks` section to reference both archived paths
+  (`.agents/tasks/completed/SELFHOST-012-P1.md`, `.agents/tasks/completed/SELFHOST-012-P2-P3.md`) and mark the
+  slices complete (remove the "in progress" / "created after P1 completes" stale wording), then re-run
+  GATE-COMPLETE.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-07-19
+
+**Status upgrade:** verifying → done
+**Prior-gate precondition:** PASS — GATE-VERIFY shows a PASS entry ("**GATE-VERIFY PASSED.**", 2026-07-19);
+frontmatter `status: verifying` matches the expected GATE-COMPLETE input stage.
+**Criteria checked:**
+
+- ✅ All `## Completion Criteria` checkboxes `[x]`: TC-01..TC-06 all checked.
+- ✅ Per-TC evidence present: TC-01/02/03/04 ([P1 IMPLEMENTED]), TC-05 ([P2 IMPLEMENTED]), TC-06 ([P3
+  IMPLEMENTED]) each with command/action + observed result; end-to-end verified via [AGENT-RUN VERIFIED] with
+  the scenario `.agents/evals/scenarios/selfhost-012-schedule-lifecycle-agent-run.md` (exists).
+- ✅ `## Test Plan` populated with per-TC verification + type/tool for TC-01..TC-06 (no "TBD").
+- ✅ Tasks files physically archived: `.agents/tasks/completed/SELFHOST-012-P1.md` and
+  `.agents/tasks/completed/SELFHOST-012-P2-P3.md` both exist; the pre-archival `.agents/tasks/SELFHOST-012-P1.md`
+  and `.agents/tasks/SELFHOST-012-P2-P3.md` no longer exist.
+- ✅ `## Tasks` section reflects the archived paths (prior FAIL fixed): now records
+  `.agents/tasks/completed/SELFHOST-012-P1.md` (P1 — DONE) and `.agents/tasks/completed/SELFHOST-012-P2-P3.md`
+  (P2+P3 — DONE); the stale in-progress / "created after P1 completes" wording is gone.
+
+**GATE-COMPLETE PASSED.**

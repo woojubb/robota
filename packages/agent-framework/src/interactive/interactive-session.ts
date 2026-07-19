@@ -21,6 +21,11 @@ import {
 } from '../command-api/provider/provider-factory.js';
 import { GoalController, buildGoalContinuationPrompt } from '../goal/index.js';
 import { createUserInteractionPort } from '../interaction/user-interaction-port.js';
+import {
+  AutomaticMemoryController,
+  renderPerTurnRecall,
+} from '../memory/automatic-memory-controller.js';
+import { createFileSystemMemoryStore } from '../memory/file-system-memory-store.js';
 import { PlanController } from '../plan/index.js';
 import { retrieveAgentToolDeps } from '../tools/agent-tool.js';
 import { humanizeApiError } from '../utils/error-humanizer.js';
@@ -51,6 +56,8 @@ import type {
 } from '../commands/index.js';
 import type { IContextFileEntry } from '../context/context-file-tracker.js';
 import type { IGoalStartOptions } from '../goal/index.js';
+import type { IAutomaticMemoryConfig, IMemoryEvent } from '../memory/automatic-memory-types.js';
+import type { IMemoryStore, IPerTurnRecallConfig } from '../memory/types.js';
 import type {
   TUniversalMessage,
   TSessionEndReason,
@@ -101,6 +108,17 @@ export class InteractiveSession
   private autoCompactThresholdSource: TAutoCompactThresholdSource = 'default';
   private shutdownPromise: Promise<void> | null = null;
   private readonly sandboxClient?: ISandboxClient;
+  // SELFHOST-008 P1R: the durable-memory port for this session — the surface-injected store or the neutral
+  // fs default (lazily created + cached so it is ONE shared instance). Exposed to the `/memory` command
+  // host context via getMemoryStore() so command reads/writes hit the SAME store as startup + capture.
+  private injectedMemoryStore?: IMemoryStore;
+  private defaultMemoryStore?: IMemoryStore;
+  // SELFHOST-008 P2: optional post-turn auto-capture policy (surface-supplied); absent ⇒ capture OFF.
+  private readonly automaticMemory?: IAutomaticMemoryConfig;
+  private autoMemoryController?: AutomaticMemoryController;
+  private autoMemoryTurn = 0;
+  // SELFHOST-008 P3: optional per-turn recall policy (surface-supplied); absent ⇒ recall OFF.
+  private readonly recallMemory?: IPerTurnRecallConfig;
   private sandboxSnapshotId?: string;
   private agentsFileEntries: IContextFileEntry[] = [];
   private claudeFileEntries: IContextFileEntry[] = [];
@@ -167,6 +185,9 @@ export class InteractiveSession
     this.resumeSessionId = options.resumeSessionId;
     this.forkSession = options.forkSession ?? false;
     this.sandboxClient = 'sandboxClient' in options ? options.sandboxClient : undefined;
+    this.injectedMemoryStore = 'memoryStore' in options ? options.memoryStore : undefined;
+    this.automaticMemory = 'automaticMemory' in options ? options.automaticMemory : undefined;
+    this.recallMemory = 'recallMemory' in options ? options.recallMemory : undefined;
     this.sandboxSnapshotId = 'sandboxSnapshotId' in options ? options.sandboxSnapshotId : undefined;
 
     const cwd = this.cwd;
@@ -240,6 +261,19 @@ export class InteractiveSession
           ...(args as Parameters<IInteractiveSessionEvents[TInteractiveEventName]>),
         ),
       persistSession: () => this.persistCurrentSession(),
+      // SELFHOST-008 P2: adapter-gated — only wire capture when the surface supplied an `automaticMemory`
+      // policy (absent ⇒ undefined ⇒ capture OFF, zero behavior change).
+      ...(this.automaticMemory
+        ? {
+            captureMemory: (turn: { userMessage: string; assistantMessage: string }) =>
+              this.captureTurnMemory(turn),
+          }
+        : {}),
+      // SELFHOST-008 P3: adapter-gated — only wire per-turn recall when the surface supplied a
+      // `recallMemory` policy (absent ⇒ undefined ⇒ recall OFF, startup-only injection unchanged).
+      ...(this.recallMemory
+        ? { recallMemory: (query: string) => this.recallTurnMemory(query) }
+        : {}),
     });
 
     if ('providerDefinitions' in options) {
@@ -358,6 +392,57 @@ export class InteractiveSession
   getCwd(): string {
     if (!this.cwd) throw new Error('cwd is not set — provide cwd in session options');
     return this.cwd;
+  }
+
+  /**
+   * SELFHOST-008 P1R — the durable-memory port the `/memory` command host context reads/writes through.
+   * Returns the surface-injected store if one was supplied, else a lazily-created + cached neutral fs
+   * store over `cwd` (ONE shared instance, so command operations are the SSOT with startup + capture — no
+   * split-brain).
+   */
+  getMemoryStore(): IMemoryStore {
+    if (this.injectedMemoryStore) return this.injectedMemoryStore;
+    this.defaultMemoryStore ??= createFileSystemMemoryStore(this.getCwd());
+    return this.defaultMemoryStore;
+  }
+
+  /**
+   * SELFHOST-008 P2 — post-turn auto-capture, invoked by the execution controller's `finally` (before
+   * persistSession) when an `automaticMemory` policy was supplied. Extracts + evaluates + curates through
+   * the SAME injected `IMemoryStore` (SSOT with startup + `/memory`), returning the `IMemoryEvent`s for the
+   * controller to record. The controller guards this call (a capture failure never breaks the turn).
+   */
+  private async captureTurnMemory(turn: {
+    userMessage: string;
+    assistantMessage: string;
+  }): Promise<IMemoryEvent[]> {
+    if (!this.automaticMemory) return [];
+    this.autoMemoryController ??= new AutomaticMemoryController({
+      cwd: this.getCwd(),
+      config: this.automaticMemory,
+      memoryStore: this.getMemoryStore(),
+    });
+    this.autoMemoryTurn += 1;
+    const result = await this.autoMemoryController.capture({
+      sessionId: this.sessionId || 'session',
+      turnId: `turn-${this.autoMemoryTurn}`,
+      userMessage: turn.userMessage,
+      assistantMessage: turn.assistantMessage,
+    });
+    return result.events;
+  }
+
+  /**
+   * SELFHOST-008 P3 — per-turn recall, invoked by the execution controller at turn START (query = the turn
+   * input) when a `recallMemory` policy was supplied. Recalls query-relevant durable memory through the SAME
+   * injected `IMemoryStore` (SSOT with startup + capture) and renders it under a DISTINCT `<recalled-memory>`
+   * label. Returns '' when there is nothing to recall. The controller guards this call (recall failure skips
+   * injection, never breaks the turn) and injects the result EPHEMERALLY (never persisted).
+   */
+  private async recallTurnMemory(query: string): Promise<string> {
+    if (!this.recallMemory) return '';
+    const result = await this.getMemoryStore().recall(query, this.recallMemory.budget);
+    return renderPerTurnRecall(result);
   }
 
   get sessionId(): string {

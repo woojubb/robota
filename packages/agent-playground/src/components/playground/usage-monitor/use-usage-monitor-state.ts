@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { WebLogger } from '../../../lib/web-logger';
 import { FETCH_DELAY_MS, REFRESH_INTERVAL_MS } from './constants';
-import { createMockUsageSnapshot } from './mock-usage-snapshot';
+import { createSampleUsageSnapshot } from './sample-usage-snapshot';
 import type { IPlaygroundUsageStats, IRateLimitInfo } from './types';
 
 export interface IUsageMonitorState {
@@ -24,7 +24,7 @@ export function useUsageMonitorState(isVisible: boolean): IUsageMonitorState {
     try {
       await new Promise((resolve) => setTimeout(resolve, FETCH_DELAY_MS));
 
-      const snapshot = createMockUsageSnapshot();
+      const snapshot = createSampleUsageSnapshot();
       setUsage(snapshot.usage);
       setRateLimit(snapshot.rateLimit);
       setLastUpdate(new Date());

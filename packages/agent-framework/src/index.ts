@@ -209,8 +209,6 @@ export {
   parseCommandBackgroundLogCursor,
   readCommandBackgroundTaskLog,
   createCommandMemoryStores,
-  createCommandPendingMemoryStore,
-  createCommandProjectMemoryStore,
   DEFAULT_STATUS_LINE_COMMAND_SETTINGS,
   hasSensitiveCommandMemoryContent,
   isStatusLineCommandSettingsPatch,
@@ -240,9 +238,6 @@ export type {
   IPermissionsCommandState,
   IPresetApplicationOptions,
   IPresetApplicationResult,
-  ICommandMemoryStores,
-  ICommandPendingMemoryStore,
-  ICommandProjectMemoryStore,
   IMemoryCandidate,
   IMemoryPendingRecord,
   TAutoCompactThreshold,
@@ -300,6 +295,26 @@ export type {
   IProjectMemorySummary,
   IStartupMemory,
 } from './memory/project-memory-store.js';
+// SELFHOST-008: the neutral durable-memory port + filesystem reference adapter.
+export {
+  FileSystemMemoryStore,
+  createFileSystemMemoryStore,
+} from './memory/file-system-memory-store.js';
+// SELFHOST-008 P4: the neutral semantic-memory adapter decorator (surface injects the concrete adapter).
+export { SemanticMemoryStore, createSemanticMemoryStore } from './memory/semantic-memory-store.js';
+export type {
+  IMemoryStore,
+  IDurableMemoryReader,
+  IMemoryWriter,
+  IMemoryRecaller,
+  IMemoryCurationQueue,
+  IMemoryBudget,
+  IPerTurnRecallConfig,
+  ISemanticMemoryAdapter,
+  ISemanticMemoryQueryResult,
+} from './memory/types.js';
+// SELFHOST-008 P6: the surface-owned automatic-capture policy shape (consumed by agent-cli/transport wiring).
+export type { IAutomaticMemoryConfig, TMemoryPolicyMode } from './memory/automatic-memory-types.js';
 // ── Edit checkpointing ─────────────────────────────────────
 export { EditCheckpointStore, wrapEditCheckpointTools } from './checkpoints/index.js';
 export type {
@@ -325,6 +340,27 @@ export type {
   TSelfHostingLoopState,
   TSelfHostingVerificationPhase,
 } from './self-hosting/index.js';
+
+// ── Evals ─────────────────────────────────────────────────
+export { defineEval, runEval, createSessionRunFn } from './evals/index.js';
+export {
+  exactMatch,
+  includesText,
+  regexMatch,
+  responseIsJson,
+  usedTool,
+  parseEvalCases,
+  formatEvalReport,
+} from './evals/index.js';
+export type {
+  IEvalCase,
+  IEvalCaseResult,
+  IEvalDefinition,
+  IEvalMetricScore,
+  IEvalReport,
+  IMetric,
+  TEvalRunFn,
+} from './evals/index.js';
 
 // ── Reversible execution safety ───────────────────────────
 export {

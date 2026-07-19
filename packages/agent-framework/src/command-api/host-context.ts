@@ -17,6 +17,7 @@ import type {
 } from '../context/context-reference-inventory.js';
 import type { IGoalStartOptions } from '../goal/index.js';
 import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
+import type { IMemoryStore } from '../memory/types.js';
 import type { TAutoCompactThreshold } from './context/context-command-api.js';
 import type {
   IContextWindowState,
@@ -181,6 +182,13 @@ export interface ICommandHostContext {
   switchCheckpointBranch?(checkpointId: string): void;
   getUsedMemoryReferences(): IMemoryReference[];
   recordMemoryEvent(event: IMemoryEvent): void;
+  /**
+   * SELFHOST-008 P1R — the injected durable-memory port the `/memory` command reads/writes through, so a
+   * surface that swaps the store is authoritative for command operations too (no split-brain). Optional:
+   * when absent, the command path defaults to the neutral fs reference store over `getCwd()` (memory
+   * behavior unchanged). Must return the SAME instance the session injected (SSOT for a stateful store).
+   */
+  getMemoryStore?(): IMemoryStore;
   listBackgroundTasks(filter?: IBackgroundTaskListFilter): IBackgroundTaskState[];
   readBackgroundTaskLog(
     taskId: string,
@@ -244,6 +252,17 @@ export interface IAgentJobHostContext {
     cronExpression: string;
     agentInstruction: string;
   }): Promise<IBackgroundTaskState>;
+  /** SELFHOST-012: list the caller's scheduled tasks (each carries cadence, `nextFireAt`, and status). */
+  listSchedules(): IBackgroundTaskState[];
+  /** SELFHOST-012: non-destructively pause a scheduled task — it stops firing until `resumeSchedule`. */
+  pauseSchedule(taskId: string): Promise<void>;
+  /** SELFHOST-012: resume a paused scheduled task, re-armed with the same identity. */
+  resumeSchedule(taskId: string): Promise<void>;
+  /** SELFHOST-012: edit a scheduled task's cron / instruction in place (same task id). */
+  editSchedule(
+    taskId: string,
+    patch: { cronExpression?: string; agentInstruction?: string; command?: string },
+  ): Promise<void>;
   /**
    * FLOW-005: monitor a process's output and wake the agent with `agentInstruction` when a
    * line matches `matchPattern` (FLOW-004).

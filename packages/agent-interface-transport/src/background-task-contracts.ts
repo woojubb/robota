@@ -19,6 +19,9 @@ export type TBackgroundTaskStatus =
   | 'running'
   | 'waiting_permission'
   | 'sleeping'
+  // SELFHOST-012: a scheduled task whose recurrence is non-destructively paused (croner `.pause()`, not the
+  // irreversible `.stop()` that `cancelled` uses). Non-terminal — resumes to `sleeping`.
+  | 'paused'
   | 'completed'
   | 'failed'
   | 'cancelled';

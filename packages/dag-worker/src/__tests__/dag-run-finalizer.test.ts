@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { IDagRun, IRunProgressEventReporter } from '@robota-sdk/dag-core';
-import { FakeClockPort, InMemoryStoragePort } from '@robota-sdk/dag-adapters-local';
+import { InMemoryStoragePort } from '@robota-sdk/dag-adapters-local';
+import { ManualClockPort } from '@robota-sdk/dag-adapters-local/testing';
 import { finalizeDagRunIfTerminal } from '../services/dag-run-finalizer.js';
 
 function createRunningDagRun(): IDagRun {
@@ -19,7 +20,7 @@ function createRunningDagRun(): IDagRun {
 describe('finalizeDagRunIfTerminal', () => {
   it('returns error when dag run not found', async () => {
     const storage = new InMemoryStoragePort();
-    const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 3, 0, 0));
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14, 3, 0, 0));
 
     const result = await finalizeDagRunIfTerminal('nonexistent', storage, clock);
     expect(result.ok).toBe(false);
@@ -30,7 +31,7 @@ describe('finalizeDagRunIfTerminal', () => {
 
   it('does not finalize when dag run is not in running status', async () => {
     const storage = new InMemoryStoragePort();
-    const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 3, 0, 0));
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14, 3, 0, 0));
     await storage.createDagRun({ ...createRunningDagRun(), status: 'success' });
 
     const result = await finalizeDagRunIfTerminal('dag-run-1', storage, clock);
@@ -41,7 +42,7 @@ describe('finalizeDagRunIfTerminal', () => {
 
   it('does not finalize when pending tasks exist', async () => {
     const storage = new InMemoryStoragePort();
-    const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 3, 0, 0));
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14, 3, 0, 0));
     await storage.createDagRun(createRunningDagRun());
     await storage.createTaskRun({
       taskRunId: 'task-1',
@@ -59,7 +60,7 @@ describe('finalizeDagRunIfTerminal', () => {
 
   it('finalizes as success when all tasks are successful', async () => {
     const storage = new InMemoryStoragePort();
-    const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 3, 0, 0));
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14, 3, 0, 0));
     await storage.createDagRun(createRunningDagRun());
     await storage.createTaskRun({
       taskRunId: 'task-1',
@@ -81,7 +82,7 @@ describe('finalizeDagRunIfTerminal', () => {
 
   it('finalizes as failed when any task is failed', async () => {
     const storage = new InMemoryStoragePort();
-    const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 3, 0, 0));
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14, 3, 0, 0));
     await storage.createDagRun(createRunningDagRun());
     await storage.createTaskRun({
       taskRunId: 'task-1',
@@ -105,7 +106,7 @@ describe('finalizeDagRunIfTerminal', () => {
 
   it('finalizes as success when tasks are upstream_failed, skipped, or cancelled (no actual failed)', async () => {
     const storage = new InMemoryStoragePort();
-    const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 3, 0, 0));
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14, 3, 0, 0));
     await storage.createDagRun(createRunningDagRun());
     await storage.createTaskRun({
       taskRunId: 'task-1',
@@ -137,7 +138,7 @@ describe('finalizeDagRunIfTerminal', () => {
 
   it('publishes failure event with error details from failed task', async () => {
     const storage = new InMemoryStoragePort();
-    const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 3, 0, 0));
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14, 3, 0, 0));
     await storage.createDagRun(createRunningDagRun());
     await storage.createTaskRun({
       taskRunId: 'task-1',
@@ -165,7 +166,7 @@ describe('finalizeDagRunIfTerminal', () => {
 
   it('publishes generic failure event when failed task has no error details', async () => {
     const storage = new InMemoryStoragePort();
-    const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 3, 0, 0));
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14, 3, 0, 0));
     await storage.createDagRun(createRunningDagRun());
     await storage.createTaskRun({
       taskRunId: 'task-1',

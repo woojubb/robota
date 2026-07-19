@@ -129,6 +129,7 @@ function baseArgs(): IParsedCliArgs {
     help: false,
     printMode: false,
     serve: false,
+    open: false,
     continueMode: false,
     resumeId: undefined,
     language: undefined,
@@ -168,6 +169,8 @@ function baseArgs(): IParsedCliArgs {
     disableUpdateCheck: false,
     dryRun: false,
     yes: false,
+    memory: undefined,
+    memoryAutoSave: false,
   };
 }
 

@@ -77,7 +77,7 @@ describe('automatic memory pipeline', () => {
     expect(decision).toEqual({ action: 'skip', reason: 'sensitive-content' });
   });
 
-  it('Given disabled policy When capture runs Then no pending or saved entries are created', () => {
+  it('Given disabled policy When capture runs Then no pending or saved entries are created', async () => {
     const cwd = makeProject();
     const controller = new AutomaticMemoryController({
       cwd,
@@ -85,7 +85,7 @@ describe('automatic memory pipeline', () => {
       config: { policy: 'disabled', retrieval: { maxTopics: 3, maxTopicChars: 3000 } },
     });
 
-    const result = controller.capture({
+    const result = await controller.capture({
       sessionId: 'session-1',
       turnId: 'turn-1',
       userMessage: 'remember that this project uses pnpm',
@@ -98,7 +98,7 @@ describe('automatic memory pipeline', () => {
     expect(new ProjectMemoryStore(cwd).loadStartupMemory().content).toBe('');
   });
 
-  it('Given approval required policy When capture runs Then candidates are queued instead of saved', () => {
+  it('Given approval required policy When capture runs Then candidates are queued instead of saved', async () => {
     const cwd = makeProject();
     const controller = new AutomaticMemoryController({
       cwd,
@@ -109,7 +109,7 @@ describe('automatic memory pipeline', () => {
       },
     });
 
-    const result = controller.capture({
+    const result = await controller.capture({
       sessionId: 'session-1',
       turnId: 'turn-1',
       userMessage: 'remember that this project uses pnpm',
@@ -122,7 +122,7 @@ describe('automatic memory pipeline', () => {
     expect(new ProjectMemoryStore(cwd).loadStartupMemory().content).toBe('');
   });
 
-  it('Given auto save policy When a high confidence candidate is captured Then memory is saved', () => {
+  it('Given auto save policy When a high confidence candidate is captured Then memory is saved', async () => {
     const cwd = makeProject();
     const controller = new AutomaticMemoryController({
       cwd,
@@ -130,7 +130,7 @@ describe('automatic memory pipeline', () => {
       config: { policy: 'auto_save', retrieval: { maxTopics: 3, maxTopicChars: 3000 } },
     });
 
-    const result = controller.capture({
+    const result = await controller.capture({
       sessionId: 'session-1',
       turnId: 'turn-1',
       userMessage: 'remember that this project uses pnpm',
@@ -182,8 +182,8 @@ describe('automatic memory pipeline', () => {
     const retrieval = new MemoryRetrievalService(cwd).retrieve(
       'How should I run package scripts?',
       {
-        policy: 'approval_required',
-        retrieval: { maxTopics: 1, maxTopicChars: 1000 },
+        maxTopics: 1,
+        maxTopicChars: 1000,
       },
     );
 
@@ -206,8 +206,8 @@ describe('automatic memory pipeline', () => {
     });
 
     const retrieval = new MemoryRetrievalService(cwd).retrieve('unrelated database question', {
-      policy: 'approval_required',
-      retrieval: { maxTopics: 3, maxTopicChars: 1000 },
+      maxTopics: 3,
+      maxTopicChars: 1000,
     });
 
     expect(retrieval.references).toEqual([]);

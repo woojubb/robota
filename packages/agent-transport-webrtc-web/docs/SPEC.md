@@ -124,4 +124,4 @@ here (no pass-through re-exports).
 
 ### Cross-Package Consumers
 
-- `apps/agent-web-monitor` — the `remote.html` Stage-D page mounts `RemoteClient`.
+- `apps/agent-web` `/remote` route mounts `RemoteClient`.

@@ -1,12 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { IDagDefinition, IDagRun, IQueueMessage, ITaskRun } from '@robota-sdk/dag-core';
 import {
-  FakeClockPort,
   InMemoryLeasePort,
   InMemoryQueuePort,
   InMemoryStoragePort,
-  MockTaskExecutorPort,
 } from '@robota-sdk/dag-adapters-local';
+import { ManualClockPort, ScriptedTaskExecutorPort } from '@robota-sdk/dag-adapters-local/testing';
 import { createWorkerLoopService } from '../composition/create-worker-loop-service.js';
 
 function createQueuedTaskFixture() {
@@ -73,7 +72,7 @@ describe('createWorkerLoopService', () => {
     const storage = new InMemoryStoragePort();
     const queue = new InMemoryQueuePort();
     const lease = new InMemoryLeasePort();
-    const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 3, 0, 0));
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14, 3, 0, 0));
     const { dagRun, taskRun, message } = createQueuedTaskFixture();
 
     const definition = createDefinitionForRun(dagRun);
@@ -82,7 +81,7 @@ describe('createWorkerLoopService', () => {
     await storage.createTaskRun(taskRun);
     await queue.enqueue(message);
 
-    const executor = new MockTaskExecutorPort(async () => ({
+    const executor = new ScriptedTaskExecutorPort(async () => ({
       ok: false,
       error: {
         code: 'DAG_TASK_EXECUTION_FAILED',

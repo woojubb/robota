@@ -18,6 +18,8 @@ export interface IParsedCliArgs {
   printMode: boolean;
   /** RUNTIME-001: run the headless runtime host (serve the WS, no ink) — the backend apps/agent-app spawns. */
   serve: boolean;
+  /** GUI-007: with `--serve --open`, also serve the CLI's web monitor SPA over localhost and open it. */
+  open: boolean;
   continueMode: boolean;
   resumeId: string | undefined;
   language: string | undefined;
@@ -60,6 +62,13 @@ export interface IParsedCliArgs {
   disableUpdateCheck: boolean;
   dryRun: boolean;
   yes: boolean;
+  /**
+   * SELFHOST-008 P6: tri-state memory enablement override — `true` (`--memory`), `false`
+   * (`--no-memory`), or `undefined` (neither given, defer to settings/env). `--no-memory` wins if both.
+   */
+  memory: boolean | undefined;
+  /** SELFHOST-008 P6: `--memory-autosave` flips the capture policy to `auto_save`. */
+  memoryAutoSave: boolean;
 }
 
 /** Return CLI usage help text. */
@@ -88,11 +97,15 @@ Options:
   --denied-tools <list>      Comma-separated tool denylist (TUI and print mode)
   --model <model>            Model override for this run
   --preset <id>              Preset id to apply (default: settings.preset or "default")
+  --memory / --no-memory     Enable/disable durable memory for this run (default: off; opt-in).
+                             Overrides settings.json memory.enabled; ROBOTA_MEMORY=1|0 overrides both
+  --memory-autosave          With memory on, auto-save captured facts (default: approval-required queue)
   --json-schema <schema>     Print mode: instruct the model to respond with JSON matching this schema
   --dry-run                  Alias for --permission-mode plan (plan only, no execution)
   --reset                    Delete ~/.robota/settings.json (provider profiles and preferences).
                              Asks for confirmation; use --yes to skip
   --yes                      Skip confirmation prompts (required for --reset in non-TTY)
+  --serve --open             Serve the web monitor over localhost and open it in a browser
   --check-update             Check for CLI updates
   --version                  Show version number
   -h, --help                 Show this help message
@@ -100,6 +113,7 @@ Options:
 Commands:
   robota init                      Initialize AGENTS.md and .robota/settings.json
   robota diagnose                  Check setup and print a diagnostics report
+  robota eval <definition>         Run an evals-as-code definition; exit 1 on a metric breach (CI gate)
 
 Examples:
   robota                           Start interactive TUI session
@@ -165,6 +179,7 @@ const PARSE_ARGS_CONFIG = {
     'goal-max-iterations': { type: 'string' },
     'fork-session': { type: 'boolean', default: false },
     serve: { type: 'boolean', default: false },
+    open: { type: 'boolean', default: false },
     name: { type: 'string', short: 'n' },
     'output-format': { type: 'string' },
     format: { type: 'string' },
@@ -196,18 +211,37 @@ const PARSE_ARGS_CONFIG = {
     'disable-update-check': { type: 'boolean', default: false },
     'dry-run': { type: 'boolean', default: false },
     yes: { type: 'boolean', short: 'y', default: false },
+    // SELFHOST-008 P6: no `default` so absence is distinguishable (tri-state override).
+    memory: { type: 'boolean' },
+    'no-memory': { type: 'boolean' },
+    'memory-autosave': { type: 'boolean' },
   },
 } as const;
 
+type TParsedArgValues = ReturnType<typeof parseArgs<typeof PARSE_ARGS_CONFIG>>['values'];
+
+/**
+ * SELFHOST-008 P6: resolve the memory flags separately so mapParsedValues stays within its size budget.
+ * `--memory`/`--no-memory` is tri-state (`--no-memory` wins if both); `--memory-autosave` is a plain flag.
+ */
+function resolveMemoryArgs(
+  values: TParsedArgValues,
+): Pick<IParsedCliArgs, 'memory' | 'memoryAutoSave'> {
+  const memory =
+    values['no-memory'] === true ? false : values['memory'] === true ? true : undefined;
+  return { memory, memoryAutoSave: values['memory-autosave'] ?? false };
+}
+
 function mapParsedValues(
-  values: ReturnType<typeof parseArgs<typeof PARSE_ARGS_CONFIG>>['values'],
+  values: TParsedArgValues,
   positionals: string[],
-): IParsedCliArgs {
+): Omit<IParsedCliArgs, 'memory' | 'memoryAutoSave'> {
   return {
     positional: positionals,
     help: values['help'] ?? false,
     printMode: values['p'] ?? false,
     serve: values['serve'] ?? false,
+    open: values['open'] ?? false,
     continueMode: values['continue'] ?? false,
     resumeId: values['resume'],
     language: values['language'],
@@ -253,7 +287,10 @@ function mapParsedValues(
 /** Parse and validate CLI arguments. */
 export function parseCliArgs(): IParsedCliArgs {
   const { values, positionals } = parseArgs(PARSE_ARGS_CONFIG);
-  const args = mapParsedValues(values, positionals);
+  const args: IParsedCliArgs = {
+    ...mapParsedValues(values, positionals),
+    ...resolveMemoryArgs(values),
+  };
   if (args.printMode) {
     if (args.resumeId === '') {
       throw new Error(

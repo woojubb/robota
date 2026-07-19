@@ -58,6 +58,38 @@ export {
   REPO_MAP_INDEX_VERSION,
 } from './retrieval/index';
 
+// SELFHOST-010: computer-use (driver port + types + perceive/act tool factory + zero-dep reference adapter).
+// The test-support ScriptedComputerDriver is NOT exported here — it lives under computer-use/testing/.
+export type {
+  IBrowserPageAdapter,
+  IBrowserPageKeyboardAdapter,
+  IBrowserPageMouseAdapter,
+  IComputerActionResult,
+  IComputerClickAction,
+  IComputerDoubleClickAction,
+  IComputerDragAction,
+  IComputerDriver,
+  IComputerKeypressAction,
+  IComputerPoint,
+  IComputerScreenshot,
+  IComputerScrollAction,
+  IComputerTakeoverAction,
+  IComputerToolOptions,
+  IComputerToolResult,
+  IComputerTypeAction,
+  IComputerWaitAction,
+  IPageComputerDriverOptions,
+  TComputerAction,
+  TComputerActionType,
+  TComputerMouseButton,
+} from './computer-use/index';
+export {
+  createComputerActTool,
+  createComputerTool,
+  createComputerViewTool,
+  PageComputerDriver,
+} from './computer-use/index';
+
 // FunctionTool and ToolRegistry classes are owned by @robota-sdk/agent-core (DATA-005 SSOT).
 // agent-tools exposes only the factories that construct core's FunctionTool.
 export { createFunctionTool, createZodFunctionTool } from './implementations/function-tool';

@@ -301,6 +301,9 @@ importers:
       '@robota-sdk/agent-transport-gui':
         specifier: workspace:^
         version: link:../../packages/agent-transport-gui
+      '@robota-sdk/agent-transport-webrtc-web':
+        specifier: workspace:*
+        version: link:../../packages/agent-transport-webrtc-web
       next:
         specifier: ^15.5.15
         version: 15.5.19(@babel/core@7.29.7)(react-dom@19.1.0)(react@19.1.0)
@@ -368,46 +371,6 @@ importers:
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
-
-  apps/agent-web-monitor:
-    dependencies:
-      '@robota-sdk/agent-transport-gui':
-        specifier: workspace:*
-        version: link:../../packages/agent-transport-gui
-      '@robota-sdk/agent-transport-webrtc-web':
-        specifier: workspace:*
-        version: link:../../packages/agent-transport-webrtc-web
-      react:
-        specifier: 19.2.4
-        version: 19.2.4
-      react-dom:
-        specifier: 19.2.4
-        version: 19.2.4(react@19.2.4)
-    devDependencies:
-      '@tailwindcss/vite':
-        specifier: ^4.3.0
-        version: 4.3.0(vite@6.4.3)
-      '@types/react':
-        specifier: ^19.2.17
-        version: 19.2.17
-      '@types/react-dom':
-        specifier: ^19.2.3
-        version: 19.2.3(@types/react@19.2.17)
-      '@vitejs/plugin-react':
-        specifier: ^4.7.0
-        version: 4.7.0(vite@6.4.3)
-      playwright:
-        specifier: ^1.49.1
-        version: 1.61.1
-      tailwindcss:
-        specifier: ^4.3.0
-        version: 4.3.0
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-      vite:
-        specifier: ^6.0.7
-        version: 6.4.3(@types/node@20.19.43)(tsx@4.22.4)
 
   apps/blog:
     dependencies:
@@ -679,6 +642,25 @@ importers:
         specifier: ^5.5.0
         version: 5.9.3
 
+  examples/capabilities/agent-eval:
+    dependencies:
+      '@robota-sdk/agent-framework':
+        specifier: ^3.0.0-beta.67
+        version: link:../../../packages/agent-framework
+      '@robota-sdk/agent-provider':
+        specifier: ^3.0.0-beta.67
+        version: 3.0.0-beta.79(@modelcontextprotocol/sdk@1.29.0)(ws@8.21.0)(zod@3.25.76)
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.19.21
+      tsx:
+        specifier: ^4.6.0
+        version: 4.22.4
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.3
+
   examples/capabilities/decision-agent:
     dependencies:
       '@robota-sdk/agent-core':
@@ -693,6 +675,34 @@ importers:
       zod:
         specifier: ^3.25.76
         version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.19.21
+      tsx:
+        specifier: ^4.6.0
+        version: 4.22.4
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.3
+
+  examples/capabilities/multi-surface-deploy:
+    dependencies:
+      '@robota-sdk/agent-framework':
+        specifier: ^3.0.0-beta.67
+        version: link:../../../packages/agent-framework
+      '@robota-sdk/agent-provider-anthropic':
+        specifier: ^3.0.0-beta.67
+        version: link:../../../packages/agent-provider-anthropic
+      '@robota-sdk/agent-transport':
+        specifier: ^3.0.0-beta.67
+        version: link:../../../packages/agent-transport
+      '@robota-sdk/agent-transport-http':
+        specifier: ^3.0.0-beta.67
+        version: link:../../../packages/agent-transport-http
+      '@robota-sdk/agent-transport-ws':
+        specifier: ^3.0.0-beta.67
+        version: link:../../../packages/agent-transport-ws
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
@@ -1141,6 +1151,43 @@ importers:
       vitest:
         specifier: ^3.2.6
         version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.22.4)
+
+  packages/agent-cli-web:
+    dependencies:
+      '@robota-sdk/agent-transport-gui':
+        specifier: workspace:*
+        version: link:../agent-transport-gui
+      react:
+        specifier: 19.2.4
+        version: 19.2.4
+      react-dom:
+        specifier: 19.2.4
+        version: 19.2.4(react@19.2.4)
+    devDependencies:
+      '@tailwindcss/vite':
+        specifier: ^4.3.0
+        version: 4.3.0(vite@6.4.3)
+      '@types/react':
+        specifier: ^19.2.17
+        version: 19.2.17
+      '@types/react-dom':
+        specifier: ^19.2.3
+        version: 19.2.3(@types/react@19.2.17)
+      '@vitejs/plugin-react':
+        specifier: ^4.7.0
+        version: 4.7.0(vite@6.4.3)
+      playwright:
+        specifier: ^1.49.1
+        version: 1.61.1
+      tailwindcss:
+        specifier: ^4.3.0
+        version: 4.3.0
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vite:
+        specifier: ^6.0.7
+        version: 6.4.3(@types/node@20.19.43)(tsx@4.22.4)
 
   packages/agent-command:
     dependencies:

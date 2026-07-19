@@ -82,7 +82,7 @@ export async function createInteractiveSession(
           agentsFileEntries: [],
           claudeFileEntries: [],
         })
-      : loadContext(cwd),
+      : loadContext(cwd, options.memoryStore),
     options.bare
       ? Promise.resolve({ type: 'unknown' as const, language: 'unknown' as const })
       : detectProject(cwd),
@@ -292,6 +292,7 @@ export async function initializeInteractiveSessionAsync(
     editCheckpointRecorder: checkpointStore,
     ...(options.reversibleExecution ? { reversibleExecution: options.reversibleExecution } : {}),
     ...(options.sandboxClient ? { sandboxClient: options.sandboxClient } : {}),
+    ...(options.memoryStore ? { memoryStore: options.memoryStore } : {}),
     ...(options.workspaceManifest ? { workspaceManifest: options.workspaceManifest } : {}),
     ...(options.sandboxWorkspaceRoot ? { sandboxWorkspaceRoot: options.sandboxWorkspaceRoot } : {}),
     ...(deps.sandboxSnapshotId ? { sandboxSnapshotId: deps.sandboxSnapshotId } : {}),

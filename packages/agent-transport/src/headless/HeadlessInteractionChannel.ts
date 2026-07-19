@@ -19,6 +19,9 @@ import type {
   TSubagentRunnerFactory,
   TShellExecFn,
   InteractiveSession,
+  IMemoryStore,
+  IAutomaticMemoryConfig,
+  IPerTurnRecallConfig,
 } from '@robota-sdk/agent-framework';
 import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-transport';
 
@@ -26,6 +29,12 @@ export interface IHeadlessInteractionChannelOptions {
   cwd: string;
   provider: IAIProvider;
   outputFormat: TOutputFormat;
+  /**
+   * CLI-076: the resolved model id (the same value the CLI header displays). Forwarded verbatim to the
+   * session so an explicit `--model` override actually reaches the provider chat call. Absent ⇒ the
+   * session resolves the model from config (no silent substitution of the requested model).
+   */
+  model?: string;
   permissionMode?: TPermissionMode;
   maxTurns?: number;
   sessionStore?: IInteractiveSessionStore;
@@ -54,6 +63,15 @@ export interface IHeadlessInteractionChannelOptions {
   commandModules?: readonly ICommandModule[];
   commandHostAdapters?: ICommandHostAdapters;
   shellExec?: TShellExecFn;
+  /**
+   * SELFHOST-008 P6: optional durable-memory store injected by the surface (agent-cli). Forwarded into
+   * `buildRuntimeSession`; absent ⇒ memory OFF (today's behavior). Enablement/policy is surface-owned.
+   */
+  memoryStore?: IMemoryStore;
+  /** SELFHOST-008 P6: optional automatic post-turn capture policy (absent ⇒ capture OFF). */
+  automaticMemory?: IAutomaticMemoryConfig;
+  /** SELFHOST-008 P6: optional per-turn recall policy (absent ⇒ recall OFF, startup-only injection). */
+  recallMemory?: IPerTurnRecallConfig;
 }
 
 export class HeadlessInteractionChannel {
@@ -100,6 +118,9 @@ export class HeadlessInteractionChannel {
       // then applies its explicit no-human path (e.g. /mode reports current, /exit and /clear proceed —
       // never a silent guess).
       maxTurns: this.opts.maxTurns,
+      // CLI-076: forward the resolved model so an explicit `--model` override takes effect instead of being
+      // silently dropped (which fell through to the session's config/default model).
+      ...(this.opts.model !== undefined ? { model: this.opts.model } : {}),
       sessionStore: this.opts.sessionStore,
       resumeSessionId: this.opts.resumeSessionId,
       forkSession: this.opts.forkSession,
@@ -125,6 +146,10 @@ export class HeadlessInteractionChannel {
       ...(this.opts.selfVerification !== undefined
         ? { selfVerification: this.opts.selfVerification }
         : {}),
+      // SELFHOST-008 P6: forward the surface-resolved memory fields only when present (absent ⇒ OFF).
+      ...(this.opts.memoryStore ? { memoryStore: this.opts.memoryStore } : {}),
+      ...(this.opts.automaticMemory ? { automaticMemory: this.opts.automaticMemory } : {}),
+      ...(this.opts.recallMemory ? { recallMemory: this.opts.recallMemory } : {}),
     });
   }
 

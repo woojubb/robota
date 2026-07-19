@@ -6,7 +6,7 @@
  * conversation management.
  */
 
-import { evaluatePermission } from '@robota-sdk/agent-core';
+import { evaluatePermission, runHooks } from '@robota-sdk/agent-core';
 
 import { PERMISSION_DENIED_RESULT } from './permission-types.js';
 import {
@@ -30,6 +30,7 @@ import type {
   TToolParameters,
   IToolExecutionContext,
   TToolArgs,
+  THooksConfig,
 } from '@robota-sdk/agent-core';
 
 export type { TPermissionHandler, TPermissionResult, ITerminalOutput, ISpinner };
@@ -212,6 +213,10 @@ export class PermissionEnforcer {
       deny: this.config.permissions.deny,
     });
 
+    // SELFHOST-009: fire PermissionDecision (INFORMATIONAL-ONLY, non-blocking) right after the
+    // decision is made. Fire-and-forget — the hook cannot change the outcome that follows.
+    this.firePermissionDecisionHook(toolName, toolArgs, decision);
+
     if (decision === 'auto') return true;
     if (decision === 'deny') return false;
 
@@ -247,6 +252,38 @@ export class PermissionEnforcer {
     }
     // No approval mechanism available — deny by default
     return false;
+  }
+
+  /**
+   * SELFHOST-009: fire the PermissionDecision hook (informational-only, non-blocking) via the shared
+   * `runHooks` path. Fire-and-forget — the result is never awaited or consulted, so it cannot gate the
+   * permission outcome. The sole blocking gate remains PreToolUse (`runPreToolHook`).
+   */
+  private firePermissionDecisionHook(
+    toolName: string,
+    toolArgs: TToolArgs,
+    decision: string,
+  ): void {
+    const permissionMode = this.getPermissionMode();
+    void runHooks(
+      this.config.hooks as THooksConfig | undefined,
+      'PermissionDecision',
+      {
+        session_id: this.sessionId,
+        cwd: this.cwd,
+        hook_event_name: 'PermissionDecision',
+        tool_name: toolName,
+        tool_input: toolArgs as Record<string, string | number | boolean | object>,
+        permission_decision: decision,
+        ...(permissionMode !== undefined && { permission_mode: permissionMode }),
+        ...(this.transcriptPath !== undefined && { transcript_path: this.transcriptPath }),
+        env: {
+          CLAUDE_PROJECT_DIR: this.cwd,
+          CLAUDE_SESSION_ID: this.sessionId,
+        },
+      },
+      this.hookTypeExecutors,
+    ).catch(() => undefined);
   }
 
   /** Delegate session event to the injected logger. */
