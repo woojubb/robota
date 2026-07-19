@@ -37,7 +37,7 @@ paused task `failed`) is **P3**, not P1 (named in the spec's GATE-APPROVAL note)
 
 ## Status
 
-**IN PROGRESS.** GATE-IMPLEMENT PASSED (backlog-gate-guard, 2026-07-19); implementing S1–S6.
+**DONE (2026-07-19).** S1–S6 implemented + green; TC-01/02/03/04 satisfied (state machine, runner croner pause/resume/edit, manager verbs + list). agent-executor 85 tests, agent-framework 1212, 57/57 scans. P2 (surface + agent-run verification) / P3 (paused persistence) pending.
 
 ## Slices (each green + committed)
 

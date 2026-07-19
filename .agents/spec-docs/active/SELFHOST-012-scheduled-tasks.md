@@ -297,3 +297,27 @@ frontmatter `status: approved` and folder `todo/` match the expected GATE-IMPLEM
 Minor (non-blocking, carried from prior FAIL): the P1 file's spec back-link still points at
 `.agents/spec-docs/active/…` while the spec lives in `todo/` — cosmetic, not a gate criterion.
 **GATE-IMPLEMENT PASSED.**
+
+- 2026-07-19 — **[P1 IMPLEMENTED]** — non-destructive schedule lifecycle extension shipped (no new scheduler):
+  - **Status SSOT**: `'paused'` added to `TBackgroundTaskStatus` (`agent-interface-transport`) — non-terminal;
+    a subagent-status projection narrows the (unreachable-for-subagents) `paused` case.
+  - **State machine**: `PAUSE` (`running/sleeping → paused`) + `RESUME` (`paused → sleeping`) + `paused → cancelled`;
+    `paused` kept out of `TERMINAL_STATUSES`. **TC-01** (valid edges + illegal-edge rejection + non-terminal).
+  - **Runner** (`scheduled-task-runner.ts`): `IBackgroundTaskHandle.pause()/resume()/editSchedule(patch)` +
+    `IScheduleEditPatch`; a `state.paused` flag guards the fire closure + `runOneFire` + the in-flight-child
+    completion (no illegal `paused→sleeping` emit); `pause()`=croner `.pause()`, `resume()`=`.resume()`+re-emit
+    sleeping, `editSchedule` rebuilds the `Cron` in place (same taskId). **TC-02** (real timers: zero fires while
+    paused, fires after resume, same id) + **TC-03** (fake timers: edit hourly→every-minute re-arms in place).
+  - **Manager**: `pauseScheduledTask/resumeScheduledTask/editScheduledTask` + `markBackgroundTaskPaused/Resumed`
+    helpers; a paused schedule releases its concurrency slot (like `sleeping`); the `sleeping`-event handler is
+    idempotent (resume's re-emit refreshes `nextFireAt` without a double transition); `requireScheduledTask`
+    guards non-scheduled/terminal. 5 manager tests (pause→paused+list, resume→sleeping+nextFireAt, edit updates
+    `schedule`, idempotency, non-scheduled rejection) — **TC-04** (list shows the paused entry).
+  - **Host**: `IAgentJobHostContext.listSchedules()/pauseSchedule/resumeSchedule/editSchedule`, wired in
+    `interactive-session-base` to the manager. Reachable by the P2 `/schedule` surface with no bespoke wiring.
+  - Docs: agent-executor SPEC.md (status enum + lifecycle note). **No new cron engine** — still the croner
+    runner (TC-06 no-new-scheduler grep holds; the paused-survives-restart half of TC-06 is P3).
+  - Green: agent-interface-transport 10 tests, agent-executor **85 tests**, agent-framework 1212 tests,
+    typecheck, lint 0 errors, **57/57 harness scans**. **P2 (the `/schedule list|pause|resume|edit` surface +
+    the AGENT-RUN capability verification per the reachability rule) / P3 (paused persists across restart via the
+    FLOW-003 re-arm predicates) PENDING.**

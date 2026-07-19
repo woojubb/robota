@@ -68,21 +68,21 @@ Design rules:
 
 ### Background Task Primitive Types
 
-| Type                             | Location                                                  | Purpose                                                                                                 |
-| -------------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `TBackgroundTaskKind`            | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025) | `'agent' \| 'process' \| 'scheduled'`                                                                   |
-| `TBackgroundTaskMode`            | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025) | `'foreground' \| 'background'`                                                                          |
-| `TBackgroundTaskIsolation`       | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025) | `'none' \| 'worktree'`                                                                                  |
-| `TBackgroundTaskStatus`          | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025) | `'queued' \| 'running' \| 'waiting_permission' \| 'sleeping' \| 'completed' \| 'failed' \| 'cancelled'` |
-| `TBackgroundPermissionPolicy`    | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025) | `'inherit-allowlist' \| 'preapproved' \| 'prompt' \| 'deny'`                                            |
-| `TBackgroundTaskTimeoutReason`   | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025) | Watchdog terminal reason union                                                                          |
-| `TBackgroundTaskErrorCategory`   | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025) | Error category union used by `BackgroundTaskError`                                                      |
-| `TBackgroundPrimitive`           | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025) | `string \| number \| boolean` — opaque metadata value type                                              |
-| `TBackgroundTaskEvent`           | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025) | Lifecycle/progress event union emitted by `BackgroundTaskManager`                                       |
-| `TBackgroundTaskEventListener`   | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025) | Listener callback type for `TBackgroundTaskEvent`                                                       |
-| `TBackgroundTaskRunnerEvent`     | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025) | Events reported by runners to the manager during execution                                              |
-| `TBackgroundTaskIdFactory`       | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025) | Function type for custom task ID generation                                                             |
-| `TBackgroundTaskTransitionEvent` | `src/background-tasks/state-machine.ts`                   | State machine input events (e.g. `START`, `SLEEP`, `WAKE`, `CANCEL`)                                    |
+| Type                             | Location                                                  | Purpose                                                                                                                                                                                        |
+| -------------------------------- | --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `TBackgroundTaskKind`            | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025) | `'agent' \| 'process' \| 'scheduled'`                                                                                                                                                          |
+| `TBackgroundTaskMode`            | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025) | `'foreground' \| 'background'`                                                                                                                                                                 |
+| `TBackgroundTaskIsolation`       | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025) | `'none' \| 'worktree'`                                                                                                                                                                         |
+| `TBackgroundTaskStatus`          | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025) | `'queued' \| 'running' \| 'waiting_permission' \| 'sleeping' \| 'paused' \| 'completed' \| 'failed' \| 'cancelled'` (SELFHOST-012: `paused` = non-destructively paused schedule, non-terminal) |
+| `TBackgroundPermissionPolicy`    | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025) | `'inherit-allowlist' \| 'preapproved' \| 'prompt' \| 'deny'`                                                                                                                                   |
+| `TBackgroundTaskTimeoutReason`   | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025) | Watchdog terminal reason union                                                                                                                                                                 |
+| `TBackgroundTaskErrorCategory`   | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025) | Error category union used by `BackgroundTaskError`                                                                                                                                             |
+| `TBackgroundPrimitive`           | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025) | `string \| number \| boolean` — opaque metadata value type                                                                                                                                     |
+| `TBackgroundTaskEvent`           | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025) | Lifecycle/progress event union emitted by `BackgroundTaskManager`                                                                                                                              |
+| `TBackgroundTaskEventListener`   | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025) | Listener callback type for `TBackgroundTaskEvent`                                                                                                                                              |
+| `TBackgroundTaskRunnerEvent`     | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025) | Events reported by runners to the manager during execution                                                                                                                                     |
+| `TBackgroundTaskIdFactory`       | `@robota-sdk/agent-interface-transport` (SSOT; INFRA-025) | Function type for custom task ID generation                                                                                                                                                    |
+| `TBackgroundTaskTransitionEvent` | `src/background-tasks/state-machine.ts`                   | State machine input events (e.g. `START`, `SLEEP`, `WAKE`, `CANCEL`)                                                                                                                           |
 
 ### Background Task Interface Types
 
@@ -162,6 +162,14 @@ test environments may substitute no-op runners through the `IBackgroundTaskRunne
 **`croner` production dependency**: `croner@^10.0.1` is used by `createScheduledTaskRunner`
 to parse cron expressions and fire scheduled background tasks. It has no Node.js native
 bindings and is safe for any Node.js runtime target.
+
+**SELFHOST-012 — non-destructive schedule lifecycle.** `IBackgroundTaskManager` exposes
+`pauseScheduledTask`/`resumeScheduledTask`/`editScheduledTask(taskId, patch)` for `kind: 'scheduled'` tasks,
+wiring croner's own `.pause()`/`.resume()` on the handle (`IBackgroundTaskHandle.pause`/`resume`/`editSchedule`)
+— distinct from the irreversible `.stop()` that `cancel` uses. A `paused` schedule holds no concurrency slot
+(like `sleeping`), does not fire, and keeps its identity across `pause → resume`; `edit` re-arms the croner job
+in place (same task id + `schedule`). No new scheduler is introduced — this is a thin lifecycle extension over
+the existing runner. (Persistence of `paused` across restart is the FLOW-003 re-arm path — a later slice.)
 
 ### Subagents
 
