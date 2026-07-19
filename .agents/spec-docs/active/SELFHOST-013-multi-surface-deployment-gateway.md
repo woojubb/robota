@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: INFRA
 tags: [deployment, gateway, transport, multi-surface, agent-server, selfhost]
 ---
@@ -272,8 +272,9 @@ deploy` UX veneer is explicitly deferred (alt 3), only if a discoverability need
 
 ## Tasks
 
-`.agents/tasks/SELFHOST-013*.md` — 미생성 (GATE-APPROVAL 통과 후 생성). P1 (this) = deployment matrix + proof
-test + deploy guide + runnable example.
+P1 (this) = deployment matrix + drift scan + proof test + deploy guide + runnable example.
+
+- **P1** — [`.agents/tasks/SELFHOST-013-P1.md`](../../tasks/SELFHOST-013-P1.md) (GATE-IMPLEMENT; in progress).
 
 ## Evidence Log
 
@@ -336,3 +337,13 @@ test + deploy guide + runnable example.
   (reference identity at `startAll`), TC-03 (`deps` scan), and TC-04 (example) remain genuine floors. Direction
   intact. **GATE-APPROVAL PASSED.** (Non-blocking: `ws` also has a factory form in addition to its class form — the
   enumerable set is identical either way; the both-forms scan or the manifest covers it.)
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-07-19
+
+**Status upgrade:** approved → in-progress
+
+- Prior-gate precondition: GATE-APPROVAL recorded PASS (iteration-3 independent proposal-reviewer ENDORSE, 2026-07-17); frontmatter `status: approved`, file in `todo/` — matches expected input stage.
+- Tasks file created: `.agents/tasks/SELFHOST-013-P1.md` exists.
+- Tasks path recorded in `## Tasks`: spec references `.agents/tasks/SELFHOST-013-P1.md` (P1 slice = whole slice).
+- Tasks ↔ Completion Criteria: all four TC-N covered — S1→TC-02 (matrix + drift scan), S2→TC-01 (reference-identity proof test), S3→TC-04 (deploy guide + runnable example) with TC-03 (`deps` scan stays green); task-file Test Plan enumerates TC-01..TC-04.
+- Test Plan present in tasks file: `## Test Plan` section (≥50 chars) plus a Capability-reachability / AGENT-RUN section satisfying [AF-24].
