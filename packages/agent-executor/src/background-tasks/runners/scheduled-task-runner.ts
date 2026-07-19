@@ -20,6 +20,7 @@ import {
   type IBackgroundTaskRunner,
   type IBackgroundTaskStart,
   type IScheduledBackgroundTaskRequest,
+  type IScheduleEditPatch,
   type TBackgroundTaskRunnerEvent,
 } from '../types.js';
 
@@ -34,6 +35,8 @@ interface IScheduledTaskState {
   request: IScheduledBackgroundTaskRequest;
   logs: string[];
   cancelled: boolean;
+  /** SELFHOST-012: non-destructively paused via croner `.pause()`; a paused schedule fires nothing. */
+  paused: boolean;
   job: Cron;
   emit: (event: TBackgroundTaskRunnerEvent) => void;
   resolve: (result: IBackgroundTaskResult) => void;
@@ -76,17 +79,22 @@ function startScheduledTask(
     ...(options.timezone !== undefined ? { timezone: options.timezone } : {}),
   };
 
+  const fire = (): void => {
+    // Guard on both flags: croner won't invoke a paused/stopped job, but a fire already in croner's queue
+    // when pause() lands must still be suppressed.
+    if (state.cancelled || state.paused) return;
+    runOneFire(state);
+  };
+
   const state: IScheduledTaskState = {
     taskId,
     request,
     logs,
     cancelled: false,
+    paused: false,
     emit,
     resolve: resolveResult,
-    job: new Cron(request.cronExpression, cronOptions, () => {
-      if (state.cancelled) return;
-      runOneFire(state);
-    }),
+    job: new Cron(request.cronExpression, cronOptions, fire),
   };
 
   // Signal initial sleeping state
@@ -109,13 +117,38 @@ function startScheduledTask(
         output: createLimitedOutputCapture({ limitBytes: DEFAULT_OUTPUT_LIMIT_BYTES }).getOutput(),
       });
     },
+    // SELFHOST-012: non-destructive pause — croner `.pause()` keeps the job re-armable (unlike `.stop()`).
+    pause: (): Promise<void> => {
+      state.paused = true;
+      state.job.pause();
+      return Promise.resolve();
+    },
+    // SELFHOST-012: resume the same job and re-announce the next fire time.
+    resume: (): Promise<void> => {
+      state.paused = false;
+      state.job.resume();
+      emitSleeping(state);
+      return Promise.resolve();
+    },
+    // SELFHOST-012: re-arm in place — rebuild the Cron from the patched expression while keeping this task's
+    // identity (same taskId + handle). Instruction/command changes are picked up by the fire closure.
+    editSchedule: (patch: IScheduleEditPatch): Promise<void> => {
+      state.request = { ...state.request, ...patch };
+      if (patch.cronExpression !== undefined) {
+        state.job.stop();
+        state.job = new Cron(patch.cronExpression, cronOptions, fire);
+        if (state.paused) state.job.pause();
+      }
+      if (!state.paused) emitSleeping(state);
+      return Promise.resolve();
+    },
     readLog: (cursor?: IBackgroundTaskLogCursor): Promise<IBackgroundTaskLogPage> =>
       Promise.resolve(createBackgroundTaskLogPage(taskId, logs, cursor)),
   };
 }
 
 function runOneFire(state: IScheduledTaskState): void {
-  if (state.cancelled) return;
+  if (state.cancelled || state.paused) return;
 
   // FLOW-001: carry the agent-wake instruction (if any) so an upper layer can wake the agent loop.
   state.emit(

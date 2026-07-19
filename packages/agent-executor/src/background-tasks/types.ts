@@ -94,6 +94,20 @@ export interface IBackgroundTaskHandle {
   cancel(reason?: string): Promise<void>;
   send?(input: IBackgroundTaskInput): Promise<void>;
   readLog?(cursor?: IBackgroundTaskLogCursor): Promise<IBackgroundTaskLogPage>;
+  /** SELFHOST-012: non-destructive pause of a recurring schedule (croner `.pause()`, not `.stop()`). Present
+   * only on runners that support it (the scheduled runner); a paused job does not fire until `resume()`. */
+  pause?(): Promise<void>;
+  /** SELFHOST-012: resume a paused schedule, re-arming the same job (same task id + cadence). */
+  resume?(): Promise<void>;
+  /** SELFHOST-012: re-arm the schedule in place from a patched cron expression / instruction (same task id). */
+  editSchedule?(patch: IScheduleEditPatch): Promise<void>;
+}
+
+/** SELFHOST-012: an in-place schedule edit — any provided field replaces the current value; identity is kept. */
+export interface IScheduleEditPatch {
+  cronExpression?: string;
+  agentInstruction?: string;
+  command?: string;
 }
 
 export interface IBackgroundTaskRunner {
