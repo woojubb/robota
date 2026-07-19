@@ -728,9 +728,9 @@ importers:
       '@robota-sdk/agent-framework':
         specifier: ^3.0.0-beta.67
         version: link:../../../packages/agent-framework
-      '@robota-sdk/agent-provider':
+      '@robota-sdk/agent-provider-anthropic':
         specifier: ^3.0.0-beta.67
-        version: 3.0.0-beta.79(@modelcontextprotocol/sdk@1.29.0)(ws@8.21.0)(zod@3.25.76)
+        version: link:../../../packages/agent-provider-anthropic
       '@robota-sdk/agent-transport':
         specifier: ^3.0.0-beta.67
         version: link:../../../packages/agent-transport

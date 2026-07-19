@@ -33,10 +33,17 @@ const EXCLUDED_PACKAGES = new Set([
   'agent-transport-webrtc-web',
 ]);
 
-const CLASS_NAME_RE = /\breadonly\s+name\s*=\s*'([a-z][\w-]*)'/g;
+// A transport declares its `name` as a class field (`readonly name = 'ws'`, optionally typed
+// `readonly name: TName = 'ws'`) or a factory object-literal (`name: 'http'`).
+const CLASS_NAME_RE = /\breadonly\s+name\s*(?::\s*[\w.<>[\]| ]+)?\s*=\s*'([a-z][\w-]*)'/g;
 const FACTORY_NAME_RE = /\bname:\s*'([a-z][\w-]*)'/g;
 
-/** Recursively collect `*transport*.ts` non-test files under a dir. */
+/**
+ * Recursively collect non-test `*transport*.ts` source files under a dir. Scoping to transport-named files (the
+ * established convention — every transport declares its `name` in a `*-transport.ts` file) keeps the generic
+ * factory `name: '…'` form from matching unrelated object literals (e.g. a message `name: 'submit'`). A new
+ * transport MUST live in a `*-transport.ts` file to be enumerated by this floor.
+ */
 function transportSourceFiles(dir) {
   const out = [];
   if (!existsSync(dir)) return out;
@@ -82,19 +89,22 @@ export function findTransportNames(root = WORKSPACE_ROOT) {
 /** Parse the backtick-quoted transport `name`s from the matrix's Transport-`name` column. */
 export function findMatrixNames(matrixText) {
   const names = new Set();
-  // Rows look like: | Surface | Runtime | `ws` (nonce auth) | `agent-transport-gui` | … |
-  // The Transport-`name` column is the 3rd cell; extract backtick tokens that are bare transport names.
+  // Locate the Transport-`name` column by its HEADER (robust to added/reordered columns), then read that cell
+  // from every data row. Rows look like: | Surface | Runtime | `ws` (nonce auth) | `agent-transport-gui` | … |.
+  let transportCol = -1;
   for (const line of matrixText.split('\n')) {
     if (!line.trimStart().startsWith('|')) continue;
-    // Skip the separator row (|---|---|…) and the header row (Surface | Runtime | Transport `name` | …).
-    if (/^[\s|:-]+$/.test(line)) continue;
+    if (/^[\s|:-]+$/.test(line)) continue; // separator row
     const cells = line.split('|').map((c) => c.trim());
-    if (cells[1] === 'Surface') continue; // header
-    // cells[0] is '' (leading pipe); the Transport-`name` column is index 3 (Surface=1, Runtime=2, Transport=3).
-    const transportCell = cells[3];
+    if (transportCol === -1) {
+      // The first table row is the header; find the cell naming the Transport column.
+      transportCol = cells.findIndex((c) => /^Transport\b/.test(c));
+      continue; // header row carries no data
+    }
+    const transportCell = cells[transportCol];
     if (!transportCell) continue;
     for (const m of transportCell.matchAll(/`([a-z][\w-]*)`/g)) {
-      // Skip the literal column header `name` and any client/presentation package tokens.
+      // Skip the literal column header token and any client/presentation package names.
       if (m[1] !== 'name' && !m[1].startsWith('agent-')) names.add(m[1]);
     }
   }

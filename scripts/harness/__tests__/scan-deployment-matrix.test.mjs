@@ -23,6 +23,16 @@ describe('findMatrixNames — parses the Transport-`name` column, skipping heade
   it('extracts exactly the transport names (not the header `name`, not client packages)', () => {
     expect([...findMatrixNames(matrix)].sort()).toEqual(['http', 'mcp', 'tui', 'ws']);
   });
+
+  it('locates the Transport column by header, robust to a reordered/inserted column', () => {
+    const reordered = [
+      '| Surface | Transport `name` | Runtime | Client |',
+      '| ------- | ---------------- | ------- | ------ |',
+      '| CLI | `tui` | local | `agent-transport` print |',
+      '| Web | `ws` | serve | `agent-transport-webrtc-web` |',
+    ].join('\n');
+    expect([...findMatrixNames(reordered)].sort()).toEqual(['tui', 'ws']);
+  });
 });
 
 describe('diffDeploymentMatrix — undocumented + phantom', () => {

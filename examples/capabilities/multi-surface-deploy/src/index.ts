@@ -16,7 +16,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { createAgentRuntime } from '@robota-sdk/agent-framework';
-import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { createAnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 import { TransportRegistry } from '@robota-sdk/agent-transport';
 import { createHttpTransport } from '@robota-sdk/agent-transport-http';
 import { WsTransport } from '@robota-sdk/agent-transport-ws';
@@ -27,7 +27,7 @@ const apiKey = process.env.ANTHROPIC_API_KEY ?? 'demo-no-model-call';
 // 1. ONE agent definition → ONE live session, built once.
 const runtime = createAgentRuntime({
   cwd: process.cwd(),
-  provider: new AnthropicProvider({ apiKey }),
+  provider: createAnthropicProvider({ apiKey }),
 });
 const session = runtime.createSession({ permissionMode: 'bypassPermissions' });
 
@@ -35,19 +35,21 @@ const session = runtime.createSession({ permissionMode: 'bypassPermissions' });
 const settingsPath = path.join(os.tmpdir(), `robota-multi-surface-${process.pid}.json`);
 const registry = new TransportRegistry(settingsPath);
 registry.register(new WsTransport({ port: 45678 })); // network channel (IConfigurableTransport → startAll)
-await registry.startAll(session); // attaches + starts every enabled transport on THIS session
-
 const http = createHttpTransport(); // plain ITransportAdapter → mounted out-of-band on the same session
-http.attach(session);
-await http.start();
 
-const channels = [...registry.getEnabled().map((t) => t.name), http.name];
-console.log(`One session served over ${channels.length} channels: ${channels.join(', ')}`);
-console.log(
-  'Each channel attach()ed the SAME session instance — no per-channel rebuild, no gateway.',
-);
+try {
+  await registry.startAll(session); // attaches + starts every enabled transport on THIS session (WS binds a port)
+  http.attach(session); // the same session instance
+  await http.start(); // builds the HTTP route app (Hono) — a route builder, not a bound listener here
 
-// 3. Clean up (close the WS server + the HTTP app).
-await registry.stopAll();
-await http.stop();
+  const channels = [...registry.getEnabled().map((t) => t.name), http.name];
+  console.log(`One session served over ${channels.length} channels: ${channels.join(', ')}`);
+  console.log(
+    'Each channel attach()ed the SAME session instance — no per-channel rebuild, no gateway.',
+  );
+} finally {
+  // 3. Always clean up (close the WS server + tear down the HTTP app), even on a mid-sequence throw.
+  await registry.stopAll();
+  await http.stop().catch(() => undefined);
+}
 process.exit(0);
