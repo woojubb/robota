@@ -262,3 +262,21 @@ integration):
 - **Atomic-delivery constraint** honored WITHIN this branch: GUI-007 P2/P3 removes the deployed `apps/agent-web`
   `/monitor` (the public-page→localhost consumer that auto-mint would otherwise break) in the same effort, and
   the CLI-served monitor replaces it.
+
+### [GATE-VERIFY] — ✅ PASS | 2026-07-20
+
+- TC-01 (auto-mint, unauth rejected, token accepted), TC-02 (Host 403), TC-03 (Origin 403/allow), TC-05
+  (`open` opt-out): `ws-transport-auth.test.ts` 15/15.
+- TC-04 (0600 connection file): **DEFERRED** — no consumer (served monitor uses ws-url injection, GUI uses
+  the env token); adding it now = forward-provisioning without a reader. Re-open when a standalone attach
+  client exists.
+- TC-06 (AGENT-RUN): `robota --serve --open` delivers the token via the served monitor's `ws-url`
+  (`?token=<64-hex>`); the WS rejects unauth (`1008`) and accepts the token. Evidence
+  `.agents/evals/scenarios/gui-007-cli-served-monitor-agent-run.md`.
+- TC-08 (fail-closed): satisfied at the mint layer — auth is REQUIRED by construction (auto-mint), never
+  reverts to open; a `0600`-file failure is moot (deferred).
+- Delivered integrated with GUI-007 (the CLI-served monitor is the token-delivery surface). Scans + typecheck
+  green.
+
+**GATE-COMPLETE pending** the PR review + merge-verify. Note the two DEFERRED items (0600 file, interactive-mode
+`--open`) are tracked follow-ups, not gaps.

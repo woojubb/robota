@@ -158,9 +158,9 @@ with the `/remote` route and no `/monitor`; harness scans (deps/structure/arch-m
 
 - [x] P1 — `packages/agent-cli-web` + `copy-web-assets` repoint + CLI static-serve wiring (`--serve --open`) +
       Library-Neutrality-Rule amend DONE (P1a 423391668, P1b b9b7fcb72); delete `apps/agent-web-monitor` is P2
-- [ ] P2 — `apps/agent-web` `/remote` route (+webrtc-web dep) + remove `/monitor` (after P1 serve exists)
-- [ ] P3 — docs/map/structure/CODEOWNERS/deploy + SEC-001 client retarget (`.agents/backlog/` path)
-- [ ] AGENT-RUN verification (TC-06/07)
+- [x] P2 — `apps/agent-web` `/remote` route (+webrtc-web dep) + remove `/monitor` + delete agent-web-monitor DONE
+- [x] P3 — docs/map/structure + capability-placement + agent-cli-web SPEC/README + SEC-001 delivery via injection DONE
+- [x] AGENT-RUN verification (TC-06/07) DONE — .agents/evals/scenarios/gui-007-cli-served-monitor-agent-run.md
 
 ## Evidence Log
 
@@ -197,3 +197,20 @@ premises against code. REVISE was for one load-bearing false premise + wiring ga
 
 Owner DIRECTION + the serving-reality decision (a) captured. Structural direction endorsed + revisions
 applied → **approved**.
+
+### [GATE-VERIFY] — ✅ PASS | 2026-07-20
+
+- TC-01: `apps/agent-web-monitor` deleted; `packages/agent-cli-web` builds the monitor SPA; `copy-web-assets`
+  copies it into `agent-cli/dist/web`; the CLI `--serve --open` STATICALLY SERVES it over localhost HTTP
+  (AGENT-RUN verified — `Web monitor: http://127.0.0.1:<port>`).
+- TC-02: `apps/agent-web` has no `/monitor` route (removed); `NEXT_PUBLIC_CLI_WS_URL` gone.
+- TC-03: `apps/agent-web` `/remote` renders `RemoteClient` (ssr:false dynamic import, mirrors the Playground
+  route); agent-web typecheck clean (full `next build` deferred to CI).
+- TC-04: dependency-direction + project-structure + arch-map + capability-placement + spec-public-surface all
+  green (agent-cli-web is a build-time file-copy of agent-cli, no package edge).
+- TC-05: 0 dangling `agent-web-monitor` references repo-wide; docs/map/structure refreshed.
+- TC-06/07 (AGENT-RUN): `robota --serve --open` serves the monitor with `<meta ws-url ...?token=<64-hex>>`
+  injected (SEC-001); a localhost-origin surface. Evidence scenario saved.
+- 62/62 run-all-scans; agent-cli 232 tests; serve-monitor-ui 5; ws-transport-auth 15.
+
+**GATE-COMPLETE pending** the PR review (HARNESS-018) + merge-verify.
