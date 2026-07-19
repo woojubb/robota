@@ -7,14 +7,21 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 /** Raw HTTP GET that sends `rawPath` verbatim (no client-side URL normalization) — to exercise the
  * traversal guard, since `fetch` collapses `../` before it reaches the server. */
-function rawGet(url: string, rawPath: string): Promise<{ status: number; body: string }> {
+function rawGet(
+  url: string,
+  rawPath: string,
+  headers?: Record<string, string>,
+): Promise<{ status: number; body: string }> {
   const { hostname, port } = new URL(url);
   return new Promise((resolve, reject) => {
-    const req = request({ hostname, port, path: rawPath, method: 'GET' }, (res) => {
-      let body = '';
-      res.on('data', (c) => (body += c));
-      res.on('end', () => resolve({ status: res.statusCode ?? 0, body }));
-    });
+    const req = request(
+      { hostname, port, path: rawPath, method: 'GET', ...(headers ? { headers } : {}) },
+      (res) => {
+        let body = '';
+        res.on('data', (c) => (body += c));
+        res.on('end', () => resolve({ status: res.statusCode ?? 0, body }));
+      },
+    );
     req.on('error', reject);
     req.end();
   });
@@ -77,5 +84,19 @@ describe('startMonitorUiServer (GUI-007)', () => {
 
   it('binds loopback only', () => {
     expect(server.url.startsWith('http://127.0.0.1:')).toBe(true);
+  });
+
+  it('returns 400 (not a crash) on a malformed percent-encoding (PR #1249 SHOULD)', async () => {
+    // `GET /%` throws URIError in decodeURIComponent — the handler must catch it and 400, never crash.
+    const res = await rawGet(server.url, '/%');
+    expect(res.status).toBe(400);
+    // the server is still alive afterward
+    expect((await fetch(`${server.url}/`)).status).toBe(200);
+  });
+
+  it('rejects a non-loopback Host header (403) — DNS-rebinding defense (PR #1249 CONSIDER)', async () => {
+    const res = await rawGet(server.url, '/', { host: 'evil.example.com' });
+    expect(res.status).toBe(403);
+    expect(res.body).not.toContain('ws-url');
   });
 });

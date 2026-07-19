@@ -45,6 +45,18 @@ export function resolveWebRoot(): string | null {
   return existsSync(join(candidate, 'index.html')) ? candidate : null;
 }
 
+const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
+
+/** Whether the request `Host` header is a loopback name (port stripped) — closes DNS-rebinding. A missing
+ * `Host` is rejected (a well-formed HTTP/1.1 client always sends one). */
+function isLoopbackHostHeader(host: string | undefined): boolean {
+  if (!host) return false;
+  const name = host.startsWith('[')
+    ? host.slice(0, host.indexOf(']') + 1)
+    : host.slice(0, host.lastIndexOf(':') === -1 ? host.length : host.lastIndexOf(':'));
+  return LOOPBACK_HOSTS.has(name);
+}
+
 /** Inject `<meta name="ws-url" content="…">` into the served index.html so the SPA reaches the live WS. */
 function injectWsUrl(html: string, wsUrl: string): string {
   const meta = `<meta name="ws-url" content="${wsUrl}" />`;
@@ -62,7 +74,21 @@ export async function startMonitorUiServer(
   wsUrl: string,
 ): Promise<IMonitorUiServer> {
   const server = createServer((req, res) => {
-    const rawPath = decodeURIComponent((req.url ?? '/').split('?')[0]);
+    // Defense-in-depth (SEC-001): reject a non-loopback Host so a DNS-rebinding page cannot read the
+    // token-carrying index.html from this server, mirroring the WS transport's upgrade check.
+    if (!isLoopbackHostHeader(req.headers.host)) {
+      res.writeHead(403).end('Forbidden host');
+      return;
+    }
+    // A malformed percent-encoding (e.g. `GET /%`) must NOT crash the serve host via an uncaught URIError —
+    // SEC-001 treats localhost as hostile, so a co-resident process must not DoS the running agent.
+    let rawPath: string;
+    try {
+      rawPath = decodeURIComponent((req.url ?? '/').split('?')[0]);
+    } catch {
+      res.writeHead(400).end('Bad request');
+      return;
+    }
     const relPath = rawPath === '/' ? '/index.html' : rawPath;
     const filePath = normalize(join(webRoot, relPath));
     // Traversal guard: the resolved path must stay within webRoot.

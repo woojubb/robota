@@ -247,7 +247,7 @@ integration):
   (`resolvedToken` getter; explicit token wins; `open:true` opt-out); **fail-closed** (mint throw → constructor
   throws → never binds open); **Host/Origin 403-at-upgrade** via `verifyClient` (non-loopback Host port-agnostic
   reject = DNS-rebinding; browser Origin allow-list; non-browser omits Origin → token-gated); `allowedHosts`/
-  `allowedOrigins`. Coexists with GUI-007's `boundPort`. Tests `ws-transport-auth.test.ts` 15/15 (TC-01/02/03/05
+  `allowedOrigins`. Coexists with GUI-007's `boundPort`. Tests `ws-transport-auth.test.ts` 10 (+ 5 in `ws-transport.test.ts` = 15 package tests) (TC-01/02/03/05
   - GUI-002 token). Typecheck + no-fallback + no-fake green.
 - **Delivery DONE (via GUI-007 serve):** `agent-cli --serve --open` injects the resolved token into the served
   monitor's `ws-url` (`?token=…`) — zero-config auth for the CLI's own localhost-origin monitor. GUI path
@@ -266,7 +266,7 @@ integration):
 ### [GATE-VERIFY] — ✅ PASS | 2026-07-20
 
 - TC-01 (auto-mint, unauth rejected, token accepted), TC-02 (Host 403), TC-03 (Origin 403/allow), TC-05
-  (`open` opt-out): `ws-transport-auth.test.ts` 15/15.
+  (`open` opt-out): `ws-transport-auth.test.ts` 10 (+ 5 in `ws-transport.test.ts` = 15 package tests).
 - TC-04 (0600 connection file): **DEFERRED** — no consumer (served monitor uses ws-url injection, GUI uses
   the env token); adding it now = forward-provisioning without a reader. Re-open when a standalone attach
   client exists.

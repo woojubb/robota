@@ -5,10 +5,10 @@ import dynamic from 'next/dynamic';
 import type { ReactElement } from 'react';
 
 /**
- * GUI-007 — the hosted Stage-D browser remote client (REMOTE-009), relocated from the retired
- * Connection inputs come from THIS page's URL — the relay from
- * `?relay=`, the rendezvous + secret from the `#` fragment (the secret never leaves the browser). ssr:false
- * because it reads `window.location` + opens a WebRTC peer.
+ * GUI-007 — the hosted Stage-D browser remote client (REMOTE-009), relocated here from the retired standalone
+ * web-monitor SPA. Connection inputs come from THIS page's URL — the relay from `?relay=`, the
+ * rendezvous + secret from the `#` fragment (the secret never leaves the browser). ssr:false because it reads
+ * `window.location` + opens a WebRTC peer.
  */
 const RemoteClient = dynamic(
   () =>
