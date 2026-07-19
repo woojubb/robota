@@ -17,6 +17,16 @@ export { PermissionEnforcer } from './permission-enforcer.js';
 export { AUTO_COMPACT_THRESHOLD, ContextWindowTracker } from './context-window-tracker.js';
 export { CompactionError, CompactionOrchestrator } from './compaction-orchestrator.js';
 
+// SELFHOST-014: shareable/resumable session artifact envelope + the opt-in sensitive-key scrub (SSOT).
+export {
+  SESSION_ARTIFACT_SCHEMA_VERSION,
+  serializeSessionArtifact,
+  deserializeSessionArtifact,
+} from './session-artifact.js';
+export type { ISessionArtifact, ISerializeSessionArtifactOptions } from './session-artifact.js';
+export { SENSITIVE_KEY_PATTERN, isSensitiveKey, scrubSensitiveKeys } from './scrub-sensitive.js';
+export type { TScrubbableValue } from './scrub-sensitive.js';
+
 // Session logging
 export { FileSessionLogger, SilentSessionLogger } from './session-logger.js';
 export { SESSION_LOG_EVENT, isSessionLogEvent } from './session-log-events.js';
