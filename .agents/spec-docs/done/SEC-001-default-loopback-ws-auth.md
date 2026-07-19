@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: SECURITY
 tags: [security, transport, websocket, loopback, auth, token, dns-rebinding, gui-002]
 ---
@@ -280,3 +280,7 @@ integration):
 
 **GATE-COMPLETE pending** the PR review + merge-verify. Note the two DEFERRED items (0600 file, interactive-mode
 `--open`) are tracked follow-ups, not gaps.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-07-20
+
+Server core + Host/Origin + fail-closed + token delivery (via the CLI-served monitor ws-url injection) done + AGENT-RUN verified. TC-04 (0600 file) + interactive --open DEFERRED as tracked follow-ups (no consumer today). Merged #1249. pr-review-reviewer 1 SHOULD (malformed-URL DoS) + CONSIDER (monitor Host guard) + 2 NIT all applied (`36f2cc6d6`); merge-verified on develop. Spec → `done/`.
