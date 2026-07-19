@@ -224,7 +224,7 @@ deploy` UX veneer is explicitly deferred (alt 3), only if a discoverability need
 
 ## Completion Criteria
 
-- [ ] TC-01: **one-def-over-≥2-transports reference-identity test** — build ONE `InteractiveSession` from a
+- [x] TC-01: **one-def-over-≥2-transports reference-identity test** — build ONE `InteractiveSession` from a
       single resolved config via `buildRuntimeSession`; `register(t1); register(t2)` in a `TransportRegistry`
       where `t1`/`t2` are **two recording fakes** (each `defaultEnabled:true`, each captures its `attach()`
       argument into a field, e.g. `this.attached = session`); call `startAll(session)`; then assert the precise
@@ -235,7 +235,7 @@ deploy` UX veneer is explicitly deferred (alt 3), only if a discoverability need
       `agent-transport` test cannot establish the _absence_ of per-transport branching across all five surfaces'
       composition roots (`cli.ts`, `serve-mode.ts`, the sidecar, `remote-control-controller.ts`); that is the
       matrix's (TC-02) and each surface's own concern, not a claim this unit test makes.
-- [ ] TC-02: **deployment-matrix drift scan (mechanical FAIL floor with a named enumerable source)** — the
+- [x] TC-02: **deployment-matrix drift scan (mechanical FAIL floor with a named enumerable source)** — the
       matrix enumerates every surface × runtime × transport for cli/desktop/web/HTTP-WS-server/remote/MCP, and a
       `pnpm harness:scan` check asserts **every transport is documented, with no phantom rows**. Unlike the
       `orchestration-map` scan — whose enumerable source is the static file set `.claude/agents/*.md` — transport
@@ -254,11 +254,11 @@ deploy` UX veneer is explicitly deferred (alt 3), only if a discoverability need
       the two declaration forms entirely; either way the source is a real enumerable set, not a hand-maintained
       assertion.) Mechanical FAIL floor per [enforcement-architecture.md](../../rules/enforcement-architecture.md): every guardian needs
       a mechanical source, not a human re-checking the list.
-- [ ] TC-03: **no-new-coupling deps scan** — `pnpm harness:scan` `deps`
+- [x] TC-03: **no-new-coupling deps scan** — `pnpm harness:scan` `deps`
       (`scripts/harness/check-dependency-direction.mjs`) stays green: this work introduces **no new bidirectional
       production dependency, no pass-through re-export, and no new transport/gateway package**. Mechanical FAIL
       floor per [enforcement-architecture.md](../../rules/enforcement-architecture.md).
-- [ ] TC-04: **runnable example exercised** — the `examples/` multi-surface program serves one definition over
+- [x] TC-04: **runnable example exercised** — the `examples/` multi-surface program serves one definition over
       ≥2 transports and is built/smoke-run in CI (or a bintest), demonstrating the documented pattern end-to-end.
 
 ## Test Plan
@@ -274,7 +274,7 @@ deploy` UX veneer is explicitly deferred (alt 3), only if a discoverability need
 
 P1 (this) = deployment matrix + drift scan + proof test + deploy guide + runnable example.
 
-- **P1** — [`.agents/tasks/SELFHOST-013-P1.md`](../../tasks/SELFHOST-013-P1.md) (GATE-IMPLEMENT; in progress).
+- **P1 — DONE** (this branch): [`.agents/tasks/completed/SELFHOST-013-P1.md`](../../tasks/completed/SELFHOST-013-P1.md).
 
 ## Evidence Log
 
@@ -347,3 +347,28 @@ P1 (this) = deployment matrix + drift scan + proof test + deploy guide + runnabl
 - Tasks path recorded in `## Tasks`: spec references `.agents/tasks/SELFHOST-013-P1.md` (P1 slice = whole slice).
 - Tasks ↔ Completion Criteria: all four TC-N covered — S1→TC-02 (matrix + drift scan), S2→TC-01 (reference-identity proof test), S3→TC-04 (deploy guide + runnable example) with TC-03 (`deps` scan stays green); task-file Test Plan enumerates TC-01..TC-04.
 - Test Plan present in tasks file: `## Test Plan` section (≥50 chars) plus a Capability-reachability / AGENT-RUN section satisfying [AF-24].
+
+- 2026-07-19 — **[P1 IMPLEMENTED]** — the whole slice, all over the EXISTING transport DIP (no new
+  transport/package/dependency edge; `deps` scan green = TC-03):
+  - **Matrix** `.agents/specs/deployment-matrix.md` (surface × runtime × transport-`name` × client), cross-linked
+    from `architecture-map/agent-system.md`.
+  - **Drift scan (TC-02)** `scripts/harness/scan-deployment-matrix.mjs` (registered in run-all-scans): enumerates
+    transport `name`s FROM CODE (transport packages, both declaration forms — class `readonly name` + factory
+    `name:`; excludes `-protocol`/`-gui`/`-webrtc-web`) → `{tui,ws,webrtc,http,mcp}`, diffs the matrix
+    Transport-`name` column; undocumented/phantom → FAIL. 5 unit tests (parse, undocumented, phantom, live set).
+  - **Reference-identity proof (TC-01)** `agent-transport/src/__tests__/one-session-many-transports.test.ts`: two
+    RecordingTransports both `attach()` the SAME session — `t1.attached === t2.attached === session` (the registry
+    fans one instance to every enabled transport); + the `defaultEnabled:false` out-of-band case.
+  - **Deploy guide** `content/guide/deployment.md` (indexed) + **runnable example**
+    `examples/capabilities/multi-surface-deploy/` (registered).
+  - Green: agent-transport 47 tests, scan unit 5, typecheck, lint, **58/58 harness scans**.
+- 2026-07-19 — **[AGENT-RUN VERIFIED]** (TC-04, capability-reachability rule) — ran the multi-surface example
+  end-to-end: `createAgentRuntime().createSession()` built ONE session; `WsTransport` (registered → `startAll`) +
+  `createHttpTransport()` (out-of-band `attach`) both served that one session simultaneously →
+  `One session served over 2 channels: ws, http`, exit 0. Evidence:
+  [`.agents/evals/scenarios/selfhost-013-multi-surface-agent-run.md`](../../evals/scenarios/selfhost-013-multi-surface-agent-run.md).
+  **All TC-01..04 satisfied.**
+- 2026-07-19 — **Epic scope close**: P1 (matrix + drift scan + proof test + deploy guide + runnable example)
+  COMPLETE — the documented one-definition→many-channels pattern + drift floor over the existing transport DIP.
+  A `robota deploy` UX veneer stays consciously deferred (alt 3). **No new transport/package/edge.** GATE-VERIFY →
+  GATE-COMPLETE next.
