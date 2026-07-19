@@ -14,6 +14,7 @@ packages/
 ├── agent-command/               # Command modules: agent, background, compact, context, exit, help, language, memory, mode, model, permissions, plugin, provider, reset, rewind, session, settings, skills, statusline, user-local
 ├── agent-command-*/             # Command-module bridge packages to other subsystems (e.g. agent-command-workflows: surfaces the DAG engine as `/workflows`, composing dag-framework)
 ├── agent-cli/                   # Terminal UI and local runtime adapters
+├── agent-cli-web/               # GUI-007 — the CLI's built-in web monitor SPA (Vite; index.html → SessionMonitor over localhost WS); `private` product-shell; agent-cli builds its dist + serves it over localhost HTTP. Not deployable
 ├── agent-provider-*/            # Provider family (per-vendor split, ARCH-PROVIDER-002): agent-provider-anthropic, -bytedance, -gemini, -openai, -openai-compatible, -defaults (default-set aggregator), -replay (deterministic session-log replay provider; depends on agent-core + agent-session). There is NO bare `agent-provider` package. deepseek/qwen/gemma are `openai-compatible` *definitions* surfaced by agent-provider-openai-compatible, not standalone packages
 ├── agent-playground/            # Playground UI package
 ├── agent-remote-client/         # Remote execution client
@@ -75,10 +76,13 @@ consumer for any payload/application domain:
 - `apps/` is the product tier and plays by product rules (opinionated UX, domain concepts, its own
   prompts). `examples/` may likewise be full products — that is their job. A small **product-shell
   tier lives in `packages/`** and is exempt from library neutrality: `packages/agent-cli` (the
-  published reference product) and `packages/agent-playground` (a `private` product shell). These are
-  sanctioned products assembled FROM the libraries — their preset/persona/UI surfaces are product
-  behavior, not library behavior. (The former `packages/agent-web-ui` was retired in GUI-006; its web
-  GUI is now the `apps/agent-web-monitor` app over the shared GUI core.)
+  published reference product), `packages/agent-playground` (a `private` product shell), and
+  `packages/agent-cli-web` (GUI-007 — the CLI's `private` built-in web monitor SPA, served by
+  `agent-cli` over localhost HTTP). These are sanctioned products assembled FROM the libraries — their
+  preset/persona/UI surfaces are product behavior, not library behavior. (The former
+  `packages/agent-web-ui` was retired in GUI-006; the CLI-served monitor SPA is now
+  `packages/agent-cli-web`, and the Stage-D browser remote page lives in the deployed `apps/agent-web`
+  over the shared GUI core.)
 
 When a use case seems to need a domain feature in a library, the answer is: verify the neutral
 ingredients exist, then show the assembly in `examples/` or a guide.

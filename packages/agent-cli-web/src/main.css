@@ -1,0 +1,13 @@
+@import 'tailwindcss';
+@import '@robota-sdk/agent-transport-gui/styles/theme.css';
+
+/*
+ * GUI-007 — Tailwind v4 entry for the CLI-served monitor SPA (packages/agent-cli-web).
+ *
+ * The GUI presentation core (`@robota-sdk/agent-transport-gui`) authors its components with Tailwind utility
+ * classes and ships NO compiled CSS — the CONSUMER generates it. The core owns the design tokens + base/theme
+ * layers (imported above); this `@source` glob lets Tailwind scan the core's class strings (and this app's
+ * entry) so the monitor renders with its intended styling.
+ */
+@source '../../agent-transport-gui/src';
+@source './';
