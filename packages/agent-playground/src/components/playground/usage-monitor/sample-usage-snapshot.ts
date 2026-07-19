@@ -1,14 +1,14 @@
 import {
-  MOCK_DAY_LIMIT,
-  MOCK_DAY_RESET_MS,
-  MOCK_HOUR_LIMIT,
-  MOCK_HOUR_RESET_MS,
-  MOCK_MAX_DAILY_EXECUTIONS,
-  MOCK_MAX_RANDOM_EXECUTIONS,
-  MOCK_MAX_RANDOM_TOKENS,
-  MOCK_MAX_TOKENS,
-  MOCK_MINUTE_LIMIT,
-  MOCK_MINUTE_RESET_MS,
+  SAMPLE_DAY_LIMIT,
+  SAMPLE_DAY_RESET_MS,
+  SAMPLE_HOUR_LIMIT,
+  SAMPLE_HOUR_RESET_MS,
+  SAMPLE_MAX_DAILY_EXECUTIONS,
+  SAMPLE_MAX_RANDOM_EXECUTIONS,
+  SAMPLE_MAX_RANDOM_TOKENS,
+  SAMPLE_MAX_TOKENS,
+  SAMPLE_MINUTE_LIMIT,
+  SAMPLE_MINUTE_RESET_MS,
 } from './constants';
 import type { IRateLimitWindow, IPlaygroundUsageSnapshot } from './types';
 
@@ -23,14 +23,14 @@ function createRateLimitWindow(limit: number, resetOffsetMs: number): IRateLimit
 export function createSampleUsageSnapshot(): IPlaygroundUsageSnapshot {
   return {
     usage: {
-      dailyExecutions: MOCK_MAX_DAILY_EXECUTIONS,
+      dailyExecutions: SAMPLE_MAX_DAILY_EXECUTIONS,
       maxConcurrentSessions: 1,
       allowedProviders: ['openai'],
-      maxTokens: MOCK_MAX_TOKENS,
+      maxTokens: SAMPLE_MAX_TOKENS,
       currentUsage: {
-        dailyExecutions: Math.floor(Math.random() * MOCK_MAX_RANDOM_EXECUTIONS),
+        dailyExecutions: Math.floor(Math.random() * SAMPLE_MAX_RANDOM_EXECUTIONS),
         activeSessions: Math.floor(Math.random() * 2),
-        tokensUsed: Math.floor(Math.random() * MOCK_MAX_RANDOM_TOKENS),
+        tokensUsed: Math.floor(Math.random() * SAMPLE_MAX_RANDOM_TOKENS),
       },
       features: {
         streaming: false,
@@ -39,9 +39,9 @@ export function createSampleUsageSnapshot(): IPlaygroundUsageSnapshot {
       },
     },
     rateLimit: {
-      minute: createRateLimitWindow(MOCK_MINUTE_LIMIT, MOCK_MINUTE_RESET_MS),
-      hour: createRateLimitWindow(MOCK_HOUR_LIMIT, MOCK_HOUR_RESET_MS),
-      day: createRateLimitWindow(MOCK_DAY_LIMIT, MOCK_DAY_RESET_MS),
+      minute: createRateLimitWindow(SAMPLE_MINUTE_LIMIT, SAMPLE_MINUTE_RESET_MS),
+      hour: createRateLimitWindow(SAMPLE_HOUR_LIMIT, SAMPLE_HOUR_RESET_MS),
+      day: createRateLimitWindow(SAMPLE_DAY_LIMIT, SAMPLE_DAY_RESET_MS),
     },
   };
 }

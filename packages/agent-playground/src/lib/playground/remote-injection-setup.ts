@@ -107,13 +107,13 @@ if (typeof window !== 'undefined') {
     openai: {
       OpenAIProvider: class PlaceholderOpenAIProvider {
         constructor(options) { this.name = 'openai'; this.options = options; }
-        async chat(messages) { return 'Mock OpenAI response'; }
+        async chat(messages) { return 'Placeholder OpenAI response'; }
       },
       OpenAI: class PlaceholderOpenAI {
         constructor(options) { this.apiKey = options?.apiKey; }
         chat = {
           completions: {
-            create: async (params) => ({ choices: [{ message: { content: 'Mock OpenAI API response' } }] })
+            create: async (params) => ({ choices: [{ message: { content: 'Placeholder OpenAI API response' } }] })
           }
         };
       }
@@ -125,7 +125,7 @@ if (typeof window !== 'undefined') {
       Anthropic: class PlaceholderAnthropic {
         constructor(options) { this.apiKey = options?.apiKey; }
         messages = {
-          create: async (params) => ({ content: [{ text: 'Mock Anthropic API response' }] })
+          create: async (params) => ({ content: [{ text: 'Placeholder Anthropic API response' }] })
         };
       }
     },
@@ -137,7 +137,7 @@ if (typeof window !== 'undefined') {
         constructor(apiKey) { this.apiKey = apiKey; }
         getGenerativeModel(config) {
           return {
-            generateContent: async (prompt) => ({ response: { text: () => 'Mock Google AI API response' } })
+            generateContent: async (prompt) => ({ response: { text: () => 'Placeholder Google AI API response' } })
           };
         }
       }
