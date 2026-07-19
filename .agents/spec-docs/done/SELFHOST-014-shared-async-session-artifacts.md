@@ -1,5 +1,6 @@
 ---
-status: in-progress
+status: done
+completed: 2026-07-19
 type: DATA
 tags: [session-artifact, sharing, resume, persistence, agent-session, selfhost]
 ---
@@ -391,3 +392,31 @@ Test Plan present: task file `## Test Plan` section enumerates TC-01..TC-08 + re
 - 2026-07-19 — **Epic scope close**: P1 (the neutral envelope + scrub SSOT + guard floors + resume reuse) COMPLETE
   — the async durable shareable/resumable session artifact over the existing record. App-surface sharing UI/policy
   is out of `packages/` by design (apps/). GATE-VERIFY → GATE-COMPLETE next.
+
+### [GATE-VERIFY] — ✅ PASS | 2026-07-19
+
+**Status upgrade:** in-progress → verifying
+Prior-gate precondition: GATE-IMPLEMENT recorded PASS (2026-07-19, approved → in-progress); frontmatter `status: in-progress` matches the expected input stage.
+Tasks complete: `.agents/tasks/completed/SELFHOST-014-P1.md` marks all slices S1 (scrub SSOT + logger refactor), S2 (artifact envelope), S3 (resume + second-surface + guards + docs) **DONE (2026-07-19)**; no task blocked or pending.
+Completion Criteria mapped: all TC-01..TC-08 are `[x]` and map to Evidence entries — `[P1 IMPLEMENTED]` (TC-01/02/03/04/05/06/07/08 implementation) + `[AGENT-RUN VERIFIED]` (TC-04/TC-08 functional share→resume, TC-01/03/07 exercised).
+Build/tests green (recorded in `[P1 IMPLEMENTED]` + AGENT-RUN scenario): agent-session **117 passed**, agent-framework **1214 passed**, typecheck clean, lint 0 errors, **59/59 harness scans**.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-07-19
+
+**Status upgrade:** verifying → done
+Prior-gate precondition: GATE-VERIFY recorded PASS above (2026-07-19, in-progress → verifying); frontmatter `status: verifying` matches the expected input stage.
+Completion Criteria all `[x]` with per-TC evidence:
+
+- TC-01 (round-trip fidelity, no redact): `[P1 IMPLEMENTED]` `serializeSessionArtifact`/`deserializeSessionArtifact` full-fidelity round-trip; AGENT-RUN scenario "TC-01 round-trip fidelity" deep-equals full-field record.
+- TC-02 (schema-version guard): `[P1 IMPLEMENTED]` schema-version header + `deserialize` version guard, unit-tested.
+- TC-03 (imported artifact resumes via existing path): `[P1 IMPLEMENTED]` import = deserialize → store.save → existing `loadSessionRecord` (agent-framework test); AGENT-RUN "TC-03 existing resume path".
+- TC-04 (async share across two independent surfaces): `[AGENT-RUN VERIFIED]` export store A → import DISTINCT store B (different baseDir) → resume matches, stores independent.
+- TC-05 (neutrality grep floor): `[P1 IMPLEMENTED]` `scan-session-artifact-neutrality.mjs` registered (no link/cloud/access/field-policy tokens) + 3 unit tests; part of 59/59 scans.
+- TC-06 (deps scan, no edge to REMOTE-001 live stack): `[P1 IMPLEMENTED]` `deps` scan asserts agent-session has no edge to `agent-remote-pairing`/`agent-transport-webrtc`.
+- TC-07 (export-for-share redact seam strips trust-boundary fields): `[P1 IMPLEMENTED]` + AGENT-RUN "TC-07 export-for-share redact seam" — strips `cwd`/`sandboxSnapshotId`, composes opt-in scrub → `[REDACTED]`; no-redact form retains.
+- TC-08 (redacted artifact resumes on B via import-side rebind): `[AGENT-RUN VERIFIED]` redact strips required `cwd` → import on B → app rebinds B's `cwd` → resume with content intact.
+
+Test Plan: all TC-01..TC-08 rows carry test references (vitest unit / functional / `harness:scan` grep floor / `deps` scan) — no row silently unaddressed.
+Tasks file archived: `.agents/tasks/completed/SELFHOST-014-P1.md` (in `completed/`).
+`## Tasks` section references the archived path: "P1 — DONE (this branch): `.agents/tasks/completed/SELFHOST-014-P1.md`" — the archived (not pre-archival) path, marked DONE.
+Done-evidence incl. agent-run scenario present: `.agents/evals/scenarios/selfhost-014-session-artifact-agent-run.md` (TC-04/TC-08 async share→resume across independent stores + redaction).

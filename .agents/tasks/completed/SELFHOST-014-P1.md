@@ -1,6 +1,6 @@
 # SELFHOST-014 P1 — async shareable/resumable session artifacts (task breakdown)
 
-Spec: [`.agents/spec-docs/active/SELFHOST-014-shared-async-session-artifacts.md`](../spec-docs/active/SELFHOST-014-shared-async-session-artifacts.md)
+Spec: [`.agents/spec-docs/done/SELFHOST-014-shared-async-session-artifacts.md`](../spec-docs/done/SELFHOST-014-shared-async-session-artifacts.md)
 (DATA; P1 = the whole library slice; design-gated GATE-APPROVAL ENDORSE). **Reuse the existing `ISessionRecord`
 — do NOT invent a format.** Neutral export/import envelope + a reusable opt-in secret-scrub; the sharing UI +
 ALL policy (link/cloud/access/redaction FIELD policy) live in `apps/`, never in `packages/`. Async durable
@@ -32,7 +32,7 @@ by a redaction test in `session-log-replay.test.ts`).
 
 ## Status
 
-**IN PROGRESS.** GATE-IMPLEMENT PASSED (backlog-gate-guard, 2026-07-19); implementing S1–S3.
+**DONE (2026-07-19).** S1 (scrub SSOT + logger refactor) + S2 (artifact envelope) + S3 (resume + guards + docs) done; all TC-01..08. AGENT-RUN VERIFIED (async share→resume across independent stores + redaction). agent-session 117 / agent-framework 1214 tests, 59/59 scans. Epic ready for GATE-VERIFY→GATE-COMPLETE.
 
 ## Slices (each green + committed)
 
