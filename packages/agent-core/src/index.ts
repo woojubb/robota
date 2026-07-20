@@ -297,7 +297,6 @@ export type {
 export {
   TRUST_TO_MODE,
   evaluatePermission,
-  matchesAnyPattern,
   resolvePermissionByPolicy,
   MODE_POLICY,
   UNKNOWN_TOOL_FALLBACK,
