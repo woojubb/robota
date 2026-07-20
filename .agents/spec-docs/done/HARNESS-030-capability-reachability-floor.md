@@ -1,7 +1,8 @@
 ---
-status: in-progress
+status: done
 type: INFRA
 tags: [harness, scan, capability, agent-run, reachability, done-gate, floor]
+completed: 2026-07-20
 ---
 
 # HARNESS-030: mechanical floor for the capability-reachability / agent-run done-gate
@@ -127,3 +128,23 @@ Independent `proposal-reviewer`: **REVISE → resolved**. Reviewer ENDORSED the 
 5. **TC-02b added** — missing/misnamed named scenario FAILs; cross-referenced existing file PASSes.
 
 Owner directive ("모두 끝까지") = standing GATE-APPROVAL sign-off. 8/8 unit tests, live scan + 63/63 scans green.
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-07-20
+
+`scan-capability-reachability.mjs` (pure `evaluateSpec` + live `findCapabilityReachabilityFindings`) registered
+in `run-all-scans.mjs`; 8 backfilled `done/` specs carry the three keys; RULE-011 + backlog-execution docs
+updated. Shipped in PR #1255 (squash `3a0188a02`).
+
+### [GATE-VERIFY] — ✅ PASS | 2026-07-20
+
+- Required CI on #1255 all green (build / examples-typecheck / scans / tui-e2e / windows-shell / commitlint).
+- 9/9 unit tests (TC-01/02/02b/03/04 + parseFrontmatter incl. quote-strip); live scan exit 0; 63/63 run-all-scans.
+- Independent `pr-review-reviewer` on the applied diff: 1 SHOULD (rule-doc still described the pre-REVISE
+  two-key/name-match design) + 1 CONSIDER (quote-strip) — BOTH applied in follow-up commit `89c51bf59`; verified
+  green. All 7 `user_execution_scenario` paths confirmed real files (genuine live-green, not accidental).
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-07-20
+
+Merged to develop (#1255, `3a0188a02`) + review-fix (`89c51bf59`). Spec → `done/`, `status: done`. The
+"declared-then-dodge" recurrence (SELFHOST-008 shape) is now mechanically fenced; undeclared-capability
+recognition remains reviewer-owned (a warn-only surfacer is the deferred follow-up).
