@@ -104,6 +104,13 @@ describe('HARNESS-030 — helpers + live tree', () => {
     expect(fm.user_execution).toBe('agent-run');
   });
 
+  it('parseFrontmatter strips surrounding quotes from a value', () => {
+    const fm = parseFrontmatter(
+      '---\nuser_execution_scenario: ".agents/evals/scenarios/x.md"\n---\nbody',
+    );
+    expect(fm.user_execution_scenario).toBe('.agents/evals/scenarios/x.md');
+  });
+
   it('TC-04: the live done/ tree is clean (every declared capability names an existing scenario)', () => {
     expect(findCapabilityReachabilityFindings()).toEqual([]);
   });

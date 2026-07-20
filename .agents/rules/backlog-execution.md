@@ -180,14 +180,17 @@ capability "done," and the capability's epic is not COMPLETE until the agent-run
 closes the loophole where a library seam no surface enables silently marks the user-execution gate N/A —
 the exact gap that let SELFHOST-008 memory ship OFF in the real agent, unverified end-to-end.)
 
-**Mechanical floor (HARNESS-030).** A capability spec DECLARES itself with two frontmatter keys —
-`capability: true` and `user_execution: agent-run | manual | none`. `scan-capability-reachability.mjs` (in
+**Mechanical floor (HARNESS-030).** A capability spec DECLARES itself with three frontmatter keys —
+`capability: true`, `user_execution: agent-run | manual | none`, and (for `agent-run`)
+`user_execution_scenario: <path>` naming the evidence file EXPLICITLY. `scan-capability-reachability.mjs` (in
 `run-all-scans`) then enforces, over `.agents/spec-docs/done/`: a `capability: true` spec MUST NOT record
 `user_execution: none`/omit it (no N/A dodge), and a `capability: true` + `user_execution: agent-run` spec MUST
-have a matching agent-run scenario file under `.agents/evals/scenarios/` (name containing the spec's base ID).
+name a `user_execution_scenario:` path that EXISTS. The reference is an explicit path, NOT a name/base-ID
+guess — a spec's evidence may live under a differently-named scenario (e.g. SEC-001's evidence is the GUI-007
+scenario file). `check-spec-doc-frontmatter.mjs` documents all three keys as recognized optional frontmatter.
 The floor is opt-in — the scan never GUESSES which spec is a capability (that semantic call, and "is the seam
 truly reachable," stay with the GATE-COMPLETE reviewer); it fences the recurrence once the capability is
-declared. Set both keys on every user-facing capability spec.
+declared. Set these keys on every user-facing capability spec (add `user_execution_scenario:` for agent-run).
 
 ### Agent Executability Requirement — MANDATORY
 

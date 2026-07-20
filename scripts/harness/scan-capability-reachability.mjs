@@ -42,7 +42,9 @@ export function parseFrontmatter(source) {
   const fm = {};
   for (const line of m[1].split('\n')) {
     const kv = /^([A-Za-z_]+):\s*(.*)$/.exec(line);
-    if (kv) fm[kv[1]] = kv[2].trim();
+    // Strip a single layer of surrounding quotes so `key: "value"` resolves to `value` (a quoted
+    // path would otherwise fail existsSync and yield a confusing "does not exist" for a real file).
+    if (kv) fm[kv[1]] = kv[2].trim().replace(/^(['"])(.*)\1$/, '$2');
   }
   return fm;
 }
