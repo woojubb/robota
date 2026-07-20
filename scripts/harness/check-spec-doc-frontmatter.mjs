@@ -12,6 +12,12 @@
  *     - `tags`   present (a non-empty list)
  *   Warning: duplicate `<namespace>-<NNN>` IDs across the tree.
  *
+ * Recognized OPTIONAL keys (validity not enforced here; extra keys are inert to this gate):
+ *   - `completed: <date>` — set at GATE-COMPLETE.
+ *   - `capability: true` + `user_execution: agent-run|manual|none` + `user_execution_scenario: <path>` —
+ *     the capability-reachability convention (HARNESS-030); enforced by `scan-capability-reachability.mjs`,
+ *     which requires a `capability: true` spec in `done/` to name an existing agent-run scenario.
+ *
  * Usage: `node scripts/harness/check-spec-doc-frontmatter.mjs [path-to-dir-or-file]`
  * Exit code 0 = clean (warnings allowed), 1 = blocking findings.
  */

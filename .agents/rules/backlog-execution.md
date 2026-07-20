@@ -180,6 +180,15 @@ capability "done," and the capability's epic is not COMPLETE until the agent-run
 closes the loophole where a library seam no surface enables silently marks the user-execution gate N/A —
 the exact gap that let SELFHOST-008 memory ship OFF in the real agent, unverified end-to-end.)
 
+**Mechanical floor (HARNESS-030).** A capability spec DECLARES itself with two frontmatter keys —
+`capability: true` and `user_execution: agent-run | manual | none`. `scan-capability-reachability.mjs` (in
+`run-all-scans`) then enforces, over `.agents/spec-docs/done/`: a `capability: true` spec MUST NOT record
+`user_execution: none`/omit it (no N/A dodge), and a `capability: true` + `user_execution: agent-run` spec MUST
+have a matching agent-run scenario file under `.agents/evals/scenarios/` (name containing the spec's base ID).
+The floor is opt-in — the scan never GUESSES which spec is a capability (that semantic call, and "is the seam
+truly reachable," stay with the GATE-COMPLETE reviewer); it fences the recurrence once the capability is
+declared. Set both keys on every user-facing capability spec.
+
 ### Agent Executability Requirement — MANDATORY
 
 **Before writing a scenario, the agent must ask: "Can I execute this via Bash right now?"**
