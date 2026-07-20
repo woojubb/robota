@@ -1,5 +1,6 @@
 ---
-status: in-progress
+status: done
+completed: 2026-07-21
 type: SECURITY
 tags:
   [permission, background-tasks, agent-executor, agent-framework, enforcement, security, capability]
@@ -222,3 +223,22 @@ Two increments on `feat/core-025-permission-policy-enforcement`:
   bypass unchanged) + 9 resolver unit tests + 35 permission tests total, no regression.
 - Agent-run scenario executed (see User Execution Test Scenarios) — the load-bearing auto/bypass-override case
   proven at the seam every spawn route converges on.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-07-21
+
+Merged to develop (PR #1258, squash `5e4145fe6`). Independent `pr-review-reviewer` (HARNESS-018) verdict:
+**0 MUST/SHOULD** — confirmed the policy resolves before the mode gate, the `bypassPermissions` override is
+real and test-proven, every spawn route carries the policy to the single gate, and no cycle. Non-blocking
+CONSIDER/NIT handled deliberately:
+
+- CONSIDER (gate self-default to inherit-allowlist when policy undefined): NOT applied — it would change the
+  "no policy → mode gate" contract and could un-gate existing subagent flows; the policy is required + defaulted
+  at the request boundary, so the gate always receives it in practice.
+- CONSIDER (PermissionDecision hook emits `allow`/`prompt` vs `auto`/`approve`): informational-only hook,
+  non-blocking; left as-is.
+- NIT (allowlist entry "redundant" with the SPEC row): not redundant — the `### Permissions` SPEC table is not
+  under a "Public API" heading the surface scan reads, so the allowlist entry is what greens the scan (same
+  pattern as `evaluatePermission`). Kept both.
+- NIT (duplicated `taskPermissions` shape across two files): left to avoid churn on a reviewed security PR.
+
+Spec → `done/`, `status: done`. The dead required `permissionPolicy` field is now an enforced security control.
