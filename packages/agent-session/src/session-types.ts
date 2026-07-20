@@ -18,6 +18,7 @@ import type {
   IUserInteraction,
   TSessionEndReason,
   TPermissionMode,
+  TBackgroundPermissionPolicy,
   TModelEffort,
   TToolArgs,
 } from '@robota-sdk/agent-core';
@@ -48,6 +49,14 @@ export interface ISessionOptions {
   hooks?: Record<string, unknown>;
   /** Initial permission mode */
   permissionMode?: TPermissionMode;
+  /**
+   * CORE-025: background/subagent task permission policy. Resolved BEFORE the session-mode gate, so
+   * `deny`/`preapproved`/`inherit-allowlist` override even a permissive `permissionMode`. Absent on a normal
+   * interactive session (mode gate alone). Set by `createSubagentSession` from the spawn request.
+   */
+  permissionPolicy?: TBackgroundPermissionPolicy;
+  /** CORE-025: the task's OWN allow/deny lists (what `preapproved` consults; distinct from `permissions`). */
+  taskPermissions?: { allow?: readonly string[]; deny?: readonly string[] };
   /**
    * Injected "ask the user" port (CMD-005): forwarded into the agent config so model-invoked tools
    * (AskUserQuestion) can solicit a structured answer. Absent in headless/automation sessions.

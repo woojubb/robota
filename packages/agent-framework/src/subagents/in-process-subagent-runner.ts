@@ -129,6 +129,17 @@ export function createInProcessSubagentRunner(deps: IInProcessSubagentRunnerDeps
         provider: deps.provider,
         terminal: deps.terminal,
         permissionMode: deps.permissionMode,
+        // CORE-025: carry the task's permission policy + its own tool lists so the child session gates tool
+        // calls by policy BEFORE the inherited session mode (deny/preapproved bind even under bypass).
+        ...(job.request.permissionPolicy !== undefined
+          ? { permissionPolicy: job.request.permissionPolicy }
+          : {}),
+        ...(job.request.allowedTools !== undefined
+          ? { taskAllowedTools: job.request.allowedTools }
+          : {}),
+        ...(job.request.disallowedTools !== undefined
+          ? { taskDisallowedTools: job.request.disallowedTools }
+          : {}),
         permissionHandler: deps.permissionHandler,
         hooks: deps.hooks,
         hookTypeExecutors: deps.hookTypeExecutors,

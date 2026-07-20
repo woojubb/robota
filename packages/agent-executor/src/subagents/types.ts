@@ -8,6 +8,7 @@ import type {
   TBackgroundTaskRunnerEvent,
   TBackgroundTaskIsolation,
   TBackgroundTaskTimeoutReason,
+  TBackgroundPermissionPolicy,
 } from '../background-tasks/index.js';
 import type {
   ISubagentJobState,
@@ -31,6 +32,12 @@ export interface ISubagentSpawnRequest {
   isolation?: TBackgroundTaskIsolation;
   allowedTools?: string[];
   disallowedTools?: string[];
+  /**
+   * CORE-025: the spawned subagent's permission policy. Carried from `IAgentBackgroundTaskRequest` through the
+   * runner to `createSubagentSession`, where it gates tool calls BEFORE the session-mode decision. Previously
+   * dropped here (the field was absent), leaving the policy unenforced.
+   */
+  permissionPolicy?: TBackgroundPermissionPolicy;
   timeoutMs?: number;
   idleTimeoutMs?: number;
   maxRuntimeMs?: number;
