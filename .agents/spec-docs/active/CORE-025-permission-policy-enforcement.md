@@ -166,7 +166,8 @@ taskDeny, parentAllow, parentDeny}) → 'allow' | 'deny' | 'prompt'`. `inherit-a
   blocked (measured) — proving the fix covers the `auto` branch, not just `approve`. Re-run with
   `'preapproved'` naming that tool → it passes; a tool NOT in the set → denied. `'prompt'` with no attached
   surface → fail-closed deny (no hang).
-- Evidence: `.agents/evals/scenarios/core-025-permission-policy-enforcement-agent-run.md` (record after execution).
+- Evidence: `.agents/evals/scenarios/core-025-permission-policy-enforcement-agent-run.md` (executed 2026-07-21;
+  7/7 enforcement tests green under `bypassPermissions`, 6-package full-path build green).
 
 ## Evidence Log
 
@@ -198,3 +199,26 @@ seam. All findings applied to "What":
    would auto-allow), else the scenario passes while the hole remains.
 
 Owner directive ("모든 남은 백로그 ... 사전 승인" / "다해줘") = standing GATE-APPROVAL sign-off; REVISE resolved.
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-07-21
+
+Two increments on `feat/core-025-permission-policy-enforcement`:
+
+1. `01b70ba1b` — pure `resolvePermissionByPolicy` in `agent-core` (beside `evaluatePermission`; shared
+   `matchesAnyPattern` matcher) + moved the `TBackgroundPermissionPolicy` SSOT down to agent-core
+   (transport re-exports; consumer import paths unchanged — respects the one-way transport→core dep). 9 unit tests.
+2. `e6111dd08` — enforcement at `PermissionEnforcer.checkPermission`: policy resolved BEFORE the mode gate
+   (allow→true, deny→false, prompt→shared `promptForApproval`), closing the `auto`/bypass hole. Policy +
+   task allow/deny threaded through `Session`/enforcer options, `ISubagentSpawnRequest` +
+   `toSubagentStartRequest` (the dropped path), `createSubagentSession`, and BOTH the in-process and
+   child-process subagent runners; `toBackgroundRequest` threads the caller policy instead of the literal.
+
+### [GATE-VERIFY] — ✅ PASS | 2026-07-21
+
+- 6-package full-path build green (agent-core → transport → agent-session → agent-executor → agent-framework
+  → agent-subagent-runner).
+- 7 enforcement integration tests at the real gate under `bypassPermissions` (deny blocks; preapproved/inherit
+  gate by task/parent allowlist; parent-deny > allow; prompt fail-closes / routes to handler; no-policy leaves
+  bypass unchanged) + 9 resolver unit tests + 35 permission tests total, no regression.
+- Agent-run scenario executed (see User Execution Test Scenarios) — the load-bearing auto/bypass-override case
+  proven at the seam every spawn route converges on.
