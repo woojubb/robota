@@ -1,6 +1,7 @@
 ---
 title: 'CORE-025: permissionPolicy 집행 구현 (preapproved/prompt/deny 실동작)'
-status: todo
+status: done
+completed: 2026-07-21
 created: 2026-07-04
 priority: high
 urgency: soon
