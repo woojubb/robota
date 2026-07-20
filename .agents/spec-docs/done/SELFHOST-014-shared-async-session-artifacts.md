@@ -2,6 +2,9 @@
 status: done
 completed: 2026-07-19
 type: DATA
+capability: true
+user_execution: agent-run
+user_execution_scenario: .agents/evals/scenarios/selfhost-014-session-artifact-agent-run.md
 tags: [session-artifact, sharing, resume, persistence, agent-session, selfhost]
 ---
 

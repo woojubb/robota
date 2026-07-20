@@ -1,6 +1,9 @@
 ---
 status: done
 type: DATA
+capability: true
+user_execution: agent-run
+user_execution_scenario: .agents/evals/scenarios/selfhost-008-memory-agent-run.md
 tags: [memory, dip-port, async, remediation, selfhost]
 ---
 

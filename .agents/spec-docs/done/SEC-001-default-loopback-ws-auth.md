@@ -1,6 +1,9 @@
 ---
 status: done
 type: SECURITY
+capability: true
+user_execution: agent-run
+user_execution_scenario: .agents/evals/scenarios/gui-007-cli-served-monitor-agent-run.md
 tags: [security, transport, websocket, loopback, auth, token, dns-rebinding, gui-002]
 ---
 

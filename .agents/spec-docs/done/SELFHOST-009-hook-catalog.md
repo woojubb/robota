@@ -2,6 +2,9 @@
 status: done
 completed: 2026-07-19
 type: BEHAVIOR
+capability: true
+user_execution: agent-run
+user_execution_scenario: .agents/evals/scenarios/selfhost-009-pretooluse-gate-agent-run.md
 tags: [hooks, lifecycle, security-gate, agent-core, selfhost]
 ---
 
