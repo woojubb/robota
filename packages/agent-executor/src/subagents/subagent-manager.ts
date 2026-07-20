@@ -128,7 +128,8 @@ export class SubagentManager implements ISubagentManager {
       repetitionWindow: request.repetitionWindow,
       repetitionThreshold: request.repetitionThreshold,
       metadata: request.metadata,
-      permissionPolicy: 'inherit-allowlist',
+      // CORE-025: thread the caller's policy (default inherit-allowlist) instead of hard-coding it.
+      permissionPolicy: request.permissionPolicy ?? 'inherit-allowlist',
     };
   }
 
@@ -215,6 +216,8 @@ function toSubagentStartRequest(request: IAgentBackgroundTaskRequest): ISubagent
     model: request.model,
     allowedTools: request.allowedTools,
     disallowedTools: request.disallowedTools,
+    // CORE-025: carry the permission policy through to the runner (previously dropped here → dead field).
+    permissionPolicy: request.permissionPolicy,
     timeoutMs: request.timeoutMs,
     idleTimeoutMs: request.idleTimeoutMs,
     maxRuntimeMs: request.maxRuntimeMs,

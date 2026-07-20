@@ -6,7 +6,7 @@
  * conversation management.
  */
 
-import { evaluatePermission, runHooks } from '@robota-sdk/agent-core';
+import { evaluatePermission, resolvePermissionByPolicy, runHooks } from '@robota-sdk/agent-core';
 
 import { PERMISSION_DENIED_RESULT } from './permission-types.js';
 import {
@@ -50,6 +50,8 @@ export class PermissionEnforcer {
   private readonly transcriptPath?: string;
   private readonly sessionAllowedTools = new Set<string>();
   private readonly onProjectAllowTool?: (toolName: string) => void;
+  private readonly permissionPolicy?: IPermissionEnforcerOptions['permissionPolicy'];
+  private readonly taskPermissions?: IPermissionEnforcerOptions['taskPermissions'];
 
   constructor(options: IPermissionEnforcerOptions) {
     this.sessionId = options.sessionId;
@@ -64,6 +66,8 @@ export class PermissionEnforcer {
     this.hookTypeExecutors = options.hookTypeExecutors;
     this.transcriptPath = options.transcriptPath;
     this.onProjectAllowTool = options.onProjectAllowTool;
+    this.permissionPolicy = options.permissionPolicy;
+    this.taskPermissions = options.taskPermissions;
   }
 
   /** Wrap all tools with permission checking */
@@ -208,6 +212,23 @@ export class PermissionEnforcer {
 
   /** Evaluate permission for a tool call using the current mode and config */
   async checkPermission(toolName: string, toolArgs: TToolArgs): Promise<boolean> {
+    // CORE-025: a background/subagent task permission policy is resolved BEFORE the session-mode gate, so
+    // `deny`/`preapproved`/`inherit-allowlist` override even a permissive mode (e.g. bypassPermissions).
+    // `evaluatePermission`'s `auto` branch never runs for a policy-gated call — that was the bypass hole.
+    if (this.permissionPolicy) {
+      const policyDecision = resolvePermissionByPolicy(this.permissionPolicy, toolName, toolArgs, {
+        taskAllow: this.taskPermissions?.allow,
+        taskDeny: this.taskPermissions?.deny,
+        parentAllow: this.config.permissions.allow,
+        parentDeny: this.config.permissions.deny,
+      });
+      this.firePermissionDecisionHook(toolName, toolArgs, policyDecision);
+      if (policyDecision === 'allow') return true;
+      if (policyDecision === 'deny') return false;
+      // 'prompt' → route to the human-approval path (fail-closed to deny with no approver).
+      return this.promptForApproval(toolName, toolArgs);
+    }
+
     const decision = evaluatePermission(toolName, toolArgs, this.getPermissionMode(), {
       allow: this.config.permissions.allow,
       deny: this.config.permissions.deny,
@@ -220,10 +241,19 @@ export class PermissionEnforcer {
     if (decision === 'auto') return true;
     if (decision === 'deny') return false;
 
+    // 'approve' — route to the human-approval path.
+    return this.promptForApproval(toolName, toolArgs);
+  }
+
+  /**
+   * The human-approval path: session-scoped allow list → custom handler → injected approval fn → fail-closed
+   * deny. Shared by the session-mode `approve` decision and the CORE-025 `prompt` policy so both fail closed
+   * identically when no approver is attached (e.g. a detached background task).
+   */
+  private async promptForApproval(toolName: string, toolArgs: TToolArgs): Promise<boolean> {
     // Check session-scoped allow list before prompting
     if (this.sessionAllowedTools.has(toolName)) return true;
 
-    // 'approve' — prompt the user via custom handler, injected approval fn, or deny
     if (this.permissionHandler) {
       const result = await this.permissionHandler(toolName, toolArgs);
       if (result === 'allow-session') {

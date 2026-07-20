@@ -4,7 +4,12 @@
 
 import type { ISessionLogger } from './session-logger.js';
 import type { IToolWithEventService, TPermissionMode, TToolArgs } from '@robota-sdk/agent-core';
-import type { IHookTypeExecutor, ISpinner, ITerminalOutput } from '@robota-sdk/agent-core';
+import type {
+  IHookTypeExecutor,
+  ISpinner,
+  ITerminalOutput,
+  TBackgroundPermissionPolicy,
+} from '@robota-sdk/agent-core';
 
 export type { ISpinner, ITerminalOutput };
 
@@ -57,6 +62,17 @@ export interface IPermissionEnforcerOptions {
   transcriptPath?: string;
   /** Called when the user selects "allow for project" — persists the tool pattern to project settings. */
   onProjectAllowTool?: (toolName: string) => void;
+  /**
+   * CORE-025: a background/subagent task permission policy. When set, it is resolved BEFORE the session-mode
+   * gate, so `deny`/`preapproved`/`inherit-allowlist` override even a permissive session mode (e.g.
+   * `bypassPermissions`). `prompt` routes to the human-approval path; absent → the session-mode gate alone.
+   */
+  permissionPolicy?: TBackgroundPermissionPolicy;
+  /**
+   * CORE-025: the task's OWN declared allow/deny rules (distinct from the parent session's `config.permissions`
+   * which `inherit-allowlist` inherits). `preapproved` consults these.
+   */
+  taskPermissions?: { allow?: readonly string[]; deny?: readonly string[] };
 }
 
 /** Returned when the user denies a permission prompt. success:true prevents ToolExecutionError. */

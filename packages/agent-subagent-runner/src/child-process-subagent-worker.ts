@@ -102,6 +102,16 @@ async function runInitialPrompt(payload: ISubagentWorkerStartPayload): Promise<v
       sessionId: payload.jobId,
       ...(sessionLogger ? { sessionLogger } : {}),
       permissionMode: payload.permissionMode,
+      // CORE-025: enforce the task's permission policy in the child-process subagent too.
+      ...(payload.request.permissionPolicy !== undefined
+        ? { permissionPolicy: payload.request.permissionPolicy }
+        : {}),
+      ...(payload.request.allowedTools !== undefined
+        ? { taskAllowedTools: payload.request.allowedTools }
+        : {}),
+      ...(payload.request.disallowedTools !== undefined
+        ? { taskDisallowedTools: payload.request.disallowedTools }
+        : {}),
       hooks: payload.parentConfig.hooks,
       onTextDelta: (delta) => sendChildMessage({ type: 'text_delta', delta }),
       onToolExecution: forwardToolExecution,

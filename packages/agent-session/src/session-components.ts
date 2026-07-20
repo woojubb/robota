@@ -36,6 +36,9 @@ export function buildPermissionEnforcer(
     hookTypeExecutors: options.hookTypeExecutors,
     transcriptPath,
     onProjectAllowTool: options.onProjectAllowTool,
+    // CORE-025: forward the background/subagent task permission policy + its own allow/deny lists.
+    permissionPolicy: options.permissionPolicy,
+    taskPermissions: options.taskPermissions,
   });
 }
 
