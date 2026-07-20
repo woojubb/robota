@@ -1,6 +1,7 @@
 ---
 title: 'RUNTIME-001: extract a shared headless runtime/session surface — TUI and GUI as sibling presentations'
-status: todo
+status: done
+completed: 2026-07-13
 created: 2026-07-12
 priority: medium
 urgency: later

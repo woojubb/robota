@@ -1,6 +1,7 @@
 ---
 title: 'REMOTE-001: /remote-control — WebRTC P2P remote access to a running agent-cli session'
-status: in-progress
+status: done
+completed: 2026-07-13
 created: 2026-07-10
 priority: medium
 urgency: later
