@@ -1,6 +1,7 @@
 ---
 title: 'SELFHOST-004: first-class run tracing + token/cost budgeting surfaced in TUI/GUI'
-status: todo
+status: done
+completed: 2026-07-18
 created: 2026-07-16
 priority: high
 urgency: soon

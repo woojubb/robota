@@ -1,6 +1,7 @@
 ---
 title: 'SELFHOST-011: evals-as-code harness for SDK users (gate CI)'
-status: todo
+status: done
+completed: 2026-07-19
 created: 2026-07-16
 priority: medium
 urgency: later

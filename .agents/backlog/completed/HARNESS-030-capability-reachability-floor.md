@@ -1,6 +1,7 @@
 ---
 title: 'HARNESS-030: mechanical floor for capability-reachability / agent-run-verification done-gate'
-status: todo
+status: done
+completed: 2026-07-20
 created: 2026-07-18
 priority: medium
 urgency: later

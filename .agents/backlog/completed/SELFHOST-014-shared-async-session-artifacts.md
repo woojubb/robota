@@ -1,6 +1,7 @@
 ---
 title: 'SELFHOST-014: shared / synced async session artifacts for collaboration'
-status: todo
+status: done
+completed: 2026-07-19
 created: 2026-07-16
 priority: low
 urgency: later
