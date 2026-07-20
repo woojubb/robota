@@ -32,3 +32,18 @@ export const TRUST_TO_MODE: Record<TTrustLevel, TPermissionMode> = {
  * - deny: block the action
  */
 export type TPermissionDecision = 'auto' | 'approve' | 'deny';
+
+/**
+ * Per-task permission policy for a spawned background / subagent task (CORE-025).
+ *
+ * SSOT lives here (the permission-logic home) rather than in a transport package, because
+ * `agent-interface-transport` → `agent-core` is a one-way dependency; the transport contract
+ * (`IAgentBackgroundTaskRequest.permissionPolicy`) imports + re-exports this union.
+ *
+ * - `inherit-allowlist` (default): inherit the parent session allow/deny rules — matched → allow,
+ *   unmatched → deny (never prompt). The detached-safe locked-down default.
+ * - `preapproved`: allow only the task's own declared allowlist; everything else denies.
+ * - `prompt`: route to a human approver; fail-closed to deny when no surface can answer.
+ * - `deny`: deny every privileged call (call-scoped structured deny; does not force-fail the task).
+ */
+export type TBackgroundPermissionPolicy = 'inherit-allowlist' | 'preapproved' | 'prompt' | 'deny';

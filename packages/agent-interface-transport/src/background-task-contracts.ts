@@ -6,7 +6,13 @@
  * class) stays in `agent-executor`, which imports these contracts.
  */
 
-import type { TUniversalValue } from '@robota-sdk/agent-core';
+import type { TBackgroundPermissionPolicy, TUniversalValue } from '@robota-sdk/agent-core';
+
+/**
+ * Per-task permission policy. SSOT lives in `agent-core` (the permission-logic home; CORE-025) — re-exported
+ * here so existing consumers keep importing it from `agent-interface-transport` unchanged.
+ */
+export type { TBackgroundPermissionPolicy } from '@robota-sdk/agent-core';
 
 export type TBackgroundTaskKind = 'agent' | 'process' | 'scheduled';
 
@@ -25,8 +31,6 @@ export type TBackgroundTaskStatus =
   | 'completed'
   | 'failed'
   | 'cancelled';
-
-export type TBackgroundPermissionPolicy = 'inherit-allowlist' | 'preapproved' | 'prompt' | 'deny';
 
 export type TBackgroundTaskTimeoutReason =
   | 'idle'
