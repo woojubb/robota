@@ -60,6 +60,14 @@ function mintToken(): string {
  * moot, but accepting it is harmless. */
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
 
+/**
+ * RUNTIME-13: forced-terminate deadline for `stop()`. `WebSocketServer.close()` fires its callback only after
+ * every client socket is gone, so a still-connected client would hang `stop()` forever. We send a close frame
+ * (1001 "going away") to each client, then `terminate()` any socket still open at this deadline — the RFC 6455
+ * + `ws` + drain-then-force convention (a WS close handshake completes in well under a second; 5s is generous).
+ */
+const WS_STOP_TERMINATE_DEADLINE_MS = 5000;
+
 /** Strip the `:port` suffix from a Host/authority (port-agnostic — `bindWithRetry` can walk the port). */
 function hostname(hostHeader: string | undefined): string | null {
   if (!hostHeader) return null;
@@ -272,7 +280,18 @@ export class WsTransport implements IConfigurableTransport<IInteractiveSession> 
           port,
           stop: () =>
             new Promise<void>((res) => {
-              wss.close(() => httpServer.close(() => res()));
+              // RUNTIME-13: graceful-then-forced shutdown. Send a close frame to each client so well-behaved
+              // peers close cleanly; terminate any socket still open at the deadline so `wss.close()`'s
+              // all-clients-gone callback can never hang. `verifyClient`/token gates are connection-time and
+              // untouched here (SEC-001 preserved).
+              for (const client of wss.clients) client.close(1001, 'server shutting down');
+              const deadline = setTimeout(() => {
+                for (const client of wss.clients) client.terminate();
+              }, WS_STOP_TERMINATE_DEADLINE_MS);
+              wss.close(() => {
+                clearTimeout(deadline);
+                httpServer.close(() => res());
+              });
             }),
         });
       });
