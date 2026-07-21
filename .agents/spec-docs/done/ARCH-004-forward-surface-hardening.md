@@ -1,5 +1,6 @@
 ---
-status: in-progress
+status: done
+completed: 2026-07-21
 type: BEHAVIOR
 tags: [transport, http, websocket, sse, lifecycle, hardening, runtime, capability]
 capability: true
@@ -180,3 +181,12 @@ Owner directive ("arch-004 core-026 진행") = GATE-APPROVAL sign-off; REVISE re
   (34→36) green; agent-command STRUCT-07 importers 5/5 green.
 - Scans: no-fallback, dependency-direction, entry-point-only green.
 - Agent-run scenario executed — `.agents/evals/scenarios/arch-004-transport-lifecycle-agent-run.md`.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-07-21
+
+Merged to develop (PR #1260, squash `420042d1f`) + review-fix (`913910d52`). `pr-review-reviewer` (HARNESS-018)
+verdict: shipped code CORRECT (RUNTIME-13/14/38 + STRUCT-07 verified); the sole SHOULD was an accidental-green
+test — the RUNTIME-14 regression only drove the `complete` path (which the buggy code also cleaned up). Fixed:
+added a disconnect-path test (`reader.cancel()` → `stream.onAbort` → `session.abort()` + `off == on`) that
+exercises the actual leak path, plus the NIT TOCTOU-comment correction. Spec → `done/`, `status: done`.
+Follow-up filed: STRUCT-08 (the same-class load-bearing `agent-transport/src/testing` pass-through).
