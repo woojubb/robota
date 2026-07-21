@@ -114,3 +114,23 @@ alone), RUNTIME-21 UNPROVEN (runStream already finalizes on generator return) an
 lost-abort window) → both DROPPED. Lint split ENDORSED with a tightened floor: enable the rule on the 3 touched
 packages (not zero). Research waiver VALID. All applied. Owner directive ("arch-004 core-026 진행") =
 GATE-APPROVAL sign-off; REVISE resolved.
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-07-21
+
+- **RUNTIME-12** (`interactive-session-execution-controller.ts`): `executing` claimed synchronously at
+  `executePrompt` entry (was set after the awaited `checkAndRefreshContextIfStale`); the refresh moved inside
+  the try so the `finally` still releases the flag on a refresh throw.
+- **RUNTIME-26** (`interactive-session.ts`): `requestWakeup` wake submit + `resumeGoalIfActive` init `.then`
+  now `.catch → reportBackgroundError` (framework layer; executor guard untouched — dependency direction).
+- **RUNTIME-36** (`agent-transport/src/headless/headless-runner.ts` ×3 + `agent-cli/print-mode.ts`): each
+  `executeSlashCommandIfPresent(...).then` gained a `.catch → onError` fail-closed exit; print-mode wraps
+  run/exit in try/catch so a throw surfaces exit 1.
+- **Lint**: `@typescript-eslint/no-floating-promises: error` + `parserOptions.project` enabled on `agent-core`,
+  `agent-framework`, `agent-transport`. RUNTIME-21/24 dropped (no defect).
+
+### [GATE-VERIFY] — ✅ PASS | 2026-07-21
+
+- RUNTIME-12 deterministic coalesce test + RUNTIME-36 throw→exit-1 test green; agent-framework + agent-transport
+  full suites **1868 tests pass**, no unhandled rejections (previously the wake floating submit surfaced one).
+- `no-floating-promises` reports **0 errors** on all three packages (type-aware).
+- Agent-run scenario executed — `.agents/evals/scenarios/core-026-floating-promise-races-agent-run.md`.

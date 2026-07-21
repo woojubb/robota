@@ -106,13 +106,20 @@ export async function runPrintMode(
     ...memorySessionOptions,
   });
 
-  if (goalObjective) {
-    await channel.runGoal(
-      goalObjective,
-      args.goalMaxIterations ? { maxIterations: args.goalMaxIterations } : {},
-    );
-  } else {
-    await channel.run(prompt);
+  // RUNTIME-36: a throw from run/runGoal must NOT bypass the exit-code contract — surface a non-zero exit
+  // instead of leaving the process to an unhandled rejection.
+  try {
+    if (goalObjective) {
+      await channel.runGoal(
+        goalObjective,
+        args.goalMaxIterations ? { maxIterations: args.goalMaxIterations } : {},
+      );
+    } else {
+      await channel.run(prompt);
+    }
+    process.exit(channel.getExitCode());
+  } catch (error) {
+    process.stderr.write((error instanceof Error ? error.message : String(error)) + '\n');
+    process.exit(1);
   }
-  process.exit(channel.getExitCode());
 }
