@@ -230,4 +230,28 @@ describe('HTTP Transport Routes', () => {
     expect(body).toContain('event: error');
     expect(body).toContain('"message":"boom"');
   });
+
+  // ── ARCH-004 RUNTIME-38: reject concurrent /submit on a busy session ──
+
+  it('POST /submit returns 409 while a turn is already in flight (isExecuting)', async () => {
+    const { app } = createApp(createMockSession({ isExecuting: vi.fn().mockReturnValue(true) }));
+    const res = await app.request('/submit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt: 'hi' }),
+    });
+    expect(res.status).toBe(409);
+  });
+
+  // ── ARCH-004 RUNTIME-14: SSE teardown always removes every listener (no leak) ──
+
+  it('POST /submit unsubscribes every listener it added once the stream ends', async () => {
+    const session = createEmitterSession('complete', { ok: true });
+    await requestSubmit(session);
+    // The try/finally teardown must `off` exactly what it `on`'d — a balanced count means zero leaked listeners.
+    const onCount = (session.on as unknown as { mock: { calls: unknown[] } }).mock.calls.length;
+    const offCount = (session.off as unknown as { mock: { calls: unknown[] } }).mock.calls.length;
+    expect(offCount).toBe(onCount);
+    expect(onCount).toBeGreaterThan(0);
+  });
 });

@@ -5,8 +5,10 @@
  * deterministic scripted provider) and the lightweight stub session. Never import from runtime
  * code; exported via the `./testing` subpath so test fixtures stay out of the runtime bundle.
  *
- * The deterministic scripted provider itself lives in `@robota-sdk/agent-core/testing`; re-exported
- * here for convenience so a functional test imports turns + harness from one place.
+ * STRUCT-07: the deterministic scripted provider lives in `@robota-sdk/agent-core/testing` — import it FROM
+ * THERE directly. This package must not pass-through re-export another package's symbols (no pass-through
+ * re-exports rule); the previous `createScriptedProvider`/`IScriptedProvider`/`TScriptedTurn` re-exports were
+ * removed here.
  */
 
 export {
@@ -16,6 +18,3 @@ export {
 } from './scripted-session-harness.js';
 
 export { createTestInteractiveSession } from './create-test-interactive-session.js';
-
-export { createScriptedProvider } from '@robota-sdk/agent-core/testing';
-export type { IScriptedProvider, TScriptedTurn } from '@robota-sdk/agent-core/testing';

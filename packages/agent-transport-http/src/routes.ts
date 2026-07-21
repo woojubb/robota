@@ -43,6 +43,15 @@ export function createAgentRoutes(options: IAgentRoutesOptions): Hono {
       return c.json({ error: 'prompt is required' }, 400);
     }
 
+    // RUNTIME-38: the session is single-threaded (one turn at a time) and shared across requests, so a
+    // concurrent /submit would cross-subscribe to the same emitter and interleave two clients' events.
+    // Reject while a turn is in flight. (Known TOCTOU: the body parse above sits between this check and
+    // submit; the window is small and far better than silent cross-talk. Per-session isolation is a larger
+    // follow-up — see ARCH-004.)
+    if (session.isExecuting()) {
+      return c.json({ error: 'session busy — a turn is already in flight' }, 409);
+    }
+
     return streamSSE(c, async (stream) => {
       const cleanup: Array<() => void> = [];
 
@@ -51,48 +60,51 @@ export function createAgentRoutes(options: IAgentRoutesOptions): Hono {
         cleanup.push(() => session.off(event as 'text_delta', handler as () => void));
       };
 
+      // RUNTIME-14: await + catch every SSE write so a write to a client-closed stream is a blessed no-op,
+      // not an unhandled rejection (post-headers errors bypass Hono's onError).
+      const write = (event: string, data: unknown): Promise<void> =>
+        stream.writeSSE({ event, data: JSON.stringify(data) }).catch(() => {
+          // allow-fallback: client closed the stream mid-write — nothing to deliver; the finally teardown
+          // (RUNTIME-14) removes the listeners, so this write has nothing left to do.
+        });
+
       const done = new Promise<void>((resolve) => {
-        subscribe('text_delta', (delta: string) => {
-          stream.writeSSE({ event: 'text_delta', data: JSON.stringify({ delta }) });
-        });
-
-        subscribe('tool_start', (state) => {
-          stream.writeSSE({ event: 'tool_start', data: JSON.stringify(state) });
-        });
-
-        subscribe('tool_end', (state) => {
-          stream.writeSSE({ event: 'tool_end', data: JSON.stringify(state) });
-        });
-
-        subscribe('thinking', (isThinking: boolean) => {
-          stream.writeSSE({ event: 'thinking', data: JSON.stringify({ isThinking }) });
-        });
+        subscribe('text_delta', (delta: string) => void write('text_delta', { delta }));
+        subscribe('tool_start', (state) => void write('tool_start', state));
+        subscribe('tool_end', (state) => void write('tool_end', state));
+        subscribe('thinking', (isThinking: boolean) => void write('thinking', { isThinking }));
 
         subscribe('complete', async (result) => {
           // Flush the terminal event before resolving, so the resolve → cleanup →
-          // stream-close continuation cannot race ahead of the fire-and-forget write.
-          await stream.writeSSE({ event: 'complete', data: JSON.stringify(result) });
+          // stream-close continuation cannot race ahead of the write.
+          await write('complete', result);
           resolve();
         });
-
         subscribe('interrupted', async (result) => {
-          await stream.writeSSE({ event: 'interrupted', data: JSON.stringify(result) });
+          await write('interrupted', result);
+          resolve();
+        });
+        subscribe('error', async (error: Error) => {
+          await write('error', { message: error.message });
           resolve();
         });
 
-        subscribe('error', async (error: Error) => {
-          await stream.writeSSE({
-            event: 'error',
-            data: JSON.stringify({ message: error.message }),
-          });
+        // RUNTIME-14: on client disconnect, CANCEL the underlying run (not merely stop writing) and unblock
+        // `done` so the finally teardown runs — otherwise `done` would never resolve and the listeners leak.
+        stream.onAbort(() => {
+          session.abort();
           resolve();
         });
       });
 
-      await session.submit(body.prompt);
-      await done;
-
-      for (const fn of cleanup) fn();
+      try {
+        await session.submit(body.prompt);
+        await done;
+      } finally {
+        // RUNTIME-14: teardown ALWAYS runs — on completion, error, OR client disconnect — so the session
+        // event listeners can never leak.
+        for (const fn of cleanup) fn();
+      }
     });
   });
 
