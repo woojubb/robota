@@ -1,5 +1,6 @@
 ---
-status: in-progress
+status: done
+completed: 2026-07-21
 type: BEHAVIOR
 tags: [concurrency, floating-promises, races, lint, runtime, background-tasks, capability]
 capability: true
@@ -136,3 +137,19 @@ GATE-APPROVAL sign-off; REVISE resolved.
   suites **1868 tests pass**, no unhandled rejections (previously the wake floating submit surfaced one).
 - `no-floating-promises` reports **0 errors** on all three packages (type-aware).
 - Agent-run scenario executed — `.agents/evals/scenarios/core-026-floating-promise-races-agent-run.md`.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-07-21
+
+Merged to develop (PR #1262, squash `dd8e7e1b0`) + review-fix (`e82ba7d7b`). `pr-review-reviewer` (HARNESS-018)
+verified all three fixes correct; two actionable items resolved:
+
+- **SHOULD (accidental-green, empirically proven):** the first RUNTIME-12 test fired the second submit only
+  AFTER the first turn was already executing (past the flag-set), so it passed on the buggy code too. Rewrote
+  it to MOCK `checkAndRefreshContextIfStale` to block and fire two truly-concurrent submits at the
+  check→refresh→set window — now FAILS on the pre-fix position and PASSES on the fix (verified both ways).
+- **CI `quality` regression:** print-mode's try/catch caught the test-mocked `process.exit(0)` throw and
+  re-exited 1 (23 agent-cli exit-code tests). Moved `process.exit(getExitCode())` OUTSIDE the try.
+- CONSIDER (finally emits `thinking:false` + drains empty queue on a refresh throw — harmless/idempotent) +
+  NIT (`toError`/`failClosed` `unknown` ban-types warning, matches precedent): non-blocking, noted.
+
+Spec → `done/`, `status: done`. Deferred INFRA follow-up: monorepo-wide `no-floating-promises` rollout.
