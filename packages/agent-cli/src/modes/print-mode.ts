@@ -106,13 +106,21 @@ export async function runPrintMode(
     ...memorySessionOptions,
   });
 
-  if (goalObjective) {
-    await channel.runGoal(
-      goalObjective,
-      args.goalMaxIterations ? { maxIterations: args.goalMaxIterations } : {},
-    );
-  } else {
-    await channel.run(prompt);
+  // RUNTIME-36: a throw from run/runGoal must NOT bypass the exit-code contract — surface a non-zero exit
+  // instead of leaving the process to an unhandled rejection. `process.exit(getExitCode())` stays OUTSIDE the
+  // try so a NORMAL exit (including code 0) is not caught by the error branch.
+  try {
+    if (goalObjective) {
+      await channel.runGoal(
+        goalObjective,
+        args.goalMaxIterations ? { maxIterations: args.goalMaxIterations } : {},
+      );
+    } else {
+      await channel.run(prompt);
+    }
+  } catch (error) {
+    process.stderr.write((error instanceof Error ? error.message : String(error)) + '\n');
+    process.exit(1);
   }
   process.exit(channel.getExitCode());
 }

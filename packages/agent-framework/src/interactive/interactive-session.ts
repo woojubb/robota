@@ -539,10 +539,17 @@ export class InteractiveSession
     if (this.execCtrl.shuttingDown) return false;
     if (this.execCtrl.wakeTaskIds.has(sourceTaskId)) return false;
     this.execCtrl.wakeTaskIds.add(sourceTaskId);
+    // RUNTIME-26: the wake turn runs detached — route its rejection to reportBackgroundError instead of
+    // letting it vanish (e.g. a turn error, or the "shutting down" throw when a wake races teardown).
     void this.submit(instruction, undefined, undefined, {
       turnSource: 'agent-wakeup',
       wakeTaskId: sourceTaskId,
-    });
+    }).catch((error) =>
+      this.reportBackgroundError(
+        error instanceof Error ? error : new Error(String(error)),
+        'agent-wakeup',
+      ),
+    );
     return true;
   }
 
@@ -933,10 +940,18 @@ export class InteractiveSession
   private resumeGoalIfActive(): void {
     const goal = this.goalController.getState();
     if (!goal || goal.status !== 'active') return;
-    void this.ensureInitialized().then(() => {
-      if (!this.goalController.isActive() || this.execCtrl.shuttingDown) return;
-      this.scheduleGoalTurn(buildGoalContinuationPrompt(goal), goal);
-    });
+    // RUNTIME-26: route a detached init/goal-resume rejection to reportBackgroundError rather than dropping it.
+    void this.ensureInitialized()
+      .then(() => {
+        if (!this.goalController.isActive() || this.execCtrl.shuttingDown) return;
+        this.scheduleGoalTurn(buildGoalContinuationPrompt(goal), goal);
+      })
+      .catch((error) =>
+        this.reportBackgroundError(
+          error instanceof Error ? error : new Error(String(error)),
+          'goal-resume',
+        ),
+      );
   }
 
   private async switchProvider(profileName: string): Promise<void> {
