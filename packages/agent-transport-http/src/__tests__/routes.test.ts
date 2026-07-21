@@ -245,13 +245,59 @@ describe('HTTP Transport Routes', () => {
 
   // ── ARCH-004 RUNTIME-14: SSE teardown always removes every listener (no leak) ──
 
-  it('POST /submit unsubscribes every listener it added once the stream ends', async () => {
+  it('POST /submit unsubscribes every listener it added once the stream completes', async () => {
     const session = createEmitterSession('complete', { ok: true });
     await requestSubmit(session);
     // The try/finally teardown must `off` exactly what it `on`'d — a balanced count means zero leaked listeners.
     const onCount = (session.on as unknown as { mock: { calls: unknown[] } }).mock.calls.length;
     const offCount = (session.off as unknown as { mock: { calls: unknown[] } }).mock.calls.length;
     expect(offCount).toBe(onCount);
+    expect(onCount).toBeGreaterThan(0);
+  });
+
+  /**
+   * The load-bearing RUNTIME-14 case: a client that disconnects MID-STREAM (before any terminal event). The
+   * pre-fix code ran cleanup only after `await done`, and `done` resolved solely on complete/interrupted/error
+   * — so a disconnect leaked every listener forever. The fix's `stream.onAbort` must cancel the run
+   * (`session.abort()`) and unblock `done` so the `finally` teardown runs.
+   */
+  it('POST /submit tears down + aborts the run when the client disconnects mid-stream', async () => {
+    const handlers = new Map<string, Set<(data: unknown) => void>>();
+    let settleSubmit: (() => void) | undefined;
+    const session = createMockSession({
+      isExecuting: vi.fn().mockReturnValue(false),
+      on: vi.fn((event: string, handler: (data: unknown) => void) => {
+        const set = handlers.get(event) ?? new Set();
+        set.add(handler);
+        handlers.set(event, set);
+      }),
+      off: vi.fn((event: string, handler: (data: unknown) => void) => {
+        handlers.get(event)?.delete(handler);
+      }),
+      // A run that never emits a terminal event on its own — it settles only when abort() is called.
+      submit: vi.fn(() => new Promise<void>((resolve) => (settleSubmit = resolve))),
+      abort: vi.fn(() => settleSubmit?.()),
+    });
+
+    const app = createAgentRoutes({ sessionFactory: () => session });
+    const res = await app.request('/submit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt: 'hi' }),
+    });
+    expect(res.status).toBe(200);
+
+    // Let the handler subscribe + enter the in-flight `submit()`, then cancel the response stream — the
+    // Web-standard equivalent of a client disconnecting mid-stream (Hono fires `stream.onAbort`).
+    const reader = res.body!.getReader();
+    await new Promise((r) => setTimeout(r, 20));
+    await reader.cancel();
+    await new Promise((r) => setTimeout(r, 20)); // let onAbort → session.abort() + the finally teardown run
+
+    expect(session.abort).toHaveBeenCalled(); // onAbort cancelled the run, not just stopped writing
+    const onCount = (session.on as unknown as { mock: { calls: unknown[] } }).mock.calls.length;
+    const offCount = (session.off as unknown as { mock: { calls: unknown[] } }).mock.calls.length;
+    expect(offCount).toBe(onCount); // finally teardown removed every listener — no leak
     expect(onCount).toBeGreaterThan(0);
   });
 });

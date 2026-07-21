@@ -32,8 +32,10 @@ RUNTIME-13:
 
 RUNTIME-38 / RUNTIME-14:
 ✓ POST /submit returns 409 while a turn is already in flight (isExecuting)
-✓ POST /submit unsubscribes every listener it added once the stream ends (off count == on count, no leak)
-Tests  16 passed (16)   (14 prior + 2 new)
+✓ POST /submit unsubscribes every listener it added once the stream completes (off == on)
+✓ POST /submit tears down + aborts the run when the client DISCONNECTS mid-stream
+    (reader.cancel() → onAbort → session.abort() called + off == on — the load-bearing leak path)
+Tests  17 passed (17)   (14 prior + 3 new)
 ```
 
 ✅ PASS — RUNTIME-13: `stop()` sends a `close(1001)` frame to each client and terminates any survivor at a 5s
