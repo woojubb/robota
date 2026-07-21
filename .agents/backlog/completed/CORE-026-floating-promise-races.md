@@ -1,6 +1,7 @@
 ---
 title: 'CORE-026: 부동 프라미스/레이스 잔여 수리 + no-floating-promises 린트 활성화'
-status: todo
+status: done
+completed: 2026-07-21
 created: 2026-07-04
 priority: medium
 urgency: soon
