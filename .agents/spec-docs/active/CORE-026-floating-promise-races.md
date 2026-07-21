@@ -130,7 +130,9 @@ GATE-APPROVAL sign-off; REVISE resolved.
 
 ### [GATE-VERIFY] — ✅ PASS | 2026-07-21
 
-- RUNTIME-12 deterministic coalesce test + RUNTIME-36 throw→exit-1 test green; agent-framework + agent-transport
-  full suites **1868 tests pass**, no unhandled rejections (previously the wake floating submit surfaced one).
+- RUNTIME-12 race-window-isolated test (mocks `checkAndRefreshContextIfStale` to block, fires two truly
+  concurrent submits at the check→refresh→set window — FAILS on the pre-fix position, PASSES on the fix,
+  empirically verified both ways) + RUNTIME-36 throw→exit-1 test green; agent-framework + agent-transport full
+  suites **1868 tests pass**, no unhandled rejections (previously the wake floating submit surfaced one).
 - `no-floating-promises` reports **0 errors** on all three packages (type-aware).
 - Agent-run scenario executed — `.agents/evals/scenarios/core-026-floating-promise-races-agent-run.md`.
