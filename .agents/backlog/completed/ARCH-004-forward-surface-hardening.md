@@ -1,6 +1,7 @@
 ---
 title: 'ARCH-004: 선행 제공 표면 하드닝: transport-http/-mcp·agent-plugin·가격표·stateless-runtime 1급 정비'
-status: todo
+status: done
+completed: 2026-07-21
 created: 2026-07-04
 priority: high
 urgency: soon
