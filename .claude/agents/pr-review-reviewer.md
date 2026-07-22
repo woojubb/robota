@@ -23,6 +23,15 @@ NOT edit code, do NOT post the review to GitHub, do NOT fix anything — those a
    - **NIT** — trivial; recorded, not gating.
 3. For each finding give: `file:line`, severity, the concrete problem, and the fix direction. `file:line + severity`
    is the finding's stable identity (the orchestrator uses it for progress detection).
+4. **Regression-test red-proof (REQUIRED when the PR fixes a defect + adds/changes a test).** A test that claims
+   to verify a bug/leak/race fix is worthless if it passes on the buggy code too ("accidental-green"). Do not
+   take the test's green run as proof. Actively verify it would have caught the bug: run the new/changed test
+   against the **pre-fix state** — check out the merge-base (`git worktree add` or a temp checkout of
+   `origin/<base>`), copy in ONLY the new test (not the source fix), and run it; OR revert only the source fix
+   and run. It MUST **FAIL**. If it PASSES without the fix, that is a **SHOULD** ("accidental-green: the
+   regression test does not fail on the pre-fix code, so it guards nothing"), with the fix direction being the
+   smallest change that makes it exercise the actual bug window/branch. Watch especially for a test that asserts
+   a **late invariant** both versions satisfy. Record the pre-fix run result in your review.
 
 ## Output — end with the machine signal
 

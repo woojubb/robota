@@ -9,6 +9,15 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 - Never write production code without a failing test that demands it.
 - Never refactor while tests are failing.
 - Bug fixes start with a test that reproduces the bug.
+- **Prove the regression test RED before it counts as verification (anti-accidental-green).** A test that
+  verifies a defect fix MUST be demonstrated to FAIL against the pre-fix state — it must fail without the source
+  change. This holds regardless of ordering: in a **fix-first** flow (bug found → fixed → test written), you
+  MUST run the new test against the unfixed code (revert the fix, run against the merge-base, or use a fixture
+  that reproduces the defect), confirm it FAILS, then restore and confirm it PASSES. A regression test that
+  passes on both the buggy and the fixed code guards nothing and is false assurance — the fix is effectively
+  unverified. The most common accidental-green shape is a test that asserts a **late invariant** both versions
+  satisfy (e.g. checking a state only after the code path under test has already run), never exercising the
+  window/branch the bug lived in. Record the RED→GREEN result as GATE-VERIFY evidence.
 - Agent/tool orchestration bugs require behavior tests that prove trigger, runtime event, terminal result or timeout, session persistence, and parent-turn follow-up. A test that only checks parser output or spawned-job count is incomplete.
 - **Pre-refactor rule**: Before modularizing or restructuring existing code, write characterization tests that capture current behavior. Commit tests before any extraction. See `pre-refactor-test-harness` skill.
 
