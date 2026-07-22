@@ -44,6 +44,11 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 - For LLM-driven tool calling, background work, streaming, session persistence, or resume behavior, verification must inspect structured runtime evidence such as tool-call records, background-job events, terminal states, persisted session data, or a headless scenario result. Assistant prose or markup does not count as execution proof.
 - A pre-push hook is a final safety net, not a substitute for intentional verification. Do not rely on push-time checks to discover whether the work is valid.
 - If feature-specific verification cannot be run locally, stop before pushing and report the blocker and residual risk to the user.
+- **Defect-fix regression tests must be proven RED before push.** When a change fixes a bug/leak/race and adds
+  or changes a test to guard it, that test does not count as verification until it is demonstrated to FAIL
+  against the pre-fix state (revert the fix / run against the merge-base / defect-reproducing fixture), then
+  PASS on the fix. A test that passes on both the buggy and fixed code is accidental-green and guards nothing.
+  Owner rule + procedure: [tdd-and-planning.md](tdd-and-planning.md) "Prove the regression test RED".
 
 ### Headless CLI Verification Requirement
 
