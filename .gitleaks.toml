@@ -1,0 +1,34 @@
+# Gitleaks config (single SSOT, like osv-scanner.toml). Extends the default ruleset; the allowlist below
+# suppresses known-safe patterns so the secret scan is signal, not noise. Add a NARROW entry (with a reason)
+# when a real false positive appears — never broaden to whole product directories that could hide a real leak.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Robota repo allowlist — deterministic test fixtures and env-reference placeholders"
+
+# Test doubles / fixtures / e2e scripts commonly embed FAKE tokens to drive the scripted provider, permission,
+# and transport-auth paths; evals scenarios document example tokens (e.g. a 64-hex loopback WS token); build
+# artifacts (dist/, the Electron release bundle) contain third-party JWTs and are not source.
+paths = [
+  '''(^|/)__tests__/''',
+  '''(^|/)__fixtures__/''',
+  '''(^|/)e2e/''',
+  '''\.test\.(ts|tsx|js|mjs|cjs)$''',
+  '''\.bintest\.ts$''',
+  '''(^|/)\.agents/evals/''',
+  '''(^|/)pnpm-lock\.yaml$''',
+  # Build outputs (not source, and typically gitignored — belt-and-suspenders for local scans).
+  '''(^|/)dist/''',
+  '''(^|/)release/''',
+  '''\.asar$''',
+]
+
+# `$ENV:<NAME>` is the agent-core environment-reference format (a placeholder, never a literal secret), and
+# obvious example/placeholder keys used in docs/config samples.
+regexes = [
+  '''\$ENV:[A-Z0-9_]+''',
+  '''(?i)(example|placeholder|dummy|fake|test|your-?)[-_]?(api[-_]?key|token|secret)''',
+  '''sk-(ant-)?(example|test|placeholder|xxx)[A-Za-z0-9-]*''',
+]

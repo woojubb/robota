@@ -1,0 +1,39 @@
+name: Dependency Review
+
+# Gate PR-introduced dependencies by vulnerability AND license policy (distinct from the lockfile-wide
+# osv-scanner in ci.yml): dependency-review diffs the PR's ADDED deps and enforces a license deny-list.
+# License gating matters here — the project is dual-licensed (AGPL + Commercial, no CLA yet), so a runtime
+# dep under a strong-copyleft license would virally break the commercial-relicensing right.
+on:
+  pull_request:
+    branches: [main, develop]
+    types: [opened, synchronize]
+    # Dependency review is only meaningful when the dependency graph changes. This job is ADVISORY (not a
+    # required status check), so a paths-skip is safe — for a REQUIRED check, a paths-filtered skip reports
+    # "pending" forever and blocks merge, which is why ci.yml uses IN-JOB change detection instead.
+    paths:
+      - '**/package.json'
+      - 'pnpm-lock.yaml'
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  dependency-review:
+    name: Dependency review
+    runs-on: ubuntu-latest
+    # Fork PRs cannot post the summary comment; the check still runs read-only.
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: actions/dependency-review-action@v4
+        with:
+          # Block the PR on a newly-introduced HIGH+ vulnerability.
+          fail-on-severity: high
+          # Strong-copyleft licenses that would compromise the commercial-relicensing right of the dual
+          # license. Permissive (MIT/Apache-2.0/BSD/ISC) deps are unaffected. LGPL is intentionally NOT denied
+          # (weaker, dynamic-link copyleft) — revisit if a static-bundling concern arises.
+          deny-licenses: GPL-2.0-only, GPL-2.0-or-later, GPL-3.0-only, GPL-3.0-or-later, AGPL-3.0-only, AGPL-3.0-or-later
+          comment-summary-in-pr: on-failure
