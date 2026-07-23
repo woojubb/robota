@@ -19,10 +19,20 @@ fi
 
 COMMAND=$(echo "$INPUT" | grep -o '"command"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"command"[[:space:]]*:[[:space:]]*"//' | sed 's/"$//')
 
-# Only intercept git push commands
-echo "$COMMAND" | grep -qE '^\s*git\s+(push)(\s|$)' || exit 0
+# Only intercept git push commands (tolerating env prefixes + global git flags like `git -C <path>`)
+echo "$COMMAND" | grep -qE '^\s*(\S+=\S+\s+)*git\s+((-C|-c)\s+\S+\s+)*push(\s|$)' || exit 0
 
+# Worktree-aware context resolution (parallel-wave lesson): judge the repo the command actually runs
+# in — `git -C <path>` in the command > hook-input `cwd` > project dir — never blindly the main clone.
+HOOK_CWD=$(echo "$INPUT" | grep -o '"cwd"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"cwd"[[:space:]]*:[[:space:]]*"//' | sed 's/"$//' || true)
+GIT_C_PATH=$(printf '%s' "$COMMAND" | sed -nE 's/^[[:space:]]*git[[:space:]]+-C[[:space:]]+"?([^"[:space:]]+)"?.*/\1/p')
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-.}"
+if [[ -n "$HOOK_CWD" ]] && git -C "$HOOK_CWD" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  PROJECT_DIR="$HOOK_CWD"
+fi
+if [[ -n "$GIT_C_PATH" ]] && git -C "$GIT_C_PATH" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  PROJECT_DIR="$GIT_C_PATH"
+fi
 
 echo "[pre-push-check] Running fast pre-push gates (branch hygiene, lockfile sync)..." >&2
 
