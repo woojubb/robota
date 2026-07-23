@@ -1,7 +1,8 @@
 ---
 title: 'HARNESS-DIET-006: hooks — remove duplicate, slim heavy, merge duplicated, narrow over-broad'
-status: todo
+status: done
 created: 2026-07-23
+completed: 2026-07-24
 priority: medium
 urgency: soon
 area: .claude/hooks, .claude/settings.json
@@ -16,9 +17,23 @@ depends_on: []
   pass-through case is already CI-gated by `check-dependency-direction.mjs` `checkPassthroughReexports`) +
   unwired it from `settings.json`. Slimmed `post-tool-format.sh` — dropped the per-edit `npx eslint --fix`
   (lint-staged batches it at commit; removes a node cold-start from every Write/Edit); prettier-only remains.
-- **REMAINING:** slim `pre-push-check.sh` (drop the full typecheck/lint/test re-run), narrow `spec-first-gate.sh`
-  (over-broad matcher), merge `task-tracking-start.sh`+`task-tracking-stop.sh` (duplicated `classify_task`),
-  slim `check-forbidden-patterns.sh`, tighten `correction-detect.sh` — each behavioral, its own careful PR.
+- **DONE (2026-07-24):** all remaining items shipped in one PR:
+  - `pre-push-check.sh` slimmed — dropped the full-repo typecheck/lint/test re-run (owners:
+    `.husky/pre-push` `harness:pre-push` + CI); kept the cheap foreign-merge branch-hygiene and
+    lockfile-sync gates.
+  - `spec-first-gate.sh` narrowed — trigger now requires strong new-feature-implementation intent
+    (implement/구현, feature+add/build/create, "새 기능", "create a new …"); bare
+    add/fix/change/write/code/수정/변경/추가 no longer fire. Dead `IS_DOC_ONLY` computation removed.
+  - `task-tracking-start.sh` + `task-tracking-stop.sh` merged into `task-tracking.sh <start|stop>`
+    (single owner of `classify_task`); `settings.json` SessionStart/Stop rewired.
+  - `check-forbidden-patterns.sh` slimmed to the try/catch-fallback pre-write block only
+    (owners of the removed branches: ESLint `no-explicit-any`/`no-console` errors; CI
+    `scan-no-fallback.mjs` remains the blocking floor for fallback). Also fixed the catch
+    regex (`(\(|{)` → `(\(|\{)`) — GNU grep rejects the bare `{` in a group, so the kept
+    branch had been silently dead.
+  - `correction-detect.sh` tightened — lesson-to-harness nudge now requires explicit rule-making
+    intent (규칙으로/규칙화, "make this a rule", "from now on always/never"); bare
+    always/never/항상/반드시 no longer fire. The `corrections.jsonl` metric is unchanged.
 
 ## Problem
 
