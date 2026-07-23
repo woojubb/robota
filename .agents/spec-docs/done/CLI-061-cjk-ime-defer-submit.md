@@ -1,5 +1,6 @@
 ---
-status: in-progress
+status: done
+completed: 2026-07-23
 type: SCREEN
 tags: [tui, input, ime, cjk, korean, ink, defer-submit, capability]
 capability: true
@@ -153,3 +154,13 @@ stateRef.current.value, onSubmit)` (re-reads the LIVE value, never `effect.value
   it green.
 - typecheck green; 62/62 scans (no-fallback, no-fake-in-src green). Agent-run scenario:
   `.agents/evals/scenarios/cli-061-cjk-defer-submit-agent-run.md`.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-07-23
+
+Merged to develop (PR #1269, squash `b9893455f`) + NIT fix (`b40fb36a2`). `pr-review-reviewer` (HARNESS-018):
+**0 actionable** — independently reproduced red-before-green in a worktree (reverting the submit branch makes
+both integration tests fail exactly as the bug; the fix turns them green), confirmed the guard gates only a
+second submit (input pipeline live), the deferred read is `stateRef.current.value` not `effect.value`, and no
+regression (426/426). NIT (over-claiming unit test name) fixed; CONSIDER (post-Enter keystrokes within the
+window bleed — accepted tradeoff, matches Gemini) left as documented. Spec → `done/`. Backlog item
+`CLI-061-ime-last-character-drop.md` reconciled from watch-only → done (drop fixed) and archived to `completed/`.
