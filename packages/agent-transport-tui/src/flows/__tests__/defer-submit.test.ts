@@ -42,7 +42,7 @@ describe('scheduleDeferredSubmit (CLI-061)', () => {
     expect(submit).toHaveBeenCalledWith('안녕하세요'); // FULL value — fails on the pre-fix immediate submit
   });
 
-  it('ignores a second submit while one is in flight (no double-submit), but does not touch input', () => {
+  it('ignores a second submit while one is in flight (no double-submit)', () => {
     const state = createDeferSubmitState();
     const submit = vi.fn();
     const sched = manualScheduler();
