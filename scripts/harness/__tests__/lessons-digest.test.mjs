@@ -134,7 +134,9 @@ describe('auto lessons digest', () => {
         session_id: 'session-b',
         tool_input: {
           file_path: sourcePath,
-          content: 'const value: any = input;\n',
+          // HARNESS-DIET-006: the hook now blocks ONLY try/catch-fallback (any/console are ESLint-owned).
+          content:
+            'function f() {\n  try {\n    risky();\n  } catch (e) {\n    return [];\n  }\n}\n',
         },
       },
       root,
@@ -182,7 +184,7 @@ describe('auto lessons digest', () => {
     const sessions = readJsonl(root, 'sessions.jsonl');
     const expectedHash = createHash('sha256').update('Previous answer').digest('hex');
 
-    expect(blocks[0]).toMatchObject({ session_id: 'session-b', pattern: 'any-type' });
+    expect(blocks[0]).toMatchObject({ session_id: 'session-b', pattern: 'try-catch-fallback' });
     expect(corrections[0]).toMatchObject({
       session_id: 'session-b',
       pattern: 'user-correction',
