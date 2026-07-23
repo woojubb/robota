@@ -15,10 +15,17 @@ depends_on: []
 - **DONE:** fixed the `document-standards/index.md` spec-template misrouting (`spec-template.md` is a package
   `SPEC.md` template — moved it onto the Package-`SPEC.md` row; the Backlog-spec-doc row is now `—`, owned by
   `backlog-writer` + GATE-WRITE). Fixed `deploy.yml` environment URL `robota.dev`→`robota.io`.
-- **REMAINING (owner-sensitive / larger):** slim `AGENTS.md` to routing-only; gut the backlog `README.md`
-  ~676-line inline ledger; `compat-node18` fix (making it actually run Node 18 may surface real
-  incompatibilities — needs a verified run); `release.yml` OTP-vs-token publish-path reconciliation (owner call);
-  `deploy.yml` duplicate `security` job dedup; `skills/index.md` agent-blockquote trim.
+- **DONE (2026-07-24):** `AGENTS.md` slimmed to routing-only (Key-rules column dropped; Project-Structure
+  and Common-Commands bodies replaced with pointers to `project-structure.md` / root `package.json` scripts);
+  backlog `README.md` inline `## Items` ledger (~676 lines, incl. the repo's only dead `.agents/reports/…`
+  refs) replaced with a short SSOT pointer section (766→100 lines); `ci.yml` `compat-node18` now actually
+  pins `node-version: '18.x'` (pnpm 8.15.4 / vitest ^3 / engines `>=18` all Node-18-compatible — its first
+  real run happens on the next PR to main, since the job is `base_ref == 'main'`-gated); `deploy.yml`
+  duplicate `security` job removed (osv-scanner already runs in ci.yml `security-audit`; Snyk lacked a token
+  and was `continue-on-error`); `skills/index.md` per-agent blockquotes reduced to a 14-row one-line-role
+  table pointing at `orchestration-map.md` (agent names kept registered for `agent-def-convention`).
+- **REMAINING (owner-sensitive):** `release.yml` OTP-vs-token publish-path reconciliation (owner call);
+  optional composite action for the shared CI setup boilerplate.
 
 ## Problem
 

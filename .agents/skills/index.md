@@ -50,80 +50,38 @@ Consult the relevant skill before starting work in its domain. Each entry links 
 | [conformance-finding-report](conformance-finding-report/SKILL.md)         | Assembles verdicts into the AF-NN findings report with severities + counts (INFRA-002 schema)                                                                                                |
 | [improvement-proposal-authoring](improvement-proposal-authoring/SKILL.md) | Maps findings to remediation + follow-up backlogs + mechanical-guard recommendations                                                                                                         |
 
-> **Spawnable architecture agents (they hold the policy).** For an independent review dispatchable from
-> the main loop, a `/command`, a Workflow fan-out, or the `architecture-refresh` orchestrator, use four
-> universal/neutral subagents (portable to any codebase; they judge by timeless design principles, not
-> house style) — two read-only auditors and two appliers:
->
-> - `architecture-auditor` (`.claude/agents/architecture-auditor.md`, read-only) — judges whether the
->   **design is good** by universal principles; returns severity-classified findings ending with
->   `ACTIONABLE FINDINGS: <n>`.
-> - `architecture-conformance-auditor` (`.claude/agents/architecture-conformance-auditor.md`, read-only)
->   — judges whether the **design and the code are in sync** (both directions), classifying each finding
->   `doc-side` or `code-side` (HOLDS/DRIFT/VIOLATION/PHANTOM/UNDOCUMENTED); also ends with `ACTIONABLE
-FINDINGS: <n>`.
-> - `architecture-fixer` (`.claude/agents/architecture-fixer.md`, edits docs only) — resolves **doc-side**
->   findings: brings architecture docs/SPECs/maps in line with the code.
-> - `architecture-implementer` (`.claude/agents/architecture-implementer.md`, edits code) — resolves
->   **code-side** findings: brings the code in line with the intended architecture, verified (build/tests
->   green), following the repo's change process; stops-and-plans when a change is too large to make safely.
->
-> Spawn via the Agent tool / Workflow `agentType` (available after a session restart once committed). The
-> `architecture-refresh` skill is only the loop that sequences them.
+### Spawnable Agents
 
-> **Spawnable review, verification & discovery agents (they hold the policy).** Three more
-> universal/neutral subagents, each ending its output with a terminal machine-signal so an orchestration
-> loop can react mechanically:
->
-> - `proposal-reviewer` (`.claude/agents/proposal-reviewer.md`, read-only) — skeptical outside sign-off
->   on a change proposal / spec decision; ends with `REVIEW VERDICT: <ENDORSE|REVISE|REJECT>`.
-> - `merge-verifier` (`.claude/agents/merge-verifier.md`, read-only) — confirms a merge/PR truly landed
->   on its target's remote head; ends with `MERGE VERIFIED: <PASS|FAIL>`.
-> - `capability-scout` (`.claude/agents/capability-scout.md`, read-only) — proposes the role
->   decomposition for a described workflow (which roles → agents vs thin-skill steps, sequencing,
->   per-role signal, tool scope) and flags over-scoped/duplicate roles; ends with `DECOMPOSITION: <n>
-roles …`. It is the discovery specialization `lesson-to-harness` dispatches for a "new recurring role."
-> - `prior-art-researcher` (`.claude/agents/prior-art-researcher.md`, read-only) — the research **WORKER**:
->   given a spec topic, researches comparable products / OSS / AI-agent references from PRODUCT DOCS (not
->   source code) and returns a ready-to-paste `## Prior Art Research` block + evidence-based recommendation;
->   ends with `PRIOR_ART_RESEARCH: <FOUND|NONE_FOUND>`. Dispatched by `user-request-gate` (default-on per
->   `research.md`); its output is judged by the `backlog-gate-guard` GATE-WRITE research criterion (guardian)
->   and floored by `scan-spec-research.mjs`.
-> - `agent-skill-author` (`.claude/agents/agent-skill-author.md`, edit-capable) — the **write-side**:
->   authors/edits the agent/skill files from an ENDORSE'd decomposition, to the agent-definition
->   convention; its completion evidence is a green `agent-def-convention` guard (it declares no `signal:`
->   field, like `architecture-implementer`). The `capability-extraction` skill sequences
->   scout → `proposal-reviewer` → author → guard.
-> - `pr-review-reviewer` (`.claude/agents/pr-review-reviewer.md`, read-only) — the PR-review **guardian**
->   (HARNESS-018): applies `/code-review` (MUST/SHOULD/CONSIDER/NIT) to a PR and ends with
->   `ACTIONABLE FINDINGS: <n>` (unresolved MUST+SHOULD). Judges only — never edits/posts/fixes.
-> - `pr-review-writer` (`.claude/agents/pr-review-writer.md`, worker) — posts the reviewer's findings to the
->   PR via `gh` as a durable artifact; produces only, no judgment, touches no repo files.
-> - `pr-review-fixer` (`.claude/agents/pr-review-fixer.md`, edit-capable) — applies minimal verified fixes for
->   the reviewer's MUST/SHOULD findings on the PR branch; never emits the verdict (re-review is the reviewer's).
->   The `pr-review-orchestration` skill sequences reviewer → writer → fixer → re-review to convergence
->   (`ACTIONABLE FINDINGS: 0`), bounded, then the gated merge path.
->
-> The **agent-definition convention** these agents follow (frontmatter `name`/`description`/`tools`,
-> read-only tool-scope, a closed-vocabulary terminal `signal:`, index registration) is a document-type
-> contract in [`document-standards/index.md`](../specs/document-standards/index.md) and is mechanically
-> enforced by `scripts/harness/check-agent-def-convention.mjs` (`pnpm harness:scan` →
-> `agent-def-convention`).
+Each agent's full policy lives in its definition file (`.claude/agents/<name>.md`); the pipelines
+that sequence them are registered in [`orchestration-map.md`](../specs/orchestration-map.md) (SSOT
+for orchestrator/worker/guardian wiring). One-line roles:
+
+| Agent                              | Role                                                                      |
+| ---------------------------------- | ------------------------------------------------------------------------- |
+| `architecture-auditor`             | Read-only design-quality audit by universal principles                    |
+| `architecture-conformance-auditor` | Read-only doc↔code sync audit (doc-side / code-side findings)             |
+| `architecture-fixer`               | Applies doc-side findings (edits docs only)                               |
+| `architecture-implementer`         | Applies code-side findings (edits code, build/tests green)                |
+| `proposal-reviewer`                | Skeptical sign-off on a change proposal (ENDORSE/REVISE/REJECT)           |
+| `merge-verifier`                   | Confirms a merge/PR truly landed on the remote target                     |
+| `capability-scout`                 | Proposes the role decomposition for a described workflow                  |
+| `prior-art-researcher`             | Research worker: prior-art block + evidence-based recommendation          |
+| `agent-skill-author`               | Authors agent/skill files from an ENDORSE'd decomposition                 |
+| `pr-review-reviewer`               | PR-review guardian: MUST/SHOULD/CONSIDER/NIT + `ACTIONABLE FINDINGS: <n>` |
+| `pr-review-writer`                 | Posts the reviewer's findings to the PR via `gh`                          |
+| `pr-review-fixer`                  | Applies minimal verified fixes for MUST/SHOULD findings                   |
+| `doc-auditor`                      | Read-only documentation staleness/quality audit                           |
+| `doc-fixer`                        | Applies doc findings (edits docs only, verify-before-write)               |
+
+The **agent-definition convention** they follow is a document-type contract in
+[`document-standards/index.md`](../specs/document-standards/index.md), mechanically enforced by
+`pnpm harness:scan` → `agent-def-convention`.
 
 ## Documentation
 
 | Skill                                                   | Description                                                                                              |
 | ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
 | [documentation-refresh](documentation-refresh/SKILL.md) | Thin pipeline that re-calls doc-auditor→doc-fixer until an audit round is clean (agents hold all policy) |
-
-> **Spawnable doc agents (they hold the policy).** The refresh skill is only the loop; the judgement
-> and roles live in two universal/neutral subagents (portable to any codebase; they judge docs against
-> the code, not house style): `doc-auditor`
-> (`.claude/agents/doc-auditor.md`, read-only — enumerates every doc in scope, returns per-file
-> findings + an `ACTIONABLE FINDINGS` convergence signal) and `doc-fixer`
-> (`.claude/agents/doc-fixer.md`, edits docs only — applies a findings list, verify-before-write).
-> Spawn via the Agent tool / Workflow `agentType` `doc-auditor` / `doc-fixer` (available after a
-> session restart once committed).
 
 ## Testing
 
