@@ -49,7 +49,9 @@ function requireScript(rootPackageJson, scriptName, expectedCommand) {
 }
 
 const rootPackageJson = JSON.parse(readText('package.json'));
-const releaseRulesPath = '.agents/rules/release-operations.md';
+// HARNESS-DIET-004: the release runbook content merged into publish.md
+// (release-operations.md is a pointer stub); the scan guards the merged content.
+const releaseRulesPath = '.agents/rules/publish.md';
 const releaseRules = readText(releaseRulesPath);
 const processRules = readText('.agents/rules/process.md');
 const rulesIndex = readText('.agents/rules/index.md');
@@ -145,14 +147,14 @@ for (const phrase of requiredReleasePhrases) {
 requireContains(
   '.agents/rules/process.md',
   processRules,
-  '[release-operations.md](release-operations.md)',
-  'Process rules must route to release-operations.md.',
+  '[index.md](index.md)',
+  'Process routing stub must point at the rules index.',
 );
 requireContains(
   '.agents/rules/index.md',
   rulesIndex,
-  '[release-operations.md](release-operations.md)',
-  'Rules index must route to release-operations.md.',
+  '[publish.md](publish.md)',
+  'Rules index must route to the release runbook (publish.md).',
 );
 requireContains(
   '.agents/rules/common-mistakes.md',

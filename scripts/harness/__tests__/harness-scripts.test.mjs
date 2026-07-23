@@ -244,7 +244,8 @@ describe('release governance scan', () => {
   it('is registered in the root harness scan and checks release operation rules', () => {
     const rootPackage = JSON.parse(readFileSync('package.json', 'utf8'));
     const script = readFileSync('scripts/harness/check-release-governance.mjs', 'utf8');
-    const releaseRules = readFileSync('.agents/rules/release-operations.md', 'utf8');
+    // HARNESS-DIET-004: release-operations.md merged into publish.md (pointer stub remains).
+    const releaseRules = readFileSync('.agents/rules/publish.md', 'utf8');
 
     expect(rootPackage.scripts['harness:scan:release-governance']).toBe(
       'node scripts/harness/check-release-governance.mjs',

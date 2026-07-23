@@ -1,7 +1,8 @@
 # Operational Rules
 
-Rules for day-to-day development practices: error handling, documentation, and task management.
-Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
+Rules for day-to-day development practices: error handling, documentation, task management, and
+application boundaries (absorbed `api-boundary.md`, now a pointer stub).
+Parent: [rules index](index.md)
 
 ### No Fallback Policy
 
@@ -15,10 +16,10 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 ### Idea Capture Policy
 
 - When the user mentions an idea, suggestion, or future task (e.g., "~하면 좋겠다", "나중에 ~하자", "~해야한다"), do NOT start implementation immediately.
-- Instead, record it as a task file in `.agents/tasks/` with status `backlog` and acknowledge briefly ("기록했습니다").
+- Instead, record it where future work actually lives: a backlog item in `.agents/backlog/` (per its README) or, for spec-shaped ideas, a spec-doc draft in `.agents/spec-docs/draft/`. Acknowledge briefly ("기록했습니다").
 - Continue the current work without interruption.
 - Only start implementation when the user explicitly requests it (e.g., "이거 진행해", "할일 목록에서 X 해줘").
-- When the user asks to see the backlog ("할일 목록 보여줘"), list all recorded tasks from `.agents/tasks/`.
+- When the user asks to see the backlog ("할일 목록 보여줘"), list the recorded items from `.agents/backlog/`.
 
 ### Option Proposal Rule
 
@@ -40,27 +41,14 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 
 ### Task/Backlog ID Convention
 
-All task and backlog files use an uppercase prefix ID in both the filename and the `title` frontmatter.
+All backlog, spec-doc, and task files use an uppercase prefix ID in both the filename and the `title` frontmatter.
 
-**Format:** `{DOMAIN}-{TYPE}-{NUMBER}`
+**Format:** `{DOMAIN}-{NNN}` — an uppercase domain prefix plus a zero-padded number
+(e.g. `CLI-061`, `CORE-025`, `HARNESS-030`, `GUI-001`, `INFRA-044`). The domain names the owning
+area (package, app, or cross-cutting concern); new domains may be introduced when a new area
+appears. There is no separate `BL`/`TK` type segment.
 
-| Domain  | Scope                       |
-| ------- | --------------------------- |
-| `CLI`   | agent-cli                   |
-| `SDK`   | agent-sdk                   |
-| `CORE`  | agent-core                  |
-| `PLUG`  | Plugin system               |
-| `ORCH`  | Cross-package orchestration |
-| `INFRA` | Infrastructure / deployment |
-
-| Type | Meaning                 |
-| ---- | ----------------------- |
-| `BL` | Backlog                 |
-| `TK` | Task (in-progress work) |
-
-**Examples:** `CLI-BL-001`, `SDK-TK-002`, `PLUG-BL-003`
-
-**File naming:** `.agents/tasks/CLI-BL-001-file-attachment.md`
+**File naming:** `{ID}-{slug}.md`, e.g. `.agents/backlog/CLI-061-ime-last-character-drop.md`.
 
 ### Document Size Rule
 
@@ -98,3 +86,17 @@ Adopted from the RCP conduct authority ([agent-conduct.md](agent-conduct.md) hol
 - On "fix/modify my file", edit the actual target file, not a new copy.
 - Never claim a file exists or was produced without actually creating it; verify paths before
   asserting presence; surface deliverables explicitly (share the file, not a folder).
+
+## API Boundary & Process Lifecycle
+
+Absorbed from `api-boundary.md` (now a pointer stub).
+
+### API Specification
+
+- Applications with external API endpoints must maintain standardized API specifications (e.g., OpenAPI for HTTP). See `api-spec-management` skill for workflow details.
+
+### Process Lifecycle
+
+- Applications in `apps/` must handle SIGTERM and SIGINT for graceful shutdown.
+- In-progress work must complete or be safely cancelled within a configurable timeout.
+- All acquired resources (connections, file handles) must be released on shutdown.
