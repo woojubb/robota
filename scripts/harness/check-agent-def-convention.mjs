@@ -76,6 +76,14 @@ export function analyzeAgent(text, { referencedInIndex = true } = {}) {
     if (carried.length > 0) {
       findings.push(`declares itself read-only but carries edit tool(s): ${carried.join(', ')}`);
     }
+    // HARNESS-DIET-001: `Bash` cannot be sub-scoped to read-only git subcommands, so a read-only agent that
+    // carries Bash CAN run `git reset --hard`/`checkout`/`clean` and destroy uncommitted work (this happened
+    // in-session). Require an explicit tree-mutating-git guardrail in the body as the mechanical floor.
+    if (tools.includes('Bash') && !/tree-mutating git/i.test(body)) {
+      findings.push(
+        'read-only agent carries Bash but its body does not forbid tree-mutating git — add the guardrail (the phrase "tree-mutating git"); see HARNESS-DIET-001',
+      );
+    }
   }
 
   if (Object.prototype.hasOwnProperty.call(frontmatter, 'signal')) {
