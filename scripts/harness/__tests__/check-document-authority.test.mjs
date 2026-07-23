@@ -4,7 +4,7 @@ import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import {
   findDocumentAuthorityFindings,
@@ -25,11 +25,26 @@ async function createFixture(files) {
   return root;
 }
 
+/**
+ * Environment for git subprocesses in fixtures, with every inherited GIT_* variable stripped.
+ * CRITICAL: when this suite runs inside a git hook (husky pre-push runs harness checks), the hook
+ * exports GIT_DIR/GIT_INDEX_FILE etc., which REDIRECT any child `git` call to the REAL repository
+ * regardless of cwd — a fixture `git init`/`add`/`commit`/`checkout` would then mutate the actual
+ * checkout (this happened once: rogue `base`/`work` fixture commits landed on a live branch).
+ */
+function gitSafeEnv(extra = {}) {
+  const env = Object.fromEntries(
+    Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_')),
+  );
+  return { ...env, ...extra };
+}
+
 function git(cwd, args) {
   execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', ...args], {
     cwd,
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
+    env: gitSafeEnv(),
   });
 }
 
@@ -55,9 +70,25 @@ function runScript(cwd, args = [], env = {}) {
   return spawnSync(process.execPath, [SCRIPT, ...args], {
     cwd,
     encoding: 'utf8',
-    env: { ...process.env, GITHUB_BASE_REF: '', ...env },
+    env: gitSafeEnv({ GITHUB_BASE_REF: '', ...env }),
   });
 }
+
+// The in-process resolveBaseRef/getChangedFiles tests spawn git via the scan's own tryGit, which
+// inherits process.env. Scrub GIT_* for this file (vitest isolates env per test file) so a git-hook
+// context (husky pre-push exports GIT_DIR) cannot redirect fixture lookups to the real repository.
+const SAVED_GIT_ENV = {};
+beforeAll(() => {
+  for (const key of Object.keys(process.env)) {
+    if (key.startsWith('GIT_')) {
+      SAVED_GIT_ENV[key] = process.env[key];
+      delete process.env[key];
+    }
+  }
+});
+afterAll(() => {
+  Object.assign(process.env, SAVED_GIT_ENV);
+});
 
 const VIOLATING_ARCH_DOC =
   '# Capability Placement\n\n## Implementation Plan\n\n1. Build this later.\n';
