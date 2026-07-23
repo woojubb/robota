@@ -110,6 +110,12 @@ startup. Any push with modified or staged uncommitted files is blocked with exit
 - If a backlog is too large, split it into explicitly named work units before implementation; each
   work unit must have its own recommendation gate.
 - Do not combine unrelated backlogs in one PR.
+- **This default is not an anti-batching rule.** A single coherent work-unit (one design-gate pass,
+  one authoring pass, a rule + its enforcement + its wiring) belongs in ONE multi-commit PR — do not
+  split it into many tiny PRs that each wait on a full CI run. Bundle by coherence + a soft size ceiling
+  (~600 changed lines / ~15 files); see the [PR Batching policy](git-branch.md) (DX-001) in `git-branch.md`
+  for the exact criteria. The line: **unrelated backlogs → separate PRs; related steps of one unit →
+  one PR.**
 - **Sequence by relatedness.** Decide the execution shape from whether items share files or contracts:
   items that touch the **same files/contracts are related — serialize them** (one ordered unit, or
   sequential PRs on the same seam) so reviews and merges do not interleave or conflict. Items that are

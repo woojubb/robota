@@ -1,6 +1,7 @@
 ---
 title: 'DX-001: PR batching policy — bundle coherent work into appropriately-sized PRs (fewer CI waits)'
-status: in-progress
+status: done
+completed: 2026-07-23
 created: 2026-07-16
 priority: high
 urgency: now
@@ -9,6 +10,16 @@ depends_on: []
 ---
 
 # PR batching policy
+
+## Outcome (DONE 2026-07-23)
+
+Policy authored in `git-branch.md` (§ "PR Batching — appropriately-sized PRs (DX-001)", PR #1189):
+coherent-work-unit + soft size ceiling (~600 lines / ~15 files), one conventional commit per logical
+step, reconciled against the One-Branch-At-A-Time / PR Unit Rule (unrelated → separate PRs; related
+steps of one unit → one multi-commit PR). Test-Plan follow-ups closed here: `backlog-execution.md`'s
+PR Unit Rule now cross-references the batching policy (clarifying the "one backlog per PR default" is
+not an anti-batching rule), and `post-implementation-checklist` Step 4 carries the batching nudge. No
+mechanical scan (soft process guideline, as the Test Plan specified).
 
 ## Problem
 
