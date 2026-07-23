@@ -1,6 +1,7 @@
 ---
 title: 'HARNESS-DIET-001: read-only reviewer/auditor agents must not run tree-mutating git'
-status: todo
+status: done
+completed: 2026-07-23
 created: 2026-07-23
 priority: high
 urgency: now
@@ -9,6 +10,10 @@ depends_on: []
 ---
 
 # HARNESS-DIET-001: reviewer-agent destructive-git safety
+
+## Outcome (DONE 2026-07-23)
+
+Added a `## Working-tree safety (read-only)` guardrail (the phrase "tree-mutating git" + the concrete ban on reset/checkout/clean/stash/rm/commit/push/apply) to all 8 read-only agents (architecture-auditor, architecture-conformance-auditor, capability-scout, doc-auditor, merge-verifier, pr-review-reviewer, prior-art-researcher, proposal-reviewer). Rewrote pr-review-reviewer's red-proof to an ISOLATED `git worktree add` only (deleted the live-tree checkout/revert wording). Mechanized via `check-agent-def-convention.mjs`: a read-only agent carrying `Bash` whose body lacks the guardrail now FAILS the scan (proven red-before-green; +2 unit tests, 12 pass).
 
 ## Problem
 
