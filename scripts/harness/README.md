@@ -117,11 +117,6 @@ These scripts are the executable layer of the Robota harness.
 - keeps a narrow extension point for exceptional scopes that cannot yet expose standard scripts
 - should remain close to empty as owner packages adopt standard scenario commands
 
-### `record-owner-scenario.mjs`
-
-- runs a package-owned record command and writes a canonical JSON artifact under the package-owned scenarios directory
-- stores normalized stdout/stderr plus hashes so records are comparable across runs
-
 ### `review-change.mjs`
 
 - summarizes risk for the selected scope

@@ -10,6 +10,17 @@ depends_on: []
 
 # HARNESS-DIET-003: scans — remove dead/vacuous + consolidate
 
+## Progress (2026-07-23)
+
+- **DONE:** removed `bootstrap.mjs` (dead — targeted deleted `apps/web`/`apps/api-server`) + its
+  `harness:bootstrap` package.json script + AGENTS.md entrypoint line; removed orphaned `record-owner-scenario.mjs`
+  - its README section. (Merged after INFRA-044 unblocked the package.json security-audit gate.)
+- **CORRECTION:** the audit's "3 live >300-line files" was wrong — **~100 files** exceed 300 lines. Enforcing
+  `scan-file-size` needs a ~100-entry baseline (an anti-pattern) OR an owner policy call (baseline / raise limit /
+  drop). Deferred pending that decision.
+- **REMAINING:** `check-document-authority` never-fail fix; `check-spec-public-surface` 641-line allowlist shrink;
+  `scan-consistency` split; the 4 thin-scan MERGEs (each its own coverage-preserving PR).
+
 ## Problem
 
 Several harness scans are dead, vacuous (structurally cannot fail), orphaned, or thin single-rule checks that
