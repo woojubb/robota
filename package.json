@@ -80,7 +80,6 @@
     "harness:review": "node scripts/harness/review-change.mjs",
     "harness:self-check": "node scripts/harness/self-check.mjs",
     "harness:cleanup": "node scripts/harness/cleanup-drift.mjs",
-    "harness:bootstrap": "node scripts/harness/bootstrap.mjs",
     "harness:run-context": "node scripts/harness/collect-run-context.mjs",
     "harness:release:init": "node scripts/harness/release-run.mjs init",
     "harness:release:check": "node scripts/harness/release-run.mjs check",

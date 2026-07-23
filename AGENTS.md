@@ -96,7 +96,6 @@ pnpm harness:record -- --scope <packages/foo|apps/bar> [--base-ref <git-ref>]
 pnpm harness:review -- --scope <packages/foo|apps/bar> [--report-file <path>] [--base-ref <git-ref>]
 pnpm harness:self-check
 pnpm harness:cleanup
-pnpm harness:bootstrap -- [--scope web|api-server] [--report-file <path>] [--dry-run]
 pnpm harness:run-context -- [--scope <scope>] [--report-file <path>]
 ```
 
