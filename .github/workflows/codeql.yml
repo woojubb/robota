@@ -8,6 +8,14 @@ on:
     branches: [main, develop]
   pull_request:
     branches: [main, develop]
+    # Proportional CI: skip SAST for documentation-only PRs (no analyzable JS/TS changed). CodeQL is advisory
+    # (not a required check), so not triggering it on a docs-only PR is safe for branch protection. The weekly
+    # schedule + push-to-branch runs still give full coverage.
+    paths-ignore:
+      - '**/*.md'
+      - '**/*.mdx'
+      - 'docs/**'
+      - 'content/**'
   schedule:
     # Weekly full scan (catches issues in code that a given PR didn't touch).
     - cron: '27 4 * * 1'
