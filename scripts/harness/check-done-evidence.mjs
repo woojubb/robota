@@ -20,6 +20,8 @@ import fsSync from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
+import { envWithoutGitVars } from './shared.mjs';
+
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const COMPLETED_DIR = '.agents/backlog/completed';
 
@@ -53,6 +55,10 @@ function pathExists(root, relativePath) {
       const output = execFileSync('git', ['-C', root, 'ls-files'], {
         encoding: 'utf8',
         maxBuffer: 64 * 1024 * 1024,
+        // Strip hook-inherited GIT_DIR/GIT_INDEX_FILE etc. — under a git hook they redirect this call
+        // to the hook's repository regardless of `-C root`, listing the WRONG repo (see shared.mjs
+        // envWithoutGitVars).
+        env: envWithoutGitVars(),
       });
       trackedFilesCache = new Set(output.split('\n').filter(Boolean));
     } catch {

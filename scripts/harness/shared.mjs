@@ -295,6 +295,17 @@ export function parseScopeArgs(argv) {
   return options;
 }
 
+/**
+ * `process.env` with hook-inherited `GIT_*` variables stripped. A git hook (husky pre-push) exports
+ * `GIT_DIR`/`GIT_INDEX_FILE`/`GIT_WORK_TREE` etc., which redirect EVERY child `git` call to the hook's
+ * repository REGARDLESS of cwd — git-fixture tests inside a spawned suite then mutate the real checkout
+ * (observed 2026-07-24: rogue fixture commits + `core.bare=true` pollution during the parallel wave).
+ * Harness children always operate on their explicit cwd, so the redirect vars must never propagate.
+ */
+export function envWithoutGitVars(base = process.env) {
+  return Object.fromEntries(Object.entries(base).filter(([key]) => !key.startsWith('GIT_')));
+}
+
 export function runCommand(command, args, workdir, dryRun, envOverrides = {}) {
   const rendered = [command, ...args].join(' ');
   process.stdout.write(`> (${path.relative(WORKSPACE_ROOT, workdir) || '.'}) ${rendered}\n`);
@@ -308,7 +319,7 @@ export function runCommand(command, args, workdir, dryRun, envOverrides = {}) {
     stdio: 'inherit',
     encoding: 'utf8',
     env: {
-      ...process.env,
+      ...envWithoutGitVars(),
       ...envOverrides,
     },
   });
