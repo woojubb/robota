@@ -16,4 +16,4 @@ Concrete dead/vacuous items found: `bootstrap.mjs` (targets deleted `apps/web`/`
 `scan-file-size` & `check-document-authority` (registered gates that can NEVER fail), `compat-node18` (runs Node
 22 not 18), ~11 index-only/textbook/vendored skills, 5-scan neutrality family (should be 1 config-driven scan).
 
-**Do not re-audit** — pick up execution from the HARNESS-DIET-00x items. Mirrored to session/host memory.
+**Do not re-audit** — execution state (2026-07-24): 001/002/006 DONE+archived; 003/005/007 majority executed (remaining recorded in each item's Progress: scan-file-size policy + spec-public-surface shrink + scan-consistency split (003), INFRA-002 skill-tree consolidation + heavy-skill slims (005), release.yml OTP reconciliation (007 — owner call)); 004 executed except the neutralize-project-data bucket. Waves 1–3 ran as worktree-parallel subagents — see [[worktree-parallel-orchestration]]. Mirrored to session/host memory.
