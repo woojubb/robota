@@ -1,6 +1,6 @@
 ---
 name: version-management
-description: All packages must have the same version. Use changesets for coordinated version bumps. Never version packages independently.
+description: All packages must have the same version. Use changesets for coordinated version bumps. Never version packages independently. Includes the semver impact classification for public API surface changes.
 ---
 
 # Version Management
@@ -73,7 +73,32 @@ No `--tag` flag on publish: npm automatically sets `latest` to the new version. 
    (zsh footgun: `for p in $PKGS` does not word-split a string var — use an inline literal list or
    an array so the loop actually iterates.)
 
-### Adding a new package:
+## Semver Impact of API Surface Changes
+
+The public surface of a package is its barrel export (`index.ts`) — only what the barrel exports is
+public API. Classify every public-surface change before bumping (merged from the former
+`semver-api-surface` skill):
+
+| Change                                  | Impact             | Version   |
+| --------------------------------------- | ------------------ | --------- |
+| Remove exported type/interface/function | consumers break    | **major** |
+| Rename exported symbol                  | consumers break    | **major** |
+| Change required parameter type          | consumers break    | **major** |
+| Add required property to interface      | implementers break | **major** |
+| Add optional property to interface      | compatible         | minor     |
+| Add new export                          | compatible         | minor     |
+| Fix bug without API change              | compatible         | patch     |
+| Internal refactor (no export change)    | compatible         | patch     |
+
+Principles:
+
+- **Deprecate before remove**: add the replacement export alongside the old one, mark the old one
+  `@deprecated` for at least one minor version, then remove it in the next major.
+- **Coordinated bump**: when an owner package has a breaking change, all dependent workspace
+  packages are included in the same fixed-group bump (rule 1 above) and must build afterward.
+- Record the change and its classification in the changeset summary / CHANGELOG.
+
+## Adding a new package
 
 1. Set version to current monorepo version in package.json
 2. Add package name to `.changeset/config.json` fixed group
@@ -87,3 +112,6 @@ No `--tag` flag on publish: npm automatically sets `latest` to the new version. 
 - Never use `npm publish` — always `pnpm publish` (workspace:\* resolution)
 - Never forget to set `latest` dist-tag after prerelease publish
 - Never run `changeset version` without `pre enter beta` first (drops prerelease tag)
+- Never remove or rename a public export without classifying it as a breaking (major) change
+- Never add a required property to a public interface as a minor change
+- Never export internal implementation details through the barrel
