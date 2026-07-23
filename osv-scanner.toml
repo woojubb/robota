@@ -9,3 +9,21 @@ id = "GHSA-2p57-rm9w-gvfp" # CVE-2024-29415 — `ip` SSRF via improper isPublic/
 # regression guard packages/agent-transport-webrtc/src/__tests__/cve-2024-29415-reachability.test.ts, which fails
 # if a future werift version introduces a vulnerable call site.
 reason = "ip@2.0.1 SSRF unreachable in werift (no fix published); guarded by cve-2024-29415-reachability.test.ts — REMOTE-001."
+
+[[IgnoredVulns]]
+id = "GHSA-52cp-r559-cp3m" # js-yaml special-character / prototype handling (CVSS 7.5), fixed in 4.3.0
+# Reviewed re-accept (INFRA-044). js-yaml@4.2.0 is pulled ONLY by read-yaml-file@1.1.0 ← @manypkg/get-packages ←
+# changesets — i.e. a DEV-only tool that parses the repo's OWN trusted config (.changeset/*.md, package.json),
+# never untrusted input, so the vector is unreachable. The version-specific pnpm override could not retarget it
+# (read-yaml-file pins js-yaml via a range pnpm's override selector would not match without forcing every
+# js-yaml, which would break the 3.x consumers). The other 17 INFRA-044 advisories are FIXED via pnpm.overrides
+# bumps; this dev-only, trusted-input-only one is accepted rather than risking a global js-yaml override.
+reason = "js-yaml@4.2.0 dev-only (changesets tooling) parsing trusted repo config; fix unreachable via override without breaking 3.x — INFRA-044."
+
+[[IgnoredVulns]]
+id = "GHSA-f88m-g3jw-g9cj" # sharp / bundled libvips (CVSS 7.0), fixed in 0.35.0
+# Reviewed re-accept (INFRA-044). sharp is used ONLY for BUILD-TIME image optimization of each site's own trusted
+# images (Astro/Next in apps/docs, apps/web, apps/blog, starter-nextjs) — never processing untrusted runtime
+# uploads — so the vector is unreachable. Bumping to 0.35.0 was reverted because it raises sharp's Node floor and
+# changes the prebuilt-binary platforms, breaking the Cloudflare Pages docs build environment. Pinned at 0.34.5.
+reason = "sharp build-time-only on trusted site images (unreachable); 0.35.0 bump breaks the CF Pages docs build env — INFRA-044."
