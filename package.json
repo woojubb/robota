@@ -95,14 +95,12 @@
     "harness:scan:spec-paths": "node scripts/harness/check-spec-paths.mjs",
     "harness:scan:arch-map-paths": "node scripts/harness/check-architecture-map-paths.mjs",
     "harness:scan:spec-public-surface": "node scripts/harness/check-spec-public-surface.mjs",
-    "harness:scan:spec-publish-claims": "node scripts/harness/check-spec-publish-claims.mjs",
     "harness:scan:workspace-refs": "node scripts/harness/check-workspace-refs.mjs",
     "harness:scan:stub-markers": "node scripts/harness/check-stub-markers.mjs",
     "examples:typecheck": "pnpm --filter \"./examples/**\" run typecheck",
     "harness:scan:conflict-markers": "node scripts/harness/scan-conflict-markers.mjs",
     "harness:scan:deprecated-markers": "node scripts/harness/scan-deprecated-markers.mjs",
-    "harness:scan:orphan-exports": "node scripts/harness/check-orphan-exports.mjs",
-    "harness:scan:entry-point-only": "node scripts/harness/check-entry-point-only.mjs"
+    "harness:scan:orphan-exports": "node scripts/harness/check-orphan-exports.mjs"
   },
   "keywords": [
     "ai",
