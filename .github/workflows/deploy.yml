@@ -73,7 +73,7 @@ jobs:
 
     environment:
       name: ${{ github.event.inputs.environment }}
-      url: ${{ github.event.inputs.environment == 'production' && 'https://robota.dev' || 'https://staging.robota.dev' }}
+      url: ${{ github.event.inputs.environment == 'production' && 'https://robota.io' || 'https://staging.robota.io' }}
 
     steps:
       - name: Checkout code

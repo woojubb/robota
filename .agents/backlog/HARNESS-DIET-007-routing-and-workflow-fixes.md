@@ -10,6 +10,16 @@ depends_on: []
 
 # HARNESS-DIET-007: top-level routing & workflow fixes
 
+## Progress (2026-07-23)
+
+- **DONE:** fixed the `document-standards/index.md` spec-template misrouting (`spec-template.md` is a package
+  `SPEC.md` template — moved it onto the Package-`SPEC.md` row; the Backlog-spec-doc row is now `—`, owned by
+  `backlog-writer` + GATE-WRITE). Fixed `deploy.yml` environment URL `robota.dev`→`robota.io`.
+- **REMAINING (owner-sensitive / larger):** slim `AGENTS.md` to routing-only; gut the backlog `README.md`
+  ~676-line inline ledger; `compat-node18` fix (making it actually run Node 18 may surface real
+  incompatibilities — needs a verified run); `release.yml` OTP-vs-token publish-path reconciliation (owner call);
+  `deploy.yml` duplicate `security` job dedup; `skills/index.md` agent-blockquote trim.
+
 ## Problem
 
 The entry/routing docs carry the triple-routing duplication and a large stale ledger, and several CI workflows
