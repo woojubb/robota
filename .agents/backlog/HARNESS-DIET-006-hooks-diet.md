@@ -10,6 +10,16 @@ depends_on: []
 
 # HARNESS-DIET-006: hook diet
 
+## Progress (2026-07-23)
+
+- **DONE:** removed `check-no-reexport.sh` (non-neutral `@robota-sdk`, non-blocking warning; its `export *`
+  pass-through case is already CI-gated by `check-dependency-direction.mjs` `checkPassthroughReexports`) +
+  unwired it from `settings.json`. Slimmed `post-tool-format.sh` — dropped the per-edit `npx eslint --fix`
+  (lint-staged batches it at commit; removes a node cold-start from every Write/Edit); prettier-only remains.
+- **REMAINING:** slim `pre-push-check.sh` (drop the full typecheck/lint/test re-run), narrow `spec-first-gate.sh`
+  (over-broad matcher), merge `task-tracking-start.sh`+`task-tracking-stop.sh` (duplicated `classify_task`),
+  slim `check-forbidden-patterns.sh`, tighten `correction-detect.sh` — each behavioral, its own careful PR.
+
 ## Problem
 
 Of 12 hooks, none is wired-but-dead, but several duplicate CI scans / git-native husky hooks / ESLint, fire on
