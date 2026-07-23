@@ -13,7 +13,7 @@
 
 import chalk from 'chalk';
 import { Text, useInput, usePaste } from 'ink';
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 import {
   applyCjkTextInput,
@@ -22,6 +22,12 @@ import {
   syncCjkTextInputFlowState,
   type ICjkTextInputFlowState,
 } from './flows/cjk-text-input-flow.js';
+import {
+  cancelDeferredSubmit,
+  createDeferSubmitState,
+  scheduleDeferredSubmit,
+  type IDeferSubmitState,
+} from './flows/defer-submit.js';
 
 interface IProps {
   value: string;
@@ -48,6 +54,8 @@ interface IInputHandlerOptions {
   focus: boolean;
   enableVerticalNavigation: boolean;
   forceRender: React.Dispatch<React.SetStateAction<number>>;
+  /** CLI-061: deferred-submit state (timer + submit guard). The input pipeline stays live during the window. */
+  deferState: IDeferSubmitState;
 }
 
 export default function CjkTextInput({
@@ -64,6 +72,10 @@ export default function CjkTextInput({
 }: IProps): React.ReactElement {
   const stateRef = useRef<ICjkTextInputFlowState>(createCjkTextInputFlowState(value));
   const [, forceRender] = useState(0);
+  // CLI-061: deferred-submit state so a trailing IME character (a stdin event arriving just after Enter) is
+  // included in the submitted value. The timer is cancelled on unmount so no submit fires after teardown.
+  const deferRef = useRef<IDeferSubmitState>(createDeferSubmitState());
+  useEffect(() => () => cancelDeferredSubmit(deferRef.current), []);
 
   // Sync ref when value changes from parent (e.g., setValue(''), tab completion, paste)
   stateRef.current = syncCjkTextInputFlowState(stateRef.current, value, cursorHint);
@@ -77,6 +89,7 @@ export default function CjkTextInput({
     focus,
     enableVerticalNavigation,
     forceRender,
+    deferState: deferRef.current,
   });
 
   // Real terminal cursor positioning is intentionally omitted.
@@ -135,33 +148,31 @@ function applyCjkFlowSafely(
   try {
     const result = run();
     options.stateRef.current = result.state;
-    applyCjkTextInputEffect(
-      result.effect,
-      options.onChange,
-      options.onSubmit,
-      options.onPaste,
-      options.forceRender,
-    );
+    applyCjkTextInputEffect(options, result.effect);
   } catch {
     // allow-fallback: Korean IME in raw mode can produce unexpected byte sequences
   }
 }
 
 function applyCjkTextInputEffect(
+  options: IInputHandlerOptions,
   effect: ReturnType<typeof applyCjkTextInput>['effect'],
-  onChange: (value: string) => void,
-  onSubmit: ((value: string) => void) | undefined,
-  onPaste: ((text: string, cursorPosition: number) => void) | undefined,
-  forceRender: React.Dispatch<React.SetStateAction<number>>,
 ): void {
   if (effect.type === 'change') {
-    onChange(effect.value);
+    options.onChange(effect.value);
   } else if (effect.type === 'submit') {
-    onSubmit?.(effect.value);
+    // CLI-061: DEFER the submit and re-read the LIVE `stateRef.current.value` at fire time — never the stale
+    // `effect.value` captured at Enter. The input pipeline (this same handler) stays live during the window, so
+    // a trailing IME character's stdin event is applied to `stateRef` before the deferred read. The guard only
+    // blocks a SECOND submit — it must not gate the input pipeline (that would drop the trailing char).
+    const onSubmit = options.onSubmit;
+    if (onSubmit) {
+      scheduleDeferredSubmit(options.deferState, () => options.stateRef.current.value, onSubmit);
+    }
   } else if (effect.type === 'paste') {
-    onPaste?.(effect.text, effect.cursor);
+    options.onPaste?.(effect.text, effect.cursor);
   } else if (effect.type === 'render') {
-    forceRender((n) => n + 1);
+    options.forceRender((n) => n + 1);
   }
 }
 
