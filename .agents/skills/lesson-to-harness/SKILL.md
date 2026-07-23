@@ -66,7 +66,7 @@ A one-off single instruction ("just do X this once") is NOT a lesson — do not 
    reproduces the incident) and confirm it FAILS, then against the fixed state and confirm it PASSES.
    The new check carries its own coverage (a fixture / unit case) and stays scoped to the class — it must
    not broaden beyond the owned scope without a documented reason. Record the before/after result.
-10. **Ship** — follow the repo gates ([git-branch.md](../../rules/git-branch.md)): branch (no `git worktree`)
+10. **Ship** — follow the repo gates ([git-branch.md](../../rules/git-branch.md)): branch
     → conventional commit → PR → the **Pre-Merge Code-Review Gate** (`/code-review`, resolve all findings)
     → `gh pr merge`. Run `pnpm harness:scan` green before the PR.
 11. **Report** — list the repo files wired, the **swept instance count** (step 5), the **terminal state**
