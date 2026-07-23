@@ -1,0 +1,41 @@
+name: CodeQL
+
+# Static analysis (SAST) for JavaScript/TypeScript — GitHub's standard code-scanning gate. Advisory: results
+# appear in the Security → Code scanning tab and as PR annotations, not as a required merge check unless added
+# to branch protection.
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  schedule:
+    # Weekly full scan (catches issues in code that a given PR didn't touch).
+    - cron: '27 4 * * 1'
+
+permissions:
+  contents: read
+  security-events: write
+
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: Analyze (javascript-typescript)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+          # `security-and-quality` adds maintainability queries on top of the default security set.
+          queries: security-and-quality
+      # JS/TS needs no compilation; autobuild is a no-op but keeps the standard 3-step shape.
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: '/language:javascript-typescript'
