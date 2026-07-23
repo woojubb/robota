@@ -472,3 +472,40 @@ jobs:
 
       - name: Run the TUI PTY E2E suite against the real binary
         run: pnpm --filter @robota-sdk/agent-transport-tui test:pty
+
+  # HARNESS-041: mechanical floor for accidental-green regression tests. For a `fix:` PR with a
+  # same-package (source+test) pair, it reverse-applies the source hunks and requires the changed test
+  # to FAIL — proving the regression test actually exercises the fix. ADVISORY in v1 (not a required
+  # check): the job runs and prints the verdict but never blocks the merge (the script exits 0 unless
+  # REGRESSION_RED_PROOF_ENFORCE=1). Flip to required once it has proven stable across real PRs.
+  regression-red-proof:
+    name: regression-red-proof (advisory)
+    runs-on: ubuntu-latest
+    if: github.base_ref != 'main'
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 50
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8.15.4
+
+      - name: Use Node.js 22.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Fetch the base branch (for merge-base + reverse-diff)
+        run: git fetch origin ${{ github.base_ref }} --depth=50
+
+      - name: Prove regression tests are RED without the fix
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: node scripts/harness/check-regression-red-proof.mjs
