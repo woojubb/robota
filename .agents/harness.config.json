@@ -7,5 +7,14 @@
     "pluginLayerAllowed": ["@robota-sdk/agent-core"]
   },
   "productShellDirs": ["packages/agent-cli", "apps/agent-web", "apps/docs", "apps/blog"],
-  "lessonsDigestDisableEnv": "HARNESS_DISABLE_LESSONS_DIGEST"
+  "lessonsDigestDisableEnv": "HARNESS_DISABLE_LESSONS_DIGEST",
+  "neutrality": {
+    "$comment": "Per-subsystem library-neutrality policy DATA (HARNESS-DIET-002). The neutrality scan ENGINES live in scripts/harness/scan-*-neutrality.mjs; their Robota-specific target paths / allowlists / forbidden terms live here so the engines stay repo-agnostic.",
+    "agentToolsRuntimeAllowlist": ["fast-glob", "p-limit", "zod"],
+    "orchestrationScanDirs": [
+      "packages/agent-core/src/orchestration",
+      "packages/agent-framework/src/orchestration"
+    ],
+    "orchestrationForbiddenTerms": ["room", "persona", "topic"]
+  }
 }
