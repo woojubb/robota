@@ -10,6 +10,22 @@ depends_on: []
 
 # INFRA-044: dependency-vulnerability remediation + audit-scheduling gap
 
+## Progress (2026-07-23)
+
+- **DONE — remediation:** all 18 advisories cleared. **16 fixed** by `pnpm.overrides` bumps to the published fix
+  versions (`@astrojs/rss` 4.0.19, `body-parser` 1.20.6/2.3.0, `brace-expansion` 1.1.16/2.1.2/5.0.7, `dompurify`
+  3.4.12, `fast-uri` 3.1.4, `hono` 4.12.27, `protobufjs` 8.6.6, `svgo` 4.0.2 — plus the pre-existing
+  `fast-uri`/`protobufjs` overrides were bumped off the vulnerable pins). **2 accepted** in `osv-scanner.toml`
+  with rationale: `js-yaml@4.2.0` (GHSA-52cp, dev-only changesets tooling on trusted config) and `sharp` 0.34.5
+  (GHSA-f88m, build-time-only on the sites' own trusted images; the 0.35.0 bump was reverted because it breaks
+  the Cloudflare Pages docs build env). `osv-scanner` now exits 0; lockfile regenerated via `--lockfile-only` and
+  verified frozen-installable.
+- **REMAINING:** the **audit-scheduling gap** — run `security-audit` (osv-scanner) on a nightly/weekly `cron`
+  (and/or every PR) so newly-published advisories are caught within a day instead of at the next manifest edit.
+  (Small follow-up; the CodeQL workflow already has a weekly cron to model on.)
+
+---
+
 ## Problem
 
 The `security-audit` CI job runs osv-scanner **only when a PR changes `package.json`/`pnpm-lock.yaml`**
