@@ -56,6 +56,35 @@ this is about slimming prose and relocating repo-data — NOT weakening gates.
 - `git-branch.md` (295 lines, well-enforced) — compress the multi-line incident narratives to one-line
   rationales; the hooks already enforce.
 
+## Progress (2026-07-24, chore/diet-004-rules-consolidation)
+
+Completed in this pass (all stubs keep old links resolving — no file deleted or renamed):
+
+- Release runbook merged: `release-operations.md` content moved INTO `publish.md` (single runbook,
+  `# Publish & Release Rules`); `release-operations.md` is a 10-line pointer stub.
+  `check-release-governance.mjs` re-pointed to guard the merged content in `publish.md`
+  (+ `harness-scripts.test.mjs` release-governance test path — one-line change).
+- Routing layer collapsed: `process.md` reduced to a pointer stub at `index.md`
+  (20 → 11 lines); `index.md` carries the full Process Sub-Rules routing.
+- `api-boundary.md` moved into `operational.md` § "API Boundary & Process Lifecycle"; stub left.
+- `backlog-execution.md` deduped (491 → 457 lines): ONE authoritative
+  "engineering verification is never User-Execution evidence" statement in Done Gate Stage 2;
+  restatements in Stop Conditions / Checklist / scenario definition collapsed to cross-references.
+- `common-mistakes.md`: rows #1–#56 pruned to compact pointer rows (numbering stable — hook
+  reference to #9 and scan-required #50/#51 mistake texts kept); dated incidents #57+ untouched;
+  stale `release-operations.md` / `process.md` pointers re-pointed to `publish.md` / `spec-workflow.md`.
+- `operational.md` de-staled: Idea-Capture now records to `.agents/backlog/` / `.agents/spec-docs/draft/`
+  (not the empty `.agents/tasks/` flow); ID convention corrected to `{DOMAIN}-{NNN}` (no `BL|TK` segment).
+- `naming-style.md`: Korean 적/의/것/들 micro-style list compressed to a 3-line guideline.
+- `git-branch.md` (309 → 293 lines): multi-line incident narratives compressed to one-line
+  rationales; Worktree section and One-Branch exceptions unchanged.
+
+Remaining (needs files outside the rules scope — frontend/documentation-sync/code-quality
+relocations touch `project-structure.md`, doc-map config, and architecture SPECs):
+
+- Neutralize baked project-data: `frontend.md` App-Inventory table, `documentation-sync.md`
+  Documentation-Source-Map, `code-quality.md` Layered-Assembly section.
+
 ## Test Plan
 
 - No enforcement regression: every scan/hook that references a moved/renamed rule still resolves (`check-spec-paths`,

@@ -1,20 +1,11 @@
-# Process Rules
+# Process Rules — routing moved
 
 Mandatory rules for development process, testing, build verification, and publishing.
-Parent: [AGENTS.md](../../AGENTS.md) | Index: [rules/index.md](index.md)
+Parent: [AGENTS.md](../../AGENTS.md)
 
-This file routes to detailed rule documents. Each linked file contains the full rule text.
+The process routing table now lives in ONE place: the rules index (HARNESS-DIET-004 removed
+the duplicated routing layer). This stub keeps existing links resolving.
 
-| Document                                       | Key rules                                                                                                                      |
-| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| [spec-workflow.md](spec-workflow.md)           | Spec-first development, HARD GATE (no immediate implementation), conformance verification, document authority, structural docs |
-| [tdd-and-planning.md](tdd-and-planning.md)     | TDD red-green-refactor, planning requirements, plan documentation                                                              |
-| [verification.md](verification.md)             | Build requirements, browser verification, harness verification                                                                 |
-| [testing-layering.md](testing-layering.md)     | CLI = thin-wrapper/TUI tests only; feature behaviour must have a framework-level functional test (harness)                     |
-| [publish.md](publish.md)                       | Foundation dependency rule, publish safety gate, publish scope approval                                                        |
-| [release-operations.md](release-operations.md) | Release state machine, CI triage, long-running gate discipline, publish boundary                                               |
-| [documentation-sync.md](documentation-sync.md) | Document role sync, package README, and robota.io source update requirements                                                   |
-| [research.md](research.md)                     | Research-first implementation, documentation-only prior art, recommendation authority                                          |
-| [backlog-execution.md](backlog-execution.md)   | Recommendation gates, one-backlog PRs, user execution test scenario gates, initiative branch workflow                          |
-| [operational.md](operational.md)               | No fallback policy, idea capture, feature documentation                                                                        |
-| [learning-loop.md](learning-loop.md)           | Convert repeated lessons into rules, hooks, harness checks, or tested automation                                               |
+See [index.md](index.md) § "Process Sub-Rules" for the full routing to spec-workflow,
+tdd-and-planning, verification, testing-layering, publish (the release runbook),
+documentation-sync, research, backlog-execution, operational, and learning-loop.

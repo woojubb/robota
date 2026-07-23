@@ -141,10 +141,8 @@ live in `scratch/src/` — a gitignored workspace home whose committed skeleton 
 User execution test scenarios are separate from the agent's engineering test plan:
 
 - The engineering test plan covers unit, integration, type, harness, CI, build, and internal
-  verification commands.
-- A user execution test scenario is what the user can personally execute to see the product change
-  working. It is not the agent's test command, CI command, unit test, harness command, or source
-  inspection.
+  verification commands. A user execution test scenario is what the user can personally execute to
+  see the product change working — never any of those (authoritative statement: Done Gate Stage 2).
 - The user execution test scenario describes the exact product command, UI interaction, browser
   flow, TUI flow, or public SDK/example flow a user can run after the work is implemented to confirm
   the implemented code or delivered artifact behaves as intended.
@@ -297,29 +295,17 @@ they contained). An unprobed absence claim is a guess, not a reason — the one 
 without a probe, the capability existed and the skipped live run would have caught a real bug that
 every unit and integration test missed (ANALYTICS-001, 2026-07-02).
 
-**The following are NEVER valid exception reasons and must not be cited as gate evidence:**
-
-- Build succeeds
-- Typecheck passes
-- Lint passes
-- Unit tests pass (any count)
-- Harness checks pass
-- CI checks pass
-- Source inspection confirms the code is correct
-
-**Why:** Build, typecheck, lint, and unit tests are completely unrelated to User Execution Test
-Scenarios. They belong in `## Test Plan`. They verify that code compiles and internal logic is
-correct. They have zero influence on whether a user can run the product and observe the expected
-behavior. They must never be mentioned as User Execution gate evidence and they must not influence
-whether the gate is considered passed.
+**Engineering verification is NEVER User-Execution evidence (authoritative statement).** Build,
+typecheck, lint, unit tests (any count), harness checks, CI checks, static/document/backlog/source
+inspection, and `rg` checks are engineering or governance verification: they belong in `## Test Plan`,
+have zero influence on whether a user can run the product and observe the expected behavior, and must
+never be cited as gate evidence, exception reasons, or in a final response as user execution test
+scenario evidence. Every other mention of this rule in this file, in checklists, and in
+`common-mistakes.md` #56 refers back to this statement.
 
 If the scenario cannot be executed (genuinely manual-only or terminal-interactive-only), the item
 must be labeled `manual-only` with the specific reason before status is set to `done`, and the PR
 description must not claim the gate passed by execution.
-
-Static review, document inspection, rule inspection, backlog inspection, source inspection, `rg`
-checks, harness commands, unit tests, and other internal repository checks are engineering or
-governance verification only. They must not be presented as user execution test scenario evidence.
 
 When the user execution test scenario gate passes, the final user-facing response must tell the user
 that the scenario was verified, provide the concrete command or UI steps the user can run, state the
@@ -427,27 +413,18 @@ An orchestration skill may coordinate other skills as a pipeline, but it must st
 - A required runnable user-facing backlog lacks a user execution test scenario section.
 - A user execution test scenario is abstract, lacks exact commands/UI steps, or lacks expected
   observable results.
-- A code-changing backlog uses backlog text review, documentation search, or other static review as
-  the user execution test scenario gate instead of exercising the implemented code path.
-- A user execution test scenario asks the user to run tests, harness commands, CI checks, or source
-  inspection instead of executing the product behavior.
-- A user execution test scenario uses internal repository verification instead of a product surface such
-  as Robota CLI, TUI, browser UI, or public SDK/example usage.
-- A documentation-only, rule-only, skill-only, backlog-only, or governance-only change presents
-  document inspection as a user execution test scenario.
+- A scenario uses engineering/governance verification (static review, tests, harness commands, CI
+  checks, source or document inspection) instead of a product surface — see the authoritative
+  statement in Done Gate Stage 2.
 - The required test environment for the user execution test scenario is missing and was neither built,
   proposed, nor decided with the user.
-- The user execution test scenario gate was not executed when it could reasonably be executed by the
-  agent.
-- The user execution test scenario gate has no captured evidence.
-- The backlog item was not updated with the observed user execution test scenario evidence after execution.
-- The backlog item status was set to `done` before evidence was recorded and the observed result
-  confirmed (done-gate violation).
-- The user execution test scenario gate fails or cannot be mapped to the completed behavior.
+- The gate was not executed when the agent reasonably could, has no captured evidence, or the
+  observed evidence was not recorded back into the backlog item.
+- The backlog status was set to `done` before both Done Gate stages passed (done-gate violation),
+  or the gate fails / cannot be mapped to the completed behavior.
 - The recommendation conflicts with repo rules, layering, package ownership, or backlog intent.
 - The work would combine unrelated backlogs into one PR.
 - The final initiative PR would be auto-merged into `develop`.
-- A final user response presents engineering or governance verification as a user execution test scenario.
 - An orchestration skill duplicates implementation details from invoked skills instead of only
   coordinating them.
 
@@ -458,32 +435,21 @@ An orchestration skill may coordinate other skills as a pipeline, but it must st
       execution test scenarios or not-applicable reason, and open decisions.
 - [ ] Backlog includes user execution test scenarios only when runnable user-facing behavior changes.
 - [ ] PR scope maps to exactly one backlog or explicitly split work unit.
-- [ ] User execution test scenario targets the completed implementation or delivered artifact, not
-      backlog quality.
-- [ ] User execution test scenario asks the user to execute product behavior, not tests or internal
-      repository checks.
+- [ ] User execution test scenario targets the completed implementation or delivered artifact via a
+      product surface (not tests, internal repository checks, or backlog quality).
 - [ ] User execution test scenario includes exact commands or UI steps, required environment setup,
       and expected observable results.
 - [ ] Missing test environment for the user execution test scenario was built, proposed, or
       explicitly decided.
 
-**Done Gate — must verify both stages before `status: done`:**
+**Done Gate — must verify both stages before `status: done`** (full stage definitions and the
+authoritative never-cite-engineering-verification statement are in the Done Gate sections above):
 
-Stage 1 — Written:
-
-- [ ] Every scenario is fully written (commands, prerequisites, expected result, evidence field)
-      OR each unwritten scenario has a documented valid reason for why it could not be written
-
-Stage 2 — Executed:
-
-- [ ] The agent directly executed every scenario against the completed implementation
-- [ ] The observed result matched the expected observable result for every scenario
-- [ ] Concrete evidence was recorded in the backlog under each scenario's evidence field
-      OR each unexecuted scenario has a `manual-only:` label with a documented valid reason
-
-**NEVER cite as gate evidence:** build output, typecheck results, lint results, unit test counts,
-harness results, CI results, source inspection. These are Test Plan items, completely unrelated
-to User Execution Test Scenarios and have no influence on whether the gate passes.
+- [ ] Stage 1 — every scenario fully written (commands, prerequisites, expected result, evidence
+      field) OR a documented valid reason per unwritten scenario
+- [ ] Stage 2 — every scenario directly executed by the agent against the completed implementation,
+      observed result matched, and concrete evidence recorded OR a `manual-only:` label with a
+      documented valid reason
 
 - [ ] Child PR targets the initiative base branch.
 - [ ] Final initiative PR targets `develop` and is not auto-merged.
