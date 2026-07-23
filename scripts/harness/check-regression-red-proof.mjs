@@ -99,35 +99,29 @@ export function parseOptOut(text) {
  *   'all-pass'       — every changed test file ran and passed
  */
 export function classifyVitestOutcome(vitestJson, changedTestFiles) {
-  const wanted = new Set(changedTestFiles.map((f) => path.resolve(WORKSPACE_ROOT, f)));
+  const wanted = changedTestFiles.map((f) => path.resolve(WORKSPACE_ROOT, f));
   const results = Array.isArray(vitestJson?.testResults) ? vitestJson.testResults : [];
   let sawAssertionFail = false;
-  let sawRan = false;
-  const seen = new Set();
+  const ranWithAssertions = new Set();
 
   for (const fileResult of results) {
     const name = fileResult?.name ? path.resolve(fileResult.name) : null;
-    if (!name || !wanted.has(name)) continue;
-    seen.add(name);
+    if (!name || !wanted.includes(name)) continue;
     const assertions = Array.isArray(fileResult.assertionResults)
       ? fileResult.assertionResults
       : [];
-    if (assertions.length === 0) {
-      // File is present but produced no assertions → it failed to collect/transform → run error.
-      continue;
-    }
-    sawRan = true;
+    if (assertions.length === 0) continue; // present but no assertions → failed to collect/transform
+    ranWithAssertions.add(name);
     if (assertions.some((a) => a.status === 'failed')) sawAssertionFail = true;
   }
 
+  // C1 — a genuine assertion failure is the ONLY pass. ANY wanted test file that did not run with
+  // assertions (missing from results OR present-with-zero-assertions — a transform/collection error) is a
+  // run-error and yields INCONCLUSIVE, even if a SIBLING changed test file ran green. Never conflate a
+  // non-run with all-pass: that would be a false accidental-green alarm.
   if (sawAssertionFail) return 'assertion-fail';
-  // A changed test file we expected but that never produced assertions (missing from results, or present
-  // with zero assertions) means vitest could not run it → inconclusive, not a pass.
-  const everyWantedRan = changedTestFiles.every((f) => {
-    const abs = path.resolve(WORKSPACE_ROOT, f);
-    return seen.has(abs);
-  });
-  if (!everyWantedRan || !sawRan) return 'run-error';
+  const sawRunError = wanted.some((abs) => !ranWithAssertions.has(abs));
+  if (sawRunError) return 'run-error';
   return 'all-pass';
 }
 
@@ -154,31 +148,42 @@ export function resolveRelativeImport(importerAbsPath, specifier, fileExists = e
   if (!specifier.startsWith('.')) return null;
   const baseDir = path.dirname(importerAbsPath);
   const raw = path.resolve(baseDir, specifier);
-  // Map a `.js`/`.jsx` specifier to its TS source, plus bare + index resolutions.
+  // Map a `.js`/`.jsx`/`.cjs`/`.mjs` specifier to its TS source, plus bare + index resolutions.
   const stripped = raw.replace(/\.[cm]?jsx?$/, '');
   const candidates = [
     raw,
     `${stripped}.ts`,
     `${stripped}.tsx`,
     `${stripped}.mts`,
+    `${stripped}.cts`,
     `${stripped}.js`,
     `${stripped}.jsx`,
     path.join(stripped, 'index.ts'),
     path.join(stripped, 'index.tsx'),
+    path.join(stripped, 'index.mts'),
+    path.join(stripped, 'index.js'),
+    path.join(stripped, 'index.jsx'),
   ];
   for (const c of candidates) if (fileExists(c)) return c;
   return null;
 }
 
-const RELATIVE_IMPORT_RE =
-  /(?:import|export)[^'"]*from\s*['"](\.[^'"]+)['"]|import\s*['"](\.[^'"]+)['"]/g;
+// Strip line + block comments before scanning so commented-out imports do not pollute the graph.
+function stripComments(text) {
+  return text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+}
 
-/** Extract relative import specifiers from a file's text. */
+// Static `import … from './x'` / `export … from './x'` / side-effect `import './x'`, plus dynamic `import('./x')`.
+const RELATIVE_IMPORT_RE =
+  /(?:import|export)[^'"]*from\s*['"](\.[^'"]+)['"]|import\s*\(\s*['"](\.[^'"]+)['"]\s*\)|import\s*['"](\.[^'"]+)['"]/g;
+
+/** Extract relative import specifiers from a file's text (comments stripped). */
 export function relativeSpecifiers(sourceText) {
   const out = [];
   let m;
+  const text = stripComments(sourceText);
   RELATIVE_IMPORT_RE.lastIndex = 0;
-  while ((m = RELATIVE_IMPORT_RE.exec(sourceText)) !== null) out.push(m[1] || m[2]);
+  while ((m = RELATIVE_IMPORT_RE.exec(text)) !== null) out.push(m[1] || m[2] || m[3]);
   return out;
 }
 
@@ -206,7 +211,8 @@ export function reachableRelativeGraph(
     }
     for (const spec of relativeSpecifiers(text)) {
       const resolved = resolveRelativeImport(cur, spec, fileExists);
-      if (resolved && resolved.startsWith(pkgAbsRoot) && !visited.has(resolved))
+      // `+ path.sep` so `packages/x` does not prefix-match a sibling `packages/x-utils`.
+      if (resolved && resolved.startsWith(pkgAbsRoot + path.sep) && !visited.has(resolved))
         queue.push(resolved);
     }
   }

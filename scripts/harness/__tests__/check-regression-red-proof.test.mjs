@@ -92,6 +92,31 @@ describe('HARNESS-041 vitest outcome classification (C1 — assertion-fail vs ru
   it('missing from results entirely (transform error) → run-error, NOT all-pass', () => {
     expect(classifyVitestOutcome({ testResults: [] }, [testFile])).toBe('run-error');
   });
+
+  it('multi-file: a run-error file is NOT masked by a passing sibling → run-error (C1 regression)', () => {
+    const passing = 'packages/x/src/a.test.ts';
+    const brokeCollect = 'packages/x/src/b.test.ts';
+    const json = {
+      testResults: [
+        { name: abs(passing), assertionResults: [{ status: 'passed' }] },
+        { name: abs(brokeCollect), assertionResults: [] }, // failed to collect
+      ],
+    };
+    // Before the fix this returned 'all-pass' (→ false accidental-green). It must be run-error.
+    expect(classifyVitestOutcome(json, [passing, brokeCollect])).toBe('run-error');
+  });
+
+  it('multi-file: an assertion failure still wins over a sibling run-error → assertion-fail', () => {
+    const failing = 'packages/x/src/a.test.ts';
+    const brokeCollect = 'packages/x/src/b.test.ts';
+    const json = {
+      testResults: [
+        { name: abs(failing), assertionResults: [{ status: 'failed' }] },
+        { name: abs(brokeCollect), assertionResults: [] },
+      ],
+    };
+    expect(classifyVitestOutcome(json, [failing, brokeCollect])).toBe('assertion-fail');
+  });
 });
 
 describe('HARNESS-041 pair verdict (C1 + C3)', () => {
@@ -125,6 +150,31 @@ describe('HARNESS-041 relative-import graph (C3)', () => {
       export { x } from './util.js';
     `;
     expect(relativeSpecifiers(text)).toEqual(['../CjkTextInput.js', './util.js']);
+  });
+
+  it('relativeSpecifiers captures dynamic import() and ignores commented-out imports', () => {
+    const text = `
+      const m = await import('./dynamic.js');
+      // import ghost from './commented.js';
+      /* import block from './block.js'; */
+      import real from './real.js';
+    `;
+    const specs = relativeSpecifiers(text);
+    expect(specs).toContain('./dynamic.js');
+    expect(specs).toContain('./real.js');
+    expect(specs).not.toContain('./commented.js');
+    expect(specs).not.toContain('./block.js');
+  });
+
+  it('reachableRelativeGraph does not cross into a sibling package sharing a name prefix', () => {
+    const pkgRoot = abs('packages/x');
+    const testAbs = abs('packages/x/src/a.test.ts');
+    const siblingSrc = abs('packages/x-utils/src/leak.ts');
+    const files = { [testAbs]: `import { u } from '../../x-utils/src/leak.js';`, [siblingSrc]: '' };
+    const read = (p) => files[p] ?? '';
+    const exists = (p) => Object.prototype.hasOwnProperty.call(files, p);
+    const graph = reachableRelativeGraph([testAbs], pkgRoot, read, exists);
+    expect(graph.has(siblingSrc)).toBe(false); // packages/x must not prefix-match packages/x-utils
   });
 
   it('resolveRelativeImport maps a .js specifier to its .tsx source', () => {

@@ -176,14 +176,26 @@ commitSubjects, reverseApply, runVitest, restore, isDirty, readText, fileExists 
 
 ### [GATE-VERIFY] — ✅ PASS | 2026-07-23
 
-- **25 unit tests** (`scripts/harness/__tests__/check-regression-red-proof.test.mjs`) cover the full fixture
-  matrix: genuinely-red, accidental-green, inconclusive-transform-error (C1), not-imported (C3), dirty-tree (C4),
-  opt-out, not-fix, no-pair, and restore-on-throw. `pnpm harness:test` → **429 pass** (48 files).
+- **29 unit tests** (`scripts/harness/__tests__/check-regression-red-proof.test.mjs`) cover the full fixture
+  matrix: genuinely-red, accidental-green, inconclusive-transform-error (C1), multi-file C1 (a run-error file is
+  not masked by a passing sibling), not-imported (C3), sibling-package boundary, dynamic-import/comment parsing,
+  dirty-tree (C4), opt-out, not-fix, no-pair, and restore-on-throw. `pnpm harness:test` → **433 pass**.
 - **Real end-to-end integration proof** on the CLI-061 fix commit `b9893455f`: real `git apply -R` of the source
   hunks (incl. deleting the new `defer-submit.ts`) + real `vitest` on the changed test files → C3 detected the
   import (`importsReversedFile: true`), outcome `assertion-fail` → **red-proof-ok**; tree clean after restore.
   This is the accidental-green check catching the inverse — it PASSES a genuinely-red regression test.
 - Self-run on `develop` → correct SKIP (no `fix:` range). YAML validates (job `regression-red-proof` present).
   63/63 scans pass.
+
+### [PR REVIEW] — ✅ resolved | 2026-07-23
+
+Independent `pr-review-reviewer` (HARNESS-018): **1 ACTIONABLE (SHOULD)** — fixed. `classifyVitestOutcome`
+masked a run-error as `all-pass` when a pair had MULTIPLE changed test files (one passing, one that failed to
+collect), producing a false `ACCIDENTAL_GREEN` — a direct C1 violation (empirically reproduced by the reviewer).
+Fixed: any wanted test file that did not run WITH assertions (missing OR zero-assertion) → `run-error`
+(INCONCLUSIVE); an assertion failure still wins. Also fixed 2 CONSIDER (sibling-package prefix match
+`pkgAbsRoot + path.sep`; dynamic `import()` + comment stripping in the graph regex) and the index-resolution NIT.
+Regression tests added for each. Reviewer confirmed a false-GREEN is structurally impossible (`RED_PROOF_OK`
+requires a real failed assertion), restore is `finally`-guaranteed, and the C4 dirty-guard precedes mutation.
 
 ### [GATE-COMPLETE] — pending merge + verification
