@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
-# PreToolUse hook: block forbidden patterns in NEW content being written.
-# Covers common-mistakes #1 (any), #7 (console.*), #9 (try/catch fallback).
+# PreToolUse hook: block try/catch-fallback in NEW content being written.
+# Covers common-mistakes #9 (try/catch fallback) as a pre-write floor before
+# scan-no-fallback.mjs catches it in CI.
+#
+# The former any-type and console-usage branches were removed (HARNESS-DIET-006):
+# both are already ESLint `error`s (@typescript-eslint/no-explicit-any, no-console)
+# enforced at lint-staged/CI, and the regexes were false-positive-prone.
 #
 # Reads tool_input.content (Write) or tool_input.new_string (Edit) from stdin —
 # NOT the existing file — so only newly introduced violations are caught.
 #
 # Escape mechanism (per-line):
-#   const x: any = y;         // allow-any: <reason>
-#   console.log(msg);         // allow-console: <reason>
 #   } catch (e) {             // allow-fallback: <reason>
 #
 # Exit codes: 0 = pass, 2 = hard block
@@ -76,26 +79,6 @@ append_block() {
   BLOCKED=true
 }
 
-# ── #1: any type ──────────────────────────────────────────────────────────────
-while IFS= read -r match; do
-  [ -z "$match" ] && continue
-  line_num=$(echo "$match" | cut -d: -f1)
-  line_content=$(echo "$match" | cut -d: -f2-)
-  echo "$line_content" | grep -qE '^\s*\*|^\s*//' && continue
-  echo "$line_content" | grep -q '//[[:space:]]*allow-any:' && continue
-  append_block "any-type" "$line_num" "$line_content"
-done < <(echo "$CONTENT" | grep -nE ':\s*any(\s|;|,|\)|>|$)|\bas\s+any\b' 2>/dev/null || true)
-
-# ── #7: console.* ─────────────────────────────────────────────────────────────
-while IFS= read -r match; do
-  [ -z "$match" ] && continue
-  line_num=$(echo "$match" | cut -d: -f1)
-  line_content=$(echo "$match" | cut -d: -f2-)
-  echo "$line_content" | grep -qE '^\s*\*|^\s*//' && continue
-  echo "$line_content" | grep -q '//[[:space:]]*allow-console:' && continue
-  append_block "console-usage" "$line_num" "$line_content"
-done < <(echo "$CONTENT" | grep -nE '\bconsole\.(log|warn|error|info|debug|trace)\b' 2>/dev/null || true)
-
 # ── #9: try/catch fallback ────────────────────────────────────────────────────
 # Flag catch blocks where the body has no rethrow/reject/error propagation
 while IFS= read -r match; do
@@ -108,7 +91,9 @@ while IFS= read -r match; do
   if ! echo "$block" | grep -qE '\bthrow\b|\bPromise\.reject\b|return.*[Ee]rr'; then
     append_block "try-catch-fallback" "$line_num" "$line_content"
   fi
-done < <(echo "$CONTENT" | grep -nE '^\s*}\s*catch\s*(\(|{)' 2>/dev/null || true)
+# NOTE: the brace must be escaped (\{) — GNU grep -E rejects a bare `{` inside a group
+# ("unmatched ( or \("), which made this branch silently dead before HARNESS-DIET-006.
+done < <(echo "$CONTENT" | grep -nE '^\s*}\s*catch\s*(\(|\{)' 2>/dev/null || true)
 
 # ── report ────────────────────────────────────────────────────────────────────
 if [ "$BLOCKED" = true ]; then
@@ -117,11 +102,9 @@ if [ "$BLOCKED" = true ]; then
   echo -e "$BLOCK_MESSAGES" >&2
   echo "" >&2
   echo "Rules:" >&2
-  echo "  any-type           → common-mistakes #1: use unknown + narrowing or a proper interface" >&2
-  echo "  console-usage      → common-mistakes #7: use dependency-injected logger" >&2
   echo "  try-catch-fallback → common-mistakes #9: no fallback; terminal failures stay terminal" >&2
   echo "" >&2
-  echo "Escape (same line): // allow-any: <reason>  |  // allow-console: <reason>  |  // allow-fallback: <reason>" >&2
+  echo "Escape (same line): // allow-fallback: <reason>" >&2
   echo "" >&2
   exit 2
 fi

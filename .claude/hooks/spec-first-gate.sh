@@ -8,9 +8,18 @@
 # Read-only code exploration (Read, grep, find) is always allowed.
 # Before writing ANY code (.ts/.tsx/.js changes), a spec draft must exist.
 #
-# Keywords detected:
-#   Korean: 개발, 구현, 만들, 추가, 수정, 고쳐, 개선, 작성, 변경, 삭제, 제거, 기능, 버그, 수정해
-#   English: implement, develop, build, create, add, fix, modify, change, refactor, delete, remove
+# Trigger design (HARNESS-DIET-006): the old keyword list (\bcode\b, \badd\b, \bchange\b,
+# \bwrite\b, \bfix\b, bare 수정/변경/추가 …) fired on nearly every dev prompt, so the
+# advisory became noise. The spec gate is about NEW FEATURE work — bugfixes, tweaks, and
+# doc edits are governed by other gates (scan-spec-research + GATE-WRITE do the real
+# enforcement). So the trigger now requires STRONG new-feature-implementation intent:
+#   English: "implement", an explicit "feature" object after build/create/develop/add
+#            ("add a new feature", "build the feature"), "new feature", or
+#            build/create/develop + "a new <thing>" ("create a new command").
+#   Korean:  구현 (implement), or 기능 (feature) combined with 추가/만들/개발
+#            ("기능을 추가", "새 기능", "새로운 기능을 만들"), or 새로 개발/새로 만들.
+# Bare verbs (add/fix/change/write/code/create-a-PR, 수정/고쳐/변경/추가/만들) no longer
+# fire — they cover almost every dev prompt without signaling new-feature scope.
 
 set -uo pipefail
 
@@ -36,19 +45,14 @@ if [ -n "$HAS_SPEC_REF" ]; then
   exit 0
 fi
 
-# Detect implementation intent keywords (Korean + English)
+# Detect STRONG new-feature-implementation intent only (rationale in header comment)
 HAS_IMPL_INTENT=$(printf '%s' "$PROMPT" | grep -Eio \
-  '개발해|개발하|개발 해|구현해|구현하|구현 해|만들어|만들어 줘|만들어줘|추가해|추가하|추가 해|수정해|수정하|수정 해|고쳐|고쳐줘|개선해|개선하|개선 해|작성해|작성하|작성 해|변경해|변경하|변경 해|삭제해|삭제하|삭제 해|제거해|제거하|제거 해|기능을 만|기능을 추가|버그를 고|오류를 고|에러를 고|\bimplement\b|\bdevelop\b|\bbuild\b|\bcreate\b|\badd\b|\bfix\b|\bmodify\b|\bchange\b|\brefactor\b|\bdelete\b|\bremove\b|\bwrite\b|\bcode\b' \
+  '구현해|구현하|구현 해|기능을? ?(추가|만들|개발)|새 ?기능|새로운 기능|신규 기능|새로 (개발|만들)|\bimplement\b|\bnew feature\b|\b(build|create|develop|add) (a|an|the) (new )?feature\b|\b(build|create|develop) (a|an) new\b' \
   | head -n 1 || true)
 
 if [ -z "$HAS_IMPL_INTENT" ]; then
   exit 0
 fi
-
-# Check if it's a trivially non-code request (config/docs/settings/README)
-IS_DOC_ONLY=$(printf '%s' "$PROMPT" | grep -Eio \
-  '문서|README|주석|comment|설명|설정 파일|config.*파일|\.md$|\.json$|룰|규칙 파일' \
-  | head -n 1 || true)
 
 # Output SPEC-GATE reminder (stdout gets injected as <user-prompt-submit-hook> context)
 cat <<'EOF'
