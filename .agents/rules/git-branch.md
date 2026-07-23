@@ -3,26 +3,32 @@
 Mandatory rules for git operations and branch policy.
 Parent: [AGENTS.md](../../AGENTS.md) | Index: [rules/index.md](index.md)
 
-### Git Worktree — ABSOLUTELY PROHIBITED
+### Git Worktree — allowed for parallel agents, with guardrails
 
-**`git worktree` is banned. Zero exceptions.**
+**`git worktree` is ALLOWED.** Its purpose here is to run **multiple subagents in parallel** for speed: each
+agent works in its own isolated worktree, so their file edits never collide and the One-Branch-At-A-Time
+serialization does not throttle independent work. Prefer the Claude Code `Agent` tool's `isolation: "worktree"`
+parameter — it creates the worktree in an isolated path and auto-removes it when unchanged.
 
-- Never create, use, or reference a git worktree for any task.
-- Never propose worktrees as a solution to any problem.
-- Do all work directly on a normal feature branch in the main clone.
-- If the Claude Code `Agent` tool or any subagent requests a worktree, refuse. This includes
-  the `isolation: "worktree"` parameter on the `Agent` tool — never pass it.
-- If a leftover worktree is found (`git worktree list` shows more than the main clone), remove it
-  immediately: `git worktree remove -f -f <path>`.
+**Guardrails (these prevent the folder-confusion failures that originally motivated a ban):**
 
-**Automated enforcement:** `scripts/harness/pre-push.mjs` calls `assertNoActiveWorktrees()` at
-startup. Any push with an active non-main worktree is blocked with exit code 1.
+- **One working tree per session.** Never edit or commit the MAIN clone's working tree from inside a worktree
+  session, and never touch a worktree from the main-clone session. Operate in exactly one working tree at a time
+  (this is the #1 rule — the historical breakage was edits leaking between trees).
+- **Isolated location only.** Create worktrees in the `Agent` tool's managed path or a directory OUTSIDE the
+  repo — never nest one inside the repo's own tracked `packages/`/`apps/` tree.
+- **Each worktree gets its own branch** cut from a freshly-fetched `origin/develop`; all the branch rules in this
+  file still apply within it.
+- **Clean up when done:** `git worktree remove <path>` then `git worktree prune`. `Agent`-tool worktrees
+  auto-clean; manual ones are your responsibility.
 
-**Why:** Worktrees share the same `packages/` paths but have separate working trees. This has
-caused: (1) edits leaking from the worktree onto `develop`'s working tree, breaking typecheck;
-(2) pre-push hooks running in the wrong directory context; (3) symlink issues requiring manual
-workaround every session; (4) locked worktrees left behind after Claude Code agent sessions.
-The isolation they provide is not worth these failure modes.
+**Automated safeguard (non-blocking):** `scripts/harness/pre-push.mjs` runs `pruneAndWarnStaleWorktrees()` — it
+prunes administrative junk and WARNS about locked/stale leftover worktrees, but no longer blocks the push.
+
+**History:** worktrees were previously banned after (1) edits leaked between working trees, (2) a pre-push hook
+ran in the wrong directory, (3) symlink issues, and (4) locked worktrees were left behind. The guardrails above
+(one-working-tree-at-a-time, isolated location, cleanup + the prune-and-warn hook) address those modes; the
+parallel-agent speedup is worth it.
 
 ### Clean Working Tree Before Every Commit and Push
 
