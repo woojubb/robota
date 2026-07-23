@@ -87,6 +87,11 @@ For each modified package:
 
 - [ ] Commit all SPEC + README + code changes
 - [ ] Push to current branch
+- [ ] **PR batching (DX-001):** keep one coherent work-unit in ONE multi-commit PR (one conventional
+      commit per logical step) rather than opening many tiny PRs that each wait on a full CI run — split
+      only when the bundle exceeds the soft ceiling (~600 changed lines / ~15 files) or a part is
+      independently revertible. Unrelated backlogs still go in separate PRs. See the
+      [PR Batching policy](../../rules/git-branch.md).
 
 ### 5. npm Publish (if public packages changed)
 
