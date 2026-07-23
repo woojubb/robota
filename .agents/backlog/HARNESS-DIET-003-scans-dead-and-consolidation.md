@@ -21,6 +21,26 @@ depends_on: []
 - **REMAINING:** `check-document-authority` never-fail fix; `check-spec-public-surface` 641-line allowlist shrink;
   `scan-consistency` split; the 4 thin-scan MERGEs (each its own coverage-preserving PR).
 
+## Progress (2026-07-24)
+
+- **DONE:** `check-document-authority` is now a real gate — exits 1 on findings, and base-ref
+  resolution works in the base-ref-less CI `scans` job (`--base-ref` arg → `origin/$GITHUB_BASE_REF`
+  with a shallow-fetch fallback → `origin/develop`; when nothing resolves it SKIPS with an explicit
+  log, never a silent pass). The advisory `package-change-without-owner-spec` heuristic was DROPPED
+  rather than made blocking (it fires on routine src-only fixes and release version-bump PRs, so as
+  a gate it could only be noise; spec currency stays with spec-workflow + audit-spec-coverage).
+  Red-before-green: subprocess fixture test proves exit 1 on an injected violating architecture doc.
+- **DONE (MERGE 1/4):** `check-spec-publish-claims` → `check-publish-safety` (rule 5); coverage
+  preserved by a fixture reproducing the original G4/AF-15 incident shape (private package + SPEC
+  claiming npm publication) in `__tests__/check-publish-safety.test.mjs`.
+- **DONE (MERGE 2/4):** `check-entry-point-only` → `check-dependency-direction` (Rule 8,
+  `checkEntryPointOnly`); the 5 fixtures moved verbatim into
+  `__tests__/check-dependency-direction.test.mjs`. Registry −2 scans; both `harness:scan:*`
+  package.json lines removed.
+- **REMAINING:** `scan-file-size` enforce-or-drop (owner policy call on the ~100-file baseline);
+  `check-spec-public-surface` allowlist shrink; `scan-consistency` split; MERGEs 3/4
+  (`check-architecture-conformance` → deps) and 4/4 (`check-sdk-react-free` → config-driven purity).
+
 ## Problem
 
 Several harness scans are dead, vacuous (structurally cannot fail), orphaned, or thin single-rule checks that

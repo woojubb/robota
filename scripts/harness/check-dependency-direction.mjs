@@ -8,12 +8,15 @@
  * 2. No pass-through re-exports of entire packages (export * from '@robota-sdk/other').
  * 3. agent-core must have zero production dependencies on other @robota-sdk/agent-* packages.
  * 4. agent-plugin-* packages may only depend on agent-core among @robota-sdk/* packages.
+ * 8. Entry-point-only aggregators (absorbed from the former check-entry-point-only.mjs,
+ *    ARCH-PROVIDER-004 / Stage C): only sanctioned composition roots may STATICALLY import a
+ *    guarded composition aggregator (see `checkEntryPointOnly`).
  *
  * Exit code 0 = clean, 1 = violations found.
  */
 
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 import { loadHarnessConfig } from './harness-config.mjs';
 
 const ROOT = resolve(import.meta.dirname, '../..');
@@ -274,6 +277,97 @@ export function checkDagNodesLeaf(packages) {
   return violations;
 }
 
+/**
+ * Rule 8 (ARCH-PROVIDER-004 / Stage C, absorbed from check-entry-point-only.mjs):
+ * `@robota-sdk/dag-nodes-default` is a composition aggregator — it statically pulls the whole
+ * default DAG node catalog. Only COMPOSITION ROOTS may import it statically: application entry
+ * points (`apps/*`, always sanctioned) and the CLI/command/MCP packages that assemble a runtime.
+ * Mid-layer libraries (notably `@robota-sdk/dag-framework`) must NOT take a static edge to it —
+ * the framework loads it via a dynamic `import()` (the sanctioned seam, intentionally NOT
+ * matched: a dynamic import has no `from`). Test files (`*.test.ts*` / `__tests__/`) are
+ * excluded — a test-only static import is a dev concern, not a production layering violation.
+ *
+ * Guarded aggregators → the set of package names sanctioned to statically import them (beyond any
+ * `apps/*`). Keep this list tight: adding a sanctioned importer is a deliberate decision.
+ */
+const GUARDED_AGGREGATORS = {
+  '@robota-sdk/dag-nodes-default': new Set([
+    '@robota-sdk/agent-command-workflows',
+    '@robota-sdk/dag-cli',
+    '@robota-sdk/dag-mcp-server',
+  ]),
+};
+
+function walkTs(dir) {
+  const files = [];
+  if (!existsSync(dir)) return files;
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      if (entry.name === '__tests__' || entry.name === 'node_modules' || entry.name === 'dist') {
+        continue;
+      }
+      files.push(...walkTs(full));
+    } else if (
+      entry.isFile() &&
+      (entry.name.endsWith('.ts') || entry.name.endsWith('.tsx')) &&
+      !entry.name.endsWith('.test.ts') &&
+      !entry.name.endsWith('.test.tsx')
+    ) {
+      files.push(full);
+    }
+  }
+  return files;
+}
+
+/** Whether `dir` is an application entry point (`apps/<name>`), always a sanctioned composition root. */
+function isApp(dir) {
+  return basename(dirname(resolve(dir))) === 'apps';
+}
+
+/**
+ * Pure Rule-8 scan (exported for the fixture self-test): return every violating STATIC edge to a
+ * guarded aggregator.
+ * @param {{dir: string, name: string|null, files: {path: string, text: string}[]}[]} sourcePackages
+ */
+export function checkEntryPointOnly(sourcePackages) {
+  const violations = [];
+  for (const pkg of sourcePackages) {
+    for (const [aggregator, sanctioned] of Object.entries(GUARDED_AGGREGATORS)) {
+      if (pkg.name === aggregator) continue; // the aggregator itself
+      if (isApp(pkg.dir)) continue; // apps are always entry points
+      if (pkg.name !== null && sanctioned.has(pkg.name)) continue; // sanctioned root
+      // Static edge: `... from '<aggregator>'` (import or export). Dynamic import('<aggregator>') has no `from`.
+      const edge = new RegExp(`from\\s+['"]${aggregator.replace(/[/-]/g, '\\$&')}['"]`);
+      for (const file of pkg.files) {
+        if (edge.test(file.text)) {
+          violations.push({
+            package: pkg.name ?? pkg.dir,
+            aggregator,
+            file: file.path,
+            message:
+              `${pkg.name ?? pkg.dir} statically imports ${aggregator} (${file.path}). ` +
+              `Load it dynamically or move the composition to an entry point.`,
+          });
+        }
+      }
+    }
+  }
+  return violations;
+}
+
+/** Load `{dir, name, files}` source views of every workspace package for the Rule-8 scan. */
+function loadSourcePackages(packages) {
+  return [...packages.values()].map((pkg) => ({
+    dir: pkg.path,
+    name: pkg.name,
+    files: walkTs(join(pkg.path, 'src')).map((filePath) => ({
+      path: filePath.replace(ROOT + '/', ''),
+      text: readFileSync(filePath, 'utf8'),
+    })),
+  }));
+}
+
 function runScan() {
   const packages = findWorkspacePackages();
   const biDirViolations = checkBidirectionalDeps(packages);
@@ -284,6 +378,7 @@ function runScan() {
   const interfacePackageViolations = checkInterfacePackageDeps(packages);
   const dagNodesLeafViolations = checkDagNodesLeaf(packages);
   const fullGraphCycleViolations = checkFullGraphCycles(packages);
+  const entryPointOnlyViolations = checkEntryPointOnly(loadSourcePackages(packages));
 
   const hasViolations =
     biDirViolations.length > 0 ||
@@ -293,7 +388,8 @@ function runScan() {
     pluginLayerViolations.length > 0 ||
     interfacePackageViolations.length > 0 ||
     dagNodesLeafViolations.length > 0 ||
-    fullGraphCycleViolations.length > 0;
+    fullGraphCycleViolations.length > 0 ||
+    entryPointOnlyViolations.length > 0;
 
   if (hasViolations) {
     console.error('❌ Dependency direction violations found:\n');
@@ -320,6 +416,9 @@ function runScan() {
     }
     for (const v of fullGraphCycleViolations) {
       console.error(`  [DEV-CYCLE] ${v.message}`);
+    }
+    for (const v of entryPointOnlyViolations) {
+      console.error(`  [ENTRY-POINT-ONLY] ${v.message}`);
     }
     console.error('');
     process.exit(1);

@@ -139,7 +139,6 @@ const SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/check-temp-script-placement.mjs'],
   },
   { name: 'orphan-exports', command: ['node', 'scripts/harness/check-orphan-exports.mjs'] },
-  { name: 'entry-point-only', command: ['node', 'scripts/harness/check-entry-point-only.mjs'] },
   { name: 'deps', command: ['node', 'scripts/harness/check-dependency-direction.mjs'] },
   { name: 'dep-kind', command: ['node', 'scripts/harness/check-dep-kind.mjs'] },
   {
@@ -152,10 +151,6 @@ const SCAN_COMMANDS = [
   },
   { name: 'sdk-react-free', command: ['node', 'scripts/harness/check-sdk-react-free.mjs'] },
   { name: 'publish', command: ['node', 'scripts/harness/check-publish-safety.mjs'] },
-  {
-    name: 'spec-publish-claims',
-    command: ['node', 'scripts/harness/check-spec-publish-claims.mjs'],
-  },
   { name: 'release-governance', command: ['node', 'scripts/harness/check-release-governance.mjs'] },
   { name: 'test-plans', command: ['node', 'scripts/harness/scan-test-plan.mjs'] },
   {
