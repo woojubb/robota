@@ -338,7 +338,10 @@ export function checkEntryPointOnly(sourcePackages) {
       if (isApp(pkg.dir)) continue; // apps are always entry points
       if (pkg.name !== null && sanctioned.has(pkg.name)) continue; // sanctioned root
       // Static edge: `... from '<aggregator>'` (import or export). Dynamic import('<aggregator>') has no `from`.
-      const edge = new RegExp(`from\\s+['"]${aggregator.replace(/[/-]/g, '\\$&')}['"]`);
+      // Escape ALL regex metacharacters in the package name (js/incomplete-sanitization: the old
+      // scan escaped only '/' and '-', so a name containing '.' etc. would match too loosely).
+      const escapedAggregator = aggregator.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const edge = new RegExp(`from\\s+['"]${escapedAggregator}['"]`);
       for (const file of pkg.files) {
         if (edge.test(file.text)) {
           violations.push({
