@@ -1,5 +1,6 @@
 ---
-status: in-progress
+status: done
+completed: 2026-07-23
 type: INFRA
 tags: [harness, ci, testing, accidental-green, tdd]
 ---
@@ -198,4 +199,11 @@ Fixed: any wanted test file that did not run WITH assertions (missing OR zero-as
 Regression tests added for each. Reviewer confirmed a false-GREEN is structurally impossible (`RED_PROOF_OK`
 requires a real failed assertion), restore is `finally`-guaranteed, and the C4 dirty-guard precedes mutation.
 
-### [GATE-COMPLETE] — pending merge + verification
+### [GATE-COMPLETE] — ✅ PASS | 2026-07-23
+
+Merged to develop (PR #1272, squash `b16e49a0e`) + review-fix (`3157b399b`). `pr-review-reviewer`: 1 ACTIONABLE
+(SHOULD, the multi-file C1 conflation) — fixed with regression tests; false-GREEN confirmed structurally
+impossible. All CI green incl. the new advisory `regression-red-proof` job (correctly SKIPs on this `feat:` PR).
+Merge independently verified on `origin/develop` (checker + job + INFRA-044 present). Spec → `done/`; the
+`package.json` alias was deferred to INFRA-044 (pre-existing dep advisories). Backlog item (this spec) closed;
+knowledge mirrored to `.agents/memory/`.
