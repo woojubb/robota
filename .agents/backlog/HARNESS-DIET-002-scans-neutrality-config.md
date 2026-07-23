@@ -10,6 +10,22 @@ depends_on: []
 
 # HARNESS-DIET-002: scans — config-drive neutrality
 
+## Progress + re-scoping (2026-07-23)
+
+- **CORRECTION to the audit:** the 5 "library-neutrality" scans are NOT near-identical — they are **3 distinct
+  shapes**: `agent-tools` (a `package.json` runtime-dependency **allowlist** check), `session-artifact` (a
+  single-file **multi-regex forbidden-token** scan with comment-stripping), `orchestration` (a **dir-walk single
+  combined-regex** scan excluding `__tests__`), and `memory`/`evals` (197/198 lines, **bespoke** logic beyond a
+  token scan). A blind "5 → 1 config-driven scan" would need a flexible engine spanning all shapes and risks
+  subtly weakening real neutrality floors. The safe win is **externalizing each scan's Robota-specific DATA to
+  `harness.config.json`** while keeping its distinct engine.
+- **DONE:** config-ized 2 of the 5 — `scan-agent-tools-neutrality` (allowlist → `neutrality.agentToolsRuntimeAllowlist`)
+  and `scan-orchestration-neutrality` (dirs + forbidden terms → `neutrality.orchestrationScanDirs` /
+  `orchestrationForbiddenTerms`). Unit tests unchanged (9 pass); 63/63 scans green (incl. `harness-config-paths`).
+- **REMAINING:** externalize `session-artifact`'s 19 forbidden-token regexes and `memory`/`evals`' target paths +
+  token lists to config (leave their bespoke logic); only THEN, if worthwhile, factor a shared
+  forbidden-token-in-file helper. Do NOT force a single engine across the dep-check + token-scan shapes.
+
 ## Problem
 
 ~10+ harness scans hardcode Robota specifics (`@robota-sdk/*` scope prefixes, exact package/file paths, even
