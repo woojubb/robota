@@ -15,6 +15,38 @@
       "packages/agent-core/src/orchestration",
       "packages/agent-framework/src/orchestration"
     ],
-    "orchestrationForbiddenTerms": ["room", "persona", "topic"]
+    "orchestrationForbiddenTerms": ["room", "persona", "topic"],
+    "libraryPackagesDir": "packages",
+    "sessionArtifactTarget": "packages/agent-session/src/session-artifact.ts",
+    "sessionArtifactForbiddenTokens": [
+      "\\bhttps?://",
+      "\\bfetch\\s*\\(",
+      "\\bupload\\b",
+      "\\bdownload\\b",
+      "\\bcloud\\b",
+      "\\bpresign",
+      "\\bbucket\\b",
+      "\\bs3\\b",
+      "\\bshareLink\\b",
+      "\\bshareUrl\\b",
+      "\\bshare\\b",
+      "\\blink\\b",
+      "\\bsync\\b",
+      "\\baccessControl\\b",
+      "\\b(acl|rbac)\\b",
+      "\\bpermissions?\\b",
+      "\\bauthToken\\b",
+      "\\b(redaction|field)Policy\\b",
+      "\\ballowlist\\b"
+    ],
+    "memoryCorpusIndexFilename": "MEMORY.md",
+    "memoryCorpusTopicsPathSegment": "memory/topics",
+    "memorySubsystemDirName": "memory",
+    "memoryPromptIdentifierTerms": ["prompt", "persona", "instruction"],
+    "evalsSubsystemDirName": "evals",
+    "evalsDatasetDataExtensions": ["json", "jsonl", "csv", "yaml", "yml"],
+    "evalsDatasetNameMarkers": ["evalset", "cases", "dataset", "corpus"],
+    "evalsContentBindingTerms": ["cases", "dataset", "evalset", "corpus"],
+    "evalsContentTypeNames": ["IEvalDefinition", "IMetric"]
   }
 }

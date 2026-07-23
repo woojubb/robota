@@ -37,10 +37,24 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 
+import { loadHarnessConfig } from './harness-config.mjs';
+
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+
+// Robota-specific POLICY DATA lives in `.agents/harness.config.json` (`neutrality.*`, HARNESS-DIET-002):
+// the library root under scan, the corpus artifact names (index filename + topics path segment — anchored to
+// `project-memory-store.ts`'s `INDEX_FILENAME`/`TOPICS_DIRNAME`), the memory-subsystem dir convention, and the
+// capture-prompt identifier terms. The bespoke engine logic (>=40-char literal heuristic, ReDoS-safe regex
+// construction, suppression/anti-rot mechanics) stays here.
+const NEUTRALITY = loadHarnessConfig().neutrality;
+const LIBRARY_PACKAGES_DIR = NEUTRALITY.libraryPackagesDir;
+const CORPUS_INDEX_FILENAME = NEUTRALITY.memoryCorpusIndexFilename;
+const CORPUS_TOPICS_SEGMENT = NEUTRALITY.memoryCorpusTopicsPathSegment;
+const MEMORY_SUBSYSTEM_DIRNAME = NEUTRALITY.memorySubsystemDirName;
 
 /**
  * A capture-prompt intent identifier assigned a string literal of >= 40 chars (a sentence, not a token).
+ * The identifier terms (`memoryPromptIdentifierTerms`) are config data; the literal machinery is engine.
  *
  * ReDoS-safe by construction: the inner alternation branches are DISJOINT — `\\.` consumes a backslash +
  * its escaped char, `(?!\1)[^\\]` consumes exactly one non-delimiter, non-backslash char. Because no input
@@ -49,8 +63,11 @@ const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
  * an opening quote + many backslashes and no closing delimiter — e.g. the first line of a multi-line prompt
  * template — backtracks exponentially and hangs the whole run-all-scans pass. Regression: TC-07.)
  */
-const CAPTURE_PROMPT_DECL =
-  /\b\w*(?:prompt|persona|instruction)\w*\s*[:=]\s*(['"`])((?:\\.|(?!\1)[^\\]){40,})\1/i;
+const CAPTURE_PROMPT_DECL = new RegExp(
+  `\\b\\w*(?:${NEUTRALITY.memoryPromptIdentifierTerms.join('|')})\\w*` +
+    `\\s*[:=]\\s*(['"\`])((?:\\\\.|(?!\\1)[^\\\\]){40,})\\1`,
+  'i',
+);
 
 /** A well-formed escape hatch: the token followed by `:` and at least one non-space reason char. */
 const ANNOTATION_WITH_REASON = /allow-memory-content:\s*\S/;
@@ -102,12 +119,15 @@ export function findMemoryNeutralityFindingsInSource(source, file = 'fixture.ts'
 
 /** Is this workspace-relative path inside a package's `src/` tree? */
 function isPackageSrc(rel) {
-  return rel.startsWith(`packages${path.sep}`) && rel.includes(`${path.sep}src${path.sep}`);
+  return (
+    rel.startsWith(`${LIBRARY_PACKAGES_DIR}${path.sep}`) &&
+    rel.includes(`${path.sep}src${path.sep}`)
+  );
 }
 
-/** Is this path inside a `/memory/` DIRECTORY segment (the durable-memory curation subsystem)? */
+/** Is this path inside the memory-subsystem DIRECTORY segment (the durable-memory curation subsystem)? */
 function inMemorySubsystem(rel) {
-  return rel.includes(`${path.sep}memory${path.sep}`);
+  return rel.includes(`${path.sep}${MEMORY_SUBSYSTEM_DIRNAME}${path.sep}`);
 }
 
 /**
@@ -117,17 +137,17 @@ function inMemorySubsystem(rel) {
  */
 export function isSeededMemoryContent(rel) {
   const norm = rel.replace(/\\/g, '/');
-  if (norm.split('/').pop() === 'MEMORY.md') return true;
-  return norm.includes('/memory/topics/') && norm.endsWith('.md');
+  if (norm.split('/').pop() === CORPUS_INDEX_FILENAME) return true;
+  return norm.includes(`/${CORPUS_TOPICS_SEGMENT}/`) && norm.endsWith('.md');
 }
 
 export function findMemoryNeutralityFindings(root = WORKSPACE_ROOT) {
   const findings = [];
-  const packagesDir = path.join(root, 'packages');
+  const packagesDir = path.join(root, LIBRARY_PACKAGES_DIR);
   if (!existsSync(packagesDir)) return findings;
   for (const pkg of readdirSync(packagesDir, { withFileTypes: true })) {
     if (!pkg.isDirectory()) continue;
-    const srcRel = path.join('packages', pkg.name, 'src');
+    const srcRel = path.join(LIBRARY_PACKAGES_DIR, pkg.name, 'src');
     if (!existsSync(path.join(root, srcRel)) || !statSync(path.join(root, srcRel)).isDirectory()) {
       continue;
     }

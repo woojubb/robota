@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { loadHarnessConfig } from '../harness-config.mjs';
 import { findForbiddenTokens } from '../scan-session-artifact-neutrality.mjs';
 
 /**
@@ -31,5 +32,17 @@ describe('findForbiddenTokens', () => {
       export const SESSION_ARTIFACT_SCHEMA_VERSION = 1;
     `;
     expect(findForbiddenTokens(withDoc)).toEqual([]);
+  });
+
+  it('sources its patterns from harness config (HARNESS-DIET-002) and keeps red capability', () => {
+    // The 19 forbidden-token patterns are policy data in `.agents/harness.config.json`; the engine compiles
+    // them. A violating fixture injected through the pure function must still be flagged (red capability).
+    const { neutrality } = loadHarnessConfig();
+    expect(neutrality.sessionArtifactForbiddenTokens).toHaveLength(19);
+    expect(neutrality.sessionArtifactTarget).toMatch(/\.ts$/);
+    expect(findForbiddenTokens('await upload(payload, bucket);')).toContain('upload');
+    expect(findForbiddenTokens('const fieldPolicy = pickRedactionFields();')).toContain(
+      'fieldPolicy',
+    );
   });
 });

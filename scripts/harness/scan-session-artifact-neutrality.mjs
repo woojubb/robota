@@ -16,31 +16,22 @@
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
-const TARGET = path.join(WORKSPACE_ROOT, 'packages/agent-session/src/session-artifact.ts');
+import { loadHarnessConfig } from './harness-config.mjs';
 
-/** Sharing / cloud / access / field-policy tokens that must NOT appear in the neutral envelope's code. */
-const FORBIDDEN = [
-  /\bhttps?:\/\//i,
-  /\bfetch\s*\(/i,
-  /\bupload\b/i,
-  /\bdownload\b/i,
-  /\bcloud\b/i,
-  /\bpresign/i,
-  /\bbucket\b/i,
-  /\bs3\b/i,
-  /\bshareLink\b/i,
-  /\bshareUrl\b/i,
-  /\bshare\b/i,
-  /\blink\b/i,
-  /\bsync\b/i,
-  /\baccessControl\b/i,
-  /\b(acl|rbac)\b/i,
-  /\bpermissions?\b/i,
-  /\bauthToken\b/i,
-  /\b(redaction|field)Policy\b/i,
-  /\ballowlist\b/i,
-];
+const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+
+// The envelope file under scan + its forbidden tokens are POLICY DATA in `.agents/harness.config.json`
+// (`neutrality.sessionArtifactTarget` / `sessionArtifactForbiddenTokens`, HARNESS-DIET-002), not hardcoded
+// here, so this engine stays repo-agnostic. The comment-stripping + match mechanics stay in the engine.
+const NEUTRALITY = loadHarnessConfig().neutrality;
+const TARGET_REL = NEUTRALITY.sessionArtifactTarget;
+const TARGET = path.join(WORKSPACE_ROOT, TARGET_REL);
+
+/**
+ * Sharing / cloud / access / field-policy tokens that must NOT appear in the neutral envelope's code.
+ * Stored as regex SOURCE strings in config; compiled here (all case-insensitive).
+ */
+const FORBIDDEN = NEUTRALITY.sessionArtifactForbiddenTokens.map((src) => new RegExp(src, 'i'));
 
 /** Strip block + line comments so the module's own neutrality doc (which names these words) is exempt. */
 function stripComments(source) {
@@ -51,9 +42,7 @@ function stripComments(source) {
 
 function main() {
   if (!existsSync(TARGET)) {
-    console.error(
-      'session-artifact-neutrality scan: packages/agent-session/src/session-artifact.ts is missing.',
-    );
+    console.error(`session-artifact-neutrality scan: ${TARGET_REL} is missing.`);
     process.exit(1);
   }
   const code = stripComments(readFileSync(TARGET, 'utf8'));

@@ -38,13 +38,30 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 
+import { loadHarnessConfig } from './harness-config.mjs';
+
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
-/** Data-file extensions a case corpus / evalset would ship as. */
-const DATASET_DATA_EXT = /\.(json|jsonl|csv|ya?ml)$/i;
+// Robota-specific POLICY DATA lives in `.agents/harness.config.json` (`neutrality.*`, HARNESS-DIET-002):
+// the library root under scan, the evals-subsystem dir convention, the dataset data-file extensions and
+// corpus basename markers, and the Class-2 binding terms + concrete contract TYPE names
+// (`IEvalDefinition`/`IMetric`). The bespoke engine logic (export-shape regex construction, factory-vs-value
+// distinction, suppression/anti-rot mechanics) stays here.
+const NEUTRALITY = loadHarnessConfig().neutrality;
+const LIBRARY_PACKAGES_DIR = NEUTRALITY.libraryPackagesDir;
+const EVALS_SUBSYSTEM_DIRNAME = NEUTRALITY.evalsSubsystemDirName;
 
-/** Basename markers that name a file as an eval corpus regardless of directory. */
-const DATASET_NAME_MARKER = /\.(evalset|cases|dataset|corpus)\.[a-z0-9]+$/i;
+/** Data-file extensions a case corpus / evalset would ship as (config data, compiled here). */
+const DATASET_DATA_EXT = new RegExp(
+  `\\.(${NEUTRALITY.evalsDatasetDataExtensions.join('|')})$`,
+  'i',
+);
+
+/** Basename markers that name a file as an eval corpus regardless of directory (config data). */
+const DATASET_NAME_MARKER = new RegExp(
+  `\\.(${NEUTRALITY.evalsDatasetNameMarkers.join('|')})\\.[a-z0-9]+$`,
+  'i',
+);
 
 /**
  * Class 2 export shapes (concrete metric/dataset VALUE, not the neutral type/factory mechanism):
@@ -52,9 +69,13 @@ const DATASET_NAME_MARKER = /\.(evalset|cases|dataset|corpus)\.[a-z0-9]+$/i;
  *   export ... <name>: IEvalDefinition =                            → concrete eval definition value
  *   export ... <name>: IMetric =                                    → concrete named metric value
  * A neutral factory (`export function exactMatch(...): IMetric {`) has no `: IMetric =` and is not matched.
+ * Binding terms + contract type names are config data; the export-shape machinery is engine.
  */
-const LIBRARY_EVAL_CONTENT_DECL =
-  /export\s+(?:const|let|var|default)\s+\w*(?:cases|dataset|evalset|corpus)\w*\s*(?::[^=]+)?=\s*\[|export\s+(?:const|let|var|default)?\s*\w+\s*:\s*IEvalDefinition\s*=|export\s+(?:const|let|var|default)?\s*\w+\s*:\s*IMetric\s*=/i;
+const LIBRARY_EVAL_CONTENT_DECL = new RegExp(
+  `export\\s+(?:const|let|var|default)\\s+\\w*(?:${NEUTRALITY.evalsContentBindingTerms.join('|')})\\w*\\s*(?::[^=]+)?=\\s*\\[` +
+    `|export\\s+(?:const|let|var|default)?\\s*\\w+\\s*:\\s*(?:${NEUTRALITY.evalsContentTypeNames.join('|')})\\s*=`,
+  'i',
+);
 
 /** A well-formed escape hatch: the token followed by `:` and at least one non-space reason char. */
 const ANNOTATION_WITH_REASON = /allow-evals-content:\s*\S/;
@@ -69,9 +90,9 @@ function annotationInComment(line) {
   );
 }
 
-/** Is this path inside an `/evals/` DIRECTORY segment (the evals subsystem convention)? */
+/** Is this path inside the evals-subsystem DIRECTORY segment (the subsystem convention)? */
 export function inEvalsSubsystem(rel) {
-  return rel.replace(/\\/g, '/').includes('/evals/');
+  return rel.replace(/\\/g, '/').includes(`/${EVALS_SUBSYSTEM_DIRNAME}/`);
 }
 
 /**
@@ -122,11 +143,11 @@ export function findEvalsContentInSource(source, file = 'fixture.ts') {
 
 export function findEvalsNeutralityFindings(root = WORKSPACE_ROOT) {
   const findings = [];
-  const packagesDir = path.join(root, 'packages');
+  const packagesDir = path.join(root, LIBRARY_PACKAGES_DIR);
   if (!existsSync(packagesDir)) return findings;
   for (const pkg of readdirSync(packagesDir, { withFileTypes: true })) {
     if (!pkg.isDirectory()) continue;
-    const pkgRel = path.join('packages', pkg.name);
+    const pkgRel = path.join(LIBRARY_PACKAGES_DIR, pkg.name);
     if (!statSync(path.join(root, pkgRel)).isDirectory()) continue;
     for (const rel of walkPackageFiles(pkgRel, root)) {
       // Class 1 — a dataset/corpus DATA file anywhere in the package.
