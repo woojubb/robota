@@ -36,11 +36,6 @@ Consult the relevant skill before starting work in its domain. Each entry links 
 | [type-boundary-and-ssot](type-boundary-and-ssot/SKILL.md)               | Trust-boundary validation, SSOT type ownership                                     |
 | [effect-style-error-modeling](effect-style-error-modeling/SKILL.md)     | Explicit error modeling with Result/Either patterns                                |
 | [api-error-standard](api-error-standard/SKILL.md)                       | RFC 7807 Problem Details error response format                                     |
-| [state-machine-design](state-machine-design/SKILL.md)                   | Pure declarative state machines with guards and actions                            |
-| [ddd-tactical-patterns](ddd-tactical-patterns/SKILL.md)                 | Aggregate, Bounded Context, Value Object, Domain Event                             |
-| [cqrs-event-projection-basics](cqrs-event-projection-basics/SKILL.md)   | CQRS and event projection for read/write separation                                |
-| [async-concurrency-patterns](async-concurrency-patterns/SKILL.md)       | Concurrent async with limits, cancellation, backpressure                           |
-| [logging-level-guide](logging-level-guide/SKILL.md)                     | When to use each log level, common anti-patterns                                   |
 
 ## Architecture Conformance
 
@@ -150,7 +145,6 @@ roles …`. It is the discovery specialization `lesson-to-harness` dispatches fo
 | [harness-governance](harness-governance/SKILL.md)   | Rule-skill consistency, undefined terminology, mechanical checks                                |
 | [lesson-to-harness](lesson-to-harness/SKILL.md)     | Mine repeated user corrections → approve → institutionalize as neutral repo rules + enforcement |
 | [branch-guard](branch-guard/SKILL.md)               | Guard against direct commits to protected branches                                              |
-| [execution-caching](execution-caching/SKILL.md)     | Caching workflows, invalidation, cache system operations                                        |
 | [semver-api-surface](semver-api-surface/SKILL.md)   | Semver impact of API surface changes across packages                                            |
 | [daily-report](daily-report/SKILL.md)               | Generate the committed daily work report (OBSERVABILITY-001) — one summary per UTC work day     |
 
@@ -159,7 +153,6 @@ roles …`. It is the discovery specialization `lesson-to-harness` dispatches fo
 | Skill                                               | Description                                                                                                 |
 | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
 | [robota-sdk-usage](robota-sdk-usage/SKILL.md)       | Robota SDK constructor config and migration patterns                                                        |
-| [plugin-development](plugin-development/SKILL.md)   | Plugin validation, disable strategies, error handling                                                       |
 | [api-spec-management](api-spec-management/SKILL.md) | API specification management for external-facing endpoints                                                  |
 | [package-code-review](package-code-review/SKILL.md) | Six-perspective code review: correctness, architecture, type safety, security, performance, maintainability |
 
@@ -167,9 +160,5 @@ roles …`. It is the discovery specialization `lesson-to-harness` dispatches fo
 
 | Skill                                                               | Description                                                |
 | ------------------------------------------------------------------- | ---------------------------------------------------------- |
-| [web-design-guidelines](web-design-guidelines/SKILL.md)             | UI accessibility, design, and UX compliance review         |
-| [tailwind-truncation](tailwind-truncation/SKILL.md)                 | Tailwind single-line and multi-line text truncation        |
 | [vercel-react-best-practices](vercel-react-best-practices/SKILL.md) | React/Next.js performance patterns from Vercel Engineering |
 | [vercel-composition-patterns](vercel-composition-patterns/SKILL.md) | React composition patterns                                 |
-| [vercel-react-native-skills](vercel-react-native-skills/SKILL.md)   | React Native skills                                        |
-| [deploy-to-vercel](deploy-to-vercel/SKILL.md)                       | Deploy apps to Vercel (preview and production)             |

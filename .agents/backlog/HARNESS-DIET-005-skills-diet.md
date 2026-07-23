@@ -10,6 +10,18 @@ depends_on: []
 
 # HARNESS-DIET-005: skills diet
 
+## Progress (2026-07-23)
+
+- **DONE — REMOVE (11 skills):** deleted `async-concurrency-patterns`, `cqrs-event-projection-basics`,
+  `ddd-tactical-patterns`, `execution-caching`, `state-machine-design`, `logging-level-guide`,
+  `tailwind-truncation`, `plugin-development`, `deploy-to-vercel`, `vercel-react-native-skills`,
+  `web-design-guidelines` + their `index.md` rows. Each re-verified as referenced only by `index.md` (and one
+  archived completed-task record). 63/63 scans green.
+- **REMAINING:** the NEUTRALIZE (robota-sdk-usage → package docs, scenario-verification-harness, contract-audit,
+  backlog-execution-orchestrator, dependency-graph-extraction), the INFRA-002 conformance-skill-tree
+  CONSOLIDATE, the two MERGEs (semver-api-surface, repo-writing), and the SLIMs — each its own careful,
+  prose-editing PR.
+
 ## Problem
 
 Of 60 skills, a large fraction are index-only (never invoked by any orchestrator/hook/agent/sibling), generic
