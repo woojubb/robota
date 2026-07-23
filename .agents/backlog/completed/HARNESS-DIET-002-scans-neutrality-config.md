@@ -1,6 +1,7 @@
 ---
 title: 'HARNESS-DIET-002: config-drive scan neutrality — kill Robota-specifics baked into general scans'
-status: todo
+status: done
+completed: 2026-07-24
 created: 2026-07-23
 priority: high
 urgency: soon
@@ -9,6 +10,37 @@ depends_on: []
 ---
 
 # HARNESS-DIET-002: scans — config-drive neutrality
+
+## Outcome (2026-07-24)
+
+All 5 scans of the library-neutrality family are now config-driven: Robota-specific POLICY DATA lives in
+`.agents/harness.config.json` (`neutrality.*`, loaded via `scripts/harness/harness-config.mjs`); each scan
+keeps its distinct ENGINE (per the 2026-07-23 re-scoping — no forced single engine).
+
+- `scan-agent-tools-neutrality` → `neutrality.agentToolsRuntimeAllowlist` (PR #1286).
+- `scan-orchestration-neutrality` → `neutrality.orchestrationScanDirs` / `orchestrationForbiddenTerms` (PR #1286).
+- `scan-session-artifact-neutrality` → `neutrality.sessionArtifactTarget` + the 19 forbidden-token regexes as
+  SOURCE strings in `sessionArtifactForbiddenTokens` (compiled case-insensitive in the engine;
+  comment-stripping stays engine).
+- `scan-memory-neutrality` → `neutrality.libraryPackagesDir`, `memoryCorpusIndexFilename`,
+  `memoryCorpusTopicsPathSegment`, `memorySubsystemDirName`, `memoryPromptIdentifierTerms` (the ReDoS-safe
+  > =40-char literal machinery + suppression/anti-rot mechanics stay engine).
+- `scan-evals-neutrality` → `neutrality.libraryPackagesDir`, `evalsSubsystemDirName`,
+  `evalsDatasetDataExtensions`, `evalsDatasetNameMarkers`, `evalsContentBindingTerms`,
+  `evalsContentTypeNames` (`IEvalDefinition`/`IMetric` — the Robota contract names — are now data; the
+  export-shape/factory-vs-value machinery stays engine).
+
+Behavior identical: all 3 unit tests pass with only config-plumbing additions (27 tests, no assertion
+weakened; red capability re-proven by injecting violating fixtures through the exported pure functions,
+including a new config-plumbing test asserting the 19 patterns load from config and still flag). Full scan
+suite green (62/62 with `--skip dist` on a no-build worktree; `dist` is a local pre-CI freshness check by
+charter). The optional shared forbidden-token helper was assessed and skipped: the three engines' shapes
+(single-file multi-regex vs. bespoke walkers with suppression windows) share too little to factor without
+weakening a floor.
+
+What-§2 (relocating the bespoke layering scans) and What-§3 (config-izing the `@robota-sdk/` scope prefix in
+the 6 general checks) are NOT covered by this closure — they proceed under the HARNESS-DIET-003+ items /
+follow-up scan-consolidation work.
 
 ## Progress + re-scoping (2026-07-23)
 
