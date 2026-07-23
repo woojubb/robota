@@ -26,18 +26,15 @@ description: Use when reviewing a package's class contract relationships (interf
 
 ## Tier Priority
 
-Review packages in dependency order so upstream contracts are established first.
-
-| Tier | Packages                                              | Rationale                                                |
-| ---- | ----------------------------------------------------- | -------------------------------------------------------- |
-| 1    | agent-core, agent-sdk                                 | Contract owners and SDK facades                          |
-| 2    | agent-runtime, agent-sessions, agent-tools            | Primary lifecycle and tool implementors                  |
-| 3    | agent-command-_, agent-provider-_, agent-transport-\* | Product command, provider, and transport specializations |
-| 4    | agent-cli, agent-playground, agent-server, agent-web  | Product shells, apps, and leaf integrations              |
+Review packages in dependency order so upstream contracts are established first: start at the
+zero-dependency contract-owner packages, then their direct implementors, then specializations, and
+finish at product shells / leaf integrations. The actual package listing and the dependency-direction
+rules are owned by [.agents/project-structure.md](../../project-structure.md) (SSOT) — derive the
+review order from that graph, not from a copy here.
 
 ## Execution Steps
 
-1. **Select target package** using tier priority above.
+1. **Select target package** in dependency order (see Tier Priority above).
 
 2. **Collect contracts mechanically**:
 

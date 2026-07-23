@@ -1,6 +1,6 @@
 ---
 name: dependency-graph-extraction
-description: Extracts the actual workspace dependency graph (agent-* → agent-* edges) from package.json + imports and runs the mechanical conformance checks, emitting the ground-truth edge set + violations the rest of the audit verifies documents against. Use as step 1 of architecture-conformance-audit.
+description: Extracts the actual workspace-internal dependency graph from package.json + imports and runs the mechanical conformance checks, emitting the ground-truth edge set + violations the rest of the audit verifies documents against. Use as step 1 of architecture-conformance-audit.
 ---
 
 # Dependency Graph Extraction
@@ -22,17 +22,20 @@ when you only need the current dependency edge set.
 ## Steps
 
 1. **Edge set.** For each `packages/*/package.json`, read `dependencies` + `peerDependencies` and keep
-   only `@robota-sdk/*` entries. Emit one line per package: `name → [deps]`. (Reproducible via a short
-   `node -e` over the package.json files.)
+   only workspace-internal entries (packages under this workspace's npm scope — see
+   [.agents/project-structure.md](../../project-structure.md), the SSOT for the package listing).
+   Emit one line per package: `name → [deps]`. (Reproducible via a short `node -e` over the
+   package.json files.)
 2. **Mechanical guards.** Run `pnpm harness:conformance` — it composes
-   `scripts/harness/check-dependency-direction.mjs` (bidirectional / re-export / agent-core zero-deps /
-   plugin-layer rules) with the workspace-package-name guard, and prints a JSON summary between
+   `scripts/harness/check-dependency-direction.mjs` (the dependency-direction rules owned by
+   `.agents/project-structure.md`: bidirectional / re-export / zero-dependency-core / plugin-layer)
+   with the workspace-package-name guard, and prints a JSON summary between
    `CONFORMANCE_JSON_BEGIN`/`END`. Capture the exit code and JSON verbatim.
 3. **Baseline.** Run `pnpm harness:scan` and capture its full output as the consistency baseline.
 
 ## Output
 
-- The `agent-* → agent-*` edge set (verbatim).
+- The workspace-internal dependency edge set (verbatim).
 - The `harness:conformance` JSON summary + exit code.
 - The `harness:scan` output.
 

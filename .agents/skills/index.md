@@ -18,12 +18,12 @@ Consult the relevant skill before starting work in its domain. Each entry links 
 | [spec-code-conformance](spec-code-conformance/SKILL.md)                   | Verification loop to align code with spec after spec changes                                                                   |
 | [tdd-red-green-refactor](tdd-red-green-refactor/SKILL.md)                 | Kent Beck TDD cycle: Red → Green → Refactor                                                                                    |
 | [task-tracking](task-tracking/SKILL.md)                                   | Create and update task files in `.agents/tasks/`                                                                               |
-| [backlog-execution-orchestrator](backlog-execution-orchestrator/SKILL.md) | Recommendation-gated backlog PR pipeline with user execution test scenario gate                                                |
+| [backlog-execution-orchestrator](backlog-execution-orchestrator/SKILL.md) | Route-only backlog PR pipeline — sequences the gates owned by `backlog-execution.md` and routes to owner skills                |
 | [post-implementation-checklist](post-implementation-checklist/SKILL.md)   | Mandatory checklist after completing implementation work                                                                       |
 | [delegated-refactor-green-gate](delegated-refactor-green-gate/SKILL.md)   | Delegate a large mechanical refactor to a subagent under a hard green-or-report completion gate                                |
 | [repo-change-loop](repo-change-loop/SKILL.md)                             | Standard change loop: impact → build → verify → summarize                                                                      |
 | [pr-review-orchestration](pr-review-orchestration/SKILL.md)               | Route-only PR-review loop: reviewer→writer→fixer until `ACTIONABLE FINDINGS: 0` (bounded), then gated merge path (HARNESS-018) |
-| [version-management](version-management/SKILL.md)                         | Coordinated version bumps with changesets across all packages                                                                  |
+| [version-management](version-management/SKILL.md)                         | Coordinated version bumps with changesets across all packages + semver impact of public API surface changes                    |
 
 ## Code Quality & Architecture
 
@@ -45,7 +45,7 @@ Consult the relevant skill before starting work in its domain. Each entry links 
 | [capability-extraction](capability-extraction/SKILL.md)                   | Thin pipeline that sequences capability-scout→proposal-reviewer→agent-skill-author, gating authoring on ENDORSE and convergence on the `agent-def-convention` guard (agents hold all policy) |
 | [architecture-conformance-audit](architecture-conformance-audit/SKILL.md) | Orchestrates a repeatable doc-vs-code architecture conformance audit (GATE-CONFORMANCE)                                                                                                      |
 | [design-quality-audit](design-quality-audit/SKILL.md)                     | Repeatable deep design-quality audit — judges whether the design is right (vs doc conformance)                                                                                               |
-| [dependency-graph-extraction](dependency-graph-extraction/SKILL.md)       | Extracts the actual agent-\* dependency edge set + runs the mechanical conformance guards                                                                                                    |
+| [dependency-graph-extraction](dependency-graph-extraction/SKILL.md)       | Extracts the actual workspace-internal dependency edge set + runs the mechanical conformance guards                                                                                          |
 | [doc-claim-verification](doc-claim-verification/SKILL.md)                 | Verifies one architecture document's claims vs code: HOLDS/DRIFT/VIOLATION/CONTRADICTION/STALE                                                                                               |
 | [conformance-finding-report](conformance-finding-report/SKILL.md)         | Assembles verdicts into the AF-NN findings report with severities + counts (INFRA-002 schema)                                                                                                |
 | [improvement-proposal-authoring](improvement-proposal-authoring/SKILL.md) | Maps findings to remediation + follow-up backlogs + mechanical-guard recommendations                                                                                                         |
@@ -133,7 +133,7 @@ roles …`. It is the discovery specialization `lesson-to-harness` dispatches fo
 | [pre-refactor-test-harness](pre-refactor-test-harness/SKILL.md)         | Characterization tests before refactoring monolithic files                                   |
 | [contract-testing](contract-testing/SKILL.md)                           | Consumer-driven contract testing for API boundaries                                          |
 | [framework-functional-testing](framework-functional-testing/SKILL.md)   | Functionally verify a feature via a real InteractiveSession (scripted provider), not the CLI |
-| [scenario-verification-harness](scenario-verification-harness/SKILL.md) | Scenario verification loop for example flows                                                 |
+| [scenario-verification-harness](scenario-verification-harness/SKILL.md) | Verify a change against a recorded scenario (generic verify/re-record loop)                  |
 | [contract-audit](contract-audit/SKILL.md)                               | Class contract registry audit and SPEC.md update                                             |
 
 ## Build & Repository
@@ -141,18 +141,15 @@ roles …`. It is the discovery specialization `lesson-to-harness` dispatches fo
 | Skill                                               | Description                                                                                     |
 | --------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
 | [pnpm-monorepo-build](pnpm-monorepo-build/SKILL.md) | pnpm workspace build commands and order                                                         |
-| [repo-writing](repo-writing/SKILL.md)               | `.design/` docs, ADRs, conventional commit messages                                             |
 | [harness-governance](harness-governance/SKILL.md)   | Rule-skill consistency, undefined terminology, mechanical checks                                |
 | [lesson-to-harness](lesson-to-harness/SKILL.md)     | Mine repeated user corrections → approve → institutionalize as neutral repo rules + enforcement |
 | [branch-guard](branch-guard/SKILL.md)               | Guard against direct commits to protected branches                                              |
-| [semver-api-surface](semver-api-surface/SKILL.md)   | Semver impact of API surface changes across packages                                            |
 | [daily-report](daily-report/SKILL.md)               | Generate the committed daily work report (OBSERVABILITY-001) — one summary per UTC work day     |
 
 ## Package-Specific
 
 | Skill                                               | Description                                                                                                 |
 | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| [robota-sdk-usage](robota-sdk-usage/SKILL.md)       | Robota SDK constructor config and migration patterns                                                        |
 | [api-spec-management](api-spec-management/SKILL.md) | API specification management for external-facing endpoints                                                  |
 | [package-code-review](package-code-review/SKILL.md) | Six-perspective code review: correctness, architecture, type safety, security, performance, maintainability |
 

@@ -1,6 +1,6 @@
 ---
 title: 'HARNESS-DIET-005: skills — remove dead/textbook/vendored, consolidate, slim rule-restating'
-status: todo
+status: in-progress
 created: 2026-07-23
 priority: medium
 urgency: soon
@@ -17,9 +17,36 @@ depends_on: []
   `tailwind-truncation`, `plugin-development`, `deploy-to-vercel`, `vercel-react-native-skills`,
   `web-design-guidelines` + their `index.md` rows. Each re-verified as referenced only by `index.md` (and one
   archived completed-task record). 63/63 scans green.
-- **REMAINING:** the NEUTRALIZE (robota-sdk-usage → package docs, scenario-verification-harness, contract-audit,
-  backlog-execution-orchestrator, dependency-graph-extraction), the INFRA-002 conformance-skill-tree
-  CONSOLIDATE, the two MERGEs (semver-api-surface, repo-writing), and the SLIMs — each its own careful,
+
+## Progress (2026-07-24) — NEUTRALIZE + MERGE batch
+
+- **DONE — `robota-sdk-usage` REMOVED** (index row too). Pre-deletion relocation check: the skill was
+  fully stale v2-era guidance that CONTRADICTED current package docs (`systemMessage` is top-level per
+  `packages/agent-core/README.md`, not under `defaultModel`; `createZodFunctionTool` lives in
+  `@robota-sdk/agent-tools`, not agent-core — the skill's migration table pointed the opposite way from
+  the README's "What Moved Out in v3"; `examples/INDEX.md` does not exist; agent-session is first-class).
+  Nothing unique to relocate — current truth already lives in `packages/agent-core/README.md` +
+  `packages/agent-tools/README.md`, so no new package doc was added.
+- **DONE — `scenario-verification-harness` NEUTRALIZED:** `ownerPath`, `[STRICT-POLICY]`,
+  `[EMITTER-CONTRACT]`, `[EDGE-ORDER-VIOLATION]`, and `@robota-sdk/*` names removed; generic
+  "verify against a recorded scenario" verify/re-record leaf kept; anchor points at `verification.md`.
+- **DONE — `contract-audit` NEUTRALIZED:** hardcoded package tier table replaced with generic
+  dependency-order guidance + `.agents/project-structure.md` named as the package-listing SSOT.
+- **DONE — `backlog-execution-orchestrator` NEUTRALIZED (route-only rewrite):** restated
+  `backlog-execution.md` policy (gate content, stop-condition list, PR-body list) replaced with pointers
+  to the rule's sections; "Robota CLI/TUI/browser UI" replaced with generic product-surface phrasing +
+  project-structure pointer; `repo-writing` routing replaced with `naming-style.md` + `git-branch.md`
+  rule pointers.
+- **DONE — `dependency-graph-extraction` NEUTRALIZED (text only, skill kept):** `@robota-sdk/*` /
+  `agent-* → agent-*` / core-specific rule names generalized; project-structure named as SSOT.
+- **DONE — MERGE `semver-api-surface` → `version-management`:** breaking-change decision table +
+  deprecate-before-remove + coordinated-bump principles + semver anti-patterns merged; skill dir +
+  index row removed.
+- **DONE — `repo-writing` REMOVED** (index row too): its content only pointed at `naming-style.md` /
+  `git-branch.md`; the sole live referencers (`index.md`, `backlog-execution-orchestrator`) were updated
+  in the same change. Remaining name-hits are test fixtures / doc examples using it as a sample skill
+  name, not links to the skill file.
+- **REMAINING:** the INFRA-002 conformance-skill-tree CONSOLIDATE, and the SLIMs — each its own careful,
   prose-editing PR.
 
 ## Problem
