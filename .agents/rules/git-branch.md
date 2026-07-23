@@ -128,7 +128,7 @@ merge lands.
 - Never assume `main` as the default merge target. Always check the actual fork point.
 - See [`branch-guard`](../skills/branch-guard/SKILL.md) skill for detailed procedures including protected branch checks and deployment.
 
-### One-Branch-At-A-Time Rule (mandatory, zero exceptions)
+### One-Branch-At-A-Time Rule (mandatory in the MAIN clone)
 
 **Before creating any new branch, check for unmerged branches:**
 
@@ -150,7 +150,15 @@ This rule applies even when:
 
 **Why:** Creating a second branch while one is still open causes silent divergence. By the time the second branch is rebased, the first branch's content is already in develop (via a separate merge), producing mass conflicts with no clear resolution path. This has caused repeated incidents.
 
-**The only exception:** The user explicitly says "create a new branch anyway" or "abandon the old branch."
+**Exceptions:**
+
+1. The user explicitly says "create a new branch anyway" or "abandon the old branch."
+2. **Worktree-parallel subagents** (§ Git Worktree above): each isolated worktree carries its OWN concurrent
+   feature branch — that is the point of the parallelism, and the divergence risk the rule guards against does
+   not apply because each branch edits a **disjoint file set** (the orchestrator MUST partition file ownership
+   before spawning) and the PRs are merged **sequentially** after CI. Create such a branch with the inline
+   override the `branch-guard` hook honors: `BRANCH_GUARD_ALLOW_OPEN_BRANCHES=1 git checkout -b <type>/<slug>`.
+   In the main clone (outside a parallel wave) the rule stands as written.
 
 ### PR Batching — appropriately-sized PRs (DX-001)
 

@@ -20,6 +20,20 @@ fi
 # Extract command from tool_input.command
 COMMAND=$(echo "$INPUT" | grep -o '"command"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"command"[[:space:]]*:[[:space:]]*"//' | sed 's/"$//')
 
+# Honor inline override tokens written IN the command string (e.g. `BRANCH_GUARD_ALLOW_DELETE=1 git push …`).
+# The `VAR=1` prefix runs in the TOOL's shell, not this hook's process, so a plain env check never sees it —
+# the documented overrides were unusable inline until this. Worktree-parallel subagents rely on
+# BRANCH_GUARD_ALLOW_OPEN_BRANCHES=1 to each carry their own concurrent branch (git-branch.md § Git Worktree).
+if printf '%s' "$COMMAND" | grep -qE '(^|[[:space:];&])BRANCH_GUARD_ALLOW_DELETE=1([[:space:]]|$)'; then
+  BRANCH_GUARD_ALLOW_DELETE=1
+fi
+if printf '%s' "$COMMAND" | grep -qE '(^|[[:space:];&])BRANCH_GUARD_ALLOW_OPEN_BRANCHES=1([[:space:]]|$)'; then
+  BRANCH_GUARD_ALLOW_OPEN_BRANCHES=1
+fi
+if printf '%s' "$COMMAND" | grep -qE '(^|[[:space:];&])BRANCH_GUARD_ALLOW_BADNAME=1([[:space:]]|$)'; then
+  BRANCH_GUARD_ALLOW_BADNAME=1
+fi
+
 # Detect git action type
 IS_COMMIT=false
 IS_PUSH=false
