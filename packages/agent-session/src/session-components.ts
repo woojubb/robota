@@ -59,6 +59,7 @@ export function buildSessionTrackers(
     model,
     hooks: options.hooks,
     compactInstructions: options.compactInstructions,
+    basePrompt: options.compactionBasePrompt,
     hookTypeExecutors: options.hookTypeExecutors,
   });
   return { contextTracker, compactionOrchestrator };

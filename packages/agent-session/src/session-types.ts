@@ -109,8 +109,14 @@ export interface ISessionOptions {
   onCompact?: (summary: string) => void;
   /** Callback with structured compaction metadata */
   onCompactEvent?: (event: ICompactEvent) => void;
-  /** Instructions to include in the compaction prompt (e.g. from CLAUDE.md) */
+  /** Instructions to include in the compaction prompt (e.g. from project context files) */
   compactInstructions?: string;
+  /**
+   * Replaces the base instruction template of the compaction summarization prompt
+   * (default: `DEFAULT_COMPACTION_PROMPT`, a domain-neutral template). Lets the consuming
+   * layer own the compaction prompt wording entirely.
+   */
+  compactionBasePrompt?: string;
   /** Override context max tokens (otherwise derived from model name) */
   contextMaxTokens?: number;
   /** Auto-compact threshold as a 0-1 fraction. Set false to disable automatic compaction. */

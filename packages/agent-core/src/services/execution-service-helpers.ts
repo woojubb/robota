@@ -11,16 +11,12 @@ import { type ConversationStore } from '../managers/conversation-history-manager
 
 import type { ExecutionEventEmitter } from './execution-event-emitter';
 import type { TPluginWithHooks } from './plugin-hook-dispatcher';
-import type {
-  IAgentConfig,
-  IAssistantMessage,
-  IResponseFormatConfig,
-  IToolMessage,
-} from '../interfaces/agent';
+import type { IAgentConfig, IAssistantMessage, IToolMessage } from '../interfaces/agent';
 import type { IAIProviderManager } from '../interfaces/manager';
 import type { IToolManager } from '../interfaces/manager';
 import type { TUniversalMessage } from '../interfaces/messages';
 import type { IChatOptions, IToolSchema, TToolChoice } from '../interfaces/provider';
+import type { IResponseFormatConfig } from '../interfaces/response-format';
 import type { ILogger } from '../utils/logger';
 
 /**

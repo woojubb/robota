@@ -29,12 +29,33 @@ export class CompactionError extends Error {
   }
 }
 
+/**
+ * Default base template for the compaction summarization prompt — the one model-facing
+ * prompt surface this package owns (declared in SPEC § Boundaries). Intentionally
+ * domain-neutral: it must not assume a software-development conversation. Replaceable
+ * wholesale via {@link ICompactionOptions.basePrompt}.
+ */
+export const DEFAULT_COMPACTION_PROMPT = [
+  'Summarize the following conversation concisely, preserving:',
+  "- User's original requests and goals",
+  '- Key decisions, conclusions, and important state',
+  '- Identifiers, names, and references needed to continue the work',
+  '- Current task status and next steps',
+  "Drop verbose intermediate outputs and exploratory work that didn't lead to results.",
+].join('\n');
+
 export interface ICompactionOptions {
   sessionId: string;
   cwd: string;
   model: string;
   hooks?: Record<string, unknown>;
   compactInstructions?: string;
+  /**
+   * Replaces the entire base instruction template of the compaction prompt
+   * (default: {@link DEFAULT_COMPACTION_PROMPT}). Focus instructions and the
+   * formatted conversation are appended after it.
+   */
+  basePrompt?: string;
   /** Additional hook type executors (e.g. prompt, agent) beyond the core defaults. */
   hookTypeExecutors?: IHookTypeExecutor[];
 }
@@ -45,6 +66,7 @@ export class CompactionOrchestrator {
   private readonly model: string;
   private readonly hooks?: Record<string, unknown>;
   private readonly compactInstructions?: string;
+  private readonly basePrompt?: string;
   private readonly hookTypeExecutors?: IHookTypeExecutor[];
 
   constructor(options: ICompactionOptions) {
@@ -53,6 +75,7 @@ export class CompactionOrchestrator {
     this.model = options.model;
     this.hooks = options.hooks;
     this.compactInstructions = options.compactInstructions;
+    this.basePrompt = options.basePrompt;
     this.hookTypeExecutors = options.hookTypeExecutors;
   }
 
@@ -126,13 +149,8 @@ export class CompactionOrchestrator {
       .join('\n');
 
     return [
-      'Summarize the following conversation concisely, preserving:',
-      "- User's original requests and goals",
-      '- Key decisions and conclusions',
-      '- Important code changes and file paths',
-      '- Current task status and next steps',
+      this.basePrompt ?? DEFAULT_COMPACTION_PROMPT,
       instructionSection,
-      "Drop verbose tool outputs, debugging steps, and exploratory work that didn't lead to results.",
       '',
       'Conversation:',
       formattedHistory,

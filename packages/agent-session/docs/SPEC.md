@@ -8,7 +8,11 @@ Owns the CLI session lifecycle for the Robota SDK. This package provides the `Se
 
 - Does not own AI provider creation. Accepts a pre-constructed `IAIProvider` via injection.
 - Does not own tool implementations. Accepts pre-constructed `IToolWithEventService[]` via injection.
-- Does not own system prompt building. Accepts a pre-built `systemMessage` string.
+- Does not own system prompt building. Accepts a pre-built `systemMessage` string. It DOES own
+  one model-facing prompt surface: the **compaction summarization prompt**. Its base template is
+  domain-neutral (`DEFAULT_COMPACTION_PROMPT`, exported) and fully replaceable via
+  `ISessionOptions.compactionBasePrompt`; `compactInstructions` appends focus instructions after
+  the base template. No other model-facing prompt text originates in this package.
 - Does not own configuration resolution or context loading. Those belong to `agent-framework`.
 - Does not own the permission evaluation algorithm or hook execution engine. Those belong to `@robota-sdk/agent-core` (`evaluatePermission`, `runHooks`).
 - **Owns the storage-neutral persistence primitive.** `SessionStore` and `ISessionRecord` are the
@@ -119,6 +123,7 @@ Types consumed from other packages (not owned here):
 | `ContextWindowTracker`            | Class                | Token usage tracking and auto-compact threshold                                                                                    |
 | `CompactionOrchestrator`          | Class                | Conversation compaction via LLM summary                                                                                            |
 | `CompactionError`                 | Class                | Thrown when a compaction summary is invalid — history is preserved untouched (see Compaction Failure Contract)                     |
+| `DEFAULT_COMPACTION_PROMPT`       | Constant             | Domain-neutral base template of the compaction summarization prompt; replaceable via `ISessionOptions.compactionBasePrompt`        |
 | `SessionStore`                    | Class                | JSON file persistence for session records (`~/.robota/sessions/`)                                                                  |
 | `CheckpointTree`                  | Class                | SELFHOST-007 neutral, I/O-free branch tree over `{id,parentId}` checkpoint nodes (fork/switch/listBranches/ancestors/activeLeaf)   |
 | `FileSessionLogger`               | Class                | JSONL file-based session event logger                                                                                              |
@@ -311,7 +316,9 @@ The session log records structured events to a JSONL file for diagnostics and re
 
 9. **`ISessionOptions.onCompact`** -- Callback invoked when compaction occurs (auto or manual), receives the generated summary string.
 
-10. **`ISessionOptions.compactInstructions`** -- Custom instructions for the compaction summary prompt (e.g., extracted from CLAUDE.md "Compact Instructions" section).
+10. **`ISessionOptions.compactInstructions`** -- Custom instructions for the compaction summary prompt (e.g., extracted from a project context file's "Compact Instructions" section). Appended after the base template.
+
+    **`ISessionOptions.compactionBasePrompt`** -- Replaces the base instruction template of the compaction summarization prompt wholesale (default: the exported, domain-neutral `DEFAULT_COMPACTION_PROMPT`). This is the seam for a consuming layer that wants product- or domain-specific compaction wording.
 
 11. **`ISessionOptions.maxTurns`** -- Optional model/tool round cap passed to the underlying Robota run. Omitted means unlimited for the session layer.
 
@@ -436,7 +443,7 @@ No formal interface implementations. `PermissionEnforcer`, `ContextWindowTracker
 - **Session** -- permission mode switching, hook integration, and session persistence are untested.
 - **PermissionEnforcer** -- `wrapTools()`, `checkPermission()`, session-scoped allow, tool truncation are untested.
 - **ContextWindowTracker** -- `updateFromHistory()`, `shouldAutoCompact()`, metadata vs fallback estimation are untested.
-- **CompactionOrchestrator** -- `compact()`, hook firing, prompt building are untested.
+- **CompactionOrchestrator** -- hook firing is untested. Prompt building (neutral default template, `basePrompt` injection, instruction appending) is covered by `compaction-prompt-neutrality.test.ts`; the failure contract by `compaction-failure-preservation.test.ts`.
 - **SessionStore** -- Covered by `agent-framework/src/__tests__/session-store.test.ts` (12 tests: save/load/list/delete/directory creation).
 - **FileSessionLogger** -- `log()`, file creation, JSONL formatting, error handling on read-only paths are untested.
 - **SilentSessionLogger** -- No-op behavior untested (trivial, low priority).
