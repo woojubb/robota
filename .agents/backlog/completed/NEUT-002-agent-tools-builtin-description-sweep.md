@@ -1,6 +1,7 @@
 ---
 title: 'NEUT-002: agent-tools builtin tool descriptions — strip foreign product policy, add override seam'
-status: todo
+status: done
+completed: 2026-07-25
 created: 2026-07-25
 priority: high
 urgency: soon
@@ -9,6 +10,22 @@ depends_on: []
 ---
 
 # NEUT-002: builtin tool-description policy sweep
+
+## Outcome (DONE 2026-07-25)
+
+Shipped in PR #1346 (`feat/neut-002-008-tools-sweep`): all five flagged descriptions fixed to
+mechanism-only text — Write's docs/README prohibition removed, Glob's nonexistent "Agent tool"
+reference removed, Grep's shell reference derived via `createGrepTool({ shellToolName })` (default
+`Shell`), Shell's sibling routing hints derived from `createShellTool({ availableTools })` (hints
+for unregistered siblings omitted), Edit's unenforced read-first claim replaced with the true
+exact-match mechanism. Every builtin factory now accepts
+`IBuiltinToolDescriptionOptions.description` (new `createGlobTool`/`createGrepTool`/
+`createWebFetchTool`/`createWebSearchTool` factories; singletons stay the zero-option defaults).
+Descriptions declared as a model-facing contract in `packages/agent-tools/docs/SPEC.md`
+("Tool Descriptions — Model-Facing Contract"). Test-plan evidence: red-first
+`src/__tests__/builtin-descriptions.test.ts` (policy-phrase absence + derived names + registry-
+subset routing + override seam) failed pre-fix, then agent-tools 199/199 and consumer
+agent-framework 1222/1222 green; 59/59 harness scans pass.
 
 ## Problem (audit .design/audits/2026-07-24-neutrality-prompt-audit.md, core-tier findings)
 

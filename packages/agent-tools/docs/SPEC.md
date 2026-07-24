@@ -50,7 +50,10 @@ builtins/
   glob-tool.ts          -- Glob: find files matching a pattern (uses fast-glob)
   grep-tool.ts          -- Grep: regex content search (files_with_matches/content/count, headLimit)
   web-fetch-tool.ts     -- WebFetch: fetch URL content (HTML→text conversion); classifyFetchError exported
-  web-search-tool.ts    -- WebSearch: web search via Brave Search API
+  web-search-tool.ts    -- WebSearch: vendor-free tool layer over the IWebSearchProvider port (NEUT-008)
+  web-search-provider.ts -- IWebSearchProvider port + request/result types (duck-typed, vendor-free)
+  brave-search-provider.ts -- default IWebSearchProvider adapter (the only module holding the vendor endpoint)
+  tool-options.ts       -- IBuiltinToolDescriptionOptions: shared description-override seam (NEUT-002)
   ask-user-question-tool.ts -- AskUserQuestion: model asks the user structured questions via the CMD-004 ask port
 ```
 
@@ -100,7 +103,7 @@ Types owned by this package (SSOT):
 
 ## Public API Surface
 
-### Tool Infrastructure
+### Public API: Tool Infrastructure
 
 | Export                                  | Kind     | Description                                                                                                                                                  |
 | --------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -139,6 +142,7 @@ Types owned by this package (SSOT):
 | `createComputerTool`                    | Function | SELFHOST-010 — creates BOTH computer-use tools (`ComputerView` perceive + `Computer` act) over an injected `IComputerDriver` (adapter-gated; no environment) |
 | `createComputerViewTool`                | Function | SELFHOST-010 — the `ComputerView` perceive tool (`driver.screenshot()`); permission-gated `auto` like `Read`                                                 |
 | `createComputerActTool`                 | Function | SELFHOST-010 — the `Computer` act tool (one typed mutating action → post-action screenshot); permission-gated `approve`/`deny` like `Shell`                  |
+| `PageComputerDriver`                    | Class    | SELFHOST-010 — reference `IComputerDriver` adapter over an injected duck-typed page object (no browser SDK dependency)                                       |
 | `PageComputerDriver`                    | Class    | SELFHOST-010 — zero-dep reference `IComputerDriver` duck-typing a browser page via `IBrowserPageAdapter` (imports NO browser SDK; surface passes the page)   |
 | `IComputerDriver`                       | Type     | SELFHOST-010 — computer-use driver port: `screenshot()` (perceive) + `act(action)` (typed mutating action → screenshot) + optional takeover hooks            |
 | `IComputerToolOptions`                  | Type     | SELFHOST-010 — tool-factory options carrying the computer-use driver (mirror `ISandboxToolOptions`)                                                          |
@@ -148,7 +152,7 @@ Types owned by this package (SSOT):
 
 > The test-support `ScriptedComputerDriver` (SELFHOST-010) is intentionally NOT in the Public API Surface — it lives under `src/computer-use/testing/` and is imported by tests via a relative path (test-support, never the package main entry), mirroring agent-core's `scripted-provider`.
 
-### Built-in CLI Tools
+### Public API: Built-in CLI Tools
 
 | Export                | Kind   | Tool Name         | Description                                                                                                  |
 | --------------------- | ------ | ----------------- | ------------------------------------------------------------------------------------------------------------ |
@@ -160,7 +164,7 @@ Types owned by this package (SSOT):
 | `globTool`            | Object | `Glob`            | Find files matching a glob pattern (fast-glob)                                                               |
 | `grepTool`            | Object | `Grep`            | Regex content search — modes: files_with_matches/content/count; `headLimit` caps results                     |
 | `webFetchTool`        | Object | `WebFetch`        | Fetch URL content with HTML-to-text conversion                                                               |
-| `webSearchTool`       | Object | `WebSearch`       | Web search via Brave Search API                                                                              |
+| `webSearchTool`       | Object | `WebSearch`       | Web search over the `IWebSearchProvider` port (default provider: Brave Search adapter)                       |
 | `askUserQuestionTool` | Object | `AskUserQuestion` | Model-issued structured questions (options/multi-select/free text) via `IToolExecutionContext.ask` (CMD-005) |
 
 `AskUserQuestion` (CMD-005) consumes the injected `IToolExecutionContext.ask` port (CMD-004): each of
@@ -172,7 +176,27 @@ a structured `{ unavailable: true }` result — never a silent guess, never a th
 
 Each built-in tool is an `IToolWithEventService`-compatible object with `getName()`, `getDescription()`, `getSchema()`, and `execute()` methods.
 
-`createShellTool` (and its alias `createBashTool`), `createReadTool`, `createWriteTool`, `createEditTool`, and `createAskUserQuestionTool` create tool instances (the first four are sandbox-aware; `createAskUserQuestionTool` binds the ask port). When an `ISandboxClient` is supplied, shell command execution plus Read/Write/Edit filesystem operations are routed through the sandbox client. When no sandbox client is supplied, the singleton exports keep host-local behavior, resolving the shell per-OS through agent-core's `resolvePlatformShell` (POSIX `sh`/`bash`, Windows PowerShell). The `Shell` tool's description is built dynamically from the resolved shell so the model writes syntax the host shell can run.
+### Public API: Built-in Tool Factories
+
+Every builtin has a factory; the singleton exports above are the factories' zero-option defaults.
+All factories accept `IBuiltinToolDescriptionOptions.description` (NEUT-002 override seam — see
+"Tool Descriptions" below).
+
+| Export                      | Kind     | Description                                                                                                                |
+| --------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `createShellTool`           | Function | Creates `Shell` (sandbox-aware); `availableTools` restricts sibling routing hints to the registered tool set               |
+| `createBashTool`            | Function | Creates `Bash`, the model-familiar alias of the same OS-aware shell tool                                                   |
+| `createReadTool`            | Function | Creates `Read` (sandbox-aware)                                                                                             |
+| `createWriteTool`           | Function | Creates `Write` (sandbox-aware)                                                                                            |
+| `createEditTool`            | Function | Creates `Edit` (sandbox-aware)                                                                                             |
+| `createGlobTool`            | Function | Creates `Glob`                                                                                                             |
+| `createGrepTool`            | Function | Creates `Grep`; `shellToolName` derives the shell-tool reference in the default description (default `Shell`)              |
+| `createWebFetchTool`        | Function | Creates `WebFetch`                                                                                                         |
+| `createWebSearchTool`       | Function | Creates `WebSearch` over an injected `IWebSearchProvider` (NEUT-008; default: the Brave Search adapter)                    |
+| `createBraveSearchProvider` | Function | The default `IWebSearchProvider` adapter — the only module holding the vendor endpoint; reads `BRAVE_API_KEY` at call time |
+| `createAskUserQuestionTool` | Function | Creates `AskUserQuestion` (binds the `IToolExecutionContext.ask` port)                                                     |
+
+When an `ISandboxClient` is supplied, shell command execution plus Read/Write/Edit filesystem operations are routed through the sandbox client. When no sandbox client is supplied, the singleton exports keep host-local behavior, resolving the shell per-OS through agent-core's `resolvePlatformShell` (POSIX `sh`/`bash`, Windows PowerShell). The `Shell` tool's description is built dynamically from the resolved shell so the model writes syntax the host shell can run.
 
 **WriteTool output**: Reports actual UTF-8 byte count via `Buffer.byteLength(content, 'utf8')`, not JS `content.length` (which is character count and differs for multibyte content).
 
@@ -199,6 +223,35 @@ This is the inner result type used by built-in tools. It is serialized to JSON a
 2. **ISandboxClient** -- Consumers inject provider-backed execution planes into sandbox-aware built-in tool factories. The optional `snapshot()` and `restore(snapshotId)` methods return and hydrate provider-owned resumable workspace references. `E2BSandboxClient` adapts E2B-compatible objects without adding an `e2b` package dependency to `agent-tools`; it supports both `createSnapshot()` style checkpoint references and `pause()`/`connect()` style resumable sandbox IDs. `InMemorySandboxClient` supports deterministic contract tests.
 
 3. **IWorkspaceManifest / applyWorkspaceManifest** -- Consumers declare fresh-session sandbox contents using workspace-relative paths. The generic applicator writes inline/local files, creates directories, and clones Git repositories through `ISandboxClient`; provider-specific storage mounts are represented in the contract but return explicit `unsupported` entries until an adapter supplies native mount capability.
+
+4. **IWebSearchProvider** (NEUT-008) -- Duck-typed web-search port (`search({ query, limit }, signal) → results`), mirroring the retrieval (`IRetrievalAdapter`) and computer-use (`IComputerDriver`) port precedent. `createWebSearchTool({ provider })` composes over the port; when no provider is injected the Brave Search adapter (`builtins/brave-search-provider.ts`) is the default. The vendor endpoint lives ONLY in the adapter module — the tool layer (`web-search-tool.ts`) carries no vendor URL literal, and provider failures (missing configuration, HTTP/network errors) are thrown by the provider and surfaced by the tool as structured `IToolInvocationResult` errors.
+
+## Tool Descriptions — Model-Facing Contract (NEUT-002)
+
+Built-in tool descriptions are part of this package's public, model-facing prompt surface: every
+registered description is injected verbatim into the consuming agent's context. They are governed
+as a contract, not as incidental strings:
+
+- **Mechanism-only default text.** Default descriptions state what the tool does and how its
+  parameters behave. They must NOT carry product- or workflow-specific policy (e.g. forbidding
+  documentation files, mandating a review flow) — that policy belongs to the consuming product's
+  prompt layer, not a neutral library.
+- **No phantom cross-tool references.** A default description may reference a sibling tool only by
+  a name this package actually ships (`Shell`, `Read`, `Glob`, …) and only in a way that a
+  differently-assembled registry can correct: the shell tool's sibling routing hints are derived
+  from the factory's `availableTools` option (hints for unregistered siblings are omitted), and the
+  grep tool's shell reference is derived from its `shellToolName` option (default `Shell`).
+- **Unenforced claims are forbidden.** A description must not assert a contract the runtime does
+  not enforce (e.g. "you must call Read before Edit" when no such check exists). State the real
+  mechanism instead (an exact-match `oldString` requirement).
+- **Override seam on every factory.** Every builtin factory accepts
+  `IBuiltinToolDescriptionOptions.description`, which replaces the default text verbatim so a
+  consumer can supply deployment-specific guidance at its composition root. The exported singleton
+  instances (`globTool`, `writeTool`, …) are the factories' defaults.
+
+Contract tests: `src/__tests__/builtin-descriptions.test.ts` (policy-phrase absence, derived
+names, registry-subset routing hints, override seam) and `src/__tests__/web-search-provider.test.ts`
+(vendor-literal absence at the tool layer).
 
 ## Error Taxonomy
 
@@ -228,19 +281,22 @@ None. This package defines no tool classes; the factories construct core's `Func
 | `FunctionTool` (agent-core)        | `createFunctionTool` / `createZodFunctionTool` | `src/implementations/function-tool.ts`                                        |
 | `IToolWithEventService` shape      | Built-in CLI tools                             | `src/builtins/*.ts`                                                           |
 | `ISandboxClient` (agent-tools)     | Built-in CLI tool factories                    | `src/builtins/shell-tool.ts`, `read-tool.ts`, `write-tool.ts`, `edit-tool.ts` |
+| `IWebSearchProvider` (agent-tools) | `createWebSearchTool` (default: Brave adapter) | `src/builtins/web-search-tool.ts`, `src/builtins/brave-search-provider.ts`    |
 | `IWorkspaceManifest` (agent-tools) | `agent-framework` interactive session assembly | `packages/agent-framework/src/interactive/interactive-session-options.ts`     |
 
 ## Test Strategy
 
 ### Current Test Coverage
 
-| File                                       | Scope | Description                                                                                           |
-| ------------------------------------------ | ----- | ----------------------------------------------------------------------------------------------------- |
-| `src/__tests__/atomic-file-write.test.ts`  | Unit  | Atomic UTF-8 write replacement, mode preservation, cleanup, and handoff                               |
-| `src/__tests__/sandbox-tools.test.ts`      | Unit  | Sandbox client contracts, sandbox-aware tools, E2B adapter behavior, and snapshot/restore paths       |
-| `src/__tests__/workspace-manifest.test.ts` | Unit  | Workspace manifest path validation and generic sandbox application                                    |
-| `src/__tests__/function-tool.test.ts`      | Unit  | `createFunctionTool` + core `FunctionTool` (imported from agent-core) creation, execution, validation |
-| `src/__tests__/tool-registry.test.ts`      | Unit  | core `ToolRegistry` (imported from agent-core) registration, lookup, listing                          |
+| File                                         | Scope | Description                                                                                             |
+| -------------------------------------------- | ----- | ------------------------------------------------------------------------------------------------------- |
+| `src/__tests__/atomic-file-write.test.ts`    | Unit  | Atomic UTF-8 write replacement, mode preservation, cleanup, and handoff                                 |
+| `src/__tests__/sandbox-tools.test.ts`        | Unit  | Sandbox client contracts, sandbox-aware tools, E2B adapter behavior, and snapshot/restore paths         |
+| `src/__tests__/workspace-manifest.test.ts`   | Unit  | Workspace manifest path validation and generic sandbox application                                      |
+| `src/__tests__/function-tool.test.ts`        | Unit  | `createFunctionTool` + core `FunctionTool` (imported from agent-core) creation, execution, validation   |
+| `src/__tests__/tool-registry.test.ts`        | Unit  | core `ToolRegistry` (imported from agent-core) registration, lookup, listing                            |
+| `src/__tests__/builtin-descriptions.test.ts` | Unit  | NEUT-002 description contract: policy-phrase absence, derived names, routing-hint subset, override seam |
+| `src/__tests__/web-search-provider.test.ts`  | Unit  | NEUT-008 provider port: injection, error surfacing, tool-layer vendor-literal absence                   |
 
 ### Gaps
 

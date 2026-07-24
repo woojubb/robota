@@ -12,9 +12,13 @@ import { z } from 'zod';
 import { checkPathWithinCwd } from './path-guard.js';
 import { createZodFunctionTool } from '../implementations/function-tool';
 
+import type { ISandboxBuiltinToolOptions } from './tool-options.js';
 import type { ISandboxToolOptions } from '../sandbox/types.js';
 import type { IToolInvocationResult } from '../types/tool-result.js';
 import type { FunctionTool } from '@robota-sdk/agent-core';
+
+const DEFAULT_READ_DESCRIPTION =
+  'Reads a file from the local filesystem.\n\nBy default, reads up to 2000 lines from the beginning of the file. You can optionally specify offset and limit for partial reads.\n\nResults are returned using cat -n format, with line numbers starting at 1.\n\nThe file_path parameter must be an absolute path, not a relative path.';
 
 const DEFAULT_LIMIT = 2000;
 
@@ -167,10 +171,10 @@ async function readFileTool(args: TReadArgs, options: ISandboxToolOptions = {}):
 /**
  * Create a ReadTool instance — register with Robota agent tools registry.
  */
-export function createReadTool(options: ISandboxToolOptions = {}): FunctionTool {
+export function createReadTool(options: ISandboxBuiltinToolOptions = {}): FunctionTool {
   return createZodFunctionTool(
     'Read',
-    'Reads a file from the local filesystem.\n\nBy default, reads up to 2000 lines from the beginning of the file. You can optionally specify offset and limit for partial reads.\n\nResults are returned using cat -n format, with line numbers starting at 1.\n\nThe file_path parameter must be an absolute path, not a relative path.',
+    options.description ?? DEFAULT_READ_DESCRIPTION,
     ReadSchema,
     async (params) => {
       return readFileTool(params, options);
