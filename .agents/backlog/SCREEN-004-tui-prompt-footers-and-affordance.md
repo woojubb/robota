@@ -10,6 +10,13 @@ depends_on: []
 
 # Standardize TUI prompt footers, selection symbols, and microcopy
 
+> **Progress (2026-07-24):** spec drafted —
+> [`.agents/spec-docs/draft/SCREEN-004-tui-prompt-footers-and-affordance.md`](../spec-docs/draft/SCREEN-004-tui-prompt-footers-and-affordance.md)
+> (GATE-WRITE). Note: 3 of the 5 findings below already landed since 2026-06-26 (ListPicker default
+> footer, SlashAutocomplete footer + `> ` indicator, SessionPicker via ListPicker); the draft rescopes
+> to the remaining footer-dialect drift, a shared key-hint SSOT, and the undocumented Esc hard-stop.
+> Awaiting GATE-APPROVAL before implementation.
+
 ## What
 
 Make interaction affordance consistent across the Ink TUI prompt/selection components:
