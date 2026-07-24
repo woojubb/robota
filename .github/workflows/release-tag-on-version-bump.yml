@@ -24,7 +24,7 @@ jobs:
     name: Push v<version> tag when agent-cli is bumped
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 2 # need HEAD^ to detect a version change
           ssh-key: ${{ secrets.RELEASE_DEPLOY_KEY }} # push over SSH so the tag fires the v* workflows

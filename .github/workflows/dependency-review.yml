@@ -25,7 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     # Fork PRs cannot post the summary comment; the check still runs read-only.
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 1
       - uses: actions/dependency-review-action@v4

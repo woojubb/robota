@@ -35,7 +35,7 @@ jobs:
     outputs:
       code: ${{ steps.filter.outputs.code }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 50
       - name: Fetch base branch
@@ -66,7 +66,7 @@ jobs:
         if: github.base_ref == 'main'
         run: echo "build is covered by release-grade verification"
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         if: github.base_ref != 'main'
         with:
           fetch-depth: 50
@@ -157,7 +157,7 @@ jobs:
         if: github.base_ref == 'main'
         run: echo "quality is covered by release-grade verification"
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         if: github.base_ref != 'main'
         with:
           fetch-depth: 50
@@ -228,7 +228,7 @@ jobs:
         if: github.base_ref == 'main'
         run: echo "scans are covered by release-grade verification"
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         if: github.base_ref != 'main'
         with:
           fetch-depth: 50
@@ -273,7 +273,7 @@ jobs:
         if: github.base_ref == 'main'
         run: echo "security audit is covered by release-grade verification"
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         if: github.base_ref != 'main'
         with:
           fetch-depth: 50
@@ -310,7 +310,7 @@ jobs:
     if: github.base_ref == 'main'
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 50
 
@@ -346,7 +346,7 @@ jobs:
     if: github.base_ref == 'main'
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 50
 
@@ -378,7 +378,7 @@ jobs:
     if: github.base_ref != 'main'
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -409,7 +409,7 @@ jobs:
     if: github.base_ref != 'main' && needs.changes.outputs.code == 'true'
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 50
 
@@ -445,7 +445,7 @@ jobs:
     if: github.base_ref != 'main' && needs.changes.outputs.code == 'true'
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 50
 
@@ -484,7 +484,7 @@ jobs:
     if: github.base_ref != 'main' && needs.changes.outputs.code == 'true'
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 50
 
@@ -520,7 +520,7 @@ jobs:
     if: github.base_ref != 'main' && needs.changes.outputs.code == 'true'
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 50
 
