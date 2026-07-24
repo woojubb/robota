@@ -2,13 +2,15 @@ import { readTokenUsageFromMessage } from '../context/token-usage';
 import { chatEntryToMessage, isChatEntry } from '../interfaces/messages';
 
 import type { IHistoryEntry, TUniversalMessage } from '../interfaces/messages';
+import type { ITokenUsage } from '../interfaces/provider';
 
-/** Aggregate token totals over a whole session/sub-session history. */
-export interface ISessionUsageTotals {
-  promptTokens: number;
-  completionTokens: number;
-  totalTokens: number;
-}
+/**
+ * Aggregate token totals over a whole session/sub-session history.
+ *
+ * TYPE-003: alias of the usage-triple SSOT ({@link ITokenUsage}) — the aggregate shape is the
+ * same triple by definition, so it is derived rather than re-declared.
+ */
+export type ISessionUsageTotals = ITokenUsage;
 
 /**
  * ANALYTICS-001 (Phase 2): sum assistant token usage across a history timeline — used to capture a

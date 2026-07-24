@@ -434,6 +434,24 @@ The two surfaces share one interface because a provider instance is legitimately
 a raw provider; the raw methods are an internal-protocol detail, not a parallel public API. Generic
 layers and applications must use `chat`/`chatStream`; only the conversation service drives the raw path.
 
+### Usage-Triple SSOT (`ITokenUsage`, TYPE-003)
+
+`ITokenUsage` (`src/interfaces/provider.ts` — `promptTokens`/`completionTokens`/`totalTokens`) is the
+single source of truth for the prompt/completion/total usage triple across the whole monorepo. No
+package may re-declare this shape — named variants are aliases and inline occurrences reference the
+type directly:
+
+- `ISessionUsageTotals` (`src/services/execution-usage.ts`) — alias of `ITokenUsage`.
+- `IConversationResponse.usage` / `IStreamingChunk.usage` (`src/interfaces/service.ts`),
+  `IRawProviderResponse.usage`, `IOrchestrationStepResult.usage` — typed `ITokenUsage`.
+- `IPluginExecutionResult.usage` — `Partial<ITokenUsage>`; `convertUsage` accepts
+  `Partial<ITokenUsage>` and returns the full triple.
+- Downstream: `agent-interface-transport`'s `IBackgroundTaskUsage` is an alias; `agent-executor`'s
+  `ISubagentJobResult.usage` and `agent-remote-client`'s message/response usage fields reference it.
+
+(`IMessageTokenUsage`/`IContextTokenUsage` below are a DIFFERENT granularity — provider-side
+input/output/cache token reads — and are intentionally not part of this triple.)
+
 ### Provider Capabilities
 
 `IAIProvider.getCapabilities()` is an optional provider hook. `AbstractAIProvider` supplies a default implementation reporting function-calling support from `supportsTools()` and provider-native web search/fetch as unsupported. Generic layers must call `getProviderCapabilities(provider)` instead of branching on provider names.

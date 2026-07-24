@@ -5,6 +5,7 @@
  */
 import type { IRunOptions } from '../interfaces/agent';
 import type { TUniversalMessage } from '../interfaces/messages';
+import type { ITokenUsage } from '../interfaces/provider';
 import type {
   TToolParameters,
   IToolExecutionResult,
@@ -75,7 +76,7 @@ export interface IPluginExecutionResult {
   tokensUsed?: number;
   toolsExecuted?: number;
   success?: boolean;
-  usage?: { totalTokens?: number; promptTokens?: number; completionTokens?: number };
+  usage?: Partial<ITokenUsage>;
   toolCalls?: Array<{
     id?: string;
     name?: string;

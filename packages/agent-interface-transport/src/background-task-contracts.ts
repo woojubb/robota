@@ -6,7 +6,11 @@
  * class) stays in `agent-executor`, which imports these contracts.
  */
 
-import type { TBackgroundPermissionPolicy, TUniversalValue } from '@robota-sdk/agent-core';
+import type {
+  ITokenUsage,
+  TBackgroundPermissionPolicy,
+  TUniversalValue,
+} from '@robota-sdk/agent-core';
 
 /**
  * Per-task permission policy. SSOT lives in `agent-core` (the permission-logic home; CORE-025) — re-exported
@@ -33,11 +37,7 @@ export type TBackgroundTaskStatus =
   | 'cancelled';
 
 export type TBackgroundTaskTimeoutReason =
-  | 'idle'
-  | 'max_runtime'
-  | 'output_limit'
-  | 'repetition'
-  | 'stale_worker';
+  'idle' | 'max_runtime' | 'output_limit' | 'repetition' | 'stale_worker';
 
 export type TBackgroundTaskErrorCategory =
   | 'validation'
@@ -134,16 +134,13 @@ export interface IScheduledBackgroundTaskRequest extends IBaseBackgroundTaskRequ
 }
 
 export type TBackgroundTaskRequest =
-  | IAgentBackgroundTaskRequest
-  | IProcessBackgroundTaskRequest
-  | IScheduledBackgroundTaskRequest;
+  IAgentBackgroundTaskRequest | IProcessBackgroundTaskRequest | IScheduledBackgroundTaskRequest;
 
-/** ANALYTICS-001 (Phase 2): token usage a completed task/subagent consumed, for source attribution. */
-export interface IBackgroundTaskUsage {
-  promptTokens: number;
-  completionTokens: number;
-  totalTokens: number;
-}
+/**
+ * ANALYTICS-001 (Phase 2): token usage a completed task/subagent consumed, for source attribution.
+ * TYPE-003: alias of the `agent-core` usage-triple SSOT (`ITokenUsage`) — derived, not re-declared.
+ */
+export type IBackgroundTaskUsage = ITokenUsage;
 
 export interface IBackgroundTaskResult {
   taskId: string;
