@@ -68,7 +68,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "dagre": "^0.8.5",
-    "lucide-react": "^0.525.0",
+    "lucide-react": "^1.26.0",
     "monaco-editor": "^0.52.2",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
