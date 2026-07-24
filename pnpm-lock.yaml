@@ -326,8 +326,8 @@ importers:
         specifier: ^3.3.5
         version: 3.3.5
       '@next/bundle-analyzer':
-        specifier: ^15.5.19
-        version: 15.5.19
+        specifier: ^16.2.11
+        version: 16.2.11
       '@tailwindcss/postcss':
         specifier: ^4.3.0
         version: 4.3.0
@@ -4564,7 +4564,7 @@ packages:
       '@vladfrangu/async_event_emitter': 2.4.7
       discord-api-types: 0.38.49
       tslib: 2.8.1
-      ws: 8.21.0
+      ws: 8.21.1
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
@@ -6131,8 +6131,8 @@ packages:
     dev: true
     optional: true
 
-  /@next/bundle-analyzer@15.5.19:
-    resolution: {integrity: sha512-A+hYYxRIo5ykAkw7+pDTQA9dBp+yXmz70/jdTSm87uVP14oHQmV0lC1jXe212O6+v06WB8fwZFEgz1A+uPeHrA==}
+  /@next/bundle-analyzer@16.2.11:
+    resolution: {integrity: sha512-C5228wy1RC0g7uOSvmQhrZXCuEeLIPureKkqramAkySmqY2Y0yw6K+TyAxXXvtrYe4uehnZs3YMFfJcorBRwpg==}
     dependencies:
       webpack-bundle-analyzer: 4.10.1
     transitivePeerDependencies:
@@ -8471,7 +8471,7 @@ packages:
       '@types/ws': 7.4.7
       eventemitter3: 5.0.4
       finity: 0.5.4
-      ws: 7.5.11
+      ws: 7.5.13
     transitivePeerDependencies:
       - bufferutil
       - debug
@@ -10237,14 +10237,14 @@ packages:
     resolution: {integrity: sha512-PPvV6g8UGMGgjrMu+n/f9E/tCSkNQ2Y97eFvuVdJfG11+xdIeDcLyNdC8SHcrHbRqkfwLASdplyR6B6sKM1U4A==}
     engines: {node: '>=0.4.0'}
     dependencies:
-      acorn: 8.16.0
+      acorn: 8.17.0
     dev: true
 
   /acorn-walk@8.3.5:
     resolution: {integrity: sha512-HEHNfbars9v4pgpW6SO1KSPkfoS0xVOM/9UzkJltjlsHZmJasxg8aXkuZa7SMf8vKGIBhpUsPluQSqhJFCqebw==}
     engines: {node: '>=0.4.0'}
     dependencies:
-      acorn: 8.16.0
+      acorn: 8.17.0
     dev: true
 
   /acorn@8.16.0:
@@ -22412,7 +22412,7 @@ packages:
       opener: 1.5.2
       picocolors: 1.1.1
       sirv: 2.0.4
-      ws: 7.5.11
+      ws: 7.5.13
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
@@ -22686,8 +22686,8 @@ packages:
       signal-exit: 4.1.0
     dev: true
 
-  /ws@7.5.11:
-    resolution: {integrity: sha512-zS54Oen9bITtp7kp2XM3AydrCIq1D+HwJOuH+c+e4LfpL/lotP5osijd+UoMnxwAam1GN8R4KtLAyIrIcBNpiA==}
+  /ws@7.5.13:
+    resolution: {integrity: sha512-rsKI6xDBFVf4r/x8XyChGK04QR/XHroxs/jUcoWvtEZM8TPU/X/uIY9B1CsSzYws9ZJb/6bbBu7dPhFW00CAoA==}
     engines: {node: '>=8.3.0'}
     peerDependencies:
       bufferutil: ^4.0.1
@@ -22709,6 +22709,19 @@ packages:
         optional: true
       utf-8-validate:
         optional: true
+
+  /ws@8.21.1:
+    resolution: {integrity: sha512-+0NTnW77fFN/DjQi6k/Sq/Yvk4Sgajw7urW8V+asjXnRgDs9gyGkdb7EzgfhA4goXsRIZKE28fzIXBHEzhuiWw==}
+    engines: {node: '>=10.0.0'}
+    peerDependencies:
+      bufferutil: ^4.0.1
+      utf-8-validate: '>=5.0.2'
+    peerDependenciesMeta:
+      bufferutil:
+        optional: true
+      utf-8-validate:
+        optional: true
+    dev: false
 
   /wsl-utils@0.3.1:
     resolution: {integrity: sha512-g/eziiSUNBSsdDJtCLB8bdYEUMj4jR7AGeUo96p/3dTafgjHhpF4RiCFPiRILwjQoDXx5MqkBr4fwWtR3Ky4Wg==}
