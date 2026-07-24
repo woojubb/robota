@@ -338,40 +338,9 @@ jobs:
           chmod +x "$RUNNER_TEMP/osv-scanner"
           "$RUNNER_TEMP/osv-scanner" scan source --config osv-scanner.toml --lockfile pnpm-lock.yaml
 
-  # HARNESS-DIET-007: this job verifies the declared Node >=18 engines floor, so it
-  # must actually run on Node 18 (it previously ran on 22.x and tested nothing extra).
-  compat-node18:
-    name: compat-node18
-    runs-on: ubuntu-latest
-    if: github.base_ref == 'main'
-
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 50
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v2
-        with:
-          version: 8.15.4
-
-      - name: Use Node.js 18.x
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18.x'
-          cache: 'pnpm'
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Build packages
-        run: pnpm run build:deps
-
-      - name: Test with coverage (excludes packages requiring Node 20+)
-        # robota-web (apps/agent-web) is a jest-based Next.js app, not a published
-        # Node-18 consumer surface; jest cannot parse the vitest coverage flags.
-        run: pnpm --filter !@robota-sdk/agent-cli --filter !robota-web run test -- --coverage --coverage.thresholds.lines=80
-
+  # compat-node18 was removed: its first REAL Node 18 run (promotion #1306) proved the build chain
+  # (rolldown, engines ^20.19 || >=22.12) cannot run on Node 18 at all, and Node 18 has been EOL since
+  # 2025-04 — the engines floor is now >=20.19.0, making a separate compat job redundant with `build`.
   commitlint:
     name: commitlint
     runs-on: ubuntu-latest
