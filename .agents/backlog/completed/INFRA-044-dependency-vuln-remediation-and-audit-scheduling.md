@@ -1,6 +1,7 @@
 ---
 title: 'INFRA-044: triage 18 pre-existing dependency advisories + run security-audit on a schedule (not only on manifest PRs)'
-status: todo
+status: done
+completed: 2026-07-24
 created: 2026-07-23
 priority: high
 urgency: soon
@@ -20,7 +21,10 @@ depends_on: []
   (GHSA-f88m, build-time-only on the sites' own trusted images; the 0.35.0 bump was reverted because it breaks
   the Cloudflare Pages docs build env). `osv-scanner` now exits 0; lockfile regenerated via `--lockfile-only` and
   verified frozen-installable.
-- **REMAINING:** the **audit-scheduling gap** — run `security-audit` (osv-scanner) on a nightly/weekly `cron`
+- **DONE (2026-07-24):** the audit-scheduling gap — `.github/workflows/security-scheduled.yml` runs the
+  same osv-scanner + `osv-scanner.toml` SSOT over the full lockfile weekly (Mon 04:47 UTC) + on
+  `workflow_dispatch`, so newly-published advisories surface within days instead of at the next manifest
+  edit. (Formerly REMAINING:) the **audit-scheduling gap** — run `security-audit` (osv-scanner) on a nightly/weekly `cron`
   (and/or every PR) so newly-published advisories are caught within a day instead of at the next manifest edit.
   (Small follow-up; the CodeQL workflow already has a weekly cron to model on.)
 
