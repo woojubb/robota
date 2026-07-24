@@ -34,7 +34,7 @@
  */
 
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
@@ -366,7 +366,14 @@ function main() {
       : path.join(repoRoot, 'CHANGELOG.md');
     const body = renderNotes({ groups, repoUrl, ref: compareRef, prevRef, date, headingLevel: 3 });
     const section = `## ${title} (${date})\n\n${body}`;
-    const existing = existsSync(changelogPath) ? readFileSync(changelogPath, 'utf8') : null;
+    // Read-with-catch instead of exists-then-read: avoids the TOCTOU race CodeQL flags
+    // (js/file-system-race) — a missing file is the only tolerated error.
+    let existing = null;
+    try {
+      existing = readFileSync(changelogPath, 'utf8');
+    } catch (error) {
+      if (error?.code !== 'ENOENT') throw error;
+    }
     writeFileSync(changelogPath, updateChangelog(existing, { key, section }));
     console.log(`updated ${changelogPath} section "${title}" (${range})`);
   }
