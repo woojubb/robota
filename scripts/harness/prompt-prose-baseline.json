@@ -29,7 +29,7 @@
   },
   "packages/agent-framework/src/agents/built-in-agents.ts": {
     "count": 3,
-    "hashes": ["34c2862b1c59", "888471ce280b", "3121ef691db9"]
+    "hashes": ["2d7a207d1520", "888471ce280b", "3121ef691db9"]
   },
   "packages/agent-framework/src/assembly/subagent-prompts.ts": {
     "count": 2,
@@ -45,7 +45,7 @@
   },
   "packages/agent-framework/src/interactive/session-naming.ts": {
     "count": 1,
-    "hashes": ["f6efc7ca1959"]
+    "hashes": ["f102049fc7a5"]
   },
   "packages/agent-framework/src/tools/agent-tool.ts": {
     "count": 4,
@@ -71,25 +71,17 @@
     "count": 4,
     "hashes": ["3ea66d6c08bb", "1bdc3924023f", "57dabf48e947", "fda63f58d878"]
   },
-  "packages/agent-tools/src/builtins/edit-tool.ts": {
-    "count": 1,
-    "hashes": ["d52b8ad17f8b"]
-  },
   "packages/agent-tools/src/builtins/glob-tool.ts": {
     "count": 1,
-    "hashes": ["fc9aa4d2795a"]
+    "hashes": ["26deba6eb7af"]
   },
   "packages/agent-tools/src/builtins/grep-tool.ts": {
     "count": 1,
-    "hashes": ["d7c5e977642c"]
+    "hashes": ["aad984c9cd51"]
   },
   "packages/agent-tools/src/builtins/read-tool.ts": {
     "count": 1,
     "hashes": ["abaac560ee66"]
-  },
-  "packages/agent-tools/src/builtins/shell-tool.ts": {
-    "count": 1,
-    "hashes": ["ffdffc4a9a80"]
   },
   "packages/agent-tools/src/builtins/web-fetch-tool.ts": {
     "count": 3,
@@ -97,7 +89,7 @@
   },
   "packages/agent-tools/src/builtins/write-tool.ts": {
     "count": 1,
-    "hashes": ["743f3dec620d"]
+    "hashes": ["7fcb09c7b6f7"]
   },
   "packages/agent-tools/src/computer-use/computer-tool.ts": {
     "count": 1,
