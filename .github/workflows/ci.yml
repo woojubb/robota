@@ -514,3 +514,59 @@ jobs:
         env:
           PR_BODY: ${{ github.event.pull_request.body }}
         run: node scripts/harness/check-regression-red-proof.mjs
+
+  # INFRA-041: PR patch (diff) coverage — the lines a PR adds/changes in package/app `src` must
+  # themselves be exercised by tests. The former global 80% average (compat-node18, removed) never
+  # guaranteed this: a PR could add untested lines while the repo average stayed green. ADVISORY in
+  # v1 (never blocks; the script exits 0 unless PATCH_COVERAGE_ENFORCE=1 — same rollout pattern as
+  # regression-red-proof). Honest by construction: when coverage data for an affected package cannot
+  # be produced, the verdict is INCONCLUSIVE with an explicit NO-DATA log — never a silent pass.
+  # Runtime is bounded: a --detect pre-step gates the build+test steps to PRs that actually change
+  # coverable src lines, and coverage runs execute ONLY the affected packages' suites.
+  patch-coverage:
+    name: patch-coverage (advisory)
+    runs-on: ubuntu-latest
+    needs: changes
+    if: github.base_ref != 'main' && needs.changes.outputs.code == 'true'
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 50
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8.15.4
+
+      - name: Use Node.js 22.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Fetch the base branch (for merge-base + changed-line diff)
+        run: git fetch origin ${{ github.base_ref }} --depth=50
+
+      - name: Detect packages with coverable changed lines
+        id: detect
+        env:
+          PATCH_COVERAGE_BASE_REF: origin/${{ github.base_ref }}
+        run: node scripts/harness/check-patch-coverage.mjs --detect
+
+      - name: Build workspace packages (affected suites import sibling dist)
+        if: steps.detect.outputs.affected == 'true'
+        run: pnpm build:deps
+
+      - name: Compute patch coverage over changed lines
+        if: steps.detect.outputs.affected == 'true'
+        env:
+          PATCH_COVERAGE_BASE_REF: origin/${{ github.base_ref }}
+        run: node scripts/harness/check-patch-coverage.mjs
+
+      - name: Skip (no coverable src changes)
+        if: steps.detect.outputs.affected != 'true'
+        run: echo "No package/app src lines changed — patch coverage is a no-op for this PR."
