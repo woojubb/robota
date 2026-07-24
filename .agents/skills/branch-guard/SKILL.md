@@ -1,144 +1,33 @@
 ---
 name: branch-guard
-description: Guard against committing directly to protected branches (main, master, develop). Use before every git commit to ensure work happens on a feature branch.
+description: Pointer — protected-branch commit/merge policy is owned by the git-branch.md rule and enforced mechanically by the branch-guard hook + husky pre-commit. Consult before committing when on main/master/develop.
 ---
 
-# Branch Guard
+# Branch Guard (pointer)
+
+The policy (branch-first, protected branches, merge-target = fork origin, release merges,
+`--delete-branch` prohibition) is owned by [git-branch.md](../../rules/git-branch.md). Do not
+restate it — read it there.
 
 ## Rule Anchor
 
 - `AGENTS.md` > "Git Operations"
 
-## Use This Skill When
-
-- About to run `git commit` on any branch.
-- The current branch is `main`, `master`, or `develop`.
-
-## Preconditions
-
-- The agent has changes ready to commit.
-- The agent has confirmed user approval for the commit.
-
-## Execution Steps
-
-1. **Check current branch**:
-
-   ```bash
-   git branch --show-current
-   ```
-
-2. **If on a protected branch** (`main`, `master`, or `develop`):
-
-   **First commit in a task:**
-   - Do NOT commit directly.
-   - Ask the user whether to create a new branch before committing.
-   - Suggest a branch name based on the change type and scope:
-     - `feat/<scope>-<short-description>`
-     - `fix/<scope>-<short-description>`
-     - `refactor/<scope>-<short-description>`
-     - `docs/<scope>-<short-description>`
-     - `chore/<short-description>`
-   - Example: `docs/spec-expansion`, `feat/agents-caching`, `chore/harness-cleanup`
-   - Wait for user confirmation of the branch name before proceeding.
-   - Create and switch to the new branch:
-     ```bash
-     git checkout -b <approved-branch-name>
-     ```
-
-   **Subsequent commits within the same task:**
-   - If a feature branch was already created for the current task, continue committing on that branch without asking again.
-   - Mid-task commits (e.g., checkpointing progress in a multi-step plan) do not require a new branch — they are part of the same logical work.
-
-3. **If NOT on a protected branch**: proceed with the commit normally.
-
-## Protected Branches
-
-- `main`
-- `master`
-- `develop`
-
-## Defense Layers (why two)
-
-Protected-branch commits are blocked at **two** layers — both must stay in place:
+## Mechanical enforcement is the SSOT (two layers)
 
 1. **Claude PreToolUse hook** (`.claude/hooks/branch-guard.sh`) — blocks `git commit`/`push`/`merge`
-   Bash tool calls before they run. It parses the command string, so a commit whose message breaks
-   its regex extraction (multi-line, embedded quotes) can slip past. This is exactly how a
-   release-record commit landed directly on `main` and had to be reset → branched → re-PR'd
-   (2026-06-14).
-2. **Git-native `.husky/pre-commit`** — runs for EVERY commit regardless of how it is invoked, using
-   `git branch --show-current`. This is the robust backstop the parsing layer can miss.
+   Bash tool calls on `main`/`master`/`develop` before they run. It parses the command string, so a
+   commit whose message breaks its regex extraction (multi-line, embedded quotes) can slip past —
+   which is exactly how a release-record commit once landed directly on `main` (2026-06-14).
+2. **Git-native `.husky/pre-commit`** — runs for EVERY commit regardless of how it is invoked; the
+   robust backstop for what the parsing layer misses.
 
 Exceptions (both layers): a merge in progress (`.git/MERGE_HEAD`), or the explicit overrides
 `ALLOW_PROTECTED_COMMIT=1` (husky) / `BRANCH_GUARD_ALLOW_MAIN_MERGE=1` (Claude hook) for
-user-approved release automation. Branch-first is the rule even for one-line doc commits aimed at
-`main` — always branch → commit → PR.
+user-approved release automation. Branch-first applies even to one-line doc commits — always
+branch → commit → PR.
 
-4. **When merging a branch** (PR or local merge):
-
-   **Determine merge target:**
-   - Check the fork point of the current branch:
-     ```bash
-     git log --oneline --first-parent develop..HEAD
-     git log --oneline --first-parent main..HEAD
-     ```
-   - The merge target must be the branch it was forked from.
-   - If the branch was forked from `develop`, merge back into `develop`.
-   - If the branch was forked from `main`, merge back into `main` (rare, requires justification).
-
-   **Never assume `main` as the default target.** The default is always the fork origin.
-
-   **If the agent wants a different merge target:**
-   - Explicitly state the recommendation and reasoning.
-   - Wait for user approval before proceeding.
-
-   **Merging `develop` into `main`:**
-   - This is a release-level action. Always ask for explicit user approval.
-   - Never do this as part of a regular feature workflow.
-
-5. **When switching branch context for a separate task:**
-   - Commit and push all current work before switching.
-   - After the separate task is done, return to the original branch.
-   - If the current checkout cannot be used safely, stop and ask the user how to isolate the task before changing branches.
-   - Before merging or cleaning up remote branches, verify the PR and remote state:
-
-     ```bash
-     gh pr view <number> --json state,mergedAt,mergeCommit
-     git fetch origin develop --prune
-     ```
-
-   - If `gh pr merge` succeeds remotely but local synchronization fails, verify the PR state and do not retry the merge blindly.
-
-6. **When deploying docs or blog:**
-   - Cloudflare Pages deploys automatically when `main` is updated.
-   - Manual docs deployment uses `pnpm docs:deploy` after `pnpm docs:build` succeeds.
-   - Do not push generated documentation artifacts to source branches.
-   - Custom domain: `robota.io` is owned by the Cloudflare Pages project.
-
-## Stop Conditions
-
-- User declines branch creation — do not commit on the protected branch.
-- Branch name conflicts with an existing branch — ask for an alternative name.
-- Merge target differs from fork origin — ask user before proceeding.
-
-## Checklist
-
-- [ ] Current branch checked before every commit
-- [ ] Protected branch detected and user notified
-- [ ] Branch name suggested with conventional prefix
-- [ ] User approved the branch name
-- [ ] New branch created before committing
-- [ ] Merge target matches fork origin
-- [ ] Release merge (develop → main) explicitly approved by user
-
-## Anti-Patterns
-
-- Committing directly to `main`, `master`, or `develop` without asking.
-- Creating a branch without user approval of the name.
-- Using generic branch names like `temp` or `wip` without a descriptive suffix.
-- Creating a new branch for every intermediate commit within a single task.
-- Merging into `main` when the branch was forked from `develop`.
-- Assuming `main` as the default merge/PR target.
-- Passing `--delete-branch` to `gh pr merge` (zero exceptions — it once deleted the `develop`
-  integration branch). Merge without it; delete only on explicit user request via `git branch -D`
-  (local) or `gh api -X DELETE .../git/refs/heads/<name>` (remote). Enforced by `branch-guard.sh`.
+If the hook fires (or you notice you are on a protected branch): stop, propose a conventional
+branch name (`feat|fix|refactor|docs|chore/<scope>-<desc>`), get user approval, then
+`git checkout -b` and continue — subsequent commits in the same task stay on that branch without
+re-asking.

@@ -1,6 +1,6 @@
 ---
 name: improvement-proposal-authoring
-description: Turns classified conformance findings into a prioritized improvement proposal — maps each P0/P1 finding to a remediation, a proposed follow-up backlog ID + type prefix, and a mechanical-guard recommendation. Use as step 4 of architecture-conformance-audit.
+description: Turns classified conformance findings into a prioritized improvement proposal — maps each P0/P1 finding to a remediation, a proposed follow-up backlog ID + type prefix, and a mechanical-guard recommendation. Use as the remediation-planning step after an architecture-conformance-audit run.
 ---
 
 # Improvement Proposal Authoring
