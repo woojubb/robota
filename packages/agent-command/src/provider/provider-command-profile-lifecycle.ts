@@ -12,8 +12,8 @@ import type { IProviderCommandModuleOptions } from '@robota-sdk/agent-framework'
 import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
 
 const MAX_DUPLICATE_PROFILE_SUFFIX = 1000;
-const PROVIDER_RESTART_EFFECT = {
-  type: 'session-restart-requested',
+const PROVIDER_RESTART_ACTION = {
+  type: 'session-restart',
   reason: 'other',
 } as const;
 
@@ -166,7 +166,7 @@ function completeActiveProviderDelete(
   return {
     message: `Provider profile deleted: ${profileName}. Restarting with ${replacementName}...`,
     success: true,
-    effects: [{ ...PROVIDER_RESTART_EFFECT, message: 'Provider delete restart' }],
+    hostActions: [{ ...PROVIDER_RESTART_ACTION, message: 'Provider delete restart' }],
   };
 }
 

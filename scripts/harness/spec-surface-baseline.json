@@ -3,7 +3,7 @@
   "@robota-sdk/agent-command": 140,
   "@robota-sdk/agent-core": 147,
   "@robota-sdk/agent-executor": 19,
-  "@robota-sdk/agent-framework": 161,
+  "@robota-sdk/agent-framework": 160,
   "@robota-sdk/agent-interface-transport": 4,
   "@robota-sdk/agent-playground": 26,
   "@robota-sdk/agent-plugin": 29,

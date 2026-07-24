@@ -16,8 +16,8 @@ import type {
 } from '@robota-sdk/agent-framework';
 import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
 
-const PROVIDER_RESTART_EFFECT = {
-  type: 'session-restart-requested',
+const PROVIDER_RESTART_ACTION = {
+  type: 'session-restart',
   reason: 'other',
 } as const;
 
@@ -108,6 +108,6 @@ function completeProviderSetup(
   return {
     message: `Provider ${input.profile} configured. Restarting...`,
     success: true,
-    effects: [{ ...PROVIDER_RESTART_EFFECT, message: 'Provider setup restart' }],
+    hostActions: [{ ...PROVIDER_RESTART_ACTION, message: 'Provider setup restart' }],
   };
 }

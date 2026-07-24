@@ -89,7 +89,7 @@ describe('createLanguageCommandModule', () => {
 
     expect(result?.success).toBe(true);
     expect(result?.data?.language).toBe('ko');
-    expect(result?.effects).toEqual([{ type: 'language-change-requested', language: 'ko' }]);
+    expect(result?.hostActions).toEqual([{ type: 'language-change', language: 'ko' }]);
   });
 
   it('shows usage when no language code is provided', async () => {
@@ -116,6 +116,6 @@ describe('createLanguageCommandModule', () => {
 
     expect(result?.success).toBe(true);
     expect(result?.data?.language).toBe('ko');
-    expect(result?.effects).toEqual([{ type: 'language-change-requested', language: 'ko' }]);
+    expect(result?.hostActions).toEqual([{ type: 'language-change', language: 'ko' }]);
   });
 });

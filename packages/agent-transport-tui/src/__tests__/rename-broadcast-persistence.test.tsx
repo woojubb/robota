@@ -6,8 +6,8 @@
  * (2) updates the TUI title via the broadcast `session_renamed` event.
  *
  * Runs the REAL TuiInteractionChannel over a real InteractiveSession (scripted provider) with a
- * command module mirroring the real `/rename` contract (returns the legacy `session-renamed`
- * effect; the Stage-B session shim maps it to the `session-rename` host action).
+ * command module mirroring the real `/rename` contract (returns the `session-rename` host action
+ * on the split contract — Stage E deleted the legacy effect union).
  *
  * Red-first evidence: against pre-Stage-C code the broadcast half FAILED (the TUI only reacted to
  * the legacy effect, which Stage B strips after host execution — so the title never updated).
@@ -39,7 +39,7 @@ async function waitUntil(predicate: () => boolean, deadlineMs = READY_DEADLINE_M
   expect(predicate()).toBe(true);
 }
 
-/** Mirrors the real session-command `/rename` contract: NO mutation in the command, effect only. */
+/** Mirrors the real session-command `/rename` contract: NO mutation in the command, host action only. */
 const renameModule: ICommandModule = {
   name: 'stage-c-rename-proof',
   systemCommands: [
@@ -50,7 +50,7 @@ const renameModule: ICommandModule = {
       execute: (_context, args) => ({
         success: true,
         message: `Session renamed to "${args}".`,
-        effects: [{ type: 'session-renamed', name: args }],
+        hostActions: [{ type: 'session-rename', name: args }],
       }),
     },
   ],

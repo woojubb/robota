@@ -30,6 +30,10 @@ Provides:
   wire — into an explicit "not available on this surface" notice, never a silent no-op (TC-05, the
   no-fallback rule). When a GUI screen for an intent lands, its arm in `describeUiIntentForGui`
   switches from a notice to the mapped surface state.
+- **Broadcast session-state events (CMD-004 Stage E)** — the reducer folds `session_renamed` into
+  `IWsSessionState.sessionName` (co-driving titles follow the host-executed rename) and
+  `history_cleared` into an emptied transcript (messages + streaming state reset) — a clear
+  performed by ANY surface refreshes this one.
 - **Components** — `ConversationView` (pure conversation render, markdown), `AgentActivityPanel` (background
   task rail), `PermissionPrompt` (permission/ask modal), `SessionSurface` (the full terminal-noir desktop
   layout over an `IWsSessionState`), and `CenteredChrome` (pre-session / fatal chrome).

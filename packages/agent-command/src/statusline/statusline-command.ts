@@ -75,6 +75,6 @@ export function executeStatusLineCommand(
   return {
     success: true,
     message: action.message,
-    effects: [{ type: 'statusline-settings-patch', patch: action.patch }],
+    hostActions: [{ type: 'statusline-settings-patch', patch: action.patch }],
   };
 }

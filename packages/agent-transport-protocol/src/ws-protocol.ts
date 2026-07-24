@@ -7,6 +7,7 @@ import type {
   IExecutionWorkspaceSnapshot,
   IPermissionRequestEvent,
   IPromptResolvedEvent,
+  ISessionRenamedEvent,
   IToolState,
   IUiIntentEvent,
   IUsageBySourceReport,
@@ -100,6 +101,10 @@ export type TServerMessage =
   // requester-routed — a client renders it only when `event.requesterDriverId` is its own driver id;
   // an unsupported intent yields an explicit "not available on this surface" notice, never a silent drop.
   | { type: 'ui_intent'; event: IUiIntentEvent }
+  // CMD-004 Phase 2 Stage E: BROADCAST session events — every attached surface receives them
+  // (co-driving titles/transcripts follow the host-executed rename/clear; never requester-filtered).
+  | { type: 'session_renamed'; event: ISessionRenamedEvent }
+  | { type: 'history_cleared' }
   | {
       type: 'background_task_control_result';
       action: TBackgroundControlAction;

@@ -42,7 +42,7 @@ describe('createResetCommandModule', () => {
       success: true,
       message: 'Reset requested.',
       data: { resetRequested: true },
-      effects: [{ type: 'settings-reset-requested' }],
+      hostActions: [{ type: 'settings-reset' }],
     });
   });
 
@@ -57,7 +57,7 @@ describe('createResetCommandModule', () => {
       success: true,
       message: 'Reset requested.',
       data: { resetRequested: true },
-      effects: [{ type: 'settings-reset-requested' }],
+      hostActions: [{ type: 'settings-reset' }],
     });
   });
 });

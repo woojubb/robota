@@ -16,7 +16,7 @@ This package does NOT own: provider implementations, generic session run loop, t
 - `createQuery()` — convenience single-shot factory
 - `createAgentRuntime()` — runtime composition factory for headless and multi-session consumers
 - Command infrastructure: `CommandRegistry`, `BuiltinCommandSource`, `SkillCommandSource`, `PluginCommandSource`, `SystemCommandExecutor`, `createSystemCommands()`
-- Command API contracts: `ISystemCommand`, `ICommandModule`, `ICommandHostContext`, `ICommandResult`, `TCommandEffect`
+- Command API contracts: `ISystemCommand`, `ICommandModule`, `ICommandHostContext`, `ICommandResult`, `TCommandHostAction`, `TCommandUiIntent`
 - All `command-api/` sub-namespaces: provider, org-policy, context, compact, language, memory, background, help, permissions, statusline, plugin, session, effects, checkpoint
 - Config loading: `loadConfig()` (internal), `readSettings()`, `writeSettings()`, settings I/O utilities
 - Context loading: `loadContext()` (internal), task context helpers, prompt file reference resolver, context reference inventory
@@ -95,7 +95,6 @@ Key design rules:
 | `ICommandHostContext`                                                 | `src/command-api/host-context.ts`                                                                      | Narrow facade for command module implementations                                                                      |
 | `ICommandHostAdapters`                                                | `src/command-api/host-adapters.ts`                                                                     | Host-provided adapter bag                                                                                             |
 | `ICommandResult`                                                      | `src/command-api/contracts.ts`                                                                         | Command output and typed host effects                                                                                 |
-| `TCommandEffect`                                                      | `src/command-api/contracts.ts`                                                                         | Legacy typed effect union (CMD-004 Phase 2 splits it; deleted in Stage E)                                             |
 | `TCommandHostAction` / `TCommandUiIntent`                             | `@robota-sdk/agent-interface-transport` (re-exported via `src/command-api/effects.ts`)                 | CMD-004 Phase 2 split contract: host-executed actions vs surface-rendered UI intents                                  |
 | `IPresetApplicationOptions`                                           | `src/command-api/preset/preset-application.ts`                                                         | Framework-owned resolved-preset option subset re-applied to a live session (PRESET-011~017)                           |
 | `IPresetApplicationResult`                                            | `src/command-api/preset/preset-application.ts`                                                         | `{ applied, skipped }` report from `applyPresetToSession`                                                             |
@@ -932,7 +931,7 @@ agent-cli (Ink TUI — CLI-specific)
 - **Events**: `text_delta`, `tool_start`, `tool_end`, `thinking`, `complete`, `error`, `context_update`, `interrupted`
 - **submit() signature**: `submit(input, displayInput?, rawInput?)` — `displayInput` overrides what appears in the client's message list; `rawInput` is passed to `Session.run()` for hook matching
 - **Prompt file references**: Before a non-command prompt reaches `Session.run()`, `InteractiveSession` delegates to the SDK-owned prompt file-reference resolver. Path-like tokens such as `@AGENTS.md`, `@./Makefile`, and `@docs/spec.md` are resolved relative to the session `cwd`, constrained to the workspace root, bounded by explicit file/total byte limits, and expanded into model-only prompt context blocks. The user-visible history keeps the original prompt and records a `prompt-file-reference` event with structured records (`sourcePath`, `relativePath`, `originalReference`, `reason`, `depth`, `byteLength`) without storing file contents in the event. Missing, outside-root, directory, circular, max-depth, and size-limit failures are blocking diagnostics and the prompt is not sent to the provider.
-- **executeCommand()**: `executeCommand(name, args, source?, originDriverId?)` — executes a named system command via the embedded `SystemCommandExecutor`. Product composition roots inject command modules such as `/compact`; SDK-default user-visible commands are intentionally empty. CMD-004 Phase 2 (Stage B): after a successful command, the SESSION applies its host actions (`src/interactive/interactive-session-host-actions.ts`, generalizing the former hot-swap-only block) via `ICommandHostAdapters` — settings/process/remote-control adapters, direct-on-session rename with a `session_renamed` broadcast — with headless (zero-surface) parity; applied host actions are STRIPPED from the returned result; an absent adapter capability yields an EXPLICIT failure result (no-fallback). The four screen-navigation effects stay dual-carried (legacy effect + a `ui_intent` event stamped with the command-origin driver id, model-invoked fallback = active turn driver) until Stage C; a temporary shim (`src/interactive/command-effect-shim.ts`) maps legacy `TCommandEffect` emissions until Stage E migrates emitters.
+- **executeCommand()**: `executeCommand(name, args, source?, originDriverId?)` — executes a named system command via the embedded `SystemCommandExecutor`. Product composition roots inject command modules such as `/compact`; SDK-default user-visible commands are intentionally empty. CMD-004 Phase 2: after a successful command, the SESSION applies its `hostActions` (`src/interactive/interactive-session-host-actions.ts`, generalizing the former hot-swap-only block) via `ICommandHostAdapters` — settings/process/remote-control adapters, direct-on-session rename with a `session_renamed` broadcast, a `history_cleared` broadcast on conversation clear — with headless (zero-surface) parity; applied host actions and emitted `uiIntents` are CONSUMED from the returned result (`ui_intent` events are stamped with the command-origin driver id, model-invoked fallback = active turn driver); an absent adapter capability yields an EXPLICIT failure result (no-fallback). The legacy `TCommandEffect` union and its Stage-B mapping shim were deleted in Stage E.
 - **Edit checkpoints**: `listEditCheckpoints()` returns checkpoint summaries for the active session. `inspectEditCheckpoint(id)` returns captured files and restore/rollback plans. `restoreEditCheckpoint(id)` restores code to a prior checkpoint and records a system history entry. It is rejected while a prompt is running.
 - **listCommands()**: `listCommands()` — returns `Array<{ name, description }>` of all registered system commands. Used by transport adapters (e.g., MCP) to expose commands as tools.
 - **Queue behavior**: If `executing` is true, the incoming prompt is queued. The queued prompt auto-executes after the current one completes. Only one prompt can be queued at a time.
@@ -954,7 +953,7 @@ agent-cli (Ink TUI — CLI-specific)
   - `ICommandModule` — composition unit contributing command sources, executable commands, descriptors, and session requirements.
   - `ICommandHostContext` — narrow command-facing facade over session/context/runtime capabilities. Command modules must not require `InteractiveSession`, React state, CLI settings files, or TUI hooks directly.
   - `ICommandResult` — command output, structured diagnostics, and typed host effects.
-  - `TCommandEffect` — typed host-applied effects such as model/language change, restart, exit, session picker, plugin UI, plugin registry reload, rename, and statusline patch.
+  - `TCommandHostAction` / `TCommandUiIntent` — the CMD-004 split contract: host-executed actions (model/language change, restart, exit, rename, statusline patch, remote-control) vs surface-rendered UI intents (settings/plugin-manager/session-picker/agent-switcher screens).
   - User-facing prompts are not part of `ICommandResult`. A command that needs input asks for it inline via `context.getUserInteraction()?.ask(IActionRequest)` (CMD-004), the unified action seam owned by `agent-core`.
 - **Provider common APIs**: `agent-framework/command-api/provider/` owns provider settings document types, provider profile merge/validation/delete helpers, environment reference helpers, setup-flow primitives including fixed-profile edit defaults, provider-owned setup help link projection, provider profile name suggestion helpers, provider command settings adapter contracts, and provider probe defaults. `provider` command behavior lives in `@robota-sdk/agent-command` and consumes these APIs as an external command module.
 - **Org-policy common APIs**: `agent-framework/command-api/org-policy/` owns `IOrgPolicy` (allowedProviders, blockedCommands, requireApiKeyFromEnv, adminContact), `loadOrgPolicy()` (reads `~/.robota/org-policy.json`), `formatOrgPolicyViolationMessage()`, and `isApiKeyPlaintext()`. Enforcement is split: `InteractiveSession.executeCommand()` blocks `blockedCommands` before dispatch and blocks `allowedProviders` violations after a `provider-hot-swap-requested` effect is observed. `IProviderCommandModuleOptions.orgPolicy` passes the policy to provider command module so `buildProviderSwitch` and `completeProviderEdit` can enforce `allowedProviders` and `requireApiKeyFromEnv` within command boundaries. `IAgentRuntimeConfig.orgPolicy` carries the policy through runtime construction to session creation.
@@ -1064,7 +1063,7 @@ reusing broad context-loading internals for repository interpretation.
   - `SystemCommandExecutor` — registry + executor for `ISystemCommand` instances (internal to InteractiveSession)
   - `createSystemCommands()` — SDK core executable command factory; currently returns an empty list because user-visible built-ins live in `agent-command-*`
   - `createBuiltinCommandModule()` — SDK core compatibility module; currently empty
-- **Design**: Commands return `ICommandResult` with `message`, `success`, and optional SDK-owned `effects`. `data` remains available for command-specific diagnostic payloads, but callers must not invent command-specific side-effect keys. User-facing prompts are solicited inline via the CMD-004 ask seam (`context.getUserInteraction()?.ask`), not returned in the result; host actions such as restart, shutdown, plugin UI, plugin registry reload, session picker, model/language changes, session rename, and status-line updates are represented by typed `TCommandEffect` values.
+- **Design**: Commands return `ICommandResult` with `message`, `success`, and optional SDK-owned `hostActions`/`uiIntents`. `data` remains available for command-specific diagnostic payloads, but callers must not invent command-specific side-effect keys. User-facing prompts are solicited inline via the CMD-004 ask seam (`context.getUserInteraction()?.ask`), not returned in the result; host semantics (restart, shutdown, model/language changes, session rename, status-line updates, remote-control) are typed `TCommandHostAction` values the session executes, and screen navigation (settings/plugin-manager/session-picker/agent-switcher) is a typed `TCommandUiIntent` rendered by the requesting surface.
 - **Single owner rule**: SDK-default built-in command metadata is derived from executable `ISystemCommand` records. A built-in command must not be added to autocomplete/help metadata without an executable owner module.
 - **Lifecycle policy**: `ISystemCommand` may declare command lifecycle metadata. Blocking foreground commands share the same `InteractiveSession` execution guard and `thinking` events as prompt execution. Inline commands execute immediately and must not call model-backed long-running operations.
 - **Command identity**: `ICommand.name`, `ISystemCommand.name`, `ICapabilityDescriptor.name`, and projected model-command reverse mappings use slash-free canonical command ids such as `skills`, `agent`, and `memory`. Slash syntax such as `/skills` or `/agent` belongs only to UI/transport input parsing and display.
@@ -1714,31 +1713,37 @@ interface ICommandResult {
   message: string;
   success: boolean;
   data?: Record<string, TCommandResultDataValue>;
-  effects?: readonly TCommandEffect[];
+  hostActions?: readonly TCommandHostAction[]; // session-executed (CMD-004)
+  uiIntents?: readonly TCommandUiIntent[]; // requester-routed `ui_intent` events (CMD-004)
 }
 
-type TCommandEffect =
-  | { type: 'provider-hot-swap-requested'; profileName: string }
-  | { type: 'language-change-requested'; language: string }
-  | { type: 'settings-reset-requested' }
-  | { type: 'session-exit-requested'; reason?: TSessionEndReason; message?: string }
-  | { type: 'session-restart-requested'; reason: TSessionEndReason; message: string }
-  | { type: 'plugin-tui-requested' }
-  | { type: 'plugin-registry-reload-requested' }
-  | { type: 'settings-tui-requested' }
-  | { type: 'session-picker-requested' }
-  | { type: 'session-renamed'; name: string }
-  | { type: 'conversation-history-cleared' }
-  | { type: 'session-execution-started' }
+type TCommandHostAction =
+  | { type: 'provider-hot-swap'; profileName: string }
+  | { type: 'language-change'; language: string }
+  | { type: 'settings-reset' }
+  | { type: 'session-exit'; reason?: TSessionEndReason; message?: string }
+  | { type: 'session-restart'; reason: TSessionEndReason; message: string }
+  | { type: 'session-rename'; name: string }
   | { type: 'statusline-settings-patch'; patch: TStatusLineCommandSettingsPatch }
-  | { type: 'agent-switcher-requested' };
+  | { type: 'remote-control-enable' }
+  | { type: 'remote-control-stop' };
+
+type TCommandUiIntent =
+  | { type: 'show-plugin-manager' }
+  | { type: 'show-settings' }
+  | { type: 'show-session-picker' }
+  | { type: 'show-agent-switcher' };
 ```
+
+State-change notifications ride broadcast session events (`session_renamed`, `history_cleared`),
+and requester-local hints ride `data` (`sessionExecution`, `pluginRegistryReloaded`) — the legacy
+`TCommandEffect` union was deleted (CMD-004 Stage E).
 
 A command that needs user input does not return a continuation in `ICommandResult`. It asks inline via the CMD-004 unified seam — `context.getUserInteraction()?.ask(IActionRequest)` — which is owned by `agent-core`, reaches both command and tool execution, and is rendered per-environment by the active channel's `askUser`. See the Interaction Channel Contract section.
 
 ### CommandRegistry, BuiltinCommandSource, SkillCommandSource, PluginCommandSource
 
-Command discovery and aggregation for clients that expose a slash command palette or autocomplete UI. Owned by `agent-framework`; agent-cli re-exports `CommandRegistry` from here. `PluginCommandSource` was moved from `agent-cli` to `agent-framework` so all clients benefit from plugin command discovery. Command modules can be added through `registry.addModule(module)` without the registry knowing their command names. Hosts can call `registry.replaceSource(name, source)` to refresh dynamic sources such as plugin-provided commands after a successful reload effect.
+Command discovery and aggregation for clients that expose a slash command palette or autocomplete UI. Owned by `agent-framework`; agent-cli re-exports `CommandRegistry` from here. `PluginCommandSource` was moved from `agent-cli` to `agent-framework` so all clients benefit from plugin command discovery. Command modules can be added through `registry.addModule(module)` without the registry knowing their command names. Hosts can call `registry.replaceSource(name, source)` to refresh dynamic sources such as plugin-provided commands after a successful reload (the `data.pluginRegistryReloaded` result hint).
 
 ```typescript
 import {

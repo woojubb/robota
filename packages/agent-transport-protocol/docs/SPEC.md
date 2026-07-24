@@ -31,6 +31,10 @@ abort/...` from inbound `TClientMessage`s) + `cleanup()`. Framework-agnostic: wo
   id — e.g. an idle model-invoked command) is unroutable and reaches every surface (never a silent
   drop). In the `SessionResumeBridge`, routing happens BEFORE seq-stamping/buffering, so a foreign
   surface's intent consumes no seq and cannot leak through a later `resume` replay.
+  **Stage E — broadcast session-state events:** `subscribeSessionEvents` forwards the session's
+  `session_renamed` (`{ type: 'session_renamed', event }`) and `history_cleared`
+  (`{ type: 'history_cleared' }`) events to EVERY attached surface, unfiltered — the host executed
+  the rename/clear; co-driving titles and transcripts follow the broadcast.
 - **REMOTE-014 E5 co-drive attribution (SERVER-ASSIGNED, display-only).** `IWsHandlerOptions.driverId` binds a
   surface's server-assigned driver id (the E3 `deviceId`; the SessionResumeBridge sets it at pairing via
   `setDriverId`). The handler INJECTS it into every inbound `submit` / `permission-response` / `ask-response`

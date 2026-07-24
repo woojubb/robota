@@ -41,7 +41,7 @@ async function spawnAgentJob(
 }
 
 function executeOpenSwitcher(): ICommandResult {
-  return { message: '', effects: [{ type: 'agent-switcher-requested' }], success: true };
+  return { message: '', uiIntents: [{ type: 'show-agent-switcher' }], success: true };
 }
 
 async function executeList(session: IAgentJobHostContext): Promise<ICommandResult> {

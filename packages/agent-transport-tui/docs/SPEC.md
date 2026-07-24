@@ -78,10 +78,12 @@ reset, exit/restart, rename, statusline patch, remote control. The renderer only
   `setName` in response to a command result.
 - **Statusline** refreshes on result: when a slash-command result arrives, the TUI RE-READS the
   persisted settings document (`useStatusLineSettings` `refresh()`) — it never writes settings.
-- The only legacy `result.effects` still consumed (`command-result-handler.ts`) are the two
-  notification kinds pending their Stage-E carriers: `conversation-history-cleared` and
-  `plugin-registry-reload-requested` (local registry/autocomplete refresh only — the semantic
-  plugin reload already ran host-side). Everything else in `effects` is ignored by design.
+- **Transcript** follows the broadcast `history_cleared` event (CMD-004 Stage E): a clear
+  performed by ANY surface — a co-driving remote `/clear` included — empties the rendered
+  history (`TuiInteractionChannel` binds the event to `TuiStateManager.clearHistory`).
+- The only result-carried hint consumed by `command-result-handler.ts` is
+  `data.pluginRegistryReloaded` — the requester-local registry/autocomplete refresh (the
+  semantic plugin reload already ran host-side). The legacy `result.effects` field is deleted.
 - `ITuiCliAdapter` is **read-only toward settings** (`readSettings`/`getUserSettingsPath`); the
   write/delete/statusline-apply members were removed with the legacy effect handler.
 

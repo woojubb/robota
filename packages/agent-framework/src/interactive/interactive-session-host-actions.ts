@@ -1,17 +1,11 @@
 /**
- * CMD-004 Phase 2 (Stage B) — the host-action executor for the `executeCommand` pipeline.
+ * CMD-004 Phase 2 — the host-action executor for the `executeCommand` pipeline.
  *
- * Generalizes the proven host-side `provider-hot-swap-requested` block: the SESSION layer (the
- * host) applies a command's host actions via the injected `ICommandHostAdapters` (or directly on
- * the session) BEFORE the command result is returned, so the semantics work on EVERY surface —
- * remote, headless (zero surfaces attached), and the local TUI alike.
- *
- * Stage-B stripping scope: applied HOST ACTIONS are removed from the returned `result.effects`
- * (exactly like hot-swap today, so the TUI's duplicate application becomes a no-op). The four
- * UI-intent effects stay DUAL-CARRIED — the legacy effect remains in `result.effects` (the TUI
- * still renders from it until Stage C) AND the session emits the new `ui_intent` event for
- * non-TUI surfaces. Notification effects (`conversation-history-cleared`,
- * `session-execution-started`) pass through untouched (their final carriers are Stage E).
+ * The SESSION layer (the host) applies a command's `hostActions` via the injected
+ * `ICommandHostAdapters` (or directly on the session) BEFORE the command result is returned, so
+ * the semantics work on EVERY surface — remote, headless (zero surfaces attached), and the local
+ * TUI alike. `uiIntents` are emitted as requester-routed `ui_intent` session events. Both split
+ * fields are CONSUMED here — the returned result carries only message/success/data.
  *
  * No-fallback: an action whose adapter (or adapter capability) is not wired in the current
  * composition yields an EXPLICIT failure in the command result naming the missing capability —
@@ -20,7 +14,6 @@
 
 import { OWNER_DRIVER_ID } from '@robota-sdk/agent-interface-transport';
 
-import { mapLegacyEffectToHostAction, mapLegacyEffectToUiIntent } from './command-effect-shim.js';
 import { formatOrgPolicyViolationMessage } from '../command-api/org-policy/org-policy-loader.js';
 import {
   isStatusLineCommandSettingsPatch,
@@ -33,7 +26,6 @@ import type { TCommandInvocationSource } from '../commands/index.js';
 import type {
   ICommandResult,
   IUiIntentEvent,
-  TCommandEffect,
   TCommandHostAction,
   TCommandUiIntent,
   TDriverId,
@@ -73,18 +65,6 @@ function actionErrorFailure(action: TCommandHostAction['type'], error: unknown):
   return { success: false, message: `Failed to apply '${action}': ${message}` };
 }
 
-const HOST_EXECUTED_EFFECT_TYPES: ReadonlySet<TCommandEffect['type']> = new Set([
-  'provider-hot-swap-requested',
-  'language-change-requested',
-  'settings-reset-requested',
-  'session-exit-requested',
-  'session-restart-requested',
-  'session-renamed',
-  'statusline-settings-patch',
-  'remote-control-enable-requested',
-  'remote-control-stop-requested',
-]);
-
 /**
  * Apply a successful command result's host actions in order. On the first failure the whole result
  * becomes that explicit failure (and no UI intent is emitted). A failed command result passes
@@ -96,19 +76,8 @@ export async function applyCommandHostActions(
 ): Promise<IHostActionApplication> {
   if (!result.success) return { result, uiIntents: [] };
 
-  const legacyEffects = result.effects ?? [];
-  const hostActions: TCommandHostAction[] = [
-    ...legacyEffects
-      .map(mapLegacyEffectToHostAction)
-      .filter((action): action is TCommandHostAction => action !== null),
-    ...(result.hostActions ?? []),
-  ];
-  const uiIntents: TCommandUiIntent[] = [
-    ...legacyEffects
-      .map(mapLegacyEffectToUiIntent)
-      .filter((intent): intent is TCommandUiIntent => intent !== null),
-    ...(result.uiIntents ?? []),
-  ];
+  const hostActions: readonly TCommandHostAction[] = result.hostActions ?? [];
+  const uiIntents: readonly TCommandUiIntent[] = result.uiIntents ?? [];
 
   const appendedMessages: string[] = [];
   for (const action of hostActions) {
@@ -118,7 +87,6 @@ export async function applyCommandHostActions(
 
   if (hostActions.length === 0 && uiIntents.length === 0) return { result, uiIntents: [] };
 
-  const residualEffects = legacyEffects.filter((e) => !HOST_EXECUTED_EFFECT_TYPES.has(e.type));
   const message =
     appendedMessages.length > 0
       ? [result.message, ...appendedMessages].filter((m) => m.length > 0).join('\n')
@@ -128,7 +96,6 @@ export async function applyCommandHostActions(
     message,
     success: result.success,
     ...(result.data !== undefined ? { data: result.data } : {}),
-    ...(residualEffects.length > 0 ? { effects: residualEffects } : {}),
   };
   return { result: applied, uiIntents };
 }
@@ -205,10 +172,6 @@ async function applyOneHostAction(
         settings.write({ ...document, statusline: next });
         return null;
       }
-      case 'plugin-registry-reload':
-        // The semantic reload already ran host-side inside the command (via the plugin adapter);
-        // this action kind only exists on the split contract for Stage-E emitters. Nothing to do.
-        return null;
       case 'remote-control-enable': {
         const enable = adapters.remoteControl?.enable;
         if (!enable)

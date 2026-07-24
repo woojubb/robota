@@ -748,6 +748,7 @@ export class InteractiveSession
     this.histTracker.clearHistory();
     this.persistCurrentSession();
     this.emit('context_update', this.getContextState());
+    this.emit('history_cleared'); // CMD-004 Stage E: broadcast — every surface refreshes its transcript
   }
 
   getName(): string | undefined {
@@ -973,10 +974,8 @@ export class InteractiveSession
     session.swapProvider(provider, settings.model);
   }
 
-  /**
-   * CMD-004 Phase 2 (Stage B): after the command runs, the HOST applies its host actions via
-   * {@link applyCommandHostActions} (generalizing the previous hot-swap-only block; applied
-   * actions are stripped from the result) and emits requester-routed `ui_intent` events. */
+  /** CMD-004: after the command runs, the HOST applies its host actions via
+   * {@link applyCommandHostActions} and emits requester-routed `ui_intent` events. */
   override async executeCommand(
     name: string,
     args: string,

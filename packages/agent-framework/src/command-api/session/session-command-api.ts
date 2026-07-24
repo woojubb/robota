@@ -4,7 +4,7 @@ import { loadSessionLogEntries, validateSessionReplayLogEntries } from '@robota-
 
 import { projectPaths } from '../../paths.js';
 
-import type { TCommandEffect } from '../effects.js';
+import type { TCommandHostAction, TCommandUiIntent } from '../effects.js';
 import type { ICommandHostContext } from '../host-context.js';
 import type { ICommandSessionReplayValidationReport } from '../host-context.js';
 
@@ -36,16 +36,19 @@ export function parseSessionNameArgument(args: string): string | undefined {
   return name.length > 0 ? name : undefined;
 }
 
-export function createSessionRenamedEffect(name: string): TCommandEffect {
-  return { type: 'session-renamed', name };
+/** CMD-004: `/rename` requests the HOST-executed rename (direct-on-session; `session_renamed` broadcast follows). */
+export function createSessionRenameHostAction(name: string): TCommandHostAction {
+  return { type: 'session-rename', name };
 }
 
-export function createSessionPickerRequestedEffect(): TCommandEffect {
-  return { type: 'session-picker-requested' };
+/** CMD-004: `/resume` asks the REQUESTING surface to open its session picker (UI intent). */
+export function createShowSessionPickerIntent(): TCommandUiIntent {
+  return { type: 'show-session-picker' };
 }
 
-export function createSessionExitRequestedEffect(): TCommandEffect {
-  return { type: 'session-exit-requested' };
+/** CMD-004: `/exit` requests the HOST-executed session exit (process adapter; works on every surface). */
+export function createSessionExitHostAction(): TCommandHostAction {
+  return { type: 'session-exit' };
 }
 
 export function readCommandSessionInfo(context: ICommandHostContext): ICommandSessionInfo {

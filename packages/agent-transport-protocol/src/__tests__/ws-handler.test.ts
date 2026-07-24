@@ -567,7 +567,7 @@ describe('WebSocket Transport Handler', () => {
     const { session, cleanup } = setup();
     cleanup();
     // 11 base events + 3 REMOTE-007 prompt events (permission_request/ask_request/prompt_resolved)
-    // + 1 CMD-004 Phase 2 event (ui_intent).
-    expect((session as unknown as { off: ReturnType<typeof vi.fn> }).off).toHaveBeenCalledTimes(15);
+    // + 3 CMD-004 Phase 2 events (ui_intent + the session_renamed/history_cleared broadcasts).
+    expect((session as unknown as { off: ReturnType<typeof vi.fn> }).off).toHaveBeenCalledTimes(17);
   });
 });

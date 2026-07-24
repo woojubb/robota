@@ -262,11 +262,11 @@ export class SessionSkillRouter {
       request.rawInput,
       'user-slash',
     );
+    // CMD-004 Stage E: `data.sessionExecution` — the requester-local "session turn started" hint.
     return {
       success: true,
       message: '',
       data: { skill: skill.name, sessionExecution: true },
-      effects: [{ type: 'session-execution-started' }],
     };
   }
 

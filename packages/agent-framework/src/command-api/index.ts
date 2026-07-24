@@ -7,7 +7,7 @@ export {
 export type { ICommand, ICommandSource } from './types.js';
 export type { ICommandModule, TCommandModuleSessionRequirement } from './command-module.js';
 export type { ISystemCommand, TSystemCommandLifecycle } from './contracts.js';
-export type { TCommandEffect, TCommandHostAction, TCommandUiIntent } from './effects.js';
+export type { TCommandHostAction, TCommandUiIntent } from './effects.js';
 export type { ICommandResult, TCommandResultDataValue } from './command-result.js';
 export type {
   IAgentJobHostContext,
@@ -188,8 +188,7 @@ export type {
 } from './plugin/plugin-command-api.js';
 export {
   buildPluginCommandSubcommands,
-  createPluginRegistryReloadRequestedEffect,
-  createPluginTuiRequestedEffect,
+  createShowPluginManagerIntent,
   PLUGIN_COMMAND_ARGUMENT_HINT,
   PLUGIN_COMMAND_DESCRIPTION,
   RELOAD_PLUGINS_COMMAND_DESCRIPTION,
@@ -197,11 +196,11 @@ export {
 } from './plugin/plugin-command-api.js';
 export {
   clearConversationHistory,
-  createSessionPickerRequestedEffect,
-  createSessionRenamedEffect,
+  createShowSessionPickerIntent,
+  createSessionRenameHostAction,
   CLEAR_COMMAND_DESCRIPTION,
   COST_COMMAND_DESCRIPTION,
-  createSessionExitRequestedEffect,
+  createSessionExitHostAction,
   parseSessionNameArgument,
   formatCommandSessionReplayValidationReport,
   readCommandSessionInfo,

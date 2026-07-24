@@ -1,6 +1,7 @@
 ---
 title: 'CMD-004: separate command interaction ACTION from UI (environment-agnostic, multi-transport)'
-status: in-progress
+status: done
+completed: 2026-07-25
 created: 2026-06-28
 priority: high
 urgency: soon
@@ -18,10 +19,19 @@ depends_on: []
 > **This item stays open for Phase 2 only:** the WS + web-ui **multi-environment broadcast** (two
 > attached environments rendering the same ask simultaneously) — per the completed task's closing note.
 >
-> **Phase 2 re-scoped + in progress (2026-07-25):** the ask broadcast was already delivered by
-> REMOTE-007/009; the actual residual defect is the **command-effect half** — see the approved spec
-> `.agents/spec-docs/active/CMD-004-command-action-ui-separation.md` (status: in-progress) and task
-> breakdown `.agents/tasks/CMD-004-phase2.md`. **Stages A (additive split contract:
+> **Phase 2 COMPLETE (2026-07-25):** all five stages landed — A+B (#1338), C (#1350), D (#1348),
+> E (this PR: emitters on the split contract; `TCommandEffect` + `ICommandResult.effects` deleted
+> workspace-wide; final carriers `session_renamed`/`history_cleared` broadcast session events
+> forwarded over WS and folded by TUI + GUI, `data.sessionExecution` + `data.pluginRegistryReloaded`
+> requester-local hints; TC-06 grep floor mechanized as `command-effect-grep-floor.test.ts`;
+> TC-01..TC-10 all closed). Spec archived at
+> `.agents/spec-docs/done/CMD-004-phase2-command-action-ui-separation.md`; tasks at
+> `.agents/tasks/completed/CMD-004-phase2.md`. User-execution evidence: see the
+> `## User Execution Test Scenarios (Phase 2)` section below.
+>
+> **Phase 2 re-scoped (2026-07-25):** the ask broadcast was already delivered by
+> REMOTE-007/009; the actual residual defect is the **command-effect half** — see the spec and task
+> breakdown above. **Stages A (additive split contract:
 > `TCommandHostAction`/`TCommandUiIntent`, `ui_intent` + `session_renamed` events, command-origin
 > driver id) and B (session-layer host-action executor over `ICommandHostAdapters` + legacy-effect
 > shim + ws-handler `ui_intent` forward + per-mode process adapters) are implemented** with red-first
@@ -121,3 +131,52 @@ A clean, complete design where:
 - CMD-005 (model-invocable question dialog + migration) depends on this foundation.
 - Respect layering ([[code-quality.md Layered Assembly]], no shared product factory): the action
   contract is a lower-layer interface; UI rendering is per-transport; agent-cli only composes.
+
+## User Execution Test Scenarios (Phase 2)
+
+All scenarios are **agent-executable** and were executed by the agent against the completed
+Stage-E implementation (2026-07-25). Each backing artifact is a durable repo test the agent ran
+itself (agent-run evidence rule); the PTY scenarios drive the REAL built `robota` binary.
+
+### S1 — `/settings` opens the settings screen via the UI-intent seam (real binary, PTY)
+
+- Decision: agent-executable.
+- Prerequisites: `pnpm --filter @robota-sdk/agent-cli build` (built binary; the ptytest builds on
+  a temp HOME with a scripted provider — no keys needed).
+- Command: `pnpm --filter @robota-sdk/agent-transport-tui test:pty`
+  (backing artifact: `packages/agent-transport-tui/src/__tests__/pty/settings-screen.ptytest.ts`).
+- Expected: exit 0; `/settings` renders `Settings › Transports` (delivered via the
+  requester-routed `ui_intent` session event, not a legacy effect); Esc returns to the prompt.
+- Evidence (2026-07-25, Stage E final): `pnpm test:pty` → exit 0, **15 passed (10 files)** —
+  includes the `/settings` screen scenario and the `/exit` e2e (host `session-exit` action →
+  per-mode process adapter → clean exit).
+
+### S2 — a remote surface's command executes HOST-side and its screens/notices reach the right surface (serve/WS product path)
+
+- Decision: agent-executable.
+- Prerequisites: workspace build (`pnpm build`).
+- Command: `pnpm --filter @robota-sdk/agent-cli test` (backing artifact:
+  `packages/agent-cli/src/__tests__/ws-command-host-action.test.ts` — remote `/language ko`
+  writes via the injected settings adapter host-side + requests restart; remote `/settings`
+  forwards ONE `ui_intent` stamped with the server-assigned driver id) and
+  `pnpm --filter @robota-sdk/agent-cli test:bin` (real binary serve-mode black-box).
+- Expected: exit 0 on both.
+- Evidence (2026-07-25): agent-cli vitest → **236 passed (30 files)** (TC-03 file re-run:
+  **2 passed**); `test:bin` → exit 0, **4 passed (2 files)**.
+
+### S3 — co-driving surfaces follow a rename/clear performed elsewhere (broadcast carriers)
+
+- Decision: agent-executable.
+- Prerequisites: workspace build.
+- Command: `pnpm --filter @robota-sdk/agent-transport-protocol test` +
+  `pnpm --filter @robota-sdk/agent-transport-tui test` (backing artifacts:
+  `packages/agent-transport-protocol/src/__tests__/ws-broadcast-events.test.ts` — TWO attached WS
+  surfaces both receive `session_renamed`/`history_cleared`;
+  `packages/agent-transport-tui/src/__tests__/history-clear-broadcast.test.ts` — a host-side
+  clear empties the REAL TUI channel's transcript with no command-result path involved;
+  `packages/agent-transport-tui/src/__tests__/rename-broadcast-persistence.test.tsx` — `/rename`
+  persists host-side and the title follows the broadcast).
+- Expected: exit 0; both surfaces receive the broadcasts (proven RED first against pre-Stage-E
+  code: no forwarding existed and the co-driving transcript/title stayed stale — outputs recorded
+  in the spec's Stage-E Evidence Log entry).
+- Evidence (2026-07-25): protocol → **60 passed (6 files)**; TUI → **474 passed (63 files)**.

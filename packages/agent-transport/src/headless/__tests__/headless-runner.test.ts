@@ -185,7 +185,6 @@ describe('createHeadlessRunner (text format)', () => {
         return {
           success: true,
           message: '',
-          effects: [{ type: 'session-execution-started' }],
           data: { skill: 'audit', sessionExecution: true },
         };
       }),

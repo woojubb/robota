@@ -92,7 +92,7 @@ describe('org policy enforcement in provider commands', () => {
     expect(result?.success).toBe(false);
     expect(result?.message).toContain('"openai" is not allowed');
     expect(result?.message).toContain('admin@example.com');
-    expect(result?.effects).toBeUndefined();
+    expect(result?.hostActions).toBeUndefined();
   });
 
   it('allows /provider switch when target is in allowedProviders', async () => {
@@ -112,9 +112,7 @@ describe('org policy enforcement in provider commands', () => {
     );
 
     expect(result?.success).toBe(true);
-    expect(result?.effects).toEqual([
-      { type: 'provider-hot-swap-requested', profileName: 'openai' },
-    ]);
+    expect(result?.hostActions).toEqual([{ type: 'provider-hot-swap', profileName: 'openai' }]);
   });
 
   it('rejects plaintext API key during edit when requireApiKeyFromEnv is true', async () => {

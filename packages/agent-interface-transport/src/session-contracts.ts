@@ -328,6 +328,8 @@ export interface IInteractiveSessionEvents {
   ui_intent: (event: IUiIntentEvent) => void;
   /** CMD-004 Phase 2: the session was renamed host-side — all surfaces update their titles. */
   session_renamed: (event: ISessionRenamedEvent) => void;
+  /** CMD-004 Phase 2: the conversation history was cleared host-side — all surfaces refresh transcripts. */
+  history_cleared: () => void;
 }
 
 export type TInteractiveEventName = keyof IInteractiveSessionEvents;

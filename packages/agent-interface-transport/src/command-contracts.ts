@@ -108,8 +108,7 @@ export type TStatusLineCommandSettingsPatch = Partial<IStatusLineCommandSettings
  * executes via `ICommandHostAdapters` or directly on the session, BEFORE the command result is
  * returned. They execute with zero surfaces attached (headless parity — the LSP
  * `workspace/executeCommand` model); surfaces observe the outcome via session events / the result,
- * never by executing the semantics themselves. Replaces the host-executed half of
- * {@link TCommandEffect} (the legacy union is deleted in Stage E).
+ * never by executing the semantics themselves.
  */
 export type TCommandHostAction =
   | { type: 'provider-hot-swap'; profileName: string }
@@ -119,7 +118,6 @@ export type TCommandHostAction =
   | { type: 'session-restart'; reason: TSessionEndReason; message: string }
   | { type: 'session-rename'; name: string }
   | { type: 'statusline-settings-patch'; patch: TStatusLineCommandSettingsPatch }
-  | { type: 'plugin-registry-reload' }
   | { type: 'remote-control-enable' }
   | { type: 'remote-control-stop' };
 
@@ -136,37 +134,8 @@ export type TCommandUiIntent =
   | { type: 'show-session-picker' }
   | { type: 'show-agent-switcher' };
 
-/**
- * Typed host effects requested by a command execution.
- *
- * LEGACY (CMD-004 Phase 2): this union is split into host-executed {@link TCommandHostAction} and
- * surface-rendered {@link TCommandUiIntent}. During the staged migration the session maps legacy
- * effects onto the split contract internally; Stage E migrates emitters and deletes this union.
- */
-export type TCommandEffect =
-  | { type: 'provider-hot-swap-requested'; profileName: string }
-  | { type: 'language-change-requested'; language: string }
-  | { type: 'settings-reset-requested' }
-  | { type: 'session-exit-requested'; reason?: TSessionEndReason; message?: string }
-  | { type: 'session-restart-requested'; reason: TSessionEndReason; message: string }
-  | { type: 'plugin-tui-requested' }
-  | { type: 'plugin-registry-reload-requested' }
-  | { type: 'settings-tui-requested' }
-  | { type: 'session-picker-requested' }
-  | { type: 'session-renamed'; name: string }
-  | { type: 'conversation-history-cleared' }
-  | { type: 'session-execution-started' }
-  | { type: 'statusline-settings-patch'; patch: TStatusLineCommandSettingsPatch }
-  | { type: 'agent-switcher-requested' }
-  // REMOTE-008: `/remote-control` enable/disable. The host wires the request to an injected callback that
-  // constructs the WebRTC transport at the composition root (commands never touch transports directly).
-  | { type: 'remote-control-enable-requested' }
-  | { type: 'remote-control-stop-requested' };
-
 export type TCommandResultDataValue =
-  | TUniversalValue
-  | Record<string, unknown>
-  | readonly Record<string, unknown>[];
+  TUniversalValue | Record<string, unknown> | readonly Record<string, unknown>[];
 
 /** Result of a system command execution. */
 export interface ICommandResult {
@@ -176,11 +145,6 @@ export interface ICommandResult {
   success: boolean;
   /** Additional structured data (command-specific diagnostics only) */
   data?: Record<string, unknown>;
-  /**
-   * Typed host effects requested by the command.
-   * LEGACY (CMD-004 Phase 2) — use {@link hostActions} / {@link uiIntents}. Deleted in Stage E.
-   */
-  effects?: readonly TCommandEffect[];
   /** CMD-004 Phase 2: host-executed actions — applied by the session layer before the result returns. */
   hostActions?: readonly TCommandHostAction[];
   /** CMD-004 Phase 2: UI intents — emitted as `ui_intent` session events routed to the requesting surface. */

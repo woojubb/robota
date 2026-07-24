@@ -435,7 +435,9 @@ export class TuiInteractionChannel implements IInteractionChannel {
 
     const result = await this.interactiveSession.executeCommand(cmd, args);
     if (result) {
-      if (result.effects?.some((effect) => effect.type === 'session-execution-started')) {
+      // CMD-004 Stage E: `data.sessionExecution` is the requester-local "a session turn is now
+      // running" hint (formerly the `session-execution-started` effect).
+      if (result.data?.['sessionExecution'] === true) {
         this.stateManager.setPendingPrompt(this.interactiveSession.getPendingPrompt());
         return;
       }
@@ -565,6 +567,11 @@ export class TuiInteractionChannel implements IInteractionChannel {
     const onExecutionWorkspaceEvent = (event: IExecutionWorkspaceEvent): void => {
       manager.syncExecutionWorkspaceSnapshot(event.snapshot);
     };
+    // CMD-004 Stage E: the broadcast `history_cleared` is the transcript-refresh carrier — a clear
+    // performed by ANY surface (co-driving remote /clear included) empties this transcript too.
+    const onHistoryCleared = (): void => {
+      manager.clearHistory();
+    };
 
     this.bindSession('user_message', onUserMessage);
     this.bindSession('text_delta', manager.onTextDelta);
@@ -579,6 +586,7 @@ export class TuiInteractionChannel implements IInteractionChannel {
     this.bindSession('skill_activation', onSkillActivation);
     this.bindSession('memory_event', onMemoryEvent);
     this.bindSession('execution_workspace_event', onExecutionWorkspaceEvent);
+    this.bindSession('history_cleared', onHistoryCleared);
 
     // REMOTE-007: the TUI is a subscribed surface for the transport-neutral permission/ask events. It
     // renders each through its existing Ink queues and answers via `resolvePermission`/`resolveAsk`; a
