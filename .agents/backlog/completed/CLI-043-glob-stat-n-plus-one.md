@@ -1,10 +1,16 @@
 ---
 title: 'CLI-043: glob-tool mtime 조회 I/O 폭발 완화'
-status: todo
+status: done
+completed: 2026-05-25
 created: 2026-05-24
 priority: low
 category: performance
 ---
+
+## Outcome
+
+Shipped in PR #589 (ba6c6036b, 2026-05-25) and still in place: `glob-tool.ts` wraps every `stat`
+in `pLimit(100)` (`packages/agent-tools/src/builtins/glob-tool.ts` L12/L68). Verified 2026-07-25 (PROC-001).
 
 ## 문제
 

@@ -8,6 +8,14 @@ area: apps/, packages/agent-cli
 depends_on: []
 ---
 
+## Progress (PROC-001 reconciliation, 2026-07-25)
+
+Reopened as partially shipped. Done in PR #589 (2026-05-25): `apps/action/` (action.yml +
+src/index.ts + 2 passing unit tests) and `content/integrations/github-action.md` — both still
+present. Remaining (the item's own success criterion): publish `robota-sdk/action@v1` to the
+GitHub Marketplace (owner-gated, like npm publishes) and verify the action posts a review comment
+on a real PR. Until then the integration doc describes an action nobody can `uses:` (cf. REL-018).
+
 ## Background
 
 GitHub Action은 개발자가 Robota CLI를 처음 "진짜로 써보는" 채널이 될 수 있다. 코드 리뷰, PR 설명 자동 생성, 테스트 실패 분석 같은 use case가 명확하고, Action 한 줄이면 팀 전체에 도입된다.

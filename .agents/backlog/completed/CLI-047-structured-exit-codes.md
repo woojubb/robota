@@ -1,10 +1,19 @@
 ---
 title: 'CLI-047: print 모드 구조화 exit code'
-status: todo
+status: done
+completed: 2026-05-25
 created: 2026-05-24
 priority: low
 category: feature
 ---
+
+## Outcome
+
+Shipped in PR #589 (ba6c6036b, 2026-05-25) and still in place: README has an
+"Exit Codes (print mode)" section (`packages/agent-cli/README.md` L179), stream-json error events
+carry `error_code` (`packages/agent-transport/src/headless/headless-runner.ts` L120), and config
+errors exit 3 (`cli.ts` `ProviderConfigError` → exit 3 in print mode). The exit-code contract was
+later audited and hardened by CLI-064 (done). Verified 2026-07-25 (PROC-001).
 
 ## 문제
 
