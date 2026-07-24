@@ -12,16 +12,16 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@discordjs/rest": "^2.4.0",
+    "@discordjs/rest": "^2.6.3",
     "@robota-sdk/agent-framework": "^3.0.0-beta.67",
     "@robota-sdk/agent-provider": "^3.0.0-beta.67",
-    "discord-api-types": "^0.37.97",
-    "discord.js": "^14.15.3",
+    "discord-api-types": "^0.38.50",
+    "discord.js": "^14.27.0",
     "dotenv": "^16.4.5"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
-    "tsx": "^4.19.2",
+    "tsx": "^4.23.1",
     "typescript": "^5.7.3"
   },
   "engines": {

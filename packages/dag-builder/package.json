@@ -49,7 +49,7 @@
     "@robota-sdk/dag-core": "workspace:*"
   },
   "devDependencies": {
-    "tsdown": "^0.22.2"
+    "tsdown": "^0.22.14"
   },
   "publishConfig": {
     "access": "public"
