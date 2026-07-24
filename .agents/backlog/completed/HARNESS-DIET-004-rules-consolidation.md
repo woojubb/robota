@@ -1,6 +1,7 @@
 ---
 title: 'HARNESS-DIET-004: rules — consolidate, neutralize, de-duplicate, de-stale'
-status: todo
+status: done
+completed: 2026-07-24
 created: 2026-07-23
 priority: medium
 urgency: soon
@@ -9,6 +10,13 @@ depends_on: []
 ---
 
 # HARNESS-DIET-004: rules consolidation & neutralization
+
+## Outcome (DONE 2026-07-24)
+
+Consolidation via #1296 (runbook merge, routing collapse, dedup, de-stale) + #1300 (project-data →
+project-structure.md SSOT with stale fixes). Rule files never deleted — pointer stubs keep all inbound
+references resolving. Cosmetic leftovers (naming-style styling-summary dup, operational doc-paths pointer)
+are below the diet bar and intentionally not tracked.
 
 ## Problem
 

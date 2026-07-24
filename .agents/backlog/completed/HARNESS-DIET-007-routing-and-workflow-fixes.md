@@ -1,6 +1,7 @@
 ---
 title: 'HARNESS-DIET-007: top-level routing slim + CI/workflow correctness fixes'
-status: todo
+status: done
+completed: 2026-07-24
 created: 2026-07-23
 priority: medium
 urgency: soon
@@ -9,6 +10,13 @@ depends_on: []
 ---
 
 # HARNESS-DIET-007: top-level routing & workflow fixes
+
+## Outcome (DONE 2026-07-24)
+
+Closed via #1280 (spec-template misroute + deploy URL), #1295 (AGENTS.md slim, backlog ledger gut,
+compat-node18 → Node 18, deploy.yml security-job dedup), and #1298 (release.yml token publish path REMOVED —
+the owner-sensitive remainder, executed under the standing pre-approval with rationale). The optional
+composite-action refactor is explicitly skipped (boilerplate dedup below the diet bar).
 
 ## Progress (2026-07-23)
 

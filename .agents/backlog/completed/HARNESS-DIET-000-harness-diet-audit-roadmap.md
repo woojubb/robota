@@ -1,6 +1,7 @@
 ---
 title: 'HARNESS-DIET-000: harness diet — audit roadmap (rules / skills / hooks / scans / agents / routing)'
-status: todo
+status: done
+completed: 2026-07-24
 created: 2026-07-23
 priority: high
 urgency: soon
@@ -9,6 +10,15 @@ depends_on: []
 ---
 
 # HARNESS-DIET-000: harness diet audit roadmap
+
+## Outcome (DONE 2026-07-24)
+
+All seven sub-items executed (001/002/005/006 individually archived; 003/004/007 closed with this epic).
+Execution ran as worktree-parallel subagent waves 1–4 (PRs #1277–#1302, zero merge conflicts) plus the
+owner-preapproved decisions #1298 (remove the token publish path) and #1299 (file-size ratchet). Net effect:
+scans 63→59 (dead/vacuous removed, thin ones folded, all neutrality data config-driven), 13 skills removed +
+16 slimmed/neutralized (≈2,400 lines), hooks slimmed/merged + made worktree-aware, rules consolidated with
+pointer stubs, routing docs −760 lines, plus incident-driven floors (#1293 GIT\_\* strip, #1294 hook context).
 
 ## Purpose
 
