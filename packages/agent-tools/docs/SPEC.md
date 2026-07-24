@@ -50,7 +50,10 @@ builtins/
   glob-tool.ts          -- Glob: find files matching a pattern (uses fast-glob)
   grep-tool.ts          -- Grep: regex content search (files_with_matches/content/count, headLimit)
   web-fetch-tool.ts     -- WebFetch: fetch URL content (HTML→text conversion); classifyFetchError exported
-  web-search-tool.ts    -- WebSearch: web search via Brave Search API
+  web-search-tool.ts    -- WebSearch: vendor-free tool layer over the IWebSearchProvider port (NEUT-008)
+  web-search-provider.ts -- IWebSearchProvider port + request/result types (duck-typed, vendor-free)
+  brave-search-provider.ts -- default IWebSearchProvider adapter (the only module holding the vendor endpoint)
+  tool-options.ts       -- IBuiltinToolDescriptionOptions: shared description-override seam (NEUT-002)
   ask-user-question-tool.ts -- AskUserQuestion: model asks the user structured questions via the CMD-004 ask port
 ```
 
@@ -161,7 +164,7 @@ Types owned by this package (SSOT):
 | `globTool`            | Object | `Glob`            | Find files matching a glob pattern (fast-glob)                                                               |
 | `grepTool`            | Object | `Grep`            | Regex content search — modes: files_with_matches/content/count; `headLimit` caps results                     |
 | `webFetchTool`        | Object | `WebFetch`        | Fetch URL content with HTML-to-text conversion                                                               |
-| `webSearchTool`       | Object | `WebSearch`       | Web search via Brave Search API                                                                              |
+| `webSearchTool`       | Object | `WebSearch`       | Web search over the `IWebSearchProvider` port (default provider: Brave Search adapter)                       |
 | `askUserQuestionTool` | Object | `AskUserQuestion` | Model-issued structured questions (options/multi-select/free text) via `IToolExecutionContext.ask` (CMD-005) |
 
 `AskUserQuestion` (CMD-005) consumes the injected `IToolExecutionContext.ask` port (CMD-004): each of

@@ -10,7 +10,6 @@
   "@robota-sdk/agent-provider-replay": 2,
   "@robota-sdk/agent-session": 2,
   "@robota-sdk/agent-session-analytics": 8,
-  "@robota-sdk/agent-tools": 33,
   "@robota-sdk/agent-transport": 9,
   "@robota-sdk/dag-adapters-sqlite": 2,
   "@robota-sdk/dag-api": 10,
