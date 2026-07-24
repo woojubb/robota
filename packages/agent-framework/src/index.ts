@@ -32,6 +32,7 @@ export {
 export type {
   TInteractiveSessionOptions,
   IInteractiveSessionShutdownOptions,
+  IGenerateSessionNameOptions,
 } from './interactive/index.js';
 
 // ── createQuery() factory (convenience API) ─────────────────
