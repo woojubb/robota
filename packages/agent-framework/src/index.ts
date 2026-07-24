@@ -537,14 +537,13 @@ export {
   parseTaskFile,
   readCurrentGitBranch,
   selectRelevantTasks,
-  updateTaskFileStatus,
 } from './context/task-context.js';
 export type {
   ITaskContextFile,
   ITaskSelectionOptions,
-  IUpdateTaskFileStatusOptions,
   TTaskFileStatus,
 } from './context/task-context.js';
+export type { ILoadContextOptions } from './context/context-loader.js';
 
 // ── Prompt file references ─────────────────────────────────
 export {

@@ -35,6 +35,19 @@ export interface ILoadedContext {
 const AGENTS_FILENAME = 'AGENTS.md';
 const CLAUDE_FILENAME = 'CLAUDE.md';
 
+/** NEUT-004: context-load behavior toggles (settings-driven at the composition root). */
+export interface ILoadContextOptions {
+  /**
+   * Active-task context injection. Default preserves today's behavior (enabled,
+   * scanning `.agents/tasks`); `enabled: false` skips the scan entirely; `dir`
+   * replaces the scan directory (relative to cwd).
+   */
+  taskContext?: {
+    enabled?: boolean;
+    dir?: string;
+  };
+}
+
 /**
  * Walk up directory tree from `startDir`, collecting absolute paths of
  * files named `filename`. Stops at filesystem root.
@@ -103,6 +116,7 @@ function extractCompactInstructions(content: string): string | undefined {
 export async function loadContext(
   cwd: string,
   memoryStore?: IMemoryStore,
+  options: ILoadContextOptions = {},
 ): Promise<ILoadedContext> {
   const agentsPaths = collectFilesWalkingUp(cwd, AGENTS_FILENAME);
   const claudePaths = collectFilesWalkingUp(cwd, CLAUDE_FILENAME);
@@ -118,7 +132,11 @@ export async function loadContext(
   // neutral filesystem reference adapter is the default, so memory keeps working exactly as before.
   const startupMemory = await (memoryStore ?? createFileSystemMemoryStore(cwd)).loadStartupMemory();
   const memoryMd = startupMemory.content || undefined;
-  const loadedTaskContext = loadTaskContext(cwd);
+  // NEUT-004: task-context injection is off-switchable; disabled ⇒ no scan is performed.
+  const taskContextEnabled = options.taskContext?.enabled !== false;
+  const loadedTaskContext = taskContextEnabled
+    ? loadTaskContext(cwd, options.taskContext?.dir ? { dir: options.taskContext.dir } : {})
+    : '';
   const taskContext = loadedTaskContext.trim().length > 0 ? loadedTaskContext : undefined;
 
   return {

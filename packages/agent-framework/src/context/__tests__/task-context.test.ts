@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -10,7 +10,6 @@ import {
   loadTaskContext,
   parseTaskFile,
   selectRelevantTasks,
-  updateTaskFileStatus,
 } from '../task-context.js';
 
 const TMP_BASE = join(tmpdir(), `robota-task-context-${process.pid}`);
@@ -136,38 +135,5 @@ describe('task context loading', () => {
     const context = loadTaskContext(cwd, { maxTasks: 3 });
 
     expect(context).toContain('CLI-BL-001');
-  });
-});
-
-describe('updateTaskFileStatus', () => {
-  it('updates existing status and appends deterministic progress text', () => {
-    const cwd = makeProject();
-    const path = writeTask(
-      cwd,
-      'CLI-BL-001-example.md',
-      '# CLI-BL-001\n\n- **Status**: todo\n\n## Progress\n',
-    );
-
-    updateTaskFileStatus(path, 'completed', {
-      now: new Date('2026-05-02T00:00:00.000Z'),
-      progressMessage: 'Completed task context injection.',
-    });
-
-    expect(readFileSync(path, 'utf8')).toContain('- **Status**: completed');
-    expect(readFileSync(path, 'utf8')).toContain('### 2026-05-02');
-    expect(readFileSync(path, 'utf8')).toContain('- Completed task context injection.');
-  });
-
-  it('inserts a status line when a task has no metadata block yet', () => {
-    const cwd = makeProject();
-    const path = writeTask(cwd, 'CLI-BL-001-example.md', '# CLI-BL-001\n\n## Objective\nWork\n');
-
-    updateTaskFileStatus(path, 'in-progress', {
-      now: new Date('2026-05-02T00:00:00.000Z'),
-    });
-
-    expect(readFileSync(path, 'utf8').startsWith('# CLI-BL-001\n\n- **Status**: in-progress')).toBe(
-      true,
-    );
   });
 });

@@ -20,11 +20,11 @@ export interface ITaskContextFile {
 export interface ITaskSelectionOptions {
   currentBranch?: string;
   maxTasks?: number;
-}
-
-export interface IUpdateTaskFileStatusOptions {
-  now?: Date;
-  progressMessage?: string;
+  /**
+   * NEUT-004: task-file scan directory relative to cwd. Defaults to the supported
+   * `.agents/tasks` convention.
+   */
+  dir?: string;
 }
 
 const TASKS_DIR = join('.agents', 'tasks');
@@ -109,47 +109,6 @@ function formatTask(task: ITaskContextFile): string {
   return lines.join('\n');
 }
 
-function formatDate(date: Date): string {
-  return date.toISOString().slice(Number('0'), Number('10'));
-}
-
-function upsertStatusLine(content: string, status: TTaskFileStatus): string {
-  const lines = content.split(/\r?\n/);
-  const statusLine = `- **Status**: ${status}`;
-  const statusIndex = lines.findIndex((line) => /^- \*\*Status\*\*:\s*/.test(line));
-  if (statusIndex >= Number('0')) {
-    lines[statusIndex] = statusLine;
-    return lines.join('\n');
-  }
-
-  const hasTopHeading = lines.length > Number('0') && /^#\s+/.test(lines[Number('0')]);
-  if (hasTopHeading) {
-    lines.splice(Number('1'), Number('0'), '', statusLine);
-  } else {
-    lines.unshift(statusLine, '');
-  }
-  return lines.join('\n');
-}
-
-function appendProgressEntry(content: string, now: Date, progressMessage: string): string {
-  const entryLines = [`### ${formatDate(now)}`, `- ${progressMessage.trim()}`];
-  const lines = content.replace(/\s+$/u, '').split(/\r?\n/);
-  const progressIndex = lines.findIndex((line) => /^## Progress\s*$/.test(line));
-  if (progressIndex < Number('0')) {
-    return [...lines, '', '## Progress', '', ...entryLines, ''].join('\n');
-  }
-
-  const nextHeadingIndex = lines.findIndex(
-    (line, index) => index > progressIndex && /^##\s+/.test(line),
-  );
-  if (nextHeadingIndex < Number('0')) {
-    return [...lines, '', ...entryLines, ''].join('\n');
-  }
-
-  lines.splice(nextHeadingIndex, Number('0'), '', ...entryLines, '');
-  return lines.join('\n');
-}
-
 function resolveGitDirectory(cwd: string, fs: IFileSystem): string | undefined {
   let current = resolve(cwd);
   let reachedRoot = false;
@@ -184,8 +143,12 @@ export function readCurrentGitBranch(
   return branch?.trim();
 }
 
-export function discoverTaskFiles(cwd: string, fs: IFileSystem = new NodeFileSystem()): string[] {
-  const tasksDir = join(cwd, TASKS_DIR);
+export function discoverTaskFiles(
+  cwd: string,
+  fs: IFileSystem = new NodeFileSystem(),
+  dir: string = TASKS_DIR,
+): string[] {
+  const tasksDir = join(cwd, dir);
   if (!fs.existsSync(tasksDir)) {
     return [];
   }
@@ -242,19 +205,6 @@ export function loadTaskContext(
   fs: IFileSystem = new NodeFileSystem(),
 ): string {
   const currentBranch = options.currentBranch ?? readCurrentGitBranch(cwd, fs);
-  const tasks = discoverTaskFiles(cwd, fs).map((path) => parseTaskFile(path, cwd, fs));
+  const tasks = discoverTaskFiles(cwd, fs, options.dir).map((path) => parseTaskFile(path, cwd, fs));
   return formatTaskContext(selectRelevantTasks(tasks, { ...options, currentBranch }));
-}
-
-export function updateTaskFileStatus(
-  taskPath: string,
-  status: TTaskFileStatus,
-  options: IUpdateTaskFileStatusOptions = {},
-  fs: IFileSystem = new NodeFileSystem(),
-): void {
-  const updated = upsertStatusLine(fs.readFileSync(taskPath, 'utf8'), status);
-  const withProgress = options.progressMessage
-    ? appendProgressEntry(updated, options.now ?? new Date(), options.progressMessage)
-    : updated;
-  fs.writeFileSync(taskPath, withProgress, 'utf8');
 }

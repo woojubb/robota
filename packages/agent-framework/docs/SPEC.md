@@ -255,7 +255,6 @@ Core classes and functions exported from `@robota-sdk/agent-framework`:
 | `parseTaskFile`                             | function | Parse a task Markdown file                                                                                                                                                                                                                                    |
 | `selectRelevantTasks`                       | function | Select the most relevant task files for the current session                                                                                                                                                                                                   |
 | `formatTaskContext`                         | function | Format selected tasks as neutral system prompt metadata                                                                                                                                                                                                       |
-| `updateTaskFileStatus`                      | function | Update task status and append a dated progress entry                                                                                                                                                                                                          |
 | `readCurrentGitBranch`                      | function | Read the current Git branch for task selection                                                                                                                                                                                                                |
 | `buildPromptWithFileReferences`             | function | Expand `@file` references in a prompt string                                                                                                                                                                                                                  |
 | `resolvePromptFileReferences`               | function | Resolve `@file` reference tokens to file content                                                                                                                                                                                                              |
@@ -1168,7 +1167,7 @@ Resolved provider fields:
 - **Response Language**: `IResolvedConfig.language` (from settings.json `language` field) is rendered as neutral metadata by `buildSystemPrompt()`. Persists across compaction because system message is preserved.
 - **Permission Mode section (CLI-072)**: `buildSystemPrompt()` renders `- **Permission mode:** <mode>` from `ISystemPromptParams.permissionMode` — the ACTIVE `TPermissionMode` resolved exactly as agent-session does (`options.permissionMode ?? TRUST_TO_MODE[config.defaultTrustLevel] ?? 'default'`), so the prompt always names the mode the permission gate enforces. The former `Trust level:` line (a separate axis that defaulted to `moderate` and misled the model under `--permission-mode plan`) is removed; `TRUST_LEVEL_LABELS` is deleted.
 - **Compact Instructions**: Extracts "Compact Instructions" section from CLAUDE.md and passes to Session for compaction
-- **Skill Discovery Paths**: Skills are discovered from `.agents/skills/*/SKILL.md` (project), `.claude/skills/*/SKILL.md`, `.claude/commands/*.md`, and `~/.robota/skills/*/SKILL.md`. Used by conditional SDK skill metadata injection when `/skills` is model-invocable, and by `@robota-sdk/agent-command` for virtual skill command palette metadata.
+- **Skill Discovery Paths**: Skills are discovered from `.robota/skills/*/SKILL.md` (project, NEUT-004 asymmetry fix), `.agents/skills/*/SKILL.md` (project), `.claude/skills/*/SKILL.md`, `.claude/commands/*.md`, and `~/.robota/skills/*/SKILL.md`. Used by conditional SDK skill metadata injection when `/skills` is model-invocable, and by `@robota-sdk/agent-command` for virtual skill command palette metadata.
 
 ### Active Task Context (SDK-Specific)
 
@@ -1178,7 +1177,8 @@ Resolved provider fields:
 - **Selection**: Task selection is bounded. Matching `- **Branch**:` metadata for the current git branch takes precedence, followed by `in-progress`, `todo`, then unknown status. Completed tasks are excluded.
 - **Formatting**: `formatTaskContext()` renders selected task metadata as neutral Markdown under `Active Task Context`. It includes path, title, status, branch, scope, objective, and unchecked completion items. It must not add behavior instructions.
 - **Prompt integration**: `loadContext()` stores formatted task context in `ILoadedContext.taskContext`; `buildSystemPrompt()` renders it after project memory and before runtime metadata. Compaction preserves it because the system message is preserved.
-- **Status synchronization**: `updateTaskFileStatus()` updates or inserts the task status metadata and appends a dated progress entry when a progress message is supplied. The function accepts an injected clock for deterministic tests.
+- **Opt-in discipline (NEUT-004)**: injection is settings-gated via `taskContext: { enabled, dir }` (settings.json → `IResolvedConfig.taskContext` → `loadContext(cwd, memoryStore, { taskContext })`). Default preserves today's behavior (enabled, `.agents/tasks`); `enabled: false` skips the scan entirely (no filesystem walk); `dir` replaces the scan directory. The task-file schema is a SUPPORTED convention, not a requirement of the library.
+- **Read-only**: the library never writes into `.agents/` (consistent with `paths.ts`). The former `updateTaskFileStatus()` write API is deleted (breaking; beta line).
 
 ### Project Memory (SDK-Specific)
 
@@ -1348,22 +1348,23 @@ state = transitionSelfHostingLoop(state, 'verify_passed');
 
 ### Task Context Helpers
 
-The SDK exports pure helpers for discovering, selecting, formatting, and updating active task files.
+The SDK exports pure READ-ONLY helpers for discovering, selecting, and formatting active task files.
 
 ```typescript
-import { loadTaskContext, updateTaskFileStatus } from '@robota-sdk/agent-framework';
+import { loadTaskContext } from '@robota-sdk/agent-framework';
 
 const taskContext = loadTaskContext(process.cwd(), {
   currentBranch: 'feat/context-injection-task-files',
   maxTasks: 3,
-});
-
-updateTaskFileStatus('.agents/tasks/CLI-BL-017-context-injection-from-task-files.md', 'completed', {
-  progressMessage: 'Verified task context injection.',
+  dir: '.agents/tasks', // optional scan-dir override (NEUT-004)
 });
 ```
 
-These helpers operate on Markdown files under `.agents/tasks/`. They do not render UI and do not inject behavior instructions into the prompt; the formatted task context is neutral metadata.
+These helpers operate on Markdown files under the configured tasks directory (default
+`.agents/tasks/`). They do not render UI and do not inject behavior instructions into the prompt;
+the formatted task context is neutral metadata. NEUT-004: the former `updateTaskFileStatus` write
+API is DELETED — it contradicted the `.agents/`-is-read-only claim in `paths.ts`; the library never
+writes into `.agents/`.
 
 **IToolState:**
 
@@ -2392,7 +2393,7 @@ When `isolation: 'worktree'` is requested, a runtime shell that supports worktre
 **Scan directories (highest priority first):**
 
 1. `<cwd>/.robota/agents/` — project-level (Robota native)
-2. `<cwd>/.agents/agents/` — project-level (Robota repository convention)
+2. `<cwd>/.agents/agents/` — project-level (supported convention)
 3. `<cwd>/.claude/agents/` — project-level (Claude Code compatible)
 4. `<home>/.robota/agents/` — user-level (Robota native)
 5. `<home>/.claude/agents/` — user-level (Claude Code compatible)

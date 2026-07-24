@@ -73,8 +73,10 @@ export async function createInteractiveSession(
   options: IInitOptions,
 ): Promise<ICreatedInteractiveSession> {
   const cwd = options.cwd;
-  const [config, context, projectInfo] = await Promise.all([
-    options.config ? Promise.resolve(options.config) : loadConfig(cwd),
+  // NEUT-004: config resolves FIRST so the settings-driven task-context toggle can gate the
+  // context load; context and project detection still run in parallel with each other.
+  const config = options.config ?? (await loadConfig(cwd));
+  const [context, projectInfo] = await Promise.all([
     options.bare
       ? Promise.resolve({
           agentsMd: '',
@@ -82,7 +84,11 @@ export async function createInteractiveSession(
           agentsFileEntries: [],
           projectNotesFileEntries: [],
         })
-      : loadContext(cwd, options.memoryStore),
+      : loadContext(
+          cwd,
+          options.memoryStore,
+          config.taskContext ? { taskContext: config.taskContext } : {},
+        ),
     options.bare
       ? Promise.resolve({ type: 'unknown' as const, language: 'unknown' as const })
       : detectProject(cwd),

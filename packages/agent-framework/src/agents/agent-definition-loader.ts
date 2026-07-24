@@ -128,7 +128,7 @@ function scanAgentsDir(dir: string, fs: IFileSystem): IAgentDefinition[] {
  *
  * Scan directories (highest priority first):
  * 1. `<cwd>/.robota/agents/` — project-level Robota native
- * 2. `<cwd>/.agents/agents/` — project-level Robota repository convention
+ * 2. `<cwd>/.agents/agents/` — project-level supported convention
  * 3. `<cwd>/.claude/agents/` — project-level Claude Code compatible
  * 4. `<home>/.robota/agents/` — user-level Robota native
  * 5. `<home>/.claude/agents/` — user-level Claude Code compatible

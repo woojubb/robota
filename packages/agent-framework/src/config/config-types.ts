@@ -160,6 +160,13 @@ export const SettingsSchema = z.object({
   autoCompactThreshold: AutoCompactThresholdSchema,
   /** Transport enable/disable + options: transport name -> config */
   transports: z.record(TransportSettingsSchema).optional(),
+  /** NEUT-004: active-task context injection toggle + scan dir (default: enabled, `.agents/tasks`). */
+  taskContext: z
+    .object({
+      enabled: z.boolean().optional(),
+      dir: z.string().optional(),
+    })
+    .optional(),
 });
 
 export type TSettings = z.infer<typeof SettingsSchema>;
@@ -200,4 +207,10 @@ export interface IResolvedConfig {
   autoCompactThreshold?: number | false;
   /** Transport enable/disable + options: transport name -> { enabled, options } */
   transports?: Record<string, { enabled?: boolean; options?: Record<string, unknown> }>;
+  /**
+   * NEUT-004: active-task context injection. Omitted/`enabled: true` preserves the
+   * default `.agents/tasks` scan; `enabled: false` disables the scan; `dir` replaces
+   * the scan directory (relative to cwd).
+   */
+  taskContext?: { enabled?: boolean; dir?: string };
 }
