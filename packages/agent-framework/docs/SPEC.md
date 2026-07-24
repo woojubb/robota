@@ -898,12 +898,12 @@ agent-cli (Ink TUI — CLI-specific)
 ### Self-Hosting Verification
 
 - **Package**: `agent-framework/self-hosting/` (SDK-specific planning layer)
-- **Purpose**: Describes the safe edit/build/verify loop for Robota modifying its own source tree without replacing the currently running process.
-- **Planner**: `planSelfHostingVerification()` returns ordered steps for checkpoint creation, atomic file mutation, external process handoff, targeted package verification, harness verification, and rollback recovery.
+- **Purpose**: Describes the safe edit/build/verify loop for an agent modifying its own source tree without replacing the currently running process.
+- **Planner**: `planSelfHostingVerification()` returns ordered steps for checkpoint creation, atomic file mutation, external process handoff, targeted package verification, an optional repo-wide verification gate, and rollback recovery.
 - **State machine**: `transitionSelfHostingLoop()` enforces deterministic lifecycle transitions from `idle` through checkpoint/edit/verify success or failure recovery.
 - **Handoff model**: The current process remains the old runtime and keeps already-loaded modules. Verification commands run in child processes against the new on-disk tree.
 - **Boundaries**: The SDK planner does not implement file writing, checkpoint storage, CLI rendering, or provider behavior. Atomic write behavior belongs to `agent-tools`; checkpoint storage belongs to `agent-framework/checkpoints`; CLI/TUI only invokes SDK APIs and renders results.
-- **Verification defaults**: For supplied package scopes, the default plan includes `test`, `typecheck`, and `build` commands before `pnpm harness:verify -- --base-ref <ref> --skip-record-check`. The harness verification step is always present.
+- **No repo-process defaults (NEUT-001)**: `baseRef` and `commandTemplates` (`ISelfHostingCommandTemplates`) are REQUIRED injected config. The library names no package manager, verification command, base ref, or CI gate; per-scope steps come from `commandTemplates.packageVerify` (`{scope}` placeholder) and the optional repo-wide gate from `commandTemplates.repoVerify` (`{baseRef}` placeholder). Robota's own templates live in the unpublished `scripts/harness/self-hosting-verification-commands.mjs`, and the in-package test `src/__tests__/repo-process-neutrality.test.ts` keeps repo-process literals out of the framework source.
 
 ### Web Search
 
@@ -1322,10 +1322,17 @@ import {
   transitionSelfHostingLoop,
 } from '@robota-sdk/agent-framework';
 
+// NEUT-001: baseRef and commandTemplates are REQUIRED injected config — the library
+// ships no repo-specific defaults. Robota's own values live in the unpublished
+// `scripts/harness/self-hosting-verification-commands.mjs`.
 const plan = planSelfHostingVerification({
   changedFiles: ['packages/agent-framework/src/index.ts'],
   packageScopes: ['@robota-sdk/agent-framework'],
-  baseRef: 'origin/develop',
+  baseRef: 'origin/main',
+  commandTemplates: {
+    packageVerify: [{ name: 'test', template: 'npm run test --workspace {scope}' }],
+    repoVerify: { description: 'Repo-wide gate.', template: 'npm run verify -- {baseRef}' },
+  },
 });
 
 let state = transitionSelfHostingLoop('idle', 'checkpoint_created');

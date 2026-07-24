@@ -334,6 +334,7 @@ export type {
 // ── Self-hosting verification ─────────────────────────────
 export { planSelfHostingVerification, transitionSelfHostingLoop } from './self-hosting/index.js';
 export type {
+  ISelfHostingCommandTemplates,
   ISelfHostingVerificationPlan,
   ISelfHostingVerificationPlanInput,
   ISelfHostingVerificationStep,
