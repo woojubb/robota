@@ -1,0 +1,130 @@
+{
+  "packages/agent-cli/src/init/init-command.ts": {
+    "count": 1,
+    "hashes": ["cdec64dd55b0"]
+  },
+  "packages/agent-command-workflows/src/authoring/author.ts": {
+    "count": 2,
+    "hashes": ["e5be6435ac34", "2b4cf54093a7"]
+  },
+  "packages/agent-command/src/agent/agent-command-module.ts": {
+    "count": 2,
+    "hashes": ["218b866af6eb", "bed12bd1ee18"]
+  },
+  "packages/agent-command/src/provider/provider-onboarding.ts": {
+    "count": 1,
+    "hashes": ["c1ac97dfe861"]
+  },
+  "packages/agent-command/src/skills/skills-command.ts": {
+    "count": 1,
+    "hashes": ["5434bd4bbeed"]
+  },
+  "packages/agent-core/src/core/robota-execution.ts": {
+    "count": 1,
+    "hashes": ["9c786864fd71"]
+  },
+  "packages/agent-core/src/utils/platform-shell.ts": {
+    "count": 3,
+    "hashes": ["40d51af82f93", "757a8fad0315", "804cac6ceb9e"]
+  },
+  "packages/agent-framework/src/agents/built-in-agents.ts": {
+    "count": 3,
+    "hashes": ["34c2862b1c59", "888471ce280b", "3121ef691db9"]
+  },
+  "packages/agent-framework/src/assembly/subagent-prompts.ts": {
+    "count": 2,
+    "hashes": ["31f86297cf06", "6b25c3978c0c"]
+  },
+  "packages/agent-framework/src/command-api/memory/memory-command-api.ts": {
+    "count": 1,
+    "hashes": ["a16691463e1c"]
+  },
+  "packages/agent-framework/src/goal/goal-prompts.ts": {
+    "count": 2,
+    "hashes": ["323fbb1ec2fd", "e0bb571fefa4"]
+  },
+  "packages/agent-framework/src/interactive/session-naming.ts": {
+    "count": 1,
+    "hashes": ["f6efc7ca1959"]
+  },
+  "packages/agent-framework/src/tools/agent-tool.ts": {
+    "count": 4,
+    "hashes": ["c11c380aaf4a", "6624dd0e48a4", "c11c380aaf4a", "6624dd0e48a4"]
+  },
+  "packages/agent-framework/src/tools/background-process-tool.ts": {
+    "count": 1,
+    "hashes": ["b82bfa6ee028"]
+  },
+  "packages/agent-framework/src/utils/error-humanizer.ts": {
+    "count": 2,
+    "hashes": ["0d619c496ca7", "e7ac2cc6ddc8"]
+  },
+  "packages/agent-playground/src/components/playground/code-editor-templates/plugins.ts": {
+    "count": 1,
+    "hashes": ["38713d32c0f0"]
+  },
+  "packages/agent-playground/src/components/playground/code-editor-templates/tools.ts": {
+    "count": 1,
+    "hashes": ["be42e0c2fac1"]
+  },
+  "packages/agent-tools/src/builtins/ask-user-question-tool.ts": {
+    "count": 4,
+    "hashes": ["3ea66d6c08bb", "1bdc3924023f", "57dabf48e947", "fda63f58d878"]
+  },
+  "packages/agent-tools/src/builtins/edit-tool.ts": {
+    "count": 1,
+    "hashes": ["d52b8ad17f8b"]
+  },
+  "packages/agent-tools/src/builtins/glob-tool.ts": {
+    "count": 1,
+    "hashes": ["fc9aa4d2795a"]
+  },
+  "packages/agent-tools/src/builtins/grep-tool.ts": {
+    "count": 1,
+    "hashes": ["d7c5e977642c"]
+  },
+  "packages/agent-tools/src/builtins/read-tool.ts": {
+    "count": 1,
+    "hashes": ["abaac560ee66"]
+  },
+  "packages/agent-tools/src/builtins/shell-tool.ts": {
+    "count": 1,
+    "hashes": ["ffdffc4a9a80"]
+  },
+  "packages/agent-tools/src/builtins/web-fetch-tool.ts": {
+    "count": 3,
+    "hashes": ["ea125dcccbc8", "cd49392dafe1", "9f96c805da23"]
+  },
+  "packages/agent-tools/src/builtins/write-tool.ts": {
+    "count": 1,
+    "hashes": ["743f3dec620d"]
+  },
+  "packages/agent-tools/src/computer-use/computer-tool.ts": {
+    "count": 1,
+    "hashes": ["9dbfbef21f63"]
+  },
+  "packages/agent-tools/src/retrieval/retrieval-tool.ts": {
+    "count": 1,
+    "hashes": ["e6fe84b94313"]
+  },
+  "packages/dag-cli/src/commands/describe.ts": {
+    "count": 1,
+    "hashes": ["262782c24474"]
+  },
+  "packages/dag-cli/src/commands/explain.ts": {
+    "count": 1,
+    "hashes": ["fea65b2c3d98"]
+  },
+  "packages/dag-cli/src/commands/fix.ts": {
+    "count": 1,
+    "hashes": ["c35e15b802a3"]
+  },
+  "packages/dag-cli/src/commands/init.ts": {
+    "count": 2,
+    "hashes": ["4af5ec9ab079", "ccdcc4928212"]
+  },
+  "packages/dag-cli/src/mcp/tool-definitions.ts": {
+    "count": 1,
+    "hashes": ["68908ed2b543"]
+  }
+}

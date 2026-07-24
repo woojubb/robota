@@ -138,5 +138,45 @@
     "evalsDatasetNameMarkers": ["evalset", "cases", "dataset", "corpus"],
     "evalsContentBindingTerms": ["cases", "dataset", "evalset", "corpus"],
     "evalsContentTypeNames": ["IEvalDefinition", "IMetric"]
+  },
+  "promptProse": {
+    "$comment": "Policy DATA for scan-prompt-prose.mjs (NEUT-006, audit 2026-07-24 gap #6). The ENGINE (literal extraction, prose heuristic, frozen-baseline ratchet, role-vocab conjunction) lives in scripts/harness/scan-prompt-prose.mjs; the Robota-specific scan roots, prompt-sink patterns, exemptions, and role vocabulary live here. `pattern` fields are RegExp sources. exemptPathIncludes lists the CHARTERED opinion homes (audit: personas/presets are quarantined opinion, not neutral-library debt); roleVocabulary flags a workflow role name AND a concrete model id in the SAME file (the role→model opinion) outside allowedPathIncludes.",
+    "scanRoots": ["packages"],
+    "srcPathIncludes": ["/src/"],
+    "excludePathIncludes": ["__tests__", ".test.", ".spec.", "/dist/", "/node_modules/"],
+    "exemptPathIncludes": ["packages/agent-preset/"],
+    "baselinePath": "scripts/harness/prompt-prose-baseline.json",
+    "sinkPatterns": [
+      { "id": "description-property", "pattern": "\\bdescription\\s*:\\s*" },
+      { "id": "zod-describe", "pattern": "\\.describe\\s*\\(\\s*" },
+      {
+        "id": "prompt-named-binding",
+        "pattern": "(?:export\\s+)?(?:const|let)\\s+[A-Za-z_$][\\w$]*(?:[Pp]rompt|PROMPT|[Ss]ystemMessage|SYSTEM_MESSAGE|[Tt]emplate|TEMPLATE|[Ii]nstructions?|INSTRUCTIONS?|[Dd]escription|DESCRIPTION)[\\w$]*\\s*(?::\\s*string)?\\s*=\\s*"
+      },
+      {
+        "id": "prompt-property",
+        "pattern": "\\b(?:systemPrompt|systemMessage|instructions?)\\s*:\\s*"
+      },
+      {
+        "id": "tool-positional-description",
+        "pattern": "createZodFunctionTool\\s*\\(\\s*'[^']*'\\s*,\\s*"
+      },
+      { "id": "returned-literal-or-array", "pattern": "\\breturn\\s*(?=['\"`\\[])" }
+    ],
+    "prose": {
+      "minWords": 8,
+      "markerPattern": "\\b(?:you|your|never|always|you must|do not|don't|use this|important|prefer|avoid|instead)\\b",
+      "nonProsePatterns": ["^\\s*<", "^\\s*import\\s", "^\\s*//"]
+    },
+    "roleVocabulary": {
+      "roleTermPattern": "['\"`](?:planner|editor|reviewer)['\"`]|\\b(?:planner|editor|reviewer)\\s*:",
+      "modelIdPatterns": [
+        "\\bclaude-[a-z0-9][a-z0-9.-]*\\b",
+        "\\bgpt-[0-9][a-z0-9.-]*\\b",
+        "\\bgemini-[0-9][a-z0-9.-]*\\b",
+        "['\"`]o[13](?:-mini|-pro)?['\"`]"
+      ],
+      "allowedPathIncludes": ["packages/agent-provider-defaults/"]
+    }
   }
 }
