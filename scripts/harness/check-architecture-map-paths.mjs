@@ -20,7 +20,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
-const MAP_DIR = path.join(WORKSPACE_ROOT, '.agents/specs/architecture-map');
+const MAP_DIR_RELATIVE = '.agents/specs/architecture-map';
 
 const REPO_PATH_PATTERN =
   /packages\/[\w-]+\/(?:src|scripts|bin)\/[\w\-./]+\.(?:tsx|ts|mjs|cjs)(?!\w)/g;
@@ -45,7 +45,7 @@ const SKIP_FILES = new Set(['layering-audit.md', 'architecture-lessons.md']);
 
 export async function findArchitectureMapPathFindings(root = WORKSPACE_ROOT) {
   const findings = [];
-  for (const docPath of walkMarkdown(MAP_DIR)) {
+  for (const docPath of walkMarkdown(path.join(root, MAP_DIR_RELATIVE))) {
     if (SKIP_FILES.has(path.basename(docPath))) continue;
     const relative = path.relative(root, docPath);
     const lines = readFileSync(docPath, 'utf8').split('\n');
