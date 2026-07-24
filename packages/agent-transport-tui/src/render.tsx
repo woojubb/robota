@@ -73,13 +73,6 @@ export interface IRenderOptions {
    */
   onChannelReady?: (channel: TuiInteractionChannel) => void;
   /**
-   * REMOTE-008: enable/stop P2P remote control (implemented at the composition root). Each returns a
-   * message (QR + link, or a fail-closed notice) the TUI renders into history. The command triggers
-   * these via the `remote-control-enable-requested`/`-stop-requested` effects.
-   */
-  enableRemoteControl?: () => string | Promise<string>;
-  stopRemoteControl?: () => string | Promise<string>;
-  /**
    * SELFHOST-008 P6: optional durable-memory store injected by the surface (agent-cli). Forwarded to the
    * channel → `buildRuntimeSession`; absent ⇒ memory OFF (today's behavior). Enablement is surface-owned.
    */
@@ -166,8 +159,6 @@ export async function renderApp(options: IRenderOptions): Promise<void> {
       startupUpdateNotice={options.startupUpdateNotice}
       transportRegistry={options.transportRegistry}
       cliAdapter={options.cliAdapter}
-      enableRemoteControl={options.enableRemoteControl}
-      stopRemoteControl={options.stopRemoteControl}
     />,
     { exitOnCtrlC: false },
   );

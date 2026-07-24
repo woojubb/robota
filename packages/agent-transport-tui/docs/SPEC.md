@@ -64,6 +64,27 @@ while thinking. A running tool is legitimate activity, not a stalled connection,
 only when the last running tool ends and the turn is still thinking. `TuiStateManager.dispose()`
 releases the stall timer and the streaming-debounce timer and nulls `onChange`.
 
+## Pure Renderer Contract (CMD-004 Phase 2 Stage C)
+
+The TUI executes **no command semantics**. The session layer (the host) applies every command host
+action via `ICommandHostAdapters` BEFORE the command result returns — language change, settings
+reset, exit/restart, rename, statusline patch, remote control. The renderer only reflects outcomes:
+
+- **UI screens** (plugin manager, settings, session picker, agent switcher) open from the
+  requester-routed `ui_intent` session event. The TUI renders an intent only when
+  `requesterDriverId` is the local operator (`OWNER_DRIVER_ID`); intents stamped with another
+  surface's id — or unattributed — are ignored (`useSideEffects`).
+- **Session title** follows the broadcast `session_renamed` event; the TUI never calls
+  `setName` in response to a command result.
+- **Statusline** refreshes on result: when a slash-command result arrives, the TUI RE-READS the
+  persisted settings document (`useStatusLineSettings` `refresh()`) — it never writes settings.
+- The only legacy `result.effects` still consumed (`command-result-handler.ts`) are the two
+  notification kinds pending their Stage-E carriers: `conversation-history-cleared` and
+  `plugin-registry-reload-requested` (local registry/autocomplete refresh only — the semantic
+  plugin reload already ran host-side). Everything else in `effects` is ignored by design.
+- `ITuiCliAdapter` is **read-only toward settings** (`readSettings`/`getUserSettingsPath`); the
+  write/delete/statusline-apply members were removed with the legacy effect handler.
+
 ## Type Ownership
 
 Owns the TUI rendering/adapter types (`IRenderOptions`, `ITuiCliAdapter`,

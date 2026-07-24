@@ -482,8 +482,8 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
       ? startupUpdateNoticePromise.then((n) => (n ? formatCliUpdateNotice(n) : undefined))
       : undefined,
     transportRegistry,
-    enableRemoteControl: () => remoteControlController.enable(),
-    stopRemoteControl: () => remoteControlController.stop(),
+    // CMD-004 Stage C: remote-control enable/stop run HOST-side via the `remoteControl` command
+    // host adapter (wired above) — no TUI-prop wiring remains.
     // SELFHOST-008 P6: surface-resolved memory fields (empty ⇒ memory OFF, today's behavior).
     ...memorySessionOptions,
     cliAdapter: createDefaultTuiCliAdapter({ providerDefinitions, reloadPluginCommandSource }),

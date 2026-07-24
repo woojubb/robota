@@ -17,8 +17,7 @@ import {
 } from '@robota-sdk/agent-framework';
 
 import { createSessionInitPoller } from './flows/session-init-poller.js';
-import { CommandEffectQueue, type ICommandEffectQueue } from './hooks/command-effect-queue.js';
-import { applySystemCommandResult } from './hooks/useSlashRouting.js';
+import { applySystemCommandResult } from './hooks/command-result-handler.js';
 import { TuiStateManager } from './tui-state-manager.js';
 
 import type { ISessionInitPoller, TSessionInitFailure } from './flows/session-init-poller.js';
@@ -121,7 +120,6 @@ export class TuiInteractionChannel implements IInteractionChannel {
 
   private readonly interactiveSession: InteractiveSession;
   private readonly registry: CommandRegistry;
-  private readonly commandEffectQueue: ICommandEffectQueue;
   private readonly opts: ITuiInteractionChannelOptions;
 
   private submitHandler: ((text: string) => Promise<void>) | null = null;
@@ -179,7 +177,6 @@ export class TuiInteractionChannel implements IInteractionChannel {
 
     this.interactiveSession = this.createSession();
     this.registry = this.createRegistry();
-    this.commandEffectQueue = new CommandEffectQueue();
   }
 
   private createSession(): InteractiveSession {
@@ -300,10 +297,6 @@ export class TuiInteractionChannel implements IInteractionChannel {
 
   getRegistry(): CommandRegistry {
     return this.registry;
-  }
-
-  getCommandEffectQueue(): ICommandEffectQueue {
-    return this.commandEffectQueue;
   }
 
   abort(): void {
@@ -451,7 +444,6 @@ export class TuiInteractionChannel implements IInteractionChannel {
         this.interactiveSession,
         this.registry,
         this.stateManager,
-        this.commandEffectQueue,
         this.opts.reloadPluginCommandSource,
       );
       return;

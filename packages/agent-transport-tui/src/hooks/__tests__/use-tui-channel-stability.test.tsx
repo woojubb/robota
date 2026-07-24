@@ -34,7 +34,6 @@ function makeFakeChannel(): TuiInteractionChannel {
     pendingUserAction: null,
     getSession: () => ({}),
     getRegistry: () => ({}),
-    getCommandEffectQueue: () => ({}),
     handleInput: () => undefined,
     abort: () => undefined,
     cancelQueue: () => undefined,
