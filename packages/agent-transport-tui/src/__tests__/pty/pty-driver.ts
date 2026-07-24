@@ -55,6 +55,8 @@ export interface IPtySession {
   /** ANSI-stripped output that arrived after the `since` mark. */
   snapshotSince(since: number): string;
   snapshot(): string;
+  /** Raw (un-stripped) cumulative output — for cursor/escape-sequence assertions (CLI-062). */
+  raw(): string;
   expectExit(timeoutMs?: number): Promise<number>;
   kill(): void;
   /**
@@ -126,6 +128,7 @@ export function spawnTui(options: ISpawnTuiOptions): IPtySession {
       session.waitForSince(since, pattern, timeoutMs),
     snapshotSince: (since): string => session.snapshotSince(since),
     snapshot: (): string => session.snapshot(),
+    raw: (): string => session.raw(),
     expectExit: (timeoutMs): Promise<number> => session.expectExit(timeoutMs),
     kill: (): void => session.dispose(),
     disposeAsync: (timeoutMs): Promise<void> => killAndAwaitExit(session, timeoutMs),
