@@ -17,6 +17,16 @@ depends_on: []
 >
 > **This item stays open for Phase 2 only:** the WS + web-ui **multi-environment broadcast** (two
 > attached environments rendering the same ask simultaneously) — per the completed task's closing note.
+>
+> **Phase 2 spec drafted (2026-07-24):** GATE-WRITE draft at
+> `.agents/spec-docs/draft/CMD-004-command-action-ui-separation.md`. Code-grounded re-scope: the ask
+> broadcast half was already delivered by REMOTE-007/009 (`SessionPromptRegistry` + `ask_request` over
+> WS + GUI prompt rendering); the remaining action↔UI coupling is the **command-effect half** —
+> `TCommandEffect` is TUI-named, executed only by the TUI renderer (incl. settings writes in
+> `command-effect-handler.ts`), and silently dropped by `ws-handler` `command_result` and all
+> non-TUI surfaces. The draft splits it into host-executed actions (session +
+> `ICommandHostAdapters`) vs requester-routed UI intents (`ui_intent` event), staged A–E. Awaiting
+> GATE-APPROVAL.
 
 # Separate command interaction ACTION from UI
 
