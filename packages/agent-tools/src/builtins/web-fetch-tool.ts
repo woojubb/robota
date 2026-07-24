@@ -9,7 +9,9 @@ import { z } from 'zod';
 
 import { createZodFunctionTool } from '../implementations/function-tool';
 
+import type { IBuiltinToolDescriptionOptions } from './tool-options.js';
 import type { IToolInvocationResult } from '../types/tool-result.js';
+import type { FunctionTool } from '@robota-sdk/agent-core';
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 const MAX_RESPONSE_BYTES = 5_000_000; // 5 MB max download
@@ -141,9 +143,22 @@ async function runWebFetch(args: TWebFetchArgs, signal?: AbortSignal): Promise<s
   }
 }
 
-export const webFetchTool = createZodFunctionTool(
-  'WebFetch',
-  'Fetch a URL and return its content as text. HTML pages are converted to plain text.',
-  WebFetchSchema,
-  async (params, context) => runWebFetch(params, context?.signal),
-);
+const DEFAULT_WEB_FETCH_DESCRIPTION =
+  'Fetch a URL and return its content as text. HTML pages are converted to plain text.';
+
+/**
+ * Create a WebFetchTool instance — register with Robota agent tools registry.
+ */
+export function createWebFetchTool(options: IBuiltinToolDescriptionOptions = {}): FunctionTool {
+  return createZodFunctionTool(
+    'WebFetch',
+    options.description ?? DEFAULT_WEB_FETCH_DESCRIPTION,
+    WebFetchSchema,
+    async (params, context) => runWebFetch(params, context?.signal),
+  );
+}
+
+/**
+ * WebFetchTool instance — register with Robota agent tools registry.
+ */
+export const webFetchTool = createWebFetchTool();

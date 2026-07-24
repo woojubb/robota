@@ -20,6 +20,7 @@ const SPAWN_DETACHED = process.platform !== 'win32';
 
 import { createZodFunctionTool } from '../implementations/function-tool';
 
+import type { ISandboxBuiltinToolOptions } from './tool-options.js';
 import type { ISandboxToolOptions } from '../sandbox/types.js';
 import type { IToolInvocationResult } from '../types/tool-result.js';
 import type { FunctionTool, IPlatformShell } from '@robota-sdk/agent-core';
@@ -40,8 +41,40 @@ const ShellSchema = z.object({
 
 type TShellArgs = z.infer<typeof ShellSchema>;
 
-/** Build the OS-aware tool description so the model writes syntax the host shell can run. */
-function buildShellToolDescription(shell: IPlatformShell): string {
+/**
+ * Dedicated-tool routing hints, keyed by the sibling tool's registered name. A hint is only
+ * emitted when that sibling is actually part of the registered tool set (NEUT-002) — the
+ * description must not route the model to tools that do not exist in a given assembly.
+ */
+const SIBLING_ROUTING_HINTS: ReadonlyArray<{ toolName: string; hint: string }> = [
+  { toolName: 'Glob', hint: ' - File search: Use Glob (NOT find or ls)' },
+  { toolName: 'Grep', hint: ' - Content search: Use Grep (NOT grep or rg)' },
+  { toolName: 'Read', hint: ' - Read files: Use Read (NOT cat/head/tail)' },
+  { toolName: 'Edit', hint: ' - Edit files: Use Edit (NOT sed/awk)' },
+];
+
+/**
+ * Build the OS-aware tool description so the model writes syntax the host shell can run.
+ * When `availableTools` is provided, sibling routing hints are restricted to tools in that set;
+ * when omitted, the full default hint set is included (default assembly registers all siblings).
+ */
+function buildShellToolDescription(
+  shell: IPlatformShell,
+  availableTools?: readonly string[],
+): string {
+  const hints = availableTools
+    ? SIBLING_ROUTING_HINTS.filter((entry) => availableTools.includes(entry.toolName))
+    : SIBLING_ROUTING_HINTS;
+
+  const routingBlock =
+    hints.length > 0
+      ? [
+          `IMPORTANT: Avoid using this tool to run \`find\`, \`grep\`, \`cat\`, \`head\`, \`tail\`, \`sed\`, \`awk\`, or \`echo\` commands. Instead, use the appropriate dedicated tool:`,
+          ...hints.map((entry) => entry.hint),
+          ``,
+        ]
+      : [];
+
   return [
     `Executes a command in the host shell and returns its output.`,
     ``,
@@ -49,12 +82,7 @@ function buildShellToolDescription(shell: IPlatformShell): string {
     ``,
     `The working directory persists between commands, but shell state does not.`,
     ``,
-    `IMPORTANT: Avoid using this tool to run \`find\`, \`grep\`, \`cat\`, \`head\`, \`tail\`, \`sed\`, \`awk\`, or \`echo\` commands. Instead, use the appropriate dedicated tool:`,
-    ` - File search: Use Glob (NOT find or ls)`,
-    ` - Content search: Use Grep (NOT grep or rg)`,
-    ` - Read files: Use Read (NOT cat/head/tail)`,
-    ` - Edit files: Use Edit (NOT sed/awk)`,
-    ``,
+    ...routingBlock,
     `For simple commands, keep the description brief (5-10 words). For complex commands, include enough context to clarify what the command does.`,
     ``,
     `Output is limited to 30,000 characters. Longer output will be middle-truncated.`,
@@ -207,16 +235,27 @@ async function runShell(
   });
 }
 
+/** Options for the shell tool factories (sandbox + description seam + routing-hint derivation). */
+export interface IShellToolOptions extends ISandboxBuiltinToolOptions {
+  /**
+   * Registered names of the sibling tools available in this assembly (NEUT-002). When provided,
+   * the default description's dedicated-tool routing hints are restricted to this set; when
+   * omitted, the full default hint set is used. Ignored when `description` overrides the text.
+   */
+  availableTools?: readonly string[];
+}
+
 /**
  * Build a host-shell command tool under a given registered name. Both `Shell` and the
  * model-familiar `Bash` are registered as aliases of this one OS-aware implementation
  * (TERM-008): the shell is resolved per OS and the description names the active shell so the
  * model writes the right syntax regardless of which alias it calls.
  */
-function createHostShellTool(name: string, options: ISandboxToolOptions): FunctionTool {
+function createHostShellTool(name: string, options: IShellToolOptions): FunctionTool {
   return createZodFunctionTool(
     name,
-    buildShellToolDescription(resolvePlatformShell()),
+    options.description ??
+      buildShellToolDescription(resolvePlatformShell(), options.availableTools),
     ShellSchema,
     async (params, context) => {
       return runShell(params, options, context?.signal);
@@ -228,14 +267,14 @@ function createHostShellTool(name: string, options: ISandboxToolOptions): Functi
  * Create a `Shell` tool instance — register with the Robota agent tools registry.
  * The description is resolved at creation time for the host's active shell.
  */
-export function createShellTool(options: ISandboxToolOptions = {}): FunctionTool {
+export function createShellTool(options: IShellToolOptions = {}): FunctionTool {
   return createHostShellTool('Shell', options);
 }
 
 /**
  * Create a `Bash` tool instance — the model-familiar alias of the same OS-aware shell tool.
  */
-export function createBashTool(options: ISandboxToolOptions = {}): FunctionTool {
+export function createBashTool(options: IShellToolOptions = {}): FunctionTool {
   return createHostShellTool('Bash', options);
 }
 

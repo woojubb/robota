@@ -1,18 +1,28 @@
 /**
  * WebSearchTool — search the web and return results.
  *
- * Uses Brave Search API when BRAVE_API_KEY is set.
- * Returns an error with setup instructions otherwise.
+ * Vendor-free tool layer (NEUT-008): composes over the duck-typed `IWebSearchProvider` port.
+ * The default provider is the vendor-specific default adapter wired at creation time; a custom
+ * provider is injected via `createWebSearchTool({ provider })`. Provider failures (missing
+ * configuration, HTTP/network errors) are thrown by the provider and surfaced here as
+ * structured error results.
  */
 
 import { z } from 'zod';
 
+import { createBraveSearchProvider } from './brave-search-provider.js';
 import { createZodFunctionTool } from '../implementations/function-tool';
 
+import type { IBuiltinToolDescriptionOptions } from './tool-options.js';
+import type { IWebSearchProvider, IWebSearchToolProviderOptions } from './web-search-provider.js';
 import type { IToolInvocationResult } from '../types/tool-result.js';
+import type { FunctionTool } from '@robota-sdk/agent-core';
 
 const DEFAULT_LIMIT = 10;
 const DEFAULT_TIMEOUT_MS = 15_000;
+
+const DEFAULT_WEB_SEARCH_DESCRIPTION =
+  'Search the web and return results with title, URL, and snippet.';
 
 const WebSearchSchema = z.object({
   query: z.string().describe('The search query'),
@@ -24,86 +34,55 @@ const WebSearchSchema = z.object({
 
 type TWebSearchArgs = z.infer<typeof WebSearchSchema>;
 
-interface IBraveResult {
-  title: string;
-  url: string;
-  description: string;
-}
-
-interface IBraveResponse {
-  web?: {
-    results?: IBraveResult[];
-  };
-}
-
-async function runWebSearch(args: TWebSearchArgs, signal?: AbortSignal): Promise<string> {
+async function runWebSearch(
+  args: TWebSearchArgs,
+  provider: IWebSearchProvider,
+  signal?: AbortSignal,
+): Promise<string> {
   const { query, limit = DEFAULT_LIMIT } = args;
-  const apiKey = process.env['BRAVE_API_KEY'];
-
-  if (!apiKey) {
-    const result: IToolInvocationResult = {
-      success: false,
-      output: '',
-      error:
-        'Web search requires BRAVE_API_KEY environment variable. ' +
-        'Get a free API key at https://brave.com/search/api/ (2,000 queries/month free).',
-    };
-    return JSON.stringify(result);
-  }
 
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
     // CORE-018: run-scoped signal aborts the in-flight request alongside the timeout.
-    const fetchSignal = signal ? AbortSignal.any([controller.signal, signal]) : controller.signal;
+    const searchSignal = signal ? AbortSignal.any([controller.signal, signal]) : controller.signal;
 
-    const params = new URLSearchParams({
-      q: query,
-      count: String(Math.min(limit, 20)),
-    });
-
-    const response = await fetch(`https://api.search.brave.com/res/v1/web/search?${params}`, {
-      headers: {
-        Accept: 'application/json',
-        'Accept-Encoding': 'gzip',
-        'X-Subscription-Token': apiKey,
-      },
-      signal: fetchSignal,
-    });
-
-    clearTimeout(timeout);
-
-    if (!response.ok) {
+    try {
+      const results = await provider.search({ query, limit }, searchSignal);
       const result: IToolInvocationResult = {
-        success: false,
-        output: '',
-        error: `Brave Search API error: HTTP ${response.status} ${response.statusText}`,
+        success: true,
+        output: JSON.stringify(results, null, 2),
       };
       return JSON.stringify(result);
+    } finally {
+      clearTimeout(timeout);
     }
-
-    const data = (await response.json()) as IBraveResponse;
-    const results = (data.web?.results ?? []).map((r) => ({
-      title: r.title,
-      url: r.url,
-      snippet: r.description,
-    }));
-
-    const result: IToolInvocationResult = {
-      success: true,
-      output: JSON.stringify(results, null, 2),
-    };
-    return JSON.stringify(result);
   } catch (err) {
+    // allow-fallback: provider failures are structured tool results returned to the LLM, not thrown
     const message = err instanceof Error ? err.message : String(err);
     const result: IToolInvocationResult = { success: false, output: '', error: message };
     return JSON.stringify(result);
   }
 }
 
-export const webSearchTool = createZodFunctionTool(
-  'WebSearch',
-  'Search the web and return results with title, URL, and snippet.',
-  WebSearchSchema,
-  async (params, context) => runWebSearch(params, context?.signal),
-);
+/** Options for the web-search tool factory: description seam + provider port injection. */
+export interface IWebSearchToolOptions
+  extends IBuiltinToolDescriptionOptions, IWebSearchToolProviderOptions {}
+
+/**
+ * Create a WebSearchTool instance — register with Robota agent tools registry.
+ */
+export function createWebSearchTool(options: IWebSearchToolOptions = {}): FunctionTool {
+  const provider = options.provider ?? createBraveSearchProvider();
+  return createZodFunctionTool(
+    'WebSearch',
+    options.description ?? DEFAULT_WEB_SEARCH_DESCRIPTION,
+    WebSearchSchema,
+    async (params, context) => runWebSearch(params, provider, context?.signal),
+  );
+}
+
+/**
+ * WebSearchTool instance — register with Robota agent tools registry.
+ */
+export const webSearchTool = createWebSearchTool();

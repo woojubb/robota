@@ -19,6 +19,7 @@ import { z } from 'zod';
 
 import { createZodFunctionTool } from '../implementations/function-tool';
 
+import type { IBuiltinToolDescriptionOptions } from './tool-options.js';
 import type { IToolInvocationResult } from '../types/tool-result.js';
 import type { FunctionTool, IActionRequest, IToolExecutionContext } from '@robota-sdk/agent-core';
 
@@ -84,13 +85,11 @@ const ASK_USER_QUESTION_DESCRIPTION = [
 
 /** Per-question outcome in the tool result. */
 export type TAskUserQuestionAnswer =
-  | { question: string; values: string[]; text?: string }
-  | { question: string; cancelled: true };
+  { question: string; values: string[]; text?: string } | { question: string; cancelled: true };
 
 /** The tool result payload (inside IToolInvocationResult.output). */
 export type TAskUserQuestionOutput =
-  | { answers: TAskUserQuestionAnswer[] }
-  | { unavailable: true; reason: string };
+  { answers: TAskUserQuestionAnswer[] } | { unavailable: true; reason: string };
 
 function toActionRequest(question: TQuestion): IActionRequest {
   // Normalize both accepted option shapes (bare string | {label, description}) to one form.
@@ -147,10 +146,12 @@ async function askQuestions(
 /**
  * Create an `AskUserQuestion` tool instance — register with the Robota agent tools registry.
  */
-export function createAskUserQuestionTool(): FunctionTool {
+export function createAskUserQuestionTool(
+  options: IBuiltinToolDescriptionOptions = {},
+): FunctionTool {
   return createZodFunctionTool(
     'AskUserQuestion',
-    ASK_USER_QUESTION_DESCRIPTION,
+    options.description ?? ASK_USER_QUESTION_DESCRIPTION,
     AskUserQuestionSchema,
     async (params, context) => {
       const args = params;
