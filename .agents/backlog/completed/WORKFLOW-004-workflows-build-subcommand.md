@@ -1,6 +1,6 @@
 ---
 title: 'WORKFLOW-004: workflows build subcommand (LLM-assisted DAG authoring from the agent CLI)'
-status: todo
+status: done
 created: 2026-07-02
 priority: medium
 urgency: backlog
@@ -48,4 +48,9 @@ how an `ICommandModule` reaches the session's model provider.
   and `/workflows run` on the produced file.
 - Expected: a valid workflow file is created, validates cleanly, and runs (or reports a clear,
   actionable error); the file appears in `/workflows list`.
-- Evidence: _to fill at implementation._
+- Evidence: DONE 2026-07-25 — spec `.agents/spec-docs/done/WORKFLOW-004-workflows-build-subcommand.md`
+  (GATE-VERIFY + GATE-COMPLETE evidence logs); agent-run UE
+  `.agents/evals/scenarios/workflow-004-build-agent-run.md` (stub + live Anthropic runs, both PASS).
+  Note: the seam decision landed on the FLOW-007 authoring seam (lazy `createProviderFromSettings`
+  - injected `providerDefinitions`), shared with `create`; artifacts write to `.workflows/` (the
+    FLOW-007 workspace), not the `.dag/workflows/` path this pre-FLOW-007 item guessed.

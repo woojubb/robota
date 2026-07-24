@@ -1,5 +1,5 @@
 ---
-status: approved
+status: done
 type: FLOW
 tags: [cli, agent]
 capability: true
@@ -217,21 +217,21 @@ LLM-assisted editing of an existing workflow file.
 
 ## Completion Criteria
 
-- [ ] TC-01: with a stubbed provider (`resolveProvider` deps seam), `/workflows build "uppercase the
+- [x] TC-01: with a stubbed provider (`resolveProvider` deps seam), `/workflows build "uppercase the
 text" --input text=hi` saves `<workspace>/<name>.json` and returns success whose message
       contains the saved path and NO run output; the test proves non-execution mechanically (the DAG
       runtime/execute path is never invoked — spy/canary asserts 0 calls), red-first: this test fails
       before `build-command.ts` exists.
-- [ ] TC-02: the artifact TC-01 produced round-trips through the existing subcommands unmodified —
+- [x] TC-02: the artifact TC-01 produced round-trips through the existing subcommands unmodified —
       `/workflows validate <path>` reports valid and `/workflows run <path>` executes it with the
       baked input producing the expected output.
-- [ ] TC-03: a stub provider returning an invalid/unassemblable spec → failed result naming the
+- [x] TC-03: a stub provider returning an invalid/unassemblable spec → failed result naming the
       validation error, and `<workspace>/` receives no new file (fs asserted before/after).
-- [ ] TC-04: with no provider configured (no deps seam, no settings), `/workflows build "…"` returns
+- [x] TC-04: with no provider configured (no deps seam, no settings), `/workflows build "…"` returns
       the actionable no-provider error and writes nothing.
-- [ ] TC-05: a stub spec with `newNodes` → the prompt-backed node manifest is saved under
+- [x] TC-05: a stub spec with `newNodes` → the prompt-backed node manifest is saved under
       `<workspace>/nodes/`, the saved workflow references it, and still nothing executes.
-- [ ] TC-06: boundaries hold — `rg -l "@robota-sdk/dag-cli" packages/agent-*/src` → 0;
+- [x] TC-06: boundaries hold — `rg -l "@robota-sdk/dag-cli" packages/agent-*/src` → 0;
       `rg -l "@robota-sdk/agent-provider-" packages/agent-command-workflows/src --glob '!**/__tests__/**'`
       → 0 (single prefix covers `agent-provider-defaults` AND every concrete `agent-provider-*`;
       the GATE-APPROVAL review found the draft's original `\|`-alternation pattern was mechanically
@@ -271,9 +271,72 @@ written at GATE-COMPLETE):
 
 ## Tasks
 
-- [ ] `.agents/tasks/WORKFLOW-004.md` — 미생성 (GATE-APPROVAL 통과 후 생성)
+- [x] `.agents/tasks/completed/WORKFLOW-004.md` — created at GATE-IMPLEMENT start, archived at
+      GATE-COMPLETE
 
 ## Evidence Log
+
+### [GATE-IMPLEMENT] — started | 2026-07-25
+
+- Spec moved `todo/` → `active/`, `status: approved` → `in-progress` on branch
+  `feat/workflow-004-build` (based on `origin/develop` @ `a6eb4e064`, the #1356 merge commit).
+- Tasks file `.agents/tasks/WORKFLOW-004.md` created; TDD order: TC-01 red-first, then
+  implementation, TC-06 proven-can-fail plant/hit/remove at the end of IMPLEMENT.
+
+### [GATE-VERIFY] — PASS (all TCs agent-run) | 2026-07-25
+
+- **TC-01 (red-first observed):** `pnpm vitest run src/__tests__/build-command.test.ts` BEFORE
+  `build-command.ts` existed →
+  `Failed to load url ../build-command.js … Does the file exist?` / `Test Files 1 failed (1)`.
+  After implementation: 8/8 pass. Canary = `vi.spyOn(LocalDagRuntimeProvider.prototype, 'execute')`
+  asserted `toHaveBeenCalledTimes(0)` in every build test (`build-command.test.ts`).
+- **TC-02:** same suite — the TC-01 artifact passes `executeWorkflowsValidate`
+  (`Valid workflow`) and `executeWorkflowsRun` outputs `HI` (baked `--input text=hi`); the canary
+  count moves 0 → 1 only on the explicit run.
+- **TC-03:** non-JSON authored response → `Authoring produced an invalid spec` +
+  `stat(<workspace>)` rejects (nothing written); unknown node type →
+  `Could not assemble workflow` + nothing written. Canary 0.
+- **TC-04:** `{}` deps + all provider keys env-stubbed empty → `No active LLM provider is
+configured…` actionable error, no write; also covered with a throwing injected resolver. Canary 0.
+- **TC-05:** `newNodes` spec → `nodes/pirate-speak.node.json` manifest (`kind: "prompt"`)
+  persisted inert, saved workflow references `pirate-speak`, result succeeds (unlike `create`,
+  which fails on the missing key at run) — canary 0.
+- **TC-06 (proven-can-fail executed):**
+  1. baseline: `rg -l "@robota-sdk/dag-cli" packages/agent-*/src` → exit 1 (0 hits);
+     `rg -l "@robota-sdk/agent-provider-" packages/agent-command-workflows/src --glob
+'!**/__tests__/**'` → exit 1 (0 hits).
+  2. PLANT: added `import '@robota-sdk/agent-provider-defaults';` to `src/build-command.ts` →
+     `rg -n` HIT: `packages/agent-command-workflows/src/build-command.ts:11:import
+'@robota-sdk/agent-provider-defaults'; // TC-06 PLANT…` (exit 0).
+  3. REMOVE: import deleted → both patterns back to exit 1 (0 hits).
+  - `pnpm --filter @robota-sdk/agent-command-workflows typecheck` exit 0; `test` exit 0
+    (37 passed | 5 live-skipped); `node scripts/harness/run-all-scans.mjs` → `all 60 scans passed`
+    (exit 0).
+- **Full verify:** package build OK; full workspace `pnpm test` exit 0 (the one failure seen on the
+  first pass was the fresh-worktree `better-sqlite3` native binding missing after
+  `--ignore-scripts` install — restored per `env-volta-pnpm-node-version` memory, unrelated to this
+  change); `pnpm -w typecheck` exit 0.
+- One scan finding fixed during IMPLEMENT: the initial `build` subcommand description contained the
+  prompt-prose marker word "never" (`prompt-prose` scan, non-baselined library file) — reworded to
+  "…and save it for review (no run)" instead of baselining new prose.
+
+### [GATE-COMPLETE] — PASS (User Execution agent-run, stub + live) | 2026-07-25
+
+- Scenario file `.agents/evals/scenarios/workflow-004-build-agent-run.md` written and RUN by the
+  agent end-to-end, twice:
+  - **Stub (deterministic):** scratch `/tmp/wf004-stub-UkaojW` — `executeWorkflowsBuild` via the
+    `resolveProvider` stub, then `validate`/`run`/`catalog` through the REAL module dispatch:
+    build saved `trim-upper.json` (4 nodes/3 edges, `--input text=" hi "` baked, NO run output) →
+    `Valid workflow` → run outputs `HI` → catalog lists it. `STUB-SCENARIO-PASS`.
+  - **Live (ANTHROPIC_API_KEY present):** scratch `/tmp/wf004-live-i59hqN`, real CLI
+    `robota -p '/workflows build "trim then uppercase the input text" --input text=" hi "'` with
+    live `claude-sonnet-4-6` → authored + saved `trim-then-uppercase.json` (correct
+    input→text-trim→text-upper→text-output graph), EXIT=0, no run output; then
+    `validate` (valid, EXIT=0) → `run` (`node-4.text: "HI"`, EXIT=0) → `catalog` (listed, EXIT=0).
+- SPEC-first honored: `packages/agent-command-workflows/docs/SPEC.md` updated (scope, authoring
+  section for `build`, provider-seam decision, API table, test strategy) BEFORE implementation.
+- Changeset `.changeset/workflow-004-build-subcommand.md` (minor). Backlog item archived to
+  `.agents/backlog/completed/`. Spec moved `active/` → `done/`, `status: done`.
 
 ### [GATE-APPROVAL] — REVISE → revisions folded → approved | 2026-07-25
 

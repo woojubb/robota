@@ -11,5 +11,6 @@ export {
   parseCreateArgs,
   type IWorkflowsCreateDeps,
 } from './create-command.js';
+export { executeWorkflowsBuild } from './build-command.js';
 
 export const AGENT_COMMAND_WORKFLOWS_PACKAGE_NAME = '@robota-sdk/agent-command-workflows';

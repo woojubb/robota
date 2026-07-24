@@ -34,6 +34,7 @@ describe('workflows command module', () => {
     expect(cmd.name).toBe('workflows'); // canonical name has no leading slash
     const subs = (cmd.subcommands ?? []).map((s) => s.name);
     expect(subs).toContain('create');
+    expect(subs).toContain('build');
     expect(subs).toContain('list');
     expect(subs).toContain('catalog');
     expect(subs).toContain('validate');
@@ -45,6 +46,16 @@ describe('workflows command module', () => {
     expect(cmd.modelInvocable).toBe(true);
     const create = (cmd.subcommands ?? []).find((s) => s.name === 'create');
     expect(create?.modelInvocable).toBe(true);
+    // WORKFLOW-004: `build` (author + save, never run) is also model-invocable — strictly less
+    // privileged than `create`.
+    const build = (cmd.subcommands ?? []).find((s) => s.name === 'build');
+    expect(build?.modelInvocable).toBe(true);
+  });
+
+  it('dispatches `build` and reports the build usage on empty args (WORKFLOW-004)', async () => {
+    const result = await workflowsCommand().execute(FAKE_CONTEXT, 'build');
+    expect(result.success).toBe(false);
+    expect(result.message).toContain('Usage: /workflows build');
   });
 
   it('dispatches `list` to the in-process node catalog', async () => {

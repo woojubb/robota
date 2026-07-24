@@ -3,6 +3,7 @@ import { executeWorkflowsList } from './list-command.js';
 import { executeWorkflowsRun } from './run-command.js';
 import { executeWorkflowsValidate } from './validate-command.js';
 import { executeWorkflowsCreate } from './create-command.js';
+import { executeWorkflowsBuild } from './build-command.js';
 
 import { DEFAULT_WORKSPACE_LAYOUT, type IWorkspaceLayout } from '@robota-sdk/dag-core';
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
@@ -19,12 +20,20 @@ import type {
 
 const WORKFLOWS_DESCRIPTION =
   'Author (from natural language), list, validate, and run DAG workflows on the in-process runtime';
-const WORKFLOWS_ARGUMENT_HINT = '<create|list|catalog|validate|run> [args]';
+const WORKFLOWS_ARGUMENT_HINT = '<create|build|list|catalog|validate|run> [args]';
 
 const SUBCOMMANDS: ICommand[] = [
   {
     name: 'create',
     description: 'Author a workflow from a natural-language description and run it immediately',
+    source: 'workflows',
+    argumentHint: '"<description>" [--input key=value] [--name <name>]',
+    modelInvocable: true,
+  },
+  {
+    name: 'build',
+    description:
+      'Author a workflow from a natural-language description and save it for review (no run)',
     source: 'workflows',
     argumentHint: '"<description>" [--input key=value] [--name <name>]',
     modelInvocable: true,
@@ -58,8 +67,9 @@ const SUBCOMMANDS: ICommand[] = [
 ];
 
 const USAGE = [
-  'Usage: /workflows <create|list|catalog|validate|run>',
+  'Usage: /workflows <create|build|list|catalog|validate|run>',
   '  create "<desc>"  Author a workflow from natural language and run it',
+  '  build "<desc>"   Author a workflow from natural language and save it (no run)',
   '  list             List available workflow nodes',
   '  catalog          List workflow files in .workflows',
   '  validate <file>  Validate a workflow file',
@@ -88,6 +98,8 @@ async function executeWorkflowsCommand(
       return { success: true, message: USAGE };
     case 'create':
       return executeWorkflowsCreate(rest, cwd, { workspace, providerDefinitions });
+    case 'build':
+      return executeWorkflowsBuild(rest, cwd, { workspace, providerDefinitions });
     case 'list':
       return executeWorkflowsList();
     case 'catalog':
