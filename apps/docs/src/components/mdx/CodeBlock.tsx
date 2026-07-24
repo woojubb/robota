@@ -20,28 +20,16 @@ export function CodeBlock({ children, className }: CodeBlockProps) {
   }
 
   return (
-    <div style={{ position: 'relative', marginBottom: '1.5rem' }}>
-      <pre ref={preRef} className={className} style={{ margin: 0 }}>
+    <div className="relative mb-6">
+      <pre ref={preRef} className={className ? `${className} m-0` : 'm-0'}>
         {children}
       </pre>
       <button
         onClick={handleCopy}
         aria-label="Copy code"
-        style={{
-          position: 'absolute',
-          top: '0.5rem',
-          right: '0.5rem',
-          padding: '0.25rem 0.6rem',
-          fontSize: '0.75rem',
-          fontFamily: 'inherit',
-          background: 'rgba(255,255,255,0.08)',
-          color: copied ? '#22c55e' : '#7b7a95',
-          border: '1px solid #252540',
-          borderRadius: '0.25rem',
-          cursor: 'pointer',
-          transition: 'color 0.15s, background 0.15s',
-          lineHeight: 1.5,
-        }}
+        className={`absolute right-2 top-2 cursor-pointer rounded border border-[#252540] bg-[rgba(255,255,255,0.08)] px-[0.6rem] py-1 [font-family:inherit] text-[0.75rem] leading-normal transition-[color,background] duration-150 ${
+          copied ? 'text-[#22c55e]' : 'text-[#7b7a95]'
+        }`}
       >
         {copied ? 'Copied!' : 'Copy'}
       </button>

@@ -42,71 +42,30 @@ export function TableOfContents({ entries }: TableOfContentsProps) {
   return (
     <nav
       aria-label="Table of contents"
-      style={{
-        position: 'sticky',
-        top: 'calc(var(--header-height) + 1.5rem)',
-        width: 'var(--toc-width)',
-        flexShrink: 0,
-        alignSelf: 'flex-start',
-        maxHeight: 'calc(100vh - var(--header-height) - 3rem)',
-        overflowY: 'auto',
-      }}
+      className="sticky top-[calc(var(--header-height)_+_1.5rem)] max-h-[calc(100vh_-_var(--header-height)_-_3rem)] w-[var(--toc-width)] shrink-0 self-start overflow-y-auto"
     >
-      <p
-        style={{
-          fontFamily: 'var(--font-display)',
-          fontSize: '0.65rem',
-          fontWeight: 600,
-          letterSpacing: '0.12em',
-          textTransform: 'uppercase',
-          color: 'var(--muted-foreground)',
-          marginBottom: '0.875rem',
-          marginTop: 0,
-        }}
-      >
+      <p className="mb-3.5 mt-0 [font-family:var(--font-display)] text-[0.65rem] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
         On this page
       </p>
-      <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+      <ul className="m-0 list-none p-0">
         {entries.map((entry) => {
           const isActive = activeId === entry.id;
           return (
-            <li key={entry.id} style={{ marginBottom: '0.1rem' }}>
+            <li key={entry.id} className="mb-[0.1rem]">
               <a
                 href={`#${entry.id}`}
                 aria-current={isActive ? 'location' : undefined}
-                style={{
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  gap: '0.5rem',
-                  fontSize: '0.775rem',
-                  fontFamily: 'var(--font-body)',
-                  lineHeight: 1.55,
-                  paddingLeft: entry.level === 3 ? '1rem' : '0',
-                  paddingTop: '0.225rem',
-                  paddingBottom: '0.225rem',
-                  color: isActive ? 'var(--primary)' : 'var(--muted-foreground)',
-                  textDecoration: 'none',
-                  transition: 'color 0.15s',
-                  wordBreak: 'break-word',
-                  position: 'relative',
-                }}
+                className={`relative flex items-start gap-2 py-[0.225rem] [font-family:var(--font-body)] text-[0.775rem] leading-[1.55] [word-break:break-word] no-underline transition-colors duration-150 ${
+                  entry.level === 3 ? 'pl-4' : 'pl-0'
+                } ${isActive ? 'text-primary' : 'text-muted-foreground'}`}
               >
                 {/* Active indicator dot (decorative; state is conveyed via aria-current) */}
                 {isActive && (
                   <span
                     aria-hidden="true"
-                    style={{
-                      position: 'absolute',
-                      left: entry.level === 3 ? '0.25rem' : '-0.75rem',
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      width: 4,
-                      height: 4,
-                      borderRadius: '50%',
-                      background: 'var(--primary)',
-                      boxShadow: '0 0 6px var(--primary)',
-                      flexShrink: 0,
-                    }}
+                    className={`absolute top-1/2 h-1 w-1 shrink-0 -translate-y-1/2 rounded-full bg-primary shadow-[0_0_6px_var(--primary)] ${
+                      entry.level === 3 ? 'left-1' : '-left-3'
+                    }`}
                   />
                 )}
                 {entry.text}

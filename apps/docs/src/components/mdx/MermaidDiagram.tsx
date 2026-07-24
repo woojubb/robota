@@ -62,18 +62,7 @@ export function MermaidDiagram({ chart }: MermaidDiagramProps) {
 
   if (error) {
     return (
-      <pre
-        style={{
-          background: 'rgba(239,68,68,0.08)',
-          border: '1px solid rgba(239,68,68,0.3)',
-          borderRadius: '0.5rem',
-          padding: '1rem',
-          color: '#ef4444',
-          fontSize: '0.875rem',
-          marginBottom: '1.5rem',
-          whiteSpace: 'pre-wrap',
-        }}
-      >
+      <pre className="mb-6 whitespace-pre-wrap rounded-[0.5rem] border border-[rgba(239,68,68,0.3)] bg-[rgba(239,68,68,0.08)] p-4 text-[0.875rem] text-[#ef4444]">
         Mermaid error: {error}
       </pre>
     );
@@ -84,15 +73,7 @@ export function MermaidDiagram({ chart }: MermaidDiagramProps) {
       ref={ref}
       role="img"
       aria-label="Mermaid diagram"
-      style={{
-        background: '#131320',
-        border: '1px solid #252540',
-        borderRadius: '0.5rem',
-        padding: '1rem',
-        marginBottom: '1.5rem',
-        overflowX: 'auto',
-        textAlign: 'center',
-      }}
+      className="mb-6 overflow-x-auto rounded-[0.5rem] border border-[#252540] bg-[#131320] p-4 text-center"
     />
   );
 }

@@ -102,6 +102,10 @@
 
 /* ─── Prose / markdown content ─────────────────────────────────────────── */
 
+/* Layered as components so Tailwind utilities (the later `utilities` layer) can override
+   individual prose defaults — matching the precedence the pre-DOCS-021 inline styles had.
+   Unlayered rules would beat every utility class regardless of specificity. */
+@layer components {
 .prose {
   color: var(--foreground);
   max-width: var(--content-max-width);
@@ -286,6 +290,7 @@
   color: var(--primary);
   opacity: 0.6;
   font-weight: 400;
+}
 }
 
 /* ─── Shiki / rehype-pretty-code ────────────────────────────────────────── */
