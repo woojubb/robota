@@ -58,6 +58,76 @@ apps/
 └── agent-app/              # Electron desktop application (macOS/Linux/Windows); the desktop GUI surface. Runs STANDALONE — the user never launches agent-cli first. agent-cli (TUI) and agent-app (GUI) are SIBLING presentations over the same shared runtime; the GUI does NOT control the CLI. The app DRIVES a shared headless runtime — it spawns `robota --serve` (RUNTIME-001), the CLI's headless runtime-host entry that runs `startRuntimeHost` from `agent-framework` and serves the loopback-WS + required nonce auth, rendering NO ink; both the TUI and the GUI sit over the one runtime host (in the `agent-framework` assembly layer). The app renders the shared GUI presentation core agent-transport-gui. Depends on the agent RUNTIME, not the CLI's terminal UI; NO agent-framework/agent-core dep. Remote WebRTC (agent-transport-webrtc-web) is an optional in-app feature, not a requirement (GUI-002 foundation, GUI-005/006 taxonomy)
 ```
 
+## App Inventory and Approved Stack
+
+UI surfaces and their frameworks (SSOT; the framework RULES — React only, Next.js for SSR,
+Tailwind only — live in [rules/frontend.md](rules/frontend.md)):
+
+| App / Package                         | Framework               | Why                                                                                       |
+| ------------------------------------- | ----------------------- | ----------------------------------------------------------------------------------------- |
+| `apps/agent-web`                      | Next.js 15              | Deployed web app — App Router + React 19; `/playground` host + `/remote` Stage-D page     |
+| `apps/docs`                           | Next.js 15              | Docs site — App Router + MDX + pagefind, static export (`output: 'export'`)               |
+| `apps/www`                            | Next.js 15              | Marketing site — static export                                                            |
+| `apps/starter-nextjs`                 | Next.js 15              | SDK starter template (PM-029)                                                             |
+| `apps/blog`                           | Astro                   | Content site — Astro components only                                                      |
+| `apps/agent-app`                      | Electron + React (Vite) | Desktop GUI shell rendering the shared GUI core `agent-transport-gui`                     |
+| `packages/agent-transport-gui`        | React                   | Shared GUI presentation core — `SessionMonitor` + session reducer                         |
+| `packages/agent-transport-webrtc-web` | React                   | Browser WebRTC peer over the GUI core                                                     |
+| `packages/agent-cli-web`              | React + Vite            | CLI-served browser monitor SPA (GUI-007; replaces the dissolved `apps/agent-web-monitor`) |
+| `packages/agent-playground`           | React                   | Playground UI package (`private` product shell)                                           |
+
+### Interactive Tools — Placement Decision
+
+If a new interactive tool or page needs:
+
+- Complex state, routing, or API calls → build it in `apps/agent-web` (Next.js).
+- Simple read-only display or calculator embeddable in docs → a React client component in `apps/docs`.
+
+## Layered Assembly Architecture
+
+The monorepo follows a strict bottom-up assembly model. Each layer builds on the layer below, never bypassing it.
+
+```
+agent-core        ← foundation: interfaces, abstractions, DI, events, plugins
+  ↑
+agent-executor    ← reusable runtime lifecycle/state/ports for background tasks and subagents
+  ↑
+agent-session     ← session lifecycle, wraps core with permissions/hooks
+agent-tools       ← tool implementations (FunctionTool, builtins)
+agent-provider    ← AI provider implementations
+agent-plugin      ← cross-cutting concerns (logging, usage, etc.)
+  ↑
+agent-framework   ← assembly layer: command contracts, common APIs, session/tool/provider composition
+  ↑
+agent-command     ← built-in/optional command modules that consume framework contracts like third-party modules
+  ↑
+agent-cli         ← product/UI layer: consumes agent-framework and selected command modules
+```
+
+**Rules:**
+
+- **No hardcoding of cross-cutting concerns.** Logging, persistence, analytics, and other side concerns MUST use the existing plugin/event architecture, not direct I/O (e.g., `fs.appendFileSync`, `console.log`). If no suitable plugin exists, create one or extend an existing one.
+- **No invented prompt/protocol directives.** Do not add arbitrary parser syntax, instruction strings, pseudo tool-call markers, model/provider heuristics, or magic command text in code or tests to force behavior. Protocol handling must come from an owned SPEC, a public external standard, or an injected adapter/strategy selected by composition.
+- **Prompt section labels are metadata, not behavior.** System-prompt composition may add neutral section titles such as "Built-in Commands", "Skills", or "Agents" and list owner-provided descriptors under them. The composer must not add behavioral instructions, imperative routing guidance, or ad hoc examples to make a model choose a path. Behavior text belongs to the owning command/tool/skill/agent descriptor or SPEC.
+- **Execution claims require runtime evidence.** Tool, command, agent, and background-task state may be reported only from structured runtime results or events. Assistant text, tag-like markup, or model-authored descriptions are never evidence that work started, completed, failed, or timed out.
+- **Provider domain neutrality.** Provider packages may translate provider-specific wire formats into universal messages and tool calls only through declared tool schemas, provider-owned protocol adapters, or injected projection strategies. A provider must not hardcode Robota domain tools, command names, slash commands, agent/subagent concepts, backlog concepts, CLI/TUI behavior, or product workflow semantics. If a model emits XML-like tool artifacts, the provider may parse generic XML and match only the request's declared tool names; it must not infer undeclared tool calls from tag names, role labels, or free-form command-like text.
+- **No user-session examples in model-facing guidance.** Do not promote ad hoc examples from user conversations into system prompts, tool descriptions, command descriptors, package specs, or tests. Model-facing examples must be generic, language-neutral, and owned by the relevant SPEC or command/tool contract.
+- **No layer skipping.** CLI must not directly use agent-core internals that should be wired through agent-session or agent-framework. Each layer consumes only its direct dependency's public API.
+- **Composition over integration.** Features should be assembled from existing building blocks (plugins, event service, tool registry) rather than baked into a single class. A 500-line Session class with hardcoded file I/O is a design smell.
+- **Interface-first extension.** When adding a capability (e.g., session logging), define the interface in agent-core, implement in a plugin or session package, and wire in agent-framework. Never implement directly in the consuming layer.
+- **Side concerns are injectable.** Any behavior that could vary by deployment (logging destination, storage path, analytics) must be injected, not imported directly.
+- **Factory context auto-forwarding.** When a factory function receives a config/context object, optional parameters derivable from that object must use it as the default value (`options.x ?? context.x`). Callers must not be required to manually extract and forward values that the factory already has access to. Explicit overrides take precedence.
+- **Composable material first.** Reusable capabilities must be shaped as small composable packages, ports, adapters, classes, and pure functions before they are wired into SDK or UI flows. The SDK should assemble reusable materials; CLI/TUI should render and inject runtime adapters. Do not let a feature become a CLI-only or SDK-only monolith when it has its own lifecycle, state model, adapters, or non-UI consumers.
+- **Package extraction trigger.** Before adding a substantial capability to an existing package, ask whether it is reusable outside that package's primary role. If the answer is yes, prefer a dedicated lower-level package or a clearly isolated module with public ports. A runtime capability with multiple adapters, transport projections, or independent tests is a strong candidate for package extraction.
+- **Orchestrator/adapter split.** Lifecycle orchestration, state transitions, and handoff metadata belong in reusable lower layers. Concrete I/O such as `child_process`, local files, Git commands, HTTP servers, and React/Ink rendering belongs in injected adapters or shell packages.
+- **Command module isolation.** Built-in and optional command packages (`agent-command`) consume framework command interfaces and are selected by composition roots. `agent-framework` must not import or special-case command packages. Product shells such as `agent-cli` may import selected command modules to assemble a default product experience.
+- **Slash-free command identity.** SDK command identifiers are canonical names such as `skills`, `agent`, or `memory`. `ICommand.name`, `ISystemCommand.name`, `ICapabilityDescriptor.name`, and projected model-command reverse mappings must not include a leading slash. Slash syntax such as `/skills` or `/agent` is a user input/display convention owned by UI/transport shells.
+- **Built-in means default composition, not SDK ownership.** A user-visible internal command must be implemented as an `ICommandModule` owner with metadata, execution, lifecycle policy, interactions, and effects in one place. "Built-in" means the product composes the module by default. It does not mean the command behavior belongs in `agent-cli`, TUI hooks, SDK orchestration classes, or provider packages.
+- **Framework command common API boundary.** `agent-framework` may own generic command contracts (`ICommandModule`, `ISystemCommand`, command effects/interactions, lifecycle metadata), registries/executors, and reusable common APIs or ports needed by commands. For example, provider settings/profile helpers may be SDK common APIs, while `/provider` command flow must consume those APIs as a command module would from a third-party package. When a command needs settings I/O, restart, picker, plugin UI, or provider creation, expose a typed port/adapter contract instead of importing concrete CLI/TUI code.
+- **CLI/TUI command thinness.** `agent-cli` may parse the leading slash, register composed command modules, render generic command prompts, apply typed host effects, and provide host adapters. It must not own command-specific state machines, setup flows, provider profile mutation, command metadata, command-specific switch branches, or duplicated command descriptors when an `ICommandModule` can own them.
+- **Legacy SDK-embedded commands are not precedent.** Existing SDK-embedded command behavior is migration debt unless it is only generic command infrastructure. New internal commands must be implemented as command modules first; expanding SDK command implementation files requires a SPEC-backed migration plan and a mechanical check exception.
+- **Per-product assembly ownership — no shared product factory.** Each deployable product (the CLI, a second CLI, an embedded host, an app) owns its own composition/wiring of provider, preset, and command modules. The reusable, product-agnostic capability lives in the framework/transport layers (e.g., the interaction runtime and the in-process/built-binary driver adapters over a shared interaction contract). Do NOT extract a shared cross-product assembly factory (e.g., a `createCliAgent`): a product shell is one assembler among many, not a shared utility. Reuse is achieved by sharing lower-layer materials, not by sharing the product's assembly. See `feedback_no_shared_cli_factory`.
+
 ## Library Neutrality Rule (packages/ vs apps/)
 
 Everything under `packages/` is a **library and must be universal and neutral** — usable by any
@@ -117,6 +187,27 @@ See [capability-placement.md](specs/architecture-map/capability-placement.md) fo
 | ------------------- | ----------------------------------------------------- |
 | `packages/auth/`    | Auth contracts, verifier ports, scope policy          |
 | `packages/credits/` | Credit account, reservation, and settlement contracts |
+
+## Documentation Map
+
+Source-to-site mapping for robota.io and package docs (SSOT; the documentation UPDATE gates —
+same-PR doc updates, document-role sync — live in
+[rules/documentation-sync.md](rules/documentation-sync.md)):
+
+- `content/README.md` is the robota.io home page source (`/`).
+- `content/getting-started/README.md` is `/getting-started/`.
+- `content/guide/README.md` is `/guide/`.
+- `content/guide/building-agents.md` is `/guide/building-agents.html`.
+- `content/guide/sdk.md` is `/guide/sdk.html`.
+- `content/guide/cli.md` is `/guide/cli.html`.
+- `content/guide/architecture.md` is `/guide/architecture.html`.
+- `content/guide/permissions-and-hooks.md` is `/guide/permissions-and-hooks.html`.
+- `content/guide/context-management.md` is `/guide/context-management.html`.
+- `content/examples/*.md` is `/examples/*`.
+- `packages/<pkg>/docs/README.md` is copied into robota.io as `/packages/<pkg>/`.
+- `packages/<pkg>/docs/SPEC.md` is package contract truth, not marketing docs.
+- `packages/<pkg>/README.md` is the npm/GitHub package README.
+- `apps/docs/out/` and `apps/docs/.next/` are generated build outputs (Next.js static export + pagefind). Do not edit them directly.
 
 ## Related Documents
 

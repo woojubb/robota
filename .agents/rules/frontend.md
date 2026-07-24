@@ -29,7 +29,8 @@ For statically-exported Next.js apps (e.g. `apps/www`):
 
 ## Styling
 
-Tailwind CSS utility classes only. This rule is shared with [naming-style.md](naming-style.md).
+Tailwind CSS utility classes only. This file owns the detailed styling constraints and their
+exceptions; [naming-style.md](naming-style.md) carries the one-line policy summary.
 
 - No `<style>` blocks (including `<style scoped>`)
 - No CSS modules
@@ -38,22 +39,10 @@ Tailwind CSS utility classes only. This rule is shared with [naming-style.md](na
 
 ## App Inventory and Approved Stack
 
-| App / Package                         | Framework    | Why                                                  |
-| ------------------------------------- | ------------ | ---------------------------------------------------- |
-| `apps/agent-web`                      | Next.js 15   | Primary web app — App Router + React 19              |
-| `apps/docs`                           | Next.js 15   | Docs site — App Router + MDX + pagefind              |
-| `apps/www`                            | Next.js 15   | Marketing site — static export                       |
-| `packages/agent-transport-gui`        | React        | Shared GUI core — `SessionMonitor` + session reducer |
-| `packages/agent-transport-webrtc-web` | React        | Browser WebRTC peer over the GUI core                |
-| `apps/agent-web-monitor`              | React + Vite | CLI-served browser monitor SPA                       |
-| `apps/blog`                           | Astro        | Content site — Astro components only                 |
-
-## Interactive Tools — Placement Decision
-
-If a new interactive tool or page needs:
-
-- Complex state, routing, or API calls → build it in `apps/agent-web` (Next.js).
-- Simple read-only display or calculator embeddable in docs → a React client component in `apps/docs`.
+Moved to [`.agents/project-structure.md`](../project-structure.md) § "App Inventory and Approved
+Stack" (the SSOT for the package/app listing) — the per-surface framework table and the
+Interactive-Tools placement decision live there. This rule owns only the portable stack
+invariants above (React only, Next.js for SSR, Tailwind only).
 
 ## Acceptable Exceptions to the Styling Rule
 
@@ -67,10 +56,10 @@ These are the only cases where non-Tailwind styling is permitted:
 
 ## Common Mistakes
 
-| Wrong                                              | Correct                                          |
-| -------------------------------------------------- | ------------------------------------------------ |
-| "I'll use Vue for a new component"                 | Vue is not approved. Use React.                  |
-| Building a full app as a Vue component             | Move complex UI to `apps/agent-web` (Next.js)    |
-| Adding `<style>` to a React component              | Use Tailwind utility classes only                |
-| Using `styled-components` or `emotion`             | Use Tailwind utility classes only                |
-| Defining custom CSS utility classes in globals.css | Use Tailwind utilities directly in JSX className |
+| Wrong                                              | Correct                                                                                                                        |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| "I'll use Vue for a new component"                 | Vue is not approved. Use React.                                                                                                |
+| Building a full app as a Vue component             | Move complex UI to the primary Next.js web app (see the placement decision in [project-structure.md](../project-structure.md)) |
+| Adding `<style>` to a React component              | Use Tailwind utility classes only                                                                                              |
+| Using `styled-components` or `emotion`             | Use Tailwind utility classes only                                                                                              |
+| Defining custom CSS utility classes in globals.css | Use Tailwind utilities directly in JSX className                                                                               |

@@ -79,11 +79,28 @@ Completed in this pass (all stubs keep old links resolving — no file deleted o
 - `git-branch.md` (309 → 293 lines): multi-line incident narratives compressed to one-line
   rationales; Worktree section and One-Branch exceptions unchanged.
 
-Remaining (needs files outside the rules scope — frontend/documentation-sync/code-quality
-relocations touch `project-structure.md`, doc-map config, and architecture SPECs):
+## Progress (2026-07-24, chore/diet-004-neutralize-data — second pass)
 
-- Neutralize baked project-data: `frontend.md` App-Inventory table, `documentation-sync.md`
-  Documentation-Source-Map, `code-quality.md` Layered-Assembly section.
+Neutralize-baked-project-data bucket completed (all moved sections keep their headings as pointer
+stubs — no link target deleted):
+
+- `frontend.md`: App-Inventory + Interactive-Tools tables moved to `project-structure.md`
+  § "App Inventory and Approved Stack"; stale entries fixed while relocating
+  (`apps/agent-web-monitor` — dissolved in GUI-007, now `packages/agent-cli-web`; added the
+  missing real UI surfaces `apps/agent-app`, `apps/starter-nextjs`, `packages/agent-playground`).
+  The rule keeps the React/Next/Tailwind invariants; the app-specific Common-Mistakes row and the
+  Styling cross-reference were neutralized.
+- `documentation-sync.md`: Documentation-Source-Map moved to `project-structure.md`
+  § "Documentation Map"; stale generated-output paths fixed (`apps/docs/.temp/` +
+  `.vitepress/dist/` — VitePress was removed in SITE-005; now `apps/docs/out/` + `.next/`).
+  The rule keeps the same-PR doc gates + Document-Role sync gate, which now POINTS at
+  `spec-workflow.md` § "Document Authority and Content Placement" for class authority.
+- `code-quality.md`: Layered-Assembly section (stack diagram + command-layering rules) moved to
+  `project-structure.md` § "Layered Assembly Architecture" (merged with the dependency-direction
+  content there); the rule keeps the neutral type/pattern rules + a pointer stub (heading kept —
+  `common-mistakes.md` #16/#20 reference it).
+
+Remaining: none for this item's rule buckets.
 
 ## Test Plan
 
