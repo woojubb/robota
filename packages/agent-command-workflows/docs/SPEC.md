@@ -4,8 +4,9 @@
 
 Provides the agent-cli `/workflows` command module — a bridge that surfaces the DAG workflow engine
 inside the agent CLI by composing `@robota-sdk/dag-framework` in-process. Owns the `workflows`
-`ICommandModule`, its subcommand dispatch, the per-subcommand executors (`create`, `list`, `catalog`,
-`validate`, `run`), and the **natural-language authoring pipeline** behind `create` (FLOW-007).
+`ICommandModule`, its subcommand dispatch, the per-subcommand executors (`create`, `build`, `list`,
+`catalog`, `validate`, `run`), and the **natural-language authoring pipeline** behind `create` and
+`build` (FLOW-007, WORKFLOW-004).
 
 ## Boundaries
 
@@ -44,6 +45,26 @@ the LLM only **authors** and the runtime **executes**:
 The `workflows` command is **model-invocable** (FLOW-007 Phase 4): the agent can author + run a
 workflow from a chat request.
 
+### Author-without-run (`build`, WORKFLOW-004)
+
+`/workflows build "<description>" [--input k=v] [--name <name>]` is the **generate-for-review**
+counterpart to `create`: the SAME authoring pipeline (steps 1–4 above, identical arg grammar via the
+shared `parseCreateArgs`) but it stops at **save** — author → parse/validate → assemble → bake input →
+persist prompt nodes + workflow — and reports the saved path with the explicit next steps
+(`/workflows validate <path>`, `/workflows run <path>`). **`build` never executes**: it does not
+import `authoring/execute-workflow.ts`, so no DAG runtime is constructed and no node (LLM or
+side-effecting) runs. Failures before assembly leave nothing on disk (no provider / invalid or
+unassemblable spec → failed `ICommandResult`, fs untouched). `build` is model-invocable — strictly
+less privileged than `create` (it cannot execute anything).
+
+**Provider seam (the WORKFLOW-004 decision):** both authoring subcommands share ONE seam — deps
+injected at the composition root (`IWorkflowsCommandModuleDeps.providerDefinitions`), the provider
+resolved lazily per invocation via `createProviderFromSettings` (+ model from
+`readProviderSettings`), with a `resolveProvider` test seam. The module sees only
+`IAIProvider`/`IProviderDefinition` from `agent-core` and imports zero concrete provider packages. A
+CMD-004 `model` host adapter was evaluated and deferred: if session-live authoring fidelity is ever
+required, `create` and `build` migrate together in one follow-up.
+
 ## Type Ownership
 
 | Type                                     | Location | Purpose                                               |
@@ -52,24 +73,25 @@ workflow from a chat request.
 
 ## Public API Surface
 
-| Export                                 | Kind      | Description                                                                    |
-| -------------------------------------- | --------- | ------------------------------------------------------------------------------ |
-| `createWorkflowsCommandModule`         | function  | Returns the `workflows` `ICommandModule` for agent-cli composition.            |
-| `IWorkflowsCommandModuleDeps`          | interface | Injected deps: `workspace?`, `providerDefinitions?`.                           |
-| `createWorkflowsCommandEntry`          | function  | Returns the `workflows` `ICommand` metadata entry.                             |
-| `WorkflowsCommandSource`               | class     | `ICommandSource` exposing the `workflows` command.                             |
-| `executeWorkflowsCreate`               | function  | Executor for `/workflows create` (NL authoring + run).                         |
-| `IWorkflowsCreateDeps`                 | interface | Create seam: `workspace?`, `providerDefinitions?`, `resolveProvider?`, `now?`. |
-| `parseCreateArgs`                      | function  | Parse `create` args (description + `--input`/`--name`).                        |
-| `executeWorkflowsList`                 | function  | Executor for `/workflows list`.                                                |
-| `executeWorkflowsRun`                  | function  | Executor for `/workflows run <file>`.                                          |
-| `AGENT_COMMAND_WORKFLOWS_PACKAGE_NAME` | const     | Package-name constant.                                                         |
+| Export                                 | Kind      | Description                                                                                                              |
+| -------------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `createWorkflowsCommandModule`         | function  | Returns the `workflows` `ICommandModule` for agent-cli composition.                                                      |
+| `IWorkflowsCommandModuleDeps`          | interface | Injected deps: `workspace?`, `providerDefinitions?`.                                                                     |
+| `createWorkflowsCommandEntry`          | function  | Returns the `workflows` `ICommand` metadata entry.                                                                       |
+| `WorkflowsCommandSource`               | class     | `ICommandSource` exposing the `workflows` command.                                                                       |
+| `executeWorkflowsCreate`               | function  | Executor for `/workflows create` (NL authoring + run).                                                                   |
+| `executeWorkflowsBuild`                | function  | Executor for `/workflows build` (NL authoring + save — never executes).                                                  |
+| `IWorkflowsCreateDeps`                 | interface | Authoring seam (shared by `create`/`build`): `workspace?`, `providerDefinitions?`, `resolveProvider?`, `model?`, `now?`. |
+| `parseCreateArgs`                      | function  | Parse `create`/`build` args (description + `--input`/`--name` — shared grammar).                                         |
+| `executeWorkflowsList`                 | function  | Executor for `/workflows list`.                                                                                          |
+| `executeWorkflowsRun`                  | function  | Executor for `/workflows run <file>`.                                                                                    |
+| `AGENT_COMMAND_WORKFLOWS_PACKAGE_NAME` | const     | Package-name constant.                                                                                                   |
 
-The `workflows` command dispatches five first-class subcommands (in `workflows-command-module.ts`):
-`create`, `list`, `catalog`, `validate`, and `run`. The `catalog` and `validate` executors
+The `workflows` command dispatches six first-class subcommands (in `workflows-command-module.ts`):
+`create`, `build`, `list`, `catalog`, `validate`, and `run`. The `catalog` and `validate` executors
 (`executeWorkflowsCatalog`, `executeWorkflowsValidate`) are **internal** — dispatched inside the module
 but not re-exported from the package root (`src/index.ts`) — so they are part of the command surface,
-not the public API. Only `create`/`list`/`run` executors are root-exported (above).
+not the public API. Only `create`/`build`/`list`/`run` executors are root-exported (above).
 
 ## Extension Points
 
@@ -95,6 +117,13 @@ re-run reproduces the result; TC-04 no-provider → actionable error + no write;
 create/save/reuse — which **clears all provider keys** (`vi.stubEnv`) so the key-using node run is
 deterministic and free of any network call, and **explicitly asserts** the missing-key failure is
 detected/surfaced (never silently tolerated, never a real LLM call in the unit suite).
+
+`src/__tests__/build-command.test.ts` covers `build` with the same injected provider stub:
+author→save with NO run output and a **mechanical non-execution canary** (the `dag-framework`
+runtime execute path is spied and asserted at 0 calls); the saved artifact round-trips through the
+existing `validate` and `run` executors; invalid/unassemblable spec → failed result + fs untouched;
+no provider → actionable error + no write; `newNodes` manifests persisted inert under
+`<root>/nodes/` without execution.
 
 `src/__tests__/create-command.live.test.ts` is an **opt-in live suite** hitting a REAL provider — it
 runs only when `RUN_LIVE_LLM=1` AND a provider key are both present, so normal `pnpm test` / CI skip

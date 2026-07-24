@@ -139,7 +139,7 @@ export function parseCreateArgs(
  * authoring so the node doesn't silently hardcode-default to anthropic and fail for other providers.
  * The chosen provider is persisted in the node manifest for a deterministic reload.
  */
-function buildPromptNode(
+export function buildPromptNode(
   spec: IAuthoredPromptNode,
   fallbackProvider: TInstantNodeProvider | undefined,
 ): IDagNodeDefinition {
@@ -164,7 +164,7 @@ function formatOutputs(outputs: Record<string, unknown>): string {
  * self-contained (reproduces on a bare `/workflows run`). Returns the definition unchanged when there
  * is no input to bake or no `input` node.
  */
-function bakeInputIntoDefinition(
+export function bakeInputIntoDefinition(
   definition: IDagDefinition,
   runInputs: Record<string, string>,
 ): IDagDefinition {
