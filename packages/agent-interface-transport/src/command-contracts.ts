@@ -139,7 +139,7 @@ export type TCommandUiIntent =
 /**
  * Typed host effects requested by a command execution.
  *
- * @deprecated CMD-004 Phase 2 splits this union into host-executed {@link TCommandHostAction} and
+ * LEGACY (CMD-004 Phase 2): this union is split into host-executed {@link TCommandHostAction} and
  * surface-rendered {@link TCommandUiIntent}. During the staged migration the session maps legacy
  * effects onto the split contract internally; Stage E migrates emitters and deletes this union.
  */
@@ -178,8 +178,7 @@ export interface ICommandResult {
   data?: Record<string, unknown>;
   /**
    * Typed host effects requested by the command.
-   *
-   * @deprecated CMD-004 Phase 2 — use {@link hostActions} / {@link uiIntents}. Deleted in Stage E.
+   * LEGACY (CMD-004 Phase 2) — use {@link hostActions} / {@link uiIntents}. Deleted in Stage E.
    */
   effects?: readonly TCommandEffect[];
   /** CMD-004 Phase 2: host-executed actions — applied by the session layer before the result returns. */
