@@ -856,6 +856,21 @@ The system prompt is the agent's **live instruction state** — not conversation
 - **Live updates reach the model**: `Robota.updateSystemPrompt(content)` updates `config.systemMessage` **and** the live conversation store head **in place**, so the very next provider request carries the change. This is the path that propagates a session's persona, self-verification toggle, and AGENTS.md/CLAUDE.md staleness refresh to the model — a real, infrequent mutation, not a per-turn rewrite. Updating only a config field (without the store head) is insufficient because providers read the system prompt from the messages array, never from a separate config field.
 - **Resume semantics**: persisted `system` messages are **not** restored into the log; instead the system prompt is injected fresh from the live `config.systemMessage` on the first turn after resume (a staleness refresh — the rebuilt prompt reflects the current cwd/AGENTS.md/CLAUDE.md and tool inventory). The restored conversation's user/assistant/tool messages are always preserved; restore keys off the presence of conversation content, not the system head (so a system prompt applied before the first turn does not block restore).
 
+## Model-Facing Prompt Surfaces (declaration)
+
+This zero-dependency foundation layer injects **no persona or product vocabulary** into the model.
+Every string it can place in front of a model is declared here, with its seam:
+
+| Surface                                    | Default                                                                                                  | Seam                                                                                                                                        |
+| ------------------------------------------ | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AgentFactory` `defaultSystemMessage`      | **Empty string** — no baked-in persona. `??` semantics, so an explicit `''` is expressible and respected | `IAgentFactoryOptions.defaultSystemMessage`; per-agent `config.systemMessage` always wins                                                   |
+| Context hard-capacity notice (round guard) | Neutral usage statistics + `DEFAULT_CONTEXT_CAPACITY_HINT` (no slash-command or product vocabulary)      | `IAgentConfig.contextCapacityHint` replaces the remediation hint sentence (a surface tier injects its own command wording, e.g. `/compact`) |
+| Tool-result skip notice (context budget)   | `Error: Context window near capacity. Tool execution result skipped. …` — neutral mechanism text         | none (fixed mechanism text)                                                                                                                 |
+| Forced-summary instruction (loop guard)    | Neutral "respond with what you have so far" instruction                                                  | none external (`IExecutionRoundState.forcedSummaryInstruction` is set internally by the unavailable-tool loop guard)                        |
+
+Any new model-facing string added to this package MUST be registered in this table with a
+neutral default and, where a tier above may want product wording, an injection seam.
+
 ## Message Model
 
 `IBaseMessage` is the foundation for all message types in the conversation history.
