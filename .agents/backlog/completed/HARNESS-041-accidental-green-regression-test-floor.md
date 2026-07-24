@@ -1,6 +1,7 @@
 ---
 title: 'HARNESS-041: mechanical floor for accidental-green regression tests (prove RED without the fix)'
-status: todo
+status: done
+completed: 2026-07-23
 created: 2026-07-21
 priority: medium
 urgency: soon
@@ -9,6 +10,11 @@ depends_on: []
 ---
 
 # Mechanical floor — a defect-fix regression test must FAIL without the source fix
+
+## Outcome (DONE 2026-07-23)
+
+Shipped as the advisory `regression-red-proof` CI job (#1272; spec `.agents/spec-docs/done/HARNESS-041-*.md`,
+GATE-COMPLETE #1273). Flip-to-required is tracked by INFRA-046.
 
 ## Problem
 
