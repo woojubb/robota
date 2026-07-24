@@ -14,6 +14,11 @@ import {
   permissionResponse,
   type TPendingPrompt,
 } from './prompt-state.js';
+import {
+  applyUiIntentEvent,
+  removeUiIntentNotice,
+  type TUiIntentNotice,
+} from './ui-intent-state.js';
 import { createWsSessionClient } from '../client/ws-session-client.js';
 
 import type { TConnectionStatus, TClientMessage } from '../client/ws-session-client.js';
@@ -68,6 +73,13 @@ export interface IWsSessionState<TStatus extends string = TConnectionStatus> {
   answerPermission: (id: string, result: TPermissionResultValue) => void;
   /** Answer a pending ask prompt (sends `ask-response`). */
   answerAsk: (id: string, response: TActionResponse) => void;
+  /**
+   * CMD-004 Stage D: explicit notices for `ui_intent`s this surface cannot render as a screen
+   * (requester-routed to this surface by the server; never a silent drop — TC-05).
+   */
+  uiIntentNotices: readonly TUiIntentNotice[];
+  /** Dismiss one ui_intent notice by id. */
+  dismissUiIntentNotice: (id: string) => void;
 }
 
 let msgCounter = 0;
@@ -87,6 +99,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
     null,
   );
   const [pendingPrompts, setPendingPrompts] = useState<readonly TPendingPrompt[]>([]);
+  const [uiIntentNotices, setUiIntentNotices] = useState<readonly TUiIntentNotice[]>([]);
 
   const clientRef = useRef<ISessionClientHandle | null>(null);
   const streamingIdRef = useRef<string | null>(null);
@@ -161,6 +174,12 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
         setPendingPrompts((prev) => applyPromptEvent(prev, msg));
         break;
       }
+      case 'ui_intent': {
+        // CMD-004 Stage D: a command this surface issued requested a screen — fold it into an
+        // explicit visible notice (the GUI has no such screen yet; TC-05, never a silent no-op).
+        setUiIntentNotices((prev) => applyUiIntentEvent(prev, msg));
+        break;
+      }
       case 'complete':
       case 'interrupted': {
         const finalText = streamingTextRef.current;
@@ -195,6 +214,10 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
     setPendingPrompts((prev) => prev.filter((p) => p.id !== id));
   }, []);
 
+  const dismissUiIntentNotice = useCallback((id: string): void => {
+    setUiIntentNotices((prev) => removeUiIntentNotice(prev, id));
+  }, []);
+
   useEffect(() => {
     const client = makeClient({ onMessage: handleMessage, onStatusChange: setStatus });
     clientRef.current = client;
@@ -216,6 +239,8 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
     pendingPrompts,
     answerPermission,
     answerAsk,
+    uiIntentNotices,
+    dismissUiIntentNotice,
   };
 }
 

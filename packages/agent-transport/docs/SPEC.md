@@ -55,6 +55,23 @@ one-way `InteractionEvent` stream into `events`, which the driver exposes as `as
 CMD-004 `askUser` a command may issue (an empty queue resolves `{ type: 'cancelled' }`, so a run never
 deadlocks). This is the in-process form of "drive the agent at will" (TEST-008).
 
+### Host-action parity (CMD-004 Stage D)
+
+A command's HOST ACTIONS (`language-change`, `settings-reset`, `session-exit`/`-restart`,
+`session-rename`, …) are executed by the SESSION via the injected `ICommandHostAdapters` — the LSP
+`workspace/executeCommand` model — so they work with **zero attached surfaces**: a headless or
+programmatic embedding gets the same command semantics as the TUI/GUI. An embedder that wires
+`commandHostAdapters` (settings/process/…) into its `InteractiveSession` gets full host execution;
+an embedding with no adapter for a requested action gets an EXPLICIT failure in the command result
+naming the missing capability (`Cannot apply '<action>': … not available in this environment.`) —
+never a silent skip (no-fallback). `createProgrammaticAgent` wires no adapters today, so host
+actions surface that explicit failure through the `command-result` event as data. UI intents
+(`ui_intent`) are fire-and-forget presentation requests: with zero listeners attached they are a
+defined no-op (there is no surface to render them; the host action half is unaffected). Proven by
+`src/__tests__/headless-host-action-parity.test.ts` and the multi-surface exit/restart policy e2e
+`src/__tests__/ws-multi-surface-exit-policy.test.ts` (TC-09: a remote `/exit` or restart acts on
+the SHARED host serving all surfaces — local == remote, REMOTE-006).
+
 ### Headless lifecycle
 
 `HeadlessInteractionChannel` constructs the `InteractiveSession`, runs a single prompt via

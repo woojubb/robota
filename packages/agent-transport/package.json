@@ -87,6 +87,7 @@
   },
   "devDependencies": {
     "@robota-sdk/agent-command": "workspace:*",
+    "@robota-sdk/agent-transport-protocol": "workspace:*",
     "rimraf": "^5.0.10",
     "tsdown": "^0.22.14",
     "tsx": "^4.23.1",
