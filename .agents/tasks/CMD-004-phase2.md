@@ -7,37 +7,37 @@ Staged migration (additive-then-delete, each stage independently green, own PR):
 
 ## Stage A — contract (additive, `agent-interface-transport`) → TC-01, TC-07 (interim)
 
-- [ ] Add `TCommandHostAction` + `TCommandUiIntent` (UI-neutral names) alongside the deprecated
+- [x] Add `TCommandHostAction` + `TCommandUiIntent` (UI-neutral names) alongside the deprecated
       `TCommandEffect` (untouched).
-- [ ] Add `ICommandResult.hostActions?` / `.uiIntents?` (additive).
-- [ ] Add `IUiIntentEvent` (carries `requesterDriverId?`) + `ui_intent` in
+- [x] Add `ICommandResult.hostActions?` / `.uiIntents?` (additive).
+- [x] Add `IUiIntentEvent` (carries `requesterDriverId?`) + `ui_intent` in
       `IInteractiveSessionEvents`; add the `session_renamed` broadcast event (host-executed rename
       title propagation).
-- [ ] Extend the `executeCommand` contract with the OPTIONAL command-origin driver id
+- [x] Extend the `executeCommand` contract with the OPTIONAL command-origin driver id
       (`originDriverId?`), defaulting so untouched callers compile.
-- [ ] Type test (TC-01): split contract exported; `TCommandUiIntent` names carry no UI-technology
+- [x] Type test (TC-01): split contract exported; `TCommandUiIntent` names carry no UI-technology
       token; `IUiIntentEvent.requesterDriverId?` present.
 
 ## Stage B — host executor (`agent-framework` + `agent-transport-protocol` + `agent-cli`) → TC-02, TC-03, TC-10
 
-- [ ] Generalize the `executeCommand` hot-swap block into an ordered host-action applier over
+- [x] Generalize the `executeCommand` hot-swap block into an ordered host-action applier over
       `ICommandHostAdapters` (+ direct-on-session `session-rename` with `session_renamed` broadcast).
-- [ ] Temporary internal `effects → hostActions/uiIntents` mapping shim (Stage E deletes it).
-- [ ] Strip HOST ACTIONS ONLY from `result.effects`; the four UI-intent effects stay dual-carried
+- [x] Temporary internal `effects → hostActions/uiIntents` mapping shim (Stage E deletes it).
+- [x] Strip HOST ACTIONS ONLY from `result.effects`; the four UI-intent effects stay dual-carried
       (legacy effect AND new `ui_intent` event) until Stage C.
-- [ ] Emit `ui_intent` stamped with the command-origin driver id (model-invoked fallback:
+- [x] Emit `ui_intent` stamped with the command-origin driver id (model-invoked fallback:
       active turn driver). Fire-and-forget; zero listeners ⇒ no-op.
-- [ ] Absent adapter ⇒ EXPLICIT failure in the command result (no-fallback), never a silent skip.
-- [ ] Extend `ICommandRemoteControlAdapter` with `enable()`/`stop()` returning the user message;
+- [x] Absent adapter ⇒ EXPLICIT failure in the command result (no-fallback), never a silent skip.
+- [x] Extend `ICommandRemoteControlAdapter` with `enable()`/`stop()` returning the user message;
       wire at the `agent-cli` composition root. `ICommandSettingsAdapter` gains optional `delete()`.
-- [ ] `agent-cli`: late-bound per-mode `process` adapter (TUI signal-driven graceful unmount /
+- [x] `agent-cli`: late-bound per-mode `process` adapter (TUI signal-driven graceful unmount /
       serve shutdown / print exit-at-run-end).
-- [ ] Plumb `originDriverId` base → skill-router; ws-handler passes its REMOTE-014 E5
+- [x] Plumb `originDriverId` base → skill-router; ws-handler passes its REMOTE-014 E5
       server-assigned driver id and forwards `ui_intent` (server → client).
-- [ ] TC-03 RED first: WS e2e proving effects are dropped today (recorded in Evidence Log), then green.
-- [ ] TC-10 RED first: `/rename` does not persist without the TUI handler (recorded), then green
+- [x] TC-03 RED first: WS e2e proving effects are dropped today (recorded in Evidence Log), then green.
+- [x] TC-10 RED first: `/rename` does not persist without the TUI handler (recorded), then green
       via host-side execution — TUI untouched.
-- [ ] No double execution: adapter call counts asserted (hot-swap, rename, settings ops).
+- [x] No double execution: adapter call counts asserted (hot-swap, rename, settings ops).
 
 ## Stage C — TUI to pure renderer (`agent-transport-tui`) → TC-04 (NOT this branch)
 
