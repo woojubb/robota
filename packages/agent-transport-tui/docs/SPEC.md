@@ -139,6 +139,21 @@ out of this contract:
 - `ExecutionWorkspaceDetailPane.tsx` uses `▸` as a **group-summary disclosure glyph** (content, not a
   cursor); a future pass must not "fix" it into the selection convention.
 
+## IME Real-Cursor Contract (CLI-062)
+
+During focused text entry, `CjkTextInput` positions the REAL terminal cursor at the composition
+point so the OS IME window appears at the input position (contract:
+`.design/investigations/2026-07-25-cli-062-ime-cursor-design.md`). Mechanism: a `<Box ref>` yoga
+parent-chain walk yields the input's absolute frame-space origin
+(`src/hooks/useRealCursorPosition.ts`); the cell math and the crash-avoidance guard are pure
+(`src/flows/real-cursor-flow.ts`, reusing the input's own wrap-aware `displayOffset`); the cell
+rides ink's `useCursor` inside the synchronized frame write. Five invariants (I1 never a guessed
+row; I2 never into a frame ≥ viewport or a y outside it; I3 never out-of-band writes; I4 guard
+fail/blur/unmount → exactly today's drawn-cursor rendering; I5 Apple_Terminal off by default,
+`ROBOTA_IME_CURSOR=1` opt-in / `=0` kill switch via
+`supportsImeCursorPositioning()`) each exist as a code comment AND a test; the drawn inverse
+cursor is suppressed only while real positioning is active.
+
 ## Extension Points
 
 New TUI components/flows live under `src/`. The adapter seam (`ITuiCliAdapter`) lets the CLI inject
