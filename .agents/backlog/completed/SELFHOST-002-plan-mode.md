@@ -1,6 +1,7 @@
 ---
 title: 'SELFHOST-002: explicit plan-mode (plan → review → approve → act) with a plan/todo artifact'
-status: todo
+status: done
+completed: 2026-07-17
 created: 2026-07-16
 priority: high
 urgency: soon
@@ -9,6 +10,13 @@ depends_on: []
 ---
 
 # Plan-mode
+
+## Outcome (DONE 2026-07-17)
+
+Shipped: plan-mode gate (plan -> review -> approve -> act) as `PlanController` + permission-mode gating in
+`packages/agent-framework/src/plan/` with `InteractiveSession` wiring (`plan-mode-wiring.test.ts`).
+Spec: `.agents/spec-docs/done/SELFHOST-002-plan-mode.md` (GATE-COMPLETE 2026-07-17; landing PRs #1197, #1198).
+Verified 2026-07-24: `plan-controller.test.ts` green.
 
 Part of [SELFHOST-000](SELFHOST-000-self-hosting-capability-roadmap.md) / [VISION.md](../../VISION.md). Robota
 has permissions/HITL but no dedicated **plan-first-then-execute** gate — a near-universal advantage of coding

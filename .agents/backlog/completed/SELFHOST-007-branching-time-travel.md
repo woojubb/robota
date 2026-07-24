@@ -1,6 +1,7 @@
 ---
 title: 'SELFHOST-007: branching time-travel checkpoints (rewind to any step, fork alternate branch)'
-status: todo
+status: done
+completed: 2026-07-18
 created: 2026-07-16
 priority: medium
 urgency: later
@@ -9,6 +10,13 @@ depends_on: []
 ---
 
 # Branching time-travel checkpoints
+
+## Outcome (DONE 2026-07-18)
+
+Shipped: branchable checkpoint tree (rewind to any step + fork/switch alternate branches) in
+`packages/agent-session/src/checkpoint-tree.ts`. Spec:
+`.agents/spec-docs/done/SELFHOST-007-branching-time-travel.md` (GATE-IMPLEMENT+VERIFY+COMPLETE 2026-07-18,
+TC-01..05; landed via PR #1215 per git history). Verified 2026-07-24: `checkpoint-tree.test.ts` green (8 tests).
 
 Part of [SELFHOST-000](SELFHOST-000-self-hosting-capability-roadmap.md) / [VISION.md](../../VISION.md).
 Differentiator. Robota has `/rewind`, but the advertised frontier is **branching**: rewind to any step and

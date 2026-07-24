@@ -1,6 +1,7 @@
 ---
 title: 'SELFHOST-009: rich lifecycle hook catalog (named events + PreToolUse security gate)'
-status: todo
+status: done
+completed: 2026-07-19
 created: 2026-07-16
 priority: medium
 urgency: later
@@ -9,6 +10,13 @@ depends_on: []
 ---
 
 # Lifecycle hook catalog
+
+## Outcome (DONE 2026-07-19)
+
+Shipped: documented lifecycle hook catalog — 16 named events with `packages/agent-core/docs/HOOK-CATALOG.md` as
+the SSOT, PreToolUse security gate, plus a drift-guard scan keeping code and catalog in sync (later hardened by
+HARNESS-031, PR #1247). Spec: `.agents/spec-docs/done/SELFHOST-009-hook-catalog.md` (GATE-COMPLETE 2026-07-19,
+TC-01..07 incl. agent-run TC-07).
 
 Part of [SELFHOST-000](SELFHOST-000-self-hosting-capability-roadmap.md) / [VISION.md](../../VISION.md).
 Differentiator. Robota has hooks in `agent-core`; the gap vs the strongest exemplar is **breadth + a documented

@@ -1,6 +1,7 @@
 ---
 title: 'SELFHOST-005: structured output + parallel guardrails (input/output validation, fail-fast)'
-status: todo
+status: done
+completed: 2026-07-18
 created: 2026-07-16
 priority: high
 urgency: soon
@@ -9,6 +10,14 @@ depends_on: []
 ---
 
 # Guardrails + structured output
+
+## Outcome (DONE 2026-07-18)
+
+Shipped: guardrail contract + executor hosted in the `agent-core` hooks engine
+(`packages/agent-core/src/hooks/executors/guardrail-executor.ts`) with parallel run + fail-fast and tool-output
+validation. Spec: `.agents/spec-docs/done/SELFHOST-005-guardrails-structured-output.md`
+(GATE-IMPLEMENT+VERIFY+COMPLETE 2026-07-18, TC-01..05).
+Verified 2026-07-24: `guardrail-executor.test.ts` + `guardrail-runhooks.test.ts` green (12 tests).
 
 Part of [SELFHOST-000](SELFHOST-000-self-hosting-capability-roadmap.md) / [VISION.md](../../VISION.md). A
 table-stakes reliability feature: validate agent input/output against typed contracts and fail fast.

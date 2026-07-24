@@ -1,6 +1,7 @@
 ---
 title: 'SELFHOST-001: first-class multi-agent orchestration primitives (sequential/parallel/hierarchical/handoff/group-chat)'
-status: todo
+status: done
+completed: 2026-07-17
 created: 2026-07-16
 priority: high
 urgency: soon
@@ -9,6 +10,13 @@ depends_on: []
 ---
 
 # Multi-agent orchestration primitives
+
+## Outcome (DONE 2026-07-17)
+
+Shipped: all five orchestration primitives (sequential / parallel / hierarchical / handoff / group-chat) as
+neutral composition helpers in `packages/agent-framework/src/orchestration/`, composing over `SubagentManager`.
+Spec: `.agents/spec-docs/done/SELFHOST-001-multi-agent-orchestration-primitives.md` (GATE-COMPLETE 2026-07-17;
+landing PRs #1192, #1194, #1195). Verified 2026-07-24: orchestration test suite green (5 files, 30 tests).
 
 Part of [SELFHOST-000](SELFHOST-000-self-hosting-capability-roadmap.md) / [VISION.md](../../VISION.md). The
 single most-commonly-touted advantage across the landscape and Robota's biggest gap: Robota has subagents
