@@ -18,7 +18,8 @@ export type { ISpinner, ITerminalOutput };
  * - true: allow this invocation
  * - false: deny this invocation
  * - 'allow-session': allow this invocation and auto-approve this tool for the rest of the session
- * - 'allow-project': allow this invocation and persist the approval to .robota/settings.local.json
+ * - 'allow-project': allow this invocation and persist the approval to the project's local
+ *   settings; the storage location is owned by the consuming layer (via `onProjectAllowTool`)
  */
 export type TPermissionResult = boolean | 'allow-session' | 'allow-project';
 

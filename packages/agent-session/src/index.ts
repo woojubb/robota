@@ -15,7 +15,11 @@ export type {
 // Sub-components (exported for advanced use cases)
 export { PermissionEnforcer } from './permission-enforcer.js';
 export { AUTO_COMPACT_THRESHOLD, ContextWindowTracker } from './context-window-tracker.js';
-export { CompactionError, CompactionOrchestrator } from './compaction-orchestrator.js';
+export {
+  CompactionError,
+  CompactionOrchestrator,
+  DEFAULT_COMPACTION_PROMPT,
+} from './compaction-orchestrator.js';
 
 // SELFHOST-014: shareable/resumable session artifact envelope + the opt-in sensitive-key scrub (SSOT).
 export {
