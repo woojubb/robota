@@ -1,5 +1,5 @@
 ---
-status: draft
+status: approved
 type: FLOW
 tags: [cli, agent]
 capability: true
@@ -73,7 +73,7 @@ provider — and stays rejected here.)
   `workflows-command-module.ts`; tests. No re-architecting of shipped subcommands (backlog
   constraint).
 - **No framework or composition change.** The module already receives everything `build` needs:
-  agent-cli's `command-setup.ts:36-40` threads `providerDefinitions` into
+  agent-cli's `packages/agent-cli/src/startup/command-setup.ts:36-41` threads `providerDefinitions` into
   `createWorkflowsCommandModule({ providerDefinitions })` (FLOW-007 C1), and provider resolution is
   lazy at invocation time. `agent-framework`'s command-api is untouched.
 - **On-disk formats.** `build` **writes** the legible `IDagDefinition` format only — the same
@@ -218,7 +218,7 @@ LLM-assisted editing of an existing workflow file.
 ## Completion Criteria
 
 - [ ] TC-01: with a stubbed provider (`resolveProvider` deps seam), `/workflows build "uppercase the
-    text" --input text=hi` saves `<workspace>/<name>.json` and returns success whose message
+text" --input text=hi` saves `<workspace>/<name>.json` and returns success whose message
       contains the saved path and NO run output; the test proves non-execution mechanically (the DAG
       runtime/execute path is never invoked — spy/canary asserts 0 calls), red-first: this test fails
       before `build-command.ts` exists.
@@ -232,8 +232,13 @@ LLM-assisted editing of an existing workflow file.
 - [ ] TC-05: a stub spec with `newNodes` → the prompt-backed node manifest is saved under
       `<workspace>/nodes/`, the saved workflow references it, and still nothing executes.
 - [ ] TC-06: boundaries hold — `rg -l "@robota-sdk/dag-cli" packages/agent-*/src` → 0;
-      `rg -l "@robota-sdk/agent-provider-defaults\|@robota-sdk/provider-" packages/agent-command-workflows/src
-    --glob '!**/__tests__/**'` → 0; `pnpm --filter @robota-sdk/agent-command-workflows typecheck`
+      `rg -l "@robota-sdk/agent-provider-" packages/agent-command-workflows/src --glob '!**/__tests__/**'`
+      → 0 (single prefix covers `agent-provider-defaults` AND every concrete `agent-provider-*`;
+      the GATE-APPROVAL review found the draft's original `\|`-alternation pattern was mechanically
+      unfailable — rg treats `\|` as a literal pipe — and its second alternative named a nonexistent
+      package prefix). **Proven-can-fail requirement:** at IMPLEMENT, plant a violating
+      `agent-provider-defaults` import once, observe the rg hit, remove it — same red-first
+      discipline as TC-01; `pnpm --filter @robota-sdk/agent-command-workflows typecheck`
       and `test` exit 0; `pnpm harness:scan` exit 0.
 
 ## Test Plan
@@ -269,3 +274,18 @@ written at GATE-COMPLETE):
 - [ ] `.agents/tasks/WORKFLOW-004.md` — 미생성 (GATE-APPROVAL 통과 후 생성)
 
 ## Evidence Log
+
+### [GATE-APPROVAL] — REVISE → revisions folded → approved | 2026-07-25
+
+- Independent proposal-reviewer verdict: **REVISE** — every load-bearing premise verified in code
+  (create's unconditional `executeDefinition`, the FLOW-007 seam at the cited lines, the CMD-004
+  host-adapters characterization, provider-neutral runtime deps, dual-read/legible-write). The
+  decision set (seam (a); separate `build` verb; never-execute contract; joint create+build
+  migration to a CMD-004 `model` adapter as the named follow-up) was endorsed as correct.
+- One blocking defect, folded: TC-06's neutrality gate was mechanically unfailable — rg treats
+  `\|` as a literal pipe, and `@robota-sdk/provider-` matches no real package. Replaced with the
+  single-prefix `@robota-sdk/agent-provider-` pattern plus an explicit proven-can-fail step at
+  IMPLEMENT (plant → observe hit → remove).
+- Minor precision fold-in: composition-root citation now uses the full
+  `packages/agent-cli/src/startup/command-setup.ts:36-41` path.
+- Approved on the reviewer's conditional; `status: approved`, moved draft → todo.
