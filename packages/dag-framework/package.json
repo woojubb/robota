@@ -43,7 +43,7 @@
   "author": "Robota SDK Team",
   "license": "AGPL-3.0-only OR LicenseRef-Commercial",
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.19.0"
   },
   "dependencies": {
     "@robota-sdk/agent-core": "workspace:*",
