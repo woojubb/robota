@@ -26,7 +26,7 @@ import {
 import type { IExecutionResult, IToolSummary, IUsageSnapshot } from './types.js';
 import type { IContextReferenceItem } from '../context/context-reference-inventory.js';
 import type { IPromptFileReferenceRecord } from '../context/prompt-file-references.js';
-import type { IContextWindowState, TUniversalMessage } from '@robota-sdk/agent-core';
+import type { IContextWindowState, ITokenUsage, TUniversalMessage } from '@robota-sdk/agent-core';
 import type {
   IHistoryEntry,
   ISpanCompletionEventData,
@@ -144,7 +144,7 @@ export function createUsageSummaryEntry(usage: IUsageSnapshot): IHistoryEntry<IU
  * 'unknown'" (the `kind: 'exact'` still reflects exact TOKENS).
  */
 export function createSourceUsageSummaryEntry(
-  totals: { promptTokens: number; completionTokens: number; totalTokens: number },
+  totals: ITokenUsage,
   source: IUsageSource,
 ): IHistoryEntry<IUsageSnapshot> {
   return createUsageSummaryEntry({

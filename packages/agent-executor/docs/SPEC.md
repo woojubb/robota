@@ -113,22 +113,22 @@ Design rules:
 
 ### Subagent Types
 
-| Type                              | Location                                                                                   | Purpose                                                     |
-| --------------------------------- | ------------------------------------------------------------------------------------------ | ----------------------------------------------------------- |
-| `TSubagentJobStatus`              | `@robota-sdk/agent-interface-transport` (SSOT; re-exported at `src/subagents/types.ts:18`) | Subagent job status union (mirrors `TBackgroundTaskStatus`) |
-| `TSubagentJobMode`                | `@robota-sdk/agent-interface-transport` (SSOT; re-exported at `src/subagents/types.ts:18`) | `'foreground' \| 'background'`                              |
-| `ISubagentSpawnRequest`           | `src/subagents/types.ts:20` (owned)                                                        | Subagent spawn request                                      |
-| `ISubagentJobState`               | `@robota-sdk/agent-interface-transport` (SSOT; re-exported at `src/subagents/types.ts:18`) | Subagent job state projection                               |
-| `ISubagentJobResult`              | `src/subagents/types.ts:44` (owned)                                                        | Subagent completion output and metadata                     |
-| `ISubagentJobStart`               | `src/subagents/types.ts:52` (owned)                                                        | Argument passed from manager to runner `start()` call       |
-| `ISubagentJobHandle`              | `src/subagents/types.ts:58` (owned)                                                        | Cancellable handle returned by `ISubagentRunner.start()`    |
-| `ISubagentRunner`                 | `src/subagents/types.ts:69` (owned)                                                        | Port for executing one subagent job                         |
-| `ISubagentManager`                | `src/subagents/types.ts:73` (owned)                                                        | Subagent job compatibility facade                           |
-| `ISubagentManagerOptions`         | `src/subagents/types.ts:84` (owned)                                                        | Constructor options for `SubagentManager`                   |
-| `ISubagentWorktreeAdapter`        | `src/subagents/worktree-subagent-runner.ts`                                                | Port for concrete worktree I/O                              |
-| `ISubagentWorktreePrepareRequest` | `src/subagents/worktree-subagent-runner.ts`                                                | Request passed to `ISubagentWorktreeAdapter.prepare()`      |
-| `IPreparedSubagentWorktree`       | `src/subagents/worktree-subagent-runner.ts`                                                | Prepared worktree handoff data                              |
-| `IWorktreeSubagentRunnerOptions`  | `src/subagents/worktree-subagent-runner.ts`                                                | Constructor options for `WorktreeSubagentRunner`            |
+| Type                              | Location                                                                                   | Purpose                                                                                               |
+| --------------------------------- | ------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| `TSubagentJobStatus`              | `@robota-sdk/agent-interface-transport` (SSOT; re-exported at `src/subagents/types.ts:18`) | Subagent job status union (mirrors `TBackgroundTaskStatus`)                                           |
+| `TSubagentJobMode`                | `@robota-sdk/agent-interface-transport` (SSOT; re-exported at `src/subagents/types.ts:18`) | `'foreground' \| 'background'`                                                                        |
+| `ISubagentSpawnRequest`           | `src/subagents/types.ts:20` (owned)                                                        | Subagent spawn request                                                                                |
+| `ISubagentJobState`               | `@robota-sdk/agent-interface-transport` (SSOT; re-exported at `src/subagents/types.ts:18`) | Subagent job state projection                                                                         |
+| `ISubagentJobResult`              | `src/subagents/types.ts` (owned)                                                           | Subagent completion output and metadata; `usage` is agent-core's `ITokenUsage` SSOT triple (TYPE-003) |
+| `ISubagentJobStart`               | `src/subagents/types.ts:52` (owned)                                                        | Argument passed from manager to runner `start()` call                                                 |
+| `ISubagentJobHandle`              | `src/subagents/types.ts:58` (owned)                                                        | Cancellable handle returned by `ISubagentRunner.start()`                                              |
+| `ISubagentRunner`                 | `src/subagents/types.ts:69` (owned)                                                        | Port for executing one subagent job                                                                   |
+| `ISubagentManager`                | `src/subagents/types.ts:73` (owned)                                                        | Subagent job compatibility facade                                                                     |
+| `ISubagentManagerOptions`         | `src/subagents/types.ts:84` (owned)                                                        | Constructor options for `SubagentManager`                                                             |
+| `ISubagentWorktreeAdapter`        | `src/subagents/worktree-subagent-runner.ts`                                                | Port for concrete worktree I/O                                                                        |
+| `ISubagentWorktreePrepareRequest` | `src/subagents/worktree-subagent-runner.ts`                                                | Request passed to `ISubagentWorktreeAdapter.prepare()`                                                |
+| `IPreparedSubagentWorktree`       | `src/subagents/worktree-subagent-runner.ts`                                                | Prepared worktree handoff data                                                                        |
+| `IWorktreeSubagentRunnerOptions`  | `src/subagents/worktree-subagent-runner.ts`                                                | Constructor options for `WorktreeSubagentRunner`                                                      |
 
 Hook event types and hook execution are owned by `agent-core`.
 
