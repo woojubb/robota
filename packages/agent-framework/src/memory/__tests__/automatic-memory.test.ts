@@ -8,7 +8,10 @@ import {
   AutomaticMemoryController,
   renderRetrievedMemory,
 } from '../automatic-memory-controller.js';
-import { RegexMemoryCandidateExtractor } from '../memory-candidate-extractor.js';
+import {
+  DEFAULT_MEMORY_EXTRACTOR_POLICY,
+  RegexMemoryCandidateExtractor,
+} from '../memory-candidate-extractor.js';
 import { MemoryPolicyEvaluator } from '../memory-policy-evaluator.js';
 import { MemoryRetrievalService } from '../memory-retrieval-service.js';
 import { ProjectMemoryStore } from '../project-memory-store.js';
@@ -212,5 +215,54 @@ describe('automatic memory pipeline', () => {
 
     expect(retrieval.references).toEqual([]);
     expect(renderRetrievedMemory(retrieval)).toBe('');
+  });
+});
+
+/** NEUT-007 — locale/domain heuristics are an injectable policy, not baked-in library text. */
+describe('NEUT-007 injectable extractor policy', () => {
+  const baseInput = {
+    sessionId: 'session-1',
+    turnId: 'turn-1',
+    assistantMessage: 'Noted.',
+    now: NOW,
+  };
+
+  it('a custom policy replaces the default triggers and vocabulary', () => {
+    const extractor = new RegexMemoryCandidateExtractor({
+      triggers: [{ pattern: /\bnote this[:\s]+(.+)/i, confidence: 0.8 }],
+      projectTerms: /\bcodebase\b/i,
+      preferenceTerms: /\blikes\b/i,
+    });
+
+    const custom = extractor.extract({
+      ...baseInput,
+      userMessage: 'note this: the codebase uses bazel',
+    });
+    expect(custom).toHaveLength(1);
+    expect(custom[0]).toMatchObject({ type: 'project', confidence: 0.8 });
+
+    const englishDefault = extractor.extract({
+      ...baseInput,
+      userMessage: 'remember that this project uses pnpm',
+    });
+    expect(englishDefault).toHaveLength(0);
+
+    const koreanDefault = extractor.extract({
+      ...baseInput,
+      userMessage: '기억해: 이 프로젝트는 pnpm을 사용한다',
+    });
+    expect(koreanDefault).toHaveLength(0);
+  });
+
+  it('the default policy is an exported, documented value and the default path is unchanged', () => {
+    expect(DEFAULT_MEMORY_EXTRACTOR_POLICY.triggers.length).toBeGreaterThan(0);
+
+    const extractor = new RegexMemoryCandidateExtractor();
+    const candidates = extractor.extract({
+      ...baseInput,
+      userMessage: 'remember that this project uses pnpm for package scripts',
+    });
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0]).toMatchObject({ type: 'project', confidence: 0.9 });
   });
 });

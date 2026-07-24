@@ -316,6 +316,17 @@ export type {
 } from './memory/types.js';
 // SELFHOST-008 P6: the surface-owned automatic-capture policy shape (consumed by agent-cli/transport wiring).
 export type { IAutomaticMemoryConfig, TMemoryPolicyMode } from './memory/automatic-memory-types.js';
+// NEUT-007: the extractor's locale/domain heuristics are an injectable policy; the bilingual/dev
+// set is the exported, documented default a composition root may replace.
+export {
+  DEFAULT_MEMORY_EXTRACTOR_POLICY,
+  RegexMemoryCandidateExtractor,
+} from './memory/memory-candidate-extractor.js';
+export type {
+  IMemoryCandidateExtractor,
+  IMemoryExtractorPolicy,
+  IMemoryExtractorTrigger,
+} from './memory/memory-candidate-extractor.js';
 // ── Edit checkpointing ─────────────────────────────────────
 export { EditCheckpointStore, wrapEditCheckpointTools } from './checkpoints/index.js';
 export type {
