@@ -90,6 +90,14 @@
     border-radius: 3px;
   }
   ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.14); }
+
+  /* Visible keyboard focus indicator on all interactive elements (DOCS-002 a11y) */
+  a:focus-visible,
+  button:focus-visible,
+  [tabindex]:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
 }
 
 /* ─── Prose / markdown content ─────────────────────────────────────────── */
@@ -348,52 +356,6 @@
   height: 1px;
   background: linear-gradient(90deg, var(--primary) 0%, var(--secondary) 60%, transparent 100%);
   opacity: 0.5;
-}
-
-/* ─── Header top gradient line ──────────────────────────────────────────── */
-
-.docs-header-line {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: linear-gradient(90deg,
-    transparent 0%,
-    var(--primary) 30%,
-    var(--secondary) 70%,
-    transparent 100%
-  );
-  opacity: 0.6;
-}
-
-/* ─── Nav link hover ─────────────────────────────────────────────────────── */
-
-.nav-link {
-  position: relative;
-  transition: color 0.15s !important;
-}
-
-.nav-link:hover {
-  color: var(--foreground-hi) !important;
-  background: transparent !important;
-}
-
-/* ─── Sidebar ────────────────────────────────────────────────────────────── */
-
-.sidebar-item-active {
-  color: var(--primary) !important;
-  background: var(--primary-dim) !important;
-  border-left: 2px solid var(--primary) !important;
-}
-
-.sidebar-item-link {
-  transition: color 0.15s, background 0.15s;
-}
-
-.sidebar-item-link:hover {
-  color: var(--foreground-hi) !important;
-  background: rgba(255,255,255,0.04) !important;
 }
 
 /* ─── Pagefind search ────────────────────────────────────────────────────── */
