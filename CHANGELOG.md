@@ -6,13 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 <!-- generated-release-notes:start unreleased -->
-
 ## Unreleased (2026-07-24)
 
 **2026-07-24** · [Full changelog: v3.0.0-beta.79...develop](https://github.com/woojubb/robota/compare/v3.0.0-beta.79...develop)
 
 ### 🚀 Features
 
+- **release**: conventional-commit release-notes generator + unit tests (REL-022)
 - **harness**: enforce scan-file-size as a ratchet with a frozen baseline ([#1299](https://github.com/woojubb/robota/pull/1299))
 - **hooks**: honor inline branch-guard overrides + worktree-parallel branch exception ([#1287](https://github.com/woojubb/robota/pull/1287))
 - **harness**: allow git worktrees for parallel subagents, with guardrails ([#1285](https://github.com/woojubb/robota/pull/1285))
@@ -65,11 +65,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### 🐛 Fixes
 
 - **hooks**: make branch-guard + pre-push-check worktree-aware ([#1294](https://github.com/woojubb/robota/pull/1294))
-- **harness**: strip hook-inherited GIT\_\* env from harness child processes ([#1293](https://github.com/woojubb/robota/pull/1293))
+- **harness**: strip hook-inherited GIT_* env from harness child processes ([#1293](https://github.com/woojubb/robota/pull/1293))
 - **docs,ci**: spec-template misroute + deploy URL (HARNESS-DIET-007) ([#1280](https://github.com/woojubb/robota/pull/1280))
 - **agents**: forbid tree-mutating git in read-only agents (HARNESS-DIET-001) ([#1277](https://github.com/woojubb/robota/pull/1277))
 - **tui**: CLI-061 Korean-IME last-character drop — defer submit on Enter ([#1269](https://github.com/woojubb/robota/pull/1269))
-- **hooks**: exempt release/_ and hotfix/_ from the pre-push foreign-merge block ([#1252](https://github.com/woojubb/robota/pull/1252))
+- **hooks**: exempt release/* and hotfix/* from the pre-push foreign-merge block ([#1252](https://github.com/woojubb/robota/pull/1252))
 - **cli**: thread resolved model through session so --model is not silently substituted (CLI-076) ([#1245](https://github.com/woojubb/robota/pull/1245))
 - **harness**: branch-guard detects create with flags before -b/-c ([#1179](https://github.com/woojubb/robota/pull/1179))
 - **harness**: guard against deleting an unmerged branch + branching off a squash-merged local base ([#1178](https://github.com/woojubb/robota/pull/1178))
@@ -86,6 +86,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details>
 <summary>🏗 Internal</summary>
 
+- **release**: seed generated CHANGELOG sections + runbook step + REL-022 record
+- **release**: publish tag releases with generated notes instead of --generate-notes (REL-022)
 - **backlog**: archive 9 verified-done SELFHOST items to completed/ (status reconciliation) ([#1314](https://github.com/woojubb/robota/pull/1314))
 - **ci**: apply reviewed GH Actions major bumps + retarget Dependabot to develop ([#1313](https://github.com/woojubb/robota/pull/1313))
 - **engines**: raise the Node floor to >=20.19.0, remove compat-node18 ([#1312](https://github.com/woojubb/robota/pull/1312))
@@ -163,7 +165,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <!-- generated-release-notes:end unreleased -->
 
 <!-- generated-release-notes:start v3.0.0-beta.79 -->
-
 ## v3.0.0-beta.79 (2026-07-14)
 
 **2026-07-14** · [Full changelog: v3.0.0-beta.24...v3.0.0-beta.79](https://github.com/woojubb/robota/compare/v3.0.0-beta.24...v3.0.0-beta.79)
@@ -240,12 +241,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **tui**: arrow-key navigation into the inline background-work list (SCREEN-014)
 - **dag-cli**: http provider resolution + native runtime-server URL (WORKFLOW-002 Phase C)
 - **agent-tools**: cross-platform Shell tool + shared OS-aware resolver (TERM-008)
-- **dag-framework**: HttpDagRuntimeProvider over /v1/dag/\* (WORKFLOW-002 Phase B)
+- **dag-framework**: HttpDagRuntimeProvider over /v1/dag/* (WORKFLOW-002 Phase B)
 - **dag**: SSE run-progress stream on the native runtime server (WORKFLOW-002 phase A)
 - **harness**: strengthen lesson→mechanism enforcement + guard nested-glob class
 - **dag**: complete the native runtime-server uniform route surface
 - **workflows**: add /workflows catalog + validate subcommands
-- **dag**: native DAG runtime HTTP server (/v1/dag/\*)
+- **dag**: native DAG runtime HTTP server (/v1/dag/*)
 - **workflows**: /workflows command bridging the DAG engine into agent-cli
 - **dag**: absorb the standalone DAG workflow engine into the monorepo
 - **harness**: document-type contract foundation (RULE-007–011)
@@ -411,10 +412,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CMD-003**: TUI command interaction — picker/confirm on missing args ([#475](https://github.com/woojubb/robota/pull/475))
 - **cmd-001**: add requiresPermission to ISystemCommand + resolveRequiresPermission helper
 - **cmd-002**: add displayName to ICommand/ISystemCommand for user-friendly labels
-- **ARCH-BL-002**: consolidate 5 agent-transport-\* packages into agent-transport ([#471](https://github.com/woojubb/robota/pull/471))
-- **ARCH-BL-003**: consolidate 20 agent-command-\* packages into agent-command ([#470](https://github.com/woojubb/robota/pull/470))
-- **ARCH-BL-004**: consolidate agent-plugin-\* packages into @robota-sdk/agent-plugin ([#469](https://github.com/woojubb/robota/pull/469))
-- **ARCH-BL-001**: consolidate agent-provider-\* packages into @robota-sdk/agent-provider ([#468](https://github.com/woojubb/robota/pull/468))
+- **ARCH-BL-002**: consolidate 5 agent-transport-* packages into agent-transport ([#471](https://github.com/woojubb/robota/pull/471))
+- **ARCH-BL-003**: consolidate 20 agent-command-* packages into agent-command ([#470](https://github.com/woojubb/robota/pull/470))
+- **ARCH-BL-004**: consolidate agent-plugin-* packages into @robota-sdk/agent-plugin ([#469](https://github.com/woojubb/robota/pull/469))
+- **ARCH-BL-001**: consolidate agent-provider-* packages into @robota-sdk/agent-provider ([#468](https://github.com/woojubb/robota/pull/468))
 - **INFRA-BL-009**: migrate agent-playground and agent-web-ui from tsup to tsdown
 - **INFRA-BL-009**: migrate agent-provider-openai from tsup to tsdown
 - **INFRA-BL-009**: migrate agent-cli from tsup to tsdown
@@ -548,7 +549,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **cli**: support openai-compatible provider profiles
 - **agent-cli**: wire --bare, --allowed-tools, --no-session-persistence, --json-schema, --append-system-prompt to print mode
 - **agent-sdk**: add bare, allowedTools, appendSystemPrompt options to InteractiveSession
-- **agent-sdk**: add allowedTools option to createSession — injects ToolName(\*) allow patterns
+- **agent-sdk**: add allowedTools option to createSession — injects ToolName(*) allow patterns
 - **agent-cli**: add --bare, --allowed-tools, --no-session-persistence, --json-schema flags to cli-args
 - **harness**: PreToolUse hook blocking any/console/try-catch-fallback ([#92](https://github.com/woojubb/robota/pull/92))
 - **build**: fix DTS race condition with 2-pass build (INFRA-BL-008) ([#88](https://github.com/woojubb/robota/pull/88))
@@ -746,7 +747,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **agent-cli**: add context loader and project detector
 - **agent-cli**: add config loader with Zod validation
 - **agent-cli**: scaffold package with types
-- create apps/dag-studio, CORS default \*, port 3002
+- create apps/dag-studio, CORS default *, port 3002
 - create apps/dag-studio by extracting dag-designer from apps/web
 - **dag-designer**: pending operation tracking, disable Run during upload
 - **dag-designer**: add ComfyUI image_upload file upload widget
@@ -946,7 +947,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 🐛 Fixes
 
-- **ci**: share a concurrency group across the two v\* release workflows ([#1163](https://github.com/woojubb/robota/pull/1163))
+- **ci**: share a concurrency group across the two v* release workflows ([#1163](https://github.com/woojubb/robota/pull/1163))
 - **remote**: wire pairing lifecycle to the controller (REMOTE-008 review)
 - **remote**: fail-close on throwing surface handler + update off-count (REMOTE-007)
 - **agent-framework**: session `goal` survives persistence round-trip (DATA-006, ARL-08)
@@ -974,8 +975,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **tui**: background work ordering/layout + humanize command tool names (SCREEN-010..013)
 - **harness**: cover nested package groups in the five one-level package scans (INFRA-021)
 - **harness**: exclude non-repo paths from lesson metrics + stop home-path leak
-- **ci**: include nested packages/dag-nodes/\*/dist in the build artifact
-- **build**: build types for nested packages/dag-nodes/\* members
+- **ci**: include nested packages/dag-nodes/*/dist in the build artifact
+- **build**: build types for nested packages/dag-nodes/* members
 - **hooks**: use literal 하지 마|하지마 in lesson nudge (portability, /code-review)
 - **agent-core,agent-framework**: resolve CORE-008/009 + TEST-006 review follow-ups
 - **agent-playground**: single-source the system prompt at top-level (complete SSOT)
@@ -988,7 +989,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **docs**: DOCS-003 — InternalLink wrapper + sidebar tap targets
 - **blog**: BRAND-003 — define missing --green var, rebrand to emerald, toggle a11y
 - **a11y**: A11Y-001 — accessible names/state on docs interactive components
-- **plugin**: PLUGIN-001 — implement nonfunctional File/Remote \*Storage stubs (silent data loss)
+- **plugin**: PLUGIN-001 — implement nonfunctional File/Remote *Storage stubs (silent data loss)
 - **contract**: EVENT-001 — add turn_source to IInteractiveSessionEvents (was emitted, untyped)
 - **web-ui**: WEBUI-002 — render error state, guard JSON.parse, null-safe user_message
 - **ws**: WS-001 — surface promise rejections in WS message handler
@@ -1056,7 +1057,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **agent-playground**: prevent stale DAG events after clearChat ([#534](https://github.com/woojubb/robota/pull/534))
 - **dag**: position agent_spawned between agent_command and tool_result ([#530](https://github.com/woojubb/robota/pull/530))
 - **session+playground**: session log correlation keys + clearChat full reset
-- **playground**: preserve \_\_robota_dag.renderMock across agentConfig re-renders
+- **playground**: preserve __robota_dag.renderMock across agentConfig re-renders
 - **playground**: fix duplicate edge in parallel agent DAG fork-join convergence
 - **playground**: remove stale conversationHistory reference from clearHistory
 - **playground**: fix DragLeave type error — HTMLElement cast instead of DOM Node
@@ -1097,7 +1098,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **web**: pin react-dom to 19.2.4 to match react version
 - **plg-004**: prevent blank page on initial load
 - **agent-web**: use window.location.host for default WS URL
-- **web-sidecar**: resolve WEB_DIST via package root, not relative to \_\_dirname
+- **web-sidecar**: resolve WEB_DIST via package root, not relative to __dirname
 - **web-sidecar**: create WSS after bind to prevent unhandled error crash
 - **hooks**: allow main merge/push with BRANCH_GUARD_ALLOW_MAIN_MERGE env var
 - **harness**: skip self-ref in dep-direction check; allow merge commits in branch-guard
@@ -1165,7 +1166,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - pre-push lockfile check + explicit frozen-lockfile in CI ([#91](https://github.com/woojubb/robota/pull/91))
 - resolve all ESLint errors and pnpm monorepo CI reliability ([#90](https://github.com/woojubb/robota/pull/90))
 - resolve all typecheck errors across packages ([#89](https://github.com/woojubb/robota/pull/89))
-- **blog**: add \_redirects to redirect /blog/_ to /ko/_
+- **blog**: add _redirects to redirect /blog/* to /ko/*
 - **playground**: move WebSocket types from agent-remote-client to agent-playground
 - **blog**: improve header switchers and redirect URL
 - swap theme toggle icons and add button margin
@@ -1535,7 +1536,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **agent-core**: single-SSOT ToolRegistry/FunctionTool (DATA-005, ARL-01)
 - **architecture**: pass-2 comprehensive conformance fixes — DAG subsystem + apps
 - **architecture**: slim architecture-refresh skill to pure pipeline
-- **architecture**: pass-1 conformance fixes across agent-\* SPECs + remediation log
+- **architecture**: pass-1 conformance fixes across agent-* SPECs + remediation log
 - **architecture**: add conformance-auditor + implementer agents; expand refresh loop to 4 agents
 - **architecture**: restructure architecture audit into thin orchestrator + policy-holding agents
 - pass-2 system audit — 27 findings converged over 5 rounds
@@ -1600,7 +1601,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **term-007**: add windows-shell job — durable Windows shell-execution verification
 - **term-007**: record Windows-support audit — items 1 & 4 done, residual is a Windows pass
 - **dag-nodes**: integrate to workspace agent deps, drop published pins (INFRA-022)
-- **backlog**: track absorbed dag-nodes' published @robota-sdk/agent-\* deps (INFRA-022)
+- **backlog**: track absorbed dag-nodes' published @robota-sdk/agent-* deps (INFRA-022)
 - **arch**: correct the Runtime API boundary to native-first
 - **backlog**: archive completed CMD-004 task and TEST-004 backlog item
 - **harness**: institutionalize CMD-004 test lessons
@@ -1834,7 +1835,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **pm-002**: add Why Robota comparison page at /compare/ ([#542](https://github.com/woojubb/robota/pull/542))
 - **mkt-010**: promote npx @robota-sdk/agent-cli as primary entry point ([#538](https://github.com/woojubb/robota/pull/538))
 - **backlog**: remove UX-010, PM-004, UX-013, PM-003 — out of scope
-- mark ARCH-REV-001~004 done — fix project-structure agent-command-\* wildcard
+- mark ARCH-REV-001~004 done — fix project-structure agent-command-* wildcard
 - **evals**: update auto-lessons and weekly-digest metrics ([#533](https://github.com/woojubb/robota/pull/533))
 - **arch**: mark agent-team as placeholder in arch map diagrams ([#532](https://github.com/woojubb/robota/pull/532))
 - archive PLG-009~018 and CORE-001 — all completed
@@ -1910,7 +1911,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **REFACTOR-023**: TModelConfig/TConfigurationSnapshot → interface + fix ConsoleLogger export ([#446](https://github.com/woojubb/robota/pull/446))
 - **022**: remove emoji prefixes and lower log levels in agent-remote-client
 - **021**: remove process.cwd() silent fallback from getCwd()
-- **020**: replace console.\* with DI ILogger in agent-server
+- **020**: replace console.* with DI ILogger in agent-server
 - **019**: delete packages/auth and packages/credits
 - **018**: remove agent-core dep from agent-interface-transport
 - **017**: route findProviderDefinition through agent-sdk; fix ICommandSessionRuntime mocks
@@ -1939,7 +1940,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **sdk-001+sdk-002**: IAgentJobHostContext + IInteractiveSession + test factory ([#422](https://github.com/woojubb/robota/pull/422))
 - **arch-fix-024**: move child-process subagent runner from agent-sdk to agent-cli
 - **sdk-006**: add missing public API entries to agent-sdk SPEC.md
-- **sdk-003**: document agent-plugin-\* packages as consumer opt-in
+- **sdk-003**: document agent-plugin-* packages as consumer opt-in
 - **arch-fix-028**: document runtime concrete I/O runners and croner in SPEC
 - **arch-fix-025**: document auth/credits as forward-declared contracts, not yet wired
 - **arch-fix-029**: document playground intentional no-sdk-session design
@@ -1988,7 +1989,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **backlog**: PLG-007 agent-transport-tui separation + CLI lifecycle recovery
 - **agent-cli**: remove obsolete web-sidecar directory
 - **tasks**: add test plan section to plg-002 task file
-- **backlog**: PLG-006 transport config + web separation, agent-interface-\* pattern
+- **backlog**: PLG-006 transport config + web separation, agent-interface-* pattern
 - **evals**: update auto-lessons, weekly-digest, add scope eval dirs and release run
 - **plg-005**: AgentActivityPanel design — left accent bar, animate-ping, status hierarchy
 - **backlog**: PLG-005 web monitor agent activity panel
@@ -2204,9 +2205,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - add presentation HTML to docs public
 - release 3.0.0-beta.53
 - **agent-core**: decompose remaining 13 monolith files to under 300 lines
-- decompose monolith files across 16 agent-\* packages
+- decompose monolith files across 16 agent-* packages
 - **agent-core**: decompose execution-round (675→288) + slim index.ts (475→223)
-- add monolith decomposition backlog for all agent-\* packages
+- add monolith decomposition backlog for all agent-* packages
 - **agent-cli**: decompose 5 monolith files to under 300 lines
 - add anti-monolith rule + CLI decomposition backlog
 - slim AGENTS.md from 253 to 120 lines
@@ -2498,7 +2499,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **agent-cli**: add assembly architecture diagram
 - **agent-sessions**: extract session logging to ISessionLogger
 - add Layered Assembly Architecture rule
-- set dag-nodes/\* to private:true, update publish registry
+- set dag-nodes/* to private:true, update publish registry
 - bump published packages to 3.0.0-beta.2
 - complete CLI beta roadmap — all 7 items done
 - add feature documentation requirement rule, update specs
@@ -2509,16 +2510,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - add backlog — CJK input fix for Terminal.app
 - publish 3.0.0-rc.6
 - publish 3.0.0-rc.5
-- enforce pnpm publish — npm publish breaks workspace:\* deps
+- enforce pnpm publish — npm publish breaks workspace:* deps
 - verify AGENTS.md system prompt delivery — all steps confirmed
 - publish 3.0.0-rc.4 — system prompt fix + tests
 - **agent-sessions**: add system prompt delivery tests
 - publish 3.0.0-rc.3 with session_init logging
 - bump to 3.0.0-rc.2 for republish with fixed deps
-- **agent-core**: remove ALL agent-\* dependencies — zero upstream deps
+- **agent-core**: remove ALL agent-* dependencies — zero upstream deps
 - clarify agent-core dependency fix — remove, don't absorb
 - add task for fixing agent-core reverse dependencies
-- add Foundation Package Dependency Rule — agent-core must not depend on agent-\*
+- add Foundation Package Dependency Rule — agent-core must not depend on agent-*
 - **agent-provider-anthropic**: add streaming content block parsing tests
 - update all SPEC.md with web search, logging, tool limits, IME
 - simplify WebFetch/WebSearch — built-in tools in agent-tools/builtins
@@ -2546,7 +2547,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - decompose agent-sdk into component packages
 - **agent-sdk**: add SPEC with assembly-first architecture
 - create @robota-sdk/agent-sdk, separate CLI from SDK
-- move cli-\* modules back to agent-cli, keep agent-core as pure engine
+- move cli-* modules back to agent-cli, keep agent-core as pure engine
 - add Claude Code vs Agent SDK comparison research
 - **agent-cli**: remove legacy readline REPL, add PrintTerminal
 - **agent-cli**: add SPEC.md
@@ -2674,7 +2675,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - archive completed new-rules-refactoring task
 - **agents,playground**: extract helpers to reduce file complexity
 - enable frontend-design and github plugins
-- **dag-\***: add behavioral contracts and correct spec inaccuracies
+- **dag-***: add behavioral contracts and correct spec inaccuracies
 - add DAG benchmark research comparing 5 open-source solutions
 - add api-spec-management skill and enrich OpenAPI specs
 - add dependency-cruiser for automated dependency direction checks
@@ -2786,18 +2787,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **design**: mark SSOT message guards + provider contract cleanup as completed
 - **agents**: finish I/T prefixes and remove typesafe contracts
 - **agents**: rename IBaseAgentInterface to IAgent and remove legacy wording
-- **types**: enforce I/T naming, remove Base\* aliases, and clean comments
+- **types**: enforce I/T naming, remove Base* aliases, and clean comments
 - **types**: apply I*/T* prefixes and remove Korean text across playground/workflow
 - **types**: enforce I/T prefixes across workflow/remote/playground and cleanup aliases
 - **playground**: enforce I/T prefixes and remove fallback patterns in workflows
-- **types**: enforce I/T naming and remove Base\* prefixes across playground
+- **types**: enforce I/T naming and remove Base* prefixes across playground
 - **types**: enforce I/T naming and SSOT across providers/remote/sessions
 - **types**: remove legacy aliases and enforce I/T contracts
 - **rules**: enforce English-only docs and align architecture/type rules
 - **types**: consolidate message/tool contracts and reduce type re-exports
 - **workflow,agents**: enforce type ownership; unify event envelope; remove legacy universal-workflow from agents
 - **playground**: fix builds; slim web host to /playground only
-- **agents**: remove base-_ stubs; export abstract-_ only
+- **agents**: remove base-* stubs; export abstract-* only
 - **types**: unify type axes; remove unknown; rebuild; verify 26/27
 - **lint**: forbid hardcoded event strings; update CURRENT-TASKS status
 - **workflow**: remove fallbacks; re-verify guarded examples 26/27
