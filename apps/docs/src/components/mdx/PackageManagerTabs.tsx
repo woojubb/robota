@@ -21,23 +21,12 @@ export function PackageManagerTabs({ npm, pnpm, yarn }: PackageManagerTabsProps)
   const current = tabs.find((t) => t.key === active) ?? tabs[0];
 
   return (
-    <div
-      style={{
-        border: '1px solid #252540',
-        borderRadius: '0.5rem',
-        marginBottom: '1.5rem',
-        overflow: 'hidden',
-      }}
-    >
+    <div className="mb-6 overflow-hidden rounded-[0.5rem] border border-[#252540]">
       {/* Tab bar */}
       <div
         role="tablist"
         aria-label="Package manager"
-        style={{
-          display: 'flex',
-          borderBottom: '1px solid #252540',
-          background: '#131320',
-        }}
+        className="flex border-b border-[#252540] bg-[#131320]"
       >
         {tabs.map((tab) => (
           <button
@@ -45,19 +34,11 @@ export function PackageManagerTabs({ npm, pnpm, yarn }: PackageManagerTabsProps)
             role="tab"
             aria-selected={active === tab.key}
             onClick={() => setActive(tab.key)}
-            style={{
-              padding: '0.4rem 1rem',
-              fontSize: '0.8rem',
-              fontWeight: 500,
-              background: 'transparent',
-              border: 'none',
-              borderBottom:
-                active === tab.key ? '2px solid var(--accent)' : '2px solid transparent',
-              color: active === tab.key ? 'var(--accent)' : '#7b7a95',
-              cursor: 'pointer',
-              transition: 'color 0.15s, border-color 0.15s',
-              fontFamily: 'ui-monospace, monospace',
-            }}
+            className={`cursor-pointer border-0 border-b-2 bg-transparent px-4 py-[0.4rem] [font-family:ui-monospace,monospace] text-[0.8rem] font-medium transition-[color,border-color] duration-150 ${
+              active === tab.key
+                ? 'border-b-[var(--accent)] text-[var(--accent)]'
+                : 'border-b-transparent text-[#7b7a95]'
+            }`}
           >
             {tab.label}
           </button>
@@ -65,19 +46,7 @@ export function PackageManagerTabs({ npm, pnpm, yarn }: PackageManagerTabsProps)
       </div>
 
       {/* Command */}
-      <pre
-        style={{
-          margin: 0,
-          padding: '0.875rem 1.25rem',
-          background: '#0d1117',
-          color: '#e8e6f0',
-          fontSize: '0.875rem',
-          fontFamily:
-            'ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, monospace',
-          overflowX: 'auto',
-          lineHeight: 1.6,
-        }}
-      >
+      <pre className="m-0 overflow-x-auto bg-[#0d1117] px-5 py-3.5 [font-family:ui-monospace,'Cascadia_Code','Source_Code_Pro',Menlo,Consolas,monospace] text-[0.875rem] leading-[1.6] text-[#e8e6f0]">
         <code>{current.command}</code>
       </pre>
     </div>
