@@ -41,9 +41,29 @@ depends_on: []
   `file-size-baseline.json` freezes pre-existing violators at their current line counts (new >300-line files
   FAIL; frozen debt may not grow; shrinking prints a tighten notice; `--write-baseline` regenerates). Proven
   red (exit 1 with no baseline) → green; 7 unit tests on the pure `evaluateFileSizes`.
-- **REMAINING:**
-  `check-spec-public-surface` allowlist shrink; `scan-consistency` split; MERGEs 3/4
-  (`check-architecture-conformance` → deps) and 4/4 (`check-sdk-react-free` → config-driven purity).
+- **DONE (2026-07-24):** `check-spec-public-surface` reverse edge — the 641-line per-symbol
+  allowlist (which had turned the undocumented-export edge OFF) is replaced by a 25-entry
+  per-PACKAGE count ratchet (`spec-surface-baseline.json`, file-size-ratchet precedent). Data
+  drove the choice: 636 undocumented exports across 25 packages — no package close to fully
+  covered, so a small residual allowlist was not viable. New undocumented exports that raise a
+  package's count FAIL; counts may only shrink (`--write-baseline` tightens). Count-swap blind
+  spot documented as the accepted tradeoff. Forward phantom-export edge unchanged. Red-proven
+  by fixtures (baseline-0 and raise-past-baseline both fail).
+- **DONE (2026-07-24):** `scan-consistency` split — purely structural, ZERO semantic change:
+  five clearly-named exported check functions; phrase blocklists / required-script names /
+  guidance targets moved VERBATIM to `harness.config.json` `consistency`. Proven byte-identical
+  old-vs-new on the clean tree AND on one injected violation per responsibility.
+- **DONE (MERGE 3/4, 2026-07-24):** `check-architecture-conformance` → `check-dependency-direction`
+  Rule 9 (`checkWorkspacePackageNames`, doc paths in config `architectureDocs`); the wrapper (which
+  double-ran the deps scan in run-all-scans despite its docstring) is deleted. `pnpm
+harness:conformance` KEPT as an alias for `check-dependency-direction.mjs --conformance-json`
+  (spec-workflow.md + 4 skills reference it and parse the CONFORMANCE_JSON block — contract
+  preserved).
+- **DONE (MERGE 4/4, 2026-07-24):** `check-sdk-react-free` → `check-dependency-direction` Rule 10
+  (`checkPackagePurity`), config-driven via the new `purity` key ({dir, forbiddenModules, reason});
+  dead-guard guard kept (missing target = hard finding). Registry −2 further scans; TC-04 +
+  missing-target fixtures ported.
+- **REMAINING:** none — all DIET-003 items closed.
 
 ## Problem
 
