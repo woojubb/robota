@@ -7,9 +7,10 @@ import { describe, expect, it } from 'vitest';
 import {
   checkDagNodesLeaf,
   checkEntryPointOnly,
+  checkPackagePurity,
+  checkWorkspacePackageNames,
   findWorkspacePackages,
 } from '../check-dependency-direction.mjs';
-import { findSdkReactViolations } from '../check-sdk-react-free.mjs';
 
 // Synthetic package map: checkDagNodesLeaf reads only `name` + `pkg.dependencies` (string[]).
 function pkgMap(entries) {
@@ -69,8 +70,18 @@ describe('checkDagNodesLeaf (HARNESS-016 / ARL-16b)', () => {
   });
 });
 
-describe('findSdkReactViolations (HARNESS-016 / ARL-16g)', () => {
-  it('TC-04: flags a React import + a React dependency in the scanned package', () => {
+// Rule 10 fixtures — package-purity rule absorbed from the former check-sdk-react-free.mjs
+// (HARNESS-DIET-003 merge — coverage preserved; the rule is now config-driven `purity` data).
+describe('checkPackagePurity (Rule 10, absorbed from check-sdk-react-free)', () => {
+  const REACT_RULE = [
+    {
+      dir: 'packages/agent-framework',
+      forbiddenModules: ['react'],
+      reason: 'agent-framework is a platform-neutral assembly layer.',
+    },
+  ];
+
+  it('TC-04: flags a forbidden import + a forbidden dependency in the scanned package', () => {
     const root = mkdtempSync(join(tmpdir(), 'robota-sdk-react-free-'));
     const src = join(root, 'packages', 'agent-framework', 'src');
     mkdirSync(src, { recursive: true });
@@ -80,19 +91,82 @@ describe('findSdkReactViolations (HARNESS-016 / ARL-16g)', () => {
       JSON.stringify({ name: '@robota-sdk/agent-framework', dependencies: { react: '^18' } }),
     );
 
-    const v = findSdkReactViolations(root);
-    expect(v.map((x) => x.type).sort()).toEqual(['REACT-DEP', 'REACT-IMPORT']);
+    const v = checkPackagePurity(root, REACT_RULE);
+    expect(v.map((x) => x.type).sort()).toEqual(['FORBIDDEN-DEP', 'FORBIDDEN-IMPORT']);
   });
 
   it('flags a missing scan target instead of silently passing (dead-guard guard)', () => {
     const root = mkdtempSync(join(tmpdir(), 'robota-sdk-react-free-missing-'));
-    const v = findSdkReactViolations(root, 'agent-sdk'); // husk name — no src/, no package.json
+    // husk dir — no src/, no package.json
+    const v = checkPackagePurity(root, [
+      { dir: 'packages/agent-sdk', forbiddenModules: ['react'], reason: 'husk.' },
+    ]);
     expect(v.every((x) => x.type === 'SCAN-TARGET-MISSING')).toBe(true);
     expect(v.length).toBe(2);
   });
 
-  it('TC-04(live): the real agent-framework package is React-free (exit 0)', () => {
-    expect(findSdkReactViolations()).toEqual([]);
+  it('TC-04(live): the shipped purity config passes on the real tree (exit 0)', () => {
+    expect(checkPackagePurity()).toEqual([]);
+  });
+});
+
+// Rule 9 fixtures — workspace-package-name guard absorbed from the former
+// check-architecture-conformance.mjs (HARNESS-DIET-003 merge — coverage preserved).
+describe('checkWorkspacePackageNames (Rule 9, absorbed from check-architecture-conformance)', () => {
+  const DOC_CONFIG = { files: ['ARCHITECTURE.md'], dirs: ['docs/arch'] };
+  const PREFIX = '@robota-sdk/agent-';
+  const NAMES = new Set(['@robota-sdk/agent-core']);
+
+  function archFixture(files) {
+    const root = mkdtempSync(join(tmpdir(), 'robota-pkg-name-guard-'));
+    for (const [rel, text] of Object.entries(files)) {
+      mkdirSync(join(root, rel, '..'), { recursive: true });
+      writeFileSync(join(root, rel), text);
+    }
+    return root;
+  }
+
+  it('RED: flags a ghost package token in a canonical architecture doc', () => {
+    const root = archFixture({
+      'ARCHITECTURE.md': 'Uses @robota-sdk/agent-core and @robota-sdk/agent-ghost.\n',
+    });
+    const v = checkWorkspacePackageNames(root, NAMES, DOC_CONFIG, PREFIX);
+    expect(v).toHaveLength(1);
+    expect(v[0].token).toBe('@robota-sdk/agent-ghost');
+    expect(v[0].file).toBe('ARCHITECTURE.md');
+  });
+
+  it('exempts a line carrying the "planned" marker (documented-but-uncreated packages)', () => {
+    const root = archFixture({
+      'ARCHITECTURE.md': '@robota-sdk/agent-future (planned) will own this.\n',
+    });
+    expect(checkWorkspacePackageNames(root, NAMES, DOC_CONFIG, PREFIX)).toEqual([]);
+  });
+
+  it('covers configured doc DIRS and package SPEC.md files', () => {
+    const root = archFixture({
+      'docs/arch/map.md': 'Edge to @robota-sdk/agent-phantom-a.\n',
+      'packages/foo/docs/SPEC.md': 'Depends on @robota-sdk/agent-phantom-b.\n',
+    });
+    const v = checkWorkspacePackageNames(root, NAMES, DOC_CONFIG, PREFIX);
+    expect(v.map((x) => x.token).sort()).toEqual([
+      '@robota-sdk/agent-phantom-a',
+      '@robota-sdk/agent-phantom-b',
+    ]);
+  });
+
+  it('GREEN: real workspace package references pass', () => {
+    const root = archFixture({
+      'ARCHITECTURE.md': 'The foundation is @robota-sdk/agent-core.\n',
+    });
+    expect(checkWorkspacePackageNames(root, NAMES, DOC_CONFIG, PREFIX)).toEqual([]);
+  });
+
+  it('live repo: canonical architecture docs reference only real workspace packages (exit 0)', () => {
+    const packages = findWorkspacePackages();
+    // Live run uses the shipped harness.config.json architectureDocs + real workspace names.
+    const repoRoot = join(import.meta.dirname, '../../..');
+    expect(checkWorkspacePackageNames(repoRoot, new Set(packages.keys()))).toEqual([]);
   });
 });
 

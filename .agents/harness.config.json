@@ -7,7 +7,97 @@
     "pluginLayerAllowed": ["@robota-sdk/agent-core"]
   },
   "productShellDirs": ["packages/agent-cli", "apps/agent-web", "apps/docs", "apps/blog"],
+  "architectureDocs": {
+    "$comment": "Canonical architecture documents whose prose/diagrams must reference only real workspace packages (check-dependency-direction Rule 9, absorbed from check-architecture-conformance.mjs). packages/*/docs/SPEC.md is always included by the engine.",
+    "files": [
+      "ARCHITECTURE.md",
+      ".agents/project-structure.md",
+      ".agents/specs/ARCHITECTURE-MAP.md"
+    ],
+    "dirs": [".agents/specs/architecture-map"]
+  },
+  "purity": [
+    {
+      "$comment": "Package-purity POLICY (check-dependency-direction Rule 10, absorbed from check-sdk-react-free.mjs). Each entry forbids a package from importing OR declaring the listed modules; a missing scan target is a hard finding, not a silent pass (HARNESS-016 / ARL-16g dead-guard guard).",
+      "dir": "packages/agent-framework",
+      "forbiddenModules": ["react"],
+      "reason": "agent-framework is a platform-neutral assembly layer; React hooks/context/components belong in the product/UI packages (agent-cli, agent-transport-tui, agent-transport-gui) only."
+    }
+  ],
   "lessonsDigestDisableEnv": "HARNESS_DISABLE_LESSONS_DIGEST",
+  "consistency": {
+    "$comment": "Policy DATA for scan-consistency.mjs (HARNESS-DIET-003 split). The engine (five exported check functions) lives in scripts/harness/scan-consistency.mjs; the Robota-specific required-script names, guidance scan targets, and phrase blocklists live here. `pattern` fields are RegExp sources (compiled with the optional `flags`). Values moved VERBATIM from the former in-script constants.",
+    "requiredRootScripts": [
+      "harness:scan",
+      "harness:scan:consistency",
+      "harness:scan:document-authority",
+      "harness:scan:commands",
+      "harness:scan:capability-placement",
+      "harness:scan:background-workspace",
+      "harness:scan:agent-server-boundary",
+      "harness:scan:sdk-public-surface",
+      "harness:scan:specs",
+      "harness:scan:release-governance",
+      "harness:verify",
+      "harness:record",
+      "harness:review",
+      "harness:self-check"
+    ],
+    "guidancePhraseScanTargets": [
+      "AGENTS.md",
+      ".agents/rules",
+      ".agents/skills",
+      ".agents/backlog"
+    ],
+    "skillPhraseChecks": [
+      {
+        "id": "undefined-path-only",
+        "pattern": "\\bPath-Only\\b",
+        "message": "Undefined rule-level terminology \"Path-Only\" should not appear.",
+        "ignoreLineIncludes": ["rg -n"]
+      },
+      {
+        "id": "reversed-dependency-direction",
+        "pattern": "Lower layers import from higher layers, not the other way around\\.",
+        "message": "Dependency direction guidance is reversed."
+      },
+      {
+        "id": "implicit-failed-retry",
+        "pattern": "failed:RETRY",
+        "message": "Default state machine examples must not model implicit failed -> retry transitions."
+      },
+      {
+        "id": "legacy-unknown-ban",
+        "pattern": "do not use `any`, `unknown`, or `\\{\\}` in production code\\.",
+        "message": "Legacy type rule contradicts current trust-boundary policy for unknown."
+      },
+      {
+        "id": "unchecked-example-cast",
+        "pattern": "obj as ITaskRunPayload",
+        "message": "Boundary examples must not teach unchecked casts into owned payload types."
+      }
+    ],
+    "guidancePhraseChecks": [
+      {
+        "id": "legacy-user-test-scenario-term",
+        "pattern": "\\buser\\s+test\\s+scenarios?\\b",
+        "flags": "i",
+        "message": "Use \"user execution test scenario\" for user-runnable product verification."
+      },
+      {
+        "id": "legacy-user-scenario-term",
+        "pattern": "\\buser\\s+scenario(?:s| gates?| evidence| surface| test environment)?\\b",
+        "flags": "i",
+        "message": "Use canonical user execution test scenario terminology instead of legacy shorthand."
+      },
+      {
+        "id": "incomplete-user-execution-scenario-term",
+        "pattern": "\\buser\\s+execution\\s+scenarios?\\b",
+        "flags": "i",
+        "message": "Use \"user execution test scenario\"; do not omit \"test\" from the term."
+      }
+    ]
+  },
   "neutrality": {
     "$comment": "Per-subsystem library-neutrality policy DATA (HARNESS-DIET-002). The neutrality scan ENGINES live in scripts/harness/scan-*-neutrality.mjs; their Robota-specific target paths / allowlists / forbidden terms live here so the engines stay repo-agnostic.",
     "agentToolsRuntimeAllowlist": ["fast-glob", "p-limit", "zod"],
