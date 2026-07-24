@@ -3,6 +3,11 @@ import { render } from 'ink-testing-library';
 import { Text } from 'ink';
 import { describe, it, expect } from 'vitest';
 import ListPicker from '../ListPicker.js';
+import {
+  formatKeyHints,
+  SELECTION_INDICATOR,
+  SELECTION_INDICATOR_NONE,
+} from '../key-hint-footer.js';
 
 describe('ListPicker', () => {
   it('renders all items with first selected by default', () => {
@@ -12,7 +17,7 @@ describe('ListPicker', () => {
         items={items}
         renderItem={(item, isSelected) => (
           <Text>
-            {isSelected ? '> ' : '  '}
+            {isSelected ? SELECTION_INDICATOR : SELECTION_INDICATOR_NONE}
             {item}
           </Text>
         )}
@@ -32,7 +37,7 @@ describe('ListPicker', () => {
         items={[]}
         renderItem={(item, isSelected) => (
           <Text>
-            {isSelected ? '> ' : '  '}
+            {isSelected ? SELECTION_INDICATOR : SELECTION_INDICATOR_NONE}
             {String(item)}
           </Text>
         )}
@@ -52,7 +57,7 @@ describe('ListPicker', () => {
         items={items}
         renderItem={(item, isSelected) => (
           <Text>
-            {isSelected ? '> ' : '  '}
+            {isSelected ? SELECTION_INDICATOR : SELECTION_INDICATOR_NONE}
             {item}
           </Text>
         )}
@@ -74,7 +79,7 @@ describe('ListPicker', () => {
         items={items}
         renderItem={(item, isSelected) => (
           <Text>
-            {isSelected ? '> ' : '  '}
+            {isSelected ? SELECTION_INDICATOR : SELECTION_INDICATOR_NONE}
             {item}
           </Text>
         )}
@@ -97,7 +102,7 @@ describe('ListPicker', () => {
         items={['Alpha']}
         renderItem={(item, isSelected) => (
           <Text>
-            {isSelected ? '> ' : '  '}
+            {isSelected ? SELECTION_INDICATOR : SELECTION_INDICATOR_NONE}
             {item}
           </Text>
         )}
@@ -119,7 +124,7 @@ describe('ListPicker', () => {
         items={items}
         renderItem={(item, isSelected) => (
           <Text>
-            {isSelected ? '> ' : '  '}
+            {isSelected ? SELECTION_INDICATOR : SELECTION_INDICATOR_NONE}
             {item}
           </Text>
         )}
@@ -140,7 +145,7 @@ describe('ListPicker', () => {
         items={items}
         renderItem={(item, isSelected) => (
           <Text>
-            {isSelected ? '> ' : '  '}
+            {isSelected ? SELECTION_INDICATOR : SELECTION_INDICATOR_NONE}
             {item}
           </Text>
         )}
@@ -155,5 +160,29 @@ describe('ListPicker', () => {
     stdin.write('\x1B[B'); // Down (should stay at Beta)
     stdin.write('\r');
     expect(selected).toBe('Beta');
+  });
+
+  // SCREEN-005: default footer renders through the key-hint SSOT grammar.
+  it('renders the default footer in the shared key-hint grammar', () => {
+    const { lastFrame } = render(
+      <ListPicker
+        items={['Alpha']}
+        renderItem={(item, isSelected) => (
+          <Text>
+            {isSelected ? SELECTION_INDICATOR : SELECTION_INDICATOR_NONE}
+            {item}
+          </Text>
+        )}
+        onSelect={() => {}}
+        onCancel={() => {}}
+      />,
+    );
+    expect(lastFrame()!).toContain(
+      formatKeyHints([
+        { keys: '↑↓', label: 'Navigate' },
+        { keys: 'Enter', label: 'Select' },
+        { keys: 'Esc', label: 'Cancel' },
+      ]),
+    );
   });
 });

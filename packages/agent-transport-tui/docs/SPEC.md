@@ -82,6 +82,42 @@ convenience at the transport boundary.
 | `ITuiCommandInteraction`, `ITuiPickerInteraction`, `ITuiConfirmInteraction` | types    | Command/picker/confirm interaction contracts (`command-interaction.ts`) |
 | `TAnyTuiCommandInteraction`, `TOnMissingArgsAction`                         | types    | Union of interaction contracts; missing-args action discriminator       |
 
+## Interaction Affordance Contract (SCREEN-005)
+
+`src/key-hint-footer.tsx` is the package-local SSOT for prompt-footer key hints and the
+selection-row cursor. It ships mechanics only (grammar, separator, indicator constants); verb
+vocabulary is supplied by the calling component, keeping the module content-neutral.
+
+**Footer grammar.** A footer is a dim, bottom-adjacent line of `key label` pairs joined by
+`KEY_HINT_SEPARATOR` (`' · '`), rendered via `formatKeyHints(hints)` / `<KeyHintFooter hints/>`
+(the footer component adds a single leading pad and renders nothing for an empty list — per-call-site
+suppression is `footerHints={[]}`; there is no config surface). Hint order is
+**navigate → modify → primary → dismiss** (e.g. `↑↓ Navigate · Space Toggle · Enter Confirm ·
+Esc Cancel`). Every footer call site declares its hints as an exported `IKeyHint[]` constant and the
+`key-hint-consistency` test asserts the full inventory round-trips through `formatKeyHints` in that
+order — a new footer dialect cannot re-appear silently.
+
+**Esc-suppression invariant.** The footer lists **exactly the keys that do something** — the absence
+of Esc IS the affordance; no "(Esc disabled)" noise text. A prompt that must resolve explicitly
+suppresses Esc in its flow AND omits it from its footer: `ConfirmPrompt` and `PermissionPrompt`
+(flows pass `{ ...key, escape: false }` — an Esc-dismissal of a permission ask would be an implicit
+deny) render the identical footer `←→ Navigate · Enter Confirm`.
+
+**Directional aliases.** Confirm/permission rows are horizontal; their reducer
+(`getDirectionalSelectionInputAction`, `src/flows/selection-flow.ts`) also accepts **↑↓ as aliases**
+for previous/next. The footer names the canonical pair for a horizontal row (`←→`) — a documented
+choice, not an omission of a broken key.
+
+**Selection indicator.** The focused row cursor is `SELECTION_INDICATOR` (`'> '`), non-focused rows
+render `SELECTION_INDICATOR_NONE` (`'  '`, same width). All selection-row call sites use the
+constants, never literals. Two look-alike glyphs are deliberately **not** selection cursors and stay
+out of this contract:
+
+- `InputArea.tsx` / `TextPrompt.tsx` render a `> ` **input-prompt glyph** in front of the text-entry
+  caret — an input affordance, not a selection cursor; it must not be converted to the constants.
+- `ExecutionWorkspaceDetailPane.tsx` uses `▸` as a **group-summary disclosure glyph** (content, not a
+  cursor); a future pass must not "fix" it into the selection convention.
+
 ## Extension Points
 
 New TUI components/flows live under `src/`. The adapter seam (`ITuiCliAdapter`) lets the CLI inject

@@ -6,6 +6,7 @@
 import { Box, Text } from 'ink';
 import React from 'react';
 
+import { SELECTION_INDICATOR, SELECTION_INDICATOR_NONE } from './key-hint-footer.js';
 import ListPicker from './ListPicker.js';
 
 import type { IResumableSessionSummary } from '@robota-sdk/agent-interface-transport';
@@ -38,7 +39,7 @@ export default function SessionPicker({
             : '';
           return (
             <Text>
-              {isSelected ? '> ' : '  '}
+              {isSelected ? SELECTION_INDICATOR : SELECTION_INDICATOR_NONE}
               <Text bold>{session.name ?? session.id.slice(0, SESSION_ID_DISPLAY_LENGTH)}</Text>
               {'  '}
               <Text dimColor>

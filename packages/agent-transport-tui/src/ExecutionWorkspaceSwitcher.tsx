@@ -10,6 +10,12 @@ import {
   type ISelectionFlowState,
   type TSelectionInputAction,
 } from './flows/selection-flow.js';
+import {
+  KeyHintFooter,
+  SELECTION_INDICATOR,
+  SELECTION_INDICATOR_NONE,
+  type IKeyHint,
+} from './key-hint-footer.js';
 
 import type {
   IExecutionWorkspaceEntry,
@@ -17,6 +23,13 @@ import type {
 } from '@robota-sdk/agent-interface-transport';
 
 const MAX_VISIBLE_WORKSPACE_ENTRIES = 8;
+
+/** Footer for the workspace switcher (order: navigate → primary → dismiss). */
+export const EXECUTION_WORKSPACE_SWITCHER_FOOTER_HINTS: readonly IKeyHint[] = [
+  { keys: '↑↓', label: 'Navigate' },
+  { keys: 'Enter', label: 'Switch' },
+  { keys: 'Ctrl+B/Esc', label: 'Close' },
+];
 
 interface IProps {
   snapshot: IExecutionWorkspaceSnapshot | null;
@@ -63,7 +76,7 @@ export default function ExecutionWorkspaceSwitcher({
           ))
         )}
       </Box>
-      <Text dimColor>Ctrl+B Close ↑↓ Navigate Enter Switch Esc Close</Text>
+      <KeyHintFooter hints={EXECUTION_WORKSPACE_SWITCHER_FOOTER_HINTS} />
     </Box>
   );
 }
@@ -175,7 +188,7 @@ function ExecutionWorkspaceSwitcherRow({
   return (
     <Text>
       <Text color={isFocused ? 'cyan' : undefined} bold={isFocused}>
-        {isFocused ? '> ' : '  '}
+        {isFocused ? SELECTION_INDICATOR : SELECTION_INDICATOR_NONE}
       </Text>
       <Text color={row.color}>{row.radio}</Text>
       <Text color={isFocused ? 'cyan' : undefined} bold={isFocused}>{` ${row.title}`}</Text>

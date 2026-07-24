@@ -1,13 +1,19 @@
 ---
-status: draft
+status: done
 type: SCREEN
 tags: [tui, ink, affordance, key-hints, footer, microcopy, discoverability]
+completed: 2026-07-24
 ---
 
-# SCREEN-004: standardize TUI prompt footers, key-hint affordance, and selection microcopy
+# SCREEN-005: standardize TUI prompt footers, key-hint affordance, and selection microcopy
 
 Backlog: `.agents/backlog/SCREEN-004-tui-prompt-footers-and-affordance.md` (design review 2026-06-26
 graded affordance/discoverability C). Scope: `packages/agent-transport-tui` only.
+
+> **Renumbered from SCREEN-004 at GATE-APPROVAL** (binding constraint 7): the SCREEN-004 ID was
+> already taken by the done activity-count-separator spec; SCREEN-005 was the first free SCREEN
+> number (`ls .agents/spec-docs/*/SCREEN-*`: 001–004 and 010 in use). The backlog file keeps its
+> original SCREEN-004 name; its progress note records the renumbering.
 
 ## Problem
 
@@ -62,12 +68,15 @@ Concrete defects beyond the dialect split:
    work", so Esc silently doing nothing reads as a bug.
 3. **No SSOT.** Every component hand-rolls its footer string literal. Dialect B _is_ the drift that
    re-accumulated after the first cleanup; nothing prevents a fourth dialect tomorrow.
-4. **Selection indicator is uniform by luck, not by contract.** All seven prompt-row call sites
+4. **Selection indicator is uniform by luck, not by contract.** All eight prompt-row call sites
    (`ListPicker` consumers, `MenuSelect.tsx:93`, `ConfirmPrompt.tsx:61`, `PermissionPrompt.tsx:77`,
-   `MultiSelectList.tsx:80`, `SessionPicker.tsx:41`, `PendingActionPrompt.tsx:91`) independently spell
-   `'> '` / `'  '` as literals. (`ExecutionWorkspaceDetailPane.tsx:75` uses `▸` as a _group-summary
-   disclosure glyph_, not a selection cursor — it is intentionally out of scope; noted so a future pass
-   does not "fix" it into the selection convention.)
+   `MultiSelectList.tsx:80`, `SessionPicker.tsx:41`, `PendingActionPrompt.tsx:91`, and the
+   `ExecutionWorkspaceSwitcher.tsx:178` focused-row cursor — added at GATE-APPROVAL, the draft's site
+   list was incomplete) independently spell `'> '` / `'  '` as literals. Two look-alikes are NOT
+   selection cursors and stay out of scope: `ExecutionWorkspaceDetailPane.tsx:75` uses `▸` as a
+   _group-summary disclosure glyph_, and `InputArea.tsx:301` / `TextPrompt.tsx` render `'> '` as the
+   _input-prompt glyph_ in front of the text caret — both noted so a future pass does not "fix" them
+   into the selection convention.
 5. `packages/agent-transport-tui/docs/SPEC.md` has no interaction-affordance contract, so none of the
    above is checkable against a stated rule.
 
@@ -134,9 +143,12 @@ surface listed in `docs/SPEC.md`, so no external breaking change).
    | `ConfirmPrompt`              | `←→ Navigate · Enter Confirm`                                                                    |
    | `PermissionPrompt`           | `←→ Navigate · Enter Confirm`                                                                    |
    | `ExecutionWorkspaceSwitcher` | `↑↓ Navigate · Enter Switch · Ctrl+B/Esc Close` (normalized order: navigate → primary → dismiss) |
+   | `MenuSelect` (error state)   | `Esc Back` — replaces the prose `Press Esc to go back` (binding constraint 3)                    |
 
    `ListPicker`'s `footerHint?: string` prop becomes `footerHints?: readonly IKeyHint[]` (internal
-   contract; `SessionPicker`/`PendingActionPrompt` keep inheriting the default).
+   contract; `SessionPicker`/`PendingActionPrompt` keep inheriting the default). The
+   `ExecutionWorkspaceSwitcher` focused-row cursor and the `__tests__/ListPicker.test.tsx` fixture's
+   `'> '` literals also migrate to the indicator constants (binding constraints 1 and 8).
 
 3. **Esc-suppression convention (the "unexplained Esc" fix):** the footer lists **exactly the keys that
    do something** — absence of Esc IS the affordance. `ConfirmPrompt`/`PermissionPrompt` keep their
@@ -156,9 +168,12 @@ surface listed in `docs/SPEC.md`, so no external breaking change).
    shared module ships mechanics only — no verb vocabulary, no product strings; callers supply
    keys/labels. The package stays a content-neutral library ingredient.
 
-Out of scope: `ExecutionWorkspaceDetailPane`'s `▸` disclosure glyph (content, not a cursor); the inline
-`(Backspace to cancel)` parenthetical in `InputArea.tsx:294` (mid-line status idiom, not a footer); a
-`?`-toggled shortcut panel (follow-up backlog candidate); keybinding remapping.
+Out of scope: `ExecutionWorkspaceDetailPane`'s `▸` disclosure glyph (content, not a cursor); the
+`'> '` **input-prompt glyph** in `InputArea.tsx:301` and `TextPrompt.tsx` (an input affordance in
+front of the text caret, not a selection cursor — binding constraint 2; recorded in the SPEC
+affordance contract alongside the `▸` exclusion); the inline `(Backspace to cancel)` parenthetical in
+`InputArea.tsx:294` (mid-line status idiom, not a footer); a `?`-toggled shortcut panel (follow-up
+backlog candidate); keybinding remapping.
 
 ## Test Plan
 
@@ -173,16 +188,24 @@ passes pre-fix proves nothing).
   `MenuSelect.test.tsx`, `SlashAutocomplete.test.tsx`, `TextPrompt.test.tsx`, `confirm-prompt.test.tsx`,
   `PendingActionPrompt.test.tsx`): the rendered footer equals `formatKeyHints(<declared hints>)`. These
   FAIL red against today's Dialect-B/C literals.
-- **Anti-drift consistency guard (the mechanical floor for this spec):** a unit test that imports every
-  component's declared hint set and asserts (a) all footers round-trip through `formatKeyHints`, (b) the
-  navigate → modify → primary → dismiss ordering, so a fourth dialect cannot re-appear silently.
+- **Anti-drift consistency guard (the mechanical floor for this spec):** a unit test
+  (`src/__tests__/key-hint-consistency.test.tsx`) that imports every component's declared hint set —
+  the FULL footer inventory, including the `MenuSelect` error-state hint and the
+  `ExecutionWorkspaceSwitcher` (binding constraint 4) — and asserts (a) all footers round-trip through
+  `formatKeyHints`, (b) the navigate → modify → primary → dismiss ordering, so a fourth dialect cannot
+  re-appear silently.
 - **Selection indicator:** row-render assertions use `SELECTION_INDICATOR`, not a literal.
 - **Esc-suppression regression:** existing flow tests (`confirm-permission-flow.test.ts`) keep asserting
   Esc yields no action for confirm/permission; new assertion that their footers omit `Esc`.
-- **pty e2e (`pnpm --filter @robota-sdk/agent-transport-tui test:pty`, `vitest.pty.config.ts`):** extend
-  the existing pty harness (`spawnPtyFixture` from `@robota-sdk/agent-testing`, as used by
-  `command-handoff-pty-e2e.test.ts`) — type `/` in the real pty and assert the autocomplete frame
-  contains the unified footer and the `> ` indicator on the selected row.
+- **pty e2e — deliberate harness choice (binding constraint 5):** the autocomplete-frame scenario is a
+  **built-CLI `*.ptytest.ts` under `src/__tests__/pty/`, run by `pnpm --filter
+@robota-sdk/agent-transport-tui test:pty`** (`vitest.pty.config.ts`; requires `pnpm build:deps`
+  first for the `robota` binary) — NOT a `spawnPtyFixture` default-suite `*.test.ts`. Rationale:
+  typing `/` exercises the real `InputArea` → autocomplete wiring that only the built binary provides
+  (a fixture driver would re-wire the composition under test), and the per-SCREEN ptytest precedent
+  exists (`screen-010-scrollback.ptytest.ts`). The new file `screen-005-prompt-footers.ptytest.ts`
+  types `/` in the real pty and asserts the autocomplete frame contains the unified footer and the
+  `> ` indicator on the selected row.
 - Gate: `pnpm --filter @robota-sdk/agent-transport-tui build && pnpm --filter @robota-sdk/agent-transport-tui test`
   plus typecheck; no new lint/scan suppressions.
 
@@ -191,17 +214,19 @@ passes pre-fix proves nothing).
 Agent-run via the package's pty fixture (per the agent-run capability rule — the owner does NOT run a
 terminal smoke):
 
-1. **Slash autocomplete affordance:** spawn the pty fixture, type `/` → the popup shows
+1. **Slash autocomplete affordance:** spawn the built CLI in a real pty, type `/` → the popup shows
    `↑↓ Navigate · Tab Complete · Enter Select · Esc Close` and the highlighted row starts with `> `.
-   Evidence: recorded pty frames.
-2. **Prompt-family parity:** drive a CMD-004 ask through the fixture for each shape (single-select,
-   multi-select, free-text) → all three footers share the grammar; the multi-select shows the dynamic
-   `(min N)` segment until satisfiable.
-3. **Explicit-resolve prompts:** open the permission prompt → footer reads `←→ Navigate · Enter Confirm`;
-   pressing Esc changes nothing (prompt still displayed, no resolution) — the suppression is now a
-   documented, footer-consistent behavior.
+   Evidence: `screen-005-prompt-footers.ptytest.ts` S1 ✅ (agent-run 2026-07-24, real binary).
+2. **Prompt-family parity:** drive a CMD-004 ask through a `--session-log` replay for each shape
+   (single-select, multi-select, free-text) → all three footers share the grammar; the multi-select
+   shows the dynamic `(min N)` segment until satisfiable.
+   Evidence: `screen-005-prompt-footers.ptytest.ts` S2 ✅ (fixture `screen-005-ask-shapes.jsonl`).
+3. **Explicit-resolve prompts:** a replayed Shell call opens the permission prompt → footer reads
+   `←→ Navigate · Enter Confirm`; pressing Esc changes nothing (prompt still displayed, no
+   resolution); `y` resolves it — the suppression is now a documented, footer-consistent behavior.
+   Evidence: `screen-005-prompt-footers.ptytest.ts` S3 ✅ (fixture `screen-005-permission.jsonl`).
 
-Evidence file (created at IMPLEMENT/VERIFY): `.agents/evals/scenarios/screen-004-prompt-footers-agent-run.md`.
+Evidence file (created at IMPLEMENT/VERIFY): `.agents/evals/scenarios/screen-005-prompt-footers-agent-run.md`.
 
 ## Evidence Log
 
@@ -215,3 +240,62 @@ Evidence file (created at IMPLEMENT/VERIFY): `.agents/evals/scenarios/screen-004
   non-blocking warning: the SCREEN-004 ID is also used by the done activity-count-separator spec; this
   file keeps the backlog item's slug).
 - Awaiting GATE-APPROVAL (independent proposal-reviewer) before any implementation.
+
+### [GATE-APPROVAL] — ✅ PASS (ENDORSE) | 2026-07-24
+
+- Independent proposal-reviewer verdict: **ENDORSE**, with 8 BINDING constraints (violating any =
+  review fail), relayed by the gate orchestrator to the implementing agent:
+  1. `ExecutionWorkspaceSwitcher.tsx:178` selection cursor migrates to the indicator constants
+     (the draft's site list was incomplete).
+  2. `InputArea.tsx:301`'s `'> '` is the INPUT PROMPT glyph — do NOT convert; record it in the SPEC
+     affordance section alongside the `▸` disclosure-glyph exclusion.
+  3. `MenuSelect.tsx:85` error-state hint renders via `formatKeyHints([{keys:'Esc',label:'Back'}])`.
+  4. The anti-drift consistency unit test covers the FULL footer inventory incl. the MenuSelect
+     error hint and the switcher.
+  5. pty harness naming: choose deliberately between `spawnPtyFixture` `*.test.ts` (default suite)
+     and built-CLI `*.ptytest.ts` under `__tests__/pty/` (`test:pty`) for the autocomplete-frame
+     scenario, and STATE the choice in the Test Plan.
+  6. The SPEC affordance contract records the ↑↓ aliases for confirm/permission rows (`←→` canonical
+     footer is a documented choice).
+  7. Resolve the duplicate spec ID: renumber to the first free SCREEN number.
+  8. `__tests__/ListPicker.test.tsx` fixture literals migrate to the exported constants
+     (red-before-green applies).
+- Constraint 7 applied at this gate: spec-doc renamed `SCREEN-004-…` → `SCREEN-005-…` (001–004 and
+  010 in use; 005 first free); backlog file keeps its name with a renumbering note.
+
+### [GATE-IMPLEMENT] — ✅ PASS | 2026-07-24
+
+- Implemented on branch `feat/screen-004-key-hint-footer` (worktree, based on `origin/develop`),
+  scope `packages/agent-transport-tui` only. All 8 binding constraints honored (1: switcher row →
+  constants; 2: InputArea/TextPrompt input-prompt glyph untouched + recorded in SPEC; 3: MenuSelect
+  error hint via `formatKeyHints` + prose removed; 4: `key-hint-consistency.test.tsx` full inventory
+  incl. error hint + switcher; 5: built-CLI ptytest chosen + stated in Test Plan; 6: ↑↓ aliases in
+  the SPEC contract; 7: renumbered; 8: ListPicker test fixture on the constants).
+- **RED (HARNESS-041):** the per-component footer assertions were run against the pre-migration
+  literals FIRST → `Tests 8 failed | 51 passed` (ListPicker default footer, MenuSelect normal +
+  error hint, PendingActionPrompt multi-select min-segment, SlashAutocomplete, TextPrompt,
+  ConfirmPrompt, ExecutionWorkspaceSwitcher — every dialect-string assertion failed as required).
+- **GREEN:** after migrating the components to the SSOT: the same assertions + the new
+  `key-hint-footer.test.tsx` (8) and `key-hint-consistency.test.tsx` (22) all pass.
+
+### [GATE-VERIFY] — ✅ PASS | 2026-07-24
+
+- `pnpm --filter @robota-sdk/agent-transport-tui build` → complete (tsdown, dist emitted).
+- `npx vitest run` (package default suite) → **61 files / 465 tests passed**.
+- `pnpm --filter @robota-sdk/agent-transport-tui test:pty` (built binary, after `pnpm build:deps`)
+  → **9 files / 14 tests passed**, including the new `screen-005-prompt-footers.ptytest.ts` (S1–S3).
+- `pnpm --filter @robota-sdk/agent-transport-tui typecheck` → clean.
+- `node scripts/harness/run-all-scans.mjs` → all scans pass (see PR).
+- No new lint/scan suppressions; no fallback declared (none needed — `·` has no degradation path
+  beyond what `↑↓` already ships).
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-07-24
+
+- All three User Execution Test Scenarios executed **agent-run** on the real binary in a real PTY;
+  evidence file `.agents/evals/scenarios/screen-005-prompt-footers-agent-run.md`.
+- `docs/SPEC.md` gained the "Interaction Affordance Contract (SCREEN-005)" section (grammar, SSOT,
+  ordering, Esc-suppression invariant, ↑↓ aliases, indicator constants + the two non-cursor glyph
+  exclusions).
+- Backlog `.agents/backlog/SCREEN-004-tui-prompt-footers-and-affordance.md` → Outcome recorded,
+  moved to `completed/` (file keeps its SCREEN-004 name; renumbering noted inside).
+- Status `draft` → `done`; file moved `draft/` → `done/`.

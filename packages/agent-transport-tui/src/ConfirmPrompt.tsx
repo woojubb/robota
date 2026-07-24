@@ -12,6 +12,22 @@ import {
   type TConfirmPromptInputAction,
 } from './flows/confirm-prompt-flow.js';
 import { createSelectionFlowState, type ISelectionFlowState } from './flows/selection-flow.js';
+import {
+  KeyHintFooter,
+  SELECTION_INDICATOR,
+  SELECTION_INDICATOR_NONE,
+  type IKeyHint,
+} from './key-hint-footer.js';
+
+/**
+ * Footer for the confirm prompt. Names the canonical keys for a horizontal row (←→; the reducer
+ * also accepts ↑↓ as aliases). Esc is deliberately suppressed by the flow (`escape: false` — the
+ * prompt must resolve explicitly), so per the affordance contract the footer omits it.
+ */
+export const CONFIRM_PROMPT_FOOTER_HINTS: readonly IKeyHint[] = [
+  { keys: '←→', label: 'Navigate' },
+  { keys: 'Enter', label: 'Confirm' },
+];
 
 interface IProps {
   /** Message to display above the options */
@@ -58,13 +74,13 @@ export default function ConfirmPrompt({
               color={i === state.selectedIndex ? 'cyan' : undefined}
               bold={i === state.selectedIndex}
             >
-              {i === state.selectedIndex ? '> ' : '  '}
+              {i === state.selectedIndex ? SELECTION_INDICATOR : SELECTION_INDICATOR_NONE}
               {opt}
             </Text>
           </Box>
         ))}
       </Box>
-      <Text dimColor> arrow keys to select, Enter to confirm</Text>
+      <KeyHintFooter hints={CONFIRM_PROMPT_FOOTER_HINTS} />
     </Box>
   );
 }

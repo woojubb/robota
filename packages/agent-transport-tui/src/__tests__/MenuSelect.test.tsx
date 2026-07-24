@@ -2,6 +2,7 @@ import React from 'react';
 import { render } from 'ink-testing-library';
 import { describe, it, expect } from 'vitest';
 import MenuSelect from '../MenuSelect.js';
+import { formatKeyHints } from '../key-hint-footer.js';
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -99,5 +100,28 @@ describe('MenuSelect', () => {
     stdin.write('\x1B[B'); // Down arrow
     stdin.write('\r');
     expect(selected).toBe('b');
+  });
+
+  // SCREEN-005: footer + error-state hint render through the key-hint SSOT grammar.
+  it('renders the footer in the shared key-hint grammar', () => {
+    const { lastFrame } = render(
+      <MenuSelect title="Test" items={items} onSelect={() => {}} onBack={() => {}} />,
+    );
+    expect(lastFrame()!).toContain(
+      formatKeyHints([
+        { keys: '↑↓', label: 'Navigate' },
+        { keys: 'Enter', label: 'Select' },
+        { keys: 'Esc', label: 'Back' },
+      ]),
+    );
+  });
+
+  it('renders the error-state hint via the shared key-hint grammar', () => {
+    const { lastFrame } = render(
+      <MenuSelect title="Test" items={[]} onSelect={() => {}} onBack={() => {}} error="Failed" />,
+    );
+    const frame = lastFrame()!;
+    expect(frame).toContain(formatKeyHints([{ keys: 'Esc', label: 'Back' }]));
+    expect(frame).not.toContain('Press Esc to go back');
   });
 });

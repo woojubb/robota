@@ -2,6 +2,7 @@ import React from 'react';
 import { render } from 'ink-testing-library';
 import { describe, it, expect } from 'vitest';
 import TextPrompt from '../TextPrompt.js';
+import { formatKeyHints } from '../key-hint-footer.js';
 
 describe('TextPrompt', () => {
   it('renders title', () => {
@@ -94,5 +95,18 @@ describe('TextPrompt', () => {
     expect(submitted).toBe(false);
     await new Promise((r) => setTimeout(r, 50));
     expect(lastFrame()!).toContain('Too short');
+  });
+
+  // SCREEN-005: footer renders through the key-hint SSOT grammar.
+  it('renders the footer in the shared key-hint grammar', () => {
+    const { lastFrame } = render(
+      <TextPrompt title="Enter value" onSubmit={() => {}} onCancel={() => {}} />,
+    );
+    expect(lastFrame()!).toContain(
+      formatKeyHints([
+        { keys: 'Enter', label: 'Submit' },
+        { keys: 'Esc', label: 'Cancel' },
+      ]),
+    );
   });
 });
