@@ -1,6 +1,6 @@
 ---
 title: 'INFRA-047: migrate dependency-review deny-licenses → allow-licenses before the v6 bump'
-status: todo
+status: in-progress
 created: 2026-07-25
 priority: low
 urgency: later
@@ -24,3 +24,10 @@ Gate: do NOT accept a Dependabot v6 bump before this lands.
 ## Test Plan
 
 A test PR introducing a GPL dev-dep is BLOCKED under the new input (then closed).
+
+Verify post-merge: the input swap itself landed via `ci/infra-047-allow-licenses` (allow-list =
+verified lockfile inventory closure of 2026-07-25 + purl exemptions for the @robota-sdk dual-licensed
+self-deps and the LGPL @img/sharp-libvips prebuilt family). The red-test above cannot run pre-merge —
+dependency-review executes the config of the PR's MERGE result against the target branch, so the new
+allow-list only gates PRs opened AFTER this lands. Run the GPL-fixture PR against develop after merge;
+only then may this item be closed.
