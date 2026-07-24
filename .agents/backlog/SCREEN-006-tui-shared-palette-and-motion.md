@@ -11,13 +11,14 @@ depends_on: []
 # Shared TUI color palette and accessible motion
 
 > **Progress (2026-07-25):** spec drafted (GATE-WRITE):
-> [`.agents/spec-docs/draft/SCREEN-006-tui-shared-palette-and-motion.md`](../spec-docs/draft/SCREEN-006-tui-shared-palette-and-motion.md).
+> [`.agents/spec-docs/todo/SCREEN-006-tui-shared-palette-and-motion.md`](../spec-docs/todo/SCREEN-006-tui-shared-palette-and-motion.md).
 > Note: two of the three findings below already landed under this ID (`render-markdown.ts` raw ANSI →
 > `tui-ansi-palette.ts`; WaveText motion gated via `terminal-capabilities.ts`, SCREEN-008), and the
-> StatusBar-separator claim is stale (SCREEN-004). The spec rescoped to the remaining defect: a
+> StatusBar-separator finding is partially live (`'  |  '` ×6 — folded into the adoption pass as a
+> `SEP` constant per GATE-APPROVAL). The spec rescoped to the remaining defect: a
 > semantic token layer (`tui-palette.ts`) over the 60+ ad-hoc color literals, the `MessageList`
 > duplicate of `STATUS_GLYPH` (denied-color drift), tokenized + perceptible WaveText motion, the
-> `dimColor`-as-muted rule, and a mechanical no-literal-colors floor. Awaiting GATE-APPROVAL.
+> `dimColor`-as-muted rule, and a mechanical no-literal-colors floor. GATE-APPROVAL passed 2026-07-25 (REVISE → revisions folded → approved); spec in todo/.
 
 ## What
 
