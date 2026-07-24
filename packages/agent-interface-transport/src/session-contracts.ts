@@ -24,6 +24,7 @@ import type {
   ICommandListEntry,
   ICommandResult,
   TCommandInvocationSource,
+  TCommandUiIntent,
 } from './command-contracts.js';
 import type { ICompactEvent } from './compact-contracts';
 import type {
@@ -274,6 +275,27 @@ export interface IPromptResolvedEvent {
   answererDriverId?: TDriverId;
 }
 
+/**
+ * CMD-004 Phase 2: a command-issued UI intent, emitted as a fire-and-forget `ui_intent` session
+ * event. Routed to the REQUESTING surface: `requesterDriverId` is stamped from the command-origin
+ * driver id passed into `executeCommand` (the REMOTE-014 E5 server-assigned id for remote surfaces;
+ * the active turn's driver only as a fallback for model-invoked commands). Other surfaces ignore it;
+ * an intent needs no answer (no parking, no response promise). Serializable.
+ */
+export interface IUiIntentEvent {
+  intent: TCommandUiIntent;
+  /** The server-assigned driver id of the surface that issued the command (routing/display-only). */
+  requesterDriverId?: TDriverId;
+}
+
+/**
+ * CMD-004 Phase 2: the session was renamed (host-executed `session-rename` action). Broadcast so
+ * every attached surface — including co-driving ones — updates its title. Serializable.
+ */
+export interface ISessionRenamedEvent {
+  name: string;
+}
+
 /** Emitted when a context file is found stale and re-read before a turn. */
 export interface IContextFileRefreshedEvent {
   filePath: string;
@@ -336,6 +358,10 @@ export interface IInteractiveSessionEvents {
   ask_request: (event: IAskRequestEvent) => void;
   /** REMOTE-007: a pending prompt was settled (by any surface); attached surfaces dismiss it. */
   prompt_resolved: (event: IPromptResolvedEvent) => void;
+  /** CMD-004 Phase 2: a command-issued UI intent — the requesting surface renders it (fire-and-forget). */
+  ui_intent: (event: IUiIntentEvent) => void;
+  /** CMD-004 Phase 2: the session was renamed host-side — all surfaces update their titles. */
+  session_renamed: (event: ISessionRenamedEvent) => void;
 }
 
 export type TInteractiveEventName = keyof IInteractiveSessionEvents;
@@ -381,10 +407,15 @@ export interface IInteractiveSession {
   // Commands
   // `source` defaults to `'user'` (the local operator). Transport adapters pass `'remote'` so the session can
   // apply an optional remote-command policy (allow-by-default; REMOTE-006). Local callers omit it.
+  // CMD-004 Phase 2: `originDriverId` is the SERVER-ASSIGNED driver id of the surface that issued the
+  // command (REMOTE-014 E5 rule — never a client-sent one). It stamps `ui_intent.requesterDriverId` so
+  // intents route to the requesting surface. Optional — untouched callers compile; a local `'user'`
+  // command defaults to the owner; a model-invoked command falls back to the active turn's driver.
   executeCommand(
     name: string,
     args: string,
     source?: TCommandInvocationSource,
+    originDriverId?: TDriverId,
   ): Promise<ICommandResult | null>;
   listCommands(): ICommandListEntry[];
 

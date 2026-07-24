@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: FLOW
 tags: [cli, typescript, websocket, multi-surface, architecture]
 ---
@@ -378,7 +378,7 @@ completeness.
 
 ## Tasks
 
-- [ ] `.agents/tasks/CMD-004-phase2.md` — to be created at GATE-IMPLEMENT (stages A–E mapped to TC-01..TC-10).
+- [x] `.agents/tasks/CMD-004-phase2.md` — created (GATE-IMPLEMENT). Stages A–E mapped to TC-01..TC-10.
 
 ## Evidence Log
 

@@ -7,7 +7,7 @@ export {
 export type { ICommand, ICommandSource } from './types.js';
 export type { ICommandModule, TCommandModuleSessionRequirement } from './command-module.js';
 export type { ISystemCommand, TSystemCommandLifecycle } from './contracts.js';
-export type { TCommandEffect } from './effects.js';
+export type { TCommandEffect, TCommandHostAction, TCommandUiIntent } from './effects.js';
 export type { ICommandResult, TCommandResultDataValue } from './command-result.js';
 export type {
   IAgentJobHostContext,
