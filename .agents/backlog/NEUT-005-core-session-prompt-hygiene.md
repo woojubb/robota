@@ -71,5 +71,6 @@ Red-first per item (incl. a Korean-title naming test that FAILS today); SPEC upd
 `session-naming.ts`: `sanitizeName` is now Unicode-aware (`[^\p{L}\p{N}\s-]/gu` — Korean/CJK
 titles survive; red-first Korean-title tests added), and `IGenerateSessionNameOptions` injects a
 custom naming prompt and/or sanitizer (default prompt de-Latinized: titles follow the message's
-language). SPEC updated. Items 1–4 (agent-core `builtin-templates.json`, factory default persona,
-`/compact` leak, agent-session compaction prompt) remain open — owned by the core/session batch.
+language). SPEC updated. With wave 1 (items 1–4, #1347) already landed, only the wave-2 leftovers
+above (surface-tier wording injection, interface-transport comment twin, dag-cli/preset items)
+remain.

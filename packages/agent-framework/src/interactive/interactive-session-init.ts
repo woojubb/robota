@@ -10,11 +10,14 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 
 import { FileSessionLogger } from '@robota-sdk/agent-session';
-import { applyWorkspaceManifest } from '@robota-sdk/agent-tools';
 
 import { NOOP_TERMINAL } from './interactive-session-execution.js';
 import { detectProject } from '../context/project-detector.js';
 import { projectPaths } from '../paths.js';
+import {
+  applyInteractiveWorkspaceManifest,
+  restoreInteractiveSandboxSnapshot,
+} from './interactive-session-init-workspace.js';
 import { injectSavedMessage } from './interactive-session-restore.js';
 import { createSession } from '../assembly/index.js';
 import { EditCheckpointStore } from '../checkpoints/edit-checkpoint-store.js';
@@ -193,29 +196,6 @@ export async function createInteractiveSession(
     projectNotesFileEntries: context.projectNotesFileEntries ?? [],
     rebuildSystemMessage,
   };
-}
-
-async function applyInteractiveWorkspaceManifest(
-  options: IInitOptions,
-  cwd: string,
-): Promise<void> {
-  if (!options.workspaceManifest) return;
-  if (!options.sandboxClient) {
-    throw new Error('workspaceManifest requires sandboxClient.');
-  }
-  await applyWorkspaceManifest(options.sandboxClient, options.workspaceManifest, {
-    hostRoot: cwd,
-    ...(options.sandboxWorkspaceRoot ? { targetRoot: options.sandboxWorkspaceRoot } : {}),
-  });
-}
-
-async function restoreInteractiveSandboxSnapshot(options: IInitOptions): Promise<boolean> {
-  if (!options.sandboxSnapshotId) return false;
-  if (!options.sandboxClient?.restore) {
-    throw new Error('sandboxSnapshotId requires sandboxClient with restore().');
-  }
-  await options.sandboxClient.restore(options.sandboxSnapshotId);
-  return true;
 }
 
 /** Dependencies injected into initializeInteractiveSessionAsync from the class. */
