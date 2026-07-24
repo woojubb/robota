@@ -118,11 +118,12 @@ function buildSection(
 }
 
 /** Build package sidebar items from packages pkg docs dirs */
-function buildPackagesSection(): SidebarItem {
+function buildPackagesSection(locale: string): SidebarItem {
   const children: SidebarItem[] = [];
+  const packagesHref = `/${locale}/packages`;
 
   if (!fs.existsSync(PACKAGES_DIR)) {
-    return { title: 'Packages', href: '/packages' };
+    return { title: 'Packages', href: packagesHref };
   }
 
   const pkgDirs = fs
@@ -137,7 +138,7 @@ function buildPackagesSection(): SidebarItem {
 
     const readmePath = path.join(docsDir, 'README.md');
     const title = readTitle(readmePath, pkg);
-    const pkgHref = `/packages/${pkg}`;
+    const pkgHref = `${packagesHref}/${pkg}`;
 
     const stems = listMarkdownStems(docsDir)
       .filter((s) => s !== 'README')
@@ -155,18 +156,23 @@ function buildPackagesSection(): SidebarItem {
     });
   }
 
-  return { title: 'Packages', href: '/packages', children };
+  return { title: 'Packages', href: packagesHref, children };
 }
 
-/** Build the full sidebar tree, locale-aware. */
+/**
+ * Build the full sidebar tree, locale-aware.
+ *
+ * Hrefs are locale-prefixed (`/en/guide`, `/ko/guide`, …): the site is a static export
+ * whose pages only exist under `/<locale>/…`, so locale-less hrefs 404 (DOCS-002).
+ */
 export function buildSidebar(locale: string = 'en'): SidebarItem[] {
   return [
-    buildSection('getting-started', 'Getting Started', '/getting-started', locale),
-    buildSection('guide', 'Guide', '/guide', locale, GUIDE_ORDER),
-    buildSection('examples', 'Examples', '/examples', locale),
-    buildPackagesSection(),
-    buildSection('changelog', 'Changelog', '/changelog', locale),
-    buildSection('development', 'Development', '/development', locale),
-    buildSection('plugins', 'Plugins', '/plugins', locale),
+    buildSection('getting-started', 'Getting Started', `/${locale}/getting-started`, locale),
+    buildSection('guide', 'Guide', `/${locale}/guide`, locale, GUIDE_ORDER),
+    buildSection('examples', 'Examples', `/${locale}/examples`, locale),
+    buildPackagesSection(locale),
+    buildSection('changelog', 'Changelog', `/${locale}/changelog`, locale),
+    buildSection('development', 'Development', `/${locale}/development`, locale),
+    buildSection('plugins', 'Plugins', `/${locale}/plugins`, locale),
   ];
 }

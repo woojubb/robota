@@ -16,67 +16,58 @@ interface SectionProps {
   depth: number;
 }
 
+/* Rows keep the compact desktop density but grow to a 44px touch target on
+ * coarse-pointer (touch) devices. */
+const ROW_MIN_HEIGHT = 'min-h-9 pointer-coarse:min-h-11';
+
+/* The site exports with `trailingSlash: true`, so `usePathname()` yields `/en/guide/`
+ * while sidebar hrefs are `/en/guide` — compare with the trailing slash stripped. */
+function normalizePath(path: string): string {
+  return path.length > 1 && path.endsWith('/') ? path.slice(0, -1) : path;
+}
+
 function SidebarSection({ item, depth }: SectionProps) {
-  const pathname = usePathname();
-  const isActive = pathname === item.href;
+  const pathname = normalizePath(usePathname());
+  const isActive = pathname === normalizePath(item.href);
   const isChildActive = item.children?.some(
-    (child) => pathname === child.href || pathname.startsWith(child.href + '/'),
+    (child) =>
+      pathname === normalizePath(child.href) ||
+      pathname.startsWith(normalizePath(child.href) + '/'),
   );
-  const [open, setOpen] = useState(isChildActive ?? true);
+  // Open when this section's own page or any child page is active.
+  const [open, setOpen] = useState((isChildActive ?? true) || isActive);
 
   const hasChildren = item.children && item.children.length > 0;
 
   if (depth === 0 && hasChildren) {
     return (
-      <div style={{ marginBottom: '0.125rem' }}>
+      <div className="mb-0.5">
         {/* Section header — clickable toggle */}
         <button
           aria-expanded={open}
           onClick={() => setOpen((o) => !o)}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            width: '100%',
-            minHeight: '2.25rem',
-            padding: '0.3rem 0.75rem',
-            background: 'transparent',
-            border: 'none',
-            borderRadius: '0.25rem',
-            color: isChildActive || isActive ? 'var(--primary)' : 'var(--muted-foreground)',
-            fontFamily: 'var(--font-display)',
-            fontWeight: 600,
-            fontSize: '0.7rem',
-            cursor: 'pointer',
-            textAlign: 'left',
-            letterSpacing: '0.1em',
-            textTransform: 'uppercase',
-            transition: 'color 0.15s',
-            marginTop: '1rem',
-          }}
+          className={`${ROW_MIN_HEIGHT} mt-4 flex w-full cursor-pointer items-center justify-between rounded border-0 bg-transparent px-3 py-1 text-left [font-family:var(--font-display)] text-[0.7rem] font-semibold uppercase tracking-[0.1em] transition-colors ${
+            isChildActive || isActive ? 'text-primary' : 'text-muted-foreground'
+          }`}
         >
           <InternalLink
             href={item.href}
             onClick={(e) => e.stopPropagation()}
-            style={{ color: 'inherit', textDecoration: 'none', flex: 1 }}
+            aria-current={isActive ? 'page' : undefined}
+            className="flex-1 text-inherit no-underline"
           >
             {item.title}
           </InternalLink>
           <span
-            style={{
-              fontSize: '0.6rem',
-              transition: 'transform 0.2s',
-              transform: open ? 'rotate(90deg)' : 'rotate(0deg)',
-              opacity: 0.5,
-              flexShrink: 0,
-            }}
+            aria-hidden="true"
+            className={`shrink-0 text-[0.6rem] opacity-50 transition-transform ${open ? 'rotate-90' : ''}`}
           >
             ▶
           </span>
         </button>
 
         {open && (
-          <div style={{ marginTop: '0.125rem' }}>
+          <div className="mt-0.5">
             {item.children!.map((child) => (
               <SidebarSection key={child.href} item={child} depth={1} />
             ))}
@@ -90,25 +81,12 @@ function SidebarSection({ item, depth }: SectionProps) {
     return (
       <InternalLink
         href={item.href}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          minHeight: '2.25rem',
-          padding: '0.3rem 0.75rem',
-          borderRadius: '0.25rem',
-          color: isActive ? 'var(--primary)' : 'var(--muted-foreground)',
-          background: isActive ? 'var(--primary-dim)' : 'transparent',
-          borderLeft: isActive ? '2px solid var(--primary)' : '2px solid transparent',
-          fontFamily: 'var(--font-display)',
-          fontWeight: 600,
-          fontSize: '0.7rem',
-          textDecoration: 'none',
-          letterSpacing: '0.1em',
-          textTransform: 'uppercase',
-          marginTop: '1rem',
-          transition: 'color 0.15s, background 0.15s',
-        }}
-        className="sidebar-item-link"
+        aria-current={isActive ? 'page' : undefined}
+        className={`${ROW_MIN_HEIGHT} mt-4 flex items-center rounded border-l-2 px-3 py-1 [font-family:var(--font-display)] text-[0.7rem] font-semibold uppercase tracking-[0.1em] no-underline transition-colors ${
+          isActive
+            ? 'border-primary bg-[var(--primary-dim)] text-primary'
+            : 'border-transparent text-muted-foreground hover:bg-white/[0.04] hover:text-[var(--foreground-hi)]'
+        }`}
       >
         {item.title}
       </InternalLink>
@@ -123,47 +101,33 @@ function SidebarSection({ item, depth }: SectionProps) {
         <button
           aria-expanded={open}
           onClick={() => setOpen((o) => !o)}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            width: '100%',
-            minHeight: '2.25rem',
-            padding: '0.275rem 0.75rem 0.275rem 1.25rem',
-            background: isActive ? 'var(--primary-dim)' : 'transparent',
-            border: 'none',
-            borderLeft: isActive ? '2px solid var(--primary)' : '2px solid transparent',
-            borderRadius: '0 0.25rem 0.25rem 0',
-            color: isActive || isChildActive ? 'var(--foreground-hi)' : 'var(--muted-foreground)',
-            fontFamily: 'var(--font-body)',
-            fontWeight: isActive ? 500 : 400,
-            fontSize: '0.825rem',
-            cursor: 'pointer',
-            textAlign: 'left',
-            transition: 'color 0.15s, background 0.15s',
-          }}
-          className="sidebar-item-link"
+          className={`${ROW_MIN_HEIGHT} flex w-full cursor-pointer items-center justify-between rounded-r border-0 border-l-2 py-1 pl-5 pr-3 text-left [font-family:var(--font-body)] text-[0.825rem] transition-colors ${
+            isActive
+              ? 'border-primary bg-[var(--primary-dim)] font-medium'
+              : 'border-transparent bg-transparent font-normal'
+          } ${
+            isActive || isChildActive
+              ? 'text-[var(--foreground-hi)]'
+              : 'text-muted-foreground hover:bg-white/[0.04] hover:text-[var(--foreground-hi)]'
+          }`}
         >
           <InternalLink
             href={item.href}
             onClick={(e) => e.stopPropagation()}
-            style={{ color: 'inherit', textDecoration: 'none', flex: 1 }}
+            aria-current={isActive ? 'page' : undefined}
+            className="flex-1 text-inherit no-underline"
           >
             {item.title}
           </InternalLink>
           <span
-            style={{
-              fontSize: '0.6rem',
-              transition: 'transform 0.2s',
-              transform: open ? 'rotate(90deg)' : 'rotate(0deg)',
-              opacity: 0.4,
-            }}
+            aria-hidden="true"
+            className={`shrink-0 text-[0.6rem] opacity-40 transition-transform ${open ? 'rotate-90' : ''}`}
           >
             ▶
           </span>
         </button>
         {open && (
-          <div style={{ marginLeft: '0.5rem' }}>
+          <div className="ml-2">
             {item.children!.map((child) => (
               <SidebarSection key={child.href} item={child} depth={depth + 1} />
             ))}
@@ -176,22 +140,12 @@ function SidebarSection({ item, depth }: SectionProps) {
   return (
     <InternalLink
       href={item.href}
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        minHeight: '2.25rem',
-        padding: '0.275rem 0.75rem 0.275rem 1.25rem',
-        borderRadius: '0 0.25rem 0.25rem 0',
-        borderLeft: isActive ? '2px solid var(--primary)' : '2px solid transparent',
-        color: isActive ? 'var(--foreground-hi)' : 'var(--muted-foreground)',
-        background: isActive ? 'var(--primary-dim)' : 'transparent',
-        fontFamily: 'var(--font-body)',
-        fontWeight: isActive ? 500 : 400,
-        fontSize: '0.825rem',
-        textDecoration: 'none',
-        transition: 'color 0.15s, background 0.15s',
-      }}
-      className="sidebar-item-link"
+      aria-current={isActive ? 'page' : undefined}
+      className={`${ROW_MIN_HEIGHT} flex items-center rounded-r border-l-2 py-1 pl-5 pr-3 [font-family:var(--font-body)] text-[0.825rem] no-underline transition-colors ${
+        isActive
+          ? 'border-primary bg-[var(--primary-dim)] font-medium text-[var(--foreground-hi)]'
+          : 'border-transparent font-normal text-muted-foreground hover:bg-white/[0.04] hover:text-[var(--foreground-hi)]'
+      }`}
     >
       {item.title}
     </InternalLink>
@@ -202,39 +156,19 @@ export function Sidebar({ items, mobileOpen, onClose }: SidebarProps) {
   return (
     <>
       {mobileOpen && (
-        <div
-          onClick={onClose}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.6)',
-            zIndex: 39,
-          }}
-        />
+        <div aria-hidden="true" onClick={onClose} className="fixed inset-0 z-[39] bg-black/60" />
       )}
 
       <aside
-        style={{
-          position: 'fixed',
-          top: 'var(--header-height)',
-          left: 0,
-          bottom: 0,
-          width: 'var(--sidebar-width)',
-          overflowY: 'auto',
-          overflowX: 'hidden',
-          background: 'var(--background)',
-          borderRight: '1px solid var(--border)',
-          padding: '0.5rem 0.5rem 2rem',
-          zIndex: 40,
-          transform: mobileOpen ? 'translateX(0)' : undefined,
-          display: 'flex',
-          flexDirection: 'column',
-        }}
-        className="docs-sidebar"
+        className={`fixed bottom-0 left-0 top-[var(--header-height)] z-40 flex w-[var(--sidebar-width)] flex-col overflow-y-auto overflow-x-hidden border-r border-border bg-background px-2 pb-8 pt-2 transition-transform duration-[250ms] ease-in-out md:translate-x-0 ${
+          mobileOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
       >
-        {items.map((item) => (
-          <SidebarSection key={item.href} item={item} depth={0} />
-        ))}
+        <nav aria-label="Documentation">
+          {items.map((item) => (
+            <SidebarSection key={item.href} item={item} depth={0} />
+          ))}
+        </nav>
       </aside>
     </>
   );

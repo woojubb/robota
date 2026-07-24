@@ -17,38 +17,23 @@ export function DocsLayout({ sidebar, toc, children }: DocsLayoutProps) {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <div className="flex min-h-screen flex-col">
+      {/* Skip link — first focusable element, jumps keyboard users past header + sidebar */}
+      <a
+        href="#docs-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded focus:bg-primary focus:px-4 focus:py-2 focus:font-semibold focus:text-[var(--primary-foreground)] focus:no-underline"
+      >
+        Skip to content
+      </a>
+
       <Header />
 
-      <div
-        style={{
-          display: 'flex',
-          flex: 1,
-          position: 'relative',
-        }}
-      >
-        {/* Mobile hamburger — only visible on small screens via CSS class */}
+      <div className="relative flex flex-1">
+        {/* Mobile hamburger — only visible on small screens */}
         <button
-          className="mobile-menu-btn"
           onClick={() => setMobileSidebarOpen(true)}
           aria-label="Open navigation"
-          style={{
-            position: 'fixed',
-            bottom: '1.25rem',
-            right: '1.25rem',
-            zIndex: 50,
-            width: 44,
-            height: 44,
-            borderRadius: '50%',
-            background: 'var(--primary)',
-            color: 'var(--primary-foreground)',
-            border: 'none',
-            cursor: 'pointer',
-            display: 'none',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 4px 16px color-mix(in srgb, var(--accent) 35%, transparent)',
-          }}
+          className="fixed bottom-5 right-5 z-50 flex h-11 w-11 cursor-pointer items-center justify-center rounded-full border-0 bg-primary text-[var(--primary-foreground)] shadow-[0_4px_16px_color-mix(in_srgb,var(--accent)_35%,transparent)] md:hidden"
         >
           <svg
             width="20"
@@ -58,6 +43,7 @@ export function DocsLayout({ sidebar, toc, children }: DocsLayoutProps) {
             stroke="currentColor"
             strokeWidth="2.5"
             strokeLinecap="round"
+            aria-hidden="true"
           >
             <line x1="3" y1="6" x2="21" y2="6" />
             <line x1="3" y1="12" x2="21" y2="12" />
@@ -73,67 +59,24 @@ export function DocsLayout({ sidebar, toc, children }: DocsLayoutProps) {
         />
 
         {/* Main content area — offset by sidebar width on desktop */}
-        <main
-          style={{
-            flex: 1,
-            marginLeft: 'var(--sidebar-width)',
-            minWidth: 0,
-            display: 'flex',
-            justifyContent: 'center',
-            padding: '2.5rem 2rem',
-          }}
-          className="docs-main"
-        >
+        <main className="flex min-w-0 flex-1 justify-center px-4 py-6 md:ml-[var(--sidebar-width)] md:px-8 md:py-10">
           {/* Article content */}
           <article
-            className="prose"
-            style={{
-              flex: 1,
-              maxWidth: 'var(--content-max-width)',
-              minWidth: 0,
-            }}
+            id="docs-content"
+            tabIndex={-1}
+            className="prose min-w-0 max-w-[var(--content-max-width)] flex-1 outline-none"
           >
             {children}
           </article>
 
-          {/* Right ToC — only shown when there are entries */}
+          {/* Right ToC — only shown when there are entries, and only on wide screens */}
           {toc.length > 0 && (
-            <div style={{ marginLeft: '3rem', flexShrink: 0 }} className="docs-toc">
+            <div className="ml-12 hidden shrink-0 lg:block">
               <TableOfContents entries={toc} />
             </div>
           )}
         </main>
       </div>
-
-      {/* Responsive overrides injected as a style tag */}
-      <style>{`
-        @media (max-width: 1024px) {
-          .docs-toc { display: none !important; }
-        }
-        @media (max-width: 768px) {
-          .docs-sidebar {
-            transform: translateX(-100%);
-            transition: transform 0.25s ease;
-          }
-          .docs-sidebar[style*="translateX(0)"] {
-            transform: translateX(0) !important;
-          }
-          .docs-main {
-            margin-left: 0 !important;
-            padding: 1.5rem 1rem !important;
-          }
-          .mobile-menu-btn {
-            display: flex !important;
-          }
-          header nav {
-            display: none !important;
-          }
-        }
-        .nav-link:hover {
-          color: var(--foreground) !important;
-          background: var(--muted) !important;
-        }
-      `}</style>
     </div>
   );
 }

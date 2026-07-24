@@ -1,7 +1,8 @@
 ---
 title: 'DOCS-002: Docs landing structure, nav crowding, and a11y/SEO fixes'
-status: in-progress
+status: done
 created: 2026-06-26
+completed: 2026-07-24
 priority: medium
 urgency: soon
 area: apps/docs
@@ -72,9 +73,43 @@ tap targets hurt usability.
 - **Touch targets (residual):** docs nav/sidebar still has sub-44px links — deferred as
   a lower-priority follow-up within this item.
 
+## Progress (2026-07-24) — remaining scope closed
+
+- **Touch targets (done):** every visible header control (logo, 6 nav links, search, theme,
+  language, GitHub) and both hero CTAs now measure exactly 44px (`min-h-11`/`min-w-11`);
+  browser audit on the built site → 0 controls under 44px. Sidebar rows keep desktop
+  density (36px) but grow to 44px on touch devices via `pointer-coarse:min-h-11`.
+- **Nav crowding (done):** the "← robota.io" back link is now `hidden xl:inline-flex`
+  (wide screens only) and the Search button collapses to icon-only below `lg`; the nav
+  itself stays scrollable and hides under `md` (hamburger + sidebar covers it).
+- **Sidebar 404s fixed (found during this pass):** every sidebar link was locale-less
+  (`/getting-started/` instead of `/en/getting-started/`) and returned live 404s
+  (verified: `https://docs.robota.io/getting-started/` → 404). `buildSidebar` now
+  locale-prefixes all hrefs; all sampled links resolve 200 on the built site. This also
+  un-broke active-row detection (plus a trailing-slash normalization for
+  `trailingSlash: true`), so `aria-current="page"` now renders in both the header nav
+  and the sidebar.
+- **A11y additions:** "Skip to content" link (first focusable, targets `#docs-content`),
+  `<nav aria-label="Documentation">` landmark around the sidebar tree, visible
+  `:focus-visible` outline on all interactive elements, decorative SVGs/arrows marked
+  `aria-hidden`, clearer language-toggle label.
+- **Styling rule compliance:** Header, Sidebar, DocsLayout, SearchButton, ThemeToggle and
+  the hero CTAs converted from inline `style` to Tailwind utilities; the `<style>` block
+  in DocsLayout and the dead `.nav-link`/`.sidebar-item-*`/`.docs-header-line` custom
+  classes in globals.css were removed. (Remaining inline styles on the homepage/ToC are a
+  pre-existing debt outside this item's defect list.)
+
 ## User Execution Test Scenarios
 
 1. Open `https://robota.io` → every hero card has a title and description; the GitHub icon
-   is visible; console shows no 404s. Evidence: _to fill after implementation._
+   is visible; console shows no 404s. Evidence (agent-run, 2026-07-24, Playwright against
+   the built static export served locally — the same artifact CF Pages deploys): all 6
+   quick-link cards render `<h3>` title + description; GitHub SVG present; homepage
+   console 0 errors / 0 warnings; all 21 network requests (chunks, CSS, fonts, pagefind)
+   returned 200.
 2. Run a quick a11y/heading check (e.g. devtools accessibility tree) → page has a single
-   h1 and section headings. Evidence: _to fill after implementation._
+   h1 and section headings. Evidence (agent-run, 2026-07-24, browser evaluate on the
+   built homepage): sections 1, h1 1, h2 1, h3 6; nav landmarks "Main navigation" +
+   "Documentation"; skip link present; 13/13 visible primary controls ≥ 44px (0 under).
+   Sidebar navigation: 21 links, all `/en/…`-prefixed, sampled links resolve 200, and
+   `aria-current="page"` set on the active header + sidebar entries.

@@ -37,20 +37,7 @@ export function SearchButton() {
       onClick={openSearch}
       aria-label="Search documentation"
       title="Search (⌘K)"
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.4rem',
-        padding: '0.25rem 0.75rem',
-        background: 'var(--muted)',
-        border: '1px solid var(--border)',
-        borderRadius: '0.375rem',
-        color: 'var(--muted-foreground)',
-        fontSize: '0.8rem',
-        cursor: 'pointer',
-        transition: 'border-color 0.15s, color 0.15s',
-        whiteSpace: 'nowrap',
-      }}
+      className="flex min-h-11 min-w-11 cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-md border border-border bg-muted px-2 text-[0.8rem] text-muted-foreground transition-colors hover:text-[var(--foreground-hi)] lg:justify-start lg:px-3"
     >
       <svg
         width="14"
@@ -61,23 +48,14 @@ export function SearchButton() {
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
+        aria-hidden="true"
       >
         <circle cx="11" cy="11" r="8" />
         <line x1="21" y1="21" x2="16.65" y2="16.65" />
       </svg>
-      <span>Search</span>
-      <kbd
-        style={{
-          marginLeft: '0.25rem',
-          padding: '0.1rem 0.3rem',
-          fontSize: '0.7rem',
-          background: 'rgba(255,255,255,0.06)',
-          border: '1px solid var(--border)',
-          borderRadius: '0.2rem',
-          fontFamily: 'inherit',
-          lineHeight: 1.5,
-        }}
-      >
+      {/* Label + shortcut hint collapse to icon-only below lg to keep the header uncrowded */}
+      <span className="hidden lg:inline">Search</span>
+      <kbd className="ml-1 hidden rounded-sm border border-border bg-white/5 px-1 py-0.5 [font-family:inherit] text-[0.7rem] leading-normal lg:inline-block">
         ⌘K
       </kbd>
     </button>
