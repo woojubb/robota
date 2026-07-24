@@ -1,6 +1,7 @@
 ---
 title: 'SCREEN-006: Shared TUI color palette and accessible motion'
-status: in-progress
+status: done
+completed: 2026-07-25
 created: 2026-06-26
 priority: medium
 urgency: soon
@@ -68,3 +69,11 @@ is motion without purpose and ignores accessibility/non-TTY contexts.
    (agent-run; `.agents/evals/scenarios/screen-006-palette-motion-agent-run.md`).
 2. Run normally → status/markdown colors are consistent across components.
    Evidence: `screen-006-no-color.ptytest.ts` S2 GREEN 2026-07-25 (agent-run; same evidence file).
+
+## Outcome (DONE 2026-07-25)
+
+Shipped via PR #1359 (spec `.agents/spec-docs/done/SCREEN-006-tui-shared-palette-and-motion.md`,
+GATE-COMPLETE with two reviewed-and-accepted deviations): semantic `tui-palette.ts` (PALETTE +
+MOTION tokens), STATUS_GLYPH sourcing, MessageList duplicate deleted (denied yellowBright drift
+fixed), 62 attr literals + 4 hex tokenized, NO_COLOR product gap closed (chalk.level sync),
+StatusBar SEP constant, SPEC Color & Motion Contract, palette-consistency floor test green.

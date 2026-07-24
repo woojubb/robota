@@ -1,5 +1,5 @@
 ---
-status: verifying
+status: done
 type: SCREEN
 tags: [tui, ink, color, palette, tokens, motion, accessibility, no-color]
 ---
@@ -365,3 +365,21 @@ Evidence file (created at IMPLEMENT/VERIFY): `.agents/evals/scenarios/screen-006
 - Status `verifying`, stays in `active/` — GATE-COMPLETE deliberately NOT self-certified: the two
   deviations above amend the approved Decision text and should be accepted at review before the
   move to `done/`.
+
+### [GATE-COMPLETE] — deviations reviewed and ACCEPTED | 2026-07-25
+
+- Orchestrator review under the session's pre-approval framework (reasoned recommendation =
+  pre-approved), applying the HARNESS-028 taxonomy:
+  1. **Deviation 1 ACCEPTED.** The `chalk.level = 0` sync is CAPABILITY GATING (mechanical
+     environment honoring, same class as `isInteractiveColorTerminal()` itself), not a
+     catch→default error fallback — the Fallback Declaration's "none" refers to the HARNESS-028
+     swallow class and remains true. The sync closes a real product gap (chalk 5 ignores
+     NO_COLOR) that S1 was specifically designed to catch; finding it is the Test Plan working
+     as intended. Gate SSOT unchanged.
+  2. **Deviation 2 ACCEPTED.** The denied-kind end-to-end surface is framework-gated (deny
+     short-circuits before tool-start — out of this spec's scope by its own Affected Scope);
+     the component-level RED→GREEN pin plus the single-SSOT sourcing path is the correct
+     evidence tier. If the framework ever persists denied tool-summaries, the existing pty
+     harness covers it with no palette change.
+- All completion criteria + User Execution scenarios otherwise satisfied with agent-run
+  evidence (525/525, pty 19/19, 60/60 scans). `status: done`, moved active/ → done/.
