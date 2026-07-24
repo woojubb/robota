@@ -103,7 +103,46 @@ export interface IStatusLineCommandSettings {
 export type TStatusLineCommandSettingsPatch = Partial<IStatusLineCommandSettings> &
   Record<string, TUniversalValue>;
 
-/** Typed host effects requested by a command execution. */
+/**
+ * CMD-004 Phase 2: host-executed command ACTIONS — semantic operations the SESSION layer (the host)
+ * executes via `ICommandHostAdapters` or directly on the session, BEFORE the command result is
+ * returned. They execute with zero surfaces attached (headless parity — the LSP
+ * `workspace/executeCommand` model); surfaces observe the outcome via session events / the result,
+ * never by executing the semantics themselves. Replaces the host-executed half of
+ * {@link TCommandEffect} (the legacy union is deleted in Stage E).
+ */
+export type TCommandHostAction =
+  | { type: 'provider-hot-swap'; profileName: string }
+  | { type: 'language-change'; language: string }
+  | { type: 'settings-reset' }
+  | { type: 'session-exit'; reason?: TSessionEndReason; message?: string }
+  | { type: 'session-restart'; reason: TSessionEndReason; message: string }
+  | { type: 'session-rename'; name: string }
+  | { type: 'statusline-settings-patch'; patch: TStatusLineCommandSettingsPatch }
+  | { type: 'plugin-registry-reload' }
+  | { type: 'remote-control-enable' }
+  | { type: 'remote-control-stop' };
+
+/**
+ * CMD-004 Phase 2: surface-rendered UI INTENTS — presentation requests (full-screen navigation)
+ * rendered by the surface that issued the command (requester-routed via
+ * `IUiIntentEvent.requesterDriverId`), fire-and-forget. Names are UI-neutral (LSP `window/show*`
+ * style — never a UI-technology token); a surface that cannot render an intent reports an explicit
+ * "not available on this surface" notice, never a silent drop.
+ */
+export type TCommandUiIntent =
+  | { type: 'show-plugin-manager' }
+  | { type: 'show-settings' }
+  | { type: 'show-session-picker' }
+  | { type: 'show-agent-switcher' };
+
+/**
+ * Typed host effects requested by a command execution.
+ *
+ * LEGACY (CMD-004 Phase 2): this union is split into host-executed {@link TCommandHostAction} and
+ * surface-rendered {@link TCommandUiIntent}. During the staged migration the session maps legacy
+ * effects onto the split contract internally; Stage E migrates emitters and deletes this union.
+ */
 export type TCommandEffect =
   | { type: 'provider-hot-swap-requested'; profileName: string }
   | { type: 'language-change-requested'; language: string }
@@ -137,8 +176,15 @@ export interface ICommandResult {
   success: boolean;
   /** Additional structured data (command-specific diagnostics only) */
   data?: Record<string, unknown>;
-  /** Typed host effects requested by the command */
+  /**
+   * Typed host effects requested by the command.
+   * LEGACY (CMD-004 Phase 2) — use {@link hostActions} / {@link uiIntents}. Deleted in Stage E.
+   */
   effects?: readonly TCommandEffect[];
+  /** CMD-004 Phase 2: host-executed actions — applied by the session layer before the result returns. */
+  hostActions?: readonly TCommandHostAction[];
+  /** CMD-004 Phase 2: UI intents — emitted as `ui_intent` session events routed to the requesting surface. */
+  uiIntents?: readonly TCommandUiIntent[];
 }
 
 /** Minimal command projection surfaced to host UIs and autocomplete. */

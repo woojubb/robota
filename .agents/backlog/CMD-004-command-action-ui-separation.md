@@ -18,6 +18,17 @@ depends_on: []
 > **This item stays open for Phase 2 only:** the WS + web-ui **multi-environment broadcast** (two
 > attached environments rendering the same ask simultaneously) — per the completed task's closing note.
 >
+> **Phase 2 re-scoped + in progress (2026-07-25):** the ask broadcast was already delivered by
+> REMOTE-007/009; the actual residual defect is the **command-effect half** — see the approved spec
+> `.agents/spec-docs/active/CMD-004-command-action-ui-separation.md` (status: in-progress) and task
+> breakdown `.agents/tasks/CMD-004-phase2.md`. **Stages A (additive split contract:
+> `TCommandHostAction`/`TCommandUiIntent`, `ui_intent` + `session_renamed` events, command-origin
+> driver id) and B (session-layer host-action executor over `ICommandHostAdapters` + legacy-effect
+> shim + ws-handler `ui_intent` forward + per-mode process adapters) are implemented** with red-first
+> TC-03/TC-10 evidence in the spec's Evidence Log. Remaining: Stage C (TUI → pure renderer), Stage D
+> (GUI/headless surfaces + multi-surface exit policy e2e), Stage E (emitter migration + legacy
+> `TCommandEffect` deletion + grep/typecheck floors).
+>
 > **Phase 2 spec drafted (2026-07-24):** GATE-WRITE draft at
 > `.agents/spec-docs/draft/CMD-004-command-action-ui-separation.md`. Code-grounded re-scope: the ask
 > broadcast half was already delivered by REMOTE-007/009 (`SessionPromptRegistry` + `ask_request` over

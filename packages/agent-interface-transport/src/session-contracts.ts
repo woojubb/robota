@@ -27,6 +27,12 @@ import type {
 } from './command-contracts.js';
 import type { ICompactEvent } from './compact-contracts';
 import type {
+  ISessionRenamedEvent,
+  ISubmitOptions,
+  IUiIntentEvent,
+  TDriverId,
+} from './driver-contracts.js';
+import type {
   IContextReferenceItem,
   IMemoryEvent,
   IMemoryReference,
@@ -232,24 +238,6 @@ export type TInteractivePermissionHandler = (
  * first already answered.
  */
 
-/**
- * REMOTE-014 E5 co-drive attribution: a stable, SERVER-ASSIGNED id for the driver of an input/turn. It is
- * DISPLAY/ATTRIBUTION ONLY — never an authorization input (the OWNER PRINCIPLE, REMOTE-006, governs
- * authorization; remote == local). Remote = the E3 `deviceId`; local = {@link OWNER_DRIVER_ID}; an
- * agent-wakeup/goal turn = {@link AGENT_DRIVER_ID}.
- */
-export type TDriverId = string;
-
-/** The local operator ("owner") driver id — the default for a human turn with no explicit driver. */
-export const OWNER_DRIVER_ID: TDriverId = 'owner';
-/** The reserved driver id for an autonomous (wakeup/goal/agent-initiated) turn — never the owner. */
-export const AGENT_DRIVER_ID: TDriverId = 'agent';
-
-/** REMOTE-014 E5: options for `submit` — carries the SERVER-ASSIGNED driver id for co-drive attribution. */
-export interface ISubmitOptions {
-  readonly driverId?: TDriverId;
-}
-
 /** A tool call awaiting a permission decision. Serializable — crosses the transport boundary unchanged. */
 export interface IPermissionRequestEvent {
   id: string;
@@ -336,6 +324,10 @@ export interface IInteractiveSessionEvents {
   ask_request: (event: IAskRequestEvent) => void;
   /** REMOTE-007: a pending prompt was settled (by any surface); attached surfaces dismiss it. */
   prompt_resolved: (event: IPromptResolvedEvent) => void;
+  /** CMD-004 Phase 2: a command-issued UI intent — the requesting surface renders it (fire-and-forget). */
+  ui_intent: (event: IUiIntentEvent) => void;
+  /** CMD-004 Phase 2: the session was renamed host-side — all surfaces update their titles. */
+  session_renamed: (event: ISessionRenamedEvent) => void;
 }
 
 export type TInteractiveEventName = keyof IInteractiveSessionEvents;
@@ -381,10 +373,15 @@ export interface IInteractiveSession {
   // Commands
   // `source` defaults to `'user'` (the local operator). Transport adapters pass `'remote'` so the session can
   // apply an optional remote-command policy (allow-by-default; REMOTE-006). Local callers omit it.
+  // CMD-004 Phase 2: `originDriverId` is the SERVER-ASSIGNED driver id of the surface that issued the
+  // command (REMOTE-014 E5 rule — never a client-sent one). It stamps `ui_intent.requesterDriverId` so
+  // intents route to the requesting surface. Optional — untouched callers compile; a local `'user'`
+  // command defaults to the owner; a model-invoked command falls back to the active turn's driver.
   executeCommand(
     name: string,
     args: string,
     source?: TCommandInvocationSource,
+    originDriverId?: TDriverId,
   ): Promise<ICommandResult | null>;
   listCommands(): ICommandListEntry[];
 

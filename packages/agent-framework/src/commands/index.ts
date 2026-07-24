@@ -24,6 +24,8 @@ export type {
   TAutoCompactThresholdSource,
   TCommandInvocationSource,
   TCommandEffect,
+  TCommandHostAction,
+  TCommandUiIntent,
   TCommandModuleSessionRequirement,
   TCommandResultDataValue,
   TRemoteControlStatus,

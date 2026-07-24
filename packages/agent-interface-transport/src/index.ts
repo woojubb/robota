@@ -32,6 +32,8 @@ export type {
   TCommandInvocationSource,
   ICommandListEntry,
   TCommandEffect,
+  TCommandHostAction,
+  TCommandUiIntent,
   ICommandPluginAdapter,
   ICommandInstalledPlugin,
   ICommandAvailablePlugin,
@@ -58,8 +60,15 @@ export {
   readToolCalls,
   readErrors,
 } from './interaction-contracts.js';
+// ── Driver identity + driver-routed event contracts ─────────
 // REMOTE-014 E5: co-drive driver-id constants (values, not types).
-export { OWNER_DRIVER_ID, AGENT_DRIVER_ID } from './session-contracts.js';
+export { OWNER_DRIVER_ID, AGENT_DRIVER_ID } from './driver-contracts.js';
+export type {
+  TDriverId,
+  ISubmitOptions,
+  IUiIntentEvent,
+  ISessionRenamedEvent,
+} from './driver-contracts.js';
 
 // ── Session-event payload contracts ──────────────────────────
 export type {
@@ -179,8 +188,6 @@ export type {
   IPermissionRequestEvent,
   IAskRequestEvent,
   IPromptResolvedEvent,
-  TDriverId,
-  ISubmitOptions,
   IContextFileRefreshedEvent,
   IInteractiveSessionRecord,
   IInteractiveSessionStore,

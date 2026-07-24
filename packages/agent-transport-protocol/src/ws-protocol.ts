@@ -8,6 +8,7 @@ import type {
   IPermissionRequestEvent,
   IPromptResolvedEvent,
   IToolState,
+  IUiIntentEvent,
   IUsageBySourceReport,
   TActionResponse,
   TBackgroundJobGroupEvent,
@@ -95,6 +96,10 @@ export type TServerMessage =
   | { type: 'permission_request'; event: IPermissionRequestEvent }
   | { type: 'ask_request'; event: IAskRequestEvent }
   | { type: 'prompt_resolved'; event: IPromptResolvedEvent }
+  // CMD-004 Phase 2: forward command-issued UI intents (same pattern as `ask_request`). The event is
+  // requester-routed — a client renders it only when `event.requesterDriverId` is its own driver id;
+  // an unsupported intent yields an explicit "not available on this surface" notice, never a silent drop.
+  | { type: 'ui_intent'; event: IUiIntentEvent }
   | {
       type: 'background_task_control_result';
       action: TBackgroundControlAction;

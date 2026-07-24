@@ -17,6 +17,7 @@ import type { ICommandHostContext } from '../command-api/index.js';
 import type {
   ICommand,
   ICommandHostAdapters,
+  ICommandListEntry,
   ICommandModule,
   ICommandResult,
   ICommandSkillListEntry,
@@ -30,18 +31,10 @@ import type {
 } from '../commands/index.js';
 import type { ISkillActivationEvent } from '../commands/skill-activation-events.js';
 import type { TShellExecFn } from '../utils/skill-prompt.js';
+import type { TDriverId } from '@robota-sdk/agent-interface-transport';
 
-function normalizeSkillName(name: string): string {
+function normalizeNameToken(name: string): string {
   return name.trim().replace(/^\/+/, '').split(/\s+/)[0] ?? '';
-}
-
-function normalizeCommandName(name: string): string {
-  return name.trim().replace(/^\/+/, '').split(/\s+/)[0] ?? '';
-}
-
-function formatSkillCommandArgs(skillName: string, args: string): string {
-  const trimmedArgs = args.trim();
-  return trimmedArgs.length > 0 ? `${skillName} ${trimmedArgs}` : skillName;
 }
 
 function getQualifiedSkillName(rawInput?: string): string | undefined {
@@ -57,6 +50,8 @@ export class SessionSkillRouter {
   private readonly skillCommandSource: SkillCommandSource;
   private readonly commandHostAdapters?: ICommandHostAdapters;
   private commandInvocationSource: TCommandInvocationSource = 'user';
+  /** CMD-004: the in-flight command's origin driver id (REMOTE-014 E5 server-assigned). */
+  private commandOriginDriverId: TDriverId | undefined;
 
   constructor(
     commandModules: readonly ICommandModule[],
@@ -124,16 +119,15 @@ export class SessionSkillRouter {
     return this.commandInvocationSource;
   }
 
+  getCommandOriginDriverId(): TDriverId | undefined {
+    return this.commandOriginDriverId;
+  }
+
   getCommandHostAdapters(): ICommandHostAdapters {
     return this.commandHostAdapters ?? {};
   }
 
-  listCommands(): Array<{
-    name: string;
-    displayName?: string;
-    description: string;
-    example?: string;
-  }> {
+  listCommands(): ICommandListEntry[] {
     return this.commandExecutor.listCommands().map((cmd) => ({
       name: cmd.name,
       ...(cmd.displayName !== undefined ? { displayName: cmd.displayName } : {}),
@@ -163,7 +157,7 @@ export class SessionSkillRouter {
   }
 
   findSkillCommand(name: string): ICommand | undefined {
-    const normalizedName = normalizeSkillName(name);
+    const normalizedName = normalizeNameToken(name);
     return this.skillCommandSource
       .getCommands()
       .find((skill) => skill.name.toLowerCase() === normalizedName.toLowerCase());
@@ -173,8 +167,9 @@ export class SessionSkillRouter {
     name: string,
     args: string,
     source: TCommandInvocationSource = 'user',
+    originDriverId?: TDriverId,
   ): Promise<ICommandResult | null> {
-    const normalizedName = normalizeCommandName(name);
+    const normalizedName = normalizeNameToken(name);
     const command = this.commandExecutor.getCommand(normalizedName);
     const commandArgs = args.trim();
     if (!command) {
@@ -184,19 +179,23 @@ export class SessionSkillRouter {
       return this.executeCommandWithSource(
         source,
         skillsCommand,
-        formatSkillCommandArgs(skill.name, commandArgs),
+        commandArgs.length > 0 ? `${skill.name} ${commandArgs}` : skill.name,
+        originDriverId,
       );
     }
-    return this.executeCommandWithSource(source, command, commandArgs);
+    return this.executeCommandWithSource(source, command, commandArgs, originDriverId);
   }
 
   async executeCommandWithSource(
     source: TCommandInvocationSource,
     command: ISystemCommand,
     args: string,
+    originDriverId?: TDriverId,
   ): Promise<ICommandResult> {
     const previousSource = this.commandInvocationSource;
+    const previousOriginDriverId = this.commandOriginDriverId;
     this.commandInvocationSource = source;
+    this.commandOriginDriverId = originDriverId;
     try {
       // REMOTE-006: local == remote — a transport-origin command runs exactly as a locally-typed one (pairing is
       // the trust boundary; the universal permission system governs anything dangerous). This is **allow-by-
@@ -217,6 +216,7 @@ export class SessionSkillRouter {
       return await this.commandExecutor.executeCommand(command, this.getSession(), args);
     } finally {
       this.commandInvocationSource = previousSource;
+      this.commandOriginDriverId = previousOriginDriverId;
     }
   }
 

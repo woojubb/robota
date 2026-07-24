@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: FLOW
 tags: [cli, typescript, websocket, multi-surface, architecture]
 ---
@@ -336,7 +336,7 @@ This cannot be one big-bang PR. Additive-then-delete, the Phase-1 pattern:
       (accidental-green rule).
 - [ ] TC-04: `pnpm --filter @robota-sdk/agent-transport-tui test` (incl. PTY) → exits 0; `/settings`
       still opens the settings screen (now via `ui_intent`); `rg -n "writeSettings|deleteSettings"
-  packages/agent-transport-tui/src/hooks/command-effect-handler.ts` → no matches (renderer no
+packages/agent-transport-tui/src/hooks/command-effect-handler.ts` → no matches (renderer no
       longer executes settings I/O). File deleted counts as pass.
 - [ ] TC-05: `pnpm --filter @robota-sdk/agent-transport-gui test` → exits 0; folding a `ui_intent`
       server message produces either a mapped GUI surface state or an explicit unsupported-notice
@@ -378,7 +378,7 @@ completeness.
 
 ## Tasks
 
-- [ ] `.agents/tasks/CMD-004-phase2.md` — to be created at GATE-IMPLEMENT (stages A–E mapped to TC-01..TC-10).
+- [x] `.agents/tasks/CMD-004-phase2.md` — created (GATE-IMPLEMENT). Stages A–E mapped to TC-01..TC-10.
 
 ## Evidence Log
 
@@ -420,3 +420,100 @@ completeness.
      Test Plan.
      Status advanced `draft` → `approved`; document moved `draft/` → `todo/` per the spec-docs
      lifecycle (GATE-APPROVAL PASS → `todo/`).
+
+### [GATE-IMPLEMENT] — Stages A + B ✅ | 2026-07-25
+
+**Status upgrade:** approved → in-progress; document moved `todo/` → `active/`. Tasks file
+`.agents/tasks/CMD-004-phase2.md` created (stages A–E mapped to TC-01..TC-10). **Scope of this
+entry: Stage A (additive contract) + Stage B (host executor + shim) ONLY — the spec stays
+in-progress; Stages C (TUI pure renderer), D (remote surfaces), E (source migration + deletion)
+remain.**
+
+Stage A (`agent-interface-transport`, additive): `TCommandHostAction` + `TCommandUiIntent`
+(UI-neutral names) beside the untouched legacy `TCommandEffect`; `ICommandResult.hostActions?`/
+`.uiIntents?`; `IUiIntentEvent` (`requesterDriverId?`) + `ui_intent` and `session_renamed` in
+`IInteractiveSessionEvents`; optional `originDriverId` on the `executeCommand` contract (2/3-arg
+callers compile unchanged). Driver-identity contracts split into `driver-contracts.ts` (file-size
+ratchet + cohesion). TC-01 (interim, stages A+B scope): `pnpm --filter
+@robota-sdk/agent-interface-transport build && npx vitest run` → exit 0, 17 passed (type test
+asserts the split export, type-level no-UI-technology-token floor, `requesterDriverId?`, optional
+4th param, serializability).
+
+Stage B (`agent-framework` + `agent-transport-protocol` + `agent-cli`):
+
+- Host-action executor `interactive-session-host-actions.ts` generalizes the proven
+  `provider-hot-swap-requested` block (org-policy gate preserved); ordered application over
+  `ICommandHostAdapters`; direct-on-session `session-rename` + `session_renamed` broadcast;
+  applied HOST ACTIONS stripped from `result.effects`; the four UI-intent effects dual-carried
+  (legacy effect + `ui_intent` event) until Stage C; notifications pass through. Legacy mapping
+  isolated in `command-effect-shim.ts` (deleted in Stage E).
+- Adapters: `ICommandRemoteControlAdapter.enable()/stop()` (supersedes the documented status-only
+  design) wired at the `agent-cli` root over `RemoteControlController`;
+  `ICommandSettingsAdapter.delete?()` for `settings-reset`; late-bound per-mode `process` adapter
+  (TUI: deferred SIGTERM through the App's existing graceful signal flow; serve: deferred
+  shared-host shutdown — deliberate local == remote / REMOTE-006; print: exit satisfied by the
+  end-of-run exit-code contract, restart surfaced explicitly). Absent adapter ⇒ EXPLICIT failure
+  in the command result (no-fallback) — never a silent skip.
+- ws-handler passes its REMOTE-014 E5 server-assigned driver id as the command origin and forwards
+  `ui_intent` server messages (same pattern as `ask_request`).
+- **Stage-B shim deviation (recorded per the shim note in `command-effect-shim.ts`):**
+  `plugin-registry-reload-requested` is classified a host action by the Decision table, but its
+  semantic mutation (`adapter.reloadPlugins()`) already runs host-side INSIDE `/plugin reload`;
+  the residual effect is only a surface command-registry refresh signal. Mapping it would
+  double-execute the reload (banned by the no-double-execution constraint) and stripping it would
+  break the TUI autocomplete refresh before Stage C — it stays a legacy pass-through; Stage C/E
+  assigns its final carrier. The `plugin-registry-reload` KIND exists on the split contract for
+  Stage-E emitters (host execution: no-op by design, reload already ran in-command).
+- Behavioral note: a `switchProvider` error during hot-swap now surfaces as an explicit failure
+  RESULT (previously it escaped as a rejected `executeCommand` promise) — no-fallback-conformant
+  error-result return.
+
+TC evidence (stages A+B):
+
+- TC-02 — `pnpm --filter @robota-sdk/agent-framework build && npx vitest run` → exit 0, 1238
+  passed (148 files). `interactive-session-host-actions.test.ts` (16 tests): language-change
+  writes via the settings adapter + `requestRestart('other', 'Language change restart')`;
+  settings-reset `delete()` + `requestExit('other')`; applied actions stripped
+  (`result.effects === []`); exactly ONE `ui_intent` per intent — stamped `'owner'` for local
+  `'user'`, stamped with the explicit `executeCommand(..., 'remote', 'device-42')` origin,
+  unattributed for remote-without-id and for idle model-source (the `activeDriverId` fallback's
+  idle half; the active-turn half becomes reachable via the CMD-005 model-command path); legacy
+  UI-intent effect dual-carried; HEADLESS PARITY (zero listeners attached — actions still
+  applied); adapter-absent explicit failures (`Cannot apply 'session-exit': a process adapter is
+not available in this environment.`, settings-without-delete, remote-control-without-enable);
+  adapter error → explicit failure result; failed command result passes through untouched;
+  single-execution call-count assertions; direct `hostActions` (Stage-E shape) executed.
+- TC-03 — RED first (pre-Stage-B code, dist built from the Stage-A tree; effects dropped by
+  `ws-handler.ts`): `packages/agent-cli` `npx vitest run src/__tests__/ws-command-host-action.test.ts` →
+  2 failed: `AssertionError: expected "spy" to be called 1 times, but got 0 times` (the settings
+  write never happened for a remote `/language ko`) and `AssertionError: expected [] to deeply
+equal [ { type: 'ui_intent', …(1) } ]` (no ui_intent message existed). GREEN after Stage B:
+  same command → exit 0, 2 passed — remote `/language ko` writes via the injected settings
+  adapter host-side + requests restart; remote `/settings` forwards ONE `ui_intent` stamped
+  `requesterDriverId: 'device-e2e-1'` (the handler-injected server-assigned id).
+- TC-10 — RED first (pre-Stage-B): `packages/agent-command`
+  `npx vitest run src/session/__tests__/rename-host-persistence.test.ts` → 2 failed:
+  `AssertionError: expected undefined to be 'My Renamed Session'` (the rename does NOT persist
+  without the TUI handler — only `useSideEffects.ts` performed the mutation) and
+  `expected "setName" to be called 1 times, but got 0 times`. GREEN after Stage B: exit 0, 2
+  passed — `/rename` mutates the session name host-side (`setName` called exactly once),
+  broadcasts `session_renamed`, and the applied action is stripped so the untouched TUI handler
+  cannot double-rename; the rename message still reaches surfaces via `command_result.message`.
+- TUI unaffected (dual-carry + optional-param design, zero TUI edits):
+  `pnpm build:deps && pnpm --filter @robota-sdk/agent-transport-tui test` → exit 0, 426 passed
+  (59 files); real-binary PTY suite `test:pty` → exit 0, 11 passed (rebuilt CLI with Stage B
+  active); `agent-cli` `test:bin` (serve-mode/cross-fidelity bintests) → exit 0, 4 passed.
+- Suites: `agent-transport-protocol` 54 passed (ui_intent forward + server-assigned command-origin
+  unit tests added); `agent-command` 244 passed; `agent-transport` 50 passed; `agent-cli` 236
+  passed; `agent-interface-transport` 17 passed.
+- `pnpm -w typecheck` → exit 0. `node scripts/harness/run-all-scans.mjs` → all 59 scans passed
+  (file-size ratchet honored by splitting new logic into `driver-contracts.ts`,
+  `command-effect-shim.ts`, `interactive-session-host-actions.ts`,
+  `startup/host-action-adapters.ts`; `cli.ts` and `session-contracts.ts` shrank below baseline —
+  ratchet-tighten notices left for a maintainer `--write-baseline` since `scripts/harness/**` is
+  out of this branch's scope).
+
+Remaining for later stages: TC-04 (Stage C TUI swap to `ui_intent` + legacy deletion + statusline
+refresh-on-result + TUI `renameSession` deletion under the TC-10 proof), TC-05 (Stage D GUI
+render/notice), TC-09 (Stage D multi-surface exit/restart WS e2e), TC-06/07/08 final grep/typecheck/
+scan floors after Stage E emitter migration + `TCommandEffect` deletion.

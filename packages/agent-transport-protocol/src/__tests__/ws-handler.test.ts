@@ -299,9 +299,40 @@ describe('WebSocket Transport Handler', () => {
     expect(sent[0]!.type).toBe('command_result');
     // A transport-origin command is an untrusted remote origin — the handler tags it `'remote'` so the session
     // applies its (optional, allow-by-default) remote-command policy.
+    // CMD-004 Phase 2: the 4th arg is the command-origin driver id — undefined when the handler has
+    // no server-assigned id (unattributed; a client-sent id is NEVER trusted).
     expect(
       (session as unknown as { executeCommand: ReturnType<typeof vi.fn> }).executeCommand,
-    ).toHaveBeenCalledWith('clear', '', 'remote');
+    ).toHaveBeenCalledWith('clear', '', 'remote', undefined);
+  });
+
+  it('command carries the SERVER-ASSIGNED driver id as the command origin (CMD-004 Phase 2)', async () => {
+    const session = createMockSession();
+    const sent: TServerMessage[] = [];
+    const { onMessage } = createWsHandler({
+      session: session as unknown as IInteractiveSession,
+      send: (msg) => sent.push(msg),
+      driverId: 'device-7',
+    });
+    onMessage(JSON.stringify({ type: 'command', name: 'settings' }));
+    await new Promise((r) => setTimeout(r, 10));
+    expect(
+      (session as unknown as { executeCommand: ReturnType<typeof vi.fn> }).executeCommand,
+    ).toHaveBeenCalledWith('settings', '', 'remote', 'device-7');
+  });
+
+  it('forwards ui_intent session events to the client (CMD-004 Phase 2)', () => {
+    const { sent, session } = setup();
+    session._emit('ui_intent', {
+      intent: { type: 'show-settings' },
+      requesterDriverId: 'device-7',
+    });
+    expect(sent).toEqual([
+      {
+        type: 'ui_intent',
+        event: { intent: { type: 'show-settings' }, requesterDriverId: 'device-7' },
+      },
+    ]);
   });
 
   it('invalid JSON sends protocol_error', () => {
@@ -475,7 +506,8 @@ describe('WebSocket Transport Handler', () => {
   it('cleanup unsubscribes from all events', () => {
     const { session, cleanup } = setup();
     cleanup();
-    // 11 base events + 3 REMOTE-007 prompt events (permission_request/ask_request/prompt_resolved).
-    expect((session as unknown as { off: ReturnType<typeof vi.fn> }).off).toHaveBeenCalledTimes(14);
+    // 11 base events + 3 REMOTE-007 prompt events (permission_request/ask_request/prompt_resolved)
+    // + 1 CMD-004 Phase 2 event (ui_intent).
+    expect((session as unknown as { off: ReturnType<typeof vi.fn> }).off).toHaveBeenCalledTimes(15);
   });
 });
