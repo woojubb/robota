@@ -7,6 +7,15 @@
     "pluginLayerAllowed": ["@robota-sdk/agent-core"]
   },
   "productShellDirs": ["packages/agent-cli", "apps/agent-web", "apps/docs", "apps/blog"],
+  "architectureDocs": {
+    "$comment": "Canonical architecture documents whose prose/diagrams must reference only real workspace packages (check-dependency-direction Rule 9, absorbed from check-architecture-conformance.mjs). packages/*/docs/SPEC.md is always included by the engine.",
+    "files": [
+      "ARCHITECTURE.md",
+      ".agents/project-structure.md",
+      ".agents/specs/ARCHITECTURE-MAP.md"
+    ],
+    "dirs": [".agents/specs/architecture-map"]
+  },
   "lessonsDigestDisableEnv": "HARNESS_DISABLE_LESSONS_DIGEST",
   "consistency": {
     "$comment": "Policy DATA for scan-consistency.mjs (HARNESS-DIET-003 split). The engine (five exported check functions) lives in scripts/harness/scan-consistency.mjs; the Robota-specific required-script names, guidance scan targets, and phrase blocklists live here. `pattern` fields are RegExp sources (compiled with the optional `flags`). Values moved VERBATIM from the former in-script constants.",

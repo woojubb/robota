@@ -11,12 +11,20 @@
  * 8. Entry-point-only aggregators (absorbed from the former check-entry-point-only.mjs,
  *    ARCH-PROVIDER-004 / Stage C): only sanctioned composition roots may STATICALLY import a
  *    guarded composition aggregator (see `checkEntryPointOnly`).
+ * 9. Workspace-package-name guard (absorbed from the former check-architecture-conformance.mjs,
+ *    INFRA-003/GATE-CONFORMANCE mechanical core): canonical architecture docs must reference
+ *    only real workspace packages (see `checkWorkspacePackageNames`).
+ *
+ * `--conformance-json` additionally emits the machine-readable summary between
+ * CONFORMANCE_JSON_BEGIN/END that the GATE-CONFORMANCE consumers parse — `pnpm
+ * harness:conformance` is an alias for this mode, preserving the former standalone
+ * entrypoint's contract without the subprocess wrapper.
  *
  * Exit code 0 = clean, 1 = violations found.
  */
 
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
-import { basename, dirname, join, resolve } from 'node:path';
+import { basename, dirname, join, relative, resolve } from 'node:path';
 import { loadHarnessConfig } from './harness-config.mjs';
 
 const ROOT = resolve(import.meta.dirname, '../..');
@@ -359,6 +367,85 @@ export function checkEntryPointOnly(sourcePackages) {
   return violations;
 }
 
+/**
+ * Rule 9 (INFRA-003 / GATE-CONFORMANCE mechanical core, absorbed from
+ * check-architecture-conformance.mjs): canonical architecture documents (configured in
+ * `architectureDocs.files`/`.dirs` + every `packages/<name>/docs/SPEC.md`) must reference only
+ * REAL workspace packages. A `<internalPackagePrefix><token>` reference that is not a workspace
+ * package name is drift (the AF-02/03/04/05/06/08/12/13 class from the INFRA-002 audit). A line
+ * carrying a "planned" marker (case-insensitive) is exempt, so documented-but-uncreated packages
+ * are allowed.
+ */
+const PLANNED_MARKER = /planned/i;
+
+function collectArchitectureDocFiles(root, docConfig) {
+  const files = [];
+  for (const rel of docConfig.files ?? []) {
+    const abs = join(root, rel);
+    if (existsSync(abs)) files.push(abs);
+  }
+  for (const dir of docConfig.dirs ?? []) {
+    const abs = join(root, dir);
+    if (existsSync(abs)) walkMarkdown(abs, files);
+  }
+  const pkgBase = join(root, 'packages');
+  if (existsSync(pkgBase)) {
+    for (const entry of readdirSync(pkgBase, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      const spec = join(pkgBase, entry.name, 'docs', 'SPEC.md');
+      if (existsSync(spec)) files.push(spec);
+    }
+  }
+  return files.sort();
+}
+
+function walkMarkdown(dir, acc) {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) walkMarkdown(full, acc);
+    else if (entry.isFile() && entry.name.endsWith('.md')) acc.push(full);
+  }
+}
+
+export function checkWorkspacePackageNames(
+  root,
+  workspaceNames,
+  docConfig = HARNESS.architectureDocs ?? {},
+  internalPackagePrefix = HARNESS.internalPackagePrefix,
+) {
+  const escapedPrefix = internalPackagePrefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const tokenPattern = new RegExp(`${escapedPrefix}[a-z0-9]+(?:-[a-z0-9]+)*`, 'g');
+  const violations = [];
+
+  for (const file of collectArchitectureDocFiles(root, docConfig)) {
+    const lines = readFileSync(file, 'utf8').split('\n');
+    lines.forEach((line, idx) => {
+      if (PLANNED_MARKER.test(line)) return; // documented-but-uncreated packages are allowed
+      const seen = new Set();
+      let match;
+      tokenPattern.lastIndex = 0;
+      while ((match = tokenPattern.exec(line)) !== null) {
+        const token = match[0];
+        if (seen.has(token)) continue;
+        seen.add(token);
+        if (!workspaceNames.has(token)) {
+          violations.push({
+            file: relative(root, file),
+            line: idx + 1,
+            token,
+            message:
+              `Unknown package reference: ${relative(root, file)}:${idx + 1} → ${token} ` +
+              `(not a real workspace package, and not on a line marked "planned").`,
+          });
+        }
+      }
+    });
+  }
+  return violations.sort((a, b) =>
+    a.file === b.file ? a.line - b.line : a.file.localeCompare(b.file),
+  );
+}
+
 /** Load `{dir, name, files}` source views of every workspace package for the Rule-8 scan. */
 function loadSourcePackages(packages) {
   return [...packages.values()].map((pkg) => ({
@@ -371,7 +458,7 @@ function loadSourcePackages(packages) {
   }));
 }
 
-function runScan() {
+function runScan({ conformanceJson = false } = {}) {
   const packages = findWorkspacePackages();
   const biDirViolations = checkBidirectionalDeps(packages);
   const reexportViolations = checkPassthroughReexports(packages);
@@ -382,17 +469,20 @@ function runScan() {
   const dagNodesLeafViolations = checkDagNodesLeaf(packages);
   const fullGraphCycleViolations = checkFullGraphCycles(packages);
   const entryPointOnlyViolations = checkEntryPointOnly(loadSourcePackages(packages));
+  const packageNameViolations = checkWorkspacePackageNames(ROOT, new Set(packages.keys()));
 
-  const hasViolations =
-    biDirViolations.length > 0 ||
-    reexportViolations.length > 0 ||
-    forbiddenDepViolations.length > 0 ||
-    coreZeroDepViolations.length > 0 ||
-    pluginLayerViolations.length > 0 ||
-    interfacePackageViolations.length > 0 ||
-    dagNodesLeafViolations.length > 0 ||
-    fullGraphCycleViolations.length > 0 ||
-    entryPointOnlyViolations.length > 0;
+  const dependencyViolationCount =
+    biDirViolations.length +
+    reexportViolations.length +
+    forbiddenDepViolations.length +
+    coreZeroDepViolations.length +
+    pluginLayerViolations.length +
+    interfacePackageViolations.length +
+    dagNodesLeafViolations.length +
+    fullGraphCycleViolations.length +
+    entryPointOnlyViolations.length;
+
+  const hasViolations = dependencyViolationCount > 0 || packageNameViolations.length > 0;
 
   if (hasViolations) {
     console.error('❌ Dependency direction violations found:\n');
@@ -423,12 +513,29 @@ function runScan() {
     for (const v of entryPointOnlyViolations) {
       console.error(`  [ENTRY-POINT-ONLY] ${v.message}`);
     }
+    for (const v of packageNameViolations) {
+      console.error(`  [PACKAGE-NAME] ${v.message}`);
+    }
     console.error('');
-    process.exit(1);
   } else {
     console.log('✅ No dependency direction violations found.');
-    process.exit(0);
   }
+
+  if (conformanceJson) {
+    // GATE-CONFORMANCE machine-readable summary (contract kept from the absorbed
+    // check-architecture-conformance.mjs — consumed by the conformance skills/gates).
+    const summary = {
+      dependencyDirection: dependencyViolationCount === 0 ? 'pass' : 'fail',
+      packageNameViolations: packageNameViolations.length,
+      unknownPackageTokens: [...new Set(packageNameViolations.map((v) => v.token))].sort(),
+      conformant: !hasViolations,
+    };
+    console.log('CONFORMANCE_JSON_BEGIN');
+    console.log(JSON.stringify(summary, null, 2));
+    console.log('CONFORMANCE_JSON_END');
+  }
+
+  process.exit(hasViolations ? 1 : 0);
 }
 
 /**
@@ -472,5 +579,5 @@ export function checkFullGraphCycles(packages) {
 const isDirectExecution =
   process.argv[1] !== undefined && resolve(process.argv[1]) === resolve(import.meta.filename);
 if (isDirectExecution) {
-  runScan();
+  runScan({ conformanceJson: process.argv.includes('--conformance-json') });
 }

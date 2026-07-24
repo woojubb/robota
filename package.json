@@ -44,7 +44,7 @@
     "readme:validate": "node scripts/docs/validate-readmes.js",
     "harness:scan": "node scripts/harness/run-all-scans.mjs",
     "harness:test": "vitest run scripts/harness/__tests__",
-    "harness:conformance": "node scripts/harness/check-architecture-conformance.mjs",
+    "harness:conformance": "node scripts/harness/check-dependency-direction.mjs --conformance-json",
     "harness:scan:done-evidence": "node scripts/harness/check-done-evidence.mjs",
     "harness:scan:task-archival": "node scripts/harness/check-task-archival.mjs",
     "harness:scan:publish": "node scripts/harness/check-publish-safety.mjs",
