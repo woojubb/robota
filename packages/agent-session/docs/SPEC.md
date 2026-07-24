@@ -15,14 +15,16 @@ Owns the CLI session lifecycle for the Robota SDK. This package provides the `Se
   the base template. No other model-facing prompt text originates in this package.
 - Does not own configuration resolution or context loading. Those belong to `agent-framework`.
 - Does not own the permission evaluation algorithm or hook execution engine. Those belong to `@robota-sdk/agent-core` (`evaluatePermission`, `runHooks`).
-- **Owns the storage-neutral persistence primitive.** `SessionStore` and `ISessionRecord` are the
-  SSOT for the storage-neutral conversation persistence primitive — opaque payloads with no typed
-  resumable-session shape. Storage adapters implement these interfaces. The **typed
-  resumable-session contract** (`IInteractiveSessionRecord` / `IInteractiveSessionStore`), which the
-  consumer-facing store actually returns, is owned by `@robota-sdk/agent-interface-transport`
-  (DATA-001) and adapted by `agent-framework`; it is not duplicated here. Consumers obtain a session
-  store through SDK facades (`createProjectSessionStore`) rather than constructing `SessionStore`
-  directly.
+- **Owns the file-persistence primitive, not the record shape.** `SessionStore` (atomic JSON file
+  persistence) and the `ISessionStore` port are owned here. The record type `ISessionRecord` is,
+  since TYPE-003, an **alias of the typed resumable-session contract**
+  (`IInteractiveSessionRecord`, owned by `@robota-sdk/agent-interface-transport` — DATA-001 SSOT).
+  The former relaxed `unknown[]` mirror was removed: it had silently drifted from the contract
+  (missing `plan`/`activeBranch`) and forced an `as unknown as` cast bridge in `agent-framework`'s
+  store facade. The store remains payload-agnostic in BEHAVIOR (it never inspects persisted fields;
+  `load`/`list` keep the `JSON.parse(...) as ISessionRecord` trust boundary — no runtime validation
+  was added or removed). Consumers obtain a session store through SDK facades
+  (`createProjectSessionStore`) rather than constructing `SessionStore` directly.
 - **Owns the shareable session-artifact envelope (SELFHOST-014).** `session-artifact.ts` — a
   record-**transport** sibling of the file-backed `session-store.ts` — is the neutral export/import envelope
   over `ISessionRecord`, the async durable COMPLEMENT to REMOTE-001's live channel (no transport/pairing/wire).
@@ -73,19 +75,19 @@ session-store.ts          -- SessionStore: JSON file persistence for conversatio
 
 Types owned by this package (SSOT):
 
-| Type                         | Kind      | File                         | Description                                                                                           |
-| ---------------------------- | --------- | ---------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `ISessionOptions`            | Interface | `session-types.ts`           | Constructor options for Session (tools, provider, systemMessage, providerTimeout, optional sessionId) |
-| `ISessionShutdownOptions`    | Interface | `session-types.ts`           | Graceful shutdown options, including Claude-compatible `reason`                                       |
-| `TPermissionHandler`         | Type      | `permission-types.ts`        | Async callback `(toolName, toolArgs) => Promise<TPermissionResult>`                                   |
-| `TPermissionResult`          | Type      | `permission-types.ts`        | `boolean \| 'allow-session' \| 'allow-project'`                                                       |
-| `IPermissionEnforcerOptions` | Interface | `permission-types.ts`        | Options for constructing PermissionEnforcer                                                           |
-| `ICompactionOptions`         | Interface | `compaction-orchestrator.ts` | Options for constructing CompactionOrchestrator                                                       |
-| `ISessionLogger`             | Interface | `session-logger.ts`          | Pluggable session event logger interface                                                              |
-| `TSessionLogData`            | Type      | `session-logger.ts`          | Structured log event data (`Record<string, string \| number \| boolean \| object \| null>`)           |
-| `IExternalPayloadReference`  | Interface | `session-logger.ts`          | Content-addressed JSON payload reference used when a log field exceeds inline size policy             |
-| `ISessionReplayRecord`       | Interface | `session-log-replay.ts`      | Reconstructed replay state from append-only JSONL logs                                                |
-| `ISessionRecord`             | Interface | `session-store.ts`           | Persisted session record (id, cwd, timestamps, messages, history, opaque diagnostic extension fields) |
+| Type                         | Kind      | File                         | Description                                                                                                           |
+| ---------------------------- | --------- | ---------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `ISessionOptions`            | Interface | `session-types.ts`           | Constructor options for Session (tools, provider, systemMessage, providerTimeout, optional sessionId)                 |
+| `ISessionShutdownOptions`    | Interface | `session-types.ts`           | Graceful shutdown options, including Claude-compatible `reason`                                                       |
+| `TPermissionHandler`         | Type      | `permission-types.ts`        | Async callback `(toolName, toolArgs) => Promise<TPermissionResult>`                                                   |
+| `TPermissionResult`          | Type      | `permission-types.ts`        | `boolean \| 'allow-session' \| 'allow-project'`                                                                       |
+| `IPermissionEnforcerOptions` | Interface | `permission-types.ts`        | Options for constructing PermissionEnforcer                                                                           |
+| `ICompactionOptions`         | Interface | `compaction-orchestrator.ts` | Options for constructing CompactionOrchestrator                                                                       |
+| `ISessionLogger`             | Interface | `session-logger.ts`          | Pluggable session event logger interface                                                                              |
+| `TSessionLogData`            | Type      | `session-logger.ts`          | Structured log event data (`Record<string, string \| number \| boolean \| object \| null>`)                           |
+| `IExternalPayloadReference`  | Interface | `session-logger.ts`          | Content-addressed JSON payload reference used when a log field exceeds inline size policy                             |
+| `ISessionReplayRecord`       | Interface | `session-log-replay.ts`      | Reconstructed replay state from append-only JSONL logs                                                                |
+| `ISessionRecord`             | Type      | `session-store.ts`           | Persisted session record — TYPE-003: alias of `IInteractiveSessionRecord` (`agent-interface-transport` DATA-001 SSOT) |
 
 Types consumed from other packages (not owned here):
 
@@ -138,7 +140,7 @@ Types consumed from other packages (not owned here):
 | ~~`IPermissionEnforcerOptions`~~  | Interface (internal) | Options for constructing `PermissionEnforcer` — **not exported** from `src/index.ts`. Internal to the package.                     |
 | `ISessionLogger`                  | Interface            | Pluggable session event logger interface                                                                                           |
 | `TSessionLogData`                 | Type                 | Structured log event data                                                                                                          |
-| `ISessionRecord`                  | Interface            | Persisted session record shape                                                                                                     |
+| `ISessionRecord`                  | Type                 | Persisted session record shape — alias of `IInteractiveSessionRecord` (TYPE-003)                                                   |
 | `ISessionStore`                   | Interface            | Minimal persistence port consumed by `Session`; implemented by `SessionStore`                                                      |
 | `AUTO_COMPACT_THRESHOLD`          | Constant             | Default auto-compact threshold fraction of the context window (exported from `context-window-tracker.ts`)                          |
 | `SESSION_LOG_EVENT`               | Constant             | Session log event-name enum object (`session-log-events.ts`)                                                                       |
@@ -215,26 +217,16 @@ The callback payload is provider-neutral `IContextWindowState`; provider-specifi
 
 ### ISessionRecord Fields
 
-| Field                      | Type        | Required | Description                                                                                                                                                       |
-| -------------------------- | ----------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `id`                       | `string`    | Yes      | Unique session identifier                                                                                                                                         |
-| `cwd`                      | `string`    | Yes      | Working directory where the session was created                                                                                                                   |
-| `name`                     | `string`    | No       | User-assigned session name for easy identification                                                                                                                |
-| `createdAt`                | `string`    | Yes      | ISO timestamp of session creation                                                                                                                                 |
-| `updatedAt`                | `string`    | Yes      | ISO timestamp of last update                                                                                                                                      |
-| `messages`                 | `unknown[]` | Yes      | AI provider messages (TUniversalMessage[]) for context restoration. Saved from `session.getHistory()`, replayed via `session.injectMessage()` on resume.          |
-| `history`                  | `unknown[]` | Yes      | Full UI timeline (IHistoryEntry[] — chat + events) for rendering restoration. Passed to TuiStateManager on resume.                                                |
-| `systemPrompt`             | `string`    | No       | Exact system prompt used to create the session. Duplicates the system message in `messages` intentionally so diagnostics can inspect prompt composition directly. |
-| `toolSchemas`              | `unknown[]` | No       | Tool schemas registered for the session, including model-invocable projected command tools such as `robota_command_skills`.                                       |
-| `backgroundTasks`          | `unknown[]` | No       | Latest persisted background task snapshots.                                                                                                                       |
-| `backgroundTaskEvents`     | `unknown[]` | No       | Durable background task lifecycle/progress events needed for resume/debugging, including text deltas when the SDK persists background streams.                    |
-| `backgroundJobGroups`      | `unknown[]` | No       | Latest persisted background job group snapshots for agent/runtime orchestration resume.                                                                           |
-| `backgroundJobGroupEvents` | `unknown[]` | No       | Durable background job group lifecycle events needed for resume/debugging.                                                                                        |
-| `memoryEvents`             | `unknown[]` | No       | SDK-owned automatic memory audit events such as extracted, queued, saved, skipped, approved, rejected, and retrieved.                                             |
-| `usedMemoryReferences`     | `unknown[]` | No       | SDK-owned provenance records for memory topics injected into the latest prompt turn.                                                                              |
-| `contextReferences`        | `unknown[]` | No       | SDK-owned context reference inventory for resume/debugging.                                                                                                       |
-| `sandboxSnapshotId`        | `string`    | No       | Provider-owned sandbox workspace reference used by SDK resume hydration. `agent-session` stores this value opaquely and does not import sandbox packages.         |
-| `goal`                     | `unknown`   | No       | In-flight autonomous goal payload (typed `IGoalState` by the domain contract), stored opaquely so it survives resume (GOAL-001 / DATA-006).                       |
+TYPE-003: `ISessionRecord` is an alias of `IInteractiveSessionRecord` — the field inventory is
+owned and documented by `@robota-sdk/agent-interface-transport` (`session-contracts.ts`, DATA-001)
+and is intentionally NOT duplicated here. Store-relevant invariants:
+
+- The store never inspects payload fields; it persists/loads the record as opaque JSON.
+- `load`/`list` return `JSON.parse(...) as ISessionRecord` — an honest trust boundary with no
+  runtime validation (a hand-edited file is the caller's responsibility, unchanged from before).
+- `IHistoryEntry.timestamp` is `Date`-typed at compile time but round-trips through JSON as an ISO
+  string; consumers of loaded records must not assume a live `Date` instance (pre-existing
+  behavior, now visible in the type).
 
 Memory event and used-reference fields are audit/debug data, not baseline user-local preferences.
 Inspectable user-local memory is governed by

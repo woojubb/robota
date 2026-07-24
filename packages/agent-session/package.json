@@ -81,7 +81,6 @@
     "@robota-sdk/agent-interface-transport": "workspace:*"
   },
   "devDependencies": {
-    "@robota-sdk/agent-core": "workspace:*",
     "eslint": "^8.57.1",
     "rimraf": "^5.0.10",
     "tsdown": "^0.22.14",
