@@ -7,6 +7,11 @@ import { SessionExecutionController } from './interactive-session-execution-cont
 import { MAX_PENDING_QUEUE_DEPTH } from './interactive-session-execution-controller.js';
 import { runSkillInFork } from './interactive-session-fork.js';
 import { SessionHistoryTracker } from './interactive-session-history-tracker.js';
+import {
+  applyCommandHostActions,
+  emitUiIntentEvents,
+  resolveUiIntentRequester,
+} from './interactive-session-host-actions.js';
 import { initializeInteractiveSessionAsync } from './interactive-session-init.js';
 import { persistSession } from './interactive-session-persistence.js';
 import { loadSessionRecord } from './interactive-session-restore.js';
@@ -968,10 +973,15 @@ export class InteractiveSession
     session.swapProvider(provider, settings.model);
   }
 
+  /**
+   * CMD-004 Phase 2 (Stage B): after the command runs, the HOST applies its host actions via
+   * {@link applyCommandHostActions} (generalizing the previous hot-swap-only block; applied
+   * actions are stripped from the result) and emits requester-routed `ui_intent` events. */
   override async executeCommand(
     name: string,
     args: string,
     source: TCommandInvocationSource = 'user',
+    originDriverId?: TDriverId,
   ): Promise<import('../commands/index.js').ICommandResult | null> {
     if (this.orgPolicy?.blockedCommands?.includes(name)) {
       return {
@@ -982,32 +992,22 @@ export class InteractiveSession
         success: false,
       };
     }
-    const result = await super.executeCommand(name, args, source);
+    const result = await super.executeCommand(name, args, source, originDriverId);
     if (result === null) return null;
-    const hotSwapEffect = result.effects?.find(
-      (e): e is { type: 'provider-hot-swap-requested'; profileName: string } =>
-        e.type === 'provider-hot-swap-requested',
+    const application = await applyCommandHostActions(result, {
+      getAdapters: () => this.getCommandHostAdapters(),
+      orgPolicy: this.orgPolicy,
+      switchProvider: (profileName) => this.switchProvider(profileName),
+      renameSession: (newName) => {
+        this.setName(newName);
+        this.emit('session_renamed', { name: newName }); // all surfaces update their titles
+      },
+    });
+    emitUiIntentEvents(
+      application.uiIntents,
+      resolveUiIntentRequester(source, originDriverId, this.execCtrl.activeDriverId),
+      (event) => this.emit('ui_intent', event),
     );
-    if (hotSwapEffect) {
-      const { orgPolicy } = this;
-      if (
-        orgPolicy?.allowedProviders &&
-        !orgPolicy.allowedProviders.includes(hotSwapEffect.profileName)
-      ) {
-        return {
-          message: formatOrgPolicyViolationMessage(
-            `Provider "${hotSwapEffect.profileName}" is not allowed by your organization policy. Allowed: ${orgPolicy.allowedProviders.join(', ')}.`,
-            orgPolicy.adminContact,
-          ),
-          success: false,
-        };
-      }
-      await this.switchProvider(hotSwapEffect.profileName);
-      return {
-        ...result,
-        effects: result.effects?.filter((e) => e.type !== 'provider-hot-swap-requested'),
-      };
-    }
-    return result;
+    return application.result;
   }
 }
