@@ -16,41 +16,58 @@
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
-const AGENTS_DIR = path.join(WORKSPACE_ROOT, '.claude/agents');
-const MAP = path.join(WORKSPACE_ROOT, '.agents/specs/orchestration-map.md');
 
-const findings = [];
+export function collectOrchestrationMapFindings(root = WORKSPACE_ROOT) {
+  const agentsDir = path.join(root, '.claude/agents');
+  const mapPath = path.join(root, '.agents/specs/orchestration-map.md');
 
-if (!existsSync(MAP)) {
-  console.error('orchestration-map scan: .agents/specs/orchestration-map.md is missing.');
-  process.exit(1);
-}
-const mapText = readFileSync(MAP, 'utf8');
+  if (!existsSync(mapPath)) {
+    return { mapMissing: true, findings: [] };
+  }
+  const mapText = readFileSync(mapPath, 'utf8');
 
-if (existsSync(AGENTS_DIR)) {
-  for (const file of readdirSync(AGENTS_DIR).filter((f) => f.endsWith('.md'))) {
-    const text = readFileSync(path.join(AGENTS_DIR, file), 'utf8');
-    const m = text.match(/^name:\s*(\S+)\s*$/m);
-    const name = m ? m[1] : file.replace(/\.md$/, '');
-    // Require the agent name to appear in the map (e.g. as `name` in a table/diagram).
-    if (!mapText.includes(name)) {
-      findings.push(
-        `agent "${name}" (.claude/agents/${file}) is not listed in the Orchestration Map — add it (role, signal, pipeline).`,
-      );
+  const findings = [];
+  if (existsSync(agentsDir)) {
+    for (const file of readdirSync(agentsDir).filter((f) => f.endsWith('.md'))) {
+      const text = readFileSync(path.join(agentsDir, file), 'utf8');
+      const m = text.match(/^name:\s*(\S+)\s*$/m);
+      const name = m ? m[1] : file.replace(/\.md$/, '');
+      // Require the agent name to appear in the map (e.g. as `name` in a table/diagram).
+      if (!mapText.includes(name)) {
+        findings.push(
+          `agent "${name}" (.claude/agents/${file}) is not listed in the Orchestration Map — add it (role, signal, pipeline).`,
+        );
+      }
     }
   }
+
+  return { mapMissing: false, findings };
 }
 
-if (findings.length > 0) {
-  console.error('orchestration-map scan: FINDINGS');
-  for (const f of findings) console.error('  - ' + f);
-  console.error(
-    '\nFix: update .agents/specs/orchestration-map.md in the same change (see its "How to change the structure").',
-  );
-  process.exit(1);
+export function main() {
+  const { mapMissing, findings } = collectOrchestrationMapFindings();
+
+  if (mapMissing) {
+    console.error('orchestration-map scan: .agents/specs/orchestration-map.md is missing.');
+    process.exit(1);
+  }
+
+  if (findings.length > 0) {
+    console.error('orchestration-map scan: FINDINGS');
+    for (const f of findings) console.error('  - ' + f);
+    console.error(
+      '\nFix: update .agents/specs/orchestration-map.md in the same change (see its "How to change the structure").',
+    );
+    process.exit(1);
+  }
+
+  console.log('orchestration-map scan passed.');
+  process.exit(0);
 }
 
-console.log('orchestration-map scan passed.');
-process.exit(0);
+if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main();
+}
