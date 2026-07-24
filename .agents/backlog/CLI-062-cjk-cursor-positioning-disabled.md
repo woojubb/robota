@@ -1,14 +1,22 @@
 ---
 title: 'CLI-062: CJK input real terminal cursor positioning disabled (Terminal.app SIGSEGV workaround)'
-status: todo
+status: in-progress
 created: 2026-06-10
-priority: low
-urgency: later
+priority: high
+urgency: now
 area: packages/agent-transport
 depends_on: []
 ---
 
 # CLI-062: CJK input cursor positioning disabled
+
+> **2026-07-25 — owner re-prioritized (composition cursor still appears below the input box).**
+> Investigation COMPLETE with POC-PASS: see
+> [`.design/investigations/2026-07-25-cli-062-ime-cursor-design.md`](../../.design/investigations/2026-07-25-cli-062-ime-cursor-design.md)
+> — that document is the implementation contract (mechanism: yoga parent-chain absolute y +
+> ink `useCursor`; SIGSEGV root-caused to the historical hardcoded `y: 0`, with five crash-avoidance
+> invariants I1–I5 and a pty regression plan). Implementation starts as soon as the CMD-004 Stage C
+> branch frees `agent-transport-tui`.
 
 ## Problem
 
