@@ -6,6 +6,7 @@ import {
   formatExecutionWorkspaceEntryRow,
 } from './execution-workspace-view-model.js';
 import { STATUS_GLYPH } from './status-glyph.js';
+import { PALETTE } from './tui-palette.js';
 
 import type {
   IExecutionDetailPage,
@@ -33,7 +34,7 @@ export default function ExecutionWorkspaceDetailPane({
 
   return (
     <Box flexDirection="column" marginBottom={1}>
-      <Text color="cyan" bold>
+      <Text color={PALETTE.text.accent} bold>
         {`Viewing ${row.title}`}
       </Text>
       <Text dimColor>
@@ -42,7 +43,7 @@ export default function ExecutionWorkspaceDetailPane({
         {row.preview ? ` · ${row.preview}` : ''}
       </Text>
       {loading ? <Text dimColor>Loading workspace detail...</Text> : null}
-      {error ? <Text color="red">{error}</Text> : null}
+      {error ? <Text color={PALETTE.text.error}>{error}</Text> : null}
       {!loading && !error && records.length === 0 ? <Text dimColor>No detail yet</Text> : null}
       {!loading &&
         !error &&
@@ -72,7 +73,7 @@ function getDetailRecordGlyph(kind: TExecutionDetailRecordKind): {
     return { symbol: STATUS_GLYPH.error.symbol, color: STATUS_GLYPH.error.color };
   if (kind === 'result')
     return { symbol: STATUS_GLYPH.success.symbol, color: STATUS_GLYPH.success.color };
-  if (kind === 'group_summary') return { symbol: '▸', color: 'cyan' };
-  if (kind === 'process_output') return { symbol: '·', color: 'white' };
+  if (kind === 'group_summary') return { symbol: '▸', color: PALETTE.text.accent };
+  if (kind === 'process_output') return { symbol: '·', color: PALETTE.text.emphasis };
   return { symbol: '', color: undefined };
 }

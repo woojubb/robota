@@ -2,6 +2,8 @@ import { formatTokenCount } from '@robota-sdk/agent-core';
 import { Box, Text } from 'ink';
 import React from 'react';
 
+import { PALETTE } from './tui-palette.js';
+
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type { IUsageSnapshot } from '@robota-sdk/agent-interface-transport';
 
@@ -22,7 +24,7 @@ export default function UsageSummaryEntry({ entry }: { entry: IHistoryEntry }): 
   return (
     <Box flexDirection="column" marginBottom={1}>
       <Box>
-        <Text color="white" bold>
+        <Text color={PALETTE.text.emphasis} bold>
           Usage:{' '}
         </Text>
         <Text dimColor>

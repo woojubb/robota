@@ -139,6 +139,49 @@ out of this contract:
 - `ExecutionWorkspaceDetailPane.tsx` uses `▸` as a **group-summary disclosure glyph** (content, not a
   cursor); a future pass must not "fix" it into the selection convention.
 
+## Color & Motion Contract (SCREEN-006)
+
+Colors and motion values live in exactly three token modules; components never spell color names
+or hex inline (mechanical floor: `src/__tests__/palette-consistency.test.ts` fails on any
+`color="…"` / `borderColor="…"` / `backgroundColor="…"` JSX string literal or `#rrggbb` hex
+outside the token modules). Token names are semantic slots (accent/muted/attention) — never
+product vocabulary; values are plain constants (no theming framework, no runtime switching, no
+config surface).
+
+**Token-module boundary (three modules, one-way color flow):**
+
+- `src/tui-palette.ts` — the Ink-side semantic palette: `PALETTE.text` (accent/emphasis/success/
+  warning/error/session/muted/onAccent), `PALETTE.border` (attention/focused/active/muted/error),
+  `PALETTE.status` (the 7 status kinds), and `MOTION` (WaveText ramp + cadence + grouping).
+  Values are Ink/chalk color names (hex only in `MOTION.waveColors`).
+- `src/status-glyph.ts` — remains the status SSOT (kinds, symbols, `toolStateStatusKind`,
+  `workspaceStatusKind`); its colors are sourced from `PALETTE.status.*` (dependency direction:
+  `status-glyph` → `tui-palette`, never the reverse).
+- `src/tui-ansi-palette.ts` — raw SGR escapes for the `marked-terminal` markdown/diff pipeline —
+  a different encoding with a different consumer. Its values are deliberately NOT derived from
+  `PALETTE` (a name→SGR mapping layer would be invented complexity).
+
+**De-emphasis rule.** The canonical muted treatment is Ink's `dimColor` (terminal-theme-relative,
+degrades for free) — including `KeyHintFooter`'s footers. `PALETTE.text.muted` exists only where an
+actual color VALUE is required (the static WaveText frame, `STATUS_GLYPH.idle`, the
+`status-activity` idle color).
+
+**Color+motion gate.** `terminal-capabilities.ts` (`isInteractiveColorTerminal()`) is the single
+degradation gate: NO_COLOR / `FORCE_COLOR=0` / non-TTY ⇒ markdown color off and WaveText static
+(zero intervals, zero color churn). Components add no per-call-site degradation branches. Noted
+divergence: the gate treats an EMPTY `NO_COLOR` as set (off), stricter than no-color.org's
+"present and not an empty string" — the strict direction is the safe one.
+
+**Motion tokens.** WaveText is the package's one animation; its ramp (`MOTION.waveColors`,
+4-stop `#555555→#bbbbbb`), cadence (`MOTION.waveIntervalMs`, 400ms) and grouping
+(`MOTION.waveCharsPerGroup`) are tokens so motion is visible to palette audits. Perceptibility
+comes from the ramp's contrast span, not faster flicker.
+
+**Known floor limit (recorded decision).** The consistency floor catches JSX attribute literals
+and hex, but not a future TS helper returning a bare color-name string (the old `getContextColor`
+shape); today's instances of that shape were removed by the SCREEN-006 adoption pass, and
+extending the floor to bare strings is deferred until one actually recurs.
+
 ## IME Real-Cursor Contract (CLI-062)
 
 During focused text entry, `CjkTextInput` positions the REAL terminal cursor at the composition

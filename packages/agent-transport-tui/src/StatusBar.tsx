@@ -3,12 +3,16 @@ import { Box, Text } from 'ink';
 import React from 'react';
 
 import { formatStatusActivity } from './status-activity.js';
+import { PALETTE } from './tui-palette.js';
 
 import type { TPermissionMode } from '@robota-sdk/agent-core';
 
 /** Threshold boundaries for context percentage color coding */
 const CONTEXT_YELLOW_THRESHOLD = 70;
 const CONTEXT_RED_THRESHOLD = 90;
+
+/** Segment separator between status-bar fields (SCREEN-006: single SSOT, was repeated inline 6x). */
+const SEP = '  |  ';
 
 interface IProps {
   permissionMode: TPermissionMode;
@@ -48,9 +52,9 @@ interface IStatusLeftProps {
 
 /** Return the color for the context percentage indicator */
 function getContextColor(percentage: number): string {
-  if (percentage >= CONTEXT_RED_THRESHOLD) return 'red';
-  if (percentage >= CONTEXT_YELLOW_THRESHOLD) return 'yellow';
-  return 'green';
+  if (percentage >= CONTEXT_RED_THRESHOLD) return PALETTE.text.error;
+  if (percentage >= CONTEXT_YELLOW_THRESHOLD) return PALETTE.text.warning;
+  return PALETTE.text.success;
 }
 
 function StatusActivityText({
@@ -96,7 +100,7 @@ function ContextText({
 function ModeText({ permissionMode }: { permissionMode: TPermissionMode }): React.ReactElement {
   return (
     <>
-      <Text color="cyan" bold>
+      <Text color={PALETTE.text.accent} bold>
         Mode:
       </Text>{' '}
       <Text>{permissionMode}</Text>
@@ -111,7 +115,7 @@ function shouldShowPermissionMode(permissionMode: TPermissionMode): boolean {
 function PresetText({ activePresetId }: { activePresetId: string }): React.ReactElement {
   return (
     <>
-      <Text color="cyan" bold>
+      <Text color={PALETTE.text.accent} bold>
         Preset:
       </Text>{' '}
       <Text>{activePresetId}</Text>
@@ -156,31 +160,31 @@ function StatusLeft(props: IStatusLeftProps): React.ReactElement {
       />
       {showPermissionMode && (
         <>
-          {'  |  '}
+          {SEP}
           <ModeText permissionMode={props.permissionMode} />
         </>
       )}
       {showActivePreset && (
         <>
-          {'  |  '}
+          {SEP}
           <PresetText activePresetId={activePresetId} />
         </>
       )}
       {props.sessionName && (
         <>
-          {'  |  '}
-          <Text color="magenta">{props.sessionName}</Text>
+          {SEP}
+          <Text color={PALETTE.text.session}>{props.sessionName}</Text>
         </>
       )}
       {shouldShowGitBranch && (
         <>
-          {'  |  '}
+          {SEP}
           <Text dimColor>git: {props.gitBranch}</Text>
         </>
       )}
-      {'  |  '}
+      {SEP}
       <ProviderText modelName={props.modelName} providerDisplayName={props.providerDisplayName} />
-      {'  |  '}
+      {SEP}
       <ContextText
         percentage={props.contextPercentage}
         usedTokens={props.contextUsedTokens}
@@ -227,7 +231,7 @@ export default function StatusBar({
         activePresetId={activePresetId}
       />
       {activeAgentLabel !== undefined && (
-        <Text color="yellow" bold>
+        <Text color={PALETTE.text.warning} bold>
           [{activeAgentLabel}]
         </Text>
       )}

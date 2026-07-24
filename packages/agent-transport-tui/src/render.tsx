@@ -2,10 +2,12 @@
  * Ink render entry point.
  */
 
+import chalk from 'chalk';
 import { render } from 'ink';
 import React from 'react';
 
 import App from './App.js';
+import { isInteractiveColorTerminal } from './terminal-capabilities.js';
 import { TerminalHandoffController } from './terminal-handoff-controller.js';
 import { TuiInteractionChannel } from './TuiInteractionChannel.js';
 
@@ -126,6 +128,15 @@ export function toChannelOptions(
 export async function renderApp(options: IRenderOptions): Promise<void> {
   // ERR-001 / Library Neutrality Rule: NO process-level error policy here — process survival
   // is the product assembly's boundary (agent-cli installs the guards via onChannelReady).
+
+  // SCREEN-006: chalk (ink's styling engine) does not implement the NO_COLOR convention itself
+  // (verified: chalk 5's vendored supports-color reads only FORCE_COLOR/TTY/TERM), so on a real
+  // TTY `NO_COLOR=1` would still color every component. Sync chalk once with the package's single
+  // color gate (`terminal-capabilities.ts` — the SSOT that DOES honor NO_COLOR) so gate-off means
+  // zero SGR color output. Gate-on changes nothing: chalk's own level detection stays authoritative.
+  if (!isInteractiveColorTerminal()) {
+    chalk.level = 0;
+  }
 
   // TERM-002: one terminal-handoff controller per process (one Ink instance / App). Shared across
   // channel re-creations (session switch) so the handoff capability survives a session swap.

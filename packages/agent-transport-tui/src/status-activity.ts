@@ -1,3 +1,5 @@
+import { PALETTE } from './tui-palette.js';
+
 export type TStatusActivityKind = 'tools' | 'thinking' | 'background' | 'queued' | 'idle';
 
 export interface IStatusActivityInput {
@@ -31,33 +33,33 @@ function getPrimaryActivity(
     return {
       kind: 'tools',
       label: `Tools (${input.activeToolCount})`,
-      color: 'cyan',
+      color: PALETTE.text.accent,
     };
   }
   if (input.isThinking) {
     return {
       kind: 'thinking',
       label: 'Thinking',
-      color: 'yellow',
+      color: PALETTE.text.warning,
     };
   }
   if (input.activeBackgroundTaskCount > NO_ACTIVE_ITEMS) {
     return {
       kind: 'background',
       label: `Background (${input.activeBackgroundTaskCount})`,
-      color: 'cyan',
+      color: PALETTE.text.accent,
     };
   }
   if (input.hasPendingPrompt) {
     return {
       kind: 'queued',
       label: 'Queued',
-      color: 'yellow',
+      color: PALETTE.text.warning,
     };
   }
   return {
     kind: 'idle',
     label: 'Idle',
-    color: 'gray',
+    color: PALETTE.text.muted,
   };
 }
