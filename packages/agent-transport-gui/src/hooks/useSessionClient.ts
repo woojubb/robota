@@ -66,6 +66,8 @@ export interface IWsSessionState<TStatus extends string = TConnectionStatus> {
   streamingText: string;
   isThinking: boolean;
   executionWorkspace: IExecutionWorkspaceSnapshot | null;
+  /** CMD-004 Stage E: the session name, following the broadcast `session_renamed` (host-executed rename). */
+  sessionName: string | null;
   send: (msg: TClientMessage) => void;
   /** REMOTE-007/009: prompts awaiting the owner's answer (permission/ask), rendered by the UI. */
   pendingPrompts: readonly TPendingPrompt[];
@@ -99,6 +101,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
     null,
   );
   const [pendingPrompts, setPendingPrompts] = useState<readonly TPendingPrompt[]>([]);
+  const [sessionName, setSessionName] = useState<string | null>(null);
   const [uiIntentNotices, setUiIntentNotices] = useState<readonly TUiIntentNotice[]>([]);
 
   const clientRef = useRef<ISessionClientHandle | null>(null);
@@ -180,6 +183,19 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
         setUiIntentNotices((prev) => applyUiIntentEvent(prev, msg));
         break;
       }
+      // CMD-004 Stage E: broadcast session events — a rename/clear executed by the HOST (from any
+      // surface, co-driving included) is reflected here; never a silent drop.
+      case 'session_renamed': {
+        setSessionName(msg.event.name);
+        break;
+      }
+      case 'history_cleared': {
+        streamingTextRef.current = '';
+        streamingIdRef.current = null;
+        setStreamingText('');
+        setMessages([]);
+        break;
+      }
       case 'complete':
       case 'interrupted': {
         const finalText = streamingTextRef.current;
@@ -235,6 +251,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
     streamingText,
     isThinking,
     executionWorkspace,
+    sessionName,
     send,
     pendingPrompts,
     answerPermission,

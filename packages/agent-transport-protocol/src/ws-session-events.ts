@@ -15,6 +15,7 @@ import type {
   IInteractiveSession,
   IPermissionRequestEvent,
   IPromptResolvedEvent,
+  ISessionRenamedEvent,
   IToolState,
   IUiIntentEvent,
   TBackgroundJobGroupEvent,
@@ -85,6 +86,11 @@ export function subscribeSessionEvents(
     }
     send({ type: 'ui_intent', event });
   };
+  // CMD-004 Stage E: BROADCAST session-state events — the host executed the rename/clear; EVERY
+  // attached surface (co-driving included) reflects it. Never requester-filtered, unlike `ui_intent`.
+  const onSessionRenamed = (event: ISessionRenamedEvent): void =>
+    send({ type: 'session_renamed', event });
+  const onHistoryCleared = (): void => send({ type: 'history_cleared' });
 
   session.on('user_message', onUserMessage);
   session.on('text_delta', onTextDelta);
@@ -101,6 +107,8 @@ export function subscribeSessionEvents(
   session.on('ask_request', onAskRequest);
   session.on('prompt_resolved', onPromptResolved);
   session.on('ui_intent', onUiIntent);
+  session.on('session_renamed', onSessionRenamed);
+  session.on('history_cleared', onHistoryCleared);
 
   return (): void => {
     session.off('user_message', onUserMessage);
@@ -118,5 +126,7 @@ export function subscribeSessionEvents(
     session.off('ask_request', onAskRequest);
     session.off('prompt_resolved', onPromptResolved);
     session.off('ui_intent', onUiIntent);
+    session.off('session_renamed', onSessionRenamed);
+    session.off('history_cleared', onHistoryCleared);
   };
 }

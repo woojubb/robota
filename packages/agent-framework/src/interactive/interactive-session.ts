@@ -748,6 +748,9 @@ export class InteractiveSession
     this.histTracker.clearHistory();
     this.persistCurrentSession();
     this.emit('context_update', this.getContextState());
+    // CMD-004 Phase 2 (Stage E): broadcast so EVERY attached surface (incl. co-driving ones)
+    // refreshes its transcript — the final carrier of the former `conversation-history-cleared` effect.
+    this.emit('history_cleared');
   }
 
   getName(): string | undefined {
