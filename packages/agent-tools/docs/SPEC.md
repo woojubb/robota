@@ -48,7 +48,7 @@ builtins/
   write-tool.ts         -- Write: write content to a file
   edit-tool.ts          -- Edit: replace a string in a file
   glob-tool.ts          -- Glob: find files matching a pattern (uses fast-glob)
-  grep-tool.ts          -- Grep: regex content search (files_with_matches/content/count, headLimit)
+  grep-tool.ts          -- Grep: regex content search (files_with_matches/content/count, headLimit); bounded-parallel file reads (p-limit 50)
   web-fetch-tool.ts     -- WebFetch: fetch URL content (HTML→text conversion); classifyFetchError exported
   web-search-tool.ts    -- WebSearch: vendor-free tool layer over the IWebSearchProvider port (NEUT-008)
   web-search-provider.ts -- IWebSearchProvider port + request/result types (duck-typed, vendor-free)
@@ -288,19 +288,21 @@ None. This package defines no tool classes; the factories construct core's `Func
 
 ### Current Test Coverage
 
-| File                                         | Scope | Description                                                                                             |
-| -------------------------------------------- | ----- | ------------------------------------------------------------------------------------------------------- |
-| `src/__tests__/atomic-file-write.test.ts`    | Unit  | Atomic UTF-8 write replacement, mode preservation, cleanup, and handoff                                 |
-| `src/__tests__/sandbox-tools.test.ts`        | Unit  | Sandbox client contracts, sandbox-aware tools, E2B adapter behavior, and snapshot/restore paths         |
-| `src/__tests__/workspace-manifest.test.ts`   | Unit  | Workspace manifest path validation and generic sandbox application                                      |
-| `src/__tests__/function-tool.test.ts`        | Unit  | `createFunctionTool` + core `FunctionTool` (imported from agent-core) creation, execution, validation   |
-| `src/__tests__/tool-registry.test.ts`        | Unit  | core `ToolRegistry` (imported from agent-core) registration, lookup, listing                            |
-| `src/__tests__/builtin-descriptions.test.ts` | Unit  | NEUT-002 description contract: policy-phrase absence, derived names, routing-hint subset, override seam |
-| `src/__tests__/web-search-provider.test.ts`  | Unit  | NEUT-008 provider port: injection, error surfacing, tool-layer vendor-literal absence                   |
+| File                                          | Scope | Description                                                                                             |
+| --------------------------------------------- | ----- | ------------------------------------------------------------------------------------------------------- |
+| `src/__tests__/atomic-file-write.test.ts`     | Unit  | Atomic UTF-8 write replacement, mode preservation, cleanup, and handoff                                 |
+| `src/__tests__/sandbox-tools.test.ts`         | Unit  | Sandbox client contracts, sandbox-aware tools, E2B adapter behavior, and snapshot/restore paths         |
+| `src/__tests__/workspace-manifest.test.ts`    | Unit  | Workspace manifest path validation and generic sandbox application                                      |
+| `src/__tests__/function-tool.test.ts`         | Unit  | `createFunctionTool` + core `FunctionTool` (imported from agent-core) creation, execution, validation   |
+| `src/__tests__/tool-registry.test.ts`         | Unit  | core `ToolRegistry` (imported from agent-core) registration, lookup, listing                            |
+| `src/__tests__/builtin-descriptions.test.ts`  | Unit  | NEUT-002 description contract: policy-phrase absence, derived names, routing-hint subset, override seam |
+| `src/__tests__/web-search-provider.test.ts`   | Unit  | NEUT-008 provider port: injection, error surfacing, tool-layer vendor-literal absence                   |
+| `src/__tests__/grep-tool.test.ts`             | Unit  | Grep output modes, headLimit, glob filter, deterministic enumeration-order output (CLI-042)             |
+| `src/__tests__/grep-tool-concurrency.test.ts` | Unit  | Grep bounded-parallel content scan: overlapping reads capped at the p-limit bound (CLI-042)             |
 
 ### Gaps
 
-- **Built-in tools** -- `globTool` and `grepTool` still need dedicated unit coverage beyond provider-agnostic composition tests.
+- **Built-in tools** -- `globTool` still needs dedicated unit coverage beyond provider-agnostic composition tests.
 - **IToolInvocationResult** -- No tests verifying the result shape contract.
 
 ## Dependencies
@@ -309,7 +311,7 @@ None. This package defines no tool classes; the factories construct core's `Func
 
 - `@robota-sdk/agent-process` -- Process-tree termination (`killProcessTree`) for the shell built-in tool (`builtins/shell-tool.ts`)
 - `fast-glob` -- High-performance glob matching for the glob built-in tool
-- `p-limit` -- Concurrency limiting used by the glob built-in tool (`builtins/glob-tool.ts`)
+- `p-limit` -- Concurrency limiting used by the glob and grep built-in tools (`builtins/glob-tool.ts`, `builtins/grep-tool.ts`)
 - `zod` -- Schema validation for function tool parameters
 
 ### Dev (notable)

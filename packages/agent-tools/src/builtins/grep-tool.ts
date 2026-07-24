@@ -12,6 +12,7 @@
 import { readFile, readdir, stat } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 
+import pLimit from 'p-limit';
 import { z } from 'zod';
 
 import { createZodFunctionTool } from '../implementations/function-tool';
@@ -55,6 +56,9 @@ const GrepSchema = z.object({
 });
 
 type TGrepArgs = z.infer<typeof GrepSchema>;
+
+/** Cap on concurrent file reads during the content scan (CLI-042). */
+const READ_CONCURRENCY_LIMIT = 50;
 
 /** Convert a simple glob to a RegExp for file name filtering. */
 function globToRegex(glob: string): RegExp {
@@ -207,30 +211,39 @@ async function grepFileTool(args: TGrepArgs): Promise<string> {
     files = await collectFiles(targetPath, glob);
   }
 
-  const allOutputLines: string[] = [];
-
-  for (const filePath of files) {
-    let content: string;
-    try {
-      const buffer = await readFile(filePath);
-      // Skip binary files
-      const checkLen = Math.min(buffer.length, 8192);
-      let hasBinary = false;
-      for (let i = 0; i < checkLen; i++) {
-        if (buffer[i] === 0) {
-          hasBinary = true;
-          break;
+  // Read/scan files in parallel with bounded concurrency, but collect results
+  // in file-enumeration order so output stays byte-identical to the previous
+  // sequential implementation (CLI-042).
+  const limit = pLimit(READ_CONCURRENCY_LIMIT);
+  const perFileMatches: string[][] = await Promise.all(
+    files.map((filePath) =>
+      limit(async (): Promise<string[]> => {
+        let content: string;
+        try {
+          const buffer = await readFile(filePath);
+          // Skip binary files
+          const checkLen = Math.min(buffer.length, 8192);
+          let hasBinary = false;
+          for (let i = 0; i < checkLen; i++) {
+            if (buffer[i] === 0) {
+              hasBinary = true;
+              break;
+            }
+          }
+          if (hasBinary) return [];
+          content = buffer.toString('utf8');
+        } catch {
+          // allow-fallback: an unreadable file is skipped (pre-existing sequential
+          // semantics — same as the old `continue`), not a logic fallback
+          return [];
         }
-      }
-      if (hasBinary) continue;
-      content = buffer.toString('utf8');
-    } catch {
-      continue;
-    }
 
-    const fileMatches = searchFile(content, filePath, regex, contextLines, outputMode);
-    allOutputLines.push(...fileMatches);
-  }
+        return searchFile(content, filePath, regex, contextLines, outputMode);
+      }),
+    ),
+  );
+
+  const allOutputLines: string[] = perFileMatches.flat();
 
   let outputLines = allOutputLines;
   if (headLimit !== undefined && outputLines.length > headLimit) {
