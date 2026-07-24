@@ -1,7 +1,7 @@
 name: Dependency Review
 
 # Gate PR-introduced dependencies by vulnerability AND license policy (distinct from the lockfile-wide
-# osv-scanner in ci.yml): dependency-review diffs the PR's ADDED deps and enforces a license deny-list.
+# osv-scanner in ci.yml): dependency-review diffs the PR's ADDED deps and enforces a license allow-list.
 # License gating matters here — the project is dual-licensed (AGPL + Commercial, no CLA yet), so a runtime
 # dep under a strong-copyleft license would virally break the commercial-relicensing right.
 on:
@@ -32,11 +32,37 @@ jobs:
         with:
           # Block the PR on a newly-introduced HIGH+ vulnerability.
           fail-on-severity: high
-          # Strong-copyleft licenses that would compromise the commercial-relicensing right of the dual
-          # license. Permissive (MIT/Apache-2.0/BSD/ISC) deps are unaffected. LGPL is intentionally NOT denied
-          # (weaker, dynamic-link copyleft) — revisit if a static-bundling concern arises.
-          # NOTE: `deny-licenses` is deprecated for possible removal in dependency-review-action v6 —
-          # this list is load-bearing (dual-license AGPL+Commercial policy), so migrate to
-          # `allow-licenses` BEFORE accepting a v6 bump.
-          deny-licenses: GPL-2.0-only, GPL-2.0-or-later, GPL-3.0-only, GPL-3.0-or-later, AGPL-3.0-only, AGPL-3.0-or-later
+          # License ALLOW-list (INFRA-047: replaces the v6-deprecated `deny-licenses`). The list is the
+          # verified closure of SPDX leaf licenses present in the full pnpm-lock.yaml graph (prod + dev,
+          # all platform variants) as of 2026-07-25 — every id is permissive/non-viral, preserving the
+          # commercial-relicensing right of the dual license. Anything NOT listed — GPL/AGPL/LGPL/SSPL
+          # and every other copyleft — now fails the check (strictly stronger than the old 6-id deny
+          # list). MPL-2.0 is included deliberately: its copyleft is file-scoped to the MPL-licensed
+          # files themselves and does not reach the containing work.
+          # To extend: confirm the new id is permissive/non-viral, then append it here. The action
+          # matches SPDX expressions per-leaf via spdx-satisfies: `A OR B` passes if EITHER id is
+          # listed, `A AND B` only if BOTH are.
+          allow-licenses: 0BSD, Apache-2.0, BSD-2-Clause, BSD-3-Clause, BlueOak-1.0.0, CC-BY-4.0, CC0-1.0, ISC, MIT, MIT-0, MPL-2.0, Python-2.0, Unlicense, WTFPL
+          # Name-scoped (any-version) exemptions for packages ALREADY in the graph whose license
+          # expression contains a non-allowlisted leaf:
+          # - @robota-sdk/*: our own published packages under our own dual license
+          #   (`AGPL-3.0-only OR LicenseRef-Commercial`) — self-deps, not third-party ingress.
+          # - @img/sharp-libvips-* and @img/sharp-wasm32: sharp's bundled libvips prebuilds
+          #   (`LGPL-3.0-or-later`). LGPL stays OFF the general allow-list — a NEW LGPL dep now fails;
+          #   only this existing family is exempted. If sharp adds a platform variant, extend THIS
+          #   list (not allow-licenses).
+          allow-dependencies-licenses: >-
+            pkg:npm/%40robota-sdk/agent-core,
+            pkg:npm/%40robota-sdk/agent-provider,
+            pkg:npm/%40img/sharp-libvips-darwin-arm64,
+            pkg:npm/%40img/sharp-libvips-darwin-x64,
+            pkg:npm/%40img/sharp-libvips-linux-arm,
+            pkg:npm/%40img/sharp-libvips-linux-arm64,
+            pkg:npm/%40img/sharp-libvips-linux-ppc64,
+            pkg:npm/%40img/sharp-libvips-linux-riscv64,
+            pkg:npm/%40img/sharp-libvips-linux-s390x,
+            pkg:npm/%40img/sharp-libvips-linux-x64,
+            pkg:npm/%40img/sharp-libvips-linuxmusl-arm64,
+            pkg:npm/%40img/sharp-libvips-linuxmusl-x64,
+            pkg:npm/%40img/sharp-wasm32
           comment-summary-in-pr: on-failure
