@@ -72,8 +72,8 @@ describe('CMD-004 Stage D — host-action parity with ZERO attached surfaces (he
     expect(write).toHaveBeenCalledTimes(1);
     expect(write).toHaveBeenCalledWith(expect.objectContaining({ language: 'ko' }));
     expect(requestRestart).toHaveBeenCalledTimes(1);
-    // Applied host actions are stripped — a surface that later replays the result cannot re-apply.
-    expect(result?.effects ?? []).toEqual([]);
+    // Applied host actions are consumed — a surface that later replays the result cannot re-apply.
+    expect(result?.hostActions).toBeUndefined();
   });
 
   it('an absent adapter is an EXPLICIT failure in the result — never a silent skip (no-fallback)', async () => {

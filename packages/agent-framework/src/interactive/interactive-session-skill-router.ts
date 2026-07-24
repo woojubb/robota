@@ -262,11 +262,12 @@ export class SessionSkillRouter {
       request.rawInput,
       'user-slash',
     );
+    // CMD-004 Stage E: `data.sessionExecution` is the requester-local carrier of the former
+    // `session-execution-started` effect (surfaces skip result rendering and show the pending turn).
     return {
       success: true,
       message: '',
       data: { skill: skill.name, sessionExecution: true },
-      effects: [{ type: 'session-execution-started' }],
     };
   }
 

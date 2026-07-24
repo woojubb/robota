@@ -484,7 +484,7 @@ describe('agent command module', () => {
     const result = await executor.execute('agent', session, '');
 
     expect(result?.success).toBe(true);
-    expect(result?.effects).toEqual([{ type: 'agent-switcher-requested' }]);
+    expect(result?.uiIntents).toEqual([{ type: 'show-agent-switcher' }]);
   });
 
   it('shows text list when agent list subcommand is used explicitly', async () => {
@@ -499,6 +499,6 @@ describe('agent command module', () => {
 
     expect(result?.success).toBe(true);
     expect(result?.message).toContain('Available agents:');
-    expect(result?.effects).toBeUndefined();
+    expect(result?.uiIntents).toBeUndefined();
   });
 });

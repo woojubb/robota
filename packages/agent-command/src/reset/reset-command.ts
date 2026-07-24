@@ -6,6 +6,6 @@ export function executeResetCommand(_context: ICommandHostContext, _args: string
     success: true,
     message: 'Reset requested.',
     data: { resetRequested: true },
-    effects: [{ type: 'settings-reset-requested' }],
+    hostActions: [{ type: 'settings-reset' }],
   };
 }

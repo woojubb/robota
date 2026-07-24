@@ -119,7 +119,7 @@ describe('InteractiveSession skill activation common API', () => {
 
     expect(result).toMatchObject({
       success: true,
-      effects: [{ type: 'session-execution-started' }],
+      data: expect.objectContaining({ sessionExecution: true }),
     });
     expect(parentSession.run).toHaveBeenCalledWith(
       expect.stringContaining('Audit src/index.ts'),
@@ -188,7 +188,7 @@ describe('InteractiveSession skill activation common API', () => {
 
     expect(result).toMatchObject({
       success: true,
-      effects: [{ type: 'session-execution-started' }],
+      data: expect.objectContaining({ sessionExecution: true }),
     });
     expect(parentSession.run).toHaveBeenCalledWith(
       expect.stringContaining('Audit src/index.ts'),
@@ -302,7 +302,7 @@ describe('InteractiveSession skill activation common API', () => {
 
     expect(result).toMatchObject({
       success: true,
-      effects: [{ type: 'session-execution-started' }],
+      data: expect.objectContaining({ sessionExecution: true }),
     });
     expect(parentSession.run).not.toHaveBeenCalled();
     expect(mocks.createSubagentSession).toHaveBeenCalledWith(

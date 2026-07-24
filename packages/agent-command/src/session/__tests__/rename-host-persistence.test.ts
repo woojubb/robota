@@ -53,9 +53,8 @@ describe('CMD-004 TC-10 — /rename persists host-side without any TUI handler',
     expect(session.getName()).toBe('My Renamed Session');
     // Broadcast so every attached surface (incl. co-driving ones) updates its title.
     expect(renamedEvents).toEqual([{ name: 'My Renamed Session' }]);
-    // The applied host action is STRIPPED from the returned result, so the TUI's legacy
-    // `session-renamed` effect handler no longer receives it — no double rename.
-    expect(result?.effects ?? []).toEqual([]);
+    // The applied host action is CONSUMED from the returned result — no surface can double-apply it.
+    expect(result?.hostActions).toBeUndefined();
   });
 
   it('applies the rename exactly once (single-execution guard)', async () => {

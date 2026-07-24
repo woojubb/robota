@@ -5,8 +5,8 @@ import { confirmAction, isConfirmed } from '@robota-sdk/agent-core';
 import {
   RENAME_COMMAND_USAGE,
   clearConversationHistory,
-  createSessionPickerRequestedEffect,
-  createSessionRenamedEffect,
+  createShowSessionPickerIntent,
+  createSessionRenameHostAction,
   formatCommandSessionReplayValidationReport,
   parseSessionNameArgument,
   readCommandSessionInfo,
@@ -33,12 +33,10 @@ export async function executeClearCommand(
     }
   }
 
+  // CMD-004 Stage E: the clear mutation runs host-side and the session broadcasts `history_cleared`
+  // to every attached surface — the result carries no separate notification.
   clearConversationHistory(context);
-  return {
-    success: true,
-    message: CLEAR_COMMAND_MESSAGE,
-    effects: [{ type: 'conversation-history-cleared' }],
-  };
+  return { success: true, message: CLEAR_COMMAND_MESSAGE };
 }
 
 export function executeRenameCommand(_context: ICommandHostContext, args: string): ICommandResult {
@@ -51,7 +49,7 @@ export function executeRenameCommand(_context: ICommandHostContext, args: string
     success: true,
     message: `Session renamed to "${name}".`,
     data: { name },
-    effects: [createSessionRenamedEffect(name)],
+    hostActions: [createSessionRenameHostAction(name)],
   };
 }
 
@@ -60,7 +58,7 @@ export function executeResumeCommand(_context: ICommandHostContext, _args: strin
     success: true,
     message: 'Opening session picker...',
     data: { triggerResumePicker: true },
-    effects: [createSessionPickerRequestedEffect()],
+    uiIntents: [createShowSessionPickerIntent()],
   };
 }
 

@@ -24,7 +24,7 @@ function createSettingsSystemCommand(): ISystemCommand {
     execute: async () => ({
       success: true,
       message: 'Opening settings...',
-      effects: [{ type: 'settings-tui-requested' as const }],
+      uiIntents: [{ type: 'show-settings' as const }],
     }),
   };
 }

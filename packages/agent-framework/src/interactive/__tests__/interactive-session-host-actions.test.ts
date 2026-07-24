@@ -2,11 +2,11 @@
  * CMD-004 Phase 2 (TC-02) — host-action executor in the `executeCommand` pipeline.
  *
  * Drives `InteractiveSession.executeCommand` with stub `ICommandHostAdapters` and inline command
- * modules emitting the legacy effects (the Stage-B shim maps them), asserting:
+ * modules emitting the split contract (`hostActions` / `uiIntents` — Stage E deleted the legacy
+ * effect union), asserting:
  * - `language-change` writes via the settings adapter and requests a restart via the process adapter;
  * - `settings-reset` deletes via the settings adapter and requests an exit;
- * - applied host actions are STRIPPED from the returned result (host actions only — UI-intent and
- *   notification effects stay dual-carried/pass-through until Stage C/E);
+ * - applied host actions and emitted intents are CONSUMED — the returned result carries neither;
  * - a UI intent emits exactly ONE `ui_intent` stamped with the invoking driver id passed into
  *   `executeCommand` (owner default for local `'user'` commands; unattributed for remote without id);
  * - ZERO attached surfaces still applies host actions (headless parity);
@@ -91,7 +91,7 @@ describe('CMD-004 TC-02 — host-action executor over ICommandHostAdapters', () 
       moduleReturning('language', {
         success: true,
         message: 'Language set to "ko".',
-        effects: [{ type: 'language-change-requested', language: 'ko' }],
+        hostActions: [{ type: 'language-change', language: 'ko' }],
       }),
     ]);
 
@@ -104,7 +104,7 @@ describe('CMD-004 TC-02 — host-action executor over ICommandHostAdapters', () 
     expect(requestRestart).toHaveBeenCalledWith('other', 'Language change restart');
     expect(result?.success).toBe(true);
     expect(result?.message).toBe('Language set to "ko".\nRestarting...');
-    expect(result?.effects ?? []).toEqual([]); // applied host action stripped — no duplicate application
+    expect(result?.hostActions).toBeUndefined(); // applied host action consumed — no duplicate application
   });
 
   it('settings-reset deletes via the settings adapter and requests exit', async () => {
@@ -114,7 +114,7 @@ describe('CMD-004 TC-02 — host-action executor over ICommandHostAdapters', () 
       moduleReturning('reset', {
         success: true,
         message: 'Reset requested.',
-        effects: [{ type: 'settings-reset-requested' }],
+        hostActions: [{ type: 'settings-reset' }],
       }),
     ]);
 
@@ -125,7 +125,7 @@ describe('CMD-004 TC-02 — host-action executor over ICommandHostAdapters', () 
     expect(requestExit).toHaveBeenCalledWith('other');
     expect(result?.success).toBe(true);
     expect(result?.message).toContain('User settings deleted');
-    expect(result?.effects ?? []).toEqual([]);
+    expect(result?.hostActions).toBeUndefined(); // consumed
   });
 
   it('session-exit uses the process adapter with the default end reason', async () => {
@@ -134,7 +134,7 @@ describe('CMD-004 TC-02 — host-action executor over ICommandHostAdapters', () 
       moduleReturning('exit', {
         success: true,
         message: 'Exit requested.',
-        effects: [{ type: 'session-exit-requested' }],
+        hostActions: [{ type: 'session-exit' }],
       }),
     ]);
 
@@ -142,7 +142,7 @@ describe('CMD-004 TC-02 — host-action executor over ICommandHostAdapters', () 
 
     expect(requestExit).toHaveBeenCalledTimes(1);
     expect(requestExit).toHaveBeenCalledWith('prompt_input_exit');
-    expect(result?.effects ?? []).toEqual([]);
+    expect(result?.hostActions).toBeUndefined(); // consumed
   });
 
   it('an ABSENT adapter yields an explicit failure in the command result — never a silent skip', async () => {
@@ -150,7 +150,7 @@ describe('CMD-004 TC-02 — host-action executor over ICommandHostAdapters', () 
       moduleReturning('exit', {
         success: true,
         message: 'Exit requested.',
-        effects: [{ type: 'session-exit-requested' }],
+        hostActions: [{ type: 'session-exit' }],
       }),
     ]);
 
@@ -172,7 +172,7 @@ describe('CMD-004 TC-02 — host-action executor over ICommandHostAdapters', () 
         moduleReturning('reset', {
           success: true,
           message: 'Reset requested.',
-          effects: [{ type: 'settings-reset-requested' }],
+          hostActions: [{ type: 'settings-reset' }],
         }),
       ],
     );
@@ -189,7 +189,7 @@ describe('CMD-004 TC-02 — host-action executor over ICommandHostAdapters', () 
       moduleReturning('statusline', {
         success: true,
         message: 'Status line disabled.',
-        effects: [{ type: 'statusline-settings-patch', patch: { enabled: false } }],
+        hostActions: [{ type: 'statusline-settings-patch', patch: { enabled: false } }],
       }),
     ]);
 
@@ -199,7 +199,7 @@ describe('CMD-004 TC-02 — host-action executor over ICommandHostAdapters', () 
     expect(settings.write).toHaveBeenCalledWith(
       expect.objectContaining({ statusline: { enabled: false, gitBranch: true } }),
     );
-    expect(result?.effects ?? []).toEqual([]);
+    expect(result?.hostActions).toBeUndefined(); // consumed
   });
 
   it('remote-control enable executes through the adapter and folds the returned message', async () => {
@@ -210,7 +210,7 @@ describe('CMD-004 TC-02 — host-action executor over ICommandHostAdapters', () 
         moduleReturning('remote-control', {
           success: true,
           message: 'Enabling remote control...',
-          effects: [{ type: 'remote-control-enable-requested' }],
+          hostActions: [{ type: 'remote-control-enable' }],
         }),
       ],
     );
@@ -220,7 +220,7 @@ describe('CMD-004 TC-02 — host-action executor over ICommandHostAdapters', () 
     expect(enable).toHaveBeenCalledTimes(1);
     expect(result?.success).toBe(true);
     expect(result?.message).toBe('Enabling remote control...\nScan this QR: https://pair.example');
-    expect(result?.effects ?? []).toEqual([]);
+    expect(result?.hostActions).toBeUndefined(); // consumed
   });
 
   it('remote-control enable without the adapter capability fails explicitly', async () => {
@@ -230,7 +230,7 @@ describe('CMD-004 TC-02 — host-action executor over ICommandHostAdapters', () 
         moduleReturning('remote-control', {
           success: true,
           message: 'Enabling remote control...',
-          effects: [{ type: 'remote-control-enable-requested' }],
+          hostActions: [{ type: 'remote-control-enable' }],
         }),
       ],
     );
@@ -256,7 +256,7 @@ describe('CMD-004 TC-02 — host-action executor over ICommandHostAdapters', () 
         moduleReturning('language', {
           success: true,
           message: 'Language set to "ko".',
-          effects: [{ type: 'language-change-requested', language: 'ko' }],
+          hostActions: [{ type: 'language-change', language: 'ko' }],
         }),
       ],
     );
@@ -267,12 +267,12 @@ describe('CMD-004 TC-02 — host-action executor over ICommandHostAdapters', () 
     expect(result?.message).toBe("Failed to apply 'language-change': disk full");
   });
 
-  it('a UI intent emits exactly one ui_intent, dual-carrying the legacy effect for the TUI', async () => {
+  it('a UI intent emits exactly one ui_intent and is consumed from the result', async () => {
     const session = createSession({}, [
       moduleReturning('settings', {
         success: true,
         message: 'Opening settings...',
-        effects: [{ type: 'settings-tui-requested' }],
+        uiIntents: [{ type: 'show-settings' }],
       }),
     ]);
     const intents: IUiIntentEvent[] = [];
@@ -282,8 +282,8 @@ describe('CMD-004 TC-02 — host-action executor over ICommandHostAdapters', () 
 
     // Exactly one emission; a local 'user' command defaults to the owner driver.
     expect(intents).toEqual([{ intent: { type: 'show-settings' }, requesterDriverId: 'owner' }]);
-    // Dual-carry: the legacy effect STAYS in the result so the untouched TUI keeps rendering it.
-    expect(result?.effects).toEqual([{ type: 'settings-tui-requested' }]);
+    // The intent is delivered as an event — the returned result no longer carries it.
+    expect(result?.uiIntents).toBeUndefined();
   });
 
   it('stamps ui_intent with the command-origin driver id passed into executeCommand', async () => {
@@ -291,7 +291,7 @@ describe('CMD-004 TC-02 — host-action executor over ICommandHostAdapters', () 
       moduleReturning('settings', {
         success: true,
         message: 'Opening settings...',
-        effects: [{ type: 'settings-tui-requested' }],
+        uiIntents: [{ type: 'show-settings' }],
       }),
     ]);
     const intents: IUiIntentEvent[] = [];
@@ -309,7 +309,7 @@ describe('CMD-004 TC-02 — host-action executor over ICommandHostAdapters', () 
       moduleReturning('settings', {
         success: true,
         message: 'Opening settings...',
-        effects: [{ type: 'settings-tui-requested' }],
+        uiIntents: [{ type: 'show-settings' }],
       }),
     ]);
     const intents: IUiIntentEvent[] = [];
@@ -328,7 +328,7 @@ describe('CMD-004 TC-02 — host-action executor over ICommandHostAdapters', () 
       moduleReturning('settings', {
         success: true,
         message: 'Opening settings...',
-        effects: [{ type: 'settings-tui-requested' }],
+        uiIntents: [{ type: 'show-settings' }],
       }),
     ]);
     const intents: IUiIntentEvent[] = [];
@@ -339,18 +339,18 @@ describe('CMD-004 TC-02 — host-action executor over ICommandHostAdapters', () 
     expect(intents).toEqual([{ intent: { type: 'show-settings' } }]);
   });
 
-  it('notification effects pass through untouched (final carriers are Stage E)', async () => {
+  it('result data hints pass through untouched (requester-local carriers, e.g. pluginRegistryReloaded)', async () => {
     const session = createSession({}, [
-      moduleReturning('clear', {
+      moduleReturning('plugin', {
         success: true,
-        message: 'Conversation cleared.',
-        effects: [{ type: 'conversation-history-cleared' }],
+        message: 'Reloaded 1 plugin resource.',
+        data: { pluginRegistryReloaded: true },
       }),
     ]);
 
-    const result = await session.executeCommand('clear', '');
+    const result = await session.executeCommand('plugin', 'reload');
 
-    expect(result?.effects).toEqual([{ type: 'conversation-history-cleared' }]);
+    expect(result?.data).toEqual({ pluginRegistryReloaded: true });
   });
 
   it('a failed command result passes through without applying anything', async () => {
@@ -359,7 +359,7 @@ describe('CMD-004 TC-02 — host-action executor over ICommandHostAdapters', () 
       moduleReturning('exit', {
         success: false,
         message: 'nope',
-        effects: [{ type: 'session-exit-requested' }],
+        hostActions: [{ type: 'session-exit' }],
       }),
     ]);
 
@@ -369,7 +369,7 @@ describe('CMD-004 TC-02 — host-action executor over ICommandHostAdapters', () 
     expect(result).toEqual({
       success: false,
       message: 'nope',
-      effects: [{ type: 'session-exit-requested' }],
+      hostActions: [{ type: 'session-exit' }],
     });
   });
 

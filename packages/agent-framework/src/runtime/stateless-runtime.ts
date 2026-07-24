@@ -1,7 +1,7 @@
 /**
  * createStatelessRuntime — filesystem-free runtime for serverless and embedded contexts.
  *
- * Thin wrapper around createAgentRuntime that disables all filesystem side effects:
+ * Thin wrapper around createAgentRuntime that disables all filesystem side-effects —
  * - sessionStore: undefined  (no session persistence)
  * - commandHostAdapters with no-op settings (no ~/.robota/settings.json writes)
  *

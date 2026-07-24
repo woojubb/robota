@@ -31,7 +31,6 @@ export type {
   TCommandResultDataValue,
   TCommandInvocationSource,
   ICommandListEntry,
-  TCommandEffect,
   TCommandHostAction,
   TCommandUiIntent,
   ICommandPluginAdapter,

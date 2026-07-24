@@ -197,7 +197,6 @@ describe('createSessionCommandModule', () => {
     expect(result).toEqual({
       success: true,
       message: 'Conversation cleared.',
-      effects: [{ type: 'conversation-history-cleared' }],
     });
   });
 
@@ -217,7 +216,7 @@ describe('createSessionCommandModule', () => {
     const result = await executor.execute('clear', context, '');
 
     expect(clearConversationHistory).toHaveBeenCalledTimes(1);
-    expect(result?.effects).toEqual([{ type: 'conversation-history-cleared' }]);
+    expect(result?.success).toBe(true);
   });
 
   it('CMD-004: cancels the clear when the user declines', async () => {
@@ -281,7 +280,6 @@ describe('createSessionCommandModule', () => {
     expect(result).toEqual({
       success: true,
       message: 'Conversation cleared.',
-      effects: [{ type: 'conversation-history-cleared' }],
     });
     expect(clearHistory).toHaveBeenCalledTimes(1);
     expect(session.getFullHistory()).toEqual([]);
@@ -298,7 +296,7 @@ describe('createSessionCommandModule', () => {
       success: true,
       message: 'Session renamed to "my-session".',
       data: { name: 'my-session' },
-      effects: [{ type: 'session-renamed', name: 'my-session' }],
+      hostActions: [{ type: 'session-rename', name: 'my-session' }],
     });
   });
 
@@ -326,7 +324,7 @@ describe('createSessionCommandModule', () => {
       success: true,
       message: 'Opening session picker...',
       data: { triggerResumePicker: true },
-      effects: [{ type: 'session-picker-requested' }],
+      uiIntents: [{ type: 'show-session-picker' }],
     });
   });
 

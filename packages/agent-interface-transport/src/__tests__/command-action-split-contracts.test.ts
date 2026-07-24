@@ -1,11 +1,11 @@
 /**
  * CMD-004 Phase 2 (TC-01) — split command contract type tests.
  *
- * Asserts the additive Stage-A contract: `TCommandHostAction` / `TCommandUiIntent` are exported,
- * UI-intent names carry no UI-technology token, `ICommandResult` carries the split fields alongside
- * the deprecated legacy `effects`, `IUiIntentEvent` carries `requesterDriverId?`, the `ui_intent` /
- * `session_renamed` session events exist, and `executeCommand` accepts the optional command-origin
- * driver id without breaking 2/3-arg callers.
+ * Asserts the final (Stage-E) contract: `TCommandHostAction` / `TCommandUiIntent` are exported,
+ * UI-intent names carry no UI-technology token, `ICommandResult` carries ONLY the split fields (the
+ * legacy `effects` union is deleted), `IUiIntentEvent` carries `requesterDriverId?`, the `ui_intent` /
+ * `session_renamed` / `history_cleared` session events exist, and `executeCommand` accepts the
+ * optional command-origin driver id without breaking 2/3-arg callers.
  */
 
 import { describe, expect, expectTypeOf, it } from 'vitest';
@@ -16,14 +16,15 @@ import type {
   IInteractiveSessionEvents,
   ISessionRenamedEvent,
   IUiIntentEvent,
-  TCommandEffect,
   TCommandHostAction,
   TCommandUiIntent,
   TDriverId,
 } from '../index.js';
 
 describe('CMD-004 Phase 2 split command contract (TC-01)', () => {
-  it('exports TCommandHostAction with the ten host-executed kinds', () => {
+  it('exports TCommandHostAction with the nine host-executed kinds', () => {
+    // `plugin-registry-reload` was dropped in Stage E: the semantic reload runs INSIDE the command
+    // (host-side already); the surface refresh rides `data.pluginRegistryReloaded` (requester-local).
     expectTypeOf<TCommandHostAction['type']>().toEqualTypeOf<
       | 'provider-hot-swap'
       | 'language-change'
@@ -32,7 +33,6 @@ describe('CMD-004 Phase 2 split command contract (TC-01)', () => {
       | 'session-restart'
       | 'session-rename'
       | 'statusline-settings-patch'
-      | 'plugin-registry-reload'
       | 'remote-control-enable'
       | 'remote-control-stop'
     >();
@@ -43,19 +43,20 @@ describe('CMD-004 Phase 2 split command contract (TC-01)', () => {
       'show-plugin-manager' | 'show-settings' | 'show-session-picker' | 'show-agent-switcher'
     >();
     // Grep-floor at the type level: no intent name may embed a renderer technology.
-    type TTechnologyToken = `${string}tui${string}` | `${string}ink${string}` | `${string}gui${string}`;
+    type TTechnologyToken =
+      `${string}tui${string}` | `${string}ink${string}` | `${string}gui${string}`;
     expectTypeOf<Extract<TCommandUiIntent['type'], TTechnologyToken>>().toEqualTypeOf<never>();
   });
 
-  it('ICommandResult carries hostActions/uiIntents alongside the deprecated effects', () => {
+  it('ICommandResult carries ONLY the split fields — the legacy effects union is deleted', () => {
     expectTypeOf<ICommandResult['hostActions']>().toEqualTypeOf<
       readonly TCommandHostAction[] | undefined
     >();
     expectTypeOf<ICommandResult['uiIntents']>().toEqualTypeOf<
       readonly TCommandUiIntent[] | undefined
     >();
-    // The legacy union stays untouched (dual-carry) until Stage E deletes it.
-    expectTypeOf<ICommandResult['effects']>().toEqualTypeOf<readonly TCommandEffect[] | undefined>();
+    // Stage E: the legacy `effects` field no longer exists on the contract.
+    expectTypeOf<'effects' extends keyof ICommandResult ? true : false>().toEqualTypeOf<false>();
   });
 
   it('IUiIntentEvent carries the intent and the optional requester driver id', () => {
@@ -63,13 +64,14 @@ describe('CMD-004 Phase 2 split command contract (TC-01)', () => {
     expectTypeOf<IUiIntentEvent['requesterDriverId']>().toEqualTypeOf<TDriverId | undefined>();
   });
 
-  it('the session event map carries ui_intent and session_renamed', () => {
+  it('the session event map carries ui_intent and the session_renamed/history_cleared broadcasts', () => {
     expectTypeOf<IInteractiveSessionEvents['ui_intent']>().toEqualTypeOf<
       (event: IUiIntentEvent) => void
     >();
     expectTypeOf<IInteractiveSessionEvents['session_renamed']>().toEqualTypeOf<
       (event: ISessionRenamedEvent) => void
     >();
+    expectTypeOf<IInteractiveSessionEvents['history_cleared']>().toEqualTypeOf<() => void>();
   });
 
   it('executeCommand accepts the optional command-origin driver id (untouched callers compile)', () => {

@@ -9,7 +9,7 @@ import type {
 } from '@robota-sdk/agent-framework';
 
 /**
- * REMOTE-008 — `/remote-control` command: a declarative trigger (enable/stop return effects) + a
+ * REMOTE-008 — `/remote-control` command: a declarative trigger (enable/stop return host actions) + a
  * status read over the injected `remoteControl` adapter.
  */
 
@@ -25,24 +25,24 @@ describe('executeRemoteControlCommand (REMOTE-008)', () => {
   it('default (no args) requests enable via a host effect (no transport touched by the command)', () => {
     const result = executeRemoteControlCommand(ctx(), '');
     expect(result.success).toBe(true);
-    expect(result.effects).toEqual([{ type: 'remote-control-enable-requested' }]);
+    expect(result.hostActions).toEqual([{ type: 'remote-control-enable' }]);
   });
 
   it('`enable` / `on` also request enable', () => {
-    expect(executeRemoteControlCommand(ctx(), 'enable').effects).toEqual([
-      { type: 'remote-control-enable-requested' },
+    expect(executeRemoteControlCommand(ctx(), 'enable').hostActions).toEqual([
+      { type: 'remote-control-enable' },
     ]);
-    expect(executeRemoteControlCommand(ctx(), 'ON').effects).toEqual([
-      { type: 'remote-control-enable-requested' },
+    expect(executeRemoteControlCommand(ctx(), 'ON').hostActions).toEqual([
+      { type: 'remote-control-enable' },
     ]);
   });
 
-  it('`stop` / `off` request the stop effect', () => {
-    expect(executeRemoteControlCommand(ctx(), 'stop').effects).toEqual([
-      { type: 'remote-control-stop-requested' },
+  it('`stop` / `off` request the stop host action', () => {
+    expect(executeRemoteControlCommand(ctx(), 'stop').hostActions).toEqual([
+      { type: 'remote-control-stop' },
     ]);
-    expect(executeRemoteControlCommand(ctx(), 'off').effects).toEqual([
-      { type: 'remote-control-stop-requested' },
+    expect(executeRemoteControlCommand(ctx(), 'off').hostActions).toEqual([
+      { type: 'remote-control-stop' },
     ]);
   });
 
@@ -53,7 +53,7 @@ describe('executeRemoteControlCommand (REMOTE-008)', () => {
     );
     expect(result.success).toBe(true);
     expect(result.message).toContain('https://x/#r=a&s=b');
-    expect(result.effects).toBeUndefined(); // status is read-only, no effect
+    expect(result.hostActions).toBeUndefined(); // status is read-only, no action
   });
 
   it('`status` with no relay reports the missing-relay guidance', () => {
@@ -70,7 +70,7 @@ describe('executeRemoteControlCommand (REMOTE-008)', () => {
   it('an unknown argument is a usage error (no effect)', () => {
     const result = executeRemoteControlCommand(ctx(), 'frobnicate');
     expect(result.success).toBe(false);
-    expect(result.effects).toBeUndefined();
+    expect(result.hostActions).toBeUndefined();
   });
 
   // REMOTE-012 E3 — trusted-device management verbs.

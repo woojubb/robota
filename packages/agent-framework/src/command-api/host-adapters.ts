@@ -38,7 +38,7 @@ export interface ICommandPermissionModeAdapter {
  * REMOTE-008: view of `/remote-control` state, so the command can report status without touching the
  * transport. CMD-004 Phase 2 supersedes the original status-only design: the enable/stop ACTIONS are
  * now host-executed through this adapter (wired at the composition root) instead of surface-rendered
- * `TCommandEffect`s, so they work on every surface (remote/headless included).
+ * legacy command effects, so they work on every surface (remote/headless included).
  */
 export type TRemoteControlStatus =
   | { readonly state: 'off' }

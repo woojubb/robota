@@ -1,9 +1,9 @@
 /**
- * CMD-004 Phase 2 Stage C: `applySystemCommandResult` is pure rendering. The only legacy effects
- * it still consumes are the two notification kinds (`conversation-history-cleared`,
- * `plugin-registry-reload-requested` — final carriers land in Stage E). Everything else —
- * host-executed actions (already applied + stripped by the session) and UI intents (delivered via
- * the `ui_intent` session event) — is ignored here by design.
+ * CMD-004 Phase 2: `applySystemCommandResult` is pure rendering. Host actions are applied (and
+ * consumed) by the session, UI intents arrive via the `ui_intent` session event, and state-change
+ * notifications arrive as broadcast session events (`session_renamed`, `history_cleared`). The
+ * only result-carried hint consumed here is `data.pluginRegistryReloaded` — the requester-local
+ * command-registry/autocomplete refresh.
  */
 
 import { homedir } from 'node:os';
@@ -51,14 +51,14 @@ describe('applySystemCommandResult', () => {
     } as unknown as IInteractiveSession;
   }
 
-  it('renders the message and ignores residual UI-intent effects (delivered via ui_intent)', () => {
+  it('renders the message only — UI intents are delivered via the ui_intent session event', () => {
     const manager = new TuiStateManager();
 
     applySystemCommandResult(
       {
         success: true,
         message: 'Opening plugin manager...',
-        effects: [{ type: 'plugin-tui-requested' }],
+        uiIntents: [{ type: 'show-plugin-manager' }],
       },
       createSession(),
       new CommandRegistry(),
@@ -70,14 +70,13 @@ describe('applySystemCommandResult', () => {
     expect(manager.history[0]?.data).toMatchObject({ content: 'Opening plugin manager...' });
   });
 
-  it('ignores a residual statusline patch (host-applied; the TUI refreshes on result)', () => {
+  it('renders a host-actioned result as message only (host applied it; TUI refreshes on result)', () => {
     const manager = new TuiStateManager();
 
     applySystemCommandResult(
       {
         success: true,
         message: 'Status line disabled.',
-        effects: [{ type: 'statusline-settings-patch', patch: { enabled: false } }],
       },
       createSession(),
       new CommandRegistry(),
@@ -88,7 +87,7 @@ describe('applySystemCommandResult', () => {
     expect(manager.history[0]?.data).toMatchObject({ content: 'Status line disabled.' });
   });
 
-  it('applies conversation history clearing immediately before adding the command result', () => {
+  it('appends the /clear result message AFTER the broadcast-driven clear (event fired during executeCommand)', () => {
     const manager = new TuiStateManager();
     manager.addEntry({
       id: 'old',
@@ -98,11 +97,14 @@ describe('applySystemCommandResult', () => {
       data: { role: 'user', content: 'old message' },
     });
 
+    // Stage E: the transcript clear itself rides the broadcast `history_cleared` session event
+    // (bound in TuiInteractionChannel and emitted while the command executes — before the result
+    // returns), so by the time this renderer runs the history is already empty.
+    manager.clearHistory();
     applySystemCommandResult(
       {
         success: true,
         message: 'Conversation cleared.',
-        effects: [{ type: 'conversation-history-cleared' }],
       },
       createSession(),
       new CommandRegistry(),
@@ -154,7 +156,7 @@ describe('applySystemCommandResult', () => {
       {
         success: true,
         message: 'Reloaded 1 plugin resource.',
-        effects: [{ type: 'plugin-registry-reload-requested' }],
+        data: { pluginRegistryReloaded: true },
       },
       createSession(),
       registry,

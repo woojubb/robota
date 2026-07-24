@@ -18,7 +18,7 @@ import type {
   ITransportAdapter,
   ITransportConfig,
   IUsageSnapshot,
-  TCommandEffect,
+  TCommandHostAction,
   TPermissionResultValue,
 } from '../index.js';
 
@@ -39,7 +39,7 @@ describe('agent-interface-transport contract surface', () => {
     expectTypeOf<ICommandListEntry>().toHaveProperty('name');
     expectTypeOf<ICommandPluginAdapter>().toHaveProperty('reloadPlugins');
     expectTypeOf<ICapabilityDescriptor>().toHaveProperty('kind');
-    expectTypeOf<TCommandEffect>().not.toBeNever();
+    expectTypeOf<TCommandHostAction>().not.toBeNever();
   });
 
   it('exports the interaction-channel contracts', () => {
