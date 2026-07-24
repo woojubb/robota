@@ -70,7 +70,9 @@ is selected by the runner options.
 | `TOutputFormat`                      | `src/headless/headless-runner.ts`             | `'text' \| 'json' \| 'stream-json'`          |
 | `IHeadlessTransportOptions`          | `src/headless/headless-transport.ts`          | Options for `createHeadlessTransport`        |
 | `ICreateProgrammaticAgentOptions`    | `src/programmatic/createProgrammaticAgent.ts` | Options for `createProgrammaticAgent`        |
-| `IProgrammaticAgent`                 | `src/programmatic/createProgrammaticAgent.ts` | The in-process driver surface                |
+
+The in-process driver surface itself is `IAgentDriver`, owned by
+`@robota-sdk/agent-interface-transport` — this package defines no driver type of its own.
 
 ## 5. Public API Surface
 
@@ -95,7 +97,10 @@ is selected by the runner options.
 | `ProgrammaticInteractionChannel`  | class     | In-process `IInteractionChannel` adapter: buffers `InteractionEvent`s, FIFO action-response queue |
 | `createProgrammaticAgent`         | function  | Driver over `createInteractiveRuntime`: `start`/`send`/`stop` + structured accessors              |
 | `ICreateProgrammaticAgentOptions` | interface | `{ provider, cwd, commandModules?, sessionStore?, permissionMode? }`                              |
-| `IProgrammaticAgent`              | interface | Driver surface: `events`, `send`, `assistantReplies`, `lastAssistantText`, `toolCalls`, `errors`  |
+
+The driver returned by `createProgrammaticAgent` is typed as `IAgentDriver` (owned by
+`@robota-sdk/agent-interface-transport`, not re-exported here): `events`, `start`, `send`,
+`queueUserAction`, `assistantReplies`, `lastAssistantText`, `toolCalls`, `errors`, `stop`.
 
 ### `/testing`
 

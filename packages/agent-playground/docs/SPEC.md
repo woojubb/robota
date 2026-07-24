@@ -12,7 +12,7 @@ Owns the Robota Playground UI package: React components, hooks, executor logic, 
   contracts in `src/lib/playground/types.ts`.
 - Does not define deployment or hosting behavior; that belongs to `apps/agent-web`.
 
-## Architecture Decision: No agent-sdk Session Stack
+## Architecture Decision: No agent-framework Session Stack
 
 The playground intentionally does not depend on `@robota-sdk/agent-framework`,
 `@robota-sdk/agent-session`, or `@robota-sdk/agent-executor`. This is a deliberate

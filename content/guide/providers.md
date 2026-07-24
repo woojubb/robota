@@ -45,7 +45,7 @@ Claude models. Best for long-context tasks, code generation, and nuanced reasoni
 ### Install
 
 ```bash
-npm install @robota-sdk/agent-provider @anthropic-ai/sdk
+npm install @robota-sdk/agent-provider-anthropic @anthropic-ai/sdk
 ```
 
 ### Basic usage
@@ -95,7 +95,7 @@ AI gateways, Azure OpenAI, vLLM, Ollama, LM Studio.
 ### Install
 
 ```bash
-npm install @robota-sdk/agent-provider openai
+npm install @robota-sdk/agent-provider-openai openai
 ```
 
 ### Basic usage
@@ -176,7 +176,7 @@ multimodal inputs.
 ### Install
 
 ```bash
-npm install @robota-sdk/agent-provider @google/genai
+npm install @robota-sdk/agent-provider-gemini @google/genai
 ```
 
 ### Basic usage
@@ -227,7 +227,7 @@ API under the hood.
 ### Install
 
 ```bash
-npm install @robota-sdk/agent-provider openai
+npm install @robota-sdk/agent-provider-openai-compatible openai
 ```
 
 ### Basic usage
@@ -275,7 +275,7 @@ web extraction tools.
 ### Install
 
 ```bash
-npm install @robota-sdk/agent-provider openai
+npm install @robota-sdk/agent-provider-openai-compatible openai
 ```
 
 ### Basic usage
@@ -340,7 +340,7 @@ A generic OpenAI-compatible provider. Use this for:
 ### Install
 
 ```bash
-npm install @robota-sdk/agent-provider openai
+npm install @robota-sdk/agent-provider-openai-compatible openai
 ```
 
 ### Basic usage

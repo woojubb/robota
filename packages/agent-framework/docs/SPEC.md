@@ -308,7 +308,7 @@ interface ICommandModule {
 }
 ```
 
-Current requirement: `'agent-executor'` — enables agent definitions and shared background/subagent managers.
+Current requirement: `'agent-runtime'` (the sole `TCommandModuleSessionRequirement` value) — enables agent definitions and shared background/subagent managers.
 
 ### Transport Adapters (`ITransportAdapter`)
 
@@ -321,7 +321,7 @@ await transport.start();
 
 ### Hook Executors
 
-`createSession()` accepts custom `IHookTypeExecutor` implementations alongside the SDK-built-in `PromptExecutor` and `AgentExecutor`. Executors are keyed by hook type string and receive hook configuration plus a JSON payload.
+The internal assembly factory `createSession()` accepts custom `IHookTypeExecutor` implementations (`additionalHookExecutors`) alongside the SDK-built-in `PromptExecutor` and `AgentExecutor`. Executors are keyed by hook type string and receive hook configuration plus a JSON payload. This seam is internal-assembly-level only: `createSession()` is not exported, and the public `InteractiveSession` options do not expose executor injection.
 
 ### Bundle Plugins
 
@@ -333,10 +333,12 @@ Consumers provide a `permissionHandler` callback (`TInteractivePermissionHandler
 
 ### Subagent Runner Factory (`TSubagentRunnerFactory`)
 
-Runtime shells can inject a factory to replace the default in-process subagent runner with a process-backed or worktree-isolated runner:
+Runtime shells can inject a factory to replace the default in-process subagent runner with a process-backed or worktree-isolated runner, via the public `InteractiveSession` options or `createAgentRuntime` config:
 
 ```typescript
-createSession({ subagentRunnerFactory: myFactory });
+new InteractiveSession({ cwd, provider, subagentRunnerFactory: myFactory });
+// or
+createAgentRuntime({ cwd, provider, subagentRunnerFactory: myFactory });
 ```
 
 ### Sandbox Client (`ISandboxClient`)
@@ -2424,10 +2426,7 @@ Headless runs are fully autonomous until a stop condition fires; interactive (TU
 
 ## Unconnected Packages (Future Integration Targets)
 
-| Package                                                              | Current State | Integration Direction                                               |
-| -------------------------------------------------------------------- | ------------- | ------------------------------------------------------------------- |
-| **agent-tool-mcp**                                                   | Unconnected   | Connect when MCP server is configured in InteractiveSession options |
-| **agent-team**                                                       | Unconnected   | Replace agent-tool.ts with agent-team delegation pattern            |
-| **agent-event-service**                                              | Unconnected   | Publish Session lifecycle events                                    |
-| **agent-plugin-\***                                                  | Unconnected   | Inject plugins during Session/Robota creation                       |
-| **agent-provider (`./openai`, `./gemini`, `./bytedance` sub-paths)** | Unconnected   | Consumer passes provider to InteractiveSession({ cwd, provider })   |
+| Package            | Current State                                            | Integration Direction                                               |
+| ------------------ | -------------------------------------------------------- | ------------------------------------------------------------------- |
+| **agent-tool-mcp** | Unconnected (no in-repo dependents; forward-provisioned) | Connect when MCP server is configured in InteractiveSession options |
+| **agent-plugin**   | Unconnected (no in-repo dependents; forward-provisioned) | Inject plugins during Session/Robota creation                       |
