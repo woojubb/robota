@@ -89,7 +89,6 @@
     "pre-publish:check": "bash scripts/pre-publish-docs-check.sh",
     "publish:packages": "bash scripts/publish/publish-packages.sh",
     "publish:beta": "bash scripts/publish/publish-packages.sh",
-    "ci:publish": "pnpm publish -r",
     "knip": "knip",
     "deps:check": "depcruise packages/ apps/ --config .dependency-cruiser.cjs",
     "harness:scan:spec-paths": "node scripts/harness/check-spec-paths.mjs",
