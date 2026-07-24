@@ -63,4 +63,27 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
     fireEvent.click(screen.getByText('Allow'));
     expect(state.answerPermission).toHaveBeenCalledWith('p1', true);
   });
+
+  it('CMD-004 TC-05: a ui_intent notice renders VISIBLY and Dismiss removes it via the reducer', () => {
+    const state = stubState({
+      dismissUiIntentNotice: vi.fn(),
+      uiIntentNotices: [
+        {
+          id: 'n1',
+          intentType: 'show-settings',
+          notice:
+            'The settings screen is not available on this surface. Use the robota terminal on the host.',
+        },
+      ],
+    } as unknown as Partial<IWsSessionState>);
+    render(<SessionSurface state={state} />);
+    // The explicit unsupported signal (never a silent drop) is user-visible …
+    expect(screen.getByText(/settings screen is not available on this surface/i)).toBeTruthy();
+    // … and dismissible through the reducer's handle.
+    fireEvent.click(screen.getByLabelText('dismiss show-settings notice'));
+    expect(
+      (state as unknown as { dismissUiIntentNotice: ReturnType<typeof vi.fn> })
+        .dismissUiIntentNotice,
+    ).toHaveBeenCalledWith('n1');
+  });
 });

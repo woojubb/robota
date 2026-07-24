@@ -21,6 +21,14 @@ export type { TConnectionStatus } from './client/ws-session-client.js';
 export { applyPromptEvent, permissionResponse, askResponse } from './hooks/prompt-state.js';
 export type { TPendingPrompt } from './hooks/prompt-state.js';
 
+// ── UI-intent (command screen-request) state — CMD-004 Stage D ──
+export {
+  applyUiIntentEvent,
+  removeUiIntentNotice,
+  describeUiIntentForGui,
+} from './hooks/ui-intent-state.js';
+export type { IUiIntentNotice, TUiIntentNotice } from './hooks/ui-intent-state.js';
+
 // ── Presentation components ─────────────────────────────────
 export { ConversationView } from './components/ConversationView.js';
 export { AgentActivityPanel } from './components/AgentActivityPanel.js';
