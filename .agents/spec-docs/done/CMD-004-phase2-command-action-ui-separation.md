@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: FLOW
 tags: [cli, typescript, websocket, multi-surface, architecture]
 ---
@@ -7,9 +7,9 @@ tags: [cli, typescript, websocket, multi-surface, architecture]
 # CMD-004 (Phase 2): command host-ACTION / UI-intent separation — effects work on every surface
 
 > Formal gate-pipeline spec for the REMAINING scope of the backlog item
-> [`.agents/backlog/CMD-004-command-action-ui-separation.md`](../../backlog/CMD-004-command-action-ui-separation.md).
+> [`.agents/backlog/completed/CMD-004-command-action-ui-separation.md`](../../backlog/completed/CMD-004-command-action-ui-separation.md).
 > Phase 1 (the unified `askUser` action seam) is done — spec archived at
-> [`done/CMD-004-command-action-ui-separation.md`](../done/CMD-004-command-action-ui-separation.md)
+> [`done/CMD-004-command-action-ui-separation.md`](./CMD-004-command-action-ui-separation.md)
 > (same ID by design: this is the same initiative's second and final phase; the frontmatter-scan
 > duplicate-ID warning is intentional and accepted).
 >
@@ -318,10 +318,10 @@ This cannot be one big-bang PR. Additive-then-delete, the Phase-1 pattern:
 
 ## Completion Criteria
 
-- [ ] TC-01: `pnpm --filter @robota-sdk/agent-interface-transport test` → exits 0; a type test asserts
+- [x] TC-01: `pnpm --filter @robota-sdk/agent-interface-transport test` → exits 0; a type test asserts
       `TCommandHostAction`/`TCommandUiIntent` are exported, `TCommandUiIntent` names contain no
       UI-technology token, and `IUiIntentEvent` carries `requesterDriverId?`.
-- [ ] TC-02: `pnpm --filter @robota-sdk/agent-framework test` → exits 0; tests drive `executeCommand`
+- [x] TC-02: `pnpm --filter @robota-sdk/agent-framework test` → exits 0; tests drive `executeCommand`
       with a stub `ICommandHostAdapters` and assert: `language-change` writes via the settings adapter
       and requests restart via the process adapter; `settings-reset` deletes and requests exit;
       applied host actions are stripped from the returned result; a UI intent emits exactly one
@@ -329,7 +329,7 @@ This cannot be one big-bang PR. Additive-then-delete, the Phase-1 pattern:
       to the active turn's driver only for model-invoked commands); **zero attached surfaces** still
       applies host actions (headless parity); **an absent adapter yields an explicit failure in the
       command result** (no-fallback) — never a silent skip.
-- [ ] TC-03: WS driver e2e (`agent-transport-protocol`/`agent-cli` serve tests): a remote `command`
+- [x] TC-03: WS driver e2e (`agent-transport-protocol`/`agent-cli` serve tests): a remote `command`
       message running a language change results in a settings-adapter write host-side (asserted via
       injected adapter) — proven RED first against the pre-stage-B code where `ws-handler` drops
       effects; **the pre-Stage-B RED run is kept as recorded evidence in the Evidence Log**
@@ -338,15 +338,15 @@ This cannot be one big-bang PR. Additive-then-delete, the Phase-1 pattern:
       still opens the settings screen (now via `ui_intent`); `rg -n "writeSettings|deleteSettings"
 packages/agent-transport-tui/src/hooks/command-effect-handler.ts` → no matches (renderer no
       longer executes settings I/O). File deleted counts as pass. **(Stage C evidence below.)**
-- [ ] TC-05: `pnpm --filter @robota-sdk/agent-transport-gui test` → exits 0; folding a `ui_intent`
+- [x] TC-05: `pnpm --filter @robota-sdk/agent-transport-gui test` → exits 0; folding a `ui_intent`
       server message produces either a mapped GUI surface state or an explicit unsupported-notice
       entry — never a silent no-op.
-- [ ] TC-06: `rg -n "tui-requested|TCommandEffect|\beffects\??:" packages/*/src` → no production
+- [x] TC-06: `rg -n "tui-requested|TCommandEffect|\beffects\??:" packages/*/src` → no production
       matches after Stage E (grep floor; test files excluded).
-- [ ] TC-07: `pnpm -w typecheck` → exits 0 in the final state (old contract removed) — proves every
+- [x] TC-07: `pnpm -w typecheck` → exits 0 in the final state (old contract removed) — proves every
       consumer migrated.
-- [ ] TC-08: `pnpm harness:scan` → exits 0.
-- [ ] TC-09: WS e2e (multi-surface policy): with a remote WS surface attached, a remote
+- [x] TC-08: `pnpm harness:scan` → exits 0.
+- [x] TC-09: WS e2e (multi-surface policy): with a remote WS surface attached, a remote
       `session-exit-requested` (and `session-restart-requested`) host action terminates/restarts the
       **shared host session** serving all surfaces — asserting the deliberate local==remote
       (REMOTE-006) decision.
@@ -379,7 +379,8 @@ completeness.
 
 ## Tasks
 
-- [x] `.agents/tasks/CMD-004-phase2.md` — created (GATE-IMPLEMENT). Stages A–E mapped to TC-01..TC-10.
+- [x] `.agents/tasks/CMD-004-phase2.md` — created (GATE-IMPLEMENT); archived to
+      `.agents/tasks/completed/CMD-004-phase2.md` at GATE-COMPLETE. Stages A–E mapped to TC-01..TC-10.
 
 ## Evidence Log
 
@@ -592,3 +593,186 @@ Stage-C notes: the two notification effects (`conversation-history-cleared`,
 `command-result-handler.ts` until Stage E assigns their final carriers; `agent-cli` edits were
 confined to deleting the two dead `renderApp` remote-control props (the statusline re-read needed
 no new adapter method — `readSettings` sufficed).
+
+### [GATE-IMPLEMENT] — Stage D ✅ (remote surfaces) | 2026-07-25 — folded from PR #1348
+
+**Scope of that entry: Stage D ONLY (PR #1348, package-disjoint from Stage C by design; the spec
+file was deliberately not edited in that PR — evidence recorded in its body and folded here).**
+
+- `agent-transport-protocol` — `ui_intent` made REQUESTER-ROUTED server-side (Stage B broadcast
+  every intent): `subscribeSessionEvents` (split into `ws-session-events.ts`; `ws-handler.ts`
+  393→286 lines, back under its frozen 370 baseline) delivers an intent only when
+  `event.requesterDriverId` matches the surface's SERVER-ASSIGNED driver id, read lazily via
+  `getSurfaceDriverId` (the `SessionResumeBridge` binds its pairing id late). An UNATTRIBUTED
+  intent (idle model-invoked command) is unroutable and reaches every surface — never a silent
+  drop. Bridge routing happens BEFORE seq-stamping/buffering (no foreign-intent `resume` leak).
+  RED first (recorded): `npx vitest run src/__tests__/ws-handler.test.ts
+src/__tests__/session-resume-bridge.test.ts` → **3 failed | 41 passed** (device-B ALSO received
+  device-A's intent: `expected [] to deeply equal [{ type: 'ui_intent', … }]` on the
+  non-requesting surface; no-id surface received a foreign intent; bridge forwarded a foreign
+  intent pre-`setDriverId`). GREEN post-fix: protocol suite **58 passed (5 files)**.
+- `agent-transport-gui` — TC-05, explicit visible notices: the GUI has NO full-screen equivalent
+  of the four intents (verified before implementing), so every intent folds to an explicit,
+  dismissible "not available on this surface" notice via the pure `ui-intent-state.ts`
+  (`applyUiIntentEvent`/`removeUiIntentNotice`/`describeUiIntentForGui`, mirrors
+  `prompt-state.ts`); unknown future wire kinds ALSO produce an explicit notice naming the raw
+  kind. Reducer exposes `uiIntentNotices` + `dismissUiIntentNotice`; `SessionSurface` renders the
+  dismissible banner stack. `ui-intent-state.test.ts` (6 tests) run RED first (module absent) then
+  GREEN; GUI suite **16 passed**; app-level jsdom render+dismiss test in `apps/agent-app` →
+  **17 passed**.
+- `agent-transport` — headless/programmatic host-action parity:
+  `headless-host-action-parity.test.ts` (zero attached surfaces: `/language ko` writes via the
+  settings adapter + requests restart, applied actions stripped; absent adapter ⇒ the EXPLICIT
+  `Cannot apply 'language-change': … not available in this environment.` failure end-to-end
+  through `createProgrammaticAgent`); `docs/SPEC.md` gained the "Host-action parity (CMD-004
+  Stage D)" section.
+- TC-09 — `ws-multi-surface-exit-policy.test.ts`: TWO real `createWsHandler` surfaces over ONE
+  real `InteractiveSession` with the real `/exit` + `/language` modules — a remote `/exit` from
+  surface A (confirmed over the REMOTE-007 broadcast ask seam) calls the ONE shared process
+  adapter `requestExit('prompt_input_exit')` exactly once (session-scoped; `command_result`
+  reaches the requester only); a remote `/language ko` from surface B restarts the shared host
+  once; a LOCAL `/exit` produces the IDENTICAL shared-host adapter call — the deliberate
+  local == remote (REMOTE-006) policy asserted. Placement: `agent-transport` (devDependency on
+  `agent-transport-protocol`; no cycle).
+- Verification (PR #1348): protocol **58** + gui **16** + transport **56** + agent-app **17**
+  passed; workspace `pnpm typecheck` exit 0; `node scripts/harness/run-all-scans.mjs` → all 59
+  scans passed; ESLint 0 errors.
+
+### [GATE-IMPLEMENT] — Stage E ✅ (source migration + deletion) | 2026-07-25
+
+**Scope of this entry: Stage E (final stage) — emitters on the split contract, final notification
+carriers, legacy deletion, workspace floors.**
+
+Final carriers (per the approved decision, red-first on every surface):
+
+- `session-renamed` → the host-executed rename already broadcast `session_renamed` (Stage B);
+  Stage E adds the WS forward so REMOTE co-driving surfaces follow it too.
+- `conversation-history-cleared` → NEW broadcast session event `history_cleared`, emitted at the
+  point of mutation (`InteractiveSession.clearConversationHistory`) so a clear performed by ANY
+  path refreshes every attached surface; forwarded unfiltered over WS; TUI transcript bound in
+  `TuiInteractionChannel` (`manager.clearHistory`); GUI reducer resets messages + streaming state
+  and gains `sessionName` (folds `session_renamed`).
+- `session-execution-started` → `result.data.sessionExecution` (requester-local hint; the skill
+  router already carried it — consumers `TuiInteractionChannel` + `headless-stream-json` switched).
+- **Recorded deviation (shim-note follow-through):** `plugin-registry-reload` final carrier =
+  `result.data.pluginRegistryReloaded` (requester-local registry/autocomplete refresh consumed by
+  `command-result-handler.ts`; the semantic reload already runs HOST-side inside `/plugin reload`).
+  The dead `plugin-registry-reload` HOST-ACTION kind was dropped from `TCommandHostAction` — it
+  existed only as a Stage-E placeholder and would have been a no-op nobody consumed (dead contract
+  surface). The Decision table's original "host action" classification is superseded by this
+  data-hint carrier; no host semantics were lost (the reload runs in-command).
+
+RED-first evidence (broadcast carriers, all recorded 2026-07-25 against pre-Stage-E code):
+
+- `agent-transport-protocol` `npx vitest run src/__tests__/ws-broadcast-events.test.ts` →
+  **2 failed**: `session_renamed` — `expected [] to deeply equal [{ type: 'session_renamed',
+event: { name: 'Renamed Everywhere' } }]` on BOTH surfaces (no forwarding existed);
+  `history_cleared` — same shape (no event, no forwarding). GREEN after: **2 passed**; full
+  protocol suite **60 passed (6 files)** (subscription-count test updated 15→17 `off` calls).
+- `agent-transport-tui` `npx vitest run src/__tests__/history-clear-broadcast.test.ts` (REAL
+  `TuiInteractionChannel` + real `InteractiveSession`; the mutation alone must refresh the
+  transcript — the exact co-driving remote-/clear hole) → **1 failed** (`waitUntil(history ===
+[])` timed out — `expected false to be true`; the pre-Stage-E TUI cleared only from its own
+  command-result effect). GREEN after: **1 passed**.
+- `agent-transport-gui` `npx vitest run
+src/hooks/__tests__/use-session-client-broadcast.test.tsx` → **2 failed** (`sessionName`
+  undefined — the state did not exist; `history_cleared` left messages rendered). GREEN after:
+  **2 passed**; GUI suite **18 passed (4 files)**.
+
+Migration + deletion:
+
+- `agent-command` emitters → split contract: language/reset/exit/rename/statusline/provider
+  (hot-swap + `PROVIDER_RESTART_ACTION` session-restart)/remote-control → `hostActions`;
+  settings/plugin-manager/resume/agent-switcher → `uiIntents`; `/clear` carries nothing (the
+  broadcast is the carrier); `/plugin reload` → `data.pluginRegistryReloaded`.
+- `agent-framework` factories renamed to the split contract (`createSessionRenameHostAction`,
+  `createSessionExitHostAction`, `createShowSessionPickerIntent`, `createShowPluginManagerIntent`;
+  `createPluginRegistryReloadRequestedEffect` deleted); the skill router emits no effect;
+  `interactive-session-host-actions.ts` consumes ONLY `result.hostActions`/`.uiIntents`;
+  `command-effect-shim.ts` DELETED.
+- `agent-interface-transport`: `TCommandEffect` and `ICommandResult.effects` DELETED; the
+  `history_cleared` event added to `IInteractiveSessionEvents`; TC-01 type test asserts the final
+  contract (`effects` no longer a key of `ICommandResult`; nine host-action kinds; UI-neutral
+  intent names; `history_cleared: () => void`).
+- TC-06 mechanized: `command-effect-grep-floor.test.ts` (agent-interface-transport) walks every
+  `packages/*/src` production tree (test files excluded) and fails on
+  `tui-requested|TCommandEffect|\beffects\??:` — the floor now runs on every CI pass.
+- Changeset `.changeset/cmd-004-stage-e-effects-deletion.md` (minor, beta line) records the
+  breaking `ICommandResult.effects`/`TCommandEffect` removal across the 8 affected packages.
+  SPEC.md prose refreshed in interface-transport / framework / command / cli / tui / protocol /
+  gui (legacy effect language removed; broadcast carriers documented).
+
+Stage-E verification (all FOREGROUND, 2026-07-25):
+
+- Suites: `agent-interface-transport` **18 passed (4 files)** (incl. the grep floor);
+  `agent-framework` **1256 passed (150 files)**; `agent-command` **244 passed (31 files)**;
+  `agent-transport-protocol` **60 passed (6 files)**; `agent-transport` **56 passed (14 files)**;
+  `agent-transport-gui` **18 passed (4 files)**; `agent-transport-tui` **474 passed (63 files)**;
+  `agent-cli` **236 passed (30 files)** + TC-03 e2e re-run **2 passed** + `test:bin` **4 passed**;
+  `apps/agent-app` **17 passed**.
+- Real-binary PTY suite (rebuilt CLI with Stage E active): `pnpm test:pty` → exit 0,
+  **15 passed (10 files)** — incl. `settings-screen.ptytest.ts` (`/settings` renders via
+  `ui_intent`) and the `/exit` e2e (host `session-exit` action → per-mode process adapter).
+- TC-09 re-run on the final contract: `ws-multi-surface-exit-policy.test.ts` → **3 passed**.
+- `pnpm -w typecheck` → exit 0 (TC-07). `node scripts/harness/run-all-scans.mjs` → **all 60
+  scans passed** (TC-08; file-size ratchet honored — comment-tightened
+  `interactive-session.ts`/`interactive-session-skill-router.ts` back under their frozen
+  baselines).
+- Grep floors: `rg -n "writeSettings|deleteSettings"
+packages/agent-transport-tui/src/hooks/command-result-handler.ts` → no matches (TC-04 half);
+  `rg -n "tui-requested|TCommandEffect|\beffects\??:" packages/*/src` (test files excluded) →
+  no matches, exit 1 (TC-06).
+
+### [GATE-VERIFY] — ✅ PASS | 2026-07-25
+
+- Tasks file `.agents/tasks/CMD-004-phase2.md`: ALL stages A–E checked `[x]` (Stage D folded from
+  PR #1348 evidence); no blocked/pending tasks; archived to
+  `.agents/tasks/completed/CMD-004-phase2.md`.
+- Build passes for all affected packages (`pnpm --filter … build` over the 8-package closure,
+  exit 0) and tests pass for all affected packages (suite counts in the Stage-E entry above).
+- Status upgraded `in-progress` → `verifying`.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-07-25
+
+Per-TC verification (command → observed result; all exit 0 unless stated):
+
+- **[GATE-COMPLETE: TC-01]** `pnpm --filter @robota-sdk/agent-interface-transport build && npx
+vitest run` → 18 passed. Test: `src/__tests__/command-action-split-contracts.test.ts` (final
+  Stage-E contract: split exports, no-UI-technology-token floor, `requesterDriverId?`,
+  `history_cleared`, `'effects' extends keyof ICommandResult ? true : false` ⇒ `false`).
+- **[GATE-COMPLETE: TC-02]** `pnpm --filter @robota-sdk/agent-framework build && npx vitest run`
+  → 1256 passed (150 files). Test:
+  `src/interactive/__tests__/interactive-session-host-actions.test.ts` (16 tests, Stage-E shapes:
+  adapter writes/restart/exit, consumption from the result, one stamped `ui_intent` per intent +
+  origin/fallback variants, headless parity, adapter-absent explicit failures, adapter-error
+  failure result, single-execution counts).
+- **[GATE-COMPLETE: TC-03]** RED run recorded in the Stages A+B entry (pre-Stage-B: 2 failed —
+  settings write never happened; no ui_intent message existed). Final re-run:
+  `packages/agent-cli` `npx vitest run src/__tests__/ws-command-host-action.test.ts` → 2 passed.
+- **[GATE-COMPLETE: TC-04]** `pnpm --filter @robota-sdk/agent-transport-tui test` → 474 passed
+  (63 files); PTY `pnpm test:pty` → 15 passed (10 files) incl.
+  `src/__tests__/pty/settings-screen.ptytest.ts` (`/settings` opens via `ui_intent` in the real
+  binary); `rg -n "writeSettings|deleteSettings" …/command-result-handler.ts` → no matches.
+- **[GATE-COMPLETE: TC-05]** `pnpm --filter @robota-sdk/agent-transport-gui test` → 18 passed.
+  Tests: `src/hooks/__tests__/ui-intent-state.test.ts` (mapped state or explicit
+  unsupported-notice — never silent; Stage D) +
+  `src/hooks/__tests__/use-session-client-broadcast.test.tsx` (Stage E broadcasts).
+- **[GATE-COMPLETE: TC-06]** `rg -n "tui-requested|TCommandEffect|\beffects\??:"
+packages/*/src` (test files excluded) → zero matches (exit 1); mechanized as
+  `packages/agent-interface-transport/src/__tests__/command-effect-grep-floor.test.ts` → green.
+- **[GATE-COMPLETE: TC-07]** `pnpm -w typecheck` → exit 0 in the final state (legacy contract
+  deleted ⇒ every consumer migrated).
+- **[GATE-COMPLETE: TC-08]** `node scripts/harness/run-all-scans.mjs` → "all 60 scans passed".
+- **[GATE-COMPLETE: TC-09]** `packages/agent-transport` `npx vitest run
+src/__tests__/ws-multi-surface-exit-policy.test.ts` → 3 passed (remote `/exit` + `/language`
+  act on the SHARED host exactly once; local == remote asserted).
+- **[GATE-COMPLETE: TC-10]** RED runs recorded in the Stages A+B and Stage C entries (pre-Stage-B
+  rename did not persist; pre-Stage-C title never updated). Final state:
+  `packages/agent-command/src/session/__tests__/rename-host-persistence.test.ts` (2 passed inside
+  the 244) + `packages/agent-transport-tui/src/__tests__/rename-broadcast-persistence.test.tsx`
+  (fixture migrated to the split contract; green inside the 474).
+
+All Completion Criteria checked; Test Plan rows carry test references (list above); tasks file
+archived. Status upgraded `verifying` → `done`; document moved `active/` → `done/` under the
+phase-qualified filename `CMD-004-phase2-…` (the plain name is Phase 1's archived spec — the
+intentional same-ID pair noted in this document's header).

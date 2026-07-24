@@ -1,7 +1,7 @@
 # CMD-004 Phase 2 — command host-ACTION / UI-intent separation (task breakdown)
 
-Spec: `.agents/spec-docs/active/CMD-004-command-action-ui-separation.md`
-Status: in-progress — Stages A + B in flight (this branch). Stages C, D, E remain.
+Spec: `.agents/spec-docs/done/CMD-004-phase2-command-action-ui-separation.md`
+Status: DONE — all stages A–E landed (A+B #1338, C #1350, D #1348, E this branch).
 
 Staged migration (additive-then-delete, each stage independently green, own PR):
 
@@ -43,26 +43,37 @@ Staged migration (additive-then-delete, each stage independently green, own PR):
 
 - [x] Swap TUI subscription legacy effects → `ui_intent` for the four screens AND delete legacy
       branches in the SAME PR (dual-carry ends). Owner-routed (`requesterDriverId ===
-    OWNER_DRIVER_ID`); `session_renamed` broadcast drives the title.
+  OWNER_DRIVER_ID`); `session_renamed` broadcast drives the title.
 - [x] Delete `applyLanguageEffect`/`applySettingsResetEffect`, the `cliAdapter` write path, the
       `renameSession` mutation (TC-10 proof precedes — Stage-C red/green in the spec Evidence
       Log), the statusline self-write (refresh-on-result replaces it), and dead
       `applyCommandEffects`/`CommandEffectQueue` branches (both files deleted; the surviving
       notification rendering lives in `hooks/command-result-handler.ts`).
 
-## Stage D — remote surfaces (`agent-transport-gui`, `agent-transport`) → TC-05, TC-09 (NOT this branch)
+## Stage D — remote surfaces (`agent-transport-gui`, `agent-transport`) → TC-05, TC-09 ✅ (2026-07-25, PR #1348)
 
-- [ ] GUI renders supported intents; explicit "not available on this surface" notice otherwise.
-- [ ] Headless/programmatic host-action parity docs + tests.
-- [ ] WS e2e for the multi-surface exit/restart policy (TC-09).
+- [x] GUI renders supported intents; explicit "not available on this surface" notice otherwise
+      (v1: no GUI full-screen equivalents exist → every intent folds to an explicit dismissible
+      notice via `ui-intent-state.ts`; unknown wire kinds included — never silent).
+- [x] Headless/programmatic host-action parity docs + tests
+      (`headless-host-action-parity.test.ts` + `agent-transport` SPEC section).
+- [x] WS e2e for the multi-surface exit/restart policy (TC-09,
+      `ws-multi-surface-exit-policy.test.ts` — local == remote, REMOTE-006); `ui_intent`
+      requester-routed server-side (`ws-session-events.ts`, red-first).
 
-## Stage E — source migration + deletion (`agent-command` + contract cleanup) → TC-06, TC-07, TC-08 (NOT this branch)
+## Stage E — source migration + deletion (`agent-command` + contract cleanup) → TC-06, TC-07, TC-08 ✅ (2026-07-25)
 
-- [ ] Commands emit `hostActions`/`uiIntents` directly; remove the Stage-B shim, `TCommandEffect`,
-      `ICommandResult.effects`, all `*-tui-requested` names.
-- [ ] Final carriers: `session-renamed` + `conversation-history-cleared` → broadcast session
-      events; `session-execution-started` → `result.data`.
-- [ ] Grep floor green (TC-06); workspace typecheck (TC-07); harness scan (TC-08).
+- [x] Commands emit `hostActions`/`uiIntents` directly; the Stage-B shim, `TCommandEffect`,
+      `ICommandResult.effects`, and all `*-tui-requested` names are deleted workspace-wide.
+- [x] Final carriers: `session-renamed` + `conversation-history-cleared` → broadcast session
+      events (`session_renamed` + the new `history_cleared`, forwarded to every WS surface,
+      folded by the TUI transcript/title and the GUI reducer — red-first on all three surfaces);
+      `session-execution-started` → `result.data.sessionExecution`; plugin registry refresh →
+      `result.data.pluginRegistryReloaded` (requester-local; the dead `plugin-registry-reload`
+      host-action kind dropped from the union).
+- [x] Grep floor green (TC-06 — now a mechanical vitest floor,
+      `command-effect-grep-floor.test.ts`); workspace typecheck (TC-07); all 60 harness scans
+      (TC-08).
 
 ## Test Plan / 검증
 

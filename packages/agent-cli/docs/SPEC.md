@@ -258,7 +258,7 @@ Non-interactive print/headless execution must not prompt. Missing provider confi
 
 Environment-variable API key references use the `$ENV:NAME` form. If a required provider API key resolves to an unset environment variable, setup validation or provider construction must fail with a clear error before any provider request is sent. A literal unresolved `$ENV:NAME` string must never be sent as an API key.
 
-Provider slash commands are command-module interactions rendered through generic TUI prompts. The default CLI composes `@robota-sdk/agent-command`, which consumes SDK provider common APIs the same way a third-party command module would. The CLI must not implement provider-profile action rules; it only renders `choice` and `text` prompts returned by the command module and applies typed restart effects.
+Provider slash commands are command-module interactions rendered through generic TUI prompts. The default CLI composes `@robota-sdk/agent-command`, which consumes SDK provider common APIs the same way a third-party command module would. The CLI must not implement provider-profile action rules; it only renders `choice` and `text` prompts returned by the command module; restarts are host-executed `session-restart` actions.
 
 | Command                      | Behavior                                                                                                                                                                                                                                                      |
 | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -272,7 +272,7 @@ Provider slash commands are command-module interactions rendered through generic
 
 Selecting a profile opens a provider-command-owned action menu with switch, edit, test, duplicate, delete, and cancel. Edit uses provider setup metadata with masked current values hidden from the prompt display. Delete confirms the action, blocks the last profile, and requires a replacement before deleting the active profile. Non-interactive/headless slash execution never blocks on these interactions; it prints the deterministic command message and exits.
 
-Provider changes must follow the SDK command contract: the provider command module owns provider setup/edit/delete state, settings patch construction, writes through the injected settings adapter, and returns a generic `session-restart-requested` effect. The provider command solicits each step inline via the CMD-004 ask seam (`context.getUserInteraction()?.ask(IActionRequest)`); the CLI/TUI only renders those `IActionRequest` dialogs (via the channel's `askUser`) and applies typed command effects.
+Provider changes must follow the SDK command contract: the provider command module owns provider setup/edit/delete state, settings patch construction, writes through the injected settings adapter, and returns a generic `session-restart` host action the session executes via the per-mode process adapter. The provider command solicits each step inline via the CMD-004 ask seam (`context.getUserInteraction()?.ask(IActionRequest)`); the CLI/TUI only renders those `IActionRequest` dialogs (via the channel's `askUser`); host actions are session-executed (CMD-004).
 
 The TUI status area must show enough active profile identity for users to verify the selected
 runtime profile. When profile metadata is available, it renders profile key, provider type, and
@@ -479,7 +479,7 @@ Built-in commands are represented as `ICommandModule` instances injected into `I
 
 The CLI slash router must not own command-specific switch cases for built-ins when an injected command module can own the command. It may still own slash-prefix parsing, skill/plugin fallback lookup, result projection, and unknown-command rendering.
 
-`/plugin` and `/reload-plugins` are provided by `@robota-sdk/agent-command`. The CLI owns only the local `ICommandPluginAdapter` implementation. It applies `plugin-tui-requested` by opening `PluginTUI` and applies `plugin-registry-reload-requested` by reloading the registry's plugin command source.
+`/plugin` and `/reload-plugins` are provided by `@robota-sdk/agent-command`. The CLI owns only the local `ICommandPluginAdapter` implementation. It opens `PluginTUI` from the requester-routed `show-plugin-manager` `ui_intent` event and reloads the registry's plugin command source from the `data.pluginRegistryReloaded` result hint.
 
 `/exit` is provided by `@robota-sdk/agent-command`. The command package owns command metadata and emits `session-exit-requested`; the CLI applies that typed effect by gracefully shutting down the session and terminal UI.
 
@@ -705,23 +705,23 @@ From the TUI's `/provider list` menu, selecting a profile and choosing the **swi
 
 The `/permissions` command is provided by the `@robota-sdk/agent-command` module that the Robota binary composes into `InteractiveSession`. The CLI slash router does not inspect or mutate permission state directly; it routes `/permissions [mode]` into the generic command execution path, and the command module uses SDK permission common APIs. The default Robota CLI does not compose `/mode`; permission-mode changes belong under `/permissions`.
 
-The `/language` command is provided by the `@robota-sdk/agent-command` module that the Robota binary composes into `InteractiveSession`. The command module emits `language-change-requested`; the CLI applies settings persistence and restart through the generic command effect handler.
+The `/language` command is provided by the `@robota-sdk/agent-command` module that the Robota binary composes into `InteractiveSession`. The command module returns the `language-change` host action; the SESSION applies settings persistence and requests the restart through `ICommandHostAdapters` (CMD-004) — the CLI only renders the result.
 
-The `/statusline` command is provided by the `@robota-sdk/agent-command` module that the Robota binary composes into `InteractiveSession`. The command module emits `statusline-settings-patch`; the CLI applies settings persistence and TUI state updates through the generic command effect handler.
+The `/statusline` command is provided by the `@robota-sdk/agent-command` module that the Robota binary composes into `InteractiveSession`. The command module returns the `statusline-settings-patch` host action; the SESSION persists it via the settings adapter and the TUI re-reads the settings when the result arrives (refresh-on-result).
 
-The `/clear` command is provided by the `@robota-sdk/agent-command` module that the Robota binary composes into `InteractiveSession`. The command module clears SDK session history through SDK session command APIs and emits `conversation-history-cleared`; the CLI applies that effect by clearing `TuiStateManager` rendered history before adding the command result message.
+The `/clear` command is provided by the `@robota-sdk/agent-command` module that the Robota binary composes into `InteractiveSession`. The command module clears SDK session history through SDK session command APIs; the session broadcasts the `history_cleared` event (CMD-004 Stage E) and every attached surface — the TUI included — clears its rendered transcript from that broadcast before the command result message is added.
 
-The `/rename <name>` command is provided by the same `@robota-sdk/agent-command` module. The command module emits `session-renamed`; the CLI applies that effect through the generic command effect handler by updating `InteractiveSession.setName()` and local TUI session-name state.
+The `/rename <name>` command is provided by the same `@robota-sdk/agent-command` module. The command module returns the `session-rename` host action; the SESSION executes `setName()` and broadcasts `session_renamed`, from which every attached surface updates its title.
 
-The `/resume` command is provided by the same `@robota-sdk/agent-command` module. The command module emits `session-picker-requested`; the CLI applies that effect through the generic command effect handler by opening `SessionPicker`.
+The `/resume` command is provided by the same `@robota-sdk/agent-command` module. The command module returns the `show-session-picker` UI intent; the requesting TUI surface opens `SessionPicker` from the requester-routed `ui_intent` session event.
 
 The `/cost` command is provided by the same `@robota-sdk/agent-command` module. The command module reads session id and message count through SDK session command APIs; the CLI only displays the command result.
 
-The `/reset` command is provided by `@robota-sdk/agent-command`. The command module emits `settings-reset-requested`; the CLI applies local settings deletion and shutdown through the generic command effect handler.
+The `/reset` command is provided by `@robota-sdk/agent-command`. The command module returns the `settings-reset` host action; the SESSION deletes the settings document via the settings adapter and requests exit via the per-mode process adapter.
 
-The `/exit` command is provided by `@robota-sdk/agent-command`. The command module emits `session-exit-requested`; the CLI applies graceful shutdown and terminal exit through the generic command effect handler.
+The `/exit` command is provided by `@robota-sdk/agent-command`. The command module returns the `session-exit` host action; the SESSION requests exit via the per-mode process adapter (TUI: deferred SIGTERM through the App's graceful signal flow).
 
-The `/plugin` command is provided by `@robota-sdk/agent-command`. The command module emits `plugin-tui-requested` for `/plugin` and `/plugin manage`, and uses the CLI-provided `ICommandPluginAdapter` for install/uninstall/enable/disable/marketplace subcommands.
+The `/plugin` command is provided by `@robota-sdk/agent-command`. The command module returns the `show-plugin-manager` UI intent for `/plugin` and `/plugin manage`, and uses the CLI-provided `ICommandPluginAdapter` for install/uninstall/enable/disable/marketplace subcommands; `/reload-plugins` reloads host-side and carries the requester-local `data.pluginRegistryReloaded` hint for the autocomplete refresh.
 
 The `/rewind` command is provided by `@robota-sdk/agent-command`. The CLI slash router only routes it into `session.executeCommand()` and renders the returned command result; checkpoint storage, restore, rollback ordering, and command output formatting live outside the CLI.
 
@@ -742,7 +742,7 @@ A generic list picker overlay (`ListPicker.tsx`) for selecting an item from a li
 
 ### ConfirmPrompt Component
 
-A reusable confirmation prompt with arrow-key selection (`ConfirmPrompt.tsx`). Used for yes/no confirmations triggered by host-applied command effects.
+A reusable confirmation prompt with arrow-key selection (`ConfirmPrompt.tsx`). Used for yes/no confirmations triggered by command confirmations (the CMD-004 ask seam).
 
 **Props:**
 
@@ -782,7 +782,7 @@ Installed plugins contribute skills via `PluginCommandSource`, which discovers s
 2. Creates a `TuiStateManager` instance that holds `history: IHistoryEntry[]` as the primary state for the message list and the latest SDK execution workspace snapshot for background/workspace rendering. On each execution update (when `thinking` transitions to `false`, or on `complete`/`interrupted`), delegates to `TuiStateManager` to sync state from `interactiveSession.getFullHistory()` and `interactiveSession.getExecutionWorkspaceSnapshot()`.
 3. Subscribes to `InteractiveSession` events (`text_delta`, `tool_start`, `tool_end`, `thinking`, `complete`, `interrupted`, `error`, `execution_workspace_event`) and converts them to channel state.
 4. Exposes `handleSubmit`, `handleAbort`, `handleCancelQueue`, and `handleShutdown` as stable callbacks to the TUI via `useTuiChannel`.
-5. Routes slash commands via `session.executeCommand(name, args)` — no `SystemCommandExecutor` is instantiated directly by the CLI. Commands that need input ask inline via the CMD-004 seam (rendered by the channel's `askUser` → `PendingActionPrompt`); command-specific host actions are handled by typed `TCommandEffect` values.
+5. Routes slash commands via `session.executeCommand(name, args)` — no `SystemCommandExecutor` is instantiated directly by the CLI. Commands that need input ask inline via the CMD-004 seam (rendered by the channel's `askUser` → `PendingActionPrompt`); command-specific host actions are typed `TCommandHostAction` values the SESSION executes via `ICommandHostAdapters` (CMD-004; the legacy `TCommandEffect` union is deleted).
 6. Manages the permission queue (serialises concurrent permission requests).
 
 `useTuiChannel` is the React hook that subscribes to `TuiInteractionChannel.onChange` and exposes its state/callbacks to `App.tsx`. No component interacts with `InteractiveSession` directly.
@@ -796,7 +796,7 @@ Plugin hook merging (resolving `${CLAUDE_PLUGIN_ROOT}` and merging hook groups) 
 `App.tsx` is owned by `@robota-sdk/agent-transport-tui` (`packages/agent-transport-tui/src/App.tsx`). It is a thin JSX shell that:
 
 - Calls `useTuiChannel` and `usePluginCallbacks`.
-- Applies typed command effects that require the host shell via `ITuiCliAdapter` (injected by `startCli()`).
+- Renders host-shell state via `ITuiCliAdapter` (injected by `startCli()`; read-only toward settings since CMD-004 — host actions are session-executed).
 - Contains no queue logic, no abort logic, no session business logic.
 
 ### Tool List Visibility
