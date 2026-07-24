@@ -19,7 +19,7 @@
     "@astrojs/sitemap": "^3.7.3",
     "astro": "^6.4.6",
     "rehype-autolink-headings": "^7.1.0",
-    "rehype-pretty-code": "^0.14.3",
+    "rehype-pretty-code": "^0.14.4",
     "remark-toc": "^9.0.0",
     "shiki": "^4.2.0",
     "unist-util-visit": "^5.1.0"

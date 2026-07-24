@@ -60,7 +60,7 @@
     "node": ">=20.19.0"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.91.1",
+    "@anthropic-ai/sdk": "^0.114.0",
     "@google/genai": "^1.52.0",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@robota-sdk/agent-provider-defaults": "workspace:*",
@@ -83,7 +83,7 @@
   },
   "devDependencies": {
     "@robota-sdk/dag-api": "workspace:*",
-    "tsdown": "^0.22.2"
+    "tsdown": "^0.22.14"
   },
   "publishConfig": {
     "access": "public"
