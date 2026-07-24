@@ -37,7 +37,11 @@ depends_on: []
   `checkEntryPointOnly`); the 5 fixtures moved verbatim into
   `__tests__/check-dependency-direction.test.mjs`. Registry −2 scans; both `harness:scan:*`
   package.json lines removed.
-- **REMAINING:** `scan-file-size` enforce-or-drop (owner policy call on the ~100-file baseline);
+- **DONE (2026-07-24, owner-preapproved):** `scan-file-size` now ENFORCES as a RATCHET — 102-entry
+  `file-size-baseline.json` freezes pre-existing violators at their current line counts (new >300-line files
+  FAIL; frozen debt may not grow; shrinking prints a tighten notice; `--write-baseline` regenerates). Proven
+  red (exit 1 with no baseline) → green; 7 unit tests on the pure `evaluateFileSizes`.
+- **REMAINING:**
   `check-spec-public-surface` allowlist shrink; `scan-consistency` split; MERGEs 3/4
   (`check-architecture-conformance` → deps) and 4/4 (`check-sdk-react-free` → config-driven purity).
 
