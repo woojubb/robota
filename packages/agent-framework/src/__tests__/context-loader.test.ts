@@ -29,7 +29,7 @@ describe('loadContext', () => {
   it('returns empty strings when no context files exist', async () => {
     const result = await loadContext(rootDir);
     expect(result.agentsMd).toBe('');
-    expect(result.claudeMd).toBe('');
+    expect(result.projectNotesMd).toBe('');
   });
 
   it('finds AGENTS.md in cwd', async () => {
@@ -41,7 +41,7 @@ describe('loadContext', () => {
   it('finds CLAUDE.md in cwd', async () => {
     writeFileSync(join(rootDir, 'CLAUDE.md'), '# Root CLAUDE');
     const result = await loadContext(rootDir);
-    expect(result.claudeMd).toContain('# Root CLAUDE');
+    expect(result.projectNotesMd).toContain('# Root CLAUDE');
   });
 
   it('loads project memory index when .robota/memory/MEMORY.md exists', async () => {

@@ -139,11 +139,20 @@ export class AgentDefinitionLoader {
   private readonly cwd: string;
   private readonly home: string;
   private readonly fs: IFileSystem;
+  private readonly builtInAgents: readonly IAgentDefinition[];
 
-  constructor(cwd: string, home?: string, fs: IFileSystem = new NodeFileSystem()) {
+  constructor(
+    cwd: string,
+    home?: string,
+    fs: IFileSystem = new NodeFileSystem(),
+    // NEUT-003: injectable built-in set — replaces the default three when supplied
+    // (empty array = no built-ins merged).
+    builtInAgents: readonly IAgentDefinition[] = BUILT_IN_AGENTS,
+  ) {
     this.cwd = cwd;
     this.home = home ?? homedir();
     this.fs = fs;
+    this.builtInAgents = builtInAgents;
   }
 
   /** Load all agent definitions, merged with built-in agents. Custom overrides built-in on name collision. */
@@ -171,7 +180,7 @@ export class AgentDefinitionLoader {
 
     // Merge with built-in: custom overrides built-in on name collision
     const result = [...customAgents];
-    for (const builtIn of BUILT_IN_AGENTS) {
+    for (const builtIn of this.builtInAgents) {
       if (!seen.has(builtIn.name)) {
         result.push(builtIn);
       }

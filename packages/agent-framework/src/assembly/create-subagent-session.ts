@@ -13,6 +13,7 @@ import { assembleSubagentPrompt } from './subagent-prompts.js';
 import { resolveRoleFallbackChain } from '../routing/role-model-routing.js';
 import { createProviderSafeModelCommandToolName } from '../tools/model-command-tool-projection.js';
 
+import type { TSubagentSuffix } from './subagent-prompts.js';
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import type { IResolvedConfig } from '../config/config-types.js';
 import type { ILoadedContext } from '../context/context-loader.js';
@@ -64,6 +65,11 @@ export interface ISubagentOptions {
   sessionLogger?: ISessionLogger;
   /** Whether this is a fork worker (uses fork suffix instead of standard). */
   isForkWorker?: boolean;
+  /**
+   * NEUT-003: replaces the framework prompt suffix (string verbatim, or a function
+   * of the assembly context). Omitted keeps the documented default suffixes.
+   */
+  suffix?: TSubagentSuffix;
   /** Permission mode from parent (bypassPermissions, acceptEdits, etc.). */
   permissionMode?: TPermissionMode;
   /**
@@ -167,9 +173,10 @@ export function createSubagentSession(options: ISubagentOptions): Session {
   // Assemble system prompt with framework suffix
   const systemMessage = assembleSubagentPrompt({
     agentBody: agentDefinition.systemPrompt,
-    claudeMd: parentContext.claudeMd,
+    projectNotesMd: parentContext.projectNotesMd,
     agentsMd: parentContext.agentsMd,
     isForkWorker: options.isForkWorker ?? false,
+    ...(options.suffix !== undefined ? { suffix: options.suffix } : {}),
   });
 
   const provider = options.provider;

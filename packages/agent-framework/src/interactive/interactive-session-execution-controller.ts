@@ -259,7 +259,7 @@ export class SessionExecutionController {
     displayInput: string | undefined,
     rawInput: string | undefined,
     agentsFileEntries: IContextFileEntry[],
-    claudeFileEntries: IContextFileEntry[],
+    projectNotesFileEntries: IContextFileEntry[],
     rebuildSystemMessage: ICreatedInteractiveSession['rebuildSystemMessage'] | null,
     setEntries: (agents: IContextFileEntry[], claude: IContextFileEntry[]) => void,
     submit: TSubmitFn,
@@ -283,7 +283,7 @@ export class SessionExecutionController {
     try {
       await checkAndRefreshContextIfStale(
         agentsFileEntries,
-        claudeFileEntries,
+        projectNotesFileEntries,
         rebuildSystemMessage,
         setEntries,
         () => this.callbacks.getSessionOrThrow(),

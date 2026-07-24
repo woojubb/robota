@@ -49,17 +49,17 @@ export interface ICreatedInteractiveSession {
   /** Per-file entries for AGENTS.md files loaded at startup. Used for staleness detection. */
   agentsFileEntries: IContextFileEntry[];
   /** Per-file entries for CLAUDE.md files loaded at startup. Used for staleness detection. */
-  claudeFileEntries: IContextFileEntry[];
+  projectNotesFileEntries: IContextFileEntry[];
   /**
-   * Rebuilds the system message given updated agentsMd and claudeMd strings. PRESET-014: an
+   * Rebuilds the system message given updated agentsMd and projectNotesMd strings. PRESET-014: an
    * optional `overrides.persona` re-applies a preset persona to the live prompt; PRESET-017: an
    * optional `overrides.selfVerification` toggles the verify-before-done section. Either override
    * is retained for subsequent (override-less) rebuilds.
    */
   rebuildSystemMessage: (
     agentsMd: string,
-    claudeMd: string,
-    overrides?: { persona?: string; selfVerification?: boolean },
+    projectNotesMd: string,
+    overrides?: { persona?: string; selfVerification?: boolean | string },
   ) => string;
 }
 
@@ -78,9 +78,9 @@ export async function createInteractiveSession(
     options.bare
       ? Promise.resolve({
           agentsMd: '',
-          claudeMd: '',
+          projectNotesMd: '',
           agentsFileEntries: [],
-          claudeFileEntries: [],
+          projectNotesFileEntries: [],
         })
       : loadContext(cwd, options.memoryStore),
     options.bare
@@ -184,7 +184,7 @@ export async function createInteractiveSession(
   return {
     session,
     agentsFileEntries: context.agentsFileEntries ?? [],
-    claudeFileEntries: context.claudeFileEntries ?? [],
+    projectNotesFileEntries: context.projectNotesFileEntries ?? [],
     rebuildSystemMessage,
   };
 }
@@ -242,7 +242,7 @@ export interface IAsyncInitDeps {
 export interface IAsyncInitResult {
   session: Session;
   agentsFileEntries: IContextFileEntry[];
-  claudeFileEntries: IContextFileEntry[];
+  projectNotesFileEntries: IContextFileEntry[];
   rebuildSystemMessage: ICreatedInteractiveSession['rebuildSystemMessage'];
   autoCompactThresholdSource: 'default' | 'settings';
 }
@@ -323,7 +323,7 @@ export async function initializeInteractiveSessionAsync(
   return {
     session: created.session,
     agentsFileEntries: created.agentsFileEntries,
-    claudeFileEntries: created.claudeFileEntries,
+    projectNotesFileEntries: created.projectNotesFileEntries,
     rebuildSystemMessage: created.rebuildSystemMessage,
     autoCompactThresholdSource,
   };

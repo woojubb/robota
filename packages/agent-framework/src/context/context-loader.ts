@@ -19,7 +19,7 @@ export interface ILoadedContext {
   /** Concatenated content of all AGENTS.md files found (root-first) */
   agentsMd: string;
   /** Concatenated content of all CLAUDE.md files found (root-first) */
-  claudeMd: string;
+  projectNotesMd: string;
   /** Startup project memory index loaded from .robota/memory/MEMORY.md, if present */
   memoryMd?: string;
   /** Formatted active task context loaded from .agents/tasks/*.md, if present */
@@ -29,7 +29,7 @@ export interface ILoadedContext {
   /** Per-file entries for all AGENTS.md files, root-first. Present for staleness detection. */
   agentsFileEntries?: IContextFileEntry[];
   /** Per-file entries for all CLAUDE.md files, root-first. Present for staleness detection. */
-  claudeFileEntries?: IContextFileEntry[];
+  projectNotesFileEntries?: IContextFileEntry[];
 }
 
 const AGENTS_FILENAME = 'AGENTS.md';
@@ -111,9 +111,9 @@ export async function loadContext(
   const claudeEntries = claudePaths.map((p) => loadFileWithHash(p));
 
   const agentsMd = agentsEntries.map((e) => e.content).join('\n\n');
-  const claudeMd = claudeEntries.map((e) => e.content).join('\n\n');
+  const projectNotesMd = claudeEntries.map((e) => e.content).join('\n\n');
 
-  const compactInstructions = extractCompactInstructions(claudeMd);
+  const compactInstructions = extractCompactInstructions(projectNotesMd);
   // SELFHOST-008: startup memory is read through the injected memory port; with none supplied the
   // neutral filesystem reference adapter is the default, so memory keeps working exactly as before.
   const startupMemory = await (memoryStore ?? createFileSystemMemoryStore(cwd)).loadStartupMemory();
@@ -123,11 +123,11 @@ export async function loadContext(
 
   return {
     agentsMd,
-    claudeMd,
+    projectNotesMd,
     memoryMd,
     taskContext,
     compactInstructions,
     agentsFileEntries: agentsEntries,
-    claudeFileEntries: claudeEntries,
+    projectNotesFileEntries: claudeEntries,
   };
 }

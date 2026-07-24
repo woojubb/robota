@@ -126,7 +126,7 @@ export class InteractiveSession
   private readonly recallMemory?: IPerTurnRecallConfig;
   private sandboxSnapshotId?: string;
   private agentsFileEntries: IContextFileEntry[] = [];
-  private claudeFileEntries: IContextFileEntry[] = [];
+  private projectNotesFileEntries: IContextFileEntry[] = [];
   private rebuildSystemMessage: ICreatedInteractiveSession['rebuildSystemMessage'] | null = null;
   private providerDefinitions: readonly IProviderDefinition[] = [];
   private orgPolicy: import('../command-api/org-policy/org-policy-types.js').IOrgPolicy | null =
@@ -370,12 +370,12 @@ export class InteractiveSession
     });
     this.session = result.session;
     this.agentsFileEntries = result.agentsFileEntries;
-    this.claudeFileEntries = result.claudeFileEntries;
+    this.projectNotesFileEntries = result.projectNotesFileEntries;
     this.rebuildSystemMessage = result.rebuildSystemMessage;
     this.autoCompactThresholdSource = result.autoCompactThresholdSource;
     this.histTracker.recordSystemContextFiles([
       ...result.agentsFileEntries,
-      ...result.claudeFileEntries,
+      ...result.projectNotesFileEntries,
     ]);
     this.pendingRestoreMessages = null;
     this.initialized = true;
@@ -513,11 +513,11 @@ export class InteractiveSession
       displayInput,
       rawInput,
       this.agentsFileEntries,
-      this.claudeFileEntries,
+      this.projectNotesFileEntries,
       this.rebuildSystemMessage,
       (agents, claude) => {
         this.agentsFileEntries = agents;
-        this.claudeFileEntries = claude;
+        this.projectNotesFileEntries = claude;
         this.histTracker.recordSystemContextFiles([...agents, ...claude]);
       },
       (p, d, r, o) => this.submit(p, d, r, o),
@@ -629,7 +629,7 @@ export class InteractiveSession
   applyPersona(persona: string): void {
     if (this.rebuildSystemMessage === null) return;
     const currentAgents = this.agentsFileEntries.map((e) => e.content).join('\n\n');
-    const currentClaude = this.claudeFileEntries.map((e) => e.content).join('\n\n');
+    const currentClaude = this.projectNotesFileEntries.map((e) => e.content).join('\n\n');
     const msg = this.rebuildSystemMessage(currentAgents, currentClaude, { persona });
     this.getSessionOrThrow().updateSystemMessage(msg);
   }
@@ -643,7 +643,7 @@ export class InteractiveSession
   applySelfVerification(enabled: boolean): void {
     if (this.rebuildSystemMessage === null) return;
     const currentAgents = this.agentsFileEntries.map((e) => e.content).join('\n\n');
-    const currentClaude = this.claudeFileEntries.map((e) => e.content).join('\n\n');
+    const currentClaude = this.projectNotesFileEntries.map((e) => e.content).join('\n\n');
     const msg = this.rebuildSystemMessage(currentAgents, currentClaude, {
       selfVerification: enabled,
     });

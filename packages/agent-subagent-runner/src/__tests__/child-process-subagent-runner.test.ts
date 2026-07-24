@@ -44,7 +44,7 @@ function createDeps(): IInProcessSubagentRunnerDeps {
       permissions: { allow: [], deny: [] },
       env: {},
     },
-    context: { agentsMd: 'agents', claudeMd: 'claude' },
+    context: { agentsMd: 'agents', projectNotesMd: 'claude' },
     tools: [],
     terminal: {
       write: () => {},

@@ -421,7 +421,11 @@ export {
   createSubagentLogger,
   resolveSubagentLogDir,
 } from './assembly/index.js';
-export type { ISubagentPromptOptions, ISubagentOptions } from './assembly/index.js';
+export type {
+  ISubagentPromptOptions,
+  ISubagentOptions,
+  TSubagentSuffix,
+} from './assembly/index.js';
 export type { ICreateSessionOptions, ICreateSessionResult } from './assembly/index.js';
 export { createAgentTool, storeAgentToolDeps, retrieveAgentToolDeps } from './tools/agent-tool.js';
 export type { IAgentToolDeps } from './tools/agent-tool.js';

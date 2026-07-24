@@ -39,15 +39,13 @@ const SELF_VERIFICATION_CONTENT =
  * PRESET-017: when a preset enables selfVerification, inject a concise verify-before-done
  * section as a normal priority-sorted section (priority 6 = just after persona=5, before
  * AGENTS.md=10), never a hardcoded slot.
+ * NEUT-003: `content` is a string-valued seam — callers may replace the default directive
+ * text (liftable to a preset); omitted keeps the documented default.
  */
-export function createSelfVerificationSection(): ISystemPromptSection {
-  return createSection(
-    'preset-self-verification',
-    undefined,
-    6,
-    SELF_VERIFICATION_CONTENT,
-    'self-verification',
-  );
+export function createSelfVerificationSection(
+  content: string = SELF_VERIFICATION_CONTENT,
+): ISystemPromptSection {
+  return createSection('preset-self-verification', undefined, 6, content, 'self-verification');
 }
 
 export function createWorkingDirectorySection(cwd?: string): ISystemPromptSection | undefined {
@@ -103,9 +101,17 @@ export function createAgentsMdSection(agentsMd: string): ISystemPromptSection | 
   );
 }
 
-export function createClaudeMdSection(claudeMd: string): ISystemPromptSection | undefined {
-  if (claudeMd.trim().length === 0) return undefined;
-  return createSection('project-claude-md', 'Project Notes', 20, claudeMd, 'project-instructions');
+export function createProjectNotesSection(
+  projectNotesMd: string,
+): ISystemPromptSection | undefined {
+  if (projectNotesMd.trim().length === 0) return undefined;
+  return createSection(
+    'project-claude-md',
+    'Project Notes',
+    20,
+    projectNotesMd,
+    'project-instructions',
+  );
 }
 
 export function createProjectMemorySection(memoryMd?: string): ISystemPromptSection | undefined {

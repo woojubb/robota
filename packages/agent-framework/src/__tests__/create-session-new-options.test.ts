@@ -95,7 +95,7 @@ describe('createSession — allowedTools option', () => {
 
     createSession({
       config: baseConfig(),
-      context: { agentsMd: '', claudeMd: '' },
+      context: { agentsMd: '', projectNotesMd: '' },
       terminal: MOCK_TERMINAL,
       provider: createMockProvider(),
       allowedTools: ['Bash', 'Read'],
@@ -113,7 +113,7 @@ describe('createSession — allowedTools option', () => {
 
     createSession({
       config: baseConfig(),
-      context: { agentsMd: '', claudeMd: '' },
+      context: { agentsMd: '', projectNotesMd: '' },
       terminal: MOCK_TERMINAL,
       provider: createMockProvider(),
       allowedTools: ['Bash', 'Read'],
@@ -134,7 +134,7 @@ describe('createSession — allowedTools option', () => {
 
     createSession({
       config: baseConfig(),
-      context: { agentsMd: '', claudeMd: '' },
+      context: { agentsMd: '', projectNotesMd: '' },
       terminal: MOCK_TERMINAL,
       provider: createMockProvider(),
       allowedTools: [],
@@ -153,7 +153,7 @@ describe('createSession — allowedTools option', () => {
 
     createSession({
       config: baseConfig(),
-      context: { agentsMd: '', claudeMd: '' },
+      context: { agentsMd: '', projectNotesMd: '' },
       terminal: MOCK_TERMINAL,
       provider: createMockProvider(),
       // allowedTools not provided
@@ -178,7 +178,7 @@ describe('createSession — appendSystemPrompt option', () => {
 
     createSession({
       config: baseConfig(),
-      context: { agentsMd: '', claudeMd: '' },
+      context: { agentsMd: '', projectNotesMd: '' },
       terminal: MOCK_TERMINAL,
       provider: createMockProvider(),
       appendSystemPrompt: 'EXTRA TEXT',
@@ -195,7 +195,7 @@ describe('createSession — appendSystemPrompt option', () => {
 
     createSession({
       config: baseConfig(),
-      context: { agentsMd: '', claudeMd: '' },
+      context: { agentsMd: '', projectNotesMd: '' },
       terminal: MOCK_TERMINAL,
       provider: createMockProvider(),
       // no appendSystemPrompt
@@ -212,7 +212,7 @@ describe('createSession — appendSystemPrompt option', () => {
 
     createSession({
       config: baseConfig(),
-      context: { agentsMd: '', claudeMd: '' },
+      context: { agentsMd: '', projectNotesMd: '' },
       terminal: MOCK_TERMINAL,
       provider: createMockProvider(),
       appendSystemPrompt: extraText,
@@ -229,7 +229,7 @@ describe('createSession — appendSystemPrompt option', () => {
 
     createSession({
       config: baseConfig(),
-      context: { agentsMd: '', claudeMd: '' },
+      context: { agentsMd: '', projectNotesMd: '' },
       terminal: MOCK_TERMINAL,
       provider: createMockProvider(),
     });
@@ -262,7 +262,7 @@ describe('createSession — appendSystemPrompt option', () => {
       createSession({
         config: baseConfig(),
         cwd,
-        context: { agentsMd: '', claudeMd: '' },
+        context: { agentsMd: '', projectNotesMd: '' },
         terminal: MOCK_TERMINAL,
         provider: createMockProvider(),
         enableAgentRuntime: true,
@@ -290,7 +290,7 @@ describe('createSession — command descriptor tool guidance', () => {
 
     createSession({
       config: baseConfig(),
-      context: { agentsMd: '', claudeMd: '' },
+      context: { agentsMd: '', projectNotesMd: '' },
       terminal: MOCK_TERMINAL,
       provider: createMockProvider(),
       commandDescriptors: [
@@ -327,7 +327,7 @@ describe('createSession — command descriptor tool guidance', () => {
       createSession({
         config: baseConfig(),
         cwd,
-        context: { agentsMd: '', claudeMd: '' },
+        context: { agentsMd: '', projectNotesMd: '' },
         terminal: MOCK_TERMINAL,
         provider: createMockProvider(),
       });
@@ -355,7 +355,7 @@ describe('createSession — command descriptor tool guidance', () => {
       createSession({
         config: baseConfig(),
         cwd,
-        context: { agentsMd: '', claudeMd: '' },
+        context: { agentsMd: '', projectNotesMd: '' },
         terminal: MOCK_TERMINAL,
         provider: createMockProvider(),
         commandDescriptors: [
@@ -386,7 +386,7 @@ describe('createSession — command descriptor tool guidance', () => {
 
     createSession({
       config: baseConfig(),
-      context: { agentsMd: '', claudeMd: '' },
+      context: { agentsMd: '', projectNotesMd: '' },
       terminal: MOCK_TERMINAL,
       provider: createMockProvider(),
       commandDescriptors: [
@@ -427,7 +427,7 @@ describe('createSession — provider timeout option', () => {
 
     createSession({
       config,
-      context: { agentsMd: '', claudeMd: '' },
+      context: { agentsMd: '', projectNotesMd: '' },
       terminal: MOCK_TERMINAL,
       provider: createMockProvider(),
     });
@@ -440,7 +440,7 @@ describe('createSession — provider timeout option', () => {
 
     createSession({
       config: baseConfig(),
-      context: { agentsMd: '', claudeMd: '' },
+      context: { agentsMd: '', projectNotesMd: '' },
       terminal: MOCK_TERMINAL,
       provider: createMockProvider(),
     });
@@ -462,7 +462,7 @@ describe('createSession — sandbox client option', () => {
 
     createSession({
       config: baseConfig(),
-      context: { agentsMd: '', claudeMd: '' },
+      context: { agentsMd: '', projectNotesMd: '' },
       terminal: MOCK_TERMINAL,
       provider: createMockProvider(),
       sandboxClient,
@@ -488,7 +488,7 @@ describe('createSession — sandbox client option', () => {
 
     createSession({
       config: baseConfig(),
-      context: { agentsMd: '', claudeMd: '' },
+      context: { agentsMd: '', projectNotesMd: '' },
       terminal: MOCK_TERMINAL,
       provider: createMockProvider(),
       sandboxClient,
@@ -540,7 +540,7 @@ describe('createSession — subagent runner factory option', () => {
 
     createSession({
       config: baseConfig(),
-      context: { agentsMd: 'agent context', claudeMd: 'claude context' },
+      context: { agentsMd: 'agent context', projectNotesMd: 'claude context' },
       terminal: MOCK_TERMINAL,
       provider: createMockProvider(),
       subagentRunnerFactory,
@@ -566,7 +566,7 @@ describe('createSession — PRESET-004 execution capabilities', () => {
 
     createSession({
       config: baseConfig(),
-      context: { agentsMd: 'agent context', claudeMd: 'claude context' },
+      context: { agentsMd: 'agent context', projectNotesMd: 'claude context' },
       terminal: MOCK_TERMINAL,
       provider: createMockProvider(),
       subagentRunnerFactory,
@@ -587,7 +587,7 @@ describe('createSession — PRESET-004 execution capabilities', () => {
 
     createSession({
       config: baseConfig(),
-      context: { agentsMd: '', claudeMd: '' },
+      context: { agentsMd: '', projectNotesMd: '' },
       terminal: MOCK_TERMINAL,
       provider: createMockProvider(),
       subagentRunnerFactory,
@@ -600,7 +600,7 @@ describe('createSession — PRESET-004 execution capabilities', () => {
     const { createSession } = await import('../assembly/create-session.js');
     const options = {
       config: baseConfig(),
-      context: { agentsMd: '', claudeMd: '' },
+      context: { agentsMd: '', projectNotesMd: '' },
       terminal: MOCK_TERMINAL,
       provider: createMockProvider(),
       selfVerification: true,

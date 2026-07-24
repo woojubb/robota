@@ -12,14 +12,14 @@ import type { IContextFileEntry } from '../context/context-file-tracker.js';
 
 export async function checkAndRefreshContextIfStale(
   agentsFileEntries: IContextFileEntry[],
-  claudeFileEntries: IContextFileEntry[],
+  projectNotesFileEntries: IContextFileEntry[],
   rebuildSystemMessage: ICreatedInteractiveSession['rebuildSystemMessage'] | null,
   setEntries: (agents: IContextFileEntry[], claude: IContextFileEntry[]) => void,
   getSessionOrThrow: () => { updateSystemMessage: (msg: string) => void },
   emit: (event: string, payload: unknown) => void,
 ): Promise<void> {
   if (!rebuildSystemMessage) return;
-  const allEntries = [...agentsFileEntries, ...claudeFileEntries];
+  const allEntries = [...agentsFileEntries, ...projectNotesFileEntries];
   if (allEntries.length === 0) return;
 
   const agentsCount = agentsFileEntries.length;

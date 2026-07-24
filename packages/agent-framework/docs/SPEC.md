@@ -445,7 +445,10 @@ tool resolves a structured `unavailable` result.
 **`createSelfVerificationSection()`** (`src/context/system-prompt-section-providers.ts`) composes a
 verify-before-done system-prompt section with `source: 'self-verification'` at **priority 6** — between
 `persona` (priority 5) and AGENTS.md project instructions (priority 10) — emitted only when
-`selfVerification` is true. `'self-verification'` is a member of `TSystemPromptSectionSource`.
+`selfVerification` is enabled. `'self-verification'` is a member of `TSystemPromptSectionSource`.
+NEUT-003: `selfVerification` is `boolean | string` — `true` keeps the default directive text (a
+documented default), a non-blank string REPLACES the directive text (liftable to a preset), and
+`createSelfVerificationSection(content?)` takes the text as its parameter.
 
 **`selectCommandModules(modules, enabled, disabled)`** — pure allow-then-deny filter for live
 command-module re-selection (deny wins over allow; neither given returns the input unchanged). This is
@@ -2355,6 +2358,17 @@ Assembles an isolated child Session for subagent execution. Unlike `createSessio
 | `Explore`         | (parent)       | Denies Write, Edit  | Read-only code exploration  |
 | `Plan`            | (parent)       | Denies Write, Edit  | Read-only planning/research |
 
+**Built-in agent set injection (NEUT-003):** the set above is the DOCUMENTED DEFAULT, not a
+force-merge. `IInProcessSubagentRunnerDeps.builtInAgents` (also on `IAgentToolDeps`) and the
+`AgentDefinitionLoader` constructor accept an injected `IAgentDefinition[]` that REPLACES the
+default set; an empty array removes all built-ins. Custom registries still win on name collision.
+When no `subagent_type` is supplied, resolution falls back to the `general-purpose` name — with a
+replaced set that has no `general-purpose`, the call fails as an unknown agent type. The Agent
+tool's `subagent_type` schema description is derived from the session's actual agent definitions
+(`agentDefinitions` → `builtInAgents` → default set), never a hardcoded name list. Built-in
+prompts are mechanism-only: they must not embed house code-style doctrine (conventions come from
+the project's instruction files).
+
 ### Model-Requested Agent Invocation
 
 Model-requested agent invocation is owned by `@robota-sdk/agent-command`. The command module
@@ -2390,14 +2404,19 @@ Two suffix modes appended to subagent system prompts:
 - **Subagent suffix** (default): Instructs the agent to report concisely to the caller
 - **Fork worker suffix** (`isForkWorker: true`): Instructs the agent to respond within 500 words, suitable for skill fork execution
 
+**Suffix seam (NEUT-003):** both defaults are DOCUMENTED DEFAULTS. `ISubagentOptions.suffix` /
+`ISubagentPromptOptions.suffix` (`TSubagentSuffix = string | ((ctx: { isForkWorker }) => string)`)
+replaces the framework suffix entirely; omitted keeps the defaults above.
+
 ### assembleSubagentPrompt(options)
 
 Assembles the full system prompt for a subagent session:
 
 1. Agent body (from agent definition `systemPrompt`)
-2. CLAUDE.md content (from parent context)
+2. Project notes content (`projectNotesMd` — CLAUDE.md-compatible files from parent context; the
+   contract field is vendor-neutral, NEUT-003 rename of `claudeMd`)
 3. AGENTS.md content (from parent context)
-4. Framework suffix (subagent or fork worker)
+4. Framework suffix (caller-supplied `suffix`, else subagent or fork worker default)
 
 ### Subagent Transcript Logger
 

@@ -6,7 +6,7 @@ import type { ISystemPromptParams } from '../system-prompt-builder.js';
 
 const BASE_PARAMS: ISystemPromptParams = {
   agentsMd: '',
-  claudeMd: '',
+  projectNotesMd: '',
   toolDescriptions: [],
   permissionMode: 'default',
   projectInfo: {

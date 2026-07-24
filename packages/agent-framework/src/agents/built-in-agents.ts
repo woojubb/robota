@@ -8,7 +8,7 @@ Your role is to complete the assigned task thoroughly and accurately. Follow the
 - Use the most appropriate tools for each step. Prefer precise tools (Read, Grep, Glob) over broad ones (Bash) when possible.
 - Report your findings clearly and concisely when the task is complete.
 - If a task cannot be completed, explain why and what information is missing.
-- Maintain the same code quality standards as the parent session (strict types, no fallbacks, proper error handling).`;
+- Match the conventions stated in the project's instruction files.`;
 
 const EXPLORE_SYSTEM_PROMPT = `You are a codebase exploration and analysis agent. Your purpose is to search, read, and understand code without making any modifications.
 
@@ -66,7 +66,13 @@ export const BUILT_IN_AGENTS: IAgentDefinition[] = [
 /**
  * Look up a built-in agent definition by name.
  * Returns `undefined` if no built-in agent matches.
+ *
+ * NEUT-003: `builtInAgents` REPLACES the default set when supplied (an empty
+ * array removes all built-ins); omitted keeps the documented default three.
  */
-export function getBuiltInAgent(name: string): IAgentDefinition | undefined {
-  return BUILT_IN_AGENTS.find((agent) => agent.name === name);
+export function getBuiltInAgent(
+  name: string,
+  builtInAgents: readonly IAgentDefinition[] = BUILT_IN_AGENTS,
+): IAgentDefinition | undefined {
+  return builtInAgents.find((agent) => agent.name === name);
 }

@@ -10,7 +10,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Mock loadContext — bare mode must skip this
 // Paths are relative to the test file location (interactive/__tests__/)
-const mockLoadContext = vi.fn().mockResolvedValue({ agentsMd: '', claudeMd: '' });
+const mockLoadContext = vi.fn().mockResolvedValue({ agentsMd: '', projectNotesMd: '' });
 vi.mock('../../context/context-loader.js', () => ({
   loadContext: mockLoadContext,
 }));

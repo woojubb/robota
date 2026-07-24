@@ -99,7 +99,7 @@ export interface ICreateSessionOptions {
    * self-verification section into the system prompt (PRESET-017), as a normal
    * priority-sorted `source: 'self-verification'` section.
    */
-  selfVerification?: boolean;
+  selfVerification?: boolean | string;
   /** Callback when a tool starts or finishes execution — enables real-time tool display in UI */
   onToolExecution?: (event: {
     type: 'start' | 'end';
@@ -193,7 +193,7 @@ export interface ICreateSessionResult {
    */
   rebuildSystemMessage: (
     agentsMd: string,
-    claudeMd: string,
-    overrides?: { persona?: string; selfVerification?: boolean },
+    projectNotesMd: string,
+    overrides?: { persona?: string; selfVerification?: boolean | string },
   ) => string;
 }

@@ -135,7 +135,7 @@ export interface IInteractiveSessionStandardOptions {
   /** Preset execution capability: activate agent runtime + subagent/background dispatch. */
   enableParallelSubagents?: boolean;
   /** Preset execution capability: run a post-task self-verification step. */
-  selfVerification?: boolean;
+  selfVerification?: boolean | string;
   /** Organization policy for enforcing provider restrictions, command blocks, and API key rules. */
   orgPolicy?: IOrgPolicy;
   /** Additional tools registered alongside the default CLI tools. */
@@ -168,8 +168,7 @@ export interface IInteractiveSessionInjectedOptions {
 
 /** Union of standard and injected construction options. */
 export type TInteractiveSessionOptions =
-  | IInteractiveSessionStandardOptions
-  | IInteractiveSessionInjectedOptions;
+  IInteractiveSessionStandardOptions | IInteractiveSessionInjectedOptions;
 
 /** Internal async init options (not re-exported). */
 export interface IInitOptions {
@@ -247,7 +246,7 @@ export interface IInitOptions {
   /** Preset execution capability: activate agent runtime + subagent/background dispatch. */
   enableParallelSubagents?: boolean;
   /** Preset execution capability: run a post-task self-verification step. */
-  selfVerification?: boolean;
+  selfVerification?: boolean | string;
   /** Additional tools registered alongside the default CLI tools. */
   additionalTools?: IToolWithEventService[];
   /** Request structured output from the provider for this session. */
