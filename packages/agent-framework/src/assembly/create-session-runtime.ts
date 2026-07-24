@@ -127,8 +127,8 @@ export interface ISystemPromptResult {
   finalSystemMessage: string;
   rebuildSystemMessage: (
     agentsMd: string,
-    claudeMd: string,
-    overrides?: { persona?: string; selfVerification?: boolean },
+    projectNotesMd: string,
+    overrides?: { persona?: string; selfVerification?: boolean | string },
   ) => string;
 }
 
@@ -150,7 +150,7 @@ function buildStaticPromptParams(
 ): Omit<ISystemPromptParams, 'persona' | 'selfVerification'> {
   return {
     agentsMd: options.context.agentsMd,
-    claudeMd: options.context.claudeMd,
+    projectNotesMd: options.context.projectNotesMd,
     memoryMd: options.context.memoryMd,
     taskContext: options.context.taskContext,
     toolDescriptions: resolvedToolDescriptions,
@@ -240,8 +240,8 @@ export function buildSessionSystemPrompt(
 
   const rebuildSystemMessage = (
     newAgentsMd: string,
-    newClaudeMd: string,
-    overrides?: { persona?: string; selfVerification?: boolean },
+    newProjectNotesMd: string,
+    overrides?: { persona?: string; selfVerification?: boolean | string },
   ): string => {
     // PRESET-014: a persona override mutates the retained persona so subsequent rebuilds
     // (e.g. staleness refresh, which passes no override) keep the latest applied persona.
@@ -260,7 +260,7 @@ export function buildSessionSystemPrompt(
         ? { selfVerification: currentSelfVerification }
         : {}),
       agentsMd: newAgentsMd,
-      claudeMd: newClaudeMd,
+      projectNotesMd: newProjectNotesMd,
     });
     return options.appendSystemPrompt ? `${rebuilt}\n\n${options.appendSystemPrompt}` : rebuilt;
   };

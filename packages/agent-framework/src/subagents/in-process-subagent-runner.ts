@@ -47,15 +47,25 @@ export interface IInProcessSubagentRunnerDeps {
     executionId?: string;
   }) => void;
   customAgentRegistry?: (name: string) => IAgentDefinition | undefined;
+  /**
+   * NEUT-003: injectable built-in agent set. When supplied it REPLACES the module
+   * built-ins (`BUILT_IN_AGENTS`) for type resolution; an empty array removes all
+   * built-ins. Omitted keeps the documented default three.
+   */
+  builtInAgents?: readonly IAgentDefinition[];
 }
 
 export type TSubagentRunnerFactory = (deps: IInProcessSubagentRunnerDeps) => ISubagentRunner;
 
 function resolveAgentDefinition(
   agentType: string,
-  customRegistry?: (name: string) => IAgentDefinition | undefined,
+  deps: Pick<IInProcessSubagentRunnerDeps, 'customAgentRegistry' | 'builtInAgents'>,
 ): IAgentDefinition {
-  const definition = customRegistry?.(agentType) ?? getBuiltInAgent(agentType);
+  const definition =
+    deps.customAgentRegistry?.(agentType) ??
+    (deps.builtInAgents
+      ? deps.builtInAgents.find((agent) => agent.name === agentType)
+      : getBuiltInAgent(agentType));
   if (!definition) {
     throw new Error(`Unknown agent type: ${agentType}`);
   }
@@ -120,7 +130,7 @@ export function createInProcessSubagentRunner(deps: IInProcessSubagentRunnerDeps
   return {
     start(job: ISubagentJobStart): ISubagentJobHandle {
       assertSupportedIsolation(job);
-      const definition = resolveAgentDefinition(job.request.type, deps.customAgentRegistry);
+      const definition = resolveAgentDefinition(job.request.type, deps);
       const session = createSubagentSession({
         agentDefinition: applyRequestOverrides(definition, job),
         parentConfig: deps.config,

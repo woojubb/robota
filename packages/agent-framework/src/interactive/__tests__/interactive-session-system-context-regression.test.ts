@@ -33,9 +33,9 @@ const mockClaudeEntry = {
 
 const mockLoadContext = vi.fn().mockResolvedValue({
   agentsMd: AGENTS_CONTENT,
-  claudeMd: CLAUDE_CONTENT,
+  projectNotesMd: CLAUDE_CONTENT,
   agentsFileEntries: [mockAgentsEntry],
-  claudeFileEntries: [mockClaudeEntry],
+  projectNotesFileEntries: [mockClaudeEntry],
 });
 vi.mock('../../context/context-loader.js', () => ({
   loadContext: mockLoadContext,

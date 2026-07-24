@@ -1,6 +1,7 @@
 ---
 title: 'NEUT-001: evict Robota repo-process from agent-framework self-hosting-verification'
-status: todo
+status: done
+completed: 2026-07-25
 created: 2026-07-25
 priority: high
 urgency: soon
@@ -30,3 +31,14 @@ Update agent-framework SPEC + remove/replace the public export (breaking; beta l
 
 Red-first: a test asserting the framework source contains no `harness:verify`/`origin/develop` literals
 (becomes part of the NEUT-006 floor); existing self-hosting tests migrate with the code.
+
+## Outcome (2026-07-25)
+
+Evicted. `planSelfHostingVerification` now takes REQUIRED `{ baseRef, commandTemplates }`
+(`ISelfHostingCommandTemplates`, `{scope}`/`{baseRef}` placeholders) with no defaults naming
+pnpm/harness/origin-develop; the generic harness step became the optional injected `repoVerify`
+gate. Robota's repo-process content moved to the unpublished
+`scripts/harness/self-hosting-verification-commands.mjs`. Red-first floor added:
+`packages/agent-framework/src/__tests__/repo-process-neutrality.test.ts` (asserts no
+`harness:verify`/`origin/develop`/`pnpm --filter` literals in framework source); existing
+self-hosting tests migrated to injected templates. Breaking (beta line); SPEC updated.

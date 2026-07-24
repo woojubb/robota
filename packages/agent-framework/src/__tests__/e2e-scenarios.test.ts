@@ -106,7 +106,7 @@ describe('E2E: Skill lifecycle', () => {
     // 6. Build system prompt with the skill
     const params: ISystemPromptParams = {
       agentsMd: '',
-      claudeMd: '',
+      projectNotesMd: '',
       toolDescriptions: ['bash: Execute shell commands'],
       permissionMode: 'default',
       projectInfo: { type: 'node', language: 'typescript' },
@@ -155,7 +155,7 @@ describe('E2E: Skill lifecycle', () => {
     // 4. Verify it does NOT appear in system prompt
     const prompt = buildSystemPrompt({
       agentsMd: '',
-      claudeMd: '',
+      projectNotesMd: '',
       toolDescriptions: [],
       permissionMode: 'default',
       projectInfo: { type: 'unknown', language: 'unknown' },
@@ -615,7 +615,7 @@ describe('E2E: CommandRegistry aggregation', () => {
 
     const prompt = buildSystemPrompt({
       agentsMd: '',
-      claudeMd: '',
+      projectNotesMd: '',
       toolDescriptions: [],
       permissionMode: 'default',
       projectInfo: { type: 'node', language: 'typescript' },

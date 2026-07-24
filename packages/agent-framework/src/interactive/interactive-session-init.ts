@@ -10,11 +10,14 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 
 import { FileSessionLogger } from '@robota-sdk/agent-session';
-import { applyWorkspaceManifest } from '@robota-sdk/agent-tools';
 
 import { NOOP_TERMINAL } from './interactive-session-execution.js';
 import { detectProject } from '../context/project-detector.js';
 import { projectPaths } from '../paths.js';
+import {
+  applyInteractiveWorkspaceManifest,
+  restoreInteractiveSandboxSnapshot,
+} from './interactive-session-init-workspace.js';
 import { injectSavedMessage } from './interactive-session-restore.js';
 import { createSession } from '../assembly/index.js';
 import { EditCheckpointStore } from '../checkpoints/edit-checkpoint-store.js';
@@ -49,17 +52,17 @@ export interface ICreatedInteractiveSession {
   /** Per-file entries for AGENTS.md files loaded at startup. Used for staleness detection. */
   agentsFileEntries: IContextFileEntry[];
   /** Per-file entries for CLAUDE.md files loaded at startup. Used for staleness detection. */
-  claudeFileEntries: IContextFileEntry[];
+  projectNotesFileEntries: IContextFileEntry[];
   /**
-   * Rebuilds the system message given updated agentsMd and claudeMd strings. PRESET-014: an
+   * Rebuilds the system message given updated agentsMd and projectNotesMd strings. PRESET-014: an
    * optional `overrides.persona` re-applies a preset persona to the live prompt; PRESET-017: an
    * optional `overrides.selfVerification` toggles the verify-before-done section. Either override
    * is retained for subsequent (override-less) rebuilds.
    */
   rebuildSystemMessage: (
     agentsMd: string,
-    claudeMd: string,
-    overrides?: { persona?: string; selfVerification?: boolean },
+    projectNotesMd: string,
+    overrides?: { persona?: string; selfVerification?: boolean | string },
   ) => string;
 }
 
@@ -73,16 +76,22 @@ export async function createInteractiveSession(
   options: IInitOptions,
 ): Promise<ICreatedInteractiveSession> {
   const cwd = options.cwd;
-  const [config, context, projectInfo] = await Promise.all([
-    options.config ? Promise.resolve(options.config) : loadConfig(cwd),
+  // NEUT-004: config resolves FIRST so the settings-driven task-context toggle can gate the
+  // context load; context and project detection still run in parallel with each other.
+  const config = options.config ?? (await loadConfig(cwd));
+  const [context, projectInfo] = await Promise.all([
     options.bare
       ? Promise.resolve({
           agentsMd: '',
-          claudeMd: '',
+          projectNotesMd: '',
           agentsFileEntries: [],
-          claudeFileEntries: [],
+          projectNotesFileEntries: [],
         })
-      : loadContext(cwd, options.memoryStore),
+      : loadContext(
+          cwd,
+          options.memoryStore,
+          config.taskContext ? { taskContext: config.taskContext } : {},
+        ),
     options.bare
       ? Promise.resolve({ type: 'unknown' as const, language: 'unknown' as const })
       : detectProject(cwd),
@@ -184,32 +193,9 @@ export async function createInteractiveSession(
   return {
     session,
     agentsFileEntries: context.agentsFileEntries ?? [],
-    claudeFileEntries: context.claudeFileEntries ?? [],
+    projectNotesFileEntries: context.projectNotesFileEntries ?? [],
     rebuildSystemMessage,
   };
-}
-
-async function applyInteractiveWorkspaceManifest(
-  options: IInitOptions,
-  cwd: string,
-): Promise<void> {
-  if (!options.workspaceManifest) return;
-  if (!options.sandboxClient) {
-    throw new Error('workspaceManifest requires sandboxClient.');
-  }
-  await applyWorkspaceManifest(options.sandboxClient, options.workspaceManifest, {
-    hostRoot: cwd,
-    ...(options.sandboxWorkspaceRoot ? { targetRoot: options.sandboxWorkspaceRoot } : {}),
-  });
-}
-
-async function restoreInteractiveSandboxSnapshot(options: IInitOptions): Promise<boolean> {
-  if (!options.sandboxSnapshotId) return false;
-  if (!options.sandboxClient?.restore) {
-    throw new Error('sandboxSnapshotId requires sandboxClient with restore().');
-  }
-  await options.sandboxClient.restore(options.sandboxSnapshotId);
-  return true;
 }
 
 /** Dependencies injected into initializeInteractiveSessionAsync from the class. */
@@ -242,7 +228,7 @@ export interface IAsyncInitDeps {
 export interface IAsyncInitResult {
   session: Session;
   agentsFileEntries: IContextFileEntry[];
-  claudeFileEntries: IContextFileEntry[];
+  projectNotesFileEntries: IContextFileEntry[];
   rebuildSystemMessage: ICreatedInteractiveSession['rebuildSystemMessage'];
   autoCompactThresholdSource: 'default' | 'settings';
 }
@@ -323,7 +309,7 @@ export async function initializeInteractiveSessionAsync(
   return {
     session: created.session,
     agentsFileEntries: created.agentsFileEntries,
-    claudeFileEntries: created.claudeFileEntries,
+    projectNotesFileEntries: created.projectNotesFileEntries,
     rebuildSystemMessage: created.rebuildSystemMessage,
     autoCompactThresholdSource,
   };

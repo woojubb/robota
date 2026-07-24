@@ -65,3 +65,12 @@ Red-first per item (incl. a Korean-title naming test that FAILS today); SPEC upd
   `ISessionOptions.compactionBasePrompt` — requires framework/CLI plumbing, out of wave-1 scope.
 - dag-cli scaffold provider param; `DEFAULT_AGENT_NAME='robota-cli'` reconsideration
   (agent-preset/agent-cli).
+
+## Outcome — item 5 (agent-framework) done 2026-07-25
+
+`session-naming.ts`: `sanitizeName` is now Unicode-aware (`[^\p{L}\p{N}\s-]/gu` — Korean/CJK
+titles survive; red-first Korean-title tests added), and `IGenerateSessionNameOptions` injects a
+custom naming prompt and/or sanitizer (default prompt de-Latinized: titles follow the message's
+language). SPEC updated. With wave 1 (items 1–4, #1347) already landed, only the wave-2 leftovers
+above (surface-tier wording injection, interface-transport comment twin, dag-cli/preset items)
+remain.

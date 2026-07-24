@@ -1,6 +1,7 @@
 ---
 title: 'NEUT-003: built-in agents de-doctrine + injection seam; subagent suffix seam'
-status: todo
+status: done
+completed: 2026-07-25
 created: 2026-07-25
 priority: high
 urgency: soon
@@ -33,3 +34,23 @@ depends_on: []
 
 Red-first: doctrine-phrase absence; replace/remove built-in set round-trip; custom suffix honored;
 schema description reflects a custom registry.
+
+## Outcome (2026-07-25)
+
+All four items + fold-ins shipped (red-first each):
+
+1. Doctrine sentence in `built-in-agents.ts` replaced with neutral mechanism text ("Match the
+   conventions stated in the project's instruction files"); doctrine-absence test added.
+2. `builtInAgents?: readonly IAgentDefinition[]` seam on `IInProcessSubagentRunnerDeps` (thus
+   `IAgentToolDeps`), the in-process runner, fork resolution, and the `AgentDefinitionLoader`
+   constructor — supplied set REPLACES the default three; empty array removes all built-ins.
+3. `ISubagentOptions.suffix` / `ISubagentPromptOptions.suffix` (`TSubagentSuffix =
+string | ((ctx) => string)`) replaces the framework suffix; current texts stay as the
+   documented defaults.
+4. Agent-tool `subagent_type` schema description now DERIVED from the session's agent
+   definitions (`agentDefinitions` → `builtInAgents` → default set); `general-purpose`
+   fallback documented in SPEC.
+   Fold-ins: `selfVerification` is now `boolean | string`
+   (`createSelfVerificationSection(content?)` — text replaceable, liftable to preset);
+   `claudeMd` contract field renamed to the neutral `projectNotesMd`
+   (+ `projectNotesFileEntries`, `createProjectNotesSection`; breaking, beta line).

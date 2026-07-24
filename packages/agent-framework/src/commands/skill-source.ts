@@ -151,6 +151,9 @@ export class SkillCommandSource implements ICommandSource {
     if (this.cachedCommands) return this.cachedCommands;
 
     const sources: ICommand[][] = [
+      // NEUT-004 fold-in: project-level .robota/skills mirrors the user-level
+      // ~/.robota/skills location (fixes the native-dir discovery asymmetry).
+      scanSkillsDir(join(this.cwd, '.robota', 'skills'), this.fs),
       scanSkillsDir(join(this.cwd, '.claude', 'skills'), this.fs),
       scanCommandsDir(join(this.cwd, '.claude', 'commands'), this.fs),
       scanSkillsDir(join(this.home, '.robota', 'skills'), this.fs),

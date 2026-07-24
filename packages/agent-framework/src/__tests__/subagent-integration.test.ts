@@ -91,7 +91,7 @@ function makeParentConfig(overrides?: Partial<IResolvedConfig>): IResolvedConfig
 function makeParentContext(overrides?: Partial<ILoadedContext>): ILoadedContext {
   return {
     agentsMd: '# AGENTS.md',
-    claudeMd: '# CLAUDE.md',
+    projectNotesMd: '# CLAUDE.md',
     ...overrides,
   };
 }

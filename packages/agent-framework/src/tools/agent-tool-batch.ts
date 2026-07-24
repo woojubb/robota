@@ -45,7 +45,7 @@ interface IRunManagedAgentBatchInput {
   manager: ISubagentManager;
   resolveAgentDefinition: (
     agentType: string,
-    customRegistry?: (name: string) => IAgentDefinition | undefined,
+    deps: Pick<IAgentToolDeps, 'customAgentRegistry' | 'builtInAgents'>,
   ) => IAgentDefinition | undefined;
   createSpawnRequest: (
     args: IAgentToolBatchJobArgs,
@@ -111,7 +111,7 @@ function resolveBatchJob(
   input: IRunManagedAgentBatchInput,
 ): IResolvedBatchJob {
   const agentType = job.subagent_type ?? 'general-purpose';
-  const agentDef = input.resolveAgentDefinition(agentType, input.deps.customAgentRegistry);
+  const agentDef = input.resolveAgentDefinition(agentType, input.deps);
   const label = normalizeJobLabel(job.label, agentDef?.name ?? agentType);
   return { index, job, agentType, agentDef, label };
 }

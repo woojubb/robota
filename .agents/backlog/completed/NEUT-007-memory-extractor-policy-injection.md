@@ -1,6 +1,7 @@
 ---
 title: 'NEUT-007: memory candidate-extractor locale/domain heuristics → injectable policy'
-status: todo
+status: done
+completed: 2026-07-25
 created: 2026-07-25
 priority: medium
 urgency: soon
@@ -26,3 +27,15 @@ a defaults-layer export). NEUT-006's prose floor should cover the regex-policy c
 ## Test Plan
 
 Red-first: custom policy injected ⇒ custom triggers honored, defaults absent; default path unchanged.
+
+## Outcome (2026-07-25)
+
+Shipped (red-first): `RegexMemoryCandidateExtractor` now takes a constructor
+`IMemoryExtractorPolicy` — `triggers: { pattern, confidence }[]` + `projectTerms` +
+`preferenceTerms` regexes. The Korean trigger regexes and dev-domain PROJECT_TERMS moved into the
+exported `DEFAULT_MEMORY_EXTRACTOR_POLICY` (the DOCUMENTED bilingual/dev default; behavior
+unchanged, incl. 0.9/0.75 confidences). Custom policy REPLACES the defaults (tested: custom
+trigger honored, English + Korean defaults absent). Extractor + policy types exported from the
+package index so composition roots can inject via the existing
+`AutomaticMemoryController.options.extractor` seam. SPEC updated; NEUT-006's floor can now cover
+the regex-policy class.

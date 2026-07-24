@@ -69,7 +69,7 @@ function makeParentConfig(overrides?: Partial<IResolvedConfig>): IResolvedConfig
 function makeParentContext(overrides?: Partial<ILoadedContext>): ILoadedContext {
   return {
     agentsMd: '# AGENTS.md content',
-    claudeMd: '# CLAUDE.md content',
+    projectNotesMd: '# CLAUDE.md content',
     ...overrides,
   };
 }
@@ -329,7 +329,10 @@ describe('createSubagentSession', () => {
     createSubagentSession({
       agentDefinition: agent,
       parentConfig: makeParentConfig(),
-      parentContext: makeParentContext({ claudeMd: 'claude content', agentsMd: 'agents content' }),
+      parentContext: makeParentContext({
+        projectNotesMd: 'claude content',
+        agentsMd: 'agents content',
+      }),
       parentTools: [makeTool('Read')],
       provider: mockProvider,
       terminal: makeTerminal(),
@@ -592,13 +595,13 @@ describe('createSubagentSession', () => {
     expect(passedOptions['defaultTrustLevel']).toBe('full');
   });
 
-  it('should handle no context (empty claudeMd and agentsMd)', () => {
+  it('should handle no context (empty projectNotesMd and agentsMd)', () => {
     const agent = makeAgentDef({ systemPrompt: 'Agent prompt.' });
 
     createSubagentSession({
       agentDefinition: agent,
       parentConfig: makeParentConfig(),
-      parentContext: makeParentContext({ claudeMd: undefined, agentsMd: undefined }),
+      parentContext: makeParentContext({ projectNotesMd: undefined, agentsMd: undefined }),
       parentTools: [makeTool('Read')],
       provider: mockProvider,
       terminal: makeTerminal(),

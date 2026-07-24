@@ -40,7 +40,7 @@ function makeOptions(persona?: string): ICreateSessionOptions {
       permissions: { allow: [], deny: [] },
       env: {},
     },
-    context: { agentsMd: 'A0', claudeMd: 'C0' },
+    context: { agentsMd: 'A0', projectNotesMd: 'C0' },
     terminal: NOOP_TERMINAL,
     systemPromptBuilder: personaOnlyBuilder,
     ...(persona !== undefined ? { persona } : {}),
@@ -55,7 +55,7 @@ function makeSelfVerificationOptions(selfVerification?: boolean): ICreateSession
       permissions: { allow: [], deny: [] },
       env: {},
     },
-    context: { agentsMd: 'A0', claudeMd: 'C0' },
+    context: { agentsMd: 'A0', projectNotesMd: 'C0' },
     terminal: NOOP_TERMINAL,
     systemPromptBuilder: selfVerificationOnlyBuilder,
     ...(selfVerification !== undefined ? { selfVerification } : {}),
@@ -66,7 +66,7 @@ function buildSelfVerificationRebuilder(
   selfVerification?: boolean,
 ): (
   agentsMd: string,
-  claudeMd: string,
+  projectNotesMd: string,
   overrides?: { persona?: string; selfVerification?: boolean },
 ) => string {
   const { rebuildSystemMessage } = buildSessionSystemPrompt(
@@ -83,7 +83,7 @@ function buildSelfVerificationRebuilder(
 
 function buildRebuilder(
   persona?: string,
-): (agentsMd: string, claudeMd: string, overrides?: { persona?: string }) => string {
+): (agentsMd: string, projectNotesMd: string, overrides?: { persona?: string }) => string {
   const { rebuildSystemMessage } = buildSessionSystemPrompt(
     makeOptions(persona),
     '/workspace',

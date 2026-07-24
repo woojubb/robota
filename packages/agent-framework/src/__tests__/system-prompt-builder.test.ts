@@ -11,7 +11,7 @@ import type { ISystemPromptParams } from '../context/system-prompt-builder.js';
 
 const BASE_PARAMS: ISystemPromptParams = {
   agentsMd: '',
-  claudeMd: '',
+  projectNotesMd: '',
   toolDescriptions: [],
   permissionMode: 'default',
   projectInfo: {
@@ -49,7 +49,10 @@ describe('buildSystemPrompt', () => {
   });
 
   it('includes CLAUDE.md content when provided', () => {
-    const result = buildSystemPrompt({ ...BASE_PARAMS, claudeMd: '## Project Notes\nUse pnpm.' });
+    const result = buildSystemPrompt({
+      ...BASE_PARAMS,
+      projectNotesMd: '## Project Notes\nUse pnpm.',
+    });
     expect(result).toContain('## Project Notes');
     expect(result).toContain('Use pnpm.');
   });
@@ -129,7 +132,7 @@ describe('buildSystemPrompt', () => {
     const result = buildSystemPrompt({
       ...BASE_PARAMS,
       agentsMd: 'AGENTS_MARKER',
-      claudeMd: 'CLAUDE_MARKER',
+      projectNotesMd: 'CLAUDE_MARKER',
     });
     const agentsIdx = result.indexOf('AGENTS_MARKER');
     const claudeIdx = result.indexOf('CLAUDE_MARKER');
@@ -142,7 +145,7 @@ describe('buildSystemPrompt', () => {
     const result = buildSystemPrompt({
       ...BASE_PARAMS,
       agentsMd: 'AGENTS_MARKER',
-      claudeMd: 'CLAUDE_MARKER',
+      projectNotesMd: 'CLAUDE_MARKER',
     });
 
     expect(result.startsWith('## Agent Instructions\nAGENTS_MARKER')).toBe(true);
@@ -207,6 +210,15 @@ describe('buildSystemPrompt', () => {
       const result = buildSystemPrompt({ ...BASE_PARAMS, selfVerification: true });
       expect(result).toMatch(/verify/i);
       expect(result).toMatch(/tool results?/i);
+    });
+
+    it('NEUT-003: a string selfVerification value replaces the default directive text', () => {
+      const result = buildSystemPrompt({
+        ...BASE_PARAMS,
+        selfVerification: 'CUSTOM VERIFY DIRECTIVE.',
+      });
+      expect(result).toContain('CUSTOM VERIFY DIRECTIVE.');
+      expect(result).not.toContain(createSelfVerificationSection().content);
     });
 
     it('TC-01: selfVerification false/omitted produces no self-verification section', () => {

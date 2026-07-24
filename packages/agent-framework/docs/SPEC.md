@@ -163,7 +163,7 @@ Core classes and functions exported from `@robota-sdk/agent-framework`:
 | `createProjectSessionStore`                 | function | Project-local session store facade                                                                                                                                                                                                                            |
 | `createUserSessionStore`                    | function | User-level session store facade (`~/.robota/sessions`)                                                                                                                                                                                                        |
 | `listResumableSessionSummaries`             | function | List saved sessions for session picker UI                                                                                                                                                                                                                     |
-| `generateSessionName`                       | function | LLM-based session auto-naming (prompt/policy owned here; transports invoke + apply via `setName`)                                                                                                                                                             |
+| `generateSessionName`                       | function | LLM-based session auto-naming (prompt/policy owned here; transports invoke + apply via `setName`). NEUT-005: default sanitizer is Unicode-aware (non-Latin titles survive); `IGenerateSessionNameOptions` injects a custom naming prompt and/or sanitizer     |
 | `resolveLatestSessionId`                    | function | Resolve the most recent session ID                                                                                                                                                                                                                            |
 | `resolveSessionIdByIdOrName`                | function | Resolve session ID by ID or user-visible name                                                                                                                                                                                                                 |
 | `CommandRegistry`                           | class    | Aggregates `ICommandSource` instances for slash command discovery                                                                                                                                                                                             |
@@ -187,6 +187,8 @@ Core classes and functions exported from `@robota-sdk/agent-framework`:
 | `SemanticMemoryStore`                       | class    | SELFHOST-008 P4: neutral decorator `implements IMemoryStore` composing a base store + injected `ISemanticMemoryAdapter` — tiered recall (semantic primary, keyword fallback), guarded append-then-index (skip on dedup), delegate rest; imports no vector SDK |
 | `createSemanticMemoryStore`                 | function | Factory: `createSemanticMemoryStore(base, adapter)` (mirrors `createFileSystemMemoryStore`); the surface injects it via the existing `memoryStore` seam                                                                                                       |
 | `isMemoryType`                              | function | Type guard for `TMemoryType`                                                                                                                                                                                                                                  |
+| `RegexMemoryCandidateExtractor`             | class    | NEUT-007: memory-cue candidate extractor over an injectable `IMemoryExtractorPolicy` (trigger patterns + project/preference vocabulary)                                                                                                                       |
+| `DEFAULT_MEMORY_EXTRACTOR_POLICY`           | const    | NEUT-007: the documented default extractor policy (bilingual English/Korean cues + software-project vocabulary) a composition root may replace                                                                                                                |
 | `EditCheckpointStore`                       | class    | Edit checkpoint store backed by `.robota/checkpoints/`                                                                                                                                                                                                        |
 | `wrapEditCheckpointTools`                   | function | Wrap Write/Edit tools to snapshot pre-images before mutation                                                                                                                                                                                                  |
 | `planSelfHostingVerification`               | function | Generate ordered verification steps for self-modifying runs                                                                                                                                                                                                   |
@@ -255,7 +257,6 @@ Core classes and functions exported from `@robota-sdk/agent-framework`:
 | `parseTaskFile`                             | function | Parse a task Markdown file                                                                                                                                                                                                                                    |
 | `selectRelevantTasks`                       | function | Select the most relevant task files for the current session                                                                                                                                                                                                   |
 | `formatTaskContext`                         | function | Format selected tasks as neutral system prompt metadata                                                                                                                                                                                                       |
-| `updateTaskFileStatus`                      | function | Update task status and append a dated progress entry                                                                                                                                                                                                          |
 | `readCurrentGitBranch`                      | function | Read the current Git branch for task selection                                                                                                                                                                                                                |
 | `buildPromptWithFileReferences`             | function | Expand `@file` references in a prompt string                                                                                                                                                                                                                  |
 | `resolvePromptFileReferences`               | function | Resolve `@file` reference tokens to file content                                                                                                                                                                                                              |
@@ -445,7 +446,10 @@ tool resolves a structured `unavailable` result.
 **`createSelfVerificationSection()`** (`src/context/system-prompt-section-providers.ts`) composes a
 verify-before-done system-prompt section with `source: 'self-verification'` at **priority 6** — between
 `persona` (priority 5) and AGENTS.md project instructions (priority 10) — emitted only when
-`selfVerification` is true. `'self-verification'` is a member of `TSystemPromptSectionSource`.
+`selfVerification` is enabled. `'self-verification'` is a member of `TSystemPromptSectionSource`.
+NEUT-003: `selfVerification` is `boolean | string` — `true` keeps the default directive text (a
+documented default), a non-blank string REPLACES the directive text (liftable to a preset), and
+`createSelfVerificationSection(content?)` takes the text as its parameter.
 
 **`selectCommandModules(modules, enabled, disabled)`** — pure allow-then-deny filter for live
 command-module re-selection (deny wins over allow; neither given returns the input unchanged). This is
@@ -898,12 +902,12 @@ agent-cli (Ink TUI — CLI-specific)
 ### Self-Hosting Verification
 
 - **Package**: `agent-framework/self-hosting/` (SDK-specific planning layer)
-- **Purpose**: Describes the safe edit/build/verify loop for Robota modifying its own source tree without replacing the currently running process.
-- **Planner**: `planSelfHostingVerification()` returns ordered steps for checkpoint creation, atomic file mutation, external process handoff, targeted package verification, harness verification, and rollback recovery.
+- **Purpose**: Describes the safe edit/build/verify loop for an agent modifying its own source tree without replacing the currently running process.
+- **Planner**: `planSelfHostingVerification()` returns ordered steps for checkpoint creation, atomic file mutation, external process handoff, targeted package verification, an optional repo-wide verification gate, and rollback recovery.
 - **State machine**: `transitionSelfHostingLoop()` enforces deterministic lifecycle transitions from `idle` through checkpoint/edit/verify success or failure recovery.
 - **Handoff model**: The current process remains the old runtime and keeps already-loaded modules. Verification commands run in child processes against the new on-disk tree.
 - **Boundaries**: The SDK planner does not implement file writing, checkpoint storage, CLI rendering, or provider behavior. Atomic write behavior belongs to `agent-tools`; checkpoint storage belongs to `agent-framework/checkpoints`; CLI/TUI only invokes SDK APIs and renders results.
-- **Verification defaults**: For supplied package scopes, the default plan includes `test`, `typecheck`, and `build` commands before `pnpm harness:verify -- --base-ref <ref> --skip-record-check`. The harness verification step is always present.
+- **No repo-process defaults (NEUT-001)**: `baseRef` and `commandTemplates` (`ISelfHostingCommandTemplates`) are REQUIRED injected config. The library names no package manager, verification command, base ref, or CI gate; per-scope steps come from `commandTemplates.packageVerify` (`{scope}` placeholder) and the optional repo-wide gate from `commandTemplates.repoVerify` (`{baseRef}` placeholder). Robota's own templates live in the unpublished `scripts/harness/self-hosting-verification-commands.mjs`, and the in-package test `src/__tests__/repo-process-neutrality.test.ts` keeps repo-process literals out of the framework source.
 
 ### Web Search
 
@@ -1165,7 +1169,7 @@ Resolved provider fields:
 - **Response Language**: `IResolvedConfig.language` (from settings.json `language` field) is rendered as neutral metadata by `buildSystemPrompt()`. Persists across compaction because system message is preserved.
 - **Permission Mode section (CLI-072)**: `buildSystemPrompt()` renders `- **Permission mode:** <mode>` from `ISystemPromptParams.permissionMode` — the ACTIVE `TPermissionMode` resolved exactly as agent-session does (`options.permissionMode ?? TRUST_TO_MODE[config.defaultTrustLevel] ?? 'default'`), so the prompt always names the mode the permission gate enforces. The former `Trust level:` line (a separate axis that defaulted to `moderate` and misled the model under `--permission-mode plan`) is removed; `TRUST_LEVEL_LABELS` is deleted.
 - **Compact Instructions**: Extracts "Compact Instructions" section from CLAUDE.md and passes to Session for compaction
-- **Skill Discovery Paths**: Skills are discovered from `.agents/skills/*/SKILL.md` (project), `.claude/skills/*/SKILL.md`, `.claude/commands/*.md`, and `~/.robota/skills/*/SKILL.md`. Used by conditional SDK skill metadata injection when `/skills` is model-invocable, and by `@robota-sdk/agent-command` for virtual skill command palette metadata.
+- **Skill Discovery Paths**: Skills are discovered from `.robota/skills/*/SKILL.md` (project, NEUT-004 asymmetry fix), `.agents/skills/*/SKILL.md` (project), `.claude/skills/*/SKILL.md`, `.claude/commands/*.md`, and `~/.robota/skills/*/SKILL.md`. Used by conditional SDK skill metadata injection when `/skills` is model-invocable, and by `@robota-sdk/agent-command` for virtual skill command palette metadata.
 
 ### Active Task Context (SDK-Specific)
 
@@ -1175,7 +1179,8 @@ Resolved provider fields:
 - **Selection**: Task selection is bounded. Matching `- **Branch**:` metadata for the current git branch takes precedence, followed by `in-progress`, `todo`, then unknown status. Completed tasks are excluded.
 - **Formatting**: `formatTaskContext()` renders selected task metadata as neutral Markdown under `Active Task Context`. It includes path, title, status, branch, scope, objective, and unchecked completion items. It must not add behavior instructions.
 - **Prompt integration**: `loadContext()` stores formatted task context in `ILoadedContext.taskContext`; `buildSystemPrompt()` renders it after project memory and before runtime metadata. Compaction preserves it because the system message is preserved.
-- **Status synchronization**: `updateTaskFileStatus()` updates or inserts the task status metadata and appends a dated progress entry when a progress message is supplied. The function accepts an injected clock for deterministic tests.
+- **Opt-in discipline (NEUT-004)**: injection is settings-gated via `taskContext: { enabled, dir }` (settings.json → `IResolvedConfig.taskContext` → `loadContext(cwd, memoryStore, { taskContext })`). Default preserves today's behavior (enabled, `.agents/tasks`); `enabled: false` skips the scan entirely (no filesystem walk); `dir` replaces the scan directory. The task-file schema is a SUPPORTED convention, not a requirement of the library.
+- **Read-only**: the library never writes into `.agents/` (consistent with `paths.ts`). The former `updateTaskFileStatus()` write API is deleted (breaking; beta line).
 
 ### Project Memory (SDK-Specific)
 
@@ -1186,7 +1191,7 @@ Resolved provider fields:
 - **Command-driven access**: `memory` is the model-visible project memory interface when the product composes `@robota-sdk/agent-command`. It is exposed through the SDK-projected `robota_command_memory` tool using the injected command descriptor. The descriptor guides the model to inspect memory when stored context may help, add only durable reusable facts, review pending candidates, report provenance, and avoid storing secrets.
 - **Sensitive data policy**: Candidate policy must skip obvious secret, token, password, private-key, payment-card, and national-ID style content instead of silently saving it. Additional extractors may be composed later, but they must feed the same policy/store contracts.
 - **No hidden turn side effects by default; opt-in post-turn capture (SELFHOST-008 P2)**: `InteractiveSession` never automatically prepends topic memory to user prompts. Post-turn auto-capture is **OFF unless the surface supplies an `automaticMemory?: IAutomaticMemoryConfig`** (adapter-gated — absent ⇒ zero behavior change, no pending candidates created). When supplied, capture runs **once per completed turn**, `await`ed in the execution controller's `finally` **immediately before `persistSession()`** (so recorded `memoryEvents` land in that turn's persisted record) and **try/catch-guarded** (a capture failure is a skip that never breaks the turn — the sanctioned `// allow-fallback:` degradation). It extracts → evaluates → curates through the injected `IMemoryStore`; the default reference policy (`approval_required`) QUEUES candidates (non-destructive), `auto_save` saves above `AUTO_SAVE_CONFIDENCE_THRESHOLD`, and `containsSensitiveMemoryContent` skips secrets before persistence on every path. Explicit `/memory` command writes remain available independently.
-- **Reusable retrieval/capture internals**: `MemoryRetrievalService`, `MemoryCandidateExtractor`, `MemoryPolicyEvaluator`, and `PendingMemoryStore` are reusable building blocks. `AutomaticMemoryController` composes them over the neutral `IMemoryStore` port; it is inert until a surface opts in via `automaticMemory` (the capture POLICY stays surface-owned per library neutrality).
+- **Reusable retrieval/capture internals**: `MemoryRetrievalService`, `MemoryCandidateExtractor`, `MemoryPolicyEvaluator`, and `PendingMemoryStore` are reusable building blocks. NEUT-007: `RegexMemoryCandidateExtractor` takes an injectable `IMemoryExtractorPolicy` (trigger patterns + project/preference vocabulary); the bilingual English/Korean + software-project set is the exported, DOCUMENTED default (`DEFAULT_MEMORY_EXTRACTOR_POLICY`) a composition root may replace — locale/domain heuristics are policy, not library text. `AutomaticMemoryController` composes them over the neutral `IMemoryStore` port; it is inert until a surface opts in via `automaticMemory` (the capture POLICY stays surface-owned per library neutrality).
 - **Deduplication**: `ProjectMemoryStore.append()` returns `deduplicated` and must avoid repeating the same normalized topic entry.
 - **Command**: `memory list | show [topic] | add <user|feedback|project|reference> <topic> <text> | pending | approve <id> | reject <id> | used`.
 - **Audit trail**: `/memory approve`, `/memory reject`, and future explicit memory workflows append memory events to the session record as `memoryEvents` for resume/debugging. High-frequency streaming data is not part of the memory event stream.
@@ -1322,10 +1327,17 @@ import {
   transitionSelfHostingLoop,
 } from '@robota-sdk/agent-framework';
 
+// NEUT-001: baseRef and commandTemplates are REQUIRED injected config — the library
+// ships no repo-specific defaults. Robota's own values live in the unpublished
+// `scripts/harness/self-hosting-verification-commands.mjs`.
 const plan = planSelfHostingVerification({
   changedFiles: ['packages/agent-framework/src/index.ts'],
   packageScopes: ['@robota-sdk/agent-framework'],
-  baseRef: 'origin/develop',
+  baseRef: 'origin/main',
+  commandTemplates: {
+    packageVerify: [{ name: 'test', template: 'npm run test --workspace {scope}' }],
+    repoVerify: { description: 'Repo-wide gate.', template: 'npm run verify -- {baseRef}' },
+  },
 });
 
 let state = transitionSelfHostingLoop('idle', 'checkpoint_created');
@@ -1338,22 +1350,23 @@ state = transitionSelfHostingLoop(state, 'verify_passed');
 
 ### Task Context Helpers
 
-The SDK exports pure helpers for discovering, selecting, formatting, and updating active task files.
+The SDK exports pure READ-ONLY helpers for discovering, selecting, and formatting active task files.
 
 ```typescript
-import { loadTaskContext, updateTaskFileStatus } from '@robota-sdk/agent-framework';
+import { loadTaskContext } from '@robota-sdk/agent-framework';
 
 const taskContext = loadTaskContext(process.cwd(), {
   currentBranch: 'feat/context-injection-task-files',
   maxTasks: 3,
-});
-
-updateTaskFileStatus('.agents/tasks/CLI-BL-017-context-injection-from-task-files.md', 'completed', {
-  progressMessage: 'Verified task context injection.',
+  dir: '.agents/tasks', // optional scan-dir override (NEUT-004)
 });
 ```
 
-These helpers operate on Markdown files under `.agents/tasks/`. They do not render UI and do not inject behavior instructions into the prompt; the formatted task context is neutral metadata.
+These helpers operate on Markdown files under the configured tasks directory (default
+`.agents/tasks/`). They do not render UI and do not inject behavior instructions into the prompt;
+the formatted task context is neutral metadata. NEUT-004: the former `updateTaskFileStatus` write
+API is DELETED — it contradicted the `.agents/`-is-read-only claim in `paths.ts`; the library never
+writes into `.agents/`.
 
 **IToolState:**
 
@@ -2348,6 +2361,17 @@ Assembles an isolated child Session for subagent execution. Unlike `createSessio
 | `Explore`         | (parent)       | Denies Write, Edit  | Read-only code exploration  |
 | `Plan`            | (parent)       | Denies Write, Edit  | Read-only planning/research |
 
+**Built-in agent set injection (NEUT-003):** the set above is the DOCUMENTED DEFAULT, not a
+force-merge. `IInProcessSubagentRunnerDeps.builtInAgents` (also on `IAgentToolDeps`) and the
+`AgentDefinitionLoader` constructor accept an injected `IAgentDefinition[]` that REPLACES the
+default set; an empty array removes all built-ins. Custom registries still win on name collision.
+When no `subagent_type` is supplied, resolution falls back to the `general-purpose` name — with a
+replaced set that has no `general-purpose`, the call fails as an unknown agent type. The Agent
+tool's `subagent_type` schema description is derived from the session's actual agent definitions
+(`agentDefinitions` → `builtInAgents` → default set), never a hardcoded name list. Built-in
+prompts are mechanism-only: they must not embed house code-style doctrine (conventions come from
+the project's instruction files).
+
 ### Model-Requested Agent Invocation
 
 Model-requested agent invocation is owned by `@robota-sdk/agent-command`. The command module
@@ -2371,7 +2395,7 @@ When `isolation: 'worktree'` is requested, a runtime shell that supports worktre
 **Scan directories (highest priority first):**
 
 1. `<cwd>/.robota/agents/` — project-level (Robota native)
-2. `<cwd>/.agents/agents/` — project-level (Robota repository convention)
+2. `<cwd>/.agents/agents/` — project-level (supported convention)
 3. `<cwd>/.claude/agents/` — project-level (Claude Code compatible)
 4. `<home>/.robota/agents/` — user-level (Robota native)
 5. `<home>/.claude/agents/` — user-level (Claude Code compatible)
@@ -2383,14 +2407,19 @@ Two suffix modes appended to subagent system prompts:
 - **Subagent suffix** (default): Instructs the agent to report concisely to the caller
 - **Fork worker suffix** (`isForkWorker: true`): Instructs the agent to respond within 500 words, suitable for skill fork execution
 
+**Suffix seam (NEUT-003):** both defaults are DOCUMENTED DEFAULTS. `ISubagentOptions.suffix` /
+`ISubagentPromptOptions.suffix` (`TSubagentSuffix = string | ((ctx: { isForkWorker }) => string)`)
+replaces the framework suffix entirely; omitted keeps the defaults above.
+
 ### assembleSubagentPrompt(options)
 
 Assembles the full system prompt for a subagent session:
 
 1. Agent body (from agent definition `systemPrompt`)
-2. CLAUDE.md content (from parent context)
+2. Project notes content (`projectNotesMd` — CLAUDE.md-compatible files from parent context; the
+   contract field is vendor-neutral, NEUT-003 rename of `claudeMd`)
 3. AGENTS.md content (from parent context)
-4. Framework suffix (subagent or fork worker)
+4. Framework suffix (caller-supplied `suffix`, else subagent or fork worker default)
 
 ### Subagent Transcript Logger
 

@@ -85,7 +85,7 @@ function makeConfig(): IResolvedConfig {
 }
 
 function makeContext(): ILoadedContext {
-  return { agentsMd: '# AGENTS', claudeMd: '# CLAUDE' };
+  return { agentsMd: '# AGENTS', projectNotesMd: '# CLAUDE' };
 }
 
 function makeTerminal(): ITerminalOutput {

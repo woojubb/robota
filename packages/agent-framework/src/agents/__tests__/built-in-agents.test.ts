@@ -46,4 +46,12 @@ describe('Built-in agents', () => {
     const names = BUILT_IN_AGENTS.map((a) => a.name);
     expect(new Set(names).size).toBe(names.length);
   });
+
+  it('NEUT-003: built-in prompts carry no house doctrine vocabulary', () => {
+    for (const agent of BUILT_IN_AGENTS) {
+      expect(agent.systemPrompt).not.toMatch(/strict types/i);
+      expect(agent.systemPrompt).not.toMatch(/no fallbacks/i);
+      expect(agent.systemPrompt).not.toMatch(/proper error handling/i);
+    }
+  });
 });

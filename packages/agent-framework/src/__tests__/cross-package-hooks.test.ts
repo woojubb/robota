@@ -360,7 +360,7 @@ describe('Cross-package: BundlePlugin -> system prompt', () => {
     // Now pass to buildSystemPrompt
     const params: ISystemPromptParams = {
       agentsMd: '',
-      claudeMd: '',
+      projectNotesMd: '',
       toolDescriptions: [],
       permissionMode: 'default',
       projectInfo: { type: 'unknown', language: 'unknown' },
@@ -430,7 +430,7 @@ describe('Cross-package: BundlePlugin -> system prompt', () => {
 
     const prompt = buildSystemPrompt({
       agentsMd: '',
-      claudeMd: '',
+      projectNotesMd: '',
       toolDescriptions: [],
       permissionMode: 'default',
       projectInfo: { type: 'unknown', language: 'unknown' },
