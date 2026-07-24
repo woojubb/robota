@@ -1,5 +1,6 @@
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import {
+  deleteSettings,
   getStartupCliUpdateNotice,
   getUserSettingsPath,
   readMergedProviderSettings,
@@ -81,6 +82,8 @@ export function buildCommandSetup(
     settings: {
       read: () => readSettings(getUserSettingsPath()),
       write: (settings) => writeSettings(getUserSettingsPath(), settings),
+      // CMD-004 Phase 2: the host-executed `settings-reset` action deletes the user settings document.
+      delete: () => deleteSettings(getUserSettingsPath()),
     },
     plugin: createDefaultPluginCommandAdapter(cwd),
   };

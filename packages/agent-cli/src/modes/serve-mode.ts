@@ -129,18 +129,35 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
     }
   }
 
-  // Stay alive until the supervisor (e.g. apps/agent-app on window close) signals; then tear down cleanly.
+  // Stay alive until the supervisor (e.g. apps/agent-app on window close) signals — or a
+  // host-executed session-exit/-restart action fires (CMD-004 Phase 2) — then tear down cleanly.
   await new Promise<void>((resolve) => {
     let settling = false;
-    const onSignal = (signal: NodeJS.Signals): void => {
+    const settle = (reason: string): void => {
       if (settling) return;
       settling = true;
       void Promise.resolve(monitorUi?.close())
         .catch(() => {})
-        .then(() => host.shutdown(`received ${signal}`))
+        .then(() => host.shutdown(reason))
         .finally(() => resolve());
     };
+    const onSignal = (signal: NodeJS.Signals): void => settle(`received ${signal}`);
     process.once('SIGTERM', onSignal);
     process.once('SIGINT', onSignal);
+    // CMD-004 Phase 2 (Stage B): late-bound serve-mode process adapter. A host-executed exit or
+    // restart terminates the SHARED host serving ALL attached surfaces — the deliberate
+    // local == remote decision (REMOTE-006): a remote driver is a full driver; a surface that only
+    // wants to detach disconnects. The teardown is deferred one flush window so the in-flight
+    // `command_result` reaches the requesting surface before the transports close. Restart ==
+    // graceful exit here (the supervisor — e.g. the GUI sidecar — owns relaunching).
+    const COMMAND_TEARDOWN_FLUSH_MS = 500;
+    const scheduleSettle = (reason: string): void => {
+      const timer = setTimeout(() => settle(reason), COMMAND_TEARDOWN_FLUSH_MS);
+      timer.unref?.();
+    };
+    opts.commandHostAdapters.process = {
+      requestExit: (reason) => scheduleSettle(`command exit${reason ? ` (${reason})` : ''}`),
+      requestRestart: (_reason, message) => scheduleSettle(`command restart: ${message}`),
+    };
   });
 }

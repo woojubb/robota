@@ -69,6 +69,21 @@ export async function runPrintMode(
 
   const appendSystemPrompt = buildAppendSystemPrompt(cwd, args);
 
+  // CMD-004 Phase 2 (Stage B): print-mode process adapter. Print mode ALWAYS exits when the run
+  // completes (the exit-code contract below), so a host-executed exit action is satisfied by the
+  // mode itself — nothing extra to do. A restart cannot be performed headlessly; it is surfaced
+  // explicitly (never a silent skip).
+  commandHostAdapters.process = {
+    requestExit: () => {
+      /* satisfied by the end-of-run process.exit(channel.getExitCode()) contract */
+    },
+    requestRestart: (_reason, message) => {
+      process.stderr.write(
+        `Restart requested (${message}) — print mode cannot restart itself; run the command again.\n`,
+      );
+    },
+  };
+
   const channel = new HeadlessInteractionChannel({
     cwd,
     provider,

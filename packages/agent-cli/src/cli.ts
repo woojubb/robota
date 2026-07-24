@@ -56,6 +56,10 @@ import { isFirstRun, markOnboarded, printFirstRunWelcome } from './startup/first
 import { warnIfTerminalAppOnMacOS } from './startup/terminal-check.js';
 import type { IStartCliOptions } from './startup/command-setup.js';
 import { buildCommandSetup } from './startup/command-setup.js';
+import {
+  buildRemoteControlHostAdapter,
+  createTuiProcessAdapter,
+} from './startup/host-action-adapters.js';
 import { runPrintMode } from './modes/print-mode.js';
 import { runServeMode } from './modes/serve-mode.js';
 import {
@@ -251,17 +255,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   const { registry: transportRegistry, wsTransport } = createDefaultTransportRegistry();
   const { controller: remoteControlController, setChannel: setRemoteControlChannel } =
     createRemoteControlController(transportRegistry);
-  commandHostAdapters.remoteControl = {
-    getStatus: () => remoteControlController.getStatus(),
-    // REMOTE-012 E3: `/remote-control devices` + `revoke <id>` over the same controller (trusted-device store).
-    listDevices: () =>
-      remoteControlController.listDevices().map((d) => ({
-        deviceId: d.deviceId,
-        label: d.label,
-        lastSeenAt: d.lastSeenAt,
-      })),
-    revokeDevice: (deviceId: string) => remoteControlController.revokeDevice(deviceId),
-  };
+  commandHostAdapters.remoteControl = buildRemoteControlHostAdapter(remoteControlController);
 
   // INFRA-032: a preset command-module name that matched no module (a short form like "editor"
   // instead of agent-command-editor, or a typo) is surfaced as a non-fatal notice — never a silent
@@ -446,6 +440,8 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   warnIfTerminalAppOnMacOS(terminal);
   // ERR-001 G1: interactive mode only — the process must survive transient failures.
   installTuiProcessGuards();
+  // CMD-004 Phase 2 (Stage B): late-bound TUI-mode process adapter (host-executed exit/restart).
+  commandHostAdapters.process = createTuiProcessAdapter();
   if (isFirstRun()) {
     printFirstRunWelcome(terminal);
     markOnboarded();

@@ -46,7 +46,8 @@ the CLI. The CLI stays the composition root (it resolves settings/preset/provide
 - Does NOT own Ink TUI components, permission-prompt, TUI hooks, TUI flows, or `TuiStateManager` — these are owned by `@robota-sdk/agent-transport-tui`
 - OWNS: CLI argument parsing, process lifecycle and assembly, `TransportRegistry`, `ITuiCliAdapter` wiring, provider composition
 - OWNS: CLI package-version update checks and user-level update-check cache
-- OWNS: Concrete local host adapters (background runner, child-process subagent, Git worktree, settings I/O)
+- OWNS: Concrete local host adapters (background runner, child-process subagent, Git worktree, settings I/O incl. the CMD-004 `delete()` reset capability)
+- OWNS: CMD-004 Phase 2 host-action adapter wiring (`src/startup/host-action-adapters.ts`): the `/remote-control` host adapter (status/devices + host-executed `enable()`/`stop()`) and the late-bound per-mode `process` adapter — TUI (deferred SIGTERM → the App's existing graceful signal flow), serve (deferred shared-host shutdown; local == remote, REMOTE-006), print (exit satisfied by the end-of-run exit-code contract; restart surfaced explicitly)
 - Does NOT own `PluginCommandSource` — imported from `@robota-sdk/agent-framework`
 - Does NOT own `plugin-hooks-merger` — moved to `@robota-sdk/agent-framework`
 
