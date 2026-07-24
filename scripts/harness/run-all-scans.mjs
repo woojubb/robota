@@ -124,6 +124,10 @@ const SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/scan-evals-neutrality.mjs'],
   },
   {
+    name: 'prompt-prose',
+    command: ['node', 'scripts/harness/scan-prompt-prose.mjs'],
+  },
+  {
     name: 'capability-reachability',
     command: ['node', 'scripts/harness/scan-capability-reachability.mjs'],
   },
