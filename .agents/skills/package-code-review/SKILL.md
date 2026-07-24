@@ -5,17 +5,16 @@ description: Systematic per-package code review using six specialist perspective
 
 # Package Code Review
 
+This skill owns the review **taxonomy and method** (severity vocabulary, six perspectives, output
+format). The underlying code rules are NOT restated here — they are owned by
+[code-quality.md](../../rules/code-quality.md), [.agents/project-structure.md](../../project-structure.md)
+(dependency direction), and the other rule documents; review against those rules directly.
+
 ## Rule Anchor
 
 - `AGENTS.md` > "Type System (Strict)"
 - `AGENTS.md` > "No Fallback Policy"
 - `AGENTS.md` > "Development Patterns"
-
-## Use This Skill When
-
-- Reviewing an entire package for quality and compliance.
-- Reviewing a set of changed files before merge.
-- Running periodic codebase health checks.
 
 ## Severity Labels
 
@@ -26,84 +25,32 @@ description: Systematic per-package code review using six specialist perspective
 | **CONSIDER** | Refactoring opportunity, alternative approach       | Author decides                   |
 | **NIT**      | Minor style or naming preference                    | Ignorable                        |
 
-Classification rules:
+Classification rules: any Mandatory Rules violation → **MUST**; SPEC.md quality gate gap or
+untested public API surface → **SHOULD**; everything else → **CONSIDER** or **NIT**.
 
-- Any AGENTS.md Mandatory Rules violation → **MUST**
-- SPEC.md quality gate gap → **SHOULD**
-- Untested public API surface → **SHOULD**
-- Everything else → **CONSIDER** or **NIT**
+## Review Perspectives (apply all six, in order)
 
-## Review Perspectives
-
-Each package is reviewed through six specialist perspectives, in order:
-
-### 1. Correctness
-
-- Logic bugs and unreachable code paths
-- Edge cases: null, undefined, empty arrays, boundary values
-- Error handling completeness (catch boundaries narrowed, no silent swallowing)
-- Invariant violations (terminal states re-entered, duplicate prevention anti-patterns)
-- Promise handling (unhandled rejections, missing await)
-
-### 2. Architecture
-
-- Dependency direction (imports flow toward owner packages, no circular imports)
-- Boundary violations (package imports from internals of another package)
-- SSOT compliance (no re-declared types, no 1:1 trivial aliases)
-- Module cohesion (single responsibility, no god files)
-- Import standards (static by default, dynamic only for optional modules)
-- No fallback patterns
-
-### 3. Type Safety
-
-- No `any`, `{}`, `as any`, `as unknown as T` in production code
-- `unknown` narrowed before domain use
-- Naming convention: `I*` for interfaces, `T*` for type aliases
-- No trivial 1:1 type aliases
-- Explicit return types on exported functions
-- Type guards used at trust boundaries
-
-### 4. Security
-
-- No hardcoded secrets, API keys, or credentials
-- Input validation at system boundaries (user input, external APIs)
-- No command injection, XSS, SQL injection vectors
-- No `eval()`, `new Function()`, or unsafe dynamic code execution
-- Sensitive data not logged or exposed in error messages
-
-### 5. Performance
-
-- No unnecessary allocations in hot paths or loops
-- No N+1 query patterns
-- No synchronous blocking in async contexts
-- Appropriate use of caching (check before compute, save after success)
-- No unbounded growth (arrays, maps, event listeners without cleanup)
-
-### 6. Maintainability
-
-- Test coverage for public API surface
-- Naming clarity (functions describe actions, variables describe content)
-- File size: production files > 300 lines → **MUST** fix (split into focused modules)
-- Function size: functions > 50 lines → **MUST** fix (extract sub-operations)
-- Cyclomatic complexity: functions with > 15 branches → **SHOULD** simplify
-- Documentation accuracy (SPEC.md reflects current implementation)
-- Dead code (unused exports, unreachable branches)
-- Magic numbers/strings without named constants → **SHOULD** fix
-- Mutable function parameters → **MUST** fix (clone or create new objects)
+1. **Correctness** — logic bugs, edge cases, error-handling completeness, invariant violations,
+   promise handling.
+2. **Architecture** — dependency direction, boundary violations, SSOT compliance, cohesion,
+   import standards, no fallback (rules: project-structure + code-quality).
+3. **Type Safety** — the strict-TS rules in [code-quality.md](../../rules/code-quality.md)
+   (no `any`, narrowing at trust boundaries, naming, explicit return types).
+4. **Security** — no hardcoded secrets, boundary input validation, no injection vectors, no unsafe
+   dynamic code execution, no sensitive data in logs/errors.
+5. **Performance** — hot-path allocations, N+1 patterns, sync blocking in async contexts, caching,
+   unbounded growth.
+6. **Maintainability** — public-API test coverage, naming clarity, file/function size and
+   complexity limits (per code-quality), SPEC accuracy, dead code, magic values.
 
 ## Execution Steps
 
-1. **Scope**: Identify the target package(s) and file set.
-2. **Context**: Read SPEC.md, package.json, and index.ts to understand the package boundary and public surface.
-3. **Scan**: Read each production source file (exclude tests, examples, generated files).
-4. **Review**: Apply all six perspectives to each file. Record findings with severity, perspective, file:line, and description.
-5. **Cross-check**: Run harness commands to validate mechanical checks:
-   ```bash
-   pnpm --filter <pkg> build
-   pnpm --filter <pkg> test
-   pnpm harness:scan
-   ```
-6. **Report**: Output the review summary in the format below.
+1. **Scope** the target package(s)/file set; read SPEC.md, package.json, index.ts for the boundary.
+2. **Review** each production source file through all six perspectives; record findings with
+   severity, perspective, `file:line`, description.
+3. **Cross-check** mechanically: `pnpm --filter <pkg> build && pnpm --filter <pkg> test` +
+   `pnpm harness:scan`.
+4. **Report** in the format below.
 
 ## Output Format
 
@@ -119,18 +66,9 @@ Each package is reviewed through six specialist perspectives, in order:
 | NIT      | N     |
 
 ### Findings
-
 #### MUST
 1. (Perspective) `file:line` — Description
-
-#### SHOULD
-1. (Perspective) `file:line` — Description
-
-#### CONSIDER
-1. (Perspective) `file:line` — Description
-
-#### NIT
-1. (Perspective) `file:line` — Description
+(repeat per severity)
 
 ### Positive Observations
 - Things done well that should be preserved.
@@ -139,12 +77,10 @@ Each package is reviewed through six specialist perspectives, in order:
 ## Stop Conditions
 
 - Do not review test files, example files, or generated output (`.d.ts`, `dist/`).
-- Do not flag patterns explicitly allowed by AGENTS.md (e.g., `unknown` at catch boundaries).
-- Do not suggest changes beyond the review — create task files for large-scale work.
+- Do not flag patterns the rules explicitly allow (e.g., `unknown` at catch boundaries).
+- Do not make changes beyond the review — create task files for large-scale work.
 
 ## Relationship to Other Skills
 
-- Findings that require code changes → follow `repo-change-loop` skill.
-- Findings about SPEC.md gaps → follow `spec-writing-standard` skill.
-- Findings about type ownership → follow `type-boundary-and-ssot` skill.
-- Findings about test gaps → reference `vitest-testing-strategy` skill.
+Code changes → `repo-change-loop`; SPEC gaps → `spec-writing-standard`; type ownership →
+`type-boundary-and-ssot`; test gaps → `vitest-testing-strategy`.

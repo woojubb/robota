@@ -19,7 +19,7 @@ Consult the relevant skill before starting work in its domain. Each entry links 
 | [tdd-red-green-refactor](tdd-red-green-refactor/SKILL.md)                 | Kent Beck TDD cycle: Red → Green → Refactor                                                                                    |
 | [task-tracking](task-tracking/SKILL.md)                                   | Create and update task files in `.agents/tasks/`                                                                               |
 | [backlog-execution-orchestrator](backlog-execution-orchestrator/SKILL.md) | Route-only backlog PR pipeline — sequences the gates owned by `backlog-execution.md` and routes to owner skills                |
-| [post-implementation-checklist](post-implementation-checklist/SKILL.md)   | Mandatory checklist after completing implementation work                                                                       |
+| [post-implementation-checklist](post-implementation-checklist/SKILL.md)   | Router: mandatory post-implementation order + gates (SPEC sync → build/test → README → PR → publish → docs)                    |
 | [delegated-refactor-green-gate](delegated-refactor-green-gate/SKILL.md)   | Delegate a large mechanical refactor to a subagent under a hard green-or-report completion gate                                |
 | [repo-change-loop](repo-change-loop/SKILL.md)                             | Standard change loop: impact → build → verify → summarize                                                                      |
 | [pr-review-orchestration](pr-review-orchestration/SKILL.md)               | Route-only PR-review loop: reviewer→writer→fixer until `ACTIONABLE FINDINGS: 0` (bounded), then gated merge path (HARNESS-018) |
@@ -43,11 +43,11 @@ Consult the relevant skill before starting work in its domain. Each entry links 
 | ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [architecture-refresh](architecture-refresh/SKILL.md)                     | Thin pipeline that re-calls architecture-auditor→architecture-fixer until an audit round is materially clean (agents hold all policy)                                                        |
 | [capability-extraction](capability-extraction/SKILL.md)                   | Thin pipeline that sequences capability-scout→proposal-reviewer→agent-skill-author, gating authoring on ENDORSE and convergence on the `agent-def-convention` guard (agents hold all policy) |
-| [architecture-conformance-audit](architecture-conformance-audit/SKILL.md) | Orchestrates a repeatable doc-vs-code architecture conformance audit (GATE-CONFORMANCE)                                                                                                      |
-| [design-quality-audit](design-quality-audit/SKILL.md)                     | Repeatable deep design-quality audit — judges whether the design is right (vs doc conformance)                                                                                               |
+| [architecture-conformance-audit](architecture-conformance-audit/SKILL.md) | Thin router: conformance audit = mechanical conformance scan + the architecture-refresh agent loop (GATE-CONFORMANCE)                                                                        |
+| [design-quality-audit](design-quality-audit/SKILL.md)                     | Pointer stub → the `architecture-auditor` agent owns the design-quality judgement natively                                                                                                   |
 | [dependency-graph-extraction](dependency-graph-extraction/SKILL.md)       | Extracts the actual workspace-internal dependency edge set + runs the mechanical conformance guards                                                                                          |
-| [doc-claim-verification](doc-claim-verification/SKILL.md)                 | Verifies one architecture document's claims vs code: HOLDS/DRIFT/VIOLATION/CONTRADICTION/STALE                                                                                               |
-| [conformance-finding-report](conformance-finding-report/SKILL.md)         | Assembles verdicts into the AF-NN findings report with severities + counts (INFRA-002 schema)                                                                                                |
+| [doc-claim-verification](doc-claim-verification/SKILL.md)                 | Pointer stub → the `architecture-conformance-auditor` agent emits per-claim doc↔code verdicts natively                                                                                       |
+| [conformance-finding-report](conformance-finding-report/SKILL.md)         | Pointer stub → the `architecture-conformance-auditor` agent returns classified findings + ACTIONABLE FINDINGS natively                                                                       |
 | [improvement-proposal-authoring](improvement-proposal-authoring/SKILL.md) | Maps findings to remediation + follow-up backlogs + mechanical-guard recommendations                                                                                                         |
 
 ### Spawnable Agents
@@ -98,10 +98,10 @@ The **agent-definition convention** they follow is a document-type contract in
 
 | Skill                                               | Description                                                                                     |
 | --------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| [pnpm-monorepo-build](pnpm-monorepo-build/SKILL.md) | pnpm workspace build commands and order                                                         |
+| [pnpm-monorepo-build](pnpm-monorepo-build/SKILL.md) | pnpm build gotchas: lifecycle pre/post silence + surgical workspace-dep lockfile edits          |
 | [harness-governance](harness-governance/SKILL.md)   | Rule-skill consistency, undefined terminology, mechanical checks                                |
 | [lesson-to-harness](lesson-to-harness/SKILL.md)     | Mine repeated user corrections → approve → institutionalize as neutral repo rules + enforcement |
-| [branch-guard](branch-guard/SKILL.md)               | Guard against direct commits to protected branches                                              |
+| [branch-guard](branch-guard/SKILL.md)               | Pointer: protected-branch policy lives in git-branch.md; hook + husky are the mechanical SSOT   |
 | [daily-report](daily-report/SKILL.md)               | Generate the committed daily work report (OBSERVABILITY-001) — one summary per UTC work day     |
 
 ## Package-Specific

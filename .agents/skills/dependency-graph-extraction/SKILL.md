@@ -1,6 +1,6 @@
 ---
 name: dependency-graph-extraction
-description: Extracts the actual workspace-internal dependency graph from package.json + imports and runs the mechanical conformance checks, emitting the ground-truth edge set + violations the rest of the audit verifies documents against. Use as step 1 of architecture-conformance-audit.
+description: Extracts the actual workspace-internal dependency graph from package.json + imports and runs the mechanical conformance checks, emitting the ground-truth edge set + violations the rest of the audit verifies documents against. Use as the mechanical-floor step of architecture-conformance-audit, or standalone.
 ---
 
 # Dependency Graph Extraction
@@ -39,11 +39,10 @@ when you only need the current dependency edge set.
 - The `harness:conformance` JSON summary + exit code.
 - The `harness:scan` output.
 
-These are consumed by [doc-claim-verification](../doc-claim-verification/SKILL.md) (to diff documented
-edges against reality) and recorded in the report's "Mechanical Conformance Baseline" + "Dependency
-Graph Ground Truth" sections.
+These are consumed by the `architecture-conformance-auditor` agent (dispatched via
+[architecture-refresh](../architecture-refresh/SKILL.md)) to diff documented edges against reality.
 
 ## What This Skill Does NOT Do
 
-- Judge whether documents match the graph → that is `doc-claim-verification`.
+- Judge whether documents match the graph → that is the `architecture-conformance-auditor` agent.
 - Modify `package.json` or fix violations → extraction only.
