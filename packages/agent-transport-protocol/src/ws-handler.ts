@@ -23,6 +23,7 @@ import type {
   IPermissionRequestEvent,
   IPromptResolvedEvent,
   IToolState,
+  IUiIntentEvent,
   TBackgroundJobGroupEvent,
 } from '@robota-sdk/agent-interface-transport';
 import type { TBackgroundTaskEvent } from '@robota-sdk/agent-interface-transport';
@@ -80,9 +81,8 @@ export function subscribeSessionEvents(
   // REMOTE-014 E5: stamp the ACTIVE turn's driver id onto TURN-AUTHORED events (co-drive authorship,
   // display-only), read at emit time. Only these events — background/goal/memory/execution-workspace events
   // are NOT authored by a driver turn and carry no `driverId`. `undefined` when idle or unattributed.
-  const driver = (): TDriverId | undefined => session.getActiveDriverId?.() ?? undefined;
   const attr = (): { driverId?: TDriverId } => {
-    const d = driver();
+    const d = session.getActiveDriverId?.() ?? undefined;
     return d ? { driverId: d } : {};
   };
   const onUserMessage = (content: string): void =>
@@ -111,6 +111,7 @@ export function subscribeSessionEvents(
   const onAskRequest = (event: IAskRequestEvent): void => send({ type: 'ask_request', event });
   const onPromptResolved = (event: IPromptResolvedEvent): void =>
     send({ type: 'prompt_resolved', event });
+  const onUiIntent = (event: IUiIntentEvent): void => send({ type: 'ui_intent', event }); // CMD-004
 
   session.on('user_message', onUserMessage);
   session.on('text_delta', onTextDelta);
@@ -126,6 +127,7 @@ export function subscribeSessionEvents(
   session.on('permission_request', onPermissionRequest);
   session.on('ask_request', onAskRequest);
   session.on('prompt_resolved', onPromptResolved);
+  session.on('ui_intent', onUiIntent);
 
   return (): void => {
     session.off('user_message', onUserMessage);
@@ -142,6 +144,7 @@ export function subscribeSessionEvents(
     session.off('permission_request', onPermissionRequest);
     session.off('ask_request', onAskRequest);
     session.off('prompt_resolved', onPromptResolved);
+    session.off('ui_intent', onUiIntent);
   };
 }
 
@@ -200,11 +203,8 @@ export function handleClientMessage(
     handlePromptResponseMessage(session, msg, driverId);
     return;
   }
-  send({ type: 'protocol_error', message: `Unknown message type: ${getMessageType(msg)}` });
-}
-
-function getMessageType(msg: TClientMessage): string {
-  return (msg as { type: string }).type;
+  const unknownType = (msg as { type: string }).type;
+  send({ type: 'protocol_error', message: `Unknown message type: ${unknownType}` });
 }
 
 function isSessionControlMessage(
@@ -314,9 +314,9 @@ function handleSessionControlMessage(
       send({ type: 'protocol_error', message: 'name is required' });
       return;
     }
-    // REMOTE-003: a command arriving over a transport is an untrusted remote origin — tag it `'remote'` so the
-    // session applies its optional remote-command policy (allow-by-default — local == remote; REMOTE-006).
-    session.executeCommand(msg.name, msg.args ?? '', 'remote').then(
+    // REMOTE-003: a transport-origin command is tagged `'remote'` (optional policy, allow-by-default;
+    // REMOTE-006). CMD-004: the SERVER-ASSIGNED driver id (E5) is the command origin — intents route back here.
+    session.executeCommand(msg.name, msg.args ?? '', 'remote', driverId).then(
       (result) => {
         send({
           type: 'command_result',

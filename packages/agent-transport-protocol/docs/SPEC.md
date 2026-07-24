@@ -18,6 +18,13 @@ abort/...` from inbound `TClientMessage`s) + `cleanup()`. Framework-agnostic: wo
   operator (local == remote); the first answer wins and `prompt_resolved` dismisses it on co-drive. A client
   disconnect (`cleanup` → `session.off`) drops the prompt listeners, and the session's reconcile-on-detach
   fails the prompt closed (deny/cancel) so a mid-prompt disconnect cannot hang the awaiting tool.
+- **CMD-004 Phase 2 host-action/UI-intent split.** An inbound `command` verb passes the handler's
+  SERVER-ASSIGNED `driverId` (REMOTE-014 E5 — never a client-sent one) into
+  `session.executeCommand(name, args, 'remote', driverId)` so the session executes host actions
+  host-side BEFORE `command_result` is sent (the pre-CMD-004 handler dropped `result.effects` on the
+  floor). The handler forwards the session's `ui_intent` events as `{ type: 'ui_intent', event }`
+  server messages (same pattern as `ask_request`); the event is requester-routed via
+  `event.requesterDriverId` and needs no answer (fire-and-forget).
 - **REMOTE-014 E5 co-drive attribution (SERVER-ASSIGNED, display-only).** `IWsHandlerOptions.driverId` binds a
   surface's server-assigned driver id (the E3 `deviceId`; the SessionResumeBridge sets it at pairing via
   `setDriverId`). The handler INJECTS it into every inbound `submit` / `permission-response` / `ask-response`
