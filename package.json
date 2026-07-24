@@ -142,7 +142,7 @@
     "eslint-plugin-eslint-comments": "^3.2.0",
     "eslint-plugin-jsx-a11y": "^6.10.2",
     "glob": "^13.0.6",
-    "husky": "^8.0.3",
+    "husky": "^9.1.7",
     "knip": "^5.88.1",
     "lint-staged": "^15.5.2",
     "marked": "^9.1.6",
