@@ -9,6 +9,7 @@ import {
   type TTextPromptInputAction,
 } from './flows/text-prompt-flow.js';
 import { KeyHintFooter, type IKeyHint } from './key-hint-footer.js';
+import { PALETTE } from './tui-palette.js';
 
 /** Footer for the free-text prompt. */
 export const TEXT_PROMPT_FOOTER_HINTS: readonly IKeyHint[] = [
@@ -59,21 +60,26 @@ export default function TextPrompt({
   });
 
   return (
-    <Box flexDirection="column" borderStyle="round" borderColor="yellow" paddingX={1}>
-      <Text color="yellow" bold>
+    <Box
+      flexDirection="column"
+      borderStyle="round"
+      borderColor={PALETTE.border.attention}
+      paddingX={1}
+    >
+      <Text color={PALETTE.text.warning} bold>
         {title}
       </Text>
       <PromptDescription description={description} />
       <Box marginTop={1}>
-        <Text color="cyan">&gt; </Text>
+        <Text color={PALETTE.text.accent}>&gt; </Text>
         {state.value ? (
           <Text>{masked ? '*'.repeat(state.value.length) : state.value}</Text>
         ) : placeholder ? (
           <Text dimColor>{placeholder}</Text>
         ) : null}
-        <Text color="cyan">█</Text>
+        <Text color={PALETTE.text.accent}>█</Text>
       </Box>
-      {state.error && <Text color="red">{state.error}</Text>}
+      {state.error && <Text color={PALETTE.text.error}>{state.error}</Text>}
       <KeyHintFooter hints={TEXT_PROMPT_FOOTER_HINTS} />
     </Box>
   );

@@ -10,6 +10,7 @@ import { humanizeToolName } from './humanize-tool-name.js';
 import { renderMarkdown } from './render-markdown.js';
 import { STATUS_GLYPH, toolStateStatusKind } from './status-glyph.js';
 import ToolDiffBlock from './ToolDiffBlock.js';
+import { PALETTE } from './tui-palette.js';
 
 import type { IToolState } from '@robota-sdk/agent-interface-transport';
 
@@ -33,7 +34,7 @@ function renderThinkingFallback(isThinking: boolean): React.ReactElement {
   if (!isThinking) return <></>;
   return (
     <Box marginBottom={1}>
-      <Text color="yellow">Thinking...</Text>
+      <Text color={PALETTE.text.warning}>Thinking...</Text>
     </Box>
   );
 }
@@ -41,7 +42,7 @@ function renderThinkingFallback(isThinking: boolean): React.ReactElement {
 function renderTools(activeTools: IToolState[]): React.ReactElement {
   return (
     <Box flexDirection="column" marginBottom={1}>
-      <Text color="white" bold>
+      <Text color={PALETTE.text.emphasis} bold>
         Tools:
       </Text>
       <Text> </Text>
@@ -80,7 +81,7 @@ export default function StreamingIndicator({
       {hasTools && renderTools(activeTools)}
       {hasText && (
         <Box flexDirection="column" marginBottom={1}>
-          <Text color="cyan" bold>
+          <Text color={PALETTE.text.accent} bold>
             Robota:
           </Text>
           <Text> </Text>

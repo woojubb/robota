@@ -15,6 +15,7 @@ import {
   SELECTION_INDICATOR_NONE,
   type IKeyHint,
 } from './key-hint-footer.js';
+import { PALETTE } from './tui-palette.js';
 
 /** Footer for the interactive menu state. */
 export const MENU_SELECT_FOOTER_HINTS: readonly IKeyHint[] = [
@@ -86,8 +87,13 @@ export default function MenuSelect({
   const selected = normalizedState.selectedIndex;
 
   return (
-    <Box flexDirection="column" borderStyle="round" borderColor="yellow" paddingX={1}>
-      <Text color="yellow" bold>
+    <Box
+      flexDirection="column"
+      borderStyle="round"
+      borderColor={PALETTE.border.attention}
+      paddingX={1}
+    >
+      <Text color={PALETTE.text.warning} bold>
         {title}
       </Text>
       {loading && (
@@ -97,14 +103,14 @@ export default function MenuSelect({
       )}
       {error && (
         <Box marginTop={1}>
-          <Text color="red">{error}</Text>
+          <Text color={PALETTE.text.error}>{error}</Text>
         </Box>
       )}
       {!loading && !error && (
         <Box flexDirection="column" marginTop={1}>
           {items.map((item, i) => (
             <Box key={item.value}>
-              <Text color={i === selected ? 'cyan' : undefined} bold={i === selected}>
+              <Text color={i === selected ? PALETTE.text.accent : undefined} bold={i === selected}>
                 {i === selected ? SELECTION_INDICATOR : SELECTION_INDICATOR_NONE}
                 {item.label}
               </Text>

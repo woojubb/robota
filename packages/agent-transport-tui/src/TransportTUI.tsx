@@ -7,6 +7,8 @@
 import { Box, Text, useInput } from 'ink';
 import React, { useState, useCallback } from 'react';
 
+import { PALETTE } from './tui-palette.js';
+
 import type {
   IInteractiveSession,
   ITransportEntry,
@@ -28,7 +30,7 @@ function TransportEntryRow({ entry, selected }: IEntryRowProps): React.ReactElem
   const portHint = typeof portOpt === 'number' ? `port: ${portOpt}` : '';
   return (
     <Box>
-      <Text color={selected ? 'cyan' : undefined} bold={selected}>
+      <Text color={selected ? PALETTE.text.accent : undefined} bold={selected}>
         {`${dot} ${entry.transport.name.padEnd(TRANSPORT_NAME_WIDTH)} ${badge}  ${portHint}`}
       </Text>
     </Box>
@@ -109,7 +111,7 @@ export default function TransportTUI({ registry, onClose }: IProps): React.React
       </Box>
       {saving && (
         <Box marginTop={1}>
-          <Text color="yellow">Saving…</Text>
+          <Text color={PALETTE.text.warning}>Saving…</Text>
         </Box>
       )}
     </Box>

@@ -10,6 +10,8 @@
  * terminals and colorblind users).
  */
 
+import { PALETTE } from './tui-palette.js';
+
 import type {
   IToolState,
   TExecutionAttention,
@@ -17,13 +19,7 @@ import type {
 } from '@robota-sdk/agent-interface-transport';
 
 export type TUiStatusKind =
-  | 'running'
-  | 'success'
-  | 'error'
-  | 'denied'
-  | 'waiting'
-  | 'cancelled'
-  | 'idle';
+  'running' | 'success' | 'error' | 'denied' | 'waiting' | 'cancelled' | 'idle';
 
 export interface IStatusGlyph {
   /** Unicode symbol shown alongside (not instead of) the color. */
@@ -32,15 +28,19 @@ export interface IStatusGlyph {
   readonly color: string;
 }
 
-/** Canonical status → glyph map. Used by every status-rendering component. */
+/**
+ * Canonical status → glyph map. Used by every status-rendering component.
+ * Colors are sourced from the shared semantic palette (SCREEN-006); this module stays
+ * the SSOT for status KINDS and SYMBOLS, `tui-palette.ts` for color values.
+ */
 export const STATUS_GLYPH: Record<TUiStatusKind, IStatusGlyph> = {
-  running: { symbol: '⟳', color: 'yellow' },
-  success: { symbol: '✓', color: 'green' },
-  error: { symbol: '✗', color: 'red' },
-  denied: { symbol: '⊘', color: 'yellowBright' },
-  waiting: { symbol: '◴', color: 'yellow' },
-  cancelled: { symbol: '⊗', color: 'yellow' },
-  idle: { symbol: '·', color: 'gray' },
+  running: { symbol: '⟳', color: PALETTE.status.running },
+  success: { symbol: '✓', color: PALETTE.status.success },
+  error: { symbol: '✗', color: PALETTE.status.error },
+  denied: { symbol: '⊘', color: PALETTE.status.denied },
+  waiting: { symbol: '◴', color: PALETTE.status.waiting },
+  cancelled: { symbol: '⊗', color: PALETTE.status.cancelled },
+  idle: { symbol: '·', color: PALETTE.status.idle },
 };
 
 /** Map a tool-execution state to a semantic status kind. */

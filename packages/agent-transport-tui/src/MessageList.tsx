@@ -5,10 +5,14 @@ import React from 'react';
 import { formatCommandOutputSummary } from './command-output-summary.js';
 import { humanizeToolName } from './humanize-tool-name.js';
 import { renderMarkdown } from './render-markdown.js';
+import { STATUS_GLYPH } from './status-glyph.js';
+import { getToolSummaryLabel, toolSummaryStatusKind } from './tool-summary-status.js';
 import ToolCommandOutput from './ToolCommandOutput.js';
 import ToolDiffBlock from './ToolDiffBlock.js';
+import { PALETTE } from './tui-palette.js';
 import UsageSummaryEntry from './UsageSummaryEntry.js';
 
+import type { TToolSummaryItem } from './tool-summary-status.js';
 import type { IToolCallSummary } from './utils/tool-call-extractor.js';
 import type { IHistoryEntry, TUniversalMessage, TUniversalValue } from '@robota-sdk/agent-core';
 
@@ -16,57 +20,29 @@ interface IProps {
   history: IHistoryEntry[];
 }
 
-type TToolSummaryItem = {
-  toolName: string;
-  firstArg?: string;
-  isRunning?: boolean;
-  result?: string;
-  diffLines?: IToolCallSummary['diffLines'];
-  diffFile?: string;
-  toolResultData?: string;
-};
-
-function getToolSummaryStatus(tool: TToolSummaryItem): string {
-  if (formatCommandOutputSummary(tool)?.status === 'error') return '✗';
-  if (tool.isRunning) return '⟳';
-  if (tool.result === 'error') return '✗';
-  if (tool.result === 'denied') return '⊘';
-  return '✓';
-}
-
-function getToolSummaryColor(tool: TToolSummaryItem): string {
-  if (formatCommandOutputSummary(tool)?.status === 'error' || tool.result === 'error') return 'red';
-  if (tool.isRunning || tool.result === 'denied') return 'yellow';
-  return 'green';
-}
-
-function getToolSummaryLabel(tool: TToolSummaryItem): string {
-  return `${getToolSummaryStatus(tool)} ${humanizeToolName(tool.toolName)}${tool.firstArg ? `(${tool.firstArg})` : ''}`;
-}
-
 function RoleLabel({ role }: { role: TUniversalMessage['role'] }): React.ReactElement {
   switch (role) {
     case 'user':
       return (
-        <Text color="green" bold>
+        <Text color={PALETTE.text.success} bold>
           You:{' '}
         </Text>
       );
     case 'assistant':
       return (
-        <Text color="cyan" bold>
+        <Text color={PALETTE.text.accent} bold>
           Robota:{' '}
         </Text>
       );
     case 'system':
       return (
-        <Text color="yellow" bold>
+        <Text color={PALETTE.text.warning} bold>
           System:{' '}
         </Text>
       );
     case 'tool':
       return (
-        <Text color="white" bold>
+        <Text color={PALETTE.text.emphasis} bold>
           Tool:{' '}
         </Text>
       );
@@ -95,11 +71,11 @@ function ToolMessage({ message }: { message: TUniversalMessage }): React.ReactEl
     return (
       <Box flexDirection="column" marginBottom={1}>
         <Box>
-          <Text color="white" bold>
+          <Text color={PALETTE.text.emphasis} bold>
             Tool:{' '}
           </Text>
           {toolName && (
-            <Text color="white" dimColor>
+            <Text color={PALETTE.text.emphasis} dimColor>
               [{humanizeToolName(toolName)}]
             </Text>
           )}
@@ -107,7 +83,7 @@ function ToolMessage({ message }: { message: TUniversalMessage }): React.ReactEl
         <Text> </Text>
         {summaries.map((s, i) => (
           <Box key={i} flexDirection="column">
-            <Text color="green">
+            <Text color={PALETTE.text.success}>
               {'  '}
               {'✓'} {s.line}
             </Text>
@@ -125,18 +101,18 @@ function ToolMessage({ message }: { message: TUniversalMessage }): React.ReactEl
   return (
     <Box flexDirection="column" marginBottom={1}>
       <Box>
-        <Text color="white" bold>
+        <Text color={PALETTE.text.emphasis} bold>
           Tool:{' '}
         </Text>
         {toolName && (
-          <Text color="white" dimColor>
+          <Text color={PALETTE.text.emphasis} dimColor>
             [{toolName}]
           </Text>
         )}
       </Box>
       <Text> </Text>
       {lines.map((line, i) => (
-        <Text key={i} color="green">
+        <Text key={i} color={PALETTE.text.success}>
           {'  '}
           {'✓'} {line}
         </Text>
@@ -151,12 +127,12 @@ function ErrorEntryBlock({ message }: { message: TUniversalMessage }): React.Rea
   return (
     <Box flexDirection="column" marginBottom={1}>
       <Box>
-        <Text color="red" bold>
+        <Text color={PALETTE.text.error} bold>
           ✖ Error:{' '}
         </Text>
       </Box>
       <Box marginLeft={2} flexDirection="column">
-        <Text color="red" wrap="wrap">
+        <Text color={PALETTE.text.error} wrap="wrap">
           {content}
         </Text>
         <Text dimColor wrap="wrap">
@@ -214,23 +190,29 @@ function ToolSummaryEntry({ entry }: { entry: IHistoryEntry }): React.ReactEleme
     return (
       <Box flexDirection="column" marginBottom={1}>
         <Box>
-          <Text color="white" bold>
+          <Text color={PALETTE.text.emphasis} bold>
             Tool:{' '}
           </Text>
         </Box>
         <Text> </Text>
-        {tools.map((tool, i) => (
-          <Box key={i} flexDirection="column">
-            <Text color={getToolSummaryColor(tool)}>
-              {'  '}
-              {getToolSummaryLabel(tool)}
-            </Text>
-            <ToolCommandOutput tool={tool} />
-            {tool.diffLines && tool.diffLines.length > 0 && (
-              <ToolDiffBlock file={tool.diffFile} lines={tool.diffLines} />
-            )}
-          </Box>
-        ))}
+        {tools.map((tool, i) => {
+          const kind = toolSummaryStatusKind(
+            tool,
+            formatCommandOutputSummary(tool)?.status === 'error',
+          );
+          return (
+            <Box key={i} flexDirection="column">
+              <Text color={STATUS_GLYPH[kind].color}>
+                {'  '}
+                {getToolSummaryLabel(tool, kind)}
+              </Text>
+              <ToolCommandOutput tool={tool} />
+              {tool.diffLines && tool.diffLines.length > 0 && (
+                <ToolDiffBlock file={tool.diffFile} lines={tool.diffLines} />
+              )}
+            </Box>
+          );
+        })}
       </Box>
     );
   }
@@ -238,13 +220,13 @@ function ToolSummaryEntry({ entry }: { entry: IHistoryEntry }): React.ReactEleme
   return (
     <Box flexDirection="column" marginBottom={1}>
       <Box>
-        <Text color="white" bold>
+        <Text color={PALETTE.text.emphasis} bold>
           Tool:{' '}
         </Text>
       </Box>
       <Text> </Text>
       {lines.map((line, i) => (
-        <Text key={i} color="green">
+        <Text key={i} color={PALETTE.text.success}>
           {'  '}
           {line}
         </Text>
@@ -265,7 +247,7 @@ function EventEntry({ entry }: { entry: IHistoryEntry }): React.ReactElement {
   return (
     <Box flexDirection="column" marginBottom={1}>
       <Box>
-        <Text color="yellow" bold>
+        <Text color={PALETTE.text.warning} bold>
           System:{' '}
         </Text>
       </Box>

@@ -1,18 +1,15 @@
 /**
  * WaveText — renders text with a subtle wave color animation.
  * Groups of 3-4 characters share the same color, creating a soft flowing effect.
- * Colors stay in a narrow range (dim grays) to avoid harsh contrast.
+ * Ramp and cadence come from the shared MOTION tokens (SCREEN-006): a calm gray span
+ * wide enough to be perceptible (#555→#bbb) at an unhurried 400ms cadence.
  */
 
 import { Text } from 'ink';
 import React, { useState, useEffect } from 'react';
 
 import { isInteractiveColorTerminal } from './terminal-capabilities.js';
-
-// Subtle gray tones — minimal contrast, soft wave
-const WAVE_COLORS = ['#666666', '#888888', '#aaaaaa', '#888888'] as const;
-const INTERVAL_MS = 400;
-const CHARS_PER_GROUP = 4;
+import { MOTION, PALETTE } from './tui-palette.js';
 
 interface IProps {
   text: string;
@@ -29,12 +26,12 @@ export default function WaveText({ text }: IProps): React.ReactElement {
     if (!animate) return undefined;
     const timer = setInterval(() => {
       setTick((prev) => prev + 1);
-    }, INTERVAL_MS);
+    }, MOTION.waveIntervalMs);
     return () => clearInterval(timer);
   }, [animate]);
 
   if (!animate) {
-    return <Text color={WAVE_COLORS[2]}>{text}</Text>;
+    return <Text color={PALETTE.text.muted}>{text}</Text>;
   }
 
   const chars = [...text];
@@ -42,10 +39,10 @@ export default function WaveText({ text }: IProps): React.ReactElement {
   return (
     <Text>
       {chars.map((char, i) => {
-        const group = Math.floor(i / CHARS_PER_GROUP);
-        const colorIndex = (tick + group) % WAVE_COLORS.length;
+        const group = Math.floor(i / MOTION.waveCharsPerGroup);
+        const colorIndex = (tick + group) % MOTION.waveColors.length;
         return (
-          <Text key={i} color={WAVE_COLORS[colorIndex]}>
+          <Text key={i} color={MOTION.waveColors[colorIndex]}>
             {char}
           </Text>
         );
