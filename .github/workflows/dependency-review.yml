@@ -25,15 +25,18 @@ jobs:
     runs-on: ubuntu-latest
     # Fork PRs cannot post the summary comment; the check still runs read-only.
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 1
-      - uses: actions/dependency-review-action@v4
+      - uses: actions/dependency-review-action@v5
         with:
           # Block the PR on a newly-introduced HIGH+ vulnerability.
           fail-on-severity: high
           # Strong-copyleft licenses that would compromise the commercial-relicensing right of the dual
           # license. Permissive (MIT/Apache-2.0/BSD/ISC) deps are unaffected. LGPL is intentionally NOT denied
           # (weaker, dynamic-link copyleft) — revisit if a static-bundling concern arises.
+          # NOTE: `deny-licenses` is deprecated for possible removal in dependency-review-action v6 —
+          # this list is load-bearing (dual-license AGPL+Commercial policy), so migrate to
+          # `allow-licenses` BEFORE accepting a v6 bump.
           deny-licenses: GPL-2.0-only, GPL-2.0-or-later, GPL-3.0-only, GPL-3.0-or-later, AGPL-3.0-only, AGPL-3.0-or-later
           comment-summary-in-pr: on-failure

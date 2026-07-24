@@ -5,6 +5,9 @@ updates:
   # npm/pnpm dependencies (one entry covers the whole workspace via the root lockfile).
   - package-ecosystem: npm
     directory: '/'
+    # PRs must target develop — a PR to main from a non-promotion branch is hard-blocked by the
+    # main-pr-source-guard CI job (feature→develop→main flow).
+    target-branch: develop
     schedule:
       interval: weekly
       day: monday
@@ -25,6 +28,7 @@ updates:
   # GitHub Actions used in .github/workflows (keeps action versions current + patches supply-chain CVEs).
   - package-ecosystem: github-actions
     directory: '/'
+    target-branch: develop
     schedule:
       interval: weekly
       day: monday
