@@ -62,11 +62,12 @@ Run release operations in this order unless the user explicitly changes the targ
 3. Merge source-to-main only after the release PR is green and release-level merge approval exists.
 4. Create a release bump branch from latest `origin/main`, not from a stale local branch.
 5. Apply the version bump with changesets, then run `pnpm install` if package manifests changed. Never edit `pnpm-lock.yaml` manually.
-6. Run local release preparation checks: `pnpm build`, `pnpm harness:scan:publish`, and diff hygiene.
-7. Open a release bump PR to `main`. Wait for the release PR CI on the exact release bump SHA.
-8. Merge the release bump PR only after the release CI is green.
-9. Pull latest `main`, confirm the release version is not already fully published, then run `pnpm publish:beta`.
-10. Ask for OTP only after npm auth and dry-run have succeeded and the publish command is ready for the OTP.
+6. Regenerate the changelog in the version bump PR: `node scripts/release/generate-release-notes.mjs --write-changelog` (refreshes the generated `Unreleased` section in root `CHANGELOG.md`).
+7. Run local release preparation checks: `pnpm build`, `pnpm harness:scan:publish`, and diff hygiene.
+8. Open a release bump PR to `main`. Wait for the release PR CI on the exact release bump SHA.
+9. Merge the release bump PR only after the release CI is green.
+10. Pull latest `main`, confirm the release version is not already fully published, then run `pnpm publish:beta`.
+11. Ask for OTP only after npm auth and dry-run have succeeded and the publish command is ready for the OTP.
 
 Do not mix unrelated process fixes into a version bump PR. If a process defect is found during release, isolate it on a separate branch unless it directly blocks the current release gate.
 

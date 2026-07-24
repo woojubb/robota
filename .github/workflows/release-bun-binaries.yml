@@ -74,13 +74,22 @@ jobs:
         working-directory: packages/agent-cli/dist/bin
         run: sha256sum robota-* > SHA256SUMS.txt
 
+      # REL-022 — managed release notes: categorized conventional-commit notes instead of the raw
+      # `--generate-notes` PR-title dump. The script auto-detects the previous v* tag (checkout above
+      # uses fetch-depth: 0, so full tag history is available). No network — git history only.
+      - name: Generate release notes
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: node scripts/release/generate-release-notes.mjs --tag "$TAG" --notes-file "${{ runner.temp }}/release-notes.md"
+
       - name: Publish binaries to the GitHub Release
         working-directory: packages/agent-cli/dist/bin
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ steps.tag.outputs.tag }}
+          NOTES: ${{ runner.temp }}/release-notes.md
         run: |
-          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "$TAG" --generate-notes
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "$TAG" --notes-file "$NOTES"
           gh release upload "$TAG" \
             robota-darwin-arm64 \
             robota-darwin-x64 \
