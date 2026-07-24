@@ -16,6 +16,14 @@
     ],
     "dirs": [".agents/specs/architecture-map"]
   },
+  "purity": [
+    {
+      "$comment": "Package-purity POLICY (check-dependency-direction Rule 10, absorbed from check-sdk-react-free.mjs). Each entry forbids a package from importing OR declaring the listed modules; a missing scan target is a hard finding, not a silent pass (HARNESS-016 / ARL-16g dead-guard guard).",
+      "dir": "packages/agent-framework",
+      "forbiddenModules": ["react"],
+      "reason": "agent-framework is a platform-neutral assembly layer; React hooks/context/components belong in the product/UI packages (agent-cli, agent-transport-tui, agent-transport-gui) only."
+    }
+  ],
   "lessonsDigestDisableEnv": "HARNESS_DISABLE_LESSONS_DIGEST",
   "consistency": {
     "$comment": "Policy DATA for scan-consistency.mjs (HARNESS-DIET-003 split). The engine (five exported check functions) lives in scripts/harness/scan-consistency.mjs; the Robota-specific required-script names, guidance scan targets, and phrase blocklists live here. `pattern` fields are RegExp sources (compiled with the optional `flags`). Values moved VERBATIM from the former in-script constants.",

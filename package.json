@@ -50,7 +50,6 @@
     "harness:scan:publish": "node scripts/harness/check-publish-safety.mjs",
     "harness:scan:release-governance": "node scripts/harness/check-release-governance.mjs",
     "harness:scan:deps": "node scripts/harness/check-dependency-direction.mjs",
-    "harness:scan:sdk-react-free": "node scripts/harness/check-sdk-react-free.mjs",
     "harness:scan:consistency": "node scripts/harness/scan-consistency.mjs",
     "harness:scan:document-authority": "node scripts/harness/check-document-authority.mjs",
     "harness:scan:document-standards": "node scripts/harness/check-document-standards-index.mjs",

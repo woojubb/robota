@@ -14,6 +14,9 @@
  * 9. Workspace-package-name guard (absorbed from the former check-architecture-conformance.mjs,
  *    INFRA-003/GATE-CONFORMANCE mechanical core): canonical architecture docs must reference
  *    only real workspace packages (see `checkWorkspacePackageNames`).
+ * 10. Package purity (absorbed from the former check-sdk-react-free.mjs, HARNESS-016/ARL-16g):
+ *    config-driven `purity` rules forbid a package from importing or declaring specific modules
+ *    (see `checkPackagePurity`); a missing scan target is a hard finding, never a silent pass.
  *
  * `--conformance-json` additionally emits the machine-readable summary between
  * CONFORMANCE_JSON_BEGIN/END that the GATE-CONFORMANCE consumers parse — `pnpm
@@ -446,6 +449,88 @@ export function checkWorkspacePackageNames(
   );
 }
 
+/**
+ * Rule 10 (HARNESS-016 / ARL-16g, absorbed from check-sdk-react-free.mjs): config-driven
+ * package PURITY. Each `purity` rule in harness.config.json —
+ * `{dir, forbiddenModules, reason}` — forbids the package at `dir` from (a) importing any of
+ * the listed modules anywhere under `src/` (all .ts/.tsx, tests included, matching the
+ * absorbed scan's scope) and (b) declaring them in package.json
+ * dependencies/devDependencies/peerDependencies. A missing `src/` or `package.json` is a hard
+ * SCAN-TARGET-MISSING finding, not a silent pass — the absorbed guard once pointed at an
+ * absorbed package husk and enforced nothing while green.
+ */
+function walkAllTs(dir) {
+  const files = [];
+  if (!existsSync(dir)) return files;
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...walkAllTs(full));
+    } else if (entry.isFile() && (entry.name.endsWith('.ts') || entry.name.endsWith('.tsx'))) {
+      files.push(full);
+    }
+  }
+  return files;
+}
+
+export function checkPackagePurity(root = ROOT, rules = HARNESS.purity ?? []) {
+  const violations = [];
+
+  for (const rule of rules) {
+    const pkgDir = join(root, rule.dir);
+    const srcDir = join(pkgDir, 'src');
+    const pkgJsonPath = join(pkgDir, 'package.json');
+
+    if (!existsSync(srcDir)) {
+      violations.push({
+        type: 'SCAN-TARGET-MISSING',
+        message: `Purity scan target ${rule.dir}/src does not exist — the guard would enforce nothing (rename/absorb?).`,
+      });
+    }
+    if (!existsSync(pkgJsonPath)) {
+      violations.push({
+        type: 'SCAN-TARGET-MISSING',
+        message: `Purity scan target ${rule.dir}/package.json does not exist — the guard would enforce nothing.`,
+      });
+    }
+
+    for (const forbiddenModule of rule.forbiddenModules ?? []) {
+      const escaped = forbiddenModule.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const importPattern = new RegExp(`from\\s+['"]${escaped}['"]`);
+
+      for (const file of walkAllTs(srcDir)) {
+        const lines = readFileSync(file, 'utf8').split('\n');
+        lines.forEach((line, idx) => {
+          if (importPattern.test(line)) {
+            violations.push({
+              type: 'FORBIDDEN-IMPORT',
+              message:
+                `Forbidden '${forbiddenModule}' import in ${file.replace(root + '/', '')}:${idx + 1}. ` +
+                `${rule.reason}`,
+            });
+          }
+        });
+      }
+
+      if (existsSync(pkgJsonPath)) {
+        const manifest = JSON.parse(readFileSync(pkgJsonPath, 'utf8'));
+        for (const section of ['dependencies', 'devDependencies', 'peerDependencies']) {
+          if (manifest[section] && manifest[section][forbiddenModule]) {
+            violations.push({
+              type: 'FORBIDDEN-DEP',
+              message:
+                `'${forbiddenModule}' listed in ${rule.dir}/package.json [${section}]. ` +
+                `${rule.reason}`,
+            });
+          }
+        }
+      }
+    }
+  }
+
+  return violations;
+}
+
 /** Load `{dir, name, files}` source views of every workspace package for the Rule-8 scan. */
 function loadSourcePackages(packages) {
   return [...packages.values()].map((pkg) => ({
@@ -470,6 +555,7 @@ function runScan({ conformanceJson = false } = {}) {
   const fullGraphCycleViolations = checkFullGraphCycles(packages);
   const entryPointOnlyViolations = checkEntryPointOnly(loadSourcePackages(packages));
   const packageNameViolations = checkWorkspacePackageNames(ROOT, new Set(packages.keys()));
+  const purityViolations = checkPackagePurity();
 
   const dependencyViolationCount =
     biDirViolations.length +
@@ -480,7 +566,8 @@ function runScan({ conformanceJson = false } = {}) {
     interfacePackageViolations.length +
     dagNodesLeafViolations.length +
     fullGraphCycleViolations.length +
-    entryPointOnlyViolations.length;
+    entryPointOnlyViolations.length +
+    purityViolations.length;
 
   const hasViolations = dependencyViolationCount > 0 || packageNameViolations.length > 0;
 
@@ -515,6 +602,9 @@ function runScan({ conformanceJson = false } = {}) {
     }
     for (const v of packageNameViolations) {
       console.error(`  [PACKAGE-NAME] ${v.message}`);
+    }
+    for (const v of purityViolations) {
+      console.error(`  [PURITY:${v.type}] ${v.message}`);
     }
     console.error('');
   } else {

@@ -149,7 +149,6 @@ const SCAN_COMMANDS = [
     name: 'interface-runtime',
     command: ['node', 'scripts/harness/scan-interface-runtime.mjs'],
   },
-  { name: 'sdk-react-free', command: ['node', 'scripts/harness/check-sdk-react-free.mjs'] },
   { name: 'publish', command: ['node', 'scripts/harness/check-publish-safety.mjs'] },
   { name: 'release-governance', command: ['node', 'scripts/harness/check-release-governance.mjs'] },
   { name: 'test-plans', command: ['node', 'scripts/harness/scan-test-plan.mjs'] },

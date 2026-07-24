@@ -7,10 +7,10 @@ import { describe, expect, it } from 'vitest';
 import {
   checkDagNodesLeaf,
   checkEntryPointOnly,
+  checkPackagePurity,
   checkWorkspacePackageNames,
   findWorkspacePackages,
 } from '../check-dependency-direction.mjs';
-import { findSdkReactViolations } from '../check-sdk-react-free.mjs';
 
 // Synthetic package map: checkDagNodesLeaf reads only `name` + `pkg.dependencies` (string[]).
 function pkgMap(entries) {
@@ -70,8 +70,18 @@ describe('checkDagNodesLeaf (HARNESS-016 / ARL-16b)', () => {
   });
 });
 
-describe('findSdkReactViolations (HARNESS-016 / ARL-16g)', () => {
-  it('TC-04: flags a React import + a React dependency in the scanned package', () => {
+// Rule 10 fixtures — package-purity rule absorbed from the former check-sdk-react-free.mjs
+// (HARNESS-DIET-003 merge — coverage preserved; the rule is now config-driven `purity` data).
+describe('checkPackagePurity (Rule 10, absorbed from check-sdk-react-free)', () => {
+  const REACT_RULE = [
+    {
+      dir: 'packages/agent-framework',
+      forbiddenModules: ['react'],
+      reason: 'agent-framework is a platform-neutral assembly layer.',
+    },
+  ];
+
+  it('TC-04: flags a forbidden import + a forbidden dependency in the scanned package', () => {
     const root = mkdtempSync(join(tmpdir(), 'robota-sdk-react-free-'));
     const src = join(root, 'packages', 'agent-framework', 'src');
     mkdirSync(src, { recursive: true });
@@ -81,19 +91,22 @@ describe('findSdkReactViolations (HARNESS-016 / ARL-16g)', () => {
       JSON.stringify({ name: '@robota-sdk/agent-framework', dependencies: { react: '^18' } }),
     );
 
-    const v = findSdkReactViolations(root);
-    expect(v.map((x) => x.type).sort()).toEqual(['REACT-DEP', 'REACT-IMPORT']);
+    const v = checkPackagePurity(root, REACT_RULE);
+    expect(v.map((x) => x.type).sort()).toEqual(['FORBIDDEN-DEP', 'FORBIDDEN-IMPORT']);
   });
 
   it('flags a missing scan target instead of silently passing (dead-guard guard)', () => {
     const root = mkdtempSync(join(tmpdir(), 'robota-sdk-react-free-missing-'));
-    const v = findSdkReactViolations(root, 'agent-sdk'); // husk name — no src/, no package.json
+    // husk dir — no src/, no package.json
+    const v = checkPackagePurity(root, [
+      { dir: 'packages/agent-sdk', forbiddenModules: ['react'], reason: 'husk.' },
+    ]);
     expect(v.every((x) => x.type === 'SCAN-TARGET-MISSING')).toBe(true);
     expect(v.length).toBe(2);
   });
 
-  it('TC-04(live): the real agent-framework package is React-free (exit 0)', () => {
-    expect(findSdkReactViolations()).toEqual([]);
+  it('TC-04(live): the shipped purity config passes on the real tree (exit 0)', () => {
+    expect(checkPackagePurity()).toEqual([]);
   });
 });
 
