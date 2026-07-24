@@ -27,6 +27,10 @@ depends_on: []
 > non-TUI surfaces. The draft splits it into host-executed actions (session +
 > `ICommandHostAdapters`) vs requester-routed UI intents (`ui_intent` event), staged A–E. Awaiting
 > GATE-APPROVAL.
+>
+> **Phase 2 GATE-APPROVAL passed (2026-07-24):** reviewer REVISE — architecture approved, 8 binding
+> revisions folded into the spec (now `approved`, moved to `.agents/spec-docs/todo/CMD-004-*.md`);
+> next: GATE-IMPLEMENT.
 
 # Separate command interaction ACTION from UI
 
