@@ -5,20 +5,9 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 
 ### Documentation Source Map
 
-- `content/README.md` is the robota.io home page source (`/`).
-- `content/getting-started/README.md` is `/getting-started/`.
-- `content/guide/README.md` is `/guide/`.
-- `content/guide/building-agents.md` is `/guide/building-agents.html`.
-- `content/guide/sdk.md` is `/guide/sdk.html`.
-- `content/guide/cli.md` is `/guide/cli.html`.
-- `content/guide/architecture.md` is `/guide/architecture.html`.
-- `content/guide/permissions-and-hooks.md` is `/guide/permissions-and-hooks.html`.
-- `content/guide/context-management.md` is `/guide/context-management.html`.
-- `content/examples/*.md` is `/examples/*`.
-- `packages/<pkg>/docs/README.md` is copied into robota.io as `/packages/<pkg>/`.
-- `packages/<pkg>/docs/SPEC.md` is package contract truth, not marketing docs.
-- `packages/<pkg>/README.md` is the npm/GitHub package README.
-- `apps/docs/.temp/` and `apps/docs/.vitepress/dist/` are generated outputs. Do not edit them directly.
+Moved to [`.agents/project-structure.md`](../project-structure.md) § "Documentation Map" (the SSOT
+for repo path data) — the source-to-site mapping for robota.io `content/` pages and package docs
+lives there. This rule owns only the update gates below.
 
 ### Architecture Map Content Policy
 
@@ -49,6 +38,10 @@ This section owns the **content** policy (what belongs in these files). The **st
 - If an architecture map file requires more than one read to understand its structural relationships, it is too heavy. Strip it until each relationship is one line or one row.
 
 ### Document Role Sync Gate
+
+Document-class AUTHORITY (which document class owns which content) is owned by
+[spec-workflow.md](spec-workflow.md) § "Document Authority and Content Placement" — do not
+re-derive it here. This gate owns only WHEN each class must be updated:
 
 - Architecture maps own stable structural boundaries. Update them when ownership, layer direction,
   package topology, deployment topology, or product-shell responsibility changes.
