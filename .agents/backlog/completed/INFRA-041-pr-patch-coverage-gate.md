@@ -1,6 +1,7 @@
 ---
 title: 'INFRA-041: PR patch (diff) coverage gate — new/changed lines must be tested'
-status: in-progress
+status: done
+completed: 2026-07-24
 created: 2026-07-22
 priority: medium
 urgency: soon
@@ -9,6 +10,11 @@ depends_on: []
 ---
 
 # PR patch (diff) coverage gate
+
+## Outcome (DONE 2026-07-24)
+
+Shipped as the advisory `patch-coverage` CI job + `check-patch-coverage.mjs` (#1329) with real injected
+red/green proofs. The flip-to-required follow-up is tracked by INFRA-046 (promotion criteria defined there).
 
 ## Problem
 
