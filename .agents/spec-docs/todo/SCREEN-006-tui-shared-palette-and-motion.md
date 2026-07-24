@@ -1,5 +1,5 @@
 ---
-status: draft
+status: approved
 type: SCREEN
 tags: [tui, ink, color, palette, tokens, motion, accessibility, no-color]
 ---
@@ -26,9 +26,12 @@ here:
 - ~~"WaveText … no reduced-motion / non-TTY check"~~ → `WaveText.tsx:25` now gates ALL motion on
   `isInteractiveColorTerminal()` (`src/terminal-capabilities.ts`, the color+motion gate SSOT from
   SCREEN-008): NO_COLOR / `FORCE_COLOR=0` / non-TTY → static text, no interval.
-- The "StatusBar … repeats hardcoded separators" claim is also stale: `StatusBar.tsx` contains no
-  repeated separator literals today (SCREEN-004 moved activity segments to `status-activity.ts`,
-  joined with a single `' · '`).
+- The "StatusBar … repeats hardcoded separators" claim is PARTIALLY live (GATE-APPROVAL review
+  correction): SCREEN-004 fixed the `' · '` activity-segment separators, but `StatusBar.tsx` still
+  repeats the `'  |  '` segment separator 6 times (lines 159, 165, 171, 177, 181, 183). Scope call:
+  the adoption pass folds these into a single `SEP` constant in `StatusBar.tsx` (a one-line
+  consolidation piggybacking on the same file's color tokenization — it is a string literal, not a
+  color token, so it lives beside the component, not in `tui-palette.ts`).
 
 What REMAINS broken at current `origin/develop` is the backlog's core finding: **there is no semantic
 color token layer**. Four disjoint color systems coexist, and the largest one is 60+ ad-hoc literals:
@@ -93,7 +96,7 @@ Concrete defects:
    are component-private hex/ms literals — the one animation in the package is invisible to any
    palette audit, and the backlog's perceptibility finding (`#666→#aaa` at 400ms is
    near-imperceptible) is still unaddressed.
-4. **De-emphasis has two spellings.** 41 `dimColor` sites (the dominant idiom, incl. SCREEN-005's
+4. **De-emphasis has two spellings.** 40 `dimColor` sites (the dominant idiom, incl. SCREEN-005's
    `KeyHintFooter` — its review noted the hardcoded `dimColor` as a tokenization candidate) coexist
    with literal `color="gray"` (`SessionPicker.tsx:58`, `status-activity.ts:61`, `STATUS_GLYPH.idle`)
    with no stated rule for which to use.
@@ -201,8 +204,8 @@ config — that would be an app-layer follow-up, out of scope).
    visible contrast span; cadence stays 400ms — perceptibility comes from the wider ramp, not faster
    flicker). The static (gated) frame renders `PALETTE.text.muted`. The existing
    `isInteractiveColorTerminal()` gate is unchanged and untouched — reduced-motion behavior stays:
-   NO_COLOR / `FORCE_COLOR=0` / non-TTY ⇒ zero intervals, zero color churn. A user-facing
-   reduced-motion _setting_ (Gemini's `ui.loadingPhrases`-style off-switch) is an app-layer
+   NO*COLOR / `FORCE_COLOR=0` / non-TTY ⇒ zero intervals, zero color churn. A user-facing
+   reduced-motion \_setting* (Gemini's `ui.loadingPhrases`-style off-switch) is an app-layer
    follow-up candidate, not this library's config surface (mirrors SCREEN-005's "no config
    surface" stance).
 5. **De-emphasis rule (the SCREEN-005 `KeyHintFooter` relationship):** the canonical muted treatment
@@ -235,7 +238,10 @@ accidental-green — the RED tests are chosen so each fails against today's code
   (excluding `tui-palette.ts`, `tui-ansi-palette.ts`, `__tests__`) and asserts zero `color="…"` /
   `borderColor="…"` / `backgroundColor="…"` literals and zero `#rrggbb` hex. **RED today: 60+
   findings** (54 + 8 + WaveText hex). Precedent: `key-hint-consistency.test.tsx`, the SCREEN-005
-  floor.
+  floor. **Known limit (recorded decision):** the floor catches JSX attribute literals and hex, but
+  not a future TS helper returning a bare color-name string (the `getContextColor` shape); today's
+  instances of that shape are removed by the adoption pass, and extending the floor to bare strings
+  is deferred until one actually recurs.
 - **Unit — `src/__tests__/tui-palette.test.ts` (new):** every `PALETTE` leaf is a valid Ink color
   name (explicit allowlist) or hex; `MOTION` shape (4-stop ramp, positive interval);
   `STATUS_GLYPH[kind].color === PALETTE.status[kind]` for all 7 kinds (**RED today** — no palette
@@ -283,13 +289,27 @@ Evidence file (created at IMPLEMENT/VERIFY): `.agents/evals/scenarios/screen-006
 ### [GATE-WRITE] — draft authored | 2026-07-25
 
 - Problem grounded line-by-line in current `origin/develop` (backlog staleness called out: the
-  raw-ANSI extraction and the WaveText motion gate already landed under this backlog ID; the
-  StatusBar-separator claim is stale). Remaining defect: no semantic token layer — 4 parallel color
-  systems, 60+ literal sites (enumerated mechanically), one live `STATUS_GLYPH` duplication drift
-  (`MessageList` denied `yellow` ≠ `yellowBright`), untokenized motion constants.
+  raw-ANSI extraction and the WaveText motion gate already landed under this backlog ID). Remaining
+  defect: no semantic token layer — 4 parallel color systems, 60+ literal sites (enumerated
+  mechanically), one live `STATUS_GLYPH` duplication drift (`MessageList` denied `yellow` ≠
+  `yellowBright`), untokenized motion constants.
 - Prior Art Research substantiated with 5 product-doc citations (Textual design system, Gemini CLI
   themes + settings, Charm Lip Gloss, k9s skins, no-color.org), all fetched and quoted 2026-07-25 →
   `scan-spec-research` green.
 - Frontmatter (`status: draft`, `type: SCREEN`, `tags`) → `check-spec-doc-frontmatter` green;
   SCREEN-006 ID verified free across `.agents/spec-docs/*/`.
-- Awaiting GATE-APPROVAL (independent proposal-reviewer) before any implementation.
+
+### [GATE-APPROVAL] — REVISE → revisions folded → approved | 2026-07-25
+
+- Independent proposal-reviewer verdict: **REVISE** — every code premise verified TRUE (54/19
+  literal table, 8 borderColor sites, MessageList drift, boundary claims, harness precedents) and
+  the core decision endorsed (placement correct, no-theming scope right for the
+  responsibility-placement reason, deleting the MessageList fork correct), with two required
+  revisions, both folded in this commit:
+  1. The draft's claim that the StatusBar-separator finding was fully stale was **false** —
+     `StatusBar.tsx` still repeats `'  |  '` 6× (lines 159–183). Corrected in Problem; scope call
+     made explicit: a one-line `SEP` constant folds into the adoption pass.
+  2. `dimColor` count corrected 41→40; the consistency floor's known limit (bare color-name strings
+     in TS helpers not caught) recorded as a deliberate decision in the Test Plan.
+- Approved on the reviewer's conditional ("after one factual correction... then approve");
+  `status: approved`, moved draft → todo.
