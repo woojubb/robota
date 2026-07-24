@@ -1,12 +1,9 @@
 import { findProviderDefinition } from '@robota-sdk/agent-core';
 import {
   applyActiveModelChange,
-  applyStatusLineSettings,
-  deleteSettings,
   getUserSettingsPath,
   readSettings,
   resolveGitBranch,
-  writeSettings,
 } from '@robota-sdk/agent-framework';
 
 import type { ITuiCliAdapter } from './tui-cli-adapter.js';
@@ -25,9 +22,6 @@ export function createDefaultTuiCliAdapter({
   return {
     getUserSettingsPath: () => getUserSettingsPath(),
     readSettings: (path) => readSettings(path),
-    writeSettings: (path, settings) => writeSettings(path, settings),
-    deleteSettings: (path) => deleteSettings(path),
-    applyStatusLineSettings: (path, patch) => applyStatusLineSettings(path, patch),
     reloadPluginCommandSource: (registry) => {
       reloadPluginCommandSource(registry);
     },

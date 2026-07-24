@@ -19,10 +19,8 @@ import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import App from '../App.js';
-import { CommandEffectQueue } from '../hooks/command-effect-queue.js';
 import { TuiStateManager } from '../tui-state-manager.js';
 
-import type { ICommandEffectQueue } from '../hooks/command-effect-queue.js';
 import type { ITuiCliAdapter } from '../tui-cli-adapter.js';
 import type { TuiInteractionChannel } from '../TuiInteractionChannel.js';
 import type {
@@ -67,15 +65,15 @@ interface IFakeChannel {
   readExecutionWorkspaceDetail: ReturnType<typeof vi.fn>;
   getSession: () => unknown;
   getRegistry: () => unknown;
-  getCommandEffectQueue: () => ICommandEffectQueue;
-  /** Test handle: the queue backing getCommandEffectQueue. */
-  effectQueue: CommandEffectQueue;
+  /** Test handle: emit a session event to this channel's subscribers (CMD-004 `ui_intent` path). */
+  emitSessionEvent: (event: string, payload: unknown) => void;
   /** Test handle: which resumeSessionId this channel was created for. */
   createdFor: string | undefined;
 }
 
 function createFakeChannel(createdFor: string | undefined): IFakeChannel {
-  const effectQueue = new CommandEffectQueue();
+  // CMD-004 Stage C: App subscribes to `ui_intent`/`session_renamed` on the session.
+  const sessionListeners = new Map<string, Set<(payload: unknown) => void>>();
   const fakeSession = {
     getName: (): string | undefined => undefined,
     getSession: (): never => {
@@ -85,6 +83,14 @@ function createFakeChannel(createdFor: string | undefined): IFakeChannel {
     setName: vi.fn(),
     shutdown: vi.fn(async () => {}),
     sendAgentJob: vi.fn(async () => {}),
+    on: (event: string, handler: (payload: unknown) => void): void => {
+      const set = sessionListeners.get(event) ?? new Set<(payload: unknown) => void>();
+      set.add(handler);
+      sessionListeners.set(event, set);
+    },
+    off: (event: string, handler: (payload: unknown) => void): void => {
+      sessionListeners.get(event)?.delete(handler);
+    },
   };
   const fakeRegistry = {
     getCommands: (): never[] => [],
@@ -107,8 +113,9 @@ function createFakeChannel(createdFor: string | undefined): IFakeChannel {
     readExecutionWorkspaceDetail: vi.fn(async () => ({ lines: [], title: '' })),
     getSession: () => fakeSession,
     getRegistry: () => fakeRegistry,
-    getCommandEffectQueue: () => effectQueue,
-    effectQueue,
+    emitSessionEvent: (event, payload) => {
+      for (const handler of [...(sessionListeners.get(event) ?? [])]) handler(payload);
+    },
     createdFor,
   };
 }
@@ -154,9 +161,6 @@ function createCliAdapter(settingsPath: string): ITuiCliAdapter {
   return {
     getUserSettingsPath: () => settingsPath,
     readSettings: () => ({}),
-    writeSettings: vi.fn(),
-    deleteSettings: vi.fn().mockReturnValue(false),
-    applyStatusLineSettings: vi.fn(),
     reloadPluginCommandSource: vi.fn(),
     applyActiveModelChange: vi.fn().mockReturnValue({ applied: true }),
     getGitBranch: vi.fn().mockReturnValue(undefined),
@@ -272,13 +276,13 @@ describe('App session-switch channel ownership (CLI-B11)', () => {
     expect(channelInitial.stop).toHaveBeenCalled();
     const channelA = created[1]!;
 
-    // Switch 2: reopen the picker via a queued session-picker-requested effect,
-    // drained by a submit on the active channel (real /resume drain path).
+    // Switch 2: reopen the picker via the requester-routed ui_intent (real /resume path since
+    // CMD-004 Stage C: the session emits `ui_intent` and the owner surface renders it).
     touch(records, 'bbbbbbbb-2222', '2026-06-13T02:00:00.000Z'); // B on top
-    channelA.effectQueue.enqueueEffects([{ type: 'session-picker-requested' }]);
-    stdin.write('x');
-    await tick();
-    stdin.write('\r'); // submit input → drains queue → picker opens
+    channelA.emitSessionEvent('ui_intent', {
+      intent: { type: 'show-session-picker' },
+      requesterDriverId: 'owner',
+    });
     await waitForFrame(lastFrame, (f) => f.includes('> bbbbbbbb'));
     await tick(); // settle: let the reopened picker's useInput subscription attach
     stdin.write('\r');
@@ -290,10 +294,10 @@ describe('App session-switch channel ownership (CLI-B11)', () => {
 
     // Switch 3: same drill from B to C.
     touch(records, 'cccccccc-3333', '2026-06-13T03:00:00.000Z'); // C on top
-    channelB.effectQueue.enqueueEffects([{ type: 'session-picker-requested' }]);
-    stdin.write('x');
-    await tick();
-    stdin.write('\r');
+    channelB.emitSessionEvent('ui_intent', {
+      intent: { type: 'show-session-picker' },
+      requesterDriverId: 'owner',
+    });
     await waitForFrame(lastFrame, (f) => f.includes('> cccccccc'));
     await tick(); // settle: let the reopened picker's useInput subscription attach
     stdin.write('\r');

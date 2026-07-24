@@ -29,9 +29,6 @@ function fakeCliAdapter(settingsPath: string): ITuiCliAdapter {
   return {
     getUserSettingsPath: () => settingsPath,
     readSettings: () => ({}),
-    writeSettings: vi.fn(),
-    deleteSettings: vi.fn().mockReturnValue(false),
-    applyStatusLineSettings: vi.fn(),
     reloadPluginCommandSource: vi.fn(),
     applyActiveModelChange: vi.fn().mockReturnValue({ applied: true }),
     getGitBranch: vi.fn().mockReturnValue(undefined),

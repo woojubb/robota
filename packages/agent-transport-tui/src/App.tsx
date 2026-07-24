@@ -67,9 +67,6 @@ interface IProps {
   startupUpdateNotice?: Promise<string | undefined>;
   transportRegistry?: ITransportRegistryView<IInteractiveSession>;
   cliAdapter: ITuiCliAdapter;
-  /** REMOTE-008: composition-root enable/stop of P2P remote control (each returns a message to render). */
-  enableRemoteControl?: () => string | Promise<string>;
-  stopRemoteControl?: () => string | Promise<string>;
 }
 
 export default function App(props: IProps): React.ReactElement {
@@ -120,7 +117,6 @@ function AppInner(
   const {
     interactiveSession,
     registry,
-    commandEffectQueue,
     history,
     addEntry,
     streamingText,
@@ -157,7 +153,7 @@ function AppInner(
   const [executionDetailPage, setExecutionDetailPage] = useState<IExecutionDetailPage | null>(null);
   const [executionDetailError, setExecutionDetailError] = useState<string | undefined>();
   const [isExecutionDetailLoading, setIsExecutionDetailLoading] = useState(false);
-  const [statusLineSettings, setStatusLineSettings] = useStatusLineSettings();
+  const [statusLineSettings, refreshStatusLineSettings] = useStatusLineSettings();
   const [gitRefreshToken, setGitRefreshToken] = useState(0);
   // SCREEN-014: index of the keyboard-focused background-work row, or null when the prompt input is
   // focused. Drives the inline arrow-key navigation into the background list.
@@ -193,18 +189,12 @@ function AppInner(
     setShowSessionPicker,
     setShowTransportTUI,
   } = useSideEffects({
-    cwd,
-    providerOverride: props.providerOverride,
     interactiveSession,
-    commandEffectQueue,
-    addEntry,
     baseHandleSubmit,
     setSessionName,
-    setStatusLineSettings,
+    refreshStatusLineSettings,
     showSessionPickerOnStart: props.showSessionPickerOnStart,
     openAgentSwitcher: () => setShowExecutionWorkspaceSwitcher(true),
-    enableRemoteControl: props.enableRemoteControl,
-    stopRemoteControl: props.stopRemoteControl,
   });
 
   useEffect(() => {

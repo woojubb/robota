@@ -334,10 +334,10 @@ This cannot be one big-bang PR. Additive-then-delete, the Phase-1 pattern:
       injected adapter) — proven RED first against the pre-stage-B code where `ws-handler` drops
       effects; **the pre-Stage-B RED run is kept as recorded evidence in the Evidence Log**
       (accidental-green rule).
-- [ ] TC-04: `pnpm --filter @robota-sdk/agent-transport-tui test` (incl. PTY) → exits 0; `/settings`
+- [x] TC-04: `pnpm --filter @robota-sdk/agent-transport-tui test` (incl. PTY) → exits 0; `/settings`
       still opens the settings screen (now via `ui_intent`); `rg -n "writeSettings|deleteSettings"
 packages/agent-transport-tui/src/hooks/command-effect-handler.ts` → no matches (renderer no
-      longer executes settings I/O). File deleted counts as pass.
+      longer executes settings I/O). File deleted counts as pass. **(Stage C evidence below.)**
 - [ ] TC-05: `pnpm --filter @robota-sdk/agent-transport-gui test` → exits 0; folding a `ui_intent`
       server message produces either a mapped GUI surface state or an explicit unsupported-notice
       entry — never a silent no-op.
@@ -350,10 +350,11 @@ packages/agent-transport-tui/src/hooks/command-effect-handler.ts` → no matches
       `session-exit-requested` (and `session-restart-requested`) host action terminates/restarts the
       **shared host session** serving all surfaces — asserting the deliberate local==remote
       (REMOTE-006) decision.
-- [ ] TC-10: red-first `/rename` persistence proof: a test asserting `/rename` mutates the session
+- [x] TC-10: red-first `/rename` persistence proof: a test asserting `/rename` mutates the session
       name **without the TUI's `renameSession` handler** is proven FAILING against pre-Stage-B code
       (where only `useSideEffects.ts` performs the mutation), then green once the host executes the
-      rename; Stage C may delete the TUI handler only after this proof.
+      rename; Stage C may delete the TUI handler only after this proof. **(Stage-B RED recorded
+      above; Stage-C TUI-half red/green recorded below — handler deleted only after both.)**
 
 ## Test Plan
 
@@ -517,3 +518,77 @@ Remaining for later stages: TC-04 (Stage C TUI swap to `ui_intent` + legacy dele
 refresh-on-result + TUI `renameSession` deletion under the TC-10 proof), TC-05 (Stage D GUI
 render/notice), TC-09 (Stage D multi-surface exit/restart WS e2e), TC-06/07/08 final grep/typecheck/
 scan floors after Stage E emitter migration + `TCommandEffect` deletion.
+
+### [GATE-IMPLEMENT] — Stage C ✅ (TUI → pure renderer) | 2026-07-25
+
+**Scope of this entry: Stage C ONLY (same-PR swap + delete, per the drop/double-render-window
+rule). Stages D (remote surfaces) and E (source migration + deletion) remain; spec stays
+in-progress.**
+
+Swap: the TUI renders the four screens from the requester-routed `ui_intent` session event —
+`useSideEffects` subscribes on the session and renders an intent only when `requesterDriverId ===
+OWNER_DRIVER_ID` (intents stamped with another surface's id, or unattributed, are ignored); the
+session title follows the broadcast `session_renamed` event; the statusline refreshes on result
+(`useStatusLineSettings` gained a from-disk `refresh()`; `handleSubmit` re-reads after a
+slash-command result — the HOST applied any patch via the settings adapter in Stage B).
+
+Deleted-path inventory (same PR):
+
+- `hooks/command-effect-handler.ts` — whole file: `applyCommandEffects` + `applyLanguageEffect` +
+  `applySettingsResetEffect` (the `cliAdapter` settings write/delete path) + the exit/restart/
+  rename/statusline/remote-control branches (all host-executed since Stage B) + the four legacy
+  screen-effect branches (replaced by `ui_intent`).
+- `hooks/command-effect-queue.ts` — whole file (`CommandEffectQueue`; nothing left to defer across
+  the submit boundary). Channel field/getter and `useTuiChannel` plumbing removed with it.
+- `hooks/useSlashRouting.ts` — the dead `useSlashRouting` hook deleted; the surviving pure-render
+  half (`applySystemCommandResult`, now consuming ONLY the two Stage-E-pending notification kinds)
+  moved to `hooks/command-result-handler.ts`.
+- The TUI `renameSession` mutation (`useSideEffects` → `interactiveSession.setName`) — deleted
+  ONLY after the TC-10 proof below.
+- The TUI statusline write (`applyStatusLinePatch` → `cliAdapter.applyStatusLineSettings`).
+- The REMOTE-008 TUI-prop remote-control wiring: `enableRemoteControl`/`stopRemoteControl` removed
+  from `IRenderOptions`/App props and from the `agent-cli` `renderApp` call (host adapter from
+  Stage B is the sole executor).
+- `ITuiCliAdapter.writeSettings`/`.deleteSettings`/`.applyStatusLineSettings` — the renderer's
+  adapter is now read-only toward settings (`create-default-tui-cli-adapter` impls removed).
+
+TC-10 (Stage-C TUI half) red/green — `rename-broadcast-persistence.test.tsx` (real
+`TuiInteractionChannel` + real `InteractiveSession`, command module mirroring the real `/rename`
+contract, NO TUI rename handler in the loop):
+
+- RED (pre-Stage-C code, 2026-07-25): `npx vitest run src/__tests__/ui-intent-rendering.test.tsx
+src/__tests__/rename-broadcast-persistence.test.tsx` → **9 failed | 3 passed**. The TC-10 case
+  failed at the title half — `waitUntil(setSessionName called)` timed out (`AssertionError:
+expected false to be true`): the host DID persist the rename (Stage B), but the dual-carry
+  legacy effect is stripped after host execution and the pre-Stage-C TUI had no `session_renamed`
+  subscription, so the title never updated. The `ui_intent` screen cases failed the same way
+  (`settings:1`/`plugin:1`/`picker:1` never rendered; switcher spy 0 calls), and statusline
+  refresh-on-result failed with `expected "spy" to be called 1 times, but got 0 times`.
+- GREEN (post-swap): same command → exit 0, **12 passed** — `session.getName() === 'Stage C
+Proof'` (host persistence with the TUI handler deleted) AND `setSessionName` called with
+  `'Stage C Proof'` via the broadcast; screens open via owner-routed `ui_intent`; non-owner and
+  unattributed intents ignored; unmount unsubscribes both listeners; refresh-on-result fires for
+  `/`-input only.
+
+TC-04 evidence:
+
+- `pnpm --filter @robota-sdk/agent-transport-tui build && npx vitest run` → exit 0, **473 passed
+  (62 files)** (session-switch TC-05 drill now reopens the picker via the `ui_intent` event —
+  the real /resume path).
+- Real-binary PTY suite (rebuilt CLI): `pnpm test:pty` → exit 0, **15 passed (10 files)** — incl.
+  NEW `settings-screen.ptytest.ts` (`/settings` → `Settings › Transports` renders via `ui_intent`,
+  Esc returns to prompt) and the existing `/exit` e2e (now confirm → host `session-exit` action →
+  per-mode process adapter → exit 0, with the TUI's `requestShutdown` executor deleted).
+- Grep floor: `rg -n "writeSettings|deleteSettings"
+packages/agent-transport-tui/src/hooks/command-effect-handler.ts` → file deleted (counts as
+  pass); repo-wide renderer check: zero `writeSettings|deleteSettings|applyStatusLineSettings|
+setName` hits in `agent-transport-tui/src/hooks` + `App.tsx`.
+- Suites: `agent-cli` 236 passed (30 files) + `test:bin` 4 passed; `pnpm -w typecheck` → exit 0;
+  `node scripts/harness/run-all-scans.mjs` → all 59 scans passed; eslint on changed files → 0
+  errors.
+
+Stage-C notes: the two notification effects (`conversation-history-cleared`,
+`plugin-registry-reload-requested`) intentionally remain legacy-consumed in
+`command-result-handler.ts` until Stage E assigns their final carriers; `agent-cli` edits were
+confined to deleting the two dead `renderApp` remote-control props (the statusline re-read needed
+no new adapter method — `readSettings` sufficed).
