@@ -115,7 +115,7 @@ Design rules:
 
 | Type                              | Location                                                                                   | Purpose                                                                                               |
 | --------------------------------- | ------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
-| `TSubagentJobStatus`              | `@robota-sdk/agent-interface-transport` (SSOT; re-exported at `src/subagents/types.ts:18`) | Subagent job status union (mirrors `TBackgroundTaskStatus`)                                           |
+| `TSubagentJobStatus`              | `@robota-sdk/agent-interface-transport` (SSOT; re-exported at `src/subagents/types.ts:18`) | Subagent job status union — derived `Exclude<TBackgroundTaskStatus, 'paused'>` (TYPE-003)             |
 | `TSubagentJobMode`                | `@robota-sdk/agent-interface-transport` (SSOT; re-exported at `src/subagents/types.ts:18`) | `'foreground' \| 'background'`                                                                        |
 | `ISubagentSpawnRequest`           | `src/subagents/types.ts:20` (owned)                                                        | Subagent spawn request                                                                                |
 | `ISubagentJobState`               | `@robota-sdk/agent-interface-transport` (SSOT; re-exported at `src/subagents/types.ts:18`) | Subagent job state projection                                                                         |
