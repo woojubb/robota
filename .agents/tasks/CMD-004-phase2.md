@@ -39,13 +39,16 @@ Staged migration (additive-then-delete, each stage independently green, own PR):
       via host-side execution — TUI untouched.
 - [x] No double execution: adapter call counts asserted (hot-swap, rename, settings ops).
 
-## Stage C — TUI to pure renderer (`agent-transport-tui`) → TC-04 (NOT this branch)
+## Stage C — TUI to pure renderer (`agent-transport-tui`) → TC-04 ✅ (2026-07-25)
 
-- [ ] Swap TUI subscription legacy effects → `ui_intent` for the four screens AND delete legacy
-      branches in the SAME PR (dual-carry ends).
-- [ ] Delete `applyLanguageEffect`/`applySettingsResetEffect`, the `cliAdapter` write path, the
-      `renameSession` mutation (TC-10 proof precedes), the statusline self-write
-      (refresh-on-result replaces it), and dead `applyCommandEffects`/`CommandEffectQueue` branches.
+- [x] Swap TUI subscription legacy effects → `ui_intent` for the four screens AND delete legacy
+      branches in the SAME PR (dual-carry ends). Owner-routed (`requesterDriverId ===
+    OWNER_DRIVER_ID`); `session_renamed` broadcast drives the title.
+- [x] Delete `applyLanguageEffect`/`applySettingsResetEffect`, the `cliAdapter` write path, the
+      `renameSession` mutation (TC-10 proof precedes — Stage-C red/green in the spec Evidence
+      Log), the statusline self-write (refresh-on-result replaces it), and dead
+      `applyCommandEffects`/`CommandEffectQueue` branches (both files deleted; the surviving
+      notification rendering lives in `hooks/command-result-handler.ts`).
 
 ## Stage D — remote surfaces (`agent-transport-gui`, `agent-transport`) → TC-05, TC-09 (NOT this branch)
 

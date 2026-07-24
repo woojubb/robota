@@ -25,7 +25,12 @@ depends_on: []
 > `TCommandHostAction`/`TCommandUiIntent`, `ui_intent` + `session_renamed` events, command-origin
 > driver id) and B (session-layer host-action executor over `ICommandHostAdapters` + legacy-effect
 > shim + ws-handler `ui_intent` forward + per-mode process adapters) are implemented** with red-first
-> TC-03/TC-10 evidence in the spec's Evidence Log. Remaining: Stage C (TUI → pure renderer), Stage D
+> TC-03/TC-10 evidence in the spec's Evidence Log. **Stage C (TUI → pure renderer) is implemented
+> (2026-07-25):** same-PR swap+delete — the four screens render from the owner-routed `ui_intent`
+> event, the title follows the `session_renamed` broadcast (TUI `renameSession` mutation deleted
+> under the TC-10 red/green proof), statusline is refresh-on-result, and
+> `command-effect-handler.ts`/`CommandEffectQueue`/the `cliAdapter` write path/the TUI-prop
+> remote-control wiring are deleted (TC-04 evidence in the spec's Evidence Log). Remaining: Stage D
 > (GUI/headless surfaces + multi-surface exit policy e2e), Stage E (emitter migration + legacy
 > `TCommandEffect` deletion + grep/typecheck floors).
 >

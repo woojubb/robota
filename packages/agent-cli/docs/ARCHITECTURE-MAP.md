@@ -9,7 +9,7 @@ Use that document before changing any of these areas; it routes to focused files
 architecture, composition, commands/provider flow, execution modes, inventory, and layer audits:
 
 - `packages/agent-cli/src/cli.ts` provider, command module, transport, or runtime adapter composition;
-- TUI hooks such as `useInteractiveSession`, `useSlashRouting`, or `useSideEffects`;
+- TUI hooks such as `useInteractiveSession`, `useTuiChannel`, or `useSideEffects`;
 - built-in command composition, command effects, command interactions, or plugin command discovery;
 - provider setup, provider switching, model catalog, or model switching flow;
 - interactive TUI vs non-interactive print-mode behavior;

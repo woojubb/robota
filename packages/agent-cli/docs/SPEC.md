@@ -463,7 +463,7 @@ Supported commands:
 | `/statusline git off` | Persist `statusline.gitBranch=false`                           |
 | `/statusline reset`   | Restore default status line fields                             |
 
-Defaults are `enabled=true` and `gitBranch=true`. The command emits the typed SDK `statusline-settings-patch` effect, `useSlashRouting` stores it as a pending command effect, and `useSideEffects` persists the setting and updates React state. `StatusBar` remains a pure renderer.
+Defaults are `enabled=true` and `gitBranch=true`. The command emits the typed SDK `statusline-settings-patch` effect; the SESSION layer applies it host-side via the settings adapter (CMD-004 Phase 2 — works on every surface, including headless), and the TUI re-reads the persisted settings when the command result arrives (refresh-on-result) to update React state. `StatusBar` remains a pure renderer.
 
 ### TUI Command Interactions
 
