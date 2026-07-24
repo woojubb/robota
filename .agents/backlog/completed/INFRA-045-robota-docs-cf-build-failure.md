@@ -1,6 +1,7 @@
 ---
 title: 'INFRA-045: investigate the robota-docs Cloudflare Pages build failure'
-status: todo
+status: done
+completed: 2026-07-24
 created: 2026-07-23
 priority: medium
 urgency: soon
@@ -9,6 +10,24 @@ depends_on: []
 ---
 
 # INFRA-045: robota-docs Cloudflare Pages build failing
+
+## Outcome (DONE 2026-07-24) — root cause + correction
+
+**Root cause:** the PRE-EXISTING unbounded override `"js-yaml@3.14.2": ">=3.15.0"` re-resolved ACROSS a
+major when INFRA-044 regenerated the lockfile — `gray-matter@4.0.3` (which calls the js-yaml 3 API
+`yaml.safeLoad`) started receiving js-yaml 4.x, so every MDX frontmatter parse threw
+`Function yaml.safeLoad is removed in js-yaml 4` and `/en` prerender failed. Same defect class as the
+brace-expansion break fixed in #1284 — but #1284 only bounded the overrides INFRA-044 ADDED, not the
+pre-existing unbounded ones.
+
+**Correction of the earlier analysis:** this WAS caused by the INFRA-044 lockfile regeneration after all —
+the earlier "not caused by my change" conclusion tested only the sharp revert, not the js-yaml lineage.
+
+**Fix:** bound the override to `>=3.15.0 <4.0.0`; lockfile regen restores gray-matter → js-yaml 3.15.0
+(the GHSA-52cp fixed version, so osv-scanner stays 0). Verified by a FULL local `robota-docs` build:
+all 314 pages prerender + pagefind index green (dev-mode repro of the masked digest error located the
+exact throw at `src/lib/content.ts:151 matter(raw)`). Latent note: `fast-xml-parser >=4.5.5` resolves 5.8.0
+(pre-existing cross-major, present before this incident and not breaking — left as-is deliberately).
 
 ## Problem
 
