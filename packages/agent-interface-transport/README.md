@@ -1,6 +1,6 @@
 # Agent Interface Transport
 
-Transport contract interfaces for the Robota SDK. This package contains only TypeScript type contracts — no runtime code, no classes, no implementation.
+Transport contract interfaces for the Robota SDK. This package contains TypeScript type contracts plus a small set of pure, dependency-free derivation accessors over its own event union types (`readAssistantReplies`, `readLastAssistantText`, `readToolCalls`, `readErrors`) and the co-drive driver-id constants — no classes, no I/O, no side effects.
 
 ## Installation
 
@@ -28,11 +28,11 @@ import type {
 Core transport lifecycle:
 
 ```typescript
-interface ITransportAdapter<TSession> {
+interface ITransportAdapter<TSession = unknown> {
   readonly name: string;
   attach(session: TSession): void;
-  start(): void;
-  stop?(): void;
+  start(): Promise<void>;
+  stop(): Promise<void>;
 }
 ```
 
@@ -41,10 +41,10 @@ interface ITransportAdapter<TSession> {
 Extends `ITransportAdapter` with enable/disable and options schema:
 
 ```typescript
-interface IConfigurableTransport<TSession> extends ITransportAdapter<TSession> {
+interface IConfigurableTransport<TSession = unknown> extends ITransportAdapter<TSession> {
   readonly defaultEnabled: boolean;
-  readonly optionsSchema: Record<string, unknown>;
-  validateOptions?(options: unknown): boolean;
+  readonly optionsSchema?: Record<string, { type: string; description: string; default?: unknown }>;
+  validateOptions?(options: Record<string, unknown>): boolean;
 }
 ```
 

@@ -15,15 +15,15 @@ before/after examples for each one.
 
 ## What Changed in 3.0.0 — Summary
 
-| Area           | What changed                                                            |
-| -------------- | ----------------------------------------------------------------------- |
-| Type naming    | All interfaces prefixed `I*`, type aliases prefixed `T*`                |
-| Class rename   | `BaseAIProvider` → `AbstractAIProvider`                                 |
-| Module path    | `Robota` internal path change (transparent for published package users) |
-| Removed alias  | `FunctionSchema` alias for `ToolSchema` removed                         |
-| Package rename | Provider sub-packages consolidated under `@robota-sdk/agent-provider/*` |
-| agent-session  | Major rewrite — several classes removed                                 |
-| agent-team     | Package removed — multi-agent work moved to built-in subagent dispatch  |
+| Area           | What changed                                                                                                                                                       |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Type naming    | All interfaces prefixed `I*`, type aliases prefixed `T*`                                                                                                           |
+| Class rename   | `BaseAIProvider` → `AbstractAIProvider`                                                                                                                            |
+| Module path    | `Robota` internal path change (transparent for published package users)                                                                                            |
+| Removed alias  | `FunctionSchema` alias for `ToolSchema` removed                                                                                                                    |
+| Package rename | `agent-provider-google` → `agent-provider-gemini`; `agent-provider-deepseek` folded into `agent-provider-openai-compatible` (providers remain standalone packages) |
+| agent-session  | Major rewrite — several classes removed                                                                                                                            |
+| agent-team     | Package removed — multi-agent work moved to built-in subagent dispatch                                                                                             |
 
 ---
 
@@ -40,24 +40,25 @@ In v2.x, each provider was its own npm package:
 @robota-sdk/agent-provider-deepseek
 ```
 
-In 3.0.0, all providers are sub-path exports of a single package:
+In 3.0.0, each provider is still its own standalone package — two were renamed or
+consolidated:
 
 ```
-@robota-sdk/agent-provider-anthropic
-@robota-sdk/agent-provider-openai
-@robota-sdk/agent-provider-gemini
-@robota-sdk/agent-provider-openai-compatible
-@robota-sdk/agent-provider-openai-compatible
-@robota-sdk/agent-provider-openai-compatible
+@robota-sdk/agent-provider-anthropic          (unchanged)
+@robota-sdk/agent-provider-openai             (unchanged)
+@robota-sdk/agent-provider-gemini             (was agent-provider-google)
+@robota-sdk/agent-provider-openai-compatible  (absorbs DeepSeek; also hosts Qwen and Gemma)
 ```
 
 Update your `package.json`:
 
 ```diff
--  "@robota-sdk/agent-provider-anthropic": "^2.x",
--  "@robota-sdk/agent-provider-openai": "^2.x",
+   "@robota-sdk/agent-provider-anthropic": "^3.0.0",
+   "@robota-sdk/agent-provider-openai": "^3.0.0",
 -  "@robota-sdk/agent-provider-google": "^2.x",
-+  "@robota-sdk/agent-provider": "^3.0.0",
+-  "@robota-sdk/agent-provider-deepseek": "^2.x",
++  "@robota-sdk/agent-provider-gemini": "^3.0.0",
++  "@robota-sdk/agent-provider-openai-compatible": "^3.0.0",
 ```
 
 Then install:
@@ -263,16 +264,17 @@ command for delegating parallel work to subagents.
 ### 1. Update package dependencies
 
 ```bash
-# Remove old separate provider packages
-npm uninstall @robota-sdk/agent-provider-anthropic \
-              @robota-sdk/agent-provider-openai \
-              @robota-sdk/agent-provider-google \
+# Remove the renamed/removed v2 provider packages
+npm uninstall @robota-sdk/agent-provider-google \
               @robota-sdk/agent-provider-deepseek
 
 # Install 3.0.0 packages
 npm install @robota-sdk/agent-core@^3.0.0 \
-            @robota-sdk/agent-provider@^3.0.0 \
-            @robota-sdk/agent-framework@^3.0.0
+            @robota-sdk/agent-framework@^3.0.0 \
+            @robota-sdk/agent-provider-anthropic@^3.0.0 \
+            @robota-sdk/agent-provider-openai@^3.0.0 \
+            @robota-sdk/agent-provider-gemini@^3.0.0 \
+            @robota-sdk/agent-provider-openai-compatible@^3.0.0
 ```
 
 ### 2. Fix provider import paths
@@ -284,7 +286,7 @@ Search your codebase for old provider imports and replace:
 grep -r "agent-provider-" src/
 ```
 
-Update each import to the sub-path form shown in [Import Path Changes](#import-path-changes).
+Update each import to the 3.0.0 package shown in [Import Path Changes](#import-path-changes).
 
 ### 3. Run TypeScript compiler to catch type renames
 
