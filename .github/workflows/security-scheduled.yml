@@ -1,0 +1,31 @@
+name: Scheduled security scan
+
+# INFRA-044 (part 2): the PR-time `security audit` job runs osv-scanner ONLY when a PR changes
+# package.json / pnpm-lock.yaml, so advisories published against dependencies ALREADY in the lockfile
+# accumulate invisibly (18 did exactly that before INFRA-044 part 1). This scheduled run scans the
+# lockfile weekly (and on demand) so new advisories surface within days, not at the next manifest edit.
+# Same scanner, same config SSOT (osv-scanner.toml) as ci.yml — one source of accepted-risk truth.
+
+on:
+  schedule:
+    # Mondays 04:47 UTC (offset from CodeQL's 04:27 cron to avoid runner contention).
+    - cron: '47 4 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  osv-scan:
+    name: osv-scanner (scheduled, full lockfile)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: develop
+
+      - name: Vulnerability scan (osv-scanner) over the full lockfile
+        run: |
+          curl -fsSL https://github.com/google/osv-scanner/releases/download/v2.0.2/osv-scanner_linux_amd64 -o "$RUNNER_TEMP/osv-scanner"
+          chmod +x "$RUNNER_TEMP/osv-scanner"
+          "$RUNNER_TEMP/osv-scanner" scan source --config osv-scanner.toml --lockfile pnpm-lock.yaml

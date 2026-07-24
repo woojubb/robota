@@ -3,26 +3,32 @@
 Mandatory rules for git operations and branch policy.
 Parent: [AGENTS.md](../../AGENTS.md) | Index: [rules/index.md](index.md)
 
-### Git Worktree — ABSOLUTELY PROHIBITED
+### Git Worktree — allowed for parallel agents, with guardrails
 
-**`git worktree` is banned. Zero exceptions.**
+**`git worktree` is ALLOWED.** Its purpose here is to run **multiple subagents in parallel** for speed: each
+agent works in its own isolated worktree, so their file edits never collide and the One-Branch-At-A-Time
+serialization does not throttle independent work. Prefer the Claude Code `Agent` tool's `isolation: "worktree"`
+parameter — it creates the worktree in an isolated path and auto-removes it when unchanged.
 
-- Never create, use, or reference a git worktree for any task.
-- Never propose worktrees as a solution to any problem.
-- Do all work directly on a normal feature branch in the main clone.
-- If the Claude Code `Agent` tool or any subagent requests a worktree, refuse. This includes
-  the `isolation: "worktree"` parameter on the `Agent` tool — never pass it.
-- If a leftover worktree is found (`git worktree list` shows more than the main clone), remove it
-  immediately: `git worktree remove -f -f <path>`.
+**Guardrails (these prevent the folder-confusion failures that originally motivated a ban):**
 
-**Automated enforcement:** `scripts/harness/pre-push.mjs` calls `assertNoActiveWorktrees()` at
-startup. Any push with an active non-main worktree is blocked with exit code 1.
+- **One working tree per session.** Never edit or commit the MAIN clone's working tree from inside a worktree
+  session, and never touch a worktree from the main-clone session. Operate in exactly one working tree at a time
+  (this is the #1 rule — the historical breakage was edits leaking between trees).
+- **Isolated location only.** Create worktrees in the `Agent` tool's managed path or a directory OUTSIDE the
+  repo — never nest one inside the repo's own tracked `packages/`/`apps/` tree.
+- **Each worktree gets its own branch** cut from a freshly-fetched `origin/develop`; all the branch rules in this
+  file still apply within it.
+- **Clean up when done:** `git worktree remove <path>` then `git worktree prune`. `Agent`-tool worktrees
+  auto-clean; manual ones are your responsibility.
 
-**Why:** Worktrees share the same `packages/` paths but have separate working trees. This has
-caused: (1) edits leaking from the worktree onto `develop`'s working tree, breaking typecheck;
-(2) pre-push hooks running in the wrong directory context; (3) symlink issues requiring manual
-workaround every session; (4) locked worktrees left behind after Claude Code agent sessions.
-The isolation they provide is not worth these failure modes.
+**Automated safeguard (non-blocking):** `scripts/harness/pre-push.mjs` runs `pruneAndWarnStaleWorktrees()` — it
+prunes administrative junk and WARNS about locked/stale leftover worktrees, but no longer blocks the push.
+
+**History:** worktrees were previously banned after (1) edits leaked between working trees, (2) a pre-push hook
+ran in the wrong directory, (3) symlink issues, and (4) locked worktrees were left behind. The guardrails above
+(one-working-tree-at-a-time, isolated location, cleanup + the prune-and-warn hook) address those modes; the
+parallel-agent speedup is worth it.
 
 ### Clean Working Tree Before Every Commit and Push
 
@@ -41,9 +47,7 @@ git status --short
 belong to the branch). `scripts/harness/pre-push.mjs` calls `assertCleanWorkingTree()` — any push
 with uncommitted modifications or staged changes is blocked with exit code 1.
 
-**Why:** Selective commits that leave related files behind create invisible half-states: the code is
-pushed but dependent files (SPEC.md, README, tests, backlog) are not, causing future sessions to
-start from an inconsistent baseline.
+**Why:** selective commits leave invisible half-states — code pushed while dependent files (SPEC.md, README, tests, backlog) are not.
 
 ### Git Operations
 
@@ -86,43 +90,34 @@ which blocks `gh api -X DELETE .../git/refs/heads/<name>`, `git push <remote> --
 `git push <remote> :<name>` unless the branch has a merged PR (override for an intentional abandon:
 `BRANCH_GUARD_ALLOW_DELETE=1`).
 
-**Why:** (1) `--delete-branch` on a `develop → main` PR once deleted the `develop` integration branch,
-breaking the entire branch structure. (2) A blind delete right after a _failed_ `gh pr merge` once closed an
-unmerged PR and orphaned its work, forcing a cherry-pick recovery. Auto-deletion is safe only for short-lived
-feature branches whose merge is confirmed — never for long-lived integration branches, and never before the
-merge lands.
+**Why:** `--delete-branch` once deleted the `develop` integration branch, and a blind delete after a _failed_ merge once closed an unmerged PR (cherry-pick recovery). Deletion is safe only after the merge is confirmed, never for integration branches.
 
 ### Branch Policy
 
 - `main` is the production branch. Direct commits, pushes, and merges to `main` are prohibited.
   **A PR to `main` may ONLY come from `develop` (or a `release/*` / `hotfix/*` promotion branch) — never a
-  feature branch.** A feature branch PR'd straight to `main` skips integration and sweeps the entire
-  `develop` delta onto `main`, diverging the two branches (the **#1216 incident**, 2026-07-18). This is now
-  MECHANICALLY enforced by the `main-pr-source-guard` CI job (`.github/workflows/ci.yml`), which fails any PR
-  to `main` whose head is not `develop`/`release/*`/`hotfix/*`. The flow is fixed: **feature→develop→main**.
+  feature branch** (a feature branch PR'd straight to `main` sweeps the whole `develop` delta and diverges
+  the branches — the #1216 incident). MECHANICALLY enforced by the `main-pr-source-guard` CI job
+  (`.github/workflows/ci.yml`). The flow is fixed: **feature→develop→main**.
 - `develop` is the integration branch. All feature work branches from `develop`. Direct commits to
   `develop` are also prohibited — branch first, then PR. (Both `main` and `develop` are protected;
   enforced by `.husky/pre-commit` and the `branch-guard` skill/hook.)
 - Feature branches must be created from `develop` and merged back into `develop`. **Create them from the
   freshly-fetched `origin/develop` head — never from `main`, and never from another local feature branch.**
-  Explicitly: `git fetch origin && git checkout -b <type>/<slug> origin/develop`. Branching off a local feature
-  branch that was **squash-merged** re-introduces that branch's pre-squash commits; they are patch-equivalent to
-  develop's squash, so the new branch **pushes fine (no merge commits) but merges DIRTY** (content conflict) and,
-  if deleted blindly, orphans the PR. If you have local unmerged branches, the `branch-guard` create-check flags
-  them; clean up (`git branch -D <name>` after their PR merged) and cut the new branch from `origin/develop`.
-  After a `develop → main` promotion, `main` sits
-  AHEAD of `develop`; a branch cut from `main` (or that has merged one in) and PR'd to `develop` drags the
-  promotion's `Merge pull request … from develop` commits into the PR range, which then fail `commitlint`. A clean
-  feature/docs branch has **zero merge commits** in its `origin/develop..HEAD` range. **Enforced** by
-  `.claude/hooks/pre-push-check.sh` (blocks a push when `git log --merges origin/develop..HEAD` is non-empty on a
-  non-integration branch); recover with `git reset --hard origin/develop && git cherry-pick <your-commit(s)>`.
+  Explicitly: `git fetch origin && git checkout -b <type>/<slug> origin/develop`. Rationale, one line each:
+  branching off a squash-merged local branch re-introduces its pre-squash commits (pushes fine, merges DIRTY);
+  a branch cut from `main` after a promotion drags `Merge pull request …` commits into the PR range and fails
+  `commitlint`. A clean feature/docs branch has **zero merge commits** in its `origin/develop..HEAD` range.
+  **Enforced** by `.claude/hooks/pre-push-check.sh` (blocks a push when `git log --merges origin/develop..HEAD`
+  is non-empty on a non-integration branch) and the `branch-guard` create-check (flags local unmerged branches);
+  recover with `git reset --hard origin/develop && git cherry-pick <your-commit(s)>`.
 - Merging `develop` into `main` requires explicit user approval and is a release-level action.
 - When merging a branch, always merge back to the branch it was forked from. Verify the fork point before proposing a merge target.
 - If the agent wants to suggest a different merge target than the fork origin, it must explicitly recommend and receive user approval before proceeding.
 - Never assume `main` as the default merge target. Always check the actual fork point.
 - See [`branch-guard`](../skills/branch-guard/SKILL.md) skill for detailed procedures including protected branch checks and deployment.
 
-### One-Branch-At-A-Time Rule (mandatory, zero exceptions)
+### One-Branch-At-A-Time Rule (mandatory in the MAIN clone)
 
 **Before creating any new branch, check for unmerged branches:**
 
@@ -142,9 +137,17 @@ This rule applies even when:
 - The existing branch "looks complete"
 - The new task seems unrelated to the open branch
 
-**Why:** Creating a second branch while one is still open causes silent divergence. By the time the second branch is rebased, the first branch's content is already in develop (via a separate merge), producing mass conflicts with no clear resolution path. This has caused repeated incidents.
+**Why:** a second open branch silently diverges — by rebase time the first branch's content is already in develop, producing mass conflicts (repeated incidents).
 
-**The only exception:** The user explicitly says "create a new branch anyway" or "abandon the old branch."
+**Exceptions:**
+
+1. The user explicitly says "create a new branch anyway" or "abandon the old branch."
+2. **Worktree-parallel subagents** (§ Git Worktree above): each isolated worktree carries its OWN concurrent
+   feature branch — that is the point of the parallelism, and the divergence risk the rule guards against does
+   not apply because each branch edits a **disjoint file set** (the orchestrator MUST partition file ownership
+   before spawning) and the PRs are merged **sequentially** after CI. Create such a branch with the inline
+   override the `branch-guard` hook honors: `BRANCH_GUARD_ALLOW_OPEN_BRANCHES=1 git checkout -b <type>/<slug>`.
+   In the main clone (outside a parallel wave) the rule stands as written.
 
 ### PR Batching — appropriately-sized PRs (DX-001)
 
@@ -176,9 +179,7 @@ after confirming the branch is merged:
 
 **Never delete `develop` or `main`.**
 
-**Why:** stale merged branches accumulate on the remote and obscure the active set; cleaning each cycle
-keeps `develop`/`main` the only standing branches. The safe per-branch delete (never the merge-time
-`--delete-branch`) avoids the incident that deleted the `develop` integration branch.
+**Why:** stale merged branches obscure the active set; the safe per-branch delete (never merge-time `--delete-branch`) avoids the incident that deleted `develop`.
 
 ### Merge Landing Verification (mandatory)
 
@@ -197,9 +198,8 @@ before). After every merge:
    hop, not only the last.
 
 The read-only `merge-verifier` agent (`.claude/agents/merge-verifier.md`, signal `MERGE VERIFIED`) is the
-mechanism for this check; dispatch it after a merge rather than eyeballing. **Why:** a PR merged despite a
-red quality gate and shipped a broken build to `main` (DATA-005); "the merge command succeeded" is not
-evidence the change landed correctly.
+mechanism for this check; dispatch it after a merge rather than eyeballing. **Why:** a PR once merged despite
+a red quality gate and shipped a broken build to `main` (DATA-005).
 
 ### Post-Merge Branch Cycle (mandatory)
 
@@ -228,14 +228,12 @@ After a branch is merged, follow this exact cycle to start the next feature bran
    git merge-base --is-ancestor origin/develop HEAD && echo "base OK"
    ```
 
-**Why:** Branching for a new item once cut from the wrong base because uncommitted evals churn blocked
-`git checkout develop`, so the new branch silently forked off the previous feature branch.
+**Why:** uncommitted evals churn once blocked `git checkout develop`, so a new branch silently forked off the previous feature branch.
 
-**Stash hygiene.** Never reach for a bare `git stash` / blind `git stash pop` to deal with known
-auto-generated churn. Stashes accumulate across sessions (a stack dozens deep was observed), so
-`git stash pop` routinely restores the WRONG entry. For known auto-generated churn, discard with
-`git checkout -- <path>`. If you must preserve real local edits, use a scoped `git stash push -- <path>`
-and pop by explicit ref (`git stash pop stash@{N}`), never the bare top of the stack.
+**Stash hygiene.** Never use a bare `git stash` / blind `git stash pop` for known auto-generated churn —
+stashes accumulate across sessions and `pop` restores the wrong entry. Discard churn with
+`git checkout -- <path>`; to preserve real local edits use a scoped `git stash push -- <path>` and pop by
+explicit ref (`git stash pop stash@{N}`), never the bare top of the stack.
 
 ### Feature Branch Workflow (mandatory)
 

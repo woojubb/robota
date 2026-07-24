@@ -20,19 +20,49 @@ fi
 # Extract command from tool_input.command
 COMMAND=$(echo "$INPUT" | grep -o '"command"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"command"[[:space:]]*:[[:space:]]*"//' | sed 's/"$//')
 
+# Honor inline override tokens written IN the command string (e.g. `BRANCH_GUARD_ALLOW_DELETE=1 git push …`).
+# The `VAR=1` prefix runs in the TOOL's shell, not this hook's process, so a plain env check never sees it —
+# the documented overrides were unusable inline until this. Worktree-parallel subagents rely on
+# BRANCH_GUARD_ALLOW_OPEN_BRANCHES=1 to each carry their own concurrent branch (git-branch.md § Git Worktree).
+if printf '%s' "$COMMAND" | grep -qE '(^|[[:space:];&])BRANCH_GUARD_ALLOW_DELETE=1([[:space:]]|$)'; then
+  BRANCH_GUARD_ALLOW_DELETE=1
+fi
+if printf '%s' "$COMMAND" | grep -qE '(^|[[:space:];&])BRANCH_GUARD_ALLOW_OPEN_BRANCHES=1([[:space:]]|$)'; then
+  BRANCH_GUARD_ALLOW_OPEN_BRANCHES=1
+fi
+if printf '%s' "$COMMAND" | grep -qE '(^|[[:space:];&])BRANCH_GUARD_ALLOW_BADNAME=1([[:space:]]|$)'; then
+  BRANCH_GUARD_ALLOW_BADNAME=1
+fi
+
+# Resolve the git context the COMMAND will actually run in (worktree-aware — parallel-wave lesson):
+# a worktree agent's commit/push was judged against the MAIN clone's branch (CLAUDE_PROJECT_DIR),
+# producing false blocks. Precedence: `git -C <path>` in the command > hook-input `cwd` > project dir.
+HOOK_CWD=$(echo "$INPUT" | grep -o '"cwd"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"cwd"[[:space:]]*:[[:space:]]*"//' | sed 's/"$//' || true)
+GIT_C_PATH=$(printf '%s' "$COMMAND" | sed -nE 's/^[[:space:]]*git[[:space:]]+-C[[:space:]]+"?([^"[:space:]]+)"?.*/\1/p')
+EFFECTIVE_DIR="${CLAUDE_PROJECT_DIR:-.}"
+if [[ -n "$HOOK_CWD" ]] && git -C "$HOOK_CWD" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  EFFECTIVE_DIR="$HOOK_CWD"
+fi
+if [[ -n "$GIT_C_PATH" ]] && git -C "$GIT_C_PATH" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  EFFECTIVE_DIR="$GIT_C_PATH"
+fi
+
 # Detect git action type
 IS_COMMIT=false
 IS_PUSH=false
 IS_MERGE=false
 IS_BRANCH_CREATE=false
 IS_GH_DELETE_BRANCH=false
-echo "$COMMAND" | grep -qE '^\s*git\s+commit\b' && IS_COMMIT=true
-echo "$COMMAND" | grep -qE '^\s*git\s+(push|push\s)' && IS_PUSH=true
-echo "$COMMAND" | grep -qE '^\s*git\s+merge\b' && IS_MERGE=true
+# GITPFX tolerates global git flags before the subcommand — `git -C <path> commit`, `git -c k=v push` —
+# which previously slipped past every action regex (worktree-blindness, parallel-wave lesson).
+GITPFX='^\s*(\S+=\S+\s+)*git\s+((-C|-c)\s+\S+\s+)*'
+echo "$COMMAND" | grep -qE "${GITPFX}commit\b" && IS_COMMIT=true
+echo "$COMMAND" | grep -qE "${GITPFX}push(\s|$)" && IS_PUSH=true
+echo "$COMMAND" | grep -qE "${GITPFX}merge\b" && IS_MERGE=true
 # Tolerate flags between the subcommand and -b/-c (e.g. `git checkout -q -b x`, which
 # previously slipped past the create-guard entirely).
-echo "$COMMAND" | grep -qE '^\s*git\s+checkout\s+(-\S+\s+)*-b\b' && IS_BRANCH_CREATE=true
-echo "$COMMAND" | grep -qE '^\s*git\s+switch\s+(-\S+\s+)*-c\b' && IS_BRANCH_CREATE=true
+echo "$COMMAND" | grep -qE "${GITPFX}checkout\s+(-\S+\s+)*-b\b" && IS_BRANCH_CREATE=true
+echo "$COMMAND" | grep -qE "${GITPFX}switch\s+(-\S+\s+)*-c\b" && IS_BRANCH_CREATE=true
 # `gh pr merge --delete-branch` is banned (git-branch.md): it once deleted the
 # develop integration branch. Match ONLY when --delete-branch is an actual argument
 # of a `gh pr merge` invocation — strip shell comments first, then require the flag
@@ -94,8 +124,8 @@ if [[ "$IS_COMMIT" == "false" && "$IS_PUSH" == "false" && "$IS_MERGE" == "false"
   exit 0
 fi
 
-# Get current branch
-PROJECT_DIR="${CLAUDE_PROJECT_DIR:-.}"
+# Get current branch of the EFFECTIVE context (worktree-aware, see resolution above)
+PROJECT_DIR="$EFFECTIVE_DIR"
 CURRENT_BRANCH=$(git -C "$PROJECT_DIR" branch --show-current 2>/dev/null || echo "")
 
 if [[ -z "$CURRENT_BRANCH" ]]; then

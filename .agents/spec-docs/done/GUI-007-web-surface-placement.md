@@ -1,6 +1,9 @@
 ---
 status: done
 type: INFRA
+capability: true
+user_execution: agent-run
+user_execution_scenario: .agents/evals/scenarios/gui-007-cli-served-monitor-agent-run.md
 tags:
   [architecture, placement, web, gui, surface-taxonomy, agent-web, agent-web-monitor, cli, sec-001]
 ---

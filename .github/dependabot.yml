@@ -1,0 +1,41 @@
+# Dependabot — automated dependency + GitHub Actions update PRs.
+# Docs: https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+version: 2
+updates:
+  # npm/pnpm dependencies (one entry covers the whole workspace via the root lockfile).
+  - package-ecosystem: npm
+    directory: '/'
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+    labels:
+      - dependencies
+    commit-message:
+      prefix: chore
+      include: scope
+    # Keep the noise down: batch non-major updates into grouped PRs; majors stay individual for review.
+    groups:
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch
+    # Security updates are always opened regardless of the schedule.
+
+  # GitHub Actions used in .github/workflows (keeps action versions current + patches supply-chain CVEs).
+  - package-ecosystem: github-actions
+    directory: '/'
+    schedule:
+      interval: weekly
+      day: monday
+    labels:
+      - dependencies
+      - github-actions
+    commit-message:
+      prefix: ci
+      include: scope
+    groups:
+      actions:
+        update-types:
+          - minor
+          - patch

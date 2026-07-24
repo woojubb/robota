@@ -18,6 +18,8 @@ const GOOD_READONLY_AGENT = [
   '',
   '# Fixture Auditor',
   '',
+  'You are read-only: never run tree-mutating git in the working tree.',
+  '',
   'End the report with the exact line `ACTIONABLE FINDINGS: <n>`.',
 ].join('\n');
 
@@ -63,6 +65,38 @@ describe('check-agent-def-convention (INFRA-030) — FAIL (standalone malformed 
     ].join('\n');
     const findings = analyzeAgent(agent, { referencedInIndex: true });
     expect(findings.some((f) => /does not instruct ending/.test(f))).toBe(true);
+  });
+
+  it('fails a read-only agent with Bash whose body lacks the tree-mutating-git guardrail (HARNESS-DIET-001)', () => {
+    const agent = [
+      '---',
+      'name: unguarded-auditor',
+      'description: Independent, read-only auditor.',
+      'tools: Read, Grep, Glob, Bash',
+      'signal: ACTIONABLE FINDINGS',
+      '---',
+      '',
+      '# Unguarded',
+      'End with `ACTIONABLE FINDINGS: <n>`.',
+    ].join('\n');
+    const findings = analyzeAgent(agent, { referencedInIndex: true });
+    expect(findings.some((f) => /tree-mutating git/.test(f))).toBe(true);
+  });
+
+  it('a read-only agent WITHOUT Bash needs no git guardrail', () => {
+    const agent = [
+      '---',
+      'name: no-bash-auditor',
+      'description: Independent, read-only auditor.',
+      'tools: Read, Grep, Glob',
+      'signal: ACTIONABLE FINDINGS',
+      '---',
+      '',
+      '# No Bash',
+      'End with `ACTIONABLE FINDINGS: <n>`.',
+    ].join('\n');
+    const findings = analyzeAgent(agent, { referencedInIndex: true });
+    expect(findings.some((f) => /tree-mutating git/.test(f))).toBe(false);
   });
 
   it('fails a read-only agent that carries Write', () => {

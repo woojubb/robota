@@ -17,7 +17,11 @@ import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import type { IResolvedConfig } from '../config/config-types.js';
 import type { ILoadedContext } from '../context/context-loader.js';
 import type { IToolWithEventService, IHookTypeExecutor } from '@robota-sdk/agent-core';
-import type { TPermissionMode, TToolArgs } from '@robota-sdk/agent-core';
+import type {
+  TBackgroundPermissionPolicy,
+  TPermissionMode,
+  TToolArgs,
+} from '@robota-sdk/agent-core';
 import type { IAIProvider, TRoleModelMap } from '@robota-sdk/agent-core';
 import type {
   ISessionLogger,
@@ -62,6 +66,15 @@ export interface ISubagentOptions {
   isForkWorker?: boolean;
   /** Permission mode from parent (bypassPermissions, acceptEdits, etc.). */
   permissionMode?: TPermissionMode;
+  /**
+   * CORE-025: the spawned task's permission policy. Resolved BEFORE the session-mode gate, so
+   * `deny`/`preapproved`/`inherit-allowlist` bind even when `permissionMode` would auto-allow. Absent →
+   * the inherited session-mode gate alone.
+   */
+  permissionPolicy?: TBackgroundPermissionPolicy;
+  /** CORE-025: the task's OWN declared tool allow/deny lists (what `preapproved` consults). */
+  taskAllowedTools?: readonly string[];
+  taskDisallowedTools?: readonly string[];
   /** Permission handler from parent. */
   permissionHandler?: TPermissionHandler;
   /** Plugin hooks configuration from parent session. */
@@ -172,6 +185,16 @@ export function createSubagentSession(options: ISubagentOptions): Session {
     maxTurns: agentDefinition.maxTurns,
     permissions: parentConfig.permissions,
     permissionMode: options.permissionMode,
+    // CORE-025: the task policy pre-empts the session-mode gate (deny/preapproved/inherit override even
+    // bypassPermissions); `preapproved` reads the task's own lists, `inherit-allowlist` reads
+    // `parentConfig.permissions` (passed above as `permissions`).
+    ...(options.permissionPolicy !== undefined
+      ? { permissionPolicy: options.permissionPolicy }
+      : {}),
+    taskPermissions: {
+      ...(options.taskAllowedTools !== undefined ? { allow: options.taskAllowedTools } : {}),
+      ...(options.taskDisallowedTools !== undefined ? { deny: options.taskDisallowedTools } : {}),
+    },
     defaultTrustLevel: parentConfig.defaultTrustLevel,
     permissionHandler: options.permissionHandler,
     hooks: options.hooks,

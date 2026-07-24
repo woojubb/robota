@@ -25,19 +25,20 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 
+import { loadHarnessConfig } from './harness-config.mjs';
+
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
-// App-domain identity terms forbidden in the neutral orchestration contracts.
-// Matches any identifier-like token CONTAINING the term (case-insensitive), so
-// `roomId` / `chatRoom` / `personaName` / `topicTitle` / `conversationTopic` are all
-// flagged — not merely the standalone word.
-const FORBIDDEN = /\w*(room|persona|topic)\w*/i;
+// App-domain identity terms forbidden in the neutral orchestration contracts, held as POLICY DATA in
+// `.agents/harness.config.json` (`neutrality.orchestrationForbiddenTerms` / `orchestrationScanDirs`,
+// HARNESS-DIET-002) so this engine stays repo-agnostic. The pattern matches any identifier-like token CONTAINING
+// a term (case-insensitive), so `roomId` / `chatRoom` / `personaName` / `topicTitle` / `conversationTopic` are
+// all flagged — not merely the standalone word.
+const NEUTRALITY = loadHarnessConfig().neutrality;
+const FORBIDDEN = new RegExp(`\\w*(${NEUTRALITY.orchestrationForbiddenTerms.join('|')})\\w*`, 'i');
 
 // Directories whose orchestration source is the neutral surface under scan.
-const SCAN_DIRS = [
-  'packages/agent-core/src/orchestration',
-  'packages/agent-framework/src/orchestration',
-];
+const SCAN_DIRS = NEUTRALITY.orchestrationScanDirs;
 
 function walkSource(target) {
   const full = path.join(WORKSPACE_ROOT, target);

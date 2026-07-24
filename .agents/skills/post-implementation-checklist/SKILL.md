@@ -1,136 +1,44 @@
 ---
 name: post-implementation-checklist
-description: Mandatory checklist after completing implementation work — SPEC verification, README update, npm publish, content/ docs update, docs site deploy
+description: Router for the mandatory post-implementation sequence — SPEC sync, build/test, README, commit/PR, publish, content/ docs, docs deploy. Each step's detail lives in its owning skill/rule; this file only fixes the order and the gates. Execute automatically after implementation work; do not wait for the user to request it.
 ---
 
-# Post-Implementation Checklist
+# Post-Implementation Checklist (router)
 
-Every implementation task that modifies package code MUST complete this checklist before being marked as done. No exceptions. The agent MUST execute this checklist automatically after implementation — do NOT wait for the user to request it.
+Every implementation task that modifies package code MUST run this sequence before being marked
+done. This file owns only the **order and the gates** — each step's how-to lives in the owning
+skill/rule linked below.
 
-## When to Use
+## Sequence (execute in order)
 
-- After completing a feature, refactoring, or bug fix that changes package code
-- After creating a new package
-- After renaming, moving, or deleting a package
-
-## Checklist (execute in order)
-
-### 0. SPEC Update (MANDATORY before verification)
-
-**This step MUST be completed before any verification begins.** Code changes without SPEC updates make verification meaningless.
-
-- [ ] For each modified package, update `docs/SPEC.md` to reflect the new code behavior
-- [ ] SPEC describes the intended final state — write it as fact, not aspiration
-- [ ] If new types, methods, or behaviors were added, they MUST appear in the SPEC
-- [ ] If existing behavior changed, the SPEC MUST be updated to match
-- [ ] Commit SPEC updates separately before starting verification
-
-**GATE: Do NOT proceed to Step 1 until all SPECs are updated and committed.**
-
-### 1. Bidirectional SPEC-Code Verification Loop
-
-This is a **repeating cycle** that runs until zero issues are found.
-
-**Direction 1 — Is the SPEC correct?**
-
-- [ ] Read each modified package's `docs/SPEC.md`
-- [ ] Check for internal contradictions or inconsistencies
-- [ ] Verify type signatures are exact (not looser/tighter than code)
-- [ ] Verify descriptions match actual behavior (not aspirational)
-- [ ] Verify terminology is consistent across all SPECs
-- [ ] Fix any SPEC inaccuracies
-
-**Direction 2 — Does code match the SPEC?**
-
-- [ ] Verify every SPEC claim has matching code (file:line)
-- [ ] Verify `src/index.ts` exports match SPEC's Public API Surface
-- [ ] A public `src/index.ts` change MUST sync the `docs/SPEC.md` Public API table (every runtime export listed) — the reverse-edge `check-spec-public-surface` guard enforces this; this is the backstop reminder
-- [ ] Verify `package.json` dependencies match SPEC's Dependencies
-- [ ] Verify architecture diagrams are current
-- [ ] Fix any code that doesn't match SPEC
-
-**Cross-SPEC consistency:**
-
-- [ ] Verify related claims across packages are aligned (e.g., SDK SPEC ↔ Sessions SPEC)
-
-**Cycle rule:** After fixing issues, re-run the full check. Repeat until a clean cycle with zero issues.
-
-### 2. Build and Test
-
-- [ ] Run `pnpm build` for modified packages — must succeed
-- [ ] Run `pnpm test` for modified packages — must pass
-- [ ] Verify no stale references (deleted files, renamed types, removed exports)
-
-#### 2a. Independently re-verify any delegated "green" claim
-
-If any part of this code change was delegated to a subagent, the orchestrator MUST NOT trust the
-subagent's "all green" report at face value. Before marking the work done, the orchestrator
-independently re-runs the key gates in its own context:
-
-- [ ] `pnpm typecheck` — must pass
-- [ ] The relevant scan/guard for the change (e.g. `pnpm harness:scan`, dependency-direction, conformance)
-- [ ] `pnpm install --frozen-lockfile` whenever a dependency or lockfile was touched (catches a pruned or
-      regenerated lockfile a subagent may have produced)
-
-A subagent's claim is treated as a hypothesis until the orchestrator reproduces the green result. See
-[`delegated-refactor-green-gate`](../delegated-refactor-green-gate/SKILL.md) for the delegation contract.
-
-### 3. README Update
-
-For each modified package:
-
-- [ ] Read current `README.md`
-- [ ] Update to match SPEC changes (API surface, usage examples, architecture)
-- [ ] Create `README.md` if missing (new packages)
-
-### 4. Commit
-
-- [ ] Commit all SPEC + README + code changes
-- [ ] Push to current branch
-
-### 5. npm Publish (if public packages changed)
-
-- [ ] Create changeset (`pnpm changeset`)
-- [ ] Enter prerelease mode if needed (`pnpm changeset pre enter beta`)
-- [ ] Apply version bump (`pnpm changeset version`)
-- [ ] Commit version bump
-- [ ] Run `pnpm publish:beta` (single command — dry-run → OTP → publish all → dist-tag sync)
-- [ ] NEVER use `pnpm publish --filter`, `npm publish`, or `pnpm changeset publish`
-
-### 6. content/ Documentation Update
-
-- [ ] Update `content/guide/architecture.md` if architecture changed
-- [ ] Update `content/guide/sdk.md` if SDK API changed
-- [ ] Update `content/guide/cli.md` if CLI behavior changed
-- [ ] Update other `content/guide/*.md` as needed
-- [ ] Do NOT touch `content/v2.0.0/` (legacy, frozen)
-
-### 7. Documentation Site Deploy
-
-**GATE: Steps 3 and 6 (README + content/) must be verified complete before deploying.** If any SPEC was changed in this cycle, the corresponding README.md and content/guide/\*.md MUST already be updated. If not, go back and update them first. Do NOT deploy stale documentation.
-
-- [ ] Verify: every modified SPEC.md has a matching README.md update
-- [ ] Verify: every user-facing behavior change has a matching content/guide/\*.md update
-- [ ] `pnpm docs:build` — must succeed
-- [ ] Deploy by merging to `main` for Cloudflare Pages automatic production deployment
-- [ ] Use `pnpm docs:deploy` only for explicit manual Cloudflare Pages direct upload
-
-## Abbreviated Form
-
-For small changes (1-2 packages, no new features):
-
-1. SPEC check → 2. Build + test → 3. README → 4. Commit → 5. Publish → 6. content/ → 7. docs deploy
+1. **SPEC sync (GATE — before any verification).** Update each modified package's `docs/SPEC.md`
+   to the new behavior and run the bidirectional SPEC↔code verification loop until a clean cycle →
+   [spec-code-conformance](../spec-code-conformance/SKILL.md). Do not proceed until SPECs are
+   updated and committed.
+2. **Build and test.** `pnpm build` + `pnpm test` for modified packages must pass; check for stale
+   references (deleted files, renamed types, removed exports). If any part was delegated to a
+   subagent, independently re-verify the "green" claim (typecheck, relevant scans,
+   `pnpm install --frozen-lockfile` when the lockfile was touched) →
+   [delegated-refactor-green-gate](../delegated-refactor-green-gate/SKILL.md).
+3. **README.** Update each modified package's `README.md` to match the SPEC changes (create it for
+   new packages).
+4. **Commit + PR.** Commit SPEC + README + code; keep one coherent work-unit in ONE multi-commit PR
+   per the PR Batching policy and ship per [git-branch.md](../../rules/git-branch.md).
+5. **npm publish (if public packages changed)** → [version-management](../version-management/SKILL.md)
+   (changesets, prerelease mode, `pnpm publish:beta` only — never `pnpm publish --filter` /
+   `npm publish` / `pnpm changeset publish`).
+6. **content/ docs.** Update the affected `content/guide/*.md` for any user-facing behavior change.
+   `content/v2.0.0/` is frozen — never modify.
+7. **Docs deploy (GATE — 3 and 6 must be complete first).** Verify every modified SPEC has a
+   matching README update and every user-facing change a matching `content/guide/*.md` update, then
+   `pnpm docs:build`; production deploys from `main` (Cloudflare Pages). `pnpm docs:deploy` is
+   manual-upload only, on explicit intent.
 
 ## Rules
 
-- NEVER skip SPEC verification — it catches drift before it accumulates
-- NEVER skip README update — every SPEC change must be reflected in README.md
-- NEVER skip content/ update — every user-facing behavior change must be reflected in content/guide/\*.md
-- The three documentation layers (SPEC.md → README.md → content/) must always be in sync after every change
-- NEVER publish without build + test passing
-- NEVER deploy docs without building first
-- content/v2.0.0/ is frozen — never modify
-- Cloudflare Pages production docs deploy from `main`; manual direct upload requires explicit intent
-- After a merge, the work is not "done" until the merge is **independently verified as landed** on the
-  target's remote head with the required CI gates green and no drift — see the "Merge Landing Verification"
-  rule in [git-branch.md](../../rules/git-branch.md) (dispatch the `merge-verifier` agent; verify each hop)
+- The three documentation layers (SPEC.md → README.md → content/) must be in sync after every
+  change — never skip a layer.
+- NEVER publish without build + test passing; never deploy docs without building first.
+- After a merge, the work is not done until the merge is **independently verified as landed** —
+  see "Merge Landing Verification" in [git-branch.md](../../rules/git-branch.md) (dispatch the
+  `merge-verifier` agent; verify each hop).

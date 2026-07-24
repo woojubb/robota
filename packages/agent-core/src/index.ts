@@ -287,13 +287,17 @@ export type {
   TPermissionMode,
   TTrustLevel,
   TPermissionDecision,
+  TBackgroundPermissionPolicy,
   TToolArgs,
   IPermissionLists,
+  TPermissionPolicyDecision,
+  IPermissionPolicyContext,
   TKnownToolName,
 } from './permissions/index.js';
 export {
   TRUST_TO_MODE,
   evaluatePermission,
+  resolvePermissionByPolicy,
   MODE_POLICY,
   UNKNOWN_TOOL_FALLBACK,
 } from './permissions/index.js';

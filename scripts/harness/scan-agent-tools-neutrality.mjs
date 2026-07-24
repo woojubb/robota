@@ -22,16 +22,19 @@
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
+import { loadHarnessConfig } from './harness-config.mjs';
+
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const PKG = path.join(WORKSPACE_ROOT, 'packages/agent-tools/package.json');
 
 /**
- * The sanctioned third-party (non-`@robota-sdk/*`) runtime dependencies of `agent-tools`, verified against the
- * real package post-SELFHOST-003/010. Adding a dep here is a deliberate, reviewed act — the diff makes a heavy
+ * The sanctioned third-party (non-`@robota-sdk/*`) runtime dependencies of `agent-tools` — held as POLICY DATA in
+ * `.agents/harness.config.json` (`neutrality.agentToolsRuntimeAllowlist`, HARNESS-DIET-002), not hardcoded here,
+ * so this engine stays repo-agnostic. Adding a dep there is a deliberate, reviewed act — the diff makes a heavy
  * SDK visible. A heavy retrieval/parser/vector/browser SDK must be injected as a duck-typed port from the surface
  * instead of depending on it here.
  */
-const ALLOWLIST = new Set(['fast-glob', 'p-limit', 'zod']);
+const ALLOWLIST = new Set(loadHarnessConfig().neutrality.agentToolsRuntimeAllowlist);
 
 /** Runtime-reachable dep kinds (excludes `devDependencies`: not shipped for this non-bundled package). */
 const RUNTIME_DEP_KINDS = ['dependencies', 'peerDependencies', 'optionalDependencies'];

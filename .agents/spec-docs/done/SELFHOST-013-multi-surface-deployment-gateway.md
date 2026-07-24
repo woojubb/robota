@@ -2,6 +2,9 @@
 status: done
 completed: 2026-07-19
 type: INFRA
+capability: true
+user_execution: agent-run
+user_execution_scenario: .agents/evals/scenarios/selfhost-013-multi-surface-agent-run.md
 tags: [deployment, gateway, transport, multi-surface, agent-server, selfhost]
 ---
 

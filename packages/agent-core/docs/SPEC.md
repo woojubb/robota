@@ -288,18 +288,19 @@ renderer is attached; a tool treats absence as "no human available" (never a sil
 
 ### Permissions
 
-| Export                  | Kind     | Description                                                                                                                |
-| ----------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `evaluatePermission`    | function | 3-step deterministic policy: deny list, allow list, mode                                                                   |
-| `MODE_POLICY`           | const    | Permission mode to tool decision matrix                                                                                    |
-| `TRUST_TO_MODE`         | const    | Maps TTrustLevel to TPermissionMode                                                                                        |
-| `UNKNOWN_TOOL_FALLBACK` | const    | Fallback decisions for unknown tools per mode                                                                              |
-| `TPermissionMode`       | type     | `'plan' \| 'default' \| 'acceptEdits' \| 'bypassPermissions'`                                                              |
-| `TTrustLevel`           | type     | `'safe' \| 'moderate' \| 'full'`                                                                                           |
-| `TPermissionDecision`   | type     | `'auto' \| 'approve' \| 'deny'`                                                                                            |
-| `TToolArgs`             | type     | Tool arguments record for permission matching                                                                              |
-| `IPermissionLists`      | type     | Allow/deny pattern lists                                                                                                   |
-| `TKnownToolName`        | type     | Known tool names: Shell, Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch, AskUserQuestion, ComputerView, Computer |
+| Export                      | Kind     | Description                                                                                                                                               |
+| --------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `evaluatePermission`        | function | 3-step deterministic policy: deny list, allow list, mode                                                                                                  |
+| `resolvePermissionByPolicy` | function | CORE-025: resolve a background/subagent `TBackgroundPermissionPolicy` (+ task/parent allow-deny) to `allow`/`deny`/`prompt`, pre-empting the session mode |
+| `MODE_POLICY`               | const    | Permission mode to tool decision matrix                                                                                                                   |
+| `TRUST_TO_MODE`             | const    | Maps TTrustLevel to TPermissionMode                                                                                                                       |
+| `UNKNOWN_TOOL_FALLBACK`     | const    | Fallback decisions for unknown tools per mode                                                                                                             |
+| `TPermissionMode`           | type     | `'plan' \| 'default' \| 'acceptEdits' \| 'bypassPermissions'`                                                                                             |
+| `TTrustLevel`               | type     | `'safe' \| 'moderate' \| 'full'`                                                                                                                          |
+| `TPermissionDecision`       | type     | `'auto' \| 'approve' \| 'deny'`                                                                                                                           |
+| `TToolArgs`                 | type     | Tool arguments record for permission matching                                                                                                             |
+| `IPermissionLists`          | type     | Allow/deny pattern lists                                                                                                                                  |
+| `TKnownToolName`            | type     | Known tool names: Shell, Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch, AskUserQuestion, ComputerView, Computer                                |
 
 ### Environment Reference Utilities
 

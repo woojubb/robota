@@ -1,0 +1,19 @@
+# Harness diet audit (2026-07-23)
+
+Owner directive: audit the harness (rules/skills/hooks/scans/agent-defs/routing) and slim it — remove what is
+UNNECESSARY, NON-NEUTRAL, EXCESSIVE, or INEFFECTIVE. Ran as 8 read-only auditor agents dividing the surface (22
+rules, 60 skills, 12 hooks, 85 harness scripts, 14 agent defs, routing + 10 CI workflows). Deliverable = audit +
+backlog; execution deferred to the sub-items.
+
+**Tracked in `.agents/backlog/HARNESS-DIET-000..007` (#1275).** 000 = epic/roadmap; 001 reviewer-agent
+destructive-git safety `[high/now]`; 002 scan neutrality (config-drive); 003 dead/vacuous scan removal; 004 rules
+consolidation; 005 skills diet; 006 hooks diet; 007 routing & workflow fixes.
+
+**Dominant finding: NON-NEUTRALITY** — Robota package names/paths/prose baked into machinery that presents as a
+general/portable harness (north-star violation; see [[northstar-general-not-robota-specific]]). Fix pattern: move
+repo-specifics to config (`harness-config`/`project-structure`/package SPECs), keep the machinery generic.
+Concrete dead/vacuous items found: `bootstrap.mjs` (targets deleted `apps/web`/`apps/api-server`),
+`scan-file-size` & `check-document-authority` (registered gates that can NEVER fail), `compat-node18` (runs Node
+22 not 18), ~11 index-only/textbook/vendored skills, 5-scan neutrality family (should be 1 config-driven scan).
+
+**COMPLETE (2026-07-24):** all seven sub-items DONE + archived to `backlog/completed/` (worktree-parallel waves 1–4, PRs #1277–#1302 + preapproved #1298/#1299). Net: scans 63→59, 13 skills removed + 16 slimmed (≈2,400 lines), hooks slimmed/merged + worktree-aware, rules consolidated via pointer stubs, routing docs −760 lines. Full ledger in the DIET-000 Outcome; parallel pattern in [[worktree-parallel-orchestration]]. Do not re-audit.

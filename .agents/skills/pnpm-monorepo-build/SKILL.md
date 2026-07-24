@@ -1,6 +1,6 @@
 ---
 name: pnpm-monorepo-build
-description: Provide pnpm monorepo build commands and workflow guidance. Use when running package builds, filtered builds, or discussing build order.
+description: pnpm workspace build gotchas — lifecycle-script (pre/post) silence and surgical lockfile edits for workspace dependencies. Use when a build step silently does not run or when adding/removing a workspace dependency.
 ---
 
 # pnpm Monorepo Build
@@ -10,57 +10,32 @@ description: Provide pnpm monorepo build commands and workflow guidance. Use whe
 - `AGENTS.md` > "Project Structure"
 - `AGENTS.md` > "Build Requirements"
 
-## Scope
-
-Use this skill to choose the correct pnpm build commands for the workspace.
-
-## Common Commands
-
-```bash
-pnpm --filter @robota-sdk/* build
-pnpm --filter @robota-sdk/agent-core build
-pnpm --filter @robota-sdk/agent-provider-openai build
-pnpm --filter @robota-sdk/agent-team build
-pnpm build
-```
-
-## Build Order Notes
-
-- Build core packages first (agents), then dependents.
-- Use `--filter` to limit scope when possible.
+Build/filter commands are listed in the root `package.json` scripts (`pnpm run` to enumerate;
+`pnpm --filter <pkg> build` to scope). This skill owns only the two learned gotchas below.
 
 ## Lifecycle Scripts (`pre`/`post`)
 
 pnpm does **not** run npm-style `pre<script>`/`post<script>` hooks by default
-(`enable-pre-post-scripts` is off). A `postbuild` will silently never run from
-`pnpm build`, so any index/asset step defined that way is missing from the output.
+(`enable-pre-post-scripts` is off). A `postbuild` will silently never run from `pnpm build`.
 
 - Chain the step explicitly in the script instead: `"build": "next build && <step>"`.
-- Make the step's tool a real `devDependency` (not an ambient/`npx`-fetched binary),
-  so it resolves in CI.
-- Verify the produced artifact exists (e.g. the generated file in `out/`), not just a
-  zero exit code — a missing pre/post step does not fail the build.
+- Make the step's tool a real `devDependency` (not an ambient/`npx`-fetched binary).
+- Verify the produced artifact exists, not just a zero exit code — a missing pre/post step does
+  not fail the build.
 
-## Adding a Workspace Dependency
+## Adding a Workspace Dependency (surgical lockfile edit)
 
-When adding (or removing) a `workspace:*` dependency between packages, edit the lockfile **surgically** —
-never regenerate it with a full `pnpm install` in a network-restricted/sandbox environment.
+When adding (or removing) a `workspace:*` dependency between packages, edit the lockfile
+**surgically** — never regenerate it with a full `pnpm install` in a network-restricted/sandbox
+environment.
 
-1. Edit the consumer `package.json`: add the dep under `dependencies`/`devDependencies` as
-   `"@robota-sdk/<pkg>": "workspace:*"`.
-2. Apply a **surgical** `pnpm-lock.yaml` edit — add the entry to that package's `dependencies:` block:
-   - `specifier: workspace:*`
-   - `version: link:../<pkg>` for a sibling package, or `link:../../packages/<pkg>` for an app
-     consuming a package.
-3. Verify with `pnpm install --frozen-lockfile` — it must succeed without rewriting the lockfile.
+1. Consumer `package.json`: add `"<scope>/<pkg>": "workspace:*"`.
+2. Surgical `pnpm-lock.yaml` edit — add to that package's `dependencies:` block:
+   `specifier: workspace:*` + `version: link:../<pkg>` (sibling package) or
+   `link:../../packages/<pkg>` (app consuming a package).
+3. Verify with `pnpm install --frozen-lockfile` — must succeed without rewriting the lockfile, and
+   the lockfile diff must be limited to the intended block.
 
-**NEVER** commit a `pnpm-lock.yaml` that a full `pnpm install` regenerated in a network-restricted/sandbox
-env: it prunes the lockfile by thousands of lines (offline resolution drops unreachable registry entries),
-which is a corrupting change, not a real dependency update. If `--frozen-lockfile` fails, fix the surgical
-edit — never resolve it by regenerating the whole lockfile.
-
-## Verification
-
-- Check exit codes and logs for build success.
-- For dependency changes, confirm `pnpm install --frozen-lockfile` passes and the lockfile diff is limited
-  to the intended `dependencies:` block.
+**NEVER** commit a lockfile a full `pnpm install` regenerated in a network-restricted env: offline
+resolution prunes thousands of lines — a corrupting change, not a dependency update. If
+`--frozen-lockfile` fails, fix the surgical edit; never regenerate the whole lockfile.

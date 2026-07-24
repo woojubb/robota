@@ -1,11 +1,19 @@
+import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { findDocumentAuthorityFindings } from '../check-document-authority.mjs';
+import {
+  findDocumentAuthorityFindings,
+  getChangedFiles,
+  reportFindings,
+  resolveBaseRef,
+} from '../check-document-authority.mjs';
+
+const SCRIPT = path.resolve(import.meta.dirname, '../check-document-authority.mjs');
 
 async function createFixture(files) {
   const root = await mkdtemp(path.join(tmpdir(), 'robota-document-authority-'));
@@ -17,11 +25,78 @@ async function createFixture(files) {
   return root;
 }
 
+/**
+ * Environment for git subprocesses in fixtures, with every inherited GIT_* variable stripped.
+ * CRITICAL: when this suite runs inside a git hook (husky pre-push runs harness checks), the hook
+ * exports GIT_DIR/GIT_INDEX_FILE etc., which REDIRECT any child `git` call to the REAL repository
+ * regardless of cwd — a fixture `git init`/`add`/`commit`/`checkout` would then mutate the actual
+ * checkout (this happened once: rogue `base`/`work` fixture commits landed on a live branch).
+ */
+function gitSafeEnv(extra = {}) {
+  const env = Object.fromEntries(
+    Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_')),
+  );
+  return { ...env, ...extra };
+}
+
+function git(cwd, args) {
+  execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', ...args], {
+    cwd,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    env: gitSafeEnv(),
+  });
+}
+
+/** Temp git repo with a `base` branch (clean) and a work branch containing `files`. */
+async function createGitFixture(files) {
+  const root = await mkdtemp(path.join(tmpdir(), 'robota-document-authority-git-'));
+  git(root, ['init', '-q', '-b', 'base']);
+  writeFileSync(path.join(root, 'README.md'), '# fixture\n', 'utf8');
+  git(root, ['add', '.']);
+  git(root, ['commit', '-q', '-m', 'base']);
+  git(root, ['checkout', '-q', '-b', 'work']);
+  for (const [relativePath, content] of Object.entries(files)) {
+    const targetPath = path.join(root, relativePath);
+    mkdirSync(path.dirname(targetPath), { recursive: true });
+    writeFileSync(targetPath, content, 'utf8');
+  }
+  git(root, ['add', '.']);
+  git(root, ['commit', '-q', '--allow-empty', '-m', 'work']);
+  return root;
+}
+
+function runScript(cwd, args = [], env = {}) {
+  return spawnSync(process.execPath, [SCRIPT, ...args], {
+    cwd,
+    encoding: 'utf8',
+    env: gitSafeEnv({ GITHUB_BASE_REF: '', ...env }),
+  });
+}
+
+// The in-process resolveBaseRef/getChangedFiles tests spawn git via the scan's own tryGit, which
+// inherits process.env. Scrub GIT_* for this file (vitest isolates env per test file) so a git-hook
+// context (husky pre-push exports GIT_DIR) cannot redirect fixture lookups to the real repository.
+const SAVED_GIT_ENV = {};
+beforeAll(() => {
+  for (const key of Object.keys(process.env)) {
+    if (key.startsWith('GIT_')) {
+      SAVED_GIT_ENV[key] = process.env[key];
+      delete process.env[key];
+    }
+  }
+});
+afterAll(() => {
+  Object.assign(process.env, SAVED_GIT_ENV);
+});
+
+const VIOLATING_ARCH_DOC =
+  '# Capability Placement\n\n## Implementation Plan\n\n1. Build this later.\n';
+
 describe('findDocumentAuthorityFindings', () => {
-  it('warns when an architecture map contains an implementation plan section', async () => {
+  it('flags an architecture map containing an implementation plan section', async () => {
     const root = await createFixture({
-      '.agents/specs/architecture-map/capability-placement.md':
-        '# Capability Placement\n\n## Implementation Plan\n\n1. Build this later.\n',
+      '.agents/specs/architecture-map/capability-placement.md': VIOLATING_ARCH_DOC,
     });
 
     const findings = await findDocumentAuthorityFindings({
@@ -39,7 +114,7 @@ describe('findDocumentAuthorityFindings', () => {
     ]);
   });
 
-  it('warns when a design document owns a contract without an owner document change', async () => {
+  it('flags a design document owning a contract without an owner document change', async () => {
     const root = await createFixture({
       'docs/plans/2026-05-09-widget-design.md':
         '# Widget Design\n\n## Public API\n\n`WidgetClient` is the accepted API.\n',
@@ -60,17 +135,76 @@ describe('findDocumentAuthorityFindings', () => {
     ]);
   });
 
-  it('accepts package source changes with the owner SPEC update', async () => {
+  it('does NOT flag package source changes (the advisory owner-spec heuristic is dropped)', async () => {
     const root = await createFixture({
       'packages/widget/src/index.ts': 'export const widget = true;\n',
-      'packages/widget/docs/SPEC.md': '# Widget SPEC\n',
     });
 
     const findings = await findDocumentAuthorityFindings({
       root,
-      changedFiles: ['packages/widget/src/index.ts', 'packages/widget/docs/SPEC.md'],
+      changedFiles: ['packages/widget/src/index.ts'],
     });
 
     expect(findings).toEqual([]);
+  });
+});
+
+describe('reportFindings (blocking gate)', () => {
+  it('returns exit code 1 on findings — the gate CAN fail', () => {
+    const code = reportFindings([
+      { file: 'x.md', type: 'architecture-doc-plan-content', detail: 'd' },
+    ]);
+    expect(code).toBe(1);
+  });
+
+  it('returns exit code 0 when clean', () => {
+    expect(reportFindings([])).toBe(0);
+  });
+});
+
+describe('base-ref resolution', () => {
+  it('resolves an explicit --base-ref that exists', async () => {
+    const root = await createGitFixture({});
+    expect(resolveBaseRef({ argv: ['--base-ref', 'base'], env: {}, cwd: root })).toBe('base');
+  });
+
+  it('returns undefined (SKIP, not silent pass) when no candidate resolves', async () => {
+    const root = await createGitFixture({});
+    expect(resolveBaseRef({ argv: [], env: {}, cwd: root })).toBeUndefined();
+  });
+
+  it('lists changed files against the base ref', async () => {
+    const root = await createGitFixture({ 'docs/new.md': '# new\n' });
+    expect(getChangedFiles('base', { cwd: root })).toEqual(['docs/new.md']);
+  });
+
+  it('returns undefined from getChangedFiles when the diff fails', async () => {
+    const root = await createGitFixture({});
+    expect(getChangedFiles('no-such-ref', { cwd: root })).toBeUndefined();
+  });
+});
+
+describe('end-to-end (subprocess)', () => {
+  it('RED: exits 1 when the branch adds a violating architecture doc', async () => {
+    const root = await createGitFixture({
+      '.agents/specs/architecture-map/capability-placement.md': VIOLATING_ARCH_DOC,
+    });
+    const result = runScript(root, ['--base-ref', 'base']);
+    expect(result.status).toBe(1);
+    expect(result.stdout).toContain('architecture-doc-plan-content');
+  });
+
+  it('GREEN: exits 0 when the branch changes are compliant', async () => {
+    const root = await createGitFixture({ 'docs/notes.md': '# notes\n\nNothing durable.\n' });
+    const result = runScript(root, ['--base-ref', 'base']);
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('document authority scan passed');
+  });
+
+  it('SKIP: exits 0 with an explicit SKIP log when no base ref resolves', async () => {
+    const root = await createGitFixture({});
+    const result = runScript(root);
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('SKIPPED: no base ref could be resolved');
   });
 });

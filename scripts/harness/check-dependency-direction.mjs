@@ -8,12 +8,26 @@
  * 2. No pass-through re-exports of entire packages (export * from '@robota-sdk/other').
  * 3. agent-core must have zero production dependencies on other @robota-sdk/agent-* packages.
  * 4. agent-plugin-* packages may only depend on agent-core among @robota-sdk/* packages.
+ * 8. Entry-point-only aggregators (absorbed from the former check-entry-point-only.mjs,
+ *    ARCH-PROVIDER-004 / Stage C): only sanctioned composition roots may STATICALLY import a
+ *    guarded composition aggregator (see `checkEntryPointOnly`).
+ * 9. Workspace-package-name guard (absorbed from the former check-architecture-conformance.mjs,
+ *    INFRA-003/GATE-CONFORMANCE mechanical core): canonical architecture docs must reference
+ *    only real workspace packages (see `checkWorkspacePackageNames`).
+ * 10. Package purity (absorbed from the former check-sdk-react-free.mjs, HARNESS-016/ARL-16g):
+ *    config-driven `purity` rules forbid a package from importing or declaring specific modules
+ *    (see `checkPackagePurity`); a missing scan target is a hard finding, never a silent pass.
+ *
+ * `--conformance-json` additionally emits the machine-readable summary between
+ * CONFORMANCE_JSON_BEGIN/END that the GATE-CONFORMANCE consumers parse — `pnpm
+ * harness:conformance` is an alias for this mode, preserving the former standalone
+ * entrypoint's contract without the subprocess wrapper.
  *
  * Exit code 0 = clean, 1 = violations found.
  */
 
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { basename, dirname, join, relative, resolve } from 'node:path';
 import { loadHarnessConfig } from './harness-config.mjs';
 
 const ROOT = resolve(import.meta.dirname, '../..');
@@ -274,7 +288,262 @@ export function checkDagNodesLeaf(packages) {
   return violations;
 }
 
-function runScan() {
+/**
+ * Rule 8 (ARCH-PROVIDER-004 / Stage C, absorbed from check-entry-point-only.mjs):
+ * `@robota-sdk/dag-nodes-default` is a composition aggregator — it statically pulls the whole
+ * default DAG node catalog. Only COMPOSITION ROOTS may import it statically: application entry
+ * points (`apps/*`, always sanctioned) and the CLI/command/MCP packages that assemble a runtime.
+ * Mid-layer libraries (notably `@robota-sdk/dag-framework`) must NOT take a static edge to it —
+ * the framework loads it via a dynamic `import()` (the sanctioned seam, intentionally NOT
+ * matched: a dynamic import has no `from`). Test files (`*.test.ts*` / `__tests__/`) are
+ * excluded — a test-only static import is a dev concern, not a production layering violation.
+ *
+ * Guarded aggregators → the set of package names sanctioned to statically import them (beyond any
+ * `apps/*`). Keep this list tight: adding a sanctioned importer is a deliberate decision.
+ */
+const GUARDED_AGGREGATORS = {
+  '@robota-sdk/dag-nodes-default': new Set([
+    '@robota-sdk/agent-command-workflows',
+    '@robota-sdk/dag-cli',
+    '@robota-sdk/dag-mcp-server',
+  ]),
+};
+
+function walkTs(dir) {
+  const files = [];
+  if (!existsSync(dir)) return files;
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      if (entry.name === '__tests__' || entry.name === 'node_modules' || entry.name === 'dist') {
+        continue;
+      }
+      files.push(...walkTs(full));
+    } else if (
+      entry.isFile() &&
+      (entry.name.endsWith('.ts') || entry.name.endsWith('.tsx')) &&
+      !entry.name.endsWith('.test.ts') &&
+      !entry.name.endsWith('.test.tsx')
+    ) {
+      files.push(full);
+    }
+  }
+  return files;
+}
+
+/** Whether `dir` is an application entry point (`apps/<name>`), always a sanctioned composition root. */
+function isApp(dir) {
+  return basename(dirname(resolve(dir))) === 'apps';
+}
+
+/**
+ * Pure Rule-8 scan (exported for the fixture self-test): return every violating STATIC edge to a
+ * guarded aggregator.
+ * @param {{dir: string, name: string|null, files: {path: string, text: string}[]}[]} sourcePackages
+ */
+export function checkEntryPointOnly(sourcePackages) {
+  const violations = [];
+  for (const pkg of sourcePackages) {
+    for (const [aggregator, sanctioned] of Object.entries(GUARDED_AGGREGATORS)) {
+      if (pkg.name === aggregator) continue; // the aggregator itself
+      if (isApp(pkg.dir)) continue; // apps are always entry points
+      if (pkg.name !== null && sanctioned.has(pkg.name)) continue; // sanctioned root
+      // Static edge: `... from '<aggregator>'` (import or export). Dynamic import('<aggregator>') has no `from`.
+      // Escape ALL regex metacharacters in the package name (js/incomplete-sanitization: the old
+      // scan escaped only '/' and '-', so a name containing '.' etc. would match too loosely).
+      const escapedAggregator = aggregator.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const edge = new RegExp(`from\\s+['"]${escapedAggregator}['"]`);
+      for (const file of pkg.files) {
+        if (edge.test(file.text)) {
+          violations.push({
+            package: pkg.name ?? pkg.dir,
+            aggregator,
+            file: file.path,
+            message:
+              `${pkg.name ?? pkg.dir} statically imports ${aggregator} (${file.path}). ` +
+              `Load it dynamically or move the composition to an entry point.`,
+          });
+        }
+      }
+    }
+  }
+  return violations;
+}
+
+/**
+ * Rule 9 (INFRA-003 / GATE-CONFORMANCE mechanical core, absorbed from
+ * check-architecture-conformance.mjs): canonical architecture documents (configured in
+ * `architectureDocs.files`/`.dirs` + every `packages/<name>/docs/SPEC.md`) must reference only
+ * REAL workspace packages. A `<internalPackagePrefix><token>` reference that is not a workspace
+ * package name is drift (the AF-02/03/04/05/06/08/12/13 class from the INFRA-002 audit). A line
+ * carrying a "planned" marker (case-insensitive) is exempt, so documented-but-uncreated packages
+ * are allowed.
+ */
+const PLANNED_MARKER = /planned/i;
+
+function collectArchitectureDocFiles(root, docConfig) {
+  const files = [];
+  for (const rel of docConfig.files ?? []) {
+    const abs = join(root, rel);
+    if (existsSync(abs)) files.push(abs);
+  }
+  for (const dir of docConfig.dirs ?? []) {
+    const abs = join(root, dir);
+    if (existsSync(abs)) walkMarkdown(abs, files);
+  }
+  const pkgBase = join(root, 'packages');
+  if (existsSync(pkgBase)) {
+    for (const entry of readdirSync(pkgBase, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      const spec = join(pkgBase, entry.name, 'docs', 'SPEC.md');
+      if (existsSync(spec)) files.push(spec);
+    }
+  }
+  return files.sort();
+}
+
+function walkMarkdown(dir, acc) {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) walkMarkdown(full, acc);
+    else if (entry.isFile() && entry.name.endsWith('.md')) acc.push(full);
+  }
+}
+
+export function checkWorkspacePackageNames(
+  root,
+  workspaceNames,
+  docConfig = HARNESS.architectureDocs ?? {},
+  internalPackagePrefix = HARNESS.internalPackagePrefix,
+) {
+  const escapedPrefix = internalPackagePrefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const tokenPattern = new RegExp(`${escapedPrefix}[a-z0-9]+(?:-[a-z0-9]+)*`, 'g');
+  const violations = [];
+
+  for (const file of collectArchitectureDocFiles(root, docConfig)) {
+    const lines = readFileSync(file, 'utf8').split('\n');
+    lines.forEach((line, idx) => {
+      if (PLANNED_MARKER.test(line)) return; // documented-but-uncreated packages are allowed
+      const seen = new Set();
+      let match;
+      tokenPattern.lastIndex = 0;
+      while ((match = tokenPattern.exec(line)) !== null) {
+        const token = match[0];
+        if (seen.has(token)) continue;
+        seen.add(token);
+        if (!workspaceNames.has(token)) {
+          violations.push({
+            file: relative(root, file),
+            line: idx + 1,
+            token,
+            message:
+              `Unknown package reference: ${relative(root, file)}:${idx + 1} → ${token} ` +
+              `(not a real workspace package, and not on a line marked "planned").`,
+          });
+        }
+      }
+    });
+  }
+  return violations.sort((a, b) =>
+    a.file === b.file ? a.line - b.line : a.file.localeCompare(b.file),
+  );
+}
+
+/**
+ * Rule 10 (HARNESS-016 / ARL-16g, absorbed from check-sdk-react-free.mjs): config-driven
+ * package PURITY. Each `purity` rule in harness.config.json —
+ * `{dir, forbiddenModules, reason}` — forbids the package at `dir` from (a) importing any of
+ * the listed modules anywhere under `src/` (all .ts/.tsx, tests included, matching the
+ * absorbed scan's scope) and (b) declaring them in package.json
+ * dependencies/devDependencies/peerDependencies. A missing `src/` or `package.json` is a hard
+ * SCAN-TARGET-MISSING finding, not a silent pass — the absorbed guard once pointed at an
+ * absorbed package husk and enforced nothing while green.
+ */
+function walkAllTs(dir) {
+  const files = [];
+  if (!existsSync(dir)) return files;
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...walkAllTs(full));
+    } else if (entry.isFile() && (entry.name.endsWith('.ts') || entry.name.endsWith('.tsx'))) {
+      files.push(full);
+    }
+  }
+  return files;
+}
+
+export function checkPackagePurity(root = ROOT, rules = HARNESS.purity ?? []) {
+  const violations = [];
+
+  for (const rule of rules) {
+    const pkgDir = join(root, rule.dir);
+    const srcDir = join(pkgDir, 'src');
+    const pkgJsonPath = join(pkgDir, 'package.json');
+
+    if (!existsSync(srcDir)) {
+      violations.push({
+        type: 'SCAN-TARGET-MISSING',
+        message: `Purity scan target ${rule.dir}/src does not exist — the guard would enforce nothing (rename/absorb?).`,
+      });
+    }
+    if (!existsSync(pkgJsonPath)) {
+      violations.push({
+        type: 'SCAN-TARGET-MISSING',
+        message: `Purity scan target ${rule.dir}/package.json does not exist — the guard would enforce nothing.`,
+      });
+    }
+
+    for (const forbiddenModule of rule.forbiddenModules ?? []) {
+      const escaped = forbiddenModule.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const importPattern = new RegExp(`from\\s+['"]${escaped}['"]`);
+
+      for (const file of walkAllTs(srcDir)) {
+        const lines = readFileSync(file, 'utf8').split('\n');
+        lines.forEach((line, idx) => {
+          if (importPattern.test(line)) {
+            violations.push({
+              type: 'FORBIDDEN-IMPORT',
+              message:
+                `Forbidden '${forbiddenModule}' import in ${file.replace(root + '/', '')}:${idx + 1}. ` +
+                `${rule.reason}`,
+            });
+          }
+        });
+      }
+
+      if (existsSync(pkgJsonPath)) {
+        const manifest = JSON.parse(readFileSync(pkgJsonPath, 'utf8'));
+        for (const section of ['dependencies', 'devDependencies', 'peerDependencies']) {
+          if (manifest[section] && manifest[section][forbiddenModule]) {
+            violations.push({
+              type: 'FORBIDDEN-DEP',
+              message:
+                `'${forbiddenModule}' listed in ${rule.dir}/package.json [${section}]. ` +
+                `${rule.reason}`,
+            });
+          }
+        }
+      }
+    }
+  }
+
+  return violations;
+}
+
+/** Load `{dir, name, files}` source views of every workspace package for the Rule-8 scan. */
+function loadSourcePackages(packages) {
+  return [...packages.values()].map((pkg) => ({
+    dir: pkg.path,
+    name: pkg.name,
+    files: walkTs(join(pkg.path, 'src')).map((filePath) => ({
+      path: filePath.replace(ROOT + '/', ''),
+      text: readFileSync(filePath, 'utf8'),
+    })),
+  }));
+}
+
+function runScan({ conformanceJson = false } = {}) {
   const packages = findWorkspacePackages();
   const biDirViolations = checkBidirectionalDeps(packages);
   const reexportViolations = checkPassthroughReexports(packages);
@@ -284,16 +553,23 @@ function runScan() {
   const interfacePackageViolations = checkInterfacePackageDeps(packages);
   const dagNodesLeafViolations = checkDagNodesLeaf(packages);
   const fullGraphCycleViolations = checkFullGraphCycles(packages);
+  const entryPointOnlyViolations = checkEntryPointOnly(loadSourcePackages(packages));
+  const packageNameViolations = checkWorkspacePackageNames(ROOT, new Set(packages.keys()));
+  const purityViolations = checkPackagePurity();
 
-  const hasViolations =
-    biDirViolations.length > 0 ||
-    reexportViolations.length > 0 ||
-    forbiddenDepViolations.length > 0 ||
-    coreZeroDepViolations.length > 0 ||
-    pluginLayerViolations.length > 0 ||
-    interfacePackageViolations.length > 0 ||
-    dagNodesLeafViolations.length > 0 ||
-    fullGraphCycleViolations.length > 0;
+  const dependencyViolationCount =
+    biDirViolations.length +
+    reexportViolations.length +
+    forbiddenDepViolations.length +
+    coreZeroDepViolations.length +
+    pluginLayerViolations.length +
+    interfacePackageViolations.length +
+    dagNodesLeafViolations.length +
+    fullGraphCycleViolations.length +
+    entryPointOnlyViolations.length +
+    purityViolations.length;
+
+  const hasViolations = dependencyViolationCount > 0 || packageNameViolations.length > 0;
 
   if (hasViolations) {
     console.error('❌ Dependency direction violations found:\n');
@@ -321,12 +597,35 @@ function runScan() {
     for (const v of fullGraphCycleViolations) {
       console.error(`  [DEV-CYCLE] ${v.message}`);
     }
+    for (const v of entryPointOnlyViolations) {
+      console.error(`  [ENTRY-POINT-ONLY] ${v.message}`);
+    }
+    for (const v of packageNameViolations) {
+      console.error(`  [PACKAGE-NAME] ${v.message}`);
+    }
+    for (const v of purityViolations) {
+      console.error(`  [PURITY:${v.type}] ${v.message}`);
+    }
     console.error('');
-    process.exit(1);
   } else {
     console.log('✅ No dependency direction violations found.');
-    process.exit(0);
   }
+
+  if (conformanceJson) {
+    // GATE-CONFORMANCE machine-readable summary (contract kept from the absorbed
+    // check-architecture-conformance.mjs — consumed by the conformance skills/gates).
+    const summary = {
+      dependencyDirection: dependencyViolationCount === 0 ? 'pass' : 'fail',
+      packageNameViolations: packageNameViolations.length,
+      unknownPackageTokens: [...new Set(packageNameViolations.map((v) => v.token))].sort(),
+      conformant: !hasViolations,
+    };
+    console.log('CONFORMANCE_JSON_BEGIN');
+    console.log(JSON.stringify(summary, null, 2));
+    console.log('CONFORMANCE_JSON_END');
+  }
+
+  process.exit(hasViolations ? 1 : 0);
 }
 
 /**
@@ -370,5 +669,5 @@ export function checkFullGraphCycles(packages) {
 const isDirectExecution =
   process.argv[1] !== undefined && resolve(process.argv[1]) === resolve(import.meta.filename);
 if (isDirectExecution) {
-  runScan();
+  runScan({ conformanceJson: process.argv.includes('--conformance-json') });
 }

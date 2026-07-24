@@ -1,0 +1,47 @@
+name: Claude Code Review
+
+on:
+  pull_request:
+    # This repo's flow is feature→develop→main, so most PRs target `develop`. For `pull_request`, GitHub uses
+    # the workflow file from the PR's BASE branch — so this file must live on `develop` to review develop-PRs
+    # (it reaches `main` on the next develop→main promotion, covering main-PRs too).
+    branches: [main, develop]
+    types: [opened, synchronize]
+
+concurrency:
+  group: claude-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  id-token: write
+
+jobs:
+  review:
+    name: Claude review
+    runs-on: ubuntu-latest
+    # Fork PRs have no access to secrets — skip so the run doesn't fail auth-less.
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: anthropics/claude-code-action@v1
+        with:
+          # Authenticate with whichever secret is registered (an empty one is ignored).
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            이 PR의 변경분(diff)을 리뷰해줘. 우선순위는 버그·정확성·보안이며 스타일 트집은 최소화한다.
+            이 레포의 규율 문서를 읽고 그 위반도 지적한다 — 규율의 단일 출처는 `AGENTS.md`이고, 그 아래
+            `.agents/rules/`(code-quality, no-fallback, git-branch, backlog-execution 등), 얇은 `CLAUDE.md`,
+            `CONTRIBUTING.md` 를 참조한다. 특히 이 레포가 강조하는: strict TypeScript(`any`/`unknown` 금지),
+            no-fallback(오류를 기본값으로 삼키지 말 것), SSOT 타입, 일방향 패키지 의존성(순환·pass-through
+            re-export 금지), 그리고 결함-수정 회귀 테스트의 accidental-green(버그 코드에서도 통과하는 테스트).
+            발견은 해당 라인에 인라인 코멘트로 남기고, 마지막에 3줄 이내로 요약한다.
+            검토는 변경된 diff 위주로 한다 — 빌드·타입체크·테스트 실행이나 전체 트리 탐색으로 턴을 소모하지
+            않는다(자동 리뷰는 diff를 읽고 판단하면 충분하다).
+          claude_args: |
+            --max-turns 25
+            --model claude-sonnet-5

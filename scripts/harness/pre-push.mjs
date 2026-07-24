@@ -43,21 +43,26 @@ function runGitQuiet(args) {
   );
 }
 
-function assertNoActiveWorktrees() {
+/**
+ * Worktrees are ALLOWED (they power parallel sub-agent work — see git-branch.md § Git Worktree). This is the
+ * non-blocking hygiene safeguard that replaces the old ban: prune administrative junk, then WARN about
+ * locked/stale extra worktrees so left-behind ones surface — it never blocks the push.
+ */
+function pruneAndWarnStaleWorktrees() {
+  spawnSync('git', ['worktree', 'prune'], { cwd: WORKSPACE_ROOT, encoding: 'utf8' });
   const result = spawnSync('git', ['worktree', 'list', '--porcelain'], {
     cwd: WORKSPACE_ROOT,
     encoding: 'utf8',
   });
   const entries = (result.stdout ?? '').trim().split('\n\n').filter(Boolean);
-  if (entries.length > 1) {
+  const extra = entries.slice(1); // entry[0] is the main clone
+  const locked = extra.filter((e) => /\nlocked/.test(`\n${e}`));
+  if (locked.length > 0) {
+    const paths = locked.map((e) => (e.match(/^worktree (.+)$/m) ?? [])[1] ?? '?').join('\n  ');
     process.stderr.write(
-      '\n[BANNED] Active git worktree(s) detected — push blocked.\n' +
-        'git worktree is absolutely prohibited in this repo.\n' +
-        'Remove all extra worktrees before pushing:\n' +
-        '  git worktree list\n' +
-        '  git worktree remove -f -f <path>\n\n',
+      `\n[worktree hygiene] ${locked.length} LOCKED worktree(s) present (not blocking):\n  ${paths}\n` +
+        'If these are stale agent leftovers, clean up: git worktree remove <path> && git worktree prune\n\n',
     );
-    process.exit(1);
   }
 }
 
@@ -176,7 +181,7 @@ function resolvePrePushMode(value) {
   return mode;
 }
 
-assertNoActiveWorktrees();
+pruneAndWarnStaleWorktrees();
 assertCleanWorkingTree();
 assertLockfileConsistency();
 

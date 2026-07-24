@@ -29,11 +29,13 @@ case "$SESSION_ID" in
   '' | agent*) exit 0 ;;
 esac
 
-# Nudge the lesson-to-harness skill on strong preference/principle signals (going-forward rules,
-# explicit do/don't, "make it a rule/lesson"). Repeated corrections or explicit principles belong in
-# the repo harness (.agents/rules + AGENTS.md + enforcement), not chat or memory-only. Printed to
-# stdout so it surfaces as agent context; logging below continues independently.
-LESSON_SIGNAL=$(printf '%s' "$PROMPT" | grep -Eio '앞으로|하지 마|하지마|지양|규칙으로|규칙화|교훈|항상|반드시|from now|going forward|always|never|make (it|this) a rule' | head -n 1 || true)
+# Nudge the lesson-to-harness skill ONLY on explicit rule-making intent ("make this a rule",
+# "from now on always …", 규칙으로/규칙화). The old trigger fired on bare always/never/항상/반드시/
+# 하지마 — common words in ordinary dev prompts — so the nudge was mostly noise (HARNESS-DIET-006).
+# Repeated corrections or explicit principles belong in the repo harness (.agents/rules + AGENTS.md
+# + enforcement), not chat or memory-only. Printed to stdout so it surfaces as agent context;
+# correction logging below continues independently.
+LESSON_SIGNAL=$(printf '%s' "$PROMPT" | grep -Eio '규칙으로|규칙화|교훈으로|앞으로는? (항상|반드시|절대)|make (it|this) a rule|from now on,? (always|never)|going forward,? (always|never)' | head -n 1 || true)
 if [ -n "$LESSON_SIGNAL" ]; then
   echo "[lesson-to-harness] Preference/principle signal detected (\"$LESSON_SIGNAL\"). If this is a repeated correction or an explicit going-forward principle, invoke the lesson-to-harness skill to institutionalize it in the repo harness (.agents/rules + AGENTS.md + enforcement) — not memory-only."
 fi

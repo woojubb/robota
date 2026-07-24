@@ -1,0 +1,43 @@
+name: Secret Scan
+
+# Detect secrets/keys committed in a PR's diff. Runs the gitleaks binary directly (mirrors the osv-scanner
+# pattern in ci.yml) — no third-party action, no license key. A committed secret is an irreversible leak
+# (it stays in history and is indexed even if deleted), so this is a cheap gate against a severe, unrecoverable
+# failure. The repo routinely handles tokens (SEC-001 loopback tokens, provider API keys, deploy keys).
+on:
+  pull_request:
+    branches: [main, develop]
+    types: [opened, synchronize]
+
+permissions:
+  contents: read
+
+env:
+  GITLEAKS_VERSION: 8.21.2
+
+jobs:
+  gitleaks:
+    name: Secret scan (gitleaks)
+    runs-on: ubuntu-latest
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 50
+      - name: Fetch base branch
+        run: git fetch origin "${{ github.base_ref }}" --depth=50
+      - name: Install gitleaks
+        run: |
+          curl -fsSL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+            -o "$RUNNER_TEMP/gitleaks.tar.gz"
+          tar -xzf "$RUNNER_TEMP/gitleaks.tar.gz" -C "$RUNNER_TEMP" gitleaks
+          chmod +x "$RUNNER_TEMP/gitleaks"
+      - name: Scan PR commits for secrets
+        run: |
+          "$RUNNER_TEMP/gitleaks" detect \
+            --source . \
+            --config .gitleaks.toml \
+            --log-opts "origin/${{ github.base_ref }}..HEAD" \
+            --redact \
+            --no-banner \
+            --verbose

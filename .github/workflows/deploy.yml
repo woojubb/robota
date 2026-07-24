@@ -73,7 +73,7 @@ jobs:
 
     environment:
       name: ${{ github.event.inputs.environment }}
-      url: ${{ github.event.inputs.environment == 'production' && 'https://robota.dev' || 'https://staging.robota.dev' }}
+      url: ${{ github.event.inputs.environment == 'production' && 'https://robota.io' || 'https://staging.robota.io' }}
 
     steps:
       - name: Checkout code
@@ -128,43 +128,3 @@ jobs:
           vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
           vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID_STAGING }}
           working-directory: apps/agent-web
-
-  security:
-    name: Security Scan
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v2
-        with:
-          version: 8.15.4
-          run_install: false
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'pnpm'
-          cache-dependency-path: 'pnpm-lock.yaml'
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      # INFRA-038: pnpm audit's endpoint was retired (410) → osv-scanner (advisory here: continue-on-error, like snyk below).
-      - name: Run security audit (osv-scanner)
-        continue-on-error: true
-        run: |
-          curl -fsSL https://github.com/google/osv-scanner/releases/download/v2.0.2/osv-scanner_linux_amd64 -o "$RUNNER_TEMP/osv-scanner"
-          chmod +x "$RUNNER_TEMP/osv-scanner"
-          "$RUNNER_TEMP/osv-scanner" scan source --config osv-scanner.toml --lockfile pnpm-lock.yaml
-
-      - name: Check for known vulnerabilities
-        uses: snyk/actions/node@master
-        continue-on-error: true
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          args: --severity-threshold=high

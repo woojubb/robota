@@ -16,14 +16,9 @@ Parent: [AGENTS.md](../../AGENTS.md) | Index: [rules/index.md](index.md)
 
 ### Korean Writing Style (only when Korean output is explicitly requested)
 
-When the user explicitly requests Korean content (e.g., a Korean blog post) — Korean is never the default:
-
-- No `적` suffix — restructure the sentence instead (e.g., "현실적인" → rephrase without "적")
-- No `의` possessive — restructure to avoid it
-- No `것` nominalizer — use concrete nouns or rephrase
-- No `들` plural marker — Korean does not require explicit plurals
-- No `있다` sentence endings — rewrite in active voice
-- No passive `되다` — use active voice (e.g., "만들어졌다" → "만들었다", "추가되었다" → "추가했다"). This rule only applies when both `하다` and `되다` forms exist. If a word has no `하다` form and only `되다` is possible (e.g., "호환되다" — "호환하다" does not exist), use `되다` as-is.
+When the user explicitly requests Korean content (e.g., a Korean blog post) — Korean is never the
+default — prefer concise active-voice Korean: avoid translationese markers (`적`/`의`/`것`/`들`,
+`있다` endings, passive `되다` where an active `하다` form exists) by restructuring the sentence.
 
 ### Agent Identity
 

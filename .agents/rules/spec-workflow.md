@@ -231,15 +231,18 @@ Content promotion rules:
 
 - **Purpose:** verify that the canonical architecture documents still match code reality (the
   doc-vs-code drift that the per-spec `Architecture Review` section self-asserts but does not validate).
-- **Mechanical core (deterministic, non-prose):** `pnpm harness:conformance`
-  (`scripts/harness/check-architecture-conformance.mjs`) composes `check-dependency-direction.mjs` with
-  a workspace-package-name guard and emits a machine-readable JSON summary. Exit 0 = conformant, 1 = violations.
-- **Analytic layer:** the [`architecture-conformance-audit`](../skills/architecture-conformance-audit/SKILL.md)
-  skill set (dependency-graph-extraction → doc-claim-verification → conformance-finding-report →
-  improvement-proposal-authoring) produces the `.design/architecture-audit/<date>/` report + proposal.
-- **Trigger:** runs as part of the blocking `harness:scan` aggregate (the `conformance` scan in
-  `run-all-scans.mjs`, promoted in INFRA-007 once `pnpm harness:conformance` reached 0 violations), so it
-  gates every PR and release. Also runnable on demand via `pnpm harness:conformance`.
+- **Mechanical core (deterministic, non-prose):** `pnpm harness:conformance` — an alias for
+  `check-dependency-direction.mjs --conformance-json` (the dependency rules incl. the
+  workspace-package-name guard, folded in by HARNESS-DIET-003) — emits a machine-readable JSON summary.
+  Exit 0 = conformant, 1 = violations.
+- **Analytic layer:** the [`architecture-refresh`](../skills/architecture-refresh/SKILL.md) agent
+  pipeline (`architecture-conformance-auditor` / `architecture-auditor` → fixer/implementer) produces
+  the findings report + remediation; the
+  [`architecture-conformance-audit`](../skills/architecture-conformance-audit/SKILL.md) skill is the
+  thin router into it.
+- **Trigger:** the dependency rules run in the blocking `harness:scan` aggregate (the `deps` scan in
+  `run-all-scans.mjs`), so they gate every PR and release. JSON summary on demand via
+  `pnpm harness:conformance`.
 - **PASS/FAIL:** PASS when `harness:conformance` exits 0 and no unresolved P0 finding remains; FAIL
   otherwise. Run via [`backlog-gate-guard`](../skills/backlog-gate-guard/SKILL.md).
 

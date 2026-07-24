@@ -265,40 +265,46 @@ export class SessionExecutionController {
     submit: TSubmitFn,
     turnOptions: ITurnOptions = {},
   ): Promise<void> {
-    await checkAndRefreshContextIfStale(
-      agentsFileEntries,
-      claudeFileEntries,
-      rebuildSystemMessage,
-      setEntries,
-      () => this.callbacks.getSessionOrThrow(),
-      (event: string, payload: unknown) => this.callbacks.emit(event, payload),
-    );
+    // RUNTIME-12: claim the turn SYNCHRONOUSLY at entry. The caller's `if (execCtrl.executing)` gate
+    // (interactive-session.submit) and this assignment are synchronous, so a second concurrent submit
+    // observes `executing` and coalesces to the pending queue instead of BOTH starting a turn. (Previously
+    // set only AFTER the awaited checkAndRefreshContextIfStale below, leaving a two-await window where both
+    // entries saw idle.) The `finally` always releases it — including if the refresh throws, which is why
+    // checkAndRefreshContextIfStale now runs INSIDE the try.
     this.executing = true;
     // REMOTE-014 E5: capture the ACTIVE turn's driver so event/prompt emitters can attribute to it.
     this.activeDriverId = turnOptions.driverId ?? null;
-    this.clearStreaming();
-    // FLOW-002: surface the turn origin so consumers (hooks, TUI) can distinguish a human
-    // prompt from an agent-wakeup re-entry.
-    this.callbacks.emit('turn_source', turnOptions.turnSource ?? 'user');
-    this.callbacks.emit('user_message', displayInput ?? input);
-    this.callbacks.emit('thinking', true);
     // SELFHOST-008 P2: stash the completed turn's result so post-turn capture can run in the `finally`
     // BEFORE persistSession() (awaiting inside `onComplete` would not order there — it is not awaited).
     let completedResult: IExecutionResult | undefined;
-    // SELFHOST-008 P3: per-turn recall — compute the ephemeral `<recalled-memory>` block (query = input)
+    // SELFHOST-008 P3: per-turn recall — the ephemeral `<recalled-memory>` block (query = input) computed
     // BEFORE the turn's model call, guarded so a recall failure skips injection but never breaks the turn.
     let ephemeralSystemContext: string | undefined;
-    if (this.callbacks.recallMemory) {
-      try {
-        const recalled = await this.callbacks.recallMemory(input);
-        if (recalled && recalled.trim().length > 0) ephemeralSystemContext = recalled;
-      } catch {
-        // allow-fallback: per-turn recall is best-effort over the always-present startup memory; a recall
-        // error skips ephemeral injection and the turn proceeds normally (SELFHOST-008 P3 declared degradation).
-        ephemeralSystemContext = undefined;
-      }
-    }
     try {
+      await checkAndRefreshContextIfStale(
+        agentsFileEntries,
+        claudeFileEntries,
+        rebuildSystemMessage,
+        setEntries,
+        () => this.callbacks.getSessionOrThrow(),
+        (event: string, payload: unknown) => this.callbacks.emit(event, payload),
+      );
+      this.clearStreaming();
+      // FLOW-002: surface the turn origin so consumers (hooks, TUI) can distinguish a human
+      // prompt from an agent-wakeup re-entry.
+      this.callbacks.emit('turn_source', turnOptions.turnSource ?? 'user');
+      this.callbacks.emit('user_message', displayInput ?? input);
+      this.callbacks.emit('thinking', true);
+      if (this.callbacks.recallMemory) {
+        try {
+          const recalled = await this.callbacks.recallMemory(input);
+          if (recalled && recalled.trim().length > 0) ephemeralSystemContext = recalled;
+        } catch {
+          // allow-fallback: per-turn recall is best-effort over the always-present startup memory; a recall
+          // error skips ephemeral injection and the turn proceeds normally (SELFHOST-008 P3 declared degradation).
+          ephemeralSystemContext = undefined;
+        }
+      }
       await executePromptTurn(input, displayInput, rawInput, {
         ...(ephemeralSystemContext !== undefined ? { ephemeralSystemContext } : {}),
         getSession: () => this.callbacks.getSessionOrThrow(),

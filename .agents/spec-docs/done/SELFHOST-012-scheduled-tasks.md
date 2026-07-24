@@ -2,6 +2,9 @@
 status: done
 completed: 2026-07-19
 type: FLOW
+capability: true
+user_execution: agent-run
+user_execution_scenario: .agents/evals/scenarios/selfhost-012-schedule-lifecycle-agent-run.md
 tags: [scheduler, cron, tasks, dag-scheduler, agent-command, selfhost]
 ---
 

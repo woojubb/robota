@@ -91,6 +91,18 @@ function primaryArg(toolName: string, args: TToolArgs): string | undefined {
 }
 
 /**
+ * Test whether a tool invocation matches ANY pattern in a list (allow or deny).
+ * Shared by `evaluatePermission` and the CORE-025 policy resolver so pattern semantics stay in one place.
+ */
+export function matchesAnyPattern(
+  toolName: string,
+  args: TToolArgs,
+  patterns: readonly string[],
+): boolean {
+  return patterns.some((pattern) => matchesPattern(toolName, args, pattern));
+}
+
+/**
  * Test whether a tool invocation matches a permission pattern entry.
  */
 function matchesPattern(toolName: string, args: TToolArgs, pattern: string): boolean {
@@ -131,17 +143,13 @@ export function evaluatePermission(
   const { allow = [], deny = [] } = permissions;
 
   // Step 1: deny list — if any deny pattern matches, block immediately
-  for (const pattern of deny) {
-    if (matchesPattern(toolName, toolArgs, pattern)) {
-      return 'deny';
-    }
+  if (matchesAnyPattern(toolName, toolArgs, deny)) {
+    return 'deny';
   }
 
   // Step 2: allow list — if any allow pattern matches, auto-approve
-  for (const pattern of allow) {
-    if (matchesPattern(toolName, toolArgs, pattern)) {
-      return 'auto';
-    }
+  if (matchesAnyPattern(toolName, toolArgs, allow)) {
+    return 'auto';
   }
 
   // Step 3: mode policy lookup

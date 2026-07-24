@@ -123,6 +123,10 @@ const SCAN_COMMANDS = [
     name: 'evals-neutrality',
     command: ['node', 'scripts/harness/scan-evals-neutrality.mjs'],
   },
+  {
+    name: 'capability-reachability',
+    command: ['node', 'scripts/harness/scan-capability-reachability.mjs'],
+  },
   { name: 'deprecated-markers', command: ['node', 'scripts/harness/scan-deprecated-markers.mjs'] },
   { name: 'done-evidence', command: ['node', 'scripts/harness/check-done-evidence.mjs'] },
   { name: 'task-archival', command: ['node', 'scripts/harness/check-task-archival.mjs'] },
@@ -135,7 +139,6 @@ const SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/check-temp-script-placement.mjs'],
   },
   { name: 'orphan-exports', command: ['node', 'scripts/harness/check-orphan-exports.mjs'] },
-  { name: 'entry-point-only', command: ['node', 'scripts/harness/check-entry-point-only.mjs'] },
   { name: 'deps', command: ['node', 'scripts/harness/check-dependency-direction.mjs'] },
   { name: 'dep-kind', command: ['node', 'scripts/harness/check-dep-kind.mjs'] },
   {
@@ -146,12 +149,7 @@ const SCAN_COMMANDS = [
     name: 'interface-runtime',
     command: ['node', 'scripts/harness/scan-interface-runtime.mjs'],
   },
-  { name: 'sdk-react-free', command: ['node', 'scripts/harness/check-sdk-react-free.mjs'] },
   { name: 'publish', command: ['node', 'scripts/harness/check-publish-safety.mjs'] },
-  {
-    name: 'spec-publish-claims',
-    command: ['node', 'scripts/harness/check-spec-publish-claims.mjs'],
-  },
   { name: 'release-governance', command: ['node', 'scripts/harness/check-release-governance.mjs'] },
   { name: 'test-plans', command: ['node', 'scripts/harness/scan-test-plan.mjs'] },
   {
@@ -169,7 +167,6 @@ const SCAN_COMMANDS = [
   },
   { name: 'dist', command: ['node', 'scripts/harness/scan-dist-freshness.mjs'] },
   { name: 'docs-structure', command: ['pnpm', 'docs:validate-structure'] },
-  { name: 'conformance', command: ['node', 'scripts/harness/check-architecture-conformance.mjs'] },
 ];
 
 function spawnScan(command) {

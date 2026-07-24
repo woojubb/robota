@@ -8,6 +8,11 @@ import type {
 
 export type TOutputFormat = 'text' | 'json' | 'stream-json';
 
+/** RUNTIME-36: normalize a caught unknown into an Error for the error/exit-code handlers. */
+function toError(error: unknown): Error {
+  return error instanceof Error ? error : new Error(String(error));
+}
+
 /** GOAL-001: options for an autonomous headless goal run. */
 export interface IHeadlessGoalOptions {
   maxIterations?: number;
@@ -154,15 +159,20 @@ function runTextFormat(session: IInteractiveSession, prompt: string): Promise<nu
     session.on('interrupted', onInterrupted);
     session.on('error', onError);
 
-    void executeSlashCommandIfPresent(session, prompt).then((cmd) => {
-      if (cmd.kind === 'command-result') {
-        cleanup();
-        process.stdout.write(cmd.result.message + '\n');
-        resolve(cmd.result.success ? 0 : 1);
-        return;
-      }
-      if (cmd.kind !== 'session-execution') void session.submit(prompt);
-    });
+    // RUNTIME-36: a thrown slash-command (or a failed submit) must surface a non-zero exit via onError, not
+    // vanish and hang the exit-code promise.
+    void executeSlashCommandIfPresent(session, prompt)
+      .then((cmd) => {
+        if (cmd.kind === 'command-result') {
+          cleanup();
+          process.stdout.write(cmd.result.message + '\n');
+          resolve(cmd.result.success ? 0 : 1);
+          return;
+        }
+        if (cmd.kind !== 'session-execution')
+          void session.submit(prompt).catch((error) => onError(toError(error)));
+      })
+      .catch((error) => onError(toError(error)));
   });
 }
 
@@ -193,19 +203,23 @@ function runJsonFormat(session: IInteractiveSession, prompt: string): Promise<nu
     session.on('interrupted', onInterrupted);
     session.on('error', onError);
 
-    void executeSlashCommandIfPresent(session, prompt).then((cmd) => {
-      if (cmd.kind === 'command-result') {
-        cleanup();
-        writeJsonResult(
-          getSessionId(session),
-          cmd.result.message,
-          cmd.result.success ? 'success' : 'error',
-        );
-        resolve(cmd.result.success ? 0 : 1);
-        return;
-      }
-      if (cmd.kind !== 'session-execution') void session.submit(prompt);
-    });
+    // RUNTIME-36: a thrown slash-command / failed submit surfaces a non-zero exit via onError, never vanishes.
+    void executeSlashCommandIfPresent(session, prompt)
+      .then((cmd) => {
+        if (cmd.kind === 'command-result') {
+          cleanup();
+          writeJsonResult(
+            getSessionId(session),
+            cmd.result.message,
+            cmd.result.success ? 'success' : 'error',
+          );
+          resolve(cmd.result.success ? 0 : 1);
+          return;
+        }
+        if (cmd.kind !== 'session-execution')
+          void session.submit(prompt).catch((error) => onError(toError(error)));
+      })
+      .catch((error) => onError(toError(error)));
   });
 }
 
@@ -213,18 +227,26 @@ function runStreamJsonFormat(session: IInteractiveSession, prompt: string): Prom
   return new Promise<number>((resolve) => {
     const cleanup = subscribeStreamJsonEvents(session, getSessionId, writeJsonResult, resolve);
 
-    void executeSlashCommandIfPresent(session, prompt).then((cmd) => {
-      if (cmd.kind === 'command-result') {
-        cleanup();
-        writeJsonResult(
-          getSessionId(session),
-          cmd.result.message,
-          cmd.result.success ? 'success' : 'error',
-        );
-        resolve(cmd.result.success ? 0 : 1);
-        return;
-      }
-      if (cmd.kind !== 'session-execution') void session.submit(prompt);
-    });
+    // RUNTIME-36: route a thrown slash-command / failed submit to a non-zero exit instead of hanging resolve.
+    const failClosed = (error: unknown): void => {
+      cleanup();
+      writeJsonResult(getSessionId(session), '', 'error', toError(error));
+      resolve(1);
+    };
+    void executeSlashCommandIfPresent(session, prompt)
+      .then((cmd) => {
+        if (cmd.kind === 'command-result') {
+          cleanup();
+          writeJsonResult(
+            getSessionId(session),
+            cmd.result.message,
+            cmd.result.success ? 'success' : 'error',
+          );
+          resolve(cmd.result.success ? 0 : 1);
+          return;
+        }
+        if (cmd.kind !== 'session-execution') void session.submit(prompt).catch(failClosed);
+      })
+      .catch(failClosed);
   });
 }

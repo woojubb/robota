@@ -1,8 +1,10 @@
 #!/bin/bash
 # pre-push-check.sh
-# Before git push: run the same checks as CI to catch failures before they reach remote.
-# 1. Verify pnpm-lock.yaml is in sync
-# 2. Run typecheck, lint, and tests
+# Before git push: cheap, fast branch-hygiene + lockfile gates ONLY.
+# 1. Branch-base hygiene (no foreign merge commits over origin/develop)
+# 2. Verify pnpm-lock.yaml is committed and in sync
+# The heavy typecheck/lint/test re-runs were removed (HARNESS-DIET-006):
+# .husky/pre-push (harness:pre-push) and CI already own those gates.
 # Runs as a PreToolUse hook on Bash tool calls.
 
 set -euo pipefail
@@ -17,12 +19,22 @@ fi
 
 COMMAND=$(echo "$INPUT" | grep -o '"command"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"command"[[:space:]]*:[[:space:]]*"//' | sed 's/"$//')
 
-# Only intercept git push commands
-echo "$COMMAND" | grep -qE '^\s*git\s+(push)(\s|$)' || exit 0
+# Only intercept git push commands (tolerating env prefixes + global git flags like `git -C <path>`)
+echo "$COMMAND" | grep -qE '^\s*(\S+=\S+\s+)*git\s+((-C|-c)\s+\S+\s+)*push(\s|$)' || exit 0
 
+# Worktree-aware context resolution (parallel-wave lesson): judge the repo the command actually runs
+# in — `git -C <path>` in the command > hook-input `cwd` > project dir — never blindly the main clone.
+HOOK_CWD=$(echo "$INPUT" | grep -o '"cwd"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"cwd"[[:space:]]*:[[:space:]]*"//' | sed 's/"$//' || true)
+GIT_C_PATH=$(printf '%s' "$COMMAND" | sed -nE 's/^[[:space:]]*git[[:space:]]+-C[[:space:]]+"?([^"[:space:]]+)"?.*/\1/p')
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-.}"
+if [[ -n "$HOOK_CWD" ]] && git -C "$HOOK_CWD" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  PROJECT_DIR="$HOOK_CWD"
+fi
+if [[ -n "$GIT_C_PATH" ]] && git -C "$GIT_C_PATH" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  PROJECT_DIR="$GIT_C_PATH"
+fi
 
-echo "[pre-push-check] Running pre-push CI checks..." >&2
+echo "[pre-push-check] Running fast pre-push gates (branch hygiene, lockfile sync)..." >&2
 
 # ── 0. Branch-base hygiene (git-branch.md: feature branches start from origin/develop) ──────────
 # After a develop→main promotion, `main` sits AHEAD of `develop`. A branch cut from `main` (or that
@@ -72,33 +84,5 @@ if ! git -C "$PROJECT_DIR" diff --quiet pnpm-lock.yaml 2>/dev/null; then
   exit 2
 fi
 
-# ── 2. Typecheck ────────────────────────────────────────────────────────────
-
-echo "[pre-push-check] Running typecheck..." >&2
-if ! pnpm run typecheck --silent 2>&1 | grep -qE "^$|Done$|SyntaxError|error TS"; then
-  : # suppress output, check exit code below
-fi
-
-if ! pnpm run typecheck 2>&1; then
-  echo "[pre-push-check] Blocked: typecheck failed. Fix type errors before pushing." >&2
-  exit 2
-fi
-
-# ── 3. Lint ─────────────────────────────────────────────────────────────────
-
-echo "[pre-push-check] Running lint..." >&2
-if ! pnpm run lint 2>&1; then
-  echo "[pre-push-check] Blocked: lint failed. Fix lint errors before pushing." >&2
-  exit 2
-fi
-
-# ── 4. Tests ────────────────────────────────────────────────────────────────
-
-echo "[pre-push-check] Running tests..." >&2
-if ! pnpm run test 2>&1; then
-  echo "[pre-push-check] Blocked: tests failed. Fix failing tests before pushing." >&2
-  exit 2
-fi
-
-echo "[pre-push-check] All checks passed. Proceeding with push." >&2
+echo "[pre-push-check] Branch hygiene + lockfile checks passed. Proceeding with push." >&2
 exit 0

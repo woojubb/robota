@@ -1,14 +1,9 @@
-# API Boundary Rules
+# API Boundary Rules — moved
 
-Mandatory rules for API specifications and process lifecycle.
+Content moved to [operational.md](operational.md) § "API Boundary & Process Lifecycle"
+(HARNESS-DIET-004). This stub keeps existing links resolving.
+
+Covers: standardized API specifications for external endpoints (see `api-spec-management`
+skill) and graceful application shutdown (SIGTERM/SIGINT, timeout, resource release).
+
 Parent: [AGENTS.md](../../AGENTS.md) | Index: [rules/index.md](index.md)
-
-### API Specification
-
-- Applications with external API endpoints must maintain standardized API specifications (e.g., OpenAPI for HTTP). See `api-spec-management` skill for workflow details.
-
-### Process Lifecycle
-
-- Applications in `apps/` must handle SIGTERM and SIGINT for graceful shutdown.
-- In-progress work must complete or be safely cancelled within a configurable timeout.
-- All acquired resources (connections, file handles) must be released on shutdown.
