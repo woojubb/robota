@@ -8,6 +8,12 @@ import {
   type TPermissionPromptInputAction,
 } from './flows/permission-prompt-flow.js';
 import { createSelectionFlowState, type ISelectionFlowState } from './flows/selection-flow.js';
+import {
+  KeyHintFooter,
+  SELECTION_INDICATOR,
+  SELECTION_INDICATOR_NONE,
+  type IKeyHint,
+} from './key-hint-footer.js';
 
 import type { IPendingPermissionRequest } from './types.js';
 import type { TToolArgs } from '@robota-sdk/agent-core';
@@ -15,6 +21,16 @@ import type { TToolArgs } from '@robota-sdk/agent-core';
 interface IProps {
   request: IPendingPermissionRequest;
 }
+
+/**
+ * Footer for the permission prompt — identical to the confirm prompt's (same horizontal row, same
+ * reducer). Esc is deliberately suppressed by the flow (`escape: false` — a permission ask must
+ * resolve explicitly; Esc-dismissal would be an implicit deny), so the footer omits it.
+ */
+export const PERMISSION_PROMPT_FOOTER_HINTS: readonly IKeyHint[] = [
+  { keys: '←→', label: 'Navigate' },
+  { keys: 'Enter', label: 'Confirm' },
+];
 
 function formatArgs(args: TToolArgs): string {
   const entries = Object.entries(args);
@@ -74,13 +90,13 @@ export default function PermissionPrompt({ request }: IProps): React.ReactElemen
               color={i === state.selectedIndex ? 'cyan' : undefined}
               bold={i === state.selectedIndex}
             >
-              {i === state.selectedIndex ? '> ' : '  '}
+              {i === state.selectedIndex ? SELECTION_INDICATOR : SELECTION_INDICATOR_NONE}
               {opt}
             </Text>
           </Box>
         ))}
       </Box>
-      <Text dimColor> left/right to select, Enter to confirm</Text>
+      <KeyHintFooter hints={PERMISSION_PROMPT_FOOTER_HINTS} />
     </Box>
   );
 }

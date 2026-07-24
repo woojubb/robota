@@ -2,6 +2,7 @@ import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render } from 'ink-testing-library';
 import ConfirmPrompt from '../ConfirmPrompt.js';
+import { formatKeyHints } from '../key-hint-footer.js';
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -83,5 +84,20 @@ describe('ConfirmPrompt', () => {
     stdin.write('\r');
     stdin.write('y');
     expect(onSelect).toHaveBeenCalledTimes(1);
+  });
+
+  // SCREEN-005: footer names the real keys (←→; the flow suppresses Esc, so the footer omits it —
+  // the footer lists exactly the keys that do something).
+  it('renders the footer in the shared key-hint grammar and omits Esc', () => {
+    const { lastFrame } = render(<ConfirmPrompt message="Confirm?" onSelect={() => {}} />);
+    const frame = lastFrame()!;
+    expect(frame).toContain(
+      formatKeyHints([
+        { keys: '←→', label: 'Navigate' },
+        { keys: 'Enter', label: 'Confirm' },
+      ]),
+    );
+    expect(frame).not.toContain('Esc');
+    expect(frame).not.toContain('arrow keys');
   });
 });

@@ -9,6 +9,22 @@ import {
   type ISelectionFlowState,
   type TSelectionInputAction,
 } from './flows/selection-flow.js';
+import {
+  KeyHintFooter,
+  SELECTION_INDICATOR,
+  SELECTION_INDICATOR_NONE,
+  type IKeyHint,
+} from './key-hint-footer.js';
+
+/** Footer for the interactive menu state. */
+export const MENU_SELECT_FOOTER_HINTS: readonly IKeyHint[] = [
+  { keys: '↑↓', label: 'Navigate' },
+  { keys: 'Enter', label: 'Select' },
+  { keys: 'Esc', label: 'Back' },
+];
+
+/** Footer for the error state — Esc (cancel) is the only active key. */
+export const MENU_SELECT_ERROR_FOOTER_HINTS: readonly IKeyHint[] = [{ keys: 'Esc', label: 'Back' }];
 
 export interface IMenuSelectItem {
   label: string;
@@ -80,9 +96,8 @@ export default function MenuSelect({
         </Box>
       )}
       {error && (
-        <Box marginTop={1} flexDirection="column">
+        <Box marginTop={1}>
           <Text color="red">{error}</Text>
-          <Text dimColor>Press Esc to go back</Text>
         </Box>
       )}
       {!loading && !error && (
@@ -90,7 +105,7 @@ export default function MenuSelect({
           {items.map((item, i) => (
             <Box key={item.value}>
               <Text color={i === selected ? 'cyan' : undefined} bold={i === selected}>
-                {i === selected ? '> ' : '  '}
+                {i === selected ? SELECTION_INDICATOR : SELECTION_INDICATOR_NONE}
                 {item.label}
               </Text>
               {item.hint && <Text dimColor> {item.hint}</Text>}
@@ -98,7 +113,9 @@ export default function MenuSelect({
           ))}
         </Box>
       )}
-      <Text dimColor>{loading || error ? '' : ' ↑↓ Navigate  Enter Select  Esc Back'}</Text>
+      <KeyHintFooter
+        hints={loading ? [] : error ? MENU_SELECT_ERROR_FOOTER_HINTS : MENU_SELECT_FOOTER_HINTS}
+      />
     </Box>
   );
 }

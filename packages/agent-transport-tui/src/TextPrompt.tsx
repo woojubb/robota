@@ -8,6 +8,13 @@ import {
   type ITextPromptFlowState,
   type TTextPromptInputAction,
 } from './flows/text-prompt-flow.js';
+import { KeyHintFooter, type IKeyHint } from './key-hint-footer.js';
+
+/** Footer for the free-text prompt. */
+export const TEXT_PROMPT_FOOTER_HINTS: readonly IKeyHint[] = [
+  { keys: 'Enter', label: 'Submit' },
+  { keys: 'Esc', label: 'Cancel' },
+];
 
 interface IProps {
   title: string;
@@ -67,7 +74,7 @@ export default function TextPrompt({
         <Text color="cyan">█</Text>
       </Box>
       {state.error && <Text color="red">{state.error}</Text>}
-      <Text dimColor> Enter Submit Esc Cancel</Text>
+      <KeyHintFooter hints={TEXT_PROMPT_FOOTER_HINTS} />
     </Box>
   );
 }

@@ -3,6 +3,7 @@ import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 import PendingActionPrompt from '../PendingActionPrompt.js';
+import { formatKeyHints } from '../key-hint-footer.js';
 
 import type { IActionRequest } from '@robota-sdk/agent-core';
 
@@ -127,5 +128,43 @@ describe('PendingActionPrompt (CMD-004 unified action renderer)', () => {
     await delay();
     expect(onAnswer).not.toHaveBeenCalled();
     expect(lastFrame()).toContain('OpenAI'); // back at the picker
+  });
+
+  // SCREEN-005: multi-select footer goes through the key-hint SSOT, keeping the dynamic (min N)
+  // segment on the Enter hint until the selection is confirmable.
+  it('multi-select footer shows the (min N) segment until satisfiable, in the shared grammar', async () => {
+    const onAnswer = vi.fn();
+    const request: IActionRequest = {
+      id: 'tags',
+      title: 'Pick tags',
+      options: [
+        { value: 'a', label: 'Alpha' },
+        { value: 'b', label: 'Beta' },
+      ],
+      minSelect: 1,
+      maxSelect: 2,
+    };
+    const { stdin, lastFrame } = render(
+      <PendingActionPrompt request={request} onAnswer={onAnswer} />,
+    );
+    expect(lastFrame()).toContain(
+      formatKeyHints([
+        { keys: '↑↓', label: 'Navigate' },
+        { keys: 'Space', label: 'Toggle' },
+        { keys: 'Enter', label: 'Confirm (min 1)' },
+        { keys: 'Esc', label: 'Cancel' },
+      ]),
+    );
+
+    stdin.write(' '); // toggle Alpha → selection satisfiable → min segment drops
+    await delay();
+    expect(lastFrame()).toContain(
+      formatKeyHints([
+        { keys: '↑↓', label: 'Navigate' },
+        { keys: 'Space', label: 'Toggle' },
+        { keys: 'Enter', label: 'Confirm' },
+        { keys: 'Esc', label: 'Cancel' },
+      ]),
+    );
   });
 });

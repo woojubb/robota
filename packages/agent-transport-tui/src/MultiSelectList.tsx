@@ -11,7 +11,30 @@
 import { Box, Text, useInput } from 'ink';
 import React, { useState } from 'react';
 
+import {
+  KeyHintFooter,
+  SELECTION_INDICATOR,
+  SELECTION_INDICATOR_NONE,
+  type IKeyHint,
+} from './key-hint-footer.js';
+
 import type { IActionOption } from '@robota-sdk/agent-core';
+
+/**
+ * Footer hints for the multi-select checklist. The Enter hint carries a dynamic `(min N)` segment
+ * until the selection is confirmable.
+ */
+export function getMultiSelectFooterHints(input: {
+  canConfirm: boolean;
+  minSelect: number;
+}): readonly IKeyHint[] {
+  return [
+    { keys: '↑↓', label: 'Navigate' },
+    { keys: 'Space', label: 'Toggle' },
+    { keys: 'Enter', label: input.canConfirm ? 'Confirm' : `Confirm (min ${input.minSelect})` },
+    { keys: 'Esc', label: 'Cancel' },
+  ];
+}
 
 export interface IMultiSelectListProps {
   title: string;
@@ -77,17 +100,13 @@ export default function MultiSelectList({
         const isChecked = selected.has(option.value);
         return (
           <Text key={option.value} color={isCursor ? 'cyan' : undefined}>
-            {isCursor ? '> ' : '  '}
+            {isCursor ? SELECTION_INDICATOR : SELECTION_INDICATOR_NONE}
             {isChecked ? '[x] ' : '[ ] '}
             {option.label}
           </Text>
         );
       })}
-      <Text dimColor>
-        {' ↑↓ Navigate  Space Toggle  Enter Confirm'}
-        {canConfirm ? '' : ` (min ${minSelect})`}
-        {'  Esc Cancel'}
-      </Text>
+      <KeyHintFooter hints={getMultiSelectFooterHints({ canConfirm, minSelect })} />
     </Box>
   );
 }

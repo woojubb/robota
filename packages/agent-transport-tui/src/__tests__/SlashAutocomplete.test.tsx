@@ -2,6 +2,7 @@ import React from 'react';
 import { render } from 'ink-testing-library';
 import { describe, it, expect } from 'vitest';
 import SlashAutocomplete from '../SlashAutocomplete.js';
+import { formatKeyHints, SELECTION_INDICATOR } from '../key-hint-footer.js';
 import type { ICommand } from '@robota-sdk/agent-interface-transport';
 
 // ink-testing-library fixes stdout.columns = 100
@@ -136,5 +137,26 @@ describe('SlashAutocomplete', () => {
     const frame = lastFrame()!;
     expect(frame).not.toContain('/run');
     expect(frame).toContain('Run task');
+  });
+
+  // SCREEN-005: footer renders through the key-hint SSOT grammar; selected row uses the indicator.
+  it('renders the footer in the shared key-hint grammar', () => {
+    const { lastFrame } = render(
+      <SlashAutocomplete
+        commands={[makeCmd('help', 'Show help')]}
+        selectedIndex={0}
+        visible={true}
+      />,
+    );
+    const frame = lastFrame()!;
+    expect(frame).toContain(
+      formatKeyHints([
+        { keys: '↑↓', label: 'Navigate' },
+        { keys: 'Tab', label: 'Complete' },
+        { keys: 'Enter', label: 'Select' },
+        { keys: 'Esc', label: 'Close' },
+      ]),
+    );
+    expect(frame).toContain(`${SELECTION_INDICATOR}/help`);
   });
 });
