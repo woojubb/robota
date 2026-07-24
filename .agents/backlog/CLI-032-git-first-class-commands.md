@@ -8,6 +8,13 @@ area: packages/agent-command, packages/agent-cli
 depends_on: []
 ---
 
+## Progress (PROC-001 reconciliation, 2026-07-25)
+
+Reopened: **nothing was implemented.** PR #589 (2026-05-25) archived this with checked task boxes,
+but its diff touched no git command module, and no `/status`, `/diff`, or `/commit` command exists
+anywhere in `packages/` today (rg-verified). Remaining: the entire item — re-validate the product
+direction first (git interaction currently flows through the Bash tool and `/shell`).
+
 ## Background
 
 AI 코딩 어시스턴트의 핵심 워크플로우는 코드 수정 → git commit → push다. 현재 Robota CLI에서는 Bash 도구로 `git commit -m "..."` 을 직접 실행해야 한다. Bash 도구 실행은 권한 프롬프트를 유발하고, 커밋 메시지 품질이나 staged 파일 선택을 AI가 자연스럽게 관리하기 어렵다.

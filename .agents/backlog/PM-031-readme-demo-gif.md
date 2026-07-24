@@ -6,6 +6,14 @@ priority: high
 category: marketing
 ---
 
+## Progress (PROC-001 reconciliation, 2026-07-25)
+
+Reopened: **the README currently ships a broken image.** PR #589 added the README reference
+(`packages/agent-cli/README.md` L62 `![Demo](./docs/demo.gif)`) plus `docs/DEMO-SCRIPT.md`, but
+`packages/agent-cli/docs/demo.gif` is still a 41-byte placeholder — it renders as a broken image
+on GitHub/npm. Remaining: record the real GIF per DEMO-SCRIPT.md (agent-runnable via the PTY/TUI
+e2e harness + asciinema/agg), or remove the reference until one exists.
+
 ## 문제
 
 README에 TUI가 어떻게 생겼는지 이미지가 전혀 없다.

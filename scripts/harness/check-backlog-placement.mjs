@@ -28,29 +28,12 @@ const TERMINAL_STATUSES = new Set(['done', 'wontfix', 'skipped', 'superseded']);
 const OPEN_STATUSES = new Set(['todo', 'in-progress']);
 
 /**
- * Historical debt: PR #589 (2026-05-25) archived these as implemented but never flipped their
- * frontmatter from `todo`. Their true state needs item-by-item verification — tracked by
- * `.agents/backlog/PROC-001-completed-dir-status-reconciliation.md`. Do not add new entries.
+ * Historical debt: PR #589 (2026-05-25) archived files as implemented while leaving their
+ * frontmatter at `todo`. All 17 were reconciled item-by-item by PROC-001 (2026-07-25) — see
+ * `.agents/backlog/completed/PROC-001-completed-dir-status-reconciliation.md`. Do not add new
+ * entries; the invariant now holds unconditionally.
  */
-const LEGACY_COMPLETED_TODO = new Set([
-  '.agents/backlog/completed/CLI-032-git-first-class-commands.md',
-  '.agents/backlog/completed/CLI-034-plugin-publish-one-official.md',
-  '.agents/backlog/completed/CLI-042-grep-tool-parallel.md',
-  '.agents/backlog/completed/CLI-043-glob-stat-n-plus-one.md',
-  '.agents/backlog/completed/CLI-044-process-exit-cleanup.md',
-  '.agents/backlog/completed/CLI-046-denied-tools-flag.md',
-  '.agents/backlog/completed/CLI-047-structured-exit-codes.md',
-  '.agents/backlog/completed/CLI-048-websearch-fallback.md',
-  '.agents/backlog/completed/PM-026-github-action-official.md',
-  '.agents/backlog/completed/PM-027-korean-marketing-content.md',
-  '.agents/backlog/completed/PM-028-beta-invite-program.md',
-  '.agents/backlog/completed/PM-029-sdk-starter-kit.md',
-  '.agents/backlog/completed/PM-030-opt-in-telemetry.md',
-  '.agents/backlog/completed/PM-031-readme-demo-gif.md',
-  '.agents/backlog/completed/PM-033-init-inline-provider-setup.md',
-  '.agents/backlog/completed/PM-034-help-command-examples.md',
-  '.agents/backlog/completed/SITE-004-domain-redirect-migration.md',
-]);
+const LEGACY_COMPLETED_TODO = new Set([]);
 
 /** @returns {{ status: string | null, hasCompletedDate: boolean }} */
 export function readBacklogFrontmatter(content) {

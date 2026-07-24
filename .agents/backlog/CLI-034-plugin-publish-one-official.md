@@ -8,6 +8,15 @@ area: packages/
 depends_on: []
 ---
 
+## Progress (PROC-001 reconciliation, 2026-07-25)
+
+Reopened: **nothing was implemented.** PR #589's task file claimed `@robota-sdk/plugin-file-system`
+was published, but no `packages/plugin-*` package exists in the workspace and #589's diff created
+none. Remaining: the entire item — and it should be re-scoped against the current plugin
+architecture (`agent-plugin`, bundle plugin loader, marketplace source) before any work. Related
+items PM-005/CLI-020 carry terminal statuses with the same unverified-claims smell; check them
+before trusting their evidence.
+
 ## Background
 
 Robota SDK가 "플러그인 기반 확장"을 핵심 아키텍처로 내세우지만 현재 공식 npm 플러그인이 없다. 생태계를 만들려면 공식 팀이 먼저 "이렇게 만드는 거야"를 보여주는 레퍼런스 플러그인이 필요하다.

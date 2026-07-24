@@ -1,12 +1,20 @@
 ---
 title: 'PM-029: SDK Starter Kit — Next.js + Express 템플릿 저장소'
-status: todo
+status: superseded
+completed: 2026-07-25
 created: 2026-05-24
 priority: low
 urgency: later
 area: apps/
 depends_on: []
 ---
+
+> **Superseded.** Template A shipped in PR #589 and still exists (`apps/starter-nextjs/` +
+> `content/quickstart.md`); the Express path is covered by `examples/express` (rewritten against
+> the current SDK by EXAMPLES-002, done 2026-06-27) and adoption-path quickstart docs are owned by
+> DOCS-014 (done 2026-07-03). The remaining distribution mechanics (`npx create-robota-app`,
+> template-repo "Use this template" / Vercel deploy buttons) were never pursued and are not
+> currently roadmapped. Reconciled 2026-07-25 (PROC-001).
 
 ## Background
 

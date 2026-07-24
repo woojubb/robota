@@ -1,12 +1,19 @@
 ---
 title: 'PM-028: 외부 베타 초대 프로그램 — early adopter 확보'
-status: todo
+status: superseded
+completed: 2026-07-25
 created: 2026-05-24
 priority: medium
 urgency: soon
 area: apps/www
 depends_on: []
 ---
+
+> **Superseded by WEB-008 (done) for the shipped artifact.** The `/beta` signup page shipped in
+> PR #589 (`apps/www/src/app/[locale]/beta/page.tsx`, 2026-05-25) and its broken submit flow +
+> i18n were fixed by WEB-008. The program operations (recruiting 10 early adopters, Discord/
+> Discussions channel, interviews, NPS) are manual owner-run actions that never happened and have
+> no agent-executable remainder. Reconciled 2026-07-25 (PROC-001).
 
 ## Background
 

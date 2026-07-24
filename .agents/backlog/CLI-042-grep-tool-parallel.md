@@ -6,6 +6,13 @@ priority: low
 category: performance
 ---
 
+## Progress (PROC-001 reconciliation, 2026-07-25)
+
+Reopened: **not implemented.** PR #589's task file checked "p-limit(50) verified", but that PR
+never touched `grep-tool.ts`, and the file still reads sequentially today
+(`packages/agent-tools/src/builtins/grep-tool.ts` L210-213: `for (const filePath of files) {
+await readFile(...) }`, no p-limit import). Remaining: the entire item as specified below.
+
 ## 문제
 
 `packages/agent-tools/src/builtins/grep-tool.ts`:
