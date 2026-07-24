@@ -140,6 +140,47 @@ describe('SessionResumeBridge (REMOTE-013 TC-02)', () => {
     bridge.dispose();
   });
 
+  // CMD-004 Stage D — the bridge's single subscription requester-routes `ui_intent` with the
+  // LATE-BOUND driver id (`setDriverId` binds after pairing), so a skipped intent is never
+  // buffered and can never leak to this surface through a later `resume` replay.
+  it('requester-routes ui_intent by the late-bound driver id; foreign intents are never buffered', () => {
+    const { session, fire } = fakeSession();
+    const bridge = new SessionResumeBridge({ session });
+    const s = sink();
+    bridge.attach(s);
+
+    // Not paired yet (no driver id): an intent attributed to another surface is skipped.
+    fire('ui_intent', { intent: { type: 'show-settings' }, requesterDriverId: 'device-9' });
+    expect(s.calls).toHaveLength(0);
+
+    bridge.setDriverId('device-9');
+    fire('ui_intent', { intent: { type: 'show-settings' }, requesterDriverId: 'device-9' });
+    expect(frames(s)).toEqual([
+      {
+        type: 'ui_intent',
+        event: { intent: { type: 'show-settings' }, requesterDriverId: 'device-9' },
+        seq: 1, // the skipped foreign intent consumed NO seq — it was routed out BEFORE buffering
+      },
+    ]);
+
+    // Another surface's intent stays invisible even across a reconnect replay.
+    fire('ui_intent', { intent: { type: 'show-plugin-manager' }, requesterDriverId: 'device-2' });
+    const s2 = sink();
+    bridge.detach();
+    bridge.attach(s2);
+    bridge.onClientMessage(JSON.stringify({ type: 'resume', lastSeq: 0 }));
+    expect(frames(s2).filter((f) => f.type === 'ui_intent')).toHaveLength(1); // only device-9's own
+
+    // Unattributed intents are unroutable → delivered (never silently dropped).
+    fire('ui_intent', { intent: { type: 'show-agent-switcher' } });
+    expect(frames(s2).at(-1)).toEqual({
+      type: 'ui_intent',
+      event: { intent: { type: 'show-agent-switcher' } },
+      seq: 2, // the device-2 intent consumed no seq either — routing precedes the buffer
+    });
+    bridge.dispose();
+  });
+
   it('regression: the WS createWsHandler path stamps NO seq', () => {
     const { session, fire } = fakeSession();
     const sent: unknown[] = [];

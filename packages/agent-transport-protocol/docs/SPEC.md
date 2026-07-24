@@ -23,8 +23,14 @@ abort/...` from inbound `TClientMessage`s) + `cleanup()`. Framework-agnostic: wo
   `session.executeCommand(name, args, 'remote', driverId)` so the session executes host actions
   host-side BEFORE `command_result` is sent (the pre-CMD-004 handler dropped `result.effects` on the
   floor). The handler forwards the session's `ui_intent` events as `{ type: 'ui_intent', event }`
-  server messages (same pattern as `ask_request`); the event is requester-routed via
-  `event.requesterDriverId` and needs no answer (fire-and-forget).
+  server messages (same pattern as `ask_request`); the event needs no answer (fire-and-forget).
+  **Stage D — `ui_intent` is REQUESTER-ROUTED server-side:** `subscribeSessionEvents` delivers an
+  intent only when `event.requesterDriverId` matches THIS surface's server-assigned driver id (read
+  lazily via `ISubscribeSessionEventsOptions.getSurfaceDriverId` — lazy because the resume bridge
+  binds its id only at pairing). Other surfaces never see it. An UNATTRIBUTED intent (no requester
+  id — e.g. an idle model-invoked command) is unroutable and reaches every surface (never a silent
+  drop). In the `SessionResumeBridge`, routing happens BEFORE seq-stamping/buffering, so a foreign
+  surface's intent consumes no seq and cannot leak through a later `resume` replay.
 - **REMOTE-014 E5 co-drive attribution (SERVER-ASSIGNED, display-only).** `IWsHandlerOptions.driverId` binds a
   surface's server-assigned driver id (the E3 `deviceId`; the SessionResumeBridge sets it at pairing via
   `setDriverId`). The handler INJECTS it into every inbound `submit` / `permission-response` / `ask-response`

@@ -20,7 +20,8 @@
  */
 
 import { ResumeBuffer, type IResumeBufferOptions } from './resume-buffer.js';
-import { handleClientMessage, parseClientMessage, subscribeSessionEvents } from './ws-handler.js';
+import { handleClientMessage, parseClientMessage } from './ws-handler.js';
+import { subscribeSessionEvents } from './ws-session-events.js';
 
 import type { TSeqServerMessage, TServerMessage } from './ws-protocol.js';
 import type { IInteractiveSession, TDriverId } from '@robota-sdk/agent-interface-transport';
@@ -62,7 +63,12 @@ export class SessionResumeBridge {
     this.buffer = new ResumeBuffer(options.buffer);
     this.driverId = options.driverId;
     // ONE subscription for the whole session — outlives every channel. Every event → seq-stamped + buffered.
-    this.unsubscribe = subscribeSessionEvents(this.session, (message) => this.emit(message));
+    // CMD-004 Stage D: `ui_intent` is requester-routed against the LATE-BOUND driver id (bound by
+    // `setDriverId` after pairing) — routing happens BEFORE buffering, so a foreign surface's intent
+    // consumes no seq and can never leak through a later `resume` replay.
+    this.unsubscribe = subscribeSessionEvents(this.session, (message) => this.emit(message), {
+      getSurfaceDriverId: () => this.driverId,
+    });
   }
 
   /** Set the current channel sink (on connect / reconnect). Live messages reach the client; replay is `resume`-driven. */

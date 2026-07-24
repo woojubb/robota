@@ -321,8 +321,14 @@ describe('WebSocket Transport Handler', () => {
     ).toHaveBeenCalledWith('settings', '', 'remote', 'device-7');
   });
 
-  it('forwards ui_intent session events to the client (CMD-004 Phase 2)', () => {
-    const { sent, session } = setup();
+  it('forwards ui_intent session events to the requesting client (CMD-004 Phase 2)', () => {
+    const session = createMockSession();
+    const sent: TServerMessage[] = [];
+    createWsHandler({
+      session: session as unknown as IInteractiveSession,
+      send: (msg) => sent.push(msg),
+      driverId: 'device-7',
+    });
     session._emit('ui_intent', {
       intent: { type: 'show-settings' },
       requesterDriverId: 'device-7',
@@ -333,6 +339,60 @@ describe('WebSocket Transport Handler', () => {
         event: { intent: { type: 'show-settings' }, requesterDriverId: 'device-7' },
       },
     ]);
+  });
+
+  // CMD-004 Stage D — `ui_intent` is REQUESTER-ROUTED (the spec's Key mechanics): the surface that
+  // issued the command renders the intent; other surfaces never see it. Only an UNATTRIBUTED intent
+  // (no requester id — e.g. an idle model-invoked command) reaches every surface, because it cannot
+  // be routed and a silent drop is banned.
+  describe('ui_intent requester routing (CMD-004 Stage D)', () => {
+    function twoSurfaces() {
+      const session = createMockSession();
+      const sentA: TServerMessage[] = [];
+      const sentB: TServerMessage[] = [];
+      createWsHandler({
+        session: session as unknown as IInteractiveSession,
+        send: (msg) => sentA.push(msg),
+        driverId: 'device-A',
+      });
+      createWsHandler({
+        session: session as unknown as IInteractiveSession,
+        send: (msg) => sentB.push(msg),
+        driverId: 'device-B',
+      });
+      return { session, sentA, sentB };
+    }
+
+    it('routes a requester-stamped intent ONLY to the invoking surface — not broadcast', () => {
+      const { session, sentA, sentB } = twoSurfaces();
+      session._emit('ui_intent', {
+        intent: { type: 'show-session-picker' },
+        requesterDriverId: 'device-A',
+      });
+      expect(sentA).toEqual([
+        {
+          type: 'ui_intent',
+          event: { intent: { type: 'show-session-picker' }, requesterDriverId: 'device-A' },
+        },
+      ]);
+      expect(sentB).toEqual([]);
+    });
+
+    it('an unattributed intent reaches every surface (unroutable — never silently dropped)', () => {
+      const { session, sentA, sentB } = twoSurfaces();
+      session._emit('ui_intent', { intent: { type: 'show-settings' } });
+      expect(sentA).toEqual([{ type: 'ui_intent', event: { intent: { type: 'show-settings' } } }]);
+      expect(sentB).toEqual(sentA);
+    });
+
+    it("a surface with NO server-assigned id never receives another surface's intent", () => {
+      const { sent, session } = setup(); // setup() builds a handler without a driverId
+      session._emit('ui_intent', {
+        intent: { type: 'show-agent-switcher' },
+        requesterDriverId: 'device-elsewhere',
+      });
+      expect(sent).toEqual([]);
+    });
   });
 
   it('invalid JSON sends protocol_error', () => {
