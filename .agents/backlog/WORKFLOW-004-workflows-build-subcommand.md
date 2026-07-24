@@ -30,6 +30,11 @@ how an `ICommandModule` reaches the session's model provider.
 
 - Additive to `packages/agent-command-workflows` — no re-architecting of the shipped subcommands.
 - Follow the spec-first pipeline (GATE-WRITE onward) since this adds a model-facing product surface.
+- 2026-07-25: **spec drafted** — `.agents/spec-docs/draft/WORKFLOW-004-workflows-build-subcommand.md`
+  (GATE-WRITE draft). Decision proposed there: `build` = author→validate→save, never execute, reusing
+  the FLOW-007 authoring pipeline + its provider seam (injected `providerDefinitions`, lazy
+  `createProviderFromSettings`, `resolveProvider` test seam); a CMD-004 `ICommandHostAdapters` `model`
+  adapter was weighed and deferred as the joint `create`+`build` migration path.
 
 ## Test Plan
 
