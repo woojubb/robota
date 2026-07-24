@@ -1,6 +1,7 @@
 ---
 title: 'HARNESS-DIET-003: remove dead/vacuous scans + consolidate thin ones'
-status: todo
+status: done
+completed: 2026-07-24
 created: 2026-07-23
 priority: high
 urgency: soon
@@ -9,6 +10,12 @@ depends_on: []
 ---
 
 # HARNESS-DIET-003: scans — remove dead/vacuous + consolidate
+
+## Outcome (DONE 2026-07-24)
+
+All items closed across #1282 (dead scripts), #1290 (document-authority gate + 2 merges), #1299 (file-size
+ratchet, owner-preapproved), #1302 (spec-surface ratchet, consistency split, conformance+react-free merges).
+Registry 63→59; every change red-proven.
 
 ## Progress (2026-07-23)
 

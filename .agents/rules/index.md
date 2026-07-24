@@ -12,7 +12,7 @@ All rules are mandatory and non-negotiable. Domain-specific rules live in
 | API Boundary      | [api-boundary.md](api-boundary.md)                         | Pointer stub — API specification and app lifecycle rules live in [operational.md](operational.md) |
 | Naming & Style    | [naming-style.md](naming-style.md)                         | Language policy, agent identity, styling                                                          |
 | Git & Branch      | [git-branch.md](git-branch.md)                             | Git operations and branch policy                                                                  |
-| Frontend          | [frontend.md](frontend.md)                                 | React only, Next.js for SSR, VitePress exception                                                  |
+| Frontend          | [frontend.md](frontend.md)                                 | React only, Next.js for SSR, Tailwind-only styling                                                |
 | Common Mistakes   | [common-mistakes.md](common-mistakes.md)                   | Observed failure patterns                                                                         |
 | Agent Conduct     | [agent-conduct.md](agent-conduct.md)                       | RCP conduct authority (precedence on conflict)                                                    |
 | Memory Mirroring  | [memory-mirroring.md](memory-mirroring.md)                 | Session/host memory writes must be mirrored to in-repo `.agents/memory/`                          |
