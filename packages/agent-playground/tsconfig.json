@@ -5,6 +5,7 @@
     "outDir": "./dist",
     "jsx": "react-jsx",
     "moduleResolution": "Bundler",
+    "types": ["node"],
     "paths": {
       "@/*": ["./src/*"]
     }
