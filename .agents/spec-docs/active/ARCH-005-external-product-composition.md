@@ -414,19 +414,19 @@ legitimate product-shell and **stays in `agent-cli`**. Only the narrow product-n
 `agent-product`. The boundary is drawn precisely so reviewers can confirm the kernel is **closed over
 data**:
 
-| Concern                                                                                                                        | Destination                                             | Rationale                                                                          |
-| ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| External-preset registration + preset-resolve glue (`loadExternalPresets` result → per-call resolver)                          | **In-kernel** (`agent-product`)                         | pure fold over preset DATA (settings/file read happens in shell, result passed in) |
-| Command-module selection / merge glue                                                                                          | **In-kernel**                                           | pure selection over module DATA                                                    |
-| `mergeCapabilityPacks` (additive pack merge)                                                                                   | **In-kernel**                                           | pure fold, additive analog of `resolvePreset`                                      |
-| Provider construction FROM `IProviderDefinition[]` + already-resolved settings                                                 | **In-kernel**                                           | pure over definitions + injected settings data (no settings-file read)             |
-| Runtime-build **delegation** to `buildRuntimeSession`/`startRuntimeHost`                                                       | **In-kernel** (delegates, never re-implements — see R2) | single framework seam                                                              |
-| `init` / `--configure` / `ensureConfig` flows                                                                                  | **Stays-in-shell** (`agent-cli`)                        | interactive IO, file writes                                                        |
-| All `terminal.write*` notices / first-run onboarding                                                                           | **Stays-in-shell**                                      | presentation                                                                       |
-| Session resume / continue / fork UX                                                                                            | **Stays-in-shell**                                      | interactive UX + store IO                                                          |
-| Arg parsing; settings/env reads                                                                                                | **Stays-in-shell**                                      | resolves inputs, feeds resolved DATA into the kernel                               |
-| Mode dispatch (print / serve / TUI) + `process.exit`                                                                           | **Stays-in-shell**                                      | presentation + process lifecycle                                                   |
-| Concrete transports (`WsTransport`), TUI (`renderApp`/`createDefaultTuiCliAdapter`), remote-control, `createDefault*` adapters | **Stays-in-shell** (injected into the profile)          | concrete I/O adapters                                                              |
+| Concern                                                                                                                        | Destination                                                                                                | Rationale                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| ------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| External-preset registration + preset-resolve glue (`loadExternalPresets` result → per-call resolver)                          | **In-kernel** for external consumers; the SHELL keeps the module-global registry (ARCH-007 B2, option iii) | pure fold over preset DATA (settings/file read happens in shell, result passed in). Corrected by ARCH-007: `robota` resolves through `agent-preset`'s module-global registry because the resolved preset is needed BEFORE the base command modules are built AND the in-session `/preset` command reads that same registry — moving only the shell to the instance registry would SPLIT that SSOT. `IAssembledProduct.resolvePreset` is the external-consumer path; the shell feeds the same loaded presets into the profile, so the two agree (anti-split test) |
+| Command-module selection / merge glue                                                                                          | **In-kernel**                                                                                              | pure selection over module DATA                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `mergeCapabilityPacks` (additive pack merge)                                                                                   | **In-kernel**                                                                                              | pure fold, additive analog of `resolvePreset`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| Provider construction FROM `IProviderDefinition[]` + already-resolved settings                                                 | **In-kernel**                                                                                              | pure over definitions + injected settings data (no settings-file read)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| Runtime-build **delegation** to `buildRuntimeSession`/`startRuntimeHost`                                                       | **In-kernel** (delegates, never re-implements — see R2)                                                    | single framework seam                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `init` / `--configure` / `ensureConfig` flows                                                                                  | **Stays-in-shell** (`agent-cli`)                                                                           | interactive IO, file writes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| All `terminal.write*` notices / first-run onboarding                                                                           | **Stays-in-shell**                                                                                         | presentation                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Session resume / continue / fork UX                                                                                            | **Stays-in-shell**                                                                                         | interactive UX + store IO                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| Arg parsing; settings/env reads                                                                                                | **Stays-in-shell**                                                                                         | resolves inputs, feeds resolved DATA into the kernel                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| Mode dispatch (print / serve / TUI) + `process.exit`                                                                           | **Stays-in-shell**                                                                                         | presentation + process lifecycle                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| Concrete transports (`WsTransport`), TUI (`renderApp`/`createDefaultTuiCliAdapter`), remote-control, `createDefault*` adapters | **Stays-in-shell** (injected into the profile)                                                             | concrete I/O adapters                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 
 **The DATA seam (what crosses into `assembleProduct` vs what stays behind — R4).** Everything the kernel
 consumes is plain, already-resolved DATA supplied by the shell; nothing the kernel does reaches back out to
@@ -897,13 +897,21 @@ backed by `scripts/external-proof/` (`pnpm proof:external`) — 65 assertions, a
       nothing registered, a consumer-authored `ICapabilityPack` merges additively in `base ⊕ packs` order,
       and a deliberate id collision is **reported on the rejection channel** (distinct base-vs-pack reasons,
       first registration wins) rather than silently dropped or overridden.
-- [ ] **TC-4 (Mode C: tool axis)** — **PARTIALLY MET, and deliberately not checked.** A pack tool the
-      framework does not already ship IS additive through `buildRuntime`/`buildRuntimeOptions` (proven). But
-      `createSession` assembles `[...createDefaultTools(), ...additionalTools]` with no dedupe and no
-      suppression hook, so a pack can neither remove nor replace a framework default, and a pack whose tools
-      duplicate the defaults (as `pack-coding`'s do by design) would be listed twice — which is why
-      `robota`'s own surfaces still take their tools from `createDefaultTools()`. Tracked by
-      **[ARCH-006](../../backlog/ARCH-006-framework-tool-axis-neutrality.md)**.
+- [x] **TC-4 (Mode C: tool axis)** — **MET by ARCH-006.** `createSession` no longer hard-codes its tool
+      set: `defaultTools` REPLACES the `createDefaultTools()` tier (`[]` suppresses it entirely — the
+      tool-axis mirror of NEUT-003's `builtInAgents`), and the assembled list
+      `defaultTools ⊕ additionalTools ⊕ goalTool` is **deduplicated by tool name, first occurrence wins**
+      (the rule `AgentDefinitionLoader` already applies within the subagent built-in tier). So a pack tool
+      with a NEW name is additive, a pack whose tools mirror the framework defaults is deduped rather than
+      listed twice, and a profile that passes `defaultTools: []` hands its packs the whole tool surface —
+      removing a pack then removes its tools. A name collision keeps the framework default and drops the
+      contribution, because the default tier is built WITH the session context (`cwd` supplies
+      `agent-tools`' working-directory path guard) and an already-constructed contribution carries none of
+      it; replacement is expressible only through the explicit `defaultTools` seam. Measured from the
+      published surface by `pnpm proof:external` § C5 (6 assertions) and in-repo by 8 red-first framework
+      cases. **One residual, disclosed:** `robota`'s own profile does NOT pass `defaultTools: []`, because
+      `pack-coding` ships pre-constructed, context-free tool instances — see the ARCH-006/007 evidence
+      entry below and the follow-up backlog item.
 - [x] **TC-5 (published-surface sufficiency)** — the proof installs real `pnpm pack` tarballs via
       `npm install` (no workspace link, no relative import, `npm overrides` pinning every `@robota-sdk/*`
       specifier so nothing resolves from the registry) and type-checks with `skipLibCheck: false` against the
@@ -911,13 +919,18 @@ backed by `scripts/external-proof/` (`pnpm proof:external`) — 65 assertions, a
 - [x] **TC-6 (reproducible + opt-in)** — the fixture and runner are committed at `scripts/external-proof/`
       and re-runnable with `pnpm proof:external`; they are excluded from the default test suite because they
       pack and install.
-- [ ] **TC-7 (robota eats its own runtime seam)** — **NOT MET, carried from the S2 disclosure.** `cli.ts`
-      consumes the kernel's MATERIALS but not `product.buildRuntime`/`buildRuntimeOptions` nor
-      `product.resolvePreset`. Neither is a kernel defect and neither affects any external mode, but the
-      dogfooding claim is weaker than the boundary table states. Tracked by
-      **[ARCH-007](../../backlog/ARCH-007-robota-consumes-kernel-runtime-seam.md)** — which S3 had to FILE,
-      because the S2 entry's "tracked by the follow-up backlog items filed from the review (B1/B2)" pointed
-      at items that were never actually created.
+- [x] **TC-7 (robota eats its own runtime seam)** — **MET by ARCH-007.** `startCli` now calls
+      `product.buildRuntimeOptions(...)`: the shell resolves its own session inputs and the kernel lays the
+      product-owned materials on top (pack tools → `additionalTools`, pack subagents → `agentDefinitions`,
+      the default preset's `permissionMode` when the shell left it unset), and all three surfaces bind to
+      that ONE result. The hand-threaded `product.subagents` path and the three per-surface
+      `args.permissionMode ?? resolvedPreset.permissionMode` expressions are deleted. **B2 decided
+      explicitly** (the spec's In-kernel table row is corrected below): the shell KEEPS `agent-preset`'s
+      module-global registry as its preset SSOT — option (iii) — because the resolved preset is needed
+      BEFORE the base command modules are built and the in-session `/preset` command reads that same
+      registry; `IAssembledProduct.resolvePreset` is the instance-scoped external-consumer path, and the two
+      cannot split because the shell feeds the presets it registered into the profile (asserted by a
+      dedicated anti-split test).
 
 ## Evidence Log
 
@@ -1249,3 +1262,104 @@ Completion Criteria are not met and the done-gate is not a place to round up:
 Neither blocks an external consumer, which is why S3 is recorded as ✅ IMPLEMENTED. Both are real gaps against
 what THIS spec claims, which is why the spec is **not** moved to `done/`. It moves `todo/` → `active/` with
 `status: in-progress` and closes when ARCH-006 and ARCH-007 land.
+
+### [ARCH-006 + ARCH-007] — ✅ IMPLEMENTED (tool axis at parity + robota eats the runtime seam) | 2026-07-25
+
+The two halves of one seam, filed separately only because they sit in different packages. Both TC-4 and
+TC-7 now carry real evidence.
+
+**ARCH-006 — the framework tool axis (`agent-framework`).** `createSession` no longer hard-codes its tool
+set. Two scoped additive seams, mirroring the adjacent NEUT-003 / ARCH-005 subagent precedent exactly:
+
+- **`defaultTools`** REPLACES the `createDefaultTools()` tier; `[]` suppresses it entirely. Same semantics
+  as NEUT-003's `builtInAgents`, threaded through the same option hops `agentDefinitions` uses
+  (`ICreateSessionOptions` → `IInitOptions` → `IInteractiveSessionStandardOptions`).
+- **Name dedupe** over the fixed tier order `defaultTools ⊕ additionalTools ⊕ goalTool`, **first occurrence
+  wins** — the rule `AgentDefinitionLoader` already applies within the subagent built-in tier.
+
+Absent `defaultTools` and absent a duplicate name, every path is byte-identical. Documented in
+`packages/agent-framework/docs/SPEC.md` § "Session-level tool composition", beside the `agentDefinitions`
+seam table, with the precedence stated and reconciled against it.
+
+> **The precedence question the backlog demanded be answered — and why it points the OTHER way than
+> `agentDefinitions`.** For subagents the injected tier is placed FIRST, so a pack overrides a built-in. For
+> tools a collision keeps the FRAMEWORK default and drops the contribution. The reason was found by
+> measurement, not preference: the default tier is constructed WITH the session context, and `cwd` is what
+> arms `agent-tools`' working-directory path guard. Measured directly —
+> `createDefaultTools({cwd}).Read('/etc/hostname')` → `Access denied: … is outside the working directory`;
+> `codingPack.tools.Read('/etc/hostname')` → **reads the file**, because `checkPathWithinCwd` is a no-op
+> when `cwd` is `undefined` and a pack's tools are constructed at module load with no options. Letting a
+> name collision silently swap a context-free instance in for a context-bound one would have shipped a
+> silent security regression. Replacement stays fully expressible — through the EXPLICIT `defaultTools`
+> seam, never as a side effect of a collision. That is `mergeCapabilityPacks`' own rule (additive merge,
+> never a silent override), applied to tools.
+
+The edit-checkpoint wrap now covers the assembled, deduplicated set rather than the default tier alone, so
+a pack-contributed `Write`/`Edit` is checkpointed too (byte-identical when none is contributed).
+
+**ARCH-007 — `robota` consumes the runtime seam (`agent-cli`, `agent-product`).** `startCli` calls
+`product.buildRuntimeOptions(...)` once, through the shipped `buildRobotaRuntimeOptions` helper. The shell
+resolves its own session inputs — the preset's module-selection delta over the merged `base ⊕ packs`
+superset, and the explicit `--permission-mode` — and the kernel lays the product-owned materials on top:
+pack tools → `additionalTools`, pack subagents → `agentDefinitions`, and the default preset's
+`permissionMode` when the shell left it unset. All three surfaces bind to that ONE result. Deleted: the
+hand-threaded `const agentDefinitions = product.subagents` and the three per-surface
+`args.permissionMode ?? resolvedPreset.permissionMode` expressions.
+
+`agent-product`: `buildRuntimeOptions` no longer overwrites a caller-supplied `commandModules`. Routing
+`robota` through the seam would otherwise have silently undone its preset delta — the assembled set is now
+overlaid only when the caller left it unset, the same rule `permissionMode` already followed.
+
+**B2 decided (option iii), and the In-kernel table row corrected.** The shell KEEPS `agent-preset`'s
+module-global registry as its preset SSOT: the resolved preset is needed BEFORE the base command modules
+are built, and the in-session `/preset` command reads that same registry, so moving only the shell to the
+instance registry would split it. `IAssembledProduct.resolvePreset` is the external-consumer path. An
+anti-split test registers an external preset and asserts it resolves IDENTICALLY through both.
+
+**Evidence.**
+
+- Red-first both halves: 4 of 8 new framework cases failed before ARCH-006; all 6 new agent-cli cases
+  failed before the ARCH-007 helper existed.
+- **Mutation-proven, not accidentally green:** dropping the pack tools from the kernel overlay in
+  `assemble-product.ts` fails the tool assertion (1 failed / 6 passed); reverted → 7/7.
+- **The pack-removal proof** (`robota-runtime-seam.test.ts`): stripping `packs` from the profile the shell
+  built — changing nothing else — drops all 10 coding tools AND all 3 coding subagents from robota's
+  runtime options (`additionalTools` → `[]`, `agentDefinitions` → `undefined`). It calls the SHIPPED
+  helpers (`buildCommandSetup`, `createRobotaProfile`, `selectProductCommandModules`,
+  `buildRobotaRuntimeOptions`), never a re-implementation — the S2 F4 lesson.
+- `pnpm proof:external` — **68 assertions, exit 0** (was 65). § C5 is rewritten from "the tool axis's
+  limitation" to "the tool axis at PARITY", and now MEASURES from the published surface that the overlay
+  carries every name-identical pack tool without duplication, that `defaultTools: []` is accepted by the
+  shipped `.d.ts` (`skipLibCheck: false`) and builds a live `InteractiveSession`, and that with the tier
+  suppressed every tool comes from the profile's packs.
+- Full suites green: `agent-framework` 1269, `agent-transport-tui` 526, `agent-cli` 255 (incl. the ARCH-005
+  equivalence suite, unchanged and still green — no pinned literal went stale), `agent-preset` 71,
+  `agent-product` 11, `agent-capability-pack` 7, `pack-coding` 5 — **2144 tests**. `pnpm -w typecheck`
+  clean; `pnpm harness:verify-like-ci` green; the real `robota` binary runs.
+
+**RESIDUAL — disclosed, not rounded up.** Two hops remain, and neither is a defect in the seams above:
+
+1. **`robota`'s own profile does not pass `defaultTools: []`.** The seam that would let `pack-coding` own
+   robota's tool surface exists and is proven; robota does not use it because `ICapabilityPack.tools` is a
+   list of PRE-CONSTRUCTED tool instances and `pack-coding` builds them at module load with no options —
+   so suppressing the framework tier would hand robota `Read`/`Write`/`Edit` with the working-directory
+   path guard disarmed (measured above). Closing it needs `pack-coding` to export a
+   `createCodingPack({ cwd, sandboxClient })` factory (its own SPEC comment already anticipates that
+   shape), which is outside this change's file ownership. Until then robota's effective tool list is
+   framework-sourced and the pack's tools dedupe against it — behaviour byte-identical, and the overlay is
+   genuinely exercised.
+2. **`additionalTools` reaches `--serve` but not print/TUI.** `runServeMode` builds its session options in
+   `agent-cli`, so the overlay's tools are forwarded there. The print and TUI channels build theirs inside
+   `agent-transport` / `agent-transport-tui` and still need the same one-line optional pass-through the
+   Decision-2 `agentDefinitions` seam already has. With first-wins dedupe and robota's name-identical pack
+   tools this is behaviourally inert today, so the surfaces do not diverge.
+
+Both are carried by **[ARCH-006](../../backlog/ARCH-006-framework-tool-axis-neutrality.md)**, which stays
+open (`status: in-progress`) with the exact three-step remedy written down. **ARCH-007 is closed and
+archived** to `.agents/backlog/completed/`.
+
+**DISPOSITION AFTER ARCH-006/007 — the spec stays `active`.** TC-4 and TC-7 both now carry real evidence
+and are checked. But ARCH-006's own Test Plan asked for one thing more than the framework seam — "`robota`
+sourcing tools from `pack-coding` instead of the framework default" — and that is not done, for the
+measured reason above. The done-gate is not a place to round up: the spec closes when the ARCH-006
+residual lands.

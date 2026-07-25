@@ -6,16 +6,16 @@
  * `pack-coding`; and a deliberate id collision is REPORTED on the rejection channel rather than silently
  * dropped or silently overridden.
  *
- * HONEST LIMITATION (recorded, not papered over). The pack TOOL axis is additive only through
- * `buildRuntime` / `buildRuntimeOptions`. `agent-framework`'s `createSession` hard-codes
- * `createDefaultTools()` and concatenates `additionalTools` without dedupe, so `robota`'s OWN surfaces
- * still take their tools from that framework default rather than from the pack. The command-module and
- * subagent axes ARE additive on both paths (subagents via the `agentDefinitions` injection seam). This
- * mode therefore exercises the tool axis THROUGH `buildRuntimeOptions` and asserts exactly that.
+ * TOOL AXIS (ARCH-006). All three axes are now additive on the same terms. `agent-framework`'s
+ * `createSession` no longer hard-codes its default tool set: `defaultTools` REPLACES that tier (`[]`
+ * suppresses it entirely) and the assembled list is deduped BY NAME, first occurrence wins. So a pack
+ * contributing a NEW tool is additive, a pack whose tools mirror the framework defaults is no longer
+ * DUPLICATED, and a product profile can hand the whole tool surface to its packs. Section C5 measures
+ * each of those from the published surface.
  */
 
 import { mergeCapabilityPacks } from '@robota-sdk/agent-capability-pack';
-import { createDefaultTools } from '@robota-sdk/agent-framework';
+import { createDefaultTools, InteractiveSession } from '@robota-sdk/agent-framework';
 import { assembleProduct } from '@robota-sdk/agent-product';
 import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider-defaults';
 import { codingPack } from '@robota-sdk/pack-coding';
@@ -164,9 +164,7 @@ export function runModeC(): void {
     'the subagent axis reaches the runtime via the agentDefinitions injection seam',
     (options.agentDefinitions ?? []).some((definition) => definition.name === 'acme-triager'),
   );
-  section(
-    "C5 — the tool axis's limitation, VERIFIED from the published surface (not just asserted)",
-  );
+  section('C5 — the tool axis at PARITY with the command and subagent axes (ARCH-006)');
   const frameworkDefaultToolNames = createDefaultTools().map((tool) => tool.getName());
   const codingPackToolNames = (codingPack.tools ?? []).map((tool) => tool.getName());
   check(
@@ -175,27 +173,77 @@ export function runModeC(): void {
       (options.additionalTools ?? []).some((tool) => tool.getName() === 'AcmeTicketLookup'),
   );
   checkEqual(
-    "but pack-coding's tools are name-identical to the framework default set",
+    "pack-coding's tools are name-identical to the framework default set (by design)",
     codingPackToolNames,
     frameworkDefaultToolNames,
   );
   check(
-    'and the overlay only APPENDS to additionalTools — it cannot suppress the framework defaults',
+    'and every one of them is overlaid — the framework now DEDUPES them by name instead of listing ' +
+      'each tool twice',
     codingPackToolNames.every((name) =>
       (options.additionalTools ?? []).some((tool) => tool.getName() === name),
     ),
   );
+
+  // The suppression seam, exercised on the PUBLISHED surface: `defaultTools: []` is accepted by the
+  // shipped `.d.ts` (this file type-checks with skipLibCheck:false) and builds a live session in which
+  // the framework contributes NO tool of its own — so the profile's packs own the whole tool surface.
+  const packOwnedSession = product.buildRuntime({
+    session: {
+      cwd: process.cwd(),
+      provider: product.provider!,
+      bare: true,
+      defaultTools: [],
+    },
+  });
+  check(
+    'a consumer can SUPPRESS the framework default tier (`defaultTools: []`) and still build a session',
+    packOwnedSession instanceof InteractiveSession,
+  );
+  const packOwnedOptions = asStandardOptions(
+    product.buildRuntimeOptions({
+      session: {
+        cwd: process.cwd(),
+        provider: product.provider!,
+        bare: true,
+        defaultTools: [],
+      },
+    }),
+  );
+  checkEqual(
+    'with the tier suppressed, every tool in the session comes from the profile’s packs',
+    (packOwnedOptions.additionalTools ?? []).map((tool) => tool.getName()),
+    [...codingPackToolNames, 'AcmeTicketLookup'],
+  );
+  checkEqual(
+    'and the suppression is carried, not silently dropped',
+    (packOwnedOptions.defaultTools ?? ['NOT-SUPPRESSED']).length,
+    0,
+  );
+
   note(
-    'THEREFORE, precisely: `createSession` assembles `[...createDefaultTools(), ...additionalTools]` with ' +
-      'no dedupe and no suppression hook. A consumer pack contributing a NEW tool is fully additive. A ' +
-      'pack contributing a tool the framework already ships (as pack-coding does, deliberately) would be ' +
-      "DUPLICATED, and no pack can remove or replace a framework default. That is why robota's own " +
-      'surfaces still take their tools from createDefaultTools() rather than from the pack.',
+    'THEREFORE, precisely: `createSession` assembles `defaultTools ⊕ additionalTools ⊕ goalTool` and ' +
+      'deduplicates by tool name (FIRST occurrence wins). A pack contributing a NEW tool is additive; a ' +
+      'pack contributing a tool the framework already ships is deduped, never duplicated; and a product ' +
+      'that wants its packs to OWN the tool surface passes `defaultTools: []`. Removing a pack from such ' +
+      'a profile removes its tools from the product — the same load-bearing property the command and ' +
+      'subagent axes already had.',
   );
   note(
-    'SCOPE OF THE CLAIM: the tool axis is additive through buildRuntime/buildRuntimeOptions for NEW tools ' +
-      'only; making the framework default tool set injectable/suppressible is out of ARCH-005 scope and is ' +
-      'filed as ARCH-006. Nothing stronger is claimed here.',
+    'PRECEDENCE, and why it points this way: a name collision keeps the FRAMEWORK default and drops the ' +
+      'contribution, rather than the reverse. The default tier is constructed WITH the session context ' +
+      "(cwd supplies agent-tools' working-directory path guard, plus the sandbox client and retrieval " +
+      'adapter); an already-constructed pack tool carries none of it, so letting a collision silently ' +
+      'swap one in would weaken a security guarantee. Replacement stays fully expressible through the ' +
+      'EXPLICIT `defaultTools` seam — never as a side effect of a collision. This mirrors ' +
+      "mergeCapabilityPacks' own rule: additive merge, never a silent override.",
+  );
+  note(
+    "NOT MEASURABLE FROM OUTSIDE: the framework exposes no public accessor for a built session's final " +
+      'tool list, so the dedupe ITSELF is measured in-repo (agent-framework ' +
+      'src/__tests__/create-session-default-tools.test.ts, 8 red-first cases). What this proof measures ' +
+      'from the published surface is the seam that makes it reachable: the `defaultTools` option on the ' +
+      'shipped session-options type, and the overlay that carries the pack tools into it.',
   );
   note(
     'COMMAND + SUBAGENT AXES: fully additive — command modules are passed as data and subagents arrive ' +
