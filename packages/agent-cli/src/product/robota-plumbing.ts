@@ -23,6 +23,8 @@ import type {
   ICommandModule,
   IUnknownCommandModuleName,
 } from '@robota-sdk/agent-framework';
+import { ROBOTA_PACKS_OWN_TOOL_SURFACE } from './robota-profile.js';
+
 import type { IAssembledProduct } from '@robota-sdk/agent-product';
 import type { IResolvedPresetOptions } from '@robota-sdk/agent-preset';
 
@@ -157,6 +159,16 @@ export interface IRobotaRuntimeOptions {
   commandModules: readonly ICommandModule[];
   additionalTools: IToolWithEventService[];
   agentDefinitions: readonly IAgentDefinition[];
+  /**
+   * ARCH-006: the framework's `createDefaultTools()` tier, REPLACED. `robota` passes
+   * `ROBOTA_PACKS_OWN_TOOL_SURFACE` (empty), so every tool the session runs arrives from a capability pack
+   * via `additionalTools` — dropping a pack drops its tools from the product.
+   *
+   * Deliberately NOT defaulted to `[]` on the way out: an ABSENT tier (the framework builds its own) and a
+   * SUPPRESSED tier (the packs own it) are different products, and collapsing them would let the
+   * acceptance gate pass while the suppression was silently gone.
+   */
+  defaultTools?: readonly IToolWithEventService[];
   permissionMode?: TPermissionMode;
 }
 
@@ -175,6 +187,9 @@ export function buildRobotaRuntimeOptions(input: IRobotaRuntimeSeamInput): IRobo
       cwd: input.cwd,
       provider: input.provider,
       commandModules: input.selectedCommandModules,
+      // ARCH-006: hand the tool axis to the packs. The kernel's overlay appends their tools to
+      // `additionalTools`; suppressing the framework tier here is what makes the packs the SOLE source.
+      defaultTools: ROBOTA_PACKS_OWN_TOOL_SURFACE,
       ...(input.permissionMode !== undefined ? { permissionMode: input.permissionMode } : {}),
     },
   });

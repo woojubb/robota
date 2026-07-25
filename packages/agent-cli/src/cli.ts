@@ -25,7 +25,11 @@ import type { IParsedCliArgs } from './utils/cli-args.js';
 import { resolveCliPreset, selectPresetId } from './startup/preset-selection.js';
 import { DEFAULT_AGENT_NAME, getPreset, loadExternalPresets } from '@robota-sdk/agent-preset';
 import type { IPreset, IResolvedPresetOptions } from '@robota-sdk/agent-preset';
-import { createRobotaProfile, ROBOTA_PACK_COMMAND_MODULE_NAMES } from './product/robota-profile.js';
+import {
+  createRobotaPacks,
+  createRobotaProfile,
+  packCommandModuleNames,
+} from './product/robota-profile.js';
 import {
   buildRobotaRuntimeOptions,
   createDefaultTransportRegistry,
@@ -197,6 +201,10 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   // session's runtime active-preset state. Pure state — no option re-application here.
   const selectedPresetId = selectPresetId(args, settingsPreset);
 
+  // ARCH-006: the packs are built HERE, from the shell's resolved `cwd`, because `pack-coding`'s file
+  // tools are scoped to it — a context-free pack would carry a disarmed working-directory path guard.
+  const packs = createRobotaPacks({ cwd });
+  const packCommandModules = packCommandModuleNames(packs);
   const {
     commandHostAdapters,
     providerDefinitions,
@@ -204,7 +212,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     fixedCommandModules,
     startupUpdateNoticePromise,
     remoteCommandPolicy,
-  } = buildCommandSetup(cwd, args, options, version, ROBOTA_PACK_COMMAND_MODULE_NAMES);
+  } = buildCommandSetup(cwd, args, options, version, packCommandModules);
   // REMOTE-008: the shell owns the transport registry + the remote-control controller (it has settings, the
   // registry, and — via onChannelReady — the live session), and injects the registry into the profile. The
   // `/remote-control` command is a declarative trigger; the enable/stop wiring + status view are here.
@@ -219,7 +227,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   // base ⊕ pack NAME superset (no assembly needed), so it still fires before the init/--configure
   // early-returns exactly as it did before ARCH-005 S2.
   for (const { name, kind } of findUnknownPresetModuleNames(
-    mergedCommandModuleNames(baseCommandModules, ROBOTA_PACK_COMMAND_MODULE_NAMES),
+    mergedCommandModuleNames(baseCommandModules, packCommandModules),
     resolvedPreset,
   )) {
     terminal.writeError(
@@ -302,6 +310,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
       presets: externalPresets,
       defaultPresetId: selectedPresetId,
       baseCommandModules,
+      packs,
       backgroundTaskRunners,
       subagentRunnerFactory,
       transports: transportRegistry,
@@ -315,7 +324,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   }
 
   // ARCH-007 (B1): the kernel's RUNTIME SEAM — every surface below binds to THIS one result.
-  const { commandModules, agentDefinitions, additionalTools, permissionMode } =
+  const { commandModules, agentDefinitions, additionalTools, defaultTools, permissionMode } =
     buildRobotaRuntimeOptions({
       product,
       cwd,
@@ -372,6 +381,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
       backgroundTaskRunners,
       subagentRunnerFactory,
       agentDefinitions,
+      { additionalTools, defaultTools },
       commandModules,
       commandHostAdapters,
       { resumeSessionId, forkSession: args.forkSession },
@@ -408,6 +418,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
       subagentRunnerFactory,
       agentDefinitions,
       additionalTools,
+      defaultTools,
       commandModules,
       commandHostAdapters,
       transportRegistry,
@@ -477,6 +488,8 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     backgroundTaskRunners,
     subagentRunnerFactory,
     agentDefinitions,
+    additionalTools,
+    defaultTools,
     commandModules,
     commandHostAdapters,
     remoteCommandPolicy,

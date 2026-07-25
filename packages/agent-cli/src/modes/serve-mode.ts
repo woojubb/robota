@@ -59,6 +59,11 @@ export interface IServeModeOptions {
    * tier (first occurrence wins — see `agent-framework/docs/SPEC.md` § "Session-level tool composition").
    */
   additionalTools?: IToolWithEventService[];
+  /**
+   * ARCH-006: REPLACES `agent-framework`'s `createDefaultTools()` tier. `robota` passes an empty array so
+   * its capability packs are the SOLE source of the session's tools.
+   */
+  defaultTools?: readonly IToolWithEventService[];
   commandModules: readonly ICommandModule[];
   commandHostAdapters: ICommandHostAdapters;
   transportRegistry: ITransportRegistryView<IInteractiveSession>;
@@ -101,6 +106,7 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
     subagentRunnerFactory: opts.subagentRunnerFactory,
     ...(opts.agentDefinitions !== undefined ? { agentDefinitions: opts.agentDefinitions } : {}),
     ...(opts.additionalTools !== undefined ? { additionalTools: opts.additionalTools } : {}),
+    ...(opts.defaultTools !== undefined ? { defaultTools: opts.defaultTools } : {}),
     commandModules: opts.commandModules,
     commandHostAdapters: opts.commandHostAdapters,
     ...(opts.remoteCommandPolicy ? { remoteCommandPolicy: opts.remoteCommandPolicy } : {}),

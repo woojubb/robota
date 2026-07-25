@@ -32,8 +32,9 @@ import {
   selectProductCommandModules,
 } from '../product/robota-plumbing.js';
 import {
+  createRobotaPacks,
   createRobotaProfile,
-  ROBOTA_PACK_COMMAND_MODULE_NAMES,
+  packCommandModuleNames,
 } from '../product/robota-profile.js';
 import { buildCommandSetup } from '../startup/command-setup.js';
 
@@ -111,6 +112,11 @@ const BASELINE_CAREFUL_REVIEWER_POSTURE = {
 
 /* ── The NEW assembly, driven exactly as `startCli` drives it ─────────────────────────────────────── */
 
+const EQUIVALENCE_CWD = '/tmp/equivalence';
+/** The packs the shell builds — same factory, same cwd `startCli` would pass. */
+const ROBOTA_PACKS = createRobotaPacks({ cwd: EQUIVALENCE_CWD });
+const ROBOTA_PACK_COMMAND_MODULE_NAMES = packCommandModuleNames(ROBOTA_PACKS);
+
 const MINIMAL_ARGS = { noUpdateCheck: true } as unknown as IParsedCliArgs;
 
 /** Re-derive the shell's assembly for a given preset delta, mirroring `startCli` step for step. */
@@ -142,6 +148,7 @@ function assembleRobota(
       presets: [],
       defaultPresetId: 'default',
       baseCommandModules,
+      packs: ROBOTA_PACKS,
       backgroundTaskRunners: [],
       subagentRunnerFactory: (() => {
         throw new Error('not used');
@@ -262,6 +269,7 @@ describe('ARCH-005 S2 — the assembled robota runtime matches the pre-change ba
         presets: [],
         defaultPresetId: 'default',
         baseCommandModules: [],
+        packs: ROBOTA_PACKS,
         backgroundTaskRunners: [],
         subagentRunnerFactory: (() => {
           throw new Error('not used');
