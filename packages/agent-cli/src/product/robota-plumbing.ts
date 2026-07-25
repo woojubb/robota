@@ -17,8 +17,12 @@ import {
 import { TransportRegistry } from '@robota-sdk/agent-transport';
 import { WsTransport } from '@robota-sdk/agent-transport-ws';
 
-import type { IAIProvider } from '@robota-sdk/agent-core';
-import type { ICommandModule, IUnknownCommandModuleName } from '@robota-sdk/agent-framework';
+import type { IAIProvider, IToolWithEventService, TPermissionMode } from '@robota-sdk/agent-core';
+import type {
+  IAgentDefinition,
+  ICommandModule,
+  IUnknownCommandModuleName,
+} from '@robota-sdk/agent-framework';
 import type { IAssembledProduct } from '@robota-sdk/agent-product';
 import type { IResolvedPresetOptions } from '@robota-sdk/agent-preset';
 
@@ -121,4 +125,63 @@ export function selectProductCommandModules(
     ),
     ...fixedCommandModules,
   ];
+}
+
+/** The shell-resolved inputs `robota` hands to the kernel's runtime seam. */
+export interface IRobotaRuntimeSeamInput {
+  /** The assembled product whose overlay lays the product-owned materials on top. */
+  product: IAssembledProduct;
+  cwd: string;
+  provider: IAIProvider;
+  /** The shell's already-narrowed module selection (merged superset filtered by the preset delta). */
+  commandModules: readonly ICommandModule[];
+  /**
+   * An EXPLICIT permission mode (`--permission-mode`). Left undefined, the kernel overlays the default
+   * preset's posture — which is exactly the `args.permissionMode ?? resolvedPreset.permissionMode`
+   * expression each surface used to compute by hand.
+   */
+  permissionMode?: TPermissionMode;
+}
+
+/**
+ * The product-owned session options `robota`'s three presentation channels are bound to — produced by the
+ * KERNEL, not re-threaded by the shell.
+ *
+ * `buildRuntimeOptions` returns the `TInteractiveSessionOptions` UNION, so reading back the very fields the
+ * overlay just added requires narrowing to the standard branch (recorded as finding F1 of the ARCH-005 S3
+ * external proof). The shell supplies a standard-branch input, so the narrowing is sound; it is asserted
+ * rather than assumed.
+ */
+export interface IRobotaRuntimeOptions {
+  provider: IAIProvider;
+  commandModules?: readonly ICommandModule[];
+  additionalTools?: IToolWithEventService[];
+  agentDefinitions?: readonly IAgentDefinition[];
+  permissionMode?: TPermissionMode;
+}
+
+/**
+ * ARCH-007 (B1) — route `robota` through the composition kernel's RUNTIME SEAM.
+ *
+ * Before this, `cli.ts` consumed the kernel's MATERIALS but hand-threaded them into
+ * `runPrintMode` / `runServeMode` / `renderApp`, so the overlay — pack tools → `additionalTools`, pack
+ * subagents → `agentDefinitions`, the default preset's `permissionMode` — was exercised only by tests and
+ * by external Mode-A consumers, never by the reference product. Now the shell resolves its own session
+ * inputs, the kernel lays the product-owned materials on top, and every surface binds to that ONE result.
+ */
+export function buildRobotaRuntimeOptions(input: IRobotaRuntimeSeamInput): IRobotaRuntimeOptions {
+  const options = input.product.buildRuntimeOptions({
+    session: {
+      cwd: input.cwd,
+      provider: input.provider,
+      commandModules: input.commandModules,
+      ...(input.permissionMode !== undefined ? { permissionMode: input.permissionMode } : {}),
+    },
+  });
+  if ('session' in options) {
+    throw new Error(
+      'buildRobotaRuntimeOptions: the kernel returned the injected-session branch for a standard-construction input.',
+    );
+  }
+  return options;
 }

@@ -45,12 +45,18 @@ function overlaySessionOptions(
     base.permissionMode === undefined && materials.defaultPermissionMode !== undefined
       ? { permissionMode: materials.defaultPermissionMode }
       : {};
+  // ARCH-007: the shell may hand in a selection it has ALREADY narrowed — `robota` applies its preset's
+  // enabled/disabledCommandModules delta to the merged `base ⊕ packs` superset before calling the seam
+  // (the spec's composition order: the merge widens, the preset delta narrows). Overwriting it here would
+  // silently undo that narrowing, so the assembled set is overlaid only when the caller left it unset —
+  // the same "only when the shell left it unset" rule `permissionMode` already follows.
+  const commandModules = base.commandModules ?? materials.commandModules;
 
   if ('session' in base) {
     return {
       ...base,
       provider,
-      commandModules: materials.commandModules,
+      commandModules,
       ...permissionModeOverlay,
     };
   }
@@ -64,7 +70,7 @@ function overlaySessionOptions(
   return {
     ...base,
     provider,
-    commandModules: materials.commandModules,
+    commandModules,
     additionalTools: [
       ...(base.additionalTools ?? []),
       ...(materials.tools as readonly IToolWithEventService[]),

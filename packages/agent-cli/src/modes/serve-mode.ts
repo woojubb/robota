@@ -18,7 +18,7 @@ import { startRuntimeHost } from '@robota-sdk/agent-framework';
 
 import type { IParsedCliArgs } from '../utils/cli-args.js';
 import type { IMemorySessionOptions } from '../startup/memory-enablement.js';
-import type { IAIProvider } from '@robota-sdk/agent-core';
+import type { IAIProvider, IToolWithEventService } from '@robota-sdk/agent-core';
 import type {
   IAgentDefinition,
   IBackgroundTaskRunner,
@@ -53,6 +53,12 @@ export interface IServeModeOptions {
   subagentRunnerFactory: ReturnType<typeof createChildProcessSubagentRunnerFactory>;
   /** ARCH-005: composition-root-contributed subagent definitions (the profile's merged pack subagents). */
   agentDefinitions?: readonly IAgentDefinition[];
+  /**
+   * ARCH-006/007: the profile's merged pack TOOLS, laid on by the kernel overlay. Forwarded to the
+   * session's `additionalTools` seam, where the framework dedupes them by name against its own default
+   * tier (first occurrence wins — see `agent-framework/docs/SPEC.md` § "Session-level tool composition").
+   */
+  additionalTools?: IToolWithEventService[];
   commandModules: readonly ICommandModule[];
   commandHostAdapters: ICommandHostAdapters;
   transportRegistry: ITransportRegistryView<IInteractiveSession>;
@@ -94,6 +100,7 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
     backgroundTaskRunners: opts.backgroundTaskRunners,
     subagentRunnerFactory: opts.subagentRunnerFactory,
     ...(opts.agentDefinitions !== undefined ? { agentDefinitions: opts.agentDefinitions } : {}),
+    ...(opts.additionalTools !== undefined ? { additionalTools: opts.additionalTools } : {}),
     commandModules: opts.commandModules,
     commandHostAdapters: opts.commandHostAdapters,
     ...(opts.remoteCommandPolicy ? { remoteCommandPolicy: opts.remoteCommandPolicy } : {}),
