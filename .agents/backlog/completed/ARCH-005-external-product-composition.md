@@ -1,6 +1,7 @@
 ---
 title: 'ARCH-005: external product composition — publishable assembleProduct + capability-pack + product-profile'
-status: in-progress
+status: done
+completed: 2026-07-25
 created: 2026-07-25
 priority: high
 urgency: soon
@@ -124,3 +125,31 @@ P0 is a pure refactor — `robota` behavior byte-identical (CLI golden + full ag
 public surfaces get red-first contract tests + spec-public-surface baseline entries. An external-consumer
 smoke (a throwaway out-of-monorepo package importing the published tarballs and calling `assembleProduct`)
 proves Modes A/B/C actually work from outside — the agent-run evidence for the done-gate.
+
+## Outcome (DONE 2026-07-25)
+
+Closed with the spec at `.agents/spec-docs/done/ARCH-005-external-product-composition.md`
+(`status: done`, all seven completion criteria met with agent-run evidence).
+
+Shipped across the owner-directed full vertical slice:
+
+- **S1 (#1376)** — `@robota-sdk/agent-capability-pack` (additive `ICapabilityPack` + `mergeCapabilityPacks`
+  with a rejection channel), `@robota-sdk/agent-product` (`assembleProduct`, a pure IO-free fold that
+  delegates runtime construction to the framework seam), `@robota-sdk/pack-coding`, the three
+  composition-neutrality guards, and the narrow L129 carve-out coupled to them.
+- **S2 (#1386)** — `agent-cli`'s hand-wired composition root DELETED (no shim, no dual path); `robota`
+  re-expressed as an `IProductProfile`; provider construction returned in-kernel; the `agentDefinitions`
+  runtime seam added so pack subagents reach a live runtime.
+- **S3 (#1392)** — the external-consumer proof: a package OUTSIDE the monorepo installs `pnpm pack`
+  tarballs and exercises Modes A/B/C (69 assertions, mutation-proven).
+- **ARCH-007 (#1397)** — robota routed through `product.buildRuntimeOptions`; framework `defaultTools`
+  seam + name-dedupe. Precedence was INVERTED from this item's original proposal after measurement:
+  a pack's module-load tools carry an unsandboxed `Read` (`checkPathWithinCwd` no-ops without `cwd`),
+  so a colliding contribution must never silently replace a framework default.
+- **ARCH-006 (#1399)** — `pack-coding` became `createCodingPack({ cwd })` with `cwd` REQUIRED (the
+  zero-option constant removed, not deprecated), so robota's tools are the pack's cwd-scoped instances;
+  asserted as a property — robota's `Read` denies a path outside `cwd` and resolves one inside it.
+
+All three capability axes (commands, subagents, tools) are additive AND load-bearing for the reference
+product. Follow-ups tracked separately: ARCH-008 (single preset resolution), CLI-078 (eval outside the
+profile), HARNESS-048 (guard hardening — done), SEC-003 (CodeQL triage).
