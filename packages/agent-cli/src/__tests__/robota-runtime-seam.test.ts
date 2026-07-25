@@ -85,14 +85,14 @@ function robotaRuntimeOptions(overrides: IProbeOverrides = {}) {
     product,
     cwd: '/tmp/runtime-seam',
     provider: createScriptedProvider([{ text: 'ok' }]).provider,
-    commandModules: selectProductCommandModules(product, fixedCommandModules, {}),
+    selectedCommandModules: selectProductCommandModules(product, fixedCommandModules, {}),
     ...(overrides.permissionMode !== undefined ? { permissionMode: overrides.permissionMode } : {}),
   });
 }
 
 describe('ARCH-007 — the kernel overlay is robota’s single assembly path', () => {
   it('carries the pack SUBAGENTS through the kernel overlay, not a hand-threaded field', () => {
-    expect(robotaRuntimeOptions().agentDefinitions?.map((a) => a.name)).toEqual([
+    expect(robotaRuntimeOptions().agentDefinitions.map((a) => a.name)).toEqual([
       'general-purpose',
       'Explore',
       'Plan',
@@ -100,7 +100,7 @@ describe('ARCH-007 — the kernel overlay is robota’s single assembly path', (
   });
 
   it('carries the pack TOOLS through the kernel overlay as additionalTools', () => {
-    expect(robotaRuntimeOptions().additionalTools?.map((t) => t.getName())).toEqual([
+    expect(robotaRuntimeOptions().additionalTools.map((t) => t.getName())).toEqual([
       'Shell',
       'Bash',
       'Read',
@@ -117,8 +117,8 @@ describe('ARCH-007 — the kernel overlay is robota’s single assembly path', (
   it('removing the coding pack removes its TOOLS and SUBAGENTS from robota’s runtime options', () => {
     const withoutPack = robotaRuntimeOptions({ packs: 'none' });
 
-    expect(withoutPack.additionalTools ?? []).toEqual([]);
-    expect(withoutPack.agentDefinitions).toBeUndefined();
+    expect(withoutPack.additionalTools).toEqual([]);
+    expect(withoutPack.agentDefinitions).toEqual([]);
   });
 
   it('lets the kernel apply the default preset’s permission posture when the shell left it unset', () => {
@@ -169,7 +169,7 @@ describe('ARCH-007 — the kernel overlay is robota’s single assembly path', (
     // The preset's enabled/disabled delta is applied by the shell over the merged superset; the kernel
     // must not clobber that selection with its own unfiltered `base ⊕ packs` list.
     const options = robotaRuntimeOptions();
-    const names = options.commandModules?.map((m) => m.name) ?? [];
+    const names = options.commandModules.map((m) => m.name);
 
     expect(names).toContain('agent-command-shell');
     expect(names).toContain('agent-command-workflows');

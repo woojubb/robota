@@ -134,7 +134,7 @@ export interface IRobotaRuntimeSeamInput {
   cwd: string;
   provider: IAIProvider;
   /** The shell's already-narrowed module selection (merged superset filtered by the preset delta). */
-  commandModules: readonly ICommandModule[];
+  selectedCommandModules: readonly ICommandModule[];
   /**
    * An EXPLICIT permission mode (`--permission-mode`). Left undefined, the kernel overlays the default
    * preset's posture — which is exactly the `args.permissionMode ?? resolvedPreset.permissionMode`
@@ -154,9 +154,9 @@ export interface IRobotaRuntimeSeamInput {
  */
 export interface IRobotaRuntimeOptions {
   provider: IAIProvider;
-  commandModules?: readonly ICommandModule[];
-  additionalTools?: IToolWithEventService[];
-  agentDefinitions?: readonly IAgentDefinition[];
+  commandModules: readonly ICommandModule[];
+  additionalTools: IToolWithEventService[];
+  agentDefinitions: readonly IAgentDefinition[];
   permissionMode?: TPermissionMode;
 }
 
@@ -174,7 +174,7 @@ export function buildRobotaRuntimeOptions(input: IRobotaRuntimeSeamInput): IRobo
     session: {
       cwd: input.cwd,
       provider: input.provider,
-      commandModules: input.commandModules,
+      commandModules: input.selectedCommandModules,
       ...(input.permissionMode !== undefined ? { permissionMode: input.permissionMode } : {}),
     },
   });
@@ -183,5 +183,10 @@ export function buildRobotaRuntimeOptions(input: IRobotaRuntimeSeamInput): IRobo
       'buildRobotaRuntimeOptions: the kernel returned the injected-session branch for a standard-construction input.',
     );
   }
-  return options;
+  return {
+    ...options,
+    commandModules: options.commandModules ?? [],
+    additionalTools: options.additionalTools ?? [],
+    agentDefinitions: options.agentDefinitions ?? [],
+  };
 }

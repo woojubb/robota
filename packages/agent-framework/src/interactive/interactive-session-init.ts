@@ -192,8 +192,7 @@ export async function createInteractiveSession(
     agentName: options.agentName,
     ...(options.activePresetId !== undefined ? { activePresetId: options.activePresetId } : {}),
     ...(options.additionalTools ? { additionalTools: options.additionalTools } : {}),
-    // ARCH-006: an injected default tool tier REPLACES `createDefaultTools()` (`[]` suppresses it).
-    ...(options.defaultTools ? { defaultTools: options.defaultTools } : {}),
+    ...(options.defaultTools ? { defaultTools: options.defaultTools } : {}), // ARCH-006
     // GOAL-001: every interactive session exposes the goal completion-signal tool so /goal and
     // --goal can drive autonomous pursuit. It is inert unless a goal is active.
     includeGoalTool: true,
@@ -304,8 +303,7 @@ export async function initializeInteractiveSessionAsync(
       ? { selfVerification: options.selfVerification }
       : {}),
     ...(options.additionalTools ? { additionalTools: options.additionalTools } : {}),
-    // ARCH-006: an injected default tool tier REPLACES `createDefaultTools()` (`[]` suppresses it).
-    ...(options.defaultTools ? { defaultTools: options.defaultTools } : {}),
+    ...(options.defaultTools ? { defaultTools: options.defaultTools } : {}), // ARCH-006
     ...(options.responseFormat ? { responseFormat: options.responseFormat } : {}),
     commandDescriptors: deps.commandDescriptors,
     ...(deps.commandDescriptors.length > 0
