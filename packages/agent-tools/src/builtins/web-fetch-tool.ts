@@ -80,15 +80,30 @@ function stripTags(html: string): string {
   return parts.join('');
 }
 
+/**
+ * The character entities {@link htmlToText} decodes, and the single alternation that matches them.
+ *
+ * SEC-004 (`js/double-escaping`): decoding these by CHAINED `.replace()` calls with `&amp;` first
+ * decodes twice. `&amp;lt;` — how a page encodes the literal text `&lt;` so a browser DISPLAYS it —
+ * became `&lt;` after the `&amp;` pass and then `<` after the `&lt;` pass, so a page reading
+ * `&amp;lt;script&amp;gt;` came back out of a tag-stripping converter as `<script>`. One pass over
+ * one alternation decodes each entity exactly once and never rescans its own output, so the decoder
+ * is the inverse of the encoder for every input rather than only for singly-encoded ones.
+ */
+const HTML_ENTITIES: Readonly<Record<string, string>> = {
+  '&amp;': '&',
+  '&lt;': '<',
+  '&gt;': '>',
+  '&quot;': '"',
+  '&#39;': "'",
+  '&nbsp;': ' ',
+};
+const HTML_ENTITY_PATTERN = /&(?:amp|lt|gt|quot|nbsp|#39);/g;
+
 /** Strip HTML tags and decode common entities to produce readable text. */
 function htmlToText(html: string): string {
   return stripTags(stripElement(stripElement(html, 'script'), 'style'))
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&nbsp;/g, ' ')
+    .replace(HTML_ENTITY_PATTERN, (entity) => HTML_ENTITIES[entity])
     .replace(/\s+/g, ' ')
     .trim();
 }
