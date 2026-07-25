@@ -226,6 +226,179 @@ scenario for a rule/skill-only change and correctly rejecting the one candidate 
 document-existence check in disguise. **Not rehearsed:** the full five-phase loop end to end, and the
 initiative outer loop — both need a real multi-item initiative to exercise.
 
+## Phase 2, increment 3 — `git-branch.md` — DONE (2026-07-26)
+
+The smallest extraction of the four, and the honest one: this rule is **invariant-dense**, so most of it
+had to stay — and it ended **larger**, 312 → 322 lines. Roughly 40 lines of ordered procedure left; about
+as many came back as explicit invariant statements that had been buried inside those numbered steps, and
+then the review round's three defect fixes added ten more. **The line count is the wrong scoreboard for
+this rule**: phase 1 measured it at 35 invariants against 4 procedures, and forcing a reduction here would
+have meant deleting mandates. One new skill, **zero** new agents, and two of phase 1's proposals refuted.
+
+**Tree built:**
+
+```
+post-merge-cycle                      (NEW top-level, shared sub-orchestration)
+├─ merge-verifier                     (existing agent, reused UNCHANGED)  ← Merge Landing Verification
+├─ branch deletion                    (step)  ← Delete Merged Branches mechanics + ordering
+└─ next-branch base reset             (step)  ← Post-Merge Branch Cycle steps 1–4
+
+dispatched by:
+  pr-review-orchestration  (merge path)   — absorbed its inline restatement
+  worktree-parallel-orchestration (step 5) — absorbed its inline restatement
+```
+
+**Why a skill rather than more rule prose.** Three adjacent rule sections were one pipeline stated as
+three prose blocks — and the rule's own section ORDER (delete, then verify) contradicted its own text
+(verify before deleting). Two existing orchestrations already carried divergent partial copies of the
+sequence: `worktree-parallel-orchestration` §5 paraphrased the four don't-delete-when conditions in the
+same paragraph that said "do not restate them", and `pr-review-orchestration`'s merge path restated the
+`merge-verifier` + delete-after-confirm steps. This is increment 1's `ci-gate-watch` shape exactly — two
+callers, so leaving the sequence in either would duplicate it. Both callers now dispatch and lost their
+copies.
+
+**Routing gaps closed — all FOUR phase 1 flagged for this rule** (§6 rows 10–13), each bounded or absolute:
+a `FAIL` landing verdict terminates and never advances to deletion; a failed ancestry check does not delete
+and surfaces the finding; a failed base verification re-cuts, bounded at 2, then escalates; and Feature
+Branch Workflow's release-branch options A/B, when the user picks neither or the integration conflicts, is
+now an explicit stop-and-surface edge in the rule.
+
+**Why the release phases were NOT converted to dispatch `post-merge-cycle`.** `source-stabilization` and
+`version-bump` each dispatch `merge-verifier` directly with their own FAIL routing, and that is correct:
+a release phase routes a failed landing back to its own step and performs no deletion and no base reset.
+They share the leaf agent, not the sequence — so there is nothing to deduplicate.
+
+**Refuted from phase 1 (§5.2), deliberately:**
+
+- **The `branch-guard` → "branch-lifecycle" promotion and its `branch-creation` phase.** Re-growing
+  `branch-guard` would undo `HARNESS-DIET-005`'s deliberate 144 → 33-line cut to a pointer; branch creation
+  is invariants plus a mechanical hook, not a pipeline; and its only ordered part — the base reset — is
+  `post-merge-cycle`'s own last phase, so a `branch-creation` skill would have duplicated it.
+- **A branch-deletion judgement agent** (§9.4 left this open for a future `branch-cleanup` worker). All
+  four don't-delete-when conditions are mechanically decidable from observable state, so they are gate
+  conditions an orchestrator evaluates — not a verdict a role forms. An agent holding them would put
+  control flow in an agent file.
+
+This mirrors §5.4's refutation for `spec-workflow.md`: report the refutation, do not manufacture a skill to
+match a prediction.
+
+**Three governance CONTRADICTIONS in the live rule — all resolved, all flagged. The third was found by the
+review round, not by this increment, and it was a live safety regression:**
+
+1. **The rule instructed what its own CI job blocks.** § Feature Branch Workflow said "when current branch
+   is `main`: … create a PR targeting `main`", while § Branch Policy forbids exactly that and the
+   `main-pr-source-guard` CI job `exit 1`s on any head that is not `develop`/`release/*`/`hotfix/*` — the
+   #1216 incident this guard exists to prevent. **Resolved by preserving the ENFORCED behaviour** and
+   fixing the stale text: on `main`, cut from the freshly-fetched `origin/develop` and target `develop`.
+   No behaviour changes, because CI already decided this; only the rule stopped contradicting itself.
+2. **"Mandatory" vs "judgement call", from two different dates.** #1414 (2026-07-25) rewrote
+   § `--delete-branch` into a judgement call with four don't-delete-when conditions, but left § Delete
+   Merged Branches **(mandatory)** saying "delete its now-merged feature branch so only `develop` and
+   `main` remain". **Resolved in favour of the newer owner decision:** mandatory now explicitly means "do
+   not leave it undone", not "delete unconditionally", and a skipped deletion must record which condition
+   held.
+3. **`git branch -D` vs `git branch -d` — one rule prescribing both, and C2 was about to entrench the
+   unsafe one.** § `--delete-branch` (the #1414 text) said "clean it up: `git branch -D <name>`", while
+   § Delete Merged Branches said "`git branch -d <branch>` (the `-d` form refuses an unmerged branch — **a
+   built-in guard**)". C2's resolution elevates the first section — so, unfixed, it would have made the
+   force form the winning prescription and defeated the guard the other section documents. That is not
+   cosmetic: `-D` on a branch whose merge did not take every commit deletes unmerged work locally, exactly
+   the hazard the four don't-delete-when conditions exist to prevent. **Resolved:** the safe `-d` form is
+   now prescribed in both places, and `-D` is reserved for an explicitly approved abandon of a
+   never-merged branch. **This increment did not find it; the review round did.**
+
+**What deliberately stayed in the rule, and why.** Of the 84 ledger statements (77 re-derived here + 7 the
+review round added), **75 stay textually**, six keep their mandate in the rule while their ordering or
+criteria move to a named skill or agent, and three are gate conditions the rule owns and
+`post-merge-cycle` consumes. **Zero are dropped, and — after the review round — zero live only in a
+skill.** Branch
+naming, the protected-branch policy, the one-branch-at-a-time rule and both its exceptions,
+clean-tree-before-commit, the merge-time deletion ban and its precondition, PR batching, commit cadence,
+churn/stash hygiene, and the whole Pre-Merge Code-Review Gate taxonomy are invariants — "X must hold",
+not "do this in order". Only three statements' ORDERING or CRITERIA moved, and each keeps its mandate in
+the rule: Merge Landing Verification's four checks (already `merge-verifier`'s criteria verbatim), Delete
+Merged Branches' and Post-Merge Branch Cycle's step order (→ `post-merge-cycle`), and the code-review
+gate's waiting/looping (→ `pr-review-orchestration`, which now dispatches `ci-gate-watch` for the wait).
+The gate's two _preconditions_ — required checks green, review scoped to the branch-versus-base diff —
+were briefly relocated into the skill and the review round correctly ruled that a loss of force: a
+precondition of a zero-exceptions gate binds every PR, whereas a skill binds only its invokers. Both are
+back in the rule as invariants, which is increment 2's landed correction applied again.
+
+**Ledger reconciliation — the largest undercount of the four.** Phase 1 §7.2 listed **35** mandatory
+statements; re-deriving from the live file found **77**. 26 have no row in the inventory at any
+granularity; 16 more are subordinate clauses it folded into a headline row. The confirmed pattern is
+increment 2's, amplified: a section with six independent mandates contributed one row. Statements the
+inventory carried nothing for include — a filling context window is **not** a reason to stop implementing;
+`delete_branch_on_merge` is deliberately off; never run `gh pr merge` and the deletion in one blind
+sequence; one conventional commit per logical step within the PR; no merge — admin or otherwise — before
+the gate completes; never treat `pending` or `not-required-skipped` as pass; the orchestrator MUST
+partition file ownership before spawning; a clean branch has zero merge commits in its PR range. §7.2 is
+now annotated so later readers treat every §7 count as a lower bound.
+
+**And the 77 was still short — the review round found 7 more (final: 84).** Exactly the increment-2
+result, reproduced: a deliberate re-derivation, then an independent reviewer finding what it missed. The
+misses, in descending severity: (a) **the one statement the increment actually relocated had no ledger row
+at all** — "open the PR and wait for its checks (CI) to be green"; (b) "run `/code-review` **scoped to the
+PR's diff (the branch vs. its base)**" — the diff scope, without which the gate is satisfiable by
+reviewing one file; (c) and (d) Merge Landing Verification's checks 1 and 2 (PR state `MERGED` + merge
+commit on the target's _remote_ head; claimed changes actually present with no unrelated drift) — both
+survive as `merge-verifier` criteria, but the working agreement is to show each statement's new home, not
+assume it; (e) PR Batching's _second_ split trigger, "or when a part is independently revertible and
+valuable"; (f) § Delete Merged Branches' state invariant, "so only `develop` and `main` remain as standing
+branches" — which matters precisely because C2 rewrites that sentence; (g) Commit Cadence's "then open one
+coherent PR (DX-001)". **The generalisable lesson: the statement a ledger is most likely to omit is the
+one the change is about to move.** Re-derive the ledger, then check it specifically against the diff.
+
+**A systematic ledger gap, reported for the next increment.** The ledger records _mandates_ but not
+_enforcement and override facts_, and this rule is dense with them: `BRANCH_GUARD_ALLOW_DELETE=1`,
+`ALLOW_LESSONS_COMMIT=1`, `BRANCH_GUARD_ALLOW_OPEN_BRANCHES=1`, the `pre-push-check.sh` merge-commit
+block, and the `git reset --hard origin/develop && git cherry-pick` recovery. Each would lose force if
+deleted, so each passes the ledger's own stated test — and none has a row. Nothing was at risk here (all
+stayed textually), but `spec-workflow.md` has the same shape and its ledger should cover them.
+
+**Mechanical-evidence preservation.** `scan-consistency` resolves `AGENTS.md > "…"` skill anchors against
+the union of `.agents/rules/*` headings; `branch-guard/SKILL.md` cites `"Git Operations"`, which exists
+only in this file — that heading is unchanged. All 15 section headings are preserved, because six are
+named by title in skill Rule Anchors and four are quoted as completed-spec evidence. `INFRA-015`'s TC-01
+claim ("Post-Merge Branch Cycle / `checkout develop`", 4 hits) is intact at 4 — the ordered command block
+moved but the heading and all three prose mentions stayed. `scan-review-findings`' four required literals
+in `pr-review-orchestration` (`git-branch.md`, `unresolved MUST`, never-merge-`main`,
+`merge-verifier`/`MERGE VERIFIED`) all survive the merge-path rewrite.
+
+**Deferred, deliberately:** § Deployment stays put. §9.5 flagged its owner should be
+`project-structure.md` or a deployment spec, but that file is outside this increment's ownership (the
+BE-42/BE-43 precedent), and its literal Cloudflare sentence is quoted as evidence by `ARCH-AUDIT-004` and
+two `.design/architecture-audit/` documents — moving it must be a deliberate change that updates them,
+not a side effect. `merge-verifier.md` was **not** edited for the same ownership reason, so the rule's
+stronger "never treat `pending`/`not-required-skipped` as pass" stays in the rule rather than moving into
+the agent (it is invariant-shaped anyway — a definition of "green").
+
+**Review round (the gate increment 2 introduced, dogfooded again).** `proposal-reviewer` was dispatched on
+this increment's recommendation and returned `REVIEW VERDICT: REVISE` — endorsing all four structural calls
+(build `post-merge-cycle`; refute `branch-creation` + the `branch-guard` promotion; refute a
+deletion-judgement agent; defer § Deployment) and both contradiction resolutions, while finding a third
+contradiction and two invariant losses. All were verified against `origin/develop` before acting, and all
+are fixed: the `-D`/`-d` safety regression (C3 above); the two gate preconditions returned to the rule
+(M1/M2); the routing-gap count corrected from three to four; the ledger arithmetic corrected; and two
+consequences of the refutations that the recommendation had not discharged — § Branch Policy pointed at
+`branch-guard` for "detailed procedures including protected branch checks **and deployment**", a promise
+that 34-line pointer stub does not keep and never did (it now points at the hook and husky, which are the
+actual floor), and § Deployment gained the likely-owner pointer increment 2's deferral precedent requires.
+The reviewer also **discounted one of the increment's own arguments** — that promoting `branch-guard` would
+undo `HARNESS-DIET-005`'s diet — as legacy preservation rather than evidence about where content belongs.
+That is correct, and the refutation stands on its other two arguments.
+
+**Reported, not reached.** Two follow-ups this increment could not close in scope: (a) `merge-verifier`'s
+check 4 is weaker than the rule's "never treat `pending`/`not-required-skipped` as pass", so the rule now
+depends on an agent that under-specifies one clause — editing `.claude/agents/merge-verifier.md` was
+outside this increment's file ownership; (b) the gate mandates a `/code-review`, but this repo has no
+`/code-review` command — only a `package-code-review` skill and the `pr-review-*` agents. Both predate
+this increment and neither was introduced by it.
+
+**Not rehearsed:** `post-merge-cycle` end to end. Its first leaf (`merge-verifier`) is an existing,
+exercised agent, but the full verify → delete → re-base cycle needs a real merge to exercise, and this
+increment's own PR must not be merged by the agent.
+
 ## User Execution Test Scenarios
 
 **Not applicable.** This item changes only rules, skills, agent definitions, and registry indexes — no
